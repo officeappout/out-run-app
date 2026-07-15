@@ -1,27 +1,22 @@
 'use client';
 
 /**
- * RouteCardUnified — the shared TEXT-ONLY route card.
+ * RouteCardUnified — the shared TEXT-ONLY route card (hybrid-branch replica).
  *
- * One presentational shell used by every bottom route carousel so all three
- * surfaces are pixel-identical:
- *   - RouteCarousel        (aerobic / generated loops + commutes)
- *   - BottomJourneyContainer (discover / curated "גלה מסלולים" routes)
- *   - HybridSlotCarousel   (hybrid slots — replicated on the hybrid branch)
+ * Mirrors the component on the fix/route-card-park-style branch so all three
+ * bottom carousels render a pixel-identical card:
+ *   - RouteCarousel (aerobic) · BottomJourneyContainer (discover) · this slot card.
  *
  * Structure (aerobic-style, compact, no image):
- *   name → distance + time → DifficultyBolts pill → CTA button.
+ *   name → meta (distance+time for routes, subtitle for slots) → DifficultyBolts
+ *   pill → CTA button.
  *
- * Width comes from the single ROUTE_CARD_WIDTH token; height is content-driven
- * (no fixed image slot).
+ * Width from the single ROUTE_CARD_WIDTH token; height is content-driven.
+ * The CTA reuses the home strength-card style (rounded-full + cyan→turquoise
+ * gradient, HeroWorkoutCard). Each caller keeps its own label + onClick.
  *
- * The CTA reuses the home strength-card button STYLE (rounded-full +
- * cyan→turquoise gradient, HeroWorkoutCard.tsx) so every route CTA matches the
- * home surface. Each caller keeps its own label + onClick + loading state via
- * props — only the button style is unified.
- *
- * Gated by UNIFIED_ROUTE_CARDS_ENABLED at the call site — while the flag is
- * off, callers render their existing production card instead of this one.
+ * Slots carry no distance — they pass `subtitle` instead of distance/time; the
+ * meta row adapts. Gated by UNIFIED_ROUTE_CARDS_ENABLED at the call site.
  */
 
 import React from 'react';
@@ -36,23 +31,27 @@ const HOME_CTA_GRADIENT = 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)';
 
 interface RouteCardUnifiedProps {
   name: string;
-  /** Pre-formatted, e.g. "0.7 ק״מ" — each surface formats its own value. */
-  distanceText: string;
-  /** Pre-formatted, e.g. "7 דק׳" / "~28 דק׳". */
-  durationText: string;
+  /** Route surfaces: pre-formatted distance, e.g. "0.7 ק״מ". */
+  distanceText?: string;
+  /** Route surfaces: pre-formatted time, e.g. "~28 דק׳". */
+  durationText?: string;
+  /** Slot surfaces (no distance): descriptive line shown in place of dist+time. */
+  subtitle?: string;
   /** Existing route/slot difficulty — 'easy' | 'medium' | 'hard' | 1 | 2 | 3. */
   difficulty: DifficultyValue;
   /** Carousel-focus state → the cyan ring + scale, matching the aerobic card. */
   isActive?: boolean;
-  /** Optional body tap (discover uses it for focus → detail). */
+  /** Optional body tap. */
   onClick?: () => void;
-  /** Positioning classes from the host carousel (e.g. snap utilities). */
+  /** Positioning classes from the host carousel. */
   className?: string;
   /** CTA inner content (icon + label) — each surface keeps its own text. */
   ctaContent: React.ReactNode;
   /** CTA click — each surface keeps its own logic. */
   onCta: (e: React.MouseEvent) => void;
-  /** Discover-style loading state → shows a neutral pill instead of the CTA. */
+  /** Optional CTA pointerdown (the slot uses it for anti-ghost-click arming). */
+  onCtaPointerDown?: () => void;
+  /** Loading state → shows a neutral pill instead of the CTA. */
   ctaLoading?: boolean;
 }
 
@@ -60,19 +59,22 @@ export default function RouteCardUnified({
   name,
   distanceText,
   durationText,
+  subtitle,
   difficulty,
   isActive = false,
   onClick,
   className = '',
   ctaContent,
   onCta,
+  onCtaPointerDown,
   ctaLoading = false,
 }: RouteCardUnifiedProps) {
+  const hasStats = !!distanceText && !!durationText;
   return (
     <div
       dir="rtl"
       onClick={onClick}
-      className={`${ROUTE_CARD_WIDTH} bg-white rounded-3xl p-5 transition-all duration-300 ${
+      className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
         isActive
           ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_14px_32px_rgba(0,0,0,0.18)] scale-[1.02]'
           : 'shadow-[0_10px_28px_rgba(0,0,0,0.14)] opacity-90 scale-[0.97]'
@@ -83,19 +85,22 @@ export default function RouteCardUnified({
         {name}
       </h3>
 
-      {/* Distance + time */}
-      <div className="flex items-center gap-4 mt-2 mb-3">
-        <div className="flex items-center gap-1.5">
+      {/* Meta — distance + time on ONE inline row (· separated), or subtitle (slots) */}
+      {hasStats ? (
+        <div className="flex items-center gap-1.5 mt-1.5 mb-3 text-[13px] font-black text-gray-800" dir="ltr">
           <MapPin size={13} style={{ color: BRAND }} className="shrink-0" />
-          <span className="text-[13px] font-black text-gray-800" dir="ltr">{distanceText}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
+          <span>{distanceText}</span>
+          <span className="mx-1 text-gray-300 font-normal">·</span>
           <Timer size={13} style={{ color: BRAND }} className="shrink-0" />
-          <span className="text-[13px] font-black text-gray-800" dir="ltr">{durationText}</span>
+          <span>{durationText}</span>
         </div>
-      </div>
+      ) : subtitle ? (
+        <p className="text-[13px] font-semibold text-gray-500 mt-1.5 mb-3 leading-snug truncate">
+          {subtitle}
+        </p>
+      ) : null}
 
-      {/* DifficultyBolts pill — same treatment as the slot card */}
+      {/* DifficultyBolts pill */}
       <div
         className="inline-flex items-center rounded-lg mb-4"
         style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}
@@ -103,8 +108,7 @@ export default function RouteCardUnified({
         <DifficultyBolts difficulty={difficulty} size="sm" />
       </div>
 
-      {/* CTA — home strength-card style (rounded-full + cyan→turquoise gradient);
-          label/onClick supplied by the host surface. */}
+      {/* CTA — home strength-card style (rounded-full + cyan→turquoise gradient) */}
       {ctaLoading ? (
         <div className="w-full py-3 rounded-full bg-gray-100 flex items-center justify-center">
           <span className="text-xs text-gray-400 font-bold animate-pulse">טוען...</span>
@@ -112,6 +116,7 @@ export default function RouteCardUnified({
       ) : (
         <button
           type="button"
+          onPointerDown={onCtaPointerDown}
           onClick={onCta}
           className="w-full py-3 rounded-full text-black font-semibold text-sm shadow-md shadow-cyan-400/25 flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
           style={{ background: HOME_CTA_GRADIENT }}
