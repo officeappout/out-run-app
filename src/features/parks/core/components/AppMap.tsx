@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import Map, { Source, Layer, Marker, MapRef } from 'react-map-gl';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MapPin, Droplet } from 'lucide-react';
+import { MapPin, Droplet, Dumbbell } from 'lucide-react';
 import { Route } from '../types/route.types';
 import { fetchRealParks } from '../services/parks.service';
 import { useMapStore, LayerType, PartnerActivityFilter } from '../store/useMapStore';
@@ -173,6 +173,10 @@ interface AppMapProps {
   livePathZones?: (string | null)[];
   isActiveWorkout?: boolean;
   destinationMarker?: { lat: number; lng: number } | null;
+  /** Hybrid strength station — the real park photo-pin (or a cyan fallback) at station size. */
+  hybridStation?: { lat: number; lng: number; name?: string; image?: string } | null;
+  /** Bumped by a recenter tap → ease the camera to `currentLocation` (best-available fix). */
+  recenterSignal?: number;
   isNavigationMode?: boolean;
   userBearing?: number;
   isAdmin?: boolean;
@@ -237,6 +241,8 @@ export default function AppMap({
   livePathZones,
   isActiveWorkout,
   destinationMarker,
+  hybridStation,
+  recenterSignal,
   isNavigationMode = false,
   userBearing = 0,
   isAdmin = false,
@@ -500,6 +506,16 @@ export default function AppMap({
     walkToRouteTarget: walkToRoute.targetEndpoint ?? null,
     navigationTurns: navigationTurns ?? null,
   });
+
+  // Recenter tap (from the layers) → ease straight to the best-available fix. In
+  // discover mode the follow effect fits ROUTES, so a plain recenter never centered
+  // "me"; this direct call does, using currentLocation (live GPS or fallback dot).
+  const prevRecenterSignal = useRef(recenterSignal);
+  useEffect(() => {
+    if (recenterSignal == null || recenterSignal === prevRecenterSignal.current) return;
+    prevRecenterSignal.current = recenterSignal;
+    camera.centerOnUser(currentLocation ?? null);
+  }, [recenterSignal, camera, currentLocation]);
 
   const visibleRoutes = useMemo(() => {
     return routes.filter((r) => {
@@ -1587,6 +1603,36 @@ export default function AppMap({
               </div>
               <div className="w-2 h-2 bg-purple-600 rounded-full blur-[2px] mt-1" />
             </div>
+          </Marker>
+        )}
+
+        {/* ── Hybrid strength-station marker ──
+            The station IS a park, so we reuse the map's own park representation:
+            the real ParkPhotoMarker (park.image) at station size when we have an
+            image, else the cyan park-pin identity (matching pin-default). */}
+        {isFiniteLatLng(hybridStation) && (
+          <Marker longitude={hybridStation.lng} latitude={hybridStation.lat} anchor="bottom">
+            {hybridStation.image ? (
+              <div className="pointer-events-none">
+                <ParkPhotoMarker name={hybridStation.name ?? 'תחנת כוח'} photoUrl={hybridStation.image} size={64} isSelected />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center pointer-events-none">
+                {hybridStation.name && (
+                  <div dir="rtl" className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap"
+                    style={{ background: '#00BAF7', boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
+                    {hybridStation.name}
+                  </div>
+                )}
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute rounded-full animate-ping" style={{ width: 50, height: 50, background: 'rgba(0,186,247,0.25)' }} />
+                  <div className="relative p-2.5 rounded-full border-[3px] border-white" style={{ background: '#00BAF7', boxShadow: '0 6px 16px rgba(0,186,247,0.55)' }}>
+                    <Dumbbell size={22} color="white" />
+                  </div>
+                </div>
+                <div className="w-2.5 h-2.5 rounded-full blur-[2px] mt-1" style={{ background: '#00BAF7' }} />
+              </div>
+            )}
           </Marker>
         )}
 

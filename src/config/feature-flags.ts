@@ -16,6 +16,13 @@ export const AEROBIC_SOLO_ENABLED = true;
 // Set to true to re-enable automatic post creation on workout completion.
 export const IS_COMMUNITY_FEED_ENABLED = false;
 
+// HYBRID_SLOTS: Adaptive "מה עושים היום?" slot entry on the map (Phase 1).
+// A prominent on-map button opens a floating carousel of resolver-driven slots
+// (recommended hybrid + aerobic quick-start). While false, the free-run flow is
+// BYTE-IDENTICAL — no entry button, no 'slots' step; the existing FreeRunDrawer
+// toggle+slider hybrid path is untouched.
+export const HYBRID_SLOTS_ENABLED = true;
+
 // LEAGUES: Arena / leagues surface inside /community. Independent of the feed
 // so leagues can ship to stores while the social feed stays paused. Runtime
 // control lives in system_config/feature_flags.enable_leagues; this compile-time

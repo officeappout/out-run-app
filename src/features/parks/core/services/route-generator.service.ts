@@ -62,6 +62,12 @@ interface RouteGenerationOptions {
   preferences: {
     includeStrength: boolean;
     surface?: 'road' | 'trail';
+    /**
+     * Hybrid-only route-quality passes (backported from Generator B): bearing-ordered
+     * waypoints + `continue_straight` (with retry) + Douglas-Peucker smoothing. Free-run
+     * omits this flag → the generation path is byte-identical to before.
+     */
+    qualityRoute?: boolean;
   };
   parks: MapPark[];
   /** City name used to query street_segments from Firestore. Falls back to random waypoints when absent. */
@@ -410,6 +416,43 @@ function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): 
   return R * c;
 }
 
+// ── Route-quality helpers (backported from Generator B, hybrid-gated) ────────
+/** Initial bearing (deg, 0=N clockwise) from A→B — for angular waypoint ordering. */
+function bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toR = (d: number) => (d * Math.PI) / 180;
+  const y = Math.sin(toR(lng2 - lng1)) * Math.cos(toR(lat2));
+  const x = Math.cos(toR(lat1)) * Math.sin(toR(lat2))
+    - Math.sin(toR(lat1)) * Math.cos(toR(lat2)) * Math.cos(toR(lng2 - lng1));
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+/** Perpendicular distance (m) of point p from segment a→b. Points are [lng, lat]. */
+function perpDistanceM(p: [number, number], a: [number, number], b: [number, number]): number {
+  const m = (la1: number, lo1: number, la2: number, lo2: number) => getDistanceKm(la1, lo1, la2, lo2) * 1000;
+  const dTotal = m(a[1], a[0], b[1], b[0]);
+  if (dTotal === 0) return m(p[1], p[0], a[1], a[0]);
+  const dStart = m(a[1], a[0], p[1], p[0]);
+  const dEnd = m(b[1], b[0], p[1], p[0]);
+  const s = (dTotal + dStart + dEnd) / 2;
+  const area = Math.sqrt(Math.max(0, s * (s - dTotal) * (s - dStart) * (s - dEnd)));
+  return (2 * area) / dTotal;
+}
+/** Douglas-Peucker polyline simplification — removes micro-zigzags, keeps shape. */
+function douglasPeucker(points: [number, number][], toleranceMeters: number): [number, number][] {
+  if (points.length <= 2) return points;
+  const start = points[0], end = points[points.length - 1];
+  let maxDist = 0, maxIdx = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const d = perpDistanceM(points[i], start, end);
+    if (d > maxDist) { maxDist = d; maxIdx = i; }
+  }
+  if (maxDist > toleranceMeters) {
+    const left = douglasPeucker(points.slice(0, maxIdx + 1), toleranceMeters);
+    const right = douglasPeucker(points.slice(maxIdx), toleranceMeters);
+    return [...left.slice(0, -1), ...right];
+  }
+  return [start, end];
+}
+
 // --- Helper Functions ---
 
 function generateRandomWaypoints(
@@ -491,14 +534,23 @@ function scoreWaypoint(
 async function findFitnessAnchor(
   userLocation: { lat: number, lng: number },
   targetDistanceKm: number,
-  parks: MapPark[]
+  parks: MapPark[],
+  // Hybrid (quality) mode: use the REAL equipment field (gymEquipment) and a band
+  // centred on ~target/2 so an out-and-back through the anchor ≈ the target distance.
+  // Free-run passes nothing → legacy behaviour (byte-identical).
+  opts?: { equipmentField?: 'gymEquipment'; bandLo?: number; bandHi?: number },
 ): Promise<{ lat: number, lng: number, id: string } | null> {
   if (!parks || parks.length === 0) return null;
-  const idealMinDist = targetDistanceKm * 0.25;
-  const idealMaxDist = targetDistanceKm * 0.6;
+  const idealMinDist = targetDistanceKm * (opts?.bandLo ?? 0.25);
+  const idealMaxDist = targetDistanceKm * (opts?.bandHi ?? 0.6);
+
+  const hasEquipment = (p: MapPark): boolean =>
+    opts?.equipmentField === 'gymEquipment'
+      ? (((p as any).gymEquipment?.length ?? 0) > 0)
+      : (!!(p as any).devices && (p as any).devices.length > 0);
 
   const candidates = parks
-    .filter(p => p.devices && p.devices.length > 0)
+    .filter(hasEquipment)
     .map(p => ({
       ...p,
       distance: getDistanceKm(userLocation.lat, userLocation.lng, p.location.lat, p.location.lng)
@@ -570,16 +622,69 @@ export async function generateDynamicRoutes(
   // user picked it — we only inflate the *generation* distance, not the
   // workout goal.
   const MIN_GENERATION_KM = 1.5;
-  const safeDistance = Math.max(rawDistance, MIN_GENERATION_KM);
+  // QUALITY (hybrid-gated): NEVER pad. The hybrid length must come from the real
+  // distance to a purposeful station + a clean return leg — not from an inflated
+  // generation target that fills the gap with tight loops. Free-run keeps the bump.
+  const safeDistance = preferences.qualityRoute ? rawDistance : Math.max(rawDistance, MIN_GENERATION_KM);
   if (safeDistance !== rawDistance) {
     console.log(`[RouteGenerator] Bumping target ${rawDistance.toFixed(2)}km → ${safeDistance.toFixed(2)}km (below MIN_GENERATION_KM)`);
   }
   console.log(`[RouteGenerator] Starting generation. Target: ${safeDistance.toFixed(1)}km, Activity: ${activity}, City: ${cityName ?? '(none)'}`);
 
-  // 1. Find fitness anchor if needed
+  // 1. Find fitness anchor if needed. Hybrid uses the REAL equipment field + a band
+  // centred on ~half the target (out-and-back through it ≈ the target).
   const fitnessAnchor = preferences.includeStrength
-    ? await findFitnessAnchor(userLocation, safeDistance, parks)
+    ? await findFitnessAnchor(
+        userLocation, safeDistance, parks,
+        preferences.qualityRoute ? { equipmentField: 'gymEquipment', bandLo: 0.35, bandHi: 0.55 } : undefined,
+      )
     : null;
+
+  // 1b. HYBRID clean out-and-back (qualityRoute + anchor): a purposeful LINE to the
+  // station + a return leg — NOT a geometric loop padded around a too-close park. The
+  // length comes from the real distance to the band station. Tries once; on failure
+  // it FALLS THROUGH to the normal loop generator so hybrid is never left routeless.
+  if (preferences.qualityRoute && fitnessAnchor) {
+    const oabProfile = activity === 'cycling' ? 'cycling' : 'walking';
+    const anchorWp = [{ lat: fitnessAnchor.lat, lng: fitnessAnchor.lng }];
+    let oab = await MapboxService.getSmartPath(userLocation, userLocation, oabProfile, anchorWp, { continue_straight: 'true' });
+    if (!oab) oab = await MapboxService.getSmartPath(userLocation, userLocation, oabProfile, anchorWp);
+    const oabKm = oab ? oab.distance / 1000 : 0;
+    if (oab?.path && oab.path.length >= 10 && oabKm >= 0.5) {
+      const smoothed = douglasPeucker(oab.path, 12);
+      const route: Route = {
+        id: `gen-${Date.now()}-oab-${routeGenerationIndex}`,
+        name: 'סיבוב כושר',
+        description: `מסלול אל התחנה — ${oabKm.toFixed(1)} ק"מ`,
+        distance: parseFloat(oabKm.toFixed(1)),
+        duration: Math.round(oab.duration / 60),
+        score: 100,
+        type: activity,
+        activityType: activity,
+        difficulty: 'easy',
+        path: smoothed,
+        segments: [],
+        rating: 4.8,
+        calories: Math.round(oabKm * (activity === 'cycling' ? 25 : 70)),
+        analytics: { usageCount: 0, rating: 0, heatMapScore: 0 },
+        source: { type: 'system', name: 'OutRun AI' },
+        features: {
+          hasGym: true, hasBenches: true, scenic: true, lit: true,
+          terrain: 'road', environment: 'urban', trafficLoad: 'low',
+          surface: preferences.surface === 'trail' ? 'dirt' : 'asphalt',
+        },
+        calculatedScore: 100,
+        distanceFromUser: 0,
+        isReachableWithoutCar: true,
+        includesOfficialSegments: false,
+        visitingParkId: fitnessAnchor.id,
+        includesFitnessStop: true,
+      };
+      console.log(`[RouteGenerator] ✅ hybrid out-and-back to station: ${oabKm.toFixed(1)}km, ${smoothed.length} pts (clean line, no loop-padding)`);
+      return [route];
+    }
+    console.warn('[RouteGenerator] hybrid out-and-back invalid — falling back to loop generator');
+  }
 
   // 2. Fetch waypoint candidates — prefer scored street_segments, fall back to random
   let rawCandidates: Array<{ lat: number; lng: number }> | null = null;
@@ -665,7 +770,7 @@ export async function generateDynamicRoutes(
     const [wp1, wp2, wp3] = combination.waypoints;
 
     // Build waypoint list
-    const waypointsToUse: Array<{ lat: number; lng: number }> = [
+    let waypointsToUse: Array<{ lat: number; lng: number }> = [
       { lat: wp1.lat, lng: wp1.lng },
       { lat: wp2.lat, lng: wp2.lng },
       { lat: wp3.lat, lng: wp3.lng }
@@ -676,15 +781,38 @@ export async function generateDynamicRoutes(
       waypointsToUse.splice(1, 0, { lat: fitnessAnchor.lat, lng: fitnessAnchor.lng });
     }
 
+    // QUALITY #2 (hybrid-gated): order ALL waypoints (incl. the park anchor)
+    // monotonically by bearing around the user, so the loop never crosses itself.
+    // (Free-run keeps the original score/anchor order → byte-identical.)
+    if (preferences.qualityRoute) {
+      waypointsToUse = [...waypointsToUse].sort((a, b) =>
+        bearingDeg(userLocation.lat, userLocation.lng, a.lat, a.lng)
+        - bearingDeg(userLocation.lat, userLocation.lng, b.lat, b.lng));
+    }
+
     console.log(`[RouteGenerator] Fetching route ${i + 1}/${routeCombinations.length}...`);
 
     try {
-      const result = await MapboxService.getSmartPath(
-        userLocation,
-        userLocation, // Loop back home
-        activity === 'cycling' ? 'cycling' : 'walking',
-        waypointsToUse
-      );
+      const gProfile = activity === 'cycling' ? 'cycling' : 'walking';
+      let result;
+      if (preferences.qualityRoute) {
+        // QUALITY #1: continue_straight prevents U-turns at waypoints; retry
+        // without it if Mapbox rejects the config (some geometries 422 with it).
+        result = await MapboxService.getSmartPath(
+          userLocation, userLocation, gProfile, waypointsToUse, { continue_straight: 'true' },
+        );
+        if (!result) {
+          result = await MapboxService.getSmartPath(userLocation, userLocation, gProfile, waypointsToUse);
+        }
+      } else {
+        // Free-run: unchanged call — byte-identical to before this backport.
+        result = await MapboxService.getSmartPath(
+          userLocation,
+          userLocation, // Loop back home
+          activity === 'cycling' ? 'cycling' : 'walking',
+          waypointsToUse
+        );
+      }
 
       // ✅ STRICT VALIDATION: Must have 50+ points (prevents straight lines/triangles)
       if (!result || !result.path || result.path.length < MIN_PATH_POINTS) {
@@ -696,6 +824,10 @@ export async function generateDynamicRoutes(
         }
         continue;
       }
+
+      // QUALITY #3 (hybrid-gated): Douglas-Peucker smoothing removes the small
+      // zigzags Mapbox leaves in the geometry. Validation above ran on the RAW path.
+      const finalPath = preferences.qualityRoute ? douglasPeucker(result.path, 12) : result.path;
 
       const routeDistanceKm = result.distance / 1000;
 
@@ -735,7 +867,7 @@ export async function generateDynamicRoutes(
         type: activity,
         activityType: activity,
         difficulty: 'easy',
-        path: result.path,
+        path: finalPath,
         segments: [],
         rating: 4.5 + (Math.random() * 0.5),
         calories: calories,

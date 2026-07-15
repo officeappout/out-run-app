@@ -81,6 +81,8 @@ export interface CameraControllerParams {
 export interface CameraControllerAPI {
   onMapReady: (rawMap: mapboxgl.Map) => void;
   recenter: () => void;
+  /** Ease directly to a coordinate (discover "center on me" — bypasses route-fit). */
+  centerOnUser: (coord: { lat: number; lng: number } | null | undefined) => void;
   owner: CameraOwner;
 }
 
@@ -793,8 +795,11 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           fitBoundsDebounceRef.current = setTimeout(() => {
             fitBoundsDebounceRef.current = null;
             try {
+              // Number.isFinite (not !isNaN) so Infinity coords — e.g. a
+              // degenerate synthesized loop — are rejected before fitBounds,
+              // which would otherwise fling the camera to world view.
               const valid = previewPath.filter(
-                (c) => Array.isArray(c) && c.length === 2 && !isNaN(c[0]) && !isNaN(c[1]),
+                (c) => Array.isArray(c) && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]),
               );
               if (valid.length < 2) return;
               const bounds = valid.reduce(
@@ -981,5 +986,26 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     setRecenterTick((t) => t + 1);
   }, []);
 
-  return { onMapReady, recenter, owner: ownerRef.current };
+  /**
+   * Direct "center on me" for DISCOVER mode (no active workout / nav), where the
+   * follow effect otherwise fits ROUTES rather than the user. Eases straight to a
+   * provided coordinate — the caller passes the best-available fix (live GPS or the
+   * fallback/anchor dot), so a recenter tap is never a silent no-op without a live fix.
+   */
+  const centerOnUser = useCallback((coord: { lat: number; lng: number } | null | undefined) => {
+    const rm = mapRef.current?.getMap?.();
+    if (!rm || !coord || !Number.isFinite(coord.lat) || !Number.isFinite(coord.lng)) return;
+    if (idleRecenterTimerRef.current) {
+      clearTimeout(idleRecenterTimerRef.current);
+      idleRecenterTimerRef.current = null;
+    }
+    ownerRef.current = 'follow';
+    try {
+      rm.easeTo({ center: [coord.lng, coord.lat], zoom: Math.max(rm.getZoom(), 15), duration: 600 });
+    } catch (err) {
+      console.warn('[Cam] centerOnUser easeTo threw — ignored.', err);
+    }
+  }, []);
+
+  return { onMapReady, recenter, centerOnUser, owner: ownerRef.current };
 }

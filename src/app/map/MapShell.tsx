@@ -106,6 +106,13 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   const sessionStatus = useSessionStore((s) => s.status);
   const devSim = useDevSimulation();
   const effectivePos = devSim.effectiveLocation(logic.currentUserPos);
+
+  // Recenter ("center on me"): bump a signal AppMap watches → it eases to the
+  // best-available fix (live GPS or fallback dot). The layers ALSO call
+  // handleLocationClick, which prompts for permission when there is no fix — so a
+  // tap is never a silent no-op, even with GPS off / denied.
+  const [recenterSignal, setRecenterSignal] = useState(0);
+  const handleRecenter = useCallback(() => setRecenterSignal((n) => n + 1), []);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
   const navCardHeight = useMapStore((s) => s.navCardHeight);
   const isLapsOpen = useMapStore((s) => s.isLapsOpen);
@@ -336,6 +343,11 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
         .map(r => ({ ...r, isFocused: r.id === logic.focusedRoute?.id }));
       if (navRoutes.length > 0) return navRoutes;
     }
+    // Hybrid pre-run overview: the composed loop is a standalone focusedRoute that is
+    // NOT in the discover carousel or free-run carousel — draw JUST it (else only its
+    // station marker shows and the polyline is missing). Placed above the carousels so
+    // a lingering carousel array can't suppress it.
+    if (logic.focusedRoute?.id === 'hybrid-route') return [logic.focusedRoute];
     // Free-run carousel takes precedence over discover-mode routes so the
     // user can preview all 3 generated options on the map without us having
     // to mutate the global `allRoutes` pipeline (which would leak into the
@@ -417,6 +429,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
           }}
           selectedRoute={logic.selectedRoute}
           destinationMarker={spotFocus ?? undefined}
+          hybridStation={(logic.focusedRoute as any)?.stationMarker ?? null}
           onMapRef={flyover.handleMapRef}
           skipInitialZoom={flyover.flyoverActive || !!spotFocus}
           isAutoFollowEnabled={isMapFollowEnabled}
@@ -432,6 +445,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
           mapMode={mode}
           activityType={contextActivity}
           navigationTurns={navigationTurns}
+          recenterSignal={recenterSignal}
         />
       </div>
       )} {/* end mode !== 'free_run' */}
@@ -530,10 +544,10 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
       </AnimatePresence>
 
       {/* ══════ LAYER ROUTER ══════ */}
-      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} />}
+      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} onRecenter={handleRecenter} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
-      {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} />}
+      {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} onRecenter={handleRecenter} />}
       {mode === 'planned_preview' && <PlannedPreviewLayer logic={logic} />}
       {mode === 'active' && <ActiveWorkoutLayer logic={logic} />}
       {mode === 'summary' && <SummaryLayer logic={logic} />}

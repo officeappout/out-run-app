@@ -18,6 +18,8 @@ export interface HybridStationSource {
   /** Canonical gear ids; bodyweight = []. */
   availableEquipment: string[];
   parkId?: string;
+  name?: string;
+  image?: string;
   lat?: number;
   lng?: number;
   waypointIndex?: number;
@@ -37,13 +39,19 @@ export async function resolveStationSource(
   opts: FindStationParkOpts = {},
 ): Promise<HybridStationSource> {
   const { findStationPark } = await import('./find-station-park.service');
-  const park = await findStationPark(routePath, opts);
+  // Prefer a station a real walk away (300 m–1.2 km) over one on top of the user.
+  const park = await findStationPark(routePath, {
+    ...opts,
+    walkBand: opts.walkBand ?? { minMeters: 300, maxMeters: 1200 },
+  });
   if (park) {
     return {
       kind: 'park',
       locationKind: 'gym',
       availableEquipment: park.availableEquipment,
       parkId: park.parkId,
+      name: park.name,
+      image: park.image,
       lat: park.lat,
       lng: park.lng,
       waypointIndex: park.waypointIndex,

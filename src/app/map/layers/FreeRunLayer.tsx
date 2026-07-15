@@ -54,11 +54,13 @@ interface FreeRunLayerProps {
   logic: MapLogic;
   /** GPS position (devSim.effectiveLocation applied) from MapShellInner. */
   effectivePos: { lat: number; lng: number } | null;
+  /** Center the camera on the best-available fix (live GPS or fallback dot). */
+  onRecenter?: () => void;
 }
 
 const BRAND_COLOR = '#00E5FF';
 
-export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps) {
+export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRunLayerProps) {
   const { setMode, activityType } = useMapMode();
   const { isWorkoutActive } = logic;
 
@@ -304,7 +306,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                       when the TOP LAYER is at minimizedY. */}
                   <div className="absolute right-4 bottom-40 z-[55] pointer-events-auto">
                     <button
-                      onClick={logic.handleLocationClick}
+                      onClick={() => { logic.handleLocationClick(); onRecenter?.(); }}
                       className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center bg-white active:scale-95 transition-all"
                     >
                       <Navigation
@@ -340,7 +342,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               {/* Location button */}
               <div className="absolute right-4 z-40 bottom-40 pointer-events-auto">
                 <button
-                  onClick={logic.handleLocationClick}
+                  onClick={() => { logic.handleLocationClick(); onRecenter?.(); }}
                   className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center bg-white active:scale-95 transition-all"
                 >
                   <Navigation

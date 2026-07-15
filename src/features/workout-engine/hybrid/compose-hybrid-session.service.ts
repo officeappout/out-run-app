@@ -36,6 +36,39 @@ import {
 } from '../core/pipeline/strength-block.service';
 import { MIN_STATION_EXERCISES } from './station-source';
 import { DEFAULT_PACE_MAP_CONFIG } from '../core/config/pace-map-config';
+import { normalizeGearIds, satisfiesGearRequirement } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import type { ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
+
+/** Score bonus that lifts an equipment-satisfied exercise above any bodyweight
+ *  movement in the same domain — a park station foregrounds its iron. */
+const IRON_PREFERENCE_BONUS = 1000;
+
+/** primaryMuscle → movement domain (mirror of workout-budgeting's private map). */
+const MUSCLE_TO_DOMAIN: Record<string, string> = {
+  chest: 'push', triceps: 'push', shoulders: 'push', deltoids: 'push',
+  back: 'pull', biceps: 'pull', lats: 'pull', forearms: 'pull',
+  quads: 'legs', hamstrings: 'legs', glutes: 'legs', calves: 'legs', hip_flexors: 'legs',
+  core: 'core', abs: 'core', obliques: 'core',
+};
+function domainOf(ex: Exercise): string {
+  return MUSCLE_TO_DOMAIN[(ex.primaryMuscle ?? '').toLowerCase()] ?? 'other';
+}
+/** Domains a pull-up bar / dip station can supply iron for (spec: pull→מתח, push→דיפים). */
+const IRON_DOMAINS = new Set(['pull', 'push']);
+
+/** True when this exercise's SELECTED method is satisfied by the station's iron
+ *  (pull→pullup_bar, push→dip_station, …). A gear-less bodyweight method → false.
+ *  Uses the method's declared gear/equipment ids (dips carry these on gearIds, not a
+ *  fixed_equipment type), gated to the station's actual gear via satisfiesGearRequirement. */
+function methodUsesStationEquipment(method: ExecutionMethod | undefined, availableEquipment: string[]): boolean {
+  if (!method || availableEquipment.length === 0) return false;
+  const raw = [
+    ...(method.equipmentIds ?? []), method.equipmentId,
+    ...(method.gearIds ?? []), method.gearId,
+  ].filter((x): x is string => !!x);
+  if (raw.length === 0) return false; // no gear → bodyweight, never iron
+  return normalizeGearIds(raw).some((req) => satisfiesGearRequirement(req, availableEquipment));
+}
 import type { PaceZoneRule, RunZoneType, PaceProfile } from '../core/types/running.types';
 import {
   buildRoutePrefixKm,
@@ -317,6 +350,37 @@ function dispatchStopContent(
         }
         log.push(`[${candidate.stopId}] thin park pool (${pool.exercises.length}) → topped up to ${scoredPool.length} w/ bodyweight`);
       }
+      // PREFER IRON (per movement domain): at an equipped park, an exercise whose
+      // method is real park iron (pull→מתח, push→דיפים) must win over a bodyweight
+      // movement OF THE SAME DOMAIN. Two steps: (1) score-boost every iron exercise;
+      // (2) drop a bodyweight exercise ONLY when its own domain has an iron alternative
+      // (spec: "bodyweight only where no equipment supports the movement"). A domain
+      // with no station iron (e.g. legs at a bar/dip park) keeps its bodyweight work.
+      let ironCount = 0;
+      const ironDomainList: string[] = [];
+      if (candidate.availableEquipment.length > 0) {
+        const tagged = scoredPool.map((se) => ({
+          se,
+          iron: methodUsesStationEquipment(se.method, candidate.availableEquipment),
+          domain: domainOf(se.exercise),
+        }));
+        // A pull-up bar / dip station provides real iron ONLY for pull + push. Never
+        // strip legs/core bodyweight over a spurious gear match (a bar can't squat).
+        const ironDomains = new Set(
+          tagged.filter((t) => t.iron && IRON_DOMAINS.has(t.domain)).map((t) => t.domain),
+        );
+        ironCount = tagged.filter((t) => t.iron && IRON_DOMAINS.has(t.domain)).length;
+        ironDomainList.push(...Array.from(ironDomains));
+        scoredPool = tagged
+          .filter((t) => (t.iron && ironDomains.has(t.domain)) || !ironDomains.has(t.domain))
+          .map((t) => (t.iron && ironDomains.has(t.domain) ? { ...t.se, score: t.se.score + IRON_PREFERENCE_BONUS } : t.se));
+      }
+      // DIAG (temporary): equipment in vs pool out — did gear exercises survive, or is it top-up?
+      console.log(
+        `[hybrid:diag] stop "${candidate.stopId}" equip=[${candidate.availableEquipment.join(',')}]` +
+        ` isBodyweight=${isBodyweight} poolAfterFilter=${pool.exercises.length} finalPool=${scoredPool.length}` +
+        ` iron=${ironCount} ironDomains=[${ironDomainList.join(',')}]`,
+      );
       const block = generateStrengthBlock({
         blockMinutes,
         scoredPool,
@@ -403,26 +467,44 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
     }
   }
   if (!selection) {
-    // §3 step 7 fallback: ONE bodyweight (fieldReady) stop at the route midpoint.
-    usedFieldFallback = true;
     stations = 1;
-    const midIdx = indexAtKm(prefixKm, routeKm / 2);
-    const [lng, lat] = input.routePath[midIdx] ?? [0, 0];
-    selection = {
-      chosen: [{
-        candidate: {
-          stopId: 'field-fallback-mid-route',
-          locationKind: 'open_area',
-          lat, lng,
-          waypointIndex: midIdx,
-          availableEquipment: [],
-          activityType: 'strength',
-        },
-        km: routeKm / 2,
-      }],
-      score: 0,
-    };
-    log.push('fit: field fallback — bodyweight stop at route midpoint');
+    // No EVENLY-SPACED combination cleared the ±tolerance gate. That gate is about
+    // station SPACING, not usability — a real resolved park WITH equipment must
+    // never be dropped to bodyweight just because it doesn't sit at the km-midpoint.
+    // Prefer the equipment candidate nearest the ideal mid-leg, placed at its ACTUAL
+    // position. Only synthesize the field (bodyweight) fallback when NO candidate
+    // carries equipment (true A3).
+    const legTargetKm = routeKm / 2;
+    const equipStop = candidatesByKm
+      .filter((c) => (c.candidate.availableEquipment?.length ?? 0) > 0)
+      .sort((a, b) => Math.abs(a.km - legTargetKm) - Math.abs(b.km - legTargetKm))[0];
+    if (equipStop) {
+      selection = { chosen: [equipStop], score: 0 };
+      log.push(
+        `fit: no even-spacing combo → using resolved equipment stop "${equipStop.candidate.stopId}"` +
+        ` at ${equipStop.km.toFixed(2)}km (equip=[${equipStop.candidate.availableEquipment.join(',')}])`,
+      );
+    } else {
+      // §3 step 7 fallback: ONE bodyweight (fieldReady) stop at the route midpoint.
+      usedFieldFallback = true;
+      const midIdx = indexAtKm(prefixKm, routeKm / 2);
+      const [lng, lat] = input.routePath[midIdx] ?? [0, 0];
+      selection = {
+        chosen: [{
+          candidate: {
+            stopId: 'field-fallback-mid-route',
+            locationKind: 'open_area',
+            lat, lng,
+            waypointIndex: midIdx,
+            availableEquipment: [],
+            activityType: 'strength',
+          },
+          km: routeKm / 2,
+        }],
+        score: 0,
+      };
+      log.push('fit: field fallback — bodyweight stop at route midpoint');
+    }
   }
 
   // ── Steps 4+5: station content (domain order by weekly deficit) ──────────
@@ -450,16 +532,20 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
   const stopKms = builtStops.map((s) => s.km);
   const gaps = legGapsKm(prefixKm, stopKms);
   const legsCount = gaps.length;
-  const legMin = tAerobicMin / legsCount;
 
   // ── Assemble interleaved plan ─────────────────────────────────────────────
   const segments: HybridPlannedSegment[] = [];
   let totalCalories = 0;
   let cursorKm = 0;
+  let aerobicSec = 0; // real time = Σ (distance × pace), NOT an equal budget split
 
   for (let leg = 0; leg < legsCount; leg++) {
     const zone = legZone(leg, legsCount, input.aerobicKind, resolved);
     const pace = zonePaceSecPerKm(input.paceProfile, zone);
+    // Real leg duration: km × pace (midpoint sec/km). A 70 m leg is ~20 s, not a
+    // budget-averaged 8 min. Guarantees duration tracks distance on every leg.
+    const legSec = Math.round(gaps[leg] * (pace.min + pace.max) / 2);
+    aerobicSec += legSec;
     const legCalories = Math.round(gaps[leg] * input.userWeightKg * AEROBIC_KCAL_FACTOR);
     totalCalories += legCalories;
     segments.push({
@@ -468,7 +554,7 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
       aerobicType: input.aerobicKind,
       zone,
       targetPaceSecPerKm: pace,
-      durationSec: Math.round(legMin * 60),
+      durationSec: legSec,
       distanceKm: Number(gaps[leg].toFixed(3)),
       fromKm: Number(cursorKm.toFixed(3)),
       toKm: Number((cursorKm + gaps[leg]).toFixed(3)),
@@ -499,7 +585,7 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
   return {
     segments,
     totals: {
-      aerobicMin: Math.round(tAerobicMin),
+      aerobicMin: Math.round(aerobicSec / 60), // real Σ(distance×pace), not the budget
       strengthMin: Math.round(strengthSec / 60),
       distanceKm: Number(routeKm.toFixed(2)),
       estCalories: totalCalories,

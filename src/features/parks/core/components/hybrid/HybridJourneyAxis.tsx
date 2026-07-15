@@ -1,0 +1,161 @@
+'use client';
+
+/**
+ * HybridJourneyAxis — the vertical mixed-modality spine ("מהלך האימון") for the
+ * hybrid overview (Phase ב). The ONE new brick in the overview inventory: a
+ * vertical timeline alternating aerobic run-legs (green) ↔ strength stations
+ * (amber), pinned to hybrid-workout-overview.html (frame A1). Pure presentational
+ * — renders a composed HybridPlan; no engine calls.
+ */
+
+import { Footprints, Dumbbell, Clock, Ruler, Repeat, MapPin } from 'lucide-react';
+import type { HybridPlannedSegment } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
+import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
+import ExerciseCard from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/ExerciseCard';
+import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
+
+const AER = '#10B981';
+const STR = '#F59E0B';
+const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';
+const STR_TINT = '#FFFBEB', STR_TEXT = '#B45309';
+
+const ZONE_LABEL: Record<string, string> = {
+  jogging: 'ריצה קלה', easy: 'קל', recovery: 'שחרור', walk: 'הליכה',
+  tempo: 'טמפו', long_run: 'ריצה ממושכת', fartlek_medium: 'פרטלק', fartlek_fast: 'פרטלק מהיר',
+};
+const fmtPace = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+
+/** Resolve the exercise's park image (offline-safe: empty string when none). */
+function hybridImage(we: any): string {
+  try {
+    const ex = we?.exercise;
+    if (!ex) return '';
+    const method = findMethodForLocation(ex, 'park') ?? ex.execution_methods?.[0] ?? we?.method;
+    return resolveExerciseMedia(ex, method).imageUrl ?? '';
+  } catch { return ''; }
+}
+
+function Node({ kind, last }: { kind: 'aerobic' | 'strength'; last: boolean }) {
+  const color = kind === 'aerobic' ? AER : STR;
+  return (
+    <div className="flex flex-col items-center flex-shrink-0" style={{ width: 44 }}>
+      <div className="rounded-full flex items-center justify-center text-white"
+        style={{ width: 44, height: 44, background: color, border: '3px solid #fff', boxShadow: `0 4px 12px ${color}66` }}>
+        {kind === 'aerobic' ? <Footprints size={20} /> : <Dumbbell size={20} />}
+      </div>
+      {!last && <div className="flex-1" style={{ width: 0, borderInlineStart: '2.5px dashed #CBD5E1', margin: '3px 0', minHeight: 12 }} />}
+    </div>
+  );
+}
+function Meta({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return <span className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: '#374151' }}>
+    <span style={{ color: '#9CA3AF' }}>{icon}</span>{children}</span>;
+}
+
+interface AxisProps {
+  segments: HybridPlannedSegment[];
+  /** Tap an exercise → the real preview detail drawer (owned by the parent). */
+  onExerciseTap?: (we: EngineWorkoutExercise) => void;
+  /** Swap the exercise at [segIndex][exIndex] → the real replacement modal (parent). */
+  onSwapExercise?: (segIndex: number, exIndex: number, we: EngineWorkoutExercise) => void;
+}
+
+export default function HybridJourneyAxis({ segments, onExerciseTap, onSwapExercise }: AxisProps) {
+  const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
+  let aerIdx = 0, strIdx = 0;
+  return (
+    <div dir="rtl">
+      {/* start dot */}
+      <div className="flex items-center gap-2" style={{ margin: '0 2px 3px' }}>
+        <div className="flex justify-center" style={{ width: 44 }}>
+          <div style={{ width: 12, height: 12, borderRadius: '50%', background: AER, border: '3px solid #fff', boxShadow: `0 0 0 1.5px ${AER}` }} />
+        </div>
+        <span className="text-[11px] font-bold" style={{ color: '#6B7280' }}>נקודת התחלה</span>
+      </div>
+
+      {segments.map((seg, i) => {
+        const last = i === segments.length - 1;
+        if (seg.kind === 'aerobic') {
+          aerIdx += 1;
+          const legLabel = aerIdx === 1 ? 'יציאה' : aerIdx === aerCount ? 'חזרה' : `${aerIdx}`;
+          const pace = seg.targetPaceSecPerKm ? (seg.targetPaceSecPerKm.min + seg.targetPaceSecPerKm.max) / 2 : 0;
+          return (
+            <div key={i} className="flex gap-3 items-stretch">
+              <Node kind="aerobic" last={last} />
+              <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
+                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+                <span className="absolute top-0 right-0 bottom-0" style={{ width: 4, background: AER }} />
+                <div style={{ padding: '11px 15px 12px 12px' }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[14px] font-black" style={{ color: '#111827' }}>רגל ריצה {aerIdx} — {legLabel}</span>
+                    <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: AER_TINT, color: AER_TEXT }}>
+                      {ZONE_LABEL[String(seg.zone)] ?? 'אירובי'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap mt-2">
+                    {seg.distanceKm != null && <Meta icon={<Ruler size={14} />}>{seg.distanceKm.toFixed(2)} ק״מ</Meta>}
+                    {seg.durationSec != null && <Meta icon={<Clock size={14} />}>{Math.round(seg.durationSec / 60)} דק׳</Meta>}
+                    {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={{ direction: 'ltr', background: '#F3F4F6', color: AER_TEXT, padding: '2px 8px' }}>{fmtPace(pace)} /ק״מ</span>}
+                  </div>
+                  {last && (
+                    <div className="flex items-center gap-1.5 mt-2 text-[11px] font-extrabold" style={{ color: AER_TEXT }}>
+                      <Repeat size={15} style={{ color: AER }} /> מסלול מעגלי — חוזר לנקודת ההתחלה
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        }
+        // strength station
+        strIdx += 1;
+        const exs = seg.content?.exercises ?? [];
+        return (
+          <div key={i} className="flex gap-3 items-stretch">
+            <Node kind="strength" last={last} />
+            <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
+              style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
+              <span className="absolute top-0 right-0 bottom-0" style={{ width: 4, background: STR }} />
+              <div style={{ padding: '11px 15px 12px 12px' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[14px] font-black" style={{ color: '#111827' }}>תחנה {strIdx} — כוח</span>
+                  <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: STR_TINT, color: STR_TEXT }}>עצור ואמן</span>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><Dumbbell size={15} /> {exs.length} תרגילים</span>
+                  {/* Station time (meaningful), not a sets-sum. Per-exercise sets live on each card. */}
+                  <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
+                    <Clock size={13} /> ~{Math.round((seg.content?.estimatedDurationSec ?? 0) / 60)} דק׳
+                  </span>
+                </div>
+                {/* amber superset framing around the REAL ExerciseCard (image · tap-detail · swap) */}
+                <div className="relative flex flex-col gap-2 mt-2" style={{ paddingRight: 12 }}>
+                  <span className="absolute" style={{ top: 3, bottom: 3, right: 0, width: 4, borderRadius: 2, background: STR }} />
+                  {exs.map((we: any, k: number) => (
+                    <ExerciseCard
+                      key={we?.exercise?.id ?? k}
+                      exercise={we}
+                      cachedImageUrl={hybridImage(we)}
+                      isSuperset
+                      onTap={() => onExerciseTap?.(we)}
+                      onSwap={() => onSwapExercise?.(i, k, we)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* finish dot */}
+      <div className="flex items-center gap-2" style={{ margin: '3px 2px 0' }}>
+        <div className="flex justify-center" style={{ width: 44 }}>
+          <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#EF4444', border: '3px solid #fff', boxShadow: '0 0 0 1.5px #EF4444' }} />
+        </div>
+        <span className="flex items-center gap-1 text-[11px] font-bold" style={{ color: '#b91c1c' }}><MapPin size={13} /> סיום · חזרה לנקודת ההתחלה</span>
+      </div>
+    </div>
+  );
+}

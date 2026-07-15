@@ -33,6 +33,14 @@ export interface HybridStartIntent {
   /** Nearest preset (what the MVP composer consumes). */
   emphasis: Exclude<HybridEmphasis, 'weekly_smart'>;
   aerobicKind: AerobicKind;
+  /**
+   * Strength difficulty (⚡ bolts → 1|2|3), threaded into
+   * generationContext.difficulty so the slot's intensity actually drives
+   * generateStrengthBlock. Omitted by the drawer path (slider has no ⚡
+   * control) → composeHybridPlan keeps the historical default of 2, so the
+   * drawer flow is byte-identical.
+   */
+  difficulty?: number;
 }
 
 /**
