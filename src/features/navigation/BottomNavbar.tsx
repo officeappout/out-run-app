@@ -20,6 +20,11 @@ export default function BottomNavigation() {
   // a derived boolean so the bar is hidden whenever ANY suppressor is up.
   const isSuppressed = useMapStore((s) => s.bottomNavSuppressionCount > 0);
 
+  // On the map screen the tab bar floats directly over the Mapbox streets.
+  // A short white fade above the bar softens that transition (readability +
+  // polish). Scoped to /map only — other routes already sit on a white body.
+  const isMapRoute = !!pathname?.startsWith('/map');
+
   if (
     pathname?.startsWith('/onboarding') ||
     pathname?.startsWith('/login') ||
@@ -69,6 +74,19 @@ export default function BottomNavigation() {
       aria-hidden={isSuppressed}
       className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-t border-gray-200/60 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]"
     >
+      {/* Map-only white fade sitting *above* the bar (bottom-full) so it feathers
+          the map→tab-bar edge. Reuses the app's canonical bottom-fade string
+          (page.tsx splash / workout overview). pointer-events-none is critical:
+          the FAB (+) and recenter button live ~300px up but the map itself sits
+          directly under this strip — without it, taps here would be swallowed.
+          As a child of the sliding nav it rides the suppression animation for
+          free, so it never lingers after a map card pushes the tabs out. */}
+      {isMapRoute && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-full h-16 bg-gradient-to-t from-white via-white/20 to-transparent"
+        />
+      )}
       {/* Tightened from pt-2 → pt-0.5 so the bar sits ~6px shorter on iPhone
           (≈80px total vs the previous 86px) — closer to the native iOS
           tab-bar height (≈83px including its own safe-area inset) without
