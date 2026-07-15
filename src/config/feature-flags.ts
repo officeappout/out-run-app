@@ -23,6 +23,14 @@ export const IS_COMMUNITY_FEED_ENABLED = false;
 // toggle+slider hybrid path is untouched.
 export const HYBRID_SLOTS_ENABLED = true;
 
+// UNIFIED_ROUTE_CARDS: Text-only, aerobic-style route cards across all three
+// bottom carousels (RouteCarousel · BottomJourneyContainer · HybridSlotCarousel).
+// While false, each carousel renders its current production card (no regression).
+// Set to true to switch to the unified text-only design (name + meta + Difficulty
+// Bolts + CTA, no top image). Rollout-safe compile-time guard. Mirrors the same
+// flag on the fix/route-card-park-style branch.
+export const UNIFIED_ROUTE_CARDS_ENABLED = false;
+
 // LEAGUES: Arena / leagues surface inside /community. Independent of the feed
 // so leagues can ship to stores while the social feed stays paused. Runtime
 // control lives in system_config/feature_flags.enable_leagues; this compile-time

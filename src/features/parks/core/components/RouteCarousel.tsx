@@ -104,6 +104,8 @@ import {
 import { fetchRealParks } from '../services/parks.service';
 import { useMapStore } from '../store/useMapStore';
 import type { ActivityType, CommuteVariant, Route } from '../types/route.types';
+import RouteCardUnified from './RouteCardUnified';
+import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 
 const ACCENT = '#00ADEF';
 const BRAND_CYAN = '#00E5FF';
@@ -1036,6 +1038,30 @@ function RouteCard({
   // if the user's gesture momentum would carry them further. Without
   // this, snap-mandatory still allows the browser to leapfrog cards
   // when scroll velocity is high.
+
+  // Unified text-only card (flag-gated). Label + onStart pass through unchanged;
+  // flag off keeps the stars card below byte-identical.
+  if (UNIFIED_ROUTE_CARDS_ENABLED) {
+    return (
+      <RouteCardUnified
+        name={displayName}
+        distanceText={distanceText}
+        durationText={durationText}
+        difficulty={route.difficulty}
+        isActive={isActive}
+        className="snap-center snap-always"
+        onCta={onStart}
+        ctaContent={
+          <>
+            <Play size={14} fill="currentColor" />
+            התחל אימון
+            <ChevronLeft size={14} strokeWidth={3} />
+          </>
+        }
+      />
+    );
+  }
+
   return (
     <div
       dir="rtl"

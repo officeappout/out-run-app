@@ -5,6 +5,8 @@ import { Play, Timer, Car, MapPin, ChevronLeft, Zap, Bike, Dumbbell, Navigation,
 import { Route, ActivityType } from '../types/route.types';
 import { useMapStore } from '../store/useMapStore';
 import Image from 'next/image';
+import RouteCardUnified from './RouteCardUnified';
+import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 
 function formatSessionTime(isoString: string): string {
   const date = new Date(isoString);
@@ -225,6 +227,50 @@ export default function BottomJourneyContainer({
             const sourceName     = route.source?.name || (isGenerated ? 'מותאם אישית' : 'מסלול רשמי');
 
             const isFocused = focusedRouteId === route.id;
+
+            // Unified text-only card (flag-gated). CTA + handlers pass through
+            // unchanged; flag off keeps the card below byte-identical.
+            if (UNIFIED_ROUTE_CARDS_ENABLED) {
+              return (
+                <RouteCardUnified
+                  key={route.id}
+                  name={route.name}
+                  distanceText={`${totalDistKm.toFixed(1)} ק״מ`}
+                  durationText={`${durationMin} דק׳`}
+                  difficulty={route.difficulty}
+                  isActive={isActive || isFocused}
+                  onClick={() => {
+                    if (isFocused) {
+                      if (onShowRouteDetail) onShowRouteDetail(route);
+                    } else if (onRouteFocus) {
+                      onRouteFocus(route);
+                    }
+                  }}
+                  className="snap-center snap-always"
+                  ctaLoading={isLoading}
+                  onCta={(e) => {
+                    e.stopPropagation();
+                    if (onRouteFocus) onRouteFocus(route);
+                    if (!isReachable) {
+                      const [startLng, startLat] = route.path[0];
+                      window.open(`https://waze.com/ul?ll=${startLat},${startLng}&navigate=yes`, '_blank');
+                    } else if (isGenerated && onShowDetails) {
+                      onShowDetails();
+                    } else if (onStartWorkout) {
+                      onStartWorkout();
+                    }
+                  }}
+                  ctaContent={
+                    <>
+                      <Play size={14} fill="currentColor" />
+                      {isReachable ? 'צא לדרך' : 'נווט להתחלה'}
+                      <ChevronLeft size={14} />
+                    </>
+                  }
+                />
+              );
+            }
+
             return (
               <div
                 key={route.id}
