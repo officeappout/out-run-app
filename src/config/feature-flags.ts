@@ -27,7 +27,7 @@ export const IS_LEAGUES_ENABLED = true;
 // While false, each carousel renders its current production card (no regression).
 // Set to true to switch to the unified text-only design (name + distance + time
 // + DifficultyBolts + CTA, no top image). Rollout-safe compile-time guard.
-export const UNIFIED_ROUTE_CARDS_ENABLED = false;
+export const UNIFIED_ROUTE_CARDS_ENABLED = true;
 
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
