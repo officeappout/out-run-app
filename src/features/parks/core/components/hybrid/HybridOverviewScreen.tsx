@@ -12,9 +12,12 @@
  * whole plan; peek only reveals the map.)
  */
 
-import { Ruler, Clock, Flame, MapPin, Play, ArrowRight, Info, ChevronLeft } from 'lucide-react';
+import { useState } from 'react';
+import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
+import CaloriesChip from '@/components/ui/CaloriesChip';
+import WeightInlineRow from '@/components/ui/WeightInlineRow';
 import { resolveIconKey, getProgramIcon } from '@/features/content/programs/core/program-icon.util';
 import HybridJourneyAxis from './HybridJourneyAxis';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/features/workout-engine/shared/hooks/useSheetDrag';
@@ -60,6 +63,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const { plan, fallbackHint, aerobicKind } = composed;
   const t = plan.totals;
   const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
+  const [showWeightNudge, setShowWeightNudge] = useState(false);
 
   // Estimated finish = now + total workout minutes → "HH:MM" (24h, zero-padded —
   // mirrors the run commute's formatArrivalClock convention). Estimate → "~" prefix.
@@ -170,8 +174,9 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             <div className="flex gap-2 mt-3 flex-wrap">
               <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
               <Chip icon={<Clock size={15} />}>{totalMin} דק׳</Chip>
-              <Chip icon={<Flame size={15} />}>{t.estCalories} קק״ל</Chip>
+              <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
             </div>
+            {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
 
             {/* meta row */}
             <div className="flex items-center gap-2 mt-2.5 flex-wrap">
