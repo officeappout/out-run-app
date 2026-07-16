@@ -60,11 +60,119 @@ function normalizePath(raw: unknown): [number, number][] {
     .filter((c: any[]) => Number.isFinite(c[0]) && Number.isFinite(c[1])) as [number, number][];
 }
 
+/**
+ * Full-park-workout branch (mode: 'full_park_workout', Phase 1.3) — walk to the
+ * nearest EQUIPPED park, do the FULL home-recommended strength workout there, walk
+ * back. Reuses the home recommendation as a READ-ONLY preview (skipCycleRestart) at
+ * the balanced bolt, instead of the budget-split station. Returns null when no
+ * equipped park is reachable (Phase 3 hides the card) or the user has no profile.
+ *
+ * ⚠️ Empty pool at a sparse park → treated as a REST-DAY (aerobic-only walk), never an
+ * empty station: `restLike` zeroes the workout and composeParkWorkoutPlan drops the
+ * strength segment (double-guarded by its own isEmpty check).
+ */
+async function composeFullParkWorkout(
+  intent: HybridStartIntent,
+  ctx: HybridSessionContext,
+): Promise<ComposedHybridSession | null> {
+  if (!ctx.userPosition) { console.warn('[composeFullParkWorkout] no user position'); return null; }
+
+  const [
+    { useUserStore }, { fetchRealParks }, { resolveParkOutAndBack },
+    { composeParkWorkoutPlan }, { generateHomeWorkoutTrio },
+  ] = await Promise.all([
+    import('@/features/user/identity/store/useUserStore'),
+    import('@/features/parks/core/services/parks.service'),
+    import('./park-out-and-back'),
+    import('./compose-park-workout.service'),
+    import('@/features/workout-engine/services/home-workout.service'),
+  ]);
+
+  const profile = useUserStore.getState().profile;
+  if (!profile) { console.warn('[composeFullParkWorkout] no profile'); return null; }
+  // `||` (not `??`) so an unset weight of 0 falls back to 70kg (calorie terms).
+  const userWeightKg = profile?.core?.weight || 70;
+  const pp = profile?.running?.paceProfile;
+  const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
+
+  // Parks — same all-parks proximity source the budget-split path uses.
+  let parks: any[] = [];
+  try { parks = await fetchRealParks(); } catch { /* no parks → no card */ }
+
+  // Phase 1.1 — nearest equipped park + out-and-back route (warms caches internally).
+  const oab = await resolveParkOutAndBack({
+    userPosition: ctx.userPosition,
+    parks,
+    aerobicKind: intent.aerobicKind,
+    cityName: ctx.cityName,
+  });
+  if (!oab) { console.warn('[composeFullParkWorkout] no equipped park reachable → no card'); return null; }
+
+  try {
+    // Home recommendation — READ-ONLY preview (skipCycleRestart), balanced bolt (D2).
+    const trio = await generateHomeWorkoutTrio({
+      userProfile: profile as any,
+      location: 'park',
+      parkEquipmentIds: oab.station.availableEquipment,
+      skipCycleRestart: true,
+    });
+    const rawWorkout = trio.options[1].result.workout;
+
+    // ⚠️ (uncertainty #b): empty pool at a sparse park → rest-day, NOT an empty station.
+    const restLike =
+      trio.isRestDay ||
+      (rawWorkout.exercises?.length ?? 0) === 0 ||
+      rawWorkout.isRecovery === true;
+    const planWorkout = restLike ? { ...rawWorkout, exercises: [] } : rawWorkout;
+
+    const plan = composeParkWorkoutPlan({
+      routePath: oab.routePath,
+      station: {
+        stopId: oab.station.name ? `park:${oab.station.name}` : (oab.station.parkId ?? 'park'),
+        parkId: oab.station.parkId,
+        locationKind: 'gym',
+        lat: oab.station.lat,
+        lng: oab.station.lng,
+        waypointIndex: oab.station.waypointIndex,
+      },
+      workout: planWorkout,
+      aerobicKind: intent.aerobicKind,
+      paceProfile,
+      userWeightKg,
+      emphasis: 'strength', // display-only; full-park is strength-dominant
+    });
+
+    console.log(
+      `[hybrid:diag] full-park compose: park="${oab.station.name}"` +
+      ` equip=[${oab.station.availableEquipment.join(',')}] restLike=${restLike}` +
+      ` ex=${planWorkout.exercises.length} routeKm=${plan.totals.distanceKm}`,
+    );
+
+    return {
+      plan,
+      routePath: oab.routePath,
+      aerobicKind: intent.aerobicKind,
+      fallbackHint: restLike ? 'יום מנוחה — הליכה בלבד' : undefined,
+      station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
+    };
+  } catch (e) {
+    console.warn('[composeFullParkWorkout] home trio / compose failed', e);
+    return null;
+  }
+}
+
 /** COMPOSE the plan (no run start). Returns null if no route can be built. */
 export async function composeHybridPlan(
   intent: HybridStartIntent,
   ctx: HybridSessionContext,
 ): Promise<ComposedHybridSession | null> {
+  // Full-park-workout branch (Phase 1.3): a separate, self-contained path. The
+  // budget-split body below is NOT entered for this mode and stays byte-identical
+  // for every other hybrid card.
+  if (intent.mode === 'full_park_workout') {
+    return composeFullParkWorkout(intent, ctx);
+  }
+
   const [
     { getAllExercises }, { generateDynamicRoutes }, { getWeeklyLoadSnapshot },
     { composeHybridSession }, { buildSandwichComposeInput }, { resolveHybridShape },
