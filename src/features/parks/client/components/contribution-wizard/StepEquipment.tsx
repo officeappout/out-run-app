@@ -55,7 +55,8 @@ export default function StepEquipment({ data, updateData, onNext, onBack }: Prop
     if (next.has(id)) next.delete(id);
     else next.add(id);
     // brandName stays '' — user never picks a brand (resolved on approval).
-    updateData({ gymEquipment: [...next].map((equipmentId) => ({ equipmentId, brandName: '' })) });
+    // Array.from (not [...set]) to stay tsc-clean under the project's target.
+    updateData({ gymEquipment: Array.from(next).map((equipmentId) => ({ equipmentId, brandName: '' })) });
   };
 
   const term = search.trim().toLowerCase();
