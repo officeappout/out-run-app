@@ -81,7 +81,9 @@ export async function composeHybridPlan(
   ]);
 
   const profile = useUserStore.getState().profile;
-  const userWeightKg = profile?.core?.weight ?? 70;
+  // `||` (not `??`) so an unset weight of 0 falls back to 70kg — otherwise every
+  // hybrid calorie term (aerobic km×w×1.036 + strength MET×w) collapses to 0.
+  const userWeightKg = profile?.core?.weight || 70;
   const pp = profile?.running?.paceProfile;
   const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
 
