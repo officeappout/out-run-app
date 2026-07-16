@@ -11,6 +11,7 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import { haversineMeters } from '@/features/parks/core/services/geoUtils';
 import { normalizeGearIds } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { parkGymEquipmentToGearIds } from './park-equipment.util';
+import { isPrimaryFitness } from './park-fitness.util';
 
 export interface StationPark {
   parkId: string;
@@ -37,16 +38,6 @@ export interface FindStationParkOpts {
    * user fakes the aerobic leg. No park in-band → falls back to closest-to-path.
    */
   walkBand?: { minMeters: number; maxMeters: number };
-}
-
-/** True for a PRIMARY facility (dedicated fitness) — the only tier we station at for MVP. */
-function isPrimaryFitness(p: Park): boolean {
-  const sportTypes = Array.isArray(p.sportTypes) ? p.sportTypes : [];
-  const category = (p as any).category ?? p.facilityType; // stored field is `category`
-  return (
-    sportTypes.some((t) => ['calisthenics', 'functional', 'crossfit'].includes(String(t))) ||
-    category === 'gym_park'
-  );
 }
 
 export async function findStationPark(
