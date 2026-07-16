@@ -33,6 +33,15 @@ export const HYBRID_SLOTS_ENABLED = true;
 // only on the CTA (current behaviour). Sub-flag of HYBRID_SLOTS_ENABLED.
 export const HYBRID_SLOT_PREVIEW_ENABLED = true;
 
+// HYBRID_FULL_PARK_WORKOUT: the "אימון מלא בפארק" slot — walk to the nearest EQUIPPED
+// park, do the FULL home-recommended strength workout there, walk back (reuses the home
+// recommendation instead of the budget-split station). DEFAULT FALSE. Sub-flag of
+// HYBRID_SLOTS_ENABLED; additionally gated at runtime on (equipped park nearby AND the
+// user has a strength program). While false, the slot layer is BYTE-IDENTICAL — the card
+// is never surfaced and the new compose branch (composeFullParkWorkout) is never entered.
+// ⚠️ Still display-only XP (0 credit) — do NOT wire real XP until single-save closes.
+export const HYBRID_FULL_PARK_WORKOUT_ENABLED = false;
+
 // LEAGUES: Arena / leagues surface inside /community. Independent of the feed
 // so leagues can ship to stores while the social feed stays paused. Runtime
 // control lives in system_config/feature_flags.enable_leagues; this compile-time
