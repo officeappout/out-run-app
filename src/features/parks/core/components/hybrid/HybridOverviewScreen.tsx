@@ -60,7 +60,21 @@ interface Props {
 }
 
 export default function HybridOverviewScreen({ composed, cityName, onStart, onBack, onExerciseTap, onSwapExercise }: Props) {
-  const { plan, fallbackHint, aerobicKind } = composed;
+  const { fallbackHint, aerobicKind } = composed;
+  // Difficulty carousel (full-park only): 3 pre-composed bolt plans, swap by index —
+  // NO re-compose. `plan` = the active bolt; budget-split cards have no `bolts` and
+  // keep their single `composed.plan` unchanged.
+  const [boltIndex, setBoltIndex] = useState(composed.bolts?.selectedIndex ?? 1);
+  const plan = composed.bolts ? composed.bolts.plans[boltIndex] : composed.plan;
+  const selectBolt = (i: number) => {
+    setBoltIndex(i);
+    if (composed.bolts) {
+      // Keep the shared composed object in sync so the SAME object shown in the
+      // overview is the one that runs at start (compose-once; see runHybridPlan).
+      composed.bolts.selectedIndex = i;
+      composed.plan = composed.bolts.plans[i];
+    }
+  };
   const t = plan.totals;
   const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
   const [showWeightNudge, setShowWeightNudge] = useState(false);
@@ -178,11 +192,30 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             </div>
             {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
 
-            {/* meta row */}
+            {/* meta row — difficulty carousel (full-park, קל/בינוני/קשה with emergent
+                minutes) or, for budget-split cards, the original static bolts pill */}
             <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-              <span className="inline-flex items-center bg-white rounded-lg" style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}>
-                <DifficultyBolts difficulty={2} size="sm" />
-              </span>
+              {composed.bolts ? (
+                <div className="inline-flex items-center gap-1 bg-white rounded-lg" role="group" aria-label="בחירת עצימות"
+                  style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3 }}>
+                  {composed.bolts.labels.map((label, i) => {
+                    const bt = composed.bolts!.plans[i].totals;
+                    const bmin = Math.round((bt.aerobicMin ?? 0) + (bt.strengthMin ?? 0));
+                    const active = i === boltIndex;
+                    return (
+                      <button key={label} type="button" onClick={() => selectBolt(i)} aria-pressed={active}
+                        className="rounded-md text-[12px] font-bold active:scale-95 transition-all whitespace-nowrap"
+                        style={{ padding: '5px 11px', background: active ? ACCENT : 'transparent', color: active ? '#fff' : '#6B7280' }}>
+                        {label} · {bmin}׳
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span className="inline-flex items-center bg-white rounded-lg" style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}>
+                  <DifficultyBolts difficulty={2} size="sm" />
+                </span>
+              )}
             </div>
 
             {/* axis */}
