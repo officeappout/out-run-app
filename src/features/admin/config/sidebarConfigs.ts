@@ -145,7 +145,7 @@ export const SIDEBAR_CONFIGS: Record<string, PortalSidebarConfig> = {
         links: [
           { href: '/admin/approval-center', icon: 'ShieldCheck', label: 'מרכז אישורים' },
           { href: '/admin/authority/community', icon: 'CalendarHeart', label: 'מרכז קהילה' },
-          { href: '/admin/authority/reports', icon: 'Flag', label: 'דיווח תחזוקה ודירוג' },
+          { href: '/admin/authority/reports', icon: 'Flag', label: 'תחזוקה וקהילה' },
           { href: '/admin/authority/team', icon: 'Users', label: 'ניהול צוות' },
           { href: '/admin/authority/users', icon: 'Users', label: 'משתמשים' },
         ],
