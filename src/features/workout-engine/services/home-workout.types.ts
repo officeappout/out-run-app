@@ -178,6 +178,19 @@ export interface HomeWorkoutOptions {
    * alternatives are never surfaced to the user (e.g. schedule-card tap flow).
    */
   generateSingleOption?: boolean;
+
+  /**
+   * When `true`, suppresses the 21-day-gap periodization Cycle Restart write
+   * (`users/{id}.progression.activePrograms` startDate reset) that
+   * `generateHomeWorkoutTrio` would otherwise persist as a side effect.
+   *
+   * Set by READ-ONLY callers that generate a recommendation for preview/planning
+   * without committing the user to it — e.g. the hybrid "full workout in the park"
+   * card, which reuses the home recommendation but must never mutate the user's
+   * program cycle from a preview. Default (false / undefined) preserves the
+   * existing write behaviour byte-for-byte for all current callers.
+   */
+  skipCycleRestart?: boolean;
 }
 
 // ============================================================================

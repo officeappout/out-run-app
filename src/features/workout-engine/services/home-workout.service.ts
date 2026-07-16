@@ -945,7 +945,7 @@ export async function generateHomeWorkoutTrio(
   // When the gap >= 21 days, the policy flagged shouldRestartCycle = true.
   // We persist a fresh startDate to Firestore so the next session begins
   // a new 5-week cycle from Build (Week 1).
-  if (pipeline.sessionPolicy.shouldRestartCycle) {
+  if (pipeline.sessionPolicy.shouldRestartCycle && !options.skipCycleRestart) {
     await _persistCycleRestart(options.userProfile).catch(err =>
       console.warn('[Periodization] Cycle restart write failed (non-blocking):', err),
     );
