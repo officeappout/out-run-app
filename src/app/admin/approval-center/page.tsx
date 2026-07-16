@@ -238,11 +238,17 @@ export default function ApprovalCenterPage() {
     );
   }
 
+  // group: 'agent' = auto-generated map content (QA-style review) ·
+  //        'user'  = user submissions (trust-style review). Presentational only.
   const TABS = [
-    { id: 'locations' as const, label: 'מיקומים', icon: MapPin, items: parks, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', rowIcon: Dumbbell },
-    { id: 'routes' as const, label: 'מסלולים', icon: RouteIcon, items: routes, iconBg: 'bg-cyan-50', iconColor: 'text-cyan-600', rowIcon: RouteIcon },
-    { id: 'climbs' as const, label: 'עליות', icon: Mountain, items: climbs, iconBg: 'bg-orange-50', iconColor: 'text-orange-600', rowIcon: Mountain },
-    { id: 'ugc' as const, label: 'תרומות משתמשים', icon: Users, items: ugc, iconBg: 'bg-purple-50', iconColor: 'text-purple-600', rowIcon: Users },
+    { id: 'locations' as const, group: 'agent' as const, label: 'מיקומים', icon: MapPin, items: parks, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', rowIcon: Dumbbell },
+    { id: 'routes' as const, group: 'agent' as const, label: 'מסלולים', icon: RouteIcon, items: routes, iconBg: 'bg-cyan-50', iconColor: 'text-cyan-600', rowIcon: RouteIcon },
+    { id: 'climbs' as const, group: 'agent' as const, label: 'עליות', icon: Mountain, items: climbs, iconBg: 'bg-orange-50', iconColor: 'text-orange-600', rowIcon: Mountain },
+    { id: 'ugc' as const, group: 'user' as const, label: 'תרומות משתמשים', icon: Users, items: ugc, iconBg: 'bg-purple-50', iconColor: 'text-purple-600', rowIcon: Users },
+  ];
+  const TAB_GROUPS = [
+    { key: 'agent' as const, icon: '🤖', label: 'סוכן חכם', hint: 'נוצר אוטומטית — ביקורת איכות' },
+    { key: 'user' as const, icon: '👤', label: 'משתמשים', hint: 'המלצות משתמשים — ביקורת אמון' },
   ];
   const active = TABS.find(t => t.id === activeTab)!;
 
@@ -284,24 +290,37 @@ export default function ApprovalCenterPage() {
         {isSuperAdmin ? 'מנהל ראשי — מוצגים כל הפריטים הממתינים לאישור' : 'מנהל רשות — מוצגים הפריטים שהגשת לאישור'}
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1 bg-gray-100 rounded-2xl p-1">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <tab.icon size={16} />
-            {tab.label}
-            {tab.items.length > 0 && (
-              <span className="bg-amber-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center">
-                {tab.items.length}
-              </span>
-            )}
-          </button>
+      {/* Tabs — grouped by review nature: 🤖 agent-generated vs 👤 user-submitted.
+          Same tabs, same approval logic; purely a visual separation because the
+          two demand different review mindsets (quality-check vs trust-check). */}
+      <div className="space-y-2.5">
+        {TAB_GROUPS.map(group => (
+          <div key={group.key}>
+            <div className="flex items-center gap-1.5 px-1.5 mb-1.5 text-[11px] font-black text-gray-400">
+              <span className="text-sm">{group.icon}</span>
+              <span>{group.label}</span>
+              <span className="font-medium text-gray-300 truncate">· {group.hint}</span>
+            </div>
+            <div className="flex flex-wrap gap-1 bg-gray-100 rounded-2xl p-1">
+              {TABS.filter(tab => tab.group === group.key).map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                    activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <tab.icon size={16} />
+                  {tab.label}
+                  {tab.items.length > 0 && (
+                    <span className="bg-amber-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center">
+                      {tab.items.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
