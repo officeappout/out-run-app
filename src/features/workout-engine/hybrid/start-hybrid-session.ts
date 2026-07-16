@@ -354,7 +354,11 @@ export async function runHybridPlan(composed: ComposedHybridSession, startRun: (
   const rp = useRunningPlayer.getState();
   rp.setHybridMode(true);
   rp.setActiveRoutePath(composed.routePath);
-  useHybridRun.getState().startHybrid(composed.plan, composed.aerobicKind);
+  // Belt-and-suspenders: run the SELECTED bolt straight from the trio (full-park), so
+  // the run always tracks the overview's carousel choice even if composed.plan wasn't
+  // synced. Budget-split cards have no `bolts` → their single composed.plan is used.
+  const activePlan = composed.bolts ? composed.bolts.plans[composed.bolts.selectedIndex] : composed.plan;
+  useHybridRun.getState().startHybrid(activePlan, composed.aerobicKind);
   startRun();
 }
 
