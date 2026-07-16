@@ -33,6 +33,13 @@ export interface ComposedHybridSession {
   fallbackHint?: string;
   /** The strength station's marker on the map — absent for a bodyweight (A3) stop. */
   station?: { lat: number; lng: number; name?: string; image?: string };
+  /**
+   * Full-park-workout only (Phase 2): the 3 difficulty options (קל/בינוני/קשה) for the
+   * overview carousel, composed ONCE. `plan` mirrors `plans[selectedIndex]` (starts at
+   * 1 = balanced) so existing consumers keep working; the carousel swaps by index with
+   * no re-compose. Absent for budget-split cards, which have a single plan.
+   */
+  bolts?: { plans: HybridPlan[]; selectedIndex: number; labels: string[] };
 }
 
 /** A dense square loop around a point, ~`km` perimeter — the no-route fallback. */
@@ -109,51 +116,61 @@ async function composeFullParkWorkout(
   if (!oab) { console.warn('[composeFullParkWorkout] no equipped park reachable → no card'); return null; }
 
   try {
-    // Home recommendation — READ-ONLY preview (skipCycleRestart), balanced bolt (D2).
+    // Home recommendation — READ-ONLY preview (skipCycleRestart). All 3 bolts, one call.
     const trio = await generateHomeWorkoutTrio({
       userProfile: profile as any,
       location: 'park',
       parkEquipmentIds: oab.station.availableEquipment,
       skipCycleRestart: true,
     });
-    const rawWorkout = trio.options[1].result.workout;
 
-    // ⚠️ (uncertainty #b): empty pool at a sparse park → rest-day, NOT an empty station.
-    const restLike =
-      trio.isRestDay ||
-      (rawWorkout.exercises?.length ?? 0) === 0 ||
-      rawWorkout.isRecovery === true;
-    const planWorkout = restLike ? { ...rawWorkout, exercises: [] } : rawWorkout;
+    const station = {
+      stopId: oab.station.name ? `park:${oab.station.name}` : (oab.station.parkId ?? 'park'),
+      parkId: oab.station.parkId,
+      locationKind: 'gym' as const,
+      lat: oab.station.lat,
+      lng: oab.station.lng,
+      waypointIndex: oab.station.waypointIndex,
+    };
 
-    const plan = composeParkWorkoutPlan({
-      routePath: oab.routePath,
-      station: {
-        stopId: oab.station.name ? `park:${oab.station.name}` : (oab.station.parkId ?? 'park'),
-        parkId: oab.station.parkId,
-        locationKind: 'gym',
-        lat: oab.station.lat,
-        lng: oab.station.lng,
-        waypointIndex: oab.station.waypointIndex,
-      },
-      workout: planWorkout,
-      aerobicKind: intent.aerobicKind,
-      paceProfile,
-      userWeightKg,
-      emphasis: 'strength', // display-only; full-park is strength-dominant
+    // One plan per bolt option — same park + route, only the strength content differs.
+    // ⚠️ (uncertainty #b): an empty pool at a sparse park is a rest-day PER OPTION →
+    // aerobic-only, never an empty station.
+    const built = trio.options.map((opt) => {
+      const w = opt.result.workout;
+      const rest = trio.isRestDay || (w.exercises?.length ?? 0) === 0 || w.isRecovery === true;
+      const planWorkout = rest ? { ...w, exercises: [] } : w;
+      return {
+        rest,
+        plan: composeParkWorkoutPlan({
+          routePath: oab.routePath,
+          station,
+          workout: planWorkout,
+          aerobicKind: intent.aerobicKind,
+          paceProfile,
+          userWeightKg,
+          emphasis: 'strength', // display-only; full-park is strength-dominant
+        }),
+      };
     });
+
+    const selectedIndex = 1; // balanced (bolt 2) — the recommended default
+    const restLike = built[selectedIndex].rest;
+    const plans = built.map((b) => b.plan);
 
     console.log(
       `[hybrid:diag] full-park compose: park="${oab.station.name}"` +
-      ` equip=[${oab.station.availableEquipment.join(',')}] restLike=${restLike}` +
-      ` ex=${planWorkout.exercises.length} routeKm=${plan.totals.distanceKm}`,
+      ` equip=[${oab.station.availableEquipment.join(',')}] bolts=${plans.length}` +
+      ` default#${selectedIndex} restLike=${restLike} routeKm=${plans[selectedIndex].totals.distanceKm}`,
     );
 
     return {
-      plan,
+      plan: plans[selectedIndex],
       routePath: oab.routePath,
       aerobicKind: intent.aerobicKind,
       fallbackHint: restLike ? 'יום מנוחה — הליכה בלבד' : undefined,
       station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
+      bolts: { plans, selectedIndex, labels: ['קל', 'בינוני', 'קשה'] },
     };
   } catch (e) {
     console.warn('[composeFullParkWorkout] home trio / compose failed', e);
