@@ -185,6 +185,7 @@ export async function approveNewLocation(
     location: contribution.location,
     facilityType: contribution.facilityType,
     featureTags: contribution.featureTags ?? [],
+    gymEquipment: contribution.gymEquipment ?? [],
     authorityId: contribution.authorityId,
     image: contribution.photoUrl,
     status: 'open',
