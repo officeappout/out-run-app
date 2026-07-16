@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
-import { X, Star, Play, Pencil, Navigation, MapPin, Flag, ChevronLeft, Loader2, Calendar, Users, UserPlus, RefreshCw, MessageCircle, Check, Dumbbell } from 'lucide-react';
+import { X, Star, Play, Pencil, Navigation, MapPin, Flag, ChevronLeft, Loader2, Calendar, Users, UserPlus, RefreshCw, MessageCircle, Check } from 'lucide-react';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useUserStore } from '@/features/user';
 import { getReviewsForPark } from '@/features/parks/core/services/contribution.service';
@@ -27,6 +27,7 @@ import { auth } from '@/lib/firebase';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DualRangeSlider from '@/features/partners/components/DualRangeSlider';
 import EquipmentDetailDrawer from '../equipment-detail/EquipmentDetailDrawer';
+import EquipmentCard from '../equipment-detail/EquipmentCard';
 
 const DAY_FILTER_LABELS: Record<DayFilter, string> = {
   today: 'היום',
@@ -901,98 +902,21 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       <h3 className="text-[16px] font-bold mb-3">מתקנים</h3>
                       <div className="grid grid-cols-2 gap-2">
                         {parkEquipment.map((eq) => {
-                          // Resolve the brand the park advertises for
-                          // this equipment id so we can preview its
-                          // image/icon directly on the card and pass
-                          // the brand name through to the drawer.
                           const parkRef = park.gymEquipment?.find(
                             (g) => g.equipmentId === eq.id,
                           );
                           // Resolution: per-equipment override → park-level primaryBrand → ''
                           const brandName = parkRef?.brandName || park.primaryBrand || '';
-                          const brandImage = brandName
-                            ? eq.brands?.find((b) => b.brandName === brandName)?.imageUrl
-                            : eq.brands?.[0]?.imageUrl;
-                          // hasVideo reflects the drawer's fallback: if any brand of this
-                          // equipment has a video, the drawer will surface it (QW1 fallback).
-                          const hasVideo = !!eq.brands?.some((b) => !!b.videoUrl);
-
                           return (
-                            <button
+                            <EquipmentCard
                               key={eq.id}
-                              type="button"
+                              equipment={eq}
+                              brandName={brandName}
+                              rightSlot="chevron"
                               onClick={() =>
-                                setSelectedEquipment({
-                                  id: eq.id,
-                                  brand: brandName || null,
-                                })
+                                setSelectedEquipment({ id: eq.id, brand: brandName || null })
                               }
-                              className="group flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-slate-800/90 shadow-sm active:scale-[0.98] transition-transform text-start w-full"
-                              style={{ border: '0.5px solid #E0E9FF' }}
-                              aria-label={`${eq.name}${brandName ? ` (${brandName})` : ''}`}
-                            >
-                              {/* Media thumbnail — prefers the brand's
-                                  product photo, falls back to the
-                                  equipment SVG icon, then to a generic
-                                  Dumbbell glyph as a last resort. */}
-                              <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
-                                {brandImage ? (
-                                  <img
-                                    src={bunnyImg(brandImage, 200)}
-                                    alt=""
-                                    className="w-full h-full object-cover"
-                                    loading="lazy"
-                                    decoding="async"
-                                    onError={(e) => {
-                                      const img = e.currentTarget as HTMLImageElement;
-                                      img.style.display = 'none';
-                                      img.parentElement?.querySelector('[data-fallback]')?.classList.remove('hidden');
-                                    }}
-                                  />
-                                ) : null}
-                                <div
-                                  data-fallback
-                                  className={brandImage ? 'hidden' : ''}
-                                >
-                                  {eq.iconKey ? (
-                                    <img
-                                      src={`/assets/icons/equipment/${eq.iconKey}.svg`}
-                                      alt=""
-                                      className="w-8 h-8 object-contain"
-                                      loading="lazy"
-                                      decoding="async"
-                                    />
-                                  ) : (
-                                    <Dumbbell size={22} className="text-cyan-500" />
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Text + chevron column */}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-bold text-gray-900 dark:text-white leading-tight line-clamp-2">
-                                  {eq.name}
-                                </p>
-                                {brandName && (
-                                  <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                                    {brandName}
-                                  </p>
-                                )}
-                                {hasVideo && (
-                                  <span className="inline-block mt-1 text-[9px] font-bold text-cyan-600">
-                                    סרטון זמין
-                                  </span>
-                                )}
-                              </div>
-                              {/* In RTL the visual "forward" arrow points
-                                  left — `ChevronLeft` is the correct
-                                  glyph here, matching the back-button
-                                  convention used elsewhere in the sheet. */}
-                              <ChevronLeft
-                                size={16}
-                                className="flex-shrink-0 text-gray-400 group-hover:text-cyan-500 transition-colors"
-                              />
-                            </button>
+                            />
                           );
                         })}
                       </div>
