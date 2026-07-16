@@ -4,6 +4,7 @@
  */
 import type { ParkFacilityCategory, ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import type { Park } from '@/features/parks/core/types/park.types';
+import type { ParkGymEquipment } from '@/features/content/equipment/gym';
 
 export type ContributionType = 'new_location' | 'report' | 'suggest_edit' | 'review';
 export type ContributionStatus = 'pending' | 'approved' | 'rejected';
@@ -31,6 +32,13 @@ export interface UserContribution {
   facilityType?: ParkFacilityCategory;
   featureTags?: ParkFeatureTag[];
   isPointOfInterest?: boolean;
+  /**
+   * Specific park equipment the user picked (gym_park only). Each entry is
+   * { equipmentId, brandName } — brandName is stored as '' because the user
+   * never picks a brand; it is resolved by the admin / brand-fallback on
+   * approval, where this array is passed straight into createPark.
+   */
+  gymEquipment?: ParkGymEquipment[];
 
   // ── suggest_edit fields ──
   linkedParkId?: string;
