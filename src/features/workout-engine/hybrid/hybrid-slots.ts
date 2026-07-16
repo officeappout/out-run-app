@@ -22,6 +22,7 @@
 import type { HybridStartIntent } from './build-hybrid-input';
 import type { HybridEmphasis, AerobicKind } from './compose-hybrid-session.service';
 import type { HybridShapeName } from './hybrid-shape';
+import { HYBRID_FULL_PARK_WORKOUT_ENABLED } from '@/config/feature-flags';
 
 export type SlotKind = 'hybrid' | 'aerobic_quick';
 
@@ -58,6 +59,12 @@ export interface HybridPreset {
   bolts: Bolts;
   /** Default budget when the slot flow has no goal UI (Phase 3 brain refines). */
   defaultTimeBudgetMin: number;
+  /**
+   * Compose-branch marker (full-park workout). When set, presetToIntent threads it
+   * onto the intent so composeHybridPlan routes to composeFullParkWorkout. Omitted →
+   * the default budget-split path (all existing presets).
+   */
+  mode?: 'full_park_workout';
 }
 
 interface SlotBase {
@@ -93,6 +100,10 @@ export interface SlotEnv {
   /** Active activity toggle on the slot layer. */
   aerobicKind: AerobicKind;
   profileType?: 1 | 2 | 3 | 4;
+  /** Full-park gate: an EQUIPPED primary-fitness park is reachable (DiscoverLayer). */
+  hasEquippedPark?: boolean;
+  /** Full-park gate: the user has ≥1 active strength program (DiscoverLayer). */
+  hasStrengthProgram?: boolean;
 }
 
 /** Placeholder for the Phase-3 "brain" (last session / weekly gap). */
@@ -112,6 +123,9 @@ export const HYBRID_PRESETS: Record<string, HybridPreset> = {
   walk_fast:     { id: 'walk_fast',     aerobicKind: 'walking', emphasis: 'aerobic',  shape: 'sandwich', bolts: 1, defaultTimeBudgetMin: 30 }, // Phase 2
   walk_strength: { id: 'walk_strength', aerobicKind: 'walking', emphasis: 'strength', shape: 'sandwich', bolts: 3, defaultTimeBudgetMin: 35 }, // Phase 2
   run_balanced:  { id: 'run_balanced',  aerobicKind: 'running', emphasis: 'balanced', shape: 'sandwich', bolts: 2, defaultTimeBudgetMin: 35 }, // Phase 2
+  // full_park: walk/run to an equipped park, do the FULL home strength workout, come back.
+  // aerobicKind is overridden from env at resolve time; mode routes to composeFullParkWorkout.
+  full_park:     { id: 'full_park',     aerobicKind: 'walking', emphasis: 'strength', shape: 'sandwich', bolts: 2, defaultTimeBudgetMin: 30, mode: 'full_park_workout' },
   // run_core: runner_collects shape (station at END, runner-appropriate tag) → Phase 3.
 };
 
@@ -163,6 +177,28 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
     recommended: true,
     accent: BRAND,
   });
+
+  // ── Full-park workout — flag + gate (equipped park AND a strength program) ──
+  // ADDITIVE + dark: the flag defaults false → never surfaced. composeFullParkWorkout
+  // also returns null if park resolution fails, but the gate keeps the card from
+  // showing at all when there is no equipped park / no program. Placed alongside the
+  // recommended card (MVP).
+  if (HYBRID_FULL_PARK_WORKOUT_ENABLED && env.hasEquippedPark && env.hasStrengthProgram) {
+    const fpPreset: HybridPreset = { ...HYBRID_PRESETS.full_park, aerobicKind: env.aerobicKind };
+    slots.push({
+      kind: 'hybrid',
+      id: 'full_park',
+      preset: fpPreset,
+      timeBudgetMin: fpPreset.defaultTimeBudgetMin,
+      title: 'אימון מלא בפארק',
+      subtitle: env.aerobicKind === 'running'
+        ? 'ריצה לפארק · אימון כוח מלא · חזרה'
+        : 'הליכה לפארק · אימון כוח מלא · חזרה',
+      bolts: fpPreset.bolts,
+      recommended: false,
+      accent: BRAND,
+    });
+  }
 
   // ── Slot 2 — "עצימות אחרת" (second hybrid preset) → Phase 2 (structure ready) ──
 
