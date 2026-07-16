@@ -41,6 +41,16 @@ export interface HybridStartIntent {
    * drawer flow is byte-identical.
    */
   difficulty?: number;
+  /**
+   * Compose-branch selector (additive; Phase 0.2). When `'full_park_workout'`,
+   * composeHybridPlan will (Phase 1) route to a dedicated composeParkWorkoutPlan
+   * path — walk to a nearby equipped park, do the FULL home-recommended strength
+   * workout there, walk back — reusing the home recommendation instead of the
+   * ad-hoc station. Omitted / undefined → the existing budget-split path runs,
+   * byte-identical. NOTE: nothing reads this field yet; it is scaffolding for the
+   * Phase 1 branch.
+   */
+  mode?: 'full_park_workout';
 }
 
 /**
