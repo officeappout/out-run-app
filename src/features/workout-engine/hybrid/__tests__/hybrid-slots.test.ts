@@ -9,7 +9,7 @@ vi.mock('@/config/feature-flags', () => ({
   },
 }));
 
-import { resolveSlots, type SlotEnv } from '../hybrid-slots';
+import { resolveSlots, presetToIntent, HYBRID_PRESETS, type SlotEnv } from '../hybrid-slots';
 
 const env = (over: Partial<SlotEnv> = {}): SlotEnv => ({
   hasGps: true,
@@ -63,5 +63,21 @@ describe('resolveSlots — full-park gate', () => {
   it('never disturbs the existing recommended + aerobic_quick slots', () => {
     const slots = resolveSlots(env({ hasEquippedPark: true, hasStrengthProgram: true }));
     expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
+  });
+});
+
+describe('presetToIntent — mode threading', () => {
+  it('threads mode: full_park_workout for the full_park preset', () => {
+    const intent = presetToIntent(HYBRID_PRESETS.full_park, 30);
+    expect(intent.mode).toBe('full_park_workout');
+    expect(intent.aerobicKind).toBe(HYBRID_PRESETS.full_park.aerobicKind);
+    expect(intent.difficulty).toBe(2); // bolts 2
+    expect(intent.timeBudgetMin).toBe(30);
+  });
+
+  it('omits mode for budget-split presets — intents stay byte-identical', () => {
+    const intent = presetToIntent(HYBRID_PRESETS.walk_balanced, 30);
+    expect(intent.mode).toBeUndefined();
+    expect('mode' in intent).toBe(false);
   });
 });

@@ -146,6 +146,9 @@ export function presetToIntent(preset: HybridPreset, timeBudgetMin: number): Hyb
     emphasis: preset.emphasis,
     aerobicKind: preset.aerobicKind,
     difficulty: boltsToDifficulty(preset.bolts),
+    // Thread the compose-branch marker (full-park). Conditional spread keeps existing
+    // budget-split intents byte-identical (no `mode` key at all).
+    ...(preset.mode ? { mode: preset.mode } : {}),
   };
 }
 
