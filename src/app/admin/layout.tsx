@@ -741,6 +741,7 @@ function AdminLayoutInner({
                                             {showAuthorityManagerLink && (
                                                 <SidebarLink href="/admin/authority-manager" icon={BarChart3} label="דשבורד אנליטיקה" />
                                             )}
+                                            <SidebarLink href="/admin/approval-center" icon={ShieldCheck} label="מרכז אישורים" />
                                             <SidebarLink href="/admin/pressure-messages" icon={Megaphone} label="מסרי לחץ" />
                                             <SidebarLink href="/admin/authority/reports" icon={Flag} label="דיווחי תחזוקה" />
                                             <SidebarLink href="/admin/heatmap" icon={Activity} label="מפת חום חיה" />
