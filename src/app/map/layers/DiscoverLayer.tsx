@@ -460,12 +460,38 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const { profile } = useUserStore();
   const myGroupIds = profile?.social?.groupIds ?? [];
 
+  // ── Full-park gate signals (Phase 3.1c) ────────────────────────────────────
+  // hasStrengthProgram: sync from the profile (any active program qualifies for MVP).
+  const hasStrengthProgram = (profile?.progression?.activePrograms?.length ?? 0) > 0;
+  // hasEquippedPark: resolved async from the CACHED all-parks set (same fetchRealParks
+  // the map + composer use — stale-while-revalidate), via the pure nearestEquippedPark
+  // (Phase 1.1). READ-ONLY; no new fetch cost beyond the shared cache.
+  const [hasEquippedPark, setHasEquippedPark] = useState(false);
+  useEffect(() => {
+    const loc = userLocation;
+    if (!loc) { setHasEquippedPark(false); return; }
+    let cancelled = false;
+    Promise.all([
+      import('@/features/parks/core/services/parks.service'),
+      import('@/features/workout-engine/hybrid/park-out-and-back'),
+    ]).then(async ([{ fetchRealParks }, { nearestEquippedPark }]) => {
+      try {
+        const parks = await fetchRealParks();
+        if (!cancelled) setHasEquippedPark(nearestEquippedPark(loc, parks as any) != null);
+      } catch { if (!cancelled) setHasEquippedPark(false); }
+    });
+    return () => { cancelled = true; };
+  }, [userLocation]);
+
   // ── Hybrid slot resolver + handlers (need userLocation/userCityName) ───────
-  // nearbyParkCount is optimistic here — the real A3 (bodyweight) determination
-  // surfaces at the overview via the composer's fallbackHint.
+  // nearbyParkCount stays optimistic (A3 surfaces at the overview via fallbackHint);
+  // the full-park card has its OWN hard gate (hasEquippedPark + hasStrengthProgram).
   const slots = useMemo<HybridSlot[]>(
-    () => resolveSlots({ hasGps: !!userLocation, nearbyParkCount: 1, aerobicKind: slotActivity }),
-    [userLocation, slotActivity],
+    () => resolveSlots({
+      hasGps: !!userLocation, nearbyParkCount: 1, aerobicKind: slotActivity,
+      hasEquippedPark, hasStrengthProgram,
+    }),
+    [userLocation, slotActivity, hasEquippedPark, hasStrengthProgram],
   );
 
   // Draw a composed hybrid loop on the LIVE map (READ-ONLY — no save, no run).
@@ -530,6 +556,13 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     // Every settle invalidates any in-flight preview compose (fast-swipe guard).
     const flowId = ++hybridPreviewFlowIdRef.current;
     if (slot.kind !== 'hybrid') {
+      setHybridPreviewComposing(false);
+      logic.setFocusedRoute(null);
+      return;
+    }
+    // #3: the full-park compose is heavy (home trio + park resolution + Mapbox) — never
+    // fire it on settle/hover. Compose ONLY on tap (handleSelectSlot); clear any preview.
+    if (slot.preset.mode === 'full_park_workout') {
       setHybridPreviewComposing(false);
       logic.setFocusedRoute(null);
       return;
