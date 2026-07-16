@@ -23,6 +23,9 @@ import { normalizeStoredRoutePath } from '@/features/parks/core/utils/routePath'
 import {
   CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, ACTIVITY_LABELS, formatDistance, isRealStreetName,
 } from './approval-labels';
+import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
+import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import EquipmentCard from '@/features/parks/client/components/equipment-detail/EquipmentCard';
 
 // Map is client-only (react-map-gl) — load lazily so the drawer shell renders instantly.
 const ApprovalPreviewMap = dynamicImport(() => import('./ApprovalPreviewMap'), {
@@ -187,6 +190,26 @@ export default function ApprovalDetailModal({
     return () => { cancelled = true; };
   }, [item]);
 
+  // G4: resolve the user-proposed equipment (contribution only) into full docs
+  // for a read-only preview, so the reviewer sees what was suggested.
+  const [equip, setEquip] = useState<Array<{ eq: GymEquipment; brandName: string }>>([]);
+  useEffect(() => {
+    const list: Array<{ equipmentId: string; brandName?: string }> =
+      item?.entityType === 'contribution' && Array.isArray(data?.gymEquipment) ? data.gymEquipment : [];
+    if (list.length === 0) { setEquip([]); return; }
+    let cancelled = false;
+    Promise.all(
+      list.map((g) =>
+        getGymEquipment(g.equipmentId)
+          .then((eq) => (eq ? { eq, brandName: g.brandName || '' } : null))
+          .catch(() => null),
+      ),
+    ).then((items) => {
+      if (!cancelled) setEquip(items.filter(Boolean) as Array<{ eq: GymEquipment; brandName: string }>);
+    });
+    return () => { cancelled = true; };
+  }, [data, item]);
+
   if (!item) return null;
 
   const meta = ENTITY_META[item.entityType];
@@ -252,6 +275,18 @@ export default function ApprovalDetailModal({
                 ))
               )}
             </div>
+
+            {/* G4: read-only preview of user-proposed equipment (contribution only). */}
+            {equip.length > 0 && (
+              <div className="px-5 pb-5">
+                <h4 className="text-xs font-bold text-gray-400 mb-2">מתקנים שהוצעו ({equip.length})</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {equip.map(({ eq, brandName }) => (
+                    <EquipmentCard key={eq.id} equipment={eq} brandName={brandName} rightSlot="none" />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
