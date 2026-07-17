@@ -13,7 +13,7 @@
  */
 
 import { useState } from 'react';
-import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft } from 'lucide-react';
+import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import CaloriesChip from '@/components/ui/CaloriesChip';
@@ -79,6 +79,8 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const t = plan.totals;
   const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
   const [showWeightNudge, setShowWeightNudge] = useState(false);
+  // "פירוט" progressive-disclosure section (full-park only), collapsed by default.
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Warmup skip/expand (full-park). Mirrors WorkoutPreviewDrawer's local state; the skip
   // is carried onto the SHARED composed object so the RUN strips the warmup (useHybridRun),
@@ -172,13 +174,26 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
 
           {/* scroll body */}
           <div className="flex-1 overflow-y-auto px-4 pt-2">
-            <div className="text-[18px] font-black" style={{ color: '#111827' }}>אימון משולב</div>
-            {/* total workout time + estimated finish (Moovit-style "18 דקות | שעת הגעה 19:58") */}
-            <div className="flex items-center gap-1.5 text-[13px] mt-1" style={{ color: '#374151' }}>
-              <span className="font-black">{totalMin} דק׳</span>
-              <span style={{ color: '#D1D5DB' }}>·</span>
-              <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
-            </div>
+            {composed.bolts ? (
+              /* full-park: ONE unified title row — title · duration · finish */
+              <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
+                <span className="text-[18px] font-black" style={{ color: '#111827' }}>אימון משולב</span>
+                <span style={{ color: '#D1D5DB' }}>·</span>
+                <span className="font-black" style={{ color: '#374151' }}>{totalMin} דק׳</span>
+                <span style={{ color: '#D1D5DB' }}>·</span>
+                <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-[18px] font-black" style={{ color: '#111827' }}>אימון משולב</div>
+                {/* total workout time + estimated finish (Moovit-style "18 דקות | שעת הגעה 19:58") */}
+                <div className="flex items-center gap-1.5 text-[13px] mt-1" style={{ color: '#374151' }}>
+                  <span className="font-black">{totalMin} דק׳</span>
+                  <span style={{ color: '#D1D5DB' }}>·</span>
+                  <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
+                </div>
+              </>
+            )}
             <div className="flex items-center gap-1.5 text-[12px] mt-0.5" style={{ color: '#6B7280' }}>
               <MapPin size={14} /> {cityName ?? 'קרוב אליך'} · לולאה עם תחנת כוח אחת
             </div>
@@ -199,13 +214,35 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               </div>
             </div>
 
-            {/* chips */}
-            <div className="flex gap-2 mt-3 flex-wrap">
-              <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
-              <Chip icon={<Clock size={15} />}>{totalMin} דק׳</Chip>
-              <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
-            </div>
-            {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
+            {composed.bolts ? (
+              /* full-park: "פירוט" collapsible (defaultOpen=false) — stats now, container for future detail */
+              <div className="mt-3">
+                <button type="button" onClick={() => setDetailOpen((o) => !o)} aria-expanded={detailOpen}
+                  className="flex items-center gap-1 text-[12px] font-black active:scale-[0.98] transition-transform" style={{ color: '#6B7280', letterSpacing: '.03em' }}>
+                  <ChevronDown size={15} style={{ transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} /> פירוט
+                </button>
+                {detailOpen && (
+                  <div className="mt-2">
+                    <div className="flex gap-2 flex-wrap">
+                      <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
+                      <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
+                    </div>
+                    {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
+                    {/* container for future expanded detail — no content yet */}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* chips */}
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
+                  <Chip icon={<Clock size={15} />}>{totalMin} דק׳</Chip>
+                  <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
+                </div>
+                {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
+              </>
+            )}
 
             {/* meta row — difficulty carousel (full-park, קל/בינוני/קשה with emergent
                 minutes) or, for budget-split cards, the original static bolts pill */}
