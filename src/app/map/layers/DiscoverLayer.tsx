@@ -10,7 +10,7 @@ import ExerciseDetailDrawer from '@/features/workouts/components/workout-preview
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import { useProgramMap } from '@/features/workouts/components/workout-preview-drawer/hooks/useProgramMap';
 import type { ExecutionLocation } from '@/features/content/exercises';
-import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
+import type { ComposedHybridSession, HybridRoutePreview } from '@/features/workout-engine/hybrid/start-hybrid-session';
 import HybridSlotCarousel, { ENTRY_PHRASES } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
 import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
@@ -203,6 +203,11 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // build-your-own / per-slot overrides land, the same slot.id can yield
   // different plans → expand the key to include the config/intent (e.g. a hash).
   const hybridPreviewCacheRef = useRef<Map<string, ComposedHybridSession>>(new Map());
+  // Separate LIGHT cache for the full-park card's route-only settle-preview. Kept
+  // apart from hybridPreviewCacheRef on purpose: that cache is reused verbatim by
+  // the CTA as the FULL composed session (needs the bolts trio), so a route-only
+  // object must never land in it — else the overview would open without options.
+  const hybridRoutePreviewCacheRef = useRef<Map<string, HybridRoutePreview>>(new Map());
   // Race guard: a stale/late preview compose must not draw after the user has
   // already swiped to another card / left the layer (mirrors hybridFlowIdRef).
   const hybridPreviewFlowIdRef = useRef(0);
@@ -215,6 +220,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // jitter; recomposing on every location tick would thrash.)
   useEffect(() => {
     hybridPreviewCacheRef.current.clear();
+    hybridRoutePreviewCacheRef.current.clear();
     hybridPreviewFlowIdRef.current += 1;
   }, [slotActivity]);
 
@@ -510,6 +516,20 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logic]);
 
+  // Draw a LIGHT route-only preview (full-park settle-preview) — same map shape as
+  // drawComposedRoute, but sourced from the route+station+distance preview instead
+  // of a fully composed plan (which would require the heavy home-workout trio).
+  const drawRoutePreview = useCallback((preview: HybridRoutePreview) => {
+    logic.setFocusedRoute({
+      id: 'hybrid-route', name: 'אימון משולב', path: preview.routePath,
+      distance: preview.distanceKm,
+      stationMarker: preview.station
+        ? { lat: preview.station.lat, lng: preview.station.lng, name: preview.station.name, image: preview.station.image }
+        : null,
+    } as unknown as Route);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logic]);
+
   // Compose a hybrid plan → show the overview. Shared by the drawer's
   // "התחל משולב" and the recommended slot: composes ONCE, then runs the SAME
   // object (no re-compose). fallbackStep = where to return if no route builds.
@@ -560,10 +580,38 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       logic.setFocusedRoute(null);
       return;
     }
-    // full_park_workout previews on settle too. The compose was formerly excluded
-    // here as "too heavy", but the route generator now returns a single loop for
-    // hybrid (maxRoutes:1 — no 3-route sequential 1.5s delay chain), so its route
-    // draws on focus like every other hybrid card, not only on the CTA tap.
+    // full_park_workout: draw the ROUTE ONLY on settle. Its full compose builds a
+    // 3-workout home trio (generateHomeWorkoutTrio) that the map never needs to
+    // draw — so the settle-preview runs only the fast half (route + station) via
+    // composeFullParkRoutePreview, and the heavy trio is deferred to the CTA
+    // (handleSelectSlot → overview). Uses the SEPARATE light cache so it never
+    // poisons the full-compose cache the CTA reuses.
+    if (slot.preset.mode === 'full_park_workout') {
+      const cachedRoute = hybridRoutePreviewCacheRef.current.get(slot.id);
+      if (cachedRoute) {
+        setHybridPreviewComposing(false);
+        drawRoutePreview(cachedRoute);
+        return;
+      }
+      setHybridPreviewComposing(true);
+      import('@/features/workout-engine/hybrid/start-hybrid-session').then(async ({ composeFullParkRoutePreview }) => {
+        const preview = await composeFullParkRoutePreview(presetToIntent(slot.preset, slot.timeBudgetMin), {
+          userPosition: userLocation,
+          cityName: userCityName,
+          startRun: () => {}, // preview NEVER starts a session (read-only)
+        });
+        // Superseded (user swiped away / left the layer) → drop silently, no draw.
+        if (hybridPreviewFlowIdRef.current !== flowId) return;
+        setHybridPreviewComposing(false);
+        if (!preview) return; // no equipped park / no position → leave map as-is
+        hybridRoutePreviewCacheRef.current.set(slot.id, preview);
+        drawRoutePreview(preview);
+      });
+      return;
+    }
+
+    // Regular hybrid (walk+strength budget-split): full compose on settle — now
+    // fast (maxRoutes:1, single loop, no 1.5s chain) — cached for CTA reuse.
     const cached = hybridPreviewCacheRef.current.get(slot.id);
     if (cached) {
       setHybridPreviewComposing(false);
@@ -585,7 +633,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       drawComposedRoute(composed);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName, logic, drawComposedRoute]);
+  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview]);
 
   // Slot selection: hybrid → compose→overview; aerobic_quick → start now (skip overview).
   const handleSelectSlot = useCallback((slot: HybridSlot) => {

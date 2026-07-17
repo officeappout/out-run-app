@@ -184,6 +184,56 @@ async function composeFullParkWorkout(
   }
 }
 
+/**
+ * Lightweight route-only preview for the full-park card's settle-preview.
+ *
+ * `composeFullParkWorkout` above is heavy: after resolving the route it calls
+ * `generateHomeWorkoutTrio` (THREE full strength workouts) + a park-plan compose
+ * per bolt — none of which the map needs to DRAW the route. So the settle-preview
+ * calls this instead: it runs ONLY the fast half (nearest equipped park + the
+ * out-and-back route) and returns route + station + distance. The heavy trio is
+ * deferred to the CTA (`composeFullParkWorkout`, via the overview), so the route
+ * paints on focus while the workout options compute only when the user taps in.
+ *
+ * Returns null (leave map as-is) when there's no position / no equipped park.
+ */
+export interface HybridRoutePreview {
+  routePath: [number, number][];
+  /** Straight-line round-trip distance (km) — a preview approximation of the plan total. */
+  distanceKm: number;
+  station?: { lat: number; lng: number; name?: string; image?: string };
+}
+
+export async function composeFullParkRoutePreview(
+  intent: HybridStartIntent,
+  ctx: HybridSessionContext,
+): Promise<HybridRoutePreview | null> {
+  if (intent.mode !== 'full_park_workout') return null; // route-preview is full-park only
+  if (!ctx.userPosition) { console.warn('[composeFullParkRoutePreview] no user position'); return null; }
+
+  const [{ fetchRealParks }, { resolveParkOutAndBack }] = await Promise.all([
+    import('@/features/parks/core/services/parks.service'),
+    import('./park-out-and-back'),
+  ]);
+
+  let parks: any[] = [];
+  try { parks = await fetchRealParks(); } catch { /* no parks → no card */ }
+
+  const oab = await resolveParkOutAndBack({
+    userPosition: ctx.userPosition,
+    parks,
+    aerobicKind: intent.aerobicKind,
+    cityName: ctx.cityName,
+  });
+  if (!oab) { console.warn('[composeFullParkRoutePreview] no equipped park reachable → no route'); return null; }
+
+  return {
+    routePath: oab.routePath,
+    distanceKm: oab.targetKm,
+    station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
+  };
+}
+
 /** COMPOSE the plan (no run start). Returns null if no route can be built. */
 export async function composeHybridPlan(
   intent: HybridStartIntent,
