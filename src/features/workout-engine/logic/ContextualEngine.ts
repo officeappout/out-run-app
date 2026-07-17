@@ -609,6 +609,72 @@ export class ContextualEngine {
         m.location === 'park' || m.locationMapping?.includes('park' as any),
       );
 
+      // ── [hybrid-method-diag] EXPANDED — per-exercise method + gating trace ──
+      // [TEMP DIAG — remove after debugging] Prints, for EVERY park exercise:
+      //   • all candidate methods (methodName, location, mapping, resolved gear, media)
+      //   • the park inventory this exercise is gated against
+      //   • per park-method: required gear, which gear is MISSING from inventory,
+      //     and whether the method PASSED or was BLOCKED by ParkGating.
+      // Root-cause decoder for the "park exercise shows a home method" bug:
+      //   – park method BLOCKED (missing gear) → park equipment MAPPING/inventory is
+      //     the root, NOT preferMedia.
+      //   – park method PASSED but a home method was still selected → preferMedia bug.
+      {
+        const dName = typeof exercise.name === 'string'
+          ? exercise.name
+          : (exercise.name?.he || exercise.name?.en || exercise.id);
+        const gateReport = (m: ExecutionMethod) => {
+          const gear = collectMethodGear(m);
+          const requiredIds = gear.filter(
+            id => id !== 'bodyweight' && id !== 'none' && !SURFACE_GEAR_AT_PARK.has(id) && !isGearOptional(id),
+          );
+          const missing = requiredIds.filter(
+            reqId => !satisfiesGearRequirement(reqId, normalizedAvailable),
+          );
+          return {
+            methodName: (m as any).methodName ?? '?',
+            location: m.location ?? null,
+            mapping: m.locationMapping ?? null,
+            resolvedGear: gear,
+            requiredGear: requiredIds,
+            missingGear: missing,
+            gatingResult: missing.length === 0 ? 'PASSED' : 'BLOCKED',
+            hasMedia: hasMedia(m),
+          };
+        };
+        const parkPassed = parkCandidates.filter(m => applyParkGating([m]).length > 0);
+        // Mirror the real selection so the diag shows what actually gets picked.
+        const diagGated = applyParkGating(parkCandidates);
+        const diagSelected = diagGated.length > 0 ? preferMedia(diagGated, 'park') : null;
+        console.log('[hybrid-method-diag]', {
+          name: dName,
+          contextLocation: context.location,
+          parkInventory: normalizedAvailable,
+          allMethods: methods.map(m => ({
+            methodName: (m as any).methodName ?? '?',
+            location: m.location ?? null,
+            mapping: m.locationMapping ?? null,
+            resolvedGear: collectMethodGear(m),
+            hasMedia: hasMedia(m),
+          })),
+          parkMethods: parkCandidates.map(gateReport),
+          selectedMethod: diagSelected
+            ? { methodName: (diagSelected as any).methodName ?? '?', location: diagSelected.location ?? null, hasMedia: hasMedia(diagSelected) }
+            : null,
+          summary: {
+            parkMethodCount: parkCandidates.length,
+            parkMethodsPassed: parkPassed.length,
+            parkMethodsBlocked: parkCandidates.length - parkPassed.length,
+            selectedLocation: diagSelected?.location ?? (parkCandidates.length > 0 ? 'EXCLUDED(null)' : 'bodyweight-fallback'),
+            rootCauseHint: parkCandidates.length === 0
+              ? 'NO park method exists → bodyweight/home-media fallback (data gap: add a park method)'
+              : parkPassed.length === 0
+                ? 'ALL park methods BLOCKED → root = park equipment mapping/inventory (see missingGear)'
+                : 'park method PASSED & selected here → if the CARD still shows home media, root is downstream media-resolution/location, NOT gating',
+          },
+        });
+      }
+
       if (parkCandidates.length > 0) {
         const gated = applyParkGating(parkCandidates);
         if (gated.length > 0) return preferMedia(gated, 'park');
