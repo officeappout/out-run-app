@@ -4,6 +4,7 @@
  */
 
 import { LocalizedText, AppLanguage, getLocalizedText } from '../../shared/localized-text.types';
+import { buildBunnyStreamUrl, buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 
 // Re-export shared types for backward compatibility
 export type { LocalizedText, AppLanguage };
@@ -848,7 +849,17 @@ export function resolveVideoForLocation(
   location?: string | null,
 ): string {
   const method = findMethodForLocation(exercise, location);
-  return method?.media?.mainVideoUrl || (exercise as any).media?.videoUrl || '';
+  // Bunny preview (NEW field) of the SAME location-matched method, ABOVE the legacy
+  // chain. Method-scoped on purpose: NOT delegated to resolveExerciseMedia, whose
+  // cross-method deep search would break this function's location scoping. Legacy-only
+  // exercises yield undefined here and fall through byte-identical.
+  const bunnyVideoId = resolvePreviewForLang(method?.media as any)?.videoId;
+  return (
+    (bunnyVideoId ? buildBunnyStreamUrl(bunnyVideoId) : undefined) ||
+    method?.media?.mainVideoUrl ||
+    (exercise as any).media?.videoUrl ||
+    ''
+  );
 }
 
 /**
@@ -859,5 +870,16 @@ export function resolveImageForLocation(
   location?: string | null,
 ): string {
   const method = findMethodForLocation(exercise, location);
-  return method?.media?.imageUrl || method?.media?.mainVideoUrl || (exercise as any).media?.imageUrl || '';
+  // Bunny thumbnail (NEW field) of the SAME location-matched method, ABOVE the legacy
+  // chain. Method-scoped (see resolveVideoForLocation). Byte-identical fallthrough.
+  const preview = resolvePreviewForLang(method?.media as any);
+  const bunnyThumb =
+    preview?.thumbnailUrl ?? (preview?.videoId ? buildBunnyThumbnailUrl(preview.videoId) : undefined);
+  return (
+    bunnyThumb ||
+    method?.media?.imageUrl ||
+    method?.media?.mainVideoUrl ||
+    (exercise as any).media?.imageUrl ||
+    ''
+  );
 }
