@@ -6,8 +6,9 @@
  * (generator type) wrapping a CONTENT `Exercise` + a prescription (sets / reps /
  * rest / isTimeBased). This maps one block → one single-station WorkoutPlan.
  *
- * LOCAL + MINIMAL — no dependency on the protocol-blocks branch's mapper. Pure:
- * all imports are type-only (erased at runtime).
+ * LOCAL + MINIMAL — no dependency on the protocol-blocks branch's mapper. Media
+ * resolution reuses the shared Bunny helpers (exercise.types + bunny.config) so the
+ * hybrid player resolves Bunny previews exactly like the regular strength path.
  */
 
 import type { WorkoutExercise as GeneratedExercise } from '../logic/workout-generator.types';
@@ -17,6 +18,8 @@ import type {
   WorkoutSegment,
   Exercise as PlanExercise,
 } from '@/features/parks/core/types/route.types';
+import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
+import { buildBunnyStreamUrl, buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 
 /** Localized name off the content exercise (Firestore doc shape — dynamic access). */
 function exName(we: GeneratedExercise): string {
@@ -24,11 +27,25 @@ function exName(we: GeneratedExercise): string {
   return ex?.content?.name?.he ?? ex?.content?.name ?? ex?.name?.he ?? ex?.name ?? ex?.id ?? 'תרגיל';
 }
 
-function exMedia(we: GeneratedExercise): { videoUrl?: string; imageUrl?: string } {
+function exMedia(we: GeneratedExercise): { videoUrl?: string; imageUrl?: string; bunnyVideoId?: string } {
   const ex = we.exercise as any;
-  const videoUrl: string | undefined = ex?.media?.videoUrl ?? ex?.media?.mainVideoUrl ?? undefined;
-  const imageUrl: string | undefined = ex?.media?.imageUrl ?? videoUrl ?? undefined;
-  return { ...(videoUrl ? { videoUrl } : {}), ...(imageUrl ? { imageUrl } : {}) };
+  // Bunny preview (NEW field) of the selected method, ABOVE the legacy root chain —
+  // mirrors enrichExercise (A2). Carries the bare bunnyVideoId on the flat plan
+  // exercise so the player resolves the network-aware ADAPTIVE stream (not fixed 360p)
+  // and a Bunny-only exercise plays instead of showing an image. Legacy-only exercises
+  // yield undefined here and fall through to the exact original chain (byte-identical).
+  const bunnyPreview = resolvePreviewForLang(we.method?.media as any);
+  const bunnyVideoId: string | undefined = bunnyPreview?.videoId ?? undefined;
+  const bunnyStreamUrl: string | undefined = bunnyVideoId ? buildBunnyStreamUrl(bunnyVideoId) : undefined;
+  const bunnyThumbUrl: string | undefined =
+    bunnyPreview?.thumbnailUrl ?? (bunnyVideoId ? buildBunnyThumbnailUrl(bunnyVideoId) : undefined);
+  const videoUrl: string | undefined = bunnyStreamUrl ?? ex?.media?.videoUrl ?? ex?.media?.mainVideoUrl ?? undefined;
+  const imageUrl: string | undefined = bunnyThumbUrl ?? ex?.media?.imageUrl ?? videoUrl ?? undefined;
+  return {
+    ...(videoUrl ? { videoUrl } : {}),
+    ...(imageUrl ? { imageUrl } : {}),
+    ...(bunnyVideoId ? { bunnyVideoId } : {}),
+  };
 }
 
 /** Display "3×8-12 חזרות" / "3×45 שניות" from the prescription. */
