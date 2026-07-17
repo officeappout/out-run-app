@@ -84,6 +84,33 @@ export function nearestEquippedPark(
   return best?.park ?? null;
 }
 
+/**
+ * All parks carrying real gym equipment within `radiusMeters` of the user, NEAREST
+ * FIRST. Unlike `nearestEquippedPark` this does NOT require isPrimaryFitness — any
+ * park with a `gymEquipment` entry is a valid GEAR source (a playground pull-up bar
+ * counts). PURE (operates on the given parks array; no I/O).
+ *
+ * This is the primitive that fixes the ESSENTIAL_PARK_GEAR bug: a nearer UN-equipped
+ * park can no longer shadow a farther equipped one, because the caller iterates the
+ * equipped set nearest-first instead of snapping to the single closest park.
+ */
+export function equippedParksWithin(
+  user: LatLng,
+  parks: Park[],
+  radiusMeters: number,
+): Park[] {
+  const withDist: { park: Park; dist: number }[] = [];
+  for (const p of parks) {
+    if ((p.gymEquipment?.length ?? 0) === 0) continue;
+    if (p.location?.lat == null || p.location?.lng == null) continue;
+    const dist = haversineMeters(user.lat, user.lng, p.location.lat, p.location.lng);
+    if (dist > radiusMeters) continue;
+    withDist.push({ park: p, dist });
+  }
+  withDist.sort((a, b) => a.dist - b.dist);
+  return withDist.map((x) => x.park);
+}
+
 /** Normalise a raw generator path to canonical `[lng, lat]` vertices. */
 function normalizePath(raw: unknown): LngLat[] {
   if (!Array.isArray(raw)) return [];

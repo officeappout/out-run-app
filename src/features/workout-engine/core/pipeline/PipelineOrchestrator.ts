@@ -123,11 +123,19 @@ export class PipelineOrchestrator {
     const difficulty = (context.difficulty ?? 2) as DifficultyLevel;
 
     // ── Step 1: Empty-pool short-circuit guard ────────────────────────────────
+    // NOTE: equipment poverty must NOT reach here. A sparse-but-valid park/home
+    // context still yields bodyweight/surface survivors (selectMethodForContext
+    // keeps them), so the pool stays non-empty and the workout DEGRADES to
+    // bodyweight in normal generation — it never falls to this recovery path.
+    // Reaching this branch means a genuinely empty pool (rest/off day, budget
+    // floor, or a real content gap), not "gear-starved park".
     if (scoredExercises.length === 0) {
       log.push('orchestrator: empty_pool — returning rest-day fallback');
       console.warn(
-        '[PipelineOrchestrator] ⚠️ Empty pool — no exercises survived the filter pass. ' +
-        'Returning rest-day fallback to prevent UI crash.',
+        `[PipelineOrchestrator] ⚠️ Empty pool (location=${context.location}, ` +
+        `gear=${context.availableEquipment?.length ?? 0}) — no exercises survived the ` +
+        'filter pass. This is NOT the equipment-poverty degrade path (which keeps ' +
+        'bodyweight survivors) — returning rest-day fallback to prevent a UI crash.',
       );
       return {
         workout: buildRestDayFallback(context),
@@ -136,6 +144,15 @@ export class PipelineOrchestrator {
         log,
       };
     }
+
+    // Positive degrade signal: a non-empty pool always takes normal generation.
+    // In an equipment-sparse context the pool is dominated by bodyweight/surface
+    // survivors, so the session degrades to bodyweight here — never to recovery.
+    console.log(
+      `[PipelineOrchestrator] Pool OK: ${scoredExercises.length} survivors at ` +
+      `location=${context.location} (gear=${context.availableEquipment?.length ?? 0}) → ` +
+      'normal generation (sparse contexts degrade to bodyweight, not recovery).',
+    );
 
     // ── Step 2: Session blueprint (StructureDirector) ────────────────────────
     const blueprint = createStructureDirector().plan(context, difficulty);

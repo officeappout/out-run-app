@@ -6,7 +6,7 @@ import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import type { GearDefinition } from '@/features/content/equipment/gear';
 import { useUserStore } from '@/features/user';
 import { generateHomeWorkout } from '@/features/workout-engine/services/home-workout.service';
-import { resolveParkEquipmentIds } from '@/features/workout-engine/services/park-equipment-resolver';
+import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import type { DifficultyLevel, GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
@@ -590,9 +590,12 @@ export default function WorkoutBuilderSheet({
       const usagePct  = (store as any).getBudgetUsagePercent?.() ?? undefined;
       const autoBlast = difficulty === 3 && availableTime <= 20;
 
+      // Explicit location choice: keep it (allowHomeOverride:false), but resolve
+      // the nearest EQUIPPED park's real gear via GPS (Phase 3a/3b) instead of the
+      // old no-GPS path that fell straight to ESSENTIAL_PARK_GEAR.
       const isPark = location === 'park' || location === 'street';
       const parkEquipmentIds = isPark
-        ? await resolveParkEquipmentIds(profile)
+        ? (await resolveWorkoutContext(profile, location as ExecutionLocation, { allowHomeOverride: false })).availableGear
         : undefined;
 
       // ── Effective program: explicit pill > CU arbitration > suggested ────

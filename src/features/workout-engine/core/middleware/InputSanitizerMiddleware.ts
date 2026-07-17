@@ -42,7 +42,8 @@ import type { Exercise, ExecutionLocation } from '@/features/content/exercises/c
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { Program } from '@/features/content/programs/core/program.types';
-import { ESSENTIAL_PARK_GEAR } from '../../shared/utils/gear-mapping.utils';
+import { ESSENTIAL_PARK_GEAR, ASSUMED_HOME_GEAR } from '../../shared/utils/gear-mapping.utils';
+import { ASSUMED_HOME_GEAR_ENABLED } from '@/config/feature-flags';
 import type { ShadowMatrix } from '../../services/shadow-level.utils';
 import { resolveEquipment } from '../../services/user-profile.utils';
 import {
@@ -124,6 +125,13 @@ export function normalizeEquipmentArray(
         '[InputSanitizer] ⚠️ No park inventory resolved — ESSENTIAL_PARK_GEAR fallback active',
       );
     }
+  }
+
+  // Indoor baseline: assume placed-existing fixtures (door/chair/wall/floor/towel)
+  // so improvised home methods aren't blocked for sparse-profile users. Additive;
+  // no over-grant risk indoors (unlike gym/park catalog injection). Flag-gated.
+  if (ASSUMED_HOME_GEAR_ENABLED && (location === 'home' || location === 'office' || location === 'school')) {
+    availableEquipment = [...availableEquipment, ...Array.from(ASSUMED_HOME_GEAR)];
   }
 
   return Array.from(new Set(availableEquipment));
