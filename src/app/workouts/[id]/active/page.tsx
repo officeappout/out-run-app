@@ -12,8 +12,6 @@ import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
 import { getAllExercises, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
-import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
-import { buildBunnyStreamUrl, buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
@@ -120,18 +118,14 @@ function enrichExercise(
 
   // Location-aware media resolution: select the execution_method matching the workout's location
   const method = findMethodForLocation(ex, workoutLocation);
-  // Bunny preview (NEW field) resolved ABOVE the legacy chain — so a Bunny-only exercise
-  // (previewVideo.he.videoId, no mainVideoUrl) plays on the enriched live card instead of
-  // being blank. Legacy-only exercises yield undefined here and fall through to the exact
-  // original chain (byte-identical). The bare id is also carried on the returned object so
-  // consumers that lose execution_methods (rest-preview, A3) can resolve the Bunny stream.
-  const bunnyPreview = resolvePreviewForLang(method?.media as any);
-  const bunnyVideoId = bunnyPreview?.videoId ?? undefined;
-  const bunnyStreamUrl = bunnyVideoId ? buildBunnyStreamUrl(bunnyVideoId) : undefined;
-  const bunnyThumbUrl =
-    bunnyPreview?.thumbnailUrl ?? (bunnyVideoId ? buildBunnyThumbnailUrl(bunnyVideoId) : undefined);
-  const videoUrl = bunnyStreamUrl || method?.media?.mainVideoUrl || ex.media?.videoUrl || undefined;
-  const imageUrl = bunnyThumbUrl || method?.media?.imageUrl || videoUrl || ex.media?.imageUrl || undefined;
+  // Centralised through resolveExerciseMedia: reads the location-matched method's Bunny id
+  // from ALL slots (previewVideo → bunnyVideoId_mainVideoUrl → mainVideoUrl) before root,
+  // returns the bare id (carried for network-aware ADAPTIVE playback) + a same-method Bunny
+  // thumbnail. Legacy-only exercises fall through the resolver's untouched legacy chain.
+  const resolvedMedia = resolveExerciseMedia(ex as any, method as any);
+  const bunnyVideoId = resolvedMedia.bunnyVideoId;
+  const videoUrl = resolvedMedia.videoUrl;
+  const imageUrl = resolvedMedia.imageUrl;
 
   // Extract goal/description
   const goal = extractLocalizedText(ex.content?.description) || 
@@ -252,7 +246,7 @@ function enrichExercise(
     videoUrl,
     imageUrl,
     bunnyVideoId,
-    fullTutorial: resolveExerciseMedia(ex as any, method as any).fullTutorial,
+    fullTutorial: resolvedMedia.fullTutorial,
     exerciseType,
     exerciseRole: segmentRole,
     isFollowAlong,

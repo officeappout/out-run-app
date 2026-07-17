@@ -20,8 +20,6 @@ import {
   findMethodForLocation,
 } from '@/features/content/exercises';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
-import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
-import { buildBunnyStreamUrl } from '@/lib/bunny/bunny.config';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { WorkoutData } from '../types';
 
@@ -64,19 +62,14 @@ export async function convertExercisesToWorkoutPlan(
     return imageUrl;
   };
 
-  // Bunny preview resolved ABOVE the legacy chain; the bare id is carried on the flat
-  // exercise so consumers that lose execution_methods can resolve the Bunny stream.
-  // Legacy-only exercises fall through to the exact original chain (byte-identical).
+  // Centralised through resolveExerciseMedia: reads the method's Bunny id from ALL slots
+  // (previewVideo → bunnyVideoId_mainVideoUrl → mainVideoUrl) before root, and carries the
+  // bare id on the flat exercise for network-aware adaptive playback.
   const resolveVideoWithBunny = (
     ex: FirestoreExercise,
     method: any,
   ): { videoUrl: string | undefined; bunnyVideoId: string | undefined } => {
-    const bunnyVideoId = resolvePreviewForLang(method?.media)?.videoId ?? undefined;
-    const videoUrl =
-      (bunnyVideoId ? buildBunnyStreamUrl(bunnyVideoId) : undefined) ||
-      method?.media?.mainVideoUrl ||
-      ex.media?.videoUrl ||
-      undefined;
+    const { videoUrl, bunnyVideoId } = resolveExerciseMedia(ex as any, method as any);
     return { videoUrl, bunnyVideoId };
   };
 
