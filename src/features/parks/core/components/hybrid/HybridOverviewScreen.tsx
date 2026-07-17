@@ -79,6 +79,20 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
   const [showWeightNudge, setShowWeightNudge] = useState(false);
 
+  // Warmup skip/expand (full-park). Mirrors WorkoutPreviewDrawer's local state; the skip
+  // is carried onto the SHARED composed object so the RUN strips the warmup (useHybridRun),
+  // not just the display. Undefined composed.isWarmupActive = active (warmup runs).
+  const [isWarmupActive, setIsWarmupActive] = useState(composed.isWarmupActive ?? true);
+  const [isWarmupExpanded, setIsWarmupExpanded] = useState(true);
+  const toggleWarmupActive = () =>
+    setIsWarmupActive((v) => {
+      const next = !v;
+      composed.isWarmupActive = next;
+      if (!next) setIsWarmupExpanded(false); // skip auto-collapses (matches the drawer)
+      return next;
+    });
+  const toggleWarmupExpanded = () => setIsWarmupExpanded((v) => !v);
+
   // Estimated finish = now + total workout minutes → "HH:MM" (24h, zero-padded —
   // mirrors the run commute's formatArrivalClock convention). Estimate → "~" prefix.
   const finishAt = new Date(Date.now() + totalMin * 60_000);
@@ -222,7 +236,16 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             <div className="flex items-center gap-1.5 text-[12px] font-black mt-4 mb-2" style={{ color: '#6B7280', letterSpacing: '.03em' }}>
               מהלך האימון
             </div>
-            <HybridJourneyAxis segments={plan.segments} stationName={composed.bolts ? composed.station?.name : undefined} onExerciseTap={onExerciseTap} onSwapExercise={onSwapExercise} />
+            <HybridJourneyAxis
+              segments={plan.segments}
+              stationName={composed.bolts ? composed.station?.name : undefined}
+              isWarmupActive={isWarmupActive}
+              isWarmupExpanded={isWarmupExpanded}
+              onToggleWarmupActive={toggleWarmupActive}
+              onToggleWarmupExpanded={toggleWarmupExpanded}
+              onExerciseTap={onExerciseTap}
+              onSwapExercise={onSwapExercise}
+            />
             <div style={{ height: 8 }} />
           </div>
 

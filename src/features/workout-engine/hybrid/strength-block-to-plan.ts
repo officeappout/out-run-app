@@ -41,13 +41,17 @@ function prescriptionLabel(we: GeneratedExercise): { reps?: string; duration?: s
     : { reps: `${setsPrefix}${core} חזרות` };
 }
 
-/** One generator exercise → one enriched parks Exercise (conditional spread). */
-function toPlanExercise(we: GeneratedExercise): PlanExercise {
+/** One generator exercise → one enriched parks Exercise (conditional spread).
+ *  `preserveRole=false` (budget-split) forces 'main' — byte-identical to the
+ *  historical single-segment plan. `preserveRole=true` (full-park) keeps the engine
+ *  role so the warmup is distinguishable (StrengthRunner detects warmup by role /
+ *  segment-title; the run-path filter strips it when the user skipped it). */
+function toPlanExercise(we: GeneratedExercise, preserveRole: boolean): PlanExercise {
   const { reps, duration } = prescriptionLabel(we);
   return {
     id: we.exercise.id,
     name: exName(we),
-    exerciseRole: 'main',
+    exerciseRole: preserveRole ? (we.exerciseRole ?? 'main') : 'main',
     exerciseType: we.isTimeBased ? 'time' : 'reps',
     isTimeBased: we.isTimeBased,
     sets: we.sets,
@@ -61,40 +65,67 @@ function toPlanExercise(we: GeneratedExercise): PlanExercise {
   };
 }
 
+/** Warmup segment id — matches the strip predicate the runner (active/page) uses. */
+const WARMUP_SEGMENT_ID = 'warmup-segment';
+
 export interface StrengthBlockPlanOptions {
   id?: string;
   name?: string;
   location?: WorkoutPlan['workoutLocation'];
+  /**
+   * Full-park GATE. When true: preserve exerciseRole, split warmup-role exercises into
+   * their own 'warmup-segment' (title 'חימום'), and carry `isWarmupActive`. When
+   * false/omitted (budget-split + every legacy caller): the historical single
+   * 'hybrid-station' segment with 'main'-forced roles and `isWarmupActive:false` —
+   * byte-identical, so budget-split runtime never moves.
+   */
+  fullPark?: boolean;
+  /** Full-park only: false = the user skipped the warmup (carried onto the plan). */
+  isWarmupActive?: boolean;
 }
 
 /**
- * Wrap a strength block as a single-station WorkoutPlan for StrengthRunner.
- * Straight sets only (blocks force straight sets — no appliedProtocol).
- * `isWarmupActive:false` — the surrounding aerobic leg is the warm-up.
+ * Wrap a strength block as a WorkoutPlan for StrengthRunner. Blocks force straight
+ * sets (no appliedProtocol). See `fullPark` for the two plan shapes.
  */
 export function strengthBlockToWorkoutPlan(
   block: StrengthBlockResult,
   options: StrengthBlockPlanOptions = {},
 ): WorkoutPlan {
-  const exercises = block.exercises.map(toPlanExercise);
-  const segment: WorkoutSegment = {
-    id: 'hybrid-station',
-    type: 'station',
-    title: options.name ?? 'תחנת כוח',
-    icon: '💪',
-    target: { type: 'reps', value: 12 },
-    exercises,
-    isCompleted: false,
-    restBetweenExercises: 10,
-  };
+  const totalDuration = Math.round((block.estimatedDurationSec ?? 0) / 60) || 10;
+  const name = options.name ?? 'תחנת כוח';
+
+  // ── Budget-split + legacy callers: historical single-segment plan (byte-identical). ──
+  if (!options.fullPark) {
+    const exercises = block.exercises.map((we) => toPlanExercise(we, false));
+    const segment: WorkoutSegment = {
+      id: 'hybrid-station', type: 'station', title: name, icon: '💪',
+      target: { type: 'reps', value: 12 }, exercises, isCompleted: false, restBetweenExercises: 10,
+    };
+    return {
+      id: options.id ?? 'hybrid-station-plan', name, segments: [segment],
+      totalDuration, difficulty: 'medium', trainingType: 'strength',
+      workoutLocation: options.location ?? 'park', isWarmupActive: false,
+    };
+  }
+
+  // ── Full-park: preserve roles + split the warmup into its own segment. ──
+  const warmupEx = block.exercises.filter((we) => we.exerciseRole === 'warmup').map((we) => toPlanExercise(we, true));
+  const restEx = block.exercises.filter((we) => we.exerciseRole !== 'warmup').map((we) => toPlanExercise(we, true));
+  const segments: WorkoutSegment[] = [];
+  if (warmupEx.length > 0) {
+    segments.push({
+      id: WARMUP_SEGMENT_ID, type: 'station', title: 'חימום', icon: '🤸',
+      target: { type: 'reps', value: 12 }, exercises: warmupEx, isCompleted: false, restBetweenExercises: 10,
+    });
+  }
+  segments.push({
+    id: 'hybrid-station', type: 'station', title: name, icon: '💪',
+    target: { type: 'reps', value: 12 }, exercises: restEx, isCompleted: false, restBetweenExercises: 10,
+  });
   return {
-    id: options.id ?? 'hybrid-station-plan',
-    name: options.name ?? 'תחנת כוח',
-    segments: [segment],
-    totalDuration: Math.round((block.estimatedDurationSec ?? 0) / 60) || 10,
-    difficulty: 'medium',
-    trainingType: 'strength',
-    workoutLocation: options.location ?? 'park',
-    isWarmupActive: false,
+    id: options.id ?? 'hybrid-station-plan', name, segments,
+    totalDuration, difficulty: 'medium', trainingType: 'strength',
+    workoutLocation: options.location ?? 'park', isWarmupActive: options.isWarmupActive ?? true,
   };
 }

@@ -12,6 +12,8 @@ import { Footprints, Dumbbell, Clock, Ruler, Repeat, MapPin } from 'lucide-react
 import type { HybridPlannedSegment } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import ExerciseCard from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/ExerciseCard';
+import SectionHeader from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/SectionHeader';
+import { groupExercisesIntoSections } from '@/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
 
@@ -61,13 +63,28 @@ interface AxisProps {
    * "רגל ריצה N — יציאה". Omitted for budget-split cards → legacy rendering unchanged.
    */
   stationName?: string;
+  /** Full-park warmup section — reuse SectionHeader's skip pill + collapse chevron. The
+   *  skip is REAL (useHybridRun strips the warmup from the run); state lives in the overview. */
+  isWarmupActive?: boolean;
+  isWarmupExpanded?: boolean;
+  onToggleWarmupActive?: () => void;
+  onToggleWarmupExpanded?: () => void;
   /** Tap an exercise → the real preview detail drawer (owned by the parent). */
   onExerciseTap?: (we: EngineWorkoutExercise) => void;
   /** Swap the exercise at [segIndex][exIndex] → the real replacement modal (parent). */
   onSwapExercise?: (segIndex: number, exIndex: number, we: EngineWorkoutExercise) => void;
 }
 
-export default function HybridJourneyAxis({ segments, stationName, onExerciseTap, onSwapExercise }: AxisProps) {
+export default function HybridJourneyAxis({
+  segments,
+  stationName,
+  isWarmupActive,
+  isWarmupExpanded,
+  onToggleWarmupActive,
+  onToggleWarmupExpanded,
+  onExerciseTap,
+  onSwapExercise,
+}: AxisProps) {
   const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
   let aerIdx = 0, strIdx = 0;
   return (
@@ -138,6 +155,9 @@ export default function HybridJourneyAxis({ segments, stationName, onExerciseTap
         // strength station
         strIdx += 1;
         const exs = seg.content?.exercises ?? [];
+        // Full-park: reuse the strength preview's section grouping (חימום → סטים+"Nx סבבים"
+        // → מתיחות). Budget-split keeps the flat list (else branch → byte-identical).
+        const sections = stationName ? groupExercisesIntoSections(exs as any) : [];
         return (
           <div key={i} className="flex gap-3 items-stretch">
             <Node kind="strength" last={last} />
@@ -149,27 +169,75 @@ export default function HybridJourneyAxis({ segments, stationName, onExerciseTap
                   <span className="text-[14px] font-black" style={{ color: '#111827' }}>תחנה {strIdx} — כוח</span>
                   <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: STR_TINT, color: STR_TEXT }}>עצור ואמן</span>
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><Dumbbell size={15} /> {exs.length} תרגילים</span>
-                  {/* Station time (meaningful), not a sets-sum. Per-exercise sets live on each card. */}
-                  <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
-                    <Clock size={13} /> ~{Math.round((seg.content?.estimatedDurationSec ?? 0) / 60)} דק׳
-                  </span>
-                </div>
-                {/* amber superset framing around the REAL ExerciseCard (image · tap-detail · swap) */}
-                <div className="relative flex flex-col gap-2 mt-2" style={{ paddingRight: 12 }}>
-                  <span className="absolute" style={{ top: 3, bottom: 3, right: 0, width: 4, borderRadius: 2, background: STR }} />
-                  {exs.map((we: any, k: number) => (
-                    <ExerciseCard
-                      key={we?.exercise?.id ?? k}
-                      exercise={we}
-                      cachedImageUrl={hybridImage(we)}
-                      isSuperset
-                      onTap={() => onExerciseTap?.(we)}
-                      onSwap={() => onSwapExercise?.(i, k, we)}
-                    />
-                  ))}
-                </div>
+                {stationName ? (
+                  <>
+                    {/* station time only — SectionHeaders carry per-block counts (#3) */}
+                    <div className="flex items-center justify-end mt-2">
+                      <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
+                        <Clock size={13} /> ~{Math.round((seg.content?.estimatedDurationSec ?? 0) / 60)} דק׳
+                      </span>
+                    </div>
+                    {sections.map((section) => {
+                      const isWarmupSection = section.id === 'warmup';
+                      const isSupersetSection = section.id.startsWith('superset');
+                      const isPyramidSection = section.id.startsWith('pyramid');
+                      const showCards = !isWarmupSection || (isWarmupExpanded ?? true);
+                      return (
+                        <div key={section.id} className="mt-3">
+                          <SectionHeader
+                            section={section}
+                            isWarmup={isWarmupSection}
+                            isSuperset={isSupersetSection}
+                            isPyramidSection={isPyramidSection}
+                            isWarmupActive={isWarmupActive ?? true}
+                            isWarmupExpanded={isWarmupExpanded ?? true}
+                            onToggleWarmupExpanded={onToggleWarmupExpanded ?? (() => {})}
+                            onToggleWarmupActive={onToggleWarmupActive ?? (() => {})}
+                          />
+                          {showCards && (
+                            <div className="relative flex flex-col gap-2" style={{ paddingRight: 12 }}>
+                              <span className="absolute" style={{ top: 3, bottom: 3, right: 0, width: 4, borderRadius: 2, background: isWarmupSection && isWarmupActive === false ? '#CBD5E1' : STR }} />
+                              {section.exercises.map((we: any) => (
+                                <ExerciseCard
+                                  key={we?.exercise?.id}
+                                  exercise={we}
+                                  cachedImageUrl={hybridImage(we)}
+                                  isSuperset
+                                  onTap={() => onExerciseTap?.(we)}
+                                  onSwap={() => onSwapExercise?.(i, exs.indexOf(we), we)}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><Dumbbell size={15} /> {exs.length} תרגילים</span>
+                      {/* Station time (meaningful), not a sets-sum. Per-exercise sets live on each card. */}
+                      <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
+                        <Clock size={13} /> ~{Math.round((seg.content?.estimatedDurationSec ?? 0) / 60)} דק׳
+                      </span>
+                    </div>
+                    {/* amber superset framing around the REAL ExerciseCard (image · tap-detail · swap) */}
+                    <div className="relative flex flex-col gap-2 mt-2" style={{ paddingRight: 12 }}>
+                      <span className="absolute" style={{ top: 3, bottom: 3, right: 0, width: 4, borderRadius: 2, background: STR }} />
+                      {exs.map((we: any, k: number) => (
+                        <ExerciseCard
+                          key={we?.exercise?.id ?? k}
+                          exercise={we}
+                          cachedImageUrl={hybridImage(we)}
+                          isSuperset
+                          onTap={() => onExerciseTap?.(we)}
+                          onSwap={() => onSwapExercise?.(i, k, we)}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

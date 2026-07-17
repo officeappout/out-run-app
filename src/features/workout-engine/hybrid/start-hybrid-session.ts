@@ -40,6 +40,12 @@ export interface ComposedHybridSession {
    * no re-compose. Absent for budget-split cards, which have a single plan.
    */
   bolts?: { plans: HybridPlan[]; selectedIndex: number; labels: string[] };
+  /**
+   * Full-park only: warmup-active flag driven by the overview's SectionHeader skip
+   * pill. Mutated on the shared object (like bolts.selectedIndex) so runHybridPlan
+   * carries the user's skip into the run. Undefined = active (warmup runs).
+   */
+  isWarmupActive?: boolean;
 }
 
 /** A dense square loop around a point, ~`km` perimeter — the no-route fallback. */
@@ -358,7 +364,10 @@ export async function runHybridPlan(composed: ComposedHybridSession, startRun: (
   // the run always tracks the overview's carousel choice even if composed.plan wasn't
   // synced. Budget-split cards have no `bolts` → their single composed.plan is used.
   const activePlan = composed.bolts ? composed.bolts.plans[composed.bolts.selectedIndex] : composed.plan;
-  useHybridRun.getState().startHybrid(activePlan, composed.aerobicKind);
+  // Full-park is the only card carrying a bolt trio → the gate for the new plan/run path.
+  // Budget-split (no bolts) → fullPark=false → strengthBlockToWorkoutPlan's legacy path.
+  const fullPark = !!composed.bolts;
+  useHybridRun.getState().startHybrid(activePlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true);
   startRun();
 }
 

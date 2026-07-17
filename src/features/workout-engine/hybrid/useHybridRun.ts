@@ -24,6 +24,9 @@ import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
 let controllerRef: HybridControllerHandle | null = null;
 let planCalories = 0;
 let planAerobicKind: 'running' | 'walking' = 'running';
+// Full-park gate: budget-split leaves these at their defaults → current plan path.
+let planFullPark = false;
+let planWarmupActive = true;
 let saving = false;
 
 /** True on an aerobic leg with NO station still ahead (the final leg → finish). */
@@ -37,7 +40,14 @@ export interface HybridRunStore {
   phase: HybridPhase;
   stationPlan: WorkoutPlan | null;
   isFinalLeg: boolean;
-  startHybrid: (plan: HybridPlan, aerobicKind: 'running' | 'walking') => void;
+  startHybrid: (
+    plan: HybridPlan,
+    aerobicKind: 'running' | 'walking',
+    /** Full-park gate. Omitted (budget-split) → current single-segment plan path. */
+    fullPark?: boolean,
+    /** Full-park only: false = the user skipped the warmup in the overview. */
+    warmupActive?: boolean,
+  ) => void;
   /** "הגעתי לתחנה" / distance threshold — close the leg, open the station. */
   arrive: () => void;
   /** StrengthRunner.onComplete — close the station, resume the next leg. */
@@ -53,10 +63,12 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
   stationPlan: null,
   isFinalLeg: false,
 
-  startHybrid: (plan, aerobicKind) => {
+  startHybrid: (plan, aerobicKind, fullPark = false, warmupActive = true) => {
     controllerRef = createHybridSessionController(plan.segments);
     planCalories = plan.totals?.estCalories ?? 0;
     planAerobicKind = aerobicKind;
+    planFullPark = fullPark;
+    planWarmupActive = warmupActive;
     saving = false;
     controllerRef.start(Date.now());
     set({
@@ -73,9 +85,26 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     controllerRef.arrive(s.totalDistance || 0, s.totalDuration || 0, Date.now());
     useSessionStore.getState().pauseSession(); // freeze the run clock during the station
     const station = controllerRef.getActiveStation();
-    const stationPlan = station?.content
-      ? strengthBlockToWorkoutPlan(station.content, { name: 'תחנת כוח', location: 'park' })
+    let stationPlan = station?.content
+      ? strengthBlockToWorkoutPlan(station.content, {
+          name: 'תחנת כוח', location: 'park', fullPark: planFullPark, isWarmupActive: planWarmupActive,
+        })
       : null;
+    // Full-park + user skipped the warmup → strip the warmup segment BEFORE StrengthRunner
+    // (same predicate as app/workouts/[id]/active/page.tsx). Budget-split (planFullPark=false)
+    // never enters this branch, so its plan stays byte-identical.
+    if (stationPlan && planFullPark && !planWarmupActive) {
+      stationPlan = {
+        ...stationPlan,
+        segments: stationPlan.segments.filter(
+          (seg) =>
+            seg.id !== 'warmup-segment' &&
+            seg.id !== 'joints-segment' &&
+            !seg.title?.includes('חימום') &&
+            !seg.title?.includes('מפרקים'),
+        ),
+      };
+    }
     set({ phase: controllerRef.getPhase(), stationPlan, isFinalLeg: false });
   },
 
