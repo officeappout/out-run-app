@@ -30,6 +30,14 @@ export interface CompletionPayload {
   workoutTitle?: string;
   /** Thumbnail URL for the completed workout hero image */
   thumbnailUrl?: string;
+  /**
+   * Multi-category split (hybrid). When present, minutes/calories are logged
+   * PER category in ONE atomic activity-store write (e.g. cardio legs + strength
+   * station) instead of the single `activityCategory`. The once-per-session
+   * actions below (goal checkmark, workoutCount, celebration flag, HealthKit)
+   * still fire exactly once using the aggregate `durationMinutes`/`calories`.
+   */
+  categorySplits?: Array<{ category: ActivityCategory; durationMinutes: number; calories: number }>;
 }
 
 const SESSION_KEY = 'post_workout_completed';
@@ -44,11 +52,17 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
   // is intentionally NOT passed in — this guarantees credit always lands on
   // the real "today" slot, never on a future target date the user may have
   // been previewing in the calendar grid.
-  useActivityStore.getState().logWorkout(
-    payload.activityCategory,
-    payload.durationMinutes,
-    payload.calories,
-  );
+  if (payload.categorySplits && payload.categorySplits.length > 0) {
+    // Hybrid: cardio + strength in a single atomic write (streak/goal derive
+    // from the combined GLOBAL total inside the store, not per category).
+    useActivityStore.getState().logMultiCategoryWorkout(payload.categorySplits);
+  } else {
+    useActivityStore.getState().logWorkout(
+      payload.activityCategory,
+      payload.durationMinutes,
+      payload.calories,
+    );
+  }
 
   // 1b. Weekly Volume Store → running distance/duration tracking
   if (payload.workoutType === 'running') {
