@@ -689,6 +689,23 @@ export const ESSENTIAL_PARK_GEAR: ReadonlySet<string> = new Set([
   'step',          // training_steps / park_step / box all normalize to 'step'
 ]);
 
+/**
+ * Assumed-present home fixtures — canonical IDs for placed-existing objects that
+ * every home/indoor context has and that need no user marking (a door, a chair,
+ * a wall, the floor≈mat, a towel). Injected into `availableEquipment` for
+ * home/office/school so improvised home methods (chair dips, door rows, towel
+ * face-pulls, wall sits) are never blocked for sparse-profile users. Home has no
+ * park-style over-grant risk, so this is safe to assume. wall/chair/mat are also
+ * surface-free in the selector; 'door'/'towel' are the ids that actually unblock.
+ */
+export const ASSUMED_HOME_GEAR: ReadonlySet<string> = new Set([
+  'door',
+  'chair',
+  'wall',
+  'mat',           // the floor surface (yoga_mat/mat both normalize to 'mat')
+  'towel',
+]);
+
 // ============================================================================
 // EQUIPMENT FAMILIES (Super-Keys)
 // ============================================================================
