@@ -368,14 +368,25 @@ export default function ExerciseVideoPlayer({
 
           {/* Fallback to image */}
           {!isYouTubeVideo && !hasValidDirectVideoUrl && (
-            <img
-              key={`img-${exerciseId}`}
-              src={effectiveVideoUrl}
-              alt={exerciseName}
-              className="absolute inset-0 w-full h-full object-contain"
-              onLoad={() => handleLoadingChange(false)}
-              onError={() => handleLoadingChange(false)}
-            />
+            <>
+              <img
+                key={`img-${exerciseId}`}
+                src={effectiveVideoUrl}
+                alt={exerciseName}
+                className="absolute inset-0 w-full h-full object-contain"
+                onLoad={() => handleLoadingChange(false)}
+                onError={() => handleLoadingChange(false)}
+              />
+              {/* No real video for this exercise — the resolver fell back to a
+                  still image. Label it honestly instead of presenting a frozen
+                  "player". */}
+              <div
+                className="absolute top-4 left-1/2 -translate-x-1/2 z-10 inline-flex items-center px-3 py-1.5 bg-black/60 backdrop-blur-md text-white rounded-full border border-white/20"
+                dir="rtl"
+              >
+                <span className="text-[12px] font-bold" style={{ fontFamily: 'var(--font-simpler)' }}>וידאו בקרוב</span>
+              </div>
+            </>
           )}
 
           {/* Loading Spinner */}
