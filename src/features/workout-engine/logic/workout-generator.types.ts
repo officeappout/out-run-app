@@ -96,6 +96,16 @@ export interface WorkoutExercise {
   isGoalExercise?: boolean;
   rampedTarget?: number;
   exerciseRole?: 'warmup' | 'main' | 'cooldown';
+  /**
+   * True ONLY for the Stage-1 general mobility warmup (Part A of
+   * `prependWarmupExercises`).  The final `applyDomainPrioritySort` pass reads
+   * this flag to pin the general warmup at the top of the warmup block, ahead
+   * of the pattern/ladder potentiation slots — otherwise the domain-priority
+   * sort buries it below the real push/pull/legs ladder exercises (which carry
+   * lower domain weights) because a mobility drill scores as accessory/weight-3.
+   * Undefined for ladder slots, main, and cooldown exercises.
+   */
+  isGeneralWarmup?: boolean;
   pairedWith?: string;
   /**
    * Distinguishes superset variants when `pairedWith` is set:

@@ -214,6 +214,18 @@ export function applyDomainPrioritySort(exercises: WorkoutExercise[]): WorkoutEx
       const rb = roleOrder[b.we.exerciseRole ?? 'main'] ?? 1;
       if (ra !== rb) return ra - rb;
 
+      // ── GENERAL-WARMUP PIN — Stage-1 mobility drill leads the warmup block ──
+      // Fires only within the warmup role bucket (both sides warmup). The
+      // Stage-1 general mobility warmup is stamped `isGeneralWarmup` by
+      // `prependWarmupExercises`; without this pin the domain-weight sort below
+      // buries it beneath the pattern/ladder potentiation slots (real push/pull/
+      // legs exercises carry lower domain weights than a mobility=weight-3 drill).
+      // Ordering: warmup → [general warmup] → [ladder slots] → main → cooldown.
+      // Does NOT reorder anything else — the ladder slots keep their existing sort.
+      const ga = a.we.isGeneralWarmup === true;
+      const gb = b.we.isGeneralWarmup === true;
+      if (ga !== gb) return ga ? -1 : 1;
+
       // ── SUPREME PROTOCOL GATE — pyramid absolute precedence ─────────────
       // Within the main block, an exercise stamped with a pyramid protocol
       // (`pyramidSequence` or `repsSequence` populated by the

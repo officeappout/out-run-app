@@ -495,6 +495,7 @@ export function prependWarmupExercises(
     ex: Exercise,
     reason: string,
     repRange?: { min: number; max: number },
+    isGeneral = false,
   ) => {
     const methods = ex.execution_methods || ex.executionMethods || [];
     const method = methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location)) ?? methods[0];
@@ -516,6 +517,8 @@ export function prependWarmupExercises(
       score: 0,
       reasoning: [reason],
       exerciseRole: 'warmup' as const,
+      // Stage-1 general mobility warmup is pinned first by applyDomainPrioritySort.
+      ...(isGeneral ? { isGeneralWarmup: true as const } : {}),
     });
     workoutIds.add(ex.id);
   };
@@ -579,7 +582,7 @@ export function prependWarmupExercises(
 
   if (generalCandidates.length > 0) {
     const chosen = pickWithVariety(generalCandidates)!;
-    addToBlock(chosen, 'warmup: general mobility');
+    addToBlock(chosen, 'warmup: general mobility', undefined, true);
     recordWarmupPick(chosen.id);
     stage1Name = chosen.name?.he ?? chosen.name?.en ?? chosen.id;
     stage1Source = chosen.exerciseRole === 'warmup' ? 'role-tagged [location-bypass]' : 'mobility-tagged';
@@ -592,7 +595,7 @@ export function prependWarmupExercises(
     );
     const fallback = pickWithVariety(emergencyCandidates);
     if (fallback) {
-      addToBlock(fallback, 'warmup: general mobility [emergency-fallback]');
+      addToBlock(fallback, 'warmup: general mobility [emergency-fallback]', undefined, true);
       recordWarmupPick(fallback.id);
       stage1Name = fallback.name?.he ?? fallback.name?.en ?? fallback.id;
       stage1Source = 'emergency-fallback [location-ignored]';
