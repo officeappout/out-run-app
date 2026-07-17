@@ -37,7 +37,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed } from '@/config/feature-flags';
+import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -1102,8 +1102,10 @@ export default function HomePage() {
       )}
 
       {/* ── Missed Workout Recovery Banner (4th slot) ── */}
+      {/* Gated behind SHOW_MISSED_DAYS_PROMPTS (default off). The daysInactive logic
+          above still runs — only this display is hidden. Flip the flag to restore. */}
       <AnimatePresence>
-        {showMissedWorkoutBanner && (
+        {SHOW_MISSED_DAYS_PROMPTS && showMissedWorkoutBanner && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}

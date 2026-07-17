@@ -4,6 +4,7 @@ import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react'
 import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
+import { SHOW_MISSED_DAYS_PROMPTS } from '@/config/feature-flags';
 import { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
 // PR 4 (Apr 2026) — these widgets were removed from this file as part of the
 // dashboard restructure. They are now mounted by the new dashboard rows in
@@ -1046,7 +1047,9 @@ export default function StatsOverview({
       </div>
 
       {/* Periodization / Reactivation Coach Cue Banner */}
-      {trioResult?.meta?.coachCue && (
+      {/* Gated behind SHOW_MISSED_DAYS_PROMPTS (default off). trioResult.meta.coachCue
+          is still computed by the periodization service — only this display is hidden. */}
+      {SHOW_MISSED_DAYS_PROMPTS && trioResult?.meta?.coachCue && (
         <div
           className="mx-4 mb-3 px-4 py-3 rounded-2xl text-sm font-medium text-center"
           style={{ backgroundColor: 'rgba(99,102,241,0.12)', color: '#4f46e5' }}
