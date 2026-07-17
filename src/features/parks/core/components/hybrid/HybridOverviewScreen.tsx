@@ -211,16 +211,16 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 minutes) or, for budget-split cards, the original static bolts pill */}
             <div className="flex items-center gap-2 mt-2.5 flex-wrap">
               {composed.bolts ? (
-                <div className="inline-flex items-center gap-1 bg-white rounded-lg" role="group" aria-label="בחירת עצימות"
-                  style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3 }}>
+                <div className="flex w-full items-stretch bg-white rounded-full" role="group" aria-label="בחירת עצימות"
+                  style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}>
                   {composed.bolts.labels.map((label, i) => {
                     const bt = composed.bolts!.plans[i].totals;
                     const bmin = Math.round((bt.aerobicMin ?? 0) + (bt.strengthMin ?? 0));
                     const active = i === boltIndex;
                     return (
                       <button key={label} type="button" onClick={() => selectBolt(i)} aria-pressed={active}
-                        className="flex flex-col items-center gap-0.5 rounded-md active:scale-95 transition-all"
-                        style={{ padding: '5px 11px', background: active ? STR_TINT : 'transparent' }}>
+                        className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full active:scale-[0.98] transition-all duration-200"
+                        style={{ padding: '7px 6px', background: active ? STR_TINT : 'transparent' }}>
                         {/* graduated bolts via the shared DifficultyBolts (reuse, not modified): קליל 1 / מאוזן 2 / עוצמתי 3 */}
                         <DifficultyBolts difficulty={(i + 1) as 1 | 2 | 3} size="sm" />
                         <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: active ? STR_TEXT : '#6B7280' }}>
