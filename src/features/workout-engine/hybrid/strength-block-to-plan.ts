@@ -36,6 +36,22 @@ function exMedia(we: GeneratedExercise): { videoUrl?: string; imageUrl?: string;
   // yield undefined here and fall through to the exact original chain (byte-identical).
   const bunnyPreview = resolvePreviewForLang(we.method?.media as any);
   const bunnyVideoId: string | undefined = bunnyPreview?.videoId ?? undefined;
+  // [TEMP DIAG — remove after debugging] which method got selected + does IT carry Bunny?
+  {
+    const m = we.method as any;
+    const allMethods = (we.exercise as any)?.execution_methods ?? (we.exercise as any)?.executionMethods ?? [];
+    console.log('[hybrid-method-diag]', {
+      name: exName(we),
+      selectedMethodLocation: m?.location ?? null,
+      selectedMethodMapping: m?.locationMapping ?? null,
+      selectedHasPreviewVideo: !!(m?.media?.previewVideo?.he?.videoId),
+      selectedHasMainVideoUrl: !!(m?.media?.mainVideoUrl),
+      allMethodLocations: allMethods.map((x: any) => x?.location ?? '?'),
+      parkMethodHasPreview: allMethods
+        .filter((x: any) => x?.location === 'park' || x?.locationMapping?.includes('park'))
+        .map((x: any) => !!(x?.media?.previewVideo?.he?.videoId)),
+    });
+  }
   const bunnyStreamUrl: string | undefined = bunnyVideoId ? buildBunnyStreamUrl(bunnyVideoId) : undefined;
   const bunnyThumbUrl: string | undefined =
     bunnyPreview?.thumbnailUrl ?? (bunnyVideoId ? buildBunnyThumbnailUrl(bunnyVideoId) : undefined);
