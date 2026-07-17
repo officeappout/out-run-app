@@ -560,13 +560,10 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       logic.setFocusedRoute(null);
       return;
     }
-    // #3: the full-park compose is heavy (home trio + park resolution + Mapbox) — never
-    // fire it on settle/hover. Compose ONLY on tap (handleSelectSlot); clear any preview.
-    if (slot.preset.mode === 'full_park_workout') {
-      setHybridPreviewComposing(false);
-      logic.setFocusedRoute(null);
-      return;
-    }
+    // full_park_workout previews on settle too. The compose was formerly excluded
+    // here as "too heavy", but the route generator now returns a single loop for
+    // hybrid (maxRoutes:1 — no 3-route sequential 1.5s delay chain), so its route
+    // draws on focus like every other hybrid card, not only on the CTA tap.
     const cached = hybridPreviewCacheRef.current.get(slot.id);
     if (cached) {
       setHybridPreviewComposing(false);
