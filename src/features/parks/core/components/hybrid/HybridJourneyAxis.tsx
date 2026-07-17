@@ -33,7 +33,11 @@ function hybridImage(we: any): string {
   try {
     const ex = we?.exercise;
     if (!ex) return '';
-    const method = findMethodForLocation(ex, 'park') ?? ex.execution_methods?.[0] ?? we?.method;
+    // Prefer the ENGINE-selected method (we.method) — ContextualEngine.findMatchingMethod
+    // already resolved the correct location-matched, Bunny-aware method, so the review
+    // stays consistent with the in-workout player instead of re-selecting via the
+    // legacy-blind findMethodForLocation (which could return a home method via mapping).
+    const method = we?.method ?? findMethodForLocation(ex, 'park') ?? ex.execution_methods?.[0];
     return resolveExerciseMedia(ex, method).imageUrl ?? '';
   } catch { return ''; }
 }
