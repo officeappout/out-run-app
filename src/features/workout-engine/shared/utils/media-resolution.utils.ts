@@ -26,8 +26,9 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
 
-import { resolveTutorialForLang } from '@/features/content/exercises/core/exercise.types';
+import { resolveTutorialForLang, resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import { buildBunnyStreamUrl, buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 
 export interface ResolvedMedia {
   videoUrl: string | undefined;
@@ -52,8 +53,31 @@ export function resolveExerciseMedia(
   const allMethods: any[] =
     exercise.execution_methods || exercise.executionMethods || exercise.methods || [];
 
+  // ── Bunny preview (NEW structured field) ──
+  // Resolved BEFORE the legacy chain so a Bunny-only exercise (has
+  // `media.previewVideo.he.videoId` but no legacy `mainVideoUrl`) stops being a
+  // [Media FAIL]. Deep search mirrors the fullTutorial/video priority: selected
+  // method → any method → exercise root. A legacy-only exercise yields `undefined`
+  // here and falls straight through to the untouched legacy chain below, so its
+  // resolution stays byte-identical.
+  const previewVideo: ExternalVideo | undefined =
+    resolvePreviewForLang(methodMedia as any) ??
+    allMethods.reduce<ExternalVideo | undefined>(
+      (found, m: any) => found ?? resolvePreviewForLang(m?.media),
+      undefined,
+    ) ??
+    resolvePreviewForLang(exercise.media as any) ??
+    undefined;
+  const bunnyStreamUrl: string | undefined = previewVideo?.videoId
+    ? buildBunnyStreamUrl(previewVideo.videoId)
+    : undefined;
+  const bunnyThumbUrl: string | undefined =
+    previewVideo?.thumbnailUrl ??
+    (previewVideo?.videoId ? buildBunnyThumbnailUrl(previewVideo.videoId) : undefined);
+
   // ── Video resolution ──
   const videoUrl: string | undefined =
+    bunnyStreamUrl ||
     methodMedia?.mainVideoUrl ||
     methodMedia?.videoUrl ||
     allMethods.reduce(
@@ -68,6 +92,7 @@ export function resolveExerciseMedia(
 
   // ── Image resolution ──
   const imageUrl: string | undefined =
+    bunnyThumbUrl ||
     methodMedia?.imageUrl ||
     allMethods.reduce(
       (found: string | undefined, m: any) => found || m?.media?.imageUrl,
