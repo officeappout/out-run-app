@@ -11,6 +11,8 @@ import StrengthOverviewCard from '@/features/workout-engine/components/StrengthO
 import { WorkoutPlan } from '@/features/parks';
 import { useUserStore } from '@/features/user';
 import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
+import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
+import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
 /**
@@ -53,6 +55,12 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan
 
     // Helper function to resolve image URL
     const resolveImageUrl = (ex: FirestoreExercise): string | undefined => {
+      // Bunny thumbnail (NEW field) of execution_methods[0] above the legacy chain.
+      // Byte-identical fallthrough for legacy-only exercises. Method choice unchanged.
+      const preview = resolvePreviewForLang(ex.execution_methods?.[0]?.media as any);
+      const bunnyThumb =
+        preview?.thumbnailUrl ?? (preview?.videoId ? buildBunnyThumbnailUrl(preview.videoId) : undefined);
+      if (bunnyThumb) return bunnyThumb;
       if (ex.execution_methods?.[0]?.media?.imageUrl) {
         return ex.execution_methods[0].media.imageUrl;
       }

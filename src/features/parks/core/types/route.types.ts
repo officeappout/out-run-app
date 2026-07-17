@@ -39,6 +39,10 @@ export interface Exercise {
   duration?: string;
   videoUrl?: string;
   imageUrl?: string;
+  /** Bare Bunny UUID (from media.previewVideo.he.videoId) carried through the plan flatten,
+   *  so consumers that lose execution_methods (e.g. the rest-preview) can still resolve the
+   *  network-aware Bunny stream. Undefined for legacy-only exercises. */
+  bunnyVideoId?: string;
   /** Pre-resolved long-form instructional video (deep-searched at plan-build time). Drives the "צפה בהסבר המלא" CTA. */
   fullTutorial?: ExternalVideo | null;
   instructions?: string[];

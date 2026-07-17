@@ -20,6 +20,8 @@ import {
   findMethodForLocation,
 } from '@/features/content/exercises';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
+import { buildBunnyStreamUrl } from '@/lib/bunny/bunny.config';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { WorkoutData } from '../types';
 
@@ -62,11 +64,27 @@ export async function convertExercisesToWorkoutPlan(
     return imageUrl;
   };
 
+  // Bunny preview resolved ABOVE the legacy chain; the bare id is carried on the flat
+  // exercise so consumers that lose execution_methods can resolve the Bunny stream.
+  // Legacy-only exercises fall through to the exact original chain (byte-identical).
+  const resolveVideoWithBunny = (
+    ex: FirestoreExercise,
+    method: any,
+  ): { videoUrl: string | undefined; bunnyVideoId: string | undefined } => {
+    const bunnyVideoId = resolvePreviewForLang(method?.media)?.videoId ?? undefined;
+    const videoUrl =
+      (bunnyVideoId ? buildBunnyStreamUrl(bunnyVideoId) : undefined) ||
+      method?.media?.mainVideoUrl ||
+      ex.media?.videoUrl ||
+      undefined;
+    return { videoUrl, bunnyVideoId };
+  };
+
   // Warm-up segment
   if (warmupExercises.length > 0) {
     const warmupWorkoutExercises: WorkoutExercise[] = warmupExercises.map((ex) => {
       const executionMethod = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
-      const mainVideoUrl = executionMethod?.media?.mainVideoUrl || ex.media?.videoUrl;
+      const { videoUrl: mainVideoUrl, bunnyVideoId } = resolveVideoWithBunny(ex, executionMethod);
       const imageUrl = resolveImageUrl(ex);
 
       let targetType: 'time' | 'reps' = 'time';
@@ -93,6 +111,7 @@ export async function convertExercisesToWorkoutPlan(
         duration,
         videoUrl: mainVideoUrl,
         imageUrl,
+        bunnyVideoId,
         fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any).fullTutorial,
         instructions: ex.content?.highlights || [],
         icon: '🔥',
@@ -123,7 +142,7 @@ export async function convertExercisesToWorkoutPlan(
   if (mainExercises.length > 0) {
     const strengthWorkoutExercises: WorkoutExercise[] = mainExercises.map((ex) => {
       const executionMethod = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
-      const mainVideoUrl = executionMethod?.media?.mainVideoUrl || ex.media?.videoUrl;
+      const { videoUrl: mainVideoUrl, bunnyVideoId } = resolveVideoWithBunny(ex, executionMethod);
       const imageUrl = resolveImageUrl(ex);
 
       let targetType: 'time' | 'reps' = 'reps';
@@ -148,6 +167,7 @@ export async function convertExercisesToWorkoutPlan(
         duration,
         videoUrl: mainVideoUrl,
         imageUrl,
+        bunnyVideoId,
         fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any).fullTutorial,
         instructions: ex.content?.highlights || [],
         icon: '💪',
@@ -173,7 +193,7 @@ export async function convertExercisesToWorkoutPlan(
   if (cooldownExercises.length > 0) {
     const cooldownWorkoutExercises: WorkoutExercise[] = cooldownExercises.map((ex) => {
       const executionMethod = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
-      const mainVideoUrl = executionMethod?.media?.mainVideoUrl || ex.media?.videoUrl;
+      const { videoUrl: mainVideoUrl, bunnyVideoId } = resolveVideoWithBunny(ex, executionMethod);
       const imageUrl = resolveImageUrl(ex);
 
       return {
@@ -182,6 +202,7 @@ export async function convertExercisesToWorkoutPlan(
         duration: '5 דקות',
         videoUrl: mainVideoUrl,
         imageUrl,
+        bunnyVideoId,
         fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any).fullTutorial,
         instructions: ex.content?.highlights || [],
         icon: '🧘',
