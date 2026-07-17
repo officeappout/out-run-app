@@ -176,7 +176,7 @@ async function composeFullParkWorkout(
       aerobicKind: intent.aerobicKind,
       fallbackHint: restLike ? 'יום מנוחה — הליכה בלבד' : undefined,
       station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
-      bolts: { plans, selectedIndex, labels: ['קל', 'בינוני', 'קשה'] },
+      bolts: { plans, selectedIndex, labels: ['קליל', 'מאוזן', 'עוצמתי'] },
     };
   } catch (e) {
     console.warn('[composeFullParkWorkout] home trio / compose failed', e);
