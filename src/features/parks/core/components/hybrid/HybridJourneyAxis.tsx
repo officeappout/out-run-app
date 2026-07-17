@@ -195,8 +195,7 @@ export default function HybridJourneyAxis({
                             onToggleWarmupActive={onToggleWarmupActive ?? (() => {})}
                           />
                           {showCards && (
-                            <div className="relative flex flex-col gap-2" style={{ paddingRight: 12 }}>
-                              <span className="absolute" style={{ top: 3, bottom: 3, right: 0, width: 4, borderRadius: 2, background: isWarmupSection && isWarmupActive === false ? '#CBD5E1' : STR }} />
+                            <div className="flex flex-col gap-2">
                               {section.exercises.map((we: any) => (
                                 <ExerciseCard
                                   key={we?.exercise?.id}
