@@ -105,6 +105,15 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
         ),
       };
     }
+    // [TEMP DIAG — remove after debugging] media fields that reach StrengthRunner on the hybrid path
+    if (stationPlan) {
+      const rows = stationPlan.segments.flatMap((seg: any) =>
+        (seg.exercises ?? []).map((ex: any) => ({
+          name: ex.name, videoUrl: ex.videoUrl, bunnyVideoId: ex.bunnyVideoId, imageUrl: ex.imageUrl,
+        })),
+      );
+      console.log('[hybrid-media-diag] plan → StrengthRunner:', JSON.stringify(rows, null, 2));
+    }
     set({ phase: controllerRef.getPhase(), stationPlan, isFinalLeg: false });
   },
 

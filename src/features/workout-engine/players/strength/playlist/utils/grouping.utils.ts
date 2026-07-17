@@ -39,6 +39,11 @@ export function getExercises(
  *   2. shared 5-level deep media search (`resolveExerciseMedia`)
  *   3. logs a clear error and returns undefined when nothing exists
  */
+// De-dupes the [Media FAIL] diagnostic. resolveExImage runs inside buildEntry, which
+// is called on EVERY WorkoutPlaylist render (not memoized) — without this, a genuinely
+// media-less exercise logs an error on every repaint. Log once per exercise id instead.
+const _mediaFailLogged = new Set<string>();
+
 export function resolveExImage(ex: WorkoutExercise): string | undefined {
   if (ex.imageUrl) return ex.imageUrl;
   if (ex.videoUrl) return ex.videoUrl;
@@ -48,7 +53,11 @@ export function resolveExImage(ex: WorkoutExercise): string | undefined {
   if (imageUrl) return imageUrl;
 
   const name = typeof ex.name === 'string' ? ex.name : (raw.name?.he || ex.id);
-  console.error(`[Media FAIL] No media found for playlist exercise: ${name}`);
+  const key = typeof ex.id === 'string' && ex.id ? ex.id : String(name);
+  if (!_mediaFailLogged.has(key)) {
+    _mediaFailLogged.add(key);
+    console.error(`[Media FAIL] No media found for playlist exercise: ${name}`);
+  }
   return undefined;
 }
 

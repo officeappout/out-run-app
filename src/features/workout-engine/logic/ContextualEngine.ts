@@ -514,10 +514,23 @@ export class ContextualEngine {
     const methods = exercise.execution_methods || exercise.executionMethods || [];
     if (!methods.length) return null;
 
-    // Helper: prefer methods with media
-    const preferMedia = (list: ExecutionMethod[]): ExecutionMethod | null => {
-      const withMedia = list.filter(m => m.media?.mainVideoUrl || m.media?.imageUrl);
-      return withMedia[0] || list[0] || null;
+    // Helper: prefer methods with media, with an EXACT-location preference.
+    // "Has media" recognises the NEW Bunny previewVideo (not just legacy
+    // mainVideoUrl/imageUrl) — otherwise a Bunny-only park method looks media-less
+    // and loses to a legacy home method that only reached this list via locationMapping.
+    // Priority: exact-location+media > exact-location > any+media > any.
+    const hasMedia = (m: ExecutionMethod): boolean =>
+      !!(m.media?.mainVideoUrl ||
+         m.media?.imageUrl ||
+         (m.media as any)?.previewVideo?.he?.videoId ||
+         (m.media as any)?.previewVideo?.en?.videoId);
+    const preferMedia = (
+      list: ExecutionMethod[],
+      exactLocation?: string,
+    ): ExecutionMethod | null => {
+      if (!list.length) return null;
+      const exact = exactLocation ? list.filter(m => m.location === exactLocation) : [];
+      return exact.find(hasMedia) ?? exact[0] ?? list.find(hasMedia) ?? list[0] ?? null;
     };
 
     // Unified gear collector — merges equipmentIds + gearIds, normalises all
@@ -598,7 +611,7 @@ export class ContextualEngine {
 
       if (parkCandidates.length > 0) {
         const gated = applyParkGating(parkCandidates);
-        if (gated.length > 0) return preferMedia(gated);
+        if (gated.length > 0) return preferMedia(gated, 'park');
 
         // Park methods exist but ALL failed equipment gating → strict rejection.
         // Do not fall through to home, available-gear, or bodyweight paths.
@@ -629,14 +642,14 @@ export class ContextualEngine {
       m.location === context.location ||
       m.locationMapping?.includes(context.location),
     );
-    if (candidates.length > 0) return preferMedia(candidates);
+    if (candidates.length > 0) return preferMedia(candidates, context.location);
 
     // ── Priority 2: Home fallback (non-park, non-home locations) ──────────
     if (context.location !== 'home') {
       const homeCandidates = methods.filter(
         m => m.location === 'home' || m.locationMapping?.includes('home'),
       );
-      if (homeCandidates.length > 0) return preferMedia(homeCandidates);
+      if (homeCandidates.length > 0) return preferMedia(homeCandidates, 'home');
     }
 
     // ── Priority 2.5: Methods requiring only available gear (non-park) ────
