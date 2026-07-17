@@ -300,7 +300,9 @@ export async function composeHybridPlan(
         // Bias the loop THROUGH a fitness park when we have parks (findFitnessAnchor),
         // and enable the hybrid-only quality passes (bearing-order + continue_straight
         // + Douglas-Peucker) for a clean loop. Free-run omits qualityRoute → unchanged.
-        preferences: { includeStrength: parks.length > 0, qualityRoute: true },
+        // maxRoutes:1 — we consume routes[0] only; stops the generator after the
+        // first valid loop, before its trailing 1.5s inter-route delays.
+        preferences: { includeStrength: parks.length > 0, qualityRoute: true, maxRoutes: 1 },
         parks: parks as any, cityName: ctx.cityName,
       });
       routePath = normalizePath(routes?.[0]?.path);
