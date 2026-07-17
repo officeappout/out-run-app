@@ -25,6 +25,7 @@ import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/sta
 
 const ACCENT = '#00ADEF';
 const AER = '#10B981', STR = '#00C9F2'; // strength = BRAND_CYAN (app-wide; color-system.md §4)
+const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
 
 // Three detents as a fraction of the viewport that stays VISIBLE above the map.
 const DETENT = { peek: 0.20, half: 0.55, full: 0.90 } as const;
@@ -218,9 +219,13 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                     const active = i === boltIndex;
                     return (
                       <button key={label} type="button" onClick={() => selectBolt(i)} aria-pressed={active}
-                        className="rounded-md text-[12px] font-bold active:scale-95 transition-all whitespace-nowrap"
-                        style={{ padding: '5px 11px', background: active ? ACCENT : 'transparent', color: active ? '#fff' : '#6B7280' }}>
-                        {label} · {bmin}׳
+                        className="flex flex-col items-center gap-0.5 rounded-md active:scale-95 transition-all"
+                        style={{ padding: '5px 11px', background: active ? STR_TINT : 'transparent' }}>
+                        {/* graduated bolts via the shared DifficultyBolts (reuse, not modified): קליל 1 / מאוזן 2 / עוצמתי 3 */}
+                        <DifficultyBolts difficulty={(i + 1) as 1 | 2 | 3} size="sm" />
+                        <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: active ? STR_TEXT : '#6B7280' }}>
+                          {label} · {bmin}׳
+                        </span>
                       </button>
                     );
                   })}
