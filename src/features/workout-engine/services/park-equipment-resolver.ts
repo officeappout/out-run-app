@@ -17,7 +17,7 @@
 import { getPark, fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { detectNearbyPark, EQUIPMENT_DETECTION_RADIUS_M } from './park-detection.service';
 import { equippedParksWithin } from '../hybrid/park-out-and-back';
-import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
+import { normalizeGearId, ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 
@@ -61,6 +61,16 @@ export async function resolveParkEquipmentIds(
   userProfile: UserFullProfile,
   options?: ResolveParkEquipmentOptions,
 ): Promise<string[]> {
+  // Warm the equipment caches BEFORE any normalizeGearId call. This is the
+  // resolver's contract (see park-equipment.util.ts): a park's gymEquipment
+  // entries are Firestore doc-IDs that only translate to canonical gear types
+  // (dip_station, pullup_bar, trx…) once `gymEquipmentCache` is seeded. Without
+  // this, an early caller (StatsOverview resolves park gear BEFORE its own
+  // ensureEquipmentCachesLoaded await) gets RAW doc-IDs back → ParkGating blocks
+  // every geared exercise → the park looks empty and degrades to bodyweight.
+  // Idempotent + deduped: a no-op once warm.
+  await ensureEquipmentCachesLoaded();
+
   // Priority 1 — explicitly selected park
   if (options?.selectedParkId) {
     const ids = await extractParkEquipment(options.selectedParkId);
