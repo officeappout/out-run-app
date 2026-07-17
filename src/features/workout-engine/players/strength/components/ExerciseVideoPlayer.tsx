@@ -15,6 +15,7 @@ import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
@@ -72,6 +73,7 @@ export default function ExerciseVideoPlayer({
   onLoadingChange,
 }: ExerciseVideoPlayerProps) {
   const [videoLoading, setVideoLoading] = useState(true);
+  const [videoError, setVideoError] = useState(false);
   const [iframeError, setIframeError] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -138,11 +140,34 @@ export default function ExerciseVideoPlayer({
     if (isYouTubeVideo) return false;
     if (effectiveVideoUrl.startsWith('blob:')) return true;
     const lowerUrl = effectiveVideoUrl.toLowerCase();
-    return lowerUrl.includes('.mp4') || 
-           lowerUrl.includes('.mov') || 
+    return lowerUrl.includes('.mp4') ||
+           lowerUrl.includes('.mov') ||
            lowerUrl.includes('.webm') ||
            lowerUrl.includes('video');
   }, [effectiveVideoUrl, isYouTubeVideo]);
+
+  // Derive Bunny's auto-thumbnail from the resolved stream URL so a failed live
+  // video falls back to a poster instead of a fully-black frame. Returns null for
+  // non-Bunny/blob URLs → the render path then shows the "הסרטון לא נטען" message.
+  const posterFallbackUrl = useMemo(() => {
+    if (!videoUrl) return null;
+    const m = videoUrl.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i);
+    return m ? buildBunnyThumbnailUrl(m[1]) : null;
+  }, [videoUrl]);
+
+  // Clear a prior video failure whenever the *effective* src changes, so a failed
+  // clip's poster never sticks onto a subsequent working source.
+  // Keyed on `effectiveVideoUrl` (the actual <video src>), NOT the `videoUrl` prop:
+  // the cache layer can swap the src from a network URL to a resolved blob: URL
+  // WITHOUT the prop changing. Race sequence that a videoUrl-keyed reset misses:
+  //   1. effectiveVideoUrl = network URL → onError → videoError=true → poster shown
+  //   2. useCachedMediaUrl resolves → effectiveVideoUrl flips to blob: → src now plays
+  //   3. videoUrl prop never moved → reset never fires → stale poster over a live video
+  // Keying on effectiveVideoUrl covers both this race AND ordinary exercise/URL
+  // changes (the prop change flows into effectiveVideoUrl in the same render).
+  useEffect(() => {
+    setVideoError(false);
+  }, [exerciseId, effectiveVideoUrl]);
 
   // ── Mute policy ────────────────────────────────────────────────────────
   // The short reps/time preview loop is ALWAYS muted: browsers (and iOS
@@ -303,7 +328,10 @@ export default function ExerciseVideoPlayer({
               preload="auto"
               onLoadedData={() => handleLoadingChange(false)}
               onLoadStart={() => handleLoadingChange(true)}
-              onError={() => handleLoadingChange(false)}
+              // Decode/network failure: hide the spinner LOCALLY but do NOT signal
+              // "ready" to the parent — that opens the next-video prefetch gate and
+              // piles a 2nd decoder onto an already-failing one. Show poster instead.
+              onError={() => { setVideoError(true); setVideoLoading(false); }}
               onTimeUpdate={(e) => {
                 if (exerciseType === 'follow-along') {
                   const video = e.currentTarget;
@@ -318,6 +346,24 @@ export default function ExerciseVideoPlayer({
                 }
               }}
             />
+          )}
+
+          {/* Poster fallback when the live <video> fails (404/CORS/iOS decoder
+              exhaustion). Prevents a fully-black frame. */}
+          {!isYouTubeVideo && hasValidDirectVideoUrl && videoError && (
+            posterFallbackUrl ? (
+              <img
+                key={`poster-${exerciseId}`}
+                src={posterFallbackUrl}
+                alt={exerciseName}
+                className="absolute inset-0 w-full h-full object-contain"
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/70">
+                <AlertCircle size={40} className="text-yellow-400" />
+                <span className="text-sm font-bold" style={{ fontFamily: 'var(--font-simpler)' }}>הסרטון לא נטען</span>
+              </div>
+            )
           )}
 
           {/* Fallback to image */}
