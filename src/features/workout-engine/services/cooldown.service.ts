@@ -13,6 +13,8 @@ import type { ContextualFilterContext } from '../logic/ContextualEngine';
 import type { GeneratedWorkout } from '../logic/WorkoutGenerator';
 import { isWarmupEquipmentAllowed } from './warmup.service';
 import { cooldownCountBudget } from '../logic/session-frame.utils';
+import { selectMethodForContext } from '../shared/utils/method-selection.utils';
+import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 
 // ============================================================================
 // COOLDOWN APPEND
@@ -47,6 +49,11 @@ export function appendCooldownExercises(
   // Step 2: Filter by location OR fallback to home
   const withLocation = allCooldowns.filter(ex => {
     if (workoutIds.has(ex.id)) return false;
+    if (CONTEXT_AWARE_SELECTION_ENABLED) {
+      // Single-source eligibility: at a park a home-only stretch is NOT admitted
+      // (selector returns null), so it can never be stamped with a home method.
+      return selectMethodForContext(ex, location, filterContext.availableEquipment ?? [], { homeParkFallback: location === 'home' }) != null;
+    }
     const methods = ex.execution_methods || ex.executionMethods || [];
     const method = methods.find(
       m => m.location === location || m.location === 'home' || m.locationMapping?.includes(location),
@@ -104,10 +111,11 @@ export function appendCooldownExercises(
     let score = 0;
     if (ex.primaryMuscle && usedMuscles.has(ex.primaryMuscle)) score += 2;
     const methods = ex.execution_methods || ex.executionMethods || [];
-    let bestMethod =
-      methods.find(m => m.location === location || m.locationMapping?.includes(location)) ||
-      methods.find(m => m.location === 'home' || m.locationMapping?.includes('home')) ||
-      methods[0];
+    let bestMethod = CONTEXT_AWARE_SELECTION_ENABLED
+      ? selectMethodForContext(ex, location, filterContext.availableEquipment ?? [], { homeParkFallback: location === 'home' })
+      : (methods.find(m => m.location === location || m.locationMapping?.includes(location)) ||
+         methods.find(m => m.location === 'home' || m.locationMapping?.includes('home')) ||
+         methods[0]);
     // Absolute fallback: exercises from nuke pool may have no methods — use minimal placeholder
     if (!bestMethod) {
       bestMethod = {
