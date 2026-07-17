@@ -40,7 +40,7 @@ export const HYBRID_SLOT_PREVIEW_ENABLED = true;
 // user has a strength program). While false, the slot layer is BYTE-IDENTICAL — the card
 // is never surfaced and the new compose branch (composeFullParkWorkout) is never entered.
 // ⚠️ Still display-only XP (0 credit) — do NOT wire real XP until single-save closes.
-export const HYBRID_FULL_PARK_WORKOUT_ENABLED = false;
+export const HYBRID_FULL_PARK_WORKOUT_ENABLED = true;
 
 // LEAGUES: Arena / leagues surface inside /community. Independent of the feed
 // so leagues can ship to stores while the social feed stays paused. Runtime
