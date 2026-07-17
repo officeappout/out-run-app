@@ -24,7 +24,7 @@ import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/featur
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
 
 const ACCENT = '#00ADEF';
-const AER = '#10B981', STR = '#F59E0B';
+const AER = '#10B981', STR = '#00C9F2'; // strength = BRAND_CYAN (app-wide; color-system.md §4)
 
 // Three detents as a fraction of the viewport that stays VISIBLE above the map.
 const DETENT = { peek: 0.20, half: 0.55, full: 0.90 } as const;
@@ -119,7 +119,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       // keys legs/core separately, so legs_core → legs for the icon lookup.
       const alias = seg.domainFocus === 'legs_core' ? 'legs' : seg.domainFocus;
       journeyStrip.push(
-        <span key={`stn${i}`} className="inline-flex items-center gap-1 text-[12.5px] font-extrabold whitespace-nowrap" style={{ color: '#B45309' }}>
+        <span key={`stn${i}`} className="inline-flex items-center gap-1 text-[12.5px] font-extrabold whitespace-nowrap" style={{ color: '#0E7490' }}>
           <span className="inline-flex" style={{ color: STR }}>{getProgramIcon(resolveIconKey(alias), 'w-[15px] h-[15px]')}</span>
           כוח
         </span>,

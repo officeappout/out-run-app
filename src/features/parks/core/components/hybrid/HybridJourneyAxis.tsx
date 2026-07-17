@@ -18,9 +18,9 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 import { findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
 
 const AER = '#10B981';
-const STR = '#F59E0B';
+const STR = '#00C9F2'; // strength = BRAND_CYAN (app-wide strength color; see color-system.md §4)
 const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';
-const STR_TINT = '#FFFBEB', STR_TEXT = '#B45309';
+const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text (same hue as STR)
 
 const ZONE_LABEL: Record<string, string> = {
   jogging: 'ריצה קלה', easy: 'קל', recovery: 'שחרור', walk: 'הליכה',
