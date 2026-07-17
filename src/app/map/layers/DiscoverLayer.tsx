@@ -566,6 +566,45 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation, userCityName, logic]);
 
+  // Background pre-warm of the full-park trio. The full-park route draws on settle
+  // from the LIGHT preview, but the heavy part (generateHomeWorkoutTrio → 3 full
+  // workouts) is only needed by the CTA/overview. This kicks that heavy compose off
+  // on idle — AFTER the route is already drawn — and stores the full session in the
+  // HEAVY cache (hybridPreviewCacheRef), the one handleSelectSlot reuses. So by the
+  // time the user taps "צא לדרך", the trio is ready → the overview opens instantly.
+  //
+  // Guards: (a) skip if the trio is already cached (user returned to the card);
+  // (b) settle flow-token — a swipe to another card supersedes an in-flight warm,
+  // which is dropped rather than cached; (c) deferred to idle so it never blocks
+  // the route paint. Never touches hybridPreviewComposing (no "computing" chip).
+  const prewarmFullParkTrio = useCallback((intent: HybridStartIntent, slotId: string, flowId: number) => {
+    if (hybridPreviewCacheRef.current.has(slotId)) return; // already warm → no recompute
+    const kickoff = () => {
+      if (hybridPreviewFlowIdRef.current !== flowId) return; // superseded before start
+      import('@/features/workout-engine/hybrid/start-hybrid-session').then(async ({ composeHybridPlan }) => {
+        if (hybridPreviewFlowIdRef.current !== flowId) return;      // superseded during import
+        if (hybridPreviewCacheRef.current.has(slotId)) return;      // filled meanwhile (CTA)
+        const composed = await composeHybridPlan(intent, {
+          userPosition: userLocation,
+          cityName: userCityName,
+          startRun: () => {}, // pre-warm NEVER starts a session (read-only)
+        });
+        // Swiped away while composing → drop; do not cache a superseded warm.
+        if (hybridPreviewFlowIdRef.current !== flowId) return;
+        if (!composed) return;
+        hybridPreviewCacheRef.current.set(slotId, composed);
+        // eslint-disable-next-line no-console
+        console.log('[compose-trigger]', 'prewarm-ready', slotId);
+      });
+    };
+    // Defer to idle so the trio compute yields to the route paint (WKWebView has no
+    // requestIdleCallback → short setTimeout fallback).
+    const ric = (window as any).requestIdleCallback;
+    if (typeof ric === 'function') ric(kickoff, { timeout: 2500 });
+    else setTimeout(kickoff, 200);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation, userCityName]);
+
   // READ-ONLY preview: when the carousel SETTLES on a hybrid card, compose its
   // plan (cached per slot.id) and draw the route on the map — the SAME compose
   // the CTA runs, minus ANY save/run. This path NEVER calls runHybridPlan /
@@ -591,6 +630,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       if (cachedRoute) {
         setHybridPreviewComposing(false);
         drawRoutePreview(cachedRoute);
+        // route already drawn → warm the trio in the background
+        prewarmFullParkTrio(presetToIntent(slot.preset, slot.timeBudgetMin), slot.id, flowId);
         return;
       }
       setHybridPreviewComposing(true);
@@ -606,6 +647,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         if (!preview) return; // no equipped park / no position → leave map as-is
         hybridRoutePreviewCacheRef.current.set(slot.id, preview);
         drawRoutePreview(preview);
+        // route drawn → warm the trio in the background
+        prewarmFullParkTrio(presetToIntent(slot.preset, slot.timeBudgetMin), slot.id, flowId);
       });
       return;
     }
@@ -633,7 +676,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       drawComposedRoute(composed);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview]);
+  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview, prewarmFullParkTrio]);
 
   // Slot selection: hybrid → compose→overview; aerobic_quick → start now (skip overview).
   const handleSelectSlot = useCallback((slot: HybridSlot) => {
