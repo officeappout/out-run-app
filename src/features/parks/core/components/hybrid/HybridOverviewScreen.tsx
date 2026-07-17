@@ -13,7 +13,7 @@
  */
 
 import { useState } from 'react';
-import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft } from 'lucide-react';
+import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import CaloriesChip from '@/components/ui/CaloriesChip';
@@ -25,6 +25,7 @@ import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/sta
 
 const ACCENT = '#00ADEF';
 const AER = '#10B981', STR = '#00C9F2'; // strength = BRAND_CYAN (app-wide; color-system.md §4)
+const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
 
 // Three detents as a fraction of the viewport that stays VISIBLE above the map.
 const DETENT = { peek: 0.20, half: 0.55, full: 0.90 } as const;
@@ -78,6 +79,8 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const t = plan.totals;
   const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
   const [showWeightNudge, setShowWeightNudge] = useState(false);
+  // "פירוט" progressive-disclosure section (full-park only), collapsed by default.
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Warmup skip/expand (full-park). Mirrors WorkoutPreviewDrawer's local state; the skip
   // is carried onto the SHARED composed object so the RUN strips the warmup (useHybridRun),
@@ -171,13 +174,26 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
 
           {/* scroll body */}
           <div className="flex-1 overflow-y-auto px-4 pt-2">
-            <div className="text-[18px] font-black" style={{ color: '#111827' }}>אימון משולב</div>
-            {/* total workout time + estimated finish (Moovit-style "18 דקות | שעת הגעה 19:58") */}
-            <div className="flex items-center gap-1.5 text-[13px] mt-1" style={{ color: '#374151' }}>
-              <span className="font-black">{totalMin} דק׳</span>
-              <span style={{ color: '#D1D5DB' }}>·</span>
-              <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
-            </div>
+            {composed.bolts ? (
+              /* full-park: ONE unified title row — title · duration · finish */
+              <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
+                <span className="text-[18px] font-black" style={{ color: '#111827' }}>אימון משולב</span>
+                <span style={{ color: '#D1D5DB' }}>·</span>
+                <span className="font-black" style={{ color: '#374151' }}>{totalMin} דק׳</span>
+                <span style={{ color: '#D1D5DB' }}>·</span>
+                <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-[18px] font-black" style={{ color: '#111827' }}>אימון משולב</div>
+                {/* total workout time + estimated finish (Moovit-style "18 דקות | שעת הגעה 19:58") */}
+                <div className="flex items-center gap-1.5 text-[13px] mt-1" style={{ color: '#374151' }}>
+                  <span className="font-black">{totalMin} דק׳</span>
+                  <span style={{ color: '#D1D5DB' }}>·</span>
+                  <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
+                </div>
+              </>
+            )}
             <div className="flex items-center gap-1.5 text-[12px] mt-0.5" style={{ color: '#6B7280' }}>
               <MapPin size={14} /> {cityName ?? 'קרוב אליך'} · לולאה עם תחנת כוח אחת
             </div>
@@ -198,29 +214,55 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               </div>
             </div>
 
-            {/* chips */}
-            <div className="flex gap-2 mt-3 flex-wrap">
-              <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
-              <Chip icon={<Clock size={15} />}>{totalMin} דק׳</Chip>
-              <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
-            </div>
-            {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
+            {composed.bolts ? (
+              /* full-park: "פירוט" collapsible (defaultOpen=false) — stats now, container for future detail */
+              <div className="mt-3">
+                <button type="button" onClick={() => setDetailOpen((o) => !o)} aria-expanded={detailOpen}
+                  className="flex items-center gap-1 text-[12px] font-black active:scale-[0.98] transition-transform" style={{ color: '#6B7280', letterSpacing: '.03em' }}>
+                  <ChevronDown size={15} style={{ transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} /> פירוט
+                </button>
+                {detailOpen && (
+                  <div className="mt-2">
+                    <div className="flex gap-2 flex-wrap">
+                      <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
+                      <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
+                    </div>
+                    {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
+                    {/* container for future expanded detail — no content yet */}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* chips */}
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
+                  <Chip icon={<Clock size={15} />}>{totalMin} דק׳</Chip>
+                  <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
+                </div>
+                {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
+              </>
+            )}
 
             {/* meta row — difficulty carousel (full-park, קל/בינוני/קשה with emergent
                 minutes) or, for budget-split cards, the original static bolts pill */}
             <div className="flex items-center gap-2 mt-2.5 flex-wrap">
               {composed.bolts ? (
-                <div className="inline-flex items-center gap-1 bg-white rounded-lg" role="group" aria-label="בחירת עצימות"
-                  style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3 }}>
+                <div className="flex w-full items-stretch bg-white rounded-full" role="group" aria-label="בחירת עצימות"
+                  style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}>
                   {composed.bolts.labels.map((label, i) => {
                     const bt = composed.bolts!.plans[i].totals;
                     const bmin = Math.round((bt.aerobicMin ?? 0) + (bt.strengthMin ?? 0));
                     const active = i === boltIndex;
                     return (
                       <button key={label} type="button" onClick={() => selectBolt(i)} aria-pressed={active}
-                        className="rounded-md text-[12px] font-bold active:scale-95 transition-all whitespace-nowrap"
-                        style={{ padding: '5px 11px', background: active ? ACCENT : 'transparent', color: active ? '#fff' : '#6B7280' }}>
-                        {label} · {bmin}׳
+                        className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full active:scale-[0.98] transition-all duration-200"
+                        style={{ padding: '7px 6px', background: active ? STR_TINT : 'transparent' }}>
+                        {/* graduated bolts via the shared DifficultyBolts (reuse, not modified): קליל 1 / מאוזן 2 / עוצמתי 3 */}
+                        <DifficultyBolts difficulty={(i + 1) as 1 | 2 | 3} size="sm" />
+                        <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: active ? STR_TEXT : '#6B7280' }}>
+                          {label} · {bmin}׳
+                        </span>
                       </button>
                     );
                   })}
