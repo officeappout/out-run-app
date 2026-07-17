@@ -332,6 +332,12 @@ export default function ExerciseVideoPlayer({
               // "ready" to the parent — that opens the next-video prefetch gate and
               // piles a 2nd decoder onto an already-failing one. Show poster instead.
               onError={() => { setVideoError(true); setVideoLoading(false); }}
+              // Stall detection: surface mid-stream buffering as the spinner (local
+              // only — must not touch the parent prefetch gate) + log for diagnosis.
+              // No recovery attempt here (that's the deferred HLS/ABR decision).
+              onWaiting={() => setVideoLoading(true)}
+              onPlaying={() => setVideoLoading(false)}
+              onStalled={() => console.warn('[live-video] stalled', { exerciseId, exerciseName })}
               onTimeUpdate={(e) => {
                 if (exerciseType === 'follow-along') {
                   const video = e.currentTarget;

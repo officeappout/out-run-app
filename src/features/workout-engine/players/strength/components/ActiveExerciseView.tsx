@@ -171,9 +171,12 @@ export default function ActiveExerciseView({
 
       {/* Pre-fetch next exercise video — deferred until the main video has fired
           loadeddata. On iOS WKWebView, mounting two <video> elements simultaneously
-          exhausts the concurrent decoder budget and can block the primary video. */}
+          exhausts the concurrent decoder budget and can block the primary video.
+          preload="metadata" (not "auto") so the hidden prefetch does not pull the
+          whole clip and starve the current video's bandwidth — a stutter source.
+          The real warm cache is the IndexedDB blob cache, not this element. */}
       {mainVideoReady && cachedNextVideoUrl && (
-        <video src={cachedNextVideoUrl} preload="auto" className="hidden" muted playsInline {...{"webkit-playsinline": "true"}} />
+        <video src={cachedNextVideoUrl} preload="metadata" className="hidden" muted playsInline {...{"webkit-playsinline": "true"}} />
       )}
 
       {/* Isometric timer drawer — bottom sheet for time-based exercises */}
