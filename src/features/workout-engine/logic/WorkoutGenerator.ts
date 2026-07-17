@@ -440,7 +440,6 @@ export function resolveSubstituteMethod(
     // valid ExecutionLocation at runtime.
     context.location as ExecutionLocation,
     context.availableEquipment ?? [],
-    { homeParkFallback: context.location === 'home' },
   ) ?? undefined;
 }
 

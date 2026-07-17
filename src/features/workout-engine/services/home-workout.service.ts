@@ -236,7 +236,7 @@ async function generateRecoveryWorkout(
     // but still prefer the location-correct method; keep the [0] fallback since the
     // movement is the same everywhere (cosmetic which-video, not a gear leak).
     const method = (CONTEXT_AWARE_SELECTION_ENABLED
-      ? selectMethodForContext(ex, location, [], { homeParkFallback: location === 'home' })
+      ? selectMethodForContext(ex, location, [])
       : null) ?? ex.executionMethods?.[0] ?? {};
     return {
       exercise: ex,
@@ -392,7 +392,7 @@ async function tryBuildRecoveryVideoTrio(
     // Rest-day recovery videos are location-agnostic stretches; prefer the
     // location-correct method, keep the [0] fallback (cosmetic which-video).
     const method = (CONTEXT_AWARE_SELECTION_ENABLED
-      ? selectMethodForContext(ex, location, [], { homeParkFallback: location === 'home' })
+      ? selectMethodForContext(ex, location, [])
       : null) ?? ex.execution_methods?.[0] ?? (ex as any).executionMethods?.[0] ?? {};
     const durationSeconds = (method as any)?.media?.videoDurationSeconds ?? null;
     const durationMin = durationSeconds ? Math.round(durationSeconds / 60) : 10;

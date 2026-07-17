@@ -564,7 +564,7 @@ export function selectExercisesWithDomainQuotas(
           // hasMethod / isLocationCompatible eligibility AND the stamped method at
           // line ~685, so a park-blocked exercise (only a home method available) is
           // excluded here rather than resurrected with a home method.
-          return selectMethodForContext(ex, loc as ExecutionLocation, context.availableEquipment ?? [], { homeParkFallback: loc === 'home' }) ?? undefined;
+          return selectMethodForContext(ex, loc as ExecutionLocation, context.availableEquipment ?? []) ?? undefined;
         }
         const methods = ex.execution_methods || ex.executionMethods || [];
         return methods.find((x) => x.location === loc)

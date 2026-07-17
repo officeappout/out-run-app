@@ -503,7 +503,7 @@ export function prependWarmupExercises(
     // Route method choice through the single-source selector (park→bodyweight,
     // never home) instead of the home-preferring find + `?? methods[0]` leak.
     const method = CONTEXT_AWARE_SELECTION_ENABLED
-      ? selectMethodForContext(ex, location, availableEquipment ?? [], { homeParkFallback: location === 'home' })
+      ? selectMethodForContext(ex, location, availableEquipment ?? [])
       : (methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location)) ?? methods[0]);
     if (!method) return;
     const isTimeBased = ex.type === 'time' || ex.mechanicalType === 'straight_arm';
@@ -537,7 +537,7 @@ export function prependWarmupExercises(
   const passesEquipmentAndLocation = (ex: Exercise): boolean => {
     const methods = ex.execution_methods || ex.executionMethods || [];
     const method = CONTEXT_AWARE_SELECTION_ENABLED
-      ? selectMethodForContext(ex, location, availableEquipment ?? [], { homeParkFallback: location === 'home' })
+      ? selectMethodForContext(ex, location, availableEquipment ?? [])
       : methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location));
     if (!method) return false;
     return isGearContextuallyAllowed(method as ExecutionMethod, activeMainGear);

@@ -52,7 +52,7 @@ export function appendCooldownExercises(
     if (CONTEXT_AWARE_SELECTION_ENABLED) {
       // Single-source eligibility: at a park a home-only stretch is NOT admitted
       // (selector returns null), so it can never be stamped with a home method.
-      return selectMethodForContext(ex, location, filterContext.availableEquipment ?? [], { homeParkFallback: location === 'home' }) != null;
+      return selectMethodForContext(ex, location, filterContext.availableEquipment ?? []) != null;
     }
     const methods = ex.execution_methods || ex.executionMethods || [];
     const method = methods.find(
@@ -112,7 +112,7 @@ export function appendCooldownExercises(
     if (ex.primaryMuscle && usedMuscles.has(ex.primaryMuscle)) score += 2;
     const methods = ex.execution_methods || ex.executionMethods || [];
     let bestMethod = CONTEXT_AWARE_SELECTION_ENABLED
-      ? selectMethodForContext(ex, location, filterContext.availableEquipment ?? [], { homeParkFallback: location === 'home' })
+      ? selectMethodForContext(ex, location, filterContext.availableEquipment ?? [])
       : (methods.find(m => m.location === location || m.locationMapping?.includes(location)) ||
          methods.find(m => m.location === 'home' || m.locationMapping?.includes('home')) ||
          methods[0]);

@@ -38,9 +38,14 @@ export interface SelectMethodOptions {
    * Home content-gap rescue. When true AND `location` is 'home' and this exercise
    * has NO home-tagged method, allow a park-tagged method before falling back to
    * bodyweight. STRICTLY ADDITIVE — only rescues exercises that would otherwise be
-   * excluded (null). Default false preserves the exact legacy
-   * ContextualEngine.findMatchingMethod behaviour (needed for the Phase-0 parity
-   * extraction). Activated (behind the CONTEXT_AWARE_SELECTION flag) in Phase 1.
+   * excluded (null).
+   *
+   * ⚠️ RESERVED / currently disabled by ALL callers. Rationale: surfacing a
+   * park-only move (e.g. a bar muscle-up) to a home user who lacks a bar is worse
+   * than excluding it and letting the domain guarantee fill the slot with a
+   * bodyweight substitute (the graceful degrade). Re-enable only once a home
+   * pull-up-bar / equipment check gates it. Default false = legacy
+   * ContextualEngine.findMatchingMethod parity.
    */
   homeParkFallback?: boolean;
 }
