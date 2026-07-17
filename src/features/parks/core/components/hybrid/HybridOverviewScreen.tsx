@@ -222,7 +222,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             <div className="flex items-center gap-1.5 text-[12px] font-black mt-4 mb-2" style={{ color: '#6B7280', letterSpacing: '.03em' }}>
               מהלך האימון
             </div>
-            <HybridJourneyAxis segments={plan.segments} onExerciseTap={onExerciseTap} onSwapExercise={onSwapExercise} />
+            <HybridJourneyAxis segments={plan.segments} stationName={composed.bolts ? composed.station?.name : undefined} onExerciseTap={onExerciseTap} onSwapExercise={onSwapExercise} />
             <div style={{ height: 8 }} />
           </div>
 

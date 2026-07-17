@@ -55,13 +55,19 @@ function Meta({ icon, children }: { icon: React.ReactNode; children: React.React
 
 interface AxisProps {
   segments: HybridPlannedSegment[];
+  /**
+   * Full-park only: the destination park name. When set, aerobic legs render
+   * Moovit-style (destination title + an activity-derived verb) instead of the legacy
+   * "רגל ריצה N — יציאה". Omitted for budget-split cards → legacy rendering unchanged.
+   */
+  stationName?: string;
   /** Tap an exercise → the real preview detail drawer (owned by the parent). */
   onExerciseTap?: (we: EngineWorkoutExercise) => void;
   /** Swap the exercise at [segIndex][exIndex] → the real replacement modal (parent). */
   onSwapExercise?: (segIndex: number, exIndex: number, we: EngineWorkoutExercise) => void;
 }
 
-export default function HybridJourneyAxis({ segments, onExerciseTap, onSwapExercise }: AxisProps) {
+export default function HybridJourneyAxis({ segments, stationName, onExerciseTap, onSwapExercise }: AxisProps) {
   const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
   let aerIdx = 0, strIdx = 0;
   return (
@@ -80,6 +86,12 @@ export default function HybridJourneyAxis({ segments, onExerciseTap, onSwapExerc
           aerIdx += 1;
           const legLabel = aerIdx === 1 ? 'יציאה' : aerIdx === aerCount ? 'חזרה' : `${aerIdx}`;
           const pace = seg.targetPaceSecPerKm ? (seg.targetPaceSecPerKm.min + seg.targetPaceSecPerKm.max) / 2 : 0;
+          // Moovit-style (full-park): the verb is the ACTIVITY (walk/run) — kills the
+          // "רגל ריצה" vs "הליכה" contradiction — and the title is the DESTINATION.
+          const action = (seg.aerobicType ?? 'walking') === 'running' ? 'ריצה' : 'הליכה';
+          const legTitle = stationName
+            ? (aerIdx === 1 ? `אל ${stationName}` : aerIdx === aerCount ? 'חזרה לנקודת ההתחלה' : 'המשך')
+            : `רגל ריצה ${aerIdx} — ${legLabel}`;
           return (
             <div key={i} className="flex gap-3 items-stretch">
               <Node kind="aerobic" last={last} />
@@ -87,21 +99,36 @@ export default function HybridJourneyAxis({ segments, onExerciseTap, onSwapExerc
                 style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
                 <span className="absolute top-0 right-0 bottom-0" style={{ width: 4, background: AER }} />
                 <div style={{ padding: '11px 15px 12px 12px' }}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[14px] font-black" style={{ color: '#111827' }}>רגל ריצה {aerIdx} — {legLabel}</span>
-                    <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: AER_TINT, color: AER_TEXT }}>
-                      {ZONE_LABEL[String(seg.zone)] ?? 'אירובי'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap mt-2">
-                    {seg.distanceKm != null && <Meta icon={<Ruler size={14} />}>{seg.distanceKm.toFixed(2)} ק״מ</Meta>}
-                    {seg.durationSec != null && <Meta icon={<Clock size={14} />}>{Math.round(seg.durationSec / 60)} דק׳</Meta>}
-                    {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={{ direction: 'ltr', background: '#F3F4F6', color: AER_TEXT, padding: '2px 8px' }}>{fmtPace(pace)} /ק״מ</span>}
-                  </div>
-                  {last && (
-                    <div className="flex items-center gap-1.5 mt-2 text-[11px] font-extrabold" style={{ color: AER_TEXT }}>
-                      <Repeat size={15} style={{ color: AER }} /> מסלול מעגלי — חוזר לנקודת ההתחלה
-                    </div>
+                  {stationName ? (
+                    <>
+                      <span className="text-[14px] font-black block" style={{ color: '#111827' }}>{legTitle}</span>
+                      {/* פעולה · מרחק · זמן (הפועל = הפעילות) */}
+                      <div className="flex items-center gap-2 flex-wrap mt-2">
+                        <Meta icon={<Footprints size={14} />}>
+                          {action} · {seg.distanceKm != null ? seg.distanceKm.toFixed(2) : '—'} ק״מ · {Math.round((seg.durationSec ?? 0) / 60)} דק׳
+                        </Meta>
+                        {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={{ direction: 'ltr', background: '#F3F4F6', color: AER_TEXT, padding: '2px 8px' }}>{fmtPace(pace)} /ק״מ</span>}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[14px] font-black" style={{ color: '#111827' }}>רגל ריצה {aerIdx} — {legLabel}</span>
+                        <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: AER_TINT, color: AER_TEXT }}>
+                          {ZONE_LABEL[String(seg.zone)] ?? 'אירובי'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap mt-2">
+                        {seg.distanceKm != null && <Meta icon={<Ruler size={14} />}>{seg.distanceKm.toFixed(2)} ק״מ</Meta>}
+                        {seg.durationSec != null && <Meta icon={<Clock size={14} />}>{Math.round(seg.durationSec / 60)} דק׳</Meta>}
+                        {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={{ direction: 'ltr', background: '#F3F4F6', color: AER_TEXT, padding: '2px 8px' }}>{fmtPace(pace)} /ק״מ</span>}
+                      </div>
+                      {last && (
+                        <div className="flex items-center gap-1.5 mt-2 text-[11px] font-extrabold" style={{ color: AER_TEXT }}>
+                          <Repeat size={15} style={{ color: AER }} /> מסלול מעגלי — חוזר לנקודת ההתחלה
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
