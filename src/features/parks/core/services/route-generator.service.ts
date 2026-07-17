@@ -71,6 +71,15 @@ interface RouteGenerationOptions {
      * while HYBRID_SLOTS_ENABLED is false. See merge note (hybrid → main).
      */
     qualityRoute?: boolean;
+    /**
+     * Additive perf option: cap how many valid loops the sequential generator
+     * must collect before it stops. Defaults to 3 (legacy free-run carousel,
+     * which shows three cards). The hybrid composer consumes only `routes[0]`,
+     * so it passes `maxRoutes: 1` — the loop then breaks after the first valid
+     * route, BEFORE the trailing `delay(1500)` fires, cutting the two
+     * guaranteed inter-route waits off the hybrid compose critical path.
+     */
+    maxRoutes?: number;
   };
   parks: MapPark[];
   /** City name used to query street_segments from Firestore. Falls back to random waypoints when absent. */
@@ -667,7 +676,10 @@ export async function generateDynamicRoutes(
   }
 
   const validRoutes: Route[] = [];
-  const MIN_REQUIRED_ROUTES = 3;
+  // Default 3 (free-run carousel shows three cards); hybrid passes maxRoutes:1
+  // since it only uses routes[0]. Lowering the target makes the loop break right
+  // after the first valid route — before the trailing delay(1500) below.
+  const MIN_REQUIRED_ROUTES = Math.max(1, preferences.maxRoutes ?? 3);
   // Adaptive minimum: short loops genuinely return fewer points from Mapbox
   // even when they're geometrically valid (a 1.2km loop with 6 turns can be
   // ~30 points and still be a real walk). Loosen the bar for short targets,
@@ -948,24 +960,22 @@ async function generateCommuteRoutes(
       `to ${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}`,
   );
 
-  // Fire BOTH calls in parallel — Mapbox happily handles 2 concurrent
-  // Directions requests and we save the round-trip latency. The 1.5 s
-  // anti-429 delay used by the loop branch is overkill here (we're
-  // making 2 calls total, not 5 sequential ones).
-  const [alternatives, quietRaw] = await Promise.all([
-    MapboxService.getSmartPathAlternatives(userLocation, destination, profile, []),
-    MapboxService.getSmartPath(
-      userLocation,
-      destination,
-      profile,
-      [],
-      // `exclude=motorway` is a cycling/driving-only param — the Mapbox walking profile
-      // rejects it ("exclude value must be one of…"), which failed the whole quiet call
-      // and collapsed the commute (e.g. hybrid full-park walk) to a ~0.18km stub. Here
-      // profile is only 'walking' | 'cycling'; walkers never use motorways, so omit it.
-      { exclude: profile === 'cycling' ? 'motorway,toll' : undefined },
-    ),
-  ]);
+  // Single Directions call — `alternatives=true` already returns up to 3
+  // geometries in one round-trip, which is all we need for fastest + alternative.
+  //
+  // We intentionally do NOT make a dedicated `exclude=motorway` "quiet" call:
+  // `exclude` values are profile-specific, and `motorway` is a driving-only road
+  // class — the walking/cycling profiles reject it with "exclude value must be
+  // one of…" (a 400 logged as an API Error). It is also semantically pointless:
+  // pedestrians and cyclists are never routed onto a motorway to begin with. The
+  // "quiet" variant is instead derived from the longest alternative below.
+  const alternatives = await MapboxService.getSmartPathAlternatives(
+    userLocation,
+    destination,
+    profile,
+    [],
+  );
+  const quietRaw: MapboxPathResult | null = null;
 
   if (alternatives.length === 0) {
     console.warn('[RouteGenerator] Commute: no alternatives returned by Mapbox.');
@@ -979,12 +989,11 @@ async function generateCommuteRoutes(
   const fastest = sortedByDuration[0];
   const alternative = pickMostDifferent(sortedByDuration, fastest);
 
-  // Quiet preference: real `exclude=motorway` result first; otherwise
-  // fall back to the LONGEST-duration alternative as a cheap proxy
-  // ("longer routes tend to use back-streets to avoid the highway").
-  // Skip the fallback if it would be the same polyline as fastest or
-  // the alternative — better to omit the third card than show a
-  // visually-identical duplicate.
+  // Quiet preference: derived from the LONGEST-duration alternative as a cheap
+  // proxy ("longer routes tend to use back-streets to avoid busy roads").
+  // Skip it if it would be the same polyline as fastest or the alternative —
+  // better to omit the third card than show a visually-identical duplicate.
+  // (quietRaw is always null now — the invalid exclude call was removed above.)
   let quiet: MapboxPathResult | null = quietRaw;
   if (!quiet && sortedByDuration.length >= 2) {
     const longest = sortedByDuration[sortedByDuration.length - 1];
