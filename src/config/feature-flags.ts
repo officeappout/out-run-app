@@ -163,6 +163,18 @@ export const STRENGTH_SUMMARY_V2_ENABLED = false;
 // Independent flag: disturbs neither AEROBIC_SOLO_ENABLED nor the strength route.
 export const HYBRID_SUMMARY_ENABLED = true;
 
+// PLS_CACHE: Short-lived read cache + dedup for getProgramLevelSetting (#1 perf).
+// One home-workout generation issued ~48 getProgramLevelSetting round-trips — the
+// same push/pull/legs/core docs read up to 3× across resolveGlobalMaxIntense,
+// resolveAggregateFullBodyBudget and the protocol/goal loop, plus many misses.
+// With the cache those collapse to ~8 unique reads. Also gates the parallelised
+// resolveGlobalMaxIntense fan-out. While FALSE, getProgramLevelSetting is
+// BYTE-IDENTICAL to today (every call fetches; loops stay sequential) — this is the
+// output-parity baseline and the hard kill-switch. Freshness: invalidate-on-write
+// (same process) + short TTL (cross-process, see PLS_CACHE_TTL_MS in the service).
+// Runtime A/B override (no rebuild): localStorage['OUT_PLS_CACHE'] = '1' | '0'.
+export const PLS_CACHE_ENABLED = true;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================
