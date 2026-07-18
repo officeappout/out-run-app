@@ -138,7 +138,7 @@ export const IS_PERF_BATCH2_ENABLED = true;
 // When TRUE, both read one shared ref-counted stream (one Firestore listener
 // instead of two on the foreground map). Query shape preserved → rules-safe;
 // the group-session `mode=='group'` path is never unified.
-export const IS_PERF_BATCH2_PRESENCE_ENABLED = false;
+export const IS_PERF_BATCH2_PRESENCE_ENABLED = true;
 
 // ============================================================================
 // SUMMARY CONSOLIDATION (Stage 2/3) — per-screen V2 renderers over the shared
@@ -161,7 +161,7 @@ export const STRENGTH_SUMMARY_V2_ENABLED = false;
 // SummaryLayer (Stage 3) reading the stashed HybridFinalizeResult. While FALSE a
 // hybrid finish falls through to the current (empty) aerobic shell — today's behaviour.
 // Independent flag: disturbs neither AEROBIC_SOLO_ENABLED nor the strength route.
-export const HYBRID_SUMMARY_ENABLED = false;
+export const HYBRID_SUMMARY_ENABLED = true;
 
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
