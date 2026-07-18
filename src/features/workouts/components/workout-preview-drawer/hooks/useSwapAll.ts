@@ -190,6 +190,9 @@ export function useSwapAll({
           title,
           description,
           aiCue,
+          // Stamp the live location on the content so the switcher badge + the
+          // no-op guard read it back from here (not the static prop).
+          executionLocation: newLocation,
         };
         onGeneratedWorkoutUpdate?.(updated);
         const result = { swappedMethod, swappedExercise, keptMarked };

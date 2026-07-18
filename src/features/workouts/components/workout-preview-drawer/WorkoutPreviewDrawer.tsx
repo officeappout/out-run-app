@@ -201,8 +201,13 @@ export default function WorkoutPreviewDrawer({
   }, []);
 
   // ── Location swap-all (bulk + single), gated by SWAP_ALL_ENABLED ──
+  // Prefer the location stamped on the content by a prior swap, so the switcher
+  // badge and the swap no-op guard track the LIVE location (not the static prop,
+  // which the parent never updates after a swap).
   const resolvedSwapLocation: ExecutionLocation =
-    (workoutLocation as ExecutionLocation) || 'park';
+    (generatedWorkout?.executionLocation as ExecutionLocation) ||
+    (workoutLocation as ExecutionLocation) ||
+    'park';
   const { swapAll, isSwapping } = useSwapAll({
     generatedWorkout,
     onGeneratedWorkoutUpdate,

@@ -7,7 +7,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
 
-import { Exercise, MechanicalType } from '@/features/content/exercises/core/exercise.types';
+import { Exercise, MechanicalType, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { ScoredExercise, IntentMode, LifestylePersona, FilterStageCounts } from './ContextualEngine';
 
 // ============================================================================
@@ -261,6 +261,14 @@ export interface GeneratedWorkout {
    * rebuilds the context from the user profile + workout fields.
    */
   metadataCtx?: WorkoutMetadataSnapshot;
+  /**
+   * Execution location this plan currently reflects. Undefined on fresh
+   * generation (callers fall back to their own context); STAMPED by a swap-all
+   * location swap so the "איפה מתאמנים?" switcher badge and the swap no-op guard
+   * both read the live location off the content — one source of truth that
+   * travels with the workout, not ambient UI state.
+   */
+  executionLocation?: ExecutionLocation;
 }
 
 export interface VolumeAdjustment {
