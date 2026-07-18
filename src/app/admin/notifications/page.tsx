@@ -195,29 +195,45 @@ export default function NotificationsPage() {
 
   // ── Per-channel test send
   const [testingChannel, setTestingChannel] = useState<ChannelKey | null>(null);
-  const [testResults, setTestResults] = useState<Partial<Record<ChannelKey, 'ok' | 'err'>>>({});
+  // 'empty' = route reached OK but 0 devices registered (distinct from a real failure).
+  const [testResults, setTestResults] = useState<
+    Partial<Record<ChannelKey, { kind: 'ok' | 'err' | 'empty'; msg?: string }>>
+  >({});
 
   const handleTestSend = async (channel: ChannelKey) => {
     if (!currentUserId || testingChannel) return;
     setTestingChannel(channel);
     setTestResults((prev) => { const r = { ...prev }; delete r[channel]; return r; });
     try {
+      // Attach a Firebase ID token so auth no longer depends on the 1-hour
+      // out_admin_session cookie silently expiring (the route accepts Bearer).
+      const idToken = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/admin/notifications/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify({ channel, uid: currentUserId }),
       });
       const json = await res.json() as { delivered?: number; error?: string; reason?: string };
       if (!res.ok || json.error) {
-        console.error('[test-push]', json.error ?? json.reason);
-        setTestResults((prev) => ({ ...prev, [channel]: 'err' }));
+        setTestResults((prev) => ({
+          ...prev,
+          [channel]: { kind: 'err', msg: json.error ?? `HTTP ${res.status}` },
+        }));
+      } else if (!json.delivered || json.delivered === 0) {
+        // Delivered nothing — surface the real reason instead of "failed".
+        setTestResults((prev) => ({
+          ...prev,
+          [channel]: { kind: 'empty', msg: json.reason ?? 'לא נמסר — אין מכשירים רשומים' },
+        }));
       } else {
-        if (json.reason) console.warn('[test-push] no delivery:', json.reason);
-        setTestResults((prev) => ({ ...prev, [channel]: json.delivered && json.delivered > 0 ? 'ok' : 'err' }));
+        setTestResults((prev) => ({ ...prev, [channel]: { kind: 'ok' } }));
       }
     } catch (err) {
       console.error('[test-push] fetch failed', err);
-      setTestResults((prev) => ({ ...prev, [channel]: 'err' }));
+      setTestResults((prev) => ({ ...prev, [channel]: { kind: 'err', msg: 'שגיאת רשת' } }));
     } finally {
       setTestingChannel(null);
     }
@@ -509,14 +525,26 @@ export default function NotificationsPage() {
                     )}
                     שלח טסט אליי
                   </button>
-                  {testResults[entry.channel] === 'ok' && (
+                  {testResults[entry.channel]?.kind === 'ok' && (
                     <span className="flex items-center gap-1 text-xs text-green-400">
                       <CheckCircle2 size={11} />
                       נשלח
                     </span>
                   )}
-                  {testResults[entry.channel] === 'err' && (
-                    <span className="flex items-center gap-1 text-xs text-red-400">
+                  {testResults[entry.channel]?.kind === 'empty' && (
+                    <span
+                      className="flex items-center gap-1 text-xs text-amber-400"
+                      title={testResults[entry.channel]?.msg}
+                    >
+                      <AlertCircle size={11} />
+                      אין מכשירים רשומים
+                    </span>
+                  )}
+                  {testResults[entry.channel]?.kind === 'err' && (
+                    <span
+                      className="flex items-center gap-1 text-xs text-red-400"
+                      title={testResults[entry.channel]?.msg}
+                    >
                       <AlertCircle size={11} />
                       נכשל
                     </span>
