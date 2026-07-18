@@ -23,8 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import {
   Target, PersonStanding, Lock, Check,
-  Home, Trees, Dumbbell, MapPin, ChevronDown,
-  type LucideIcon,
+  Home,
 } from 'lucide-react';
 import {
   Exercise,
@@ -36,6 +35,9 @@ import {
   resolveTutorialForLang,
 } from '../../core/exercise.types';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
+import LocationVariantSwitcher, {
+  type LocationSwitcherOption,
+} from './LocationVariantSwitcher';
 import {
   ensureEquipmentCachesLoaded,
   getMuscleGroupLabel,
@@ -53,22 +55,9 @@ import {
 const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
 
-// ── Execution-location metadata (label + icon) for the method switcher ─────
-const LOCATION_META: Record<string, { label: string; Icon: LucideIcon }> = {
-  home:    { label: 'בית',          Icon: Home },
-  park:    { label: 'פארק',         Icon: Trees },
-  gym:     { label: 'חדר כושר',     Icon: Dumbbell },
-  street:  { label: 'רחוב',         Icon: MapPin },
-  office:  { label: 'משרד',         Icon: MapPin },
-  school:  { label: 'בית ספר',      Icon: MapPin },
-  airport: { label: 'שדה תעופה',    Icon: MapPin },
-  library: { label: 'ספרייה',       Icon: MapPin },
-  desk:    { label: 'שולחן',        Icon: MapPin },
-};
-
-function locationMeta(loc: string): { label: string; Icon: LucideIcon } {
-  return LOCATION_META[loc] ?? { label: loc, Icon: MapPin };
-}
+// Execution-location metadata (label + icon) + the method-switcher visual moved to the
+// shared LocationVariantSwitcher — ONE source of truth for the per-exercise single
+// toggle (here) and the workout-level bulk toggle (WorkoutLocationSwitcher).
 
 /**
  * Returns the canonical location(s) an ExecutionMethod covers.
@@ -693,159 +682,31 @@ export default function MasterExerciseView({
                     <h3 className="text-right text-[16px] font-semibold text-slate-800 leading-[30px]" style={SECTION_FONT}>
                       ציוד
                     </h3>
-                    {hasSwitcher && selectedOption && (() => {
-                      // Badge location priority (highest → lowest):
-                      //  1. activeLocation — the single source of truth: already incorporates
-                      //     normalizedFilterLocation when the selected method covers it, and
-                      //     falls back to the method's own location when it doesn't.
-                      //     This means switching to a park method via the dropdown immediately
-                      //     updates the badge to "פארק 🌳" even if filterLocation was "home".
-                      //  2. selectedOption.location — structural scalar, last resort
-                      const badgeLocation: string =
-                        activeLocation
-                          ?? selectedOption.location;
-                      const activeMeta = locationMeta(badgeLocation);
-                      const ActiveIcon = activeMeta.Icon;
-                      return (
-                        <div className="relative flex-shrink-0">
-                          {/* Active-variant badge / trigger */}
-                          <button
-                            type="button"
-                            onClick={canSwitch ? () => setSwitcherOpen((o) => !o) : undefined}
-                            className={`inline-flex items-center gap-1 bg-white rounded-lg px-2.5 shadow-sm ${canSwitch ? 'active:scale-95 transition-transform cursor-pointer' : 'cursor-default'}`}
-                            style={{ border: PILL_BORDER, height: 30 }}
-                            aria-haspopup={canSwitch ? 'listbox' : undefined}
-                            aria-expanded={canSwitch ? switcherOpen : undefined}
-                          >
-                            <ActiveIcon size={14} className="text-slate-500 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-slate-700 whitespace-nowrap" style={SECTION_FONT}>
-                              {activeMeta.label}
-                            </span>
-                            {canSwitch && (
-                              <ChevronDown
-                                size={14}
-                                className={`text-slate-400 flex-shrink-0 transition-transform ${switcherOpen ? 'rotate-180' : ''}`}
-                              />
-                            )}
-                          </button>
-
-                          {switcherOpen && (
-                            <>
-                              {/* Click-away catcher — must be `fixed` but framer-motion
-                                  sheets apply a CSS transform which breaks `position:fixed`.
-                                  We use a large absolutely-positioned backdrop instead so it
-                                  stays in the correct stacking/paint context. */}
-                              <button
-                                type="button"
-                                aria-label="סגור"
-                                onPointerDown={() => setSwitcherOpen(false)}
-                                className="absolute z-40 cursor-default"
-                                style={{ inset: '-200vh -200vw' }}
-                              />
-                              {/* Option list — keyed by method index for uniqueness */}
-                              <div
-                                role="listbox"
-                                dir="rtl"
-                                className="absolute top-full left-0 mt-2 z-50 min-w-[190px] bg-white rounded-2xl shadow-floating border border-slate-100 p-1.5"
-                              >
-                                {methodOptions.map((opt) => {
-                                  const optMeta = locationMeta(opt.location);
-                                  const OptIcon = optMeta.Icon;
-                                  const isActive = opt.idx === selectedMethodIdx;
-                                  return (
-                                    <button
-                                      key={opt.idx}
-                                      type="button"
-                                      role="option"
-                                      aria-selected={isActive}
-                                      // onPointerDown fires before the browser can decide
-                                      // this is a scroll gesture — critical for mobile
-                                      // inside an overflow-y-auto sheet.
-                                      onPointerDown={(e) => {
-                                        e.stopPropagation();
-                                        // eslint-disable-next-line no-console
-                                        console.log(
-                                          `🎯 [Switcher Click] Row tapped! Index: ${opt.idx}`,
-                                          `Location: ${opt.location}`,
-                                          `Gear: [${opt.gear.map((g) => g.id).join(', ')}]`,
-                                        );
-                                        // eslint-disable-next-line no-console
-                                        console.log(`🔄 [Switcher State] Updating active index to: ${opt.idx}`);
-                                        setSelectedMethodIdx(opt.idx);
-                                        setHasUserPickedMethod(true);
-                                        // Persist the pick to the live workout (workout-preview
-                                        // context only; no-op read-only elsewhere).
-                                        const chosenMethod = (exercise.execution_methods ?? exercise.executionMethods ?? [])[opt.idx];
-                                        if (chosenMethod) onMethodChange?.(chosenMethod, opt.idx);
-                                        setSwitcherOpen(false);
-                                      }}
-                                      className={`w-full flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-                                        isActive
-                                          ? 'bg-cyan-50 text-cyan-700 font-bold'
-                                          : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
-                                      }`}
-                                      style={SECTION_FONT}
-                                    >
-                                      {/* Location icon */}
-                                      <OptIcon
-                                        size={16}
-                                        className={`flex-shrink-0 mt-0.5 ${isActive ? 'text-cyan-600' : 'text-slate-400'}`}
-                                      />
-
-                                      <span className="flex-1 text-start">
-                                        {/* Location label */}
-                                        <span className={`block text-xs font-semibold ${isActive ? 'text-cyan-700' : 'text-slate-800'}`}>
-                                          {optMeta.label}
-                                        </span>
-
-                                        {/* Gear sub-row: per-item icon + label chips */}
-                                        {opt.gear.length > 0 ? (
-                                          <span className="flex flex-row flex-wrap gap-x-1.5 gap-y-0.5 mt-0.5">
-                                            {opt.gear.map((g, gi) => (
-                                              <span key={g.id} className="inline-flex items-center gap-0.5">
-                                                {gi > 0 && (
-                                                  <span className="text-slate-300 text-[10px] me-0.5">+</span>
-                                                )}
-                                                {g.icon ? (
-                                                  // eslint-disable-next-line @next/next/no-img-element
-                                                  <img
-                                                    src={g.icon}
-                                                    alt=""
-                                                    width={12}
-                                                    height={12}
-                                                    className="object-contain flex-shrink-0 opacity-60"
-                                                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                                                  />
-                                                ) : (
-                                                  <Dumbbell size={12} className="text-slate-400 flex-shrink-0" />
-                                                )}
-                                                <span className="text-[11px] font-normal text-slate-500 whitespace-nowrap">
-                                                  {g.label}
-                                                </span>
-                                              </span>
-                                            ))}
-                                          </span>
-                                        ) : (
-                                          /* Bodyweight placeholder */
-                                          <span className="inline-flex items-center gap-0.5 mt-0.5">
-                                            <PersonStanding size={12} className="text-slate-400 flex-shrink-0" />
-                                            <span className="text-[11px] font-normal text-slate-500">משקל גוף</span>
-                                          </span>
-                                        )}
-                                      </span>
-
-                                      {isActive && (
-                                        <Check size={14} className="flex-shrink-0 mt-0.5 text-cyan-600" />
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    {hasSwitcher && selectedOption && (
+                      <LocationVariantSwitcher
+                        activeLocation={activeLocation ?? selectedOption.location}
+                        canSwitch={canSwitch}
+                        open={switcherOpen}
+                        onToggleOpen={() => setSwitcherOpen((o) => !o)}
+                        onClose={() => setSwitcherOpen(false)}
+                        options={methodOptions.map((opt): LocationSwitcherOption => ({
+                          key: String(opt.idx),
+                          location: opt.location,
+                          gear: opt.gear,
+                          isActive: opt.idx === selectedMethodIdx,
+                        }))}
+                        onSelect={(opt) => {
+                          const idx = Number(opt.key);
+                          setSelectedMethodIdx(idx);
+                          setHasUserPickedMethod(true);
+                          // Persist the pick to the live workout (workout-preview context
+                          // only; no-op read-only elsewhere).
+                          const chosenMethod = (exercise.execution_methods ?? exercise.executionMethods ?? [])[idx];
+                          if (chosenMethod) onMethodChange?.(chosenMethod, idx);
+                          setSwitcherOpen(false);
+                        }}
+                      />
+                    )}
                   </div>
 
                   {equipmentBadges.length > 0 ? (

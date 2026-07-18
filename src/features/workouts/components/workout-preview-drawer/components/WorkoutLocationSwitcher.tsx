@@ -3,20 +3,42 @@
 /**
  * WorkoutLocationSwitcher — workout-level "swap all → <location>" control.
  *
- * The bulk sibling of the per-exercise MasterExerciseView location switcher: same
- * home/park/street choices, applied to the WHOLE workout in one tap via swapAll. Only
- * mounted behind SWAP_ALL_ENABLED. Shows a lightweight skeleton/pulse while the
- * cascade recomputes.
+ * A thin adapter: it builds the 3 location options and owns open state, then renders
+ * the SHARED LocationVariantSwitcher — the exact same pixel-for-pixel dropdown as the
+ * per-exercise single toggle in MasterExerciseView (one visual source of truth). Only
+ * mounted behind SWAP_ALL_ENABLED.
  */
 
-import { Home, Trees, MapPin } from 'lucide-react';
+import { useState } from 'react';
 import type { ExecutionLocation } from '@/features/content/exercises';
+import LocationVariantSwitcher, {
+  type LocationSwitcherOption,
+} from '@/features/content/exercises/client/components/LocationVariantSwitcher';
+import {
+  resolveEquipmentLabel,
+  resolveEquipmentSvgPathList,
+} from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
-const OPTIONS: { value: ExecutionLocation; label: string; Icon: typeof Home }[] = [
-  { value: 'home', label: 'בית', Icon: Home },
-  { value: 'park', label: 'פארק', Icon: Trees },
-  { value: 'street', label: 'רחוב', Icon: MapPin },
-];
+const LOCATIONS: ExecutionLocation[] = ['home', 'park', 'street'];
+
+// Representative equipment per location for the sub-label. Illustrative only — the
+// REAL per-exercise gear is resolved during the swap; this mirrors the single-toggle
+// look (park = fixed bars; home/street fall to the "משקל גוף" placeholder).
+const REPRESENTATIVE_GEAR: Record<string, string[]> = {
+  home: [],
+  park: ['pullup_bar', 'dip_station'],
+  street: [],
+};
+
+function gearChips(location: string): LocationSwitcherOption['gear'] {
+  return (REPRESENTATIVE_GEAR[location] ?? [])
+    .map((id) => {
+      const label = resolveEquipmentLabel(id);
+      if (!label || label === 'ציוד לא מזוהה') return null;
+      return { id, label, icon: resolveEquipmentSvgPathList(id)[0] ?? null };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+}
 
 interface WorkoutLocationSwitcherProps {
   currentLocation: ExecutionLocation;
@@ -29,33 +51,31 @@ export default function WorkoutLocationSwitcher({
   isSwapping,
   onSwap,
 }: WorkoutLocationSwitcherProps) {
+  const [open, setOpen] = useState(false);
+
+  const options: LocationSwitcherOption[] = LOCATIONS.map((loc) => ({
+    key: loc,
+    location: loc,
+    gear: gearChips(loc),
+    isActive: loc === currentLocation,
+  }));
+
   return (
-    <div dir="rtl" className="mb-4">
-      <div className="text-xs font-semibold text-slate-500 mb-1.5">איפה מתאמנים?</div>
-      <div className="flex gap-2">
-        {OPTIONS.map(({ value, label, Icon }) => {
-          const active = value === currentLocation;
-          return (
-            <button
-              key={value}
-              type="button"
-              disabled={isSwapping || active}
-              onClick={() => onSwap(value)}
-              className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${
-                active
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300 disabled:opacity-50'
-              }`}
-            >
-              <Icon size={16} />
-              {label}
-            </button>
-          );
-        })}
-      </div>
-      {isSwapping && (
-        <div className="mt-2 text-xs text-cyan-600 animate-pulse">מחליף את כל התרגילים למיקום החדש…</div>
-      )}
+    <div dir="rtl" className="mb-4 flex items-center gap-2">
+      <span className="text-xs font-semibold text-slate-500">איפה מתאמנים?</span>
+      <LocationVariantSwitcher
+        activeLocation={currentLocation}
+        options={options}
+        open={open}
+        canSwitch={!isSwapping}
+        onToggleOpen={() => setOpen((o) => !o)}
+        onClose={() => setOpen(false)}
+        onSelect={(opt) => {
+          setOpen(false);
+          if (opt.location !== currentLocation) onSwap(opt.location as ExecutionLocation);
+        }}
+      />
+      {isSwapping && <span className="text-xs text-cyan-600 animate-pulse">מחליף…</span>}
     </div>
   );
 }
