@@ -172,8 +172,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             </button>
           </div>
 
-          {/* scroll body */}
-          <div className="flex-1 overflow-y-auto px-4 pt-2">
+          {/* scroll body — overflow-x-hidden pins the content horizontally.
+              overflow-y:auto alone makes the computed overflow-x:auto (CSS spec),
+              so any sub-pixel-wide child let a horizontal drag rubber-band the
+              whole body sideways. The nested Moovit strip keeps its own
+              overflow-x-auto, so its intentional horizontal scroll still works. */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-2">
             {composed.bolts ? (
               /* full-park: ONE unified title row — title · duration · finish */
               <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
