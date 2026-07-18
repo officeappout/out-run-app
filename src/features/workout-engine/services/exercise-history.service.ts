@@ -34,6 +34,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
+import { genPerfRead } from '@/lib/gen-perf';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -188,6 +189,7 @@ export async function getHistoryMapForExercises(
 
   // Deduplicate request IDs so we never issue two reads for the same exercise.
   const uniqueIds = Array.from(new Set(exerciseIds));
+  genPerfRead('exerciseHistory', uniqueIds.length); // #0: parallel getDoc fan-out (one per exercise), not a true batch
 
   try {
     const reads = uniqueIds.map(async (id) => {

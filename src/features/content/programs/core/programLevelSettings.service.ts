@@ -21,6 +21,7 @@ import {
 import { db } from '@/lib/firebase';
 import { ProgramLevelSettings, ProgramLevelSettingsWithProgram } from './program.types';
 import { getAllPrograms } from './program.service';
+import { genPerfRead, isGenVerboseEnabled } from '@/lib/gen-perf';
 
 const PROGRAM_LEVEL_SETTINGS_COLLECTION = 'programLevelSettings';
 
@@ -148,7 +149,8 @@ export async function getProgramLevelSetting(
     const settingsId = generateSettingsId(programId, levelNumber);
     const docRef = doc(db, PROGRAM_LEVEL_SETTINGS_COLLECTION, settingsId);
     const docSnap = await getDoc(docRef);
-    
+    genPerfRead('programLevelSettings'); // #0: counts every PLS getDoc (hit OR miss)
+
     if (!docSnap.exists()) return null;
 
     const rawData = docSnap.data();
@@ -156,30 +158,34 @@ export async function getProgramLevelSetting(
     // ── RAW DOC DEBUG — log ALL field keys so we know exactly what Firestore ──
     // stored.  A narrow field-specific log showed "{}" because JSON.stringify
     // omits undefined values; logging every key avoids that blind spot.
-    console.log(
-      `[ProgramLevelSettings][RAW] "${docSnap.id}" — keys: [${Object.keys(rawData).join(', ')}]`,
-    );
-    // Also log the full subset of protocol-related fields (using JSON.stringify
-    // safe-value so undefined shows as the string "undefined" instead of vanishing).
-    const protocolFields: Record<string, unknown> = {};
-    for (const k of Object.keys(rawData)) {
-      if (
-        k.toLowerCase().includes('protocol') ||
-        k.toLowerCase().includes('superset') ||
-        k.toLowerCase().includes('emom') ||
-        k.toLowerCase().includes('pyramid') ||
-        k.toLowerCase().includes('allow') ||
-        k.toLowerCase().includes('probability')
-      ) {
-        protocolFields[k] = rawData[k];
+    // #6: gated behind GEN_VERBOSE — this fired per-doc (up to ~14×/generation)
+    // and built a keys string + a JSON.stringify for EVERY read. Off by default.
+    if (isGenVerboseEnabled()) {
+      console.log(
+        `[ProgramLevelSettings][RAW] "${docSnap.id}" — keys: [${Object.keys(rawData).join(', ')}]`,
+      );
+      // Also log the full subset of protocol-related fields (using JSON.stringify
+      // safe-value so undefined shows as the string "undefined" instead of vanishing).
+      const protocolFields: Record<string, unknown> = {};
+      for (const k of Object.keys(rawData)) {
+        if (
+          k.toLowerCase().includes('protocol') ||
+          k.toLowerCase().includes('superset') ||
+          k.toLowerCase().includes('emom') ||
+          k.toLowerCase().includes('pyramid') ||
+          k.toLowerCase().includes('allow') ||
+          k.toLowerCase().includes('probability')
+        ) {
+          protocolFields[k] = rawData[k];
+        }
       }
+      console.log(
+        `[ProgramLevelSettings][RAW] "${docSnap.id}" — protocol fields:`,
+        Object.keys(protocolFields).length > 0
+          ? JSON.stringify(protocolFields, (_k, v) => (v === undefined ? '__undefined__' : v))
+          : '(none found — document has no protocol-related fields)',
+      );
     }
-    console.log(
-      `[ProgramLevelSettings][RAW] "${docSnap.id}" — protocol fields:`,
-      Object.keys(protocolFields).length > 0
-        ? JSON.stringify(protocolFields, (_k, v) => (v === undefined ? '__undefined__' : v))
-        : '(none found — document has no protocol-related fields)',
-    );
     // ────────────────────────────────────────────────────────────────────────
 
     // ── Legacy + alias field normalisation ───────────────────────────────

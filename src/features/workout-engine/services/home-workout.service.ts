@@ -32,6 +32,7 @@ import { getAllExercises } from '@/features/content/exercises/core/exercise.serv
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import { genPerfMark, isGenVerboseEnabled } from '@/lib/gen-perf';
 
 // -- Engine imports --
 import {
@@ -623,6 +624,7 @@ export async function generateHomeWorkoutTrio(
   const modeLabels = isRestDay ? labels.restDayLabels : labels.trainingLabels;
 
   console.log(`[WorkoutTrio] Labels (${labelsSource}): [${modeLabels.option1Label}, ${modeLabels.option2Label}, ${modeLabels.option3Label}]`);
+  genPerfMark('labels (fetchTrioLabels)');
 
   // ── 3. LOOP: generate 3 plans from the same scored pool ───────────────
   const configs = isRestDay ? REST_DAY_CONFIGS : TRAINING_DAY_CONFIGS;
@@ -966,6 +968,8 @@ export async function generateHomeWorkoutTrio(
     console.log('[WorkoutTrio] Single-option path — padded 3 slots with the same workout');
   }
 
+  genPerfMark('#8 trio-loop (3× generate + metadata resolve)');
+
   // ── 4. Summary log ────────────────────────────────────────────────────
   logTrioSummary(results, isRestDay);
 
@@ -1149,6 +1153,7 @@ async function _buildSharedPipeline(
     getCachedPrograms(),
     ensureEquipmentCachesLoaded(),
   ]);
+  genPerfMark('#3 data-fetch (exercises+gymEquip+programs)');
 
   // ── 1b. Build Firestore ID → slug map ─────────────────────────────────
   // CRITICAL: must happen before ANY resolveToSlug call.  On the first
@@ -1639,6 +1644,8 @@ async function _buildSharedPipeline(
       splitContext.excludedMuscleGroups.length > 0 ? splitContext.excludedMuscleGroups : undefined,
   };
 
+  genPerfMark('#4-5 budgets+split+context-build');
+
   // ── 4. Run ContextualEngine via PoolFactory (SINGLE PASS — shared across all 3 options) ─
   // PoolFactory encapsulates filterAndScore + PoolRescue retry + profileStale guard.
   // The strategy is derived from the original base-domain count (before sibling
@@ -1693,6 +1700,7 @@ async function _buildSharedPipeline(
     excludedCount: candidatePool.excludedCount,
     filterCounts: candidatePool.filterCounts,
   };
+  genPerfMark('filter+score (ContextualEngine/ParkGating, CPU)');
 
   console.log(
     `[WorkoutTrio] Shared pipeline: ${filterResult.exercises.length} scored exercises ` +
@@ -1760,14 +1768,19 @@ async function _buildSharedPipeline(
       return lvlB - lvlA;
     });
 
-  console.log(
-    `[WorkoutTrio] Protocol scan order (${allProgramEntries.length} domains): ` +
-    allProgramEntries.map(([id, lvl]) => {
-      const firestoreId = slugToFirestoreId.get(id);
-      const tag = scheduledProgramIds?.includes(id) ? '📅' : id === primaryProgramId ? '⭐' : '';
-      return `${tag}${id}@L${lvl}${firestoreId && firestoreId !== id ? `(→${firestoreId})` : ''}`;
-    }).join(' → '),
-  );
+  // #6: protocol-scan logs gated behind GEN_VERBOSE — these fired per-doc (up to
+  // ~14×/generation) and several build strings via .map().join(). Off by default.
+  const genVerbose = isGenVerboseEnabled();
+  if (genVerbose) {
+    console.log(
+      `[WorkoutTrio] Protocol scan order (${allProgramEntries.length} domains): ` +
+      allProgramEntries.map(([id, lvl]) => {
+        const firestoreId = slugToFirestoreId.get(id);
+        const tag = scheduledProgramIds?.includes(id) ? '📅' : id === primaryProgramId ? '⭐' : '';
+        return `${tag}${id}@L${lvl}${firestoreId && firestoreId !== id ? `(→${firestoreId})` : ''}`;
+      }).join(' → '),
+    );
+  }
 
   // Deduplicate: avoid fetching the same Firestore document twice
   // (slug key and raw ID key can point to the same doc after slug→ID resolution).
@@ -1791,18 +1804,20 @@ async function _buildSharedPipeline(
       // ── Document ID transparency ─────────────────────────────────────────
       // Log exactly what we're fetching so a mismatch between slug resolution
       // and the Admin Panel save path is immediately visible.
-      console.log(
-        `[WorkoutTrio] 🔍 Fetching: collection=programLevelSettings` +
-        ` docId="${firestoreProgId}_level_${domainLevel}"` +
-        ` (domain slug="${domainKey}" → resolved firestoreId="${firestoreProgId}")`,
-      );
+      if (genVerbose) {
+        console.log(
+          `[WorkoutTrio] 🔍 Fetching: collection=programLevelSettings` +
+          ` docId="${firestoreProgId}_level_${domainLevel}"` +
+          ` (domain slug="${domainKey}" → resolved firestoreId="${firestoreProgId}")`,
+        );
+      }
 
       const levelSettings = await getProgramLevelSetting(firestoreProgId, domainLevel);
       const hasProtocols = !!(levelSettings?.preferredProtocols?.length);
       const hasGoals    = !!(levelSettings?.targetGoals?.length);
 
       if (!levelSettings) {
-        console.log(`[WorkoutTrio] ❌ ${docKey} → no document in programLevelSettings`);
+        if (genVerbose) console.log(`[WorkoutTrio] ❌ ${docKey} → no document in programLevelSettings`);
         continue;
       }
 
@@ -1810,7 +1825,7 @@ async function _buildSharedPipeline(
       // The document exists but has no protocol data — either it was saved
       // before the Admin Panel added protocol support, or the checkboxes were
       // never saved.  Check the RAW log above for the actual field names.
-      if (!hasProtocols) {
+      if (!hasProtocols && genVerbose) {
         console.warn(
           `[WorkoutTrio] ⚠️  Document "${docKey}" found but 'preferredProtocols' field is ` +
           `missing or empty. Please open the Admin Panel → Programs → ${domainKey} → ` +
@@ -1818,12 +1833,14 @@ async function _buildSharedPipeline(
         );
       }
 
-      console.log(
-        `[WorkoutTrio] ✅ ${docKey} found — ` +
-        `protocols=[${(levelSettings.preferredProtocols ?? []).join(', ')}], ` +
-        `probability=${levelSettings.protocolProbability ?? 'unset'}, ` +
-        `goals=${levelSettings.targetGoals?.length ?? 0}`,
-      );
+      if (genVerbose) {
+        console.log(
+          `[WorkoutTrio] ✅ ${docKey} found — ` +
+          `protocols=[${(levelSettings.preferredProtocols ?? []).join(', ')}], ` +
+          `probability=${levelSettings.protocolProbability ?? 'unset'}, ` +
+          `goals=${levelSettings.targetGoals?.length ?? 0}`,
+        );
+      }
 
       // ── Goals: take from the first (highest-priority) program that has them ──
       if (!goalExerciseIds && hasGoals) {
@@ -1841,14 +1858,16 @@ async function _buildSharedPipeline(
         adminProtocolProbability = hasAntagonistPair ? 1.0 : (levelSettings.protocolProbability ?? 1.0);
         protocolSource = `${domainKey}@L${domainLevel}`;
 
-        const inheritMsg = (domainKey !== primaryProgramId && primaryProgramId)
-          ? ` (primary "${primaryProgramId}" had no protocol settings — inheriting from "${domainKey}" L${domainLevel})`
-          : '';
-        console.log(
-          `[WorkoutTrio] ✅ Protocols resolved from "${firestoreProgId}" L${domainLevel}:` +
-          ` [${adminPreferredProtocols!.join(', ')}] probability=${adminProtocolProbability}` +
-          `${hasAntagonistPair ? ' (antagonist_pair → 100%)' : ''}${inheritMsg}`,
-        );
+        if (genVerbose) {
+          const inheritMsg = (domainKey !== primaryProgramId && primaryProgramId)
+            ? ` (primary "${primaryProgramId}" had no protocol settings — inheriting from "${domainKey}" L${domainLevel})`
+            : '';
+          console.log(
+            `[WorkoutTrio] ✅ Protocols resolved from "${firestoreProgId}" L${domainLevel}:` +
+            ` [${adminPreferredProtocols!.join(', ')}] probability=${adminProtocolProbability}` +
+            `${hasAntagonistPair ? ' (antagonist_pair → 100%)' : ''}${inheritMsg}`,
+          );
+        }
       } else if (!adminProtocolProbability && levelSettings.protocolProbability != null) {
         adminProtocolProbability = levelSettings.protocolProbability;
       }
@@ -1863,6 +1882,7 @@ async function _buildSharedPipeline(
     `protocols: ${adminPreferredProtocols ? `[${adminPreferredProtocols.join(', ')}] from ${protocolSource}` : '⚠️  none (straight sets — check Firestore doc)'} | ` +
     `goals: ${goalExerciseIds ? `${goalExerciseIds.size} exercises from ${goalsSource}` : 'none'}`,
   );
+  genPerfMark('#6 protocol/goal reads (sequential getProgramLevelSetting loop)');
 
   // Progression tracking: use primary program
   if (primaryProgramId) {
@@ -1894,6 +1914,7 @@ async function _buildSharedPipeline(
   } catch (e) {
     console.warn('[WorkoutTrio] Exercise history fetch failed (non-critical):', e);
   }
+  genPerfMark('#7 exercise-history (fan-out getDoc)');
 
   // ── 5b. Base generator context (Sprint 3 integrity preserved) ────────
   const baseGeneratorContext: WorkoutGenerationContext = {

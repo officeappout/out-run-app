@@ -35,6 +35,7 @@ import { X, Dumbbell, Footprints, SlidersHorizontal, Lock, Clock } from 'lucide-
 import { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { generateHomeWorkoutTrio } from '@/features/workout-engine/services/home-workout.service';
 import type { HomeWorkoutTrioResult } from '@/features/workout-engine/services/home-workout.types';
+import { genPerfBegin, genPerfMark, genPerfEnd } from '@/lib/gen-perf';
 import WorkoutSelectionCarousel, { CarouselSkeleton } from './WorkoutSelectionCarousel';
 import {
   useWeeklyVolumeStore,
@@ -657,6 +658,8 @@ export default function StatsOverview({
     }
 
     (async () => {
+      // #0: measure the full home-trio timeline (no-op unless GEN_TIMING is on).
+      genPerfBegin('home-trio');
       try {
         // ── Step 1: Resolve context (coverage-aware) BEFORE generation ──
         // Inferred flow: an equipped park within 2 km → park with its REAL gear;
@@ -671,6 +674,7 @@ export default function StatsOverview({
           `[StatsOverview] Context: requested=${resolvedLocation} → effective=${effectiveLocation} ` +
           `(source=${ctx.source}, gear=${resolvedParkGear.length})`,
         );
+        genPerfMark('#0 context+GPS (resolveWorkoutContext / waitForGpsFix)');
 
         // ── Step 2: Consult UserSchedule ───────────────────────────────────
         //
@@ -688,6 +692,7 @@ export default function StatsOverview({
         if (!entry && profile.lifestyle?.recurringTemplate) {
           entry = await hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate);
         }
+        genPerfMark('#1-2 schedule (getScheduleEntries + hydrateFromTemplate)');
 
         const isExplicitRestDay = entry?.type === 'rest';
         const activeProgram = profile.progression?.activePrograms?.[0]?.templateId;
@@ -796,8 +801,10 @@ export default function StatsOverview({
         // so Firestore equipment IDs resolve to canonical keys in the useMemo.
         // Cached + deduped — essentially free on repeat calls.
         await ensureEquipmentCachesLoaded();
+        genPerfMark('pre-gen (schedule-derived sync + equipCache await)');
 
         // ── Step 3: Generate with fully-resolved park gear ─────────────────
+        // generateHomeWorkoutTrio adds its own internal marks (#3–#8) to this timeline.
         const trio = await generateHomeWorkoutTrio({
           userProfile: profile,
           location: effectiveLocation,
@@ -836,6 +843,7 @@ export default function StatsOverview({
         console.error('[StatsOverview] Workout generation failed:', err);
       } finally {
         setIsGenerating(false);
+        genPerfEnd(); // #0: print the phase/read table (no-op unless GEN_TIMING is on)
       }
     })();
   }, [profile?.id, isGuest, targetDate, scheduleVersion]);

@@ -33,6 +33,7 @@ import { db } from '@/lib/firebase';
 import type { LifestylePersona } from '../logic/ContextualEngine';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { resolveContentTags, TagResolverContext } from '@/features/content/branding/core/branding.utils';
+import { genPerfRead, isGenVerboseEnabled } from '@/lib/gen-perf';
 
 // ============================================================================
 // TYPES
@@ -159,7 +160,10 @@ const LOGIC_CUES_PARENT = 'logicCues';
 export type TrioVariant = 'balanced' | 'intense' | 'naked' | 'easy';
 
 /** Enable detailed console logs for Title/Description resolution (debugging). */
-const DEBUG_METADATA_RESOLUTION = true;
+// #6: was hardcoded `true` (always-on string-building logs). Now derives from
+// the shared GEN_VERBOSE gate → default OFF. Evaluated once at module load, so a
+// runtime toggle takes effect on the next cold load (fine for cold/warm measuring).
+const DEBUG_METADATA_RESOLUTION = isGenVerboseEnabled();
 
 /**
  * BUNDLE SYNC: When a Title with a bundleId is selected, subsequent fetches
@@ -1040,6 +1044,7 @@ async function scoredFetch(
   try {
     const ref = collection(db, METADATA_BASE, parentDoc, subCol);
     const snap = await getDocs(ref);
+    genPerfRead(`workoutMetadata:${parentDoc}`); // #0: 3-4 full-subcollection scans per resolveWorkoutMetadata, ×3 options
     if (snap.empty) return { text: null };
 
     const allRows = snap.docs.map(d => d.data());
@@ -1117,6 +1122,7 @@ async function fetchLogicCue(
   try {
     const ref = collection(db, METADATA_BASE, LOGIC_CUES_PARENT, LOGIC_CUES_SUBCOLLECTION);
     const snap = await getDocs(ref);
+    genPerfRead('workoutMetadata:logicCues'); // #0: logic-cue subcollection scan, ×3 options
 
     if (!snap.empty) {
       let bestScore = -1;
