@@ -151,7 +151,7 @@ export const STRENGTH_SUMMARY_V2_ENABLED = false;
 // SummaryLayer (Stage 3) reading the stashed HybridFinalizeResult. While FALSE a
 // hybrid finish falls through to the current (empty) aerobic shell — today's behaviour.
 // Independent flag: disturbs neither AEROBIC_SOLO_ENABLED nor the strength route.
-export const HYBRID_SUMMARY_ENABLED = false;
+export const HYBRID_SUMMARY_ENABLED = true;
 
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
