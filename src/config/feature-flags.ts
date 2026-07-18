@@ -173,7 +173,9 @@ export const HYBRID_SUMMARY_ENABLED = true;
 // output-parity baseline and the hard kill-switch. Freshness: invalidate-on-write
 // (same process) + short TTL (cross-process, see PLS_CACHE_TTL_MS in the service).
 // Runtime A/B override (no rebuild): localStorage['OUT_PLS_CACHE'] = '1' | '0'.
-export const PLS_CACHE_ENABLED = true;
+// DEFAULT FALSE so the merge is byte-identical — flip to true only after the
+// localhost A/B output-parity + invalidation checks pass.
+export const PLS_CACHE_ENABLED = false;
 
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
