@@ -7,7 +7,7 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import type { DifficultyLevel, GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { generateHomeWorkout } from '@/features/workout-engine/services/home-workout.service';
-import { resolveParkEquipmentIds } from '@/features/workout-engine/services/park-equipment-resolver';
+import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { MUSCLE_CHIPS } from '@/features/home/constants/muscle-chips';
 import type { MuscleChip } from '@/features/home/constants/muscle-chips';
@@ -117,9 +117,11 @@ export default function UserWorkoutAdjuster({
       const remaining = (store as any).getRemainingBudget?.() ?? undefined;
       const usagePct  = (store as any).getBudgetUsagePercent?.() ?? undefined;
 
+      // Explicit location choice: keep it (allowHomeOverride:false), but resolve
+      // the nearest EQUIPPED park's real gear via GPS (Phase 3a/3b).
       const isPark = (location as string) === 'park' || (location as string) === 'street';
       const parkEquipmentIds = isPark
-        ? await resolveParkEquipmentIds(userProfile)
+        ? (await resolveWorkoutContext(userProfile, location as ExecutionLocation, { allowHomeOverride: false })).availableGear
         : undefined;
 
       const result = await generateHomeWorkout({

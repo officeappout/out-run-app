@@ -14,10 +14,17 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks.
  */
 
-import { getPark } from '@/features/parks/core/services/parks.service';
+import { getPark, fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { detectNearbyPark, EQUIPMENT_DETECTION_RADIUS_M } from './park-detection.service';
-import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
+import { equippedParksWithin } from '../hybrid/park-out-and-back';
+import { normalizeGearId, ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
+import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
+
+/** Coverage-aware park scan radius (metres) — ~2 km covers specialised parks. */
+const EQUIPPED_PARK_RADIUS_M = 2_000;
+/** Perf cap: only probe the N nearest equipped parks (David's refinement). */
+const MAX_PARK_CANDIDATES = 5;
 
 export interface ResolveParkEquipmentOptions {
   /** Explicitly selected park ID (e.g. from a map picker or settings) */
@@ -54,6 +61,16 @@ export async function resolveParkEquipmentIds(
   userProfile: UserFullProfile,
   options?: ResolveParkEquipmentOptions,
 ): Promise<string[]> {
+  // Warm the equipment caches BEFORE any normalizeGearId call. This is the
+  // resolver's contract (see park-equipment.util.ts): a park's gymEquipment
+  // entries are Firestore doc-IDs that only translate to canonical gear types
+  // (dip_station, pullup_bar, trx…) once `gymEquipmentCache` is seeded. Without
+  // this, an early caller (StatsOverview resolves park gear BEFORE its own
+  // ensureEquipmentCachesLoaded await) gets RAW doc-IDs back → ParkGating blocks
+  // every geared exercise → the park looks empty and degrades to bodyweight.
+  // Idempotent + deduped: a no-op once warm.
+  await ensureEquipmentCachesLoaded();
+
   // Priority 1 — explicitly selected park
   if (options?.selectedParkId) {
     const ids = await extractParkEquipment(options.selectedParkId);
@@ -65,28 +82,52 @@ export async function resolveParkEquipmentIds(
     }
   }
 
-  // Priority 2 — GPS-detected park within 1 000 m (equipment-resolution radius).
-  // This wider radius covers specialised parks (rings, TRX, etc.) within a
-  // ~15-minute walking distance.  Session-tagging still uses the tighter 200 m
-  // default radius so a workout is only tagged once the user is actually at the park.
+  // Priority 2 — GPS-resolved park equipment.
   if (options?.gpsCoords?.lat && options?.gpsCoords?.lng) {
-    try {
-      const detected = await detectNearbyPark(
-        options.gpsCoords.lat,
-        options.gpsCoords.lng,
-        EQUIPMENT_DETECTION_RADIUS_M,
-      );
-      if (detected?.parkId) {
-        const ids = await extractParkEquipment(detected.parkId);
-        if (ids.length > 0) {
-          console.log(
-            `[ParkEquipmentResolver] GPS-detected park "${detected.parkName}" (${detected.parkId}): [${ids.join(', ')}]`,
-          );
-          return ids;
+    if (CONTEXT_AWARE_SELECTION_ENABLED) {
+      // Coverage-aware: scan EQUIPPED parks within 2 km, NEAREST-FIRST, and take the
+      // nearest one that actually carries equipment. This stops a nearer UN-equipped
+      // park from shadowing a farther equipped one — the root of the false
+      // ESSENTIAL_PARK_GEAR fallback. Session-tagging still uses detectNearbyPark's
+      // tight 200 m radius (a workout is only tagged once the user is AT the park).
+      try {
+        const parks = await fetchRealParks();
+        const equipped = equippedParksWithin(options.gpsCoords, parks, EQUIPPED_PARK_RADIUS_M);
+        for (const park of equipped.slice(0, MAX_PARK_CANDIDATES)) {
+          const ids = (park.gymEquipment ?? [])
+            .map((eq) => normalizeGearId(eq.equipmentId))
+            .filter(Boolean);
+          if (ids.length > 0) {
+            console.log(
+              `[ParkEquipmentResolver] Nearest equipped park "${park.name}" (${park.id}): [${ids.join(', ')}]`,
+            );
+            return ids;
+          }
         }
+        console.log('[ParkEquipmentResolver] No equipped park within 2 km of the GPS fix');
+      } catch (err) {
+        console.warn('[ParkEquipmentResolver] Equipped-park scan failed:', err);
       }
-    } catch (err) {
-      console.warn('[ParkEquipmentResolver] GPS detection failed:', err);
+    } else {
+      // Legacy distance-only path: single nearest park within 1 000 m.
+      try {
+        const detected = await detectNearbyPark(
+          options.gpsCoords.lat,
+          options.gpsCoords.lng,
+          EQUIPMENT_DETECTION_RADIUS_M,
+        );
+        if (detected?.parkId) {
+          const ids = await extractParkEquipment(detected.parkId);
+          if (ids.length > 0) {
+            console.log(
+              `[ParkEquipmentResolver] GPS-detected park "${detected.parkName}" (${detected.parkId}): [${ids.join(', ')}]`,
+            );
+            return ids;
+          }
+        }
+      } catch (err) {
+        console.warn('[ParkEquipmentResolver] GPS detection failed:', err);
+      }
     }
   }
 

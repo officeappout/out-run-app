@@ -10,7 +10,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
 
-import { Exercise, getLocalizedText } from '@/features/content/exercises/core/exercise.types';
+import { Exercise, ExecutionMethod, ExecutionLocation, getLocalizedText } from '@/features/content/exercises/core/exercise.types';
 import { ScoredExercise, IntentMode, LifestylePersona, LIFESTYLE_LABELS } from './ContextualEngine';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
@@ -20,6 +20,8 @@ import {
   isWithinBolt1Window,
 } from '../shared/constants/domain-mapping.constants';
 import { resolveEffectiveDifficulty } from '../core/middleware/InputSanitizerMiddleware';
+import { selectMethodForContext } from '../shared/utils/method-selection.utils';
+import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 
 // Re-export all types so external consumers keep importing from this file
 export type {
@@ -407,6 +409,38 @@ export function substituteExercise(
     reps,
     repsRange,
   };
+}
+
+/**
+ * Resolve the ExecutionMethod to attach to a guarantee/rescue substitute exercise.
+ * Routes through the single-source `selectMethodForContext` so an injected
+ * substitute renders with a method valid for THIS session's location + gear
+ * (park → bodyweight, NEVER home) instead of `executionMethods[0]`, which is
+ * authored home-first and leaks a home method into a park workout.
+ *
+ * Substitutes originate from `context.globalExercisePool`, the ContextualEngine-
+ * filtered pool (`se.method != null`), so the selector returns a valid method in
+ * practice. On the guarded, can't-happen null path we return undefined so
+ * `substituteExercise` keeps the victim's (context-valid) method rather than
+ * re-introducing the `executionMethods[0]` leak.
+ *
+ * Shared by the WorkoutGenerator david-rule and the GuaranteePassRunner passes.
+ * Flag OFF → byte-identical legacy behaviour (`executionMethods[0]`).
+ */
+export function resolveSubstituteMethod(
+  exercise: Exercise,
+  context: WorkoutGenerationContext,
+): ExecutionMethod | undefined {
+  if (!CONTEXT_AWARE_SELECTION_ENABLED) {
+    return exercise.executionMethods?.[0];
+  }
+  return selectMethodForContext(
+    exercise,
+    // WorkoutGenerationContext.location is loosely typed `string`; it holds a
+    // valid ExecutionLocation at runtime.
+    context.location as ExecutionLocation,
+    context.availableEquipment ?? [],
+  ) ?? undefined;
 }
 
 // ============================================================================
@@ -903,7 +937,7 @@ export class WorkoutGenerator {
 
             workoutExercises[idx] = {
               ...workoutExercises[idx],
-              ...substituteExercise(workoutExercises[idx], sub.exercise, sub.exercise.executionMethods?.[0]),
+              ...substituteExercise(workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context)),
               programLevel: sub.level,
               isOverLevel: sub.level > domainLevel,
               levelDelta: sub.level - domainLevel,

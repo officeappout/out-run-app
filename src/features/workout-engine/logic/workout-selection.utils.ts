@@ -8,11 +8,13 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
 
-import { Exercise, MechanicalType, ExerciseTag } from '@/features/content/exercises/core/exercise.types';
+import { Exercise, MechanicalType, ExerciseTag, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import type { ScoredExercise } from './contextual-engine.types';
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { normalizeGearId, ESSENTIAL_PARK_GEAR, satisfiesGearRequirement } from '../shared/utils/gear-mapping.utils';
+import { selectMethodForContext } from '../shared/utils/method-selection.utils';
+import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 import type {
   DifficultyLevel,
   ExercisePriority,
@@ -557,6 +559,13 @@ export function selectExercisesWithDomainQuotas(
       // on parallel bars) are found when the user is at a park.
       const loc = context.location ?? 'park';
       const findMethod = (ex: Exercise) => {
+        if (CONTEXT_AWARE_SELECTION_ENABLED) {
+          // Single-source selector: park→bodyweight→null (NEVER home). This drives
+          // hasMethod / isLocationCompatible eligibility AND the stamped method at
+          // line ~685, so a park-blocked exercise (only a home method available) is
+          // excluded here rather than resurrected with a home method.
+          return selectMethodForContext(ex, loc as ExecutionLocation, context.availableEquipment ?? []) ?? undefined;
+        }
         const methods = ex.execution_methods || ex.executionMethods || [];
         return methods.find((x) => x.location === loc)
           || methods.find((x) => x.location === 'home')

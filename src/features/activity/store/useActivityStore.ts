@@ -140,7 +140,18 @@ interface ActivityActions {
     durationMinutes: number,
     calories?: number
   ) => void;
-  
+
+  // Log a completed multi-category workout ATOMICALLY (hybrid: cardio legs +
+  // strength station). All categories land in ONE synchronous state update and
+  // ONE syncToServer() → a single Firestore write with every category present.
+  // This avoids the two-write clobber race that back-to-back logWorkout() calls
+  // would cause (each fires its own async syncToServer with merge:true, so a
+  // late-landing cardio write could zero the strength minutes). Streak/goal are
+  // derived once from the combined GLOBAL total, not per category.
+  logMultiCategoryWorkout: (
+    entries: Array<{ category: ActivityCategory; durationMinutes: number; calories?: number }>
+  ) => void;
+
   // Set daily goals
   setDailyGoals: (goals: Partial<Record<ActivityCategory, number>>) => void;
   
@@ -521,13 +532,91 @@ export const useActivityStore = create<ActivityStore>()(
         });
         
         get().recalculate();
-        
+
         // Immediate sync for workouts (important data)
-        get().syncToServer().catch(err => 
+        get().syncToServer().catch(err =>
           console.error('[ActivityStore] Workout sync failed:', err)
         );
       },
-      
+
+      logMultiCategoryWorkout: (entries) => {
+        let state = get();
+
+        // Auto-initialize today if the store hasn't loaded yet (mirrors logWorkout).
+        if (!state.today || state.today.date !== getTodayString()) {
+          const todayStr = getTodayString();
+          const userId = state.today?.userId || '';
+          console.warn(
+            `[ActivityStore] logMultiCategoryWorkout called with stale/missing today ` +
+            `(had=${state.today?.date}, need=${todayStr}). Auto-initializing.`,
+          );
+          set({ today: createEmptyDailyActivity(userId, todayStr) });
+          state = get();
+          if (!state.today) return;
+        }
+
+        // Accumulate EVERY category into one categories object → one atomic write.
+        // sessions is +1 per category (a hybrid is one cardio + one strength session).
+        const updatedCategories = { ...state.today.categories };
+        let addedCalories = 0;
+        for (const entry of entries) {
+          if (!entry || entry.durationMinutes <= 0) continue;
+          const metrics = updateCategoryMetrics(updatedCategories[entry.category], entry.durationMinutes);
+          metrics.sessions = (updatedCategories[entry.category].sessions ?? 0) + 1;
+          updatedCategories[entry.category] = metrics;
+          addedCalories += entry.calories || 0;
+        }
+
+        // Streak derives from the combined GLOBAL total, computed ONCE (not per
+        // category) — identical policy to logWorkout, applied to the merged sum.
+        const prevTotalMinutes = Object.values(state.today.categories)
+          .reduce((sum, cat) => sum + cat.minutes, 0);
+        const totalMinutes = Object.values(updatedCategories)
+          .reduce((sum, cat) => sum + cat.minutes, 0);
+
+        let newStreak = state.currentStreak;
+        let newLastStreakDate = state.lastStreakDate;
+
+        const justCrossedThreshold =
+          prevTotalMinutes < STREAK_MINIMUM_MINUTES &&
+          totalMinutes >= STREAK_MINIMUM_MINUTES;
+
+        if (justCrossedThreshold) {
+          const todayStr = getTodayString();
+          if (newLastStreakDate === todayStr) {
+            // Already counted today — no-op (safety net).
+          } else if (newLastStreakDate) {
+            const daysDiff = Math.floor(
+              (new Date(todayStr).getTime() - new Date(newLastStreakDate).getTime())
+              / (1000 * 60 * 60 * 24),
+            );
+            newStreak = daysDiff > 1 ? 1 : state.currentStreak + 1;
+          } else {
+            newStreak = 1;
+          }
+          newLastStreakDate = todayStr;
+        }
+
+        set({
+          today: {
+            ...state.today,
+            categories: updatedCategories,
+            calories: state.today.calories + addedCalories,
+            updatedAt: new Date(),
+          },
+          currentStreak: newStreak,
+          longestStreak: Math.max(state.longestStreak, newStreak),
+          lastStreakDate: newLastStreakDate,
+        });
+
+        get().recalculate();
+
+        // Single immediate sync — one Firestore write carrying every category.
+        get().syncToServer().catch(err =>
+          console.error('[ActivityStore] Multi-category workout sync failed:', err)
+        );
+      },
+
       setDailyGoals: (goals: Partial<Record<ActivityCategory, number>>) => {
         const state = get();
         if (!state.today) return;

@@ -4,6 +4,7 @@ import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react'
 import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
+import { SHOW_MISSED_DAYS_PROMPTS } from '@/config/feature-flags';
 import { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
 // PR 4 (Apr 2026) — these widgets were removed from this file as part of the
 // dashboard restructure. They are now mounted by the new dashboard rows in
@@ -50,7 +51,7 @@ import { useGoalsForProgram } from '@/features/user/progression/hooks/useGoalsFo
 import type { GoalItem } from './widgets/ProgramProgressCard';
 import { getLocalizedText } from '@/features/content/exercises';
 import { resolveIconKey, getProgramIcon } from '@/features/content/programs';
-import { resolveParkEquipmentIds } from '@/features/workout-engine/services/park-equipment-resolver';
+import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
 import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { Target, ChevronDown } from 'lucide-react';
 
@@ -657,22 +658,19 @@ export default function StatsOverview({
 
     (async () => {
       try {
-        // ── Step 1: Resolve park equipment BEFORE generation (serialized) ──
-        // Only attempt GPS for park/street locations — irrelevant overhead otherwise.
-        let resolvedParkGear: string[] = [];
-        const isParkLocation = resolvedLocation === 'park' || resolvedLocation === 'street';
-        if (isParkLocation) {
-          // Read the shared GPS fix (driven by useGPS). When no fix is
-          // available the resolver falls through to the profile-based fallback.
-          const storeFix = useGPSStore.getState().coords;
-          const gpsCoords: { lat: number; lng: number } | undefined = storeFix ?? undefined;
-          resolvedParkGear = await resolveParkEquipmentIds(profile, { gpsCoords });
-          console.log(
-            resolvedParkGear.length > 0
-              ? `[StatsOverview] Park gear resolved (${resolvedParkGear.length} items): [${resolvedParkGear.join(', ')}]`
-              : '[StatsOverview] No park gear resolved — ESSENTIAL_PARK_GEAR fallback will apply',
-          );
-        }
+        // ── Step 1: Resolve context (coverage-aware) BEFORE generation ──
+        // Inferred flow: an equipped park within 2 km → park with its REAL gear;
+        // no equipped park / no GPS fix → HOME (never a fake ESSENTIAL_PARK_GEAR park).
+        const storeFix = useGPSStore.getState().coords;
+        const ctx = await resolveWorkoutContext(profile, resolvedLocation, {
+          gpsCoords: storeFix ?? undefined,
+        });
+        const effectiveLocation = ctx.location;
+        const resolvedParkGear = ctx.availableGear;
+        console.log(
+          `[StatsOverview] Context: requested=${resolvedLocation} → effective=${effectiveLocation} ` +
+          `(source=${ctx.source}, gear=${resolvedParkGear.length})`,
+        );
 
         // ── Step 2: Consult UserSchedule ───────────────────────────────────
         //
@@ -802,7 +800,7 @@ export default function StatsOverview({
         // ── Step 3: Generate with fully-resolved park gear ─────────────────
         const trio = await generateHomeWorkoutTrio({
           userProfile: profile,
-          location: resolvedLocation,
+          location: effectiveLocation,
           availableTime: condensedTime,
           selectedDate: targetDate,
           scheduledProgramIds,
@@ -829,7 +827,7 @@ export default function StatsOverview({
             `(week=${trio.meta?.periodizationWeek}, reason=${trio.meta?.coachCue ?? 'n/a'})`,
           );
         }
-        const loc = trio.meta?.location || resolvedLocation;
+        const loc = trio.meta?.location || effectiveLocation;
         setCurrentWorkoutLocation(loc);
         if (typeof window !== 'undefined' && loc) {
           sessionStorage.setItem('currentWorkoutLocation', loc);
@@ -1046,7 +1044,9 @@ export default function StatsOverview({
       </div>
 
       {/* Periodization / Reactivation Coach Cue Banner */}
-      {trioResult?.meta?.coachCue && (
+      {/* Gated behind SHOW_MISSED_DAYS_PROMPTS (default off). trioResult.meta.coachCue
+          is still computed by the periodization service — only this display is hidden. */}
+      {SHOW_MISSED_DAYS_PROMPTS && trioResult?.meta?.coachCue && (
         <div
           className="mx-4 mb-3 px-4 py-3 rounded-2xl text-sm font-medium text-center"
           style={{ backgroundColor: 'rgba(99,102,241,0.12)', color: '#4f46e5' }}
