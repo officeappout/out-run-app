@@ -1,0 +1,210 @@
+'use client';
+
+/**
+ * useSwapAll — the bulk "swap all → <value>" engine for the preview drawer.
+ *
+ * Preserves the "what" (exercise choices, levels, domains, sets/reps intent) and
+ * recomputes only the "where/how" for a new dimension-value (Phase 1 = location).
+ * NOT a regeneration. Per exercise, the null-rule:
+ *   1. a qualifying method (complete media) at the new value → swap the METHOD in place.
+ *   2. none → replace the exercise with a same-level alternative that has complete media.
+ *   3. no alternative → KEEP it and MARK it (`dimensionUnavailable`, "דורש מתקן" badge).
+ * Then a two-pass superset heal, a cheap duration/stats recompute, and (from the light
+ * metadataCtx snapshot) a title/description refresh for the new location — assembled
+ * into ONE `onGeneratedWorkoutUpdate` so it reaches the runner via Merge 1's converter.
+ *
+ * Gated by SWAP_ALL_ENABLED at the call sites (this hook is inert unless invoked).
+ */
+
+import { useCallback, useState } from 'react';
+import type { Exercise, ExecutionLocation } from '@/features/content/exercises';
+import { methodHasCompleteMedia } from '@/features/content/exercises/core/exercise.types';
+import type {
+  GeneratedWorkout,
+  WorkoutExercise,
+} from '@/features/workout-engine/logic/WorkoutGenerator';
+import type { UserFullProfile } from '@/features/user/core/types/user.types';
+import { selectMethodForContext } from '@/features/workout-engine/shared/utils/method-selection.utils';
+import type { SwapDimension } from '@/features/workout-engine/shared/utils/method-dimension.utils';
+import { deriveSwappedEntry } from '../utils/derive-swapped-entry.util';
+import { getAlternativeExercises } from '@/features/workout-engine/generator/services/exercise-replacement.service';
+import { normalizeEquipmentArray } from '@/features/workout-engine/core/middleware/InputSanitizerMiddleware';
+import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
+import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
+import {
+  calculateEstimatedDuration,
+  calculateWorkoutStats,
+} from '@/features/workout-engine/logic/workout-budgeting.utils';
+import {
+  resolveWorkoutMetadata,
+  type WorkoutMetadataContext,
+  type TimeOfDay,
+} from '@/features/workout-engine/services/workout-metadata.service';
+import type { LifestylePersona } from '@/features/workout-engine/logic/ContextualEngine';
+
+interface UseSwapAllParams {
+  generatedWorkout: GeneratedWorkout | null | undefined;
+  onGeneratedWorkoutUpdate?: (gw: GeneratedWorkout) => void;
+  userProfile: UserFullProfile | null | undefined;
+  /** The workout's current location — a swap to the same value is a no-op. */
+  currentLocation: ExecutionLocation;
+  /** Drawer's prefetched pool — reused so a bulk swap does 0 extra full-collection reads. */
+  exercisePool?: Exercise[];
+}
+
+export interface SwapAllResult {
+  swappedMethod: number;
+  swappedExercise: number;
+  keptMarked: number;
+}
+
+interface UseSwapAllReturn {
+  swapAll: (dimension: SwapDimension, value: string) => Promise<void>;
+  isSwapping: boolean;
+  lastResult: SwapAllResult | null;
+}
+
+export function useSwapAll({
+  generatedWorkout,
+  onGeneratedWorkoutUpdate,
+  userProfile,
+  currentLocation,
+  exercisePool,
+}: UseSwapAllParams): UseSwapAllReturn {
+  const [isSwapping, setIsSwapping] = useState(false);
+  const [lastResult, setLastResult] = useState<SwapAllResult | null>(null);
+
+  const swapAll = useCallback(
+    async (dimension: SwapDimension, value: string) => {
+      if (!generatedWorkout || !userProfile) return;
+      // Phase 1 supports the location dimension only.
+      if (dimension !== 'location') return;
+      const newLocation = value as ExecutionLocation;
+      if (newLocation === currentLocation) return;
+
+      setIsSwapping(true);
+      try {
+        // ── Resolve gear for the new location — SAME source as generation ──
+        await ensureEquipmentCachesLoaded();
+        const gymList = await getAllGymEquipment();
+        let parkGear: string[] | undefined;
+        if (newLocation === 'park' || newLocation === 'street') {
+          parkGear = (await resolveWorkoutContext(userProfile, newLocation, {})).availableGear;
+        }
+        const gear = normalizeEquipmentArray(userProfile, newLocation, parkGear, gymList);
+
+        // ── Per-exercise null-rule (sequential: exclude set grows per replacement) ──
+        const exclude = new Set<string>(generatedWorkout.exercises.map((e) => e.exercise.id));
+        const oldToNew = new Map<string, string>();
+        let swappedMethod = 0;
+        let swappedExercise = 0;
+        let keptMarked = 0;
+
+        const newEntries: WorkoutExercise[] = [];
+        for (const we of generatedWorkout.exercises) {
+          // 1) Method swap in place (same exercise, new-location method).
+          const m = selectMethodForContext(we.exercise, newLocation, gear);
+          if (m && methodHasCompleteMedia(m)) {
+            newEntries.push(deriveSwappedEntry(we, we.exercise, m));
+            swappedMethod++;
+            continue;
+          }
+          // 2) Replace the exercise with a same-level alternative that has complete media.
+          const level = we.programLevel ?? we.exercise.targetPrograms?.[0]?.level ?? 1;
+          const alts = await getAlternativeExercises(
+            we.exercise,
+            level,
+            newLocation,
+            null,
+            userProfile,
+            undefined,
+            exclude,
+            exercisePool,
+          );
+          const pick =
+            alts.find(
+              (a) => a.levelComparison === 'same' && methodHasCompleteMedia(a.selectedExecutionMethod),
+            ) ?? alts.find((a) => methodHasCompleteMedia(a.selectedExecutionMethod));
+          if (pick && pick.selectedExecutionMethod) {
+            newEntries.push(deriveSwappedEntry(we, pick.exercise, pick.selectedExecutionMethod));
+            exclude.add(pick.exercise.id);
+            oldToNew.set(we.exercise.id, pick.exercise.id);
+            swappedExercise++;
+            continue;
+          }
+          // 3) Keep + mark.
+          newEntries.push({ ...we, dimensionUnavailable: { dimension, value } });
+          keptMarked++;
+        }
+
+        // ── Two-pass superset heal: re-point pairedWith across all replacements ──
+        const healed = newEntries.map((e) => {
+          const link = e.pairedWith;
+          if (link && oldToNew.has(link)) return { ...e, pairedWith: oldToNew.get(link)! };
+          return e;
+        });
+
+        // ── Cascade: duration + stats (pure; volume-preserving swaps leave these unchanged) ──
+        const estimatedDuration = calculateEstimatedDuration(healed);
+        // userWeight omitted: a location swap must not silently change the calorie basis;
+        // the engine's default is used, matching a volume-preserving swap.
+        const stats = calculateWorkoutStats(healed, generatedWorkout.difficulty, estimatedDuration);
+
+        // ── Cascade: title/description/aiCue for the new location (defensive) ──
+        let title = generatedWorkout.title;
+        let description = generatedWorkout.description;
+        let aiCue = generatedWorkout.aiCue;
+        const snap = generatedWorkout.metadataCtx;
+        if (snap) {
+          try {
+            const ctx: WorkoutMetadataContext = {
+              persona: (snap.persona ?? null) as LifestylePersona | null,
+              timeOfDay: (snap.timeOfDay as TimeOfDay) ?? 'evening',
+              gender: snap.gender,
+              category: snap.category,
+              categoryLabel: snap.categoryLabel,
+              difficulty: snap.difficulty,
+              dominantMuscle: snap.dominantMuscle,
+              experienceLevel: snap.experienceLevel,
+              sportType: snap.sportType,
+              motivationStyle: snap.motivationStyle,
+              currentProgram: snap.currentProgram,
+              location: newLocation,
+              durationMinutes: estimatedDuration,
+            };
+            const md = await resolveWorkoutMetadata(ctx);
+            if (md.title) title = md.title;
+            if (md.description) description = md.description;
+            if (md.aiCue) aiCue = md.aiCue;
+          } catch (err) {
+            console.warn('[swapAll] metadata recompute failed — keeping existing title', err);
+          }
+        }
+
+        const updated: GeneratedWorkout = {
+          ...generatedWorkout,
+          exercises: healed,
+          estimatedDuration,
+          stats,
+          title,
+          description,
+          aiCue,
+        };
+        onGeneratedWorkoutUpdate?.(updated);
+        const result = { swappedMethod, swappedExercise, keptMarked };
+        setLastResult(result);
+        console.log(
+          `[swapAll] ${dimension}→${value}: ${swappedMethod} method-swap, ${swappedExercise} exercise-swap, ${keptMarked} kept+marked`,
+        );
+      } catch (err) {
+        console.error('[swapAll] failed:', err);
+      } finally {
+        setIsSwapping(false);
+      }
+    },
+    [generatedWorkout, onGeneratedWorkoutUpdate, userProfile, currentLocation, exercisePool],
+  );
+
+  return { swapAll, isSwapping, lastResult };
+}

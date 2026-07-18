@@ -363,7 +363,7 @@ export function resolveTutorialForLang(
  * every pool (a content regression). Scope: swap-all variant availability only.
  */
 export function methodHasCompleteMedia(
-  m: ExecutionMethod,
+  m: ExecutionMethod | null | undefined,
   lang: ExerciseLang = 'he',
 ): boolean {
   // ExecutionMethod.media is its own inline type (has mainVideoUrl/imageUrl); the
