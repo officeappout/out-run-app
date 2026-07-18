@@ -208,6 +208,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // the CTA as the FULL composed session (needs the bolts trio), so a route-only
   // object must never land in it — else the overview would open without options.
   const hybridRoutePreviewCacheRef = useRef<Map<string, HybridRoutePreview>>(new Map());
+  // In-flight FULL-trio composes keyed by slot.id. When the settle-preview /
+  // background prewarm has STARTED a compose but not yet cached it, and the user
+  // taps "צא לדרך" before it resolves, the CTA must AWAIT this same promise
+  // instead of kicking off a duplicate compose (the double [compose-trigger] in
+  // the log). It resolves to the exact ComposedHybridSession the completed cache
+  // would hold, so the early-tap path is identical to the cache-hit path. Entry
+  // is removed as soon as the promise settles.
+  const hybridTrioInflightRef = useRef<Map<string, Promise<ComposedHybridSession | null>>>(new Map());
   // Race guard: a stale/late preview compose must not draw after the user has
   // already swiped to another card / left the layer (mirrors hybridFlowIdRef).
   const hybridPreviewFlowIdRef = useRef(0);
@@ -221,6 +229,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   useEffect(() => {
     hybridPreviewCacheRef.current.clear();
     hybridRoutePreviewCacheRef.current.clear();
+    hybridTrioInflightRef.current.clear();
     hybridPreviewFlowIdRef.current += 1;
   }, [slotActivity]);
 
@@ -533,17 +542,24 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // Compose a hybrid plan → show the overview. Shared by the drawer's
   // "התחל משולב" and the recommended slot: composes ONCE, then runs the SAME
   // object (no re-compose). fallbackStep = where to return if no route builds.
-  const composeAndShowOverview = useCallback((intent: HybridStartIntent, fallbackStep: FreeRunStep = 'config') => {
+  const composeAndShowOverview = useCallback((intent: HybridStartIntent, fallbackStep: FreeRunStep = 'config', existingCompose?: Promise<ComposedHybridSession | null>) => {
     // eslint-disable-next-line no-console
-    console.log('[compose-trigger]', 'composeAndShowOverview', 'from=', fallbackStep, 'kind=', intent.aerobicKind);
+    console.log('[compose-trigger]', existingCompose ? 'await-inflight-compose' : 'composeAndShowOverview', 'from=', fallbackStep, 'kind=', intent.aerobicKind);
     const flowId = ++hybridFlowIdRef.current; // this compose owns the flow
     setHybridComposing(true);
-    import('@/features/workout-engine/hybrid/start-hybrid-session').then(async ({ composeHybridPlan }) => {
-      const composed = await composeHybridPlan(intent, {
-        userPosition: userLocation,
-        cityName: userCityName,
-        startRun: logic.startActiveWorkout,
-      });
+    // AWAIT an already-running compose (settle-preview / background prewarm) when
+    // one is handed in — never start a duplicate composeHybridPlan. Otherwise
+    // start a fresh compose. `startRun` wires the real run at RUN time; it is
+    // never baked into the returned session, so awaiting a read-only prewarm
+    // (startRun: no-op) is byte-identical to the cache-hit path.
+    const composeP: Promise<ComposedHybridSession | null> = existingCompose
+      ?? import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ composeHybridPlan }) =>
+        composeHybridPlan(intent, {
+          userPosition: userLocation,
+          cityName: userCityName,
+          startRun: logic.startActiveWorkout,
+        }));
+    composeP.then((composed) => {
       // Dismissed / superseded while composing → drop this result silently.
       if (hybridFlowIdRef.current !== flowId) return;
       setHybridComposing(false);
@@ -566,6 +582,24 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation, userCityName, logic]);
 
+  // Compose a slot's FULL trio, de-duped by slot.id: if a compose is already
+  // in-flight for this slot, return THAT promise instead of starting a second
+  // one. Caches the result in hybridPreviewCacheRef on success and clears the
+  // in-flight entry when it settles. Read-only (startRun no-op) — both the
+  // settle-preview and the background prewarm warm the SAME cache the CTA reuses.
+  const composeTrioDeduped = useCallback((intent: HybridStartIntent, slotId: string): Promise<ComposedHybridSession | null> => {
+    const existing = hybridTrioInflightRef.current.get(slotId);
+    if (existing) return existing;
+    const p = import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ composeHybridPlan }) =>
+      composeHybridPlan(intent, { userPosition: userLocation, cityName: userCityName, startRun: () => {} }));
+    hybridTrioInflightRef.current.set(slotId, p);
+    p.then((composed) => { if (composed) hybridPreviewCacheRef.current.set(slotId, composed); })
+      .catch(() => { /* callers treat as null */ })
+      .finally(() => { if (hybridTrioInflightRef.current.get(slotId) === p) hybridTrioInflightRef.current.delete(slotId); });
+    return p;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation, userCityName]);
+
   // Background pre-warm of the full-park trio. The full-park route draws on settle
   // from the LIGHT preview, but the heavy part (generateHomeWorkoutTrio → 3 full
   // workouts) is only needed by the CTA/overview. This kicks that heavy compose off
@@ -581,18 +615,13 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     if (hybridPreviewCacheRef.current.has(slotId)) return; // already warm → no recompute
     const kickoff = () => {
       if (hybridPreviewFlowIdRef.current !== flowId) return; // superseded before start
-      import('@/features/workout-engine/hybrid/start-hybrid-session').then(async ({ composeHybridPlan }) => {
-        if (hybridPreviewFlowIdRef.current !== flowId) return;      // superseded during import
-        if (hybridPreviewCacheRef.current.has(slotId)) return;      // filled meanwhile (CTA)
-        const composed = await composeHybridPlan(intent, {
-          userPosition: userLocation,
-          cityName: userCityName,
-          startRun: () => {}, // pre-warm NEVER starts a session (read-only)
-        });
-        // Swiped away while composing → drop; do not cache a superseded warm.
-        if (hybridPreviewFlowIdRef.current !== flowId) return;
+      if (hybridPreviewCacheRef.current.has(slotId)) return; // filled meanwhile (CTA)
+      // composeTrioDeduped registers the in-flight promise so an early "צא לדרך"
+      // tap AWAITS this exact compose instead of starting a duplicate, and caches
+      // the result. Here we only log readiness (when still on this card).
+      composeTrioDeduped(intent, slotId).then((composed) => {
+        if (hybridPreviewFlowIdRef.current !== flowId) return; // swiped away → no log
         if (!composed) return;
-        hybridPreviewCacheRef.current.set(slotId, composed);
         // eslint-disable-next-line no-console
         console.log('[compose-trigger]', 'prewarm-ready', slotId);
       });
@@ -603,7 +632,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     if (typeof ric === 'function') ric(kickoff, { timeout: 2500 });
     else setTimeout(kickoff, 200);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName]);
+  }, [userLocation, userCityName, composeTrioDeduped]);
 
   // READ-ONLY preview: when the carousel SETTLES on a hybrid card, compose its
   // plan (cached per slot.id) and draw the route on the map — the SAME compose
@@ -662,21 +691,17 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       return;
     }
     setHybridPreviewComposing(true);
-    import('@/features/workout-engine/hybrid/start-hybrid-session').then(async ({ composeHybridPlan }) => {
-      const composed = await composeHybridPlan(presetToIntent(slot.preset, slot.timeBudgetMin), {
-        userPosition: userLocation,
-        cityName: userCityName,
-        startRun: () => {}, // preview NEVER starts a session (read-only)
-      });
+    // Register the compose as in-flight (composeTrioDeduped) so an early "צא לדרך"
+    // tap AWAITS it rather than starting a duplicate; it also caches on success.
+    composeTrioDeduped(presetToIntent(slot.preset, slot.timeBudgetMin), slot.id).then((composed) => {
       // Superseded (user swiped away / left the layer) → drop silently, no draw.
       if (hybridPreviewFlowIdRef.current !== flowId) return;
       setHybridPreviewComposing(false);
       if (!composed) return; // compose failed → leave the map as-is (never crash)
-      hybridPreviewCacheRef.current.set(slot.id, composed);
       drawComposedRoute(composed);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview, prewarmFullParkTrio]);
+  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview, prewarmFullParkTrio, composeTrioDeduped]);
 
   // Slot selection: hybrid → compose→overview; aerobic_quick → start now (skip overview).
   const handleSelectSlot = useCallback((slot: HybridSlot) => {
@@ -686,9 +711,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       // CTA cache-reuse (ADDITIVE): if the settle-preview already composed this
       // slot, reuse that EXACT object → no re-compose, and overview/run show
       // precisely the previewed route (the generator randomises, so a second
-      // compose would differ). Cancel any in-flight preview so a late result
-      // can't redraw. The no-cache path falls through to the UNCHANGED
-      // composeAndShowOverview.
+      // compose would differ). Cancel any in-flight preview REDRAW so a late
+      // result can't repaint the map. The no-cache path awaits the de-duped
+      // compose (composeTrioDeduped) rather than starting a fresh one.
       hybridPreviewFlowIdRef.current += 1;
       const cached = hybridPreviewCacheRef.current.get(slot.id);
       if (cached) {
@@ -699,7 +724,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         setFreeRunStep('overview');
         return;
       }
-      composeAndShowOverview(presetToIntent(slot.preset, slot.timeBudgetMin), 'slots');
+      // Not cached yet → AWAIT the DE-DUPED compose. composeTrioDeduped returns
+      // the settle-preview / prewarm compose if one is already in-flight, else it
+      // starts one and REGISTERS it — so this covers both races: (a) tapping while
+      // a prewarm runs, and (b) tapping in the idle gap before prewarm starts (the
+      // CTA's own compose is now registered, so the later prewarm reuses it instead
+      // of composing a second time). This is the fix for the double [compose-trigger].
+      const trio = composeTrioDeduped(presetToIntent(slot.preset, slot.timeBudgetMin), slot.id);
+      composeAndShowOverview(presetToIntent(slot.preset, slot.timeBudgetMin), 'slots', trio);
       return;
     }
     // Aerobic quick-start — the session mode is read synchronously from
@@ -708,7 +740,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     useRunningPlayer.getState().setActivityType(slot.aerobicKind);
     logic.setFocusedRoute(null);
     logic.startActiveWorkout();
-  }, [composeAndShowOverview, drawComposedRoute, logic]);
+  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic]);
 
   const [effectiveRadius, setEffectiveRadius] = useState(requestedDistanceKm);
 
