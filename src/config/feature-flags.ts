@@ -113,7 +113,7 @@ export const SWAP_ALL_ENABLED = true;
 //     runs the full sweep exactly as before.
 //   • Hebrew relabel gate (Fix 3) — relabel only on source 'metadata' events,
 //     not on every tile. When false, relabels on every 'sourcedata' as before.
-export const IS_PERF_BATCH1_ENABLED = false;
+export const IS_PERF_BATCH1_ENABLED = true;
 
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
