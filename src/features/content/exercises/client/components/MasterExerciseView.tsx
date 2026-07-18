@@ -117,6 +117,14 @@ export interface MasterExerciseViewProps {
   onNavigateToAnalytics?: (exerciseId: string, exerciseName: string) => void;
   /** Tapping "מפה מלאה ←" routes to the full roadmap for this movement family. */
   onNavigateToRoadmap?: (baseMovementId: string) => void;
+  /**
+   * OPTIONAL method-writer. Only the workout-preview context passes it (gated by
+   * SWAP_ALL_ENABLED); when present, picking a method also persists that choice to the
+   * live workout exercise so a single per-exercise location swap reaches the runner.
+   * Absent everywhere else (exercise library / master view) → MEV stays strictly
+   * read-only, byte-identical to today.
+   */
+  onMethodChange?: (method: ExecutionMethod, methodIdx: number) => void;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -366,6 +374,7 @@ export default function MasterExerciseView({
   programLabels,
   onNavigateToAnalytics,
   onNavigateToRoadmap,
+  onMethodChange,
 }: MasterExerciseViewProps) {
   // Equipment caches power the gear/equipment labels + icons.
   useEffect(() => {
@@ -764,6 +773,10 @@ export default function MasterExerciseView({
                                         console.log(`🔄 [Switcher State] Updating active index to: ${opt.idx}`);
                                         setSelectedMethodIdx(opt.idx);
                                         setHasUserPickedMethod(true);
+                                        // Persist the pick to the live workout (workout-preview
+                                        // context only; no-op read-only elsewhere).
+                                        const chosenMethod = (exercise.execution_methods ?? exercise.executionMethods ?? [])[opt.idx];
+                                        if (chosenMethod) onMethodChange?.(chosenMethod, opt.idx);
                                         setSwitcherOpen(false);
                                       }}
                                       className={`w-full flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors ${

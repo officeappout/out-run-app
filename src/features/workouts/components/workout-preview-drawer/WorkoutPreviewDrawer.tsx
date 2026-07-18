@@ -21,6 +21,10 @@ import { PARK_FALLBACK_IMAGE } from '@/features/parks/core/hooks/useNearbyParks'
 import type { WorkoutPreviewDrawerProps } from './types';
 import ParkCardImage from './components/ParkCardImage';
 import DrawerHeader from './components/DrawerHeader';
+import WorkoutLocationSwitcher from './components/WorkoutLocationSwitcher';
+import { useSwapAll } from './hooks/useSwapAll';
+import { SWAP_ALL_ENABLED } from '@/config/feature-flags';
+import type { ExecutionMethod } from '@/features/content/exercises';
 import DrawerFooter from './components/DrawerFooter';
 import GeneratedWorkoutExerciseList from './components/exercise-list/GeneratedWorkoutExerciseList';
 import ExerciseDetailDrawer from './components/ExerciseDetailDrawer';
@@ -195,6 +199,35 @@ export default function WorkoutPreviewDrawer({
   const handleDetailDismiss = useCallback(() => {
     setDetailExercise(null);
   }, []);
+
+  // ── Location swap-all (bulk + single), gated by SWAP_ALL_ENABLED ──
+  const resolvedSwapLocation: ExecutionLocation =
+    (workoutLocation as ExecutionLocation) || 'park';
+  const { swapAll, isSwapping } = useSwapAll({
+    generatedWorkout,
+    onGeneratedWorkoutUpdate,
+    userProfile: profile,
+    currentLocation: resolvedSwapLocation,
+    exercisePool,
+  });
+
+  // Single per-exercise method write from MasterExerciseView (detail drawer): persist
+  // the picked method to the LIVE workout (so it reaches the runner via Merge 1) and
+  // re-sync the detail snapshot so the sheet reflects the new method.
+  const handleSingleMethodChange = useCallback(
+    (method: ExecutionMethod) => {
+      if (!generatedWorkout || !detailExercise) return;
+      const targetId = detailExercise.exercise.id;
+      const updatedExercises = generatedWorkout.exercises.map((we) =>
+        we.exercise.id === targetId
+          ? { ...we, method: method as typeof we.method, wasSwapped: true, dimensionUnavailable: undefined }
+          : we,
+      );
+      onGeneratedWorkoutUpdate?.({ ...generatedWorkout, exercises: updatedExercises });
+      setDetailExercise((prev) => (prev ? { ...prev, method: method as typeof prev.method } : prev));
+    },
+    [generatedWorkout, detailExercise, onGeneratedWorkoutUpdate],
+  );
 
   const handleOpenLivePartners = useCallback(() => {
     usePartnerFilters.getState().setLiveActivity('strength');
@@ -441,28 +474,37 @@ export default function WorkoutPreviewDrawer({
                   {isGeneratingWorkout && !generatedWorkout ? (
                     <WorkoutLoadingSkeleton />
                   ) : generatedWorkout ? (
-                    <GeneratedWorkoutExerciseList
-                      generatedWorkout={generatedWorkout}
-                      exercisePool={exercisePool}
-                      onSwap={handleOpenSwapModal}
-                      onSwapPyramidStep={handleOpenPyramidStepSwap}
-                      onExerciseTap={handleExerciseTap}
-                      isWarmupExpanded={isWarmupExpanded}
-                      isWarmupActive={isWarmupActive}
-                      onToggleWarmupExpanded={handleToggleWarmupExpanded}
-                      onToggleWarmupActive={handleToggleWarmupActive}
-                      actions={{
-                        isFav,
-                        isFavToggling,
-                        isFavDownloading,
-                        isFavDownloaded,
-                        downloadProgress: dlProgress,
-                        isSharing,
-                        onToggleFavorite: handleToggleFavorite,
-                        onShare: handleShare,
-                        onDownload: handleDownload,
-                      }}
-                    />
+                    <>
+                      {SWAP_ALL_ENABLED && (
+                        <WorkoutLocationSwitcher
+                          currentLocation={resolvedSwapLocation}
+                          isSwapping={isSwapping}
+                          onSwap={(v) => { void swapAll('location', v); }}
+                        />
+                      )}
+                      <GeneratedWorkoutExerciseList
+                        generatedWorkout={generatedWorkout}
+                        exercisePool={exercisePool}
+                        onSwap={handleOpenSwapModal}
+                        onSwapPyramidStep={handleOpenPyramidStepSwap}
+                        onExerciseTap={handleExerciseTap}
+                        isWarmupExpanded={isWarmupExpanded}
+                        isWarmupActive={isWarmupActive}
+                        onToggleWarmupExpanded={handleToggleWarmupExpanded}
+                        onToggleWarmupActive={handleToggleWarmupActive}
+                        actions={{
+                          isFav,
+                          isFavToggling,
+                          isFavDownloading,
+                          isFavDownloaded,
+                          downloadProgress: dlProgress,
+                          isSharing,
+                          onToggleFavorite: handleToggleFavorite,
+                          onShare: handleShare,
+                          onDownload: handleDownload,
+                        }}
+                      />
+                    </>
                   ) : (
                     workoutPlan && (
                       <StrengthOverviewCard
@@ -541,6 +583,7 @@ export default function WorkoutPreviewDrawer({
         detailExercise={detailExercise}
         programMap={programMap}
         onDismiss={handleDetailDismiss}
+        onMethodChange={SWAP_ALL_ENABLED ? handleSingleMethodChange : undefined}
       />
 
       {/* Exercise replacement modal */}

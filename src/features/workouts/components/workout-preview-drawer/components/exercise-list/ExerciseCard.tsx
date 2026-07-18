@@ -92,6 +92,11 @@ function ExerciseCardImpl({
                 יעד
               </span>
             )}
+            {exercise.dimensionUnavailable && (
+              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200 flex-shrink-0">
+                דורש מתקן
+              </span>
+            )}
           </div>
           <div className={`text-[13px] font-normal mt-0.5 ${isGoal ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-800 dark:text-slate-300'}`}>
             {volume}

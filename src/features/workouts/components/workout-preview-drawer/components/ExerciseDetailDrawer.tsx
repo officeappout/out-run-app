@@ -15,7 +15,7 @@
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import type { Exercise } from '@/features/content/exercises';
+import type { Exercise, ExecutionMethod } from '@/features/content/exercises';
 import MasterExerciseView from '@/features/content/exercises/client/components/MasterExerciseView';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 
@@ -26,12 +26,19 @@ interface ExerciseDetailDrawerProps {
   programMap: Record<string, string>;
   /** Called on dismissal (backdrop tap, drag-down, handle). */
   onDismiss: () => void;
+  /**
+   * OPTIONAL method-writer (workout-preview single-swap; gated by SWAP_ALL_ENABLED).
+   * The parent binds it to THIS `detailExercise` and persists the pick to the live
+   * workout. Absent → MEV stays read-only.
+   */
+  onMethodChange?: (method: ExecutionMethod, methodIdx: number) => void;
 }
 
 function ExerciseDetailDrawerImpl({
   detailExercise,
   programMap,
   onDismiss,
+  onMethodChange,
 }: ExerciseDetailDrawerProps) {
   const router = useRouter();
 
@@ -90,6 +97,7 @@ function ExerciseDetailDrawerImpl({
                 filterLocation={filterLocation}
                 programLabels={programMap}
                 onNavigateToAnalytics={handleNavigateToAnalytics}
+                onMethodChange={onMethodChange}
               />
             </div>
           </motion.div>
