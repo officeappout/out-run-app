@@ -27,6 +27,8 @@ import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { haversineKm } from '../services/geoUtils';
 import type { ActivityType } from '../types/route.types';
 import { useIsForeground } from '@/lib/appForeground';
+import { IS_PERF_BATCH2_PRESENCE_ENABLED } from '@/config/feature-flags';
+import { usePresenceStore, acquirePresenceStream } from '../store/usePresenceStore';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -436,6 +438,19 @@ export function usePartnerData(
       setRawLive([]);
       setIsLoading(false);
       return;
+    }
+
+    // ── P4 shared presence stream (perf/batch2, flag-gated) ──────────────────
+    // Read the single shared verified_global stream instead of opening a second
+    // unbounded listener (useGroupPresence opens the identical query). Same
+    // shape → rules-safe; the `live` useMemo below is unchanged. When the flag
+    // is off, the original onSnapshot below runs unchanged (byte-identical).
+    if (IS_PERF_BATCH2_PRESENCE_ENABLED) {
+      const release = acquirePresenceStream();
+      setRawLive(usePresenceStore.getState().docs);
+      const unsubStore = usePresenceStore.subscribe((s) => setRawLive(s.docs));
+      unsubLive.current = () => { unsubStore(); release(); };
+      return () => unsubLive.current?.();
     }
 
     // CRITICAL: Firestore rule on /presence/{uid} requires the query to

@@ -130,6 +130,16 @@ export const IS_PERF_BATCH1_ENABLED = true;
 // duration keeps its original 800/200 literals. Sim (jumpTo) is never gated.
 export const IS_PERF_BATCH2_ENABLED = true;
 
+// PERF_BATCH2_PRESENCE — independent sub-flag for the P4 presence-stream
+// unification, kept SEPARATE from IS_PERF_BATCH2_ENABLED (camera) so presence
+// can be rolled back on its own. When FALSE, useGroupPresence (discovery) and
+// usePartnerData each keep their own `presence where mode=='verified_global'`
+// onSnapshot and the shared usePresenceStore is never mounted → byte-identical.
+// When TRUE, both read one shared ref-counted stream (one Firestore listener
+// instead of two on the foreground map). Query shape preserved → rules-safe;
+// the group-session `mode=='group'` path is never unified.
+export const IS_PERF_BATCH2_PRESENCE_ENABLED = false;
+
 // ============================================================================
 // SUMMARY CONSOLIDATION (Stage 2/3) — per-screen V2 renderers over the shared
 // summary/blocks kit. ALL DEFAULT FALSE: while false, each summary screen renders
