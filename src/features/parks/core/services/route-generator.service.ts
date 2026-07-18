@@ -959,7 +959,11 @@ async function generateCommuteRoutes(
       destination,
       profile,
       [],
-      { exclude: profile === 'cycling' ? 'motorway,toll' : 'motorway' },
+      // `exclude=motorway` is a cycling/driving-only param — the Mapbox walking profile
+      // rejects it ("exclude value must be one of…"), which failed the whole quiet call
+      // and collapsed the commute (e.g. hybrid full-park walk) to a ~0.18km stub. Here
+      // profile is only 'walking' | 'cycling'; walkers never use motorways, so omit it.
+      { exclude: profile === 'cycling' ? 'motorway,toll' : undefined },
     ),
   ]);
 
