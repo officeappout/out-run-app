@@ -73,12 +73,30 @@ function categoryLabel(categories: string[] | undefined): string {
   return labels.length > 0 ? labels.join(' + ') : 'אימון';
 }
 
+// ─── Body templates ───────────────────────────────────────────────────────────
+// Rotated once per day (not per-user) so the copy stays fresh day-to-day while
+// preserving same-day batching (all users on a given day share one message key).
+const BODY_VARIANTS: string[] = [
+  'האימון שלך מחכה — פתח את האפליקציה ותתחיל.',
+  'הזמן שלך להתאמן הגיע. אפילו 15 דקות עושות את ההבדל 💪',
+  'רגע קטן לעצמך היום — האימון שלך מוכן ומחכה בפארק.',
+];
+
+/** Deterministic day-of-year index so every user in a single run gets the same body. */
+function pickBody(): string {
+  const now = new Date();
+  const dayOfYear = Math.floor(
+    (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000,
+  );
+  return BODY_VARIANTS[dayOfYear % BODY_VARIANTS.length];
+}
+
 /** Build push content from a scheduled entry's categories. */
 function buildMessage(workoutLabel: string, startTime?: string): { title: string; body: string } {
   const timeHint = startTime ? ` ב-${startTime}` : ' היום';
   return {
     title: `📅 ${workoutLabel}${timeHint}`,
-    body: 'האימון שלך מחכה — פתח את האפליקציה ותתחיל.',
+    body: pickBody(),
   };
 }
 
