@@ -769,15 +769,15 @@ export default function NotificationsPage() {
       {/* ── Manual send modal */}
       {manualOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#1a1a2e] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-5" dir="rtl">
+          <div className="bg-white border border-gray-200 shadow-2xl rounded-2xl w-full max-w-md p-6 space-y-5" dir="rtl">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Megaphone size={18} className="text-blue-400" />
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Megaphone size={18} className="text-indigo-600" />
                 שלח הודעה ידנית
               </h2>
               <button
                 onClick={() => setManualOpen(false)}
-                className="text-gray-500 hover:text-white"
+                className="text-gray-400 hover:text-gray-700"
               >
                 <X size={18} />
               </button>
@@ -785,29 +785,29 @@ export default function NotificationsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-gray-400 mb-1.5 block">כותרת *</label>
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">כותרת *</label>
                 <input
                   value={manualTitle}
                   onChange={(e) => setManualTitle(e.target.value)}
                   placeholder="כותרת ההתראה"
                   maxLength={80}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:bg-white"
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400 mb-1.5 block">גוף ההודעה *</label>
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">גוף ההודעה *</label>
                 <textarea
                   value={manualBody}
                   onChange={(e) => setManualBody(e.target.value)}
                   placeholder="טקסט מלא..."
                   maxLength={200}
                   rows={3}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:bg-white resize-none"
                 />
-                <p className="text-xs text-gray-600 mt-1 text-left">{manualBody.length}/200</p>
+                <p className="text-xs text-gray-500 mt-1 text-left">{manualBody.length}/200</p>
               </div>
               <div>
-                <label className="text-xs text-gray-400 mb-1.5 block">קהל יעד</label>
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">קהל יעד</label>
                 <select
                   value={manualAudience}
                   onChange={(e) => {
@@ -815,7 +815,7 @@ export default function NotificationsPage() {
                     setManualError('');
                     if (e.target.value !== 'single_user') { setSelectedUser(null); setUserSearch(''); }
                   }}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
                 >
                   <option value="all">כל המשתמשים</option>
                   <option value="active_users">משתמשים פעילים</option>
@@ -828,16 +828,16 @@ export default function NotificationsPage() {
               {/* Single-user picker — autocomplete over the user list */}
               {manualAudience === 'single_user' && (
                 <div>
-                  <label className="text-xs text-gray-400 mb-1.5 block">בחר משתמש</label>
+                  <label className="text-xs font-medium text-gray-700 mb-1.5 block">בחר משתמש</label>
                   {selectedUser ? (
-                    <div className="flex items-center justify-between gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-                      <span className="text-sm text-white truncate">
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                      <span className="text-sm text-gray-900 truncate">
                         {selectedUser.name}
                         <span className="text-xs text-gray-500 mr-2">· {selectedUser.fcmTokenCount} מכשירים</span>
                       </span>
                       <button
                         onClick={() => { setSelectedUser(null); setUserSearch(''); }}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 flex-shrink-0"
+                        className="text-xs text-indigo-600 hover:text-indigo-700 flex-shrink-0"
                       >
                         שנה
                       </button>
@@ -849,10 +849,10 @@ export default function NotificationsPage() {
                         onChange={(e) => setUserSearch(e.target.value)}
                         placeholder={userListLoading ? 'טוען משתמשים…' : 'הקלד שם או מייל…'}
                         disabled={userListLoading}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:bg-white disabled:opacity-50"
                       />
                       {userQuery.length >= 2 && !userListLoading && (
-                        <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-white/10 divide-y divide-white/5">
+                        <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100 bg-white">
                           {userMatches.length === 0 ? (
                             <div className="px-3 py-2 text-xs text-gray-500">אין תוצאות</div>
                           ) : (
@@ -860,7 +860,7 @@ export default function NotificationsPage() {
                               <button
                                 key={u.id}
                                 onClick={() => { setSelectedUser({ id: u.id, name: u.name, fcmTokenCount: u.fcmTokenCount }); setUserSearch(''); }}
-                                className="w-full text-right px-3 py-2 text-sm text-gray-200 hover:bg-white/5 flex items-center justify-between gap-2"
+                                className="w-full text-right px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 flex items-center justify-between gap-2"
                               >
                                 <span className="truncate">
                                   {u.name}
@@ -872,49 +872,49 @@ export default function NotificationsPage() {
                           )}
                         </div>
                       )}
-                      <p className="text-xs text-gray-600 mt-1">שולח לכל המכשירים הרשומים של המשתמש.</p>
+                      <p className="text-xs text-gray-500 mt-1">שולח לכל המכשירים הרשומים של המשתמש.</p>
                     </>
                   )}
                 </div>
               )}
               <div>
-                <label className="text-xs text-gray-400 mb-1.5 block">קישור עמוק (deep link)</label>
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">קישור עמוק (deep link)</label>
                 <input
                   value={manualDeepLink}
                   onChange={(e) => setManualDeepLink(e.target.value)}
                   placeholder="/"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 font-mono"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:bg-white font-mono"
                 />
               </div>
             </div>
 
             {/* Preview */}
             {(manualTitle || manualBody) && (
-              <div className="rounded-xl bg-white/5 border border-white/10 p-3">
+              <div className="rounded-xl bg-gray-50 border border-gray-200 p-3">
                 <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                   <Bell size={10} />
                   תצוגה מקדימה
                 </p>
                 <div className="flex items-start gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
-                    <Bell size={14} className="text-gray-800" />
+                  <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+                    <Bell size={14} className="text-gray-700" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">{manualTitle || '...'}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{manualBody || '...'}</p>
+                    <p className="text-sm font-semibold text-gray-900">{manualTitle || '...'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{manualBody || '...'}</p>
                   </div>
                 </div>
               </div>
             )}
 
             {manualError && (
-              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-900/20 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                 <AlertCircle size={14} />
                 {manualError}
               </div>
             )}
             {manualSuccess && (
-              <div className="flex items-center gap-2 text-sm text-green-400 bg-green-900/20 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                 <CheckCircle2 size={14} />
                 {manualSuccessMsg || 'נשלח ✓'}
               </div>
@@ -923,7 +923,7 @@ export default function NotificationsPage() {
             <div className="flex gap-3 pt-1">
               <button
                 onClick={() => setManualOpen(false)}
-                className="flex-1 py-2 rounded-lg border border-white/10 text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors"
+                className="flex-1 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors"
               >
                 ביטול
               </button>
