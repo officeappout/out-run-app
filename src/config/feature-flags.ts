@@ -128,7 +128,7 @@ export const IS_PERF_BATCH1_ENABLED = true;
 //     between samples instead of rendering continuously through turns/pauses.
 // When false: the guard never runs (flag is the first && operand) and the ease
 // duration keeps its original 800/200 literals. Sim (jumpTo) is never gated.
-export const IS_PERF_BATCH2_ENABLED = false;
+export const IS_PERF_BATCH2_ENABLED = true;
 
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
