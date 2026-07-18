@@ -352,6 +352,34 @@ export function resolveTutorialForLang(
   return media.fullTutorial[lang] ?? media.fullTutorial['he'];
 }
 
+/**
+ * Complete-media gate for the swap-all VARIANT-AVAILABILITY check: a dimension-value
+ * / method variant is OFFERED (and accepted for an in-place method swap) only when it
+ * carries BOTH a playable video AND an image.
+ *
+ * ⚠️ Intentionally STRICTER than the engine selector's `hasMedia` (video-OR-image in
+ * method-selection.utils.ts). Do NOT use this inside selectMethodForContext /
+ * preferMedia — generation would then drop video-only (or image-only) methods from
+ * every pool (a content regression). Scope: swap-all variant availability only.
+ */
+export function methodHasCompleteMedia(
+  m: ExecutionMethod,
+  lang: ExerciseLang = 'he',
+): boolean {
+  // ExecutionMethod.media is its own inline type (has mainVideoUrl/imageUrl); the
+  // lang resolvers take the named ExerciseMedia. Read the inline fields directly and
+  // cast only at the resolver calls (mirrors MasterExerciseView.methodHasVideo).
+  const media = m?.media;
+  if (!media) return false;
+  const hasVideo = !!(
+    (media.mainVideoUrl && media.mainVideoUrl.trim() !== '') ||
+    resolvePreviewForLang(media as any, lang)?.videoId ||
+    resolveTutorialForLang(media as any, lang)?.videoId
+  );
+  const hasImage = !!(media.imageUrl && media.imageUrl.trim() !== '');
+  return hasVideo && hasImage;
+}
+
 export type InstructionalVideoLang = 'he' | 'en' | 'es';
 
 export interface InstructionalVideo {

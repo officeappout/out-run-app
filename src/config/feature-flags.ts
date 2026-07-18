@@ -86,6 +86,15 @@ export const CONTEXT_AWARE_SELECTION_ENABLED = true;
 // CONTEXT_AWARE_SELECTION. While FALSE, home gear is profile-only (today's set).
 export const ASSUMED_HOME_GEAR_ENABLED = true;
 
+// SWAP_ALL: Generic per-dimension bulk/single "swap all → <value>" in the workout
+// preview drawer (Phase 1 = location home/park/street). Gates BOTH the workout-level
+// bulk control AND the per-exercise MEV method-writer (`onMethodChange`). While
+// FALSE, the drawer + MasterExerciseView are BYTE-IDENTICAL to today: no bulk control
+// is mounted and `onMethodChange` is never passed, so MEV stays strictly read-only.
+// This is the ONLY production rollback for the feature — keep it as a hard kill-switch.
+// DEFAULT FALSE until code-review + live smoke pass.
+export const SWAP_ALL_ENABLED = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================

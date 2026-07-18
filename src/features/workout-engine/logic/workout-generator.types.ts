@@ -129,6 +129,14 @@ export interface WorkoutExercise {
   pyramidSequence?: PyramidStep[];
   wasSwapped?: boolean;
   /**
+   * swap-all "keep + mark": set when a bulk/single dimension swap (e.g. location
+   * park→home) found NO qualifying method AND no same-level alternative for this
+   * exercise, so it is kept as-is and flagged. Rendered as a "דורש מתקן" badge.
+   * Cleared on any subsequent successful swap. `dimension`/`value` name the axis
+   * (kept loosely typed to avoid a dep on method-dimension.utils' SwapDimension).
+   */
+  dimensionUnavailable?: { dimension: string; value: string };
+  /**
    * UI-ready rep / hold range string, pre-computed by the
    * `PresentationFormatter.annotateRepRanges()` pass at the end of the
    * generation pipeline.
@@ -200,6 +208,28 @@ export interface WorkoutStats {
   difficultyMultiplier: number;
 }
 
+/**
+ * Light, scalar-only snapshot of the fields `resolveWorkoutMetadata` needs, persisted
+ * on the generated workout so a location/dimension swap can re-run the title/
+ * description with the NEW location WITHOUT rebuilding the full pipeline context.
+ * Deliberately tiny — it rides the sessionStorage plan snapshot exposed to WKWebView
+ * eviction (axioms §19); never store heavy objects here. `location` + `durationMinutes`
+ * are re-injected at swap time, not stored.
+ */
+export interface WorkoutMetadataSnapshot {
+  persona: string | null;
+  timeOfDay: string;
+  gender?: 'male' | 'female';
+  category?: string;
+  categoryLabel?: string;
+  difficulty?: number | string;
+  dominantMuscle?: string;
+  experienceLevel?: string;
+  sportType?: string;
+  motivationStyle?: string;
+  currentProgram?: string;
+}
+
 export interface GeneratedWorkout {
   title: string;
   description: string;
@@ -224,6 +254,13 @@ export interface GeneratedWorkout {
   appliedProtocol?: string;
   /** Why Logger: end-to-end pipeline summary for debugging/auditing */
   pipelineLog?: string[];
+  /**
+   * Light metadata-recompute snapshot (see WorkoutMetadataSnapshot). Set at
+   * generation; read by swap-all to refresh title/description for the new location.
+   * Optional — absent on Firestore-restored/legacy plans, in which case swap-all
+   * rebuilds the context from the user profile + workout fields.
+   */
+  metadataCtx?: WorkoutMetadataSnapshot;
 }
 
 export interface VolumeAdjustment {
