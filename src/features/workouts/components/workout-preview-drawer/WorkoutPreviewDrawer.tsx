@@ -270,6 +270,7 @@ export default function WorkoutPreviewDrawer({
   const { handleStartWorkout } = useWorkoutSession({
     workout,
     workoutPlan,
+    generatedWorkout,
     isWarmupActive,
     workoutLocation,
     onStartWorkout,
