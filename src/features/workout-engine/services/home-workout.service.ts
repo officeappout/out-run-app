@@ -835,6 +835,23 @@ export async function generateHomeWorkoutTrio(
       if (metadata.description) workout.description = metadata.description;
       if (metadata.aiCue) workout.aiCue = metadata.aiCue;
 
+      // Stash a LIGHT scalar snapshot (§19 eviction-safe) so swap-all can re-run
+      // resolveWorkoutMetadata for a NEW location without rebuilding the pipeline
+      // context. location + durationMinutes are re-injected at swap time, not stored.
+      workout.metadataCtx = {
+        persona: optionMetaCtx.persona,
+        timeOfDay: optionMetaCtx.timeOfDay,
+        gender: optionMetaCtx.gender,
+        category: optionMetaCtx.category,
+        categoryLabel: optionMetaCtx.categoryLabel,
+        difficulty: optionMetaCtx.difficulty,
+        dominantMuscle: optionMetaCtx.dominantMuscle,
+        experienceLevel: optionMetaCtx.experienceLevel,
+        sportType: optionMetaCtx.sportType,
+        motivationStyle: optionMetaCtx.motivationStyle,
+        currentProgram: optionMetaCtx.currentProgram,
+      };
+
       if (metadata.logicCue) {
         workout.logicCue = metadata.logicCue;
       } else {
