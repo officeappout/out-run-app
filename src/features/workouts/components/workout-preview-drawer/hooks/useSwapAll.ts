@@ -6,6 +6,11 @@
  * Preserves the "what" (exercise choices, levels, domains, sets/reps intent) and
  * recomputes only the "where/how" for a new dimension-value (Phase 1 = location).
  * NOT a regeneration. Per exercise, the null-rule:
+ *   0. a pyramid (has `pyramidSequence`) is ATOMIC — never partial-swapped. Its rendered
+ *      content lives in the per-step sequence, which a shell-level swap does NOT
+ *      re-derive; swapping only the parent would leave a new parent with STALE steps.
+ *      Kept as ONE unit + marked, whether or not the parent is performable. (Follow-up
+ *      B: per-step method/media re-resolution — see `.claude/knowledge/parking-lot.md`.)
  *   1. a qualifying method (complete media) at the new value → swap the METHOD in place.
  *   2. none → replace the exercise with a same-level alternative that has complete media.
  *   2.5 still none, but the exercise IS performable at the new location (a valid method
@@ -109,6 +114,17 @@ export function useSwapAll({
 
         const newEntries: WorkoutExercise[] = [];
         for (const we of generatedWorkout.exercises) {
+          // 0) Pyramids are ATOMIC for a location swap (Phase 1, Option A). The rendered
+          //    content lives in `pyramidSequence[]` (per-step lever variants), which this
+          //    shell-level swap does NOT re-derive — a partial swap would leave a new
+          //    parent with STALE steps (inconsistent). Never partial-swap: keep the whole
+          //    block as one unit + mark it, performable or not. Follow-up B re-resolves
+          //    each step for the new location (see parking-lot.md).
+          if (Array.isArray(we.pyramidSequence) && we.pyramidSequence.length > 0) {
+            newEntries.push({ ...we, dimensionUnavailable: { dimension, value } });
+            keptMarked++;
+            continue;
+          }
           // 1) Method swap in place (same exercise, new-location method).
           const m = selectMethodForContext(we.exercise, newLocation, gear);
           if (m && methodHasCompleteMedia(m)) {
