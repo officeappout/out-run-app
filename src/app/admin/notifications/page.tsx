@@ -773,8 +773,8 @@ export default function NotificationsPage() {
                   תצוגה מקדימה
                 </p>
                 <div className="flex items-start gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
-                    <Bell size={14} className="text-white" />
+                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
+                    <Bell size={14} className="text-gray-800" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white">{manualTitle || '...'}</p>
