@@ -93,7 +93,7 @@ export const ASSUMED_HOME_GEAR_ENABLED = true;
 // is mounted and `onMethodChange` is never passed, so MEV stays strictly read-only.
 // This is the ONLY production rollback for the feature — keep it as a hard kill-switch.
 // DEFAULT FALSE until code-review + live smoke pass.
-export const SWAP_ALL_ENABLED = false;
+export const SWAP_ALL_ENABLED = true;
 
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
