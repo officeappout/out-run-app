@@ -16,9 +16,10 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
 import type { HybridPlan } from './compose-hybrid-session.service';
 import type { HybridControllerHandle } from './hybrid-session-controller';
-import type { HybridPhase, HybridRunState } from './hybrid-orchestrator';
+import type { HybridPhase, HybridRunState, HybridFinalizeResult } from './hybrid-orchestrator';
 import { createHybridSessionController } from './hybrid-session-controller';
 import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
+import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 
 // Non-reactive handles (a controller closure can't live in reactive state).
 let controllerRef: HybridControllerHandle | null = null;
@@ -44,6 +45,14 @@ export interface HybridRunStore {
   phase: HybridPhase;
   stationPlan: WorkoutPlan | null;
   isFinalLeg: boolean;
+  /**
+   * Stage 3 (HYBRID_SUMMARY_ENABLED): the just-finished hybrid's finalize result
+   * + calories, stashed for HybridSummary to read at render time. Set in
+   * finishHybrid, cleared on reset() and on the next startHybrid.
+   */
+  finishedHybrid: boolean;
+  lastResult: HybridFinalizeResult | null;
+  lastCalories: number;
   startHybrid: (
     plan: HybridPlan,
     aerobicKind: 'running' | 'walking',
@@ -66,6 +75,9 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
   phase: 'idle',
   stationPlan: null,
   isFinalLeg: false,
+  finishedHybrid: false,
+  lastResult: null,
+  lastCalories: 0,
 
   startHybrid: (plan, aerobicKind, fullPark = false, warmupActive = true) => {
     controllerRef = createHybridSessionController(plan.segments);
@@ -86,6 +98,10 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       phase: controllerRef.getPhase(),
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
+      // Clear any stale HybridSummary stash from a prior session.
+      finishedHybrid: false,
+      lastResult: null,
+      lastCalories: 0,
     });
   },
 
@@ -147,6 +163,15 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     const s = useSessionStore.getState();
     controllerRef.finish(s.totalDistance || 0, s.totalDuration || 0, Date.now());
     const result = controllerRef.finalize();
+
+    // Stage 3: stash the finalize result for HybridSummary BEFORE the awaits
+    // below — endSession() inside finishWorkout (further down) raises the summary
+    // via MapShell, so stash first to avoid a mount-before-stash race. Gated →
+    // store byte-identical while HYBRID_SUMMARY_ENABLED is false. No 2nd save:
+    // this reuses the value finalize() already produced.
+    if (HYBRID_SUMMARY_ENABLED) {
+      set({ finishedHybrid: true, lastResult: result, lastCalories: planCalories });
+    }
 
     // ── The SINGLE hybrid doc ────────────────────────────────────────────────
     try {
@@ -233,6 +258,14 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
   reset: () => {
     controllerRef = null;
     saving = false;
-    set({ active: false, phase: 'idle', stationPlan: null, isFinalLeg: false });
+    set({
+      active: false,
+      phase: 'idle',
+      stationPlan: null,
+      isFinalLeg: false,
+      finishedHybrid: false,
+      lastResult: null,
+      lastCalories: 0,
+    });
   },
 }));
