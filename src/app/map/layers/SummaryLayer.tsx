@@ -10,6 +10,8 @@ import { useHybridRun } from '@/features/workout-engine/hybrid/useHybridRun';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import HybridSummary from '@/features/workout-engine/summary/pages/HybridSummary';
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
+import { useRouter } from 'next/navigation';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -24,6 +26,7 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   const lastResult = useHybridRun((s) => s.lastResult);
   const lastCalories = useHybridRun((s) => s.lastCalories);
   const currentStreak = useProgressionStore((s) => s.currentStreak);
+  const router = useRouter();
 
   const handleFinish = () => {
     logic.setShowSummary(false);
@@ -36,7 +39,12 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   // normal run never re-reads a stale hybrid result.
   const handleHybridFinish = () => {
     useHybridRun.getState().reset();
+    // Restore the bottom navbar (unmounted while session status === 'finished',
+    // ClientLayout.tsx) + land on /home — parity with the aerobic
+    // WorkoutSummaryPage.handleFinish teardown.
+    useSessionStore.getState().clearSession();
     handleFinish();
+    router.push('/home');
   };
 
   // Dopamine screen (transition to summary)

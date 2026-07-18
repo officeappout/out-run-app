@@ -7,20 +7,40 @@ interface IdentityUnitsRowProps {
   calories: number;
   /**
    * Display-only until the hybrid single-save lands (CLAUDE.md gate: no real
-   * awardWorkoutXP for aerobic/hybrid yet). Defaults to 0.
+   * awardWorkoutXP for aerobic/hybrid yet). Shown only when > 0 — we never
+   * invent a bonus number (XP_Progression axiom).
    */
   xp?: number;
+  /** 'boxes' (default) = 3 stat tiles; 'inline' = compact "time · kcal · +XP". */
+  variant?: 'boxes' | 'inline';
 }
 
 /**
  * The "identity units" row (design spec v0.9 §4): the only totals that unify
  * across activity types — total time · kcal · XP.
  */
-export default function IdentityUnitsRow({ durationSeconds, calories, xp = 0 }: IdentityUnitsRowProps) {
+export default function IdentityUnitsRow({
+  durationSeconds,
+  calories,
+  xp = 0,
+  variant = 'boxes',
+}: IdentityUnitsRowProps) {
+  const time = formatDuration(durationSeconds);
+  const cal = Math.round(calories || 0);
+  const xpVal = Math.round(xp || 0);
+
+  if (variant === 'inline') {
+    return (
+      <span dir="rtl" style={{ fontSize: 11, color: '#9aa3a1', fontFamily: 'var(--font-simpler)' }}>
+        {time} · {cal} קק״ל{xpVal > 0 ? ` · +${xpVal} XP` : ''}
+      </span>
+    );
+  }
+
   const cells = [
-    { label: 'זמן', value: formatDuration(durationSeconds) },
-    { label: 'קק״ל', value: String(Math.round(calories || 0)) },
-    { label: 'XP', value: String(Math.round(xp || 0)) },
+    { label: 'זמן', value: time },
+    { label: 'קק״ל', value: String(cal) },
+    { label: 'XP', value: String(xpVal) },
   ];
   return (
     <div dir="rtl" style={{ display: 'flex', gap: 8, fontFamily: 'var(--font-simpler)' }}>

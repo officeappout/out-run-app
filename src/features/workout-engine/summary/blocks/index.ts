@@ -19,6 +19,7 @@ export {
   segmentLabel,
 } from './segment-rail.util';
 export { default as SummarySheet } from './SummarySheet';
+export { default as SummaryDrawerShell, type DrawerTab } from './SummaryDrawerShell';
 export { default as SummaryTabs, type SummaryTab } from './SummaryTabs';
 export { default as IdentityUnitsRow } from './IdentityUnitsRow';
 export { default as StreakBlock } from './StreakBlock';
