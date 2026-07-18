@@ -19,10 +19,18 @@ export async function POST(request: NextRequest) {
 
   let channel: string;
   let uid: string;
+  let customTitle = '';
+  let customBody = '';
+  let customDeepLink = '';
   try {
-    const body = await request.json() as { channel?: unknown; uid?: unknown };
+    const body = await request.json() as {
+      channel?: unknown; uid?: unknown; title?: unknown; body?: unknown; deepLink?: unknown;
+    };
     channel = String(body.channel ?? '');
     uid = String(body.uid ?? '');
+    customTitle = typeof body.title === 'string' ? body.title.trim() : '';
+    customBody = typeof body.body === 'string' ? body.body.trim() : '';
+    customDeepLink = typeof body.deepLink === 'string' ? body.deepLink.trim() : '';
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
@@ -31,7 +39,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'channel and uid are required' }, { status: 400 });
   }
 
-  const msg = TEST_MESSAGES[channel];
+  // Custom title+body (targeted single-user send from the manual modal) overrides
+  // the fixed per-channel sample; fall back to TEST_MESSAGES for "send test to me".
+  const msg = customTitle && customBody
+    ? { title: customTitle, body: customBody }
+    : TEST_MESSAGES[channel];
   if (!msg) {
     return NextResponse.json({ error: `Unknown channel: ${channel}` }, { status: 400 });
   }
@@ -62,7 +74,7 @@ export async function POST(request: NextRequest) {
     const response = await admin.messaging().sendEachForMulticast({
       tokens,
       notification: { title: msg.title, body: msg.body },
-      data: { channel, triggerType: 'AdminTest', deepLink: '/' },
+      data: { channel, triggerType: 'AdminTest', deepLink: customDeepLink || '/' },
       apns: { payload: { aps: { sound: 'default', badge: 1 } } },
       android: { priority: 'high', notification: { sound: 'default' } },
     });

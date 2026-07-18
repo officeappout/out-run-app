@@ -35,6 +35,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { sendEncouragementPush } from '@/features/admin/services/engagement.service';
+import { getAllUsers } from '@/features/admin/services/users.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -243,17 +244,45 @@ export default function NotificationsPage() {
   const [manualOpen, setManualOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualBody, setManualBody] = useState('');
-  const [manualAudience, setManualAudience] = useState<'all' | 'active_users' | 'inactive_users' | 'park_users'>('all');
+  const [manualAudience, setManualAudience] = useState<'all' | 'active_users' | 'inactive_users' | 'park_users' | 'single_user'>('all');
   const [manualDeepLink, setManualDeepLink] = useState('/');
   const [manualSending, setManualSending] = useState(false);
   const [manualError, setManualError] = useState('');
   const [manualSuccess, setManualSuccess] = useState(false);
+  const [manualSuccessMsg, setManualSuccessMsg] = useState('');
+
+  // ── Single-user targeting (manualAudience === 'single_user')
+  const [userList, setUserList] = useState<{ id: string; name: string; email?: string; fcmTokenCount: number }[]>([]);
+  const [userListLoading, setUserListLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; fcmTokenCount: number } | null>(null);
 
   // ── Auth
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
     return unsub;
   }, []);
+
+  // ── Lazy-load the user list for single-user targeting (only when first needed).
+  useEffect(() => {
+    if (manualAudience !== 'single_user' || userList.length > 0 || userListLoading) return;
+    setUserListLoading(true);
+    getAllUsers()
+      .then((users) =>
+        setUserList(
+          users.map((u) => ({ id: u.id, name: u.name, email: u.email, fcmTokenCount: u.fcmTokenCount })),
+        ),
+      )
+      .catch((e) => console.error('[notifications] user list load failed:', e))
+      .finally(() => setUserListLoading(false));
+  }, [manualAudience, userList.length, userListLoading]);
+
+  const userQuery = userSearch.trim().toLowerCase();
+  const userMatches = manualAudience === 'single_user' && userQuery.length >= 2
+    ? userList
+        .filter((u) => u.name.toLowerCase().includes(userQuery) || (u.email?.toLowerCase().includes(userQuery) ?? false))
+        .slice(0, 8)
+    : [];
 
   // ── Load Firestore config
   const loadConfig = useCallback(async () => {
@@ -372,22 +401,58 @@ export default function NotificationsPage() {
   // ── Manual send
   const handleManualSend = async () => {
     if (!manualTitle.trim() || !manualBody.trim() || !currentUserId) return;
+    if (manualAudience === 'single_user' && !selectedUser) {
+      setManualError('בחר משתמש לשליחה.');
+      return;
+    }
     setManualSending(true);
     setManualError('');
     try {
-      await sendEncouragementPush('all', {
-        title: manualTitle.trim(),
-        message: manualBody.trim(),
-        targetAudience: manualAudience,
-        sentBy: { adminId: currentUserId, adminName: 'Admin' },
-        channel: 'encouragement',
-        deepLink: manualDeepLink || '/',
-      });
+      if (manualAudience === 'single_user' && selectedUser) {
+        // Targeted single-user send via the direct FCM route (all the user's devices).
+        const idToken = await auth.currentUser?.getIdToken();
+        const res = await fetch('/api/admin/notifications/test', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+          },
+          body: JSON.stringify({
+            channel: 'encouragement',
+            uid: selectedUser.id,
+            title: manualTitle.trim(),
+            body: manualBody.trim(),
+            deepLink: manualDeepLink || '/',
+          }),
+        });
+        const json = await res.json() as { delivered?: number; error?: string; reason?: string };
+        if (!res.ok || json.error) {
+          setManualError(json.error ?? `שגיאה (HTTP ${res.status})`);
+          return;
+        }
+        if (!json.delivered || json.delivered === 0) {
+          setManualError(json.reason ?? 'לא נמסר — אין מכשירים רשומים למשתמש.');
+          return;
+        }
+        setManualSuccessMsg(`ההודעה נשלחה ל-${selectedUser.name} ✓`);
+      } else if (manualAudience !== 'single_user') {
+        await sendEncouragementPush('all', {
+          title: manualTitle.trim(),
+          message: manualBody.trim(),
+          targetAudience: manualAudience,
+          sentBy: { adminId: currentUserId, adminName: 'Admin' },
+          channel: 'encouragement',
+          deepLink: manualDeepLink || '/',
+        });
+        setManualSuccessMsg('ההתראה נוספה לתור השליחה ✓');
+      }
       setManualSuccess(true);
       setManualTitle('');
       setManualBody('');
       setManualDeepLink('/');
       setManualAudience('all');
+      setSelectedUser(null);
+      setUserSearch('');
       loadRecentSends();
       setTimeout(() => {
         setManualSuccess(false);
@@ -745,15 +810,73 @@ export default function NotificationsPage() {
                 <label className="text-xs text-gray-400 mb-1.5 block">קהל יעד</label>
                 <select
                   value={manualAudience}
-                  onChange={(e) => setManualAudience(e.target.value as typeof manualAudience)}
+                  onChange={(e) => {
+                    setManualAudience(e.target.value as typeof manualAudience);
+                    setManualError('');
+                    if (e.target.value !== 'single_user') { setSelectedUser(null); setUserSearch(''); }
+                  }}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                 >
                   <option value="all">כל המשתמשים</option>
                   <option value="active_users">משתמשים פעילים</option>
                   <option value="inactive_users">משתמשים לא פעילים</option>
                   <option value="park_users">משתמשי פארק</option>
+                  <option value="single_user">משתמש בודד (לפי שם / מייל)</option>
                 </select>
               </div>
+
+              {/* Single-user picker — autocomplete over the user list */}
+              {manualAudience === 'single_user' && (
+                <div>
+                  <label className="text-xs text-gray-400 mb-1.5 block">בחר משתמש</label>
+                  {selectedUser ? (
+                    <div className="flex items-center justify-between gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                      <span className="text-sm text-white truncate">
+                        {selectedUser.name}
+                        <span className="text-xs text-gray-500 mr-2">· {selectedUser.fcmTokenCount} מכשירים</span>
+                      </span>
+                      <button
+                        onClick={() => { setSelectedUser(null); setUserSearch(''); }}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 flex-shrink-0"
+                      >
+                        שנה
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        placeholder={userListLoading ? 'טוען משתמשים…' : 'הקלד שם או מייל…'}
+                        disabled={userListLoading}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                      />
+                      {userQuery.length >= 2 && !userListLoading && (
+                        <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-white/10 divide-y divide-white/5">
+                          {userMatches.length === 0 ? (
+                            <div className="px-3 py-2 text-xs text-gray-500">אין תוצאות</div>
+                          ) : (
+                            userMatches.map((u) => (
+                              <button
+                                key={u.id}
+                                onClick={() => { setSelectedUser({ id: u.id, name: u.name, fcmTokenCount: u.fcmTokenCount }); setUserSearch(''); }}
+                                className="w-full text-right px-3 py-2 text-sm text-gray-200 hover:bg-white/5 flex items-center justify-between gap-2"
+                              >
+                                <span className="truncate">
+                                  {u.name}
+                                  {u.email && <span className="text-xs text-gray-500"> · {u.email}</span>}
+                                </span>
+                                <span className="text-xs text-gray-500 flex-shrink-0">{u.fcmTokenCount} 📱</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-600 mt-1">שולח לכל המכשירים הרשומים של המשתמש.</p>
+                    </>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="text-xs text-gray-400 mb-1.5 block">קישור עמוק (deep link)</label>
                 <input
@@ -793,7 +916,7 @@ export default function NotificationsPage() {
             {manualSuccess && (
               <div className="flex items-center gap-2 text-sm text-green-400 bg-green-900/20 rounded-lg px-3 py-2">
                 <CheckCircle2 size={14} />
-                ההתראה נוספה לתור השליחה ✓
+                {manualSuccessMsg || 'נשלח ✓'}
               </div>
             )}
 
@@ -806,7 +929,10 @@ export default function NotificationsPage() {
               </button>
               <button
                 onClick={handleManualSend}
-                disabled={manualSending || !manualTitle.trim() || !manualBody.trim() || !currentUserId}
+                disabled={
+                  manualSending || !manualTitle.trim() || !manualBody.trim() || !currentUserId ||
+                  (manualAudience === 'single_user' && !selectedUser)
+                }
                 className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
                 {manualSending ? (
