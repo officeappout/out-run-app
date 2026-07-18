@@ -93,6 +93,37 @@ function ActionSpeedDial({ onAdd, onReport }: { onAdd: () => void; onReport: () 
   );
 }
 
+// ── Module-level pre-warm store (survives DiscoverLayer remounts) ─────────────
+// Was three per-component useRef Maps → wiped on every remount (incl. the Strict-
+// Mode dev mount cycle), so the CTA recomposed from scratch. Module scope keeps a
+// settled plan warm for the tab's lifetime. Key = uid | slotId | coarse lat,lng
+// (~110m) | activity: a different user / slot / meaningful move / activity misses
+// naturally; GPS jitter under ~110m does not. FIFO-capped so a long session can't
+// grow the Maps unbounded.
+const HYBRID_WARM_CAP = 24;
+const hybridPlanCache = new Map<string, ComposedHybridSession>();
+const hybridRoutePreviewCache = new Map<string, HybridRoutePreview>();
+const hybridTrioInflight = new Map<string, Promise<ComposedHybridSession | null>>();
+
+function capMapInsert<V>(map: Map<string, V>, key: string, val: V): void {
+  if (!map.has(key) && map.size >= HYBRID_WARM_CAP) {
+    const oldest: string | undefined = map.keys().next().value; // insertion order
+    if (oldest !== undefined) map.delete(oldest);
+  }
+  map.set(key, val);
+}
+
+function hybridWarmKey(
+  slotId: string,
+  loc: { lat: number; lng: number } | null,
+  activity: string,
+): string {
+  const uid = useUserStore.getState().profile?.id ?? 'anon';
+  const r = (n: number) => Math.round(n * 1000) / 1000; // ~110m bucket
+  const geo = loc ? `${r(loc.lat)},${r(loc.lng)}` : 'noloc';
+  return `${uid}|${slotId}|${geo}|${activity}`;
+}
+
 interface DiscoverLayerProps {
   logic: MapLogic;
   flyoverComplete: boolean;
@@ -202,34 +233,27 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // CACHE-KEY: slot.id assumes a FIXED intent per slot (true in Phase 1). When
   // build-your-own / per-slot overrides land, the same slot.id can yield
   // different plans → expand the key to include the config/intent (e.g. a hash).
-  const hybridPreviewCacheRef = useRef<Map<string, ComposedHybridSession>>(new Map());
-  // Separate LIGHT cache for the full-park card's route-only settle-preview. Kept
-  // apart from hybridPreviewCacheRef on purpose: that cache is reused verbatim by
-  // the CTA as the FULL composed session (needs the bolts trio), so a route-only
-  // object must never land in it — else the overview would open without options.
-  const hybridRoutePreviewCacheRef = useRef<Map<string, HybridRoutePreview>>(new Map());
-  // In-flight FULL-trio composes keyed by slot.id. When the settle-preview /
-  // background prewarm has STARTED a compose but not yet cached it, and the user
-  // taps "צא לדרך" before it resolves, the CTA must AWAIT this same promise
-  // instead of kicking off a duplicate compose (the double [compose-trigger] in
-  // the log). It resolves to the exact ComposedHybridSession the completed cache
-  // would hold, so the early-tap path is identical to the cache-hit path. Entry
-  // is removed as soon as the promise settles.
-  const hybridTrioInflightRef = useRef<Map<string, Promise<ComposedHybridSession | null>>>(new Map());
+  // Pre-warm caches now live at MODULE scope (hybridPlanCache /
+  // hybridRoutePreviewCache / hybridTrioInflight, top of file) so they survive a
+  // DiscoverLayer remount — the component refs were wiped on every remount, so the
+  // CTA recomposed from scratch. Keys are built via keyFor() below. The light
+  // route-preview cache stays SEPARATE from the full-plan cache on purpose: the CTA
+  // reuses the full plan verbatim (needs the bolts trio), so a route-only object
+  // must never land in it — else the overview would open without options.
   // Race guard: a stale/late preview compose must not draw after the user has
-  // already swiped to another card / left the layer (mirrors hybridFlowIdRef).
+  // already swiped to another card / left the layer (mirrors hybridFlowIdRef). This
+  // stays a per-mount ref — it only guards draws within the live component.
   const hybridPreviewFlowIdRef = useRef(0);
   const [hybridPreviewComposing, setHybridPreviewComposing] = useState(false);
 
   // Activity toggle (walk↔run) changes the composed route while slot.id stays
-  // constant → drop cached previews so the next settle recomposes for the new
-  // activity, and cancel any in-flight compose bound to the old activity.
-  // (GPS drift is intentionally NOT invalidated — a preview tolerates small
-  // jitter; recomposing on every location tick would thrash.)
+  // constant. No manual cache clear is needed anymore: the module-cache key
+  // (keyFor) already includes slotActivity, so a new activity misses naturally and
+  // the next settle recomposes. We only bump the per-mount draw token so a late
+  // compose bound to the OLD activity can't repaint the map.
+  // (GPS drift is intentionally NOT invalidated — the key rounds to ~110m, so a
+  // preview tolerates small jitter; recomposing on every location tick would thrash.)
   useEffect(() => {
-    hybridPreviewCacheRef.current.clear();
-    hybridRoutePreviewCacheRef.current.clear();
-    hybridTrioInflightRef.current.clear();
     hybridPreviewFlowIdRef.current += 1;
   }, [slotActivity]);
 
@@ -472,6 +496,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // their profile (the most common gap for non-gateway entry points).
   const userCityName = useUserCityName(userLocation);
 
+  // Stable module-cache key for a slot at the CURRENT location + activity. Every
+  // get/set/has for a slot's pre-warm goes through this so settle and the CTA agree
+  // on one key. Recreated when location/activity change (cheap).
+  const keyFor = useCallback(
+    (slotId: string) => hybridWarmKey(slotId, userLocation, slotActivity),
+    [userLocation, slotActivity],
+  );
+
   const { profile } = useUserStore();
   const myGroupIds = profile?.social?.groupIds ?? [];
 
@@ -582,57 +614,24 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLocation, userCityName, logic]);
 
-  // Compose a slot's FULL trio, de-duped by slot.id: if a compose is already
-  // in-flight for this slot, return THAT promise instead of starting a second
-  // one. Caches the result in hybridPreviewCacheRef on success and clears the
-  // in-flight entry when it settles. Read-only (startRun no-op) — both the
-  // settle-preview and the background prewarm warm the SAME cache the CTA reuses.
+  // Compose a slot's FULL trio, de-duped by cache key: if a compose is already
+  // in-flight for this key, return THAT promise instead of starting a second one.
+  // Caches the result in hybridPlanCache (module scope) on success and clears the
+  // in-flight entry when it settles. Read-only (startRun no-op) — both the settle
+  // preview and the eager settle warm fill the SAME cache the CTA reuses.
   const composeTrioDeduped = useCallback((intent: HybridStartIntent, slotId: string): Promise<ComposedHybridSession | null> => {
-    const existing = hybridTrioInflightRef.current.get(slotId);
+    const key = keyFor(slotId);
+    const existing = hybridTrioInflight.get(key);
     if (existing) return existing;
     const p = import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ composeHybridPlan }) =>
       composeHybridPlan(intent, { userPosition: userLocation, cityName: userCityName, startRun: () => {} }));
-    hybridTrioInflightRef.current.set(slotId, p);
-    p.then((composed) => { if (composed) hybridPreviewCacheRef.current.set(slotId, composed); })
+    hybridTrioInflight.set(key, p);
+    p.then((composed) => { if (composed) capMapInsert(hybridPlanCache, key, composed); })
       .catch(() => { /* callers treat as null */ })
-      .finally(() => { if (hybridTrioInflightRef.current.get(slotId) === p) hybridTrioInflightRef.current.delete(slotId); });
+      .finally(() => { if (hybridTrioInflight.get(key) === p) hybridTrioInflight.delete(key); });
     return p;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName]);
-
-  // Background pre-warm of the full-park trio. The full-park route draws on settle
-  // from the LIGHT preview, but the heavy part (generateHomeWorkoutTrio → 3 full
-  // workouts) is only needed by the CTA/overview. This kicks that heavy compose off
-  // on idle — AFTER the route is already drawn — and stores the full session in the
-  // HEAVY cache (hybridPreviewCacheRef), the one handleSelectSlot reuses. So by the
-  // time the user taps "צא לדרך", the trio is ready → the overview opens instantly.
-  //
-  // Guards: (a) skip if the trio is already cached (user returned to the card);
-  // (b) settle flow-token — a swipe to another card supersedes an in-flight warm,
-  // which is dropped rather than cached; (c) deferred to idle so it never blocks
-  // the route paint. Never touches hybridPreviewComposing (no "computing" chip).
-  const prewarmFullParkTrio = useCallback((intent: HybridStartIntent, slotId: string, flowId: number) => {
-    if (hybridPreviewCacheRef.current.has(slotId)) return; // already warm → no recompute
-    const kickoff = () => {
-      if (hybridPreviewFlowIdRef.current !== flowId) return; // superseded before start
-      if (hybridPreviewCacheRef.current.has(slotId)) return; // filled meanwhile (CTA)
-      // composeTrioDeduped registers the in-flight promise so an early "צא לדרך"
-      // tap AWAITS this exact compose instead of starting a duplicate, and caches
-      // the result. Here we only log readiness (when still on this card).
-      composeTrioDeduped(intent, slotId).then((composed) => {
-        if (hybridPreviewFlowIdRef.current !== flowId) return; // swiped away → no log
-        if (!composed) return;
-        // eslint-disable-next-line no-console
-        console.log('[compose-trigger]', 'prewarm-ready', slotId);
-      });
-    };
-    // Defer to idle so the trio compute yields to the route paint (WKWebView has no
-    // requestIdleCallback → short setTimeout fallback).
-    const ric = (window as any).requestIdleCallback;
-    if (typeof ric === 'function') ric(kickoff, { timeout: 2500 });
-    else setTimeout(kickoff, 200);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName, composeTrioDeduped]);
+  }, [userLocation, userCityName, keyFor]);
 
   // READ-ONLY preview: when the carousel SETTLES on a hybrid card, compose its
   // plan (cached per slot.id) and draw the route on the map — the SAME compose
@@ -655,17 +654,27 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     // (handleSelectSlot → overview). Uses the SEPARATE light cache so it never
     // poisons the full-compose cache the CTA reuses.
     if (slot.preset.mode === 'full_park_workout') {
-      const cachedRoute = hybridRoutePreviewCacheRef.current.get(slot.id);
+      const intent = presetToIntent(slot.preset, slot.timeBudgetMin);
+      // Route drawn → warm the FULL trio EAGERLY (was requestIdleCallback, which
+      // starved under render churn so the trio wasn't ready at tap-time).
+      // composeTrioDeduped is deduped + caches into hybridPlanCache, so an early
+      // "צא לדרך" awaits THIS promise. The dynamic import() yields before any heavy
+      // work, so the route paint above is not blocked.
+      const warmTrio = () => composeTrioDeduped(intent, slot.id).then((composed) => {
+        if (hybridPreviewFlowIdRef.current !== flowId || !composed) return;
+        // eslint-disable-next-line no-console
+        console.log('[compose-trigger]', 'prewarm-ready', slot.id);
+      });
+      const cachedRoute = hybridRoutePreviewCache.get(keyFor(slot.id));
       if (cachedRoute) {
         setHybridPreviewComposing(false);
         drawRoutePreview(cachedRoute);
-        // route already drawn → warm the trio in the background
-        prewarmFullParkTrio(presetToIntent(slot.preset, slot.timeBudgetMin), slot.id, flowId);
+        warmTrio();
         return;
       }
       setHybridPreviewComposing(true);
       import('@/features/workout-engine/hybrid/start-hybrid-session').then(async ({ composeFullParkRoutePreview }) => {
-        const preview = await composeFullParkRoutePreview(presetToIntent(slot.preset, slot.timeBudgetMin), {
+        const preview = await composeFullParkRoutePreview(intent, {
           userPosition: userLocation,
           cityName: userCityName,
           startRun: () => {}, // preview NEVER starts a session (read-only)
@@ -674,17 +683,16 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         if (hybridPreviewFlowIdRef.current !== flowId) return;
         setHybridPreviewComposing(false);
         if (!preview) return; // no equipped park / no position → leave map as-is
-        hybridRoutePreviewCacheRef.current.set(slot.id, preview);
+        capMapInsert(hybridRoutePreviewCache, keyFor(slot.id), preview);
         drawRoutePreview(preview);
-        // route drawn → warm the trio in the background
-        prewarmFullParkTrio(presetToIntent(slot.preset, slot.timeBudgetMin), slot.id, flowId);
+        warmTrio();
       });
       return;
     }
 
     // Regular hybrid (walk+strength budget-split): full compose on settle — now
     // fast (maxRoutes:1, single loop, no 1.5s chain) — cached for CTA reuse.
-    const cached = hybridPreviewCacheRef.current.get(slot.id);
+    const cached = hybridPlanCache.get(keyFor(slot.id));
     if (cached) {
       setHybridPreviewComposing(false);
       drawComposedRoute(cached);
@@ -701,7 +709,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       drawComposedRoute(composed);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview, prewarmFullParkTrio, composeTrioDeduped]);
+  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview, composeTrioDeduped, keyFor]);
 
   // Slot selection: hybrid → compose→overview; aerobic_quick → start now (skip overview).
   const handleSelectSlot = useCallback((slot: HybridSlot) => {
@@ -715,7 +723,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       // result can't repaint the map. The no-cache path awaits the de-duped
       // compose (composeTrioDeduped) rather than starting a fresh one.
       hybridPreviewFlowIdRef.current += 1;
-      const cached = hybridPreviewCacheRef.current.get(slot.id);
+      const cached = hybridPlanCache.get(keyFor(slot.id));
       if (cached) {
         setHybridPreviewComposing(false);
         drawComposedRoute(cached);
@@ -740,7 +748,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     useRunningPlayer.getState().setActivityType(slot.aerobicKind);
     logic.setFocusedRoute(null);
     logic.startActiveWorkout();
-  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic]);
+  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic, keyFor]);
 
   const [effectiveRadius, setEffectiveRadius] = useState(requestedDistanceKm);
 
