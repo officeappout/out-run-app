@@ -19,15 +19,16 @@ import {
   resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 
-const LOCATIONS: ExecutionLocation[] = ['home', 'park', 'street'];
+// Street intentionally omitted: data coverage is too thin, so it produces a flood of
+// "requires a station" keep-marks. Product decision — offer only park + home.
+const LOCATIONS: ExecutionLocation[] = ['home', 'park'];
 
 // Representative equipment per location for the sub-label. Illustrative only — the
 // REAL per-exercise gear is resolved during the swap; this mirrors the single-toggle
-// look (park = fixed bars; home/street fall to the "משקל גוף" placeholder).
+// look (park = fixed bars; home falls to the "משקל גוף" placeholder).
 const REPRESENTATIVE_GEAR: Record<string, string[]> = {
   home: [],
   park: ['pullup_bar', 'dip_station'],
-  street: [],
 };
 
 function gearChips(location: string): LocationSwitcherOption['gear'] {
