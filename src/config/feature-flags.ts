@@ -131,6 +131,29 @@ export const IS_PERF_BATCH1_ENABLED = true;
 export const IS_PERF_BATCH2_ENABLED = true;
 
 // ============================================================================
+// SUMMARY CONSOLIDATION (Stage 2/3) — per-screen V2 renderers over the shared
+// summary/blocks kit. ALL DEFAULT FALSE: while false, each summary screen renders
+// its EXISTING component byte-identically (the V2 page is never mounted). Flip per
+// screen only after on-device parity. These guards sit INSIDE the existing branches
+// and never replace AEROBIC_SOLO_ENABLED.
+// ============================================================================
+
+// AEROBIC_SUMMARY_V2: swap AerobicSummaryShell → summary/pages/AerobicSummary in
+// both the group + solo branches of WorkoutSummaryPage. While FALSE the shell
+// renders exactly as today.
+export const AEROBIC_SUMMARY_V2_ENABLED = false;
+
+// STRENGTH_SUMMARY_V2: swap StrengthSummaryPage → summary/pages/StrengthSummary at
+// the /workouts/[id]/active render site. While FALSE the page is byte-identical.
+export const STRENGTH_SUMMARY_V2_ENABLED = false;
+
+// HYBRID_SUMMARY: the brand-new hybrid recap (summary/pages/HybridSummary), wired in
+// SummaryLayer (Stage 3) reading the stashed HybridFinalizeResult. While FALSE a
+// hybrid finish falls through to the current (empty) aerobic shell — today's behaviour.
+// Independent flag: disturbs neither AEROBIC_SOLO_ENABLED nor the strength route.
+export const HYBRID_SUMMARY_ENABLED = false;
+
+// ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================
 

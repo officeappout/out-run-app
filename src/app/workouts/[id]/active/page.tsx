@@ -23,6 +23,7 @@ import {
   type Difficulty,
 } from '@/features/workout-engine/components/strength';
 import type { BonusStep, VolumeBreakdownDisplay } from '@/features/workout-engine/components/strength/StrengthDopamineScreen';
+import StrengthSummary from '@/features/workout-engine/summary/pages/StrengthSummary';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { processWorkoutCompletion } from '@/features/user/progression/services/progression.service';
@@ -34,7 +35,7 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
-import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
+import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { Target, Sparkles, Flame } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
@@ -1416,6 +1417,27 @@ export default function ActiveWorkoutPage() {
   
   // Step 3: Summary Screen
   if (flowState === 'summary') {
+    if (STRENGTH_SUMMARY_V2_ENABLED) {
+      return (
+        <StrengthSummary
+          duration={workoutStats.duration}
+          totalReps={workoutStats.totalReps}
+          completedExercises={workoutStats.completedExercises}
+          difficulty={workoutStats.difficulty}
+          streak={userProgression.streak}
+          programId={userProgression.programId}
+          programName={stableWorkoutPlan.name || 'אימון כוח'}
+          currentLevel={userProgression.currentLevel}
+          maxLevel={userProgression.maxLevel}
+          progressToNextLevel={Math.round(preWorkoutPercentRef.current)}
+          onFinish={handleSummaryFinish}
+          trainingType={stableWorkoutPlan.trainingType}
+          rawExerciseLog={workoutStats.rawExerciseLog}
+          precomputedProgression={progressionResult}
+          domainSets={workoutStats.domainSets}
+        />
+      );
+    }
     return (
       <StrengthSummaryPage
         duration={workoutStats.duration}
