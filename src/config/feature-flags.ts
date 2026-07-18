@@ -115,6 +115,21 @@ export const SWAP_ALL_ENABLED = true;
 //     not on every tile. When false, relabels on every 'sourcedata' as before.
 export const IS_PERF_BATCH1_ENABLED = true;
 
+// PERF_BATCH2 — single kill-switch for the Batch-2 map-render fixes. When
+// FALSE, every gated site is byte-identical to production and the change is
+// instantly reversible; flip TRUE to enable + measure. Milestone 1 = CAMERA
+// only (useCameraController), the largest remaining heat source on an active
+// run:
+//   • Delta-guard — skip the follow easeTo when the camera is already ~here
+//     (moved <1.5 m AND bearing Δ<1.5°) and no pitch/zoom state transition is
+//     pending. A redundant easeTo redraws the full 3-D scene every GPS tick.
+//   • Transition-ease cap — 800 ms→400 ms so a state-transition ease settles
+//     before the next GPS sample (≤500 ms), letting the map reach 'idle'
+//     between samples instead of rendering continuously through turns/pauses.
+// When false: the guard never runs (flag is the first && operand) and the ease
+// duration keeps its original 800/200 literals. Sim (jumpTo) is never gated.
+export const IS_PERF_BATCH2_ENABLED = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================

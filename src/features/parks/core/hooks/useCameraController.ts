@@ -28,6 +28,7 @@ import type { MapRef } from 'react-map-gl';
 import type { Route } from '../types/route.types';
 import type { RouteTurn } from '../services/geoUtils';
 import { bearingBetween, haversineMeters } from '../services/geoUtils';
+import { IS_PERF_BATCH2_ENABLED } from '@/config/feature-flags';
 import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
 import { useMapStore } from '../store/useMapStore';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
@@ -670,7 +671,13 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           const isStateTransition =
             Math.abs(safeMapPitch - targetPitch) > 2 ||
             Math.abs(safeMapZoom  - targetZoom)  > 0.3;
-          const duration = isStateTransition ? 800 : 200;
+          // P2 transition-ease cap (perf/batch2, flag-gated): 800→400 ms so a
+          // state-transition ease settles before the next GPS sample (≤500 ms)
+          // and the map can reach 'idle' between samples. Routine 200 ms follow
+          // is unchanged. When the flag is off, keeps the original 800/200.
+          const duration = IS_PERF_BATCH2_ENABLED
+            ? (isStateTransition ? 400 : 200)
+            : (isStateTransition ? 800 : 200);
 
           const logTag = isNavigationMode ? 'nav-follow' : 'workout-follow';
           if (process.env.NODE_ENV !== 'production') console.log(`[Cam] ${logTag} pitch=${targetPitch} zoom=${targetZoom} dur=${duration}ms`);
@@ -684,6 +691,20 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           ) {
             console.warn('[Cam] camera call skipped — non-finite param.', { center, targetZoom, targetPitch, bearing });
             return;
+          }
+          // ── P1 delta-guard (perf/batch2, flag-gated) ───────────────────────
+          // Skip the follow ease when the camera is already essentially here and
+          // no pitch/zoom transition is pending: a redundant easeTo still redraws
+          // the full 3-D scene every GPS tick (and an 800 ms transition ease would
+          // re-arm before settling, blocking 'idle'). Only routine centre/bearing
+          // follow is gated — state transitions bypass (they must animate), and
+          // the sim jumpTo path (below) is untouched. Flag is the first operand so
+          // when off the getters never run and the ease path is byte-identical.
+          if (IS_PERF_BATCH2_ENABLED && !isStateTransition && !simulationActive) {
+            const camCenter = rm.getCenter();
+            const movedM = haversineMeters(camCenter.lat, camCenter.lng, currentLocation.lat, currentLocation.lng);
+            const bearingDeltaDeg = Math.abs(shortestBearingDelta(rm.getBearing(), bearing));
+            if (movedM < 1.5 && bearingDeltaDeg < 1.5) return;
           }
           try {
             if (simulationActive) {
