@@ -685,7 +685,7 @@ export default function HomePage() {
         // Unit priority: respect the admin's explicit type field first, then generator's isTimeBased
         const actuallyTimeBased = ex.exercise.type === 'time' || ex.isTimeBased;
 
-        const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl, fullTutorial: resolvedFullTutorial } =
+        const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl, fullTutorial: resolvedFullTutorial, bunnyVideoId: resolvedBunnyVideoId } =
           resolveExerciseMedia(ex.exercise as any, ex.method as any);
 
         if (!resolvedImageUrl && !resolvedVideoUrl) {
@@ -712,6 +712,11 @@ export default function HomePage() {
           ) : undefined,
           videoUrl: resolvedVideoUrl,
           imageUrl: resolvedImageUrl,
+          // Engine-selected method's Bunny id — carried so the runner does not
+          // re-derive it from execution_methods[0] (wrong method → wrong video).
+          // Parity with the builder path (buildRunnerWorkoutPlanFromGenerated) and
+          // the Firestore path (enrichExercise). Hero card is the main entry.
+          bunnyVideoId: resolvedBunnyVideoId,
           fullTutorial: resolvedFullTutorial ?? null,
           exerciseType: actuallyTimeBased ? 'time' as const : 'reps' as const,
           exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown' | 'recovery') || 'main' as const,
