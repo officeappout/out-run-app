@@ -8,7 +8,13 @@
  * NOT a regeneration. Per exercise, the null-rule:
  *   1. a qualifying method (complete media) at the new value → swap the METHOD in place.
  *   2. none → replace the exercise with a same-level alternative that has complete media.
- *   3. no alternative → KEEP it and MARK it (`dimensionUnavailable`, "דורש מתקן" badge).
+ *   2.5 still none, but the exercise IS performable at the new location (a valid method
+ *       exists — it only failed the STRICT complete-media gate) → swap that method in
+ *       anyway. A possibly-missing still beats a FALSE "requires station" badge on an
+ *       exercise that needs no station.
+ *   3. not performable at the new location at all (`selectMethodForContext` → null) →
+ *      KEEP it and MARK it (`dimensionUnavailable`, "דורש מתקן" badge). Genuine
+ *      equipment gaps ONLY — never a media/content gap.
  * Then a two-pass superset heal, a cheap duration/stats recompute, and (from the light
  * metadataCtx snapshot) a title/description refresh for the new location — assembled
  * into ONE `onGeneratedWorkoutUpdate` so it reaches the runner via Merge 1's converter.
@@ -133,7 +139,19 @@ export function useSwapAll({
             swappedExercise++;
             continue;
           }
-          // 3) Keep + mark.
+          // 2.5) Last resort BEFORE keep+mark: the exercise IS performable at the new
+          //      location (`m` is a valid location method) — it only failed the strict
+          //      complete-media gate and no complete-media alternative was found. Swap
+          //      that method in anyway: a thumbnail that may lack its still image is far
+          //      better than a FALSE "דורש מתקן" badge on an exercise that needs no
+          //      station. This also keeps `collectEquipment` honest — the kept entry no
+          //      longer leaks the OLD location's gear into the workout equipment list.
+          if (m) {
+            newEntries.push(deriveSwappedEntry(we, we.exercise, m));
+            swappedMethod++;
+            continue;
+          }
+          // 3) Keep + mark — genuine equipment gap ONLY (no viable method here at all).
           newEntries.push({ ...we, dimensionUnavailable: { dimension, value } });
           keptMarked++;
         }
