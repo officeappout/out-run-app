@@ -18,8 +18,7 @@ import type {
   WorkoutSegment,
   Exercise as PlanExercise,
 } from '@/features/parks/core/types/route.types';
-import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
-import { buildBunnyStreamUrl, buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
+import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 
 /** Localized name off the content exercise (Firestore doc shape — dynamic access). */
 function exName(we: GeneratedExercise): string {
@@ -28,35 +27,10 @@ function exName(we: GeneratedExercise): string {
 }
 
 function exMedia(we: GeneratedExercise): { videoUrl?: string; imageUrl?: string; bunnyVideoId?: string } {
-  const ex = we.exercise as any;
-  // Bunny preview (NEW field) of the selected method, ABOVE the legacy root chain —
-  // mirrors enrichExercise (A2). Carries the bare bunnyVideoId on the flat plan
-  // exercise so the player resolves the network-aware ADAPTIVE stream (not fixed 360p)
-  // and a Bunny-only exercise plays instead of showing an image. Legacy-only exercises
-  // yield undefined here and fall through to the exact original chain (byte-identical).
-  const bunnyPreview = resolvePreviewForLang(we.method?.media as any);
-  const bunnyVideoId: string | undefined = bunnyPreview?.videoId ?? undefined;
-  // [TEMP DIAG — remove after debugging] which method got selected + does IT carry Bunny?
-  {
-    const m = we.method as any;
-    const allMethods = (we.exercise as any)?.execution_methods ?? (we.exercise as any)?.executionMethods ?? [];
-    console.log('[hybrid-method-diag]', {
-      name: exName(we),
-      selectedMethodLocation: m?.location ?? null,
-      selectedMethodMapping: m?.locationMapping ?? null,
-      selectedHasPreviewVideo: !!(m?.media?.previewVideo?.he?.videoId),
-      selectedHasMainVideoUrl: !!(m?.media?.mainVideoUrl),
-      allMethodLocations: allMethods.map((x: any) => x?.location ?? '?'),
-      parkMethodHasPreview: allMethods
-        .filter((x: any) => x?.location === 'park' || x?.locationMapping?.includes('park'))
-        .map((x: any) => !!(x?.media?.previewVideo?.he?.videoId)),
-    });
-  }
-  const bunnyStreamUrl: string | undefined = bunnyVideoId ? buildBunnyStreamUrl(bunnyVideoId) : undefined;
-  const bunnyThumbUrl: string | undefined =
-    bunnyPreview?.thumbnailUrl ?? (bunnyVideoId ? buildBunnyThumbnailUrl(bunnyVideoId) : undefined);
-  const videoUrl: string | undefined = bunnyStreamUrl ?? ex?.media?.videoUrl ?? ex?.media?.mainVideoUrl ?? undefined;
-  const imageUrl: string | undefined = bunnyThumbUrl ?? ex?.media?.imageUrl ?? videoUrl ?? undefined;
+  // Centralised through resolveExerciseMedia: it reads the ENGINE-selected method's Bunny
+  // id from ALL slots (previewVideo → bunnyVideoId_mainVideoUrl → mainVideoUrl) before root,
+  // and returns the bare id for adaptive playback + a same-method Bunny thumbnail.
+  const { videoUrl, imageUrl, bunnyVideoId } = resolveExerciseMedia(we.exercise as any, we.method as any);
   return {
     ...(videoUrl ? { videoUrl } : {}),
     ...(imageUrl ? { imageUrl } : {}),
