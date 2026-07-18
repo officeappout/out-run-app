@@ -101,14 +101,18 @@ interface RouteGenerationOptions {
    * algorithm (waypoint pool → triangular combos → sequential Mapbox
    * loop calls) and instead returns up to 3 commute variants:
    *
+   * All three come from a SINGLE `getSmartPathAlternatives` call
+   * (`alternatives=true` returns up to 3 geometries in one round-trip):
+   *
    *   1. fastest     — Mapbox primary route (shortest duration alternative).
-   *   2. alternative — A different alternative geometry from the same
-   *                    `getSmartPathAlternatives` call as fastest.
+   *   2. alternative — A different alternative geometry from that same call.
    *                    No park bias, no scenic vias — pure Mapbox alt.
-   *   3. quiet       — Separate call with `exclude=motorway` (and `toll`
-   *                    for cycling). Falls back to the longest-duration
-   *                    alternative as a "quieter back-streets" heuristic
-   *                    when Mapbox returns nothing for the exclude query.
+   *   3. quiet       — Derived from the LONGEST-duration alternative as a
+   *                    "quieter back-streets" heuristic. Omitted when it
+   *                    would duplicate the fastest / alternative polyline.
+   *                    (No dedicated `exclude=motorway` call: that param is
+   *                    driving-only and the walking/cycling profiles reject
+   *                    it — see `generateCommuteRoutes`.)
    *
    * `targetDistance`, `cityName`, `activeOfficialRouteId` and the
    * `street_segments` waypoint pool are IGNORED on this branch — none
@@ -557,9 +561,9 @@ async function findFitnessAnchor(
  *     waypoints (or random fallback) sequenced through Mapbox Directions.
  *
  *   • Commute mode (destination set) — returns up to 3 A-to-B variants
- *     (fastest / alternative / quiet) for the same point pair. Single
- *     Mapbox call with `alternatives=true` for fastest+alternative; a
- *     separate `exclude=motorway` call for quiet. See `RouteGenerationOptions.destination`.
+ *     (fastest / alternative / quiet) for the same point pair. A single
+ *     Mapbox call with `alternatives=true` yields all three; quiet is the
+ *     longest-duration alternative. See `RouteGenerationOptions.destination`.
  *
  * The two branches share NOTHING beyond the function entry — commute
  * mode does not touch the waypoint pool, the soft-shuffle, the
