@@ -18,7 +18,8 @@ import ParkPhotoMarker from './ParkPhotoMarker';
 import DestinationMarker from './DestinationMarker';
 
 import { registerPinImage, registerArrowTipImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
-import { applyFitnessMapStyle } from './mapStyleConfig';
+import { applyFitnessMapStyle, resetFitnessMapStyle } from './mapStyleConfig';
+import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
 import { segmentPathByZone, bearingBetween } from '../services/geoUtils';
 import type { RouteTurn } from '../services/geoUtils';
@@ -1186,7 +1187,16 @@ export default function AppMap({
         }
       } catch (err) { console.warn('Could not set Hebrew labels:', err); }
     };
-    const debouncedHebrew = () => {
+    const debouncedHebrew = (e?: { sourceDataType?: string }) => {
+      // Gate (perf/batch1, flag-gated): only relabel when a source's METADATA
+      // (re)loads — NOT on every per-tile 'content' event. `sourcedata` fires on
+      // every tile load during pan/zoom; label layers are style-defined (not
+      // per-tile), so their text-field is already set. Re-running
+      // applyHebrewLabels — a full pass over ~150 style layers calling
+      // setLayoutProperty on each — on every tile was the sustained-heat hot
+      // path while panning. When IS_PERF_BATCH1_ENABLED is false, this gate is
+      // skipped and we relabel on every 'sourcedata' exactly as before.
+      if (IS_PERF_BATCH1_ENABLED && e && e.sourceDataType !== 'metadata') return;
       if (hebrewDebounceTimerRef.current) clearTimeout(hebrewDebounceTimerRef.current);
       hebrewDebounceTimerRef.current = setTimeout(applyHebrewLabels, 50);
     };
@@ -1207,7 +1217,15 @@ export default function AppMap({
     // style tiles are painted. Strategy: register on('style.load') for both the
     // initial load and any future style swaps, then call immediately only if the
     // style is already parsed (rare on first load, common on hot-reload).
-    const runDeclutter = () => applyFitnessMapStyle(rawMap, 'style.load');
+    const runDeclutter = () => {
+      // A real 'style.load' means the style was (re)built — clear the declutter
+      // idempotency guard so the sweep re-runs for the new style, then apply.
+      // On the initial load this reset is a no-op; on a future setStyle it
+      // ensures the freshly-built style gets decluttered. Flag-gated so that
+      // when off, runDeclutter is byte-identical to the original (apply only).
+      if (IS_PERF_BATCH1_ENABLED) resetFitnessMapStyle(rawMap);
+      applyFitnessMapStyle(rawMap, 'style.load');
+    };
     rawMap.on('style.load', runDeclutter);
     declutterHandlerRef.current = runDeclutter;
     if (rawMap.isStyleLoaded()) {

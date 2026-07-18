@@ -95,6 +95,26 @@ export const ASSUMED_HOME_GEAR_ENABLED = true;
 // DEFAULT FALSE until code-review + live smoke pass.
 export const SWAP_ALL_ENABLED = true;
 
+// PERF_BATCH1 — single kill-switch for the Batch-1 heat/battery fixes. When
+// FALSE, every gated site below is byte-identical to prior production behaviour
+// and the change is instantly reversible; flip to TRUE to enable + measure.
+// (Fix 1 — disabling the useUserCityName debug-log spam — is intentionally NOT
+//  gated: it is pure log removal with no behavioural effect.)
+//
+// Gated behaviours:
+//   • Background guard (Fix 2) — pause the map presence heartbeat, the four
+//     partner-finder listeners, and the discovery GPS watch while the app is
+//     backgrounded. HARD EXCEPTION: the GPS watch is NOT paused during an
+//     active workout/nav session (useSessionStore.status ∈ {active, paused}),
+//     so a run keeps recording with the screen off. When false, useIsForeground
+//     stays permanently true → no pausing, tracker never initialises.
+//   • Map declutter idempotency guard (Fix 3) — skip the repeated full-style
+//     declutter sweeps after the first successful pass. When false, every call
+//     runs the full sweep exactly as before.
+//   • Hebrew relabel gate (Fix 3) — relabel only on source 'metadata' events,
+//     not on every tile. When false, relabels on every 'sourcedata' as before.
+export const IS_PERF_BATCH1_ENABLED = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================

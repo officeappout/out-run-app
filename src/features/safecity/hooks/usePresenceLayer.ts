@@ -30,11 +30,13 @@ import { usePrivacyStore } from '../store/usePrivacyStore';
 import {
   startHeartbeat,
   stopHeartbeat,
+  setMapHeartbeatPaused,
   clearPresence,
   updatePresence,
   type PresencePayload,
   type PresenceActivity,
 } from '../services/presence.service';
+import { useIsForeground } from '@/lib/appForeground';
 import {
   getHeatmapData,
   type PresenceMarker,
@@ -371,6 +373,19 @@ export function usePresenceLayer(
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // ── Battery guard: pause the map heartbeat while backgrounded ─────────────
+  // When the app is hidden / backgrounded, stop writing presence every 2 min
+  // (the radio wake is a real idle-drain source). On return to the foreground,
+  // setMapHeartbeatPaused(false) fires one immediate write so the user's dot
+  // is fresh without waiting for the next tick. The workout heartbeat is a
+  // separate channel and is intentionally NOT paused — an active run keeps
+  // broadcasting even with the screen off. When IS_PERF_BATCH1_ENABLED is off,
+  // useIsForeground() stays permanently true and this is a no-op.
+  const isForeground = useIsForeground();
+  useEffect(() => {
+    setMapHeartbeatPaused(!isForeground);
+  }, [isForeground]);
 
   // ── Session-boundary immediate presence write ─────────────────────────────
   // Without this, partners only appear after the next regular heartbeat tick

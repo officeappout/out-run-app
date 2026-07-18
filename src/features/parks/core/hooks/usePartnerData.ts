@@ -26,6 +26,7 @@ import { db, auth } from '@/lib/firebase';
 import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { haversineKm } from '../services/geoUtils';
 import type { ActivityType } from '../types/route.types';
+import { useIsForeground } from '@/lib/appForeground';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -213,6 +214,13 @@ export function usePartnerData(
   const [rawLive, setRawLive] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const myMode = usePrivacyStore((s) => s.mode);
+  // Battery guard (perf/batch1): when the app is backgrounded, all four
+  // partner-finder listeners below tear down and stop re-subscribing until the
+  // app returns to the foreground. When IS_PERF_BATCH1_ENABLED is off,
+  // useIsForeground() stays permanently true and every listener behaves as
+  // before. Added to each listener effect's dependency array so the flip
+  // between foreground/background re-runs the effect (unsub → resubscribe).
+  const isForeground = useIsForeground();
   // Read once per render. Firebase Auth state rarely changes within the
   // lifetime of a partner overlay, and downstream filters re-run via the
   // useMemo dependency array whenever this captured value flips between
@@ -226,6 +234,7 @@ export function usePartnerData(
   // ── 1. Planned sessions listener ──
   useEffect(() => {
     unsubScheduled.current?.();
+    if (!isForeground) return; // backgrounded — torn down above, no resubscribe
     if (myMode === 'ghost') {
       setRawScheduled([]);
       // Ghost mode short-circuits every listener, so the snapshot callbacks
@@ -252,11 +261,12 @@ export function usePartnerData(
     );
 
     return () => unsubScheduled.current?.();
-  }, [myMode]);
+  }, [myMode, isForeground]);
 
   // ── 2. Community events listener ──
   useEffect(() => {
     unsubEvents.current?.();
+    if (!isForeground) return; // backgrounded — torn down above, no resubscribe
     if (myMode === 'ghost') {
       setRawEventPartners([]);
       setIsLoading(false);
@@ -332,7 +342,7 @@ export function usePartnerData(
     );
 
     return () => unsubEvents.current?.();
-  }, [myMode]);
+  }, [myMode, isForeground]);
 
   // ── 3. Community groups listener — materialize recurring slots ──
   // Hybrid visibility: public groups are visible to everyone; private groups
@@ -346,6 +356,7 @@ export function usePartnerData(
   // (treated as public, same as isPublic === true).
   useEffect(() => {
     unsubGroups.current?.();
+    if (!isForeground) return; // backgrounded — torn down above, no resubscribe
     if (myMode === 'ghost') {
       setRawGroupPartners([]);
       setIsLoading(false);
@@ -413,13 +424,14 @@ export function usePartnerData(
 
     return () => unsubGroups.current?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myMode, myGroupIds.join(',')]);
+  }, [myMode, myGroupIds.join(','), isForeground]);
   // Note: myGroupIds.join(',') is a stable string dep — avoids a new listener
   // on every render while still re-subscribing when the set of groups changes.
 
   // ── 4. Live presence listener ──
   useEffect(() => {
     unsubLive.current?.();
+    if (!isForeground) return; // backgrounded — torn down above, no resubscribe
     if (myMode === 'ghost') {
       setRawLive([]);
       setIsLoading(false);
@@ -470,7 +482,7 @@ export function usePartnerData(
     );
 
     return () => unsubLive.current?.();
-  }, [myMode]);
+  }, [myMode, isForeground]);
 
   // ── Filter + transform scheduled (planned + events + groups) ──
   const scheduled = useMemo<ScheduledPartner[]>(() => {

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { useGPSStore, DEV_FALLBACK_LOCATION, type GPSCoords } from '../store/useGPSStore';
+import { useIsForeground } from '@/lib/appForeground';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useUserStore } from '@/features/user';
 
 /**
@@ -104,6 +106,19 @@ export function useGPS(): GPSState {
   const [isFollowing, setIsFollowing] = useState(false);
   const [simulationActive, setSimulationActive] = useState(false);
 
+  // ── Battery guard (perf/batch1) ───────────────────────────────────────────
+  // Pause the discovery GPS watch while the app is backgrounded — UNLESS a
+  // workout/nav session is active, in which case the watch MUST keep running
+  // so the run records with the screen off (the "full power during a session"
+  // super-principle). Gating on session status, not blind screen-off, is the
+  // hard exception the perf plan requires. When IS_PERF_BATCH1_ENABLED is off,
+  // isForeground stays permanently true → gpsPaused is always false → identical
+  // to prior always-on behaviour.
+  const isForeground = useIsForeground();
+  const sessionStatus = useSessionStore((s) => s.status);
+  const workoutActive = sessionStatus === 'active' || sessionStatus === 'paused';
+  const gpsPaused = !isForeground && !workoutActive;
+
   // For the browser (web) path
   const watchId = useRef<number | null>(null);
   // For the Capacitor (native) path — watchPosition returns a string callbackId
@@ -129,8 +144,12 @@ export function useGPS(): GPSState {
   }, []);
 
   useEffect(() => {
-    if (simulationActive) {
-      // Kill any active watcher — mock position drives the UI instead.
+    if (simulationActive || gpsPaused) {
+      // Kill any active watcher. Either the mock position drives the UI
+      // (simulationActive), or we're paused in the background with no active
+      // workout (gpsPaused battery guard). On resume the effect re-runs and
+      // re-establishes the watch — the fresh watchPosition delivers an
+      // immediate first fix, satisfying "instant GPS on foreground".
       if (isNative) {
         if (capWatchId.current != null) {
           Geolocation.clearWatch({ id: capWatchId.current }).catch(() => {});
@@ -288,7 +307,7 @@ export function useGPS(): GPSState {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [simulationActive, isNative]);
+  }, [simulationActive, isNative, gpsPaused]);
 
   const handleLocationClick = useCallback(() => {
     if (simulationActive) return;
