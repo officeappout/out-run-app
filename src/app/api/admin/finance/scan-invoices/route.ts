@@ -73,6 +73,8 @@ interface FinanceScanResult {
     vendorMatched: number;
     wouldCreate: number;
     apiCalls: number;
+    /** cross-mailbox duplicates removed (same Message-ID in >1 mailbox). */
+    deduped: number;
     /** true if any mailbox hit the page cap — the report is incomplete. */
     truncated: boolean;
   };
@@ -162,7 +164,7 @@ export async function POST(request: NextRequest) {
     candidates: [],
     pendingReview: [],
     skipped: [],
-    stats: { threadsScanned: 0, invoiceLike: 0, vendorMatched: 0, wouldCreate: 0, apiCalls: 0, truncated: false },
+    stats: { threadsScanned: 0, invoiceLike: 0, vendorMatched: 0, wouldCreate: 0, apiCalls: 0, deduped: 0, truncated: false },
     runLog,
   };
   const apiCall = () => {
@@ -251,7 +253,10 @@ export async function POST(request: NextRequest) {
         // Cross-mailbox dedupe on the RFC Message-ID (identical in every mailbox
         // the same email reached); fall back to threadId when it's missing.
         const dedupeKey = messageId || `thread:${threadId}`;
-        if (seen.has(dedupeKey)) continue;
+        if (seen.has(dedupeKey)) {
+          result.stats.deduped++;
+          continue;
+        }
         seen.add(dedupeKey);
 
         // Drop newsletters / promos / broker mail before classifying.
