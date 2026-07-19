@@ -136,6 +136,20 @@ export function looksLinkedInvoice(text: string): boolean {
 }
 
 /**
+ * OUR OWN outgoing / income mail — must NOT be captured as an expense (Phase 1
+ * is expenses only). Covers the iCount outgoing address (invoices/receipts WE
+ * issue to customers) and SUMIT "בוצע חיוב עבור <customer>" charge-collected
+ * notifications. Matched on raw From header + subject.
+ */
+const INCOME_PATTERNS: RegExp[] = [
+  /(^|<|\s)outgoing@/i, // iCount outgoing@icount.co.il = documents we issue
+  /בוצע\s*חיוב\s*עבור/i, // "a charge was made for <customer>" = our income
+];
+export function isOutgoingOrIncome(fromHeader: string, subject: string): boolean {
+  return INCOME_PATTERNS.some((r) => r.test(`${fromHeader} ${subject}`));
+}
+
+/**
  * Decode human-readable body text from a full Gmail thread's messages
  * (text/plain preferred; text/html stripped of tags). Operates on payloads
  * already fetched with format:full — no network here.
@@ -213,31 +227,6 @@ export function extractInvoiceFields(text: string): ExtractedInvoiceFields {
   };
 }
 
-/**
- * Amount cascade (§ live-run fix): run extraction over sources in order
- * (pdf → body → snippet) and take the FIRST that yields an amount, using all of
- * that source's fields. If none has an amount, merge the best non-amount fields
- * (currency / invoice# / date) and report source 'none'.
- */
-export function extractFromSources(
-  sources: Array<{ src: Exclude<ExtractionSource, 'none'>; text: string }>,
-): { fields: ExtractedInvoiceFields; source: ExtractionSource } {
-  const evaluated = sources.map((s) => ({ src: s.src, fields: extractInvoiceFields(s.text) }));
-  const withAmount = evaluated.find((e) => e.fields.amountGross != null);
-  if (withAmount) return { fields: withAmount.fields, source: withAmount.src };
-
-  const firstNonNull = <T>(xs: (T | null)[]): T | null => xs.find((x) => x != null) ?? null;
-  return {
-    source: 'none',
-    fields: {
-      amountGross: null,
-      currency: firstNonNull(evaluated.map((e) => e.fields.currency)),
-      invoiceNumber: firstNonNull(evaluated.map((e) => e.fields.invoiceNumber)),
-      dateISO: firstNonNull(evaluated.map((e) => e.fields.dateISO)),
-    },
-  };
-}
-
 function extractCurrency(text: string): Currency | null {
   if (/₪|ש["״]?ח|\bILS\b|שקל/i.test(text)) return 'ILS';
   if (/\$|\bUSD\b|דולר/i.test(text)) return 'USD';
@@ -246,16 +235,21 @@ function extractCurrency(text: string): Currency | null {
 }
 
 /**
- * Grabs a money-looking number, preferring one adjacent to a currency symbol or
- * a "total"/"סה\"כ" cue. Returns null when nothing confident is found.
+ * Amount is trusted ONLY when it directly follows an explicit total / amount-paid
+ * label — so we never grab a stray "$200" from marketing copy inside a PDF. The
+ * number must sit right after the label (optional colon / dash / currency mark).
  */
+const AMOUNT_LABEL =
+  /(?:amount\s*paid|amount\s*due|amount\s*charged|total\s*(?:paid|due|charged|amount)?|grand\s*total|balance\s*due|סה["״]?כ(?:\s*לתשלום)?|סכום\s*לתשלום|לתשלום|סך\s*הכל)/i;
+
 function extractAmount(text: string): number | null {
-  const near =
-    text.match(/(?:סה["״]?כ|total|לתשלום|amount\s*due)[^\d]{0,12}([\d.,]+)/i) ??
-    text.match(/(?:₪|\$|€)\s*([\d.,]+)/) ??
-    text.match(/([\d.,]+)\s*(?:₪|\$|€|ILS|USD|EUR)/i);
-  if (!near) return null;
-  const n = parseMoney(near[1]);
+  const re = new RegExp(
+    AMOUNT_LABEL.source + String.raw`\s*[:\-]?\s*(?:₪|\$|€|ILS|USD|EUR|NIS)?\s*([\d][\d.,]*)`,
+    'i',
+  );
+  const m = text.match(re);
+  if (!m) return null;
+  const n = parseMoney(m[1]);
   return n != null && n > 0 ? n : null;
 }
 
@@ -286,15 +280,31 @@ function extractInvoiceNumber(text: string): string | null {
   return m?.[1] ?? null;
 }
 
+const MONTHS: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
 function extractDate(text: string): string | null {
-  // DD/MM/YYYY or DD.MM.YYYY or YYYY-MM-DD
-  const iso = text.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  const dmy = text.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
-  if (dmy) {
-    const d = dmy[1].padStart(2, '0');
-    const mo = dmy[2].padStart(2, '0');
-    const y = dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3];
+  // ISO: YYYY-MM-DD
+  let m = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  // English month name: "July 1, 2026" / "Jul 1 2026"
+  m = text.match(/\b([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})\b/);
+  if (m && MONTHS[m[1].slice(0, 3).toLowerCase()]) {
+    return `${m[3]}-${String(MONTHS[m[1].slice(0, 3).toLowerCase()]).padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  }
+  // "1 July 2026" / "1 Jul 2026"
+  m = text.match(/\b(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})\b/);
+  if (m && MONTHS[m[2].slice(0, 3).toLowerCase()]) {
+    return `${m[3]}-${String(MONTHS[m[2].slice(0, 3).toLowerCase()]).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  }
+  // DD/MM/YYYY or DD.MM.YY(YY)
+  m = text.match(/\b(\d{1,2})[./](\d{1,2})[./](\d{2,4})\b/);
+  if (m) {
+    const d = m[1].padStart(2, '0');
+    const mo = m[2].padStart(2, '0');
+    const y = m[3].length === 2 ? `20${m[3]}` : m[3];
     return `${y}-${mo}-${d}`;
   }
   return null;

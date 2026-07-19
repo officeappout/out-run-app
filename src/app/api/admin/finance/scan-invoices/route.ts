@@ -26,10 +26,11 @@ import {
   looksLikeInvoice,
   isNoiseThread,
   isNotInvoiceNotification,
+  isOutgoingOrIncome,
   looksLinkedInvoice,
   matchVendor,
   extractBodyText,
-  extractFromSources,
+  extractInvoiceFields,
   collectInvoiceAttachments,
   dedupSignature,
   candidateConfidence,
@@ -281,6 +282,12 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        // Drop OUR OWN outgoing invoices / customer-charge income (expenses only).
+        if (isOutgoingOrIncome(from, subject)) {
+          result.skipped.push({ threadId, subject, reason: 'income/outgoing', mailbox });
+          continue;
+        }
+
         // A PDF attachment (not a logo image) or an invoice keyword marks it.
         const hasPdf = messages.some((m: any) =>
           (m.payload?.parts ?? []).some((p: any) => /\.pdf$/i.test(p.filename ?? '')),
@@ -335,11 +342,20 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        const sources: Array<{ src: 'pdf' | 'body' | 'snippet'; text: string }> = [];
-        if (pdfText) sources.push({ src: 'pdf', text: `${subject}\n${pdfText}` });
-        if (bodyText) sources.push({ src: 'body', text: `${subject}\n${bodyText}` });
-        sources.push({ src: 'snippet', text: `${subject}\n${snippet}` });
-        const { fields, source } = extractFromSources(sources);
+        // Amount is taken from the PDF ONLY (never body/snippet), and only when it
+        // sits behind a Total / Amount-paid / סה"כ label. Other metadata
+        // (currency / date / invoice#) may fall back body → subject.
+        const pdfFields = pdfText ? extractInvoiceFields(`${subject}\n${pdfText}`) : null;
+        const bodyFields = bodyText ? extractInvoiceFields(`${subject}\n${bodyText}`) : null;
+        const subjFields = extractInvoiceFields(`${subject}\n${snippet}`);
+        const pick = <T,>(...xs: (T | null | undefined)[]): T | null => xs.find((x) => x != null) ?? null;
+        const fields = {
+          amountGross: pdfFields?.amountGross ?? null,
+          currency: pick(pdfFields?.currency, bodyFields?.currency, subjFields.currency),
+          invoiceNumber: pick(pdfFields?.invoiceNumber, bodyFields?.invoiceNumber, subjFields.invoiceNumber),
+          dateISO: pick(pdfFields?.dateISO, bodyFields?.dateISO, subjFields.dateISO),
+        };
+        const source: InvoiceCandidate['extractionSource'] = fields.amountGross != null ? 'pdf' : 'none';
 
         const linkedInvoice = pdfAtts.length === 0 && looksLinkedInvoice(`${subject}\n${bodyText}`);
         if (needsOCR) result.stats.needsOCR++;
@@ -382,7 +398,9 @@ export async function POST(request: NextRequest) {
           },
         };
 
-        if (confidence >= CANDIDATE_CONFIDENCE_THRESHOLD) {
+        // Super-rule: a real candidate MUST have an attached PDF (amount is
+        // PDF-only). Anything without one — even high confidence — goes to review.
+        if (confidence >= CANDIDATE_CONFIDENCE_THRESHOLD && pdfAtts.length > 0) {
           result.candidates.push(candidate);
           result.stats.wouldCreate++;
         } else {
