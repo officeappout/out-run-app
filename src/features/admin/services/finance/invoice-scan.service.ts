@@ -33,6 +33,9 @@ export interface InvoiceAttachment {
   size: number;
 }
 
+/** Where the amount was found via the PDF→body→snippet cascade; 'none' = not extracted. */
+export type ExtractionSource = 'pdf' | 'body' | 'snippet' | 'none';
+
 /** One would-be transaction, surfaced by a dry-run scan for human review. */
 export interface InvoiceCandidate {
   threadId: string;
@@ -46,6 +49,13 @@ export interface InvoiceCandidate {
   /** Overall confidence: vendor match × field extraction. */
   confidence: number;
   extracted: ExtractedInvoiceFields;
+  /** Which source yielded the amount: pdf → body → snippet. */
+  extractionSource: ExtractionSource;
+  /** PDF present but no extractable text (scanned image) → needs OCR. */
+  needsOCR: boolean;
+  /** Invoice is behind a link (no attachment), e.g. Google Workspace — flagged,
+   *  never auto-fetched. */
+  linkedInvoice: boolean;
   attachments: Array<Pick<InvoiceAttachment, 'filename' | 'mimeType' | 'size'>>;
   dedupSignature: string;
   /** Human-readable preview of what a live run would write. */
@@ -94,6 +104,69 @@ export function isNoiseThread(fromHeader: string, subject: string): boolean {
   return NOISE_PATTERNS.some((r) => r.test(text));
 }
 
+/**
+ * Light precision filter: vendor-sender mail that clearly ISN'T an invoice
+ * (payment-failure / access / action-needed notices). Subject-only and kept
+ * deliberately narrow so real invoices are never dropped.
+ */
+const NOT_INVOICE_PATTERNS: RegExp[] = [
+  /payment\s*(failed|declined|unsuccessful)|תשלום\s*(נכשל|בוטל|לא\s*בוצע)/i,
+  /(access|subscription|account)\s*(is\s*)?(turned off|disabled|suspended|cancell?ed|revoked|paused)/i,
+  /\baction\s*(needed|required)\b/i,
+  /card\s*(is\s*)?(expir|declin)/i,
+  /failed\s*to\s*(charge|renew|process)/i,
+];
+export function isNotInvoiceNotification(subject: string): boolean {
+  return NOT_INVOICE_PATTERNS.some((r) => r.test(subject));
+}
+
+/**
+ * Invoice available behind a link (no attachment) — e.g. Google Workspace
+ * "your invoice is available", "view your invoice", "החשבונית זמינה". Flagged so
+ * a human fetches it; the scanner never follows the link.
+ */
+const LINKED_INVOICE_PATTERNS: RegExp[] = [
+  /invoice\s*(is\s*)?(available|ready|issued)/i,
+  /view\s*(your\s*)?(invoice|bill|statement)/i,
+  /חשבונית\s*(זמינה|מוכנה|ממתינה|הופקה)/i,
+  /לצפייה\s*בחשבונית/i,
+];
+export function looksLinkedInvoice(text: string): boolean {
+  return LINKED_INVOICE_PATTERNS.some((r) => r.test(text));
+}
+
+/**
+ * Decode human-readable body text from a full Gmail thread's messages
+ * (text/plain preferred; text/html stripped of tags). Operates on payloads
+ * already fetched with format:full — no network here.
+ */
+export function extractBodyText(messages: any[]): string {
+  const chunks: string[] = [];
+  const decode = (data: string) =>
+    Buffer.from((data || '').replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+  const walk = (part: any) => {
+    if (!part) return;
+    const mime: string = part.mimeType ?? '';
+    if (part.body?.data && (mime === 'text/plain' || mime === 'text/html')) {
+      const raw = decode(part.body.data);
+      chunks.push(mime === 'text/html' ? stripHtml(raw) : raw);
+    }
+    (part.parts ?? []).forEach(walk);
+  };
+  for (const msg of messages ?? []) walk(msg.payload);
+  return chunks.join('\n').replace(/[ \t]+/g, ' ').slice(0, 20000);
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&#\d+;/g, ' ');
+}
+
 // ─── Vendor matching ──────────────────────────────────────────────────────────
 
 /**
@@ -131,13 +204,37 @@ export function matchVendor(
 
 // ─── Field extraction (best-effort — low confidence ⇒ pending review) ─────────
 
-export function extractInvoiceFields(subject: string, snippet: string): ExtractedInvoiceFields {
-  const text = `${subject}\n${snippet}`;
+export function extractInvoiceFields(text: string): ExtractedInvoiceFields {
   return {
     currency: extractCurrency(text),
     amountGross: extractAmount(text),
     invoiceNumber: extractInvoiceNumber(text),
     dateISO: extractDate(text),
+  };
+}
+
+/**
+ * Amount cascade (§ live-run fix): run extraction over sources in order
+ * (pdf → body → snippet) and take the FIRST that yields an amount, using all of
+ * that source's fields. If none has an amount, merge the best non-amount fields
+ * (currency / invoice# / date) and report source 'none'.
+ */
+export function extractFromSources(
+  sources: Array<{ src: Exclude<ExtractionSource, 'none'>; text: string }>,
+): { fields: ExtractedInvoiceFields; source: ExtractionSource } {
+  const evaluated = sources.map((s) => ({ src: s.src, fields: extractInvoiceFields(s.text) }));
+  const withAmount = evaluated.find((e) => e.fields.amountGross != null);
+  if (withAmount) return { fields: withAmount.fields, source: withAmount.src };
+
+  const firstNonNull = <T>(xs: (T | null)[]): T | null => xs.find((x) => x != null) ?? null;
+  return {
+    source: 'none',
+    fields: {
+      amountGross: null,
+      currency: firstNonNull(evaluated.map((e) => e.fields.currency)),
+      invoiceNumber: firstNonNull(evaluated.map((e) => e.fields.invoiceNumber)),
+      dateISO: firstNonNull(evaluated.map((e) => e.fields.dateISO)),
+    },
   };
 }
 

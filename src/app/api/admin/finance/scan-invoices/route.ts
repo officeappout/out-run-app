@@ -25,8 +25,11 @@ import { getCombinedClient, ALL_MAILBOXES } from '@/lib/google-service-account';
 import {
   looksLikeInvoice,
   isNoiseThread,
+  isNotInvoiceNotification,
+  looksLinkedInvoice,
   matchVendor,
-  extractInvoiceFields,
+  extractBodyText,
+  extractFromSources,
   collectInvoiceAttachments,
   dedupSignature,
   candidateConfidence,
@@ -75,6 +78,10 @@ interface FinanceScanResult {
     apiCalls: number;
     /** cross-mailbox duplicates removed (same Message-ID in >1 mailbox). */
     deduped: number;
+    /** invoice-like PDFs with no extractable text — need OCR before capture. */
+    needsOCR: number;
+    /** invoices behind a link (no attachment) — flagged, never auto-fetched. */
+    linkedInvoice: number;
     /** true if any mailbox hit the page cap — the report is incomplete. */
     truncated: boolean;
   };
@@ -164,7 +171,7 @@ export async function POST(request: NextRequest) {
     candidates: [],
     pendingReview: [],
     skipped: [],
-    stats: { threadsScanned: 0, invoiceLike: 0, vendorMatched: 0, wouldCreate: 0, apiCalls: 0, deduped: 0, truncated: false },
+    stats: { threadsScanned: 0, invoiceLike: 0, vendorMatched: 0, wouldCreate: 0, apiCalls: 0, deduped: 0, needsOCR: 0, linkedInvoice: 0, truncated: false },
     runLog,
   };
   const apiCall = () => {
@@ -233,6 +240,9 @@ export async function POST(request: NextRequest) {
       }),
     );
 
+    // PDF text extractor (serverless-safe) — imported once, reused per candidate.
+    const { extractText, getDocumentProxy } = await import('unpdf');
+
     // ── Classify each thread (cross-mailbox dedupe) ──────────────────────────
     const seen = new Set<string>();
     for (const { mailbox, gmail, threads, metas, truncated } of scans) {
@@ -265,8 +275,15 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        // Drop clear vendor notifications (payment failed / access disabled / …).
+        if (isNotInvoiceNotification(subject)) {
+          result.skipped.push({ threadId, subject, reason: 'vendor-notification', mailbox });
+          continue;
+        }
+
+        // A PDF attachment (not a logo image) or an invoice keyword marks it.
         const hasPdf = messages.some((m: any) =>
-          (m.payload?.parts ?? []).some((p: any) => /\.(pdf|png|jpe?g)$/i.test(p.filename ?? '')),
+          (m.payload?.parts ?? []).some((p: any) => /\.pdf$/i.test(p.filename ?? '')),
         );
         if (!looksLikeInvoice(subject, snippet, hasPdf)) {
           result.skipped.push({ threadId, subject, reason: 'not invoice-like', mailbox });
@@ -276,23 +293,59 @@ export async function POST(request: NextRequest) {
 
         const match = matchVendor(fromEmail, subject, snippet, vendors);
         if (match.vendor) result.stats.vendorMatched++;
-        const fields = extractInvoiceFields(subject, snippet);
-        const confidence = candidateConfidence(match, fields);
 
-        // Fetch full thread only for invoice-like threads → attachment filenames
+        // Fetch full thread → body text + attachments (with ids for PDF download).
+        let bodyText = '';
         let attachments: InvoiceCandidate['attachments'] = [];
+        let pdfAtts: ReturnType<typeof collectInvoiceAttachments> = [];
         try {
           const full = await gmail.users.threads.get({ userId: 'me', id: threadId, format: 'full' });
           apiCall();
-          attachments = collectInvoiceAttachments(full.data.messages ?? []).map((a) => ({
-            filename: a.filename,
-            mimeType: a.mimeType,
-            size: a.size,
-          }));
+          const msgs = full.data.messages ?? [];
+          bodyText = extractBodyText(msgs);
+          const atts = collectInvoiceAttachments(msgs);
+          attachments = atts.map((a) => ({ filename: a.filename, mimeType: a.mimeType, size: a.size }));
+          pdfAtts = atts.filter((a) => /\.pdf$/i.test(a.filename));
         } catch (err: any) {
-          log(`   ⚠️ could not read attachments for ${threadId}: ${err?.message}`);
+          log(`   ⚠️ could not read thread ${threadId}: ${err?.message}`);
         }
 
+        // Amount cascade: PDF text → body → snippet. Image-only PDFs → needs OCR.
+        let pdfText = '';
+        let needsOCR = false;
+        if (pdfAtts.length) {
+          try {
+            const att = await gmail.users.messages.attachments.get({
+              userId: 'me',
+              messageId: pdfAtts[0].messageId,
+              id: pdfAtts[0].attachmentId,
+            });
+            apiCall();
+            const buf = Buffer.from((att.data.data ?? '').replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+            const doc = await getDocumentProxy(new Uint8Array(buf));
+            const { text } = await extractText(doc, { mergePages: true });
+            pdfText = (typeof text === 'string' ? text : (text as string[]).join('\n')).trim();
+            if (pdfText.length < 20) {
+              needsOCR = true; // scanned image PDF — no extractable text
+              pdfText = '';
+            }
+          } catch (err: any) {
+            needsOCR = true;
+            log(`   ⚠️ PDF parse failed for ${threadId}: ${err?.message}`);
+          }
+        }
+
+        const sources: Array<{ src: 'pdf' | 'body' | 'snippet'; text: string }> = [];
+        if (pdfText) sources.push({ src: 'pdf', text: `${subject}\n${pdfText}` });
+        if (bodyText) sources.push({ src: 'body', text: `${subject}\n${bodyText}` });
+        sources.push({ src: 'snippet', text: `${subject}\n${snippet}` });
+        const { fields, source } = extractFromSources(sources);
+
+        const linkedInvoice = pdfAtts.length === 0 && looksLinkedInvoice(`${subject}\n${bodyText}`);
+        if (needsOCR) result.stats.needsOCR++;
+        if (linkedInvoice) result.stats.linkedInvoice++;
+
+        const confidence = candidateConfidence(match, fields);
         const vatApplicable = vatApplicableFor(match.vendor);
         // File under the invoice's OWN month, not the scan month — a 40-day
         // window routinely spans a month boundary.
@@ -308,6 +361,9 @@ export async function POST(request: NextRequest) {
           matchReason: match.reason,
           confidence,
           extracted: fields,
+          extractionSource: source,
+          needsOCR,
+          linkedInvoice,
           attachments,
           dedupSignature: dedupSignature(match.vendor?.id ?? null, fields.amountGross, fields.dateISO),
           preview: {
