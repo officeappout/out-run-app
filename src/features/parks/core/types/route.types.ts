@@ -176,6 +176,18 @@ export interface WorkoutPlan {
    * does not serialise this flag (e.g. Firestore fallback).
    */
   isWarmupActive?: boolean;
+  /**
+   * Recovery session flag — set from `GeneratedWorkout.isRecovery` at the
+   * generate→flatten boundary (rest-day video trio, REST_DAY_CONFIGS, and
+   * Budget-Floor recovery all mark their workout `isRecovery: true`).
+   *
+   * The active-workout runner and summary use this to SKIP strength
+   * progression: no `processWorkoutCompletion` level% gain, no strength-XP
+   * award, and no weekly volume-budget charge. A recovery session still
+   * counts as daily activity (rings + streak + coins via `syncWorkoutCompletion`).
+   * Absent/false ⇒ a normal strength workout (every guard is a no-op).
+   */
+  isRecovery?: boolean;
 }
 
 export interface PlannedRoute {
