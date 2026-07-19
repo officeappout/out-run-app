@@ -51,8 +51,14 @@ export interface Exercise {
   // Enriched metadata from Firestore Exercise
   /** Exercise type: 'reps' | 'time' */
   exerciseType?: 'reps' | 'time';
-  /** Exercise role: 'warmup' | 'main' | 'cooldown' */
-  exerciseRole?: 'warmup' | 'main' | 'cooldown';
+  /**
+   * Exercise role. Widened to include 'recovery' — rest-day follow-along videos
+   * flatten through with `exerciseRole: 'recovery'` (the flatten already carried
+   * it at runtime; buildRunnerWorkoutPlanFromGenerated filters it via `as any`).
+   * Typing it here lets the runner match it without a cast (see
+   * useWorkoutStateMachine follow-along branch).
+   */
+  exerciseRole?: 'warmup' | 'main' | 'cooldown' | 'recovery';
   /** Is this a follow-along exercise? */
   isFollowAlong?: boolean;
   /** Whether the exercise video has audio that should be played */
