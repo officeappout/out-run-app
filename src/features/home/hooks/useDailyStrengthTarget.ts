@@ -24,7 +24,13 @@ import {
   type DailyStrengthTargetSource,
 } from '../utils/dailyStrengthTarget';
 
-export function useDailyStrengthTarget(): DailyStrengthTarget {
+/**
+ * @param enabled When false, the async program-budget resolve is skipped entirely
+ *   (no Firestore read) — used to keep the ring's consumers byte-identical while
+ *   `STRENGTH_RING_ENABLED` is off. The synchronous fallback still computes so the
+ *   return shape is stable, but callers ignore it when the flag is off.
+ */
+export function useDailyStrengthTarget(enabled: boolean = true): DailyStrengthTarget {
   const profile = useUserStore((s) => s.profile);
 
   const scheduleDaysArr = profile?.lifestyle?.scheduleDays;
@@ -51,7 +57,7 @@ export function useDailyStrengthTarget(): DailyStrengthTarget {
   } | null>(null);
 
   useEffect(() => {
-    if (!profile) {
+    if (!enabled || !profile) {
       setResolved(null);
       return;
     }
@@ -74,7 +80,7 @@ export function useDailyStrengthTarget(): DailyStrengthTarget {
       cancelled = true;
     };
     // Re-resolve on user switch or level-up (baseLevel changes on level-up).
-  }, [profile?.id, baseLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile?.id, baseLevel, enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Synchronous fallback keeps the ring stable before/without the async resolve.
   const weeklyTarget = resolved?.weeklyTarget ?? calculateWeeklyBudget(baseLevel);

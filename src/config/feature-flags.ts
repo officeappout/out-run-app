@@ -178,6 +178,14 @@ export const HYBRID_SUMMARY_ENABLED = true;
 // Hard kill-switch: set false + FF-push to instantly revert (no code change).
 export const PLS_CACHE_ENABLED = true;
 
+// STRENGTH_RING: Daily Strength Ring (Layer A) — a sets-driven, minutes-displayed
+// daily ring shown in the post-workout celebration card, replacing the static
+// "improvement %" placeholder row. While FALSE the card is BYTE-IDENTICAL to today
+// (home does not populate completionData.ring → the card renders the improvement
+// row, and the useDailyStrengthTarget Firestore read is skipped). The shared
+// StrengthRing primitives are unreferenced until this flag wires them in.
+export const STRENGTH_RING_ENABLED = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================
