@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
     /* empty body → defaults */
   }
 
-  const days = Math.min(Math.max(body.days ?? 40, 1), 120);
+  const days = Math.min(Math.max(body.days ?? 40, 1), 400); // up to ~13mo for one-time catch-up
   // Validate against the enum — any unknown value coerces to the safe 'off'.
   const requestedCapture: CaptureMode = body.capture === 'dry' || body.capture === 'live' ? body.capture : 'off';
   // capture:'live' requires FINANCE_WRITE_ENABLED; otherwise it degrades to a dry plan.
