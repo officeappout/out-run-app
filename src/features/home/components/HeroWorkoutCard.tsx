@@ -14,7 +14,8 @@ import {
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { SmartMessage } from '@/features/messages/services/MessageService';
 import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
-import StrengthRing from './StrengthRing';
+import CircularProgress from '@/components/CircularProgress';
+import { getStrengthRingView } from '../utils/strengthRingView';
 
 // ============================================================================
 // Movement-group fallback images (high-quality Unsplash)
@@ -577,6 +578,23 @@ export default function HeroWorkoutCard({
     })();
     const workoutLabel = completionData.workoutTitle || workout.title || 'אימון כוח';
 
+    // Daily Strength Ring (Layer A) — reuses the shared CircularProgress. Center
+    // shows % of the daily target (minutes are intentionally NOT shown here — they
+    // are reserved for push notifications). Always 'active' in the celebration: the
+    // card exists only because the user trained today, so on a scheduled rest day
+    // (targetSets 0) we fall back to completedSets → a full ring, not the rest visual.
+    const ringView = completionData.ring
+      ? getStrengthRingView({
+          completedSets: completionData.ring.completedSets,
+          targetSets:
+            completionData.ring.targetSets > 0
+              ? completionData.ring.targetSets
+              : completionData.ring.completedSets,
+          avgMinutesPerSet: completionData.ring.avgMinutesPerSet,
+          mode: 'active',
+        })
+      : null;
+
     return (
       <div className="w-full" dir="rtl">
         {/* Section title */}
@@ -597,16 +615,19 @@ export default function HeroWorkoutCard({
 
           {/* Two-column body: thumbnail (right in RTL = first child) + stats (left in RTL = second child) */}
           <div className="flex items-stretch px-4 pb-4 gap-3">
-            {/* Thumbnail — first child → right side in RTL */}
-            <div className="w-[120px] flex-shrink-0 overflow-hidden" style={{ borderRadius: 12 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={thumbSrc}
-                alt={workoutLabel}
-                className="w-full h-full object-cover"
-                style={{ minHeight: 120 }}
-              />
-            </div>
+            {/* Thumbnail — first child → right side in RTL. Dropped in the ring
+                variant (the ring is the focal metric → "בלי תמונה"). */}
+            {!completionData.ring && (
+              <div className="w-[120px] flex-shrink-0 overflow-hidden" style={{ borderRadius: 12 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={thumbSrc}
+                  alt={workoutLabel}
+                  className="w-full h-full object-cover"
+                  style={{ minHeight: 120 }}
+                />
+              </div>
+            )}
 
             {/* Stats box — second child → left side in RTL */}
             <div
@@ -615,22 +636,16 @@ export default function HeroWorkoutCard({
             >
               <span className="text-[14px] font-bold text-gray-900">{workoutLabel}</span>
 
-              {completionData.ring ? (
-                // Daily Strength Ring — always active in the celebration (the card
-                // exists only because the user trained today). On a scheduled rest
-                // day targetSets is 0, so fall back to completedSets → a full ring
-                // rather than the rest-mode visual.
-                <StrengthRing
-                  completedSets={completionData.ring.completedSets}
-                  targetSets={
-                    completionData.ring.targetSets > 0
-                      ? completionData.ring.targetSets
-                      : completionData.ring.completedSets
-                  }
-                  avgMinutesPerSet={completionData.ring.avgMinutesPerSet}
-                  mode="active"
-                  size={72}
-                />
+              {ringView ? (
+                <div className="flex flex-col items-center gap-0.5">
+                  <CircularProgress
+                    percentage={Math.round(ringView.fillPct * 100)}
+                    size={72}
+                    strokeWidth={6}
+                    colorClass="text-[#00C9F2]"
+                  />
+                  <span className="text-[11px] font-semibold text-gray-400">מהיעד היומי</span>
+                </div>
               ) : (
                 <div className="flex items-center gap-1 text-[13px] text-gray-700">
                   <TrendingUp size={14} className="text-gray-600" />
