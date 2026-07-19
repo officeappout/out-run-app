@@ -849,6 +849,9 @@ export default function HomePage() {
         // boundary so the active workout state machine can adapt execution flow.
         appliedProtocol: gw.appliedProtocol,
         blastMode: gw.blastMode,
+        // Recovery flag — carried so the active runner + summary skip strength
+        // progression (level% / strength-XP / weekly volume) for rest-day videos.
+        isRecovery: gw.isRecovery ?? false,
       };
 
       sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));
