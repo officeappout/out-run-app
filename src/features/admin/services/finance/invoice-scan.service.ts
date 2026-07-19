@@ -63,6 +63,9 @@ export interface InvoiceCandidate {
     category: string | null;
     paymentMethod: string | null;
     expenseNature: ExpenseNature | null;
+    /** The matched vendor's known currency — the write's fallback when the PDF
+     *  text didn't yield one, so a foreign vendor never defaults to ILS+VAT. */
+    currency: Currency | null;
     vatApplicable: boolean;
     driveFolderPath: string;
     /** Exact filename a live capture would store (§4 step 4 convention). */
@@ -304,6 +307,11 @@ const MONTHS: Record<string, number> = {
   jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
 };
 
+const HEB_MONTHS: Record<string, number> = {
+  ינואר: 1, פברואר: 2, מרץ: 3, אפריל: 4, מאי: 5, יוני: 6,
+  יולי: 7, אוגוסט: 8, ספטמבר: 9, אוקטובר: 10, נובמבר: 11, דצמבר: 12,
+};
+
 function extractDate(text: string): string | null {
   // ISO: YYYY-MM-DD
   let m = text.match(/(\d{4})-(\d{2})-(\d{2})/);
@@ -317,6 +325,14 @@ function extractDate(text: string): string | null {
   m = text.match(/\b(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{4})\b/);
   if (m && MONTHS[m[2].slice(0, 3).toLowerCase()]) {
     return `${m[3]}-${String(MONTHS[m[2].slice(0, 3).toLowerCase()]).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  }
+  // Hebrew month, either order (RTL PDFs linearize "30 ביוני 2026" ↔ "2026 ביוני 30")
+  m = text.match(/(\d{1,4})\s+ב?(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)\s+(\d{1,4})/);
+  if (m && HEB_MONTHS[m[2]]) {
+    const mo = String(HEB_MONTHS[m[2]]).padStart(2, '0');
+    const year = m[1].length === 4 ? m[1] : m[3].length === 4 ? m[3] : null;
+    const day = m[1].length === 4 ? m[3] : m[1];
+    if (year && day.length <= 2) return `${year}-${mo}-${day.padStart(2, '0')}`;
   }
   // DD/MM/YYYY or DD.MM.YY(YY)
   m = text.match(/\b(\d{1,2})[./](\d{1,2})[./](\d{2,4})\b/);

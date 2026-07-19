@@ -113,6 +113,9 @@ export interface Transaction {
   approval: ApprovalState;
   notes?: string;
 
+  /** Groups all rows written by one capture run — the rollback handle. */
+  importBatchId?: string;
+
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

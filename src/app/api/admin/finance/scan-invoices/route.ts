@@ -1,18 +1,24 @@
 /**
  * POST /api/admin/finance/scan-invoices
- * Body: { days?: number; dryRun?: boolean }
+ * Body: { days?: number; capture?: 'off' | 'dry' | 'live' }
  *
  * Scans the 3 mailboxes for invoice-like mail, matches each to the vendor
  * catalog, and returns the transactions it WOULD create — for human review.
- * Forked from crm-agent/run, but STRICTLY READ-ONLY:
- *   • no Gmail send/draft/label/modify (enforced at runtime by makeReadOnly)
- *   • no Drive writes, no Firestore writes
+ * Gmail access is STRICTLY READ-ONLY (enforced by makeReadOnly).
+ *
+ * capture:
+ *   'off'  (default) — pure scan, no writes anywhere.
+ *   'dry'            — compute the capture plan (Drive target + transaction) but
+ *                      write nothing.
+ *   'live'           — actually upload each candidate's PDF to Drive and write a
+ *                      transactions doc (approval='pending'). Idempotent by
+ *                      sourceRef. Candidates only; pendingReview never written.
  *
  * ╔══════════════════════════════════════════════════════════════════╗
- * ║  DRY_RUN_ONLY is a hard kill-switch, currently ON.               ║
- * ║  While true, the route NEVER writes — even if the caller passes  ║
- * ║  dryRun:false. Flipping it to false (a deliberate, reviewed step) ║
- * ║  is what unlocks the live capture path in a later phase.          ║
+ * ║  A LIVE write requires BOTH capture:'live' AND the env            ║
+ * ║  FINANCE_WRITE_ENABLED=1. The deployed route (env unset) can      ║
+ * ║  never write — a live capture is always a deliberate, out-of-band ║
+ * ║  act. capture:'live' without the env is downgraded to a dry plan. ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 import 'server-only';
@@ -21,7 +27,7 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/api-auth';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { getCombinedClient, ALL_MAILBOXES } from '@/lib/google-service-account';
+import { getCombinedClient, ALL_MAILBOXES, PRIMARY_MAILBOX } from '@/lib/google-service-account';
 import {
   looksLikeInvoice,
   isNoiseThread,
@@ -41,13 +47,22 @@ import {
   FINANCE_VENDORS_COLLECTION,
   type FinanceVendor,
 } from '@/features/admin/services/finance/finance-vendors.seed';
-import { expensesMonthPath, invoiceFileName } from '@/features/admin/services/finance/finance-drive.constants';
-import { periodKey } from '@/features/admin/services/finance/transaction.types';
+import {
+  expensesMonthPath,
+  invoiceFileName,
+  FINANCE_EXPENSES_FOLDER_ID,
+} from '@/features/admin/services/finance/finance-drive.constants';
+import {
+  periodKey,
+  deriveVatFields,
+  type Transaction,
+} from '@/features/admin/services/finance/transaction.types';
 
-// ── HARD KILL-SWITCH ──────────────────────────────────────────────────────────
-// The live capture path (Drive upload + `transactions` writes) is not built yet
-// and must not run. Keep this true until that path is written AND reviewed.
-const DRY_RUN_ONLY = true;
+type CaptureMode = 'off' | 'dry' | 'live';
+
+// LIVE writes require this env in addition to capture:'live'. The deployed route
+// (env unset) can never write — the master kill-switch.
+const WRITE_ENABLED = process.env.FINANCE_WRITE_ENABLED === '1';
 
 // Server-side pre-filter: fetch only mail that could be an invoice — an
 // attachment OR an invoice-ish keyword. This is a SUPERSET of the client-side
@@ -60,12 +75,34 @@ const MAX_PAGES_PER_MAILBOX = 5;
 
 // ─── Result contract ──────────────────────────────────────────────────────────
 
+interface CaptureItem {
+  threadId: string;
+  vendorName: string | null;
+  amountGross: number;
+  currency: string;
+  period: string;
+  fileName: string;
+  action: 'would-write' | 'written' | 'duplicate' | 'error';
+  txId?: string;
+  driveFileId?: string;
+  error?: string;
+}
+
 interface FinanceScanResult {
   period: string;
   window: string;
+  /** true when nothing was written (capture 'off'/'dry', or 'live' blocked). */
   dryRun: boolean;
-  /** true when DRY_RUN_ONLY overrode an explicit dryRun:false request. */
+  /** true when capture:'live' was requested but FINANCE_WRITE_ENABLED was unset. */
   dryRunForced: boolean;
+  /** Capture outcome (null when capture:'off'). */
+  capture: null | {
+    requested: CaptureMode;
+    effective: CaptureMode;
+    writeEnabled: boolean;
+    importBatchId?: string;
+    items: CaptureItem[];
+  };
   /** Confident matches (vendor + amount) — would become transactions. */
   candidates: InvoiceCandidate[];
   /** Invoice-like but low confidence — need a human to complete (spec §4 step 7). */
@@ -140,13 +177,109 @@ function vatApplicableFor(vendor: FinanceVendor | null): boolean {
   return !(vendor.paymentMethod === 'הלוואה' || vendor.category === 'הלוואות ומימון');
 }
 
+/** Find-or-create the הוצאות/YYYY-MM month subfolder (live capture only). */
+async function getOrCreateMonthFolder(drive: any, period: string): Promise<string> {
+  const safe = period.replace(/'/g, "\\'");
+  const res = await drive.files.list({
+    q: `mimeType='application/vnd.google-apps.folder' and name='${safe}' and '${FINANCE_EXPENSES_FOLDER_ID}' in parents and trashed=false`,
+    fields: 'files(id)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  if (res.data.files?.[0]?.id) return res.data.files[0].id;
+  const created = await drive.files.create({
+    requestBody: { name: period, mimeType: 'application/vnd.google-apps.folder', parents: [FINANCE_EXPENSES_FOLDER_ID] },
+    fields: 'id',
+    supportsAllDrives: true,
+  });
+  return created.data.id!;
+}
+
+/** First non-trashed file of this exact name in the folder (for idempotent upload). */
+async function findFileInFolder(
+  drive: any,
+  folderId: string,
+  name: string,
+): Promise<{ id: string; webViewLink?: string } | null> {
+  const safe = name.replace(/'/g, "\\'");
+  const res = await drive.files.list({
+    q: `name='${safe}' and '${folderId}' in parents and trashed=false`,
+    fields: 'files(id,webViewLink)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  const f = res.data.files?.[0];
+  return f?.id ? { id: f.id, webViewLink: f.webViewLink ?? undefined } : null;
+}
+
+/**
+ * Firestore rejects `undefined` — drop undefined keys. Only PLAIN objects are
+ * recursed into (nested `invoice`); Timestamps, FieldValue sentinels and arrays
+ * are preserved as-is (recursing into them would corrupt the write).
+ */
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  const isPlain = (v: any) => v != null && typeof v === 'object' && !Array.isArray(v) && v.constructor === Object;
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined) continue;
+    out[k] = isPlain(v) ? stripUndefined(v) : v;
+  }
+  return out as T;
+}
+
+/** Map a confident candidate → a pending expense transaction. */
+function buildTransaction(
+  c: InvoiceCandidate,
+  id: string,
+  period: string,
+  importBatchId: string,
+  now: any,
+  drive: { driveFileId?: string; driveUrl?: string },
+): Transaction {
+  const currency = c.extracted.currency ?? c.preview.currency ?? 'ILS';
+  const amountGross = c.extracted.amountGross as number;
+  const vatApplicable = c.preview.vatApplicable;
+  const { amountNet, vatAmount } = deriveVatFields({ amountGross, currency, vatApplicable });
+  return {
+    id,
+    type: 'expense',
+    direction: 'out',
+    vendorOrClient: c.vendorName ?? c.fromEmail,
+    vendorId: c.vendorId ?? undefined,
+    category: (c.preview.category as Transaction['category']) ?? 'אחר',
+    title: c.subject,
+    currency: currency as Transaction['currency'],
+    amountGross,
+    amountNet,
+    vatAmount,
+    vatApplicable,
+    paymentMethod: (c.preview.paymentMethod as Transaction['paymentMethod']) ?? 'אשראי',
+    expenseNature: c.preview.expenseNature ?? undefined,
+    status: 'שולם',
+    period,
+    invoice: {
+      status: 'הועלה',
+      driveFileId: drive.driveFileId,
+      driveUrl: drive.driveUrl,
+      invoiceNumber: c.extracted.invoiceNumber ?? undefined,
+    },
+    source: 'email',
+    sourceRef: c.messageId, // stable first-message id or thread fallback — never empty
+    approval: 'pending',
+    notes: '',
+    importBatchId,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   const denied = await requireAdminApi(request);
   if (denied) return denied;
 
-  let body: { days?: number; dryRun?: boolean } = {};
+  let body: { days?: number; capture?: CaptureMode } = {};
   try {
     body = await request.json();
   } catch {
@@ -154,9 +287,12 @@ export async function POST(request: NextRequest) {
   }
 
   const days = Math.min(Math.max(body.days ?? 40, 1), 120);
-  const requestedDryRun = body.dryRun ?? true;
-  const dryRun = DRY_RUN_ONLY ? true : requestedDryRun;
-  const dryRunForced = DRY_RUN_ONLY && requestedDryRun === false;
+  // Validate against the enum — any unknown value coerces to the safe 'off'.
+  const requestedCapture: CaptureMode = body.capture === 'dry' || body.capture === 'live' ? body.capture : 'off';
+  // capture:'live' requires FINANCE_WRITE_ENABLED; otherwise it degrades to a dry plan.
+  const captureMode: CaptureMode = requestedCapture === 'live' && !WRITE_ENABLED ? 'dry' : requestedCapture;
+  const dryRun = captureMode !== 'live';
+  const dryRunForced = requestedCapture === 'live' && !WRITE_ENABLED;
 
   const runLog: string[] = [];
   const log = (m: string) => {
@@ -169,6 +305,7 @@ export async function POST(request: NextRequest) {
     window: `newer_than:${days}d`,
     dryRun,
     dryRunForced,
+    capture: null,
     candidates: [],
     pendingReview: [],
     skipped: [],
@@ -179,7 +316,7 @@ export async function POST(request: NextRequest) {
     result.stats.apiCalls++;
   };
 
-  if (dryRunForced) log('⚠️ dryRun:false requested but DRY_RUN_ONLY is ON — forcing dry-run (no writes).');
+  if (dryRunForced) log('⚠️ capture:live requested but FINANCE_WRITE_ENABLED is unset — writing nothing (dry plan).');
 
   try {
     const db = getAdminDb();
@@ -246,6 +383,8 @@ export async function POST(request: NextRequest) {
 
     // ── Classify each thread (cross-mailbox dedupe) ──────────────────────────
     const seen = new Set<string>();
+    // PDF bytes kept for the capture phase (reused, not re-downloaded).
+    const captureBufs = new Map<string, { buf: Buffer; mimeType: string }>();
     for (const { mailbox, gmail, threads, metas, truncated } of scans) {
       if (truncated) result.stats.truncated = true;
       result.stats.threadsScanned += threads;
@@ -257,18 +396,22 @@ export async function POST(request: NextRequest) {
         for (const h of lastMsg.payload?.headers ?? []) hdrs[h.name.toLowerCase()] = h.value;
         const subject = hdrs['subject'] ?? '(no subject)';
         const from = hdrs['from'] ?? '';
-        const messageId = hdrs['message-id'] ?? '';
         const snippet = lastMsg.snippet ?? '';
         const fromEmail = parseFromEmail(from);
 
-        // Cross-mailbox dedupe on the RFC Message-ID (identical in every mailbox
-        // the same email reached); fall back to threadId when it's missing.
-        const dedupeKey = messageId || `thread:${threadId}`;
-        if (seen.has(dedupeKey)) {
+        // Stable dedup identity: the ORIGINAL (first) message's Message-ID. Unlike
+        // the last message's, it does NOT change when the thread gains a reply, and
+        // it's identical across mailboxes. Falls back to the thread id so it is
+        // never empty — the persisted sourceRef + idempotency key both use it.
+        const firstHdrs: Record<string, string> = {};
+        for (const h of messages[0].payload?.headers ?? []) firstHdrs[h.name.toLowerCase()] = h.value;
+        const messageId = firstHdrs['message-id'] || hdrs['message-id'] || `thread:${threadId}`;
+
+        if (seen.has(messageId)) {
           result.stats.deduped++;
           continue;
         }
-        seen.add(dedupeKey);
+        seen.add(messageId);
 
         // Drop newsletters / promos / broker mail before classifying.
         if (isNoiseThread(from, subject)) {
@@ -329,6 +472,7 @@ export async function POST(request: NextRequest) {
             });
             apiCall();
             const buf = Buffer.from((att.data.data ?? '').replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+            if (captureMode !== 'off') captureBufs.set(threadId, { buf, mimeType: pdfAtts[0].mimeType });
             const doc = await getDocumentProxy(new Uint8Array(buf));
             const { text } = await extractText(doc, { mergePages: true });
             pdfText = (typeof text === 'string' ? text : (text as string[]).join('\n')).trim();
@@ -388,6 +532,7 @@ export async function POST(request: NextRequest) {
             category: match.vendor?.category ?? null,
             paymentMethod: match.vendor?.paymentMethod ?? null,
             expenseNature: match.vendor?.expenseNature ?? null,
+            currency: match.vendor?.currency ?? null,
             vatApplicable,
             driveFolderPath: expensesMonthPath(invoicePeriod),
             fileName: invoiceFileName({
@@ -413,6 +558,112 @@ export async function POST(request: NextRequest) {
 
     result.candidates.sort((a, b) => b.confidence - a.confidence);
     result.pendingReview.sort((a, b) => b.confidence - a.confidence);
+
+    // ── Capture phase: write the confident candidates (idempotent by sourceRef).
+    //    'dry' plans without writing; 'live' uploads the PDF + writes the tx. Only
+    //    candidates are captured — pendingReview is never written.
+    if (captureMode !== 'off') {
+      const importBatchId = `imp_${Date.now()}`;
+      result.capture = {
+        requested: requestedCapture,
+        effective: captureMode,
+        writeEnabled: WRITE_ENABLED,
+        importBatchId,
+        items: [],
+      };
+      log(`Capture (${captureMode}) — ${result.candidates.length} candidate(s), batch ${importBatchId}`);
+
+      const { Timestamp } = await import('firebase-admin/firestore');
+      let drive: any = null;
+      let Readable: typeof import('stream').Readable | null = null;
+      if (captureMode === 'live') {
+        ({ drive } = await getCombinedClient(PRIMARY_MAILBOX)); // Drive WRITE client (not read-only)
+        ({ Readable } = await import('stream'));
+      }
+      const monthFolderCache = new Map<string, string>();
+
+      for (const c of result.candidates) {
+        const currency = c.extracted.currency ?? c.preview.currency ?? 'ILS';
+        const period = c.extracted.dateISO ? c.extracted.dateISO.slice(0, 7) : result.period;
+        const item: CaptureItem = {
+          threadId: c.threadId,
+          vendorName: c.vendorName,
+          amountGross: c.extracted.amountGross as number,
+          currency,
+          period,
+          fileName: c.preview.fileName,
+          action: 'would-write',
+        };
+
+        // Idempotent: skip if a transaction with this sourceRef already exists.
+        // (messageId is always non-empty — the first-message id or thread fallback.)
+        const dup = await db.collection('transactions').where('sourceRef', '==', c.messageId).limit(1).get();
+        apiCall();
+        if (!dup.empty) {
+          item.action = 'duplicate';
+          item.txId = dup.docs[0].id;
+          result.capture.items.push(item);
+          continue;
+        }
+
+        // Only 'live' writes; every other reached mode is a dry plan.
+        if (captureMode !== 'live') {
+          result.capture.items.push(item); // action stays 'would-write'
+          continue;
+        }
+
+        // LIVE: upload the PDF to Drive (idempotent by filename), then write the tx.
+        try {
+          const bufEntry = captureBufs.get(c.threadId);
+          if (!bufEntry) throw new Error('no PDF buffer for candidate');
+          let folderId = monthFolderCache.get(period);
+          if (!folderId) {
+            folderId = await getOrCreateMonthFolder(drive, period);
+            monthFolderCache.set(period, folderId);
+            apiCall();
+          }
+          // Reuse an existing same-named file (avoids an orphaned duplicate if a
+          // prior run uploaded the PDF but failed the tx write).
+          let driveFileId: string | undefined;
+          let driveUrl: string | undefined;
+          const existing = await findFileInFolder(drive, folderId, c.preview.fileName);
+          apiCall();
+          if (existing) {
+            driveFileId = existing.id;
+            driveUrl = existing.webViewLink;
+          } else {
+            const up = await drive.files.create({
+              requestBody: { name: c.preview.fileName, parents: [folderId] },
+              media: { mimeType: bufEntry.mimeType, body: Readable!.from(bufEntry.buf) },
+              fields: 'id,webViewLink',
+              supportsAllDrives: true,
+            });
+            apiCall();
+            driveFileId = up.data.id ?? undefined;
+            driveUrl = up.data.webViewLink ?? undefined;
+          }
+          const now = Timestamp.now();
+          const txRef = db.collection('transactions').doc();
+          const tx = buildTransaction(c, txRef.id, period, importBatchId, now, { driveFileId, driveUrl });
+          await txRef.set(stripUndefined(tx));
+          apiCall();
+          item.action = 'written';
+          item.txId = txRef.id;
+          item.driveFileId = driveFileId;
+        } catch (err: any) {
+          item.action = 'error';
+          item.error = err?.message;
+          log(`   ⚠️ capture failed for ${c.threadId}: ${err?.message}`);
+        }
+        result.capture.items.push(item);
+      }
+
+      const written = result.capture.items.filter((i) => i.action === 'written').length;
+      const dupes = result.capture.items.filter((i) => i.action === 'duplicate').length;
+      const errs = result.capture.items.filter((i) => i.action === 'error').length;
+      log(`Capture done — ${written} written · ${dupes} duplicate · ${errs} error`);
+    }
+
     log(
       `${result.stats.truncated ? '⚠️ scan TRUNCATED' : '✅ scan complete'} — ${result.candidates.length} candidate(s), ${result.pendingReview.length} pending review, ${result.skipped.length} skipped` +
         (result.stats.truncated ? ' — raise MAX_PAGES_PER_MAILBOX or narrow the window' : ''),
