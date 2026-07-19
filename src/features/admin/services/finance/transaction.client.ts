@@ -91,8 +91,8 @@ export async function getLastScan(): Promise<{ lastScanAt: string | null; writeE
 
 /** Generate the monthly XLSX packet → Drive, returns links + summary. */
 export async function generatePacket(period: string): Promise<{
-  ok: boolean; period: string; count: number;
-  xlsxUrl: string; monthFolderUrl: string | null;
+  ok: boolean; period: string; count: number; truncated?: boolean;
+  xlsxUrl: string | null; monthFolderUrl: string | null;
   summary: { ilsGross: number; ilsNet: number; ilsVat: number; missing: number; foreign: Record<string, number> };
 }> {
   return jsonFetch('/api/admin/finance/packet', {

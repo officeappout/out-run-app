@@ -37,7 +37,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = getAdminDb();
-    const snap = await db.collection('transactions').orderBy('createdAt', 'desc').limit(2000).get();
+    const LIMIT = 2000;
+    const snap = await db.collection('transactions').orderBy('createdAt', 'desc').limit(LIMIT).get();
+    const truncated = snap.size >= LIMIT; // beyond this the in-memory period filter may miss rows
+    if (truncated) console.warn(`[finance/packet] transactions >= ${LIMIT} — ${period} packet may be incomplete`);
     const rows = snap.docs
       .map((d) => d.data() as Transaction)
       .filter((t) => t.approval === 'approved' && t.type === 'expense' && t.period === period);
@@ -51,8 +54,10 @@ export async function POST(request: NextRequest) {
       if (!t.invoice?.driveFileId) missing++;
     }
 
-    // ── Build the workbook ──
-    const XLSX = await import('xlsx');
+    // ── Build the workbook ── (resolve defensively — same builtin/CJS namespace
+    //    risk as node:stream; future SheetJS ESM could move the API to .default)
+    const xlsxMod: any = await import('xlsx');
+    const XLSX = xlsxMod.utils ? xlsxMod : (xlsxMod.default ?? xlsxMod);
     const header = ['חודש', 'ספק', 'מס׳ חשבונית', 'קטגוריה', 'אמצעי', 'מטבע', 'כולל מע״מ', 'ללא מע״מ', 'מע״מ', 'סטטוס', 'חשבונית'];
     const dataRows = rows.map((t) => [
       t.period, t.vendorOrClient, t.invoice?.invoiceNumber ?? '', t.category, t.paymentMethod, t.currency,
@@ -71,7 +76,12 @@ export async function POST(request: NextRequest) {
 
     // ── Upload to Drive ריכוזים-לרואה-חשבון/ (overwrite this month's file) ──
     const { drive } = await getCombinedClient(PRIMARY_MAILBOX);
-    const { Readable } = await import('stream');
+    // Node's Readable — resolved defensively: `next dev` (webpack) hands back the
+    // builtin's namespace with Readable under `default`, so a plain `{ Readable }`
+    // destructure yields undefined → "Cannot read properties of undefined (reading 'from')".
+    const streamMod: any = await import('node:stream');
+    const Readable = streamMod.Readable ?? streamMod.default?.Readable;
+    if (!Readable?.from) throw new Error('stream.Readable unavailable');
     const fileName = `${period}__ריכוז-הוצאות.xlsx`;
     const existing = await findFile(drive, FINANCE_ACCOUNTANT_PACKETS_FOLDER_ID, fileName);
     let xlsx;
@@ -99,7 +109,8 @@ export async function POST(request: NextRequest) {
       ok: true,
       period,
       count: rows.length,
-      xlsxUrl: xlsx.data.webViewLink,
+      truncated,
+      xlsxUrl: xlsx.data.webViewLink ?? null,
       xlsxFileId: xlsx.data.id,
       monthFolderUrl,
       summary: { ilsGross: round2(ilsGross), ilsNet: round2(ilsNet), ilsVat: round2(ilsVat), missing, foreign },

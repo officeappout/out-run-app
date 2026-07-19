@@ -615,10 +615,13 @@ export async function POST(request: NextRequest) {
 
       const { Timestamp } = await import('firebase-admin/firestore');
       let drive: any = null;
-      let Readable: typeof import('stream').Readable | null = null;
+      let Readable: any = null;
       if (captureMode === 'live') {
         ({ drive } = await getCombinedClient(PRIMARY_MAILBOX)); // Drive WRITE client (not read-only)
-        ({ Readable } = await import('stream'));
+        // Resolve Readable defensively — next dev (webpack) may nest it under default.
+        const streamMod: any = await import('node:stream');
+        Readable = streamMod.Readable ?? streamMod.default?.Readable;
+        if (!Readable?.from) throw new Error('stream.Readable unavailable');
       }
       const gmailLink = (threadId: string) => `https://mail.google.com/mail/u/0/#all/${threadId}`;
       const monthFolderCache = new Map<string, string>();
@@ -676,7 +679,7 @@ export async function POST(request: NextRequest) {
             } else {
               const up = await drive.files.create({
                 requestBody: { name: c.preview.fileName, parents: [folderId] },
-                media: { mimeType: bufEntry.mimeType, body: Readable!.from(bufEntry.buf) },
+                media: { mimeType: bufEntry.mimeType, body: Readable.from(bufEntry.buf) },
                 fields: 'id,webViewLink',
                 supportsAllDrives: true,
               });

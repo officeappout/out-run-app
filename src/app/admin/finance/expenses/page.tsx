@@ -190,9 +190,14 @@ function PacketModal({ packet, onClose }: { packet: Awaited<ReturnType<typeof ge
               <div><div className="text-xs text-slate-400">מע״מ להחזר</div><div className="font-black text-emerald-600">{fmtMoney(packet.summary.ilsVat, 'ILS')}</div></div>
             </div>
             <div className="text-sm text-slate-500 text-center">{packet.count} תנועות{packet.summary.missing > 0 ? ` · ${packet.summary.missing} חשבוניות חסרות` : ''}{Object.keys(packet.summary.foreign).length ? ` · מט״ח: ${Object.entries(packet.summary.foreign).map(([c, v]) => fmtMoney(v as number, c)).join(' · ')}` : ''}</div>
-            <a href={packet.xlsxUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 h-11 rounded-xl bg-emerald-500 text-white font-black hover:bg-emerald-600">
-              <FileSpreadsheet className="w-5 h-5" /> פתח / הורד XLSX
-            </a>
+            {packet.truncated && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-2.5 text-center">⚠️ יותר מ-2000 תנועות — ייתכן שהריכוז חלקי.</p>}
+            {packet.xlsxUrl ? (
+              <a href={packet.xlsxUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 h-11 rounded-xl bg-emerald-500 text-white font-black hover:bg-emerald-600">
+                <FileSpreadsheet className="w-5 h-5" /> פתח / הורד XLSX
+              </a>
+            ) : (
+              <p className="text-sm text-amber-700 text-center">ה-XLSX נשמר ב-Drive אך אין קישור ישיר — פתח דרך תיקיית הריכוזים.</p>
+            )}
             {packet.monthFolderUrl && (
               <a href={packet.monthFolderUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-slate-700 font-bold hover:bg-gray-50">
                 <FolderOpen className="w-5 h-5" /> תיקיית החשבוניות של החודש
