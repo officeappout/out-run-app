@@ -1445,6 +1445,7 @@ export default function ActiveWorkoutPage() {
           rawExerciseLog={workoutStats.rawExerciseLog}
           precomputedProgression={progressionResult}
           domainSets={workoutStats.domainSets}
+          isRecovery={stableWorkoutPlan.isRecovery}
         />
       );
     }
@@ -1465,6 +1466,7 @@ export default function ActiveWorkoutPage() {
         rawExerciseLog={workoutStats.rawExerciseLog}
         precomputedProgression={progressionResult}
         domainSets={workoutStats.domainSets}
+        isRecovery={stableWorkoutPlan.isRecovery}
       />
     );
   }
