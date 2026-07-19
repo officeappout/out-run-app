@@ -345,7 +345,9 @@ export async function POST(request: NextRequest) {
         // Amount is taken from the PDF ONLY (never body/snippet), and only when it
         // sits behind a Total / Amount-paid / סה"כ label. Other metadata
         // (currency / date / invoice#) may fall back body → subject.
-        const pdfFields = pdfText ? extractInvoiceFields(`${subject}\n${pdfText}`) : null;
+        const pdfFields = pdfText
+          ? extractInvoiceFields(`${subject}\n${pdfText}`, { amountHint: match.vendor?.amountHint })
+          : null;
         const bodyFields = bodyText ? extractInvoiceFields(`${subject}\n${bodyText}`) : null;
         const subjFields = extractInvoiceFields(`${subject}\n${snippet}`);
         const pick = <T,>(...xs: (T | null | undefined)[]): T | null => xs.find((x) => x != null) ?? null;

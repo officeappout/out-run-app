@@ -40,6 +40,10 @@ export interface FinanceVendor {
   /** false = a subscription that was cancelled. */
   active: boolean;
   notes: string;
+  /** Per-vendor regex fragment for the amount label in THIS vendor's PDF (tried
+   *  before the global labels) — e.g. Google 'סכום כולל'. Calibrated from the
+   *  vendor's real PDF; not every vendor needs one. */
+  amountHint?: string;
 }
 
 export const FINANCE_VENDORS_COLLECTION = 'finance_vendors';
@@ -52,11 +56,11 @@ export const FINANCE_VENDORS_COLLECTION = 'finance_vendors';
 export const FINANCE_VENDORS_SEED: FinanceVendor[] = [
   { id: 'anthropic',                  name: 'קלוד / Anthropic',        aliases: ['anthropic', 'claude'],           expenseNature: 'fixed',          category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: 72,   recurring: 'monthly',   active: true, notes: 'חודשי ~₪72' },
   { id: 'cursor',                     name: 'Cursor AI',               aliases: ['cursor'],                        expenseNature: 'fixed',          category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: null, recurring: 'monthly',   active: true, notes: 'יורד מחשבון דוד' },
-  { id: 'summit-accounting',          name: 'סמיט הנהלת חשבונות',       aliases: ['סמיט', 'summit', 'sumit', 'sumit.co.il'], expenseNature: 'fixed',  category: 'הנהלת חשבונות',   paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: 149,  recurring: 'monthly',   active: true, notes: '~₪149 · SUMIT/סאמיט (sumit.co.il)' },
+  { id: 'summit-accounting',          name: 'סמיט הנהלת חשבונות',       aliases: ['סמיט', 'summit', 'sumit', 'sumit.co.il'], expenseNature: 'fixed',  category: 'הנהלת חשבונות',   paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: 149,  recurring: 'monthly',   active: true, notes: '~₪149 · SUMIT/סאמיט (sumit.co.il)', amountHint: 'סה["״]?כ\\s*כולל\\s*מע["״]?מ' },
   { id: 'freeconvert',                name: 'freeconvert',             aliases: ['freeconvert', 'מכווץ'],           expenseNature: 'fixed',          category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: 46,   recurring: 'monthly',   active: true, notes: '~₪46-64' },
   { id: 'artlist',                    name: 'Artlist',                 aliases: ['artlist'],                       expenseNature: 'fixed',          category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: 65,   recurring: 'monthly',   active: true, notes: '~₪65' },
   { id: 'onelink',                    name: 'onelink',                 aliases: ['onelink'],                       expenseNature: 'fixed',          category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: 82,   recurring: 'monthly',   active: true, notes: '~₪82' },
-  { id: 'google-workspace',           name: 'חשבון גוגל ארגוני',       aliases: ['google workspace', 'גוגל', 'google'], expenseNature: 'fixed',     category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: 196,  recurring: 'monthly',   active: true, notes: '~₪196' },
+  { id: 'google-workspace',           name: 'חשבון גוגל ארגוני',       aliases: ['google workspace', 'גוגל', 'google'], expenseNature: 'fixed',     category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: 196,  recurring: 'monthly',   active: true, notes: '~₪196', amountHint: 'סכום\\s*כולל' },
   { id: 'wati',                       name: 'wati',                    aliases: ['wati'],                          expenseNature: 'variable',       category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: null, recurring: 'irregular', active: true, notes: 'לוודא לא כפול' },
   { id: 'facebook-ads',               name: 'פרסום פייסבוק',           aliases: ['facebook', 'meta'],              expenseNature: 'variable',       category: 'שיווק',           paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: null, recurring: 'monthly',   active: true, notes: 'משתנה' },
   { id: 'software-house-maintenance', name: 'בית תוכנה תחזוקה',         aliases: [],                                expenseNature: 'human_supplier', category: 'פיתוח',           paymentMethod: 'ספקים',  currency: 'ILS', expectedAmount: 3304, recurring: 'monthly',   active: true, notes: 'דומיין הספק — להשלים בהרצה' },
@@ -66,6 +70,8 @@ export const FINANCE_VENDORS_SEED: FinanceVendor[] = [
   { id: 'mobile-power',               name: 'מתח נייד',                aliases: [],                                expenseNature: 'variable',       category: 'ציוד',            paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: null, recurring: 'one_time',  active: true, notes: '' },
   { id: 'photographer-editor',        name: 'צלם ועורך',               aliases: [],                                expenseNature: 'human_supplier', category: 'שיווק',           paymentMethod: 'ספקים',  currency: 'ILS', expectedAmount: null, recurring: 'irregular', active: true, notes: '' },
   { id: 'lawyer',                     name: 'עורך דין',                aliases: [],                                expenseNature: 'human_supplier', category: 'משפטי',           paymentMethod: 'ספקים',  currency: 'ILS', expectedAmount: null, recurring: 'irregular', active: true, notes: '' },
+  { id: 'hetzner',                    name: 'Hetzner Online',          aliases: ['hetzner', 'hetzner.com'],        expenseNature: 'variable',       category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'USD', expectedAmount: null, recurring: 'monthly',   active: true, notes: 'שרתי ענן — משתנה' },
+  { id: 'upay',                       name: 'יופיי (upay)',            aliases: ['upay', 'upay.co.il'],            expenseNature: 'variable',       category: 'אחר',             paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: null, recurring: 'irregular', active: true, notes: 'פיננסים/סליקה — לאמת קטגוריה; חשבונית ללא PDF (linked)' },
 ];
 
 /**

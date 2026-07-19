@@ -218,10 +218,13 @@ export function matchVendor(
 
 // ─── Field extraction (best-effort — low confidence ⇒ pending review) ─────────
 
-export function extractInvoiceFields(text: string): ExtractedInvoiceFields {
+export function extractInvoiceFields(
+  text: string,
+  opts?: { amountHint?: string },
+): ExtractedInvoiceFields {
   return {
     currency: extractCurrency(text),
-    amountGross: extractAmount(text),
+    amountGross: extractAmount(text, opts?.amountHint),
     invoiceNumber: extractInvoiceNumber(text),
     dateISO: extractDate(text),
   };
@@ -235,22 +238,38 @@ function extractCurrency(text: string): Currency | null {
 }
 
 /**
- * Amount is trusted ONLY when it directly follows an explicit total / amount-paid
- * label — so we never grab a stray "$200" from marketing copy inside a PDF. The
- * number must sit right after the label (optional colon / dash / currency mark).
+ * Amount is trusted ONLY behind an explicit total / amount-paid label — so we
+ * never grab a stray "$200" from marketing copy. English + Hebrew totals
+ * (סה"כ כולל מע"מ = gross incl. VAT, לתשלום, etc.). A matched vendor can supply
+ * its own label via amountHint (tried first) — see FinanceVendor.amountHint.
  */
 const AMOUNT_LABEL =
-  /(?:amount\s*paid|amount\s*due|amount\s*charged|total\s*(?:paid|due|charged|amount)?|grand\s*total|balance\s*due|סה["״]?כ(?:\s*לתשלום)?|סכום\s*לתשלום|לתשלום|סך\s*הכל)/i;
+  /(?:amount\s*paid|amount\s*due|amount\s*charged|total\s*(?:paid|due|charged|amount)?|grand\s*total|balance\s*due|סה["״]?כ\s*כולל\s*מע["״]?מ|כולל\s*מע["״]?מ|סה["״]?כ\s*לתשלום|סכום\s*כולל|סכום\s*לתשלום|לתשלום|סך\s*הכל)/i;
 
-function extractAmount(text: string): number | null {
-  const re = new RegExp(
-    AMOUNT_LABEL.source + String.raw`\s*[:\-]?\s*(?:₪|\$|€|ILS|USD|EUR|NIS)?\s*([\d][\d.,]*)`,
-    'i',
-  );
+/**
+ * Match a labeled amount. The number may sit a few non-digit chars after the
+ * label (currency mark, "ב-", RTL glue) — bounded to the same line so we never
+ * jump to an unrelated number. `labelSrc` is a regex fragment.
+ */
+function matchLabeledAmount(text: string, labelSrc: string): number | null {
+  let re: RegExp;
+  try {
+    re = new RegExp('(?:' + labelSrc + String.raw`)[^\d\n]{0,12}?([\d][\d.,]*)`, 'i');
+  } catch {
+    return null; // malformed per-vendor hint → ignore, fall back to global
+  }
   const m = text.match(re);
   if (!m) return null;
   const n = parseMoney(m[1]);
   return n != null && n > 0 ? n : null;
+}
+
+function extractAmount(text: string, vendorHint?: string): number | null {
+  if (vendorHint) {
+    const v = matchLabeledAmount(text, vendorHint);
+    if (v != null) return v;
+  }
+  return matchLabeledAmount(text, AMOUNT_LABEL.source);
 }
 
 function parseMoney(raw: string): number | null {
