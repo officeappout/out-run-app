@@ -113,6 +113,12 @@ export interface Transaction {
   approval: ApprovalState;
   notes?: string;
 
+  /** Detected as an invoice but the amount wasn't auto-extracted — a human must
+   *  complete it (fill the amount from the PDF/link) before it can be approved. */
+  needsReview?: boolean;
+  /** Source-email (Gmail) link — for needs-review / linked invoices with no PDF. */
+  sourceUrl?: string;
+
   /** Groups all rows written by one capture run — the rollback handle. */
   importBatchId?: string;
 

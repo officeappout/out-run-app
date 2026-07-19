@@ -32,6 +32,8 @@ import {
   looksLikeInvoice,
   isNoiseThread,
   isNotInvoiceNotification,
+  isQuote,
+  isCreditStatement,
   isOutgoingOrIncome,
   looksLinkedInvoice,
   matchVendor,
@@ -83,6 +85,7 @@ interface CaptureItem {
   period: string;
   fileName: string;
   action: 'would-write' | 'written' | 'duplicate' | 'error';
+  needsReview?: boolean;
   txId?: string;
   driveFileId?: string;
   error?: string;
@@ -234,12 +237,15 @@ function buildTransaction(
   period: string,
   importBatchId: string,
   now: any,
-  drive: { driveFileId?: string; driveUrl?: string },
+  extra: { driveFileId?: string; driveUrl?: string; needsReview?: boolean; sourceUrl?: string },
 ): Transaction {
   const currency = c.extracted.currency ?? c.preview.currency ?? 'ILS';
-  const amountGross = c.extracted.amountGross as number;
+  const hasAmount = c.extracted.amountGross != null && c.extracted.amountGross > 0;
+  const amountGross = hasAmount ? (c.extracted.amountGross as number) : 0;
   const vatApplicable = c.preview.vatApplicable;
-  const { amountNet, vatAmount } = deriveVatFields({ amountGross, currency, vatApplicable });
+  const { amountNet, vatAmount } = hasAmount
+    ? deriveVatFields({ amountGross, currency, vatApplicable })
+    : { amountNet: null, vatAmount: null };
   return {
     id,
     type: 'expense',
@@ -258,14 +264,16 @@ function buildTransaction(
     status: 'שולם',
     period,
     invoice: {
-      status: 'הועלה',
-      driveFileId: drive.driveFileId,
-      driveUrl: drive.driveUrl,
+      status: extra.driveFileId ? 'הועלה' : 'חסר',
+      driveFileId: extra.driveFileId,
+      driveUrl: extra.driveUrl,
       invoiceNumber: c.extracted.invoiceNumber ?? undefined,
     },
     source: 'email',
     sourceRef: c.messageId, // stable first-message id or thread fallback — never empty
     approval: 'pending',
+    needsReview: extra.needsReview || undefined,
+    sourceUrl: extra.sourceUrl,
     notes: '',
     importBatchId,
     createdAt: now,
@@ -279,7 +287,7 @@ export async function POST(request: NextRequest) {
   const denied = await requireAdminApi(request);
   if (denied) return denied;
 
-  let body: { days?: number; capture?: CaptureMode } = {};
+  let body: { days?: number; after?: string; before?: string; capture?: CaptureMode } = {};
   try {
     body = await request.json();
   } catch {
@@ -287,6 +295,13 @@ export async function POST(request: NextRequest) {
   }
 
   const days = Math.min(Math.max(body.days ?? 40, 1), 400); // up to ~13mo for one-time catch-up
+  // Gmail date filter: explicit after/before (YYYY-MM-DD) wins; else newer_than:days.
+  const toGmailDate = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.replace(/-/g, '/') : '');
+  const afterQ = toGmailDate(body.after);
+  const beforeQ = toGmailDate(body.before);
+  const dateQuery = afterQ || beforeQ
+    ? [afterQ && `after:${afterQ}`, beforeQ && `before:${beforeQ}`].filter(Boolean).join(' ')
+    : `newer_than:${days}d`;
   // Validate against the enum — any unknown value coerces to the safe 'off'.
   const requestedCapture: CaptureMode = body.capture === 'dry' || body.capture === 'live' ? body.capture : 'off';
   // capture:'live' requires FINANCE_WRITE_ENABLED; otherwise it degrades to a dry plan.
@@ -302,7 +317,7 @@ export async function POST(request: NextRequest) {
 
   const result: FinanceScanResult = {
     period: periodKey(new Date()),
-    window: `newer_than:${days}d`,
+    window: dateQuery,
     dryRun,
     dryRunForced,
     capture: null,
@@ -352,7 +367,7 @@ export async function POST(request: NextRequest) {
         do {
           const res = await gmail.users.threads.list({
             userId: 'me',
-            q: `newer_than:${days}d ${INVOICE_QUERY}`,
+            q: `${dateQuery} ${INVOICE_QUERY}`,
             maxResults: 100,
             pageToken,
           });
@@ -428,6 +443,18 @@ export async function POST(request: NextRequest) {
         // Drop OUR OWN outgoing invoices / customer-charge income (expenses only).
         if (isOutgoingOrIncome(from, subject)) {
           result.skipped.push({ threadId, subject, reason: 'income/outgoing', mailbox });
+          continue;
+        }
+
+        // Drop price quotes / proposals (Oversight sends both חשבונית מס and הצעת מחיר).
+        if (isQuote(subject)) {
+          result.skipped.push({ threadId, subject, reason: 'quote', mailbox });
+          continue;
+        }
+
+        // Credit-card monthly statements (icc) — own bucket, feeds Phase 3, not captured.
+        if (isCreditStatement(from, subject)) {
+          result.skipped.push({ threadId, subject, reason: 'credit-statement', mailbox });
           continue;
         }
 
@@ -559,11 +586,17 @@ export async function POST(request: NextRequest) {
     result.candidates.sort((a, b) => b.confidence - a.confidence);
     result.pendingReview.sort((a, b) => b.confidence - a.confidence);
 
-    // ── Capture phase: write the confident candidates (idempotent by sourceRef).
-    //    'dry' plans without writing; 'live' uploads the PDF + writes the tx. Only
-    //    candidates are captured — pendingReview is never written.
+    // ── Capture phase: write confident candidates + "needs review" items (invoice-
+    //    like with a PDF or a linked invoice but no extracted amount). Idempotent by
+    //    sourceRef. 'dry' plans without writing; 'live' uploads PDFs + writes.
     if (captureMode !== 'off') {
       const importBatchId = `imp_${Date.now()}`;
+      const toCapture: Array<{ c: InvoiceCandidate; needsReview: boolean }> = [
+        ...result.candidates.map((c) => ({ c, needsReview: false })),
+        ...result.pendingReview
+          .filter((c) => (c.attachments?.length ?? 0) > 0 || c.linkedInvoice)
+          .map((c) => ({ c, needsReview: true })),
+      ];
       result.capture = {
         requested: requestedCapture,
         effective: captureMode,
@@ -571,7 +604,7 @@ export async function POST(request: NextRequest) {
         importBatchId,
         items: [],
       };
-      log(`Capture (${captureMode}) — ${result.candidates.length} candidate(s), batch ${importBatchId}`);
+      log(`Capture (${captureMode}) — ${result.candidates.length} candidate(s) + ${toCapture.length - result.candidates.length} needs-review, batch ${importBatchId}`);
 
       const { Timestamp } = await import('firebase-admin/firestore');
       let drive: any = null;
@@ -580,19 +613,21 @@ export async function POST(request: NextRequest) {
         ({ drive } = await getCombinedClient(PRIMARY_MAILBOX)); // Drive WRITE client (not read-only)
         ({ Readable } = await import('stream'));
       }
+      const gmailLink = (threadId: string) => `https://mail.google.com/mail/u/0/#all/${threadId}`;
       const monthFolderCache = new Map<string, string>();
 
-      for (const c of result.candidates) {
+      for (const { c, needsReview } of toCapture) {
         const currency = c.extracted.currency ?? c.preview.currency ?? 'ILS';
         const period = c.extracted.dateISO ? c.extracted.dateISO.slice(0, 7) : result.period;
         const item: CaptureItem = {
           threadId: c.threadId,
           vendorName: c.vendorName,
-          amountGross: c.extracted.amountGross as number,
+          amountGross: c.extracted.amountGross ?? 0,
           currency,
           period,
           fileName: c.preview.fileName,
           action: 'would-write',
+          needsReview,
         };
 
         // Idempotent: skip if a transaction with this sourceRef already exists.
@@ -612,39 +647,42 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // LIVE: upload the PDF to Drive (idempotent by filename), then write the tx.
+        // LIVE: upload the PDF when present (idempotent by filename), then write the tx.
         try {
           const bufEntry = captureBufs.get(c.threadId);
-          if (!bufEntry) throw new Error('no PDF buffer for candidate');
-          let folderId = monthFolderCache.get(period);
-          if (!folderId) {
-            folderId = await getOrCreateMonthFolder(drive, period);
-            monthFolderCache.set(period, folderId);
-            apiCall();
-          }
-          // Reuse an existing same-named file (avoids an orphaned duplicate if a
-          // prior run uploaded the PDF but failed the tx write).
           let driveFileId: string | undefined;
           let driveUrl: string | undefined;
-          const existing = await findFileInFolder(drive, folderId, c.preview.fileName);
-          apiCall();
-          if (existing) {
-            driveFileId = existing.id;
-            driveUrl = existing.webViewLink;
-          } else {
-            const up = await drive.files.create({
-              requestBody: { name: c.preview.fileName, parents: [folderId] },
-              media: { mimeType: bufEntry.mimeType, body: Readable!.from(bufEntry.buf) },
-              fields: 'id,webViewLink',
-              supportsAllDrives: true,
-            });
+          if (bufEntry) {
+            let folderId = monthFolderCache.get(period);
+            if (!folderId) {
+              folderId = await getOrCreateMonthFolder(drive, period);
+              monthFolderCache.set(period, folderId);
+              apiCall();
+            }
+            // Reuse an existing same-named file (avoids an orphan if a prior run
+            // uploaded the PDF but failed the tx write).
+            const existing = await findFileInFolder(drive, folderId, c.preview.fileName);
             apiCall();
-            driveFileId = up.data.id ?? undefined;
-            driveUrl = up.data.webViewLink ?? undefined;
+            if (existing) {
+              driveFileId = existing.id;
+              driveUrl = existing.webViewLink;
+            } else {
+              const up = await drive.files.create({
+                requestBody: { name: c.preview.fileName, parents: [folderId] },
+                media: { mimeType: bufEntry.mimeType, body: Readable!.from(bufEntry.buf) },
+                fields: 'id,webViewLink',
+                supportsAllDrives: true,
+              });
+              apiCall();
+              driveFileId = up.data.id ?? undefined;
+              driveUrl = up.data.webViewLink ?? undefined;
+            }
           }
+          // No PDF (linked / needs-review) → keep a link to the source email.
+          const sourceUrl = !bufEntry ? gmailLink(c.threadId) : undefined;
           const now = Timestamp.now();
           const txRef = db.collection('transactions').doc();
-          const tx = buildTransaction(c, txRef.id, period, importBatchId, now, { driveFileId, driveUrl });
+          const tx = buildTransaction(c, txRef.id, period, importBatchId, now, { driveFileId, driveUrl, needsReview, sourceUrl });
           await txRef.set(stripUndefined(tx));
           apiCall();
           item.action = 'written';
@@ -662,6 +700,16 @@ export async function POST(request: NextRequest) {
       const dupes = result.capture.items.filter((i) => i.action === 'duplicate').length;
       const errs = result.capture.items.filter((i) => i.action === 'error').length;
       log(`Capture done — ${written} written · ${dupes} duplicate · ${errs} error`);
+
+      // Record the scan time (drives the "since last scan" default window).
+      if (captureMode === 'live') {
+        try {
+          await db.collection('finance_meta').doc('scan').set(
+            { lastScanAt: Timestamp.now(), lastWindow: dateQuery, lastWritten: written },
+            { merge: true },
+          );
+        } catch { /* non-fatal */ }
+      }
     }
 
     log(
@@ -673,5 +721,18 @@ export async function POST(request: NextRequest) {
     log(`❌ Fatal: ${err?.message ?? err}`);
     console.error('[finance/scan-invoices]', err);
     return NextResponse.json({ ...result, error: err?.message ?? 'scan error' }, { status: 500 });
+  }
+}
+
+/** GET → the last scan timestamp, for the UI's "since last scan" default window. */
+export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(request);
+  if (denied) return denied;
+  try {
+    const snap = await getAdminDb().collection('finance_meta').doc('scan').get();
+    const lastScanAt = snap.exists ? (snap.data()?.lastScanAt?.toDate?.()?.toISOString() ?? null) : null;
+    return NextResponse.json({ lastScanAt, writeEnabled: WRITE_ENABLED });
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message ?? 'meta error' }, { status: 500 });
   }
 }

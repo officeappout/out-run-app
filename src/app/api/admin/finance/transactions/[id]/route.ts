@@ -21,7 +21,7 @@ const COLLECTION = 'transactions';
 // Fields a human may edit in the review UI (whitelist — no mass assignment).
 const EDITABLE: (keyof Transaction)[] = [
   'vendorOrClient', 'vendorId', 'category', 'title', 'amountGross', 'currency',
-  'vatApplicable', 'paymentMethod', 'expenseNature', 'status', 'period', 'notes',
+  'vatApplicable', 'paymentMethod', 'expenseNature', 'status', 'period', 'notes', 'needsReview',
 ];
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {

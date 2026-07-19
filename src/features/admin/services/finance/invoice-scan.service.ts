@@ -114,13 +114,41 @@ export function isNoiseThread(fromHeader: string, subject: string): boolean {
  */
 const NOT_INVOICE_PATTERNS: RegExp[] = [
   /payment\s*(failed|declined|unsuccessful)|תשלום\s*(נכשל|בוטל|לא\s*בוצע)/i,
+  /נכשל\s*(ה?חיוב|חיוב\s*האשראי)|couldn'?t\s*process\s*payment/i, // SUMIT/Cursor charge-failed
   /(access|subscription|account)\s*(is\s*)?(turned off|disabled|suspended|cancell?ed|revoked|paused)/i,
   /\baction\s*(needed|required)\b/i,
   /card\s*(is\s*)?(expir|declin)/i,
   /failed\s*to\s*(charge|renew|process)/i,
+  /\[billing\s*update\]|at\s*risk\s*of\s*suspension|was\s*upgraded\s*to|upcoming\s*service\s*fee/i, // Google/Firebase notices
+  /approaching\s*your\s*free/i,
+  /התקבלה\s*בקשה\s*של.*לגשת|requested\s*access|wants\s*to\s*access/i, // Canva access requests
+  /נרכש\s*בהצלחה/i, // "domain purchased" confirmation (box.co.il)
 ];
 export function isNotInvoiceNotification(subject: string): boolean {
   return NOT_INVOICE_PATTERNS.some((r) => r.test(subject));
+}
+
+/**
+ * Price quotes / proposals — NOT invoices. Oversight (בית תוכנה) sends both
+ * 'חשבונית מס' and 'הצעת מחיר'; only invoices should be captured. Subject-only.
+ */
+const QUOTE_PATTERNS: RegExp[] = [
+  /הצעת\s*מחיר|הצ["״]?מ\b/i,
+  /הצעה\s*ל(ביטוח|מחיר|שירות)/i,
+  /price\s*quot|\bquotation\b|\bproposal\b/i,
+];
+export function isQuote(subject: string): boolean {
+  return QUOTE_PATTERNS.some((r) => r.test(subject));
+}
+
+/**
+ * Credit-card monthly statements (icc.co.il "דף פירוט החיוב החודשי") — not a
+ * vendor invoice. Skipped from capture but tagged with its OWN reason so it can
+ * feed Phase 3 (credit/cash-flow reconciliation) — not silently discarded.
+ */
+export function isCreditStatement(fromHeader: string, subject: string): boolean {
+  if (/(^|<|@|\.)icc\.co\.il/i.test(fromHeader)) return true;
+  return /דף\s*פירוט.*חיוב|פירוט\s*ה?חיוב\s*ה?חודשי|monthly\s*(card\s*)?statement/i.test(subject);
 }
 
 /**

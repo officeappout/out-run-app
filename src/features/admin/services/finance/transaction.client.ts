@@ -63,6 +63,30 @@ export async function deleteTransaction(id: string): Promise<void> {
   await jsonFetch(`${BASE}/${id}`, { method: 'DELETE' });
 }
 
+// ─── Scan ─────────────────────────────────────────────────────────────────────
+
+const SCAN = '/api/admin/finance/scan-invoices';
+
+export interface ScanOptions {
+  days?: number;
+  after?: string; // YYYY-MM-DD
+  before?: string; // YYYY-MM-DD
+  capture?: 'off' | 'dry' | 'live';
+}
+
+/** Trigger a mailbox scan. capture:'live' writes candidates + needs-review rows. */
+export async function runScan(opts: ScanOptions): Promise<any> {
+  return jsonFetch(SCAN, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(opts),
+  });
+}
+
+export async function getLastScan(): Promise<{ lastScanAt: string | null; writeEnabled: boolean }> {
+  return jsonFetch(SCAN);
+}
+
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
 export const CURRENCY_SYMBOL: Record<string, string> = { ILS: '₪', USD: '$', EUR: '€' };
