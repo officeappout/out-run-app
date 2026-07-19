@@ -14,6 +14,7 @@ import {
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { SmartMessage } from '@/features/messages/services/MessageService';
 import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
+import StrengthRing from './StrengthRing';
 
 // ============================================================================
 // Movement-group fallback images (high-quality Unsplash)
@@ -449,6 +450,16 @@ export interface CompletionData {
   workoutTitle?: string;
   streak?: number;
   thumbnailUrl?: string;
+  /**
+   * Daily Strength Ring (Layer A). When present, the celebration card renders
+   * the ring in place of the static improvement row. Populated by home only
+   * when STRENGTH_RING_ENABLED — absent (and thus byte-identical) when off.
+   */
+  ring?: {
+    completedSets: number;
+    targetSets: number;
+    avgMinutesPerSet: number;
+  };
 }
 
 interface HeroWorkoutCardProps {
@@ -604,14 +615,32 @@ export default function HeroWorkoutCard({
             >
               <span className="text-[14px] font-bold text-gray-900">{workoutLabel}</span>
 
-              <div className="flex items-center gap-1 text-[13px] text-gray-700">
-                <TrendingUp size={14} className="text-gray-600" />
-                <span>
-                  {improvement != null && improvement !== 0
-                    ? `שיפור בביצועים של ${Math.abs(improvement)}%`
-                    : 'שיפור בביצועים'}
-                </span>
-              </div>
+              {completionData.ring ? (
+                // Daily Strength Ring — always active in the celebration (the card
+                // exists only because the user trained today). On a scheduled rest
+                // day targetSets is 0, so fall back to completedSets → a full ring
+                // rather than the rest-mode visual.
+                <StrengthRing
+                  completedSets={completionData.ring.completedSets}
+                  targetSets={
+                    completionData.ring.targetSets > 0
+                      ? completionData.ring.targetSets
+                      : completionData.ring.completedSets
+                  }
+                  avgMinutesPerSet={completionData.ring.avgMinutesPerSet}
+                  mode="active"
+                  size={72}
+                />
+              ) : (
+                <div className="flex items-center gap-1 text-[13px] text-gray-700">
+                  <TrendingUp size={14} className="text-gray-600" />
+                  <span>
+                    {improvement != null && improvement !== 0
+                      ? `שיפור בביצועים של ${Math.abs(improvement)}%`
+                      : 'שיפור בביצועים'}
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center gap-1 text-[13px] text-gray-700">
                 <Clock size={14} className="text-gray-500" />
