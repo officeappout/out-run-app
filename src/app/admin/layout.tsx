@@ -45,6 +45,7 @@ import {
     Link2,
     Lightbulb,
     LineChart,
+    Wallet,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -69,7 +70,7 @@ const ICON_MAP: Record<LucideIconName, React.ElementType> = {
 };
 
 // Section IDs for collapsible state — 5 global centres + 3 verticals
-type SectionId = 'strategy' | 'crm' | 'marketing' | 'product' | 'dev' | 'municipal' | 'military' | 'educational';
+type SectionId = 'strategy' | 'crm' | 'marketing' | 'product' | 'finance' | 'dev' | 'municipal' | 'military' | 'educational';
 
 // Helper to check if a section contains the active path
 const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgType?: string, urlType?: string): boolean => {
@@ -99,6 +100,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
             '/admin/running',
             '/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/access-codes',
         ],
+        finance: ['/admin/finance'],
         municipal: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/reports', '/admin/heatmap'],
         military: ['/admin/authority/readiness'],
         educational: ['/admin/authority/grades', '/admin/photo-release'],
@@ -173,7 +175,7 @@ function AdminLayoutInner({
     // Auto-expand section containing active path (tenant-type-aware for shared routes)
     useEffect(() => {
         if (pathname) {
-            const sections: SectionId[] = ['strategy', 'crm', 'marketing', 'product', 'dev', 'municipal', 'military', 'educational'];
+            const sections: SectionId[] = ['strategy', 'crm', 'marketing', 'product', 'finance', 'dev', 'municipal', 'military', 'educational'];
             for (const section of sections) {
                 if (sectionContainsPath(section, pathname, orgCtx.selectedOrgType, urlVerticalType)) {
                     setExpandedSections(prev => {
@@ -500,6 +502,7 @@ function AdminLayoutInner({
                     marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
                     product:  ['/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all'],
                     dev:      ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed', '/admin/schools', '/admin/running', '/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/access-codes'],
+                    finance: ['/admin/finance'],
                     // ── Vertical sections (unchanged) ─────────────────────
                     municipal: ['/admin/authorities', '/admin/approval-center', '/admin/authority-manager', '/admin/pressure-messages', '/admin/authority/reports', '/admin/heatmap'],
                     military:  ['/admin/authority/readiness'],
@@ -827,6 +830,18 @@ function AdminLayoutInner({
                                             <SidebarLink href="/admin/statistics" icon={TrendingUp} label="סטטיסטיקות" />
                                             <SidebarLink href="/admin/insights" icon={Lightbulb} label="תובנות אסטרטגיות" />
                                             <SidebarLink href="/admin/users/all" icon={Users} label="כל המשתמשים" />
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* ── כספים ──────────────────────────────────────── */}
+                            {hasSec('finance') && !onlyAuthorityManager && !isVerticalAdminOnly && (
+                                <>
+                                    <SectionHeader sectionId="finance" icon={Wallet} label="כספים" />
+                                    {expandedSections.has('finance') && (
+                                        <div className="pr-2 space-y-0.5 pb-2">
+                                            <SidebarLink href="/admin/finance/approvals" icon={Wallet} label="תור אישור חשבוניות" />
                                         </div>
                                     )}
                                 </>
