@@ -828,6 +828,16 @@ export default function ActiveWorkoutPage() {
     const rawLog = workoutStats.rawExerciseLog;
     if (rawLog.length === 0) return;
 
+    // Recovery guard: rest-day / recovery sessions never credit strength
+    // progression. Return BEFORE processWorkoutCompletion so no level% base-gain
+    // is written to the user's active program. Left before the
+    // `progression_started_this_session` flag on purpose — the summary's
+    // useProgressionSync is gated by its own isRecovery check (step 2ב), so it
+    // must NOT rely on that flag being set here. The workout still completes and
+    // advances to the dopamine/summary flow (handled by handleComplete), and
+    // progressionResult stays null (dopamineBonuses already tolerates that).
+    if (workoutPlan?.isRecovery) return;
+
     progressionComputedRef.current = true;
 
     // Signal to StrengthSummaryPage that progression is in-flight or done so it
