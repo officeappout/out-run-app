@@ -228,6 +228,7 @@ export default function StrengthSummaryPage({
     durationMinutes: analytics.durationMinutes,
     totalReps,
     completedExercises,
+    isRecovery,
   });
 
   // ── Lifestyle CTA handlers (inline — pure navigation/storage) ──
