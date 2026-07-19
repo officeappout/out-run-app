@@ -18,9 +18,8 @@
  *
  * ── Toggles (env default + device-friendly runtime override) ─────────────────
  *   GEN_TIMING  — phase timing + read counters.
- *                 Default TRUE on this instrumentation branch so an on-device
- *                 build measures with no manual toggle. Flip GEN_TIMING_DEFAULT
- *                 to false before this ships to production.
+ *                 Default FALSE in production (silent). QA enables it per run via
+ *                 the runtime override below — no rebuild needed.
  *   GEN_VERBOSE — the always-on heavy RAW / protocol-scan / metadata logs (#6).
  *                 Default FALSE (the #6 perf win + a clean timing signal).
  *
@@ -36,7 +35,7 @@
  *   the default run is exactly what gating the logs (#6) buys.
  */
 
-const GEN_TIMING_DEFAULT = true; // instrumentation branch: measure by default
+const GEN_TIMING_DEFAULT = false; // prod: silent — QA sets OUT_GEN_TIMING=1 per run
 const GEN_VERBOSE_DEFAULT = false; // #6: heavy logs off by default
 
 /** Runtime override lookup. Returns undefined when no override is set. */
