@@ -842,6 +842,7 @@ function AdminLayoutInner({
                                     {expandedSections.has('finance') && (
                                         <div className="pr-2 space-y-0.5 pb-2">
                                             <SidebarLink href="/admin/finance/approvals" icon={Wallet} label="תור אישור חשבוניות" />
+                                            <SidebarLink href="/admin/finance/expenses" icon={LayoutGrid} label="ספר הוצאות" />
                                         </div>
                                     )}
                                 </>
