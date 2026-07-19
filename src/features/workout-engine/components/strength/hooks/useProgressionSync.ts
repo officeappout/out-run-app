@@ -55,6 +55,13 @@ export interface UseProgressionSyncParams {
   durationMinutes: number;
   /** Pre-computed result from ActiveWorkoutPage — when present, skip the CF call. */
   precomputedProgression?: WorkoutCompletionResult | null;
+  /**
+   * Recovery session — when true, skip ALL strength progression: neither the
+   * precomputed result nor the fallback CF call runs. Mirrors the
+   * ActiveWorkoutPage effect guard so a rest-day recovery workout cannot credit
+   * level% via the summary's fallback path. Defaults to false (normal workout).
+   */
+  isRecovery?: boolean;
 }
 
 export interface UseProgressionSyncResult {
@@ -70,6 +77,7 @@ export function useProgressionSync({
   rawExerciseLog,
   durationMinutes,
   precomputedProgression,
+  isRecovery = false,
 }: UseProgressionSyncParams): UseProgressionSyncResult {
   const { showToast } = useToast();
   const { celebrate } = useGoalCelebration();
@@ -90,6 +98,13 @@ export function useProgressionSync({
   useEffect(() => {
     if (hasFired.current) return;
     hasFired.current = true;
+
+    // Branch 0 (recovery guard): rest-day / recovery sessions never credit
+    // strength progression. Return before every branch so the summary fallback
+    // stays out of processWorkoutCompletion — independent of the
+    // progression_started/failed flags (the ActiveWorkoutPage effect returns
+    // BEFORE setting them for recovery, step 2א). progressionResult stays null.
+    if (isRecovery) return;
 
     // Branch 1: pre-computed result.
     if (precomputedProgression) {

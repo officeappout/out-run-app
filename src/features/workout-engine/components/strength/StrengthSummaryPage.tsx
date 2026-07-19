@@ -186,6 +186,7 @@ export default function StrengthSummaryPage({
     rawExerciseLog,
     durationMinutes: Math.max(1, Math.round(duration / 60)),
     precomputedProgression,
+    isRecovery,
   });
 
   const analytics = useSummaryAnalytics({
