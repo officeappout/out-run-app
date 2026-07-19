@@ -72,32 +72,42 @@ export const FINANCE_VENDORS_SEED: FinanceVendor[] = [
  * Idempotent planter. Creates a vendor doc only when it does not already exist
  * — existing docs (possibly edited in the panel) are left untouched. Pass an
  * Admin Firestore instance (`getAdminDb()`).
+ *
+ * `dryRun: true` inspects only — reports which vendors WOULD be created without
+ * writing anything.
  */
 export async function seedFinanceVendors(
   db: Firestore,
-): Promise<{ created: number; skipped: number; report: string }> {
+  opts: { dryRun?: boolean } = {},
+): Promise<{ created: string[]; skipped: string[]; dryRun: boolean; report: string }> {
   const { FieldValue } = await import('firebase-admin/firestore');
   const col = db.collection(FINANCE_VENDORS_COLLECTION);
+  // Safe by default: a bare seedFinanceVendors(db) previews. Callers must pass
+  // dryRun:false explicitly to write.
+  const dryRun = opts.dryRun ?? true;
 
-  let created = 0;
-  let skipped = 0;
+  const created: string[] = [];
+  const skipped: string[] = [];
 
   for (const vendor of FINANCE_VENDORS_SEED) {
     const ref = col.doc(vendor.id);
     const snap = await ref.get();
     if (snap.exists) {
-      skipped++;
+      skipped.push(vendor.id);
       continue;
     }
-    await ref.set({
-      ...vendor,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    created++;
+    if (!dryRun) {
+      await ref.set({
+        ...vendor,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    created.push(vendor.id);
   }
 
-  const report = `finance_vendors seed: ${created} created, ${skipped} skipped (already present)`;
+  const verb = dryRun ? 'would create' : 'created';
+  const report = `finance_vendors seed${dryRun ? ' (dry-run)' : ''}: ${verb} ${created.length}, skipped ${skipped.length} (already present)`;
   console.log(`[finance-seed] ${report}`);
-  return { created, skipped, report };
+  return { created, skipped, dryRun, report };
 }
