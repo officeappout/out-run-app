@@ -19,6 +19,9 @@ import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import type { MessageType } from '@/features/messages/services/MessageService';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
+import { useTodayStrengthVolume } from '@/features/home/hooks/useTodayStrengthVolume';
+import { useDailyStrengthTarget } from '@/features/home/hooks/useDailyStrengthTarget';
+import { FRAGMENTER_MINUTES_PER_SET } from '@/features/home/utils/setsToMinutes';
 import { useDayStatus } from '@/features/activity/hooks/useDayStatus';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
@@ -37,7 +40,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS } from '@/config/feature-flags';
+import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -402,6 +405,10 @@ export default function HomePage() {
   // the user has logged a session.
   const todayProgress = useDailyProgress();
   const todayWorkoutDone = !!todayProgress?.workoutCompleted;
+  // Daily Strength Ring (Layer A). The target hook is gated by the flag so no
+  // Firestore read fires while STRENGTH_RING_ENABLED is off (byte-identical).
+  const todayStrengthVolume = useTodayStrengthVolume();
+  const dailyStrengthTarget = useDailyStrengthTarget(STRENGTH_RING_ENABLED);
   const postWorkoutMsg = useSmartMessage('post_workout');
   const missedWorkoutMsg = useSmartMessage(bannerType);
   const { celebrate } = useGoalCelebration();
@@ -456,6 +463,16 @@ export default function HomePage() {
   //   2. `todayProgress` (Firestore) — persistent fallback that survives
   //      refreshes / re-mounts / >30 min elapsed. Carries only `workoutType`,
   //      so the card renders in a minimal "done for today" state.
+  // Ring payload — only populated when the flag is on, so completionData.ring is
+  // absent (and the card byte-identical) while STRENGTH_RING_ENABLED is off.
+  const strengthRingData = STRENGTH_RING_ENABLED
+    ? {
+        completedSets: todayStrengthVolume.setsCompleted,
+        targetSets: dailyStrengthTarget.targetSets,
+        avgMinutesPerSet: FRAGMENTER_MINUTES_PER_SET,
+      }
+    : undefined;
+
   const completionData: CompletionData | undefined = postWorkoutData
     ? {
         workoutType: postWorkoutData.workoutType,
@@ -463,11 +480,13 @@ export default function HomePage() {
         workoutTitle: postWorkoutData.workoutTitle,
         streak: postWorkoutData.streak,
         thumbnailUrl: postWorkoutData.thumbnailUrl,
+        ring: strengthRingData,
       }
     : todayWorkoutDone
       ? {
           workoutType: todayProgress?.workoutType ?? 'strength',
           durationMinutes: 0,
+          ring: strengthRingData,
         }
       : undefined;
 
