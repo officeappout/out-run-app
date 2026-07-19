@@ -259,6 +259,9 @@ export function buildRunnerWorkoutPlanFromGenerated(
     // boundary so the active workout state machine can adapt execution flow.
     appliedProtocol: gw.appliedProtocol,
     blastMode: gw.blastMode,
+    // Recovery flag — kept in parity with the home inline flatten so the
+    // custom-builder hand-off carries it too (see src/app/home/page.tsx).
+    isRecovery: gw.isRecovery ?? false,
   };
 
   return workoutPlan as unknown as WorkoutPlan;
