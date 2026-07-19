@@ -84,14 +84,18 @@ interface RecoveryVideoInput {
 // FILL THIS IN — 7 rows. Replace every REPLACE_* placeholder and the 0 durations.
 // The script ABORTS if any placeholder or non-positive duration remains.
 // ═════════════════════════════════════════════════════════════════════════════
+// Auto-filled from Bunny library 640043, collection "התאוששות פולאו אלונוג"
+// (guid fb9947f1-46f0-45ad-816c-f35baa0111a1, 7 videos). GUID + title + length
+// pulled via the Bunny Stream list API (read-only). Titles are the raw Bunny
+// filenames minus ".mp4" — refine titleHe freely before running.
 const VIDEOS: RecoveryVideoInput[] = [
-  { bunnyGuid: 'REPLACE_WITH_BUNNY_GUID_01', titleHe: 'REPLACE_WITH_TITLE_HE_01', durationSeconds: 0, location: 'home', descriptionHe: '', hasAudio: true },
-  { bunnyGuid: 'REPLACE_WITH_BUNNY_GUID_02', titleHe: 'REPLACE_WITH_TITLE_HE_02', durationSeconds: 0, location: 'home', descriptionHe: '', hasAudio: true },
-  { bunnyGuid: 'REPLACE_WITH_BUNNY_GUID_03', titleHe: 'REPLACE_WITH_TITLE_HE_03', durationSeconds: 0, location: 'home', descriptionHe: '', hasAudio: true },
-  { bunnyGuid: 'REPLACE_WITH_BUNNY_GUID_04', titleHe: 'REPLACE_WITH_TITLE_HE_04', durationSeconds: 0, location: 'home', descriptionHe: '', hasAudio: true },
-  { bunnyGuid: 'REPLACE_WITH_BUNNY_GUID_05', titleHe: 'REPLACE_WITH_TITLE_HE_05', durationSeconds: 0, location: 'home', descriptionHe: '', hasAudio: true },
-  { bunnyGuid: 'REPLACE_WITH_BUNNY_GUID_06', titleHe: 'REPLACE_WITH_TITLE_HE_06', durationSeconds: 0, location: 'home', descriptionHe: '', hasAudio: true },
-  { bunnyGuid: 'REPLACE_WITH_BUNNY_GUID_07', titleHe: 'REPLACE_WITH_TITLE_HE_07', durationSeconds: 0, location: 'home', descriptionHe: '', hasAudio: true },
+  { bunnyGuid: 'cec2f81e-6e9b-4192-9831-79b193856b1b', titleHe: 'סשן התאוששות #1', durationSeconds: 868, location: 'home', descriptionHe: '', hasAudio: true },
+  { bunnyGuid: 'a8a535cb-d141-48a9-8993-f31d65c97fa0', titleHe: 'סשן התאוששות #2', durationSeconds: 555, location: 'home', descriptionHe: '', hasAudio: true },
+  { bunnyGuid: '00695c88-f3cb-4dfd-897d-fbb59c062099', titleHe: 'סשן התאוששות #3', durationSeconds: 816, location: 'home', descriptionHe: '', hasAudio: true },
+  { bunnyGuid: 'b86593dc-ed19-4141-b916-097319437968', titleHe: 'סשן התאוששות #4', durationSeconds: 470, location: 'home', descriptionHe: '', hasAudio: true },
+  { bunnyGuid: 'feb437c9-b6db-4f1f-9545-09ae43ee5c3a', titleHe: 'סשן התאוששות #5', durationSeconds: 800, location: 'home', descriptionHe: '', hasAudio: true },
+  { bunnyGuid: '8e2b416a-ea9c-4a0a-8256-988309ab64f9', titleHe: 'סשן התאוששות #6', durationSeconds: 936, location: 'home', descriptionHe: '', hasAudio: true },
+  { bunnyGuid: '9545bbeb-1af7-4903-97a4-5b5b12465111', titleHe: 'סשן התאוששות #7', durationSeconds: 865, location: 'home', descriptionHe: '', hasAudio: true },
 ];
 
 // ── Firebase init (+ project guard) ─────────────────────────────────────────
