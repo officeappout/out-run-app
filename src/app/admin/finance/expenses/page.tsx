@@ -7,12 +7,12 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getUserFromFirestore } from '@/lib/firestore.service';
-import { Loader2, Wallet, Plus, RefreshCw, Clock, X, Check, ExternalLink, FileWarning } from 'lucide-react';
+import { Loader2, Wallet, Plus, RefreshCw, Clock, X, Check, ExternalLink, FileWarning, FileSpreadsheet, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 import type { Transaction } from '@/features/admin/services/finance/transaction.types';
 import { deriveVatFields, periodKey } from '@/features/admin/services/finance/transaction.types';
 import {
-  listTransactions, createTransaction, fmtMoney,
+  listTransactions, createTransaction, generatePacket, fmtMoney,
   EXPENSE_CATEGORIES, PAYMENT_METHODS, PAYMENT_STATUSES, CURRENCIES, SOURCE_LABEL,
 } from '@/features/admin/services/finance/transaction.client';
 
@@ -24,6 +24,16 @@ export default function FinanceExpensesPage() {
   const [rows, setRows] = useState<Transaction[]>([]);
   const [period, setPeriod] = useState<string>('all');
   const [showAdd, setShowAdd] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [packet, setPacket] = useState<Awaited<ReturnType<typeof generatePacket>> | null>(null);
+
+  const genPacket = async () => {
+    if (period === 'all') { alert('בחר חודש ספציפי כדי להפיק ריכוז'); return; }
+    setGenerating(true);
+    try { setPacket(await generatePacket(period)); }
+    catch (e: any) { alert('שגיאה בהפקת ריכוז: ' + e.message); }
+    finally { setGenerating(false); }
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -98,6 +108,10 @@ export default function FinanceExpensesPage() {
           <button onClick={() => void load()} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-gray-200 text-sm font-bold text-slate-700 hover:bg-gray-50">
             <RefreshCw className="w-4 h-4" /> רענן
           </button>
+          <button onClick={genPacket} disabled={generating || period === 'all'} title={period === 'all' ? 'בחר חודש' : `ריכוז ${period}`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-emerald-200 text-sm font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-40">
+            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />} ריכוז לרו״ח
+          </button>
           <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 text-white text-sm font-black hover:bg-emerald-600">
             <Plus className="w-4 h-4" /> הוסף הוצאה ידנית
           </button>
@@ -154,7 +168,41 @@ export default function FinanceExpensesPage() {
       )}
 
       {showAdd && <AddExpenseModal onClose={() => setShowAdd(false)} onCreated={() => { setShowAdd(false); void load(); }} />}
+      {packet && <PacketModal packet={packet} onClose={() => setPacket(null)} />}
     </div>
+  );
+}
+
+function PacketModal({ packet, onClose }: { packet: Awaited<ReturnType<typeof generatePacket>>; onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div dir="rtl" className="fixed inset-0 z-[81] flex items-center justify-center p-4 pointer-events-none">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2"><FileSpreadsheet className="w-5 h-5 text-emerald-600" /> ריכוז {packet.period}</h2>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center"><X className="w-5 h-5 text-slate-500" /></button>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div><div className="text-xs text-slate-400">כולל מע״מ</div><div className="font-black text-slate-900">{fmtMoney(packet.summary.ilsGross, 'ILS')}</div></div>
+              <div><div className="text-xs text-slate-400">ללא מע״מ</div><div className="font-black text-slate-900">{fmtMoney(packet.summary.ilsNet, 'ILS')}</div></div>
+              <div><div className="text-xs text-slate-400">מע״מ להחזר</div><div className="font-black text-emerald-600">{fmtMoney(packet.summary.ilsVat, 'ILS')}</div></div>
+            </div>
+            <div className="text-sm text-slate-500 text-center">{packet.count} תנועות{packet.summary.missing > 0 ? ` · ${packet.summary.missing} חשבוניות חסרות` : ''}{Object.keys(packet.summary.foreign).length ? ` · מט״ח: ${Object.entries(packet.summary.foreign).map(([c, v]) => fmtMoney(v as number, c)).join(' · ')}` : ''}</div>
+            <a href={packet.xlsxUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 h-11 rounded-xl bg-emerald-500 text-white font-black hover:bg-emerald-600">
+              <FileSpreadsheet className="w-5 h-5" /> פתח / הורד XLSX
+            </a>
+            {packet.monthFolderUrl && (
+              <a href={packet.monthFolderUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-slate-700 font-bold hover:bg-gray-50">
+                <FolderOpen className="w-5 h-5" /> תיקיית החשבוניות של החודש
+              </a>
+            )}
+            <p className="text-xs text-slate-400 text-center">ה-XLSX נשמר גם ב-Drive: ריכוזים-לרואה-חשבון/. השליחה לרו״ח — ידנית.</p>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

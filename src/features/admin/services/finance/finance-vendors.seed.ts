@@ -74,7 +74,7 @@ export const FINANCE_VENDORS_SEED: FinanceVendor[] = [
   { id: 'lovable',                    name: 'Lovable',                 aliases: ['lovable.dev', 'lovable'],        expenseNature: 'fixed',          category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'USD', expectedAmount: 25,   recurring: 'monthly',   active: true, notes: '~$25 · נגבה דרך Stripe' },
   { id: 'ipatent',                    name: 'עו״ד פטנטים (iPatent)',    aliases: ['ipatent.co.il', 'ipatent'],      expenseNature: 'human_supplier', category: 'משפטי',           paymentMethod: 'ספקים',  currency: 'ILS', expectedAmount: null, recurring: 'irregular', active: true, notes: 'ג׳י.אי.ארליך' },
   { id: 'box-domains',                name: 'box.co.il (דומיינים)',     aliases: ['box.co.il'],                     expenseNature: 'variable',       category: 'תוכנה/כלים',      paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: null, recurring: 'irregular', active: true, notes: 'רשם דומיינים · חשבונית linked (בלי PDF)' },
-  { id: 'upay',                       name: 'יופיי (upay)',            aliases: ['upay', 'upay.co.il'],            expenseNature: 'variable',       category: 'אחר',             paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: null, recurring: 'irregular', active: true, notes: 'פיננסים/סליקה — לאמת קטגוריה; חשבונית ללא PDF (linked)' },
+  { id: 'upay',                       name: 'יופיי (upay)',            aliases: ['upay', 'upay.co.il'],            expenseNature: 'variable',       category: 'אחר',             paymentMethod: 'אשראי',  currency: 'ILS', expectedAmount: null, recurring: 'irregular', active: false, notes: 'לא פעיל — ממתין להחלטת דוד מה זה; בינתיים ידני' },
 ];
 
 /**

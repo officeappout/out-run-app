@@ -34,6 +34,7 @@ import {
   isNotInvoiceNotification,
   isQuote,
   isCreditStatement,
+  isMunicipalIncome,
   isOutgoingOrIncome,
   looksLinkedInvoice,
   matchVendor,
@@ -443,6 +444,12 @@ export async function POST(request: NextRequest) {
         // Drop OUR OWN outgoing invoices / customer-charge income (expenses only).
         if (isOutgoingOrIncome(from, subject)) {
           result.skipped.push({ threadId, subject, reason: 'income/outgoing', mailbox });
+          continue;
+        }
+
+        // Drop municipal / B2G mail — municipalities are customers (income, Phase 2).
+        if (isMunicipalIncome(from, subject)) {
+          result.skipped.push({ threadId, subject, reason: 'b2g/municipal', mailbox });
           continue;
         }
 

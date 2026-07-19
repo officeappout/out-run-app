@@ -87,6 +87,21 @@ export async function getLastScan(): Promise<{ lastScanAt: string | null; writeE
   return jsonFetch(SCAN);
 }
 
+// ─── Accountant packet ────────────────────────────────────────────────────────
+
+/** Generate the monthly XLSX packet → Drive, returns links + summary. */
+export async function generatePacket(period: string): Promise<{
+  ok: boolean; period: string; count: number;
+  xlsxUrl: string; monthFolderUrl: string | null;
+  summary: { ilsGross: number; ilsNet: number; ilsVat: number; missing: number; foreign: Record<string, number> };
+}> {
+  return jsonFetch('/api/admin/finance/packet', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ period }),
+  });
+}
+
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
 export const CURRENCY_SYMBOL: Record<string, string> = { ILS: '₪', USD: '$', EUR: '€' };

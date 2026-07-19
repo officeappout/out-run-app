@@ -152,6 +152,15 @@ export function isCreditStatement(fromHeader: string, subject: string): boolean 
 }
 
 /**
+ * Municipal / B2G mail — municipalities are our CUSTOMERS (income, Phase 2), not
+ * expense vendors. Kept out of the expense queue with its own reason.
+ */
+const MUNICIPAL_PATTERNS: RegExp[] = [/\.gov\.il/i, /עיריי[הת]/, /מועצה\s*(אזורית|מקומית)/, /ladpc\.co\.il/i];
+export function isMunicipalIncome(fromHeader: string, subject: string): boolean {
+  return MUNICIPAL_PATTERNS.some((r) => r.test(`${fromHeader} ${subject}`));
+}
+
+/**
  * Invoice available behind a link (no attachment) — e.g. Google Workspace
  * "your invoice is available", "view your invoice", "החשבונית זמינה". Flagged so
  * a human fetches it; the scanner never follows the link.
