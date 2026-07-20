@@ -12,7 +12,7 @@
  * whole plan; peek only reveals the map.)
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -30,6 +30,11 @@ const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-s
 // Three detents as a fraction of the viewport that stays VISIBLE above the map.
 const DETENT = { peek: 0.20, half: 0.55, full: 0.90 } as const;
 type DetentId = keyof typeof DETENT;
+
+// Point 2: minimum downward travel (px) at scrollTop 0 before a content touch is
+// handed off from native scroll to the sheet drag. Small = responsive, but big
+// enough to disambiguate a deliberate downward pull from tap jitter.
+const SHEET_DRAG_HANDOFF_PX = 6;
 
 /** yPx = card top (from screen top); visible height = vh − yPx = DETENT·vh. */
 function buildAnchors(m: SheetMeasurements): SheetAnchor[] {
@@ -137,6 +142,40 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // anchor Y and its bottom stays flush with the screen bottom (CTA always visible).
   const cardH = Math.round(viewportH * (DETENT[currentAnchor as DetentId] ?? DETENT.half));
 
+  // ── Point 2: content-scroll ↔ sheet-drag arbitration ──────────────────────
+  // DELIBERATE local implementation — the shared useSheetScrollChain hook can NOT
+  // drive this sheet: it expects a `y` MotionValue + onClose (dismiss), whereas
+  // useSheetDrag positions the sheet via useAnimation `controls` across three
+  // detents (peek/half/full) with no MotionValue. So we reproduce the same
+  // Instagram/Moovit arbitration locally: the drawer is draggable from the body
+  // ONLY when it is scrolled to the top AND the user pulls DOWN; otherwise the
+  // touch scrolls the content. We hand the gesture to the SAME dragControls the
+  // grabber uses, so the existing detent-snap logic (handleDragEnd) is untouched.
+  // FUTURE: unify with useSheetScrollChain once that hook supports detent sheets
+  // (feat/hybrid-drawer-ux · point 2). This is not an oversight.
+  const scrollBodyRef = useRef<HTMLDivElement>(null);
+  const dragGesture = useRef<{ id: number | null; startY: number; handedOff: boolean }>({
+    id: null,
+    startY: 0,
+    handedOff: false,
+  });
+  const onScrollPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragGesture.current = { id: e.pointerId, startY: e.clientY, handedOff: false };
+  };
+  const onScrollPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = dragGesture.current;
+    if (g.handedOff || g.id !== e.pointerId) return;
+    const atTop = (scrollBodyRef.current?.scrollTop ?? 0) <= 0;
+    const pullingDown = e.clientY - g.startY > SHEET_DRAG_HANDOFF_PX;
+    if (atTop && pullingDown) {
+      g.handedOff = true;
+      dragControls.start(e); // → the existing detent drag (same as the grabber)
+    }
+  };
+  const endScrollGesture = () => {
+    dragGesture.current.id = null;
+  };
+
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none" dir="rtl">
       <motion.div
@@ -177,7 +216,14 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               so any sub-pixel-wide child let a horizontal drag rubber-band the
               whole body sideways. The nested Moovit strip keeps its own
               overflow-x-auto, so its intentional horizontal scroll still works. */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-2">
+          <div
+            ref={scrollBodyRef}
+            onPointerDown={onScrollPointerDown}
+            onPointerMove={onScrollPointerMove}
+            onPointerUp={endScrollGesture}
+            onPointerCancel={endScrollGesture}
+            className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pt-2"
+          >
             {composed.bolts ? (
               /* full-park: ONE unified title row — title · duration · finish */
               <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
