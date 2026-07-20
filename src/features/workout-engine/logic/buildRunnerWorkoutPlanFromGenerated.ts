@@ -109,6 +109,14 @@ export function buildRunnerWorkoutPlanFromGenerated(
     // Hebrew grammar: '1 חזרה' not '1 חזרות'
     const fmtReps = (n: number) => (n === 1 ? 'חזרה אחת' : `${n} חזרות`);
     const fmtSecs = (n: number) => (n === 1 ? 'שנייה אחת' : `${n} שניות`);
+    // Follow-along VIDEO items carry their real length on the execution method
+    // (media.videoDurationSeconds). Their `reps` is a placeholder — the recovery
+    // trio builder hardcodes reps:1 — so deriving the duration text from reps
+    // renders "שנייה אחת" for a 14-minute clip. Video items read the clip length;
+    // rep-based exercises keep the existing reps-derived text untouched.
+    const fmtClip = (s: number) => (s >= 60 ? `${Math.round(s / 60)} דקות` : fmtSecs(s));
+    const clipSeconds = Number((ex.method as any)?.media?.videoDurationSeconds) || 0;
+    const useClipDuration = Boolean((ex.exercise as any).isFollowAlong) && clipSeconds > 0;
 
     return {
       id: ex.exercise.id,
@@ -119,9 +127,11 @@ export function buildRunnerWorkoutPlanFromGenerated(
           : fmtReps(ex.reps)
       ),
       duration: actuallyTimeBased ? (
-        ex.repsRange && ex.repsRange.min !== ex.repsRange.max
-          ? `${ex.repsRange.min}-${ex.repsRange.max} שניות`
-          : fmtSecs(ex.reps)
+        useClipDuration
+          ? fmtClip(clipSeconds)
+          : ex.repsRange && ex.repsRange.min !== ex.repsRange.max
+            ? `${ex.repsRange.min}-${ex.repsRange.max} שניות`
+            : fmtSecs(ex.reps)
       ) : undefined,
       videoUrl: resolvedVideoUrl,
       imageUrl: resolvedImageUrl,
