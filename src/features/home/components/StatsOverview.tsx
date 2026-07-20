@@ -7,6 +7,8 @@ import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { SHOW_MISSED_DAYS_PROMPTS, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
 import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
 import AnchorOptionToggles from './AnchorOptionToggles';
+import AnchorLocationChip from './AnchorLocationChip';
+import type { LocationId } from './WorkoutBuilderSheet';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 // PR 4 (Apr 2026) — these widgets were removed from this file as part of the
 // dashboard restructure. They are now mounted by the new dashboard rows in
@@ -578,6 +580,27 @@ export default function StatsOverview({
     pendingScheduleRegenRef.current = true; // intentional re-generation triggered by scheduler
   }, [scheduleVersion]);
 
+  // R-1.3 — location regen signal. The generation effect reads the location from
+  // sessionStorage but does NOT depend on it, so changing location alone would not
+  // regenerate. The anchor's location chip bumps this counter, which mirrors the
+  // scheduleVersion pattern above (clear the guard + mark the regen intentional so
+  // the Custom-Builder bypass does not swallow it). Stays 0 while the anchor is off.
+  const [locationVersion, setLocationVersion] = useState(0);
+  useEffect(() => {
+    if (locationVersion === 0) return;
+    didGenerate.current = false;
+    pendingScheduleRegenRef.current = true;
+  }, [locationVersion]);
+
+  /** Anchor location chip → persist + regenerate for the new location. */
+  const handleAnchorLocationChange = useCallback((id: LocationId) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('currentWorkoutLocation', id);
+    }
+    setCurrentWorkoutLocation(id);
+    setLocationVersion((v) => v + 1);
+  }, []);
+
   // Generate workout on mount / date change — UTS Phase 2 date-reactive path
   //
   // GPS race-condition fix: park equipment is resolved INSIDE this effect,
@@ -848,7 +871,9 @@ export default function StatsOverview({
         genPerfEnd(); // #0: print the phase/read table (no-op unless GEN_TIMING is on)
       }
     })();
-  }, [profile?.id, isGuest, targetDate, scheduleVersion]);
+    // locationVersion: bumped by the anchor's location chip (R-1.3). Constant 0 while
+    // HOME_ANCHOR_V2_ENABLED is off, so the effect fires exactly as before.
+  }, [profile?.id, isGuest, targetDate, scheduleVersion, locationVersion]);
 
   // Persist hero media to sessionStorage so the Workout Detail page can reuse it
   useEffect(() => {
@@ -1035,8 +1060,27 @@ export default function StatsOverview({
     <div>
       {/* Header + description — padded */}
       <div className="px-5" dir="rtl">
-        <div className="relative mb-1">
+        <div
+          className={
+            HOME_ANCHOR_V2_ENABLED
+              ? 'relative mb-1 flex items-center justify-between gap-2'
+              : 'relative mb-1'
+          }
+        >
           <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">האימון היומי שלך</h3>
+          {/* R-1.3 — location square beside the title; changing it regenerates. */}
+          {HOME_ANCHOR_V2_ENABLED && (
+            <AnchorLocationChip
+              value={
+                currentWorkoutLocation === 'park' ||
+                currentWorkoutLocation === 'gym' ||
+                currentWorkoutLocation === 'home'
+                  ? currentWorkoutLocation
+                  : 'park'
+              }
+              onSelect={handleAnchorLocationChange}
+            />
+          )}
           {!hasCompletedAssessment && (
             <img
               src="/assets/lemur/lemur_curious_peek.png"

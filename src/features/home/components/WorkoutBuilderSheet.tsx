@@ -26,7 +26,7 @@ import { resolveToSlug } from '@/features/workout-engine/services/program-hierar
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
-type LocationId = 'park' | 'gym' | 'home';
+export type LocationId = 'park' | 'gym' | 'home';
 
 interface DisplayProgram {
   id: string;
@@ -50,7 +50,7 @@ export interface WorkoutBuilderSheetProps {
   onClose: () => void;
 }
 
-const LOCATION_OPTIONS: {
+export const LOCATION_OPTIONS: {
   id: LocationId;
   label: string;
   sub: string;
