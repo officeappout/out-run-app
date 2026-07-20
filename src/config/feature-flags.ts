@@ -186,6 +186,15 @@ export const PLS_CACHE_ENABLED = true;
 // StrengthRing primitives are unreferenced until this flag wires them in.
 export const STRENGTH_RING_ENABLED = false;
 
+// HOME_ANCHOR_V2: the home workout anchor redesign (R Track 1) — swaps the horizontal
+// trio carousel for a single hero (the recommended option) + a toggle row (the 3
+// options), adds a location square + swipe-between-days, and reorders home to
+// "workout-first" (schedule → anchor → metrics). The engine is unchanged
+// (generateHomeWorkoutTrio still returns 3 options); only presentation changes.
+// While FALSE the anchor renders the existing WorkoutSelectionCarousel and home keeps
+// its current order — BYTE-IDENTICAL. Gates every R-1.x sub-change.
+export const HOME_ANCHOR_V2_ENABLED = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================
