@@ -1093,9 +1093,7 @@ export default function StatsOverview({
             <AnchorLocationChip
               value={
                 pinnedLocation ??
-                (currentWorkoutLocation === 'park' ||
-                currentWorkoutLocation === 'gym' ||
-                currentWorkoutLocation === 'home'
+                (currentWorkoutLocation === 'park' || currentWorkoutLocation === 'home'
                   ? currentWorkoutLocation
                   : 'park')
               }

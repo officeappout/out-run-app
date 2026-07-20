@@ -56,8 +56,10 @@ export const LOCATION_OPTIONS: {
   sub: string;
   Icon: React.ComponentType<{ size: number; className?: string }>;
 }[] = [
+  // חדר כושר removed from every user-facing location picker — no gym footage exists.
+  // 'gym' intentionally REMAINS in the ExecutionLocation type + LocationId so already
+  // gym-tagged content stays valid; it is simply not offerable.
   { id: 'park', label: 'בחוץ',     sub: 'פארק / מגרש', Icon: Trees },
-  { id: 'gym',  label: 'חדר כושר', sub: 'מכשירים',      Icon: Dumbbell },
   { id: 'home', label: 'בבית',     sub: 'אימון ביתי',   Icon: Home },
 ];
 
@@ -779,8 +781,8 @@ export default function WorkoutBuilderSheet({
 
         {/* 1. מיקום וציוד — merged section */}
         <Section title="מיקום וציוד">
-          {/* Location 3-col grid */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          {/* Location grid — 2 options since חדר כושר was removed */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
             {LOCATION_OPTIONS.map(({ id, label, sub, Icon }) => {
               const active = location === id;
               return (

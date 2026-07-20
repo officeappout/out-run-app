@@ -35,7 +35,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Home, MapPin, Building, PersonStanding, Loader2 } from 'lucide-react';
+import { X, Home, MapPin, PersonStanding, Loader2 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
@@ -382,7 +382,10 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
                     מקום אימון
                   </p>
-                  <div className="grid grid-cols-3 gap-2 mb-5">
+                  {/* חדר כושר removed — no gym footage exists. The 'gym' PresetId and
+                      its applyPreset branch are intentionally kept so a previously
+                      stored filterLocation still resolves; it is simply not offerable. */}
+                  <div className="grid grid-cols-2 gap-2 mb-5">
                     <PresetButton
                       active={activePreset === 'home'}
                       onClick={() => applyPreset('home')}
@@ -394,12 +397,6 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
                       onClick={() => applyPreset('park')}
                       icon={<MapPin size={18} />}
                       label="פארק"
-                    />
-                    <PresetButton
-                      active={activePreset === 'gym'}
-                      onClick={() => applyPreset('gym')}
-                      icon={<Building size={18} />}
-                      label="חדר כושר"
                     />
                   </div>
                 </>
