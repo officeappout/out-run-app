@@ -4,8 +4,10 @@ import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react'
 import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
-import { SHOW_MISSED_DAYS_PROMPTS } from '@/config/feature-flags';
-import { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
+import { SHOW_MISSED_DAYS_PROMPTS, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
+import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
+import AnchorOptionToggles from './AnchorOptionToggles';
+import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 // PR 4 (Apr 2026) — these widgets were removed from this file as part of the
 // dashboard restructure. They are now mounted by the new dashboard rows in
 // `src/features/home/components/rows/`. The imports remain available for
@@ -36,7 +38,7 @@ import { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/log
 import { generateHomeWorkoutTrio } from '@/features/workout-engine/services/home-workout.service';
 import type { HomeWorkoutTrioResult } from '@/features/workout-engine/services/home-workout.types';
 import { genPerfBegin, genPerfMark, genPerfEnd } from '@/lib/gen-perf';
-import WorkoutSelectionCarousel, { CarouselSkeleton } from './WorkoutSelectionCarousel';
+import WorkoutSelectionCarousel, { CarouselSkeleton, BuildCustomButton } from './WorkoutSelectionCarousel';
 import {
   useWeeklyVolumeStore,
   calculateWeeklyBudget,
@@ -1068,17 +1070,41 @@ export default function StatsOverview({
       <div className="relative">
         <div className={!hasCompletedAssessment ? 'blur-md pointer-events-none select-none' : ''}>
           {trioResult ? (
-            <WorkoutSelectionCarousel
-              options={trioResult.options}
-              isRestDay={trioResult.isRestDay}
-              onSelect={handleTrioSelect}
-              onStart={handleTrioStart}
-              workoutLocation={currentWorkoutLocation}
-              programIconKey={primaryDomainId}
-              selectedIndex={selectedOptionIndex}
-              userGender={profile?.core?.gender}
-              onBuildCustom={handleBuildCustomWrapped}
-            />
+            HOME_ANCHOR_V2_ENABLED ? (
+              /* R Track 1 anchor: toggle row (3 options) → single hero (recommended)
+                 → "מחולל" builder. Engine unchanged — still trioResult.options[3];
+                 selection reuses selectedOptionIndex + handleTrioSelect/handleTrioStart. */
+              <div className="flex flex-col items-center gap-3 px-4">
+                <AnchorOptionToggles
+                  labels={trioResult.options.map((o) => o.label)}
+                  selectedIndex={selectedOptionIndex}
+                  onSelect={handleTrioSelect}
+                  recommendedIndex={trioResult.meta?.defaultFocusIndex}
+                />
+                <HeroWorkoutCard
+                  variant="active"
+                  workout={generatedToHeroWorkout(trioResult.options[selectedOptionIndex].result.workout)}
+                  exercises={trioResult.options[selectedOptionIndex].result.workout.exercises}
+                  workoutLocation={currentWorkoutLocation}
+                  programIconKey={primaryDomainId}
+                  userGender={profile?.core?.gender}
+                  onStart={() => handleTrioStart(selectedOptionIndex)}
+                />
+                <BuildCustomButton onTap={handleBuildCustomWrapped} userGender={profile?.core?.gender} />
+              </div>
+            ) : (
+              <WorkoutSelectionCarousel
+                options={trioResult.options}
+                isRestDay={trioResult.isRestDay}
+                onSelect={handleTrioSelect}
+                onStart={handleTrioStart}
+                workoutLocation={currentWorkoutLocation}
+                programIconKey={primaryDomainId}
+                selectedIndex={selectedOptionIndex}
+                userGender={profile?.core?.gender}
+                onBuildCustom={handleBuildCustomWrapped}
+              />
+            )
           ) : (
             <CarouselSkeleton />
           )}

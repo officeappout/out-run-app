@@ -488,7 +488,7 @@ const MESSAGES_FEMALE = [
   'רוצה לבנות אימון בעצמך? ✦',
 ];
 
-function BuildCustomButton({
+export function BuildCustomButton({
   onTap,
   userGender,
 }: {
