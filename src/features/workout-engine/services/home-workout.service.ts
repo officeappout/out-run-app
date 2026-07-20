@@ -384,9 +384,13 @@ async function tryBuildRecoveryVideoTrio(
 
   const location = (options.location ?? DEFAULT_LOCATION);
   const daysInactive = calculateDaysInactive(userProfile);
-  const persona = mapPersonaIdToLifestylePersona(
-    (userProfile as any).lifestyle?.selectedPersona ?? null,
-  );
+  // Guard: pass the FULL profile (the fn extracts lifestyleTags/personaId itself,
+  // matching the canonical call ~L1266). The prior arg — `.lifestyle?.selectedPersona
+  // ?? null` — collapsed to null and crashed the fn's `userProfile.lifestyle` read.
+  // Null profile → null persona (persona is metadata-only here; safe skip).
+  const persona = userProfile
+    ? mapPersonaIdToLifestylePersona(userProfile)
+    : null;
   const timeOfDay = detectTimeOfDay();
 
   const trio: WorkoutTrioOption[] = picked.map((ex, i) => {
