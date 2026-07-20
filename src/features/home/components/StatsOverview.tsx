@@ -592,8 +592,23 @@ export default function StatsOverview({
     pendingScheduleRegenRef.current = true;
   }, [locationVersion]);
 
-  /** Anchor location chip → persist + regenerate for the new location. */
+  /**
+   * The user's EXPLICIT location pick ("pinned"), deliberately kept SEPARATE from
+   * `currentWorkoutLocation` — which is the engine's ECHO of what it actually
+   * generated for (`trio.meta.location`). The generation write-back rewrites that
+   * echo on every run, so without this split an explicit pick is reverted the
+   * moment the next trio lands (and, because the echo is also written to
+   * sessionStorage, erased permanently for subsequent runs too).
+   * Stays null until the user touches the chip → unchanged behaviour otherwise.
+   */
+  const [pinnedLocation, setPinnedLocation] = useState<LocationId | null>(null);
+  // Ref mirror so the generation effect can read the pin without re-subscribing.
+  const pinnedLocationRef = useRef<LocationId | null>(null);
+  useEffect(() => { pinnedLocationRef.current = pinnedLocation; }, [pinnedLocation]);
+
+  /** Anchor location chip → pin the user's choice + regenerate for it. */
   const handleAnchorLocationChange = useCallback((id: LocationId) => {
+    setPinnedLocation(id);
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('currentWorkoutLocation', id);
     }
@@ -861,7 +876,11 @@ export default function StatsOverview({
         }
         const loc = trio.meta?.location || effectiveLocation;
         setCurrentWorkoutLocation(loc);
-        if (typeof window !== 'undefined' && loc) {
+        // Never let the engine echo erase an explicit user pick. This key is both the
+        // cross-surface channel (active page / preview drawer read it) AND the first
+        // link in the NEXT run's location chain, so overwriting it would revert the
+        // pin permanently. Unpinned → unchanged behaviour.
+        if (typeof window !== 'undefined' && loc && !pinnedLocationRef.current) {
           sessionStorage.setItem('currentWorkoutLocation', loc);
         }
       } catch (err) {
@@ -1068,15 +1087,17 @@ export default function StatsOverview({
           }
         >
           <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">האימון היומי שלך</h3>
-          {/* R-1.3 — location square beside the title; changing it regenerates. */}
+          {/* Location square beside the title. Shows the user's pin when there is one,
+              otherwise the engine's echo (clamped to the pickable set). */}
           {HOME_ANCHOR_V2_ENABLED && (
             <AnchorLocationChip
               value={
-                currentWorkoutLocation === 'park' ||
+                pinnedLocation ??
+                (currentWorkoutLocation === 'park' ||
                 currentWorkoutLocation === 'gym' ||
                 currentWorkoutLocation === 'home'
                   ? currentWorkoutLocation
-                  : 'park'
+                  : 'park')
               }
               onSelect={handleAnchorLocationChange}
             />
