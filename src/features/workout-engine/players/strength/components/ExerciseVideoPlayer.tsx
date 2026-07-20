@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { RefreshCw, ExternalLink, AlertCircle, GraduationCap, X } from 'lucide-react';
+import { RefreshCw, ExternalLink, AlertCircle, GraduationCap, X, Smartphone, Maximize } from 'lucide-react';
 import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
@@ -75,6 +75,63 @@ export default function ExerciseVideoPlayer({
   const [iframeError, setIframeError] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // ── Landscape / fullscreen support (follow-along clips only) ───────────
+  // Recovery follow-along clips are shot 16:9 (verified: Bunny renditions are
+  // 640x360 … 1920x1080), so `object-contain` letterboxes them into a thin band
+  // on a portrait phone. Rotating already fills the screen — the user just has
+  // no way to know that. So: a one-shot rotate hint + an explicit fullscreen
+  // button, both scoped to follow-along so the short reps/time preview loops
+  // (strength) keep their current behaviour byte-for-byte.
+  const [isLandscape, setIsLandscape] = useState(false);
+  const [showRotateHint, setShowRotateHint] = useState(false);
+  const hintShownForRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(orientation: landscape)');
+    const sync = () => setIsLandscape(mq.matches);
+    sync();
+    mq.addEventListener?.('change', sync);
+    window.addEventListener('orientationchange', sync);
+    return () => {
+      mq.removeEventListener?.('change', sync);
+      window.removeEventListener('orientationchange', sync);
+    };
+  }, []);
+
+  // Show the hint once per exercise, only while portrait; auto-hide after 3s.
+  useEffect(() => {
+    if (exerciseType !== 'follow-along') return;
+    if (isLandscape) return;
+    if (hintShownForRef.current === exerciseId) return;
+    hintShownForRef.current = exerciseId;
+    setShowRotateHint(true);
+    const t = setTimeout(() => setShowRotateHint(false), 3000);
+    return () => clearTimeout(t);
+  }, [exerciseType, exerciseId, isLandscape]);
+
+  // Rotating to landscape satisfies the hint — drop it immediately.
+  useEffect(() => {
+    if (isLandscape) setShowRotateHint(false);
+  }, [isLandscape]);
+
+  /**
+   * iOS WKWebView/Safari do NOT implement Fullscreen API on arbitrary elements —
+   * only `<video>` via the webkit-prefixed call. Try that first, then the
+   * standard API for Android/desktop. Silent no-op if neither exists.
+   */
+  const enterFullscreen = useCallback(() => {
+    const v = videoRef.current as (HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+    }) | null;
+    if (!v) return;
+    if (typeof v.webkitEnterFullscreen === 'function') {
+      v.webkitEnterFullscreen();
+      return;
+    }
+    v.requestFullscreen?.().catch(() => {});
+  }, []);
 
   // ── Global audio state (set by the user in WorkoutPreviewDrawer) ──
   const isAudioEnabled = useMemo(() => {
@@ -384,6 +441,49 @@ export default function ExerciseVideoPlayer({
             />
           </div>
         </div>
+      )}
+
+      {/* Follow-along only: fullscreen affordance + one-shot rotate hint.
+          Both live in the SAME z-[46] band as the tutorial CTA — no new z-index
+          value is introduced (see .cursorrules Z-Index Budget). The hint stays
+          mounted at opacity:0 so it can fade rather than pop, and is
+          pointer-events-none so it never intercepts a tap on the video. */}
+      {exerciseType === 'follow-along' && hasValidDirectVideoUrl && (
+        <>
+          <button
+            onClick={enterFullscreen}
+            className="absolute bottom-[236px] left-4 z-[46] inline-flex items-center justify-center w-10 h-10 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full shadow-lg transition-all border border-white/20"
+            aria-label="מסך מלא"
+            title="מסך מלא"
+          >
+            <Maximize size={18} />
+          </button>
+
+          <div
+            className="absolute inset-x-0 bottom-[292px] z-[46] flex justify-center pointer-events-none transition-opacity duration-500"
+            style={{ opacity: showRotateHint ? 1 : 0 }}
+            aria-hidden={!showRotateHint}
+          >
+            <div
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-black/60 backdrop-blur-md text-white rounded-full shadow-lg border border-white/20"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+              dir="rtl"
+            >
+              <Smartphone
+                size={16}
+                style={{ animation: 'outRotateHint 1.8s ease-in-out infinite' }}
+              />
+              <span className="text-[13px] font-bold">סובב לצפייה מלאה</span>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes outRotateHint {
+              0%, 100% { transform: rotate(0deg); }
+              45%, 65% { transform: rotate(90deg); }
+            }
+          `}</style>
+        </>
       )}
 
       {/* Bottom-up Gradient - Melting into white card */}
