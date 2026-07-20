@@ -206,6 +206,7 @@ export default function HybridJourneyAxis({
                                   exercise={we}
                                   cachedImageUrl={hybridImage(we)}
                                   isSuperset
+                                  framed
                                   onTap={() => onExerciseTap?.(we)}
                                   onSwap={() => onSwapExercise?.(i, exs.indexOf(we), we)}
                                 />
@@ -234,6 +235,7 @@ export default function HybridJourneyAxis({
                           exercise={we}
                           cachedImageUrl={hybridImage(we)}
                           isSuperset
+                          framed
                           onTap={() => onExerciseTap?.(we)}
                           onSwap={() => onSwapExercise?.(i, k, we)}
                         />
