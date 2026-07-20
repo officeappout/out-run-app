@@ -1313,21 +1313,33 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* ── Daily Workout Hero — always visible ─────────────── */}
-              <StatsOverview
-                stats={MOCK_STATS}
-                onStartWorkout={handleHeroPress}
-                onDirectStart={handleDirectStart}
-                onWorkoutGenerated={handleWorkoutGenerated}
-                selectedDate={selectedDate}
-                hasCompletedAssessment={hasCompletedAssessment}
-                hideWorkoutSection={!!postWorkoutData || todayWorkoutDone}
-                enableRunningPrograms={featureFlags.enableRunningPrograms}
-                scheduleVersion={scheduleVersion}
-                onBuildCustom={handleBuildCustom}
-                generateSingleOption={isWorkoutLoading}
-                isViewingFutureDate={selectedDate > toISODate(new Date())}
-              />
+              {/* ── Daily Workout Hero — always visible ───────────────
+                  R-1.5 (order B, workout-first): with HOME_ANCHOR_V2_ENABLED the
+                  anchor is pulled ABOVE the tabs/metrics via flex `order-first`,
+                  giving schedule → anchor → metrics. A single element is reused for
+                  both branches (no prop duplication); while the flag is off it is
+                  rendered bare, last, exactly as before → byte-identical DOM. */}
+              {(() => {
+                const anchor = (
+                  <StatsOverview
+                    stats={MOCK_STATS}
+                    onStartWorkout={handleHeroPress}
+                    onDirectStart={handleDirectStart}
+                    onWorkoutGenerated={handleWorkoutGenerated}
+                    selectedDate={selectedDate}
+                    hasCompletedAssessment={hasCompletedAssessment}
+                    hideWorkoutSection={!!postWorkoutData || todayWorkoutDone}
+                    enableRunningPrograms={featureFlags.enableRunningPrograms}
+                    scheduleVersion={scheduleVersion}
+                    onBuildCustom={handleBuildCustom}
+                    generateSingleOption={isWorkoutLoading}
+                    isViewingFutureDate={selectedDate > toISODate(new Date())}
+                  />
+                );
+                return HOME_ANCHOR_V2_ENABLED
+                  ? <div className="order-first">{anchor}</div>
+                  : anchor;
+              })()}
             </div>
           );
         })()}
