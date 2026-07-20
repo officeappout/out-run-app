@@ -114,6 +114,28 @@ export function useSwapAll({
 
         const newEntries: WorkoutExercise[] = [];
         for (const we of generatedWorkout.exercises) {
+          // ── Role awareness (R Track 1 item 3) ──────────────────────────────
+          // Warmup/cooldown blocks hold TWO kinds:
+          //   (a) follow-along guides — one location-agnostic video, no methods to
+          //       swap. Keep as-is and do NOT mark dimensionUnavailable (they have
+          //       no gear gap to flag — a badge here is always false).
+          //   (b) preparation exercises — ordinary low-level exercises WITH methods.
+          //       Swap them like a main, but the level ladder (step 2) must never
+          //       pull in a HIGHER-level exercise: prep is deliberately low-level,
+          //       and getAlternativeExercises' ±3 window is symmetric.
+          const role = we.exerciseRole;
+          const isWarmupOrCooldown = role === 'warmup' || role === 'cooldown';
+          const methodCount =
+            (we.exercise.execution_methods ?? we.exercise.executionMethods ?? []).length;
+          if (isWarmupOrCooldown && we.exercise.isFollowAlong === true && methodCount <= 1) {
+            // (a) follow-along guide → skip untouched, no mark.
+            newEntries.push(we);
+            continue;
+          }
+          // `allowHigherLevel` is the only behavioural change for (b): warmup/cooldown
+          // preparation entries forbid a higher-level replacement; mains keep today's
+          // behaviour exactly.
+          const allowHigherLevel = !isWarmupOrCooldown;
           // 0) Pyramids are ATOMIC for a location swap (Phase 1, Option A). The rendered
           //    content lives in `pyramidSequence[]` (per-step lever variants), which this
           //    shell-level swap does NOT re-derive — a partial swap would leave a new
@@ -147,7 +169,13 @@ export function useSwapAll({
           const pick =
             alts.find(
               (a) => a.levelComparison === 'same' && methodHasCompleteMedia(a.selectedExecutionMethod),
-            ) ?? alts.find((a) => methodHasCompleteMedia(a.selectedExecutionMethod));
+            ) ??
+            (allowHigherLevel
+              ? alts.find((a) => methodHasCompleteMedia(a.selectedExecutionMethod))
+              : alts.find(
+                  (a) =>
+                    a.levelComparison === 'lower' && methodHasCompleteMedia(a.selectedExecutionMethod),
+                ));
           if (pick && pick.selectedExecutionMethod) {
             newEntries.push(deriveSwappedEntry(we, pick.exercise, pick.selectedExecutionMethod));
             exclude.add(pick.exercise.id);
