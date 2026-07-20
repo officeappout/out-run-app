@@ -10,6 +10,9 @@ import AnchorOptionToggles from './AnchorOptionToggles';
 import AnchorLocationChip from './AnchorLocationChip';
 import type { LocationId } from './WorkoutBuilderSheet';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
+import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
+import { useSwapAll } from '@/features/workouts/components/workout-preview-drawer/hooks/useSwapAll';
+import { useExercisePool } from '@/features/workouts/components/workout-preview-drawer/hooks/useExercisePool';
 // PR 4 (Apr 2026) — these widgets were removed from this file as part of the
 // dashboard restructure. They are now mounted by the new dashboard rows in
 // `src/features/home/components/rows/`. The imports remain available for
@@ -580,17 +583,45 @@ export default function StatsOverview({
     pendingScheduleRegenRef.current = true; // intentional re-generation triggered by scheduler
   }, [scheduleVersion]);
 
-  // R-1.3 — location regen signal. The generation effect reads the location from
-  // sessionStorage but does NOT depend on it, so changing location alone would not
-  // regenerate. The anchor's location chip bumps this counter, which mirrors the
-  // scheduleVersion pattern above (clear the guard + mark the regen intentional so
-  // the Custom-Builder bypass does not swallow it). Stays 0 while the anchor is off.
-  const [locationVersion, setLocationVersion] = useState(0);
-  useEffect(() => {
-    if (locationVersion === 0) return;
-    didGenerate.current = false;
-    pendingScheduleRegenRef.current = true;
-  }, [locationVersion]);
+  // R Track 1 items 1+2 — the anchor location chip SWAPS execution methods on the
+  // selected option (exactly like the workout-preview drawer), instead of forcing a
+  // full re-generation. This is why the chip finally "sticks": regeneration ran
+  // through ULTIMATE PARK FORCE (which discards the requested location), whereas the
+  // swap path resolves methods via selectMethodForContext and honours the location.
+  const anchorSelectedWorkout = trioResult?.options[selectedOptionIndex]?.result.workout;
+  // item 2 — reuse the drawer's pool hook so the swap does 0 per-exercise reads.
+  const { exercisePool: anchorExercisePool } = useExercisePool({
+    isOpen: HOME_ANCHOR_V2_ENABLED,
+    generatedWorkout: anchorSelectedWorkout,
+    workoutId: undefined,
+  });
+  // Writeback: replace ONLY the selected option's workout in the trio (immutable),
+  // mirroring the ProcessingOverlay path below.
+  const writeSwappedOption = useCallback((gw: GeneratedWorkout) => {
+    setTrioResult((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, options: [...prev.options] as [any, any, any] };
+      updated.options[selectedOptionIndex] = {
+        ...updated.options[selectedOptionIndex],
+        result: { ...updated.options[selectedOptionIndex].result, workout: gw },
+      };
+      return updated;
+    });
+    onWorkoutGenerated?.(gw);
+  }, [selectedOptionIndex, onWorkoutGenerated]);
+  // currentLocation = the shown workout's stamped location (so a home→park round-trip
+  // isn't swallowed by useSwapAll's same-location no-op guard), falling back to the echo.
+  const anchorShownLocation =
+    (((anchorSelectedWorkout as any)?.executionLocation as ExecutionLocation) ||
+      (currentWorkoutLocation as ExecutionLocation) ||
+      'park');
+  const { swapAll: anchorSwapAll } = useSwapAll({
+    generatedWorkout: anchorSelectedWorkout,
+    onGeneratedWorkoutUpdate: writeSwappedOption,
+    userProfile: profile,
+    currentLocation: anchorShownLocation,
+    exercisePool: anchorExercisePool,
+  });
 
   /**
    * The user's EXPLICIT location pick ("pinned"), deliberately kept SEPARATE from
@@ -605,16 +636,19 @@ export default function StatsOverview({
   // Ref mirror so the generation effect can read the pin without re-subscribing.
   const pinnedLocationRef = useRef<LocationId | null>(null);
   useEffect(() => { pinnedLocationRef.current = pinnedLocation; }, [pinnedLocation]);
+  // A fresh day generates a fresh trio (possibly a different location) — drop the pin
+  // so the chip reflects the new workout rather than a stale prior choice.
+  useEffect(() => { setPinnedLocation(null); }, [targetDate]);
 
-  /** Anchor location chip → pin the user's choice + regenerate for it. */
+  /** Anchor location chip → pin the choice + swap methods in place (NOT a regen). */
   const handleAnchorLocationChange = useCallback((id: LocationId) => {
     setPinnedLocation(id);
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('currentWorkoutLocation', id);
     }
     setCurrentWorkoutLocation(id);
-    setLocationVersion((v) => v + 1);
-  }, []);
+    void anchorSwapAll('location', id);
+  }, [anchorSwapAll]);
 
   // Generate workout on mount / date change — UTS Phase 2 date-reactive path
   //
@@ -890,9 +924,7 @@ export default function StatsOverview({
         genPerfEnd(); // #0: print the phase/read table (no-op unless GEN_TIMING is on)
       }
     })();
-    // locationVersion: bumped by the anchor's location chip (R-1.3). Constant 0 while
-    // HOME_ANCHOR_V2_ENABLED is off, so the effect fires exactly as before.
-  }, [profile?.id, isGuest, targetDate, scheduleVersion, locationVersion]);
+  }, [profile?.id, isGuest, targetDate, scheduleVersion]);
 
   // Persist hero media to sessionStorage so the Workout Detail page can reuse it
   useEffect(() => {
