@@ -40,7 +40,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED } from '@/config/feature-flags';
+import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -1215,6 +1215,7 @@ export default function HomePage() {
               hideMonthToggle
               onSwipeDown={() => setShowPlanner(true)}
               onOpenPlanner={() => setShowPlanner(true)}
+              enableDaySwipe={HOME_ANCHOR_V2_ENABLED}
               hasCompletedAssessment={hasCompletedAssessment}
               hasSchedule={hasSchedule}
               onStartAssessment={handleHeroPress}
