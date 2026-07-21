@@ -19,6 +19,7 @@ import { findMethodForLocation } from '@/features/content/exercises/core/exercis
 
 const AER = '#10B981';
 const STR = '#00C9F2'; // strength = BRAND_CYAN (app-wide strength color; see color-system.md §4)
+const FINISH = '#EF4444'; // journey end (matches the finish dot); the spine blends to it on the last leg
 const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text (same hue as STR)
 
@@ -42,15 +43,24 @@ function hybridImage(we: any): string {
   } catch { return ''; }
 }
 
-function Node({ kind, last }: { kind: 'aerobic' | 'strength'; last: boolean }) {
+function Node({ kind, nextColor }: { kind: 'aerobic' | 'strength'; nextColor: string }) {
   const color = kind === 'aerobic' ? AER : STR;
   return (
-    <div className="flex flex-col items-center flex-shrink-0" style={{ width: 44 }}>
-      <div className="rounded-full flex items-center justify-center text-white"
-        style={{ width: 44, height: 44, background: color, border: '3px solid #fff', boxShadow: `0 4px 12px ${color}66` }}>
+    <div className="relative flex flex-col items-center flex-shrink-0" style={{ width: 44 }}>
+      {/* Continuous spine (point 5): one 6px rail per node, colored by activity
+          (aerobic=green · strength=cyan) and blended to the NEXT node's color, so
+          the whole axis reads as ONE line through every station — like Moovit's
+          orange bar. Sits BEHIND the circle and overshoots the inter-row gap
+          (card mb-3 ≈ 12px); the overshoot is hidden by the opaque next circle/dot. */}
+      <span aria-hidden style={{
+        position: 'absolute', zIndex: 0, left: '50%', transform: 'translateX(-50%)',
+        top: 22, bottom: -20, width: 6, borderRadius: 3,
+        background: `linear-gradient(to bottom, ${color} 0%, ${color} 45%, ${nextColor} 100%)`,
+      }} />
+      <div className="relative rounded-full flex items-center justify-center text-white"
+        style={{ zIndex: 1, width: 44, height: 44, background: color, border: '3px solid #fff', boxShadow: `0 4px 12px ${color}66` }}>
         {kind === 'aerobic' ? <Footprints size={20} /> : <Dumbbell size={20} />}
       </div>
-      {!last && <div className="flex-1" style={{ width: 0, borderInlineStart: '2.5px dashed #CBD5E1', margin: '3px 0', minHeight: 12 }} />}
     </div>
   );
 }
@@ -91,18 +101,23 @@ export default function HybridJourneyAxis({
 }: AxisProps) {
   const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
   let aerIdx = 0, strIdx = 0;
+  const firstColor = segments[0]?.kind === 'strength' ? STR : AER;
   return (
     <div dir="rtl">
-      {/* start dot */}
+      {/* start dot + spine head */}
       <div className="flex items-center gap-2" style={{ margin: '0 2px 3px' }}>
-        <div className="flex justify-center" style={{ width: 44 }}>
-          <div style={{ width: 12, height: 12, borderRadius: '50%', background: AER, border: '3px solid #fff', boxShadow: `0 0 0 1.5px ${AER}` }} />
+        <div className="relative flex justify-center" style={{ width: 44 }}>
+          {/* spine head — green, blends into the first segment's color */}
+          <span aria-hidden style={{ position: 'absolute', zIndex: 0, left: '50%', transform: 'translateX(-50%)', top: 6, bottom: -14, width: 6, borderRadius: 3, background: `linear-gradient(to bottom, ${AER} 0%, ${AER} 45%, ${firstColor} 100%)` }} />
+          <div style={{ position: 'relative', zIndex: 1, width: 12, height: 12, borderRadius: '50%', background: AER, border: '3px solid #fff', boxShadow: `0 0 0 1.5px ${AER}` }} />
         </div>
         <span className="text-[11px] font-bold" style={{ color: '#6B7280' }}>נקודת התחלה</span>
       </div>
 
       {segments.map((seg, i) => {
         const last = i === segments.length - 1;
+        // Spine colour continues to the NEXT node (or the finish dot on the last leg).
+        const nextColor = last ? FINISH : (segments[i + 1].kind === 'aerobic' ? AER : STR);
         if (seg.kind === 'aerobic') {
           aerIdx += 1;
           const legLabel = aerIdx === 1 ? 'יציאה' : aerIdx === aerCount ? 'חזרה' : `${aerIdx}`;
@@ -115,10 +130,9 @@ export default function HybridJourneyAxis({
             : `רגל ריצה ${aerIdx} — ${legLabel}`;
           return (
             <div key={i} className="flex gap-3 items-stretch">
-              <Node kind="aerobic" last={last} />
+              <Node kind="aerobic" nextColor={nextColor} />
               <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
                 style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
-                <span className="absolute top-0 right-0 bottom-0" style={{ width: 4, background: AER }} />
                 <div style={{ padding: '11px 15px 12px 12px' }}>
                   {stationName ? (
                     <>
@@ -164,10 +178,9 @@ export default function HybridJourneyAxis({
         const sections = stationName ? groupExercisesIntoSections(exs as any) : [];
         return (
           <div key={i} className="flex gap-3 items-stretch">
-            <Node kind="strength" last={last} />
+            <Node kind="strength" nextColor={nextColor} />
             <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
               style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
-              <span className="absolute top-0 right-0 bottom-0" style={{ width: 4, background: STR }} />
               <div style={{ padding: '11px 15px 12px 12px' }}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[14px] font-black" style={{ color: '#111827' }}>תחנה {strIdx} — כוח</span>
