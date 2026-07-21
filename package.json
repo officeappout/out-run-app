@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "gen:equipment-icons": "node scripts/gen-equipment-icon-manifest.mjs",
+    "predev": "node scripts/gen-equipment-icon-manifest.mjs",
+    "prebuild": "node scripts/gen-equipment-icon-manifest.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

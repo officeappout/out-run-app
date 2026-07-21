@@ -6,6 +6,7 @@
 // re-export admin React forms, and this file sits in the ENGINE's import graph
 // (must stay pure TS: LAW 0 + node-env unit tests parse no JSX).
 import type { RequiredGearType, EquipmentType } from '@/features/content/exercises/core/exercise.types';
+import { EQUIPMENT_ICON_FILES } from './equipment-icon-manifest';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
@@ -926,6 +927,16 @@ export const CATEGORY_PRIORITY: Record<string, number> = {
 const GEAR_CATEGORY_MAP: Record<string, string> = {};
 
 /**
+ * The panel-authored iconKey, kept RAW (un-collapsed), keyed by both the doc id and
+ * its canonical. `resolveEquipmentSvgPath` prefers this over the static canonical
+ * collapse — so a doc that authored `training_steps` renders training_steps.svg
+ * instead of the shared `step` → steps.svg. Populated by registerGearAlias.
+ * Note: keyed by canonical too, so last-write-wins if two docs share a canonical
+ * with different iconKeys (no such collision in current data).
+ */
+const ICONKEY_BY_CANONICAL: Record<string, string> = {};
+
+/**
  * Register a Firestore document ID as an alias for a canonical key.
  *
  * Now also accepts an optional Hebrew `name` so that items WITHOUT an
@@ -958,6 +969,14 @@ export function registerGearAlias(
       ICON_KEY_TO_SVG[iconKey] = `/assets/icons/equipment/${iconKey}.svg`;
     }
     if (category) GEAR_CATEGORY_MAP[iconKey] = category;
+  }
+
+  // Remember the RAW authored iconKey (un-collapsed) so resolveEquipmentSvgPath can
+  // honour the panel's choice over the static canonical fold — but only when the SVG
+  // actually exists on disk (checked via the build-time manifest, never at runtime).
+  if (rawIconKey) {
+    ICONKEY_BY_CANONICAL[firestoreId] = rawIconKey;
+    if (iconKey) ICONKEY_BY_CANONICAL[iconKey] = rawIconKey;
   }
 }
 
@@ -1066,6 +1085,16 @@ const ICON_KEY_TO_SVG: Record<string, string> = {
  * Returns null when no dedicated SVG exists (caller should use a fallback icon).
  */
 export function resolveEquipmentSvgPath(id: string): string | null {
+  // Authored iconKey wins over the static canonical collapse — but ONLY when the SVG
+  // exists on disk (build-time manifest check, synchronous, no fetch/flicker). This
+  // is what lets "מדרגות אימון" (iconKey training_steps) reach training_steps.svg
+  // instead of the shared `step` → steps.svg, and makes any future panel pick win
+  // automatically. Falls through to the static table when the asset is missing, so a
+  // pick without an uploaded SVG degrades to today's icon rather than a broken image.
+  const authored = ICONKEY_BY_CANONICAL[id] ?? (ALIAS_TO_CANONICAL[id] ? ICONKEY_BY_CANONICAL[ALIAS_TO_CANONICAL[id]] : undefined);
+  if (authored && EQUIPMENT_ICON_FILES.has(`${authored}.svg`)) {
+    return `/assets/icons/equipment/${authored}.svg`;
+  }
   if (ICON_KEY_TO_SVG[id]) return ICON_KEY_TO_SVG[id];
   // Try canonical normalization (handles Firestore doc IDs)
   const canonical = ALIAS_TO_CANONICAL[id];
