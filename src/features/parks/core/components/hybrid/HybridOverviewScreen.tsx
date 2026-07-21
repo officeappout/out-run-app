@@ -14,7 +14,7 @@
 
 import { useState, useRef } from 'react';
 import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
-import { motion, useDragControls } from 'framer-motion';
+import { motion, useDragControls, useMotionValue, useTransform } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import CaloriesChip from '@/components/ui/CaloriesChip';
 import WeightInlineRow from '@/components/ui/WeightInlineRow';
@@ -140,7 +140,15 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     useSheetDrag(buildAnchors, 'half', { velocityThreshold: 250 });
   // Card height = the current detent's visible height, so its top sits at the
   // anchor Y and its bottom stays flush with the screen bottom (CTA always visible).
-  const cardH = Math.round(viewportH * (DETENT[currentAnchor as DetentId] ?? DETENT.half));
+  // Card height tracks the LIVE drag position, not the settled detent. The sheet
+  // is `absolute top-0` inside a wrapper translated by `y`, so its visible height
+  // must be (viewportH − y) for the bottom (CTA) to stay pinned to the screen
+  // bottom throughout the gesture. useSheetDrag drives `y` via `controls`; we
+  // mirror that into a MotionValue (`sheetY`) on the wrapper's style and derive
+  // the height from it. Fixes the "card frozen at the start-detent height while
+  // dragging" break (point-3 follow-up). useSheetDrag itself is untouched.
+  const sheetY = useMotionValue(Math.round(viewportH * (1 - DETENT.half)));
+  const cardHeight = useTransform(sheetY, (v) => Math.max(0, Math.round(viewportH - v)));
 
   // ── Point 2: content-scroll ↔ sheet-drag arbitration ──────────────────────
   // DELIBERATE local implementation — the shared useSheetScrollChain hook can NOT
@@ -188,15 +196,14 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
         onDragEnd={handleDragEnd}
         animate={controls}
         className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none"
-        style={{ touchAction: 'none' }}
+        style={{ y: sheetY, touchAction: 'none' }}
       >
-        <div
+        <motion.div
           ref={cardRef}
           className="absolute top-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl pointer-events-auto flex flex-col overflow-hidden"
           style={{
-            height: cardH,
+            height: cardHeight,
             paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
-            transition: 'height 0.28s cubic-bezier(0.22, 1, 0.36, 1)',
           }}
           data-anchor={currentAnchor}
         >
@@ -368,7 +375,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               <Play size={18} /> התחל אימון
             </button>
           </div>
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );
