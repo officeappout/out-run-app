@@ -46,41 +46,46 @@ function EquipmentDisplay({
   gymEquipmentList?: GymEquipment[];
   gearDefinitionsList?: GearDefinition[];
 }) {
-  // Collect unique equipment names from execution methods
-  const equipmentNames = new Set<string>();
-  
+  // Resolve equipment for display, aggregated across every execution method.
+  //
+  // Every id is read from BOTH fields (gearIds + equipmentIds, incl. the legacy
+  // singular gearId/equipmentId) regardless of requiredGearType, and deduped BY ID
+  // so the same id referenced by two methods (e.g. improvised + user_gear) yields a
+  // single chip. Each unique id is resolved once: gear_definitions first, then
+  // gym_equipment as a fallback — no field and no id is ever silently dropped.
+  // An id that resolves in NEITHER list is surfaced as a visible marker; we never
+  // print a raw id (a plausible-looking string hides the problem).
+  const UNRESOLVED_EQUIPMENT = '⚠ ציוד לא מזוהה';
+
+  const referencedIds = new Set<string>();
   executionMethods.forEach((method) => {
-    // Use new array-based gearIds, fall back to legacy gearId for backward compatibility
+    // Use new array-based ids, fall back to legacy singular forms.
     const gearIdsToCheck = method.gearIds?.length ? method.gearIds : (method.gearId ? [method.gearId] : []);
     const equipmentIdsToCheck = method.equipmentIds?.length ? method.equipmentIds : (method.equipmentId ? [method.equipmentId] : []);
-    
-    if (method.requiredGearType === 'fixed_equipment') {
-      // For fixed equipment, check both equipmentIds and gearIds
-      const allIds = [...equipmentIdsToCheck, ...gearIdsToCheck];
-      allIds.forEach((id) => {
-        const equipment = gymEquipmentList.find((eq) => eq.id === id);
-        if (equipment) {
-          equipmentNames.add(equipment.name);
-        }
-      });
-    } else if (method.requiredGearType === 'user_gear') {
-      gearIdsToCheck.forEach((id) => {
-        const gear = gearDefinitionsList.find((g) => g.id === id);
-        if (gear) {
-          const name = gear.name?.he || gear.name?.en || gear.id;
-          equipmentNames.add(name);
-        }
-      });
-    } else if (method.requiredGearType === 'improvised') {
-      gearIdsToCheck.forEach((id) => {
-        equipmentNames.add(id);
-      });
-    }
+    [...gearIdsToCheck, ...equipmentIdsToCheck].forEach((id) => {
+      if (id) referencedIds.add(id);
+    });
   });
 
-  // Also check legacy formData.equipment
+  const equipmentNames = new Set<string>();
+  referencedIds.forEach((id) => {
+    const gear = gearDefinitionsList.find((g) => g.id === id);
+    const gearName = gear?.name?.he || gear?.name?.en;
+    if (gearName) {
+      equipmentNames.add(gearName);
+      return;
+    }
+    const equipment = gymEquipmentList.find((eq) => eq.id === id);
+    if (equipment?.name) {
+      equipmentNames.add(equipment.name);
+      return;
+    }
+    equipmentNames.add(UNRESOLVED_EQUIPMENT);
+  });
+
+  // Also include legacy free-text equipment (already display strings, not ids).
   if (formData.equipment && formData.equipment.length > 0) {
-    formData.equipment.forEach((eq) => equipmentNames.add(eq));
+    formData.equipment.forEach((eq) => { if (eq) equipmentNames.add(eq); });
   }
 
   const equipmentArray = Array.from(equipmentNames);
