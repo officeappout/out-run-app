@@ -154,6 +154,16 @@ interface MapStore {
   metricsCardPosition: 'top' | 'bottom';
   setMetricsCardPosition: (pos: 'top' | 'bottom') => void;
   /**
+   * Live visible height (px) of the hybrid OVERVIEW drawer at its settled detent.
+   * Single channel for map↔drawer sync (point 1): written by HybridOverviewScreen
+   * on detent LOCK — the value is viewportH·DETENT (the same visible height sheetY
+   * settles to), NOT recomputed geometry — and read by useCameraController to frame
+   * the route in the free area above the drawer. Null when no hybrid overview is
+   * mounted (camera falls back to the static preview padding).
+   */
+  overviewSheetHeightPx: number | null;
+  setOverviewSheetHeightPx: (px: number | null) => void;
+  /**
    * Rendered height (px) of TurnCarousel. Written by TurnCarousel via a
    * ResizeObserver and reset to 0 on unmount. Used by useDraggableMetrics
    * to position the metrics card's top snap dynamically below the nav card.
@@ -388,6 +398,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setTurnFlyToTarget: (target) => set({ turnFlyToTarget: target }),
   metricsCardPosition: 'top',
   setMetricsCardPosition: (pos) => set({ metricsCardPosition: pos }),
+  overviewSheetHeightPx: null,
+  setOverviewSheetHeightPx: (px) => set({ overviewSheetHeightPx: px }),
   navCardHeight: 0,
   setNavCardHeight: (h) => set({ navCardHeight: h }),
   isLapsOpen: false,

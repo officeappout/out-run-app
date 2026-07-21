@@ -21,6 +21,7 @@ import WeightInlineRow from '@/components/ui/WeightInlineRow';
 import { resolveIconKey, getProgramIcon } from '@/features/content/programs/core/program-icon.util';
 import HybridJourneyAxis from './HybridJourneyAxis';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/features/workout-engine/shared/hooks/useSheetDrag';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
 
 const ACCENT = '#00ADEF';
@@ -193,6 +194,19 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     sheetY.set(detentY((currentAnchorRef.current as DetentId) ?? 'half'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewportH]);
+
+  // ── Point 1: map↔drawer sync channel ──────────────────────────────────────
+  // Report the settled visible height to the store on every detent LOCK
+  // (currentAnchor changes only on lock — never per drag-frame), so
+  // useCameraController can reframe the route in the free area above the drawer.
+  // Value = viewportH·DETENT = exactly the height sheetY settles to (same source,
+  // NOT recomputed geometry). Cleared on unmount so non-hybrid previews fall back.
+  const setOverviewSheetHeightPx = useMapStore((s) => s.setOverviewSheetHeightPx);
+  useEffect(() => {
+    const id = (currentAnchor in DETENT ? currentAnchor : 'half') as DetentId;
+    setOverviewSheetHeightPx(Math.round(viewportH * DETENT[id]));
+  }, [currentAnchor, viewportH, setOverviewSheetHeightPx]);
+  useEffect(() => () => setOverviewSheetHeightPx(null), [setOverviewSheetHeightPx]);
 
   // ── Point 2: content-scroll ↔ sheet-drag arbitration ──────────────────────
   // DELIBERATE local implementation — the shared useSheetScrollChain hook can NOT
