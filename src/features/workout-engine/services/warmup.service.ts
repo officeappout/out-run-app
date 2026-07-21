@@ -14,7 +14,8 @@ import {
   type GeneratedWorkout,
   type WorkoutExercise,
 } from '../logic/WorkoutGenerator';
-import { type DifficultyLevel } from '../logic/workout-generator.types';
+import { type DifficultyLevel, resolveTier, type TierName } from '../logic/workout-generator.types';
+import { resolveExerciseLevelForDomains } from '../logic/workout-selection.utils';
 import { resolveToSlug } from './program-hierarchy.utils';
 import {
   isEssentialGear,
@@ -498,6 +499,7 @@ export function prependWarmupExercises(
     reason: string,
     repRange?: { min: number; max: number },
     isGeneral = false,
+    levelFields?: { programLevel: number; levelDelta: number; tier: TierName },
   ) => {
     const methods = ex.execution_methods || ex.executionMethods || [];
     // Route method choice through the single-source selector (park→bodyweight,
@@ -525,6 +527,10 @@ export function prependWarmupExercises(
       exerciseRole: 'warmup' as const,
       // Stage-1 general mobility warmup is pinned first by applyDomainPrioritySort.
       ...(isGeneral ? { isGeneralWarmup: true as const } : {}),
+      // programLevel / levelDelta / tier for preparation warmups — so swap resolves a
+      // same-level alternative instead of defaulting to level 1. General follow-along
+      // guides pass none (they are level-agnostic and swap skips them).
+      ...(levelFields ?? {}),
     });
     workoutIds.add(ex.id);
   };
@@ -693,6 +699,18 @@ export function prependWarmupExercises(
       return maxUserLevel;
     };
 
+    // Warmup-preparation level marking: mirror the strength path's level fields so a
+    // swap resolves a same-level alternative (instead of defaulting to level 1).
+    // Reuses the SAME primitives assignVolume uses — resolveExerciseLevelForDomains +
+    // resolveTier — WITHOUT duplicating its volume/ramp logic. rampedTarget stays
+    // undefined (warmups are never goal exercises). Sign matches assignVolume:
+    // levelDelta = exerciseLevel − userDomainLevel (positive = harder).
+    const computeWarmupLevel = (ex: Exercise): { programLevel: number; levelDelta: number; tier: TierName } => {
+      const programLevel = resolveExerciseLevelForDomains(ex, resolvedChildDomains).level;
+      const levelDelta = programLevel - getExDomainLevel(ex);
+      return { programLevel, levelDelta, tier: resolveTier(levelDelta) };
+    };
+
     // Collect movementGroups associated with each family from mainExercises
     // so we can build the base pool per family.
     const familyToMGs = new Map<string, Set<string>>();
@@ -829,7 +847,7 @@ export function prependWarmupExercises(
         const repRange = getSlotReps(si, family.slots);
         // Label: last slot is Priming, all preceding slots are Activation
         const slotLabel = si === family.slots ? 'priming' : 'activation';
-        addToBlock(chosen, `warmup: ${slotLabel} (${family.familyId}) slot${si}`, repRange);
+        addToBlock(chosen, `warmup: ${slotLabel} (${family.familyId}) slot${si}`, repRange, false, computeWarmupLevel(chosen));
         recordWarmupPick(chosen.id);
         if (family.broadPattern !== 'other') primedBroadPatterns.add(family.broadPattern);
         potentiationCount++;
@@ -860,7 +878,7 @@ export function prependWarmupExercises(
         const candidates = findCandidates(basePool, zone, maxUserLevel);
         const result = familyFirstPick(candidates, mg);
         if (result) {
-          addToBlock(result.chosen, `warmup: activation (legs) [mandatory]`, ACTIVATION_REPS);
+          addToBlock(result.chosen, `warmup: activation (legs) [mandatory]`, ACTIVATION_REPS, false, computeWarmupLevel(result.chosen));
           recordWarmupPick(result.chosen.id);
           primedBroadPatterns.add('legs');
           potentiationCount++;
