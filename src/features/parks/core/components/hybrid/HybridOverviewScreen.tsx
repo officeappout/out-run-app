@@ -207,11 +207,13 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // DELIBERATE local implementation — the shared useSheetScrollChain hook can't
   // drive this sheet (it wants a `y` MotionValue + onClose/dismiss; we have a
   // 3-detent sheet whose position IS a MotionValue, `sheetY`). So we reproduce its
-  // PROVEN technique here: a NON-PASSIVE touchmove on the scroll body that — ONLY
-  // when the content is at the TOP and the finger pulls DOWN — preventDefault()s the
-  // native scroll and drives `sheetY` directly. Release routes through the SAME
-  // onDragEndSnap as the grabber/summary (point 14): ONE snap path, not two.
-  // Anywhere else (mid-scroll, or pulling up) the touch scrolls the content untouched.
+  // PROVEN technique here: a NON-PASSIVE touchmove on the scroll body that claims
+  // the gesture (preventDefault + drive `sheetY`) in two cases — (a) content at the
+  // TOP + pull DOWN → collapse the sheet (point 2); (b) sheet NOT at full + pull UP
+  // → expand it (point 16, the Apple pattern: the sheet opens before the content
+  // scrolls). Otherwise — mid-scroll, or pull UP while already at full — the touch
+  // scrolls the content untouched. Release routes through the SAME onDragEndSnap as
+  // the grabber/summary (point 14): ONE snap path, not two.
   const scrollBodyRef = useRef<HTMLDivElement>(null);
   const onDragEndSnapRef = useRef(onDragEndSnap);
   onDragEndSnapRef.current = onDragEndSnap;
@@ -233,8 +235,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     const onTouchMove = (e: TouchEvent) => {
       const y = e.touches[0].clientY;
       if (!chaining) {
-        // Claim the gesture ONLY at the top of the content, pulling DOWN.
-        if (el.scrollTop <= 0 && y - baseY > 0) {
+        const dy = y - baseY;
+        const atTop = el.scrollTop <= 0;
+        const atFull = currentAnchorRef.current === 'full';
+        // (a) pull DOWN at the top → collapse; (b) pull UP when not full → expand.
+        // At full, or mid-scroll down, neither matches → the content scrolls.
+        if ((dy > 0 && atTop) || (dy < 0 && !atFull)) {
           chaining = true;
           baseY = y;                 // re-baseline so the sheet doesn't jump
           baseSheetY = sheetY.get();
