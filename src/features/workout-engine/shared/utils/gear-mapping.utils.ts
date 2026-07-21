@@ -65,6 +65,15 @@ export async function ensureEquipmentCachesLoaded(): Promise<void> {
 }
 
 /**
+ * Synchronous check: are both equipment caches populated (so the resolvers return
+ * real icons/labels rather than raw ids)? Lets a badge decide whether to render now
+ * or wait for `ensureEquipmentCachesLoaded` — without blocking the surrounding card.
+ */
+export function areEquipmentCachesReady(): boolean {
+  return gearDefinitionsCache !== null && gymEquipmentCache !== null;
+}
+
+/**
  * Accept pre-fetched data to seed the caches without a second Firestore call.
  * Useful when the caller already has the data (e.g. audit page, admin pages).
  */

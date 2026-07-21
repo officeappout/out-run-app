@@ -21,6 +21,7 @@ import {
   normalizeGearId,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import { useToast } from '@/components/ui/Toast';
 
 // ─── Layout — tuned for 260px card on a 390px viewport ──────────────────────
@@ -282,6 +283,8 @@ function TrioCard({
   const ctaText = useMemo(() => getGenderedCtaText(userGender, option.label), [userGender, option.label]);
   const isNakedOption = /ללא ציוד|naked/i.test(option.label);
   const isFavorited = useFavoritesStore((s) => s.isFavorited(workout));
+  // Equipment badges wait for warm gear caches (non-blocking — card renders now).
+  const iconsReady = useEquipmentIconsReady();
 
   const heroExercise = useMemo(() => pickHeroExercise(exercises), [exercises]);
   const heroMedia = useMemo(
@@ -290,6 +293,7 @@ function TrioCard({
   );
 
   const equipmentIcons = useMemo(() => {
+    if (!iconsReady) return { display: [], total: 0 };
     if (isNakedOption) return { display: [], total: 0 };
     if (!exercises?.length) return { display: [], total: 0 };
     const seen = new Set<string>();
@@ -328,7 +332,7 @@ function TrioCard({
     });
 
     return { display: icons.slice(0, 4), total: icons.length };
-  }, [exercises, isNakedOption, workoutLocation]);
+  }, [exercises, isNakedOption, workoutLocation, iconsReady]);
 
   const programIconSrc = programIconKey
     ? PROGRAM_ICON_MAP[programIconKey.toLowerCase()] ?? null

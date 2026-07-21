@@ -13,6 +13,7 @@ import {
   normalizeGearId,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { SmartMessage } from '@/features/messages/services/MessageService';
+import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 
 // ============================================================================
 // Movement-group fallback images (high-quality Unsplash)
@@ -495,6 +496,9 @@ export default function HeroWorkoutCard({
 }: HeroWorkoutCardProps) {
   const dims = CARD_VARIANTS[variant];
   const isSide = variant === 'side';
+  // Equipment badges wait for the gear caches (non-blocking — the card renders now,
+  // badges appear once resolvers can return real icons instead of raw ids).
+  const iconsReady = useEquipmentIconsReady();
 
   const getDifficultyNumber = (difficulty: string | number): number => {
     if (typeof difficulty === 'number') return Math.min(3, Math.max(1, difficulty));
@@ -511,6 +515,8 @@ export default function HeroWorkoutCard({
   );
 
   const equipmentIcons = useMemo(() => {
+    // Wait for warm caches — resolving cold would drop/mis-resolve icons.
+    if (!iconsReady) return { display: [], total: 0 };
     if (!exercises?.length) return { display: [], total: 0 };
     const seen = new Set<string>();
     const icons: { srcList: string[]; label: string; norm: string }[] = [];
@@ -540,7 +546,7 @@ export default function HeroWorkoutCard({
       return pa - pb;
     });
     return { display: icons.slice(0, 4), total: icons.length };
-  }, [exercises, workoutLocation]);
+  }, [exercises, workoutLocation, iconsReady]);
 
   const programIconSrc = programIconKey
     ? PROGRAM_ICON_MAP[programIconKey.toLowerCase()] ?? null
