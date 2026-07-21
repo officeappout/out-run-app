@@ -211,18 +211,14 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             </button>
           </div>
 
-          {/* scroll body — overflow-x-hidden pins the content horizontally.
-              overflow-y:auto alone makes the computed overflow-x:auto (CSS spec),
-              so any sub-pixel-wide child let a horizontal drag rubber-band the
-              whole body sideways. The nested Moovit strip keeps its own
-              overflow-x-auto, so its intentional horizontal scroll still works. */}
+          {/* ── Sticky summary header (point 3) — stays fixed while the body scrolls.
+              Doubles as a drag zone via the SAME proven pattern as the grabber
+              (onPointerDown → dragControls.start + touch-action:none). Moovit pins
+              the ROUTE summary (duration · finish), not a station name. ── */}
           <div
-            ref={scrollBodyRef}
-            onPointerDown={onScrollPointerDown}
-            onPointerMove={onScrollPointerMove}
-            onPointerUp={endScrollGesture}
-            onPointerCancel={endScrollGesture}
-            className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pt-2"
+            className="px-4 pt-0.5 pb-2 flex-shrink-0"
+            onPointerDown={(e) => dragControls.start(e)}
+            style={{ touchAction: 'none', cursor: 'grab' }}
           >
             {composed.bolts ? (
               /* full-park: ONE unified title row — title · duration · finish */
@@ -244,6 +240,38 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 </div>
               </>
             )}
+          </div>
+
+          {/* Moovit strip — sticky below the summary, but COLLAPSES at peek so the
+              low detent stays map-first (peek=0.20; two sticky rows would leave no
+              room to scroll — measured). touch-action:pan-x keeps horizontal scroll;
+              NO vertical drag-handoff here (that path is frozen — parking-lot #2).
+              Drag the sheet from the grabber / summary above. */}
+          {currentAnchor !== 'peek' && (
+            <div className="px-4 pb-2 flex-shrink-0">
+              <div className="overflow-x-auto" style={{ touchAction: 'pan-x', scrollbarWidth: 'none' }}>
+                <div className="inline-flex items-center gap-2 bg-white rounded-lg"
+                  style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '7px 11px' }}>
+                  {journeyStrip}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* scroll body — overflow-x-hidden pins the content horizontally.
+              overflow-y:auto alone makes the computed overflow-x:auto (CSS spec),
+              so any sub-pixel-wide child let a horizontal drag rubber-band the
+              whole body sideways. (The Moovit strip moved to the sticky header
+              in point 3, so it no longer scrolls here — its horizontal scroll
+              lives in the header with touch-action:pan-x.) */}
+          <div
+            ref={scrollBodyRef}
+            onPointerDown={onScrollPointerDown}
+            onPointerMove={onScrollPointerMove}
+            onPointerUp={endScrollGesture}
+            onPointerCancel={endScrollGesture}
+            className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pt-2"
+          >
             <div className="flex items-center gap-1.5 text-[12px] mt-0.5" style={{ color: '#6B7280' }}>
               <MapPin size={14} /> {cityName ?? 'קרוב אליך'} · לולאה עם תחנת כוח אחת
             </div>
@@ -254,15 +282,6 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 <Info size={15} /> {fallbackHint}
               </div>
             )}
-
-            {/* Moovit-style journey strip — SAME bolts pill (bg/border/shadow/radius),
-                sequence + icons pulled from the composed plan + the program-icon map. */}
-            <div className="mt-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              <div className="inline-flex items-center gap-2 bg-white rounded-lg"
-                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '7px 11px' }}>
-                {journeyStrip}
-              </div>
-            </div>
 
             {composed.bolts ? (
               /* full-park: "פירוט" collapsible (defaultOpen=false) — stats now, container for future detail */
