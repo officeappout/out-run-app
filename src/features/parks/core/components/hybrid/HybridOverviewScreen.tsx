@@ -12,9 +12,9 @@
  * whole plan; peek only reveals the map.)
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
-import { motion, useDragControls, useMotionValue, useTransform } from 'framer-motion';
+import { motion, useDragControls, useMotionValue, useTransform, animate } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import CaloriesChip from '@/components/ui/CaloriesChip';
 import WeightInlineRow from '@/components/ui/WeightInlineRow';
@@ -136,7 +136,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   });
 
   const dragControls = useDragControls();
-  const { cardRef, currentAnchor, controls, handleDragEnd, dragConstraints, viewportH } =
+  const { cardRef, currentAnchor, controls, setAnchor, dragConstraints, viewportH } =
     useSheetDrag(buildAnchors, 'half', { velocityThreshold: 250 });
   // Card height = the current detent's visible height, so its top sits at the
   // anchor Y and its bottom stays flush with the screen bottom (CTA always visible).
@@ -150,6 +150,50 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const sheetY = useMotionValue(Math.round(viewportH * (1 - DETENT.half)));
   const cardHeight = useTransform(sheetY, (v) => Math.max(0, Math.round(viewportH - v)));
 
+  // ── Point 14: directional-step snap (variant B) ───────────────────────────
+  // The shared useSheetDrag snaps by driving `controls`, but our visible position
+  // is `sheetY` (style.y) and framer's `controls` do NOT drive an explicit style
+  // MotionValue — so controls.start() never moved the sheet; only the drag CLAMP
+  // held it, which is why only the two EXTREME detents (= the clamp bounds) locked
+  // and the middle never did. So we drive `sheetY` ourselves with a spring and pick
+  // the target by DIRECTION: a short pull steps ONE detent toward the drag
+  // direction (half is always reachable, and it always locks); a strong flick may
+  // jump straight to the far detent; a tiny nudge snaps back. useSheetDrag is
+  // untouched — we still use setAnchor/currentAnchor (strip-collapse) + its
+  // constraints. Live card height (point 3) is preserved: height derives from
+  // sheetY, which the spring drives to the detent.
+  const DETENT_ORDER: DetentId[] = ['peek', 'half', 'full']; // ascending size / descending Y
+  const detentY = (id: DetentId) => Math.round(viewportH * (1 - DETENT[id]));
+  const STRONG_FLICK = 900; // px/s — above this, a flick may skip straight to the far detent
+  const MOVE_MIN = 24; // px — below this net travel, treat as a nudge → snap back
+  const springRef = useRef<{ stop: () => void } | null>(null);
+  const springTo = (id: DetentId) => {
+    springRef.current?.stop();
+    springRef.current = animate(sheetY, detentY(id), { type: 'spring', stiffness: 320, damping: 30 });
+  };
+  const onDragEndSnap = (_e: unknown, info: { velocity: { y: number }; offset: { y: number } }) => {
+    const found = DETENT_ORDER.indexOf(currentAnchor as DetentId);
+    const cur = found >= 0 ? found : 1; // default to 'half'
+    const vy = info.velocity.y, oy = info.offset.y;
+    let idx = cur;
+    if (vy < -STRONG_FLICK) idx = DETENT_ORDER.length - 1;               // strong up → full
+    else if (vy > STRONG_FLICK) idx = 0;                                 // strong down → peek
+    else if (oy < -MOVE_MIN) idx = Math.min(cur + 1, DETENT_ORDER.length - 1); // pull up → +1
+    else if (oy > MOVE_MIN) idx = Math.max(cur - 1, 0);                  // pull down → -1
+    // else: nudge → stay (idx = cur) → springs back to where it was
+    const targetId = DETENT_ORDER[idx];
+    if (targetId !== currentAnchor) setAnchor(targetId); // keep useSheetDrag anchor in sync
+    springTo(targetId);                                  // move the visible sheet (always locks)
+  };
+  // Re-align sheetY to the current detent on viewport change (resize/rotate). Not
+  // keyed on currentAnchor — those transitions are animated by springTo/drag.
+  const currentAnchorRef = useRef(currentAnchor);
+  currentAnchorRef.current = currentAnchor;
+  useEffect(() => {
+    sheetY.set(detentY((currentAnchorRef.current as DetentId) ?? 'half'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewportH]);
+
   // ── Point 2: content-scroll ↔ sheet-drag arbitration ──────────────────────
   // DELIBERATE local implementation — the shared useSheetScrollChain hook can NOT
   // drive this sheet: it expects a `y` MotionValue + onClose (dismiss), whereas
@@ -158,7 +202,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // Instagram/Moovit arbitration locally: the drawer is draggable from the body
   // ONLY when it is scrolled to the top AND the user pulls DOWN; otherwise the
   // touch scrolls the content. We hand the gesture to the SAME dragControls the
-  // grabber uses, so the existing detent-snap logic (handleDragEnd) is untouched.
+  // grabber uses, so the release snap (onDragEndSnap, point 14) applies unchanged.
   // FUTURE: unify with useSheetScrollChain once that hook supports detent sheets
   // (feat/hybrid-drawer-ux · point 2). This is not an oversight.
   const scrollBodyRef = useRef<HTMLDivElement>(null);
@@ -193,7 +237,8 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
         dragConstraints={dragConstraints}
         dragElastic={0}
         dragMomentum={false}
-        onDragEnd={handleDragEnd}
+        onDragStart={() => springRef.current?.stop()}
+        onDragEnd={onDragEndSnap}
         animate={controls}
         className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none"
         style={{ y: sheetY, touchAction: 'none' }}
