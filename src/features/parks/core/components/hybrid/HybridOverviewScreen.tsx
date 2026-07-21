@@ -208,12 +208,13 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // drive this sheet (it wants a `y` MotionValue + onClose/dismiss; we have a
   // 3-detent sheet whose position IS a MotionValue, `sheetY`). So we reproduce its
   // PROVEN technique here: a NON-PASSIVE touchmove on the scroll body that claims
-  // the gesture (preventDefault + drive `sheetY`) in two cases — (a) content at the
-  // TOP + pull DOWN → collapse the sheet (point 2); (b) sheet NOT at full + pull UP
-  // → expand it (point 16, the Apple pattern: the sheet opens before the content
-  // scrolls). Otherwise — mid-scroll, or pull UP while already at full — the touch
-  // scrolls the content untouched. Release routes through the SAME onDragEndSnap as
-  // the grabber/summary (point 14): ONE snap path, not two.
+  // the gesture (preventDefault + drive `sheetY`). The rule (point 16, corrected):
+  // while the sheet is NOT at full the content does NOT scroll at all — EVERY
+  // vertical gesture, from anywhere in the body, moves the sheet (up → expand,
+  // down → collapse). Only at the full detent does the content scroll normally;
+  // there the sole sheet gesture is a pull-DOWN at scrollTop 0 → collapse (point 2).
+  // Otherwise the touch scrolls the content untouched. Release routes through the
+  // SAME onDragEndSnap as the grabber/summary (point 14): ONE snap path, not two.
   const scrollBodyRef = useRef<HTMLDivElement>(null);
   const onDragEndSnapRef = useRef(onDragEndSnap);
   onDragEndSnapRef.current = onDragEndSnap;
@@ -236,17 +237,18 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       const y = e.touches[0].clientY;
       if (!chaining) {
         const dy = y - baseY;
-        const atTop = el.scrollTop <= 0;
         const atFull = currentAnchorRef.current === 'full';
-        // (a) pull DOWN at the top → collapse; (b) pull UP when not full → expand.
-        // At full, or mid-scroll down, neither matches → the content scrolls.
-        if ((dy > 0 && atTop) || (dy < 0 && !atFull)) {
+        const atTop = el.scrollTop <= 0;
+        // Not full → claim ANY vertical move (the content never scrolls here).
+        // At full → claim only a pull-DOWN at the top → collapse; else scroll.
+        const claim = atFull ? (dy > 0 && atTop) : (dy !== 0);
+        if (claim) {
           chaining = true;
           baseY = y;                 // re-baseline so the sheet doesn't jump
           baseSheetY = sheetY.get();
           springRef.current?.stop();
         } else {
-          return;                    // otherwise let the content scroll natively
+          return;                    // at full, off-top → let the content scroll
         }
       }
       e.preventDefault();            // non-passive → stops native scroll while chaining
