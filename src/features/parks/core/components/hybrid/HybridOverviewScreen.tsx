@@ -29,15 +29,30 @@ const AER = '#10B981', STR = '#00C9F2'; // strength = BRAND_CYAN (app-wide; colo
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
 
 // Three detents as a fraction of the viewport that stays VISIBLE above the map.
-const DETENT = { peek: 0.20, half: 0.55, full: 0.90 } as const;
-type DetentId = keyof typeof DETENT;
+// half/full are fractions of the viewport; peek is a FIXED px height (point 9).
+// A fraction collapses the peek content on short screens (iPhone SE) — a fixed px
+// (MetricsDrawer's PEEK_CARD_H pattern) keeps grabber + summary + the enlarged
+// strip + CTA visible at peek on every device.
+const DETENT_FRAC = { half: 0.55, full: 0.90 } as const;
+const PEEK_PX = 220; // grabber(~17) + summary(~40) + enlarged strip(~55) + CTA(~62) + pad(~46)
+type DetentId = 'peek' | 'half' | 'full';
+const DETENT_ORDER: DetentId[] = ['peek', 'half', 'full']; // ascending size / descending Y
 
-/** yPx = card top (from screen top); visible height = vh − yPx = DETENT·vh. */
+/** Visible card height (px) at a detent — the single source for all detent geometry. */
+function detentHeightPx(id: DetentId, vh: number): number {
+  if (id === 'peek') return Math.min(PEEK_PX, Math.round(vh * 0.5)); // never exceed half the screen on tiny devices
+  return Math.round(vh * DETENT_FRAC[id]);
+}
+/** Card top Y (from screen top) = vh − visible height. */
+function detentTopY(id: DetentId, vh: number): number {
+  return vh - detentHeightPx(id, vh);
+}
+
 function buildAnchors(m: SheetMeasurements): SheetAnchor[] {
-  return (Object.keys(DETENT) as DetentId[]).map((id) => ({
+  return DETENT_ORDER.map((id) => ({
     id,
-    yPx: Math.round(m.vh * (1 - DETENT[id])),
-    heightPx: Math.round(m.vh * DETENT[id]),
+    yPx: detentTopY(id, m.vh),
+    heightPx: detentHeightPx(id, m.vh),
   }));
 }
 
@@ -79,6 +94,15 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   };
   const t = plan.totals;
   const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
+
+  // Route description (point 11). ⚠️ TEMPORARY placeholder copy, generated from the
+  // composed plan. The real per-route descriptions will come from the ADMIN PANEL —
+  // do NOT invest in this wording; replace the whole string when the panel source
+  // lands. Neutral "מסלול" on purpose (NOT "לולאה" — today's route is out-and-back,
+  // not a loop).
+  const stationCount = plan.segments.filter((s) => s.kind === 'strength').length;
+  const stationsLabel = stationCount === 1 ? 'תחנת כוח אחת' : `${stationCount} תחנות כוח`;
+  const routeDesc = `מסלול של ${t.distanceKm != null ? t.distanceKm.toFixed(1) : '—'} ק״מ עם ${stationsLabel} בדרך${cityName ? `, ב${cityName}` : ''}.`;
   const [showWeightNudge, setShowWeightNudge] = useState(false);
   // "פירוט" progressive-disclosure section (full-park only), collapsed by default.
   const [detailOpen, setDetailOpen] = useState(false);
@@ -108,13 +132,13 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const journeyStrip: JSX.Element[] = [];
   plan.segments.forEach((seg, i) => {
     if (journeyStrip.length > 0) {
-      journeyStrip.push(<ChevronLeft key={`sep${i}`} size={13} style={{ color: '#CBD5E1', flexShrink: 0 }} />);
+      journeyStrip.push(<ChevronLeft key={`sep${i}`} size={16} style={{ color: '#CBD5E1', flexShrink: 0 }} />);
     }
     if (seg.kind === 'aerobic') {
       const kind = seg.aerobicType ?? aerobicKind; // 'walking' → WalkingIcon · 'running' → RunIcon
       journeyStrip.push(
-        <span key={`leg${i}`} className="inline-flex items-center gap-1 text-[12.5px] font-bold whitespace-nowrap" style={{ color: '#374151' }}>
-          <span className="inline-flex" style={{ color: AER }}>{getProgramIcon(resolveIconKey(kind === 'walking' ? 'walking' : 'running'), 'w-[15px] h-[15px]')}</span>
+        <span key={`leg${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-bold whitespace-nowrap" style={{ color: '#374151' }}>
+          <span className="inline-flex" style={{ color: AER }}>{getProgramIcon(resolveIconKey(kind === 'walking' ? 'walking' : 'running'), 'w-[19px] h-[19px]')}</span>
           {Math.round((seg.durationSec ?? 0) / 60)} דק׳
         </span>,
       );
@@ -123,8 +147,8 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       // keys legs/core separately, so legs_core → legs for the icon lookup.
       const alias = seg.domainFocus === 'legs_core' ? 'legs' : seg.domainFocus;
       journeyStrip.push(
-        <span key={`stn${i}`} className="inline-flex items-center gap-1 text-[12.5px] font-extrabold whitespace-nowrap" style={{ color: '#0E7490' }}>
-          <span className="inline-flex" style={{ color: STR }}>{getProgramIcon(resolveIconKey(alias), 'w-[15px] h-[15px]')}</span>
+        <span key={`stn${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: '#0E7490' }}>
+          <span className="inline-flex" style={{ color: STR }}>{getProgramIcon(resolveIconKey(alias), 'w-[19px] h-[19px]')}</span>
           כוח
         </span>,
       );
@@ -143,7 +167,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // mirror that into a MotionValue (`sheetY`) on the wrapper's style and derive
   // the height from it. Fixes the "card frozen at the start-detent height while
   // dragging" break (point-3 follow-up). useSheetDrag itself is untouched.
-  const sheetY = useMotionValue(Math.round(viewportH * (1 - DETENT.half)));
+  const sheetY = useMotionValue(detentTopY('half', viewportH));
   const cardHeight = useTransform(sheetY, (v) => Math.max(0, Math.round(viewportH - v)));
 
   // ── Point 14: directional-step snap (variant B) ───────────────────────────
@@ -158,8 +182,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // untouched — we still use setAnchor/currentAnchor (strip-collapse) + its
   // constraints. Live card height (point 3) is preserved: height derives from
   // sheetY, which the spring drives to the detent.
-  const DETENT_ORDER: DetentId[] = ['peek', 'half', 'full']; // ascending size / descending Y
-  const detentY = (id: DetentId) => Math.round(viewportH * (1 - DETENT[id]));
+  const detentY = (id: DetentId) => detentTopY(id, viewportH);
   const STRONG_FLICK = 900; // px/s — above this, a flick may skip straight to the far detent
   const MOVE_MIN = 24; // px — below this net travel, treat as a nudge → snap back
   const springRef = useRef<{ stop: () => void } | null>(null);
@@ -194,12 +217,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // Report the settled visible height to the store on every detent LOCK
   // (currentAnchor changes only on lock — never per drag-frame), so
   // useCameraController can reframe the route in the free area above the drawer.
-  // Value = viewportH·DETENT = exactly the height sheetY settles to (same source,
+  // Value = detentHeightPx = exactly the height sheetY settles to (same source,
   // NOT recomputed geometry). Cleared on unmount so non-hybrid previews fall back.
   const setOverviewSheetHeightPx = useMapStore((s) => s.setOverviewSheetHeightPx);
   useEffect(() => {
-    const id = (currentAnchor in DETENT ? currentAnchor : 'half') as DetentId;
-    setOverviewSheetHeightPx(Math.round(viewportH * DETENT[id]));
+    const id = (DETENT_ORDER.includes(currentAnchor as DetentId) ? currentAnchor : 'half') as DetentId;
+    setOverviewSheetHeightPx(detentHeightPx(id, viewportH));
   }, [currentAnchor, viewportH, setOverviewSheetHeightPx]);
   useEffect(() => () => setOverviewSheetHeightPx(null), [setOverviewSheetHeightPx]);
 
@@ -346,21 +369,19 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             )}
           </div>
 
-          {/* Moovit strip — sticky below the summary, but COLLAPSES at peek so the
-              low detent stays map-first (peek=0.20; two sticky rows would leave no
-              room to scroll — measured). touch-action:pan-x keeps horizontal scroll;
-              NO vertical drag-handoff here (that path is frozen — parking-lot #2).
-              Drag the sheet from the grabber / summary above. */}
-          {currentAnchor !== 'peek' && (
-            <div className="px-4 pb-2 flex-shrink-0">
-              <div className="overflow-x-auto" style={{ touchAction: 'pan-x', scrollbarWidth: 'none' }}>
-                <div className="inline-flex items-center gap-2 bg-white rounded-lg"
-                  style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '7px 11px' }}>
-                  {journeyStrip}
-                </div>
+          {/* Moovit strip — the enlarged primary nav element (point 10). Shown at
+              EVERY detent incl. peek (point 9/10 decision): it's the route summary,
+              no sense hiding it exactly when the map is visible. peek is a fixed px
+              height sized to include it. touch-action:pan-x keeps horizontal scroll;
+              vertical gestures are handled by the grabber/summary drag zone above. */}
+          <div className="px-4 pb-2.5 flex-shrink-0">
+            <div className="overflow-x-auto" style={{ touchAction: 'pan-x', scrollbarWidth: 'none' }}>
+              <div className="inline-flex items-center gap-2.5 bg-white rounded-xl"
+                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 3px 14px rgba(0,0,0,.07)', padding: '11px 15px' }}>
+                {journeyStrip}
               </div>
             </div>
-          )}
+          </div>
 
           {/* scroll body — overflow-x-hidden pins the content horizontally.
               overflow-y:auto alone makes the computed overflow-x:auto (CSS spec),
@@ -372,10 +393,6 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             ref={scrollBodyRef}
             className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pt-2"
           >
-            <div className="flex items-center gap-1.5 text-[12px] mt-0.5" style={{ color: '#6B7280' }}>
-              <MapPin size={14} /> {cityName ?? 'קרוב אליך'} · לולאה עם תחנת כוח אחת
-            </div>
-
             {/* A3 fallback banner */}
             {fallbackHint && (
               <div className="flex items-center gap-2 mt-3 rounded-xl text-[12px] font-bold" style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '9px 12px' }}>
@@ -392,12 +409,15 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 </button>
                 {detailOpen && (
                   <div className="mt-2">
+                    {/* Route description in prose (point 11) — replaces the old location row */}
+                    <div className="flex items-start gap-1.5 text-[12.5px] leading-relaxed mb-2.5" style={{ color: '#4B5563' }}>
+                      <MapPin size={14} style={{ color: '#9CA3AF', flexShrink: 0, marginTop: 2 }} /> {routeDesc}
+                    </div>
                     <div className="flex gap-2 flex-wrap">
                       <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
                       <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
                     </div>
                     {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
-                    {/* container for future expanded detail — no content yet */}
                   </div>
                 )}
               </div>
