@@ -69,6 +69,21 @@ function Meta({ icon, children }: { icon: React.ReactNode; children: React.React
     <span style={{ color: '#9CA3AF' }}>{icon}</span>{children}</span>;
 }
 
+/**
+ * CardGroup — a superset's exercise cards. When `superset` is true they sit
+ * inside a subtle slate ENCLOSURE (point 5, David's pick): the grouping reads
+ * from the container, NOT a colored bar — so the axis spine stays the only
+ * vertical line (no competing cyan bar). Non-superset lists render bare.
+ */
+function CardGroup({ superset, children }: { superset: boolean; children: React.ReactNode }) {
+  if (!superset) return <div className="flex flex-col gap-2">{children}</div>;
+  return (
+    <div className="flex flex-col gap-2 mt-2" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 14, padding: 8 }}>
+      {children}
+    </div>
+  );
+}
+
 interface AxisProps {
   segments: HybridPlannedSegment[];
   /**
@@ -212,7 +227,7 @@ export default function HybridJourneyAxis({
                             onToggleWarmupActive={onToggleWarmupActive ?? (() => {})}
                           />
                           {showCards && (
-                            <div className="flex flex-col gap-2">
+                            <CardGroup superset={isSupersetSection}>
                               {section.exercises.map((we: any) => (
                                 <ExerciseCard
                                   key={we?.exercise?.id}
@@ -224,7 +239,7 @@ export default function HybridJourneyAxis({
                                   onSwap={() => onSwapExercise?.(i, exs.indexOf(we), we)}
                                 />
                               ))}
-                            </div>
+                            </CardGroup>
                           )}
                         </div>
                       );
@@ -239,9 +254,9 @@ export default function HybridJourneyAxis({
                         <Clock size={13} /> ~{Math.round((seg.content?.estimatedDurationSec ?? 0) / 60)} דק׳
                       </span>
                     </div>
-                    {/* amber superset framing around the REAL ExerciseCard (image · tap-detail · swap) */}
-                    <div className="relative flex flex-col gap-2 mt-2" style={{ paddingRight: 12 }}>
-                      <span className="absolute" style={{ top: 3, bottom: 3, right: 0, width: 4, borderRadius: 2, background: STR }} />
+                    {/* superset grouping — subtle ENCLOSURE (point 5), not a colored
+                        bar, so it never competes with the axis spine. */}
+                    <CardGroup superset>
                       {exs.map((we: any, k: number) => (
                         <ExerciseCard
                           key={we?.exercise?.id ?? k}
@@ -253,7 +268,7 @@ export default function HybridJourneyAxis({
                           onSwap={() => onSwapExercise?.(i, k, we)}
                         />
                       ))}
-                    </div>
+                    </CardGroup>
                   </>
                 )}
               </div>
