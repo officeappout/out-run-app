@@ -32,11 +32,6 @@ const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-s
 const DETENT = { peek: 0.20, half: 0.55, full: 0.90 } as const;
 type DetentId = keyof typeof DETENT;
 
-// Point 2: minimum downward travel (px) at scrollTop 0 before a content touch is
-// handed off from native scroll to the sheet drag. Small = responsive, but big
-// enough to disambiguate a deliberate downward pull from tap jitter.
-const SHEET_DRAG_HANDOFF_PX = 6;
-
 /** yPx = card top (from screen top); visible height = vh − yPx = DETENT·vh. */
 function buildAnchors(m: SheetMeasurements): SheetAnchor[] {
   return (Object.keys(DETENT) as DetentId[]).map((id) => ({
@@ -209,38 +204,73 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   useEffect(() => () => setOverviewSheetHeightPx(null), [setOverviewSheetHeightPx]);
 
   // ── Point 2: content-scroll ↔ sheet-drag arbitration ──────────────────────
-  // DELIBERATE local implementation — the shared useSheetScrollChain hook can NOT
-  // drive this sheet: it expects a `y` MotionValue + onClose (dismiss), whereas
-  // useSheetDrag positions the sheet via useAnimation `controls` across three
-  // detents (peek/half/full) with no MotionValue. So we reproduce the same
-  // Instagram/Moovit arbitration locally: the drawer is draggable from the body
-  // ONLY when it is scrolled to the top AND the user pulls DOWN; otherwise the
-  // touch scrolls the content. We hand the gesture to the SAME dragControls the
-  // grabber uses, so the release snap (onDragEndSnap, point 14) applies unchanged.
-  // FUTURE: unify with useSheetScrollChain once that hook supports detent sheets
-  // (feat/hybrid-drawer-ux · point 2). This is not an oversight.
+  // DELIBERATE local implementation — the shared useSheetScrollChain hook can't
+  // drive this sheet (it wants a `y` MotionValue + onClose/dismiss; we have a
+  // 3-detent sheet whose position IS a MotionValue, `sheetY`). So we reproduce its
+  // PROVEN technique here: a NON-PASSIVE touchmove on the scroll body that — ONLY
+  // when the content is at the TOP and the finger pulls DOWN — preventDefault()s the
+  // native scroll and drives `sheetY` directly. Release routes through the SAME
+  // onDragEndSnap as the grabber/summary (point 14): ONE snap path, not two.
+  // Anywhere else (mid-scroll, or pulling up) the touch scrolls the content untouched.
   const scrollBodyRef = useRef<HTMLDivElement>(null);
-  const dragGesture = useRef<{ id: number | null; startY: number; handedOff: boolean }>({
-    id: null,
-    startY: 0,
-    handedOff: false,
-  });
-  const onScrollPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    dragGesture.current = { id: e.pointerId, startY: e.clientY, handedOff: false };
-  };
-  const onScrollPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const g = dragGesture.current;
-    if (g.handedOff || g.id !== e.pointerId) return;
-    const atTop = (scrollBodyRef.current?.scrollTop ?? 0) <= 0;
-    const pullingDown = e.clientY - g.startY > SHEET_DRAG_HANDOFF_PX;
-    if (atTop && pullingDown) {
-      g.handedOff = true;
-      dragControls.start(e); // → the existing detent drag (same as the grabber)
-    }
-  };
-  const endScrollGesture = () => {
-    dragGesture.current.id = null;
-  };
+  const onDragEndSnapRef = useRef(onDragEndSnap);
+  onDragEndSnapRef.current = onDragEndSnap;
+  useEffect(() => {
+    const el = scrollBodyRef.current;
+    if (!el) return;
+    const minY = detentY('full'); // most expanded (smallest y)
+    const maxY = detentY('peek'); // most docked (largest y)
+    let chaining = false;
+    let baseSheetY = 0, baseY = 0;
+    let lastY = 0, lastT = 0, prevY = 0, prevT = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      chaining = false;
+      baseY = e.touches[0].clientY;
+      lastY = prevY = baseY;
+      lastT = prevT = performance.now();
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0].clientY;
+      if (!chaining) {
+        // Claim the gesture ONLY at the top of the content, pulling DOWN.
+        if (el.scrollTop <= 0 && y - baseY > 0) {
+          chaining = true;
+          baseY = y;                 // re-baseline so the sheet doesn't jump
+          baseSheetY = sheetY.get();
+          springRef.current?.stop();
+        } else {
+          return;                    // otherwise let the content scroll natively
+        }
+      }
+      e.preventDefault();            // non-passive → stops native scroll while chaining
+      sheetY.set(Math.min(maxY, Math.max(minY, baseSheetY + (y - baseY))));
+      prevY = lastY; prevT = lastT;
+      lastY = y; lastT = performance.now();
+    };
+    const onTouchEnd = () => {
+      if (!chaining) return;
+      chaining = false;
+      const dt = Math.max(1, lastT - prevT);
+      const info = {
+        velocity: { y: (lastY - prevY) / (dt / 1000) }, // px/s, same units as framer
+        offset: { y: lastY - baseY },                   // downward positive
+      };
+      onDragEndSnapRef.current(null, info); // SAME directional-step snap as the grabber
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false }); // MUST be non-passive
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewportH]);
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none" dir="rtl">
@@ -332,10 +362,6 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               lives in the header with touch-action:pan-x.) */}
           <div
             ref={scrollBodyRef}
-            onPointerDown={onScrollPointerDown}
-            onPointerMove={onScrollPointerMove}
-            onPointerUp={endScrollGesture}
-            onPointerCancel={endScrollGesture}
             className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pt-2"
           >
             <div className="flex items-center gap-1.5 text-[12px] mt-0.5" style={{ color: '#6B7280' }}>
