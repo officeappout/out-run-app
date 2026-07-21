@@ -500,11 +500,12 @@ const LABEL_TO_ICON_KEY: Record<string, string> = {
  * These IDs come from gear_definitions; maps to canonical icon keys.
  */
 const FIRESTORE_GEAR_ID_TO_ICON: Record<string, string> = {
-  // Resistance bands — ALL known Firestore IDs (duplicated docs from Admin)
+  // Resistance bands — the two genuine resistance-band IDs only.
+  // ('5Rkhxaw…'="מתח לדלת"/door pull-up bar and 'FqFlaNZ…'="אגן והאלכסונים"/a park
+  //  machine were mis-mapped to resistance_bands here — removed. They must NOT
+  //  satisfy resistance-band exercises just by being nearby.)
   I1K30JehaxSx8dlBOZyd: 'resistance_bands',
   p9jowHV8JO0UAkbHPzUP: 'resistance_bands',
-  '5Rkhxawxj8EwC4spTXVM': 'resistance_bands',
-  FqFlaNZ02dlAQcXmhjOP: 'resistance_bands',
   // Rings
   mL3YJywh3aobJni7YVdu: 'rings',
   // Pull-up bar
@@ -667,11 +668,11 @@ export const ALIAS_TO_CANONICAL: Record<string, string> = {
   'מזרן אימון': 'mat',
   'חבל קפיצה לאימון': 'jump_rope',
   // ── Firestore document IDs → canonical keys ────────────────────────────────
-  // Resistance bands — ALL known Firestore IDs
+  // Resistance bands — the two genuine resistance-band IDs only.
+  // ('5Rkhxaw…'="מתח לדלת"/door pull-up bar and 'FqFlaNZ…'="אגן והאלכסונים"/a park
+  //  machine were mis-mapped to resistance_bands here — removed.)
   I1K30JehaxSx8dlBOZyd: 'resistance_bands',
   p9jowHV8JO0UAkbHPzUP: 'resistance_bands',
-  '5Rkhxawxj8EwC4spTXVM': 'resistance_bands',
-  FqFlaNZ02dlAQcXmhjOP: 'resistance_bands',
   // Rings
   mL3YJywh3aobJni7YVdu: 'rings',
   // Pull-up bar
