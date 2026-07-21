@@ -745,6 +745,14 @@ const EQUIPMENT_FAMILIES: Record<string, ReadonlySet<string>> = {
   // 'step'; bench normalizes to 'bench'.  Both canonicals live in this family
   // so an exercise tagged for any raised platform passes when either is available.
   box_surface:      new Set(['step', 'bench']),
+  // Rings: 'rings' (a user's own gymnastic rings — gear_definitions "טבעות") and
+  // 'ring_park' (a park's fixed training/olympic rings — gym_equipment) are the
+  // SAME physical object with identical range-of-motion. Symmetric (unlike
+  // parallettes↔dip_station): park rings satisfy a rings-tagged exercise AND a user
+  // who owns rings can perform park-rings exercises. This unifies a dual-source item
+  // whose two representations previously lived under non-matching canonicals, so a
+  // park stocking rings never opened its rings-based exercises.
+  gymnastic_rings:  new Set(['rings', 'ring_park']),
 };
 
 /** Reverse index: canonical key → family name (built once at module load). */
