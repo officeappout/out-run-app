@@ -17,6 +17,7 @@ import { groupExercisesIntoSections } from '@/features/workouts/components/worko
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
+import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
 import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
 
 const FINISH = '#EF4444'; // journey end (matches the finish dot); the spine blends to it on the last leg
@@ -156,7 +157,7 @@ export default function HybridJourneyAxis({
                       {/* פעולה · מרחק · זמן (הפועל = הפעילות) */}
                       <div className="flex items-center gap-2 flex-wrap mt-2">
                         <Meta icon={<ActivityGlyph kind="aerobic" subtype={seg.aerobicType} className="w-4 h-4" />}>
-                          {action} · {seg.distanceKm != null ? seg.distanceKm.toFixed(2) : '—'} ק״מ · {Math.round((seg.durationSec ?? 0) / 60)} דק׳
+                          {action} · {seg.distanceKm != null ? seg.distanceKm.toFixed(2) : '—'} ק״מ · {formatMinutes(seg.durationSec)}
                         </Meta>
                         {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={{ direction: 'ltr', background: '#F3F4F6', color: AER_TEXT, padding: '2px 8px' }}>{fmtPace(pace)} /ק״מ</span>}
                       </div>
@@ -171,7 +172,7 @@ export default function HybridJourneyAxis({
                       </div>
                       <div className="flex items-center gap-2 flex-wrap mt-2">
                         {seg.distanceKm != null && <Meta icon={<Ruler size={14} />}>{seg.distanceKm.toFixed(2)} ק״מ</Meta>}
-                        {seg.durationSec != null && <Meta icon={<Clock size={14} />}>{Math.round(seg.durationSec / 60)} דק׳</Meta>}
+                        {seg.durationSec != null && <Meta icon={<Clock size={14} />}>{formatMinutes(seg.durationSec)}</Meta>}
                         {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={{ direction: 'ltr', background: '#F3F4F6', color: AER_TEXT, padding: '2px 8px' }}>{fmtPace(pace)} /ק״מ</span>}
                       </div>
                       {last && (
@@ -207,7 +208,7 @@ export default function HybridJourneyAxis({
                     {/* station time only — SectionHeaders carry per-block counts (#3) */}
                     <div className="flex items-center justify-end mt-2">
                       <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
-                        <Clock size={13} /> ~{Math.round((seg.content?.estimatedDurationSec ?? 0) / 60)} דק׳
+                        <Clock size={13} /> ~{formatMinutes(seg.content?.estimatedDurationSec)}
                       </span>
                     </div>
                     {sections.map((section) => {
@@ -254,7 +255,7 @@ export default function HybridJourneyAxis({
                       <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><ActivityGlyph kind="strength" className="w-[15px] h-[15px]" /> {exs.length} תרגילים</span>
                       {/* Station time (meaningful), not a sets-sum. Per-exercise sets live on each card. */}
                       <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
-                        <Clock size={13} /> ~{Math.round((seg.content?.estimatedDurationSec ?? 0) / 60)} דק׳
+                        <Clock size={13} /> ~{formatMinutes(seg.content?.estimatedDurationSec)}
                       </span>
                     </div>
                     {/* superset grouping — subtle ENCLOSURE (point 5), not a colored

@@ -23,6 +23,7 @@ import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/featur
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
+import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
 
 const ACCENT = '#00ADEF';
@@ -154,7 +155,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       journeyStrip.push(
         <span key={`leg${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-bold whitespace-nowrap" style={{ color: '#374151' }}>
           <span className="inline-flex" style={{ color: AER }}><ActivityGlyph kind="aerobic" subtype={kind} className="w-[23px] h-[23px]" /></span>
-          {Math.round((seg.durationSec ?? 0) / 60)} דק׳
+          {formatMinutes(seg.durationSec)}
         </span>,
       );
     } else {
@@ -163,7 +164,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       journeyStrip.push(
         <span key={`stn${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: '#0E7490' }}>
           <span className="inline-flex" style={{ color: STR }}><ActivityGlyph kind="strength" subtype={seg.domainFocus} className="w-[23px] h-[23px]" /></span>
-          {Math.round((seg.durationSec ?? 0) / 60)} דק׳
+          {formatMinutes(seg.durationSec)}
         </span>,
       );
     }
