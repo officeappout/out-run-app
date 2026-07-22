@@ -461,7 +461,7 @@ export default function MonthlyCalendarGrid({
                         cell, dayEntries, scheduleDays, programIconKey, isSelected,
                         // Today: use useDayStatus for the unified Completion Bridge
                         // (≥10 min logged OR workoutCompleted flag).
-                        cell.isToday ? getDayStatus(cell.iso).isCompleted : undefined,
+                        cell.isToday ? getDayStatus(cell.iso).workoutDone : undefined,
                         // Past: dailyProgress.workoutCompleted from the Firestore
                         // pastProgressMap — keeps the flame alive after a day
                         // transitions from "today" to "past".

@@ -19,7 +19,7 @@ import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey } from '@
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
-import { resolveDayDisplayProps, DayIconCell, type DaySessionInput } from '@/features/home/utils/day-display.utils';
+import { resolveDayDisplayProps, DayIconCell } from '@/features/home/utils/day-display.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
@@ -116,6 +116,8 @@ interface SmartWeeklyScheduleProps {
 interface DayActivityData {
   hasActivity: boolean;
   isCompleted: boolean;
+  /** S8-only: completed an OUT workout (drives the FLAME). Split from the blended isCompleted. */
+  workoutDone?: boolean;
   isMissed: boolean;
   isRest: boolean;
   isToday: boolean;
@@ -909,6 +911,7 @@ export default function SmartWeeklySchedule({
       let dayData: DayActivityData = {
         hasActivity: false,
         isCompleted: false,
+        workoutDone: false,
         isMissed: false,
         isRest: isRestDay,
         isToday,
@@ -937,6 +940,7 @@ export default function SmartWeeklySchedule({
           ...dayData,
           hasActivity: status.hasActivity,
           isCompleted: status.isCompleted,
+          workoutDone: status.workoutDone,
           totalMinutes: status.totalMinutes,
           categories: status.categories,
           dominantCategory: status.dominantCategory,
@@ -1145,71 +1149,31 @@ export default function SmartWeeklySchedule({
           ? 'future'
           : 'past';
 
-      // ── Multi-session detection ─────────────────────────────────────
-      // Build sessions from per-bucket minutes. Any category with ≥ 10
-      // logged minutes counts as its own session; sorted desc by minutes
-      // and capped at 3 by the engine. When 2+ are present and the day
-      // qualifies, the engine returns alternating sessions and DayIconCell
-      // pulses through them with pager dots.
-      //
-      // Per-day skill icon — three-tier priority:
-      //   1. programIds[0] from the hydrated Firestore entry (most specific)
-      //   2. recurringTemplate[dayLetter][0] — in-memory fallback when no
-      //      Firestore doc exists yet (e.g. 'UPPER_CALISTHENICS' → 'muscle')
-      //   3. resolvedIconKey — profile-level activePrograms[0] (least specific)
-      //
-      // Without Tier 2, a future calisthenics_upper day with no Firestore
-      // doc falls straight to activePrograms[0] (e.g. 'front_lever' → 'pullup').
-      const templatePrimaryId =
-        !perDayPrimaryId && recurringTemplate
-          ? ((recurringTemplate as Record<string, string[] | undefined>)[dayLetter]?.[0] ?? null)
-          : null;
-      const perDayIconKey = perDayPrimaryId
-        ? (resolveIconKey(perDayPrimaryId) ?? resolvedIconKey)
-        : templatePrimaryId
-          ? (resolveIconKey(templatePrimaryId) ?? resolvedIconKey)
-          : resolvedIconKey;
-
-      const sessions: DaySessionInput[] = (
-        ['strength', 'cardio', 'maintenance'] as const
-      )
-        .filter((cat) => (dayData.categories[cat] ?? 0) >= STREAK_MINIMUM_MINUTES)
-        .map((cat) => ({
-          category: cat,
-          minutes: dayData.categories[cat],
-          // Strength session uses per-day skill icon when available;
-          // cardio/maintenance fall back to category defaults inside the engine.
-          programIconKey: cat === 'strength' ? perDayIconKey : undefined,
-        }))
-        .sort((a, b) => b.minutes - a.minutes);
-
-      // Hero-flame selection: Strength > Cardio > Maintenance priority order.
-      // Used as the fallback dominantCategory/programIconKey when only one
-      // session is active, and as the first icon in the alternating sequence
-      // when multiple real sessions exist.
-      const heroPriority = ['strength', 'cardio', 'maintenance'] as const;
-      const heroSession =
-        sessions.find((s) => s.category === heroPriority[0]) ??
-        sessions.find((s) => s.category === heroPriority[1]) ??
-        sessions[0];
+      // Activity multi-session detection (sessions/heroSession) removed with the
+      // flame→workoutDone split: the flame is the WORKOUT axis (single S7 workout,
+      // coloured by programIconKey), not activity. Activity (dayData.categories) will
+      // build the RING via buildMiniRingData in Stage 2 (composition).
 
       const displayProps = resolveDayDisplayProps({
         state,
         isSelected: isCellSelected,
         isRest: dayData.isRest,
         isMissed: dayData.isMissed,
-        isCompleted: dayData.isCompleted,
+        isCompleted: dayData.workoutDone ?? false,
         debtCleared: dayData.debtCleared,
-        dominantCategory: heroSession?.category ?? dayData.dominantCategory,
+        // Flame colour comes from the SCHEDULED WORKOUT type (S7), never activity:
+        // leave dominantCategory null so resolveCategory / resolveFlameSrc fall to
+        // programIconKey (S7 entry → FLAME_BY_PROGRAM_ICON_KEY). Activity (S10) drives
+        // the ring, not the flame (composition is Stage 2).
+        dominantCategory: null,
         stepGoalMet: false,
         programIconKey:
-          heroSession?.programIconKey ??
           dayData.communityIconKey ??
           resolveIconKey(dayData.primaryEntry?.programIds?.[0] ?? dayData.primaryEntry?.scheduledCategories?.[0]) ??
           resolvedIconKey,
-        // Pass the full sessions array when 2+ real activities exist so
-        // DayIconCell alternates between them with pager dots.
-        sessions: sessions.length >= 2 ? sessions : undefined,
+        // Flame = the workout axis only; no activity-session alternation (that belongs
+        // to the ring, Stage 2). Multi-OUT-workout days re-introduce S7-based sessions later.
+        sessions: undefined,
       });
 
       return <DayIconCell props={displayProps} />;
