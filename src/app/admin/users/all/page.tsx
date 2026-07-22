@@ -42,7 +42,7 @@ import { getProgram, getAllPrograms, MASTER_PROGRAM_ID_TO_SLUG } from '@/feature
 import { Program } from '@/features/content/programs';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
-import { formatFirebaseTimestamp } from '@/lib/utils/date-formatter';
+import { formatFirebaseTimestamp, convertTimestampToDate } from '@/lib/utils/date-formatter';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -2967,8 +2967,12 @@ export default function AllUsersPage() {
           coins: progression.coins || 0,
           level: effectiveLevel,
           effectiveLevel,
-          joinDate: data?.createdAt ? data.createdAt : undefined,
-          lastActive: data?.lastActive ? data.lastActive : undefined,
+          // Convert raw Firestore Timestamps to real Date objects at the data
+          // boundary so downstream `.toLocaleDateString()` calls are safe and the
+          // runtime value matches the `Date` type declared on AdminUserListItem.
+          // (Mirrors admin/authority/users, which already normalizes lastActive.)
+          joinDate: convertTimestampToDate(data?.createdAt) ?? undefined,
+          lastActive: convertTimestampToDate(data?.lastActive) ?? undefined,
           isSuperAdmin: core.isSuperAdmin === true,
           isApproved: core.isApproved === true,
           onboardingStep: data?.onboardingStep || undefined,

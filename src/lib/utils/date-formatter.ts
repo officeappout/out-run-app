@@ -6,7 +6,7 @@
 /**
  * Safely converts Firebase Timestamp to Date object
  */
-function convertTimestampToDate(timestamp: any): Date | null {
+export function convertTimestampToDate(timestamp: any): Date | null {
   if (!timestamp) return null;
   
   // If it's already a Date object
