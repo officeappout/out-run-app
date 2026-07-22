@@ -193,7 +193,7 @@ export const STRENGTH_RING_ENABLED = false;
 // (generateHomeWorkoutTrio still returns 3 options); only presentation changes.
 // While FALSE the anchor renders the existing WorkoutSelectionCarousel and home keeps
 // its current order — BYTE-IDENTICAL. Gates every R-1.x sub-change.
-export const HOME_ANCHOR_V2_ENABLED = false;
+export const HOME_ANCHOR_V2_ENABLED = true;
 
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
