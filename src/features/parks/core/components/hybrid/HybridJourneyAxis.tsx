@@ -8,7 +8,7 @@
  * — renders a composed HybridPlan; no engine calls.
  */
 
-import { Footprints, Dumbbell, Clock, Ruler, Repeat, MapPin } from 'lucide-react';
+import { Dumbbell, Clock, Ruler, Repeat, MapPin } from 'lucide-react';
 import type { HybridPlannedSegment } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import ExerciseCard from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/ExerciseCard';
@@ -16,7 +16,7 @@ import SectionHeader from '@/features/workouts/components/workout-preview-drawer
 import { groupExercisesIntoSections } from '@/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
-import { WalkingIcon } from '@/features/content/programs/core/program-icon.util'; // point 13
+import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
 
 const FINISH = '#EF4444'; // journey end (matches the finish dot); the spine blends to it on the last leg
@@ -43,13 +43,7 @@ function hybridImage(we: any): string {
   } catch { return ''; }
 }
 
-/** Aerobic-leg glyph: WALKING → the shared WalkingIcon (walking.svg, point 13);
- *  RUNNING keeps Footprints until running gets its own icon. */
-function AerobicIcon({ type, size, cls }: { type?: string; size: number; cls: string }) {
-  return (type ?? 'walking') === 'running' ? <Footprints size={size} /> : <WalkingIcon className={cls} />;
-}
-
-function Node({ kind, nextColor, aerobicType }: { kind: 'aerobic' | 'strength'; nextColor: string; aerobicType?: string }) {
+function Node({ kind, nextColor, subtype }: { kind: 'aerobic' | 'strength'; nextColor: string; subtype?: string }) {
   const color = kind === 'aerobic' ? AER : STR;
   return (
     <div className="relative flex flex-col items-center flex-shrink-0" style={{ width: 44 }}>
@@ -65,7 +59,8 @@ function Node({ kind, nextColor, aerobicType }: { kind: 'aerobic' | 'strength'; 
       }} />
       <div className="relative rounded-full flex items-center justify-center text-white"
         style={{ zIndex: 1, width: 44, height: 44, background: color, border: '3px solid #fff', boxShadow: `0 4px 12px ${color}66` }}>
-        {kind === 'aerobic' ? <AerobicIcon type={aerobicType} size={20} cls="w-5 h-5" /> : <Dumbbell size={20} />}
+        {/* point 18: icon enlarged 20→26 (circle is 44px, room to breathe) */}
+        <ActivityGlyph kind={kind} subtype={subtype} className="w-[26px] h-[26px]" />
       </div>
     </div>
   );
@@ -151,7 +146,7 @@ export default function HybridJourneyAxis({
             : `רגל ריצה ${aerIdx} — ${legLabel}`;
           return (
             <div key={i} className="flex gap-3 items-stretch">
-              <Node kind="aerobic" nextColor={nextColor} aerobicType={seg.aerobicType} />
+              <Node kind="aerobic" nextColor={nextColor} subtype={seg.aerobicType} />
               <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
                 style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
                 <div style={{ padding: '11px 15px 12px 12px' }}>
@@ -160,7 +155,7 @@ export default function HybridJourneyAxis({
                       <span className="text-[14px] font-black block" style={{ color: '#111827' }}>{legTitle}</span>
                       {/* פעולה · מרחק · זמן (הפועל = הפעילות) */}
                       <div className="flex items-center gap-2 flex-wrap mt-2">
-                        <Meta icon={<AerobicIcon type={seg.aerobicType} size={14} cls="w-3.5 h-3.5" />}>
+                        <Meta icon={<ActivityGlyph kind="aerobic" subtype={seg.aerobicType} className="w-4 h-4" />}>
                           {action} · {seg.distanceKm != null ? seg.distanceKm.toFixed(2) : '—'} ק״מ · {Math.round((seg.durationSec ?? 0) / 60)} דק׳
                         </Meta>
                         {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={{ direction: 'ltr', background: '#F3F4F6', color: AER_TEXT, padding: '2px 8px' }}>{fmtPace(pace)} /ק״מ</span>}
@@ -199,7 +194,7 @@ export default function HybridJourneyAxis({
         const sections = stationName ? groupExercisesIntoSections(exs as any) : [];
         return (
           <div key={i} className="flex gap-3 items-stretch">
-            <Node kind="strength" nextColor={nextColor} />
+            <Node kind="strength" nextColor={nextColor} subtype={seg.domainFocus} />
             <div className="relative flex-1 min-w-0 bg-white rounded-2xl overflow-hidden mb-3"
               style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
               <div style={{ padding: '11px 15px 12px 12px' }}>

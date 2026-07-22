@@ -18,11 +18,11 @@ import { motion, useDragControls, useMotionValue, useTransform, animate } from '
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import CaloriesChip from '@/components/ui/CaloriesChip';
 import WeightInlineRow from '@/components/ui/WeightInlineRow';
-import { resolveIconKey, getProgramIcon } from '@/features/content/programs/core/program-icon.util';
 import HybridJourneyAxis from './HybridJourneyAxis';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/features/workout-engine/shared/hooks/useSheetDrag';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
+import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
 
 const ACCENT = '#00ADEF';
@@ -153,17 +153,16 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       const kind = seg.aerobicType ?? aerobicKind; // 'walking' → WalkingIcon · 'running' → RunIcon
       journeyStrip.push(
         <span key={`leg${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-bold whitespace-nowrap" style={{ color: '#374151' }}>
-          <span className="inline-flex" style={{ color: AER }}>{getProgramIcon(resolveIconKey(kind === 'walking' ? 'walking' : 'running'), 'w-[19px] h-[19px]')}</span>
+          <span className="inline-flex" style={{ color: AER }}><ActivityGlyph kind="aerobic" subtype={kind} className="w-[23px] h-[23px]" /></span>
           {Math.round((seg.durationSec ?? 0) / 60)} דק׳
         </span>,
       );
     } else {
-      // domainFocus = the station's program (push | pull | legs_core). The shared map
-      // keys legs/core separately, so legs_core → legs for the icon lookup.
-      const alias = seg.domainFocus === 'legs_core' ? 'legs' : seg.domainFocus;
+      // Strength icon varies by domainFocus (push→muscle · pull→target · legs→leg) —
+      // the SAME mapping the vertical axis now uses (activity-icons, point 17).
       journeyStrip.push(
         <span key={`stn${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: '#0E7490' }}>
-          <span className="inline-flex" style={{ color: STR }}>{getProgramIcon(resolveIconKey(alias), 'w-[19px] h-[19px]')}</span>
+          <span className="inline-flex" style={{ color: STR }}><ActivityGlyph kind="strength" subtype={seg.domainFocus} className="w-[23px] h-[23px]" /></span>
           {Math.round((seg.durationSec ?? 0) / 60)} דק׳
         </span>,
       );
