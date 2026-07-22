@@ -8,7 +8,7 @@
  * — renders a composed HybridPlan; no engine calls.
  */
 
-import { Dumbbell, Clock, Ruler, Repeat, MapPin } from 'lucide-react';
+import { Clock, Ruler, Repeat, MapPin } from 'lucide-react';
 import type { HybridPlannedSegment } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import ExerciseCard from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/ExerciseCard';
@@ -249,7 +249,9 @@ export default function HybridJourneyAxis({
                 ) : (
                   <>
                     <div className="flex items-center justify-between mt-2">
-                      <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><Dumbbell size={15} /> {exs.length} תרגילים</span>
+                      {/* generic strength marker (MuscleIcon) from the shared dictionary —
+                          no subtype → the muscle glyph. OUT is calisthenics: no dumbbell anywhere. */}
+                      <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><ActivityGlyph kind="strength" className="w-[15px] h-[15px]" /> {exs.length} תרגילים</span>
                       {/* Station time (meaningful), not a sets-sum. Per-exercise sets live on each card. */}
                       <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
                         <Clock size={13} /> ~{Math.round((seg.content?.estimatedDurationSec ?? 0) / 60)} דק׳
