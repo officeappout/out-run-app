@@ -85,12 +85,6 @@ interface SmartWeeklyScheduleProps {
   hideMonthToggle?: boolean;
   /** Phase 5 — swipe-down on the week strip triggers this callback (e.g. open planner) */
   onSwipeDown?: () => void;
-  /**
-   * R-1.4 — when true, a horizontal pan on the strip moves the selected day by one
-   * within the visible week (reuses `onDaySelect`). Off by default so the existing
-   * swipe-down-to-planner gesture is the only pan behaviour.
-   */
-  enableDaySwipe?: boolean;
   /** Tapping "שינוי לוז" triggers this callback (e.g. open the full planner overlay).
    *  When omitted, the button falls back to toggling week/month mode. */
   onOpenPlanner?: () => void;
@@ -717,7 +711,6 @@ export default function SmartWeeklySchedule({
   expandedGridConfig,
   hideMonthToggle = false,
   onSwipeDown,
-  enableDaySwipe = false,
   onOpenPlanner,
   hasCompletedAssessment = false,
   hasSchedule = true,
@@ -1321,34 +1314,14 @@ export default function SmartWeeklySchedule({
   };
 
   const handlePanEnd = useCallback((_: unknown, info: PanInfo) => {
-    // R-1.4 — horizontal pan → step the selected day within the visible week.
-    // Checked first, and only when explicitly enabled, so the existing
-    // swipe-down-to-planner behaviour is untouched while the anchor flag is off.
-    // Scope note: the strip only ever renders the CURRENT week (every date here is
-    // derived from `new Date()`), so the step is clamped to Sun–Sat rather than
-    // paging across weeks; cross-week navigation stays on the month toggle.
-    if (
-      enableDaySwipe &&
-      Math.abs(info.offset.x) > 60 &&
-      Math.abs(info.offset.x) > Math.abs(info.offset.y)
-    ) {
-      const today = new Date();
-      const baseDow = selectedDate
-        ? new Date(`${selectedDate}T00:00:00`).getDay()
-        : today.getDay();
-      const dir = info.offset.x < 0 ? 1 : -1; // swipe left → next day
-      const nextDow = Math.min(6, Math.max(0, baseDow + dir));
-      if (nextDow === baseDow) return; // already at the week edge
-      // Same date math as handleDayClick (keeps time-of-day, so the ISO slice matches).
-      const dayDate = new Date(today);
-      dayDate.setDate(today.getDate() - today.getDay() + nextDow);
-      onDaySelect?.(dayDate.toISOString().split('T')[0]);
-      return;
-    }
+    // Swipe-down on the schedule card → open the planner. The R day-swipe (stepping
+    // the selected day) moved to the central workout anchor (see home/page.tsx), so
+    // the strip no longer owns a horizontal pan — it stays free for its display role
+    // and the future axis-B (metrics) carousel.
     if (onSwipeDown && info.offset.y > 50 && info.velocity.y > 100) {
       onSwipeDown();
     }
-  }, [enableDaySwipe, selectedDate, onDaySelect, onSwipeDown]);
+  }, [onSwipeDown]);
 
   // Fallback: Empty state
   if (!schedule || schedule.length === 0) {
@@ -1446,7 +1419,7 @@ export default function SmartWeeklySchedule({
           border: '0.5px solid #E0E9FF',
           boxShadow: '0 1px 4px 0 rgba(0,0,0,0.04), inset 0 1px 3px 0 rgba(0,0,0,0.02)',
         }}
-        onPanEnd={onSwipeDown || enableDaySwipe ? handlePanEnd : undefined}
+        onPanEnd={onSwipeDown ? handlePanEnd : undefined}
       >
         {/* Journey overlay: ultra-light full-card glass — calendar stays sharp below */}
         {showOverlay && (

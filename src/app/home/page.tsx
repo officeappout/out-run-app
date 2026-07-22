@@ -13,7 +13,7 @@ import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
 import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
 import { calculateProfileCompletion } from '@/features/user/identity/services/profile-completion.service';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import HeroWorkoutCard, { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import type { MessageType } from '@/features/messages/services/MessageService';
@@ -53,7 +53,7 @@ import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps } from '@/features/h
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 
-import { toISODate, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
+import { toISODate, getHebrewDayLetter, stepSelectedDate } from '@/features/user/scheduling/utils/dateUtils';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
@@ -286,6 +286,18 @@ export default function HomePage() {
 
   // Selected date drives SmartWeeklySchedule highlight + StatsOverview workout gen
   const [selectedDate, setSelectedDate] = useState(() => toISODate(new Date()));
+
+  // R day-swipe — moved off the schedule strip to the central workout anchor: a
+  // horizontal pan on the workout card steps the selected day within the current week.
+  // RTL-aware: the anchor renders right-to-left, so swipe RIGHT → next (later) day and
+  // swipe LEFT → previous — mirroring the LTR convention (the strip's old handler used
+  // the raw LTR sign, which read inverted in the RTL layout).
+  const handleAnchorDayPan = useCallback((_: unknown, info: PanInfo) => {
+    if (Math.abs(info.offset.x) <= 60 || Math.abs(info.offset.x) <= Math.abs(info.offset.y)) return;
+    const dir = info.offset.x > 0 ? 1 : -1; // RTL: swipe right → next day
+    const next = stepSelectedDate(selectedDate, dir);
+    if (next) setSelectedDate(next);
+  }, [selectedDate]);
 
   // Training Planner Overlay (calendar icon → full-screen planner)
   const [showPlanner, setShowPlanner] = useState(false);
@@ -1199,7 +1211,6 @@ export default function HomePage() {
               hideMonthToggle
               onSwipeDown={() => setShowPlanner(true)}
               onOpenPlanner={() => setShowPlanner(true)}
-              enableDaySwipe={HOME_ANCHOR_V2_ENABLED}
               hasCompletedAssessment={hasCompletedAssessment}
               hasSchedule={hasSchedule}
               onStartAssessment={handleHeroPress}
@@ -1322,7 +1333,7 @@ export default function HomePage() {
                   />
                 );
                 return HOME_ANCHOR_V2_ENABLED
-                  ? <div className="order-first">{anchor}</div>
+                  ? <motion.div className="order-first" onPanEnd={handleAnchorDayPan}>{anchor}</motion.div>
                   : anchor;
               })()}
             </div>
