@@ -22,7 +22,6 @@ import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
 import { useTodayStrengthVolume } from '@/features/home/hooks/useTodayStrengthVolume';
 import { useDailyStrengthTarget } from '@/features/home/hooks/useDailyStrengthTarget';
 import { FRAGMENTER_MINUTES_PER_SET } from '@/features/home/utils/setsToMinutes';
-import { useDayStatus } from '@/features/activity/hooks/useDayStatus';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
@@ -301,11 +300,12 @@ export default function HomePage() {
   // Home page tabs ("כוח" / "בריאות") — below the schedule strip
   const [homeTab, setHomeTab] = useState<'strength' | 'health'>('strength');
 
-  // ── Missed Workout Recovery Banner ──────────────────────────────────────
-  // Shown once per calendar day when:
-  //   1. Yesterday was a scheduled training day (per lifestyle.scheduleDays or recurringTemplate)
-  //   2. No activity was logged for yesterday (useDayStatus bridge)
-  //   3. The per-day localStorage dismiss key is NOT set
+  // ── Re-engagement Banner ────────────────────────────────────────────────
+  // Shown once per calendar day when the user has been inactive 4+ days
+  // ("welcome back"), they're past the 48h new-user grace window, and the
+  // per-day localStorage dismiss key is NOT set.
+  // (The old "you missed yesterday's workout" variant was removed — a missed
+  //  day is treated as a rest day, not a failure.)
   const yesterdayISO = useMemo(() => {
     const d = new Date(Date.now() - 86_400_000);
     const yyyy = d.getFullYear();
@@ -316,9 +316,7 @@ export default function HomePage() {
 
   const MISSED_BANNER_KEY = `missed_banner_dismissed_${yesterdayISO}`;
   const [showMissedWorkoutBanner, setShowMissedWorkoutBanner] = useState(false);
-  const [bannerType, setBannerType] = useState<MessageType>('missed_workout');
-
-  const getDayStatus = useDayStatus();
+  const [bannerType, setBannerType] = useState<MessageType>('re_engagement');
 
   useEffect(() => {
     if (!profile || typeof window === 'undefined') return;
@@ -352,24 +350,10 @@ export default function HomePage() {
       return;
     }
 
-    // Condition C: Short inactivity (0–3 days) → only show if yesterday was
-    // a scheduled day that the user actually missed.
-    const HEBREW_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-    const yesterdayDayLetter = HEBREW_DAYS[new Date(yesterdayISO + 'T00:00:00').getDay()];
-    const scheduleDays = (profile.lifestyle?.scheduleDays as string[] | undefined) ?? [];
-    const recurringTemplate = profile.lifestyle?.recurringTemplate as Record<string, string[]> | undefined;
-    const wasScheduledDay =
-      scheduleDays.includes(yesterdayDayLetter) ||
-      (recurringTemplate?.[yesterdayDayLetter]?.length ?? 0) > 0;
-
-    if (!wasScheduledDay) return;
-
-    const { isCompleted } = getDayStatus(yesterdayISO);
-    if (!isCompleted) {
-      setBannerType('missed_workout');
-      setShowMissedWorkoutBanner(true);
-    }
-  }, [profile, yesterdayISO, MISSED_BANNER_KEY, getDayStatus]);
+    // (Condition C — the "you missed yesterday's workout" banner — was removed:
+    //  a missed day is treated as a rest day, not a failure, so we no longer nudge
+    //  about it. Only the long-inactivity re-engagement banner (B) remains.)
+  }, [profile, MISSED_BANNER_KEY]);
 
   const dismissMissedBanner = useCallback(() => {
     if (typeof window !== 'undefined') {
