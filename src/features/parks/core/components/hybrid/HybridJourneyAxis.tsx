@@ -8,7 +8,8 @@
  * — renders a composed HybridPlan; no engine calls.
  */
 
-import { Clock, Ruler, Repeat, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, Ruler, Repeat, MapPin, ChevronDown } from 'lucide-react';
 import type { HybridPlannedSegment } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import ExerciseCard from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/ExerciseCard';
@@ -26,6 +27,11 @@ import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // singl
 const FINISH = '#EF4444'; // journey end (matches the finish dot); the spine blends to it on the last leg
 const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text (same hue as STR)
+
+// Station super-collapse (point 20): domainFocus → "main muscle group" label.
+const DOMAIN_LABEL: Record<string, string> = {
+  push: 'דחיפה', pull: 'משיכה', legs: 'רגליים', legs_core: 'רגליים וליבה', core: 'ליבה',
+};
 
 const ZONE_LABEL: Record<string, string> = {
   jogging: 'ריצה קלה', easy: 'קל', recovery: 'שחרור', walk: 'הליכה',
@@ -122,6 +128,13 @@ export default function HybridJourneyAxis({
   const aerCount = segments.filter((s) => s.kind === 'aerobic').length;
   let aerIdx = 0, strIdx = 0;
   const firstColor = segments[0]?.kind === 'strength' ? STR : AER;
+
+  // Station super-collapse (point 20): per-station-card. Keyed by segment index;
+  // default expanded (absent = open). Collapsed → a summary card instead of the
+  // warmup+strength sections. Independent per station.
+  const [collapsedStations, setCollapsedStations] = useState<Record<number, boolean>>({});
+  const toggleStation = (idx: number) =>
+    setCollapsedStations((m) => ({ ...m, [idx]: !m[idx] }));
   return (
     <div dir="rtl">
       {/* start dot + spine head */}
@@ -203,10 +216,32 @@ export default function HybridJourneyAxis({
               style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)' }}>
               <div style={{ padding: '11px 15px 12px 12px' }}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[14px] font-black" style={{ color: '#111827' }}>תחנה {strIdx} — כוח</span>
+                  {stationName ? (
+                    /* point 20: the header toggles the station super-collapse */
+                    <button type="button" onClick={() => toggleStation(i)} aria-expanded={!collapsedStations[i]}
+                      className="flex items-center gap-1.5 active:scale-[0.98] transition-transform">
+                      <ChevronDown size={16} style={{ color: '#9CA3AF', transform: collapsedStations[i] ? 'rotate(-90deg)' : 'none', transition: 'transform .2s' }} />
+                      <span className="text-[14px] font-black" style={{ color: '#111827' }}>תחנה {strIdx} — כוח</span>
+                    </button>
+                  ) : (
+                    <span className="text-[14px] font-black" style={{ color: '#111827' }}>תחנה {strIdx} — כוח</span>
+                  )}
                   <span className="text-[10.5px] font-extrabold rounded-full whitespace-nowrap" style={{ padding: '3px 9px', background: STR_TINT, color: STR_TEXT }}>עצור ואמן</span>
                 </div>
                 {stationName ? (
+                  collapsedStations[i] ? (
+                    /* point 20: collapsed — summary card (not an empty header) */
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap text-[12.5px]" style={{ color: '#4B5563' }}>
+                      <span className="font-bold">{exs.length} תרגילים</span>
+                      <span style={{ color: '#D1D5DB' }}>·</span>
+                      <span>~{formatMinutes(seg.content?.estimatedDurationSec)}</span>
+                      <span style={{ color: '#D1D5DB' }}>·</span>
+                      <span className="font-semibold" style={{ color: STR_TEXT }}>{DOMAIN_LABEL[seg.domainFocus ?? ''] ?? 'כוח'}</span>
+                      {sections.some((s) => s.id === 'warmup') && (isWarmupActive ?? true) && (
+                        <span className="text-[10.5px] font-bold rounded-full" style={{ padding: '2px 8px', background: STR_TINT, color: STR_TEXT }}>כולל חימום</span>
+                      )}
+                    </div>
+                  ) : (
                   <>
                     {/* station time only — SectionHeaders carry per-block counts (#3) */}
                     <div className="flex items-center justify-end mt-2">
@@ -218,7 +253,10 @@ export default function HybridJourneyAxis({
                       const isWarmupSection = section.id === 'warmup';
                       const isSupersetSection = section.id.startsWith('superset');
                       const isPyramidSection = section.id.startsWith('pyramid');
-                      const showCards = !isWarmupSection || (isWarmupExpanded ?? true);
+                      // point 20: the station super-collapse owns expand; the warmup's
+                      // own chevron is hidden. Its cards follow the SKIP (active → show,
+                      // skipped → hide) — functional, not the removed UI collapse.
+                      const showCards = !isWarmupSection || (isWarmupActive ?? true);
                       return (
                         <div key={section.id} className="mt-3">
                           <SectionHeader
@@ -230,6 +268,7 @@ export default function HybridJourneyAxis({
                             isWarmupExpanded={isWarmupExpanded ?? true}
                             onToggleWarmupExpanded={onToggleWarmupExpanded ?? (() => {})}
                             onToggleWarmupActive={onToggleWarmupActive ?? (() => {})}
+                            hideExpandToggle
                           />
                           {showCards && (
                             <CardGroup superset={isSupersetSection}>
@@ -278,6 +317,7 @@ export default function HybridJourneyAxis({
                       );
                     })}
                   </>
+                  )
                 ) : (
                   <>
                     <div className="flex items-center justify-between mt-2">

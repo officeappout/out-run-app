@@ -20,6 +20,12 @@ export interface SectionHeaderProps {
   onToggleWarmupExpanded: () => void;
   /** Warmup-only: flip the active-vs-skip flag (also auto-collapses on skip). */
   onToggleWarmupActive: () => void;
+  /**
+   * Warmup-only: hide the expand/collapse chevron because an OUTER container owns
+   * expand/collapse (the hybrid station super-collapse, point 20). The skip pill
+   * stays — it's functional. Default false → standalone preview is unchanged.
+   */
+  hideExpandToggle?: boolean;
 }
 
 /**
@@ -49,38 +55,50 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
   isWarmupExpanded,
   onToggleWarmupExpanded,
   onToggleWarmupActive,
+  hideExpandToggle = false,
 }) => {
   if (isWarmup) {
-    return (
-      <div className="w-full flex items-center justify-between mb-3" dir="rtl">
-        <button
-          type="button"
-          onClick={onToggleWarmupExpanded}
-          disabled={!isWarmupActive}
-          className="flex items-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
-          aria-expanded={isWarmupExpanded}
-          aria-label={isWarmupExpanded ? 'כווץ חימום' : 'הרחב חימום'}
+    const titleBlock = (
+      <>
+        <h3
+          className={`text-[16px] font-semibold ${
+            isWarmupActive
+              ? 'text-slate-900 dark:text-white'
+              : 'text-slate-400 dark:text-slate-500'
+          }`}
+          style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          <h3
-            className={`text-[16px] font-semibold ${
-              isWarmupActive
-                ? 'text-slate-900 dark:text-white'
-                : 'text-slate-400 dark:text-slate-500'
-            }`}
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            {section.title}
-          </h3>
-          <span className="text-xs text-slate-400">
-            ({section.exercises.length} תרגילים)
-          </span>
+          {section.title}
+        </h3>
+        <span className="text-xs text-slate-400">
+          ({section.exercises.length} תרגילים)
+        </span>
+        {!hideExpandToggle && (
           <ArrowDownCircle
             size={16}
             className={`text-slate-400 transition-transform ${
               isWarmupExpanded ? 'rotate-180' : ''
             }`}
           />
-        </button>
+        )}
+      </>
+    );
+    return (
+      <div className="w-full flex items-center justify-between mb-3" dir="rtl">
+        {hideExpandToggle ? (
+          <div className="flex items-center gap-2">{titleBlock}</div>
+        ) : (
+          <button
+            type="button"
+            onClick={onToggleWarmupExpanded}
+            disabled={!isWarmupActive}
+            className="flex items-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
+            aria-expanded={isWarmupExpanded}
+            aria-label={isWarmupExpanded ? 'כווץ חימום' : 'הרחב חימום'}
+          >
+            {titleBlock}
+          </button>
+        )}
 
         <button
           type="button"
