@@ -1209,6 +1209,7 @@ export default function HomePage() {
               runningProgramStartDate={profile?.running?.activeProgram?.startDate as any}
               runningBasePace={profile?.running?.paceProfile?.basePace}
               scheduleVersion={scheduleVersion}
+              activityView={homeTab === 'health'}
             />
           </motion.div>
         )}

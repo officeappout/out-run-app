@@ -20,6 +20,7 @@ import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { resolveDayDisplayProps, DayIconCell } from '@/features/home/utils/day-display.utils';
+import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
@@ -111,6 +112,12 @@ interface SmartWeeklyScheduleProps {
   runningBasePace?: number;
   /** Increment to force weekly-strip re-derivation after a schedule mutation */
   scheduleVersion?: number;
+  /**
+   * ACTIVITY schedule view (Stage 2). When true the strip renders the S10
+   * activity RING per day instead of the S8 flame — the two schedules are
+   * separate views toggled by the host (health tab). Flame logic is untouched.
+   */
+  activityView?: boolean;
 }
 
 interface DayActivityData {
@@ -721,6 +728,7 @@ export default function SmartWeeklySchedule({
   runningProgramStartDate,
   runningBasePace,
   scheduleVersion,
+  activityView = false,
 }: SmartWeeklyScheduleProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1084,6 +1092,32 @@ export default function SmartWeeklySchedule({
     // Per-day skill icon bridge: resolve the primary programId stored in the
     // day's schedule entry so all render paths can share it.
     const perDayPrimaryId = dayData.primaryEntry?.programIds?.[0] ?? null;
+
+    // ── ACTIVITY schedule (Stage 2): the RING axis (S10). Takes precedence over
+    //    every flame/icon path — this is a separate schedule toggled by the host
+    //    (health tab). One aggregate summary ring per day; flame logic untouched.
+    if (activityView) {
+      const state: 'past' | 'today' | 'future' = dayData.isToday
+        ? 'today'
+        : dayData.isFuture
+          ? 'future'
+          : 'past';
+      const ring = buildActivityRingData({
+        totalMinutes: dayData.totalMinutes,
+        categories: dayData.categories,
+        dominantCategory: dayData.dominantCategory,
+      });
+      // props are required by DayIconCell but ignored when activityRing is set;
+      // pass minimal valid state so the cell can echo today/selection if needed.
+      const displayProps = resolveDayDisplayProps({
+        state,
+        isSelected: isCellSelected,
+        isRest: false,
+        isMissed: false,
+        isCompleted: false,
+      });
+      return <DayIconCell props={displayProps} activityRing={ring} ringSizePx={40} />;
+    }
 
     // ── Running mode + icon view: route through the centralized engine
     //    so we get the branded flame + colored pager dot for the actual
@@ -1508,7 +1542,13 @@ export default function SmartWeeklySchedule({
                           whileTap={{ scale: 0.92 }}
                           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                           className="flex items-center justify-center relative"
-                          style={{ width: 32, height: 32, overflow: 'visible' }}
+                          style={{
+                            // Activity view (ring) uses a larger 40 px slot since
+                            // it's a toggle — one schedule on screen at a time.
+                            width: activityView ? 40 : 32,
+                            height: activityView ? 40 : 32,
+                            overflow: 'visible',
+                          }}
                         >
                           {dayData && getDayIcon(day, dayData, effectiveCellSelected, index)}
 
