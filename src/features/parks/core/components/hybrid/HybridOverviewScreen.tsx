@@ -12,7 +12,7 @@
  * whole plan; peek only reveals the map.)
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
 import { motion, useDragControls, useMotionValue, useTransform, animate } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -22,10 +22,10 @@ import { resolveIconKey, getProgramIcon } from '@/features/content/programs/core
 import HybridJourneyAxis from './HybridJourneyAxis';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/features/workout-engine/shared/hooks/useSheetDrag';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
 
 const ACCENT = '#00ADEF';
-const AER = '#10B981', STR = '#00C9F2'; // strength = BRAND_CYAN (app-wide; color-system.md §4)
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
 
 // Three detents as a fraction of the viewport that stays VISIBLE above the map.
@@ -103,6 +103,21 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const stationCount = plan.segments.filter((s) => s.kind === 'strength').length;
   const stationsLabel = stationCount === 1 ? 'תחנת כוח אחת' : `${stationCount} תחנות כוח`;
   const routeDesc = `מסלול של ${t.distanceKm != null ? t.distanceKm.toFixed(1) : '—'} ק״מ עם ${stationsLabel} בדרך${cityName ? `, ב${cityName}` : ''}.`;
+
+  // Point 15: strength-station positions as fractions (0..1) along the WALKING route
+  // (cumulative aerobic km / total aerobic km). Fed to the map so it can paint the
+  // green→blue→green line-gradient at each station — same source as the axis colors.
+  const routeStationFracs = useMemo(() => {
+    const total = plan.segments.filter((s) => s.kind === 'aerobic').reduce((a, s) => a + (s.distanceKm ?? 0), 0);
+    if (total <= 0) return [];
+    const fracs: number[] = [];
+    let km = 0;
+    for (const s of plan.segments) {
+      if (s.kind === 'aerobic') km += s.distanceKm ?? 0;
+      else if (s.kind === 'strength') fracs.push(Math.min(0.999, Math.max(0.001, km / total)));
+    }
+    return fracs;
+  }, [plan]);
   const [showWeightNudge, setShowWeightNudge] = useState(false);
   // "פירוט" progressive-disclosure section (full-park only), collapsed by default.
   const [detailOpen, setDetailOpen] = useState(false);
@@ -225,6 +240,14 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     setOverviewSheetHeightPx(detentHeightPx(id, viewportH));
   }, [currentAnchor, viewportH, setOverviewSheetHeightPx]);
   useEffect(() => () => setOverviewSheetHeightPx(null), [setOverviewSheetHeightPx]);
+
+  // Point 15: publish the station fractions for the map route gradient (cleared on
+  // unmount so non-hybrid routes render with their normal flat color).
+  const setHybridRouteStations = useMapStore((s) => s.setHybridRouteStations);
+  useEffect(() => {
+    setHybridRouteStations(routeStationFracs);
+  }, [routeStationFracs, setHybridRouteStations]);
+  useEffect(() => () => setHybridRouteStations(null), [setHybridRouteStations]);
 
   // ── Point 2: content-scroll ↔ sheet-drag arbitration ──────────────────────
   // DELIBERATE local implementation — the shared useSheetScrollChain hook can't

@@ -41,6 +41,7 @@ import {
   TRAIL_FADE_LINE, ROUTE_PASSED_LINE, ROUTE_DEVIATION_LINE,
   PARK_CLUSTERS_GLOW, PARK_CLUSTERS, PARK_PINS, PARK_MINOR_PINS, PARK_CLUSTER_COUNT,
 } from './mapLayersConfig';
+import { HYBRID_AER, buildHybridRouteGradient } from './hybrid/hybrid-colors';
 // Store read for the off-route flag only — same cross-read precedent as
 // useWorkoutSession.ts. Subscribing to the boolean means AppMap re-renders
 // on off-route flips, not on every GPS sample.
@@ -317,6 +318,25 @@ export default function AppMap({
 
   const [parks, setParks] = useState<any[]>([]);
   const { setSelectedPark, visibleLayers, selectedPark } = useMapStore();
+
+  // Point 15: when a hybrid route is focused, its strength-station fractions drive a
+  // green(walk)→blue(strength)→green line-gradient on the active route line, and the
+  // cyan glow is neutralized to green so it doesn't fight the gradient. Null →
+  // non-hybrid route → the ORIGINAL flat cyan paints, byte-identical.
+  const hybridRouteStations = useMapStore((s) => s.hybridRouteStations);
+  const isHybridRoute = !!hybridRouteStations && hybridRouteStations.length > 0;
+  const routesActivePaint = useMemo(
+    () => (isHybridRoute
+      ? { 'line-gradient': buildHybridRouteGradient(hybridRouteStations!), 'line-width': 7, 'line-opacity': 1 }
+      : ROUTES_ACTIVE.paint),
+    [isHybridRoute, hybridRouteStations],
+  );
+  const routesGlowPaint = useMemo(
+    () => (isHybridRoute
+      ? { ...ROUTES_ACTIVE_GLOW.paint, 'line-color': HYBRID_AER }
+      : ROUTES_ACTIVE_GLOW.paint),
+    [isHybridRoute],
+  );
   // Selected park id powers the cyan-ring highlight on ParkPhotoMarker so
   // tapping a pin gives instant visual feedback BEFORE the preview sheet
   // animates in. Stored as id (not the whole object) so equality checks
@@ -1291,13 +1311,15 @@ export default function AppMap({
       >
         {isMapLoaded && (
         <>
-        {/* ── Route layers ── */}
+        {/* ── Route layers ── (lineMetrics enables line-progress for the point-15
+             hybrid line-gradient on routes-active; the flat-color layers ignore it,
+             so non-hybrid routes render identically) ── */}
         {!isActiveWorkout && visibleLayers?.includes('routes') && (
-          <Source id="routes" type="geojson" data={routesGeoJSON as any}>
+          <Source id="routes" type="geojson" data={routesGeoJSON as any} lineMetrics>
             <Layer id="routes-background" type="line" paint={ROUTES_BACKGROUND.paint as any} layout={ROUTES_BACKGROUND.layout} />
-            <Layer id="routes-active-glow" type="line" filter={ROUTES_ACTIVE_GLOW.filter} paint={ROUTES_ACTIVE_GLOW.paint as any} layout={ROUTES_ACTIVE_GLOW.layout} />
+            <Layer id="routes-active-glow" type="line" filter={ROUTES_ACTIVE_GLOW.filter} paint={routesGlowPaint as any} layout={ROUTES_ACTIVE_GLOW.layout} />
             <Layer id="routes-active-outline" type="line" filter={ROUTES_ACTIVE_OUTLINE.filter} paint={ROUTES_ACTIVE_OUTLINE.paint as any} layout={ROUTES_ACTIVE_OUTLINE.layout} />
-            <Layer id="routes-active" type="line" filter={ROUTES_ACTIVE.filter} paint={ROUTES_ACTIVE.paint as any} layout={ROUTES_ACTIVE.layout} />
+            <Layer id="routes-active" type="line" filter={ROUTES_ACTIVE.filter} paint={routesActivePaint as any} layout={ROUTES_ACTIVE.layout} />
           </Source>
         )}
 

@@ -16,9 +16,8 @@ import SectionHeader from '@/features/workouts/components/workout-preview-drawer
 import { groupExercisesIntoSections } from '@/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
+import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
 
-const AER = '#10B981';
-const STR = '#00C9F2'; // strength = BRAND_CYAN (app-wide strength color; see color-system.md §4)
 const FINISH = '#EF4444'; // journey end (matches the finish dot); the spine blends to it on the last leg
 const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text (same hue as STR)

@@ -164,6 +164,15 @@ interface MapStore {
   overviewSheetHeightPx: number | null;
   setOverviewSheetHeightPx: (px: number | null) => void;
   /**
+   * Strength-station positions as fractions (0..1) along the focused hybrid route.
+   * Single channel for map route coloring (point 15): written by HybridOverviewScreen
+   * from the composed plan (cursorKm/totalKm per station), read by AppMap to build the
+   * green(walk)→blue(strength)→green line-gradient. Null when no hybrid route is shown
+   * (the route line renders with its normal flat color — non-hybrid untouched).
+   */
+  hybridRouteStations: number[] | null;
+  setHybridRouteStations: (fracs: number[] | null) => void;
+  /**
    * Rendered height (px) of TurnCarousel. Written by TurnCarousel via a
    * ResizeObserver and reset to 0 on unmount. Used by useDraggableMetrics
    * to position the metrics card's top snap dynamically below the nav card.
@@ -400,6 +409,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setMetricsCardPosition: (pos) => set({ metricsCardPosition: pos }),
   overviewSheetHeightPx: null,
   setOverviewSheetHeightPx: (px) => set({ overviewSheetHeightPx: px }),
+  hybridRouteStations: null,
+  setHybridRouteStations: (fracs) => set({ hybridRouteStations: fracs }),
   navCardHeight: 0,
   setNavCardHeight: (h) => set({ navCardHeight: h }),
   isLapsOpen: false,
