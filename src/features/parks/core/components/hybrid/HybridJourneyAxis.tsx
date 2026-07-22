@@ -12,6 +12,9 @@ import { Clock, Ruler, Repeat, MapPin } from 'lucide-react';
 import type { HybridPlannedSegment } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import ExerciseCard from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/ExerciseCard';
+import PyramidStepCard from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/PyramidStepCard';
+import type { PyramidStep } from '@/features/workouts/components/workout-preview-drawer/types';
+import { getLocalizedText } from '@/features/content/exercises';
 import SectionHeader from '@/features/workouts/components/workout-preview-drawer/components/exercise-list/SectionHeader';
 import { groupExercisesIntoSections } from '@/features/workouts/components/workout-preview-drawer/utils/section-grouping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
@@ -230,17 +233,45 @@ export default function HybridJourneyAxis({
                           />
                           {showCards && (
                             <CardGroup superset={isSupersetSection}>
-                              {section.exercises.map((we: any) => (
-                                <ExerciseCard
-                                  key={we?.exercise?.id}
-                                  exercise={we}
-                                  cachedImageUrl={hybridImage(we)}
-                                  isSuperset
-                                  framed
-                                  onTap={() => onExerciseTap?.(we)}
-                                  onSwap={() => onSwapExercise?.(i, exs.indexOf(we), we)}
-                                />
-                              ))}
+                              {section.exercises.flatMap((we: any) => {
+                                const pyramidSeq = we?.pyramidSequence as PyramidStep[] | undefined;
+                                // Pyramid = ONE exercise carrying N self-contained steps → render
+                                // one card PER STEP (point 8, mirrors GeneratedWorkoutExerciseList).
+                                // The axis has no exercise pool, so tap opens the PARENT and swap
+                                // swaps the parent (handlers adapted to the axis signature).
+                                if (Array.isArray(pyramidSeq) && pyramidSeq.length > 0) {
+                                  const isGoal = we.isGoalExercise === true;
+                                  const uniLabel = we.exercise?.symmetry === 'unilateral' ? ' (לכל צד)' : '';
+                                  const parentName = typeof we.exercise?.name === 'string'
+                                    ? we.exercise.name : getLocalizedText(we.exercise?.name, 'he');
+                                  return pyramidSeq.map((step, stepIdx) => (
+                                    <PyramidStepCard
+                                      key={`${we?.exercise?.id}-step-${stepIdx}`}
+                                      parentEx={we}
+                                      step={step}
+                                      stepIdx={stepIdx}
+                                      cachedImageUrl={step.imageUrl || step.videoSrc || hybridImage(we)}
+                                      isSuperset={isSupersetSection}
+                                      isGoal={isGoal}
+                                      uniLabel={uniLabel}
+                                      parentName={parentName}
+                                      onTap={(parentEx) => onExerciseTap?.(parentEx)}
+                                      onSwapStep={(parentEx) => onSwapExercise?.(i, exs.indexOf(parentEx), parentEx)}
+                                    />
+                                  ));
+                                }
+                                return [
+                                  <ExerciseCard
+                                    key={we?.exercise?.id}
+                                    exercise={we}
+                                    cachedImageUrl={hybridImage(we)}
+                                    isSuperset
+                                    framed
+                                    onTap={() => onExerciseTap?.(we)}
+                                    onSwap={() => onSwapExercise?.(i, exs.indexOf(we), we)}
+                                  />,
+                                ];
+                              })}
                             </CardGroup>
                           )}
                         </div>
