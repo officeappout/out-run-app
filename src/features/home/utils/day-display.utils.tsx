@@ -2,7 +2,7 @@
  * day-display.utils.tsx
  *
  * Centralized state engine for the weekly schedule day cells.
- * Both ScheduleCalendar.tsx and SmartWeeklySchedule.tsx pipe their data
+ * Both SmartWeeklySchedule.tsx and MonthlyCalendarGrid.tsx pipe their data
  * through resolveDayDisplayProps() and render the result via DayIconCell.
  *
  * Asset registry, short-label dictionary, and the visual decision table
@@ -944,7 +944,7 @@ const FADE_DURATION_S = 0.15;
 /**
  * Renders the output of `resolveDayDisplayProps()`.
  *
- * Figma visual spec (final — same in SmartWeeklySchedule + ScheduleCalendar):
+ * Figma visual spec (final — same in SmartWeeklySchedule + MonthlyCalendarGrid):
  *  • Container: 32 × 32 px, rounded-lg (8 px)
  *  • Icon frame: 24 × 24 px — flames fill fully; program icons at 12 px; Zz at 11 px text
  *  • Today: solid category fill + `shadow-md`, white icon

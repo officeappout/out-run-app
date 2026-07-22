@@ -269,31 +269,6 @@ export async function upsertScheduleEntry(
   }
 }
 
-export async function markCompleted(
-  _userId: string,
-  date: string,
-  workoutId: string,
-): Promise<void> {
-  const uid = await resolveAuthUid();
-  if (!uid) return;
-
-  const id = docId(uid, date);
-  try {
-    const ref = doc(db, COLLECTION, id);
-    await setDoc(
-      ref,
-      {
-        completed: true,
-        completedWorkoutId: workoutId,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-  } catch (err) {
-    console.error(`[UserSchedule] markCompleted FAILED  path=${COLLECTION}/${id}`, err);
-  }
-}
-
 // ── Drag & Drop — Move entry between dates ────────────────────────────────
 
 /**
