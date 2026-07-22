@@ -12,7 +12,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
 import { getProgramIcon, BRAND_CYAN } from '@/features/content/programs/core/program-icon.util';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 
@@ -188,7 +187,6 @@ export const CATEGORY_COLORS = {
   maintenance: '#A855F7',  // purple-500
   steps:       '#F97316',  // orange-500 — energy/flame accent (not the steps identity color)
   rest:        '#9CA3AF',  // gray-400
-  missed:      '#9CA3AF',  // gray-400
 } as const;
 
 /**
@@ -312,7 +310,7 @@ export interface DayDisplayProps {
     glowBorder?: boolean;
   };
   icon: {
-    type: 'img' | 'program' | 'ghost' | 'zz' | 'none';
+    type: 'img' | 'program' | 'zz' | 'none';
     src?: string;
     iconKey?: string;
     /** Apply CSS grayscale(1) — used for future-rest lemur. */
@@ -355,7 +353,7 @@ export interface DayDisplayProps {
   /**
    * Pager-dot list rendered in the 4 px gap below the icon.
    * Length = number of sessions/planned activities (1, 2, or 3).
-   * Empty for pure-rest (Lemur) and missed-no-debt (ghost) days.
+   * Empty for pure-rest (Lemur) and missed / rest days.
    * The dot at index === activeSessionIndex renders at 100 % opacity;
    * all other dots stay at 30 %.
    */
@@ -373,7 +371,9 @@ export interface DayDisplayProps {
  * selection is more granular and handled by `resolveFlameSrc()`.
  */
 function resolveCategory(input: DayDisplayInput): DayDisplayCategory {
-  if (input.isMissed && !input.debtCleared) return 'missed';
+  // Missed (past training, not completed) → treated as REST (softening: a missed day
+  // is a day you rested, not a failure). No distinct 'missed' category.
+  if (input.isMissed && !input.debtCleared) return 'rest';
   if (input.isRest && !input.isCompleted && !input.stepGoalMet) return 'rest';
   if (input.isRest && input.stepGoalMet) return 'steps';
   if (input.dominantCategory === 'cardio') return 'cardio';
@@ -662,17 +662,9 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
 
   // ── PAST ─────────────────────────────────────────────────────────────────
   if (input.state === 'past') {
-    // Missed / unplanned past day → soft Zz (clean slate, not punitive 'X').
-    // No dot — no achievement to indicate.
-    if (input.isMissed && !input.debtCleared) {
-      return {
-        ...echo,
-        container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
-        icon: { type: 'zz' },
-        label: { text: 'מנוחה', color: CATEGORY_COLORS.rest },
-        dots: [],
-      };
-    }
+    // (Non-debt missed days are handled below by the shared rest-Zz fallback —
+    //  a missed day renders identically to a planned rest day. Softening: no
+    //  distinct 'missed' visual, no punitive marker.)
 
     // Missed day with cleared debt → render the appropriate flame (made up).
     if (input.isMissed && input.debtCleared) {
@@ -738,7 +730,8 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
       };
     }
 
-    // Past planned but not completed (edge case: past today's slot) → Zz
+    // Past training not completed — MISSED (the common case) or a past today-slot →
+    // rest Zz. A missed day renders identically to a planned rest day (softening).
     return {
       ...echo,
       container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
@@ -774,22 +767,6 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
   };
 }
 
-// ============================================================================
-// GHOST RING (shared)
-// ============================================================================
-
-/**
- * Ghost ring for missed days.
- * Outer ring = 12 px (PROGRAM_ICON_PX) — same visual weight as program icons.
- * Centered inside the 24 px icon frame, which itself sits in the 32 px container.
- */
-function GhostRing() {
-  return (
-    <div className="w-3 h-3 rounded-full border-[1.5px] border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 opacity-60">
-      <X className="w-1.5 h-1.5 text-gray-400" />
-    </div>
-  );
-}
 
 // ============================================================================
 // HEX → RGBA HELPER (for inline opacity backgrounds)
@@ -813,12 +790,12 @@ const CONTAINER_SIZE_PX = 32;
 /**
  * 24 px — the Figma icon *frame*. All `img` icons (flames + lemur) fill this
  * slot entirely (4 px padding each side inside the 32 px container).
- * Program icons (JSX SVGs) and GhostRing render at 12 px *inside* this frame
+ * Program icons (JSX SVGs) render at 12 px *inside* this frame
  * — see `IconRenderer` — for the minimalist look David specified.
  * The lemur stays at 24 px to be clearly more prominent than the 12 px icons.
  */
 const ICON_SIZE_PX = 24;
-/** Inner size for program-icon SVGs and GhostRing (Figma minimalist spec). */
+/** Inner size for program-icon SVGs (Figma minimalist spec). */
 const PROGRAM_ICON_PX = 12;
 /** Pager-dot diameter (px). Phase 5 spec. */
 const DOT_SIZE_PX = 3;
@@ -833,7 +810,7 @@ export interface DayIconCellProps {
   sizeOverride?: {
     sizePx: number;
     radiusPx: number;
-    /** Program / ghost / zz inner frame side (defaults to ICON_SIZE_PX ≈24). */
+    /** Program / zz inner frame side (defaults to ICON_SIZE_PX ≈24). */
     innerSlotPx?: number;
     /** Flame / raster icons — exact render side inside the badge. */
     imgIconPx?: number;
@@ -841,7 +818,7 @@ export interface DayIconCellProps {
 }
 
 /**
- * Render a single icon descriptor (img / program / ghost / zz / none).
+ * Render a single icon descriptor (img / program / zz / none).
  * Pure renderer — no state.
  */
 function IconRenderer({
@@ -903,15 +880,6 @@ function IconRenderer({
         </div>
       );
     }
-    case 'ghost':
-      return (
-        <div
-          className="flex items-center justify-center shrink-0"
-          style={{ width: innerFramePx ?? ICON_SIZE_PX, height: innerFramePx ?? ICON_SIZE_PX }}
-        >
-          <GhostRing />
-        </div>
-      );
     case 'zz': {
       const frame = innerFramePx ?? ICON_SIZE_PX;
       const fontSize = innerFramePx != null ? Math.round(14 * (frame / ICON_SIZE_PX)) : 14;

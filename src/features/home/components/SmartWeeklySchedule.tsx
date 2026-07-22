@@ -14,7 +14,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
-import { Bed, Check, X, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
+import { Bed, Check, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
 import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
@@ -401,18 +401,6 @@ function LiquidMomentumPath({
         />
       ))}
     </svg>
-  );
-}
-
-// ============================================================================
-// GHOST RING COMPONENT (for missed days)
-// ============================================================================
-
-function GhostRing() {
-  return (
-    <div className="w-9 h-9 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 opacity-60">
-      <X className="w-4 h-4 text-gray-400" />
-    </div>
   );
 }
 
@@ -1139,9 +1127,10 @@ export default function SmartWeeklySchedule({
     }
 
     // ── Icon-view: delegate everything (including missed days) to the
-    //    centralized state engine. The engine renders the GhostRing for
-    //    debt-uncleared misses AND the branded flame + dot for debt-cleared
-    //    ones — so we MUST NOT short-circuit before this branch.
+    //    centralized state engine. The engine renders debt-uncleared misses as
+    //    a neutral rest icon (softening — a missed day looks like a rest day) AND
+    //    the branded flame + dot for debt-cleared ones — so we MUST NOT
+    //    short-circuit before this branch.
     if (useIconView) {
       const state: 'past' | 'today' | 'future' = dayData.isToday
         ? 'today'
@@ -1177,11 +1166,6 @@ export default function SmartWeeklySchedule({
       });
 
       return <DayIconCell props={displayProps} />;
-    }
-
-    // Rings-view fallback: missed past days still need the legacy ghost.
-    if (dayData.isMissed && !dayData.isToday && !dayData.isFuture) {
-      return <GhostRing />;
     }
 
     // ── Rings-view: keep existing CompactRingsProgress paths ─────
