@@ -14,6 +14,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getProgramIcon, BRAND_CYAN } from '@/features/content/programs/core/program-icon.util';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
+import { type ActivityRingData, ACTIVITY_RING_EMPTY_COLOR } from './activity-ring.utils';
 
 // ============================================================================
 // ASSET REGISTRY
@@ -815,6 +816,15 @@ export interface DayIconCellProps {
     /** Flame / raster icons — exact render side inside the badge. */
     imgIconPx?: number;
   };
+  /**
+   * ACTIVITY schedule (Stage 2) — when provided, the cell renders a SINGLE
+   * summary ring (S10 activity) INSTEAD of the flame/icon container. The flame
+   * axis (S8) is never touched; the two schedules are separate views toggled by
+   * the host. Ring diameter defaults to 40 px (see `ringSizePx`).
+   */
+  activityRing?: ActivityRingData;
+  /** Ring diameter in px for the activity view (defaults to 40). */
+  ringSizePx?: number;
 }
 
 /**
@@ -927,7 +937,74 @@ const FADE_DURATION_S = 0.15;
  *    the active dot rotates in lock-step with the visible icon.
  *  • Rest (Zz) and missed-no-debt days render zero dots.
  */
-export function DayIconCell({ props, hideDots = false, sizeOverride }: DayIconCellProps) {
+/**
+ * ActivityDayRing — the single summary ring for the ACTIVITY schedule (S10).
+ *
+ * One arc: total activity minutes vs the daily goal, in the dominant-category
+ * colour, over a faded track. No activity → track only (empty/faded ring).
+ * This is deliberately NOT the multi-ring ConcentricRingsProgress — the activity
+ * schedule shows one aggregate ring per day.
+ */
+function ActivityDayRing({
+  ring,
+  sizePx,
+  isToday,
+}: {
+  ring: ActivityRingData;
+  sizePx: number;
+  isToday: boolean;
+}) {
+  const strokeWidth = Math.max(4, Math.round(sizePx * 0.13)); // ≈5 px at 40 px
+  const radius = (sizePx - strokeWidth) / 2;
+  const center = sizePx / 2;
+  const circumference = 2 * Math.PI * radius;
+  const pct = Math.min(100, Math.max(0, ring.percentage));
+  const dashoffset = circumference - (circumference * pct) / 100;
+  const trackColor = ring.active ? `${ring.color}22` : ACTIVITY_RING_EMPTY_COLOR;
+
+  return (
+    <svg
+      width={sizePx}
+      height={sizePx}
+      viewBox={`0 0 ${sizePx} ${sizePx}`}
+      style={{ display: 'block', flexShrink: 0, overflow: 'visible' }}
+      aria-hidden
+    >
+      {/* Track */}
+      <circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="none"
+        stroke={trackColor}
+        strokeWidth={strokeWidth}
+      />
+      {/* Progress arc — only when there is activity */}
+      {ring.active && (
+        <motion.circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke={ring.color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: dashoffset }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          style={{
+            transform: 'rotate(-90deg)',
+            transformOrigin: `${center}px ${center}px`,
+            filter: isToday ? `drop-shadow(0 0 3px ${ring.color}66)` : undefined,
+          }}
+        />
+      )}
+    </svg>
+  );
+}
+
+export function DayIconCell({ props, hideDots = false, sizeOverride, activityRing, ringSizePx }: DayIconCellProps) {
   const { container, icon, state, sessions, dots } = props;
   const isToday = state === 'today';
   const containerSize = sizeOverride?.sizePx ?? CONTAINER_SIZE_PX;
@@ -962,6 +1039,19 @@ export function DayIconCell({ props, hideDots = false, sizeOverride }: DayIconCe
   }
 
   const innerSlotPx = sizeOverride?.innerSlotPx;
+
+  // ── ACTIVITY schedule (Stage 2) ─────────────────────────────────────────
+  // When an activity ring is supplied, this cell renders ONLY the single
+  // summary ring (S10) — no flame, no dots. Selection / click chrome is owned
+  // by the host cell wrapper. Placed after the hooks above so hook order is
+  // stable whether or not the activity view is active.
+  if (activityRing) {
+    return (
+      <div className="flex items-center justify-center" dir="rtl">
+        <ActivityDayRing ring={activityRing} sizePx={ringSizePx ?? 40} isToday={isToday} />
+      </div>
+    );
+  }
 
   return (
     <div
