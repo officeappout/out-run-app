@@ -29,9 +29,20 @@ import { useDateKey } from './useMidnightRefresh';
 // ── Public types ──────────────────────────────────────────────────────────────
 
 export interface DayStatusResult {
-  /** True when the Completion Bridge fires (minutes >= 10 OR workoutCompleted). */
+  /**
+   * The clean SPLIT axes (schedule "two displays" — Stage 1). Source-separated:
+   *   • workoutDone — completed an OUT workout (S8 only)  → feeds the FLAME.
+   *   • wasActive   — active ≥10 min (S10 only)           → feeds the RING.
+   * Prefer these over the blended flags below.
+   * NOTE: for PAST days workoutDone currently reflects the `scheduleCompleted`
+   * param the caller passes; the consumer-rewiring step will feed it past-S8
+   * (`dailyProgress`) instead of S7 so the flame is S8 for today AND past.
+   */
+  workoutDone: boolean;
+  wasActive: boolean;
+  /** @deprecated Blended (minutes>=10 OR workoutCompleted). Use workoutDone / wasActive. Kept until consumers migrate. */
   isCompleted: boolean;
-  /** True when any activity data or workoutCompleted flag is present. */
+  /** @deprecated Blended (any activity OR workoutCompleted). Use wasActive / workoutDone. */
   hasActivity: boolean;
   /** Total activity minutes across all categories. */
   totalMinutes: number;
@@ -94,8 +105,14 @@ export function useDayStatus() {
         ? !!todayProgress?.workoutCompleted
         : (scheduleCompleted ?? false);
 
-      const isCompleted = totalMinutes >= STREAK_MINIMUM_MINUTES || workoutCompleted;
-      const hasActivity = totalMinutes > 0 || workoutCompleted;
+      // ── SPLIT (Stage 1): two clean, un-blended axes ─────────────────────
+      // workoutDone = S8 only (OUT-workout completion) → flame.
+      // wasActive   = S10 only (>=10 min activity)      → ring.
+      const workoutDone = workoutCompleted;                  // S8 (today) / scheduleCompleted param (past)
+      const wasActive   = totalMinutes >= STREAK_MINIMUM_MINUTES;
+      // Deprecated blended flags — retained until every consumer migrates off them.
+      const isCompleted = wasActive || workoutDone;
+      const hasActivity = totalMinutes > 0 || workoutDone;
 
       // ── Session / Icon Priority ───────────────────────────────────────────
       // Only categories with >= STREAK_MINIMUM_MINUTES (10) are promoted to
@@ -109,6 +126,8 @@ export function useDayStatus() {
         .sort((a, b) => b.minutes - a.minutes);
 
       return {
+        workoutDone,
+        wasActive,
         isCompleted,
         hasActivity,
         totalMinutes,
