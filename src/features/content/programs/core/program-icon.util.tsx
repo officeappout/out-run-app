@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { Footprints, Heart, Sparkles, Target } from 'lucide-react';
+import { Heart, Sparkles, Target } from 'lucide-react';
 
 /** Brand cyan used throughout the schedule and completion states */
 export const BRAND_CYAN = '#00C9F2';
@@ -52,8 +52,34 @@ export function RunIcon({ className }: { className?: string }) {
   );
 }
 
+/**
+ * WalkingIcon — the WALKING (not "aerobic", not running) icon: public/icons/programs/
+ * walking.svg (point 13). SINGLE SOURCE — every walking icon imports this.
+ *
+ * Rendered as a CSS MASK, not inline: the file is a detailed ~21KB illustration and
+ * is shown in bulk (weekly/monthly schedule, carousels, agenda), so inlining it N
+ * times would bloat the DOM. As a mask the SVG loads ONCE (browser-cached, shared),
+ * and it still themes — its color comes from `currentColor` via background-color,
+ * exactly like the inline program icons.
+ */
 export const WalkingIcon = ({ className }: { className?: string }) => (
-  <Footprints className={className} />
+  <span
+    className={className}
+    role="img"
+    aria-label="הליכה"
+    style={{
+      display: 'inline-block',
+      backgroundColor: 'currentColor',
+      WebkitMaskImage: 'url(/icons/programs/walking.svg)',
+      maskImage: 'url(/icons/programs/walking.svg)',
+      WebkitMaskRepeat: 'no-repeat',
+      maskRepeat: 'no-repeat',
+      WebkitMaskPosition: 'center',
+      maskPosition: 'center',
+      WebkitMaskSize: 'contain',
+      maskSize: 'contain',
+    }}
+  />
 );
 
 function FullBodyIcon({ className }: { className?: string }) {
