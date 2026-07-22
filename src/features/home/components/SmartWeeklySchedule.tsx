@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import { Bed, Check, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
-import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey } from '@/features/activity';
+import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
@@ -851,6 +851,23 @@ export default function SmartWeeklySchedule({
     return () => { cancelled = true; };
   }, [userId, scheduleVersion]);
 
+  // Past-day workout completion (S8 dailyProgress) for this week — shared hook,
+  // single source with the month grid. Feeds workoutDone for PAST days so a past
+  // flame lights on a real completed OUT workout, not the S7 scheduleCompleted flag.
+  const weekPastIsos = useMemo(() => {
+    const today = new Date();
+    const todayIndex = today.getDay();
+    const isos: string[] = [];
+    for (let i = 0; i < todayIndex; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - todayIndex + i);
+      isos.push(toISODate(d));
+    }
+    return isos;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateKey]);
+  const pastProgressMap = usePastWorkoutCompleted(userId, weekPastIsos);
+
   // Normalize selected days from props
   const selectedDays = scheduleDays || [];
   
@@ -916,14 +933,13 @@ export default function SmartWeeklySchedule({
           ?? manualEntries[0],
       };
 
-      // scheduleDay drives the "completed" signal for past non-today days.
       const scheduleDay = schedule.find(s => s.day === dayLetter);
-      const scheduleCompleted = scheduleDay?.status === 'completed';
 
-      // useDayStatus handles the Completion Bridge and real per-category data
-      // for today AND any past days that are still in weekActivities.
+      // workoutDone: today → S8 (live todayProgress); past → S8 (dailyProgress via
+      // usePastWorkoutCompleted), NOT the S7 scheduleCompleted flag. useDayStatus
+      // still bridges real per-category activity minutes for the ring.
       if (!isFuture) {
-        const status = getDayStatus(isoDate, scheduleCompleted);
+        const status = getDayStatus(isoDate, pastProgressMap.get(isoDate) ?? false);
         dayData = {
           ...dayData,
           hasActivity: status.hasActivity,
@@ -1012,7 +1028,7 @@ export default function SmartWeeklySchedule({
     }
 
     return map;
-  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex, scheduleVersion, weekScheduleEntries]);
+  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex, scheduleVersion, weekScheduleEntries, pastProgressMap]);
   
   // Get indices of completed days for the liquid path
   const completedIndices = useMemo(() => {
