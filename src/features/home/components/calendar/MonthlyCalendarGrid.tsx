@@ -23,6 +23,7 @@ import {
   resolveDayDisplayProps,
   type DayDisplayInput,
 } from '@/features/home/utils/day-display.utils';
+import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import { resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -57,6 +58,12 @@ interface MonthlyCalendarGridProps {
    * Month navigation is hidden. Used by the collapsible planner header.
    */
   collapsed?: boolean;
+  /**
+   * ACTIVITY schedule view (Stage 2). When true each cell renders the S10
+   * activity RING (via the shared buildActivityRingData) instead of the S8
+   * flame — same separate-schedule concept as the week strip. Flame untouched.
+   */
+  activityView?: boolean;
 }
 
 interface MonthCell {
@@ -188,6 +195,7 @@ export default function MonthlyCalendarGrid({
   ringStroke: _ringStroke,
   refreshKey,
   collapsed = false,
+  activityView = false,
 }: MonthlyCalendarGridProps) {
   // Cell height is still configurable (TrainingPlannerOverlay passes 56px).
   const effectiveCellHeight = cellHeightProp ?? DEFAULT_CELL_HEIGHT;
@@ -409,6 +417,14 @@ export default function MonthlyCalendarGrid({
                 <div className="relative flex justify-center -mt-0.5">
                   <DayIconCell
                     hideDots
+                    // ACTIVITY view (Stage 2): render the S10 summary ring per
+                    // cell via the shared builder. Slightly larger for today.
+                    activityRing={
+                      activityView
+                        ? buildActivityRingData(getDayStatus(cell.iso))
+                        : undefined
+                    }
+                    ringSizePx={cell.isToday ? 36 : 30}
                     sizeOverride={
                       cell.isToday
                         ? { sizePx: 40, radiusPx: 12, innerSlotPx: 24, imgIconPx: 24 }

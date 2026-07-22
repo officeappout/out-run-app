@@ -1609,6 +1609,7 @@ export default function SmartWeeklySchedule({
                 cellHeight={expandedGridConfig?.cellHeight}
                 ringSize={expandedGridConfig?.ringSize}
                 ringStroke={expandedGridConfig?.ringStroke}
+                activityView={activityView}
               />
             </motion.div>
           )}
