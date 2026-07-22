@@ -164,7 +164,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
       journeyStrip.push(
         <span key={`stn${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: '#0E7490' }}>
           <span className="inline-flex" style={{ color: STR }}>{getProgramIcon(resolveIconKey(alias), 'w-[19px] h-[19px]')}</span>
-          כוח
+          {Math.round((seg.durationSec ?? 0) / 60)} דק׳
         </span>,
       );
     }
