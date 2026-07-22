@@ -70,6 +70,10 @@ export const WalkingIcon = ({ className }: { className?: string }) => (
     style={{
       display: 'inline-block',
       backgroundColor: 'currentColor',
+      // RTL: the walker faces the reading direction (leftward, the way Hebrew
+      // progresses). The asset points right, so flip it here — single source, single
+      // flip → consistent in the axis, strip, schedule and carousels; ONLY this icon.
+      transform: 'scaleX(-1)',
       WebkitMaskImage: 'url(/icons/programs/walking.svg)',
       maskImage: 'url(/icons/programs/walking.svg)',
       WebkitMaskRepeat: 'no-repeat',
