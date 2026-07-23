@@ -100,15 +100,15 @@ export default function ExerciseVideoPlayer({
     };
   }, []);
 
-  // Show the hint once per exercise, only while portrait; auto-hide after 3s.
+  // Show the hint once per exercise while portrait. It persists (no auto-hide)
+  // as long as the video stays portrait, and is cleared the moment the user
+  // rotates to landscape (see the effect below).
   useEffect(() => {
     if (exerciseType !== 'follow-along') return;
     if (isLandscape) return;
     if (hintShownForRef.current === exerciseId) return;
     hintShownForRef.current = exerciseId;
     setShowRotateHint(true);
-    const t = setTimeout(() => setShowRotateHint(false), 3000);
-    return () => clearTimeout(t);
   }, [exerciseType, exerciseId, isLandscape]);
 
   // Rotating to landscape satisfies the hint — drop it immediately.
