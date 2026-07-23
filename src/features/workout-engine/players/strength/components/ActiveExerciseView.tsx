@@ -194,8 +194,15 @@ export default function ActiveExerciseView({
           ref={scrollRef}
           className="absolute inset-0 overflow-y-auto overscroll-contain z-10"
         >
-          {/* Spacer — pushes card to bottom; maximises visible video */}
-          <div className="pointer-events-none" style={{ height: 'calc(100dvh - 220px)' }} />
+          {/* Spacer — pushes card to bottom; maximises visible video. B4:
+              warmup / follow-along shows a guided clip with no big reps/target
+              number, so its card is naturally shorter — reserve less bottom
+              space (140px vs 220px) for a taller video and a card peek sized to
+              its lighter content. Live-player only; the overview sheet is untouched. */}
+          <div
+            className="pointer-events-none"
+            style={{ height: `calc(100dvh - ${exerciseType === 'follow-along' ? 140 : 220}px)` }}
+          />
 
           {/* Card — compact, content-hugging */}
           <div
