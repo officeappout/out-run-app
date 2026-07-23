@@ -253,11 +253,14 @@ export default function HybridJourneyAxis({
                     </div>
                   ) : (
                   <>
-                    {/* station time only — SectionHeaders carry per-block counts (#3) */}
-                    <div className="flex items-center justify-end mt-2">
-                      <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
-                        <Clock size={13} /> ~{formatMinutes(seg.content?.estimatedDurationSec)}
-                      </span>
+                    {/* A1: lead with the strength glyph + "אימון כוח" so the field
+                        order mirrors the walking card's Meta row (glyph + action ·
+                        … · time). Per-block counts stay on the SectionHeaders (#3);
+                        the program name is Phase-2 inner-info (needs engine wiring). */}
+                    <div className="flex items-center gap-2 flex-wrap mt-2">
+                      <Meta icon={<ActivityGlyph kind="strength" className="w-4 h-4" />}>
+                        אימון כוח · ~{formatMinutes(seg.content?.estimatedDurationSec)}
+                      </Meta>
                     </div>
                     {sections.map((section) => {
                       const isWarmupSection = section.id === 'warmup';
