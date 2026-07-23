@@ -233,6 +233,49 @@ interface AppMapProps {
   activityType?: 'walking' | 'running' | 'cycling' | string;
 }
 
+// Window for the presence-heatmap setData throttle (Stage 1b). Each
+// verified_global presence snapshot rebuilds presenceGeoJSON → react-map-gl
+// setData → Mapbox re-tessellates the WHOLE heatmap; in a dense city snapshots
+// arrive many times a second, so the map never settles = sustained GPU heat.
+// Start low so the ambient tier still tracks reality closely; raise if needed.
+const PRESENCE_SETDATA_THROTTLE_MS = 750;
+
+// Trailing+leading throttle for a value — mirrors the setTimeout-ref debounce
+// idiom in useCameraController.ts. Emits the first value immediately, then at
+// most once per `delayMs`; the newest value within a window fires on the
+// trailing edge. Quiet when `value`'s reference is stable (memoised). Timer
+// cleared on unmount.
+function useThrottledValue<T>(value: T, delayMs: number): T {
+  const [throttled, setThrottled] = useState(value);
+  const lastEmitRef = useRef(0);
+  const latestRef = useRef(value);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  latestRef.current = value;
+
+  useEffect(() => {
+    const now = Date.now();
+    const elapsed = now - lastEmitRef.current;
+    if (elapsed >= delayMs) {
+      lastEmitRef.current = now;
+      setThrottled(value);
+    } else if (!timerRef.current) {
+      // A timer already covers the newest value via latestRef, so bursts within
+      // the window coalesce into one trailing flush.
+      timerRef.current = setTimeout(() => {
+        lastEmitRef.current = Date.now();
+        timerRef.current = null;
+        setThrottled(latestRef.current);
+      }, delayMs - elapsed);
+    }
+  }, [value, delayMs]);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  return throttled;
+}
+
 export default function AppMap({
   routes = [],
   currentLocation,
@@ -626,6 +669,11 @@ export default function AppMap({
         properties: { uid: p.uid },
       })),
   }), [activityFilteredPositions]);
+
+  // Stage 1b: throttle ONLY the heatmap/dots Source data (the expensive Mapbox
+  // re-tessellation). The live <Marker> pins below use the un-throttled
+  // `visiblePartners`, so zoom-15 pins stay responsive.
+  const throttledPresenceGeoJSON = useThrottledValue(presenceGeoJSON, PRESENCE_SETDATA_THROTTLE_MS);
 
   const visiblePartnersGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
     type: 'FeatureCollection',
@@ -1506,7 +1554,7 @@ export default function AppMap({
             or not the partner-finder UI is open — `liveUsersVisible` only
             gates the full <Marker> tier below. */}
         {activityFilteredPositions.length > 0 && (
-          <Source id="partner-presence" type="geojson" data={presenceGeoJSON}>
+          <Source id="partner-presence" type="geojson" data={throttledPresenceGeoJSON}>
             <Layer {...PRESENCE_HEATMAP_LAYER} />
             <Layer {...PRESENCE_DOTS_LAYER} />
           </Source>
