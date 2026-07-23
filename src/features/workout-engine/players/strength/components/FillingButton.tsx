@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Check } from 'lucide-react';
+import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
 
 interface FillingButtonProps {
   autoCompleteTime: number; // Time in seconds before auto-complete
@@ -73,6 +74,14 @@ export default function FillingButton({
       }
       return;
     }
+
+    // C1 (product decision): when auto-advance is OFF (default), the fill bar is
+    // removed entirely — the loop never starts, so fillProgress stays 0 and no bar
+    // renders. FillingButton becomes a plain tap-only "סיימתי" (only handleClick
+    // completes). Applies to EVERY FillingButton usage — strength-player warmup +
+    // core reps AND legacy ExerciseDetailsSheet — one source, no fork. The flag is
+    // a dormant reversible toggle: flip it true to restore the auto-fill behaviour.
+    if (!TIMER_AUTO_ADVANCE_ENABLED) return;
 
     if (!startTimeRef.current) {
       startTimeRef.current = Date.now();

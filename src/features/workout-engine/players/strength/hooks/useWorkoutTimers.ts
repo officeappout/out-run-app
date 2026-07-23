@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
 
 // ============================================================================
 // TYPES
@@ -146,7 +147,12 @@ export function useWorkoutTimers({
         }
 
         if (next <= 0) {
-          setTimeout(() => onRestCompleteRef.current(), 0);
+          // C1: gate the rest auto-advance. When disabled, the countdown reaches 0
+          // but does NOT auto-advance — the user taps "דלגו על המנוחה" (skipRest,
+          // always shown on RestScreen). Shared → standalone strength + hybrid.
+          if (TIMER_AUTO_ADVANCE_ENABLED) {
+            setTimeout(() => onRestCompleteRef.current(), 0);
+          }
           return 0;
         }
         return next;

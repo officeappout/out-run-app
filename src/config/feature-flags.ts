@@ -186,6 +186,19 @@ export const PLS_CACHE_ENABLED = true;
 // StrengthRing primitives are unreferenced until this flag wires them in.
 export const STRENGTH_RING_ENABLED = false;
 
+// TIMER_AUTO_ADVANCE: when false (default), the live strength/hybrid player never
+// advances on a timer. The reps FillingButton shows NO fill bar at all — it is a
+// plain tap-only "סיימתי" (the auto-fill animation is removed, per product
+// decision: a bar that pushes you to finish is stressful); only a manual tap
+// completes. The rest countdown is KEPT (a natural rest timer, not stressful) but
+// reaches 0 WITHOUT auto-advancing — the user taps "דלגו על המנוחה" (always on
+// RestScreen). FillingButton + useWorkoutTimers are shared by StrengthRunner, so
+// both behaviours apply identically to standalone strength AND hybrid stations,
+// and to every FillingButton caller incl. legacy ExerciseDetailsSheet (one source,
+// no fork). Video-driven completion (onVideoEnded) is NOT gated — not a timer.
+// Dormant reversible toggle: flip true to restore the original auto-fill + auto-advance.
+export const TIMER_AUTO_ADVANCE_ENABLED = false;
+
 // HOME_ANCHOR_V2: the home workout anchor redesign (R Track 1) — swaps the horizontal
 // trio carousel for a single hero (the recommended option) + a toggle row (the 3
 // options), adds a location square + swipe-between-days, and reorders home to
