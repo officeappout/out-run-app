@@ -41,4 +41,18 @@ class ViewController: CAPBridgeViewController {
         // where muted autoplaying videos work without user interaction.
         webView?.configuration.mediaTypesRequiringUserActionForPlayback = []
     }
+
+    // MARK: - Stage 3 Part A — proactive memory shed (best-effort)
+
+    /// Forward the HOST process's memory warning to the web layer so it can drop
+    /// map markers/tiles before pressure becomes a web-content OOM.
+    /// NOTE: the WKWebView web-content runs in a SEPARATE process that iOS
+    /// jetsams independently, so this host warning often does NOT fire for the
+    /// real web-content OOM. Part B (`webViewWebContentProcessDidTerminate`) is
+    /// the reliable crash-loop breaker; this is only a cheap early shed.
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        NSLog("[memory] host didReceiveMemoryWarning → notifying web layer")
+        bridge?.triggerWindowJSEvent(eventName: "memoryWarning")
+    }
 }

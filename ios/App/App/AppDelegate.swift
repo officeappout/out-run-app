@@ -54,6 +54,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    // Stage 3 Part A — app-scope breadcrumb only. The active
+    // CAPBridgeViewController's own didReceiveMemoryWarning does the web-layer
+    // notify (it holds the bridge); this hook just logs for crash triage.
+    func applicationDidReceiveMemoryWarning(_ application: UIApplication) {
+        NSLog("[memory] applicationDidReceiveMemoryWarning")
+    }
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call

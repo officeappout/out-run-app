@@ -29,14 +29,20 @@ import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 
 interface AppForegroundState {
   isForeground: boolean;
+  /** Timestamp (ms) of the last native memory-warning shed signal; 0 if none. */
+  lastMemoryWarningAt: number;
   /** Internal setter — no-ops when the value is unchanged. */
   _setForeground: (v: boolean) => void;
+  /** Internal — record a native memory-pressure signal. */
+  _signalMemoryWarning: () => void;
 }
 
 export const useAppForegroundStore = create<AppForegroundState>((set) => ({
   isForeground: true,
+  lastMemoryWarningAt: 0,
   _setForeground: (v) =>
     set((s) => (s.isForeground === v ? s : { isForeground: v })),
+  _signalMemoryWarning: () => set({ lastMemoryWarningAt: Date.now() }),
 }));
 
 // Synchronous native check via the global Capacitor object — mirrors the
@@ -68,6 +74,17 @@ export function initAppForegroundTracking(): void {
   document.addEventListener('visibilitychange', onVisibility);
   set(!document.hidden); // seed from the current state
 
+  // ── Native memory-pressure shed (Stage 3 Part A) ─────────────────────────
+  // iOS posts a `memoryWarning` window event (ViewController.didReceiveMemory-
+  // Warning → bridge.triggerWindowJSEvent). Surface it as a store signal so map
+  // consumers can shed heavy state (markers/tiles) before pressure becomes a
+  // web-content OOM. Best-effort: the host warning often does NOT fire for
+  // web-content jetsam — the native Part B recovery is the real loop-breaker.
+  window.addEventListener('memoryWarning', () => {
+    console.warn('[appForeground] native memoryWarning → shed signal');
+    useAppForegroundStore.getState()._signalMemoryWarning();
+  });
+
   // ── Native (Capacitor) — dynamic import per axiom §4 ─────────────────────
   if (isNativeApp()) {
     void (async () => {
@@ -92,4 +109,15 @@ export function useIsForeground(): boolean {
     initAppForegroundTracking();
   }, []);
   return useAppForegroundStore((s) => s.isForeground);
+}
+
+/**
+ * Subscribe to native memory-pressure signals (Stage 3 Part A). Returns the
+ * timestamp (ms) of the last `memoryWarning`, or 0. A map consumer can watch
+ * this to shed heavy state under pressure. (Concrete shedding is a follow-up
+ * once we confirm host warnings actually fire on device — Part B handles the
+ * real web-content OOM.)
+ */
+export function useLastMemoryWarningAt(): number {
+  return useAppForegroundStore((s) => s.lastMemoryWarningAt);
 }
