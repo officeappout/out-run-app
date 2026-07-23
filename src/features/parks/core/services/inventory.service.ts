@@ -175,6 +175,51 @@ export const InventoryService = {
     },
 
     /**
+     * Fetch facilities within a viewport bounding box — the LIVE MAP browse path.
+     * Replaces the whole-national-collection getDocs (a dense-city OOM driver) so
+     * facilities stream per-area as the user pans instead of all at once; the user
+     * still sees every facility while exploring. Ranges server-side on the single
+     * field `location.lat` (Firestore auto single-field index — NO composite index
+     * to deploy) and filters `location.lng` client-side, capped by `max`.
+     *
+     * ⚠️ Precision/limits: Firestore ranges on ONE field only, so lat is bounded
+     * server-side and lng client-side; docs with a missing/non-numeric
+     * `location.lat` are excluded by the range (they don't render anyway). With
+     * `limit(max)` an implicit orderBy(location.lat) applies, so a viewport holding
+     * >max facilities would clip its northern edge — `max` is generous to avoid it.
+     * A true 2-D bounds query (lat AND lng both server-bounded) needs a geohash
+     * field + index on `facilities` (not present today) — that is the follow-up for
+     * full-fidelity bounds-fetch.
+     */
+    fetchFacilitiesInBounds: async (
+        bounds: { swLat: number; neLat: number; swLng: number; neLng: number },
+        max = 400,
+    ): Promise<MapFacility[]> => {
+        try {
+            const facilitiesRef = collection(db, 'facilities');
+            const q = query(
+                facilitiesRef,
+                where('location.lat', '>=', bounds.swLat),
+                where('location.lat', '<=', bounds.neLat),
+                limit(max),
+            );
+            const snap = await getDocs(q);
+            return snap.docs
+                .map((d) => ({ ...d.data(), id: d.id } as MapFacility))
+                .filter(
+                    (f) =>
+                        !!f.location &&
+                        Number.isFinite(f.location.lng) &&
+                        f.location.lng >= bounds.swLng &&
+                        f.location.lng <= bounds.neLng,
+                );
+        } catch (error) {
+            console.error('❌ Error fetching facilities in bounds:', error);
+            return [];
+        }
+    },
+
+    /**
      * Save multiple routes to Firestore.
      * Handles chunking (500 per batch) and strips undefined fields.
      */

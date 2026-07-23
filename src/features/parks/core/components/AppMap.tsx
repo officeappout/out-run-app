@@ -554,9 +554,12 @@ export default function AppMap({
     useMapStore.getState().setTurnFlyToTarget(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turnFlyToTarget]);
-  const { facilities } = useFacilities();
   const [selectedFacility, setSelectedFacility] = useState<any | null>(null);
   const [currentZoom, setCurrentZoom] = useState(13);
+  // Viewport-scoped facility fetch (refetches as the user pans out of the loaded
+  // box) — see useFacilities. Passed currentZoom so it only fetches at the zoom
+  // where facility markers actually render (>= 14).
+  const { facilities } = useFacilities(currentZoom);
   // Min zoom delta worth a re-render. `currentZoom` is only ever read as a
   // discrete breakpoint (>=10/13/14/15 — lemur scale, pulse dot, facilities,
   // partners, park photo), never as a continuous value, so committing the
