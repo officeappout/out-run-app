@@ -1208,19 +1208,43 @@ export default function StatsOverview({
         {!hasCompletedAssessment && (
           <button
             onClick={() => onStartWorkout?.()}
+            aria-label="בואו נגלה כמה אתם חזקים"
             className="absolute inset-0 z-10 flex items-center justify-center"
           >
-            <div
-              className="flex flex-col items-center gap-1 px-6 py-4 rounded-2xl shadow-xl"
-              style={{ backgroundColor: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(6px)' }}
-              dir="rtl"
-            >
-              <span className="text-[15px] font-black text-gray-800 leading-snug">
-                בואו נראה למה אתם מסוגלים...
-              </span>
-              <span className="text-xs text-gray-500 font-medium">
-                שאלון קצר והאימונים פתוחים!
-              </span>
+            {/* Hero CTA — V2 "breathing glow": the app's primary gradient-pill
+                idiom (#00BAF7→#0CF2E3) with a gentle transform/opacity breathe
+                on THIS single button only. No shared keyframe/token touched. */}
+            <div className="relative flex items-center justify-center" dir="rtl">
+              <motion.div
+                aria-hidden
+                className="absolute rounded-full"
+                style={{
+                  width: '78%',
+                  height: '70%',
+                  background:
+                    'radial-gradient(closest-side, rgba(0,186,247,0.5), rgba(12,242,227,0.25) 60%, transparent 78%)',
+                  filter: 'blur(16px)',
+                }}
+                animate={{ opacity: [0.55, 0.95, 0.55], scale: [0.96, 1.08, 0.96] }}
+                transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
+              />
+              <motion.div
+                className="relative flex flex-col items-center gap-1 px-7 py-3.5 rounded-full shadow-lg"
+                style={{
+                  background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)',
+                  boxShadow: '0 10px 26px -8px rgba(0,186,247,0.6)',
+                  color: '#04212a',
+                }}
+                animate={{ scale: [0.985, 1.028, 0.985] }}
+                transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
+              >
+                <span className="text-[15px] font-black leading-snug">
+                  בואו נגלה כמה אתם חזקים
+                </span>
+                <span className="text-xs font-medium" style={{ color: 'rgba(4,33,42,0.72)' }}>
+                  שאלון של דקה — והכול נפתח
+                </span>
+              </motion.div>
             </div>
           </button>
         )}
