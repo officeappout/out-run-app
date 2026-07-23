@@ -13,6 +13,7 @@
 
 import React, { Suspense, useState, useEffect, lazy } from 'react';
 import { useRouter } from 'next/navigation';
+import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 
 // ── Lazy import preserves forwardRef (unlike next/dynamic) ───────────
 const UnifiedLocationStep = lazy(
@@ -34,7 +35,30 @@ export default function ExplorerPage() {
 
   // Client-only guard — prevents SSR of browser-dependent code
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+
+  // Fix 2a — before showing the location picker, check for a durably-saved
+  // map-arrival answer (written by UnifiedLocationStep, Fix 1). If present,
+  // re-hydrate the sessionStorage handoff channel and skip straight to /map
+  // instead of re-asking; MapShell's fromExplorer effect then syncs it to
+  // Firestore + refreshes the profile. No saved answer → show the picker.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const authId = await getOnboardingPrefAsync('map_authority_id');
+      const lat = await getOnboardingPrefAsync('map_anchor_lat');
+      const lng = await getOnboardingPrefAsync('map_anchor_lng');
+      if (cancelled) return;
+      if (authId || lat) {
+        if (authId) sessionStorage.setItem('selected_authority_id', authId);
+        if (lat) sessionStorage.setItem('selected_anchor_lat', lat);
+        if (lng) sessionStorage.setItem('selected_anchor_lng', lng);
+        router.replace('/map?fromExplorer=true');
+        return;
+      }
+      setMounted(true);
+    })();
+    return () => { cancelled = true; };
+  }, [router]);
 
   if (!mounted) return <LoadingPlaceholder />;
 

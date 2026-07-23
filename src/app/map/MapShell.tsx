@@ -27,6 +27,7 @@ import { useMapLogic } from '@/features/parks';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { useUserStore } from '@/features/user';
 import { syncLocationToFirestore } from '@/lib/firestore.service';
+import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import ParticleBackground from '@/components/ParticleBackground';
@@ -670,6 +671,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const refreshProfile = useUserStore((s) => s.refreshProfile);
 
   const [manuallyCleared, setManuallyCleared] = useState(false);
+  const mapPrefRestoreAttempted = useRef(false);
 
   const needsLocationGate = useMemo(() => {
     if (isDemoMode) return false;   // booth demo: skip all gates
@@ -716,6 +718,37 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
       }).then(() => refreshProfile());
     }
   }, [fromExplorer, router, refreshProfile]);
+
+  // Fix 2b — restore a durably-saved map location instead of re-showing the
+  // gate. Applies to non-MAP_ONLY profiles that lost core.authorityId (e.g. a
+  // Firestore write interrupted by a hard-close). Promotes the saved answer to
+  // Firestore + refreshes, then clears the gate — mirrors the fromExplorer path
+  // but sourced from the durable pref layer (survives hard-close). Runs at most
+  // once per mount; if nothing is saved, the gate shows normally.
+  useEffect(() => {
+    if (mapPrefRestoreAttempted.current) return;
+    if (isDemoMode || fromExplorer) return;
+    if (!hasHydrated || !profile) return;
+    if (profile.core?.authorityId) return;
+    if (profile.onboardingPath === 'MAP_ONLY') return;
+    mapPrefRestoreAttempted.current = true;
+    let cancelled = false;
+    (async () => {
+      const authId = await getOnboardingPrefAsync('map_authority_id');
+      const lat = await getOnboardingPrefAsync('map_anchor_lat');
+      const lng = await getOnboardingPrefAsync('map_anchor_lng');
+      if (cancelled || (!authId && !lat)) return;
+      await syncLocationToFirestore({
+        authorityId: authId || undefined,
+        anchorLat: lat ? parseFloat(lat) : undefined,
+        anchorLng: lng ? parseFloat(lng) : undefined,
+      });
+      if (cancelled) return;
+      await refreshProfile();
+      setManuallyCleared(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isDemoMode, fromExplorer, hasHydrated, profile, refreshProfile]);
 
   const handleLocationGateComplete = async () => {
     if (typeof window !== 'undefined') {
