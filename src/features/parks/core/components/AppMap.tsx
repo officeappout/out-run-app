@@ -1725,6 +1725,13 @@ export default function AppMap({
           // tier still represents the same data, and reviving the
           // Mapbox tree after an LngLat throw is expensive.
           if (!isFiniteLatLng(f.location)) return null;
+          // Viewport-cull — mirror the partner-marker bounds filter below.
+          // The finite-coords gate above runs FIRST so contains() never sees a
+          // non-finite pair. Without this, EVERY facility of a visible type in
+          // the set mounts a DOM marker at zoom ≥ 14 whether or not it is
+          // on-screen — the dense-city OOM driver. Null bounds (pre-first-move)
+          // → render, matching the partner path.
+          if (viewportBounds && !viewportBounds.contains([f.location.lng, f.location.lat])) return null;
           const isPassive = ['water', 'toilet'].includes(f.type);
           return (
             <Marker key={f.id} longitude={f.location.lng} latitude={f.location.lat} anchor="center"
