@@ -1345,6 +1345,13 @@ export default function AppMap({
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
         mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={MAPBOX_TOKEN}
+        // §2 dense-city OOM: bound the tile cache. Unset, mapbox-gl retains a
+        // viewport-derived (uncapped) set of vector/raster tiles that grows as
+        // the user pans a dense city, holding each tile's GPU texture. 45 ≈ the
+        // current viewport (~6-12 tiles on a phone) + one surrounding pan ring,
+        // well under mapbox's ~5x-viewport default. Conservative starting point —
+        // raise if panning back re-fetches visibly, lower if memory still climbs.
+        maxTileCacheSize={45}
         locale={{ 'NavigationControl.ZoomIn': 'הגדל', 'NavigationControl.ZoomOut': 'הקטן' }}
         onClick={handleMapClick}
         onMouseDown={onLongPress ? handleMouseDown : undefined}
