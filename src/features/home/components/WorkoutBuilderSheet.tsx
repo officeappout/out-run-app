@@ -682,7 +682,9 @@ export default function WorkoutBuilderSheet({
       description: generatedWorkout.description || '',
       difficulty:  diffMap[generatedWorkout.difficulty] ?? 'medium',
       duration:    generatedWorkout.estimatedDuration,
-      coverImage:  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
+      // No park context here — let the drawer fall through to the real exercise
+      // Bunny thumbnail (heroMedia) instead of a foreign stock gym photo.
+      coverImage:  '',
       segments:    [] as [],
     };
   }, [generatedWorkout, workoutId]);

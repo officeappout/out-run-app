@@ -112,6 +112,8 @@ export async function findStationPark(
     lng: best.park.location.lng,
     waypointIndex: best.waypointIndex,
     availableEquipment,
-    image: best.park.image ?? (best.park as any).imageUrl ?? best.park.images?.[0],
+    // imageUrl (Bunny, real park photo) first — was inverted (image → imageUrl),
+    // which surfaced the stale Firebase cover as the hybrid station image.
+    image: (best.park as any).imageUrl ?? best.park.image ?? best.park.images?.[0],
   };
 }

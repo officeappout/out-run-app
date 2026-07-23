@@ -6,6 +6,7 @@ import { MapPin, Loader2 } from 'lucide-react';
 import type { ConfirmationCardProps, NearbyFacility } from '../location-types';
 import { getIdentityHook, selectSmartBadges, formatDistance, buildPioneerFallback } from '../location-utils';
 import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
+import { resolveParkImage } from '@/lib/park-image';
 
 export function ConfirmationCard({
   displayName,
@@ -230,7 +231,8 @@ export function ConfirmationCard({
             >
               {bestMatch.kind === 'park' ? (() => {
                 const catKey = resolveCategoryKey(bestMatch);
-                const icon = getFacilityIcon(bestMatch.image, catKey, brandingConfig);
+                // Prefer imageUrl (Bunny, real park photo) over legacy image/images[0].
+                const icon = getFacilityIcon(resolveParkImage(bestMatch, 80), catKey, brandingConfig);
                 return (
                   <div className="flex items-center gap-3">
                     {icon.type === 'image' ? (
@@ -350,7 +352,8 @@ export function ConfirmationCard({
                     {pioneer.fallbackAsset.kind === 'park' ? (() => {
                       const fb = pioneer.fallbackAsset!;
                       const catKey = resolveCategoryKey(fb);
-                      const icon = getFacilityIcon(fb.image, catKey, brandingConfig);
+                      // Prefer imageUrl (Bunny, real park photo) over legacy image/images[0].
+                      const icon = getFacilityIcon(resolveParkImage(fb, 80), catKey, brandingConfig);
                       return (
                         <div className="flex items-center gap-3">
                           {icon.type === 'image' ? (

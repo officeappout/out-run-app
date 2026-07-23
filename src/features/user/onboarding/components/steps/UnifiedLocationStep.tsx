@@ -17,6 +17,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { getCategoryBranding } from '@/features/admin/services/category-branding.service';
 import type { CategoryBrandingConfig } from '@/features/admin/services/category-branding.service';
 import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
+import { resolveParkImage } from '@/lib/park-image';
 
 // ── Refactored Module Imports ────────────────────────────
 import {
@@ -668,7 +669,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
               if (!bestPark || !bestPark.location?.lat || !bestPark.location?.lng) return null;
 
               const catKey = resolveCategoryKey(bestPark);
-              const icon = getFacilityIcon(bestPark.image, catKey, brandingConfig);
+              // Prefer imageUrl (Bunny, real park photo) over legacy image/images[0].
+              const icon = getFacilityIcon(resolveParkImage(bestPark, 96), catKey, brandingConfig);
                 return (
                   <MapboxMarker
                   key={`best-${bestPark.id}`}

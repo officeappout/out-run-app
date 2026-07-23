@@ -890,7 +890,12 @@ export default function HomePage() {
       level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
       difficulty: gw ? String(gw.difficulty) : (scheduleState.currentWorkout?.difficulty || 'medium'),
       duration: gw?.estimatedDuration || scheduleState.currentWorkout?.duration || 45,
-      coverImage: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
+      // No park context in this (pure-strength) flow, so there is nothing for
+      // resolveParkImage to resolve — leave coverImage empty and let the drawer
+      // fall through to the real exercise Bunny thumbnail (heroMedia) instead of
+      // a foreign stock gym photo. (The genuine hybrid park photo is fixed at its
+      // source — find-station-park.service / park-out-and-back.)
+      coverImage: '',
       segments: [],
     });
   }, [profile, scheduleState]);

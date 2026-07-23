@@ -206,7 +206,8 @@ export async function resolveParkOutAndBack(
     lng: park.location.lng,
     waypointIndex: outbound.length - 1, // the park sits at the turnaround vertex
     availableEquipment,
-    image: park.image ?? (park as any).imageUrl ?? park.images?.[0],
+    // imageUrl (Bunny, real park photo) first — was inverted (image → imageUrl).
+    image: (park as any).imageUrl ?? park.image ?? park.images?.[0],
   };
 
   return { routePath, station, targetKm };

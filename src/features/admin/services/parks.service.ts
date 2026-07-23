@@ -45,6 +45,11 @@ function sanitizeParkData(
     description: data.description ?? '',
     location: data.location ?? { lat: 0, lng: 0 },
     image: data.image ?? null,
+    // Persist the Bunny park photo (imageUrl) + multi-image array too — previously
+    // only `image` was saved, so an admin re-save silently wiped the real Bunny
+    // photo and reverted the park to its legacy Firebase cover.
+    imageUrl: data.imageUrl ?? null,
+    images: Array.isArray(data.images) ? data.images : [],
     facilityType: (data as any).facilityType ?? null,
     sportTypes: Array.isArray((data as any).sportTypes) ? (data as any).sportTypes : [],
     featureTags: Array.isArray((data as any).featureTags) ? (data as any).featureTags : [],
