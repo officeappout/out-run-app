@@ -385,7 +385,7 @@ export default function WorkoutPreviewDrawer({
               {/* Unified scrollable container */}
               <div
                 ref={scrollContainerRef}
-                className="h-full overflow-y-auto overscroll-contain pb-36"
+                className="h-full overflow-y-auto overflow-x-hidden overscroll-contain pb-36"
               >
                 {/* Hero — overflow-hidden prevents image bleed on overscroll */}
                 <motion.div
