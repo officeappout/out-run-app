@@ -206,6 +206,14 @@ export default function HybridJourneyAxis({
         // strength station
         strIdx += 1;
         const exs = seg.content?.exercises ?? [];
+        // A2: "N תרגילים" is the WORK count — exclude BOTH the warmup (חימום) and
+        // cooldown (מתיחות) blocks. This is the engine's canonical work predicate
+        // `(exerciseRole ?? 'main') === 'main'` (WorkoutGenerator.ts:150), with the
+        // wrapper-OR-nested role resolution from section-grouping.utils.ts:52 so the
+        // count stays in sync with the sections rendered beside it.
+        const mainExCount = exs.filter(
+          (e: any) => ((e?.exerciseRole || e?.exercise?.exerciseRole) ?? 'main') === 'main',
+        ).length;
         // Full-park: reuse the strength preview's section grouping (חימום → סטים+"Nx סבבים"
         // → מתיחות). Budget-split keeps the flat list (else branch → byte-identical).
         const sections = stationName ? groupExercisesIntoSections(exs as any) : [];
@@ -232,7 +240,7 @@ export default function HybridJourneyAxis({
                   collapsedStations[i] ? (
                     /* point 20: collapsed — summary card (not an empty header) */
                     <div className="mt-2 flex items-center gap-1.5 flex-wrap text-[12.5px]" style={{ color: '#4B5563' }}>
-                      <span className="font-bold">{exs.length} תרגילים</span>
+                      <span className="font-bold">{mainExCount} תרגילים</span>
                       <span style={{ color: '#D1D5DB' }}>·</span>
                       <span>~{formatMinutes(seg.content?.estimatedDurationSec)}</span>
                       <span style={{ color: '#D1D5DB' }}>·</span>
@@ -323,7 +331,7 @@ export default function HybridJourneyAxis({
                     <div className="flex items-center justify-between mt-2">
                       {/* generic strength marker (MuscleIcon) from the shared dictionary —
                           no subtype → the muscle glyph. OUT is calisthenics: no dumbbell anywhere. */}
-                      <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><ActivityGlyph kind="strength" className="w-[15px] h-[15px]" /> {exs.length} תרגילים</span>
+                      <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><ActivityGlyph kind="strength" className="w-[15px] h-[15px]" /> {mainExCount} תרגילים</span>
                       {/* Station time (meaningful), not a sets-sum. Per-exercise sets live on each card. */}
                       <span className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: '#9CA3AF' }}>
                         <Clock size={13} /> ~{formatMinutes(seg.content?.estimatedDurationSec)}
