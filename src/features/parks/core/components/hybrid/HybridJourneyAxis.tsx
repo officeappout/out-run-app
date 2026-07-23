@@ -229,7 +229,9 @@ export default function HybridJourneyAxis({
                     <button type="button" onClick={() => toggleStation(i)} aria-expanded={!collapsedStations[i]}
                       className="flex items-center gap-1.5 active:scale-[0.98] transition-transform">
                       <ChevronDown size={16} style={{ color: '#9CA3AF', transform: collapsedStations[i] ? 'rotate(-90deg)' : 'none', transition: 'transform .2s' }} />
-                      <span className="text-[14px] font-black" style={{ color: '#111827' }}>תחנה {strIdx} — כוח</span>
+                      {/* A3: full-park title = the park name (stationName already
+                          includes "גינת כושר …" — do NOT re-prepend a station prefix). */}
+                      <span className="text-[14px] font-black" style={{ color: '#111827' }}>{stationName} — כוח</span>
                     </button>
                   ) : (
                     <span className="text-[14px] font-black" style={{ color: '#111827' }}>תחנה {strIdx} — כוח</span>
