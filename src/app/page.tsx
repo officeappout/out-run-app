@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithGoogle, signInWithApple, onAuthStateChange } from '@/lib/auth.service';
 import { db, auth } from '@/lib/firebase';
+import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -386,11 +387,40 @@ export default function LandingPage() {
             router.push('/gateway');
           }
         } else {
-          // Auth user exists but no Firestore profile yet — common for
-          // first-time Google sign-ins. Send to the gateway, which
-          // creates the profile. Without this branch the splash would
-          // hang forever for any user whose doc hasn't been written.
-          router.push('/gateway');
+          // Auth user exists but no Firestore profile yet.
+          //
+          // Recovery (Fix 3b): an anonymous MAP_ONLY explorer whose doc write
+          // was lost on a hard-close still carries the durable onboarding_path
+          // marker (written by the gateway explore path). Re-create a minimal
+          // MAP_ONLY doc for the SAME anon uid and send them to /explorer (where
+          // their saved location is restored) — instead of /gateway, which would
+          // mint a brand-new anon uid via resolveUser()->signInGuest() and
+          // re-ask everything ("app forgot me"). The re-created doc also lets
+          // syncLocationToFirestore's updateDoc succeed and makes subsequent
+          // reopens take the normal doc-exists MAP_ONLY path above.
+          //
+          // Genuinely new users (non-anonymous first sign-in, or no marker) fall
+          // through to /gateway, which scaffolds the full profile. Without a
+          // redirect here the splash would hang forever.
+          const durablePath = await getOnboardingPrefAsync('onboarding_path');
+          if (user.isAnonymous && durablePath === 'MAP_ONLY') {
+            const { setDoc, doc: fsDoc, serverTimestamp } = await import('firebase/firestore');
+            await setDoc(
+              fsDoc(db, 'users', user.uid),
+              {
+                id: user.uid,
+                onboardingPath: 'MAP_ONLY',
+                onboardingStatus: 'MAP_ONLY',
+                core: { name: '' },
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true },
+            ).catch((e) => console.error('[Landing] MAP_ONLY doc recovery failed:', e));
+            router.push('/explorer');
+          } else {
+            router.push('/gateway');
+          }
         }
       } catch (e) {
         console.error('[Landing] Error checking auth status:', e);
