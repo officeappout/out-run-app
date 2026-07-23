@@ -110,7 +110,15 @@ export default function WorkoutPreviewDrawer({
     (v) => (v < 0.1 ? 'none' : 'auto') as 'none' | 'auto',
   );
 
+  // Hero media is derived from THIS drawer's live workout (not a global
+  // sessionStorage slot), so a swap / swap-all / option-switch updates it and it
+  // always tracks the exercises actually shown. Location follows the workout's
+  // stamped executionLocation (updated by swap-all), falling back to the prop.
   const { heroMedia, cachedHeroThumb, cachedHeroVideo } = useDrawerMediaState(
+    generatedWorkout?.exercises,
+    (generatedWorkout?.executionLocation as string | undefined) ??
+      (workoutLocation as string | undefined) ??
+      null,
     workout?.coverImage,
   );
 

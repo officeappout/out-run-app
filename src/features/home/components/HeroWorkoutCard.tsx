@@ -4,7 +4,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { MockWorkout } from '../data/mock-schedule-data';
 import { Dumbbell, Check, TrendingUp, Clock, Flag, PersonStanding } from 'lucide-react';
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
-import { resolveVideoForLocation, resolveImageForLocation } from '@/features/content/exercises/core/exercise.types';
+import { pickHeroExercise, resolveHeroMedia } from '@/features/workout-engine/shared/utils/heroMedia.utils';
 import {
   resolveEquipmentLabel,
   resolveEquipmentSvgPathList,
@@ -17,63 +17,11 @@ import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import CircularProgress from '@/components/CircularProgress';
 import { getStrengthRingView } from '../utils/strengthRingView';
 
-// ============================================================================
-// Movement-group fallback images (high-quality Unsplash)
-// ============================================================================
-const MOVEMENT_GROUP_FALLBACKS: Record<string, string> = {
-  horizontal_push: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=800&q=80',
-  vertical_push:   'https://images.unsplash.com/photo-1598971639058-a0c1e5321546?auto=format&fit=crop&w=800&q=80',
-  horizontal_pull:  'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?auto=format&fit=crop&w=800&q=80',
-  vertical_pull:   'https://images.unsplash.com/photo-1598971457999-ca4ef48a9a71?auto=format&fit=crop&w=800&q=80',
-  squat:           'https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&w=800&q=80',
-  hinge:           'https://images.unsplash.com/photo-1434682881908-b43d0467b798?auto=format&fit=crop&w=800&q=80',
-  core:            'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
-  isolation:       'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=800&q=80',
-};
-const DEFAULT_HERO_IMAGE = 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=800&q=80';
-
-
-/**
- * Pick one "mandatory" exercise from the workout for the hero media.
- * Mandatory = has reps > 0 AND is not a warmup/cooldown.
- * Falls back to the first exercise or undefined.
- */
-export function pickHeroExercise(exercises?: WorkoutExercise[]): WorkoutExercise | undefined {
-  if (!exercises?.length) return undefined;
-
-  const mandatory = exercises.filter(
-    (ex) =>
-      ex.reps > 0 &&
-      ex.exercise.exerciseRole !== 'warmup' &&
-      ex.exercise.exerciseRole !== 'cooldown'
-  );
-
-  if (mandatory.length === 0) return exercises[0];
-  return mandatory[0];
-}
-
-/**
- * Resolve thumbnail & video URLs for a given WorkoutExercise.
- * Priority: execution-method media -> legacy exercise.media -> movement-group fallback.
- */
-export function resolveHeroMedia(
-  ex: WorkoutExercise | undefined,
-  location?: string | null,
-): { thumbnailUrl: string; videoUrl: string } {
-  if (!ex) {
-    return { thumbnailUrl: DEFAULT_HERO_IMAGE, videoUrl: '' };
-  }
-
-  const image = resolveImageForLocation(ex.exercise, location);
-  const video = resolveVideoForLocation(ex.exercise, location);
-
-  const thumbnailUrl =
-    image ||
-    MOVEMENT_GROUP_FALLBACKS[ex.exercise.movementGroup || ''] ||
-    DEFAULT_HERO_IMAGE;
-
-  return { thumbnailUrl, videoUrl: video || '' };
-}
+// Hero-media selection + resolution moved to a shared util so the map/workout
+// preview drawer can compute the hero from its OWN generatedWorkout (no more
+// global sessionStorage channel). Re-exported here so existing home consumers
+// (StatsOverview, WorkoutSelectionCarousel) keep their `./HeroWorkoutCard` import.
+export { pickHeroExercise, resolveHeroMedia };
 
 // ============================================================================
 // Lazy Video Background -- thumbnail -> video crossfade

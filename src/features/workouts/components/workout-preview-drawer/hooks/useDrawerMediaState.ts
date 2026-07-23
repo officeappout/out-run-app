@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
+import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
+import { pickHeroExercise, resolveHeroMedia } from '@/features/workout-engine/shared/utils/heroMedia.utils';
 
 interface HeroMedia {
   thumbnailUrl?: string;
@@ -9,7 +11,7 @@ interface HeroMedia {
 }
 
 interface UseDrawerMediaStateReturn {
-  /** Raw payload read from `sessionStorage('workout_hero_media')`, if any. */
+  /** Hero media computed from the drawer's OWN workout (thumbnail + looping video). */
   heroMedia: HeroMedia | null;
   /** Offline-cached blob URL for the hero thumbnail (or the original URL when online). */
   cachedHeroThumb: string | null;
@@ -18,27 +20,30 @@ interface UseDrawerMediaStateReturn {
 }
 
 /**
- * Hydrates the drawer's hero media from `sessionStorage` once on mount
- * and resolves the offline-cache URLs for the thumbnail + looping video.
+ * Derives the drawer's hero media DIRECTLY from the live workout it is showing —
+ * `pickHeroExercise` picks a main-part exercise (see the shared util's fallback
+ * hierarchy) and `resolveHeroMedia` resolves its thumbnail + video for the
+ * current location. Recomputes whenever the exercises or location change, so a
+ * swap / swap-all / option-switch while the drawer is open updates the hero
+ * instead of leaving a stale one.
  *
- * The session key `workout_hero_media` is written by `home/page.tsx` at
- * generation time and contains `{ thumbnailUrl?, videoUrl? }`.  When
- * neither is present, the drawer falls back to `workout.coverImage`.
+ * (Previously this read a single global `sessionStorage('workout_hero_media')`
+ * slot written by the home dashboard, which went stale on in-drawer edits and
+ * could show an exercise not in the drawer's actual list.)
+ *
+ * When there are no generated exercises (a curated workout opened with only a
+ * `coverImage`) the thumbnail falls back to `workoutCoverImage`.
  */
 export function useDrawerMediaState(
+  exercises: WorkoutExercise[] | undefined,
+  location: string | null | undefined,
   workoutCoverImage: string | undefined,
 ): UseDrawerMediaStateReturn {
-  const [heroMedia, setHeroMedia] = useState<HeroMedia | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = sessionStorage.getItem('workout_hero_media');
-      if (raw) setHeroMedia(JSON.parse(raw));
-    } catch {
-      /* corrupt payload — silently ignore and let the drawer fall back to coverImage */
-    }
-  }, []);
+  const heroMedia = useMemo<HeroMedia | null>(() => {
+    if (!exercises?.length) return null;
+    const heroEx = pickHeroExercise(exercises, location);
+    return resolveHeroMedia(heroEx, location);
+  }, [exercises, location]);
 
   const cachedHeroThumb = useCachedMediaUrl(
     heroMedia?.thumbnailUrl || workoutCoverImage || null,
