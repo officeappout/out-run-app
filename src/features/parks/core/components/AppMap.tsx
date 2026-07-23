@@ -286,6 +286,13 @@ export default function AppMap({
   // (preventing new events), but the already-scheduled callback still runs
   // after unmount holding a reference to the raw Mapbox map instance.
   const hebrewDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Idempotency guard for the Hebrew relabel sweep. Base-map label layers are
+  // style-defined, so once their text-field is switched to the Hebrew
+  // expression it stays set — re-running the full ~150-layer setLayoutProperty
+  // pass on every 'sourcedata' tile event while panning is pure churn. Set true
+  // after the first successful pass; a real 'style.load' (setStyle / hot-reload
+  // rebuilds the layers) re-arms it. See handleMapLoad.
+  const hebrewLabelsAppliedRef = useRef(false);
   // ── Map paint readiness gate ──────────────────────────────────────────
   // Drives the AI-themed `MapLoadingSkeleton` overlay. False until BOTH:
   //   1. The Mapbox style has finished parsing (so the declutter pass
@@ -507,6 +514,13 @@ export default function AppMap({
   const { facilities } = useFacilities();
   const [selectedFacility, setSelectedFacility] = useState<any | null>(null);
   const [currentZoom, setCurrentZoom] = useState(13);
+  // Min zoom delta worth a re-render. `currentZoom` is only ever read as a
+  // discrete breakpoint (>=10/13/14/15 — lemur scale, pulse dot, facilities,
+  // partners, park photo), never as a continuous value, so committing the
+  // per-frame onZoom value re-renders the whole map tree ~60x/sec for nothing.
+  // 0.25 is well below the 1.0 spacing of those integer breakpoints, so no
+  // crossing is missed; onZoomEnd still commits the exact value at rest.
+  const ZOOM_COMMIT_EPSILON = 0.25;
   const [viewportBounds, setViewportBounds] = useState<mapboxgl.LngLatBounds | null>(null);
   const [showInfrastructure, setShowInfrastructure] = useState(false);
 
@@ -1192,7 +1206,15 @@ export default function AppMap({
       'nav-arrow-line-glow', 'nav-arrow-line', 'nav-arrow-tip',
     ]);
 
-    const applyHebrewLabels = () => {
+    const applyHebrewLabels = (opts?: { force?: boolean }) => {
+      // Idempotency (perf/batch1): once the sweep has run, the labelled symbol
+      // layers keep their Hebrew text-field, so repeat passes from debounced
+      // 'sourcedata' during a pan are no-ops — skip the whole ~150-layer loop.
+      // A style rebuild passes force:true (via the style.load wrapper below,
+      // which first re-arms the guard). Gated by the same flag as the metadata
+      // gate so that when IS_PERF_BATCH1_ENABLED is false the sweep runs every
+      // time exactly as before (byte-identical rollback).
+      if (IS_PERF_BATCH1_ENABLED && hebrewLabelsAppliedRef.current && !opts?.force) return;
       try {
         const style = rawMap.getStyle();
         if (!style?.layers) return;
@@ -1205,6 +1227,10 @@ export default function AppMap({
             }
           } catch { /* skip locked/internal layers */ }
         }
+        // Mark done only after a full pass over a real style — if getStyle()
+        // wasn't ready (early return above) the guard stays false so the next
+        // event retries.
+        hebrewLabelsAppliedRef.current = true;
       } catch (err) { console.warn('Could not set Hebrew labels:', err); }
     };
     const debouncedHebrew = (e?: { sourceDataType?: string }) => {
@@ -1217,18 +1243,31 @@ export default function AppMap({
       // path while panning. When IS_PERF_BATCH1_ENABLED is false, this gate is
       // skipped and we relabel on every 'sourcedata' exactly as before.
       if (IS_PERF_BATCH1_ENABLED && e && e.sourceDataType !== 'metadata') return;
+      // Nothing to re-apply once the one-time sweep has run (see idempotency
+      // note above) — skip even scheduling the timer to avoid per-tile
+      // setTimeout/clearTimeout churn while panning. A style rebuild re-arms via
+      // the style.load force-path.
+      if (IS_PERF_BATCH1_ENABLED && hebrewLabelsAppliedRef.current) return;
       if (hebrewDebounceTimerRef.current) clearTimeout(hebrewDebounceTimerRef.current);
       hebrewDebounceTimerRef.current = setTimeout(applyHebrewLabels, 50);
     };
 
     applyHebrewLabels();
-    rawMap.on('style.load', applyHebrewLabels);
+    // A real 'style.load' rebuilds the layers, so the Hebrew text-field is gone
+    // — re-arm the idempotency guard and force a full sweep. Wrapped because the
+    // style.load event object must NOT be passed as the `opts` arg (it has no
+    // `force`, which would let the skip suppress the needed re-run).
+    const applyHebrewLabelsOnStyleLoad = () => {
+      hebrewLabelsAppliedRef.current = false;
+      applyHebrewLabels({ force: true });
+    };
+    rawMap.on('style.load', applyHebrewLabelsOnStyleLoad);
     rawMap.on('sourcedata', debouncedHebrew);
 
     // Capture handler identities for unmount disposal. Mapbox's `off()`
     // matches by reference, so we MUST keep the same function instances
     // around to detach them later. See the cleanup useEffect below.
-    hebrewHandlerRef.current = applyHebrewLabels;
+    hebrewHandlerRef.current = applyHebrewLabelsOnStyleLoad;
     debouncedHebrewRef.current = debouncedHebrew;
 
     // ── Fitness declutter — timing fix ──────────────────────────────────────
@@ -1286,7 +1325,13 @@ export default function AppMap({
       <Map
         ref={mapRef}
         onLoad={handleMapLoad}
-        onZoom={(e) => setCurrentZoom(e.viewState.zoom)}
+        onZoom={(e) => {
+          // Threshold-commit (see ZOOM_COMMIT_EPSILON): return prev unchanged so
+          // React bails the render until the zoom moves far enough to possibly
+          // flip a breakpoint. Kills the per-frame full-tree re-render storm.
+          const z = e.viewState.zoom;
+          setCurrentZoom((prev) => (Math.abs(z - prev) >= ZOOM_COMMIT_EPSILON ? z : prev));
+        }}
         onZoomEnd={(e) => {
           setCurrentZoom(e.viewState.zoom);
           syncViewportToStore();
