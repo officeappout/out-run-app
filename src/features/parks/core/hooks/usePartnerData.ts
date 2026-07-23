@@ -19,6 +19,7 @@ import {
   where,
   onSnapshot,
   getDocs,
+  limit,
   Timestamp,
   type Unsubscribe,
 } from 'firebase/firestore';
@@ -28,7 +29,7 @@ import { haversineKm } from '../services/geoUtils';
 import type { ActivityType } from '../types/route.types';
 import { useIsForeground } from '@/lib/appForeground';
 import { IS_PERF_BATCH2_PRESENCE_ENABLED } from '@/config/feature-flags';
-import { usePresenceStore, acquirePresenceStream } from '../store/usePresenceStore';
+import { usePresenceStore, acquirePresenceStream, PRESENCE_STREAM_MAX } from '../store/usePresenceStore';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -470,6 +471,7 @@ export function usePartnerData(
     const q = query(
       collection(db, 'presence'),
       where('mode', '==', 'verified_global'),
+      limit(PRESENCE_STREAM_MAX),
     );
 
     unsubLive.current = onSnapshot(

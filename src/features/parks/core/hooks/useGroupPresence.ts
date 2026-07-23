@@ -18,10 +18,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit, type Unsubscribe } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { IS_PERF_BATCH2_PRESENCE_ENABLED } from '@/config/feature-flags';
-import { usePresenceStore, acquirePresenceStream } from '../store/usePresenceStore';
+import { usePresenceStore, acquirePresenceStream, PRESENCE_STREAM_MAX } from '../store/usePresenceStore';
 
 /**
  * Persona ID → public image path.
@@ -236,7 +236,7 @@ export function useGroupPresence(
           where('mode', '==', 'group'),
           where('audienceGroupIds', 'array-contains', groupSessionId),
         )
-      : query(collection(db, 'presence'), where('mode', '==', 'verified_global'));
+      : query(collection(db, 'presence'), where('mode', '==', 'verified_global'), limit(PRESENCE_STREAM_MAX));
 
     unsubRef.current = onSnapshot(q, (snap) => {
       const results: PartnerPosition[] = [];

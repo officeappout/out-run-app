@@ -23,8 +23,20 @@
  */
 
 import { create } from 'zustand';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+
+// Volume cap for the verified_global presence stream. Without it a dense city
+// streams EVERY public user's presence doc (unbounded — the raw stream drove
+// heap + per-snapshot churn even though the map PAINT is throttled to 750ms).
+// 200 covers a normal city fully (no-op there) and only bites pathological
+// density.
+// ⚠️ This caps VOLUME, not distance — Firestore returns the first N in default
+// (doc-id) order, NOT the nearest N. True "nearby" needs a composite index
+// (mode + geohash/lat, or mode + authorityId) + a geo/scope clause — a follow-up
+// requiring an index deploy. `.limit()` leaves the query's `where` shape
+// unchanged, so the verified_global rule stays satisfied (rules are not filters).
+export const PRESENCE_STREAM_MAX = 200;
 
 export type RawPresenceDoc = Record<string, any> & { uid: string };
 
@@ -49,7 +61,7 @@ let _unsub: (() => void) | null = null;
 export function acquirePresenceStream(): () => void {
   _refCount += 1;
   if (_refCount === 1) {
-    const q = query(collection(db, 'presence'), where('mode', '==', 'verified_global'));
+    const q = query(collection(db, 'presence'), where('mode', '==', 'verified_global'), limit(PRESENCE_STREAM_MAX));
     _unsub = onSnapshot(
       q,
       (snap) => {
