@@ -208,29 +208,42 @@ function writeParksToStorage(parks: Park[]): void {
  * existing callers that don't pass a callback still benefit from the instant
  * cache hit; only AppMap needs to wire up the background state update.
  */
+// Shared in-flight promise so that N callers mounting together (AppMap +
+// DiscoverLayer + the route hooks) coalesce into ONE Firestore getDocs instead
+// of firing one each — which is what makes the "at most one round-trip
+// regardless of how many hooks call in parallel" guarantee above actually hold.
+// Cleared when the round-trip settles.
+let _inflightParksFetch: Promise<Park[]> | null = null;
+
+function fetchAndCacheParks(): Promise<Park[]> {
+  if (_inflightParksFetch) return _inflightParksFetch;
+  _inflightParksFetch = getDocs(collection(db, PARKS_COLLECTION))
+    .then((snapshot) => {
+      const fresh = snapshot.docs.map((d) => normalizePark(d.id, d.data()));
+      writeParksToStorage(fresh);
+      return fresh;
+    })
+    .finally(() => { _inflightParksFetch = null; });
+  return _inflightParksFetch;
+}
+
 export async function fetchRealParks(
   onRefresh?: (parks: Park[]) => void,
 ): Promise<Park[]> {
   const cached = readParksFromStorage();
 
   if (cached) {
-    // Return stale data instantly, refresh in background.
-    getDocs(collection(db, PARKS_COLLECTION))
-      .then((snapshot) => {
-        const fresh = snapshot.docs.map((d) => normalizePark(d.id, d.data()));
-        writeParksToStorage(fresh);
-        onRefresh?.(fresh);
-      })
+    // Return stale data instantly; refresh in background via the shared
+    // (de-duped) fetch so concurrent warm callers don't each fire a getDocs.
+    fetchAndCacheParks()
+      .then((fresh) => { onRefresh?.(fresh); })
       .catch(() => { /* background refresh failure is non-fatal */ });
     return cached;
   }
 
-  // Cold fetch — no valid cache available.
+  // Cold fetch — no valid cache. Concurrent cold callers share one getDocs.
   try {
-    const snapshot = await getDocs(collection(db, PARKS_COLLECTION));
-    const parks = snapshot.docs.map((d) => normalizePark(d.id, d.data()));
-    writeParksToStorage(parks);
-    return parks;
+    return await fetchAndCacheParks();
   } catch (error) {
     console.error('[Parks Service] Error fetching parks:', error);
     return [];
