@@ -451,6 +451,7 @@ export default function StrengthRunner({
         exerciseId={sm.activeExercise?.id || `ex-${sm.currentExerciseIndex}`}
         exerciseName={sm.exerciseName}
         exerciseType={sm.exerciseType}
+        isFollowAlong={sm.activeExercise?.isFollowAlong === true}
         isTimeExercise={isTimeExercise}
         exerciseDuration={sm.exerciseDuration}
         currentSide={sm.currentSide}

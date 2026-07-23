@@ -21,6 +21,10 @@ interface ExerciseVideoPlayerProps {
   videoUrl: string | null;
   exerciseName: string;
   exerciseType: 'reps' | 'time' | 'follow-along';
+  /** B1: narrow "guided follow-along clip" flag (recovery + guided warmup — carries
+   *  the per-exercise isFollowAlong). When omitted, the fullscreen/rotate affordance
+   *  falls back to the broad exerciseType so non-live callers are unchanged. */
+  isFollowAlong?: boolean;
   isPaused: boolean;
   /** @deprecated — Audio is now controlled by the global isAudioEnabled sessionStorage flag */
   hasAudio?: boolean;
@@ -64,6 +68,7 @@ export default function ExerciseVideoPlayer({
   videoUrl,
   exerciseName,
   exerciseType,
+  isFollowAlong,
   isPaused,
   hasAudio: _legacyHasAudio = false,
   fullTutorial = null,
@@ -87,6 +92,13 @@ export default function ExerciseVideoPlayer({
   const [showRotateHint, setShowRotateHint] = useState(false);
   const hintShownForRef = useRef<string | null>(null);
 
+  // B1: the fullscreen + rotate affordance is for GUIDED follow-along clips only
+  // (recovery + guided warmup, which carry the per-exercise isFollowAlong flag).
+  // Generic warmup reps drills run in follow-along MODE (exerciseType) but must NOT
+  // get a fullscreen button. ActiveExerciseView passes the narrow isFollowAlong;
+  // other callers omit it → fall back to the prior broad exerciseType (no regression).
+  const isGuidedFollowAlong = isFollowAlong ?? (exerciseType === 'follow-along');
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mq = window.matchMedia('(orientation: landscape)');
@@ -104,12 +116,12 @@ export default function ExerciseVideoPlayer({
   // as long as the video stays portrait, and is cleared the moment the user
   // rotates to landscape (see the effect below).
   useEffect(() => {
-    if (exerciseType !== 'follow-along') return;
+    if (!isGuidedFollowAlong) return;
     if (isLandscape) return;
     if (hintShownForRef.current === exerciseId) return;
     hintShownForRef.current = exerciseId;
     setShowRotateHint(true);
-  }, [exerciseType, exerciseId, isLandscape]);
+  }, [isGuidedFollowAlong, exerciseId, isLandscape]);
 
   // Rotating to landscape satisfies the hint — drop it immediately.
   useEffect(() => {
@@ -448,7 +460,7 @@ export default function ExerciseVideoPlayer({
           value is introduced (see .cursorrules Z-Index Budget). The hint stays
           mounted at opacity:0 so it can fade rather than pop, and is
           pointer-events-none so it never intercepts a tap on the video. */}
-      {exerciseType === 'follow-along' && hasValidDirectVideoUrl && (
+      {isGuidedFollowAlong && hasValidDirectVideoUrl && (
         <>
           <button
             onClick={enterFullscreen}

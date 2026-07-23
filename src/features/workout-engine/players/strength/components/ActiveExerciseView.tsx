@@ -57,6 +57,9 @@ export interface ActiveExerciseViewProps {
   exerciseName: string;
   /** Type of the active exercise (`reps` / `time` / etc.). */
   exerciseType: string;
+  /** B1: narrow guided-follow-along flag, forwarded to ExerciseVideoPlayer's
+   *  fullscreen/rotate affordance gate (recovery keeps it; plain warmup does not). */
+  isFollowAlong?: boolean;
   /** Whether the active exercise should run as a time-based isometric (drives IsometricTimerCard vs scrollable card). */
   isTimeExercise: boolean;
   /** Duration in seconds for time-based exercises (`IsometricTimerCard.duration`). */
@@ -113,6 +116,7 @@ export default function ActiveExerciseView({
   exerciseId,
   exerciseName,
   exerciseType,
+  isFollowAlong,
   isTimeExercise,
   exerciseDuration,
   currentSide,
@@ -159,6 +163,7 @@ export default function ActiveExerciseView({
         videoUrl={safeVideoUrl}
         exerciseName={exerciseName}
         exerciseType={exerciseType}
+        isFollowAlong={isFollowAlong}
         isPaused={isPaused}
         hasAudio={false}
         fullTutorial={exerciseFullTutorial ?? null}
