@@ -117,8 +117,11 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   const navCardHeight = useMapStore((s) => s.navCardHeight);
   const isLapsOpen = useMapStore((s) => s.isLapsOpen);
 
-  // Presence heartbeat — disabled in demo mode so no writes reach Firestore
-  usePresenceLayer(effectivePos ?? null, !isDemoMode);
+  // Presence heartbeat ONLY — disabled in demo mode so no writes reach Firestore.
+  // heartbeatOnly=true skips this hook's onSnapshot marker listener + 60s heatmap
+  // poll (their results are discarded here — the map's pins come from
+  // useGroupPresenceListener/usePartnerData below), removing pure wasted load.
+  usePresenceLayer(effectivePos ?? null, !isDemoMode, /* heartbeatOnly */ true);
 
   const flyover = useFlyoverEntrance(effectivePos ?? null);
   const sharedSession = useSharedSession();

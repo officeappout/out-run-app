@@ -160,6 +160,14 @@ export interface PresenceLayerResult {
 export function usePresenceLayer(
   currentLocation: { lat: number; lng: number } | null,
   enabled: boolean = true,
+  // When true, run ONLY the presence heartbeat (+ its GPS / session-boundary
+  // writes) and SKIP the real-time onSnapshot marker listener and the 60s
+  // heatmap poll. The map's only caller (MapShell) DISCARDS this hook's return
+  // — its pins come from useGroupPresenceListener / usePartnerData — so those
+  // two effects were pure wasted load (a redundant unbounded onSnapshot + a 60s
+  // interval whose result was thrown away). The full data path stays available
+  // for any future consumer that passes heartbeatOnly=false.
+  heartbeatOnly: boolean = false,
 ): PresenceLayerResult {
   const { profile, _hasHydrated } = useUserStore();
   const { following, isLoaded: socialLoaded, loadConnections } = useSocialStore();
@@ -399,8 +407,9 @@ export function usePresenceLayer(
   }, [groupSessionId]);
 
   // ── Real-time Firestore listener (single onSnapshot) ─────────────────────
+  // Skipped entirely in heartbeatOnly mode (MapShell discards rawMarkers).
   useEffect(() => {
-    if (!isReady) {
+    if (!isReady || heartbeatOnly) {
       setRawMarkers([]);
       setIsLoading(false);
       return;
@@ -521,7 +530,7 @@ export function usePresenceLayer(
 
     return () => unsub?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, socialMode, socialLoaded, following, ageGroup, userId]);
+  }, [isReady, heartbeatOnly, socialMode, socialLoaded, following, ageGroup, userId]);
 
   // ── Heatmap polling (not real-time, less frequent) ────────────────────────
   const fetchHeatmap = useCallback(async () => {
@@ -535,11 +544,11 @@ export function usePresenceLayer(
   }, [userId, ageGroup]);
 
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || heartbeatOnly) return; // heatmap result is unused by the map's only caller
     fetchHeatmap();
     const id = setInterval(fetchHeatmap, HEATMAP_POLL_MS);
     return () => clearInterval(id);
-  }, [isReady, fetchHeatmap]);
+  }, [isReady, heartbeatOnly, fetchHeatmap]);
 
   // ── Client-side filters ───────────────────────────────────────────────────
   const DEV_LEVEL_RANGE = IS_DEV ? 5 : LEVEL_RANGE;
