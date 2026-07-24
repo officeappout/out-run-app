@@ -7,6 +7,7 @@ import IsometricTimerCard from './IsometricTimerCard';
 import ExerciseDetailContent from './ExerciseDetailContent';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
 
 /**
  * ActiveExerciseView — the live ACTIVE-phase player surface.
@@ -156,7 +157,12 @@ export default function ActiveExerciseView({
       key={activeKey}
       className={`absolute inset-0 bg-black transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
     >
-      {/* Video background layer */}
+      {/* Video background layer.
+          #2: warmup/follow-along exercises run in follow-along MODE (non-looping
+          video), so onVideoEnded auto-advanced every few seconds. It is gated below
+          behind TIMER_AUTO_ADVANCE_ENABLED (the C1 flag) — while off, the clip ends
+          without advancing; the user taps "סיימתי". Covers regular + follow-along
+          warmup, standalone + hybrid. (reps loop, so onVideoEnded never fired for them.) */}
       <ExerciseVideoPlayer
         key={`player-${activeKey}`}
         exerciseId={exerciseId}
@@ -168,7 +174,7 @@ export default function ActiveExerciseView({
         hasAudio={false}
         fullTutorial={exerciseFullTutorial ?? null}
         onVideoProgress={onSetVideoProgress}
-        onVideoEnded={isTimeExercise ? undefined : () => onComplete()}
+        onVideoEnded={(isTimeExercise || !TIMER_AUTO_ADVANCE_ENABLED) ? undefined : () => onComplete()}
         onLoadingChange={(loading) => {
           if (!loading) setMainVideoReady(true);
         }}
