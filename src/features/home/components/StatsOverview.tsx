@@ -1163,7 +1163,10 @@ export default function StatsOverview({
 
       {/* Carousel — blurred with lemur teaser overlay when assessment is not completed */}
       <div className="relative">
-        <div className={!hasCompletedAssessment ? 'blur-md pointer-events-none select-none' : ''}>
+        <div
+          className={!hasCompletedAssessment ? 'blur-md pointer-events-none select-none' : ''}
+          inert={!hasCompletedAssessment || undefined}
+        >
           {trioResult ? (
             HOME_ANCHOR_V2_ENABLED ? (
               /* R Track 1 anchor: toggle row (3 options) → single hero (recommended)

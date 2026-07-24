@@ -1358,7 +1358,7 @@ export default function HomePage() {
                   />
                 );
                 return HOME_ANCHOR_V2_ENABLED
-                  ? <motion.div className="order-first" onPanEnd={handleAnchorDayPan}>{anchor}</motion.div>
+                  ? <motion.div className="order-first" onPanEnd={hasCompletedAssessment ? handleAnchorDayPan : undefined}>{anchor}</motion.div>
                   : anchor;
               })()}
             </div>
