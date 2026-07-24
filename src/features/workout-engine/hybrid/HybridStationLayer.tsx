@@ -14,6 +14,7 @@
  * (axiom §8) before production. It is inert in normal runs (flag-gated).
  */
 
+import { createPortal } from 'react-dom';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import { useHybridRun } from './useHybridRun';
 
@@ -40,10 +41,17 @@ export default function HybridStationLayer() {
   }
 
   // Aerobic leg — one CTA: arrive at the station, or finish on the final leg.
+  // #1/#4: portal the CTA to document.body so it escapes the TwoLayerShell TOP
+  // motion.div transform stack. Inside that stack the CTA (z-[60]) was being
+  // covered by the MetricsDrawer despite a nominally higher z (a nested
+  // drag-transform stacking quirk); at the document root with a high z it reliably
+  // sits above the drawer. Render condition unchanged (still shown for the whole
+  // aerobic leg — convenient for testing); fixed above the drawer band; the
+  // onClick (arrive / finishHybrid) is preserved by the closure.
   if (phase === 'aerobic') {
-    return (
+    const cta = (
       <div
-        className="absolute left-0 right-0 z-[60] flex justify-center pointer-events-none"
+        className="fixed left-0 right-0 z-[110] flex justify-center pointer-events-none"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 150px)' }}
       >
         <button
@@ -56,6 +64,7 @@ export default function HybridStationLayer() {
         </button>
       </div>
     );
+    return typeof document !== 'undefined' ? createPortal(cta, document.body) : null;
   }
 
   return null;
