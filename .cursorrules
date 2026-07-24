@@ -40,7 +40,8 @@
 - z-[90]: JITSetupModal
 - z-[95]: Referral toast
 - z-[100]: Full-screen overlays (search, sheets, contribution wizard)
-- z-[120]: Dev-only banners
+- z-[110]: Hybrid aerobic CTA ("הגעתי לתחנה" / "סיים אימון משולב") — portaled to document.body so it clears the run drawer (HybridStationLayer)
+- z-[120]: Dev-only banners; Hybrid station overlay (StrengthRunner full-screen, HybridStationLayer)
 - z-[200]: Post-workout summary (RunSummary nested UI)
 - DO NOT create new z-index values without updating this table.
 
