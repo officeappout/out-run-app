@@ -85,6 +85,17 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
     [profile],
   );
 
+  // Pre-registration users (no strength program yet) shouldn't see the strength
+  // setup items — they're redundant entries into the questionnaire the always-
+  // visible Hero already offers. Hide the strength bucket; keep basic-info items.
+  // They return once a program exists.
+  const hasProgram = !!(
+    profile.progression?.domains && Object.keys(profile.progression.domains).length > 0
+  );
+  const visibleItems = hasProgram
+    ? completion.items
+    : completion.items.filter((i) => i.bucket !== 'strength');
+
   if (completion.isVerified || completion.percentage >= 100) return null;
 
   const handleGoToStep = async (step: string) => {
@@ -142,7 +153,7 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
             className="overflow-hidden bg-white border-b border-slate-100"
           >
             <div className="px-4 py-3 space-y-1.5">
-              {completion.items.map((item) => (
+              {visibleItems.map((item) => (
                 <div key={item.id} className="flex items-center gap-2.5 py-1.5">
                   {item.completed ? (
                     <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
@@ -1263,6 +1274,15 @@ export default function HomePage() {
             health: 'מדדי בריאות',
           };
 
+          // Pre-registration users (no strength program yet) see only "מדדי בריאות"
+          // + the always-visible Hero. The strength tab ("התקדמות שבועית") is all
+          // ghost-upsell entries into the strength questionnaire the Hero already
+          // covers — hidden until a program exists, then it returns.
+          const tabs: Array<'strength' | 'health'> = hasProgram
+            ? ['strength', 'health']
+            : ['health'];
+          const effectiveTab: 'strength' | 'health' = hasProgram ? homeTab : 'health';
+
           return (
             <div className="flex flex-col gap-4 mt-0">
               {/* ── Tabs bar ─────────────────────────────────────────── */}
@@ -1270,8 +1290,8 @@ export default function HomePage() {
                 className="w-full max-w-[358px] mx-auto flex border-b border-gray-100"
                 dir="rtl"
               >
-                {(['strength', 'health'] as const).map((tab) => {
-                  const isActive = homeTab === tab;
+                {tabs.map((tab) => {
+                  const isActive = effectiveTab === tab;
                   return (
                     <button
                       key={tab}
@@ -1291,7 +1311,7 @@ export default function HomePage() {
               </div>
 
               {/* ── Tab content ──────────────────────────────────────── */}
-              {homeTab === 'strength' ? (
+              {effectiveTab === 'strength' ? (
                 /* התקדמות שבועית — program ring (minmax(0,1fr)) + consistency bars (111px).
                    Grid (not flex) so each cell has an explicit physical boundary —
                    no item can bleed into the neighbouring cell regardless of its
