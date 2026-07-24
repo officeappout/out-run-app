@@ -34,7 +34,7 @@ export default function HybridStationLayer() {
   if (phase === 'station' && stationPlan) {
     return (
       <div className="fixed inset-0 z-[120] bg-white pointer-events-auto" dir="rtl">
-        <StrengthRunner workout={stationPlan} onComplete={() => completeStation()} />
+        <StrengthRunner workout={stationPlan} onComplete={() => completeStation()} embedded />
       </div>
     );
   }

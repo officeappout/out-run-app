@@ -67,6 +67,10 @@ interface StrengthRunnerProps {
   onSwapExercise?: (exerciseId: string, segmentIndex: number, exerciseIndex: number) => void;
   /** Pre-fetched map of exerciseId → last-session confirmed reps, for smart target selection */
   exerciseHistoryMap?: Record<string, number[]>;
+  /** B2: true when mounted inside a hybrid station (HybridStationLayer). Hides the
+   *  minimize button (no mini-player bar in the hybrid flow). Default false → the
+   *  standalone strength session is unchanged. */
+  embedded?: boolean;
 }
 
 export default function StrengthRunner({
@@ -76,6 +80,7 @@ export default function StrengthRunner({
   onResume,
   onSwapExercise,
   exerciseHistoryMap,
+  embedded = false,
 }: StrengthRunnerProps) {
   const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap);
 
@@ -556,6 +561,7 @@ export default function StrengthRunner({
                 supersetPartnerName={sm.supersetPartnerName}
                 onPointerDown={handleHeaderPointerDown}
                 onMinimize={() => setIsMinimized(true)}
+                hideMinimize={embedded}
                 onTogglePause={sm.togglePause}
               />
             )}

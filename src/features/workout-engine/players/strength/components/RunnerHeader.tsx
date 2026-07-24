@@ -82,6 +82,9 @@ export interface RunnerHeaderProps {
   onPointerDown: (e: React.PointerEvent) => void;
   /** Minimize button → collapses the player into the mini-player bar. */
   onMinimize: () => void;
+  /** B2: hide the minimize button (a hybrid station has no mini-player bar). A
+   *  spacer preserves the title's centering. Default false → standalone unchanged. */
+  hideMinimize?: boolean;
   /** Pause button → toggles workout pause state. */
   onTogglePause: () => void;
 }
@@ -107,6 +110,7 @@ export default function RunnerHeader({
   supersetPartnerName,
   onPointerDown,
   onMinimize,
+  hideMinimize = false,
   onTogglePause,
 }: RunnerHeaderProps) {
   return (
@@ -134,12 +138,19 @@ export default function RunnerHeader({
 
         {/* Row 2: List | Timer/Title (centered) | Pause */}
         <div className="flex items-center mb-2">
-          <button
-            onClick={onMinimize}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-          >
-            <img src="/assets/icons/ui/list.svg" className="w-5 h-5 dark:invert" alt="List" />
-          </button>
+          {/* B2: minimize collapses to the mini-player bar — meaningless inside a
+              hybrid station, so hide it there. The invisible spacer keeps the
+              centered title balanced against the pause button on the right. */}
+          {hideMinimize ? (
+            <div className="w-10 h-10" aria-hidden />
+          ) : (
+            <button
+              onClick={onMinimize}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            >
+              <img src="/assets/icons/ui/list.svg" className="w-5 h-5 dark:invert" alt="List" />
+            </button>
+          )}
 
           <div
             className="flex-1 text-center text-slate-900 dark:text-white font-bold text-xl tracking-wider tabular-nums"
