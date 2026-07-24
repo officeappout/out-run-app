@@ -59,6 +59,7 @@ import PlannedPreviewLayer from './layers/PlannedPreviewLayer';
 import ActiveWorkoutLayer from './layers/ActiveWorkoutLayer';
 import SummaryLayer from './layers/SummaryLayer';
 import TurnCarousel from '@/features/parks/core/components/TurnCarousel';
+import { useHybridRun } from '@/features/workout-engine/hybrid/useHybridRun';
 import { computeRouteTurns } from '@/features/parks/core/services/geoUtils';
 import SessionControlBar from '@/features/parks/core/components/SessionControlBar';
 import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/components/UserProfileSheet';
@@ -296,6 +297,12 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   // ══════ Determine AppMap props based on mode ══════
   const isActiveMode = mode === 'active' || mode === 'free_run';
   const showLivePath = isActiveMode && logic.isWorkoutActive;
+  // B2: while a hybrid STATION is live, StrengthRunner owns the screen (z-[120],
+  // trapped in the draggable transform's stacking context), so the walking chrome
+  // below — which renders at the map root — would paint on top of it. Gate it off
+  // during 'station'. Global store read; false for non-hybrid runs AND hybrid
+  // aerobic legs, so those paths stay byte-identical (chrome still shows there).
+  const hybridStationLive = useHybridRun((s) => s.phase === 'station');
 
   // True when TurnCarousel is mounted — ParticipantStrip must yield navCardHeight
   // to TurnCarousel in that case (both write to the same store field).
@@ -478,6 +485,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
            while a focused route was still attached. */}
       {mode !== 'summary' &&
         sessionStatus !== 'finished' &&
+        !hybridStationLive &&
         (logic.isNavigationMode || (isActiveMode && logic.focusedRoute)) &&
         effectivePos && logic.focusedRoute?.path && (
           <TurnCarousel
@@ -512,7 +520,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
            Tapping re-enables auto-follow, which triggers the nav camera effect
            to snap back (because isAutoFollowEnabled is in the effect's dep array). */}
       <AnimatePresence>
-        {isActiveMode && !isMapFollowEnabled && !isLapsOpen && (
+        {isActiveMode && !isMapFollowEnabled && !isLapsOpen && !hybridStationLive && (
           <motion.button
             key="recenter"
             initial={{ opacity: 0, scale: 0.8 }}
