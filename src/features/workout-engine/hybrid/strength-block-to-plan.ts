@@ -19,6 +19,7 @@ import type {
   Exercise as PlanExercise,
 } from '@/features/parks/core/types/route.types';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 
 /** Localized name off the content exercise (Firestore doc shape — dynamic access). */
 function exName(we: GeneratedExercise): string {
@@ -26,15 +27,19 @@ function exName(we: GeneratedExercise): string {
   return ex?.content?.name?.he ?? ex?.content?.name ?? ex?.name?.he ?? ex?.name ?? ex?.id ?? 'תרגיל';
 }
 
-function exMedia(we: GeneratedExercise): { videoUrl?: string; imageUrl?: string; bunnyVideoId?: string } {
+function exMedia(we: GeneratedExercise): { videoUrl?: string; imageUrl?: string; bunnyVideoId?: string; fullTutorial?: ExternalVideo | null } {
   // Centralised through resolveExerciseMedia: it reads the ENGINE-selected method's Bunny
   // id from ALL slots (previewVideo → bunnyVideoId_mainVideoUrl → mainVideoUrl) before root,
   // and returns the bare id for adaptive playback + a same-method Bunny thumbnail.
-  const { videoUrl, imageUrl, bunnyVideoId } = resolveExerciseMedia(we.exercise as any, we.method as any);
+  // #3: also carry fullTutorial — resolveExerciseMedia already resolves it (identical to
+  // buildRunnerWorkoutPlanFromGenerated:141). Dropping it here is why the "צפה בהסבר המלא"
+  // CTA was missing on hybrid-station main + warmup exercises. Purely additive.
+  const { videoUrl, imageUrl, bunnyVideoId, fullTutorial } = resolveExerciseMedia(we.exercise as any, we.method as any);
   return {
     ...(videoUrl ? { videoUrl } : {}),
     ...(imageUrl ? { imageUrl } : {}),
     ...(bunnyVideoId ? { bunnyVideoId } : {}),
+    ...(fullTutorial ? { fullTutorial } : {}),
   };
 }
 
