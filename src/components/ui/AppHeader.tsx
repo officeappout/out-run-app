@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation';
 import { Bell, MessageCircle, Search, BadgeCheck, Users } from 'lucide-react';
 import CollapsingHeader from '@/components/ui/CollapsingHeader';
 import AnimatedFlame from '@/components/ui/AnimatedFlame';
+import CommunityCoLogo from '@/components/ui/CommunityCoLogo';
 import { useUserStore } from '@/features/user';
 import { useDailyActivity } from '@/features/activity';
 import { useChatStore } from '@/features/social/store/useChatStore';
@@ -132,15 +133,18 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
         </div>
       </button>
 
-      {/* Center — OUT logotype */}
-      <Link href="/home" className="flex items-center" aria-label="OUT">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/assets/logo/Kind=logotype.svg"
-          alt="OUT"
-          className="h-7 object-contain select-none"
-        />
-      </Link>
+      {/* Center — community co-logo (if any) + OUT logotype ("community × OUT") */}
+      <div className="flex items-center gap-2" dir="ltr">
+        <CommunityCoLogo />
+        <Link href="/home" className="flex items-center" aria-label="OUT">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/assets/logo/Kind=logotype.svg"
+            alt="OUT"
+            className="h-7 object-contain select-none"
+          />
+        </Link>
+      </div>
 
       {/* Left zone (visually rightmost in RTL) — Bell + Chat + Search */}
       <div className="flex items-center gap-0.5">

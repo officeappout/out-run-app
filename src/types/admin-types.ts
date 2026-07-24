@@ -142,6 +142,14 @@ export interface Authority {
     type: AuthorityType;    // Type: city, regional_council, local_council
     parentAuthorityId?: string; // For settlements (Kibbutzim/Moshavim) - links to parent Regional Council
     logoUrl?: string;      // URL for the authority's logo
+    /**
+     * Explicit opt-in to render this authority's logo as an OUT co-brand mark
+     * (community × OUT) in the app header. Default (absent) = false = not shown,
+     * even when logoUrl is populated. Deliberately decoupled from isActiveClient
+     * (billing/league gate, axiom §6) so co-branding is a separate per-community
+     * decision and enabling the feature causes zero surprise co-brands.
+     */
+    coBrandingEnabled?: boolean;
     managerIds: string[];  // List of user IDs assigned as health coordinators/managers
     userCount: number;     // Count of users associated with this authority
     unitCount?: number;    // Pre-calculated count of units in tenants/{id}/units (denormalized)

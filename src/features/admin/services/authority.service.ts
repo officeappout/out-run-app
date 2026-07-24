@@ -264,6 +264,7 @@ function normalizeAuthority(docId: string, data: any): Authority {
       : 'city', // Default to 'city' for backward compatibility (only for unknown types)
     parentAuthorityId: data?.parentAuthorityId || undefined,
     logoUrl: data?.logoUrl ?? undefined,
+    coBrandingEnabled: data?.coBrandingEnabled === true,
     managerIds: Array.isArray(data?.managerIds) ? data.managerIds : [],
     userCount: typeof data?.userCount === 'number' ? data.userCount : 0,
     unitCount: typeof data?.unitCount === 'number' ? data.unitCount : 0,

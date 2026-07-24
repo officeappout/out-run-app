@@ -257,6 +257,14 @@ export interface UserFullProfile {
     birthDate?: Date;
     photoURL?: string;
     authorityId?: string; // Link to authority (city/region) for manager access control
+    // Closed-community (tenant) binding — written server-side by the
+    // validateAccessCode CF (functions/src/validateAccessCode.ts). Companies
+    // (Wix), schools and military units bind via tenantId/unitId; municipalities
+    // use authorityId above. tenantId ≡ the authorities/{id} doc id (twin).
+    tenantId?: string;
+    unitId?: string;
+    unitPath?: string[];
+    tenantType?: 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement';
     /** Neighborhood-level anchor coordinates saved when the user first confirms their location */
     anchorLat?: number;
     anchorLng?: number;
