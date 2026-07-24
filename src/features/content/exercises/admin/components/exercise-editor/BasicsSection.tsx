@@ -500,6 +500,29 @@ export default function BasicsSection({
             <p className="text-xs text-gray-600 mt-2">
               כשמופעל, ניתן לצרף סרטון זה כבלוק חיזוק בסיום אימון פעיל.
             </p>
+
+            {/* Follow-Along toggle — a finisher (e.g. Tabata) can ALSO be a
+                full-screen, video-timed follow-along. isFollowAlong +
+                isFinisherVideo may both be true. Default OFF for this role
+                (unlike warmup/cooldown/recovery which force it on). */}
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-amber-200">
+              <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <span className="text-blue-600">🎬</span>
+                סרטון פאלו-אלונג (Follow-Along)
+              </label>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!formData.isFollowAlong}
+                  onChange={(e) => setFormData({ ...formData, isFollowAlong: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              כשמופעל, הסרטון מתנגן במסך מלא מהתחלה עד הסוף (הטיימר בתוך הסרטון) ומסתיים אוטומטית — למשל טבטה.
+            </p>
           </div>
         )}
 

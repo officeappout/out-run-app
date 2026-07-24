@@ -114,8 +114,16 @@ export const BASE_MOVEMENT_LABELS: Record<string, string> = {
   // === ליבה ומיומנויות (CORE & SKILLS) ===
   human_flag: 'דגל אנושי',
   l_sit: 'ישיבת L',
+  dragon_flag: 'דרגון פלאג',
   ring_work: 'סיבובים על טבעות',
-  
+  // --- בטן / ליבה (Abs / Core) ---
+  plank: 'פלאנק',
+  crunch: 'כפיפות בטן',
+  leg_raise: 'עליות רגליים',
+  v_up: 'ספר / V-up',
+  scissors: 'מספריים',
+  ab_wheel: 'גליל בטן',
+
   // === גמישות (FLEXIBILITY) ===
   pancake: 'פנקייק (גמישות)',
   middle_split: 'ספליט אמצעי',
@@ -127,7 +135,7 @@ export const BASE_MOVEMENT_GROUPS: Record<string, string[]> = {
   'דחיפה': ['push_up', 'planche', 'handstand', 'handstand_pushup', 'dip'],
   'משיכה': ['pull_up', 'one_arm_pull', 'muscle_up', 'row', 'front_lever'],
   'רגליים': ['pistol_squat', 'shrimp_squat', 'nordic_curl', 'sissy_squat'],
-  'ליבה ומיומנויות': ['human_flag', 'l_sit', 'ring_work'],
+  'ליבה ומיומנויות': ['human_flag', 'l_sit', 'dragon_flag', 'ring_work', 'plank', 'crunch', 'leg_raise', 'v_up', 'scissors', 'ab_wheel'],
   'גמישות': ['pancake', 'middle_split', 'front_split'],
 };
 
