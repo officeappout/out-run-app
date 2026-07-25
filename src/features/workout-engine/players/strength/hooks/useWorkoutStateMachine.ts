@@ -10,6 +10,7 @@ import { computeAdvanceDecision } from '../protocols/compute-advance';
 import type { AdvanceContext } from '../protocols/advance-strategy.types';
 import { resolveBlockProtocol, type BlockProtocolInfo } from '../protocols/block-protocol';
 import { tabataIntervalInfo, tabataMemberCosts } from '../protocols/tabata.advance';
+import { computeTabataStep } from '../protocols/tabata.step';
 import { useSupersetPredicates } from './useSupersetPredicates';
 import { useExerciseDerivedValues } from './useExerciseDerivedValues';
 import { useExerciseLog } from './useExerciseLog';
@@ -617,19 +618,36 @@ export function useWorkoutStateMachine(
       // clocked rest from config → moveToNext; last interval advances
       // immediately with no trailing rest.
       if (blockProtocol?.id === 'tabata') {
+        // Pure decision (protocols/tabata.step.ts) — this handler only applies
+        // the resulting side effects. Behaviour is 1:1 with the pre-extraction
+        // inline branch; the headless loop test drives the same computeTabataStep.
+        const step = computeTabataStep({
+          reps,
+          isUnilateral: isUnilateralTimed,
+          currentSide,
+          pendingRightElapsed: pendingRightElapsed.current,
+          exerciseType,
+          config: blockProtocol.config,
+          memberCosts: tabataMemberCosts(
+            (getExercises(currentSegment) ?? []) as unknown as Array<Record<string, unknown>>,
+          ),
+          exerciseIndex: currentExerciseIndex,
+          setIdx: currentSetRef.current,
+        });
+
         // ── Unilateral member = TWO intervals (David's rule, 12.07.2026):
         // right side works → clocked rest → LEFT side of the SAME exercise
         // → then the normal advance. The right side logs nothing yet — both
         // sides log together (sideData) when the left completes.
-        if (isUnilateralTimed && currentSide === 'right') {
-          pendingRightElapsed.current = reps ?? blockProtocol.config.workSec;
+        if (step.kind === 'sideTransition') {
+          pendingRightElapsed.current = step.storeRightElapsed;
           setCurrentSide('left'); // remounts the timer card (key: timer-left)
-          if (blockProtocol.config.restSec > 0) {
+          if (step.sideRestSec != null) {
             setFadeIn(false);
             setTimeout(() => {
               tabataSideRestRef.current = true; // rest-done resumes ACTIVE, no advance
               setWorkoutState('RESTING');
-              setRestTimeLeft(blockProtocol.config.restSec);
+              setRestTimeLeft(step.sideRestSec!);
               setFadeIn(true);
               transitionLock.current = false;
               console.log('[Engine][Tabata] side interval done (right) — clocked rest → left side');
@@ -641,34 +659,11 @@ export function useWorkoutStateMachine(
           return;
         }
 
-        // Left side just finished → log BOTH sides on one entry.
-        const sideData =
-          isUnilateralTimed && currentSide === 'left'
-            ? {
-                right: pendingRightElapsed.current ?? blockProtocol.config.workSec,
-                left: reps ?? blockProtocol.config.workSec,
-              }
-            : undefined;
-
         // time-type logs real elapsed from the timer card; reps-type logs the
         // per-set target (resolveSetTarget) as the editable auto value.
-        autoSaveTargetReps(
-          exerciseType === 'time'
-            ? (sideData ? Math.min(sideData.right, sideData.left) : reps)
-            : undefined,
-          sideData,
-        );
+        autoSaveTargetReps(step.log.targetReps, step.log.sideData);
 
-        const { isLastInterval } = tabataIntervalInfo({
-          costs: tabataMemberCosts(
-            (getExercises(currentSegment) ?? []) as unknown as Array<Record<string, unknown>>,
-          ),
-          exerciseIndex: currentExerciseIndex,
-          setIdx: currentSetRef.current,
-          rounds: blockProtocol.config.rounds,
-        });
-
-        if (isLastInterval || blockProtocol.config.restSec <= 0) {
+        if (step.next.kind === 'advance') {
           console.log('[Engine][Tabata] work interval done — advancing immediately (no rest)');
           setFadeIn(false);
           setTimeout(() => {
@@ -676,16 +671,17 @@ export function useWorkoutStateMachine(
             setFadeIn(true);
           }, 100);
         } else {
+          const restSec = step.next.restSec;
           setFadeIn(false);
           setTimeout(() => {
             setWorkoutState('RESTING');
-            setRestTimeLeft(blockProtocol.config.restSec);
+            setRestTimeLeft(restSec);
             setFadeIn(true);
             // Release the lock manually — entering RESTING changes no index,
             // so the index-change effect won't, and handleRestTimerDone
             // refuses to advance while the lock is engaged.
             transitionLock.current = false;
-            console.log(`[Engine][Tabata] clocked rest ${blockProtocol.config.restSec}s → RESTING`);
+            console.log(`[Engine][Tabata] clocked rest ${restSec}s → RESTING`);
           }, 100);
         }
         return;
