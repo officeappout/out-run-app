@@ -506,6 +506,15 @@ export default function HomePage() {
       ? { met: !!todayProgress.strengthGoalMet, pct: todayProgress.dailyStrengthPct }
       : undefined;
 
+  // HOME_DAILY_GOAL_V1 (item 6): reuse the "another workout" button as a
+  // "complete the day" CTA while today's strength goal is still short of ⅔.
+  // ASSUMPTION (structural default): once the goal is met we keep the default
+  // "on a roll" copy. The rest-day message + return-after-miss copy live inside
+  // the SHOW_MISSED_DAYS_PROMPTS surfaces (StatsOverview / missed banner) and are
+  // a bounded follow-up — see the review notes.
+  const completionCtaLabel =
+    dailyGoalCard && !dailyGoalCard.met ? 'להשלים את היעד — עוד אימון קצר' : undefined;
+
   const handleDismissCelebration = useCallback(() => {
     setPostWorkoutData(null);
     setShowMotivationBanner(false);
@@ -1395,6 +1404,7 @@ export default function HomePage() {
               completionData={completionData}
               onRequestMore={handleRequestMore}
               dailyGoal={dailyGoalCard}
+              ctaLabel={completionCtaLabel}
               onDismissCelebration={handleDismissCelebration}
               userGender={profile?.core?.gender}
             />

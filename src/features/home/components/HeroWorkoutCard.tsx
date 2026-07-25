@@ -443,6 +443,12 @@ interface HeroWorkoutCardProps {
    * %-based nudge and leaves the muscle/time breakdown as a follow-up.
    */
   dailyGoal?: { met: boolean; pct: number };
+  /**
+   * HOME_DAILY_GOAL_V1 (item 6): overrides the "another workout" CTA copy so the
+   * same button can be reused as a "complete the day" / rest-day prompt, e.g.
+   * "להשלים את היעד — עוד אימון קצר". Absent → default "אני על הגל..." copy.
+   */
+  ctaLabel?: string;
   /** Dismiss celebration mode */
   onDismissCelebration?: () => void;
   /** User gender for gendered CTA copy */
@@ -465,6 +471,7 @@ export default function HeroWorkoutCard({
   completionData,
   onRequestMore,
   dailyGoal,
+  ctaLabel,
   onDismissCelebration,
   userGender,
 }: HeroWorkoutCardProps) {
@@ -659,7 +666,7 @@ export default function HeroWorkoutCard({
               fontSize: 16,
             }}
           >
-            <span>אני על הגל, תציעו לי עוד אימון!</span>
+            <span>{ctaLabel ?? 'אני על הגל, תציעו לי עוד אימון!'}</span>
           </button>
         )}
       </div>
