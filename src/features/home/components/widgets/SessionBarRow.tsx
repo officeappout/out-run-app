@@ -31,6 +31,8 @@ export interface SessionBarRowProps {
   index?: number;
   /** Compact = smaller text and icons (for half-width side-by-side). */
   compact?: boolean;
+  /** HOME_DAILY_GOAL_V1 (item 2): per-segment partial-fill state → SegmentedBar. */
+  segmentStates?: Array<{ pct: number; met: boolean }>;
 }
 
 export function SessionBarRow({
@@ -42,6 +44,7 @@ export function SessionBarRow({
   filledClassName,
   index = 0,
   compact = false,
+  segmentStates,
 }: SessionBarRowProps) {
   const iconNode = icon ?? (iconKey ? getProgramIcon(iconKey, compact ? 'w-4 h-4' : 'w-5 h-5') : null);
   const labelClass = compact
@@ -61,6 +64,7 @@ export function SessionBarRow({
         segments={target}
         completed={Math.min(done, target)}
         filledClassName={filledClassName}
+        segmentStates={segmentStates}
       />
 
       <div className={`flex items-center justify-between ${compact ? 'mt-2' : 'mt-2.5'}`}>

@@ -23,6 +23,13 @@ interface SegmentedBarProps {
   filledClassName?: string;
   /** Tailwind color class for empty segments */
   trackClassName?: string;
+  /**
+   * HOME_DAILY_GOAL_V1 (item 2): per-segment partial fill + state. When provided,
+   * each segment fills to `pct` (0..1) and is coloured blue when `met` (counted,
+   * ≥⅔ of the daily target) or orange when still in-progress. Overrides the binary
+   * `completed` reading. Absent → legacy byte-identical binary segments.
+   */
+  segmentStates?: Array<{ pct: number; met: boolean }>;
 }
 
 export function SegmentedBar({
@@ -30,12 +37,29 @@ export function SegmentedBar({
   completed,
   filledClassName = 'bg-[#00C9F2]',
   trackClassName = 'bg-gray-200 dark:bg-gray-700',
+  segmentStates,
 }: SegmentedBarProps) {
-  const total = Math.max(segments, 1);
+  const total = segmentStates ? Math.max(segmentStates.length, 1) : Math.max(segments, 1);
 
   return (
     <div className="flex gap-1.5 w-full">
       {Array.from({ length: total }, (_, i) => {
+        // HOME_DAILY_GOAL_V1: partial-fill + orange(in-progress)/blue(counted).
+        const state = segmentStates?.[i];
+        if (state) {
+          const pct = Math.round(Math.max(0, Math.min(1, state.pct)) * 100);
+          return (
+            <div key={i} className={`h-2 rounded-full flex-1 overflow-hidden ${trackClassName}`}>
+              <motion.div
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ type: 'spring', stiffness: 120, damping: 18, delay: i * 0.12 }}
+                style={{ width: `${pct}%` }}
+                className={`h-full rounded-full origin-left ${state.met ? 'bg-[#00C9F2]' : 'bg-orange-400'}`}
+              />
+            </div>
+          );
+        }
         const isFilled = i < completed;
         return (
           <motion.div

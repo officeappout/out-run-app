@@ -15,6 +15,8 @@ import { useUserStore } from '@/features/user';
 import { getProgramIcon } from '@/features/content/programs';
 import { SegmentedBar } from './SegmentedBar';
 import { SessionBarRow } from './SessionBarRow';
+import { HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
+import { useWeeklyStrengthGoal } from '@/features/home/hooks/useWeeklyStrengthGoal';
 
 // ============================================================================
 // TYPES
@@ -26,6 +28,8 @@ interface TrackRow {
   iconKey?: string;
   completed: number;
   target: number;
+  /** HOME_DAILY_GOAL_V1 (item 2): per-segment partial-fill + orange/blue state. */
+  segmentStates?: Array<{ pct: number; met: boolean }>;
 }
 
 interface StrengthVolumeWidgetProps {
@@ -57,6 +61,7 @@ export function StrengthVolumeWidget({
 }: StrengthVolumeWidgetProps) {
   const { profile } = useUserStore();
   const { summary } = useWeeklyProgress();
+  const weekStrengthStates = useWeeklyStrengthGoal(HOME_DAILY_GOAL_V1);
 
   const rows = useMemo((): TrackRow[] => {
     if (customRows) return customRows;
@@ -65,13 +70,24 @@ export function StrengthVolumeWidget({
     const cardioSessions = summary?.categorySessions?.cardio ?? 0;
     const cardioMinutes = summary?.categoryTotals?.cardio ?? 0;
 
+    // HOME_DAILY_GOAL_V1 (item 2): fill each segment by that day's daily-target %
+    // (orange = in-progress, blue = counted); "X/3" counts days that cleared ⅔.
+    let strengthCompleted = strengthSessions;
+    let strengthSegmentStates: Array<{ pct: number; met: boolean }> | undefined;
+    if (HOME_DAILY_GOAL_V1 && weekStrengthStates) {
+      const days = weekStrengthStates.filter((s) => s.pct > 0);
+      strengthSegmentStates = Array.from({ length: 3 }, (_, i) => days[i] ?? { pct: 0, met: false });
+      strengthCompleted = Math.min(days.filter((s) => s.met).length, 3);
+    }
+
     const result: TrackRow[] = [
       {
         id: 'strength',
         label: 'אימוני כוח',
         iconKey: 'muscle',
-        completed: strengthSessions,
+        completed: strengthCompleted,
         target: 3,
+        segmentStates: strengthSegmentStates,
       },
     ];
 
@@ -90,7 +106,7 @@ export function StrengthVolumeWidget({
     }
 
     return result;
-  }, [customRows, summary, profile, layout]);
+  }, [customRows, summary, profile, layout, weekStrengthStates]);
 
   // ── Upsell: user finished running but NOT strength → show blurred card ──
   const dashboardMode = profile?.lifestyle?.dashboardMode;
@@ -147,7 +163,7 @@ export function StrengthVolumeWidget({
         style={{ ...CARD_STYLE, width: 231, minWidth: 0, flexShrink: 1 }}
         dir="rtl"
       >
-        <SegmentedBar segments={row.target} completed={row.completed} />
+        <SegmentedBar segments={row.target} completed={row.completed} segmentStates={row.segmentStates} />
 
         <div className="flex items-center justify-between mt-2.5">
           <div className="flex items-center gap-1.5">
@@ -183,6 +199,7 @@ export function StrengthVolumeWidget({
               label={row.label}
               iconKey={row.iconKey}
               index={idx}
+              segmentStates={row.segmentStates}
             />
           ))}
         </div>
