@@ -17,6 +17,12 @@ export interface DailyProgress {
   floorsAchieved?: number;
   stepGoalMet?: boolean;
   floorGoalMet?: boolean;
+  /** HOME_DAILY_GOAL_V1 (strength) — daily-goal snapshot persisted at completion.
+   *  Absent when the flag is off or for aerobic/hybrid days. */
+  dailyStrengthTargetSets?: number;
+  dailyStrengthCompletedSets?: number;
+  dailyStrengthPct?: number;
+  strengthGoalMet?: boolean;
   updatedAt?: any;
 }
 

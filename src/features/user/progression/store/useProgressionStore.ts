@@ -15,7 +15,7 @@ import { doc, setDoc, getDoc, updateDoc, serverTimestamp, onSnapshot, type Unsub
 import { db } from '@/lib/firebase';
 import { getUserProgression } from '@/lib/firestore.service';
 import { awardWorkoutXP as guardianAward } from '@/lib/awardWorkoutXP';
-import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import { IS_COIN_SYSTEM_ENABLED, HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
 
 export interface GoalHistoryEntry {
   date: string;           // 'YYYY-MM-DD'
@@ -92,7 +92,10 @@ interface ProgressionState {
   awardCommuteXP: (params: CommuteWorkoutXPParams) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
   /** Award a flat XP bonus (e.g. for completing a LevelGoal). Uses atomic Firestore increment. */
   awardBonusXP: (xp: number, reason?: string) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
-  markTodayAsCompleted: (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid') => Promise<void>;
+  markTodayAsCompleted: (
+    type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid',
+    strengthCompletion?: { targetSets: number; completedSets: number; pct: number; met: boolean },
+  ) => Promise<void>;
   setLastActivityType: (type: ActivityType) => void;
   recordDailyGoalProgress: (steps: number, floors: number) => void;
   updateDomainProgress: (domain: string, level: number, percent: number) => void;
@@ -826,7 +829,10 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
    * Mark today as completed (workout done)
    * Syncs to Firestore dailyProgress collection
    */
-  markTodayAsCompleted: async (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid') => {
+  markTodayAsCompleted: async (
+    type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid',
+    strengthCompletion?: { targetSets: number; completedSets: number; pct: number; met: boolean },
+  ) => {
     try {
       if (typeof window === 'undefined') return;
       
@@ -860,14 +866,30 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
         }
       };
 
-      // Update with workout completion
+      // Update with workout completion.
+      // HOME_DAILY_GOAL_V1 (strength only): when a strengthCompletion snapshot is
+      // provided, gate `workoutCompleted` on the ⅔-of-daily-target `met` flag and
+      // persist the target/%. Flag OFF or no snapshot (aerobic/hybrid) → legacy
+      // unconditional `true`. `workoutCompleted` sits AFTER ...existingData so the
+      // fresh value wins (legacy always resolved to true → identical there).
+      const dailyGoalOn = HOME_DAILY_GOAL_V1 && strengthCompletion != null;
+      const completed = dailyGoalOn ? strengthCompletion!.met : true;
+      const strengthGoalFields = dailyGoalOn
+        ? {
+            dailyStrengthTargetSets: strengthCompletion!.targetSets,
+            dailyStrengthCompletedSets: strengthCompletion!.completedSets,
+            dailyStrengthPct: strengthCompletion!.pct,
+            strengthGoalMet: strengthCompletion!.met,
+          }
+        : {};
       await setDoc(dailyProgressRef, {
         userId,
         date: today,
-        workoutCompleted: true,
         workoutType: type,
         displayIcon: getWorkoutIcon(type),
         ...existingData, // Preserve other fields (steps, floors, etc.)
+        workoutCompleted: completed,
+        ...strengthGoalFields,
         updatedAt: serverTimestamp(),
       }, { merge: true });
       

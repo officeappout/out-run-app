@@ -38,6 +38,18 @@ export interface CompletionPayload {
    * still fire exactly once using the aggregate `durationMinutes`/`calories`.
    */
   categorySplits?: Array<{ category: ActivityCategory; durationMinutes: number; calories: number }>;
+  /**
+   * HOME_DAILY_GOAL_V1 (strength only): ⅔-of-daily-target completion snapshot,
+   * computed at completion time and forwarded to markTodayAsCompleted. When the
+   * flag is ON, that store gates `workoutCompleted` on `met` and persists the
+   * target/%. Absent for aerobic/hybrid or when the flag is off (legacy binary).
+   */
+  strengthCompletion?: {
+    targetSets: number;
+    completedSets: number;
+    pct: number;
+    met: boolean;
+  };
 }
 
 const SESSION_KEY = 'post_workout_completed';
@@ -71,7 +83,7 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
   }
 
   // 2. Progression Store → dailyProgress + goalHistory (Firestore write)
-  await useProgressionStore.getState().markTodayAsCompleted(payload.workoutType).catch((err) => {
+  await useProgressionStore.getState().markTodayAsCompleted(payload.workoutType, payload.strengthCompletion).catch((err) => {
     console.error('[completion-sync] markTodayAsCompleted failed:', err);
   });
 
