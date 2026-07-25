@@ -194,6 +194,7 @@ export default function ActiveExerciseView({
           side={currentSide}
           autoStart={!!blockWorkSec}
           autoCompleteAtTarget={!!blockWorkSec}
+          countdownDisplay={!!blockWorkSec}
         />
       )}
 
