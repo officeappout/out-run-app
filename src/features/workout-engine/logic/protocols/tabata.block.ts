@@ -57,10 +57,18 @@ export function buildTabataBlock(
   //   the skill pattern matches 'פלאנש') — do not "simplify" to it.
   // - time-based at tier 'hard' (Δ=+1): prescribed 5-10s holds, capped 15s.
   // Unilateral is ELIGIBLE and costs 2 intervals (right→left consecutive).
+  //
+  // David 25.07 — the conditioning gate: a member MUST carry the curated
+  // `hiit_friendly` tag (the 109 tabata pool), and must be AT-OR-BELOW the
+  // user's level (`!isOverLevel`, bias to the easy side). `isOverLevel`
+  // absent ⇒ treated as false ⇒ passes — level-less pool entries default IN,
+  // never dropped as over-level.
   const eligible = exercises
     .filter(
       (ex) =>
         (ex.exerciseRole ?? 'main') === 'main' &&
+        (ex.exercise.tags?.includes('hiit_friendly') ?? false) &&
+        !ex.isOverLevel &&
         !Array.isArray(ex.pyramidSequence) &&
         ex.tier !== 'elite' &&
         getIsometricTimeCap(ex.exercise) >= TABATA_CLASSIC.workSec &&

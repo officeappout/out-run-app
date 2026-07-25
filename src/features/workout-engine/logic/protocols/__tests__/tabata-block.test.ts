@@ -5,8 +5,8 @@ import { calculateEstimatedDuration } from '../../workout-budgeting.utils';
 import { enforceVolumeCap } from '@/features/workout-engine/core/presentation/PresentationFormatter';
 import type { WorkoutExercise } from '../../workout-generator.types';
 
-const mainEx = (id: string, score: number, over: Record<string, unknown> = {}): WorkoutExercise =>
-  ({
+const mainEx = (id: string, score: number, over: Record<string, unknown> = {}): WorkoutExercise => {
+  const ex = {
     exercise: { id, name: { he: id }, movementGroup: 'horizontal_push', secondsPerRep: 3, symmetry: 'bilateral' },
     exerciseRole: 'main',
     sets: 3,
@@ -18,7 +18,12 @@ const mainEx = (id: string, score: number, over: Record<string, unknown> = {}): 
     tier: 'match',
     reasoning: [],
     ...over,
-  } as never);
+  } as Record<string, any>;
+  // Every mock defaults into the tabata pool (hiit_friendly) unless a test sets
+  // tags explicitly — mirrors the 109 tagged exercises in prod.
+  if (!ex.exercise.tags) ex.exercise = { ...ex.exercise, tags: ['hiit_friendly'] };
+  return ex as never;
+};
 
 beforeEach(() => {
   vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -105,6 +110,23 @@ describe('buildTabataBlock', () => {
     const block = buildTabataBlock('tabata', [hardHold, hardReps, easyA], {});
     expect(block).toBeDefined();
     expect(block!.exerciseIds.sort()).toEqual(['easy-a', 'hard-reps']);
+  });
+
+  it('ELIGIBILITY (David 25.07): untagged mains (not hiit_friendly) are OUT', () => {
+    const untagged = mainEx('b', 80, {
+      exercise: { id: 'b', name: { he: 'b' }, movementGroup: 'squat', symmetry: 'bilateral', tags: [] },
+    });
+    // one tagged + one untagged → only 1 eligible → no block
+    expect(buildTabataBlock('tabata', [mainEx('a', 90), untagged], {})).toBeUndefined();
+    // both tagged → block forms
+    expect(buildTabataBlock('tabata', [mainEx('a', 90), mainEx('b', 80)], {})).toBeDefined();
+  });
+
+  it('ELIGIBILITY (David 25.07): over-level mains are OUT; level-less passes (default IN)', () => {
+    const over = mainEx('b', 95, { isOverLevel: true });
+    expect(buildTabataBlock('tabata', [mainEx('a', 90), over], {})).toBeUndefined(); // only 1 at-level
+    // isOverLevel absent ⇒ level-less pool entry passes
+    expect(buildTabataBlock('tabata', [mainEx('a', 90), mainEx('c', 70)], {})).toBeDefined();
   });
 
   it('COMPOSITION: interval costs must tile rounds — unilateral counts double', () => {

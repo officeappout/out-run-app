@@ -1583,6 +1583,17 @@ export class WorkoutGenerator {
       `(roll=${roll.toFixed(3)} ≤ p=${probability}, options=[${adminProtocols.join(', ')}])`,
     );
 
+    // David 25.07 — Tabata user-level gate: conditioning intervals are not
+    // offered below level 4, independent of the admin toggle (hard enforcement
+    // of intent). Other protocols are unaffected.
+    const MIN_TABATA_USER_LEVEL = 4;
+    if (selected === 'tabata' && (context.userLevel ?? 0) < MIN_TABATA_USER_LEVEL) {
+      console.log(
+        `[WorkoutGenerator][selectProtocol] Tabata suppressed — userLevel ${context.userLevel ?? '?'} < ${MIN_TABATA_USER_LEVEL} → straight`,
+      );
+      return { structure: 'standard', setType: 'straight' };
+    }
+
     if (selected === 'emom') {
       return { structure: 'emom', setType: 'straight' };
     }
