@@ -73,7 +73,11 @@ export default function AccessCodesPage() {
         setTenants(tenantsSnap.docs.map(d => ({
           id: d.id,
           name: d.data().name ?? d.id,
-          type: d.data().tenantType ?? 'municipal',
+          // tenants docs created via /admin/organizations store the vertical in
+          // `type`; seeds store it in `tenantType`. Read both (vertical-agnostic)
+          // so company/youth_movement/school codes aren't mislabeled 'municipal'
+          // — which would break the redemption affiliation + org league tab.
+          type: d.data().tenantType ?? d.data().type ?? 'municipal',
         })));
       } catch (err) {
         console.error('[AccessCodes] init error:', err);
