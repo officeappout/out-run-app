@@ -39,6 +39,8 @@ import {
   type ActivityCategory,
   type RingData,
 } from '../types/activity.types';
+import { HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 
 /** How often the in-memory overlay self-clears once the server should
  *  have caught up. 30s comfortably exceeds typical foreground sync time. */
@@ -114,35 +116,47 @@ export function useLiveDailyActivity(): LiveDailyActivityResult {
     };
   }, []);
 
+  // item 4 (HOME_DAILY_GOAL_V1): during an active workout the session logs its own
+  // minutes at completion; the live passive exerciseTime for that window would
+  // double-count on the cardio ring (a 30-min run reading ~60), so exclude it —
+  // workout-window dedup. Only the active-MINUTES overlay is suppressed; passive
+  // steps/calories are unaffected. (The stored server double-count is a documented
+  // follow-up; it already exists in prod today, so this is not a regression.)
+  const sessionStatus = useSessionStore((s) => s.status);
+  const passiveActiveMin =
+    HOME_DAILY_GOAL_V1 && (sessionStatus === 'active' || sessionStatus === 'paused')
+      ? 0
+      : overlay.passiveActiveMinutes;
+
   // Apply overlay to ring data. Passive activeMinutes feed the cardio
   // bucket — same convention the server uses (categories.cardio.minutes
   // bumped by ingestHealthSamples). This keeps client + server math aligned.
   const ringData = useMemo<RingData[]>(() => {
-    if (overlay.passiveActiveMinutes === 0) return base.ringData;
+    if (passiveActiveMin === 0) return base.ringData;
     return base.ringData.map((r) => {
       if (r.id !== ('cardio' as ActivityCategory)) return r;
-      const value = r.value + overlay.passiveActiveMinutes;
+      const value = r.value + passiveActiveMin;
       const max = r.max || DEFAULT_DAILY_GOALS.cardio;
       const percentage = max > 0 ? Math.min(100, (value / max) * 100) : 0;
       return { ...r, value, percentage };
     });
-  }, [base.ringData, overlay.passiveActiveMinutes]);
+  }, [base.ringData, passiveActiveMin]);
 
   // Hydrate a ring data shape if the base is empty (first paint while
   // Zustand hydrates) so the widget never flashes blank with overlay data.
   const safeRingData = useMemo<RingData[]>(() => {
     if (ringData.length > 0) return ringData;
-    if (overlay.passiveActiveMinutes === 0) return ringData;
+    if (passiveActiveMin === 0) return ringData;
     const cardio = ACTIVITY_COLORS.cardio.hex;
     return [
       {
         id: 'cardio',
         label: ACTIVITY_LABELS.cardio.he,
-        value: overlay.passiveActiveMinutes,
+        value: passiveActiveMin,
         max: DEFAULT_DAILY_GOALS.cardio,
         percentage: Math.min(
           100,
-          (overlay.passiveActiveMinutes / DEFAULT_DAILY_GOALS.cardio) * 100,
+          (passiveActiveMin / DEFAULT_DAILY_GOALS.cardio) * 100,
         ),
         color: cardio,
         colorClass: ACTIVITY_COLORS.cardio.tailwind,
@@ -150,11 +164,11 @@ export function useLiveDailyActivity(): LiveDailyActivityResult {
         icon: ACTIVITY_LABELS.cardio.icon,
       },
     ];
-  }, [ringData, overlay.passiveActiveMinutes]);
+  }, [ringData, passiveActiveMin]);
 
   const totalMinutesToday = useMemo(
-    () => base.totalMinutesToday + overlay.passiveActiveMinutes,
-    [base.totalMinutesToday, overlay.passiveActiveMinutes],
+    () => base.totalMinutesToday + passiveActiveMin,
+    [base.totalMinutesToday, passiveActiveMin],
   );
 
   const stepsToday = useMemo(
