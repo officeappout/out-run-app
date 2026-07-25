@@ -9,7 +9,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { Dumbbell } from 'lucide-react';
+import { Dumbbell, Footprints } from 'lucide-react';
 import { useWeeklyProgress } from '@/features/activity';
 import { useUserStore } from '@/features/user';
 import { getProgramIcon } from '@/features/content/programs';
@@ -17,6 +17,7 @@ import { SegmentedBar } from './SegmentedBar';
 import { SessionBarRow } from './SessionBarRow';
 import { HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
 import { useWeeklyStrengthGoal } from '@/features/home/hooks/useWeeklyStrengthGoal';
+import { useWeeklyMovementGoal } from '@/features/home/hooks/useWeeklyMovementGoal';
 
 // ============================================================================
 // TYPES
@@ -62,6 +63,7 @@ export function StrengthVolumeWidget({
   const { profile } = useUserStore();
   const { summary } = useWeeklyProgress();
   const weekStrengthStates = useWeeklyStrengthGoal(HOME_DAILY_GOAL_V1);
+  const weekMovementStates = useWeeklyMovementGoal(HOME_DAILY_GOAL_V1);
 
   const rows = useMemo((): TrackRow[] => {
     if (customRows) return customRows;
@@ -203,6 +205,29 @@ export function StrengthVolumeWidget({
             />
           ))}
         </div>
+
+        {/* HOME_DAILY_GOAL_V1 (item 3): 7-day aerobic "movement" bar below the
+            strength bar. Any active aerobic (run/walk/hybrid leg) or passive
+            active-minutes already feeds categories.cardio.minutes → fills without a
+            questionnaire. Orange = in-progress, blue = day's movement goal met. */}
+        {HOME_DAILY_GOAL_V1 && weekMovementStates && (
+          <div className="mt-5">
+            <SegmentedBar segments={7} completed={0} segmentStates={weekMovementStates} />
+            <div className="flex items-center justify-between mt-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-700 dark:text-gray-300">
+                  <Footprints className="w-5 h-5" />
+                </span>
+                <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                  תנועה השבוע
+                </span>
+              </div>
+              <span className="text-[14px] font-bold text-gray-500 dark:text-gray-400 tabular-nums">
+                {weekMovementStates.filter((s) => s.met).length}/7
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
