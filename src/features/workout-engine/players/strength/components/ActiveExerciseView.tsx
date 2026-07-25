@@ -67,6 +67,12 @@ export interface ActiveExerciseViewProps {
    * forces isTimeExercise=true alongside. Absent = normal flow.
    */
   blockWorkSec?: number | null;
+  /**
+   * Block-protocol lead-in (tabata): seconds of "get ready" before the work
+   * count for THIS interval — the first interval gets a lead-in, later ones 0.
+   * Undefined outside tabata = IsometricTimerCard's default 5s prep.
+   */
+  timerPrepSeconds?: number;
   /** Active side for unilateral exercises ("left" / "right" / null) — drives timer remount + side label. */
   currentSide: 'left' | 'right' | null;
   /** Range display text ("6-8 חזרות" / "30 שניות"). */
@@ -122,6 +128,7 @@ export default function ActiveExerciseView({
   isTimeExercise,
   exerciseDuration,
   blockWorkSec,
+  timerPrepSeconds,
   currentSide,
   repsOrDurationText,
   targetValue,
@@ -195,6 +202,7 @@ export default function ActiveExerciseView({
           autoStart={!!blockWorkSec}
           autoCompleteAtTarget={!!blockWorkSec}
           countdownDisplay={!!blockWorkSec}
+          prepSeconds={timerPrepSeconds}
         />
       )}
 

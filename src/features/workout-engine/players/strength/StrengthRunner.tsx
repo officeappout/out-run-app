@@ -459,6 +459,15 @@ export default function StrengthRunner({
     // and auto-completes at workSec (the machine then skips INPUT).
     const blockWorkSec = sm.blockProtocol?.id === 'tabata' ? sm.blockProtocol.config.workSec : null;
     const isTimeExercise = (sm.exerciseType === 'time' && !sm.isFollowAlongMode) || !!blockWorkSec;
+    // Tabata prep: ONE get-ready before the block's very first interval only
+    // (cycle 0, position 0, not the unilateral left side). Every later interval
+    // gets 0 — the 10s rest is the get-ready — so the block stays exactly 240s.
+    const TABATA_LEAD_IN_SECONDS = 5;
+    const isFirstTabataInterval =
+      !!blockWorkSec && sm.currentRound === 1 && sm.currentExerciseIndex === 0 && sm.currentSide !== 'left';
+    const timerPrepSeconds = blockWorkSec
+      ? (isFirstTabataInterval ? TABATA_LEAD_IN_SECONDS : 0)
+      : undefined;
 
     return (
       <ActiveExerciseView
@@ -474,6 +483,7 @@ export default function StrengthRunner({
         isTimeExercise={isTimeExercise}
         exerciseDuration={sm.exerciseDuration}
         blockWorkSec={blockWorkSec}
+        timerPrepSeconds={timerPrepSeconds}
         currentSide={sm.currentSide}
         repsOrDurationText={sm.repsOrDurationText}
         targetValue={pickerTargetValue}

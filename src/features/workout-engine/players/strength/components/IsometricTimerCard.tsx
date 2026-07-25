@@ -49,6 +49,13 @@ interface IsometricTimerCardProps {
    * Default false = the classic bottom-sheet card.
    */
   countdownDisplay?: boolean;
+  /**
+   * Seconds of "get ready" lead-in before the count starts. Default 5.
+   * Tabata passes it PER INTERVAL: a lead-in only before the FIRST interval of
+   * the block, and 0 for every interval after — the 10s rest IS the get-ready,
+   * so the block stays exactly (workSec+restSec)×rounds. 0 = skip prep entirely.
+   */
+  prepSeconds?: number;
 }
 
 type Phase = 'idle' | 'preparing' | 'counting' | 'overtime';
@@ -123,11 +130,12 @@ export default function IsometricTimerCard({
   autoStart = false,
   autoCompleteAtTarget = false,
   countdownDisplay = false,
+  prepSeconds = PREP_SECONDS,
 }: IsometricTimerCardProps) {
   const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
-  const [prepCountdown, setPrepCountdown] = useState(PREP_SECONDS);
+  const [prepCountdown, setPrepCountdown] = useState(prepSeconds);
   const [isPaused, setIsPaused] = useState(false);
 
   const alertedRef = useRef(new Set<number>());
@@ -145,7 +153,7 @@ export default function IsometricTimerCard({
     if (intervalRef.current) clearInterval(intervalRef.current);
     setPhase('idle');
     setElapsed(0);
-    setPrepCountdown(PREP_SECONDS);
+    setPrepCountdown(prepSeconds);
     setIsPaused(false);
     alertedRef.current.clear();
     targetAlertedRef.current = false;
@@ -157,12 +165,19 @@ export default function IsometricTimerCard({
   // ── Start → begin preparation ─────────────────────────────────────────
 
   const start = useCallback(() => {
-    if (phase === 'idle') {
-      setPrepCountdown(PREP_SECONDS);
-      prepAlertedRef.current.clear();
-      setPhase('preparing');
+    if (phase !== 'idle') return;
+    // No lead-in (tabata intervals after the first): jump straight to counting.
+    if (prepSeconds <= 0) {
+      setElapsed(0);
+      alertedRef.current.clear();
+      targetAlertedRef.current = false;
+      setPhase('counting');
+      return;
     }
-  }, [phase]);
+    setPrepCountdown(prepSeconds);
+    prepAlertedRef.current.clear();
+    setPhase('preparing');
+  }, [phase, prepSeconds]);
 
   // Block-protocol mode: begin the prep countdown without a tap. Re-arms
   // after resetTimer (duration change) so each tabata interval self-starts.
@@ -270,7 +285,7 @@ export default function IsometricTimerCard({
 
   const isActive = phase === 'counting' || phase === 'overtime';
   const progress = phase === 'preparing'
-    ? (PREP_SECONDS - prepCountdown) / PREP_SECONDS
+    ? (prepSeconds - prepCountdown) / prepSeconds
     : phase === 'idle' ? 0 : Math.min(elapsed / duration, 1);
 
   const remaining = duration - elapsed;
