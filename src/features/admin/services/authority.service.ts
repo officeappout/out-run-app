@@ -509,6 +509,7 @@ export async function createAuthority(data: Omit<Authority, 'id' | 'createdAt' |
       type: data.type || 'city', // Default to 'city' if not specified
       parentAuthorityId: data.parentAuthorityId || null,
       logoUrl: data.logoUrl ?? null,
+      coBrandingEnabled: typeof data.coBrandingEnabled === 'boolean' ? data.coBrandingEnabled : false,
       managerIds: Array.isArray(data.managerIds) ? data.managerIds : [],
       userCount: typeof data.userCount === 'number' ? data.userCount : 0,
       status: data.status === 'active' || data.status === 'inactive' ? data.status : undefined,
@@ -577,6 +578,10 @@ export async function updateAuthority(
     if (data.logoUrl !== undefined) {
       updateData.logoUrl = data.logoUrl || null;
       details += data.logoUrl ? ': logo updated' : ': logo removed';
+    }
+    if (data.coBrandingEnabled !== undefined) {
+      updateData.coBrandingEnabled = data.coBrandingEnabled;
+      details += `: coBrandingEnabled changed to ${data.coBrandingEnabled}`;
     }
     if (data.managerIds !== undefined) {
       updateData.managerIds = data.managerIds;
