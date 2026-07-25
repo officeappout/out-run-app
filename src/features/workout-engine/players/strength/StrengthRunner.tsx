@@ -414,6 +414,22 @@ export default function StrengthRunner({
 
     // RESTING — circular timer + next-exercise preview + coach hint (extracted to RestingStateView, R-11)
     if (sm.workoutState === 'RESTING') {
+      // Tabata: clean big-number rest countdown (shared overlay), unified with
+      // the work surface. Fed by the machine's rest clock (restTimeLeft), which
+      // owns the 3/2/1 beeps + auto-advance. Blurred next-exercise video behind.
+      if (sm.blockProtocol?.id === 'tabata') {
+        return (
+          <PreparingStateView
+            count={sm.restTimeLeft}
+            variant="rest"
+            label="מנוחה"
+            safeVideoUrl={safeNextVideoUrl}
+            safeImageUrl={null}
+            exerciseName={restPreviewExercise.name}
+            fadeIn={sm.fadeIn}
+          />
+        );
+      }
       return (
         <RestingStateView
           fadeIn={sm.fadeIn}
