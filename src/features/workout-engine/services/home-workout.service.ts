@@ -709,19 +709,6 @@ export async function generateHomeWorkoutTrio(
       console.log('[WorkoutTrio] Option 3 (Bolt3 — intense): pyramid protocol forced (p=1.0)');
     }
 
-    // ── DEV-ONLY tabata force (device testing) ───────────────────────────
-    // Guarded by NEXT_PUBLIC_OUT_FORCE_TABATA; unset in prod = zero behavior
-    // change. Mirrors the pyramid force above: pins preferredProtocols/prob so
-    // it bypasses the lottery AND the periodization multiplier. Leaves Option 3
-    // (pyramid) alone and only touches difficulty≥2 options (Bolt-1 stays
-    // straight). Does NOT bypass buildTabataBlock eligibility — the pool still
-    // needs ≥2 tiling-compatible mains (home/bodyweight guarantees it).
-    if (process.env.NEXT_PUBLIC_OUT_FORCE_TABATA === '1' && i !== 2 && !isRestDay && optionDifficulty >= 2) {
-      optionContext.preferredProtocols  = ['tabata'];
-      optionContext.protocolProbability = 1.0;
-      console.log(`[WorkoutTrio][DEV] Option ${i + 1}: tabata forced (NEXT_PUBLIC_OUT_FORCE_TABATA=1)`);
-    }
-
     // Generate workout via PipelineOrchestrator (empty-pool guard + blueprint-aware shim)
     const orchResult = orchestrator.run(optionPool, optionContext);
     const workout = orchResult.workout;
