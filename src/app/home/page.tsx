@@ -39,7 +39,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
+import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -495,6 +495,15 @@ export default function HomePage() {
           durationMinutes: 0,
           ring: strengthRingData,
         }
+      : undefined;
+
+  // HOME_DAILY_GOAL_V1 (item 5): adaptive-summary snapshot for the completion card.
+  // Reads item-1's persisted daily-goal fields off `dailyProgress`. Present only
+  // once a strength session has written them; aerobic/legacy days leave them
+  // undefined → the card falls back to the legacy celebration verbatim.
+  const dailyGoalCard =
+    HOME_DAILY_GOAL_V1 && todayProgress && typeof todayProgress.dailyStrengthPct === 'number'
+      ? { met: !!todayProgress.strengthGoalMet, pct: todayProgress.dailyStrengthPct }
       : undefined;
 
   const handleDismissCelebration = useCallback(() => {
@@ -1385,6 +1394,7 @@ export default function HomePage() {
               isCompleted
               completionData={completionData}
               onRequestMore={handleRequestMore}
+              dailyGoal={dailyGoalCard}
               onDismissCelebration={handleDismissCelebration}
               userGender={profile?.core?.gender}
             />

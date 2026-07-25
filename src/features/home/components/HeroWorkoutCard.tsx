@@ -5,6 +5,7 @@ import { MockWorkout } from '../data/mock-schedule-data';
 import { Dumbbell, Check, TrendingUp, Clock, Flag, PersonStanding } from 'lucide-react';
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { pickHeroExercise, resolveHeroMedia } from '@/features/workout-engine/shared/utils/heroMedia.utils';
+import { HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
 import {
   resolveEquipmentLabel,
   resolveEquipmentSvgPathList,
@@ -430,6 +431,18 @@ interface HeroWorkoutCardProps {
   completionData?: CompletionData;
   /** "I'm on a roll" — generate another workout */
   onRequestMore?: () => void;
+  /**
+   * HOME_DAILY_GOAL_V1 (item 5): today's strength daily-goal snapshot, driving the
+   * adaptive post-workout summary — minimal when the goal is met, a "complete the
+   * day" nudge (with the daily %) when not. Absent → legacy celebration verbatim.
+   *   met  — cleared ⅔ of today's daily strength target (item 1 threshold)
+   *   pct  — 0..1 progress toward that target
+   * NOTE (structural default): the spec also asks for "remaining muscle groups +
+   * time estimate" in the not-met branch. Per-day, per-muscle planned-vs-done data
+   * is NOT persisted today (see goals-engine investigation), so this ships the
+   * %-based nudge and leaves the muscle/time breakdown as a follow-up.
+   */
+  dailyGoal?: { met: boolean; pct: number };
   /** Dismiss celebration mode */
   onDismissCelebration?: () => void;
   /** User gender for gendered CTA copy */
@@ -451,6 +464,7 @@ export default function HeroWorkoutCard({
   isCompleted = false,
   completionData,
   onRequestMore,
+  dailyGoal,
   onDismissCelebration,
   userGender,
 }: HeroWorkoutCardProps) {
@@ -617,6 +631,22 @@ export default function HeroWorkoutCard({
             </div>
           </div>
         </div>
+
+        {/* HOME_DAILY_GOAL_V1 (item 5): adaptive daily-goal line — minimal ✓ when the
+            day's strength goal is met, an orange "keep going · X%" nudge when not.
+            Sits above the CTA; the CTA itself is relabelled via `ctaLabel` (item 6)
+            to "complete the day" when the goal isn't met. Flag OFF → not rendered. */}
+        {HOME_DAILY_GOAL_V1 && dailyGoal && (
+          <div className="w-full mt-2 flex items-center justify-center gap-1.5 text-[13px] font-bold" dir="rtl">
+            {dailyGoal.met ? (
+              <span className="text-[#00BAF7]">✓ הגעת ליעד היומי</span>
+            ) : (
+              <span className="text-orange-500">
+                עוד קצת ליעד היומי · {Math.round(Math.max(0, Math.min(1, dailyGoal.pct)) * 100)}%
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Full-width CTA below the card */}
         {onRequestMore && (
