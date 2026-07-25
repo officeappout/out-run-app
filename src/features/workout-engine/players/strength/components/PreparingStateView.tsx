@@ -5,42 +5,63 @@ import Image from 'next/image';
 import { OFFLINE_PLACEHOLDER } from '../hooks/usePlayerMedia';
 
 /**
- * PreparingStateView — full-screen "מתכוננים..." countdown overlay.
+ * PreparingStateView — full-screen big-number countdown overlay.
  *
- * Shown during the PREPARING phase before the first set.  Renders:
- *   • A blurred / dimmed background (image if available, else video, else solid)
- *   • A massive centered countdown number (5 → 1)
- *   • The active exercise name + an optional AI cue line
+ * Originally the PREPARING-phase "מתכוננים..." screen; generalised (protocol-
+ * blocks, tabata) into the shared big-number overlay reused for THREE surfaces,
+ * selected by `variant`:
+ *   • 'prep' — PREPARING phase before the first set (default, unchanged)
+ *   • 'work' — tabata work interval (countdown workSec → 0, over the exercise video)
+ *   • 'rest' — tabata rest interval (countdown restSec → 0, over the next-exercise video)
  *
- * Pure presentational — orchestrator owns the visibility condition
- * (`workoutState === 'PREPARING'`) and the fade-in opacity flag.
+ * Renders:
+ *   • An optional blurred / dimmed background (image → video → transparent).
+ *     Pass both URLs null to stay transparent and let the caller's video show through.
+ *   • A massive centered countdown number, coloured by `variant`.
+ *   • A `label` line ("מתכוננים..." / "מנוחה" / …) + the exercise name + optional AI cue.
  *
- * Extracted from StrengthRunner.tsx (Decoupling Step R-9).
+ * Pure presentational — orchestrator owns the visibility condition and the
+ * fade-in opacity flag.  Extracted from StrengthRunner.tsx (Decoupling Step R-9).
  */
 
+/** Big-number colour per surface. prep = white (unchanged); work/rest are the
+ *  separate tabata work↔rest tones (logged in color-system.md §4). */
+const VARIANT_NUMBER_COLOR: Record<'prep' | 'work' | 'rest', string> = {
+  prep: '#FFFFFF',
+  work: '#22D3EE', // bright cyan — active effort (strength identity)
+  rest: '#93C5FD', // soft blue — recovery / winding down
+};
+
 export interface PreparingStateViewProps {
-  /** Current countdown value (typically 5 → 1, then transitions to ACTIVE). */
-  preparationCountdown: number;
-  /** Resolved video URL of the first exercise — used as fallback blur background. */
+  /** Current countdown value (e.g. 5→1 prep, 20→1 work, 10→1 rest). */
+  count: number;
+  /** Resolved video URL used as fallback blur background (null = transparent). */
   safeVideoUrl: string | null;
-  /** Resolved image URL of the first exercise — preferred blur background. */
+  /** Resolved image URL — preferred blur background (null = fall back to video/transparent). */
   safeImageUrl: string | null;
-  /** Name of the first exercise shown under the countdown. */
+  /** Name of the exercise shown under the countdown. */
   exerciseName: string;
   /** Whether the parent's fade-in opacity transition is currently 1 (fade gate). */
   fadeIn: boolean;
   /** Optional workout-level AI cue rendered as a small tip line. */
   aiCue?: string;
+  /** Caption under the number. Default "מתכוננים..." keeps the PREPARING surface unchanged. */
+  label?: string;
+  /** Surface selector — drives the big-number colour. Default 'prep' = white. */
+  variant?: 'prep' | 'work' | 'rest';
 }
 
 export default function PreparingStateView({
-  preparationCountdown,
+  count,
   safeVideoUrl,
   safeImageUrl,
   exerciseName,
   fadeIn,
   aiCue,
+  label = 'מתכוננים...',
+  variant = 'prep',
 }: PreparingStateViewProps) {
+  const numberColor = VARIANT_NUMBER_COLOR[variant];
   return (
     <div
       className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300 ${
@@ -84,10 +105,10 @@ export default function PreparingStateView({
         </div>
       )}
       <div className="relative z-10 text-center">
-        <div className="text-8xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-simpler)' }}>
-          {preparationCountdown}
+        <div className="text-8xl font-bold mb-4 tabular-nums" style={{ fontFamily: 'var(--font-simpler)', color: numberColor }}>
+          {count}
         </div>
-        <p className="text-xl text-white/80" style={{ fontFamily: 'var(--font-simpler)' }}>מתכוננים...</p>
+        <p className="text-xl text-white/80" style={{ fontFamily: 'var(--font-simpler)' }}>{label}</p>
         <p className="text-lg text-white/60 mt-4" style={{ fontFamily: 'var(--font-simpler)' }}>{exerciseName}</p>
         {aiCue && (
           <p className="text-sm text-white/50 mt-3 max-w-[260px] mx-auto" style={{ fontFamily: 'var(--font-simpler)' }}>

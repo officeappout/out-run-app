@@ -372,7 +372,7 @@ export default function StrengthRunner({
     if (sm.workoutState === 'PREPARING') {
       return (
         <PreparingStateView
-          preparationCountdown={sm.preparationCountdown}
+          count={sm.preparationCountdown}
           safeVideoUrl={safeVideoUrl}
           safeImageUrl={safeImageUrl}
           exerciseName={sm.exerciseName}
