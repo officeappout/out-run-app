@@ -186,6 +186,17 @@ export const PLS_CACHE_ENABLED = true;
 // StrengthRing primitives are unreferenced until this flag wires them in.
 export const STRENGTH_RING_ENABLED = false;
 
+// HOME_DAILY_GOAL_V1: Stage-1 home daily-goal redesign — daily strength target
+// (⅔-of-target completion threshold + persisted target/% in dailyProgress),
+// weekly strength story-bar, 7-day aerobic movement-goal bar, active↔passive
+// cardio dedup, adaptive summary card, and rest/return messaging. ONE master
+// switch for the whole stage. DEFAULT FALSE = BYTE-IDENTICAL to today: completion
+// stays the unconditional binary flag (useProgressionStore.markTodayAsCompleted),
+// no new dailyProgress fields are written, and none of the new home UI mounts.
+// Critical: this flag gates a completion-behaviour change for ALL users — do NOT
+// enable in prod until David has verified on device.
+export const HOME_DAILY_GOAL_V1 = false;
+
 // TIMER_AUTO_ADVANCE: when false (default), the live strength/hybrid player never
 // advances on a timer. The reps FillingButton shows NO fill bar at all — it is a
 // plain tap-only "סיימתי" (the auto-fill animation is removed, per product
