@@ -1148,7 +1148,7 @@ export default function CommunityPage() {
 
         {competitionMode === 'individual' ? (
           <NeighborhoodLeaderboard
-            scope="school"
+            scope={access.orgType === 'work' ? 'tenant' : 'school'}
             scopeId={access.orgId}
             scopeLabel={access.orgName ?? 'הארגון שלך'}
             isLeagueActive={true}
