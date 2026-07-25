@@ -4,6 +4,18 @@ import { TABATA_CLASSIC, TABATA_BLOCK_SECONDS } from '../tabata.constants';
 import { calculateEstimatedDuration } from '../../workout-budgeting.utils';
 import { enforceVolumeCap } from '@/features/workout-engine/core/presentation/PresentationFormatter';
 import type { WorkoutExercise } from '../../workout-generator.types';
+import type { Exercise } from '@/features/content/exercises/core/exercise.types';
+
+// Raw pool exercise (as loaded from Firestore) for the pool-injection path.
+const poolEx = (id: string, level?: number, symmetry: 'bilateral' | 'unilateral' = 'bilateral'): Exercise =>
+  ({
+    id,
+    name: { he: id },
+    symmetry,
+    movementGroup: 'squat',
+    tags: ['hiit_friendly'],
+    targetPrograms: level != null ? [{ programId: 'p', level }] : [], // level-less = []
+  } as unknown as Exercise);
 
 const mainEx = (id: string, score: number, over: Record<string, unknown> = {}): WorkoutExercise => {
   const ex = {
@@ -221,5 +233,53 @@ describe('volume guard — block members are untouchable', () => {
     const members = result.exercises.filter((e) => e.protocolBlock === 'tabata');
     expect(members.map((e) => e.exercise.id).sort()).toEqual(['t1', 't2']); // survived
     expect(members.every((e) => e.sets === 3)).toBe(true); // sets untouched (Phase B skip)
+  });
+});
+
+describe('buildTabataBlock — pool-injection (David 25.07)', () => {
+  it('selects conditioning members from the dedicated pool and INJECTS them as a finisher', () => {
+    const target = [mainEx('strength1', 50), mainEx('strength2', 60)];
+    const before = target.length;
+    const pool = [poolEx('burpee', 2), poolEx('squat-jump', 3), poolEx('crawl', 1), poolEx('bicycle', 1)];
+    const block = buildTabataBlock('tabata', target, { tabataPool: pool, userLevel: 4 });
+
+    expect(block).toBeDefined();
+    expect(block!.config).toEqual(TABATA_CLASSIC);
+    // members ADDED (finisher), all sourced from the pool, stamped protocolBlock
+    expect(target.length).toBeGreaterThan(before);
+    const injected = target.filter((e) => e.protocolBlock === 'tabata');
+    expect(injected.length).toBe(block!.exerciseIds.length);
+    expect(injected.every((e) => pool.some((p) => p.id === e.exercise.id))).toBe(true);
+    // original strength mains untouched (added, not replaced)
+    expect(target.filter((e) => !e.protocolBlock).map((e) => e.exercise.id).sort())
+      .toEqual(['strength1', 'strength2']);
+  });
+
+  it('LEVEL: over-level pool members excluded; level-less gems default IN', () => {
+    // one level-less gem (→1, IN) + one over-level (L9 > 4, OUT) ⇒ <2 eligible ⇒ revert
+    const t1: WorkoutExercise[] = [];
+    expect(buildTabataBlock('tabata', t1, {
+      tabataPool: [poolEx('gem-burpee'), poolEx('too-hard', 9)],
+      userLevel: 4,
+    })).toBeUndefined();
+    expect(t1.length).toBe(0); // nothing injected on revert
+
+    // two level-less gems (both →1, IN) ⇒ block forms FROM the gems — the exact
+    // behaviour that keeps burpees/crawls reachable for any user.
+    const t2: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', t2, {
+      tabataPool: [poolEx('gem-burpee'), poolEx('gem-crawl')],
+      userLevel: 4,
+    });
+    expect(block).toBeDefined();
+    expect(t2.filter((e) => e.protocolBlock === 'tabata').map((e) => e.exercise.id).sort())
+      .toEqual(['gem-burpee', 'gem-crawl']);
+  });
+
+  it('empty / too-small pool → undefined (revert to straight), nothing injected', () => {
+    const t: WorkoutExercise[] = [mainEx('s', 50)];
+    expect(buildTabataBlock('tabata', t, { tabataPool: [], userLevel: 4 })).toBeUndefined();
+    expect(buildTabataBlock('tabata', t, { tabataPool: [poolEx('lonely', 1)], userLevel: 4 })).toBeUndefined();
+    expect(t.filter((e) => e.protocolBlock === 'tabata').length).toBe(0);
   });
 });

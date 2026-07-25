@@ -12,6 +12,7 @@
  * tabata — two timed modes must never double-fire.
  */
 import type { TabataBlockSpec, WorkoutExercise } from '../workout-generator.types';
+import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import { getIsometricTimeCap } from '../workout-budgeting.utils';
 import {
   TABATA_CLASSIC,
@@ -34,13 +35,22 @@ import {
 export function buildTabataBlock(
   setType: string,
   exercises: WorkoutExercise[],
-  context: { intentMode?: string },
+  context: { intentMode?: string; tabataPool?: Exercise[]; userLevel?: number },
 ): TabataBlockSpec | undefined {
   if (setType !== 'tabata') return undefined;
 
   if (context.intentMode === 'blast') {
     console.log('[TabataBlock] intentMode=blast takes precedence — tabata not assembled');
     return undefined;
+  }
+
+  // ── Pool-injection (David 25.07): when the dedicated conditioning pool is
+  // provided, build the finisher FROM it and inject the members (added-finisher
+  // model) — independent of which strength mains were selected. This is the
+  // production path; the mains-subset logic below is the no-pool fallback
+  // (unit tests, or a missing pool).
+  if (context.tabataPool?.length) {
+    return buildTabataFromPool(exercises, context.tabataPool, context.userLevel ?? 1);
   }
 
   // ── Eligibility (David's rules, 12.07.2026) ───────────────────────────
@@ -121,6 +131,87 @@ export function buildTabataBlock(
     config: TABATA_CLASSIC,
     exerciseIds: best.map((c) => c.exercise.id),
   };
+}
+
+/** Level of a pool exercise = min targetPrograms level, or 1 when level-less
+ *  (David's rule: program-less conditioning gems default IN, never dropped). */
+function poolLevelOf(ex: Exercise): number {
+  const lv = (ex.targetPrograms ?? [])
+    .map((t) => t.level)
+    .filter((n): n is number => typeof n === 'number');
+  return lv.length ? Math.min(...lv) : 1;
+}
+
+/** Largest valid 2-4 subset whose interval costs (unilateral=2) tile 8 exactly. */
+function pickTilingSubset(cands: Exercise[]): Exercise[] | null {
+  let best: Exercise[] | null = null;
+  for (let mask = 1; mask < 1 << cands.length; mask++) {
+    const subset = cands.filter((_, i) => (mask & (1 << i)) !== 0);
+    if (subset.length < TABATA_MIN_EXERCISES || subset.length > TABATA_MAX_EXERCISES) continue;
+    const cost = subset.reduce((s, e) => s + tabataIntervalCost(e.symmetry), 0);
+    if (cost > TABATA_CLASSIC.rounds || TABATA_CLASSIC.rounds % cost !== 0) continue;
+    if (!best || subset.length > best.length) best = subset; // prefer more members (variety)
+  }
+  return best;
+}
+
+/**
+ * Pool-injection block builder (David 25.07): select 2-4 conditioning members
+ * from the dedicated `hiit_friendly` pool — at-or-below the user's level
+ * (level-less defaults IN, easy-biased), interval costs tiling 8 — and PUSH
+ * them into the workout as a protocolBlock finisher (added, not replacing).
+ * Returns undefined (→ straight) when the pool can't yield a valid 2-4 subset.
+ */
+function buildTabataFromPool(
+  target: WorkoutExercise[],
+  pool: Exercise[],
+  userLevel: number,
+): TabataBlockSpec | undefined {
+  const eligible = pool
+    .filter((ex) => getIsometricTimeCap(ex) >= TABATA_CLASSIC.workSec && poolLevelOf(ex) <= userLevel)
+    .sort((a, b) => poolLevelOf(a) - poolLevelOf(b)); // easiest first
+
+  if (eligible.length < TABATA_MIN_EXERCISES) {
+    console.log(`[TabataBlock] pool: only ${eligible.length} eligible ≤L${userLevel} — reverting to straight`);
+    return undefined;
+  }
+
+  // Easy-biased candidate window, shuffled for cross-session variety.
+  const window = eligible.slice(0, Math.max(8, Math.ceil(eligible.length * 0.5)));
+  for (let i = window.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [window[i], window[j]] = [window[j], window[i]];
+  }
+
+  const members = pickTilingSubset(window.slice(0, 8));
+  if (!members) {
+    console.log('[TabataBlock] pool: no cost-tiling 2-4 subset — reverting to straight');
+    return undefined;
+  }
+
+  for (const ex of members) {
+    target.push({
+      exercise: ex,
+      method: {} as WorkoutExercise['method'],
+      mechanicalType: ex.mechanicalType ?? 'none',
+      sets: 1,
+      reps: TABATA_CLASSIC.workSec,
+      isTimeBased: false,
+      restSeconds: TABATA_CLASSIC.restSec,
+      priority: 'compound',
+      score: 0,
+      reasoning: ['tabata_block:member', 'tabata_pool_injected'],
+      exerciseRole: 'main',
+      tier: 'match',
+      protocolBlock: 'tabata',
+    } as WorkoutExercise);
+  }
+
+  console.log(
+    `[TabataBlock] ✅ pool-injected ${members.length} conditioning member(s): ` +
+    `[${members.map((m) => (m.name as { he?: string })?.he ?? m.id).join(', ')}]`,
+  );
+  return { config: TABATA_CLASSIC, exerciseIds: members.map((m) => m.id) };
 }
 
 /**
