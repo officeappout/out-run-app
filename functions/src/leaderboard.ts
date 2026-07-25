@@ -8,7 +8,15 @@
  *    Increments a random shard in leaderboard_shards/.
  *    DocId format: {tenantId}_{unitId}_{period}_{uid}_{shard}
  *
- * 2. rollupLeaderboard (Pub/Sub scheduled — daily at 03:00 UTC)
+ * 2. onWorkoutCreate (Firestore trigger)
+ *    Fires on every new workouts/{docId} document — the flag-independent
+ *    activity record (written even while the community feed is paused).
+ *    Resolves the author's tenantId/unitId from users/{uid}.core (workout docs
+ *    don't carry them — this fixes the _global/_all bucketing bug) and feeds
+ *    the SAME leaderboard_shards structure. This is the league's activity
+ *    source for closed communities (Wix pilot) — no dependency on feed_posts.
+ *
+ * 3. rollupLeaderboard (Pub/Sub scheduled — daily at 03:00 UTC)
  *    Sums all shards per user/period and writes a ranked snapshot
  *    to leaderboard_snapshots/{tenantId}_{unitId}_{period}.
  */
@@ -69,7 +77,60 @@ export const onFeedPostCreate = onDocumentCreated(
   },
 );
 
-// ── 2. Scheduled Rollup — nightly at 03:00 UTC ──────────────────────
+// ── 2. Firestore Trigger — workout completion → shard ───────────────
+// Feed-independent league source. Fires on the durable `workouts` record
+// (written by saveWorkout for strength/running/hybrid, regardless of the
+// community-feed flag) and buckets by the author's community binding.
+
+export const onWorkoutCreate = onDocumentCreated(
+  'workouts/{docId}',
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const data = snap.data();
+    const uid: string = data.userId ?? data.uid ?? '';
+
+    if (!uid) {
+      logger.warn('onWorkoutCreate: no userId, skipping');
+      return;
+    }
+
+    // Resolve tenant/unit from the author's profile — workout docs don't carry
+    // them. Missing binding → _global/_all (non-community users; harmless).
+    let tenantId = '_global';
+    let unitId = '_all';
+    try {
+      const userSnap = await db.collection('users').doc(uid).get();
+      const core = (userSnap.data()?.core ?? {}) as { tenantId?: string; unitId?: string };
+      if (core.tenantId) tenantId = core.tenantId;
+      if (core.unitId) unitId = core.unitId;
+    } catch (e) {
+      logger.warn('onWorkoutCreate: could not read user core, using _global/_all', e);
+    }
+
+    // Activity credit = workout duration in minutes (floored at 1 so every
+    // completed workout scores). Universal across activity types.
+    const duration = typeof data.duration === 'number' ? data.duration : 0;
+    const xp = Math.max(1, Math.round(duration));
+
+    const period = getCurrentPeriod();
+    const shard = Math.floor(Math.random() * NUM_SHARDS);
+    const shardDocId = `${tenantId}_${unitId}_${period}_${uid}_${shard}`;
+
+    await db.collection('leaderboard_shards').doc(shardDocId).set({
+      tenantId,
+      unitId,
+      period,
+      uid,
+      shard,
+      xp: admin.firestore.FieldValue.increment(xp),
+      posts: admin.firestore.FieldValue.increment(1),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  },
+);
+
+// ── 3. Scheduled Rollup — nightly at 03:00 UTC ──────────────────────
 
 export const rollupLeaderboard = onSchedule(
   { schedule: '0 3 * * *', timeZone: 'Asia/Jerusalem' },
