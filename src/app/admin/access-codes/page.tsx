@@ -109,7 +109,7 @@ export default function AccessCodesPage() {
   const selectedUnit = units.find(u => u.id === selectedUnitId);
 
   const handleCreate = async () => {
-    if (!selectedTenantId || !selectedUnitId || !selectedTenant) return;
+    if (!selectedTenantId || !selectedTenant) return; // unit optional — empty unitId = whole-org code
     setCreating(true);
     try {
       const input: CreateAccessCodeInput = {
@@ -285,17 +285,25 @@ export default function AccessCodesPage() {
 
             {/* Unit selector (hierarchy) */}
             <div>
-              <label className="text-[11px] text-slate-400 font-bold block mb-1">יחידה (Unit)</label>
+              <label className="text-[11px] text-slate-400 font-bold block mb-1">יחידה (Unit) — אופציונלי</label>
               <SearchableSelect
-                options={units.map(u => ({
-                  id: u.id,
-                  label: u.unitPath.length > 0 ? u.unitPath.join(' › ') : u.name,
-                }))}
+                options={[
+                  { id: '', label: 'כל הארגון (בלי יחידה)' },
+                  ...units.map(u => ({
+                    id: u.id,
+                    label: u.unitPath.length > 0 ? u.unitPath.join(' › ') : u.name,
+                  })),
+                ]}
                 value={selectedUnitId}
                 onChange={setSelectedUnitId}
-                placeholder="בחר יחידה..."
-                disabled={!selectedTenantId || units.length === 0}
+                placeholder="כל הארגון (בלי יחידה)"
+                disabled={!selectedTenantId}
               />
+              {selectedTenantId && !selectedUnitId && (
+                <p className="text-[11px] text-violet-500 mt-1 font-bold">
+                  ללא יחידה → קוד לכלל הארגון
+                </p>
+              )}
               {selectedUnit && selectedUnit.unitPath.length > 0 && (
                 <p className="text-[11px] text-violet-500 mt-1 font-bold">
                   היררכיה: {selectedUnit.unitPath.join(' → ')}
@@ -346,7 +354,7 @@ export default function AccessCodesPage() {
 
           <button
             onClick={handleCreate}
-            disabled={creating || !selectedTenantId || !selectedUnitId}
+            disabled={creating || !selectedTenantId}
             className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold disabled:opacity-40 transition-colors"
           >
             {creating ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
