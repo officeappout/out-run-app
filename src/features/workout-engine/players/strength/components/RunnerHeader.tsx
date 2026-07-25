@@ -60,6 +60,8 @@ export interface RunnerHeaderProps {
   totalRounds: number;
   /** 1-based current round for the active exercise. */
   currentRound: number;
+  /** Tabata interval position (1-based / total) — replaces the set pills inside a tabata block. */
+  tabataInterval?: { current: number; total: number } | null;
   /** Whether the active segment is the warmup (suppresses set pills). */
   isWarmupSegment: boolean;
   /** Whether the active segment is the cooldown (suppresses set pills). */
@@ -96,6 +98,7 @@ export default function RunnerHeader({
   formatTime,
   totalRounds,
   currentRound,
+  tabataInterval,
   isWarmupSegment,
   isCooldownSegment,
   currentExLoggedReps,
@@ -166,8 +169,20 @@ export default function RunnerHeader({
           </button>
         </div>
 
+        {/* Tabata interval counter — replaces the (misleading) set pills inside a block */}
+        {!isResting && tabataInterval && (
+          <div className="flex justify-center mb-2">
+            <span
+              className="text-[11px] font-bold text-[#00BAF7] uppercase tracking-wider tabular-nums"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+            >
+              אינטרוול {tabataInterval.current}/{tabataInterval.total}
+            </span>
+          </div>
+        )}
+
         {/* Set Pills — reactive to exerciseLogSnapshot */}
-        {!isResting && totalRounds > 1 && !isWarmupSegment && !isCooldownSegment && (
+        {!isResting && !tabataInterval && totalRounds > 1 && !isWarmupSegment && !isCooldownSegment && (
           <div className="flex justify-end gap-1.5 mb-2">
             {currentExLoggedReps.map((reps, i) => {
               const isLogged = reps !== null;

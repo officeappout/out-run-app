@@ -113,6 +113,8 @@ export interface WorkoutStateMachineResult {
   currentRound: number;
   /** Total rounds for the current segment (from exercise.sets or 1) */
   totalRounds: number;
+  /** Tabata interval position (1-based current / total rounds), or null when not in a tabata block */
+  tabataInterval: { current: number; total: number } | null;
   /** Last confirmed reps for the current exercise (from previous set), or null */
   lastSavedReps: number | null;
   /** True when the current exercise is part of an antagonist superset pair */
@@ -493,6 +495,23 @@ export function useWorkoutStateMachine(
     () => resolveBlockProtocol(currentSegment),
     [currentSegment],
   );
+
+  // ── Tabata interval position (1-based / rounds) for the header counter ───
+  // Replaces the misleading set counter (currentRound = cycle, totalRounds =
+  // the exercise's own sets). A unilateral member spans two intervals — the
+  // left side is the visit's second interval.
+  const tabataInterval = useMemo<{ current: number; total: number } | null>(() => {
+    if (blockProtocol?.id !== 'tabata') return null;
+    const exercises = (getExercises(currentSegment) ?? []) as unknown as Array<Record<string, unknown>>;
+    const { intervalIndex } = tabataIntervalInfo({
+      costs: tabataMemberCosts(exercises),
+      exerciseIndex: currentExerciseIndex,
+      setIdx: currentSetIndex,
+      rounds: blockProtocol.config.rounds,
+    });
+    const current = intervalIndex + 1 + (currentSide === 'left' ? 1 : 0);
+    return { current: Math.min(current, blockProtocol.config.rounds), total: blockProtocol.config.rounds };
+  }, [blockProtocol, currentSegment, currentExerciseIndex, currentSetIndex, currentSide, getExercises]);
 
   // ── SM-1: Pyramid protocol — pure derivations (see usePyramidManager.ts) ──
   const { pyramidStep, isPyramidActive } = usePyramidManager({ activeExercise, currentSetIndex });
@@ -1017,6 +1036,7 @@ export function useWorkoutStateMachine(
     repsOrDurationText,
     currentRound: currentSetIndex + 1,
     totalRounds: setsForCurrentExercise,
+    tabataInterval,
     lastSavedReps,
     isSupersetActive,
     supersetPartnerName,
