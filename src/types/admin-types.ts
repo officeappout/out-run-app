@@ -140,6 +140,14 @@ export interface Authority {
     id: string;
     name: string;           // Authority/City name
     type: AuthorityType;    // Type: city, regional_council, local_council
+    /**
+     * Denormalized tenant vertical, mirrored from the tenants/{id} twin. Needed
+     * because AuthorityType has no 'company'/'youth_movement' value, so those
+     * orgs are stored with type='city' and would otherwise be misclassified as
+     * 'municipal' by authorityTypeToTenantType(). Absent on legacy authorities
+     * (they fall back to the type-derived vertical, which is correct for them).
+     */
+    tenantType?: TenantType;
     parentAuthorityId?: string; // For settlements (Kibbutzim/Moshavim) - links to parent Regional Council
     logoUrl?: string;      // URL for the authority's logo
     /**

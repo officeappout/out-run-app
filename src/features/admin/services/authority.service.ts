@@ -265,6 +265,7 @@ function normalizeAuthority(docId: string, data: any): Authority {
     parentAuthorityId: data?.parentAuthorityId || undefined,
     logoUrl: data?.logoUrl ?? undefined,
     coBrandingEnabled: data?.coBrandingEnabled === true,
+    tenantType: data?.tenantType ?? undefined,
     managerIds: Array.isArray(data?.managerIds) ? data.managerIds : [],
     userCount: typeof data?.userCount === 'number' ? data.userCount : 0,
     unitCount: typeof data?.unitCount === 'number' ? data.unitCount : 0,

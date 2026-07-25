@@ -92,13 +92,13 @@ export default function OrganizationsPage() {
 
         if (role.isVerticalAdmin && role.managedVertical && !role.isSuperAdmin) {
           rootAuthorities = rootAuthorities.filter(a =>
-            authorityTypeToTenantType(a.type) === role.managedVertical
+            (a.tenantType ?? authorityTypeToTenantType(a.type)) === role.managedVertical
           );
         }
 
         const rows: OrgRow[] = rootAuthorities.map(a => ({
           ...a,
-          tenantType: authorityTypeToTenantType(a.type),
+          tenantType: a.tenantType ?? authorityTypeToTenantType(a.type),
           unitCount: a.unitCount ?? 0,
         }));
 
@@ -181,6 +181,7 @@ export default function OrganizationsPage() {
       await setDoc(doc(db, 'authorities', id), {
         name: newName.trim(),
         type: authorityType,
+        tenantType: newType, // denormalized so company/youth_movement don't collapse to 'municipal'
         managerIds: [],
         userCount: 0,
         status: 'active',
