@@ -1909,6 +1909,10 @@ async function _buildSharedPipeline(
       return scaled;
     })(),
     preferredProtocols: (adminPreferredProtocols ?? preferredProtocols) as any,
+    // Dedicated tabata conditioning pool — ALL hiit_friendly exercises (incl.
+    // program-less gems that never enter the scored strength pool). Filtered
+    // from the already-loaded allExercises, so no extra Firestore read.
+    tabataPool: allExercises.filter((ex) => ex.tags?.includes('hiit_friendly')),
     // Apply straight-arm cap on Deload weeks for tendon protection.
     straightArmRatio: (() => {
       if (sessionPolicy.straightArmCap == null) return straightArmRatio;
