@@ -580,17 +580,15 @@ export async function getLeagueLeaderboard(params: {
   return { entries, myEntry, totalParticipants, window: timeWindow, generatedAt: new Date() };
 }
 
-// ── Tenant / community leaderboard — distributed shards (feed-independent) ──
-// The league for closed communities (Wix pilot). Reads leaderboard_shards
-// written by the onWorkoutCreate CF, keyed by the member's core.tenantId
-// (+ optional unitId for a department drill-down). Monthly period. Does NOT
-// touch feed_posts — works while the community feed is paused.
+// ── Tenant / community leaderboard — ACTIVE DAYS (feed-independent) ─────────
+// The league for closed communities (Wix pilot). Reads the per-day docs
+// written by the onWorkoutCreate CF (leaderboard_shards, keyed by the member's
+// core.tenantId + optional unitId) and ranks members by ACTIVE DAYS this month
+// — days where they crossed ⅔ of the daily target. Does NOT touch feed_posts.
 
 function getMonthPeriod(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
+  // Israel-local month (YYYY-MM) so the read matches the CF's Jerusalem-day writes.
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' }).slice(0, 7);
 }
 
 export async function getTenantLeaderboard(params: {
@@ -613,19 +611,19 @@ export async function getTenantLeaderboard(params: {
 
   const snap = await getDocs(query(collection(db, 'leaderboard_shards'), ...constraints));
 
-  // Sum xp/posts per uid across the NUM_SHARDS shards.
-  const agg = new Map<string, { xp: number; posts: number }>();
+  // Sum activeDay flags + workouts per uid across the per-day docs.
+  const agg = new Map<string, { activeDays: number; workouts: number }>();
   snap.forEach((d) => {
     const data = d.data();
     const uid = data.uid as string;
     if (!uid) return;
-    const cur = agg.get(uid) ?? { xp: 0, posts: 0 };
-    cur.xp += typeof data.xp === 'number' ? data.xp : 0;
-    cur.posts += typeof data.posts === 'number' ? data.posts : 0;
+    const cur = agg.get(uid) ?? { activeDays: 0, workouts: 0 };
+    cur.activeDays += typeof data.activeDay === 'number' ? data.activeDay : 0;
+    cur.workouts += typeof data.workouts === 'number' ? data.workouts : 0;
     agg.set(uid, cur);
   });
 
-  const allSorted = Array.from(agg.entries()).sort(([, a], [, b]) => b.xp - a.xp);
+  const allSorted = Array.from(agg.entries()).sort(([, a], [, b]) => b.activeDays - a.activeDays);
   const totalParticipants = allSorted.length;
   const sliced = allSorted.slice(0, maxEntries);
 
@@ -645,12 +643,12 @@ export async function getTenantLeaderboard(params: {
     }),
   );
 
-  const entries: LeaderboardEntry[] = sliced.map(([uid, { xp, posts }], idx) => ({
+  const entries: LeaderboardEntry[] = sliced.map(([uid, { activeDays, workouts }], idx) => ({
     rank: idx + 1,
     uid,
     name: uid === currentUid ? currentName ?? nameMap.get(uid) ?? 'את/ה' : nameMap.get(uid) ?? 'משתמש',
-    totalCredit: xp,
-    workoutCount: posts,
+    totalCredit: activeDays, // score = active days this month
+    workoutCount: workouts,
     isCurrentUser: uid === currentUid,
   }));
 
@@ -658,8 +656,8 @@ export async function getTenantLeaderboard(params: {
   if (!myEntry && currentUid) {
     const myIdx = allSorted.findIndex(([uid]) => uid === currentUid);
     if (myIdx >= 0) {
-      const [, { xp, posts }] = allSorted[myIdx];
-      myEntry = { rank: myIdx + 1, uid: currentUid, name: currentName ?? nameMap.get(currentUid) ?? 'את/ה', totalCredit: xp, workoutCount: posts, isCurrentUser: true };
+      const [, { activeDays, workouts }] = allSorted[myIdx];
+      myEntry = { rank: myIdx + 1, uid: currentUid, name: currentName ?? nameMap.get(currentUid) ?? 'את/ה', totalCredit: activeDays, workoutCount: workouts, isCurrentUser: true };
     } else {
       myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'את/ה', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
     }

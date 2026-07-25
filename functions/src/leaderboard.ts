@@ -11,10 +11,11 @@
  * 2. onWorkoutCreate (Firestore trigger)
  *    Fires on every new workouts/{docId} document — the flag-independent
  *    activity record (written even while the community feed is paused).
- *    Resolves the author's tenantId/unitId from users/{uid}.core (workout docs
- *    don't carry them — this fixes the _global/_all bucketing bug) and feeds
- *    the SAME leaderboard_shards structure. This is the league's activity
- *    source for closed communities (Wix pilot) — no dependency on feed_posts.
+ *    Resolves the author's tenantId/unitId from users/{uid}.core (fixes the
+ *    _global/_all bucketing bug) and records ACTIVE DAYS: one deterministic
+ *    doc per user-per-day, flagged active once ⅔ of the daily target is
+ *    crossed (capped at the target). getTenantLeaderboard sums the flags →
+ *    "active days this month". League source for closed communities (Wix).
  *
  * 3. rollupLeaderboard (Pub/Sub scheduled — daily at 03:00 UTC)
  *    Sums all shards per user/period and writes a ranked snapshot
@@ -77,10 +78,24 @@ export const onFeedPostCreate = onDocumentCreated(
   },
 );
 
-// ── 2. Firestore Trigger — workout completion → shard ───────────────
-// Feed-independent league source. Fires on the durable `workouts` record
-// (written by saveWorkout for strength/running/hybrid, regardless of the
-// community-feed flag) and buckets by the author's community binding.
+// ── 2. Firestore Trigger — workout completion → active-day ──────────
+// Feed-independent league source. Metric = ACTIVE DAYS: a day counts once
+// when the member crosses ⅔ of the daily target, capped at the target (a
+// heavy day is still one day). One deterministic doc per user-per-day holds
+// the activeDay flag (0/1) that getTenantLeaderboard sums into "days".
+
+// Daily target = the app's default daily goal (DEFAULT_DAILY_GOALS ~30 min).
+// A day is "active" at ⅔ of it. Deliberately stricter than the app's flat
+// STREAK_MINIMUM_MINUTES (10) — this is the league's own bar.
+const DAILY_TARGET_MIN = 30;
+const ACTIVE_DAY_MIN = 20; // = Math.round((2 / 3) * DAILY_TARGET_MIN)
+
+// Calendar day in Israel local time (day boundary = Asia/Jerusalem), so the
+// same day buckets consistently with the client read (getMonthPeriod).
+function jerusalemDayParts(d: Date): { period: string; day: string } {
+  const ymd = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' }); // YYYY-MM-DD
+  return { period: ymd.slice(0, 7), day: ymd };
+}
 
 export const onWorkoutCreate = onDocumentCreated(
   'workouts/{docId}',
@@ -108,25 +123,40 @@ export const onWorkoutCreate = onDocumentCreated(
       logger.warn('onWorkoutCreate: could not read user core, using _global/_all', e);
     }
 
-    // Activity credit = workout duration in minutes (floored at 1 so every
-    // completed workout scores). Universal across activity types.
-    const duration = typeof data.duration === 'number' ? data.duration : 0;
-    const xp = Math.max(1, Math.round(duration));
+    const durationMin =
+      typeof data.duration === 'number' && data.duration > 0 ? data.duration : 0;
 
-    const period = getCurrentPeriod();
-    const shard = Math.floor(Math.random() * NUM_SHARDS);
-    const shardDocId = `${tenantId}_${unitId}_${period}_${uid}_${shard}`;
+    // The calendar day this workout belongs to (prefer the workout's own date).
+    const when =
+      data.date && typeof data.date.toDate === 'function' ? data.date.toDate() : new Date();
+    const { period, day } = jerusalemDayParts(when);
 
-    await db.collection('leaderboard_shards').doc(shardDocId).set({
-      tenantId,
-      unitId,
-      period,
-      uid,
-      shard,
-      xp: admin.firestore.FieldValue.increment(xp),
-      posts: admin.firestore.FieldValue.increment(1),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    // Deterministic per-day doc → accumulate the day's minutes (capped at the
+    // target) and flip activeDay to 1 once ⅔ of the target is crossed. In a
+    // transaction so concurrent same-day workouts don't race.
+    const dayRef = db
+      .collection('leaderboard_shards')
+      .doc(`${tenantId}_${unitId}_${period}_${uid}_${day}`);
+
+    await db.runTransaction(async (tx) => {
+      const cur = (await tx.get(dayRef)).data() ?? {};
+      const prevMin = typeof cur.minutes === 'number' ? cur.minutes : 0;
+      const prevWorkouts = typeof cur.workouts === 'number' ? cur.workouts : 0;
+      const minutes = Math.min(DAILY_TARGET_MIN, prevMin + durationMin); // daily cap
+      const activeDay = minutes >= ACTIVE_DAY_MIN ? 1 : 0;
+
+      tx.set(dayRef, {
+        tenantId,
+        unitId,
+        period,
+        uid,
+        day,
+        minutes,
+        workouts: prevWorkouts + 1,
+        activeDay,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    });
   },
 );
 
