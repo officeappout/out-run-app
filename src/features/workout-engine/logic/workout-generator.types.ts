@@ -351,6 +351,11 @@ export interface WorkoutGenerationContext {
    *  scored strength pool). Passed as data so the generator stays pure; buildTabataBlock
    *  selects the finisher members from here (≤level, level-less defaults IN). */
   tabataPool?: Exercise[];
+  /** Tabata finisher probability, resolved on a SEPARATE union track (any enrolled
+   *  program that enables tabata) and already scaled by the periodization multiplier.
+   *  Independent of `protocolProbability` (the main winner-takes-all lottery). The
+   *  generator rolls it separately: fire ⇔ p>0 ∧ difficulty≥2 ∧ userLevel≥4 ∧ rand≤p. */
+  tabataProbability?: number;
   straightArmRatio?: number;
   weeklySASets?: number;
   weeklySACap?: number;
