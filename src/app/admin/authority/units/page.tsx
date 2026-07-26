@@ -52,7 +52,7 @@ export default function UnitsListPage() {
     const a = await getAuthority(authId);
     let derived: string = 'municipal';
     if (a) {
-      derived = authorityTypeToTenantType(a.type);
+      derived = a.tenantType ?? authorityTypeToTenantType(a.type);
       setTenantType(derived);
       setAuthoritySubType(a.type);
       const name = typeof a.name === 'string' ? a.name : (a.name as any)?.he || authId;
@@ -140,7 +140,7 @@ export default function UnitsListPage() {
           const orgs = await getAllAuthorities();
           let filtered = orgs;
           if (typeFilter) {
-            filtered = orgs.filter(o => authorityTypeToTenantType(o.type) === typeFilter);
+            filtered = orgs.filter(o => (o.tenantType ?? authorityTypeToTenantType(o.type)) === typeFilter);
           }
           setAllOrgs(filtered);
 
@@ -272,7 +272,7 @@ export default function UnitsListPage() {
             <SearchableSelect
               options={allOrgs.map(org => {
                 const name = typeof org.name === 'string' ? org.name : (org.name as any)?.he || org.id;
-                return { id: org.id, label: `${name} (${orgTypeDisplayName(authorityTypeToTenantType(org.type))})` };
+                return { id: org.id, label: `${name} (${orgTypeDisplayName(org.tenantType ?? authorityTypeToTenantType(org.type))})` };
               })}
               value={selectedOrgId}
               onChange={async (id) => {
@@ -307,7 +307,8 @@ export default function UnitsListPage() {
             {allOrgs.map(org => {
               const name = typeof org.name === 'string' ? org.name : (org.name as any)?.he || org.id;
               const count = org.unitCount ?? 0;
-              const orgTheme = VERTICAL_THEMES[authorityTypeToTenantType(org.type)] ?? VERTICAL_THEMES.municipal;
+              const orgVertical = org.tenantType ?? authorityTypeToTenantType(org.type);
+              const orgTheme = VERTICAL_THEMES[orgVertical] ?? VERTICAL_THEMES.municipal;
               return (
                 <button
                   key={org.id}
@@ -322,7 +323,7 @@ export default function UnitsListPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${orgTheme.accentBg}`}>
-                        {authorityTypeToTenantType(org.type) === 'military' ? <Shield size={18} className={orgTheme.accentText} /> : authorityTypeToTenantType(org.type) === 'educational' ? <GraduationCap size={18} className={orgTheme.accentText} /> : <Building2 size={18} className={orgTheme.accentText} />}
+                        {orgVertical === 'military' ? <Shield size={18} className={orgTheme.accentText} /> : orgVertical === 'educational' ? <GraduationCap size={18} className={orgTheme.accentText} /> : <Building2 size={18} className={orgTheme.accentText} />}
                       </div>
                       <div>
                         <p className="font-black text-gray-900 group-hover:text-cyan-700 transition-colors">{name}</p>
