@@ -266,6 +266,7 @@ export function analyzeExerciseForMatrix(exercise: Exercise): ContentMatrixRow {
     airport: [],
     library: [],
     desk: [],
+    service: [],
   };
   
   methods.forEach((method, index) => {

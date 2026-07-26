@@ -35,6 +35,7 @@ import {
   Dumbbell,
   Search,
   Languages,
+  Shield,
 } from 'lucide-react';
 import type { AppLanguage, ExerciseLang, LocalizedText, ExternalVideo } from '../../../core/exercise.types';
 import { safeRenderText } from '@/utils/render-helpers';
@@ -234,6 +235,7 @@ export default function ExecutionMethodCard({
     school: { label: EXECUTION_LOCATION_LABELS.school.he, icon: <Building2 size={16} /> },
     gym: { label: EXECUTION_LOCATION_LABELS.gym.he, icon: <Dumbbell size={16} /> },
     airport: { label: EXECUTION_LOCATION_LABELS.airport.he, icon: <Plane size={16} /> },
+    service: { label: EXECUTION_LOCATION_LABELS.service.he, icon: <Shield size={16} /> },
   };
 
   const gearTypeLabels: Record<RequiredGearType, string> = {

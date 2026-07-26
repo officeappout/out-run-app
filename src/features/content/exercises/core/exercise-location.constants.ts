@@ -33,6 +33,7 @@ export const EXECUTION_LOCATION_LABELS: Record<
   airport: { he: 'שדה תעופה',  en: 'Airport', icon: '✈️' },
   library: { he: 'ספרייה',     en: 'Library', icon: '📚' },
   desk:    { he: 'שולחן',      en: 'Desk',    icon: '🖥️' },
+  service: { he: 'צבא/שירות',  en: 'Military Service', icon: '🎖️' },
 };
 
 // ============================================================================

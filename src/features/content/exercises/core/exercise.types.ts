@@ -391,7 +391,7 @@ export interface InstructionalVideo {
  * Execution Method for an Exercise
  * Defines how an exercise can be performed in different contexts
  */
-export type ExecutionLocation = 'home' | 'park' | 'street' | 'office' | 'school' | 'gym' | 'airport' | 'library' | 'desk';
+export type ExecutionLocation = 'home' | 'park' | 'street' | 'office' | 'school' | 'gym' | 'airport' | 'library' | 'desk' | 'service';
 export type RequiredGearType = 'fixed_equipment' | 'user_gear' | 'improvised';
 
 /**

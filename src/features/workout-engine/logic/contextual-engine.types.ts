@@ -245,6 +245,7 @@ export const LOCATION_CONSTRAINTS: Record<ExecutionLocation, LocationConstraints
   street: { sweatLimit: 3, noiseLimit: 3, methodPriority: 1, bypassLimits: false },
   park: { sweatLimit: 3, noiseLimit: 3, methodPriority: 1, bypassLimits: true },
   library: { sweatLimit: 1, noiseLimit: 1, methodPriority: 3, bypassLimits: false },
+  service: { sweatLimit: 3, noiseLimit: 3, methodPriority: 1, bypassLimits: true },
 };
 
 /**

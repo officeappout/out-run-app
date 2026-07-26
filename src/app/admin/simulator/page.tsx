@@ -85,6 +85,7 @@ const LOCATION_SWEAT_NOISE: Record<ExecutionLocation, { sweatLimit: SweatLevel; 
   airport: { sweatLimit: 1, noiseLimit: 1 },
   school:  { sweatLimit: 1, noiseLimit: 1 },
   library: { sweatLimit: 1, noiseLimit: 1 },
+  service: { sweatLimit: 3, noiseLimit: 3 },
 };
 
 const LOCATION_OPTIONS: { value: ExecutionLocation; label: string; icon: string; sweatLimit: SweatLevel; noiseLimit: NoiseLevel }[] =

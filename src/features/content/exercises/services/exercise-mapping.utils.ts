@@ -263,7 +263,7 @@ function normalizeLocalizedVideo(raw: unknown): Record<string, unknown> | undefi
 // EXECUTION METHOD SANITIZATION
 // ============================================================================
 
-const VALID_LOCATIONS: ExecutionLocation[] = ['home', 'park', 'street', 'office', 'school', 'gym', 'airport'];
+const VALID_LOCATIONS: ExecutionLocation[] = ['home', 'park', 'street', 'office', 'school', 'gym', 'airport', 'service'];
 
 /**
  * Sanitize execution method for the read path (Firestore → JS model).

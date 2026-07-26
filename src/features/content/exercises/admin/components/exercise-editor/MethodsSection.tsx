@@ -8,7 +8,7 @@ import {
   Plus, Info, Zap, Target, MapPin, Users, Package, ArrowDown, Copy, 
   ChevronDown, ChevronRight, Home, Navigation, Building2, User, Plane, X,
   Video, VideoOff, ListChecks, AlertCircle, Image, ImageOff, Dumbbell, Trees,
-  Save, CheckCircle2, Loader2
+  Save, CheckCircle2, Loader2, Shield
 } from 'lucide-react';
 import ExecutionMethodCard from './ExecutionMethodCard';
 import { useMethodsAutosave } from '../../hooks/useMethodsAutosave';
@@ -37,6 +37,7 @@ const LOCATION_LABELS: Record<ExecutionLocation, { label: string; icon: React.Re
   school: { label: 'בית ספר', icon: <Building2 size={14} /> },
   gym: { label: 'חדר כושר', icon: <Dumbbell size={14} /> },
   airport: { label: 'שדה תעופה', icon: <Plane size={14} /> },
+  service: { label: 'צבא/שירות', icon: <Shield size={14} /> },
 };
 
 interface MethodsSectionProps {
