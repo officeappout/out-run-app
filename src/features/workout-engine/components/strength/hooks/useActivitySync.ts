@@ -155,6 +155,8 @@ export function useActivitySync(params: UseActivitySyncParams): void {
         activityCategory,
         displayIcon: 'dumbbell',
         workoutTitle: programName,
+        // POST_WORKOUT_LANDING_V1 (Block A): # exercises for the summary strip stats.
+        exerciseCount: completedExercises.length,
         strengthCompletion,
       });
     })();

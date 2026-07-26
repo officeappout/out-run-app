@@ -405,6 +405,8 @@ export default function HomePage() {
   const [postWorkoutData, setPostWorkoutData] = useState<{
     workoutType: string; durationMinutes: number; completedAt: string;
     workoutTitle?: string; streak?: number; thumbnailUrl?: string;
+    // POST_WORKOUT_LANDING_V1 (Block A): stats for the top summary strip.
+    calories?: number; exerciseCount?: number;
   } | null>(null);
   // Persistent completion gate — reads Firestore `dailyProgress/{uid}_{today}`.
   // Survives page refreshes / re-mounts and elapsed time within the same

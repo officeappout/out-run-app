@@ -219,6 +219,20 @@ export const TIMER_AUTO_ADVANCE_ENABLED = false;
 // its current order — BYTE-IDENTICAL. Gates every R-1.x sub-change.
 export const HOME_ANCHOR_V2_ENABLED = true;
 
+// POST_WORKOUT_LANDING_V1: the post-workout landing redesign (R, Block A) — after a
+// workout finishes, the top "now" carousel slot is replaced by a compact, NON-blocking
+// summary strip ABOVE the schedule (ring = % of the STABLE daily strength target via
+// useDailyStrengthTarget + praise + duration/#exercises/~kcal + "עצרת אחרי X — נשאר
+// קצת לסגור" + X-dismiss), the old in-anchor celebration card is removed (one summary,
+// floated to top), and the anchor slot keeps the existing "another workout" button as a
+// bridge (Block B replaces it with the "smart close" toggles). The detailed summary stays
+// a drill-in. DEPENDS ON the ring engine being on (STRENGTH_RING_ENABLED) — the strip
+// reads the shared stable selector, NOT HOME_DAILY_GOAL_V1's shrinking target (single
+// source of truth; Task-10 bars unify onto the same selector in the immediate follow-up).
+// While FALSE the post-workout surface is byte-identical to today (old celebration card,
+// no top strip). Isolated flag = independent rollback for the riskier layout change.
+export const POST_WORKOUT_LANDING_V1 = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================

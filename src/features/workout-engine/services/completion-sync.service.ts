@@ -31,6 +31,12 @@ export interface CompletionPayload {
   /** Thumbnail URL for the completed workout hero image */
   thumbnailUrl?: string;
   /**
+   * POST_WORKOUT_LANDING_V1 (Block A): number of exercises completed, for the top
+   * summary strip's stats row (duration · #exercises · ~kcal). Optional (strength
+   * caller sets it); inert until the landing flag reads it on the home strip.
+   */
+  exerciseCount?: number;
+  /**
    * Multi-category split (hybrid). When present, minutes/calories are logged
    * PER category in ONE atomic activity-store write (e.g. cardio legs + strength
    * station) instead of the single `activityCategory`. The once-per-session
@@ -131,6 +137,11 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
         workoutTitle: payload.workoutTitle,
         thumbnailUrl: payload.thumbnailUrl,
         streak,
+        // POST_WORKOUT_LANDING_V1 (Block A): extra stats for the top summary strip.
+        // Two additive keys — inert (unread) while the landing flag is off, so the
+        // rendered celebration stays byte-identical.
+        calories: payload.calories,
+        exerciseCount: payload.exerciseCount,
       }),
     );
   }
