@@ -15,6 +15,12 @@ const CONTACT_LABELS: Record<string, ContactLabel> = {
   university:   { he: 'רכז/ת ספורט',    icon: '🎓' },
   work:         { he: 'מנהל/ת רווחה',   icon: '💼' },
   neighborhood: { he: 'מנהל הקבוצה',    icon: '🏘️' },
+  // tenantType-union aliases — validateAccessCode results + the PersonaStep
+  // persona→tenantType map pass these (educational/company/youth_movement)
+  // rather than the display verticals above.
+  educational:    { he: 'מורה / רכז ספורט', icon: '🏫' },
+  company:        { he: 'מנהל/ת רווחה',      icon: '💼' },
+  youth_movement: { he: 'מדריך/ת הקבוצה',    icon: '⛺' },
 };
 
 const DEFAULT_LABEL: ContactLabel = { he: 'מנהל הארגון', icon: '📩' };
