@@ -28,12 +28,15 @@ import {
   setDoc,
   addDoc,
   query,
+  where,
+  documentId,
   orderBy,
   limit as firestoreLimit,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
+import { genPerfRead } from '@/lib/gen-perf';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -189,39 +192,51 @@ export async function getHistoryMapForExercises(
   // Deduplicate request IDs so we never issue two reads for the same exercise.
   const uniqueIds = Array.from(new Set(exerciseIds));
 
+  // #7: chunked `documentId() in [...]` query instead of an N-wide getDoc fan-out.
+  // The call site passes the ENTIRE scored pool (~110 exercises), so the old code
+  // issued ~110 round-trips (and billed a read for every miss). Firestore caps an
+  // `in` filter at 30 values, so ~110 ids collapse to ~4 queries (~4 round-trips),
+  // and misses stop being billed. Exact-key semantics are PRESERVED: `documentId()
+  // in` matches only exact doc IDs — no prefix/contains — and the doc-key vs stored
+  // `exerciseId` mismatch guard still runs per returned doc. Output is byte-identical
+  // to the fan-out (same docs, same reps-length filter, same guard).
+  const IN_CHUNK = 30;
+  const chunks: string[][] = [];
+  for (let i = 0; i < uniqueIds.length; i += IN_CHUNK) {
+    chunks.push(uniqueIds.slice(i, i + IN_CHUNK));
+  }
+  genPerfRead('exerciseHistory', chunks.length); // #0: now counts round-trips (chunked queries), not per-doc
+
   try {
-    const reads = uniqueIds.map(async (id) => {
-      // Firestore document lookups are EXACT: the path
-      //   users/{uid}/exerciseHistory/{id}
-      // resolves to a single document by its primary key. There is no
-      // prefix / regex / contains semantic — "Pushup" can never silently
-      // match "Wall Handstand Pushup" at the read layer.
-      const snap = await getDoc(doc(db, 'users', userId, SUB_COLLECTION, id));
-      if (!snap.exists()) return null;
-      const data = snap.data() as ExerciseHistoryEntry;
+    const col = collection(db, 'users', userId, SUB_COLLECTION);
+    const snaps = await Promise.all(
+      chunks.map((chunk) => getDocs(query(col, where(documentId(), 'in', chunk)))),
+    );
 
-      // Defense-in-depth: if the document's own `exerciseId` field disagrees
-      // with the document key it was stored under, the data is corrupt.
-      // Skip it and warn rather than risk feeding the wrong reps into the
-      // workout generator's history floor.
-      if (data.exerciseId && data.exerciseId !== id) {
-        console.warn(
-          `[ExerciseHistory] ID mismatch — doc key="${id}" but stored exerciseId="${data.exerciseId}". ` +
-          `Skipping this entry to avoid cross-exercise contamination.`,
-        );
-        return null;
-      }
-
-      return { id, reps: data.reps };
-    });
-
-    const results = await Promise.all(reads);
     const map: Record<string, number[]> = {};
-    for (const r of results) {
-      if (r && r.reps?.length > 0) map[r.id] = r.reps;
+    for (const snap of snaps) {
+      for (const docSnap of snap.docs) {
+        const id = docSnap.id;
+        const data = docSnap.data() as ExerciseHistoryEntry;
+
+        // Defense-in-depth: if the document's own `exerciseId` field disagrees
+        // with the document key it was stored under, the data is corrupt.
+        // Skip it and warn rather than risk feeding the wrong reps into the
+        // workout generator's history floor. (Unchanged guarantee.)
+        if (data.exerciseId && data.exerciseId !== id) {
+          console.warn(
+            `[ExerciseHistory] ID mismatch — doc key="${id}" but stored exerciseId="${data.exerciseId}". ` +
+            `Skipping this entry to avoid cross-exercise contamination.`,
+          );
+          continue;
+        }
+
+        if (data.reps?.length > 0) map[id] = data.reps;
+      }
     }
     console.log(
-      `[ExerciseHistory] Loaded history for ${Object.keys(map).length}/${uniqueIds.length} exercises (exact-key reads)`,
+      `[ExerciseHistory] Loaded history for ${Object.keys(map).length}/${uniqueIds.length} exercises ` +
+      `(${chunks.length} chunked 'in' quer${chunks.length === 1 ? 'y' : 'ies'})`,
     );
     return map;
   } catch (e) {

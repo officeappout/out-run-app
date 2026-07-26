@@ -17,7 +17,8 @@
  *     cfg.difficulty per option, bypassing the lock.
  *   • D1 — a no-gear home user should get bodyweight/improvised methods only, but
  *     some selected methods require gear the user lacks.
- * PROMOTED to hard: B1 (12.07.2026 — availableTime honored via Phase C, 0acd234).
+ * PROMOTED to hard: B1 + E1 (12.07.2026 — availableTime honored + 2-set floor
+ * hold via the builder-stability merge, 0acd234).
  */
 
 // ── Seed Math.random BEFORE importing the engine graph ──────────────────────

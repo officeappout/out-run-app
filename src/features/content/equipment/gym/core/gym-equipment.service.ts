@@ -137,6 +137,32 @@ export async function searchGymEquipment(searchTerm: string): Promise<GymEquipme
 }
 
 /**
+ * Strip `undefined` values before a Firestore write. Firestore rejects `undefined`
+ * field values, and gym_equipment docs legitimately omit optional fields
+ * (primaryMuscle, targetPrograms, defaultLocation — absent in 53–54 of 55 docs). The
+ * editor form forwards those as `undefined`, so without this the write is rejected and
+ * the doc becomes uneditable.
+ *
+ * NOTE: local copy — the repo already has 10 un-exported copies of this helper, so an
+ * 11th duplicate is a deliberate stop-gap, not a pattern to grow. Consolidating them
+ * into one shared util is tracked separately ("איחוד stripUndefined",
+ * .claude/knowledge/parking-lot.md); kept local for now to avoid coupling this service
+ * to an unrelated module just to borrow a 12-line utility.
+ */
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  const clean = {} as any;
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) continue;
+    if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+      clean[key] = stripUndefined(value);
+    } else {
+      clean[key] = value;
+    }
+  }
+  return clean as T;
+}
+
+/**
  * Create a new gym equipment
  */
 export async function createGymEquipment(
@@ -144,7 +170,7 @@ export async function createGymEquipment(
 ): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, GYM_EQUIPMENT_COLLECTION), {
-      ...data,
+      ...stripUndefined(data),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -165,7 +191,7 @@ export async function updateGymEquipment(
   try {
     const docRef = doc(db, GYM_EQUIPMENT_COLLECTION, equipmentId);
     await updateDoc(docRef, {
-      ...data,
+      ...stripUndefined(data),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {

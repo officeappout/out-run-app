@@ -7,7 +7,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
 
-import { Exercise, MechanicalType } from '@/features/content/exercises/core/exercise.types';
+import { Exercise, MechanicalType, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { ScoredExercise, IntentMode, LifestylePersona, FilterStageCounts } from './ContextualEngine';
 import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
 
@@ -97,6 +97,16 @@ export interface WorkoutExercise {
   isGoalExercise?: boolean;
   rampedTarget?: number;
   exerciseRole?: 'warmup' | 'main' | 'cooldown';
+  /**
+   * True ONLY for the Stage-1 general mobility warmup (Part A of
+   * `prependWarmupExercises`).  The final `applyDomainPrioritySort` pass reads
+   * this flag to pin the general warmup at the top of the warmup block, ahead
+   * of the pattern/ladder potentiation slots — otherwise the domain-priority
+   * sort buries it below the real push/pull/legs ladder exercises (which carry
+   * lower domain weights) because a mobility drill scores as accessory/weight-3.
+   * Undefined for ladder slots, main, and cooldown exercises.
+   */
+  isGeneralWarmup?: boolean;
   pairedWith?: string;
   /**
    * Distinguishes superset variants when `pairedWith` is set:
@@ -128,6 +138,14 @@ export interface WorkoutExercise {
    */
   protocolBlock?: 'tabata';
   wasSwapped?: boolean;
+  /**
+   * swap-all "keep + mark": set when a bulk/single dimension swap (e.g. location
+   * park→home) found NO qualifying method AND no same-level alternative for this
+   * exercise, so it is kept as-is and flagged. Rendered as a "דורש מתקן" badge.
+   * Cleared on any subsequent successful swap. `dimension`/`value` name the axis
+   * (kept loosely typed to avoid a dep on method-dimension.utils' SwapDimension).
+   */
+  dimensionUnavailable?: { dimension: string; value: string };
   /**
    * UI-ready rep / hold range string, pre-computed by the
    * `PresentationFormatter.annotateRepRanges()` pass at the end of the
@@ -200,6 +218,28 @@ export interface WorkoutStats {
   difficultyMultiplier: number;
 }
 
+/**
+ * Light, scalar-only snapshot of the fields `resolveWorkoutMetadata` needs, persisted
+ * on the generated workout so a location/dimension swap can re-run the title/
+ * description with the NEW location WITHOUT rebuilding the full pipeline context.
+ * Deliberately tiny — it rides the sessionStorage plan snapshot exposed to WKWebView
+ * eviction (axioms §19); never store heavy objects here. `location` + `durationMinutes`
+ * are re-injected at swap time, not stored.
+ */
+export interface WorkoutMetadataSnapshot {
+  persona: string | null;
+  timeOfDay: string;
+  gender?: 'male' | 'female';
+  category?: string;
+  categoryLabel?: string;
+  difficulty?: number | string;
+  dominantMuscle?: string;
+  experienceLevel?: string;
+  sportType?: string;
+  motivationStyle?: string;
+  currentProgram?: string;
+}
+
 export interface GeneratedWorkout {
   title: string;
   description: string;
@@ -232,6 +272,21 @@ export interface GeneratedWorkout {
   tabataBlock?: TabataBlockSpec;
   /** Why Logger: end-to-end pipeline summary for debugging/auditing */
   pipelineLog?: string[];
+  /**
+   * Light metadata-recompute snapshot (see WorkoutMetadataSnapshot). Set at
+   * generation; read by swap-all to refresh title/description for the new location.
+   * Optional — absent on Firestore-restored/legacy plans, in which case swap-all
+   * rebuilds the context from the user profile + workout fields.
+   */
+  metadataCtx?: WorkoutMetadataSnapshot;
+  /**
+   * Execution location this plan currently reflects. Undefined on fresh
+   * generation (callers fall back to their own context); STAMPED by a swap-all
+   * location swap so the "איפה מתאמנים?" switcher badge and the swap no-op guard
+   * both read the live location off the content — one source of truth that
+   * travels with the workout, not ambient UI state.
+   */
+  executionLocation?: ExecutionLocation;
 }
 
 export interface TabataBlockSpec {

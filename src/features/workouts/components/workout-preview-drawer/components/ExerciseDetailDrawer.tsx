@@ -13,9 +13,10 @@
  */
 
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import type { Exercise } from '@/features/content/exercises';
+import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
+import type { Exercise, ExecutionMethod } from '@/features/content/exercises';
 import MasterExerciseView from '@/features/content/exercises/client/components/MasterExerciseView';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 
@@ -26,16 +27,35 @@ interface ExerciseDetailDrawerProps {
   programMap: Record<string, string>;
   /** Called on dismissal (backdrop tap, drag-down, handle). */
   onDismiss: () => void;
+  /**
+   * OPTIONAL method-writer (workout-preview single-swap; gated by SWAP_ALL_ENABLED).
+   * The parent binds it to THIS `detailExercise` and persists the pick to the live
+   * workout. Absent → MEV stays read-only.
+   */
+  onMethodChange?: (method: ExecutionMethod, methodIdx: number) => void;
 }
 
 function ExerciseDetailDrawerImpl({
   detailExercise,
   programMap,
   onDismiss,
+  onMethodChange,
 }: ExerciseDetailDrawerProps) {
   const router = useRouter();
 
   const exercise = (detailExercise?.exercise ?? null) as Exercise | null;
+
+  // ── Swipe-to-close parity with WorkoutPreviewDrawer ──
+  // The sheet's `y` MotionValue is driven by the SAME shared Instagram-gesture
+  // scroll-chain (down-swipe at scrollTop=0 anywhere in the body) AND by an
+  // explicit handle drag (dragControls). Before this, `drag="y"` competed with
+  // the inner overflow scroller, so only the non-scrollable handle pill could
+  // dismiss — hence "grab from the edge". Now a drag-down from anywhere closes.
+  const isSheetOpen = !!(detailExercise && exercise);
+  const y = useMotionValue(0);
+  const opacity = useTransform(y, [0, 220], [1, 0]);
+  const dragControls = useDragControls();
+  const { scrollRef } = useSheetScrollChain({ isOpen: isSheetOpen, y, onClose: onDismiss });
 
   // Location comes from the chosen execution method (home / park / gym).
   // Fall back to locationMapping[0] when the scalar `location` is stale/missing
@@ -67,29 +87,37 @@ function ExerciseDetailDrawerImpl({
           <motion.div
             key="master-drawer"
             drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.2}
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 500 }}
+            dragElastic={{ top: 0.08, bottom: 0 }}
+            dragMomentum={false}
             onDragEnd={(_, info) => { if (info.offset.y > 140) onDismiss(); }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 36, stiffness: 320, mass: 0.7 }}
             className="fixed bottom-0 left-0 right-0 z-[200] bg-white dark:bg-slate-900 shadow-2xl rounded-t-[24px] flex flex-col overflow-hidden"
-            style={{ height: '95vh', fontFamily: 'var(--font-simpler)' }}
+            style={{ y, opacity, height: '95vh', fontFamily: 'var(--font-simpler)' }}
             dir="rtl"
           >
-            {/* Drag handle pill */}
-            <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
+            {/* Drag handle pill — starts the framer drag via dragControls */}
+            <div
+              className="flex justify-center pt-3 pb-2 flex-shrink-0 cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => dragControls.start(e)}
+              style={{ touchAction: 'none' }}
+            >
               <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
             </div>
 
-            {/* ── SINGLE conduit scroll ── */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            {/* ── SINGLE conduit scroll — scroll-chain intercepts down-swipe at top ── */}
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <MasterExerciseView
                 exercise={exercise}
                 filterLocation={filterLocation}
                 programLabels={programMap}
                 onNavigateToAnalytics={handleNavigateToAnalytics}
+                onMethodChange={onMethodChange}
               />
             </div>
           </motion.div>

@@ -38,6 +38,7 @@ import {
 import {
   resolveInjectedLevel,
   substituteExercise,
+  resolveSubstituteMethod,
 } from '../../logic/WorkoutGenerator';
 import { findLevelAppropriateSubstitute } from './PoolFactory';
 import {
@@ -165,7 +166,7 @@ export function runHorizontalGuarantee(
 
           workoutExercises[idx] = {
             ...workoutExercises[idx],
-            ...substituteExercise(workoutExercises[idx], substitute.exercise, substitute.exercise.executionMethods?.[0]),
+            ...substituteExercise(workoutExercises[idx], substitute.exercise, resolveSubstituteMethod(substitute.exercise, context)),
             programLevel: repLevel,
             isOverLevel: repLevel > domainLevel,
             levelDelta: repLevel - domainLevel,
@@ -210,7 +211,7 @@ export function runHorizontalGuarantee(
 
     workoutExercises[idx] = {
       ...workoutExercises[idx],
-      ...substituteExercise(workoutExercises[idx], substitute.exercise, substitute.exercise.executionMethods?.[0]),
+      ...substituteExercise(workoutExercises[idx], substitute.exercise, resolveSubstituteMethod(substitute.exercise, context)),
       programLevel: repLevel,
       isOverLevel: repLevel > domainLevel,
       levelDelta: repLevel - domainLevel,
@@ -367,7 +368,7 @@ export function runVerticalFoundationGuarantee(
 
     workoutExercises[idx] = {
       ...workoutExercises[idx],
-      ...substituteExercise(workoutExercises[idx], sub.exercise, sub.exercise.executionMethods?.[0]),
+      ...substituteExercise(workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context)),
       programLevel: repLevel,
       isOverLevel: repLevel > domainLevel,
       levelDelta: repLevel - domainLevel,
@@ -476,7 +477,7 @@ export function runFullBodyDomainGuarantee(
 
       workoutExercises[idx] = {
         ...workoutExercises[idx],
-        ...substituteExercise(workoutExercises[idx], sub.exercise, sub.exercise.executionMethods?.[0]),
+        ...substituteExercise(workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context)),
         programLevel:  injectedLevel,
         isOverLevel:   injectedLevel > domainLevel,
         levelDelta:    injectedLevel - domainLevel,

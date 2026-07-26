@@ -16,15 +16,14 @@ import { motion } from 'framer-motion';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { toISODate, HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
 import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { useDayStatus, useDateKey } from '@/features/activity';
+import { useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import type { UserScheduleEntry, RecurringTemplate } from '@/features/user/scheduling/types/schedule.types';
 import {
   DayIconCell,
   resolveDayDisplayProps,
   type DayDisplayInput,
 } from '@/features/home/utils/day-display.utils';
+import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import { resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -59,6 +58,12 @@ interface MonthlyCalendarGridProps {
    * Month navigation is hidden. Used by the collapsible planner header.
    */
   collapsed?: boolean;
+  /**
+   * ACTIVITY schedule view (Stage 2). When true each cell renders the S10
+   * activity RING (via the shared buildActivityRingData) instead of the S8
+   * flame — same separate-schedule concept as the week strip. Flame untouched.
+   */
+  activityView?: boolean;
 }
 
 interface MonthCell {
@@ -190,6 +195,7 @@ export default function MonthlyCalendarGrid({
   ringStroke: _ringStroke,
   refreshKey,
   collapsed = false,
+  activityView = false,
 }: MonthlyCalendarGridProps) {
   // Cell height is still configurable (TrainingPlannerOverlay passes 56px).
   const effectiveCellHeight = cellHeightProp ?? DEFAULT_CELL_HEIGHT;
@@ -213,14 +219,6 @@ export default function MonthlyCalendarGrid({
    */
   const [scheduleMap, setScheduleMap] = useState<Map<string, UserScheduleEntry[]>>(new Map());
 
-  /**
-   * Map of ISO date → true for past days where `dailyProgress.workoutCompleted`
-   * is set. Populated by the effect below. This is the "memory" layer: it keeps
-   * flames alive after a day transitions from "today" to "past", even if the
-   * `userSchedule.completed` field was never back-filled.
-   */
-  const [pastProgressMap, setPastProgressMap] = useState<Map<string, boolean>>(new Map());
-
   // useDayStatus encapsulates the Completion Bridge (≥10 min OR workoutCompleted)
   // for both today and any past days still in weekActivities.
   const getDayStatus = useDayStatus();
@@ -236,6 +234,14 @@ export default function MonthlyCalendarGrid({
     () => buildMonthCells(displayYear, displayMonth),
     [displayYear, displayMonth, dateKey],
   );
+
+  // Past-day completion (S8 dailyProgress) — shared hook, single source with the
+  // week strip. Keeps a past day's flame alive after it rolls from today → past.
+  const pastIsos = useMemo(
+    () => cells.filter((c) => c.isPast && c.isCurrentMonth).map((c) => c.iso),
+    [cells],
+  );
+  const pastProgressMap = usePastWorkoutCompleted(userId, pastIsos);
 
   // When collapsing, snap back to today's month so the week strip
   // always shows the current week and not some navigated-away month.
@@ -285,46 +291,6 @@ export default function MonthlyCalendarGrid({
     return () => { cancelled = true; };
   }, [userId, cells, recurringTemplate, refreshKey]);
 
-  // Fetch dailyProgress.workoutCompleted for every past day in the current
-  // month view. One getDoc per past day — respects the uid-prefix rule that
-  // was fixed in firestore.rules. Results are cached in pastProgressMap so
-  // the flame persists after a day rolls from "today" to "past".
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-
-    async function fetchPastProgress() {
-      const pastIsos = cells
-        .filter((c) => c.isPast && c.isCurrentMonth)
-        .map((c) => c.iso);
-      if (!pastIsos.length) return;
-
-      const results = await Promise.all(
-        pastIsos.map(async (iso) => {
-          try {
-            const ref = doc(db, 'dailyProgress', `${userId}_${iso}`);
-            const snap = await getDoc(ref);
-            return {
-              iso,
-              completed: snap.exists() ? !!(snap.data()?.workoutCompleted) : false,
-            };
-          } catch {
-            return { iso, completed: false };
-          }
-        }),
-      );
-
-      if (cancelled) return;
-      const map = new Map<string, boolean>();
-      results.forEach(({ iso, completed }) => {
-        if (completed) map.set(iso, true);
-      });
-      setPastProgressMap(map);
-    }
-
-    fetchPastProgress();
-    return () => { cancelled = true; };
-  }, [userId, cells]);
 
   const goToPrevMonth = useCallback(() => {
     setDisplayMonth(prev => {
@@ -451,6 +417,14 @@ export default function MonthlyCalendarGrid({
                 <div className="relative flex justify-center -mt-0.5">
                   <DayIconCell
                     hideDots
+                    // ACTIVITY view (Stage 2): render the S10 summary ring per
+                    // cell via the shared builder. Slightly larger for today.
+                    activityRing={
+                      activityView
+                        ? buildActivityRingData(getDayStatus(cell.iso))
+                        : undefined
+                    }
+                    ringSizePx={cell.isToday ? 36 : 30}
                     sizeOverride={
                       cell.isToday
                         ? { sizePx: 40, radiusPx: 12, innerSlotPx: 24, imgIconPx: 24 }
@@ -461,7 +435,7 @@ export default function MonthlyCalendarGrid({
                         cell, dayEntries, scheduleDays, programIconKey, isSelected,
                         // Today: use useDayStatus for the unified Completion Bridge
                         // (≥10 min logged OR workoutCompleted flag).
-                        cell.isToday ? getDayStatus(cell.iso).isCompleted : undefined,
+                        cell.isToday ? getDayStatus(cell.iso).workoutDone : undefined,
                         // Past: dailyProgress.workoutCompleted from the Firestore
                         // pastProgressMap — keeps the flame alive after a day
                         // transitions from "today" to "past".

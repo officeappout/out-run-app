@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import Map, { Source, Layer, Marker, MapRef } from 'react-map-gl';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MapPin, Droplet } from 'lucide-react';
+import { MapPin, Droplet, Dumbbell } from 'lucide-react';
 import { Route } from '../types/route.types';
 import { fetchRealParks } from '../services/parks.service';
 import { useMapStore, LayerType, PartnerActivityFilter } from '../store/useMapStore';
@@ -18,7 +18,8 @@ import ParkPhotoMarker from './ParkPhotoMarker';
 import DestinationMarker from './DestinationMarker';
 
 import { registerPinImage, registerArrowTipImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
-import { applyFitnessMapStyle } from './mapStyleConfig';
+import { applyFitnessMapStyle, resetFitnessMapStyle } from './mapStyleConfig';
+import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
 import { segmentPathByZone, bearingBetween } from '../services/geoUtils';
 import type { RouteTurn } from '../services/geoUtils';
@@ -40,6 +41,7 @@ import {
   TRAIL_FADE_LINE, ROUTE_PASSED_LINE, ROUTE_DEVIATION_LINE,
   PARK_CLUSTERS_GLOW, PARK_CLUSTERS, PARK_PINS, PARK_MINOR_PINS, PARK_CLUSTER_COUNT,
 } from './mapLayersConfig';
+import { HYBRID_AER, buildHybridRouteGradient } from './hybrid/hybrid-colors';
 // Store read for the off-route flag only — same cross-read precedent as
 // useWorkoutSession.ts. Subscribing to the boolean means AppMap re-renders
 // on off-route flips, not on every GPS sample.
@@ -173,6 +175,10 @@ interface AppMapProps {
   livePathZones?: (string | null)[];
   isActiveWorkout?: boolean;
   destinationMarker?: { lat: number; lng: number } | null;
+  /** Hybrid strength station — the real park photo-pin (or a cyan fallback) at station size. */
+  hybridStation?: { lat: number; lng: number; name?: string; image?: string } | null;
+  /** Bumped by a recenter tap → ease the camera to `currentLocation` (best-available fix). */
+  recenterSignal?: number;
   isNavigationMode?: boolean;
   userBearing?: number;
   isAdmin?: boolean;
@@ -227,6 +233,49 @@ interface AppMapProps {
   activityType?: 'walking' | 'running' | 'cycling' | string;
 }
 
+// Window for the presence-heatmap setData throttle (Stage 1b). Each
+// verified_global presence snapshot rebuilds presenceGeoJSON → react-map-gl
+// setData → Mapbox re-tessellates the WHOLE heatmap; in a dense city snapshots
+// arrive many times a second, so the map never settles = sustained GPU heat.
+// Start low so the ambient tier still tracks reality closely; raise if needed.
+const PRESENCE_SETDATA_THROTTLE_MS = 750;
+
+// Trailing+leading throttle for a value — mirrors the setTimeout-ref debounce
+// idiom in useCameraController.ts. Emits the first value immediately, then at
+// most once per `delayMs`; the newest value within a window fires on the
+// trailing edge. Quiet when `value`'s reference is stable (memoised). Timer
+// cleared on unmount.
+function useThrottledValue<T>(value: T, delayMs: number): T {
+  const [throttled, setThrottled] = useState(value);
+  const lastEmitRef = useRef(0);
+  const latestRef = useRef(value);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  latestRef.current = value;
+
+  useEffect(() => {
+    const now = Date.now();
+    const elapsed = now - lastEmitRef.current;
+    if (elapsed >= delayMs) {
+      lastEmitRef.current = now;
+      setThrottled(value);
+    } else if (!timerRef.current) {
+      // A timer already covers the newest value via latestRef, so bursts within
+      // the window coalesce into one trailing flush.
+      timerRef.current = setTimeout(() => {
+        lastEmitRef.current = Date.now();
+        timerRef.current = null;
+        setThrottled(latestRef.current);
+      }, delayMs - elapsed);
+    }
+  }, [value, delayMs]);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  return throttled;
+}
+
 export default function AppMap({
   routes = [],
   currentLocation,
@@ -237,6 +286,8 @@ export default function AppMap({
   livePathZones,
   isActiveWorkout,
   destinationMarker,
+  hybridStation,
+  recenterSignal,
   isNavigationMode = false,
   userBearing = 0,
   isAdmin = false,
@@ -278,6 +329,13 @@ export default function AppMap({
   // (preventing new events), but the already-scheduled callback still runs
   // after unmount holding a reference to the raw Mapbox map instance.
   const hebrewDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Idempotency guard for the Hebrew relabel sweep. Base-map label layers are
+  // style-defined, so once their text-field is switched to the Hebrew
+  // expression it stays set — re-running the full ~150-layer setLayoutProperty
+  // pass on every 'sourcedata' tile event while panning is pure churn. Set true
+  // after the first successful pass; a real 'style.load' (setStyle / hot-reload
+  // rebuilds the layers) re-arms it. See handleMapLoad.
+  const hebrewLabelsAppliedRef = useRef(false);
   // ── Map paint readiness gate ──────────────────────────────────────────
   // Drives the AI-themed `MapLoadingSkeleton` overlay. False until BOTH:
   //   1. The Mapbox style has finished parsing (so the declutter pass
@@ -296,8 +354,39 @@ export default function AppMap({
   // the same session skips the skeleton entirely.
   const [isVisuallyReady, setIsVisuallyReady] = useState(() => mapHasInitializedInSession);
 
+  // Publish the splash-gate state to the store so sibling map layers
+  // (DiscoverLayer's search / mode chips / FAB / recenter / entry button)
+  // hide during the MapLoadingSkeleton and reveal together when the map
+  // paints — all reading this ONE flag, no re-detection. `markReady`
+  // (Mapbox render/idle or the 900ms safety timeout) stays the only source;
+  // this merely mirrors it. Warm re-mounts init isVisuallyReady=true and the
+  // store persists true across them, so the controls never re-flash.
+  const setMapVisuallyReady = useMapStore((s) => s.setMapVisuallyReady);
+  useEffect(() => {
+    setMapVisuallyReady(isVisuallyReady);
+  }, [isVisuallyReady, setMapVisuallyReady]);
+
   const [parks, setParks] = useState<any[]>([]);
   const { setSelectedPark, visibleLayers, selectedPark } = useMapStore();
+
+  // Point 15: when a hybrid route is focused, its strength-station fractions drive a
+  // green(walk)→blue(strength)→green line-gradient on the active route line, and the
+  // cyan glow is neutralized to green so it doesn't fight the gradient. Null →
+  // non-hybrid route → the ORIGINAL flat cyan paints, byte-identical.
+  const hybridRouteStations = useMapStore((s) => s.hybridRouteStations);
+  const isHybridRoute = !!hybridRouteStations && hybridRouteStations.length > 0;
+  const routesActivePaint = useMemo(
+    () => (isHybridRoute
+      ? { 'line-gradient': buildHybridRouteGradient(hybridRouteStations!), 'line-width': 7, 'line-opacity': 1 }
+      : ROUTES_ACTIVE.paint),
+    [isHybridRoute, hybridRouteStations],
+  );
+  const routesGlowPaint = useMemo(
+    () => (isHybridRoute
+      ? { ...ROUTES_ACTIVE_GLOW.paint, 'line-color': HYBRID_AER }
+      : ROUTES_ACTIVE_GLOW.paint),
+    [isHybridRoute],
+  );
   // Selected park id powers the cyan-ring highlight on ParkPhotoMarker so
   // tapping a pin gives instant visual feedback BEFORE the preview sheet
   // animates in. Stored as id (not the whole object) so equality checks
@@ -465,9 +554,19 @@ export default function AppMap({
     useMapStore.getState().setTurnFlyToTarget(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turnFlyToTarget]);
-  const { facilities } = useFacilities();
   const [selectedFacility, setSelectedFacility] = useState<any | null>(null);
   const [currentZoom, setCurrentZoom] = useState(13);
+  // Viewport-scoped facility fetch (refetches as the user pans out of the loaded
+  // box) — see useFacilities. Passed currentZoom so it only fetches at the zoom
+  // where facility markers actually render (>= 14).
+  const { facilities } = useFacilities(currentZoom);
+  // Min zoom delta worth a re-render. `currentZoom` is only ever read as a
+  // discrete breakpoint (>=10/13/14/15 — lemur scale, pulse dot, facilities,
+  // partners, park photo), never as a continuous value, so committing the
+  // per-frame onZoom value re-renders the whole map tree ~60x/sec for nothing.
+  // 0.25 is well below the 1.0 spacing of those integer breakpoints, so no
+  // crossing is missed; onZoomEnd still commits the exact value at rest.
+  const ZOOM_COMMIT_EPSILON = 0.25;
   const [viewportBounds, setViewportBounds] = useState<mapboxgl.LngLatBounds | null>(null);
   const [showInfrastructure, setShowInfrastructure] = useState(false);
 
@@ -500,6 +599,16 @@ export default function AppMap({
     walkToRouteTarget: walkToRoute.targetEndpoint ?? null,
     navigationTurns: navigationTurns ?? null,
   });
+
+  // Recenter tap (from the layers) → ease straight to the best-available fix. In
+  // discover mode the follow effect fits ROUTES, so a plain recenter never centered
+  // "me"; this direct call does, using currentLocation (live GPS or fallback dot).
+  const prevRecenterSignal = useRef(recenterSignal);
+  useEffect(() => {
+    if (recenterSignal == null || recenterSignal === prevRecenterSignal.current) return;
+    prevRecenterSignal.current = recenterSignal;
+    camera.centerOnUser(currentLocation ?? null);
+  }, [recenterSignal, camera, currentLocation]);
 
   const visibleRoutes = useMemo(() => {
     return routes.filter((r) => {
@@ -563,6 +672,11 @@ export default function AppMap({
         properties: { uid: p.uid },
       })),
   }), [activityFilteredPositions]);
+
+  // Stage 1b: throttle ONLY the heatmap/dots Source data (the expensive Mapbox
+  // re-tessellation). The live <Marker> pins below use the un-throttled
+  // `visiblePartners`, so zoom-15 pins stay responsive.
+  const throttledPresenceGeoJSON = useThrottledValue(presenceGeoJSON, PRESENCE_SETDATA_THROTTLE_MS);
 
   const visiblePartnersGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
     type: 'FeatureCollection',
@@ -1143,7 +1257,15 @@ export default function AppMap({
       'nav-arrow-line-glow', 'nav-arrow-line', 'nav-arrow-tip',
     ]);
 
-    const applyHebrewLabels = () => {
+    const applyHebrewLabels = (opts?: { force?: boolean }) => {
+      // Idempotency (perf/batch1): once the sweep has run, the labelled symbol
+      // layers keep their Hebrew text-field, so repeat passes from debounced
+      // 'sourcedata' during a pan are no-ops — skip the whole ~150-layer loop.
+      // A style rebuild passes force:true (via the style.load wrapper below,
+      // which first re-arms the guard). Gated by the same flag as the metadata
+      // gate so that when IS_PERF_BATCH1_ENABLED is false the sweep runs every
+      // time exactly as before (byte-identical rollback).
+      if (IS_PERF_BATCH1_ENABLED && hebrewLabelsAppliedRef.current && !opts?.force) return;
       try {
         const style = rawMap.getStyle();
         if (!style?.layers) return;
@@ -1156,21 +1278,47 @@ export default function AppMap({
             }
           } catch { /* skip locked/internal layers */ }
         }
+        // Mark done only after a full pass over a real style — if getStyle()
+        // wasn't ready (early return above) the guard stays false so the next
+        // event retries.
+        hebrewLabelsAppliedRef.current = true;
       } catch (err) { console.warn('Could not set Hebrew labels:', err); }
     };
-    const debouncedHebrew = () => {
+    const debouncedHebrew = (e?: { sourceDataType?: string }) => {
+      // Gate (perf/batch1, flag-gated): only relabel when a source's METADATA
+      // (re)loads — NOT on every per-tile 'content' event. `sourcedata` fires on
+      // every tile load during pan/zoom; label layers are style-defined (not
+      // per-tile), so their text-field is already set. Re-running
+      // applyHebrewLabels — a full pass over ~150 style layers calling
+      // setLayoutProperty on each — on every tile was the sustained-heat hot
+      // path while panning. When IS_PERF_BATCH1_ENABLED is false, this gate is
+      // skipped and we relabel on every 'sourcedata' exactly as before.
+      if (IS_PERF_BATCH1_ENABLED && e && e.sourceDataType !== 'metadata') return;
+      // Nothing to re-apply once the one-time sweep has run (see idempotency
+      // note above) — skip even scheduling the timer to avoid per-tile
+      // setTimeout/clearTimeout churn while panning. A style rebuild re-arms via
+      // the style.load force-path.
+      if (IS_PERF_BATCH1_ENABLED && hebrewLabelsAppliedRef.current) return;
       if (hebrewDebounceTimerRef.current) clearTimeout(hebrewDebounceTimerRef.current);
       hebrewDebounceTimerRef.current = setTimeout(applyHebrewLabels, 50);
     };
 
     applyHebrewLabels();
-    rawMap.on('style.load', applyHebrewLabels);
+    // A real 'style.load' rebuilds the layers, so the Hebrew text-field is gone
+    // — re-arm the idempotency guard and force a full sweep. Wrapped because the
+    // style.load event object must NOT be passed as the `opts` arg (it has no
+    // `force`, which would let the skip suppress the needed re-run).
+    const applyHebrewLabelsOnStyleLoad = () => {
+      hebrewLabelsAppliedRef.current = false;
+      applyHebrewLabels({ force: true });
+    };
+    rawMap.on('style.load', applyHebrewLabelsOnStyleLoad);
     rawMap.on('sourcedata', debouncedHebrew);
 
     // Capture handler identities for unmount disposal. Mapbox's `off()`
     // matches by reference, so we MUST keep the same function instances
     // around to detach them later. See the cleanup useEffect below.
-    hebrewHandlerRef.current = applyHebrewLabels;
+    hebrewHandlerRef.current = applyHebrewLabelsOnStyleLoad;
     debouncedHebrewRef.current = debouncedHebrew;
 
     // ── Fitness declutter — timing fix ──────────────────────────────────────
@@ -1179,7 +1327,15 @@ export default function AppMap({
     // style tiles are painted. Strategy: register on('style.load') for both the
     // initial load and any future style swaps, then call immediately only if the
     // style is already parsed (rare on first load, common on hot-reload).
-    const runDeclutter = () => applyFitnessMapStyle(rawMap, 'style.load');
+    const runDeclutter = () => {
+      // A real 'style.load' means the style was (re)built — clear the declutter
+      // idempotency guard so the sweep re-runs for the new style, then apply.
+      // On the initial load this reset is a no-op; on a future setStyle it
+      // ensures the freshly-built style gets decluttered. Flag-gated so that
+      // when off, runDeclutter is byte-identical to the original (apply only).
+      if (IS_PERF_BATCH1_ENABLED) resetFitnessMapStyle(rawMap);
+      applyFitnessMapStyle(rawMap, 'style.load');
+    };
     rawMap.on('style.load', runDeclutter);
     declutterHandlerRef.current = runDeclutter;
     if (rawMap.isStyleLoaded()) {
@@ -1220,7 +1376,13 @@ export default function AppMap({
       <Map
         ref={mapRef}
         onLoad={handleMapLoad}
-        onZoom={(e) => setCurrentZoom(e.viewState.zoom)}
+        onZoom={(e) => {
+          // Threshold-commit (see ZOOM_COMMIT_EPSILON): return prev unchanged so
+          // React bails the render until the zoom moves far enough to possibly
+          // flip a breakpoint. Kills the per-frame full-tree re-render storm.
+          const z = e.viewState.zoom;
+          setCurrentZoom((prev) => (Math.abs(z - prev) >= ZOOM_COMMIT_EPSILON ? z : prev));
+        }}
         onZoomEnd={(e) => {
           setCurrentZoom(e.viewState.zoom);
           syncViewportToStore();
@@ -1234,6 +1396,13 @@ export default function AppMap({
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
         mapStyle="mapbox://styles/mapbox/streets-v12"
         mapboxAccessToken={MAPBOX_TOKEN}
+        // §2 dense-city OOM: bound the tile cache. Unset, mapbox-gl retains a
+        // viewport-derived (uncapped) set of vector/raster tiles that grows as
+        // the user pans a dense city, holding each tile's GPU texture. 45 ≈ the
+        // current viewport (~6-12 tiles on a phone) + one surrounding pan ring,
+        // well under mapbox's ~5x-viewport default. Conservative starting point —
+        // raise if panning back re-fetches visibly, lower if memory still climbs.
+        maxTileCacheSize={45}
         locale={{ 'NavigationControl.ZoomIn': 'הגדל', 'NavigationControl.ZoomOut': 'הקטן' }}
         onClick={handleMapClick}
         onMouseDown={onLongPress ? handleMouseDown : undefined}
@@ -1245,13 +1414,15 @@ export default function AppMap({
       >
         {isMapLoaded && (
         <>
-        {/* ── Route layers ── */}
+        {/* ── Route layers ── (lineMetrics enables line-progress for the point-15
+             hybrid line-gradient on routes-active; the flat-color layers ignore it,
+             so non-hybrid routes render identically) ── */}
         {!isActiveWorkout && visibleLayers?.includes('routes') && (
-          <Source id="routes" type="geojson" data={routesGeoJSON as any}>
+          <Source id="routes" type="geojson" data={routesGeoJSON as any} lineMetrics>
             <Layer id="routes-background" type="line" paint={ROUTES_BACKGROUND.paint as any} layout={ROUTES_BACKGROUND.layout} />
-            <Layer id="routes-active-glow" type="line" filter={ROUTES_ACTIVE_GLOW.filter} paint={ROUTES_ACTIVE_GLOW.paint as any} layout={ROUTES_ACTIVE_GLOW.layout} />
+            <Layer id="routes-active-glow" type="line" filter={ROUTES_ACTIVE_GLOW.filter} paint={routesGlowPaint as any} layout={ROUTES_ACTIVE_GLOW.layout} />
             <Layer id="routes-active-outline" type="line" filter={ROUTES_ACTIVE_OUTLINE.filter} paint={ROUTES_ACTIVE_OUTLINE.paint as any} layout={ROUTES_ACTIVE_OUTLINE.layout} />
-            <Layer id="routes-active" type="line" filter={ROUTES_ACTIVE.filter} paint={ROUTES_ACTIVE.paint as any} layout={ROUTES_ACTIVE.layout} />
+            <Layer id="routes-active" type="line" filter={ROUTES_ACTIVE.filter} paint={routesActivePaint as any} layout={ROUTES_ACTIVE.layout} />
           </Source>
         )}
 
@@ -1386,7 +1557,7 @@ export default function AppMap({
             or not the partner-finder UI is open — `liveUsersVisible` only
             gates the full <Marker> tier below. */}
         {activityFilteredPositions.length > 0 && (
-          <Source id="partner-presence" type="geojson" data={presenceGeoJSON}>
+          <Source id="partner-presence" type="geojson" data={throttledPresenceGeoJSON}>
             <Layer {...PRESENCE_HEATMAP_LAYER} />
             <Layer {...PRESENCE_DOTS_LAYER} />
           </Source>
@@ -1590,6 +1761,36 @@ export default function AppMap({
           </Marker>
         )}
 
+        {/* ── Hybrid strength-station marker ──
+            The station IS a park, so we reuse the map's own park representation:
+            the real ParkPhotoMarker (park.image) at station size when we have an
+            image, else the cyan park-pin identity (matching pin-default). */}
+        {isFiniteLatLng(hybridStation) && (
+          <Marker longitude={hybridStation.lng} latitude={hybridStation.lat} anchor="bottom">
+            {hybridStation.image ? (
+              <div className="pointer-events-none">
+                <ParkPhotoMarker name={hybridStation.name ?? 'תחנת כוח'} photoUrl={hybridStation.image} size={64} isSelected />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center pointer-events-none">
+                {hybridStation.name && (
+                  <div dir="rtl" className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap"
+                    style={{ background: '#00BAF7', boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
+                    {hybridStation.name}
+                  </div>
+                )}
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute rounded-full animate-ping" style={{ width: 50, height: 50, background: 'rgba(0,186,247,0.25)' }} />
+                  <div className="relative p-2.5 rounded-full border-[3px] border-white" style={{ background: '#00BAF7', boxShadow: '0 6px 16px rgba(0,186,247,0.55)' }}>
+                    <Dumbbell size={22} color="white" />
+                  </div>
+                </div>
+                <div className="w-2.5 h-2.5 rounded-full blur-[2px] mt-1" style={{ background: '#00BAF7' }} />
+              </div>
+            )}
+          </Marker>
+        )}
+
         {/* ── Route start markers ── */}
         {!isActiveWorkout && visibleRoutes.map(route => {
           const startPoint = route.path?.[0];
@@ -1627,6 +1828,13 @@ export default function AppMap({
           // tier still represents the same data, and reviving the
           // Mapbox tree after an LngLat throw is expensive.
           if (!isFiniteLatLng(f.location)) return null;
+          // Viewport-cull — mirror the partner-marker bounds filter below.
+          // The finite-coords gate above runs FIRST so contains() never sees a
+          // non-finite pair. Without this, EVERY facility of a visible type in
+          // the set mounts a DOM marker at zoom ≥ 14 whether or not it is
+          // on-screen — the dense-city OOM driver. Null bounds (pre-first-move)
+          // → render, matching the partner path.
+          if (viewportBounds && !viewportBounds.contains([f.location.lng, f.location.lat])) return null;
           const isPassive = ['water', 'toilet'].includes(f.type);
           return (
             <Marker key={f.id} longitude={f.location.lng} latitude={f.location.lat} anchor="center"

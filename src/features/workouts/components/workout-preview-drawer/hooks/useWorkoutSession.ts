@@ -4,16 +4,17 @@ import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { WorkoutPlan } from '@/features/parks';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
-import { resolveStartHandOff } from '@/features/workout-engine/services/workout-plan.mapper';
+import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
 import type { WorkoutData } from '../types';
 
 interface UseWorkoutSessionParams {
   workout: WorkoutData | null;
   workoutPlan: WorkoutPlan | null;
   /**
-   * The live generated workout the drawer is rendering (custom builder +
-   * home flow). When present it is THE hand-off source — built fresh via
-   * the shared mapper, never read from storage leftovers.
+   * CustomBuilder / generator output shown in the preview. When present it is
+   * the source of truth and is converted to a runner `WorkoutPlan` for the
+   * hand-off — otherwise the runner falls through to a stale sessionStorage
+   * snapshot and runs a different workout (Builder→Runner gap).
    */
   generatedWorkout?: GeneratedWorkout | null;
   isWarmupActive: boolean;
@@ -51,38 +52,40 @@ export function useWorkoutSession({
   const handleStartWorkout = useCallback(() => {
     const workoutId = workout?.id || 'favorites-workout';
 
+    // Source of truth for the runner: the legacy `workoutPlan` (favorites flow)
+    // OR — when the drawer was opened with a CustomBuilder/generator output —
+    // that `generatedWorkout` converted to a runner `WorkoutPlan`. Without this
+    // conversion the generated workout never reaches the runner and the else
+    // branch below falls through to a STALE `active_workout_data` snapshot.
+    const resolvedPlan: WorkoutPlan | null =
+      workoutPlan ??
+      (generatedWorkout
+        ? buildRunnerWorkoutPlanFromGenerated(generatedWorkout, { id: workoutId })
+        : null);
+
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('currentWorkoutPlan');
       sessionStorage.removeItem('currentWorkoutPlanId');
       sessionStorage.removeItem('currentWorkoutLocation');
 
-      // Hand-off precedence (13.07.2026, custom-builder 15→45 bug): the
-      // LIVE generatedWorkout prop is built fresh via the shared mapper and
-      // always wins — the custom builder never serialized its result, so
-      // the runner used to execute HOME's stale dashboard plan (60→bolt
-      // cap) under the builder's id. Storage re-stamp and the legacy
-      // skeleton are fallbacks only. Pure logic in resolveStartHandOff
-      // (unit-tested).
-      const handOff = resolveStartHandOff({
-        generatedWorkout,
-        storedActivePlanJson: sessionStorage.getItem('active_workout_data'),
-        legacyPlan: workoutPlan as Record<string, unknown> | null,
-        workoutId,
-        isWarmupActive,
-        location: workoutLocation,
-      });
-
-      if (handOff.source !== 'none') {
-        const json = JSON.stringify(handOff.plan);
-        if (handOff.source === 'legacy') {
-          // The skeleton must not shadow future generated plans.
-          sessionStorage.removeItem('active_workout_data');
-        } else {
-          sessionStorage.setItem('active_workout_data', json);
-        }
-        sessionStorage.setItem('currentWorkoutPlan', json);
+      if (resolvedPlan) {
+        sessionStorage.removeItem('active_workout_data');
+        const planWithCorrectId = { ...resolvedPlan, id: workoutId, isWarmupActive };
+        sessionStorage.setItem('currentWorkoutPlan', JSON.stringify(planWithCorrectId));
         sessionStorage.setItem('currentWorkoutPlanId', workoutId);
-        console.log(`[useWorkoutSession] hand-off source=${handOff.source} → ${workoutId}`);
+      } else {
+        const existing = sessionStorage.getItem('active_workout_data');
+        if (existing) {
+          try {
+            const existingPlan = JSON.parse(existing);
+            const snapshot = { ...existingPlan, id: workoutId, isWarmupActive };
+            sessionStorage.setItem('active_workout_data', JSON.stringify(snapshot));
+            sessionStorage.setItem('currentWorkoutPlan', JSON.stringify(snapshot));
+            sessionStorage.setItem('currentWorkoutPlanId', workoutId);
+          } catch {
+            console.error('[useWorkoutSession] Could not serialize workout snapshot — payload corrupt');
+          }
+        }
       }
 
       if (workoutLocation) {

@@ -7,6 +7,7 @@ import IsometricTimerCard from './IsometricTimerCard';
 import ExerciseDetailContent from './ExerciseDetailContent';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
 
 /**
  * ActiveExerciseView — the live ACTIVE-phase player surface.
@@ -57,6 +58,9 @@ export interface ActiveExerciseViewProps {
   exerciseName: string;
   /** Type of the active exercise (`reps` / `time` / etc.). */
   exerciseType: string;
+  /** B1: narrow guided-follow-along flag, forwarded to ExerciseVideoPlayer's
+   *  fullscreen/rotate affordance gate (recovery keeps it; plain warmup does not). */
+  isFollowAlong?: boolean;
   /** Whether the active exercise should run as a time-based isometric (drives IsometricTimerCard vs scrollable card). */
   isTimeExercise: boolean;
   /** Duration in seconds for time-based exercises (`IsometricTimerCard.duration`). */
@@ -125,6 +129,7 @@ export default function ActiveExerciseView({
   exerciseId,
   exerciseName,
   exerciseType,
+  isFollowAlong,
   isTimeExercise,
   exerciseDuration,
   blockWorkSec,
@@ -166,18 +171,24 @@ export default function ActiveExerciseView({
       key={activeKey}
       className={`absolute inset-0 bg-black transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
     >
-      {/* Video background layer */}
+      {/* Video background layer.
+          #2: warmup/follow-along exercises run in follow-along MODE (non-looping
+          video), so onVideoEnded auto-advanced every few seconds. It is gated below
+          behind TIMER_AUTO_ADVANCE_ENABLED (the C1 flag) — while off, the clip ends
+          without advancing; the user taps "סיימתי". Covers regular + follow-along
+          warmup, standalone + hybrid. (reps loop, so onVideoEnded never fired for them.) */}
       <ExerciseVideoPlayer
         key={`player-${activeKey}`}
         exerciseId={exerciseId}
         videoUrl={safeVideoUrl}
         exerciseName={exerciseName}
         exerciseType={exerciseType}
+        isFollowAlong={isFollowAlong}
         isPaused={isPaused}
         hasAudio={false}
         fullTutorial={exerciseFullTutorial ?? null}
         onVideoProgress={onSetVideoProgress}
-        onVideoEnded={isTimeExercise ? undefined : () => onComplete()}
+        onVideoEnded={(isTimeExercise || !TIMER_AUTO_ADVANCE_ENABLED) ? undefined : () => onComplete()}
         onLoadingChange={(loading) => {
           if (!loading) setMainVideoReady(true);
         }}
@@ -212,8 +223,15 @@ export default function ActiveExerciseView({
           ref={scrollRef}
           className="absolute inset-0 overflow-y-auto overscroll-contain z-10"
         >
-          {/* Spacer — pushes card to bottom; maximises visible video */}
-          <div className="pointer-events-none" style={{ height: 'calc(100dvh - 220px)' }} />
+          {/* Spacer — pushes card to bottom; maximises visible video. B4:
+              warmup / follow-along shows a guided clip with no big reps/target
+              number, so its card is naturally shorter — reserve less bottom
+              space (140px vs 220px) for a taller video and a card peek sized to
+              its lighter content. Live-player only; the overview sheet is untouched. */}
+          <div
+            className="pointer-events-none"
+            style={{ height: `calc(100dvh - ${exerciseType === 'follow-along' ? 140 : 220}px)` }}
+          />
 
           {/* Card — compact, content-hugging */}
           <div

@@ -689,13 +689,18 @@ export function useWorkoutStateMachine(
 
       switch (exerciseType) {
         case 'follow-along': {
-          // Warmup/cooldown exercises advance immediately on user tap —
-          // no rest screen, no log drawer. Main-segment follow-along
-          // (e.g. a skill demo) routes through RESTING + log drawer.
+          // Warmup/cooldown/recovery exercises advance immediately on user tap —
+          // no rest screen, no log drawer, no reps-input overlay. Main-segment
+          // follow-along (e.g. a skill demo) routes through RESTING + log drawer.
+          // `recovery` is included so rest-day follow-along videos get the pure
+          // tap-advance path WITHOUT depending on a "שחרור"/"קירור" keyword in
+          // the exercise name (the log entry it still writes is harmless — the
+          // recovery guard skips processWorkoutCompletion for isRecovery plans).
           const segTitle = workout.segments[currentSegmentIndex]?.title || '';
           const isWarmupCooldown =
             activeExercise?.exerciseRole === 'warmup' ||
             activeExercise?.exerciseRole === 'cooldown' ||
+            activeExercise?.exerciseRole === 'recovery' ||
             segTitle.includes('חימום') || segTitle.toLowerCase().includes('warmup') ||
             segTitle.includes('שחרור') || segTitle.includes('קירור') ||
             segTitle.toLowerCase().includes('cooldown');

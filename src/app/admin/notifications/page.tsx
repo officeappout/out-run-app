@@ -35,6 +35,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { sendEncouragementPush } from '@/features/admin/services/engagement.service';
+import { getAllUsers } from '@/features/admin/services/users.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -195,29 +196,45 @@ export default function NotificationsPage() {
 
   // ── Per-channel test send
   const [testingChannel, setTestingChannel] = useState<ChannelKey | null>(null);
-  const [testResults, setTestResults] = useState<Partial<Record<ChannelKey, 'ok' | 'err'>>>({});
+  // 'empty' = route reached OK but 0 devices registered (distinct from a real failure).
+  const [testResults, setTestResults] = useState<
+    Partial<Record<ChannelKey, { kind: 'ok' | 'err' | 'empty'; msg?: string }>>
+  >({});
 
   const handleTestSend = async (channel: ChannelKey) => {
     if (!currentUserId || testingChannel) return;
     setTestingChannel(channel);
     setTestResults((prev) => { const r = { ...prev }; delete r[channel]; return r; });
     try {
+      // Attach a Firebase ID token so auth no longer depends on the 1-hour
+      // out_admin_session cookie silently expiring (the route accepts Bearer).
+      const idToken = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/admin/notifications/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify({ channel, uid: currentUserId }),
       });
       const json = await res.json() as { delivered?: number; error?: string; reason?: string };
       if (!res.ok || json.error) {
-        console.error('[test-push]', json.error ?? json.reason);
-        setTestResults((prev) => ({ ...prev, [channel]: 'err' }));
+        setTestResults((prev) => ({
+          ...prev,
+          [channel]: { kind: 'err', msg: json.error ?? `HTTP ${res.status}` },
+        }));
+      } else if (!json.delivered || json.delivered === 0) {
+        // Delivered nothing — surface the real reason instead of "failed".
+        setTestResults((prev) => ({
+          ...prev,
+          [channel]: { kind: 'empty', msg: json.reason ?? 'לא נמסר — אין מכשירים רשומים' },
+        }));
       } else {
-        if (json.reason) console.warn('[test-push] no delivery:', json.reason);
-        setTestResults((prev) => ({ ...prev, [channel]: json.delivered && json.delivered > 0 ? 'ok' : 'err' }));
+        setTestResults((prev) => ({ ...prev, [channel]: { kind: 'ok' } }));
       }
     } catch (err) {
       console.error('[test-push] fetch failed', err);
-      setTestResults((prev) => ({ ...prev, [channel]: 'err' }));
+      setTestResults((prev) => ({ ...prev, [channel]: { kind: 'err', msg: 'שגיאת רשת' } }));
     } finally {
       setTestingChannel(null);
     }
@@ -227,17 +244,45 @@ export default function NotificationsPage() {
   const [manualOpen, setManualOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualBody, setManualBody] = useState('');
-  const [manualAudience, setManualAudience] = useState<'all' | 'active_users' | 'inactive_users' | 'park_users'>('all');
+  const [manualAudience, setManualAudience] = useState<'all' | 'active_users' | 'inactive_users' | 'park_users' | 'single_user'>('all');
   const [manualDeepLink, setManualDeepLink] = useState('/');
   const [manualSending, setManualSending] = useState(false);
   const [manualError, setManualError] = useState('');
   const [manualSuccess, setManualSuccess] = useState(false);
+  const [manualSuccessMsg, setManualSuccessMsg] = useState('');
+
+  // ── Single-user targeting (manualAudience === 'single_user')
+  const [userList, setUserList] = useState<{ id: string; name: string; email?: string; fcmTokenCount: number }[]>([]);
+  const [userListLoading, setUserListLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; fcmTokenCount: number } | null>(null);
 
   // ── Auth
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
     return unsub;
   }, []);
+
+  // ── Lazy-load the user list for single-user targeting (only when first needed).
+  useEffect(() => {
+    if (manualAudience !== 'single_user' || userList.length > 0 || userListLoading) return;
+    setUserListLoading(true);
+    getAllUsers()
+      .then((users) =>
+        setUserList(
+          users.map((u) => ({ id: u.id, name: u.name, email: u.email, fcmTokenCount: u.fcmTokenCount })),
+        ),
+      )
+      .catch((e) => console.error('[notifications] user list load failed:', e))
+      .finally(() => setUserListLoading(false));
+  }, [manualAudience, userList.length, userListLoading]);
+
+  const userQuery = userSearch.trim().toLowerCase();
+  const userMatches = manualAudience === 'single_user' && userQuery.length >= 2
+    ? userList
+        .filter((u) => u.name.toLowerCase().includes(userQuery) || (u.email?.toLowerCase().includes(userQuery) ?? false))
+        .slice(0, 8)
+    : [];
 
   // ── Load Firestore config
   const loadConfig = useCallback(async () => {
@@ -356,22 +401,58 @@ export default function NotificationsPage() {
   // ── Manual send
   const handleManualSend = async () => {
     if (!manualTitle.trim() || !manualBody.trim() || !currentUserId) return;
+    if (manualAudience === 'single_user' && !selectedUser) {
+      setManualError('בחר משתמש לשליחה.');
+      return;
+    }
     setManualSending(true);
     setManualError('');
     try {
-      await sendEncouragementPush('all', {
-        title: manualTitle.trim(),
-        message: manualBody.trim(),
-        targetAudience: manualAudience,
-        sentBy: { adminId: currentUserId, adminName: 'Admin' },
-        channel: 'encouragement',
-        deepLink: manualDeepLink || '/',
-      });
+      if (manualAudience === 'single_user' && selectedUser) {
+        // Targeted single-user send via the direct FCM route (all the user's devices).
+        const idToken = await auth.currentUser?.getIdToken();
+        const res = await fetch('/api/admin/notifications/test', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+          },
+          body: JSON.stringify({
+            channel: 'encouragement',
+            uid: selectedUser.id,
+            title: manualTitle.trim(),
+            body: manualBody.trim(),
+            deepLink: manualDeepLink || '/',
+          }),
+        });
+        const json = await res.json() as { delivered?: number; error?: string; reason?: string };
+        if (!res.ok || json.error) {
+          setManualError(json.error ?? `שגיאה (HTTP ${res.status})`);
+          return;
+        }
+        if (!json.delivered || json.delivered === 0) {
+          setManualError(json.reason ?? 'לא נמסר — אין מכשירים רשומים למשתמש.');
+          return;
+        }
+        setManualSuccessMsg(`ההודעה נשלחה ל-${selectedUser.name} ✓`);
+      } else if (manualAudience !== 'single_user') {
+        await sendEncouragementPush('all', {
+          title: manualTitle.trim(),
+          message: manualBody.trim(),
+          targetAudience: manualAudience,
+          sentBy: { adminId: currentUserId, adminName: 'Admin' },
+          channel: 'encouragement',
+          deepLink: manualDeepLink || '/',
+        });
+        setManualSuccessMsg('ההתראה נוספה לתור השליחה ✓');
+      }
       setManualSuccess(true);
       setManualTitle('');
       setManualBody('');
       setManualDeepLink('/');
       setManualAudience('all');
+      setSelectedUser(null);
+      setUserSearch('');
       loadRecentSends();
       setTimeout(() => {
         setManualSuccess(false);
@@ -509,14 +590,26 @@ export default function NotificationsPage() {
                     )}
                     שלח טסט אליי
                   </button>
-                  {testResults[entry.channel] === 'ok' && (
+                  {testResults[entry.channel]?.kind === 'ok' && (
                     <span className="flex items-center gap-1 text-xs text-green-400">
                       <CheckCircle2 size={11} />
                       נשלח
                     </span>
                   )}
-                  {testResults[entry.channel] === 'err' && (
-                    <span className="flex items-center gap-1 text-xs text-red-400">
+                  {testResults[entry.channel]?.kind === 'empty' && (
+                    <span
+                      className="flex items-center gap-1 text-xs text-amber-400"
+                      title={testResults[entry.channel]?.msg}
+                    >
+                      <AlertCircle size={11} />
+                      אין מכשירים רשומים
+                    </span>
+                  )}
+                  {testResults[entry.channel]?.kind === 'err' && (
+                    <span
+                      className="flex items-center gap-1 text-xs text-red-400"
+                      title={testResults[entry.channel]?.msg}
+                    >
                       <AlertCircle size={11} />
                       נכשל
                     </span>
@@ -676,15 +769,15 @@ export default function NotificationsPage() {
       {/* ── Manual send modal */}
       {manualOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#1a1a2e] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-5" dir="rtl">
+          <div className="bg-white border border-gray-200 shadow-2xl rounded-2xl w-full max-w-md p-6 space-y-5" dir="rtl">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Megaphone size={18} className="text-blue-400" />
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Megaphone size={18} className="text-indigo-600" />
                 שלח הודעה ידנית
               </h2>
               <button
                 onClick={() => setManualOpen(false)}
-                className="text-gray-500 hover:text-white"
+                className="text-gray-400 hover:text-gray-700"
               >
                 <X size={18} />
               </button>
@@ -692,93 +785,154 @@ export default function NotificationsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-gray-400 mb-1.5 block">כותרת *</label>
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">כותרת *</label>
                 <input
                   value={manualTitle}
                   onChange={(e) => setManualTitle(e.target.value)}
                   placeholder="כותרת ההתראה"
                   maxLength={80}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:bg-white"
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400 mb-1.5 block">גוף ההודעה *</label>
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">גוף ההודעה *</label>
                 <textarea
                   value={manualBody}
                   onChange={(e) => setManualBody(e.target.value)}
                   placeholder="טקסט מלא..."
                   maxLength={200}
                   rows={3}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:bg-white resize-none"
                 />
-                <p className="text-xs text-gray-600 mt-1 text-left">{manualBody.length}/200</p>
+                <p className="text-xs text-gray-500 mt-1 text-left">{manualBody.length}/200</p>
               </div>
               <div>
-                <label className="text-xs text-gray-400 mb-1.5 block">קהל יעד</label>
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">קהל יעד</label>
                 <select
                   value={manualAudience}
-                  onChange={(e) => setManualAudience(e.target.value as typeof manualAudience)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  onChange={(e) => {
+                    setManualAudience(e.target.value as typeof manualAudience);
+                    setManualError('');
+                    if (e.target.value !== 'single_user') { setSelectedUser(null); setUserSearch(''); }
+                  }}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
                 >
                   <option value="all">כל המשתמשים</option>
                   <option value="active_users">משתמשים פעילים</option>
                   <option value="inactive_users">משתמשים לא פעילים</option>
                   <option value="park_users">משתמשי פארק</option>
+                  <option value="single_user">משתמש בודד (לפי שם / מייל)</option>
                 </select>
               </div>
+
+              {/* Single-user picker — autocomplete over the user list */}
+              {manualAudience === 'single_user' && (
+                <div>
+                  <label className="text-xs font-medium text-gray-700 mb-1.5 block">בחר משתמש</label>
+                  {selectedUser ? (
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                      <span className="text-sm text-gray-900 truncate">
+                        {selectedUser.name}
+                        <span className="text-xs text-gray-500 mr-2">· {selectedUser.fcmTokenCount} מכשירים</span>
+                      </span>
+                      <button
+                        onClick={() => { setSelectedUser(null); setUserSearch(''); }}
+                        className="text-xs text-indigo-600 hover:text-indigo-700 flex-shrink-0"
+                      >
+                        שנה
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        placeholder={userListLoading ? 'טוען משתמשים…' : 'הקלד שם או מייל…'}
+                        disabled={userListLoading}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:bg-white disabled:opacity-50"
+                      />
+                      {userQuery.length >= 2 && !userListLoading && (
+                        <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100 bg-white">
+                          {userMatches.length === 0 ? (
+                            <div className="px-3 py-2 text-xs text-gray-500">אין תוצאות</div>
+                          ) : (
+                            userMatches.map((u) => (
+                              <button
+                                key={u.id}
+                                onClick={() => { setSelectedUser({ id: u.id, name: u.name, fcmTokenCount: u.fcmTokenCount }); setUserSearch(''); }}
+                                className="w-full text-right px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 flex items-center justify-between gap-2"
+                              >
+                                <span className="truncate">
+                                  {u.name}
+                                  {u.email && <span className="text-xs text-gray-500"> · {u.email}</span>}
+                                </span>
+                                <span className="text-xs text-gray-500 flex-shrink-0">{u.fcmTokenCount} 📱</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">שולח לכל המכשירים הרשומים של המשתמש.</p>
+                    </>
+                  )}
+                </div>
+              )}
               <div>
-                <label className="text-xs text-gray-400 mb-1.5 block">קישור עמוק (deep link)</label>
+                <label className="text-xs font-medium text-gray-700 mb-1.5 block">קישור עמוק (deep link)</label>
                 <input
                   value={manualDeepLink}
                   onChange={(e) => setManualDeepLink(e.target.value)}
                   placeholder="/"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 font-mono"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:bg-white font-mono"
                 />
               </div>
             </div>
 
             {/* Preview */}
             {(manualTitle || manualBody) && (
-              <div className="rounded-xl bg-white/5 border border-white/10 p-3">
+              <div className="rounded-xl bg-gray-50 border border-gray-200 p-3">
                 <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                   <Bell size={10} />
                   תצוגה מקדימה
                 </p>
                 <div className="flex items-start gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
-                    <Bell size={14} className="text-white" />
+                  <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+                    <Bell size={14} className="text-gray-700" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">{manualTitle || '...'}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{manualBody || '...'}</p>
+                    <p className="text-sm font-semibold text-gray-900">{manualTitle || '...'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{manualBody || '...'}</p>
                   </div>
                 </div>
               </div>
             )}
 
             {manualError && (
-              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-900/20 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                 <AlertCircle size={14} />
                 {manualError}
               </div>
             )}
             {manualSuccess && (
-              <div className="flex items-center gap-2 text-sm text-green-400 bg-green-900/20 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                 <CheckCircle2 size={14} />
-                ההתראה נוספה לתור השליחה ✓
+                {manualSuccessMsg || 'נשלח ✓'}
               </div>
             )}
 
             <div className="flex gap-3 pt-1">
               <button
                 onClick={() => setManualOpen(false)}
-                className="flex-1 py-2 rounded-lg border border-white/10 text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors"
+                className="flex-1 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors"
               >
                 ביטול
               </button>
               <button
                 onClick={handleManualSend}
-                disabled={manualSending || !manualTitle.trim() || !manualBody.trim() || !currentUserId}
+                disabled={
+                  manualSending || !manualTitle.trim() || !manualBody.trim() || !currentUserId ||
+                  (manualAudience === 'single_user' && !selectedUser)
+                }
                 className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
                 {manualSending ? (

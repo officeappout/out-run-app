@@ -168,6 +168,7 @@ export default function EditAuthorityPage() {
     name: '',
     type: 'city' as AuthorityType,
     logoUrl: '',
+    coBrandingEnabled: false,
     managerIds: [] as string[],
     contactType: 'whatsapp' as 'whatsapp' | 'email' | 'link',
     contactValue: '',
@@ -235,6 +236,7 @@ export default function EditAuthorityPage() {
         name: data.name,
         type: data.type,
         logoUrl: data.logoUrl || '',
+        coBrandingEnabled: data.coBrandingEnabled ?? false,
         managerIds: data.managerIds || [],
         contactType: data.contactType || 'whatsapp',
         contactValue: data.contactValue || '',
@@ -321,6 +323,7 @@ export default function EditAuthorityPage() {
           name: formData.name,
           type: formData.type,
           logoUrl: formData.logoUrl || undefined,
+          coBrandingEnabled: formData.coBrandingEnabled,
           managerIds: formData.managerIds,
           userCount: 0,
           ...leagueFields,
@@ -331,6 +334,7 @@ export default function EditAuthorityPage() {
           name: formData.name,
           type: formData.type,
           logoUrl: formData.logoUrl || undefined,
+          coBrandingEnabled: formData.coBrandingEnabled,
           managerIds: formData.managerIds,
           ...leagueFields,
           ...shelterFields,
@@ -517,6 +521,24 @@ export default function EditAuthorityPage() {
                   />
                 </label>
               </div>
+            </div>
+
+            {/* Co-branding — turns the OUT + community co-logo on/off (Part 1) */}
+            <div>
+              <label className="flex items-center justify-between gap-3 cursor-pointer">
+                <span className="text-sm font-bold text-gray-700">
+                  מיתוג-משותף (לוגו הקהילה ליד OUT)
+                </span>
+                <input
+                  type="checkbox"
+                  checked={formData.coBrandingEnabled}
+                  onChange={(e) => setFormData({ ...formData, coBrandingEnabled: e.target.checked })}
+                  className="w-5 h-5 accent-cyan-500"
+                />
+              </label>
+              <p className="text-xs text-gray-400 mt-1">
+                כשמופעל ויש לוגו — הלוגו יוצג ליד סמל OUT באפליקציה לחברי הקהילה. ברירת מחדל: כבוי.
+              </p>
             </div>
           </div>
         </div>

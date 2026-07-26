@@ -192,4 +192,34 @@ OAP L1 example (ready-to-sync):
 
 ---
 
+## LAW 10 — Hybrid Session XP (Combined Aerobic + Strength)
+
+A hybrid session (`workoutType: 'hybrid'` — aerobic segments + strength
+stations in one session) awards:
+
+```
+completionBonus = round( 0.05 × (aerobicXP + strengthXP) )   // 5%
+hybridXP        = aerobicXP + strengthXP + completionBonus
+```
+
+- `aerobicXP`  — the EXISTING aerobic formula (`calculateRunningWorkoutXP`,
+  walking/running per activityType) applied to the session's aerobic
+  segments (summed duration + distance).
+- `strengthXP` — the EXISTING strength formula
+  (`calculateStrengthWorkoutXP`) applied to the session's strength
+  segments (summed sets / reps / duration).
+- **Completion bonus = 5%**, applied ONCE on the combined total, and ONLY
+  when the session contains at least one COMPLETED aerobic segment AND one
+  COMPLETED strength segment. An abandoned half (e.g., run finished but
+  station skipped) earns its component XP with NO bonus.
+- No new bonuses beyond the 5%. Streak / persistence / RPE bonuses apply
+  INSIDE the component formulas exactly per LAW 4–6 — never twice.
+- Authority unchanged (LAW 0): the ONLY writer is the `awardWorkoutXP`
+  Guardian Cloud Function. The client sends component inputs; the server
+  computes and persists.
+
+*Approved by David in writing, 08.07.2026.*
+
+---
+
 *End of XP & Progression Truth — treat every number above as a hard constant.*

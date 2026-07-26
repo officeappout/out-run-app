@@ -17,6 +17,8 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { getCategoryBranding } from '@/features/admin/services/category-branding.service';
 import type { CategoryBrandingConfig } from '@/features/admin/services/category-branding.service';
 import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
+import { resolveParkImage } from '@/lib/park-image';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
 // ── Refactored Module Imports ────────────────────────────
 import {
@@ -479,6 +481,19 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       sessionStorage.setItem('selected_anchor_lng', String(userLocation.lng));
     }
 
+    // Fix 1 — durably mirror the map-arrival selection (authority + anchor) so a
+    // hard-close before the async Firestore roundtrip lands still lets a reopen
+    // resume from here. sessionStorage (above) is evicted on hard-close;
+    // onboardingPrefs also writes NSUserDefaults. Only the map-arrival path
+    // (bridge = MapShell gate, explorer = /explorer) writes these keys.
+    if (isExplorer && typeof window !== 'undefined') {
+      if (resolvedAuthorityId) setOnboardingPref('map_authority_id', resolvedAuthorityId);
+      if (userLocation) {
+        setOnboardingPref('map_anchor_lat', String(userLocation.lat));
+        setOnboardingPref('map_anchor_lng', String(userLocation.lng));
+      }
+    }
+
     // Bridge mode: persist authority and dismiss — no onboarding state changes
     if (mode === 'bridge') {
       onNext();
@@ -668,7 +683,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
               if (!bestPark || !bestPark.location?.lat || !bestPark.location?.lng) return null;
 
               const catKey = resolveCategoryKey(bestPark);
-              const icon = getFacilityIcon(bestPark.image, catKey, brandingConfig);
+              // Prefer imageUrl (Bunny, real park photo) over legacy image/images[0].
+              const icon = getFacilityIcon(resolveParkImage(bestPark, 96), catKey, brandingConfig);
                 return (
                   <MapboxMarker
                   key={`best-${bestPark.id}`}

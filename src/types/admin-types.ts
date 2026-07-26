@@ -140,8 +140,24 @@ export interface Authority {
     id: string;
     name: string;           // Authority/City name
     type: AuthorityType;    // Type: city, regional_council, local_council
+    /**
+     * Denormalized tenant vertical, mirrored from the tenants/{id} twin. Needed
+     * because AuthorityType has no 'company'/'youth_movement' value, so those
+     * orgs are stored with type='city' and would otherwise be misclassified as
+     * 'municipal' by authorityTypeToTenantType(). Absent on legacy authorities
+     * (they fall back to the type-derived vertical, which is correct for them).
+     */
+    tenantType?: TenantType;
     parentAuthorityId?: string; // For settlements (Kibbutzim/Moshavim) - links to parent Regional Council
     logoUrl?: string;      // URL for the authority's logo
+    /**
+     * Explicit opt-in to render this authority's logo as an OUT co-brand mark
+     * (community × OUT) in the app header. Default (absent) = false = not shown,
+     * even when logoUrl is populated. Deliberately decoupled from isActiveClient
+     * (billing/league gate, axiom §6) so co-branding is a separate per-community
+     * decision and enabling the feature causes zero surprise co-brands.
+     */
+    coBrandingEnabled?: boolean;
     managerIds: string[];  // List of user IDs assigned as health coordinators/managers
     userCount: number;     // Count of users associated with this authority
     unitCount?: number;    // Pre-calculated count of units in tenants/{id}/units (denormalized)

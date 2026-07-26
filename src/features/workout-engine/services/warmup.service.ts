@@ -14,7 +14,8 @@ import {
   type GeneratedWorkout,
   type WorkoutExercise,
 } from '../logic/WorkoutGenerator';
-import { type DifficultyLevel } from '../logic/workout-generator.types';
+import { type DifficultyLevel, resolveTier, type TierName } from '../logic/workout-generator.types';
+import { resolveExerciseLevelForDomains } from '../logic/workout-selection.utils';
 import { resolveToSlug } from './program-hierarchy.utils';
 import {
   isEssentialGear,
@@ -22,6 +23,8 @@ import {
 } from './trio-modifiers.service';
 import { collectMethodGear } from '../shared/constants/domain-mapping.constants';
 import { warmupSlotBudget } from '../logic/session-frame.utils';
+import { selectMethodForContext } from '../shared/utils/method-selection.utils';
+import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 
 // ============================================================================
 // CONSTANTS
@@ -495,9 +498,15 @@ export function prependWarmupExercises(
     ex: Exercise,
     reason: string,
     repRange?: { min: number; max: number },
+    isGeneral = false,
+    levelFields?: { programLevel: number; levelDelta: number; tier: TierName },
   ) => {
     const methods = ex.execution_methods || ex.executionMethods || [];
-    const method = methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location)) ?? methods[0];
+    // Route method choice through the single-source selector (park→bodyweight,
+    // never home) instead of the home-preferring find + `?? methods[0]` leak.
+    const method = CONTEXT_AWARE_SELECTION_ENABLED
+      ? selectMethodForContext(ex, location, availableEquipment ?? [])
+      : (methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location)) ?? methods[0]);
     if (!method) return;
     const isTimeBased = ex.type === 'time' || ex.mechanicalType === 'straight_arm';
     const range = isTimeBased ? WARMUP_HOLD_SECONDS : (repRange ?? { min: WARMUP_REPS, max: WARMUP_REPS });
@@ -516,6 +525,12 @@ export function prependWarmupExercises(
       score: 0,
       reasoning: [reason],
       exerciseRole: 'warmup' as const,
+      // Stage-1 general mobility warmup is pinned first by applyDomainPrioritySort.
+      ...(isGeneral ? { isGeneralWarmup: true as const } : {}),
+      // programLevel / levelDelta / tier for preparation warmups — so swap resolves a
+      // same-level alternative instead of defaulting to level 1. General follow-along
+      // guides pass none (they are level-agnostic and swap skips them).
+      ...(levelFields ?? {}),
     });
     workoutIds.add(ex.id);
   };
@@ -527,46 +542,70 @@ export function prependWarmupExercises(
    */
   const passesEquipmentAndLocation = (ex: Exercise): boolean => {
     const methods = ex.execution_methods || ex.executionMethods || [];
-    const method = methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location));
+    const method = CONTEXT_AWARE_SELECTION_ENABLED
+      ? selectMethodForContext(ex, location, availableEquipment ?? [])
+      : methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location));
     if (!method) return false;
     return isGearContextuallyAllowed(method as ExecutionMethod, activeMainGear);
+  };
+
+  /**
+   * Location-only check for follow-along video guides.
+   * Follow-along guides (joint rotations / mobility flows) need NO equipment, so we
+   * gate them purely on location: a park rotation video must not surface at home.
+   * Strict match (no home-universal fallback) so each guide stays in its own
+   * locations; locationMapping lets one guide cover several (e.g. a home guide →
+   * office/school).
+   */
+  const followAlongMatchesLocation = (ex: Exercise): boolean => {
+    const methods = ex.execution_methods || ex.executionMethods || [];
+    return methods.some(
+      (m) => m.location === location || (m.locationMapping?.includes(location) ?? false),
+    );
   };
 
   // ── Pool diagnostics ────────────────────────────────────────────────────────
   // Log how many warmup-signal exercises are in the incoming pool so we can
   // quickly verify the pool is correctly populated from the full allExercises set.
   const warmupRoleCount = allExercises.filter(ex => ex.exerciseRole === 'warmup').length;
+  const followAlongCount = allExercises.filter(ex => ex.isFollowAlong === true).length;
   const mobilityTagCount = allExercises.filter(
     ex => (ex.tags as string[] ?? []).includes('mobility'),
   ).length;
   console.log(
     `[Warmup] Pool: ${allExercises.length} total ` +
+    `| follow-along: ${followAlongCount} ` +
     `| role=warmup: ${warmupRoleCount} ` +
     `| mobility-tag: ${mobilityTagCount}`,
   );
 
   // -- Part A: EXACTLY 1 general warmup (mobility / joint rotations) --
   //
-  // Stage 1 — Location Bypass:
-  //   Exercises with `exerciseRole === 'warmup'` are follow-along video guides
-  //   (joint rotations, mobility flows, etc.) that work at any location and
-  //   require no equipment.  They bypass the location/equipment filter entirely
-  //   so they are ALWAYS available regardless of where the session takes place.
+  // Stage 1 — Location-routed follow-along guides:
+  //   Follow-along video guides (`isFollowAlong === true`) are joint-rotation / mobility
+  //   flows that require NO equipment but ARE tied to a filmed location. They are gated
+  //   on LOCATION ONLY (followAlongMatchesLocation): a park rotation video must not
+  //   surface at home, and vice versa. `locationMapping` lets one guide cover several
+  //   locations (e.g. a home guide → office / school). The distinguisher is
+  //   `isFollowAlong`, NOT `exerciseRole` — only real video guides skip the equipment
+  //   gate; anything else takes the normal path.
   //
-  //   Exercises that carry only the `mobility` tag (but are not role-tagged) still
+  //   Exercises that carry only the `mobility` tag (but are not follow-along) still
   //   pass through passesEquipmentAndLocation because they may have real equipment
   //   requirements that we do need to respect.
   //
-  // Emergency fallback:
-  //   If the primary pool is empty (no warmup-role AND no location-compatible
-  //   mobility exercise), the slot must not silently disappear.  Fall back to ANY
-  //   warmup-role exercise that has at least one execution method, ignoring the
-  //   location entirely.  The `addToBlock` helper falls back to `methods[0]`
-  //   which is already defined to be location-agnostic for video-guided drills.
+  // Never-empty fallback:
+  //   If NO follow-along guide matches this location (e.g. gym — we have no footage
+  //   there), the slot must not silently disappear. Fall back to ANY follow-along guide
+  //   that has a method, location ignored — joint rotations are location-agnostic, so an
+  //   imperfect (non-location-matched) guide beats no warmup at all.
   const generalCandidates = allExercises.filter((ex) => {
     if (workoutIds.has(ex.id)) return false;
-    // Track A1 — true warmup-role exercises: location bypass, always valid.
-    if (ex.exerciseRole === 'warmup') return true;
+    // Track A1 — follow-along video guides: need NO equipment, but MUST match the
+    // location. The distinguisher is `isFollowAlong`, NOT `exerciseRole`: only real
+    // video guides get the no-equipment treatment, and they are location-routed so a
+    // park rotation video never surfaces at home (and vice versa).
+    if (ex.isFollowAlong === true) return followAlongMatchesLocation(ex);
     // Track A2 — mobility-tagged exercises: still must pass location/equipment.
     if ((ex.tags as string[] ?? []).includes('mobility')) {
       return passesEquipmentAndLocation(ex);
@@ -579,23 +618,26 @@ export function prependWarmupExercises(
 
   if (generalCandidates.length > 0) {
     const chosen = pickWithVariety(generalCandidates)!;
-    addToBlock(chosen, 'warmup: general mobility');
+    addToBlock(chosen, 'warmup: general mobility', undefined, true);
     recordWarmupPick(chosen.id);
     stage1Name = chosen.name?.he ?? chosen.name?.en ?? chosen.id;
-    stage1Source = chosen.exerciseRole === 'warmup' ? 'role-tagged [location-bypass]' : 'mobility-tagged';
+    stage1Source = chosen.isFollowAlong === true ? 'follow-along [location-matched]' : 'mobility-tagged';
   } else {
-    // Emergency fallback: location/equipment ignored entirely.
+    // Never-empty guarantee: no follow-along guide matches this location (e.g. gym —
+    // we have no footage there). Rather than silently drop the general-mobility slot,
+    // fall back to ANY follow-along guide with the location ignored. Joint rotations
+    // are location-agnostic, so an imperfect (non-location-matched) guide beats none.
     const emergencyCandidates = allExercises.filter(ex =>
       !workoutIds.has(ex.id) &&
-      ex.exerciseRole === 'warmup' &&
+      ex.isFollowAlong === true &&
       (ex.execution_methods ?? ex.executionMethods ?? []).length > 0,
     );
     const fallback = pickWithVariety(emergencyCandidates);
     if (fallback) {
-      addToBlock(fallback, 'warmup: general mobility [emergency-fallback]');
+      addToBlock(fallback, 'warmup: general mobility [location-agnostic fallback]', undefined, true);
       recordWarmupPick(fallback.id);
       stage1Name = fallback.name?.he ?? fallback.name?.en ?? fallback.id;
-      stage1Source = 'emergency-fallback [location-ignored]';
+      stage1Source = 'fallback [no location match — location-ignored]';
     }
   }
 
@@ -655,6 +697,18 @@ export function prependWarmupExercises(
         if (lvl !== undefined) return lvl;
       }
       return maxUserLevel;
+    };
+
+    // Warmup-preparation level marking: mirror the strength path's level fields so a
+    // swap resolves a same-level alternative (instead of defaulting to level 1).
+    // Reuses the SAME primitives assignVolume uses — resolveExerciseLevelForDomains +
+    // resolveTier — WITHOUT duplicating its volume/ramp logic. rampedTarget stays
+    // undefined (warmups are never goal exercises). Sign matches assignVolume:
+    // levelDelta = exerciseLevel − userDomainLevel (positive = harder).
+    const computeWarmupLevel = (ex: Exercise): { programLevel: number; levelDelta: number; tier: TierName } => {
+      const programLevel = resolveExerciseLevelForDomains(ex, resolvedChildDomains).level;
+      const levelDelta = programLevel - getExDomainLevel(ex);
+      return { programLevel, levelDelta, tier: resolveTier(levelDelta) };
     };
 
     // Collect movementGroups associated with each family from mainExercises
@@ -793,7 +847,7 @@ export function prependWarmupExercises(
         const repRange = getSlotReps(si, family.slots);
         // Label: last slot is Priming, all preceding slots are Activation
         const slotLabel = si === family.slots ? 'priming' : 'activation';
-        addToBlock(chosen, `warmup: ${slotLabel} (${family.familyId}) slot${si}`, repRange);
+        addToBlock(chosen, `warmup: ${slotLabel} (${family.familyId}) slot${si}`, repRange, false, computeWarmupLevel(chosen));
         recordWarmupPick(chosen.id);
         if (family.broadPattern !== 'other') primedBroadPatterns.add(family.broadPattern);
         potentiationCount++;
@@ -824,7 +878,7 @@ export function prependWarmupExercises(
         const candidates = findCandidates(basePool, zone, maxUserLevel);
         const result = familyFirstPick(candidates, mg);
         if (result) {
-          addToBlock(result.chosen, `warmup: activation (legs) [mandatory]`, ACTIVATION_REPS);
+          addToBlock(result.chosen, `warmup: activation (legs) [mandatory]`, ACTIVATION_REPS, false, computeWarmupLevel(result.chosen));
           recordWarmupPick(result.chosen.id);
           primedBroadPatterns.add('legs');
           potentiationCount++;

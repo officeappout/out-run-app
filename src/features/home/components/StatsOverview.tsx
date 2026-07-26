@@ -4,7 +4,15 @@ import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react'
 import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
-import { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
+import { SHOW_MISSED_DAYS_PROMPTS, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
+import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
+import AnchorOptionToggles from './AnchorOptionToggles';
+import AnchorLocationChip from './AnchorLocationChip';
+import type { LocationId } from './WorkoutBuilderSheet';
+import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
+import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
+import { useSwapAll } from '@/features/workouts/components/workout-preview-drawer/hooks/useSwapAll';
+import { useExercisePool } from '@/features/workouts/components/workout-preview-drawer/hooks/useExercisePool';
 // PR 4 (Apr 2026) — these widgets were removed from this file as part of the
 // dashboard restructure. They are now mounted by the new dashboard rows in
 // `src/features/home/components/rows/`. The imports remain available for
@@ -34,7 +42,8 @@ import { X, Dumbbell, Footprints, SlidersHorizontal, Lock, Clock } from 'lucide-
 import { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { generateHomeWorkoutTrio } from '@/features/workout-engine/services/home-workout.service';
 import type { HomeWorkoutTrioResult } from '@/features/workout-engine/services/home-workout.types';
-import WorkoutSelectionCarousel, { CarouselSkeleton } from './WorkoutSelectionCarousel';
+import { genPerfBegin, genPerfMark, genPerfEnd } from '@/lib/gen-perf';
+import WorkoutSelectionCarousel, { CarouselSkeleton, BuildCustomButton } from './WorkoutSelectionCarousel';
 import {
   useWeeklyVolumeStore,
   calculateWeeklyBudget,
@@ -50,7 +59,7 @@ import { useGoalsForProgram } from '@/features/user/progression/hooks/useGoalsFo
 import type { GoalItem } from './widgets/ProgramProgressCard';
 import { getLocalizedText } from '@/features/content/exercises';
 import { resolveIconKey, getProgramIcon } from '@/features/content/programs';
-import { resolveParkEquipmentIds } from '@/features/workout-engine/services/park-equipment-resolver';
+import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
 import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { Target, ChevronDown } from 'lucide-react';
 
@@ -574,6 +583,73 @@ export default function StatsOverview({
     pendingScheduleRegenRef.current = true; // intentional re-generation triggered by scheduler
   }, [scheduleVersion]);
 
+  // R Track 1 items 1+2 — the anchor location chip SWAPS execution methods on the
+  // selected option (exactly like the workout-preview drawer), instead of forcing a
+  // full re-generation. This is why the chip finally "sticks": regeneration ran
+  // through ULTIMATE PARK FORCE (which discards the requested location), whereas the
+  // swap path resolves methods via selectMethodForContext and honours the location.
+  const anchorSelectedWorkout = trioResult?.options[selectedOptionIndex]?.result.workout;
+  // item 2 — reuse the drawer's pool hook so the swap does 0 per-exercise reads.
+  const { exercisePool: anchorExercisePool } = useExercisePool({
+    isOpen: HOME_ANCHOR_V2_ENABLED,
+    generatedWorkout: anchorSelectedWorkout,
+    workoutId: undefined,
+  });
+  // Writeback: replace ONLY the selected option's workout in the trio (immutable),
+  // mirroring the ProcessingOverlay path below.
+  const writeSwappedOption = useCallback((gw: GeneratedWorkout) => {
+    setTrioResult((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, options: [...prev.options] as [any, any, any] };
+      updated.options[selectedOptionIndex] = {
+        ...updated.options[selectedOptionIndex],
+        result: { ...updated.options[selectedOptionIndex].result, workout: gw },
+      };
+      return updated;
+    });
+    onWorkoutGenerated?.(gw);
+  }, [selectedOptionIndex, onWorkoutGenerated]);
+  // currentLocation = the shown workout's stamped location (so a home→park round-trip
+  // isn't swallowed by useSwapAll's same-location no-op guard), falling back to the echo.
+  const anchorShownLocation =
+    (((anchorSelectedWorkout as any)?.executionLocation as ExecutionLocation) ||
+      (currentWorkoutLocation as ExecutionLocation) ||
+      'park');
+  const { swapAll: anchorSwapAll } = useSwapAll({
+    generatedWorkout: anchorSelectedWorkout,
+    onGeneratedWorkoutUpdate: writeSwappedOption,
+    userProfile: profile,
+    currentLocation: anchorShownLocation,
+    exercisePool: anchorExercisePool,
+  });
+
+  /**
+   * The user's EXPLICIT location pick ("pinned"), deliberately kept SEPARATE from
+   * `currentWorkoutLocation` — which is the engine's ECHO of what it actually
+   * generated for (`trio.meta.location`). The generation write-back rewrites that
+   * echo on every run, so without this split an explicit pick is reverted the
+   * moment the next trio lands (and, because the echo is also written to
+   * sessionStorage, erased permanently for subsequent runs too).
+   * Stays null until the user touches the chip → unchanged behaviour otherwise.
+   */
+  const [pinnedLocation, setPinnedLocation] = useState<LocationId | null>(null);
+  // Ref mirror so the generation effect can read the pin without re-subscribing.
+  const pinnedLocationRef = useRef<LocationId | null>(null);
+  useEffect(() => { pinnedLocationRef.current = pinnedLocation; }, [pinnedLocation]);
+  // A fresh day generates a fresh trio (possibly a different location) — drop the pin
+  // so the chip reflects the new workout rather than a stale prior choice.
+  useEffect(() => { setPinnedLocation(null); }, [targetDate]);
+
+  /** Anchor location chip → pin the choice + swap methods in place (NOT a regen). */
+  const handleAnchorLocationChange = useCallback((id: LocationId) => {
+    setPinnedLocation(id);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('currentWorkoutLocation', id);
+    }
+    setCurrentWorkoutLocation(id);
+    void anchorSwapAll('location', id);
+  }, [anchorSwapAll]);
+
   // Generate workout on mount / date change — UTS Phase 2 date-reactive path
   //
   // GPS race-condition fix: park equipment is resolved INSIDE this effect,
@@ -656,23 +732,23 @@ export default function StatsOverview({
     }
 
     (async () => {
+      // #0: measure the full home-trio timeline (no-op unless GEN_TIMING is on).
+      genPerfBegin('home-trio');
       try {
-        // ── Step 1: Resolve park equipment BEFORE generation (serialized) ──
-        // Only attempt GPS for park/street locations — irrelevant overhead otherwise.
-        let resolvedParkGear: string[] = [];
-        const isParkLocation = resolvedLocation === 'park' || resolvedLocation === 'street';
-        if (isParkLocation) {
-          // Read the shared GPS fix (driven by useGPS). When no fix is
-          // available the resolver falls through to the profile-based fallback.
-          const storeFix = useGPSStore.getState().coords;
-          const gpsCoords: { lat: number; lng: number } | undefined = storeFix ?? undefined;
-          resolvedParkGear = await resolveParkEquipmentIds(profile, { gpsCoords });
-          console.log(
-            resolvedParkGear.length > 0
-              ? `[StatsOverview] Park gear resolved (${resolvedParkGear.length} items): [${resolvedParkGear.join(', ')}]`
-              : '[StatsOverview] No park gear resolved — ESSENTIAL_PARK_GEAR fallback will apply',
-          );
-        }
+        // ── Step 1: Resolve context (coverage-aware) BEFORE generation ──
+        // Inferred flow: an equipped park within 2 km → park with its REAL gear;
+        // no equipped park / no GPS fix → HOME (never a fake ESSENTIAL_PARK_GEAR park).
+        const storeFix = useGPSStore.getState().coords;
+        const ctx = await resolveWorkoutContext(profile, resolvedLocation, {
+          gpsCoords: storeFix ?? undefined,
+        });
+        const effectiveLocation = ctx.location;
+        const resolvedParkGear = ctx.availableGear;
+        console.log(
+          `[StatsOverview] Context: requested=${resolvedLocation} → effective=${effectiveLocation} ` +
+          `(source=${ctx.source}, gear=${resolvedParkGear.length})`,
+        );
+        genPerfMark('#0 context+GPS (resolveWorkoutContext / waitForGpsFix)');
 
         // ── Step 2: Consult UserSchedule ───────────────────────────────────
         //
@@ -690,6 +766,7 @@ export default function StatsOverview({
         if (!entry && profile.lifestyle?.recurringTemplate) {
           entry = await hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate);
         }
+        genPerfMark('#1-2 schedule (getScheduleEntries + hydrateFromTemplate)');
 
         const isExplicitRestDay = entry?.type === 'rest';
         const activeProgram = profile.progression?.activePrograms?.[0]?.templateId;
@@ -798,11 +875,13 @@ export default function StatsOverview({
         // so Firestore equipment IDs resolve to canonical keys in the useMemo.
         // Cached + deduped — essentially free on repeat calls.
         await ensureEquipmentCachesLoaded();
+        genPerfMark('pre-gen (schedule-derived sync + equipCache await)');
 
         // ── Step 3: Generate with fully-resolved park gear ─────────────────
+        // generateHomeWorkoutTrio adds its own internal marks (#3–#8) to this timeline.
         const trio = await generateHomeWorkoutTrio({
           userProfile: profile,
-          location: resolvedLocation,
+          location: effectiveLocation,
           availableTime: condensedTime,
           selectedDate: targetDate,
           scheduledProgramIds,
@@ -829,15 +908,20 @@ export default function StatsOverview({
             `(week=${trio.meta?.periodizationWeek}, reason=${trio.meta?.coachCue ?? 'n/a'})`,
           );
         }
-        const loc = trio.meta?.location || resolvedLocation;
+        const loc = trio.meta?.location || effectiveLocation;
         setCurrentWorkoutLocation(loc);
-        if (typeof window !== 'undefined' && loc) {
+        // Never let the engine echo erase an explicit user pick. This key is both the
+        // cross-surface channel (active page / preview drawer read it) AND the first
+        // link in the NEXT run's location chain, so overwriting it would revert the
+        // pin permanently. Unpinned → unchanged behaviour.
+        if (typeof window !== 'undefined' && loc && !pinnedLocationRef.current) {
           sessionStorage.setItem('currentWorkoutLocation', loc);
         }
       } catch (err) {
         console.error('[StatsOverview] Workout generation failed:', err);
       } finally {
         setIsGenerating(false);
+        genPerfEnd(); // #0: print the phase/read table (no-op unless GEN_TIMING is on)
       }
     })();
   }, [profile?.id, isGuest, targetDate, scheduleVersion]);
@@ -1027,8 +1111,27 @@ export default function StatsOverview({
     <div>
       {/* Header + description — padded */}
       <div className="px-5" dir="rtl">
-        <div className="relative mb-1">
+        <div
+          className={
+            HOME_ANCHOR_V2_ENABLED
+              ? 'relative mb-1 flex items-center justify-between gap-2'
+              : 'relative mb-1'
+          }
+        >
           <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">האימון היומי שלך</h3>
+          {/* Location square beside the title. Shows the user's pin when there is one,
+              otherwise the engine's echo (clamped to the pickable set). */}
+          {HOME_ANCHOR_V2_ENABLED && (
+            <AnchorLocationChip
+              value={
+                pinnedLocation ??
+                (currentWorkoutLocation === 'park' || currentWorkoutLocation === 'home'
+                  ? currentWorkoutLocation
+                  : 'park')
+              }
+              onSelect={handleAnchorLocationChange}
+            />
+          )}
           {!hasCompletedAssessment && (
             <img
               src="/assets/lemur/lemur_curious_peek.png"
@@ -1046,7 +1149,9 @@ export default function StatsOverview({
       </div>
 
       {/* Periodization / Reactivation Coach Cue Banner */}
-      {trioResult?.meta?.coachCue && (
+      {/* Gated behind SHOW_MISSED_DAYS_PROMPTS (default off). trioResult.meta.coachCue
+          is still computed by the periodization service — only this display is hidden. */}
+      {SHOW_MISSED_DAYS_PROMPTS && trioResult?.meta?.coachCue && (
         <div
           className="mx-4 mb-3 px-4 py-3 rounded-2xl text-sm font-medium text-center"
           style={{ backgroundColor: 'rgba(99,102,241,0.12)', color: '#4f46e5' }}
@@ -1058,19 +1163,46 @@ export default function StatsOverview({
 
       {/* Carousel — blurred with lemur teaser overlay when assessment is not completed */}
       <div className="relative">
-        <div className={!hasCompletedAssessment ? 'blur-md pointer-events-none select-none' : ''}>
+        <div
+          className={!hasCompletedAssessment ? 'blur-md pointer-events-none select-none' : ''}
+          inert={!hasCompletedAssessment || undefined}
+        >
           {trioResult ? (
-            <WorkoutSelectionCarousel
-              options={trioResult.options}
-              isRestDay={trioResult.isRestDay}
-              onSelect={handleTrioSelect}
-              onStart={handleTrioStart}
-              workoutLocation={currentWorkoutLocation}
-              programIconKey={primaryDomainId}
-              selectedIndex={selectedOptionIndex}
-              userGender={profile?.core?.gender}
-              onBuildCustom={handleBuildCustomWrapped}
-            />
+            HOME_ANCHOR_V2_ENABLED ? (
+              /* R Track 1 anchor: toggle row (3 options) → single hero (recommended)
+                 → "מחולל" builder. Engine unchanged — still trioResult.options[3];
+                 selection reuses selectedOptionIndex + handleTrioSelect/handleTrioStart. */
+              <div className="flex flex-col items-center gap-3 px-4">
+                <AnchorOptionToggles
+                  labels={trioResult.options.map((o) => o.label)}
+                  selectedIndex={selectedOptionIndex}
+                  onSelect={handleTrioSelect}
+                  recommendedIndex={trioResult.meta?.defaultFocusIndex}
+                />
+                <HeroWorkoutCard
+                  variant="active"
+                  workout={generatedToHeroWorkout(trioResult.options[selectedOptionIndex].result.workout)}
+                  exercises={trioResult.options[selectedOptionIndex].result.workout.exercises}
+                  workoutLocation={currentWorkoutLocation}
+                  programIconKey={primaryDomainId}
+                  userGender={profile?.core?.gender}
+                  onStart={() => handleTrioStart(selectedOptionIndex)}
+                />
+                <BuildCustomButton onTap={handleBuildCustomWrapped} userGender={profile?.core?.gender} />
+              </div>
+            ) : (
+              <WorkoutSelectionCarousel
+                options={trioResult.options}
+                isRestDay={trioResult.isRestDay}
+                onSelect={handleTrioSelect}
+                onStart={handleTrioStart}
+                workoutLocation={currentWorkoutLocation}
+                programIconKey={primaryDomainId}
+                selectedIndex={selectedOptionIndex}
+                userGender={profile?.core?.gender}
+                onBuildCustom={handleBuildCustomWrapped}
+              />
+            )
           ) : (
             <CarouselSkeleton />
           )}
@@ -1079,19 +1211,43 @@ export default function StatsOverview({
         {!hasCompletedAssessment && (
           <button
             onClick={() => onStartWorkout?.()}
+            aria-label="בואו נגלה כמה אתם חזקים"
             className="absolute inset-0 z-10 flex items-center justify-center"
           >
-            <div
-              className="flex flex-col items-center gap-1 px-6 py-4 rounded-2xl shadow-xl"
-              style={{ backgroundColor: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(6px)' }}
-              dir="rtl"
-            >
-              <span className="text-[15px] font-black text-gray-800 leading-snug">
-                בואו נראה למה אתם מסוגלים...
-              </span>
-              <span className="text-xs text-gray-500 font-medium">
-                שאלון קצר והאימונים פתוחים!
-              </span>
+            {/* Hero CTA — V2 "breathing glow": the app's primary gradient-pill
+                idiom (#00BAF7→#0CF2E3) with a gentle transform/opacity breathe
+                on THIS single button only. No shared keyframe/token touched. */}
+            <div className="relative flex items-center justify-center" dir="rtl">
+              <motion.div
+                aria-hidden
+                className="absolute rounded-full"
+                style={{
+                  width: '78%',
+                  height: '70%',
+                  background:
+                    'radial-gradient(closest-side, rgba(0,186,247,0.5), rgba(12,242,227,0.25) 60%, transparent 78%)',
+                  filter: 'blur(16px)',
+                }}
+                animate={{ opacity: [0.55, 0.95, 0.55], scale: [0.96, 1.08, 0.96] }}
+                transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
+              />
+              <motion.div
+                className="relative flex flex-col items-center gap-1 px-7 py-3.5 rounded-full shadow-lg"
+                style={{
+                  background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)',
+                  boxShadow: '0 10px 26px -8px rgba(0,186,247,0.6)',
+                  color: '#04212a',
+                }}
+                animate={{ scale: [0.985, 1.028, 0.985] }}
+                transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
+              >
+                <span className="text-[15px] font-black leading-snug">
+                  בואו נגלה כמה אתם חזקים
+                </span>
+                <span className="text-xs font-medium" style={{ color: 'rgba(4,33,42,0.72)' }}>
+                  שאלון של דקה — והכול נפתח
+                </span>
+              </motion.div>
             </div>
           </button>
         )}

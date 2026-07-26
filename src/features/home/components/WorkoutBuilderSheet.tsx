@@ -6,7 +6,7 @@ import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import type { GearDefinition } from '@/features/content/equipment/gear';
 import { useUserStore } from '@/features/user';
 import { generateHomeWorkout } from '@/features/workout-engine/services/home-workout.service';
-import { resolveParkEquipmentIds } from '@/features/workout-engine/services/park-equipment-resolver';
+import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import type { DifficultyLevel, GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
@@ -26,7 +26,7 @@ import { resolveToSlug } from '@/features/workout-engine/services/program-hierar
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
-type LocationId = 'park' | 'gym' | 'home';
+export type LocationId = 'park' | 'gym' | 'home';
 
 interface DisplayProgram {
   id: string;
@@ -50,14 +50,16 @@ export interface WorkoutBuilderSheetProps {
   onClose: () => void;
 }
 
-const LOCATION_OPTIONS: {
+export const LOCATION_OPTIONS: {
   id: LocationId;
   label: string;
   sub: string;
   Icon: React.ComponentType<{ size: number; className?: string }>;
 }[] = [
+  // חדר כושר removed from every user-facing location picker — no gym footage exists.
+  // 'gym' intentionally REMAINS in the ExecutionLocation type + LocationId so already
+  // gym-tagged content stays valid; it is simply not offerable.
   { id: 'park', label: 'בחוץ',     sub: 'פארק / מגרש', Icon: Trees },
-  { id: 'gym',  label: 'חדר כושר', sub: 'מכשירים',      Icon: Dumbbell },
   { id: 'home', label: 'בבית',     sub: 'אימון ביתי',   Icon: Home },
 ];
 
@@ -590,9 +592,12 @@ export default function WorkoutBuilderSheet({
       const usagePct  = (store as any).getBudgetUsagePercent?.() ?? undefined;
       const autoBlast = difficulty === 3 && availableTime <= 20;
 
+      // Explicit location choice: keep it (allowHomeOverride:false), but resolve
+      // the nearest EQUIPPED park's real gear via GPS (Phase 3a/3b) instead of the
+      // old no-GPS path that fell straight to ESSENTIAL_PARK_GEAR.
       const isPark = location === 'park' || location === 'street';
       const parkEquipmentIds = isPark
-        ? await resolveParkEquipmentIds(profile)
+        ? (await resolveWorkoutContext(profile, location as ExecutionLocation, { allowHomeOverride: false })).availableGear
         : undefined;
 
       // ── Effective program: explicit pill > CU arbitration > suggested ────
@@ -677,7 +682,9 @@ export default function WorkoutBuilderSheet({
       description: generatedWorkout.description || '',
       difficulty:  diffMap[generatedWorkout.difficulty] ?? 'medium',
       duration:    generatedWorkout.estimatedDuration,
-      coverImage:  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
+      // No park context here — let the drawer fall through to the real exercise
+      // Bunny thumbnail (heroMedia) instead of a foreign stock gym photo.
+      coverImage:  '',
       segments:    [] as [],
     };
   }, [generatedWorkout, workoutId]);
@@ -776,8 +783,8 @@ export default function WorkoutBuilderSheet({
 
         {/* 1. מיקום וציוד — merged section */}
         <Section title="מיקום וציוד">
-          {/* Location 3-col grid */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          {/* Location grid — 2 options since חדר כושר was removed */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
             {LOCATION_OPTIONS.map(({ id, label, sub, Icon }) => {
               const active = location === id;
               return (

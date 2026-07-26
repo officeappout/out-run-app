@@ -274,10 +274,22 @@ const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 
 let _intervalId: ReturnType<typeof setInterval> | null = null;
 
+// Battery guard (perf/batch1): when the app is backgrounded the MAP heartbeat
+// is paused so it stops waking the radio every 2 min. Toggled via
+// setMapHeartbeatPaused(); reset on every start/stop so the paused state never
+// leaks across mounts. This affects ONLY the map heartbeat — the workout
+// heartbeat (_workoutIntervalId, below) intentionally keeps broadcasting
+// during an active running session even with the screen off.
+let _heartbeatPaused = false;
+let _mapGetPayload: (() => PresencePayload | null) | null = null;
+
 export function startHeartbeat(getPayload: () => PresencePayload | null): void {
   stopHeartbeat();
+  _heartbeatPaused = false;
+  _mapGetPayload = getPayload;
 
   const tick = () => {
+    if (_heartbeatPaused) return; // backgrounded — skip the Firestore write
     const payload = getPayload();
     if (payload) {
       updatePresence(payload).catch((err) =>
@@ -294,6 +306,28 @@ export function stopHeartbeat(): void {
   if (_intervalId) {
     clearInterval(_intervalId);
     _intervalId = null;
+  }
+  _heartbeatPaused = false;
+  _mapGetPayload = null;
+}
+
+/**
+ * Battery guard: pause/resume the MAP heartbeat when the app backgrounds /
+ * foregrounds. Does NOT touch the workout heartbeat (that must keep
+ * broadcasting during an active running session, screen-off included). On
+ * resume, fires ONE immediate presence write so the map is fresh without
+ * waiting up to 2 min for the next tick.
+ */
+export function setMapHeartbeatPaused(paused: boolean): void {
+  if (_heartbeatPaused === paused) return;
+  _heartbeatPaused = paused;
+  if (!paused && _mapGetPayload) {
+    const payload = _mapGetPayload();
+    if (payload) {
+      updatePresence(payload).catch((err) =>
+        console.warn('[Presence] resume write failed:', err),
+      );
+    }
   }
 }
 

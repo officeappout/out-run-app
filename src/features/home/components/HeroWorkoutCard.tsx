@@ -4,7 +4,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { MockWorkout } from '../data/mock-schedule-data';
 import { Dumbbell, Check, TrendingUp, Clock, Flag, PersonStanding } from 'lucide-react';
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
-import { resolveVideoForLocation, resolveImageForLocation } from '@/features/content/exercises/core/exercise.types';
+import { pickHeroExercise, resolveHeroMedia } from '@/features/workout-engine/shared/utils/heroMedia.utils';
 import {
   resolveEquipmentLabel,
   resolveEquipmentSvgPathList,
@@ -13,64 +13,15 @@ import {
   normalizeGearId,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { SmartMessage } from '@/features/messages/services/MessageService';
+import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
+import CircularProgress from '@/components/CircularProgress';
+import { getStrengthRingView } from '../utils/strengthRingView';
 
-// ============================================================================
-// Movement-group fallback images (high-quality Unsplash)
-// ============================================================================
-const MOVEMENT_GROUP_FALLBACKS: Record<string, string> = {
-  horizontal_push: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=800&q=80',
-  vertical_push:   'https://images.unsplash.com/photo-1598971639058-a0c1e5321546?auto=format&fit=crop&w=800&q=80',
-  horizontal_pull:  'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?auto=format&fit=crop&w=800&q=80',
-  vertical_pull:   'https://images.unsplash.com/photo-1598971457999-ca4ef48a9a71?auto=format&fit=crop&w=800&q=80',
-  squat:           'https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&w=800&q=80',
-  hinge:           'https://images.unsplash.com/photo-1434682881908-b43d0467b798?auto=format&fit=crop&w=800&q=80',
-  core:            'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
-  isolation:       'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=800&q=80',
-};
-const DEFAULT_HERO_IMAGE = 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=800&q=80';
-
-
-/**
- * Pick one "mandatory" exercise from the workout for the hero media.
- * Mandatory = has reps > 0 AND is not a warmup/cooldown.
- * Falls back to the first exercise or undefined.
- */
-export function pickHeroExercise(exercises?: WorkoutExercise[]): WorkoutExercise | undefined {
-  if (!exercises?.length) return undefined;
-
-  const mandatory = exercises.filter(
-    (ex) =>
-      ex.reps > 0 &&
-      ex.exercise.exerciseRole !== 'warmup' &&
-      ex.exercise.exerciseRole !== 'cooldown'
-  );
-
-  if (mandatory.length === 0) return exercises[0];
-  return mandatory[0];
-}
-
-/**
- * Resolve thumbnail & video URLs for a given WorkoutExercise.
- * Priority: execution-method media -> legacy exercise.media -> movement-group fallback.
- */
-export function resolveHeroMedia(
-  ex: WorkoutExercise | undefined,
-  location?: string | null,
-): { thumbnailUrl: string; videoUrl: string } {
-  if (!ex) {
-    return { thumbnailUrl: DEFAULT_HERO_IMAGE, videoUrl: '' };
-  }
-
-  const image = resolveImageForLocation(ex.exercise, location);
-  const video = resolveVideoForLocation(ex.exercise, location);
-
-  const thumbnailUrl =
-    image ||
-    MOVEMENT_GROUP_FALLBACKS[ex.exercise.movementGroup || ''] ||
-    DEFAULT_HERO_IMAGE;
-
-  return { thumbnailUrl, videoUrl: video || '' };
-}
+// Hero-media selection + resolution moved to a shared util so the map/workout
+// preview drawer can compute the hero from its OWN generatedWorkout (no more
+// global sessionStorage channel). Re-exported here so existing home consumers
+// (StatsOverview, WorkoutSelectionCarousel) keep their `./HeroWorkoutCard` import.
+export { pickHeroExercise, resolveHeroMedia };
 
 // ============================================================================
 // Lazy Video Background -- thumbnail -> video crossfade
@@ -448,6 +399,16 @@ export interface CompletionData {
   workoutTitle?: string;
   streak?: number;
   thumbnailUrl?: string;
+  /**
+   * Daily Strength Ring (Layer A). When present, the celebration card renders
+   * the ring in place of the static improvement row. Populated by home only
+   * when STRENGTH_RING_ENABLED — absent (and thus byte-identical) when off.
+   */
+  ring?: {
+    completedSets: number;
+    targetSets: number;
+    avgMinutesPerSet: number;
+  };
 }
 
 interface HeroWorkoutCardProps {
@@ -495,6 +456,9 @@ export default function HeroWorkoutCard({
 }: HeroWorkoutCardProps) {
   const dims = CARD_VARIANTS[variant];
   const isSide = variant === 'side';
+  // Equipment badges wait for the gear caches (non-blocking — the card renders now,
+  // badges appear once resolvers can return real icons instead of raw ids).
+  const iconsReady = useEquipmentIconsReady();
 
   const getDifficultyNumber = (difficulty: string | number): number => {
     if (typeof difficulty === 'number') return Math.min(3, Math.max(1, difficulty));
@@ -511,6 +475,8 @@ export default function HeroWorkoutCard({
   );
 
   const equipmentIcons = useMemo(() => {
+    // Wait for warm caches — resolving cold would drop/mis-resolve icons.
+    if (!iconsReady) return { display: [], total: 0 };
     if (!exercises?.length) return { display: [], total: 0 };
     const seen = new Set<string>();
     const icons: { srcList: string[]; label: string; norm: string }[] = [];
@@ -540,7 +506,7 @@ export default function HeroWorkoutCard({
       return pa - pb;
     });
     return { display: icons.slice(0, 4), total: icons.length };
-  }, [exercises, workoutLocation]);
+  }, [exercises, workoutLocation, iconsReady]);
 
   const programIconSrc = programIconKey
     ? PROGRAM_ICON_MAP[programIconKey.toLowerCase()] ?? null
@@ -559,6 +525,23 @@ export default function HeroWorkoutCard({
       return h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}:00`;
     })();
     const workoutLabel = completionData.workoutTitle || workout.title || 'אימון כוח';
+
+    // Daily Strength Ring (Layer A) — reuses the shared CircularProgress. Center
+    // shows % of the daily target (minutes are intentionally NOT shown here — they
+    // are reserved for push notifications). Always 'active' in the celebration: the
+    // card exists only because the user trained today, so on a scheduled rest day
+    // (targetSets 0) we fall back to completedSets → a full ring, not the rest visual.
+    const ringView = completionData.ring
+      ? getStrengthRingView({
+          completedSets: completionData.ring.completedSets,
+          targetSets:
+            completionData.ring.targetSets > 0
+              ? completionData.ring.targetSets
+              : completionData.ring.completedSets,
+          avgMinutesPerSet: completionData.ring.avgMinutesPerSet,
+          mode: 'active',
+        })
+      : null;
 
     return (
       <div className="w-full" dir="rtl">
@@ -580,16 +563,19 @@ export default function HeroWorkoutCard({
 
           {/* Two-column body: thumbnail (right in RTL = first child) + stats (left in RTL = second child) */}
           <div className="flex items-stretch px-4 pb-4 gap-3">
-            {/* Thumbnail — first child → right side in RTL */}
-            <div className="w-[120px] flex-shrink-0 overflow-hidden" style={{ borderRadius: 12 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={thumbSrc}
-                alt={workoutLabel}
-                className="w-full h-full object-cover"
-                style={{ minHeight: 120 }}
-              />
-            </div>
+            {/* Thumbnail — first child → right side in RTL. Dropped in the ring
+                variant (the ring is the focal metric → "בלי תמונה"). */}
+            {!completionData.ring && (
+              <div className="w-[120px] flex-shrink-0 overflow-hidden" style={{ borderRadius: 12 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={thumbSrc}
+                  alt={workoutLabel}
+                  className="w-full h-full object-cover"
+                  style={{ minHeight: 120 }}
+                />
+              </div>
+            )}
 
             {/* Stats box — second child → left side in RTL */}
             <div
@@ -598,14 +584,26 @@ export default function HeroWorkoutCard({
             >
               <span className="text-[14px] font-bold text-gray-900">{workoutLabel}</span>
 
-              <div className="flex items-center gap-1 text-[13px] text-gray-700">
-                <TrendingUp size={14} className="text-gray-600" />
-                <span>
-                  {improvement != null && improvement !== 0
-                    ? `שיפור בביצועים של ${Math.abs(improvement)}%`
-                    : 'שיפור בביצועים'}
-                </span>
-              </div>
+              {ringView ? (
+                <div className="flex flex-col items-center gap-0.5">
+                  <CircularProgress
+                    percentage={Math.round(ringView.fillPct * 100)}
+                    size={72}
+                    strokeWidth={6}
+                    colorClass="text-[#00C9F2]"
+                  />
+                  <span className="text-[11px] font-semibold text-gray-400">מהיעד היומי</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-[13px] text-gray-700">
+                  <TrendingUp size={14} className="text-gray-600" />
+                  <span>
+                    {improvement != null && improvement !== 0
+                      ? `שיפור בביצועים של ${Math.abs(improvement)}%`
+                      : 'שיפור בביצועים'}
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center gap-1 text-[13px] text-gray-700">
                 <Clock size={14} className="text-gray-500" />

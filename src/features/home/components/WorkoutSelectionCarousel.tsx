@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { motion, PanInfo } from 'framer-motion';
-import { PersonStanding, Heart, Sparkles } from 'lucide-react';
+import { PersonStanding, Heart } from 'lucide-react';
+import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { WorkoutTrioOption } from '@/features/workout-engine/services/home-workout.types';
 import { useFavoritesStore } from '@/features/favorites/store/useFavoritesStore';
 import {
@@ -20,6 +21,7 @@ import {
   normalizeGearId,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import { useToast } from '@/components/ui/Toast';
 
 // ─── Layout — tuned for 260px card on a 390px viewport ──────────────────────
@@ -281,6 +283,8 @@ function TrioCard({
   const ctaText = useMemo(() => getGenderedCtaText(userGender, option.label), [userGender, option.label]);
   const isNakedOption = /ללא ציוד|naked/i.test(option.label);
   const isFavorited = useFavoritesStore((s) => s.isFavorited(workout));
+  // Equipment badges wait for warm gear caches (non-blocking — card renders now).
+  const iconsReady = useEquipmentIconsReady();
 
   const heroExercise = useMemo(() => pickHeroExercise(exercises), [exercises]);
   const heroMedia = useMemo(
@@ -289,6 +293,7 @@ function TrioCard({
   );
 
   const equipmentIcons = useMemo(() => {
+    if (!iconsReady) return { display: [], total: 0 };
     if (isNakedOption) return { display: [], total: 0 };
     if (!exercises?.length) return { display: [], total: 0 };
     const seen = new Set<string>();
@@ -327,7 +332,7 @@ function TrioCard({
     });
 
     return { display: icons.slice(0, 4), total: icons.length };
-  }, [exercises, isNakedOption, workoutLocation]);
+  }, [exercises, isNakedOption, workoutLocation, iconsReady]);
 
   const programIconSrc = programIconKey
     ? PROGRAM_ICON_MAP[programIconKey.toLowerCase()] ?? null
@@ -483,112 +488,16 @@ const MESSAGES_FEMALE = [
   'רוצה לבנות אימון בעצמך? ✦',
 ];
 
-function BuildCustomButton({
+export function BuildCustomButton({
   onTap,
   userGender,
 }: {
   onTap: () => void;
   userGender?: 'male' | 'female' | 'other' | null;
 }) {
+  // Chrome extracted to the shared ShimmerPhraseButton; home keeps its gendered copy.
   const messages = userGender === 'female' ? MESSAGES_FEMALE : MESSAGES_MALE;
-  const [msgIdx, setMsgIdx] = useState(0);
-  const [visible, setVisible] = useState(true);
-  const [pressed, setPressed] = useState(false);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setMsgIdx(i => (i + 1) % messages.length);
-        setVisible(true);
-      }, 300);
-    }, 5000);
-    return () => clearInterval(id);
-  }, [messages.length]);
-
-  return (
-    <div className="px-4 pb-3 relative" dir="rtl">
-      <style>{`
-        @keyframes shimmerBorder {
-          0%   { background-position: 0% 50%; }
-          100% { background-position: 300% 50%; }
-        }
-        @keyframes shimmerBorderFast {
-          0%   { background-position: 0% 50%; }
-          100% { background-position: 300% 50%; }
-        }
-      `}</style>
-
-      {/* Ambient glow — brand-colored radial blur behind the button */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 80% 70% at 50% 60%, rgba(0,186,247,0.22) 0%, rgba(12,242,227,0.14) 50%, transparent 80%)',
-          filter: 'blur(20px)',
-          zIndex: 0,
-        }}
-      />
-
-      {/* Gradient border wrapper */}
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          padding: 2,
-          borderRadius: 50,
-          background: 'linear-gradient(90deg, #00BAF7, #0CF2E3, #00BAF7, #0CF2E3)',
-          backgroundSize: '300% 100%',
-          animation: pressed
-            ? 'shimmerBorderFast 1s linear infinite'
-            : 'shimmerBorder 5.5s linear infinite',
-          transform: pressed ? 'scale(0.97)' : 'scale(1)',
-          boxShadow: pressed ? '0 0 14px rgba(0,186,247,0.35)' : 'none',
-          transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-        }}
-        onPointerDown={() => setPressed(true)}
-        onPointerUp={() => { setPressed(false); onTap(); }}
-        onPointerLeave={() => setPressed(false)}
-        onPointerCancel={() => setPressed(false)}
-      >
-        {/* Inner transparent surface */}
-        <div
-          style={{
-            borderRadius: 48,
-            background: 'white',
-            padding: '14px 22px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            cursor: 'pointer',
-            minHeight: 52,
-            direction: 'rtl',
-          }}
-        >
-          <Sparkles size={18} color="#00BAF7" strokeWidth={2} style={{ flexShrink: 0 }} />
-          <span
-            style={{
-              flex: 1,
-              fontSize: 15,
-              fontWeight: 500,
-              color: '#00BAF7',
-              textAlign: 'center',
-              opacity: visible ? 1 : 0,
-              transform: visible ? 'translateY(0)' : 'translateY(5px)',
-              transition: visible
-                ? 'opacity 0.4s ease, transform 0.4s ease'
-                : 'opacity 0.3s ease, transform 0.3s ease',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {messages[msgIdx]}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
+  return <ShimmerPhraseButton messages={messages} onTap={onTap} />;
 }
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────

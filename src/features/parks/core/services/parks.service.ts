@@ -76,6 +76,8 @@ function normalizePark(docId: string, data: any): Park {
     gymEquipment: Array.isArray(data?.gymEquipment) ? data.gymEquipment : undefined,
     amenities: data?.amenities ?? undefined,
     authorityId: data?.authorityId ?? undefined,
+    neighborhoodId: data?.neighborhoodId ?? undefined,
+    neighborhoodName: data?.neighborhoodName ?? undefined,
     isFunctional: data?.isFunctional ?? undefined,
     rating: typeof data?.rating === 'number' ? data.rating : undefined,
     status: (data?.status as ParkStatus) ?? 'open',
@@ -125,6 +127,31 @@ export async function getParksByAuthority(authorityId: string, tenantId?: string
       return [];
     }
     console.error('Error fetching parks by authority:', error);
+    return [];
+  }
+}
+
+/**
+ * Get parks by neighborhood/settlement (leaf sub-location) ID.
+ * Filters on the denormalized `neighborhoodId` field. `authorityId` stays the
+ * top authority (city/council), so this is the ONLY query keyed off the leaf.
+ * Gracefully handles missing Firebase index errors (same pattern as getParksByAuthority).
+ */
+export async function getParksByNeighborhood(neighborhoodId: string): Promise<Park[]> {
+  try {
+    const q = query(
+      collection(db, PARKS_COLLECTION),
+      where('neighborhoodId', '==', neighborhoodId),
+      orderBy('name', 'asc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => normalizePark(doc.id, doc.data()));
+  } catch (error: any) {
+    if (error?.code === 'failed-precondition' || error?.code === 'unavailable') {
+      console.warn('[Parks Service] Firebase index not ready yet (neighborhood query). Returning empty array.');
+      return [];
+    }
+    console.error('Error fetching parks by neighborhood:', error);
     return [];
   }
 }
@@ -181,29 +208,42 @@ function writeParksToStorage(parks: Park[]): void {
  * existing callers that don't pass a callback still benefit from the instant
  * cache hit; only AppMap needs to wire up the background state update.
  */
+// Shared in-flight promise so that N callers mounting together (AppMap +
+// DiscoverLayer + the route hooks) coalesce into ONE Firestore getDocs instead
+// of firing one each — which is what makes the "at most one round-trip
+// regardless of how many hooks call in parallel" guarantee above actually hold.
+// Cleared when the round-trip settles.
+let _inflightParksFetch: Promise<Park[]> | null = null;
+
+function fetchAndCacheParks(): Promise<Park[]> {
+  if (_inflightParksFetch) return _inflightParksFetch;
+  _inflightParksFetch = getDocs(collection(db, PARKS_COLLECTION))
+    .then((snapshot) => {
+      const fresh = snapshot.docs.map((d) => normalizePark(d.id, d.data()));
+      writeParksToStorage(fresh);
+      return fresh;
+    })
+    .finally(() => { _inflightParksFetch = null; });
+  return _inflightParksFetch;
+}
+
 export async function fetchRealParks(
   onRefresh?: (parks: Park[]) => void,
 ): Promise<Park[]> {
   const cached = readParksFromStorage();
 
   if (cached) {
-    // Return stale data instantly, refresh in background.
-    getDocs(collection(db, PARKS_COLLECTION))
-      .then((snapshot) => {
-        const fresh = snapshot.docs.map((d) => normalizePark(d.id, d.data()));
-        writeParksToStorage(fresh);
-        onRefresh?.(fresh);
-      })
+    // Return stale data instantly; refresh in background via the shared
+    // (de-duped) fetch so concurrent warm callers don't each fire a getDocs.
+    fetchAndCacheParks()
+      .then((fresh) => { onRefresh?.(fresh); })
       .catch(() => { /* background refresh failure is non-fatal */ });
     return cached;
   }
 
-  // Cold fetch — no valid cache available.
+  // Cold fetch — no valid cache. Concurrent cold callers share one getDocs.
   try {
-    const snapshot = await getDocs(collection(db, PARKS_COLLECTION));
-    const parks = snapshot.docs.map((d) => normalizePark(d.id, d.data()));
-    writeParksToStorage(parks);
-    return parks;
+    return await fetchAndCacheParks();
   } catch (error) {
     console.error('[Parks Service] Error fetching parks:', error);
     return [];
@@ -257,6 +297,8 @@ export async function createPark(data: Omit<Park, 'id' | 'createdAt' | 'updatedA
       gymEquipment: Array.isArray(data.gymEquipment) ? data.gymEquipment : [],
       amenities: data.amenities ?? null,
       authorityId: data.authorityId ?? null,
+      neighborhoodId: data.neighborhoodId ?? null,
+      neighborhoodName: data.neighborhoodName ?? null,
       status: data.status ?? 'open',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -312,6 +354,8 @@ export async function updatePark(
     }
     if (data.amenities !== undefined) updateData.amenities = data.amenities ?? null;
     if (data.authorityId !== undefined) updateData.authorityId = data.authorityId ?? null;
+    if (data.neighborhoodId !== undefined) updateData.neighborhoodId = data.neighborhoodId ?? null;
+    if (data.neighborhoodName !== undefined) updateData.neighborhoodName = data.neighborhoodName ?? null;
     if (data.status !== undefined) updateData.status = data.status;
     
     await updateDoc(docRef, updateData);

@@ -62,11 +62,22 @@ export async function convertExercisesToWorkoutPlan(
     return imageUrl;
   };
 
+  // Centralised through resolveExerciseMedia: reads the method's Bunny id from ALL slots
+  // (previewVideo → bunnyVideoId_mainVideoUrl → mainVideoUrl) before root, and carries the
+  // bare id on the flat exercise for network-aware adaptive playback.
+  const resolveVideoWithBunny = (
+    ex: FirestoreExercise,
+    method: any,
+  ): { videoUrl: string | undefined; bunnyVideoId: string | undefined } => {
+    const { videoUrl, bunnyVideoId } = resolveExerciseMedia(ex as any, method as any);
+    return { videoUrl, bunnyVideoId };
+  };
+
   // Warm-up segment
   if (warmupExercises.length > 0) {
     const warmupWorkoutExercises: WorkoutExercise[] = warmupExercises.map((ex) => {
       const executionMethod = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
-      const mainVideoUrl = executionMethod?.media?.mainVideoUrl || ex.media?.videoUrl;
+      const { videoUrl: mainVideoUrl, bunnyVideoId } = resolveVideoWithBunny(ex, executionMethod);
       const imageUrl = resolveImageUrl(ex);
 
       let targetType: 'time' | 'reps' = 'time';
@@ -93,6 +104,7 @@ export async function convertExercisesToWorkoutPlan(
         duration,
         videoUrl: mainVideoUrl,
         imageUrl,
+        bunnyVideoId,
         fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any).fullTutorial,
         instructions: ex.content?.highlights || [],
         icon: '🔥',
@@ -123,7 +135,7 @@ export async function convertExercisesToWorkoutPlan(
   if (mainExercises.length > 0) {
     const strengthWorkoutExercises: WorkoutExercise[] = mainExercises.map((ex) => {
       const executionMethod = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
-      const mainVideoUrl = executionMethod?.media?.mainVideoUrl || ex.media?.videoUrl;
+      const { videoUrl: mainVideoUrl, bunnyVideoId } = resolveVideoWithBunny(ex, executionMethod);
       const imageUrl = resolveImageUrl(ex);
 
       let targetType: 'time' | 'reps' = 'reps';
@@ -148,6 +160,7 @@ export async function convertExercisesToWorkoutPlan(
         duration,
         videoUrl: mainVideoUrl,
         imageUrl,
+        bunnyVideoId,
         fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any).fullTutorial,
         instructions: ex.content?.highlights || [],
         icon: '💪',
@@ -173,7 +186,7 @@ export async function convertExercisesToWorkoutPlan(
   if (cooldownExercises.length > 0) {
     const cooldownWorkoutExercises: WorkoutExercise[] = cooldownExercises.map((ex) => {
       const executionMethod = findMethodForLocation(ex, 'home') ?? ex.execution_methods?.[0];
-      const mainVideoUrl = executionMethod?.media?.mainVideoUrl || ex.media?.videoUrl;
+      const { videoUrl: mainVideoUrl, bunnyVideoId } = resolveVideoWithBunny(ex, executionMethod);
       const imageUrl = resolveImageUrl(ex);
 
       return {
@@ -182,6 +195,7 @@ export async function convertExercisesToWorkoutPlan(
         duration: '5 דקות',
         videoUrl: mainVideoUrl,
         imageUrl,
+        bunnyVideoId,
         fullTutorial: resolveExerciseMedia(ex as any, executionMethod as any).fullTutorial,
         instructions: ex.content?.highlights || [],
         icon: '🧘',

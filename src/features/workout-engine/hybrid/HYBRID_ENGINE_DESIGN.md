@@ -1,6 +1,9 @@
-# composeHybridSession — Engine Design v1.0
+# composeHybridSession — Engine Design v1.1
 
-> Status: DESIGN — approved decisions locked (David, 08.07.2026). No code yet.
+> Status: DESIGN — v1.0 decisions locked (David, 08.07.2026); **v1.1 UI/product locks added
+> 12.07.2026 — see §0.1**. Engine core (build items 1–4) is BUILT + committed on
+> `feat/hybrid-engine`; runtime (orchestrator + drawer UI) not yet coded. This is the
+> worktree copy — the main-branch copy is a separate branch's concern (dedupe at merge).
 > Basis: research report (strength generator + aerobic mechanism, 08.07.2026)
 > + composition model v0.1 + David's decisions on the 7 open questions
 > + WHO weekly guidelines + Self-Determination Theory framing.
@@ -27,6 +30,34 @@ WHO weekly targets the engine tracks: aerobic 150–300 min moderate (75–150 v
 SDT mapping: competence → one simple default CTA + one-line "why" (the WHO gap);
 autonomy → preset/goal overrides always visible; relatedness → plan model stays
 group-composable (groupId/attendanceId already on the workout doc).
+
+---
+
+## 0.1 — v1.1 locked updates (12.07.2026, UI/product)
+
+> Source: `.claude/knowledge/hybrid-decisions-and-research.md` (8 decisions + backing research + UI spec).
+> These NAIL the items §7/§6-open left open, plus two research-backed refinements. **Engine core
+> (items 1–4) is unchanged**; the only engine deltas are two small hooks: a continuous
+> `aerobicShareOverride` (§2/Step 3) and non-symmetric station placement (Step 4/7).
+>
+> **GOVERNING PRINCIPLE — ONE engine, ONE config, TWO doors.** A single aerobic↔strength slider
+> spans **pure-aerobic → hybrid → pure-strength**. The two entry screens only choose which end the
+> slider opens on: **"אירובי חופשי"** opens on the aerobic end, **"בנה אימון"** (the strength
+> generator) opens on the strength end. No third product; the hybrid is never built twice.
+
+| # | v1.1 lock | Governs | Source |
+|---|---|---|---|
+| **U1** | **Default goal = TIME.** One goal at a time (calories **or** distance **or** time — never combined). Time is cleanest: the slider divides minutes directly. | Step 2; UI §4.2 | D2, D3 |
+| **U2** | **Ratio control = CONTINUOUS slider + shifting helper text**, not 3 buttons. The 3 emphasis presets survive as **labeled anchor stops** on the slider; `weekly_smart` marks the **recommended** value. Engine gains optional `aerobicShareOverride ∈ [0.30, 0.70]` superseding the emphasis→share lookup (presets still resolve to 0.70 / 0.55 / 0.35). | Step 2; §2 API (Step 3 note) | D4 |
+| **U3** | **Two doors, one engine.** "בנה אימון" (strength generator screen) is the SECOND door into the same composer, opening on the strength end. Its aerobic option appears **only when location = outdoors** (indoors → strength-only, there is no route to run). | §1 UI corollary; caller layer | D1 |
+| **U4** | **Persona #5 (runner who collects strength) + asymmetric placement.** For an **aerobic-dominant** session the single station may sit at the **END** (not the symmetric midpoint), with domain **biased to core/legs**; the final leg = easy jog home. Placement is no longer forced symmetric. | Step 4; Step 7 | §2 persona #5, §2.5 |
+| **U5** | **Order (interference research).** In a **strength-emphasis** session the aerobic leg BEFORE the station stays a **light warm-up** (never a fatiguing `tempo`) — heavy aerobic before strength blunts strength neurally. Aerobic-dominant sessions are exempt (the run IS the goal — persona #5 chooses aerobic-first deliberately). | Step 6 | §3.2 |
+| **U6** | **Minimum = a LABEL, never "doesn't count".** Below ~8 min of a side we **rename** the session (pure-aerobic / pure-strength); the short side still earns **full credit** — WHO 2020 removed the 10-min-bout rule, every movement counts. Never tell the user 6 min of running "doesn't count". | Step 2 naming; UI copy | D7, §3.3 |
+| **U7** | **Run-to-the-park = the far-facility behavior, NOT a failure.** When the nearest facility is far, the shape becomes "run to the park (the route IS the aerobic), strength there, optional jog back" — a first-class variant of D8's feasibility split (**near → loop/sandwich · far → run-to-park · none → bodyweight**), never a forced drive. | Step 7 fallback | D8, §2.4 |
+
+**Session shapes = data-driven variants of ONE mechanism** (MVP ships shape 1; the abstraction covers the rest):
+1. **Sandwich (MVP)** — run → 1 station → run (single midpoint station).
+2. Trail (stops along the way) · 3. Loop + station (Sportek) · 4. **Run-to-park** (U7) · 5. **Runner-collects-strength** (U4 — asymmetric, station at end).
 
 ---
 
@@ -142,10 +173,61 @@ perStationMin = clamp(T_str / S, 8, 12)         // default window 8-12 min
 //   S = 1  → single block (בלוק)   S ≥ 2 → circuit sweep (סבב)
 ```
 `HybridComposeInput` gains `stationOverride?: number`.
+**⟳ v1.1 (U2):** it also gains `aerobicShareOverride?: number` (0.30–0.70) = the continuous
+aerobic↔strength slider value. When present it **supersedes** the Step-2 `emphasis →
+EMPHASIS_AEROBIC_SHARE` lookup (0.70 / 0.55 / 0.35), which now serve as labeled **anchor stops**
+on the slider (`weekly_smart` = the recommended marker).
+**⟳ v1.1 (U6):** the ~8-min side-minimums (decision D7) change only the session **label**
+(pure-aerobic / pure-strength) — the short side keeps **full credit** (WHO 2020, every-movement-counts).
+Never surface "doesn't count".
 
 ### Step 4 — Domain focus per station
 Order stations by `neglectedDomains` first (weekly_smart), else push → pull → legs_core.
 Skill/CNS-heavy work goes to the EARLIEST station (freshest — mirrors Golden Slot law).
+**⟳ v1.1 (U4):** for an **aerobic-dominant** session (persona #5 — the runner who collects
+strength) bias the single station's domain to **core/legs** (runner-appropriate) and allow it to
+sit at the END of the route rather than the midpoint (see Step 7). Symmetric placement is the
+default for balanced/strength emphasis only.
+
+### Step 4b — GENERIC STOP MODEL (vision guardrail, David 08.07.2026)
+A stop is generic on TWO independent axes — never hard-code "stop = strength
+station":
+
+```ts
+export type StopLocationKind =
+  | 'gym' | 'bench' | 'stairs' | 'viewpoint' | 'spring'
+  | 'scenic' | 'dog_park' | 'open_area';
+export type StopActivityKind =
+  | 'strength' | 'mobility' | 'stretch' | 'core' | 'yoga'
+  | 'meditation' | 'rest_view';
+
+export interface HybridStop {
+  stopId: string; parkId?: string;
+  location: { kind: StopLocationKind; lat: number; lng: number; waypointIndex: number };
+  activityType: StopActivityKind;
+  /** Gear-id list available at THIS stop (normalized). Bodyweight-only = []. */
+  availableEquipment: string[];
+  /** Produced by the activity-type dispatcher below. */
+  content: StrengthBlockResult /* | MobilityBlock | YogaContent | … (future) */;
+}
+```
+
+**Content dispatch by activityType** — the composer routes each stop to a
+content generator; TODAY only one exists: `strength → generateStrengthBlock`.
+Future kinds (mobility / yoga / rest_view → other generators or curated
+content, incl. agent-pulled POIs) plug into the same dispatch WITHOUT engine
+rewrites. Experience stops (יוגה בתצפית) are a content plugin, not a fork.
+
+**Equipment flow (verified in code, 08.07.2026):** the equipment axis is
+ALREADY generic end-to-end. `ContextualEngine.filterAndScore` receives
+`availableEquipment: string[]` (normalized gear-ids, ContextualEngine.ts:534-538)
+and filters execution methods against it. The composer therefore builds a
+PER-STOP pool — `filterAndScore(masterPool, { …, location: 'park',
+availableEquipment: stop.availableEquipment })` — and hands it to
+`generateStrengthBlock`, which by contract takes a pre-filtered pool and
+never builds pools. A bench/stairs stop passes `['bench']` / `['stairs']`
+(+ implicit bodyweight) and yields only matching exercises — no
+block-service change needed.
 
 ### Step 5 — Strength block per station (reuse the generator)
 Call WorkoutGenerator in a new **block mode** (build item — see §5):
@@ -166,6 +248,9 @@ zones: first = warmup  (walking: fixed walk zone · running: jogging/easy)
        last  = recovery (running) | walk (walking)
 legKm = legMin / zoneMidpointPace(paceProfile, zone)     // walk zone: fixed 8:30–11:30
 ```
+**⟳ v1.1 (U5):** in a **strength-emphasis** session the leg BEFORE the station stays a light
+warm-up zone (never `tempo`) — heavy aerobic before strength blunts strength neurally (interference
+research, decisions §3.2). Aerobic-dominant sessions are exempt (the run IS the goal).
 
 ### Step 7 — Route fit (the waypointIndex→distance bridge)
 - Prefix-sum haversine over `route.path` → cumulative km per vertex (new small util).
@@ -173,6 +258,12 @@ legKm = legMin / zoneMidpointPace(paceProfile, zone)     // walk zone: fixed 8:3
 - Choose the S stops whose gaps best match legKm targets (tolerance ±25%).
 - No fit → S−1 and retry; S==0 → ONE `fieldReady` bodyweight station at the route
   midpoint (no equipment needed — existing exercise flag).
+- **⟳ v1.1 (U4 — asymmetric):** placement need not be symmetric. An aerobic-dominant plan may
+  put the station at the END (last leg = jog home), not the midpoint.
+- **⟳ v1.1 (U7 — run-to-park):** when the only viable facility is FAR, the shape becomes
+  **run-to-the-park**: a single leg TO the destination = the aerobic, strength at the park, an
+  optional jog back — a first-class variant, NOT the midpoint-bodyweight fallback. Feasibility
+  split (D8): **near → loop/sandwich · far → run-to-park · none → bodyweight**. Never force a drive.
 
 ### Step 8 — Calories
 - Aerobic: existing `km × kg × 1.036`.
@@ -202,6 +293,12 @@ XP: NOT computed here. `awardWorkoutXP` line for hybrid is David-owned — pendi
 ---
 
 ## 5. Build order (implementation phase — separate approvals)
+
+> **Status (12.07.2026):** items 1–4 ✅ BUILT + committed on `feat/hybrid-engine`; items 5–6 ⏳ =
+> the MVP runtime. MVP ships **shape 1 (single-station sandwich)** first (§0.1); the config/strategy
+> abstraction covers the other shapes. Item 5 UI = the drawer additions in decisions §4.1/§4.2/§4.5
+> (a "strength stations" toggle + the continuous aerobic↔strength slider), NOT a new screen.
+
 1. `weekly-load.service.ts` — WeeklyLoadSnapshot from the workouts collection
    (segments[] gives per-unit data; per-day activity type comes from workout docs).
 2. Generator **block mode** flag: skip warmup/cooldown append + no session-ownership
@@ -219,12 +316,13 @@ XP: NOT computed here. `awardWorkoutXP` line for hybrid is David-owned — pendi
 - [x] Running 1:2 toward the WHO moderate target: APPROVED (matches WHO vigorous equivalence).
 - [x] Station-fit tolerance ±25%: APPROVED.
 - [x] ~~Station cap~~ — RESOLVED (decision 7): flexible 1-4, derived + user-editable.
-- [ ] **Hybrid XP line — BLOCKING GATE for build start.** Approved shape:
-  `hybridXP = aerobicXP + strengthXP + completionBonus%`. Proposed final number:
-  **completionBonus = 5%** (anchored to the existing economy: persistence bonus
-  caps at 3%, RPE/first-session bonuses are single-digit — "small bonus" scale).
-  David writes the line in XP_Progression_Truth; until it exists, NO XP code.
+- [x] **Hybrid XP line — RESOLVED (was the blocking gate).** LAW 10 is now written + approved in
+  `.cursoragents/XP_Progression_Truth.md:195-221`:
+  `hybridXP = aerobicXP + strengthXP + round(0.05×(aerobicXP+strengthXP))`; the 5% bonus applies
+  once, and ONLY when ≥1 aerobic AND ≥1 strength segment complete. Client sends component inputs;
+  the `awardWorkoutXP` Guardian computes/persists (server branch still to be coded — runtime task).
 - [ ] "טיול כושר" naming/branding final (not build-blocking).
+- [x] **v1.1 UI/product locks (U1–U7) — LOCKED (David, 12.07.2026).** See §0.1.
 
 ## 7. Repo note
 This design doc rides on `feat/climb-layer-moderation` (David's call, 08.07.2026)

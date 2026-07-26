@@ -22,9 +22,10 @@
  * ─────
  * Use this helper ONLY for the keys that should outlive a hard close
  * (e.g. `onboarding_language`, `onboarding_path`, `gateway_uid`,
- * `gateway_track`). Short-lived UI navigation hints like `jit_return_to`
- * and `show_gear_toast` should remain in plain sessionStorage so they
- * don't leak across launches.
+ * `gateway_track`, and the map-arrival location answer `map_authority_id` /
+ * `map_anchor_lat` / `map_anchor_lng`). Short-lived UI navigation hints like
+ * `jit_return_to` and `show_gear_toast` should remain in plain sessionStorage
+ * so they don't leak across launches.
  */
 
 function isNativePlatform(): boolean {

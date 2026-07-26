@@ -154,6 +154,25 @@ interface MapStore {
   metricsCardPosition: 'top' | 'bottom';
   setMetricsCardPosition: (pos: 'top' | 'bottom') => void;
   /**
+   * Live visible height (px) of the hybrid OVERVIEW drawer at its settled detent.
+   * Single channel for map↔drawer sync (point 1): written by HybridOverviewScreen
+   * on detent LOCK — the value is viewportH·DETENT (the same visible height sheetY
+   * settles to), NOT recomputed geometry — and read by useCameraController to frame
+   * the route in the free area above the drawer. Null when no hybrid overview is
+   * mounted (camera falls back to the static preview padding).
+   */
+  overviewSheetHeightPx: number | null;
+  setOverviewSheetHeightPx: (px: number | null) => void;
+  /**
+   * Strength-station positions as fractions (0..1) along the focused hybrid route.
+   * Single channel for map route coloring (point 15): written by HybridOverviewScreen
+   * from the composed plan (cursorKm/totalKm per station), read by AppMap to build the
+   * green(walk)→blue(strength)→green line-gradient. Null when no hybrid route is shown
+   * (the route line renders with its normal flat color — non-hybrid untouched).
+   */
+  hybridRouteStations: number[] | null;
+  setHybridRouteStations: (fracs: number[] | null) => void;
+  /**
    * Rendered height (px) of TurnCarousel. Written by TurnCarousel via a
    * ResizeObserver and reset to 0 on unmount. Used by useDraggableMetrics
    * to position the metrics card's top snap dynamically below the nav card.
@@ -323,6 +342,18 @@ interface MapStore {
    */
   viewportSearchActive: boolean;
   setViewportSearchActive: (v: boolean) => void;
+
+  /**
+   * Mirror of AppMap's local `isVisuallyReady` — the flag that gates the
+   * MapLoadingSkeleton splash. Published to the store so sibling layers
+   * (DiscoverLayer's on-map controls) can hide during the splash and reveal
+   * together when the map paints, WITHOUT re-detecting map load. AppMap is
+   * the single writer (mirrors its state in a useEffect). Stays `true` for
+   * the rest of the session after first paint — warm re-mounts start ready —
+   * so controls never re-flash on tab switches back to /map.
+   */
+  isMapVisuallyReady: boolean;
+  setMapVisuallyReady: (v: boolean) => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -376,6 +407,10 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setTurnFlyToTarget: (target) => set({ turnFlyToTarget: target }),
   metricsCardPosition: 'top',
   setMetricsCardPosition: (pos) => set({ metricsCardPosition: pos }),
+  overviewSheetHeightPx: null,
+  setOverviewSheetHeightPx: (px) => set({ overviewSheetHeightPx: px }),
+  hybridRouteStations: null,
+  setHybridRouteStations: (fracs) => set({ hybridRouteStations: fracs }),
   navCardHeight: 0,
   setNavCardHeight: (h) => set({ navCardHeight: h }),
   isLapsOpen: false,
@@ -413,4 +448,6 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setViewportBounds: (b) => set({ viewportBounds: b }),
   viewportSearchActive: false,
   setViewportSearchActive: (v) => set({ viewportSearchActive: v }),
+  isMapVisuallyReady: false,
+  setMapVisuallyReady: (v) => set({ isMapVisuallyReady: v }),
 }));

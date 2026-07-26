@@ -90,6 +90,8 @@ export {
   type DayStatusResult,
 } from './hooks/useDayStatus';
 
+export { usePastWorkoutCompleted } from './hooks/usePastWorkoutCompleted';
+
 export {
   useMidnightRefresh,
   useDateKey,

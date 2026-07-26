@@ -208,6 +208,13 @@ export async function getAlternativeExercises(
   userProfile: UserFullProfile,
   activeProgramId?: string,
   excludeIds?: Set<string>,
+  /**
+   * Optional pre-fetched exercise pool. When supplied (e.g. the drawer's already-
+   * prefetched `exercisePool`), the uncached full-collection `getAllExercises()` read
+   * is skipped — critical for bulk swap-all, which would otherwise do one full-
+   * collection read PER exercise lacking a method at the target location.
+   */
+  pool?: Exercise[],
 ): Promise<AlternativeExerciseOption[]> {
   if (!currentExercise.movementGroup) {
     console.warn(
@@ -216,7 +223,7 @@ export async function getAlternativeExercises(
     return [];
   }
 
-  const allExercises = await getAllExercises();
+  const allExercises = pool && pool.length > 0 ? pool : await getAllExercises();
   const all: AlternativeExerciseOption[] = [];
   let originalGearType: RequiredGearType | undefined;
 

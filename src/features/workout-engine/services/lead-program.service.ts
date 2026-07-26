@@ -27,7 +27,7 @@
 import type { Program, MovementPattern, ProgramLevelSettings } from '@/features/content/programs/core/program.types';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
-import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import { getProgramLevelSetting, isPlsCacheEnabled } from '@/features/content/programs/core/programLevelSettings.service';
 import { resolveToSlug } from './program-hierarchy.utils';
 
 // ============================================================================
@@ -179,11 +179,26 @@ export async function resolveGlobalMaxIntense(
   let maxFound = -1;
   let resolved = false;
 
-  for (const pat of patterns) {
-    const budget = await resolveLeadProgramBudget(pat, userProfile, programs);
-    if (budget) {
-      maxFound = Math.max(maxFound, budget.maxIntenseWorkoutsPerWeek);
-      resolved = true;
+  // #1: the per-pattern budget reads are independent and aggregated with Math.max
+  // (order-independent), so fetch them in parallel — collapsing 4 sequential
+  // round-trips into 1. Flag-OFF keeps the original sequential loop → byte-identical.
+  if (isPlsCacheEnabled()) {
+    const budgets = await Promise.all(
+      patterns.map((pat) => resolveLeadProgramBudget(pat, userProfile, programs)),
+    );
+    for (const budget of budgets) {
+      if (budget) {
+        maxFound = Math.max(maxFound, budget.maxIntenseWorkoutsPerWeek);
+        resolved = true;
+      }
+    }
+  } else {
+    for (const pat of patterns) {
+      const budget = await resolveLeadProgramBudget(pat, userProfile, programs);
+      if (budget) {
+        maxFound = Math.max(maxFound, budget.maxIntenseWorkoutsPerWeek);
+        resolved = true;
+      }
     }
   }
 

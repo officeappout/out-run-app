@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft } from 'lucide-react';
 import Step1LocationPicker from './Step1LocationPicker';
 import Step2Details from './Step2Details';
+import StepEquipment from './StepEquipment';
 import Step3Photo from './Step3Photo';
 import { createContribution } from '@/features/parks/core/services/contribution.service';
 import { useUserStore } from '@/features/user';
 import { XP_REWARDS } from '@/types/contribution.types';
 import type { ParkFacilityCategory, ParkFeatureTag } from '@/features/parks/core/types/park.types';
+import type { ParkGymEquipment } from '@/features/content/equipment/gym';
 
 interface ContributionWizardProps {
   isOpen: boolean;
@@ -23,6 +25,8 @@ export interface WizardData {
   parkName: string;
   facilityType: ParkFacilityCategory | null;
   featureTags: ParkFeatureTag[];
+  /** Park equipment the user tagged (gym_park only). brandName is always ''. */
+  gymEquipment: ParkGymEquipment[];
   photoUrl: string | null;
   /**
    * Storage path of the currently uploaded photo (e.g.
@@ -34,7 +38,13 @@ export interface WizardData {
   photoStoragePath: string | null;
 }
 
-const STEPS = ['מיקום', 'פרטים', 'תמונה'];
+type StepId = 'location' | 'details' | 'equipment' | 'photo';
+const STEP_LABELS: Record<StepId, string> = {
+  location: 'מיקום',
+  details: 'פרטים',
+  equipment: 'מתקנים',
+  photo: 'תמונה',
+};
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 300 : -300, opacity: 0 }),
@@ -55,6 +65,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
     parkName: '',
     facilityType: null,
     featureTags: [],
+    gymEquipment: [],
     photoUrl: null,
     photoStoragePath: null,
   });
@@ -63,10 +74,23 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
     setData((prev) => ({ ...prev, ...partial }));
   }, []);
 
+  // The "equipment" step is inserted only for gym_park, before the photo step.
+  const stepIds = useMemo<StepId[]>(
+    () => ['location', 'details', ...(data.facilityType === 'gym_park' ? (['equipment'] as StepId[]) : []), 'photo'],
+    [data.facilityType],
+  );
+  const currentId = stepIds[Math.min(step, stepIds.length - 1)];
+
+  // If the step list shrinks (e.g. gym_park → court on the details step), keep
+  // `step` in range so the dots and content never point past the array.
+  useEffect(() => {
+    setStep((s) => Math.min(s, stepIds.length - 1));
+  }, [stepIds.length]);
+
   const goNext = useCallback(() => {
     setDirection(1);
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
-  }, []);
+    setStep((s) => Math.min(s + 1, stepIds.length - 1));
+  }, [stepIds.length]);
 
   const goBack = useCallback(() => {
     setDirection(-1);
@@ -87,6 +111,10 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
         featureTags: data.featureTags,
         isPointOfInterest: data.isPointOfInterest,
         photoUrl: data.photoUrl ?? undefined,
+        // Equipment only for gym_park, and only when the user actually picked some.
+        ...(data.facilityType === 'gym_park' && data.gymEquipment.length > 0
+          ? { gymEquipment: data.gymEquipment }
+          : {}),
       });
       setShowSuccess(true);
       setTimeout(() => {
@@ -99,6 +127,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
           parkName: '',
           facilityType: null,
           featureTags: [],
+          gymEquipment: [],
           photoUrl: null,
           photoStoragePath: null,
         });
@@ -142,15 +171,15 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
 
         {/* Step Dots */}
         <div className="flex items-center justify-center gap-2 pb-4">
-          {STEPS.map((label, i) => (
-            <div key={i} className="flex items-center gap-1.5">
+          {stepIds.map((id, i) => (
+            <div key={id} className="flex items-center gap-1.5">
               <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
                 i === step ? 'bg-[#00E5FF] scale-125' : i < step ? 'bg-emerald-400' : 'bg-slate-200'
               }`} />
               <span className={`text-[10px] font-medium transition-colors ${
                 i === step ? 'text-slate-900' : 'text-slate-400'
-              }`}>{label}</span>
-              {i < STEPS.length - 1 && <div className="w-6 h-px bg-slate-200" />}
+              }`}>{STEP_LABELS[id]}</span>
+              {i < stepIds.length - 1 && <div className="w-6 h-px bg-slate-200" />}
             </div>
           ))}
         </div>
@@ -191,14 +220,14 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
               transition={{ duration: 0.25, ease: 'easeInOut' }}
               className="absolute inset-0"
             >
-              {step === 0 && (
+              {currentId === 'location' && (
                 <Step1LocationPicker
                   data={data}
                   updateData={updateData}
                   onNext={goNext}
                 />
               )}
-              {step === 1 && (
+              {currentId === 'details' && (
                 <Step2Details
                   data={data}
                   updateData={updateData}
@@ -206,7 +235,15 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
                   onBack={goBack}
                 />
               )}
-              {step === 2 && (
+              {currentId === 'equipment' && (
+                <StepEquipment
+                  data={data}
+                  updateData={updateData}
+                  onNext={goNext}
+                  onBack={goBack}
+                />
+              )}
+              {currentId === 'photo' && (
                 <Step3Photo
                   data={data}
                   updateData={updateData}

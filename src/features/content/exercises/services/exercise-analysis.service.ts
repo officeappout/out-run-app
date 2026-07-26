@@ -285,7 +285,13 @@ export function analyzeExerciseForMatrix(exercise: Exercise): ContentMatrixRow {
         
         locations[loc].push({
           methodIndex: index,
-          methodName: method.methodName || `Method ${index + 1}`,
+          // methodName is a LocalizedText ({he,en}) at runtime — resolve it to a
+          // string here so the matrix UI never renders the raw object (React #31).
+          // Tolerate legacy string data too, mirroring getExerciseProductionReadiness.
+          methodName:
+            (typeof method.methodName === 'string'
+              ? method.methodName
+              : getLocalizedText(method.methodName, 'he')) || `Method ${index + 1}`,
           workflow,
           needsLongExplanation: method.needsLongExplanation || false,
           explanationStatus: method.explanationStatus || null,

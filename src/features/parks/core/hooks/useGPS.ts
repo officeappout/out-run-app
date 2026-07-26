@@ -3,9 +3,41 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { useGPSStore, type GPSCoords } from '../store/useGPSStore';
+import { useGPSStore, DEV_FALLBACK_LOCATION, type GPSCoords } from '../store/useGPSStore';
+import { useIsForeground } from '@/lib/appForeground';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
+import { useUserStore } from '@/features/user';
 
-const FALLBACK_SDEROT = { lat: 31.525, lng: 34.5955 };
+/**
+ * Resolve where to place the user when a real GPS fix is unavailable. NO invented
+ * fixed coordinate (the old Sderot seed) — instead, in priority order:
+ *   1. Last valid fix this session (a momentary error shouldn't teleport the user).
+ *   2. The user's onboarding/authority anchor (profile.core.anchor* → their city).
+ *   3. The pre-profile onboarding anchor stashed in sessionStorage.
+ *   4. DEV ONLY: the shared Tel-Aviv dev fallback (same source as usePresenceLayer).
+ *   5. Production with none of the above → null: no teleport; the UI prompts to
+ *      enable location instead.
+ */
+function resolveFallbackLocation(lastKnown: { lat: number; lng: number } | null): GPSCoords | null {
+  if (lastKnown && Number.isFinite(lastKnown.lat) && Number.isFinite(lastKnown.lng)) {
+    return { lat: lastKnown.lat, lng: lastKnown.lng };
+  }
+  const core = useUserStore.getState().profile?.core as { anchorLat?: number; anchorLng?: number } | undefined;
+  if (typeof core?.anchorLat === 'number' && typeof core?.anchorLng === 'number'
+    && Number.isFinite(core.anchorLat) && Number.isFinite(core.anchorLng)) {
+    return { lat: core.anchorLat, lng: core.anchorLng };
+  }
+  if (typeof window !== 'undefined') {
+    const s = sessionStorage.getItem('selected_anchor_lat');
+    const t = sessionStorage.getItem('selected_anchor_lng');
+    if (s && t) {
+      const lat = parseFloat(s), lng = parseFloat(t);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    }
+  }
+  if (process.env.NODE_ENV === 'development') return { ...DEV_FALLBACK_LOCATION };
+  return null; // production, no anchor → no teleport; surface the error, prompt for location
+}
 
 // Minimum elapsed time (ms) between GPS state updates. iOS CLLocationManager
 // with enableHighAccuracy can fire at ~1 Hz or faster. Throttling to 2 Hz
@@ -74,6 +106,19 @@ export function useGPS(): GPSState {
   const [isFollowing, setIsFollowing] = useState(false);
   const [simulationActive, setSimulationActive] = useState(false);
 
+  // ── Battery guard (perf/batch1) ───────────────────────────────────────────
+  // Pause the discovery GPS watch while the app is backgrounded — UNLESS a
+  // workout/nav session is active, in which case the watch MUST keep running
+  // so the run records with the screen off (the "full power during a session"
+  // super-principle). Gating on session status, not blind screen-off, is the
+  // hard exception the perf plan requires. When IS_PERF_BATCH1_ENABLED is off,
+  // isForeground stays permanently true → gpsPaused is always false → identical
+  // to prior always-on behaviour.
+  const isForeground = useIsForeground();
+  const sessionStatus = useSessionStore((s) => s.status);
+  const workoutActive = sessionStatus === 'active' || sessionStatus === 'paused';
+  const gpsPaused = !isForeground && !workoutActive;
+
   // For the browser (web) path
   const watchId = useRef<number | null>(null);
   // For the Capacitor (native) path — watchPosition returns a string callbackId
@@ -86,9 +131,25 @@ export function useGPS(): GPSState {
 
   const isNative = Capacitor.isNativePlatform();
 
+  // Apply the best available fallback (last-known → anchor → dev Tel-Aviv → none).
+  // Never teleports to a hard-coded coordinate; in production with no anchor it
+  // leaves the position null so the UI can prompt to enable location.
+  const applyFallback = useCallback(() => {
+    if (hasFallback.current) return;
+    const fb = resolveFallbackLocation(lastGPSPos.current);
+    if (fb) {
+      hasFallback.current = true;
+      setCurrentUserPos(fb);
+    }
+  }, []);
+
   useEffect(() => {
-    if (simulationActive) {
-      // Kill any active watcher — mock position drives the UI instead.
+    if (simulationActive || gpsPaused) {
+      // Kill any active watcher. Either the mock position drives the UI
+      // (simulationActive), or we're paused in the background with no active
+      // workout (gpsPaused battery guard). On resume the effect re-runs and
+      // re-establishes the watch — the fresh watchPosition delivers an
+      // immediate first fix, satisfying "instant GPS on foreground".
       if (isNative) {
         if (capWatchId.current != null) {
           Geolocation.clearWatch({ id: capWatchId.current }).catch(() => {});
@@ -121,10 +182,7 @@ export function useGPS(): GPSState {
           // is stored in Settings.app, not in WKWebView's session state.
           const perm = await Geolocation.requestPermissions({ permissions: ['location'] });
           if (perm.location !== 'granted') {
-            if (!hasFallback.current) {
-              hasFallback.current = true;
-              setCurrentUserPos(FALLBACK_SDEROT);
-            }
+            applyFallback();
             setLocationError('Location permission denied');
             useGPSStore.getState()._setPermissionState('denied');
             return;
@@ -136,10 +194,7 @@ export function useGPS(): GPSState {
             (pos, err) => {
               if (!active) return;
               if (err || !pos) {
-                if (!hasFallback.current) {
-                  hasFallback.current = true;
-                  setCurrentUserPos(FALLBACK_SDEROT);
-                }
+                applyFallback();
                 if (err) setLocationError(err.message);
                 return;
               }
@@ -165,10 +220,7 @@ export function useGPS(): GPSState {
           );
         } catch (err) {
           console.warn('[useGPS] Capacitor Geolocation error:', err);
-          if (!hasFallback.current) {
-            hasFallback.current = true;
-            setCurrentUserPos(FALLBACK_SDEROT);
-          }
+          applyFallback();
         }
       };
 
@@ -185,10 +237,7 @@ export function useGPS(): GPSState {
 
     // ── Web / browser path ─────────────────────────────────────────────────
     if (typeof window === 'undefined' || !('geolocation' in navigator)) {
-      if (!hasFallback.current) {
-        hasFallback.current = true;
-        setCurrentUserPos(FALLBACK_SDEROT);
-      }
+      applyFallback();
       return;
     }
 
@@ -221,10 +270,7 @@ export function useGPS(): GPSState {
       },
       (error) => {
         if (simulationActive) return;
-        if (!hasFallback.current) {
-          hasFallback.current = true;
-          setCurrentUserPos(FALLBACK_SDEROT);
-        }
+        applyFallback();
         setLocationError(error.message);
         useGPSStore.getState()._setPermissionState(error.code === 1 ? 'denied' : 'prompt');
         if (error.code !== 3) {
@@ -239,17 +285,16 @@ export function useGPS(): GPSState {
     );
 
     // Dev-only: if the browser permission dialog is left pending (no grant/deny),
-    // the error callback never fires and the map stays blank. Seed Sderot after 5s
-    // so presence heartbeats and group-session tests work without a real GPS fix.
-    // lastGPSPos.current is set by the success callback — if it's still null after
-    // 5s, no real position arrived and the fallback is safe to apply.
+    // the error callback never fires and the map stays blank. Apply the fallback
+    // (anchor → dev Tel-Aviv) after 5s so presence heartbeats / group-session tests
+    // work without a real GPS fix. lastGPSPos.current is set by the success callback —
+    // if it's still null after 5s, no real position arrived and the fallback is safe.
     let devFallbackTimer: ReturnType<typeof setTimeout> | null = null;
     if (process.env.NODE_ENV === 'development') {
       devFallbackTimer = setTimeout(() => {
         if (!hasFallback.current && lastGPSPos.current === null) {
-          hasFallback.current = true;
-          console.info('[useGPS] dev: no GPS fix in 5s — seeding FALLBACK_SDEROT for local testing');
-          setCurrentUserPos(FALLBACK_SDEROT);
+          console.info('[useGPS] dev: no GPS fix in 5s — applying fallback (anchor/dev) for local testing');
+          applyFallback();
         }
       }, 5000);
     }
@@ -262,7 +307,7 @@ export function useGPS(): GPSState {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [simulationActive, isNative]);
+  }, [simulationActive, isNative, gpsPaused]);
 
   const handleLocationClick = useCallback(() => {
     if (simulationActive) return;

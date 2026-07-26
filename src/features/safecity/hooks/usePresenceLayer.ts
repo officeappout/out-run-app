@@ -30,11 +30,13 @@ import { usePrivacyStore } from '../store/usePrivacyStore';
 import {
   startHeartbeat,
   stopHeartbeat,
+  setMapHeartbeatPaused,
   clearPresence,
   updatePresence,
   type PresencePayload,
   type PresenceActivity,
 } from '../services/presence.service';
+import { useIsForeground } from '@/lib/appForeground';
 import {
   getHeatmapData,
   type PresenceMarker,
@@ -42,7 +44,7 @@ import {
 } from '../services/segregation.service';
 import type { PrivacyMode } from '../store/usePrivacyStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
-import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
+import { useGPSStore, DEV_FALLBACK_LOCATION } from '@/features/parks/core/store/useGPSStore';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -158,6 +160,14 @@ export interface PresenceLayerResult {
 export function usePresenceLayer(
   currentLocation: { lat: number; lng: number } | null,
   enabled: boolean = true,
+  // When true, run ONLY the presence heartbeat (+ its GPS / session-boundary
+  // writes) and SKIP the real-time onSnapshot marker listener and the 60s
+  // heatmap poll. The map's only caller (MapShell) DISCARDS this hook's return
+  // — its pins come from useGroupPresenceListener / usePartnerData — so those
+  // two effects were pure wasted load (a redundant unbounded onSnapshot + a 60s
+  // interval whose result was thrown away). The full data path stays available
+  // for any future consumer that passes heartbeatOnly=false.
+  heartbeatOnly: boolean = false,
 ): PresenceLayerResult {
   const { profile, _hasHydrated } = useUserStore();
   const { following, isLoaded: socialLoaded, loadConnections } = useSocialStore();
@@ -267,7 +277,7 @@ export function usePresenceLayer(
       // fixed Tel-Aviv coordinate so two browser tabs can test group presence
       // without a real device. Has zero effect in production (IS_DEV is false).
       if (!loc && IS_DEV) {
-        loc = { lat: 32.0673, lng: 34.7726 };
+        loc = { ...DEV_FALLBACK_LOCATION };
         console.log('[PresenceHeartbeat] dev fallback location active (Tel Aviv) — tick', tickCount);
       }
 
@@ -372,6 +382,19 @@ export function usePresenceLayer(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // ── Battery guard: pause the map heartbeat while backgrounded ─────────────
+  // When the app is hidden / backgrounded, stop writing presence every 2 min
+  // (the radio wake is a real idle-drain source). On return to the foreground,
+  // setMapHeartbeatPaused(false) fires one immediate write so the user's dot
+  // is fresh without waiting for the next tick. The workout heartbeat is a
+  // separate channel and is intentionally NOT paused — an active run keeps
+  // broadcasting even with the screen off. When IS_PERF_BATCH1_ENABLED is off,
+  // useIsForeground() stays permanently true and this is a no-op.
+  const isForeground = useIsForeground();
+  useEffect(() => {
+    setMapHeartbeatPaused(!isForeground);
+  }, [isForeground]);
+
   // ── Session-boundary immediate presence write ─────────────────────────────
   // Without this, partners only appear after the next regular heartbeat tick
   // (up to 2 min). Fires on both transitions:
@@ -384,8 +407,9 @@ export function usePresenceLayer(
   }, [groupSessionId]);
 
   // ── Real-time Firestore listener (single onSnapshot) ─────────────────────
+  // Skipped entirely in heartbeatOnly mode (MapShell discards rawMarkers).
   useEffect(() => {
-    if (!isReady) {
+    if (!isReady || heartbeatOnly) {
       setRawMarkers([]);
       setIsLoading(false);
       return;
@@ -506,7 +530,7 @@ export function usePresenceLayer(
 
     return () => unsub?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, socialMode, socialLoaded, following, ageGroup, userId]);
+  }, [isReady, heartbeatOnly, socialMode, socialLoaded, following, ageGroup, userId]);
 
   // ── Heatmap polling (not real-time, less frequent) ────────────────────────
   const fetchHeatmap = useCallback(async () => {
@@ -520,11 +544,11 @@ export function usePresenceLayer(
   }, [userId, ageGroup]);
 
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || heartbeatOnly) return; // heatmap result is unused by the map's only caller
     fetchHeatmap();
     const id = setInterval(fetchHeatmap, HEATMAP_POLL_MS);
     return () => clearInterval(id);
-  }, [isReady, fetchHeatmap]);
+  }, [isReady, heartbeatOnly, fetchHeatmap]);
 
   // ── Client-side filters ───────────────────────────────────────────────────
   const DEV_LEVEL_RANGE = IS_DEV ? 5 : LEVEL_RANGE;

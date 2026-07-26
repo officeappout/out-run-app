@@ -280,11 +280,18 @@ export default function GatewayPage() {
       }
       // gateway_uid persists via onboardingPrefs so the profile page can
       // resolve the uid even if Firebase auth restoration is slow after
-      // a hard close on iOS.
+      // a hard close on iOS. onboarding_path is mirrored durably too, so a
+      // reopen whose Firestore doc write was lost can still be recognised as
+      // a MAP_ONLY user (consumed by the landing-router recovery branch).
       setOnboardingPref('gateway_uid', user.uid);
+      setOnboardingPref('onboarding_path', 'MAP_ONLY');
 
-      // Fire-and-forget: write user doc & detect city in parallel, don't block redirect
-      setDoc(doc(db, 'users', user.uid), {
+      // Fix 3 — capture the profile write so we can confirm it committed before
+      // navigating. Fire-and-forget could strand a doc-less MAP_ONLY user on a
+      // hard-close right after redirect (root routing then bounces them to
+      // /gateway → reads as "forgot me" + re-asks location). City detection
+      // still runs in parallel below and does not block the redirect.
+      const profileWrite = setDoc(doc(db, 'users', user.uid), {
         id: user.uid,
         onboardingPath: 'MAP_ONLY',
         onboardingStatus: 'MAP_ONLY',
@@ -322,7 +329,9 @@ export default function GatewayPage() {
         },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      }, { merge: true }).catch((e) => console.error('[Gateway] setDoc error (explore):', e));
+      }, { merge: true })
+        .then(() => true)
+        .catch((e) => { console.error('[Gateway] setDoc error (explore):', e); return false; });
 
       detectCityFromGPS().then(async (affiliation) => {
         if (affiliation) {
@@ -366,10 +375,16 @@ export default function GatewayPage() {
         return;
       }
 
-      // Brief delay for the transition animation, then redirect
-      setTimeout(() => {
-        router.push('/explorer');
-      }, 1200);
+      // Fix 3 — give the profile write up to 1.5s to commit BEFORE navigating,
+      // so a hard-close right after redirect can't strand a doc-less MAP_ONLY
+      // user. Offline-safe: the race cap never hangs (the write stays queued and
+      // the durable onboarding_path marker lets reopen recover). The ~1.2s
+      // transition-animation window still elapses in parallel.
+      await Promise.all([
+        Promise.race([profileWrite, new Promise((r) => setTimeout(r, 1500))]),
+        new Promise((r) => setTimeout(r, 1200)),
+      ]);
+      router.push('/explorer');
     } catch (error) {
       console.error('[Gateway] Explore map error:', error);
       isBusyRef.current = false;

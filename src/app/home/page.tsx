@@ -13,13 +13,15 @@ import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
 import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
 import { calculateProfileCompletion } from '@/features/user/identity/services/profile-completion.service';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import HeroWorkoutCard, { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import type { MessageType } from '@/features/messages/services/MessageService';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
-import { useDayStatus } from '@/features/activity/hooks/useDayStatus';
+import { useTodayStrengthVolume } from '@/features/home/hooks/useTodayStrengthVolume';
+import { useDailyStrengthTarget } from '@/features/home/hooks/useDailyStrengthTarget';
+import { FRAGMENTER_MINUTES_PER_SET } from '@/features/home/utils/setsToMinutes';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
@@ -32,11 +34,12 @@ import {
 import { auth, db } from '@/lib/firebase';
 import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
+import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { calculateDaysInactive } from '@/features/workout-engine';
-import { buildWorkoutPlanFromGenerated } from '@/features/workout-engine/services/workout-plan.mapper';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed } from '@/config/feature-flags';
+import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -50,7 +53,7 @@ import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps } from '@/features/h
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 
-import { toISODate, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
+import { toISODate, getHebrewDayLetter, stepSelectedDate } from '@/features/user/scheduling/utils/dateUtils';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
@@ -81,6 +84,17 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
     () => calculateProfileCompletion(profile),
     [profile],
   );
+
+  // Pre-registration users (no strength program yet) shouldn't see the strength
+  // setup items — they're redundant entries into the questionnaire the always-
+  // visible Hero already offers. Hide the strength bucket; keep basic-info items.
+  // They return once a program exists.
+  const hasProgram = !!(
+    profile.progression?.domains && Object.keys(profile.progression.domains).length > 0
+  );
+  const visibleItems = hasProgram
+    ? completion.items
+    : completion.items.filter((i) => i.bucket !== 'strength');
 
   if (completion.isVerified || completion.percentage >= 100) return null;
 
@@ -139,7 +153,7 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
             className="overflow-hidden bg-white border-b border-slate-100"
           >
             <div className="px-4 py-3 space-y-1.5">
-              {completion.items.map((item) => (
+              {visibleItems.map((item) => (
                 <div key={item.id} className="flex items-center gap-2.5 py-1.5">
                   {item.completed ? (
                     <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
@@ -284,6 +298,18 @@ export default function HomePage() {
   // Selected date drives SmartWeeklySchedule highlight + StatsOverview workout gen
   const [selectedDate, setSelectedDate] = useState(() => toISODate(new Date()));
 
+  // R day-swipe — moved off the schedule strip to the central workout anchor: a
+  // horizontal pan on the workout card steps the selected day within the current week.
+  // RTL-aware: the anchor renders right-to-left, so swipe RIGHT → next (later) day and
+  // swipe LEFT → previous — mirroring the LTR convention (the strip's old handler used
+  // the raw LTR sign, which read inverted in the RTL layout).
+  const handleAnchorDayPan = useCallback((_: unknown, info: PanInfo) => {
+    if (Math.abs(info.offset.x) <= 60 || Math.abs(info.offset.x) <= Math.abs(info.offset.y)) return;
+    const dir = info.offset.x > 0 ? 1 : -1; // RTL: swipe right → next day
+    const next = stepSelectedDate(selectedDate, dir);
+    if (next) setSelectedDate(next);
+  }, [selectedDate]);
+
   // Training Planner Overlay (calendar icon → full-screen planner)
   const [showPlanner, setShowPlanner] = useState(false);
 
@@ -297,11 +323,12 @@ export default function HomePage() {
   // Home page tabs ("כוח" / "בריאות") — below the schedule strip
   const [homeTab, setHomeTab] = useState<'strength' | 'health'>('strength');
 
-  // ── Missed Workout Recovery Banner ──────────────────────────────────────
-  // Shown once per calendar day when:
-  //   1. Yesterday was a scheduled training day (per lifestyle.scheduleDays or recurringTemplate)
-  //   2. No activity was logged for yesterday (useDayStatus bridge)
-  //   3. The per-day localStorage dismiss key is NOT set
+  // ── Re-engagement Banner ────────────────────────────────────────────────
+  // Shown once per calendar day when the user has been inactive 4+ days
+  // ("welcome back"), they're past the 48h new-user grace window, and the
+  // per-day localStorage dismiss key is NOT set.
+  // (The old "you missed yesterday's workout" variant was removed — a missed
+  //  day is treated as a rest day, not a failure.)
   const yesterdayISO = useMemo(() => {
     const d = new Date(Date.now() - 86_400_000);
     const yyyy = d.getFullYear();
@@ -312,9 +339,7 @@ export default function HomePage() {
 
   const MISSED_BANNER_KEY = `missed_banner_dismissed_${yesterdayISO}`;
   const [showMissedWorkoutBanner, setShowMissedWorkoutBanner] = useState(false);
-  const [bannerType, setBannerType] = useState<MessageType>('missed_workout');
-
-  const getDayStatus = useDayStatus();
+  const [bannerType, setBannerType] = useState<MessageType>('re_engagement');
 
   useEffect(() => {
     if (!profile || typeof window === 'undefined') return;
@@ -348,24 +373,10 @@ export default function HomePage() {
       return;
     }
 
-    // Condition C: Short inactivity (0–3 days) → only show if yesterday was
-    // a scheduled day that the user actually missed.
-    const HEBREW_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-    const yesterdayDayLetter = HEBREW_DAYS[new Date(yesterdayISO + 'T00:00:00').getDay()];
-    const scheduleDays = (profile.lifestyle?.scheduleDays as string[] | undefined) ?? [];
-    const recurringTemplate = profile.lifestyle?.recurringTemplate as Record<string, string[]> | undefined;
-    const wasScheduledDay =
-      scheduleDays.includes(yesterdayDayLetter) ||
-      (recurringTemplate?.[yesterdayDayLetter]?.length ?? 0) > 0;
-
-    if (!wasScheduledDay) return;
-
-    const { isCompleted } = getDayStatus(yesterdayISO);
-    if (!isCompleted) {
-      setBannerType('missed_workout');
-      setShowMissedWorkoutBanner(true);
-    }
-  }, [profile, yesterdayISO, MISSED_BANNER_KEY, getDayStatus]);
+    // (Condition C — the "you missed yesterday's workout" banner — was removed:
+    //  a missed day is treated as a rest day, not a failure, so we no longer nudge
+    //  about it. Only the long-inactivity re-engagement banner (B) remains.)
+  }, [profile, MISSED_BANNER_KEY]);
 
   const dismissMissedBanner = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -401,6 +412,10 @@ export default function HomePage() {
   // the user has logged a session.
   const todayProgress = useDailyProgress();
   const todayWorkoutDone = !!todayProgress?.workoutCompleted;
+  // Daily Strength Ring (Layer A). The target hook is gated by the flag so no
+  // Firestore read fires while STRENGTH_RING_ENABLED is off (byte-identical).
+  const todayStrengthVolume = useTodayStrengthVolume();
+  const dailyStrengthTarget = useDailyStrengthTarget(STRENGTH_RING_ENABLED);
   const postWorkoutMsg = useSmartMessage('post_workout');
   const missedWorkoutMsg = useSmartMessage(bannerType);
   const { celebrate } = useGoalCelebration();
@@ -455,6 +470,16 @@ export default function HomePage() {
   //   2. `todayProgress` (Firestore) — persistent fallback that survives
   //      refreshes / re-mounts / >30 min elapsed. Carries only `workoutType`,
   //      so the card renders in a minimal "done for today" state.
+  // Ring payload — only populated when the flag is on, so completionData.ring is
+  // absent (and the card byte-identical) while STRENGTH_RING_ENABLED is off.
+  const strengthRingData = STRENGTH_RING_ENABLED
+    ? {
+        completedSets: todayStrengthVolume.setsCompleted,
+        targetSets: dailyStrengthTarget.targetSets,
+        avgMinutesPerSet: FRAGMENTER_MINUTES_PER_SET,
+      }
+    : undefined;
+
   const completionData: CompletionData | undefined = postWorkoutData
     ? {
         workoutType: postWorkoutData.workoutType,
@@ -462,11 +487,13 @@ export default function HomePage() {
         workoutTitle: postWorkoutData.workoutTitle,
         streak: postWorkoutData.streak,
         thumbnailUrl: postWorkoutData.thumbnailUrl,
+        ring: strengthRingData,
       }
     : todayWorkoutDone
       ? {
           workoutType: todayProgress?.workoutType ?? 'strength',
           durationMinutes: 0,
+          ring: strengthRingData,
         }
       : undefined;
 
@@ -604,23 +631,7 @@ export default function HomePage() {
     generatedWorkoutRef.current = workout;
     setGeneratedWorkout(workout);
     setIsWorkoutLoading(false);
-    // ── Race fix (12.07.2026, tabata start bug) ─────────────────────────
-    // On a date-change tap the preview opens BEFORE generation resolves:
-    // openWorkoutPreview ran with gw=null, skipped the plan build, and
-    // active_workout_data stayed empty — "התחל אימון" then had nothing to
-    // hand the player and bounced to home. Now that gw exists, re-run the
-    // preview build for the SAME date: rewrites active_workout_data (incl.
-    // seg-tabata) and refreshes the drawer's title/duration.
-    if (selectedWorkoutOpenRef.current) {
-      openWorkoutPreviewRef.current?.(lastPreviewDateRef.current ?? undefined);
-    }
   }, []);
-
-  // Stable mirrors so handleWorkoutGenerated (identity-stable, passed deep
-  // into StatsOverview) can consult live state without dependency churn.
-  const selectedWorkoutOpenRef = useRef(false);
-  const lastPreviewDateRef = useRef<string | null>(null);
-  const openWorkoutPreviewRef = useRef<((targetDate?: string) => void) | null>(null);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
@@ -658,13 +669,227 @@ export default function HomePage() {
     const today = targetDate ?? new Date().toISOString().split('T')[0];
     const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
     const gw = generatedWorkoutRef.current;
-    lastPreviewDateRef.current = today; // race fix: handleWorkoutGenerated re-runs for this date
 
     if (gw?.exercises && typeof window !== 'undefined') {
-      // Shared mapper (13.07.2026): the SAME builder the drawer hand-off
-      // uses — one source of truth for GeneratedWorkout → WorkoutPlan
-      // (segments incl. seg-tabata partition + protocol stamping).
-      const workoutPlan = buildWorkoutPlanFromGenerated(gw, uniqueWorkoutId);
+      const { getLocalizedText: glt } = require('@/features/content/exercises');
+      const exercises = gw.exercises.map((ex) => {
+        const resolveHighlights = (): string[] => {
+          const methodHighlights = ex.method?.highlights;
+          if (Array.isArray(methodHighlights) && methodHighlights.length > 0) {
+            return methodHighlights.map((h: any) =>
+              typeof h === 'string' ? h : (h?.male || h?.female || ''),
+            ).filter(Boolean);
+          }
+          const contentHighlights = ex.exercise.content?.highlights;
+          if (Array.isArray(contentHighlights) && contentHighlights.length > 0) {
+            return contentHighlights;
+          }
+          const instr = ex.exercise.content?.instructions;
+          if (instr) {
+            const txt = typeof instr === 'string' ? instr : (instr as any)?.he || (instr as any)?.en || '';
+            if (txt) return txt.split(/[.\n]/).map((s: string) => s.trim()).filter(Boolean);
+          }
+          return [];
+        };
+
+        const resolveGoal = (): string => {
+          if (ex.exercise.content?.goal) return ex.exercise.content.goal;
+          const desc = ex.exercise.content?.description;
+          if (desc) {
+            return typeof desc === 'string' ? desc : (desc as any)?.he || (desc as any)?.en || '';
+          }
+          return '';
+        };
+
+        const primaryMuscle = ex.exercise.primaryMuscle;
+        const secondaryMuscles = ex.exercise.secondaryMuscles;
+        const legacyMuscleGroups = ex.exercise.muscleGroups || [];
+        const muscleGroups = legacyMuscleGroups.length > 0
+          ? legacyMuscleGroups
+          : [primaryMuscle, ...(secondaryMuscles || [])].filter(Boolean);
+
+        // Unit priority: respect the admin's explicit type field first, then generator's isTimeBased
+        const actuallyTimeBased = ex.exercise.type === 'time' || ex.isTimeBased;
+
+        const { videoUrl: resolvedVideoUrl, imageUrl: resolvedImageUrl, fullTutorial: resolvedFullTutorial, bunnyVideoId: resolvedBunnyVideoId } =
+          resolveExerciseMedia(ex.exercise as any, ex.method as any);
+
+        if (!resolvedImageUrl && !resolvedVideoUrl) {
+          const allMethods = ex.exercise.execution_methods || ex.exercise.executionMethods || [];
+          console.error(`[Media FAIL] No media found for exercise: ${glt(ex.exercise.name)} (${ex.exercise.id}), method: ${ex.method?.methodName || 'none'}, allMethods: ${allMethods.length}`);
+        }
+
+        // Hebrew grammar: '1 חזרה' not '1 חזרות'
+        const fmtReps = (n: number) => (n === 1 ? 'חזרה אחת' : `${n} חזרות`);
+        const fmtSecs = (n: number) => (n === 1 ? 'שנייה אחת' : `${n} שניות`);
+        // Follow-along VIDEO items carry their real length on the execution method
+        // (media.videoDurationSeconds). Their `reps` is a placeholder — the recovery
+        // trio builder hardcodes reps:1 — so deriving the duration text from reps
+        // renders "שנייה אחת" for a 14-minute clip. Parity with the builder path
+        // (buildRunnerWorkoutPlanFromGenerated). Rep-based exercises untouched.
+        const fmtClip = (s: number) => (s >= 60 ? `${Math.round(s / 60)} דקות` : fmtSecs(s));
+        const clipSeconds = Number((ex.method as any)?.media?.videoDurationSeconds) || 0;
+        const useClipDuration = Boolean(ex.exercise.isFollowAlong) && clipSeconds > 0;
+
+        return {
+          id: ex.exercise.id,
+          name: glt(ex.exercise.name),
+          reps: actuallyTimeBased ? undefined : (
+            ex.repsRange && ex.repsRange.min !== ex.repsRange.max
+              ? `${ex.repsRange.min}-${ex.repsRange.max} חזרות`
+              : fmtReps(ex.reps)
+          ),
+          duration: actuallyTimeBased ? (
+            useClipDuration
+              ? fmtClip(clipSeconds)
+              : ex.repsRange && ex.repsRange.min !== ex.repsRange.max
+                ? `${ex.repsRange.min}-${ex.repsRange.max} שניות`
+                : fmtSecs(ex.reps)
+          ) : undefined,
+          videoUrl: resolvedVideoUrl,
+          imageUrl: resolvedImageUrl,
+          // Engine-selected method's Bunny id — carried so the runner does not
+          // re-derive it from execution_methods[0] (wrong method → wrong video).
+          // Parity with the builder path (buildRunnerWorkoutPlanFromGenerated) and
+          // the Firestore path (enrichExercise). Hero card is the main entry.
+          bunnyVideoId: resolvedBunnyVideoId,
+          fullTutorial: resolvedFullTutorial ?? null,
+          exerciseType: actuallyTimeBased ? 'time' as const : 'reps' as const,
+          exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown' | 'recovery') || 'main' as const,
+          isFollowAlong: ex.exercise.isFollowAlong ?? false,
+          hasAudio: false,
+          highlights: resolveHighlights(),
+          muscleGroups,
+          goal: resolveGoal(),
+          description: resolveGoal(),
+          equipment: (() => {
+            const raw = [
+              ...(ex.method?.equipmentIds || []),
+              ...(ex.method?.gearIds || []),
+              ...(ex.method?.gearId ? [ex.method.gearId] : []),
+              ...(ex.method?.equipmentId ? [ex.method.equipmentId] : []),
+            ].filter(Boolean);
+            const seen = new Set<string>();
+            const finalEquipment: string[] = [];
+            for (const id of raw) {
+              const norm = normalizeGearId(id);
+              if (norm !== 'none' && norm !== 'bodyweight' && !seen.has(norm)) {
+                seen.add(norm);
+                finalEquipment.push(norm);
+              }
+            }
+            console.log('[Final Equipment Flow]', glt(ex.exercise.name), finalEquipment);
+            return finalEquipment;
+          })(),
+          restSeconds: ex.restSeconds,
+          repsRange: ex.repsRange,
+          isGoalExercise: ex.isGoalExercise,
+          rampedTarget: ex.rampedTarget,
+          isTimeBased: actuallyTimeBased,
+          sets: ex.sets,
+          execution_methods: ex.exercise.execution_methods || ex.exercise.executionMethods || [],
+          reasoning: ex.reasoning,
+          pairedWith: ex.pairedWith ?? null,
+          symmetry: ex.exercise.symmetry ?? null,
+          programIds: (() => {
+            const fromTargets = (ex.exercise.targetPrograms ?? [])
+              .map((tp: any) => tp.programId)
+              .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+            const fromIds = (ex.exercise.programIds ?? [])
+              .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+            return Array.from(new Set([...fromTargets, ...fromIds]));
+          })(),
+          pyramidSequence: (ex as any).pyramidSequence ?? undefined,
+          repsSequence: (ex as any).repsSequence ?? undefined,
+        };
+      });
+
+      const warmupExercises = exercises.filter((ex: any) => ex.exerciseRole === 'warmup');
+      const mainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
+      const cooldownExercises = exercises.filter((ex: any) => ex.exerciseRole === 'cooldown');
+      const recoveryExercises = exercises.filter((ex: any) => ex.exerciseRole === 'recovery');
+
+      const segments: any[] = [];
+      if (warmupExercises.length > 0) {
+        segments.push({
+          id: 'seg-warmup',
+          type: 'station' as const,
+          title: 'חימום',
+          icon: '🔥',
+          target: { type: 'reps' as const, value: 12 },
+          exercises: warmupExercises,
+          isCompleted: false,
+          restBetweenExercises: 5,
+        });
+      }
+      if (mainExercises.length > 0) {
+        segments.push({
+          id: 'seg-main',
+          type: 'station' as const,
+          title: gw.title || 'אימון כוח',
+          icon: '💪',
+          target: { type: 'reps' as const, value: 12 },
+          exercises: mainExercises,
+          isCompleted: false,
+          restBetweenExercises: 10,
+        });
+      }
+      if (cooldownExercises.length > 0) {
+        segments.push({
+          id: 'seg-cooldown',
+          type: 'station' as const,
+          title: 'מתיחות',
+          icon: '🧘',
+          target: { type: 'reps' as const, value: 12 },
+          exercises: cooldownExercises,
+          isCompleted: false,
+          restBetweenExercises: 5,
+        });
+      }
+      if (recoveryExercises.length > 0) {
+        segments.push({
+          id: 'seg-recovery',
+          type: 'station' as const,
+          title: gw.title || 'שיקום',
+          icon: '🌙',
+          target: { type: 'time' as const, value: 600 },
+          exercises: recoveryExercises,
+          isCompleted: false,
+          restBetweenExercises: 0,
+        });
+      }
+      if (segments.length === 0) {
+        segments.push({
+          id: 'seg-all',
+          type: 'station' as const,
+          title: gw.title || 'אימון כוח',
+          icon: '💪',
+          target: { type: 'reps' as const, value: 12 },
+          exercises,
+          isCompleted: false,
+          restBetweenExercises: 10,
+        });
+      }
+
+      const workoutPlan = {
+        id: uniqueWorkoutId,
+        name: gw.title || 'אימון כוח',
+        description: gw.description || '',
+        logicCue: gw.logicCue || '',
+        segments,
+        totalDuration: gw.estimatedDuration || 30,
+        difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
+        trainingType: 'strength' as const,
+        pipelineLog: gw.pipelineLog,
+        // Protocol fields — preserved across the GeneratedWorkout → WorkoutPlan
+        // boundary so the active workout state machine can adapt execution flow.
+        appliedProtocol: gw.appliedProtocol,
+        blastMode: gw.blastMode,
+        // Recovery flag — carried so the active runner + summary skip strength
+        // progression (level% / strength-XP / weekly volume) for rest-day videos.
+        isRecovery: gw.isRecovery ?? false,
+      };
+
       sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));
       sessionStorage.setItem('currentWorkoutPlanId', uniqueWorkoutId);
     }
@@ -676,18 +901,15 @@ export default function HomePage() {
       level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
       difficulty: gw ? String(gw.difficulty) : (scheduleState.currentWorkout?.difficulty || 'medium'),
       duration: gw?.estimatedDuration || scheduleState.currentWorkout?.duration || 45,
-      coverImage: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
+      // No park context in this (pure-strength) flow, so there is nothing for
+      // resolveParkImage to resolve — leave coverImage empty and let the drawer
+      // fall through to the real exercise Bunny thumbnail (heroMedia) instead of
+      // a foreign stock gym photo. (The genuine hybrid park photo is fixed at its
+      // source — find-station-park.service / park-out-and-back.)
+      coverImage: '',
       segments: [],
     });
   }, [profile, scheduleState]);
-
-  // Keep the mirrors current (see handleWorkoutGenerated race fix above).
-  useEffect(() => {
-    openWorkoutPreviewRef.current = openWorkoutPreview;
-  }, [openWorkoutPreview]);
-  useEffect(() => {
-    selectedWorkoutOpenRef.current = selectedWorkout !== null;
-  }, [selectedWorkout]);
 
   // Hero Card Press Handler — goes through JIT equipment/health check.
   //
@@ -929,8 +1151,10 @@ export default function HomePage() {
       )}
 
       {/* ── Missed Workout Recovery Banner (4th slot) ── */}
+      {/* Gated behind SHOW_MISSED_DAYS_PROMPTS (default off). The daysInactive logic
+          above still runs — only this display is hidden. Flip the flag to restore. */}
       <AnimatePresence>
-        {showMissedWorkoutBanner && (
+        {SHOW_MISSED_DAYS_PROMPTS && showMissedWorkoutBanner && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1012,6 +1236,7 @@ export default function HomePage() {
               runningProgramStartDate={profile?.running?.activeProgram?.startDate as any}
               runningBasePace={profile?.running?.paceProfile?.basePace}
               scheduleVersion={scheduleVersion}
+              activityView={homeTab === 'health'}
             />
           </motion.div>
         )}
@@ -1049,6 +1274,15 @@ export default function HomePage() {
             health: 'מדדי בריאות',
           };
 
+          // Pre-registration users (no strength program yet) see only "מדדי בריאות"
+          // + the always-visible Hero. The strength tab ("התקדמות שבועית") is all
+          // ghost-upsell entries into the strength questionnaire the Hero already
+          // covers — hidden until a program exists, then it returns.
+          const tabs: Array<'strength' | 'health'> = hasProgram
+            ? ['strength', 'health']
+            : ['health'];
+          const effectiveTab: 'strength' | 'health' = hasProgram ? homeTab : 'health';
+
           return (
             <div className="flex flex-col gap-4 mt-0">
               {/* ── Tabs bar ─────────────────────────────────────────── */}
@@ -1056,8 +1290,8 @@ export default function HomePage() {
                 className="w-full max-w-[358px] mx-auto flex border-b border-gray-100"
                 dir="rtl"
               >
-                {(['strength', 'health'] as const).map((tab) => {
-                  const isActive = homeTab === tab;
+                {tabs.map((tab) => {
+                  const isActive = effectiveTab === tab;
                   return (
                     <button
                       key={tab}
@@ -1077,7 +1311,7 @@ export default function HomePage() {
               </div>
 
               {/* ── Tab content ──────────────────────────────────────── */}
-              {homeTab === 'strength' ? (
+              {effectiveTab === 'strength' ? (
                 /* התקדמות שבועית — program ring (minmax(0,1fr)) + consistency bars (111px).
                    Grid (not flex) so each cell has an explicit physical boundary —
                    no item can bleed into the neighbouring cell regardless of its
@@ -1100,21 +1334,33 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* ── Daily Workout Hero — always visible ─────────────── */}
-              <StatsOverview
-                stats={MOCK_STATS}
-                onStartWorkout={handleHeroPress}
-                onDirectStart={handleDirectStart}
-                onWorkoutGenerated={handleWorkoutGenerated}
-                selectedDate={selectedDate}
-                hasCompletedAssessment={hasCompletedAssessment}
-                hideWorkoutSection={!!postWorkoutData || todayWorkoutDone}
-                enableRunningPrograms={featureFlags.enableRunningPrograms}
-                scheduleVersion={scheduleVersion}
-                onBuildCustom={handleBuildCustom}
-                generateSingleOption={isWorkoutLoading}
-                isViewingFutureDate={selectedDate > toISODate(new Date())}
-              />
+              {/* ── Daily Workout Hero — always visible ───────────────
+                  R-1.5 (order B, workout-first): with HOME_ANCHOR_V2_ENABLED the
+                  anchor is pulled ABOVE the tabs/metrics via flex `order-first`,
+                  giving schedule → anchor → metrics. A single element is reused for
+                  both branches (no prop duplication); while the flag is off it is
+                  rendered bare, last, exactly as before → byte-identical DOM. */}
+              {(() => {
+                const anchor = (
+                  <StatsOverview
+                    stats={MOCK_STATS}
+                    onStartWorkout={handleHeroPress}
+                    onDirectStart={handleDirectStart}
+                    onWorkoutGenerated={handleWorkoutGenerated}
+                    selectedDate={selectedDate}
+                    hasCompletedAssessment={hasCompletedAssessment}
+                    hideWorkoutSection={!!postWorkoutData || todayWorkoutDone}
+                    enableRunningPrograms={featureFlags.enableRunningPrograms}
+                    scheduleVersion={scheduleVersion}
+                    onBuildCustom={handleBuildCustom}
+                    generateSingleOption={isWorkoutLoading}
+                    isViewingFutureDate={selectedDate > toISODate(new Date())}
+                  />
+                );
+                return HOME_ANCHOR_V2_ENABLED
+                  ? <motion.div className="order-first" onPanEnd={hasCompletedAssessment ? handleAnchorDayPan : undefined}>{anchor}</motion.div>
+                  : anchor;
+              })()}
             </div>
           );
         })()}

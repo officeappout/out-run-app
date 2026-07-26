@@ -58,7 +58,7 @@ import {
 } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
 import type { AccessTier } from '@/features/user/core/types/user.types';
 
-const DEBUG_RESOLUTION = true;
+const DEBUG_RESOLUTION = false;
 const log = (...args: unknown[]) => {
   if (DEBUG_RESOLUTION) console.log('[useUserCityName]', ...args);
 };

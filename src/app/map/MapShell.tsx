@@ -27,6 +27,7 @@ import { useMapLogic } from '@/features/parks';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { useUserStore } from '@/features/user';
 import { syncLocationToFirestore } from '@/lib/firestore.service';
+import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import ParticleBackground from '@/components/ParticleBackground';
@@ -58,6 +59,7 @@ import PlannedPreviewLayer from './layers/PlannedPreviewLayer';
 import ActiveWorkoutLayer from './layers/ActiveWorkoutLayer';
 import SummaryLayer from './layers/SummaryLayer';
 import TurnCarousel from '@/features/parks/core/components/TurnCarousel';
+import { useHybridRun } from '@/features/workout-engine/hybrid/useHybridRun';
 import { computeRouteTurns } from '@/features/parks/core/services/geoUtils';
 import SessionControlBar from '@/features/parks/core/components/SessionControlBar';
 import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/components/UserProfileSheet';
@@ -106,12 +108,22 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   const sessionStatus = useSessionStore((s) => s.status);
   const devSim = useDevSimulation();
   const effectivePos = devSim.effectiveLocation(logic.currentUserPos);
+
+  // Recenter ("center on me"): bump a signal AppMap watches → it eases to the
+  // best-available fix (live GPS or fallback dot). The layers ALSO call
+  // handleLocationClick, which prompts for permission when there is no fix — so a
+  // tap is never a silent no-op, even with GPS off / denied.
+  const [recenterSignal, setRecenterSignal] = useState(0);
+  const handleRecenter = useCallback(() => setRecenterSignal((n) => n + 1), []);
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
   const navCardHeight = useMapStore((s) => s.navCardHeight);
   const isLapsOpen = useMapStore((s) => s.isLapsOpen);
 
-  // Presence heartbeat — disabled in demo mode so no writes reach Firestore
-  usePresenceLayer(effectivePos ?? null, !isDemoMode);
+  // Presence heartbeat ONLY — disabled in demo mode so no writes reach Firestore.
+  // heartbeatOnly=true skips this hook's onSnapshot marker listener + 60s heatmap
+  // poll (their results are discarded here — the map's pins come from
+  // useGroupPresenceListener/usePartnerData below), removing pure wasted load.
+  usePresenceLayer(effectivePos ?? null, !isDemoMode, /* heartbeatOnly */ true);
 
   const flyover = useFlyoverEntrance(effectivePos ?? null);
   const sharedSession = useSharedSession();
@@ -285,6 +297,12 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   // ══════ Determine AppMap props based on mode ══════
   const isActiveMode = mode === 'active' || mode === 'free_run';
   const showLivePath = isActiveMode && logic.isWorkoutActive;
+  // B2: while a hybrid STATION is live, StrengthRunner owns the screen (z-[120],
+  // trapped in the draggable transform's stacking context), so the walking chrome
+  // below — which renders at the map root — would paint on top of it. Gate it off
+  // during 'station'. Global store read; false for non-hybrid runs AND hybrid
+  // aerobic legs, so those paths stay byte-identical (chrome still shows there).
+  const hybridStationLive = useHybridRun((s) => s.phase === 'station');
 
   // True when TurnCarousel is mounted — ParticipantStrip must yield navCardHeight
   // to TurnCarousel in that case (both write to the same store field).
@@ -336,6 +354,11 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
         .map(r => ({ ...r, isFocused: r.id === logic.focusedRoute?.id }));
       if (navRoutes.length > 0) return navRoutes;
     }
+    // Hybrid pre-run overview: the composed loop is a standalone focusedRoute that is
+    // NOT in the discover carousel or free-run carousel — draw JUST it (else only its
+    // station marker shows and the polyline is missing). Placed above the carousels so
+    // a lingering carousel array can't suppress it.
+    if (logic.focusedRoute?.id === 'hybrid-route') return [logic.focusedRoute];
     // Free-run carousel takes precedence over discover-mode routes so the
     // user can preview all 3 generated options on the map without us having
     // to mutate the global `allRoutes` pipeline (which would leak into the
@@ -417,6 +440,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
           }}
           selectedRoute={logic.selectedRoute}
           destinationMarker={spotFocus ?? undefined}
+          hybridStation={(logic.focusedRoute as any)?.stationMarker ?? null}
           onMapRef={flyover.handleMapRef}
           skipInitialZoom={flyover.flyoverActive || !!spotFocus}
           isAutoFollowEnabled={isMapFollowEnabled}
@@ -432,6 +456,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
           mapMode={mode}
           activityType={contextActivity}
           navigationTurns={navigationTurns}
+          recenterSignal={recenterSignal}
         />
       </div>
       )} {/* end mode !== 'free_run' */}
@@ -460,6 +485,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
            while a focused route was still attached. */}
       {mode !== 'summary' &&
         sessionStatus !== 'finished' &&
+        !hybridStationLive &&
         (logic.isNavigationMode || (isActiveMode && logic.focusedRoute)) &&
         effectivePos && logic.focusedRoute?.path && (
           <TurnCarousel
@@ -494,7 +520,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
            Tapping re-enables auto-follow, which triggers the nav camera effect
            to snap back (because isAutoFollowEnabled is in the effect's dep array). */}
       <AnimatePresence>
-        {isActiveMode && !isMapFollowEnabled && !isLapsOpen && (
+        {isActiveMode && !isMapFollowEnabled && !isLapsOpen && !hybridStationLive && (
           <motion.button
             key="recenter"
             initial={{ opacity: 0, scale: 0.8 }}
@@ -530,10 +556,10 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
       </AnimatePresence>
 
       {/* ══════ LAYER ROUTER ══════ */}
-      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} />}
+      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} onRecenter={handleRecenter} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
-      {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} />}
+      {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} onRecenter={handleRecenter} />}
       {mode === 'planned_preview' && <PlannedPreviewLayer logic={logic} />}
       {mode === 'active' && <ActiveWorkoutLayer logic={logic} />}
       {mode === 'summary' && <SummaryLayer logic={logic} />}
@@ -653,6 +679,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const refreshProfile = useUserStore((s) => s.refreshProfile);
 
   const [manuallyCleared, setManuallyCleared] = useState(false);
+  const mapPrefRestoreAttempted = useRef(false);
 
   const needsLocationGate = useMemo(() => {
     if (isDemoMode) return false;   // booth demo: skip all gates
@@ -699,6 +726,37 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
       }).then(() => refreshProfile());
     }
   }, [fromExplorer, router, refreshProfile]);
+
+  // Fix 2b — restore a durably-saved map location instead of re-showing the
+  // gate. Applies to non-MAP_ONLY profiles that lost core.authorityId (e.g. a
+  // Firestore write interrupted by a hard-close). Promotes the saved answer to
+  // Firestore + refreshes, then clears the gate — mirrors the fromExplorer path
+  // but sourced from the durable pref layer (survives hard-close). Runs at most
+  // once per mount; if nothing is saved, the gate shows normally.
+  useEffect(() => {
+    if (mapPrefRestoreAttempted.current) return;
+    if (isDemoMode || fromExplorer) return;
+    if (!hasHydrated || !profile) return;
+    if (profile.core?.authorityId) return;
+    if (profile.onboardingPath === 'MAP_ONLY') return;
+    mapPrefRestoreAttempted.current = true;
+    let cancelled = false;
+    (async () => {
+      const authId = await getOnboardingPrefAsync('map_authority_id');
+      const lat = await getOnboardingPrefAsync('map_anchor_lat');
+      const lng = await getOnboardingPrefAsync('map_anchor_lng');
+      if (cancelled || (!authId && !lat)) return;
+      await syncLocationToFirestore({
+        authorityId: authId || undefined,
+        anchorLat: lat ? parseFloat(lat) : undefined,
+        anchorLng: lng ? parseFloat(lng) : undefined,
+      });
+      if (cancelled) return;
+      await refreshProfile();
+      setManuallyCleared(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isDemoMode, fromExplorer, hasHydrated, profile, refreshProfile]);
 
   const handleLocationGateComplete = async () => {
     if (typeof window !== 'undefined') {

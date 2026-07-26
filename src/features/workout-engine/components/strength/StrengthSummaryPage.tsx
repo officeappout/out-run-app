@@ -186,6 +186,7 @@ export default function StrengthSummaryPage({
     rawExerciseLog,
     durationMinutes: Math.max(1, Math.round(duration / 60)),
     precomputedProgression,
+    isRecovery,
   });
 
   const analytics = useSummaryAnalytics({
@@ -227,6 +228,7 @@ export default function StrengthSummaryPage({
     durationMinutes: analytics.durationMinutes,
     totalReps,
     completedExercises,
+    isRecovery,
   });
 
   // ── Lifestyle CTA handlers (inline — pure navigation/storage) ──

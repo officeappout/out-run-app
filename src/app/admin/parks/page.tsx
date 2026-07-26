@@ -199,7 +199,7 @@ export default function ParksListPage() {
                                 <tr>
                                     <th className="px-6 py-4 rounded-tr-2xl">שם הפארק</th>
                                     <th className="px-6 py-4">עיר</th>
-                                    <th className="px-6 py-4">רשות משויכת</th>
+                                    <th className="px-6 py-4">רשות / שכונה</th>
                                     <th className="px-6 py-4">מתקנים</th>
                                     <th className="px-6 py-4 rounded-tl-2xl text-center">פעולות</th>
                                 </tr>
@@ -249,11 +249,18 @@ export default function ParksListPage() {
                                         <td className="px-6 py-4 text-gray-600">{park.city}</td>
                                         <td className="px-6 py-4">
                                             {park.authorityId ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Building2 size={16} className="text-blue-500" />
-                                                    <span className="text-sm font-semibold text-gray-700">
-                                                        {safeRenderText(getAuthorityName(park.authorityId)) || park.authorityId}
-                                                    </span>
+                                                <div className="flex flex-col gap-0.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <Building2 size={16} className="text-blue-500" />
+                                                        <span className="text-sm font-semibold text-gray-700">
+                                                            {safeRenderText(getAuthorityName(park.authorityId)) || park.authorityId}
+                                                        </span>
+                                                    </div>
+                                                    {park.neighborhoodName && (
+                                                        <span className="text-xs text-gray-400 mr-6">
+                                                            ↳ {safeRenderText(park.neighborhoodName)}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="flex items-center gap-2">

@@ -14,6 +14,7 @@ import type { Route } from '@/features/parks/core/types/route.types';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
+import { resolveParkImage } from '@/lib/park-image';
 
 const PARK_FALLBACK_IMAGE = '/assets/lemur/lemur-avatar.png';
 
@@ -63,8 +64,13 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
     let cancelled = false;
 
     const applyFallback = () => {
-      const city = (profile as any)?.core?.city ?? (profile as any)?.city;
-      const fallback = (city && CITY_FALLBACK_COORDS[city]) ? CITY_FALLBACK_COORDS[city] : DEFAULT_FALLBACK;
+      // Prefer the user's onboarding/authority anchor over any hard-coded default —
+      // no teleport to a fixed demo city when GPS is unavailable.
+      const core = (profile as any)?.core;
+      const anchor = (typeof core?.anchorLat === 'number' && typeof core?.anchorLng === 'number')
+        ? { lat: core.anchorLat, lng: core.anchorLng } : null;
+      const city = core?.city ?? (profile as any)?.city;
+      const fallback = anchor ?? ((city && CITY_FALLBACK_COORDS[city]) ? CITY_FALLBACK_COORDS[city] : DEFAULT_FALLBACK);
       setUserPos(fallback);
       setUsingFallback(true);
     };
@@ -124,7 +130,10 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
           distance: haversineKm(userPos.lat, userPos.lng, p.location.lat, p.location.lng),
           type: 'park' as const,
           subtitle: p.facilityType === 'gym_park' ? 'גינת כושר' : p.facilityType === 'court' ? 'מגרש' : 'מתקן',
-          imageUrl: p.images?.[0] || p.image || p.imageUrl || null,
+          // imageUrl (Bunny, real photo) first — was inverted (images[0]/image
+          // first) which rendered the stale Firebase cover. Shared resolver +
+          // bunnyImg resize (card ~148px → 300 for retina).
+          imageUrl: resolveParkImage(p, 300) || null,
         }))
         .filter((s) => s.distance <= RADIUS_KM)
         .sort((a, b) => a.distance - b.distance)

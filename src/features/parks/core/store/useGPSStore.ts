@@ -24,6 +24,14 @@ import { create } from 'zustand';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 
+/**
+ * DEV-ONLY fallback location (Tel Aviv). Used when localhost has no real GPS fix
+ * so presence heartbeats / group tests work. SINGLE SOURCE — both `useGPS` (on
+ * geolocation error) and `usePresenceLayer` reference this so the dev fallback is
+ * consistent. NEVER applied in production (guarded by NODE_ENV / IS_DEV).
+ */
+export const DEV_FALLBACK_LOCATION = { lat: 32.0673, lng: 34.7726 } as const;
+
 export type GPSPermissionState = 'unknown' | 'granted' | 'denied' | 'prompt';
 
 export interface GPSCoords {

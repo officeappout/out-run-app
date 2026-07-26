@@ -22,4 +22,3 @@ export { default as LemurAvatar } from './components/LemurAvatar';
 export { default as CoinPill } from './components/CoinPill';
 export { BadgeDisplay } from './components/BadgeDisplay';
 export { default as ProgressRing } from './components/ProgressRing';
-export { default as StreakScreen } from './components/StreakScreen';

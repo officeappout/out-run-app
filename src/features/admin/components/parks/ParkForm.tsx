@@ -10,7 +10,7 @@ import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import { Park, ParkSportType, ParkFeatureTag, Authority } from '@/types/admin-types';
 import { getAutoSportTypes } from '@/features/parks';
 import { ParkGymEquipment, getAllGymEquipment, GymEquipment } from '@/features/content/equipment/gym';
-import { getAllAuthorities, getAuthority } from '@/features/admin/services/authority.service';
+import { getAllAuthorities, getAuthority, getChildrenByParent } from '@/features/admin/services/authority.service';
 import { getAllOutdoorBrands } from '@/features/content/equipment/brands';
 import type { OutdoorBrand } from '@/features/content/equipment/brands';
 import type { MediaAsset } from '@/features/admin/services/media-assets.service';
@@ -119,6 +119,18 @@ export default function ParkForm({
   const [showAuthorityDropdown, setShowAuthorityDropdown] = useState(false);
   const authorityDropdownRef = useRef<HTMLDivElement>(null);
 
+  // ── Neighborhood / settlement (leaf sub-location) ─────────────────────
+  // authorityId is stored as the TOP authority (city/council); this leaf is
+  // stored separately in neighborhoodId. Optional (hybrid backfill).
+  const [neighborhoods, setNeighborhoods] = useState<Authority[]>([]);
+  const [loadingNeighborhoods, setLoadingNeighborhoods] = useState(false);
+  const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState<string>(initialData?.neighborhoodId || '');
+  const [neighborhoodSearch, setNeighborhoodSearch] = useState(initialData?.neighborhoodName || '');
+  const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
+  const neighborhoodDropdownRef = useRef<HTMLDivElement>(null);
+  const selectedNeighborhoodIdRef = useRef(selectedNeighborhoodId);
+  selectedNeighborhoodIdRef.current = selectedNeighborhoodId;
+
   const [equipmentSearchTerms, setEquipmentSearchTerms] = useState<Record<number, string>>({});
   const [showEquipmentDropdown, setShowEquipmentDropdown] = useState<Record<number, boolean>>({});
   const [brandSearchTerms, setBrandSearchTerms] = useState<Record<number, string>>({});
@@ -186,10 +198,19 @@ export default function ParkForm({
   }, [lockedAuthorityId]);
 
   const filteredAuthorities = useMemo(() => {
-    if (!authoritySearch.trim()) return authorities;
+    // Only TOP-level authorities (cities / councils) are selectable here — the
+    // leaf sub-location is chosen in the neighborhood field below.
+    const topLevel = authorities.filter(a => !a.parentAuthorityId);
+    if (!authoritySearch.trim()) return topLevel;
     const lower = authoritySearch.toLowerCase();
-    return authorities.filter(a => a.name.toLowerCase().includes(lower));
+    return topLevel.filter(a => a.name.toLowerCase().includes(lower));
   }, [authorities, authoritySearch]);
+
+  const filteredNeighborhoods = useMemo(() => {
+    if (!neighborhoodSearch.trim()) return neighborhoods;
+    const lower = neighborhoodSearch.toLowerCase();
+    return neighborhoods.filter(n => n.name.toLowerCase().includes(lower));
+  }, [neighborhoods, neighborhoodSearch]);
 
   useEffect(() => {
     if (lockedAuthorityId) return;
@@ -252,6 +273,56 @@ export default function ParkForm({
       })
       .catch(() => setBoundaryGeoJSON(null));
   }, [lockedAuthorityId, selectedAuthorityIdValue]);
+
+  // ── Load neighborhoods/settlements for the resolved TOP authority ─────
+  // If the selected authority is itself a leaf, resolve up to its parent and
+  // auto-select that leaf as the neighborhood.
+  useEffect(() => {
+    const resolveId = lockedAuthorityId || selectedAuthorityIdValue;
+    if (!resolveId) { setNeighborhoods([]); return; }
+    let cancelled = false;
+    (async () => {
+      setLoadingNeighborhoods(true);
+      try {
+        const auth = await getAuthority(resolveId);
+        const topId = auth?.parentAuthorityId || resolveId;
+        const children = await getChildrenByParent(topId);
+        if (cancelled) return;
+        setNeighborhoods(children);
+        if (auth?.parentAuthorityId) {
+          // Selected authority is a leaf → that IS the neighborhood
+          setSelectedNeighborhoodId(auth.id);
+          setNeighborhoodSearch(auth.name);
+        } else {
+          // Selected a top authority → keep the current leaf only if it still
+          // belongs to this parent; otherwise clear.
+          const current = selectedNeighborhoodIdRef.current;
+          const match = current ? children.find(c => c.id === current) : undefined;
+          if (match) {
+            setNeighborhoodSearch(match.name);
+          } else {
+            setSelectedNeighborhoodId('');
+            setNeighborhoodSearch('');
+          }
+        }
+      } catch {
+        if (!cancelled) setNeighborhoods([]);
+      } finally {
+        if (!cancelled) setLoadingNeighborhoods(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [lockedAuthorityId, selectedAuthorityIdValue]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (neighborhoodDropdownRef.current && !neighborhoodDropdownRef.current.contains(event.target as Node)) {
+        setShowNeighborhoodDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadGymEquipment = async () => {
     try {
@@ -343,11 +414,26 @@ export default function ParkForm({
         return;
       }
 
+      // Resolve the leaf neighborhood + derive the TOP authority from it.
+      // authorityId is ALWAYS stored as the top authority (city/council); the
+      // leaf lives in neighborhoodId. Invariant: neighborhood.parentAuthorityId === authorityId.
+      const selectedNeighborhood = neighborhoods.find(n => n.id === selectedNeighborhoodId);
+      let finalNeighborhoodId: string | null = selectedNeighborhood ? selectedNeighborhood.id : null;
+      let finalNeighborhoodName: string | null = selectedNeighborhood ? selectedNeighborhood.name : null;
+
       let finalAuthorityId = selectedAuthorityId;
       try {
-        const authority = await getAuthority(selectedAuthorityId);
-        if (authority?.parentAuthorityId) {
-          finalAuthorityId = authority.parentAuthorityId;
+        if (selectedNeighborhood?.parentAuthorityId) {
+          // A leaf is selected → the city/council is its parent (authoritative).
+          finalAuthorityId = selectedNeighborhood.parentAuthorityId;
+        } else {
+          const authority = await getAuthority(selectedAuthorityId);
+          if (authority?.parentAuthorityId) {
+            // Selected authority is itself a leaf → treat it as the neighborhood.
+            finalAuthorityId = authority.parentAuthorityId;
+            finalNeighborhoodId = authority.id;
+            finalNeighborhoodName = authority.name;
+          }
         }
       } catch {
         // fallback to selected authority
@@ -372,6 +458,8 @@ export default function ParkForm({
         hasWaterFountain: hasWaterFountain || false,
         gymEquipment: processedGymEquipment.length > 0 ? processedGymEquipment : [],
         authorityId: finalAuthorityId || null,
+        neighborhoodId: finalNeighborhoodId,
+        neighborhoodName: finalNeighborhoodName,
         status: 'open',
       };
 
@@ -548,6 +636,77 @@ export default function ParkForm({
                   <Loader2 size={12} className="animate-spin" /> טוען רשויות...
                 </span>
               )}
+            </div>
+          )}
+
+          {/* ═══ Neighborhood / Settlement (leaf) — optional ═══ */}
+          {neighborhoods.length > 0 && (
+            <div className="space-y-2" ref={neighborhoodDropdownRef}>
+              <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <Building2 size={16} className="text-emerald-500" />
+                שכונה / יישוב <span className="text-gray-400 font-normal">(אופציונלי)</span>
+              </label>
+              <div className="relative">
+                <div className="relative">
+                  <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={neighborhoodSearch}
+                    onChange={(e) => {
+                      setNeighborhoodSearch(e.target.value);
+                      setShowNeighborhoodDropdown(true);
+                      if (selectedNeighborhoodId) {
+                        const found = neighborhoods.find(n => n.id === selectedNeighborhoodId);
+                        if (found && e.target.value !== found.name) setSelectedNeighborhoodId('');
+                      }
+                    }}
+                    onFocus={() => setShowNeighborhoodDropdown(true)}
+                    className="w-full p-3 pr-10 bg-gray-50 rounded-xl border-2 border-transparent focus:border-emerald-500 focus:bg-white transition-all outline-none text-right"
+                    placeholder="בחר שכונה תחת הרשות..."
+                    disabled={loadingNeighborhoods}
+                  />
+                  <ChevronDown size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                </div>
+                {showNeighborhoodDropdown && !loadingNeighborhoods && (
+                  <div className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedNeighborhoodId('');
+                        setNeighborhoodSearch('');
+                        setShowNeighborhoodDropdown(false);
+                      }}
+                      className="w-full text-right px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 text-sm text-gray-400"
+                    >
+                      ללא שכונה
+                    </button>
+                    {filteredNeighborhoods.length > 0 ? (
+                      filteredNeighborhoods.map((n) => (
+                        <button
+                          key={n.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedNeighborhoodId(n.id);
+                            setNeighborhoodSearch(n.name);
+                            setShowNeighborhoodDropdown(false);
+                          }}
+                          className={`w-full text-right px-4 py-3 hover:bg-emerald-50 transition-colors border-b border-gray-50 last:border-b-0 ${
+                            selectedNeighborhoodId === n.id ? 'bg-emerald-50 font-bold' : ''
+                          }`}
+                        >
+                          <span className="text-sm text-gray-800">{safeRenderText(n.name)}</span>
+                          <span className="text-xs text-gray-400 mr-2">
+                            {n.type === 'settlement' ? '(יישוב)' : '(שכונה)'}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-sm text-gray-400">לא נמצאו שכונות תואמות</div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-400">העיר/רשות נגזרת אוטומטית מהשכונה שנבחרה.</p>
             </div>
           )}
 

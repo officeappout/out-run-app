@@ -24,6 +24,7 @@ import {
   type Difficulty,
 } from '@/features/workout-engine/components/strength';
 import type { BonusStep, VolumeBreakdownDisplay } from '@/features/workout-engine/components/strength/StrengthDopamineScreen';
+import StrengthSummary from '@/features/workout-engine/summary/pages/StrengthSummary';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { processWorkoutCompletion } from '@/features/user/progression/services/progression.service';
@@ -35,7 +36,7 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
-import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
+import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { Target, Sparkles, Flame } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
@@ -119,8 +120,14 @@ function enrichExercise(
 
   // Location-aware media resolution: select the execution_method matching the workout's location
   const method = findMethodForLocation(ex, workoutLocation);
-  const videoUrl = method?.media?.mainVideoUrl || ex.media?.videoUrl || undefined;
-  const imageUrl = method?.media?.imageUrl || videoUrl || ex.media?.imageUrl || undefined;
+  // Centralised through resolveExerciseMedia: reads the location-matched method's Bunny id
+  // from ALL slots (previewVideo → bunnyVideoId_mainVideoUrl → mainVideoUrl) before root,
+  // returns the bare id (carried for network-aware ADAPTIVE playback) + a same-method Bunny
+  // thumbnail. Legacy-only exercises fall through the resolver's untouched legacy chain.
+  const resolvedMedia = resolveExerciseMedia(ex as any, method as any);
+  const bunnyVideoId = resolvedMedia.bunnyVideoId;
+  const videoUrl = resolvedMedia.videoUrl;
+  const imageUrl = resolvedMedia.imageUrl;
 
   // Extract goal/description
   const goal = extractLocalizedText(ex.content?.description) || 
@@ -240,7 +247,8 @@ function enrichExercise(
     duration,
     videoUrl,
     imageUrl,
-    fullTutorial: resolveExerciseMedia(ex as any, method as any).fullTutorial,
+    bunnyVideoId,
+    fullTutorial: resolvedMedia.fullTutorial,
     exerciseType,
     exerciseRole: segmentRole,
     isFollowAlong,
@@ -736,6 +744,16 @@ export default function ActiveWorkoutPage() {
 
     const rawLog = workoutStats.rawExerciseLog;
     if (rawLog.length === 0) return;
+
+    // Recovery guard: rest-day / recovery sessions never credit strength
+    // progression. Return BEFORE processWorkoutCompletion so no level% base-gain
+    // is written to the user's active program. Left before the
+    // `progression_started_this_session` flag on purpose — the summary's
+    // useProgressionSync is gated by its own isRecovery check (step 2ב), so it
+    // must NOT rely on that flag being set here. The workout still completes and
+    // advances to the dopamine/summary flow (handled by handleComplete), and
+    // progressionResult stays null (dopamineBonuses already tolerates that).
+    if (workoutPlan?.isRecovery) return;
 
     progressionComputedRef.current = true;
 
@@ -1326,6 +1344,28 @@ export default function ActiveWorkoutPage() {
   
   // Step 3: Summary Screen
   if (flowState === 'summary') {
+    if (STRENGTH_SUMMARY_V2_ENABLED) {
+      return (
+        <StrengthSummary
+          duration={workoutStats.duration}
+          totalReps={workoutStats.totalReps}
+          completedExercises={workoutStats.completedExercises}
+          difficulty={workoutStats.difficulty}
+          streak={userProgression.streak}
+          programId={userProgression.programId}
+          programName={stableWorkoutPlan.name || 'אימון כוח'}
+          currentLevel={userProgression.currentLevel}
+          maxLevel={userProgression.maxLevel}
+          progressToNextLevel={Math.round(preWorkoutPercentRef.current)}
+          onFinish={handleSummaryFinish}
+          trainingType={stableWorkoutPlan.trainingType}
+          rawExerciseLog={workoutStats.rawExerciseLog}
+          precomputedProgression={progressionResult}
+          domainSets={workoutStats.domainSets}
+          isRecovery={stableWorkoutPlan.isRecovery}
+        />
+      );
+    }
     return (
       <StrengthSummaryPage
         duration={workoutStats.duration}
@@ -1343,6 +1383,7 @@ export default function ActiveWorkoutPage() {
         rawExerciseLog={workoutStats.rawExerciseLog}
         precomputedProgression={progressionResult}
         domainSets={workoutStats.domainSets}
+        isRecovery={stableWorkoutPlan.isRecovery}
       />
     );
   }

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getAllParks } from '@/features/parks';
 import { calculateDistance } from '@/lib/services/location.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
+import { resolveParkImage } from '@/lib/park-image';
 
 export interface NearbyParkCard {
   id: string;
@@ -45,7 +46,11 @@ export function useNearbyParks(isOpen: boolean): NearbyParkCard[] {
             return {
               id: p.id,
               name: p.name,
-              imageUrl: p.images?.[0] || p.image || p.imageUrl || undefined,
+              // imageUrl (Bunny, real park photo) first — was inverted
+              // (images[0]/image first), which showed the stale Firebase cover
+              // (often a back-filled equipment shot) on the overview-drawer
+              // "where to train" park cards. Card ~200px → 400 for retina.
+              imageUrl: resolveParkImage(p, 400) || undefined,
               walkingMinutes: Math.round(dist / WALKING_SPEED_MPM),
               distanceMeters: dist,
             } satisfies NearbyParkCard;

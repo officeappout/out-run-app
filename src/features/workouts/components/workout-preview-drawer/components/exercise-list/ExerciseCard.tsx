@@ -17,6 +17,13 @@ interface ExerciseCardProps {
   cachedImageUrl: string;
   /** Whether this card sits inside a superset block (tones down its border). */
   isSuperset: boolean;
+  /**
+   * Force the full visible frame (border + subtle shadow) even inside a
+   * superset. Used by the hybrid map drawer, where the card must read as a
+   * distinct object against the sheet background (no colored edge rail).
+   * Default (undefined) preserves the toned-down superset look everywhere else.
+   */
+  framed?: boolean;
   /** Tap-to-open-detail handler.  Stable reference required for memoisation. */
   onTap?: (exercise: EngineWorkoutExercise) => void;
   /** Swap handler.  Stable reference required for memoisation. */
@@ -41,6 +48,7 @@ function ExerciseCardImpl({
   exercise,
   cachedImageUrl,
   isSuperset,
+  framed,
   onTap,
   onSwap,
   volumeOverride,
@@ -78,7 +86,7 @@ function ExerciseCardImpl({
       className={`relative w-full bg-white dark:bg-[#1E293B] rounded-lg overflow-hidden border-[0.5px] cursor-pointer active:scale-[0.98] transition-transform h-[70px] ${
         isGoal
           ? 'ring-2 ring-cyan-400 border-cyan-200 dark:border-cyan-800 bg-cyan-50/30 dark:bg-cyan-900/20'
-          : isSuperset
+          : isSuperset && !framed
             ? 'border-[#E0E9FF]/40 dark:border-slate-800/50 shadow-none'
             : 'border-[#E0E9FF] dark:border-slate-700 shadow-sm'
       }`}
@@ -97,6 +105,11 @@ function ExerciseCardImpl({
               <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-cyan-100 text-cyan-700 text-[10px] font-bold rounded-full border border-cyan-200 flex-shrink-0">
                 <Target size={9} />
                 יעד
+              </span>
+            )}
+            {exercise.dimensionUnavailable && (
+              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200 flex-shrink-0">
+                דורש מתקן
               </span>
             )}
           </div>

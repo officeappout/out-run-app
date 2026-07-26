@@ -735,9 +735,13 @@ export default function NeighborhoodLeaderboard({
                         {localMode === 'general' && (
                           <span
                             className="flex-shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-black leading-tight"
-                            style={{ backgroundColor: '#FFF3E0', color: '#E65100' }}
+                            style={
+                              scope === 'tenant'
+                                ? { backgroundColor: '#E1F5EE', color: ACCENT }
+                                : { backgroundColor: '#FFF3E0', color: '#E65100' }
+                            }
                           >
-                            🔥 רצף
+                            {scope === 'tenant' ? '📅 ימים פעילים' : '🔥 רצף'}
                           </span>
                         )}
                         {localMode === 'strength' && (

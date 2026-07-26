@@ -33,15 +33,10 @@ export default function PartnerMarker({
       className="relative flex items-center justify-center"
       style={{ width: size, height: size, opacity: isUser ? 1 : 0.72 }}
     >
-      {/* Pulsing outer glow — very faint so it doesn't compete with the user marker */}
-      <div
-        className="absolute rounded-full animate-ping"
-        style={{
-          inset: -4,
-          background: `${color}14`,
-          animationDuration: isUser ? '2s' : '3.5s',
-        }}
-      />
+      {/* Outer glow removed (perf/heat): the infinite `animate-ping` ran one
+          continuous per-frame compositor layer PER visible partner — a dense-city
+          heat driver (dozens simultaneously at zoom >= 15). The steady ring below
+          + the avatar carry the marker identity. Do not re-add without gating. */}
       {/* Steady ring — single-pixel accent */}
       <div
         className="absolute rounded-full"

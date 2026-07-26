@@ -20,7 +20,7 @@ import { db } from '@/lib/firebase';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
-export type LeaderboardScope = 'city' | 'school' | 'park' | 'global' | 'league';
+export type LeaderboardScope = 'city' | 'school' | 'park' | 'global' | 'league' | 'tenant';
 export type LeaderboardCategory = 'overall' | 'cardio' | 'strength';
 export type LeaderboardTimeWindow = 'weekly' | 'monthly';
 export type LeaderboardGenderFilter = 'all' | 'male' | 'female';
@@ -578,6 +578,92 @@ export async function getLeagueLeaderboard(params: {
   }
 
   return { entries, myEntry, totalParticipants, window: timeWindow, generatedAt: new Date() };
+}
+
+// ── Tenant / community leaderboard — ACTIVE DAYS (feed-independent) ─────────
+// The league for closed communities (Wix pilot). Reads the per-day docs
+// written by the onWorkoutCreate CF (leaderboard_shards, keyed by the member's
+// core.tenantId + optional unitId) and ranks members by ACTIVE DAYS this month
+// — days where they crossed ⅔ of the daily target. Does NOT touch feed_posts.
+
+function getMonthPeriod(): string {
+  // Israel-local month (YYYY-MM) so the read matches the CF's Jerusalem-day writes.
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' }).slice(0, 7);
+}
+
+export async function getTenantLeaderboard(params: {
+  tenantId: string;
+  /** Omit / null → tenant-wide (aggregate across all units). */
+  unitId?: string | null;
+  currentUid: string;
+  currentName?: string;
+  maxEntries?: number;
+}): Promise<LeaderboardResult> {
+  const { tenantId, unitId, currentUid, currentName, maxEntries = 50 } = params;
+  const period = getMonthPeriod();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const constraints: any[] = [
+    where('tenantId', '==', tenantId),
+    where('period', '==', period),
+  ];
+  if (unitId) constraints.push(where('unitId', '==', unitId));
+
+  const snap = await getDocs(query(collection(db, 'leaderboard_shards'), ...constraints));
+
+  // Sum activeDay flags + workouts per uid across the per-day docs.
+  const agg = new Map<string, { activeDays: number; workouts: number }>();
+  snap.forEach((d) => {
+    const data = d.data();
+    const uid = data.uid as string;
+    if (!uid) return;
+    const cur = agg.get(uid) ?? { activeDays: 0, workouts: 0 };
+    cur.activeDays += typeof data.activeDay === 'number' ? data.activeDay : 0;
+    cur.workouts += typeof data.workouts === 'number' ? data.workouts : 0;
+    agg.set(uid, cur);
+  });
+
+  const allSorted = Array.from(agg.entries()).sort(([, a], [, b]) => b.activeDays - a.activeDays);
+  const totalParticipants = allSorted.length;
+  const sliced = allSorted.slice(0, maxEntries);
+
+  // Shards carry no display name — resolve best-effort from users/{uid}.core.name
+  // for the shown rows (+ current user).
+  const uidsToName = new Set<string>(sliced.map(([uid]) => uid));
+  uidsToName.add(currentUid);
+  const nameMap = new Map<string, string>();
+  await Promise.all(
+    Array.from(uidsToName).map(async (uid) => {
+      try {
+        const u = await getDoc(doc(db, 'users', uid));
+        nameMap.set(uid, (u.data()?.core?.name as string) || 'משתמש');
+      } catch {
+        nameMap.set(uid, 'משתמש');
+      }
+    }),
+  );
+
+  const entries: LeaderboardEntry[] = sliced.map(([uid, { activeDays, workouts }], idx) => ({
+    rank: idx + 1,
+    uid,
+    name: uid === currentUid ? currentName ?? nameMap.get(uid) ?? 'את/ה' : nameMap.get(uid) ?? 'משתמש',
+    totalCredit: activeDays, // score = active days this month
+    workoutCount: workouts,
+    isCurrentUser: uid === currentUid,
+  }));
+
+  let myEntry = entries.find((e) => e.isCurrentUser) ?? null;
+  if (!myEntry && currentUid) {
+    const myIdx = allSorted.findIndex(([uid]) => uid === currentUid);
+    if (myIdx >= 0) {
+      const [, { activeDays, workouts }] = allSorted[myIdx];
+      myEntry = { rank: myIdx + 1, uid: currentUid, name: currentName ?? nameMap.get(currentUid) ?? 'את/ה', totalCredit: activeDays, workoutCount: workouts, isCurrentUser: true };
+    } else {
+      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'את/ה', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
+    }
+  }
+
+  return { entries, myEntry, totalParticipants, window: 'monthly', generatedAt: new Date() };
 }
 
 // ── Group-vs-group competition leaderboard ─────────────────────────────────

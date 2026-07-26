@@ -16,6 +16,7 @@ import React, { type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import type { NextExerciseInfo } from '../hooks/useWorkoutStateMachine';
+import { useNetworkAwareStreamUrl } from '@/features/content/exercises/client/hooks/useNetworkAwareStreamUrl';
 
 interface RestWithPreviewProps {
   restTimeLeft: number;
@@ -38,13 +39,20 @@ export default function RestWithPreview({
   isPaused,
   videoKey,
 }: RestWithPreviewProps) {
+  // Network-aware Bunny stream for the NEXT exercise. The bunnyVideoId is carried
+  // through the flatten (A2) and read by the state machine (A3a), so a Bunny-only
+  // next exercise plays the adaptive stream here instead of the dropped legacy URL.
+  // Legacy-only next exercise → null id → hook no-ops → falls back to the legacy URL
+  // (byte-identical to before).
+  const { streamUrl: nextBunnyStreamUrl } = useNetworkAwareStreamUrl(nextExercise.bunnyVideoId ?? null);
+  const previewVideoUrl = nextBunnyStreamUrl || nextExercise.videoUrl;
   return (
     <div className="absolute inset-0 overflow-hidden">
       {/* ── Layer 1: Background video (z-0) ─────────────────────────────── */}
       <ExerciseVideoPlayer
         key={`rest-preview-${videoKey}`}
         exerciseId={`rest-preview-${videoKey}`}
-        videoUrl={nextExercise.videoUrl}
+        videoUrl={previewVideoUrl}
         exerciseName={nextExercise.name}
         exerciseType="reps"
         isPaused={isPaused}

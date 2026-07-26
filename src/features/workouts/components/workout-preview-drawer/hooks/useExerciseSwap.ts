@@ -12,28 +12,12 @@ import type {
 } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { isTimeBasedExercise } from '@/features/workout-engine/logic/workout-budgeting.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import { deriveSwappedEntry } from '../utils/derive-swapped-entry.util';
 
-// ── Standard-Path Volume Scaling Constants (Phase 3.5) ────────────────────
-// Asymmetric multipliers: a harder variant trims volume 10% per level of
-// upgrade (more leverage demand → fewer reps to preserve quality), while
-// an easier variant adds 15% per level of downgrade (less leverage demand
-// → more reps to preserve total work).  The asymmetry keeps perceived
-// exertion roughly constant across user-driven swaps in either direction.
-const VOLUME_DELTA_HARDER = 0.1;
-const VOLUME_DELTA_EASIER = 0.15;
-// Floors / caps prevent the scaler from collapsing to physiologically
-// useless values when the user makes very large jumps.
-const MIN_REPS_FLOOR = 4;
-const MAX_REPS_CAP = 20;
-const MIN_HOLD_FLOOR_S = 8;
-// Baselines mirror WorkoutGenerator.substituteExercise() — applied first
-// when the metric flips, then the level-delta modifier runs on top.
-const METRIC_RESET_HOLD_REPS = 30;
-const METRIC_RESET_HOLD_RANGE = { min: 20, max: 45 };
-const METRIC_RESET_REPS = 12;
-const METRIC_RESET_RANGE = { min: 6, max: 12 };
 // TUT multiplier — kept in lock-step with TUT_REPS_TO_SECONDS in
 // pyramid.processor.ts so both write paths agree on the conversion.
+// (Standard-path volume/metric-reset constants moved to derive-swapped-entry.util.ts,
+// now shared by the single-swap and bulk swap-all paths.)
 const TUT_REPS_TO_SECONDS = 2.5;
 
 interface PyramidSwapContext {
@@ -259,115 +243,9 @@ export function useExerciseSwap({
 
         if (we.exercise.id !== exerciseToReplace.id) return we;
 
-        // ── Metric Identity Re-Derivation ────────────────────────────────────
-        // The old WorkoutExercise wrapper carries an `isTimeBased` flag that
-        // was computed for the EXITING exercise.  When the swap target is a
-        // static hold (e.g. 'החזקת מתח ב-15°') the new exercise's metric is
-        // 'time', but spreading `...we` would inherit `isTimeBased: false`
-        // and the UI would print "X חזרות" forever.  Re-resolve from the
-        // incoming exercise's schema (mirrors `substituteExercise` in
-        // WorkoutGenerator.ts so the two swap paths stay aligned).
-        const newIsTimeBased = isTimeBasedExercise(newExercise);
-        const metricChanged = newIsTimeBased !== we.isTimeBased;
-
-        // ── Numeric Level Delta (Phase 3.5) ──────────────────────────────────
-        // Replaces the coarse 3-bucket `levelComparison` enum from the modal.
-        // We read the actual numeric `targetPrograms[0].level` off both
-        // documents so a +1 swap and a +10 swap scale proportionally rather
-        // than receiving identical reductions.  Safely defaults to 0 (no
-        // scaling) when either exercise lacks a `targetPrograms` entry, so
-        // legacy / migrated docs never crash the swap flow.
-        const oldLevel = exerciseToReplace.targetPrograms?.[0]?.level ?? 0;
-        const newLevel = newExercise.targetPrograms?.[0]?.level ?? oldLevel;
-        const levelDelta = newLevel - oldLevel;
-
-        // ── Stage 1 — Baseline ───────────────────────────────────────────────
-        // When the metric type changes, the inherited rep count is in the
-        // wrong unit and must be replaced before any scaling math can run.
-        // Otherwise we start from the current wrapper's values and let the
-        // delta modifier adjust them in-place.
-        let adjustedReps = we.reps;
-        let adjustedRange = we.repsRange;
-
-        if (metricChanged) {
-          if (newIsTimeBased) {
-            adjustedReps = METRIC_RESET_HOLD_REPS;
-            adjustedRange = { ...METRIC_RESET_HOLD_RANGE };
-          } else {
-            adjustedReps = METRIC_RESET_REPS;
-            adjustedRange = { ...METRIC_RESET_RANGE };
-          }
-        }
-
-        // ── Stage 2 — Proportional Level-Delta Modifier ──────────────────────
-        // Harder (delta > 0) trims by VOLUME_DELTA_HARDER per level, easier
-        // (delta < 0) adds by VOLUME_DELTA_EASIER per level.  Floors / caps
-        // protect against pathological multi-level swings (e.g. L19 → L3).
-        // The modifier runs regardless of whether `metricChanged` fired —
-        // a metric-flip swap still respects the level difficulty signal.
-        if (levelDelta !== 0) {
-          const multiplier =
-            levelDelta > 0
-              ? Math.max(0.1, 1 - VOLUME_DELTA_HARDER * levelDelta)
-              : 1 + VOLUME_DELTA_EASIER * Math.abs(levelDelta);
-
-          const floor = newIsTimeBased ? MIN_HOLD_FLOOR_S : MIN_REPS_FLOOR;
-          // The reps cap only applies to rep-based exercises — hold seconds
-          // can legitimately grow when the variant is much easier (e.g. a
-          // longer plank), so we leave time-based easier swaps uncapped.
-          const cap =
-            !newIsTimeBased && levelDelta < 0 ? MAX_REPS_CAP : Infinity;
-
-          const scaleValue = (v: number): number =>
-            Math.min(cap, Math.max(floor, Math.round(v * multiplier)));
-
-          adjustedReps = scaleValue(adjustedReps);
-          if (adjustedRange) {
-            adjustedRange = {
-              min: scaleValue(adjustedRange.min),
-              max: scaleValue(adjustedRange.max),
-            };
-          }
-        }
-
-        // Read pairedWith from the live iteration variable rather than the
-        // pre-captured outer `replacedEntry` / `survivingPartnerId`.  This
-        // eliminates the stale-closure race: if `replacedEntry` was null or
-        // its `pairedWith` was undefined (e.g. plan loaded from Firestore
-        // without wrapper-level metadata), `survivingPartnerId` would be null
-        // and the link would never be re-stitched.  Reading `we.pairedWith`
-        // directly always reflects the actual live wrapper state.
-        const thisPartnerLink = (we as any).pairedWith as
-          | string
-          | null
-          | undefined;
-
-        return {
-          ...we,
-          exercise: newExercise,
-          method,
-          isTimeBased: newIsTimeBased,
-          // Pin the role to the old wrapper's value or force 'main'.  Without
-          // this, `...we` spreads `exerciseRole: undefined`, and
-          // `groupExercisesIntoSections` falls through via `||` to
-          // `(ex.exercise as any).exerciseRole` on the new Firestore document.
-          // If that document carries 'warmup' (e.g. a mobility drill chosen
-          // from the pool), the exercise is routed out of main entirely and the
-          // superset partner is left referencing a ghost ID.
-          exerciseRole: we.exerciseRole ?? 'main',
-          // Phase 3.5 — keep the wrapper's level in sync with the actual
-          // document so DifficultyBolts, level pills, and downstream
-          // guarantee passes don't mis-read the swapped card as the old
-          // level.  Falls back to the old level when the new doc has no
-          // targetPrograms entry, so the wrapper never silently drops to 0.
-          programLevel: newLevel || we.programLevel,
-          reps: adjustedReps,
-          repsRange: adjustedRange,
-          wasSwapped: true,
-          // Re-stitch the pairing link unconditionally from the live wrapper.
-          // Omitted only when the exercise genuinely had no partner.
-          ...(thisPartnerLink ? { pairedWith: thisPartnerLink } : {}),
-        };
+        // Single-source per-entry re-derivation (metric identity, level-delta
+        // volume, role-pin, own pair-link) — shared with the bulk swap-all path.
+        return deriveSwappedEntry(we, newExercise, method);
       });
 
       const updated: GeneratedWorkout = {

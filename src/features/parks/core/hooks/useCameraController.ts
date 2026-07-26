@@ -28,6 +28,7 @@ import type { MapRef } from 'react-map-gl';
 import type { Route } from '../types/route.types';
 import type { RouteTurn } from '../services/geoUtils';
 import { bearingBetween, haversineMeters } from '../services/geoUtils';
+import { IS_PERF_BATCH2_ENABLED } from '@/config/feature-flags';
 import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
 import { useMapStore } from '../store/useMapStore';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
@@ -81,6 +82,8 @@ export interface CameraControllerParams {
 export interface CameraControllerAPI {
   onMapReady: (rawMap: mapboxgl.Map) => void;
   recenter: () => void;
+  /** Ease directly to a coordinate (discover "center on me" — bypasses route-fit). */
+  centerOnUser: (coord: { lat: number; lng: number } | null | undefined) => void;
   owner: CameraOwner;
 }
 
@@ -492,6 +495,14 @@ export function useCameraController(params: CameraControllerParams): CameraContr
   // 'top' and the camera behaves identically to before.
   const metricsCardPosition = useMapStore((s) => s.metricsCardPosition);
 
+  // Point 1: live visible height of the hybrid overview drawer (px), or null when
+  // no hybrid overview is mounted. Read via a ref inside the big camera effect so
+  // its P2.1 preview-fit can defer to the dedicated drawer-sync effect below
+  // without re-running the whole effect on every detent lock.
+  const overviewSheetHeightPx = useMapStore((s) => s.overviewSheetHeightPx);
+  const overviewActiveRef = useRef(overviewSheetHeightPx != null);
+  overviewActiveRef.current = overviewSheetHeightPx != null;
+
   const wazePadding = useMemo(() => {
     const H = typeof window !== 'undefined' ? window.innerHeight : 800;
     if (metricsCardPosition === 'bottom') {
@@ -668,7 +679,13 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           const isStateTransition =
             Math.abs(safeMapPitch - targetPitch) > 2 ||
             Math.abs(safeMapZoom  - targetZoom)  > 0.3;
-          const duration = isStateTransition ? 800 : 200;
+          // P2 transition-ease cap (perf/batch2, flag-gated): 800→400 ms so a
+          // state-transition ease settles before the next GPS sample (≤500 ms)
+          // and the map can reach 'idle' between samples. Routine 200 ms follow
+          // is unchanged. When the flag is off, keeps the original 800/200.
+          const duration = IS_PERF_BATCH2_ENABLED
+            ? (isStateTransition ? 400 : 200)
+            : (isStateTransition ? 800 : 200);
 
           const logTag = isNavigationMode ? 'nav-follow' : 'workout-follow';
           if (process.env.NODE_ENV !== 'production') console.log(`[Cam] ${logTag} pitch=${targetPitch} zoom=${targetZoom} dur=${duration}ms`);
@@ -682,6 +699,20 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           ) {
             console.warn('[Cam] camera call skipped — non-finite param.', { center, targetZoom, targetPitch, bearing });
             return;
+          }
+          // ── P1 delta-guard (perf/batch2, flag-gated) ───────────────────────
+          // Skip the follow ease when the camera is already essentially here and
+          // no pitch/zoom transition is pending: a redundant easeTo still redraws
+          // the full 3-D scene every GPS tick (and an 800 ms transition ease would
+          // re-arm before settling, blocking 'idle'). Only routine centre/bearing
+          // follow is gated — state transitions bypass (they must animate), and
+          // the sim jumpTo path (below) is untouched. Flag is the first operand so
+          // when off the getters never run and the ease path is byte-identical.
+          if (IS_PERF_BATCH2_ENABLED && !isStateTransition && !simulationActive) {
+            const camCenter = rm.getCenter();
+            const movedM = haversineMeters(camCenter.lat, camCenter.lng, currentLocation.lat, currentLocation.lng);
+            const bearingDeltaDeg = Math.abs(shortestBearingDelta(rm.getBearing(), bearing));
+            if (movedM < 1.5 && bearingDeltaDeg < 1.5) return;
           }
           try {
             if (simulationActive) {
@@ -785,16 +816,26 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       ) {
         // Skip if we just fit this same route — prevents repeated fits when
         // unrelated state in the dep array changes (e.g. userBearing).
-        if (focusedRoute.id !== lastFocusedRouteIdRef.current) {
+        // Hybrid overview → the dedicated drawer-sync effect (point 1) owns the
+        // fit with a dynamic bottom padding; skip the static bottom:280 preview fit
+        // so the two never fight. (Still update the ref + return so we don't fall
+        // through to other camera branches.)
+        if (focusedRoute.id !== lastFocusedRouteIdRef.current && !overviewActiveRef.current) {
           lastFocusedRouteIdRef.current = focusedRoute.id;
           if (fitBoundsDebounceRef.current) {
             clearTimeout(fitBoundsDebounceRef.current);
           }
           fitBoundsDebounceRef.current = setTimeout(() => {
             fitBoundsDebounceRef.current = null;
+            // If a hybrid overview took over between scheduling and firing, its
+            // dedicated drawer-sync effect owns the fit — don't stomp it (point 1).
+            if (overviewActiveRef.current) return;
             try {
+              // Number.isFinite (not !isNaN) so Infinity coords — e.g. a
+              // degenerate synthesized loop — are rejected before fitBounds,
+              // which would otherwise fling the camera to world view.
               const valid = previewPath.filter(
-                (c) => Array.isArray(c) && c.length === 2 && !isNaN(c[0]) && !isNaN(c[1]),
+                (c) => Array.isArray(c) && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]),
               );
               if (valid.length < 2) return;
               const bounds = valid.reduce(
@@ -911,6 +952,50 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     recenterTick,
   ]);
 
+  // ── Point 1: hybrid overview map↔drawer sync ───────────────────────────────
+  // Reframe the route in the free area ABOVE the drawer whenever it LOCKS to a new
+  // detent (overviewSheetHeightPx changes only on lock — never per drag-frame, so
+  // this is cheap). bottom padding = the live drawer height (single source: sheetY,
+  // via the store; not recomputed here). At the largest detent the free window is
+  // tiny → the map is ~hidden, so we SKIP the fit; when the drawer returns to a
+  // lower detent the height shrinks → the free window clears the threshold → this
+  // re-runs and the fit animates back (no stuck camera). maxZoom caps zoom-IN; NO
+  // minZoom floor, so the whole route always stays visible even when long.
+  const focusedRouteRef = useRef(focusedRoute);
+  focusedRouteRef.current = focusedRoute;
+  useEffect(() => {
+    const OVERVIEW_TOP_PAD = 120;
+    const OVERVIEW_MIN_WINDOW = 160; // px — below this free vertical space, skip (map ~hidden)
+    if (!isMapLoaded || !mapRef.current) return;
+    if (overviewSheetHeightPx == null) return;            // no hybrid overview mounted
+    if (isActiveWorkout || isNavigationMode) return;
+    const fr = focusedRouteRef.current;
+    const path = fr?.displayPath ?? fr?.path;
+    if (!fr || !path || path.length < 2) return;
+    const canvasH = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const freeWindow = canvasH - OVERVIEW_TOP_PAD - overviewSheetHeightPx;
+    if (freeWindow < OVERVIEW_MIN_WINDOW) return;          // largest detent → map ~hidden → skip
+    const valid = path.filter(
+      (c: unknown): c is [number, number] =>
+        Array.isArray(c) && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]),
+    );
+    if (valid.length < 2) return;
+    const bounds = valid.reduce(
+      (b, [lng, lat]) => [Math.min(b[0], lng), Math.min(b[1], lat), Math.max(b[2], lng), Math.max(b[3], lat)],
+      [valid[0][0], valid[0][1], valid[0][0], valid[0][1]],
+    );
+    try {
+      if (process.env.NODE_ENV !== 'production') console.log('[Cam] overview drawer-sync fit — bottom:', overviewSheetHeightPx, 'freeWindow:', freeWindow);
+      mapRef.current.fitBounds(bounds as [number, number, number, number], {
+        padding: { top: OVERVIEW_TOP_PAD, bottom: overviewSheetHeightPx, left: 40, right: 40 },
+        maxZoom: 16,
+        duration: 350,
+      });
+    } catch { /* ignore */ }
+    // focusedRoute read via ref; re-fit is keyed on its id + the drawer height.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overviewSheetHeightPx, focusedRoute?.id, isActiveWorkout, isNavigationMode, isMapLoaded]);
+
   // ── onMapReady: wire interaction listeners ──
   const onMapReady = useCallback((rawMap: mapboxgl.Map) => {
     rawMapRef.current = rawMap;
@@ -981,5 +1066,26 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     setRecenterTick((t) => t + 1);
   }, []);
 
-  return { onMapReady, recenter, owner: ownerRef.current };
+  /**
+   * Direct "center on me" for DISCOVER mode (no active workout / nav), where the
+   * follow effect otherwise fits ROUTES rather than the user. Eases straight to a
+   * provided coordinate — the caller passes the best-available fix (live GPS or the
+   * fallback/anchor dot), so a recenter tap is never a silent no-op without a live fix.
+   */
+  const centerOnUser = useCallback((coord: { lat: number; lng: number } | null | undefined) => {
+    const rm = mapRef.current?.getMap?.();
+    if (!rm || !coord || !Number.isFinite(coord.lat) || !Number.isFinite(coord.lng)) return;
+    if (idleRecenterTimerRef.current) {
+      clearTimeout(idleRecenterTimerRef.current);
+      idleRecenterTimerRef.current = null;
+    }
+    ownerRef.current = 'follow';
+    try {
+      rm.easeTo({ center: [coord.lng, coord.lat], zoom: Math.max(rm.getZoom(), 15), duration: 600 });
+    } catch (err) {
+      console.warn('[Cam] centerOnUser easeTo threw — ignored.', err);
+    }
+  }, []);
+
+  return { onMapReady, recenter, centerOnUser, owner: ownerRef.current };
 }

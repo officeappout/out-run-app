@@ -14,7 +14,8 @@ import SummaryOrchestrator, {
   WorkoutType,
 } from './components/SummaryOrchestrator';
 import AerobicSummaryShell from './components/aerobic/AerobicSummaryShell';
-import { IS_COIN_SYSTEM_ENABLED, AEROBIC_SOLO_ENABLED } from '@/config/feature-flags';
+import AerobicSummary from './pages/AerobicSummary';
+import { IS_COIN_SYSTEM_ENABLED, AEROBIC_SOLO_ENABLED, AEROBIC_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
 
 interface WorkoutSummaryPageProps {
   onFinish: () => void;
@@ -170,6 +171,20 @@ export default function WorkoutSummaryPage({
       snap.activityType === 'walking' || snap.activityType === 'running'
         ? snap.activityType
         : 'running';
+    if (AEROBIC_SUMMARY_V2_ENABLED) {
+      return (
+        <AerobicSummary
+          variant="group"
+          activityType={effectiveActivityType}
+          workout={{ ...snap, date: snap.date ?? new Date() }}
+          currentUid={currentUser?.uid}
+          streakDays={currentStreak}
+          xpEarned={0}
+          onSave={handleFinish}
+          onClose={handleFinish}
+        />
+      );
+    }
     return (
       <AerobicSummaryShell
         variant="group"
@@ -192,6 +207,20 @@ export default function WorkoutSummaryPage({
       snap?.activityType === 'walking' || snap?.activityType === 'running'
         ? snap.activityType
         : 'running';
+    if (AEROBIC_SUMMARY_V2_ENABLED) {
+      return (
+        <AerobicSummary
+          variant="solo"
+          activityType={effectiveActivityType}
+          workout={{ ...snap!, date: snap?.date ?? new Date() }}
+          currentUid={currentUser?.uid}
+          streakDays={currentStreak}
+          xpEarned={0}
+          onSave={handleFinish}
+          onClose={handleFinish}
+        />
+      );
+    }
     return (
       <AerobicSummaryShell
         variant="solo"

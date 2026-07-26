@@ -41,6 +41,21 @@ export interface UseXpAwardParams {
   totalReps: number;
   /** Session exercises — used to count `totalSets`. */
   completedExercises: CompletedExercise[];
+  /**
+   * Recovery session — when true, the strength-XP Cloud Function
+   * (`awardStrengthXP`) is NOT called, so a rest-day recovery workout earns no
+   * strength XP/level. Defaults to false (normal workout).
+   */
+  isRecovery?: boolean;
+  /**
+   * Parametric seam for a FUTURE recovery-XP award. Only consulted when
+   * `isRecovery` is true; defaults to 0 (no XP today — the current product
+   * decision). To enable recovery-XP later, DO NOT just raise this number for
+   * display: real XP is server-owned (axiom §2) and must route through the
+   * Guardian (`awardWorkoutXP.ts`) with a value that traces to
+   * XP_Progression_Truth — wire that here, then feed the earned amount back.
+   */
+  recoveryXp?: number;
 }
 
 export interface UseXpAwardResult {
@@ -60,6 +75,8 @@ export function useXpAward({
   durationMinutes,
   totalReps,
   completedExercises,
+  isRecovery = false,
+  recoveryXp = 0,
 }: UseXpAwardParams): UseXpAwardResult {
   const { showToast } = useToast();
 
@@ -74,6 +91,18 @@ export function useXpAward({
   const runAwardXP = useCallback(async () => {
     if (xpCallRef.current) return;
     xpCallRef.current = true;
+
+    // Recovery guard: rest-day / recovery sessions do NOT award strength XP.
+    // Skip the awardStrengthXP Cloud Function entirely (no strength XP/level, no
+    // optimistic Zustand write to roll back). `recoveryXp` is the single seam for
+    // a future recovery-XP award (0 today) — see UseXpAwardParams. Status still
+    // resolves to 'awarded' so the Dopamine Chain (streak flame) proceeds, since
+    // recovery still counts as daily activity.
+    if (isRecovery) {
+      setXpEarnedAmount(recoveryXp);
+      setXpStatus('awarded');
+      return;
+    }
 
     // Snapshot pre-call Zustand values for rollback if the CF fails.
     const xpBefore = useProgressionStore.getState().globalXP;
@@ -112,7 +141,7 @@ export function useXpAward({
       setXpStatus('failed');
       showToast('error', 'לא הצלחנו לשמור את ה-XP. לחץ "נסה שוב" כדי לנסות שוב.');
     }
-  }, [difficultyBolts, difficulty, completedExercises, durationMinutes, totalReps, showToast]);
+  }, [difficultyBolts, difficulty, completedExercises, durationMinutes, totalReps, showToast, isRecovery, recoveryXp]);
 
   // Fire once on mount.  Declared after useActivitySync in the orchestrator so
   // syncWorkoutCompletion has already updated useActivityStore.currentStreak.

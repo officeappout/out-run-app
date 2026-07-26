@@ -23,17 +23,7 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getReportsByAuthority, updateReportStatus } from '@/features/admin/services/maintenance.service';
 import { deleteGroup, deleteEvent } from '@/features/admin/services/community.service';
-import {
-  getContributionsByAuthority,
-  getAllContributions,
-  approveNewLocation,
-  approveSuggestEdit,
-  rejectContribution,
-} from '@/features/parks/core/services/contribution.service';
 import type { MaintenanceReport, MaintenanceStatus, MaintenanceIssueType } from '@/types/maintenance.types';
-import type { UserContribution } from '@/types/contribution.types';
-import { XP_REWARDS } from '@/types/contribution.types';
-import type { ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import ParkDetailDrawer from '@/features/admin/components/parks/ParkDetailDrawer';
 import {
   Flag,
@@ -60,15 +50,11 @@ import {
   CheckCircle,
   XCircle,
   FileText,
-  Pencil,
-  Star,
-  Plus,
-  Image as ImageIcon,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────
 
-type TabId = 'infrastructure' | 'content' | 'community' | 'ratings';
+type TabId = 'infrastructure' | 'community';
 
 interface CommunityReport {
   id: string;
@@ -130,25 +116,6 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: 'border-r-4 border-r-slate-200',
 };
 
-const TAG_LABELS: Record<string, string> = {
-  shaded: 'מוצל ☀️', night_lighting: 'תאורה 💡', water_fountain: 'מים 🚰',
-  has_toilets: 'שירותים 🚻', has_benches: 'ספסלים 🪑', rubber_floor: 'גומי 🟫',
-  parkour_friendly: 'פארקור 🤸', stairs_training: 'מדרגות 🪜', near_water: 'ליד מים 🌊',
-  dog_friendly: 'כלבים 🐕', wheelchair_accessible: 'נגישות ♿', safe_zone: 'מיגונית 🛡️',
-  nearby_shelter: 'מקלט 🏠',
-};
-
-const FACILITY_LABELS: Record<string, string> = {
-  gym_park: 'גינת כושר', court: 'מגרש ספורט', route: 'מסלול',
-  zen_spot: 'פינת גוף-נפש', urban_spot: 'אורבן / אקסטרים', nature_community: 'טבע וקהילה',
-};
-
-const ISSUE_CONTRIB_LABELS: Record<string, string> = {
-  broken_equipment: 'ציוד פגום 🔧', no_lighting: 'תאורה לא עובדת 💡',
-  no_water: 'חוסר מים 🚰', vandalism: 'ונדליזם 🚫', cleanliness: 'ניקיון 🧹',
-  safety: 'בעיית בטיחות ⚠️', other: 'אחר 📝',
-};
-
 // ── Helpers ───────────────────────────────────────────────────────────
 
 function formatDate(ts: any): string {
@@ -173,7 +140,6 @@ export default function ReportsPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [adminUid, setAdminUid] = useState('');
 
   // Infrastructure state
   const [infraReports, setInfraReports] = useState<MaintenanceReport[]>([]);
@@ -185,10 +151,6 @@ export default function ReportsPage() {
   const [communityLoading, setCommunityLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
 
-  // Content contributions state (new locations + suggest edits)
-  const [contributions, setContributions] = useState<UserContribution[]>([]);
-  const [contribLoading, setContribLoading] = useState(false);
-  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Chat modal state
   const [chatModal, setChatModal] = useState<{ targetId: string; targetName: string } | null>(null);
@@ -202,7 +164,6 @@ export default function ReportsPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) { setPageError('יש להתחבר תחילה'); setPageLoading(false); return; }
-      setAdminUid(user.uid);
 
       try {
         const role = await checkUserRole(user.uid);
@@ -261,43 +222,18 @@ export default function ReportsPage() {
     }
   }, []);
 
-  // ── Load contributions (content + ratings) ─────────────────────────
-  const loadContributions = useCallback(async () => {
-    if (!authorityId) return;
-    setContribLoading(true);
-    try {
-      const data = isSuperAdmin
-        ? await getAllContributions('pending')
-        : await getContributionsByAuthority(authorityId, undefined, 'pending');
-      setContributions(data);
-    } catch (err) {
-      console.error('[ReportsPage] contributions load failed:', err);
-    } finally {
-      setContribLoading(false);
-    }
-  }, [authorityId, isSuperAdmin]);
-
   useEffect(() => {
     if (authorityId) {
       loadInfraReports();
       loadCommunityReports();
-      loadContributions();
     }
-  }, [authorityId, loadInfraReports, loadCommunityReports, loadContributions]);
+  }, [authorityId, loadInfraReports, loadCommunityReports]);
 
   // ── Filtered data ──────────────────────────────────────────────────
   const filteredInfraReports = useMemo(() => {
     if (infraFilter === 'all') return infraReports;
     return infraReports.filter(r => r.status === infraFilter);
   }, [infraReports, infraFilter]);
-
-  const contentContributions = useMemo(() =>
-    contributions.filter(c => c.type === 'new_location' || c.type === 'suggest_edit' || c.type === 'report'),
-  [contributions]);
-
-  const ratingContributions = useMemo(() =>
-    contributions.filter(c => c.type === 'review'),
-  [contributions]);
 
   const pendingCommunity = communityReports.filter(r => r.status === 'pending');
   const reviewedCommunity = communityReports.filter(r => r.status !== 'pending');
@@ -306,34 +242,6 @@ export default function ReportsPage() {
   const infraOpen = infraReports.filter(r => r.status === 'reported' || r.status === 'in_review').length;
   const infraInProgress = infraReports.filter(r => r.status === 'in_progress').length;
   const infraResolved = infraReports.filter(r => r.status === 'resolved').length;
-
-  // ── Contribution handlers ──────────────────────────────────────────
-  const handleApproveContribution = async (c: UserContribution) => {
-    if (!c.id) return;
-    setProcessingId(c.id);
-    try {
-      if (c.type === 'new_location') await approveNewLocation(c, adminUid);
-      else if (c.type === 'suggest_edit') await approveSuggestEdit(c, adminUid);
-      setContributions(prev => prev.filter(x => x.id !== c.id));
-    } catch (err) {
-      console.error('[ReportsPage] Approve failed:', err);
-      alert('שגיאה באישור');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleRejectContribution = async (id: string) => {
-    setProcessingId(id);
-    try {
-      await rejectContribution(id);
-      setContributions(prev => prev.filter(x => x.id !== id));
-    } catch (err) {
-      console.error('[ReportsPage] Reject failed:', err);
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
   // ── Community report handlers ──────────────────────────────────────
   const handleDismiss = async (reportId: string) => {
@@ -397,12 +305,10 @@ export default function ReportsPage() {
   // ── Refresh ────────────────────────────────────────────────────────
   const handleRefresh = () => {
     if (activeTab === 'infrastructure') loadInfraReports();
-    else if (activeTab === 'community') loadCommunityReports();
-    else loadContributions();
+    else loadCommunityReports();
   };
 
-  const isRefreshing = activeTab === 'infrastructure' ? infraLoading :
-    activeTab === 'community' ? communityLoading : contribLoading;
+  const isRefreshing = activeTab === 'infrastructure' ? infraLoading : communityLoading;
 
   // ── Loading / Error ────────────────────────────────────────────────
 
@@ -436,7 +342,7 @@ export default function ReportsPage() {
           </Link>
           <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
             <Flag className="w-6 h-6 text-red-500" />
-            דיווח תחזוקה ודירוג
+            תחזוקה וקהילה
           </h1>
         </div>
         <button
@@ -449,13 +355,11 @@ export default function ReportsPage() {
         </button>
       </div>
 
-      {/* ── 4-Tab Switcher ──────────────────────────────────────── */}
+      {/* ── 2-Tab Switcher ──────────────────────────────────────── */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-2xl mb-6">
         {([
           { id: 'infrastructure' as TabId, label: 'תשתית ותחזוקה', icon: Wrench, count: infraOpen },
-          { id: 'content' as TabId, label: 'עדכוני תוכן', icon: Pencil, count: contentContributions.length },
           { id: 'community' as TabId, label: 'קהילה ומשתמשים', icon: ShieldAlert, count: pendingCommunity.length },
-          { id: 'ratings' as TabId, label: 'דירוג וביקורות', icon: Star, count: ratingContributions.length },
         ]).map(tab => (
           <button
             key={tab.id}
@@ -549,35 +453,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* ━━━ TAB 2: CONTENT UPDATES ━━━ */}
-      {activeTab === 'content' && (
-        <div>
-          {contribLoading && <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>}
-
-          {!contribLoading && contentContributions.length === 0 && (
-            <div className="text-center py-16">
-              <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-              <p className="text-lg font-bold text-slate-700">אין עדכוני תוכן ממתינים</p>
-              <p className="text-sm text-slate-400 mt-1">מיקומים חדשים ועדכונים מאושרים</p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {contentContributions.map(c => (
-              <ContributionCard
-                key={c.id}
-                contribution={c}
-                processingId={processingId}
-                onApprove={() => handleApproveContribution(c)}
-                onReject={() => c.id && handleRejectContribution(c.id)}
-                onParkClick={(parkId) => setDetailParkId(parkId)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ━━━ TAB 3: COMMUNITY ━━━ */}
+      {/* ━━━ TAB 2: COMMUNITY ━━━ */}
       {activeTab === 'community' && (
         <div>
           {communityLoading && <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>}
@@ -621,71 +497,6 @@ export default function ReportsPage() {
               </div>
             </section>
           )}
-        </div>
-      )}
-
-      {/* ━━━ TAB 4: RATINGS & REVIEWS ━━━ */}
-      {activeTab === 'ratings' && (
-        <div>
-          {contribLoading && <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>}
-
-          {!contribLoading && ratingContributions.length === 0 && (
-            <div className="text-center py-16">
-              <Star className="w-12 h-12 text-amber-300 mx-auto mb-3" />
-              <p className="text-lg font-bold text-slate-700">אין ביקורות חדשות</p>
-              <p className="text-sm text-slate-400 mt-1">דירוגים וביקורות משתמשים יופיעו כאן</p>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {ratingContributions.map(c => (
-              <div key={c.id} className="bg-white border rounded-2xl p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-                      <Star className="w-4 h-4 text-amber-500" />
-                    </div>
-                    <div>
-                      {c.rating && (
-                        <div className="flex items-center gap-1 mb-0.5">
-                          {[1, 2, 3, 4, 5].map(s => (
-                            <Star key={s} size={14} className={s <= c.rating! ? 'text-amber-400' : 'text-slate-200'} fill={s <= c.rating! ? '#FBBF24' : 'none'} />
-                          ))}
-                          <span className="text-sm font-black text-slate-900 mr-1">{c.rating}/5</span>
-                        </div>
-                      )}
-                      {c.routeQuality && !c.rating && (
-                        <p className="text-sm font-bold text-slate-700">איכות מסלול: {c.routeQuality}/5</p>
-                      )}
-                    </div>
-                  </div>
-                  {c.routeDifficulty && (
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                      c.routeDifficulty === 'easy' ? 'bg-emerald-100 text-emerald-700' :
-                      c.routeDifficulty === 'medium' ? 'bg-amber-100 text-amber-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {c.routeDifficulty === 'easy' ? 'קל' : c.routeDifficulty === 'medium' ? 'בינוני' : 'קשה'}
-                    </span>
-                  )}
-                </div>
-                {c.comment && <p className="text-sm text-slate-600 mb-2 pr-10">{c.comment}</p>}
-                {c.linkedParkId && (
-                  <button
-                    onClick={() => setDetailParkId(c.linkedParkId!)}
-                    className="text-[11px] text-cyan-600 font-bold hover:underline flex items-center gap-1 mb-2"
-                  >
-                    <MapPin size={11} />
-                    צפה בפארק
-                  </button>
-                )}
-                <div className="flex items-center gap-3 text-[10px] text-slate-400">
-                  <span>משתמש: {c.userId?.slice(0, 8)}...</span>
-                  {c.createdAt && <span>{formatDate(c.createdAt)}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -871,95 +682,6 @@ function InfraReportCard({
         </>
       )}
     </>
-  );
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ── Contribution Card (Content updates tab) ──────────────────────────
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-function ContributionCard({
-  contribution: c,
-  processingId,
-  onApprove,
-  onReject,
-  onParkClick,
-}: {
-  contribution: UserContribution;
-  processingId: string | null;
-  onApprove: () => void;
-  onReject: () => void;
-  onParkClick: (parkId: string) => void;
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-      {c.photoUrl ? (
-        <div className="h-36 bg-gray-100 relative"><img src={c.photoUrl} alt="" className="w-full h-full object-cover" /></div>
-      ) : (
-        <div className="h-16 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center"><ImageIcon size={20} className="text-gray-300" /></div>
-      )}
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            c.type === 'new_location' ? 'bg-emerald-100 text-emerald-700' :
-            c.type === 'suggest_edit' ? 'bg-cyan-100 text-cyan-700' :
-            'bg-amber-100 text-amber-700'
-          }`}>
-            {c.type === 'new_location' ? 'מיקום חדש' : c.type === 'suggest_edit' ? 'עדכון' : 'דיווח'}
-          </span>
-          {c.facilityType && <span className="text-[10px] text-gray-400 font-medium">{FACILITY_LABELS[c.facilityType] || c.facilityType}</span>}
-        </div>
-        {c.parkName && <h3 className="font-bold text-gray-900 mb-1">{c.parkName}</h3>}
-        <div className="flex items-center gap-1 text-xs text-gray-400 mb-2">
-          <MapPin size={12} /><span>{c.location.lat.toFixed(4)}, {c.location.lng.toFixed(4)}</span>
-        </div>
-        {c.type === 'new_location' && c.featureTags && c.featureTags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
-            {c.featureTags.map(tag => <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-medium text-gray-600">{TAG_LABELS[tag] || tag}</span>)}
-          </div>
-        )}
-        {c.type === 'suggest_edit' && c.editDiff && (
-          <div className="bg-gray-50 rounded-xl p-3 mb-3 border border-gray-100">
-            <p className="text-[10px] font-bold text-gray-400 mb-1">שינויים:</p>
-            {c.editSummary && <p className="text-xs text-gray-700 mb-2">{c.editSummary}</p>}
-            {c.editDiff.featureTags && (
-              <div className="flex flex-wrap gap-1">
-                {(c.editDiff.featureTags as ParkFeatureTag[]).map(tag => (
-                  <span key={tag} className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold flex items-center gap-0.5"><Plus size={8} />{TAG_LABELS[tag] || tag}</span>
-                ))}
-              </div>
-            )}
-            {c.linkedParkId && (
-              <button onClick={() => onParkClick(c.linkedParkId!)} className="text-[11px] text-cyan-600 font-bold hover:underline mt-2 flex items-center gap-1">
-                <MapPin size={11} />צפה בפארק
-              </button>
-            )}
-          </div>
-        )}
-        {c.type === 'report' && (
-          <div className="mb-3">
-            {c.issueType && <span className="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px] font-bold mb-1">{ISSUE_CONTRIB_LABELS[c.issueType] || c.issueType}</span>}
-            {c.description && <p className="text-xs text-gray-600 mt-1">{c.description}</p>}
-          </div>
-        )}
-        <div className="flex items-center gap-3 text-[10px] text-gray-400 mb-3">
-          <span>משתמש: {c.userId?.slice(0, 8)}...</span>
-          {c.createdAt && <span>{new Date(c.createdAt).toLocaleDateString('he-IL')}</span>}
-        </div>
-        <div className="text-[10px] font-bold text-cyan-500 mb-3">+{XP_REWARDS[c.type]} XP למשתמש עם אישור</div>
-        <div className="flex gap-2">
-          <button onClick={onApprove} disabled={processingId === c.id}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 disabled:opacity-50 transition-colors">
-            {processingId === c.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-            {c.type === 'report' ? 'סמן כטופל' : 'אשר'}
-          </button>
-          <button onClick={onReject} disabled={processingId === c.id}
-            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-500 text-xs font-bold hover:bg-red-50 disabled:opacity-50 transition-colors">
-            <XCircle size={14} />דחה
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -14,12 +14,13 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
-import { Bed, Check, X, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
-import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey } from '@/features/activity';
+import { Bed, Check, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
+import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
-import { resolveDayDisplayProps, DayIconCell, type DaySessionInput } from '@/features/home/utils/day-display.utils';
+import { resolveDayDisplayProps, DayIconCell } from '@/features/home/utils/day-display.utils';
+import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
@@ -105,11 +106,19 @@ interface SmartWeeklyScheduleProps {
   runningBasePace?: number;
   /** Increment to force weekly-strip re-derivation after a schedule mutation */
   scheduleVersion?: number;
+  /**
+   * ACTIVITY schedule view (Stage 2). When true the strip renders the S10
+   * activity RING per day instead of the S8 flame — the two schedules are
+   * separate views toggled by the host (health tab). Flame logic is untouched.
+   */
+  activityView?: boolean;
 }
 
 interface DayActivityData {
   hasActivity: boolean;
   isCompleted: boolean;
+  /** S8-only: completed an OUT workout (drives the FLAME). Split from the blended isCompleted. */
+  workoutDone?: boolean;
   isMissed: boolean;
   isRest: boolean;
   isToday: boolean;
@@ -393,18 +402,6 @@ function LiquidMomentumPath({
         />
       ))}
     </svg>
-  );
-}
-
-// ============================================================================
-// GHOST RING COMPONENT (for missed days)
-// ============================================================================
-
-function GhostRing() {
-  return (
-    <div className="w-9 h-9 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 opacity-60">
-      <X className="w-4 h-4 text-gray-400" />
-    </div>
   );
 }
 
@@ -724,6 +721,7 @@ export default function SmartWeeklySchedule({
   runningProgramStartDate,
   runningBasePace,
   scheduleVersion,
+  activityView = false,
 }: SmartWeeklyScheduleProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -854,6 +852,23 @@ export default function SmartWeeklySchedule({
     return () => { cancelled = true; };
   }, [userId, scheduleVersion]);
 
+  // Past-day workout completion (S8 dailyProgress) for this week — shared hook,
+  // single source with the month grid. Feeds workoutDone for PAST days so a past
+  // flame lights on a real completed OUT workout, not the S7 scheduleCompleted flag.
+  const weekPastIsos = useMemo(() => {
+    const today = new Date();
+    const todayIndex = today.getDay();
+    const isos: string[] = [];
+    for (let i = 0; i < todayIndex; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - todayIndex + i);
+      isos.push(toISODate(d));
+    }
+    return isos;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateKey]);
+  const pastProgressMap = usePastWorkoutCompleted(userId, weekPastIsos);
+
   // Normalize selected days from props
   const selectedDays = scheduleDays || [];
   
@@ -902,6 +917,7 @@ export default function SmartWeeklySchedule({
       let dayData: DayActivityData = {
         hasActivity: false,
         isCompleted: false,
+        workoutDone: false,
         isMissed: false,
         isRest: isRestDay,
         isToday,
@@ -918,18 +934,18 @@ export default function SmartWeeklySchedule({
           ?? manualEntries[0],
       };
 
-      // scheduleDay drives the "completed" signal for past non-today days.
       const scheduleDay = schedule.find(s => s.day === dayLetter);
-      const scheduleCompleted = scheduleDay?.status === 'completed';
 
-      // useDayStatus handles the Completion Bridge and real per-category data
-      // for today AND any past days that are still in weekActivities.
+      // workoutDone: today → S8 (live todayProgress); past → S8 (dailyProgress via
+      // usePastWorkoutCompleted), NOT the S7 scheduleCompleted flag. useDayStatus
+      // still bridges real per-category activity minutes for the ring.
       if (!isFuture) {
-        const status = getDayStatus(isoDate, scheduleCompleted);
+        const status = getDayStatus(isoDate, pastProgressMap.get(isoDate) ?? false);
         dayData = {
           ...dayData,
           hasActivity: status.hasActivity,
           isCompleted: status.isCompleted,
+          workoutDone: status.workoutDone,
           totalMinutes: status.totalMinutes,
           categories: status.categories,
           dominantCategory: status.dominantCategory,
@@ -1013,7 +1029,7 @@ export default function SmartWeeklySchedule({
     }
 
     return map;
-  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex, scheduleVersion, weekScheduleEntries]);
+  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex, scheduleVersion, weekScheduleEntries, pastProgressMap]);
   
   // Get indices of completed days for the liquid path
   const completedIndices = useMemo(() => {
@@ -1069,6 +1085,32 @@ export default function SmartWeeklySchedule({
     // Per-day skill icon bridge: resolve the primary programId stored in the
     // day's schedule entry so all render paths can share it.
     const perDayPrimaryId = dayData.primaryEntry?.programIds?.[0] ?? null;
+
+    // ── ACTIVITY schedule (Stage 2): the RING axis (S10). Takes precedence over
+    //    every flame/icon path — this is a separate schedule toggled by the host
+    //    (health tab). One aggregate summary ring per day; flame logic untouched.
+    if (activityView) {
+      const state: 'past' | 'today' | 'future' = dayData.isToday
+        ? 'today'
+        : dayData.isFuture
+          ? 'future'
+          : 'past';
+      const ring = buildActivityRingData({
+        totalMinutes: dayData.totalMinutes,
+        categories: dayData.categories,
+        dominantCategory: dayData.dominantCategory,
+      });
+      // props are required by DayIconCell but ignored when activityRing is set;
+      // pass minimal valid state so the cell can echo today/selection if needed.
+      const displayProps = resolveDayDisplayProps({
+        state,
+        isSelected: isCellSelected,
+        isRest: false,
+        isMissed: false,
+        isCompleted: false,
+      });
+      return <DayIconCell props={displayProps} activityRing={ring} ringSizePx={40} />;
+    }
 
     // ── Running mode + icon view: route through the centralized engine
     //    so we get the branded flame + colored pager dot for the actual
@@ -1128,9 +1170,10 @@ export default function SmartWeeklySchedule({
     }
 
     // ── Icon-view: delegate everything (including missed days) to the
-    //    centralized state engine. The engine renders the GhostRing for
-    //    debt-uncleared misses AND the branded flame + dot for debt-cleared
-    //    ones — so we MUST NOT short-circuit before this branch.
+    //    centralized state engine. The engine renders debt-uncleared misses as
+    //    a neutral rest icon (softening — a missed day looks like a rest day) AND
+    //    the branded flame + dot for debt-cleared ones — so we MUST NOT
+    //    short-circuit before this branch.
     if (useIconView) {
       const state: 'past' | 'today' | 'future' = dayData.isToday
         ? 'today'
@@ -1138,79 +1181,34 @@ export default function SmartWeeklySchedule({
           ? 'future'
           : 'past';
 
-      // ── Multi-session detection ─────────────────────────────────────
-      // Build sessions from per-bucket minutes. Any category with ≥ 10
-      // logged minutes counts as its own session; sorted desc by minutes
-      // and capped at 3 by the engine. When 2+ are present and the day
-      // qualifies, the engine returns alternating sessions and DayIconCell
-      // pulses through them with pager dots.
-      //
-      // Per-day skill icon — three-tier priority:
-      //   1. programIds[0] from the hydrated Firestore entry (most specific)
-      //   2. recurringTemplate[dayLetter][0] — in-memory fallback when no
-      //      Firestore doc exists yet (e.g. 'UPPER_CALISTHENICS' → 'muscle')
-      //   3. resolvedIconKey — profile-level activePrograms[0] (least specific)
-      //
-      // Without Tier 2, a future calisthenics_upper day with no Firestore
-      // doc falls straight to activePrograms[0] (e.g. 'front_lever' → 'pullup').
-      const templatePrimaryId =
-        !perDayPrimaryId && recurringTemplate
-          ? ((recurringTemplate as Record<string, string[] | undefined>)[dayLetter]?.[0] ?? null)
-          : null;
-      const perDayIconKey = perDayPrimaryId
-        ? (resolveIconKey(perDayPrimaryId) ?? resolvedIconKey)
-        : templatePrimaryId
-          ? (resolveIconKey(templatePrimaryId) ?? resolvedIconKey)
-          : resolvedIconKey;
-
-      const sessions: DaySessionInput[] = (
-        ['strength', 'cardio', 'maintenance'] as const
-      )
-        .filter((cat) => (dayData.categories[cat] ?? 0) >= STREAK_MINIMUM_MINUTES)
-        .map((cat) => ({
-          category: cat,
-          minutes: dayData.categories[cat],
-          // Strength session uses per-day skill icon when available;
-          // cardio/maintenance fall back to category defaults inside the engine.
-          programIconKey: cat === 'strength' ? perDayIconKey : undefined,
-        }))
-        .sort((a, b) => b.minutes - a.minutes);
-
-      // Hero-flame selection: Strength > Cardio > Maintenance priority order.
-      // Used as the fallback dominantCategory/programIconKey when only one
-      // session is active, and as the first icon in the alternating sequence
-      // when multiple real sessions exist.
-      const heroPriority = ['strength', 'cardio', 'maintenance'] as const;
-      const heroSession =
-        sessions.find((s) => s.category === heroPriority[0]) ??
-        sessions.find((s) => s.category === heroPriority[1]) ??
-        sessions[0];
+      // Activity multi-session detection (sessions/heroSession) removed with the
+      // flame→workoutDone split: the flame is the WORKOUT axis (single S7 workout,
+      // coloured by programIconKey), not activity. Activity (dayData.categories) will
+      // build the RING via buildMiniRingData in Stage 2 (composition).
 
       const displayProps = resolveDayDisplayProps({
         state,
         isSelected: isCellSelected,
         isRest: dayData.isRest,
         isMissed: dayData.isMissed,
-        isCompleted: dayData.isCompleted,
+        isCompleted: dayData.workoutDone ?? false,
         debtCleared: dayData.debtCleared,
-        dominantCategory: heroSession?.category ?? dayData.dominantCategory,
+        // Flame colour comes from the SCHEDULED WORKOUT type (S7), never activity:
+        // leave dominantCategory null so resolveCategory / resolveFlameSrc fall to
+        // programIconKey (S7 entry → FLAME_BY_PROGRAM_ICON_KEY). Activity (S10) drives
+        // the ring, not the flame (composition is Stage 2).
+        dominantCategory: null,
         stepGoalMet: false,
         programIconKey:
-          heroSession?.programIconKey ??
           dayData.communityIconKey ??
           resolveIconKey(dayData.primaryEntry?.programIds?.[0] ?? dayData.primaryEntry?.scheduledCategories?.[0]) ??
           resolvedIconKey,
-        // Pass the full sessions array when 2+ real activities exist so
-        // DayIconCell alternates between them with pager dots.
-        sessions: sessions.length >= 2 ? sessions : undefined,
+        // Flame = the workout axis only; no activity-session alternation (that belongs
+        // to the ring, Stage 2). Multi-OUT-workout days re-introduce S7-based sessions later.
+        sessions: undefined,
       });
 
       return <DayIconCell props={displayProps} />;
-    }
-
-    // Rings-view fallback: missed past days still need the legacy ghost.
-    if (dayData.isMissed && !dayData.isToday && !dayData.isFuture) {
-      return <GhostRing />;
     }
 
     // ── Rings-view: keep existing CompactRingsProgress paths ─────
@@ -1316,6 +1314,10 @@ export default function SmartWeeklySchedule({
   };
 
   const handlePanEnd = useCallback((_: unknown, info: PanInfo) => {
+    // Swipe-down on the schedule card → open the planner. The R day-swipe (stepping
+    // the selected day) moved to the central workout anchor (see home/page.tsx), so
+    // the strip no longer owns a horizontal pan — it stays free for its display role
+    // and the future axis-B (metrics) carousel.
     if (onSwipeDown && info.offset.y > 50 && info.velocity.y > 100) {
       onSwipeDown();
     }
@@ -1513,7 +1515,13 @@ export default function SmartWeeklySchedule({
                           whileTap={{ scale: 0.92 }}
                           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                           className="flex items-center justify-center relative"
-                          style={{ width: 32, height: 32, overflow: 'visible' }}
+                          style={{
+                            // Activity view (ring) uses a larger 40 px slot since
+                            // it's a toggle — one schedule on screen at a time.
+                            width: activityView ? 40 : 32,
+                            height: activityView ? 40 : 32,
+                            overflow: 'visible',
+                          }}
                         >
                           {dayData && getDayIcon(day, dayData, effectiveCellSelected, index)}
 
@@ -1574,6 +1582,7 @@ export default function SmartWeeklySchedule({
                 cellHeight={expandedGridConfig?.cellHeight}
                 ringSize={expandedGridConfig?.ringSize}
                 ringStroke={expandedGridConfig?.ringStroke}
+                activityView={activityView}
               />
             </motion.div>
           )}

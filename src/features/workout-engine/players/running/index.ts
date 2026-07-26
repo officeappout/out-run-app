@@ -7,7 +7,6 @@ export * from './store/useRunningPlayer';
 
 // Components
 export { ActiveDashboard } from './components/ActiveDashboard';
-export { default as DopamineScreen } from './components/DopamineScreen';
 export { RunControls } from './components/RunControls';
 export { default as RunDashboard } from './components/RunDashboard';
 export { default as RunLapsTable } from './components/RunLapsTable';

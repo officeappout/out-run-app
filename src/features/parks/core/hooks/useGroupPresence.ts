@@ -18,8 +18,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit, type Unsubscribe } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { IS_PERF_BATCH2_PRESENCE_ENABLED } from '@/config/feature-flags';
+import { usePresenceStore, acquirePresenceStream, PRESENCE_STREAM_MAX } from '../store/usePresenceStore';
 
 /**
  * Persona ID → public image path.
@@ -85,6 +87,58 @@ const STALE_PRESENCE_MS = 5 * 60 * 1000;
 
 const MAX_PERMISSION_RETRIES = 3;
 
+/**
+ * Build renderable PartnerPosition[] (+ diagnostic counters) from raw flattened
+ * verified_global presence docs. Used by the P4 shared-stream path only.
+ *
+ * NOTE: this MIRRORS the inline transform in the discovery onSnapshot callback
+ * below. It is kept as a separate function on purpose so the flag-OFF onSnapshot
+ * path stays byte-identical and untouched. Once IS_PERF_BATCH2_PRESENCE_ENABLED is
+ * permanent, delete the inline copy and route the onSnapshot through here too.
+ */
+function buildPartnerPositions(
+  docs: Array<Record<string, any>>,
+  currentUid: string | undefined,
+  getColor: (uid: string) => string,
+): { results: PartnerPosition[]; dropReasons: Record<string, number>; modeBreakdown: Record<string, number> } {
+  const results: PartnerPosition[] = [];
+  const dropReasons = { ghost: 0, self: 0, nonFiniteCoords: 0, stale: 0 };
+  const modeBreakdown: Record<string, number> = {};
+  const now = Date.now();
+  for (const data of docs) {
+    modeBreakdown[String(data.mode ?? 'undefined')] =
+      (modeBreakdown[String(data.mode ?? 'undefined')] ?? 0) + 1;
+    if (data.mode === 'ghost') { dropReasons.ghost += 1; continue; }
+    if (data.uid === currentUid) { dropReasons.self += 1; continue; }
+    const updatedAt = data.updatedAt;
+    const updatedMs =
+      updatedAt && typeof updatedAt.toMillis === 'function'
+        ? updatedAt.toMillis()
+        : typeof updatedAt === 'number'
+          ? updatedAt
+          : 0;
+    if (updatedMs > 0 && now - updatedMs > STALE_PRESENCE_MS) { dropReasons.stale += 1; continue; }
+    const rawLat = data.lat;
+    const rawLng = data.lng;
+    if (typeof rawLat !== 'number' || typeof rawLng !== 'number') { dropReasons.nonFiniteCoords += 1; continue; }
+    if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) { dropReasons.nonFiniteCoords += 1; continue; }
+    results.push({
+      uid: data.uid,
+      name: data.name ?? '',
+      lat: rawLat,
+      lng: rawLng,
+      color: getColor(data.uid),
+      activityStatus: data.activity?.status ?? '',
+      groupSessionId: data.groupSessionId,
+      personaId: data.personaId ?? undefined,
+      personaImageUrl: resolvePersonaImage(data.personaId),
+      lemurStage: typeof data.lemurStage === 'number' ? data.lemurStage : undefined,
+      distance: typeof data.activity?.distance === 'number' ? data.activity.distance : undefined,
+    });
+  }
+  return { results, dropReasons, modeBreakdown };
+}
+
 export function useGroupPresence(
   groupSessionId?: string | null,
   // memberIds is kept in the signature for compatibility with existing callers
@@ -131,6 +185,38 @@ export function useGroupPresence(
       groupSessionId: groupSessionId ?? null,
     });
 
+    const isDiscovery = !(groupSessionId && typeof groupSessionId === 'string');
+
+    // ── P4 shared presence stream (perf/batch2, flag-gated) ──────────────────
+    // In DISCOVERY mode, read the single shared verified_global presence stream
+    // (one onSnapshot serves this hook AND usePartnerData's live listener)
+    // instead of opening a second unbounded listener. The GROUP-session path
+    // below keeps its dedicated mode=='group', member-scoped query (a different
+    // shape that must stay separate). Query shape preserved → rules-safe. When
+    // the flag is off this branch is skipped and the original onSnapshot below
+    // runs unchanged (byte-identical).
+    if (IS_PERF_BATCH2_PRESENCE_ENABLED && isDiscovery) {
+      const applyShared = () => {
+        const { results } = buildPartnerPositions(
+          usePresenceStore.getState().docs,
+          currentUid,
+          getColor,
+        );
+        setPositions(results);
+      };
+      const release = acquirePresenceStream();
+      applyShared();
+      const unsubStore = usePresenceStore.subscribe(applyShared);
+      unsubRef.current = () => { unsubStore(); release(); };
+      return () => {
+        unsubRef.current?.();
+        if (retryTimerRef.current !== null) {
+          clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = null;
+        }
+      };
+    }
+
     // Query design — must be statically provable against the Firestore rules
     // so that every doc the query returns is guaranteed readable:
     //
@@ -150,7 +236,7 @@ export function useGroupPresence(
           where('mode', '==', 'group'),
           where('audienceGroupIds', 'array-contains', groupSessionId),
         )
-      : query(collection(db, 'presence'), where('mode', '==', 'verified_global'));
+      : query(collection(db, 'presence'), where('mode', '==', 'verified_global'), limit(PRESENCE_STREAM_MAX));
 
     unsubRef.current = onSnapshot(q, (snap) => {
       const results: PartnerPosition[] = [];

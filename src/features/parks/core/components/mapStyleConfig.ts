@@ -1,4 +1,5 @@
 import mapboxgl from 'mapbox-gl';
+import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 
 // ── Fitness-relevant POI classes to preserve ─────────────────────────────────
 // All other POI layers are hidden. Water fountains and toilets are rendered as
@@ -75,6 +76,29 @@ function shouldHideByPattern(id: string): boolean {
   return HIDE_PATTERNS.some(p => id.includes(p));
 }
 
+// ── Idempotency guard (perf/batch1) ──────────────────────────────────────────
+// applyFitnessMapStyle is invoked from up to four call paths on a single map
+// load (the synchronous "style-already-loaded" call, the 'style.load' listener,
+// the watchdog setInterval, and the idle-safety `.once('idle')`). The declutter
+// is fully idempotent — re-hiding already-hidden layers is pure wasted work:
+// three full passes over the entire style layer list plus setLayout/setPaint
+// churn that invalidates Mapbox's style and can force a GPU re-upload. This
+// WeakSet lets every call AFTER the first successful pass early-return — exactly
+// the "(skipped, already done)" behaviour the proof-of-life log already claims
+// but never actually implemented. Cleared per-map by resetFitnessMapStyle() on
+// a genuine style (re)load (see AppMap's 'style.load' handler).
+const _decluttered = new WeakSet<mapboxgl.Map>();
+
+/**
+ * Clear the declutter idempotency guard for a map so the next
+ * applyFitnessMapStyle() call runs the full sweep again. Call this on a real
+ * style swap / reload — the style is rebuilt from scratch, so the previous
+ * declutter no longer applies.
+ */
+export function resetFitnessMapStyle(map: mapboxgl.Map): void {
+  _decluttered.delete(map);
+}
+
 /**
  * Applies runner-focused declutter on top of the streets-v12 base style.
  *
@@ -102,6 +126,17 @@ export function applyFitnessMapStyle(map: mapboxgl.Map, source = 'unknown') {
   //   declutter:request source=watchdog (skipped, already done)
   //   declutter:request source=idle-safety (skipped, already done)
   console.log(`[Map] declutter:request source=${source}`);
+
+  // Idempotency guard (perf/batch1, flag-gated) — skip the full sweep if this
+  // map was already decluttered for the current style. This is what turns the
+  // redundant watchdog / idle-safety / style-already-loaded calls into cheap
+  // no-ops. When IS_PERF_BATCH1_ENABLED is false, the guard is inert and every
+  // call runs the full sweep exactly as before (byte-identical prod behaviour).
+  if (IS_PERF_BATCH1_ENABLED && _decluttered.has(map)) {
+    console.log(`[Map] declutter:skip source=${source} (already done)`);
+    return;
+  }
+
   console.log('!!! MAP CLEANUP STARTING !!!');
 
   try {
@@ -271,6 +306,9 @@ export function applyFitnessMapStyle(map: mapboxgl.Map, source = 'unknown') {
     }
 
     console.log(`[Map] Declutter complete (source=${source}): Minor roads hidden, POIs removed.`);
+    // Mark success so subsequent calls early-return — only when flag-enabled,
+    // so the WeakSet stays empty (and the guard above stays inert) when off.
+    if (IS_PERF_BATCH1_ENABLED) _decluttered.add(map);
   } catch (err) {
     console.warn(`[FitnessMapStyle] Failed to apply (source=${source}):`, err);
   }

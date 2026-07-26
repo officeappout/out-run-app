@@ -10,6 +10,7 @@ import {
   getStepsLeaderboard,
   getSegmentLeaderboard,
   getLeagueLeaderboard,
+  getTenantLeaderboard,
   type LeaderboardScope,
   type LeaderboardCategory,
   type LeaderboardTimeWindow,
@@ -69,7 +70,16 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
 
       let data: LeaderboardResult;
 
-      if (scope === 'league' && scopeId) {
+      if (scope === 'tenant' && scopeId) {
+        // Community (tenant/org) leaderboard — scopeId is the tenantId.
+        // Reads leaderboard_shards (onWorkoutCreate CF), independent of the feed.
+        data = await getTenantLeaderboard({
+          tenantId: scopeId,
+          unitId: null, // tenant-wide for the MVP; unit drill-down is a follow-up
+          currentUid: uid,
+          currentName: profile?.core?.name,
+        });
+      } else if (scope === 'league' && scopeId) {
         // Group leaderboard — scopeId is the community group ID
         data = await getLeagueLeaderboard({
           groupId: scopeId,

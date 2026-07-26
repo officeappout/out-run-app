@@ -166,6 +166,54 @@ export const validateAccessCode = onCall(
         };
       });
 
+      // ── Step 5: Company co-membership affiliation (post-transaction) ──
+      // For company tenants (Wix pilot), also stamp a `core.affiliations`
+      // entry of type 'company'. This is what surfaces the "עבודה" league tab
+      // (useArenaAccess reads affiliations) and lets feed scope key on the
+      // company id. Additive & non-fatal — never blocks a successful redeem.
+      // Dedup by id (mirrors affiliation.service) so re-redeeming the same code
+      // does not append duplicates. No `tier` on purpose → accessLevel unchanged.
+      if (result.tenantType === 'company' && result.tenantId) {
+        try {
+          const userRef = db.collection('users').doc(uid);
+          const userSnap = await userRef.get();
+          const existing = (userSnap.data()?.core?.affiliations ?? []) as Array<{
+            id?: string;
+            type?: string;
+          }>;
+          const alreadyHas = existing.some(
+            (a) => a?.type === 'company' && a?.id === result.tenantId,
+          );
+          if (!alreadyHas) {
+            // Community display name (best-effort — cosmetic for the league title).
+            let name = '';
+            try {
+              const authSnap = await db.collection('authorities').doc(result.tenantId).get();
+              name = (authSnap.data()?.name as string) || '';
+            } catch {
+              /* name is cosmetic; feed/league scope keys on id, not name */
+            }
+            await userRef.set(
+              {
+                core: {
+                  affiliations: admin.firestore.FieldValue.arrayUnion({
+                    type: 'company',
+                    id: result.tenantId,
+                    name: name || result.tenantId,
+                    active: true,
+                    joinedAt: new Date().toISOString(),
+                  }),
+                },
+              },
+              { merge: true },
+            );
+            logger.info('[validateAccessCode] Added company affiliation for uid=%s', uid);
+          }
+        } catch (affErr) {
+          logger.warn('[validateAccessCode] company affiliation write failed (non-fatal):', affErr);
+        }
+      }
+
       logger.info('[validateAccessCode] Validation success (uid=%s)', uid);
       return result;
     } catch (err: any) {

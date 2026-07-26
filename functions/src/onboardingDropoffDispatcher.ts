@@ -304,6 +304,15 @@ export const onboardingDropoffDispatcher = onSchedule(
         continue;
       }
 
+      // Per-channel opt-out. This dispatcher tags its payload
+      // channel:'training_reminder' (see fcmMessage below), so a user who
+      // disabled training reminders must NOT receive these inactivity pushes.
+      // Missing field defaults to enabled (opt-out model), matching all other senders.
+      if (data?.settings?.notificationPrefs?.training_reminder === false) {
+        logger.info(`[dropoff] uid=${uid} — skipping (training_reminder opt-out)`);
+        continue;
+      }
+
       const tokens: string[] = Array.isArray(data.fcmTokens)
         ? (data.fcmTokens as string[]).filter((t) => typeof t === 'string' && t.length > 0)
         : [];

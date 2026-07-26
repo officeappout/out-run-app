@@ -363,6 +363,10 @@ export function useExerciseDerivedValues({
    */
   const exerciseBunnyVideoId = useMemo((): string | null => {
     const raw = activeExercise as any;
+    // Carried by the plan flatten (A2) — survives execution_methods stripping, so the
+    // enriched live card resolves the network-aware Bunny stream instead of a fixed-360p
+    // legacy URL. Legacy-only exercises have no carried id and fall through unchanged.
+    if (raw?.bunnyVideoId && typeof raw.bunnyVideoId === 'string') return raw.bunnyVideoId;
     const methods = raw?.execution_methods || raw?.executionMethods || raw?.methods || [];
     for (const m of methods) {
       const vid = m?.media?.previewVideo?.he?.videoId ?? m?.media?.bunnyVideoId_mainVideoUrl;
@@ -481,7 +485,9 @@ export function useExerciseDerivedValues({
       const methods: any[] = raw.execution_methods || raw.executionMethods || [];
       let video: string | null = exercise.videoUrl || null;
       let image: string | null = exercise.imageUrl || null;
-      let bunnyVideoId: string | null = null;
+      // Prefer the id carried through the flatten (A2), so a Bunny-only NEXT exercise
+      // whose execution_methods were stripped still yields a Bunny id for the rest-preview.
+      let bunnyVideoId: string | null = (raw.bunnyVideoId as string | undefined) ?? null;
       if (!video || !image || !bunnyVideoId) {
         for (const m of methods) {
           if (!video) video = m?.media?.mainVideoUrl || m?.media?.videoUrl || null;

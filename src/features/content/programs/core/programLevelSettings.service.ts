@@ -21,8 +21,70 @@ import {
 import { db } from '@/lib/firebase';
 import { ProgramLevelSettings, ProgramLevelSettingsWithProgram } from './program.types';
 import { getAllPrograms } from './program.service';
+import { genPerfRead, isGenVerboseEnabled } from '@/lib/gen-perf';
+import { PLS_CACHE_ENABLED } from '@/config/feature-flags';
 
 const PROGRAM_LEVEL_SETTINGS_COLLECTION = 'programLevelSettings';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #1 — Short-lived read cache + dedup for getProgramLevelSetting
+// ─────────────────────────────────────────────────────────────────────────────
+// Keyed by the composite doc id (`{programId}_level_{N}`) which is USER-INDEPENDENT,
+// so there is no cross-user contamination (the same program+level always resolves
+// to the same settings regardless of who is generating). Caches BOTH hits and
+// misses (null), so the many "no document" reads stop round-tripping too.
+//
+// Freshness (admin edits MUST reflect):
+//   (1) invalidate-on-write — save/delete evict the doc's entry in the SAME process
+//       immediately (see saveProgramLevelSettings / delete* below).
+//   (2) short TTL — bounds cross-process staleness (panel edits vs mobile-app reads).
+//
+// Output-parity: within one generation the cache is populated by fresh reads, so
+// every consumer sees current data — identical to the no-cache path. Gated by
+// PLS_CACHE_ENABLED (+ runtime A/B override) so flag-OFF is byte-identical to today.
+const PLS_CACHE_TTL_MS = 30_000;
+const _plsCache = new Map<string, { value: ProgramLevelSettings | null; ts: number }>();
+
+/** Compile-time flag with an optional runtime A/B override (device-friendly). */
+export function isPlsCacheEnabled(): boolean {
+  if (typeof window !== 'undefined') {
+    try {
+      const ls = window.localStorage?.getItem('OUT_PLS_CACHE');
+      if (ls === '0' || ls === 'false') return false;
+      if (ls === '1' || ls === 'true') return true;
+    } catch {
+      /* private mode — ignore */
+    }
+  }
+  return PLS_CACHE_ENABLED;
+}
+
+/** Returns a wrapped entry when a fresh cache hit exists; undefined otherwise. */
+function plsCacheGet(key: string): { value: ProgramLevelSettings | null } | undefined {
+  if (!isPlsCacheEnabled()) return undefined;
+  const hit = _plsCache.get(key);
+  if (!hit) return undefined;
+  if (Date.now() - hit.ts > PLS_CACHE_TTL_MS) {
+    _plsCache.delete(key);
+    return undefined;
+  }
+  return { value: hit.value };
+}
+
+function plsCacheSet(key: string, value: ProgramLevelSettings | null): void {
+  if (!isPlsCacheEnabled()) return;
+  _plsCache.set(key, { value, ts: Date.now() });
+}
+
+/** Evict a single doc from the read cache. Always runs (write path), flag-independent. */
+export function invalidateProgramLevelSetting(programId: string, levelNumber: number): void {
+  _plsCache.delete(generateSettingsId(programId, levelNumber));
+}
+
+/** Test-only: clear the entire read cache between unit tests. */
+export function __clearPlsCacheForTests(): void {
+  _plsCache.clear();
+}
 
 /**
  * Strip undefined values from an object before writing to Firestore.
@@ -144,42 +206,60 @@ export async function getProgramLevelSetting(
   programId: string, 
   levelNumber: number
 ): Promise<ProgramLevelSettings | null> {
+  const settingsId = generateSettingsId(programId, levelNumber);
+
+  // #1: serve from the short-lived cache when fresh (hits AND negative-cached misses).
+  // The returned object is a SHARED reference — consumers must treat it as read-only
+  // (same contract as getCachedPrograms). Current consumers only read it.
+  const cached = plsCacheGet(settingsId);
+  if (cached) {
+    genPerfRead('programLevelSettings:cached'); // #0: cache hit — no round-trip
+    return cached.value;
+  }
+
   try {
-    const settingsId = generateSettingsId(programId, levelNumber);
     const docRef = doc(db, PROGRAM_LEVEL_SETTINGS_COLLECTION, settingsId);
     const docSnap = await getDoc(docRef);
-    
-    if (!docSnap.exists()) return null;
+    genPerfRead('programLevelSettings'); // #0: real getDoc (hit OR miss)
+
+    if (!docSnap.exists()) {
+      plsCacheSet(settingsId, null); // negative-cache the miss so it stops round-tripping
+      return null;
+    }
 
     const rawData = docSnap.data();
 
     // ── RAW DOC DEBUG — log ALL field keys so we know exactly what Firestore ──
     // stored.  A narrow field-specific log showed "{}" because JSON.stringify
     // omits undefined values; logging every key avoids that blind spot.
-    console.log(
-      `[ProgramLevelSettings][RAW] "${docSnap.id}" — keys: [${Object.keys(rawData).join(', ')}]`,
-    );
-    // Also log the full subset of protocol-related fields (using JSON.stringify
-    // safe-value so undefined shows as the string "undefined" instead of vanishing).
-    const protocolFields: Record<string, unknown> = {};
-    for (const k of Object.keys(rawData)) {
-      if (
-        k.toLowerCase().includes('protocol') ||
-        k.toLowerCase().includes('superset') ||
-        k.toLowerCase().includes('emom') ||
-        k.toLowerCase().includes('pyramid') ||
-        k.toLowerCase().includes('allow') ||
-        k.toLowerCase().includes('probability')
-      ) {
-        protocolFields[k] = rawData[k];
+    // #6: gated behind GEN_VERBOSE — this fired per-doc (up to ~14×/generation)
+    // and built a keys string + a JSON.stringify for EVERY read. Off by default.
+    if (isGenVerboseEnabled()) {
+      console.log(
+        `[ProgramLevelSettings][RAW] "${docSnap.id}" — keys: [${Object.keys(rawData).join(', ')}]`,
+      );
+      // Also log the full subset of protocol-related fields (using JSON.stringify
+      // safe-value so undefined shows as the string "undefined" instead of vanishing).
+      const protocolFields: Record<string, unknown> = {};
+      for (const k of Object.keys(rawData)) {
+        if (
+          k.toLowerCase().includes('protocol') ||
+          k.toLowerCase().includes('superset') ||
+          k.toLowerCase().includes('emom') ||
+          k.toLowerCase().includes('pyramid') ||
+          k.toLowerCase().includes('allow') ||
+          k.toLowerCase().includes('probability')
+        ) {
+          protocolFields[k] = rawData[k];
+        }
       }
+      console.log(
+        `[ProgramLevelSettings][RAW] "${docSnap.id}" — protocol fields:`,
+        Object.keys(protocolFields).length > 0
+          ? JSON.stringify(protocolFields, (_k, v) => (v === undefined ? '__undefined__' : v))
+          : '(none found — document has no protocol-related fields)',
+      );
     }
-    console.log(
-      `[ProgramLevelSettings][RAW] "${docSnap.id}" — protocol fields:`,
-      Object.keys(protocolFields).length > 0
-        ? JSON.stringify(protocolFields, (_k, v) => (v === undefined ? '__undefined__' : v))
-        : '(none found — document has no protocol-related fields)',
-    );
     // ────────────────────────────────────────────────────────────────────────
 
     // ── Legacy + alias field normalisation ───────────────────────────────
@@ -231,7 +311,7 @@ export async function getProgramLevelSetting(
     }
     // ─────────────────────────────────────────────────────────────────────
 
-    return {
+    const result = {
       id: docSnap.id,
       ...rawData,
       ...(preferredProtocols  !== undefined ? { preferredProtocols }  : {}),
@@ -239,6 +319,8 @@ export async function getProgramLevelSetting(
       createdAt: toDate(rawData['createdAt']),
       updatedAt: toDate(rawData['updatedAt']),
     } as ProgramLevelSettings;
+    plsCacheSet(settingsId, result);
+    return result;
   } catch (error) {
     console.error('Error fetching program level setting:', error);
     throw error;
@@ -306,6 +388,10 @@ export async function saveProgramLevelSettings(
       }));
     }
     
+    // #1: invalidate-on-write — an admin save must reflect on the next generation
+    // in THIS process immediately (TTL bounds staleness in other processes).
+    invalidateProgramLevelSetting(data.programId, data.levelNumber);
+
     return settingsId;
   } catch (error) {
     console.error('Error saving program level settings:', error);
@@ -324,6 +410,7 @@ export async function deleteProgramLevelSettings(
     const settingsId = generateSettingsId(programId, levelNumber);
     const docRef = doc(db, PROGRAM_LEVEL_SETTINGS_COLLECTION, settingsId);
     await deleteDoc(docRef);
+    invalidateProgramLevelSetting(programId, levelNumber); // #1: evict on delete
   } catch (error) {
     console.error('Error deleting program level settings:', error);
     throw error;

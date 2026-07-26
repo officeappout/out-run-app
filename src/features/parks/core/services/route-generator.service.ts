@@ -6,6 +6,7 @@ import { Route, ActivityType, CommuteVariant } from '../types/route.types';
 import { Park as MapPark } from '../types/park.types';
 import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
+import { rdpSimplify } from '@/utils/pathSimplify';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -62,6 +63,23 @@ interface RouteGenerationOptions {
   preferences: {
     includeStrength: boolean;
     surface?: 'road' | 'trail';
+    /**
+     * Additive, hybrid-only option (dormant): the hybrid session builder passes
+     * `qualityRoute: true`. This generator applies its route-quality passes
+     * (continue_straight + bearing-order + RDP-simplify) UNCONDITIONALLY, so the
+     * flag is a no-op here — kept solely so `start-hybrid-session.ts` type-checks
+     * while HYBRID_SLOTS_ENABLED is false. See merge note (hybrid → main).
+     */
+    qualityRoute?: boolean;
+    /**
+     * Additive perf option: cap how many valid loops the sequential generator
+     * must collect before it stops. Defaults to 3 (legacy free-run carousel,
+     * which shows three cards). The hybrid composer consumes only `routes[0]`,
+     * so it passes `maxRoutes: 1` — the loop then breaks after the first valid
+     * route, BEFORE the trailing `delay(1500)` fires, cutting the two
+     * guaranteed inter-route waits off the hybrid compose critical path.
+     */
+    maxRoutes?: number;
   };
   parks: MapPark[];
   /** City name used to query street_segments from Firestore. Falls back to random waypoints when absent. */
@@ -83,14 +101,18 @@ interface RouteGenerationOptions {
    * algorithm (waypoint pool → triangular combos → sequential Mapbox
    * loop calls) and instead returns up to 3 commute variants:
    *
+   * All three come from a SINGLE `getSmartPathAlternatives` call
+   * (`alternatives=true` returns up to 3 geometries in one round-trip):
+   *
    *   1. fastest     — Mapbox primary route (shortest duration alternative).
-   *   2. alternative — A different alternative geometry from the same
-   *                    `getSmartPathAlternatives` call as fastest.
+   *   2. alternative — A different alternative geometry from that same call.
    *                    No park bias, no scenic vias — pure Mapbox alt.
-   *   3. quiet       — Separate call with `exclude=motorway` (and `toll`
-   *                    for cycling). Falls back to the longest-duration
-   *                    alternative as a "quieter back-streets" heuristic
-   *                    when Mapbox returns nothing for the exclude query.
+   *   3. quiet       — Derived from the LONGEST-duration alternative as a
+   *                    "quieter back-streets" heuristic. Omitted when it
+   *                    would duplicate the fastest / alternative polyline.
+   *                    (No dedicated `exclude=motorway` call: that param is
+   *                    driving-only and the walking/cycling profiles reject
+   *                    it — see `generateCommuteRoutes`.)
    *
    * `targetDistance`, `cityName`, `activeOfficialRouteId` and the
    * `street_segments` waypoint pool are IGNORED on this branch — none
@@ -410,6 +432,19 @@ function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): 
   return R * c;
 }
 
+/**
+ * Compass bearing (deg, -180..180) of the segment a→b. a,b = [lng, lat].
+ * Used to order loop waypoints by angle around the user (change 2), so the
+ * visit sequence sweeps monotonically and the loop doesn't cross itself.
+ */
+function segBearing(a: [number, number], b: [number, number]): number {
+  const lat1 = a[1] * Math.PI / 180, lat2 = b[1] * Math.PI / 180;
+  const dLng = (b[0] - a[0]) * Math.PI / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return Math.atan2(y, x) * 180 / Math.PI;
+}
+
 // --- Helper Functions ---
 
 function generateRandomWaypoints(
@@ -526,9 +561,9 @@ async function findFitnessAnchor(
  *     waypoints (or random fallback) sequenced through Mapbox Directions.
  *
  *   • Commute mode (destination set) — returns up to 3 A-to-B variants
- *     (fastest / alternative / quiet) for the same point pair. Single
- *     Mapbox call with `alternatives=true` for fastest+alternative; a
- *     separate `exclude=motorway` call for quiet. See `RouteGenerationOptions.destination`.
+ *     (fastest / alternative / quiet) for the same point pair. A single
+ *     Mapbox call with `alternatives=true` yields all three; quiet is the
+ *     longest-duration alternative. See `RouteGenerationOptions.destination`.
  *
  * The two branches share NOTHING beyond the function entry — commute
  * mode does not touch the waypoint pool, the soft-shuffle, the
@@ -645,7 +680,10 @@ export async function generateDynamicRoutes(
   }
 
   const validRoutes: Route[] = [];
-  const MIN_REQUIRED_ROUTES = 3;
+  // Default 3 (free-run carousel shows three cards); hybrid passes maxRoutes:1
+  // since it only uses routes[0]. Lowering the target makes the loop break right
+  // after the first valid route — before the trailing delay(1500) below.
+  const MIN_REQUIRED_ROUTES = Math.max(1, preferences.maxRoutes ?? 3);
   // Adaptive minimum: short loops genuinely return fewer points from Mapbox
   // even when they're geometrically valid (a 1.2km loop with 6 turns can be
   // ~30 points and still be a real walk). Loosen the bar for short targets,
@@ -664,14 +702,19 @@ export async function generateDynamicRoutes(
     const combination = routeCombinations[i];
     const [wp1, wp2, wp3] = combination.waypoints;
 
-    // Build waypoint list
-    const waypointsToUse: Array<{ lat: number; lng: number }> = [
-      { lat: wp1.lat, lng: wp1.lng },
-      { lat: wp2.lat, lng: wp2.lng },
-      { lat: wp3.lat, lng: wp3.lng }
-    ];
+    // Change 2 — order the 3 chosen waypoints by their bearing around the user so
+    // the visit sequence sweeps monotonically around the origin (a convex-ish fan)
+    // instead of the score-ranked order, which jumps across the user and makes the
+    // loop cross itself / look boxy. Selection stays score-based — only the ORDER
+    // of the three changes.
+    const bearingFromUser = (wp: { lat: number; lng: number }) =>
+      (segBearing([userLocation.lng, userLocation.lat], [wp.lng, wp.lat]) + 360) % 360;
+    const waypointsToUse: Array<{ lat: number; lng: number }> = [wp1, wp2, wp3]
+      .map(wp => ({ lat: wp.lat, lng: wp.lng }))
+      .sort((a, b) => bearingFromUser(a) - bearingFromUser(b));
 
-    // Add fitness anchor if available
+    // Add fitness anchor if available (kept at index 1 — a must-visit gym; its slot
+    // in the sweep is not critical to loop convexity).
     if (fitnessAnchor) {
       waypointsToUse.splice(1, 0, { lat: fitnessAnchor.lat, lng: fitnessAnchor.lng });
     }
@@ -679,12 +722,31 @@ export async function generateDynamicRoutes(
     console.log(`[RouteGenerator] Fetching route ${i + 1}/${routeCombinations.length}...`);
 
     try {
-      const result = await MapboxService.getSmartPath(
+      const profile = activity === 'cycling' ? 'cycling' : 'walking';
+
+      // Change 1 — ask Mapbox for a NON-backtracking loop. `continue_straight`
+      // defaults to false for walking/cycling, letting the router U-turn at every
+      // via point (the "חוזרת אחורה" shape). Force it on for the loop call only,
+      // via getSmartPath's existing extraParams — mapbox.service.ts stays untouched
+      // (no clash with the UX-chat work there). alternatives:'false' because a loop
+      // has no use for them and Mapbox dislikes pairing them with continue_straight.
+      let result = await MapboxService.getSmartPath(
         userLocation,
         userLocation, // Loop back home
-        activity === 'cycling' ? 'cycling' : 'walking',
-        waypointsToUse
+        profile,
+        waypointsToUse,
+        { continue_straight: 'true', alternatives: 'false' },
       );
+      let csMode: 'continue_straight' | 'fallback' = 'continue_straight';
+
+      // Fallback (retry-without): continue_straight can yield NoRoute on some
+      // waypoint combos. One retry without it — worst case = the pre-change-1
+      // behaviour for this single combo. (Change 2's bearing-ordering makes this
+      // even rarer, since ordered waypoints are more routable.)
+      if (!result || !result.path || result.path.length === 0) {
+        result = await MapboxService.getSmartPath(userLocation, userLocation, profile, waypointsToUse);
+        csMode = 'fallback';
+      }
 
       // ✅ STRICT VALIDATION: Must have 50+ points (prevents straight lines/triangles)
       if (!result || !result.path || result.path.length < MIN_PATH_POINTS) {
@@ -725,6 +787,12 @@ export async function generateDynamicRoutes(
       const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 70));
       const hasGym = !!fitnessAnchor;
 
+      // Change 3 — strip micro-zig with Ramer–Douglas–Peucker (~4 m). Preserves the
+      // overall shape but removes the dense near-collinear wiggle Mapbox emits at
+      // overview=full (the "square/boxy" micro-jaggedness). Distance/duration stay
+      // from Mapbox — do NOT recompute them from the simplified path.
+      const cleanPath = rdpSimplify(result.path, 4);
+
       const route: Route = {
         id: `gen-${Date.now()}-${i}-${routeGenerationIndex}`,
         name: hasGym ? 'סיבוב כושר' : 'סיבוב אורבני',
@@ -735,7 +803,7 @@ export async function generateDynamicRoutes(
         type: activity,
         activityType: activity,
         difficulty: 'easy',
-        path: result.path,
+        path: cleanPath,
         segments: [],
         rating: 4.5 + (Math.random() * 0.5),
         calories: calories,
@@ -760,7 +828,7 @@ export async function generateDynamicRoutes(
       };
 
       validRoutes.push(route);
-      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${result.path.length} points, ${routeDistanceKm.toFixed(1)}km)`);
+      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
 
     } catch (err: any) {
       console.error(`[RouteGenerator] Error on route ${i}:`, err?.message || err);
@@ -896,20 +964,22 @@ async function generateCommuteRoutes(
       `to ${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}`,
   );
 
-  // Fire BOTH calls in parallel — Mapbox happily handles 2 concurrent
-  // Directions requests and we save the round-trip latency. The 1.5 s
-  // anti-429 delay used by the loop branch is overkill here (we're
-  // making 2 calls total, not 5 sequential ones).
-  const [alternatives, quietRaw] = await Promise.all([
-    MapboxService.getSmartPathAlternatives(userLocation, destination, profile, []),
-    MapboxService.getSmartPath(
-      userLocation,
-      destination,
-      profile,
-      [],
-      { exclude: profile === 'cycling' ? 'motorway,toll' : 'motorway' },
-    ),
-  ]);
+  // Single Directions call — `alternatives=true` already returns up to 3
+  // geometries in one round-trip, which is all we need for fastest + alternative.
+  //
+  // We intentionally do NOT make a dedicated `exclude=motorway` "quiet" call:
+  // `exclude` values are profile-specific, and `motorway` is a driving-only road
+  // class — the walking/cycling profiles reject it with "exclude value must be
+  // one of…" (a 400 logged as an API Error). It is also semantically pointless:
+  // pedestrians and cyclists are never routed onto a motorway to begin with. The
+  // "quiet" variant is instead derived from the longest alternative below.
+  const alternatives = await MapboxService.getSmartPathAlternatives(
+    userLocation,
+    destination,
+    profile,
+    [],
+  );
+  const quietRaw: MapboxPathResult | null = null;
 
   if (alternatives.length === 0) {
     console.warn('[RouteGenerator] Commute: no alternatives returned by Mapbox.');
@@ -923,12 +993,11 @@ async function generateCommuteRoutes(
   const fastest = sortedByDuration[0];
   const alternative = pickMostDifferent(sortedByDuration, fastest);
 
-  // Quiet preference: real `exclude=motorway` result first; otherwise
-  // fall back to the LONGEST-duration alternative as a cheap proxy
-  // ("longer routes tend to use back-streets to avoid the highway").
-  // Skip the fallback if it would be the same polyline as fastest or
-  // the alternative — better to omit the third card than show a
-  // visually-identical duplicate.
+  // Quiet preference: derived from the LONGEST-duration alternative as a cheap
+  // proxy ("longer routes tend to use back-streets to avoid busy roads").
+  // Skip it if it would be the same polyline as fastest or the alternative —
+  // better to omit the third card than show a visually-identical duplicate.
+  // (quietRaw is always null now — the invalid exclude call was removed above.)
   let quiet: MapboxPathResult | null = quietRaw;
   if (!quiet && sortedByDuration.length >= 2) {
     const longest = sortedByDuration[sortedByDuration.length - 1];

@@ -5,6 +5,19 @@ import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
 import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
+import HybridOverviewScreen from '@/features/parks/core/components/hybrid/HybridOverviewScreen';
+import ExerciseDetailDrawer from '@/features/workouts/components/workout-preview-drawer/components/ExerciseDetailDrawer';
+import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
+import { useProgramMap } from '@/features/workouts/components/workout-preview-drawer/hooks/useProgramMap';
+import type { ExecutionLocation } from '@/features/content/exercises';
+import type { ComposedHybridSession, HybridRoutePreview } from '@/features/workout-engine/hybrid/start-hybrid-session';
+import HybridSlotCarousel, { ENTRY_PHRASES } from '@/features/parks/core/components/hybrid/HybridSlotCarousel';
+import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
+import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
+import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
+import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
+import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED } from '@/config/feature-flags';
+import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
 import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapModeHeader';
@@ -80,14 +93,47 @@ function ActionSpeedDial({ onAdd, onReport }: { onAdd: () => void; onReport: () 
   );
 }
 
+// ── Module-level pre-warm store (survives DiscoverLayer remounts) ─────────────
+// Was three per-component useRef Maps → wiped on every remount (incl. the Strict-
+// Mode dev mount cycle), so the CTA recomposed from scratch. Module scope keeps a
+// settled plan warm for the tab's lifetime. Key = uid | slotId | coarse lat,lng
+// (~110m) | activity: a different user / slot / meaningful move / activity misses
+// naturally; GPS jitter under ~110m does not. FIFO-capped so a long session can't
+// grow the Maps unbounded.
+const HYBRID_WARM_CAP = 24;
+const hybridPlanCache = new Map<string, ComposedHybridSession>();
+const hybridRoutePreviewCache = new Map<string, HybridRoutePreview>();
+const hybridTrioInflight = new Map<string, Promise<ComposedHybridSession | null>>();
+
+function capMapInsert<V>(map: Map<string, V>, key: string, val: V): void {
+  if (!map.has(key) && map.size >= HYBRID_WARM_CAP) {
+    const oldest: string | undefined = map.keys().next().value; // insertion order
+    if (oldest !== undefined) map.delete(oldest);
+  }
+  map.set(key, val);
+}
+
+function hybridWarmKey(
+  slotId: string,
+  loc: { lat: number; lng: number } | null,
+  activity: string,
+): string {
+  const uid = useUserStore.getState().profile?.id ?? 'anon';
+  const r = (n: number) => Math.round(n * 1000) / 1000; // ~110m bucket
+  const geo = loc ? `${r(loc.lat)},${r(loc.lng)}` : 'noloc';
+  return `${uid}|${slotId}|${geo}|${activity}`;
+}
+
 interface DiscoverLayerProps {
   logic: MapLogic;
   flyoverComplete: boolean;
   devSim?: DevSimulationState;
   initialOpenRun?: string | null;
+  /** Center the camera on the best-available fix (live GPS or fallback dot). */
+  onRecenter?: () => void;
 }
 
-export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun }: DiscoverLayerProps) {
+export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, onRecenter }: DiscoverLayerProps) {
   const { setMode } = useMapMode();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -96,6 +142,10 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // ── Viewport-search ("חפש באזור זה") state ───────────────────────────────
   const viewportBounds = useMapStore((s) => s.viewportBounds);
   const viewportSearchActive = useMapStore((s) => s.viewportSearchActive);
+  // Splash gate — the single flag every on-map control below reads so nothing
+  // pokes through the MapLoadingSkeleton during load. Mirrors AppMap's
+  // isVisuallyReady; reveals all controls together the moment the map paints.
+  const isMapVisuallyReady = useMapStore((s) => s.isMapVisuallyReady);
   // Baseline bounds — set once viewportBounds first arrives (map loaded).
   // When the user taps "חפש באזור זה" this is reset to the current bounds so
   // the button only reappears after a subsequent pan.
@@ -139,8 +189,19 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   //   drawer "עם מסלול"    → config → route (with carousel-config payload)
   //   route carousel back  → route  → config
   //   route carousel start → route  → idle (workout starts)
-  type FreeRunStep = 'config' | 'route';
+  type FreeRunStep = 'config' | 'overview' | 'route' | 'slots';
   const [freeRunStep, setFreeRunStep] = useState<FreeRunStep>('config');
+  // Hybrid overview (phase ב) — composed once, shown, then run (no re-compose).
+  const [hybridComposed, setHybridComposed] = useState<ComposedHybridSession | null>(null);
+  const [hybridComposing, setHybridComposing] = useState(false);
+  // Where the overview's back button returns to: 'slots' (came from a slot) or
+  // 'config' (came from the build-yourself drawer) — never re-opens the drawer
+  // when the user arrived via a slot.
+  const [overviewBackStep, setOverviewBackStep] = useState<FreeRunStep>('config');
+  // Hybrid station exercise detail (tap) + replacement (swap) — the REAL preview drawers.
+  const [hybridDetailEx, setHybridDetailEx] = useState<any | null>(null);
+  const [hybridSwap, setHybridSwap] = useState<{ segIndex: number; exIndex: number; exercise: any; level: number } | null>(null);
+  const { programMap: hybridProgramMap } = useProgramMap();
 
   // Carousel-config payload — captured when the user taps "Generate" in the
   // drawer so the floating RouteCarousel knows what targetKm to feed into
@@ -153,12 +214,69 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     surface: 'road' | 'trail';
   } | null>(null);
 
-  // Reset to config stage every time we re-enter free-run mode.
+  // ── Hybrid slot layer state ("מה עושים היום?") — Phase 1, flag-gated ───────
+  // EXPLICIT state machine: `freeRunStep` is the single source of truth and is
+  // set ONLY by entry handlers (never by an effect racing the mapMode change):
+  //   chip / openRun deep-link → 'config' (drawer)
+  //   slot entry button        → 'slots'  (passive carousel — NO compose)
+  //   card CTA "צא לדרך"        → compose → 'overview'
+  //   back / dismiss           → resetHybridFlow(...)
+  // slotActivity drives the resolver + the in-layer activity toggle. The
+  // resolver + handlers that need userLocation/userCityName are defined lower.
+  const [slotActivity, setSlotActivity] = useState<AerobicKind>('walking');
+
+  // ── Preview-on-settle (READ-ONLY) ──────────────────────────────────────────
+  // When the slot carousel settles on a hybrid card, compose its plan and draw
+  // the route on the map — the SAME read-only compose the CTA uses, minus any
+  // save/run. Cached per slot so revisiting a card is instant and the CTA can
+  // reuse the exact composed object (preview == overview == run).
+  // CACHE-KEY: slot.id assumes a FIXED intent per slot (true in Phase 1). When
+  // build-your-own / per-slot overrides land, the same slot.id can yield
+  // different plans → expand the key to include the config/intent (e.g. a hash).
+  // Pre-warm caches now live at MODULE scope (hybridPlanCache /
+  // hybridRoutePreviewCache / hybridTrioInflight, top of file) so they survive a
+  // DiscoverLayer remount — the component refs were wiped on every remount, so the
+  // CTA recomposed from scratch. Keys are built via keyFor() below. The light
+  // route-preview cache stays SEPARATE from the full-plan cache on purpose: the CTA
+  // reuses the full plan verbatim (needs the bolts trio), so a route-only object
+  // must never land in it — else the overview would open without options.
+  // Race guard: a stale/late preview compose must not draw after the user has
+  // already swiped to another card / left the layer (mirrors hybridFlowIdRef). This
+  // stays a per-mount ref — it only guards draws within the live component.
+  const hybridPreviewFlowIdRef = useRef(0);
+  const [hybridPreviewComposing, setHybridPreviewComposing] = useState(false);
+
+  // Activity toggle (walk↔run) changes the composed route while slot.id stays
+  // constant. No manual cache clear is needed anymore: the module-cache key
+  // (keyFor) already includes slotActivity, so a new activity misses naturally and
+  // the next settle recomposes. We only bump the per-mount draw token so a late
+  // compose bound to the OLD activity can't repaint the map.
+  // (GPS drift is intentionally NOT invalidated — the key rounds to ~110m, so a
+  // preview tolerates small jitter; recomposing on every location tick would thrash.)
   useEffect(() => {
-    if (mapMode === 'freeRun') {
-      setFreeRunStep('config');
-      setRouteCarouselConfig(null);
-    }
+    hybridPreviewFlowIdRef.current += 1;
+  }, [slotActivity]);
+
+  // Flow token — bumped on every reset so a stale/late composeHybridPlan (e.g.
+  // the user dismissed while it was in flight) can't force the overview after a
+  // re-entry. Reset drops the composed plan + focused route + step so the entry
+  // button always opens a FRESH slot layer, never a leftover overview.
+  const hybridFlowIdRef = useRef(0);
+  const resetHybridFlow = useCallback((nextStep: FreeRunStep = 'config') => {
+    hybridFlowIdRef.current += 1;
+    hybridPreviewFlowIdRef.current += 1; // cancel any in-flight preview compose
+    setHybridComposing(false);
+    setHybridPreviewComposing(false);
+    setHybridComposed(null);
+    setFreeRunStep(nextStep);
+    logic.setFocusedRoute(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logic]);
+
+  // Only clears stale route-carousel config on (re-)entering free-run mode.
+  // Does NOT touch freeRunStep — the entry handlers own that (explicit SM).
+  useEffect(() => {
+    if (mapMode === 'freeRun') setRouteCarouselConfig(null);
   }, [mapMode]);
 
   // ── Run-invite deep-link: open FreeRunDrawer pre-configured ───────────────
@@ -176,6 +294,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     // Pre-select host's activity type (default, not locked — user can change it)
     logic.handleActivityChange(initialOpenRun as ActivityType);
     setMapMode('freeRun');
+    setFreeRunStep('config'); // deep-link → the drawer (explicit SM)
 
     // Consume pending_run_invite — restore partner context after Zustand reset (iOS hard-close).
     // Normal navigation path: Zustand already has groupId + membershipReady=true from the
@@ -299,15 +418,31 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   useEffect(() => {
     if (mapEmptyTapTick === lastEmptyTapTickRef.current) return;
     lastEmptyTapTickRef.current = mapEmptyTapTick;
-    if (mapMode !== 'commute') return;
-    // Same teardown as the carousel's onBack — keeps the two exit
-    // paths bit-identical so the user never lands in a half-state.
-    logic.setFocusedRoute(null);
-    setCommuteRouteConfig(null);
-    useMapStore.getState().setCommuteDestination(null);
-    setMapMode('idle');
+    if (mapMode === 'commute') {
+      // Same teardown as the carousel's onBack — keeps the two exit
+      // paths bit-identical so the user never lands in a half-state.
+      logic.setFocusedRoute(null);
+      setCommuteRouteConfig(null);
+      useMapStore.getState().setCommuteDestination(null);
+      setMapMode('idle');
+      return;
+    }
+    // Empty-map tap dismisses the discover route carousel → idle, so the
+    // BottomJourneyContainer unmounts and the on-map entry button returns
+    // (mirrors the slot-layer dismiss below).
+    if (mapMode === 'discover') {
+      logic.setFocusedRoute(null);
+      setMapMode('idle');
+      return;
+    }
+    // Tapping the map (outside a card) dismisses the hybrid slot layer and
+    // resets the flow so re-entry always shows fresh slots (never a stale overview).
+    if (mapMode === 'freeRun' && freeRunStep === 'slots') {
+      resetHybridFlow();
+      setMapMode('idle');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapEmptyTapTick, mapMode]);
+  }, [mapEmptyTapTick, mapMode, freeRunStep]);
 
   // Pending-commute consumer. Entity cards (ParkPreview /
   // RouteDetailSheet) write to `useMapStore.pendingCommute` when the
@@ -361,8 +496,259 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // their profile (the most common gap for non-gateway entry points).
   const userCityName = useUserCityName(userLocation);
 
+  // Stable module-cache key for a slot at the CURRENT location + activity. Every
+  // get/set/has for a slot's pre-warm goes through this so settle and the CTA agree
+  // on one key. Recreated when location/activity change (cheap).
+  const keyFor = useCallback(
+    (slotId: string) => hybridWarmKey(slotId, userLocation, slotActivity),
+    [userLocation, slotActivity],
+  );
+
   const { profile } = useUserStore();
   const myGroupIds = profile?.social?.groupIds ?? [];
+
+  // ── Full-park gate signals (Phase 3.1c) ────────────────────────────────────
+  // hasStrengthProgram: sync from the profile (any active program qualifies for MVP).
+  const hasStrengthProgram = (profile?.progression?.activePrograms?.length ?? 0) > 0;
+  // hasEquippedPark: resolved async from the CACHED all-parks set (same fetchRealParks
+  // the map + composer use — stale-while-revalidate), via the pure nearestEquippedPark
+  // (Phase 1.1). READ-ONLY; no new fetch cost beyond the shared cache.
+  const [hasEquippedPark, setHasEquippedPark] = useState(false);
+  useEffect(() => {
+    const loc = userLocation;
+    if (!loc) { setHasEquippedPark(false); return; }
+    let cancelled = false;
+    Promise.all([
+      import('@/features/parks/core/services/parks.service'),
+      import('@/features/workout-engine/hybrid/park-out-and-back'),
+    ]).then(async ([{ fetchRealParks }, { nearestEquippedPark }]) => {
+      try {
+        const parks = await fetchRealParks();
+        if (!cancelled) setHasEquippedPark(nearestEquippedPark(loc, parks as any) != null);
+      } catch { if (!cancelled) setHasEquippedPark(false); }
+    });
+    return () => { cancelled = true; };
+  }, [userLocation]);
+
+  // ── Hybrid slot resolver + handlers (need userLocation/userCityName) ───────
+  // nearbyParkCount stays optimistic (A3 surfaces at the overview via fallbackHint);
+  // the full-park card has its OWN hard gate (hasEquippedPark + hasStrengthProgram).
+  const slots = useMemo<HybridSlot[]>(
+    () => resolveSlots({
+      hasGps: !!userLocation, nearbyParkCount: 1, aerobicKind: slotActivity,
+      hasEquippedPark, hasStrengthProgram,
+    }),
+    [userLocation, slotActivity, hasEquippedPark, hasStrengthProgram],
+  );
+
+  // Draw a composed hybrid loop on the LIVE map (READ-ONLY — no save, no run).
+  // id MUST be 'hybrid-route': MapShell draws a standalone composed loop ONLY
+  // for that id (else just the station marker shows, polyline missing — see
+  // MapShell.tsx:350). Used by the settle-preview and the CTA cache-reuse; the
+  // overview's own inline draw (composeAndShowOverview) is left byte-identical.
+  const drawComposedRoute = useCallback((composed: ComposedHybridSession) => {
+    logic.setFocusedRoute({
+      id: 'hybrid-route', name: 'אימון משולב', path: composed.routePath,
+      distance: composed.plan.totals.distanceKm,
+      stationMarker: composed.station
+        ? { lat: composed.station.lat, lng: composed.station.lng, name: composed.station.name, image: composed.station.image }
+        : null,
+    } as unknown as Route);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logic]);
+
+  // Draw a LIGHT route-only preview (full-park settle-preview) — same map shape as
+  // drawComposedRoute, but sourced from the route+station+distance preview instead
+  // of a fully composed plan (which would require the heavy home-workout trio).
+  const drawRoutePreview = useCallback((preview: HybridRoutePreview) => {
+    logic.setFocusedRoute({
+      id: 'hybrid-route', name: 'אימון משולב', path: preview.routePath,
+      distance: preview.distanceKm,
+      stationMarker: preview.station
+        ? { lat: preview.station.lat, lng: preview.station.lng, name: preview.station.name, image: preview.station.image }
+        : null,
+    } as unknown as Route);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logic]);
+
+  // Compose a hybrid plan → show the overview. Shared by the drawer's
+  // "התחל משולב" and the recommended slot: composes ONCE, then runs the SAME
+  // object (no re-compose). fallbackStep = where to return if no route builds.
+  const composeAndShowOverview = useCallback((intent: HybridStartIntent, fallbackStep: FreeRunStep = 'config', existingCompose?: Promise<ComposedHybridSession | null>) => {
+    // eslint-disable-next-line no-console
+    console.log('[compose-trigger]', existingCompose ? 'await-inflight-compose' : 'composeAndShowOverview', 'from=', fallbackStep, 'kind=', intent.aerobicKind);
+    const flowId = ++hybridFlowIdRef.current; // this compose owns the flow
+    setHybridComposing(true);
+    // AWAIT an already-running compose (settle-preview / background prewarm) when
+    // one is handed in — never start a duplicate composeHybridPlan. Otherwise
+    // start a fresh compose. `startRun` wires the real run at RUN time; it is
+    // never baked into the returned session, so awaiting a read-only prewarm
+    // (startRun: no-op) is byte-identical to the cache-hit path.
+    const composeP: Promise<ComposedHybridSession | null> = existingCompose
+      ?? import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ composeHybridPlan }) =>
+        composeHybridPlan(intent, {
+          userPosition: userLocation,
+          cityName: userCityName,
+          startRun: logic.startActiveWorkout,
+        }));
+    composeP.then((composed) => {
+      // Dismissed / superseded while composing → drop this result silently.
+      if (hybridFlowIdRef.current !== flowId) return;
+      setHybridComposing(false);
+      if (!composed) { setFreeRunStep(fallbackStep); return; }
+      // Show the generated route on the LIVE map behind the peekable overview;
+      // carry the station location so MapShell drops a marker on it.
+      logic.setFocusedRoute({
+        id: 'hybrid-route', name: 'אימון משולב', path: composed.routePath,
+        distance: composed.plan.totals.distanceKm,
+        stationMarker: composed.station ? { lat: composed.station.lat, lng: composed.station.lng, name: composed.station.name, image: composed.station.image } : null,
+      } as unknown as Route);
+      console.log(
+        `[hybrid:diag] route drawn → setFocusedRoute pts=${composed.routePath.length}` +
+        ` station=${composed.station ? `${composed.station.lat.toFixed(5)},${composed.station.lng.toFixed(5)}` : 'none(A3)'}`,
+      );
+      setOverviewBackStep(fallbackStep);
+      setHybridComposed(composed);
+      setFreeRunStep('overview');
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation, userCityName, logic]);
+
+  // Compose a slot's FULL trio, de-duped by cache key: if a compose is already
+  // in-flight for this key, return THAT promise instead of starting a second one.
+  // Caches the result in hybridPlanCache (module scope) on success and clears the
+  // in-flight entry when it settles. Read-only (startRun no-op) — both the settle
+  // preview and the eager settle warm fill the SAME cache the CTA reuses.
+  const composeTrioDeduped = useCallback((intent: HybridStartIntent, slotId: string): Promise<ComposedHybridSession | null> => {
+    const key = keyFor(slotId);
+    const existing = hybridTrioInflight.get(key);
+    if (existing) return existing;
+    const p = import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ composeHybridPlan }) =>
+      composeHybridPlan(intent, { userPosition: userLocation, cityName: userCityName, startRun: () => {} }));
+    hybridTrioInflight.set(key, p);
+    p.then((composed) => { if (composed) capMapInsert(hybridPlanCache, key, composed); })
+      .catch(() => { /* callers treat as null */ })
+      .finally(() => { if (hybridTrioInflight.get(key) === p) hybridTrioInflight.delete(key); });
+    return p;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation, userCityName, keyFor]);
+
+  // READ-ONLY preview: when the carousel SETTLES on a hybrid card, compose its
+  // plan (cached per slot.id) and draw the route on the map — the SAME compose
+  // the CTA runs, minus ANY save/run. This path NEVER calls runHybridPlan /
+  // finishHybrid / saveWorkout — it only composeHybridPlan()s + draws. A
+  // non-hybrid (aerobic_quick) card has no guided route → clear the map.
+  const handleSettleSlot = useCallback((slot: HybridSlot) => {
+    if (!HYBRID_SLOT_PREVIEW_ENABLED) return;
+    // Every settle invalidates any in-flight preview compose (fast-swipe guard).
+    const flowId = ++hybridPreviewFlowIdRef.current;
+    if (slot.kind !== 'hybrid') {
+      setHybridPreviewComposing(false);
+      logic.setFocusedRoute(null);
+      return;
+    }
+    // full_park_workout: draw the ROUTE ONLY on settle. Its full compose builds a
+    // 3-workout home trio (generateHomeWorkoutTrio) that the map never needs to
+    // draw — so the settle-preview runs only the fast half (route + station) via
+    // composeFullParkRoutePreview, and the heavy trio is deferred to the CTA
+    // (handleSelectSlot → overview). Uses the SEPARATE light cache so it never
+    // poisons the full-compose cache the CTA reuses.
+    if (slot.preset.mode === 'full_park_workout') {
+      const intent = presetToIntent(slot.preset, slot.timeBudgetMin);
+      // Route drawn → warm the FULL trio EAGERLY (was requestIdleCallback, which
+      // starved under render churn so the trio wasn't ready at tap-time).
+      // composeTrioDeduped is deduped + caches into hybridPlanCache, so an early
+      // "צא לדרך" awaits THIS promise. The dynamic import() yields before any heavy
+      // work, so the route paint above is not blocked.
+      const warmTrio = () => composeTrioDeduped(intent, slot.id).then((composed) => {
+        if (hybridPreviewFlowIdRef.current !== flowId || !composed) return;
+        // eslint-disable-next-line no-console
+        console.log('[compose-trigger]', 'prewarm-ready', slot.id);
+      });
+      const cachedRoute = hybridRoutePreviewCache.get(keyFor(slot.id));
+      if (cachedRoute) {
+        setHybridPreviewComposing(false);
+        drawRoutePreview(cachedRoute);
+        warmTrio();
+        return;
+      }
+      setHybridPreviewComposing(true);
+      import('@/features/workout-engine/hybrid/start-hybrid-session').then(async ({ composeFullParkRoutePreview }) => {
+        const preview = await composeFullParkRoutePreview(intent, {
+          userPosition: userLocation,
+          cityName: userCityName,
+          startRun: () => {}, // preview NEVER starts a session (read-only)
+        });
+        // Superseded (user swiped away / left the layer) → drop silently, no draw.
+        if (hybridPreviewFlowIdRef.current !== flowId) return;
+        setHybridPreviewComposing(false);
+        if (!preview) return; // no equipped park / no position → leave map as-is
+        capMapInsert(hybridRoutePreviewCache, keyFor(slot.id), preview);
+        drawRoutePreview(preview);
+        warmTrio();
+      });
+      return;
+    }
+
+    // Regular hybrid (walk+strength budget-split): full compose on settle — now
+    // fast (maxRoutes:1, single loop, no 1.5s chain) — cached for CTA reuse.
+    const cached = hybridPlanCache.get(keyFor(slot.id));
+    if (cached) {
+      setHybridPreviewComposing(false);
+      drawComposedRoute(cached);
+      return;
+    }
+    setHybridPreviewComposing(true);
+    // Register the compose as in-flight (composeTrioDeduped) so an early "צא לדרך"
+    // tap AWAITS it rather than starting a duplicate; it also caches on success.
+    composeTrioDeduped(presetToIntent(slot.preset, slot.timeBudgetMin), slot.id).then((composed) => {
+      // Superseded (user swiped away / left the layer) → drop silently, no draw.
+      if (hybridPreviewFlowIdRef.current !== flowId) return;
+      setHybridPreviewComposing(false);
+      if (!composed) return; // compose failed → leave the map as-is (never crash)
+      drawComposedRoute(composed);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation, userCityName, logic, drawComposedRoute, drawRoutePreview, composeTrioDeduped, keyFor]);
+
+  // Slot selection: hybrid → compose→overview; aerobic_quick → start now (skip overview).
+  const handleSelectSlot = useCallback((slot: HybridSlot) => {
+    // eslint-disable-next-line no-console
+    console.log('[compose-trigger]', 'handleSelectSlot', slot.kind, slot.id);
+    if (slot.kind === 'hybrid') {
+      // CTA cache-reuse (ADDITIVE): if the settle-preview already composed this
+      // slot, reuse that EXACT object → no re-compose, and overview/run show
+      // precisely the previewed route (the generator randomises, so a second
+      // compose would differ). Cancel any in-flight preview REDRAW so a late
+      // result can't repaint the map. The no-cache path awaits the de-duped
+      // compose (composeTrioDeduped) rather than starting a fresh one.
+      hybridPreviewFlowIdRef.current += 1;
+      const cached = hybridPlanCache.get(keyFor(slot.id));
+      if (cached) {
+        setHybridPreviewComposing(false);
+        drawComposedRoute(cached);
+        setOverviewBackStep('slots');
+        setHybridComposed(cached);
+        setFreeRunStep('overview');
+        return;
+      }
+      // Not cached yet → AWAIT the DE-DUPED compose. composeTrioDeduped returns
+      // the settle-preview / prewarm compose if one is already in-flight, else it
+      // starts one and REGISTERS it — so this covers both races: (a) tapping while
+      // a prewarm runs, and (b) tapping in the idle gap before prewarm starts (the
+      // CTA's own compose is now registered, so the later prewarm reuses it instead
+      // of composing a second time). This is the fix for the double [compose-trigger].
+      const trio = composeTrioDeduped(presetToIntent(slot.preset, slot.timeBudgetMin), slot.id);
+      composeAndShowOverview(presetToIntent(slot.preset, slot.timeBudgetMin), 'slots', trio);
+      return;
+    }
+    // Aerobic quick-start — the session mode is read synchronously from
+    // useRunningPlayer.activityType in _doStartActiveWorkout, so set it on the
+    // store BEFORE start. Clear any guided route, then launch immediately.
+    useRunningPlayer.getState().setActivityType(slot.aerobicKind);
+    logic.setFocusedRoute(null);
+    logic.startActiveWorkout();
+  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic, keyFor]);
 
   const [effectiveRadius, setEffectiveRadius] = useState(requestedDistanceKm);
 
@@ -582,7 +968,13 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
 
   // ── Handle mode changes ──
   const handleMapModeChange = (mode: MapMode) => {
+    // Any mode chip dismisses a selected park — otherwise selectedPark keeps the
+    // Screen SM pinned to PARK_CARD and the chip's surface never appears.
+    useMapStore.getState().setSelectedPark(null);
     setMapMode(mode);
+    // Entering free-run via the mode chip → the drawer (explicit SM; the slot
+    // entry button sets 'slots' itself).
+    if (mode === 'freeRun') setFreeRunStep('config');
     if (mode !== 'discover') {
       logic.setFocusedRoute(null);
       logic.setSelectedRoute(null);
@@ -609,7 +1001,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   }, [viewportBounds]);
 
   // ── THE LAW: SINGLE SCREEN STATE ──
-  type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'COMMUTE' | 'DISCOVERY';
+  const selectedPark = useMapStore((s) => s.selectedPark);
+  type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'PARK_CARD' | 'COMMUTE' | 'DISCOVERY';
   const screen: Screen = (() => {
     if (logic.navState === 'searching') return 'SEARCH';
     // 'navigating' is now a no-op (NavigationHub returns null on this
@@ -622,12 +1015,25 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       if (mapMode !== 'idle' && mapMode !== 'discover') setMapMode('idle');
       return 'ROUTE_CARD';
     }
+    // selectedPark is its own exclusive screen (mirrors ROUTE_CARD) so a park
+    // card can NEVER co-exist with the entry button / slot carousel / free-run
+    // surfaces (all under DISCOVERY). Selecting a park replaces them; closing it
+    // (ParkPreview's × → setSelectedPark(null)) returns to DISCOVERY → the entry
+    // button reappears. General fix — intentionally applies with the hybrid flag
+    // OFF too (the park↔free-run mixing predates the flag).
+    if (selectedPark) {
+      if (mapMode !== 'idle' && mapMode !== 'discover') setMapMode('idle');
+      return 'PARK_CARD';
+    }
     if (mapMode === 'commute' && commuteRouteConfig) return 'COMMUTE';
     return 'DISCOVERY';
   })();
 
   // ── Shared top bar: glassmorphic search + saved-places quick row + mode pills ──
   function renderTopBar() {
+    // Keep the search bar (z-[70]) + mode chips out of the loading splash —
+    // they sit ABOVE the z-[50] skeleton, so without this they poke through.
+    if (!isMapVisuallyReady) return null;
     return (
       <div
         className="absolute left-0 right-0 z-[70] px-4 pointer-events-none"
@@ -733,6 +1139,17 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         );
       }
 
+      case 'PARK_CARD':
+        // Park card as an exclusive bottom surface — no entry button, no slot
+        // carousel, no free-run drawer behind it. Top bar stays so the user can
+        // still search / change mode. ParkPreview self-gates on selectedPark.
+        return (
+          <>
+            {renderTopBar()}
+            <ParkPreview userLocation={logic.currentUserPos ?? null} />
+          </>
+        );
+
       case 'COMMUTE': {
         // The unified RouteCarousel mounted in commute mode. Top bar
         // stays visible (just the floating search) so the user can
@@ -819,13 +1236,16 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 Hidden while the partner overlay is open so the layers icon
                 doesn't visually attach itself to the partners pill area —
                 the overlay owns the top-right slot in that mode. */}
-            {partnerTab === null && (
+            {partnerTab === null && isMapVisuallyReady && (
               <div className="absolute right-4 z-[50] pointer-events-none" style={{ top: 'calc(52px + env(safe-area-inset-top, 0px) + 116px)' }}>
                 <MapLayersControl liveCount={live.length} />
               </div>
             )}
 
-            {/* HUD — z-[40]. Bottom offset accounts for carousel height + safe-area. */}
+            {/* HUD — z-[40]. Bottom offset accounts for carousel height + safe-area.
+                Splash-gated so the FAB (+) and recenter button reveal with the
+                rest, rather than sitting hidden behind the skeleton during load. */}
+            {isMapVisuallyReady && (
             <div className="absolute right-4 z-[40] flex flex-col gap-3" style={{ bottom: 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}>
               <ActionSpeedDial
                 onAdd={() => setWizardOpen(true)}
@@ -837,13 +1257,15 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   // so the button only reappears after the next deliberate pan.
                   useMapStore.getState().setViewportSearchActive(false);
                   if (viewportBounds) refBoundsRef.current = viewportBounds;
-                  logic.handleLocationClick();
+                  logic.handleLocationClick(); // GPS refresh + permission prompt when no fix
+                  onRecenter?.();                // center the camera on the best-available fix
                 }}
                 className="w-12 h-12 rounded-full shadow-xl flex items-center justify-center bg-white pointer-events-auto active:scale-95 transition-all"
               >
                 <Navigation size={20} fill={logic.isFollowing ? BRAND_COLOR : 'none'} color={logic.isFollowing ? BRAND_COLOR : GRAY_COLOR} />
               </button>
             </div>
+            )}
 
             {/* ── Bottom content: single premium carousel for ALL route types ── */}
             {mapMode === 'discover' && allDisplayRoutes.length > 0 && (
@@ -863,6 +1285,30 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
               />
             )}
 
+            {/* ── On-map hybrid entry ("מה עושים היום?") — idle only, flag-gated.
+                Opens the slot layer (resetHybridFlow('slots') — passive, no compose). */}
+            {HYBRID_SLOTS_ENABLED && mapMode === 'idle' && isMapVisuallyReady && (
+              <div
+                className="absolute left-0 right-0 z-[100] pointer-events-none"
+                style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
+              >
+                <ShimmerPhraseButton
+                  messages={ENTRY_PHRASES}
+                  onTap={() => {
+                    // Passive entry: open the slot carousel only. resetHybridFlow
+                    // sets freeRunStep='slots' explicitly (no effect race, no
+                    // 'config' flash) and clears any prior composed plan. NO
+                    // compose here — that happens only on a card's "צא לדרך" CTA.
+                    // eslint-disable-next-line no-console
+                    console.log('[compose-trigger]', 'entry-open (passive, no compose)');
+                    resetHybridFlow('slots');
+                    setMapMode('freeRun');
+                  }}
+                  className="px-6 pointer-events-auto"
+                />
+              </div>
+            )}
+
             {/* ── Free-run flow — two stages, mutually exclusive ─────────
                 Stage 1: FreeRunDrawer (activity chips + goal + start CTAs).
                 Stage 2: RouteCarousel (floating route cards over the map) —
@@ -880,7 +1326,90 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   setRouteCarouselConfig({ targetKm, includeStrength, surface });
                   setFreeRunStep('route');
                 }}
+                onStartHybrid={HYBRID_SLOTS_ENABLED ? (intent) => composeAndShowOverview(intent, 'config') : undefined}
               />
+            )}
+
+            {/* ── Hybrid slot layer (Phase 1) — "מה עושים היום?" floating carousel.
+                Shares the z-[100] free-run overlay tier with HybridOverviewScreen
+                (mutually exclusive freeRunStep). Flag-gated → byte-identical when off. */}
+            {HYBRID_SLOTS_ENABLED && mapMode === 'freeRun' && freeRunStep === 'slots' && (
+              <HybridSlotCarousel
+                slots={slots}
+                loading={hybridComposing}
+                aerobicKind={slotActivity}
+                onActivityChange={setSlotActivity}
+                onSelectSlot={handleSelectSlot}
+                onSettleSlot={handleSettleSlot}
+                computingPreview={hybridPreviewComposing}
+                onBuildYourself={() => resetHybridFlow('config')}
+                onClose={() => { resetHybridFlow(); setMapMode('idle'); }}
+              />
+            )}
+
+            {/* Hybrid overview (phase ב) — bottom sheet over the map; route shown behind. */}
+            {mapMode === 'freeRun' && freeRunStep === 'overview' && hybridComposed && (
+              <HybridOverviewScreen
+                composed={hybridComposed}
+                cityName={userCityName}
+                onExerciseTap={(we) => setHybridDetailEx(we)}
+                onSwapExercise={(segIndex, exIndex, we) =>
+                  setHybridSwap({ segIndex, exIndex, exercise: we?.exercise, level: we?.programLevel ?? we?.exercise?.level ?? 1 })
+                }
+                onBack={() => { setFreeRunStep(overviewBackStep); logic.setFocusedRoute(null); }}
+                onStart={() => {
+                  const c = hybridComposed;
+                  import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ runHybridPlan }) => {
+                    runHybridPlan(c, logic.startActiveWorkout);
+                  });
+                }}
+              />
+            )}
+
+            {/* Real preview detail drawer (tap) — same component the workout preview uses. */}
+            {mapMode === 'freeRun' && freeRunStep === 'overview' && (
+              <ExerciseDetailDrawer
+                detailExercise={hybridDetailEx}
+                programMap={hybridProgramMap}
+                onDismiss={() => setHybridDetailEx(null)}
+              />
+            )}
+
+            {/* Real replacement modal (swap) — choose an alternative → mutate the plan. */}
+            {mapMode === 'freeRun' && freeRunStep === 'overview' && hybridSwap && profile && (
+              <ExerciseReplacementModal
+                isOpen
+                onClose={() => setHybridSwap(null)}
+                currentExercise={hybridSwap.exercise}
+                currentLevel={hybridSwap.level}
+                location={'park' as ExecutionLocation}
+                park={null}
+                userProfile={profile as any}
+                onReplace={(newExercise, executionMethod) => {
+                  // Stability: mutate hybridComposed at [segIndex][exIndex], keeping the
+                  // prescription (sets/reps/rest). runHybridPlan runs the swapped plan.
+                  const { segIndex, exIndex } = hybridSwap;
+                  setHybridComposed((prev) => {
+                    if (!prev) return prev;
+                    const seg: any = prev.plan.segments[segIndex];
+                    if (!seg || seg.kind !== 'strength' || !seg.content) return prev;
+                    const exercises: any[] = [...(seg.content.exercises ?? [])];
+                    const current = exercises[exIndex];
+                    if (!current) return prev;
+                    exercises[exIndex] = { ...current, exercise: newExercise, method: executionMethod, wasSwapped: true };
+                    const newSeg = { ...seg, content: { ...seg.content, exercises } };
+                    const segments = prev.plan.segments.map((s, i) => (i === segIndex ? newSeg : s));
+                    return { ...prev, plan: { ...prev.plan, segments } };
+                  });
+                  setHybridSwap(null);
+                }}
+              />
+            )}
+
+            {mapMode === 'freeRun' && hybridComposing && (
+              <div className="absolute inset-0 z-[101] flex items-center justify-center bg-black/20 pointer-events-auto">
+                <div className="bg-white rounded-2xl px-5 py-3 text-[14px] font-black text-gray-800 shadow-xl">מכין אימון משולב…</div>
+              </div>
             )}
 
             {mapMode === 'freeRun' &&
@@ -960,8 +1489,6 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 />
               )}
             </AnimatePresence>
-
-            <ParkPreview userLocation={logic.currentUserPos ?? null} />
           </>
         );
     }

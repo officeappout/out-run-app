@@ -272,7 +272,12 @@ export interface Park {
   amenities?: ParkAmenities;
   
   // Admin metadata
-  authorityId?: string; // Link to authority (for Authority Manager access)
+  authorityId?: string; // Link to authority (for Authority Manager access) — always the TOP authority (city / regional_council)
+  /** Leaf sub-location: the neighborhood/settlement Authority doc id this park physically sits in.
+   *  `authorityId` is derived from `neighborhood.parentAuthorityId`. Optional (hybrid backfill). */
+  neighborhoodId?: string;
+  /** Denormalized neighborhood/settlement name — lets the table show the leaf without a join. */
+  neighborhoodName?: string;
   status?: ParkStatus;
   contentStatus?: ParkContentStatus; // Editorial lifecycle: pending_review → published
   /** Approval workflow — mirrors Route.published for consistency across all entities */

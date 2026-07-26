@@ -5,6 +5,12 @@ OUT is a fitness app (calisthenics parks, XP progression) for Israel municipalit
 This repo (`appout-1`) is the **Next.js admin panel** (CRM + Drive integration)
 and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@appout.co.il).
 
+## Workflow
+- עובדים ישר על `main`, בלי ענפי-פיצ'ר.
+- Commit כל צעד קטן מקומית. אל תדחוף על כל צעד — צוברים commits, ודוחפים באצווה **רק** כשדוד אומר במפורש "push".
+- עצור אחרי כל commit (הצג diff, המשך לצעד הבא) ואחרי כל שינוי side-effect (push / מיזוג / מחיקה) — לאישור דוד.
+- Flags: כרגע כולם `true`; **אל תחווט XP אמיתי ל-hybrid עד ש-single-save נסגר (Phase 2)** — אחרת double-count.
+
 ## Reference Files (load on demand — do NOT duplicate here)
 | Domain | File |
 |--------|------|

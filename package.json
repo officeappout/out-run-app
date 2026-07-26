@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "gen:equipment-icons": "node scripts/gen-equipment-icon-manifest.mjs",
+    "predev": "node scripts/gen-equipment-icon-manifest.mjs",
+    "prebuild": "node scripts/gen-equipment-icon-manifest.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -93,6 +96,7 @@
     "tailwind-merge": "^3.4.0",
     "tsparticles": "^3.9.1",
     "tus-js-client": "^4.3.1",
+    "unpdf": "^1.6.2",
     "xlsx": "^0.18.5",
     "zustand": "^5.0.10"
   },

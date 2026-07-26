@@ -12,10 +12,12 @@ interface Props {
   onBack: () => void;
 }
 
+// 'route' is intentionally omitted: a user-submitted route currently becomes a
+// generic park doc instead of flowing into the official_routes pipeline, so it
+// is blocked in the wizard until that bridge exists (deferred G6).
 const FACILITY_TYPES: { id: ParkFacilityCategory; label: string; icon: string }[] = [
   { id: 'gym_park', label: 'גינת כושר', icon: '🏋️' },
   { id: 'court', label: 'מגרש ספורט', icon: '🏀' },
-  { id: 'route', label: 'מסלול', icon: '🛤️' },
   { id: 'zen_spot', label: 'פינת גוף-נפש', icon: '🧘' },
   { id: 'urban_spot', label: 'אורבן / אקסטרים', icon: '🛹' },
   { id: 'nature_community', label: 'טבע וקהילה', icon: '🌳' },

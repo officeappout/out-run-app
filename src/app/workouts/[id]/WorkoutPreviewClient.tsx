@@ -8,6 +8,8 @@ import WorkoutPreviewHeader from '@/features/workout-engine/components/WorkoutPr
 import StrengthExerciseCard from '@/features/workout-engine/components/cards/StrengthExerciseCard';
 import RunningSegmentCard from '@/features/workout-engine/components/cards/RunningSegmentCard';
 import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText } from '@/features/content/exercises';
+import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
+import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { getSharedWorkout, type SharedWorkoutDoc } from '@/features/workout-engine/services/share.service';
 
 // ============================================================================
@@ -254,12 +256,19 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutData
     const exercises = await getAllExercises();
     if (!exercises?.length) return null;
 
-    const resolveImageUrl = (ex: FirestoreExercise): string | null =>
-      ex.execution_methods?.[0]?.media?.imageUrl
-      || ex.execution_methods?.[0]?.media?.mainVideoUrl
-      || ex.media?.imageUrl
-      || ex.media?.videoUrl
-      || null;
+    const resolveImageUrl = (ex: FirestoreExercise): string | null => {
+      // Bunny thumbnail (NEW field) of the same execution_methods[0] the legacy chain
+      // already reads, ABOVE it. Byte-identical fallthrough for legacy-only exercises.
+      const preview = resolvePreviewForLang(ex.execution_methods?.[0]?.media as any);
+      const bunnyThumb =
+        preview?.thumbnailUrl ?? (preview?.videoId ? buildBunnyThumbnailUrl(preview.videoId) : undefined);
+      return bunnyThumb
+        || ex.execution_methods?.[0]?.media?.imageUrl
+        || ex.execution_methods?.[0]?.media?.mainVideoUrl
+        || ex.media?.imageUrl
+        || ex.media?.videoUrl
+        || null;
+    };
 
     let rangeMap: Record<string, { repsRange?: { min: number; max: number }; sets?: number; isTimeBased?: boolean; isGoalExercise?: boolean; rampedTarget?: number }> = {};
     if (typeof window !== 'undefined') {

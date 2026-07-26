@@ -2,7 +2,7 @@
  * day-display.utils.tsx
  *
  * Centralized state engine for the weekly schedule day cells.
- * Both ScheduleCalendar.tsx and SmartWeeklySchedule.tsx pipe their data
+ * Both SmartWeeklySchedule.tsx and MonthlyCalendarGrid.tsx pipe their data
  * through resolveDayDisplayProps() and render the result via DayIconCell.
  *
  * Asset registry, short-label dictionary, and the visual decision table
@@ -12,9 +12,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
 import { getProgramIcon, BRAND_CYAN } from '@/features/content/programs/core/program-icon.util';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
+import { type ActivityRingData, ACTIVITY_RING_EMPTY_COLOR } from './activity-ring.utils';
 
 // ============================================================================
 // ASSET REGISTRY
@@ -188,7 +188,6 @@ export const CATEGORY_COLORS = {
   maintenance: '#A855F7',  // purple-500
   steps:       '#F97316',  // orange-500 — energy/flame accent (not the steps identity color)
   rest:        '#9CA3AF',  // gray-400
-  missed:      '#9CA3AF',  // gray-400
 } as const;
 
 /**
@@ -312,7 +311,7 @@ export interface DayDisplayProps {
     glowBorder?: boolean;
   };
   icon: {
-    type: 'img' | 'program' | 'ghost' | 'zz' | 'none';
+    type: 'img' | 'program' | 'zz' | 'none';
     src?: string;
     iconKey?: string;
     /** Apply CSS grayscale(1) — used for future-rest lemur. */
@@ -355,7 +354,7 @@ export interface DayDisplayProps {
   /**
    * Pager-dot list rendered in the 4 px gap below the icon.
    * Length = number of sessions/planned activities (1, 2, or 3).
-   * Empty for pure-rest (Lemur) and missed-no-debt (ghost) days.
+   * Empty for pure-rest (Lemur) and missed / rest days.
    * The dot at index === activeSessionIndex renders at 100 % opacity;
    * all other dots stay at 30 %.
    */
@@ -373,7 +372,9 @@ export interface DayDisplayProps {
  * selection is more granular and handled by `resolveFlameSrc()`.
  */
 function resolveCategory(input: DayDisplayInput): DayDisplayCategory {
-  if (input.isMissed && !input.debtCleared) return 'missed';
+  // Missed (past training, not completed) → treated as REST (softening: a missed day
+  // is a day you rested, not a failure). No distinct 'missed' category.
+  if (input.isMissed && !input.debtCleared) return 'rest';
   if (input.isRest && !input.isCompleted && !input.stepGoalMet) return 'rest';
   if (input.isRest && input.stepGoalMet) return 'steps';
   if (input.dominantCategory === 'cardio') return 'cardio';
@@ -662,17 +663,9 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
 
   // ── PAST ─────────────────────────────────────────────────────────────────
   if (input.state === 'past') {
-    // Missed / unplanned past day → soft Zz (clean slate, not punitive 'X').
-    // No dot — no achievement to indicate.
-    if (input.isMissed && !input.debtCleared) {
-      return {
-        ...echo,
-        container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
-        icon: { type: 'zz' },
-        label: { text: 'מנוחה', color: CATEGORY_COLORS.rest },
-        dots: [],
-      };
-    }
+    // (Non-debt missed days are handled below by the shared rest-Zz fallback —
+    //  a missed day renders identically to a planned rest day. Softening: no
+    //  distinct 'missed' visual, no punitive marker.)
 
     // Missed day with cleared debt → render the appropriate flame (made up).
     if (input.isMissed && input.debtCleared) {
@@ -738,7 +731,8 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
       };
     }
 
-    // Past planned but not completed (edge case: past today's slot) → Zz
+    // Past training not completed — MISSED (the common case) or a past today-slot →
+    // rest Zz. A missed day renders identically to a planned rest day (softening).
     return {
       ...echo,
       container: selectableContainer(CATEGORY_COLORS.rest, selForChrome),
@@ -774,22 +768,6 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
   };
 }
 
-// ============================================================================
-// GHOST RING (shared)
-// ============================================================================
-
-/**
- * Ghost ring for missed days.
- * Outer ring = 12 px (PROGRAM_ICON_PX) — same visual weight as program icons.
- * Centered inside the 24 px icon frame, which itself sits in the 32 px container.
- */
-function GhostRing() {
-  return (
-    <div className="w-3 h-3 rounded-full border-[1.5px] border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 opacity-60">
-      <X className="w-1.5 h-1.5 text-gray-400" />
-    </div>
-  );
-}
 
 // ============================================================================
 // HEX → RGBA HELPER (for inline opacity backgrounds)
@@ -813,12 +791,12 @@ const CONTAINER_SIZE_PX = 32;
 /**
  * 24 px — the Figma icon *frame*. All `img` icons (flames + lemur) fill this
  * slot entirely (4 px padding each side inside the 32 px container).
- * Program icons (JSX SVGs) and GhostRing render at 12 px *inside* this frame
+ * Program icons (JSX SVGs) render at 12 px *inside* this frame
  * — see `IconRenderer` — for the minimalist look David specified.
  * The lemur stays at 24 px to be clearly more prominent than the 12 px icons.
  */
 const ICON_SIZE_PX = 24;
-/** Inner size for program-icon SVGs and GhostRing (Figma minimalist spec). */
+/** Inner size for program-icon SVGs (Figma minimalist spec). */
 const PROGRAM_ICON_PX = 12;
 /** Pager-dot diameter (px). Phase 5 spec. */
 const DOT_SIZE_PX = 3;
@@ -833,15 +811,24 @@ export interface DayIconCellProps {
   sizeOverride?: {
     sizePx: number;
     radiusPx: number;
-    /** Program / ghost / zz inner frame side (defaults to ICON_SIZE_PX ≈24). */
+    /** Program / zz inner frame side (defaults to ICON_SIZE_PX ≈24). */
     innerSlotPx?: number;
     /** Flame / raster icons — exact render side inside the badge. */
     imgIconPx?: number;
   };
+  /**
+   * ACTIVITY schedule (Stage 2) — when provided, the cell renders a SINGLE
+   * summary ring (S10 activity) INSTEAD of the flame/icon container. The flame
+   * axis (S8) is never touched; the two schedules are separate views toggled by
+   * the host. Ring diameter defaults to 40 px (see `ringSizePx`).
+   */
+  activityRing?: ActivityRingData;
+  /** Ring diameter in px for the activity view (defaults to 40). */
+  ringSizePx?: number;
 }
 
 /**
- * Render a single icon descriptor (img / program / ghost / zz / none).
+ * Render a single icon descriptor (img / program / zz / none).
  * Pure renderer — no state.
  */
 function IconRenderer({
@@ -903,15 +890,6 @@ function IconRenderer({
         </div>
       );
     }
-    case 'ghost':
-      return (
-        <div
-          className="flex items-center justify-center shrink-0"
-          style={{ width: innerFramePx ?? ICON_SIZE_PX, height: innerFramePx ?? ICON_SIZE_PX }}
-        >
-          <GhostRing />
-        </div>
-      );
     case 'zz': {
       const frame = innerFramePx ?? ICON_SIZE_PX;
       const fontSize = innerFramePx != null ? Math.round(14 * (frame / ICON_SIZE_PX)) : 14;
@@ -944,7 +922,7 @@ const FADE_DURATION_S = 0.15;
 /**
  * Renders the output of `resolveDayDisplayProps()`.
  *
- * Figma visual spec (final — same in SmartWeeklySchedule + ScheduleCalendar):
+ * Figma visual spec (final — same in SmartWeeklySchedule + MonthlyCalendarGrid):
  *  • Container: 32 × 32 px, rounded-lg (8 px)
  *  • Icon frame: 24 × 24 px — flames fill fully; program icons at 12 px; Zz at 11 px text
  *  • Today: solid category fill + `shadow-md`, white icon
@@ -959,7 +937,74 @@ const FADE_DURATION_S = 0.15;
  *    the active dot rotates in lock-step with the visible icon.
  *  • Rest (Zz) and missed-no-debt days render zero dots.
  */
-export function DayIconCell({ props, hideDots = false, sizeOverride }: DayIconCellProps) {
+/**
+ * ActivityDayRing — the single summary ring for the ACTIVITY schedule (S10).
+ *
+ * One arc: total activity minutes vs the daily goal, in the dominant-category
+ * colour, over a faded track. No activity → track only (empty/faded ring).
+ * This is deliberately NOT the multi-ring ConcentricRingsProgress — the activity
+ * schedule shows one aggregate ring per day.
+ */
+function ActivityDayRing({
+  ring,
+  sizePx,
+  isToday,
+}: {
+  ring: ActivityRingData;
+  sizePx: number;
+  isToday: boolean;
+}) {
+  const strokeWidth = Math.max(4, Math.round(sizePx * 0.13)); // ≈5 px at 40 px
+  const radius = (sizePx - strokeWidth) / 2;
+  const center = sizePx / 2;
+  const circumference = 2 * Math.PI * radius;
+  const pct = Math.min(100, Math.max(0, ring.percentage));
+  const dashoffset = circumference - (circumference * pct) / 100;
+  const trackColor = ring.active ? `${ring.color}22` : ACTIVITY_RING_EMPTY_COLOR;
+
+  return (
+    <svg
+      width={sizePx}
+      height={sizePx}
+      viewBox={`0 0 ${sizePx} ${sizePx}`}
+      style={{ display: 'block', flexShrink: 0, overflow: 'visible' }}
+      aria-hidden
+    >
+      {/* Track */}
+      <circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="none"
+        stroke={trackColor}
+        strokeWidth={strokeWidth}
+      />
+      {/* Progress arc — only when there is activity */}
+      {ring.active && (
+        <motion.circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke={ring.color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: dashoffset }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          style={{
+            transform: 'rotate(-90deg)',
+            transformOrigin: `${center}px ${center}px`,
+            filter: isToday ? `drop-shadow(0 0 3px ${ring.color}66)` : undefined,
+          }}
+        />
+      )}
+    </svg>
+  );
+}
+
+export function DayIconCell({ props, hideDots = false, sizeOverride, activityRing, ringSizePx }: DayIconCellProps) {
   const { container, icon, state, sessions, dots } = props;
   const isToday = state === 'today';
   const containerSize = sizeOverride?.sizePx ?? CONTAINER_SIZE_PX;
@@ -994,6 +1039,19 @@ export function DayIconCell({ props, hideDots = false, sizeOverride }: DayIconCe
   }
 
   const innerSlotPx = sizeOverride?.innerSlotPx;
+
+  // ── ACTIVITY schedule (Stage 2) ─────────────────────────────────────────
+  // When an activity ring is supplied, this cell renders ONLY the single
+  // summary ring (S10) — no flame, no dots. Selection / click chrome is owned
+  // by the host cell wrapper. Placed after the hooks above so hook order is
+  // stable whether or not the activity view is active.
+  if (activityRing) {
+    return (
+      <div className="flex items-center justify-center" dir="rtl">
+        <ActivityDayRing ring={activityRing} sizePx={ringSizePx ?? 40} isToday={isToday} />
+      </div>
+    );
+  }
 
   return (
     <div

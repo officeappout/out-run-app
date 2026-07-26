@@ -21,6 +21,10 @@ import { PARK_FALLBACK_IMAGE } from '@/features/parks/core/hooks/useNearbyParks'
 import type { WorkoutPreviewDrawerProps } from './types';
 import ParkCardImage from './components/ParkCardImage';
 import DrawerHeader from './components/DrawerHeader';
+import WorkoutLocationSwitcher from './components/WorkoutLocationSwitcher';
+import { useSwapAll } from './hooks/useSwapAll';
+import { SWAP_ALL_ENABLED } from '@/config/feature-flags';
+import type { ExecutionMethod } from '@/features/content/exercises';
 import DrawerFooter from './components/DrawerFooter';
 import GeneratedWorkoutExerciseList from './components/exercise-list/GeneratedWorkoutExerciseList';
 import ExerciseDetailDrawer from './components/ExerciseDetailDrawer';
@@ -106,7 +110,15 @@ export default function WorkoutPreviewDrawer({
     (v) => (v < 0.1 ? 'none' : 'auto') as 'none' | 'auto',
   );
 
+  // Hero media is derived from THIS drawer's live workout (not a global
+  // sessionStorage slot), so a swap / swap-all / option-switch updates it and it
+  // always tracks the exercises actually shown. Location follows the workout's
+  // stamped executionLocation (updated by swap-all), falling back to the prop.
   const { heroMedia, cachedHeroThumb, cachedHeroVideo } = useDrawerMediaState(
+    generatedWorkout?.exercises,
+    (generatedWorkout?.executionLocation as string | undefined) ??
+      (workoutLocation as string | undefined) ??
+      null,
     workout?.coverImage,
   );
 
@@ -195,6 +207,40 @@ export default function WorkoutPreviewDrawer({
   const handleDetailDismiss = useCallback(() => {
     setDetailExercise(null);
   }, []);
+
+  // ── Location swap-all (bulk + single), gated by SWAP_ALL_ENABLED ──
+  // Prefer the location stamped on the content by a prior swap, so the switcher
+  // badge and the swap no-op guard track the LIVE location (not the static prop,
+  // which the parent never updates after a swap).
+  const resolvedSwapLocation: ExecutionLocation =
+    (generatedWorkout?.executionLocation as ExecutionLocation) ||
+    (workoutLocation as ExecutionLocation) ||
+    'park';
+  const { swapAll, isSwapping } = useSwapAll({
+    generatedWorkout,
+    onGeneratedWorkoutUpdate,
+    userProfile: profile,
+    currentLocation: resolvedSwapLocation,
+    exercisePool,
+  });
+
+  // Single per-exercise method write from MasterExerciseView (detail drawer): persist
+  // the picked method to the LIVE workout (so it reaches the runner via Merge 1) and
+  // re-sync the detail snapshot so the sheet reflects the new method.
+  const handleSingleMethodChange = useCallback(
+    (method: ExecutionMethod) => {
+      if (!generatedWorkout || !detailExercise) return;
+      const targetId = detailExercise.exercise.id;
+      const updatedExercises = generatedWorkout.exercises.map((we) =>
+        we.exercise.id === targetId
+          ? { ...we, method: method as typeof we.method, wasSwapped: true, dimensionUnavailable: undefined }
+          : we,
+      );
+      onGeneratedWorkoutUpdate?.({ ...generatedWorkout, exercises: updatedExercises });
+      setDetailExercise((prev) => (prev ? { ...prev, method: method as typeof prev.method } : prev));
+    },
+    [generatedWorkout, detailExercise, onGeneratedWorkoutUpdate],
+  );
 
   const handleOpenLivePartners = useCallback(() => {
     usePartnerFilters.getState().setLiveActivity('strength');
@@ -347,7 +393,7 @@ export default function WorkoutPreviewDrawer({
               {/* Unified scrollable container */}
               <div
                 ref={scrollContainerRef}
-                className="h-full overflow-y-auto overscroll-contain pb-36"
+                className="h-full overflow-y-auto overflow-x-hidden overscroll-contain pb-36"
               >
                 {/* Hero — overflow-hidden prevents image bleed on overscroll */}
                 <motion.div
@@ -441,28 +487,37 @@ export default function WorkoutPreviewDrawer({
                   {isGeneratingWorkout && !generatedWorkout ? (
                     <WorkoutLoadingSkeleton />
                   ) : generatedWorkout ? (
-                    <GeneratedWorkoutExerciseList
-                      generatedWorkout={generatedWorkout}
-                      exercisePool={exercisePool}
-                      onSwap={handleOpenSwapModal}
-                      onSwapPyramidStep={handleOpenPyramidStepSwap}
-                      onExerciseTap={handleExerciseTap}
-                      isWarmupExpanded={isWarmupExpanded}
-                      isWarmupActive={isWarmupActive}
-                      onToggleWarmupExpanded={handleToggleWarmupExpanded}
-                      onToggleWarmupActive={handleToggleWarmupActive}
-                      actions={{
-                        isFav,
-                        isFavToggling,
-                        isFavDownloading,
-                        isFavDownloaded,
-                        downloadProgress: dlProgress,
-                        isSharing,
-                        onToggleFavorite: handleToggleFavorite,
-                        onShare: handleShare,
-                        onDownload: handleDownload,
-                      }}
-                    />
+                    <>
+                      {SWAP_ALL_ENABLED && (
+                        <WorkoutLocationSwitcher
+                          currentLocation={resolvedSwapLocation}
+                          isSwapping={isSwapping}
+                          onSwap={(v) => { void swapAll('location', v); }}
+                        />
+                      )}
+                      <GeneratedWorkoutExerciseList
+                        generatedWorkout={generatedWorkout}
+                        exercisePool={exercisePool}
+                        onSwap={handleOpenSwapModal}
+                        onSwapPyramidStep={handleOpenPyramidStepSwap}
+                        onExerciseTap={handleExerciseTap}
+                        isWarmupExpanded={isWarmupExpanded}
+                        isWarmupActive={isWarmupActive}
+                        onToggleWarmupExpanded={handleToggleWarmupExpanded}
+                        onToggleWarmupActive={handleToggleWarmupActive}
+                        actions={{
+                          isFav,
+                          isFavToggling,
+                          isFavDownloading,
+                          isFavDownloaded,
+                          downloadProgress: dlProgress,
+                          isSharing,
+                          onToggleFavorite: handleToggleFavorite,
+                          onShare: handleShare,
+                          onDownload: handleDownload,
+                        }}
+                      />
+                    </>
                   ) : (
                     workoutPlan && (
                       <StrengthOverviewCard
@@ -541,6 +596,7 @@ export default function WorkoutPreviewDrawer({
         detailExercise={detailExercise}
         programMap={programMap}
         onDismiss={handleDetailDismiss}
+        onMethodChange={SWAP_ALL_ENABLED ? handleSingleMethodChange : undefined}
       />
 
       {/* Exercise replacement modal */}

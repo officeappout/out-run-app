@@ -44,6 +44,10 @@ export interface Exercise {
   duration?: string;
   videoUrl?: string;
   imageUrl?: string;
+  /** Bare Bunny UUID (from media.previewVideo.he.videoId) carried through the plan flatten,
+   *  so consumers that lose execution_methods (e.g. the rest-preview) can still resolve the
+   *  network-aware Bunny stream. Undefined for legacy-only exercises. */
+  bunnyVideoId?: string;
   /** Pre-resolved long-form instructional video (deep-searched at plan-build time). Drives the "צפה בהסבר המלא" CTA. */
   fullTutorial?: ExternalVideo | null;
   instructions?: string[];
@@ -52,8 +56,14 @@ export interface Exercise {
   // Enriched metadata from Firestore Exercise
   /** Exercise type: 'reps' | 'time' */
   exerciseType?: 'reps' | 'time';
-  /** Exercise role: 'warmup' | 'main' | 'cooldown' */
-  exerciseRole?: 'warmup' | 'main' | 'cooldown';
+  /**
+   * Exercise role. Widened to include 'recovery' — rest-day follow-along videos
+   * flatten through with `exerciseRole: 'recovery'` (the flatten already carried
+   * it at runtime; buildRunnerWorkoutPlanFromGenerated filters it via `as any`).
+   * Typing it here lets the runner match it without a cast (see
+   * useWorkoutStateMachine follow-along branch).
+   */
+  exerciseRole?: 'warmup' | 'main' | 'cooldown' | 'recovery';
   /** Is this a follow-along exercise? */
   isFollowAlong?: boolean;
   /** Whether the exercise video has audio that should be played */
@@ -187,6 +197,18 @@ export interface WorkoutPlan {
    * does not serialise this flag (e.g. Firestore fallback).
    */
   isWarmupActive?: boolean;
+  /**
+   * Recovery session flag — set from `GeneratedWorkout.isRecovery` at the
+   * generate→flatten boundary (rest-day video trio, REST_DAY_CONFIGS, and
+   * Budget-Floor recovery all mark their workout `isRecovery: true`).
+   *
+   * The active-workout runner and summary use this to SKIP strength
+   * progression: no `processWorkoutCompletion` level% gain, no strength-XP
+   * award, and no weekly volume-budget charge. A recovery session still
+   * counts as daily activity (rings + streak + coins via `syncWorkoutCompletion`).
+   * Absent/false ⇒ a normal strength workout (every guard is a no-op).
+   */
+  isRecovery?: boolean;
 }
 
 export interface PlannedRoute {

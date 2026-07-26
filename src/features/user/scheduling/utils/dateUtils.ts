@@ -62,6 +62,23 @@ export function addDays(isoDate: string, n: number): string {
   return toISODate(d);
 }
 
+/**
+ * Step the selected day by ±1 within the CURRENT week (Sun–Sat), matching the
+ * home day-swipe. `dir` = +1 (next / later day) or -1 (previous). Returns the new
+ * ISO date, or `null` if the selected day is already at the week edge (Sunday for
+ * -1, Saturday for +1). Clamped to the visible week — the home strip only ever
+ * renders the current week; cross-week navigation stays on the month toggle.
+ */
+export function stepSelectedDate(iso: string, dir: 1 | -1): string | null {
+  const today = new Date();
+  const baseDow = new Date(`${iso}T00:00:00`).getDay();
+  const nextDow = Math.min(6, Math.max(0, baseDow + dir));
+  if (nextDow === baseDow) return null; // already at the week edge
+  const dayDate = new Date(today);
+  dayDate.setDate(today.getDate() - today.getDay() + nextDow);
+  return dayDate.toISOString().split('T')[0];
+}
+
 // ── Momentum Guard ─────────────────────────────────────────────────────────
 
 /**
