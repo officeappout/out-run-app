@@ -112,6 +112,7 @@ import {
 import {
   derivePeriodizationWeek,
   resolveSessionPolicy,
+  scaleByPeriodization,
   type SessionPolicy,
 } from './periodization.service';
 import type {
@@ -1992,7 +1993,7 @@ async function _buildSharedPipeline(
     // scaling (Deload mult 0 kills the finisher too).
     tabataProbability: (() => {
       const base = tabataFinisher?.probability ?? 0;
-      const scaled = Math.min(1.0, base * sessionPolicy.protocolMultiplier);
+      const scaled = scaleByPeriodization(base, sessionPolicy.protocolMultiplier);
       if (base > 0) {
         console.log(
           `[WorkoutTrio] Tabata finisher probability: ${base} × ${sessionPolicy.protocolMultiplier} = ` +

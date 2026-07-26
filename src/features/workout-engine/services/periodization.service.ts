@@ -165,6 +165,15 @@ const DELOAD_SA_CAP = 0.15;       // 15% straight-arm max on deload weeks
  *
  * Otherwise the cycle week dictates the mode.
  */
+/**
+ * Scale a base probability by the periodization multiplier, capped at 1.0.
+ * Shared by BOTH the main protocol probability AND the tabata-finisher
+ * probability so a Deload week (multiplier 0) kills them identically.
+ */
+export function scaleByPeriodization(baseProbability: number, multiplier: number): number {
+  return Math.min(1.0, baseProbability * multiplier);
+}
+
 export function resolveSessionPolicy(
   cycleWeek: number,
   gapDays: number,

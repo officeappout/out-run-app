@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { derivePeriodizationWeek } from '../periodization.service';
+import { derivePeriodizationWeek, resolveSessionPolicy, scaleByPeriodization } from '../periodization.service';
 
 /**
  * Crash regression (09.07.2026): an Invalid Date is truthy, so it passed the
@@ -47,5 +47,34 @@ describe('derivePeriodizationWeek — invalid-date guard', () => {
     expect(derivePeriodizationWeek({ startDate: today.toISOString() } as never)).toBe(1);
     const eightDaysAgo = new Date(today.getTime() - 8 * 24 * 3600 * 1000);
     expect(derivePeriodizationWeek({ startDate: eightDaysAgo.toISOString() } as never)).toBe(2);
+  });
+});
+
+/**
+ * David 26.07 — the tabata FINISHER probability rides the SAME periodization
+ * scaling as the main protocol (scaleByPeriodization), so a Deload week kills
+ * the finisher exactly as it kills the main protocol.
+ */
+describe('scaleByPeriodization — tabata + main share the same periodization scaling', () => {
+  it('Deload multiplier 0 kills the probability (main AND tabata → 0)', () => {
+    expect(scaleByPeriodization(0.3, 0)).toBe(0); // tabata base 0.3 → 0 in deload
+    expect(scaleByPeriodization(1.0, 0)).toBe(0);
+  });
+
+  it('normal week (×1.0) passes through; Peak (×1.5) caps at 1.0', () => {
+    expect(scaleByPeriodization(0.2, 1.0)).toBe(0.2);
+    expect(scaleByPeriodization(0.8, 1.5)).toBe(1.0); // capped
+  });
+
+  it('cycle week 5 (Deload) → protocolMultiplier 0 → the tabata finisher is suppressed', () => {
+    const policy = resolveSessionPolicy(5, 0); // week 5, no gap → deload
+    expect(policy.protocolMultiplier).toBe(0);
+    expect(scaleByPeriodization(0.3, policy.protocolMultiplier)).toBe(0);
+  });
+
+  it('a normal cycle week keeps the finisher alive', () => {
+    const policy = resolveSessionPolicy(2, 0); // week 2 = build
+    expect(policy.protocolMultiplier).toBe(1.0);
+    expect(scaleByPeriodization(0.3, policy.protocolMultiplier)).toBe(0.3);
   });
 });
