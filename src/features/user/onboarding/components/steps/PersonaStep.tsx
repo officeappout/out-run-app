@@ -9,7 +9,20 @@ import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import type { AccessCodeResult } from '../../services/access-code.service';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
-const ACCESS_CODE_PERSONA_IDS = new Set(['student', 'soldier', 'reservist', 'pupil']);
+// Personas that open the access-code popup so the user can join their org
+// (company employees join the same way as military/school).
+const ACCESS_CODE_PERSONA_IDS = new Set(['student', 'soldier', 'reservist', 'pupil', 'office_worker']);
+
+// Persona → org vertical for the code gate. Replaces a hardcoded military/school
+// ternary — add a row per persona. Drives the contact-label hint only; the real
+// tenantType that decides the affiliation comes from the redeemed code (the CF).
+const PERSONA_TENANT_TYPE: Record<string, AccessCodeResult['tenantType']> = {
+  student: 'educational',
+  pupil: 'educational',
+  soldier: 'military',
+  reservist: 'military',
+  office_worker: 'company',
+};
 
 interface PersonaStepProps {
   onNext: () => void;
@@ -662,7 +675,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               <AccessCodeGate
                 orgName={isHebrew ? getPersonaLabel(pendingPersona) : pendingPersona.labelEn}
                 personaLabel={getPersonaLabel(pendingPersona)}
-                tenantType={pendingPersona.tags.includes('military') ? 'military' : 'school'}
+                tenantType={PERSONA_TENANT_TYPE[pendingPersona.id] ?? 'educational'}
                 onSuccess={handleCodeSuccess}
                 onSkip={handleCodeSkip}
               />
