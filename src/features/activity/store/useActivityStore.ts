@@ -951,20 +951,30 @@ export const useActivityStore = create<ActivityStore>()(
           console.error('[ActivityStore] Error loading from Firestore:', err.message ?? error);
           if (err.code) console.error('Firestore error code:', err.code);
 
-          // If code is 'failed-precondition', a composite index is missing.
-          // Open the link below to navigate directly to the Firestore Indexes page
-          // for this project — then click "Create index" on the auto-suggested prompt:
-          // eslint-disable-next-line no-console
-          console.log(
-            '%c🔥 CLICK TO FIX FIREBASE INDEX → %s',
-            'color: orange; font-weight: bold',
-            'https://console.firebase.google.com/project/appout-1/firestore/indexes',
-          );
-          // The missing composite index is on `dailyActivity`:
-          //   Field 1: userId   (Ascending)
-          //   Field 2: date     (Descending)
-          // Firestore should also print a clickable auto-create URL in the stack:
-          if (err.stack) console.error('Stack (may contain auto-create URL):', err.stack);
+          if (err.code === 'failed-precondition') {
+            // ONLY a missing composite index throws this. Queries hit it (e.g. the
+            // weekActivities query: WHERE userId == uid + orderBy date desc). Open
+            // the Indexes page and create the auto-suggested index:
+            // eslint-disable-next-line no-console
+            console.log(
+              '%c🔥 MISSING FIRESTORE INDEX → %s',
+              'color: orange; font-weight: bold',
+              'https://console.firebase.google.com/project/appout-1/firestore/indexes',
+            );
+            console.error('Needed composite index on `dailyActivity`: userId (Asc), date (Desc).');
+            // Firestore also prints a clickable auto-create URL in the stack:
+            if (err.stack) console.error('Stack (may contain auto-create URL):', err.stack);
+          } else if (err.code === 'permission-denied') {
+            // NOT an index problem. Security Rules rejected the read — almost always
+            // because it fired before Firebase Auth was ready (request.auth == null).
+            // The dailyActivity/streaks rules require only isAuthenticated(), so a
+            // missing auth token is the sole failure mode. Verify the load/subscribe
+            // is gated on auth.currentUser (see useDailyActivity's authReady gate).
+            console.error(
+              '[ActivityStore] permission-denied is a Security-Rules/auth issue, NOT a missing ' +
+              'index. Ensure this read fires only while authenticated (auth token attached).',
+            );
+          }
 
           // Fallback to local initialization
           get().initialize(userId);
