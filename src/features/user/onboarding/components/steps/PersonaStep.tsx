@@ -9,9 +9,15 @@ import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import type { AccessCodeResult } from '../../services/access-code.service';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
-// Personas that open the access-code popup so the user can join their org
-// (company employees join the same way as military/school).
-const ACCESS_CODE_PERSONA_IDS = new Set(['student', 'soldier', 'reservist', 'pupil', 'office_worker']);
+// Personas that open the access-code popup. GATED to office_worker only — it is
+// the ONE vertical whose full chain produces a league tab today: the CF writes a
+// 'company' affiliation and useArenaAccess recognizes it. student/soldier/
+// reservist/pupil are a dead-end (the CF writes no affiliation for educational/
+// military, and useArenaAccess has no 'military' branch → the code sets
+// core.tenantId but no tab), so we don't promise them a broken flow. They
+// re-join this set once the CF + useArenaAccess are generalized (§5 follow-up b);
+// PERSONA_TENANT_TYPE below already holds their mapping for then.
+const ACCESS_CODE_PERSONA_IDS = new Set(['office_worker']);
 
 // Persona → org vertical for the code gate. Replaces a hardcoded military/school
 // ternary — add a row per persona. Drives the contact-label hint only; the real
