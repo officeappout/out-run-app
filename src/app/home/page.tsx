@@ -36,6 +36,7 @@ import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
 import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
@@ -805,9 +806,15 @@ export default function HomePage() {
       });
 
       const warmupExercises = exercises.filter((ex: any) => ex.exerciseRole === 'warmup');
-      const mainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
+      const allMainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
       const cooldownExercises = exercises.filter((ex: any) => ex.exerciseRole === 'cooldown');
       const recoveryExercises = exercises.filter((ex: any) => ex.exerciseRole === 'recovery');
+
+      // Tabata graft (David 26.07): split the injected conditioning finisher into
+      // its own seg-tabata so the runner runs the interval format (parity with
+      // buildRunnerWorkoutPlanFromGenerated). Degenerate (<2) dissolves back.
+      const { tabata: tabataExercises, rest: mainExercises } =
+        partitionByTabataBlock(allMainExercises, gw.tabataBlock);
 
       const segments: any[] = [];
       if (warmupExercises.length > 0) {
@@ -832,6 +839,25 @@ export default function HomePage() {
           exercises: mainExercises,
           isCompleted: false,
           restBetweenExercises: 10,
+        });
+      }
+      if (tabataExercises.length > 0 && gw.tabataBlock) {
+        const tabataCfg = gw.tabataBlock.config;
+        console.log(
+          `[TabataBlock] 🔥 seg-tabata built (home): ${tabataExercises.length} exercises, ` +
+          `${tabataCfg.workSec}/${tabataCfg.restSec}×${tabataCfg.rounds}`,
+        );
+        segments.push({
+          id: 'seg-tabata',
+          type: 'station' as const,
+          title: 'טבטה — פיניש',
+          icon: '🔥',
+          target: { type: 'time' as const, value: (tabataCfg.workSec + tabataCfg.restSec) * tabataCfg.rounds },
+          exercises: tabataExercises,
+          isCompleted: false,
+          restBetweenExercises: 0,
+          protocol: 'tabata' as const,
+          protocolConfig: tabataCfg,
         });
       }
       if (cooldownExercises.length > 0) {

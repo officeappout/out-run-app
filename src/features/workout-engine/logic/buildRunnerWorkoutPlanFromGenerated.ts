@@ -34,6 +34,7 @@ import type { WorkoutPlan } from '@/features/parks';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { partitionByTabataBlock } from './protocols/tabata.block';
 
 interface BuildOpts {
   /** The plan id the runner will key on (route param + sessionStorage id). */
@@ -189,9 +190,17 @@ export function buildRunnerWorkoutPlanFromGenerated(
   });
 
   const warmupExercises = exercises.filter((ex: any) => ex.exerciseRole === 'warmup');
-  const mainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
+  const allMainExercises = exercises.filter((ex: any) => ex.exerciseRole === 'main' || !ex.exerciseRole);
   const cooldownExercises = exercises.filter((ex: any) => ex.exerciseRole === 'cooldown');
   const recoveryExercises = exercises.filter((ex: any) => ex.exerciseRole === 'recovery');
+
+  // Tabata graft (David 26.07): the generator injects a conditioning finisher
+  // (protocolBlock='tabata' members + gw.tabataBlock spec). Split them into their
+  // own seg-tabata so the runner runs the INTERVAL format — otherwise they fall
+  // into seg-main and render as plain strength (no timer/X-8/rest). Mirror of the
+  // workout-plan.mapper seg-tabata step; degenerate (<2 after swaps) dissolves back.
+  const { tabata: tabataExercises, rest: mainExercises } =
+    partitionByTabataBlock(allMainExercises, gw.tabataBlock);
 
   const segments: any[] = [];
   if (warmupExercises.length > 0) {
@@ -216,6 +225,27 @@ export function buildRunnerWorkoutPlanFromGenerated(
       exercises: mainExercises,
       isCompleted: false,
       restBetweenExercises: 10,
+    });
+  }
+  if (tabataExercises.length > 0 && gw.tabataBlock) {
+    const tabataCfg = gw.tabataBlock.config;
+    console.log(
+      `[TabataBlock] 🔥 seg-tabata built (runner mapper): ${tabataExercises.length} exercises, ` +
+      `${tabataCfg.workSec}/${tabataCfg.restSec}×${tabataCfg.rounds}`,
+    );
+    segments.push({
+      id: 'seg-tabata',
+      type: 'station' as const,
+      title: 'טבטה — פיניש',
+      icon: '🔥',
+      target: { type: 'time' as const, value: (tabataCfg.workSec + tabataCfg.restSec) * tabataCfg.rounds },
+      exercises: tabataExercises,
+      isCompleted: false,
+      // In-block rest is the CLOCK's job (config.restSec via RESTING) — a second
+      // restBetweenExercises layer must not stack on top.
+      restBetweenExercises: 0,
+      protocol: 'tabata' as const,
+      protocolConfig: tabataCfg,
     });
   }
   if (cooldownExercises.length > 0) {
