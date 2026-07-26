@@ -621,15 +621,6 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
       ? { type: 'img', src: resolveFlameSrc(input), overrideSizePx: 28, glow: true, color }
       : { type: 'program', iconKey: input.programIconKey, color: '#FFFFFF' };
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[day-display] Today Debug:', {
-        state: input.state,
-        isCompleted: input.isCompleted,
-        iconType: todayIcon.type,
-        iconSrc: 'src' in todayIcon ? todayIcon.src : undefined,
-      });
-    }
-
     if (input.isCompleted) {
       // Medal state: transparent square + 2px category-colour border + colored flame
       return {

@@ -12,9 +12,10 @@
 
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useActivityStore } from '../store/useActivityStore';
 import { useUserStore } from '@/features/user';
+import { auth } from '@/lib/firebase';
 import { 
   RingData, 
   DailyActivity,
@@ -114,10 +115,23 @@ export function useDailyActivity(): DailyActivityResult {
     getRingData,
     getProgressMessage,
   } = useActivityStore();
-  
+
+  // Gate every Firestore read below on Firebase Auth being ready. The persisted
+  // user store can rehydrate `profile.id` BEFORE onAuthStateChanged attaches the
+  // auth token (common on native / WKWebView cold start from server.url), so
+  // subscribing on `profile.id` alone fires reads while `request.auth == null` →
+  // Firestore rejects with permission-denied (the dailyActivity/streaks rules
+  // require only isAuthenticated(), so a null token is the sole failure mode).
+  // `authReady` flips true once auth resolves, re-running the effects with a token.
+  const [authReady, setAuthReady] = useState<boolean>(() => auth.currentUser != null);
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => setAuthReady(user != null));
+    return () => unsub();
+  }, []);
+
   // Initialize activity store when user is available
   useEffect(() => {
-    if (userHydrated && profile?.id && activityHydrated) {
+    if (userHydrated && profile?.id && activityHydrated && authReady) {
       // Derive primary program for ring priority:
       // 1. Persona Engine: primaryTrack → canonical program alias
       // 2. Legacy fallback: first domain key from progression
@@ -146,19 +160,19 @@ export function useDailyActivity(): DailyActivityResult {
         initialize(profile.id, primaryProgram);
       });
     }
-  }, [userHydrated, profile?.id, activityHydrated, initialize, loadFromServer]);
+  }, [userHydrated, profile?.id, activityHydrated, authReady, initialize, loadFromServer]);
   
   // Subscribe to real-time Firestore updates
   useEffect(() => {
-    if (!profile?.id || !activityHydrated) return;
-    
+    if (!profile?.id || !activityHydrated || !authReady) return;
+
     const { subscribeToChanges } = useActivityStore.getState();
     const unsubscribe = subscribeToChanges(profile.id);
-    
+
     return () => {
       unsubscribe();
     };
-  }, [profile?.id, activityHydrated]);
+  }, [profile?.id, activityHydrated, authReady]);
   
   // Calculate derived values
   const ringData = useMemo(() => getRingData(), [today, userProgram]);

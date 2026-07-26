@@ -151,6 +151,16 @@ async function setup() {
     await setDoc(doc(db, 'community_groups', 'grp_test', 'members', 'regular_member2'), {
       uid: 'regular_member2', role: 'member', joinedAt: new Date(),
     });
+
+    // Activity — dailyActivity ({userId}_{date}) + streaks ({uid}) for the
+    // auth-timing invariant suite.
+    await setDoc(doc(db, 'dailyActivity', 'broadcaster1_2026-07-26'), {
+      userId: 'broadcaster1', date: '2026-07-26',
+      passiveSteps: 0, passiveCalories: 0, passiveActiveMinutes: 0, passiveXpAwardedToday: 0,
+    });
+    await setDoc(doc(db, 'streaks', 'broadcaster1'), {
+      currentStreak: 3, longestStreak: 5, lastActivityDate: '2026-07-26',
+    });
   });
 }
 
@@ -329,6 +339,63 @@ async function testSessions() {
   });
 }
 
+async function testActivityRules() {
+  console.log('\nactivity — dailyActivity + streaks (auth-timing invariant)');
+
+  // A1 — UNauthenticated read of dailyActivity → DENY. This is the exact bug:
+  // on cold start the client fired reads before the auth token was attached
+  // (request.auth == null) → permission-denied. The client fix (useDailyActivity
+  // authReady gate) waits for auth; these rules are unchanged.
+  await it('A1 — unauthenticated reads dailyActivity → DENY', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(getDoc(doc(ctx.firestore(), 'dailyActivity', 'broadcaster1_2026-07-26')));
+  });
+
+  // A2 — authenticated owner reads own dailyActivity → ALLOW (why the fix works
+  // once auth is ready).
+  await it('A2 — owner reads own dailyActivity → ALLOW', async () => {
+    const ctx = env.authenticatedContext('broadcaster1');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'dailyActivity', 'broadcaster1_2026-07-26')));
+  });
+
+  // A3 — a DIFFERENT authenticated user reads it → ALLOW *by design*: the read
+  // gate is isAuthenticated() so leaderboard queries can aggregate across users.
+  // ("another user can't read" is intentionally NOT the invariant — writes are
+  // owner-scoped, reads are open to any signed-in user.)
+  await it('A3 — other authenticated user reads dailyActivity → ALLOW (leaderboard design)', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'dailyActivity', 'broadcaster1_2026-07-26')));
+  });
+
+  // A4 — owner creates own dailyActivity (userId == uid, passive fields omitted → 0) → ALLOW.
+  await it('A4 — owner creates own dailyActivity → ALLOW', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'dailyActivity', 'broadcaster2_2026-07-26'), {
+      userId: 'broadcaster2', date: '2026-07-26',
+    }));
+  });
+
+  // A5 — a non-owner writes another user's dailyActivity → DENY (owner-scoped write).
+  await it('A5 — non-owner writes another user dailyActivity → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(setDoc(doc(ctx.firestore(), 'dailyActivity', 'broadcaster1_2026-07-27'), {
+      userId: 'broadcaster1', date: '2026-07-27',
+    }));
+  });
+
+  // A6 — UNauthenticated read of streaks → DENY (same auth-timing failure mode).
+  await it('A6 — unauthenticated reads streaks → DENY', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(getDoc(doc(ctx.firestore(), 'streaks', 'broadcaster1')));
+  });
+
+  // A7 — authenticated non-owner reads streaks → ALLOW (leaderboard design).
+  await it('A7 — other authenticated user reads streaks → ALLOW (leaderboard design)', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'streaks', 'broadcaster1')));
+  });
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -339,6 +406,7 @@ async function main() {
   await testPhaseG();
   await testH2Roles();
   await testSessions();
+  await testActivityRules();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Results: ${pass} passed, ${fail} failed`);
