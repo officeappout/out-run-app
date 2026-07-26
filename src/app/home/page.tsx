@@ -39,7 +39,8 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
+import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_DAILY_GOAL_V1, POST_WORKOUT_LANDING_V1 } from '@/config/feature-flags';
+import PostWorkoutSummaryStrip from '@/features/home/components/PostWorkoutSummaryStrip';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -408,6 +409,8 @@ export default function HomePage() {
     // POST_WORKOUT_LANDING_V1 (Block A): stats for the top summary strip.
     calories?: number; exerciseCount?: number;
   } | null>(null);
+  // POST_WORKOUT_LANDING_V1 (Block A): per-day dismiss for the top summary strip.
+  const [landingDismissed, setLandingDismissed] = useState(false);
   // Persistent completion gate — reads Firestore `dailyProgress/{uid}_{today}`.
   // Survives page refreshes / re-mounts and elapsed time within the same
   // calendar day, so the workout generator stays hidden until midnight once
@@ -465,6 +468,15 @@ export default function HomePage() {
     }
   }, [postWorkoutData, celebrate]);
 
+  // POST_WORKOUT_LANDING_V1 (Block A): restore the strip's per-day dismiss on mount.
+  // Guarded by the flag so the surface is a true no-op (no localStorage read) when off.
+  useEffect(() => {
+    if (!POST_WORKOUT_LANDING_V1 || typeof window === 'undefined') return;
+    if (localStorage.getItem(`post_landing_dismissed_${toISODate(new Date())}`) === '1') {
+      setLandingDismissed(true);
+    }
+  }, []);
+
   // Celebration data has two sources, in priority order:
   //   1. `postWorkoutData` — fresh sessionStorage payload from the workout
   //      summary screen (rich: title, streak, thumbnail). Used for the first
@@ -516,6 +528,23 @@ export default function HomePage() {
   // a bounded follow-up — see the review notes.
   const completionCtaLabel =
     dailyGoalCard && !dailyGoalCard.met ? 'להשלים את היעד — עוד אימון קצר' : undefined;
+
+  // POST_WORKOUT_LANDING_V1 (Block A): the top summary-strip ring reads the STABLE
+  // daily strength target (setsCompleted / targetSets) — NOT HOME_DAILY_GOAL_V1's
+  // shrinking ⅔ target. Single source of truth (decision #3).
+  const stripRingPct =
+    dailyStrengthTarget.targetSets > 0
+      ? Math.min(1, todayStrengthVolume.setsCompleted / dailyStrengthTarget.targetSets)
+      : 0;
+
+  const handleDismissLanding = useCallback(() => {
+    setLandingDismissed(true);
+    setPostWorkoutData(null);
+    setShowMotivationBanner(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`post_landing_dismissed_${toISODate(new Date())}`, '1');
+    }
+  }, []);
 
   const handleDismissCelebration = useCallback(() => {
     setPostWorkoutData(null);
@@ -1226,6 +1255,28 @@ export default function HomePage() {
       {/* ── Main Content: Clean Execution Zone ── */}
       <div className="max-w-md mx-auto px-4 pt-2 space-y-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 1.5rem)' }}>
 
+        {/* POST_WORKOUT_LANDING_V1 (Block A): compact non-blocking post-workout summary
+            strip — takes the top "now" slot ABOVE the schedule after a workout finishes.
+            The full celebration card is removed from the anchor slot below (one summary,
+            floated to top); the detailed summary stays a drill-in. Flag OFF → not rendered
+            → byte-identical. */}
+        {POST_WORKOUT_LANDING_V1 && !landingDismissed && (postWorkoutData || todayWorkoutDone) && completionData && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+          >
+            <PostWorkoutSummaryStrip
+              workoutType={completionData.workoutType}
+              ringPct={stripRingPct}
+              durationMinutes={completionData.durationMinutes}
+              exerciseCount={postWorkoutData?.exerciseCount}
+              calories={postWorkoutData?.calories}
+              onDismiss={handleDismissLanding}
+            />
+          </motion.div>
+        )}
+
         {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program) */}
         {hasCompletedAssessment && (
           <motion.div
@@ -1394,23 +1445,36 @@ export default function HomePage() {
                 card driven solely by Firestore `dailyProgress.workoutCompleted`.
             Either path keeps the action zone replaced — no empty layout gap. */}
         {(postWorkoutData || todayWorkoutDone) && completionData && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-          >
-            <HeroWorkoutCard
-              workout={{ id: 'completed', title: completionData.workoutTitle || '', duration: completionData.durationMinutes, difficulty: 2 } as any}
-              onStart={handleHeroPress}
-              isCompleted
-              completionData={completionData}
-              onRequestMore={handleRequestMore}
-              dailyGoal={dailyGoalCard}
-              ctaLabel={completionCtaLabel}
-              onDismissCelebration={handleDismissCelebration}
-              userGender={profile?.core?.gender}
-            />
-          </motion.div>
+          POST_WORKOUT_LANDING_V1 ? (
+            /* Block A bridge: the summary moved UP to the top strip, so the anchor slot
+               keeps ONLY the "another workout" continuation (Block B replaces this with
+               the state-aware "smart close" toggles). Reuses handleRequestMore verbatim. */
+            <button
+              onClick={handleRequestMore}
+              className="w-full text-white font-extrabold rounded-full shadow-lg shadow-cyan-400/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 48, fontSize: 16 }}
+            >
+              <span>אני על הגל, תציעו לי עוד אימון!</span>
+            </button>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+            >
+              <HeroWorkoutCard
+                workout={{ id: 'completed', title: completionData.workoutTitle || '', duration: completionData.durationMinutes, difficulty: 2 } as any}
+                onStart={handleHeroPress}
+                isCompleted
+                completionData={completionData}
+                onRequestMore={handleRequestMore}
+                dailyGoal={dailyGoalCard}
+                ctaLabel={completionCtaLabel}
+                onDismissCelebration={handleDismissCelebration}
+                userGender={profile?.core?.gender}
+              />
+            </motion.div>
+          )
         )}
 
         {/* Nearby community groups discovery carousel */}
