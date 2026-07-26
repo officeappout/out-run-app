@@ -32,6 +32,7 @@ import { getAllExercises } from '@/features/content/exercises/core/exercise.serv
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
+import { resolveTabataFinisher, type TabataCandidate } from './tabata-finisher.utils';
 import { genPerfMark, isGenVerboseEnabled } from '@/lib/gen-perf';
 
 // -- Engine imports --
@@ -1793,9 +1794,17 @@ async function _buildSharedPipeline(
   let goalsSource: string | undefined;
   let protocolSource: string | undefined;
 
+  // Tabata union track (David 26.07): every scanned program's tabata setting,
+  // collected in priority order; resolveTabataFinisher picks the highest-priority
+  // enabler AFTER the loop. `sawTabataCandidate` lets the loop stop once the main
+  // protocol + goals are locked AND a tabata enabler has been seen (else it keeps
+  // scanning to find one — tabata is cross-program, not winner-takes-all).
+  const tabataCandidates: TabataCandidate[] = [];
+  let sawTabataCandidate = false;
+
   for (const [domainKey, domainLevel] of allProgramEntries) {
-    // Goals are already found — and protocols too → nothing left to look for.
-    if (goalExerciseIds && adminPreferredProtocols) break;
+    // Main protocol + goals locked AND a tabata enabler seen → nothing left.
+    if (goalExerciseIds && adminPreferredProtocols && sawTabataCandidate) break;
 
     // Resolve the domain slug to the actual Firestore program document ID.
     const firestoreProgId = slugToFirestoreId.get(domainKey) ?? domainKey;
@@ -1846,6 +1855,14 @@ async function _buildSharedPipeline(
         );
       }
 
+      // ── Tabata union track: collect this program's setting (priority order) ──
+      tabataCandidates.push({
+        source: `${domainKey}@L${domainLevel}`,
+        preferredProtocols: levelSettings.preferredProtocols,
+        protocolProbability: levelSettings.protocolProbability,
+      });
+      if ((levelSettings.preferredProtocols ?? []).includes('tabata')) sawTabataCandidate = true;
+
       // ── Goals: take from the first (highest-priority) program that has them ──
       if (!goalExerciseIds && hasGoals) {
         goalExerciseIds = new Set(levelSettings.targetGoals!.map(g => g.exerciseId));
@@ -1855,10 +1872,15 @@ async function _buildSharedPipeline(
         goalsSource = `${domainKey}@L${domainLevel}`;
       }
 
-      // ── Protocols: take from the first (highest-priority) program that has them ──
-      if (!adminPreferredProtocols && hasProtocols) {
-        adminPreferredProtocols = levelSettings.preferredProtocols;
-        const hasAntagonistPair = adminPreferredProtocols!.includes('antagonist_pair');
+      // ── Main protocol: first (highest-priority) program with a NON-tabata
+      // protocol. Tabata is stripped here — it rides the separate union track
+      // above, so a higher-priority antagonist_pair/superset winner no longer
+      // shadows a tabata enabler on a lower-priority program. (A tabata-ONLY
+      // program contributes no main protocol → the loop continues to the next.)
+      const nonTabataProtocols = (levelSettings.preferredProtocols ?? []).filter((p) => p !== 'tabata');
+      if (!adminPreferredProtocols && nonTabataProtocols.length > 0) {
+        adminPreferredProtocols = nonTabataProtocols;
+        const hasAntagonistPair = nonTabataProtocols.includes('antagonist_pair');
         adminProtocolProbability = hasAntagonistPair ? 1.0 : (levelSettings.protocolProbability ?? 1.0);
         protocolSource = `${domainKey}@L${domainLevel}`;
 
@@ -1880,11 +1902,16 @@ async function _buildSharedPipeline(
     }
   }
 
+  // Tabata finisher — the highest-priority enrolled program that enables it,
+  // independent of the main-protocol winner (union track).
+  const tabataFinisher = resolveTabataFinisher(tabataCandidates);
+
   // Summary log — always visible, makes the inheritance chain explicit.
   console.log(
     `[WorkoutTrio] Settings resolved → ` +
     `protocols: ${adminPreferredProtocols ? `[${adminPreferredProtocols.join(', ')}] from ${protocolSource}` : '⚠️  none (straight sets — check Firestore doc)'} | ` +
-    `goals: ${goalExerciseIds ? `${goalExerciseIds.size} exercises from ${goalsSource}` : 'none'}`,
+    `goals: ${goalExerciseIds ? `${goalExerciseIds.size} exercises from ${goalsSource}` : 'none'} | ` +
+    `tabata: ${tabataFinisher ? `p=${tabataFinisher.probability} from ${tabataFinisher.source}` : 'off'}`,
   );
   genPerfMark('#6 protocol/goal reads (sequential getProgramLevelSetting loop)');
 
@@ -1961,7 +1988,23 @@ async function _buildSharedPipeline(
       }
       return scaled;
     })(),
-    preferredProtocols: (adminPreferredProtocols ?? preferredProtocols) as any,
+    // Tabata finisher probability — SEPARATE union track, same periodization
+    // scaling (Deload mult 0 kills the finisher too).
+    tabataProbability: (() => {
+      const base = tabataFinisher?.probability ?? 0;
+      const scaled = Math.min(1.0, base * sessionPolicy.protocolMultiplier);
+      if (base > 0) {
+        console.log(
+          `[WorkoutTrio] Tabata finisher probability: ${base} × ${sessionPolicy.protocolMultiplier} = ` +
+          `${scaled.toFixed(2)} (from ${tabataFinisher!.source})`,
+        );
+      }
+      return scaled;
+    })(),
+    // Tabata is stripped here — it never competes in the main lottery (it rides
+    // context.tabataProbability + the generator's separate roll).
+    preferredProtocols: ((adminPreferredProtocols ?? preferredProtocols) as string[] | undefined)
+      ?.filter((p) => p !== 'tabata') as any,
     // Dedicated tabata conditioning pool — ALL hiit_friendly exercises (incl.
     // program-less gems that never enter the scored strength pool). Filtered
     // from the already-loaded allExercises, so no extra Firestore read.
