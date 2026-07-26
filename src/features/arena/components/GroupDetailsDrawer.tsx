@@ -1359,7 +1359,19 @@ export default function GroupDetailsDrawer({
                       contactPhone={null}
                       hideSkip
                       compact
-                      onSuccess={(_result: AccessCodeResult) => {
+                      onSuccess={(result: AccessCodeResult) => {
+                        // SEC#1: the redeemed code must belong to THIS group's
+                        // authority/tenant. authorities/{id} ≡ tenants/{id} (twin),
+                        // so the code's tenantId must equal the group's authorityId —
+                        // otherwise any valid tenant code would unlock any locked group.
+                        // Defense-in-depth; the members/{uid} Firestore rule is the hard
+                        // gate, this just fails with an honest message instead of a
+                        // silent PERMISSION_DENIED. (fail-open when authorityId is absent
+                        // — the server rule still backstops that edge case.)
+                        if (group.authorityId && result.tenantId !== group.authorityId) {
+                          showToast('error', 'הקוד אינו שייך לקבוצה הזו.');
+                          return;
+                        }
                         setCodeUnlocked(true);
                         showToast('success', `ברוכים הבאים ל${group.name}!`);
                         onJoin(group.id);
