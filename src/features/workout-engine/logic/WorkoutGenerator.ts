@@ -191,6 +191,10 @@ function selectPyramidTargets(
 
 const INACTIVITY_THRESHOLD_DAYS = 3;
 
+// Tabata finisher is offered only from general user level 4+ (hard enforcement of
+// intent, independent of the admin toggle). Gates the separate tabata roll below.
+const MIN_TABATA_USER_LEVEL = 4;
+
 const TITLE_TEMPLATES: Record<IntentMode, Record<string, string>> = {
   normal: {
     home: 'אימון יומי בבית',
@@ -1104,16 +1108,22 @@ export class WorkoutGenerator {
     const description = this.generateDescription(context, difficulty);
     const aiCue = this.generateAICue(context, workoutExercises.length, difficulty);
 
-    // Step 6b (Stage 3.1): Tabata block assembly — runs AFTER every list
-    // mutation (dedup, guarantees, budget distribution) and BEFORE duration
-    // pricing, so the estimator sees the members' protocolBlock markers and
-    // prices the block as a fixed (work+rest)×rounds constant. When the
-    // lottery rolled tabata but no block can be assembled (blast precedence,
-    // <2 eligible mains), setType reverts so appliedProtocol stays honest.
-    const tabataBlock = buildTabataBlock(protocolResult.setType, workoutExercises, context);
-    if (protocolResult.setType === 'tabata' && !tabataBlock) {
-      protocolResult.setType = 'straight';
-    }
+    // Step 6b: Tabata FINISHER — resolved on a SEPARATE union track
+    // (context.tabataProbability, already periodization-scaled) and rolled
+    // independently of the main protocol. Fires as an ADDED conditioning finisher
+    // when: some enrolled program enables it (p>0), difficulty≥2 (never Bolt-1/
+    // regression), general userLevel≥4, and the roll lands. buildTabataBlock then
+    // pool-injects the members (protocolBlock='tabata' + gw.tabataBlock). It rides
+    // ALONGSIDE the main protocol — never competes for the winner-takes-all slot.
+    const tabataP = context.tabataProbability ?? 0;
+    const fireTabata =
+      tabataP > 0 &&
+      difficulty >= 2 &&
+      (context.userLevel ?? 0) >= MIN_TABATA_USER_LEVEL &&
+      Math.random() <= tabataP;
+    const tabataBlock = fireTabata
+      ? buildTabataBlock('tabata', workoutExercises, context)
+      : undefined;
 
     // Step 7: Duration
     const estimatedDuration = calculateEstimatedDuration(workoutExercises);
@@ -1617,16 +1627,9 @@ export class WorkoutGenerator {
       `(roll=${roll.toFixed(3)} ≤ p=${probability}, options=[${adminProtocols.join(', ')}])`,
     );
 
-    // David 25.07 — Tabata user-level gate: conditioning intervals are not
-    // offered below level 4, independent of the admin toggle (hard enforcement
-    // of intent). Other protocols are unaffected.
-    const MIN_TABATA_USER_LEVEL = 4;
-    if (selected === 'tabata' && (context.userLevel ?? 0) < MIN_TABATA_USER_LEVEL) {
-      console.log(
-        `[WorkoutGenerator][selectProtocol] Tabata suppressed — userLevel ${context.userLevel ?? '?'} < ${MIN_TABATA_USER_LEVEL} → straight`,
-      );
-      return { structure: 'standard', setType: 'straight' };
-    }
+    // (Tabata is no longer a main-lottery option — it's resolved on a separate
+    // union track and rolled independently, so the old MIN_USER_LEVEL gate here
+    // was removed. See Step 6b in generateWorkout.)
 
     if (selected === 'emom') {
       return { structure: 'emom', setType: 'straight' };
