@@ -111,9 +111,63 @@ interface ExRow {
   shortBunnyVideoId: string;
 }
 
+// Minimal quoted-CSV line parser (handles "quoted, fields" + "" escapes)
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += c;
+    } else if (c === '"') {
+      inQ = true;
+    } else if (c === ',') {
+      out.push(cur); cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+// Full-catalog target: name.he → exerciseId from exercise-inventory.csv (ALL locations).
+// methodIndex/location/shortBunnyVideoId are placeholders (-1/'') — irrelevant when the
+// question is "does this filename match an EXISTING exercise?" (the new method doesn't exist yet).
+function loadExercisesFromCsv(csvPath: string): ExRow[] {
+  const raw = fs.readFileSync(csvPath, 'utf8').replace(/^﻿/, '');
+  const lines = raw.split(/\r?\n/).filter(l => l.trim().length > 0);
+  const header = parseCsvLine(lines[0]);
+  const idIdx = header.indexOf('id');
+  const nameIdx = header.indexOf('name_he');
+  if (idIdx < 0 || nameIdx < 0) throw new Error(`CSV ${csvPath} missing id/name_he columns`);
+  const rows: ExRow[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const exerciseId = (cols[idIdx] ?? '').trim();
+    const name_he = (cols[nameIdx] ?? '').trim();
+    if (!exerciseId || !name_he) continue;
+    rows.push({ exerciseId, name_he, name_en: '', methodIndex: -1, location: '', shortBunnyVideoId: '' });
+  }
+  return rows;
+}
+
 function loadExercises(): ExRow[] {
+  const wantsFull = process.argv.includes('--full');
+  const csvArg = process.argv.find(a => a.startsWith('--target-csv='))?.split('=')[1];
+  if (wantsFull || csvArg) {
+    const csvPath = path.join(process.cwd(), csvArg || 'exercise-inventory.csv');
+    if (!fs.existsSync(csvPath)) throw new Error(`Missing ${csvPath} — pass --target-csv=<path> or generate exercise-inventory.csv`);
+    console.log(`  Target source: FULL catalog ← ${path.relative(process.cwd(), csvPath)}`);
+    return loadExercisesFromCsv(csvPath);
+  }
   const p = path.join(process.cwd(), 'scripts/corpus/park-exercises-need-fullTutorial.json');
   if (!fs.existsSync(p)) throw new Error(`Missing ${p} — run export-park-exercises-need-fullTutorial.ts first`);
+  console.log('  Target source: park-only ← scripts/corpus/park-exercises-need-fullTutorial.json');
   return JSON.parse(fs.readFileSync(p, 'utf8')) as ExRow[];
 }
 
@@ -317,7 +371,7 @@ async function main() {
   const folderArg = process.argv.find(a => a.startsWith('--folder-id='))?.split('=')[1];
 
   if (!isDiscover && !folderArg) {
-    console.error('Usage:\n  --discover              list items shared with SA\n  --folder-id=<id>        run full dry-run match');
+    console.error('Usage:\n  --discover              list items shared with SA\n  --folder-id=<id>        run full dry-run match\n  --full                  match vs FULL catalog (exercise-inventory.csv), not park-only\n  --target-csv=<path>     match vs a specific catalog CSV (implies full-catalog mode)');
     process.exit(1);
   }
 
