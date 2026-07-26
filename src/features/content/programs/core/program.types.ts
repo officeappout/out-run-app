@@ -177,6 +177,13 @@ export interface ProgramLevelSettings {
    *  Engine uses this list when protocol injection triggers. */
   preferredProtocols?: ('emom' | 'pyramid' | 'antagonist_pair' | 'superset' | 'tabata')[];
 
+  /** DEDICATED probability (0.0-1.0) for the tabata FINISHER — separate from the
+   *  main `protocolProbability` because tabata is resolved on its own union track
+   *  (a cross-program finisher), not the winner-takes-all lottery. Read only when
+   *  'tabata' ∈ preferredProtocols; falls back to a default if the flag is on but
+   *  this field is unset. */
+  tabataProbability?: number;
+
   // ── Assessment Slider (Admin Panel Source of Truth) ─────────────────
   /** Video URL for visual assessment slider. Uploaded via Admin Panel. */
   assessmentVideoUrl?: string;

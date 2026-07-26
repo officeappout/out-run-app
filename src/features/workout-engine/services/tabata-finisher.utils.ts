@@ -18,9 +18,9 @@ export interface TabataCandidate {
   source: string;
   /** The program-level's raw preferredProtocols (may include 'tabata'). */
   preferredProtocols?: string[];
-  /** The program-level's raw protocolProbability (NO antagonist_pair boost — that
-   *  1.0 override is a main-protocol rule and must not leak into the finisher). */
-  protocolProbability?: number;
+  /** The program-level's DEDICATED tabataProbability field (separate from the main
+   *  protocolProbability). Used only when 'tabata' is enabled; unset ⇒ default. */
+  tabataProbability?: number;
 }
 
 export interface TabataFinisher {
@@ -30,9 +30,10 @@ export interface TabataFinisher {
   source: string;
 }
 
-/** Matches the main-protocol default when a program enables a protocol but
- *  leaves protocolProbability unset. */
-export const DEFAULT_TABATA_PROBABILITY = 1.0;
+/** Fallback when 'tabata' is enabled but the dedicated tabataProbability field is
+ *  unset. Conservative ("occasional variety") so a flag-on/field-missing doc never
+ *  fires every workout — the rollout writes explicit per-level values. */
+export const DEFAULT_TABATA_PROBABILITY = 0.15;
 
 /**
  * The FIRST candidate (highest priority — caller supplies them in priority order)
@@ -47,7 +48,7 @@ export const DEFAULT_TABATA_PROBABILITY = 1.0;
 export function resolveTabataFinisher(candidates: TabataCandidate[]): TabataFinisher | null {
   for (const c of candidates) {
     if (c.preferredProtocols?.includes('tabata')) {
-      return { probability: c.protocolProbability ?? DEFAULT_TABATA_PROBABILITY, source: c.source };
+      return { probability: c.tabataProbability ?? DEFAULT_TABATA_PROBABILITY, source: c.source };
     }
   }
   return null;

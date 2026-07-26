@@ -1860,7 +1860,7 @@ async function _buildSharedPipeline(
       tabataCandidates.push({
         source: `${domainKey}@L${domainLevel}`,
         preferredProtocols: levelSettings.preferredProtocols,
-        protocolProbability: levelSettings.protocolProbability,
+        tabataProbability: levelSettings.tabataProbability, // DEDICATED field, not the main protocolProbability
       });
       if ((levelSettings.preferredProtocols ?? []).includes('tabata')) sawTabataCandidate = true;
 
