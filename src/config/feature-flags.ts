@@ -233,6 +233,19 @@ export const HOME_ANCHOR_V2_ENABLED = true;
 // no top strip). Isolated flag = independent rollback for the riskier layout change.
 export const POST_WORKOUT_LANDING_V1 = false;
 
+// HOME_DAY_SELECT_SCOPE_V1: fixes the "day strip frozen after a workout" bug. The
+// post-workout completion surfaces (hidden workout section, summary card/bridge, and
+// the Block-A top strip) are "TODAY just got done" states, but they were gated on
+// today's completion GLOBALLY — so after finishing, tapping another day moved the
+// highlight yet the section stayed on the frozen "done" state (couldn't view that
+// day's plan). When ON, those three surfaces are scoped to `selectedDate === today`,
+// so browsing another day unfurls THAT day's plan; and "start" is neutralised for
+// PAST days (view-only — the completion pipeline date-anchors every write to today,
+// so a past-day start would silently credit today). Future days keep the existing
+// train-ahead confirm. While FALSE → the scope condition collapses to true and the
+// start guard is inert → BYTE-IDENTICAL to today.
+export const HOME_DAY_SELECT_SCOPE_V1 = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================
