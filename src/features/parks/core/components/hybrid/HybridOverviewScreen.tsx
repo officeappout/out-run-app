@@ -21,6 +21,7 @@ import WeightInlineRow from '@/components/ui/WeightInlineRow';
 import HybridJourneyAxis from './HybridJourneyAxis';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/features/workout-engine/shared/hooks/useSheetDrag';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
@@ -248,6 +249,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // gate readers no-op when the flag is OFF, so this stays inert until the flag is on.
   const setIsOverviewActive = useMapStore((s) => s.setIsOverviewActive);
   useLayoutEffect(() => {
+    if (!MAP_OVERVIEW_CHROME_V1) return; // truly inert when off — field never changes, no extra re-renders
     setIsOverviewActive(true);
     return () => setIsOverviewActive(false);
   }, [setIsOverviewActive]);
