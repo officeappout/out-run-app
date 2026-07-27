@@ -6,6 +6,7 @@ import BottomJourneyContainer from '@/features/parks/core/components/BottomJourn
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
 import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
 import HybridOverviewScreen from '@/features/parks/core/components/hybrid/HybridOverviewScreen';
+import OverviewTitleBar from '@/features/parks/core/components/hybrid/OverviewTitleBar';
 import ExerciseDetailDrawer from '@/features/workouts/components/workout-preview-drawer/components/ExerciseDetailDrawer';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import { useProgramMap } from '@/features/workouts/components/workout-preview-drawer/hooks/useProgramMap';
@@ -16,7 +17,7 @@ import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
 import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
-import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED } from '@/config/feature-flags';
+import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
@@ -198,6 +199,18 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // 'config' (came from the build-yourself drawer) — never re-opens the drawer
   // when the user arrived via a slot.
   const [overviewBackStep, setOverviewBackStep] = useState<FreeRunStep>('config');
+  // Route-preview chrome (MAP_OVERVIEW_CHROME_V1): the workout name shown in the blue
+  // OverviewTitleBar. Captured per entry point — slot title from the slot, or a
+  // derived aerobic+כוח label from the build-yourself drawer. Default is the neutral
+  // focusedRoute name.
+  const [overviewTitle, setOverviewTitle] = useState<string>('אימון משולב');
+  // Route-preview chrome active = the hybrid overview drawer is up AND the flag is on.
+  // Gates the top chrome (search/pills/layers) off and the blue title bar on. Gated on
+  // LOCAL freeRunStep (not the store flag) so the swap happens in the same render pass
+  // as the drawer mount — no one-frame flash. False when the flag is off → all sites
+  // that read it are byte-identical.
+  const overviewChromeActive =
+    MAP_OVERVIEW_CHROME_V1 && mapMode === 'freeRun' && freeRunStep === 'overview' && !!hybridComposed;
   // Hybrid station exercise detail (tap) + replacement (swap) — the REAL preview drawers.
   const [hybridDetailEx, setHybridDetailEx] = useState<any | null>(null);
   const [hybridSwap, setHybridSwap] = useState<{ segIndex: number; exIndex: number; exercise: any; level: number } | null>(null);
@@ -716,6 +729,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     // eslint-disable-next-line no-console
     console.log('[compose-trigger]', 'handleSelectSlot', slot.kind, slot.id);
     if (slot.kind === 'hybrid') {
+      // Route-preview title bar (MAP_OVERVIEW_CHROME_V1): show the slot's own name
+      // (e.g. "ריצה + כוח" / "אימון מלא בפארק"). Harmless no-op when the flag is off.
+      setOverviewTitle(slot.title);
       // CTA cache-reuse (ADDITIVE): if the settle-preview already composed this
       // slot, reuse that EXACT object → no re-compose, and overview/run show
       // precisely the previewed route (the generator randomises, so a second
@@ -1230,13 +1246,13 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 which simply don't render `renderTopBar()`. Keeps the map
                 surface clean so the partner overlay owns the top of the
                 screen. */}
-            {partnerTab === null && renderTopBar()}
+            {partnerTab === null && !overviewChromeActive && renderTopBar()}
 
             {/* Layers button — top-right, below header (search bar 48px + gap 8px + mode pills 48px + 12px margin = 116px).
                 Hidden while the partner overlay is open so the layers icon
                 doesn't visually attach itself to the partners pill area —
                 the overlay owns the top-right slot in that mode. */}
-            {partnerTab === null && isMapVisuallyReady && (
+            {partnerTab === null && isMapVisuallyReady && !overviewChromeActive && (
               <div className="absolute right-4 z-[50] pointer-events-none" style={{ top: 'calc(52px + env(safe-area-inset-top, 0px) + 116px)' }}>
                 <MapLayersControl liveCount={live.length} />
               </div>
@@ -1326,7 +1342,12 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   setRouteCarouselConfig({ targetKm, includeStrength, surface });
                   setFreeRunStep('route');
                 }}
-                onStartHybrid={HYBRID_SLOTS_ENABLED ? (intent) => composeAndShowOverview(intent, 'config') : undefined}
+                onStartHybrid={HYBRID_SLOTS_ENABLED ? (intent) => {
+                  // Route-preview title bar (MAP_OVERVIEW_CHROME_V1): the drawer has no
+                  // slot title, so derive an aerobic+כוח label. No-op when flag is off.
+                  setOverviewTitle(intent.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח');
+                  composeAndShowOverview(intent, 'config');
+                } : undefined}
               />
             )}
 
@@ -1364,6 +1385,30 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   });
                 }}
               />
+            )}
+
+            {/* Route-preview title bar — replaces the folded top chrome while the
+                overview drawer is up (MAP_OVERVIEW_CHROME_V1). Same back closure as
+                the drawer's onBack. Slides down on open, up on close. The outer flag
+                guard keeps the tree byte-identical when the feature is off. */}
+            {MAP_OVERVIEW_CHROME_V1 && (
+              <AnimatePresence>
+                {overviewChromeActive && (
+                  <motion.div
+                    key="overview-title-bar"
+                    className="absolute inset-x-0 top-0 z-[70] pointer-events-none"
+                    initial={{ y: -160, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -160, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                  >
+                    <OverviewTitleBar
+                      title={overviewTitle}
+                      onBack={() => { setFreeRunStep(overviewBackStep); logic.setFocusedRoute(null); }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             )}
 
             {/* Real preview detail drawer (tap) — same component the workout preview uses. */}
