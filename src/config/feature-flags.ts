@@ -208,6 +208,21 @@ export const TIMER_AUTO_ADVANCE_ENABLED = false;
 // its current order — BYTE-IDENTICAL. Gates every R-1.x sub-change.
 export const HOME_ANCHOR_V2_ENABLED = true;
 
+// MAP_OVERVIEW_CHROME_V1: the route-preview "מבט על אימון" chrome for the hybrid
+// overview screen (Moovit/Waze pattern). ONE master switch for BOTH sub-changes:
+//   (1) chrome-collapse — while the HybridOverviewScreen drawer is up, fold the top
+//       chrome (AppHeader nav-bar + FloatingSearchBar + MapModeHeader pills +
+//       MapLayersControl) up and out, replaced by a thin blue OverviewTitleBar
+//       ("מבט על אימון" + workout name + back). More map, cleaner route.
+//   (2) camera zoom-out — widen the drawer-aware fitBounds padding + lower maxZoom
+//       (useCameraController overview branch) so the route sits with more surround.
+// The overview flag is published by HybridOverviewScreen via useMapStore
+// (isOverviewActive); MapShell + DiscoverLayer read it to gate the chrome.
+// While FALSE the map screen is BYTE-IDENTICAL to today: full chrome stays, no blue
+// bar, camera padding/maxZoom unchanged. Hard kill-switch for the whole feature.
+// DEFAULT FALSE until David device-tests + approves.
+export const MAP_OVERVIEW_CHROME_V1 = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================
