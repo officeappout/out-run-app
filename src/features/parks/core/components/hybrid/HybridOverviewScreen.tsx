@@ -12,7 +12,7 @@
  * whole plan; peek only reveals the map.)
  */
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
 import { motion, useDragControls, useMotionValue, useTransform, animate } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -240,6 +240,17 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
     setOverviewSheetHeightPx(detentHeightPx(id, viewportH));
   }, [currentAnchor, viewportH, setOverviewSheetHeightPx]);
   useEffect(() => () => setOverviewSheetHeightPx(null), [setOverviewSheetHeightPx]);
+
+  // Route-preview chrome (MAP_OVERVIEW_CHROME_V1): publish overview-active while this
+  // drawer is mounted, so MapShell folds the AppHeader nav-bar and DiscoverLayer folds
+  // search/pills/layers + shows the blue title bar. useLayoutEffect (not useEffect) so
+  // the flag flips BEFORE paint — no one-frame flash of the full chrome on mount. The
+  // gate readers no-op when the flag is OFF, so this stays inert until the flag is on.
+  const setIsOverviewActive = useMapStore((s) => s.setIsOverviewActive);
+  useLayoutEffect(() => {
+    setIsOverviewActive(true);
+    return () => setIsOverviewActive(false);
+  }, [setIsOverviewActive]);
 
   // Point 15: publish the station fractions for the map route gradient (cleared on
   // unmount so non-hybrid routes render with their normal flat color).
