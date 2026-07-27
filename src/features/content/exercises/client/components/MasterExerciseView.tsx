@@ -457,6 +457,8 @@ export default function MasterExerciseView({
     // Priority 1: method whose locations include the caller's filterLocation.
     if (normalizedLoc) {
       for (let i = 0; i < methods.length; i++) {
+        // Persona gate: never seed to a 'service' (military) method for non-military users.
+        if (!isMilitaryPersona && (methods[i].location === 'service' || methodLocations(methods[i]).includes('service'))) continue;
         if (methodHasVideo(methods[i]) && methodLocations(methods[i]).includes(normalizedLoc)) {
           // eslint-disable-next-line no-console
           console.log(`[MEV] 🌱 seed: filterLocation="${normalizedLoc}" → method[${i}]`);
@@ -467,6 +469,7 @@ export default function MasterExerciseView({
     // Priority 2 (no filterLocation or no match): if method[0] is multi-location
     // it's a "universal" method — prefer it. Otherwise take the first with a video.
     for (let i = 0; i < methods.length; i++) {
+      if (!isMilitaryPersona && (methods[i].location === 'service' || methodLocations(methods[i]).includes('service'))) continue;
       if (methodHasVideo(methods[i])) {
         const locs = methodLocations(methods[i]);
         if (i === 0 && locs.length > 1) {
@@ -496,7 +499,7 @@ export default function MasterExerciseView({
     console.log(`[MEV] 🔄 re-seed exercise="${exercise.id}" filterLocation="${normalizedFilterLocation}" → method[${next}]`);
     setSelectedMethodIdx(next);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exercise.id, normalizedFilterLocation]);
+  }, [exercise.id, normalizedFilterLocation, isMilitaryPersona]);
 
   // ── Fix 1: index-driven data pipeline ─────────────────────────────────────
   // `activeLocation` is kept ONLY for the ChainNode thumbnail resolver

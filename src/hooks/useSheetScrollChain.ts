@@ -110,7 +110,11 @@ export function useSheetScrollChain({
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      const deltaY = e.touches[0].clientY - touchStartY.current;
+      const touch = e.touches[0];
+      // Guard: a missing touch or an unset touchStart yields NaN → y.set(NaN) →
+      // opacity=useTransform(y,…)=NaN → "NaN is an invalid value for opacity" warning.
+      if (!touch || !Number.isFinite(touchStartY.current)) return;
+      const deltaY = touch.clientY - touchStartY.current;
       const scrollTop = el.scrollTop;
 
       if ((scrollTop <= 0 && deltaY > 0) || isChaining.current) {
