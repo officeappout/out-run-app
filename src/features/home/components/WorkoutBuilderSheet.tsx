@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { ArrowRight, Trees, Home, Dumbbell, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock, Wrench } from 'lucide-react';
+import { ArrowRight, Trees, Home, Dumbbell, Shield, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock, Wrench, type LucideIcon } from 'lucide-react';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import type { GearDefinition } from '@/features/content/equipment/gear';
 import { useUserStore } from '@/features/user';
@@ -26,7 +26,7 @@ import { resolveToSlug } from '@/features/workout-engine/services/program-hierar
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
-export type LocationId = 'park' | 'gym' | 'home';
+export type LocationId = 'park' | 'gym' | 'home' | 'service';
 
 interface DisplayProgram {
   id: string;
@@ -54,13 +54,17 @@ export const LOCATION_OPTIONS: {
   id: LocationId;
   label: string;
   sub: string;
-  Icon: React.ComponentType<{ size: number; className?: string }>;
+  Icon: LucideIcon;
 }[] = [
   // חדר כושר removed from every user-facing location picker — no gym footage exists.
   // 'gym' intentionally REMAINS in the ExecutionLocation type + LocationId so already
   // gym-tagged content stays valid; it is simply not offerable.
-  { id: 'park', label: 'בחוץ',     sub: 'פארק / מגרש', Icon: Trees },
-  { id: 'home', label: 'בבית',     sub: 'אימון ביתי',   Icon: Home },
+  { id: 'park',    label: 'בחוץ',     sub: 'פארק / מגרש', Icon: Trees },
+  { id: 'home',    label: 'בבית',     sub: 'אימון ביתי',   Icon: Home },
+  // 'service' (צבא/שירות) is a SWAP-only variant, gated to military personas in
+  // AnchorLocationChip. It is intentionally filtered out of the builder-sheet GENERATION
+  // picker below (generation PARK-FORCEs, so generating "at service" would be a no-op).
+  { id: 'service', label: 'צבא/שירות', sub: 'מוצב / בסיס',  Icon: Shield },
 ];
 
 const TIME_OPTIONS = [15, 30, 45, 60] as const;
@@ -785,7 +789,7 @@ export default function WorkoutBuilderSheet({
         <Section title="מיקום וציוד">
           {/* Location grid — 2 options since חדר כושר was removed */}
           <div className="grid grid-cols-2 gap-2 mb-3">
-            {LOCATION_OPTIONS.map(({ id, label, sub, Icon }) => {
+            {LOCATION_OPTIONS.filter((o) => o.id !== 'service').map(({ id, label, sub, Icon }) => {
               const active = location === id;
               return (
                 <button
@@ -1247,7 +1251,7 @@ export default function WorkoutBuilderSheet({
             ?? []
         }
         onApply={(ids) => setEquipmentOverride(ids)}
-        activeLocation={location}
+        activeLocation={location === 'service' ? undefined : location}
       />
 
       {/* ── Gear nudge sheet (global profile equipment editor, mode=profile) ─

@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Check,
   PersonStanding,
+  Shield,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -39,6 +40,7 @@ export const LOCATION_META: Record<string, { label: string; Icon: LucideIcon }> 
   airport: { label: 'שדה תעופה',    Icon: MapPin },
   library: { label: 'ספרייה',       Icon: MapPin },
   desk:    { label: 'שולחן',        Icon: MapPin },
+  service: { label: 'צבא/שירות',    Icon: Shield },
 };
 
 export function locationMeta(loc: string): { label: string; Icon: LucideIcon } {

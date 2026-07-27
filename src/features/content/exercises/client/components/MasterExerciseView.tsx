@@ -87,6 +87,8 @@ function methodHasVideo(m: ExecutionMethod): boolean {
 }
 
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
+import { useUserStore } from '@/features/user';
+import { mapPersonaIdToLifestylePersona } from '@/features/workout-engine/services/user-profile.utils';
 
 // ── Difficulty trend icons (identical to ExerciseReplacementModal) ─────────
 const LEVEL_ICONS: Record<'lower' | 'same' | 'higher', { src: string; color: string }> = {
@@ -388,6 +390,10 @@ export default function MasterExerciseView({
     gear: { id: string; label: string; icon: string | null }[];
   }
 
+  const mevProfile = useUserStore((s) => s.profile);
+  const mevPersona = mevProfile ? mapPersonaIdToLifestylePersona(mevProfile) : null;
+  const isMilitaryPersona = mevPersona === 'reservist' || mevPersona === 'active_soldier';
+
   const methodOptions = useMemo<MethodOption[]>(() => {
     const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];
     const seenIdx = new Set<number>();
@@ -396,6 +402,8 @@ export default function MasterExerciseView({
       const m = methods[i];
       if (seenIdx.has(i)) continue;
       if (!methodHasVideo(m)) continue;
+      // Persona gate: hide the 'service' (military) variant from non-military users.
+      if (!isMilitaryPersona && (m.location === 'service' || methodLocations(m).includes('service'))) continue;
       seenIdx.add(i);
 
       const allLocations = methodLocations(m);
@@ -428,7 +436,7 @@ export default function MasterExerciseView({
     // eslint-disable-next-line no-console
     console.log('[MEV] methodOptions final:', out.map((o) => `${o.location}[${o.idx}]`));
     return out;
-  }, [exercise]);
+  }, [exercise, isMilitaryPersona]);
 
   // ── Stable initial-seed (never depends on memo object references) ────────
   // We compute the starting index directly from raw exercise data so deps can

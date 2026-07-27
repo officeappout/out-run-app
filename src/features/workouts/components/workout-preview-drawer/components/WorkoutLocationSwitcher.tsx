@@ -18,10 +18,12 @@ import {
   resolveEquipmentLabel,
   resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { useUserStore } from '@/features/user';
+import { mapPersonaIdToLifestylePersona } from '@/features/workout-engine/services/user-profile.utils';
 
 // Street intentionally omitted: data coverage is too thin, so it produces a flood of
 // "requires a station" keep-marks. Product decision — offer only park + home.
-const LOCATIONS: ExecutionLocation[] = ['home', 'park'];
+const BASE_LOCATIONS: ExecutionLocation[] = ['home', 'park'];
 
 // Representative equipment per location for the sub-label. Illustrative only — the
 // REAL per-exercise gear is resolved during the swap; this mirrors the single-toggle
@@ -53,6 +55,12 @@ export default function WorkoutLocationSwitcher({
   onSwap,
 }: WorkoutLocationSwitcherProps) {
   const [open, setOpen] = useState(false);
+
+  // Persona gate: the 'service' (military) variant is offered only to reservist / soldier.
+  const profile = useUserStore((s) => s.profile);
+  const persona = profile ? mapPersonaIdToLifestylePersona(profile) : null;
+  const isMilitary = persona === 'reservist' || persona === 'active_soldier';
+  const LOCATIONS: ExecutionLocation[] = isMilitary ? [...BASE_LOCATIONS, 'service'] : BASE_LOCATIONS;
 
   const options: LocationSwitcherOption[] = LOCATIONS.map((loc) => ({
     key: loc,
