@@ -39,7 +39,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_DAILY_GOAL_V1, POST_WORKOUT_LANDING_V1 } from '@/config/feature-flags';
+import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_DAILY_GOAL_V1, POST_WORKOUT_LANDING_V1, HOME_DAY_SELECT_SCOPE_V1 } from '@/config/feature-flags';
 import PostWorkoutSummaryStrip from '@/features/home/components/PostWorkoutSummaryStrip';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
@@ -417,6 +417,13 @@ export default function HomePage() {
   // the user has logged a session.
   const todayProgress = useDailyProgress();
   const todayWorkoutDone = !!todayProgress?.workoutCompleted;
+  // HOME_DAY_SELECT_SCOPE_V1: the post-workout completion surfaces (hidden workout
+  // section, summary card/bridge, Block-A strip) are "today just finished" states.
+  // Scope them to the SELECTED day being today, so browsing another day in the strip
+  // unfurls THAT day's plan instead of today's frozen "done" state. Flag OFF →
+  // collapses to `true` → byte-identical.
+  const completionForToday =
+    !HOME_DAY_SELECT_SCOPE_V1 || selectedDate === toISODate(new Date());
   // Daily Strength Ring (Layer A). The target hook is gated by the flag so no
   // Firestore read fires while STRENGTH_RING_ENABLED is off (byte-identical).
   const todayStrengthVolume = useTodayStrengthVolume();
@@ -1260,7 +1267,7 @@ export default function HomePage() {
             The full celebration card is removed from the anchor slot below (one summary,
             floated to top); the detailed summary stays a drill-in. Flag OFF → not rendered
             → byte-identical. */}
-        {POST_WORKOUT_LANDING_V1 && !landingDismissed && (postWorkoutData || todayWorkoutDone) && completionData && (
+        {POST_WORKOUT_LANDING_V1 && completionForToday && !landingDismissed && (postWorkoutData || todayWorkoutDone) && completionData && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1420,7 +1427,7 @@ export default function HomePage() {
                     onWorkoutGenerated={handleWorkoutGenerated}
                     selectedDate={selectedDate}
                     hasCompletedAssessment={hasCompletedAssessment}
-                    hideWorkoutSection={!!postWorkoutData || todayWorkoutDone}
+                    hideWorkoutSection={completionForToday && (!!postWorkoutData || todayWorkoutDone)}
                     enableRunningPrograms={featureFlags.enableRunningPrograms}
                     scheduleVersion={scheduleVersion}
                     onBuildCustom={handleBuildCustom}
@@ -1444,7 +1451,7 @@ export default function HomePage() {
               • Persistent "done for today" (todayWorkoutDone only): minimal restful
                 card driven solely by Firestore `dailyProgress.workoutCompleted`.
             Either path keeps the action zone replaced — no empty layout gap. */}
-        {(postWorkoutData || todayWorkoutDone) && completionData && (
+        {completionForToday && (postWorkoutData || todayWorkoutDone) && completionData && (
           POST_WORKOUT_LANDING_V1 ? (
             /* Block A bridge: the summary moved UP to the top strip, so the anchor slot
                keeps ONLY the "another workout" continuation (Block B replaces this with
