@@ -28,7 +28,7 @@ import type { MapRef } from 'react-map-gl';
 import type { Route } from '../types/route.types';
 import type { RouteTurn } from '../services/geoUtils';
 import { bearingBetween, haversineMeters } from '../services/geoUtils';
-import { IS_PERF_BATCH2_ENABLED } from '@/config/feature-flags';
+import { IS_PERF_BATCH2_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
 import { useMapStore } from '../store/useMapStore';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
@@ -964,7 +964,14 @@ export function useCameraController(params: CameraControllerParams): CameraContr
   const focusedRouteRef = useRef(focusedRoute);
   focusedRouteRef.current = focusedRoute;
   useEffect(() => {
-    const OVERVIEW_TOP_PAD = 120;
+    // Route-preview zoom-out (MAP_OVERVIEW_CHROME_V1): widen the padding + lower the
+    // maxZoom cap so the route sits with more surrounding context (Moovit/Waze feel),
+    // instead of hugging the polyline. Flag OFF = today's exact values (120/40/16) →
+    // byte-identical. ⚠️ These on-flag numbers are a first pass — tune in the eye on
+    // device (David). OVERVIEW_MIN_WINDOW (full-detent skip) is deliberately unchanged.
+    const OVERVIEW_TOP_PAD = MAP_OVERVIEW_CHROME_V1 ? 140 : 120;
+    const OVERVIEW_SIDE_PAD = MAP_OVERVIEW_CHROME_V1 ? 70 : 40;
+    const OVERVIEW_MAX_ZOOM = MAP_OVERVIEW_CHROME_V1 ? 14.5 : 16;
     const OVERVIEW_MIN_WINDOW = 160; // px — below this free vertical space, skip (map ~hidden)
     if (!isMapLoaded || !mapRef.current) return;
     if (overviewSheetHeightPx == null) return;            // no hybrid overview mounted
@@ -987,8 +994,8 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     try {
       if (process.env.NODE_ENV !== 'production') console.log('[Cam] overview drawer-sync fit — bottom:', overviewSheetHeightPx, 'freeWindow:', freeWindow);
       mapRef.current.fitBounds(bounds as [number, number, number, number], {
-        padding: { top: OVERVIEW_TOP_PAD, bottom: overviewSheetHeightPx, left: 40, right: 40 },
-        maxZoom: 16,
+        padding: { top: OVERVIEW_TOP_PAD, bottom: overviewSheetHeightPx, left: OVERVIEW_SIDE_PAD, right: OVERVIEW_SIDE_PAD },
+        maxZoom: OVERVIEW_MAX_ZOOM,
         duration: 350,
       });
     } catch { /* ignore */ }
