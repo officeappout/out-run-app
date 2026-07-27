@@ -276,6 +276,12 @@ interface StatsOverviewProps {
    * future-day start would log activity under "today" and confuse the user.
    */
   isViewingFutureDate?: boolean;
+  /**
+   * HOME_DAY_SELECT_SCOPE_V1: true when viewing a PAST day. The section renders as a
+   * read-only plan — the start CTA is neutralised (a start would date-anchor the
+   * write to today = wrong-day credit). Future days keep the train-ahead confirm.
+   */
+  isViewingPastDate?: boolean;
 }
 
 /** Context forwarded to the workout builder when the custom card is tapped. */
@@ -302,6 +308,7 @@ export default function StatsOverview({
   onBuildCustom,
   generateSingleOption,
   isViewingFutureDate = false,
+  isViewingPastDate = false,
 }: StatsOverviewProps) {
   const { profile } = useUserStore();
   const checkAndResetWeek = useWeeklyVolumeStore((s) => s.checkAndResetWeek);
@@ -972,6 +979,9 @@ export default function StatsOverview({
 
   const handleTrioStart = useCallback((idx: number) => {
     setSelectedOptionIndex(idx);
+    // HOME_DAY_SELECT_SCOPE_V1: viewing a PAST day → read-only. A start here would
+    // date-anchor the write to today (wrong-day credit), so neutralise it entirely.
+    if (isViewingPastDate) return;
     if (trioResult) {
       onWorkoutGenerated?.(trioResult.options[idx].result.workout);
     }
@@ -984,7 +994,7 @@ export default function StatsOverview({
       return;
     }
     onStartWorkout?.();
-  }, [trioResult, onWorkoutGenerated, onStartWorkout, isViewingFutureDate]);
+  }, [trioResult, onWorkoutGenerated, onStartWorkout, isViewingFutureDate, isViewingPastDate]);
 
   // Confirm from the Train-Ahead modal — launch the workout normally.
   const handleConfirmTrainAhead = useCallback(() => {
@@ -1108,7 +1118,9 @@ export default function StatsOverview({
 
   // ── Shared Carousel / Hero Section ──
   const renderWorkoutSection = () => (
-    <div>
+    // HOME_DAY_SELECT_SCOPE_V1: past-day = read-only → dim + block interaction so the
+    // plan is viewable but not startable (belt-and-suspenders with the handleTrioStart guard).
+    <div className={isViewingPastDate ? 'opacity-60 pointer-events-none' : undefined}>
       {/* Header + description — padded */}
       <div className="px-5" dir="rtl">
         <div

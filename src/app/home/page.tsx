@@ -1433,6 +1433,7 @@ export default function HomePage() {
                     onBuildCustom={handleBuildCustom}
                     generateSingleOption={isWorkoutLoading}
                     isViewingFutureDate={selectedDate > toISODate(new Date())}
+                    isViewingPastDate={HOME_DAY_SELECT_SCOPE_V1 && selectedDate < toISODate(new Date())}
                   />
                 );
                 return HOME_ANCHOR_V2_ENABLED
