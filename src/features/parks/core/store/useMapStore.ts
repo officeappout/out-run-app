@@ -164,6 +164,16 @@ interface MapStore {
   overviewSheetHeightPx: number | null;
   setOverviewSheetHeightPx: (px: number | null) => void;
   /**
+   * TRUE while the hybrid "מבט על אימון" overview drawer (HybridOverviewScreen) is
+   * mounted. Cross-component signal for the route-preview chrome (MAP_OVERVIEW_CHROME_V1):
+   * written by HybridOverviewScreen on mount/unmount, read by MapShell (to fold the
+   * AppHeader nav-bar) and DiscoverLayer (to fold search/pills/layers + show the blue
+   * title bar). Sits alongside overviewSheetHeightPx — same lifecycle, same owner.
+   * When the flag is OFF no reader gates on it, so it stays inert.
+   */
+  isOverviewActive: boolean;
+  setIsOverviewActive: (v: boolean) => void;
+  /**
    * Strength-station positions as fractions (0..1) along the focused hybrid route.
    * Single channel for map route coloring (point 15): written by HybridOverviewScreen
    * from the composed plan (cursorKm/totalKm per station), read by AppMap to build the
@@ -409,6 +419,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setMetricsCardPosition: (pos) => set({ metricsCardPosition: pos }),
   overviewSheetHeightPx: null,
   setOverviewSheetHeightPx: (px) => set({ overviewSheetHeightPx: px }),
+  isOverviewActive: false,
+  setIsOverviewActive: (v) => set({ isOverviewActive: v }),
   hybridRouteStations: null,
   setHybridRouteStations: (fracs) => set({ hybridRouteStations: fracs }),
   navCardHeight: 0,
