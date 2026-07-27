@@ -64,6 +64,7 @@ import { computeRouteTurns } from '@/features/parks/core/services/geoUtils';
 import SessionControlBar from '@/features/parks/core/components/SessionControlBar';
 import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/components/UserProfileSheet';
 import AppHeader from '@/components/ui/AppHeader';
+import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 
 const UnifiedLocationStep = lazy(
   () => import('@/features/user/onboarding/components/steps/UnifiedLocationStep'),
@@ -118,6 +119,9 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   const storyBarHeight = useMapStore((s) => s.storyBarHeight);
   const navCardHeight = useMapStore((s) => s.navCardHeight);
   const isLapsOpen = useMapStore((s) => s.isLapsOpen);
+  // Route-preview chrome (MAP_OVERVIEW_CHROME_V1): true while the hybrid overview
+  // drawer is up → fold the AppHeader nav-bar (DiscoverLayer folds the rest).
+  const isOverviewActive = useMapStore((s) => s.isOverviewActive);
 
   // Presence heartbeat ONLY — disabled in demo mode so no writes reach Firestore.
   // heartbeatOnly=true skips this hook's onSnapshot marker listener + 60s heatmap
@@ -390,7 +394,30 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
            would compound the overlap with the turn cards and GPS pill.
            In all other modes (discover, navigate, etc.) it floats above
            the Mapbox canvas identically to the Home and Feed pages. */}
-      {!isActiveMode && <AppHeader asOverlay />}
+      {MAP_OVERVIEW_CHROME_V1 ? (
+        // Route-preview: fold the nav-bar up while the hybrid overview drawer is up
+        // (DiscoverLayer shows the thin blue OverviewTitleBar in its place). The
+        // wrapper is a positioned, 0-height containing block so the header's own
+        // absolute bar slides on a fixed px transform (a %-translate on a 0-height
+        // wrapper would be a no-op). AnimatePresence initial={false} → no intro on
+        // first map load; slide only on open/close.
+        <AnimatePresence initial={false}>
+          {!isActiveMode && !isOverviewActive && (
+            <motion.div
+              key="app-header-overlay"
+              className="absolute inset-x-0 top-0 z-[75] pointer-events-none"
+              initial={{ y: -160, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -160, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+            >
+              <AppHeader asOverlay />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        !isActiveMode && <AppHeader asOverlay />
+      )}
       {/* Background particles (hidden during active workouts) */}
       {!isActiveMode && (
         <div className="absolute inset-0 z-[-1] pointer-events-none">
