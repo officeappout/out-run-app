@@ -241,12 +241,26 @@ export default function WorkoutPreviewDrawer({
     exercisePool,
   });
 
+  // ── B: loading-skeleton gate during a select's media re-resolution (instead of a white gap) ──
+  // isSwapping already covers the async location swapAll window. methodRecomputing covers the
+  // synchronous per-exercise method change, held ~250ms past the generatedWorkout flip to bridge the
+  // thumbnail/video re-resolution that follows it (the [generatedWorkout] flip is the real trigger;
+  // the 250ms is the bridge duration so the skeleton doesn't lift onto a still-loading frame).
+  const [methodRecomputing, setMethodRecomputing] = useState(false);
+  useEffect(() => {
+    if (!methodRecomputing) return;
+    const t = setTimeout(() => setMethodRecomputing(false), 250);
+    return () => clearTimeout(t);
+  }, [generatedWorkout, methodRecomputing]);
+  const isRecomputing = isSwapping || methodRecomputing;
+
   // Single per-exercise method write from MasterExerciseView (detail drawer): persist
   // the picked method to the LIVE workout (so it reaches the runner via Merge 1) and
   // re-sync the detail snapshot so the sheet reflects the new method.
   const handleSingleMethodChange = useCallback(
     (method: ExecutionMethod) => {
       if (!generatedWorkout || !detailExercise) return;
+      setMethodRecomputing(true); // B: cover the media re-resolution gap with the skeleton
       const targetId = detailExercise.exercise.id;
       const updatedExercises = generatedWorkout.exercises.map((we) =>
         we.exercise.id === targetId
@@ -482,6 +496,12 @@ export default function WorkoutPreviewDrawer({
                     </div>
                   )}
 
+                  {/* B: skeleton overlay over the hero while a select re-resolves media — reuses the
+                      same animate-pulse token as WorkoutLoadingSkeleton; below the z-10 close button. */}
+                  {isRecomputing && (
+                    <div className="absolute inset-0 bg-gray-100 dark:bg-slate-800 animate-pulse z-[5]" />
+                  )}
+
                   {/* Hero close button — fades with hero */}
                   <motion.div
                     className="absolute top-0 right-0 px-3 pb-3 z-10 transform-gpu will-change-transform"
@@ -539,28 +559,32 @@ export default function WorkoutPreviewDrawer({
                           onSwap={(v) => { void swapAll('location', v); }}
                         />
                       )}
-                      <GeneratedWorkoutExerciseList
-                        generatedWorkout={generatedWorkout}
-                        exercisePool={exercisePool}
-                        onSwap={handleOpenSwapModal}
-                        onSwapPyramidStep={handleOpenPyramidStepSwap}
-                        onExerciseTap={handleExerciseTap}
-                        isWarmupExpanded={isWarmupExpanded}
-                        isWarmupActive={isWarmupActive}
-                        onToggleWarmupExpanded={handleToggleWarmupExpanded}
-                        onToggleWarmupActive={handleToggleWarmupActive}
-                        actions={{
-                          isFav,
-                          isFavToggling,
-                          isFavDownloading,
-                          isFavDownloaded,
-                          downloadProgress: dlProgress,
-                          isSharing,
-                          onToggleFavorite: handleToggleFavorite,
-                          onShare: handleShare,
-                          onDownload: handleDownload,
-                        }}
-                      />
+                      {isRecomputing ? (
+                        <WorkoutLoadingSkeleton />
+                      ) : (
+                        <GeneratedWorkoutExerciseList
+                          generatedWorkout={generatedWorkout}
+                          exercisePool={exercisePool}
+                          onSwap={handleOpenSwapModal}
+                          onSwapPyramidStep={handleOpenPyramidStepSwap}
+                          onExerciseTap={handleExerciseTap}
+                          isWarmupExpanded={isWarmupExpanded}
+                          isWarmupActive={isWarmupActive}
+                          onToggleWarmupExpanded={handleToggleWarmupExpanded}
+                          onToggleWarmupActive={handleToggleWarmupActive}
+                          actions={{
+                            isFav,
+                            isFavToggling,
+                            isFavDownloading,
+                            isFavDownloaded,
+                            downloadProgress: dlProgress,
+                            isSharing,
+                            onToggleFavorite: handleToggleFavorite,
+                            onShare: handleShare,
+                            onDownload: handleDownload,
+                          }}
+                        />
+                      )}
                     </>
                   ) : (
                     workoutPlan && (
