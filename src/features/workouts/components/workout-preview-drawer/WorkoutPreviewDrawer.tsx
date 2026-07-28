@@ -427,53 +427,54 @@ export default function WorkoutPreviewDrawer({
                   }}
                 >
                   {(cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage) && (
-                    <div
-                      className="absolute inset-0"
-                      // iOS: one isolated stacking context so z-index is authoritative between the
-                      // <video> hardware layer and the overlays (they no longer float independently).
-                      style={{ isolation: 'isolate' }}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage}
-                        alt={displayTitle}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
+                    <div className="absolute inset-0" style={{ isolation: 'isolate' }}>
+                      {/* White backdrop revealed by the media mask's bottom fade — keeps the fade
+                          WHITE (as the old overlay did) with NO separate layer above the video. */}
+                      <div className="absolute inset-0 bg-white" />
+                      {/* Media wrapper. The mask does DOUBLE duty on iOS: (1) it IS the bottom fade —
+                          the media fades to transparent so the white backdrop shows through, so there
+                          is NO overlay layer for the <video> to paint above; (2) applying a mask forces
+                          the <video> OFF the iOS hardware-overlay fast-path (it must be composited to be
+                          masked) — the actual root of the raw-square-no-fade bug that z-index couldn't
+                          beat. */}
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          WebkitMaskImage:
+                            'linear-gradient(to top, rgba(255,255,255,0) 13%, rgba(255,255,255,0.4) 42%, rgba(255,255,255,1) 85%)',
+                          maskImage:
+                            'linear-gradient(to top, rgba(255,255,255,0) 13%, rgba(255,255,255,0.4) 42%, rgba(255,255,255,1) 85%)',
+                          transform: 'translateZ(0)',
                         }}
-                      />
-                      {(cachedHeroVideo || heroMedia?.videoUrl) && (
-                        <video
-                          ref={heroVideoRef}
-                          src={cachedHeroVideo || heroMedia?.videoUrl}
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
-                          {...{"webkit-playsinline": "true"}}
-                          preload="auto"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage}
+                          alt={displayTitle}
                           className="absolute inset-0 w-full h-full object-cover"
-                          // iOS: pin the promoted <video> hardware layer to an explicit z-order at the
-                          // BOTTOM of the isolated stacking context, so the overlays (z:2) win over it.
-                          style={{ zIndex: 0, transform: 'translateZ(0)' }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
                         />
-                      )}
+                        {(cachedHeroVideo || heroMedia?.videoUrl) && (
+                          <video
+                            ref={heroVideoRef}
+                            src={cachedHeroVideo || heroMedia?.videoUrl}
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            {...{"webkit-playsinline": "true"}}
+                            preload="auto"
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      {/* Top dark gradient for close-button legibility. With the video no longer a
+                          free hardware overlay, this z-index now paints above it normally. */}
                       <div
                         className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent pointer-events-none"
-                        // iOS: own GPU layer so the promoted <video> layer can't paint above it.
                         style={{ transform: 'translateZ(0)', willChange: 'transform', zIndex: 2 }}
-                      />
-                      <div
-                        className="absolute bottom-0 inset-x-0 h-[85%] pointer-events-none"
-                        style={{
-                          background:
-                            'linear-gradient(to top, white 15%, rgba(255,255,255,0.6) 50%, transparent 100%)',
-                          // iOS: force this fade onto its OWN GPU compositing layer so the promoted
-                          // <video> layer never paints above it (raw-square-no-fade on switcher open).
-                          transform: 'translateZ(0)',
-                          willChange: 'transform',
-                          zIndex: 2,
-                        }}
                       />
                     </div>
                   )}
