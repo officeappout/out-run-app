@@ -427,7 +427,12 @@ export default function WorkoutPreviewDrawer({
                   }}
                 >
                   {(cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage) && (
-                    <div className="absolute inset-0">
+                    <div
+                      className="absolute inset-0"
+                      // iOS: one isolated stacking context so z-index is authoritative between the
+                      // <video> hardware layer and the overlays (they no longer float independently).
+                      style={{ isolation: 'isolate' }}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage}
@@ -448,6 +453,9 @@ export default function WorkoutPreviewDrawer({
                           {...{"webkit-playsinline": "true"}}
                           preload="auto"
                           className="absolute inset-0 w-full h-full object-cover"
+                          // iOS: pin the promoted <video> hardware layer to an explicit z-order at the
+                          // BOTTOM of the isolated stacking context, so the overlays (z:2) win over it.
+                          style={{ zIndex: 0, transform: 'translateZ(0)' }}
                         />
                       )}
                       <div
