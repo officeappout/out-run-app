@@ -220,8 +220,10 @@ export const HOME_ANCHOR_V2_ENABLED = true;
 // (isOverviewActive); MapShell + DiscoverLayer read it to gate the chrome.
 // While FALSE the map screen is BYTE-IDENTICAL to today: full chrome stays, no blue
 // bar, camera padding/maxZoom unchanged. Hard kill-switch for the whole feature.
-// DEFAULT FALSE until David device-tests + approves.
-export const MAP_OVERVIEW_CHROME_V1 = false;
+// ENABLED in prod after David's on-device verification (28.07): chrome collapse +
+// blue bar + camera zoom-out + hybrid overview scroll-chain (expand-then-scroll).
+// Kill-switch: flip to false + redeploy (compile-time flag → no runtime toggle).
+export const MAP_OVERVIEW_CHROME_V1 = true;
 
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)

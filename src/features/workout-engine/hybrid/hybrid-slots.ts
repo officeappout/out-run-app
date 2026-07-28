@@ -22,7 +22,7 @@
 import type { HybridStartIntent } from './build-hybrid-input';
 import type { HybridEmphasis, AerobicKind } from './compose-hybrid-session.service';
 import type { HybridShapeName } from './hybrid-shape';
-import { HYBRID_FULL_PARK_WORKOUT_ENABLED } from '@/config/feature-flags';
+import { HYBRID_FULL_PARK_WORKOUT_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 
 export type SlotKind = 'hybrid' | 'aerobic_quick';
 
@@ -186,7 +186,13 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
   // also returns null if park resolution fails, but the gate keeps the card from
   // showing at all when there is no equipped park / no program. Placed alongside the
   // recommended card (MVP).
-  if (HYBRID_FULL_PARK_WORKOUT_ENABLED && env.hasEquippedPark && env.hasStrengthProgram) {
+  // Surfacing (MAP_OVERVIEW_CHROME_V1): while the map-overview feature is on, surface
+  // full_park alongside the recommended slot even without the local equipped-park/program
+  // signal, so the "אימון מלא בפארק" card is reachable in prod (single-user beta). It
+  // still needs a real equipped park near the user for composeFullParkWorkout to build —
+  // otherwise the CTA composes null and falls back to the carousel (no crash). Flag OFF =
+  // the original hard gate (equipped park AND a strength program), byte-identical.
+  if (HYBRID_FULL_PARK_WORKOUT_ENABLED && (MAP_OVERVIEW_CHROME_V1 || (env.hasEquippedPark && env.hasStrengthProgram))) {
     const fpPreset: HybridPreset = { ...HYBRID_PRESETS.full_park, aerobicKind: env.aerobicKind };
     slots.push({
       kind: 'hybrid',
