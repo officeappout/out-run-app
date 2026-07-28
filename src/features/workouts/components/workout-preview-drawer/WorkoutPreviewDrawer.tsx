@@ -428,9 +428,33 @@ export default function WorkoutPreviewDrawer({
                 >
                   {(cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage) && (
                     <div className="absolute inset-0" style={{ isolation: 'isolate' }}>
-                      {/* White backdrop revealed by the media mask's bottom fade — keeps the fade
-                          WHITE (as the old overlay did) with NO separate layer above the video. */}
+                      {/* Backdrop stack BELOW the masked live media — all un-masked / un-promoted, so
+                          they are NOT part of the media's composited layer and stay painted while iOS
+                          re-rasters that layer on switcher-open. During the re-raster the poster (not a
+                          bare white rectangle) shows through → the white flash becomes imperceptible. */}
+                      {/* (0) white floor — the very bottom of the fade stays pure white */}
                       <div className="absolute inset-0 bg-white" />
+                      {/* (1) static poster = the CURRENT method's thumbnail (same src as the live <img>
+                          below) so the frozen frame matches what is playing — no content jump. NOT
+                          masked (a masked poster would become a 2nd composited layer that re-rasters
+                          too, reintroducing the flash). */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage}
+                        alt=""
+                        aria-hidden
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      {/* (2) bottom white fade OVER the poster (still BELOW the masked media); its
+                          profile mirrors the media mask so the backdrop fades to white exactly like the
+                          live media does. */}
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          background:
+                            'linear-gradient(to top, white 13%, rgba(255,255,255,0.6) 42%, transparent 85%)',
+                        }}
+                      />
                       {/* Media wrapper. The mask does DOUBLE duty on iOS: (1) it IS the bottom fade —
                           the media fades to transparent so the white backdrop shows through, so there
                           is NO overlay layer for the <video> to paint above; (2) applying a mask forces
