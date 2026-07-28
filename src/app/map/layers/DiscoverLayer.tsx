@@ -1120,7 +1120,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         const enrichedSelected = enrichRoutes([logic.selectedRoute!])[0];
         return (
           <>
-            {renderTopBar()}
+            {/* route-preview: the top chrome must never show while the hybrid overview
+                drawer is up, in ANY screen state (MAP_OVERVIEW_CHROME_V1). */}
+            {!overviewChromeActive && renderTopBar()}
 
             <RouteDetailSheet
               isOpen
@@ -1161,7 +1163,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         // still search / change mode. ParkPreview self-gates on selectedPark.
         return (
           <>
-            {renderTopBar()}
+            {/* route-preview: the top chrome must never show while the hybrid overview
+                drawer is up, in ANY screen state (MAP_OVERVIEW_CHROME_V1). */}
+            {!overviewChromeActive && renderTopBar()}
             <ParkPreview userLocation={logic.currentUserPos ?? null} />
           </>
         );
@@ -1173,7 +1177,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         if (!userLocation || !commuteRouteConfig) return null;
         return (
           <>
-            {renderTopBar()}
+            {/* route-preview: the top chrome must never show while the hybrid overview
+                drawer is up, in ANY screen state (MAP_OVERVIEW_CHROME_V1). */}
+            {!overviewChromeActive && renderTopBar()}
 
             <RouteCarousel
               userPosition={userLocation}

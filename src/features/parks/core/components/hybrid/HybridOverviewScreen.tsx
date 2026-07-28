@@ -386,7 +386,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             {composed.bolts ? (
               /* full-park: ONE unified title row — title · duration · finish */
               <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
-                <span className="text-[18px] font-black" style={{ color: '#111827' }}>אימון משולב</span>
+                <span className="text-[18px] font-black" style={{ color: '#111827' }}>{MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב'}</span>
                 <span style={{ color: '#D1D5DB' }}>·</span>
                 <span className="font-black" style={{ color: '#374151' }}>{totalMin} דק׳</span>
                 <span style={{ color: '#D1D5DB' }}>·</span>
