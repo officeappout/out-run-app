@@ -352,7 +352,17 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
         onDragEnd={onDragEndSnap}
         animate={controls}
         className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none"
-        style={{ y: sheetY, touchAction: 'none' }}
+        // Route-preview (MAP_OVERVIEW_CHROME_V1): this drag layer's `touch-action:none`
+        // (ancestor of the scroll body) killed the native scroll that the EXISTING #16
+        // detent handler's "at full → let content scroll" path relies on — so scroll at
+        // full never worked with long full-park content. FIX mirrors the proven reference
+        // WorkoutPreviewDrawer (workout-preview-drawer/WorkoutPreviewDrawer.tsx:354-396):
+        // keep `touch-action:none` ONLY on the drag handle (grabber/header below), NOT on
+        // this wrapper. `dragListener={false}` → framer drags only via the handle, so the
+        // wrapper needs no touch-action. Leaving it unset (auto) lets the scroll body
+        // scroll natively AND preserves the Moovit strip's `touch-action:pan-x` (a `pan-y`
+        // here would have killed that horizontal scroll). Flag OFF = `none` (byte-identical).
+        style={{ y: sheetY, touchAction: MAP_OVERVIEW_CHROME_V1 ? undefined : 'none' }}
       >
         <motion.div
           ref={cardRef}
@@ -428,6 +438,13 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
           <div
             ref={scrollBodyRef}
             className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pt-2"
+            // #16 detent lock (MAP_OVERVIEW_CHROME_V1): a single static touch-action can't
+            // both lock-at-half and scroll-at-full. Track the SETTLED detent — native
+            // content scroll is allowed ONLY at `full` (pan-y); at peek/half `none` blocks
+            // native scroll so every vertical gesture drives the sheet (the #16 expand),
+            // while the non-passive scroll-body handler still runs. The wrapper stays `auto`
+            // so the Moovit strip's pan-x survives in both states. Flag OFF = unset.
+            style={MAP_OVERVIEW_CHROME_V1 ? { touchAction: currentAnchor === 'full' ? 'pan-y' : 'none' } : undefined}
           >
             {/* A3 fallback banner */}
             {fallbackHint && (
