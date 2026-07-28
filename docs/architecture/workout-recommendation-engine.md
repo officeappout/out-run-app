@@ -2,7 +2,7 @@
 
 ### מסמך מאסטר · תוכנית עבודה לצ'אט הקוד
 
-עדכון אחרון: 28.07.2026 · סטטוס: טיוטה לאישור
+עדכון אחרון: 28.07.2026 · סטטוס: טיוטה לאישור · נוסף §7.3 (מסלול + עצירות) — מקור-אמת לבנייה
 
 > **מקור-אמת משותף (מוצר ↔ קוד).** יובא מ-Google Doc "2026-07-28__מסמך-אב__ארכיטקטורת מנוע האימונים וההצעות"
 > (`docs.google.com/document/d/1risCmdRy1JRuJ45LTx9WRFvu1Ukj-YFGB-xHZWitQnM`).
@@ -182,6 +182,81 @@ Generator {
 | ריצה | לא תפור | העבודה הגדולה ביותר; נבנה אחרון |
 | אימון משרד | חסר | סשן מתיחות/תנועה קצר לחלון הצהריים (משתמש בשיטת משרד) |
 | מיקרו-מחוללים | חסר | עליית מדרגות, רד-תחנה-מוקדם — ראה שכבת הרגעים |
+| **מסלול + עצירות (כללי)** | **חלקי** | **המחולל שמכליל את "כוח מלא"; מנוע ה-compose קיים, ה-fan-out והתוכן הלא-כוחי חסרים — ראה §7.3** |
+
+---
+
+## 7.3 המחולל הכללי — מסלול + עצירות (Route + Generic Stops)
+
+> **מקור-אמת לבניית מסלול+עצירות.** מעוגן בחקירת הקוד `docs/research/sderot-route-stops-investigation.md` (28.07.2026). כל עוגן להלן = `קובץ:שורה` בעץ הראשי `src/`. מסומן **[קיים]** (לשימוש-חוזר) או **[לבנות]**.
+
+### 7.3.1 העיקרון
+
+המקרה הכללי של מחולל מבוסס-מיקום (ה-MOAT):
+
+- **מסלול הוא עמוד-השדרה.** גיאומטריית המסלול (`path`) היא הציר; המשתמש נע לאורכה.
+- **עצירות גנריות לאורכו.** כל עצירה = זוג **`(סוג-מיקום × סוג-פעילות)`** שאליו מוזרק תוכן: כוח / בטן / שחרור / מוביליטי / תצפית-מנוחה.
+- **"אימון מלא בפארק" = מקרה פרטי.** מסלול עם עצירה **אחת** שהיא פארק מצויד. הליכה→פארק→אימון→חזרה הוא הצורה המנוונת (`shape: 'sandwich'`) של הצורה הכללית.
+- **הטריו שולט בהיקף.** אותו D1/D2/D3 (קל/בינוני/קשוח) שקובע היום סטים/תרגילים/זמן — קובע גם כמה עצירות, כמה תרגילים בכל עצירה, וכמה זמן בכל אחת.
+
+הבשורה: **~70% מהתשתית כבר בנויה** — מודל העצירה הגנרית, מנוע ה-compose, חלוקת התקציב, והטריו — קיימים בקוד. הפיצ'ר הוא **הכללה של הקיים**, לא בנייה מאפס.
+
+### 7.3.2 החוזה — `Route` (קלט) + `GenericStop`
+
+| ישות | תפקיד | מצב + עוגן |
+|---|---|---|
+| **`Route`** | עמוד-השדרה. `path: [lng,lat][]`, `distance`, `difficulty`, `authorityId`, `facilityStops[]`, `segments[]`. Collection `official_routes`. | **[קיים]** `parks/core/types/route.types.ts:275`; טעינה `inventory.service.ts:316` (`fetchOfficialRoutes(authorityIds)`) |
+| **`GenericStop`** | `{ locationKind × activityKind, lat/lng, waypointIndex, availableEquipment, content }`. פארק = `parkId` מוגדר. | **[קיים]** כ-`HybridStopCandidate` — `workout-engine/hybrid/compose-hybrid-session.service.ts:98-110` (מתועד "GENERIC STOP MODEL §4b"); `StopLocationKind`/`StopActivityKind` :90-95 |
+| **תוכן עצירה** | נבחר לכל עצירה לפי `activityType` + ציוד זמין (ParkGating). | **[חלקי]** dispatcher קיים `dispatchStopContent:316-402`; **רק `strength` מחובר**, השאר `default→null` :397-401 |
+
+**חוזה החיבור:** ה-`path` של `Route` מוזן כ-`routePath`, והעצירות כ-`stopCandidates[]`, ל-`HybridComposeInput` (`compose-hybrid-session.service.ts:119-136`). היום ה-`routePath` הוא הלוך-חזור מחושב — **[לבנות]** גשר `official_routes.path → routePath`.
+
+### 7.3.3 המחולל — `composeHybridSession` כמנוע הכללי
+
+`composeHybridSession` (`compose-hybrid-session.service.ts:426`) **כבר הוא** מפזר "מסלול-כ-backbone + עצירות + חלוקת-תקציב":
+
+1. **חלוקת תקציב-זמן:** `aerobicShare` לפי emphasis (:432-434) → זמן-כוח.
+2. **מספר עצירות מהתקציב:** `round(tStrengthMin / STATION_MINUTES.ideal)` clamp `[1,4]` (:437-443).
+3. **מיקום עצירות על המסלול:** `selectStops` עם spacing ±25% ו-degradation graceful (:275-310).
+4. **תקציב per-עצירה:** `perStationMin` (:511-514) → `generateStrengthBlock({blockMinutes})`.
+5. **הרכבה משולבת:** לולאת interleave רגל-אווירובית↔עצירה (:542-582); זון ראשון=חימום, אחרון=`recovery` (:253-264).
+
+**סיזור לפי הטריו:** `generateHomeWorkoutTrio` (`home-workout.service.ts:546`) — `BOLT_DURATION_CAPS {1:30,2:45,3:60}` (:516) → `getExerciseCountForDuration` (`workout-budgeting.utils.ts:121`) → `DIFFICULTY_VOLUME` (:85, סטים/reps/hold לכל D). **[קיים]** — full-park כבר משתמש בזה 1:1 (`start-hybrid-session.ts:126-180`).
+
+### 7.3.4 שחרור על המסלול — `canBeCooldown`
+
+מנוע בחירת-המתיחות קיים (`cooldown.service.ts` — `appendCooldownExercises`, ניקוד לפי שריר + `cooldownCountBudget`). **[קיים]**
+מה שחסר לחלוטין: מיקום השחרור ב-POI קרוב-לסוף. אין `canBeCooldown`, אין סף-קרבה, אין route-awareness (grep=0). **[לבנות]** — flag `canBeCooldown` על עצירה, בחירת POI במרחק-סף מסוף ה-`path`, והזרמת המיקום למנוע הקיים.
+
+### 7.3.5 מצב קיים מול נדרש (סיכום פערים)
+
+| אבן-בניין | מצב | פעולה |
+|---|---|---|
+| `Route` כטיפוס + collection | **[קיים]** | REUSE |
+| `GenericStop` (מיקום×פעילות) | **[קיים]** `§4b` | REUSE |
+| מיקום-על-מסלול + spacing/קרבה | **[קיים]** `selectStops`, `waypointIndex`, snap 300m | REUSE |
+| מנוע compose + חלוקת-תקציב-כוח | **[קיים]** `composeHybridSession` | REUSE |
+| טריו D1/D2/D3 → סטים/תרגילים/זמן | **[קיים]** | REUSE |
+| כרטיס UI בקרוסלת ה-3 (בסיסי) | **[קיים]** `RouteCardUnified` תוכן-מונחה | REUSE |
+| חיבור `official_routes.path` כ-backbone | **[לבנות]** | גשר path→routePath |
+| fan-out ריצתי של >1 עצירה | **[לבנות]** היום קשיח לעצירת-כוח אחת `start-hybrid-session.ts:371-377` | מפיק `stopCandidates[]` מ-POIs |
+| תוכן עצירות בטן/שחרור/מוביליטי | **[לבנות]** seam פתוח `default→null` | מחוללים ב-`dispatchStopContent` |
+| חלוקת-זמן גם לרגליים (לא רק כוח) | **[לבנות]** רגליים היום distance-derived | הרחבת התקציב |
+| שחרור ב-POI קרוב-לסוף (`canBeCooldown`) | **[לבנות]** לא קיים כלל | סף-קרבה + caller |
+| slot-kind "מסלול+עצירות" + טריו/רשימת-עצירות בכרטיס | **[לבנות]** union היום `hybrid`/`aerobic_quick` | slot חדש + ענף DiscoverLayer |
+| `full-park` כמקרה-פרטי | **[refactor]** היום composer **מקביל** `composeParkWorkoutPlan:148` | לקפל לתוך `composeHybridSession` |
+| מסלול+POIs שדרות אמיתיים | **[לבנות נתונים]** יש רק 3 מסלולי דמו | admin import (§7.3.6) |
+
+### 7.3.6 סדר בנייה — פיילוט שדרות
+
+1. **נתונים:** להזין את מסלול-השדרה + POIs (תצפית/דשא/עמדות) דרך `/admin/locations/import` + `RouteEditor`. *(דשא כ-POI = ייתכן ערך-טיפוס חדש.)*
+2. **קלט Route:** גשר `official_routes.path → routePath` + מפיק `stopCandidates[]` מה-POIs שעל המסלול (מסיר את הקשיחות ב-`start-hybrid-session.ts:371-377`).
+3. **תוכן עצירות:** מחוללי בטן/שחרור ב-`dispatchStopContent`.
+4. **שחרור ב-POI:** caller סביב `appendCooldownExercises` עם POI קרוב-לסוף.
+5. **UI:** slot-kind "route+stops" ב-`resolveSlots` → הכרטיס הקיים מרנדר.
+6. **full-park:** לקפל כמקרה-פרטי (עצירה אחת) של אותו מנוע.
+
+> **בטיחות:** אל תחווט XP אמיתי לנתיב ההיברידי עד ש-single-save נסגר (Phase 2) — אחרת double-count.
 
 ---
 
