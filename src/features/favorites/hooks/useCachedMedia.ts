@@ -20,6 +20,11 @@ export function useCachedMediaUrl(originalUrl: string | null | undefined): strin
 
     let cancelled = false;
 
+    // Synchronous network-fallback reset on every originalUrl change: the returned value becomes
+    // the NEW url immediately (never stuck on the previous one), then swaps to the cached blob
+    // below on a hit. Fixes the first-swap stale race (cold IndexedDB open resolves too late).
+    setResolvedUrl(originalUrl);
+
     getMediaBlob(originalUrl)
       .then((blob) => {
         if (cancelled) return;

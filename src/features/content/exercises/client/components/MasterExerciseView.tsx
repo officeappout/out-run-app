@@ -532,10 +532,7 @@ export default function MasterExerciseView({
 
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  // Tracks whether the user has explicitly tapped the method switcher (בית/פארק).
-  // false = show fullTutorial by default; true = show the selected method's per-method video.
-  const [hasUserPickedMethod, setHasUserPickedMethod] = useState(false);
-  useEffect(() => { setSwitcherOpen(false); setHasUserPickedMethod(false); }, [exercise.id]);
+  useEffect(() => { setSwitcherOpen(false); }, [exercise.id]);
 
   // Show the location badge only when at least 1 video method exists.
   const hasSwitcher = methodOptions.length >= 1;
@@ -581,47 +578,42 @@ export default function MasterExerciseView({
   // player re-renders the correct Bunny video on EVERY index change, before
   // sheetData even finishes re-computing (avoids one-frame stale video).
   interface HeroAssets {
-    video: ExternalVideo | undefined;
+    full: ExternalVideo | undefined;
+    preview: ExternalVideo | undefined;
     legacy: string | null;
     posterUrl: string | null;
   }
   const heroAssets = useMemo<HeroAssets>(() => {
     const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];
     const m = selectedMethodIdx !== null ? methods[selectedMethodIdx] : null;
-    if (!m) return { video: undefined, legacy: null, posterUrl: null };
-    // Prefer the Bunny ExternalVideo (preview → tutorial chain).
-    const video: ExternalVideo | undefined =
-      resolvePreviewForLang(m.media as any, 'he') ??
-      resolveTutorialForLang(m.media as any, 'he') ??
-      undefined;
+    if (!m) return { full: undefined, preview: undefined, legacy: null, posterUrl: null };
+    // Method-LOCKED to the selected method's OWN media only (never root, never another method).
+    const full = resolveTutorialForLang(m.media as any, 'he') ?? undefined;
+    const preview = resolvePreviewForLang(m.media as any, 'he') ?? undefined;
     // mainVideoUrl is the CDN string stored by the bulk-upload script.
     const legacy = m.media?.mainVideoUrl ?? null;
     // Poster: method-level image first, then exercise-level.
     const posterUrl = m.media?.imageUrl ?? exercise.media?.imageUrl ?? null;
-    return { video, legacy, posterUrl };
+    return { full, preview, legacy, posterUrl };
   }, [exercise, selectedMethodIdx]);
 
   if (!sheetData) return null;
 
-  // Show the tutorial player (controls, HLS) when there is any playable video source.
-  const tutorialAsHero = !!sheetData.tutorial || !!heroAssets.legacy;
-  const heroVideo  = sheetData.tutorial ?? heroAssets.video;
+  // ── Head video — method-LOCKED, full-first, stable across ANY number of toggles ──
+  //   1) the selected method's OWN full tutorial (long) → 2) else its OWN preview (short) →
+  //   3) else its OWN legacy mainVideoUrl (short clip). Never another method's media; never the
+  //   exercise-ROOT full (which would leak PARK's full onto a home/service method that only has a
+  //   preview). Independent of any "user picked" flag → stable across unlimited toggles.
+  const headExternal = heroAssets.full ?? heroAssets.preview;          // Bunny: full-first, else preview
+  const heroVideoForPlayer = headExternal;
+  const heroLegacyForPlayer = headExternal ? null : heroAssets.legacy; // legacy only when no Bunny source
+  // Last-resort exercise-ROOT full is DISABLED on purpose (prefer a clean poster over PARK's full
+  // under a home method). Enable ONLY if a no-full/preview/legacy method shows a broken/empty
+  // player instead of the poster:
+  //   const rootFull = (!headExternal && !heroLegacyForPlayer)
+  //     ? (resolveTutorialForLang(exercise.media as any, 'he') ?? undefined) : undefined;
+  const tutorialAsHero = !!heroAssets.full || !!heroLegacyForPlayer;
   const heroMode   = tutorialAsHero ? 'tutorial' : 'preview';
-
-  // ── Video source routing ───────────────────────────────────────────────────
-  // Default (hasUserPickedMethod = false):
-  //   • If fullTutorial exists → pass video=fullTutorial, no legacyVideoUrl.
-  //     ExerciseVideoPlayer shows the fullTutorial by default.
-  //   • If no fullTutorial (heroVideo=undefined) → pass legacyVideoUrl=mainVideoUrl
-  //     so the method's short clip still plays on load.
-  //
-  // After explicit method pick (hasUserPickedMethod = true):
-  //   • If method has mainVideoUrl → pass video=undefined + legacyVideoUrl=mainVideoUrl.
-  //     ExerciseVideoPlayer extracts the UUID and loads that stream via HLS.
-  //   • If method has no mainVideoUrl → fall back to fullTutorial (unchanged).
-  const preferPerMethod = hasUserPickedMethod || !heroVideo;
-  const heroVideoForPlayer  = (preferPerMethod && !!heroAssets.legacy) ? undefined : heroVideo;
-  const heroLegacyForPlayer = preferPerMethod ? heroAssets.legacy : null;
 
   return (
     <div dir="rtl">
@@ -709,7 +701,6 @@ export default function MasterExerciseView({
                         onSelect={(opt) => {
                           const idx = Number(opt.key);
                           setSelectedMethodIdx(idx);
-                          setHasUserPickedMethod(true);
                           // Persist the pick to the live workout (workout-preview context
                           // only; no-op read-only elsewhere).
                           const chosenMethod = (exercise.execution_methods ?? exercise.executionMethods ?? [])[idx];

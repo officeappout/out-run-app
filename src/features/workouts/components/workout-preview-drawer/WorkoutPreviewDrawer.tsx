@@ -190,7 +190,11 @@ export default function WorkoutPreviewDrawer({
   useEffect(() => {
     heroVideoRef.current?.load();
     heroVideoRef.current?.play().catch(() => {});
-  }, [cachedHeroVideo, heroMedia?.videoUrl]);
+    // Deps: cachedHeroVideo IS the effective src whenever the <video> renders (it's null only when
+    // heroMedia?.videoUrl is falsy → element not rendered). With the useCachedMediaUrl hook now
+    // re-resolving on url change, cachedHeroVideo tracks every change, so the videoUrl backstop dep
+    // is redundant.
+  }, [cachedHeroVideo]);
 
   const toggleAudio = useCallback(() => {
     setIsAudioEnabled((prev) => {
