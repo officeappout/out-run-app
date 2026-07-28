@@ -38,17 +38,6 @@ export interface SheetData {
   tips: string[];
 }
 
-function pickFullTutorial(ex: Exercise, lang = 'he'): ExternalVideo | undefined {
-  const top = resolveTutorialForLang(ex.media as any, lang as any);
-  if (top) return top;
-  const methods = ex.execution_methods ?? ex.executionMethods ?? [];
-  for (const m of methods) {
-    const mt = resolveTutorialForLang(m?.media as any, lang as any);
-    if (mt) return mt;
-  }
-  return undefined;
-}
-
 function pickLegacyVideoUrl(ex: Exercise): string | null {
   if (ex.media?.videoUrl) return ex.media.videoUrl;
   const methods = ex.execution_methods ?? ex.executionMethods ?? [];
@@ -137,13 +126,12 @@ export function buildSheetData(
     `mainVideoUrl="${method?.media?.mainVideoUrl ?? '–'}"`,
   );
 
-  // Resolve tutorial: location-specific method first, then exercise-level, then
-  // scan all other methods (preserves legacy behaviour for exercises that only
-  // have a single shared tutorial).
+  // C-Fix1: method-locked tutorial — the SELECTED method, then the exercise-root shared
+  // clip. Intentionally NO cross-method scan (was `?? pickFullTutorial(exercise)`), which
+  // pulled PARK's fullTutorial when a home/service method has only a previewVideo.
   const tutorial: ExternalVideo | undefined =
     resolveTutorialForLang(method?.media as any, 'he') ??
-    resolveTutorialForLang(exercise.media as any, 'he') ??
-    pickFullTutorial(exercise);
+    resolveTutorialForLang(exercise.media as any, 'he');
 
   // Legacy mainVideoUrl: prefer the matched method, fall back to full scan.
   const legacy = method?.media?.mainVideoUrl ?? pickLegacyVideoUrl(exercise);

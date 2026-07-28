@@ -182,6 +182,15 @@ export default function WorkoutPreviewDrawer({
   // effect below skips closing the detail drawer for that ONE update. A real workout-level
   // swap / regeneration does NOT raise it, so those still reset the drawer as before.
   const inPlaceEditRef = useRef(false);
+  // §1 (batch 1): keep ONE stable hero <video> and reload it on src change via ref + .load(),
+  // instead of remounting on a `key`. The remount mounted the new element with a STALE
+  // cachedHeroVideo (blob-cache lag) → froze on the old frame / flashed the poster. .load()
+  // reloads once the RESOLVED src is the new one; the method-locked <img> covers the load gap.
+  const heroVideoRef = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    heroVideoRef.current?.load();
+    heroVideoRef.current?.play().catch(() => {});
+  }, [cachedHeroVideo, heroMedia?.videoUrl]);
 
   const toggleAudio = useCallback(() => {
     setIsAudioEnabled((prev) => {
@@ -425,10 +434,8 @@ export default function WorkoutPreviewDrawer({
                         }}
                       />
                       {(cachedHeroVideo || heroMedia?.videoUrl) && (
-                        /* §1: key by the LOGICAL url (videoUrl wins) so the <video> remounts +
-                           reloads on a park→service swap — a plain <video> ignores src changes. */
                         <video
-                          key={heroMedia?.videoUrl || cachedHeroVideo || 'hero'}
+                          ref={heroVideoRef}
                           src={cachedHeroVideo || heroMedia?.videoUrl}
                           autoPlay
                           loop
