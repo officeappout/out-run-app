@@ -450,12 +450,21 @@ export default function WorkoutPreviewDrawer({
                           className="absolute inset-0 w-full h-full object-cover"
                         />
                       )}
-                      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent pointer-events-none" />
+                      <div
+                        className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent pointer-events-none"
+                        // iOS: own GPU layer so the promoted <video> layer can't paint above it.
+                        style={{ transform: 'translateZ(0)', willChange: 'transform', zIndex: 2 }}
+                      />
                       <div
                         className="absolute bottom-0 inset-x-0 h-[85%] pointer-events-none"
                         style={{
                           background:
                             'linear-gradient(to top, white 15%, rgba(255,255,255,0.6) 50%, transparent 100%)',
+                          // iOS: force this fade onto its OWN GPU compositing layer so the promoted
+                          // <video> layer never paints above it (raw-square-no-fade on switcher open).
+                          transform: 'translateZ(0)',
+                          willChange: 'transform',
+                          zIndex: 2,
                         }}
                       />
                     </div>
@@ -463,7 +472,7 @@ export default function WorkoutPreviewDrawer({
 
                   {/* Hero close button — fades with hero */}
                   <motion.div
-                    className="absolute top-0 right-0 px-3 pb-3 z-10"
+                    className="absolute top-0 right-0 px-3 pb-3 z-10 transform-gpu will-change-transform"
                     style={{
                       paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
                       opacity: imageOpacity,
@@ -482,7 +491,7 @@ export default function WorkoutPreviewDrawer({
 
                 {/* Workout title — compositor-thread scale collapse */}
                 <motion.div
-                  className="relative z-20 -mt-14 px-6 pb-2"
+                  className="relative z-20 -mt-14 px-6 pb-2 will-change-transform"
                   style={{
                     scale: titleScale,
                     originX: 1,
