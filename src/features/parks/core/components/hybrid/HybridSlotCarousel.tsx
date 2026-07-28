@@ -23,7 +23,7 @@ import { ArrowRight, Play } from 'lucide-react';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified';
-import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
+import { UNIFIED_ROUTE_CARDS_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import type { HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 
@@ -319,7 +319,19 @@ export default function HybridSlotCarousel({
             drag="x"
             dragConstraints={{ left: centerX - lastIndex * stride, right: centerX }}
             dragElastic={0.1}
-            onDragStart={() => { armedSlotIdRef.current = null; }} // a drag is not a tap → disarm
+            // Tap-vs-drag (MAP_OVERVIEW_CHROME_V1): the old onDragStart-disarm fired on
+            // ANY micro-drag, so a CTA tap with a few px of jitter was rejected — worse on
+            // non-first cards (e.g. full_park) that need a swipe to reach. Disarm ONLY past
+            // a ~10px REAL-drag threshold; a tap stays armed → onSelect fires. Paging is
+            // untouched (onDragEnd still pages at >40px). Flag OFF = the original behaviour.
+            onDragStart={MAP_OVERVIEW_CHROME_V1 ? undefined : () => { armedSlotIdRef.current = null; }}
+            onDrag={
+              MAP_OVERVIEW_CHROME_V1
+                ? (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+                    if (Math.abs(info.offset.x) > 10) armedSlotIdRef.current = null;
+                  }
+                : undefined
+            }
             onDragEnd={handleDragEnd}
           >
             {slots.map((slot, i) => {
