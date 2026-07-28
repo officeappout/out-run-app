@@ -38,7 +38,7 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { selectMethodForContext } from '@/features/workout-engine/shared/utils/method-selection.utils';
 import type { SwapDimension } from '@/features/workout-engine/shared/utils/method-dimension.utils';
 import { deriveSwappedEntry } from '../utils/derive-swapped-entry.util';
-import { getAlternativeExercises } from '@/features/workout-engine/generator/services/exercise-replacement.service';
+import { getAlternativeExercises, exerciseHasLocation } from '@/features/workout-engine/generator/services/exercise-replacement.service';
 import { normalizeEquipmentArray } from '@/features/workout-engine/core/middleware/InputSanitizerMiddleware';
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
@@ -113,6 +113,9 @@ export function useSwapAll({
         let keptMarked = 0;
 
         const newEntries: WorkoutExercise[] = [];
+        // Warm-up/cooldown entries omitted at last-resort (no method + no substitute at the new
+        // location). Restored below ONLY if a whole role-block would otherwise collapse to empty.
+        const omittedSupplemental: WorkoutExercise[] = [];
         for (const we of generatedWorkout.exercises) {
           // ── Role awareness (R Track 1 item 3) ──────────────────────────────
           // Warmup/cooldown blocks hold TWO kinds:
@@ -128,7 +131,22 @@ export function useSwapAll({
           const methodCount =
             (we.exercise.execution_methods ?? we.exercise.executionMethods ?? []).length;
           if (isWarmupOrCooldown && we.exercise.isFollowAlong === true && methodCount <= 1) {
-            // (a) follow-along guide → skip untouched, no mark.
+            // (a) follow-along guide. Keep it if it already covers newLocation; otherwise re-pick
+            // another follow-along from the pool that DOES cover newLocation (a home mobility clip
+            // for a home swap) instead of leaving a park video. If none exists, leave as-today
+            // (a location-agnostic joint-rotation clip is an acceptable degrade for a guide).
+            if (exerciseHasLocation(we.exercise, newLocation)) { newEntries.push(we); continue; }
+            const guide = (exercisePool ?? []).find(
+              (ex) => ex.isFollowAlong === true && !exclude.has(ex.id) && exerciseHasLocation(ex, newLocation),
+            );
+            const guideMethod = guide ? selectMethodForContext(guide, newLocation, gear) : null;
+            if (guide && guideMethod) {
+              newEntries.push(deriveSwappedEntry(we, guide, guideMethod));
+              exclude.add(guide.id);
+              oldToNew.set(we.exercise.id, guide.id);
+              swappedExercise++;
+              continue;
+            }
             newEntries.push(we);
             continue;
           }
@@ -147,9 +165,13 @@ export function useSwapAll({
             keptMarked++;
             continue;
           }
-          // 1) Method swap in place (same exercise, new-location method).
+          // 1) Method swap in place — GATED on a REAL new-location method. Without this gate
+          //    selectMethodForContext's bodyweight passthrough returns the exercise's OWN (park)
+          //    method for any gear-free move, so step 1 "succeeds" with unchanged park media and
+          //    the substitution ladder below never runs (that was the warmup-stays-park bug).
+          const hasNewLocationMethod = exerciseHasLocation(we.exercise, newLocation);
           const m = selectMethodForContext(we.exercise, newLocation, gear);
-          if (m && methodHasCompleteMedia(m)) {
+          if (hasNewLocationMethod && m && methodHasCompleteMedia(m)) {
             newEntries.push(deriveSwappedEntry(we, we.exercise, m));
             swappedMethod++;
             continue;
@@ -183,21 +205,36 @@ export function useSwapAll({
             swappedExercise++;
             continue;
           }
-          // 2.5) Last resort BEFORE keep+mark: the exercise IS performable at the new
-          //      location (`m` is a valid location method) — it only failed the strict
-          //      complete-media gate and no complete-media alternative was found. Swap
-          //      that method in anyway: a thumbnail that may lack its still image is far
-          //      better than a FALSE "דורש מתקן" badge on an exercise that needs no
-          //      station. This also keeps `collectEquipment` honest — the kept entry no
-          //      longer leaks the OLD location's gear into the workout equipment list.
+          // 2.5 / 3) Last resort — ROLE-AWARE. Warm-up/cooldown are supplementary: rather than
+          //    keep a park clip in a home session, OMIT the slot (collected for the collapse-guard
+          //    below so a role block never ends up empty). Mains must NOT be dropped (volume):
+          //    keep the performable-but-incomplete-media method in place (2.5 — still better than a
+          //    FALSE "דורש מתקן" badge and keeps collectEquipment honest), else keep+mark on a
+          //    genuine gear gap (3).
+          if (isWarmupOrCooldown) {
+            omittedSupplemental.push(we);
+            continue;
+          }
           if (m) {
             newEntries.push(deriveSwappedEntry(we, we.exercise, m));
             swappedMethod++;
             continue;
           }
-          // 3) Keep + mark — genuine equipment gap ONLY (no viable method here at all).
           newEntries.push({ ...we, dimensionUnavailable: { dimension, value } });
           keptMarked++;
+        }
+
+        // ── Collapse-guard: never let omitting supplemental exercises empty a whole role block.
+        //    If every warm-up (or every cooldown) was omitted, restore the omitted ones for that
+        //    role (as-today, possibly park media) so the block still renders — warm-ups lead,
+        //    cooldowns trail, original relative order preserved.
+        for (const roleName of ['warmup', 'cooldown'] as const) {
+          const survives = newEntries.some((e) => e.exerciseRole === roleName);
+          const omittedForRole = omittedSupplemental.filter((e) => e.exerciseRole === roleName);
+          if (!survives && omittedForRole.length > 0) {
+            if (roleName === 'warmup') newEntries.unshift(...omittedForRole);
+            else newEntries.push(...omittedForRole);
+          }
         }
 
         // ── Two-pass superset heal: re-point pairedWith across all replacements ──

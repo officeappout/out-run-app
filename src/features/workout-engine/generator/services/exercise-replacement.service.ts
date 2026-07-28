@@ -41,7 +41,7 @@ function methodMatchesLocation(method: ExecutionMethod, location: ExecutionLocat
   return false;
 }
 
-function exerciseHasLocation(exercise: Exercise, location: ExecutionLocation): boolean {
+export function exerciseHasLocation(exercise: Exercise, location: ExecutionLocation): boolean {
   if (!exercise.execution_methods || exercise.execution_methods.length === 0) return false;
   return exercise.execution_methods.some((m) => methodMatchesLocation(m, location));
 }
