@@ -53,7 +53,7 @@ export default function AnchorLocationChip({ value, onSelect }: AnchorLocationCh
           {/* click-away */}
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
           <div
-            className="absolute z-30 mt-1 right-0 min-w-[160px] overflow-hidden bg-white dark:bg-slate-800 shadow-lg"
+            className="absolute z-30 mt-1 left-0 min-w-[160px] overflow-hidden bg-white dark:bg-slate-800 shadow-lg"
             style={{ borderRadius: 12, border: '1px solid #E0E9FF' }}
           >
             {options.map((o) => {

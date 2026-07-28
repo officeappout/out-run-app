@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import { X, MapPin } from 'lucide-react';
@@ -178,6 +178,10 @@ export default function WorkoutPreviewDrawer({
   const [isWarmupActive, setIsWarmupActive] = useState(true);
   const [detailExercise, setDetailExercise] =
     useState<EngineWorkoutExercise | null>(null);
+  // §2: raised by an in-place per-exercise method swap so the [generatedWorkout] reset
+  // effect below skips closing the detail drawer for that ONE update. A real workout-level
+  // swap / regeneration does NOT raise it, so those still reset the drawer as before.
+  const inPlaceEditRef = useRef(false);
 
   const toggleAudio = useCallback(() => {
     setIsAudioEnabled((prev) => {
@@ -236,6 +240,7 @@ export default function WorkoutPreviewDrawer({
           ? { ...we, method: method as typeof we.method, wasSwapped: true, dimensionUnavailable: undefined }
           : we,
       );
+      inPlaceEditRef.current = true; // §2: keep the detail drawer open across this in-place update
       onGeneratedWorkoutUpdate?.({ ...generatedWorkout, exercises: updatedExercises });
       setDetailExercise((prev) => (prev ? { ...prev, method: method as typeof prev.method } : prev));
     },
@@ -256,6 +261,10 @@ export default function WorkoutPreviewDrawer({
   // (guarded by the early return), so it never triggers on the skeleton phase.
   useEffect(() => {
     if (!generatedWorkout) return;
+    // §2: an in-place per-exercise swap already re-synced detailExercise itself — skip the
+    // reset AND clear the flag HERE (same effect, not a cleanup) so the next real workout
+    // swap / regeneration still resets the drawer.
+    if (inPlaceEditRef.current) { inPlaceEditRef.current = false; return; }
     setIsWarmupExpanded(false);
     setIsWarmupActive(true);
     setDetailExercise(null);
@@ -416,7 +425,10 @@ export default function WorkoutPreviewDrawer({
                         }}
                       />
                       {(cachedHeroVideo || heroMedia?.videoUrl) && (
+                        /* §1: key by the LOGICAL url (videoUrl wins) so the <video> remounts +
+                           reloads on a park→service swap — a plain <video> ignores src changes. */
                         <video
+                          key={heroMedia?.videoUrl || cachedHeroVideo || 'hero'}
                           src={cachedHeroVideo || heroMedia?.videoUrl}
                           autoPlay
                           loop
