@@ -12,8 +12,13 @@
  * tabata — two timed modes must never double-fire.
  */
 import type { TabataBlockSpec, WorkoutExercise } from '../workout-generator.types';
-import type { Exercise } from '@/features/content/exercises/core/exercise.types';
+import type {
+  Exercise,
+  ExecutionLocation,
+  ExecutionMethod,
+} from '@/features/content/exercises/core/exercise.types';
 import { getIsometricTimeCap } from '../workout-budgeting.utils';
+import { selectMethodForContext } from '../../shared/utils/method-selection.utils';
 import {
   TABATA_CLASSIC,
   TABATA_MIN_EXERCISES,
@@ -35,7 +40,16 @@ import {
 export function buildTabataBlock(
   setType: string,
   exercises: WorkoutExercise[],
-  context: { intentMode?: string; tabataPool?: Exercise[]; userLevel?: number },
+  context: {
+    intentMode?: string;
+    tabataPool?: Exercise[];
+    userLevel?: number;
+    /** Session location + gear — used to resolve each pool-injected member's
+     *  ExecutionMethod (park → bodyweight → exclude, NEVER home). Absent ⇒ the
+     *  legacy no-resolution path (unit tests). See buildTabataFromPool. */
+    location?: string;
+    availableEquipment?: string[];
+  },
 ): TabataBlockSpec | undefined {
   if (setType !== 'tabata') return undefined;
 
@@ -50,7 +64,13 @@ export function buildTabataBlock(
   // production path; the mains-subset logic below is the no-pool fallback
   // (unit tests, or a missing pool).
   if (context.tabataPool?.length) {
-    return buildTabataFromPool(exercises, context.tabataPool, context.userLevel ?? 1);
+    return buildTabataFromPool(
+      exercises,
+      context.tabataPool,
+      context.userLevel ?? 1,
+      context.location as ExecutionLocation | undefined,
+      context.availableEquipment ?? [],
+    );
   }
 
   // ── Eligibility (David's rules, 12.07.2026) ───────────────────────────
@@ -142,13 +162,20 @@ function poolLevelOf(ex: Exercise): number {
   return lv.length ? Math.min(...lv) : 1;
 }
 
+/** A pool exercise paired with the ExecutionMethod resolved for THIS session's
+ *  location + gear (undefined only on the legacy no-location path). */
+interface PoolCandidate {
+  exercise: Exercise;
+  method: ExecutionMethod | undefined;
+}
+
 /** Largest valid 2-4 subset whose interval costs (unilateral=2) tile 8 exactly. */
-function pickTilingSubset(cands: Exercise[]): Exercise[] | null {
-  let best: Exercise[] | null = null;
+function pickTilingSubset(cands: PoolCandidate[]): PoolCandidate[] | null {
+  let best: PoolCandidate[] | null = null;
   for (let mask = 1; mask < 1 << cands.length; mask++) {
     const subset = cands.filter((_, i) => (mask & (1 << i)) !== 0);
     if (subset.length < TABATA_MIN_EXERCISES || subset.length > TABATA_MAX_EXERCISES) continue;
-    const cost = subset.reduce((s, e) => s + tabataIntervalCost(e.symmetry), 0);
+    const cost = subset.reduce((s, c) => s + tabataIntervalCost(c.exercise.symmetry), 0);
     if (cost > TABATA_CLASSIC.rounds || TABATA_CLASSIC.rounds % cost !== 0) continue;
     if (!best || subset.length > best.length) best = subset; // prefer more members (variety)
   }
@@ -161,15 +188,43 @@ function pickTilingSubset(cands: Exercise[]): Exercise[] | null {
  * (level-less defaults IN, easy-biased), interval costs tiling 8 — and PUSH
  * them into the workout as a protocolBlock finisher (added, not replacing).
  * Returns undefined (→ straight) when the pool can't yield a valid 2-4 subset.
+ *
+ * Method resolution (David 29.07): the pool is raw Firestore data that never
+ * passed through the ContextualEngine, so each member's ExecutionMethod is
+ * resolved HERE via the single-source `selectMethodForContext` — the same
+ * park→bodyweight→exclude ladder every other injection site uses. Members the
+ * location gates out (ParkGating → null) are dropped from the candidate set
+ * BEFORE composition, so the block never ships a move that can't be performed
+ * here. Without this the member carried an empty method `{}` and the media
+ * resolver fell through to `executionMethods[0]` — authored home-first, which
+ * is why a park workout rendered home images.
  */
 function buildTabataFromPool(
   target: WorkoutExercise[],
   pool: Exercise[],
   userLevel: number,
+  location: ExecutionLocation | undefined,
+  availableGear: string[],
 ): TabataBlockSpec | undefined {
-  const eligible = pool
-    .filter((ex) => getIsometricTimeCap(ex) >= TABATA_CLASSIC.workSec && poolLevelOf(ex) <= userLevel)
-    .sort((a, b) => poolLevelOf(a) - poolLevelOf(b)); // easiest first
+  const atLevel = pool.filter(
+    (ex) => getIsometricTimeCap(ex) >= TABATA_CLASSIC.workSec && poolLevelOf(ex) <= userLevel,
+  );
+
+  // Resolve the session-valid method per candidate; drop the location-gated ones.
+  // No location (unit tests) ⇒ resolution skipped, candidates pass through.
+  const eligible: PoolCandidate[] = (location
+    ? atLevel
+        .map((ex) => ({ exercise: ex, method: selectMethodForContext(ex, location, availableGear) ?? undefined }))
+        .filter((c) => c.method != null)
+    : atLevel.map((ex) => ({ exercise: ex, method: undefined }))
+  ).sort((a, b) => poolLevelOf(a.exercise) - poolLevelOf(b.exercise)); // easiest first
+
+  if (location && eligible.length < atLevel.length) {
+    console.log(
+      `[TabataBlock] pool: ${atLevel.length - eligible.length} of ${atLevel.length} ≤L${userLevel} ` +
+      `candidate(s) dropped — no valid method at location '${location}'`,
+    );
+  }
 
   if (eligible.length < TABATA_MIN_EXERCISES) {
     console.log(`[TabataBlock] pool: only ${eligible.length} eligible ≤L${userLevel} — reverting to straight`);
@@ -189,10 +244,12 @@ function buildTabataFromPool(
     return undefined;
   }
 
-  for (const ex of members) {
+  for (const { exercise: ex, method } of members) {
     target.push({
       exercise: ex,
-      method: {} as WorkoutExercise['method'],
+      // Session-resolved method (see header). Legacy no-location path keeps the
+      // previous empty-object shape rather than inventing one.
+      method: (method ?? {}) as WorkoutExercise['method'],
       mechanicalType: ex.mechanicalType ?? 'none',
       sets: 1,
       reps: TABATA_CLASSIC.workSec,
@@ -209,9 +266,12 @@ function buildTabataFromPool(
 
   console.log(
     `[TabataBlock] ✅ pool-injected ${members.length} conditioning member(s): ` +
-    `[${members.map((m) => (m.name as { he?: string })?.he ?? m.id).join(', ')}]`,
+    `[${members.map(({ exercise: m, method }) =>
+      `${(m.name as { he?: string })?.he ?? m.id}` +
+      `${method ? ` (${method.location ?? '?'}/${method.methodName ?? 'method'})` : ''}`,
+    ).join(', ')}]`,
   );
-  return { config: TABATA_CLASSIC, exerciseIds: members.map((m) => m.id) };
+  return { config: TABATA_CLASSIC, exerciseIds: members.map((m) => m.exercise.id) };
 }
 
 /**

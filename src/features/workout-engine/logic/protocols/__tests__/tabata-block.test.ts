@@ -283,3 +283,103 @@ describe('buildTabataBlock — pool-injection (David 25.07)', () => {
     expect(t.filter((e) => e.protocolBlock === 'tabata').length).toBe(0);
   });
 });
+
+// ── Method resolution on the injected members (David 29.07) ────────────────
+// The pool is raw Firestore data that never passed the ContextualEngine, so the
+// block resolves each member's method itself. Before the fix members carried an
+// empty `{}` and the media resolver fell back to executionMethods[0] — authored
+// home-first — which rendered HOME images inside a PARK workout.
+describe('buildTabataBlock — pool-injection method resolution', () => {
+  /** Pool exercise with explicit authored methods (home first, park second —
+   *  the real corpus ordering that caused the bug). */
+  const poolExWithMethods = (
+    id: string,
+    methods: Array<Partial<{ location: string; methodName: string; equipmentIds: string[]; media: unknown }>>,
+  ): Exercise =>
+    ({
+      id,
+      name: { he: id },
+      symmetry: 'bilateral',
+      movementGroup: 'squat',
+      tags: ['hiit_friendly'],
+      targetPrograms: [],
+      executionMethods: methods,
+    } as unknown as Exercise);
+
+  const homeThenPark = (id: string) =>
+    poolExWithMethods(id, [
+      { location: 'home', methodName: 'home', media: { imageUrl: `${id}-HOME.jpg` } },
+      { location: 'park', methodName: 'park', media: { imageUrl: `${id}-PARK.jpg` } },
+    ]);
+
+  it('attaches the PARK method (not executionMethods[0] = home) at a park session', () => {
+    const target: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [homeThenPark('burpee'), homeThenPark('bicycle')],
+      userLevel: 4,
+      location: 'park',
+      availableEquipment: [],
+    });
+
+    expect(block).toBeDefined();
+    const injected = target.filter((e) => e.protocolBlock === 'tabata');
+    expect(injected.length).toBeGreaterThanOrEqual(2);
+    // THE REGRESSION LOCK: a real, park-tagged method — never the empty `{}`
+    // that let the media resolver fall through to the home-first method.
+    for (const m of injected) {
+      expect(m.method).toBeTruthy();
+      expect(Object.keys(m.method as object).length).toBeGreaterThan(0);
+      expect((m.method as { location?: string }).location).toBe('park');
+      expect((m.method as { media?: { imageUrl?: string } }).media?.imageUrl).toContain('-PARK');
+    }
+  });
+
+  it('attaches the HOME method at a home session', () => {
+    const target: WorkoutExercise[] = [];
+    buildTabataBlock('tabata', target, {
+      tabataPool: [homeThenPark('burpee'), homeThenPark('bicycle')],
+      userLevel: 4,
+      location: 'home',
+      availableEquipment: [],
+    });
+    const injected = target.filter((e) => e.protocolBlock === 'tabata');
+    expect(injected.length).toBeGreaterThanOrEqual(2);
+    for (const m of injected) {
+      expect((m.method as { location?: string }).location).toBe('home');
+    }
+  });
+
+  it('drops location-gated members (park method needs absent gear) before composition', () => {
+    // Gated: its ONLY park method requires gear the park does not have →
+    // selectMethodForContext returns null → must not reach the block.
+    const gated = poolExWithMethods('needs-trx', [
+      { location: 'park', methodName: 'trx', equipmentIds: ['trx'], media: { imageUrl: 'trx-PARK.jpg' } },
+    ]);
+    const target: WorkoutExercise[] = [];
+    const block = buildTabataBlock('tabata', target, {
+      tabataPool: [homeThenPark('burpee'), homeThenPark('bicycle'), gated],
+      userLevel: 4,
+      location: 'park',
+      availableEquipment: [],
+    });
+
+    expect(block).toBeDefined();
+    expect(block!.exerciseIds).not.toContain('needs-trx');
+    expect(target.some((e) => e.exercise.id === 'needs-trx')).toBe(false);
+  });
+
+  it('too few survivors after gating → undefined (revert to straight), nothing injected', () => {
+    const gated = (id: string) =>
+      poolExWithMethods(id, [{ location: 'park', methodName: 'trx', equipmentIds: ['trx'] }]);
+    const target: WorkoutExercise[] = [];
+    expect(
+      buildTabataBlock('tabata', target, {
+        tabataPool: [homeThenPark('burpee'), gated('g1'), gated('g2')],
+        userLevel: 4,
+        location: 'park',
+        availableEquipment: [],
+      }),
+    ).toBeUndefined();
+    expect(target.length).toBe(0);
+  });
+});
