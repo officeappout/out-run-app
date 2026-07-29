@@ -125,6 +125,15 @@ export interface HybridComposeInput {
   stopCandidates: HybridStopCandidate[];
   /** User override for station count (autonomy). Clamped to [1, 4]. */
   stationOverride?: number;
+  /**
+   * Stop-selection strategy (route-stops §1). Default 'even_spacing' = the historical
+   * behaviour — selectStops enforces the ±25% gate and degrades to one stop on no-fit.
+   * 'as_provided' = ANCHOR mode: the caller placed these stops deliberately (a route
+   * with POIs on it), so honour ALL of them in path order, bypassing the spacing gate
+   * (which is about even AUTO-placement and must never drop a hand-placed POI).
+   * Omitted / undefined → 'even_spacing', byte-identical for every existing caller.
+   */
+  stopSelection?: 'even_spacing' | 'as_provided';
   /** Level-filtered master exercise pool (caller fetches; composer never does I/O). */
   masterExercises: Exercise[];
   /** Base ContextualEngine context — equipment is overridden PER STOP (§4b). */
@@ -458,12 +467,29 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
   // ── Steps 3+7: fit stations to route (degrade S on no-fit) ───────────────
   let selection: ScoredSelection | null = null;
   let usedFieldFallback = false;
-  while (stations >= STATION_MIN && !selection) {
-    const legTargetKm = routeKm / (stations + 1);
-    selection = selectStops(candidatesByKm, stations, legTargetKm, routeKm);
-    if (!selection) {
-      log.push(`fit: no ${stations}-stop combination within ±${STOP_FIT_TOLERANCE * 100}% — degrading`);
-      stations -= 1;
+  if (input.stopSelection === 'as_provided') {
+    // ANCHOR mode (route-stops §1a): the caller placed these stops deliberately, on/near
+    // the route. Honour ALL of them in path order — the ±25% spacing gate governs even
+    // AUTO-placement and must never drop a hand-placed POI. Cap at STATION_MAX (logged,
+    // no silent truncation). Zero candidates → selection stays null → the field fallback
+    // below fires (bodyweight mid-route), never an empty plan.
+    const chosen = candidatesByKm.slice(0, STATION_MAX);
+    if (candidatesByKm.length > STATION_MAX) {
+      log.push(`as_provided: ${candidatesByKm.length} stops provided → capped at STATION_MAX (${STATION_MAX})`);
+    }
+    if (chosen.length) {
+      selection = { chosen, score: 0 };
+      stations = chosen.length;
+      log.push(`as_provided: ${chosen.length} stop(s) at [${chosen.map((c) => c.km.toFixed(2)).join(', ')}]km (spacing gate bypassed)`);
+    }
+  } else {
+    while (stations >= STATION_MIN && !selection) {
+      const legTargetKm = routeKm / (stations + 1);
+      selection = selectStops(candidatesByKm, stations, legTargetKm, routeKm);
+      if (!selection) {
+        log.push(`fit: no ${stations}-stop combination within ±${STOP_FIT_TOLERANCE * 100}% — degrading`);
+        stations -= 1;
+      }
     }
   }
   if (!selection) {
