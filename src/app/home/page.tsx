@@ -41,8 +41,7 @@ import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_DAILY_GOAL_V1, POST_WORKOUT_LANDING_V1, HOME_DAY_SELECT_SCOPE_V1, BLOCK_B_SMART_CLOSE_V1 } from '@/config/feature-flags';
 import PostWorkoutSummaryStrip from '@/features/home/components/PostWorkoutSummaryStrip';
-import PostWorkoutSuggestionCard from '@/features/home/components/PostWorkoutSuggestionCard';
-import { buildPostWorkoutSuggestion } from '@/features/home/utils/postWorkoutSuggestion';
+import PostWorkoutSmartClose from '@/features/home/components/PostWorkoutSmartClose';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -541,18 +540,6 @@ export default function HomePage() {
   // a bounded follow-up — see the review notes.
   const completionCtaLabel =
     dailyGoalCard && !dailyGoalCard.met ? 'להשלים את היעד — עוד אימון קצר' : undefined;
-
-  // BLOCK_B_SMART_CLOSE_V1 (wave-1): build the post_workout Suggestion from the endMode
-  // handoff. null when the flag is off or there's no endMode → nothing renders
-  // (byte-identical). The full assembler replaces only this builder, not the surface.
-  const postWorkoutSuggestion = BLOCK_B_SMART_CLOSE_V1
-    ? buildPostWorkoutSuggestion({
-        endMode: postWorkoutData?.endMode,
-        intendedDurationMin: postWorkoutData?.intendedDurationMin,
-        domainsCompleted: postWorkoutData?.domainsCompleted,
-        trainedCore: postWorkoutData?.trainedCore,
-      })
-    : null;
 
   // POST_WORKOUT_LANDING_V1 (Block A): the top summary-strip ring reads the STABLE
   // daily strength target (setsCompleted / targetSets) — NOT HOME_DAILY_GOAL_V1's
@@ -1471,11 +1458,18 @@ export default function HomePage() {
                 card driven solely by Firestore `dailyProgress.workoutCompleted`.
             Either path keeps the action zone replaced — no empty layout gap. */}
         {completionForToday && (postWorkoutData || todayWorkoutDone) && completionData && (
-          BLOCK_B_SMART_CLOSE_V1 && postWorkoutSuggestion ? (
+          BLOCK_B_SMART_CLOSE_V1 && postWorkoutData?.endMode ? (
             /* Block B wave-1: the post_workout recommendation (message + stretches by
-               endMode) takes the anchor slot, ahead of the Block A bridge. Flag OFF or no
-               endMode → falls through to the bridge/card → byte-identical. */
-            <PostWorkoutSuggestionCard suggestion={postWorkoutSuggestion} />
+               endMode) takes the anchor slot, ahead of the Block A bridge. PostWorkoutSmartClose
+               OWNS the recovery fetch (wave-1b) + steps hook (wave-1c) — it's unmounted when the
+               flag is off, so those never run → byte-identical. Flag OFF or no endMode → falls
+               through to the bridge/card. */
+            <PostWorkoutSmartClose
+              endMode={postWorkoutData.endMode}
+              intendedDurationMin={postWorkoutData.intendedDurationMin}
+              domainsCompleted={postWorkoutData.domainsCompleted}
+              trainedCore={postWorkoutData.trainedCore}
+            />
           ) : POST_WORKOUT_LANDING_V1 ? (
             /* Block A bridge: the summary moved UP to the top strip, so the anchor slot
                keeps ONLY the "another workout" continuation (Block B replaces this with
