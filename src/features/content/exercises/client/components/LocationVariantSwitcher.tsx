@@ -11,6 +11,8 @@
  * methods; bulk = the 3 locations) and owns the open/select state.
  */
 
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Home,
   Trees,
@@ -87,8 +89,38 @@ export default function LocationVariantSwitcher({
   const activeMeta = locationMeta(activeLocation);
   const ActiveIcon = activeMeta.Icon;
 
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Portaled-dropdown position: viewport coords under the badge, computed when it opens. Portaling
+  // to <body> lifts the click-away/listbox OUT of the drawer's transformed subtree + the hero's
+  // stacking context, so mounting them no longer forces iOS to re-composite the hero <video>.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  useEffect(() => {
+    if (!open) { setPos(null); return; }
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const WIDTH = 200; // min-w-[190] + headroom for the viewport clamp
+    setPos({
+      top: rect.bottom + 8, // was mt-2
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - WIDTH - 8)), // was left-0, clamped on-screen
+    });
+    // A fixed dropdown would detach from the badge on scroll → close it (both surfaces put the badge
+    // inside an overflow-y-auto sheet). capture:true catches scroll on any ancestor scroller.
+    const close = () => onCloseRef.current();
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
+
   return (
-    <div className="relative flex-shrink-0">
+    <div ref={anchorRef} className="relative flex-shrink-0">
       {/* Active-variant badge / trigger */}
       <button
         type="button"
@@ -110,21 +142,25 @@ export default function LocationVariantSwitcher({
         )}
       </button>
 
-      {open && (
-        <>
-          {/* Click-away catcher (absolute, not fixed — framer-motion transform breaks fixed). */}
+      {open && mounted && pos && createPortal(
+        <div className="fixed inset-0 z-[200]">
+          {/* Click-away — portaled to <body>, so `fixed` works (no framer-motion transform ancestor)
+              and it no longer overlaps the hero inside the drawer's stacking context → opening the
+              dropdown no longer re-composites the hero <video>. */}
           <button
             type="button"
             aria-label="סגור"
             onPointerDown={onClose}
-            className="absolute z-40 cursor-default"
-            style={{ inset: '-200vh -200vw' }}
+            className="absolute inset-0 cursor-default"
           />
-          {/* Option list */}
+          {/* Option list — fixed at the badge's viewport rect. z-[200] (top of the budget) so this
+              body-portal sits above the drawer (z-[100]) AND the MEV host ExerciseDetailDrawer
+              (z-[200], inline) — a later body-portal wins the tie by DOM order. */}
           <div
             role="listbox"
             dir="rtl"
-            className="absolute top-full left-0 mt-2 z-50 min-w-[190px] bg-white rounded-2xl shadow-floating border border-slate-100 p-1.5"
+            className="absolute min-w-[190px] bg-white rounded-2xl shadow-floating border border-slate-100 p-1.5"
+            style={{ top: pos.top, left: pos.left }}
           >
             {options.map((opt) => {
               const optMeta = locationMeta(opt.location);
@@ -204,7 +240,8 @@ export default function LocationVariantSwitcher({
               );
             })}
           </div>
-        </>
+        </div>,
+        document.body,
       )}
     </div>
   );
