@@ -381,6 +381,24 @@ async function composeRouteStopsWorkout(
     levelTolerance: ROUTE_STOPS_LEVEL_TOLERANCE,
   };
 
+  // Bug 5b (part 2/2) — TARGET-DERIVED domain coverage:
+  //  • requiredDomains = the user's active-program child domains. This makes the station's
+  //    strategy reflect the user's TARGET (a full-body user requires legs; an upper-only user
+  //    does NOT get legs forced) — exactly like home's FullBodyGuarantee fires only for full_body.
+  //  • globalExercisePool = a bodyweight FIELD pool so the domain-quota / FullBodyDomainGuarantee
+  //    can fall back to BODYWEIGHT (squat/lunge) for a TARGET domain the park has no equipment for.
+  // Both scoped to route-stops via generationContext → byte-identical everywhere else.
+  const [{ resolveChildDomainsForParent }, { filterExercisesContextually }] = await Promise.all([
+    import('../services/program-hierarchy.utils'),
+    import('../logic/ContextualEngine'),
+  ]);
+  const activeProgramId = (profile as any)?.progression?.activePrograms?.[0]?.templateId;
+  const targetDomains = resolveChildDomainsForParent(activeProgramId, profile as any);
+  const bodyweightGuaranteePool = filterExercisesContextually(masterExercises, {
+    ...filterContext, availableEquipment: [], intentMode: 'field',
+  }).exercises.map((e) => e.exercise);
+  console.log(`[route-stops] targetDomains=[${targetDomains.join(',')}] bodyweightPool=${bodyweightGuaranteePool.length}`);
+
   // One plan per bolt (קל/בינוני/קשוח) — same route + stops, difficulty drives the engine.
   const buildForBolt = (difficulty: 1 | 2 | 3): HybridPlan => {
     const generationContext: WorkoutGenerationContext = {
@@ -388,6 +406,9 @@ async function composeRouteStopsWorkout(
       location: 'park', injuryCount: 0,
       difficulty: difficulty as WorkoutGenerationContext['difficulty'],
       userWeight: userWeightKg, userProgramLevels,
+      // Bug 5b: target-derived domain coverage + bodyweight fallback (built above).
+      ...(targetDomains.length > 0 ? { requiredDomains: targetDomains } : {}),
+      globalExercisePool: bodyweightGuaranteePool,
     };
     return composeHybridSession({
       timeBudgetMin: intent.timeBudgetMin, emphasis: intent.emphasis, aerobicKind: intent.aerobicKind,
