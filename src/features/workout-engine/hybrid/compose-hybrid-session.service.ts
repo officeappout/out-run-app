@@ -134,6 +134,15 @@ export interface HybridComposeInput {
    * Omitted / undefined → 'even_spacing', byte-identical for every existing caller.
    */
   stopSelection?: 'even_spacing' | 'as_provided';
+  /**
+   * Per-station domain strategy (route-stops Bug 2a). Default 'per_station' = the
+   * historical behaviour — each station takes ONE cycling domain focus (push→pull→legs),
+   * which is right for the multi-station budget-split card. 'multi' forces the MIXED
+   * (undefined-focus) path for EVERY station so a single route stop becomes a real
+   * full-body workout (iron where available, bodyweight for the rest) instead of a
+   * single-domain slice. Omitted → 'per_station', byte-identical for every existing caller.
+   */
+  stationDomainMode?: 'per_station' | 'multi';
   /** Level-filtered master exercise pool (caller fetches; composer never does I/O). */
   masterExercises: Exercise[];
   /** Base ContextualEngine context — equipment is overridden PER STOP (§4b). */
@@ -393,10 +402,13 @@ function dispatchStopContent(
       const block = generateStrengthBlock({
         blockMinutes,
         scoredPool,
-        // Bodyweight → MIXED focus: a single-domain focus like 'pull' is
-        // impossible with zero equipment (a bar is required) and yields an empty
-        // block. Equipment stops keep their weekly-deficit domain focus.
-        domainFocus: isBodyweight ? undefined : focus,
+        // Domain focus:
+        // • 'multi' (route-stops Bug 2a) → MIXED (undefined) for EVERY station, so a
+        //   single stop is a real full-body workout (iron where available, bodyweight
+        //   for the rest) instead of a single-domain slice.
+        // • else (budget-split default) → bodyweight is MIXED (a single-domain focus is
+        //   impossible with zero equipment), equipment stops keep their cycling domain.
+        domainFocus: input.stationDomainMode === 'multi' ? undefined : (isBodyweight ? undefined : focus),
         context: input.generationContext,
         rest: STATION_REST,
       });
@@ -599,7 +611,9 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
         parkId: stop.candidate.parkId,
         locationKind: stop.candidate.locationKind,
         activityType: stop.candidate.activityType ?? 'strength',
-        domainFocus: stop.focus,
+        // 'multi' (Bug 2a): the station is full-body → no single-domain label/icon (UI
+        // falls back to the generic "כוח" glyph). Else keep the cycling domain.
+        domainFocus: input.stationDomainMode === 'multi' ? undefined : stop.focus,
         content: stop.content,
         durationSec: stop.content.estimatedDurationSec,
         estCalories: stationCalories,
