@@ -1462,17 +1462,16 @@ export default function HomePage() {
             Either path keeps the action zone replaced — no empty layout gap. */}
         {completionForToday && (postWorkoutData || todayWorkoutDone) && completionData && (
           BLOCK_B_SMART_CLOSE_V1 && postWorkoutData?.endMode ? (
-            /* Block B wave-1: the post_workout recommendation (message + stretches by
-               endMode) takes the anchor slot, ahead of the Block A bridge. PostWorkoutSmartClose
-               OWNS the recovery fetch (wave-1b) + steps hook (wave-1c) — it's unmounted when the
-               flag is off, so those never run → byte-identical. Flag OFF or no endMode → falls
-               through to the bridge/card. */
+            /* Block B: reuses the SAME designed completion card (A) as the else-branch below,
+               plus the recovery card (and Stage 2's next-step options). PostWorkoutSmartClose
+               OWNS the recovery generation — unmounted when the flag is off → byte-identical.
+               strengthRingPct feeds A's ring the workout-moved % (Stage 1a 0-bug fix). */
             <PostWorkoutSmartClose
-              endMode={postWorkoutData.endMode}
-              intendedDurationMin={postWorkoutData.intendedDurationMin}
-              domainsCompleted={postWorkoutData.domainsCompleted}
-              trainedCore={postWorkoutData.trainedCore}
+              completionData={completionData}
               strengthRingPct={postWorkoutData.dailyStrengthPct}
+              onRequestMore={handleRequestMore}
+              ctaLabel={completionCtaLabel}
+              onDismissCelebration={handleDismissCelebration}
               userGender={profile?.core?.gender}
             />
           ) : POST_WORKOUT_LANDING_V1 ? (
