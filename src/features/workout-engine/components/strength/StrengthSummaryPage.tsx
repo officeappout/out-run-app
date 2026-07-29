@@ -126,6 +126,10 @@ export interface StrengthSummaryPageProps {
 
   /** Per-domain set counts for weekly volume tracking (Phase 3). */
   domainSets?: Record<string, number>;
+  /** BLOCK_B_SMART_CLOSE_V1 (F): how the session ended + chosen target duration
+   *  (consumed per shared contract §4.1; carried to the post-workout handoff). */
+  endMode?: 'full' | 'short' | 'quit';
+  intendedDurationMin?: number;
 }
 
 // ============================================================================
@@ -152,6 +156,8 @@ export default function StrengthSummaryPage({
   rawExerciseLog,
   precomputedProgression,
   domainSets,
+  endMode,
+  intendedDurationMin,
 }: StrengthSummaryPageProps) {
   // ── User profile (for lifestyle CTA gate) ──
   const { profile } = useUserStore();
@@ -220,6 +226,8 @@ export default function StrengthSummaryPage({
     difficultyBolts,
     isRecovery,
     domainSets,
+    endMode,
+    intendedDurationMin,
   });
 
   const xp = useXpAward({

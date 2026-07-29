@@ -61,7 +61,7 @@ export type { ExerciseResultLog };
 
 interface StrengthRunnerProps {
   workout: WorkoutPlan;
-  onComplete?: (exerciseLog?: ExerciseResultLog[]) => void;
+  onComplete?: (exerciseLog?: ExerciseResultLog[], meta?: { exitedEarly?: boolean }) => void;
   onPause?: () => void;
   onResume?: () => void;
   onSwapExercise?: (exerciseId: string, segmentIndex: number, exerciseIndex: number) => void;
@@ -316,7 +316,7 @@ export default function StrengthRunner({
 
   const handleEarlyExit = useCallback(() => {
     setShowExitConfirmModal(false);
-    onComplete?.(sm.getExerciseLog());
+    onComplete?.(sm.getExerciseLog(), { exitedEarly: true });
   }, [sm.getExerciseLog, onComplete]);
 
   // Android hardware back button → open the exit confirmation modal instead

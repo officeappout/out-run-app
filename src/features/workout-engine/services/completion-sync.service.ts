@@ -37,6 +37,13 @@ export interface CompletionPayload {
    */
   exerciseCount?: number;
   /**
+   * BLOCK_B_SMART_CLOSE_V1 (F): how the session ended (`full`/`short`/`quit`) + the chosen
+   * target duration (minutes). Consumed per the shared rec-engine contract §4.1 — carried
+   * to the post-workout handoff for the "smart close" layer. Optional; strength caller sets it.
+   */
+  endMode?: 'full' | 'short' | 'quit';
+  intendedDurationMin?: number;
+  /**
    * Multi-category split (hybrid). When present, minutes/calories are logged
    * PER category in ONE atomic activity-store write (e.g. cardio legs + strength
    * station) instead of the single `activityCategory`. The once-per-session
@@ -142,6 +149,10 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
         // rendered celebration stays byte-identical.
         calories: payload.calories,
         exerciseCount: payload.exerciseCount,
+        // BLOCK_B_SMART_CLOSE_V1 (F): endMode + intended duration. undefined when the flag
+        // is off → JSON.stringify omits them → byte-identical handoff.
+        endMode: payload.endMode,
+        intendedDurationMin: payload.intendedDurationMin,
       }),
     );
   }

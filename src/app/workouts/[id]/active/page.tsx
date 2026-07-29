@@ -35,7 +35,7 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
-import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
+import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, BLOCK_B_SMART_CLOSE_V1 } from '@/config/feature-flags';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { Target, Sparkles, Flame } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
@@ -62,6 +62,10 @@ interface WorkoutStats {
   startTime: number;          // Timestamp when workout started
   rawExerciseLog: ExerciseResultLog[]; // Actual confirmed reps with correct targetReps
   domainSets?: Record<string, number>; // Per-domain set counts (Phase 3)
+  // BLOCK_B_SMART_CLOSE_V1 (F): how the session ended + the chosen target duration.
+  // Consumed per the shared contract §4.1 (inline literals — no local authoritative type).
+  endMode?: 'full' | 'short' | 'quit';
+  intendedDurationMin?: number;
 }
 
 const MUSCLE_TO_DOMAIN: Record<string, string> = {
@@ -735,7 +739,7 @@ export default function ActiveWorkoutPage() {
    * Handle workout completion - merge real exercise log with plan data,
    * then transition to dopamine screen.
    */
-  const handleComplete = useCallback((exerciseLog?: ExerciseResultLog[]) => {
+  const handleComplete = useCallback((exerciseLog?: ExerciseResultLog[], meta?: { exitedEarly?: boolean }) => {
     if (!workoutPlan) return;
     
     // Freeze pre-workout percent before any Firestore writes
@@ -798,6 +802,16 @@ export default function ActiveWorkoutPage() {
       }
     }
     
+    // BLOCK_B_SMART_CLOSE_V1 (F): capture how the session ended (endMode) + the chosen
+    // target duration, for the post-workout "smart close" recommendation. Consumed per the
+    // shared contract §4.1. Flag OFF → undefined → omitted from the handoff (byte-identical).
+    const intendedDurationMin = BLOCK_B_SMART_CLOSE_V1
+      ? Math.max(1, Math.round((workoutPlan.totalDuration ?? 0) / 60))
+      : undefined;
+    const endMode: 'full' | 'short' | 'quit' | undefined = BLOCK_B_SMART_CLOSE_V1
+      ? (meta?.exitedEarly ? 'quit' : ((intendedDurationMin ?? 999) <= 20 ? 'short' : 'full'))
+      : undefined;
+
     // Update stats for summary screen
     setWorkoutStats({
       duration,
@@ -807,6 +821,8 @@ export default function ActiveWorkoutPage() {
       startTime: workoutStats.startTime,
       rawExerciseLog: exerciseLog ?? [],
       domainSets: Object.keys(domainSets).length > 0 ? domainSets : undefined,
+      endMode,
+      intendedDurationMin,
     });
     
     console.log('[ActiveWorkoutPage] Workout complete! Duration:', duration, 'seconds',
@@ -1466,6 +1482,8 @@ export default function ActiveWorkoutPage() {
         rawExerciseLog={workoutStats.rawExerciseLog}
         precomputedProgression={progressionResult}
         domainSets={workoutStats.domainSets}
+        endMode={workoutStats.endMode}
+        intendedDurationMin={workoutStats.intendedDurationMin}
         isRecovery={stableWorkoutPlan.isRecovery}
       />
     );

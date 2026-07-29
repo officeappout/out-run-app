@@ -79,6 +79,9 @@ export interface UseActivitySyncParams {
   isRecovery: boolean;
   /** Per-domain set counts for the weekly volume store (Phase 3). */
   domainSets?: Record<string, number>;
+  /** BLOCK_B_SMART_CLOSE_V1 (F): forwarded to the post-workout handoff (contract §4.1). */
+  endMode?: 'full' | 'short' | 'quit';
+  intendedDurationMin?: number;
 }
 
 export function useActivitySync(params: UseActivitySyncParams): void {
@@ -96,6 +99,8 @@ export function useActivitySync(params: UseActivitySyncParams): void {
     difficultyBolts,
     isRecovery,
     domainSets,
+    endMode,
+    intendedDurationMin,
   } = params;
 
   const { addCoins } = useProgressionStore();
@@ -157,6 +162,9 @@ export function useActivitySync(params: UseActivitySyncParams): void {
         workoutTitle: programName,
         // POST_WORKOUT_LANDING_V1 (Block A): # exercises for the summary strip stats.
         exerciseCount: completedExercises.length,
+        // BLOCK_B_SMART_CLOSE_V1 (F): endMode + intended duration for the smart-close layer.
+        endMode,
+        intendedDurationMin,
         strengthCompletion,
       });
     })();

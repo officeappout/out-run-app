@@ -408,6 +408,8 @@ export default function HomePage() {
     workoutTitle?: string; streak?: number; thumbnailUrl?: string;
     // POST_WORKOUT_LANDING_V1 (Block A): stats for the top summary strip.
     calories?: number; exerciseCount?: number;
+    // BLOCK_B_SMART_CLOSE_V1 (F): how the session ended (consumed per contract §4.1).
+    endMode?: 'full' | 'short' | 'quit'; intendedDurationMin?: number;
   } | null>(null);
   // POST_WORKOUT_LANDING_V1 (Block A): per-day dismiss for the top summary strip.
   const [landingDismissed, setLandingDismissed] = useState(false);
