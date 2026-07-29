@@ -47,6 +47,14 @@ export interface ComposedHybridSession {
    * carries the user's skip into the run. Undefined = active (warmup runs).
    */
   isWarmupActive?: boolean;
+  /**
+   * Run-flatten selector — decouples the DISPLAY trio (`bolts`) from the RUN's station
+   * flattening. runHybridPlan historically inferred full-park flattening from `!!bolts`;
+   * route-stops ALSO carries `bolts` (a trio) but its stations are budget-split blocks,
+   * so it sets `fullParkRun: false` to use the proven single-segment station flattening.
+   * Omitted → runHybridPlan falls back to `!!bolts` (full_park stays byte-identical).
+   */
+  fullParkRun?: boolean;
 }
 
 /** A dense square loop around a point, ~`km` perimeter — the no-route fallback. */
@@ -386,6 +394,8 @@ async function composeRouteStopsWorkout(
     aerobicKind: intent.aerobicKind,
     station: firstStrength ? { lat: firstStrength.lat, lng: firstStrength.lng } : undefined,
     bolts: { plans, selectedIndex, labels: ['קליל', 'מאוזן', 'עוצמתי'] },
+    // Budget-split stations → proven single-segment flattening, NOT full-park warmup-split.
+    fullParkRun: false,
   };
 }
 
@@ -555,9 +565,10 @@ export async function runHybridPlan(composed: ComposedHybridSession, startRun: (
   // the run always tracks the overview's carousel choice even if composed.plan wasn't
   // synced. Budget-split cards have no `bolts` → their single composed.plan is used.
   const activePlan = composed.bolts ? composed.bolts.plans[composed.bolts.selectedIndex] : composed.plan;
-  // Full-park is the only card carrying a bolt trio → the gate for the new plan/run path.
-  // Budget-split (no bolts) → fullPark=false → strengthBlockToWorkoutPlan's legacy path.
-  const fullPark = !!composed.bolts;
+  // Run-flatten gate. Historically inferred from `!!bolts` (only full-park carried a trio).
+  // route-stops ALSO carries a trio but flattens as budget-split → it sets fullParkRun:false
+  // explicitly. Fallback to `!!bolts` keeps full-park + budget-split byte-identical.
+  const fullPark = composed.fullParkRun ?? !!composed.bolts;
   useHybridRun.getState().startHybrid(activePlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true);
   startRun();
 }

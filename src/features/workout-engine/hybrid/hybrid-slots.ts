@@ -22,7 +22,7 @@
 import type { HybridStartIntent } from './build-hybrid-input';
 import type { HybridEmphasis, AerobicKind } from './compose-hybrid-session.service';
 import type { HybridShapeName } from './hybrid-shape';
-import { HYBRID_FULL_PARK_WORKOUT_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
+import { HYBRID_FULL_PARK_WORKOUT_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
 
 export type SlotKind = 'hybrid' | 'aerobic_quick';
 
@@ -60,11 +60,12 @@ export interface HybridPreset {
   /** Default budget when the slot flow has no goal UI (Phase 3 brain refines). */
   defaultTimeBudgetMin: number;
   /**
-   * Compose-branch marker (full-park workout). When set, presetToIntent threads it
-   * onto the intent so composeHybridPlan routes to composeFullParkWorkout. Omitted →
-   * the default budget-split path (all existing presets).
+   * Compose-branch marker. When set, presetToIntent threads it onto the intent so
+   * composeHybridPlan routes to the matching composer ('full_park_workout' →
+   * composeFullParkWorkout · 'route_stops' → composeRouteStopsWorkout). Omitted → the
+   * default budget-split path (all existing presets).
    */
-  mode?: 'full_park_workout';
+  mode?: 'full_park_workout' | 'route_stops';
 }
 
 interface SlotBase {
@@ -126,6 +127,9 @@ export const HYBRID_PRESETS: Record<string, HybridPreset> = {
   // full_park: walk/run to an equipped park, do the FULL home strength workout, come back.
   // aerobicKind is overridden from env at resolve time; mode routes to composeFullParkWorkout.
   full_park:     { id: 'full_park',     aerobicKind: 'walking', emphasis: 'strength', shape: 'sandwich', bolts: 2, defaultTimeBudgetMin: 30, mode: 'full_park_workout' },
+  // route_stops: a REAL official_route backbone + generic stops placed on it (§7.3). The
+  // generalization of full_park; aerobicKind is overridden from env at resolve time.
+  route_stops:   { id: 'route_stops',   aerobicKind: 'walking', emphasis: 'balanced', shape: 'sandwich', bolts: 2, defaultTimeBudgetMin: 35, mode: 'route_stops' },
   // run_core: runner_collects shape (station at END, runner-appropriate tag) → Phase 3.
 };
 
@@ -204,6 +208,29 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
         ? 'ריצה לפארק · אימון כוח מלא · חזרה'
         : 'הליכה לפארק · אימון כוח מלא · חזרה',
       bolts: fpPreset.bolts,
+      recommended: false,
+      accent: BRAND,
+    });
+  }
+
+  // ── Route + stops (MAP_ROUTE_STOPS_V1) — a REAL official_route + generic stops on it ──
+  // ADDITIVE + dark: the flag defaults false → never surfaced (byte-identical). Needs GPS
+  // (the backbone is the published route nearest the user). composeRouteStopsWorkout also
+  // returns null when no nearby published route / no POIs, so the CTA composes null and
+  // falls back to the carousel (no crash). Flows through the SAME hybrid machinery
+  // (composeHybridPlan → overview drawer) as every other 'hybrid' slot — no new UI.
+  if (MAP_ROUTE_STOPS_V1 && env.hasGps) {
+    const rsPreset: HybridPreset = { ...HYBRID_PRESETS.route_stops, aerobicKind: env.aerobicKind };
+    slots.push({
+      kind: 'hybrid',
+      id: 'route_stops',
+      preset: rsPreset,
+      timeBudgetMin: rsPreset.defaultTimeBudgetMin,
+      title: 'מסלול + עצירות',
+      subtitle: env.aerobicKind === 'running'
+        ? 'ריצה במסלול · עצירות בדרך'
+        : 'הליכה במסלול · עצירות בדרך',
+      bolts: rsPreset.bolts,
       recommended: false,
       accent: BRAND,
     });
