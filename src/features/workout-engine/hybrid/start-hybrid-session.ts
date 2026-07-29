@@ -247,6 +247,17 @@ export async function composeFullParkRoutePreview(
 const ROUTE_STOPS_MAX_START_M = 800;
 
 /**
+ * Level-window tolerance for route stops (Bug 5a, option א — SCOPED). The default is ±3
+ * (ContextualEngine); at a route stop we widen to ±6 so a mid-level or slightly-off domain
+ * doesn't collapse the pool (e.g. push L12 → L6-18 instead of L9-15). context-driven, so
+ * this NEVER affects home / the recommended card / full_park — only route-stops pools.
+ * ⚠️ This does NOT fix the elite catalog-ceiling (pull L22 has no L19-25 exercises at all) —
+ * that needs the catalog-aware / asymmetric window, which is the GLOBAL build-quality project
+ * (option ב), deliberately NOT smuggled into this branch.
+ */
+const ROUTE_STOPS_LEVEL_TOLERANCE = 6;
+
+/**
  * Resolve the ROUTE BACKBONE for a route-stops session (clarification §1). Two modes, so
  * neither is hard-coded:
  *   (א) 'existing_route'          — the PUBLISHED official_route nearest the user (pilot).
@@ -365,6 +376,9 @@ async function composeRouteStopsWorkout(
   const filterContext: ContextualFilterContext = {
     location: 'park', lifestyles: [], injuryShield: [], intentMode: 'normal', availableEquipment: [],
     getUserLevelForExercise: resolveUserLevelForExercise,
+    // Bug 5a: widen the level window for route stops only (default ±3 → ±6) so a slightly-off
+    // domain doesn't collapse the pool. Scoped via the context → byte-identical everywhere else.
+    levelTolerance: ROUTE_STOPS_LEVEL_TOLERANCE,
   };
 
   // One plan per bolt (קל/בינוני/קשוח) — same route + stops, difficulty drives the engine.
