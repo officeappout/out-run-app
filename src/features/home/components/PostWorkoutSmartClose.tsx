@@ -26,7 +26,6 @@ import { buildPostWorkoutSuggestion, type PostWorkoutSuggestionInput } from '../
 import { useRecoveryHeroWorkout } from '../hooks/useRecoveryHeroWorkout';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
-import type { UserFullProfile } from '@/features/user/core/types/user.types';
 
 export interface PostWorkoutSmartCloseProps
   extends Pick<PostWorkoutSuggestionInput, 'endMode' | 'intendedDurationMin' | 'domainsCompleted' | 'trainedCore'> {
@@ -34,21 +33,18 @@ export interface PostWorkoutSmartCloseProps
    *  (dailyProgress.dailyStrengthPct captured at completion), replacing the framing subtitle
    *  and fixing the stripRingPct 0-bug. */
   strengthRingPct?: number;
-  /** Stage 1b (#3): profile for the recovery-trio generation. */
-  userProfile?: UserFullProfile | null;
   userGender?: 'male' | 'female' | 'other' | null;
 }
 
 export default function PostWorkoutSmartClose({
   strengthRingPct,
-  userProfile,
   userGender,
   ...handoff
 }: PostWorkoutSmartCloseProps) {
   const router = useRouter();
   const suggestion = buildPostWorkoutSuggestion(handoff);
-  // Reuse the rest-day recovery pipeline (async, ref-guarded, flag-gated by the mount).
-  const recoveryWorkout = useRecoveryHeroWorkout(userProfile);
+  // Light recovery-video builder (getAllExercises + pure map) — flag-gated by the mount.
+  const recoveryWorkout = useRecoveryHeroWorkout();
 
   const handleStartRecovery = useCallback(() => {
     if (!recoveryWorkout) return;

@@ -3,39 +3,96 @@
 /**
  * useRecoveryHeroWorkout — Block B (BLOCK_B_SMART_CLOSE_V1) Stage 1b.
  *
- * Fetches ONE recovery GeneratedWorkout for the big post-workout recovery card — reusing
- * the EXISTING rest-day recovery pipeline (`generateHomeWorkoutTrio` with the rest-day flag
- * → `tryBuildRecoveryVideoTrio`, the same follow-along videos the rest-day hero shows), NOT
- * a new stretch surface. `skipCycleRestart` avoids the periodization side-effect write.
+ * Builds ONE recovery GeneratedWorkout from the tagged recovery videos (exerciseRole:
+ * 'recovery' + showOnRestDays) — the SAME videos the rest-day hero uses — and hands it to
+ * the big HeroWorkoutCard.
  *
- * ⚠️ The async generation runs on mount — so call this hook ONLY from a flag-gated
- * component (PostWorkoutSmartClose, rendered only behind the flag). Unmounted = no
- * generation = byte-identical when the flag is off. Fetches once (ref-guarded).
+ * Why a LIGHT standalone builder (not generateHomeWorkoutTrio): the trio entry runs its full
+ * ~1000-line shared pipeline (fetch + score + program/budget/gear resolution) BEFORE its
+ * rest-day recovery return, and with the minimal options available post-workout it
+ * rejected/stalled → the card never appeared. This builder needs only getAllExercises() + a
+ * pure map (the exact per-video shape from tryBuildRecoveryVideoTrio), so it's robust and
+ * cheap — no context, no throw points.
+ *
+ * ⚠️ The getAllExercises() fetch runs on mount — call this hook ONLY from a flag-gated
+ * component (PostWorkoutSmartClose). Unmounted = no fetch = byte-identical when off.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import type { UserFullProfile } from '@/features/user/core/types/user.types';
-import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
-import { generateHomeWorkoutTrio } from '@/features/workout-engine/services/home-workout.service';
+import { getAllExercises } from '@/features/content/exercises/core/exercise.service';
+import type { Exercise } from '@/features/content/exercises/core/exercise.types';
+import type {
+  GeneratedWorkout,
+  WorkoutExercise,
+  DifficultyLevel,
+} from '@/features/workout-engine/logic/workout-generator.types';
 
-export function useRecoveryHeroWorkout(
-  profile: UserFullProfile | null | undefined,
-): GeneratedWorkout | null {
+/** Mirrors tryBuildRecoveryVideoTrio's per-video shape, aggregated into one session. */
+function buildRecoveryHeroWorkout(allExercises: Exercise[]): GeneratedWorkout | null {
+  const pool = allExercises.filter(
+    (ex) => (ex as { exerciseRole?: string }).exerciseRole === 'recovery'
+      && (ex as { showOnRestDays?: boolean }).showOnRestDays,
+  );
+  if (pool.length === 0) return null;
+
+  const picked = pool.slice(0, 4);
+  const exercises: WorkoutExercise[] = picked.map((ex) => {
+    const method =
+      ex.execution_methods?.[0] ?? (ex as { executionMethods?: unknown[] }).executionMethods?.[0] ?? {};
+    return {
+      exercise: ex,
+      method: method as WorkoutExercise['method'],
+      mechanicalType: (ex.mechanicalType || 'none') as WorkoutExercise['mechanicalType'],
+      sets: 1,
+      reps: 1,
+      repsRange: { min: 1, max: 1 },
+      isTimeBased: true,
+      restSeconds: 0,
+      priority: 'isolation' as const,
+      score: 0,
+      reasoning: ['recovery_video_post_workout'],
+      programLevel: 1,
+      isOverLevel: false,
+      tier: 'flow' as const,
+      levelDelta: 0,
+      isGoalExercise: false,
+      exerciseRole: 'main' as const,
+    };
+  });
+
+  const totalSec = picked.reduce((s, ex) => {
+    const method = ex.execution_methods?.[0] ?? (ex as { executionMethods?: unknown[] }).executionMethods?.[0];
+    return s + ((method as { media?: { videoDurationSeconds?: number } })?.media?.videoDurationSeconds ?? 60);
+  }, 0);
+  const estimatedDuration = Math.max(5, Math.round(totalSec / 60));
+
+  return {
+    title: 'שחרור והתאוששות',
+    description: 'כמה מתיחות לסגור ברוגע.',
+    exercises,
+    estimatedDuration,
+    structure: 'standard',
+    difficulty: 1 as DifficultyLevel,
+    mechanicalBalance: { straightArm: 0, bentArm: 0, hybrid: 0, ratio: '0:0', isBalanced: true },
+    stats: { calories: 0, coins: 0, totalReps: 0, totalHoldTime: 0, difficultyMultiplier: 1 },
+    isRecovery: true,
+    totalPlannedSets: exercises.length,
+    pipelineLog: ['recovery_video_post_workout'],
+  };
+}
+
+export function useRecoveryHeroWorkout(): GeneratedWorkout | null {
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
   const fetchedRef = useRef(false);
 
   useEffect(() => {
-    if (!profile || fetchedRef.current) return;
+    if (fetchedRef.current) return;
     fetchedRef.current = true;
     let cancelled = false;
     void (async () => {
       try {
-        const trio = await generateHomeWorkoutTrio({
-          userProfile: profile,
-          isScheduledRestDay: true, // forces the recovery-video trio path
-          skipCycleRestart: true, // NO periodization side-effect write
-        });
-        const gw = trio?.options?.[0]?.result?.workout ?? null;
+        const all = await getAllExercises();
+        const gw = buildRecoveryHeroWorkout(all);
         if (!cancelled) setWorkout(gw);
       } catch {
         // Fail silently — the message + ring still render without the recovery card.
@@ -44,7 +101,7 @@ export function useRecoveryHeroWorkout(
     return () => {
       cancelled = true;
     };
-  }, [profile]);
+  }, []);
 
   return workout;
 }

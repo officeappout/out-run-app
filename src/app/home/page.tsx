@@ -1473,7 +1473,6 @@ export default function HomePage() {
               domainsCompleted={postWorkoutData.domainsCompleted}
               trainedCore={postWorkoutData.trainedCore}
               strengthRingPct={postWorkoutData.dailyStrengthPct}
-              userProfile={profile}
               userGender={profile?.core?.gender}
             />
           ) : POST_WORKOUT_LANDING_V1 ? (
