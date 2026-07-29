@@ -805,8 +805,13 @@ export default function ActiveWorkoutPage() {
     // BLOCK_B_SMART_CLOSE_V1 (F): capture how the session ended (endMode) + the chosen
     // target duration, for the post-workout "smart close" recommendation. Consumed per the
     // shared contract §4.1. Flag OFF → undefined → omitted from the handoff (byte-identical).
+    // workoutPlan.totalDuration is MINUTES in the real flow (home writes
+    // buildRunnerWorkoutPlanFromGenerated → estimatedDuration, logged as "min", ||30). A
+    // rare active/page fallback build emits seconds; normalise (>90 ⇒ treat as seconds ⇒
+    // ÷60) so the short/full split is correct in both. (quit ignores duration entirely.)
+    const rawPlanDurationMin = workoutPlan.totalDuration ?? 0;
     const intendedDurationMin = BLOCK_B_SMART_CLOSE_V1
-      ? Math.max(1, Math.round((workoutPlan.totalDuration ?? 0) / 60))
+      ? (rawPlanDurationMin > 90 ? Math.round(rawPlanDurationMin / 60) : Math.max(1, Math.round(rawPlanDurationMin)))
       : undefined;
     const endMode: 'full' | 'short' | 'quit' | undefined = BLOCK_B_SMART_CLOSE_V1
       ? (meta?.exitedEarly ? 'quit' : ((intendedDurationMin ?? 999) <= 20 ? 'short' : 'full'))
