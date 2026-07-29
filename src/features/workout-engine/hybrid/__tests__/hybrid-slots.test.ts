@@ -1,11 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Togglable flag mock — a live getter so each resolveSlots() call reads the CURRENT
-// value, letting us cover both flag states in one file.
-const flag = vi.hoisted(() => ({ enabled: true }));
+// Togglable flag mock — live getters so each resolveSlots() call reads the CURRENT
+// values, letting us cover both flag states in one file. mapOverview/routeStops default
+// false so the full-park gate tests below exercise the equipped-park/strength-program
+// signals (not the prod-surface short-circuit).
+const flag = vi.hoisted(() => ({ enabled: true, mapOverview: false, routeStops: false }));
 vi.mock('@/config/feature-flags', () => ({
   get HYBRID_FULL_PARK_WORKOUT_ENABLED() {
     return flag.enabled;
+  },
+  get MAP_OVERVIEW_CHROME_V1() {
+    return flag.mapOverview;
+  },
+  get MAP_ROUTE_STOPS_V1() {
+    return flag.routeStops;
   },
 }));
 
@@ -66,6 +74,41 @@ describe('resolveSlots — full-park gate', () => {
   });
 });
 
+describe('resolveSlots — route_stops (MAP_ROUTE_STOPS_V1)', () => {
+  beforeEach(() => {
+    flag.enabled = true;
+    flag.routeStops = false;
+  });
+
+  it('is absent when the flag is OFF (slot layer byte-identical)', () => {
+    expect(ids(resolveSlots(env()))).not.toContain('route_stops');
+  });
+
+  it('adds the route_stops card when flag ON + GPS', () => {
+    flag.routeStops = true;
+    const slots = resolveSlots(env({ hasGps: true }));
+    expect(ids(slots)).toContain('route_stops');
+    const rs = slots.find((s) => s.id === 'route_stops')!;
+    expect(rs.kind).toBe('hybrid');
+    expect(rs.title).toBe('מסלול + עצירות');
+    if (rs.kind === 'hybrid') {
+      expect(rs.preset.mode).toBe('route_stops');
+      expect(rs.preset.aerobicKind).toBe('walking'); // follows env
+    }
+  });
+
+  it('is absent without GPS even when the flag is ON', () => {
+    flag.routeStops = true;
+    expect(ids(resolveSlots(env({ hasGps: false })))).not.toContain('route_stops');
+  });
+
+  it('never disturbs the existing recommended + aerobic_quick slots', () => {
+    flag.routeStops = true;
+    const slots = resolveSlots(env({ hasGps: true }));
+    expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
+  });
+});
+
 describe('presetToIntent — mode threading', () => {
   it('threads mode: full_park_workout for the full_park preset', () => {
     const intent = presetToIntent(HYBRID_PRESETS.full_park, 30);
@@ -73,6 +116,13 @@ describe('presetToIntent — mode threading', () => {
     expect(intent.aerobicKind).toBe(HYBRID_PRESETS.full_park.aerobicKind);
     expect(intent.difficulty).toBe(2); // bolts 2
     expect(intent.timeBudgetMin).toBe(30);
+  });
+
+  it('threads mode: route_stops for the route_stops preset', () => {
+    const intent = presetToIntent(HYBRID_PRESETS.route_stops, 35);
+    expect(intent.mode).toBe('route_stops');
+    expect(intent.emphasis).toBe('balanced');
+    expect(intent.timeBudgetMin).toBe(35);
   });
 
   it('omits mode for budget-split presets — intents stay byte-identical', () => {
