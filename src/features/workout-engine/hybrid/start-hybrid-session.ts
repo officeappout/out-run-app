@@ -388,16 +388,30 @@ async function composeRouteStopsWorkout(
   //  • globalExercisePool = a bodyweight FIELD pool so the domain-quota / FullBodyDomainGuarantee
   //    can fall back to BODYWEIGHT (squat/lunge) for a TARGET domain the park has no equipment for.
   // Both scoped to route-stops via generationContext → byte-identical everywhere else.
-  const [{ resolveChildDomainsForParent }, { filterExercisesContextually }] = await Promise.all([
+  const [{ resolveChildDomainsForParent }, { filterExercisesContextually }, { getWorkoutContext }] = await Promise.all([
     import('../services/program-hierarchy.utils'),
     import('../logic/ContextualEngine'),
+    import('../services/split-decision/SplitDecisionService'),
   ]);
   const activeProgramId = (profile as any)?.progression?.activePrograms?.[0]?.templateId;
   const targetDomains = resolveChildDomainsForParent(activeProgramId, profile as any);
   const bodyweightGuaranteePool = filterExercisesContextually(masterExercises, {
     ...filterContext, availableEquipment: [], intentMode: 'field',
   }).exercises.map((e) => e.exercise);
-  console.log(`[route-stops] targetDomains=[${targetDomains.join(',')}] bodyweightPool=${bodyweightGuaranteePool.length}`);
+
+  // Bug 5c — REUSE Path A's skill source (no parallel list). getWorkoutContext derives
+  // priority1/2SkillIds from profile.progression.skillFocusIds — the exact input the home
+  // trio (Path A) feeds the SAME lower pipeline. Without these the station targets only
+  // GENERIC domains, so an elite's high-level pull (front/back-lever) — which lives in SKILL
+  // programs, not generic "pull" — never surfaces (generic pull tops ~L12 → L22 window empty
+  // → collapse). The shared PipelineOrchestrator already reads context.priority1SkillIds.
+  const splitCtx = getWorkoutContext({ userProfile: profile as any });
+  const priority1SkillIds = splitCtx.priority1SkillIds ?? [];
+  const priority2SkillIds = splitCtx.priority2SkillIds ?? [];
+  console.log(
+    `[route-stops] targetDomains=[${targetDomains.join(',')}] skillsP1=[${priority1SkillIds.join(',')}]` +
+    ` skillsP2=[${priority2SkillIds.join(',')}] bodyweightPool=${bodyweightGuaranteePool.length}`,
+  );
 
   // One plan per bolt (קל/בינוני/קשוח) — same route + stops, difficulty drives the engine.
   const buildForBolt = (difficulty: 1 | 2 | 3): HybridPlan => {
@@ -409,6 +423,10 @@ async function composeRouteStopsWorkout(
       // Bug 5b: target-derived domain coverage + bodyweight fallback (built above).
       ...(targetDomains.length > 0 ? { requiredDomains: targetDomains } : {}),
       globalExercisePool: bodyweightGuaranteePool,
+      // Bug 5c: thread the user's active skills so an elite's high-level pull (skill programs)
+      // surfaces at the station instead of collapsing on generic-pull catalog ceiling.
+      ...(priority1SkillIds.length ? { priority1SkillIds } : {}),
+      ...(priority2SkillIds.length ? { priority2SkillIds } : {}),
     };
     return composeHybridSession({
       timeBudgetMin: intent.timeBudgetMin, emphasis: intent.emphasis, aerobicKind: intent.aerobicKind,
