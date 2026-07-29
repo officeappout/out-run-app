@@ -413,6 +413,9 @@ export default function HomePage() {
     endMode?: 'full' | 'short' | 'quit'; intendedDurationMin?: number;
     // BLOCK_B_SMART_CLOSE_V1 (B): domains just trained + reliable core flag.
     domainsCompleted?: string[]; trainedCore?: boolean;
+    // BLOCK_B_SMART_CLOSE_V1 (#1 ring): workout-moved daily-strength % (0-1), captured at
+    // completion. Drives the post-workout ring (fixes the stripRingPct 0-bug).
+    dailyStrengthPct?: number;
   } | null>(null);
   // POST_WORKOUT_LANDING_V1 (Block A): per-day dismiss for the top summary strip.
   const [landingDismissed, setLandingDismissed] = useState(false);
@@ -1469,8 +1472,7 @@ export default function HomePage() {
               intendedDurationMin={postWorkoutData.intendedDurationMin}
               domainsCompleted={postWorkoutData.domainsCompleted}
               trainedCore={postWorkoutData.trainedCore}
-              dailyGoalPct={Math.round(stripRingPct * 100)}
-              onNextStep={handleRequestMore}
+              strengthRingPct={postWorkoutData.dailyStrengthPct}
             />
           ) : POST_WORKOUT_LANDING_V1 ? (
             /* Block A bridge: the summary moved UP to the top strip, so the anchor slot

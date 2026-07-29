@@ -164,6 +164,10 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
         // BLOCK_B_SMART_CLOSE_V1 (B): domains just trained + core flag (same inert-when-off rule).
         domainsCompleted: payload.domainsCompleted,
         trainedCore: payload.trainedCore,
+        // BLOCK_B_SMART_CLOSE_V1 (#1 ring): the workout-moved daily-strength % (0-1), captured
+        // at completion (targetSets>0 ? completed/target : 1 — no 0-bug). Drives the post-workout
+        // ring. undefined when off → JSON.stringify omits it → byte-identical handoff.
+        dailyStrengthPct: payload.strengthCompletion?.pct,
       }),
     );
   }

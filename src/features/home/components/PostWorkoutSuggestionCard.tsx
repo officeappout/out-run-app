@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import CircularProgress from '@/components/CircularProgress';
 import type { PostWorkoutSuggestion, NextStepKind } from '../utils/postWorkoutSuggestion';
 
 const TONE: Record<PostWorkoutSuggestion['tone'], { bg: string; border: string }> = {
@@ -27,11 +28,19 @@ export interface PostWorkoutSuggestionCardProps {
   /** wave-1c: tap handler for the next-step CTA. Receives the kind for future per-kind
    *  routing; wave-1 wires every kind to the generic "suggest more" flow. */
   onNextStep?: (kind: NextStepKind) => void;
+  /** Stage 1 (#1): the STRENGTH daily-goal % (0-1). When set, the existing summary-strip
+   *  ring (CircularProgress, indigo) replaces the text subtitle — framing the message around
+   *  the daily goal, not the workout. This reads the workout-moved % (dailyProgress
+   *  .dailyStrengthPct), fixing the stripRingPct 0-bug. */
+  ringPct?: number;
 }
 
-export function PostWorkoutSuggestionCard({ suggestion, children, onNextStep }: PostWorkoutSuggestionCardProps) {
+export function PostWorkoutSuggestionCard({ suggestion, children, onNextStep, ringPct }: PostWorkoutSuggestionCardProps) {
   const tone = TONE[suggestion.tone];
   const { nextStep } = suggestion;
+  const showRing = ringPct != null;
+  const ringInt = showRing ? Math.round(Math.max(0, Math.min(1, ringPct)) * 100) : 0;
+  const ringFull = ringInt >= 100;
   return (
     <div
       dir="rtl"
@@ -39,9 +48,29 @@ export function PostWorkoutSuggestionCard({ suggestion, children, onNextStep }: 
       style={{ background: tone.bg, borderColor: tone.border }}
     >
       <div className="text-[15px] font-extrabold text-gray-900">{suggestion.title}</div>
-      {suggestion.subtitle && (
+      {/* Stage 1 (#1): the daily-goal ring (reused strip styling) replaces the subtitle. */}
+      {showRing ? (
+        <div className="mt-2 flex items-center gap-2.5">
+          <CircularProgress
+            percentage={ringInt}
+            size={46}
+            strokeWidth={5}
+            colorClass="text-[#6366F1]"
+            trackClass="text-[#E3E1F7]"
+            className="flex-none"
+          >
+            <span className="text-[12px] font-extrabold text-[#4338CA] leading-none">
+              {ringInt}
+              <span className="text-[8px] font-bold">%</span>
+            </span>
+          </CircularProgress>
+          <div className="text-[12.5px] font-bold text-gray-700">
+            {ringFull ? 'היעד היומי סגור 🎯 — כל תוספת בונוס' : 'עוד קצת ליעד היומי — היום עוד לא נגמר'}
+          </div>
+        </div>
+      ) : suggestion.subtitle ? (
         <div className="mt-1 text-[12.5px] text-gray-600 leading-snug">{suggestion.subtitle}</div>
-      )}
+      ) : null}
       {/* wave-1c: the next-step CTA (principle 5 — never a dead end). */}
       {nextStep && onNextStep && (
         <button

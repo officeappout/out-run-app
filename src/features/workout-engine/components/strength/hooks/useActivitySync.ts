@@ -10,7 +10,7 @@ import { getExercise } from '@/features/content/exercises/core/exercise.service'
 import type { MuscleGroup } from '@/features/content/exercises/core/exercise.types';
 
 import type { CompletedExercise, Difficulty } from '../utils/summary.utils';
-import { HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
+import { HOME_DAILY_GOAL_V1, BLOCK_B_SMART_CLOSE_V1 } from '@/config/feature-flags';
 import { useUserStore } from '@/features/user';
 import { resolveActiveProgramBudget } from '@/features/workout-engine/services/lead-program.service';
 // §7 follow-up (2nd such debt after co-logo): these two PURE utils live under
@@ -136,7 +136,12 @@ export function useActivitySync(params: UseActivitySyncParams): void {
       let strengthCompletion:
         | { targetSets: number; completedSets: number; pct: number; met: boolean }
         | undefined;
-      if (HOME_DAILY_GOAL_V1 && trainingType !== 'cardio' && !isRecovery && profile) {
+      // BLOCK_B_SMART_CLOSE_V1 (#1 ring) also needs this snapshot's `pct` (the workout-moved
+      // daily-strength %) for the post-workout ring — so capture it under EITHER flag. Note:
+      // markTodayAsCompleted only PERSISTS the fields / gates completion under HOME_DAILY_GOAL_V1
+      // (useProgressionStore: `dailyGoalOn`), so under Block B alone the snapshot rides the
+      // sessionStorage handoff only — no Firestore-write change, no completion re-gating.
+      if ((HOME_DAILY_GOAL_V1 || BLOCK_B_SMART_CLOSE_V1) && trainingType !== 'cardio' && !isRecovery && profile) {
         try {
           const priorToday = summarizeTodayStrengthVolume(
             useWeeklyVolumeStore.getState().sessionLogs,
