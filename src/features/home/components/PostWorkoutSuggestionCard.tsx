@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import type { PostWorkoutSuggestion } from '../utils/postWorkoutSuggestion';
+import type { PostWorkoutSuggestion, NextStepKind } from '../utils/postWorkoutSuggestion';
 
 const TONE: Record<PostWorkoutSuggestion['tone'], { bg: string; border: string }> = {
   reinforce: { bg: 'linear-gradient(135deg,#ECFDF5,#F0FBFF)', border: '#B8E8D0' },
@@ -24,10 +24,14 @@ export interface PostWorkoutSuggestionCardProps {
   suggestion: PostWorkoutSuggestion;
   /** wave-1b: recovery stretches rendered under the message when `showStretches`. */
   children?: React.ReactNode;
+  /** wave-1c: tap handler for the next-step CTA. Receives the kind for future per-kind
+   *  routing; wave-1 wires every kind to the generic "suggest more" flow. */
+  onNextStep?: (kind: NextStepKind) => void;
 }
 
-export function PostWorkoutSuggestionCard({ suggestion, children }: PostWorkoutSuggestionCardProps) {
+export function PostWorkoutSuggestionCard({ suggestion, children, onNextStep }: PostWorkoutSuggestionCardProps) {
   const tone = TONE[suggestion.tone];
+  const { nextStep } = suggestion;
   return (
     <div
       dir="rtl"
@@ -37,6 +41,16 @@ export function PostWorkoutSuggestionCard({ suggestion, children }: PostWorkoutS
       <div className="text-[15px] font-extrabold text-gray-900">{suggestion.title}</div>
       {suggestion.subtitle && (
         <div className="mt-1 text-[12.5px] text-gray-600 leading-snug">{suggestion.subtitle}</div>
+      )}
+      {/* wave-1c: the next-step CTA (principle 5 — never a dead end). */}
+      {nextStep && onNextStep && (
+        <button
+          onClick={() => onNextStep(nextStep.kind)}
+          className="mt-3 w-full rounded-full py-2.5 px-4 text-[13.5px] font-extrabold text-gray-900 bg-white/70 border shadow-sm active:scale-[0.98] transition-all"
+          style={{ borderColor: tone.border }}
+        >
+          {nextStep.label}
+        </button>
       )}
       {suggestion.showStretches && children && <div className="mt-3">{children}</div>}
     </div>

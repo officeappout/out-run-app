@@ -1469,6 +1469,8 @@ export default function HomePage() {
               intendedDurationMin={postWorkoutData.intendedDurationMin}
               domainsCompleted={postWorkoutData.domainsCompleted}
               trainedCore={postWorkoutData.trainedCore}
+              dailyGoalPct={Math.round(stripRingPct * 100)}
+              onNextStep={handleRequestMore}
             />
           ) : POST_WORKOUT_LANDING_V1 ? (
             /* Block A bridge: the summary moved UP to the top strip, so the anchor slot
