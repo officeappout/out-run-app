@@ -246,6 +246,16 @@ export const POST_WORKOUT_LANDING_V1 = false;
 // start guard is inert → BYTE-IDENTICAL to today.
 export const HOME_DAY_SELECT_SCOPE_V1 = false;
 
+// BLOCK_B_SMART_CLOSE_V1: the post-workout "smart close" recommendation (hero + 2
+// alternatives that complement what was just done) — the `post_workout` layer of the
+// unified suggestion engine (docs/architecture/workout-recommendation-engine.md §3/§9/§10).
+// Built in order: F (endMode capture) → B (domains-today) → wave-1 (message + stretches by
+// endMode) → full assembler. This flag gates ALL of Block B. While FALSE the completion
+// handoff carries no endMode/intendedDurationMin and no post_workout surface renders →
+// BYTE-IDENTICAL. `endMode`/`intendedDurationMin` are consumed per the shared contract
+// (§4.1) — never defined as a local authoritative type here.
+export const BLOCK_B_SMART_CLOSE_V1 = false;
+
 // ============================================================================
 // ROOT ADMIN SYSTEM (ENV-based, immutable at runtime)
 // ============================================================================
