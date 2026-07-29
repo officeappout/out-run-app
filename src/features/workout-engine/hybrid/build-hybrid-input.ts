@@ -49,8 +49,12 @@ export interface HybridStartIntent {
    * ad-hoc station. Omitted / undefined → the existing budget-split path runs,
    * byte-identical. NOTE: nothing reads this field yet; it is scaffolding for the
    * Phase 1 branch.
+   *
+   * `'route_stops'` (MAP_ROUTE_STOPS_V1) → composeHybridPlan routes to
+   * composeRouteStopsWorkout: a REAL official_route backbone + generic stops placed
+   * on it (the generalization of full_park). Gated by the flag; omitted → unchanged.
    */
-  mode?: 'full_park_workout';
+  mode?: 'full_park_workout' | 'route_stops';
 }
 
 /**

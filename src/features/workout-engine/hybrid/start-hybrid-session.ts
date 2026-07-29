@@ -16,6 +16,7 @@ import type { HybridPlan } from './compose-hybrid-session.service';
 import type { ContextualFilterContext } from '../logic/contextual-engine.types';
 import type { WorkoutGenerationContext } from '../logic/workout-generator.types';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
+import { MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
 
 export interface HybridSessionContext {
   userPosition: { lat: number; lng: number } | null;
@@ -234,6 +235,160 @@ export async function composeFullParkRoutePreview(
   };
 }
 
+/** ~800 m: the user must be near the chosen route's line for a route-stops card to make sense. */
+const ROUTE_STOPS_MAX_START_M = 800;
+
+/**
+ * Resolve the ROUTE BACKBONE for a route-stops session (clarification §1). Two modes, so
+ * neither is hard-coded:
+ *   (א) 'existing_route'          — the PUBLISHED official_route nearest the user (pilot).
+ *                                    Stops are matched onto its line downstream.
+ *   (ב) 'waypoints_through_stops' — SEAM: build a path THROUGH the stops as Mapbox
+ *                                    waypoints when there is no ready route (also the base
+ *                                    for a future short-detour). Not wired for the pilot.
+ */
+type RouteStopsBackboneMode = 'existing_route' | 'waypoints_through_stops';
+
+async function resolveRouteStopsBackbone(
+  mode: RouteStopsBackboneMode,
+  userPosition: { lat: number; lng: number },
+): Promise<{ routePath: [number, number][]; routeId: string; routeName?: string } | null> {
+  if (mode === 'existing_route') {
+    const [{ getCachedOfficialRoutes }, { haversineMeters }] = await Promise.all([
+      import('@/features/parks/core/services/inventory.service'),
+      import('@/features/parks/core/services/geoUtils'),
+    ]);
+    let routes: any[] = [];
+    try { routes = await getCachedOfficialRoutes(); } catch { return null; }
+    let best: { id: string; name?: string; path: [number, number][]; d: number } | null = null;
+    for (const r of routes) {
+      const path = normalizePath(r?.path);
+      if (path.length < 2) continue;
+      let d = Infinity;
+      for (const v of path) {
+        const dv = haversineMeters(userPosition.lat, userPosition.lng, v[1], v[0]);
+        if (dv < d) d = dv;
+      }
+      if (!best || d < best.d) best = { id: r.id, name: r.name, path, d };
+    }
+    if (!best || best.d > ROUTE_STOPS_MAX_START_M) {
+      console.warn(
+        `[route-stops] nearest published route ${best ? `"${best.name}" @${best.d.toFixed(0)}m` : 'none'}` +
+        ` — beyond ${ROUTE_STOPS_MAX_START_M}m cap → no card`,
+      );
+      return null;
+    }
+    // Field-tuning aid: which route did we snap to, and how far is the user from it?
+    console.log(
+      `[route-stops] backbone="${best.name}" id=${best.id} @${best.d.toFixed(0)}m from user` +
+      ` (published nearest of ${routes.length})`,
+    );
+    return { routePath: best.path, routeId: best.id, routeName: best.name };
+  }
+  // (ב) waypoints-through-stops — deferred for the pilot (§1).
+  console.warn('[route-stops] backbone mode "waypoints_through_stops" not wired (pilot = existing_route)');
+  return null;
+}
+
+/**
+ * Route-stops branch (mode: 'route_stops', MAP_ROUTE_STOPS_V1). Generalizes full_park: a
+ * REAL published official_route is the backbone (§1a), and EVERY POI on/near it becomes a
+ * generic stop (resolveRouteStops → strength / stretch / core). Reuses the budget-split
+ * engine (composeHybridSession) in ANCHOR mode ('as_provided') so all hand-placed stops
+ * survive. Returns the SAME shape as full_park (bolts trio) so the SAME overview drawer
+ * renders it (clarification §3, wired in Part 5). Returns null (no card) when there is no
+ * nearby published route or the route carries no POIs.
+ *
+ * ⚠️ Part 2b scope: non-strength stops (stretch/core) hit dispatchStopContent's default and
+ * are skipped until Part 3; the near-end cooldown is Part 4. XP display-only (§8).
+ */
+async function composeRouteStopsWorkout(
+  intent: HybridStartIntent,
+  ctx: HybridSessionContext,
+): Promise<ComposedHybridSession | null> {
+  if (!ctx.userPosition) { console.warn('[composeRouteStopsWorkout] no user position'); return null; }
+
+  const [
+    { useUserStore }, { getAllExercises }, { fetchRealParks },
+    { composeHybridSession }, { resolveRouteStops }, { resolveHybridUserLevels },
+    { getWeeklyLoadSnapshot }, { warmHybridCaches }, { auth },
+  ] = await Promise.all([
+    import('@/features/user/identity/store/useUserStore'),
+    import('@/features/content/exercises/core/exercise.service'),
+    import('@/features/parks/core/services/parks.service'),
+    import('./compose-hybrid-session.service'),
+    import('./route-stops.service'),
+    import('./hybrid-context.util'),
+    import('./weekly-load.service'),
+    import('./hybrid-warmup'),
+    import('@/lib/firebase'),
+  ]);
+
+  const profile = useUserStore.getState().profile;
+  if (!profile) { console.warn('[composeRouteStopsWorkout] no profile'); return null; }
+  const userWeightKg = profile?.core?.weight || 70;
+  const pp = profile?.running?.paceProfile;
+  const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
+
+  // (§1a) backbone — nearest published official_route.
+  const backbone = await resolveRouteStopsBackbone('existing_route', ctx.userPosition);
+  if (!backbone) return null;
+  const routePath = backbone.routePath;
+
+  // Stops — every POI on/near the route line. Warm caches first (gear translation reads them).
+  await warmHybridCaches();
+  let parks: any[] = [];
+  try { parks = await fetchRealParks(); } catch { /* no parks → no stops → no card */ }
+  const stops = resolveRouteStops(routePath, parks as any);
+  console.log(
+    `[route-stops] route="${backbone.routeName}" stops=${stops.length}` +
+    ` [${stops.map((s) => `${s.activityType}@wp${s.waypointIndex}(${s.distToPathM}m)`).join(', ')}]`,
+  );
+  if (stops.length === 0) { console.warn('[composeRouteStopsWorkout] route has no POIs within radius → no card'); return null; }
+
+  // Levels + contexts (shared resolver — same real per-domain levels as the budget-split path).
+  const { userProgramLevels, baseUserLevel, resolveUserLevelForExercise } =
+    await resolveHybridUserLevels(profile as any, '[RouteStops]');
+  let weeklyGaps = { aerobicGapMin: 90, strengthGapDays: 1, neglectedDomains: [] as string[] };
+  const uid = auth.currentUser?.uid;
+  if (uid) { try { weeklyGaps = (await getWeeklyLoadSnapshot(uid)).gaps; } catch { /* keep fallback */ } }
+
+  const masterExercises = await getAllExercises();
+  const filterContext: ContextualFilterContext = {
+    location: 'park', lifestyles: [], injuryShield: [], intentMode: 'normal', availableEquipment: [],
+    getUserLevelForExercise: resolveUserLevelForExercise,
+  };
+
+  // One plan per bolt (קל/בינוני/קשוח) — same route + stops, difficulty drives the engine.
+  const buildForBolt = (difficulty: 1 | 2 | 3): HybridPlan => {
+    const generationContext: WorkoutGenerationContext = {
+      availableTime: 10, userLevel: baseUserLevel, daysInactive: 1, intentMode: 'normal', persona: null,
+      location: 'park', injuryCount: 0,
+      difficulty: difficulty as WorkoutGenerationContext['difficulty'],
+      userWeight: userWeightKg, userProgramLevels,
+    };
+    return composeHybridSession({
+      timeBudgetMin: intent.timeBudgetMin, emphasis: intent.emphasis, aerobicKind: intent.aerobicKind,
+      paceProfile, routePath, stopCandidates: stops, stopSelection: 'as_provided',
+      masterExercises, filterContext, generationContext, weeklyGaps, userWeightKg,
+    });
+  };
+  const plans = [1, 2, 3].map((d) => buildForBolt(d as 1 | 2 | 3));
+  const selectedIndex = 1; // balanced default (bolt 2)
+
+  // Map pin: the first strength stop is the best visual anchor; other stops render as
+  // segments in the overview journey axis (Part 5).
+  const firstStrength = stops.find((s) => s.activityType === 'strength');
+
+  return {
+    plan: plans[selectedIndex],
+    routePath,
+    aerobicKind: intent.aerobicKind,
+    station: firstStrength ? { lat: firstStrength.lat, lng: firstStrength.lng } : undefined,
+    bolts: { plans, selectedIndex, labels: ['קליל', 'מאוזן', 'עוצמתי'] },
+  };
+}
+
 /** COMPOSE the plan (no run start). Returns null if no route can be built. */
 export async function composeHybridPlan(
   intent: HybridStartIntent,
@@ -244,6 +399,15 @@ export async function composeHybridPlan(
   // for every other hybrid card.
   if (intent.mode === 'full_park_workout') {
     return composeFullParkWorkout(intent, ctx);
+  }
+
+  // Route-stops branch (MAP_ROUTE_STOPS_V1): a REAL official_route backbone + generic
+  // stops placed on it. Self-contained like full_park; the budget-split body below stays
+  // byte-identical. The flag is the kill-switch — false → never entered (and no slot
+  // produces this intent anyway until Part 5).
+  if (intent.mode === 'route_stops') {
+    if (!MAP_ROUTE_STOPS_V1) return null;
+    return composeRouteStopsWorkout(intent, ctx);
   }
 
   const [
@@ -268,38 +432,13 @@ export async function composeHybridPlan(
   const pp = profile?.running?.paceProfile;
   const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
 
-  // ── User levels: REUSE the strength engine's mechanism (single source of truth) ──
-  // The empty domainLevels bug made the pipeline treat the user as their global level
-  // for EVERY domain. buildUserProgramLevels(profile) yields the real per-domain levels
-  // (push/pull/legs/core) — exactly what home-workout feeds the pipeline.
-  const [{ buildUserProgramLevels, getBaseUserLevel }, { getAllPrograms }, { resolveToSlug, buildIdToSlugMapFromPrograms }, { MG_TO_DOMAIN }] =
-    await Promise.all([
-      import('../services/level-resolution.utils'),
-      import('@/features/content/programs/core/program.service'),
-      import('../services/program-hierarchy.utils'),
-      import('../shared/constants/domain-mapping.constants'),
-    ]);
-  const allPrograms = await getAllPrograms();
-  // Warm the ID→slug map BEFORE level resolution — otherwise resolveToSlug can't map
-  // hash program-ids and skill domains (muscle_up / handstand) silently fall to L1.
-  buildIdToSlugMapFromPrograms(allPrograms);
-  const masterProgramIds = new Set(allPrograms.filter((p: any) => p.isMaster).map((p: any) => p.id));
-  const userProgramLevels = profile
-    ? buildUserProgramLevels(profile as any, masterProgramIds, '[Hybrid]').levels
-    : new Map<string, number>();
-  const baseUserLevel = profile ? getBaseUserLevel(profile as any) : 5;
-  // Per-exercise level = the user's level in the exercise's domain (movementGroup →
-  // domain, else targetPrograms → slug), mirroring home-workout's getUserLevelForExercise.
-  const resolveUserLevelForExercise = (exercise: any): number => {
-    const mgDomain = MG_TO_DOMAIN[exercise?.movementGroup ?? ''];
-    if (mgDomain && userProgramLevels.has(mgDomain)) return userProgramLevels.get(mgDomain)!;
-    for (const tp of exercise?.targetPrograms ?? []) {
-      const slug = resolveToSlug(tp.programId);
-      if (userProgramLevels.has(slug)) return userProgramLevels.get(slug)!;
-      if (userProgramLevels.has(tp.programId)) return userProgramLevels.get(tp.programId)!;
-    }
-    return baseUserLevel;
-  };
+  // ── User levels: shared resolver (hybrid-context.util) — the SAME real per-domain
+  // levels (push/pull/legs/core) home-workout feeds the pipeline, fixing the "empty
+  // domainLevels" bug where the user was treated as their global level for every domain.
+  // Extracted so the route-stops composer reuses it instead of duplicating.
+  const { resolveHybridUserLevels } = await import('./hybrid-context.util');
+  const { userProgramLevels, baseUserLevel, resolveUserLevelForExercise } =
+    await resolveHybridUserLevels(profile as any, '[Hybrid]');
   console.log(
     `[hybrid:diag] levels: base=L${baseUserLevel} domainLevels={${
       Array.from(userProgramLevels.entries()).map(([k, v]) => `${k}:L${v}`).join(', ')
