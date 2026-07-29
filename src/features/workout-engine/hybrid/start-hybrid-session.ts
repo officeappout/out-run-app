@@ -443,6 +443,29 @@ async function composeRouteStopsWorkout(
   // segments in the overview journey axis (Part 5).
   const firstStrength = stops.find((s) => s.activityType === 'strength');
 
+  // ═══ [TEMP DIAG — route-stops Bug 5 · REMOVE after the L22 comparison] ═══════════════════
+  // Prints Path A (home trio) vs Path B (this station) head-to-head on the SAME account + park,
+  // so the L22 pool-collapse (100→9→2) is visible side-by-side in ONE field test. Self-contained
+  // + flag-gated (this whole fn runs only when MAP_ROUTE_STOPS_V1 is on) → tear out in one revert.
+  // Between the [B/…] and [A/…] headers, read each path's own [Engine]/[WorkoutGenerator] stage
+  // logs to see exactly which stage drops the exercises Path A keeps.
+  try {
+    const equip = firstStrength?.availableEquipment ?? [];
+    const bStation = plans[selectedIndex]?.segments.find((s) => s.kind === 'strength');
+    console.log('\n════════ [route-stops DIAG] PATH A vs PATH B — same account · park equip=[' + equip.join(',') + '] ════════');
+    console.log('[shared] rawCatalog(getAllExercises)=' + masterExercises.length + ' — both paths draw from THIS');
+    console.log('[B/station] domains=[' + targetDomains.join(',') + '] skillsP1=[' + priority1SkillIds.join(',') + '] skillsP2=[' + priority2SkillIds.join(',') + '] window=±' + ROUTE_STOPS_LEVEL_TOLERANCE);
+    console.log('[B/station] RESULT strengthExercises=' + (bStation?.content?.exercises?.length ?? 0) + ' · stage-log:\n  ' + ((plans[selectedIndex]?.meta?.log ?? []).join('\n  ')));
+    console.log('[A/home-trio] ↓ dry-run generateHomeWorkoutTrio(park, same equip) — its [Engine]/[WorkoutGenerator] stage logs print inline ↓');
+    const { generateHomeWorkoutTrio: trioForDiag } = await import('../services/home-workout.service');
+    const trioA = await trioForDiag({ userProfile: profile as any, location: 'park', parkEquipmentIds: equip, skipCycleRestart: true } as any);
+    console.log('[A/home-trio] RESULT optionExerciseCounts=[' + trioA.options.map((o: any) => o.result?.workout?.exercises?.length ?? 0).join(', ') + ']');
+    console.log('════════ [route-stops DIAG] end ════════\n');
+  } catch (e) {
+    console.warn('[route-stops DIAG] comparison failed (diagnostic only, non-fatal):', e);
+  }
+  // ═══ end TEMP DIAG ══════════════════════════════════════════════════════════════════════
+
   return {
     plan: plans[selectedIndex],
     routePath,
