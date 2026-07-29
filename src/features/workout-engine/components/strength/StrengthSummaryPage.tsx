@@ -130,6 +130,9 @@ export interface StrengthSummaryPageProps {
    *  (consumed per shared contract §4.1; carried to the post-workout handoff). */
   endMode?: 'full' | 'short' | 'quit';
   intendedDurationMin?: number;
+  /** BLOCK_B_SMART_CLOSE_V1 (B): domains just trained + reliable core flag. */
+  domainsCompleted?: string[];
+  trainedCore?: boolean;
 }
 
 // ============================================================================
@@ -158,6 +161,8 @@ export default function StrengthSummaryPage({
   domainSets,
   endMode,
   intendedDurationMin,
+  domainsCompleted,
+  trainedCore,
 }: StrengthSummaryPageProps) {
   // ── User profile (for lifestyle CTA gate) ──
   const { profile } = useUserStore();
@@ -228,6 +233,8 @@ export default function StrengthSummaryPage({
     domainSets,
     endMode,
     intendedDurationMin,
+    domainsCompleted,
+    trainedCore,
   });
 
   const xp = useXpAward({

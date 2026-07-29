@@ -66,6 +66,9 @@ interface WorkoutStats {
   // Consumed per the shared contract §4.1 (inline literals — no local authoritative type).
   endMode?: 'full' | 'short' | 'quit';
   intendedDurationMin?: number;
+  // BLOCK_B_SMART_CLOSE_V1 (B): what was just done — trained domains + a reliable core flag.
+  domainsCompleted?: string[];
+  trainedCore?: boolean;
 }
 
 const MUSCLE_TO_DOMAIN: Record<string, string> = {
@@ -769,6 +772,11 @@ export default function ActiveWorkoutPage() {
       'handstand', 'handstand_pushup',
     ]);
     const domainSets: Record<string, number> = {};
+    // BLOCK_B_SMART_CLOSE_V1 (B): non-lossy "was core trained" — set if ANY muscle group of
+    // any set>0 exercise maps to 'core' (not just muscleGroups[0]). Independent of the
+    // domainSets weekly-budget path (option (a) — no side effect). The domainSets first-muscle
+    // gap itself (abs-as-secondary) is a separate follow-up — see [[workout-build-quality]].
+    let trainedCoreRaw = false;
     const logMap = new Map<string, number>();
     if (exerciseLog) {
       for (const entry of exerciseLog) {
@@ -786,6 +794,11 @@ export default function ActiveWorkoutPage() {
         const domain = muscle ? MUSCLE_TO_DOMAIN[muscle] : undefined;
         if (domain) {
           domainSets[domain] = (domainSets[domain] ?? 0) + setsCount;
+        }
+
+        // BLOCK_B_SMART_CLOSE_V1 (B): non-lossy core detection — scan ALL muscle groups.
+        if (!trainedCoreRaw && ex.muscleGroups?.some((m) => MUSCLE_TO_DOMAIN[m.toLowerCase()] === 'core')) {
+          trainedCoreRaw = true;
         }
 
         // ── Pass B: skill-track slug (Phase 4 dual-key write) ──────────
@@ -816,6 +829,10 @@ export default function ActiveWorkoutPage() {
     const endMode: 'full' | 'short' | 'quit' | undefined = BLOCK_B_SMART_CLOSE_V1
       ? (meta?.exitedEarly ? 'quit' : ((intendedDurationMin ?? 999) <= 20 ? 'short' : 'full'))
       : undefined;
+    // BLOCK_B_SMART_CLOSE_V1 (B): what was just done — trained domains (from domainSets keys,
+    // all >0 by construction) + the reliable non-lossy core flag.
+    const domainsCompleted = BLOCK_B_SMART_CLOSE_V1 ? Object.keys(domainSets) : undefined;
+    const trainedCore = BLOCK_B_SMART_CLOSE_V1 ? trainedCoreRaw : undefined;
 
     // Update stats for summary screen
     setWorkoutStats({
@@ -828,6 +845,8 @@ export default function ActiveWorkoutPage() {
       domainSets: Object.keys(domainSets).length > 0 ? domainSets : undefined,
       endMode,
       intendedDurationMin,
+      domainsCompleted,
+      trainedCore,
     });
     
     console.log('[ActiveWorkoutPage] Workout complete! Duration:', duration, 'seconds',
@@ -1489,6 +1508,8 @@ export default function ActiveWorkoutPage() {
         domainSets={workoutStats.domainSets}
         endMode={workoutStats.endMode}
         intendedDurationMin={workoutStats.intendedDurationMin}
+        domainsCompleted={workoutStats.domainsCompleted}
+        trainedCore={workoutStats.trainedCore}
         isRecovery={stableWorkoutPlan.isRecovery}
       />
     );

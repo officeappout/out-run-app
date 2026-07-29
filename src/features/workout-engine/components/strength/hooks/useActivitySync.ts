@@ -82,6 +82,9 @@ export interface UseActivitySyncParams {
   /** BLOCK_B_SMART_CLOSE_V1 (F): forwarded to the post-workout handoff (contract §4.1). */
   endMode?: 'full' | 'short' | 'quit';
   intendedDurationMin?: number;
+  /** BLOCK_B_SMART_CLOSE_V1 (B): domains just trained + reliable core flag. */
+  domainsCompleted?: string[];
+  trainedCore?: boolean;
 }
 
 export function useActivitySync(params: UseActivitySyncParams): void {
@@ -101,6 +104,8 @@ export function useActivitySync(params: UseActivitySyncParams): void {
     domainSets,
     endMode,
     intendedDurationMin,
+    domainsCompleted,
+    trainedCore,
   } = params;
 
   const { addCoins } = useProgressionStore();
@@ -165,6 +170,9 @@ export function useActivitySync(params: UseActivitySyncParams): void {
         // BLOCK_B_SMART_CLOSE_V1 (F): endMode + intended duration for the smart-close layer.
         endMode,
         intendedDurationMin,
+        // BLOCK_B_SMART_CLOSE_V1 (B): what was just done (domains + core flag).
+        domainsCompleted,
+        trainedCore,
         strengthCompletion,
       });
     })();

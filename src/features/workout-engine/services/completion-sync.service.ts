@@ -44,6 +44,14 @@ export interface CompletionPayload {
   endMode?: 'full' | 'short' | 'quit';
   intendedDurationMin?: number;
   /**
+   * BLOCK_B_SMART_CLOSE_V1 (B): the domains just trained (`domainsCompleted`, from the
+   * session's domainSets keys) + a reliable "core was trained" flag (`trainedCore`, scanned
+   * across ALL muscle groups — not the lossy domainSets first-muscle path). Consumed per
+   * contract §4.1 (weeklyPerformance/domains); carried to the post-workout handoff.
+   */
+  domainsCompleted?: string[];
+  trainedCore?: boolean;
+  /**
    * Multi-category split (hybrid). When present, minutes/calories are logged
    * PER category in ONE atomic activity-store write (e.g. cardio legs + strength
    * station) instead of the single `activityCategory`. The once-per-session
@@ -153,6 +161,9 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
         // is off → JSON.stringify omits them → byte-identical handoff.
         endMode: payload.endMode,
         intendedDurationMin: payload.intendedDurationMin,
+        // BLOCK_B_SMART_CLOSE_V1 (B): domains just trained + core flag (same inert-when-off rule).
+        domainsCompleted: payload.domainsCompleted,
+        trainedCore: payload.trainedCore,
       }),
     );
   }

@@ -410,6 +410,8 @@ export default function HomePage() {
     calories?: number; exerciseCount?: number;
     // BLOCK_B_SMART_CLOSE_V1 (F): how the session ended (consumed per contract §4.1).
     endMode?: 'full' | 'short' | 'quit'; intendedDurationMin?: number;
+    // BLOCK_B_SMART_CLOSE_V1 (B): domains just trained + reliable core flag.
+    domainsCompleted?: string[]; trainedCore?: boolean;
   } | null>(null);
   // POST_WORKOUT_LANDING_V1 (Block A): per-day dismiss for the top summary strip.
   const [landingDismissed, setLandingDismissed] = useState(false);
