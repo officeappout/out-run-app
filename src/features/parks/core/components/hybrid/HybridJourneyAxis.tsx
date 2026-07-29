@@ -33,6 +33,23 @@ const DOMAIN_LABEL: Record<string, string> = {
   push: 'דחיפה', pull: 'משיכה', legs: 'רגליים', legs_core: 'רגליים וליבה', core: 'ליבה',
 };
 
+/** Station label by activity (route-stops Bug 3b): stretch/core stops show their own
+ *  label; a strength/undefined station is byte-identical (domain → "משיכה"/… else "כוח"). */
+function stationNounLabel(seg: { activityType?: string; domainFocus?: string }): string {
+  const at = seg.activityType;
+  if (at === 'stretch' || at === 'mobility' || at === 'yoga') return 'מתיחות';
+  if (at === 'core') return 'ליבה';
+  return DOMAIN_LABEL[seg.domainFocus ?? ''] ?? 'כוח';
+}
+/** "action" phrasing for the expanded Meta row — "אימון כוח" for strength, else the
+ *  stop's own action. Strength/undefined → unchanged. */
+function stationActionLabel(seg: { activityType?: string }): string {
+  const at = seg.activityType;
+  if (at === 'stretch' || at === 'mobility' || at === 'yoga') return 'מתיחות ושחרור';
+  if (at === 'core') return 'אימון ליבה';
+  return 'אימון כוח';
+}
+
 const ZONE_LABEL: Record<string, string> = {
   jogging: 'ריצה קלה', easy: 'קל', recovery: 'שחרור', walk: 'הליכה',
   tempo: 'טמפו', long_run: 'ריצה ממושכת', fartlek_medium: 'פרטלק', fartlek_fast: 'פרטלק מהיר',
@@ -246,7 +263,7 @@ export default function HybridJourneyAxis({
                       <span style={{ color: '#D1D5DB' }}>·</span>
                       <span>~{formatMinutes(seg.content?.estimatedDurationSec)}</span>
                       <span style={{ color: '#D1D5DB' }}>·</span>
-                      <span className="font-semibold" style={{ color: STR_TEXT }}>{DOMAIN_LABEL[seg.domainFocus ?? ''] ?? 'כוח'}</span>
+                      <span className="font-semibold" style={{ color: STR_TEXT }}>{stationNounLabel(seg)}</span>
                       {sections.some((s) => s.id === 'warmup') && (isWarmupActive ?? true) && (
                         <span className="text-[10.5px] font-bold rounded-full" style={{ padding: '2px 8px', background: STR_TINT, color: STR_TEXT }}>כולל חימום</span>
                       )}
@@ -259,7 +276,7 @@ export default function HybridJourneyAxis({
                         the program name is Phase-2 inner-info (needs engine wiring). */}
                     <div className="flex items-center gap-2 flex-wrap mt-2">
                       <Meta icon={<ActivityGlyph kind="strength" className="w-4 h-4" />}>
-                        אימון כוח · ~{formatMinutes(seg.content?.estimatedDurationSec)}
+                        {stationActionLabel(seg)} · ~{formatMinutes(seg.content?.estimatedDurationSec)}
                       </Meta>
                     </div>
                     {sections.map((section) => {
