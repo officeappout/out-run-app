@@ -35,6 +35,7 @@ import {
   type StrengthBlockResult,
 } from '../core/pipeline/strength-block.service';
 import { MIN_STATION_EXERCISES } from './station-source';
+import { appendCooldownExercises } from '../services/cooldown.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '../core/config/pace-map-config';
 import { normalizeGearIds, satisfiesGearRequirement } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
@@ -415,8 +416,55 @@ function dispatchStopContent(
       log.push(...block.log.map((l) => `[${candidate.stopId}] ${l}`));
       return block.isEmpty ? null : block;
     }
+    case 'stretch':
+    case 'mobility':
+    case 'yoga': {
+      // Static-stretch block — REUSE the cooldown selector (role==='cooldown' pool,
+      // location + time-budget scoring). appendCooldownExercises mutates a workout, so we
+      // hand it an empty stub and lift out the exercises it appends, then wrap them as a
+      // StrengthBlockResult the composer/runner already know how to render.
+      const stub = { exercises: [] as any[] } as any;
+      appendCooldownExercises(stub, input.masterExercises, input.filterContext, 'park', blockMinutes);
+      const exercises = stub.exercises;
+      if (exercises.length === 0) {
+        log.push(`[${candidate.stopId}] ${activity}: no stretch (cooldown-role) exercises available — skipped`);
+        return null;
+      }
+      const estimatedDurationSec = exercises.reduce(
+        (acc: number, ex: any) =>
+          acc + (ex.sets ?? 1) * ((ex.isTimeBased ? ex.reps : ex.reps * SECONDS_PER_REP) + (ex.restSeconds ?? 0)),
+        0,
+      );
+      log.push(`[${candidate.stopId}] ${activity}: ${exercises.length} static stretches (~${Math.round(estimatedDurationSec / 60)}min)`);
+      return {
+        exercises,
+        estimatedDurationSec,
+        totalPlannedSets: exercises.reduce((acc: number, ex: any) => acc + (ex.sets ?? 1), 0),
+        domainFocus: undefined,
+        isEmpty: false,
+        log: [],
+      };
+    }
+    case 'core': {
+      // Bodyweight core/abs block (a bench / open area) — the strength generator on a
+      // FIELD (no-equipment) pool, focused on legs_core.
+      const pool = filterExercisesContextually(input.masterExercises, {
+        ...input.filterContext,
+        availableEquipment: [],
+        intentMode: 'field' as const,
+      });
+      const block = generateStrengthBlock({
+        blockMinutes,
+        scoredPool: pool.exercises,
+        domainFocus: 'legs_core',
+        context: input.generationContext,
+        rest: STATION_REST,
+      });
+      log.push(...block.log.map((l) => `[${candidate.stopId}] ${l}`));
+      return block.isEmpty ? null : block;
+    }
     default:
-      // Future kinds (mobility/yoga/rest_view…) get their own generators here.
+      // rest_view / meditation — no exercise content by design (a pure rest/view stop).
       log.push(`[${candidate.stopId}] activityType '${activity}' has no generator yet — skipped`);
       return null;
   }
