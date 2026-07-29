@@ -378,6 +378,8 @@ async function composeRouteStopsWorkout(
     return composeHybridSession({
       timeBudgetMin: intent.timeBudgetMin, emphasis: intent.emphasis, aerobicKind: intent.aerobicKind,
       paceProfile, routePath, stopCandidates: stops, stopSelection: 'as_provided',
+      // Bug 2a: every route stop is a full-body workout (mixed domains), not single-domain.
+      stationDomainMode: 'multi',
       masterExercises, filterContext, generationContext, weeklyGaps, userWeightKg,
     });
   };
