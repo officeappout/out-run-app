@@ -29,6 +29,7 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getProgramLevelSetting, isPlsCacheEnabled } from '@/features/content/programs/core/programLevelSettings.service';
 import { resolveToSlug } from './program-hierarchy.utils';
+import { resolveDataLevel } from './level-resolution.utils';
 
 // ============================================================================
 // TYPES
@@ -96,6 +97,7 @@ export async function resolveLeadProgramBudget(
 ): Promise<LeadProgramBudget | null> {
   const programs = allPrograms ?? await getAllPrograms();
   const tracks = userProfile.progression?.tracks ?? {};
+  const domains = userProfile.progression?.domains ?? {};
   const activeIds = new Set(
     (userProfile.progression?.activePrograms ?? []).map(ap => ap.templateId),
   );
@@ -111,18 +113,19 @@ export async function resolveLeadProgramBudget(
   // Check both the Firestore ID key AND the slug key in tracks,
   // taking the MAX to avoid stale L1 entries from Firestore IDs.
   const getTrackLevel = (progId: string): number => {
-    const byId = (tracks as Record<string, any>)[progId]?.currentLevel
-      ?? (tracks as Record<string, any>)[progId]?.level;
     const slug = resolveToSlug(progId);
-    const bySlug = slug !== progId
-      ? ((tracks as Record<string, any>)[slug]?.currentLevel
-         ?? (tracks as Record<string, any>)[slug]?.level)
-      : undefined;
-    const byPattern = pattern
-      ? ((tracks as Record<string, any>)[pattern]?.currentLevel
-         ?? (tracks as Record<string, any>)[pattern]?.level)
-      : undefined;
-    return Math.max(byId ?? 0, bySlug ?? 0, byPattern ?? 0) || 1;
+    // Max level from a source map across the id / slug / pattern keys.
+    const maxFrom = (src: Record<string, any>): number => Math.max(
+      resolveDataLevel(src[progId]),
+      slug !== progId ? resolveDataLevel(src[slug]) : 0,
+      pattern ? resolveDataLevel(src[pattern]) : 0,
+    );
+    // Mirror buildUserProgramLevels: prefer tracks (source of truth), fall back to `domains`
+    // when the track level is unset/1. The budget resolver was blind to `domains` → it
+    // collapsed to L1 and read the wrong per-level weeklyVolumeTarget (→ getDefaultVolumeTarget).
+    const trackLevel = maxFrom(tracks);
+    const domainLevel = maxFrom(domains);
+    return (trackLevel > 1) ? trackLevel : (domainLevel || 1);
   };
 
   let leadProgram: Program = candidates[0];
