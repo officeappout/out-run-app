@@ -18,7 +18,7 @@
  * component (PostWorkoutSmartClose). Unmounted = no fetch = byte-identical when off.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getAllExercises } from '@/features/content/exercises/core/exercise.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import type {
@@ -83,19 +83,25 @@ function buildRecoveryHeroWorkout(allExercises: Exercise[]): GeneratedWorkout | 
 
 export function useRecoveryHeroWorkout(): GeneratedWorkout | null {
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
-  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
+    // `cancelled`-only cleanup, NO persistent ref guard: under React StrictMode (Next dev) the
+    // effect double-invokes (mount → unmount → remount). A ref guard would make the remount
+    // skip re-fetching while the first fetch's setWorkout is cancelled by the unmount → the
+    // card never mounts (built runs but state never updates). The remount re-fetches and
+    // `cancelled` drops the stale first result — also more correct in prod (a real remount gets
+    // a fresh fetch, not a stuck ref). Cost: TWO full getAllExercises queries in dev (it is NOT
+    // cached — a live ~372-doc read); ONE in prod.
     let cancelled = false;
     void (async () => {
       try {
         const all = await getAllExercises();
         const gw = buildRecoveryHeroWorkout(all);
         if (!cancelled) setWorkout(gw);
-      } catch {
-        // Fail silently — the message + ring still render without the recovery card.
+      } catch (err) {
+        // Real error channel (NOT swallowed) — a prod failure to build the recovery card stays
+        // visible; the message + ring still render without it.
+        console.warn('[useRecoveryHeroWorkout] failed to build the recovery card:', err);
       }
     })();
     return () => {
