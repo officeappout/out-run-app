@@ -164,6 +164,12 @@ interface PlannedStop {
 
 ## Axis design — detail & open decisions (polish)
 
+> **Decision status (2026-07-30):** the proposed defaults are **ACCEPTED** for the build —
+> **①a = clip** (linear mid-entry → entry→terminus) and **①b = walk-in composed upstream** (planner
+> stays pure). None blocks Axis ①. The remaining decisions — **②a** (stationary `'auto'` fallback),
+> **③a** (turnaround rule), **③b** (repeat-content on the return — decide by **feel**), **③c** (lap
+> source) — are **revisited at build-time, when they can be seen & tested** (③b especially).
+
 ### The ordering invariant — `traversalKm`
 The **one** ordering key: **cumulative distance actually walked from entry**, monotonic non-decreasing
 across the whole session. A canonical position (a stop's real location) maps to **one** `traversalKm`
