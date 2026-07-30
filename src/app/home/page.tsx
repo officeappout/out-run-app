@@ -42,6 +42,7 @@ import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firesto
 import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_DAILY_GOAL_V1, POST_WORKOUT_LANDING_V1, HOME_DAY_SELECT_SCOPE_V1, BLOCK_B_SMART_CLOSE_V1 } from '@/config/feature-flags';
 import PostWorkoutSummaryStrip from '@/features/home/components/PostWorkoutSummaryStrip';
 import PostWorkoutSmartClose from '@/features/home/components/PostWorkoutSmartClose';
+import PostWorkoutStripHost from '@/features/home/components/PostWorkoutStripHost';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -1198,6 +1199,22 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
+      {/* ── Block B: post-workout summary strip, floated to the TOP (item 2) ──
+          The strip sits here (motivation-banner slot); the recovery card + Stage 2 next-step
+          options stay in the anchor below (PostWorkoutSmartClose). Block B-gated + the host owns
+          the weekly-volume read → byte-identical when off. */}
+      {BLOCK_B_SMART_CLOSE_V1 && completionForToday && (postWorkoutData || todayWorkoutDone) && completionData && postWorkoutData?.endMode && (
+        <div className="max-w-md mx-auto px-4 pt-3">
+          <PostWorkoutStripHost
+            workoutType={completionData.workoutType}
+            durationMinutes={completionData.durationMinutes}
+            exerciseCount={postWorkoutData.exerciseCount}
+            calories={postWorkoutData.calories}
+            onDismiss={handleDismissLanding}
+          />
+        </div>
+      )}
+
       {/* ── Community Session Banner (single closest session, dismiss persists across refreshes) ── */}
       {communitySessions.length > 0 && (
         <div className="max-w-md mx-auto px-4 pt-3">
@@ -1468,19 +1485,11 @@ export default function HomePage() {
             Either path keeps the action zone replaced — no empty layout gap. */}
         {completionForToday && (postWorkoutData || todayWorkoutDone) && completionData && (
           BLOCK_B_SMART_CLOSE_V1 && postWorkoutData?.endMode ? (
-            /* Block B: reuses the existing daily-strength-goal ring card (PostWorkoutSummaryStrip)
-               for the summary, plus the recovery card (and Stage 2's next-step options).
-               PostWorkoutSmartClose OWNS the recovery generation — unmounted when the flag is off
-               → byte-identical. strengthRingPct feeds the strip's ring the WORKOUT-MOVED %
-               (dailyStrengthPct) instead of the 0-buggy stripRingPct (Stage 1a fix). */
-            <PostWorkoutSmartClose
-              workoutType={completionData.workoutType}
-              durationMinutes={completionData.durationMinutes}
-              exerciseCount={postWorkoutData.exerciseCount}
-              calories={postWorkoutData.calories}
-              onDismiss={handleDismissLanding}
-              userGender={profile?.core?.gender}
-            />
+            /* Block B anchor: the recovery card (+ Stage 2 next-step options). The summary strip
+               floated to the TOP (item 2, above). PostWorkoutSmartClose OWNS the recovery
+               generation — unmounted when the flag is off → byte-identical. Renders null until
+               recovery is ready (or if none). */
+            <PostWorkoutSmartClose userGender={profile?.core?.gender} />
           ) : POST_WORKOUT_LANDING_V1 ? (
             /* Block A bridge: the summary moved UP to the top strip, so the anchor slot
                keeps ONLY the "another workout" continuation (Block B replaces this with
