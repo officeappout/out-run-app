@@ -94,6 +94,74 @@ The **shape** of the traversal over the canonical route:
 
 ---
 
+## `planFromPoint` — the contract (DESIGN only; body PAUSED)
+
+> Signature + axis types now (doesn't count sets/stations). The **body** — mapping stops to
+> station content + budget/leg distribution + arrival/deviation wiring — **counts sets/stations, so
+> it is ON HOLD** until the ② domainSets/set-counting fix lands (owned by the home-page chat). Then
+> rebase and build the body Axis ① → ② → ③.
+
+```ts
+// ── Principle 1: the CANONICAL layer (fixed reference — never mutated) ─────────────
+interface CanonicalRoute {
+  path: RoutePath;         // [lng,lat][] — the stored official_route.path
+  prefixKm: number[];      // buildRoutePrefixKm(path) — physical distance markers (the reference)
+}
+
+// ── Axis ① entry ──────────────────────────────────────────────────────────────────
+interface EntryPoint {
+  position: LatLng;        // start = user GPS · recalc = current position mid-route
+  // planFromPoint snaps this → nearest canonical vertex (reuse useRouteFilter's nearest-index math)
+}
+
+// ── Axis ② direction ──────────────────────────────────────────────────────────────
+type Direction = 'forward' | 'backward' | 'auto';   // 'auto' → infer (heading / nearest-next vertex)
+
+// ── Axis ③ topology ───────────────────────────────────────────────────────────────
+type Topology =
+  | 'one_way'            // entry → terminus (today's implicit shape)
+  | 'out_and_back'       // entry → far point → back; a stop can RECUR on the return
+  | 'loop';              // cyclic (path[0]≈path[N]); "last" wraps back near entry
+  // future: { kind: 'laps'; count: number }
+
+// ── The pure planner (Principle 2: one function, two callers) ─────────────────────
+interface PlanFromPointInput {
+  canonical: CanonicalRoute;
+  entry: EntryPoint;
+  direction: Direction;
+  topology: Topology;
+  stops: ResolvedRouteStop[];        // POIs to place — keep their REAL canonical positions (no pin move)
+}
+function planFromPoint(input: PlanFromPointInput): SessionPlan;   // PURE — no I/O, no store reads
+
+// ── Output: the dynamic session view over the canonical route ─────────────────────
+interface SessionPlan {
+  traversal: RoutePath;              // the path ACTUALLY walked (rotated to entry · reversed per dir · expanded per topology)
+  entryIndex: number;                // where on canonical the session began (map + recalc anchor)
+  direction: 'forward' | 'backward'; // resolved (auto → concrete)
+  stops: PlannedStop[];              // stops in TRAVERSAL order, keyed by distance-from-entry
+}
+interface PlannedStop {
+  stop: ResolvedRouteStop;           // the POI — pin stays at its real canonical location
+  traversalKm: number;               // distance from entry along the traversal — THE ordering key (replaces waypointIndex)
+  // occurrence?: number;            // out_and_back / laps — which pass (a stop may appear >1×)
+}
+```
+
+**Design properties (why this is the honest model, not the patch):**
+1. **Canonical never mutated** — `SessionPlan` is derived; `path` + `prefixKm` stay the fixed reference.
+2. **Pure + reusable** — no I/O/store reads; callable at **start** (`entry` = GPS) **and again mid-route**
+   (`entry` = current position) = the recalc-on-deviation consumer, same call.
+3. **Entry-relative by construction** — ordering is by `traversalKm` (distance-from-entry), **not** by
+   canonical `waypointIndex`. The interim pin-relocation is **deleted**: a stretch stays at its real POI,
+   and "last" falls out of `traversalKm`. No lying about location.
+4. **Axes compose** — entry (rotate) → direction (reverse) → topology (expand); stops re-project onto the
+   resulting traversal. `out_and_back`/`loop`/`laps` are where a stop can recur (`occurrence`).
+5. **Signature carries all three axes from day one** — Axis ① body first (`direction`/`topology` default to
+   today's behavior), ② and ③ slot in without a signature change.
+
+---
+
 ## Backlog — separate epic (NOT now)
 
 - **(B) Open-space polygon pipeline** — model a stretch as an **AREA** (e.g. Charles Clore lawn), not a
