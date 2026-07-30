@@ -377,7 +377,15 @@ async function composeRouteStopsWorkout(
     console.log(`[route-stops] weekly strength budget spent (remaining=${remainingStrengthBudget} < 4) → strength stop(s) defaulted to core`);
   }
 
-  // ── Cooldown-last: composeHybridSession sequences stations by physical km, so a stretch/cooldown
+  // ── Cooldown-last  [⚠️ INTERIM / TECH-DEBT → §7.3 Part 4 — NOT the final model] ───────────────
+  // This assumes a FIXED entry: the workout starts at the route's stored waypoint 0, so "last" is a
+  // fixed near-end waypoint and we RELOCATE the stretch pin to it. But the real entry point varies
+  // (live GPS / a searched address → the user may start mid-route or from either end), so ordering
+  // is entry- and direction-relative, and a stretch zone (e.g. a lawn) is an AREA, not a point. To
+  // be replaced by the relative model (order relative to actual traversal + stretch content modeled
+  // as a script-derived area, like routes/climbs). Do NOT treat the pin-relocation as final.
+  //
+  // composeHybridSession sequences stations by physical km, so a stretch/cooldown
   // POI placed early reads "backwards". Relocate cooldown-eligible stops to AFTER the last WORK
   // station (strength OR core — "cooldown last on EVERY route", incl. budget-spent). Pin + waypoint
   // move together (map & sequence stay consistent), distToPathM zeroed (now on the line), and parkId
