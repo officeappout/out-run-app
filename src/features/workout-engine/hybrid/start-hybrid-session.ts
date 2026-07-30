@@ -358,7 +358,24 @@ async function composeRouteStopsWorkout(
   await warmHybridCaches();
   let parks: any[] = [];
   try { parks = await fetchRealParks(); } catch { /* no parks → no stops → no card */ }
-  const stops = resolveRouteStops(routePath, parks as any);
+  const rawStops = resolveRouteStops(routePath, parks as any);
+
+  // Recommendation-path DEFAULT (not a cap): when the weekly STRENGTH set-budget is spent, a
+  // strength station would only muster a sparse 1–2 sets. Default those stops to CORE instead —
+  // core is always available in a park (no ParkGating), fits any level, and is coherent for a
+  // short stop. Threshold: remaining strength sets < 4 (below a coherent station; <=0 would still
+  // allow a 1–2 set sliver). getRemainingBudget() is STRENGTH-ONLY (useWeeklyVolumeStore:
+  // strength.weeklyBudget − strength.totalSetsCompleted), NOT the aggregate active-minutes.
+  // Scoped to this fn → the manual combined generator (composeHybridPlan) is untouched.
+  const { useWeeklyVolumeStore } = await import('@/features/workout-engine/core/store/useWeeklyVolumeStore');
+  const remainingStrengthBudget = useWeeklyVolumeStore.getState().getRemainingBudget();
+  const strengthSpent = remainingStrengthBudget < 4;
+  const stops = strengthSpent
+    ? rawStops.map((s) => (s.activityType === 'strength' ? { ...s, activityType: 'core' as const } : s))
+    : rawStops;
+  if (strengthSpent && rawStops.some((s) => s.activityType === 'strength')) {
+    console.log(`[route-stops] weekly strength budget spent (remaining=${remainingStrengthBudget} < 4) → strength stop(s) defaulted to core`);
+  }
   console.log(
     `[route-stops] route="${backbone.routeName}" stops=${stops.length}` +
     ` [${stops.map((s) => `${s.activityType}@wp${s.waypointIndex}(${s.distToPathM}m)`).join(', ')}]`,
