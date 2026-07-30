@@ -590,11 +590,7 @@ export function assignVolume(
         && domainBudgetReceivers.has(scored.exercise.id)) {
       const budget = domainBudgetMap.get(exDomain)!;
       const count = exercisesPerDomain.get(exDomain)!;
-      // item 5 (structure floor): normal workouts get ≥2 sets/exercise even on a low domain
-      // budget (mirrors the non-domain path's max(2,…) at setsPerSlot). Skip 5-min (≤10) +
-      // blast/AMRAP, where a single set is legit — so a first workout never comes out sparse.
-      const structureFloor = context.availableTime > 10 && context.intentMode !== 'blast' ? 2 : 1;
-      const domainSets = Math.max(structureFloor, Math.ceil(budget / count));
+      const domainSets = Math.ceil(budget / count);
       sets = Math.max(volumeTier.sets.min, Math.min(volumeTier.sets.max, domainSets));
     } else {
       // Apply the pre-assignment ceiling so a small pool spreads sets evenly.
