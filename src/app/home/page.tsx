@@ -1462,16 +1462,18 @@ export default function HomePage() {
             Either path keeps the action zone replaced — no empty layout gap. */}
         {completionForToday && (postWorkoutData || todayWorkoutDone) && completionData && (
           BLOCK_B_SMART_CLOSE_V1 && postWorkoutData?.endMode ? (
-            /* Block B: reuses the SAME designed completion card (A) as the else-branch below,
-               plus the recovery card (and Stage 2's next-step options). PostWorkoutSmartClose
-               OWNS the recovery generation — unmounted when the flag is off → byte-identical.
-               strengthRingPct feeds A's ring the workout-moved % (Stage 1a 0-bug fix). */
+            /* Block B: reuses the existing daily-strength-goal ring card (PostWorkoutSummaryStrip)
+               for the summary, plus the recovery card (and Stage 2's next-step options).
+               PostWorkoutSmartClose OWNS the recovery generation — unmounted when the flag is off
+               → byte-identical. strengthRingPct feeds the strip's ring the WORKOUT-MOVED %
+               (dailyStrengthPct) instead of the 0-buggy stripRingPct (Stage 1a fix). */
             <PostWorkoutSmartClose
-              completionData={completionData}
+              workoutType={completionData.workoutType}
               strengthRingPct={postWorkoutData.dailyStrengthPct}
-              onRequestMore={handleRequestMore}
-              ctaLabel={completionCtaLabel}
-              onDismissCelebration={handleDismissCelebration}
+              durationMinutes={completionData.durationMinutes}
+              exerciseCount={postWorkoutData.exerciseCount}
+              calories={postWorkoutData.calories}
+              onDismiss={handleDismissLanding}
               userGender={profile?.core?.gender}
             />
           ) : POST_WORKOUT_LANDING_V1 ? (

@@ -8,42 +8,40 @@
  * no generation = byte-identical.
  *
  * Design direction: recycle existing components, zero new visual language.
- *   Message/summary — REUSES the existing designed completion card (HeroWorkoutCard's
- *     isCompleted celebration, the one that sat in this anchor slot before Block B), NOT a
- *     new message. Stage 1a (#1) feeds its ring the workout-moved daily-strength %
- *     (strengthRingPct) via a synthetic sets pair, so it shows the reliable % (fixing the
- *     stripRingPct 0-bug) regardless of STRENGTH_RING_ENABLED.
+ *   Summary — REUSES the existing PostWorkoutSummaryStrip (the designer's daily-strength-goal
+ *     ring card), fed the WORKOUT-MOVED % (strengthRingPct = dailyProgress.dailyStrengthPct)
+ *     instead of stripRingPct → fixes the 0-bug (stripRingPct hard-zeros on non-scheduled days).
  *   Recovery (#3) — the big rest-day recovery HeroWorkoutCard below it (reused pipeline).
  *   Stage 2 (gated) — adds the hero-card next-step OPTIONS (walk / abs / complementary).
  */
 
 import React, { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import HeroWorkoutCard, { type CompletionData } from './HeroWorkoutCard';
+import PostWorkoutSummaryStrip from './PostWorkoutSummaryStrip';
+import HeroWorkoutCard from './HeroWorkoutCard';
 import { useRecoveryHeroWorkout } from '../hooks/useRecoveryHeroWorkout';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
 
 export interface PostWorkoutSmartCloseProps {
-  /** The designed completion card's data — reused verbatim from home (same as the
-   *  else-branch HeroWorkoutCard celebration). */
-  completionData: CompletionData;
-  /** Stage 1a (#1): the workout-moved daily-strength % (0-1). Overrides the celebration
-   *  ring so it shows the reliable value (fixes the stripRingPct 0-bug), independent of
-   *  STRENGTH_RING_ENABLED. */
+  workoutType?: string;
+  /** Stage 1a (#1): daily-strength % (0-1) — the workout-moved value (dailyStrengthPct);
+   *  feeds the strip's ring, fixing the stripRingPct 0-bug. */
   strengthRingPct?: number;
-  onRequestMore?: () => void;
-  ctaLabel?: string;
-  onDismissCelebration?: () => void;
+  durationMinutes: number;
+  exerciseCount?: number;
+  calories?: number;
+  onDismiss: () => void;
   userGender?: 'male' | 'female' | 'other' | null;
 }
 
 export default function PostWorkoutSmartClose({
-  completionData,
+  workoutType,
   strengthRingPct,
-  onRequestMore,
-  ctaLabel,
-  onDismissCelebration,
+  durationMinutes,
+  exerciseCount,
+  calories,
+  onDismiss,
   userGender,
 }: PostWorkoutSmartCloseProps) {
   const router = useRouter();
@@ -61,34 +59,16 @@ export default function PostWorkoutSmartClose({
     router.push(`/workouts/${id}/active`);
   }, [recoveryWorkout, router]);
 
-  // Stage 1a (#1): feed the celebration ring the workout-moved % via a synthetic sets pair
-  // (completedSets/targetSets = pct·100 / 100 → getStrengthRingView fillPct = pct). Shows the
-  // reliable dailyStrengthPct regardless of STRENGTH_RING_ENABLED. Also drops the thumbnail
-  // (ring variant → the ring is the focal metric).
-  const completion: CompletionData =
-    strengthRingPct != null
-      ? {
-          ...completionData,
-          ring: {
-            completedSets: Math.round(Math.max(0, Math.min(1, strengthRingPct)) * 100),
-            targetSets: 100,
-            avgMinutesPerSet: 0,
-          },
-        }
-      : completionData;
-
   return (
     <div className="space-y-3">
-      {/* Message/summary — the EXISTING designed completion card (A), not a new message. */}
-      <HeroWorkoutCard
-        workout={{ id: 'completed', title: completion.workoutTitle || '', duration: completion.durationMinutes, difficulty: 2 } as any}
-        onStart={() => {}}
-        isCompleted
-        completionData={completion}
-        onRequestMore={onRequestMore}
-        ctaLabel={ctaLabel}
-        onDismissCelebration={onDismissCelebration}
-        userGender={userGender}
+      {/* Summary — the EXISTING daily-strength-goal ring card, fed the reliable % (0-bug fix). */}
+      <PostWorkoutSummaryStrip
+        workoutType={workoutType}
+        ringPct={strengthRingPct ?? 0}
+        durationMinutes={durationMinutes}
+        exerciseCount={exerciseCount}
+        calories={calories}
+        onDismiss={onDismiss}
       />
       {/* Stage 1b (#3): the big rest-day recovery card below. */}
       {recoveryWorkout && (
