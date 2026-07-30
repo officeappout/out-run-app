@@ -162,6 +162,64 @@ interface PlannedStop {
 
 ---
 
+## Axis design — detail & open decisions (polish)
+
+### The ordering invariant — `traversalKm`
+The **one** ordering key: **cumulative distance actually walked from entry**, monotonic non-decreasing
+across the whole session. A canonical position (a stop's real location) maps to **one** `traversalKm`
+under `one_way`, but **several** under `out_and_back` (outbound + return) and `laps` (one per lap) →
+`PlannedStop.occurrence`. **"Last" = max `traversalKm`.** This is what makes ordering robust to entry /
+direction / topology **without moving any pin** — the interim's fatal flaw. Nothing else orders stops.
+
+### Axis ① entry
+- **Snap = project onto the nearest segment** (perpendicular), giving a **continuous `entryKm`**, not
+  just the nearest vertex — more accurate for a real entry. Reuse `useRouteFilter`'s closest-index as
+  the coarse step, then refine to the segment projection.
+- **Loop:** rotate cyclically to start at `entryKm` — natural (loop is inherently cyclic).
+- **Linear + mid-entry:** the pre-entry portion is *behind* the user. **Open decision ①a:** (a) **clip**
+  (session = `entryKm`→terminus) — proposed default; (b) out-and-back over the remainder (Axis ③
+  interplay); (c) forward-only from entry.
+- **Entry OFF-route** (GPS not on the line): a **walk-in** leg precedes the session. **Open decision ①b:**
+  is walk-in inside `planFromPoint` or composed upstream? **Proposal:** `planFromPoint` assumes entry is
+  snapped **on** the canonical; the walk-in pre-leg is composed before it (keeps the planner pure over the
+  canonical). `useWalkToRoute` already targets the nearer endpoint — here it targets `entryKm`.
+
+### Axis ② direction
+- **`'auto'` inference:** if moving (speed above a small threshold) and heading is known → pick the
+  direction whose **next canonical vertex best aligns with heading** (dot-product); if stationary/unknown →
+  fall back. **Open decision ②a:** the stationary fallback — `forward`, or the **longer-ahead** direction,
+  or defer to a UI toggle.
+- **Reversal** = reverse the (rotated) traversal; `entryKm` is re-measured from the new start. `entryIndex`
+  + resolved `direction` fully pin the ordered traversal.
+- **Loop:** direction = CW vs CCW — flips the stop sequence; the lap still returns to entry.
+
+### Axis ③ topology (largest)
+- **`one_way`:** entry→terminus (linear) · entry→around→entry (loop, 1 lap). Each stop **once**.
+- **`out_and_back`:** entry→far→entry. The return **re-projects** each canonical stop at
+  `2·turnaroundKm − outboundKm` → a **second** `PlannedStop` (`occurrence: 2`). Mainly for linear routes /
+  "end where you started". **Open decision ③a:** turnaround rule — terminus vs a target distance vs "just
+  past the last work station". **Open decision ③b:** does a stop **repeat content** on the return (same
+  stretch again) or only **some** (e.g. cooldown only on the final pass)?
+- **`loop`:** cyclic, one lap. **`laps(N)`** (future): N cycles; each stop recurs per lap
+  (**Open decision ③c:** lap-count source).
+- **Traversal for multi-pass** = the canonical segments concatenated in walk order (out, then reversed
+  back; or repeated per lap); stops re-project per pass. `traversalKm` stays monotonic across passes.
+
+### Recalc-on-deviation — what changes (future consumer; design already supports it)
+Same call, invoked mid-route: `entry` = current (snapped) position · `stops` = **remaining** (not-yet-done)
+· `topology` = the **remaining** shape (e.g. deviated on the return of an out-and-back → remaining = the
+rest of the return). The **trigger exists** (`useRouteDeviationOrchestrator` + `crossTrackDistanceMeters`);
+`planFromPoint` is the **response**. Design note: track **done** stops (by `occurrence`) so recalc excludes
+them — a small `doneStopKeys` input, or filter `stops` upstream.
+
+### The ② boundary — what the body must NOT do yet
+`planFromPoint` **orders + positions** (traversal + `traversalKm` per stop) — it **counts nothing**. Turning
+`PlannedStop`s into station **content** (dispatchStopContent) + **budget/leg distribution** + arrival wiring
+**counts sets/stations** → those steps wait for the ② fix. The planner and its axes can be fully designed and
+(when ② lands) built first; the counting consumers plug in after.
+
+---
+
 ## Backlog — separate epic (NOT now)
 
 - **(B) Open-space polygon pipeline** — model a stretch as an **AREA** (e.g. Charles Clore lawn), not a
