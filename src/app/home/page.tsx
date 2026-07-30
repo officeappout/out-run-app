@@ -1274,7 +1274,13 @@ export default function HomePage() {
             strip — takes the top "now" slot ABOVE the schedule after a workout finishes.
             The full celebration card is removed from the anchor slot below (one summary,
             floated to top); the detailed summary stays a drill-in. Flag OFF → not rendered
-            → byte-identical. */}
+            → byte-identical.
+
+            ⚠️ KNOWN FLAG-INTERACTION (strip dedupe): PostWorkoutSummaryStrip ALSO renders
+            inside the Block B anchor (PostWorkoutSmartClose). With BOTH POST_WORKOUT_LANDING_V1
+            AND BLOCK_B_SMART_CLOSE_V1 on, the strip renders TWICE (here + anchor). They are
+            mutually exclusive today (POST_WORKOUT_LANDING_V1 is off). Before enabling both,
+            add a dedupe guard so the strip renders exactly once. */}
         {POST_WORKOUT_LANDING_V1 && completionForToday && !landingDismissed && (postWorkoutData || todayWorkoutDone) && completionData && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
