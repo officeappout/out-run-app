@@ -126,6 +126,16 @@ export function useActivitySync(params: UseActivitySyncParams): void {
           .reduce((sum, ex) => sum + ex.sets.length, 0);
     const plannedSets = totalPlannedSets ?? actualSetsCompleted;
 
+    // Completion-card "N תרגילים" (POST_WORKOUT_LANDING_V1 / Block B strip): count the exercises
+    // ACTUALLY done (≥1 logged set), mirroring actualSetsCompleted / sessionExerciseIds — NOT
+    // completedExercises.length, which mapToCompletedExercises pads with the ENTIRE unlogged plan
+    // roster (sets:[]) → 1 done showed "4 תרגילים".
+    const completedExerciseCount = rawExerciseLog && rawExerciseLog.length > 0
+      ? rawExerciseLog.filter((e) => e.confirmedReps.length > 0).length
+      : completedExercises.filter(
+          (ex) => (ex.category === 'main' || ex.category === 'superset') && ex.sets.length > 0,
+        ).length;
+
     // 1. Activity Store (rings + streak) + completion.
     // HOME_DAILY_GOAL_V1 (strength, non-recovery): resolve the stable daily target
     // and gate the day's completion on ⅔ of it. `priorToday` is read BEFORE this
@@ -170,8 +180,9 @@ export function useActivitySync(params: UseActivitySyncParams): void {
         activityCategory,
         displayIcon: 'dumbbell',
         workoutTitle: programName,
-        // POST_WORKOUT_LANDING_V1 (Block A): # exercises for the summary strip stats.
-        exerciseCount: completedExercises.length,
+        // POST_WORKOUT_LANDING_V1 (Block A): # exercises for the summary strip stats — the
+        // ACTUALLY-done count (≥1 logged set), not the padded plan roster.
+        exerciseCount: completedExerciseCount,
         // BLOCK_B_SMART_CLOSE_V1 (F): endMode + intended duration for the smart-close layer.
         endMode,
         intendedDurationMin,
