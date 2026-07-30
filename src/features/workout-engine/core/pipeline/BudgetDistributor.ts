@@ -363,8 +363,22 @@ export class BudgetDistributor {
     if (straightCurrent <= straightTarget) {
       finalStraight = mutable;
     } else if (structureFloor > 1) {
+      // Keep the highest-score exercises the budget can afford at the floor, DROP the
+      // rest. Pin survivors UP to the floor so a pre-thinned 1-set input can never
+      // survive below floor (keep×floor ≤ straightTarget, so this never overspends).
       const keep = Math.max(1, Math.floor(straightTarget / structureFloor));
-      finalStraight = [...mutable].sort((a, b) => b.score - a.score).slice(0, keep);
+      finalStraight = [...mutable]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, keep)
+        .map(e =>
+          e.sets < structureFloor
+            ? {
+                ...e,
+                sets: structureFloor,
+                reasoning: [...(e.reasoning ?? []), `structure_floor_pin:${e.sets}→${structureFloor}`],
+              }
+            : e,
+        );
     } else {
       finalStraight = applySmartSetCap(mutable, straightTarget, Math.max(1, safeDenominator));
     }
@@ -630,6 +644,7 @@ export class BudgetDistributor {
   reapplyCaps(
     exercises: WorkoutExercise[],
     constraints: BudgetConstraints,
+    context?: WorkoutGenerationContext,
   ): WorkoutExercise[] {
     if (exercises.length === 0) return exercises;
 
@@ -638,6 +653,16 @@ export class BudgetDistributor {
       ? exercises.length
       : Math.max(1, constraints.exerciseSlotCount);
     const safeDenominator = Math.max(1, rawDenominator);
+
+    // ③ item 5 (structure floor): mirror distribute() — the authoritative final
+    // pass must DROP the lowest-score exercises rather than thin survivors below
+    // 2 sets. Without this, reapplyCaps used the default floor=1 and produced the
+    // "N exercises × 1 set" fragmentation. 5-min (≤10) + blast sessions legitimately
+    // allow a single set, so they keep floor 1. No context → floor 1 (legacy safety net).
+    const structureFloor =
+      context && context.availableTime > 10 && context.intentMode !== 'blast'
+        ? 2
+        : 1;
 
     let result = [...exercises];
     const log: string[] = [];
@@ -662,7 +687,7 @@ export class BudgetDistributor {
     // ── Budget caps — pyramid-aware (never clip pyramid steps) ────────────
     if (constraints.maxSets != null && constraints.maxSets > 0) {
       const before = result.reduce((s, e) => s + e.sets, 0);
-      result = this._pyramidAwareCap(result, constraints.maxSets, safeDenominator);
+      result = this._pyramidAwareCap(result, constraints.maxSets, safeDenominator, structureFloor);
       const after = result.reduce((s, e) => s + e.sets, 0);
       if (after < before) log.push(`reapply_max_sets: ${before}→${after}`);
     }
@@ -674,7 +699,7 @@ export class BudgetDistributor {
       const total = result.reduce((s, e) => s + e.sets, 0);
       if (total > constraints.remainingWeeklyBudget) {
         const before = total;
-        result = this._pyramidAwareCap(result, constraints.remainingWeeklyBudget, safeDenominator);
+        result = this._pyramidAwareCap(result, constraints.remainingWeeklyBudget, safeDenominator, structureFloor);
         log.push(`reapply_weekly: ${before}→${result.reduce((s, e) => s + e.sets, 0)}`);
       }
     }
@@ -683,7 +708,7 @@ export class BudgetDistributor {
       const total = result.reduce((s, e) => s + e.sets, 0);
       if (total > constraints.dailySetBudget) {
         const before = total;
-        result = this._pyramidAwareCap(result, constraints.dailySetBudget, safeDenominator);
+        result = this._pyramidAwareCap(result, constraints.dailySetBudget, safeDenominator, structureFloor);
         log.push(`reapply_daily: ${before}→${result.reduce((s, e) => s + e.sets, 0)} (cap=${constraints.dailySetBudget})`);
       }
     }

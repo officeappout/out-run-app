@@ -326,7 +326,7 @@ export class PipelineOrchestrator {
     const budgetDistributor = createBudgetDistributor();
     const mainExercises = workout.exercises.filter(e => e.exerciseRole === 'main');
     const supportExercises = workout.exercises.filter(e => e.exerciseRole !== 'main');
-    const correctedMain = budgetDistributor.reapplyCaps(mainExercises, blueprint.budgetConstraints);
+    const correctedMain = budgetDistributor.reapplyCaps(mainExercises, blueprint.budgetConstraints, context);
 
     if (correctedMain !== mainExercises) {
       workout.exercises = [...correctedMain, ...supportExercises];

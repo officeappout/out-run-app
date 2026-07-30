@@ -28,7 +28,7 @@ import type { Program, MovementPattern, ProgramLevelSettings } from '@/features/
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getProgramLevelSetting, isPlsCacheEnabled } from '@/features/content/programs/core/programLevelSettings.service';
-import { resolveToSlug } from './program-hierarchy.utils';
+import { resolveToSlug, buildIdToSlugMapFromPrograms } from './program-hierarchy.utils';
 import { resolveDataLevel } from './level-resolution.utils';
 
 // ============================================================================
@@ -96,15 +96,25 @@ export async function resolveLeadProgramBudget(
   allPrograms?: Program[],
 ): Promise<LeadProgramBudget | null> {
   const programs = allPrograms ?? await getAllPrograms();
+  // Build the ID→slug map from the programs in hand. This resolver can run (via
+  // resolveActiveProgramBudget, from the StatsOverview budget effect) BEFORE
+  // generateHomeWorkoutTrio builds the map — without it resolveToSlug returns
+  // doc-ids unchanged and the slug-aware candidate match below silently fails.
+  buildIdToSlugMapFromPrograms(programs);
   const tracks = userProfile.progression?.tracks ?? {};
   const domains = userProfile.progression?.domains ?? {};
   const activeIds = new Set(
     (userProfile.progression?.activePrograms ?? []).map(ap => ap.templateId),
   );
 
-  // ── 1. Find programs matching the pattern that the user is actively enrolled in
+  // ── 1. Find programs matching the pattern that the user is actively enrolled in.
+  // activePrograms[].templateId may be a SLUG ("pull") while p.id is the Firestore
+  // doc-id — match on either form so enrolment resolves regardless of which is stored.
   const candidates = programs.filter(
-    p => p.movementPattern === pattern && !p.isMaster && activeIds.has(p.id),
+    p =>
+      p.movementPattern === pattern &&
+      !p.isMaster &&
+      (activeIds.has(p.id) || activeIds.has(resolveToSlug(p.id))),
   );
 
   if (candidates.length === 0) return null;
@@ -144,9 +154,9 @@ export async function resolveLeadProgramBudget(
   let settings: ProgramLevelSettings | null = null;
   try {
     settings = await getProgramLevelSetting(leadProgram.id, highestLevel);
-  } catch {
+  } catch (e) {
     console.warn(
-      `[LeadProgram] Could not fetch settings for ${leadProgram.id} L${highestLevel}`,
+      `[LeadProgram] Could not fetch settings for ${leadProgram.id} L${highestLevel}`, e,
     );
   }
 
@@ -229,13 +239,23 @@ export async function resolveActiveProgramBudget(
   allPrograms?: Program[],
 ): Promise<LeadProgramBudget | null> {
   const programs = allPrograms ?? await getAllPrograms();
+  // Ensure the ID→slug map exists before resolveToSlug is used below — this path
+  // (StatsOverview budget effect) runs before generateHomeWorkoutTrio builds it.
+  buildIdToSlugMapFromPrograms(programs);
 
   // Identify the active child program
   const activeTemplateId =
     userProfile.progression?.activePrograms?.[0]?.templateId;
+  // activeTemplateId may be a SLUG ("pull") rather than the Firestore doc-id — match by id,
+  // by resolved slug (via _idToSlugMap, already built), or by the program's movementPattern
+  // field, so the budget resolves the real program instead of falling to calculateWeeklyBudget.
+  const activeProgram = programs.find(
+    (p) =>
+      p.id === activeTemplateId ||
+      resolveToSlug(p.id) === activeTemplateId ||
+      p.movementPattern === activeTemplateId,
+  );
   if (!activeTemplateId) return null;
-
-  const activeProgram = programs.find(p => p.id === activeTemplateId);
   if (!activeProgram?.movementPattern) return null;
 
   return resolveLeadProgramBudget(
