@@ -386,7 +386,9 @@ function applySmartMerge(
 export function getWorkoutContext(input: GetWorkoutContextInput): SplitWorkoutContext {
   const { userProfile, weeklyBudget, selectedDate, aggregateBudgetInfo,
           domainSetsCompletedThisWeek, remainingScheduleDays, isManualOverride } = input;
-  const scheduleDays = (userProfile.lifestyle?.scheduleDays?.length ?? 0) || 3;
+  // ③: empty schedule → default 2 training days (was 3) → a denser first-workout budget
+  // (ceil(weekly/2) instead of ceil(weekly/3)) for a stronger first impression.
+  const scheduleDays = (userProfile.lifestyle?.scheduleDays?.length ?? 0) || 2;
   const userLevel = getBaseUserLevel(userProfile);
 
   // ── DEBUG: Log input data for level troubleshooting ──
