@@ -13,7 +13,6 @@ import { getAllExercises, getExercise as getFirestoreExercise, Exercise as Fires
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
-import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import type { ExecutionMethod } from '@/features/content/exercises';
 import { 
@@ -760,17 +759,10 @@ export default function ActiveWorkoutPage() {
       workoutPlan.difficulty === 'easy' ? 'easy' :
       workoutPlan.difficulty === 'hard' ? 'hard' : 'medium';
 
-    // Phase 3 + 4: Compute per-domain set counts from segment exercises + log.
-    // Two concurrent writes per exercise:
-    //   Pass A (anatomical / coarse): MUSCLE_TO_DOMAIN → 'push' | 'pull' | 'legs' | 'core'
-    //   Pass B (skill-track / granular): programIds resolved to canonical slugs →
-    //           'planche' | 'front_lever' | 'muscle_up' | 'back_lever' | 'handstand' | 'handstand_pushup'
-    // Both passes write into the same domainSets dict.  The store merges any
-    // incoming string keys natively, so no store changes are required.
-    const SKILL_PROGRAM_SLUGS = new Set([
-      'planche', 'front_lever', 'muscle_up', 'back_lever',
-      'handstand', 'handstand_pushup',
-    ]);
+    // Compute per-domain set counts from segment exercises + log — ANATOMICAL domains only
+    // (push/pull/legs/core), REAL logged sets. (② source fix: the former Pass B skill-slug
+    // dual-write inflated the weekly budget by crediting each set a SECOND time per
+    // cross-program slug; cross-program associations affect PROGRESSION % only, not the budget.)
     const domainSets: Record<string, number> = {};
     // BLOCK_B_SMART_CLOSE_V1 (B): non-lossy "was core trained" — set if ANY muscle group of
     // any set>0 exercise maps to 'core' (not just muscleGroups[0]). Independent of the
@@ -786,10 +778,14 @@ export default function ActiveWorkoutPage() {
     for (const segment of workoutPlan.segments) {
       if (!segment.exercises) continue;
       for (const ex of segment.exercises) {
-        const setsCount = logMap.get(ex.id) ?? ex.sets ?? 0;
+        // ② source fix: LOGGED sets only — no `?? ex.sets` planned fallback (an unlogged
+        // planned exercise must not count as completed volume).
+        const setsCount = logMap.get(ex.id) ?? 0;
         if (setsCount === 0) continue;
 
-        // ── Pass A: anatomical domain (unchanged legacy path) ──────────
+        // Anatomical domain (push/pull/legs/core). NOTE: still credits only muscleGroups[0];
+        // the secondary-muscle under-credit is a SEPARATE follow-up (domainSets first-muscle
+        // bug), NOT changed here.
         const muscle = ex.muscleGroups?.[0]?.toLowerCase();
         const domain = muscle ? MUSCLE_TO_DOMAIN[muscle] : undefined;
         if (domain) {
@@ -801,17 +797,10 @@ export default function ActiveWorkoutPage() {
           trainedCoreRaw = true;
         }
 
-        // ── Pass B: skill-track slug (Phase 4 dual-key write) ──────────
-        // Iterates every programId on the plan exercise (populated at generation
-        // time from the source exercise's targetPrograms + programIds).
-        // resolveToSlug normalises Firestore hash IDs to canonical slugs so
-        // exercises stored with hash IDs still credit the correct track.
-        for (const pid of ex.programIds ?? []) {
-          const slug = resolveToSlug(pid) || pid;
-          if (SKILL_PROGRAM_SLUGS.has(slug)) {
-            domainSets[slug] = (domainSets[slug] ?? 0) + setsCount;
-          }
-        }
+        // ② source fix: Pass B (per-programId skill-slug dual-write) REMOVED — it credited each
+        // real set a SECOND time per cross-program skill slug (planche/front_lever/…), inflating
+        // the weekly domain budget (2 real sets → 5). Cross-program associations affect
+        // PROGRESSION % only (progression.service reads programLevels separately), not the budget.
       }
     }
     
