@@ -527,6 +527,17 @@ export default function HomePage() {
         }
       : undefined;
 
+  // Item 3 (Block B): TRUE exactly when the completion anchor is LIFTED above the tabs
+  // (post-workout, Block B on). The SAME const gates both the lift (above the tabs) and the
+  // `null` in the original slot below — so they can never both render nor both vanish. Flag
+  // OFF → false → the anchor stays in its original slot → byte-identical.
+  const blockBCompletionLift =
+    BLOCK_B_SMART_CLOSE_V1
+    && completionForToday
+    && (!!postWorkoutData || todayWorkoutDone)
+    && !!completionData
+    && !!postWorkoutData?.endMode;
+
   // HOME_DAILY_GOAL_V1 (item 5): adaptive-summary snapshot for the completion card.
   // Reads item-1's persisted daily-goal fields off `dailyProgress`. Present only
   // once a strength session has written them; aerobic/legacy days leave them
@@ -1377,6 +1388,12 @@ export default function HomePage() {
                    survey is complete (goals are derived from active strength
                    programs, so the section is meaningless beforehand).
             ════════════════════════════════════════════════════════════════ */}
+        {/* Item 3 (Block B): post-workout the workout hero is hidden (order-first slot
+            collapses), so LIFT the Block B completion anchor ABOVE the tabs here — matching
+            the normal workout-first order. Gated by `blockBCompletionLift`; the original slot
+            below returns null for exactly this case. Flag OFF → not rendered → byte-identical. */}
+        {blockBCompletionLift && <PostWorkoutSmartClose userGender={profile?.core?.gender} />}
+
         {(() => {
           const TAB_LABELS: Record<'strength' | 'health', string> = {
             strength: 'התקדמות שבועית',
@@ -1484,11 +1501,14 @@ export default function HomePage() {
                 card driven solely by Firestore `dailyProgress.workoutCompleted`.
             Either path keeps the action zone replaced — no empty layout gap. */}
         {completionForToday && (postWorkoutData || todayWorkoutDone) && completionData && (
-          BLOCK_B_SMART_CLOSE_V1 && postWorkoutData?.endMode ? (
-            /* Block B anchor: the recovery card (+ Stage 2 next-step options). The summary strip
-               floated to the TOP (item 2, above). PostWorkoutSmartClose OWNS the recovery
-               generation — unmounted when the flag is off → byte-identical. Renders null until
-               recovery is ready (or if none). */
+          blockBCompletionLift ? (
+            /* Item 3: the Block B anchor is LIFTED above the tabs (see the lift) for exactly
+               this case → render nothing here (no double-render). */
+            null
+          ) : BLOCK_B_SMART_CLOSE_V1 && postWorkoutData?.endMode ? (
+            /* Fallback (defensive): Block B completion but NOT lifted (should not occur while
+               the lift's condition == this slot's guard) → render the anchor in its ORIGINAL
+               slot so the card never disappears. The recovery card (+ Stage 2 options). */
             <PostWorkoutSmartClose userGender={profile?.core?.gender} />
           ) : POST_WORKOUT_LANDING_V1 ? (
             /* Block A bridge: the summary moved UP to the top strip, so the anchor slot
