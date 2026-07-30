@@ -31,7 +31,8 @@ const WORKOUT_LABEL: Record<string, string> = {
 export interface PostWorkoutSummaryStripProps {
   /** Workout type → praise label ("סיימת אימון כוח"). */
   workoutType?: string;
-  /** 0..1 — completedSets / STABLE daily target. Drives the ring + full/partial copy. */
+  /** completed ÷ target (weekly). NOT upper-clamped: >1 shows e.g. 120% (over-goal); the
+   *  ring FILL stays visually full at 100%. Drives the ring + full/over/partial copy. */
   ringPct: number;
   durationMinutes: number;
   exerciseCount?: number;
@@ -48,8 +49,11 @@ export function PostWorkoutSummaryStrip({
   calories,
   onDismiss,
 }: PostWorkoutSummaryStripProps) {
-  const pct = Math.max(0, Math.min(1, ringPct));
-  const full = pct >= 1;
+  const rawPct = Math.max(0, ringPct);          // NOT upper-clamped — can exceed 1 (over-goal)
+  const fillPct = Math.min(1, rawPct);          // ring FILL clamped to 100% (visually full)
+  const displayPct = Math.round(rawPct * 100);  // shown number — can be >100
+  const full = rawPct >= 1;
+  const over = rawPct > 1.005;                  // strictly over the goal
   const label = WORKOUT_LABEL[workoutType ?? ''] ?? 'אימון';
 
   return (
@@ -60,7 +64,7 @@ export function PostWorkoutSummaryStrip({
     >
       {/* Ring — stable-target %, indigo per the mockup */}
       <CircularProgress
-        percentage={Math.round(pct * 100)}
+        percentage={Math.round(fillPct * 100)}
         size={46}
         strokeWidth={5}
         colorClass="text-[#6366F1]"
@@ -68,7 +72,7 @@ export function PostWorkoutSummaryStrip({
         className="flex-none"
       >
         <span className="text-[12px] font-extrabold text-[#4338CA] leading-none">
-          {Math.round(pct * 100)}
+          {displayPct}
           <span className="text-[8px] font-bold">%</span>
         </span>
       </CircularProgress>
@@ -79,7 +83,7 @@ export function PostWorkoutSummaryStrip({
           {full ? 'כל הכבוד! סגרת את היעד 💪' : `כל הכבוד! סיימת ${label} 💪`}
         </div>
         <div className="text-[11.5px] text-gray-500">
-          {full ? 'יעד היום נסגר — מצב התאוששות 🎉' : 'נשאר קצת לסגור'}
+          {over ? 'מעל היעד — כל הכבוד! 🔥' : full ? 'יעד היום נסגר — מצב התאוששות 🎉' : 'נשאר קצת לסגור'}
         </div>
         <div className="mt-1 flex items-center gap-3 text-[11px] font-bold text-[#4338CA]">
           {durationMinutes > 0 && (

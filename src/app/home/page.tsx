@@ -1475,7 +1475,6 @@ export default function HomePage() {
                (dailyStrengthPct) instead of the 0-buggy stripRingPct (Stage 1a fix). */
             <PostWorkoutSmartClose
               workoutType={completionData.workoutType}
-              strengthRingPct={postWorkoutData.dailyStrengthPct}
               durationMinutes={completionData.durationMinutes}
               exerciseCount={postWorkoutData.exerciseCount}
               calories={postWorkoutData.calories}

@@ -22,12 +22,10 @@ import HeroWorkoutCard from './HeroWorkoutCard';
 import { useRecoveryHeroWorkout } from '../hooks/useRecoveryHeroWorkout';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
+import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 
 export interface PostWorkoutSmartCloseProps {
   workoutType?: string;
-  /** Stage 1a (#1): daily-strength % (0-1) — the workout-moved value (dailyStrengthPct);
-   *  feeds the strip's ring, fixing the stripRingPct 0-bug. */
-  strengthRingPct?: number;
   durationMinutes: number;
   exerciseCount?: number;
   calories?: number;
@@ -37,7 +35,6 @@ export interface PostWorkoutSmartCloseProps {
 
 export default function PostWorkoutSmartClose({
   workoutType,
-  strengthRingPct,
   durationMinutes,
   exerciseCount,
   calories,
@@ -45,6 +42,11 @@ export default function PostWorkoutSmartClose({
   userGender,
 }: PostWorkoutSmartCloseProps) {
   const router = useRouter();
+  // Item 4: the ring reflects WEEKLY volume (completed ÷ weekly budget) — the same
+  // reliable source as the profile "נפח שבועי" card (useWeeklyVolumeStore), NOT the daily
+  // pct. Read here (flag-gated mount) → byte-identical when off. NOT clamped → >1 = over-goal.
+  const strength = useWeeklyVolumeStore((s) => s.strength);
+  const weeklyRingPct = strength.weeklyBudget > 0 ? strength.totalSetsCompleted / strength.weeklyBudget : 0;
   const recoveryWorkout = useRecoveryHeroWorkout();
 
   const handleStartRecovery = useCallback(() => {
@@ -64,7 +66,7 @@ export default function PostWorkoutSmartClose({
       {/* Summary — the EXISTING daily-strength-goal ring card, fed the reliable % (0-bug fix). */}
       <PostWorkoutSummaryStrip
         workoutType={workoutType}
-        ringPct={strengthRingPct ?? 0}
+        ringPct={weeklyRingPct}
         durationMinutes={durationMinutes}
         exerciseCount={exerciseCount}
         calories={calories}
