@@ -168,11 +168,16 @@ export class BudgetDistributor {
     const safeDenominator = Math.max(1, rawDenominator);
     log.push(`safe_denominator: ${safeDenominator} (isSingleDomain=${constraints.isSingleDomain})`);
 
+    // ③ item 5 (structure floor): normal workouts never thin below 2 sets/exercise — the caps
+    // DROP the lowest-score exercises rather than shrink survivors to 1 set. Skip 5-min (≤10) +
+    // blast/AMRAP (floor 1), where a single set is legitimate.
+    const structureFloor = context.availableTime > 10 && context.intentMode !== 'blast' ? 2 : 1;
+
     // ── Step 3: Hard absolute cap (context.maxSets) ──────────────────────────
     // Pyramid exercises are immune — only straight-set exercises are trimmed.
     if (constraints.maxSets != null && constraints.maxSets > 0) {
       const before = exercises.reduce((s, e) => s + e.sets, 0);
-      exercises = this._pyramidAwareCap(exercises, constraints.maxSets, safeDenominator);
+      exercises = this._pyramidAwareCap(exercises, constraints.maxSets, safeDenominator, structureFloor);
       const after = exercises.reduce((s, e) => s + e.sets, 0);
       if (after < before) {
         log.push(`max_sets_cap: ${before} → ${after} (cap=${constraints.maxSets})`);
@@ -182,7 +187,7 @@ export class BudgetDistributor {
     // ── Step 4: Weekly budget cap ────────────────────────────────────────────
     if (constraints.remainingWeeklyBudget != null && constraints.remainingWeeklyBudget > 0) {
       const before = exercises.reduce((s, e) => s + e.sets, 0);
-      exercises = this._pyramidAwareCap(exercises, constraints.remainingWeeklyBudget, safeDenominator);
+      exercises = this._pyramidAwareCap(exercises, constraints.remainingWeeklyBudget, safeDenominator, structureFloor);
       const after = exercises.reduce((s, e) => s + e.sets, 0);
       if (after < before) {
         log.push(`weekly_budget_cap: ${before} → ${after} (remaining=${constraints.remainingWeeklyBudget})`);
@@ -193,7 +198,7 @@ export class BudgetDistributor {
     if (constraints.dailySetBudget != null && constraints.dailySetBudget > 0) {
       const preCap = exercises.reduce((s, e) => s + e.sets, 0);
       if (preCap > constraints.dailySetBudget) {
-        exercises = this._pyramidAwareCap(exercises, constraints.dailySetBudget, safeDenominator);
+        exercises = this._pyramidAwareCap(exercises, constraints.dailySetBudget, safeDenominator, structureFloor);
         const postCap = exercises.reduce((s, e) => s + e.sets, 0);
         log.push(`daily_budget_cap: ${preCap} → ${postCap} (budget=${constraints.dailySetBudget})`);
       }
@@ -308,6 +313,7 @@ export class BudgetDistributor {
     exercises: WorkoutExercise[],
     cap: number,
     safeDenominator: number,
+    structureFloor: number = 1,
   ): WorkoutExercise[] {
     // Identification is structural-only: the `appliedProtocol` string is NOT
     // reliable at budget time (it may be injected after this pass runs).
@@ -339,7 +345,7 @@ export class BudgetDistributor {
       // Sort descending by sets so [0] is the fattest candidate.
       mutable.sort((a, b) => b.sets - a.sets);
       const candidate = mutable[0];
-      if (candidate.sets <= 1) break; // Floor of 1 set — cannot go lower.
+      if (candidate.sets <= structureFloor) break; // floor (2 in normal mode — never thin below)
       candidate.sets -= 1;
       candidate.reasoning = [
         ...(candidate.reasoning ?? []),
@@ -348,13 +354,20 @@ export class BudgetDistributor {
       setsToRemove -= 1;
     }
 
-    // If greedy still hasn't reached the target, fall back to applySmartSetCap
-    // for the straight-set portion only.
+    // If greedy hit the floor and is still over target, the budget can't afford `structureFloor`
+    // sets for every exercise. In normal mode (floor>1) DROP the lowest-score exercises (keep
+    // floor(target/floor) at the floor) rather than thin survivors to 1; 5-min/blast (floor=1)
+    // keep the legacy applySmartSetCap thinning.
     const straightCurrent = mutable.reduce((s, e) => s + e.sets, 0);
-    const finalStraight: WorkoutExercise[] =
-      straightCurrent > straightTarget
-        ? applySmartSetCap(mutable, straightTarget, Math.max(1, safeDenominator))
-        : mutable;
+    let finalStraight: WorkoutExercise[];
+    if (straightCurrent <= straightTarget) {
+      finalStraight = mutable;
+    } else if (structureFloor > 1) {
+      const keep = Math.max(1, Math.floor(straightTarget / structureFloor));
+      finalStraight = [...mutable].sort((a, b) => b.score - a.score).slice(0, keep);
+    } else {
+      finalStraight = applySmartSetCap(mutable, straightTarget, Math.max(1, safeDenominator));
+    }
 
     // Merge pyramid (unchanged) + trimmed straight-set exercises, preserving
     // the original insertion order from the input array.
