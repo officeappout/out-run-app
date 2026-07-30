@@ -370,12 +370,49 @@ async function composeRouteStopsWorkout(
   const { useWeeklyVolumeStore } = await import('@/features/workout-engine/core/store/useWeeklyVolumeStore');
   const remainingStrengthBudget = useWeeklyVolumeStore.getState().getRemainingBudget();
   const strengthSpent = remainingStrengthBudget < 4;
-  const stops = strengthSpent
+  const coredStops = strengthSpent
     ? rawStops.map((s) => (s.activityType === 'strength' ? { ...s, activityType: 'core' as const } : s))
     : rawStops;
   if (strengthSpent && rawStops.some((s) => s.activityType === 'strength')) {
     console.log(`[route-stops] weekly strength budget spent (remaining=${remainingStrengthBudget} < 4) → strength stop(s) defaulted to core`);
   }
+
+  // ── Cooldown-last: composeHybridSession sequences stations by physical km, so a stretch/cooldown
+  // POI placed early reads "backwards". Relocate cooldown-eligible stops to AFTER the last WORK
+  // station (strength OR core — "cooldown last on EVERY route", incl. budget-spent). Pin + waypoint
+  // move together (map & sequence stay consistent), distToPathM zeroed (now on the line), and parkId
+  // dropped so the UI shows a generic cooldown label, not a place-name at a point that isn't that
+  // place. `cooldownEligible` is read ONLY here (dead elsewhere; never reaches the shared engine).
+  // Guards: no work station → unchanged; distinct trailing waypoints, never colliding; out of
+  // trailing slots (work station at route end) → leave the rest early + WARN (known rare limit).
+  let stops = coredStops;
+  const lastWorkWp = coredStops.reduce((m, s) => (!s.cooldownEligible ? Math.max(m, s.waypointIndex) : m), -1);
+  const toMove = lastWorkWp < 0 ? [] : coredStops.filter((s) => s.cooldownEligible && s.waypointIndex <= lastWorkWp);
+  if (toMove.length > 0) {
+    const endWp = routePath.length - 1;
+    const moveIds = new Set(toMove.map((s) => s.stopId));
+    const occupied = new Set(coredStops.filter((s) => !moveIds.has(s.stopId)).map((s) => s.waypointIndex));
+    const newWp = new Map<string, number>();
+    let cursor = lastWorkWp + 1;
+    for (const s of [...toMove].sort((a, b) => a.waypointIndex - b.waypointIndex)) {
+      while (cursor <= endWp && occupied.has(cursor)) cursor++;
+      if (cursor > endWp) break;                         // no free trailing slot → leave the rest early
+      occupied.add(cursor); newWp.set(s.stopId, cursor); cursor++;
+    }
+    if (newWp.size > 0) {
+      stops = coredStops.map((s) => {
+        const wp = newWp.get(s.stopId);
+        if (wp === undefined) return s;
+        const [lng, lat] = routePath[wp] ?? [s.lng, s.lat];
+        return { ...s, waypointIndex: wp, lat, lng, distToPathM: 0, parkId: undefined };
+      });
+      console.log(`[route-stops] cooldown-last: moved ${newWp.size}/${toMove.length} cooldown stop(s) past wp${lastWorkWp} → wp[${Array.from(newWp.values()).join(', ')}]`);
+    }
+    if (newWp.size < toMove.length) {
+      console.warn(`[route-stops] cooldown-last: ${toMove.length - newWp.size} cooldown stop(s) left EARLY — no trailing slot after wp${lastWorkWp} (work station at/near route end; known rare limit)`);
+    }
+  }
+
   console.log(
     `[route-stops] route="${backbone.routeName}" stops=${stops.length}` +
     ` [${stops.map((s) => `${s.activityType}@wp${s.waypointIndex}(${s.distToPathM}m)`).join(', ')}]`,
