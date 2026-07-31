@@ -38,6 +38,9 @@ export interface PlannedStop {
   stop: ResolvedRouteStop;
   /** Distance-from-entry along the traversal — THE ordering key (replaces waypointIndex). */
   traversalKm: number;
+  /** Index of the stop into `traversal` — the frame composeHybridSession's `waypointIndex`
+   *  must be in (one_way: `wp − entryIndex`; loop: `(wp − entryIndex + N) % N`). */
+  traversalIndex: number;
   /** Which pass the stop is on (1 for one_way/loop; >1 later for out_and_back/laps). */
   occurrence: number;
 }
@@ -95,6 +98,21 @@ export function snapToVertex(path: RoutePath, p: LatLng): number {
 }
 
 /**
+ * Endpoint proximity (metres) at/below which a route's two ends are treated as meeting → a
+ * closed loop. A real loop (generator "back to user" / curated diamond) closes within a few m;
+ * a linear promenade's ends sit hundreds of m apart — 50 m separates them with GPS/geometry slack.
+ */
+export const LOOP_ENDPOINT_THRESHOLD_M = 50;
+
+/** PURE: classify a canonical route as a cyclic `loop` (ends meet) or a linear `one_way` path. */
+export function detectTopology(path: RoutePath): Topology {
+  if (!path || path.length < 3) return 'one_way';
+  const [aLng, aLat] = path[0];
+  const [bLng, bLat] = path[path.length - 1];
+  return haversineMeters(aLat, aLng, bLat, bLng) <= LOOP_ENDPOINT_THRESHOLD_M ? 'loop' : 'one_way';
+}
+
+/**
  * Order a set of stops relative to an entry point on a canonical route. PURE — no I/O, no SoT,
  * counts nothing. See file header for the axis scope of this build.
  */
@@ -130,22 +148,27 @@ export function planFromPoint(input: PlanFromPointInput): SessionPlan {
     deferredAxes.push(`topology:${topology}→${isLoop ? 'loop' : 'one_way'} (Axis ③)`);
   }
 
-  // Per-stop distance-from-entry (`traversalKm`), keeping each stop's real canonical position.
+  // Per-stop distance-from-entry (`traversalKm`) + index into the traversal (`traversalIndex`),
+  // keeping each stop's real canonical position (no pin move).
+  const N = path.length;
   const planned: PlannedStop[] = [];
   let clippedStops = 0;
   for (const s of stops) {
-    const wp = Math.max(0, Math.min(path.length - 1, s.waypointIndex));
+    const wp = Math.max(0, Math.min(N - 1, s.waypointIndex));
     const canonicalKm = prefixKm[wp];
     let traversalKm: number;
+    let traversalIndex: number;
     if (isLoop) {
       // cyclic distance-from-entry around the loop (every stop is reachable)
       traversalKm = (((canonicalKm - entryKm) % totalKm) + totalKm) % totalKm;
+      traversalIndex = (((wp - entryIndex) % N) + N) % N;
     } else {
       // one_way + clip (decision ①a): a stop behind the entry is dropped
       if (canonicalKm < entryKm) { clippedStops++; continue; }
       traversalKm = canonicalKm - entryKm;
+      traversalIndex = Math.max(0, wp - entryIndex);
     }
-    planned.push({ stop: s, traversalKm, occurrence: 1 });
+    planned.push({ stop: s, traversalKm, traversalIndex, occurrence: 1 });
   }
   planned.sort((a, b) => a.traversalKm - b.traversalKm);
 

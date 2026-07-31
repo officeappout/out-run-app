@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { planFromPoint, buildPrefixKm, snapToVertex, type RoutePath } from '../plan-from-point';
+import {
+  planFromPoint, buildPrefixKm, snapToVertex, detectTopology,
+  LOOP_ENDPOINT_THRESHOLD_M, type RoutePath,
+} from '../plan-from-point';
 import type { ResolvedRouteStop } from '../route-stops.service';
 
 // A straight east–west line: 7 vertices, equal lng spacing → monotonically increasing km.
@@ -104,5 +107,62 @@ describe('planFromPoint — Axis ① (entry-relative ordering)', () => {
     expect(km[0]).toBe(0);
     for (let i = 1; i < km.length; i++) expect(km[i]).toBeGreaterThan(km[i - 1]);
     expect(snapToVertex(PATH, { lat: 0, lng: 0.0405 })).toBe(4);
+  });
+});
+
+describe('planFromPoint — traversalIndex reindex (the composeHybridSession waypoint frame)', () => {
+  it('one_way mid-entry: kept stop reindexes to (wp − entryIndex); behind-entry stop is clipped', () => {
+    const plan = planFromPoint({
+      canonical: { path: PATH },
+      entry: { position: { lat: 0, lng: 0.03 } }, // entryIndex = 3
+      direction: 'forward',
+      topology: 'one_way',
+      stops: [stopAt(2, 'behind'), stopAt(5, 'ahead')],
+    });
+    expect(plan.entryIndex).toBe(3);
+    expect(plan.stops.map((s) => s.stop.stopId)).toEqual(['ahead']); // behind clipped
+    expect(plan.stops[0].traversalIndex).toBe(2);                    // 5 − 3
+    // the reindexed waypointIndex is a valid index into the traversal geometry
+    expect(plan.traversal[plan.stops[0].traversalIndex]).toEqual(PATH[5]);
+  });
+
+  it('loop mid-entry: every stop kept; the one just behind the entry wraps to LAST via modulo', () => {
+    const plan = planFromPoint({
+      canonical: { path: PATH },
+      entry: { position: { lat: 0, lng: 0.03 } }, // entryIndex = 3, N = 7
+      direction: 'forward',
+      topology: 'loop',
+      stops: [stopAt(2, 'just_behind'), stopAt(5, 'just_ahead')],
+    });
+    // traversal order: ahead first (idx 2), the behind-stop wraps to the end
+    expect(plan.stops.map((s) => s.stop.stopId)).toEqual(['just_ahead', 'just_behind']);
+    expect(plan.stops[0].traversalIndex).toBe(2);           // (5 − 3 + 7) % 7
+    expect(plan.stops[1].traversalIndex).toBe(6);           // (2 − 3 + 7) % 7 → wraps last
+    expect(plan.stops[1].traversalIndex).toBeGreaterThan(plan.stops[0].traversalIndex);
+    // wrapped index still indexes the real canonical vertex inside the cyclic traversal
+    expect(plan.traversal[plan.stops[1].traversalIndex]).toEqual(PATH[2]);
+  });
+});
+
+describe('detectTopology — closed loop vs linear one-way', () => {
+  it("open route (ends far apart) → 'one_way'", () => {
+    expect(detectTopology(PATH)).toBe('one_way'); // ends ~6.6km apart
+  });
+
+  it("closed route (ends within the threshold) → 'loop'", () => {
+    // a small square-ish loop whose last vertex returns ~5m from the first
+    const loop: RoutePath = [
+      [0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001], [0.00005, 0],
+    ];
+    const [aLng, aLat] = loop[0];
+    const [bLng, bLat] = loop[loop.length - 1];
+    // guard the fixture: endpoints genuinely within the documented threshold
+    expect(Math.abs(bLng - aLng)).toBeLessThan(0.001);
+    expect(detectTopology(loop)).toBe('loop');
+    expect(LOOP_ENDPOINT_THRESHOLD_M).toBeGreaterThan(0);
+  });
+
+  it('degenerate (< 3 vertices) → one_way', () => {
+    expect(detectTopology([[0, 0], [0.01, 0]])).toBe('one_way');
   });
 });

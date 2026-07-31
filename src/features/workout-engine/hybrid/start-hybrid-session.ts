@@ -331,6 +331,7 @@ async function composeRouteStopsWorkout(
     { useUserStore }, { getAllExercises }, { fetchRealParks },
     { composeHybridSession }, { resolveRouteStops }, { resolveHybridUserLevels },
     { getWeeklyLoadSnapshot }, { warmHybridCaches }, { auth },
+    { planFromPoint, detectTopology },
   ] = await Promise.all([
     import('@/features/user/identity/store/useUserStore'),
     import('@/features/content/exercises/core/exercise.service'),
@@ -341,6 +342,7 @@ async function composeRouteStopsWorkout(
     import('./weekly-load.service'),
     import('./hybrid-warmup'),
     import('@/lib/firebase'),
+    import('./plan-from-point'),
   ]);
 
   const profile = useUserStore.getState().profile;
@@ -377,49 +379,24 @@ async function composeRouteStopsWorkout(
     console.log(`[route-stops] weekly strength budget spent (remaining=${remainingStrengthBudget} < 4) → strength stop(s) defaulted to core`);
   }
 
-  // ── Cooldown-last  [⚠️ INTERIM / TECH-DEBT → §7.3 Part 4 — NOT the final model] ───────────────
-  // This assumes a FIXED entry: the workout starts at the route's stored waypoint 0, so "last" is a
-  // fixed near-end waypoint and we RELOCATE the stretch pin to it. But the real entry point varies
-  // (live GPS / a searched address → the user may start mid-route or from either end), so ordering
-  // is entry- and direction-relative, and a stretch zone (e.g. a lawn) is an AREA, not a point. To
-  // be replaced by the relative model (order relative to actual traversal + stretch content modeled
-  // as a script-derived area, like routes/climbs). Do NOT treat the pin-relocation as final.
-  //
-  // composeHybridSession sequences stations by physical km, so a stretch/cooldown
-  // POI placed early reads "backwards". Relocate cooldown-eligible stops to AFTER the last WORK
-  // station (strength OR core — "cooldown last on EVERY route", incl. budget-spent). Pin + waypoint
-  // move together (map & sequence stay consistent), distToPathM zeroed (now on the line), and parkId
-  // dropped so the UI shows a generic cooldown label, not a place-name at a point that isn't that
-  // place. `cooldownEligible` is read ONLY here (dead elsewhere; never reaches the shared engine).
-  // Guards: no work station → unchanged; distinct trailing waypoints, never colliding; out of
-  // trailing slots (work station at route end) → leave the rest early + WARN (known rare limit).
-  let stops = coredStops;
-  const lastWorkWp = coredStops.reduce((m, s) => (!s.cooldownEligible ? Math.max(m, s.waypointIndex) : m), -1);
-  const toMove = lastWorkWp < 0 ? [] : coredStops.filter((s) => s.cooldownEligible && s.waypointIndex <= lastWorkWp);
-  if (toMove.length > 0) {
-    const endWp = routePath.length - 1;
-    const moveIds = new Set(toMove.map((s) => s.stopId));
-    const occupied = new Set(coredStops.filter((s) => !moveIds.has(s.stopId)).map((s) => s.waypointIndex));
-    const newWp = new Map<string, number>();
-    let cursor = lastWorkWp + 1;
-    for (const s of [...toMove].sort((a, b) => a.waypointIndex - b.waypointIndex)) {
-      while (cursor <= endWp && occupied.has(cursor)) cursor++;
-      if (cursor > endWp) break;                         // no free trailing slot → leave the rest early
-      occupied.add(cursor); newWp.set(s.stopId, cursor); cursor++;
-    }
-    if (newWp.size > 0) {
-      stops = coredStops.map((s) => {
-        const wp = newWp.get(s.stopId);
-        if (wp === undefined) return s;
-        const [lng, lat] = routePath[wp] ?? [s.lng, s.lat];
-        return { ...s, waypointIndex: wp, lat, lng, distToPathM: 0, parkId: undefined };
-      });
-      console.log(`[route-stops] cooldown-last: moved ${newWp.size}/${toMove.length} cooldown stop(s) past wp${lastWorkWp} → wp[${Array.from(newWp.values()).join(', ')}]`);
-    }
-    if (newWp.size < toMove.length) {
-      console.warn(`[route-stops] cooldown-last: ${toMove.length - newWp.size} cooldown stop(s) left EARLY — no trailing slot after wp${lastWorkWp} (work station at/near route end; known rare limit)`);
-    }
-  }
+  // ── Entry-relative ordering (§7.3 Part 4 · planFromPoint, Axis ①) ─────────────────────────────
+  // Retires the interim km-sort-from-wp0 + cooldown pin-relocation. planFromPoint orders stops by
+  // distance-from-entry over the ACTUAL traversal (rotated to the user's current position) — the
+  // stretch stays at its real geographic POI ("last" falls out of traversalKm, no pin move).
+  // Topology auto-detected: closed route → 'loop' (cyclic wrap, keeps every stop); open route →
+  // 'one_way' (clip the pre-entry portion). PURE ordering — no set-counting, no SoT reads (② boundary
+  // preserved). direction 'forward' for v1 (backward = Axis ②, deferred).
+  const plan = planFromPoint({
+    canonical: { path: routePath },
+    entry: { position: ctx.userPosition },
+    direction: 'forward',
+    topology: detectTopology(routePath),
+    stops: coredStops,
+  });
+  const traversalPath = plan.traversal;
+  // Reindex each stop's waypointIndex onto the traversal so composeHybridSession's km-sort
+  // (byte-identical) becomes entry-relative. Stops arrive already in traversal order.
+  const stops = plan.stops.map((p) => ({ ...p.stop, waypointIndex: p.traversalIndex }));
 
   console.log(
     `[route-stops] route="${backbone.routeName}" stops=${stops.length}` +
@@ -492,7 +469,7 @@ async function composeRouteStopsWorkout(
     };
     return composeHybridSession({
       timeBudgetMin: intent.timeBudgetMin, emphasis: intent.emphasis, aerobicKind: intent.aerobicKind,
-      paceProfile, routePath, stopCandidates: stops, stopSelection: 'as_provided',
+      paceProfile, routePath: traversalPath, stopCandidates: stops, stopSelection: 'as_provided',
       // Bug 2a: every route stop is a full-body workout (mixed domains), not single-domain.
       stationDomainMode: 'multi',
       masterExercises, filterContext, generationContext, weeklyGaps, userWeightKg,
@@ -530,7 +507,9 @@ async function composeRouteStopsWorkout(
 
   return {
     plan: plans[selectedIndex],
-    routePath,
+    // Return the TRAVERSAL (entry-relative, rotated/clipped) — the same frame the plan geometry &
+    // stops were built in, so the drawn/run route matches the ordering (not the canonical wp0 path).
+    routePath: traversalPath,
     aerobicKind: intent.aerobicKind,
     station: firstStrength ? { lat: firstStrength.lat, lng: firstStrength.lng } : undefined,
     bolts: { plans, selectedIndex, labels: ['קליל', 'מאוזן', 'עוצמתי'] },
