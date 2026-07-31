@@ -1071,6 +1071,19 @@ export default function AppMap({
     return { type: 'FeatureCollection', features };
   }, [visibleRoutes, focusedRoute]);
 
+  // Direction arrows for the focused route-stops/hybrid route (§7.3). Repeats the nav-arrow-tip
+  // glyph along the line via symbol-placement:'line' (Mapbox auto-rotates it to the travel
+  // direction), so the entry-relative traversal reads with a clear forward direction. Scoped to
+  // the 'hybrid-route' focus id → no other route's rendering changes (overview only, gated below).
+  const routeDirectionArrowsGeoJSON = useMemo(() => {
+    if (focusedRoute?.id !== 'hybrid-route') return null;
+    const coords = (focusedRoute.displayPath && focusedRoute.displayPath.length > 1)
+      ? focusedRoute.displayPath
+      : focusedRoute.path;
+    if (!coords || coords.length < 2) return null;
+    return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }] };
+  }, [focusedRoute?.id, focusedRoute?.path, focusedRoute?.displayPath]);
+
   // ── Imperative live-path update ────────────────────────────────────────────
   // Fires only when the number of accepted GPS samples grows (every 5 m /
   // DISTANCE_THRESHOLD). Calling setData() directly on the Mapbox GeoJSON
@@ -1423,6 +1436,29 @@ export default function AppMap({
             <Layer id="routes-active-glow" type="line" filter={ROUTES_ACTIVE_GLOW.filter} paint={routesGlowPaint as any} layout={ROUTES_ACTIVE_GLOW.layout} />
             <Layer id="routes-active-outline" type="line" filter={ROUTES_ACTIVE_OUTLINE.filter} paint={ROUTES_ACTIVE_OUTLINE.paint as any} layout={ROUTES_ACTIVE_OUTLINE.layout} />
             <Layer id="routes-active" type="line" filter={ROUTES_ACTIVE.filter} paint={routesActivePaint as any} layout={ROUTES_ACTIVE.layout} />
+          </Source>
+        )}
+
+        {/* ── Route-stops direction arrows: repeated nav-arrow-tip along the focused hybrid route,
+            auto-rotated to the travel direction (symbol-placement:'line'). Overview only; scoped
+            to the 'hybrid-route' focus so every other route renders identically. ── */}
+        {!isActiveWorkout && visibleLayers?.includes('routes') && routeDirectionArrowsGeoJSON && (
+          <Source id="route-direction-arrows" type="geojson" data={routeDirectionArrowsGeoJSON as any}>
+            <Layer
+              id="route-direction-arrows"
+              type="symbol"
+              layout={{
+                'symbol-placement': 'line',
+                'symbol-spacing': 70,
+                'icon-image': 'nav-arrow-tip',
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.3, 17, 0.55],
+                'icon-rotation-alignment': 'map',
+                'icon-allow-overlap': false,
+                'icon-ignore-placement': false,
+                'icon-keep-upright': false,
+              }}
+              paint={{ 'icon-opacity': 0.9 }}
+            />
           </Source>
         )}
 
