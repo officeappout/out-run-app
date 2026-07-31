@@ -30,6 +30,10 @@ import { parkGymEquipmentToGearIds } from './park-equipment.util';
 /** A POI this close (m) to any route vertex counts as "on / adjacent to the route". */
 export const DEFAULT_MATCH_RADIUS_M = 180;
 
+/** Two kept stops must be at least this far apart (m) — below the match radius, above GPS jitter —
+ *  so POIs clustered near the loop start don't collide on one vertex (P4). */
+export const MIN_STOP_GAP_M = 150;
+
 /** The resolved role of a POI as a generic stop. `cooldownEligible` is consumed by the
  *  near-end cooldown placement (route-stops Part 4); Part 2 only reads activity/location. */
 export interface StopMapping {
@@ -73,6 +77,8 @@ export function mapParkToStop(park: Park): StopMapping | null {
 export interface ResolveRouteStopsOpts {
   /** Snap tolerance (m) from any route vertex. Default DEFAULT_MATCH_RADIUS_M (180). */
   matchRadiusMeters?: number;
+  /** Minimum spacing (m) between kept stops (P4 dedupe). Default MIN_STOP_GAP_M (150). */
+  minStopGapMeters?: number;
 }
 
 /** A resolved stop plus the mapping metadata later phases (cooldown) need. */
@@ -121,10 +127,23 @@ export function resolveRouteStops(
   }
   if (hits.length === 0) return [];
 
-  // Path order; if two POIs snap to the same vertex, the closer-to-path one comes first.
-  hits.sort((a, b) => (a.waypointIndex - b.waypointIndex) || (a.distToPath - b.distToPath));
+  // P4 — proximity-dedupe (geometry only): two POIs near the loop start otherwise snap to the same
+  // vertex and render on top of each other. Greedy-keep in PREFERENCE order (equipped/strength >
+  // core > stretch, then closer-to-path) so the richer station wins each cluster, dropping any stop
+  // within `minGap` metres of an already-kept one. Survivors are then re-sorted into path order.
+  const minGap = opts.minStopGapMeters ?? MIN_STOP_GAP_M;
+  const preferenceRank = (h: Hit): number =>
+    h.mapping.activityType === 'strength' ? 2 : h.mapping.activityType === 'core' ? 1 : 0;
+  const kept: Hit[] = [];
+  for (const h of [...hits].sort((a, b) => (preferenceRank(b) - preferenceRank(a)) || (a.distToPath - b.distToPath))) {
+    const tooClose = kept.some((k) =>
+      haversineMeters(h.park.location!.lat, h.park.location!.lng, k.park.location!.lat, k.park.location!.lng) < minGap);
+    if (!tooClose) kept.push(h);
+  }
+  // Path order; if two survivors still share a vertex, the closer-to-path one comes first.
+  kept.sort((a, b) => (a.waypointIndex - b.waypointIndex) || (a.distToPath - b.distToPath));
 
-  return hits.map((h) => {
+  return kept.map((h) => {
     const availableEquipment = h.mapping.activityType === 'strength'
       ? parkGymEquipmentToGearIds(h.park.gymEquipment, normalizeGearIds)
       : [];
