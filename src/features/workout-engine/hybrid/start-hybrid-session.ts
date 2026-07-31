@@ -17,6 +17,7 @@ import type { ContextualFilterContext } from '../logic/contextual-engine.types';
 import type { WorkoutGenerationContext } from '../logic/workout-generator.types';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import { MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
+import { deriveAerobicTargetKm } from './hybrid-aerobic.util';
 
 export interface HybridSessionContext {
   userPosition: { lat: number; lng: number } | null;
@@ -266,12 +267,47 @@ const ROUTE_STOPS_LEVEL_TOLERANCE = 6;
  *                                    waypoints when there is no ready route (also the base
  *                                    for a future short-detour). Not wired for the pilot.
  */
-type RouteStopsBackboneMode = 'existing_route' | 'waypoints_through_stops';
+type RouteStopsBackboneMode = 'generated_loop' | 'existing_route' | 'waypoints_through_stops';
 
 async function resolveRouteStopsBackbone(
   mode: RouteStopsBackboneMode,
-  userPosition: { lat: number; lng: number },
+  opts: {
+    userPosition: { lat: number; lng: number };
+    parks?: any[];
+    targetKm?: number;
+    cityName?: string;
+    activity?: ActivityType;
+  },
 ): Promise<{ routePath: [number, number][]; routeId: string; routeName?: string } | null> {
+  const { userPosition } = opts;
+
+  // (ג) 'generated_loop' — the ROOT fix (§7.3): build a loop FROM the user's location via the
+  // existing generator, so entry = user (0m) and the workout never "starts from a distant park".
+  // includeStrength biases the loop toward equipped parks so route-stops has stops to place;
+  // the whole downstream pipeline (resolveRouteStops → planFromPoint → composeHybridSession) is
+  // unchanged. Mirrors composeHybridPlan's generator call. Pure geometry — no SoT/set-counting.
+  if (mode === 'generated_loop') {
+    const targetKm = opts.targetKm ?? 2.5;
+    const { generateDynamicRoutes } = await import('@/features/parks/core/services/route-generator.service');
+    let routePath: [number, number][] = [];
+    try {
+      const routes = await generateDynamicRoutes({
+        userLocation: userPosition,
+        targetDistance: targetKm,
+        activity: opts.activity ?? ('walking' as ActivityType),
+        routeGenerationIndex: 0,
+        preferences: { includeStrength: (opts.parks?.length ?? 0) > 0, qualityRoute: true, maxRoutes: 1 },
+        parks: (opts.parks ?? []) as any,
+        cityName: opts.cityName,
+      });
+      routePath = normalizePath(routes?.[0]?.path);
+    } catch { /* generator failed → synthesized loop below */ }
+    if (routePath.length < 2) routePath = synthesizeLoop(userPosition, targetKm);
+    if (routePath.length < 2) { console.warn('[route-stops] generated_loop produced no usable path → no card'); return null; }
+    console.log(`[route-stops] backbone=generated_loop from user · pts=${routePath.length} · targetKm=${targetKm.toFixed(2)}`);
+    return { routePath, routeId: 'generated_loop', routeName: 'סיבוב מהמיקום' };
+  }
+
   if (mode === 'existing_route') {
     const [{ getCachedOfficialRoutes }, { haversineMeters }] = await Promise.all([
       import('@/features/parks/core/services/inventory.service'),
@@ -351,15 +387,21 @@ async function composeRouteStopsWorkout(
   const pp = profile?.running?.paceProfile;
   const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
 
-  // (§1a) backbone — nearest published official_route.
-  const backbone = await resolveRouteStopsBackbone('existing_route', ctx.userPosition);
-  if (!backbone) return null;
-  const routePath = backbone.routePath;
-
-  // Stops — every POI on/near the route line. Warm caches first (gear translation reads them).
+  // Warm caches + fetch parks FIRST — the generated-loop backbone biases the loop toward equipped
+  // parks (findFitnessAnchor), and gear translation reads the warm cache downstream.
   await warmHybridCaches();
   let parks: any[] = [];
-  try { parks = await fetchRealParks(); } catch { /* no parks → no stops → no card */ }
+  try { parks = await fetchRealParks(); } catch { /* no parks → unbiased loop, bodyweight fallback */ }
+
+  // Backbone — a LOOP generated FROM the user's location (root fix), so entry = user (0m).
+  // ('existing_route' mode is kept for a future "use a close existing route" decision, not v1.)
+  const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace);
+  const backbone = await resolveRouteStopsBackbone('generated_loop', {
+    userPosition: ctx.userPosition, parks, targetKm,
+    cityName: ctx.cityName, activity: intent.aerobicKind as ActivityType,
+  });
+  if (!backbone) return null;
+  const routePath = backbone.routePath;
   const rawStops = resolveRouteStops(routePath, parks as any);
 
   // Recommendation-path DEFAULT (not a cap): when the weekly STRENGTH set-budget is spent, a
@@ -402,7 +444,12 @@ async function composeRouteStopsWorkout(
     `[route-stops] route="${backbone.routeName}" stops=${stops.length}` +
     ` [${stops.map((s) => `${s.activityType}@wp${s.waypointIndex}(${s.distToPathM}m)`).join(', ')}]`,
   );
-  if (stops.length === 0) { console.warn('[composeRouteStopsWorkout] route has no POIs within radius → no card'); return null; }
+  if (stops.length === 0) {
+    // Zero-stations degrade (root-fix QA): a generated loop may pass no equipped park. Do NOT
+    // return null — let it flow into composeHybridSession's field fallback (ONE bodyweight stop at
+    // the route midpoint), yielding a valid aerobic + bodyweight route workout instead of no card.
+    console.warn('[route-stops] 0 stops on the loop → degrading to aerobic + bodyweight-mid-route (field fallback)');
+  }
 
   // Levels + contexts (shared resolver — same real per-domain levels as the budget-split path).
   const { userProgramLevels, baseUserLevel, resolveUserLevelForExercise } =
@@ -583,15 +630,9 @@ export async function composeHybridPlan(
   const uid = auth.currentUser?.uid;
   if (uid) { try { weeklyGaps = (await getWeeklyLoadSnapshot(uid)).gaps; } catch { /* keep fallback */ } }
 
-  const aerobicMin = intent.timeBudgetMin * intent.aerobicShare;
-  // Running pace can be missing / 0 on profiles that never ran → guard so
-  // targetKm stays finite (walking uses a fixed 12 min/km). A 0 pace here was
-  // producing "Target: Infinity km" → 0 routes → world-view camera jump.
-  const runPaceMinPerKm = paceProfile.basePace > 0 ? paceProfile.basePace / 60 : 6.5;
-  const speedMinPerKm = intent.aerobicKind === 'walking' ? 12 : runPaceMinPerKm;
-  let targetKm = aerobicMin / speedMinPerKm;
-  if (!Number.isFinite(targetKm) || targetKm <= 0) targetKm = 2.5;
-  targetKm = Math.max(1, Math.min(20, targetKm));
+  // Aerobic target distance (shared, pure) — walking = fixed 12 min/km · running = runner pace,
+  // guarded so a 0 pace never yields "Target: Infinity km" → 0 routes. Clamped [1,20].
+  const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace);
 
   // Parks for BOTH route bias and the whole-path station search. PROXIMITY source —
   // the same all-parks set + 6h cache the live map uses (fetchRealParks), NOT
