@@ -36,32 +36,15 @@ export type OnboardingAnswers = EngineAnswers;
 export function createInitialProgression(
   fitnessTier: 1 | 2 | 3
 ): UserProgression {
-  // מיפוי רמת כושר לרמת domain
-  // Tier 1 (בקושי זז) -> רמה 1 בכל התחומים
-  // Tier 2 (מתאמן מדי פעם) -> רמה 3
-  // Tier 3 (מתאמן קבוע) -> רמה 5
-  const domainLevelMap: Record<1 | 2 | 3, number> = {
-    1: 1,
-    2: 3,
-    3: 5,
-  };
-
-  const initialLevel = domainLevelMap[fitnessTier];
-  
-  // יצירת domains עם כל התחומים
+  // absent=absent (⑨): do NOT seed a level for any domain at profile init. The fitness tier is a
+  // coarse onboarding signal, NOT a per-domain assessment — so no domain gets an entry here. A domain
+  // is written ONLY when actually assessed (mapAnswersToProfile / quiz sync). Unassessed → ABSENT,
+  // and the home strength-gate routes the user to the questionnaire instead of inventing content.
+  void fitnessTier; // retained in the signature for callers; no longer seeds domain levels
   const domains: Record<TrainingDomainId, DomainProgress> = {} as Record<
     TrainingDomainId,
     DomainProgress
   >;
-
-  // אתחול כל התחומים
-  (Object.keys(DOMAIN_MAX_LEVELS) as TrainingDomainId[]).forEach((domainId) => {
-    domains[domainId] = {
-      currentLevel: initialLevel,
-      maxLevel: DOMAIN_MAX_LEVELS[domainId],
-      isUnlocked: true, // כל התחומים פתוחים מההתחלה
-    };
-  });
 
   return {
     globalLevel: 1,
@@ -194,9 +177,10 @@ export function mapAnswersToProfile(
       }
       // Extract numeric level from levelId (e.g., "level_3" → 3)
       const levelMatch = result.levelId?.match(/(\d+)/);
-      const programLevel = levelMatch ? parseInt(levelMatch[1], 10) : (progression.domains?.full_body?.currentLevel || 1);
-      
-      if (!progression.tracks[result.programId]) {
+      // absent=absent (⑨): resolve the ASSESSED level; if none resolves, do NOT fabricate a default
+      // (no `|| 1`) — leave the track absent rather than write a ghost level.
+      const programLevel = levelMatch ? parseInt(levelMatch[1], 10) : progression.domains?.full_body?.currentLevel;
+      if (!progression.tracks[result.programId] && programLevel && programLevel > 0) {
         progression.tracks[result.programId] = {
           currentLevel: programLevel,
           percent: 0,
@@ -213,6 +197,8 @@ export function mapAnswersToProfile(
 
         // ✅ Initialize tracks for each child program
         for (const [childId, childLevel] of Object.entries(result.masterProgramSubLevels)) {
+          // absent=absent (⑨): a child scored 0/absent in the quiz is UNANSWERED — write no entry.
+          if (!childLevel || (childLevel as number) <= 0) continue;
           progression.tracks[childId] = {
             currentLevel: childLevel,
             percent: 0,
@@ -250,11 +236,14 @@ export function mapAnswersToProfile(
     if (!progression.tracks) {
       progression.tracks = {};
     }
-    const domainLevel = progression.domains?.[assignedProgramId as TrainingDomainId]?.currentLevel 
-      || progression.domains?.full_body?.currentLevel || 1;
-    if (!progression.tracks[assignedProgramId]) {
+    // absent=absent (⑨): no `|| 1` fabrication — write the assigned track only when a real level
+    // resolves (from the quiz assignedLevel or an already-assessed domain).
+    const resolvedAssigned = assignedLevel
+      || progression.domains?.[assignedProgramId as TrainingDomainId]?.currentLevel
+      || progression.domains?.full_body?.currentLevel;
+    if (!progression.tracks[assignedProgramId] && resolvedAssigned && resolvedAssigned > 0) {
       progression.tracks[assignedProgramId] = {
-        currentLevel: assignedLevel || domainLevel,
+        currentLevel: resolvedAssigned,
         percent: 0,
       };
     }
@@ -269,6 +258,8 @@ export function mapAnswersToProfile(
 
       // ✅ Initialize tracks for each child program
       for (const [childId, childLevel] of Object.entries(masterProgramSubLevels)) {
+        // absent=absent (⑨): a child scored 0/absent in the quiz is UNANSWERED — write no entry.
+        if (!childLevel || (childLevel as number) <= 0) continue;
         progression.tracks[childId] = {
           currentLevel: childLevel,
           percent: 0,

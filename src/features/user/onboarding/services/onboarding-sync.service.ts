@@ -1126,19 +1126,22 @@ export async function syncOnboardingToFirestore(
 
         for (const result of effectiveResults) {
           const rLevelMatch = result.levelId.match(/(\d+)/);
-          const rLevel = rLevelMatch
-            ? Math.max(1, parseInt(rLevelMatch[1], 10))
-            : 1;
-          
-          // Set track for the program itself
-          quizTracks[result.programId] = { currentLevel: rLevel, percent: 0 };
+          // absent=absent (⑨): resolve the assessed level; if the levelId has no number, do NOT
+          // fabricate L1 — leave the track (and its derived foundation) absent.
+          const rLevel = rLevelMatch ? Math.max(1, parseInt(rLevelMatch[1], 10)) : 0;
+
+          // Set track for the program itself (only when a real level resolved)
+          if (rLevel > 0) {
+            quizTracks[result.programId] = { currentLevel: rLevel, percent: 0 };
+          }
 
           // ── Path C: Strict Skill → Foundation derivation ─────────────────
           // For single-skill Path C results (e.g. programId = 'planche'):
           // infer the paired foundational track using the physio offset formula.
           // Legs and core are explicitly NOT written — they are unassessed and
           // must remain absent from the progression document (no ghost data).
-          if (isPathCSkills) {
+          // KEPT (⑨): this is inference from a GENUINELY assessed skill, not tier-fabrication.
+          if (isPathCSkills && rLevel > 0) {
             const foundationDomain = SKILL_TO_FOUNDATION_DOMAIN[result.programId];
             if (foundationDomain) {
               const maxFoundation = cmsMaxLevels[foundationDomain] ?? 25;
@@ -1198,23 +1201,10 @@ export async function syncOnboardingToFirestore(
             // push / pull / legs but skipped core.  Path C skill users intentionally
             // leave core unset — a skill specialist's core needs are served through
             // the foundational domain pair (push/pull), not a virtual average.
-            if (!isPathCSkills) {
-              const sub = result.masterProgramSubLevels as Record<string, number>;
-              const coreLevel = sub.core ?? 0;
-              if (coreLevel === 0) {
-                const pushLvl = sub.push ?? 0;
-                const pullLvl = sub.pull ?? 0;
-                const legsLvl = sub.legs ?? 0;
-                const assessed = [pushLvl, pullLvl, legsLvl].filter(l => l > 0);
-                if (assessed.length > 0) {
-                  const virtualCore = Math.round(assessed.reduce((a, b) => a + b, 0) / assessed.length);
-                  quizTracks['core'] = { currentLevel: virtualCore, percent: 0 };
-                  console.log(
-                    `[OnboardingSync] Virtual Core Level: core was 0 → derived ${virtualCore} from avg(${assessed.join(', ')})`,
-                  );
-                }
-              }
-            }
+            // absent=absent (⑨): REMOVED the write-side Virtual-Core derivation
+            // (core = avg(push,pull,legs) when core was skipped). An unassessed core now stays
+            // ABSENT — no invented core level is persisted. Mirrors the read-side removal in
+            // level-resolution.utils.ts; the user fills the core questionnaire to get core content.
           }
 
           // Add to activePrograms (accumulative — don't overwrite existing).
