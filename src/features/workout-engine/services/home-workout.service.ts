@@ -1567,6 +1567,14 @@ async function _buildSharedPipeline(
   const { filters: activeProgramFilters, baseDomainCount } =
     buildActiveProgramFilters(profileForFilters, userProfile, allPrograms, shadowMatrix);
 
+  // absent=absent (⑨) intercept: an empty active-filter set means NO assessed strength domain
+  // reached compose. The home hero-gate (`hasStrengthProgram`) routes such users to the strength
+  // questionnaire BEFORE composing; surface a bypass loudly here so it can never silently score the
+  // whole DB into a generic workout (defense-in-depth for non-home entry points).
+  if (activeProgramFilters.length === 0) {
+    console.warn('[home-workout] ⑨ compose reached with NO assessed strength domain (empty active filters) — the UI hasStrengthProgram gate should have routed this user to the strength questionnaire.');
+  }
+
   const effectiveFilterLocation = location;
 
   const filterContext: ContextualFilterContext = {

@@ -223,8 +223,14 @@ export function buildActiveProgramFilters(
       if (resolvedDomains.length > 0) {
         activeProgramFilters.push(...resolvedDomains);
       } else {
+        // absent=absent (⑨): only domains the user has ACTUALLY assessed (level > 0) join the active
+        // filter set — a level-0 / unassessed key must NOT become a strict program filter.
+        const readLvl = (v: any) => (v == null ? 0 : typeof v === 'number' ? v : (v.currentLevel ?? v.level ?? 0));
+        const assessedDomainKeys = Object.keys(originalProfile.progression?.domains ?? {})
+          .filter(k => readLvl((originalProfile.progression?.domains as any)?.[k]) > 0
+                    || readLvl((originalProfile.progression?.tracks as any)?.[k]) > 0);
         const derived = Array.from(new Set<string>([
-          ...Object.keys(originalProfile.progression?.domains ?? {}),
+          ...assessedDomainKeys,
           ...(originalProfile.progression?.activePrograms ?? [])
             .map(p => p.templateId)
             .filter((id): id is string => Boolean(id)),

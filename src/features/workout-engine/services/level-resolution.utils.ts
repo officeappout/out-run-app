@@ -54,7 +54,9 @@ export function getBaseUserLevel(profile: UserFullProfile): number {
   for (const id of allIds) {
     const trackLevel = resolveDataLevel((tracks as Record<string, any>)[id]);
     const domainLevel = resolveDataLevel((domains as Record<string, any>)[id]);
-    const effectiveLevel = (trackLevel > 1) ? trackLevel : (domainLevel || 1);
+    // absent=absent (⑨): no L1 invention. maxLevel already floors at 1 (init) so the GLOBAL base
+    // stays ≥1, while an unassessed per-domain value contributes 0 (not a fake 1).
+    const effectiveLevel = (trackLevel > 1) ? trackLevel : (domainLevel > 0 ? domainLevel : trackLevel);
     if (effectiveLevel > maxLevel) maxLevel = effectiveLevel;
   }
 
@@ -108,8 +110,14 @@ export function buildUserProgramLevels(
     }
     const trackLevel = resolveDataLevel((userTracks as Record<string, any>)[domainId]);
     const domainLevel = resolveDataLevel((userDomains as Record<string, any>)[domainId]);
-    const effectiveLevel = (trackLevel > 1) ? trackLevel : (domainLevel || 1);
-    const source = (trackLevel > 1) ? 'Tracks' : (domainLevel > 0 ? 'Domains' : 'Default');
+    // absent=absent (⑨): a domain with NO assessed level is left ABSENT (not added to the map),
+    // so downstream EXCLUDES it — instead of inventing L1 and injecting off-level content.
+    if (trackLevel <= 0 && domainLevel <= 0) {
+      console.log(`${logPrefix} Domain '${domainId}' — no assessed level, left ABSENT (no invention)`);
+      continue;
+    }
+    const effectiveLevel = (trackLevel > 1) ? trackLevel : (domainLevel > 0 ? domainLevel : trackLevel);
+    const source = (trackLevel > 1) ? 'Tracks' : (domainLevel > 0 ? 'Domains' : 'Tracks');
     levels.set(domainId, effectiveLevel);
 
     // Dual-key: also store under the slug-resolved form so lookups by
@@ -142,10 +150,10 @@ export function buildUserProgramLevels(
         `(from activePrograms fallback — prevents L1 split-brain)`,
       );
     } else {
-      levels.set(ap.templateId, 1);
+      // absent=absent (⑨): an active program with no resolvable track/domain level is NOT
+      // invented to L1 — it stays absent so it contributes no exercises.
       console.warn(
-        `${logPrefix} Program mapping not found for "${ap.templateId}" — defaulting to Level 1. ` +
-        `Check progression.tracks and progression.domains.`,
+        `${logPrefix} Program mapping not found for "${ap.templateId}" — left ABSENT (no L1 invention).`,
       );
     }
   }
@@ -181,36 +189,10 @@ export function buildUserProgramLevels(
     }
   }
 
-  // Virtual Core Level — derive from avg of other domains if core=0
-  const coreLevel = levels.get('core') ?? 0;
-  if (coreLevel === 0) {
-    const otherLevels = MASTER_CHILD_TRACKS
-      .map(d => levels.get(d) ?? 0)
-      .filter(l => l > 0);
-    if (otherLevels.length > 0) {
-      const derived = Math.round(otherLevels.reduce((a, b) => a + b, 0) / otherLevels.length);
-      levels.set('core', derived);
-      console.log(`${logPrefix} [CoreFix] core was 0 → derived ${derived} from avg(${otherLevels.join(',')})`);
-    }
-  }
-
-  // Pro Athlete Core Floor: if globalLevel > 15, core and isolation
-  // domains should never sit below L7.  A Level 19 athlete doing
-  // knee planks is a UX failure.
-  const globalMax = Math.max(...Array.from(levels.values()), 1);
-  if (globalMax > 15) {
-    const PRO_CORE_FLOOR = 7;
-    const FLOOR_DOMAINS = ['core', 'isolation'];
-    for (const fd of FLOOR_DOMAINS) {
-      const current = levels.get(fd);
-      if (current !== undefined && current < PRO_CORE_FLOOR) {
-        levels.set(fd, PRO_CORE_FLOOR);
-        console.log(
-          `${logPrefix} [CoreFloor] '${fd}' elevated L${current} → L${PRO_CORE_FLOOR} (globalMax=L${globalMax}, pro floor)`,
-        );
-      }
-    }
-  }
+  // absent=absent (⑨): REMOVED the Virtual-Core derivation (core = avg(push,pull,legs)) and the
+  // Pro-Core-Floor (force core/isolation ≥ L7 for globalMax>15). Both INVENTED a level for a domain
+  // the user never assessed — exactly the behaviour we are eliminating. An unassessed core now stays
+  // ABSENT (no key) and simply contributes no core content until the user fills the core questionnaire.
 
   // Safety net: remove any master keys that may have leaked in
   Array.from(masterProgramIds).forEach(masterId => {

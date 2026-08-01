@@ -237,12 +237,23 @@ export function resolveChildDomainsForParent(
   if (!activeProgramId) return [];
 
   const activeProgramSlug = resolveToSlug(activeProgramId);
+
+  // absent=absent (⑨): a static-master's child domains are intersected with the domains the user
+  // has ACTUALLY assessed (a real level > 0 in domains OR tracks). An unassessed child (e.g. legs
+  // for a push/pull-only user) is dropped — so it is never forced into requiredDomains and never
+  // injected/guaranteed. Inlined level read to avoid a circular import with level-resolution.utils.
+  const isAssessed = (dom: string): boolean => {
+    const readLvl = (v: any) => (v == null ? 0 : typeof v === 'number' ? v : (v.currentLevel ?? v.level ?? 0));
+    return readLvl((profile.progression?.domains as any)?.[dom]) > 0
+        || readLvl((profile.progression?.tracks as any)?.[dom]) > 0;
+  };
+
   if (activeProgramSlug === 'full_body' || activeProgramId === 'full_body') {
-    return [...FULL_BODY_CHILD_DOMAINS];
+    return FULL_BODY_CHILD_DOMAINS.filter(isAssessed);
   }
 
   if (activeProgramSlug === 'upper_body' || activeProgramId === 'upper_body') {
-    return [...UPPER_BODY_CHILD_DOMAINS];
+    return UPPER_BODY_CHILD_DOMAINS.filter(isAssessed);
   }
 
   if (activeProgramSlug === 'calisthenics_upper' || activeProgramId === 'calisthenics_upper') {

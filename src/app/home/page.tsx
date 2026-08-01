@@ -587,6 +587,16 @@ export default function HomePage() {
   const hasProgram = !!(
     profile?.progression?.domains && Object.keys(profile.progression.domains).length > 0
   );
+  // absent=absent (⑨): the strength hero-gate needs an ASSESSED strength domain (level > 0), not
+  // merely "any domain key". A user with no filled strength domain is routed to the questionnaire
+  // instead of composing an invented/generic workout. Non-strength (running/flexibility) excluded.
+  const hasStrengthProgram = (() => {
+    const NON_STRENGTH = new Set(['running', 'flexibility']);
+    const readLvl = (v: any) => (v == null ? 0 : (v.currentLevel ?? v.level ?? 0));
+    const anyAssessed = (obj: Record<string, any> = {}) =>
+      Object.entries(obj).some(([k, v]) => !NON_STRENGTH.has(k) && readLvl(v) > 0);
+    return anyAssessed(profile?.progression?.domains as any) || anyAssessed(profile?.progression?.tracks as any);
+  })();
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
   // Map path vs Assessment path: tracks/domains with level > 1 = assessment done
   const hasCompletedAssessment = (() => {
@@ -963,7 +973,9 @@ export default function HomePage() {
     // device's current calendar day via `new Date()` / `serverTimestamp()`,
     // so credit lands on today's slot even when a future card is tapped.
 
-    if (hasProgram) {
+    if (hasStrengthProgram) {
+      // absent=absent (⑨): compose only when a strength domain is assessed; else fall to the
+      // questionnaire route below (never an invented/generic strength workout).
       // When a different date is tapped, flush the stale cached workout
       // immediately — before the async generator evaluates the new date.
       // This guarantees the drawer rises with the skeleton shimmer rather
@@ -999,7 +1011,7 @@ export default function HomePage() {
       }
       router.push('/onboarding-new/assessment-visual');
     }
-  }, [hasProgram, isMapOnlyUser, openWorkoutPreview, profile, router, selectedDate]);
+  }, [hasStrengthProgram, isMapOnlyUser, openWorkoutPreview, profile, router, selectedDate]);
 
   const handleBuildCustom = useCallback((ctx?: BuilderContext) => {
     const props: Omit<WorkoutBuilderSheetProps, 'onClose'> = {};
@@ -1033,8 +1045,8 @@ export default function HomePage() {
   // Direct start — from UserWorkoutAdjuster, bypasses equipment JIT popup
   const handleDirectStart = useCallback(() => {
     if (!profile?.core?.name) { router.push('/onboarding-new/profile'); return; }
-    if (hasProgram) openWorkoutPreview();
-  }, [hasProgram, openWorkoutPreview, profile, router]);
+    if (hasStrengthProgram) openWorkoutPreview(); // absent=absent (⑨): no invented strength start
+  }, [hasStrengthProgram, openWorkoutPreview, profile, router]);
 
   const handleAlertAction = () => { setShowAlert(null); handleHeroPress(); };
 

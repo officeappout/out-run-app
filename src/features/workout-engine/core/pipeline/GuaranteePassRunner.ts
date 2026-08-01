@@ -101,8 +101,11 @@ export function runHorizontalGuarantee(
 
   const tryLevelAwareSwap = (targetGroup: string): void => {
     const domain = MG_TO_DOMAIN[targetGroup];
+    // absent=absent (⑨): don't swap in a domain the user hasn't assessed. has()-guarded — no
+    // `?? context.userLevel` back-door.
+    if (domain && !userLevelsMap?.has(domain)) return;
     const domainLevel = domain
-      ? (userLevelsMap?.get(domain) ?? context.userLevel)
+      ? userLevelsMap!.get(domain)!
       : context.userLevel;
     // For D1 (recovery/flow), anchor the search at the centroid of the
     // Bolt-1 recovery window (`getBolt1WindowAnchor` = domainLevel − 2)
@@ -287,8 +290,10 @@ export function runVerticalFoundationGuarantee(
     if (hasFoundationInMg) continue;
 
     const targetDomain = MG_TO_DOMAIN[targetMg];
+    // absent=absent (⑨): don't inject a foundation for a domain the user hasn't assessed.
+    if (targetDomain && !userLevelsVFG?.has(targetDomain)) continue;
     const domainLevel = targetDomain
-      ? (userLevelsVFG?.get(targetDomain) ?? context.userLevel)
+      ? userLevelsVFG!.get(targetDomain)!
       : context.userLevel;
 
     // D1 anchor: centroid of the Bolt-1 recovery window
@@ -423,8 +428,15 @@ export function runFullBodyDomainGuarantee(
     const hasDomain = mainExFB.some(e => MG_TO_DOMAIN[e.exercise.movementGroup ?? ''] === domain);
     if (hasDomain) continue;
 
+    // absent=absent (⑨): NEVER guarantee/inject a domain the user has not assessed. has()-guarded —
+    // no `?? context.userLevel` back-door (that resurrected the ghost as a global-level injection).
+    if (!userLevelsMapFB || !userLevelsMapFB.has(domain)) {
+      pipelineLog.push(`full_body_guarantee: '${domain}' absent (unassessed) — skipped, not injected`);
+      continue;
+    }
+
     let injected = false;
-    const domainLevel = userLevelsMapFB?.get(domain) ?? context.userLevel;
+    const domainLevel = userLevelsMapFB.get(domain)!;
     // For D1, anchor at the centroid of the Bolt-1 recovery window so
     // FullBodyDomainGuarantee injections stay inside the same admissible
     // pool the main filter (`isWithinBolt1Window`) defines.

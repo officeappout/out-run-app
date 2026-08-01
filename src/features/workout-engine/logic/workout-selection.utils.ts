@@ -527,6 +527,11 @@ export function selectExercisesWithDomainQuotas(
   const selectedIds = new Set<string>();
 
   for (const domain of context.requiredDomains!) {
+    // absent=absent (⑨): never RESCUE/fabricate a domain the user has not assessed. has()-guarded —
+    // no `?? context.userLevel ?? 1` back-door. (requiredDomains is already assessed-only upstream;
+    // this is the uniform in-file guard so no back door can reintroduce the ghost.)
+    const userLevelsMap = context.userProgramLevels;
+    if (!userLevelsMap || !userLevelsMap.has(domain)) continue;
     let domainPool = shuffled.filter(
       (s) => !selectedIds.has(s.exercise.id) && exerciseMatchesProgram(s.exercise, domain),
     );
@@ -551,7 +556,7 @@ export function selectExercisesWithDomainQuotas(
       }
     } else if (context.globalExercisePool?.length) {
       const pool = context.globalExercisePool;
-      const userLevel = context.userProgramLevels?.get(domain) ?? context.userLevel ?? 1;
+      const userLevel = userLevelsMap.get(domain)!; // has()-guarded at loop top (⑨) — no default
       const parentAliases = DOMAIN_PARENT_MAP[domain] ?? [];
 
       // Location-aware method resolution: try the user's actual location first,
