@@ -80,6 +80,19 @@ interface RouteGenerationOptions {
      * guaranteed inter-route waits off the hybrid compose critical path.
      */
     maxRoutes?: number;
+    /**
+     * Additive, opt-in override for the waypoint-scoring "ideal distance from user"
+     * (scoreWaypoint's `idealDistance`, historically a hardcoded 1.0km — tuned for
+     * ~3-5km free-run targets, NOT scaled to `targetDistance`). Omitted → exactly
+     * today's behaviour (1.0km), byte-identical for every existing caller.
+     * A small-target caller (e.g. a short walking loop) should pass
+     * `targetDistance / 6` — the same triangular-loop perimeter correction already
+     * used by `generateRandomWaypoints` (3 waypoints ~120° apart → perimeter ≈
+     * 5.2·r) — so real street_segments candidates are scored toward a radius that
+     * actually fits a short target, instead of being pulled to the edge of the
+     * (also target-relative) search radius.
+     */
+    idealWaypointDistanceKm?: number;
   };
   parks: MapPark[];
   /** City name used to query street_segments from Firestore. Falls back to random waypoints when absent. */
@@ -489,11 +502,11 @@ function generateRandomWaypoints(
   return waypoints;
 }
 
-function scoreWaypoint(
+export function scoreWaypoint(
   waypoint: { lat: number; lng: number },
   userLocation: { lat: number; lng: number },
   parks: MapPark[],
-  preferences: { includeStrength: boolean }
+  preferences: { includeStrength: boolean; idealWaypointDistanceKm?: number }
 ): WaypointCandidate {
   const distanceFromUser = getDistanceKm(userLocation.lat, userLocation.lng, waypoint.lat, waypoint.lng);
   const nearbyParks = parks.filter(park => {
@@ -504,7 +517,11 @@ function scoreWaypoint(
   let score = 50;
   if (nearbyParks > 0) score += nearbyParks * 15;
 
-  const idealDistance = 1.0;
+  // Default 1.0km preserved exactly when the caller doesn't opt in — byte-identical
+  // for every existing caller (free-run, discover, hybrid general). See the
+  // idealWaypointDistanceKm doc on RouteGenerationOptions.preferences for why a
+  // small-target caller (route-stops) overrides this.
+  const idealDistance = preferences.idealWaypointDistanceKm ?? 1.0;
   const distanceDiff = Math.abs(distanceFromUser - idealDistance);
   if (distanceDiff < 0.3) score += 20;
   else if (distanceDiff < 0.6) score += 10;
