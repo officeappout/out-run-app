@@ -129,7 +129,10 @@ export const HYBRID_PRESETS: Record<string, HybridPreset> = {
   full_park:     { id: 'full_park',     aerobicKind: 'walking', emphasis: 'strength', shape: 'sandwich', bolts: 2, defaultTimeBudgetMin: 30, mode: 'full_park_workout' },
   // route_stops: a REAL official_route backbone + generic stops placed on it (§7.3). The
   // generalization of full_park; aerobicKind is overridden from env at resolve time.
-  route_stops:   { id: 'route_stops',   aerobicKind: 'walking', emphasis: 'balanced', shape: 'sandwich', bolts: 2, defaultTimeBudgetMin: 35, mode: 'route_stops' },
+  // defaultTimeBudgetMin: WHO 150min/week ÷ 5 sessions ≈ 30min (was 35, an arbitrary preset
+  // value). Overridden per-session by the duration chips in HybridSlotCarousel (15/30/45),
+  // which remember the user's last pick durably — this default only applies on first-ever use.
+  route_stops:   { id: 'route_stops',   aerobicKind: 'walking', emphasis: 'balanced', shape: 'sandwich', bolts: 2, defaultTimeBudgetMin: 30, mode: 'route_stops' },
   // run_core: runner_collects shape (station at END, runner-appropriate tag) → Phase 3.
 };
 

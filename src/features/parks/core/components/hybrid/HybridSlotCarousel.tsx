@@ -26,6 +26,12 @@ import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified'
 import { UNIFIED_ROUTE_CARDS_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import type { HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import {
+  ROUTE_STOPS_DURATION_KEY,
+  ROUTE_STOPS_DURATION_CHOICES,
+  readRememberedRouteStopsDuration,
+} from './route-stops-duration.util';
 
 // When the unified-cards flag is on, the slot card matches ROUTE_CARD_WIDTH
 // (85vw / max 340px) and is content-height; otherwise the legacy slot dims.
@@ -38,6 +44,46 @@ const SIDE_SCALE = 0.9;
 
 const BRAND = '#00ADEF';
 const CTA_GRADIENT = 'linear-gradient(to left, #0CF2E3, #00BAF7)';
+
+// ── Route-stops duration chips (15/30/45 min) ───────────────────────────────
+// Constants + durable "remember my last pick" logic live in route-stops-duration.util.ts
+// (a pure .ts file, unit-testable — this file has no JSX-test precedent to rely on).
+
+/** Local, unexported — same "one-off pill, no shared component" pattern as FreeRunDrawer's Pill. */
+function DurationChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className="text-[12px] font-bold rounded-full transition-colors"
+      style={{
+        padding: '4px 12px',
+        border: active ? 'none' : '1px solid #E0E9FF',
+        background: active ? BRAND : '#FFFFFF',
+        color: active ? '#FFFFFF' : '#6B7280',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function RouteStopsDurationChips({ valueMin, onChange }: { valueMin: number; onChange: (min: number) => void }) {
+  return (
+    <div
+      className="flex items-center justify-center gap-2 pointer-events-auto"
+      style={{ marginTop: 8 }}
+      dir="rtl"
+    >
+      {ROUTE_STOPS_DURATION_CHOICES.map((min) => (
+        <DurationChip key={min} active={valueMin === min} onClick={() => onChange(min)}>
+          {min} דק׳
+        </DurationChip>
+      ))}
+    </div>
+  );
+}
 
 const ENTRY_PHRASES = [
   'מה עושים היום? ✨',
@@ -225,6 +271,10 @@ export default function HybridSlotCarousel({
   const viewportRef = useRef<HTMLDivElement>(null);
   const [cardW, setCardW] = useState(CARD_MAX_W);
   const [viewportW, setViewportW] = useState(390);
+  // route_stops duration chips (15/30/45): lazy-init from the durable "last pick" pref,
+  // defaulting to 30min on first-ever use. Read once on mount — the initializer runs
+  // synchronously (localStorage), so the FIRST render already reflects the remembered choice.
+  const [routeStopsDurationMin, setRouteStopsDurationMin] = useState<number>(readRememberedRouteStopsDuration);
   // Which card's CTA received the most recent pointerdown (by slot.id, or null).
   // Single source of truth for "armed" — matched per card, cleared on drag-start.
   const armedSlotIdRef = useRef<string | null>(null);
@@ -354,7 +404,16 @@ export default function HybridSlotCarousel({
                   <SlotCard
                     slot={slot}
                     isActive={isActive}
-                    onSelect={() => onSelectSlot(slot)}
+                    onSelect={() => {
+                      // route_stops only: inject the CURRENT chip-selected duration (not the
+                      // resolveSlots-time default) so this session's targetKm reflects the
+                      // user's live pick, all the way through deriveAerobicTargetKm →
+                      // resolveRouteStopsBackbone → idealWaypointDistanceKm (P6, unchanged).
+                      const finalSlot = (slot.kind === 'hybrid' && slot.id === 'route_stops')
+                        ? { ...slot, timeBudgetMin: routeStopsDurationMin }
+                        : slot;
+                      onSelectSlot(finalSlot);
+                    }}
                     onArm={() => { armedSlotIdRef.current = slot.id; }}
                     consumeArmed={() => {
                       const ok = armedSlotIdRef.current === slot.id;
@@ -362,6 +421,15 @@ export default function HybridSlotCarousel({
                       return ok;
                     }}
                   />
+                  {slot.id === 'route_stops' && (
+                    <RouteStopsDurationChips
+                      valueMin={routeStopsDurationMin}
+                      onChange={(min) => {
+                        setRouteStopsDurationMin(min);
+                        setOnboardingPref(ROUTE_STOPS_DURATION_KEY, String(min));
+                      }}
+                    />
+                  )}
                 </motion.div>
               );
             })}
