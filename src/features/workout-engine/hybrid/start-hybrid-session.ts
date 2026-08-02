@@ -305,7 +305,17 @@ async function resolveRouteStopsBackbone(
         targetDistance: targetKm,
         activity: opts.activity ?? ('walking' as ActivityType),
         routeGenerationIndex: 0,
-        preferences: { includeStrength: false, qualityRoute: true, maxRoutes: 1 },
+        preferences: {
+          includeStrength: false, qualityRoute: true, maxRoutes: 1,
+          // P6 calibration: scoreWaypoint's default ideal-distance (1.0km) isn't scaled to a
+          // short target — it pulls candidates to the edge of the (also target-relative) search
+          // radius instead of toward the target, producing a wide/sprawling loop. targetKm/6
+          // mirrors generateRandomWaypoints' own triangular-loop perimeter correction (3
+          // waypoints ~120° apart → perimeter ≈ 5.2·r) — both waypoint sources feed the same
+          // 3-point combination logic downstream. Route-stops-only; every other caller of
+          // generateDynamicRoutes is unaffected (the option is additive/opt-in).
+          idealWaypointDistanceKm: targetKm / 6,
+        },
         parks: (opts.parks ?? []) as any,
         cityName: opts.cityName,
       });
