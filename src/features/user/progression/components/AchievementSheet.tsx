@@ -7,6 +7,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Trophy } from 'lucide-react';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { ACHIEVEMENT_DEFINITIONS } from '../config/achievement-definitions';
 import {
   CATEGORY_ORDER,
@@ -159,6 +160,11 @@ function CategorySection({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AchievementSheet({ isOpen, onClose, unlockedAchievements }: AchievementSheetProps) {
+  const { flags: featureFlags } = useFeatureFlags();
+  const visibleCategories = featureFlags.enableLeagues
+    ? CATEGORY_ORDER
+    : CATEGORY_ORDER.filter((category) => category !== 'leagues');
+
   const totalUnlocked = ACHIEVEMENT_DEFINITIONS.filter((def) =>
     def.type === 'one_time'
       ? isOneTimeUnlocked(def.id, unlockedAchievements)
@@ -212,7 +218,7 @@ export function AchievementSheet({ isOpen, onClose, unlockedAchievements }: Achi
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto px-4 py-4">
-              {CATEGORY_ORDER.map((category) => (
+              {visibleCategories.map((category) => (
                 <CategorySection
                   key={category}
                   category={category}

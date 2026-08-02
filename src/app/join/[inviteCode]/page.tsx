@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { MapPin, Users, Clock, Loader2, AlertCircle } from 'lucide-react';
 import { onAuthStateChange, signInGuest } from '@/lib/auth.service';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
 import type { CommunityGroup } from '@/types/community.types';
@@ -28,6 +29,7 @@ export default function JoinPage() {
   const inviteCode = typeof params.inviteCode === 'string' ? params.inviteCode : '';
 
   const { profile } = useUserStore();
+  const { flags: featureFlags } = useFeatureFlags();
   const [group, setGroup] = useState<CommunityGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -123,7 +125,11 @@ export default function JoinPage() {
     );
   }
 
-  if (notFound || !group) {
+  // A league-type invite (groupType set) while enableLeagues is off is treated
+  // identically to an invalid link — no separate "leagues is off" messaging.
+  const isBlockedByLeaguesFlag = !!group?.groupType && !featureFlags.enableLeagues;
+
+  if (notFound || !group || isBlockedByLeaguesFlag) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] px-6 text-center" dir="rtl">
         <AlertCircle className="w-14 h-14 text-gray-300 mb-4" />

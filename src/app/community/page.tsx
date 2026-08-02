@@ -102,14 +102,22 @@ export default function CommunityPage() {
   const openChat = useChatStore((s) => s.open);
 
   // ── Top-level tab from URL param ─────────────────────────────────────────
-  // When the feed is compile-time disabled, force 'leagues' as the default so
-  // the user never lands on the empty feed view, even without a ?tab= param.
+  // Feed requires BOTH the compile-time MVP pause to be lifted (IS_COMMUNITY_FEED_ENABLED)
+  // AND the live admin toggle (enableCommunityFeed) — the compile flag is a hard
+  // ceiling that live-flipping the admin toggle must never bypass. Leagues has no
+  // compile-time gate, so it resolves on the live flag alone. Neither a stale
+  // ?tab= deep link nor the default (no ?tab=) can ever land on a tab that isn't
+  // actually enabled — falls through to whichever surface is live, or to 'feed'
+  // as an inert default when neither is (the page-level guard below redirects
+  // home in that case before this matters for render).
   const tabParam = searchParams.get('tab');
+  const isFeedTabAvailable = IS_COMMUNITY_FEED_ENABLED && featureFlags.enableCommunityFeed;
   const topTab: CommunityTopTab =
-    tabParam === 'leagues' ? 'leagues'
-    : tabParam === 'feed' && IS_COMMUNITY_FEED_ENABLED ? 'feed'
-    : IS_COMMUNITY_FEED_ENABLED ? 'feed'
-    : 'leagues';
+    tabParam === 'leagues' && featureFlags.enableLeagues ? 'leagues'
+    : tabParam === 'feed' && isFeedTabAvailable ? 'feed'
+    : isFeedTabAvailable ? 'feed'
+    : featureFlags.enableLeagues ? 'leagues'
+    : 'feed';
 
   const setTopTab = useCallback(
     (next: CommunityTopTab) => {
@@ -465,7 +473,7 @@ export default function CommunityPage() {
             role="tablist"
             aria-label="קהילה"
           >
-            {IS_COMMUNITY_FEED_ENABLED && (
+            {isFeedTabAvailable && (
               <button
                 type="button"
                 role="tab"
@@ -480,19 +488,21 @@ export default function CommunityPage() {
                 פיד
               </button>
             )}
-            <button
-              type="button"
-              role="tab"
-              aria-selected={topTab === 'leagues'}
-              onClick={() => setTopTab('leagues')}
-              className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
-                topTab === 'leagues'
-                  ? 'text-[#00ADEF] border-[#00ADEF]'
-                  : 'text-slate-400 dark:text-slate-500 border-transparent'
-              }`}
-            >
-              ליגות
-            </button>
+            {featureFlags.enableLeagues && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={topTab === 'leagues'}
+                onClick={() => setTopTab('leagues')}
+                className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
+                  topTab === 'leagues'
+                    ? 'text-[#00ADEF] border-[#00ADEF]'
+                    : 'text-slate-400 dark:text-slate-500 border-transparent'
+                }`}
+              >
+                ליגות
+              </button>
+            )}
           </div>
         </div>
 
