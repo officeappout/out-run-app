@@ -104,12 +104,15 @@ export default function CommunityPage() {
   // ── Top-level tab from URL param ─────────────────────────────────────────
   // When the feed is compile-time disabled, force 'leagues' as the default so
   // the user never lands on the empty feed view, even without a ?tab= param.
+  // A ?tab=leagues deep link (nav, push) can never resolve to 'leagues' while
+  // enableLeagues is off — falls through to feed instead.
   const tabParam = searchParams.get('tab');
   const topTab: CommunityTopTab =
-    tabParam === 'leagues' ? 'leagues'
+    tabParam === 'leagues' && featureFlags.enableLeagues ? 'leagues'
     : tabParam === 'feed' && IS_COMMUNITY_FEED_ENABLED ? 'feed'
     : IS_COMMUNITY_FEED_ENABLED ? 'feed'
-    : 'leagues';
+    : featureFlags.enableLeagues ? 'leagues'
+    : 'feed';
 
   const setTopTab = useCallback(
     (next: CommunityTopTab) => {
@@ -480,19 +483,21 @@ export default function CommunityPage() {
                 פיד
               </button>
             )}
-            <button
-              type="button"
-              role="tab"
-              aria-selected={topTab === 'leagues'}
-              onClick={() => setTopTab('leagues')}
-              className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
-                topTab === 'leagues'
-                  ? 'text-[#00ADEF] border-[#00ADEF]'
-                  : 'text-slate-400 dark:text-slate-500 border-transparent'
-              }`}
-            >
-              ליגות
-            </button>
+            {featureFlags.enableLeagues && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={topTab === 'leagues'}
+                onClick={() => setTopTab('leagues')}
+                className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${
+                  topTab === 'leagues'
+                    ? 'text-[#00ADEF] border-[#00ADEF]'
+                    : 'text-slate-400 dark:text-slate-500 border-transparent'
+                }`}
+              >
+                ליגות
+              </button>
+            )}
           </div>
         </div>
 

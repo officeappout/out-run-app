@@ -66,13 +66,6 @@ export default function CommunityHubPage() {
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
 
-  // Route guard
-  useEffect(() => {
-    if (!flagsLoading && !featureFlags.enableCommunityFeed) {
-      router.replace('/home');
-    }
-  }, [flagsLoading, featureFlags.enableCommunityFeed, router]);
-
   const [group, setGroup] = useState<CommunityGroup | null>(null);
   const [members, setMembers] = useState<MemberInfo[]>([]);
   const [events, setEvents] = useState<CommunityEvent[]>([]);
@@ -107,6 +100,18 @@ export default function CommunityHubPage() {
 
     load();
   }, [id]);
+
+  // Route guard — group-type-aware: league-type groups (groupType set, created
+  // via /arena/create) need enableLeagues; plain groups (no groupType, created
+  // via the admin panel) need enableCommunityFeed. Waits for the group to load
+  // since the type isn't known until then.
+  useEffect(() => {
+    if (flagsLoading || loading || !group) return;
+    const isAllowed = group.groupType ? featureFlags.enableLeagues : featureFlags.enableCommunityFeed;
+    if (!isAllowed) {
+      router.replace('/home');
+    }
+  }, [flagsLoading, loading, group, featureFlags.enableLeagues, featureFlags.enableCommunityFeed, router]);
 
   const openSessionDrawer = useCallback(
     async (event: CommunityEvent) => {
@@ -144,7 +149,7 @@ export default function CommunityHubPage() {
     [uid, profile],
   );
 
-  if (flagsLoading || !featureFlags.enableCommunityFeed) return null;
+  if (flagsLoading) return null;
 
   if (loading) {
     return (
@@ -168,6 +173,8 @@ export default function CommunityHubPage() {
       </div>
     );
   }
+
+  if (group.groupType ? !featureFlags.enableLeagues : !featureFlags.enableCommunityFeed) return null;
 
   const scheduleSlots: ScheduleSlot[] =
     group.scheduleSlots && group.scheduleSlots.length > 0

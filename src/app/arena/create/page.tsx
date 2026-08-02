@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Home, Building2, GraduationCap, Trees, Share2, Lock, Check, Megaphone, Shield, School } from 'lucide-react';
 import { useUserStore } from '@/features/user';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { createGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
@@ -69,7 +70,16 @@ const DAYS_HEB = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמיש�
 export default function CreateGroupPage() {
   const router = useRouter();
   const { profile } = useUserStore();
+  const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
+  const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const access = useArenaAccess();
+
+  // Route guard — the whole wizard creates league-type groups only.
+  useEffect(() => {
+    if (!flagsLoading && !featureFlags.enableLeagues) {
+      router.replace('/home');
+    }
+  }, [flagsLoading, featureFlags.enableLeagues, router]);
 
   const [step, setStep] = useState<Step>('type');
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
@@ -778,6 +788,8 @@ export default function CreateGroupPage() {
 
   const STEPS: Step[] = ['type', 'info', 'schedule', 'invite'];
   const currentIdx = STEPS.indexOf(step);
+
+  if (flagsLoading || !featureFlags.enableLeagues) return null;
 
   return (
     <div
