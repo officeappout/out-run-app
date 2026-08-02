@@ -281,24 +281,27 @@ async function resolveRouteStopsBackbone(
 ): Promise<{ routePath: [number, number][]; routeId: string; routeName?: string } | null> {
   const { userPosition } = opts;
 
-  // (ג) 'generated_loop' — the ROOT fix (§7.3): build a TIGHT loop FROM the user's location, so
+  // (ג) 'generated_loop' — the ROOT fix (§7.3): build a loop FROM the user's location, so
   // entry = user (0m) and the workout never "starts from a distant park".
   // P6/P1 — includeStrength is deliberately OFF: it would make findFitnessAnchor splice a gym
   // 400-960m away as a must-visit waypoint, producing the long "escaping" leg (the +34% overshoot
   // and the "near not through" symptom). We DON'T need it for stops: resolveRouteStops downstream
   // scans ALL parks within 180m of the loop, and the loop passes through the user's GPS — so a near
   // gym (e.g. 63m away) is still captured as a stop. resolveRouteStops is independent of the anchor.
-  // Overshoot safety net: reject a still-sprawling loop against a ceiling and fall back to the
-  // geometric synthesizeLoop (radius-derived from targetKm — cannot sprawl). Pure geometry.
+  //
+  // P6 round 2 (device-confirmed): a ceiling-driven reject-to-synth was WRONG. A real street loop
+  // is always preferable to synthesizeLoop's geometric square — the user walks on an actual street,
+  // not an imaginary rectangle. maxRoutes:3 asks the generator to try several waypoint-combination
+  // rotations (same candidate pool, different 3-of-N picks — genuinely different Mapbox-snapped
+  // results); we then pick whichever REAL candidate lands CLOSEST to targetKm, never rejecting a
+  // real loop just for being over target. synthesizeLoop is the true last resort — only when the
+  // generator returns NOTHING real (no street data / API failure), never as a "too long" penalty.
   if (mode === 'generated_loop') {
     const targetKm = opts.targetKm ?? 2.5;
     const { generateDynamicRoutes } = await import('@/features/parks/core/services/route-generator.service');
-    // The generator bumps its target up to MIN_GENERATION_KM internally, so the ceiling must compare
-    // against what it ACTUALLY builds — max(targetKm, 1.5) — not the raw request (off-by-bump guard).
-    const GEN_MIN_KM = 1.5; // mirrors route-generator.service.ts MIN_GENERATION_KM (:607)
-    const ceilingKm = Math.max(targetKm, GEN_MIN_KM) * 1.15;
     let routePath: [number, number][] = [];
-    let genKm: number | undefined;
+    let chosenKm: number | undefined;
+    let candidateCount = 0;
     try {
       const routes = await generateDynamicRoutes({
         userLocation: userPosition,
@@ -306,29 +309,45 @@ async function resolveRouteStopsBackbone(
         activity: opts.activity ?? ('walking' as ActivityType),
         routeGenerationIndex: 0,
         preferences: {
-          includeStrength: false, qualityRoute: true, maxRoutes: 1,
+          includeStrength: false, qualityRoute: true, maxRoutes: 3,
           // P6 calibration: scoreWaypoint's default ideal-distance (1.0km) isn't scaled to a
           // short target — it pulls candidates to the edge of the (also target-relative) search
-          // radius instead of toward the target, producing a wide/sprawling loop. targetKm/6
-          // mirrors generateRandomWaypoints' own triangular-loop perimeter correction (3
-          // waypoints ~120° apart → perimeter ≈ 5.2·r) — both waypoint sources feed the same
-          // 3-point combination logic downstream. Route-stops-only; every other caller of
+          // radius instead of toward the target. targetKm/6 mirrors generateRandomWaypoints' own
+          // triangular-loop perimeter correction (3 waypoints ~120° apart → perimeter ≈ 5.2·r) —
+          // both waypoint sources feed the same 3-point combination logic downstream. NOTE
+          // (round 2): this alone is not sufficient when street_segments candidates are picked by
+          // road-QUALITY score (not proximity) — it only re-ranks within that already-selected
+          // pool, hence maxRoutes:3 + pick-closest below. Route-stops-only; every other caller of
           // generateDynamicRoutes is unaffected (the option is additive/opt-in).
           idealWaypointDistanceKm: targetKm / 6,
         },
         parks: (opts.parks ?? []) as any,
         cityName: opts.cityName,
       });
-      routePath = normalizePath(routes?.[0]?.path);
-      genKm = routes?.[0]?.distance;
+      // ד' — prefer a REAL street loop over synth: pick whichever candidate the generator
+      // collected is CLOSEST to targetKm (not just routes[0]) — a real loop that's a bit over or
+      // under target beats a synthetic square every time.
+      if (routes && routes.length > 0) {
+        candidateCount = routes.length;
+        const best = routes.reduce((a, b) =>
+          Math.abs((b.distance ?? Infinity) - targetKm) < Math.abs((a.distance ?? Infinity) - targetKm) ? b : a);
+        routePath = normalizePath(best.path);
+        chosenKm = best.distance;
+      }
     } catch { /* generator failed → synthesized loop below */ }
-    const overshot = genKm !== undefined && genKm > ceilingKm;
-    if (routePath.length < 2 || overshot) {
-      if (overshot) console.warn(`[route-stops] loop ${genKm!.toFixed(2)}km > ceiling ${ceilingKm.toFixed(2)}km → synthesizeLoop`);
+    if (routePath.length < 2) {
+      console.warn(
+        `[route-stops] no real street loop from the generator` +
+        `${chosenKm !== undefined ? ` (best candidate ${chosenKm.toFixed(2)}km was unusable)` : ''} → synthesizeLoop (last resort)`,
+      );
       routePath = synthesizeLoop(userPosition, targetKm);
+    } else if (chosenKm !== undefined) {
+      console.log(
+        `[route-stops] backbone: real street loop ${chosenKm.toFixed(2)}km ` +
+        `(target ${targetKm.toFixed(2)}km, diff ${(chosenKm - targetKm).toFixed(2)}km, chosen from ${candidateCount} candidate(s))`,
+      );
     }
     if (routePath.length < 2) { console.warn('[route-stops] generated_loop produced no usable path → no card'); return null; }
-    console.log(`[route-stops] backbone=generated_loop from user · pts=${routePath.length} · targetKm=${targetKm.toFixed(2)}${genKm !== undefined ? ` · genKm=${genKm.toFixed(2)}` : ''}${overshot ? ' (over→synth)' : ''}`);
     return { routePath, routeId: 'generated_loop', routeName: 'סיבוב מהמיקום' };
   }
 
