@@ -26,6 +26,7 @@ import { Program } from '@/features/content/programs/core/program.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { LevelEquivalenceRule } from '@/features/user/core/types/progression.types';
 import type { OnboardingData } from '../types';
+import { HANDSTAND_ASSESSMENT_ENABLED } from '@/config/feature-flags';
 
 // ============================================================================
 // TYPES
@@ -270,6 +271,9 @@ export async function generateRecommendations(
   ): Recommendation | null => {
     // Don't recommend already-assigned programs
     if (context.assignedProgramIds.includes(programId)) return null;
+
+    // handstand has zero authored quiz content — hidden behind HANDSTAND_ASSESSMENT_ENABLED
+    if (programId === 'handstand' && !HANDSTAND_ASSESSMENT_ENABLED) return null;
 
     const program = programLookup.get(programId);
     // Don't recommend master programs directly (they're aggregation-only)

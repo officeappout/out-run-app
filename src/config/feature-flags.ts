@@ -328,6 +328,15 @@ export const ACCESS_CODE_SCHOOL_ENABLED = false;
 // until university gets its own tenantType.
 export const ACCESS_CODE_UNIVERSITY_ENABLED = false;
 
+// HANDSTAND_ASSESSMENT_ENABLED: shows "handstand" (עמידת ידיים) as a selectable
+// skill in the onboarding skill picker (program-path/page.tsx) and lets the
+// recommendation engine surface it as a suggested next program. DEFAULT FALSE —
+// the handstand visual_assessment_content quiz has zero authored content
+// (no linked exercises, no video, no description at any of its 15 levels),
+// so showing it leads to a broken/empty assessment. Reversible: flip to true
+// once content is authored via /admin/visual-assessment.
+export const HANDSTAND_ASSESSMENT_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

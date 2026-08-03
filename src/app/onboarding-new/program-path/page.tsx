@@ -9,6 +9,7 @@ import {
 } from '@/features/content/exercises/core/exercise.types';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
+import { HANDSTAND_ASSESSMENT_ENABLED } from '@/config/feature-flags';
 
 /** Muscle icon paths — used inside chips */
 const MUSCLE_ICON_PATHS: Record<string, string> = {
@@ -36,7 +37,7 @@ const MUSCLE_CHIP_LABELS: Record<string, string> = {
  *  'calisthenics_upper' is the master chip and rendered separately as full-width. */
 const SKILL_MASTER_ID = 'calisthenics_upper';
 
-const SKILL_PROGRAMS: { id: string; nameHe: string }[] = [
+const ALL_SKILL_PROGRAMS: { id: string; nameHe: string }[] = [
   { id: 'calisthenics_upper', nameHe: 'קליסטניקס עליון (כל האלמנטים)' },
   { id: 'front_lever',        nameHe: 'פרונט לבר' },
   { id: 'muscle_up',          nameHe: 'עליית כוח' },
@@ -45,6 +46,11 @@ const SKILL_PROGRAMS: { id: string; nameHe: string }[] = [
   { id: 'hspu',               nameHe: 'שכיבות סמיכה בעמידת ידיים' },
   { id: 'one_arm_pullup',     nameHe: 'מתח יד אחת' },
 ];
+
+/** handstand has zero authored quiz content — hidden behind HANDSTAND_ASSESSMENT_ENABLED. */
+const SKILL_PROGRAMS = HANDSTAND_ASSESSMENT_ENABLED
+  ? ALL_SKILL_PROGRAMS
+  : ALL_SKILL_PROGRAMS.filter((skill) => skill.id !== 'handstand');
 
 /** Movement-pattern classification for the Orange Flow balance heuristic.
  *  SKILL_MASTER_ID ('calisthenics_upper') already covers both axes and is
