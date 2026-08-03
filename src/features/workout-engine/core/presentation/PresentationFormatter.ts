@@ -407,6 +407,31 @@ const LEGS_MGS = new Set(['squat', 'hinge', 'lunge']);
 const VOLUME_CAP_TOLERANCE_MIN = 3;
 /** Phase C never drops the session below this many main exercises. */
 const MIN_MAIN_EXERCISES = 2;
+/**
+ * Bug fix (ceiling-only enforceVolumeCap, 45min request → 36min actual with
+ * no signal): honesty threshold for flagging a requested-vs-actual duration
+ * mismatch. enforceVolumeCap only ever prunes when OVER cap — it has no
+ * mechanism to pad a plan that comes out significantly UNDER the request
+ * (out of scope per product decision — a full "floor" build is a separate,
+ * larger task). This does not change what gets generated; it only makes the
+ * existing gap visible to callers instead of silently mislabeling it.
+ */
+const DURATION_DEVIATION_WARN_THRESHOLD = 0.10;
+
+/**
+ * Stamp `requestedDurationMin` / `durationDeviationPct` on the workout when
+ * the final `estimatedDuration` deviates from what the user asked for
+ * (`durationCap`) by more than the honesty threshold. No-op (fields left
+ * undefined) when the plan is within tolerance.
+ */
+function stampDurationDeviation(workout: GeneratedWorkout, requestedMin: number): void {
+  workout.requestedDurationMin = requestedMin;
+  if (requestedMin <= 0) return;
+  const deviationPct = ((workout.estimatedDuration - requestedMin) / requestedMin) * 100;
+  if (Math.abs(deviationPct) / 100 > DURATION_DEVIATION_WARN_THRESHOLD) {
+    workout.durationDeviationPct = Math.round(deviationPct);
+  }
+}
 
 /**
  * Enforce the bolt duration cap on the final exercise list.
@@ -440,6 +465,7 @@ export function enforceVolumeCap(
     // Even when no pruning is needed, refresh the workout's estimate so the
     // cap pass is the single source of truth for the displayed duration.
     workout.estimatedDuration = estimatedMin;
+    stampDurationDeviation(workout, config.durationCap);
     return workout;
   }
 
@@ -549,10 +575,12 @@ export function enforceVolumeCap(
 
   workout.estimatedDuration = estimatedMin;
   workout.totalPlannedSets = workout.exercises.reduce((s, ex) => s + ex.sets, 0);
+  stampDurationDeviation(workout, config.durationCap);
   console.log(
     `[PresentationFormatter.volumeCap] Done after ${guardIterations} step(s): ` +
     `${estimatedMin}m, ${workout.totalPlannedSets} sets, ` +
-    `${workout.exercises.filter(e => e.exerciseRole === 'main').length} main exercises`,
+    `${workout.exercises.filter(e => e.exerciseRole === 'main').length} main exercises` +
+    `${workout.durationDeviationPct !== undefined ? `, ⚠ durationDeviationPct=${workout.durationDeviationPct}%` : ''}`,
   );
   console.groupEnd();
 
