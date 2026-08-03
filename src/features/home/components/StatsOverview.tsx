@@ -284,6 +284,14 @@ export interface BuilderContext {
   programIds?: string[];
   duration?: number;
   difficulty?: number;
+  /**
+   * periodization.service.ts coach cue (UI-facing message explaining the
+   * active periodization mode — e.g. Peak/Deload/detraining). Threaded into
+   * the Kelly bubble on the builder sheet (Feature A, "why this was
+   * recommended"). Undefined when the trio hasn't generated yet or the
+   * policy has no cue for the current reason (see periodization.service.ts:282).
+   */
+  coachCue?: string;
 }
 
 export default function StatsOverview({ 
@@ -1004,6 +1012,7 @@ export default function StatsOverview({
         : undefined,
       duration:   workout?.estimatedDuration,
       difficulty: workout?.difficulty,
+      coachCue:   trioResult?.meta?.coachCue,
     };
     onBuildCustom?.(ctx);
   }, [trioResult, selectedOptionIndex, currentWorkoutLocation, onBuildCustom]);

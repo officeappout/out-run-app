@@ -1038,6 +1038,9 @@ export default function HomePage() {
       const diffMap: Record<number, string> = { 1: 'easy', 2: 'medium', 3: 'hard' };
       props.defaultIntensity = diffMap[ctx.difficulty] ?? 'medium';
     }
+    if (ctx?.coachCue) {
+      props.defaultCoachCue = ctx.coachCue;
+    }
     setBuilderProps(props);
     setBuilderOpen(true);
   }, []);
