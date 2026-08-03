@@ -78,8 +78,24 @@ export function resolveHeroMedia(
     return { thumbnailUrl: '', videoUrl: '' };
   }
 
+  // Bug fix (orphan commit 1263b9f7, 03.08.2026 — rebased 07.10.2026 onto the
+  // 01.10.2026 resolveExerciseMedia migration, see this function's own header
+  // comment above): resolveExerciseMedia's cross-method fallback
+  // (media-resolution.utils.ts) deep-searches EVERY execution method, any
+  // location, once the chosen one has no media of its own — e.g. a 'home'
+  // pick with no home-tagged method could surface a park video/photo
+  // instead. When this exercise genuinely has no method for `location` at
+  // all, skip that location-blind result and fall straight through to the
+  // generic gradient fallback (see header comment) rather than trust a
+  // cross-location leak.
+  const methods = (ex.exercise as any).execution_methods || (ex.exercise as any).executionMethods || [];
+  const hasMethodForLocation =
+    !location || methods.some((m: any) => m.location === location || m.locationMapping?.includes(location));
+
   const method = findMethodForLocation(ex.exercise, location);
-  const { imageUrl, videoUrl } = resolveExerciseMedia(ex.exercise, method);
+  const { imageUrl, videoUrl } = hasMethodForLocation
+    ? resolveExerciseMedia(ex.exercise, method)
+    : { imageUrl: '', videoUrl: '' };
 
   return { thumbnailUrl: imageUrl || '', videoUrl: videoUrl || '' };
 }
