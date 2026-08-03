@@ -739,6 +739,20 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       // result can't repaint the map. The no-cache path awaits the de-duped
       // compose (composeTrioDeduped) rather than starting a fresh one.
       hybridPreviewFlowIdRef.current += 1;
+      // route_stops ONLY (targeted, not a hybridWarmKey change — no blast radius on any other
+      // slot's cache reuse): the duration chips (15/30/45, HybridSlotCarousel) make
+      // timeBudgetMin a LIVE per-tap value for this one slot, but hybridWarmKey (uid|slotId|
+      // geo|activity) does NOT include it. The settle-preview (below, ~300ms after landing on
+      // the card) composes+caches using the un-overridden slot.timeBudgetMin the MOMENT the
+      // card appears — before any chip tap — so without this bypass, a chip-tap→CTA sequence
+      // would silently reuse that stale cached compose and never re-run deriveAerobicTargetKm
+      // with the chip's value (confirmed on-device: zero composeHybridPlan / chip-check log on
+      // CTA press). Clearing both caches forces a fresh compose with the CURRENT chip value.
+      if (slot.kind === 'hybrid' && slot.id === 'route_stops') {
+        const rsKey = keyFor(slot.id);
+        hybridPlanCache.delete(rsKey);
+        hybridTrioInflight.delete(rsKey);
+      }
       const cached = hybridPlanCache.get(keyFor(slot.id));
       if (cached) {
         setHybridPreviewComposing(false);
