@@ -224,6 +224,21 @@ export const FULL_BODY_CHILD_DOMAINS = ['push', 'pull', 'legs', 'core'] as const
 export const UPPER_BODY_CHILD_DOMAINS = ['push', 'pull'] as const;
 
 /**
+ * absent=absent (⑨): single source of truth for "has the user actually assessed
+ * this domain?" (a real level > 0 in domains OR tracks). Extracted from the
+ * per-branch closures below so `resolveChildDomainsForParent` (all three master
+ * types) and any external caller (e.g. UI "not yet assessed" cues) check the
+ * exact same condition the engine uses to admit/exclude a domain — no drift
+ * between "what the engine will generate" and "what the UI shows as assessed".
+ * Inlined level read (not level-resolution.utils.ts) to avoid a circular import.
+ */
+export function isDomainAssessed(profile: UserFullProfile, domain: string): boolean {
+  const readLvl = (v: any) => (v == null ? 0 : typeof v === 'number' ? v : (v.currentLevel ?? v.level ?? 0));
+  return readLvl((profile.progression?.domains as any)?.[domain]) > 0
+      || readLvl((profile.progression?.tracks as any)?.[domain]) > 0;
+}
+
+/**
  * Resolve parent program to child domains for exercise filtering.
  * - Static Master (full_body): strictly ['push', 'pull', 'legs', 'core']
  * - Static Master (upper_body): strictly ['push', 'pull']
@@ -241,12 +256,8 @@ export function resolveChildDomainsForParent(
   // absent=absent (⑨): a static-master's child domains are intersected with the domains the user
   // has ACTUALLY assessed (a real level > 0 in domains OR tracks). An unassessed child (e.g. legs
   // for a push/pull-only user) is dropped — so it is never forced into requiredDomains and never
-  // injected/guaranteed. Inlined level read to avoid a circular import with level-resolution.utils.
-  const isAssessed = (dom: string): boolean => {
-    const readLvl = (v: any) => (v == null ? 0 : typeof v === 'number' ? v : (v.currentLevel ?? v.level ?? 0));
-    return readLvl((profile.progression?.domains as any)?.[dom]) > 0
-        || readLvl((profile.progression?.tracks as any)?.[dom]) > 0;
-  };
+  // injected/guaranteed.
+  const isAssessed = (dom: string): boolean => isDomainAssessed(profile, dom);
 
   if (activeProgramSlug === 'full_body' || activeProgramId === 'full_body') {
     return FULL_BODY_CHILD_DOMAINS.filter(isAssessed);
@@ -257,11 +268,20 @@ export function resolveChildDomainsForParent(
   }
 
   if (activeProgramSlug === 'calisthenics_upper' || activeProgramId === 'calisthenics_upper') {
+    // BUG 1 (rework): skillFocusIds is what the user WANTS to train (selected
+    // during onboarding), not proof that each individual skill was assessed.
+    // Previously this branch returned skillIds verbatim and unfiltered — an
+    // unassessed skill (e.g. front_lever picked but never sliders-assessed)
+    // flowed straight into resolvedChildDomains → focusDomains →
+    // activeProgramFilters, admitting its exercises into the generated
+    // workout at an INVENTED level (`?? baseUserLevel` in home-workout.service.ts).
+    // Filter to assessed-only, mirroring full_body/upper_body above, so an
+    // unassessed skill never enters the pool at any level.
     const skillIds = profile.progression?.skillFocusIds;
     if (skillIds && Array.isArray(skillIds) && skillIds.length > 0) {
-      return [...skillIds];
+      return skillIds.filter(isAssessed);
     }
-    return [activeProgramId];
+    return [];
   }
 
   return [activeProgramId];

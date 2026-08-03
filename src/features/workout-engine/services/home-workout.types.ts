@@ -240,6 +240,14 @@ export interface WorkoutTrioOption {
 export interface HomeWorkoutTrioResult {
   options: [WorkoutTrioOption, WorkoutTrioOption, WorkoutTrioOption];
   isRestDay: boolean;
+  /**
+   * BUG 1 safety-net (absent=absent ⑨): true when all 3 options were short-circuited
+   * to the same explicit "needs assessment" placeholder because none of the domains
+   * relevant to the request have ever been assessed. Mirrors `isRestDay`'s pattern —
+   * a typed flag the UI can check, not a thrown error. See `workout.needsAssessment`
+   * / `workout.assessmentDomains` on each option's result for routing detail.
+   */
+  needsAssessment?: boolean;
   labelsSource: 'firestore' | 'fallback';
   meta: {
     daysInactive: number;
