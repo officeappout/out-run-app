@@ -100,3 +100,64 @@ describe('enforceVolumeCap — Phase C convergence (availableTime contract)', ()
     expect(result.estimatedDuration).toBeGreaterThan(13); // honest estimate reported, no lie
   });
 });
+
+describe('enforceVolumeCap — Bug fix: undershoot honesty signal (ceiling-only guard)', () => {
+  // Bug: enforceVolumeCap only ever PRUNES when estimatedMin > durationCap. It
+  // has no mechanism to react when the plan comes out significantly UNDER the
+  // request (e.g. a 45-min request landing at 36 min because the engine
+  // simply didn't have/select enough exercises) — the early-return branch
+  // used to silently stamp `estimatedDuration` with no signal that it
+  // diverges from what the user asked for. Approved interim fix: surface the
+  // gap as data (`requestedDurationMin` / `durationDeviationPct`), not a
+  // full "floor" build (out of scope).
+  it('BEFORE (documented): a materially short plan carried no requested-vs-actual signal', () => {
+    // Reproduces the reported case: cap=45 (requested), only 4 mains fit →
+    // actual lands well under cap. Historically `workout.estimatedDuration`
+    // (36ish) was the ONLY field set — nothing recorded that 45 was requested
+    // or that the shortfall was significant.
+    const w = workoutOf([
+      warmupEx('w1'), warmupEx('w2'),
+      mainEx('a', 65), mainEx('b', 70), mainEx('c', 80), mainEx('d', 90),
+      cooldownEx('stretch'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 45 }) as {
+      estimatedDuration: number; requestedDurationMin?: number; durationDeviationPct?: number;
+    };
+    // The undershoot is real and significant (~20%+ short) ...
+    expect(result.estimatedDuration).toBeLessThan(45 * 0.9);
+    // ... AFTER the fix both signal fields exist and are correct:
+    expect(result.requestedDurationMin).toBe(45);
+    expect(result.durationDeviationPct).toBeLessThanOrEqual(-10);
+    expect(result.durationDeviationPct).toBeCloseTo(
+      Math.round(((result.estimatedDuration - 45) / 45) * 100),
+      0,
+    );
+  });
+
+  it('AFTER: a plan within tolerance of the request gets NO deviation flag (no false positives)', () => {
+    // 8 mains @ cap 45 lands at ~43min (under the 10% honesty threshold: >= 40.5).
+    const w = workoutOf([
+      warmupEx('w1'), warmupEx('w2'),
+      mainEx('a', 65), mainEx('b', 70), mainEx('c', 80), mainEx('d', 90),
+      mainEx('e', 95), mainEx('f', 60), mainEx('g', 55), mainEx('h', 85),
+      cooldownEx('stretch'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 45 }) as {
+      requestedDurationMin?: number; durationDeviationPct?: number; estimatedDuration: number;
+    };
+    expect(result.estimatedDuration).toBeGreaterThanOrEqual(45 * 0.9); // within 10%
+    expect(result.requestedDurationMin).toBe(45); // always stamped
+    expect(result.durationDeviationPct).toBeUndefined(); // within honesty threshold → no flag
+  });
+
+  it('AFTER: the early-return (already-under-cap) path also stamps the signal', () => {
+    const w = workoutOf([mainEx('a', 65), cooldownEx('s')]);
+    const result = enforceVolumeCap(w, { durationCap: 60 }) as {
+      requestedDurationMin?: number; durationDeviationPct?: number; estimatedDuration: number;
+    };
+    expect(result.requestedDurationMin).toBe(60);
+    // A tiny 1-exercise plan against a 60min cap is a large, real deviation —
+    // must be flagged even though this is the early-return (no pruning) path.
+    expect(result.durationDeviationPct).toBeLessThanOrEqual(-10);
+  });
+});

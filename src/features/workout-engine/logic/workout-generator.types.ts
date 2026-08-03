@@ -287,6 +287,23 @@ export interface GeneratedWorkout {
    * travels with the workout, not ambient UI state.
    */
   executionLocation?: ExecutionLocation;
+  /**
+   * Bug fix (enforceVolumeCap ceiling-only): the duration the user actually
+   * requested (== the `durationCap` passed into enforceVolumeCap), preserved
+   * alongside `estimatedDuration` so callers can tell "36 min, as requested"
+   * apart from "36 min, but 45 was requested". Set by PresentationFormatter.
+   */
+  requestedDurationMin?: number;
+  /**
+   * Bug fix (enforceVolumeCap ceiling-only): signed % deviation of
+   * `estimatedDuration` from `requestedDurationMin`
+   * (e.g. -20 means the plan came out 20% SHORTER than requested).
+   * Only set when |deviation| exceeds the 10% honesty threshold —
+   * enforceVolumeCap only prunes when OVER cap, so an undershoot (e.g. a
+   * 45-min request landing at 36 min) previously had no signal at all.
+   * Undefined when the plan is within tolerance of what was requested.
+   */
+  durationDeviationPct?: number;
 }
 
 export interface TabataBlockSpec {
