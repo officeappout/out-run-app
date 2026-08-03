@@ -633,13 +633,37 @@ export function applyEssentialGearFilter(
       ...nakedMain.map(ex => ex.exercise.id),
       ...Array.from(_blacklistedIds),
     ]);
-    const candidates = allExercises.filter(ex =>
+    // Domain guard (fix 03.08.2026): backfill previously ignored movementGroup
+    // entirely — a pull-domain session with all-gear pull exercises could
+    // backfill with an unrelated leg/skill exercise from the global bodyweight
+    // pool. Prefer candidates whose movementGroup maps (via MG_TO_DOMAIN, the
+    // same map used by getAlternativeExercises, exercise-replacement.service.ts:240)
+    // to a domain already present in the pre-filter `main` block — i.e. the
+    // domain(s) actually being trained this session.
+    const activeDomains = new Set(
+      main
+        .map(ex => MG_TO_DOMAIN[ex.exercise.movementGroup ?? ''])
+        .filter((d): d is string => !!d),
+    );
+    const domainMatches = (ex: Exercise): boolean =>
+      activeDomains.size === 0 || activeDomains.has(MG_TO_DOMAIN[ex.movementGroup ?? ''] ?? '');
+
+    const baseFilter = (ex: Exercise): boolean =>
       !usedIds.has(ex.id)
       && isRawExNaked(ex)
       && ex.exerciseRole !== 'cooldown'
-      && ex.exerciseRole !== 'warmup',
-    );
+      && ex.exerciseRole !== 'warmup';
+
+    let candidates = allExercises.filter(ex => baseFilter(ex) && domainMatches(ex));
     const needed = MIN_EXERCISES - nakedMain.length;
+    if (candidates.length < needed) {
+      console.warn(
+        `[WorkoutTrio] Naked backfill: only ${candidates.length} same-domain ` +
+        `[${Array.from(activeDomains).join(',')}] candidate(s) available (need ${needed}) — ` +
+        'widening to all domains as a last resort.',
+      );
+      candidates = allExercises.filter(baseFilter);
+    }
     const backfill = candidates.slice(0, needed);
     for (const raw of backfill) {
       const nakedMethod = (raw.execution_methods ?? raw.executionMethods ?? [])
@@ -677,12 +701,30 @@ export function applyEssentialGearFilter(
       ...Array.from(_blacklistedIds),
     ]);
     for (const violator of violations) {
-      const replacement = allExercises.find(raw =>
+      // Domain guard (fix 03.08.2026): match the violator's own movementGroup
+      // domain first (same MG_TO_DOMAIN map as getAlternativeExercises,
+      // exercise-replacement.service.ts:240) so a gear-swap never substitutes
+      // in an unrelated leg/skill exercise for a pull/upper-body violator.
+      // Fall back to any domain only if no same-domain naked candidate exists,
+      // preserving the guarantee that a violation is always replaced when possible.
+      const violatorDomain = MG_TO_DOMAIN[violator.exercise.movementGroup ?? ''];
+      const baseReplacementFilter = (raw: Exercise): boolean =>
         !usedIds.has(raw.id)
         && isRawExNaked(raw)
         && raw.exerciseRole !== 'cooldown'
-        && raw.exerciseRole !== 'warmup',
+        && raw.exerciseRole !== 'warmup';
+
+      let replacement = allExercises.find(raw =>
+        baseReplacementFilter(raw)
+        && (!violatorDomain || MG_TO_DOMAIN[raw.movementGroup ?? ''] === violatorDomain),
       );
+      if (!replacement && violatorDomain) {
+        console.warn(
+          `[NakedViolation] No same-domain (${violatorDomain}) replacement for ` +
+          `"${violator.exercise.id}" — widening to any domain.`,
+        );
+        replacement = allExercises.find(baseReplacementFilter);
+      }
       if (replacement) {
         const nakedMethod = (replacement.execution_methods ?? replacement.executionMethods ?? [])
           .find(m => isGearFree(collectMethodGear(m as any), true));
