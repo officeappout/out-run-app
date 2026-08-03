@@ -1424,6 +1424,9 @@ async function _buildSharedPipeline(
       domainSetsCompletedThisWeek,
       remainingScheduleDays,
       isManualOverride,
+      // Fix 03.08.2026: Custom Builder's selected minutes must scale
+      // dailySetBudget in the isManualOverride branch — see SplitDecisionService.ts.
+      availableTime,
     });
   } else if (isUpperBodyMaster) {
     // ── Upper-Body master path (push + pull) ─────────────────────────────
@@ -1468,6 +1471,9 @@ async function _buildSharedPipeline(
       domainSetsCompletedThisWeek,
       remainingScheduleDays,
       isManualOverride,
+      // Fix 03.08.2026: Custom Builder's selected minutes must scale
+      // dailySetBudget in the isManualOverride branch — see SplitDecisionService.ts.
+      availableTime,
     });
   } else {
     // ── Single-track / standard path ────────────────────────────────────
@@ -1484,6 +1490,9 @@ async function _buildSharedPipeline(
       domainSetsCompletedThisWeek,
       remainingScheduleDays,
       isManualOverride,
+      // Fix 03.08.2026: Custom Builder's selected minutes must scale
+      // dailySetBudget in the isManualOverride branch — see SplitDecisionService.ts.
+      availableTime,
     });
   }
 

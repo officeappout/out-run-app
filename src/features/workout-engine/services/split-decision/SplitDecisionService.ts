@@ -293,6 +293,14 @@ export interface GetWorkoutContextInput {
    * min-2 floor → domain quotas → 0 → "DOMAIN QUOTA FAILED" for every skill.
    */
   isManualOverride?: boolean;
+  /**
+   * Custom Builder selected session length in minutes (30 / 45 / 60 …).
+   * Only consumed by the `isManualOverride` branch to scale `dailySetBudget`
+   * with the user's chosen duration — the Aggregate / Deficit-Aware branches
+   * intentionally ignore this field (they size sets from weekly volume, not
+   * from a single session's clock length).
+   */
+  availableTime?: number;
 }
 
 /**
@@ -385,7 +393,7 @@ function applySmartMerge(
 
 export function getWorkoutContext(input: GetWorkoutContextInput): SplitWorkoutContext {
   const { userProfile, weeklyBudget, selectedDate, aggregateBudgetInfo,
-          domainSetsCompletedThisWeek, remainingScheduleDays, isManualOverride } = input;
+          domainSetsCompletedThisWeek, remainingScheduleDays, isManualOverride, availableTime } = input;
   // ③: empty schedule → default 2 training days (was 3) → a denser first-workout budget
   // (ceil(weekly/2) instead of ceil(weekly/3)) for a stronger first impression.
   const scheduleDays = (userProfile.lifestyle?.scheduleDays?.length ?? 0) || 2;
@@ -458,17 +466,38 @@ export function getWorkoutContext(input: GetWorkoutContextInput): SplitWorkoutCo
       // (ignoring remaining days so we don't under-serve mid-week overrides),
       // then apply a MANUAL_BASELINE_SETS floor so even low-level users with a
       // small weekly budget still receive enough set slots for domain quotas.
+      //
+      // Duration scaling (fix 03.08.2026): both the floor and the level-based
+      // raw daily were flat regardless of the minutes selected in the Custom
+      // Builder (30 / 45 / 60) — a 60-minute session collapsed to the same
+      // ~14-set budget as a 30-minute one, and BudgetDistributor's pyramid-
+      // aware cap (constraints.dailySetBudget) then clamped the real workout
+      // to ~15-20 min regardless of how many exercises were selected for the
+      // longer duration. Scale both terms by availableTime relative to a
+      // 30-minute reference so more selected minutes always produce a
+      // materially larger, and thus longer, real workout.
       const MANUAL_BASELINE_SETS = 14;
+      const REFERENCE_MINUTES = 30;
+      const effectiveMinutes = availableTime && availableTime > 0 ? availableTime : REFERENCE_MINUTES;
+      const durationMultiplier = effectiveMinutes / REFERENCE_MINUTES;
+
       const rawDaily = Math.ceil(effectiveBudget / scheduleDaysForBudget);
-      dailySetBudget = Math.max(MANUAL_BASELINE_SETS, rawDaily);
+      const durationScaledRawDaily = Math.round(rawDaily * durationMultiplier);
+      const durationScaledBaseline = Math.round(MANUAL_BASELINE_SETS * durationMultiplier);
+      dailySetBudget = Math.max(durationScaledBaseline, durationScaledRawDaily);
 
       console.group('[Budget Math Formulation] [Manual Override — Deficit Bypass]');
       console.log('Source: Custom Builder (isManualOverride=true) — deficit clamping skipped');
       console.log('Base User Level:', userLevel);
       console.log('Effective Weekly Budget:', effectiveBudget);
       console.log('Schedule Days:', scheduleDaysForBudget);
-      console.log('Raw Daily (budget/days):', rawDaily);
-      console.log('Final dailySetBudget (min', MANUAL_BASELINE_SETS, '):', dailySetBudget);
+      console.log(
+        'Selected Duration (minutes):', effectiveMinutes,
+        `(×${durationMultiplier.toFixed(2)} vs ${REFERENCE_MINUTES}min reference)`,
+      );
+      console.log('Raw Daily (budget/days):', rawDaily, '→ duration-scaled:', durationScaledRawDaily);
+      console.log('Baseline (min', MANUAL_BASELINE_SETS, ') → duration-scaled:', durationScaledBaseline);
+      console.log('Final dailySetBudget:', dailySetBudget);
       console.groupEnd();
     } else {
       // ── Deficit-Aware Daily Budget (Phase 4 parity for single-track) ──────
