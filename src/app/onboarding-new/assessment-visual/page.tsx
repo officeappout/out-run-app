@@ -48,6 +48,12 @@ import {
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { useAndroidBack } from '@/hooks/useAndroidBack';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import {
+  isMiniAssessmentActive,
+  consumeMiniAssessmentState,
+} from '@/features/user/onboarding/services/mini-domain-assessment';
+import { writeSingleDomainAssessment } from '@/features/user/onboarding/services/single-domain-assessment.service';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -620,6 +626,41 @@ export default function VisualAssessmentPage() {
     if (!result) return;
     setStep('saving');
 
+    // ── Mini-domain-assessment short-circuit ──────────────────────────────
+    // Set by `startMiniDomainAssessment` (WorkoutBuilderSheet's unlock CTA /
+    // ProgramsSection's "not yet assessed" card / StatsOverview's unassessed
+    // pill) for an ALREADY-onboarded user topping up exactly one more domain.
+    // The normal path below reassigns activeProgramId from a mix of this one
+    // real category + 3 artificially-defaulted ones (toFullAssessmentLevels),
+    // re-stamps marketing attribution, and advances to /onboarding-new/health
+    // — none of which is correct for a top-up. Instead: write ONLY this
+    // domain via the dedicated single-domain writer and return to the caller.
+    // Every other caller (fresh full onboarding) never sets this flag, so the
+    // existing behaviour below is unchanged.
+    if (isMiniAssessmentActive()) {
+      try {
+        const { domain, returnTo } = consumeMiniAssessmentState();
+        const targetDomain = domain ?? categories[0];
+        const assessedLevel = (result.levels as Record<string, number>)[targetDomain] ?? result.average;
+        const ok = await writeSingleDomainAssessment(targetDomain, assessedLevel);
+        if (!ok) {
+          console.warn('[Assessment] Mini-domain write returned false — data may be incomplete');
+        }
+        // Live-refresh the profile store so the caller (WorkoutBuilderSheet's
+        // enrolledIds / ProgramsSection's tracks / StatsOverview's programSlides)
+        // sees the new domain immediately on return, regardless of whether the
+        // current route happens to have its own onSnapshot listener mounted.
+        await useUserStore.getState().refreshProfile();
+        firePhaseConfetti();
+        router.push(returnTo);
+      } catch (err) {
+        console.error('[Assessment] Mini-domain save error:', err);
+        alert('שגיאה בשמירה — נסו שנית');
+        setStep('result');
+      }
+      return;
+    }
+
     try {
       const uid = resolveUid(authUser);
       if (!uid) {
@@ -758,7 +799,7 @@ export default function VisualAssessmentPage() {
       alert('שגיאה בשמירה — נסו שנית');
       setStep('result');
     }
-  }, [result, authUser, matchedRule, router, selectedTier, pathConfig]);
+  }, [result, authUser, matchedRule, router, selectedTier, pathConfig, categories]);
 
   // ── Slide animation variants ─────────────────────────────────
 

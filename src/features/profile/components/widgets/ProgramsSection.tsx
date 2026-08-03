@@ -23,6 +23,8 @@ import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramP
 import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
 import ProgramDrawer, { type ProgramDrawerData } from './ProgramDrawer';
 import type { Program } from '@/features/content/programs/core/program.types';
+import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { isDomainAssessed } from '@/features/workout-engine/services/program-hierarchy.utils';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -35,6 +37,14 @@ interface ChildCardData {
   totalWorkoutsCompleted: number;
   description?: string;
   iconKey?: string;
+  /**
+   * True when the user has an actual assessed level (> 0) for this domain.
+   * The engine's own `?? 1` default (level-resolution.utils.ts / home-workout.service.ts)
+   * is untouched — this flag is purely a UI-level cue so an unassessed child
+   * program shows an explicit "not yet assessed" card + CTA instead of a
+   * silently-fabricated "Level 1" card.
+   */
+  isAssessed: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -162,6 +172,10 @@ export default function ProgramsSection() {
       totalWorkoutsCompleted: track?.totalWorkoutsCompleted ?? 0,
       description: meta?.description,
       iconKey: meta?.iconKey ?? slug,
+      // Single source of truth shared with the workout engine (program-hierarchy.utils.ts's
+      // resolveChildDomainsForParent uses the exact same check) — not a locally-reinvented
+      // one-liner, so the UI's "assessed" cue can never drift from what the engine admits.
+      isAssessed: profile ? isDomainAssessed(profile, slug) : false,
     };
   });
 
@@ -231,22 +245,52 @@ export default function ProgramsSection() {
             <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות בנות</p>
             <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
               {childCards.map((card) => (
-                <button
-                  key={card.slug}
-                  type="button"
-                  className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
-                  onClick={() => openChildDrawer(card.slug, card)}
-                >
-                  <ProgramProgressCard
-                    programName={card.name}
-                    iconKey={card.iconKey}
-                    currentLevel={card.currentLevel}
-                    maxLevel={card.maxLevel}
-                    progressPercent={Math.round(card.percent)}
-                    programCount={childCards.length}
-                    className="pointer-events-none"
-                  />
-                </button>
+                card.isAssessed ? (
+                  <button
+                    key={card.slug}
+                    type="button"
+                    className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
+                    onClick={() => openChildDrawer(card.slug, card)}
+                  >
+                    <ProgramProgressCard
+                      programName={card.name}
+                      iconKey={card.iconKey}
+                      currentLevel={card.currentLevel}
+                      maxLevel={card.maxLevel}
+                      progressPercent={Math.round(card.percent)}
+                      programCount={childCards.length}
+                      className="pointer-events-none"
+                    />
+                  </button>
+                ) : (
+                  // Not yet assessed: explicit cue + CTA to the mini-questionnaire
+                  // for this domain, instead of silently rendering "Level 1"
+                  // (the engine-side `?? 1` default elsewhere is untouched —
+                  // this is purely a UI-level cue).
+                  <button
+                    key={card.slug}
+                    type="button"
+                    className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
+                    style={{ minWidth: 160 }}
+                    onClick={() => startMiniDomainAssessment(router, card.slug)}
+                  >
+                    <div
+                      className="bg-white dark:bg-slate-800 w-full flex flex-col justify-between"
+                      style={{
+                        minHeight: 107,
+                        padding: 16,
+                        borderRadius: 12,
+                        border: '1px dashed #CBD5E1',
+                      }}
+                      dir="rtl"
+                    >
+                      <h3 className="text-[15px] font-bold text-gray-500 dark:text-gray-400 line-clamp-2 break-words leading-snug">
+                        {card.name}
+                      </h3>
+                      <p className="text-xs font-bold text-[#00C9F2] mt-2">טרם הוערך — לחצו לבדיקה</p>
+                    </div>
+                  </button>
+                )
               ))}
             </div>
           </div>

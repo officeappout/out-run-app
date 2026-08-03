@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Trees, Home, Dumbbell, Shield, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock, Wrench, type LucideIcon } from 'lucide-react';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import type { GearDefinition } from '@/features/content/equipment/gear';
@@ -23,6 +24,10 @@ import { upsertScheduleEntry } from '@/features/user/scheduling/services/userSch
 import { MUSCLE_CHIPS, domainsToChipIds } from '@/features/home/constants/muscle-chips';
 import { deriveActiveProgramFromMuscleFocus } from '@/features/user/onboarding/services/assessment-path-config.service';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
+import {
+  startMiniDomainAssessment,
+  resolveBaseCategoryForProgramId,
+} from '@/features/user/onboarding/services/mini-domain-assessment';
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
@@ -233,6 +238,7 @@ export default function WorkoutBuilderSheet({
 }: WorkoutBuilderSheetProps) {
   const { profile } = useUserStore();
   const gender = useUserStore((s) => (s.profile?.core as any)?.gender === 'female' ? 'female' : 'male') as 'male' | 'female';
+  const router = useRouter();
 
   const isScheduleMode = mode === 'schedule' && !!scheduleDateParam;
 
@@ -305,6 +311,10 @@ export default function WorkoutBuilderSheet({
 
   // ── Unlock modal (unenrolled program discovery) ─────────────────────────
   const [showUnlockModal, setShowUnlockModal] = useState(false);
+  // Domain (push/pull/legs/core) that triggered the unlock modal, so its CTA
+  // can route straight to the mini-assessment questionnaire for THAT domain
+  // instead of just dismissing (previously: "בקרוב..." + close, no action).
+  const [unlockDomain, setUnlockDomain] = useState<string | null>(null);
 
   // ── Generation ──────────────────────────────────────────────────────────
   const [isLoading, setIsLoading]               = useState(false);
@@ -552,6 +562,16 @@ export default function WorkoutBuilderSheet({
     core: ['core', 'lower_body', 'full_body'],
   };
 
+  // Reverse lookup for the mini-assessment CTA: given a program id/slug
+  // (e.g. 'planche', 'front_lever', or already a base category), resolve the
+  // single push/pull/legs/core category the mini-questionnaire should assess.
+  // Pure logic lives in mini-domain-assessment.ts (independently unit-tested);
+  // this just binds it to this component's DOMAIN_ENROLLMENT_SLUGS map.
+  const resolveBaseCategoryForThisProgram = useCallback(
+    (id: string): string => resolveBaseCategoryForProgramId(id, DOMAIN_ENROLLMENT_SLUGS, resolveToSlug),
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   const toggleChip = useCallback((id: string) => {
     const chip = MUSCLE_CHIPS.find(c => c.id === id);
     if (chip) {
@@ -563,6 +583,7 @@ export default function WorkoutBuilderSheet({
       });
       if (!isEnrolledForChip) {
         console.log(`[WorkoutBuilder] Chip gated — domain not enrolled: ${id} (${chip.domains.join(', ')})`);
+        setUnlockDomain(chip.domains[0] ?? null);
         setShowUnlockModal(true);
         return;
       }
@@ -945,7 +966,7 @@ export default function WorkoutBuilderSheet({
                     isSelected={selectedProgramIds.includes(prog.id)}
                     isSuggested={suggestedProgramId === prog.id}
                     onSelect={prog.isUnenrolled
-                      ? () => setShowUnlockModal(true)
+                      ? () => { setUnlockDomain(resolveBaseCategoryForThisProgram(prog.id)); setShowUnlockModal(true); }
                       : () => {
                           setSelectedProgramIds(prev =>
                             prev.includes(prog.id)
@@ -1229,13 +1250,23 @@ export default function WorkoutBuilderSheet({
               <h3 className="text-base font-bold text-gray-900 dark:text-white">פתיחת תוכנית חדשה</h3>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-              רוצה לפתוח את התוכנית? בקרוב תוכל/י לבצע כאן מבדק כוח קצר של דקה להרשמה!
+              עדיין לא הערכנו את הרמה שלך באזור הזה. בצע/י מבדק כוח קצר של דקה כדי לפתוח את התוכנית.
             </p>
             <button
-              onClick={() => setShowUnlockModal(false)}
+              onClick={() => {
+                const domain = unlockDomain ?? 'push';
+                setShowUnlockModal(false);
+                startMiniDomainAssessment(router, domain);
+              }}
               className="w-full py-3 rounded-2xl bg-[#00BAF7] text-white text-sm font-bold"
             >
-              הבנתי
+              בצע/י מבדק קצר
+            </button>
+            <button
+              onClick={() => setShowUnlockModal(false)}
+              className="w-full py-2 rounded-2xl text-sm font-bold text-gray-500 dark:text-gray-400"
+            >
+              אולי מאוחר יותר
             </button>
           </div>
         </div>

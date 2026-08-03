@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
+import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { isDomainAssessed } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { SHOW_MISSED_DAYS_PROMPTS, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
@@ -304,6 +307,7 @@ export default function StatsOverview({
   isViewingFutureDate = false,
 }: StatsOverviewProps) {
   const { profile } = useUserStore();
+  const router = useRouter();
   const checkAndResetWeek = useWeeklyVolumeStore((s) => s.checkAndResetWeek);
   const recalculateFromActivities = useWeeklyVolumeStore((s) => s.recalculateFromActivities);
 
@@ -1058,6 +1062,13 @@ export default function StatsOverview({
     level: number;
     maxLevel: number;
     percent: number;
+    /**
+     * True when the domain has a real assessed level (> 0). Distinguishes a
+     * genuinely-assessed Level 1 from the silent `?? 1` display default used
+     * below for an unassessed domain — the carousel card renders an explicit
+     * "not yet assessed" cue + CTA instead of a fabricated level number.
+     */
+    isAssessed: boolean;
   };
 
   const programSlides = useMemo<ProgramSlide[]>(() => {
@@ -1081,6 +1092,9 @@ export default function StatsOverview({
         level: domainLevel,
         maxLevel: domainMaxLevel,
         percent: inLevelPercent,
+        // Single source of truth shared with the workout engine (same check
+        // resolveChildDomainsForParent uses) — not a locally-reinvented one-liner.
+        isAssessed: profile ? isDomainAssessed(profile, primaryDomainId) : false,
       }];
     }
 
@@ -1094,11 +1108,12 @@ export default function StatsOverview({
         level: track?.currentLevel ?? domain?.currentLevel ?? 1,
         maxLevel: domain?.maxLevel ?? 25,
         percent: track?.percent != null ? Math.round(track.percent) : 0,
+        isAssessed: profile ? isDomainAssessed(profile, sid) : false,
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    profile?.progression?.tracks, profile?.progression?.domains,
+    profile, profile?.progression?.tracks, profile?.progression?.domains,
     programMeta?.subPrograms, primaryDomainId,
     resolvedProgramName, resolvedProgramIcon, domainLevel, domainMaxLevel, inLevelPercent,
   ]);
@@ -1146,6 +1161,32 @@ export default function StatsOverview({
             ? 'התאימו את האימונים לרמה שלכם .'
             : dynamicWorkout?.description || 'מוכן להתחיל?'}
         </p>
+
+        {/* Per-domain program chips — only surfaced when the user actually has
+            more than one tracked domain (e.g. a full_body master's push/pull/legs
+            children). A domain the user hasn't assessed yet shows an explicit
+            "not yet assessed" cue + CTA to the mini-questionnaire, instead of
+            silently defaulting to "Level 1" (that display default is untouched
+            elsewhere — this is purely a UI-level cue). */}
+        {programSlides.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 mb-3 scrollbar-hide" dir="rtl">
+            {programSlides.map((slide) => (
+              <button
+                key={slide.id}
+                type="button"
+                onClick={() => { if (!slide.isAssessed) startMiniDomainAssessment(router, slide.id); }}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95 ${
+                  slide.isAssessed
+                    ? 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                    : 'border-dashed border-[#00C9F2] text-[#00C9F2]'
+                }`}
+              >
+                <span>{slide.name}</span>
+                <span>{slide.isAssessed ? `L${slide.level}` : 'טרם הוערך'}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Periodization / Reactivation Coach Cue Banner */}
