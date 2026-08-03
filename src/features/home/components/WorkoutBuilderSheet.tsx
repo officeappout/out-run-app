@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { ArrowRight, Trees, Home, Dumbbell, Shield, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock, Wrench, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Trees, Home, Dumbbell, Shield, Plus, ChevronDown, ChevronUp, Lock, CalendarDays, Clock, Wrench, Info, type LucideIcon } from 'lucide-react';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear';
 import type { GearDefinition } from '@/features/content/equipment/gear';
 import { useUserStore } from '@/features/user';
@@ -23,6 +23,9 @@ import { upsertScheduleEntry } from '@/features/user/scheduling/services/userSch
 import { MUSCLE_CHIPS, domainsToChipIds } from '@/features/home/constants/muscle-chips';
 import { deriveActiveProgramFromMuscleFocus } from '@/features/user/onboarding/services/assessment-path-config.service';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
+import ExplainerBubble from '@/components/ui/ExplainerBubble';
+import LemurAvatar from '@/features/user/progression/components/LemurAvatar';
+import { isAutoActive, shouldCaptureSnapshot, type RecommendationSnapshot } from '../utils/autoRecommendationTracker';
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
@@ -47,6 +50,13 @@ export interface WorkoutBuilderSheetProps {
   defaultDuration?: string;
   defaultLocation?: string;
   defaultIntensity?: string;
+  /**
+   * periodization.service.ts coach cue, forwarded from StatsOverview's
+   * trioResult.meta.coachCue via home/page.tsx's handleBuildCustom. Feeds the
+   * Kelly bubble's "why this was recommended" text (Feature A). Optional —
+   * absent when the sheet is opened outside the trio flow (e.g. schedule mode).
+   */
+  defaultCoachCue?: string;
   onClose: () => void;
 }
 
@@ -229,6 +239,7 @@ export default function WorkoutBuilderSheet({
   defaultDuration: defaultDurationParam,
   defaultLocation: defaultLocationParam,
   defaultIntensity: defaultIntensityParam,
+  defaultCoachCue,
   onClose,
 }: WorkoutBuilderSheetProps) {
   const { profile } = useUserStore();
@@ -327,6 +338,60 @@ export default function WorkoutBuilderSheet({
       setSelectedProgramIds([activeTemplateId]);
     }
   }, [activeTemplateId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── "Auto" un-highlight — original-recommendation snapshot (Feature C) ───
+  // Captured ONCE, gated on `programs.length > 0` (see
+  // autoRecommendationTracker.ts `shouldCaptureSnapshot` for the full timing
+  // rationale). Deliberately NOT captured synchronously at useRef declaration
+  // / first render — that would freeze `selectedProgramIds` before the
+  // activeTemplateId fallback effect above has had a chance to populate it,
+  // making "Auto" incorrectly un-highlight on an untouched, freshly-mounted
+  // screen the instant that fallback fires.
+  const [autoSnapshotInitialized, setAutoSnapshotInitialized] = useState(false);
+  const originalRecommendationRef = useRef<RecommendationSnapshot | null>(null);
+  useEffect(() => {
+    if (!shouldCaptureSnapshot({ initialized: autoSnapshotInitialized, programsLength: programs.length })) {
+      return;
+    }
+    originalRecommendationRef.current = {
+      availableTime,
+      difficulty,
+      selectedProgramIds,
+      selectedChips,
+    };
+    setAutoSnapshotInitialized(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSnapshotInitialized, programs.length]);
+
+  // ── "Auto" pill highlight — compares the 4 in-scope fields against the
+  // settled snapshot. `location` and `equipmentOverride` are intentionally
+  // excluded (explicit decision: location is an environmental constraint,
+  // not a preference change). Before the snapshot has settled, fall back to
+  // the legacy `selectedProgramIds.length === 0` rule so there is no visible
+  // flash during the brief pre-init window.
+  const isAutoActiveValue = useMemo(() => {
+    if (!autoSnapshotInitialized) return selectedProgramIds.length === 0;
+    return isAutoActive(
+      { availableTime, difficulty, selectedProgramIds, selectedChips },
+      originalRecommendationRef.current,
+    );
+  }, [autoSnapshotInitialized, availableTime, difficulty, selectedProgramIds, selectedChips]);
+
+  // Tapping "Auto" resets all 4 in-scope fields back to the original
+  // recommendation in one batch, which re-establishes isAutoActiveValue===true.
+  const handleResetToAuto = useCallback(() => {
+    const orig = originalRecommendationRef.current;
+    if (!orig) {
+      // Snapshot not settled yet (should be rare/instant) — legacy fallback.
+      setSelectedProgramIds([]);
+      return;
+    }
+    setAvailableTime(orig.availableTime);
+    setShowCustomTime(false); // original availableTime is always one of TIME_OPTIONS
+    setDifficulty(orig.difficulty);
+    setSelectedProgramIds(orig.selectedProgramIds);
+    setSelectedChips(orig.selectedChips);
+  }, []);
 
   // ── Program → auto-select muscle chips ──────────────────────────────────
   useEffect(() => {
@@ -539,6 +604,26 @@ export default function WorkoutBuilderSheet({
     return null;
   }, [resolvedScheduledProgramIds, derivedRequiredDomains, displayPrograms, suggestedProgramId, programs]);
 
+  // ── Kelly bubble text (Feature A — "why this was recommended") ──────────
+  // Combines two independent reason-sources when present: the periodization
+  // coachCue (threaded from trioResult.meta.coachCue via home/page.tsx) and
+  // the locally-computed autoAppliedProgram reasoning (same text already
+  // shown in the inline "יאומן לפי..." note below the program pills). Falls
+  // back to a generic line when neither source applies (e.g. an explicit
+  // program pill is selected, or the sheet opened outside the trio flow) —
+  // the bubble itself always renders, so it always needs something to say.
+  const kellyText = useMemo(() => {
+    const parts: string[] = [];
+    if (defaultCoachCue) parts.push(defaultCoachCue);
+    if (autoAppliedProgram) {
+      parts.push(`יאומן לפי ${autoAppliedProgram.label} — הותאם אוטומטית לשרירים שבחרת.`);
+    }
+    if (parts.length === 0) {
+      return 'האימון מותאם אישית לפי ההתקדמות וההעדפות שלך — אפשר תמיד לשנות משך, תוכנית, אזור-אימון או עוצמה.';
+    }
+    return parts.join(' ');
+  }, [defaultCoachCue, autoAppliedProgram]);
+
   // Maps each coarse movement domain to the program slugs that constitute enrollment
   // in that domain.  If none of these slugs appear in enrolledIds, the user hasn't
   // completed a setup questionnaire for that training area and should be redirected
@@ -718,9 +803,19 @@ export default function WorkoutBuilderSheet({
           <ArrowRight size={20} className="text-gray-700 dark:text-gray-300" />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            {isScheduleMode ? 'תזמן אימון' : 'בנה אימון משלך'}
-          </h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              {isScheduleMode ? 'תזמן אימון' : 'בנה אימון משלך'}
+            </h1>
+            {!isScheduleMode && (
+              <ExplainerBubble
+                text="אוטו נותן לך המלצה מותאמת אישית לפי ההתקדמות שלך, אבל אתה תמיד יכול לשלוט בהכל בעצמך — משך, תוכנית, אזור-אימון, עוצמה."
+                trigger={<Info size={14} className="text-gray-400 dark:text-gray-500" />}
+                ariaLabel="הסבר על בניית אימון משלך"
+                align="end"
+              />
+            )}
+          </div>
           <p className="text-xs text-gray-400">
             {isScheduleMode ? 'בחר תוכנית ושעה לשמירה בלוז' : 'מותאם אישית לפי הבחירות שלך'}
           </p>
@@ -729,6 +824,17 @@ export default function WorkoutBuilderSheet({
 
       {/* ── Scrollable form ── */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-7">
+
+        {/* ── Kelly bubble (Feature A — "why this was recommended") ─────────
+            Renders unconditionally, ahead of the equipment banner below when
+            that banner happens to render too (only one bottom-overlay rule
+            does not apply here — this is in-flow scroll content, not an
+            overlay). Combines coachCue + autoAppliedProgram reasoning. */}
+        <ExplainerBubble
+          text={kellyText}
+          trigger={<LemurAvatar level={1} size="small" />}
+          ariaLabel="קלי מסבירה למה האימון הזה הומלץ"
+        />
 
         {/* ── Gear nudge banner ─────────────────────────────────────────────
             Shown only when the user has no equipment configured in their
@@ -928,13 +1034,13 @@ export default function WorkoutBuilderSheet({
             <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               <div className="flex gap-2 pb-1" style={{ direction: 'rtl' }}>
                 <button
-                  onClick={() => setSelectedProgramIds([])}
-                  className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${selectedProgramIds.length === 0 ? ACTIVE_PILL : INACTIVE_PILL}`}
+                  onClick={handleResetToAuto}
+                  className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${isAutoActiveValue ? ACTIVE_PILL : INACTIVE_PILL}`}
                   style={{ minWidth: 68 }}
                 >
                   <span className="text-base leading-none">✨</span>
                   <span>אוטו</span>
-                  <span className={`text-[10px] font-medium ${selectedProgramIds.length === 0 ? 'text-blue-100' : 'text-gray-400'}`}>
+                  <span className={`text-[10px] font-medium ${isAutoActiveValue ? 'text-blue-100' : 'text-gray-400'}`}>
                     מומלץ
                   </span>
                 </button>
