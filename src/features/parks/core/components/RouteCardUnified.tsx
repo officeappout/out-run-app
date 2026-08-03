@@ -39,6 +39,10 @@ interface RouteCardUnifiedProps {
   subtitle?: string;
   /** Existing route/slot difficulty — 'easy' | 'medium' | 'hard' | 1 | 2 | 3. */
   difficulty: DifficultyValue;
+  /** Optional extra content rendered between the subtitle and the difficulty pill (e.g. the
+   *  route_stops duration chips). Additive — omitted by every OTHER caller (RouteCarousel,
+   *  BottomJourneyContainer), so their rendering stays byte-identical. */
+  extraContent?: React.ReactNode;
   /** Carousel-focus state → the cyan ring + scale, matching the aerobic card. */
   isActive?: boolean;
   /** Optional body tap. */
@@ -61,6 +65,7 @@ export default function RouteCardUnified({
   durationText,
   subtitle,
   difficulty,
+  extraContent,
   isActive = false,
   onClick,
   className = '',
@@ -100,10 +105,17 @@ export default function RouteCardUnified({
         </p>
       ) : null}
 
-      {/* DifficultyBolts pill */}
+      {/* Extra content (e.g. route_stops duration chips) — between subtitle and difficulty,
+          with reasonable distance from the CTA below (the difficulty pill sits between them). */}
+      {extraContent && <div className="mb-3">{extraContent}</div>}
+
+      {/* DifficultyBolts pill — cosmetic-only rounded-full restyle (was rounded-lg + shadow) so
+          it reads as the same "pill" visual language as the duration chips above. Purely a
+          wrapper-style change: DifficultyBolts.tsx itself (and what difficulty it displays) is
+          untouched. */}
       <div
-        className="inline-flex items-center rounded-lg mb-4"
-        style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}
+        className="inline-flex items-center rounded-full mb-4"
+        style={{ border: '0.5px solid #E0E9FF', padding: '4px 10px' }}
       >
         <DifficultyBolts difficulty={difficulty} size="sm" />
       </div>

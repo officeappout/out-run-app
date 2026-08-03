@@ -70,10 +70,12 @@ function DurationChip({ active, onClick, children }: { active: boolean; onClick:
 }
 
 function RouteStopsDurationChips({ valueMin, onChange }: { valueMin: number; onChange: (min: number) => void }) {
+  // Renders inside the card's own content now (RouteCardUnified's extraContent, between
+  // subtitle and the difficulty pill) — the wrapping container supplies vertical spacing, so
+  // no margin of its own here (was marginTop:8 for the old floating-below-the-card position).
   return (
     <div
       className="flex items-center justify-center gap-2 pointer-events-auto"
-      style={{ marginTop: 8 }}
       dir="rtl"
     >
       {ROUTE_STOPS_DURATION_CHOICES.map((min) => (
@@ -143,12 +145,15 @@ function ActivityToggle({
 // — pointerdown on card A must not let a click on card B fire (id match); (c) stale
 // arms from a carousel drag — the track's onDragStart clears the armed id. The card
 // body is NOT clickable (compose is a deliberate CTA action, never a body/auto tap).
-function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive }: {
+function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, extraContent }: {
   slot: HybridSlot;
   onSelect: () => void;
   onArm: () => void;
   consumeArmed: () => boolean;
   isActive: boolean;
+  /** route_stops duration chips, forwarded into the card's own content (between subtitle and
+   *  the difficulty pill) — see RouteCardUnified's extraContent. */
+  extraContent?: React.ReactNode;
 }) {
   // Unified text-only card (flag-gated). Reuses the shared RouteCardUnified so
   // the slot matches the discover/aerobic cards. The anti-ghost-click arming
@@ -159,6 +164,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive }: {
         name={slot.title}
         subtitle={slot.subtitle}
         difficulty={slot.bolts}
+        extraContent={extraContent}
         isActive={isActive}
         onCtaPointerDown={onArm}
         onCta={(e) => {
@@ -201,7 +207,11 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive }: {
         </div>
         <div className="text-[13px] font-semibold mt-1" style={{ color: '#6B7280' }}>{slot.subtitle}</div>
 
-        <div className="mt-3 inline-flex items-center rounded-lg" style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '4px 10px' }}>
+        {extraContent && <div className="mt-2">{extraContent}</div>}
+
+        {/* Cosmetic-only rounded-full restyle — same pill language as the duration chips
+            above; DifficultyBolts itself and what it displays are untouched. */}
+        <div className="mt-3 inline-flex items-center rounded-full" style={{ border: '0.5px solid #E0E9FF', padding: '4px 10px' }}>
           <DifficultyBolts difficulty={slot.bolts} size="sm" />
         </div>
       </div>
@@ -420,16 +430,22 @@ export default function HybridSlotCarousel({
                       armedSlotIdRef.current = null;
                       return ok;
                     }}
+                    extraContent={
+                      slot.id === 'route_stops' ? (
+                        // UX (David, approved): rendered INSIDE the card content now (between
+                        // subtitle and the difficulty pill), not floating below it. Wiring
+                        // unchanged — local state + durable pref only; compose still fires
+                        // exclusively from the CTA (onSelect above), never from a chip tap.
+                        <RouteStopsDurationChips
+                          valueMin={routeStopsDurationMin}
+                          onChange={(min) => {
+                            setRouteStopsDurationMin(min);
+                            setOnboardingPref(ROUTE_STOPS_DURATION_KEY, String(min));
+                          }}
+                        />
+                      ) : undefined
+                    }
                   />
-                  {slot.id === 'route_stops' && (
-                    <RouteStopsDurationChips
-                      valueMin={routeStopsDurationMin}
-                      onChange={(min) => {
-                        setRouteStopsDurationMin(min);
-                        setOnboardingPref(ROUTE_STOPS_DURATION_KEY, String(min));
-                      }}
-                    />
-                  )}
                 </motion.div>
               );
             })}
