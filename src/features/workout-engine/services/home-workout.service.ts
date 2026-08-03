@@ -1153,6 +1153,13 @@ async function _buildSharedPipeline(
   // getBaseUserLevel reads tracks/domains, not activePrograms — safe to call
   // with the original profile before the effective override is built.
   const baseUserLevel = getBaseUserLevel(userProfile);
+  // absent=absent (⑨): when a specific domain/skill was never assessed, do NOT
+  // borrow baseUserLevel (an unrelated global/other-domain level) — that invents
+  // data. Use the same conservative "no data" default already established for
+  // this exact situation elsewhere in the engine: shadow-level.utils.ts:464
+  // (`DEFAULT_LEVEL = 1`) and lead-program.service.ts:307-308 (sibling full-body
+  // master path: `let level = 1; levelSource = 'default(1)'` when unassessed).
+  const UNASSESSED_DOMAIN_LEVEL = 1;
   const [allExercises, gymEquipmentList, allPrograms] = await Promise.all([
     getAllExercises(),
     getAllGymEquipment(),
@@ -1375,7 +1382,9 @@ async function _buildSharedPipeline(
       front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
     };
     const skillBudgetEntries = resolvedChildDomains.map(skillId => {
-      const level = userProgramLevels.get(skillId) ?? baseUserLevel;
+      // Bug fix: previously `?? baseUserLevel` invented a level for an
+      // unassessed skill (e.g. front_lever) by borrowing an unrelated level.
+      const level = userProgramLevels.get(skillId) ?? UNASSESSED_DOMAIN_LEVEL;
       const weekly = calculateWeeklyBudget(level, scheduleDays);
       const daily = Math.max(1, Math.ceil(weekly / Math.max(1, scheduleDays)));
       return { domain: skillId, level, weekly, daily };
@@ -1394,7 +1403,9 @@ async function _buildSharedPipeline(
       const parent = _CU_SKILL_PARENT[skillId];
       if (parent && !_cuParentsSeen.has(parent)) {
         _cuParentsSeen.add(parent);
-        const parentLevel = userProgramLevels.get(parent) ?? baseUserLevel;
+        // Bug fix: same absent=absent principle — an unassessed parent domain
+        // (e.g. pull) must not borrow baseUserLevel from elsewhere.
+        const parentLevel = userProgramLevels.get(parent) ?? UNASSESSED_DOMAIN_LEVEL;
         const weekly = calculateWeeklyBudget(parentLevel, scheduleDays);
         const daily = Math.max(1, Math.ceil(weekly / Math.max(1, scheduleDays)));
         parentBudgetEntries.push({ domain: parent, level: parentLevel, weekly, daily });
@@ -1432,8 +1443,11 @@ async function _buildSharedPipeline(
     // No programLevelSettings documents exist for the master slug itself (e.g.
     // upper_body_level_6) — volume budgets are sourced from the child tracks
     // exactly as calisthenics_upper sources them from its skill-track children.
-    const pushLevel = userProgramLevels.get('push') ?? baseUserLevel;
-    const pullLevel = userProgramLevels.get('pull') ?? baseUserLevel;
+    // Bug fix: an unassessed push/pull domain must stay absent, not silently
+    // inherit baseUserLevel (e.g. push=L14 assessed, pull never assessed →
+    // pullLevel must NOT become 14).
+    const pushLevel = userProgramLevels.get('push') ?? UNASSESSED_DOMAIN_LEVEL;
+    const pullLevel = userProgramLevels.get('pull') ?? UNASSESSED_DOMAIN_LEVEL;
     resolvedDomainBudgets = [
       {
         domain: 'push',
