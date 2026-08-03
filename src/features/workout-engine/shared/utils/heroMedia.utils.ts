@@ -73,8 +73,20 @@ export function resolveHeroMedia(
     return { thumbnailUrl: DEFAULT_HERO_IMAGE, videoUrl: '' };
   }
 
-  const image = resolveImageForLocation(ex.exercise, location);
-  const video = resolveVideoForLocation(ex.exercise, location);
+  // Bug fix: resolveImageForLocation/resolveVideoForLocation delegate to
+  // findMethodForLocation, which silently deep-searches EVERY execution
+  // method (any location) once no exact/mapped method exists for `location`
+  // — e.g. a 'home' pick with no home-tagged method could surface a park
+  // video/photo instead. When this exercise genuinely has no method for
+  // `location`, skip that location-blind result and fall straight through
+  // to the safe generic fallback image below rather than trust a
+  // cross-location leak.
+  const methods = (ex.exercise as any).execution_methods || (ex.exercise as any).executionMethods || [];
+  const hasMethodForLocation =
+    !location || methods.some((m: any) => m.location === location || m.locationMapping?.includes(location));
+
+  const image = hasMethodForLocation ? resolveImageForLocation(ex.exercise, location) : '';
+  const video = hasMethodForLocation ? resolveVideoForLocation(ex.exercise, location) : '';
 
   const thumbnailUrl =
     image ||
