@@ -439,6 +439,11 @@ async function composeRouteStopsWorkout(
   // Backbone — a LOOP generated FROM the user's location (root fix), so entry = user (0m).
   // ('existing_route' mode is kept for a future "use a close existing route" decision, not v1.)
   const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace);
+  // DIAG (chip-override verification, additive/non-behavioral): confirms whether a fresh
+  // compose actually received the chip-selected timeBudgetMin. If this log does NOT appear on
+  // a chip-tap → CTA sequence, the compose was short-circuited by a hybridPlanCache HIT
+  // (DiscoverLayer.tsx handleSelectSlot, keyFor omits timeBudgetMin) before reaching here.
+  console.log(`[route-stops] chip-check: intent.timeBudgetMin=${intent.timeBudgetMin} → targetKm=${targetKm.toFixed(2)}`);
   const backbone = await resolveRouteStopsBackbone('generated_loop', {
     userPosition: ctx.userPosition, parks, targetKm,
     cityName: ctx.cityName, activity: intent.aerobicKind as ActivityType,
