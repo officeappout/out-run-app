@@ -124,8 +124,12 @@ export function getExerciseCountForDuration(
 ): { exerciseCount: number; includeAccessories: boolean } {
   let config = DURATION_SCALING['30'];
 
+  // Bug fix: the `<= 30` boundary used to catch a 30-minute request into the
+  // '15' bucket before it ever reached the '30' bucket, making t=30 identical
+  // to t=20. `< 30` lets 30 fall through to its own dedicated bucket below.
   if (availableTime <= 10) config = DURATION_SCALING['5'];
-  else if (availableTime <= 30) config = DURATION_SCALING['15'];
+  else if (availableTime < 30) config = DURATION_SCALING['15'];
+  else if (availableTime <= 30) config = DURATION_SCALING['30'];
   else if (availableTime <= 45) config = DURATION_SCALING['45'];
   else config = DURATION_SCALING['60'];
 
