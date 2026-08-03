@@ -11,7 +11,26 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 
 /** Resolve exercise thumbnail image URL via shared 5-level deep search */
 export function resolveExerciseImage(ex: EngineWorkoutExercise): string {
-  const { imageUrl } = resolveExerciseMedia(ex.exercise as any, ex.method as any);
+  const method = ex.method as any;
+  // Bug fix: resolveExerciseMedia only stays method-scoped while the
+  // assigned method (`ex.method` — already chosen for this exercise's real
+  // location at generation time) has media of its own. Once that method has
+  // NEITHER a Bunny preview NOR mainVideoUrl/videoUrl NOR imageUrl, its
+  // internal fallback deep-searches every OTHER execution method regardless
+  // of location — silently substituting e.g. a park photo for a home pick.
+  // Detect that "own method has nothing" case here and use the existing
+  // generic placeholder instead of trusting a cross-location leak.
+  const ownMethodHasMedia = !!(
+    method?.media?.mainVideoUrl ||
+    method?.media?.videoUrl ||
+    method?.media?.imageUrl ||
+    method?.media?.previewVideo?.he?.videoId ||
+    method?.media?.previewVideo?.en?.videoId
+  );
+  if (!ownMethodHasMedia) {
+    return '/images/park-placeholder.svg';
+  }
+  const { imageUrl } = resolveExerciseMedia(ex.exercise as any, method);
   return imageUrl || '/images/park-placeholder.svg';
 }
 
