@@ -8,6 +8,11 @@ import { type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import type { AccessCodeResult } from '../../services/access-code.service';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import {
+  ACCESS_CODE_MILITARY_ENABLED,
+  ACCESS_CODE_SCHOOL_ENABLED,
+  ACCESS_CODE_UNIVERSITY_ENABLED,
+} from '@/config/feature-flags';
 
 // Personas that open the access-code popup. GATED to office_worker only — it is
 // the ONE vertical whose full chain produces a league tab today: the CF writes a
@@ -17,7 +22,14 @@ import { setOnboardingPref } from '@/lib/onboardingPrefs';
 // core.tenantId but no tab), so we don't promise them a broken flow. They
 // re-join this set once the CF + useArenaAccess are generalized (§5 follow-up b);
 // PERSONA_TENANT_TYPE below already holds their mapping for then.
-const ACCESS_CODE_PERSONA_IDS = new Set(['office_worker']);
+// The three ACCESS_CODE_*_ENABLED flags roll out one vertical at a time — while
+// all false, this stays exactly {'office_worker'}, byte-identical to today.
+const ACCESS_CODE_PERSONA_IDS = new Set([
+  'office_worker',
+  ...(ACCESS_CODE_MILITARY_ENABLED ? ['reservist', 'soldier'] : []),
+  ...(ACCESS_CODE_SCHOOL_ENABLED ? ['pupil'] : []),
+  ...(ACCESS_CODE_UNIVERSITY_ENABLED ? ['student'] : []),
+]);
 
 // Persona → org vertical for the code gate. Replaces a hardcoded military/school
 // ternary — add a row per persona. Drives the contact-label hint only; the real

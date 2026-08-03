@@ -302,6 +302,32 @@ export function isAdminEmailAllowed(email: string | null | undefined): boolean {
   );
 }
 
+// ============================================================================
+// ACCESS-CODE PERSONA GATES — per-vertical rollout for the onboarding
+// persona → access-code flow (PersonaStep.tsx). office_worker is live
+// unconditionally (already ships a working 'company' affiliation). These three
+// gate the OTHER personas onto the same AccessCodeGate popup, one vertical at a
+// time. ALL DEFAULT FALSE: while false, PersonaStep's ACCESS_CODE_PERSONA_IDS
+// stays exactly {'office_worker'} — reservist/soldier/pupil/student pick a
+// persona but never see the code popup, BYTE-IDENTICAL to today. The
+// validateAccessCode Cloud Function + admin /admin/access-codes panel already
+// support military/educational tenantTypes — flip a flag here to start
+// surfacing the popup for that vertical, no other code change needed.
+// University has no separate tenantType yet — student redeems under
+// tenantType:'educational', same bucket as pupil (school).
+// ============================================================================
+
+// ACCESS_CODE_MILITARY_ENABLED: adds reservist + soldier to ACCESS_CODE_PERSONA_IDS.
+export const ACCESS_CODE_MILITARY_ENABLED = false;
+
+// ACCESS_CODE_SCHOOL_ENABLED: adds pupil to ACCESS_CODE_PERSONA_IDS.
+export const ACCESS_CODE_SCHOOL_ENABLED = false;
+
+// ACCESS_CODE_UNIVERSITY_ENABLED: adds student to ACCESS_CODE_PERSONA_IDS.
+// Redeems under the same tenantType:'educational' as ACCESS_CODE_SCHOOL_ENABLED
+// until university gets its own tenantType.
+export const ACCESS_CODE_UNIVERSITY_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
