@@ -222,7 +222,7 @@ export class BudgetDistributor {
     // the main block at 3 exercises (or 4 when ≥3 distinct domains present).
     // Prevents the live "7 exercises × 2 sets" fragmentation bug by clustering
     // the daily set budget into 3-4-set hypertrophy blocks.
-    exercises = this._balancedClusterCap(exercises, difficulty, constraints, log);
+    exercises = this._balancedClusterCap(exercises, context, difficulty, constraints, log);
 
     const totalSets = exercises.reduce((s, e) => s + e.sets, 0);
     log.push(`distributor_complete: totalSets=${totalSets}`);
@@ -520,6 +520,17 @@ export class BudgetDistributor {
    *   benefits from the extra slot for breadth; anything narrower
    *   (≤ 2 domains) is too focused to justify spreading sets thinner.
    *
+   * Duration rule (⚠️ fix/balanced-cluster-cap-duration-aware):
+   *   The session ALSO unlocks the 4-exercise cap when `context.availableTime`
+   *   is ≥ 45 minutes, regardless of domain diversity — a long, narrow-focus
+   *   session (e.g. 60 min Pull-only) has ample daily set budget to fill 4
+   *   quality exercises at BALANCED_CLUSTER_MAX_SETS each without dipping
+   *   into fragment-thin sets, but was previously stuck at the 3-exercise
+   *   baseline cap and force-stacking survivors past what felt natural.
+   *   Reuses the SAME BALANCED_CLUSTER_MAX_MAIN_DIVERSE ceiling — no new
+   *   numeric cap was introduced, and BALANCED_CLUSTER_MAX_SETS (the D2
+   *   per-exercise ceiling) is untouched.
+   *
    * Survivor selection mirrors `_skillClusterCap`:
    *   1. Sort main exercises by `resolveTierSubOrder` (elite → hard →
    *      skill/compound → foundation → match → flow), score as tiebreak.
@@ -529,6 +540,7 @@ export class BudgetDistributor {
    */
   private _balancedClusterCap(
     exercises: WorkoutExercise[],
+    context: WorkoutGenerationContext,
     difficulty: DifficultyLevel,
     constraints: BudgetConstraints,
     log: string[],
@@ -550,7 +562,13 @@ export class BudgetDistributor {
       if (domain) distinctDomains.add(domain);
     }
     const isDiverse = distinctDomains.size >= BALANCED_DIVERSITY_THRESHOLD;
-    const maxAllowed = isDiverse
+
+    // Duration release — a long session (≥45 min) has enough time budget to
+    // justify the extra main slot even when the domain spread is narrow.
+    // Reuses the SAME diverse-tier ceiling (no new numeric cap invented).
+    const isLongSession = context.availableTime >= 45;
+
+    const maxAllowed = (isDiverse || isLongSession)
       ? BALANCED_CLUSTER_MAX_MAIN_DIVERSE
       : BALANCED_CLUSTER_MAX_MAIN_BASELINE;
 
@@ -615,7 +633,8 @@ export class BudgetDistributor {
 
     log.push(
       `balanced_cluster_cap: culled ${removedCount} excess main exercises → ${maxAllowed} ` +
-      `(diverse=${isDiverse}, domains=${distinctDomains.size})`,
+      `(diverse=${isDiverse}, domains=${distinctDomains.size}, longSession=${isLongSession}, ` +
+      `availableTime=${context.availableTime})`,
     );
     const survivorSets = next
       .filter(e => (e.exerciseRole ?? 'main') === 'main')
@@ -624,7 +643,8 @@ export class BudgetDistributor {
     console.log(
       `[BudgetDistributor.balancedClusterCap] D2 balanced session — culled ${removedCount} ` +
       `exercise(s) → ${maxAllowed} clustered exercises (diverse=${isDiverse}, ` +
-      `domains=${distinctDomains.size}). Sets: ${survivorSets}`,
+      `domains=${distinctDomains.size}, longSession=${isLongSession}, ` +
+      `availableTime=${context.availableTime}). Sets: ${survivorSets}`,
     );
 
     return next;
