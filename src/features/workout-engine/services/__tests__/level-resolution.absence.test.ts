@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildUserProgramLevels, getBaseUserLevel } from '../level-resolution.utils';
-import { resolveChildDomainsForParent } from '../program-hierarchy.utils';
+import { resolveChildDomainsForParent, isDomainAssessed } from '../program-hierarchy.utils';
 
 const prof = (domains: any = {}, tracks: any = {}, activePrograms: any[] = []): any => ({
   progression: { domains, tracks, activePrograms, globalLevel: 1 },
@@ -75,5 +75,67 @@ describe('resolveChildDomainsForParent — assessed-only intersection (⑨ guard
   it('upper_body with only push assessed → [push]', () => {
     const r = resolveChildDomainsForParent('upper_body', p({ push: { currentLevel: 9 } }));
     expect(r).toEqual(['push']);
+  });
+});
+
+describe('resolveChildDomainsForParent — calisthenics_upper (⑨ BUG 1 rework)', () => {
+  const pWithSkills = (domains: any, skillFocusIds: string[]): any => ({
+    progression: { domains, tracks: {}, skillFocusIds },
+  });
+
+  it('BEFORE (documented bug): skillFocusIds used to pass through unfiltered — ' +
+     'an unassessed skill (front_lever) would flow straight into resolvedChildDomains, ' +
+     'admitting its exercises at an invented level downstream. AFTER: filtered to assessed-only.', () => {
+    // planche assessed (L7), front_lever picked as a skill focus but NEVER assessed (no key at all).
+    const r = resolveChildDomainsForParent(
+      'calisthenics_upper',
+      pWithSkills({ planche: { currentLevel: 7 } }, ['planche', 'front_lever']),
+    );
+    expect(r).toEqual(['planche']);
+    expect(r).not.toContain('front_lever');
+  });
+
+  it('both skills assessed → both kept', () => {
+    const r = resolveChildDomainsForParent(
+      'calisthenics_upper',
+      pWithSkills({ planche: { currentLevel: 7 }, front_lever: { currentLevel: 5 } }, ['planche', 'front_lever']),
+    );
+    expect(r.slice().sort()).toEqual(['front_lever', 'planche']);
+  });
+
+  it('all skills unassessed → empty array (never falls back to the raw skillIds or [activeProgramId])', () => {
+    const r = resolveChildDomainsForParent(
+      'calisthenics_upper',
+      pWithSkills({}, ['planche', 'front_lever']),
+    );
+    expect(r).toEqual([]);
+  });
+
+  it('a present-but-ZERO skill level is treated as unassessed, not kept', () => {
+    const r = resolveChildDomainsForParent(
+      'calisthenics_upper',
+      pWithSkills({ planche: { currentLevel: 7 }, front_lever: { currentLevel: 0 } }, ['planche', 'front_lever']),
+    );
+    expect(r).toEqual(['planche']);
+  });
+
+  it('no skillFocusIds at all → empty array (not [activeProgramId])', () => {
+    const r = resolveChildDomainsForParent('calisthenics_upper', pWithSkills({ planche: { currentLevel: 7 } }, []));
+    expect(r).toEqual([]);
+  });
+});
+
+describe('isDomainAssessed — shared single source of truth (⑨)', () => {
+  it('reads a real level from domains', () => {
+    expect(isDomainAssessed(prof({ legs: { currentLevel: 10 } }), 'legs')).toBe(true);
+  });
+  it('reads a real level from tracks', () => {
+    expect(isDomainAssessed(prof({}, { legs: { currentLevel: 10 } }), 'legs')).toBe(true);
+  });
+  it('a domain with no entry is not assessed', () => {
+    expect(isDomainAssessed(prof({}), 'legs')).toBe(false);
+  });
+  it('a present-but-zero domain is not assessed', () => {
+    expect(isDomainAssessed(prof({ legs: { currentLevel: 0 } }), 'legs')).toBe(false);
   });
 });

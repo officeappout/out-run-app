@@ -257,6 +257,20 @@ export interface GeneratedWorkout {
   isRecovery: boolean;
   totalPlannedSets: number;
   /**
+   * absent=absent (⑨) safety-net flag (BUG 1 rework): set when NONE of the
+   * domains relevant to the request have ever been assessed — the caller
+   * asked for a workout, but the intersection of {requested domains} ∩
+   * {assessed domains} was empty. `exercises` is intentionally `[]`; the UI
+   * should route the user to the mini-assessment questionnaire for
+   * `assessmentDomains` rather than treating this as a normal (broken) plan.
+   * Mirrors the existing `isRecovery` convention (a distinguishing flag +
+   * empty/placeholder content, not a thrown error) — see `generateRecoveryWorkout`'s
+   * "rest day" fallback for the precedent this follows.
+   */
+  needsAssessment?: boolean;
+  /** Domains that need assessment (only set when `needsAssessment` is true). */
+  assessmentDomains?: string[];
+  /**
    * Protocol selected by the engine for this workout ('antagonist_pair', 'emom', etc.).
    * Used by the service to re-apply pairing AFTER warmup/cooldown/post-processors are
    * added, so pairedWith is always present on the final exercise list.

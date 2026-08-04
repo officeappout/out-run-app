@@ -311,6 +311,47 @@ async function generateRecoveryWorkout(
 }
 
 // ============================================================================
+// NEEDS-ASSESSMENT WORKOUT — absent=absent (⑨) safety net (BUG 1 rework)
+// ============================================================================
+
+/**
+ * Builds the explicit "needs assessment" placeholder result used when the
+ * intersection of {domains required for the request} ∩ {domains the user has
+ * actually assessed} is empty. Mirrors `generateRecoveryWorkout`'s "rest day"
+ * fallback (empty `exercises`, a distinguishing boolean flag, a human-readable
+ * title/description) rather than throwing — this is the existing codebase
+ * convention for "cannot generate real content, don't crash or return a blank
+ * plan silently".
+ */
+export function buildNeedsAssessmentResult(
+  domains: string[],
+  meta: HomeWorkoutResult['meta'],
+): HomeWorkoutResult {
+  const domainList = domains.filter(Boolean);
+  const workout: GeneratedWorkout = {
+    title: 'נדרשת הערכת רמה',
+    description: domainList.length > 0
+      ? `עדיין לא הערכנו את הרמה שלך ב-${domainList.join(', ')}. השלימו שאלון קצר כדי לקבל אימון מותאם אישית.`
+      : 'עדיין לא הערכנו את הרמה שלך. השלימו שאלון קצר כדי לקבל אימון מותאם אישית.',
+    exercises: [],
+    estimatedDuration: 0,
+    structure: 'standard',
+    difficulty: 1,
+    mechanicalBalance: { straightArm: 0, bentArm: 0, hybrid: 0, ratio: '0:0', isBalanced: true },
+    stats: { calories: 0, coins: 0, totalReps: 0, totalHoldTime: 0, difficultyMultiplier: 1 },
+    isRecovery: false,
+    needsAssessment: true,
+    assessmentDomains: domainList,
+    totalPlannedSets: 0,
+    pipelineLog: [
+      `needs_assessment: requested domains [${domainList.join(', ') || '(none)'}] have zero assessed ` +
+      'level — absent=absent (⑨) safety net (no blank/invented workout composed)',
+    ],
+  };
+  return { workout, meta };
+}
+
+// ============================================================================
 // RECOVERY VIDEO TRIO — Admin-tagged rest-day follow-along videos
 // ============================================================================
 
@@ -554,6 +595,34 @@ export async function generateHomeWorkoutTrio(
 
   // ── 1. SHARED PIPELINE: fetch + context + score (ONCE) ────────────────
   const pipeline = await _buildSharedPipeline(options);
+
+  // ── absent=absent (⑨) safety net: all requested domains unassessed ─────
+  // BUG 1 rework: short-circuit BEFORE any of the trio/label/generation loop
+  // work below — none of the domains relevant to this request have ever been
+  // assessed, so composing further would either produce a blank plan or (if a
+  // fallback level path were used) an invented one. Return the same explicit
+  // "needs assessment" result for all 3 slots, exactly like the existing
+  // Budget-Floor recovery short-circuit further down does for its own case.
+  if (pipeline.needsAssessmentDomains) {
+    const needsAssessmentResult = buildNeedsAssessmentResult(pipeline.needsAssessmentDomains, pipeline.resultMeta);
+    const needsAssessmentOption: WorkoutTrioOption = {
+      label: 'הערכה נדרשת',
+      result: needsAssessmentResult,
+    };
+    console.warn(
+      `[WorkoutTrio] ⑨ needs-assessment short-circuit — requested domains ` +
+      `[${pipeline.needsAssessmentDomains.join(', ') || '(none)'}] have no assessed level. ` +
+      'Returning an explicit needs-assessment result instead of composing a blank workout.',
+    );
+    console.groupEnd();
+    return {
+      options: [needsAssessmentOption, needsAssessmentOption, needsAssessmentOption],
+      isRestDay: false,
+      needsAssessment: true,
+      labelsSource: 'fallback',
+      meta: needsAssessmentResult.meta,
+    };
+  }
 
   // ── Recovery Video Trio: admin-tagged follow-along videos for rest days ─
   // Checked before Budget Floor and the normal REST_DAY_CONFIGS loop.
@@ -1039,6 +1108,44 @@ async function _persistCycleRestart(userProfile: UserFullProfile): Promise<void>
 }
 
 // ============================================================================
+// DOMAIN BUDGET RESOLUTION — absent=absent (⑨), shared by all master paths
+// ============================================================================
+
+export interface DomainBudgetEntry {
+  domain: string;
+  level: number;
+  weekly: number;
+  daily: number;
+}
+
+/**
+ * Builds one budget entry per domain, but ONLY for domains present in
+ * `userProgramLevels` (i.e. genuinely assessed — a real level > 0 somewhere
+ * in `progression.domains`/`progression.tracks`, per `buildUserProgramLevels`'s
+ * absent=absent ⑨ contract). A domain absent from the map is EXCLUDED from
+ * the returned array entirely — never assigned `baseUserLevel` or any other
+ * invented value (BUG 1 rework: this replaces every `userProgramLevels.get(x)
+ * ?? baseUserLevel` call site in the calisthenics_upper and upper_body
+ * master-session budget paths below with a single has()-guarded rule, so the
+ * exclusion behaviour lives in exactly one place instead of being duplicated
+ * — and possibly drifting — across 3 call sites).
+ */
+export function buildAssessedDomainBudgets(
+  domains: string[],
+  userProgramLevels: Map<string, number>,
+  scheduleDays: number,
+): DomainBudgetEntry[] {
+  return domains
+    .filter(domain => userProgramLevels.has(domain))
+    .map(domain => {
+      const level = userProgramLevels.get(domain)!;
+      const weekly = calculateWeeklyBudget(level, scheduleDays);
+      const daily = Math.max(1, Math.ceil(weekly / Math.max(1, scheduleDays)));
+      return { domain, level, weekly, daily };
+    });
+}
+
+// ============================================================================
 // SHARED PIPELINE — Extract expensive I/O + scoring (run ONCE)
 // ============================================================================
 
@@ -1066,6 +1173,17 @@ interface SharedPipelineState {
    * render a clean flat sequence with no cross-domain pairedWith coupling.
    */
   isSingleDomain: boolean;
+  /**
+   * BUG 1 safety net (all-domains-unassessed): set when `activeProgramFilters`
+   * resolved to an empty set — i.e. NONE of the domains relevant to this
+   * request have ever been assessed (intersection of {requested domains} ∩
+   * {assessed domains} is empty). Carries the normalised, originally-requested
+   * program IDs so the caller can route the user to the right mini-questionnaire.
+   * When set, `generateHomeWorkoutTrio` short-circuits to an explicit
+   * "needs assessment" result instead of composing a blank/near-empty workout —
+   * see `buildNeedsAssessmentResult`.
+   */
+  needsAssessmentDomains?: string[];
 }
 
 /**
@@ -1374,12 +1492,14 @@ async function _buildSharedPipeline(
       planche: 'push', handstand: 'push', handstand_pushup: 'push',
       front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
     };
-    const skillBudgetEntries = resolvedChildDomains.map(skillId => {
-      const level = userProgramLevels.get(skillId) ?? baseUserLevel;
-      const weekly = calculateWeeklyBudget(level, scheduleDays);
-      const daily = Math.max(1, Math.ceil(weekly / Math.max(1, scheduleDays)));
-      return { domain: skillId, level, weekly, daily };
-    });
+    // BUG 1 (rework): absent=absent (⑨) — a skill absent from userProgramLevels
+    // (never assessed) must be EXCLUDED from this workout's budget/exercise
+    // computation entirely, not assigned baseUserLevel (nor any other invented
+    // value). resolveChildDomainsForParent already filters resolvedChildDomains
+    // to assessed-only skills, but buildAssessedDomainBudgets stays has()-guarded
+    // as defense-in-depth (e.g. a slug/hash key that somehow isn't dual-keyed in
+    // userProgramLevels must never silently borrow the user's unrelated global level).
+    const skillBudgetEntries = buildAssessedDomainBudgets(resolvedChildDomains, userProgramLevels, scheduleDays);
 
     // ── Parent foundational domain entries (push=L14, pull=L14, …) ─────────
     // Without these, the Bolt caps in WorkoutGenerator use
@@ -1388,18 +1508,23 @@ async function _buildSharedPipeline(
     // pull/push exercises (e.g. L14 pull candidates → 39 exercises dropped).
     // Adding push/pull at their real foundational levels lets the per-domain
     // Bolt cap apply L6 for planche exercises and L15 for pull exercises.
+    // absent=absent (⑨): only add the parent foundational domain (push/pull) when
+    // it is ITSELF assessed (buildAssessedDomainBudgets excludes it otherwise).
+    // Previously `?? baseUserLevel` invented a foundational level from the user's
+    // unrelated global max whenever the parent track had never been assessed —
+    // e.g. a pure-planche user (push assessed, pull never assessed) would get a
+    // fabricated 'pull' budget entry the moment any pull-family skill appeared
+    // in resolvedChildDomains.
     const _cuParentsSeen = new Set<string>();
-    const parentBudgetEntries: Array<{ domain: string; level: number; weekly: number; daily: number }> = [];
+    const parentDomains: string[] = [];
     for (const skillId of resolvedChildDomains) {
       const parent = _CU_SKILL_PARENT[skillId];
       if (parent && !_cuParentsSeen.has(parent)) {
         _cuParentsSeen.add(parent);
-        const parentLevel = userProgramLevels.get(parent) ?? baseUserLevel;
-        const weekly = calculateWeeklyBudget(parentLevel, scheduleDays);
-        const daily = Math.max(1, Math.ceil(weekly / Math.max(1, scheduleDays)));
-        parentBudgetEntries.push({ domain: parent, level: parentLevel, weekly, daily });
+        parentDomains.push(parent);
       }
     }
+    const parentBudgetEntries = buildAssessedDomainBudgets(parentDomains, userProgramLevels, scheduleDays);
 
     resolvedDomainBudgets = [...skillBudgetEntries, ...parentBudgetEntries];
     console.log(
@@ -1432,22 +1557,13 @@ async function _buildSharedPipeline(
     // No programLevelSettings documents exist for the master slug itself (e.g.
     // upper_body_level_6) — volume budgets are sourced from the child tracks
     // exactly as calisthenics_upper sources them from its skill-track children.
-    const pushLevel = userProgramLevels.get('push') ?? baseUserLevel;
-    const pullLevel = userProgramLevels.get('pull') ?? baseUserLevel;
-    resolvedDomainBudgets = [
-      {
-        domain: 'push',
-        level: pushLevel,
-        weekly: calculateWeeklyBudget(pushLevel, scheduleDays),
-        daily: Math.max(1, Math.ceil(calculateWeeklyBudget(pushLevel, scheduleDays) / Math.max(1, scheduleDays))),
-      },
-      {
-        domain: 'pull',
-        level: pullLevel,
-        weekly: calculateWeeklyBudget(pullLevel, scheduleDays),
-        daily: Math.max(1, Math.ceil(calculateWeeklyBudget(pullLevel, scheduleDays) / Math.max(1, scheduleDays))),
-      },
-    ];
+    // absent=absent (⑨): resolvedChildDomains is already assessed-only for
+    // upper_body (resolveChildDomainsForParent intersects with isAssessed), so
+    // `isUpperBodyMaster` being true already guarantees both push and pull are
+    // in userProgramLevels. Still built via has()-guarded filter (not `?? baseUserLevel`)
+    // as defense-in-depth — an absent domain is excluded from the budget entirely,
+    // never assigned the user's unrelated global level.
+    resolvedDomainBudgets = buildAssessedDomainBudgets(['push', 'pull'], userProgramLevels, scheduleDays);
     console.log(
       `[DomainBudget] upper_body budgets: [${resolvedDomainBudgets.map(db => `${db.domain}=L${db.level}`).join(', ')}]`,
     );
@@ -1568,11 +1684,22 @@ async function _buildSharedPipeline(
     buildActiveProgramFilters(profileForFilters, userProfile, allPrograms, shadowMatrix);
 
   // absent=absent (⑨) intercept: an empty active-filter set means NO assessed strength domain
-  // reached compose. The home hero-gate (`hasStrengthProgram`) routes such users to the strength
-  // questionnaire BEFORE composing; surface a bypass loudly here so it can never silently score the
-  // whole DB into a generic workout (defense-in-depth for non-home entry points).
+  // reached compose — i.e. the intersection of {domains required for this request} ∩ {domains
+  // the user has actually assessed} is empty. The home hero-gate (`hasStrengthProgram`) routes
+  // such users to the strength questionnaire BEFORE composing; this is defense-in-depth for
+  // every OTHER caller (Custom Builder, schedule-card tap, hybrid preview, …) that can reach
+  // compose without going through that UI gate. BUG 1 rework: escalated from a console.warn-only
+  // bypass log to a real typed signal (`needsAssessmentDomains`) that `generateHomeWorkoutTrio`
+  // uses to short-circuit into an explicit "needs assessment" result — never a blank/near-empty
+  // workout silently scored from the whole exercise DB.
+  let needsAssessmentDomains: string[] | undefined;
   if (activeProgramFilters.length === 0) {
-    console.warn('[home-workout] ⑨ compose reached with NO assessed strength domain (empty active filters) — the UI hasStrengthProgram gate should have routed this user to the strength questionnaire.');
+    needsAssessmentDomains = [...rawScheduledIds];
+    console.warn(
+      '[home-workout] ⑨ compose reached with NO assessed domain for the requested program(s) ' +
+      `[${rawScheduledIds.join(', ') || '(none)'}] (empty active filters) — short-circuiting to ` +
+      'an explicit needs-assessment result instead of composing a blank workout.',
+    );
   }
 
   const effectiveFilterLocation = location;
@@ -2161,6 +2288,7 @@ async function _buildSharedPipeline(
     },
     metadataCtxBase,
     sessionPolicy,
+    needsAssessmentDomains,
   };
 }
 
