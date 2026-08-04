@@ -829,11 +829,16 @@ export default function WorkoutBuilderSheet({
             Renders unconditionally, ahead of the equipment banner below when
             that banner happens to render too (only one bottom-overlay rule
             does not apply here — this is in-flow scroll content, not an
-            overlay). Combines coachCue + autoAppliedProgram reasoning. */}
+            overlay). Combines coachCue + autoAppliedProgram reasoning.
+            `alwaysExpanded` (Fix B, 04.08.2026) — Kelly is a permanent
+            fixture, always visible on load, no tap needed. The info icon
+            above (line ~830) intentionally keeps the default tap-to-expand
+            mode — do not add alwaysExpanded there. */}
         <ExplainerBubble
           text={kellyText}
           trigger={<LemurAvatar level={1} size="small" />}
           ariaLabel="קלי מסבירה למה האימון הזה הומלץ"
+          alwaysExpanded
         />
 
         {/* ── Gear nudge banner ─────────────────────────────────────────────

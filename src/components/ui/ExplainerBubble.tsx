@@ -11,10 +11,13 @@
  * WorkoutBuilderSheet.tsx use this same shell with two different content
  * sources (Kelly's dynamic reasoning vs. the info-icon's static copy).
  *
- * Default state is collapsed — a small pill showing only the trigger, no
- * text. Tapping expands a viewport-aware floating popover with a small
- * triangle tail (visually inspired by, not copied from, the onboarding
- * speech bubble — smaller padding/font to match the reduced 32px scale).
+ * Two modes:
+ *  - Default (tap-to-expand): collapsed pill → tap → viewport-aware floating
+ *    popover (Fix A, 04.08.2026 — see the placement effect below).
+ *  - `alwaysExpanded` (Fix B, 04.08.2026): renders trigger + text as a
+ *    permanent, in-flow row — no pill, no toggle, no close button, no
+ *    popover/positioning logic at all. Used for Kelly's bubble only; the
+ *    info icon keeps the default tap-to-expand mode unchanged.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -29,6 +32,12 @@ export interface ExplainerBubbleProps {
   /** Which side the tail + popover anchor to. Defaults to 'start' (right edge in RTL). */
   align?: 'start' | 'end';
   className?: string;
+  /**
+   * When true, renders permanently expanded — no collapsed state, no tap
+   * needed, no close affordance. A fixed in-flow fixture, not a tooltip.
+   * Default false (unchanged tap-to-expand behavior).
+   */
+  alwaysExpanded?: boolean;
 }
 
 const POPOVER_WIDTH = 256; // px — matches w-64
@@ -49,8 +58,10 @@ export default function ExplainerBubble({
   ariaLabel,
   align = 'start',
   className = '',
+  alwaysExpanded = false,
 }: ExplainerBubbleProps) {
   const [expanded, setExpanded] = useState(false);
+  const isOpen = alwaysExpanded || expanded;
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -68,9 +79,10 @@ export default function ExplainerBubble({
   // viewport edge — general logic, not hardcoded to one usage. Uses
   // `position: fixed` with viewport coordinates rather than `absolute`
   // anchored to the trigger's own parent, so it works regardless of the
-  // trigger's position in the layout.
+  // trigger's position in the layout. Skipped entirely in `alwaysExpanded`
+  // mode — that mode never renders this popover at all (see below).
   useLayoutEffect(() => {
-    if (!expanded || !triggerRef.current) return;
+    if (!isOpen || alwaysExpanded || !triggerRef.current) return;
 
     const recompute = () => {
       const triggerEl = triggerRef.current;
@@ -110,12 +122,30 @@ export default function ExplainerBubble({
       window.removeEventListener('resize', recompute);
       window.removeEventListener('scroll', recompute, true);
     };
-  }, [expanded, align, text]);
+  }, [isOpen, alwaysExpanded, align, text]);
 
   // Force a remeasure next time it opens (trigger may have moved while closed).
   useEffect(() => {
-    if (!expanded) setPlacement(null);
-  }, [expanded]);
+    if (!isOpen) setPlacement(null);
+  }, [isOpen]);
+
+  // ── Fix B: always-expanded mode — static in-flow row, no popover at all ──
+  // No collapsed pill, no toggle, no close button, no viewport-flip logic
+  // (none of that applies to a permanent fixture). Kelly's bubble only.
+  if (alwaysExpanded) {
+    return (
+      <div className={`flex items-start gap-2 ${className}`} dir="rtl">
+        <span className="flex-shrink-0" aria-hidden="true">{trigger}</span>
+        <div
+          role="note"
+          aria-label={ariaLabel}
+          className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm px-3 py-2.5"
+        >
+          <p className="text-xs leading-relaxed text-gray-700 dark:text-gray-200">{text}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`relative inline-flex ${className}`}>
