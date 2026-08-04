@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { fetchSharedWorkoutMeta } from './shared-workout-loader';
 import WorkoutPreviewClient from './WorkoutPreviewClient';
+import { SITE_URL } from '@/lib/config/domain-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,14 +32,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
-    metadataBase: new URL('https://out-run-app.vercel.app'),
+    metadataBase: new URL(SITE_URL),
     openGraph: {
       title,
       description,
       type: 'website',
       siteName: 'Out',
       locale: 'he_IL',
-      url: `https://out-run-app.vercel.app/workouts/${params.id}`,
+      url: `${SITE_URL}/workouts/${params.id}`,
     },
     twitter: {
       card: 'summary_large_image',

@@ -56,6 +56,7 @@ import { getGroupMembers, joinGroup, leaveGroup, makeGroupAdmin, removeGroupAdmi
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { useToast } from '@/components/ui/Toast';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
+import { SITE_URL } from '@/lib/config/domain-config';
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
   walking:      { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
@@ -1207,7 +1208,7 @@ export default function GroupDetailsDrawer({
 
                 {/* ── Share button — always visible ───────────────── */}
                 {(() => {
-                  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
+                  const origin = typeof window !== 'undefined' ? window.location.origin : SITE_URL;
                   const deepLink = group.inviteCode
                     ? `${origin}/join/${group.inviteCode}`
                     : `${origin}/community?groupId=${group.id}`;
@@ -1272,7 +1273,7 @@ export default function GroupDetailsDrawer({
                     </div>
                     <button
                       onClick={() => {
-                        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
+                        const origin = typeof window !== 'undefined' ? window.location.origin : SITE_URL;
                         const link = `${origin}/join/${group.inviteCode}`;
                         const text = `הוזמנת להצטרף לקהילה "${group.name}"! השתמש בקוד: ${group.inviteCode}\nאו לחץ על הקישור: ${link}`;
                         if (typeof navigator !== 'undefined' && navigator.share) {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useFavoritesStore } from '@/features/favorites/store/useFavoritesStore';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { shareWorkout } from '@/features/workout-engine/services/share.service';
+import { SITE_URL } from '@/lib/config/domain-config';
 import type { WorkoutData } from '../types';
 
 interface UseFavoritesActionsParams {
@@ -121,7 +122,7 @@ export function useFavoritesActions({
 
     if (!generatedWorkout) {
       const title = workout?.title || 'אימון כוח';
-      const text = `💪 ${title}\nבוא/י לנסות את האימון שלי ב-Out!\nhttps://out-run-app.vercel.app`;
+      const text = `💪 ${title}\nבוא/י לנסות את האימון שלי ב-Out!\n${SITE_URL}`;
       if (typeof navigator !== 'undefined' && navigator.share) {
         try {
           await navigator.share({ title, text });
@@ -139,7 +140,7 @@ export function useFavoritesActions({
       await shareWorkout(generatedWorkout, workoutLocation);
     } catch (err) {
       console.error('[useFavoritesActions] Share failed:', err);
-      const text = `💪 ${generatedWorkout.title}\nבוא/י לנסות את האימון שלי ב-Out!\nhttps://out-run-app.vercel.app`;
+      const text = `💪 ${generatedWorkout.title}\nבוא/י לנסות את האימון שלי ב-Out!\n${SITE_URL}`;
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     } finally {
       setIsSharing(false);

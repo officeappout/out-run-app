@@ -28,6 +28,7 @@ import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { reverseGeocode } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
 import type { Park } from '@/features/parks/core/types/park.types';
 import type { CommunityGroup, CommunityGroupCategory, CommunityGroupType, ScheduleSlot } from '@/types/community.types';
+import { SITE_URL } from '@/lib/config/domain-config';
 
 // Mapbox components are client-only — lazy-loaded to avoid SSR errors
 const MiniLocationPicker = dynamic(
@@ -507,7 +508,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                         onClick={() => {
                           const origin = typeof window !== 'undefined'
                             ? window.location.origin
-                            : 'https://out-run-app.vercel.app';
+                            : SITE_URL;
                           navigator.clipboard
                             ?.writeText(`${origin}/join/${successInfo.inviteCode}`)
                             .catch(() => {});
@@ -524,7 +525,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                         onClick={() => {
                           const origin = typeof window !== 'undefined'
                             ? window.location.origin
-                            : 'https://out-run-app.vercel.app';
+                            : SITE_URL;
                           const link = `${origin}/join/${successInfo.inviteCode}`;
                           const text = `היי! הקמתי קהילה חדשה "${successInfo.name}" — בוא להצטרף! 🏃\nקוד הצטרפות: ${successInfo.inviteCode}\n${link}`;
                           if (typeof navigator !== 'undefined' && navigator.share) {
