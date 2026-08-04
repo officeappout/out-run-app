@@ -563,9 +563,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     logic.setFocusedRoute({
       id: 'hybrid-route', name: 'אימון משולב', path: composed.routePath,
       distance: composed.plan.totals.distanceKm,
-      stationMarker: composed.station
-        ? { lat: composed.station.lat, lng: composed.station.lng, name: composed.station.name, image: composed.station.image }
-        : null,
+      // Every resolved stop gets its own marker now (Part 5) — `stations` falls back to
+      // the single legacy `station` so a caller that hasn't been re-composed still draws one pin.
+      stationMarkers: composed.stations ?? (composed.station ? [composed.station] : []),
     } as unknown as Route);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logic]);
@@ -577,9 +577,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     logic.setFocusedRoute({
       id: 'hybrid-route', name: 'אימון משולב', path: preview.routePath,
       distance: preview.distanceKm,
-      stationMarker: preview.station
-        ? { lat: preview.station.lat, lng: preview.station.lng, name: preview.station.name, image: preview.station.image }
-        : null,
+      stationMarkers: preview.stations ?? (preview.station ? [preview.station] : []),
     } as unknown as Route);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logic]);
@@ -614,7 +612,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       logic.setFocusedRoute({
         id: 'hybrid-route', name: 'אימון משולב', path: composed.routePath,
         distance: composed.plan.totals.distanceKm,
-        stationMarker: composed.station ? { lat: composed.station.lat, lng: composed.station.lng, name: composed.station.name, image: composed.station.image } : null,
+        stationMarkers: composed.stations ?? (composed.station ? [composed.station] : []),
       } as unknown as Route);
       console.log(
         `[hybrid:diag] route drawn → setFocusedRoute pts=${composed.routePath.length}` +

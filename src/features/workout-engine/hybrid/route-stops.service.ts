@@ -87,6 +87,11 @@ export interface ResolvedRouteStop extends HybridStopCandidate {
   cooldownEligible: boolean;
   /** Snap distance (m) from the route path — diagnostics / tie-break. */
   distToPathM: number;
+  /** The park's own display name — for the per-stop map marker (Part 5). */
+  name?: string;
+  /** The park's own photo — same fallback chain as the full-park station marker
+   *  (imageUrl → image → images[0]). Absent → the marker falls back to its generic icon. */
+  image?: string;
 }
 
 /**
@@ -158,6 +163,10 @@ export function resolveRouteStops(
       activityType: h.mapping.activityType,
       cooldownEligible: h.mapping.cooldownEligible,
       distToPathM: Math.round(h.distToPath),
+      name: h.park.name,
+      // Same fallback chain as resolveParkOutAndBack's station (park-out-and-back.ts) —
+      // imageUrl (Bunny, real park photo) first, was inverted (image → imageUrl).
+      image: (h.park as any).imageUrl ?? h.park.image ?? h.park.images?.[0],
     };
   });
 }

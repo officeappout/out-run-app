@@ -33,8 +33,13 @@ export interface ComposedHybridSession {
   aerobicKind: 'running' | 'walking';
   /** Friendly message when the station fell back to bodyweight (A3). */
   fallbackHint?: string;
-  /** The strength station's marker on the map — absent for a bodyweight (A3) stop. */
+  /** The strength station's marker on the map — absent for a bodyweight (A3) stop.
+   *  @deprecated kept for back-compat only — `stations` (below) is the full per-stop list;
+   *  for a single-station plan (full_park) it is `stations[0]`. */
   station?: { lat: number; lng: number; name?: string; image?: string };
+  /** Every stop's own map marker (Part 5) — one entry per stop, each with its own park
+   *  photo when available. `station` above stays the first/anchor stop for back-compat. */
+  stations?: { lat: number; lng: number; name?: string; image?: string }[];
   /**
    * Full-park-workout only (Phase 2): the 3 difficulty options (קל/בינוני/קשה) for the
    * overview carousel, composed ONCE. `plan` mirrors `plans[selectedIndex]` (starts at
@@ -186,6 +191,8 @@ async function composeFullParkWorkout(
       aerobicKind: intent.aerobicKind,
       fallbackHint: restLike ? 'יום מנוחה — הליכה בלבד' : undefined,
       station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
+      // full_park has exactly one stop — stations mirrors station as a 1-element array.
+      stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],
       bolts: { plans, selectedIndex, labels: ['קליל', 'מאוזן', 'עוצמתי'] },
     };
   } catch (e) {
@@ -212,6 +219,7 @@ export interface HybridRoutePreview {
   /** Straight-line round-trip distance (km) — a preview approximation of the plan total. */
   distanceKm: number;
   station?: { lat: number; lng: number; name?: string; image?: string };
+  stations?: { lat: number; lng: number; name?: string; image?: string }[];
 }
 
 export async function composeFullParkRoutePreview(
@@ -241,6 +249,7 @@ export async function composeFullParkRoutePreview(
     routePath: oab.routePath,
     distanceKm: oab.targetKm,
     station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
+    stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],
   };
 }
 
@@ -568,9 +577,13 @@ async function composeRouteStopsWorkout(
   const plans = [1, 2, 3].map((d) => buildForBolt(d as 1 | 2 | 3));
   const selectedIndex = 1; // balanced default (bolt 2)
 
-  // Map pin: the first strength stop is the best visual anchor; other stops render as
-  // segments in the overview journey axis (Part 5).
+  // `station` (singular, back-compat): the first strength stop is still the best single
+  // anchor for any consumer that only reads one marker. `stations` (below, Part 5) is the
+  // full per-stop list — every resolved stop gets its own map marker now.
   const firstStrength = stops.find((s) => s.activityType === 'strength');
+  const markerStations = stops
+    .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+    .map((s) => ({ lat: s.lat, lng: s.lng, name: s.name, image: s.image }));
 
   return {
     plan: plans[selectedIndex],
@@ -579,6 +592,7 @@ async function composeRouteStopsWorkout(
     routePath: traversalPath,
     aerobicKind: intent.aerobicKind,
     station: firstStrength ? { lat: firstStrength.lat, lng: firstStrength.lng } : undefined,
+    stations: markerStations,
     bolts: { plans, selectedIndex, labels: ['קליל', 'מאוזן', 'עוצמתי'] },
     // Budget-split stations → proven single-segment flattening, NOT full-park warmup-split.
     fullParkRun: false,

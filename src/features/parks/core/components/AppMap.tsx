@@ -175,8 +175,9 @@ interface AppMapProps {
   livePathZones?: (string | null)[];
   isActiveWorkout?: boolean;
   destinationMarker?: { lat: number; lng: number } | null;
-  /** Hybrid strength station — the real park photo-pin (or a cyan fallback) at station size. */
-  hybridStation?: { lat: number; lng: number; name?: string; image?: string } | null;
+  /** Every hybrid stop's marker (Part 5) — the real park photo-pin per stop when the park
+   *  has one, else the cyan fallback icon, at station size. One per resolved stop. */
+  hybridStations?: { lat: number; lng: number; name?: string; image?: string }[] | null;
   /** Bumped by a recenter tap → ease the camera to `currentLocation` (best-available fix). */
   recenterSignal?: number;
   isNavigationMode?: boolean;
@@ -286,7 +287,7 @@ export default function AppMap({
   livePathZones,
   isActiveWorkout,
   destinationMarker,
-  hybridStation,
+  hybridStations,
   recenterSignal,
   isNavigationMode = false,
   userBearing = 0,
@@ -1797,22 +1798,23 @@ export default function AppMap({
           </Marker>
         )}
 
-        {/* ── Hybrid strength-station marker ──
-            The station IS a park, so we reuse the map's own park representation:
-            the real ParkPhotoMarker (park.image) at station size when we have an
-            image, else the cyan park-pin identity (matching pin-default). */}
-        {isFiniteLatLng(hybridStation) && (
-          <Marker longitude={hybridStation.lng} latitude={hybridStation.lat} anchor="bottom">
-            {hybridStation.image ? (
+        {/* ── Hybrid stop markers (Part 5) ──
+            One per resolved stop, not just the first. Each stop IS a park, so we reuse the
+            map's own park representation: the real ParkPhotoMarker (that stop's OWN image)
+            at station size when that specific park has one, else the cyan park-pin identity
+            (matching pin-default) — the fallback is per-stop, not all-or-nothing. */}
+        {(hybridStations ?? []).filter((s) => isFiniteLatLng(s)).map((stop, i) => (
+          <Marker key={`hybrid-stop-${i}-${stop.lat}-${stop.lng}`} longitude={stop.lng} latitude={stop.lat} anchor="bottom">
+            {stop.image ? (
               <div className="pointer-events-none">
-                <ParkPhotoMarker name={hybridStation.name ?? 'תחנת כוח'} photoUrl={hybridStation.image} size={64} isSelected />
+                <ParkPhotoMarker name={stop.name ?? 'תחנת כוח'} photoUrl={stop.image} size={64} isSelected />
               </div>
             ) : (
               <div className="flex flex-col items-center pointer-events-none">
-                {hybridStation.name && (
+                {stop.name && (
                   <div dir="rtl" className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap"
                     style={{ background: '#00BAF7', boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
-                    {hybridStation.name}
+                    {stop.name}
                   </div>
                 )}
                 <div className="relative flex items-center justify-center">
@@ -1825,7 +1827,7 @@ export default function AppMap({
               </div>
             )}
           </Marker>
-        )}
+        ))}
 
         {/* ── Route start markers ── */}
         {!isActiveWorkout && visibleRoutes.map(route => {
