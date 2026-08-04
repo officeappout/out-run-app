@@ -31,6 +31,19 @@ const nextConfig = {
         source: '/.well-known/assetlinks.json',
         headers: [{ key: 'Content-Type', value: 'application/json' }],
       },
+      {
+        // Scoped to /embed/* only — does not affect any other route's headers.
+        // TODO: replace localhost with the real marketing-site origin once
+        // confirmed (keep src/lib/embed-config.ts's ALLOWED_EMBED_ORIGINS in
+        // sync by hand — that file can't be imported here, see its header).
+        source: '/embed/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' http://localhost:3000",
+          },
+        ],
+      },
     ];
   },
 };

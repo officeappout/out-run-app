@@ -32,7 +32,7 @@ function MidnightClock() {
 // of the screen, so the global BottomNavbar can coexist at the bottom.
 // '/privacy' and '/terms' are standalone public compliance pages that must
 // render as clean web documents without any mobile app chrome.
-const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/public', '/join', '/challenge', '/booth'];
+const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/public', '/join', '/challenge', '/booth', '/embed'];
 
 export default function ClientLayout({
   children,
@@ -68,6 +68,11 @@ export default function ClientLayout({
   const isLandingPage = mounted && pathname === '/';
   const shouldShowBottomNav = mounted && status !== 'finished' && !isHiddenRoute && !isLandingPage;
   const isMapRoute = mounted && pathname.startsWith('/map');
+  // /embed/* renders inside an external iframe (marketing site) and must be
+  // fully anonymous and chrome-free — HIDDEN_NAV_ROUTES above only silences
+  // BottomNavigation, so the global overlays mounted unconditionally below
+  // (chat, activity, detail sheet, offline/error banners) are skipped too.
+  const isEmbedRoute = mounted && pathname.startsWith('/embed');
 
   return (
     <LanguageProvider>
@@ -97,15 +102,19 @@ export default function ClientLayout({
           </main>
 
           {shouldShowBottomNav && <BottomNavigation />}
-          <GlobalDetailOverlay />
-          <ChatInbox
-            isOpen={chatIsOpen}
-            onClose={chatClose}
-            initialThread={chatActiveThread}
-          />
-          <ActivityPanel isOpen={activityPanelOpen} onClose={activityPanelClose} />
-          <OfflineBanner />
-          <GlobalErrorOverlay />
+          {!isEmbedRoute && <GlobalDetailOverlay />}
+          {!isEmbedRoute && (
+            <ChatInbox
+              isOpen={chatIsOpen}
+              onClose={chatClose}
+              initialThread={chatActiveThread}
+            />
+          )}
+          {!isEmbedRoute && (
+            <ActivityPanel isOpen={activityPanelOpen} onClose={activityPanelClose} />
+          )}
+          {!isEmbedRoute && <OfflineBanner />}
+          {!isEmbedRoute && <GlobalErrorOverlay />}
           <MidnightClock />
         </LazyMotion>
       </ToastProvider>
