@@ -467,7 +467,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
           }}
           selectedRoute={logic.selectedRoute}
           destinationMarker={spotFocus ?? undefined}
-          hybridStation={(logic.focusedRoute as any)?.stationMarker ?? null}
+          hybridStations={(logic.focusedRoute as any)?.stationMarkers ?? null}
           onMapRef={flyover.handleMapRef}
           skipInitialZoom={flyover.flyoverActive || !!spotFocus}
           isAutoFollowEnabled={isMapFollowEnabled}
