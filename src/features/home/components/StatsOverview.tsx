@@ -4,7 +4,7 @@ import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
-import { isDomainAssessed } from '@/features/workout-engine/services/program-hierarchy.utils';
+import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { SHOW_MISSED_DAYS_PROMPTS, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
@@ -1099,8 +1099,12 @@ export default function StatsOverview({
     }
 
     return slideIds.map((sid) => {
-      const track = tracks?.[sid];
-      const domain = domains?.[sid];
+      // subs (programMeta.subPrograms) mixes raw Firestore doc IDs and literal
+      // slugs — domains/tracks are always keyed by slug, so resolve first or
+      // a genuinely-assessed child (e.g. core) reads as unassessed.
+      const slug = resolveToSlug(sid);
+      const track = tracks?.[slug];
+      const domain = domains?.[slug];
       return {
         id: sid,
         name: PROGRAM_NAME_HE[sid.toLowerCase()] ?? sid,
@@ -1108,7 +1112,7 @@ export default function StatsOverview({
         level: track?.currentLevel ?? domain?.currentLevel ?? 1,
         maxLevel: domain?.maxLevel ?? 25,
         percent: track?.percent != null ? Math.round(track.percent) : 0,
-        isAssessed: profile ? isDomainAssessed(profile, sid) : false,
+        isAssessed: profile ? isDomainAssessed(profile, slug) : false,
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
