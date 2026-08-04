@@ -26,6 +26,7 @@ import { resolveToSlug } from '@/features/workout-engine/services/program-hierar
 import ExplainerBubble from '@/components/ui/ExplainerBubble';
 import LemurAvatar from '@/features/user/progression/components/LemurAvatar';
 import { isAutoActive, shouldCaptureSnapshot, type RecommendationSnapshot } from '../utils/autoRecommendationTracker';
+import { deriveKellyBubbleText, resolveKellyProgramLabel } from '../utils/kellyBubbleText';
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
@@ -604,25 +605,43 @@ export default function WorkoutBuilderSheet({
     return null;
   }, [resolvedScheduledProgramIds, derivedRequiredDomains, displayPrograms, suggestedProgramId, programs]);
 
+  // ── Kelly bubble: resolved-program label (display-only fallback) ────────
+  // `autoAppliedProgram` (above) unconditionally returns null whenever
+  // `resolvedScheduledProgramIds` is non-empty ("explicit pill wins", by
+  // design — that guard exists for the GENERATOR). But on the most common
+  // real path — opening "בנה אימון" from home after a trio already resolved
+  // a scheduled program — `defaultProgramIds` arrives prefilled from context
+  // (StatsOverview.tsx `handleBuildCustomWrapped` → home/page.tsx
+  // `handleBuildCustom`) and seeds `selectedProgramIds` on mount, which ALSO
+  // makes `resolvedScheduledProgramIds` non-empty. That permanently nulls
+  // `autoAppliedProgram` even though the user never manually clicked
+  // anything. Combined with `coachCue` being `undefined` on ordinary "build"
+  // weeks (periodization.service.ts:274-286), kellyText had no dynamic
+  // source left on the single most common path and always rendered the
+  // fully generic sentence — functionally duplicating the info icon's
+  // static copy (Fix C, 04.08.2026). This resolves the label of whatever
+  // program is actually selected right now (display-only, never touches the
+  // generator) so kellyText has a genuinely state-dependent thing to say.
+  const kellyResolvedProgramLabel = useMemo(
+    () => resolveKellyProgramLabel(selectedProgramIds, displayPrograms),
+    [selectedProgramIds, displayPrograms],
+  );
+
   // ── Kelly bubble text (Feature A — "why this was recommended") ──────────
-  // Combines two independent reason-sources when present: the periodization
-  // coachCue (threaded from trioResult.meta.coachCue via home/page.tsx) and
-  // the locally-computed autoAppliedProgram reasoning (same text already
-  // shown in the inline "יאומן לפי..." note below the program pills). Falls
-  // back to a generic line when neither source applies (e.g. an explicit
-  // program pill is selected, or the sheet opened outside the trio flow) —
-  // the bubble itself always renders, so it always needs something to say.
-  const kellyText = useMemo(() => {
-    const parts: string[] = [];
-    if (defaultCoachCue) parts.push(defaultCoachCue);
-    if (autoAppliedProgram) {
-      parts.push(`יאומן לפי ${autoAppliedProgram.label} — הותאם אוטומטית לשרירים שבחרת.`);
-    }
-    if (parts.length === 0) {
-      return 'האימון מותאם אישית לפי ההתקדמות וההעדפות שלך — אפשר תמיד לשנות משך, תוכנית, אזור-אימון או עוצמה.';
-    }
-    return parts.join(' ');
-  }, [defaultCoachCue, autoAppliedProgram]);
+  // Priority order (see kellyBubbleText.ts): periodization coachCue (most
+  // specific, threaded from trioResult.meta.coachCue via home/page.tsx) +
+  // autoAppliedProgram reasoning when present; otherwise the resolved
+  // program label above; only when NONE apply does the fully generic line
+  // render — the bubble always renders, so it always needs something to say.
+  const kellyText = useMemo(
+    () =>
+      deriveKellyBubbleText({
+        coachCue: defaultCoachCue,
+        autoAppliedProgram,
+        resolvedProgramLabel: kellyResolvedProgramLabel,
+      }),
+    [defaultCoachCue, autoAppliedProgram, kellyResolvedProgramLabel],
+  );
 
   // Maps each coarse movement domain to the program slugs that constitute enrollment
   // in that domain.  If none of these slugs appear in enrolledIds, the user hasn't
@@ -829,11 +848,11 @@ export default function WorkoutBuilderSheet({
             Renders unconditionally, ahead of the equipment banner below when
             that banner happens to render too (only one bottom-overlay rule
             does not apply here — this is in-flow scroll content, not an
-            overlay). Combines coachCue + autoAppliedProgram reasoning.
-            `alwaysExpanded` (Fix B, 04.08.2026) — Kelly is a permanent
-            fixture, always visible on load, no tap needed. The info icon
-            above (line ~830) intentionally keeps the default tap-to-expand
-            mode — do not add alwaysExpanded there. */}
+            overlay). Combines coachCue + autoAppliedProgram reasoning (see
+            kellyBubbleText.ts). `alwaysExpanded` (Fix B, 04.08.2026) — Kelly
+            is a permanent fixture, always visible on load, no tap needed.
+            The info icon above (line ~830) intentionally keeps the default
+            tap-to-expand mode — do not add alwaysExpanded there. */}
         <ExplainerBubble
           text={kellyText}
           trigger={<LemurAvatar level={1} size="small" />}
