@@ -28,6 +28,8 @@ import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DualRangeSlider from '@/features/partners/components/DualRangeSlider';
 import EquipmentDetailDrawer from '../equipment-detail/EquipmentDetailDrawer';
 import EquipmentCard from '../equipment-detail/EquipmentCard';
+import { useMapMode } from '@/features/parks/core/context/MapModeContext';
+import { useEmbedDownloadPromptStore } from '@/features/parks/core/store/useEmbedDownloadPromptStore';
 
 const DAY_FILTER_LABELS: Record<DayFilter, string> = {
   today: 'היום',
@@ -89,6 +91,10 @@ interface ParkDetailSheetProps {
 export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userLocation }: ParkDetailSheetProps) {
   const { selectedPark } = useMapStore();
   const { profile } = useUserStore();
+  // /embed/map: every write action below that needs auth (or a real session)
+  // opens the download-app modal instead — see the red-line guard in MapShell.
+  const { embedPreset } = useMapMode();
+  const openDownloadPrompt = useEmbedDownloadPromptStore((s) => s.open);
   const y = useMotionValue(0);
   // Opacity fades only as the user drags past the resting (85vh) anchor.
   const opacity = useTransform(y, [PEEK_Y_PX, PEEK_Y_PX + 220], [1, 0]);
@@ -693,7 +699,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                             : 'גם אתה מתכנן להגיע?'}
                         </span>
                         <button
-                          onClick={() => setShowTimePicker((v) => !v)}
+                          onClick={() => (embedPreset ? openDownloadPrompt() : setShowTimePicker((v) => !v))}
                           className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform"
                         >
                           אני מגיע ב...
@@ -827,7 +833,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                                 </span>
                               ) : (
                                 <button
-                                  onClick={() => handleJoinEvent(ev)}
+                                  onClick={() => (embedPreset ? openDownloadPrompt() : handleJoinEvent(ev))}
                                   disabled={isJoining || ev.spotsLeft === 0}
                                   className="flex-shrink-0 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-md text-[10px] font-bold transition-colors"
                                 >
@@ -970,7 +976,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                                   className="flex-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 outline-none"
                                 />
                                 <button
-                                  onClick={handleRatingSubmit}
+                                  onClick={() => (embedPreset ? openDownloadPrompt() : handleRatingSubmit())}
                                   disabled={submittingRating}
                                   className="px-5 py-2 rounded-xl bg-amber-500 text-white text-sm font-bold active:scale-95 transition-transform disabled:opacity-50"
                                 >
@@ -1022,7 +1028,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                 <div className="flex items-center gap-2" dir="rtl">
                   {/* Start Workout — primary CTA */}
                   <button
-                    onClick={() => { onClose(); onStartWorkout?.(); }}
+                    onClick={() => { onClose(); embedPreset ? openDownloadPrompt() : onStartWorkout?.(); }}
                     className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]"
                     style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
                   >
@@ -1032,7 +1038,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
                   {/* Suggest Edit */}
                   <button
-                    onClick={() => setSuggestEditOpen(true)}
+                    onClick={() => (embedPreset ? openDownloadPrompt() : setSuggestEditOpen(true))}
                     className="flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm active:scale-90 transition-transform"
                     style={{ border: '0.5px solid #E0E9FF' }}
                     title="עדכן פרטים"

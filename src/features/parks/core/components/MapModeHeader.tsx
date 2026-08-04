@@ -25,6 +25,8 @@ interface MapModeHeaderProps {
   hasNearbyRoutes: boolean;
   /** Live partner count — appended to the "שותפים לאימון" pill when > 0 */
   partnerCount?: number;
+  /** Modes to exclude entirely (e.g. ['partners'] for /embed/map) */
+  hiddenModes?: MapMode[];
 }
 
 const MODES: Array<{ id: MapMode; label: string; icon: React.ElementType; alwaysShow: boolean }> = [
@@ -35,8 +37,10 @@ const MODES: Array<{ id: MapMode; label: string; icon: React.ElementType; always
 
 const BRAND_CYAN = '#00E5FF';
 
-export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoutes, partnerCount }: MapModeHeaderProps) {
-  const visibleModes = MODES.filter(m => m.alwaysShow || (m.id === 'discover' && hasNearbyRoutes));
+export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoutes, partnerCount, hiddenModes }: MapModeHeaderProps) {
+  const visibleModes = MODES
+    .filter(m => m.alwaysShow || (m.id === 'discover' && hasNearbyRoutes))
+    .filter(m => !hiddenModes?.includes(m.id));
 
   return (
     <div className="flex gap-2 overflow-x-auto scrollbar-hide" dir="rtl">

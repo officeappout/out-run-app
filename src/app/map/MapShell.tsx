@@ -65,6 +65,9 @@ import SessionControlBar from '@/features/parks/core/components/SessionControlBa
 import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/components/UserProfileSheet';
 import AppHeader from '@/components/ui/AppHeader';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
+import type { MapEmbedPreset } from '@/features/parks/core/context/MapModeContext';
+import { useEmbedDownloadPromptStore } from '@/features/parks/core/store/useEmbedDownloadPromptStore';
+import DownloadAppPrompt from '@/components/embed/DownloadAppPrompt';
 
 const UnifiedLocationStep = lazy(
   () => import('@/features/user/onboarding/components/steps/UnifiedLocationStep'),
@@ -81,6 +84,8 @@ export interface MapShellProps {
   initialContext?: string | null;
   /** If set, flyTo this coordinate on map-ready (community navigation) */
   spotFocus?: { lat: number; lng: number } | null;
+  /** Set only by /embed/map — see MapModeContext's MapEmbedPreset doc. */
+  embedPreset?: MapEmbedPreset | null;
 }
 
 // ── Inner orchestrator (requires MapModeProvider in tree) ─────────────────────
@@ -91,8 +96,21 @@ interface MapShellInnerProps {
 }
 
 function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShellInnerProps) {
-  const { mode, setMode, activityType: contextActivity } = useMapMode();
+  const { mode, setMode, activityType: contextActivity, embedPreset } = useMapMode();
   const logic = useMapLogic(mode, contextActivity);
+
+  // Embed red line: no embed preset may ever start a real, XP-tracked
+  // session. Every layer below receives this guarded copy instead of the
+  // raw `logic` — startActiveWorkout opens the "download the app" modal
+  // instead of session.startActiveWorkout. Everything else on `logic`
+  // (reactive state, route generation, GPS) passes through unchanged.
+  const guardedLogic = useMemo(() => {
+    if (!embedPreset) return logic;
+    return {
+      ...logic,
+      startActiveWorkout: () => useEmbedDownloadPromptStore.getState().open(),
+    };
+  }, [logic, embedPreset]);
   const routeZones = useRunningPlayer((s) => s.routeZones);
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
@@ -127,7 +145,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   // heartbeatOnly=true skips this hook's onSnapshot marker listener + 60s heatmap
   // poll (their results are discarded here — the map's pins come from
   // useGroupPresenceListener/usePartnerData below), removing pure wasted load.
-  usePresenceLayer(effectivePos ?? null, !isDemoMode, /* heartbeatOnly */ true);
+  usePresenceLayer(effectivePos ?? null, !isDemoMode && !embedPreset, /* heartbeatOnly */ true);
 
   const flyover = useFlyoverEntrance(effectivePos ?? null);
   const sharedSession = useSharedSession();
@@ -232,6 +250,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   // setIsWorkoutActive) — NOT logic.workoutMode, which is a local discover/free
   // flag that DiscoverLayer never updates before calling startActiveWorkout().
   useEffect(() => {
+    if (embedPreset) return; // red line: embed never transitions into a live session mode
     if (logic.isWorkoutActive && !logic.showSummary) {
       if (mode === 'planned_preview' || mode === 'discover' || mode === 'builder' || mode === 'navigate') {
         // DEBUG — remove after routing confirmed
@@ -243,7 +262,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
         }
       }
     }
-  }, [logic.isWorkoutActive, logic.showSummary, runMode, mode, setMode]);
+  }, [logic.isWorkoutActive, logic.showSummary, runMode, mode, setMode, embedPreset]);
 
   // When summary should show
   useEffect(() => {
@@ -394,7 +413,12 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
            would compound the overlap with the turn cards and GPS pill.
            In all other modes (discover, navigate, etc.) it floats above
            the Mapbox canvas identically to the Home and Feed pages. */}
-      {MAP_OVERVIEW_CHROME_V1 ? (
+      {/* Suppressed entirely in embed — MapShell owns this instance, so
+          ClientLayout's /embed chrome suppression can't reach it. Its avatar/
+          search/logo links navigate the iframe away from the map, and its
+          bell/chat icons open overlays ClientLayout already unmounts under
+          /embed/*, which would otherwise be dead clicks. */}
+      {!embedPreset && (MAP_OVERVIEW_CHROME_V1 ? (
         // Route-preview: fold the nav-bar up while the hybrid overview drawer is up
         // (DiscoverLayer shows the thin blue OverviewTitleBar in its place). The
         // wrapper is a positioned, 0-height containing block so the header's own
@@ -417,7 +441,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
         </AnimatePresence>
       ) : (
         !isActiveMode && <AppHeader asOverlay />
-      )}
+      ))}
       {/* Background particles (hidden during active workouts) */}
       {!isActiveMode && (
         <div className="absolute inset-0 z-[-1] pointer-events-none">
@@ -477,7 +501,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
           speedKmH={devSim.isMockEnabled && devSim.isSimulating ? devSim.simulatedSpeedKmH : undefined}
           partnerPositions={effectivePartners}
           partnerActivityFilter={partnerActivityFilter}
-          liveUsersVisible={isDemoMode ? true : liveUsersVisible}
+          liveUsersVisible={isDemoMode ? true : embedPreset ? false : liveUsersVisible}
           userPersonaId={profile?.personaId}
           onPartnerClick={(p) => setMapProfileUser({ uid: p.uid, name: p.name, personaId: undefined, lemurStage: p.lemurStage })}
           mapMode={mode}
@@ -582,14 +606,16 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
         )}
       </AnimatePresence>
 
-      {/* ══════ LAYER ROUTER ══════ */}
-      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} onRecenter={handleRecenter} />}
-      {mode === 'builder' && <BuilderLayer logic={logic} />}
-      {mode === 'navigate' && <NavigateLayer logic={logic} />}
-      {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} onRecenter={handleRecenter} />}
-      {mode === 'planned_preview' && <PlannedPreviewLayer logic={logic} />}
-      {mode === 'active' && <ActiveWorkoutLayer logic={logic} />}
-      {mode === 'summary' && <SummaryLayer logic={logic} />}
+      {/* ══════ LAYER ROUTER ══════
+           Every layer receives guardedLogic (not raw logic) so startActiveWorkout
+           can never open a real session in embed — see the red-line guard above. */}
+      {mode === 'discover' && <DiscoverLayer logic={guardedLogic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} onRecenter={handleRecenter} />}
+      {mode === 'builder' && <BuilderLayer logic={guardedLogic} />}
+      {mode === 'navigate' && <NavigateLayer logic={guardedLogic} />}
+      {mode === 'free_run' && <FreeRunLayer logic={guardedLogic} effectivePos={effectivePos} onRecenter={handleRecenter} />}
+      {mode === 'planned_preview' && <PlannedPreviewLayer logic={guardedLogic} />}
+      {mode === 'active' && <ActiveWorkoutLayer logic={guardedLogic} />}
+      {mode === 'summary' && <SummaryLayer logic={guardedLogic} />}
 
       {/* ══════ SESSION LOBBY ══════
            Group session waiting room — shown when phase === 'lobby'.
@@ -603,8 +629,8 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
           <SessionLobbyOverlay
             onStartFreeRun={() => {
               useRunningPlayer.getState().setIsGroupRun(true);
-              logic.setWorkoutMode('free');
-              logic.startActiveWorkout();
+              guardedLogic.setWorkoutMode('free');
+              guardedLogic.startActiveWorkout();
               setMode('free_run');
             }}
             ephemeralActivityType={
@@ -676,6 +702,12 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
         onClose={() => setMapProfileUser(null)}
         user={mapProfileUser}
       />
+
+      {/* ══════ EMBED: download-app modal ══════
+           Replaces every real session start / auth-required write for
+           /embed/map — see guardedLogic above and the gates in DiscoverLayer
+           / ParkDetailSheet. Mounted only when embedPreset is set. */}
+      {embedPreset && <DownloadAppPrompt />}
     </main>
   );
 }
@@ -692,7 +724,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
 //           The gate is a z-[80] fixed overlay — the user still can't interact
 //           with the map, but by the time they complete the anchor step the
 //           canvas is already warm and the map appears instantly.
-export default function MapShell({ initialWorkoutId, initialContext, spotFocus }: MapShellProps) {
+export default function MapShell({ initialWorkoutId, initialContext, spotFocus, embedPreset = null }: MapShellProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mapPurpose = (initialContext ?? searchParams.get('context') ?? 'general') as MapPurpose;
@@ -710,6 +742,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
 
   const needsLocationGate = useMemo(() => {
     if (isDemoMode) return false;   // booth demo: skip all gates
+    if (embedPreset) return false;  // /embed/map: anonymous by design, never gated
     if (fromExplorer) return false;
     if (manuallyCleared) return false;
     if (!hasHydrated) return false;
@@ -717,7 +750,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     if (profile.core?.authorityId) return false;
     if (profile.onboardingPath === 'MAP_ONLY') return false;
     return true;
-  }, [isDemoMode, fromExplorer, manuallyCleared, hasHydrated, profile]);
+  }, [isDemoMode, embedPreset, fromExplorer, manuallyCleared, hasHydrated, profile]);
 
   // Universal identity gate: the map requires a name before rendering.
   // Without a name, the presence heartbeat silently skips and the user is
@@ -727,11 +760,12 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   // Demo mode (?demo=1) also bypasses — it never writes presence and needs no profile.
   useEffect(() => {
     if (isDemoMode) return;
+    if (embedPreset) return;
     if (!hasHydrated) return;
     if (profile && !profile.core?.name && profile.onboardingPath !== 'MAP_ONLY') {
       router.replace('/onboarding-new/profile');
     }
-  }, [isDemoMode, hasHydrated, profile, router]);
+  }, [isDemoMode, embedPreset, hasHydrated, profile, router]);
 
   // fromExplorer bypass: clean URL and sync location to Firestore
   useEffect(() => {
@@ -762,7 +796,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   // once per mount; if nothing is saved, the gate shows normally.
   useEffect(() => {
     if (mapPrefRestoreAttempted.current) return;
-    if (isDemoMode || fromExplorer) return;
+    if (isDemoMode || embedPreset || fromExplorer) return;
     if (!hasHydrated || !profile) return;
     if (profile.core?.authorityId) return;
     if (profile.onboardingPath === 'MAP_ONLY') return;
@@ -783,7 +817,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
       setManuallyCleared(true);
     })();
     return () => { cancelled = true; };
-  }, [isDemoMode, fromExplorer, hasHydrated, profile, refreshProfile]);
+  }, [isDemoMode, embedPreset, fromExplorer, hasHydrated, profile, refreshProfile]);
 
   const handleLocationGateComplete = async () => {
     if (typeof window !== 'undefined') {
@@ -809,7 +843,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   return (
     <>
       {/* Map tree always mounts — Mapbox warms up behind the gate */}
-      <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext}>
+      <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext} initialEmbedPreset={embedPreset}>
         <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} isDemoMode={isDemoMode} />
       </MapModeProvider>
 

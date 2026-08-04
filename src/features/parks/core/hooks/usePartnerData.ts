@@ -210,13 +210,21 @@ export function usePartnerData(
   userPos: { lat: number; lng: number } | null,
   radiusKm: number,
   myGroupIds: string[] = [],
+  /**
+   * Forces every listener below into the same ghost-mode short-circuit as a
+   * real user's privacy setting — no Firestore reads, empty results. Used by
+   * /embed/map so anonymous iframe traffic never queries (and never
+   * receives) other real users' live presence/session data.
+   */
+  disabled = false,
 ): PartnerDataResult {
   const [rawScheduled, setRawScheduled] = useState<any[]>([]);
   const [rawEventPartners, setRawEventPartners] = useState<any[]>([]);
   const [rawGroupPartners, setRawGroupPartners] = useState<any[]>([]);
   const [rawLive, setRawLive] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const myMode = usePrivacyStore((s) => s.mode);
+  const privacyMode = usePrivacyStore((s) => s.mode);
+  const myMode = disabled ? 'ghost' : privacyMode;
   // Battery guard (perf/batch1): when the app is backgrounded, all four
   // partner-finder listeners below tear down and stop re-subscribing until the
   // app returns to the foreground. When IS_PERF_BATCH1_ENABLED is off,

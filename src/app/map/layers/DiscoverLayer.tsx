@@ -135,7 +135,7 @@ interface DiscoverLayerProps {
 }
 
 export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, onRecenter }: DiscoverLayerProps) {
-  const { setMode } = useMapMode();
+  const { setMode, embedPreset } = useMapMode();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [mapMode, setMapMode] = useState<MapMode>('idle');
@@ -788,7 +788,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     setEffectiveRadius(requestedDistanceKm);
   }, [requestedDistanceKm]);
 
-  const { live, scheduled, isLoading } = usePartnerData(userLocation, effectiveRadius, myGroupIds);
+  const { live, scheduled, isLoading } = usePartnerData(userLocation, effectiveRadius, myGroupIds, !!embedPreset);
 
   useEffect(() => {
     const total = live.length + scheduled.length;
@@ -865,6 +865,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // We jump straight past the radar/bubbles transient — the user already
   // expressed clear intent on the previous screen.
   useEffect(() => {
+    if (embedPreset) return; // partners is fully off in embed — never enter via deep-link either
     const intent = useMapStore.getState().consumePendingPartnerOverlay();
     if (!intent) return;
     setMapMode('partners');
@@ -952,13 +953,15 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     onAddressSelect: handleAddressSelect,
     isSearching: logic.isSearching,
     inputRef: logic.searchInputRef,
-    onSetSavedPlace: (kind: SavedPlaceKind) => setSetPlaceSheetKind(kind),
+    onSetSavedPlace: embedPreset ? undefined : (kind: SavedPlaceKind) => setSetPlaceSheetKind(kind),
   } as const;
 
   // ── Community enrichment — reactive via onSnapshot ──
   const rawDisplayRoutes = logic.routesToDisplay || [];
   const routeIds = useMemo(() => rawDisplayRoutes.map((r) => r.id), [rawDisplayRoutes]);
-  const { enrichRoutes } = useCommunityEnrichment(routeIds, rawDisplayRoutes);
+  // Empty array short-circuits the hook's own effect (routeIds.length === 0
+  // clears state and returns before subscribing) — no separate embed gate needed.
+  const { enrichRoutes } = useCommunityEnrichment(embedPreset ? [] : routeIds, rawDisplayRoutes);
   const allDisplayRoutes = useMemo(() => enrichRoutes(rawDisplayRoutes), [enrichRoutes, rawDisplayRoutes]);
   const hasNearbyRoutes = allDisplayRoutes.length > 0;
 
@@ -1113,6 +1116,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 onModeChange={handleMapModeChange}
                 hasNearbyRoutes={hasNearbyRoutes}
                 partnerCount={live.length}
+                hiddenModes={embedPreset ? ['partners'] : undefined}
               />
             </div>
           )}
@@ -1283,10 +1287,12 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 rest, rather than sitting hidden behind the skeleton during load. */}
             {isMapVisuallyReady && (
             <div className="absolute right-4 z-[40] flex flex-col gap-3" style={{ bottom: 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}>
-              <ActionSpeedDial
-                onAdd={() => setWizardOpen(true)}
-                onReport={() => setReportOpen(true)}
-              />
+              {!embedPreset && (
+                <ActionSpeedDial
+                  onAdd={() => setWizardOpen(true)}
+                  onReport={() => setReportOpen(true)}
+                />
+              )}
               <button
                 onClick={() => {
                   // Also exits viewport-search mode and resets the pan baseline
@@ -1323,7 +1329,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
 
             {/* ── On-map hybrid entry ("מה עושים היום?") — idle only, flag-gated.
                 Opens the slot layer (resetHybridFlow('slots') — passive, no compose). */}
-            {HYBRID_SLOTS_ENABLED && mapMode === 'idle' && isMapVisuallyReady && (
+            {HYBRID_SLOTS_ENABLED && !embedPreset && mapMode === 'idle' && isMapVisuallyReady && (
               <div
                 className="absolute left-0 right-0 z-[100] pointer-events-none"
                 style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
@@ -1362,7 +1368,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   setRouteCarouselConfig({ targetKm, includeStrength, surface });
                   setFreeRunStep('route');
                 }}
-                onStartHybrid={HYBRID_SLOTS_ENABLED ? (intent) => {
+                onStartHybrid={HYBRID_SLOTS_ENABLED && !embedPreset ? (intent) => {
                   // Route-preview title bar (MAP_OVERVIEW_CHROME_V1): the drawer has no
                   // slot title, so derive an aerobic+כוח label. No-op when flag is off.
                   setOverviewTitle(intent.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח');
@@ -1566,7 +1572,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       {/* ═══ Global overlays — always available, never conflict ═══ */}
       {logic.isGenerating && <RouteGenerationLoader />}
 
-      {process.env.NODE_ENV !== 'production' && devSim && <MockLocationPanel devSim={devSim} />}
+      {process.env.NODE_ENV !== 'production' && !embedPreset && devSim && <MockLocationPanel devSim={devSim} />}
 
       <ContributionWizard
         isOpen={wizardOpen}

@@ -12,6 +12,14 @@ export type MapMode =
   | 'active'
   | 'summary';
 
+/**
+ * Set only for /embed/* routes (see src/features/parks/core/utils/embedPresets.ts).
+ * `null` everywhere else — every existing consumer stays byte-identical.
+ * 'route' = anonymous route-builder embed: discover-mode browsing + route
+ * generation, minus social/hybrid/UGC/dev-tools and any real session start.
+ */
+export type MapEmbedPreset = 'route';
+
 export interface MapModeContextValue {
   mode: MapMode;
   setMode: (mode: MapMode) => void;
@@ -22,6 +30,7 @@ export interface MapModeContextValue {
   setDestination: (d: { lat: number; lng: number } | null) => void;
   activityType: ActivityType;
   setActivityType: (t: ActivityType) => void;
+  embedPreset: MapEmbedPreset | null;
 }
 
 const MapModeContext = createContext<MapModeContextValue | null>(null);
@@ -37,10 +46,12 @@ interface MapModeProviderProps {
   initialWorkoutId: string | null;
   /** URL context (e.g. 'running') from the Server Component. */
   initialContext?: string | null;
+  /** Set only by /embed/map — fixed for the lifetime of the provider. */
+  initialEmbedPreset?: MapEmbedPreset | null;
   children: React.ReactNode;
 }
 
-export function MapModeProvider({ initialWorkoutId, initialContext, children }: MapModeProviderProps) {
+export function MapModeProvider({ initialWorkoutId, initialContext, initialEmbedPreset, children }: MapModeProviderProps) {
   const [mode, setMode] = useState<MapMode>(initialWorkoutId ? 'planned_preview' : 'discover');
   const [isHybridWorkout, setIsHybridWorkout] = useState(false);
   const [destination, setDestination] = useState<{ lat: number; lng: number } | null>(null);
@@ -57,6 +68,8 @@ export function MapModeProvider({ initialWorkoutId, initialContext, children }: 
     }
   }, [initialWorkoutId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const embedPreset = initialEmbedPreset ?? null;
+
   const value = useMemo<MapModeContextValue>(() => ({
     mode,
     setMode,
@@ -67,7 +80,8 @@ export function MapModeProvider({ initialWorkoutId, initialContext, children }: 
     setDestination,
     activityType,
     setActivityType,
-  }), [mode, initialWorkoutId, isHybridWorkout, destination, activityType]);
+    embedPreset,
+  }), [mode, initialWorkoutId, isHybridWorkout, destination, activityType, embedPreset]);
 
   return (
     <MapModeContext.Provider value={value}>
