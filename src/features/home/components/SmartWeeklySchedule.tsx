@@ -1378,7 +1378,7 @@ export default function SmartWeeklySchedule({
             const platform = w.Capacitor?.getPlatform?.() ?? 'web'; // 'ios' | 'android' | 'web'
             const feedHost = platform !== 'web'
               ? APP_CONFIG_LINKS.WEB_BASE_URL.replace('https://', '')
-              : (typeof window !== 'undefined' ? window.location.host : 'outrun.co.il');
+              : (typeof window !== 'undefined' ? window.location.host : new URL(APP_CONFIG_LINKS.WEB_BASE_URL).host);
             const webcalUrl = `webcal://${feedHost}/api/calendar/${userId}`;
             if (platform === 'android') {
               // Android has no built-in webcal:// handler. Pass the Google Calendar

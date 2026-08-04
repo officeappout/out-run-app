@@ -20,6 +20,7 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 import { addScheduleEntryAdmin } from '@/lib/addScheduleEntryAdmin';
+import { APP_URL } from '@/lib/config/domain-config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,7 @@ export const dynamic = 'force-dynamic';
 
 const TOKEN_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
 const EXPIRY_MS   = 2 * 60 * 60 * 1000; // 2 hours, matches existing session invites
-const WEB_BASE    = 'https://outrun.co.il';
+const WEB_BASE    = APP_URL;
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 

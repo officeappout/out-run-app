@@ -7,8 +7,9 @@ import { useSearchParams } from 'next/navigation';
 import QRCode from 'react-qr-code';
 import { useTranslation } from '@/hooks/useTranslation';
 import ChallengeLangToggle from '@/features/challenge/components/ChallengeLangToggle';
+import { ROOT_DOMAIN, SITE_URL } from '@/lib/config/domain-config';
 
-const CHALLENGE_URL = 'https://outrun.co.il/challenge/LSIT26';
+const CHALLENGE_URL = `${SITE_URL}/challenge/LSIT26`;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -294,7 +295,7 @@ export default function BoothDisplayPage() {
           </div>
         </div>
 
-        <span className="text-sm" style={{ color: '#334155' }}>outrun.co.il</span>
+        <span className="text-sm" style={{ color: '#334155' }}>{ROOT_DOMAIN}</span>
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+import { APP_URL } from './domain-config';
+
 /**
  * Centralized App URL Configuration
  *
@@ -13,6 +15,8 @@
  *     Must land on the browser/web-view first so the content can render for
  *     recipients who don't yet have the app, and so Open Graph previews work.
  *     Format: `WEB_BASE_URL/workouts/<id>` or `WEB_BASE_URL/join/<inviteCode>`
+ *     Sourced from domain-config.ts's APP_URL (this is the app, not the
+ *     marketing site) — single value, see src/lib/config/domain-config.ts.
  *
  *   LEGACY_VERCEL_URL — The old Vercel deployment URL kept as a reference.
  *     Do not use in new code. Retained here to make future migration audits easy.
@@ -22,7 +26,7 @@ export const APP_CONFIG_LINKS = {
   GENERAL_INVITE_ONELINK: 'https://onelink.to/appout',
 
   /** Canonical production web base URL for entity sharing (workouts, groups). */
-  WEB_BASE_URL: 'https://outrun.co.il',
+  WEB_BASE_URL: APP_URL,
 
   /** Legacy Vercel deployment URL — kept for reference only, do not use. */
   LEGACY_VERCEL_URL: 'https://out-run-app.vercel.app',

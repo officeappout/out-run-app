@@ -4,6 +4,14 @@ import {
   SESSION_COOKIE_NAME,
   verifyAdminSession,
 } from '@/lib/admin-session';
+import { ADMIN_URL, AUTHORITY_PORTAL_URL } from '@/lib/config/domain-config';
+
+// Real production hostnames, derived from the single domain-config source.
+// The `.local` variants below are a separate, dev-only local-DNS-alias
+// convention (not part of the ROOT_DOMAIN/subdomain model) — left as literals
+// on purpose, see docs/architecture/domain-config.md.
+const ADMIN_HOSTNAME = new URL(ADMIN_URL).hostname;
+const AUTHORITY_PORTAL_HOSTNAME = new URL(AUTHORITY_PORTAL_URL).hostname;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Capacitor CORS — allowed origins for the native iOS / Android shell
@@ -134,8 +142,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isAdminDomain = domain === 'admin.outrun.co.il' || domain === 'admin.outrun.local';
-  const isAuthorityDomain = domain === 'portal.outrun.co.il' || domain === 'portal.outrun.local';
+  const isAdminDomain = domain === ADMIN_HOSTNAME || domain === 'admin.outrun.local';
+  const isAuthorityDomain = domain === AUTHORITY_PORTAL_HOSTNAME || domain === 'portal.outrun.local';
   const isLocalDev =
     domain === 'localhost' || domain.includes('127.0.0.1') || domain.includes('192.168');
 

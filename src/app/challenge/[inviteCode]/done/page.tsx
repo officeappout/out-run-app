@@ -15,10 +15,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { DictionaryKey } from '@/lib/i18n/dictionaries';
 import ChallengeLangToggle from '@/features/challenge/components/ChallengeLangToggle';
+import { SITE_URL } from '@/lib/config/domain-config';
 
 // ── Store links — update IOS_STORE_URL when the app is published on the App Store ──
 const ANDROID_STORE_URL = 'https://play.google.com/store/apps/details?id=co.il.appout.outrun';
-const IOS_STORE_URL     = 'https://outrun.co.il'; // TODO: replace with apps.apple.com/…/id[APP_ID]
+const IOS_STORE_URL     = SITE_URL; // TODO: replace with apps.apple.com/…/id[APP_ID]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
