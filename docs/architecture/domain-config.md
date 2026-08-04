@@ -46,6 +46,24 @@ one into a single-value change.
 | `src/app/api/invite/run-session/route.ts:31` (`WEB_BASE`) | `'https://outrun.co.il'` | `APP_URL` |
 | `src/features/home/components/SmartWeeklySchedule.tsx:1381` (SSR fallback host) | `'outrun.co.il'` | `new URL(APP_CONFIG_LINKS.WEB_BASE_URL).host` |
 
+### Resolved (David's call, 2026-08-04)
+
+**Legacy Vercel URL cluster — `out-run-app.vercel.app`, now routed through `SITE_URL`**
+Decision: this was a correctness fix, not a behavior-preserving refactor —
+`SITE_URL` currently equals the same real value (`outrun.co.il`), and the
+old URL was already marked "do not use in new code." Swapped in:
+`src/app/layout.tsx:14` (`metadataBase`), `src/app/workouts/[id]/page.tsx:34,41`
+(`metadataBase` + OpenGraph `url`), `useFavoritesActions.ts:124,142`
+(WhatsApp/native-share fallback text), `GroupDetailsDrawer.tsx:1210,1275` +
+`CreateGroupWizard.tsx:510,527` (SSR-only fallback for
+`window.location.origin` — the runtime path, when `window` exists, was
+already correct and is unaffected), `legal-content.ts:422,435` (the two
+delete-data form URLs in the Hebrew privacy-policy body text).
+**Intentionally still left as-is:** `app-urls.ts`'s `LEGACY_VERCEL_URL`
+constant itself (its whole purpose is documenting the old value) and
+`middleware.ts`'s comment mentioning the same URL (prose, not a functional
+value). `tsc --noEmit` confirmed clean after the swap.
+
 ### Found, intentionally NOT touched (flagged, not guessed)
 
 **Firebase Auth `authDomain` — `src/lib/firebase.ts:35`**
@@ -70,19 +88,6 @@ These are fixed WebView **scheme identifiers** Capacitor always uses
 `androidScheme: 'https'`) — not one of our domains, and always `localhost`
 regardless of what `APP_URL`/`ROOT_DOMAIN` resolve to. Not a
 domain-config candidate at all.
-
-**Legacy Vercel URL cluster — `out-run-app.vercel.app`**
-`src/app/layout.tsx:14`, `src/app/workouts/[id]/page.tsx:34,41`,
-`src/features/workouts/.../useFavoritesActions.ts:124,142`,
-`src/features/arena/components/GroupDetailsDrawer.tsx:1210,1275`,
-`src/features/arena/components/CreateGroupWizard.tsx:510,527`,
-`src/features/legal/legal-content.ts:422,435`,
-`src/lib/config/app-urls.ts:28` (`LEGACY_VERCEL_URL`, already explicitly
-marked "do not use in new code"). Swapping these to `SITE_URL`/`APP_URL`
-would be a **behavior change** (different URL embedded in SEO metadata /
-share text / delete-data links today, not just a config source swap) —
-unclear whether the vercel.app URL is an intentional stable fallback or
-stale. **Left untouched — flagging for your call, not guessing.**
 
 **Company email/business domain — `appout.co.il`**
 `office@appout.co.il`, `david@appout.co.il`, `matan.danan@appout.co.il`,
@@ -110,7 +115,37 @@ concern, not live routing — left untouched.
 Third-party OneLink smart-link service domain — not one of our domains at
 all.
 
+## Follow-ups
+
+### CSP `frame-ancestors` — 2-line fix, do at merge time (not done here)
+`next.config.mjs`'s `/embed/:path*` CSP header only exists on
+`feat/embed-exercises`/`feat/embed-map` — not on `main`, and therefore not
+on this branch. Building it here would duplicate/conflict with those
+branches. Once merged, replace the `http://localhost:3000`-only
+`frame-ancestors` value with:
+```js
+import { SITE_URL } from '@/lib/config/domain-config'; // or process.env.NEXT_PUBLIC_SITE_URL —
+// next.config.mjs is loaded by Node before the TS/webpack pipeline exists,
+// so it reads the env var directly rather than importing the module
+// (same constraint already documented in embed-config.ts).
+{
+  key: 'Content-Security-Policy',
+  value: `frame-ancestors 'self' ${process.env.NEXT_PUBLIC_SITE_URL || 'https://outrun.co.il'} http://localhost:3000`,
+},
+```
+`SITE_URL` (bare root, `outrun.co.il`) is the right value here — not a
+placeholder marketing-site domain — because per the target domain table
+above, `ROOT_DOMAIN` bare *is* the future marketing site once the app
+itself moves to `app.<root>`, so this becomes correct with zero further
+changes once that flip happens. `http://localhost:3000` stays alongside it
+unconditionally, for local dev testing.
+
+**Recommended merge order (David's call, 2026-08-04):**
+`feat/embed-exercises` → `feat/embed-map` → `chore/domain-config` → then
+this 2-line CSP follow-up.
+
 ## tsc
 
 `npx tsc --noEmit` — zero new errors introduced by this branch's changes
-(pre-existing unrelated errors elsewhere untouched, same baseline as main).
+(pre-existing unrelated errors elsewhere untouched, same baseline as main,
+re-verified after the vercel.app swap in the follow-up commit).
