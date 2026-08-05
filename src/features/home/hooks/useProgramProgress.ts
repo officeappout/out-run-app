@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useUserStore } from '@/features/user';
 import { getProgramByTemplateId } from '@/features/content/programs';
 import { resolveIconKey } from '@/features/content/programs';
+import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
 
 /**
@@ -128,8 +129,13 @@ export function useProgramProgress(): ProgramProgressData | null {
   const { currentLevel, progressPercent, maxLevel } = useMemo(() => {
     const tracks = profile?.progression?.tracks;
     const domains = profile?.progression?.domains;
-    const track = primaryDomainId ? tracks?.[primaryDomainId] : undefined;
-    const domain = primaryDomainId ? domains?.[primaryDomainId] : undefined;
+    // primaryDomainId is often a raw Firestore templateId (activeProgram.templateId),
+    // but tracks/domains and MASTER_PROGRAM_CHILDREN are always keyed by slug —
+    // resolve first or a real full_body enrollment silently falls through to
+    // "no data found" everywhere below.
+    const primarySlug = primaryDomainId ? resolveToSlug(primaryDomainId) : null;
+    const track = primarySlug ? tracks?.[primarySlug] : undefined;
+    const domain = primarySlug ? domains?.[primarySlug] : undefined;
     // maxLevel resolution priority:
     //   1. Live CMS fetch (`programs/{id}.maxLevels`) — most authoritative, always wins
     //      when admin has set it. Reflects post-onboarding edits in the CMS.
@@ -152,8 +158,8 @@ export function useProgramProgress(): ProgramProgressData | null {
     // capped at MASTER_LEVEL_CAP. The child percent is averaged in lockstep
     // so the ring reflects intra-level progress that matches the displayed
     // level number — keeping the percent feed but feeding it consistent data.
-    const masterChildren = primaryDomainId
-      ? MASTER_PROGRAM_CHILDREN[primaryDomainId]
+    const masterChildren = primarySlug
+      ? MASTER_PROGRAM_CHILDREN[primarySlug]
       : undefined;
     let derivedLevel: number | null = null;
     let derivedPercent: number | null = null;
