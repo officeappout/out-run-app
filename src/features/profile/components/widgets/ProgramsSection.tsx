@@ -24,7 +24,7 @@ import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
 import ProgramDrawer, { type ProgramDrawerData } from './ProgramDrawer';
 import type { Program } from '@/features/content/programs/core/program.types';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
-import { isDomainAssessed } from '@/features/workout-engine/services/program-hierarchy.utils';
+import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -81,10 +81,14 @@ export default function ProgramsSection() {
   // Resolve the master program templateId
   const masterTemplateId =
     profile?.progression?.activePrograms?.[0]?.templateId ?? null;
+  // masterTemplateId is the raw Firestore doc ID (needed as-is for
+  // fetchProgramMeta / the drawer). MASTER_PROGRAM_CHILDREN and tracks are
+  // keyed by slug — resolve separately for those lookups only.
+  const masterSlug = masterTemplateId ? resolveToSlug(masterTemplateId) : null;
 
   // Derived children for this master
-  const childSlugs: readonly string[] = masterTemplateId
-    ? (MASTER_PROGRAM_CHILDREN[masterTemplateId] ?? [])
+  const childSlugs: readonly string[] = masterSlug
+    ? (MASTER_PROGRAM_CHILDREN[masterSlug] ?? [])
     : [];
 
   // Fetch master metadata once
@@ -136,10 +140,10 @@ export default function ProgramsSection() {
       currentLevel: masterLevel,
       maxLevel: masterMaxLevel,
       percent: masterPercent,
-      totalWorkoutsCompleted: tracks[masterTemplateId]?.totalWorkoutsCompleted ?? 0,
+      totalWorkoutsCompleted: (masterSlug ? tracks[masterSlug] : undefined)?.totalWorkoutsCompleted ?? 0,
       iconKey: masterIconKey ?? masterMeta?.iconKey,
     });
-  }, [masterTemplateId, masterName, masterMeta, masterLevel, masterMaxLevel, masterPercent, masterIconKey, tracks]);
+  }, [masterTemplateId, masterSlug, masterName, masterMeta, masterLevel, masterMaxLevel, masterPercent, masterIconKey, tracks]);
 
   // ── Open drawer for a child program ────────────────────────────
   const openChildDrawer = useCallback(
