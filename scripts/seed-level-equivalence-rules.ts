@@ -1,22 +1,26 @@
 /**
  * seed-level-equivalence-rules.ts
  * ---------------------------------------------------------------------------
- * Seeds `level_equivalence_rules` docs for the skill-suggestion cases from the
- * "מנוע-הצעות לתוכניות — סיור-מוחות (6.8.2026)" brainstorm, minus case 1
- * (muscle_up / AND push+pull) — that one has no confirmed threshold yet, so
- * it is intentionally NOT included here. Add it once a number is agreed.
+ * Seeds `level_equivalence_rules` docs for all 6 skill-suggestion cases from
+ * the "מנוע-הצעות לתוכניות — סיור-מוחות (6.8.2026)" brainstorm, including
+ * case 1 (muscle_up, AND push≥14 + pull≥14 — threshold confirmed 6.8.2026).
  *
- * All 5 rules seeded here use `mode: 'suggest'` — per the OUT decision, these
- * write a pending suggestion (progression.pendingProgramSuggestions) only.
- * No track or activePrograms mutation happens automatically; nothing changes
- * for a real user until an acceptance flow (not built yet) is used.
+ * All 6 rules use `mode: 'suggest'` — per the OUT decision, these write a
+ * pending suggestion (progression.pendingProgramSuggestions) only. No track
+ * or activePrograms mutation happens automatically; nothing changes for a
+ * real user until they explicitly accept via ProgramSuggestionCard
+ * (StrengthSummaryPage) → startMiniDomainAssessment(..., 'skill').
  *
- * ⚠️  targetLevel IS NOT IN THE SOURCE TABLE — the brainstorm only specified
- *     the *source* threshold (e.g. "pull≥16 → suggest one_arm_pullup"), not
- *     what level one_arm_pullup should be suggested AT. Every rule below is
- *     seeded with a PLACEHOLDER `targetLevel: 1` and `TARGET_LEVEL_TODO` in
- *     its description. Do not run `--write` until real target-levels are
- *     confirmed and substituted in the RULES array below.
+ * targetLevel is NOT in the source table (the brainstorm only specified the
+ * *source* threshold, e.g. "pull≥16 → suggest one_arm_pullup", never what
+ * level one_arm_pullup should be suggested AT) — every rule here keeps
+ * `targetLevel: 1`. This is deliberately NOT a guessed level: in `suggest`
+ * mode targetLevel is never written to the user's track (that only happens
+ * in `mode: 'auto'`) — its only effect is the `currentLevel >= targetLevel`
+ * gate in applyLevelEquivalences that stops re-suggesting once the user has
+ * ANY real assessed level in the target. `1` is the correct, non-arbitrary
+ * value for that purpose (the minimum a real assessed level can be), not a
+ * placeholder standing in for a number nobody picked yet.
  *
  * ⚠️  TARGET PROJECT: `appout-1` — this is PRODUCTION. There is no separate
  *     staging project.
@@ -47,7 +51,7 @@ function init() {
   admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id });
 }
 
-// ── Rule definitions (cases 2-6 from the brainstorm table) ────────────────
+// ── Rule definitions (all 6 cases from the brainstorm table) ──────────────
 interface SeedCondition {
   programId: string;
   minLevel: number;
@@ -55,7 +59,7 @@ interface SeedCondition {
 interface SeedRule {
   caseNumber: number;
   targetProgramId: string;
-  targetLevelTodo: number; // PLACEHOLDER — see file header. Replace before --write.
+  targetLevel: number; // Deliberately 1 — see file header (not a placeholder for suggest-mode).
   conditions: SeedCondition[];
   logic: 'AND' | 'OR';
   description: string;
@@ -63,39 +67,50 @@ interface SeedRule {
 
 const RULES: SeedRule[] = [
   {
+    caseNumber: 1,
+    targetProgramId: 'muscle_up',
+    targetLevel: 1,
+    conditions: [
+      { programId: 'push', minLevel: 14 },
+      { programId: 'pull', minLevel: 14 },
+    ],
+    logic: 'AND',
+    description: 'דחיפה≥14 וגם משיכה≥14 → הצעת עליית כוח',
+  },
+  {
     caseNumber: 2,
     targetProgramId: 'handstand',
-    targetLevelTodo: 1,
+    targetLevel: 1,
     conditions: [
       { programId: 'push', minLevel: 14 },
       { programId: 'planche', minLevel: 5 },
     ],
     logic: 'OR',
-    description: '[TARGET_LEVEL_TODO] דחיפה≥14 או פלאנץ׳≥5 → הצעת עמידת ידיים',
+    description: 'דחיפה≥14 או פלאנץ׳≥5 → הצעת עמידת ידיים',
   },
   {
     caseNumber: 3,
     targetProgramId: 'one_arm_pullup',
-    targetLevelTodo: 1,
+    targetLevel: 1,
     conditions: [{ programId: 'pull', minLevel: 16 }],
     logic: 'AND',
-    description: '[TARGET_LEVEL_TODO] משיכה≥16 → הצעת מתח יד אחת',
+    description: 'משיכה≥16 → הצעת מתח יד אחת',
   },
   {
     caseNumber: 4,
     targetProgramId: 'front_lever',
-    targetLevelTodo: 1,
+    targetLevel: 1,
     conditions: [{ programId: 'pull', minLevel: 14 }],
     logic: 'AND',
-    description: '[TARGET_LEVEL_TODO] משיכה≥14 → הצעת פרונט לוור',
+    description: 'משיכה≥14 → הצעת פרונט לוור',
   },
   {
     caseNumber: 5,
     targetProgramId: 'planche',
-    targetLevelTodo: 1,
+    targetLevel: 1,
     conditions: [{ programId: 'push', minLevel: 16 }],
     logic: 'AND',
-    description: '[TARGET_LEVEL_TODO] דחיפה≥16 → הצעת פלאנץ׳',
+    description: 'דחיפה≥16 → הצעת פלאנץ׳',
   },
   {
     caseNumber: 6,
@@ -107,16 +122,16 @@ const RULES: SeedRule[] = [
     // second, inconsistent code-name for the same program that exists
     // elsewhere in the codebase; not touched here, just avoided.
     targetProgramId: 'hspu',
-    targetLevelTodo: 1,
+    targetLevel: 1,
     conditions: [{ programId: 'push', minLevel: 17 }],
     logic: 'AND',
-    description: '[TARGET_LEVEL_TODO] דחיפה≥17 → הצעת שכיבות סמיכה בעמידת ידיים',
+    description: 'דחיפה≥17 → הצעת שכיבות סמיכה בעמידת ידיים',
   },
 ];
 
 async function main() {
   console.log(WRITE ? '⚠️  WRITE MODE — will write to production Firestore' : '🔍 DRY RUN — no writes (pass --write to actually seed)');
-  console.log(`${RULES.length} rule(s) to seed (case 1 / muscle_up intentionally excluded — no confirmed threshold)\n`);
+  console.log(`${RULES.length} rule(s) to seed (all 6 cases)\n`);
 
   if (WRITE) init();
   const db = WRITE ? admin.firestore() : null;
@@ -132,7 +147,7 @@ async function main() {
         ? { sourceProgramId: rule.conditions[0].programId, sourceLevel: rule.conditions[0].minLevel }
         : { sourceProgramId: null, sourceLevel: null }),
       targetProgramId: rule.targetProgramId,
-      targetLevel: rule.targetLevelTodo,
+      targetLevel: rule.targetLevel,
       targetPercent: 0,
       mode: 'suggest' as const,
       addToActivePrograms: false, // irrelevant in suggest mode, explicit for clarity
@@ -143,7 +158,7 @@ async function main() {
     console.log(`[case ${rule.caseNumber}] ${docId}`);
     console.log(
       `  ${rule.conditions.map(c => `${c.programId}≥${c.minLevel}`).join(rule.logic === 'AND' ? ' וגם ' : ' או ')}` +
-      ` → ${rule.targetProgramId} (targetLevel=${rule.targetLevelTodo} ⚠️ PLACEHOLDER)`,
+      ` → ${rule.targetProgramId} (targetLevel=${rule.targetLevel})`,
     );
 
     if (WRITE && db) {
@@ -161,7 +176,7 @@ async function main() {
   }
 
   if (!WRITE) {
-    console.log('Dry run complete. Re-run with --write once targetLevel placeholders are confirmed and replaced.');
+    console.log('Dry run complete. Re-run with --write to seed for real.');
   } else {
     console.log('Seed complete.');
   }
