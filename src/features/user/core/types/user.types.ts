@@ -1,5 +1,5 @@
 import { RunningProfile } from '../../../workout-engine/core/types/running.types';
-import { DomainTrackProgress, ReadyForSplitStatus } from './progression.types';
+import { DomainTrackProgress, ReadyForSplitStatus, PendingProgramSuggestion } from './progression.types';
 import type { RecurringTemplate } from '../../scheduling/types/schedule.types';
 
 // ==========================================
@@ -169,6 +169,13 @@ export interface UserProgression {
     sourceLevelAtTrigger: number;
     subLevelsSnapshot: Record<string, number>;
   };
+
+  // --- Level Equivalence Suggestions ---
+  // Written by `mode: 'suggest'` Level Equivalence Rules (progression.service.ts's
+  // applyLevelEquivalences) when a user's level(s) satisfy a rule's conditions.
+  // No track/activePrograms mutation happens until the user accepts — this array
+  // is the pending queue. One entry per triggered rule (deduped by ruleId).
+  pendingProgramSuggestions?: PendingProgramSuggestion[];
 
   // --- Program Progress Tracking (Golden Content Hyper-Personalization) ---
   // Progress percentage (0-100) in the user's current primary program

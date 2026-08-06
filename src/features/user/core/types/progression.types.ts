@@ -253,25 +253,74 @@ export interface MasterProgramProgress {
 }
 
 /**
+ * One source condition in a Level Equivalence Rule: "programId has reached minLevel".
+ */
+export interface LevelEquivalenceCondition {
+  programId: string;
+  minLevel: number;
+}
+
+/**
  * Level Equivalence Rule
- * Defines automatic level mapping between programs.
- * When a user reaches `sourceLevel` in `sourceProgramId`,
- * the `targetProgramId` is automatically set to `targetLevel`
+ * Defines automatic level mapping between programs: when `conditions` are met
+ * (combined via `logic`), the `targetProgramId` is set to `targetLevel`
  * (only if the target's current level is lower).
  *
  * Stored in Firestore: collection 'level_equivalence_rules'
  *
- * Example: Push Lvl 15 -> Planche Lvl 4
- * { sourceProgramId: 'push', sourceLevel: 15, targetProgramId: 'planche', targetLevel: 4 }
+ * Example (single condition): Push Lvl 15 -> Planche Lvl 4
+ *   { conditions: [{ programId: 'push', minLevel: 15 }], logic: 'AND',
+ *     targetProgramId: 'planche', targetLevel: 4 }
+ *
+ * Example (AND, 2 sources): Push 16 AND Pull 16 -> Muscle-Up Lvl 3
+ *   { conditions: [{ programId: 'push', minLevel: 16 }, { programId: 'pull', minLevel: 16 }],
+ *     logic: 'AND', targetProgramId: 'muscle_up', targetLevel: 3 }
+ *
+ * Example (OR, 2 sources): Push 14 OR Planche 5 -> Handstand Lvl 2
+ *   { conditions: [{ programId: 'push', minLevel: 14 }, { programId: 'planche', minLevel: 5 }],
+ *     logic: 'OR', targetProgramId: 'handstand', targetLevel: 2 }
  */
 export interface LevelEquivalenceRule {
   id: string;
-  sourceProgramId: string;   // The program whose level-up triggers the mapping
-  sourceLevel: number;       // The level that triggers the mapping
+
+  /** One or more source conditions. A single-condition rule behaves like the old single-source rule. */
+  conditions: LevelEquivalenceCondition[];
+  /** How `conditions` combine. Irrelevant (but still required) when conditions.length === 1. */
+  logic: 'AND' | 'OR';
+  /**
+   * Denormalized copy of conditions[].programId — lets applyLevelEquivalences find
+   * candidate rules via a single Firestore `array-contains` query on the domain that
+   * just leveled up, before evaluating the full AND/OR condition in-memory.
+   */
+  sourceProgramIds: string[];
+
+  /**
+   * @deprecated Legacy single-source mirror, auto-populated only when conditions.length === 1
+   * (== conditions[0]). Kept so recommendation.service.ts's one-shot onboarding-summary
+   * suggestions (which query these flat fields directly) keep finding single-condition
+   * rules. Multi-condition (AND/OR, 2+) rules leave these undefined — that one-shot,
+   * quiz-time-snapshot consumer has no notion of combining live levels across domains,
+   * so it can't represent them anyway.
+   */
+  sourceProgramId?: string;
+  /** @deprecated see sourceProgramId */
+  sourceLevel?: number;
+
   targetProgramId: string;   // The program that gets unlocked/set
   targetLevel: number;       // The level to set in the target program
   targetPercent?: number;    // Optional: initial percent in target (default 0)
-  addToActivePrograms?: boolean; // If true, also adds target to user's activePrograms
+
+  /**
+   * 'suggest' (default for new rules): write a pending suggestion the user must accept —
+   *   no track/activePrograms mutation happens automatically. See
+   *   UserProgression.pendingProgramSuggestions.
+   * 'auto': legacy behavior — directly set the target track (and optionally activePrograms
+   *   via addToActivePrograms) with no user action required. Kept for cases that should stay
+   *   silent/automatic (e.g. an eventual full_body auto-enrollment rule), NOT the default.
+   */
+  mode: 'suggest' | 'auto';
+  addToActivePrograms?: boolean; // Only consulted when mode === 'auto'.
+
   description?: string;      // Admin-facing description (e.g., "Push mastery unlocks Planche")
   isEnabled?: boolean;       // Toggle rule on/off without deleting (default true)
   createdAt?: Date;
@@ -287,4 +336,22 @@ export interface LevelEquivalenceResult {
   previousLevel: number;
   newLevel: number;
   wasNewlyUnlocked: boolean; // true if the target had no track before
+  mode: 'suggest' | 'auto';  // which path this result took
+}
+
+/**
+ * A target program suggested to the user by a `mode: 'suggest'` Level Equivalence
+ * Rule. Written to `progression.pendingProgramSuggestions` — no track or
+ * activePrograms mutation happens until the user explicitly accepts it (accept-flow
+ * is a separate, not-yet-built piece; this is the write-side data model only).
+ */
+export interface PendingProgramSuggestion {
+  ruleId: string;
+  targetProgramId: string;
+  targetLevel: number;
+  targetPercent?: number;
+  /** ISO string — Timestamp.now() is invalid inside array elements (see axioms.md §5). */
+  triggeredAt: string;
+  /** Domain → level snapshot of the conditions that satisfied the rule, for transparency/debugging. */
+  conditionsSnapshot: Record<string, number>;
 }

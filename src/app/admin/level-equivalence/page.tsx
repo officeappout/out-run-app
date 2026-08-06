@@ -17,7 +17,6 @@ import {
   setDoc,
   deleteDoc,
   serverTimestamp,
-  orderBy,
   query,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -43,25 +42,52 @@ const COLLECTION = 'level_equivalence_rules';
 // ============================================================================
 
 async function getAllEquivalenceRules(): Promise<LevelEquivalenceRule[]> {
-  const q = query(collection(db, COLLECTION), orderBy('sourceProgramId'));
+  // No server-side orderBy: Firestore excludes docs missing the ordered field
+  // entirely, and sourceProgramId/sourceLevel are only populated for
+  // single-condition rules — an AND/OR rule would silently vanish from the
+  // list. Sort client-side instead, by a field every rule always has.
+  const q = query(collection(db, COLLECTION));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(d => ({
+  const rules = snapshot.docs.map(d => ({
     id: d.id,
     ...d.data(),
   })) as LevelEquivalenceRule[];
+  return rules.sort((a, b) => a.targetProgramId.localeCompare(b.targetProgramId));
 }
 
-async function saveEquivalenceRule(rule: Omit<LevelEquivalenceRule, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<string> {
-  const docId = rule.id || `${rule.sourceProgramId}_L${rule.sourceLevel}_to_${rule.targetProgramId}_L${rule.targetLevel}`;
-  const docRef = doc(db, COLLECTION, docId);
+type SaveableRule = Omit<
+  LevelEquivalenceRule,
+  'id' | 'createdAt' | 'updatedAt' | 'sourceProgramIds' | 'sourceProgramId' | 'sourceLevel'
+> & { id?: string };
+
+async function saveEquivalenceRule(rule: SaveableRule): Promise<string> {
+  // New rules get a Firestore auto-generated id — the old deterministic
+  // `${sourceProgramId}_L${sourceLevel}_to_...` scheme doesn't extend cleanly
+  // to multi-condition (AND/OR) rules with no single source.
+  const docRef = rule.id ? doc(db, COLLECTION, rule.id) : doc(collection(db, COLLECTION));
+  const docId = docRef.id;
+
+  const conditions = rule.conditions.map(c => ({
+    programId: c.programId,
+    minLevel: Number(c.minLevel),
+  }));
+  const sourceProgramIds = conditions.map(c => c.programId);
 
   const payload: Record<string, any> = {
-    sourceProgramId: rule.sourceProgramId,
-    sourceLevel: Number(rule.sourceLevel),
+    conditions,
+    logic: rule.logic,
+    sourceProgramIds,
+    // Legacy mirror — only meaningful (and only populated) for single-condition
+    // rules; recommendation.service.ts's one-shot onboarding suggestions read
+    // these flat fields directly and have no notion of AND/OR.
+    ...(conditions.length === 1
+      ? { sourceProgramId: conditions[0].programId, sourceLevel: conditions[0].minLevel }
+      : { sourceProgramId: null, sourceLevel: null }),
     targetProgramId: rule.targetProgramId,
     targetLevel: Number(rule.targetLevel),
     targetPercent: Number(rule.targetPercent ?? 0),
-    addToActivePrograms: rule.addToActivePrograms ?? true,
+    mode: rule.mode,
+    addToActivePrograms: rule.mode === 'auto' ? (rule.addToActivePrograms ?? true) : false,
     description: rule.description ?? '',
     isEnabled: rule.isEnabled ?? true,
   };
@@ -84,23 +110,30 @@ async function deleteEquivalenceRule(ruleId: string): Promise<void> {
 // TYPES
 // ============================================================================
 
+interface ConditionForm {
+  programId: string;
+  minLevel: number;
+}
+
 interface RuleForm {
-  sourceProgramId: string;
-  sourceLevel: number;
+  conditions: ConditionForm[];
+  logic: 'AND' | 'OR';
   targetProgramId: string;
   targetLevel: number;
   targetPercent: number;
+  mode: 'suggest' | 'auto';
   addToActivePrograms: boolean;
   description: string;
   isEnabled: boolean;
 }
 
 const EMPTY_FORM: RuleForm = {
-  sourceProgramId: '',
-  sourceLevel: 1,
+  conditions: [{ programId: '', minLevel: 1 }],
+  logic: 'AND',
   targetProgramId: '',
   targetLevel: 1,
   targetPercent: 0,
+  mode: 'suggest',
   addToActivePrograms: true,
   description: '',
   isEnabled: true,
@@ -149,12 +182,18 @@ export default function LevelEquivalencePage() {
   };
 
   const handleEdit = (rule: LevelEquivalenceRule) => {
+    const conditions = rule.conditions?.length
+      ? rule.conditions.map(c => ({ programId: c.programId, minLevel: c.minLevel }))
+      : rule.sourceProgramId
+        ? [{ programId: rule.sourceProgramId, minLevel: rule.sourceLevel ?? 1 }] // legacy-shaped doc fallback
+        : [{ programId: '', minLevel: 1 }];
     setForm({
-      sourceProgramId: rule.sourceProgramId,
-      sourceLevel: rule.sourceLevel,
+      conditions,
+      logic: rule.logic ?? 'AND',
       targetProgramId: rule.targetProgramId,
       targetLevel: rule.targetLevel,
       targetPercent: rule.targetPercent ?? 0,
+      mode: rule.mode ?? 'auto', // pre-existing docs without `mode` are legacy 'auto' rules
       addToActivePrograms: rule.addToActivePrograms ?? true,
       description: rule.description ?? '',
       isEnabled: rule.isEnabled ?? true,
@@ -164,11 +203,12 @@ export default function LevelEquivalencePage() {
   };
 
   const handleSave = async () => {
-    if (!form.sourceProgramId || !form.targetProgramId) {
-      alert('יש לבחור תוכנית מקור ויעד');
+    const validConditions = form.conditions.filter(c => c.programId);
+    if (validConditions.length === 0 || !form.targetProgramId) {
+      alert('יש לבחור לפחות תנאי-מקור אחד ותוכנית-יעד');
       return;
     }
-    if (form.sourceProgramId === form.targetProgramId) {
+    if (validConditions.some(c => c.programId === form.targetProgramId)) {
       alert('תוכנית מקור ויעד לא יכולות להיות זהות');
       return;
     }
@@ -178,6 +218,7 @@ export default function LevelEquivalencePage() {
       await saveEquivalenceRule({
         id: editingId || undefined,
         ...form,
+        conditions: validConditions,
       });
       setShowForm(false);
       setEditingId(null);
@@ -207,11 +248,16 @@ export default function LevelEquivalencePage() {
     try {
       await saveEquivalenceRule({
         id: rule.id,
-        sourceProgramId: rule.sourceProgramId,
-        sourceLevel: rule.sourceLevel,
+        conditions: rule.conditions?.length
+          ? rule.conditions
+          : rule.sourceProgramId
+            ? [{ programId: rule.sourceProgramId, minLevel: rule.sourceLevel ?? 1 }]
+            : [],
+        logic: rule.logic ?? 'AND',
         targetProgramId: rule.targetProgramId,
         targetLevel: rule.targetLevel,
         targetPercent: rule.targetPercent,
+        mode: rule.mode ?? 'auto',
         addToActivePrograms: rule.addToActivePrograms,
         description: rule.description,
         isEnabled: !rule.isEnabled,
@@ -262,8 +308,10 @@ export default function LevelEquivalencePage() {
           <div className="text-sm text-indigo-800">
             <p className="font-bold mb-1">איך זה עובד?</p>
             <p className="text-indigo-700">
-              כשמשתמש מגיע לרמה X בתוכנית מקור, המערכת מפעילה אוטומטית את כלל השקילות ומגדירה את רמת היעד בתוכנית היעד.
-              לדוגמה: &quot;Push רמה 15 → Planche רמה 4&quot;.
+              כשהתנאים (אחד או יותר, עם וגם/או) מתקיימים, המערכת מפעילה את כלל השקילות על תוכנית היעד.
+              במצב &quot;הצעה&quot; (ברירת המחדל) — המשתמש רק מקבל הצעה, שום דבר לא נכתב עד שהוא מאשר.
+              במצב &quot;אוטומטי&quot; — רמת היעד נקבעת ישירות, ללא צורך באישור.
+              לדוגמה: &quot;Push רמה 16 וגם Pull רמה 16 → הצעה ל-Muscle Up רמה 3&quot;.
             </p>
           </div>
         </div>
@@ -317,22 +365,38 @@ export default function LevelEquivalencePage() {
                   : 'border-gray-200 opacity-60'
               }`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 {/* Rule Visual */}
-                <div className="flex items-center gap-4">
-                  {/* Source */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-center min-w-[140px]">
-                    <p className="text-xs text-blue-600 font-medium mb-1">מקור</p>
-                    <p className="font-bold text-blue-900">{getProgramName(rule.sourceProgramId)}</p>
-                    <p className="text-lg font-black text-blue-700">רמה {rule.sourceLevel}</p>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Sources — one badge per condition, joined by the rule's logic connector */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(rule.conditions?.length
+                      ? rule.conditions
+                      : rule.sourceProgramId
+                        ? [{ programId: rule.sourceProgramId, minLevel: rule.sourceLevel ?? 0 }]
+                        : []
+                    ).map((c, i, arr) => (
+                      <React.Fragment key={`${c.programId}-${i}`}>
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-center min-w-[120px]">
+                          <p className="text-xs text-blue-600 font-medium mb-1">מקור</p>
+                          <p className="font-bold text-blue-900">{getProgramName(c.programId)}</p>
+                          <p className="text-lg font-black text-blue-700">רמה {c.minLevel}</p>
+                        </div>
+                        {i < arr.length - 1 && (
+                          <span className="text-xs font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-full">
+                            {(rule.logic ?? 'AND') === 'AND' ? 'וגם' : 'או'}
+                          </span>
+                        )}
+                      </React.Fragment>
+                    ))}
                   </div>
 
                   {/* Arrow */}
                   <div className="flex flex-col items-center gap-1">
                     <ArrowRight className="text-indigo-400 rotate-180" size={24} />
-                    {rule.addToActivePrograms && (
-                      <span className="text-xs text-green-600 font-medium">+ הוספה</span>
-                    )}
+                    <span className={`text-xs font-medium ${rule.mode === 'auto' ? 'text-green-600' : 'text-amber-600'}`}>
+                      {rule.mode === 'auto' ? 'אוטומטי' + (rule.addToActivePrograms ? ' + הוספה' : '') : 'הצעה'}
+                    </span>
                   </div>
 
                   {/* Target */}
@@ -398,40 +462,84 @@ export default function LevelEquivalencePage() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Source Program + Level */}
+              {/* Source Conditions — one or more; AND/OR connector when 2+ */}
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <h3 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
-                  <Zap size={16} />
-                  מקור (כשהמשתמש מגיע לרמה זו...)
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">תוכנית מקור *</label>
-                    <select
-                      value={form.sourceProgramId}
-                      onChange={(e) => setForm({ ...form, sourceProgramId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    >
-                      <option value="">בחר תוכנית...</option>
-                      {programs.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} {p.isMaster ? '(Master)' : ''}
-                        </option>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-blue-800 flex items-center gap-2">
+                    <Zap size={16} />
+                    תנאי-מקור (כשהמשתמש מגיע לרמות אלה...)
+                  </h3>
+                  {form.conditions.length > 1 && (
+                    <div className="flex items-center gap-1 bg-white border border-blue-300 rounded-lg p-0.5">
+                      {(['AND', 'OR'] as const).map(l => (
+                        <button
+                          key={l}
+                          type="button"
+                          onClick={() => setForm({ ...form, logic: l })}
+                          className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${
+                            form.logic === l ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:bg-gray-100'
+                          }`}
+                        >
+                          {l === 'AND' ? 'וגם (AND)' : 'או (OR)'}
+                        </button>
                       ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">רמת מקור *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={form.sourceLevel}
-                      onChange={(e) => setForm({ ...form, sourceLevel: Number(e.target.value) || 1 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
+                    </div>
+                  )}
                 </div>
+
+                <div className="space-y-2">
+                  {form.conditions.map((cond, idx) => (
+                    <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                      <select
+                        value={cond.programId}
+                        onChange={(e) => {
+                          const next = [...form.conditions];
+                          next[idx] = { ...next[idx], programId: e.target.value };
+                          setForm({ ...form, conditions: next });
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="">בחר תוכנית...</option>
+                        {programs.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} {p.isMaster ? '(Master)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={cond.minLevel}
+                        onChange={(e) => {
+                          const next = [...form.conditions];
+                          next[idx] = { ...next[idx], minLevel: Number(e.target.value) || 1 };
+                          setForm({ ...form, conditions: next });
+                        }}
+                        placeholder="רמה"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, conditions: form.conditions.filter((_, i) => i !== idx) })}
+                        disabled={form.conditions.length === 1}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="הסר תנאי"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, conditions: [...form.conditions, { programId: '', minLevel: 1 }] })}
+                  className="mt-3 flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-900"
+                >
+                  <Plus size={14} />
+                  הוסף תנאי-מקור
+                </button>
               </div>
 
               {/* Arrow */}
@@ -475,6 +583,33 @@ export default function LevelEquivalencePage() {
                 </div>
               </div>
 
+              {/* Mode — suggest (default) vs auto */}
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <h3 className="text-sm font-bold text-gray-800 mb-3">פעולה כשהתנאים מתקיימים</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, mode: 'suggest' })}
+                    className={`text-right p-3 rounded-xl border-2 transition-colors ${
+                      form.mode === 'suggest' ? 'border-amber-400 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <p className="font-bold text-sm text-gray-800">הצעה בלבד</p>
+                    <p className="text-xs text-gray-500 mt-0.5">נכתב ל-pendingProgramSuggestions. שום דבר לא משתנה עד שהמשתמש מאשר.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, mode: 'auto' })}
+                    className={`text-right p-3 rounded-xl border-2 transition-colors ${
+                      form.mode === 'auto' ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <p className="font-bold text-sm text-gray-800">אוטומטי</p>
+                    <p className="text-xs text-gray-500 mt-0.5">רמת היעד נקבעת מיד, ללא אישור-משתמש.</p>
+                  </button>
+                </div>
+              </div>
+
               {/* Options */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -489,19 +624,21 @@ export default function LevelEquivalencePage() {
                   />
                   <p className="text-xs text-gray-500 mt-1">0 = מתחיל מאפס ברמת היעד</p>
                 </div>
-                <div className="flex items-end pb-1">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.addToActivePrograms}
-                      onChange={(e) => setForm({ ...form, addToActivePrograms: e.target.checked })}
-                      className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
-                    <span className="text-sm font-bold text-gray-700">
-                      הוסף לתוכניות פעילות
-                    </span>
-                  </label>
-                </div>
+                {form.mode === 'auto' && (
+                  <div className="flex items-end pb-1">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.addToActivePrograms}
+                        onChange={(e) => setForm({ ...form, addToActivePrograms: e.target.checked })}
+                        className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      />
+                      <span className="text-sm font-bold text-gray-700">
+                        הוסף לתוכניות פעילות
+                      </span>
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
