@@ -39,6 +39,8 @@ import { appendCooldownExercises } from '../services/cooldown.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '../core/config/pace-map-config';
 import { normalizeGearIds, satisfiesGearRequirement } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
+import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import { resolveStationContent } from './station-content-resolver';
 
 /** Score bonus that lifts an equipment-satisfied exercise above any bodyweight
  *  movement in the same domain — a park station foregrounds its iron. */
@@ -108,6 +110,16 @@ export interface HybridStopCandidate {
   availableEquipment: string[];
   /** MVP: callers pass 'strength'. Future kinds flow through the dispatcher. */
   activityType?: StopActivityKind;
+  /**
+   * unassessed-domain-gate content follow-up (05.08.2026): the matched HYDRAULIC
+   * gym_equipment doc(s) for this stop's park, when the caller's assessment-gate let
+   * an unassessed user through specifically because hydraulic gear was present (see
+   * findHydraulicEquipment in start-hybrid-session.ts). Undefined for every other
+   * stop (assessed users, bodyweight/core stops, real-calisthenics-equipped stops).
+   * Read by dispatchStopContent → resolveStationContent (station-content-resolver.ts)
+   * to show the machine's OWN real content instead of a generic Exercise.
+   */
+  hydraulicEquipment?: GymEquipment[];
 }
 
 /** WHO-gap snapshot — produced by weekly-load.service (impure, caller side). */
@@ -190,6 +202,11 @@ export interface HybridPlan {
     whoGapNote: string | null;
     /** True when no route stop fit and the mid-route bodyweight fallback fired. */
     usedFieldFallback: boolean;
+    /** route-stops Part B: true when the field fallback fired AND the field-ready pool
+     *  within ±HOME_SUBSTITUTE_LEVEL_BAND of the user's level is thinner than
+     *  MIN_STATION_EXERCISES — i.e. there isn't real difficulty-equivalent bodyweight
+     *  content for this user here. The caller should show a message, not a thin session. */
+    insufficientHomeContent: boolean;
     log: string[];
   };
 }
@@ -209,6 +226,9 @@ const STATION_MIN = 1;
 const STATION_MAX = 4;                 // decision 7 — flexible 1-4
 const STATION_MINUTES = { min: 8, ideal: 10, max: 12 };
 const STOP_FIT_TOLERANCE = 0.25;       // approved ±25%
+/** route-stops Part B: how far (levels) a home/field substitute may sit from the user's level
+ *  and still count as "difficulty-equivalent." Provisional — tune with real usage data. */
+const HOME_SUBSTITUTE_LEVEL_BAND = 2;
 /** Hybrid stations: decision 5 — halved rests, skill/isometric exempt. */
 const STATION_REST = { multiplier: 0.5, exemptSkillAndIsometric: true } as const;
 
@@ -339,6 +359,22 @@ function dispatchStopContent(
   input: HybridComposeInput,
   log: string[],
 ): StrengthBlockResult | null {
+  // unassessed-domain-gate content follow-up (05.08.2026): checked BEFORE the
+  // activity-type switch, on purpose — a stop that was let through the assessment
+  // gate because of matched hydraulic equipment (start-hybrid-session.ts's
+  // findHydraulicEquipment) can still get relabeled 'strength' → 'core' downstream
+  // (the weekly-strength-budget-spent default, unrelated to equipment) BEFORE
+  // dispatch ever sees it — that relabeling must not hide the real machine content
+  // behind the generic 'core' bodyweight branch. resolveStationContent returns null
+  // (falls through to the normal activity-type dispatch below) when there's no
+  // hydraulic match or the matched doc has no real content — strictly additive,
+  // never blocks the existing path for any other stop.
+  const hydraulicContent = resolveStationContent(candidate.hydraulicEquipment, 'hydraulic-content-if-available');
+  if (hydraulicContent) {
+    log.push(...hydraulicContent.log.map((l) => `[${candidate.stopId}] ${l}`));
+    return hydraulicContent;
+  }
+
   const activity = candidate.activityType ?? 'strength';
   switch (activity) {
     case 'strength': {
@@ -527,6 +563,7 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
   // ── Steps 3+7: fit stations to route (degrade S on no-fit) ───────────────
   let selection: ScoredSelection | null = null;
   let usedFieldFallback = false;
+  let insufficientHomeContent = false;
   if (input.stopSelection === 'as_provided') {
     // ANCHOR mode (route-stops §1a): the caller placed these stops deliberately, on/near
     // the route. Honour ALL of them in path order — the ±25% spacing gate governs even
@@ -590,6 +627,25 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
         score: 0,
       };
       log.push('fit: field fallback — bodyweight stop at route midpoint');
+
+      // route-stops Part B — home-substitute content check: a field-fallback stop offers
+      // whatever bodyweight content the level window yields. For a high level that pool can
+      // be too thin to be a real pull/dip-equivalent workout. Reuses the EXACT same pool
+      // (fieldReady, intentMode:'field') dispatchStopContent's bodyweight branch would build,
+      // and the SAME MIN_STATION_EXERCISES threshold it already uses for a park pool — no new
+      // mechanism, just applied earlier so the caller can message instead of starting thin.
+      const fieldPool = filterExercisesContextually(input.masterExercises, {
+        ...input.filterContext, availableEquipment: [], intentMode: 'field' as const,
+      }).exercises;
+      const targetLevel = input.generationContext.userLevel;
+      const inBand = fieldPool.filter(
+        (se) => Math.abs(input.filterContext.getUserLevelForExercise(se.exercise) - targetLevel) <= HOME_SUBSTITUTE_LEVEL_BAND,
+      );
+      insufficientHomeContent = inBand.length < MIN_STATION_EXERCISES;
+      log.push(
+        `fit: field fallback pool — ${inBand.length} exercise(s) within ±${HOME_SUBSTITUTE_LEVEL_BAND} of level ${targetLevel}` +
+        (insufficientHomeContent ? ` (< ${MIN_STATION_EXERCISES} — insufficient)` : ''),
+      );
     }
   }
 
@@ -679,6 +735,6 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
       estCalories: totalCalories,
       stations: builtStops.length,
     },
-    meta: { emphasisResolved: resolved, whoGapNote, usedFieldFallback, log },
+    meta: { emphasisResolved: resolved, whoGapNote, usedFieldFallback, insufficientHomeContent, log },
   };
 }

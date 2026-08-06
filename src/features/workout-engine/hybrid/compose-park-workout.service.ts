@@ -216,6 +216,7 @@ export function composeParkWorkoutPlan(input: ParkWorkoutComposeInput): HybridPl
       emphasisResolved: input.emphasis ?? 'balanced',
       whoGapNote: null,
       usedFieldFallback: false,
+      insufficientHomeContent: false,
       log: [
         `park-workout: routeKm=${routeKm.toFixed(2)} stationKm=${stationKm.toFixed(2)} legs=${gaps.length}`,
         ...block.log,

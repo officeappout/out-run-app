@@ -18,12 +18,23 @@ import type { WorkoutGenerationContext } from '../logic/workout-generator.types'
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import { MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
 import { deriveAerobicTargetKm } from './hybrid-aerobic.util';
+import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
+import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 
 export interface HybridSessionContext {
   userPosition: { lat: number; lng: number } | null;
   cityName?: string;
   /** logic.startActiveWorkout — transitions the map into workout mode. */
   startRun: () => void;
+  /**
+   * OUTPUT side-channel (route-stops Parts A+B): composeRouteStopsWorkout mutates this on
+   * the SAME ctx object the caller passed in when it returns null because a gate blocked
+   * the compose — so the caller can show the right message instead of a silent fallback.
+   * Mirrors the existing `isWarmupActive`/`bolts.selectedIndex` mutate-the-shared-object
+   * pattern already used elsewhere in this file. Undefined = no gate fired (any other
+   * null-return reason — no route, no position, etc.).
+   */
+  stopGateReason?: 'needs_assessment' | 'insufficient_home_content';
 }
 
 /** The composed session — the SAME object drives the overview and the run. */
@@ -89,6 +100,30 @@ function normalizePath(raw: unknown): [number, number][] {
 }
 
 /**
+ * unassessed-domain-gate: does this park include at least one HYDRAULIC (isFunctional:false)
+ * machine? Cross-references the park's own `gymEquipment[].equipmentId` against the live
+ * equipment catalog (`gym_equipment`, 55 docs, `isFunctional` 100%-populated — audited
+ * 04.08.2026) — NOT via canonical-gear-id, since gear-mapping.utils.ts deliberately still
+ * collapses hydraulic + real calisthenics gear onto the same id (see the comment there).
+ * Hydraulic machines are self-limiting (adjustable resistance) — safe to compose a workout
+ * from one even at the silent level=1 default; real calisthenics gear is NOT (a wrong-level
+ * bodyweight movement can be genuinely inappropriate), so it requires a completed assessment.
+ */
+// unassessed-domain-gate content follow-up (05.08.2026): returns the MATCHED docs
+// (not just a boolean) so a caller that lets a stop through the gate can also attach
+// them to the stop candidate for station-content-resolver.ts to render — the gate
+// no longer discards which machine(s) it found. `parkHasHydraulicEquipment` stays a
+// thin boolean wrapper so gate-only call sites don't need to change shape.
+function findHydraulicEquipment(park: any, equipmentCatalog: GymEquipment[]): GymEquipment[] {
+  const ids = new Set<string>((park?.gymEquipment ?? []).map((e: any) => e.equipmentId).filter(Boolean));
+  if (ids.size === 0) return [];
+  return equipmentCatalog.filter((eq) => ids.has(eq.id) && eq.isFunctional === false);
+}
+function parkHasHydraulicEquipment(park: any, equipmentCatalog: GymEquipment[]): boolean {
+  return findHydraulicEquipment(park, equipmentCatalog).length > 0;
+}
+
+/**
  * Full-park-workout branch (mode: 'full_park_workout', Phase 1.3) — walk to the
  * nearest EQUIPPED park, do the FULL home-recommended strength workout there, walk
  * back. Reuses the home recommendation as a READ-ONLY preview (skipCycleRestart) at
@@ -107,13 +142,14 @@ async function composeFullParkWorkout(
 
   const [
     { useUserStore }, { fetchRealParks }, { resolveParkOutAndBack },
-    { composeParkWorkoutPlan }, { generateHomeWorkoutTrio },
+    { composeParkWorkoutPlan }, { generateHomeWorkoutTrio }, { getAllGymEquipment },
   ] = await Promise.all([
     import('@/features/user/identity/store/useUserStore'),
     import('@/features/parks/core/services/parks.service'),
     import('./park-out-and-back'),
     import('./compose-park-workout.service'),
     import('@/features/workout-engine/services/home-workout.service'),
+    import('@/features/content/equipment/gym/core/gym-equipment.service'),
   ]);
 
   const profile = useUserStore.getState().profile;
@@ -122,6 +158,11 @@ async function composeFullParkWorkout(
   const userWeightKg = profile?.core?.weight || 70;
   const pp = profile?.running?.paceProfile;
   const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
+
+  // unassessed-domain-gate: reuses the SAME hasAssessedStrengthDomain signal as the home
+  // hero-gate (hasStrengthProgram) and route_stops (access-control.service.ts) — checks the
+  // real assessed-domain axis only, independent of onboarding/lifestyle completion.
+  const hasAssessment = hasAssessedStrengthDomain(profile as any);
 
   // Parks — same all-parks proximity source the budget-split path uses.
   let parks: any[] = [];
@@ -135,6 +176,20 @@ async function composeFullParkWorkout(
     cityName: ctx.cityName,
   });
   if (!oab) { console.warn('[composeFullParkWorkout] no equipped park reachable → no card'); return null; }
+
+  // unassessed-domain-gate: without a completed assessment, only a HYDRAULIC-equipped park
+  // is safe to compose from silently (self-limiting resistance — see parkHasHydraulicEquipment
+  // doc comment). A real calisthenics-equipped park needs a real level → block + let the
+  // caller show the assessment message instead of guessing level=1 on real gear.
+  if (!hasAssessment) {
+    const equipmentCatalog = await getAllGymEquipment();
+    const oabPark = parks.find((p: any) => p.id === oab.station.parkId);
+    if (!oabPark || !parkHasHydraulicEquipment(oabPark, equipmentCatalog)) {
+      console.warn('[composeFullParkWorkout] gated: no completed assessment + nearest park is not hydraulic → needs_assessment');
+      ctx.stopGateReason = 'needs_assessment';
+      return null;
+    }
+  }
 
   try {
     // Home recommendation — READ-ONLY preview (skipCycleRestart). All 3 bolts, one call.
@@ -419,7 +474,7 @@ async function composeRouteStopsWorkout(
     { useUserStore }, { getAllExercises }, { fetchRealParks },
     { composeHybridSession }, { resolveRouteStops }, { resolveHybridUserLevels },
     { getWeeklyLoadSnapshot }, { warmHybridCaches }, { auth },
-    { planFromPoint, detectTopology },
+    { planFromPoint, detectTopology }, { getAllGymEquipment },
   ] = await Promise.all([
     import('@/features/user/identity/store/useUserStore'),
     import('@/features/content/exercises/core/exercise.service'),
@@ -431,6 +486,7 @@ async function composeRouteStopsWorkout(
     import('./hybrid-warmup'),
     import('@/lib/firebase'),
     import('./plan-from-point'),
+    import('@/features/content/equipment/gym/core/gym-equipment.service'),
   ]);
 
   const profile = useUserStore.getState().profile;
@@ -439,11 +495,22 @@ async function composeRouteStopsWorkout(
   const pp = profile?.running?.paceProfile;
   const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
 
+  // route-stops Part A — questionnaire gate: reuses the SAME hasAssessedStrengthDomain signal
+  // as the home hero-gate (hasStrengthProgram) — the real assessed-domain axis, independent
+  // of onboarding/lifestyle completion (access-control.service.ts).
+  const hasAssessment = hasAssessedStrengthDomain(profile as any);
+
   // Warm caches + fetch parks FIRST — the generated-loop backbone biases the loop toward equipped
   // parks (findFitnessAnchor), and gear translation reads the warm cache downstream.
   await warmHybridCaches();
   let parks: any[] = [];
   try { parks = await fetchRealParks(); } catch { /* no parks → unbiased loop, bodyweight fallback */ }
+  // Part A: open_field (grass, no equipment, legs+core only) is gated on the assessment —
+  // without it, exclude these parks from stop-matching entirely (mapParkToStop stays pure/
+  // profile-agnostic; the gate lives here, at the one caller that has the profile).
+  if (!hasAssessment) {
+    parks = parks.filter((p: any) => p.facilityType !== 'open_field');
+  }
 
   // Backbone — a LOOP generated FROM the user's location (root fix), so entry = user (0m).
   // ('existing_route' mode is kept for a future "use a close existing route" decision, not v1.)
@@ -455,6 +522,38 @@ async function composeRouteStopsWorkout(
   if (!backbone) return null;
   const routePath = backbone.routePath;
   const rawStops = resolveRouteStops(routePath, parks as any);
+
+  // Part A / unassessed-domain-gate: no assessment AND no real equipped gym nearby
+  // (stairs/bench aren't a "גינת כושר") → the open_field stops that would have filled this
+  // gap are locked, and the generic bodyweight fallback would silently stand in for them.
+  // Additionally (unassessed-domain-gate, 04.08.2026 round): even a REAL equipped gym isn't
+  // safe to guess level=1 on — only a HYDRAULIC-equipped one is (self-limiting resistance;
+  // see parkHasHydraulicEquipment). Block + let the caller show the assessment message
+  // instead of a silent degrade.
+  if (!hasAssessment) {
+    const equippedStops = rawStops.filter((s) => s.activityType === 'strength' && s.availableEquipment.length > 0);
+    const equipmentCatalog = equippedStops.length > 0 ? await getAllGymEquipment() : [];
+    // unassessed-domain-gate content follow-up (05.08.2026): capture WHICH hydraulic
+    // gym_equipment doc(s) matched per stop (not just a boolean), and attach them
+    // directly onto the rawStops object — coredStops/planFromPoint both spread the
+    // stop untouched, so `hydraulicEquipment` survives to composeHybridSession's
+    // stopCandidates and reaches dispatchStopContent → resolveStationContent.
+    let hasHydraulicStop = false;
+    for (const s of equippedStops) {
+      const stopPark = parks.find((p: any) => p.id === s.parkId);
+      if (!stopPark) continue;
+      const matched = findHydraulicEquipment(stopPark, equipmentCatalog);
+      if (matched.length > 0) {
+        hasHydraulicStop = true;
+        (s as any).hydraulicEquipment = matched;
+      }
+    }
+    if (!hasHydraulicStop) {
+      console.warn('[composeRouteStopsWorkout] gated: no completed assessment + no hydraulic-equipped park nearby → needs_assessment');
+      ctx.stopGateReason = 'needs_assessment';
+      return null;
+    }
+  }
 
   // Recommendation-path DEFAULT (not a cap): when the weekly STRENGTH set-budget is spent, a
   // strength station would only muster a sparse 1–2 sets. Default those stops to CORE instead —
@@ -576,6 +675,16 @@ async function composeRouteStopsWorkout(
   };
   const plans = [1, 2, 3].map((d) => buildForBolt(d as 1 | 2 | 3));
   const selectedIndex = 1; // balanced default (bolt 2)
+
+  // Part B gate: the field fallback fired AND the level-banded bodyweight pool was too thin
+  // for a real difficulty-equivalent session (compose-hybrid-session.service.ts). Checked on
+  // the default/balanced bolt — block + let the caller show an "not enough content" message
+  // instead of starting a thin session.
+  if (plans[selectedIndex].meta.insufficientHomeContent) {
+    console.warn('[composeRouteStopsWorkout] gated: field-fallback pool too thin for this level → insufficient_home_content');
+    ctx.stopGateReason = 'insufficient_home_content';
+    return null;
+  }
 
   // `station` (singular, back-compat): the first strength stop is still the best single
   // anchor for any consumer that only reads one marker. `stations` (below, Part 5) is the
@@ -709,6 +818,47 @@ export async function composeHybridPlan(
   await warmHybridCaches();
   const { resolveStationSource } = await import('./station-source');
   const source = await resolveStationSource(routePath, { parks: parks as any, authorityId });
+
+  // unassessed-domain-gate: reuses the SAME hasAssessedStrengthDomain signal as the home
+  // hero-gate, route_stops and full_park. Only a HYDRAULIC-equipped station (self-limiting
+  // resistance) is safe to compose from silently without a completed assessment — real
+  // calisthenics gear needs a real level.
+  //
+  // shared-default-branch gate follow-up (06.08.2026): this is THE ONE place both live
+  // entry points into the budget-split branch land — the "מומלץ לך" carousel slot
+  // (hybrid-slots.ts, presetToIntent with no `mode`) and FreeRunDrawer's manual
+  // "התחל משולב" (handleStartHybrid, also no `mode`) — so a single check here covers
+  // both without touching either UI caller. `source.kind === 'bodyweight'` (no equipped
+  // park found at all) used to be left UNGATED here (the old comment reasoned it was
+  // "already gated via the route_stops open_field branch" — wrong: that's a DIFFERENT
+  // compose function, composeRouteStopsWorkout, never entered by this branch). A
+  // bodyweight-fallback station still calls dispatchStopContent's 'strength'/isBodyweight
+  // path, which still resolves level via getBaseUserLevel — same invented-level-1 problem,
+  // just with bodyweight moves instead of park equipment. Gated the same as 'park' now;
+  // there's no hydraulic exception to check (no equipment at all), so it blocks outright.
+  let gateHydraulicEquipment: GymEquipment[] | undefined;
+  if (!hasAssessedStrengthDomain(profile as any)) {
+    if (source.kind === 'park') {
+      const { getAllGymEquipment } = await import('@/features/content/equipment/gym/core/gym-equipment.service');
+      const equipmentCatalog = await getAllGymEquipment();
+      const sourcePark = parks.find((p: any) => p.id === source.parkId);
+      const matched = sourcePark ? findHydraulicEquipment(sourcePark, equipmentCatalog) : [];
+      if (matched.length === 0) {
+        console.warn('[composeHybridPlan] gated: no completed assessment + nearest station is not hydraulic → needs_assessment');
+        ctx.stopGateReason = 'needs_assessment';
+        return null;
+      }
+      // unassessed-domain-gate content follow-up (05.08.2026): carry the matched doc(s)
+      // onto stopCandidates[0] below so dispatchStopContent → resolveStationContent shows
+      // the machine's own real content instead of a generic Exercise.
+      gateHydraulicEquipment = matched;
+    } else {
+      console.warn('[composeHybridPlan] gated: no completed assessment + no equipped park nearby (bodyweight fallback) → needs_assessment');
+      ctx.stopGateReason = 'needs_assessment';
+      return null;
+    }
+  }
+
   const midIdx = Math.floor(routePath.length / 2);
   const [midLng, midLat] = routePath[midIdx];
   const stopCandidates = [{
@@ -717,6 +867,7 @@ export async function composeHybridPlan(
     parkId: source.parkId, locationKind: source.locationKind,
     lat: source.lat ?? midLat, lng: source.lng ?? midLng, waypointIndex: source.waypointIndex ?? midIdx,
     availableEquipment: source.availableEquipment, activityType: 'strength' as const,
+    ...(gateHydraulicEquipment ? { hydraulicEquipment: gateHydraulicEquipment } : {}),
   }];
 
   const masterExercises = await getAllExercises();

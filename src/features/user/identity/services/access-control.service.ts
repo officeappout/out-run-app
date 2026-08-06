@@ -119,3 +119,41 @@ export function isUserVerified(user: UserFullProfile | null): boolean {
   if (!user) return false;
   return (user.onboardingProgress ?? 0) >= 100 || user.core.isVerified === true;
 }
+
+/**
+ * Map path vs Assessment path: tracks/domains with a level above 1 = the strength/skill
+ * self-assessment is done. The single source of truth for "has this user completed their
+ * assessment" — reused by the home hero-gate (StatsOverview nudge) and the route_stops
+ * grass-station gate (no assessment + no equipped park nearby → nudge instead of a stop).
+ */
+export function hasCompletedAssessment(user: UserFullProfile | null): boolean {
+  const tracks = user?.progression?.tracks ?? {};
+  const domains = user?.progression?.domains ?? {};
+  const hasLevelAbove1 = (obj: Record<string, { currentLevel?: number } | undefined>) =>
+    Object.values(obj).some((v) => (v?.currentLevel ?? 1) > 1);
+  return (
+    hasLevelAbove1(tracks) ||
+    hasLevelAbove1(domains) ||
+    user?.onboardingStatus === 'COMPLETED'
+  );
+}
+
+/**
+ * True STRENGTH-assessment axis — independent of onboarding/lifestyle completion.
+ * `onboardingStatus === 'COMPLETED'` (see hasCompletedAssessment above) is set by the
+ * LIFESTYLE wizard (persona/schedule/notifications, LifestyleWizard.tsx) and carries NO
+ * information about whether the user ever did a strength self-assessment — a user can
+ * finish onboarding/lifestyle without ever touching progression.domains/tracks. This
+ * function checks ONLY the assessed-domain axis: does the user have any REAL assessed
+ * strength domain (level > 0), excluding non-strength domains (running/flexibility)?
+ * Ported verbatim from home/page.tsx's `hasStrengthProgram` (the existing, correct,
+ * already-live strength hero-gate — routes to /onboarding-new/assessment-visual when
+ * false) — single source of truth for "may we guess a strength level for this user".
+ */
+export function hasAssessedStrengthDomain(user: UserFullProfile | null): boolean {
+  const NON_STRENGTH = new Set(['running', 'flexibility']);
+  const readLvl = (v: any) => (v == null ? 0 : (v.currentLevel ?? v.level ?? 0));
+  const anyAssessed = (obj: Record<string, any> = {}) =>
+    Object.entries(obj).some(([k, v]) => !NON_STRENGTH.has(k) && readLvl(v) > 0);
+  return anyAssessed(user?.progression?.domains as any) || anyAssessed(user?.progression?.tracks as any);
+}
