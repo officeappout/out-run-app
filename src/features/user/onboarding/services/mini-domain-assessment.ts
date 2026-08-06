@@ -13,6 +13,23 @@
  * own auth/demographics gate doesn't bounce the user back to
  * `/onboarding-new/profile`) is the entire "single-category" mechanism.
  *
+ * Skills (handstand, planche, front_lever, muscle_up, one_arm_pullup, hspu)
+ * work identically via the sibling `skills` path config — same
+ * `getPathConfigSync()` function, same `skipTier: true` behaviour, just a
+ * different sessionStorage key (`onboarding_skill_focus` instead of
+ * `onboarding_muscle_focus`) and `onboarding_program_path: 'skills'` instead
+ * of `'body_focus'`. Pass `domainType: 'skill'` to use that branch — default
+ * stays `'category'` so all 3 existing callers (ProgramsSection,
+ * StatsOverview, WorkoutBuilderSheet) are byte-for-byte unaffected.
+ *
+ * Skill assessments ALSO get the SKILL_TO_FOUNDATION_OFFSET derivation for
+ * free — onboarding-sync.service.ts derives the paired push/pull foundation
+ * level purely from `onboarding_program_path === 'skills'` +
+ * `onboarding_skill_focus` sessionStorage state (not from anything this file
+ * or single-domain-assessment.service.ts builds), so it fires the same way
+ * for a mini single-skill assessment as it would for a full skills-path
+ * onboarding. No change needed in the writer for this to work correctly.
+ *
  * The page also needs to know (a) that this is a MINI top-up on an
  * already-onboarded profile — so it should call the single-domain writer and
  * return to the caller instead of running the full sync + advancing to
@@ -36,32 +53,48 @@ interface MiniAssessmentRouter {
   push: (href: string) => void;
 }
 
+/** 'category' = push/pull/legs/core via the body_focus path (existing, default). 'skill' = handstand/planche/etc via the skills path. */
+export type MiniAssessmentDomainType = 'category' | 'skill';
+
 /**
  * Seeds sessionStorage so `/onboarding-new/assessment-visual` runs its
- * existing body_focus/single-category path for `domain`, then navigates
- * there. Call this from any entry point that wants to send an already-
- * onboarded user to assess exactly one more domain (push/pull/legs/core).
+ * existing single-domain path for `domain` (body_focus for a category,
+ * skills for a skill), then navigates there. Call this from any entry point
+ * that wants to send an already-onboarded user to assess exactly one more
+ * domain.
  *
- * @param router    Next.js router (from `useRouter()` in the calling component).
- * @param domain    The single category to assess (push/pull/legs/core).
- * @param returnTo  Path to navigate back to once the mini-questionnaire
- *                  completes and the single-domain write succeeds. Defaults
- *                  to the current path (or '/home' when unavailable).
+ * @param router      Next.js router (from `useRouter()` in the calling component).
+ * @param domain      The single domain to assess — a category (push/pull/legs/core)
+ *                    or a skill (handstand/planche/front_lever/muscle_up/one_arm_pullup/hspu),
+ *                    per `domainType`.
+ * @param returnTo    Path to navigate back to once the mini-questionnaire
+ *                    completes and the single-domain write succeeds. Defaults
+ *                    to the current path (or '/home' when unavailable).
+ * @param domainType  'category' (default, unchanged behaviour) or 'skill'.
  */
 export function startMiniDomainAssessment(
   router: MiniAssessmentRouter,
   domain: PrimaryCategory | string,
   returnTo?: string,
+  domainType: MiniAssessmentDomainType = 'category',
 ): void {
   if (typeof window === 'undefined') return;
 
   const resolvedReturnTo = returnTo ?? window.location?.pathname ?? '/home';
 
   try {
-    // Path B (body_focus) config — restricts the slider to this ONE category
-    // and skips tier selection (assessment-path-config.service.ts).
-    sessionStorage.setItem('onboarding_program_path', 'body_focus');
-    sessionStorage.setItem('onboarding_muscle_focus', JSON.stringify([domain]));
+    if (domainType === 'skill') {
+      // Path C (skills) config — same skipTier:true single-item restriction
+      // as body_focus below, via the sibling sessionStorage key
+      // (assessment-path-config.service.ts's getPathConfigSync, path==='skills' branch).
+      sessionStorage.setItem('onboarding_program_path', 'skills');
+      sessionStorage.setItem('onboarding_skill_focus', JSON.stringify([domain]));
+    } else {
+      // Path B (body_focus) config — restricts the slider to this ONE category
+      // and skips tier selection (assessment-path-config.service.ts).
+      sessionStorage.setItem('onboarding_program_path', 'body_focus');
+      sessionStorage.setItem('onboarding_muscle_focus', JSON.stringify([domain]));
+    }
 
     // Mini-mode flags consumed by assessment-visual/page.tsx's accept handler.
     sessionStorage.setItem(MINI_ASSESSMENT_ACTIVE_KEY, '1');

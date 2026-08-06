@@ -402,7 +402,7 @@ export async function generateRecommendations(
         'ADD_ON',
         rule.targetProgramId,
         `${program.name} — כבר נפתח לך!`,
-        rule.description || `הרמה שהושגה ב-${programLookup.get(rule.sourceProgramId)?.name || rule.sourceProgramId} מאפשרת כניסה ל-${program.name} ברמה ${rule.targetLevel}`,
+        rule.description || `הרמה שהושגה ב-${programLookup.get(rule.sourceProgramId ?? '')?.name || rule.sourceProgramId} מאפשרת כניסה ל-${program.name} ברמה ${rule.targetLevel}`,
         92, // High confidence — system-verified unlock
         rule.targetLevel,
         'unlock',

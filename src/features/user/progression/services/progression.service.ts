@@ -823,19 +823,19 @@ export async function recalculateAncestorMasters(
  * Fetch all level equivalence rules that match a given source program and level.
  * Called after a child program levels up to check if any target programs should be unlocked/set.
  *
- * @param sourceProgramId - The program that just leveled up
- * @param sourceLevel - The new level reached
- * @returns Matching equivalence rules
+ * @param sourceProgramId - The program that just leveled up. Returns every enabled
+ *   rule that references it in ANY of its conditions — threshold evaluation
+ *   (including AND/OR across the rule's other conditions) happens in the caller,
+ *   which has the full current tracks map.
+ * @returns Candidate equivalence rules (not yet evaluated against thresholds)
  */
 async function getLevelEquivalenceRules(
   sourceProgramId: string,
-  sourceLevel: number,
 ): Promise<LevelEquivalenceRule[]> {
   try {
     const q = query(
       collection(db, LEVEL_EQUIVALENCE_COLLECTION),
-      where('sourceProgramId', '==', sourceProgramId),
-      where('sourceLevel', '<=', sourceLevel),
+      where('sourceProgramIds', 'array-contains', sourceProgramId),
     );
     const snapshot = await getDocs(q);
     return snapshot.docs
@@ -855,16 +855,55 @@ async function getLevelEquivalenceRules(
 }
 
 /**
- * Apply level equivalence rules after a program levels up.
- * For each matching rule:
- *   - If the target track doesn't exist or is below the rule's targetLevel, set it.
- *   - Optionally add the target to activePrograms.
- *   - Recalculate ancestor masters for the target.
+ * Evaluate whether a rule's conditions are satisfied against the user's current
+ * levels. The domain that just leveled up (`changedProgramId`) uses the freshly
+ * computed `changedLevel` (avoids any read-after-write race with `tracks`,
+ * which was read from Firestore moments earlier in the same call); every other
+ * condition's domain reads its current level straight from `tracks`.
+ */
+function evaluateRuleConditions(
+  rule: LevelEquivalenceRule,
+  changedProgramId: string,
+  changedLevel: number,
+  tracks: Record<string, { currentLevel?: number } | undefined>,
+): { satisfied: boolean; snapshot: Record<string, number> } {
+  const snapshot: Record<string, number> = {};
+  const levelFor = (programId: string): number => {
+    const level = programId === changedProgramId
+      ? changedLevel
+      : (tracks[programId]?.currentLevel ?? 0);
+    snapshot[programId] = level;
+    return level;
+  };
+
+  const checks = rule.conditions.map(c => levelFor(c.programId) >= c.minLevel);
+  const satisfied = rule.logic === 'OR' ? checks.some(Boolean) : checks.every(Boolean);
+  return { satisfied, snapshot };
+}
+
+/**
+ * Apply level equivalence rules after a program levels up. Rules are grouped by
+ * `mode`:
+ *   - 'auto'    — if the target track doesn't exist or is below the rule's
+ *                 targetLevel, set it directly; optionally add to activePrograms;
+ *                 recalculate ancestor masters for the target. Unchanged legacy
+ *                 behavior, kept for cases that should stay silent/automatic.
+ *   - 'suggest' — write a pending suggestion (progression.pendingProgramSuggestions,
+ *                 deduped by ruleId) instead. No track/activePrograms mutation,
+ *                 no ancestor recalculation — nothing changed until the user
+ *                 accepts (acceptance flow is separate, not built here).
+ *
+ * A rule's full condition set (which may reference domains other than the one
+ * that just leveled up) is evaluated against the user's current tracks — this
+ * is what makes AND ("push AND pull both reached X") and OR ("push OR planche
+ * reached X") work, not just the single domain that triggered this call.
  *
  * @param userId - User ID
- * @param sourceProgramId - The program that leveled up
- * @param newSourceLevel - The new level reached in the source
- * @returns Array of applied equivalence results
+ * @param sourceProgramId - The program that just leveled up (used to find
+ *   candidate rules via array-contains on sourceProgramIds, and as the fresh
+ *   value for that one domain during evaluation)
+ * @param newSourceLevel - The new level reached in sourceProgramId
+ * @returns Array of applied/suggested equivalence results
  */
 export async function applyLevelEquivalences(
   userId: string,
@@ -874,8 +913,8 @@ export async function applyLevelEquivalences(
   const results: LevelEquivalenceResult[] = [];
 
   try {
-    const rules = await getLevelEquivalenceRules(sourceProgramId, newSourceLevel);
-    if (rules.length === 0) return results;
+    const candidateRules = await getLevelEquivalenceRules(sourceProgramId);
+    if (candidateRules.length === 0) return results;
 
     // Fetch user document once
     const userDocRef = doc(db, USERS_COLLECTION, userId);
@@ -885,53 +924,54 @@ export async function applyLevelEquivalences(
     const userData = userSnap.data() as UserFullProfile;
     const tracks = userData.progression?.tracks || {};
     const activePrograms = userData.progression?.activePrograms || [];
+    const existingSuggestions = userData.progression?.pendingProgramSuggestions ?? [];
 
     const updates: Record<string, any> = {};
     let activeUpdated = false;
     const updatedActivePrograms = [...activePrograms];
 
-    for (const rule of rules) {
+    let suggestionsUpdated = false;
+    const updatedSuggestions = [...existingSuggestions];
+    const suggestedRuleIds = new Set(existingSuggestions.map(s => s.ruleId));
+
+    // Rules recalculateAncestorMasters must run for — 'auto' targets only.
+    const autoTargetsToRecalculate: string[] = [];
+
+    for (const rule of candidateRules) {
+      const { satisfied, snapshot } = evaluateRuleConditions(
+        rule, sourceProgramId, newSourceLevel, tracks,
+      );
+      if (!satisfied) continue;
+
       const currentTrack = tracks[rule.targetProgramId];
       const currentLevel = currentTrack?.currentLevel ?? 0;
       const wasNewlyUnlocked = !currentTrack;
 
-      // Only apply if the target's current level is BELOW the rule's target
-      if (currentLevel < rule.targetLevel) {
-        updates[`progression.tracks.${rule.targetProgramId}.currentLevel`] = rule.targetLevel;
-        updates[`progression.tracks.${rule.targetProgramId}.percent`] = rule.targetPercent ?? 0;
+      // Only apply/suggest if the target's current level is BELOW the rule's target
+      if (currentLevel >= rule.targetLevel) continue;
 
-        // Add to activePrograms if requested and not already present.
-        // Validate the rule's `targetProgramId` resolves to a real
-        // Program first — equivalence rules are admin-edited Firestore
-        // docs and a single typo in the admin form (or a stale id
-        // pointing at a deleted program) would otherwise propagate the
-        // corrupt slug into every user's activePrograms next time they
-        // level up. Mirrors the safety net in onboarding-sync.
-        if (rule.addToActivePrograms) {
-          const alreadyActive = updatedActivePrograms.some(
-            (p: any) => p.id === rule.targetProgramId || p.templateId === rule.targetProgramId,
+      const mode = rule.mode ?? 'auto'; // defensive default for any hand-edited doc missing mode
+
+      if (mode === 'suggest') {
+        if (suggestedRuleIds.has(rule.id)) continue; // already suggested — don't duplicate
+        if (!(await isValidProgramTemplateId(rule.targetProgramId))) {
+          console.warn(
+            '🚨 [LevelEquivalence] Rejecting suggestion — rule ' +
+            `${rule.id} has an unresolvable targetProgramId:`,
+            JSON.stringify(rule.targetProgramId),
           );
-          if (!alreadyActive) {
-            if (!(await isValidProgramTemplateId(rule.targetProgramId))) {
-              console.warn(
-                '🚨 [LevelEquivalence] Rejecting activePrograms push — rule ' +
-                `${rule.id} has an unresolvable targetProgramId:`,
-                JSON.stringify(rule.targetProgramId),
-              );
-            } else {
-              updatedActivePrograms.push({
-                id: rule.targetProgramId,
-                templateId: rule.targetProgramId,
-                name: rule.targetProgramId.replace(/_/g, ' '),
-                startDate: new Date().toISOString(),
-                durationWeeks: 52,
-                currentWeek: 1,
-                focusDomains: [rule.targetProgramId] as any,
-              });
-              activeUpdated = true;
-            }
-          }
+          continue;
         }
+        updatedSuggestions.push({
+          ruleId: rule.id,
+          targetProgramId: rule.targetProgramId,
+          targetLevel: rule.targetLevel,
+          targetPercent: rule.targetPercent,
+          triggeredAt: new Date().toISOString(),
+          conditionsSnapshot: snapshot,
+        });
+        suggestedRuleIds.add(rule.id);
+        suggestionsUpdated = true;
 
         results.push({
           ruleId: rule.id,
@@ -939,27 +979,84 @@ export async function applyLevelEquivalences(
           previousLevel: currentLevel,
           newLevel: rule.targetLevel,
           wasNewlyUnlocked,
+          mode: 'suggest',
         });
-
         console.log(
-          `[LevelEquivalence] ${sourceProgramId} Lvl ${newSourceLevel} → ` +
-          `${rule.targetProgramId} set to Lvl ${rule.targetLevel}` +
-          (wasNewlyUnlocked ? ' (newly unlocked)' : ` (was Lvl ${currentLevel})`),
+          `[LevelEquivalence] Suggested (not applied): ${rule.logic} [${rule.conditions.map(c => `${c.programId}≥${c.minLevel}`).join(', ')}] → ` +
+          `${rule.targetProgramId} Lvl ${rule.targetLevel} (snapshot: ${JSON.stringify(snapshot)})`,
         );
+        continue;
       }
+
+      // ── mode === 'auto' — legacy direct-write behavior ──────────────────
+      updates[`progression.tracks.${rule.targetProgramId}.currentLevel`] = rule.targetLevel;
+      updates[`progression.tracks.${rule.targetProgramId}.percent`] = rule.targetPercent ?? 0;
+
+      // Add to activePrograms if requested and not already present.
+      // Validate the rule's `targetProgramId` resolves to a real
+      // Program first — equivalence rules are admin-edited Firestore
+      // docs and a single typo in the admin form (or a stale id
+      // pointing at a deleted program) would otherwise propagate the
+      // corrupt slug into every user's activePrograms next time they
+      // level up. Mirrors the safety net in onboarding-sync.
+      if (rule.addToActivePrograms) {
+        const alreadyActive = updatedActivePrograms.some(
+          (p: any) => p.id === rule.targetProgramId || p.templateId === rule.targetProgramId,
+        );
+        if (!alreadyActive) {
+          if (!(await isValidProgramTemplateId(rule.targetProgramId))) {
+            console.warn(
+              '🚨 [LevelEquivalence] Rejecting activePrograms push — rule ' +
+              `${rule.id} has an unresolvable targetProgramId:`,
+              JSON.stringify(rule.targetProgramId),
+            );
+          } else {
+            updatedActivePrograms.push({
+              id: rule.targetProgramId,
+              templateId: rule.targetProgramId,
+              name: rule.targetProgramId.replace(/_/g, ' '),
+              startDate: new Date().toISOString(),
+              durationWeeks: 52,
+              currentWeek: 1,
+              focusDomains: [rule.targetProgramId] as any,
+            });
+            activeUpdated = true;
+          }
+        }
+      }
+
+      autoTargetsToRecalculate.push(rule.targetProgramId);
+      results.push({
+        ruleId: rule.id,
+        targetProgramId: rule.targetProgramId,
+        previousLevel: currentLevel,
+        newLevel: rule.targetLevel,
+        wasNewlyUnlocked,
+        mode: 'auto',
+      });
+
+      console.log(
+        `[LevelEquivalence] ${rule.logic} [${rule.conditions.map(c => `${c.programId}≥${c.minLevel}`).join(', ')}] → ` +
+        `${rule.targetProgramId} set to Lvl ${rule.targetLevel}` +
+        (wasNewlyUnlocked ? ' (newly unlocked)' : ` (was Lvl ${currentLevel})`),
+      );
     }
 
     // Write all updates in one batch
-    if (Object.keys(updates).length > 0) {
+    if (Object.keys(updates).length > 0 || suggestionsUpdated) {
       updates['updatedAt'] = serverTimestamp();
       if (activeUpdated) {
         updates['progression.activePrograms'] = updatedActivePrograms;
       }
+      if (suggestionsUpdated) {
+        updates['progression.pendingProgramSuggestions'] = updatedSuggestions;
+      }
       await updateDoc(userDocRef, updates);
 
-      // Recalculate master programs for each affected target
-      for (const result of results) {
-        await recalculateAncestorMasters(userId, result.targetProgramId);
+      // Recalculate master programs for each auto-applied target only —
+      // suggest-mode targets never had a track write, nothing to recalculate.
+      for (const targetProgramId of autoTargetsToRecalculate) {
+        await recalculateAncestorMasters(userId, targetProgramId);
       }
     }
   } catch (error) {
