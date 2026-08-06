@@ -218,6 +218,12 @@ async function composeFullParkWorkout(
       const planWorkout = rest ? { ...w, exercises: [] } : w;
       return {
         rest,
+        // needs-assessment bug (scenarios 5/6): buildNeedsAssessmentResult (home-workout.service.ts)
+        // already distinguishes "no assessed level for this domain" from a real rest day via
+        // w.needsAssessment — `rest` above collapses both into the same exercises.length===0
+        // bucket. Carried separately so the selected bolt can show the real reason below.
+        needsAssessment: w.needsAssessment === true,
+        assessmentMessage: w.description,
         plan: composeParkWorkoutPlan({
           routePath: oab.routePath,
           station,
@@ -232,19 +238,26 @@ async function composeFullParkWorkout(
 
     const selectedIndex = 1; // balanced (bolt 2) — the recommended default
     const restLike = built[selectedIndex].rest;
+    const needsAssessmentLike = built[selectedIndex].needsAssessment;
     const plans = built.map((b) => b.plan);
 
     console.log(
       `[hybrid:diag] full-park compose: park="${oab.station.name}"` +
       ` equip=[${oab.station.availableEquipment.join(',')}] bolts=${plans.length}` +
-      ` default#${selectedIndex} restLike=${restLike} routeKm=${plans[selectedIndex].totals.distanceKm}`,
+      ` default#${selectedIndex} restLike=${restLike} needsAssessment=${needsAssessmentLike}` +
+      ` routeKm=${plans[selectedIndex].totals.distanceKm}`,
     );
 
     return {
       plan: plans[selectedIndex],
       routePath: oab.routePath,
       aerobicKind: intent.aerobicKind,
-      fallbackHint: restLike ? 'יום מנוחה — הליכה בלבד' : undefined,
+      // needs-assessment bug (scenarios 5/6): a needsAssessment bolt must show ITS OWN
+      // reason (buildNeedsAssessmentResult's existing, approved copy), never the generic
+      // rest-day string — every other exercises.length===0 cause keeps 'יום מנוחה' as before.
+      fallbackHint: needsAssessmentLike
+        ? built[selectedIndex].assessmentMessage
+        : restLike ? 'יום מנוחה — הליכה בלבד' : undefined,
       station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
       // full_park has exactly one stop — stations mirrors station as a 1-element array.
       stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],
