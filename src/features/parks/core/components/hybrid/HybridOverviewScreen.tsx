@@ -13,7 +13,7 @@
  */
 
 import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
-import { Ruler, Clock, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
+import { Ruler, MapPin, Play, ArrowRight, Info, ChevronLeft, ChevronDown } from 'lucide-react';
 import { motion, useDragControls, useMotionValue, useTransform, animate } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import CaloriesChip from '@/components/ui/CaloriesChip';
@@ -400,26 +400,21 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             onPointerDown={(e) => dragControls.start(e)}
             style={{ touchAction: 'none', cursor: 'grab' }}
           >
-            {composed.bolts ? (
-              /* full-park: ONE unified title row — title · duration · finish */
-              <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
-                <span className="text-[18px] font-black" style={{ color: '#111827' }}>{MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב'}</span>
-                <span style={{ color: '#D1D5DB' }}>·</span>
-                <span className="font-black" style={{ color: '#374151' }}>{totalMin} דק׳</span>
-                <span style={{ color: '#D1D5DB' }}>·</span>
-                <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
-              </div>
-            ) : (
-              <>
-                <div className="text-[18px] font-black" style={{ color: '#111827' }}>אימון משולב</div>
-                {/* total workout time + estimated finish (Moovit-style "18 דקות | שעת הגעה 19:58") */}
-                <div className="flex items-center gap-1.5 text-[13px] mt-1" style={{ color: '#374151' }}>
-                  <span className="font-black">{totalMin} דק׳</span>
-                  <span style={{ color: '#D1D5DB' }}>·</span>
-                  <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
-                </div>
-              </>
-            )}
+            {/* design-unification (05.08.2026): ONE row for every hybrid card — title ·
+                duration · finish. Was full-park-only; budget-split ("הליכה+כוח") used to
+                render a two-line layout here. Title TEXT is unchanged either way — only
+                the layout unifies. */}
+            <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
+              <span className="text-[18px] font-black" style={{ color: '#111827' }}>
+                {composed.bolts
+                  ? (MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב')
+                  : 'אימון משולב'}
+              </span>
+              <span style={{ color: '#D1D5DB' }}>·</span>
+              <span className="font-black" style={{ color: '#374151' }}>{totalMin} דק׳</span>
+              <span style={{ color: '#D1D5DB' }}>·</span>
+              <span className="font-bold" style={{ color: '#6B7280' }}>מסיים ~{finishClock}</span>
+            </div>
           </div>
 
           {/* Moovit strip — the enlarged primary nav element (point 10). Shown at
@@ -476,38 +471,29 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               </div>
             )}
 
-            {composed.bolts ? (
-              /* full-park: "פירוט" collapsible (defaultOpen=false) — stats now, container for future detail */
-              <div className="mt-3">
-                <button type="button" onClick={() => setDetailOpen((o) => !o)} aria-expanded={detailOpen}
-                  className="flex items-center gap-1 text-[12px] font-black active:scale-[0.98] transition-transform" style={{ color: '#6B7280', letterSpacing: '.03em' }}>
-                  <ChevronDown size={15} style={{ transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} /> פירוט
-                </button>
-                {detailOpen && (
-                  <div className="mt-2">
-                    {/* Route description in prose (point 11) — replaces the old location row */}
-                    <div className="flex items-start gap-1.5 text-[12.5px] leading-relaxed mb-2.5" style={{ color: '#4B5563' }}>
-                      <MapPin size={14} style={{ color: '#9CA3AF', flexShrink: 0, marginTop: 2 }} /> {routeDesc}
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
-                      <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
-                    </div>
-                    {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
+            {/* design-unification (05.08.2026): "פירוט" collapsible (defaultOpen=false) for
+                EVERY hybrid card — was full-park-only; budget-split ("הליכה+כוח") used to
+                render an always-visible chip row instead. routeDesc/t/showWeightNudge are
+                all already computed generically above (not full-park-specific). */}
+            <div className="mt-3">
+              <button type="button" onClick={() => setDetailOpen((o) => !o)} aria-expanded={detailOpen}
+                className="flex items-center gap-1 text-[12px] font-black active:scale-[0.98] transition-transform" style={{ color: '#6B7280', letterSpacing: '.03em' }}>
+                <ChevronDown size={15} style={{ transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} /> פירוט
+              </button>
+              {detailOpen && (
+                <div className="mt-2">
+                  {/* Route description in prose (point 11) — replaces the old location row */}
+                  <div className="flex items-start gap-1.5 text-[12.5px] leading-relaxed mb-2.5" style={{ color: '#4B5563' }}>
+                    <MapPin size={14} style={{ color: '#9CA3AF', flexShrink: 0, marginTop: 2 }} /> {routeDesc}
                   </div>
-                )}
-              </div>
-            ) : (
-              <>
-                {/* chips */}
-                <div className="flex gap-2 mt-3 flex-wrap">
-                  <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
-                  <Chip icon={<Clock size={15} />}>{totalMin} דק׳</Chip>
-                  <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
+                  <div className="flex gap-2 flex-wrap">
+                    <Chip icon={<Ruler size={15} />} tint={AER}>{t.distanceKm?.toFixed(1)} ק״מ</Chip>
+                    <CaloriesChip calories={t.estCalories ?? 0} weightDependent onEditWeight={() => setShowWeightNudge(true)} />
+                  </div>
+                  {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
                 </div>
-                {showWeightNudge && <WeightInlineRow onSaved={() => setShowWeightNudge(false)} />}
-              </>
-            )}
+              )}
+            </div>
 
             {/* meta row — difficulty carousel (full-park, קל/בינוני/קשה with emergent
                 minutes) or, for budget-split cards, the original static bolts pill */}
@@ -545,7 +531,16 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             </div>
             <HybridJourneyAxis
               segments={plan.segments}
-              stationName={composed.bolts ? composed.station?.name : undefined}
+              // design-unification (05.08.2026): HybridJourneyAxis is ALREADY purely
+              // data-driven on stationName (its own docstring: "Omitted for budget-split
+              // cards → legacy rendering unchanged" describes the OLD wiring, not a real
+              // constraint) — dropping the composed.bolts gate here unifies leg titles,
+              // the zone badge, meta-row format, the station header's collapsibility, and
+              // exercise-section grouping for ANY session with a named station, full-park
+              // or not. When composed.station is undefined (e.g. a bodyweight/A3 fallback),
+              // this still correctly falls through to the legacy rendering — same as it
+              // already does for full-park's own (rare) unnamed-station case.
+              stationName={composed.station?.name}
               isWarmupActive={isWarmupActive}
               isWarmupExpanded={isWarmupExpanded}
               onToggleWarmupActive={toggleWarmupActive}

@@ -115,9 +115,12 @@ function CardGroup({ superset, children }: { superset: boolean; children: React.
 interface AxisProps {
   segments: HybridPlannedSegment[];
   /**
-   * Full-park only: the destination park name. When set, aerobic legs render
-   * Moovit-style (destination title + an activity-derived verb) instead of the legacy
-   * "רגל ריצה N — יציאה". Omitted for budget-split cards → legacy rendering unchanged.
+   * The destination park/station name, when the session has one — any hybrid card,
+   * not just full-park (design-unification, 05.08.2026: HybridOverviewScreen now
+   * passes this for every card, not only `composed.bolts`-carrying ones). When set,
+   * aerobic legs render Moovit-style (destination title + an activity-derived verb)
+   * instead of the legacy "רגל ריצה N — יציאה". Undefined (e.g. a bodyweight/A3
+   * fallback with no real station) → legacy rendering unchanged.
    */
   stationName?: string;
   /** Full-park warmup section — reuse SectionHeader's skip pill + collapse chevron. The
@@ -231,8 +234,9 @@ export default function HybridJourneyAxis({
         const mainExCount = exs.filter(
           (e: any) => ((e?.exerciseRole || e?.exercise?.exerciseRole) ?? 'main') === 'main',
         ).length;
-        // Full-park: reuse the strength preview's section grouping (חימום → סטים+"Nx סבבים"
-        // → מתיחות). Budget-split keeps the flat list (else branch → byte-identical).
+        // Any named-station session (design-unification, 05.08.2026 — was full-park-only):
+        // reuse the strength preview's section grouping (חימום → סטים+"Nx סבבים" → מתיחות).
+        // No station name (e.g. bodyweight/A3 fallback) → flat list, legacy unchanged.
         const sections = stationName ? groupExercisesIntoSections(exs as any) : [];
         return (
           <div key={i} className="flex gap-3 items-stretch">
