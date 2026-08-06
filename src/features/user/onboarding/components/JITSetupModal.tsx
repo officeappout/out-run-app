@@ -91,7 +91,14 @@ export function JITSetupModal({
   // ── Inline Health Declaration (full-screen overlay) ──
   if (showInlineStep) {
     return (
-      <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
+      // z-[60] was a leaked-through-background bug (10.08.2026 diagnosis): that value
+      // is already budgeted for WorkoutDrawer/NavigationHub/RoutePreviewCard
+      // (.cursorrules), and sits BELOW search bars (z-[70]), the referral toast
+      // (z-[95]), and every full-screen overlay incl. HybridSlotCarousel/
+      // HybridOverviewScreen (z-[100]) — any of those still mounted painted on TOP
+      // of this "full-screen" white div and stayed fully clickable. z-[140] clears
+      // everything in the budget below z-[200] (post-workout summary, unrelated).
+      <div className="fixed inset-0 z-[140] bg-white overflow-y-auto">
         <HealthDeclarationStep
           title="הצהרת בריאות"
           description="חשוב לנו לשמור על הבריאות שלך. אנא אשר/י את ההצהרה הבאה כדי להמשיך."
