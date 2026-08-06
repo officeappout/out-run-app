@@ -65,7 +65,7 @@ export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalPr
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[130]"
             onClick={onClose}
           />
 
@@ -82,7 +82,7 @@ export default function LegalDocModal({ type, isOpen, onClose }: LegalDocModalPr
               if (info.offset.y > 100 || info.velocity.y > 500) onClose();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed bottom-0 left-0 right-0 z-[111] bg-white rounded-t-3xl shadow-2xl flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-[131] bg-white rounded-t-3xl shadow-2xl flex flex-col"
             style={{ maxHeight: '90vh' }}
             dir="rtl"
           >
