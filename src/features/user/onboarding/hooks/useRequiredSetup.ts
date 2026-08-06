@@ -11,9 +11,7 @@
  *   2. Account Security   → Soft prompt (can skip)
  *   3. Equipment Config   → Soft prompt (can skip)
  *      └─ SKIPPED for running activities (free run + guided routes).
- *         Runners don't need pull-up bars or benches; the smartwatch
- *         prompt (see useSmartwatchPrompt) replaces this with a
- *         high-value feature teaser instead.
+ *         Runners don't need pull-up bars or benches.
  *
  * Activity-aware behaviour:
  *   `interceptWorkoutStart` accepts an optional `activityType`. Pass
@@ -81,9 +79,7 @@ export function useRequiredSetup() {
    * so they don't interrupt the workout-start flow with a blocking modal.
    *
    * @param activityType — When `'running'`, the equipment requirement is
-   *   filtered out (runners don't need pull-up bars or benches). The
-   *   smartwatch prompt — see `useSmartwatchPrompt` — surfaces in its
-   *   place AFTER this check resolves.
+   *   filtered out (runners don't need pull-up bars or benches).
    */
   const checkRequirements = useCallback(
     (activityType: WorkoutActivityType = 'unknown'): MissingRequirement[] => {

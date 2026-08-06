@@ -32,7 +32,6 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import ParticleBackground from '@/components/ParticleBackground';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
-import { SmartwatchPromptModal } from '@/features/user/onboarding/components/SmartwatchPromptModal';
 import { useFlyoverEntrance } from '@/features/safecity/hooks/useFlyoverEntrance';
 import { usePresenceLayer } from '@/features/safecity/hooks/usePresenceLayer';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
@@ -640,18 +639,6 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
         onComplete={logic.jitState.onComplete}
         onDismiss={logic.dismissJIT}
         onCancel={logic.cancelJIT}
-      />
-
-      {/* Smartwatch teaser — surfaces for first-time runners AFTER JIT
-          requirements clear and BEFORE the workout actually starts. The
-          modal calls back into useSmartwatchPrompt's onClose, which
-          trampolines _doStartActiveWorkout. The two pre-flight gates
-          can never be open at the same time (JIT runs first, smartwatch
-          opens only inside JIT's onComplete) so they share z-[90]
-          without visual collision. */}
-      <SmartwatchPromptModal
-        isOpen={logic.smartwatchPrompt.isOpen}
-        onClose={() => logic.smartwatchPrompt.onClose?.()}
       />
 
       <AnimatePresence>

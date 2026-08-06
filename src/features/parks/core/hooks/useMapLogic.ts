@@ -216,8 +216,6 @@ export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) =>
     jitState: session.jitState,
     dismissJIT: session.dismissJIT,
     cancelJIT: session.cancelJIT,
-    // Smartwatch prompt — surfaces post-JIT for first-time runners.
-    smartwatchPrompt: session.smartwatchPrompt,
 
     // Mode toggle
     workoutMode,

@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
-import { useSmartwatchPrompt } from '@/features/user/onboarding/hooks/useSmartwatchPrompt';
 import { Route } from '../types/route.types';
 import { computeRouteTurns } from '../services/geoUtils';
 
@@ -58,12 +57,6 @@ export interface WorkoutSessionState {
   jitState: ReturnType<typeof useRequiredSetup>['jitState'];
   dismissJIT: () => void;
   cancelJIT: () => void;
-  // ── Smartwatch prompt (running activities only) ──
-  // Mounted by MapShell as a centred modal that surfaces AFTER any JIT
-  // requirements clear and BEFORE _doStartActiveWorkout runs. Skipped
-  // entirely for non-running activities and for runners who've already
-  // seen the prompt this session.
-  smartwatchPrompt: ReturnType<typeof useSmartwatchPrompt>['smartwatchPrompt'];
 }
 
 export function useWorkoutSession(
@@ -76,7 +69,6 @@ export function useWorkoutSession(
   const { triggerLap, addCoord, updateRunData } = useRunningPlayer();
   const { status, startSession, pauseSession, resumeSession, endSession, updateDistance } = useSessionStore();
   const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
-  const { smartwatchPrompt, openIfFirstRunner } = useSmartwatchPrompt();
 
   // Read canonical coord trail and pace from the running store (single source of truth)
   const routeCoords = useRunningPlayer((s) => s.routeCoords);
@@ -257,23 +249,18 @@ export function useWorkoutSession(
    *   1. JIT requirements (health is the only hard block; equipment is
    *      auto-skipped for runners — we tell `useRequiredSetup` the
    *      activity type so it filters the requirements list).
-   *   2. Smartwatch prompt (runners only, first-shown only).
-   *   3. _doStartActiveWorkout.
+   *   2. _doStartActiveWorkout.
    *
-   * Both step 1 and step 2 may be no-ops; they pass through synchronously
-   * when not applicable. Net cost when nothing fires: two function
-   * calls, zero re-renders.
+   * Step 1 may be a no-op; it passes through synchronously when not
+   * applicable.
    *
    * `useWorkoutSession` only ever starts running workouts (the home
    * page handles strength + planned via its own interceptor), so we
    * pass `'running'` as the activity type unconditionally.
    */
   const startActiveWorkout = useCallback(() => {
-    interceptWorkoutStart(
-      () => openIfFirstRunner('running', () => _doStartActiveWorkout()),
-      'running',
-    );
-  }, [interceptWorkoutStart, openIfFirstRunner, _doStartActiveWorkout]);
+    interceptWorkoutStart(() => _doStartActiveWorkout(), 'running');
+  }, [interceptWorkoutStart, _doStartActiveWorkout]);
 
   return {
     isWorkoutActive, setIsWorkoutActive,
@@ -291,6 +278,5 @@ export function useWorkoutSession(
     triggerLap, addCoord,
     injectSimPosition,
     jitState, dismissJIT, cancelJIT,
-    smartwatchPrompt,
   };
 }
