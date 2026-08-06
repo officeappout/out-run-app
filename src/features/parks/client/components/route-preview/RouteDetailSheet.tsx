@@ -1079,7 +1079,7 @@ export default function RouteDetailSheet({
 
                 <div className="flex items-center gap-2" dir="rtl">
                   <button
-                    onClick={() => { onStartWorkout?.(route); }}
+                    onClick={() => { onClose(); onStartWorkout?.(route); }}
                     className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]"
                     style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
                   >
