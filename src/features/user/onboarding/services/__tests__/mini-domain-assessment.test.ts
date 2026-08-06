@@ -89,6 +89,38 @@ describe('startMiniDomainAssessment — shared launcher used by all 3 entry poin
   });
 });
 
+describe('startMiniDomainAssessment — domainType "skill" (handstand/planche/etc via the skills path)', () => {
+  it('seeds the skills single-skill path config instead of body_focus', () => {
+    const router = { push: vi.fn() };
+    startMiniDomainAssessment(router, 'handstand', undefined, 'skill');
+    expect(sessionStorageStub.getItem('onboarding_program_path')).toBe('skills');
+    expect(sessionStorageStub.getItem('onboarding_skill_focus')).toBe(JSON.stringify(['handstand']));
+  });
+
+  it('does NOT touch onboarding_muscle_focus for a skill domain', () => {
+    const router = { push: vi.fn() };
+    startMiniDomainAssessment(router, 'planche', undefined, 'skill');
+    expect(sessionStorageStub.getItem('onboarding_muscle_focus')).toBeNull();
+  });
+
+  it('still sets the mini-mode flags + navigates to the same shared route as a category domain', () => {
+    const router = { push: vi.fn() };
+    startMiniDomainAssessment(router, 'front_lever', '/profile', 'skill');
+    expect(sessionStorageStub.getItem(MINI_ASSESSMENT_ACTIVE_KEY)).toBe('1');
+    expect(sessionStorageStub.getItem(MINI_ASSESSMENT_DOMAIN_KEY)).toBe('front_lever');
+    expect(sessionStorageStub.getItem(MINI_ASSESSMENT_RETURN_TO_KEY)).toBe('/profile');
+    expect(router.push).toHaveBeenCalledWith('/onboarding-new/assessment-visual');
+  });
+
+  it('defaults to domainType "category" when omitted — the 3 existing entry points are unaffected', () => {
+    const router = { push: vi.fn() };
+    startMiniDomainAssessment(router, 'push', '/profile');
+    expect(sessionStorageStub.getItem('onboarding_program_path')).toBe('body_focus');
+    expect(sessionStorageStub.getItem('onboarding_muscle_focus')).toBe(JSON.stringify(['push']));
+    expect(sessionStorageStub.getItem('onboarding_skill_focus')).toBeNull();
+  });
+});
+
 describe('isMiniAssessmentActive / consumeMiniAssessmentState', () => {
   it('is false before a mini assessment starts', () => {
     expect(isMiniAssessmentActive()).toBe(false);

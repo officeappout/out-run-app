@@ -17,10 +17,12 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Trophy } from 'lucide-react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
 import type { WorkoutCompletionResult } from '@/features/user/core/types/progression.types';
+import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 
 // ── Shared types + helpers (re-exported at the bottom for back-compat) ──
 import {
@@ -48,6 +50,7 @@ import ExerciseBreakdownCard from './components/ExerciseBreakdownCard';
 import LifestyleCTA from './components/LifestyleCTA';
 import EmailCaptureDrawer from './components/EmailCaptureDrawer';
 import LevelUpModal from './components/LevelUpModal';
+import ProgramSuggestionCard from './components/ProgramSuggestionCard';
 
 // ── Hooks (S-2 … S-7) ──
 import { useSummaryAnalytics } from './hooks/useSummaryAnalytics';
@@ -155,6 +158,26 @@ export default function StrengthSummaryPage({
 }: StrengthSummaryPageProps) {
   // ── User profile (for lifestyle CTA gate) ──
   const { profile } = useUserStore();
+  const router = useRouter();
+
+  // ── Program suggestions (Level Equivalence, mode:'suggest') ──
+  // Dismissal is local-only (component state, no Firestore write) — a
+  // dismissed suggestion simply reappears next time this screen reads
+  // pendingProgramSuggestions from the profile, per the product decision
+  // that "dismiss" defers rather than resolves.
+  const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<Set<string>>(new Set());
+  const visibleSuggestions = (profile?.progression?.pendingProgramSuggestions ?? []).filter(
+    (s) => !dismissedSuggestionIds.has(s.ruleId),
+  );
+  const handleAcceptSuggestion = (targetProgramId: string) => {
+    // No level/percent is invented — routes to that program's own real
+    // questionnaire (same single-skill path a new user picking it manually
+    // would get), reusing the existing mini-assessment launcher.
+    startMiniDomainAssessment(router, targetProgramId, '/home', 'skill');
+  };
+  const handleDismissSuggestion = (ruleId: string) => {
+    setDismissedSuggestionIds((prev) => new Set(prev).add(ruleId));
+  };
 
   // ── Hydration-safe sessionStorage read (avoid SSR mismatch) ──
   const [skippedBridge, setSkippedBridge] = useState(false);
@@ -289,6 +312,12 @@ export default function StrengthSummaryPage({
           progressionResult={progression.progressionResult}
           weeklyStrengthSessions={analytics.weeklyStrengthSessions}
           weeklyGoalSessions={analytics.weeklyGoalSessions}
+        />
+
+        <ProgramSuggestionCard
+          suggestions={visibleSuggestions}
+          onAccept={handleAcceptSuggestion}
+          onDismiss={handleDismissSuggestion}
         />
 
         <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} />
