@@ -1145,6 +1145,25 @@ export function buildAssessedDomainBudgets(
     });
 }
 
+/**
+ * Resolves the effective execution location for workout generation ("Ultimate
+ * Park Force"). `testLocation` (originally a QA/Master-Simulator bypass) wins
+ * if set; otherwise an explicit `location` — what the real home-page caller
+ * (generateHomeWorkoutTrio via StatsOverview.tsx) sends — is now ALSO
+ * honored, the same way testLocation already was; only when NEITHER is
+ * provided does it default to 'park'. No default/smart-selection logic
+ * changed here — this fixes only the fact that `location` was previously
+ * read solely for a log message and never actually applied.
+ * Pure/exported so this specific decision is unit-testable in isolation
+ * (see home-workout.location-resolution.test.ts) without the full async pipeline.
+ */
+export function resolveEffectivePipelineLocation(
+  testLocation: ExecutionLocation | undefined,
+  location: ExecutionLocation | undefined,
+): ExecutionLocation {
+  return testLocation ?? location ?? 'park';
+}
+
 // ============================================================================
 // SHARED PIPELINE — Extract expensive I/O + scoring (run ONCE)
 // ============================================================================
@@ -1235,16 +1254,13 @@ async function _buildSharedPipeline(
 
   const WEEKLY_SA_CAP = 6;
 
-  // ── ULTIMATE PARK FORCE (with testLocation bypass) ──
-  // testLocation lets the Master Simulator override Park Force for QA.
-  const location: ExecutionLocation = options.testLocation
-    ? options.testLocation
-    : 'park';
+  // ── ULTIMATE PARK FORCE — see resolveEffectivePipelineLocation() above ──
+  const location: ExecutionLocation = resolveEffectivePipelineLocation(options.testLocation, options.location);
   if (options.testLocation) {
     console.log(`[HomeWorkout] 🧪 testLocation bypass: using "${options.testLocation}" (Park Force disabled)`);
-  } else if (_rawLocation && _rawLocation !== 'park') {
-    console.log(`[HomeWorkout] 🏞️ PARK FORCE: overriding requested "${_rawLocation}" → "park" (video coverage)`);
-  } else if (!_rawLocation) {
+  } else if (options.location) {
+    console.log(`[HomeWorkout] 📍 location honored: using "${options.location}" (Park Force disabled)`);
+  } else {
     console.log(`[HomeWorkout] 🏞️ No location specified → "park" (PARK FORCE active)`);
   }
 
