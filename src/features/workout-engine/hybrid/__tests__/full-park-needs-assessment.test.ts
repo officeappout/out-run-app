@@ -55,6 +55,7 @@ const needsAssessmentWorkout = {
   exercises: [],
   isRecovery: false,
   needsAssessment: true,
+  assessmentDomains: ['legs'],
 };
 
 const realRestDayWorkout = {
@@ -104,12 +105,21 @@ describe('composeFullParkWorkout — needs-assessment vs real rest day (scenario
     expect(composed!.fallbackHint).not.toBe('יום מנוחה — הליכה בלבד');
   });
 
+  it('carries assessmentDomains through so the caller can render an actionable link', async () => {
+    trioMock = makeTrio(needsAssessmentWorkout);
+    const { composeHybridPlan } = await import('../start-hybrid-session');
+    const composed = await composeHybridPlan(baseIntent, makeCtx());
+    expect(composed).not.toBeNull();
+    expect(composed!.assessmentDomains).toEqual(['legs']);
+  });
+
   it('keeps "יום מנוחה — הליכה בלבד" for a real rest day (isRecovery, not needsAssessment)', async () => {
     trioMock = makeTrio(realRestDayWorkout);
     const { composeHybridPlan } = await import('../start-hybrid-session');
     const composed = await composeHybridPlan(baseIntent, makeCtx());
     expect(composed).not.toBeNull();
     expect(composed!.fallbackHint).toBe('יום מנוחה — הליכה בלבד');
+    expect(composed!.assessmentDomains).toBeUndefined();
   });
 
   it('keeps "יום מנוחה — הליכה בלבד" for a genuinely empty pool (not needsAssessment)', async () => {

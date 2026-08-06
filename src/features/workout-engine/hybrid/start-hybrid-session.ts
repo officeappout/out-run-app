@@ -44,6 +44,15 @@ export interface ComposedHybridSession {
   aerobicKind: 'running' | 'walking';
   /** Friendly message when the station fell back to bodyweight (A3). */
   fallbackHint?: string;
+  /**
+   * needs-assessment link follow-up: set ONLY when `fallbackHint` is the
+   * needsAssessment message (buildNeedsAssessmentResult's own `assessmentDomains`,
+   * home-workout.service.ts) — never for a real rest day. Lets the caller render
+   * `fallbackHint` as an actionable link to the mini-questionnaire instead of a
+   * dead-end banner, matching the existing pattern (ProgramsSection, StatsOverview,
+   * WorkoutBuilderSheet — all via startMiniDomainAssessment).
+   */
+  assessmentDomains?: string[];
   /** The strength station's marker on the map — absent for a bodyweight (A3) stop.
    *  @deprecated kept for back-compat only — `stations` (below) is the full per-stop list;
    *  for a single-station plan (full_park) it is `stations[0]`. */
@@ -224,6 +233,7 @@ async function composeFullParkWorkout(
         // bucket. Carried separately so the selected bolt can show the real reason below.
         needsAssessment: w.needsAssessment === true,
         assessmentMessage: w.description,
+        assessmentDomains: w.assessmentDomains,
         plan: composeParkWorkoutPlan({
           routePath: oab.routePath,
           station,
@@ -258,6 +268,10 @@ async function composeFullParkWorkout(
       fallbackHint: needsAssessmentLike
         ? built[selectedIndex].assessmentMessage
         : restLike ? 'יום מנוחה — הליכה בלבד' : undefined,
+      // needs-assessment link follow-up: only set alongside the needsAssessment
+      // fallbackHint — never for a real rest day — so the caller can render an
+      // actionable mini-questionnaire link instead of a dead-end banner.
+      assessmentDomains: needsAssessmentLike ? built[selectedIndex].assessmentDomains : undefined,
       station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
       // full_park has exactly one stop — stations mirrors station as a 1-element array.
       stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],

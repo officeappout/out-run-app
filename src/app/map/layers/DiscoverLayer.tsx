@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
+import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { PRIMARY_CATEGORIES } from '@/features/user/onboarding/services/single-domain-assessment.service';
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
 import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
@@ -135,6 +138,7 @@ interface DiscoverLayerProps {
 }
 
 export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, onRecenter }: DiscoverLayerProps) {
+  const router = useRouter();
   const { setMode } = useMapMode();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -1402,6 +1406,19 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   setHybridSwap({ segIndex, exIndex, exercise: we?.exercise, level: we?.programLevel ?? we?.exercise?.level ?? 1 })
                 }
                 onBack={() => { setFreeRunStep(overviewBackStep); logic.setFocusedRoute(null); }}
+                // needs-assessment link follow-up: only present when the composed
+                // session actually carries assessmentDomains (the needsAssessment
+                // fallbackHint, never a real rest day) — HybridOverviewScreen renders
+                // the banner as a real link exactly when this prop is non-undefined.
+                // Domain resolution mirrors WorkoutBuilderSheet's own unlockDomain
+                // fallback (`unlockDomain ?? 'push'`) — full-park's gate doesn't track
+                // a single specific domain either, so 'push' is the same, already-
+                // accepted default when nothing more specific resolves.
+                onAssessmentLink={hybridComposed?.assessmentDomains?.length ? () => {
+                  const domains = hybridComposed?.assessmentDomains ?? [];
+                  const domain = domains.find((d) => (PRIMARY_CATEGORIES as readonly string[]).includes(d)) ?? 'push';
+                  startMiniDomainAssessment(router, domain);
+                } : undefined}
                 onStart={() => {
                   const c = hybridComposed;
                   // health-declaration-covered-by-card bug: runHybridPlan below calls

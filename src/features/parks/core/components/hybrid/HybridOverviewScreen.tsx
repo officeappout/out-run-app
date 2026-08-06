@@ -76,9 +76,16 @@ interface Props {
   onExerciseTap?: (we: any) => void;
   /** Swap at [segIndex][exIndex] → the real replacement modal (owned by DiscoverLayer). */
   onSwapExercise?: (segIndex: number, exIndex: number, we: any) => void;
+  /**
+   * needs-assessment link follow-up: present ONLY when `composed.assessmentDomains`
+   * is set (the fallback banner is the needsAssessment message, never a real rest
+   * day) — renders the A3 banner below as a real link to the mini-questionnaire
+   * (owned by DiscoverLayer, via startMiniDomainAssessment) instead of a dead end.
+   */
+  onAssessmentLink?: () => void;
 }
 
-export default function HybridOverviewScreen({ composed, cityName, onStart, onBack, onExerciseTap, onSwapExercise }: Props) {
+export default function HybridOverviewScreen({ composed, cityName, onStart, onBack, onExerciseTap, onSwapExercise, onAssessmentLink }: Props) {
   const { fallbackHint, aerobicKind } = composed;
   // Difficulty carousel (full-park only): 3 pre-composed bolt plans, swap by index —
   // NO re-compose. `plan` = the active bolt; budget-split cards have no `bolts` and
@@ -446,8 +453,24 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
             // so the Moovit strip's pan-x survives in both states. Flag OFF = unset.
             style={MAP_OVERVIEW_CHROME_V1 ? { touchAction: currentAnchor === 'full' ? 'pan-y' : 'none' } : undefined}
           >
-            {/* A3 fallback banner */}
-            {fallbackHint && (
+            {/* A3 fallback banner — needs-assessment link follow-up: when
+                composed.assessmentDomains is set (needsAssessment, never a real
+                rest day), the SAME approved copy (buildNeedsAssessmentResult)
+                becomes a real tappable link to the mini-questionnaire instead of
+                a dead end — matches the existing pattern (ProgramsSection,
+                StatsOverview, WorkoutBuilderSheet). */}
+            {fallbackHint && onAssessmentLink ? (
+              <button
+                type="button"
+                onClick={onAssessmentLink}
+                className="w-full flex items-center gap-2 mt-3 rounded-xl text-[12px] font-bold text-start active:scale-[0.98] transition-transform"
+                style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '9px 12px' }}
+              >
+                <Info size={15} className="flex-shrink-0" />
+                <span className="flex-1 underline underline-offset-2">{fallbackHint}</span>
+                <ChevronLeft size={15} className="flex-shrink-0" />
+              </button>
+            ) : fallbackHint && (
               <div className="flex items-center gap-2 mt-3 rounded-xl text-[12px] font-bold" style={{ background: '#FFFBEB', border: '0.5px solid #FDE68A', color: '#B45309', padding: '9px 12px' }}>
                 <Info size={15} /> {fallbackHint}
               </div>
