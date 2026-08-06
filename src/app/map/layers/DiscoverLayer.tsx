@@ -775,8 +775,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     // store BEFORE start. Clear any guided route, then launch immediately.
     useRunningPlayer.getState().setActivityType(slot.aerobicKind);
     logic.setFocusedRoute(null);
+    // health-declaration-covered-by-card bug: startActiveWorkout below may open
+    // JITSetupModal (z-[90]) — dismiss the still-mounted HybridSlotCarousel
+    // (z-[100]) FIRST, same pattern as the carousel's own working close button
+    // (onClose={() => { resetHybridFlow(); setMapMode('idle'); }} above).
+    resetHybridFlow();
+    setMapMode('idle');
     logic.startActiveWorkout();
-  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic, keyFor]);
+  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic, keyFor, resetHybridFlow]);
 
   const [effectiveRadius, setEffectiveRadius] = useState(requestedDistanceKm);
 
@@ -1398,6 +1404,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 onBack={() => { setFreeRunStep(overviewBackStep); logic.setFocusedRoute(null); }}
                 onStart={() => {
                   const c = hybridComposed;
+                  // health-declaration-covered-by-card bug: runHybridPlan below calls
+                  // logic.startActiveWorkout, which may open JITSetupModal (z-[90]) —
+                  // dismiss the still-mounted HybridOverviewScreen (z-[100]) FIRST, same
+                  // pattern as HybridSlotCarousel's own working close button. `c` is
+                  // captured above BEFORE the reset, so resetHybridFlow() nulling
+                  // hybridComposed doesn't lose the plan we're about to run.
+                  resetHybridFlow();
+                  setMapMode('idle');
                   import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ runHybridPlan }) => {
                     runHybridPlan(c, logic.startActiveWorkout);
                   });
