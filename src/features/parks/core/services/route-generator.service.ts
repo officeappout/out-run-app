@@ -287,12 +287,22 @@ async function fetchScoredWaypoints(
   }
 
   try {
+    // 300, not 50 (08.08 — verified live with real Tel Aviv data): ordering
+    // by raw score alone means the fetch can be entirely consumed by a
+    // small, geographically-clustered pool of max-score segments — measured
+    // 61 score=10 segments citywide, all within a 5.5km cluster, while the
+    // full score>=6 population (6106 docs) spans the whole 7×7km city.
+    // limit(50) only ever saw that one cluster; a 22km target (idealDistance
+    // ≈3.67km) needs candidates from across the city, which only appear once
+    // the fetch goes deep enough into the score ranking. Tested empirically:
+    // limit(300) already matches fetching the full city (6106 docs) for this
+    // case — 6x the read cost of the old limit(50), not 122x.
     const q = query(
       collection(db, 'street_segments'),
       where('cityName', '==', cleanCity),
       where('score', '>=', 6),
       orderBy('score', 'desc'),
-      limit(50),
+      limit(300),
     );
 
     const snap = await getDocs(q);
@@ -381,7 +391,17 @@ async function fetchScoredWaypoints(
         ? activeOfficialRouteId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
         : Math.floor(Date.now() / 86_400_000); // changes once per calendar day
 
-    const candidates = softShuffleTiedGroups(scored, shuffleSeed).slice(0, 12);
+    // No slice(12) here (08.08 fix) — this function's own score is quality-only
+    // (official-boost + soft-shuffle), with zero awareness of the caller's
+    // target distance. Truncating to 12 HERE, before generateDynamicRoutes'
+    // idealWaypointDistanceKm-aware scoreWaypoint() ever runs, is exactly what
+    // caused live 22km loops to fail: the 12 highest-QUALITY segments can be
+    // (and were, verified with real data) a tight geographic cluster nowhere
+    // near the radius a large target actually needs. Return the full
+    // (already radius-filtered, already capped at `limit(300)` above)
+    // candidate pool and let the caller's target-aware re-scoring — which
+    // already exists and already picks the real top-12 — do the selection.
+    const candidates = softShuffleTiedGroups(scored, shuffleSeed);
 
     const officialBackboneCount = candidates.filter((c) => c.score >= 10).length;
     if (officialBackboneCount > 0) {
