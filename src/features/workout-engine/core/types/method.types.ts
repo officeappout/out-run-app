@@ -35,7 +35,24 @@ export type MethodId =
  * existing code already returns; `ProtocolMethod<TParams, TBuiltSets>` lets each method wrapper
  * narrow both type parameters without forcing one shared runtime shape prematurely.
  */
-export interface ProtocolMethod<TParams = unknown, TBuiltSets = unknown> {
+
+/**
+ * Revised during the pyramid retrofit (§11.2, first real wrapper): `renderActive`/
+ * `renderPreview` do NOT share one `{ builtSets }` prop shape in the live codebase —
+ * `StrengthExerciseCard` (pyramid's active surface) and `PyramidStepCard` (its preview
+ * surface) each take their own real, protocol-specific, session-coupled props (tap handlers,
+ * rest state, cached image URLs, etc.), not a generic wrapper prop. Forcing one shared shape
+ * would mean inventing a translation layer that doesn't exist today — i.e. NOT a pure
+ * delegate. `TActiveProps`/`TPreviewProps` let each retrofit reference the REAL existing
+ * component's REAL existing prop type directly (via the component's exported Props interface,
+ * or `ComponentProps<typeof Component>` when it isn't exported).
+ */
+export interface ProtocolMethod<
+  TParams = unknown,
+  TBuiltSets = unknown,
+  TActiveProps extends object = Record<string, unknown>,
+  TPreviewProps extends object = Record<string, unknown>,
+> {
   id: MethodId;
   name: string;
 
@@ -48,8 +65,8 @@ export interface ProtocolMethod<TParams = unknown, TBuiltSets = unknown> {
   buildSets: (exercises: unknown[], params: TParams) => TBuiltSets;
 
   /** Live active-workout player rendering (timers, rep counters, rest, real-time cues). */
-  renderActive: ComponentType<{ builtSets: TBuiltSets }>;
+  renderActive: ComponentType<TActiveProps>;
 
   /** Pre-workout preview-screen rendering (summary row, icon, expected structure). */
-  renderPreview: ComponentType<{ builtSets: TBuiltSets }>;
+  renderPreview: ComponentType<TPreviewProps>;
 }
