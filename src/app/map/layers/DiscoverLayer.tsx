@@ -279,14 +279,23 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // re-entry. Reset drops the composed plan + focused route + step so the entry
   // button always opens a FRESH slot layer, never a leftover overview.
   const hybridFlowIdRef = useRef(0);
-  const resetHybridFlow = useCallback((nextStep: FreeRunStep = 'config') => {
+  const resetHybridFlow = useCallback((nextStep: FreeRunStep = 'config', opts?: { keepFocusedRoute?: boolean }) => {
     hybridFlowIdRef.current += 1;
     hybridPreviewFlowIdRef.current += 1; // cancel any in-flight preview compose
     setHybridComposing(false);
     setHybridPreviewComposing(false);
     setHybridComposed(null);
     setFreeRunStep(nextStep);
-    logic.setFocusedRoute(null);
+    // route-lost-after-health-declaration bug (10.08.2026 diagnosis): the caller is
+    // STARTING the workout, not leaving the flow — focusedRoute is the live prop
+    // AppMap reads (FreeRunLayer.tsx → AppMap's focusedRoute prop, gated on
+    // `focusedRoute?.id === 'hybrid-route'`) to draw the active-run route/stations.
+    // runHybridPlan only writes Zustand (useRunningPlayer/useHybridRun) — nothing
+    // ever re-sets focusedRoute afterward — so nulling it here (as every OTHER
+    // resetHybridFlow caller correctly does when actually leaving the flow) left
+    // the map with nothing to draw once _doStartActiveWorkout finally fired,
+    // especially after a JIT delay (health declaration) made the gap visible.
+    if (!opts?.keepFocusedRoute) logic.setFocusedRoute(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logic]);
 
@@ -1427,7 +1436,15 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   // pattern as HybridSlotCarousel's own working close button. `c` is
                   // captured above BEFORE the reset, so resetHybridFlow() nulling
                   // hybridComposed doesn't lose the plan we're about to run.
-                  resetHybridFlow();
+                  //
+                  // route-lost-after-health-declaration bug (10.08.2026 diagnosis):
+                  // keepFocusedRoute — this is a START, not a leave. focusedRoute is the
+                  // LIVE prop AppMap draws the active-run route/stations from (gated on
+                  // focusedRoute?.id === 'hybrid-route'); runHybridPlan only writes
+                  // Zustand (useRunningPlayer/useHybridRun), never re-sets focusedRoute,
+                  // so nulling it here left the map with nothing to draw once
+                  // _doStartActiveWorkout finally fired post-JIT.
+                  resetHybridFlow('config', { keepFocusedRoute: true });
                   setMapMode('idle');
                   import('@/features/workout-engine/hybrid/start-hybrid-session').then(({ runHybridPlan }) => {
                     runHybridPlan(c, logic.startActiveWorkout);

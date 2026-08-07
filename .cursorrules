@@ -37,13 +37,13 @@
 - z-50: Mapbox facility popups
 - z-[60]: WorkoutDrawer, NavigationHub (navigating), RoutePreviewCard
 - z-[70]: Search bars in discover mode + OverviewTitleBar (route-preview "מבט על אימון" bar; mutually exclusive with the search bar, MAP_OVERVIEW_CHROME_V1)
-- z-[90]: JITSetupModal — centered confirmation-card state only (requirements list, not yet the questionnaire)
 - z-[95]: Referral toast
 - z-[100]: Full-screen overlays (search, sheets, contribution wizard)
 - z-[110]: Hybrid aerobic CTA ("הגעתי לתחנה" / "סיים אימון משולב") — portaled to document.body so it clears the run drawer (HybridStationLayer)
 - z-[120]: Dev-only banners; Hybrid station overlay (StrengthRunner full-screen, HybridStationLayer)
 - z-[130]/z-[131]: LegalDocModal (backdrop/sheet) — must clear HealthConnectDisclosureModal (z-[120]), which can open it inline
-- z-[140]: JITSetupModal — inline Health Declaration state (full-screen, after "השלם עכשיו") — a SEPARATE, higher value from the modal's own z-[90] confirmation-card state above; must clear every full-screen overlay (z-[100]) and the referral toast (z-[95]) still possibly mounted behind it
+- z-[140]: JITSetupModal — inline Health Declaration state (full-screen, after "השלם עכשיו")
+- z-[141]: JITSetupModal — centered confirmation-card state (requirements list, not yet the questionnaire). Was z-[90] (too low — collided with the referral toast z-[95] and every full-screen overlay z-[100]); moved up alongside its sibling z-[140] state — mutually exclusive with it, kept as a separate value for clarity
 - z-[200]: Post-workout summary (RunSummary nested UI)
 - DO NOT create new z-index values without updating this table.
 
