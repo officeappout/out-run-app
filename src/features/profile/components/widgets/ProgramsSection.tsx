@@ -3,9 +3,19 @@
 /**
  * ProgramsSection — profile Block 5.
  *
- * Shows two groups:
- *   1. "תוכנית פעילה"  — the master program card (same ProgramProgressCard as Home)
- *   2. "תוכניות בנות"  — one card per child slug from MASTER_PROGRAM_CHILDREN
+ * Shows up to three groups:
+ *   1. "תוכנית פעילה"    — the master program card for activePrograms[0]
+ *                          (same ProgramProgressCard as Home)
+ *   2. "תוכניות בנות"    — one card per child slug from MASTER_PROGRAM_CHILDREN,
+ *                          derived from activePrograms[0] — unchanged from before
+ *                          multi-program support was added.
+ *   3. "תוכניות נוספות"  — one card per OTHER entry in activePrograms
+ *                          (index 1+): genuinely independent programs the
+ *                          user is active in that are NOT a parent/child of
+ *                          entry 0 (e.g. activePrograms = [push, planche] —
+ *                          planche isn't a "child" of push, it's its own
+ *                          active program). Previously these were silently
+ *                          invisible — only activePrograms[0] was ever read.
  *
  * Tapping any card opens ProgramDrawer with per-program metadata + stats.
  */
@@ -23,8 +33,9 @@ import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramP
 import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
 import ProgramDrawer, { type ProgramDrawerData } from './ProgramDrawer';
 import type { Program } from '@/features/content/programs/core/program.types';
-import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { startMiniDomainAssessment, type MiniAssessmentDomainType } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
+import { resolveAdditionalProgramSlugs, domainTypeForSlug } from './program-groups.utils';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -73,6 +84,8 @@ export default function ProgramsSection() {
   // Resolved metadata for child programs (description, iconKey, maxLevels)
   const [childMeta, setChildMeta] = useState<Record<string, Program>>({});
   const [masterMeta, setMasterMeta] = useState<Program | null>(null);
+  // Resolved metadata for additional (index 1+) independent active programs
+  const [additionalMeta, setAdditionalMeta] = useState<Record<string, Program>>({});
 
   // Drawer state
   const [drawerProgram, setDrawerProgram] = useState<ProgramDrawerData | null>(null);
@@ -90,6 +103,16 @@ export default function ProgramsSection() {
   const childSlugs: readonly string[] = masterSlug
     ? (MASTER_PROGRAM_CHILDREN[masterSlug] ?? [])
     : [];
+
+  // ── Additional independent active programs (index 1+) ────────────────
+  // Genuinely separate programs the user is active in — NOT a parent/child
+  // of activePrograms[0]. Resolved the same raw-id-vs-slug way as the
+  // master (templateId kept raw for fetchProgramMeta/the drawer; slug used
+  // for MASTER_PROGRAM_CHILDREN/tracks lookups only).
+  const additionalSlugs: string[] = resolveAdditionalProgramSlugs(
+    profile?.progression?.activePrograms,
+    resolveToSlug,
+  );
 
   // Fetch master metadata once
   useEffect(() => {
@@ -121,6 +144,26 @@ export default function ProgramsSection() {
     return () => { cancelled = true; };
   }, [childSlugs.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch metadata for additional (index 1+) independent active programs
+  useEffect(() => {
+    if (additionalSlugs.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      additionalSlugs.map(async (slug) => {
+        const meta = await fetchProgramMeta(slug);
+        return { slug, meta };
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      const map: Record<string, Program> = {};
+      for (const { slug, meta } of results) {
+        if (meta) map[slug] = meta;
+      }
+      setAdditionalMeta(map);
+    });
+    return () => { cancelled = true; };
+  }, [additionalSlugs.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Master-derived level / percent for the master card ─────────
   // useProgramProgress already derives this correctly and returns 0-100.
   // Cap at 100 defensively in case child floats average above 1.
@@ -145,8 +188,8 @@ export default function ProgramsSection() {
     });
   }, [masterTemplateId, masterSlug, masterName, masterMeta, masterLevel, masterMaxLevel, masterPercent, masterIconKey, tracks]);
 
-  // ── Open drawer for a child program ────────────────────────────
-  const openChildDrawer = useCallback(
+  // ── Open drawer for a non-master program (child OR additional) ──
+  const openProgramDrawer = useCallback(
     (slug: string, card: ChildCardData) => {
       setDrawerProgram({
         templateId: slug,
@@ -162,10 +205,9 @@ export default function ProgramsSection() {
     [],
   );
 
-  // ── Build child card data ───────────────────────────────────────
-  const childCards: ChildCardData[] = childSlugs.map((slug) => {
+  // ── Build card data for a given slug (shared by children + additional programs) ──
+  const buildCardData = (slug: string, meta: Program | undefined): ChildCardData => {
     const track = tracks[slug];
-    const meta = childMeta[slug];
     const pct = Math.min(100, Math.round(track?.percent ?? 0));
     return {
       slug,
@@ -181,10 +223,70 @@ export default function ProgramsSection() {
       // one-liner, so the UI's "assessed" cue can never drift from what the engine admits.
       isAssessed: profile ? isDomainAssessed(profile, slug) : false,
     };
-  });
+  };
 
-  // Don't render if no program at all
-  if (!masterTemplateId && childSlugs.length === 0) {
+  const childCards: ChildCardData[] = childSlugs.map((slug) => buildCardData(slug, childMeta[slug]));
+
+  // Additional independent active programs (index 1+) — same card shape as
+  // children, just sourced from activePrograms directly instead of
+  // MASTER_PROGRAM_CHILDREN. A slug can be a body category (push/pull/legs/core)
+  // or a skill (planche/handstand/...) — domainType picks the right
+  // mini-questionnaire path for the "not yet assessed" CTA below.
+  const additionalCards: ChildCardData[] = additionalSlugs.map((slug) => buildCardData(slug, additionalMeta[slug]));
+
+  // ── Render one card tile (shared by children + additional programs) ────
+  // Assessed → tap opens ProgramDrawer. Not yet assessed → explicit
+  // "not yet assessed" cue + CTA to the mini-questionnaire (never a silently
+  // fabricated "Level 1" card) — domainType picks category vs skill routing.
+  const renderCardTile = (card: ChildCardData, groupSize: number, domainType: MiniAssessmentDomainType) =>
+    card.isAssessed ? (
+      <button
+        key={card.slug}
+        type="button"
+        className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
+        onClick={() => openProgramDrawer(card.slug, card)}
+      >
+        <ProgramProgressCard
+          programName={card.name}
+          iconKey={card.iconKey}
+          currentLevel={card.currentLevel}
+          maxLevel={card.maxLevel}
+          progressPercent={Math.round(card.percent)}
+          programCount={groupSize}
+          className="pointer-events-none"
+        />
+      </button>
+    ) : (
+      <button
+        key={card.slug}
+        type="button"
+        className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
+        style={{ minWidth: 160 }}
+        onClick={() => startMiniDomainAssessment(router, card.slug, undefined, domainType)}
+      >
+        <div
+          className="bg-white dark:bg-slate-800 w-full flex flex-col justify-between"
+          style={{
+            minHeight: 107,
+            padding: 16,
+            borderRadius: 12,
+            border: '1px dashed #CBD5E1',
+          }}
+          dir="rtl"
+        >
+          <h3 className="text-[15px] font-bold text-gray-500 dark:text-gray-400 line-clamp-2 break-words leading-snug">
+            {card.name}
+          </h3>
+          <p className="text-xs font-bold text-[#00C9F2] mt-2">טרם הוערך — לחצו לבדיקה</p>
+        </div>
+      </button>
+    );
+
+  // Don't render if no program at all. additionalCards is included defensively —
+  // structurally it's empty whenever masterTemplateId is null (that only happens
+  // when activePrograms itself is empty), but a corrupt entry[0] missing its own
+  // templateId while entry[1]+ are valid shouldn't hide real programs.
+  if (!masterTemplateId && childSlugs.length === 0 && additionalCards.length === 0) {
     return (
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
         <div className="flex items-center justify-between mb-3">
@@ -243,59 +345,22 @@ export default function ProgramsSection() {
           </div>
         )}
 
-        {/* Group 2 — Child programs */}
+        {/* Group 2 — Child programs (unchanged: derived from activePrograms[0] only) */}
         {childCards.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות בנות</p>
             <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-              {childCards.map((card) => (
-                card.isAssessed ? (
-                  <button
-                    key={card.slug}
-                    type="button"
-                    className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
-                    onClick={() => openChildDrawer(card.slug, card)}
-                  >
-                    <ProgramProgressCard
-                      programName={card.name}
-                      iconKey={card.iconKey}
-                      currentLevel={card.currentLevel}
-                      maxLevel={card.maxLevel}
-                      progressPercent={Math.round(card.percent)}
-                      programCount={childCards.length}
-                      className="pointer-events-none"
-                    />
-                  </button>
-                ) : (
-                  // Not yet assessed: explicit cue + CTA to the mini-questionnaire
-                  // for this domain, instead of silently rendering "Level 1"
-                  // (the engine-side `?? 1` default elsewhere is untouched —
-                  // this is purely a UI-level cue).
-                  <button
-                    key={card.slug}
-                    type="button"
-                    className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
-                    style={{ minWidth: 160 }}
-                    onClick={() => startMiniDomainAssessment(router, card.slug)}
-                  >
-                    <div
-                      className="bg-white dark:bg-slate-800 w-full flex flex-col justify-between"
-                      style={{
-                        minHeight: 107,
-                        padding: 16,
-                        borderRadius: 12,
-                        border: '1px dashed #CBD5E1',
-                      }}
-                      dir="rtl"
-                    >
-                      <h3 className="text-[15px] font-bold text-gray-500 dark:text-gray-400 line-clamp-2 break-words leading-snug">
-                        {card.name}
-                      </h3>
-                      <p className="text-xs font-bold text-[#00C9F2] mt-2">טרם הוערך — לחצו לבדיקה</p>
-                    </div>
-                  </button>
-                )
-              ))}
+              {childCards.map((card) => renderCardTile(card, childCards.length, 'category'))}
+            </div>
+          </div>
+        )}
+
+        {/* Group 3 — Additional independent active programs (activePrograms index 1+) */}
+        {additionalCards.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות נוספות</p>
+            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+              {additionalCards.map((card) => renderCardTile(card, additionalCards.length, domainTypeForSlug(card.slug)))}
             </div>
           </div>
         )}
