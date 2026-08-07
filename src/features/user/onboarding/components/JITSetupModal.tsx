@@ -120,7 +120,12 @@ export function JITSetupModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[90] flex items-center justify-center p-6"
+        // z-[90] leak (10.08.2026 diagnosis, bug ב): lower than the referral toast
+        // (z-[95]) and every full-screen overlay incl. HybridSlotCarousel/
+        // HybridOverviewScreen (z-[100]) — same collision class as the inline
+        // questionnaire's z-[60]→z-[140] fix above, just this component's OTHER
+        // (confirmation-card) state. z-[141] clears everything below z-[200].
+        className="fixed inset-0 z-[141] flex items-center justify-center p-6"
         style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.4)' }}
         onClick={hasHardBlock ? undefined : onCancel}
       >
