@@ -629,21 +629,52 @@ export function scoreWaypoint(
  * sectors and takes the best-scoring candidate from each non-empty sector —
  * so the returned set is angularly diverse by construction, not just
  * whichever direction happens to have the most/highest-scored real streets.
- * Backfills with the next-best-by-score overall when sectors are empty (real
- * geography — e.g. a coastline arc with no streets at all — shouldn't starve
- * the pool below what the 5-combination variety mechanism downstream
- * expects). Final result is sorted by bearing so index-adjacency in the
- * caller's combination loop corresponds to angular adjacency.
+ *
+ * Backfill is ROUND-ROBIN across sectors (2nd-best from each non-empty
+ * sector, then 3rd-best, ...), NOT a single global-score sort. Verified live
+ * (08.08, David's exact real address — Sderot Har Tzion 39, south Tel Aviv):
+ * a global-score backfill silently undoes the round-1 diversity the moment
+ * one sector is much denser than the others — measured sector population
+ * [211,6,2,0,0,1,14,66] for this real point, and a global-score backfill
+ * pulled 7 of the final 12 candidates from the single 66-candidate sector
+ * (all within a few degrees of each other), because after round 1 those
+ * were still the highest-scoring candidates left ANYWHERE — reproducing the
+ * exact "3 nearly-collinear points" failure this whole fix exists to solve,
+ * just one layer deeper. Round-robin caps how much any one sector can
+ * contribute per round, so a dense sector can still supply MORE candidates
+ * than a sparse one (that's correct — real data density matters) without
+ * being allowed to swallow the whole backfill outright.
+ *
+ * Empty (or badly-positioned) sectors get ONE synthetic candidate at that
+ * sector's center bearing and `idealDistanceKm` radius — same bearing/radius
+ * projection generateRandomWaypoints already uses for the whole-city
+ * fallback, just applied per-sector as a supplement instead of a full
+ * replacement. Mapbox snaps any via-point to the nearest real street
+ * regardless of where it was computed from, so a synthetic point is not
+ * meaningless — it just gives the round-robin picker something reasonable
+ * to choose in a direction real data doesn't cover well. Verified live
+ * (08.08, David's exact real address): sectors 3-4 were completely empty
+ * and sectors 5/7's best real candidates sat 2-3km off the 3.75km ideal
+ * (e.g. 0.69km, 0.78km) — real streets exist there, just not near the
+ * radius this target needs. Scored as if perfectly positioned (matches
+ * scoreWaypoint's own distanceDiff<0.3 tier) so it competes fairly with
+ * real candidates rather than being auto-preferred or auto-discounted.
+ * Final result is sorted by bearing so index-adjacency in the caller's
+ * combination loop corresponds to angular adjacency.
  */
 const ANGULAR_SECTOR_COUNT = 8;
+const SYNTHETIC_SECTOR_FILL_SCORE = 70; // matches scoreWaypoint: 50 base + 20 (distanceDiff<0.3)
+const SECTOR_POSITION_GAP_KM = 1.0; // trigger synthesis when the best real candidate is this far off ideal
 export function selectAngularlyDiverseCandidates(
   scored: WaypointCandidate[],
   userLocation: { lat: number; lng: number },
   maxCount: number,
+  idealDistanceKm: number,
 ): WaypointCandidate[] {
   const bearingOf = (wp: { lat: number; lng: number }) =>
     (segBearing([userLocation.lng, userLocation.lat], [wp.lng, wp.lat]) + 360) % 360;
   const sectorWidth = 360 / ANGULAR_SECTOR_COUNT;
+  const KM_PER_DEGREE = 111;
 
   const sectors: WaypointCandidate[][] = Array.from({ length: ANGULAR_SECTOR_COUNT }, () => []);
   for (const wp of scored) {
@@ -652,20 +683,42 @@ export function selectAngularlyDiverseCandidates(
   }
   for (const sector of sectors) sector.sort((a, b) => b.score - a.score);
 
-  const picked: WaypointCandidate[] = [];
-  const pickedSet = new Set<WaypointCandidate>();
-  for (const sector of sectors) {
-    if (sector.length > 0 && picked.length < maxCount) {
-      picked.push(sector[0]);
-      pickedSet.add(sector[0]);
-    }
+  // Fill empty/badly-positioned sectors with a synthetic candidate BEFORE
+  // round-robin picking, so it's just another entry competing on score.
+  for (let idx = 0; idx < ANGULAR_SECTOR_COUNT; idx++) {
+    const sector = sectors[idx];
+    const bestGap = sector.length > 0 ? Math.abs(sector[0].distanceFromUser - idealDistanceKm) : Infinity;
+    if (sector.length > 0 && bestGap <= SECTOR_POSITION_GAP_KM) continue; // real coverage already good enough
+    const centerBearingDeg = (idx + 0.5) * sectorWidth;
+    const mathAngleRad = ((90 - centerBearingDeg) * Math.PI) / 180; // compass bearing -> generateRandomWaypoints' math-angle convention
+    const radiusDeg = idealDistanceKm / KM_PER_DEGREE;
+    const synthetic: WaypointCandidate = {
+      lat: userLocation.lat + radiusDeg * Math.sin(mathAngleRad),
+      lng: userLocation.lng + radiusDeg * Math.cos(mathAngleRad),
+      score: SYNTHETIC_SECTOR_FILL_SCORE,
+      distanceFromUser: idealDistanceKm,
+      nearbyParks: 0,
+      isGreen: false,
+      isSafe: true, // idealDistanceKm is always < Math.max(3.0, idealDistanceKm*2)
+    };
+    sector.push(synthetic);
+    sector.sort((a, b) => b.score - a.score);
   }
-  if (picked.length < maxCount) {
-    const remaining = scored.filter((wp) => !pickedSet.has(wp)).sort((a, b) => b.score - a.score);
-    for (const wp of remaining) {
+
+  const picked: WaypointCandidate[] = [];
+  // Round-robin: round 0 takes each sector's best, round 1 takes each
+  // sector's 2nd-best, etc. — sectors with fewer than `round+1` candidates
+  // are simply skipped that round, not treated as exhausted for good.
+  for (let round = 0; picked.length < maxCount && round < scored.length; round++) {
+    let anyTakenThisRound = false;
+    for (const sector of sectors) {
       if (picked.length >= maxCount) break;
-      picked.push(wp);
+      if (sector.length > round) {
+        picked.push(sector[round]);
+        anyTakenThisRound = true;
+      }
     }
+    if (!anyTakenThisRound) break; // every sector exhausted
   }
   return picked.sort((a, b) => bearingOf(a) - bearingOf(b));
 }
@@ -799,7 +852,12 @@ export async function generateDynamicRoutes(
   // Angularly-diverse selection (08.08 fix), not just top-12-by-score — see
   // selectAngularlyDiverseCandidates' doc comment. Sorted by bearing, so
   // array-index-adjacency below corresponds to angular adjacency.
-  const topCandidates = selectAngularlyDiverseCandidates(scoredWaypoints, userLocation, 12);
+  const topCandidates = selectAngularlyDiverseCandidates(
+    scoredWaypoints,
+    userLocation,
+    12,
+    preferences.idealWaypointDistanceKm ?? 1.0,
+  );
 
   // 3. Create route combinations (triangular loops)
   const routeCombinations: Array<{ waypoints: Array<WaypointCandidate>, score: number }> = [];
