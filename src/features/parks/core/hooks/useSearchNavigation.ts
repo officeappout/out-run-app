@@ -120,7 +120,14 @@ export function useSearchNavigation(
           _source: 'mapbox' as const,
         }));
 
-        setSuggestions([...parkHits, ...routeHits, ...geoHits]);
+        // Mapbox's own geocoding results are already relevance-ranked for the
+        // exact typed query; the park/route hits below are a naive local
+        // substring filter, not true relevance ranking. Address results go
+        // first so a real, specific match (e.g. a friend's street address)
+        // never gets buried under park/route noise — this matters most for
+        // short queries (e.g. typing a city name alone), the only case where
+        // the substring filter can match at all (see includes() above).
+        setSuggestions([...geoHits, ...parkHits, ...routeHits]);
       } catch { setSuggestions([]); }
       finally { setIsSearching(false); }
     }, 400);
