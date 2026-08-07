@@ -247,6 +247,29 @@ function sanitizeCityKey(raw: string): string {
 }
 
 /**
+ * Fourth bug in the large-target family (08.08 \u2014 verified live with real Tel
+ * Aviv data). useUserCityName.ts already normalises the Mapbox-vs-OSM-
+ * importer "\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1-\u05D9\u05E4\u05D5" \u2192 "\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1" naming quirk on the QUERY side (see its
+ * normalizeCityName doc comment) \u2014 but 1144 real street_segments documents
+ * were imported carrying the un-normalised "\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1-\u05D9\u05E4\u05D5" name and never got
+ * the same treatment, so they were permanently invisible to every query
+ * regardless of query-side normalisation. Confirmed live: of the top-300
+ * candidates by score, 239 (80%) were sitting under the un-normalised name.
+ * Ramat Gan/Givatayim/Bnei Brak/Holon/Bat Yam were also checked and have
+ * ZERO segments in this collection at all \u2014 genuinely never imported, not a
+ * filtering issue, so they're deliberately NOT in this alias map.
+ * This is a query-side resilience patch for a known, confirmed case \u2014 the
+ * real fix is a one-time backfill normalising those 1144 docs' cityName
+ * field, which is a data migration, out of scope for this function.
+ */
+const CITY_NAME_QUERY_ALIASES: Record<string, string[]> = {
+  '\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1': ['\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1', '\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1-\u05D9\u05E4\u05D5'],
+};
+export function resolveCityNameQueryAliases(cleanCity: string): string[] {
+  return CITY_NAME_QUERY_ALIASES[cleanCity] ?? [cleanCity];
+}
+
+/**
  * Score multiplier applied to street_segments whose `officialRouteId`
  * matches the orchestrator's `activeOfficialRouteId`. With max segment
  * score = 10, a 5× multiplier yields 50 — guaranteed to dominate ALL
@@ -287,6 +310,8 @@ async function fetchScoredWaypoints(
   }
 
   try {
+    const cityNameCandidates = resolveCityNameQueryAliases(cleanCity);
+
     // 300, not 50 (08.08 — verified live with real Tel Aviv data): ordering
     // by raw score alone means the fetch can be entirely consumed by a
     // small, geographically-clustered pool of max-score segments — measured
@@ -299,7 +324,7 @@ async function fetchScoredWaypoints(
     // case — 6x the read cost of the old limit(50), not 122x.
     const q = query(
       collection(db, 'street_segments'),
-      where('cityName', '==', cleanCity),
+      where('cityName', 'in', cityNameCandidates),
       where('score', '>=', 6),
       orderBy('score', 'desc'),
       limit(300),

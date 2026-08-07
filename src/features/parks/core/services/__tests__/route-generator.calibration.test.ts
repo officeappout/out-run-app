@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreWaypoint, computeDistanceWindow, selectAngularlyDiverseCandidates } from '../route-generator.service';
+import { scoreWaypoint, computeDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases } from '../route-generator.service';
 
 const USER = { lat: 0, lng: 0 };
 // ~0.267km east of user (route-stops' targetKm=1.6 / 6 calibration) and ~1.0km east.
@@ -154,5 +154,27 @@ describe('selectAngularlyDiverseCandidates — angular spread for large loops (0
     const bearings = selected.map((wp) => ((Math.atan2(wp.lng, wp.lat) * 180) / Math.PI + 360) % 360);
     const sorted = [...bearings].sort((a, b) => a - b);
     expect(bearings).toEqual(sorted);
+  });
+});
+
+describe('resolveCityNameQueryAliases — Tel Aviv-Yafo naming variant (08.08, fixes 80% of top-scored candidates being invisible)', () => {
+  it('תל אביב resolves to both the canonical and the official "-יפו" variant', () => {
+    expect(resolveCityNameQueryAliases('תל אביב')).toEqual(['תל אביב', 'תל אביב-יפו']);
+  });
+
+  it('any other city resolves to itself only — no unintended expansion', () => {
+    expect(resolveCityNameQueryAliases('חיפה')).toEqual(['חיפה']);
+    expect(resolveCityNameQueryAliases('ירושלים')).toEqual(['ירושלים']);
+  });
+
+  it('the alias variant is never confused with the canonical form as a lookup key', () => {
+    // Looking up the ALREADY-hyphenated form should not double-expand or loop
+    expect(resolveCityNameQueryAliases('תל אביב-יפו')).toEqual(['תל אביב-יפו']);
+  });
+
+  it('result never exceeds Firestore\'s 10-value "in" operator limit', () => {
+    for (const city of ['תל אביב', 'חיפה', 'ירושלים', 'תל אביב-יפו']) {
+      expect(resolveCityNameQueryAliases(city).length).toBeLessThanOrEqual(10);
+    }
   });
 });
