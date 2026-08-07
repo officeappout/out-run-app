@@ -45,7 +45,15 @@ export const fullStrengthGenerator: Generator = {
     const { workout } = option.result;
     if (workout.needsAssessment) return null;
 
+    // Real detection, not a hardcoded guess: 'straight' as the baseline (warmup/cooldown are
+    // never superset/pyramid/tabata-tagged), plus superset/pyramid presence read off the same
+    // exercise fields the live player/preview dispatch on (pairedWith / pyramidSequence —
+    // advance-registry.ts's resolveExerciseProtocol uses the identical check).
     const methodsUsed: string[] = ['straight'];
+    if (workout.exercises.some((ex) => ex.pairedWith)) methodsUsed.push('superset');
+    if (workout.exercises.some((ex) => Array.isArray(ex.pyramidSequence) && ex.pyramidSequence.length > 0)) {
+      methodsUsed.push('pyramid');
+    }
     if (workout.tabataBlock) methodsUsed.push('tabata');
 
     return {
