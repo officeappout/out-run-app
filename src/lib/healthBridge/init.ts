@@ -63,14 +63,19 @@ function platformIsIOS(): boolean {
   return w.Capacitor?.getPlatform?.() === 'ios';
 }
 
-async function getPrefs() {
+/**
+ * Same class of bug as loadPlugin() (see its doc comment) — @capacitor/preferences'
+ * plugin proxy also has a fabricated callable `.then`, so it must never be
+ * returned directly from this async function. Wrapped in `{ plugin }`.
+ */
+async function getPrefs(): Promise<{ plugin: typeof import('@capacitor/preferences').Preferences }> {
   const { Preferences } = await import('@capacitor/preferences');
-  return Preferences;
+  return { plugin: Preferences };
 }
 
 async function readCursor(): Promise<string | null> {
   try {
-    const Preferences = await getPrefs();
+    const { plugin: Preferences } = await getPrefs();
     const { value } = await Preferences.get({ key: PREF_KEY_CURSOR });
     return value || null;
   } catch {
@@ -80,7 +85,7 @@ async function readCursor(): Promise<string | null> {
 
 async function writeCursor(iso: string): Promise<void> {
   try {
-    const Preferences = await getPrefs();
+    const { plugin: Preferences } = await getPrefs();
     await Preferences.set({ key: PREF_KEY_CURSOR, value: iso });
   } catch {
     /* ignore */
@@ -126,12 +131,30 @@ async function loadPlugin(): Promise<{ plugin: unknown }> {
  * cursor. Safe to call multiple times in parallel — concurrent calls
  * coalesce because OutboxFlusher is itself coalescing and the cursor
  * is only advanced after a successful sync.
+ *
+ * No-ops (skips the native read entirely) until PREF_KEY_PERMISSIONS is
+ * set — see the guard at the top of the try block. Applies identically on
+ * iOS and Android since this orchestration layer is shared between both.
  */
 export async function healthBridgeSyncNow(
   reason: 'app-active' | 'observer' | 'manual' | 'background' | 'login' = 'manual',
 ): Promise<void> {
   if (!isNative()) return;
   try {
+    // Guard: don't touch Health Connect / HealthKit until we've actually
+    // recorded a successful grant. Without this, every foreground resume
+    // (native/init.ts's appStateChange listener calls this unconditionally)
+    // attempts a read before the user has ever granted anything — on
+    // Android that throws SecurityException: requires READ_STEPS, caught
+    // below but noisy on every single resume. Cheap local Preferences read,
+    // never touches the native health API.
+    const { plugin: PreferencesCheck } = await getPrefs();
+    const { value: granted } = await PreferencesCheck.get({ key: PREF_KEY_PERMISSIONS });
+    if (granted !== '1') {
+      console.log(`[healthBridge][flow] sync(${reason}): skipped — not granted yet`);
+      return;
+    }
+
     const { plugin: HealthBridge } = await loadPlugin();
     const sinceISO = (await readCursor()) ?? undefined;
     console.log(`[healthBridge][flow] sync(${reason}): querying native store (first data query)`);
@@ -386,7 +409,7 @@ export async function initHealthBridge(): Promise<void> {
       const granted = Boolean(e?.granted);
       console.log('[healthBridge][flow] permissionsChanged event: granted=', granted);
       void (async () => {
-        const Preferences = await getPrefs();
+        const { plugin: Preferences } = await getPrefs();
         if (granted) {
           await Preferences.set({ key: PREF_KEY_PERMISSIONS, value: '1' });
         } else {
@@ -398,7 +421,7 @@ export async function initHealthBridge(): Promise<void> {
       })();
     });
 
-    const Preferences = await getPrefs();
+    const { plugin: Preferences } = await getPrefs();
     const { value: prevGranted } = await Preferences.get({ key: PREF_KEY_PERMISSIONS });
     if (prevGranted === '1') {
       try {
@@ -493,7 +516,7 @@ export async function requestHealthPermissions(): Promise<{
     }
     // Persist "asked" before the OS sheet so a deny or mid-dialog kill still
     // records that the user was prompted and we don't ask again on next login.
-    const Preferences = await getPrefs();
+    const { plugin: Preferences } = await getPrefs();
     await Preferences.set({ key: PREF_KEY_ASKED, value: '1' });
     console.log('[healthBridge][flow] requestHealthPermissions: OS dialog requested');
     const result = await withTimeout(
@@ -566,7 +589,7 @@ export async function disconnectHealth(): Promise<void> {
   try {
     const { plugin: HealthBridge } = await loadPlugin();
     await (HealthBridge as any).disableBackgroundDelivery();
-    const Preferences = await getPrefs();
+    const { plugin: Preferences } = await getPrefs();
     await Preferences.remove({ key: PREF_KEY_PERMISSIONS });
   } catch (err) {
     console.warn('[healthBridge] disconnect failed:', err);
