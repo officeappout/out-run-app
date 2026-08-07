@@ -83,7 +83,7 @@ export default function HealthDeclarationPage() {
 
       await refreshProfile();
 
-      router.replace('/home');
+      router.replace('/onboarding-new/health-connect');
     } catch (error) {
       console.error('[Health] Error completing onboarding:', error);
     }
