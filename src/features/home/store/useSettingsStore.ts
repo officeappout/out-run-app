@@ -8,6 +8,8 @@ export interface SettingsData {
   tipsAlerts: boolean;
   units: 'km' | 'miles';
   healthBridgeEnabled: boolean;
+  /** Mirrors PREF_KEY_ASKED — combined with healthBridgeEnabled, derives not-asked/asked-denied/granted. */
+  healthPermissionAsked: boolean;
   /** Master push switch — mirrors `users/{uid}.settings.pushEnabled` */
   pushEnabled: boolean;
   /** Per-channel chat toggle — mirrors `users/{uid}.settings.notificationPrefs.chat` */
@@ -38,6 +40,7 @@ const DEFAULTS: SettingsData = {
   tipsAlerts: true,
   units: 'km',
   healthBridgeEnabled: false,
+  healthPermissionAsked: false,
   pushEnabled: true,
   chatNotifEnabled: true,
   progressionNotif: true,

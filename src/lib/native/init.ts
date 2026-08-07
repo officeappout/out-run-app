@@ -387,12 +387,18 @@ async function attachPushAuthBridge(): Promise<void> {
           // granted. The OS dialog itself only ever fires from an explicit
           // user gesture — profile, steps ring, or the onboarding opt-in step.
           const {
-            PREF_KEY_PERMISSIONS, healthBridgeSyncNow,
+            PREF_KEY_PERMISSIONS, PREF_KEY_ASKED, healthBridgeSyncNow,
           } = await import('@/lib/healthBridge/init');
           const { Preferences } = await import('@capacitor/preferences');
-          const { value: prevGranted } = await Preferences.get({ key: PREF_KEY_PERMISSIONS });
+          const [{ value: prevGranted }, { value: prevAsked }] = await Promise.all([
+            Preferences.get({ key: PREF_KEY_PERMISSIONS }),
+            Preferences.get({ key: PREF_KEY_ASKED }),
+          ]);
           const { useSettingsStore } = await import('@/features/home/store/useSettingsStore');
-          useSettingsStore.getState().patch({ healthBridgeEnabled: prevGranted === '1' });
+          useSettingsStore.getState().patch({
+            healthBridgeEnabled: prevGranted === '1',
+            healthPermissionAsked: prevAsked === '1',
+          });
           if (prevGranted === '1') {
             void healthBridgeSyncNow('login');
           }

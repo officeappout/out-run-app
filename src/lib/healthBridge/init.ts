@@ -47,6 +47,15 @@ const PREF_KEY_CURSOR = 'outrun.healthBridge.cursorISO';
 export const PREF_KEY_PERMISSIONS = 'outrun.healthBridge.permissionsGranted';
 /** Set before the OS permission sheet fires so denied + killed-mid-dialog both record "asked". */
 export const PREF_KEY_ASKED = 'outrun.healthBridge.permissionsAsked';
+/**
+ * Set when the user declines or skips the optional onboarding opt-in step
+ * (HealthConnectOptInStep). Deliberately separate from PREF_KEY_ASKED — a
+ * soft decline here must NOT count as a real OS-dialog denial, so the
+ * profile and steps-ring entry points can still offer to connect again.
+ */
+export const PREF_KEY_ONBOARDING_DEFERRED = 'outrun.healthBridge.onboardingDeferred';
+
+export type HealthPermissionState = 'not-asked' | 'asked-denied' | 'granted';
 
 let installed = false;
 let bridgePromise: Promise<{ plugin: unknown }> | null = null;
@@ -418,6 +427,7 @@ export async function initHealthBridge(): Promise<void> {
         const { useSettingsStore } = await import('@/features/home/store/useSettingsStore');
         useSettingsStore.getState().patch({ healthBridgeEnabled: granted });
         if (granted) void healthBridgeSyncNow('manual');
+        void syncHealthConnectStateToFirestore(granted ? 'granted' : 'denied');
       })();
     });
 
@@ -518,6 +528,8 @@ export async function requestHealthPermissions(): Promise<{
     // records that the user was prompted and we don't ask again on next login.
     const { plugin: Preferences } = await getPrefs();
     await Preferences.set({ key: PREF_KEY_ASKED, value: '1' });
+    const { useSettingsStore } = await import('@/features/home/store/useSettingsStore');
+    useSettingsStore.getState().patch({ healthPermissionAsked: true });
     console.log('[healthBridge][flow] requestHealthPermissions: OS dialog requested');
     const result = await withTimeout(
       (HealthBridge as any).requestPermissions({
@@ -536,6 +548,12 @@ export async function requestHealthPermissions(): Promise<{
         console.warn('[healthBridge] enableBackgroundDelivery failed:', err);
       }
       void healthBridgeSyncNow('manual');
+      void syncHealthConnectStateToFirestore('granted');
+    } else {
+      // The OS dialog actually ran and came back denied — a real hard
+      // denial, distinct from deferHealthPermissionOnboarding()'s soft
+      // "deferred" (which never reaches this point at all).
+      void syncHealthConnectStateToFirestore('denied');
     }
     return {
       granted,
@@ -593,5 +611,75 @@ export async function disconnectHealth(): Promise<void> {
     await Preferences.remove({ key: PREF_KEY_PERMISSIONS });
   } catch (err) {
     console.warn('[healthBridge] disconnect failed:', err);
+  }
+  void syncHealthConnectStateToFirestore('not_asked');
+}
+
+/**
+ * The 3-state gating model used by every entry point (profile, steps ring,
+ * onboarding step): 'not-asked' deliberately also covers a user who saw and
+ * declined/skipped the softer onboarding opt-in (PREF_KEY_ONBOARDING_DEFERRED
+ * is intentionally NOT part of this check — see its doc comment) — only a
+ * real OS-dialog denial counts as 'asked-denied'. Local-only, synchronous
+ * with the cached Preferences state (no native health-API round-trip).
+ */
+export async function getHealthPermissionState(): Promise<HealthPermissionState> {
+  if (!isNative()) return 'not-asked';
+  const { plugin: Preferences } = await getPrefs();
+  const [{ value: granted }, { value: asked }] = await Promise.all([
+    Preferences.get({ key: PREF_KEY_PERMISSIONS }),
+    Preferences.get({ key: PREF_KEY_ASKED }),
+  ]);
+  if (granted === '1') return 'granted';
+  if (asked === '1') return 'asked-denied';
+  return 'not-asked';
+}
+
+/**
+ * Public: called when the user declines or skips the optional onboarding
+ * health-connect step (HealthConnectOptInStep). A soft decline — does NOT
+ * set PREF_KEY_ASKED, so getHealthPermissionState() still reports
+ * 'not-asked' afterward and the profile/steps-ring entry points can offer
+ * to connect again without this counting as a second no. Mirrored to
+ * Firestore (best-effort) so a future re-engagement push campaign can
+ * query across users — device-local Preferences aren't server-queryable.
+ */
+export async function deferHealthPermissionOnboarding(): Promise<void> {
+  if (isNative()) {
+    try {
+      const { plugin: Preferences } = await getPrefs();
+      await Preferences.set({ key: PREF_KEY_ONBOARDING_DEFERRED, value: '1' });
+    } catch (err) {
+      console.warn('[healthBridge] deferHealthPermissionOnboarding failed:', err);
+    }
+  }
+  void syncHealthConnectStateToFirestore('deferred');
+}
+
+/**
+ * Mirrors the health-connect state to users/{uid}.health in Firestore.
+ * Purely for future server-side querying (e.g. a re-engagement push
+ * campaign targeting connectState in ['deferred', 'not_asked']) — nothing
+ * reads this back client-side today. Best-effort: a failure here must
+ * never block the local permission flow, and this runs on web too (a
+ * user's "deferred" choice in a mobile onboarding session should still be
+ * queryable even though the field itself only ever changes from native).
+ */
+async function syncHealthConnectStateToFirestore(
+  state: 'granted' | 'denied' | 'deferred' | 'not_asked',
+): Promise<void> {
+  try {
+    const { auth, db } = await import('@/lib/firebase');
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+    await setDoc(doc(db, 'users', uid), {
+      health: {
+        connectState: state,
+        connectStateUpdatedAt: serverTimestamp(),
+      },
+    }, { merge: true });
+  } catch (err) {
+    console.warn('[healthBridge] Firestore state mirror failed:', err);
   }
 }
