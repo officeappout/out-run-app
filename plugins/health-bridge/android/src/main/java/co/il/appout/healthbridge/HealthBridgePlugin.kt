@@ -414,8 +414,13 @@ class HealthBridgePlugin : Plugin() {
                     "traditionalStrengthTraining",
                     "functionalStrengthTraining" -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
                     "crossTraining"              -> ExerciseSessionRecord.EXERCISE_TYPE_EXERCISE_CLASS
-                    // alpha07 has no CORE_TRAINING / JUMP_ROPE session types —
-                    // map to the closest supported broad session types.
+                    // As of 1.1.0-alpha07 there was no CORE_TRAINING / JUMP_ROPE
+                    // session type, so these map to the closest broad type.
+                    // NOT re-verified against the 1.1.0 stable release this
+                    // file now targets (couldn't confirm via docs whether more
+                    // specific constants exist now) — leaving the mapping as-is
+                    // rather than guess; low-priority follow-up to check in
+                    // Android Studio autocomplete against the SDK jar directly.
                     "coreTraining"               -> ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS
                     "jumpRope"                   -> ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING
                     "stairClimbing"              -> ExerciseSessionRecord.EXERCISE_TYPE_STAIR_CLIMBING_MACHINE
