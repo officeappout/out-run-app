@@ -99,9 +99,9 @@
          declared only in a sub-library manifest are not surfaced correctly in
          the Play Console. The plugin manifest also declares them so the AAR
          keeps working stand-alone; Gradle's manifest merger dedupes the two.
-         Per-record permissions are only shown to the user when they open the
-         Health Connect permission screen (triggered by HealthBridgePlugin
-         → requestPermissions() → ACTION_HEALTH_CONNECT_SETTINGS). -->
+         Per-record permissions are shown to the user via the Health Connect
+         grant screen launched by HealthBridgePlugin → requestPermissions()
+         → PermissionController.createRequestPermissionResultContract(). -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />

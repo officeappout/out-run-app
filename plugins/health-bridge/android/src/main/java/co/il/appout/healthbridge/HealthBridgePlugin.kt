@@ -8,7 +8,10 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
+import androidx.activity.result.ActivityResult
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
@@ -29,6 +32,7 @@ import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +43,8 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
+
+private const val TAG = "HealthBridge"
 
 /**
  * HealthBridge — Android / Health Connect implementation.
@@ -60,6 +66,15 @@ import java.util.concurrent.TimeUnit
  * advertises READ_STEPS, READ_ACTIVE_CALORIES_BURNED, READ_EXERCISE in
  * its AndroidManifest; the host app must replicate these declarations
  * (see plugins/health-bridge/README.md).
+ *
+ * requestPermissions() launches the real Health Connect grant screen via
+ * PermissionController.createRequestPermissionResultContract() — the
+ * documented first-time consent flow (a per-app "Allow access" dialog
+ * scoped to the requested permissions). It does NOT deep-link to
+ * ACTION_HEALTH_CONNECT_SETTINGS: that intent only opens the general
+ * Health Connect app home/management screen and is not a request flow —
+ * an app that has never called the permission contract may not even be
+ * listed there, which left users with no clear action to take.
  */
 @CapacitorPlugin(name = "HealthBridge")
 class HealthBridgePlugin : Plugin() {
@@ -79,13 +94,26 @@ class HealthBridgePlugin : Plugin() {
     )
 
     /**
-     * Holds the PluginCall that was parked while the user is inside the
-     * Health Connect permission settings screen. Resolved by onAppResumed()
-     * (called from the JS App.appStateChange listener) once the app returns
-     * to the foreground and we can re-probe the actual grant state.
+     * Everything requestPermissions() asks for in one grant screen. Must
+     * include writePermissions too — the OS contract only grants exactly
+     * the permission set passed as input, unlike the old deep-link-to-
+     * settings approach which could incidentally surface every permission
+     * declared in the manifest. Without this, writeWorkout() (saving
+     * completed workouts back to Health Connect) would silently have no
+     * grant to work with.
+     */
+    private val requestedPermissions = readPermissions + writePermissions
+
+    /** The documented Health Connect first-time consent flow (see class doc above). */
+    private val requestPermissionsContract = PermissionController.createRequestPermissionResultContract()
+
+    /**
+     * Last permission-grant state we observed, used only to decide whether
+     * onAppResumed() needs to emit a `permissionsChanged` event (avoids
+     * spamming the WebView on every foreground resume when nothing changed).
      */
     @Volatile
-    private var savedPermissionsCall: PluginCall? = null
+    private var lastKnownGranted: Boolean? = null
 
     override fun load() {
         super.load()
@@ -93,9 +121,6 @@ class HealthBridgePlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
-        // Release any parked call so we don't hold a stale reference.
-        savedPermissionsCall?.reject("plugin destroyed")
-        savedPermissionsCall = null
         if (HealthBridgeRegistry.current === this) {
             HealthBridgeRegistry.current = null
         }
@@ -114,6 +139,7 @@ class HealthBridgePlugin : Plugin() {
     @PluginMethod
     fun isAvailable(call: PluginCall) {
         val ctx: Context = context ?: run {
+            Log.w(TAG, "isAvailable: no context")
             call.resolve(JSObject().put("available", false).put("reason", "no-context"))
             return
         }
@@ -121,11 +147,15 @@ class HealthBridgePlugin : Plugin() {
         val available = status == HealthConnectClient.SDK_AVAILABLE
         val out = JSObject().put("available", available)
         if (!available) {
-            out.put("reason", when (status) {
+            val reason = when (status) {
                 HealthConnectClient.SDK_UNAVAILABLE -> "sdk-unavailable"
                 HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> "provider-update-required"
                 else -> "unknown"
-            })
+            }
+            out.put("reason", reason)
+            Log.i(TAG, "isAvailable: false (reason=$reason)")
+        } else {
+            Log.d(TAG, "isAvailable: true")
         }
         call.resolve(out)
     }
@@ -133,6 +163,7 @@ class HealthBridgePlugin : Plugin() {
     @PluginMethod
     fun hasPermissions(call: PluginCall) {
         val client = client() ?: run {
+            Log.w(TAG, "hasPermissions: no Health Connect client")
             call.resolve(JSObject().put("granted", false))
             return
         }
@@ -140,46 +171,84 @@ class HealthBridgePlugin : Plugin() {
             try {
                 val granted = client.permissionController.getGrantedPermissions()
                 val ok = readPermissions.all { granted.contains(it) }
+                Log.d(TAG, "hasPermissions: granted=$ok")
                 call.resolve(JSObject().put("granted", ok))
             } catch (e: Exception) {
+                Log.e(TAG, "hasPermissions: probe failed: ${e.message}", e)
                 call.reject("hasPermissions failed: ${e.message}", e)
             }
         }
     }
 
+    /**
+     * Launches the real Health Connect "Allow access" grant screen for
+     * [readPermissions] via [requestPermissionsContract]. Resolves
+     * synchronously from [handlePermissionsResult] once the user responds —
+     * no parking, no polling, no client-side timeout needed, because the
+     * ActivityResultContract round-trip is a normal Android
+     * startActivityForResult() call that always returns a result (including
+     * on back-press/dismiss, which parseResult() reports as an empty set).
+     */
     @PluginMethod
     override fun requestPermissions(call: PluginCall) {
-        // Health Connect only allows permission requests via an
-        // ActivityResultContract launched from an Activity. Capacitor 6
-        // does not yet ship with a built-in launcher for the new
-        // PermissionController.createRequestPermissionResultContract,
-        // so we delegate by deep-linking the user into the Health
-        // Connect permission settings screen.
-        //
-        // Unlike the previous implementation (which resolved immediately
-        // with denied values), we now PARK the call in `savedPermissionsCall`
-        // and resolve it only after the user returns to the foreground.
-        // The JS App.appStateChange listener in src/lib/native/init.ts
-        // calls our `onAppResumed` PluginMethod, which probes the actual
-        // grant state and then resolves this saved call.
-        try {
-            val ctx = context ?: throw IllegalStateException("no-context")
-            // Park the call before leaving the app — must be done before
-            // startActivity() to avoid a race where onAppResumed fires
-            // before we've stored the reference.
-            savedPermissionsCall = call
-            // Health Connect 1.1.0-alpha+ removed the static
-            // `getHealthConnectSettingsIntent(ctx)` helper. The supported
-            // way to open the Health Connect permission/settings screen
-            // is to launch an Intent with the action constant.
-            val intent = Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        val ctx = context ?: run {
+            Log.e(TAG, "requestPermissions: no context")
+            call.reject("requestPermissions failed: no-context")
+            return
+        }
+        val status = HealthConnectClient.getSdkStatus(ctx)
+        if (status != HealthConnectClient.SDK_AVAILABLE) {
+            val reason = when (status) {
+                HealthConnectClient.SDK_UNAVAILABLE -> "sdk-unavailable"
+                HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> "provider-update-required"
+                else -> "unknown"
             }
-            ctx.startActivity(intent)
-            // Do NOT resolve here — the call is held open until onAppResumed().
+            // Health Connect isn't usable yet (not installed on Android <14,
+            // or provider needs an update) — resolve with a reason the JS
+            // layer already knows how to turn into an install-prompt UI
+            // (see checkHealthAvailability() in src/lib/healthBridge/init.ts),
+            // instead of launching a grant screen that would crash or no-op.
+            Log.i(TAG, "requestPermissions: Health Connect unavailable (reason=$reason) — no dialog shown")
+            call.resolve(JSObject().put("granted", false).put("reason", reason))
+            return
+        }
+        try {
+            Log.d(TAG, "requestPermissions: launching Health Connect grant screen (${requestedPermissions.size} permissions requested)")
+            val intent = requestPermissionsContract.createIntent(ctx, requestedPermissions)
+            startActivityForResult(call, intent, "handlePermissionsResult")
         } catch (e: Exception) {
-            savedPermissionsCall = null
+            Log.e(TAG, "requestPermissions: failed to launch grant screen: ${e.message}", e)
             call.reject("requestPermissions failed: ${e.message}", e)
+        }
+    }
+
+    /**
+     * ActivityResultContract callback for [requestPermissions]. Capacitor
+     * invokes this once the Health Connect grant screen returns a result
+     * (granted, denied, or dismissed — all three come back through here;
+     * there is no separate "dismissed" outcome to handle).
+     */
+    @ActivityCallback
+    private fun handlePermissionsResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) {
+            // Process death while the grant screen was open — Capacitor
+            // could not restore the saved call. Nothing to resolve.
+            Log.w(TAG, "handlePermissionsResult: saved call missing (process death?)")
+            return
+        }
+        try {
+            val granted = requestPermissionsContract.parseResult(result.resultCode, result.data)
+            // "granted" (the boolean the JS layer gates sync/UI on) reflects
+            // read access only — write access (workout logging) is best-effort
+            // and never blocks the connect flow, matching writeWorkoutToHealth()'s
+            // existing "non-critical" handling on the JS side.
+            val allGranted = readPermissions.all { granted.contains(it) }
+            lastKnownGranted = allGranted
+            Log.i(TAG, "handlePermissionsResult: readGranted=$allGranted, total=${granted.size}/${requestedPermissions.size} of requested permissions allowed")
+            call.resolve(JSObject().put("granted", allGranted))
+        } catch (e: Exception) {
+            Log.e(TAG, "handlePermissionsResult: failed to parse activity result: ${e.message}", e)
+            call.reject("permission result parse failed: ${e.message}", e)
         }
     }
 
@@ -187,36 +256,32 @@ class HealthBridgePlugin : Plugin() {
      * Called by the JS layer (src/lib/native/init.ts) whenever the app
      * returns to the foreground (App.appStateChange → isActive = true).
      *
-     * If there is a parked [requestPermissions] call, we re-probe Health
-     * Connect for the actual grant state and resolve it now — this is the
-     * earliest moment after the user may have toggled permissions in the
-     * Health Connect settings screen.
+     * Does NOT gate [requestPermissions] anymore — that resolves directly
+     * from [handlePermissionsResult]. This re-probes the actual Health
+     * Connect grant state and emits a `permissionsChanged` event only when
+     * it differs from what we last observed, covering the case where the
+     * user revoked or granted permissions from the OS Health Connect
+     * settings screen directly (outside our request flow) while the app
+     * was backgrounded.
      */
     @PluginMethod
     fun onAppResumed(call: PluginCall) {
-        val pending = savedPermissionsCall
-        savedPermissionsCall = null
-
-        if (pending == null) {
-            // No pending requestPermissions call — nothing to do.
-            call.resolve()
-            return
-        }
-
         val client = client()
         if (client == null) {
-            pending.resolve(JSObject().put("granted", false))
             call.resolve()
             return
         }
-
         scope.launch {
             try {
                 val grantedPerms = client.permissionController.getGrantedPermissions()
                 val allGranted = readPermissions.all { grantedPerms.contains(it) }
-                pending.resolve(JSObject().put("granted", allGranted))
+                if (allGranted != lastKnownGranted) {
+                    Log.i(TAG, "onAppResumed: permission state changed → granted=$allGranted")
+                    lastKnownGranted = allGranted
+                    notifyListeners("permissionsChanged", JSObject().put("granted", allGranted))
+                }
             } catch (e: Exception) {
-                pending.resolve(JSObject().put("granted", false))
+                Log.w(TAG, "onAppResumed: re-probe failed: ${e.message}")
             }
             call.resolve()
         }
