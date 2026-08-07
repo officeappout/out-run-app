@@ -13,11 +13,17 @@
  * matching the existing UI default) — this generator does NOT attempt to expose the real
  * 3-difficulty model as 3 separate Suggestions; that's Gate D territory (see
  * .claude/plans/happy-jumping-flask.md part ד), not an engineering call to make here.
+ *
+ * Intent fidelity (added closing plan §ד gaps 1/2): builds the intent via
+ * `presetToIntent(HYBRID_PRESETS.route_stops, timeBudgetMin)` — the SAME real preset object
+ * `resolveSlots`'s `route_stops` slot uses (`hybrid-slots.ts:224`), including its `mode:
+ * 'route_stops'` marker, instead of a hand-rolled literal.
  */
 
 import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
 import { composeHybridPlan } from '../../hybrid/start-hybrid-session';
+import { HYBRID_PRESETS, presetToIntent } from '../../hybrid/hybrid-slots';
 
 export const routeStopsGenerator: Generator = {
   id: 'route-stops',
@@ -29,14 +35,14 @@ export const routeStopsGenerator: Generator = {
   generate: async (context): Promise<Suggestion | null> => {
     if (!context.location) return null;
 
+    const preset = {
+      ...HYBRID_PRESETS.route_stops,
+      aerobicKind: context.todayGoal === 'run' ? ('running' as const) : ('walking' as const),
+    };
+    const intent = presetToIntent(preset, context.availableTimeMin);
+
     const composed = await composeHybridPlan(
-      {
-        mode: 'route_stops',
-        timeBudgetMin: context.availableTimeMin,
-        aerobicShare: 0.5,
-        emphasis: 'balanced',
-        aerobicKind: context.todayGoal === 'run' ? 'running' : 'walking',
-      },
+      intent,
       {
         userPosition: context.location,
         startRun: () => {},

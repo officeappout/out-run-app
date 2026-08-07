@@ -9,6 +9,14 @@
  * branch also reads `useUserStore.getState().profile` internally
  * (start-hybrid-session.ts:774); this wrapper supplies no profile, only intent+ctx.
  *
+ * Intent fidelity (added closing plan §ד gaps 1/2): builds the `HybridStartIntent` via the
+ * SAME `presetToIntent(HYBRID_PRESETS.walk_balanced/run_balanced, timeBudgetMin)` the live
+ * slot carousel already uses (`hybrid-slots.ts:172-173`), not a hand-rolled literal — so a
+ * ranked winner from this generator produces an intent byte-identical in shape to a real
+ * user tap on the "מומלץ לך" slot. Only `timeBudgetMin` differs by source: this reads
+ * `context.availableTimeMin` (the contract's own time field) instead of
+ * `preset.defaultTimeBudgetMin`.
+ *
  * Gate D (plan §ד, NOT resolved by this commit — deliberately): this branch computes a
  * real difficulty value internally (fed into `generationContext.difficulty`) but never
  * exposes it as a selectable `bolts` field — the live UI hardcodes a static
@@ -21,6 +29,7 @@
 import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
 import { composeHybridPlan } from '../../hybrid/start-hybrid-session';
+import { HYBRID_PRESETS, presetToIntent } from '../../hybrid/hybrid-slots';
 
 export const anchorLoopGenerator: Generator = {
   id: 'anchor-loop',
@@ -32,13 +41,11 @@ export const anchorLoopGenerator: Generator = {
   generate: async (context): Promise<Suggestion | null> => {
     if (!context.location) return null;
 
+    const preset = context.todayGoal === 'run' ? HYBRID_PRESETS.run_balanced : HYBRID_PRESETS.walk_balanced;
+    const intent = presetToIntent(preset, context.availableTimeMin);
+
     const composed = await composeHybridPlan(
-      {
-        timeBudgetMin: context.availableTimeMin,
-        aerobicShare: 0.5,
-        emphasis: 'balanced',
-        aerobicKind: context.todayGoal === 'run' ? 'running' : 'walking',
-      },
+      intent,
       {
         userPosition: context.location,
         startRun: () => {},

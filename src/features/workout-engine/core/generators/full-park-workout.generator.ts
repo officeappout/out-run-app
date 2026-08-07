@@ -18,11 +18,17 @@
  * (`composed.bolts.selectedIndex`) — full-park is the one of the 3 map branches that
  * genuinely produces a real 3-difficulty trio (per plan §א', "אישור Gate D" only affects the
  * anchor-loop branch, not this one).
+ *
+ * Intent fidelity (added closing plan §ד gaps 1/2): builds the intent via
+ * `presetToIntent(HYBRID_PRESETS.full_park, timeBudgetMin)` — the SAME real preset object
+ * `resolveSlots`'s `full_park` slot uses (`hybrid-slots.ts:199`), including its `mode:
+ * 'full_park_workout'` marker, instead of a hand-rolled literal.
  */
 
 import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
 import { composeHybridPlan } from '../../hybrid/start-hybrid-session';
+import { HYBRID_PRESETS, presetToIntent } from '../../hybrid/hybrid-slots';
 
 export const fullParkWorkoutGenerator: Generator = {
   id: 'full-park-workout',
@@ -34,14 +40,14 @@ export const fullParkWorkoutGenerator: Generator = {
   generate: async (context): Promise<Suggestion | null> => {
     if (!context.location) return null;
 
+    const preset = {
+      ...HYBRID_PRESETS.full_park,
+      aerobicKind: context.todayGoal === 'run' ? ('running' as const) : ('walking' as const),
+    };
+    const intent = presetToIntent(preset, context.availableTimeMin);
+
     const composed = await composeHybridPlan(
-      {
-        mode: 'full_park_workout',
-        timeBudgetMin: context.availableTimeMin,
-        aerobicShare: 0.3,
-        emphasis: 'strength',
-        aerobicKind: 'walking',
-      },
+      intent,
       {
         userPosition: context.location,
         startRun: () => {},
