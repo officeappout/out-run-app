@@ -98,6 +98,14 @@ export interface UserContext {
   recoveryState: RecoveryState;
   todayGoal: TodayGoal;
 
+  /**
+   * NOT in the doc's §4.1 table — a real gap discovered while building the first generator
+   * translator (§11.3, route.generator.ts): every existing generator (home-workout's
+   * `availableTime`, hybrid's `timeBudgetMin`) requires a session-duration input, and §4.1
+   * has no field for it. Added here rather than left implicit/guessed per-generator.
+   */
+  availableTimeMin: number;
+
   stepGoal: number;
   stepsToday: number;
   stepsRemaining: number;
