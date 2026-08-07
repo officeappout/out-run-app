@@ -98,7 +98,14 @@ export function JITSetupModal({
       // HybridOverviewScreen (z-[100]) — any of those still mounted painted on TOP
       // of this "full-screen" white div and stayed fully clickable. z-[140] clears
       // everything in the budget below z-[200] (post-workout summary, unrelated).
-      <div className="fixed inset-0 z-[140] bg-white overflow-y-auto">
+      // No visual separation at the top on iOS/Android (bug ג, 10.08.2026 diagnosis):
+      // unlike this component's standalone route (/onboarding-new/health, wrapped in
+      // OnboardingLayout, whose own header sets paddingTop: env(safe-area-inset-top)
+      // — OnboardingLayout.tsx), this bare JIT-inline wrapper supplied none. Content
+      // started flush against the physical screen edge, rendering under the status
+      // bar/notch. HealthDeclarationStep itself only has an 8px `pt-2` above its
+      // header — it relies on ITS PARENT for safe-area padding, same as it does there.
+      <div className="fixed inset-0 z-[140] bg-white overflow-y-auto" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <HealthDeclarationStep
           title="הצהרת בריאות"
           description="חשוב לנו לשמור על הבריאות שלך. אנא אשר/י את ההצהרה הבאה כדי להמשיך."
