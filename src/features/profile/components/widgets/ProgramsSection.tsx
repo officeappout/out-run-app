@@ -35,7 +35,7 @@ import ProgramDrawer, { type ProgramDrawerData } from './ProgramDrawer';
 import type { Program } from '@/features/content/programs/core/program.types';
 import { startMiniDomainAssessment, type MiniAssessmentDomainType } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
-import { resolveAdditionalProgramSlugs, domainTypeForSlug } from './program-groups.utils';
+import { resolveAdditionalProgramSlugs, domainTypeForSlug, resolveMasterAssessDomainType } from './program-groups.utils';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -94,9 +94,9 @@ export default function ProgramsSection() {
   // Resolve the master program templateId
   const masterTemplateId =
     profile?.progression?.activePrograms?.[0]?.templateId ?? null;
-  // masterTemplateId is the raw Firestore doc ID (needed as-is for
-  // fetchProgramMeta / the drawer). MASTER_PROGRAM_CHILDREN and tracks are
-  // keyed by slug — resolve separately for those lookups only.
+  // masterTemplateId is the raw Firestore doc ID — needed as-is for
+  // fetchProgramMeta below (a real Firestore lookup). MASTER_PROGRAM_CHILDREN
+  // and tracks are keyed by slug — resolve separately for those lookups.
   const masterSlug = masterTemplateId ? resolveToSlug(masterTemplateId) : null;
 
   // Derived children for this master
@@ -107,8 +107,8 @@ export default function ProgramsSection() {
   // ── Additional independent active programs (index 1+) ────────────────
   // Genuinely separate programs the user is active in — NOT a parent/child
   // of activePrograms[0]. Resolved the same raw-id-vs-slug way as the
-  // master (templateId kept raw for fetchProgramMeta/the drawer; slug used
-  // for MASTER_PROGRAM_CHILDREN/tracks lookups only).
+  // master (templateId kept raw for fetchProgramMeta; slug used for
+  // MASTER_PROGRAM_CHILDREN/tracks lookups only).
   const additionalSlugs: string[] = resolveAdditionalProgramSlugs(
     profile?.progression?.activePrograms,
     resolveToSlug,
@@ -174,10 +174,15 @@ export default function ProgramsSection() {
   const masterIconKey = progressData?.iconKey;
 
   // ── Open drawer for the master program ─────────────────────────
+  // templateId here is the resolved slug (not the raw masterTemplateId used
+  // for fetchProgramMeta above) — ProgramDrawer passes it straight into
+  // startMiniDomainAssessment, which expects a category/skill slug. Safe:
+  // ProgramDrawer is this component's only caller and only reads
+  // `.templateId` for its own icon-fallback display.
   const openMasterDrawer = useCallback(() => {
     if (!masterTemplateId) return;
     setDrawerProgram({
-      templateId: masterTemplateId,
+      templateId: masterSlug ?? masterTemplateId,
       name: masterName,
       description: masterMeta?.description,
       currentLevel: masterLevel,
@@ -185,12 +190,13 @@ export default function ProgramsSection() {
       percent: masterPercent,
       totalWorkoutsCompleted: (masterSlug ? tracks[masterSlug] : undefined)?.totalWorkoutsCompleted ?? 0,
       iconKey: masterIconKey ?? masterMeta?.iconKey,
+      domainType: resolveMasterAssessDomainType(childSlugs.length, masterSlug),
     });
-  }, [masterTemplateId, masterSlug, masterName, masterMeta, masterLevel, masterMaxLevel, masterPercent, masterIconKey, tracks]);
+  }, [masterTemplateId, masterSlug, masterName, masterMeta, masterLevel, masterMaxLevel, masterPercent, masterIconKey, tracks, childSlugs.length]);
 
   // ── Open drawer for a non-master program (child OR additional) ──
   const openProgramDrawer = useCallback(
-    (slug: string, card: ChildCardData) => {
+    (slug: string, card: ChildCardData, domainType: MiniAssessmentDomainType) => {
       setDrawerProgram({
         templateId: slug,
         name: card.name,
@@ -200,6 +206,7 @@ export default function ProgramsSection() {
         percent: card.percent,
         totalWorkoutsCompleted: card.totalWorkoutsCompleted,
         iconKey: card.iconKey,
+        domainType,
       });
     },
     [],
@@ -244,7 +251,7 @@ export default function ProgramsSection() {
         key={card.slug}
         type="button"
         className="flex-shrink-0 text-right active:opacity-80 transition-opacity"
-        onClick={() => openProgramDrawer(card.slug, card)}
+        onClick={() => openProgramDrawer(card.slug, card, domainType)}
       >
         <ProgramProgressCard
           programName={card.name}
