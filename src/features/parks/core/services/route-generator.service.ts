@@ -502,6 +502,28 @@ function generateRandomWaypoints(
   return waypoints;
 }
 
+/**
+ * Acceptance window for a generated loop's real (Mapbox-measured) distance
+ * against the target. The original window was a fixed [target-0.5,
+ * target+2.5] band — 100% of a 3km target's width but only ~14% of a 22km
+ * one. generateRandomWaypoints' own radius has an intentional ±15% spread by
+ * design (see its comment above), and real street-network snapping adds
+ * further variance on top — both scale with the target, so a fixed absolute
+ * band gets proportionally stricter as targets grow, silently starving large
+ * loops of any combination that can land inside it (verified live, 08.08: a
+ * 22km loop request returned "no route found"). Math.max keeps today's exact
+ * [target-0.5, target+2.5] window byte-identical up to ~5km below / ~16.7km
+ * above, where the percentage term takes over.
+ */
+export function computeDistanceWindow(safeDistance: number): { minKm: number; maxKm: number } {
+  const belowToleranceKm = Math.max(0.5, safeDistance * 0.10);
+  const aboveToleranceKm = Math.max(2.5, safeDistance * 0.15);
+  return {
+    minKm: Math.max(0.5, safeDistance - belowToleranceKm),
+    maxKm: safeDistance + aboveToleranceKm,
+  };
+}
+
 export function scoreWaypoint(
   waypoint: { lat: number; lng: number },
   userLocation: { lat: number; lng: number },
@@ -783,12 +805,7 @@ export async function generateDynamicRoutes(
       }
 
       const routeDistanceKm = result.distance / 1000;
-
-      // Flexible but realistic distance window:
-      // Accept anything between (target - 0.5km) and (target + 2.5km),
-      // e.g. for 3km → [2.5km, 5.5km]
-      const minKm = Math.max(0.5, safeDistance - 0.5);
-      const maxKm = safeDistance + 2.5;
+      const { minKm, maxKm } = computeDistanceWindow(safeDistance);
       if (routeDistanceKm < minKm || routeDistanceKm > maxKm) {
         console.warn(
           `[RouteGenerator] Route ${i} REJECTED: distance ${routeDistanceKm.toFixed(
