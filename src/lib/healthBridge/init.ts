@@ -109,6 +109,7 @@ export async function healthBridgeSyncNow(
   try {
     const HealthBridge = await loadPlugin();
     const sinceISO = (await readCursor()) ?? undefined;
+    console.log(`[healthBridge][flow] sync(${reason}): querying native store (first data query)`);
     const result = await (HealthBridge as any).syncSince(sinceISO ? { sinceISO } : undefined);
     const samples = (result?.samples ?? []) as Array<{
       sampleUUID: string;
@@ -120,6 +121,7 @@ export async function healthBridgeSyncNow(
       activeMinutes: number;
       source?: string;
     }>;
+    console.log(`[healthBridge][flow] sync(${reason}): ${samples.length} raw samples returned`);
     if (samples.length === 0) {
       if (result?.cursorISO) await writeCursor(result.cursorISO);
       return;

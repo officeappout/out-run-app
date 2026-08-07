@@ -77,14 +77,17 @@ export function useHealthWithDisclosure(
     setShowDisclosure(false);
     setIsRequesting(true);
     try {
-      const { granted } = await requestHealthPermissions();
+      const { granted, timedOut } = await requestHealthPermissions();
+      console.log('[healthBridge][flow] user response: granted=', granted, timedOut ? '(timed out)' : '');
       if (granted) {
         patchSettings({ healthBridgeEnabled: true });
+        console.log('[healthBridge][flow] connected state set: healthBridgeEnabled=true');
         onGranted?.();
       } else {
         onDenied?.();
       }
-    } catch {
+    } catch (err) {
+      console.warn('[healthBridge][flow] runPermissionRequest failed:', err);
       onDenied?.();
     } finally {
       setIsRequesting(false);
@@ -98,29 +101,29 @@ export function useHealthWithDisclosure(
    * of opening the disclosure modal when HC is absent.
    */
   const triggerHealthPermission = useCallback(() => {
-    console.log('[health] triggerHealthPermission called — healthBridgeEnabled:', healthBridgeEnabled, 'isNative:', isNativeApp());
+    console.log('[healthBridge][flow] request triggered — healthBridgeEnabled:', healthBridgeEnabled, 'isNative:', isNativeApp());
     if (healthBridgeEnabled) {
-      console.log('[health] already granted → onGranted()');
+      console.log('[healthBridge][flow] already granted → onGranted()');
       onGranted?.();
       return;
     }
     if (!isNativeApp()) {
       // On web the permissions concept doesn't apply — treat as granted.
-      console.log('[health] web platform → onGranted()');
+      console.log('[healthBridge][flow] web platform → onGranted()');
       onGranted?.();
       return;
     }
     // Native + not yet granted: check HC availability before showing disclosure.
     void (async () => {
-      console.log('[health] checking availability...');
+      console.log('[healthBridge][flow] checking availability...');
       const { available, reason } = await checkHealthAvailability();
-      console.log('[health] checkHealthAvailability →', { available, reason });
+      console.log('[healthBridge][flow] checkHealthAvailability →', { available, reason });
       if (!available) {
         setUnavailableReason(reason === 'provider-update-required' ? 'install-required' : 'unsupported');
-        console.log('[health] HC unavailable — reason:', reason);
+        console.log('[healthBridge][flow] HC unavailable — reason:', reason);
         return;
       }
-      console.log('[health] HC available → setShowDisclosure(true)');
+      console.log('[healthBridge][flow] HC available → showing disclosure modal');
       setShowDisclosure(true);
     })();
   }, [healthBridgeEnabled, onGranted]);

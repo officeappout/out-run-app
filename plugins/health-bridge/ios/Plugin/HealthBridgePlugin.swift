@@ -1,6 +1,12 @@
 import Foundation
 import Capacitor
 import HealthKit
+import os.log
+
+/// Tagged logger for the connect/permission/sync flow — filter Console.app
+/// or `xcrun simctl spawn booted log stream` by subsystem "co.il.appout.outrun"
+/// / category "HealthBridge". Stage + status only, never raw health values.
+private let hbLog = OSLog(subsystem: "co.il.appout.outrun", category: "HealthBridge")
 
 /**
  * HealthBridge — iOS / HealthKit implementation.
@@ -68,6 +74,7 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func isAvailable(_ call: CAPPluginCall) {
         let available = HKHealthStore.isHealthDataAvailable()
+        os_log("isAvailable: %{public}@", log: hbLog, type: .debug, available ? "true" : "false")
         DispatchQueue.main.async {
             call.resolve(["available": available])
         }
@@ -84,8 +91,10 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         let q = HKSampleQuery(sampleType: stepType, predicate: predicate, limit: 1, sortDescriptors: nil) { _, _, error in
             DispatchQueue.main.async {
                 if let nsErr = error as NSError?, nsErr.code == HKError.errorAuthorizationDenied.rawValue {
+                    os_log("hasPermissions: probe denied", log: hbLog, type: .info)
                     call.resolve(["granted": false])
                 } else {
+                    os_log("hasPermissions: probe granted (or empty-but-authorized)", log: hbLog, type: .info)
                     call.resolve(["granted": true])
                 }
             }
@@ -97,13 +106,16 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc public override func requestPermissions(_ call: CAPPluginCall) {
         guard HKHealthStore.isHealthDataAvailable() else {
+            os_log("requestPermissions: HealthKit unavailable on this device", log: hbLog, type: .error)
             call.reject("HealthKit unavailable on this device")
             return
         }
+        os_log("requestPermissions: presenting HealthKit authorization sheet", log: hbLog, type: .info)
         // Request both read (steps/calories/exercise) and write (workouts/calories)
         // so that completed workouts are saved back to Apple Health.
         healthStore.requestAuthorization(toShare: shareTypes, read: readTypes) { [weak self] success, error in
             if let error = error {
+                os_log("requestPermissions: authorization sheet errored: %{public}@", log: hbLog, type: .error, error.localizedDescription)
                 DispatchQueue.main.async {
                     call.reject("Authorization failed: \(error.localizedDescription)")
                 }
@@ -112,6 +124,7 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             // The system can return success=true even when the user
             // denied — iOS does this on purpose to avoid leaking
             // authorization state. Probe with a tiny query to decide.
+            os_log("requestPermissions: sheet dismissed (success=%{public}@), probing real grant state", log: hbLog, type: .info, success ? "true" : "false")
             self?.hasPermissions(call)
         }
     }
@@ -312,10 +325,12 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
         group.notify(queue: .main) {
             if let err = firstError {
+                os_log("syncSince: query failed: %{public}@", log: hbLog, type: .error, err.localizedDescription)
                 call.reject("HealthKit query failed: \(err.localizedDescription)")
                 return
             }
             let samples = Array(samplesByUUID.values)
+            os_log("syncSince: %{public}d samples returned", log: hbLog, type: .info, samples.count)
             call.resolve([
                 "samples": samples,
                 "cursorISO": isoFormatter.string(from: endBound),
@@ -339,7 +354,13 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         // Install one observer per type. They'll fire whenever new
         // samples land — including when the app is suspended.
         for type in [stepType, caloriesType, exerciseType] {
-            let q = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completionHandler, _ in
+            let q = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completionHandler, error in
+                if let error = error {
+                    os_log("observer query fired with error: %{public}@", log: hbLog, type: .error, error.localizedDescription)
+                    completionHandler()
+                    return
+                }
+                os_log("observer query fired — new samples available", log: hbLog, type: .debug)
                 let isoFormatter = ISO8601DateFormatter()
                 isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                 self?.notifyListeners("samplesAvailable", data: [
@@ -354,19 +375,23 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
         group.notify(queue: .main) {
             if let err = firstError {
+                os_log("enableBackgroundDelivery: failed: %{public}@", log: hbLog, type: .error, err.localizedDescription)
                 call.reject("enableBackgroundDelivery failed: \(err.localizedDescription)")
             } else {
+                os_log("enableBackgroundDelivery: enabled, %{public}d observers installed", log: hbLog, type: .info, self.observers.count)
                 call.resolve()
             }
         }
     }
 
     @objc func disableBackgroundDelivery(_ call: CAPPluginCall) {
+        os_log("disableBackgroundDelivery: stopping %{public}d observers", log: hbLog, type: .info, observers.count)
         for q in observers { healthStore.stop(q) }
         observers.removeAll()
         healthStore.disableAllBackgroundDelivery { _, error in
             DispatchQueue.main.async {
                 if let error = error {
+                    os_log("disableBackgroundDelivery: failed: %{public}@", log: hbLog, type: .error, error.localizedDescription)
                     call.reject("disableBackgroundDelivery failed: \(error.localizedDescription)")
                 } else {
                     call.resolve()

@@ -367,8 +367,10 @@ class HealthBridgePlugin : Plugin() {
                 val out = JSObject()
                 out.put("samples", arr)
                 out.put("cursorISO", DateTimeFormatter.ISO_INSTANT.format(end))
+                Log.i(TAG, "syncSince: ${samples.size} samples returned")
                 call.resolve(out)
             } catch (e: Exception) {
+                Log.e(TAG, "syncSince: query failed: ${e.message}", e)
                 call.reject("syncSince failed: ${e.message}", e)
             }
         }
