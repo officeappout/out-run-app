@@ -1,10 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { scoreWaypoint, computeDistanceWindow } from '../route-generator.service';
+import { scoreWaypoint, computeDistanceWindow, selectAngularlyDiverseCandidates } from '../route-generator.service';
 
 const USER = { lat: 0, lng: 0 };
 // ~0.267km east of user (route-stops' targetKm=1.6 / 6 calibration) and ~1.0km east.
 const KM_PER_DEGREE = 111;
 const wpAt = (km: number) => ({ lat: 0, lng: km / KM_PER_DEGREE });
+
+// Places a waypoint at `km` distance and `bearingDeg` compass bearing from
+// USER (0°=north/+lat, 90°=east/+lng) — flat-earth approximation, fine at
+// these small test distances near lat=0.
+function wpAtBearing(km: number, bearingDeg: number) {
+  const rad = (bearingDeg * Math.PI) / 180;
+  return {
+    lat: (km * Math.cos(rad)) / KM_PER_DEGREE,
+    lng: (km * Math.sin(rad)) / KM_PER_DEGREE,
+  };
+}
 
 describe('scoreWaypoint — idealWaypointDistanceKm (P6 calibration)', () => {
   it('default (no override): scores exactly as before — ideal ≈ 1.0km, byte-identical for existing callers', () => {
@@ -92,5 +103,56 @@ describe('computeDistanceWindow — proportional acceptance band (08.08, fixes l
   it('minKm never goes below the 0.5km floor even for a very large target with a large percentage cut', () => {
     const { minKm } = computeDistanceWindow(100);
     expect(minKm).toBeGreaterThanOrEqual(0.5);
+  });
+});
+
+describe('selectAngularlyDiverseCandidates — angular spread for large loops (08.08, fixes live 21.5-22km "short route" failures)', () => {
+  const idealKm = 3.6;
+  const scoreAt = (km: number, bearing: number) =>
+    scoreWaypoint(wpAtBearing(km, bearing), USER, [], { includeStrength: false, idealWaypointDistanceKm: idealKm });
+
+  it('prefers angular spread over re-picking the same high-score cluster (proves the bug this fixes)', () => {
+    // 10 near-identical, tightly-clustered, top-scored candidates (all at the
+    // ideal radius, all within a 20° arc — the exact "61 max-score segments
+    // in a 5.5km cluster" shape found live) + 2 lower-scored but well-spread
+    // candidates in other directions.
+    const cluster = Array.from({ length: 10 }, (_, i) => scoreAt(idealKm, 10 + i * 2)); // bearings 10-28°
+    const spreadOut = [scoreAt(idealKm + 0.5, 140), scoreAt(idealKm + 0.5, 260)]; // slightly worse fit, different directions
+    const pool = [...cluster, ...spreadOut];
+
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 4);
+
+    // A pure top-4-by-score selection would return only cluster members
+    // (all scored higher than the spread-out pair) — the OLD, broken
+    // behaviour. The fix must include at least one of the spread-out points.
+    const selectedBearings = selected.map((wp) =>
+      ((Math.atan2(wp.lng, wp.lat) * 180) / Math.PI + 360) % 360,
+    );
+    const includesSpreadOut = selectedBearings.some((b) => Math.abs(b - 140) < 5 || Math.abs(b - 260) < 5);
+    expect(includesSpreadOut).toBe(true);
+  });
+
+  it('never returns more than maxCount candidates', () => {
+    const pool = Array.from({ length: 50 }, (_, i) => scoreAt(idealKm, (i * 137) % 360)); // spread around the circle
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 12);
+    expect(selected.length).toBeLessThanOrEqual(12);
+  });
+
+  it('backfills from remaining candidates when fewer than maxCount sectors are populated (no data starvation)', () => {
+    // Every candidate crammed into one 20° arc, like a real coastal city
+    // where the rest of the compass is sea — zero data in other sectors.
+    const pool = Array.from({ length: 20 }, (_, i) => scoreAt(idealKm, 100 + i));
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 12);
+    // Only 1 sector is populated, but the pool has 20 candidates — backfill
+    // should still return up to maxCount, not just the 1 sector's winner.
+    expect(selected.length).toBe(12);
+  });
+
+  it('result is sorted by bearing (so index-adjacency in the caller matches angular adjacency)', () => {
+    const pool = [scoreAt(idealKm, 300), scoreAt(idealKm, 10), scoreAt(idealKm, 180), scoreAt(idealKm, 90)];
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 4);
+    const bearings = selected.map((wp) => ((Math.atan2(wp.lng, wp.lat) * 180) / Math.PI + 360) % 360);
+    const sorted = [...bearings].sort((a, b) => a - b);
+    expect(bearings).toEqual(sorted);
   });
 });

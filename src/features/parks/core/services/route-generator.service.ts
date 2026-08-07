@@ -588,6 +588,63 @@ export function scoreWaypoint(
   return { ...waypoint, score, distanceFromUser, nearbyParks, isGreen: nearbyParks > 0, isSafe };
 }
 
+/**
+ * Third bug in the "large free-run target" family (08.08, verified live with
+ * real Tel Aviv data + bearings). scoreWaypoint above only ranks by RADIAL
+ * distance from the user — it has zero notion of angular spread. Real
+ * streets aren't evenly distributed around a point: the top-12 candidates by
+ * score alone consistently collapsed into a single ~30-140° compass arc
+ * (measured across 4 real user locations), leaving a 220-330° gap with zero
+ * representation. A "triangular loop" built from 3 points crammed into one
+ * arc is nearly collinear — a spike out-and-back, not a loop — which is
+ * exactly why 21.5-22km requests kept coming back 6-15km even after the
+ * distance-window and candidate-pool-truncation fixes.
+ *
+ * Buckets the SCORED candidate pool into `ANGULAR_SECTOR_COUNT` compass
+ * sectors and takes the best-scoring candidate from each non-empty sector —
+ * so the returned set is angularly diverse by construction, not just
+ * whichever direction happens to have the most/highest-scored real streets.
+ * Backfills with the next-best-by-score overall when sectors are empty (real
+ * geography — e.g. a coastline arc with no streets at all — shouldn't starve
+ * the pool below what the 5-combination variety mechanism downstream
+ * expects). Final result is sorted by bearing so index-adjacency in the
+ * caller's combination loop corresponds to angular adjacency.
+ */
+const ANGULAR_SECTOR_COUNT = 8;
+export function selectAngularlyDiverseCandidates(
+  scored: WaypointCandidate[],
+  userLocation: { lat: number; lng: number },
+  maxCount: number,
+): WaypointCandidate[] {
+  const bearingOf = (wp: { lat: number; lng: number }) =>
+    (segBearing([userLocation.lng, userLocation.lat], [wp.lng, wp.lat]) + 360) % 360;
+  const sectorWidth = 360 / ANGULAR_SECTOR_COUNT;
+
+  const sectors: WaypointCandidate[][] = Array.from({ length: ANGULAR_SECTOR_COUNT }, () => []);
+  for (const wp of scored) {
+    const idx = Math.min(ANGULAR_SECTOR_COUNT - 1, Math.floor(bearingOf(wp) / sectorWidth));
+    sectors[idx].push(wp);
+  }
+  for (const sector of sectors) sector.sort((a, b) => b.score - a.score);
+
+  const picked: WaypointCandidate[] = [];
+  const pickedSet = new Set<WaypointCandidate>();
+  for (const sector of sectors) {
+    if (sector.length > 0 && picked.length < maxCount) {
+      picked.push(sector[0]);
+      pickedSet.add(sector[0]);
+    }
+  }
+  if (picked.length < maxCount) {
+    const remaining = scored.filter((wp) => !pickedSet.has(wp)).sort((a, b) => b.score - a.score);
+    for (const wp of remaining) {
+      if (picked.length >= maxCount) break;
+      picked.push(wp);
+    }
+  }
+  return picked.sort((a, b) => bearingOf(a) - bearingOf(b));
+}
+
 async function findFitnessAnchor(
   userLocation: { lat: number, lng: number },
   targetDistanceKm: number,
@@ -714,9 +771,10 @@ export async function generateDynamicRoutes(
     scoreWaypoint(wp, userLocation, parks, preferences)
   );
 
-  const topCandidates = scoredWaypoints
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 12);
+  // Angularly-diverse selection (08.08 fix), not just top-12-by-score — see
+  // selectAngularlyDiverseCandidates' doc comment. Sorted by bearing, so
+  // array-index-adjacency below corresponds to angular adjacency.
+  const topCandidates = selectAngularlyDiverseCandidates(scoredWaypoints, userLocation, 12);
 
   // 3. Create route combinations (triangular loops)
   const routeCombinations: Array<{ waypoints: Array<WaypointCandidate>, score: number }> = [];
@@ -730,11 +788,20 @@ export async function generateDynamicRoutes(
     ? routeGenerationIndex % topCandidates.length
     : 0;
 
+  // Spacing (08.08 fix): was +1/+2 (3 CONSECUTIVE candidates by array index).
+  // topCandidates is now bearing-sorted, so 3 consecutive entries could still
+  // be adjacent compass-wise if a sector cluster dominates the pool — the
+  // exact near-collinear-triangle failure this whole fix chain is closing.
+  // Spacing by a third of the array instead approximates the ~120°-apart
+  // triangle vertices the combination logic already assumes (per the
+  // existing bearing-sort-before-Mapbox-call below).
+  const legSpan = Math.max(1, Math.floor(topCandidates.length / 3));
+
   for (let i = 0; i < 5; i++) {
     const offset = (baseOffset + i * 2) % Math.max(1, topCandidates.length);
     const wp1 = topCandidates[offset % topCandidates.length];
-    const wp2 = topCandidates[(offset + 1) % topCandidates.length];
-    const wp3 = topCandidates[(offset + 2) % topCandidates.length];
+    const wp2 = topCandidates[(offset + legSpan) % topCandidates.length];
+    const wp3 = topCandidates[(offset + legSpan * 2) % topCandidates.length];
 
     if (wp1 && wp2 && wp3) {
       routeCombinations.push({
