@@ -209,10 +209,14 @@ export async function initNativeShell(): Promise<void> {
       // iOS and when nothing changed; safe to fire on every resume.
       //
       // NOTE: We intentionally delegate to healthBridge/init.ts here instead
-      // of importing 'health-bridge' directly. The shared loadPlugin()
-      // singleton extracts the Capacitor proxy INSIDE a .then() callback,
-      // avoiding the `.then()`-not-implemented crash that occurs when Android's
-      // Capacitor proxy is resolved through a raw `await import('health-bridge')`.
+      // of importing 'health-bridge' directly. That module's loadPlugin()
+      // wraps the Capacitor proxy in a plain `{ plugin }` object before it
+      // ever crosses a promise boundary — the proxy itself has a fabricated
+      // callable `.then` (Capacitor's Proxy `get` trap returns a method
+      // wrapper for any unrecognized property), so if the bare proxy became
+      // a promise's fulfillment value anywhere, the engine would treat it as
+      // a thenable and fire a real "then" bridge call, producing
+      // `"HealthBridge.then()" is not implemented on android`.
       try {
         const { notifyAppResumed } = await import('@/lib/healthBridge/init');
         await notifyAppResumed();

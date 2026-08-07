@@ -49,7 +49,7 @@ export const PREF_KEY_PERMISSIONS = 'outrun.healthBridge.permissionsGranted';
 export const PREF_KEY_ASKED = 'outrun.healthBridge.permissionsAsked';
 
 let installed = false;
-let bridgePromise: Promise<unknown> | null = null;
+let bridgePromise: Promise<{ plugin: unknown }> | null = null;
 
 function isNative(): boolean {
   if (typeof window === 'undefined') return false;
@@ -87,13 +87,38 @@ async function writeCursor(iso: string): Promise<void> {
   }
 }
 
-async function loadPlugin() {
+/**
+ * Loads the native plugin proxy — SAFELY.
+ *
+ * The obvious `import('health-bridge').then((m) => m.HealthBridge)` pattern
+ * (what used to be here, with a comment claiming it avoided the Android
+ * `.then()`-not-implemented crash) does NOT actually avoid it. Capacitor's
+ * plugin proxy is a `Proxy` whose `get` trap returns a callable "method
+ * wrapper" for *any* unrecognized property (@capacitor/core dist/index.js,
+ * the `default:` branch of the Proxy `get` trap) — including `then`. Per the
+ * ECMAScript Promise resolution spec, ANY time a promise settles with a
+ * value that has a callable `.then` — whether returned from a `.then()`
+ * callback, returned from an async function, passed to `Promise.resolve()`,
+ * etc. — the engine treats that value as a thenable and calls `value.then(...)`
+ * on it to chain through. The plugin proxy satisfies that check, so the
+ * moment it becomes a promise's fulfillment value (which the old pattern did,
+ * immediately, via the `.then()` callback's return), the engine invokes
+ * `HealthBridge.then(resolve, reject)` — a real bridge call for a method
+ * literally named "then", which no native plugin implements. Hence:
+ * `Error: "HealthBridge.then()" is not implemented on android`.
+ *
+ * The fix: never let the bare proxy be a promise's resolution value. Wrap it
+ * in a plain object (`{ plugin }`) — a fresh object literal has no `.then`
+ * of its own, so it is never mistaken for a thenable, and the proxy inside
+ * is only ever reached via a synchronous property read (`.plugin`), which
+ * involves no promise machinery at all. Every call site destructures
+ * `{ plugin: HealthBridge }` instead of taking the return value directly.
+ */
+async function loadPlugin(): Promise<{ plugin: unknown }> {
   if (!bridgePromise) {
-    bridgePromise = import('health-bridge').then((m) => m.HealthBridge);
+    bridgePromise = import('health-bridge').then((m) => ({ plugin: m.HealthBridge }));
   }
-  return bridgePromise as Promise<
-    typeof import('health-bridge') extends { HealthBridge: infer T } ? T : never
-  >;
+  return bridgePromise;
 }
 
 /**
@@ -107,7 +132,7 @@ export async function healthBridgeSyncNow(
 ): Promise<void> {
   if (!isNative()) return;
   try {
-    const HealthBridge = await loadPlugin();
+    const { plugin: HealthBridge } = await loadPlugin();
     const sinceISO = (await readCursor()) ?? undefined;
     console.log(`[healthBridge][flow] sync(${reason}): querying native store (first data query)`);
     const result = await (HealthBridge as any).syncSince(sinceISO ? { sinceISO } : undefined);
@@ -230,7 +255,7 @@ export async function writeWorkoutToHealth(params: {
   // Removed platformIsIOS() guard — Health Connect on Android supports
   // workout writes via writeWorkout() since plugin v2.
   try {
-    const HealthBridge = await loadPlugin();
+    const { plugin: HealthBridge } = await loadPlugin();
     const endDate = params.endISO ? new Date(params.endISO) : new Date();
     const startDate = params.startISO
       ? new Date(params.startISO)
@@ -270,7 +295,7 @@ export async function checkHealthAvailability(): Promise<{
 }> {
   if (!isNative()) return { available: false };
   try {
-    const HealthBridge = await loadPlugin();
+    const { plugin: HealthBridge } = await loadPlugin();
     // 2.5 s guard — on iOS the native call can hang if the bridge dispatch
     // races with the HealthKit framework init. The catch below turns any
     // error / timeout into { available: true } on iOS so the flow proceeds.
@@ -304,7 +329,7 @@ export async function readStepsFromSensorFallback(): Promise<{
 }> {
   if (!isNative()) return { available: false, stepsToday: 0 };
   try {
-    const HealthBridge = await loadPlugin();
+    const { plugin: HealthBridge } = await loadPlugin();
     const result = await (HealthBridge as any).readStepsFromSensor();
     return {
       available: Boolean(result?.available),
@@ -327,7 +352,7 @@ export async function initHealthBridge(): Promise<void> {
   if (!isNative()) return;
 
   try {
-    const HealthBridge = await loadPlugin();
+    const { plugin: HealthBridge } = await loadPlugin();
     const { available } = await (HealthBridge as any).isAvailable();
     if (!available) {
       // On Android, emit a one-shot sensor reading so the step tile has data
@@ -440,7 +465,7 @@ export async function requestHealthPermissions(): Promise<{
   if (!isNative()) return { granted: false };
   console.log('[healthBridge][flow] requestHealthPermissions: start');
   try {
-    const HealthBridge = await loadPlugin();
+    const { plugin: HealthBridge } = await loadPlugin();
     // Guard: check HC availability BEFORE setting PREF_KEY_ASKED.
     // If HC is absent we never show an OS dialog, so marking "asked" would
     // permanently suppress the auto-request on future sessions.
@@ -514,14 +539,13 @@ export async function requestHealthPermissions(): Promise<{
  * result (see PERMISSION_TIMEOUT_MS doc above). On iOS this is a no-op
  * (no `onAppResumed` native method is registered).
  *
- * Uses the shared `loadPlugin()` singleton — the plugin proxy is NEVER
- * passed through a raw `await import(...)` expression, which would
- * trigger the Android Capacitor proxy's .then()-not-implemented error.
+ * Uses the shared `loadPlugin()` singleton (see its doc comment for why
+ * the proxy is wrapped in `{ plugin }` rather than returned directly).
  */
 export async function notifyAppResumed(): Promise<void> {
   if (!isNative()) return;
   try {
-    const HealthBridge = await loadPlugin();
+    const { plugin: HealthBridge } = await loadPlugin();
     await (HealthBridge as any).onAppResumed();
   } catch (err) {
     // No pending call, iOS (resolves inline), or plugin not yet loaded.
@@ -540,7 +564,7 @@ export async function notifyAppResumed(): Promise<void> {
 export async function disconnectHealth(): Promise<void> {
   if (!isNative()) return;
   try {
-    const HealthBridge = await loadPlugin();
+    const { plugin: HealthBridge } = await loadPlugin();
     await (HealthBridge as any).disableBackgroundDelivery();
     const Preferences = await getPrefs();
     await Preferences.remove({ key: PREF_KEY_PERMISSIONS });
