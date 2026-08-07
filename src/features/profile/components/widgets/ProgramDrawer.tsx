@@ -2,7 +2,9 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { getProgramIcon } from '@/features/content/programs';
+import { startMiniDomainAssessment, type MiniAssessmentDomainType } from '@/features/user/onboarding/services/mini-domain-assessment';
 
 export interface ProgramDrawerData {
   templateId: string;
@@ -13,6 +15,14 @@ export interface ProgramDrawerData {
   percent: number;
   totalWorkoutsCompleted: number;
   iconKey?: string;
+  /**
+   * When set, the drawer offers a "re-assess" CTA that routes to the mini-
+   * questionnaire for `templateId` via the existing startMiniDomainAssessment
+   * (same launcher used by ProgramsSection's "not yet assessed" cards).
+   * Omitted (no CTA) for a composite master with children — see
+   * resolveMasterAssessDomainType in program-groups.utils.ts.
+   */
+  domainType?: MiniAssessmentDomainType;
 }
 
 interface ProgramDrawerProps {
@@ -21,6 +31,7 @@ interface ProgramDrawerProps {
 }
 
 export default function ProgramDrawer({ program, onClose }: ProgramDrawerProps) {
+  const router = useRouter();
   const isOpen = program !== null;
 
   return (
@@ -91,6 +102,20 @@ export default function ProgramDrawer({ program, onClose }: ProgramDrawerProps) 
 
               {/* Actions */}
               <div className="space-y-2 pt-1">
+                {/* Re-assess — only when the caller supplied a domainType (see ProgramDrawerData) */}
+                {program.domainType && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      startMiniDomainAssessment(router, program.templateId, undefined, program.domainType);
+                    }}
+                    className="w-full py-3 rounded-xl bg-[#00C9F2] text-white text-sm font-bold active:opacity-80 transition-opacity"
+                  >
+                    עדכן רמה
+                  </button>
+                )}
+
                 {/* Close */}
                 <button
                   type="button"

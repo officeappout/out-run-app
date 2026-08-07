@@ -41,3 +41,23 @@ export function resolveAdditionalProgramSlugs(
 export function domainTypeForSlug(slug: string): MiniAssessmentDomainType {
   return (PRIMARY_CATEGORIES as readonly string[]).includes(slug) ? 'category' : 'skill';
 }
+
+/**
+ * Whether the master program card (Group 1) should offer a re-assess CTA in
+ * ProgramDrawer, and if so, which domainType to route with.
+ *
+ * A master with children (e.g. full_body → push/pull/legs, the only current
+ * MASTER_PROGRAM_CHILDREN entry) has a DERIVED level (recalculateAncestorMasters
+ * averages the children) — there's no single mini-questionnaire that makes
+ * sense to re-run for a composite like 'full_body'. Returns undefined in that
+ * case, same as `!masterSlug` (nothing to assess). A master with NO children
+ * is a genuine standalone leaf program (e.g. activePrograms = ['planche']
+ * alone) — re-assessable exactly like any child or additional-program card.
+ */
+export function resolveMasterAssessDomainType(
+  childSlugCount: number,
+  masterSlug: string | null,
+): MiniAssessmentDomainType | undefined {
+  if (childSlugCount > 0 || !masterSlug) return undefined;
+  return domainTypeForSlug(masterSlug);
+}
