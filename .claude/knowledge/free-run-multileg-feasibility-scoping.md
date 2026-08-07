@@ -236,3 +236,175 @@ Tier 3 (מקביל אפשרי לאחר ב', לא תלוי ב-ג')
 - **read-only בלבד** — שום smoke-test על מכשיר/דפדפן לא בוצע (לפי כלל Verification-First #3, נדרש לפני build אמיתי, בפרט לזרימת ה-invite ב-ה׳).
 - התנהגות Mapbox בפועל (continue_straight + via-point שרירותי לא-פארק) הוסקה מתקדים אחד (`findFitnessAnchor`, פארקים בלבד) — לא נבדקה קריאת API אמיתית.
 - לא נבדק לעומק שכבת Firestore/persistence עבור תוכנית-מקטעים משותפת (ג׳) — open question מפורש.
+
+---
+
+## ג' — leg_chaining: המלצות למענה על שאלות המוצר הפתוחות (08.08, agent research)
+
+> סוג: המלצות מבוססות-קוד, לא החלטה. דוד ביקש במפורש "אפשר להעלות המלצות ולסמן מה עוד דורש ממני החלטה, לא לחכות שאני אשאל". לכל שאלה: המלצה + נימוק מעוגן ב-file:line + סימון ודאות (אפשר-להכריע-כברירת-מחדל / דורש-החלטת-דוד, עם הסבר מדוע). לא נכתב או שונה שום קוד — מחקר בלבד, ר"ל אותה מתודולוגיה read-only כמו שאר המסמך.
+
+### 1. "הטיה" (detour) — נקודה מפורשת שהמשתמש בוחר, או הצעה אלגוריתמית?
+
+**המלצה: בחירה מפורשת של המשתמש (via-point שנבחר, לא אלגוריתם-הצעה).**
+
+**נימוק**: סעיף ד' (via_point) של המסמך הזה כבר בדק את זה לעומק וזה בדיוק המקור שהשאלה מפנה אליו. הממצא המרכזי: מנוע הלולאה (loop mode) הוא generate-candidates-and-reject סביב מרחק-יעד — **לא** constrained pathfinding שיודע "תעבור דרך הנקודה הזו". המנגנון האלגוריתמי היחיד שקיים בקוד לכפיית נקודה הוא `findFitnessAnchor` (`route-generator.service.ts:543-569`), והוא **domain-locked לפארקים בלבד** עם טווח-מרחק מחושב-מראש (0.25×-0.6× מהיעד) — אין שדה כללי לכפיית `lat/lng` שרירותי (כתובת, נקודת ציון על מפה, כל דבר שאינו פארק בקטלוג). כדי להפוך "הצעה אלגוריתמית" לפיצ'ר כללי (לא רק-פארקים) יהיה צריך לבנות solver חדש — למעשה constrained-loop-solver, שהמסמך כבר ממליץ נגדו במפורש בסעיף ד' ("**המלצה חזקה**: לא לבנות constrained-loop-solver מאפס").
+לעומת זאת, "בחירה מפורשת" היא **בדיוק** אותו primitive שכבר הוחלט ליכולת ב' (`NavigationHub` + `startCommute`, `route-generator.service.ts:967-1040`) — המשתמש בוחר יעד/נקודה מתוך אותה חוויית "בחר יעד" קיימת, ולא צריך מנגנון הצעה חדש בכלל. במילים אחרות: מה שנראה כמו "פחות עבודת מוצר" (הצעה אלגוריתמית חוסכת מהמשתמש להקליד/לבחור) הוא בפועל **המסלול היקר יותר טכנית** — כי אין תשתית הצעה גנרית קיימת, רק תשתית בחירה-מפורשת.
+זה לא שולל שיפור עתידי: `findFitnessAnchor` יכול לשמש בסיס ל"הצעות" **מוגבלות לדומיין פארקים** (למשל: "יש פארק במרחק X בכיוון שאתה הולך — לעצור שם?") כתוספת UX מעל הבחירה המפורשת, לא כתחליף לה.
+
+**ודאות: אפשר להכריע כברירת-מחדל.** הנימוק הטכני חד-משמעי — התשתית הקיימת תומכת רק במסלול אחד מבין השניים בעלות סבירה.
+
+### 2. מקטע יכול לשנות activity (הליכה↔ריצה↔רכיבה) באמצע, או כל המקטעים חולקים profile אחד?
+
+**המלצה: כל המקטעים בתוכנית חולקים profile/activity אחד ל-v1. אין מעבר activity בתוך תוכנית.**
+
+**נימוק — שתי שכבות עצמאיות שתומכות באותה מסקנה:**
+- **שכבת הניתוב**: קריאת Directions יחידה מרובת-waypoints (ההמלצה הארכיטקטונית של המסמך, ר' "תקציב Mapbox API" למעלה) שולחת `profile` **אחד** לכל הבקשה — `getSmartPath`/`getSmartPathAlternatives` (`mapbox.service.ts:55,156`) מקבלות `profile: 'walking' | 'cycling' | 'driving'` כפרמטר יחיד לכל הקריאה, לא per-waypoint. `generateCommuteRoutes` בפועל בונה את ה-`profile` פעם אחת מ-`activity` יחיד לכל הפונקציה (`route-generator.service.ts:976`: `const profile: 'walking' | 'cycling' = activity === 'cycling' ? 'cycling' : 'walking';`). כדי לתמוך ב-profile שונה per-leg יהיה צריך לפצל בחזרה לקריאות Mapbox נפרדות לפי ריצות-רצופות-של-אותו-activity — בדיוק ההיפך מהיתרון ש"קריאה אחת מרובת-waypoints היא בחינם" (סעיף תקציב Mapbox), ומחזיר את סיכון ה-rate-limit שכבר נתקלנו בו בפועל (`route-generator.service.ts:855-858`, delay 1.5 שנ' בין קריאות).
+- **שכבת הנגן החי**: `useRunningPlayer` — ה-store שמריץ את הסשן החי — מגדיר `activityType` כשדה יחיד ברמת ה-state כולו (`useRunningPlayer.ts:142`: `activityType: 'running' | 'walking';`), עם setter יחיד שמחליף אותו במלואו (`setActivityType`, `useRunningPlayer.ts:284,436`) ולא מנגנון "activity לפי מקטע/זמן". השדה הזה מוזרם ישירות ל-XP ולסיכום הסשן כערך יחיד לכל הסשן — למשל `aerobicType`/`workoutType` נגזרים ממנו פעם אחת ב-completion payload (`useRunningPlayer.ts:1547,1575-1576`). כלומר גם אם המנוע הגיאומטרי היה תומך ב-profile-per-leg, **הנגן החי כרגע לא מייצג "סשן עם כמה activity types"** — זה שינוי מבני בסטור, לא רק בניתוב. שימו לב גם: `ActivityType` הכללי בטיפוסים (`route.types.ts:14`) כולל 4 ערכים (`'running' | 'walking' | 'cycling' | 'workout'`), אבל `useRunningPlayer.activityType` מצומצם ל-2 (`'running' | 'walking'`) עם cast מפורש בכל מקום שקורא ל-Firestore/summary (`(activityType as 'running' | 'walking') ?? 'running'`) — כלומר אפילו רכיבה (`cycling`) לא מיוצגת כערך legit בנגן החי היום, לא רק activity-switch-mid-plan.
+
+**ודאות: אפשר להכריע כברירת-מחדל.** שתי שכבות בלתי-תלויות (ניתוב + נגן-חי) מובילות לאותה מסקנה שprofile-אחד-לתוכנית זול משמעותית מ-mixed-profile, ואין בבריף/בתרחיש-האב של דוד (הטיה לטיילת → כתובת חבר, כולה ריצה) שום דרישה מוצרית ל-activity switch. אם בעתיד יעלה צורך מוצרי אמיתי ל"תוכנית מעורבת" (למשל הליכה→רכיבה), זה דורש רה-ארכיטקטורה של `useRunningPlayer` בפני עצמה — לא תוספת קטנה לג'.
+
+### 3. תוכנית-מקטעים נשמרת/משותפת (Firestore) או state זמני לריצה בודדת?
+
+**המלצה: state זמני/ephemeral בזמן-בנייה (על המכשיר), *מתקמפל* למבנה `Route` רגיל ברגע ההתחלה — לא נשמר כמסמך Firestore עצמאי בשלב v1. חריג ממוקד: אם יכולת ה' (live_join) מופעלת על אותה ריצה, המסלול המתומפל (לא "התוכנית" הגולמית) צריך רשומת Firestore קלה, פר-סשן.**
+
+**נימוק — שני תקדימים קיימים בקוד תומכים בכיוון הזה:**
+- **תקדים "state מורכב מסודר, לא-Firestore" קיים כבר בדיוק לתוכנית-סוג-הזו**: `ComposedHybridSession` (`start-hybrid-session.ts:41-84`) הוא בדיוק מודל של "רצף שלבים מסודר" (`stations[]`, סדר, כל תחנה עם המרקר שלה) — **מחושב-פעם-אחת ומוחזק ב-state בזמן ריצה**, לא נכתב כמסמך Firestore נפרד לכל תוכנית. `runHybridPlan` מריץ עליו ישירות. זו בדיוק אותה משפחת בעיה (רצף שלבים → הרצה חד-פעמית), ובחרו שם ephemeral, לא persisted.
+- **תקדים "טוקן/סשן ephemeral, TTL-קצר" קיים ליכולת דומה בהיקף**: `GroupInvitationDoc` (`group-invitation.service.ts:23-37`) הוא הדגם הכי קרוב ל"אם כן צריך Firestore, איך שומרים דבר-חצי-חי": מסמך top-level ב-`group_invitations/{token}`, TTL קצר (2 שעות, `EXPIRY_MS`, `group-invitation.service.ts:51`), לא חלק מהפרופיל הקבוע של המשתמש, לא shareable/reusable — נוצר ברגע הצורך הספציפי (`createSessionInvitation`, `group-invitation.service.ts:70-99`) ונזרק אחרי חלון הזמן. **זה בדיוק הדגם שמתאים** אם תוכנית-מקטעים צריכה נוכחות ב-Firestore (כלומר: לא "שמור לי את התוכנית לפעם הבאה", אלא "לצורך הריצה *הזו* בלבד, גם משתתפים אחרים צריכים לראות אותה").
+- **למה בכלל יכול להידרש Firestore**: המסמך הזה כבר זיהה תלות ישירה ביכולת ה' (live_join) — "שיתוף המסלול הדינמי שהמארח מייצר — חי רק ב-state מקומי, לא נכתב ל-Firestore" (סעיף ה', חוסר #2). זה חוסר קיים **גם היום** ב-Free Run רגיל (בלי ג' בכלל) — ולכן זה לא "עוד עלות שג' מוסיפה", זה חוסר-תשתית עצמאי שה' כבר צריכה לפתור בלי קשר לג'. ברגע שה' פותרת את זה (מסלול מתומפל נכתב לרשומת סשן ephemeral בסגנון `GroupInvitationDoc`), ג' פשוט משתמשת באותה רשומה — לא צריכה תשתית persistence נפרדת משלה.
+
+**ודאות: אפשר להכריע כברירת-מחדל *לחלק הזה בלבד* (ephemeral vs. per-session Firestore לצורך live_join). יש שאלת-משנה אחת שדורשת החלטת דוד באמת**: האם משתמש אמור להיות מסוגל **לשמור תוכנית-מקטעים כתבנית לשימוש חוזר** ("המסלול שלי לימי שלישי: בית→טיילת→ג'ים")? זו שאלת-פיצ'ר מוצרית טהורה — שום תקדים קוד לא פותר אותה כי אין תקדים דומה ("שמור מסלול מותאם-אישית בתור מועדף") בקוד היום מלבד `useSavedPlacesStore` (בית/עבודה, לא תוכניות-מקטעים). אם דוד רוצה reusable templates — זה collection נפרד (`users/{uid}/leg_plan_templates` או דומה) שנוסף מעל ההמלצה כאן, לא סותר אותה.
+
+### 4. נדרש re-routing חי בסטייה ממקטע? (משפיע משמעותית על עלות/היקף)
+
+**המלצה: לא ל-v1. לדחות מפורשות — אבל לתעד שזו הרחבה על תשתית קיימת, לא בנייה מאפס, כשיגיע הזמן.**
+
+**נימוק**: זו הפתעת-המחקר המרכזית של השאלה הזו — **יש כבר מנגנון re-routing-אחרי-סטייה חי ומחווט בפרודקשן**, לא היפותטי:
+- זיהוי סטייה: `useRunningPlayer.checkRouteDeviation` (`useRunningPlayer.ts:449-500`), סף 40 מ' (`ROUTE_DEVIATION_THRESHOLD_M`, שורה 73) עם דגימה-עקבית (3 דגימות רצופות, `ROUTE_DEVIATION_SAMPLE_THRESHOLD`, שורה 78) כדי למנוע false positive מקפיצת GPS בודדת.
+- אורקסטרציה מלאה: `useRouteDeviationOrchestrator.ts` (365 שורות) — כולל הודעה קולית בעברית ("סטית מהמסלול, מחשב מסלול מחדש לסיום האימון", שורה 86), חישוב מרחק-נותר מול היעד המקורי (לא מול ה-`focusedRoute` הנוכחי — מונע "יעד מתכווץ", שורות 267-278), fallback לקו ישר כשנשאר מעט מדי (`DIRECT_RETURN_THRESHOLD_KM = 0.5`, שורה 58), והפעלה מחדש של `generateDynamicRoutes` עם `activeOfficialRouteId` שמטה את הניקוד פי 5 בחזרה לכיוון המסלול המקורי (`route-generator.service.ts:356-368`, `OFFICIAL_ROUTE_BIAS_MULTIPLIER`).
+- זה **כבר עובד** גם ללולאות וגם למסלולים ליניאריים (`isLoopRoute`, `useRouteDeviationOrchestrator.ts:105-115` — קובע אם היעד הוא נקודת-ההתחלה או הקצה הליניארי).
+
+**אבל** — המנגנון הקיים מבין **יעד אחד בלבד** (start-of-loop או end-of-linear). הוא לא יודע "אני באמצע מקטע 2 מתוך 4, אחרי הסטייה אני צריך לחזור למקטע 2 או לדלג ישר למקטע 3?" — זה דורש להזרים אינדקס-מקטע-פעיל + "מה נשאר בתוכנית אחרי המקטע הזה" לתוך האורקסטרטור, שהיום עובד רק מול `focusedRoute` בודד + `guidedRouteDistanceKm` יחיד (`useRunningPlayer.ts` state). זו עבודה אמיתית, לא triviality — אבל היא **הרחבה** של מנגנון קיים ומוכח, לא בנייה חדשה של: זיהוי-סטייה, קול, ניהול-race-condition (`isRecalculatingRoute`/`offRouteEventToken`), וה-bias-מנגנון עצמו. כל אלה כבר קיימים ועובדים.
+בהתחשב בכך שדוד תיאר תרחיש-אב סטטי (בית → טיילת → כתובת חבר) בלי אזכור סטייה/re-routing, ושג' כבר מדורגת HIGH complexity לבדה — דחיית re-routing מ-v1 שומרת את ההיקף סביר בלי לוותר על היכולת: כשהיא תידרש, זו תוספת ממוקדת על אורקסטרטור קיים, לא פרויקט נפרד.
+
+**ודאות: אפשר להכריע כברירת-מחדל.** ההיגיון "דחה כי זה scope-creep על HIGH-complexity feature, והתשתית לא הולכת לשום מקום" חד-משמעי מספיק. אם דוד רוצה live re-routing כבר ב-v1 — זו בחירה מודעת להרחיב את ה-scope, לא גילוי של חסם טכני.
+
+### 5. תקרת מספר מקטעים לתוכנית?
+
+**המלצה: 5 מקטעים ל-v1 (ניתן לשנות בקלות — זה קבוע קונפיגורציה, לא מגבלת ארכיטקטורה).**
+
+**נימוק — זו בעיקר שאלת שיקול-דעת מוצרי, לא ארכיאולוגיית-קוד, וחשוב לומר את זה במפורש:**
+- **התקרה הטכנית לא מתקרבת להיות הגורם המגביל**: Mapbox Directions מגביל ל-25 קואורדינטות לבקשה (מתועד בסעיף "תקציב Mapbox API" למעלה). גם אם כל מקטע בתוכנית תורם 1-2 waypoints (start/end + via-point אופציונלי לכל מקטע לפי סעיף 1 למעלה), 5 מקטעים = ~6-10 קואורדינטות — רחוק מ-25. אין כאן "תקרה טבעית" חדה כמו שיש ליכולת א' (`distance_cap`) שהמסמך כבר ציין שהיא *לא* קיימת ל-loop mode — פה כן יש קיר טכני, רק שהוא רחוק.
+- **התרחיש-אב של דוד עצמו הוא נקודת-עוגן טובה**: "מהבית → הטיה לטיילת (תוספת מרחק) → המשך לכתובת חבר → חבר שני מצטרף באמצע" הוא כ-3 מקטעים קונספטואליים (בית→טיילת, טיילת→כתובת, +הצטרפות-חבר שהיא לא מקטע ניתוב בפני עצמו אלא אירוע live_join). תקרה של 5 נותנת מרווח נוח מעל התרחיש-האב בלי לפתוח UI שצריך לתמוך ב-"בנה תוכנית של 15 עצירות" — סוג UI שהמסמך כבר ציין שלא קיים בשום מסך (חסר #3 בסעיף ג' למעלה: "UI להרכבה/עריכה של תוכנית לפני ריצה — לא קיים בשום מסך שנבדק").
+- **5 הוא מספר שרירותי במובן המוצרי** (בדיוק כמו ה-20 ק"מ שדוד כבר ביטל ביכולת א') — אין קוד חי שמכריע "5 ולא 4 ולא 7". הבחירה כאן מבוססת על יחס-סביר בין התרחיש-אב לבין מורכבות UI, לא על ממצא-קוד.
+
+**ודאות: המלצה ברורה, אבל מסומנת כניחוש-מוצרי מודע, לא כברירת-מחדל טכנית-מוכתבת.** אפשר להתחיל ב-5 בלי חשש (זה קבוע יחיד לשינוי, לא ארכיטקטורה) — אבל אם לדוד יש כוונה שונה למספר עצירות ריאלי בחוויית שימוש (למשל: הוא רוצה UI שתומך ברשימה ארוכה יותר, או להפך — שרק 2-3 בשביל v1 מינימלי), זו קריאה שלו, לא משהו שהקוד קובע.
+
+---
+
+### מודל-נתונים: הצעה ראשונית (SKETCH — לא מומש, לא מחווט, לביקורת דוד בלבד)
+
+הסקיצה למטה משקפת את חמש ההמלצות למעלה: leg יחיד יכול להיות either "לכתובת/נקודה" או "עם via-point כפוי" (via_point הופך מקרה-פרטי של leg, כפי שסעיף ד' כבר קבע); `activity` הוא שדה **ברמת התוכנית כולה**, לא per-leg (המלצה #2); אין שדה Firestore-doc-id ברמת התוכנית עצמה (ephemeral, המלצה #3) — רק hook אופציונלי ל-live_join; אין שדה re-routing/deviation state (נדחה, המלצה #4); `maxLegs` הוא קבוע קונפיגורציה נפרד, לא מוטבע בטיפוס (המלצה #5).
+
+```typescript
+// PROPOSAL / SKETCH ONLY — not implemented, not wired. For David's review.
+// Reflects the 5 recommendations above; file:line precedent cited in each section.
+
+/** Config constant, not part of the type — kept separate so product can tune
+ *  it without a type change. Recommendation #5: start at 5. */
+export const MAX_LEGS_PER_PLAN = 5;
+
+/**
+ * One user-composed hop in a leg plan. Discriminated by `kind`.
+ * `to_point` = plain point-to-point leg (destination only — reuses the
+ * existing commute engine, generateCommuteRoutes, as-is for that leg).
+ * `via_point` = a leg that must physically pass through an explicit
+ * intermediate coordinate before reaching its end point — via_point (ד)
+ * folded in as a special case of leg_chaining, per the existing doc's
+ * own conclusion (§ד, "via_point = מקרה פרטי של leg_chaining").
+ * Recommendation #1: the via-point is always USER-PICKED (from the same
+ * NavigationHub / address-search flow as capability ב'), never an
+ * algorithmic suggestion — no generic "suggest a detour" primitive exists
+ * today (findFitnessAnchor is parks-only).
+ */
+export type RouteLeg =
+  | {
+      kind: 'to_point';
+      /** Stable id for UI list rendering / reordering, e.g. `leg-${index}`. */
+      id: string;
+      /** Human label shown in the plan-builder list ("לכתובת של דני"). */
+      label?: string;
+      destination: { lat: number; lng: number };
+    }
+  | {
+      kind: 'via_point';
+      id: string;
+      label?: string;
+      /** The forced intermediate point — always explicit/user-picked (rec. #1). */
+      viaPoint: { lat: number; lng: number; label?: string };
+      destination: { lat: number; lng: number };
+    };
+
+/**
+ * A full leg-chaining plan. `activity` is plan-level, not per-leg
+ * (recommendation #2 — the live player + the single-profile-per-Mapbox-call
+ * routing model both assume one activity for the whole session today;
+ * mixed-profile legs are a separate, larger future project, not part of
+ * this sketch).
+ *
+ * Deliberately NOT a Firestore document type — this is authored/held as
+ * local state while the user builds the plan (mirrors ComposedHybridSession,
+ * start-hybrid-session.ts:41-84: computed once, run once, not persisted as
+ * its own collection). See `CompiledLegPlanSession` below for the one case
+ * (live_join) where a lightweight Firestore doc is actually needed.
+ */
+export interface RouteLegPlan {
+  /** Single shared profile for the whole plan (recommendation #2). */
+  activity: 'running' | 'walking' | 'cycling';
+  /** Ordered — execution order is array order, no separate `order` field needed. */
+  legs: RouteLeg[];
+  /** Where the whole plan starts. Typically the user's current GPS at build time. */
+  origin: { lat: number; lng: number };
+}
+
+/**
+ * What a RouteLegPlan compiles into at "start run" time: one Mapbox
+ * multi-waypoint Directions call (getSmartPath-style), matching the doc's
+ * own Mapbox-budget recommendation ("קריאה אחת מרובת-waypoints" over
+ * per-leg calls). `legBreakdown` recovers the free per-leg distance/duration
+ * data Mapbox already returns but the wrapper currently discards
+ * (mapbox.service.ts:128-130,197-199) — no extra API cost, just stop
+ * throwing it away.
+ */
+export interface CompiledLegPlanRoute {
+  /** Same shape the rest of the map/player pipeline already consumes. */
+  route: Route; // from route.types.ts — path, distance, duration, etc.
+  /** Per-leg distance/duration, index-aligned with RouteLegPlan.legs. */
+  legBreakdown: Array<{ legId: string; distanceKm: number; durationMin: number }>;
+}
+
+/**
+ * Session-scoped Firestore doc — ONLY written when live_join (ה') is
+ * actually invoked on this run (recommendation #3). Modeled directly on
+ * GroupInvitationDoc's ephemeral/TTL pattern (group-invitation.service.ts:23-37):
+ * top-level collection, short TTL, not part of the user's permanent profile,
+ * not a reusable/saved template. A leg plan that never triggers live_join
+ * never creates one of these.
+ */
+export interface CompiledLegPlanSession {
+  token: string;              // same generateToken() pattern as group-invitation.service.ts:55-62
+  hostUid: string;
+  compiledRoute: CompiledLegPlanRoute;
+  /** Which leg the host is currently on — updated as they progress. Consumed by
+   *  a joiner's UI, NOT by any re-routing logic (live re-routing deferred, rec. #4). */
+  activeLegIndex: number;
+  createdAt: Timestamp;
+  expiresAt: Timestamp;        // mirror EXPIRY_MS pattern, group-invitation.service.ts:51
+}
+
+// Deliberately ABSENT from this sketch (by recommendation):
+// - any per-leg `activity` override                      → rec. #2 (v1: plan-level only)
+// - any `deviation` / `reroute` state on the plan itself  → rec. #4 (deferred, extends
+//   useRouteDeviationOrchestrator later, not modeled here)
+// - a `savedAsTemplate` / reusable-plan flag              → rec. #3's one open question,
+//   needs David's explicit product call before it's added
+```
