@@ -424,3 +424,61 @@ export interface CompiledLegPlanSession {
 // - a `savedAsTemplate` / reusable-plan flag              → rec. #3's one open question,
 //   needs David's explicit product call before it's added
 ```
+
+---
+
+## ג' — leg_chaining: תוכנית בנייה קונקרטית (08.08, אחרי re-verification מול קוד עדכני)
+
+> 4 agents במקביל קראו מחדש את כל אזורי-האינטגרציה מול הקוד **אחרי** כל שינויי היום (א'+ב'), כי route-generator.service.ts השתנה משמעותית. המסקנה הכללית: **4 מתוך 5 ההמלצות המקוריות מאושרות ללא שינוי. אחת מתוקנת באופן משמעותי** (הסעיף הבא). זה גם חושף שתי משימות-משנה קונקרטיות וממוקדות (compiler + activeLegIndex derivation) שלא היו ברורות קודם.
+
+### תיקון קריטי: `waypoints_through_stops` הוא לא "seam לחיווט" — הוא false-friend חלקי
+
+המחקר המקורי המליץ "לחווט את ה-seam הקיים waypoints_through_stops (start-hybrid-session.ts) כנקודת האינטגרציה הטבעית". **re-verification חושפת שזה לא נכון בפועל**:
+1. אין לו פרמטר לרשימת waypoints/יעדים בכלל — ה-signature הנוכחי (`opts: {userPosition, parks?, targetKm?, cityName?, activity?}`, שורות 365-371) לא תומך בזה. הזרימה החיה עובדת בכיוון ההפוך ממה שג' צריך: קודם בונה backbone, **אחר כך** מוצא POIs קרובים אליו (`resolveRouteStops`, שורה 551) — לא "יעדים קודם, מסלול דרכם אחר כך".
+2. הוא מחווט לנתיב-הפעלה של hybrid/תחנות-כוח (`runHybridPlan`→`useHybridRun.startHybrid`), **לא** לנתיב Free Run הרגיל שבו חי ב'/leg_chaining בפועל. "לחווט את זה" באמת אומר לבנות את ג' כווריאנט של מנוע ה-hybrid — משיכת מנגנון שג' לא צריך.
+3. המימוש-המקביל שכן פעיל (`'generated_loop'`) קורא ישירות ל-`generateDynamicRoutes` — כלומר גם הוא לא מדגים איך לחבר "רשימת יעדים מפורשת".
+
+**מסקנה מתוקנת**: להתייחס ל-`waypoints_through_stops` כתקדים-שמי בלבד, לא כנקודת-חיבור. לבנות ישירות מול `getSmartPath`/`getSmartPathAlternatives` (mapbox.service.ts) — בדיוק כפי שהסקיצה המקורית של `CompiledLegPlanRoute` כבר הניחה, רק בלי האשליה ש"יש כבר seam מוכן לחיווט".
+
+### אושר ללא שינוי (4/5 המלצות)
+
+- **תקציב Mapbox**: אין תלות בין תיקוני-היום ב-route-generator.service.ts (computeDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases) לבין ג' — כולם loop-mode-בלבד, מופרדים לחלוטין בנקודת-הכניסה של `generateDynamicRoutes` (`if (options.destination) return generateCommuteRoutes(options)`). ג' לא צריך לתאם איתם, לא לעשות reuse, לא בסיכון מהם.
+- **generateCommuteRoutes**: מאושר ללא שינוי — עדיין חד-כיווני, עדיין מתעלם מ-targetDistance, עדיין הפונקציה שב' קורא לה בפרודקשן. השורה עם מערך ה-waypoints הריק זזה (997→1190, בגלל תוספות קוד מעליה), אך ההתנהגות זהה.
+- **route.legs[] נזרק**: עדיין נכון — `mapbox.service.ts:128-130,197-199` עדיין רק שולפים `.steps`, לא `.distance/.duration`. "רווח חינם" עדיין זמין.
+- **אין מנגנון "התקדמות לאורך מסלול" קיים**: `checkRouteDeviation`/`crossTrackDistanceMeters` (useRunningPlayer.ts:449-500, geoUtils.ts:149-177) מחשבים מרחק-ניצב למסלול אבל **זורקים** את אינדקס-הסגמנט הקרוב ביותר — בדיוק המידע שיידרש כדי לגזור `activeLegIndex`. זו עבודה חדשה וממוקדת (הרחבת הפונקציה + מיפוי segment→leg), לא "כבר קיים".
+
+### ממצא UI קונקרטי חדש — יש תקדים אמיתי לרשימה-הניתנת-לסידור
+
+`RollingAgenda.tsx:551-567` כבר משתמש ב-framer-motion `Reorder.Group`/`Reorder.Item` לרשימה גרירה-לסידור אמיתית — ו-`FreeRunDrawer.tsx` **כבר** מייבא framer-motion (motion/AnimatePresence/useDragControls). כלומר **אפס תלויות חדשות** לחלק ה"סדר-מחדש" של רכיב-הרכבת-התוכנית. אין תקדים ל"הוסף פריט חדש דרך picker" / "הסר פריט" — זה חלק אמיתי-חדש (grep ל-addWaypoint/removeStop/וכו' = 0 תוצאות).
+
+**מיקום מומלץ ל-UI**: sheet-אח חדש (`LegPlanSheet`) בתוך ה-stack הקיים של `FreeRunDrawer` — כפתור חדש ב-`GoalSheet` מתחת לכפתור "יעד: כתובת" (`FreeRunDrawer.tsx:570-585`), עם hand-off באותה תבנית כמו `ExtrasSheet` (`FreeRunDrawer.tsx:1047`) — **לא** כמו `onRequestAddressDestination` (שיוצא לגמרי מה-drawer), כי מרכיב-תוכנית צריך להישאר "בחיים" בין כמה סבבי-בחירה (leg אחר leg). מנגנון `navState:'searching'`→`NavigationHub` (`DiscoverLayer.tsx:1054,1145`) ניתן ל-reuse לבחירת-נקודה, **אבל** `handleAddressSelect` (`DiscoverLayer.tsx:924-957`) צריך להיות מודע-מצב (state כמו `pendingLegPick`) כדי לנתב בחירה בחזרה לרשימת-הlegs במקום להפעיל `startCommute()` תמיד. דורש גם ערכי z-index חדשים בטבלת התקציב (`.cursorrules` §8).
+
+### תוכנית בנייה — 3 שלבים + שלב-4 נדחה
+
+**שלב 0 — מודל-נתונים + compiler (בלי UI, ניתן לבדיקה מבודדת)**
+- קובץ חדש: `src/features/parks/core/services/leg-plan.service.ts` (אח ל-route-generator.service.ts/mapbox.service.ts, תואם לחלוקת-הדומיין הקיימת).
+- `compileLegPlan(plan: RouteLegPlan): Promise<CompiledLegPlanRoute>` — פונקציה טהורה יחסית: משטחת את רשימת ה-legs המסודרת למערך waypoints יחיד, קריאה **אחת** ל-`getSmartPath`/`getSmartPathAlternatives` הקיים (ללא שינוי בו), מחזירה route + legBreakdown (דורש הרחבה קטנה של ה-wrapper לשמר `route.legs[]` במקום לזרוק — ה"רווח החינם" שכבר זוהה).
+- ניתן לבדוק עם טסטים אמיתיים (כמו route-generator.calibration.test.ts) בלי לגעת ב-UI בכלל.
+
+**שלב 1 — LegPlanSheet (הרכבת התוכנית)**
+- רכיב חדש, sheet-אח ל-GoalSheet/ExtrasSheet בתוך FreeRunDrawer.
+- רשימה מסודרת עם `Reorder.Group`/`Reorder.Item` (תקדים: RollingAgenda.tsx) + add/remove חדש.
+- כפתור-הוספה פותח את NavigationHub הקיים דרך מנגנון קיים, עם `pendingLegPick` חדש ב-DiscoverLayer שמנתב בחירה בחזרה ללא-הפעלת-commute.
+- תקרה: MAX_LEGS_PER_PLAN=5 (עדיין ניחוש-מוצרי מפורש, לא נגזר-קוד).
+- עדכון טבלת z-index (`.cursorrules`).
+
+**שלב 2 — הפעלת ריצה מתוכנית מורכבת**
+- callback חדש (מקביל ל-`onRequestAddressDestination`) שקורא ל-`compileLegPlan` ואז מזין את `useRunningPlayer`/מקביל ל-RouteCarousel כדי **להתחיל** את הריצה עם המסלול המורכב.
+- ⚠️ **החלטת מוצר פתוחה**: תוכנית-legs שהמשתמש כבר הרכיב ידנית — האם עדיין עוברת דרך מסך "בחר 1 מ-3 כרטיסים" (RouteCarousel), או שמדלגת ישר להתחלה (יש כבר מסלול קומפוילד יחיד, לא 3 וריאציות)? נטייה: לדלג — אבל זו החלטה של דוד.
+
+**שלב 3 (נדחה, לא v1) — תמיכת נגן-חי + live_join**
+- "active leg" pointer דרך useRunningPlayer/MapShell לתוך useRouteDeviationOrchestrator (לפי המלצה #4 המקורית — עדיין נכונה).
+- גזירת `activeLegIndex` (להרחיב crossTrackDistanceMeters/geoUtils.ts כדי להחזיר אינדקס-סגמנט קרוב + מיפוי לגבול-leg) — עבודה חדשה וממוקדת, נדרשת רק כש-live_join מופעל בפועל על ריצת-legs.
+
+### שאלות פתוחות לדוד לפני שלב 1 (UI)
+
+1. **אישור 4 ההמלצות המקוריות שעדיין תקפות**: (1) הטיה=בחירה מפורשת בלבד, (2) profile אחד לכל התוכנית, (3) state זמני (לא Firestore) עד שlive_join מופעל, (4) לדחות re-routing חי מ-v1. אלה היו המלצות-agent, טרם אושרו במפורש על ידך.
+2. **תקרת legs**: 5 כברירת מחדל — מאשר, או מספר אחר?
+3. **LegPlanSheet — נגיש רק מ-GoalSheet, או גם ישירות מרמת ה-drawer העליונה?**
+4. **התחלת ריצה מתוכנית-legs — לדלג על מסך בחירת-3-כרטיסים (RouteCarousel), או עדיין להראות אותו?**
+5. **via_point (ד') בתוך v1 של ג', או נדחה לשלב נפרד?** ההמלצה המקורית קיפלה via_point כ"leg עם עצירת-ביניים כפויה" — שווה לאשר אם זה עדיין בהיקף v1 או פשוט.
