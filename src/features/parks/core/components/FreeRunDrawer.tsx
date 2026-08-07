@@ -75,6 +75,14 @@ interface FreeRunDrawerProps {
    * When absent, hybrid gracefully degrades to a normal free start.
    */
   onStartHybrid?: (intent: HybridStartIntent) => void;
+  /**
+   * Address-destination request (08.08 decision) — additive option below the
+   * existing time/distance/calories goal tabs, NOT a replacement. Hands off
+   * to the parent's existing NavigationHub/commute flow entirely; when
+   * omitted, the button is not rendered and default behavior (loop,
+   * out-and-back) is completely unchanged.
+   */
+  onRequestAddressDestination?: () => void;
 }
 
 // ── Activity data ──────────────────────────────────────────────────────────────
@@ -435,6 +443,7 @@ function GoalSheet({
   userWeight,
   genderDefault,
   onSaveWeight,
+  onRequestAddressDestination,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -450,6 +459,7 @@ function GoalSheet({
   userWeight: number | null;
   genderDefault: number;
   onSaveWeight: (w: number) => Promise<void>;
+  onRequestAddressDestination?: () => void;
 }) {
   const dragControls = useDragControls();
 
@@ -531,7 +541,12 @@ function GoalSheet({
                     <span className="text-[13px] font-black text-gray-800">מרחק</span>
                     <span className="text-[13px] font-black" style={{ color: ACCENT }}>{distanceValue.toFixed(1)} ק״מ</span>
                   </div>
-                  <GoalSlider min={0.5} max={20} step={0.5} value={distanceValue} onChange={setDistanceValue} formatLabel={(v) => `${v.toFixed(1)} ק״מ`} />
+                  {/* No product-chosen distance ceiling (David, 08.08) — Mapbox Directions
+                      itself imposes no max route distance for walking/cycling (verified,
+                      only a 25-waypoint-per-request limit exists and loop mode never
+                      approaches it). 100 is a generous usability bound for the slider
+                      widget only, not a claimed technical limit — trivially raisable. */}
+                  <GoalSlider min={0.5} max={100} step={0.5} value={distanceValue} onChange={setDistanceValue} formatLabel={(v) => `${v.toFixed(1)} ק״מ`} />
                 </>
               )}
 
@@ -551,6 +566,23 @@ function GoalSheet({
                 </>
               )}
             </div>
+
+            {/* Address destination (08.08 decision) — additive option below the
+                goal tabs, not a replacement. Default (loop) is unaffected unless
+                explicitly tapped. Hands off entirely to the existing NavigationHub
+                / commute flow — no new engine or search UI here. */}
+            {onRequestAddressDestination && (
+              <div className="px-5 mb-4">
+                <button
+                  type="button"
+                  onClick={onRequestAddressDestination}
+                  className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
+                  style={{ backgroundColor: '#F3F4F6' }}
+                >
+                  📍 יעד: כתובת
+                </button>
+              </div>
+            )}
 
             {/* Route extras shortcut */}
             <div className="px-5 mb-4">
@@ -671,6 +703,7 @@ export default function FreeRunDrawer({
   userPosition,
   cityName,
   onStartHybrid,
+  onRequestAddressDestination,
 }: FreeRunDrawerProps) {
   const dragControls = useDragControls();
 
@@ -1015,6 +1048,7 @@ export default function FreeRunDrawer({
         userWeight={userWeight}
         genderDefault={genderDefault}
         onSaveWeight={saveWeightInline}
+        onRequestAddressDestination={onRequestAddressDestination}
       />
 
       {/* Extras sheet — z-[104/105] (above GoalSheet) */}

@@ -102,6 +102,7 @@ export function useRouteFilter(
             preferences: {
               includeStrength: preferences.includeStrength,
               surface: preferences.surface,
+              idealWaypointDistanceKm: targetDistance / 6,
             },
             parks,
           }),

@@ -534,7 +534,13 @@ export function scoreWaypoint(
 
   if (preferences.includeStrength && hasNearbyGym) score += 25;
 
-  const isSafe = distanceFromUser < 3.0;
+  // 3.0km flat cutoff was tuned for the historical ~1.0km idealDistance default
+  // (short free-run loops). Scaled by idealDistance so a caller that opts into
+  // a larger idealWaypointDistanceKm (e.g. free-run's now-uncapped distance
+  // goal, targetKm/6) doesn't have every candidate penalized once the loop
+  // radius alone exceeds 3km — Math.max keeps today's exact 3.0km behaviour
+  // for every caller still on the 1.0km default (1.0 * 2 = 2 < 3.0).
+  const isSafe = distanceFromUser < Math.max(3.0, idealDistance * 2);
   if (!isSafe) score -= 20;
 
   return { ...waypoint, score, distanceFromUser, nearbyParks, isGreen: nearbyParks > 0, isSafe };

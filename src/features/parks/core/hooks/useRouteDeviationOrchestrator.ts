@@ -314,7 +314,7 @@ export function useRouteDeviationOrchestrator({
             // Unique invocation id so the generator can't dedup against an
             // earlier identical call (it caches by index).
             routeGenerationIndex: Date.now(),
-            preferences: { includeStrength: false },
+            preferences: { includeStrength: false, idealWaypointDistanceKm: remainingKm / 6 },
             parks,
             cityName: cityNameRef.current,
             activeOfficialRouteId: officialIdForBias,

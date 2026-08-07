@@ -337,7 +337,11 @@ export default function RouteCarousel({
                 targetDistance: targetKm ?? 3,
                 activity,
                 routeGenerationIndex: Date.now(),
-                preferences: { includeStrength, surface },
+                // targetKm/6 — same triangular-loop perimeter correction as the
+                // hybrid route-stops caller (start-hybrid-session.ts), generalized
+                // to free-run's now-uncapped distance goal so waypoint scoring
+                // targets the actual loop radius instead of the 1.0km default.
+                preferences: { includeStrength, surface, idealWaypointDistanceKm: (targetKm ?? 3) / 6 },
                 parks,
                 cityName,
               },
