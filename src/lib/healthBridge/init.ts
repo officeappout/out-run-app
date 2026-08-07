@@ -350,6 +350,27 @@ export async function initHealthBridge(): Promise<void> {
       );
     });
 
+    // Android-only: fired by onAppResumed() (HealthBridgePlugin.kt) when the
+    // user granted/revoked Health Connect permissions from the OS settings
+    // screen directly, outside our own requestPermissions() flow, while the
+    // app was backgrounded. Keeps healthBridgeEnabled truthful without
+    // requiring the user to re-open the connect flow.
+    await (HealthBridge as any).addListener('permissionsChanged', (e: { granted?: boolean }) => {
+      const granted = Boolean(e?.granted);
+      console.log('[healthBridge][flow] permissionsChanged event: granted=', granted);
+      void (async () => {
+        const Preferences = await getPrefs();
+        if (granted) {
+          await Preferences.set({ key: PREF_KEY_PERMISSIONS, value: '1' });
+        } else {
+          await Preferences.remove({ key: PREF_KEY_PERMISSIONS });
+        }
+        const { useSettingsStore } = await import('@/features/home/store/useSettingsStore');
+        useSettingsStore.getState().patch({ healthBridgeEnabled: granted });
+        if (granted) void healthBridgeSyncNow('manual');
+      })();
+    });
+
     const Preferences = await getPrefs();
     const { value: prevGranted } = await Preferences.get({ key: PREF_KEY_PERMISSIONS });
     if (prevGranted === '1') {
@@ -368,16 +389,19 @@ export async function initHealthBridge(): Promise<void> {
 }
 
 /**
- * Hard upper bound on how long we will wait for the native permission
- * flow to resolve. On Android the plugin parks the `requestPermissions`
- * PluginCall while the user is inside the Health Connect settings
- * screen, and only resolves it once `onAppResumed` fires. If the user
- * never returns to the app — or `onAppResumed` is missed for any
- * reason — the UI spinner would otherwise hang forever. 45 s is long
- * enough for the system sheet round-trip but short enough that the user
- * won't sit on a frozen settings screen.
+ * Safety-net upper bound on how long we will wait for the native
+ * permission flow to resolve. Both platforms now resolve `requestPermissions`
+ * directly from the OS grant dialog's own result — Android via the
+ * ActivityResultContract callback (HealthBridgePlugin.kt handlePermissionsResult),
+ * iOS via requestAuthorization's completion handler — so this is no longer
+ * covering an open-ended "user wandered into Settings" wait. It only
+ * guards against a genuinely stuck native bridge call, e.g. the app
+ * process being killed while the Health Connect grant screen is on
+ * screen (Capacitor then can't restore the saved call and our activity
+ * callback never fires). 60 s leaves plenty of room for the user to
+ * actually read and decide on the dialog.
  */
-const PERMISSION_TIMEOUT_MS = 45_000;
+const PERMISSION_TIMEOUT_MS = 60_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -396,10 +420,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
  * Asks the OS for permissions; on success persists the flag and
  * primes background delivery + initial sync.
  *
- * The native `requestPermissions` and `hasPermissions` calls are wrapped
- * in `withTimeout` so the caller is guaranteed to receive a resolved
- * promise within `PERMISSION_TIMEOUT_MS`. On timeout we return
- * `{ granted: false }` and the UI spinner clears.
+ * A single native `requestPermissions` call now resolves with the real
+ * granted state directly — Android via the ActivityResultContract
+ * callback, iOS by delegating internally to its own read-access probe
+ * inside the `requestAuthorization` completion handler (see
+ * HealthBridgePlugin.kt / HealthBridgePlugin.swift). The previous
+ * separate follow-up `hasPermissions()` round-trip is redundant and has
+ * been removed. The call is wrapped in `withTimeout` purely as a safety
+ * net (see PERMISSION_TIMEOUT_MS doc) — on timeout we return
+ * `{ granted: false, timedOut: true }` and the UI spinner clears.
  */
 export async function requestHealthPermissions(): Promise<{
   granted: boolean;
@@ -407,6 +436,7 @@ export async function requestHealthPermissions(): Promise<{
   reason?: 'sdk-unavailable' | 'provider-update-required';
 }> {
   if (!isNative()) return { granted: false };
+  console.log('[healthBridge][flow] requestHealthPermissions: start');
   try {
     const HealthBridge = await loadPlugin();
     // Guard: check HC availability BEFORE setting PREF_KEY_ASKED.
@@ -422,9 +452,13 @@ export async function requestHealthPermissions(): Promise<{
     } catch {
       // Bridge call failed or timed out. On iOS, HealthKit is always present
       // on real devices — proceed to requestPermissions.
-      if (!platformIsIOS()) return { granted: false };
+      if (!platformIsIOS()) {
+        console.warn('[healthBridge][flow] requestHealthPermissions: isAvailable check failed on Android — aborting');
+        return { granted: false };
+      }
     }
     if (availResult != null && !availResult.available) {
+      console.log('[healthBridge][flow] requestHealthPermissions: unavailable, reason=', availResult.reason);
       return {
         granted: false,
         reason: availResult?.reason as 'sdk-unavailable' | 'provider-update-required' | undefined,
@@ -434,23 +468,17 @@ export async function requestHealthPermissions(): Promise<{
     // records that the user was prompted and we don't ask again on next login.
     const Preferences = await getPrefs();
     await Preferences.set({ key: PREF_KEY_ASKED, value: '1' });
-    await withTimeout(
+    console.log('[healthBridge][flow] requestHealthPermissions: OS dialog requested');
+    const result = await withTimeout(
       (HealthBridge as any).requestPermissions({
         permissions: ['steps', 'activeEnergy', 'exerciseTime'],
-      }),
+      }) as Promise<{ granted?: boolean; reason?: string }>,
       PERMISSION_TIMEOUT_MS,
       'requestPermissions',
     );
-    // iOS does not tell us the read-grant state directly; we re-probe.
-    const { granted } = await withTimeout(
-      (HealthBridge as any).hasPermissions({
-        permissions: ['steps', 'activeEnergy', 'exerciseTime'],
-      }),
-      PERMISSION_TIMEOUT_MS,
-      'hasPermissions',
-    );
+    const granted = Boolean(result?.granted);
+    console.log('[healthBridge][flow] requestHealthPermissions: OS dialog resolved, granted=', granted, 'reason=', result?.reason);
     if (granted) {
-      const Preferences = await getPrefs();
       await Preferences.set({ key: PREF_KEY_PERMISSIONS, value: '1' });
       try {
         await (HealthBridge as any).enableBackgroundDelivery();
@@ -459,22 +487,30 @@ export async function requestHealthPermissions(): Promise<{
       }
       void healthBridgeSyncNow('manual');
     }
-    return { granted: Boolean(granted) };
+    return {
+      granted,
+      reason: result?.reason as 'sdk-unavailable' | 'provider-update-required' | undefined,
+    };
   } catch (err: any) {
     const msg = String(err?.message || err || '');
     if (msg.endsWith(':timeout')) {
-      console.warn('[healthBridge] permission flow timed out:', msg);
+      console.warn('[healthBridge][flow] requestHealthPermissions: timed out:', msg);
       return { granted: false, timedOut: true };
     }
-    console.warn('[healthBridge] requestPermissions failed:', err);
+    console.warn('[healthBridge][flow] requestHealthPermissions: failed:', err);
     return { granted: false };
   }
 }
 
 /**
- * Public: called by the native shell on every app-resume so that any
- * pending `requestPermissions()` PluginCall (parked while the user was
- * inside the Health Connect settings screen) is resolved.
+ * Public: called by the native shell on every app-resume. On Android this
+ * triggers a re-probe of the current Health Connect grant state and, if it
+ * changed since we last observed it (user granted/revoked from OS settings
+ * directly), fires the `permissionsChanged` event handled in
+ * initHealthBridge(). No longer resolves a parked `requestPermissions()`
+ * call — that call now resolves synchronously from its own OS dialog
+ * result (see PERMISSION_TIMEOUT_MS doc above). On iOS this is a no-op
+ * (no `onAppResumed` native method is registered).
  *
  * Uses the shared `loadPlugin()` singleton — the plugin proxy is NEVER
  * passed through a raw `await import(...)` expression, which would

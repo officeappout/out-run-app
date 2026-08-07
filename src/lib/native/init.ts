@@ -203,10 +203,10 @@ export async function initNativeShell(): Promise<void> {
           console.debug('[native] healthBridgeSyncNow skipped:', err);
         }
       }
-      // Resolve any pending requestPermissions() PluginCall that was parked
-      // while the user was inside the Health Connect settings screen.
-      // notifyAppResumed() is a no-op when no call is pending; it is safe to
-      // fire on every resume.
+      // Android: re-probe Health Connect grant state so a permission change
+      // made from OS settings directly (outside our own request flow) is
+      // picked up without the user re-opening the connect screen. No-op on
+      // iOS and when nothing changed; safe to fire on every resume.
       //
       // NOTE: We intentionally delegate to healthBridge/init.ts here instead
       // of importing 'health-bridge' directly. The shared loadPlugin()
