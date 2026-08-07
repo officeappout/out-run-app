@@ -26,6 +26,7 @@ import {
   type DailyStepsSnapshot,
 } from '../services/activity-history.service';
 import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { onLiveSample } from '@/lib/healthBridge/eventEmitter';
 
 export type StepsTimeRange = 'day' | 'week' | 'month' | 'year';
 
@@ -70,50 +71,18 @@ interface UseStepsAnalyticsReturn {
 const FALLBACK_GOAL = DAILY_STEP_GOAL;
 const HISTORY_LIMIT_DAYS = 365;
 
-// ── Dev-only mock data ────────────────────────────────────────────────────────
-// Injected only on localhost when Firestore returns no snapshots.
+/** Debounce before refetching after a live sample — gives the outbox flush
+ *  (enqueue → ingestHealthSamples → dailyActivity write) a moment to land,
+ *  and coalesces rapid successive samples into one Firestore read. */
+const LIVE_REFRESH_DELAY_MS = 3_000;
 
-function isLocalhost(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+function todayKey(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
-
-/** Deterministic offset-based value so mock bars look natural but don't reshuffle. */
-function mockStepsForDaysBack(daysBack: number): number {
-  // Last 7 days: specific values the team agreed on for visual review
-  const weekly = [5600, 7200, 3800, 9100, 6300, 8500, 4200]; // index 0 = today, 6 = 6 days ago
-  if (daysBack < 7) return weekly[daysBack];
-  // Older days: pseudo-random but stable (deterministic from daysBack)
-  const seed = (daysBack * 2654435761) >>> 0;
-  const pct = (seed % 100) / 100;
-  // ~20% rest days, rest 3000-11000
-  if (pct < 0.18) return 0;
-  return Math.round(3000 + pct * 8000);
-}
-
-function buildMockSnapshots(days: number): DailyStepsSnapshot[] {
-  const today = new Date();
-  return Array.from({ length: days }, (_, i) => {
-    const daysBack = days - 1 - i; // i=0 → oldest, i=days-1 → today
-    const d = new Date(today);
-    d.setDate(d.getDate() - daysBack);
-    const dateStr = d.toISOString().slice(0, 10);
-    const steps = mockStepsForDaysBack(daysBack);
-    return {
-      date: dateStr,
-      steps,
-      floors: Math.round(steps / 1000),
-      stepsGoalMet: steps >= FALLBACK_GOAL,
-      floorsGoalMet: false,
-      stepsGoal: FALLBACK_GOAL,
-      floorsGoal: 10,
-    };
-  });
-}
-
-const DEV_MOCK_SNAPSHOTS: DailyStepsSnapshot[] = isLocalhost()
-  ? buildMockSnapshots(30)
-  : [];
 
 const RANGE_DAYS: Record<Exclude<StepsTimeRange, 'year'>, number> = {
   day: 1,
@@ -187,34 +156,46 @@ export function useStepsAnalytics(timeRange: StepsTimeRange): UseStepsAnalyticsR
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) {
-      // On localhost without auth, show mock data so the UI is testable
-      if (isLocalhost()) setSnapshots(DEV_MOCK_SNAPSHOTS);
       setLoading(false);
       return;
     }
     let cancelled = false;
-    setLoading(true);
-    setError(false);
 
-    getStepsTrend(uid, HISTORY_LIMIT_DAYS)
-      .then((trend) => {
-        if (cancelled) return;
-        // On localhost with no real data, fall back to dev mock snapshots
-        setSnapshots(trend.length > 0 ? trend : DEV_MOCK_SNAPSHOTS);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          // On localhost, show mock data even when Firestore fails (e.g. not logged in)
-          if (isLocalhost()) setSnapshots(DEV_MOCK_SNAPSHOTS);
-          else setError(true);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    const fetchTrend = () => {
+      setLoading(true);
+      setError(false);
+      getStepsTrend(uid, HISTORY_LIMIT_DAYS)
+        .then((trend) => {
+          if (!cancelled) setSnapshots(trend);
+        })
+        .catch(() => {
+          if (!cancelled) setError(true);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    };
+
+    fetchTrend();
+
+    // Refresh when a fresh sample lands for today, so the detail page
+    // updates without the user having to leave and come back — same
+    // samplesAvailable → syncSince → pushSample chain useLiveDailyActivity
+    // reacts to, just refetching from Firestore (debounced) instead of
+    // applying a local overlay, since this hook already reads server-
+    // aggregated snapshots rather than a single live "today" value.
+    const today = todayKey();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const off = onLiveSample((evt) => {
+      if (evt.date !== today) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(fetchTrend, LIVE_REFRESH_DELAY_MS);
+    });
 
     return () => {
       cancelled = true;
+      off();
+      if (debounceTimer) clearTimeout(debounceTimer);
     };
   }, []);
 
