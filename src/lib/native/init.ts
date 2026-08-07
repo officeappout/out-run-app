@@ -302,9 +302,11 @@ export async function initNativeShell(): Promise<void> {
       // getLaunchUrl() is not available on all Capacitor versions — ignore.
     }
 
-    // 5. Initialise the HealthBridge plugin lazily. We don't request
-    //    permissions automatically here — the user must opt-in from the
-    //    profile settings screen — but we register the event listener
+    // 5. Initialise the HealthBridge plugin lazily. We never request
+    //    permissions automatically — the OS dialog only ever appears after
+    //    an explicit user gesture, from one of: the profile settings
+    //    screen, the home steps ring/tile, or the optional onboarding
+    //    HealthConnectOptInStep — but we register the event listener here
     //    so that if permissions were granted on a previous launch, live
     //    samples flow into the Activity Rings immediately.
     try {
@@ -378,38 +380,22 @@ async function attachPushAuthBridge(): Promise<void> {
               console.error('[native] initPushNotifications (sign-in) unhandled:', err);
             });
 
-          // Health: sync if already granted; request for any signed-in user who
-          // hasn't been asked yet (gateway_uid gate removed — every user deserves
-          // the prompt, HealthKit won't re-show the sheet if already decided).
+          // Health: never auto-requests here. Just reflects the real
+          // Preferences-cached grant state into the settings store on every
+          // sign-in (so the steps ring/tile gate is accurate even after a
+          // fresh app relaunch), and catches up on samples if already
+          // granted. The OS dialog itself only ever fires from an explicit
+          // user gesture — profile, steps ring, or the onboarding opt-in step.
           const {
-            PREF_KEY_PERMISSIONS, PREF_KEY_ASKED,
-            requestHealthPermissions, healthBridgeSyncNow,
+            PREF_KEY_PERMISSIONS, healthBridgeSyncNow,
           } = await import('@/lib/healthBridge/init');
           const { Preferences } = await import('@capacitor/preferences');
-          const [{ value: prevGranted }, { value: prevAsked }] = await Promise.all([
-            Preferences.get({ key: PREF_KEY_PERMISSIONS }),
-            Preferences.get({ key: PREF_KEY_ASKED }),
-          ]);
-          // Sync the settings store so the StepsTile gate reflects the real
-          // permission state — store default is false, not true.
+          const { value: prevGranted } = await Preferences.get({ key: PREF_KEY_PERMISSIONS });
           const { useSettingsStore } = await import('@/features/home/store/useSettingsStore');
           useSettingsStore.getState().patch({ healthBridgeEnabled: prevGranted === '1' });
           if (prevGranted === '1') {
             void healthBridgeSyncNow('login');
-          } else {
-            // On iOS, HealthKit silently returns denied if the user already
-            // decided — we can always retry safely. Clear a stale PREF_KEY_ASKED
-            // that was set before the plugin was ever called (old bug), so the
-            // tile-tap flow can reach the OS dialog.
-            const isIOS = (window as any).Capacitor?.getPlatform?.() === 'ios';
-            if (isIOS && prevAsked && !prevGranted) {
-              void Preferences.remove({ key: PREF_KEY_ASKED });
-            }
-            if (!prevAsked || isIOS) {
-              void requestHealthPermissions();
-            }
           }
-          // Android: prevAsked && !prevGranted → user denied previously → no-op.
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {
             console.debug('[native] sign-in hook failed:', err);

@@ -104,19 +104,11 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
         sessionStorage.removeItem('skipped_bridge');
       }
 
-      // On native: auto-request HealthKit permissions so users don't have to
-      // discover the setting manually. Fire-and-forget — a failure here must
-      // never block onboarding completion.
-      try {
-        const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } };
-        if (w.Capacitor?.isNativePlatform?.() && w.Capacitor?.getPlatform?.() === 'ios') {
-          const { requestHealthPermissions } = await import('@/lib/healthBridge/init');
-          void requestHealthPermissions();
-        }
-      } catch {
-        // HealthBridge not available or permissions already granted — ignore.
-      }
-
+      // Health-connect permission is no longer auto-requested here — it's
+      // offered as its own optional onboarding step (HealthConnectOptInStep,
+      // right after HealthDeclarationStep) and from the profile/steps-ring
+      // entry points instead, so the OS dialog only ever appears after an
+      // explicit user gesture.
       onComplete();
     } catch (error) {
       console.error('[LifestyleWizard] Submit error:', error);
