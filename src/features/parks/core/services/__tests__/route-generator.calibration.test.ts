@@ -120,7 +120,7 @@ describe('selectAngularlyDiverseCandidates — angular spread for large loops (0
     const spreadOut = [scoreAt(idealKm + 0.5, 140), scoreAt(idealKm + 0.5, 260)]; // slightly worse fit, different directions
     const pool = [...cluster, ...spreadOut];
 
-    const selected = selectAngularlyDiverseCandidates(pool, USER, 4);
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 4, idealKm);
 
     // A pure top-4-by-score selection would return only cluster members
     // (all scored higher than the spread-out pair) — the OLD, broken
@@ -134,7 +134,7 @@ describe('selectAngularlyDiverseCandidates — angular spread for large loops (0
 
   it('never returns more than maxCount candidates', () => {
     const pool = Array.from({ length: 50 }, (_, i) => scoreAt(idealKm, (i * 137) % 360)); // spread around the circle
-    const selected = selectAngularlyDiverseCandidates(pool, USER, 12);
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 12, idealKm);
     expect(selected.length).toBeLessThanOrEqual(12);
   });
 
@@ -142,7 +142,7 @@ describe('selectAngularlyDiverseCandidates — angular spread for large loops (0
     // Every candidate crammed into one 20° arc, like a real coastal city
     // where the rest of the compass is sea — zero data in other sectors.
     const pool = Array.from({ length: 20 }, (_, i) => scoreAt(idealKm, 100 + i));
-    const selected = selectAngularlyDiverseCandidates(pool, USER, 12);
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 12, idealKm);
     // Only 1 sector is populated, but the pool has 20 candidates — backfill
     // should still return up to maxCount, not just the 1 sector's winner.
     expect(selected.length).toBe(12);
@@ -150,10 +150,55 @@ describe('selectAngularlyDiverseCandidates — angular spread for large loops (0
 
   it('result is sorted by bearing (so index-adjacency in the caller matches angular adjacency)', () => {
     const pool = [scoreAt(idealKm, 300), scoreAt(idealKm, 10), scoreAt(idealKm, 180), scoreAt(idealKm, 90)];
-    const selected = selectAngularlyDiverseCandidates(pool, USER, 4);
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 4, idealKm);
     const bearings = selected.map((wp) => ((Math.atan2(wp.lng, wp.lat) * 180) / Math.PI + 360) % 360);
     const sorted = [...bearings].sort((a, b) => a - b);
     expect(bearings).toEqual(sorted);
+  });
+
+  it('round-robin backfill does NOT let one dense sector swallow the whole pool (proves David\'s real-address bug fix)', () => {
+    // Reproduces the exact live shape: one massive sector (66+ candidates,
+    // all near-ideal and high-scoring) plus several thin sectors (1-2
+    // candidates each, badly positioned) plus 2 fully empty sectors. A
+    // global-score backfill would pull most of the 12 slots from the dense
+    // sector alone — round-robin must not.
+    const denseSector = Array.from({ length: 66 }, (_, i) => scoreAt(idealKm, 350 + (i % 8) * 0.5)); // ~351°, tight cluster
+    const thinSectors = [
+      scoreAt(idealKm - 2, 25),  // sparse, off-ideal
+      scoreAt(idealKm - 2, 67),
+      scoreAt(idealKm - 3, 90),
+    ];
+    const pool = [...denseSector, ...thinSectors];
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 12, idealKm);
+
+    const bearingOf = (wp: { lat: number; lng: number }) => ((Math.atan2(wp.lng, wp.lat) * 180) / Math.PI + 360) % 360;
+    const fromDenseSector = selected.filter((wp) => Math.abs(bearingOf(wp) - 351) < 10 || bearingOf(wp) < 5).length;
+    // The dense sector may still contribute the most (correct — real density
+    // matters), but must not swallow the entire 12-slot pool.
+    expect(fromDenseSector).toBeLessThan(12);
+    expect(fromDenseSector).toBeGreaterThan(0);
+  });
+
+  it('synthesizes a candidate for a fully empty sector, at the sector center bearing and idealDistanceKm radius', () => {
+    // Only sector 0 (bearing 0-45°) has real data — all other 7 sectors
+    // should get a synthetic fill candidate.
+    const pool = [scoreAt(idealKm, 20)];
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 12, idealKm);
+    expect(selected.length).toBe(8); // 1 real + 7 synthetic (one per empty sector)
+    for (const wp of selected) {
+      // Every synthesized (and the one real) candidate should sit near idealKm.
+      const distKm = Math.sqrt(wp.lat ** 2 + wp.lng ** 2) * KM_PER_DEGREE;
+      expect(distKm).toBeGreaterThan(idealKm - 0.5);
+      expect(distKm).toBeLessThan(idealKm + 0.5);
+    }
+  });
+
+  it('does NOT synthesize when a sector already has a well-positioned real candidate', () => {
+    // All 8 sectors well-covered near ideal — no synthesis should be needed,
+    // so the result should be exactly the 8 real candidates, not more.
+    const pool = [0, 45, 90, 135, 180, 225, 270, 315].map((b) => scoreAt(idealKm, b + 5));
+    const selected = selectAngularlyDiverseCandidates(pool, USER, 12, idealKm);
+    expect(selected.length).toBe(8);
   });
 });
 
