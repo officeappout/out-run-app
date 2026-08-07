@@ -1,0 +1,76 @@
+/**
+ * route.generator — Generator retrofit for the standalone GPS route generator (§11.3).
+ * Real translator, not a pure delegate: `route-generator.service.ts` predates
+ * `WorkoutGenerationContext` entirely (doesn't import it) and needs inputs (`parks`,
+ * `targetDistance`, `activity`) that `UserContext` doesn't carry as-is — this is the first
+ * UserContext → native-params translator in the build plan, chosen first (per the plan)
+ * because it's the cleanest, most standalone target: zero shared state with the
+ * strength-generation side, zero prod-live flag, dark until something calls `generate()`.
+ *
+ * Reuses existing pieces only: `fetchRealParks` (the same cached park-list fetch the 3 map
+ * compose paths already use) and `deriveAerobicTargetKm` (the same time-budget → distance
+ * math `composeRouteStopsWorkout`/`composeHybridPlan` already use) — no new distance/parks
+ * logic invented here.
+ */
+
+import type { Generator } from '../types/generator.types';
+import type { Suggestion } from '../types/suggestion.types';
+import { generateDynamicRoutes } from '@/features/parks/core/services/route-generator.service';
+import { fetchRealParks } from '@/features/parks/core/services/parks.service';
+import { deriveAerobicTargetKm } from '../../hybrid/hybrid-aerobic.util';
+
+const DIFFICULTY_MAP = { easy: 1, medium: 2, hard: 3 } as const;
+
+export const routeGenerator: Generator = {
+  id: 'route',
+  name: 'הליכה / מסלול',
+  surfaces: ['map', 'home'],
+
+  eligible: (context) => context.location !== null,
+
+  generate: async (context): Promise<Suggestion | null> => {
+    if (!context.location) return null;
+
+    const activity = context.todayGoal === 'run' ? 'running' : 'walking';
+    const targetDistance = deriveAerobicTargetKm(
+      { timeBudgetMin: context.availableTimeMin, aerobicShare: 1, aerobicKind: activity },
+      0, // no pace-calibration source wired yet — falls back to deriveAerobicTargetKm's own 6.5 min/km default
+    );
+    const parks = await fetchRealParks();
+
+    const routes = await generateDynamicRoutes({
+      userLocation: context.location,
+      targetDistance,
+      activity,
+      routeGenerationIndex: 0,
+      preferences: { includeStrength: false, maxRoutes: 1 },
+      parks,
+    });
+
+    const top = routes[0];
+    if (!top) return null;
+
+    return {
+      id: `route-${top.id}`,
+      type: 'daily_workout',
+      generatorId: 'route',
+      title: top.name,
+      structure: { segments: 1, durationMin: top.duration },
+      methodsUsed: [],
+      difficulty: DIFFICULTY_MAP[top.difficulty],
+      goalTags: [activity === 'running' ? 'run' : 'walk'],
+      surfaceEligibility: ['map', 'home'],
+      requiresLocation: true,
+      score: 0,
+      scoreBreakdown: {
+        goalMatch: 0,
+        gapFilling: 0,
+        stepDeficit: 0,
+        preferenceMatch: 0,
+        recoveryMatch: 0,
+        locationBonus: 0,
+        timeOfDayMatch: 0,
+      },
+    };
+  },
+};
