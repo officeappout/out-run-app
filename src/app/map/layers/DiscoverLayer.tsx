@@ -1385,6 +1385,16 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   setOverviewTitle(intent.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח');
                   composeAndShowOverview(intent, 'config');
                 } : undefined}
+                onRequestAddressDestination={() => {
+                  // Exit the free-run drawer (mapMode gate) and hand off straight to
+                  // the SAME NavigationHub search flow the top search bar already
+                  // uses — `screen` picks SEARCH the moment navState flips, so no
+                  // mapMode juggling beyond leaving 'freeRun' is needed. Address
+                  // selection is already fully wired (handleAddressSelect →
+                  // startCommute) — nothing new to build downstream of this.
+                  setMapMode('idle');
+                  logic.setNavState('searching');
+                }}
               />
             )}
 
