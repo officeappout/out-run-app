@@ -26,6 +26,7 @@ import SectionHeader from './SectionHeader';
 import CompactMetricTile from '@/features/home/components/widgets/CompactMetricTile';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
+import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 
 const WHO_TARGET = 150;
 const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
@@ -70,6 +71,14 @@ function StepsTile() {
   const { triggerHealthPermission, disclosureProps, unavailableReason } = useHealthWithDisclosure({
     onGranted: () => router.push('/activity/steps'),
   });
+  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
+  const healthPermissionAsked = useSettingsStore((s) => s.healthPermissionAsked);
+  // Same not-asked / asked-denied distinction as StepsSummaryCard.
+  const connectPromptLabel = healthBridgeEnabled
+    ? null
+    : healthPermissionAsked
+      ? 'דחית קודם, רוצה לחבר?'
+      : 'עוד לא חובר';
 
   const handlePress = useCallback(() => {
     triggerHealthPermission();
@@ -86,9 +95,9 @@ function StepsTile() {
       <CompactMetricTile
         percentage={percentage}
         icon={<Footprints size={16} className="-scale-x-100" />}
-        label="צעדים היום"
+        label={connectPromptLabel ?? 'צעדים היום'}
         value={stepsToday.toLocaleString('he-IL')}
-        unit={`/ ${goal.toLocaleString('he-IL')} צעדים`}
+        unit={connectPromptLabel ? '' : `/ ${goal.toLocaleString('he-IL')} צעדים`}
         onClick={handlePress}
         colorClass="text-[#00C07A]"
         ariaLabel={`צעדים: ${stepsToday.toLocaleString('he-IL')} מתוך ${goal.toLocaleString('he-IL')}`}

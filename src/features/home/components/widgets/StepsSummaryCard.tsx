@@ -22,6 +22,7 @@ import CircularProgress from '@/components/CircularProgress';
 import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
+import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 import { DAILY_STEP_GOAL } from '@/config/health-goals';
 
 const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
@@ -49,6 +50,15 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
   const { triggerHealthPermission, disclosureProps, unavailableReason } = useHealthWithDisclosure({
     onGranted: () => router.push('/activity/steps'),
   });
+  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
+  const healthPermissionAsked = useSettingsStore((s) => s.healthPermissionAsked);
+  // Fallback label when not yet connected — distinguishes "never asked /
+  // deferred during onboarding" from "you declined the real OS dialog before".
+  const connectPromptLabel = healthBridgeEnabled
+    ? null
+    : healthPermissionAsked
+      ? 'דחית קודם, רוצה לחבר?'
+      : 'עוד לא חובר';
 
   const handleOpen = triggerHealthPermission;
 
@@ -85,7 +95,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
                 {stepsToday.toLocaleString('he-IL')}
               </span>
               <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 mt-0.5">
-                מתוך {goal.toLocaleString('he-IL')}
+                {connectPromptLabel ?? `מתוך ${goal.toLocaleString('he-IL')}`}
               </span>
             </div>
           </CircularProgress>
@@ -129,7 +139,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
 
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
-            צעדים היום
+            {connectPromptLabel ?? 'צעדים היום'}
           </p>
           <p
             className="text-[22px] font-black text-gray-900 dark:text-white leading-none tabular-nums"
