@@ -14,7 +14,7 @@
 import type { HybridStartIntent } from './build-hybrid-input';
 import type { HybridPlan } from './compose-hybrid-session.service';
 import type { ContextualFilterContext } from '../logic/contextual-engine.types';
-import type { WorkoutGenerationContext } from '../logic/workout-generator.types';
+import type { WorkoutGenerationContext, GeneratedWorkout } from '../logic/workout-generator.types';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import { MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
 import { deriveAerobicTargetKm } from './hybrid-aerobic.util';
@@ -133,6 +133,62 @@ function parkHasHydraulicEquipment(park: any, equipmentCatalog: GymEquipment[]):
 }
 
 /**
+ * Dedup (Gate G, 08.08.2026, plan §ד): the SAME park-fetch-with-empty-fallback pattern was
+ * hand-written 3× across composeFullParkWorkout / composeRouteStopsWorkout / composeHybridPlan
+ * — each caller's own diagnostic comment/logging stays at the call site, only the
+ * fetch-or-empty-array mechanics move here.
+ */
+async function safeFetchRealParks(): Promise<any[]> {
+  try {
+    const { fetchRealParks } = await import('@/features/parks/core/services/parks.service');
+    return await fetchRealParks();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Dedup (Gate G): the SAME weekly-gaps-with-fallback block was byte-identical in
+ * composeRouteStopsWorkout and composeHybridPlan (not in composeFullParkWorkout, which never
+ * reads weeklyGaps at all — untouched).
+ */
+async function safeGetWeeklyGaps(): Promise<{ aerobicGapMin: number; strengthGapDays: number; neglectedDomains: string[] }> {
+  const fallback = { aerobicGapMin: 90, strengthGapDays: 1, neglectedDomains: [] as string[] };
+  const [{ getWeeklyLoadSnapshot }, { auth }] = await Promise.all([
+    import('./weekly-load.service'),
+    import('@/lib/firebase'),
+  ]);
+  const uid = auth.currentUser?.uid;
+  if (!uid) return fallback;
+  try {
+    return (await getWeeklyLoadSnapshot(uid)).gaps;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Dedup (Gate G): the needs-assessment fallback-session construction introduced by the
+ * 08.08.2026 live-bug fix (see the 3 gate comments below) turned out to be duplicated 3× too
+ * — extracted here rather than left copy-pasted across all 3 sites.
+ */
+async function buildNeedsAssessmentFallback(): Promise<{
+  workout: GeneratedWorkout;
+  fallbackHint: string;
+  assessmentDomains: string[];
+}> {
+  const [{ buildNeedsAssessmentResult }, { PRIMARY_CATEGORIES }] = await Promise.all([
+    import('@/features/workout-engine/services/home-workout.service'),
+    import('@/features/user/onboarding/services/single-domain-assessment.service'),
+  ]);
+  const { workout } = buildNeedsAssessmentResult(
+    [...PRIMARY_CATEGORIES],
+    { daysInactive: 0, persona: null, location: 'park', timeOfDay: 'morning', injuryAreas: [], exercisesConsidered: 0, exercisesExcluded: 0 },
+  );
+  return { workout, fallbackHint: workout.description, assessmentDomains: workout.assessmentDomains ?? [] };
+}
+
+/**
  * Full-park-workout branch (mode: 'full_park_workout', Phase 1.3) — walk to the
  * nearest EQUIPPED park, do the FULL home-recommended strength workout there, walk
  * back. Reuses the home recommendation as a READ-ONLY preview (skipCycleRestart) at
@@ -150,11 +206,10 @@ async function composeFullParkWorkout(
   if (!ctx.userPosition) { console.warn('[composeFullParkWorkout] no user position'); return null; }
 
   const [
-    { useUserStore }, { fetchRealParks }, { resolveParkOutAndBack },
+    { useUserStore }, { resolveParkOutAndBack },
     { composeParkWorkoutPlan }, { generateHomeWorkoutTrio }, { getAllGymEquipment },
   ] = await Promise.all([
     import('@/features/user/identity/store/useUserStore'),
-    import('@/features/parks/core/services/parks.service'),
     import('./park-out-and-back'),
     import('./compose-park-workout.service'),
     import('@/features/workout-engine/services/home-workout.service'),
@@ -174,8 +229,7 @@ async function composeFullParkWorkout(
   const hasAssessment = hasAssessedStrengthDomain(profile as any);
 
   // Parks — same all-parks proximity source the budget-split path uses.
-  let parks: any[] = [];
-  try { parks = await fetchRealParks(); } catch { /* no parks → no card */ }
+  const parks = await safeFetchRealParks();
 
   // Phase 1.1 — nearest equipped park + out-and-back route (warms caches internally).
   const oab = await resolveParkOutAndBack({
@@ -206,12 +260,7 @@ async function composeFullParkWorkout(
     if (!oabPark || !parkHasHydraulicEquipment(oabPark, equipmentCatalog)) {
       console.warn('[composeFullParkWorkout] gated: no completed assessment + nearest park is not hydraulic → needs_assessment');
       ctx.stopGateReason = 'needs_assessment';
-      const { buildNeedsAssessmentResult } = await import('@/features/workout-engine/services/home-workout.service');
-      const { PRIMARY_CATEGORIES } = await import('@/features/user/onboarding/services/single-domain-assessment.service');
-      const { workout: needsAssessmentWorkout } = buildNeedsAssessmentResult(
-        [...PRIMARY_CATEGORIES],
-        { daysInactive: 0, persona: null, location: 'park', timeOfDay: 'morning', injuryAreas: [], exercisesConsidered: 0, exercisesExcluded: 0 },
-      );
+      const needsAssessment = await buildNeedsAssessmentFallback();
       const station = {
         stopId: oab.station.name ? `park:${oab.station.name}` : (oab.station.parkId ?? 'park'),
         parkId: oab.station.parkId,
@@ -223,7 +272,7 @@ async function composeFullParkWorkout(
       const plan = composeParkWorkoutPlan({
         routePath: oab.routePath,
         station,
-        workout: needsAssessmentWorkout,
+        workout: needsAssessment.workout,
         aerobicKind: intent.aerobicKind,
         paceProfile,
         userWeightKg,
@@ -233,8 +282,8 @@ async function composeFullParkWorkout(
         plan,
         routePath: oab.routePath,
         aerobicKind: intent.aerobicKind,
-        fallbackHint: needsAssessmentWorkout.description,
-        assessmentDomains: needsAssessmentWorkout.assessmentDomains,
+        fallbackHint: needsAssessment.fallbackHint,
+        assessmentDomains: needsAssessment.assessmentDomains,
         station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
         stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],
       };
@@ -539,20 +588,17 @@ async function composeRouteStopsWorkout(
   if (!ctx.userPosition) { console.warn('[composeRouteStopsWorkout] no user position'); return null; }
 
   const [
-    { useUserStore }, { getAllExercises }, { fetchRealParks },
+    { useUserStore }, { getAllExercises },
     { composeHybridSession }, { resolveRouteStops }, { resolveHybridUserLevels },
-    { getWeeklyLoadSnapshot }, { warmHybridCaches }, { auth },
+    { warmHybridCaches },
     { planFromPoint, detectTopology }, { getAllGymEquipment },
   ] = await Promise.all([
     import('@/features/user/identity/store/useUserStore'),
     import('@/features/content/exercises/core/exercise.service'),
-    import('@/features/parks/core/services/parks.service'),
     import('./compose-hybrid-session.service'),
     import('./route-stops.service'),
     import('./hybrid-context.util'),
-    import('./weekly-load.service'),
     import('./hybrid-warmup'),
-    import('@/lib/firebase'),
     import('./plan-from-point'),
     import('@/features/content/equipment/gym/core/gym-equipment.service'),
   ]);
@@ -571,8 +617,7 @@ async function composeRouteStopsWorkout(
   // Warm caches + fetch parks FIRST — the generated-loop backbone biases the loop toward equipped
   // parks (findFitnessAnchor), and gear translation reads the warm cache downstream.
   await warmHybridCaches();
-  let parks: any[] = [];
-  try { parks = await fetchRealParks(); } catch { /* no parks → unbiased loop, bodyweight fallback */ }
+  let parks: any[] = await safeFetchRealParks();
   // Part A: open_field (grass, no equipment, legs+core only) is gated on the assessment —
   // without it, exclude these parks from stop-matching entirely (mapParkToStop stays pure/
   // profile-agnostic; the gate lives here, at the one caller that has the profile).
@@ -624,12 +669,7 @@ async function composeRouteStopsWorkout(
       // DiscoverLayer's onAssessmentLink already render) instead of null, which the caller
       // has no way to read a reason off of. This branch is dark (MAP_ROUTE_STOPS_V1=false)
       // so today it's zero live exposure — fixed for consistency, not for an active user path.
-      const { buildNeedsAssessmentResult } = await import('@/features/workout-engine/services/home-workout.service');
-      const { PRIMARY_CATEGORIES } = await import('@/features/user/onboarding/services/single-domain-assessment.service');
-      const { workout: needsAssessmentWorkout } = buildNeedsAssessmentResult(
-        [...PRIMARY_CATEGORIES],
-        { daysInactive: 0, persona: null, location: 'park', timeOfDay: 'morning', injuryAreas: [], exercisesConsidered: 0, exercisesExcluded: 0 },
-      );
+      const needsAssessment = await buildNeedsAssessmentFallback();
       return {
         plan: {
           segments: [],
@@ -638,8 +678,8 @@ async function composeRouteStopsWorkout(
         },
         routePath,
         aerobicKind: intent.aerobicKind,
-        fallbackHint: needsAssessmentWorkout.description,
-        assessmentDomains: needsAssessmentWorkout.assessmentDomains,
+        fallbackHint: needsAssessment.fallbackHint,
+        assessmentDomains: needsAssessment.assessmentDomains,
       };
     }
   }
@@ -694,9 +734,7 @@ async function composeRouteStopsWorkout(
   // Levels + contexts (shared resolver — same real per-domain levels as the budget-split path).
   const { userProgramLevels, baseUserLevel, resolveUserLevelForExercise } =
     await resolveHybridUserLevels(profile as any, '[RouteStops]');
-  let weeklyGaps = { aerobicGapMin: 90, strengthGapDays: 1, neglectedDomains: [] as string[] };
-  const uid = auth.currentUser?.uid;
-  if (uid) { try { weeklyGaps = (await getWeeklyLoadSnapshot(uid)).gaps; } catch { /* keep fallback */ } }
+  const weeklyGaps = await safeGetWeeklyGaps();
 
   const masterExercises = await getAllExercises();
   const filterContext: ContextualFilterContext = {
@@ -819,18 +857,16 @@ export async function composeHybridPlan(
   }
 
   const [
-    { getAllExercises }, { generateDynamicRoutes }, { getWeeklyLoadSnapshot },
+    { getAllExercises }, { generateDynamicRoutes },
     { composeHybridSession }, { buildSandwichComposeInput }, { resolveHybridShape },
-    { useUserStore }, { auth },
+    { useUserStore },
   ] = await Promise.all([
     import('@/features/content/exercises/core/exercise.service'),
     import('@/features/parks/core/services/route-generator.service'),
-    import('./weekly-load.service'),
     import('./compose-hybrid-session.service'),
     import('./build-hybrid-input'),
     import('./hybrid-shape'),
     import('@/features/user/identity/store/useUserStore'),
-    import('@/lib/firebase'),
   ]);
 
   const profile = useUserStore.getState().profile;
@@ -858,9 +894,7 @@ export async function composeHybridPlan(
     `[hybrid:diag] core-level: ${userProgramLevels.has('core') ? `L${userProgramLevels.get('core')} (real)` : `base L${baseUserLevel} (no core domain — verify buildUserProgramLevels)`}`,
   );
 
-  let weeklyGaps = { aerobicGapMin: 90, strengthGapDays: 1, neglectedDomains: [] as string[] };
-  const uid = auth.currentUser?.uid;
-  if (uid) { try { weeklyGaps = (await getWeeklyLoadSnapshot(uid)).gaps; } catch { /* keep fallback */ } }
+  const weeklyGaps = await safeGetWeeklyGaps();
 
   // Aerobic target distance (shared, pure) — walking = fixed 12 min/km · running = runner pace,
   // guarded so a 0 pace never yields "Target: Infinity km" → 0 routes. Clamped [1,20].
@@ -871,11 +905,7 @@ export async function composeHybridPlan(
   // authority-scoped: a nearby park in another authority (or an unset authorityId)
   // must not hide the station. The whole-path search does the geo filtering.
   const authorityId = profile?.core?.authorityId ?? null; // diag/fallback only
-  let parks: any[] = [];
-  try {
-    const { fetchRealParks } = await import('@/features/parks/core/services/parks.service');
-    parks = await fetchRealParks();
-  } catch { /* no parks → unbiased route, station falls back to bodyweight */ }
+  const parks: any[] = await safeFetchRealParks();
   // DIAG (temporary — remove once the live station is confirmed).
   console.log(
     `[hybrid:diag] source=fetchRealParks · authorityId=${authorityId ?? 'NULL'} · parksLoaded=${parks.length}` +
@@ -934,12 +964,7 @@ export async function composeHybridPlan(
   // DiscoverLayer's onAssessmentLink (:1460-1463) already render correctly today. This is
   // THE highest-traffic of the 3 gates (the "מומלץ לך" carousel slot's own branch).
   const needsAssessmentSession = async (): Promise<ComposedHybridSession> => {
-    const { buildNeedsAssessmentResult } = await import('@/features/workout-engine/services/home-workout.service');
-    const { PRIMARY_CATEGORIES } = await import('@/features/user/onboarding/services/single-domain-assessment.service');
-    const { workout: needsAssessmentWorkout } = buildNeedsAssessmentResult(
-      [...PRIMARY_CATEGORIES],
-      { daysInactive: 0, persona: null, location: 'park', timeOfDay: 'morning', injuryAreas: [], exercisesConsidered: 0, exercisesExcluded: 0 },
-    );
+    const needsAssessment = await buildNeedsAssessmentFallback();
     return {
       plan: {
         segments: [],
@@ -948,8 +973,8 @@ export async function composeHybridPlan(
       },
       routePath,
       aerobicKind: intent.aerobicKind,
-      fallbackHint: needsAssessmentWorkout.description,
-      assessmentDomains: needsAssessmentWorkout.assessmentDomains,
+      fallbackHint: needsAssessment.fallbackHint,
+      assessmentDomains: needsAssessment.assessmentDomains,
     };
   };
 
