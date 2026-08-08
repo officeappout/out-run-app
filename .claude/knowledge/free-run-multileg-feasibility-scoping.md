@@ -487,8 +487,11 @@ export interface CompiledLegPlanSession {
 
 **נסגר (08.08, אותו יום) — אין באג, מאומת עם לוגים אמיתיים**: דוד בדק שוב עם ה-console פתוח, שתי כתובות אמיתיות ("כרם התימנים", "המעגל 20, רמת גן") — בשתיהן `isComposing = true` בדיוק ברגע ש-`handleAddressSelect` רץ, שתיהן נכנסו נכון ל-`addLeg()`. אין race, אין state שמתאפס. הבלבול המקורי היה כנראה לחיצה על הכפתור הלא-נכון (ההשערה אוששה). שני לוגי ה-DEBUG הוסרו (commit `9bf6c74c`). **שלב 1 עכשיו מאומת-מכשיר במלואו** — פתוח למעבר לשלב 2.
 
-**שלב 2 — הפעלת ריצה מתוכנית מורכבת**
-- callback חדש (מקביל ל-`onRequestAddressDestination`) שקורא ל-`compileLegPlan` ואז מזין את `useRunningPlayer` כדי **להתחיל ישירות** את הריצה עם המסלול המורכב — **בלי** מסך "בחר 1 מ-3" (לפי החלטה #4).
+**שלב 2 — הפעלת ריצה מתוכנית מורכבת — ✅ בנוי, נבדק, נדחף (08.08, commit `d50e4f92`)**
+- `LegPlanSheet` קיבל כפתור "🏁 התחל ריצה" (מופיע כש-legs.length ≥ 1) שקורא ל-`compileLegPlan` הקיים משלב 0, מציג שגיאות (`LegPlanNoRouteError` וכו', כבר עברית/מיועד-למשתמש) inline בלי לאבד את התוכנית, ובהצלחה מעביר את ה-`Route` המורכב ל-prop חדש `onStartLegPlanRun`.
+- `DiscoverLayer` מיישם את `onStartLegPlanRun` בדיוק כמו `onSelect` של ה-RouteCarousel במצב commute (staging ל-useRunningPlayer + `startActiveWorkout()`) — **בלי** מסך "בחר 1 מ-3" (לפי החלטה #4), כלומר בלי לרנדר RouteCarousel כלל.
+- **החלטת sessionMode (David, 08.08, נשאל במפורש דרך AskUserQuestion — לא ב-XP_Progression_Truth.md ולא נגזר מהקוד)**: נשאר `'workout'` (ברירת המחדל) — לא `'commute'`. תוכנית-legs מורכבת היא סשן-אימון מכוון, לא ניווט יומיומי A-to-B, ולכן מקבלת XP ריצה מלא, לא את הקצב הדק יותר של commute (שאין בו bonus מרחק). `clearCommuteContext()` נקרא במפורש לפני ה-staging כדי שזרימת-commute שננטשה קודם לא תדליף `sessionMode` לתוך הריצה הזו.
+- TSC נקי (906, זהה ל-baseline, אפס שגיאות חדשות בשני הקבצים שנגעו), 457/458 בסוויטה (אותם 3 כשלים קיימים-מראש). **טרם מאומת במכשיר של דוד**.
 
 **שלב 3 (נדחה, לא v1) — תמיכת נגן-חי + live_join**
 - "active leg" pointer דרך useRunningPlayer/MapShell לתוך useRouteDeviationOrchestrator (לפי המלצה #4 המקורית — עדיין נכונה).
