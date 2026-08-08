@@ -807,10 +807,30 @@ async function composeRouteStopsWorkout(
   // for a real difficulty-equivalent session (compose-hybrid-session.service.ts). Checked on
   // the default/balanced bolt — block + let the caller show an "not enough content" message
   // instead of starting a thin session.
+  //
+  // Live-bug fix (08.08.2026, same class as the 3 needs_assessment gates + Gate G dedup):
+  // this used to `return null` — the caller has no reference left to read ctx.stopGateReason
+  // off, so the user just silently bounced back with no explanation, exactly the bug already
+  // fixed for needs_assessment. Unlike those 3 gates, there is no established canonical copy
+  // for "insufficient content" (no buildNeedsAssessmentResult equivalent) — this is a real,
+  // minimal, honest message, not invented to sound more authoritative than it is. Returns the
+  // SAME minimal-stub shape the other 3 gates use (empty plan, real routePath, no
+  // assessmentDomains — this isn't an assessment issue, so no actionable link;
+  // HybridOverviewScreen's fallbackHint-without-onAssessmentLink branch already renders a
+  // plain info banner for exactly this case). Dark today (MAP_ROUTE_STOPS_V1=false).
   if (plans[selectedIndex].meta.insufficientHomeContent) {
     console.warn('[composeRouteStopsWorkout] gated: field-fallback pool too thin for this level → insufficient_home_content');
     ctx.stopGateReason = 'insufficient_home_content';
-    return null;
+    return {
+      plan: {
+        segments: [],
+        totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
+        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: true, log: [] },
+      },
+      routePath: traversalPath,
+      aerobicKind: intent.aerobicKind,
+      fallbackHint: 'אין מספיק תרגילים מותאמים לרמה שלך בסביבה הזו כרגע — נסו מיקום אחר או חזרו מאוחר יותר.',
+    };
   }
 
   // `station` (singular, back-compat): the first strength stop is still the best single
