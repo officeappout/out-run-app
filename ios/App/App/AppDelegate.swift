@@ -89,11 +89,18 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         // @capacitor/ios (only .application(open:) and .application(continue:)
         // remain; APNs token forwarding isn't part of its proxied surface).
         Messaging.messaging().apnsToken = deviceToken
+        NSLog("[push] APNs device token received (%d bytes) — forwarded to FirebaseMessaging", deviceToken.count)
     }
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        // Non-fatal — app runs without push notifications.
+        // Non-fatal — app runs without push notifications. Previously silent;
+        // logging now because the JS side's getToken() retry (push.ts) fails
+        // fast with "No APNS token specified" whenever this fires, and with
+        // no log here there was no way to tell that error apart from a slow
+        // registration (JS-side race) vs. a genuine registration failure
+        // (e.g. entitlement/certificate mismatch) without a device console.
+        NSLog("[push] Failed to register for remote notifications: %@", error.localizedDescription)
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter,
