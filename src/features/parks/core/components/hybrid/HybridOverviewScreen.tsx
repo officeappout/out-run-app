@@ -107,8 +107,12 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // Route description (point 11). ⚠️ TEMPORARY placeholder copy, generated from the
   // composed plan. The real per-route descriptions will come from the ADMIN PANEL —
   // do NOT invest in this wording; replace the whole string when the panel source
-  // lands. Neutral "מסלול" on purpose (NOT "לולאה" — today's route is out-and-back,
-  // not a loop).
+  // lands. Neutral "מסלול" on purpose — this comment predates the full-park/route-stops
+  // split and used to say "not a loop" because the ONLY shape back then was out-and-back
+  // (composeFullParkWorkout). That's no longer true: composeHybridPlan's default branch
+  // is an anchor-biased LOOP and composeRouteStopsWorkout's backbone is literally named
+  // 'generated_loop' (verified 07-08.08.2026) — "מסלול" stays neutral now because this
+  // screen renders all 3 route shapes, not because the route is never a loop.
   const stationCount = plan.segments.filter((s) => s.kind === 'strength').length;
   const stationsLabel = stationCount === 1 ? 'תחנת כוח אחת' : `${stationCount} תחנות כוח`;
   const routeDesc = `מסלול של ${t.distanceKm != null ? t.distanceKm.toFixed(1) : '—'} ק״מ עם ${stationsLabel} בדרך${cityName ? `, ב${cityName}` : ''}.`;
