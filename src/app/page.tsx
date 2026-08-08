@@ -20,6 +20,15 @@ import BrandedSplashScreen from '@/components/BrandedSplashScreen';
 const SESSION_HINT_KEY = 'out:has-session';
 
 /**
+ * Max ms to wait for the post-auth profile getDoc() before giving up and
+ * falling back to the guest landing UI. Without this, a Firestore request
+ * that never definitively resolves or rejects (e.g. repeated App Check
+ * attestation failures under real DeviceCheck/AppAttest) leaves the
+ * branded splash screen mounted forever with no escape hatch.
+ */
+const PROFILE_LOOKUP_TIMEOUT_MS = 8_000;
+
+/**
  * Auth gate states for the landing page.
  *
  *   restoring    → Firebase is restoring (or about to restore) the
@@ -358,7 +367,17 @@ export default function LandingPage() {
 
       try {
         const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
-        const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('PROFILE_LOOKUP_TIMEOUT')),
+            PROFILE_LOOKUP_TIMEOUT_MS,
+          ),
+        );
+        const userDocSnap = await Promise.race([
+          getDoc(firestoreDoc(db, 'users', user.uid)),
+          timeoutPromise,
+        ]);
 
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
@@ -423,7 +442,23 @@ export default function LandingPage() {
           }
         }
       } catch (e) {
-        console.error('[Landing] Error checking auth status:', e);
+        if ((e as Error)?.message === 'PROFILE_LOOKUP_TIMEOUT') {
+          // The Firestore read never resolved or rejected on its own within
+          // PROFILE_LOOKUP_TIMEOUT_MS. This almost always means App Check
+          // attestation is failing/retrying underneath (see firebase.ts's
+          // own 10s timeout + circuit breaker on getToken()) and the
+          // request never got a definitive server response. The screen
+          // unstuck itself, but the underlying attestation problem still
+          // needs fixing — profile/steps data will not actually save until
+          // App Check tokens are issued successfully.
+          console.warn(
+            '[Landing] TIMEOUT: profile getDoc() did not resolve within ' +
+            `${PROFILE_LOOKUP_TIMEOUT_MS}ms — likely App Check attestation ` +
+            'still failing underneath. Falling back to guest UI.',
+          );
+        } else {
+          console.error('[Landing] Error checking auth status:', e);
+        }
         // Fall back to landing UI so the user can retry. Better to
         // show them a recoverable login screen than to leave them
         // stranded on the splash.
