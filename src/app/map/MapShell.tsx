@@ -43,6 +43,7 @@ import type { MapPurpose } from '@/features/user/onboarding/components/steps/Uni
 import { useMapMode, MapModeProvider } from '@/features/parks/core/context/MapModeContext';
 import { useDevSimulation } from '@/features/parks/core/hooks/useDevSimulation';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useLegPlanStore } from '@/features/parks/core/store/useLegPlanStore';
 import { useDemoPresence } from '@/features/parks/core/hooks/useDemoPresence';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { useGroupPresenceListener } from '@/features/workout-engine/shared/hooks/useGroupPresenceListener';
@@ -97,6 +98,18 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
   const guidedRouteTurns = useRunningPlayer((s) => s.guidedRouteTurns);
   const runMode = useRunningPlayer((s) => s.runMode);
+  // Free-run leg-plan stop markers (ג' Phase 3, 08.08) — read directly off
+  // useLegPlanStore rather than smuggled through focusedRoute (the pattern
+  // hybridStations below uses via `as unknown as Route`); the plan store
+  // already empties on run-start/clear-all/drawer-close, so this naturally
+  // shows nothing once composing ends.
+  const legPlanLegs = useLegPlanStore((s) => s.legs);
+  const legPlanStops = useMemo(
+    () => legPlanLegs
+      .filter((l) => l.kind === 'to_point')
+      .map((l) => ({ id: l.id, lat: l.destination.lat, lng: l.destination.lng, label: l.label })),
+    [legPlanLegs],
+  );
   // Read the authoritative session status so the turn-carousel guard
   // below can hide the card as soon as the workout transitions to
   // 'finished' — regardless of whether the `mode` enum has been
@@ -467,6 +480,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
           selectedRoute={logic.selectedRoute}
           destinationMarker={spotFocus ?? undefined}
           hybridStations={(logic.focusedRoute as any)?.stationMarkers ?? null}
+          legPlanStops={legPlanStops.length > 0 ? legPlanStops : null}
           onMapRef={flyover.handleMapRef}
           skipInitialZoom={flyover.flyoverActive || !!spotFocus}
           isAutoFollowEnabled={isMapFollowEnabled}

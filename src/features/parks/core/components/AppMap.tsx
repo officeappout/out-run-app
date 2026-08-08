@@ -178,6 +178,10 @@ interface AppMapProps {
   /** Every hybrid stop's marker (Part 5) — the real park photo-pin per stop when the park
    *  has one, else the cyan fallback icon, at station size. One per resolved stop. */
   hybridStations?: { lat: number; lng: number; name?: string; image?: string }[] | null;
+  /** Free-run leg-plan stops (ג' Phase 3, 08.08) — numbered purple pins so the
+   *  user can see their composed plan on the map while building it. Deliberately
+   *  a distinct color/shape from hybridStations above (not the same feature). */
+  legPlanStops?: { id: string; lat: number; lng: number; label?: string }[] | null;
   /** Bumped by a recenter tap → ease the camera to `currentLocation` (best-available fix). */
   recenterSignal?: number;
   isNavigationMode?: boolean;
@@ -288,6 +292,7 @@ export default function AppMap({
   isActiveWorkout,
   destinationMarker,
   hybridStations,
+  legPlanStops,
   recenterSignal,
   isNavigationMode = false,
   userBearing = 0,
@@ -1826,6 +1831,32 @@ export default function AppMap({
                 <div className="w-2.5 h-2.5 rounded-full blur-[2px] mt-1" style={{ background: '#00BAF7' }} />
               </div>
             )}
+          </Marker>
+        ))}
+
+        {/* ── Leg-plan stop markers (ג' Phase 3, 08.08) ──
+            Numbered so the composed order is visible on the map at a glance —
+            deliberately a different color/shape from the hybrid stop markers
+            above (unrelated feature, avoid visual confusion between the two).
+            The plan store empties on run-start / clear-all / drawer-close, so
+            these disappear on their own — no extra cleanup needed here. */}
+        {(legPlanStops ?? []).filter((s) => isFiniteLatLng(s)).map((stop, i) => (
+          <Marker key={`legplan-stop-${stop.id}`} longitude={stop.lng} latitude={stop.lat} anchor="bottom">
+            <div className="flex flex-col items-center pointer-events-none">
+              {stop.label && (
+                <div dir="rtl" className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap"
+                  style={{ background: '#7C3AED', boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
+                  {stop.label}
+                </div>
+              )}
+              <div
+                className="relative flex items-center justify-center w-8 h-8 rounded-full border-[3px] border-white"
+                style={{ background: '#7C3AED', boxShadow: '0 6px 16px rgba(124,58,237,0.55)' }}
+              >
+                <span className="text-white text-[13px] font-black leading-none">{i + 1}</span>
+              </div>
+              <div className="w-2.5 h-2.5 rounded-full blur-[2px] mt-1" style={{ background: '#7C3AED' }} />
+            </div>
           </Marker>
         ))}
 
