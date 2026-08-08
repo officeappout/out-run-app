@@ -57,6 +57,14 @@ export const PREF_KEY_ONBOARDING_DEFERRED = 'outrun.healthBridge.onboardingDefer
 
 export type HealthPermissionState = 'not-asked' | 'asked-denied' | 'granted';
 
+const FIRST_SYNC_BACKFILL_DAYS = 90;
+
+/** Computed fresh on every call — must reflect "90 days before right now", not
+ *  90 days before whenever this module happened to load. */
+function FIRST_SYNC_BACKFILL_ISO(): string {
+  return new Date(Date.now() - FIRST_SYNC_BACKFILL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
 let installed = false;
 let bridgePromise: Promise<{ plugin: unknown }> | null = null;
 
@@ -165,9 +173,21 @@ export async function healthBridgeSyncNow(
     }
 
     const { plugin: HealthBridge } = await loadPlugin();
-    const sinceISO = (await readCursor()) ?? undefined;
+    // First-ever sync (no persisted cursor yet): backfill 90 days instead of
+    // falling through to the native plugins' own default, which is only
+    // 24h (HealthBridgePlugin.kt:299-300, HealthBridgePlugin.swift:270-275
+    // — left as-is, they're still the fallback for a syncSince() call that
+    // somehow reaches native with no sinceISO at all). This is the one
+    // shared JS call site both platforms route through, so it applies
+    // identically to iOS and Android — no native change needed.
+    //
+    // Note: on Android, Health Connect's own data retention means this
+    // 90-day request will still only surface however far back the OS
+    // actually kept records (effectively ~30 days in practice) — the
+    // window here is a ceiling, not a guarantee of getting 90 days back.
+    const sinceISO = (await readCursor()) ?? FIRST_SYNC_BACKFILL_ISO();
     console.log(`[healthBridge][flow] sync(${reason}): querying native store (first data query)`);
-    const result = await (HealthBridge as any).syncSince(sinceISO ? { sinceISO } : undefined);
+    const result = await (HealthBridge as any).syncSince({ sinceISO });
     const samples = (result?.samples ?? []) as Array<{
       sampleUUID: string;
       startISO: string;
