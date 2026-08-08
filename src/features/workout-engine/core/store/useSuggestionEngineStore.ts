@@ -72,13 +72,21 @@ export const useSuggestionEngineStore = create<SuggestionEngineState>((set, get)
 
     set({ contextKey: key, status: 'loading', error: null });
 
+    // Real-latency instrumentation (08.08.2026): no measured number existed for how long
+    // runSuggestionEngine actually takes on a device — this makes it visible in the console
+    // instead of guessing. Cheap, safe, always-on (not flag-gated) — logging isn't a
+    // behavior change worth a kill-switch.
+    const startedAt = performance.now();
+
     runSuggestionEngine(context)
       .then((suggestions) => {
+        console.log(`[useSuggestionEngineStore] runSuggestionEngine took ${Math.round(performance.now() - startedAt)}ms (${suggestions.length} candidates)`);
         // A newer setContext() call superseded this one while it was running — drop silently.
         if (get().contextKey !== key) return;
         set({ status: 'ready', suggestions });
       })
       .catch((err) => {
+        console.log(`[useSuggestionEngineStore] runSuggestionEngine FAILED after ${Math.round(performance.now() - startedAt)}ms`);
         if (get().contextKey !== key) return;
         set({ status: 'error', error: err instanceof Error ? err.message : String(err) });
       });
