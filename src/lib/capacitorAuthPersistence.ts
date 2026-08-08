@@ -50,6 +50,56 @@ type StorageEventListener = (value: PersistenceValue | null) => void;
 const KEY_PREFIX = 'cap_fb_auth_';
 
 /**
+ * Max ms to wait for the native @capacitor/preferences bridge before giving
+ * up. Firebase Auth's init sequence calls _isAvailable()/_get() before the
+ * first onAuthStateChanged emit — if the native bridge stalls (WKWebView
+ * bridge not ready, native runtime pressure), those calls never resolved on
+ * their own and auth state stayed 'restoring' forever (splash screen stuck).
+ */
+const PREFERENCES_TIMEOUT_MS = 5_000;
+
+/**
+ * Races a native Preferences call against a timeout. On timeout, logs
+ * clearly (this signals the native bridge itself is unhealthy, a distinct
+ * condition from a normal rejected/failed call) and resolves with
+ * `fallback` instead of leaving the caller pending indefinitely.
+ */
+function withPreferencesTimeout<T>(
+  promise: Promise<T>,
+  opName: string,
+  fallback: T,
+): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      console.warn(
+        `[capacitorAuthPersistence] TIMEOUT on ${opName} after ${PREFERENCES_TIMEOUT_MS}ms — ` +
+        `native Preferences bridge did not respond. Falling back to ${JSON.stringify(fallback)}.`,
+      );
+      resolve(fallback);
+    }, PREFERENCES_TIMEOUT_MS);
+
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        console.warn(`[capacitorAuthPersistence] ${opName} rejected:`, err);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
+/**
  * Internal Firebase Auth persistence interface.
  * Firebase reads these underscore-prefixed methods at runtime; they extend
  * the public `Persistence` type which only carries `type`.
@@ -83,38 +133,58 @@ class CapacitorPreferencesPersistence implements InternalPersistence {
 
   async _isAvailable(): Promise<boolean> {
     if (typeof window === 'undefined') return false;
-    try {
-      const { Preferences } = await import('@capacitor/preferences');
-      await Preferences.set({ key: `${KEY_PREFIX}__avail_test`, value: '1' });
-      await Preferences.remove({ key: `${KEY_PREFIX}__avail_test` });
-      return true;
-    } catch {
-      return false;
-    }
+    return withPreferencesTimeout(
+      (async () => {
+        const { Preferences } = await import('@capacitor/preferences');
+        await Preferences.set({ key: `${KEY_PREFIX}__avail_test`, value: '1' });
+        await Preferences.remove({ key: `${KEY_PREFIX}__avail_test` });
+        return true;
+      })(),
+      '_isAvailable',
+      false,
+    );
   }
 
   async _set(key: string, value: PersistenceValue): Promise<void> {
-    const { Preferences } = await import('@capacitor/preferences');
-    await Preferences.set({
-      key: `${KEY_PREFIX}${key}`,
-      value: JSON.stringify(value),
-    });
+    return withPreferencesTimeout(
+      (async () => {
+        const { Preferences } = await import('@capacitor/preferences');
+        await Preferences.set({
+          key: `${KEY_PREFIX}${key}`,
+          value: JSON.stringify(value),
+        });
+      })(),
+      `_set(${key})`,
+      undefined,
+    );
   }
 
   async _get(key: string): Promise<PersistenceValue | null> {
-    const { Preferences } = await import('@capacitor/preferences');
-    const { value } = await Preferences.get({ key: `${KEY_PREFIX}${key}` });
-    if (value === null || value === undefined) return null;
-    try {
-      return JSON.parse(value) as PersistenceValue;
-    } catch {
-      return null;
-    }
+    return withPreferencesTimeout(
+      (async () => {
+        const { Preferences } = await import('@capacitor/preferences');
+        const { value } = await Preferences.get({ key: `${KEY_PREFIX}${key}` });
+        if (value === null || value === undefined) return null;
+        try {
+          return JSON.parse(value) as PersistenceValue;
+        } catch {
+          return null;
+        }
+      })(),
+      `_get(${key})`,
+      null,
+    );
   }
 
   async _remove(key: string): Promise<void> {
-    const { Preferences } = await import('@capacitor/preferences');
-    await Preferences.remove({ key: `${KEY_PREFIX}${key}` });
+    return withPreferencesTimeout(
+      (async () => {
+        const { Preferences } = await import('@capacitor/preferences');
+        await Preferences.remove({ key: `${KEY_PREFIX}${key}` });
+      })(),
+      `_remove(${key})`,
+      undefined,
+    );
   }
 
   // Cross-process storage change listeners are not applicable to
