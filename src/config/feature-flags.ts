@@ -60,7 +60,14 @@ export const HYBRID_FULL_PARK_WORKOUT_ENABLED = true;
 // branch (mode:'route_stops' → composeRouteStopsWorkout) is never entered, and full_park + the
 // budget-split path are untouched.
 // ⚠️ Display-only XP (0 credit) like all hybrid — do NOT wire real XP until single-save closes.
-export const MAP_ROUTE_STOPS_V1 = false;
+// TRUE (08.08.2026, David-approved after a readiness summary): composeRouteStopsWorkout has
+// NO end-to-end automated coverage (only its pure sub-pieces — resolveRouteStops's dedupe,
+// planFromPoint's ordering — are unit-tested); this flip is this code path's first-ever
+// execution, live or in test. Accepted given 0 real users today (store build is David-only,
+// replacing the old app in 1-2 weeks — see project memory), an instant kill-switch, and all
+// 4 previously-silent gates now degrading to a real fallbackHint instead of a silent bounce.
+// David device-tests immediately after this ships, same pattern as MAP_REC_ENGINE_RANKING_V1.
+export const MAP_ROUTE_STOPS_V1 = true;
 
 // MAP_REC_ENGINE_RANKING_V1: the unified rec-engine's PULL ranking, wired into DiscoverLayer's
 // hybrid slot carousel (useSuggestionEngineStore → applyRankedSlotOrder). This specific wiring
