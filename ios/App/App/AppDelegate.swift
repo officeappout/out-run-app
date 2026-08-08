@@ -82,13 +82,13 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        // Belt-and-suspenders: explicitly forward APNS token to Firebase
-        // before routing through Capacitor's proxy. Firebase SDK 9+ fails
-        // getToken() immediately when apnsToken is nil; setting it here
-        // guarantees it's populated even if swizzling races with our delegate.
+        // Firebase SDK 9+ fails getToken() immediately when apnsToken is nil;
+        // setting it here guarantees it's populated even if swizzling races
+        // with our delegate. The previous forward to ApplicationDelegateProxy
+        // is gone — that overload no longer exists on the current
+        // @capacitor/ios (only .application(open:) and .application(continue:)
+        // remain; APNs token forwarding isn't part of its proxied surface).
         Messaging.messaging().apnsToken = deviceToken
-        ApplicationDelegateProxy.shared.application(
-            application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
     }
 
     func application(_ application: UIApplication,
@@ -105,7 +105,17 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
-        ApplicationDelegateProxy.shared.userNotificationCenter(
+        // ApplicationDelegateProxy no longer owns notification routing in the
+        // current @capacitor/ios — that moved to CapacitorBridge's own
+        // notificationRouter (see CAPBridgeProtocol.swift / CapacitorBridge.swift),
+        // which is what actually dispatches to plugins like FirebaseMessaging
+        // (NotificationHandlerProtocol conformance). Forward there instead.
+        guard let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
+              let bridge = bridgeVC.bridge else {
+            completionHandler()
+            return
+        }
+        bridge.notificationRouter.userNotificationCenter(
             center, didReceive: response, withCompletionHandler: completionHandler)
     }
 
