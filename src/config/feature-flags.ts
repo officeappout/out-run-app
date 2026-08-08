@@ -42,11 +42,20 @@ export const HYBRID_SLOT_PREVIEW_ENABLED = true;
 // ⚠️ Still display-only XP (0 credit) — do NOT wire real XP until single-save closes.
 export const HYBRID_FULL_PARK_WORKOUT_ENABLED = true;
 
-// MAP_ROUTE_STOPS_V1: the general "מסלול + עצירות" slot — a REAL official_route as the
-// backbone, with 2-4 generic stops (strength / core / cooldown) placed along it, produced
-// by the EXISTING budget-split engine (composeHybridSession). full_park is the special case
-// (one stop = one park); this is its generalization. DEFAULT FALSE = kill-switch. Sub-flag of
-// HYBRID_SLOTS_ENABLED; additionally gated at runtime on (a nearby published route with POIs).
+// MAP_ROUTE_STOPS_V1: the general "מסלול + עצירות" slot — a loop GENERATED from the
+// user's own location (same generateDynamicRoutes machinery + maxRoutes:3/pick-closest fix
+// as the other 2 hybrid cards — resolveRouteStopsBackbone's 'generated_loop' mode), with
+// every real park/POI within 180m of that loop becoming a generic stop (strength/stretch/
+// core), produced by the EXISTING budget-split engine (composeHybridSession). full_park is
+// the special case (one stop = one park); this is its generalization. DEFAULT FALSE =
+// kill-switch. Sub-flag of HYBRID_SLOTS_ENABLED; gated at runtime on GPS + at least one real
+// stop resolving from the parks collection along the generated loop.
+// ⚠️ Comment corrected (08.08.2026): this used to say the backbone is "a REAL official_route"
+// / "the published route nearest the user" — that was the ORIGINAL pilot design (the
+// `existing_route` backbone mode still exists in resolveRouteStopsBackbone for a possible
+// future decision) but is NOT what's wired today. The real data dependency is the `parks`
+// collection's per-POI fields (category/facilityType, natureType, urbanType, gymEquipment —
+// read by mapParkToStop), not a curated official_routes document.
 // While false, the slot layer is BYTE-IDENTICAL — the card is never surfaced, the new compose
 // branch (mode:'route_stops' → composeRouteStopsWorkout) is never entered, and full_park + the
 // budget-split path are untouched.

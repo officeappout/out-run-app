@@ -216,12 +216,15 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
     });
   }
 
-  // ── Route + stops (MAP_ROUTE_STOPS_V1) — a REAL official_route + generic stops on it ──
+  // ── Route + stops (MAP_ROUTE_STOPS_V1) — a GENERATED loop + generic stops on it ──
   // ADDITIVE + dark: the flag defaults false → never surfaced (byte-identical). Needs GPS
-  // (the backbone is the published route nearest the user). composeRouteStopsWorkout also
-  // returns null when no nearby published route / no POIs, so the CTA composes null and
-  // falls back to the carousel (no crash). Flows through the SAME hybrid machinery
-  // (composeHybridPlan → overview drawer) as every other 'hybrid' slot — no new UI.
+  // (the backbone is a loop generated from the user's own position, same as the other 2
+  // hybrid cards — NOT a published official_route; comment corrected 08.08.2026, see
+  // feature-flags.ts). composeRouteStopsWorkout returns a real fallback session (not a
+  // silent null) when the loop resolves zero usable stops or the pool is too thin, so the
+  // CTA always shows a message instead of bouncing back to the carousel. Flows through the
+  // SAME hybrid machinery (composeHybridPlan → overview drawer) as every other 'hybrid'
+  // slot — no new UI.
   if (MAP_ROUTE_STOPS_V1 && env.hasGps) {
     const rsPreset: HybridPreset = { ...HYBRID_PRESETS.route_stops, aerobicKind: env.aerobicKind };
     slots.push({
