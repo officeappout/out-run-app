@@ -7,8 +7,17 @@
  * Safety-net, written as explicit early-returns so it's auditable at a glance: whenever the
  * ranking engine hasn't produced a usable result (not ready, errored, or ranked nothing that
  * maps to a real slot), this returns `baseSlots` completely unchanged — byte-identical to
- * today's behavior. Only reorders/relabels EXISTING slot objects from `resolveSlots` — never
- * fabricates a new slot; title/subtitle/accent always come from the real resolver.
+ * today's behavior. Never fabricates a new slot; title/subtitle/accent always come from the
+ * real resolver.
+ *
+ * Badge-only, NOT physical reordering (revised 08.08.2026 — real UX finding, not
+ * implemented on a guess): resolveSlots' fast synchronous render happens before the async
+ * ranking can possibly resolve, so physically moving cards once ranking arrives would make
+ * the carousel visibly "jump" a moment after load. Position is purely cosmetic — tapping any
+ * slot, in any position, already calls the SAME intent regardless of array order — so this
+ * only flips WHICH slot carries `recommended: true`. If the ranked winner already matches
+ * resolveSlots' own default recommended slot (the expected common case), this returns
+ * `baseSlots` by reference, completely unchanged — no new array, no re-render at all.
  */
 
 import type { HybridSlot } from '../../hybrid/hybrid-slots';
@@ -32,12 +41,10 @@ export function applyRankedSlotOrder(
 
   if (!winnerSlotId) return baseSlots; // nothing ranked maps to a real slot -> unchanged
 
-  const winnerIndex = baseSlots.findIndex((slot) => slot.id === winnerSlotId);
-  if (winnerIndex === -1) return baseSlots;
+  const currentRecommendedId = baseSlots.find((slot) => slot.recommended)?.id;
+  if (currentRecommendedId === winnerSlotId) return baseSlots; // already agrees -> unchanged
 
-  const reordered = [...baseSlots];
-  const [winner] = reordered.splice(winnerIndex, 1);
-  reordered.unshift({ ...winner, recommended: true });
-
-  return reordered.map((slot, i) => (i === 0 ? slot : { ...slot, recommended: false }));
+  return baseSlots.map((slot) => (slot.recommended !== (slot.id === winnerSlotId)
+    ? { ...slot, recommended: slot.id === winnerSlotId }
+    : slot));
 }

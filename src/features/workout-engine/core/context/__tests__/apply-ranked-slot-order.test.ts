@@ -38,26 +38,33 @@ describe('applyRankedSlotOrder — safety net', () => {
     expect(applyRankedSlotOrder(baseSlots, ranked)).toBe(baseSlots);
   });
 
-  it('moves the winning slot to the front and marks it recommended, when it matches', () => {
+  it('does NOT physically reorder — array order matches baseSlots exactly, only the badge flips', () => {
     const ranked = [suggestion('full-park-workout')];
     const result = applyRankedSlotOrder(baseSlots, ranked);
 
-    expect(result[0].id).toBe('full_park');
-    expect(result[0].recommended).toBe(true);
-    expect(result.map((s) => s.id).sort()).toEqual(baseSlots.map((s) => s.id).sort());
+    expect(result.map((s) => s.id)).toEqual(baseSlots.map((s) => s.id)); // same order, no splice/unshift
+    expect(result.find((s) => s.id === 'full_park')!.recommended).toBe(true);
+    expect(result.find((s) => s.id === 'recommended')!.recommended).toBe(false);
   });
 
   it('never fabricates a new slot — every returned slot object traces back to baseSlots', () => {
     const ranked = [suggestion('route-stops'), suggestion('full-park-workout')];
     // route_stops isn't in baseSlots -> falls through to the next ranked candidate that IS
     const result = applyRankedSlotOrder(baseSlots, ranked);
-    expect(result[0].id).toBe('full_park');
-    expect(result[0].title).toBe(baseSlots.find((s) => s.id === 'full_park')!.title); // real title, not invented
+    const winner = result.find((s) => s.recommended);
+    expect(winner?.id).toBe('full_park');
+    expect(winner?.title).toBe(baseSlots.find((s) => s.id === 'full_park')!.title); // real title, not invented
   });
 
-  it('only one slot ends up recommended:true after reordering', () => {
+  it('only one slot ends up recommended:true', () => {
     const ranked = [suggestion('full-park-workout')];
     const result = applyRankedSlotOrder(baseSlots, ranked);
     expect(result.filter((s) => s.recommended)).toHaveLength(1);
+  });
+
+  it('returns baseSlots BY REFERENCE (no new array) when the ranked winner already agrees with the default', () => {
+    const ranked = [suggestion('anchor-loop')]; // baseSlots' own 'recommended' slot already has recommended:true
+    const result = applyRankedSlotOrder(baseSlots, ranked);
+    expect(result).toBe(baseSlots); // reference equality, not just deep equality — proves no re-render
   });
 });
