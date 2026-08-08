@@ -2,8 +2,8 @@
 
 import React, { useState, useRef } from 'react';
 
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { X, Play, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence, useDragControls, Reorder } from 'framer-motion';
+import { X, Play, Loader2, Trash2, GripVertical } from 'lucide-react';
 import { ActivityType } from '../types/route.types';
 import StrengthStationsToggle from './hybrid/StrengthStationsToggle';
 import AerobicStrengthSlider from './hybrid/AerobicStrengthSlider';
@@ -22,6 +22,8 @@ import { createRunInvite } from '@/lib/workoutInvite';
 import type { RunInviteResult } from '@/lib/workoutInvite';
 import { buildRouteGenRequest } from '../services/route-request.utils';
 import type { DrawerGoal, DrawerActivity } from '../services/route-request.utils';
+import { useLegPlanStore } from '../store/useLegPlanStore';
+import { MAX_LEGS_PER_PLAN, type RouteLeg } from '../services/leg-plan.service';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
@@ -83,6 +85,17 @@ interface FreeRunDrawerProps {
    * out-and-back) is completely unchanged.
    */
   onRequestAddressDestination?: () => void;
+  /**
+   * Leg-plan "add stop" request (ג' Phase 1, 08.08) — opens the same
+   * NavigationHub search flow as onRequestAddressDestination, but the
+   * picked address is routed back into the in-progress leg plan
+   * (useLegPlanStore) instead of starting a commute. A separate prop from
+   * onRequestAddressDestination on purpose: same drawer-exit mechanics,
+   * different post-pick intent, kept distinct so each stays
+   * self-documenting and neither breaks if the other's behavior changes
+   * later. When omitted, the "הוסף עצירות בדרך" button is not rendered.
+   */
+  onRequestAddLeg?: () => void;
 }
 
 // ── Activity data ──────────────────────────────────────────────────────────────
@@ -444,6 +457,8 @@ function GoalSheet({
   genderDefault,
   onSaveWeight,
   onRequestAddressDestination,
+  onOpenLegPlan,
+  legPlanCount,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -460,6 +475,10 @@ function GoalSheet({
   genderDefault: number;
   onSaveWeight: (w: number) => Promise<void>;
   onRequestAddressDestination?: () => void;
+  /** Opens LegPlanSheet (ג' Phase 1) — same GoalSheet-hand-off pattern as onOpenExtras, not onRequestAddressDestination (leg-plan composition needs to stay resident in FreeRunDrawer's own sheet stack). */
+  onOpenLegPlan?: () => void;
+  /** Current in-progress leg count — shown on the button so the user sees plan state without opening the sheet. 0 when nothing composed yet. */
+  legPlanCount?: number;
 }) {
   const dragControls = useDragControls();
 
@@ -584,6 +603,23 @@ function GoalSheet({
               </div>
             )}
 
+            {/* Leg-plan composer (ג' Phase 1, 08.08 decision) — additive option
+                below the address-destination button, stays inside GoalSheet
+                (not a separate top-level drawer button — David's call).
+                Default (loop) is unaffected unless explicitly opened. */}
+            {onOpenLegPlan && (
+              <div className="px-5 mb-4">
+                <button
+                  type="button"
+                  onClick={onOpenLegPlan}
+                  className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
+                  style={{ backgroundColor: '#F3F4F6' }}
+                >
+                  🧭 הוסף עצירות בדרך{legPlanCount ? ` (${legPlanCount})` : ''}
+                </button>
+              </div>
+            )}
+
             {/* Route extras shortcut */}
             <div className="px-5 mb-4">
               <button
@@ -606,6 +642,166 @@ function GoalSheet({
               >
                 אישור
               </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ── LegPlanSheet ── ordered multi-stop composer (ג' Phase 1, 08.08) ───────────
+// Shares ExtrasSheet's z-[104/105] tier — mutually exclusive with it (both
+// open only from GoalSheet, which closes first either way), so no new
+// z-index budget entry is needed (.cursorrules §8: only genuinely NEW
+// values require a table update).
+//
+// The leg list itself is a live useLegPlanStore subscription, NOT local
+// state — composing a plan requires repeated round-trips through
+// NavigationHub, and FreeRunDrawer fully unmounts on every "add stop" pick
+// (mapMode leaves 'freeRun'), so local React state would be lost between
+// picks. Only `isOpen` (this sheet's own visibility) is local — its INITIAL
+// value is seeded from the store in the parent so the sheet auto-reopens
+// showing the updated list right after an add-stop round-trip.
+function LegPlanSheet({
+  isOpen, onClose,
+  userPosition,
+  activity,
+  onRequestAddLeg,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  userPosition?: { lat: number; lng: number } | null;
+  activity: DrawerActivity;
+  onRequestAddLeg?: () => void;
+}) {
+  const dragControls = useDragControls();
+  const legs = useLegPlanStore((s) => s.legs);
+  const atMaxLegs = legs.length >= MAX_LEGS_PER_PLAN;
+
+  const handleAddStop = () => {
+    if (atMaxLegs || !userPosition || !onRequestAddLeg) return;
+    useLegPlanStore.getState().startComposing(userPosition, activity);
+    onRequestAddLeg();
+  };
+
+  const handleReorder = (newOrder: RouteLeg[]) => {
+    useLegPlanStore.getState().reorderLegs(newOrder.map((l) => l.id));
+  };
+
+  const handleClearAll = () => {
+    useLegPlanStore.getState().reset();
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/30 z-[104] pointer-events-auto"
+          />
+
+          <motion.div
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={0.25}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 80 || info.velocity.y > 300) onClose();
+            }}
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className="fixed bottom-0 left-0 right-0 z-[105] bg-white rounded-t-3xl shadow-2xl pointer-events-auto"
+            dir="rtl"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+          >
+            {/* Drag handle */}
+            <div
+              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing shrink-0"
+              onPointerDown={(e) => dragControls.start(e)}
+              style={{ touchAction: 'none' }}
+            >
+              <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pb-4 shrink-0">
+              <h2 className="text-base font-black text-gray-900">עצירות בדרך</h2>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
+                aria-label="סגור"
+              >
+                <X size={14} className="text-gray-600" />
+              </button>
+            </div>
+
+            {/* Ordered leg list — drag to reorder */}
+            <div className="px-5 overflow-y-auto flex-1">
+              {legs.length === 0 ? (
+                <p className="text-[13px] text-gray-500 text-center py-6">
+                  עדיין לא הוספת עצירות. הוסף עצירה כדי להתחיל להרכיב את המסלול.
+                </p>
+              ) : (
+                <Reorder.Group axis="y" values={legs} onReorder={handleReorder} as="div" className="space-y-2">
+                  {legs.map((leg, idx) => (
+                    <Reorder.Item
+                      key={leg.id}
+                      value={leg}
+                      as="div"
+                      className="flex items-center gap-2 rounded-2xl px-3 py-3"
+                      style={{ backgroundColor: '#F3F4F6' }}
+                      whileDrag={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 50, backgroundColor: '#FFFFFF' }}
+                    >
+                      <GripVertical size={16} className="text-gray-400 shrink-0" />
+                      <span className="flex-1 text-[13px] font-bold text-gray-800 truncate">
+                        {leg.label || `עצירה ${idx + 1}`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => useLegPlanStore.getState().removeLeg(leg.id)}
+                        className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-transform shrink-0"
+                        aria-label="הסר עצירה"
+                      >
+                        <Trash2 size={14} className="text-gray-400" />
+                      </button>
+                    </Reorder.Item>
+                  ))}
+                </Reorder.Group>
+              )}
+            </div>
+
+            <div className="px-5 pt-4 shrink-0">
+              {/* Add stop */}
+              <button
+                type="button"
+                onClick={handleAddStop}
+                disabled={atMaxLegs || !userPosition}
+                className="w-full py-3 text-[13px] font-black flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50"
+                style={{ backgroundColor: atMaxLegs ? '#F3F4F6' : ACCENT, color: atMaxLegs ? '#6B7280' : '#FFFFFF' }}
+              >
+                {atMaxLegs
+                  ? `הגעת למספר המרבי של עצירות (${MAX_LEGS_PER_PLAN})`
+                  : '➕ הוסף עצירה'}
+              </button>
+
+              {legs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="w-full py-2 mt-2 text-[12px] font-bold text-gray-400 active:scale-[0.98] transition-transform"
+                >
+                  נקה הכל
+                </button>
+              )}
             </div>
           </motion.div>
         </>
@@ -704,6 +900,7 @@ export default function FreeRunDrawer({
   cityName,
   onStartHybrid,
   onRequestAddressDestination,
+  onRequestAddLeg,
 }: FreeRunDrawerProps) {
   const dragControls = useDragControls();
 
@@ -724,6 +921,12 @@ export default function FreeRunDrawer({
 
   const [goalSheetOpen, setGoalSheetOpen] = useState(false);
   const [extrasOpen,    setExtrasOpen]    = useState(false);
+  // Lazy-seeded from the store (not always false) — FreeRunDrawer remounts
+  // after every leg-plan "add stop" round-trip (mapMode leaves 'freeRun'
+  // per the One-Card-Only law), so this auto-reopens LegPlanSheet showing
+  // the updated list instead of dropping the user back at the base drawer.
+  const [legPlanOpen, setLegPlanOpen] = useState(() => useLegPlanStore.getState().isComposing);
+  const legPlanCount = useLegPlanStore((s) => s.legs.length);
   const [extras, setExtras] = useState<ExtrasState>({
     circular: false, gymParks: false, benches: false, stairs: false, trail: false,
   });
@@ -1049,6 +1252,8 @@ export default function FreeRunDrawer({
         genderDefault={genderDefault}
         onSaveWeight={saveWeightInline}
         onRequestAddressDestination={onRequestAddressDestination}
+        onOpenLegPlan={onRequestAddLeg ? () => { setGoalSheetOpen(false); setLegPlanOpen(true); } : undefined}
+        legPlanCount={legPlanCount}
       />
 
       {/* Extras sheet — z-[104/105] (above GoalSheet) */}
@@ -1057,6 +1262,15 @@ export default function FreeRunDrawer({
         onClose={() => setExtrasOpen(false)}
         extras={extras}
         onToggle={toggleExtra}
+      />
+
+      {/* Leg-plan sheet — z-[104/105] (shares ExtrasSheet's tier, mutually exclusive with it) */}
+      <LegPlanSheet
+        isOpen={legPlanOpen}
+        onClose={() => setLegPlanOpen(false)}
+        userPosition={userPosition}
+        activity={drawerActivity()}
+        onRequestAddLeg={onRequestAddLeg}
       />
     </>
   );

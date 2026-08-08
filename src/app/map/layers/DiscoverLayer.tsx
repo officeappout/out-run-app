@@ -33,6 +33,7 @@ import { ParkPreview } from '@/features/parks/client/components/park-preview';
 import RouteDetailSheet from '@/features/parks/client/components/route-preview/RouteDetailSheet';
 import { MapLayersControl } from '@/features/parks/core/components/MapLayersControl';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useLegPlanStore } from '@/features/parks/core/store/useLegPlanStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { auth } from '@/lib/firebase';
@@ -952,7 +953,26 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       addr?._source === 'savedPlace' ||
       !addr?._source;
     if (isCommuteTrigger && Array.isArray(addr?.coords)) {
-      startCommute({ coords: addr.coords as [number, number], label: addr.text });
+      // Leg-plan composition (ג' Phase 1, 08.08) intercepts here — same
+      // trigger set as commute, different destination. LegPlanSheet sets
+      // isComposing=true just before exiting to NavigationHub, so this is
+      // the one place that needs to know "who asked for this pick".
+      // NOTE: a park/route pick while composing is NOT added as a leg —
+      // it opens that entity's own card instead (logic.handleAddressSelect
+      // above already did that), same pre-existing limitation
+      // onRequestAddressDestination has today. Not solved here.
+      const legPlan = useLegPlanStore.getState();
+      if (legPlan.isComposing) {
+        const [lng, lat] = addr.coords as [number, number];
+        legPlan.addLeg({ lat, lng }, addr.text);
+        // Return to the free-run drawer — FreeRunDrawer's lazy legPlanOpen
+        // init reads isComposing and reopens LegPlanSheet automatically,
+        // showing the newly-added stop. freeRunStep is untouched local
+        // DiscoverLayer state, so it's still 'config' from before the exit.
+        setMapMode('freeRun');
+      } else {
+        startCommute({ coords: addr.coords as [number, number], label: addr.text });
+      }
     }
   };
 
@@ -1372,7 +1392,15 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 currentActivity={logic.preferences.activity}
                 onActivityChange={(activity) => logic.handleActivityChange(activity)}
                 onStartWorkout={logic.startActiveWorkout}
-                onClose={() => setMapMode('idle')}
+                onClose={() => {
+                  // Explicit "I'm done with Free Run" — distinct from the
+                  // onRequestAddLeg round-trip below (which exits via its
+                  // own callback, never this one), so this can safely
+                  // discard an in-progress leg plan without racing the
+                  // add-stop flow.
+                  useLegPlanStore.getState().reset();
+                  setMapMode('idle');
+                }}
                 userPosition={userLocation}
                 cityName={userCityName}
                 onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
@@ -1392,6 +1420,15 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   // mapMode juggling beyond leaving 'freeRun' is needed. Address
                   // selection is already fully wired (handleAddressSelect →
                   // startCommute) — nothing new to build downstream of this.
+                  setMapMode('idle');
+                  logic.setNavState('searching');
+                }}
+                onRequestAddLeg={() => {
+                  // Identical drawer-exit mechanics to onRequestAddressDestination
+                  // above — the difference is entirely in handleAddressSelect
+                  // below, which checks useLegPlanStore.isComposing (set by
+                  // LegPlanSheet just before this fires) to route the pick back
+                  // into the leg plan instead of starting a commute.
                   setMapMode('idle');
                   logic.setNavState('searching');
                 }}
