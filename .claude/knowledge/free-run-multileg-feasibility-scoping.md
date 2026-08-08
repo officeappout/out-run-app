@@ -470,12 +470,14 @@ export interface CompiledLegPlanSession {
 - `mapbox.service.ts`'s `MapboxPathResult` קיבל שדה `legs?` חדש (אופציונלי, תוסף בלבד) — Mapbox כבר מחזיר את זה, ה-wrapper רק זרק אותו עד עכשיו. אפס שינוי לקוראים קיימים.
 - 13 טסטים חדשים (guards, צורת-קריאת-Mapbox המדויקת, צורת-פלט) — כולם עוברים. TSC נקי (906, זהה ל-baseline). 436/437 בסוויטה המלאה (אותם 3 כשלים קיימים-מראש).
 
-**שלב 1 — LegPlanSheet (הרכבת התוכנית) — הבא בתור**
-- רכיב חדש, sheet-אח ל-GoalSheet/ExtrasSheet בתוך FreeRunDrawer (לא כפתור נפרד במגירה — לפי החלטה #3).
-- רשימה מסודרת עם `Reorder.Group`/`Reorder.Item` (תקדים: RollingAgenda.tsx) + add/remove חדש.
-- כפתור-הוספה פותח את NavigationHub הקיים דרך מנגנון קיים, עם `pendingLegPick` חדש ב-DiscoverLayer שמנתב בחירה בחזרה ללא-הפעלת-commute.
-- תקרה: `MAX_LEGS_PER_PLAN` (24, כבר מיוצא משלב 0) — לא 5. הודעה ידידותית כשמגיעים לתקרה.
-- עדכון טבלת z-index (`.cursorrules`).
+**שלב 1 — LegPlanSheet (הרכבת התוכנית) — ✅ בנוי, נבדק, נדחף (08.08, commit `c588493`)**
+- `useLegPlanStore.ts` חדש (Zustand) — לא local state ב-FreeRunDrawer, כי FreeRunDrawer **נמחק מה-DOM** בכל round-trip דרך NavigationHub (`mapMode` יוצא מ-`'freeRun'` לפי חוק One-Card-Only, axioms.md §9). מבנה מקביל ל-`pendingCommute` הקיים ב-useMapStore, מורחב לרצף-הרכבה מסודר. 9 טסטים.
+- `LegPlanSheet` — רכיב חדש, sheet-אח ל-GoalSheet/ExtrasSheet בתוך FreeRunDrawer, אותה שכבת z-[104]/[105] (לא נוסף ערך חדש — לכן טבלת z-index לא עודכנה, לא נדרש).
+- רשימה מסודרת עם `Reorder.Group`/`Reorder.Item` (תקדים: RollingAgenda.tsx) + add/remove, מצב-ריק, "נקה הכל".
+- כפתור-הוספה (`onRequestAddLeg` ב-DiscoverLayer) פותח את NavigationHub הקיים — זהה במבנה ל-`onRequestAddressDestination`; ה-`handleAddressSelect` הקיים בודק `useLegPlanStore.isComposing` ומנתב לפי זה: `addLeg()` במקום `startCommute()`.
+- תקרה: `MAX_LEGS_PER_PLAN` (24, מיוצא משלב 0) עם הודעה ידידותית כשמגיעים לתקרה — ממומש כפי שתוכנן.
+- **בכוונה בלי כפתור "התחל ריצה"** — זה שלב 2.
+- TSC נקי (906, זהה ל-baseline), 445/446 בסוויטה (אותם 3 כשלים קיימים-מראש). **טרם מאומת במכשיר של דוד** — נדרש לפני שלב 2.
 
 **שלב 2 — הפעלת ריצה מתוכנית מורכבת**
 - callback חדש (מקביל ל-`onRequestAddressDestination`) שקורא ל-`compileLegPlan` ואז מזין את `useRunningPlayer` כדי **להתחיל ישירות** את הריצה עם המסלול המורכב — **בלי** מסך "בחר 1 מ-3" (לפי החלטה #4).
