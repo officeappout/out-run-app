@@ -22,6 +22,7 @@ import {
   ACTIVITY_LABELS,
   DEFAULT_DAILY_GOALS,
   DEFAULT_WEEKLY_GOALS,
+  createEmptyCategoryMetrics,
 } from '../types/activity.types';
 
 // ============================================================================
@@ -168,7 +169,8 @@ class ActivityPriorityService {
     const priorityOrder = this.getPriorityOrder(userProgram);
     
     return priorityOrder.map((category, index) => {
-      const metrics = activity.categories[category];
+      const metrics = activity.categories?.[category] ??
+        createEmptyCategoryMetrics(DEFAULT_DAILY_GOALS[category], DEFAULT_WEEKLY_GOALS[category]);
       const colors = ACTIVITY_COLORS[category];
       const labels = ACTIVITY_LABELS[category];
       
@@ -195,7 +197,8 @@ class ActivityPriorityService {
    */
   calculateDominantCategory(activity: DailyActivity): ActivityCategory | null {
     const categories = activity.categories;
-    
+    if (!categories) return null;
+
     let maxPercentage = 0;
     let dominant: ActivityCategory | null = null;
     
