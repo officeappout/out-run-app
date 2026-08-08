@@ -934,6 +934,8 @@ export async function composeHybridPlan(
 
   let routePath: [number, number][] = [];
   if (ctx.userPosition) {
+    let chosenKm: number | undefined;
+    let candidateCount = 0;
     try {
       const routes = await generateDynamicRoutes({
         userLocation: ctx.userPosition, targetDistance: targetKm, activity: intent.aerobicKind as ActivityType,
@@ -941,14 +943,43 @@ export async function composeHybridPlan(
         // Bias the loop THROUGH a fitness park when we have parks (findFitnessAnchor),
         // and enable the hybrid-only quality passes (bearing-order + continue_straight
         // + Douglas-Peucker) for a clean loop. Free-run omits qualityRoute → unchanged.
-        // maxRoutes:1 — we consume routes[0] only; stops the generator after the
-        // first valid loop, before its trailing 1.5s inter-route delays.
-        preferences: { includeStrength: parks.length > 0, qualityRoute: true, maxRoutes: 1 },
+        //
+        // Square-route fix (08.08.2026, ported from resolveRouteStopsBackbone's
+        // 'generated_loop' mode above — David flagged this card, the highest-traffic of
+        // the 3, never got the fix). maxRoutes:1 used to accept routes[0] blindly: the
+        // FIRST waypoint-combination the generator tried, taken as-is even when it
+        // snapped to a boxy/square Mapbox shape. maxRoutes:3 asks the generator to keep
+        // trying up to 5 different waypoint-combination rotations (its own existing
+        // retry-per-combination loop, route-generator.service.ts:910-993) until it
+        // collects 3 real candidates; below we pick whichever lands CLOSEST to
+        // targetKm, never just routes[0] — the same selection resolveRouteStopsBackbone
+        // already does. includeStrength stays park-conditional here (unlike route-stops,
+        // which deliberately keeps it off) — this card's whole point is the
+        // anchor-biased splice of a nearby gym (plan §ב, "3 intentional route shapes"),
+        // not touched.
+        preferences: { includeStrength: parks.length > 0, qualityRoute: true, maxRoutes: 3 },
         parks: parks as any, cityName: ctx.cityName,
       });
-      routePath = normalizePath(routes?.[0]?.path);
+      if (routes && routes.length > 0) {
+        candidateCount = routes.length;
+        const best = routes.reduce((a, b) =>
+          Math.abs((b.distance ?? Infinity) - targetKm) < Math.abs((a.distance ?? Infinity) - targetKm) ? b : a);
+        routePath = normalizePath(best.path);
+        chosenKm = best.distance;
+      }
     } catch { /* synthetic fallback */ }
-    if (routePath.length < 2) routePath = synthesizeLoop(ctx.userPosition, targetKm);
+    if (routePath.length < 2) {
+      console.warn(
+        `[hybrid:diag] recommended-card: no real street loop from the generator` +
+        `${chosenKm !== undefined ? ` (best candidate ${chosenKm.toFixed(2)}km was unusable)` : ''} → synthesizeLoop (last resort)`,
+      );
+      routePath = synthesizeLoop(ctx.userPosition, targetKm);
+    } else if (chosenKm !== undefined) {
+      console.log(
+        `[hybrid:diag] recommended-card backbone: real street loop ${chosenKm.toFixed(2)}km ` +
+        `(target ${targetKm.toFixed(2)}km, diff ${(chosenKm - targetKm).toFixed(2)}km, chosen from ${candidateCount} candidate(s))`,
+      );
+    }
   }
   if (routePath.length < 2) { console.warn('[composeHybridPlan] no user position / route'); return null; }
 
