@@ -20,6 +20,9 @@ import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
 import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
+import { useSuggestionEngineStore } from '@/features/workout-engine/core/store/useSuggestionEngineStore';
+import { buildMapUserContext } from '@/features/workout-engine/core/context/build-map-user-context';
+import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
 import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
@@ -560,12 +563,33 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // ── Hybrid slot resolver + handlers (need userLocation/userCityName) ───────
   // nearbyParkCount stays optimistic (A3 surfaces at the overview via fallbackHint);
   // the full-park card has its OWN hard gate (hasEquippedPark + hasStrengthProgram).
-  const slots = useMemo<HybridSlot[]>(
+  // UNCHANGED — the rec-engine ranking below never modifies this call or its output.
+  const baseSlots = useMemo<HybridSlot[]>(
     () => resolveSlots({
       hasGps: !!userLocation, nearbyParkCount: 1, aerobicKind: slotActivity,
       hasEquippedPark, hasStrengthProgram,
     }),
     [userLocation, slotActivity, hasEquippedPark, hasStrengthProgram],
+  );
+
+  // ── Rec-engine ranking (additive, plan §"סבב 9") ────────────────────────────
+  // Same dependency list as baseSlots above — no new re-computation cadence invented.
+  // useSuggestionEngineStore dedupes internally (contextKey), so a StrictMode double-fire
+  // or overlapping deps changes are safe.
+  useEffect(() => {
+    if (!userLocation || !profile) return;
+    useSuggestionEngineStore.getState().setContext(
+      buildMapUserContext({ profile, userLocation, slotActivity }),
+    );
+  }, [userLocation, slotActivity, hasEquippedPark, hasStrengthProgram, profile]);
+
+  const rankedSuggestions = useSuggestionEngineStore((s) => (s.status === 'ready' ? s.suggestions : null));
+
+  // Explicit apply — see apply-ranked-slot-order.ts. Falls back to baseSlots UNCHANGED
+  // whenever ranking isn't ready/failed/matched nothing (byte-identical to today).
+  const slots = useMemo(
+    () => applyRankedSlotOrder(baseSlots, rankedSuggestions),
+    [baseSlots, rankedSuggestions],
   );
 
   // Draw a composed hybrid loop on the LIVE map (READ-ONLY — no save, no run).
