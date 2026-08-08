@@ -80,10 +80,24 @@ function toFirestoreFormat(activity: DailyActivity): Record<string, unknown> {
  * Convert Firestore document to DailyActivity
  */
 function fromFirestoreFormat(data: Record<string, unknown>): DailyActivity {
+  // Some documents (e.g. an early/partial write for an anonymous/guest user)
+  // may be missing one or more category keys entirely. Every downstream
+  // consumer of `today.categories` (buildRingData, calculateDominantCategory,
+  // etc.) indexes it with a fixed ActivityCategory key and assumes it exists —
+  // normalize here, once, at the hydration boundary, rather than adding a
+  // guard at every call site.
+  const rawCategories = (data.categories ?? {}) as Partial<DailyActivity['categories']>;
+  const categories: DailyActivity['categories'] = {
+    strength: rawCategories.strength ?? createEmptyCategoryMetrics(DEFAULT_DAILY_GOALS.strength, DEFAULT_WEEKLY_GOALS.strength),
+    cardio: rawCategories.cardio ?? createEmptyCategoryMetrics(DEFAULT_DAILY_GOALS.cardio, DEFAULT_WEEKLY_GOALS.cardio),
+    maintenance: rawCategories.maintenance ?? createEmptyCategoryMetrics(DEFAULT_DAILY_GOALS.maintenance, DEFAULT_WEEKLY_GOALS.maintenance),
+  };
+
   return {
     ...data,
-    updatedAt: data.updatedAt instanceof Timestamp 
-      ? data.updatedAt.toDate() 
+    categories,
+    updatedAt: data.updatedAt instanceof Timestamp
+      ? data.updatedAt.toDate()
       : new Date(data.updatedAt as string || Date.now()),
   } as DailyActivity;
 }
