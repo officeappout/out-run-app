@@ -991,6 +991,9 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       // above already did that), same pre-existing limitation
       // onRequestAddressDestination has today. Not solved here.
       const legPlan = useLegPlanStore.getState();
+      // TEMP DEBUG (08.08) — remove once David confirms this reads true
+      // right after the LegPlanSheet "add stop" flow.
+      console.log('[LEG-PLAN-DEBUG] handleAddressSelect: isComposing =', legPlan.isComposing, 'addr._source =', addr?._source, 'addr.text =', addr?.text);
       if (legPlan.isComposing) {
         const [lng, lat] = addr.coords as [number, number];
         legPlan.addLeg({ lat, lng }, addr.text);
