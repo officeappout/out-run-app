@@ -188,15 +188,56 @@ async function composeFullParkWorkout(
 
   // unassessed-domain-gate: without a completed assessment, only a HYDRAULIC-equipped park
   // is safe to compose from silently (self-limiting resistance — see parkHasHydraulicEquipment
-  // doc comment). A real calisthenics-equipped park needs a real level → block + let the
-  // caller show the assessment message instead of guessing level=1 on real gear.
+  // doc comment). A real calisthenics-equipped park needs a real level → block.
+  //
+  // Live-bug fix (08.08.2026): this used to `return null` here — the caller has no reference
+  // left to read ctx.stopGateReason off (composeAndShowOverview/composeTrioDeduped both
+  // construct `ctx` inline and never keep it), and even a caller that DID check it has
+  // nowhere to render it → the user just silently bounces back to the carousel. Fixed by
+  // reusing the SAME fallbackHint/assessmentDomains shape the needsAssessment-bolt path
+  // below already returns (a real ComposedHybridSession, not null) — HybridOverviewScreen
+  // (:452-470) and DiscoverLayer's onAssessmentLink (:1460-1463) already render this shape
+  // correctly today (proven: that's the exact mechanism the bolt-level needsAssessment case
+  // already uses). No new UI. `buildNeedsAssessmentResult` (home-workout.service.ts:326) is
+  // the same real, established copy — not invented text.
   if (!hasAssessment) {
     const equipmentCatalog = await getAllGymEquipment();
     const oabPark = parks.find((p: any) => p.id === oab.station.parkId);
     if (!oabPark || !parkHasHydraulicEquipment(oabPark, equipmentCatalog)) {
       console.warn('[composeFullParkWorkout] gated: no completed assessment + nearest park is not hydraulic → needs_assessment');
       ctx.stopGateReason = 'needs_assessment';
-      return null;
+      const { buildNeedsAssessmentResult } = await import('@/features/workout-engine/services/home-workout.service');
+      const { PRIMARY_CATEGORIES } = await import('@/features/user/onboarding/services/single-domain-assessment.service');
+      const { workout: needsAssessmentWorkout } = buildNeedsAssessmentResult(
+        [...PRIMARY_CATEGORIES],
+        { daysInactive: 0, persona: null, location: 'park', timeOfDay: 'morning', injuryAreas: [], exercisesConsidered: 0, exercisesExcluded: 0 },
+      );
+      const station = {
+        stopId: oab.station.name ? `park:${oab.station.name}` : (oab.station.parkId ?? 'park'),
+        parkId: oab.station.parkId,
+        locationKind: 'gym' as const,
+        lat: oab.station.lat,
+        lng: oab.station.lng,
+        waypointIndex: oab.station.waypointIndex,
+      };
+      const plan = composeParkWorkoutPlan({
+        routePath: oab.routePath,
+        station,
+        workout: needsAssessmentWorkout,
+        aerobicKind: intent.aerobicKind,
+        paceProfile,
+        userWeightKg,
+        emphasis: 'strength',
+      });
+      return {
+        plan,
+        routePath: oab.routePath,
+        aerobicKind: intent.aerobicKind,
+        fallbackHint: needsAssessmentWorkout.description,
+        assessmentDomains: needsAssessmentWorkout.assessmentDomains,
+        station: { lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image },
+        stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image }],
+      };
     }
   }
 
@@ -578,7 +619,28 @@ async function composeRouteStopsWorkout(
     if (!hasHydraulicStop) {
       console.warn('[composeRouteStopsWorkout] gated: no completed assessment + no hydraulic-equipped park nearby → needs_assessment');
       ctx.stopGateReason = 'needs_assessment';
-      return null;
+      // Live-bug fix (08.08.2026), same as composeFullParkWorkout's gate above: return a
+      // real session with fallbackHint/assessmentDomains (the shape HybridOverviewScreen /
+      // DiscoverLayer's onAssessmentLink already render) instead of null, which the caller
+      // has no way to read a reason off of. This branch is dark (MAP_ROUTE_STOPS_V1=false)
+      // so today it's zero live exposure — fixed for consistency, not for an active user path.
+      const { buildNeedsAssessmentResult } = await import('@/features/workout-engine/services/home-workout.service');
+      const { PRIMARY_CATEGORIES } = await import('@/features/user/onboarding/services/single-domain-assessment.service');
+      const { workout: needsAssessmentWorkout } = buildNeedsAssessmentResult(
+        [...PRIMARY_CATEGORIES],
+        { daysInactive: 0, persona: null, location: 'park', timeOfDay: 'morning', injuryAreas: [], exercisesConsidered: 0, exercisesExcluded: 0 },
+      );
+      return {
+        plan: {
+          segments: [],
+          totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
+          meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, log: [] },
+        },
+        routePath,
+        aerobicKind: intent.aerobicKind,
+        fallbackHint: needsAssessmentWorkout.description,
+        assessmentDomains: needsAssessmentWorkout.assessmentDomains,
+      };
     }
   }
 
@@ -863,6 +925,34 @@ export async function composeHybridPlan(
   // path, which still resolves level via getBaseUserLevel — same invented-level-1 problem,
   // just with bodyweight moves instead of park equipment. Gated the same as 'park' now;
   // there's no hydraulic exception to check (no equipment at all), so it blocks outright.
+  // Live-bug fix (08.08.2026): both branches below used to `return null` — the caller
+  // (composeAndShowOverview / FreeRunDrawer's handleStartHybrid) has no way to read
+  // ctx.stopGateReason (constructed inline, never retained) or show anything, so the user
+  // just silently bounced back to the carousel/slots. Same fix as composeFullParkWorkout
+  // and composeRouteStopsWorkout above: return a real session with fallbackHint/
+  // assessmentDomains instead — the shape HybridOverviewScreen (:452-470) and
+  // DiscoverLayer's onAssessmentLink (:1460-1463) already render correctly today. This is
+  // THE highest-traffic of the 3 gates (the "מומלץ לך" carousel slot's own branch).
+  const needsAssessmentSession = async (): Promise<ComposedHybridSession> => {
+    const { buildNeedsAssessmentResult } = await import('@/features/workout-engine/services/home-workout.service');
+    const { PRIMARY_CATEGORIES } = await import('@/features/user/onboarding/services/single-domain-assessment.service');
+    const { workout: needsAssessmentWorkout } = buildNeedsAssessmentResult(
+      [...PRIMARY_CATEGORIES],
+      { daysInactive: 0, persona: null, location: 'park', timeOfDay: 'morning', injuryAreas: [], exercisesConsidered: 0, exercisesExcluded: 0 },
+    );
+    return {
+      plan: {
+        segments: [],
+        totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
+        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, log: [] },
+      },
+      routePath,
+      aerobicKind: intent.aerobicKind,
+      fallbackHint: needsAssessmentWorkout.description,
+      assessmentDomains: needsAssessmentWorkout.assessmentDomains,
+    };
+  };
+
   let gateHydraulicEquipment: GymEquipment[] | undefined;
   if (!hasAssessedStrengthDomain(profile as any)) {
     if (source.kind === 'park') {
@@ -873,7 +963,7 @@ export async function composeHybridPlan(
       if (matched.length === 0) {
         console.warn('[composeHybridPlan] gated: no completed assessment + nearest station is not hydraulic → needs_assessment');
         ctx.stopGateReason = 'needs_assessment';
-        return null;
+        return needsAssessmentSession();
       }
       // unassessed-domain-gate content follow-up (05.08.2026): carry the matched doc(s)
       // onto stopCandidates[0] below so dispatchStopContent → resolveStationContent shows
@@ -882,7 +972,7 @@ export async function composeHybridPlan(
     } else {
       console.warn('[composeHybridPlan] gated: no completed assessment + no equipped park nearby (bodyweight fallback) → needs_assessment');
       ctx.stopGateReason = 'needs_assessment';
-      return null;
+      return needsAssessmentSession();
     }
   }
 
