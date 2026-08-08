@@ -1213,6 +1213,12 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       } catch { /* fallback */ }
     }
 
+    // 1.036 (kcal/kg/km walking-calorie factor) is intentionally NOT imported from a
+    // shared constant — it's the same "mirror" pattern compose-hybrid-session.service.ts
+    // and compose-park-workout.service.ts (:10-14) already use for their own copies of
+    // this constant: kept local to avoid pulling in the heavier running-engine module.
+    // Documented here too (08.08.2026) so a future reader doesn't "fix" it into a shared
+    // import — see .claude/plans/happy-jumping-flask.md part ב' for the fuller context.
     const calculatedCalories = Math.round(totalDistanceKm * userWeight * 1.036);
 
     // Mirror the calorie DELTA into the unified session store so
