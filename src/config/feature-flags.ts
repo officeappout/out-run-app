@@ -54,13 +54,15 @@ export const HYBRID_FULL_PARK_WORKOUT_ENABLED = true;
 export const MAP_ROUTE_STOPS_V1 = false;
 
 // MAP_REC_ENGINE_RANKING_V1: the unified rec-engine's PULL ranking, wired into DiscoverLayer's
-// hybrid slot carousel (useSuggestionEngineStore → applyRankedSlotOrder). DEFAULT FALSE —
-// this specific wiring shipped WITHOUT a flag initially (08.08.2026), unlike every other
-// piece of this build-out; added retroactively before the app goes to real users. While
-// false: applyRankedSlotOrder is never called, the ranking useEffect never fires,
-// resolveSlots' output (baseSlots) reaches the carousel completely unchanged —
-// byte-identical to before this flag existed. Flip only after a device smoke-test.
-export const MAP_REC_ENGINE_RANKING_V1 = false;
+// hybrid slot carousel (useSuggestionEngineStore → applyRankedSlotOrder). This specific wiring
+// shipped WITHOUT a flag initially (08.08.2026), unlike every other piece of this build-out;
+// added retroactively before the app goes to real users. While false: applyRankedSlotOrder is
+// never called, the ranking useEffect never fires, resolveSlots' output (baseSlots) reaches the
+// carousel completely unchanged — byte-identical to before this flag existed.
+// TRUE (08.08.2026, David-approved): device smoke-test happens post-flip, not pre-flip — David
+// verifies directly on his device right after this ships. MAP_ROUTE_STOPS_V1 stays a SEPARATE,
+// deliberately untouched decision — it gates the whole route+stops feature, not just ranking.
+export const MAP_REC_ENGINE_RANKING_V1 = true;
 
 // MISSED_DAYS_PROMPTS: The two "you missed days" nudges on the home screen —
 // (1) the red re-engagement/missed-workout recovery banner at the top of /home, and
