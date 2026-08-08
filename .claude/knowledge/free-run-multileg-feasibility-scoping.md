@@ -479,6 +479,12 @@ export interface CompiledLegPlanSession {
 - **בכוונה בלי כפתור "התחל ריצה"** — זה שלב 2.
 - TSC נקי (906, זהה ל-baseline), 445/446 בסוויטה (אותם 3 כשלים קיימים-מראש). **טרם מאומת במכשיר של דוד** — נדרש לפני שלב 2.
 
+**דיווח דוד (08.08) — בחירת כתובת דרך "🧭 הוסף עצירות בדרך" קפצה ישר ל-commute, לא ל-addLeg()**: דוד בדק במכשיר בעצמו — הוסיף כתובת דרך המגירה החדשה (לא חיפוש רגיל, לא הכפתור הישן "📍 יעד: כתובת") ועדיין קפץ ישר למסלול לכתובת, בלי קשר ליעד שהוגדר. ביקש בדיקת קוד ממוקדת: האם `isComposing` יכול להידלק/להתאפס בטעות.
+
+**תוצאת בדיקת הקוד (08.08, אותו יום)**: מיפוי מלא של הנתיב — `LegPlanSheet.handleAddStop` → `startComposing()` → `DiscoverLayer.onRequestAddLeg` → `NavigationHub` → `handleAddressSelect` → בדיקת `isComposing` → `addLeg()`/`startCommute()` — נבדק לעומק על 5 קבצים (FreeRunDrawer.tsx, DiscoverLayer.tsx, useMapLogic.ts, NavigationHub.tsx, useSearchNavigation.ts). נשללו: `onClose` שנורה אוטומטית ב-unmount (אין כזה אפקט), mount כפול של `<FreeRunDrawer>` (רק אחד, מאומת), עותק כפול של קובץ ה-store (רק אחד), מסלול-עקיפה ב-NavigationHub (quick actions / recents / הצעות חיפוש — כולם עוברים דרך אותו `onAddressSelect`), התנגשות עם מנגנון `pendingCommute` הנפרד (שייך רק לכרטיסי-ישות Navigate, לא לזרימה הזו). **לא נמצא באג בקריאה סטטית** — הקוד תקין לוגית.
+
+**הפעולה שננקטה**: במקום לנחש, נוספו 2 שורות `console.log('[LEG-PLAN-DEBUG] ...')` זמניות — אחת ב-`handleAddStop` (מאשרת ש-`startComposing` באמת קרה), אחת ב-`handleAddressSelect` (מראה מה `isComposing` קורא ברגע האמת). נדחף ל-main (commit `02e4c1e6`, אחרי rebase נקי על 8 קומיטים לא-קשורים של rec-engine מסשן אחר על אותו קובץ — verified zero semantic conflict). **השערה מובילה** (לא מאושרת): שני הכפתורים ב-GoalSheet ("📍 יעד: כתובת" הישן ו-"🧭 הוסף עצירות בדרך" החדש) נראים כמעט זהים חזותית (אותו סגנון, אחד מתחת לשני) — קל להתבלבל ביניהם בבדיקה מהירה. **ממתין**: דוד יבדוק שוב עם ה-console פתוח וידווח מה שני הלוגים מראים; אחרי אישור/הפרכה — להסיר את שני הלוגים.
+
 **שלב 2 — הפעלת ריצה מתוכנית מורכבת**
 - callback חדש (מקביל ל-`onRequestAddressDestination`) שקורא ל-`compileLegPlan` ואז מזין את `useRunningPlayer` כדי **להתחיל ישירות** את הריצה עם המסלול המורכב — **בלי** מסך "בחר 1 מ-3" (לפי החלטה #4).
 
