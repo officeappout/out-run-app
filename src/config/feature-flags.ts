@@ -69,6 +69,22 @@ export const HYBRID_FULL_PARK_WORKOUT_ENABLED = true;
 // David device-tests immediately after this ships, same pattern as MAP_REC_ENGINE_RANKING_V1.
 export const MAP_ROUTE_STOPS_V1 = true;
 
+// STRENGTH_ASSESSMENT_PROMPT_CARD_V1: the "אימון מלא בפארק" slot's own gate
+// (HYBRID_FULL_PARK_WORKOUT_ENABLED && (MAP_OVERVIEW_CHROME_V1 || (hasEquippedPark &&
+// hasStrengthProgram)), hybrid-slots.ts resolveSlots) is effectively defeated today —
+// MAP_OVERVIEW_CHROME_V1 is already true in prod, so the OR short-circuits and the card
+// shows to EVERY user, including one with zero active strength programs (bug found
+// 08.08.2026: composeFullParkWorkout still gates safely underneath via
+// hasAssessedStrengthDomain, so nothing crashes/mis-levels — the card itself is just a
+// dead end for that user, offering a workout it can't actually build a real level for).
+// DEFAULT FALSE = kill-switch: while false, resolveSlots' full_park branch is BYTE-
+// IDENTICAL (always pushes 'full_park', the pre-existing behaviour). TRUE → when
+// !env.hasStrengthProgram, REPLACES 'full_park' with a new 'assessment_prompt' slot
+// (no compose — its CTA navigates straight to startMiniDomainAssessment(router, 'push'),
+// same domain fallback DiscoverLayer's onAssessmentLink already uses) instead of adding
+// alongside it. A user WITH a strength program still sees 'full_park', unchanged.
+export const STRENGTH_ASSESSMENT_PROMPT_CARD_V1 = false;
+
 // MAP_REC_ENGINE_RANKING_V1: the unified rec-engine's PULL ranking, wired into DiscoverLayer's
 // hybrid slot carousel (useSuggestionEngineStore → applyRankedSlotOrder). This specific wiring
 // shipped WITHOUT a flag initially (08.08.2026), unlike every other piece of this build-out;

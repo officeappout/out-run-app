@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Togglable flag mock — live getters so each resolveSlots() call reads the CURRENT
 // values, letting us cover both flag states in one file. mapOverview/routeStops default
 // false so the full-park gate tests below exercise the equipped-park/strength-program
 // signals (not the prod-surface short-circuit).
-const flag = vi.hoisted(() => ({ enabled: true, mapOverview: false, routeStops: false }));
+const flag = vi.hoisted(() => ({ enabled: true, mapOverview: false, routeStops: false, assessmentPrompt: false }));
 vi.mock('@/config/feature-flags', () => ({
   get HYBRID_FULL_PARK_WORKOUT_ENABLED() {
     return flag.enabled;
@@ -14,6 +14,9 @@ vi.mock('@/config/feature-flags', () => ({
   },
   get MAP_ROUTE_STOPS_V1() {
     return flag.routeStops;
+  },
+  get STRENGTH_ASSESSMENT_PROMPT_CARD_V1() {
+    return flag.assessmentPrompt;
   },
 }));
 
@@ -105,6 +108,47 @@ describe('resolveSlots — route_stops (MAP_ROUTE_STOPS_V1)', () => {
   it('never disturbs the existing recommended + aerobic_quick slots', () => {
     flag.routeStops = true;
     const slots = resolveSlots(env({ hasGps: true }));
+    expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
+  });
+});
+
+describe('resolveSlots — assessment-prompt substitution (STRENGTH_ASSESSMENT_PROMPT_CARD_V1)', () => {
+  beforeEach(() => {
+    flag.enabled = true;
+    // MAP_OVERVIEW_CHROME_V1 = true is the exact scenario that defeats the
+    // hasStrengthProgram check — the substitution is only reachable there.
+    flag.mapOverview = true;
+  });
+  afterEach(() => {
+    flag.mapOverview = false;
+    flag.assessmentPrompt = false;
+  });
+
+  it('flag OFF: full_park still shows for a user with no strength program (pre-existing, byte-identical)', () => {
+    const slots = resolveSlots(env({ hasStrengthProgram: false }));
+    expect(ids(slots)).toContain('full_park');
+    expect(ids(slots)).not.toContain('assessment_prompt');
+  });
+
+  it('flag ON + no strength program: assessment_prompt REPLACES full_park (not alongside)', () => {
+    flag.assessmentPrompt = true;
+    const slots = resolveSlots(env({ hasStrengthProgram: false }));
+    expect(ids(slots)).toContain('assessment_prompt');
+    expect(ids(slots)).not.toContain('full_park');
+    const ap = slots.find((s) => s.id === 'assessment_prompt')!;
+    expect(ap.kind).toBe('assessment_prompt');
+  });
+
+  it('flag ON + HAS a strength program: full_park is unaffected', () => {
+    flag.assessmentPrompt = true;
+    const slots = resolveSlots(env({ hasStrengthProgram: true }));
+    expect(ids(slots)).toContain('full_park');
+    expect(ids(slots)).not.toContain('assessment_prompt');
+  });
+
+  it('flag ON: never disturbs the existing recommended + aerobic_quick slots', () => {
+    flag.assessmentPrompt = true;
+    const slots = resolveSlots(env({ hasStrengthProgram: false }));
     expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
   });
 });

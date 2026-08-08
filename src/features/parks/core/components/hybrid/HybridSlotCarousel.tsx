@@ -137,6 +137,56 @@ function ActivityToggle({
   );
 }
 
+// ── Assessment-prompt card (STRENGTH_ASSESSMENT_PROMPT_CARD_V1) ─────────────────
+// Deliberately NOT RouteCardUnified — this slot has no distance/difficulty/route to
+// show, just a nudge + a single CTA. Tokens lifted verbatim from HeroWorkoutCard.tsx
+// (home) per David's spec: card shell = the completed-workout card (:552-554), CTA
+// button = the main hero CTA (:709-714, "text-black font-semibold" + the same cyan→
+// turquoise gradient RouteCardUnified's own CTA already reuses). Same onArm/
+// consumeArmed anti-ghost-click pattern as every other slot's CTA — one-off, unexported,
+// same "no shared component" precedent as DurationChip above.
+function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
+  onSelect: () => void;
+  onArm: () => void;
+  consumeArmed: () => boolean;
+}) {
+  return (
+    <div
+      className="w-full bg-white"
+      style={{
+        borderRadius: 16,
+        border: '1px solid #E0E9FF',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+        padding: '18px 18px 16px',
+      }}
+      dir="rtl"
+    >
+      <div className="mb-4">
+        <div className="text-[16px] font-black" style={{ color: '#111827' }}>עוד לא מילאת שאלון כוח</div>
+        <div className="text-[13px] font-semibold mt-1.5 leading-snug" style={{ color: '#6B7280' }}>
+          שאלון קצר יתאים לך אישית את אימון הכוח בפארק — לפי הרמה והציוד שיש שם.
+        </div>
+      </div>
+      <button
+        type="button"
+        onPointerDown={onArm}
+        onClick={(e) => {
+          e.stopPropagation();
+          const armed = consumeArmed();
+          // eslint-disable-next-line no-console
+          console.log('[compose-trigger]', 'cta', 'assessment_prompt');
+          if (!armed) return;
+          onSelect();
+        }}
+        className="w-full text-black font-semibold text-sm rounded-full active:scale-[0.98] transition-transform"
+        style={{ height: 44, background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' }}
+      >
+        למלא שאלון כוח
+      </button>
+    </div>
+  );
+}
+
 // ── Single slot card ─────────────────────────────────────────────────────────
 // Compose fires ONLY from the CTA, and ONLY when THIS card's CTA was the one that
 // received the pointerdown (onArm sets the carousel's armed slot-id; consumeArmed
@@ -155,6 +205,10 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, extraContent 
    *  the difficulty pill) — see RouteCardUnified's extraContent. */
   extraContent?: React.ReactNode;
 }) {
+  if (slot.kind === 'assessment_prompt') {
+    return <AssessmentPromptCard onSelect={onSelect} onArm={onArm} consumeArmed={consumeArmed} />;
+  }
+
   // Unified text-only card (flag-gated). Reuses the shared RouteCardUnified so
   // the slot matches the discover/aerobic cards. The anti-ghost-click arming
   // (onArm/consumeArmed) is preserved verbatim on the CTA.

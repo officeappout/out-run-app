@@ -769,6 +769,16 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const handleSelectSlot = useCallback((slot: HybridSlot) => {
     // eslint-disable-next-line no-console
     console.log('[compose-trigger]', 'handleSelectSlot', slot.kind, slot.id);
+    // assessment_prompt (STRENGTH_ASSESSMENT_PROMPT_CARD_V1): no compose at all — close the
+    // carousel and hand off straight to the mini assessment. Domain fallback ('push') mirrors
+    // the SAME default the overview's onAssessmentLink already uses above (:1532) — this slot
+    // has no specific assessmentDomains to point to either (the user has no program at all).
+    if (slot.kind === 'assessment_prompt') {
+      resetHybridFlow();
+      setMapMode('idle');
+      startMiniDomainAssessment(router, 'push');
+      return;
+    }
     if (slot.kind === 'hybrid') {
       // Route-preview title bar (MAP_OVERVIEW_CHROME_V1): show the slot's own name
       // (e.g. "ריצה + כוח" / "אימון מלא בפארק"). Harmless no-op when the flag is off.
@@ -825,7 +835,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     resetHybridFlow();
     setMapMode('idle');
     logic.startActiveWorkout();
-  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic, keyFor, resetHybridFlow]);
+  }, [composeAndShowOverview, composeTrioDeduped, drawComposedRoute, logic, keyFor, resetHybridFlow, router]);
 
   const [effectiveRadius, setEffectiveRadius] = useState(requestedDistanceKm);
 

@@ -22,9 +22,14 @@
 import type { HybridStartIntent } from './build-hybrid-input';
 import type { HybridEmphasis, AerobicKind } from './compose-hybrid-session.service';
 import type { HybridShapeName } from './hybrid-shape';
-import { HYBRID_FULL_PARK_WORKOUT_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
+import {
+  HYBRID_FULL_PARK_WORKOUT_ENABLED,
+  MAP_OVERVIEW_CHROME_V1,
+  MAP_ROUTE_STOPS_V1,
+  STRENGTH_ASSESSMENT_PROMPT_CARD_V1,
+} from '@/config/feature-flags';
 
-export type SlotKind = 'hybrid' | 'aerobic_quick';
+export type SlotKind = 'hybrid' | 'aerobic_quick' | 'assessment_prompt';
 
 /** ⚡ intensity — reuses DifficultyBolts' 1|2|3 vocabulary. */
 export type Bolts = 1 | 2 | 3;
@@ -91,7 +96,17 @@ export interface AerobicQuickSlot extends SlotBase {
   aerobicKind: AerobicKind;
 }
 
-export type HybridSlot = HybridPresetSlot | AerobicQuickSlot;
+/**
+ * A slot with NO compose step at all (STRENGTH_ASSESSMENT_PROMPT_CARD_V1) — its CTA
+ * navigates straight to the mini strength assessment instead of running
+ * composeHybridPlan. `bolts` is carried only for SlotBase-shape uniformity (the card
+ * renders no DifficultyBolts pill, unlike every other slot kind).
+ */
+export interface AssessmentPromptSlot extends SlotBase {
+  kind: 'assessment_prompt';
+}
+
+export type HybridSlot = HybridPresetSlot | AerobicQuickSlot | AssessmentPromptSlot;
 
 /** Environment the resolver reads — all caller-supplied, so the fn stays pure. */
 export interface SlotEnv {
@@ -199,21 +214,43 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
   // still needs a real equipped park near the user for composeFullParkWorkout to build —
   // otherwise the CTA composes null and falls back to the carousel (no crash). Flag OFF =
   // the original hard gate (equipped park AND a strength program), byte-identical.
-  if (HYBRID_FULL_PARK_WORKOUT_ENABLED && (MAP_OVERVIEW_CHROME_V1 || (env.hasEquippedPark && env.hasStrengthProgram))) {
-    const fpPreset: HybridPreset = { ...HYBRID_PRESETS.full_park, aerobicKind: env.aerobicKind };
-    slots.push({
-      kind: 'hybrid',
-      id: 'full_park',
-      preset: fpPreset,
-      timeBudgetMin: fpPreset.defaultTimeBudgetMin,
-      title: 'אימון מלא בפארק',
-      subtitle: env.aerobicKind === 'running'
-        ? 'ריצה לפארק · אימון כוח מלא · חזרה'
-        : 'הליכה לפארק · אימון כוח מלא · חזרה',
-      bolts: fpPreset.bolts,
-      recommended: false,
-      accent: BRAND,
-    });
+  const fullParkWouldShow = HYBRID_FULL_PARK_WORKOUT_ENABLED
+    && (MAP_OVERVIEW_CHROME_V1 || (env.hasEquippedPark && env.hasStrengthProgram));
+  if (fullParkWouldShow) {
+    // Assessment-prompt substitution (STRENGTH_ASSESSMENT_PROMPT_CARD_V1, 08.08.2026):
+    // MAP_OVERVIEW_CHROME_V1 already short-circuits the hasStrengthProgram check above —
+    // without this branch, a user with ZERO active strength programs still gets the
+    // full_park card (a dead end: composeFullParkWorkout gates safely underneath, but the
+    // card promises something it can't build a real level for). Flag OFF → unreachable
+    // (fullParkWouldShow already REQUIRES hasStrengthProgram when MAP_OVERVIEW_CHROME_V1
+    // is off, so this only ever fires in the exact scenario the flag defeats) — byte-
+    // identical to the pre-existing single-branch code.
+    if (STRENGTH_ASSESSMENT_PROMPT_CARD_V1 && !env.hasStrengthProgram) {
+      slots.push({
+        kind: 'assessment_prompt',
+        id: 'assessment_prompt',
+        title: 'עוד לא מילאת שאלון כוח',
+        subtitle: 'שאלון קצר יתאים לך אישית את אימון הכוח בפארק',
+        bolts: 2,
+        recommended: false,
+        accent: BRAND,
+      });
+    } else {
+      const fpPreset: HybridPreset = { ...HYBRID_PRESETS.full_park, aerobicKind: env.aerobicKind };
+      slots.push({
+        kind: 'hybrid',
+        id: 'full_park',
+        preset: fpPreset,
+        timeBudgetMin: fpPreset.defaultTimeBudgetMin,
+        title: 'אימון מלא בפארק',
+        subtitle: env.aerobicKind === 'running'
+          ? 'ריצה לפארק · אימון כוח מלא · חזרה'
+          : 'הליכה לפארק · אימון כוח מלא · חזרה',
+        bolts: fpPreset.bolts,
+        recommended: false,
+        accent: BRAND,
+      });
+    }
   }
 
   // ── Route + stops (MAP_ROUTE_STOPS_V1) — a GENERATED loop + generic stops on it ──
