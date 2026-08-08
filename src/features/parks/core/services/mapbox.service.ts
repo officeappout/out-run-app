@@ -32,6 +32,19 @@ export interface MapboxPathResult {
   distance: number;   // meters
   duration: number;   // seconds
   steps: any[];
+  /**
+   * Per-leg distance/duration breakdown for a multi-waypoint request —
+   * Mapbox already computes this on every response (`route.legs[]`), one
+   * entry per (start,wp1,wp2,...,end) segment, but it was silently
+   * discarded here for every caller until 08.08 (confirmed during the
+   * leg_chaining research: this is a free win, not an extra API cost).
+   * Empty array for a plain 2-point request (still one leg — Mapbox
+   * always returns at least one). Added purely-additively: no existing
+   * caller reads this field, so nothing changes for loop mode or commute
+   * mode — it exists for leg-plan.service.ts's compileLegPlan(), which
+   * needs each leg's own distance/duration for its legBreakdown.
+   */
+  legs?: Array<{ distance: number; duration: number }>;
 }
 
 /**
@@ -128,12 +141,16 @@ const getSmartPath = async (
     const steps = Array.isArray(route.legs)
       ? route.legs.flatMap((leg: any) => Array.isArray(leg?.steps) ? leg.steps : [])
       : [];
+    const legs = Array.isArray(route.legs)
+      ? route.legs.map((leg: any) => ({ distance: leg.distance, duration: leg.duration }))
+      : [];
 
     return {
       path: route.geometry.coordinates as [number, number][], // המערך של קווי המתאר (הרחובות)
       distance: route.distance,
       duration: route.duration,
       steps,
+      legs,
     };
 
   } catch (error: any) {
@@ -197,11 +214,15 @@ const getSmartPathAlternatives = async (
       const steps = Array.isArray(route.legs)
         ? route.legs.flatMap((leg: any) => Array.isArray(leg?.steps) ? leg.steps : [])
         : [];
+      const legs = Array.isArray(route.legs)
+        ? route.legs.map((leg: any) => ({ distance: leg.distance, duration: leg.duration }))
+        : [];
       return {
         path: route.geometry.coordinates as [number, number][],
         distance: route.distance,
         duration: route.duration,
         steps,
+        legs,
       };
     });
   } catch (error: any) {
