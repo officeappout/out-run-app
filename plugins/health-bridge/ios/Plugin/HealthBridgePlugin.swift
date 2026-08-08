@@ -284,12 +284,27 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         let group = DispatchGroup()
         var samplesByUUID: [String: [String: Any]] = [:]
         var firstError: Error?
+        // Tracks the latest sample startDate actually returned, across all
+        // three types combined — used to advance the cursor below instead of
+        // always jumping to `endBound` ("now"). A single combined max (not a
+        // per-type max) so a lagging type can't orphan a gap: if steps only
+        // reaches day 40 of a 90-day backfill but calories reaches day 90,
+        // advancing by the per-type max would silently skip days 40-90 for
+        // calories on the next call.
+        var latestSampleDate: Date?
+        let latestSampleDateLock = NSLock()
 
         for type in [stepType, caloriesType, exerciseType] {
             group.enter()
             let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endBound, options: .strictStartDate)
             let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
-            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: 1000, sortDescriptors: [sort]) { _, results, error in
+            // No limit: a 90-day backfill of small step/calorie/exercise samples
+            // is still a bounded, cheap query — HKSampleQuery's previous
+            // `limit: 1000` silently truncated to the oldest 1000 samples
+            // (ascending sort) once a dense window exceeded that count,
+            // which combined with the cursor bug below meant the backfill
+            // could permanently stop after as little as 1-2 days of history.
+            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, results, error in
                 defer { group.leave() }
                 if let error = error { firstError = error; return }
                 guard let samples = results as? [HKQuantitySample] else { return }
@@ -319,6 +334,14 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
                     }
                     samplesByUUID[key] = entry
                 }
+
+                if let maxInBatch = samples.map({ $0.startDate }).max() {
+                    latestSampleDateLock.lock()
+                    if latestSampleDate == nil || maxInBatch > latestSampleDate! {
+                        latestSampleDate = maxInBatch
+                    }
+                    latestSampleDateLock.unlock()
+                }
             }
             healthStore.execute(query)
         }
@@ -331,9 +354,24 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             }
             let samples = Array(samplesByUUID.values)
             os_log("syncSince: %{public}d samples returned", log: hbLog, type: .info, samples.count)
+
+            // Advance the cursor to the latest sample actually returned, not
+            // blindly to `endBound` ("now"). A zero-sample sync leaves the
+            // cursor exactly where it was (the original `startDate`) rather
+            // than jumping forward — jumping forward on an empty result would
+            // silently mark an unfetched historical range as "already synced"
+            // if that call happened to race ahead of real data (e.g. a
+            // temporary query hiccup), permanently orphaning it.
+            let nextCursor: Date
+            if let latest = latestSampleDate {
+                nextCursor = latest
+            } else {
+                nextCursor = startDate
+            }
+
             call.resolve([
                 "samples": samples,
-                "cursorISO": isoFormatter.string(from: endBound),
+                "cursorISO": isoFormatter.string(from: nextCursor),
             ])
         }
     }
