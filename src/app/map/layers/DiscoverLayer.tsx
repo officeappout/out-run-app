@@ -23,7 +23,7 @@ import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybri
 import { useSuggestionEngineStore } from '@/features/workout-engine/core/store/useSuggestionEngineStore';
 import { buildMapUserContext } from '@/features/workout-engine/core/context/build-map-user-context';
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
-import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
+import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1 } from '@/config/feature-flags';
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
@@ -573,17 +573,22 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   );
 
   // ── Rec-engine ranking (additive, plan §"סבב 9") ────────────────────────────
-  // Same dependency list as baseSlots above — no new re-computation cadence invented.
-  // useSuggestionEngineStore dedupes internally (contextKey), so a StrictMode double-fire
-  // or overlapping deps changes are safe.
+  // MAP_REC_ENGINE_RANKING_V1, added 08.08.2026: this wiring originally shipped without a
+  // flag (an oversight — every other piece of this build-out is flag-gated). Retrofitted
+  // before real users arrive. Same dependency list as baseSlots above either way — no new
+  // re-computation cadence invented. useSuggestionEngineStore dedupes internally
+  // (contextKey), so a StrictMode double-fire or overlapping deps changes are safe.
   useEffect(() => {
+    if (!MAP_REC_ENGINE_RANKING_V1) return;
     if (!userLocation || !profile) return;
     useSuggestionEngineStore.getState().setContext(
       buildMapUserContext({ profile, userLocation, slotActivity }),
     );
   }, [userLocation, slotActivity, hasEquippedPark, hasStrengthProgram, profile]);
 
-  const rankedSuggestions = useSuggestionEngineStore((s) => (s.status === 'ready' ? s.suggestions : null));
+  const rankedSuggestions = useSuggestionEngineStore((s) =>
+    MAP_REC_ENGINE_RANKING_V1 && s.status === 'ready' ? s.suggestions : null,
+  );
 
   // Explicit apply — see apply-ranked-slot-order.ts. Falls back to baseSlots UNCHANGED
   // whenever ranking isn't ready/failed/matched nothing (byte-identical to today).

@@ -53,6 +53,15 @@ export const HYBRID_FULL_PARK_WORKOUT_ENABLED = true;
 // ⚠️ Display-only XP (0 credit) like all hybrid — do NOT wire real XP until single-save closes.
 export const MAP_ROUTE_STOPS_V1 = false;
 
+// MAP_REC_ENGINE_RANKING_V1: the unified rec-engine's PULL ranking, wired into DiscoverLayer's
+// hybrid slot carousel (useSuggestionEngineStore → applyRankedSlotOrder). DEFAULT FALSE —
+// this specific wiring shipped WITHOUT a flag initially (08.08.2026), unlike every other
+// piece of this build-out; added retroactively before the app goes to real users. While
+// false: applyRankedSlotOrder is never called, the ranking useEffect never fires,
+// resolveSlots' output (baseSlots) reaches the carousel completely unchanged —
+// byte-identical to before this flag existed. Flip only after a device smoke-test.
+export const MAP_REC_ENGINE_RANKING_V1 = false;
+
 // MISSED_DAYS_PROMPTS: The two "you missed days" nudges on the home screen —
 // (1) the red re-engagement/missed-workout recovery banner at the top of /home, and
 // (2) the purple periodization "coach cue" banner in StatsOverview (long-gap / deload).
