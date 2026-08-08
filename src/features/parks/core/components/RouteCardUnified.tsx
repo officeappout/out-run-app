@@ -39,6 +39,15 @@ interface RouteCardUnifiedProps {
   subtitle?: string;
   /** Existing route/slot difficulty — 'easy' | 'medium' | 'hard' | 1 | 2 | 3. */
   difficulty: DifficultyValue;
+  /**
+   * "מומלץ" badge (bug fix, 08.08.2026): HybridSlotCarousel's OWN legacy (flag-off) card
+   * already rendered this pill for `slot.recommended` — but the unified-card migration
+   * (UNIFIED_ROUTE_CARDS_ENABLED, this component) never carried the prop over, so the
+   * badge silently stopped rendering the moment the flag went live. Optional + defaults
+   * false: RouteCarousel (aerobic) and BottomJourneyContainer (discover) — the other two
+   * callers — never pass it, so they stay byte-identical.
+   */
+  recommended?: boolean;
   /** Optional extra content rendered between the subtitle and the difficulty pill (e.g. the
    *  route_stops duration chips). Additive — omitted by every OTHER caller (RouteCarousel,
    *  BottomJourneyContainer), so their rendering stays byte-identical. */
@@ -73,6 +82,7 @@ export default function RouteCardUnified({
   onCta,
   onCtaPointerDown,
   ctaLoading = false,
+  recommended = false,
 }: RouteCardUnifiedProps) {
   const hasStats = !!distanceText && !!durationText;
   return (
@@ -85,10 +95,21 @@ export default function RouteCardUnified({
           : 'shadow-[0_10px_28px_rgba(0,0,0,0.14)] opacity-90 scale-[0.97]'
       } ${className}`}
     >
-      {/* Name */}
-      <h3 className="text-[15px] font-black text-gray-900 truncate leading-tight">
-        {name}
-      </h3>
+      {/* Name + "מומלץ" badge (same 11px/font-black/rounded-full/BRAND@18% language the
+          legacy flag-off card used) */}
+      <div className="flex items-center gap-2">
+        <h3 className="text-[15px] font-black text-gray-900 truncate leading-tight">
+          {name}
+        </h3>
+        {recommended && (
+          <span
+            className="text-[11px] font-black rounded-full shrink-0"
+            style={{ color: BRAND, background: `${BRAND}18`, padding: '2px 8px' }}
+          >
+            מומלץ
+          </span>
+        )}
+      </div>
 
       {/* Meta — distance + time on ONE inline row (· separated), or subtitle (slots) */}
       {hasStats ? (

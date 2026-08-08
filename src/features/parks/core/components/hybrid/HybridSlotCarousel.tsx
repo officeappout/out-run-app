@@ -164,6 +164,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, extraContent 
         name={slot.title}
         subtitle={slot.subtitle}
         difficulty={slot.bolts}
+        recommended={slot.recommended}
         extraContent={extraContent}
         isActive={isActive}
         onCtaPointerDown={onArm}
