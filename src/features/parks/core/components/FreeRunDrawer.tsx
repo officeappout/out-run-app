@@ -23,7 +23,13 @@ import type { RunInviteResult } from '@/lib/workoutInvite';
 import { buildRouteGenRequest } from '../services/route-request.utils';
 import type { DrawerGoal, DrawerActivity } from '../services/route-request.utils';
 import { useLegPlanStore } from '../store/useLegPlanStore';
-import { MAX_LEGS_PER_PLAN, type RouteLeg } from '../services/leg-plan.service';
+import {
+  compileLegPlan,
+  MAX_LEGS_PER_PLAN,
+  type RouteLeg,
+  type RouteLegPlan,
+  type CompiledLegPlanRoute,
+} from '../services/leg-plan.service';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
@@ -96,6 +102,17 @@ interface FreeRunDrawerProps {
    * later. When omitted, the "הוסף עצירות בדרך" button is not rendered.
    */
   onRequestAddLeg?: () => void;
+  /**
+   * Leg-plan "start run" request (ג' Phase 2, 08.08) — fires once
+   * `compileLegPlan` resolves inside LegPlanSheet, handing the parent the
+   * same `Route` shape `onRequestAddressDestination`'s RouteCarousel
+   * selection eventually produces. The parent stages `useRunningPlayer`
+   * and calls `startActiveWorkout()` directly — this is what skips the
+   * "pick 1 of 3" RouteCarousel screen entirely (David's decision #4,
+   * 08.08): the user already picked exactly what they want, leg by leg.
+   * When omitted, the "🏁 התחל ריצה" button is not rendered.
+   */
+  onStartLegPlanRun?: (compiled: CompiledLegPlanRoute) => void;
 }
 
 // ── Activity data ──────────────────────────────────────────────────────────────
@@ -668,16 +685,20 @@ function LegPlanSheet({
   userPosition,
   activity,
   onRequestAddLeg,
+  onStartLegPlanRun,
 }: {
   isOpen: boolean;
   onClose: () => void;
   userPosition?: { lat: number; lng: number } | null;
   activity: DrawerActivity;
   onRequestAddLeg?: () => void;
+  onStartLegPlanRun?: (compiled: CompiledLegPlanRoute) => void;
 }) {
   const dragControls = useDragControls();
   const legs = useLegPlanStore((s) => s.legs);
   const atMaxLegs = legs.length >= MAX_LEGS_PER_PLAN;
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [compileError, setCompileError] = useState<string | null>(null);
 
   const handleAddStop = () => {
     if (atMaxLegs || !userPosition || !onRequestAddLeg) return;
@@ -691,6 +712,27 @@ function LegPlanSheet({
 
   const handleClearAll = () => {
     useLegPlanStore.getState().reset();
+    setCompileError(null);
+  };
+
+  /** Compiles the composed plan via a single Mapbox call, then hands the
+      resulting Route straight to the parent — no "pick 1 of 3" screen
+      (David's decision #4). Errors (LegPlanNoRouteError etc.) are already
+      Hebrew/user-facing — surfaced inline, plan stays intact so the user
+      can reorder/remove and retry instead of losing their work. */
+  const handleStartRun = async () => {
+    if (legs.length === 0 || isCompiling || !userPosition || !onStartLegPlanRun) return;
+    setIsCompiling(true);
+    setCompileError(null);
+    try {
+      const plan: RouteLegPlan = { activity, legs, origin: userPosition };
+      const compiled = await compileLegPlan(plan);
+      onStartLegPlanRun(compiled);
+    } catch (err) {
+      setCompileError(err instanceof Error ? err.message : 'משהו השתבש בהרכבת המסלול. נסה שוב.');
+    } finally {
+      setIsCompiling(false);
+    }
   };
 
   return (
@@ -792,6 +834,27 @@ function LegPlanSheet({
                   ? `הגעת למספר המרבי של עצירות (${MAX_LEGS_PER_PLAN})`
                   : '➕ הוסף עצירה'}
               </button>
+
+              {/* Start run — compiles the plan into one route via a single
+                  Mapbox call and hands off straight to the active workout,
+                  no route-carousel picker (David's decision #4). */}
+              {legs.length > 0 && onStartLegPlanRun && (
+                <button
+                  type="button"
+                  onClick={handleStartRun}
+                  disabled={isCompiling || !userPosition}
+                  className="w-full py-3 mt-2 text-white text-[13px] font-black flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-60"
+                  style={{ backgroundColor: ACCENT }}
+                >
+                  {isCompiling
+                    ? <><Loader2 size={16} className="animate-spin" /> מרכיב מסלול...</>
+                    : '🏁 התחל ריצה'}
+                </button>
+              )}
+
+              {compileError && (
+                <p className="text-[12px] text-red-500 text-center mt-2 leading-tight">{compileError}</p>
+              )}
 
               {legs.length > 0 && (
                 <button
@@ -901,6 +964,7 @@ export default function FreeRunDrawer({
   onStartHybrid,
   onRequestAddressDestination,
   onRequestAddLeg,
+  onStartLegPlanRun,
 }: FreeRunDrawerProps) {
   const dragControls = useDragControls();
 
@@ -1271,6 +1335,7 @@ export default function FreeRunDrawer({
         userPosition={userPosition}
         activity={drawerActivity()}
         onRequestAddLeg={onRequestAddLeg}
+        onStartLegPlanRun={onStartLegPlanRun}
       />
     </>
   );

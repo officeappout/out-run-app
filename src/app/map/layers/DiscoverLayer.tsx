@@ -1461,6 +1461,34 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   setMapMode('idle');
                   logic.setNavState('searching');
                 }}
+                onStartLegPlanRun={(compiled) => {
+                  // Stage the running player exactly like the commute
+                  // RouteCarousel's onSelect does, minus the carousel step
+                  // itself (skipped per David's decision #4 — the user
+                  // already picked exactly what they want, leg by leg).
+                  //
+                  // sessionMode is left at its default 'workout' (David,
+                  // 08.08): a composed leg-plan is a deliberate multi-stop
+                  // session, not daily-life A-to-B navigation, so it earns
+                  // full running XP — NOT the slimmer commute rate
+                  // onRequestAddressDestination's single-address trips get.
+                  // clearCommuteContext() is called explicitly (not just
+                  // relied on as the default) so any commute flow the user
+                  // backed out of earlier can't leak sessionMode='commute'
+                  // into this run.
+                  useRunningPlayer.getState().clearCommuteContext();
+                  useRunningPlayer.getState().setActivityType(
+                    compiled.route.activityType === 'walking' ? 'walking' : 'running',
+                  );
+                  logic.handleActivityChange(
+                    compiled.route.activityType === 'cycling' ? 'cycling' :
+                    compiled.route.activityType === 'walking' ? 'walking' : 'running',
+                  );
+                  logic.setFocusedRoute(compiled.route);
+                  useLegPlanStore.getState().reset();
+                  setMapMode('idle');
+                  logic.startActiveWorkout();
+                }}
               />
             )}
 
