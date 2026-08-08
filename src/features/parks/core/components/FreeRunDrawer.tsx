@@ -682,9 +682,6 @@ function LegPlanSheet({
   const handleAddStop = () => {
     if (atMaxLegs || !userPosition || !onRequestAddLeg) return;
     useLegPlanStore.getState().startComposing(userPosition, activity);
-    // TEMP DEBUG (08.08) — remove once David confirms the isComposing
-    // read at address-pick time in DiscoverLayer.handleAddressSelect.
-    console.log('[LEG-PLAN-DEBUG] handleAddStop → startComposing done, isComposing =', useLegPlanStore.getState().isComposing);
     onRequestAddLeg();
   };
 
