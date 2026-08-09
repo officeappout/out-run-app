@@ -165,51 +165,95 @@ class FlusherImpl {
     let allOk = true;
 
     // ──────────────────────────────────────────────────────────────
-    // 1. Drain health samples (group by date, ≤200 per call).
-    // ──────────────────────────────────────────────────────────────
-    const samples = await getQueuedHealthSamples(MAX_HEALTH_BATCH * 5);
-    const eligible = samples.filter((s) => (s.attempts ?? 0) < MAX_ATTEMPTS);
-    const byDate = new Map<string, OutboxHealthSample[]>();
-    for (const s of eligible) {
-      const arr = byDate.get(s.date) ?? [];
-      arr.push(s);
-      byDate.set(s.date, arr);
-    }
-    for (const [date, group] of byDate) {
-      // Chunk into MAX_HEALTH_BATCH-sized calls.
-      for (let i = 0; i < group.length; i += MAX_HEALTH_BATCH) {
-        const chunk = group.slice(i, i + MAX_HEALTH_BATCH);
-        const payload: IngestHealthSamplePayload[] = chunk.map((s) => ({
-          sampleUUID: s.sampleUUID,
-          type: s.type,
-          value: s.value,
-          startDate: s.startDate,
-          endDate: s.endDate,
-          source: s.source,
-          deviceModel: s.deviceModel,
-        }));
-        try {
-          const result = await ingestHealthSamples({ date, samples: payload });
-          if (result) {
-            // accepted + deduped are both "safely ingested" from the client's POV.
-            await deleteHealthSamples(chunk.map((c) => c.sampleUUID));
-          } else {
-            allOk = false;
-            await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
-          }
-        } catch (err) {
-          // App Check errors are transient infrastructure failures — do not
-          // consume retry attempts so the outbox isn't permanently exhausted
-          // in debug / TestFlight builds.
-          if (isAppCheckError(err)) {
-            console.warn('[OutboxFlusher] App Check error — skipping attempt bump, will retry on next flush');
-            allOk = false;
-          } else {
-            allOk = false;
-            await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
+    // 1. Drain health samples (group by date, ≤200 per Firestore call).
+    //
+    // Loops until the queue is actually empty instead of one bounded
+    // read — a large backfill (90 days of HealthKit history, shredded
+    // into up to 3 outbox records per sample, see buildOutboxSample in
+    // healthBridge/init.ts) can produce many thousands of queued records
+    // from a single enqueueHealthSamples() call, far more than fit in
+    // one read. A single-shot read left everything beyond the first
+    // batch queued until some FUTURE, incidental flush trigger (app
+    // resume, network reconnect) happened to run again — on a fresh
+    // install with only one launch, nothing ever came along to finish
+    // the job, so most of the backfill silently never reached Firestore.
+    //
+    // Bounded by MAX_DRAIN_PASSES as a safety ceiling (never spins
+    // forever), breaks immediately on the first failed pass — the
+    // remainder stays queued for the next natural trigger; existing
+    // per-record backoff/attempts handles retry, no need to keep
+    // hammering a failing backend here — and yields between passes so a
+    // large drain doesn't block the UI thread or burst-write Firestore
+    // in one tick. getQueuedHealthSamples() reads newest-day-first (see
+    // its doc comment), so if a drain is ever interrupted, whatever
+    // already landed is always the most recent data, not an arbitrary
+    // slice.
+    const HEALTH_READ_BATCH = MAX_HEALTH_BATCH * 5;
+    const MAX_DRAIN_PASSES = 50; // 50 * 1000 = 50,000 records/flush — far beyond any real backlog
+    for (let pass = 0; pass < MAX_DRAIN_PASSES; pass++) {
+      const samples = await getQueuedHealthSamples(HEALTH_READ_BATCH);
+      if (samples.length === 0) break;
+
+      const eligible = samples.filter((s) => (s.attempts ?? 0) < MAX_ATTEMPTS);
+      const byDate = new Map<string, OutboxHealthSample[]>();
+      for (const s of eligible) {
+        const arr = byDate.get(s.date) ?? [];
+        arr.push(s);
+        byDate.set(s.date, arr);
+      }
+      for (const [date, group] of byDate) {
+        // Chunk into MAX_HEALTH_BATCH-sized calls.
+        for (let i = 0; i < group.length; i += MAX_HEALTH_BATCH) {
+          const chunk = group.slice(i, i + MAX_HEALTH_BATCH);
+          const payload: IngestHealthSamplePayload[] = chunk.map((s) => ({
+            sampleUUID: s.sampleUUID,
+            type: s.type,
+            value: s.value,
+            startDate: s.startDate,
+            endDate: s.endDate,
+            source: s.source,
+            deviceModel: s.deviceModel,
+          }));
+          try {
+            const result = await ingestHealthSamples({ date, samples: payload });
+            if (result) {
+              // accepted + deduped are both "safely ingested" from the client's POV.
+              await deleteHealthSamples(chunk.map((c) => c.sampleUUID));
+            } else {
+              allOk = false;
+              await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
+            }
+          } catch (err) {
+            // App Check errors are transient infrastructure failures — do not
+            // consume retry attempts so the outbox isn't permanently exhausted
+            // in debug / TestFlight builds.
+            if (isAppCheckError(err)) {
+              console.warn('[OutboxFlusher] App Check error — skipping attempt bump, will retry on next flush');
+              allOk = false;
+            } else {
+              allOk = false;
+              await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
+            }
           }
         }
       }
+
+      if (!allOk) {
+        const remaining = await countHealthSamples();
+        console.warn(
+          `[OutboxFlusher] drain stopped early after a failed pass — ${remaining} sample(s) ` +
+          'still queued, will retry on the next flush trigger.',
+        );
+        break;
+      }
+
+      if (samples.length < HEALTH_READ_BATCH) break; // queue is fully drained
+
+      // Yield between passes so a multi-thousand-record drain doesn't
+      // block the UI thread or burst-write Firestore in a single tick —
+      // draining across a few seconds is fine, it just needs to finish
+      // on its own.
+      await new Promise((resolve) => setTimeout(resolve, 150));
     }
 
     // ──────────────────────────────────────────────────────────────
