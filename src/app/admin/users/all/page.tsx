@@ -17,6 +17,7 @@ import {
 } from '@/features/admin/services/users.service';
 import { UserFullProfile } from '@/types/user-profile';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { getStepsTrend, type DailyStepsSnapshot } from '@/features/activity/services/activity-history.service';
 import { safeRenderText } from '@/utils/render-helpers';
 import { 
   Search, Trash2, Eye, Shield, Mail, Phone, Calendar, Coins, 
@@ -103,6 +104,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'progression' | 'onboarding' | 'history' | 'timeline'>('profile');
   const [fullProfile, setFullProfile] = useState<UserFullProfile | null>(null);
   const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
+  const [stepsHistory, setStepsHistory] = useState<DailyStepsSnapshot[]>([]);
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
   const [gearDefinitions, setGearDefinitions] = useState<GearDefinition[]>([]);
   const [authority, setAuthority] = useState<{ name: string; type?: string; id?: string } | null>(null);
@@ -136,6 +138,13 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
       // Load workout history
       const history = await getUserWorkoutHistory(user.id, 50);
       setWorkoutHistory(history);
+
+      // Load passive step-sync history (HealthKit / Health Connect —
+      // separate from workout-session distance, see getStepsTrend's doc
+      // comment: reads dailyActivity/{uid}_{date}, written by
+      // useActivityStore.syncToServer()).
+      const steps = await getStepsTrend(user.id, 30);
+      setStepsHistory(steps);
 
       // Load analytics events
       const events = await getUserEvents(user.id, undefined, 100);
@@ -1064,6 +1073,48 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                       </div>
                     )}
                       </div>
+                    </div>
+
+                    {/* 1.5. Passive Activity (HealthKit / Health Connect step sync) —
+                         separate from the workout-session distance shown in the
+                         "history" tab: this is passive daily step-counting, reads
+                         dailyActivity/{uid}_{date} via getStepsTrend(). */}
+                    <div>
+                      <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                        <Footprints size={20} className="text-emerald-500" />
+                        פעילות (סנכרון בריאות)
+                      </h3>
+                      {stepsHistory.length === 0 ? (
+                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-500 italic">
+                          אין נתוני צעדים מסונכרנים
+                        </div>
+                      ) : (() => {
+                        const today = stepsHistory[stepsHistory.length - 1];
+                        const last7 = stepsHistory.slice(-7);
+                        const last7Total = last7.reduce((sum, s) => sum + s.steps, 0);
+                        const last7Avg = last7.length > 0 ? Math.round(last7Total / last7.length) : 0;
+                        const last30Total = stepsHistory.reduce((sum, s) => sum + s.steps, 0);
+                        const last30Avg = stepsHistory.length > 0 ? Math.round(last30Total / stepsHistory.length) : 0;
+                        return (
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                              <div className="text-xs text-gray-600 mb-1">היום ({today.date})</div>
+                              <div className="font-black text-2xl text-emerald-700">{today.steps.toLocaleString('he-IL')}</div>
+                              <div className="text-[11px] text-gray-500 mt-1">צעדים</div>
+                            </div>
+                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                              <div className="text-xs text-gray-600 mb-1">7 ימים אחרונים</div>
+                              <div className="font-black text-2xl text-gray-900">{last7Total.toLocaleString('he-IL')}</div>
+                              <div className="text-[11px] text-gray-500 mt-1">ממוצע: {last7Avg.toLocaleString('he-IL')}/יום</div>
+                            </div>
+                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                              <div className="text-xs text-gray-600 mb-1">30 ימים אחרונים</div>
+                              <div className="font-black text-2xl text-gray-900">{last30Total.toLocaleString('he-IL')}</div>
+                              <div className="text-[11px] text-gray-500 mt-1">ממוצע: {last30Avg.toLocaleString('he-IL')}/יום</div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* 2. Workout Profile - The "Gold" Data */}
