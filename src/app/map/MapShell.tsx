@@ -786,6 +786,43 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     return () => { cancelled = true; };
   }, [isDemoMode, fromExplorer, hasHydrated, profile, refreshProfile]);
 
+  // ── Staggered gate mount (perf) ──────────────────────────────────────────
+  // UnifiedLocationStep(mode="bridge") mounts its OWN full Mapbox GL instance
+  // the moment it renders. AppMap above (inside MapShellInner) already starts
+  // its own cold-boot unconditionally, from the first render — so showing the
+  // gate at the exact same React commit as `needsLocationGate` flipping true
+  // means two WebGL cold-boots (init, ~150-layer style sweep, tile fetch)
+  // compete for CPU/GPU/network at the same instant, on the exact "open the
+  // map" action the heat complaint is about. See
+  // .claude/knowledge/onboarding-map-location-perf-audit.md finding #5.
+  //
+  // This delays ONLY the gate overlay's own appearance, by a short, one-way
+  // stagger (never un-shows an already-shown gate) — it touches nothing in
+  // the non-gated path (the vast majority of map opens): `needsLocationGate`
+  // stays false for those users and this state never turns true regardless.
+  // During the gap the user sees whatever AppMap is currently showing: on a
+  // cold JS cache (first visit), that's its light-gray dynamic-import
+  // `loading` fallback (`bg-[#f3f4f6]` below) for the whole gap — seamless.
+  // On a WARM cache (return visit, JS chunk already parsed), AppMap mounts
+  // immediately and Mapbox's own cold-boot (WebGL init, style sweep, tiles)
+  // races the 400ms timer — if it finishes first, bare map tiles could be
+  // briefly visible/tappable before the gate covers them. Not a security or
+  // data-integrity issue (park data is public read; any write still needs
+  // authorityId per Firestore rules) — purely a "did the map flash through"
+  // UX question. Device test must cover BOTH cache states, not just first-visit.
+  //
+  // Deliberate tradeoff, NOT a reversal of the original "warms up behind the
+  // gate" design (file docstring above): AppMap keeps warming from t=0
+  // either way, only the gate's OWN Mapbox instance starts slightly later.
+  // NEEDS DEVICE VERIFICATION before this ships — see above.
+  const [gateVisible, setGateVisible] = useState(false);
+  useEffect(() => {
+    if (gateVisible) return;
+    if (!needsLocationGate) return;
+    const id = setTimeout(() => setGateVisible(true), 400);
+    return () => clearTimeout(id);
+  }, [needsLocationGate, gateVisible]);
+
   const handleLocationGateComplete = async () => {
     if (typeof window !== 'undefined') {
       const authorityId = sessionStorage.getItem('selected_authority_id');
@@ -814,8 +851,10 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
         <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} isDemoMode={isDemoMode} />
       </MapModeProvider>
 
-      {/* Location gate — high z-index overlay, not a tree gate */}
-      {needsLocationGate && (
+      {/* Location gate — high z-index overlay, not a tree gate.
+          gateVisible staggers its (separate) Mapbox instance behind AppMap's —
+          see the gateVisible comment above. */}
+      {needsLocationGate && gateVisible && (
         <Suspense
           fallback={<div className="fixed inset-0 z-[80] bg-[#f3f4f6]" aria-busy="true" />}
         >
