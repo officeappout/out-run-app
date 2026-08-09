@@ -12,6 +12,11 @@
 import {
   doc,
   getDoc,
+  getDocs,
+  collection,
+  query,
+  where,
+  documentId,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -160,6 +165,54 @@ export async function getWeekEntries(
   } catch (err) {
     console.error(`[UserSchedule] getWeekEntries failed for ${uid} week ${sundayISO}:`, err);
     return [];
+  }
+}
+
+/**
+ * Batched read for an explicit list of dates — issues chunked
+ * `documentId() in [...]` queries (≤30 ids each) instead of a `getDoc` per
+ * date. Mirrors the `getHistoryMapForExercises` #7 pattern
+ * (`exercise-history.service.ts`). Returns a map of date → entries[];
+ * a date with no doc is simply absent (equivalent to `getScheduleEntries`
+ * returning `[]` for that day).
+ *
+ * Perf context: `RollingAgenda`'s planner window is up to 115 dates — a
+ * `getDoc`-per-date fan-out cost ~115 round-trips per screen open/edit.
+ * This collapses that to ceil(dates/30) round-trips (~4 for the full window).
+ */
+export async function getScheduleEntriesForDates(
+  _userId: string,
+  dates: string[],
+): Promise<Record<string, UserScheduleEntry[]>> {
+  const uid = await resolveAuthUid();
+  if (!uid || dates.length === 0) return {};
+
+  const uniqueDates = Array.from(new Set(dates));
+  const IN_CHUNK = 30;
+  const chunks: string[][] = [];
+  for (let i = 0; i < uniqueDates.length; i += IN_CHUNK) {
+    chunks.push(uniqueDates.slice(i, i + IN_CHUNK).map((d) => docId(uid, d)));
+  }
+
+  const map: Record<string, UserScheduleEntry[]> = {};
+  try {
+    const col = collection(db, COLLECTION);
+    const snaps = await Promise.all(
+      chunks.map((chunk) => getDocs(query(col, where(documentId(), 'in', chunk)))),
+    );
+    for (const snap of snaps) {
+      for (const docSnap of snap.docs) {
+        const day = readDay(docSnap.id, docSnap.data() as Record<string, unknown>);
+        map[day.date] = day.entries;
+      }
+    }
+    return map;
+  } catch (err) {
+    console.error(
+      `[UserSchedule] getScheduleEntriesForDates FAILED (uid=${uid}, ${uniqueDates.length} dates)`,
+      err,
+    );
+    return {};
   }
 }
 

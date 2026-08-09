@@ -74,6 +74,15 @@ interface AgendaDayCardProps {
   /** Called when a community entry is tapped — opens a drawer instead of navigating. */
   onCommunityTap?: (groupId: string, groupName: string) => void;
   refreshKey?: number;
+  /**
+   * Batched pre-fetch from the parent (`RollingAgenda`) keyed by date —
+   * `undefined` when the parent doesn't provide one (e.g. `progress/page.tsx`
+   * renders this card standalone), `null` while the parent's batch fetch is
+   * in flight, an object once it resolves. When provided, this card skips
+   * its own `getScheduleEntries` network call entirely and reads its day's
+   * entries from here instead — see schedule-editor-perf-audit.md.
+   */
+  scheduleMap?: Record<string, UserScheduleEntry[]> | null;
   rowRef?: (el: HTMLDivElement | null) => void;
 }
 
@@ -637,6 +646,7 @@ export default function AgendaDayCard({
   onPreviewEntry,
   onCommunityTap,
   refreshKey,
+  scheduleMap,
   rowRef,
 }: AgendaDayCardProps) {
   const { profile } = useUserStore();
@@ -677,11 +687,16 @@ export default function AgendaDayCard({
     setEntries(undefined);
     if (hasRunning) { setEntries([]); return; }
     if (!userId) { setEntries([]); return; }
+    // Parent's batched fetch (see RollingAgenda) is still in flight — hold
+    // the skeleton instead of falling back to a per-card network call.
+    if (scheduleMap === null) return;
     let cancelled = false;
     async function load() {
       try {
-        // Single round-trip — getScheduleEntries returns the full entries[] for the day.
-        let result = await getScheduleEntries(userId, date);
+        // scheduleMap provided → read the pre-fetched batch (no network call).
+        // scheduleMap undefined → standalone usage (e.g. progress/page.tsx),
+        // fall back to the original single-day round-trip.
+        let result = scheduleMap ? (scheduleMap[date] ?? []) : await getScheduleEntries(userId, date);
 
         // Recurring-template fallback — only if Firestore returned nothing.
         if (result.length === 0 && recurringTemplate) {
@@ -717,7 +732,7 @@ export default function AgendaDayCard({
     }
     load();
     return () => { cancelled = true; };
-  }, [userId, date, recurringTemplate, refreshKey, hasRunning, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms]);
+  }, [userId, date, recurringTemplate, refreshKey, hasRunning, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, scheduleMap]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
