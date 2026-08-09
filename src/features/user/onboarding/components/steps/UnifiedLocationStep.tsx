@@ -9,6 +9,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
+import { fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { ISRAELI_LOCATIONS } from '@/lib/data/israel-locations';
 import dynamic from 'next/dynamic';
 import type { MapRef } from 'react-map-gl';
@@ -35,7 +36,6 @@ import {
 import { MAPBOX_TOKEN, MAPBOX_STYLE } from './UnifiedLocation/location-constants';
 
 import {
-  setMapLanguageToHebrew,
   calculateDistance,
   formatDistance,
   reverseGeocode,
@@ -173,6 +173,18 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       .catch(console.error);
   }, []);
 
+  // Perf: warm the shared parks cache as soon as this step mounts, in
+  // parallel with everything else (GPS permission prompt, map init, the
+  // user reading the screen). `fetchNearbyFacilities` needs it later, at
+  // the END of the geocode → authority → hero-route chain each handler
+  // below runs — starting it here overlaps that latency instead of adding
+  // it on top. Fire-and-forget: fetchRealParks's own in-flight/localStorage
+  // caching means a later call just joins this one or hits the warm cache.
+  // See .claude/knowledge/onboarding-map-location-perf-audit.md finding #1.
+  useEffect(() => {
+    fetchRealParks().catch(() => {});
+  }, []);
+
   // Load cities on mount
   useEffect(() => {
     const loadCities = () => {
@@ -219,18 +231,15 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   }, [stage]);
 
   // Handle map load
+  //
+  // Perf: no longer re-applies setMapLanguageToHebrew here — MapboxMapWrapper's
+  // own onLoad handler already calls it synchronously (before this callback
+  // fires, since it invokes onLoad at the end of its handler) and the function
+  // has no idempotency guard, so a second call was a full, wasted re-iteration
+  // of every style layer 100ms later for no behavioral difference. See
+  // .claude/knowledge/onboarding-map-location-perf-audit.md finding #6.
   const handleMapLoad = useCallback((event: { target: MapboxGLMap }) => {
     setIsMapLoading(false);
-    const map = event.target;
-    if (!map) return;
-    
-    setTimeout(() => {
-      if (map.isStyleLoaded()) {
-        setMapLanguageToHebrew(map);
-      } else {
-        map.once('style.load', () => setMapLanguageToHebrew(map));
-      }
-    }, 100);
   }, []);
 
   // Auto-Zoom: fitBounds on the Hero Route (disabled in explorer — parks only)
