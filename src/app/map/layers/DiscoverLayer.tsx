@@ -39,6 +39,7 @@ import RouteDetailSheet from '@/features/parks/client/components/route-preview/R
 import { MapLayersControl } from '@/features/parks/core/components/MapLayersControl';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useLegPlanStore } from '@/features/parks/core/store/useLegPlanStore';
+import { usePendingAddressStore } from '@/features/parks/core/store/usePendingAddressStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { auth } from '@/lib/firebase';
@@ -1007,6 +1008,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       // above already did that), same pre-existing limitation
       // onRequestAddressDestination has today. Not solved here.
       const legPlan = useLegPlanStore.getState();
+      const pendingAddr = usePendingAddressStore.getState();
       if (legPlan.isComposing) {
         const [lng, lat] = addr.coords as [number, number];
         legPlan.addLeg({ lat, lng }, addr.text);
@@ -1015,7 +1017,22 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         // showing the newly-added stop. freeRunStep is untouched local
         // DiscoverLayer state, so it's still 'config' from before the exit.
         setMapMode('freeRun');
+      } else if (pendingAddr.isComposing) {
+        // Address-destination pick (09.08 revision, David's 2nd-round UX
+        // fix) — no longer commutes immediately. onRequestAddressDestination
+        // below arms isComposing before opening search, exactly mirroring
+        // the leg-plan branch above, but stashes into the SEPARATE
+        // usePendingAddressStore instead of adding a leg (the two flows are
+        // deliberately not merged yet — David explicitly deferred that).
+        const [lng, lat] = addr.coords as [number, number];
+        pendingAddr.setPending({ lat, lng, label: addr.text });
+        // Return to the free-run drawer — FreeRunDrawer's lazy goalSheetOpen
+        // init reads isComposing and reopens GoalSheet automatically,
+        // showing the pending address with confirm/cancel actions.
+        setMapMode('freeRun');
       } else {
+        // Plain top-search-bar / other entry points untouched by either
+        // flow above — still commutes immediately, exactly as before.
         startCommute({ coords: addr.coords as [number, number], label: addr.text });
       }
     }
@@ -1439,11 +1456,12 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 onStartWorkout={logic.startActiveWorkout}
                 onClose={() => {
                   // Explicit "I'm done with Free Run" — distinct from the
-                  // onRequestAddLeg round-trip below (which exits via its
-                  // own callback, never this one), so this can safely
-                  // discard an in-progress leg plan without racing the
-                  // add-stop flow.
+                  // onRequestAddLeg / onRequestAddressDestination round-trips
+                  // below (which exit via their own callbacks, never this
+                  // one), so this can safely discard an in-progress leg plan
+                  // or pending address without racing either flow.
                   useLegPlanStore.getState().reset();
+                  usePendingAddressStore.getState().clear();
                   setMapMode('idle');
                 }}
                 userPosition={userLocation}
@@ -1462,11 +1480,23 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   // Exit the free-run drawer (mapMode gate) and hand off straight to
                   // the SAME NavigationHub search flow the top search bar already
                   // uses — `screen` picks SEARCH the moment navState flips, so no
-                  // mapMode juggling beyond leaving 'freeRun' is needed. Address
-                  // selection is already fully wired (handleAddressSelect →
-                  // startCommute) — nothing new to build downstream of this.
+                  // mapMode juggling beyond leaving 'freeRun' is needed.
+                  //
+                  // startComposing() (09.08 revision) arms usePendingAddressStore
+                  // BEFORE the exit, mirroring exactly how LegPlanSheet's
+                  // handleAddStop arms useLegPlanStore before its own exit —
+                  // handleAddressSelect below reads this flag to know the pick
+                  // should come back here for review, not commute immediately.
+                  usePendingAddressStore.getState().startComposing();
                   setMapMode('idle');
                   logic.setNavState('searching');
+                }}
+                onConfirmAddressDestination={(pending) => {
+                  // The only thing that actually calls startCommute now
+                  // (09.08) — the user has seen the picked address back in
+                  // GoalSheet and explicitly tapped "🏁 התחל לכתובת הזו".
+                  usePendingAddressStore.getState().clear();
+                  startCommute({ coords: [pending.lng, pending.lat], label: pending.label });
                 }}
                 onRequestAddLeg={() => {
                   // Identical drawer-exit mechanics to onRequestAddressDestination
