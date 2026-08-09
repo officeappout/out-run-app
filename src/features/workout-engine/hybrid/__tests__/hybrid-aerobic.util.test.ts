@@ -39,3 +39,47 @@ describe('deriveAerobicTargetKm — pure aerobic target distance', () => {
     expect(km).toBe(2.5);
   });
 });
+
+describe('deriveAerobicTargetKm — step-gap calibration (09.08.2026)', () => {
+  const intent = { timeBudgetMin: 35, aerobicShare: 1, aerobicKind: 'walking' as const };
+  const base = deriveAerobicTargetKm(intent, 390); // no 3rd arg → pre-calibration baseline
+
+  it('omitted stepContext is byte-identical to the pre-calibration formula', () => {
+    expect(deriveAerobicTargetKm(intent, 390)).toBe(base);
+  });
+
+  it('goal already met (stepsRemaining <= 0) → no boost', () => {
+    const km = deriveAerobicTargetKm(intent, 390, { stepsRemaining: 0, stepGoal: 8000 });
+    expect(km).toBeCloseTo(base, 5);
+  });
+
+  it('no stepGoal (0 or missing) → no boost, even with a real stepsRemaining', () => {
+    expect(deriveAerobicTargetKm(intent, 390, { stepsRemaining: 5000, stepGoal: 0 })).toBeCloseTo(base, 5);
+    expect(deriveAerobicTargetKm(intent, 390, { stepsRemaining: 5000 })).toBeCloseTo(base, 5);
+  });
+
+  it('full-day deficit (stepsRemaining === stepGoal) boosts by the max +30%', () => {
+    const km = deriveAerobicTargetKm(intent, 390, { stepsRemaining: 8000, stepGoal: 8000 });
+    expect(km).toBeCloseTo(base * 1.3, 5);
+  });
+
+  it('a partial gap boosts proportionally (half the goal remaining → +15%)', () => {
+    const km = deriveAerobicTargetKm(intent, 390, { stepsRemaining: 4000, stepGoal: 8000 });
+    expect(km).toBeCloseTo(base * 1.15, 5);
+  });
+
+  it('deficitRatio is clamped at 1 even if stepsRemaining somehow exceeds stepGoal', () => {
+    const overGoal = deriveAerobicTargetKm(intent, 390, { stepsRemaining: 20000, stepGoal: 8000 });
+    const atGoal = deriveAerobicTargetKm(intent, 390, { stepsRemaining: 8000, stepGoal: 8000 });
+    expect(overGoal).toBeCloseTo(atGoal, 5);
+  });
+
+  it('the final [1, 20] clamp still applies after the boost', () => {
+    const huge = deriveAerobicTargetKm(
+      { timeBudgetMin: 600, aerobicShare: 1, aerobicKind: 'walking' },
+      390,
+      { stepsRemaining: 8000, stepGoal: 8000 },
+    );
+    expect(huge).toBe(20);
+  });
+});

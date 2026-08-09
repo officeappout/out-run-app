@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
+import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
+import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { PRIMARY_CATEGORIES } from '@/features/user/onboarding/services/single-domain-assessment.service';
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
@@ -122,6 +124,22 @@ function capMapInsert<V>(map: Map<string, V>, key: string, val: V): void {
   map.set(key, val);
 }
 
+// Step-gap calibration cache staleness (09.08.2026): deriveAerobicTargetKm now boosts the
+// 'recommended'/'route_stops' target km by the live step-gap (start-hybrid-session.ts). This
+// module-scope cache is warm for the WHOLE TAB LIFETIME (see comment above) with no time
+// component at all — without this, a plan composed at 9am with a large gap would be served
+// unchanged at 9pm after the gap closed. Coarse-bucketed (6 bands, ~20% wide) into the key
+// itself — same "coarse bucket, not exact value" shape the geo rounding above already uses —
+// rather than a manual bust, so small step-count noise doesn't churn the cache. full_park /
+// aerobic_quick don't read step data at all, so a bucket tick for them just yields an
+// identical result under a new key (harmless — the existing FIFO cap self-heals it).
+function stepGapBucket(): number {
+  const stepContext = buildStepContext(useActivityStore.getState().today);
+  if (stepContext.stepGoal <= 0) return 0;
+  const deficitRatio = Math.min(1, Math.max(0, stepContext.stepsRemaining / stepContext.stepGoal));
+  return Math.round(deficitRatio * 5);
+}
+
 function hybridWarmKey(
   slotId: string,
   loc: { lat: number; lng: number } | null,
@@ -130,7 +148,7 @@ function hybridWarmKey(
   const uid = useUserStore.getState().profile?.id ?? 'anon';
   const r = (n: number) => Math.round(n * 1000) / 1000; // ~110m bucket
   const geo = loc ? `${r(loc.lat)},${r(loc.lng)}` : 'noloc';
-  return `${uid}|${slotId}|${geo}|${activity}`;
+  return `${uid}|${slotId}|${geo}|${activity}|sg${stepGapBucket()}`;
 }
 
 interface DiscoverLayerProps {
