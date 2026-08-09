@@ -25,6 +25,7 @@ import SideBySideRow from './SideBySideRow';
 import SectionHeader from './SectionHeader';
 import CompactMetricTile from '@/features/home/components/widgets/CompactMetricTile';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
+import { useHealthConnected } from '@/hooks/useHealthConnected';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 
@@ -71,10 +72,12 @@ function StepsTile() {
   const { triggerHealthPermission, disclosureProps, unavailableReason } = useHealthWithDisclosure({
     onGranted: () => router.push('/activity/steps'),
   });
-  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
+  // Ground truth (native PREF_KEY_PERMISSIONS) — see useHealthConnected's
+  // doc comment for why this replaced useSettingsStore.healthBridgeEnabled.
+  const healthConnected = useHealthConnected();
   const healthPermissionAsked = useSettingsStore((s) => s.healthPermissionAsked);
   // Same not-asked / asked-denied distinction as StepsSummaryCard.
-  const connectPromptLabel = healthBridgeEnabled
+  const connectPromptLabel = healthConnected !== false
     ? null
     : healthPermissionAsked
       ? 'דחית קודם, רוצה לחבר?'

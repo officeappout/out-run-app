@@ -21,6 +21,7 @@ import { Footprints, ChevronLeft } from 'lucide-react';
 import CircularProgress from '@/components/CircularProgress';
 import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
+import { useHealthConnected } from '@/hooks/useHealthConnected';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 import { DAILY_STEP_GOAL } from '@/config/health-goals';
@@ -65,11 +66,15 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
   const { triggerHealthPermission, disclosureProps, unavailableReason } = useHealthWithDisclosure({
     onGranted: () => router.push('/activity/steps'),
   });
-  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
+  // Ground truth (native PREF_KEY_PERMISSIONS), not useSettingsStore
+  // .healthBridgeEnabled — see useHealthConnected's doc comment. `null`
+  // (still loading) is treated as connected-until-proven-otherwise so the
+  // CTA never flashes on top of a working, already-granted state.
+  const healthConnected = useHealthConnected();
   const healthPermissionAsked = useSettingsStore((s) => s.healthPermissionAsked);
   // Fallback label when not yet connected — distinguishes "never asked /
   // deferred during onboarding" from "you declined the real OS dialog before".
-  const connectPromptLabel = healthBridgeEnabled
+  const connectPromptLabel = healthConnected !== false
     ? null
     : healthPermissionAsked
       ? 'דחית קודם, רוצה לחבר?'
