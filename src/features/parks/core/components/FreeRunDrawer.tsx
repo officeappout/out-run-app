@@ -23,6 +23,7 @@ import type { RunInviteResult } from '@/lib/workoutInvite';
 import { buildRouteGenRequest } from '../services/route-request.utils';
 import type { DrawerGoal, DrawerActivity } from '../services/route-request.utils';
 import { useLegPlanStore } from '../store/useLegPlanStore';
+import { usePendingAddressStore } from '../store/usePendingAddressStore';
 import {
   compileLegPlan,
   MAX_LEGS_PER_PLAN,
@@ -91,6 +92,13 @@ interface FreeRunDrawerProps {
    * out-and-back) is completely unchanged.
    */
   onRequestAddressDestination?: () => void;
+  /**
+   * Fires when the user confirms a picked address destination via the
+   * "🏁 התחל לכתובת הזו" button (09.08 — address-destination no longer
+   * auto-builds a route on pick; see usePendingAddressStore). The parent
+   * owns startCommute, so this is the only thing that actually calls it.
+   */
+  onConfirmAddressDestination?: (pending: { lat: number; lng: number; label?: string }) => void;
   /**
    * Leg-plan "add stop" request (ג' Phase 1, 08.08) — opens the same
    * NavigationHub search flow as onRequestAddressDestination, but the
@@ -474,6 +482,8 @@ function GoalSheet({
   genderDefault,
   onSaveWeight,
   onRequestAddressDestination,
+  pendingAddress,
+  onConfirmAddressDestination,
   onOpenLegPlan,
   legPlanCount,
 }: {
@@ -492,6 +502,17 @@ function GoalSheet({
   genderDefault: number;
   onSaveWeight: (w: number) => Promise<void>;
   onRequestAddressDestination?: () => void;
+  /**
+   * A picked-but-not-yet-started address destination (09.08, David's 2nd
+   * round of UX feedback). Address-destination used to build a route the
+   * instant an address was picked; now it returns here first — editable,
+   * not committed — matching the "picks land in the drawer for review"
+   * shape the leg-plan flow already has, WITHOUT reusing useLegPlanStore
+   * itself (David explicitly deferred that merge as its own future round).
+   */
+  pendingAddress?: { lat: number; lng: number; label?: string } | null;
+  /** Explicit "start to this address" confirm — the only thing that actually calls startCommute now. */
+  onConfirmAddressDestination?: (pending: { lat: number; lng: number; label?: string }) => void;
   /** Opens LegPlanSheet (ג' Phase 1) — same GoalSheet-hand-off pattern as onOpenExtras, not onRequestAddressDestination (leg-plan composition needs to stay resident in FreeRunDrawer's own sheet stack). */
   onOpenLegPlan?: () => void;
   /** Current in-progress leg count — shown on the button so the user sees plan state without opening the sheet. 0 when nothing composed yet. */
@@ -603,20 +624,46 @@ function GoalSheet({
               )}
             </div>
 
-            {/* Address destination (08.08 decision) — additive option below the
-                goal tabs, not a replacement. Default (loop) is unaffected unless
-                explicitly tapped. Hands off entirely to the existing NavigationHub
-                / commute flow — no new engine or search UI here. */}
+            {/* Address destination (08.08 decision, revised 09.08) — additive
+                option below the goal tabs, not a replacement. Default (loop)
+                is unaffected unless explicitly tapped. Picking an address no
+                longer builds a route immediately (David, 09.08 — it used to
+                jump straight into RouteCarousel) — it returns here as an
+                editable, unconfirmed pick; only the explicit "🏁 התחל לכתובת
+                הזו" button below actually calls startCommute. */}
             {onRequestAddressDestination && (
               <div className="px-5 mb-4">
                 <button
                   type="button"
                   onClick={onRequestAddressDestination}
-                  className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
+                  className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform truncate"
                   style={{ backgroundColor: '#F3F4F6' }}
                 >
-                  📍 יעד: כתובת
+                  {pendingAddress
+                    ? `📍 ${pendingAddress.label || 'היעד שנבחר'} · שנה`
+                    : '📍 יעד: כתובת'}
                 </button>
+
+                {pendingAddress && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => onConfirmAddressDestination?.(pendingAddress)}
+                      className="flex-1 py-3 text-[13px] font-black text-white rounded-2xl active:scale-[0.98] transition-transform"
+                      style={{ backgroundColor: ACCENT }}
+                    >
+                      🏁 התחל לכתובת הזו
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => usePendingAddressStore.getState().clear()}
+                      className="px-4 py-3 text-[13px] font-black text-gray-400 rounded-2xl active:scale-[0.98] transition-transform"
+                      style={{ backgroundColor: '#F3F4F6' }}
+                    >
+                      ביטול
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -969,6 +1016,7 @@ export default function FreeRunDrawer({
   cityName,
   onStartHybrid,
   onRequestAddressDestination,
+  onConfirmAddressDestination,
   onRequestAddLeg,
   onStartLegPlanRun,
 }: FreeRunDrawerProps) {
@@ -989,7 +1037,14 @@ export default function FreeRunDrawer({
   const [distanceValue, setDistanceValue] = useState(defaults.distance);
   const [caloriesValue, setCaloriesValue] = useState(defaults.calories);
 
-  const [goalSheetOpen, setGoalSheetOpen] = useState(false);
+  // Lazy-seeded from BOTH cross-remount stores (not always false) —
+  // FreeRunDrawer remounts after every "add stop" / address-pick
+  // round-trip (mapMode leaves 'freeRun' per the One-Card-Only law), so
+  // this auto-reopens GoalSheet showing the pending address instead of
+  // dropping the user back at the base drawer. Mirrors legPlanOpen below.
+  const [goalSheetOpen, setGoalSheetOpen] = useState(
+    () => usePendingAddressStore.getState().isComposing,
+  );
   const [extrasOpen,    setExtrasOpen]    = useState(false);
   // Lazy-seeded from the store (not always false) — FreeRunDrawer remounts
   // after every leg-plan "add stop" round-trip (mapMode leaves 'freeRun'
@@ -997,6 +1052,7 @@ export default function FreeRunDrawer({
   // the updated list instead of dropping the user back at the base drawer.
   const [legPlanOpen, setLegPlanOpen] = useState(() => useLegPlanStore.getState().isComposing);
   const legPlanCount = useLegPlanStore((s) => s.legs.length);
+  const pendingAddress = usePendingAddressStore((s) => s.pending);
   const [extras, setExtras] = useState<ExtrasState>({
     circular: false, gymParks: false, benches: false, stairs: false, trail: false,
   });
@@ -1322,6 +1378,8 @@ export default function FreeRunDrawer({
         genderDefault={genderDefault}
         onSaveWeight={saveWeightInline}
         onRequestAddressDestination={onRequestAddressDestination}
+        pendingAddress={pendingAddress}
+        onConfirmAddressDestination={onConfirmAddressDestination}
         onOpenLegPlan={onRequestAddLeg ? () => { setGoalSheetOpen(false); setLegPlanOpen(true); } : undefined}
         legPlanCount={legPlanCount}
       />
@@ -1337,7 +1395,14 @@ export default function FreeRunDrawer({
       {/* Leg-plan sheet — z-[104/105] (shares ExtrasSheet's tier, mutually exclusive with it) */}
       <LegPlanSheet
         isOpen={legPlanOpen}
-        onClose={() => setLegPlanOpen(false)}
+        // "שמור והמשך" (09.08, David's 2nd-round UX fix) — X / backdrop-tap /
+        // drag-dismiss all shared this one onClose, which used to drop the
+        // user all the way back to the base drawer with no link to
+        // goalSheetOpen — reads as "did that just discard my stops?" even
+        // though the store still had them. Returning to GoalSheet instead
+        // makes it unambiguous: this is save-and-continue, NOT clear — that
+        // stays its own explicit, separate action (handleClearAll below).
+        onClose={() => { setLegPlanOpen(false); setGoalSheetOpen(true); }}
         userPosition={userPosition}
         activity={drawerActivity()}
         onRequestAddLeg={onRequestAddLeg}
