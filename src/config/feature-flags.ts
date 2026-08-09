@@ -83,7 +83,11 @@ export const MAP_ROUTE_STOPS_V1 = true;
 // (no compose — its CTA navigates straight to startMiniDomainAssessment(router, 'push'),
 // same domain fallback DiscoverLayer's onAssessmentLink already uses) instead of adding
 // alongside it. A user WITH a strength program still sees 'full_park', unchanged.
-export const STRENGTH_ASSESSMENT_PROMPT_CARD_V1 = false;
+// TRUE (09.08.2026, David-approved after review — code-reviewer PASS + independent
+// adversarial logic review, both clean, no blocking findings). Neither the badge fix nor
+// this substitution has been visually verified in a browser/device (no access from this
+// environment) — David verifies directly, same pattern as every other flag this session.
+export const STRENGTH_ASSESSMENT_PROMPT_CARD_V1 = true;
 
 // MAP_REC_ENGINE_RANKING_V1: the unified rec-engine's PULL ranking, wired into DiscoverLayer's
 // hybrid slot carousel (useSuggestionEngineStore → applyRankedSlotOrder). This specific wiring
