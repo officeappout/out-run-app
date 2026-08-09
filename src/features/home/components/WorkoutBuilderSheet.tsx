@@ -420,6 +420,23 @@ export default function WorkoutBuilderSheet({
         ap.templateId === prog.id || resolveToSlug(ap.templateId) === prog.id,
       ) ?? false;
       if (isExplicitlyActive) return true;
+
+      // full_body override (09.08.2026, David-approved): the general >=2-of-N containment
+      // gate above stays for every OTHER master — full_body specifically requires ALL 4 of
+      // its known leaf domains (push/pull/legs/core), not just 2. Keyed by id/slug, NOT a
+      // generic "children.length === 4" check — the LIVE Firestore full_body doc's
+      // subPrograms has 5 entries (a stray nested "upper_body" reference, a data-quality
+      // anomaly, verified 09.08.2026), so a raw count check would silently never fire
+      // against real data. KNOWN_MASTER_PROGRAMS.full_body is the authoritative 4-leaf set
+      // regardless of what the live doc's subPrograms currently holds.
+      const resolvedSlug = resolveToSlug(prog.id) || prog.id;
+      if (prog.id === 'full_body' || resolvedSlug === 'full_body') {
+        return KNOWN_MASTER_PROGRAMS.full_body.every(childId => {
+          const slug = resolveToSlug(childId) || childId;
+          return enrolledIds.has(childId) || enrolledIds.has(slug);
+        });
+      }
+
       const enrolledChildCount = prog.children.filter(childId => {
         const slug = resolveToSlug(childId) || childId;
         return enrolledIds.has(childId) || enrolledIds.has(slug);
