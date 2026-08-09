@@ -122,12 +122,25 @@ export async function enqueueHealthSamples(samples: OutboxHealthSample[]): Promi
   await tx.done;
 }
 
+/**
+ * Reads queued health samples ordered by `date` DESCENDING (most recent
+ * day first), not by enqueue time. This matters when a large backfill
+ * (e.g. 90 days of history, shredded into up to 3 outbox records per
+ * HealthKit sample — see buildOutboxSample in healthBridge/init.ts) can't
+ * fully drain in one pass: every record from a single sync call shares
+ * the exact same `enqueuedAt` timestamp (one `Date.now()` for the whole
+ * batch), so ordering by enqueue time gives no meaningful recency signal
+ * within that batch — an interrupted drain could leave the user with an
+ * arbitrary slice. Ordering by the sample's own `date` instead guarantees
+ * that whatever gets flushed first (and would survive an interruption)
+ * is always the most recent data, with older history trailing behind.
+ */
 export async function getQueuedHealthSamples(limit = 200): Promise<OutboxHealthSample[]> {
   const db = await getDB();
   if (!db) return [];
   const tx = db.transaction(HEALTH_STORE, 'readonly');
   const results: OutboxHealthSample[] = [];
-  let cursor = await tx.store.index('byEnqueuedAt').openCursor();
+  let cursor = await tx.store.index('byDate').openCursor(null, 'prev');
   while (cursor && results.length < limit) {
     results.push(cursor.value as OutboxHealthSample);
     cursor = await cursor.continue();
