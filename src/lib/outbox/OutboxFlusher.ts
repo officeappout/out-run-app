@@ -179,17 +179,27 @@ class FlusherImpl {
     // the job, so most of the backfill silently never reached Firestore.
     //
     // Bounded by MAX_DRAIN_PASSES as a safety ceiling (never spins
-    // forever), breaks immediately on the first failed pass — the
-    // remainder stays queued for the next natural trigger; existing
-    // per-record backoff/attempts handles retry, no need to keep
-    // hammering a failing backend here — and yields between passes so a
-    // large drain doesn't block the UI thread or burst-write Firestore
-    // in one tick. getQueuedHealthSamples() reads newest-day-first (see
-    // its doc comment), so if a drain is ever interrupted, whatever
-    // already landed is always the most recent data, not an arbitrary
-    // slice.
+    // forever) and yields between passes so a large drain doesn't block
+    // the UI thread or burst-write Firestore in one tick.
+    // getQueuedHealthSamples() reads newest-day-first (see its doc
+    // comment), so if a drain is ever interrupted, whatever already
+    // landed is always the most recent data, not an arbitrary slice.
+    //
+    // A single failed pass does NOT abort the whole drain (that was the
+    // 1.25 regression — one transient error, e.g. a momentary network
+    // blip or an App Check token mid-refresh, stopped the entire flush
+    // and stranded everything still queued, which read as "even less
+    // history than before the fix"). Instead: a failed pass backs off
+    // and retries in place (same un-consumed batch — failed chunks stay
+    // queued with a bumped attempts counter, so the next read picks up
+    // exactly where it left off) up to MAX_CONSECUTIVE_PASS_FAILURES
+    // times in a row before finally giving up for this flushNow() call.
+    // Any successful pass resets the counter — only REPEATED, back-to-
+    // back failures stop the loop, not one hiccup.
     const HEALTH_READ_BATCH = MAX_HEALTH_BATCH * 5;
     const MAX_DRAIN_PASSES = 50; // 50 * 1000 = 50,000 records/flush — far beyond any real backlog
+    const MAX_CONSECUTIVE_PASS_FAILURES = 3;
+    let consecutiveFailedPasses = 0;
     for (let pass = 0; pass < MAX_DRAIN_PASSES; pass++) {
       const samples = await getQueuedHealthSamples(HEALTH_READ_BATCH);
       if (samples.length === 0) break;
@@ -201,6 +211,7 @@ class FlusherImpl {
         arr.push(s);
         byDate.set(s.date, arr);
       }
+      let passOk = true;
       for (const [date, group] of byDate) {
         // Chunk into MAX_HEALTH_BATCH-sized calls.
         for (let i = 0; i < group.length; i += MAX_HEALTH_BATCH) {
@@ -221,6 +232,7 @@ class FlusherImpl {
               await deleteHealthSamples(chunk.map((c) => c.sampleUUID));
             } else {
               allOk = false;
+              passOk = false;
               await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
             }
           } catch (err) {
@@ -230,23 +242,36 @@ class FlusherImpl {
             if (isAppCheckError(err)) {
               console.warn('[OutboxFlusher] App Check error — skipping attempt bump, will retry on next flush');
               allOk = false;
+              passOk = false;
             } else {
               allOk = false;
+              passOk = false;
               await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
             }
           }
         }
       }
 
-      if (!allOk) {
-        const remaining = await countHealthSamples();
+      if (!passOk) {
+        consecutiveFailedPasses++;
+        if (consecutiveFailedPasses >= MAX_CONSECUTIVE_PASS_FAILURES) {
+          const remaining = await countHealthSamples();
+          console.warn(
+            `[OutboxFlusher] drain stopped after ${consecutiveFailedPasses} consecutive failed ` +
+            `passes — ${remaining} sample(s) still queued, will retry on the next flush trigger ` +
+            '(app foreground / network reconnect / next enqueue).',
+          );
+          break;
+        }
         console.warn(
-          `[OutboxFlusher] drain stopped early after a failed pass — ${remaining} sample(s) ` +
-          'still queued, will retry on the next flush trigger.',
+          `[OutboxFlusher] pass ${pass} failed (${consecutiveFailedPasses}/` +
+          `${MAX_CONSECUTIVE_PASS_FAILURES} consecutive) — retrying in ${consecutiveFailedPasses * 500}ms`,
         );
-        break;
+        await new Promise((resolve) => setTimeout(resolve, consecutiveFailedPasses * 500));
+        continue;
       }
 
+      consecutiveFailedPasses = 0;
       if (samples.length < HEALTH_READ_BATCH) break; // queue is fully drained
 
       // Yield between passes so a multi-thousand-record drain doesn't
