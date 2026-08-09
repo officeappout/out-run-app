@@ -294,16 +294,21 @@ export default function RollingAgenda({
   // `dates` can be up to 115 entries (planner mode). Previously each
   // AgendaDayCard fetched its own day independently — ~115 getDoc round-trips
   // per open, ~145 per edit (see .claude/knowledge/schedule-editor-perf-audit.md).
-  // One chunked `documentId() in [...]` query here replaces that fan-out;
-  // `null` while in flight tells AgendaDayCard to hold its loading skeleton
-  // instead of falling back to its own per-card fetch.
-  const [scheduleMap, setScheduleMap] = useState<Record<string, UserScheduleEntry[]> | null>(null);
+  // One chunked `documentId() in [...]` query here replaces that fan-out.
+  // Three states reach AgendaDayCard via its `scheduleMap` prop:
+  //   null      → batch still in flight, hold the loading skeleton
+  //   object    → batch succeeded (possibly `{}` = confirmed no docs)
+  //   undefined → batch FAILED — do not treat missing dates as confirmed-
+  //               empty (would let hydration write a duplicate entry);
+  //               `undefined` reuses AgendaDayCard's "no scheduleMap"
+  //               contract so every card falls back to its own fetch.
+  const [scheduleMap, setScheduleMap] = useState<Record<string, UserScheduleEntry[]> | null | undefined>(null);
   useEffect(() => {
     if (!userId || dates.length === 0) { setScheduleMap({}); return; }
     let cancelled = false;
     setScheduleMap(null);
     getScheduleEntriesForDates(userId, dates).then((map) => {
-      if (!cancelled) setScheduleMap(map);
+      if (!cancelled) setScheduleMap(map ?? undefined);
     });
     return () => { cancelled = true; };
   }, [userId, dates, combinedRefreshKey]);

@@ -179,11 +179,18 @@ export async function getWeekEntries(
  * Perf context: `RollingAgenda`'s planner window is up to 115 dates — a
  * `getDoc`-per-date fan-out cost ~115 round-trips per screen open/edit.
  * This collapses that to ceil(dates/30) round-trips (~4 for the full window).
+ *
+ * Returns `null` (not `{}`) on failure — a real batch result of `{}` means
+ * "queried successfully, no docs exist for any date" and callers may treat
+ * a missing date as confirmed-empty (safe to hydrate from template). `null`
+ * means the query itself failed, so callers must NOT treat missing dates as
+ * confirmed-empty — that would let per-card hydration write a duplicate
+ * entry alongside data the failed query simply never saw.
  */
 export async function getScheduleEntriesForDates(
   _userId: string,
   dates: string[],
-): Promise<Record<string, UserScheduleEntry[]>> {
+): Promise<Record<string, UserScheduleEntry[]> | null> {
   const uid = await resolveAuthUid();
   if (!uid || dates.length === 0) return {};
 
@@ -212,7 +219,7 @@ export async function getScheduleEntriesForDates(
       `[UserSchedule] getScheduleEntriesForDates FAILED (uid=${uid}, ${uniqueDates.length} dates)`,
       err,
     );
-    return {};
+    return null;
   }
 }
 
