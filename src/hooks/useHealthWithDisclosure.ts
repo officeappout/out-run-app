@@ -31,6 +31,7 @@
 import { useState, useCallback } from 'react';
 import { requestHealthPermissions, checkHealthAvailability } from '@/lib/healthBridge/init';
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
+import { useHealthConnected } from './useHealthConnected';
 
 function isNativeApp(): boolean {
   if (typeof window === 'undefined') return false;
@@ -65,8 +66,14 @@ export function useHealthWithDisclosure(
 ): UseHealthWithDisclosureReturn {
   const { onGranted, onDenied } = options;
 
-  const healthBridgeEnabled = useSettingsStore((s) => s.healthBridgeEnabled);
   const patchSettings = useSettingsStore((s) => s.patch);
+  // Ground truth, not useSettingsStore.healthBridgeEnabled — that field is
+  // never persisted and is only corrected by an async sign-in reconciliation
+  // effect (native/init.ts), so it could read false (showing a "connect
+  // health" prompt / re-triggering the OS dialog) even while sync was
+  // running fine off the correctly-set native PREF_KEY_PERMISSIONS flag.
+  // See useHealthConnected's doc comment for the full story.
+  const healthConnected = useHealthConnected();
 
   const [showDisclosure, setShowDisclosure] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
@@ -101,8 +108,8 @@ export function useHealthWithDisclosure(
    * of opening the disclosure modal when HC is absent.
    */
   const triggerHealthPermission = useCallback(() => {
-    console.log('[healthBridge][flow] request triggered — healthBridgeEnabled:', healthBridgeEnabled, 'isNative:', isNativeApp());
-    if (healthBridgeEnabled) {
+    console.log('[healthBridge][flow] request triggered — healthConnected:', healthConnected, 'isNative:', isNativeApp());
+    if (healthConnected === true) {
       console.log('[healthBridge][flow] already granted → onGranted()');
       onGranted?.();
       return;
@@ -126,7 +133,7 @@ export function useHealthWithDisclosure(
       console.log('[healthBridge][flow] HC available → showing disclosure modal');
       setShowDisclosure(true);
     })();
-  }, [healthBridgeEnabled, onGranted]);
+  }, [healthConnected, onGranted]);
 
   const disclosureProps: DisclosureProps = {
     isOpen: showDisclosure,
