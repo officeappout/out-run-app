@@ -42,6 +42,7 @@ import {
   type SampleSource,
 } from '@/lib/outbox/outbox-db';
 import { pushSample } from './eventEmitter';
+import { recordSyncAttempt, recordSyncResult, recordSyncError, recordEnqueued } from './debugState';
 
 const PREF_KEY_CURSOR = 'outrun.healthBridge.cursorISO';
 export const PREF_KEY_PERMISSIONS = 'outrun.healthBridge.permissionsGranted';
@@ -218,6 +219,8 @@ export async function healthBridgeSyncNow(
     // actually kept records (effectively ~30 days in practice) — the
     // window here is a ceiling, not a guarantee of getting 90 days back.
     const sinceISO = (await readCursor()) ?? FIRST_SYNC_BACKFILL_ISO();
+    const untilISO = new Date().toISOString();
+    recordSyncAttempt(reason, sinceISO, untilISO);
     console.log(`[healthBridge][flow] sync(${reason}): querying native store (first data query)`);
     const result = await (HealthBridge as any).syncSince({ sinceISO });
     const samples = (result?.samples ?? []) as Array<{
@@ -232,9 +235,11 @@ export async function healthBridgeSyncNow(
     }>;
     console.log(`[healthBridge][flow] sync(${reason}): ${samples.length} raw samples returned`);
     if (samples.length === 0) {
+      recordSyncResult([], result?.cursorISO ?? null);
       if (result?.cursorISO) await writeCursor(result.cursorISO);
       return;
     }
+    recordSyncResult(samples, result?.cursorISO ?? null);
 
     const now = Date.now();
     const sampleSource: SampleSource = platformIsIOS() ? 'healthkit' : 'healthconnect';
@@ -280,6 +285,7 @@ export async function healthBridgeSyncNow(
 
     if (out.length > 0) {
       await enqueueHealthSamples(out);
+      recordEnqueued(out.length);
       OutboxFlusher.flushNow('enqueue');
     }
 
@@ -294,6 +300,7 @@ export async function healthBridgeSyncNow(
     }
   } catch (err) {
     console.warn(`[healthBridge] sync(${reason}) failed:`, err);
+    recordSyncError(err);
   }
 }
 

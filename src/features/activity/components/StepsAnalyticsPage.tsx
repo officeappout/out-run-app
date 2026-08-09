@@ -369,6 +369,17 @@ export default function StepsAnalyticsPage() {
               צעדים
             </h1>
           </div>
+          {/* TEMPORARY — health-sync debug panel entry point. Remove once the
+              90-day-backfill investigation (Aug 2026) is confirmed fixed
+              on-device; see src/app/debug/health-sync/page.tsx. */}
+          <button
+            type="button"
+            onClick={() => router.push('/debug/health-sync')}
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-300 active:bg-gray-100 transition-colors text-base"
+            aria-label="מידע טכני לאבחון"
+          >
+            🔧
+          </button>
           <div className="w-9 h-9 flex items-center justify-center rounded-xl text-[#00C07A]">
             <Footprints className="w-5 h-5 -scale-x-100" />
           </div>
