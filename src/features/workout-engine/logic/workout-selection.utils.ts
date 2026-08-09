@@ -376,13 +376,20 @@ export function applyDifficultyFilter(
     // Final fallback to globalLevel only if no domain-specific level was found
     if (rawDomainLevel === null) rawDomainLevel = globalLevel;
 
-    // Safety fallback: if domain level is 1 (Firestore default) but global is
-    // higher, use global to prevent "Tier Paradox" (everything resolving to elite).
-    const domainUserLevel = (rawDomainLevel <= 1 && globalLevel > 1) ? globalLevel : rawDomainLevel;
-
-    if (rawDomainLevel <= 1 && globalLevel > 1) {
-      console.log(`[LevelSync] DifficultyFilter fallback: exercise domain rawL${rawDomainLevel} → using globalL${globalLevel}`);
-    }
+    // absent=absent follow-up (09.08.2026, same bug class as a0a2ab6f — that commit already
+    // fixed this file's selectExercisesWithDomainQuotas but missed this sibling function):
+    // REMOVED the "Safety fallback" that overrode any domainLevel<=1 with globalLevel, on the
+    // assumption 1 was a Firestore/`|| 1` default. That assumption no longer holds — since
+    // a0a2ab6f, domainLevelMap's two sources (context.domainBudgets via buildAssessedDomainBudgets,
+    // context.userProgramLevels via buildUserProgramLevels) both leave an unassessed domain
+    // ABSENT (no map key) instead of inventing L1. By this point rawDomainLevel is either a real
+    // map hit (a genuine assessed level, possibly a real 1) or globalLevel itself (line 377, when
+    // no domain-specific level existed at all — and then rawDomainLevel<=1 would require
+    // globalLevel<=1 too, so the old override never actually fired in that branch anyway). A real
+    // domain-specific L1 (e.g. a genuine legs/core beginner inside an otherwise elite profile) was
+    // being silently promoted to the user's GLOBAL level for difficulty filtering — the exact
+    // "Tier Paradox" this fallback was meant to prevent, now happening in the opposite direction.
+    const domainUserLevel = rawDomainLevel;
 
     const levelDiff = exerciseLevel - domainUserLevel;
     return { ...ex, isOverLevel: levelDiff > 0, levelDiff };
