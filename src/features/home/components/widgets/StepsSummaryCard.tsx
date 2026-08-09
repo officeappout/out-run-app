@@ -27,6 +27,11 @@ import { DAILY_STEP_GOAL } from '@/config/health-goals';
 
 const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
 
+function todayDateString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 interface StepsSummaryCardProps {
   className?: string;
   /**
@@ -41,11 +46,21 @@ interface StepsSummaryCardProps {
 
 export default function StepsSummaryCard({ className = '', variant = 'default' }: StepsSummaryCardProps) {
   const router = useRouter();
-  const { stepsToday, todayActivity } = useLiveDailyActivity();
+  const { stepsToday, todayActivity, isLoading } = useLiveDailyActivity();
+
+  // Guard against flashing a stale number before real data lands.
+  // `today` is Zustand-persisted (see useActivityStore's `persist` config),
+  // so on mount it can briefly hold a rehydrated value from a PREVIOUS day
+  // — onRehydrateStorage corrects it, but not before the very first paint.
+  // Treat "loading" or "today doc is for a different day" the same way:
+  // show a placeholder instead of a number that isn't actually today's.
+  const isStale = !isLoading && todayActivity != null && todayActivity.date !== todayDateString();
+  const showPlaceholder = isLoading || isStale;
+  const displaySteps = showPlaceholder ? '—' : stepsToday.toLocaleString('he-IL');
 
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const percentage =
-    goal > 0 ? Math.min(100, Math.round((stepsToday / goal) * 100)) : 0;
+    showPlaceholder || goal <= 0 ? 0 : Math.min(100, Math.round((stepsToday / goal) * 100));
 
   const { triggerHealthPermission, disclosureProps, unavailableReason } = useHealthWithDisclosure({
     onGranted: () => router.push('/activity/steps'),
@@ -62,7 +77,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
 
   const handleOpen = triggerHealthPermission;
 
-  const ariaLabel = `פתח ניתוח צעדים: ${stepsToday.toLocaleString('he-IL')} מתוך ${goal.toLocaleString('he-IL')}`;
+  const ariaLabel = `פתח ניתוח צעדים: ${displaySteps} מתוך ${goal.toLocaleString('he-IL')}`;
 
   if (variant === 'compact') {
     return (
@@ -92,7 +107,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
                 className="text-[20px] font-black text-gray-900 dark:text-white tabular-nums"
                 dir="ltr"
               >
-                {stepsToday.toLocaleString('he-IL')}
+                {displaySteps}
               </span>
               <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 mt-0.5">
                 {connectPromptLabel ?? `מתוך ${goal.toLocaleString('he-IL')}`}
@@ -145,7 +160,7 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
             className="text-[22px] font-black text-gray-900 dark:text-white leading-none tabular-nums"
             dir="ltr"
           >
-            {stepsToday.toLocaleString('he-IL')}
+            {displaySteps}
           </p>
           <p
             className="mt-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 leading-none"

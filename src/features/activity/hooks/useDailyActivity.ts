@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useActivityStore } from '../store/useActivityStore';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
+import { OutboxFlusher } from '@/lib/outbox/OutboxFlusher';
 import { 
   RingData, 
   DailyActivity,
@@ -173,7 +174,39 @@ export function useDailyActivity(): DailyActivityResult {
       unsubscribe();
     };
   }, [profile?.id, activityHydrated, authReady]);
-  
+
+  // Force a fresh server re-read whenever the outbox's health-sample queue
+  // depth changes (i.e. OutboxFlusher just wrote something to Firestore).
+  //
+  // Why this exists, not just the onSnapshot listener above: that listener
+  // only applies incoming data `if (serverTime > localTime)` (see
+  // useActivityStore.subscribeToChanges), comparing today.updatedAt against
+  // a client-stamped `new Date()` that createEmptyDailyActivity() sets the
+  // moment initialize() runs on mount — right around the same time the
+  // outbox is still draining a fresh backfill. loadFromServer() has no such
+  // guard (it unconditionally overwrites `today` with whatever Firestore
+  // has), so falling back to it here is what actually makes a first-mount
+  // backfill land without the user having to leave the screen and come
+  // back for a fresh, guard-free read to happen.
+  //
+  // Debounced so a multi-pass drain (see OutboxFlusher.runOnce) coalesces
+  // into one read shortly after depth stops changing, instead of firing a
+  // Firestore read per pass.
+  useEffect(() => {
+    if (!profile?.id) return;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const off = OutboxFlusher.onDepthChange(() => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        void loadFromServer(profile.id!);
+      }, 1_500);
+    });
+    return () => {
+      off();
+      if (debounceTimer) clearTimeout(debounceTimer);
+    };
+  }, [profile?.id, loadFromServer]);
+
   // Calculate derived values
   const ringData = useMemo(() => getRingData(), [today, userProgram]);
   
