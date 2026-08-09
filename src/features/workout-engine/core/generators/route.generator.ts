@@ -35,6 +35,7 @@ export const routeGenerator: Generator = {
     const targetDistance = deriveAerobicTargetKm(
       { timeBudgetMin: context.availableTimeMin, aerobicShare: 1, aerobicKind: activity },
       0, // no pace-calibration source wired yet — falls back to deriveAerobicTargetKm's own 6.5 min/km default
+      { stepsRemaining: context.stepsRemaining, stepGoal: context.stepGoal }, // already plain numbers on UserContext
     );
     const parks = await fetchRealParks();
 

@@ -19,6 +19,8 @@ import type { ActivityType } from '@/features/parks/core/types/route.types';
 import { MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
 import { deriveAerobicTargetKm } from './hybrid-aerobic.util';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
+import { buildStepContext } from '../core/context/build-step-context';
+import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 
 export interface HybridSessionContext {
@@ -627,7 +629,11 @@ async function composeRouteStopsWorkout(
 
   // Backbone — a LOOP generated FROM the user's location (root fix), so entry = user (0m).
   // ('existing_route' mode is kept for a future "use a close existing route" decision, not v1.)
-  const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace);
+  // Step-gap calibration (09.08.2026): same buildStepContext(useActivityStore.getState().today)
+  // call already used by build-map-user-context.ts — resolved here as plain numbers, the
+  // function itself stays pure (LAW 0).
+  const stepContext = buildStepContext(useActivityStore.getState().today);
+  const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace, stepContext);
   const backbone = await resolveRouteStopsBackbone('generated_loop', {
     userPosition: ctx.userPosition, parks, targetKm,
     cityName: ctx.cityName, activity: intent.aerobicKind as ActivityType,
@@ -918,7 +924,11 @@ export async function composeHybridPlan(
 
   // Aerobic target distance (shared, pure) — walking = fixed 12 min/km · running = runner pace,
   // guarded so a 0 pace never yields "Target: Infinity km" → 0 routes. Clamped [1,20].
-  const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace);
+  // Step-gap calibration (09.08.2026): same buildStepContext(useActivityStore.getState().today)
+  // call already used by build-map-user-context.ts — resolved here as plain numbers, the
+  // function itself stays pure (LAW 0).
+  const stepContext = buildStepContext(useActivityStore.getState().today);
+  const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace, stepContext);
 
   // Parks for BOTH route bias and the whole-path station search. PROXIMITY source —
   // the same all-parks set + 6h cache the live map uses (fetchRealParks), NOT
