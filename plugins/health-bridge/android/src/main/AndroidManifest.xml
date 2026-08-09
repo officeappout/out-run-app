@@ -7,6 +7,12 @@
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <!-- Without this, Health Connect enforces its own ~30-day read-back
+         ceiling regardless of the TimeRangeFilter requested in syncSince() —
+         a 90-day backfill request would silently only ever return ~30 days.
+         Required for the same 90-day-backfill goal already shipped on iOS
+         (Aug 2026 investigation). -->
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
 
     <!-- Health Connect write permissions for workout recording. -->
     <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
