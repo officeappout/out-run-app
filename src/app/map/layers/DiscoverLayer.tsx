@@ -8,6 +8,8 @@ import { PRIMARY_CATEGORIES } from '@/features/user/onboarding/services/single-d
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
 import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
+import LegPlanStartPreview from '@/features/parks/core/components/LegPlanStartPreview';
+import type { CompiledLegPlanRoute } from '@/features/parks/core/services/leg-plan.service';
 import HybridOverviewScreen from '@/features/parks/core/components/hybrid/HybridOverviewScreen';
 import OverviewTitleBar from '@/features/parks/core/components/hybrid/OverviewTitleBar';
 import ExerciseDetailDrawer from '@/features/workouts/components/workout-preview-drawer/components/ExerciseDetailDrawer';
@@ -147,6 +149,10 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [mapMode, setMapMode] = useState<MapMode>('idle');
+  // Settle-preview-lite for a composed leg-plan run (ג', 08.08) — armed by
+  // onStartLegPlanRun below once the route is drawn + the drawer has
+  // exited; LegPlanStartPreview confirms (auto or tap) → startActiveWorkout.
+  const [legPlanPreview, setLegPlanPreview] = useState<CompiledLegPlanRoute | null>(null);
 
   // ── Viewport-search ("חפש באזור זה") state ───────────────────────────────
   const viewportBounds = useMapStore((s) => s.viewportBounds);
@@ -1497,7 +1503,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   logic.setFocusedRoute(compiled.route);
                   useLegPlanStore.getState().reset();
                   setMapMode('idle');
-                  logic.startActiveWorkout();
+                  // Settle-preview-lite (David, 08.08): don't jump straight
+                  // into the active-workout HUD — the map is now visible
+                  // with the compiled route already drawn (setFocusedRoute
+                  // above), so arm a short auto-confirm card instead of
+                  // calling startActiveWorkout() immediately. No carousel,
+                  // no compose/cache/flow-id — compileLegPlan already ran
+                  // inside LegPlanSheet before this handler ever fired.
+                  setLegPlanPreview(compiled);
                 }}
               />
             )}
@@ -1725,6 +1738,19 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
 
       {/* ═══ Global overlays — always available, never conflict ═══ */}
       {logic.isGenerating && <RouteGenerationLoader />}
+
+      <AnimatePresence>
+        {legPlanPreview && (
+          <LegPlanStartPreview
+            key="leg-plan-start-preview"
+            compiled={legPlanPreview}
+            onConfirm={() => {
+              setLegPlanPreview(null);
+              logic.startActiveWorkout();
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {process.env.NODE_ENV !== 'production' && devSim && <MockLocationPanel devSim={devSim} />}
 

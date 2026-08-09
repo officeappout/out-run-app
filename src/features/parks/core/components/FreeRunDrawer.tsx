@@ -623,14 +623,20 @@ function GoalSheet({
             {/* Leg-plan composer (ג' Phase 1, 08.08 decision) — additive option
                 below the address-destination button, stays inside GoalSheet
                 (not a separate top-level drawer button — David's call).
-                Default (loop) is unaffected unless explicitly opened. */}
+                Default (loop) is unaffected unless explicitly opened.
+                Brand-blue fill (08.08, David's 2nd button-confusion report):
+                the two buttons above/below each other in identical gray
+                pills were too easy to mis-tap without reading the text.
+                Minimal differentiation, not a redesign — old button stays
+                gray, this one gets the accent so the eye catches the
+                difference before the text does. */}
             {onOpenLegPlan && (
               <div className="px-5 mb-4">
                 <button
                   type="button"
                   onClick={onOpenLegPlan}
-                  className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
-                  style={{ backgroundColor: '#F3F4F6' }}
+                  className="w-full py-3 text-[13px] font-black text-white flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
+                  style={{ backgroundColor: ACCENT }}
                 >
                   🧭 הוסף עצירות בדרך{legPlanCount ? ` (${legPlanCount})` : ''}
                 </button>
