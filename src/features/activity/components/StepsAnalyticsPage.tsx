@@ -369,21 +369,25 @@ export default function StepsAnalyticsPage() {
               צעדים
             </h1>
           </div>
-          {/* TEMPORARY — health-sync debug panel entry point. Remove once the
-              90-day-backfill investigation (Aug 2026) is confirmed fixed
-              on-device; see src/app/debug/health-sync/page.tsx. */}
-          <button
-            type="button"
-            onClick={() => router.push('/debug/health-sync')}
-            className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-300 active:bg-gray-100 transition-colors text-base"
-            aria-label="מידע טכני לאבחון"
-          >
-            🔧
-          </button>
           <div className="w-9 h-9 flex items-center justify-center rounded-xl text-[#00C07A]">
             <Footprints className="w-5 h-5 -scale-x-100" />
           </div>
         </div>
+
+        {/* TEMPORARY — health-sync debug panel entry point, deliberately
+            loud (previous attempt was a pale gray-on-white emoji icon
+            David couldn't find — likely rendered in monochrome "text
+            presentation" in WKWebView, nearly invisible on the header).
+            Remove this whole block once the 90-day-backfill investigation
+            (Aug 2026) is confirmed fixed on-device; see
+            src/app/debug/health-sync/page.tsx. */}
+        <button
+          type="button"
+          onClick={() => router.push('/debug/health-sync')}
+          className="sticky top-[52px] z-20 mx-4 mt-2 w-[calc(100%-2rem)] py-2.5 rounded-xl bg-red-600 text-white text-[13px] font-black tracking-wide shadow-lg active:bg-red-700 transition-colors"
+        >
+          DEBUG — אבחון סנכרון בריאות
+        </button>
 
         {/* ── Body ── */}
         <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
@@ -795,6 +799,16 @@ export default function StepsAnalyticsPage() {
                       >
                         <HeartPulse className="w-4 h-4" />
                         התחבר לאפליקציית הבריאות
+                      </button>
+                      {/* TEMPORARY — redundant debug entry point, visible in
+                          exactly this "not connected" state. Remove together
+                          with the header DEBUG button above. */}
+                      <button
+                        type="button"
+                        onClick={() => router.push('/debug/health-sync')}
+                        className="text-[11px] font-bold text-red-600 underline"
+                      >
+                        DEBUG — אבחון
                       </button>
                     </div>
                   </div>
