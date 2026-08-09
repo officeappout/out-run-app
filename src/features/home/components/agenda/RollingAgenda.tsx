@@ -25,6 +25,7 @@ import {
   removeCommunityEntriesForGroup,
   updateScheduleDays,
   getScheduleEntry,
+  getScheduleEntriesForDates,
 } from '@/features/user/scheduling/services/userSchedule.service';
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { useUserStore } from '@/features/user';
@@ -288,6 +289,25 @@ export default function RollingAgenda({
 
   const combinedRefreshKey = (refreshKey ?? 0) + localRefreshKey;
 
+  // ── Batched schedule fetch (perf) ──────────────────────────────────────
+  //
+  // `dates` can be up to 115 entries (planner mode). Previously each
+  // AgendaDayCard fetched its own day independently — ~115 getDoc round-trips
+  // per open, ~145 per edit (see .claude/knowledge/schedule-editor-perf-audit.md).
+  // One chunked `documentId() in [...]` query here replaces that fan-out;
+  // `null` while in flight tells AgendaDayCard to hold its loading skeleton
+  // instead of falling back to its own per-card fetch.
+  const [scheduleMap, setScheduleMap] = useState<Record<string, UserScheduleEntry[]> | null>(null);
+  useEffect(() => {
+    if (!userId || dates.length === 0) { setScheduleMap({}); return; }
+    let cancelled = false;
+    setScheduleMap(null);
+    getScheduleEntriesForDates(userId, dates).then((map) => {
+      if (!cancelled) setScheduleMap(map);
+    });
+    return () => { cancelled = true; };
+  }, [userId, dates, combinedRefreshKey]);
+
   // ── Drag callbacks ────────────────────────────────────────────────────
 
   const handleDragMoveIntent = useCallback(
@@ -536,6 +556,7 @@ export default function RollingAgenda({
                       onPreviewEntry={onPreviewEntry}
                       onCommunityTap={onCommunityTap}
                       refreshKey={combinedRefreshKey}
+                      scheduleMap={scheduleMap}
                       rowRef={(el) => setCardRef(iso, el)}
                     />
                   </div>
@@ -581,6 +602,7 @@ export default function RollingAgenda({
                 onPreviewEntry={onPreviewEntry}
                 onCommunityTap={onCommunityTap}
                 refreshKey={combinedRefreshKey}
+                scheduleMap={scheduleMap}
                 rowRef={(el) => setCardRef(iso, el)}
               />
             </Reorder.Item>
