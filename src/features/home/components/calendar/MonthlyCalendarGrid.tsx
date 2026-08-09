@@ -15,7 +15,7 @@ import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { toISODate, HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
-import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
+import { getScheduleEntries, getScheduleEntriesForDates, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
 import { useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import type { UserScheduleEntry, RecurringTemplate } from '@/features/user/scheduling/types/schedule.types';
 import {
@@ -267,11 +267,23 @@ export default function MonthlyCalendarGrid({
 
     async function fetchAll() {
       const isos = cells.filter(c => c.isCurrentMonth).map(c => c.iso);
+      if (isos.length === 0) { setScheduleMap(new Map()); return; }
+
+      // Batched primary read (perf) — one chunked query for the whole month
+      // instead of one getDoc per day (~28-31 → ~1-2 round-trips). `null`
+      // means the batch itself failed; fall back to the old per-day read for
+      // that case rather than treating a failure as "day is empty" (would
+      // wrongly trigger hydration below). See schedule-editor-perf-audit.md.
+      const batch = await getScheduleEntriesForDates(userId, isos);
+      if (cancelled) return;
+
       const fetched = await Promise.all(
         isos.map(async (iso) => {
-          let dayEntries = await getScheduleEntries(userId, iso);
+          let dayEntries = batch ? (batch[iso] ?? []) : await getScheduleEntries(userId, iso);
           // Hydrate fallback — only when Firestore has no entries on this day
           // AND the user has a recurringTemplate covering this weekday.
+          // hydrateFromTemplate is transactional/idempotent, so this is safe
+          // even when RollingAgenda races to hydrate the same day at once.
           if (dayEntries.length === 0 && recurringTemplate) {
             const hydrated = await hydrateFromTemplate(userId, iso, recurringTemplate);
             if (hydrated) dayEntries = [hydrated];

@@ -21,6 +21,7 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  runTransaction,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -227,15 +228,26 @@ export async function getScheduleEntriesForDates(
 
 /**
  * Hydrate a concrete day from the user's recurringTemplate, when no Firestore
- * doc yet exists for the date.  Writes via the entries[] format helper
- * (`addScheduleEntry`) and returns the new entry so callers can render it
- * synchronously.
+ * doc yet exists for the date.  Returns the new (or already-existing) entry
+ * so callers can render it synchronously.
  *
- * Zombie-loop guard: if the day already has an entry with `override === true`
- * (written by `removeScheduleEntry` as a tombstone) **or** a manually-set
- * rest entry (`type === 'rest'` from a `source !== 'recurring'` path), hydration
- * is skipped entirely.  This prevents the "delete → instant re-add" loop
- * where the background hydrator immediately recreates the deleted entry.
+ * Runs as a single Firestore transaction — the read-then-write is atomic, so
+ * two independent callers racing to hydrate the same day (e.g. RollingAgenda
+ * and MonthlyCalendarGrid both fetching on TrainingPlannerOverlay's first
+ * mount — see schedule-editor-perf-audit.md finding #2) cannot both add a
+ * recurring entry: the transaction that commits second re-reads the winner's
+ * write and returns it instead of writing a duplicate.
+ *
+ * Guards, both evaluated against the transaction's own read (not a stale
+ * pre-check):
+ *   1. Zombie-loop guard — an entry with `override === true` (tombstone from
+ *      `removeScheduleEntry`) or a manually-set rest entry means the user
+ *      intentionally cleared the day; hydration is skipped entirely.
+ *   2. Idempotency guard — a `source === 'recurring'` entry already present
+ *      means some caller (possibly a racing one) already hydrated this day;
+ *      return it rather than adding a second recurring entry.
+ * Non-blocking entries (e.g. a community session) don't trip either guard —
+ * the recurring training entry is added alongside them, same as before.
  */
 export async function hydrateFromTemplate(
   _userId: string,
@@ -248,27 +260,6 @@ export async function hydrateFromTemplate(
   const dayLetter = getHebrewDayLetter(new Date(date + 'T00:00:00'));
   const programIds = template[dayLetter];
   if (!programIds) return null;
-
-  // ── Zombie-loop guard ───────────────────────────────────────────────────
-  // If a document already exists for this date, check whether any entry
-  // marks it as user-overridden (override === true) or as an explicitly
-  // set rest day from a non-recurring source.  Both signals mean the user
-  // intentionally cleared the day and we must NOT re-populate it.
-  const existingDay = await getScheduleDay(uid, date);
-  if (existingDay) {
-    const blockingEntry = existingDay.entries.find(
-      (e) => e.override === true || (e.type === 'rest' && e.source !== 'recurring'),
-    );
-    if (blockingEntry) {
-      console.log(
-        `[UserSchedule] HYDRATE SKIPPED  date=${date}` +
-        `  (entry override=${blockingEntry.override ?? false}, type=${blockingEntry.type}, source=${blockingEntry.source})`,
-      );
-      return blockingEntry;
-    }
-    // Non-blocking entries exist (e.g. community session) — fall through and
-    // add the recurring training entry alongside them.
-  }
 
   const nowIso = new Date().toISOString();
   const entry: UserScheduleEntry = {
@@ -283,9 +274,51 @@ export async function hydrateFromTemplate(
     updatedAt: nowIso,
   };
 
+  const ref = doc(db, COLLECTION, docId(uid, date));
+
   try {
-    await addScheduleEntry(uid, date, entry);
-    return entry;
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const existingDay = snap.exists() ? readDay(ref.id, snap.data() as Record<string, unknown>) : null;
+
+      if (existingDay) {
+        const blockingEntry = existingDay.entries.find(
+          (e) => e.override === true || (e.type === 'rest' && e.source !== 'recurring'),
+        );
+        if (blockingEntry) {
+          console.log(
+            `[UserSchedule] HYDRATE SKIPPED  date=${date}` +
+            `  (entry override=${blockingEntry.override ?? false}, type=${blockingEntry.type}, source=${blockingEntry.source})`,
+          );
+          return blockingEntry;
+        }
+
+        const existingRecurring = existingDay.entries.find((e) => e.source === 'recurring');
+        if (existingRecurring) {
+          console.log(`[UserSchedule] HYDRATE SKIPPED (already hydrated, racing caller)  date=${date}`);
+          return existingRecurring;
+        }
+
+        // Non-blocking entries exist (e.g. community session) — add the
+        // recurring training entry alongside them.
+        const cleanEntries = [
+          ...existingDay.entries.map((e) => stripUndefined(e as unknown as Record<string, unknown>) as unknown as UserScheduleEntry),
+          stripUndefined(entry as unknown as Record<string, unknown>) as unknown as UserScheduleEntry,
+        ];
+        tx.set(ref, { userId: uid, date, entries: cleanEntries, updatedAt: serverTimestamp() });
+        console.log(`[UserSchedule] HYDRATED (alongside existing entries)  ${date}  entryId=${entry.entryId}`);
+        return entry;
+      }
+
+      tx.set(ref, {
+        userId: uid,
+        date,
+        entries: [stripUndefined(entry as unknown as Record<string, unknown>) as unknown as UserScheduleEntry],
+        updatedAt: serverTimestamp(),
+      });
+      console.log(`[UserSchedule] HYDRATED  ${date}  entryId=${entry.entryId}`);
+      return entry;
+    });
   } catch (err) {
     console.error(`[UserSchedule] HYDRATE FAILED  date=${date}  uid=${uid}`, err);
     return null;
