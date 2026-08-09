@@ -3,7 +3,7 @@
  * Pure helpers, scoring engine, data fetching, and copy matrix.
  */
 
-import { getAllParks } from '@/features/parks/core/services/parks.service';
+import { fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { ISRAELI_LOCATIONS, type IsraeliLocation, type LocationType } from '@/lib/data/israel-locations';
@@ -956,6 +956,14 @@ export function applyStrengthTierFilter(
  *
  * FIX (Gym Bias — Ball Games): Added a dedicated Ball Game cluster filter
  * to ensure multi-court and ball_court facilities are included for ball sports.
+ *
+ * Perf: uses `fetchRealParks()` (shared localStorage + stale-while-revalidate
+ * cache, 6h TTL, de-duped in-flight fetch) instead of the unscoped, uncached
+ * `getAllParks()` — this call used to re-fetch the whole national `parks`
+ * collection from scratch on every drag-end and every city pick during
+ * onboarding, and again from a separate cache when the user later opened the
+ * real map. See .claude/knowledge/onboarding-map-location-perf-audit.md
+ * findings #2 and #4.
  */
 export async function fetchNearbyFacilities(
   userLat: number,
@@ -966,7 +974,7 @@ export async function fetchNearbyFacilities(
   sportContext?: SportContext
 ): Promise<NearbyFacility[]> {
   try {
-    const allParks = await getAllParks();
+    const allParks = await fetchRealParks();
 
     const parkFacilities: NearbyFacility[] = allParks
       .filter((park) => {
