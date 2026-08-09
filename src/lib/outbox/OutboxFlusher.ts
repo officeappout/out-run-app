@@ -37,6 +37,7 @@ import {
   type IngestHealthSamplePayload,
 } from '@/lib/ingestHealthSamples';
 import { awardWorkoutXP } from '@/lib/awardWorkoutXP';
+import { recordFlushed, recordFlushError } from '@/lib/healthBridge/debugState';
 
 const MAX_HEALTH_BATCH = 200;
 const MAX_ATTEMPTS = 8;
@@ -230,10 +231,12 @@ class FlusherImpl {
             if (result) {
               // accepted + deduped are both "safely ingested" from the client's POV.
               await deleteHealthSamples(chunk.map((c) => c.sampleUUID));
+              recordFlushed(chunk.length);
             } else {
               allOk = false;
               passOk = false;
               await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
+              recordFlushError('ingestHealthSamples returned falsy result');
             }
           } catch (err) {
             // App Check errors are transient infrastructure failures — do not
@@ -243,10 +246,12 @@ class FlusherImpl {
               console.warn('[OutboxFlusher] App Check error — skipping attempt bump, will retry on next flush');
               allOk = false;
               passOk = false;
+              recordFlushError(err);
             } else {
               allOk = false;
               passOk = false;
               await bumpHealthSampleAttempts(chunk.map((c) => c.sampleUUID));
+              recordFlushError(err);
             }
           }
         }
