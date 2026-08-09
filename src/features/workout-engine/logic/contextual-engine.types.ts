@@ -74,6 +74,23 @@ export type ProgramId =
   | 'hspu';
 
 /**
+ * Sentinel for `getUserLevelForExercise` (09.08.2026, "absent=absent" for partial
+ * assessment): an unassessed domain must stay absent/no-content, not fall back to
+ * baseUserLevel — but the interface's contract is a plain `number` consumed by numeric
+ * comparisons in ContextualEngine.ts (tolerance filter, skill gate, scoring) and
+ * compose-hybrid-session.service.ts's field-fallback band check. `-Infinity` (not
+ * `undefined`/`NaN`) is deliberate: `undefined`/`NaN` comparisons are ALWAYS false in JS
+ * (`NaN < x` and `NaN > x` are both false), which would silently ADMIT the exercise with
+ * no level bound at all — the opposite of the intent. `-Infinity` fails every "is this
+ * within range / above the gate" check correctly, so all 4 existing call sites exclude
+ * the exercise WITHOUT needing their own explicit absent-check. This is IN ADDITION to
+ * the existing full-block gate (hasAssessedStrengthDomain / needsAssessmentDomains) —
+ * not a replacement: that blocks the WHOLE session when NO domain is assessed at all;
+ * this handles ONE unassessed domain inside an otherwise-partially-assessed session.
+ */
+export const UNASSESSED_DOMAIN_LEVEL = -Infinity;
+
+/**
  * Full context for contextual filtering
  */
 export interface ContextualFilterContext {
@@ -97,6 +114,11 @@ export interface ContextualFilterContext {
    * Maps each exercise's movementGroup/primaryMuscle to the user's
    * domain-specific level (e.g., upper_body=12, lower_body=5).
    * Replaces the old single `userLevel` field.
+   *
+   * May return `UNASSESSED_DOMAIN_LEVEL` (see below) for an exercise whose resolved
+   * domain the user has NOT assessed — resolvers signal "absent" this way instead of
+   * fabricating a number, so the existing numeric comparisons below (tolerance filter,
+   * skill gate, scoring) correctly exclude it without needing their own absent-checks.
    */
   getUserLevelForExercise: (exercise: Exercise) => number;
   

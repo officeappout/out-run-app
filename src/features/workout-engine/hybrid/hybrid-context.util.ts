@@ -13,11 +13,14 @@
 export interface HybridUserLevels {
   /** Real per-domain levels (push / pull / legs_core / skill slugs). */
   userProgramLevels: Map<string, number>;
-  /** Global base level — the fallback when an exercise maps to no known domain. */
+  /** Global base level — the fallback when an exercise maps to no known domain at all
+   *  (movementGroup unmapped AND no matching targetPrograms — see resolveUserLevelForExercise). */
   baseUserLevel: number;
   /**
    * Per-exercise level = the user's level in the exercise's domain (movementGroup →
    * domain, else targetPrograms → slug), mirroring home-workout's getUserLevelForExercise.
+   * Returns `UNASSESSED_DOMAIN_LEVEL` (contextual-engine.types.ts) when the exercise's
+   * domain IS known but the user hasn't assessed it — see that constant's doc comment.
    */
   resolveUserLevelForExercise: (exercise: any) => number;
 }
@@ -35,11 +38,13 @@ export async function resolveHybridUserLevels(
     { getAllPrograms },
     { resolveToSlug, buildIdToSlugMapFromPrograms },
     { MG_TO_DOMAIN },
+    { UNASSESSED_DOMAIN_LEVEL },
   ] = await Promise.all([
     import('../services/level-resolution.utils'),
     import('@/features/content/programs/core/program.service'),
     import('../services/program-hierarchy.utils'),
     import('../shared/constants/domain-mapping.constants'),
+    import('../logic/contextual-engine.types'),
   ]);
 
   const allPrograms = await getAllPrograms();
@@ -53,12 +58,23 @@ export async function resolveHybridUserLevels(
   const baseUserLevel = profile ? getBaseUserLevel(profile) : 5;
   const resolveUserLevelForExercise = (exercise: any): number => {
     const mgDomain = MG_TO_DOMAIN[exercise?.movementGroup ?? ''];
-    if (mgDomain && userProgramLevels.has(mgDomain)) return userProgramLevels.get(mgDomain)!;
+    if (mgDomain) {
+      // absent=absent for partial assessment (09.08.2026): the domain IS known — if the
+      // user hasn't assessed it, that's exactly the gap being fixed. UNASSESSED_DOMAIN_LEVEL
+      // (not baseUserLevel) so the exercise is excluded by the existing numeric comparisons
+      // in ContextualEngine.ts, not admitted at a guessed cross-domain level. This is IN
+      // ADDITION to the existing full-block gate (hasAssessedStrengthDomain), not a
+      // replacement — see that constant's doc comment.
+      return userProgramLevels.has(mgDomain) ? userProgramLevels.get(mgDomain)! : UNASSESSED_DOMAIN_LEVEL;
+    }
     for (const tp of exercise?.targetPrograms ?? []) {
       const slug = resolveToSlug(tp.programId);
       if (userProgramLevels.has(slug)) return userProgramLevels.get(slug)!;
       if (userProgramLevels.has(tp.programId)) return userProgramLevels.get(tp.programId)!;
     }
+    // No domain signal could be derived at all (movementGroup unmapped AND no matching
+    // targetPrograms entry) — a categorization gap, not an "unassessed domain" in the sense
+    // above. Keeps the existing base-level fallback for this genuinely different case.
     return baseUserLevel;
   };
 

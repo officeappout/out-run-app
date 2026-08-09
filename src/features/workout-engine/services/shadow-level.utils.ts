@@ -27,6 +27,7 @@ import {
 import { UserFullProfile, TrainingDomainId } from '@/features/user/core/types/user.types';
 import { resolveDataLevel } from './level-resolution.utils';
 import { resolveToSlug, resolveSlugToId } from './program-hierarchy.utils';
+import { UNASSESSED_DOMAIN_LEVEL } from '../logic/contextual-engine.types';
 
 // ============================================================================
 // TYPES
@@ -460,14 +461,16 @@ export function getEffectiveLevelForExercise(
 // DOMAIN MAPPING (Internal)
 // ============================================================================
 
-/** Fallback when no domain level exists (prevents errors). */
-const DEFAULT_LEVEL = 1;
-
 /**
  * Map an exercise's movementGroup → the appropriate domain level from the
  * user's progression system. BOTTOM-UP: prefers child domains (push/pull/legs)
- * over parent (upper_body/lower_body). Falls back to baseUserLevel only when
- * the specific domain is completely missing.
+ * over parent (upper_body/lower_body).
+ *
+ * absent=absent (09.08.2026): when the specific domain AND its parent are both
+ * completely missing (unassessed), returns UNASSESSED_DOMAIN_LEVEL — NOT baseUserLevel.
+ * A user's global level is not a sound proxy for a domain they haven't personally
+ * assessed (cross-domain strength doesn't transfer 1:1). `baseUserLevel`/DEFAULT_LEVEL
+ * are unused here now — kept as params for signature stability, not removed.
  *
  * @see TRAINING_LOGIC.md Rule 2.2
  */
@@ -480,7 +483,7 @@ function mapMovementGroupToDomainLevel(
   const domains = userProfile.progression?.domains ?? {};
   const tracks = userProfile.progression?.tracks ?? {};
   const d = (id: string) => getDomainLevelIfExists(domains, id, tracks);
-  const fallback = baseUserLevel ?? DEFAULT_LEVEL;
+  const fallback = UNASSESSED_DOMAIN_LEVEL;
 
   if (movementGroup) {
     // Push movements: prefer granular 'push' over 'upper_body' (BOTTOM-UP)
@@ -530,7 +533,11 @@ function mapMovementGroupToDomainLevel(
 /**
  * Map an isolation exercise's primaryMuscle to the correct domain level.
  * Prefers granular push/pull/legs when they exist (BOTTOM-UP).
- * Falls back to baseUserLevel only when the domain is completely missing.
+ *
+ * absent=absent (09.08.2026): returns UNASSESSED_DOMAIN_LEVEL, not baseUserLevel, when
+ * the domain and its parent are both completely missing — see mapMovementGroupToDomainLevel's
+ * doc comment above for the full rationale. `baseUserLevel`/DEFAULT_LEVEL are unused here
+ * now — kept as params for signature stability, not removed.
  */
 function mapIsolationMuscleToDomainLevel(
   primaryMuscle: MuscleGroup | undefined,
@@ -539,7 +546,7 @@ function mapIsolationMuscleToDomainLevel(
   baseUserLevel?: number,
 ): number {
   const d = (id: string) => getDomainLevelIfExists(domains, id, tracks);
-  const fallback = baseUserLevel ?? DEFAULT_LEVEL;
+  const fallback = UNASSESSED_DOMAIN_LEVEL;
 
   if (!primaryMuscle) {
     return d('full_body') ?? d('upper_body') ?? fallback;
