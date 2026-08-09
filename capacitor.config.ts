@@ -19,6 +19,13 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'never',
     backgroundColor: '#FFFFFF',
+    // Capacitor only defaults WKWebView.isInspectable to true in #if DEBUG
+    // native builds (CAPInstanceDescriptor.swift) — a Release/TestFlight
+    // archive is not Safari-Web-Inspector-attachable unless this is set
+    // explicitly. TestFlight-only distribution to internal testers right
+    // now, so enabling it is safe; revisit before any public App Store
+    // release.
+    webContentsDebuggingEnabled: true,
   },
 
   android: {
