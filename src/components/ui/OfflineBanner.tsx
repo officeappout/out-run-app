@@ -34,8 +34,16 @@ export default function OfflineBanner() {
     return OutboxFlusher.onDepthChange(setDepth);
   }, []);
 
+  // Only surface the "syncing" toast for a genuinely large backfill (e.g.
+  // the first-ever 90-day HealthKit/Health Connect sync, which enqueues
+  // thousands of shredded per-metric records — see buildOutboxSample in
+  // healthBridge/init.ts). Routine incremental syncs queue a handful of
+  // items and finish in well under a second; surfacing a toast for those
+  // was just noise. 100 is comfortably above any normal incremental sync
+  // and comfortably below a real backfill (which runs in the thousands).
+  const LARGE_BACKFILL_THRESHOLD = 100;
   const queued = depth.samples + depth.workouts;
-  const showQueueChip = !isOffline && queued > 0;
+  const showQueueChip = !isOffline && queued >= LARGE_BACKFILL_THRESHOLD;
 
   return (
     <AnimatePresence>
@@ -77,11 +85,17 @@ export default function OfflineBanner() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 24, opacity: 0 }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-          className="fixed bottom-3 inset-x-0 z-[100] mx-auto w-fit flex items-center gap-2 bg-out-blue text-white text-[12px] font-semibold px-3 py-1.5 rounded-full shadow-floating"
+          // Bottom nav is ≈83px tall (fixed bottom-0, see BottomNavbar.tsx)
+          // at z-50 — this toast previously sat at bottom-3 (~12px from the
+          // very edge), visually overlapping the nav bar's own content even
+          // though its higher z-[100] kept it on top. Clear the nav height
+          // plus its own safe-area inset, plus a small gap.
+          style={{ bottom: 'calc(83px + env(safe-area-inset-bottom, 0px) + 10px)' }}
+          className="fixed inset-x-0 z-[100] mx-auto w-fit flex items-center gap-2 bg-out-blue text-white text-[12px] font-semibold px-4 py-2 rounded-full shadow-floating"
           dir="rtl"
         >
-          <CloudUpload size={14} />
-          <span>מסנכרן {queued} פריטים…</span>
+          <CloudUpload size={14} className="flex-shrink-0" />
+          <span>מסנכרן — ייקח 1-2 דקות לטעון 3 חודשים של נתונים</span>
         </motion.button>
       )}
     </AnimatePresence>
