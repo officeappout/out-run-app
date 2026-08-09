@@ -85,6 +85,21 @@ class HealthBridgePlugin : Plugin() {
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        // Without this, Health Connect enforces its own ~30-day read-back
+        // ceiling regardless of the TimeRangeFilter requested in
+        // syncSince() — declaring it in the manifest alone isn't enough,
+        // it must also be part of the actually-requested grant set.
+        // Raw string, not HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY
+        // — that named constant doesn't exist in connect-client
+        // 1.1.0-alpha07 (verified: javap on the actual AAR only shows
+        // PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND, no _HISTORY variant;
+        // upgrading to a client version that has it requires AGP 8.9.1+,
+        // this project is pinned to 8.2.1 — see build.gradle comment).
+        // The permission-request contract takes a plain Set<String>, so the
+        // exact platform permission string works the same as a named
+        // constant would — this is the same string already declared in
+        // both AndroidManifest.xml files.
+        "android.permission.health.READ_HEALTH_DATA_HISTORY",
     )
 
     private val writePermissions = setOf(
@@ -303,70 +318,114 @@ class HealthBridgePlugin : Plugin() {
         scope.launch {
             try {
                 val samples = mutableListOf<JSObject>()
+                // Tracks the latest record startTime actually returned, across
+                // all three record types combined — mirrors the iOS fix
+                // (HealthBridgePlugin.swift syncSince): a single combined max,
+                // not per-type, so a lagging type can't orphan its own gap on
+                // the next sync.
+                var maxSampleTime: Instant? = null
 
-                // Steps
-                val steps = client.readRecords(
-                    ReadRecordsRequest(
-                        recordType = StepsRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(start, end),
+                // Steps — ReadRecordsRequest's default pageSize is 1000
+                // (undocumented in this file, inherited from the SDK) with no
+                // pagination previously implemented: a 90-day backfill with
+                // dense sampling silently returned only the first page and
+                // dropped the rest, permanently, because cursorISO was always
+                // stamped from `end` ("now") regardless of what was actually
+                // fetched — the exact bug class fixed on iOS
+                // (HKObjectQueryNoLimit + real-max-date cursor). Loop pageToken
+                // until exhausted instead of reading one page and stopping.
+                var stepsPageToken: String? = null
+                do {
+                    val stepsPage = client.readRecords(
+                        ReadRecordsRequest(
+                            recordType = StepsRecord::class,
+                            timeRangeFilter = TimeRangeFilter.between(start, end),
+                            pageToken = stepsPageToken,
+                        )
                     )
-                )
-                for (r in steps.records) {
-                    samples.add(buildSample(
-                        uuid = r.metadata.id,
-                        startInstant = r.startTime,
-                        endInstant = r.endTime,
-                        steps = r.count.toInt(),
-                        calories = 0,
-                        activeMinutes = 0,
-                        source = r.metadata.dataOrigin.packageName,
-                    ))
-                }
+                    for (r in stepsPage.records) {
+                        samples.add(buildSample(
+                            uuid = r.metadata.id,
+                            startInstant = r.startTime,
+                            endInstant = r.endTime,
+                            steps = r.count.toInt(),
+                            calories = 0,
+                            activeMinutes = 0,
+                            source = r.metadata.dataOrigin.packageName,
+                        ))
+                        if (maxSampleTime == null || r.startTime.isAfter(maxSampleTime)) {
+                            maxSampleTime = r.startTime
+                        }
+                    }
+                    stepsPageToken = stepsPage.pageToken
+                } while (stepsPageToken != null)
 
-                // Active calories
-                val cals = client.readRecords(
-                    ReadRecordsRequest(
-                        recordType = ActiveCaloriesBurnedRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(start, end),
+                // Active calories — same pagination fix.
+                var calsPageToken: String? = null
+                do {
+                    val calsPage = client.readRecords(
+                        ReadRecordsRequest(
+                            recordType = ActiveCaloriesBurnedRecord::class,
+                            timeRangeFilter = TimeRangeFilter.between(start, end),
+                            pageToken = calsPageToken,
+                        )
                     )
-                )
-                for (r in cals.records) {
-                    samples.add(buildSample(
-                        uuid = r.metadata.id,
-                        startInstant = r.startTime,
-                        endInstant = r.endTime,
-                        steps = 0,
-                        calories = r.energy.inKilocalories.toInt(),
-                        activeMinutes = 0,
-                        source = r.metadata.dataOrigin.packageName,
-                    ))
-                }
+                    for (r in calsPage.records) {
+                        samples.add(buildSample(
+                            uuid = r.metadata.id,
+                            startInstant = r.startTime,
+                            endInstant = r.endTime,
+                            steps = 0,
+                            calories = r.energy.inKilocalories.toInt(),
+                            activeMinutes = 0,
+                            source = r.metadata.dataOrigin.packageName,
+                        ))
+                        if (maxSampleTime == null || r.startTime.isAfter(maxSampleTime)) {
+                            maxSampleTime = r.startTime
+                        }
+                    }
+                    calsPageToken = calsPage.pageToken
+                } while (calsPageToken != null)
 
-                // Exercise sessions → active minutes (duration in minutes)
-                val sessions = client.readRecords(
-                    ReadRecordsRequest(
-                        recordType = ExerciseSessionRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(start, end),
+                // Exercise sessions → active minutes (duration in minutes) —
+                // same pagination fix.
+                var sessionsPageToken: String? = null
+                do {
+                    val sessionsPage = client.readRecords(
+                        ReadRecordsRequest(
+                            recordType = ExerciseSessionRecord::class,
+                            timeRangeFilter = TimeRangeFilter.between(start, end),
+                            pageToken = sessionsPageToken,
+                        )
                     )
-                )
-                for (r in sessions.records) {
-                    val minutes = ((r.endTime.epochSecond - r.startTime.epochSecond) / 60L).toInt()
-                    samples.add(buildSample(
-                        uuid = r.metadata.id,
-                        startInstant = r.startTime,
-                        endInstant = r.endTime,
-                        steps = 0,
-                        calories = 0,
-                        activeMinutes = if (minutes > 0) minutes else 0,
-                        source = r.metadata.dataOrigin.packageName,
-                    ))
-                }
+                    for (r in sessionsPage.records) {
+                        val minutes = ((r.endTime.epochSecond - r.startTime.epochSecond) / 60L).toInt()
+                        samples.add(buildSample(
+                            uuid = r.metadata.id,
+                            startInstant = r.startTime,
+                            endInstant = r.endTime,
+                            steps = 0,
+                            calories = 0,
+                            activeMinutes = if (minutes > 0) minutes else 0,
+                            source = r.metadata.dataOrigin.packageName,
+                        ))
+                        if (maxSampleTime == null || r.startTime.isAfter(maxSampleTime)) {
+                            maxSampleTime = r.startTime
+                        }
+                    }
+                    sessionsPageToken = sessionsPage.pageToken
+                } while (sessionsPageToken != null)
 
                 val arr = JSArray()
                 for (s in samples) arr.put(s)
                 val out = JSObject()
                 out.put("samples", arr)
-                out.put("cursorISO", DateTimeFormatter.ISO_INSTANT.format(end))
+                // Advance the cursor to the latest sample actually returned,
+                // not blindly to `end` ("now"). Zero samples this call leaves
+                // the cursor at the original `start` — matches iOS: a
+                // transient empty result must not silently mark an unfetched
+                // historical range as already-synced.
+                out.put("cursorISO", DateTimeFormatter.ISO_INSTANT.format(maxSampleTime ?: start))
                 Log.i(TAG, "syncSince: ${samples.size} samples returned")
                 call.resolve(out)
             } catch (e: Exception) {
