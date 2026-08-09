@@ -28,6 +28,7 @@ import { getChildrenByParent } from './authority.service';
 const USERS_COLLECTION = 'users';
 const WORKOUTS_COLLECTION = 'workouts';
 const SESSIONS_COLLECTION = 'sessions';
+const DAILY_ACTIVITY_COLLECTION = 'dailyActivity';
 
 // ── In-memory TTL cache ───────────────────────────────────────────────────────
 const _cache = new Map<string, { value: unknown; ts: number }>();
@@ -485,6 +486,92 @@ export async function getActivityTrend(
   } catch (error) {
     console.error('Error calculating activity trend:', error);
     return [];
+  }
+}
+
+// ── City Steps Totals (passive HealthKit / Health Connect sync) ─────────────
+
+export interface CityStepsTotals {
+  totalSteps: number;
+  /** Users with at least one non-zero steps day in the window. */
+  activeUserCount: number;
+  averagePerActiveUser: number;
+  days: number;
+}
+
+/**
+ * Citywide total steps + average-per-active-user over a date window.
+ *
+ * Unlike getActivityTrend (which joins users → workouts by userId, since
+ * `workouts` has no authorityId index), this queries `dailyActivity`
+ * directly by `authorityId` — that field is already denormalized onto
+ * every dailyActivity doc at write time specifically "for step leaderboard
+ * queries" (see useActivityStore.ts syncToServer, ~line 775), and a
+ * composite authorityId+date index already exists
+ * (firestore.indexes.json) — no per-user batch join needed.
+ *
+ * `date` is stored as a plain 'YYYY-MM-DD' string (see
+ * activity-history.service.ts's getStepsTrend for the same convention),
+ * not a Timestamp — range-filtered as strings accordingly.
+ */
+export async function getCityStepsTotals(
+  authorityId: string,
+  days: number = 30,
+): Promise<CityStepsTotals> {
+  const cacheKey = `stepsTotals:${authorityId}:${days}`;
+  const cached = cacheGet<CityStepsTotals>(cacheKey);
+  if (cached) return cached;
+
+  const empty: CityStepsTotals = { totalSteps: 0, activeUserCount: 0, averagePerActiveUser: 0, days };
+
+  try {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - (days - 1));
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = today.toISOString().split('T')[0];
+
+    // Expand to child neighborhoods too, same convention as every other
+    // city-level rollup in this file (getActivityTrend, getNeighborhoodBreakdown).
+    const authorityIds = await getAuthorityWithChildrenIds(authorityId); // cached
+    if (authorityIds.length === 0) return empty;
+
+    let totalSteps = 0;
+    const activeUserIds = new Set<string>();
+
+    await Promise.all(chunk(authorityIds, 30).map(async (batch) => {
+      try {
+        const q = query(
+          collection(db, DAILY_ACTIVITY_COLLECTION),
+          where('authorityId', 'in', batch),
+          where('date', '>=', startDateStr),
+          where('date', '<=', endDateStr),
+        );
+        const snap = await getDocs(q);
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          const steps: number = data.steps ?? 0;
+          if (steps > 0) {
+            totalSteps += steps;
+            if (data.userId) activeUserIds.add(data.userId);
+          }
+        });
+      } catch (err) {
+        console.error('[StepsTotals] batch error:', err);
+      }
+    }));
+
+    const result: CityStepsTotals = {
+      totalSteps,
+      activeUserCount: activeUserIds.size,
+      averagePerActiveUser: activeUserIds.size > 0 ? Math.round(totalSteps / activeUserIds.size) : 0,
+      days,
+    };
+    cacheSet(cacheKey, result);
+    return result;
+  } catch (error) {
+    console.error('Error calculating city steps totals:', error);
+    return empty;
   }
 }
 

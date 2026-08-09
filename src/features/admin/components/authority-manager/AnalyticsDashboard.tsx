@@ -16,6 +16,7 @@ import {
   getPersonaDistribution,
   getEntryRouteDistribution,
   getRunningStats,
+  getCityStepsTotals,
   isWorkoutsIndexBuilding,
   DEFAULT_FILTERS,
   GenderDistribution,
@@ -27,6 +28,7 @@ import {
   PersonaCount,
   EntryRouteDistribution,
   RunningStats,
+  CityStepsTotals,
 } from '@/features/admin/services/analytics.service';
 import NeighborhoodBreakdown from './NeighborhoodBreakdown';
 import FilterBar from './FilterBar';
@@ -99,6 +101,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
   const [personaData, setPersonaData] = useState<PersonaCount[]>([]);
   const [entryRouteData, setEntryRouteData] = useState<EntryRouteDistribution | null>(null);
   const [runningStats, setRunningStats] = useState<RunningStats | null>(null);
+  const [stepsTotals, setStepsTotals] = useState<CityStepsTotals | null>(null);
 
   // Health Economics State
   const [whoTracker, setWhoTracker] = useState<WHO150TrackerResult | null>(null);
@@ -179,7 +182,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         popularParksData, trend, parksData, breakdown,
         whoData, savingsData, savingsHistory,
         neighborhoodsList, hourly,
-        personas, entryRoutes, running,
+        personas, entryRoutes, running, steps,
       ] = await Promise.all([
         getDailyActiveUsers(authorityId, today),
         getMonthlyActiveUsers(authorityId, currentYear, currentMonth),
@@ -197,6 +200,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         getPersonaDistribution(authorityId),
         getEntryRouteDistribution(authorityId),
         getRunningStats(authorityId, initialUserIds, defaultDateRange),
+        getCityStepsTotals(authorityId, 30),
       ]);
 
       setDau(dailyActive);
@@ -220,6 +224,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
       setPersonaData(personas);
       setEntryRouteData(entryRoutes);
       setRunningStats(running);
+      setStepsTotals(steps);
     } catch (error) {
       console.error('Error loading dashboard:', error);
     } finally {
@@ -477,6 +482,46 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
           <div className="flex items-center gap-3">
             <Heart size={18} className="text-white/80" />
             <span className="text-xs font-bold text-white/70">מחשב ROI בריאותי...</span>
+            <div className="h-5 bg-white/20 rounded w-32" />
+          </div>
+        </div>
+      )}
+
+      {/* ── City Steps Strip (passive HealthKit / Health Connect sync,
+           last 30 days) — same shape as the Health ROI strip above,
+           reads dailyActivity directly via authorityId (denormalized at
+           write time), not a per-user join. ── */}
+      {stepsTotals ? (
+        <div className="relative overflow-hidden bg-gradient-to-r from-cyan-700 via-sky-600 to-blue-500 rounded-xl px-5 py-3 text-white shadow-md" dir="rtl">
+          <div className="absolute -top-12 -left-12 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <Footprints size={18} className="text-white/80 flex-shrink-0" />
+              <span className="text-xs font-bold text-white/70 uppercase tracking-wider hidden sm:inline">צעדים — 30 יום אחרונים</span>
+            </div>
+            <div className="flex items-center gap-6 flex-wrap">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-black tabular-nums">{stepsTotals.totalSteps.toLocaleString('he-IL')}</span>
+                <span className="text-[11px] text-white/60 font-semibold">סה"כ צעדים בעיר</span>
+              </div>
+              <div className="w-px h-5 bg-white/20 hidden sm:block" />
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-black tabular-nums">{stepsTotals.averagePerActiveUser.toLocaleString('he-IL')}</span>
+                <span className="text-[11px] text-white/60 font-semibold">ממוצע למשתמש פעיל</span>
+              </div>
+              <div className="w-px h-5 bg-white/20 hidden sm:block" />
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-black tabular-nums">{stepsTotals.activeUserCount}</span>
+                <span className="text-[11px] text-white/50 font-semibold">משתמשים עם נתוני צעדים</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-r from-cyan-700 via-sky-600 to-blue-500 rounded-xl px-5 py-3 text-white shadow-md animate-pulse">
+          <div className="flex items-center gap-3">
+            <Footprints size={18} className="text-white/80" />
+            <span className="text-xs font-bold text-white/70">מחשב נתוני צעדים...</span>
             <div className="h-5 bg-white/20 rounded w-32" />
           </div>
         </div>
