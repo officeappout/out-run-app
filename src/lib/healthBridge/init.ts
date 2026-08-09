@@ -109,6 +109,38 @@ async function writeCursor(iso: string): Promise<void> {
   }
 }
 
+const PREF_KEY_BACKFILL_90D_DONE = 'outrun.healthBridge.backfill90dDone';
+
+/**
+ * One-time migration for users upgrading over an existing install.
+ *
+ * readCursor()/writeCursor() persist via @capacitor/preferences, which on
+ * iOS backs onto NSUserDefaults — it survives app UPDATES (only a full
+ * uninstall clears it). A user who installed a pre-90-day-backfill build
+ * already has a cursor sitting near "now" in storage, so
+ * `readCursor() ?? FIRST_SYNC_BACKFILL_ISO()` never falls through to the
+ * 90-day default after updating — it just resumes from the stale cursor,
+ * silently skipping the backfill entirely. A fresh install doesn't have
+ * this problem (cursor is already null), so this is a no-op for new users.
+ *
+ * Gated by its own flag (not by whether a cursor already exists) so it
+ * runs at most once ever per install, then never touches the cursor again.
+ * Safe to run unconditionally when ungated: rewinding an already-correct
+ * cursor just re-fetches a superset of already-synced data, which
+ * syncSince()'s server-side sampleUUID dedup already treats as a no-op.
+ */
+async function ensure90DayBackfill(): Promise<void> {
+  try {
+    const { plugin: Preferences } = await getPrefs();
+    const { value: done } = await Preferences.get({ key: PREF_KEY_BACKFILL_90D_DONE });
+    if (done === '1') return;
+    await writeCursor(FIRST_SYNC_BACKFILL_ISO());
+    await Preferences.set({ key: PREF_KEY_BACKFILL_90D_DONE, value: '1' });
+  } catch {
+    /* ignore — worst case this retries on next launch, still one-time-safe */
+  }
+}
+
 /**
  * Loads the native plugin proxy — SAFELY.
  *
@@ -420,6 +452,9 @@ export async function initHealthBridge(): Promise<void> {
       }
       return;
     }
+
+    // Must run before the first sync of this launch — see doc comment.
+    await ensure90DayBackfill();
 
     // Subscribe — fires on observer queries (iOS) and the WorkManager
     // worker (Android), as well as foreground sync triggers.
