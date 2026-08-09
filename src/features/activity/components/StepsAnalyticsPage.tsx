@@ -374,20 +374,10 @@ export default function StepsAnalyticsPage() {
           </div>
         </div>
 
-        {/* TEMPORARY — health-sync debug panel entry point, deliberately
-            loud (previous attempt was a pale gray-on-white emoji icon
-            David couldn't find — likely rendered in monochrome "text
-            presentation" in WKWebView, nearly invisible on the header).
-            Remove this whole block once the 90-day-backfill investigation
-            (Aug 2026) is confirmed fixed on-device; see
-            src/app/debug/health-sync/page.tsx. */}
-        <button
-          type="button"
-          onClick={() => router.push('/debug/health-sync')}
-          className="sticky top-[52px] z-20 mx-4 mt-2 w-[calc(100%-2rem)] py-2.5 rounded-xl bg-red-600 text-white text-[13px] font-black tracking-wide shadow-lg active:bg-red-700 transition-colors"
-        >
-          DEBUG — אבחון סנכרון בריאות
-        </button>
+        {/* Debug entry point removed from production UI (Aug 2026, backfill
+            confirmed fixed on-device) — the /debug/health-sync route itself
+            still exists (src/app/debug/health-sync/page.tsx) and is reachable
+            directly if ever needed again; just no visible link to it now. */}
 
         {/* ── Body ── */}
         <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
@@ -799,16 +789,6 @@ export default function StepsAnalyticsPage() {
                       >
                         <HeartPulse className="w-4 h-4" />
                         התחבר לאפליקציית הבריאות
-                      </button>
-                      {/* TEMPORARY — redundant debug entry point, visible in
-                          exactly this "not connected" state. Remove together
-                          with the header DEBUG button above. */}
-                      <button
-                        type="button"
-                        onClick={() => router.push('/debug/health-sync')}
-                        className="text-[11px] font-bold text-red-600 underline"
-                      >
-                        DEBUG — אבחון
                       </button>
                     </div>
                   </div>
