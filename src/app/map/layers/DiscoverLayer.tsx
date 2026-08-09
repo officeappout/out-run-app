@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { PRIMARY_CATEGORIES } from '@/features/user/onboarding/services/single-domain-assessment.service';
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
@@ -538,8 +539,18 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const myGroupIds = profile?.social?.groupIds ?? [];
 
   // ── Full-park gate signals (Phase 3.1c) ────────────────────────────────────
-  // hasStrengthProgram: sync from the profile (any active program qualifies for MVP).
-  const hasStrengthProgram = (profile?.progression?.activePrograms?.length ?? 0) > 0;
+  // hasStrengthProgram (fixed 09.08.2026): was `activePrograms.length > 0` — the
+  // ENROLLED axis, not the ASSESSED one. A user with a program assigned but no
+  // completed strength self-assessment fell through to the real 'אימון מלא בפארק'
+  // card (composeFullParkWorkout gates safely underneath, but the card itself was a
+  // dead end — see feature-flags.ts's STRENGTH_ASSESSMENT_PROMPT_CARD_V1 comment).
+  // Now uses hasAssessedStrengthDomain — the SAME assessed-domain check the home page
+  // already computes inline under this exact name (home/page.tsx:593-599, byte-
+  // identical logic) and the same one composeFullParkWorkout itself gates on
+  // (start-hybrid-session.ts:229/615/1033) — so this signal now agrees with what
+  // actually decides whether a real workout can be composed, not just whether a
+  // program was assigned.
+  const hasStrengthProgram = hasAssessedStrengthDomain(profile as any);
   // hasEquippedPark: resolved async from the CACHED all-parks set (same fetchRealParks
   // the map + composer use — stale-while-revalidate), via the pure nearestEquippedPark
   // (Phase 1.1). READ-ONLY; no new fetch cost beyond the shared cache.
