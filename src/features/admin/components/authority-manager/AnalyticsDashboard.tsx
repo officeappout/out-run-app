@@ -527,6 +527,18 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
                 <span className="text-lg font-black tabular-nums">{stepsTotals.activeUserCount}</span>
                 <span className="text-[11px] text-white/50 font-semibold">משתמשים עם נתוני צעדים</span>
               </div>
+              {/* Distance — hidden entirely until the native distance-sync
+                  release ships (held, see health-bridge commit 459f8740);
+                  totalDistanceMeters is 0 for everyone until then. */}
+              {stepsTotals.totalDistanceMeters > 0 && (
+                <>
+                  <div className="w-px h-5 bg-white/20 hidden sm:block" />
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black tabular-nums">{(stepsTotals.totalDistanceMeters / 1000).toLocaleString('he-IL', { maximumFractionDigits: 1 })}</span>
+                    <span className="text-[11px] text-white/60 font-semibold">ק״מ הליכה/ריצה בעיר</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

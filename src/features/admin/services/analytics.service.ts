@@ -510,6 +510,10 @@ export interface CityStepsTotals {
   activeUserCount: number;
   averagePerActiveUser: number;
   days: number;
+  /** Total passive walking/running distance in the window, metres. 0 until
+   *  the native distance-sync release ships (see health-bridge commit
+   *  459f8740) — held back, not yet deployed. */
+  totalDistanceMeters: number;
 }
 
 /**
@@ -535,7 +539,7 @@ export async function getCityStepsTotals(
   const cached = cacheGet<CityStepsTotals>(cacheKey);
   if (cached) return cached;
 
-  const empty: CityStepsTotals = { totalSteps: 0, activeUserCount: 0, averagePerActiveUser: 0, days };
+  const empty: CityStepsTotals = { totalSteps: 0, activeUserCount: 0, averagePerActiveUser: 0, days, totalDistanceMeters: 0 };
 
   try {
     const today = new Date();
@@ -550,6 +554,7 @@ export async function getCityStepsTotals(
     if (authorityIds.length === 0) return empty;
 
     let totalSteps = 0;
+    let totalDistanceMeters = 0;
     const activeUserIds = new Set<string>();
 
     await Promise.all(chunk(authorityIds, 30).map(async (batch) => {
@@ -568,6 +573,7 @@ export async function getCityStepsTotals(
             totalSteps += steps;
             if (data.userId) activeUserIds.add(data.userId);
           }
+          totalDistanceMeters += data.distanceMeters ?? 0;
         });
       } catch (err) {
         console.error('[StepsTotals] batch error:', err);
@@ -579,6 +585,7 @@ export async function getCityStepsTotals(
       activeUserCount: activeUserIds.size,
       averagePerActiveUser: activeUserIds.size > 0 ? Math.round(totalSteps / activeUserIds.size) : 0,
       days,
+      totalDistanceMeters,
     };
     cacheSet(cacheKey, result);
     return result;

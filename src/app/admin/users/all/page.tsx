@@ -1115,6 +1115,20 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                           </div>
                         );
                       })()}
+                      {/* Distance row — real synced distanceMeters (HealthKit
+                          distanceWalkingRunning / Health Connect DistanceRecord),
+                          same 30-day stepsHistory window. Omitted entirely (not
+                          shown as 0) when no day in the window has synced
+                          distance yet — most users pre-native-release. */}
+                      {stepsHistory.some((s) => (s.distanceMeters ?? 0) > 0) && (() => {
+                        const last30DistanceKm = stepsHistory.reduce((sum, s) => sum + (s.distanceMeters ?? 0), 0) / 1000;
+                        return (
+                          <div className="mt-3 bg-cyan-50 border border-cyan-200 rounded-xl p-4 flex items-center justify-between">
+                            <span className="text-xs text-gray-600">מרחק הליכה/ריצה — 30 יום אחרונים</span>
+                            <span className="font-black text-lg text-cyan-700">{last30DistanceKm.toFixed(1)} ק״מ</span>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* 2. Workout Profile - The "Gold" Data */}
