@@ -71,6 +71,7 @@ const getSmartPath = async (
   profile: 'walking' | 'cycling' | 'driving' = 'walking',
   waypoints: any[] = [],
   extraParams: MapboxDirectionsExtraParams = {},
+  opts?: { signal?: AbortSignal },
 ): Promise<MapboxPathResult | null> => {
 
   try {
@@ -116,7 +117,7 @@ const getSmartPath = async (
     const url = `${BASE_URL}/${profile}/${coordinatesString}?${baseQuery.toString()}`;
 
     // 4. שליחת הבקשה
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: opts?.signal });
     const data = await response.json();
 
     if (!response.ok) {
@@ -154,7 +155,12 @@ const getSmartPath = async (
     };
 
   } catch (error: any) {
-    console.error("❌ Critical Error in Mapbox Service:", error.message);
+    // A superseded call (governed via withCancelPrevious) aborts here — this
+    // is the expected outcome of being cancelled, not a real failure, so it
+    // resolves to null like "no route found" rather than logging as an error.
+    if (error?.name !== 'AbortError') {
+      console.error("❌ Critical Error in Mapbox Service:", error.message);
+    }
     return null;
   }
 };
@@ -176,6 +182,7 @@ const getSmartPathAlternatives = async (
   profile: 'walking' | 'cycling' | 'driving' = 'walking',
   waypoints: any[] = [],
   extraParams: MapboxDirectionsExtraParams = {},
+  opts?: { signal?: AbortSignal },
 ): Promise<MapboxPathResult[]> => {
   try {
     const startCoord = toCoord(start);
@@ -202,7 +209,7 @@ const getSmartPathAlternatives = async (
     baseQuery.set('access_token', MAPBOX_TOKEN);
     const url = `${BASE_URL}/${profile}/${coordinatesString}?${baseQuery.toString()}`;
 
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: opts?.signal });
     const data = await response.json();
     if (!response.ok) {
       console.error('[MapboxService] API Error (alternatives):', data.message);
@@ -226,18 +233,23 @@ const getSmartPathAlternatives = async (
       };
     });
   } catch (error: any) {
-    console.error('❌ Critical Error in Mapbox Service (alternatives):', error.message);
+    if (error?.name !== 'AbortError') {
+      console.error('❌ Critical Error in Mapbox Service (alternatives):', error.message);
+    }
     return [];
   }
 };
 
 // פונקציה לחיפוש כתובות (Geocoding)
-const searchAddress = async (query: string): Promise<Array<{ text: string; coords: [number, number] }>> => {
+const searchAddress = async (
+  query: string,
+  opts?: { signal?: AbortSignal },
+): Promise<Array<{ text: string; coords: [number, number] }>> => {
   if (!query || query.length < 3) return [];
 
   try {
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&language=he&country=il&limit=5`;
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: opts?.signal });
     const data = await response.json();
 
     if (data.features) {
@@ -247,8 +259,10 @@ const searchAddress = async (query: string): Promise<Array<{ text: string; coord
       }));
     }
     return [];
-  } catch (error) {
-    console.error("❌ Geocoding Error:", error);
+  } catch (error: any) {
+    if (error?.name !== 'AbortError') {
+      console.error("❌ Geocoding Error:", error);
+    }
     return [];
   }
 };
