@@ -37,7 +37,7 @@ import {
 import { MIN_STATION_EXERCISES } from './station-source';
 import { appendCooldownExercises } from '../services/cooldown.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '../core/config/pace-map-config';
-import { normalizeGearIds, satisfiesGearRequirement } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { normalizeGearIds, satisfiesGearRequirement, ESSENTIAL_PARK_GEAR } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { resolveStationContent } from './station-content-resolver';
@@ -608,10 +608,20 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
         ` at ${equipStop.km.toFixed(2)}km (equip=[${equipStop.candidate.availableEquipment.join(',')}])`,
       );
     } else {
-      // §3 step 7 fallback: ONE bodyweight (fieldReady) stop at the route midpoint.
+      // §3 step 7 fallback, extended by §10 (09.08.2026, decision-tree v3, David-approved):
+      // ONE stop at the route midpoint, now assuming STANDARD PUBLIC PARK gear
+      // (pull-up bar / dip station / bench / etc — ESSENTIAL_PARK_GEAR) instead of pure
+      // bodyweight. Mirrors the SAME unconditional, unflagged assumption
+      // InputSanitizerMiddleware.ts:102-127 already makes for the home-generation path
+      // when no real park resolves — not a new "is this safe" judgment, the same one
+      // already live elsewhere. A high-level user's content is usually gear-based
+      // (weighted pull-ups, muscle-up progressions, etc.), so this directly reduces how
+      // often the insufficientHomeContent gate below fires for exactly the population
+      // §10 was written for — not a guarantee it never fires again.
       usedFieldFallback = true;
       const midIdx = indexAtKm(prefixKm, routeKm / 2);
       const [lng, lat] = input.routePath[midIdx] ?? [0, 0];
+      const fieldFallbackEquipment = Array.from(ESSENTIAL_PARK_GEAR);
       selection = {
         chosen: [{
           candidate: {
@@ -619,23 +629,24 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
             locationKind: 'open_area',
             lat, lng,
             waypointIndex: midIdx,
-            availableEquipment: [],
+            availableEquipment: fieldFallbackEquipment,
             activityType: 'strength',
           },
           km: routeKm / 2,
         }],
         score: 0,
       };
-      log.push('fit: field fallback — bodyweight stop at route midpoint');
+      log.push(`fit: field fallback — standard-park-gear stop at route midpoint (equip=[${fieldFallbackEquipment.join(',')}])`);
 
       // route-stops Part B — home-substitute content check: a field-fallback stop offers
-      // whatever bodyweight content the level window yields. For a high level that pool can
-      // be too thin to be a real pull/dip-equivalent workout. Reuses the EXACT same pool
-      // (fieldReady, intentMode:'field') dispatchStopContent's bodyweight branch would build,
-      // and the SAME MIN_STATION_EXERCISES threshold it already uses for a park pool — no new
+      // whatever content the level window yields from the standard-park-gear pool above
+      // (was pure bodyweight before §10). For a high level that pool can still be too thin
+      // to be a real workout. Reuses the EXACT same pool-building call
+      // dispatchStopContent's strength branch would build for this equipment, and the
+      // SAME MIN_STATION_EXERCISES threshold it already uses for a real park pool — no new
       // mechanism, just applied earlier so the caller can message instead of starting thin.
       const fieldPool = filterExercisesContextually(input.masterExercises, {
-        ...input.filterContext, availableEquipment: [], intentMode: 'field' as const,
+        ...input.filterContext, availableEquipment: fieldFallbackEquipment,
       }).exercises;
       const targetLevel = input.generationContext.userLevel;
       const inBand = fieldPool.filter(

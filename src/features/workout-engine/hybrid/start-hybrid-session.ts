@@ -895,23 +895,27 @@ async function composeRouteStopsWorkout(
   const plans = [1, 2, 3].map((d) => buildForBolt(d as 1 | 2 | 3));
   const selectedIndex = 1; // balanced default (bolt 2)
 
-  // Part B gate: the field fallback fired AND the level-banded bodyweight pool was too thin
-  // for a real difficulty-equivalent session (compose-hybrid-session.service.ts). Checked on
-  // the default/balanced bolt — block + let the caller show an "not enough content" message
-  // instead of starting a thin session.
+  // Part B gate: the field fallback fired AND the level-banded pool (standard-park-gear
+  // since §10, was pure bodyweight before) was STILL too thin for a real
+  // difficulty-equivalent session (compose-hybrid-session.service.ts). Checked on the
+  // default/balanced bolt — block + let the caller show a message instead of starting a
+  // thin session.
   //
   // Live-bug fix (08.08.2026, same class as the 3 needs_assessment gates + Gate G dedup):
   // this used to `return null` — the caller has no reference left to read ctx.stopGateReason
   // off, so the user just silently bounced back with no explanation, exactly the bug already
-  // fixed for needs_assessment. Unlike those 3 gates, there is no established canonical copy
-  // for "insufficient content" (no buildNeedsAssessmentResult equivalent) — this is a real,
-  // minimal, honest message, not invented to sound more authoritative than it is. Returns the
-  // SAME minimal-stub shape the other 3 gates use (empty plan, real routePath, no
-  // assessmentDomains — this isn't an assessment issue, so no actionable link;
-  // HybridOverviewScreen's fallbackHint-without-onAssessmentLink branch already renders a
-  // plain info banner for exactly this case). Dark today (MAP_ROUTE_STOPS_V1=false).
+  // fixed for needs_assessment. Returns the SAME minimal-stub shape the other 3 gates use
+  // (empty plan, real routePath, no assessmentDomains — this isn't an assessment issue, so
+  // no actionable link; HybridOverviewScreen's fallbackHint-without-onAssessmentLink branch
+  // already renders a plain info banner for exactly this case).
+  //
+  // §10 message update (09.08.2026, decision-tree v3, David-approved): "add a park you
+  // know" per the decision — but the actionable link for that specific action
+  // (ContributionWizard) is §9's scope, not built here; this banner is still a plain
+  // info message, not a tappable link, until §9 wires that entry point through this gate.
+  // Live today: MAP_ROUTE_STOPS_V1=true (comment corrected — was stale, said "Dark today").
   if (plans[selectedIndex].meta.insufficientHomeContent) {
-    console.warn('[composeRouteStopsWorkout] gated: field-fallback pool too thin for this level → insufficient_home_content');
+    console.warn('[composeRouteStopsWorkout] gated: field-fallback pool (standard-park-gear) still too thin for this level → insufficient_home_content');
     ctx.stopGateReason = 'insufficient_home_content';
     return {
       plan: {
@@ -921,7 +925,7 @@ async function composeRouteStopsWorkout(
       },
       routePath: traversalPath,
       aerobicKind: intent.aerobicKind,
-      fallbackHint: 'אין מספיק תרגילים מותאמים לרמה שלך בסביבה הזו כרגע — נסו מיקום אחר או חזרו מאוחר יותר.',
+      fallbackHint: 'לא זיהינו פארק מתאים לרמתך בסביבה הזו — אם אתה מכיר פארק כזה, תוכל להוסיף אותו.',
     };
   }
 
