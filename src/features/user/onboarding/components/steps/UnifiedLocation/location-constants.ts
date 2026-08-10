@@ -535,4 +535,10 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'mk-hmyynvt': { lat: 32.496722, lng: 35.529146 },
   'shdvt-dn': { lat: 31.991124, lng: 34.848002 },
   'shpyr': { lat: 31.572384, lng: 34.7703 },
+
+  // ── Priority follow-up, 10.08.2026 — Wikidata-sourced council seats ──
+  'shr-hngb':     { lat: 31.483333, lng: 34.6 },
+  'shdvt-ngb':    { lat: 31.463539, lng: 34.55494 },
+  'chvf-shklvn':  { lat: 31.716944, lng: 34.633056 },
+  'mrchbym':      { lat: 31.45, lng: 34.7 },
 };

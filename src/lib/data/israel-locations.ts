@@ -852,6 +852,16 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
   { id: 'mk-hmyynvt', name: 'עמק המעיינות', type: 'regional_council', population: 0 },
   { id: 'shdvt-dn', name: 'שדות דן', type: 'regional_council', population: 0 },
   { id: 'shpyr', name: 'שפיר', type: 'regional_council', population: 0 },
+  // ── Priority follow-up, 10.08.2026 — 4 regional councils adjacent to
+  // paying clients (Sderot/Kiryat Yam/Ashkelon), held out of the original
+  // Phase A batch for low geocoding confidence. Coordinates are each
+  // council's official administrative-center/seat location, sourced from
+  // Wikidata + cross-checked against a second source (NOT the low-confidence
+  // geocode matches — see locality-geocoding-phase-a-split.md). ──
+  { id: 'shr-hngb', name: 'שער הנגב', type: 'regional_council', population: 0 },
+  { id: 'shdvt-ngb', name: 'שדות נגב', type: 'regional_council', population: 0 },
+  { id: 'chvf-shklvn', name: 'חוף אשקלון', type: 'regional_council', population: 0 },
+  { id: 'mrchbym', name: 'מרחבים', type: 'regional_council', population: 0 },
 ];
 
 export const getAllSubLocations = () => {
