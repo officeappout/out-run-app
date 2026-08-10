@@ -11,6 +11,7 @@ import { useMapStore, LayerType, PartnerActivityFilter } from '../store/useMapSt
 import { useFacilities } from '../hooks/useFacilities';
 import { useCameraController } from '../hooks/useCameraController';
 import { useWalkToRoute } from '../hooks/useWalkToRoute';
+import { useMapPerfMonitor } from '../hooks/useMapPerfMonitor';
 import { Popup } from 'react-map-gl';
 import LemurMarker from '@/components/LemurMarker';
 import PartnerMarker from './PartnerMarker';
@@ -316,6 +317,11 @@ export default function AppMap({
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+
+  // Map Performance Monitor (map-watchdog-plan.md §5B) — pure observability,
+  // writes useMapStore.pressureLevel from FPS/memoryWarning/webglcontextlost.
+  // No behavior change here; see the hook's own doc comment.
+  useMapPerfMonitor(mapRef, isMapLoaded);
 
   // ── Mapbox event-handler refs for unmount disposal ────────────────────────
   // `handleMapLoad` registers three Mapbox listeners (`style.load` x2 +
