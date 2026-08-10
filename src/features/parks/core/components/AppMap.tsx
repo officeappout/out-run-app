@@ -12,6 +12,8 @@ import { useFacilities } from '../hooks/useFacilities';
 import { useCameraController } from '../hooks/useCameraController';
 import { useWalkToRoute } from '../hooks/useWalkToRoute';
 import { useMapPerfMonitor } from '../hooks/useMapPerfMonitor';
+import { useAdaptiveShed } from '../hooks/useAdaptiveShed';
+import { IS_ADAPTIVE_SHED_ENABLED } from '@/config/feature-flags';
 import { Popup } from 'react-map-gl';
 import LemurMarker from '@/components/LemurMarker';
 import PartnerMarker from './PartnerMarker';
@@ -323,6 +325,11 @@ export default function AppMap({
   // No behavior change here; see the hook's own doc comment.
   useMapPerfMonitor(mapRef, isMapLoaded);
 
+  // Adaptive Shed (map-watchdog-plan.md §5C) — reacts to pressureLevel by
+  // hiding partner markers under sustained critical pressure. No-ops when
+  // IS_ADAPTIVE_SHED_ENABLED is false. See the hook's own doc comment.
+  useAdaptiveShed();
+
   // ── Mapbox event-handler refs for unmount disposal ────────────────────────
   // `handleMapLoad` registers three Mapbox listeners (`style.load` x2 +
   // `sourcedata`) via closures local to the callback. Without explicit
@@ -377,6 +384,11 @@ export default function AppMap({
   useEffect(() => {
     setMapVisuallyReady(isVisuallyReady);
   }, [isVisuallyReady, setMapVisuallyReady]);
+
+  // Adaptive Shed input (map-watchdog-plan.md §5C) — drives the presence
+  // throttle below. Read here (not inside useAdaptiveShed) since it's a pure
+  // per-render value pick, not a side effect.
+  const pressureLevel = useMapStore((s) => s.pressureLevel);
 
   const [parks, setParks] = useState<any[]>([]);
   const { setSelectedPark, visibleLayers, selectedPark } = useMapStore();
@@ -688,7 +700,15 @@ export default function AppMap({
   // Stage 1b: throttle ONLY the heatmap/dots Source data (the expensive Mapbox
   // re-tessellation). The live <Marker> pins below use the un-throttled
   // `visiblePartners`, so zoom-15 pins stay responsive.
-  const throttledPresenceGeoJSON = useThrottledValue(presenceGeoJSON, PRESENCE_SETDATA_THROTTLE_MS);
+  //
+  // Adaptive Shed (§5C): under pressure, slacken the throttle further —
+  // invisible to the user (still just paint cadence), just less GC/compositor
+  // churn. No-ops to the flat 750ms baseline when IS_ADAPTIVE_SHED_ENABLED is
+  // false, or when pressureLevel is 'normal'.
+  const presenceThrottleMs = IS_ADAPTIVE_SHED_ENABLED
+    ? (pressureLevel === 'critical' ? 2000 : pressureLevel === 'warning' ? 1500 : PRESENCE_SETDATA_THROTTLE_MS)
+    : PRESENCE_SETDATA_THROTTLE_MS;
+  const throttledPresenceGeoJSON = useThrottledValue(presenceGeoJSON, presenceThrottleMs);
 
   const visiblePartnersGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
     type: 'FeatureCollection',

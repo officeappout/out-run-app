@@ -198,6 +198,26 @@ export const IS_PERF_BATCH2_ENABLED = true;
 // the group-session `mode=='group'` path is never unified.
 export const IS_PERF_BATCH2_PRESENCE_ENABLED = true;
 
+// ADAPTIVE_SHED — reactive layer on top of the map perf Monitor's pressureLevel
+// ('normal'|'warning'|'critical', useMapStore, computed by useMapPerfMonitor
+// from FPS/native memoryWarning/webglcontextlost). While false, pressureLevel
+// is still computed (pure observability, unaffected by this flag) but nothing
+// reacts to it — byte-identical to before this flag existed. When true:
+//   • Presence paint throttle scales 750→1500→2000ms across normal/warning/
+//     critical (AppMap.tsx) — invisible, just less paint/GC churn at warning.
+//   • usePartnerData's 4 existing foreground-pause guards also bail at
+//     'critical' — the same listeners already paused when backgrounded now
+//     also pause under sustained critical pressure.
+//   • useAdaptiveShed hides partner markers (liveUsersVisible=false) only at
+//     'critical', and restores them on recovery ONLY if the Shed itself was
+//     the one that hid them (a user who manually hid partners beforehand is
+//     never overridden either way).
+// Thresholds are the Monitor's original design defaults, not yet validated
+// against real device telemetry (the Monitor has only run in prod briefly) —
+// this flag is the rollback path if 'critical' fires on normal use: flip
+// false and redeploy, no code change needed.
+export const IS_ADAPTIVE_SHED_ENABLED = true;
+
 // ============================================================================
 // SUMMARY CONSOLIDATION (Stage 2/3) — per-screen V2 renderers over the shared
 // summary/blocks kit. ALL DEFAULT FALSE: while false, each summary screen renders
