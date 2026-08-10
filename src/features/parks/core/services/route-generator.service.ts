@@ -7,6 +7,7 @@ import { Park as MapPark } from '../types/park.types';
 import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
+import { withCancelPrevious } from '@/lib/requestGovernor';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -1183,11 +1184,19 @@ async function generateCommuteRoutes(
   // one of…" (a 400 logged as an API Error). It is also semantically pointless:
   // pedestrians and cyclists are never routed onto a motorway to begin with. The
   // "quiet" variant is instead derived from the longest alternative below.
-  const alternatives = await MapboxService.getSmartPathAlternatives(
-    userLocation,
-    destination,
-    profile,
-    [],
+  // withCancelPrevious: RouteCarousel's own `cancelled` flag (its effect,
+  // not here) already discards a stale RESULT, but the Directions fetch
+  // itself kept running on the wire regardless — a real destination change
+  // now actually aborts the old request instead of just ignoring its answer.
+  const alternatives = await withCancelPrevious('commute-directions', (signal) =>
+    MapboxService.getSmartPathAlternatives(
+      userLocation,
+      destination,
+      profile,
+      [],
+      {},
+      { signal },
+    ),
   );
   const quietRaw: MapboxPathResult | null = null;
 

@@ -6,6 +6,7 @@ import { Route, ActivityType } from '../types/route.types';
 import { fetchRealParks } from '../services/parks.service';
 import type { Park } from '../types/park.types';
 import { getCachedOfficialRoutes, routePassesNearPoint, InventoryService } from '../services/inventory.service';
+import { withCancelPrevious } from '@/lib/requestGovernor';
 
 export type RouteVariant = 'recommended' | 'scenic' | 'facilityRich';
 
@@ -82,8 +83,14 @@ export function useSearchNavigation(
       try {
         const term = searchQuery.toLowerCase();
 
+        // withCancelPrevious: a new keystroke's debounce previously cleared
+        // only the pending TIMER — an already-in-flight fetch for an older
+        // query kept running and could still land after a newer one, racing
+        // setSuggestions. Now the older fetch is actually aborted.
         const [mapboxResults, parks, routes] = await Promise.all([
-          MapboxService.searchAddress(searchQuery),
+          withCancelPrevious('address-search-typeahead', (signal) =>
+            MapboxService.searchAddress(searchQuery, { signal }),
+          ),
           getCachedParks(),
           getCachedOfficialRoutes(),
         ]);
