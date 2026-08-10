@@ -324,7 +324,16 @@ export async function syncOnboardingToFirestore(
         ? sessionStorage.getItem('selected_authority_id')
         : null;
       if (selectedAuthorityId) authorityIdToSync = selectedAuthorityId;
-      
+
+      // Neighborhood, unlike authorityId, is NOT in firestore.rules'
+      // noTenantFieldsChanged() lock — it doesn't gate paying-municipality
+      // features, only informational/analytics grouping — so it's written
+      // directly in this same payload rather than routed through the
+      // Admin-SDK update-authority endpoint.
+      const selectedNeighborhoodId = typeof window !== 'undefined'
+        ? sessionStorage.getItem('selected_neighborhood_id')
+        : null;
+
       updateData.core = {
         name: userName || data.city || 'User', // Use name from sessionStorage, or city, or fallback
         ...(user.email ? { email: user.email } : {}), // Only include email if it exists (not undefined)
@@ -339,6 +348,7 @@ export async function syncOnboardingToFirestore(
         gender: userGender || (data.gender as 'male' | 'female' | 'other') || 'other', // Get gender from sessionStorage or data, default to 'other'
         weight: 70,
         isAnonymous: isAnonymous,
+        ...(selectedNeighborhoodId ? { neighborhoodId: selectedNeighborhoodId } : {}),
         // authorityId written separately via updateUserAuthority() after setDoc.
       };
       
@@ -430,7 +440,14 @@ export async function syncOnboardingToFirestore(
           ? sessionStorage.getItem('selected_authority_id')
           : null;
         if (selectedAuthorityId) authorityIdToSync = selectedAuthorityId;
-        
+
+        // neighborhoodId is not lock-protected (see create-branch comment
+        // above) — written directly into this same payload.
+        const selectedNeighborhoodId = typeof window !== 'undefined'
+          ? sessionStorage.getItem('selected_neighborhood_id')
+          : null;
+        if (selectedNeighborhoodId) coreUpdate.neighborhoodId = selectedNeighborhoodId;
+
         // Sanitize undefined values - remove them
         Object.keys(coreUpdate).forEach(key => {
           if (coreUpdate[key] === undefined) {

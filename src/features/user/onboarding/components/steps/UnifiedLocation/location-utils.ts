@@ -5,7 +5,7 @@
 
 import { fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
-import { getAllAuthorities } from '@/features/admin/services/authority.service';
+import { getAllAuthorities, getChildrenByParent } from '@/features/admin/services/authority.service';
 import { ISRAELI_LOCATIONS, type IsraeliLocation, type LocationType } from '@/lib/data/israel-locations';
 import type { Map as MapboxGLMap } from 'mapbox-gl';
 
@@ -315,6 +315,41 @@ export async function findAuthorityIdByCity(cityName: string): Promise<string | 
     for (const a of authorities) {
       const n = normalised(a.name);
       if (target.includes(n) || n.includes(target)) return a.id;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves a specific neighborhood's own child-authority ID, scoped to the
+ * already-resolved parent city — deliberately NEVER a global fuzzy match
+ * against all authorities (a same-named neighborhood in a different city
+ * must not match). Same exact-then-substring matching as
+ * findAuthorityIdByCity above, just scoped to getChildrenByParent(cityId)
+ * instead of every authority in the system.
+ *
+ * Returns null when the city has no matching neighborhood authority set up
+ * yet (most cities today) — callers should treat that as "no neighborhood",
+ * not an error.
+ */
+export async function findNeighborhoodIdByCity(
+  cityAuthorityId: string,
+  neighborhoodName: string,
+): Promise<string | null> {
+  if (!cityAuthorityId || !neighborhoodName) return null;
+  try {
+    const children = await getChildrenByParent(cityAuthorityId);
+    const normalised = (s: string) => s.replace(/[\s\-]/g, '').toLowerCase();
+    const target = normalised(neighborhoodName);
+
+    for (const c of children) {
+      if (normalised(c.name) === target) return c.id;
+    }
+    for (const c of children) {
+      const n = normalised(c.name);
+      if (target.includes(n) || n.includes(target)) return c.id;
     }
     return null;
   } catch {

@@ -612,6 +612,19 @@ export interface NeighborhoodBreakdownRow {
  * Per-neighborhood stats using fully parallel batch queries.
  * Old approach: 14 neighborhoods × sequential per-neighborhood queries ≈ 42 reads.
  * New approach: 1 users query + 2 parallel workout queries (all batched) ≈ 13 reads.
+ *
+ * Grouping key: `core.neighborhoodId` — NOT `core.authorityId`. Neighborhoods
+ * are child authority docs, but a user's `core.authorityId` is always the
+ * CITY-level ID (never repointed to a neighborhood — that would break every
+ * city-level rollup, e.g. getCityStepsTotals). Whether a user picked a
+ * specific neighborhood during onboarding is tracked separately on
+ * `core.neighborhoodId` (see UnifiedLocationStep.tsx's findNeighborhoodIdByCity).
+ * Users with no neighborhoodId (most users before this field existed, or who
+ * only picked a city with no neighborhood) fall into no per-neighborhood
+ * bucket — logged as an "unassigned" count below for admin visibility, not
+ * exposed on NeighborhoodBreakdownRow (would ripple into every consumer for
+ * a number that's expected to be large until the forward-only fix has had
+ * time to accumulate real picks).
  */
 export async function getNeighborhoodBreakdown(
   cityId: string,
@@ -630,43 +643,49 @@ export async function getNeighborhoodBreakdown(
     const ageMin = ageRange?.min ?? 35;
     const ageMax = ageRange?.max ?? 55;
 
-    const childIds = children.map(c => c.id);
-
-    // 1. Fetch ALL users across all neighborhoods in parallel batches
-    const allUserDocs: { id: string; authorityId: string; birthYear: number | null }[] = [];
-    await Promise.all(chunk(childIds, 30).map(async (batch) => {
-      const snap = await getDocs(query(
-        collection(db, USERS_COLLECTION),
-        where('core.authorityId', 'in', batch)
-      ));
-      snap.docs.forEach(d => {
-        const data = d.data() as Record<string, unknown>;
-        const core = data.core as Record<string, unknown> | undefined;
-        const birthDate = core?.birthDate;
-        let birthYear: number | null = null;
-        if (birthDate) {
-          if (birthDate instanceof Date) birthYear = birthDate.getFullYear();
-          else if (typeof birthDate === 'string') {
-            const parsed = new Date(birthDate);
-            if (!isNaN(parsed.getTime())) birthYear = parsed.getFullYear();
-          } else if (typeof (birthDate as Timestamp).toDate === 'function') {
-            birthYear = (birthDate as Timestamp).toDate().getFullYear();
-          }
+    // 1. Fetch ALL users of the CITY itself (core.authorityId never varies
+    // by neighborhood — single equality match, no 30-item chunking needed).
+    const allUserDocs: { id: string; neighborhoodId: string | null; birthYear: number | null }[] = [];
+    const citySnap = await getDocs(query(
+      collection(db, USERS_COLLECTION),
+      where('core.authorityId', '==', cityId)
+    ));
+    citySnap.docs.forEach(d => {
+      const data = d.data() as Record<string, unknown>;
+      const core = data.core as Record<string, unknown> | undefined;
+      const birthDate = core?.birthDate;
+      let birthYear: number | null = null;
+      if (birthDate) {
+        if (birthDate instanceof Date) birthYear = birthDate.getFullYear();
+        else if (typeof birthDate === 'string') {
+          const parsed = new Date(birthDate);
+          if (!isNaN(parsed.getTime())) birthYear = parsed.getFullYear();
+        } else if (typeof (birthDate as Timestamp).toDate === 'function') {
+          birthYear = (birthDate as Timestamp).toDate().getFullYear();
         }
-        allUserDocs.push({
-          id: d.id,
-          authorityId: (core?.authorityId as string) ?? '',
-          birthYear,
-        });
+      }
+      allUserDocs.push({
+        id: d.id,
+        neighborhoodId: (core?.neighborhoodId as string) ?? null,
+        birthYear,
       });
-    }));
+    });
 
-    console.log(`[Neighborhood] ${children.length} neighborhoods | ${allUserDocs.length} total users`);
+    const unassignedCount = allUserDocs.filter(u => !u.neighborhoodId).length;
+    console.log(
+      `[Neighborhood] ${children.length} neighborhoods | ${allUserDocs.length} total city users | ` +
+      `${unassignedCount} unassigned (no neighborhoodId — pre-fix accounts or city-only picks)`,
+    );
 
-    // 2. Group users by neighborhood in memory
+    // 2. Group users by neighborhoodId in memory. Users with no
+    // neighborhoodId (null) are intentionally excluded from every
+    // per-neighborhood bucket — they're real city users, just not linked to
+    // a specific neighborhood (pre-fix accounts, or picked city-only).
     const usersByNeighborhood = new Map<string, typeof allUserDocs>();
     children.forEach(c => usersByNeighborhood.set(c.id, []));
-    allUserDocs.forEach(u => usersByNeighborhood.get(u.authorityId)?.push(u));
+    allUserDocs.forEach(u => {
+      if (u.neighborhoodId) usersByNeighborhood.get(u.neighborhoodId)?.push(u);
+    });
 
     const allUserIds = allUserDocs.map(d => d.id);
     if (allUserIds.length === 0) {

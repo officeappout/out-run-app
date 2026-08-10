@@ -89,6 +89,7 @@ export default function FullMapView({ initialWorkoutId, initialContext, spotFocu
     if (typeof window === 'undefined') return;
 
     const authorityId = sessionStorage.getItem('selected_authority_id');
+    const neighborhoodId = sessionStorage.getItem('selected_neighborhood_id');
     const lat = sessionStorage.getItem('selected_anchor_lat');
     const lng = sessionStorage.getItem('selected_anchor_lng');
 
@@ -96,11 +97,13 @@ export default function FullMapView({ initialWorkoutId, initialContext, spotFocu
     sessionStorage.removeItem('selected_anchor_lat');
     sessionStorage.removeItem('selected_anchor_lng');
     sessionStorage.removeItem('selected_authority_id');
+    sessionStorage.removeItem('selected_neighborhood_id');
 
     const hasData = authorityId || lat || lng;
     if (hasData) {
       syncLocationToFirestore({
         authorityId: authorityId || undefined,
+        neighborhoodId: neighborhoodId || undefined,
         anchorLat: lat ? parseFloat(lat) : undefined,
         anchorLng: lng ? parseFloat(lng) : undefined,
       }).then(() => refreshProfile());
@@ -110,6 +113,7 @@ export default function FullMapView({ initialWorkoutId, initialContext, spotFocu
   const handleLocationGateComplete = async () => {
     if (typeof window !== 'undefined') {
       const authorityId = sessionStorage.getItem('selected_authority_id');
+      const neighborhoodId = sessionStorage.getItem('selected_neighborhood_id');
       const lat = sessionStorage.getItem('selected_anchor_lat');
       const lng = sessionStorage.getItem('selected_anchor_lng');
 
@@ -117,11 +121,13 @@ export default function FullMapView({ initialWorkoutId, initialContext, spotFocu
       sessionStorage.removeItem('selected_anchor_lat');
       sessionStorage.removeItem('selected_anchor_lng');
       sessionStorage.removeItem('selected_authority_id');
+      sessionStorage.removeItem('selected_neighborhood_id');
 
       const hasData = authorityId || lat || lng;
       if (hasData) {
         await syncLocationToFirestore({
           authorityId: authorityId || undefined,
+          neighborhoodId: neighborhoodId || undefined,
           anchorLat: lat ? parseFloat(lat) : undefined,
           anchorLng: lng ? parseFloat(lng) : undefined,
         });

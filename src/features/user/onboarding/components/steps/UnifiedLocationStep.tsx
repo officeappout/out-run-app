@@ -43,6 +43,7 @@ import {
   getSettlementType,
   getSettlementNaming,
   findAuthorityIdByCity,
+  findNeighborhoodIdByCity,
   classifySportContext,
   fetchNearbyFacilities,
   fetchHeroRoute,
@@ -158,6 +159,11 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
 
   // ── Resolved Authority ──
   const [resolvedAuthorityId, setResolvedAuthorityId] = useState<string | null>(null);
+  // Separate from resolvedAuthorityId (city — never repointed, gates paying-
+  // municipality features). Null whenever no matching neighborhood authority
+  // exists yet for the resolved city (most cities today) — that's expected,
+  // not an error; the city-level authorityId still resolves normally.
+  const [resolvedNeighborhoodId, setResolvedNeighborhoodId] = useState<string | null>(null);
 
   // ══════════════════════════════════════════════════════════════════
   // EFFECTS
@@ -312,11 +318,21 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       setDetectedCity(result.city);
       setDetectedNeighborhood(result.neighborhood);
       setDisplayName(result.displayName);
-      
+
       const authId = await findAuthorityIdByCity(result.city || '');
       setResolvedAuthorityId(authId);
       if (authId && typeof window !== 'undefined') {
         sessionStorage.setItem('selected_authority_id', authId);
+      }
+      // Every fresh authId resolution either sets or clears neighborhoodId —
+      // never leaves a stale value from an earlier drag/pick in this session.
+      const neighborhoodId = authId && result.neighborhood
+        ? await findNeighborhoodIdByCity(authId, result.neighborhood)
+        : null;
+      setResolvedNeighborhoodId(neighborhoodId);
+      if (typeof window !== 'undefined') {
+        if (neighborhoodId) sessionStorage.setItem('selected_neighborhood_id', neighborhoodId);
+        else sessionStorage.removeItem('selected_neighborhood_id');
       }
 
       // Explorer mode: parks only — skip all route fetching
@@ -388,6 +404,14 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     setResolvedAuthorityId(authId);
     if (authId && typeof window !== 'undefined') {
       sessionStorage.setItem('selected_authority_id', authId);
+    }
+    const neighborhoodId = authId && result.neighborhood
+      ? await findNeighborhoodIdByCity(authId, result.neighborhood)
+      : null;
+    setResolvedNeighborhoodId(neighborhoodId);
+    if (typeof window !== 'undefined') {
+      if (neighborhoodId) sessionStorage.setItem('selected_neighborhood_id', neighborhoodId);
+      else sessionStorage.removeItem('selected_neighborhood_id');
     }
 
     setIsLoadingParks(true);
@@ -497,6 +521,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     // (bridge = MapShell gate, explorer = /explorer) writes these keys.
     if (isExplorer && typeof window !== 'undefined') {
       if (resolvedAuthorityId) setOnboardingPref('map_authority_id', resolvedAuthorityId);
+      if (resolvedNeighborhoodId) setOnboardingPref('map_neighborhood_id', resolvedNeighborhoodId);
       if (userLocation) {
         setOnboardingPref('map_anchor_lat', String(userLocation.lat));
         setOnboardingPref('map_anchor_lng', String(userLocation.lng));
@@ -548,7 +573,9 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       sessionStorage.removeItem('selected_anchor_lat');
       sessionStorage.removeItem('selected_anchor_lng');
       sessionStorage.removeItem('selected_authority_id');
+      sessionStorage.removeItem('selected_neighborhood_id');
     }
+    setResolvedNeighborhoodId(null);
     
     // ── Precise Snap: Always forward-geocode to get Mapbox's exact
     // center for the selected location (city OR neighborhood).
@@ -578,6 +605,16 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     setResolvedAuthorityId(authId);
     if (authId && typeof window !== 'undefined') {
       sessionStorage.setItem('selected_authority_id', authId);
+    }
+    // city.parentName present → this row IS a specific neighborhood (not a
+    // plain city). Resolve its own child-authority ID scoped to the
+    // already-resolved city — never a global fuzzy match.
+    if (authId && city.parentName) {
+      const neighborhoodId = await findNeighborhoodIdByCity(authId, city.name);
+      setResolvedNeighborhoodId(neighborhoodId);
+      if (neighborhoodId && typeof window !== 'undefined') {
+        sessionStorage.setItem('selected_neighborhood_id', neighborhoodId);
+      }
     }
 
     setIsLoadingParks(true);

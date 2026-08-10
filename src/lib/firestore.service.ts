@@ -390,6 +390,7 @@ export async function syncFieldToFirestore(
  */
 export async function syncLocationToFirestore(data: {
   authorityId?: string | null;
+  neighborhoodId?: string | null;
   anchorLat?: number | null;
   anchorLng?: number | null;
 }): Promise<boolean> {
@@ -398,10 +399,13 @@ export async function syncLocationToFirestore(data: {
 
   const results: boolean[] = [];
 
-  // anchorLat / anchorLng — allowed direct client write (not in noTenantFieldsChanged).
+  // anchorLat / anchorLng / neighborhoodId — allowed direct client write
+  // (none are in noTenantFieldsChanged; neighborhoodId doesn't gate paying-
+  // municipality features the way authorityId does, only analytics grouping).
   const fields: Record<string, unknown> = { updatedAt: serverTimestamp() };
   if (data.anchorLat != null) fields['core.anchorLat'] = data.anchorLat;
   if (data.anchorLng != null) fields['core.anchorLng'] = data.anchorLng;
+  if (data.neighborhoodId != null) fields['core.neighborhoodId'] = data.neighborhoodId;
 
   if (Object.keys(fields).length > 1) {
     try {

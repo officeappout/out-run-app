@@ -45,11 +45,13 @@ export default function ExplorerPage() {
     let cancelled = false;
     (async () => {
       const authId = await getOnboardingPrefAsync('map_authority_id');
+      const neighborhoodId = await getOnboardingPrefAsync('map_neighborhood_id');
       const lat = await getOnboardingPrefAsync('map_anchor_lat');
       const lng = await getOnboardingPrefAsync('map_anchor_lng');
       if (cancelled) return;
       if (authId || lat) {
         if (authId) sessionStorage.setItem('selected_authority_id', authId);
+        if (neighborhoodId) sessionStorage.setItem('selected_neighborhood_id', neighborhoodId);
         if (lat) sessionStorage.setItem('selected_anchor_lat', lat);
         if (lng) sessionStorage.setItem('selected_anchor_lng', lng);
         router.replace('/map?fromExplorer=true');
