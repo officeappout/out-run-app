@@ -157,11 +157,47 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
 
   // ─── RISHON LEZION neighborhoods ───────────────────────────
   'rl-center':        { lat: 31.9636, lng: 34.7988 },
-  'rl-north':         { lat: 31.9870, lng: 34.7960 },
-  'rl-south':         { lat: 31.9560, lng: 34.7850 },
   'rl-ramat-eliyahu': { lat: 31.9535, lng: 34.8075 },
-  'rl-nahalat-yehuda':{ lat: 31.9478, lng: 34.7895 },
-  'rl-kiryat-haim':   { lat: 31.9760, lng: 34.7895 },
+  // Was 'rl-nahalat-yehuda' — didn't match the actual subLocation id
+  // ('rl-nahalat', israel-locations.ts) so it silently fell back to the
+  // city-center default. Fixed 10.08.2026.
+  'rl-nahalat':       { lat: 31.9478, lng: 34.7895 },
+  // ── OSM import, 10.08.2026 — see israel-locations.ts for the matching
+  // subLocations entries + full provenance note. ──
+  'rl-abramovich':                { lat: 31.968835, lng: 34.801429 },
+  'rl-bnot-hil':                  { lat: 31.973007, lng: 34.794087 },
+  'rl-gordon':                    { lat: 31.951773, lng: 34.816447 },
+  'rl-hairisim':                  { lat: 31.950965, lng: 34.804578 },
+  'rl-harakafot':                 { lat: 31.947989, lng: 34.829742 },
+  'rl-hashomer':                  { lat: 31.96007, lng: 34.81136 },
+  'rl-kalaniyot':                 { lat: 31.94538, lng: 34.821647 },
+  'rl-katznelson':                { lat: 31.96815, lng: 34.794635 },
+  'rl-kfar-arye':                 { lat: 31.945538, lng: 34.827465 },
+  'rl-kidmat-rishon':             { lat: 31.970633, lng: 34.815564 },
+  'rl-kiriyat-ganim':             { lat: 31.9653, lng: 34.778535 },
+  'rl-kiryat-haleom':             { lat: 31.969445, lng: 34.779554 },
+  'rl-kiryat-hatanei-pras-nobel': { lat: 31.970253, lng: 34.765752 },
+  'rl-kiryat-rishon':             { lat: 31.972844, lng: 34.784477 },
+  'rl-kiryat-simha':              { lat: 31.94966, lng: 34.80742 },
+  'rl-marom-rishon':              { lat: 31.969138, lng: 34.823474 },
+  'rl-mishor-hanof':              { lat: 31.95301, lng: 34.811775 },
+  'rl-narkisim':                  { lat: 31.959346, lng: 34.830603 },
+  'rl-neot-eshelim':              { lat: 31.965894, lng: 34.773744 },
+  'rl-neot-shikma':               { lat: 31.977455, lng: 34.771958 },
+  'rl-neurim':                    { lat: 31.974293, lng: 34.812835 },
+  'rl-neve-dekalim':              { lat: 31.981775, lng: 34.762001 },
+  'rl-neve-hadarim':              { lat: 31.95888, lng: 34.816873 },
+  'rl-neve-hilel':                { lat: 31.959694, lng: 34.789969 },
+  'rl-neve-hof':                  { lat: 31.996289, lng: 34.741557 },
+  'rl-neve-yam':                  { lat: 31.98579, lng: 34.779834 },
+  'rl-nuriyot':                   { lat: 31.96548, lng: 34.829446 },
+  'rl-rambam':                    { lat: 31.965244, lng: 34.810735 },
+  'rl-remez':                     { lat: 31.960474, lng: 34.79543 },
+  'rl-revivim':                   { lat: 31.965896, lng: 34.822342 },
+  'rl-rishonim':                  { lat: 31.953603, lng: 34.804057 },
+  'rl-shaar-hayam':               { lat: 31.999162, lng: 34.736898 },
+  'rl-shikuney-hamizrah':         { lat: 31.953108, lng: 34.826865 },
+  'rl-tzamarot':                  { lat: 31.95732, lng: 34.824657 },
 
   // ─── PETAH TIKVA neighborhoods ─────────────────────────────
   'pt-center':        { lat: 32.0878, lng: 34.8815 },
