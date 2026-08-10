@@ -57,6 +57,7 @@ import {
   findAuthorityIdByCity,
 } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
 import type { AccessTier } from '@/features/user/core/types/user.types';
+import { withCoalesce } from '@/lib/requestGovernor';
 
 const DEBUG_RESOLUTION = false;
 const log = (...args: unknown[]) => {
@@ -271,7 +272,15 @@ export function useUserCityName(
 
     let cancelled = false;
     log('Path 1: GPS reverse-geocode at', stablePosition);
-    reverseGeocode(stablePosition.lat, stablePosition.lng)
+    // withCoalesce: this hook has 3 independent live instances (DiscoverLayer,
+    // useRouteGeneration, useRouteDeviationOrchestrator), each with its own
+    // 1km gate above but no state shared between them — two instances near
+    // the same spot that haven't individually geocoded it yet previously
+    // fired two separate Mapbox requests for essentially the same place.
+    // Key rounds to ~1.1km grid cells, matching the gate's rough granularity
+    // (an approximation, not an exact dedup of the 1km gate's own math).
+    const geoKey = `geo:${stablePosition.lat.toFixed(2)},${stablePosition.lng.toFixed(2)}`;
+    withCoalesce(geoKey, () => reverseGeocode(stablePosition.lat, stablePosition.lng))
       .then((geo) => {
         if (cancelled) return;
         if (!geo.city) {
