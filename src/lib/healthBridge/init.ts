@@ -231,6 +231,7 @@ export async function healthBridgeSyncNow(
       steps: number;
       calories: number;
       activeMinutes: number;
+      distanceMeters: number;
       source?: string;
     }>;
     console.log(`[healthBridge][flow] sync(${reason}): ${samples.length} raw samples returned`);
@@ -244,9 +245,9 @@ export async function healthBridgeSyncNow(
     const now = Date.now();
     const sampleSource: SampleSource = platformIsIOS() ? 'healthkit' : 'healthconnect';
 
-    // Each native sample carries one of (steps | calories | activeMinutes);
-    // the server also keys uniquely on `sampleUUID`. To keep the outbox
-    // schema stable we shred per-metric: one OutboxHealthSample per
+    // Each native sample carries one of (steps | calories | activeMinutes |
+    // distanceMeters); the server also keys uniquely on `sampleUUID`. To
+    // keep the outbox schema stable we shred per-metric: one OutboxHealthSample per
     // non-zero quantity, with a deterministic suffix on the UUID so the
     // server still dedupes correctly.
     const out: OutboxHealthSample[] = [];
@@ -276,6 +277,16 @@ export async function healthBridgeSyncNow(
         pushSample({
           type: 'exerciseTime',
           value: s.activeMinutes,
+          date: s.date,
+          startDate: s.startISO,
+          endDate: s.endISO,
+        });
+      }
+      if (s.distanceMeters > 0) {
+        out.push(buildOutboxSample(s, 'distance', s.distanceMeters, sampleSource, now));
+        pushSample({
+          type: 'distance',
+          value: s.distanceMeters,
           date: s.date,
           startDate: s.startISO,
           endDate: s.endISO,

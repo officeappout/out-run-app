@@ -35,7 +35,7 @@ const WORKOUTS_STORE = 'workoutsOutbox';
 // Record shapes
 // ────────────────────────────────────────────────────────────────────────────
 
-export type SampleType = 'steps' | 'activeEnergy' | 'exerciseTime';
+export type SampleType = 'steps' | 'activeEnergy' | 'exerciseTime' | 'distance';
 export type SampleSource = 'healthkit' | 'healthconnect';
 
 export interface OutboxHealthSample {
@@ -44,7 +44,7 @@ export interface OutboxHealthSample {
   /** Local date (YYYY-MM-DD) the sample belongs to. */
   date: string;
   type: SampleType;
-  /** Numeric value: count for steps, kcal for activeEnergy, minutes for exerciseTime. */
+  /** Numeric value: count for steps, kcal for activeEnergy, minutes for exerciseTime, metres for distance. */
   value: number;
   /** ISO timestamp string. */
   startDate: string;

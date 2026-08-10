@@ -147,7 +147,13 @@ export interface DailyActivity {
   
   /** Total calories burned */
   calories: number;
-  
+
+  /** Total passive walking/running distance today, in metres (HealthKit
+   *  distanceWalkingRunning / Health Connect DistanceRecord). Convert to
+   *  km at the display boundary — stored in metres to match the native
+   *  units and avoid repeated float rounding. */
+  distanceMeters: number;
+
   /** Activity type for the day (for calendar dot) */
   activityType: ActivityType;
   
@@ -370,6 +376,7 @@ export function createEmptyDailyActivity(
     floorsGoal: 10,
     floorsGoalMet: false,
     calories: 0,
+    distanceMeters: 0,
     activityType: 'none',
     streak: 0,
     dominantCategory: null,

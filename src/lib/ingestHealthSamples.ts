@@ -22,7 +22,7 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from '@/lib/firebase';
 
-export type IngestSampleType = 'steps' | 'activeEnergy' | 'exerciseTime';
+export type IngestSampleType = 'steps' | 'activeEnergy' | 'exerciseTime' | 'distance';
 export type IngestSampleSource = 'healthkit' | 'healthconnect';
 
 export interface IngestHealthSamplePayload {
