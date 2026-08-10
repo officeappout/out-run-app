@@ -1453,7 +1453,7 @@ export default function StatsOverview({
                         setIsIntensitySheetOpen(false);
                       }}
                       className={[
-                        'flex items-center justify-between px-4 py-3.5 rounded-2xl transition-colors text-right',
+                        'flex items-center justify-between px-4 py-3.5 rounded-2xl transition-colors',
                         isActive ? 'bg-[#F0FBFF] dark:bg-slate-700' : '',
                       ].join(' ')}
                       style={{ border: isActive ? '1px solid #00C9F2' : '1px solid #E0E9FF' }}
