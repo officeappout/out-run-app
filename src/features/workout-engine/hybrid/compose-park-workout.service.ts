@@ -224,3 +224,56 @@ export function composeParkWorkoutPlan(input: ParkWorkoutComposeInput): HybridPl
     },
   };
 }
+
+/**
+ * Compose a pure home-strength plan with NO aerobic component and no route/station at
+ * all (scenarios 15/16, decision-tree v3 §15, 09.08.2026) — used when there is no GPS
+ * fix to compute ANY route from. Reuses the SAME `workoutToStrengthBlock` wrap
+ * `composeParkWorkoutPlan` uses for its strength segment; unlike that function, this
+ * one does no route-distance math at all (no `routePath`/`station` params — there is no
+ * route to walk to a station on). `stopId`/`locationKind` are omitted (both optional on
+ * `HybridPlannedSegment`) — `StopLocationKind` has no "home" value and none of its real
+ * options (gym/bench/stairs/etc.) apply here.
+ */
+export function composeHomeOnlyPlan(
+  workout: GeneratedWorkout,
+  userWeightKg: number,
+  emphasis?: ResolvedEmphasis,
+): HybridPlan {
+  const block = workoutToStrengthBlock(workout);
+  const segments: HybridPlannedSegment[] = [];
+  let totalCalories = 0;
+
+  if (!block.isEmpty) {
+    const stationCalories = strengthBlockCalories(block, userWeightKg);
+    totalCalories += stationCalories;
+    segments.push({
+      index: 0,
+      kind: 'strength',
+      activityType: 'strength',
+      domainFocus: block.domainFocus,
+      content: block,
+      durationSec: block.estimatedDurationSec,
+      estCalories: stationCalories,
+    });
+  }
+
+  const strengthSec = block.isEmpty ? 0 : block.estimatedDurationSec;
+  return {
+    segments,
+    totals: {
+      aerobicMin: 0,
+      strengthMin: Math.round(strengthSec / 60),
+      distanceKm: 0,
+      estCalories: totalCalories,
+      stations: block.isEmpty ? 0 : 1,
+    },
+    meta: {
+      emphasisResolved: emphasis ?? 'strength',
+      whoGapNote: null,
+      usedFieldFallback: false,
+      insufficientHomeContent: false,
+      log: [`no-gps fallback: home-only strength plan (${segments.length} station(s), no aerobic/route)`, ...block.log],
+    },
+  };
+}

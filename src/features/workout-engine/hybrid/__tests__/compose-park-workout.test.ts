@@ -4,6 +4,7 @@ import type { RoutePath } from '@/features/parks/core/services/route-distance.ut
 import {
   workoutToStrengthBlock,
   composeParkWorkoutPlan,
+  composeHomeOnlyPlan,
   type ParkWorkoutComposeInput,
 } from '../compose-park-workout.service';
 
@@ -112,5 +113,34 @@ describe('composeParkWorkoutPlan', () => {
     expect(plan.segments.map((s) => s.kind)).toEqual(['aerobic', 'aerobic']);
     expect(plan.totals.stations).toBe(0);
     expect(plan.totals.strengthMin).toBe(0);
+  });
+});
+
+describe('composeHomeOnlyPlan (scenarios 15/16, no-GPS fallback — no route/station at all)', () => {
+  it('produces a single strength segment, zero aerobic/distance', () => {
+    const plan = composeHomeOnlyPlan(mkWorkout([warmup, main1, main2, cooldown]), 70);
+    expect(plan.segments.map((s) => s.kind)).toEqual(['strength']);
+    expect(plan.totals.aerobicMin).toBe(0);
+    expect(plan.totals.distanceKm).toBe(0);
+    expect(plan.totals.stations).toBe(1);
+    expect(plan.segments[0].content?.exercises).toHaveLength(4);
+  });
+
+  it('empty workout → zero segments, stations 0 (no station-less filler)', () => {
+    const plan = composeHomeOnlyPlan(mkWorkout([], 0), 70);
+    expect(plan.segments).toHaveLength(0);
+    expect(plan.totals.stations).toBe(0);
+    expect(plan.totals.strengthMin).toBe(0);
+  });
+
+  it('does not carry stopId/locationKind (no real location exists for this fallback)', () => {
+    const plan = composeHomeOnlyPlan(mkWorkout([main1]), 70);
+    expect(plan.segments[0].stopId).toBeUndefined();
+    expect(plan.segments[0].locationKind).toBeUndefined();
+  });
+
+  it('emphasis defaults to strength when omitted', () => {
+    const plan = composeHomeOnlyPlan(mkWorkout([main1]), 70);
+    expect(plan.meta.emphasisResolved).toBe('strength');
   });
 });

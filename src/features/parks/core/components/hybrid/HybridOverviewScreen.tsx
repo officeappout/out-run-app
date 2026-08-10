@@ -456,8 +456,13 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 composed.assessmentDomains is set (needsAssessment, never a real
                 rest day), the SAME approved copy (buildNeedsAssessmentResult)
                 becomes a real tappable link to the mini-questionnaire instead of
-                a dead end — matches the existing pattern (ProgramsSection,
-                StatsOverview, WorkoutBuilderSheet). */}
+                a dead end — matches the existing nudge-alongside-real-content
+                pattern in ProgramsSection.tsx (dashed-border "טרם הוערך" cards)
+                and StatsOverview.tsx (chip row, StatsOverview.tsx:1169-1193).
+                Comment corrected (09.08.2026): this does NOT match
+                WorkoutBuilderSheet, whose unassessed/unenrolled-domain path is a
+                hard-blocking showUnlockModal, not a passive nudge beside real
+                content — verified directly, not the same pattern. */}
             {fallbackHint && onAssessmentLink ? (
               <button
                 type="button"

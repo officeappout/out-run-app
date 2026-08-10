@@ -191,6 +191,67 @@ async function buildNeedsAssessmentFallback(): Promise<{
 }
 
 /**
+ * Scenarios 15/16 (09.08.2026, decision-tree v3 §15, David-approved): no GPS fix at
+ * all — none of the 3 modes composeHybridPlan dispatches to can do anything
+ * location-dependent (out-and-back, route-stops backbone, and the budget-split route
+ * generator all require ctx.userPosition), so this is checked ONCE, before
+ * mode-dispatch, instead of each mode independently returning null ("no card").
+ * Assessed user → a REAL home-strength-only fallback (composeHomeOnlyPlan, no
+ * route/station), reusing the SAME GPS-independent generator (generateHomeWorkoutTrio)
+ * that already drives the home dashboard's daily hero card — not a new generator.
+ * Unassessed user → the SAME needs-assessment fallback every other gate already uses.
+ */
+async function composeNoGpsFallback(intent: HybridStartIntent): Promise<ComposedHybridSession> {
+  const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+  const profile = useUserStore.getState().profile;
+  const hasAssessment = profile ? hasAssessedStrengthDomain(profile as any) : false;
+
+  if (!profile || !hasAssessment) {
+    console.warn('[composeNoGpsFallback] no GPS + no completed assessment → needs_assessment');
+    const needsAssessment = await buildNeedsAssessmentFallback();
+    return {
+      plan: {
+        segments: [],
+        totals: { aerobicMin: 0, strengthMin: 0, distanceKm: 0, estCalories: 0, stations: 0 },
+        meta: { emphasisResolved: intent.emphasis, whoGapNote: null, usedFieldFallback: false, insufficientHomeContent: false, log: [] },
+      },
+      routePath: [],
+      aerobicKind: intent.aerobicKind,
+      fallbackHint: needsAssessment.fallbackHint,
+      assessmentDomains: needsAssessment.assessmentDomains,
+    };
+  }
+
+  const [{ generateHomeWorkoutTrio }, { composeHomeOnlyPlan }] = await Promise.all([
+    import('@/features/workout-engine/services/home-workout.service'),
+    import('./compose-park-workout.service'),
+  ]);
+  const userWeightKg = profile?.core?.weight || 70;
+  const trio = await generateHomeWorkoutTrio({
+    userProfile: profile as any,
+    location: 'home',
+    skipCycleRestart: true,
+  });
+  const selectedIndex = 1; // balanced — the same default bolt every other trio-based path uses
+  const w = trio.options[selectedIndex].result.workout;
+  const rest = trio.isRestDay || (w.exercises?.length ?? 0) === 0 || w.isRecovery === true;
+  const needsAssessmentLike = w.needsAssessment === true;
+  const planWorkout = rest ? { ...w, exercises: [] } : w;
+  console.warn(`[composeNoGpsFallback] no GPS, has assessment → home-only strength plan (rest=${rest}, needsAssessment=${needsAssessmentLike})`);
+
+  return {
+    plan: composeHomeOnlyPlan(planWorkout, userWeightKg, intent.emphasis),
+    routePath: [],
+    aerobicKind: intent.aerobicKind,
+    fallbackHint: needsAssessmentLike
+      ? w.description
+      : rest ? 'יום מנוחה — אין אימון היום.'
+      : 'לא זוהתה גישה למיקום — הצגנו לך אימון-כוח בבית במקום מסלול.',
+    assessmentDomains: needsAssessmentLike ? w.assessmentDomains : undefined,
+  };
+}
+
+/**
  * Full-park-workout branch (mode: 'full_park_workout', Phase 1.3) — walk to the
  * nearest EQUIPPED park, do the FULL home-recommended strength workout there, walk
  * back. Reuses the home recommendation as a READ-ONLY preview (skipCycleRestart) at
@@ -866,6 +927,15 @@ export async function composeHybridPlan(
   intent: HybridStartIntent,
   ctx: HybridSessionContext,
 ): Promise<ComposedHybridSession | null> {
+  // Scenarios 15/16 (09.08.2026): no GPS fix — checked ONCE here, before mode-dispatch,
+  // since none of the 3 modes below can do anything location-dependent regardless of
+  // which was requested. See composeNoGpsFallback's own doc comment for the full
+  // rationale. This never returns null — always a real session (home-strength fallback
+  // or needs-assessment), matching the "no dead-end" pattern the other gates already use.
+  if (!ctx.userPosition) {
+    return composeNoGpsFallback(intent);
+  }
+
   // Full-park-workout branch (Phase 1.3): a separate, self-contained path. The
   // budget-split body below is NOT entered for this mode and stays byte-identical
   // for every other hybrid card.
