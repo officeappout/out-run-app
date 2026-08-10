@@ -23,6 +23,59 @@ import {
     deleteOfficialRouteSegmentsForMany,
 } from './official-route-broadcaster';
 
+// ── Facilities client cache (stale-while-revalidate, localStorage, 6h TTL) ──
+// Mirrors parks.service.ts's fetchRealParks/_inflightParksFetch pattern —
+// same shape, same TTL, for the same reason: `fetchFacilities()` with no args
+// hits the whole unscoped national `facilities` collection, and until now had
+// no cache at all (unlike parks). Facilities are deliberately NOT scoped by
+// authority (David's product call — users want to see ALL facilities on the
+// map, see map-stability-oom.md §6), so caching the whole collection is the
+// fix, not scoping it. See .claude/plans/cryptic-munching-gadget.md.
+const FACILITIES_CACHE_KEY = 'outfit_cached_facilities';
+const FACILITIES_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+interface FacilitiesCacheEntry {
+    data: MapFacility[];
+    cachedAt: number;
+}
+
+function readFacilitiesFromStorage(): MapFacility[] | null {
+    if (typeof window === 'undefined') return null;
+    try {
+        const raw = localStorage.getItem(FACILITIES_CACHE_KEY);
+        if (!raw) return null;
+        const parsed: FacilitiesCacheEntry = JSON.parse(raw);
+        if (Date.now() - parsed.cachedAt > FACILITIES_CACHE_TTL_MS) return null;
+        return parsed.data;
+    } catch {
+        return null;
+    }
+}
+
+function writeFacilitiesToStorage(facilities: MapFacility[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+        const entry: FacilitiesCacheEntry = { data: facilities, cachedAt: Date.now() };
+        localStorage.setItem(FACILITIES_CACHE_KEY, JSON.stringify(entry));
+    } catch {
+        // Storage quota exceeded or private browsing — non-fatal
+    }
+}
+
+let _inflightFacilitiesFetch: Promise<MapFacility[]> | null = null;
+
+function fetchAndCacheAllFacilities(): Promise<MapFacility[]> {
+    if (_inflightFacilitiesFetch) return _inflightFacilitiesFetch;
+    _inflightFacilitiesFetch = getDocs(collection(db, 'facilities'))
+        .then((snapshot) => {
+            const fresh = snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as MapFacility));
+            writeFacilitiesToStorage(fresh);
+            return fresh;
+        })
+        .finally(() => { _inflightFacilitiesFetch = null; });
+    return _inflightFacilitiesFetch;
+}
+
 /** Summary of an import batch for the management UI */
 export interface ImportBatchSummary {
     batchId: string;
@@ -170,6 +223,29 @@ export const InventoryService = {
             } as MapFacility));
         } catch (error) {
             console.error('❌ Error fetching facilities:', error);
+            return [];
+        }
+    },
+
+    /**
+     * Cached whole-national-collection facilities fetch — stale-while-revalidate
+     * via localStorage (6h TTL) + in-flight-dedup, same pattern as parks.service.ts's
+     * fetchRealParks(). Use this instead of `fetchFacilities()` (no args) for any
+     * caller that needs the WHOLE collection without authority scoping — that raw
+     * call has no cache and re-hits Firestore for the whole collection every time.
+     */
+    fetchAllFacilitiesCached: async (): Promise<MapFacility[]> => {
+        const cached = readFacilitiesFromStorage();
+        if (cached) {
+            // Return stale data instantly; refresh in background so concurrent
+            // warm callers don't each fire a getDocs.
+            fetchAndCacheAllFacilities().catch(() => { /* background refresh failure is non-fatal */ });
+            return cached;
+        }
+        try {
+            return await fetchAndCacheAllFacilities();
+        } catch (error) {
+            console.error('❌ Error fetching cached facilities:', error);
             return [];
         }
     },

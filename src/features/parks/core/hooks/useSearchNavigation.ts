@@ -151,7 +151,7 @@ export function useSearchNavigation(
 
     const [parks, facilities, official] = await Promise.all([
       fetchRealParks(),
-      InventoryService.fetchFacilities(),
+      InventoryService.fetchAllFacilitiesCached(),
       getCachedOfficialRoutes(),
     ]);
 

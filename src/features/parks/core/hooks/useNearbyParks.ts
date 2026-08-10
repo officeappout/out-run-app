@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { getAllParks } from '@/features/parks';
+import { fetchRealParks } from '@/features/parks';
 import { calculateDistance } from '@/lib/services/location.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { resolveParkImage } from '@/lib/park-image';
@@ -35,7 +35,10 @@ export function useNearbyParks(isOpen: boolean): NearbyParkCard[] {
     (async () => {
       fetchedRef.current = true;
       try {
-        const allParks = await getAllParks();
+        // fetchRealParks (shared localStorage 6h SWR cache + in-flight dedup)
+        // instead of the raw, uncached getAllParks() — same fix shape as the
+        // onboarding location step. See .claude/plans/cryptic-munching-gadget.md.
+        const allParks = await fetchRealParks();
 
         const withDistance = allParks
           .map((p) => {
