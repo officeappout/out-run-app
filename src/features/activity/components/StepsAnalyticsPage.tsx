@@ -295,6 +295,21 @@ export default function StepsAnalyticsPage() {
   // legacy alias (used by km pill)
   const ringValue = activeRingValue;
 
+  // Distance pill: prefer the real synced distanceMeters (HealthKit
+  // distanceWalkingRunning / Health Connect DistanceRecord) over the old
+  // steps-based estimate (~1300 steps/km) whenever real data exists for
+  // this window. Falls back silently to the estimate for users/days with
+  // no synced distance yet (pre-sync history, Android <14, etc).
+  const realDistanceKm = isDay
+    ? (selectedDaySnap?.distanceMeters ?? 0) / 1000
+    : stats.daysWithData > 0
+      ? (stats.totalDistanceMeters / stats.daysWithData) / 1000
+      : 0;
+  const hasRealDistance = isDay
+    ? (selectedDaySnap?.distanceMeters ?? 0) > 0
+    : stats.totalDistanceMeters > 0;
+  const distanceKm = hasRealDistance ? realDistanceKm : ringValue / 1300;
+
   // Index of the single best-day bar (non-year ranges only) → gets a ★.
   const bestDayIndex =
     !isYear && stats.bestDay > 0
@@ -616,10 +631,10 @@ export default function StepsAnalyticsPage() {
                   <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">ימים</p>
                   <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">רצף 🔥</p>
                 </div>
-                {/* ק"מ */}
+                {/* ק"מ — real synced distance when available, steps-estimate fallback otherwise */}
                 <div className="bg-white rounded-xl p-2 text-center border border-gray-100 shadow-subtle">
                   <p className="text-[13px] font-black text-gray-900 leading-none tabular-nums" dir="ltr">
-                    {((isDay ? selectedDaySteps : ringValue) / 1300).toFixed(1)}
+                    {distanceKm.toFixed(1)}
                   </p>
                   <p className="text-[9px] font-semibold text-gray-400 mt-0.5 leading-none">ק״מ</p>
                   <p className="text-[8px] font-bold text-gray-400 mt-1 leading-none">מרחק</p>

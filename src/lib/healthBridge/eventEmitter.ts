@@ -19,7 +19,7 @@
  * pure-web bundles (Vercel) where Capacitor APIs do not exist.
  */
 
-export type LiveSampleType = 'steps' | 'activeEnergy' | 'exerciseTime';
+export type LiveSampleType = 'steps' | 'activeEnergy' | 'exerciseTime' | 'distance';
 
 export interface LiveSampleEvent {
   type: LiveSampleType;

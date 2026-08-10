@@ -47,6 +47,8 @@ export interface DailyStepsSnapshot {
   stepsGoal: number;
   /** Adaptive floor goal for that day */
   floorsGoal: number;
+  /** Passive walking/running distance that day, in metres (0 if unsynced). */
+  distanceMeters: number;
 }
 
 const COLLECTION = 'dailyActivity';
@@ -105,6 +107,7 @@ export async function getStepsTrend(
           floorsGoalMet: d.floorsGoalMet ?? false,
           stepsGoal: d.stepsGoal ?? DAILY_STEP_GOAL,
           floorsGoal: d.floorsGoal ?? 3,
+          distanceMeters: d.distanceMeters ?? 0,
         } satisfies DailyStepsSnapshot;
       })
       .filter(e => e.date !== '')

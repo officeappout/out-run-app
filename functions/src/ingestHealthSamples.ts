@@ -28,7 +28,14 @@
  *   steps          ≤ 100,000
  *   activeCalories ≤ 10,000
  *   exerciseTime   ≤ 1,440 minutes
+ *   distance       ≤ 100,000 metres (100km)
  * Per-call payload size: ≤ 500 samples.
+ *
+ * Distance (added alongside steps/calories/exerciseTime — same clamp/dedupe/
+ * transaction path) is stored on `dailyActivity.distanceMeters` but does NOT
+ * feed `computePassiveXpDelta` — the passive-XP formula is locked to
+ * steps + activeMinutes per .cursoragents/XP_Progression_Truth.md and is not
+ * being changed here; distance is informational only.
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
@@ -54,10 +61,11 @@ const db = admin.firestore();
 const MAX_STEPS_PER_DAY = 100_000;
 const MAX_CALORIES_PER_DAY = 10_000;
 const MAX_ACTIVE_MINUTES_PER_DAY = 1_440;
+const MAX_DISTANCE_METERS_PER_DAY = 100_000; // 100km — larger than any plausibly real day
 const MAX_SAMPLES_PER_CALL = 500;
 const MAX_DEVICE_MODEL_LEN = 64;
 
-type SampleType = 'steps' | 'activeEnergy' | 'exerciseTime';
+type SampleType = 'steps' | 'activeEnergy' | 'exerciseTime' | 'distance';
 type SampleSource = 'healthkit' | 'healthconnect';
 
 interface HealthSamplePayload {
@@ -67,7 +75,8 @@ interface HealthSamplePayload {
   /** Numeric value in the unit appropriate to `type`:
    *    steps          → count
    *    activeEnergy   → kcal
-   *    exerciseTime   → minutes */
+   *    exerciseTime   → minutes
+   *    distance       → metres */
   value: number;
   /** ISO timestamp string. */
   startDate: string;
@@ -107,7 +116,7 @@ function isValidSample(raw: unknown): raw is HealthSamplePayload {
   if (!raw || typeof raw !== 'object') return false;
   const s = raw as Partial<HealthSamplePayload>;
   if (typeof s.sampleUUID !== 'string' || s.sampleUUID.length === 0 || s.sampleUUID.length > 128) return false;
-  if (s.type !== 'steps' && s.type !== 'activeEnergy' && s.type !== 'exerciseTime') return false;
+  if (s.type !== 'steps' && s.type !== 'activeEnergy' && s.type !== 'exerciseTime' && s.type !== 'distance') return false;
   if (typeof s.value !== 'number' || !Number.isFinite(s.value) || s.value < 0) return false;
   if (typeof s.startDate !== 'string' || typeof s.endDate !== 'string') return false;
   if (s.source !== 'healthkit' && s.source !== 'healthconnect') return false;
@@ -222,6 +231,7 @@ export const ingestHealthSamples = onCall<IngestPayload, Promise<IngestResult>>(
     let deltaSteps = 0;
     let deltaCalories = 0;
     let deltaActiveMinutes = 0;
+    let deltaDistance = 0;
     for (const s of newSamples) {
       const v = Math.max(0, s.value);
       switch (s.type) {
@@ -234,11 +244,15 @@ export const ingestHealthSamples = onCall<IngestPayload, Promise<IngestResult>>(
         case 'exerciseTime':
           deltaActiveMinutes += v;
           break;
+        case 'distance':
+          deltaDistance += v;
+          break;
       }
     }
     deltaSteps = Math.floor(deltaSteps);
     deltaCalories = Math.round(deltaCalories);
     deltaActiveMinutes = Math.floor(deltaActiveMinutes);
+    deltaDistance = Math.round(deltaDistance);
 
     // ──────────────────────────────────────────────────────────────────
     // Step 4: Atomic transaction — read current daily doc, clamp deltas
@@ -258,6 +272,7 @@ export const ingestHealthSamples = onCall<IngestPayload, Promise<IngestResult>>(
       const curPassiveActiveMin = Number(cur.passiveActiveMinutes ?? 0);
       const curPassiveXpToday = Number(cur.passiveXpAwardedToday ?? 0);
       const curCardioMinutes = Number(cur.categories?.cardio?.minutes ?? 0);
+      const curDistance = Number(cur.distanceMeters ?? 0);
 
       const addSteps = clampDelta(curPassiveSteps, deltaSteps, MAX_STEPS_PER_DAY);
       const addCalories = clampDelta(curPassiveCalories, deltaCalories, MAX_CALORIES_PER_DAY);
@@ -266,6 +281,7 @@ export const ingestHealthSamples = onCall<IngestPayload, Promise<IngestResult>>(
         deltaActiveMinutes,
         MAX_ACTIVE_MINUTES_PER_DAY,
       );
+      const addDistance = clampDelta(curDistance, deltaDistance, MAX_DISTANCE_METERS_PER_DAY);
 
       // Compute XP for this sync, respecting daily 200-XP cap.
       const xpResult = computePassiveXpDelta(
@@ -309,6 +325,12 @@ export const ingestHealthSamples = onCall<IngestPayload, Promise<IngestResult>>(
       // bucket so they roll up into "Aerobic Activity Minutes" automatically.
       if (addActiveMin > 0) {
         dailyUpdate['categories.cardio.minutes'] = curCardioMinutes + addActiveMin;
+      }
+
+      // Distance is informational only — see the class doc comment at the
+      // top of this file. No XP path, just the running daily total.
+      if (addDistance > 0) {
+        dailyUpdate.distanceMeters = curDistance + addDistance;
       }
 
       txn.set(dailyRef, dailyUpdate, { merge: true });

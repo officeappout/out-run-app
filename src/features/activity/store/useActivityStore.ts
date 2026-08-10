@@ -96,6 +96,9 @@ function fromFirestoreFormat(data: Record<string, unknown>): DailyActivity {
   return {
     ...data,
     categories,
+    // Field-guard: docs written before distanceMeters existed have no such
+    // field — default to 0 rather than letting `undefined` leak through.
+    distanceMeters: Number(data.distanceMeters ?? 0),
     updatedAt: data.updatedAt instanceof Timestamp
       ? data.updatedAt.toDate()
       : new Date(data.updatedAt as string || Date.now()),

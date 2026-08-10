@@ -57,6 +57,8 @@ export interface StepsAnalyticsStats {
   dailyGoal: number;
   /** Current consecutive-day streak (days ending today with steps > 0). */
   streak: number;
+  /** Total real synced distance across the active range, in metres (0 if unsynced). */
+  totalDistanceMeters: number;
 }
 
 interface UseStepsAnalyticsReturn {
@@ -227,6 +229,7 @@ export function useStepsAnalytics(timeRange: StepsTimeRange): UseStepsAnalyticsR
     }
 
     const totalSteps = activeWindow.reduce((sum, s) => sum + s.steps, 0);
+    const totalDistanceMeters = activeWindow.reduce((sum, s) => sum + (s.distanceMeters ?? 0), 0);
     const daysWithData = activeWindow.filter((s) => s.steps > 0).length;
     const bestDay = activeWindow.reduce((mx, s) => (s.steps > mx ? s.steps : mx), 0);
     const daysAtGoal = activeWindow.filter((s) => s.stepsGoalMet).length;
@@ -249,6 +252,7 @@ export function useStepsAnalytics(timeRange: StepsTimeRange): UseStepsAnalyticsR
       daysWithData,
       dailyGoal,
       streak,
+      totalDistanceMeters,
     };
   }, [snapshots, timeRange]);
 
