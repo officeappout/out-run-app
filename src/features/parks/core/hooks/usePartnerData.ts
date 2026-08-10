@@ -28,8 +28,9 @@ import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { haversineKm } from '../services/geoUtils';
 import type { ActivityType } from '../types/route.types';
 import { useIsForeground } from '@/lib/appForeground';
-import { IS_PERF_BATCH2_PRESENCE_ENABLED } from '@/config/feature-flags';
+import { IS_PERF_BATCH2_PRESENCE_ENABLED, IS_ADAPTIVE_SHED_ENABLED } from '@/config/feature-flags';
 import { usePresenceStore, acquirePresenceStream, PRESENCE_STREAM_MAX } from '../store/usePresenceStore';
+import { useMapStore } from '../store/useMapStore';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -224,6 +225,13 @@ export function usePartnerData(
   // before. Added to each listener effect's dependency array so the flip
   // between foreground/background re-runs the effect (unsub → resubscribe).
   const isForeground = useIsForeground();
+  // Adaptive Shed (map-watchdog-plan.md §5C): pause these same 4 listeners
+  // under sustained critical pressure too, same idiom as the foreground
+  // guard above. The store subscription itself is unconditional (Rules of
+  // Hooks — can't call useMapStore behind the flag check), the flag only
+  // gates what the derived boolean evaluates to.
+  const pressureLevelForShed = useMapStore((s) => s.pressureLevel);
+  const isPressureCritical = IS_ADAPTIVE_SHED_ENABLED && pressureLevelForShed === 'critical';
   // Read once per render. Firebase Auth state rarely changes within the
   // lifetime of a partner overlay, and downstream filters re-run via the
   // useMemo dependency array whenever this captured value flips between
@@ -237,7 +245,7 @@ export function usePartnerData(
   // ── 1. Planned sessions listener ──
   useEffect(() => {
     unsubScheduled.current?.();
-    if (!isForeground) return; // backgrounded — torn down above, no resubscribe
+    if (!isForeground || isPressureCritical) return; // backgrounded, or shed-paused under critical pressure — torn down above, no resubscribe
     if (myMode === 'ghost') {
       setRawScheduled([]);
       // Ghost mode short-circuits every listener, so the snapshot callbacks
@@ -264,12 +272,12 @@ export function usePartnerData(
     );
 
     return () => unsubScheduled.current?.();
-  }, [myMode, isForeground]);
+  }, [myMode, isForeground, isPressureCritical]);
 
   // ── 2. Community events listener ──
   useEffect(() => {
     unsubEvents.current?.();
-    if (!isForeground) return; // backgrounded — torn down above, no resubscribe
+    if (!isForeground || isPressureCritical) return; // backgrounded, or shed-paused under critical pressure — torn down above, no resubscribe
     if (myMode === 'ghost') {
       setRawEventPartners([]);
       setIsLoading(false);
@@ -351,7 +359,7 @@ export function usePartnerData(
     );
 
     return () => unsubEvents.current?.();
-  }, [myMode, isForeground]);
+  }, [myMode, isForeground, isPressureCritical]);
 
   // ── 3. Community groups listener — materialize recurring slots ──
   // Hybrid visibility: public groups are visible to everyone; private groups
@@ -365,7 +373,7 @@ export function usePartnerData(
   // (treated as public, same as isPublic === true).
   useEffect(() => {
     unsubGroups.current?.();
-    if (!isForeground) return; // backgrounded — torn down above, no resubscribe
+    if (!isForeground || isPressureCritical) return; // backgrounded, or shed-paused under critical pressure — torn down above, no resubscribe
     if (myMode === 'ghost') {
       setRawGroupPartners([]);
       setIsLoading(false);
@@ -433,14 +441,14 @@ export function usePartnerData(
 
     return () => unsubGroups.current?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myMode, myGroupIds.join(','), isForeground]);
+  }, [myMode, myGroupIds.join(','), isForeground, isPressureCritical]);
   // Note: myGroupIds.join(',') is a stable string dep — avoids a new listener
   // on every render while still re-subscribing when the set of groups changes.
 
   // ── 4. Live presence listener ──
   useEffect(() => {
     unsubLive.current?.();
-    if (!isForeground) return; // backgrounded — torn down above, no resubscribe
+    if (!isForeground || isPressureCritical) return; // backgrounded, or shed-paused under critical pressure — torn down above, no resubscribe
     if (myMode === 'ghost') {
       setRawLive([]);
       setIsLoading(false);
@@ -505,7 +513,7 @@ export function usePartnerData(
     );
 
     return () => unsubLive.current?.();
-  }, [myMode, isForeground]);
+  }, [myMode, isForeground, isPressureCritical]);
 
   // ── Filter + transform scheduled (planned + events + groups) ──
   const scheduled = useMemo<ScheduledPartner[]>(() => {
