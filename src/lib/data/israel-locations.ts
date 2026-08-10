@@ -904,7 +904,20 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'gdrvt-gn-hdrvm', name: 'גן הדרום', type: 'settlement' },
     ],
   },
-  { id: 'gn-rvvh', name: 'גן רווה', type: 'regional_council', population: 0 },
+  {
+    id: 'gn-rvvh', name: 'גן רווה', type: 'regional_council', population: 0,
+    subLocations: [
+      { id: 'gn-rvvh-yrvs', name: 'אירוס', type: 'settlement' },
+      { id: 'gn-rvvh-byt-chnn', name: 'בית חנן', type: 'settlement' },
+      { id: 'gn-rvvh-byt-vbd', name: 'בית עובד', type: 'settlement' },
+      { id: 'gn-rvvh-glyh', name: 'גאליה', type: 'settlement' },
+      { id: 'gn-rvvh-gn-shvrk', name: 'גן שורק', type: 'settlement' },
+      { id: 'gn-rvvh-kpr-hngyd', name: 'כפר הנגיד', type: 'settlement' },
+      { id: 'gn-rvvh-ntym', name: 'נטעים', type: 'settlement' },
+      { id: 'gn-rvvh-yynvt', name: 'עיינות', type: 'settlement' },
+      { id: 'gn-rvvh-plmchym', name: 'פלמחים', type: 'settlement' },
+    ],
+  },
   {
     id: 'hrbh-htykvnh', name: 'הערבה התיכונה', type: 'regional_council', population: 0,
     subLocations: [

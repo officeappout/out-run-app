@@ -767,4 +767,15 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'mrchbym-dy-ngb-nchlt-rn':   { lat: 31.3155253, lng: 34.5945971 },
   'mrchbym-ptysh':             { lat: 31.3273849, lng: 34.5602722 },
   'mrchbym-tl-vr':             { lat: 31.3520796, lng: 34.4971043 },
+  // גן רווה — separate retry, Nominatim relation 1380425, matched 9/9 against
+  // official list (Wikipedia + ganrave.org.il); military base excluded
+  'gn-rvvh-yrvs':              { lat: 31.928633, lng: 34.775966 },
+  'gn-rvvh-byt-chnn':          { lat: 31.934235, lng: 34.773291 },
+  'gn-rvvh-byt-vbd':           { lat: 31.921577, lng: 34.773891 },
+  'gn-rvvh-glyh':              { lat: 31.884504, lng: 34.765861 },
+  'gn-rvvh-gn-shvrk':          { lat: 31.944903, lng: 34.760794 },
+  'gn-rvvh-kpr-hngyd':         { lat: 31.887099, lng: 34.749286 },
+  'gn-rvvh-ntym':              { lat: 31.94448, lng: 34.775442 },
+  'gn-rvvh-yynvt':             { lat: 31.915763, lng: 34.767862 },
+  'gn-rvvh-plmchym':           { lat: 31.933471, lng: 34.706709 },
 };
