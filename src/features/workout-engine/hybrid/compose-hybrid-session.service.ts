@@ -348,6 +348,33 @@ function selectStops(
   return best;
 }
 
+/**
+ * Top-up (Phase א.3, extracted 09.08.2026 — §10 adversarial-review fix): if an
+ * equipment-filtered pool comes back thinner than MIN_STATION_EXERCISES, merge in
+ * fieldReady bodyweight exercises so the station is never (near-)empty. Extracted from
+ * dispatchStopContent's 'strength' branch so the route-stops field-fallback sufficiency
+ * PRE-CHECK (below) can call the EXACT same enrichment instead of a hand-rolled subset —
+ * before this fix, the pre-check stopped after the plain equipment filter and never
+ * applied this step, so it could verdict "insufficient" for a stop dispatchStopContent
+ * would have actually built successfully (a real, if safe-direction, divergence).
+ */
+function topUpWithBodyweightIfThin(
+  scoredPool: (ReturnType<typeof filterExercisesContextually>['exercises'])[number][],
+  masterExercises: Exercise[],
+  filterContext: ContextualFilterContext,
+): typeof scoredPool {
+  if (scoredPool.length >= MIN_STATION_EXERCISES) return scoredPool;
+  const bodyweight = filterExercisesContextually(masterExercises, {
+    ...filterContext, availableEquipment: [], intentMode: 'field',
+  });
+  const seen = new Set(scoredPool.map((e) => e.exercise.id));
+  const merged = [...scoredPool];
+  for (const e of bodyweight.exercises) {
+    if (!seen.has(e.exercise.id)) { merged.push(e); seen.add(e.exercise.id); }
+  }
+  return merged;
+}
+
 // ============================================================================
 // CONTENT DISPATCH (§4b) — activityType → generator
 // ============================================================================
@@ -390,20 +417,15 @@ function dispatchStopContent(
       });
       // Top-up (Phase א.3): count AFTER level/program filtering. If a real park
       // pool comes back thin, merge fieldReady bodyweight exercises so the station
-      // is never empty.
+      // is never empty. Extracted to topUpWithBodyweightIfThin (09.08.2026) so the
+      // route-stops sufficiency pre-check below can call the EXACT same enrichment.
       let scoredPool = pool.exercises;
-      if (scoredPool.length < MIN_STATION_EXERCISES && !isBodyweight) {
-        const bodyweight = filterExercisesContextually(input.masterExercises, {
-          ...input.filterContext,
-          availableEquipment: [],
-          intentMode: 'field',
-        });
-        const seen = new Set(scoredPool.map((e) => e.exercise.id));
-        scoredPool = [...scoredPool];
-        for (const e of bodyweight.exercises) {
-          if (!seen.has(e.exercise.id)) { scoredPool.push(e); seen.add(e.exercise.id); }
+      if (!isBodyweight) {
+        const before = scoredPool.length;
+        scoredPool = topUpWithBodyweightIfThin(scoredPool, input.masterExercises, input.filterContext);
+        if (scoredPool.length > before) {
+          log.push(`[${candidate.stopId}] thin park pool (${before}) → topped up to ${scoredPool.length} w/ bodyweight`);
         }
-        log.push(`[${candidate.stopId}] thin park pool (${pool.exercises.length}) → topped up to ${scoredPool.length} w/ bodyweight`);
       }
       // PREFER IRON (per movement domain): at an equipped park, an exercise whose
       // method is real park iron (pull→מתח, push→דיפים) must win over a bodyweight
@@ -641,13 +663,18 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
       // route-stops Part B — home-substitute content check: a field-fallback stop offers
       // whatever content the level window yields from the standard-park-gear pool above
       // (was pure bodyweight before §10). For a high level that pool can still be too thin
-      // to be a real workout. Reuses the EXACT same pool-building call
-      // dispatchStopContent's strength branch would build for this equipment, and the
-      // SAME MIN_STATION_EXERCISES threshold it already uses for a real park pool — no new
-      // mechanism, just applied earlier so the caller can message instead of starting thin.
-      const fieldPool = filterExercisesContextually(input.masterExercises, {
+      // to be a real workout. Reuses the EXACT same pool-building call AND top-up
+      // enrichment (topUpWithBodyweightIfThin) dispatchStopContent's strength branch
+      // would apply for this equipment — fixed 09.08.2026 (adversarial review): this
+      // pre-check previously stopped after the plain equipment filter and never applied
+      // the top-up step, so it could verdict "insufficient" for a stop dispatchStopContent
+      // would actually have built successfully. Same MIN_STATION_EXERCISES threshold a
+      // real park pool already uses — no new mechanism, just applied earlier so the
+      // caller can message instead of starting thin.
+      let fieldPool = filterExercisesContextually(input.masterExercises, {
         ...input.filterContext, availableEquipment: fieldFallbackEquipment,
       }).exercises;
+      fieldPool = topUpWithBodyweightIfThin(fieldPool, input.masterExercises, input.filterContext);
       const targetLevel = input.generationContext.userLevel;
       const inBand = fieldPool.filter(
         (se) => Math.abs(input.filterContext.getUserLevelForExercise(se.exercise) - targetLevel) <= HOME_SUBSTITUTE_LEVEL_BAND,
