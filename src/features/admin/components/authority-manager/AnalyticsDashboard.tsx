@@ -56,9 +56,13 @@ import {
   getWHO150Tracker,
   getHealthSavings,
   getSavingsOverTime,
+  getWHOComplianceBreakdown,
+  getWHOComplianceOverTime,
   WHO150TrackerResult,
   HealthSavingsResult,
   SavingsOverTimeData,
+  WHOComplianceResult,
+  WHOComplianceWeekPoint,
 } from '@/features/admin/services/health-economics.service';
 import {
   getManagerNotifications,
@@ -107,6 +111,8 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
   const [whoTracker, setWhoTracker] = useState<WHO150TrackerResult | null>(null);
   const [healthSavings, setHealthSavings] = useState<HealthSavingsResult | null>(null);
   const [savingsOverTime, setSavingsOverTime] = useState<SavingsOverTimeData[]>([]);
+  const [whoCompliance, setWhoCompliance] = useState<WHOComplianceResult | null>(null);
+  const [whoComplianceTrend, setWhoComplianceTrend] = useState<WHOComplianceWeekPoint[]>([]);
   
   // Engagement State
   const [notifications, setNotifications] = useState<ManagerNotification[]>([]);
@@ -183,6 +189,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         whoData, savingsData, savingsHistory,
         neighborhoodsList, hourly,
         personas, entryRoutes, running, steps,
+        whoComplianceData, whoComplianceHistory,
       ] = await Promise.all([
         getDailyActiveUsers(authorityId, today),
         getMonthlyActiveUsers(authorityId, currentYear, currentMonth),
@@ -201,6 +208,8 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         getEntryRouteDistribution(authorityId),
         getRunningStats(authorityId, initialUserIds, defaultDateRange),
         getCityStepsTotals(authorityId, 30),
+        getWHOComplianceBreakdown(authorityId),
+        getWHOComplianceOverTime(authorityId, 8),
       ]);
 
       setDau(dailyActive);
@@ -225,6 +234,8 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
       setEntryRouteData(entryRoutes);
       setRunningStats(running);
       setStepsTotals(steps);
+      setWhoCompliance(whoComplianceData);
+      setWhoComplianceTrend(whoComplianceHistory);
     } catch (error) {
       console.error('Error loading dashboard:', error);
     } finally {
@@ -638,6 +649,49 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         </div>
       </div>
 
+      {/* ── WHO Compliance (Official, 2-condition) ──────────────────────
+           Distinct from the "יעד WHO 150 דק'/שבוע" card above, which sums
+           any workout-session duration against a single 150-min bar. This
+           reads dailyActivity.categories to check the ACTUAL WHO 2020
+           standard: >=150 combined aerobic (strength+cardio) minutes AND
+           >=2 separate strength-session days, both required. ── */}
+      {whoCompliance ? (
+        <div className="bg-white rounded-2xl border border-indigo-200 p-6" dir="rtl">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Target size={20} className="text-indigo-600" />
+              <h3 className="text-lg font-black text-gray-900">עמידה בתקן WHO הרשמי (2 תנאים)</h3>
+            </div>
+            <span className="text-xs text-gray-400 font-semibold">
+              שבוע נוכחי · {whoCompliance.currentWeek.start.toLocaleDateString('he-IL')}–{whoCompliance.currentWeek.end.toLocaleDateString('he-IL')}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+              <div className="text-3xl font-black text-indigo-700">{whoCompliance.percentageCompliant.toFixed(1)}%</div>
+              <div className="text-xs text-gray-500 mt-1">{whoCompliance.usersCompliant} מתוך {whoCompliance.totalUsers} — עומדים בשני התנאים</div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <div className="text-2xl font-black text-gray-700">{whoCompliance.usersMeetingAerobicOnly}</div>
+              <div className="text-xs text-gray-500 mt-1">אירובי בלבד (150 דק') — כוח חסר</div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <div className="text-2xl font-black text-gray-700">{whoCompliance.usersMeetingStrengthOnly}</div>
+              <div className="text-xs text-gray-500 mt-1">כוח בלבד (2 מפגשים) — אירובי חסר</div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <div className="text-2xl font-black text-gray-700">{whoCompliance.averageAerobicMinutes}</div>
+              <div className="text-xs text-gray-500 mt-1">ממוצע דקות אירוביות למשתמש</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-indigo-200 p-6 animate-pulse" dir="rtl">
+          <div className="h-5 bg-gray-100 rounded w-64 mb-4" />
+          <div className="h-16 bg-gray-50 rounded" />
+        </div>
+      )}
+
       {/* ── Sessions Summary Card ────────────────────────────────────── */}
       <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-violet-50 rounded-2xl p-6 border border-purple-200 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -996,6 +1050,36 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
                 strokeWidth={3}
                 name="חיסכון (₪)"
                 dot={{ fill: '#10B981', r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* WHO Compliance Over Time — Phase 2b bounded weekly trend */}
+      {whoComplianceTrend.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-6" dir="rtl">
+          <div className="flex items-center gap-2 mb-4">
+            <Target size={20} className="text-indigo-600" />
+            <h3 className="text-lg font-black text-gray-900">מגמת עמידה בתקן WHO — {whoComplianceTrend.length} שבועות אחרונים</h3>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={whoComplianceTrend}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="weekLabel" />
+              <YAxis unit="%" />
+              <Tooltip
+                formatter={(value: number) => [`${value}%`, 'עומדים בתקן']}
+                labelFormatter={(label) => `שבוע: ${label}`}
+              />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="percentageCompliant"
+                stroke="#4F46E5"
+                strokeWidth={3}
+                name="עומדים בתקן WHO (%)"
+                dot={{ fill: '#4F46E5', r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
