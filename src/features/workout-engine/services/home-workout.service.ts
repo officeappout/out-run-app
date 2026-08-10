@@ -712,6 +712,17 @@ export async function generateHomeWorkoutTrio(
   // and safe to reuse across all 3 options.
   const orchestrator = createPipelineOrchestrator();
 
+  // Fast-path target slot: which trio index generateSingleOption computes
+  // alone (see resolveSingleOptionWantIndex above). Also doubles as the
+  // bundleId anti-repetition tracking index below — falls back to 1
+  // (today's exact behaviour) whenever single-option mode is not active,
+  // so the full-trio path is unaffected.
+  const singleOptionWantIndex: 0 | 1 | 2 = resolveSingleOptionWantIndex(
+    options.generateSingleOption,
+    options.targetOptionIndex,
+    pipeline.sessionPolicy.defaultFocusIndex,
+  );
+
   for (let i = 0; i < 3; i++) {
     // When the Custom Builder requests a specific difficulty, skip the other
     // two iteration slots to avoid generating workouts that are immediately
@@ -721,9 +732,13 @@ export async function generateHomeWorkoutTrio(
     }
 
     // Fast-path: when the result feeds a preview drawer (schedule-card tap),
-    // only the middle Balanced option (D2) is ever displayed — skip D1 and D3
-    // to cut Firestore reads and generation latency by ~66%.
-    if (options.generateSingleOption && configs[i].difficulty !== 2) {
+    // only the periodization-recommended slot (or an explicit
+    // targetOptionIndex override) is generated — skip the other two to cut
+    // Firestore reads and generation latency by ~66%. See
+    // shouldSkipSingleOptionSlot above for the exact precedence rule vs.
+    // targetDifficulty (Custom Builder) — in practice the two never
+    // co-occur (Custom Builder never sets generateSingleOption).
+    if (shouldSkipSingleOptionSlot(i, options.generateSingleOption, options.targetDifficulty, singleOptionWantIndex)) {
       continue;
     }
 
@@ -939,8 +954,10 @@ export async function generateHomeWorkoutTrio(
         );
       }
 
-      // Persist winning bundleId for anti-repetition (center card only)
-      if (i === 1 && metadata.bundleId && typeof window !== 'undefined') {
+      // Persist winning bundleId for anti-repetition (recommended slot only —
+      // center/D2 card in the full-trio path, or whichever index
+      // generateSingleOption actually computed in the fast path).
+      if (i === singleOptionWantIndex && metadata.bundleId && typeof window !== 'undefined') {
         try {
           const stored = JSON.parse(localStorage.getItem('recentBundleIds') || '[]') as string[];
           const updated = [metadata.bundleId, ...stored.filter(id => id !== metadata.bundleId)].slice(0, 5);
@@ -1162,6 +1179,45 @@ export function resolveEffectivePipelineLocation(
   location: ExecutionLocation | undefined,
 ): ExecutionLocation {
   return testLocation ?? location ?? 'park';
+}
+
+/**
+ * Resolves which trio slot index (0 = Easy/D1, 1 = Balanced/D2, 2 = Intense/D3)
+ * `generateSingleOption`'s fast path computes alone. `targetOptionIndex` wins
+ * when explicitly set; otherwise defers to the periodization engine's
+ * `defaultFocusIndex` recommendation for this date (0 on Deload/Rebuild,
+ * 2 on Peak, 1 otherwise) — this is the fix for the bug where the fast path
+ * used to always compute D2 regardless of what the date actually called for,
+ * silently mislabeling Deload/Peak-week previews. Falls back to 1 (today's
+ * exact prior behaviour, and the bundleId-tracking default) whenever
+ * single-option mode isn't active — the full-trio path is unaffected.
+ * Pure/exported so this decision is unit-testable in isolation (see
+ * home-workout.single-option-index.test.ts) without the full async pipeline.
+ */
+export function resolveSingleOptionWantIndex(
+  generateSingleOption: boolean | undefined,
+  targetOptionIndex: 0 | 1 | 2 | undefined,
+  defaultFocusIndex: 0 | 1 | 2,
+): 0 | 1 | 2 {
+  return generateSingleOption ? (targetOptionIndex ?? defaultFocusIndex) : 1;
+}
+
+/**
+ * Fast-path gate for the per-option loop below: returns `true` when
+ * iteration index `i` should be SKIPPED (not computed) this call.
+ * `targetDifficulty` (Custom Builder) takes precedence and is handled by
+ * its own gate upstream in the loop — this one only fires when that gate is
+ * inactive, so the two never double-skip. Exported and exercised directly by
+ * the regression test — this is the exact function the production loop
+ * calls, not a re-implementation, so a passing test proves the real gate.
+ */
+export function shouldSkipSingleOptionSlot(
+  i: number,
+  generateSingleOption: boolean | undefined,
+  targetDifficulty: DifficultyLevel | undefined,
+  wantIndex: 0 | 1 | 2,
+): boolean {
+  return !!generateSingleOption && targetDifficulty == null && i !== wantIndex;
 }
 
 // ============================================================================

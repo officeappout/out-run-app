@@ -170,14 +170,29 @@ export interface HomeWorkoutOptions {
   isManualOverride?: boolean;
 
   /**
-   * When `true`, only the middle Balanced option (Difficulty 2) is generated.
-   * Difficulty-1 (Active Recovery) and Difficulty-3 (Intense) slots are skipped
-   * entirely, cutting Firestore reads and generation latency by ~66%.
+   * When `true`, only ONE trio slot is generated — the other two are skipped
+   * entirely, cutting Firestore reads and generation latency by ~66%. Which
+   * slot is computed is `targetOptionIndex` when set, otherwise the
+   * periodization engine's `sessionPolicy.defaultFocusIndex` for that date
+   * (0 on Deload/Rebuild weeks, 2 on Peak weeks, 1 otherwise) — NOT always
+   * the middle Balanced/D2 slot.
    *
-   * Use when the result feeds directly into a preview drawer where the D1/D3
-   * alternatives are never surfaced to the user (e.g. schedule-card tap flow).
+   * Use when the result feeds directly into a preview drawer where the
+   * un-computed alternatives are never surfaced to the user (e.g.
+   * schedule-card tap flow).
    */
   generateSingleOption?: boolean;
+
+  /**
+   * When set alongside `generateSingleOption`, pins the single computed slot
+   * to this exact trio index (0 = Easy/D1, 1 = Balanced/D2, 2 = Intense/D3)
+   * instead of deferring to `sessionPolicy.defaultFocusIndex`. Distinct from
+   * `targetDifficulty`, which selects by difficulty *value* and cannot
+   * disambiguate rest-day slots (all three REST_DAY_CONFIGS entries share
+   * difficulty 2). Falls back to the periodization engine's recommended
+   * index when omitted.
+   */
+  targetOptionIndex?: 0 | 1 | 2;
 
   /**
    * When `true`, suppresses the 21-day-gap periodization Cycle Restart write
