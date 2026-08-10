@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { MapboxService } from '../services/mapbox.service';
 import { haversineKm, haversineMeters } from '../services/geoUtils';
 import { useMapStore } from '../store/useMapStore';
+import { withCancelPrevious } from '@/lib/requestGovernor';
 import type { Route } from '../types/route.types';
 
 /** One Hebrew turn-by-turn step exposed to the UI (timeline row). */
@@ -259,10 +260,20 @@ export function useWalkToRoute(
       }
 
       try {
-        const result = await MapboxService.getSmartPath(
-          { lng: userLng, lat: userLat },
-          { lng: targetLng, lat: targetLat },
-          'walking',
+        // withCancelPrevious: only one walk-to-route calc is ever relevant at
+        // a time (the currently focused route), so a fresh call here aborts
+        // whatever was still in flight — previously the stale fetch would
+        // complete anyway and could overwrite fresher state with old data
+        // (no staleness guard existed). See cryptic-munching-gadget.md.
+        const result = await withCancelPrevious('walk-to-route', (signal) =>
+          MapboxService.getSmartPath(
+            { lng: userLng, lat: userLat },
+            { lng: targetLng, lat: targetLat },
+            'walking',
+            [],
+            {},
+            { signal },
+          ),
         );
 
         if (!result || result.path.length < 2) return;
