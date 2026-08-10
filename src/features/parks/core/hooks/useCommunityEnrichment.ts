@@ -388,10 +388,13 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
         )
       : null;
 
-    // Broad catch-all: active groups (capped at 100 to prevent runaway reads)
+    // Broad catch-all: active groups (capped at 100 to prevent runaway reads).
+    // The cap was previously only in this comment, not the query — added the
+    // actual limit(). See .claude/plans/cryptic-munching-gadget.md.
     const grpBroadQ = query(
       collection(db, 'community_groups'),
       where('isActive', '==', true),
+      firestoreLimit(100),
     );
 
     const seenGroupIds = new Set<string>();

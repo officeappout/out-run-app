@@ -276,9 +276,15 @@ export function usePartnerData(
       return;
     }
 
+    // limit(100): this query has no entity scope (not filtered to a park/
+    // route/area), so without a cap it re-runs the full N+1 registrations
+    // fan-out below on every community_events change anywhere, regardless
+    // of relevance. Same bounding precedent as verified_global's limit(200).
+    // See .claude/plans/cryptic-munching-gadget.md.
     const q = query(
       collection(db, 'community_events'),
       where('isActive', '==', true),
+      limit(100),
     );
 
     unsubEvents.current = onSnapshot(
