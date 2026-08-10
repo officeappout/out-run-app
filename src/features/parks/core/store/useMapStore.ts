@@ -5,6 +5,14 @@ import type { Route } from '../types/route.types';
 import type { WalkStep } from '../hooks/useWalkToRoute';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 
+/**
+ * Map performance pressure signal — written by `useMapPerfMonitor`
+ * (FPS + native memoryWarning + webglcontextlost), read by... nothing yet.
+ * Pure observability today (map-watchdog-plan.md §5B); a future Adaptive
+ * Shed ladder (§5C) would read this to actually reduce load under pressure.
+ */
+export type MapPressureLevel = 'normal' | 'warning' | 'critical';
+
 /** Serializable map viewport bounding box (no Mapbox types). */
 export interface ViewportBounds {
   neLng: number;
@@ -364,6 +372,10 @@ interface MapStore {
    */
   isMapVisuallyReady: boolean;
   setMapVisuallyReady: (v: boolean) => void;
+
+  /** See `MapPressureLevel` doc comment above. Written by `useMapPerfMonitor`. */
+  pressureLevel: MapPressureLevel;
+  setPressureLevel: (level: MapPressureLevel) => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -462,4 +474,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setViewportSearchActive: (v) => set({ viewportSearchActive: v }),
   isMapVisuallyReady: false,
   setMapVisuallyReady: (v) => set({ isMapVisuallyReady: v }),
+
+  pressureLevel: 'normal',
+  setPressureLevel: (level) => set({ pressureLevel: level }),
 }));
