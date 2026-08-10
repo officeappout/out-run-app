@@ -234,10 +234,16 @@ async function composeNoGpsFallback(intent: HybridStartIntent): Promise<Composed
   });
   const selectedIndex = 1; // balanced — the same default bolt every other trio-based path uses
   const w = trio.options[selectedIndex].result.workout;
-  const rest = trio.isRestDay || (w.exercises?.length ?? 0) === 0 || w.isRecovery === true;
   const needsAssessmentLike = w.needsAssessment === true;
+  // §2 fix (09.08.2026, decision-tree v3): same broadened distinction as
+  // composeFullParkWorkout above — a genuine rest day (trio.isRestDay /
+  // w.isRecovery, both weekly-budget-driven signals, never derived from pool size)
+  // vs. an assessed user whose level has no suitable home content at all.
+  const isGenuineRest = trio.isRestDay || w.isRecovery === true;
+  const hasNoSuitableContent = !needsAssessmentLike && !isGenuineRest && (w.exercises?.length ?? 0) === 0;
+  const rest = isGenuineRest || hasNoSuitableContent;
   const planWorkout = rest ? { ...w, exercises: [] } : w;
-  console.warn(`[composeNoGpsFallback] no GPS, has assessment → home-only strength plan (rest=${rest}, needsAssessment=${needsAssessmentLike})`);
+  console.warn(`[composeNoGpsFallback] no GPS, has assessment → home-only strength plan (isGenuineRest=${isGenuineRest}, hasNoSuitableContent=${hasNoSuitableContent}, needsAssessment=${needsAssessmentLike})`);
 
   return {
     plan: composeHomeOnlyPlan(planWorkout, userWeightKg, intent.emphasis),
@@ -245,7 +251,8 @@ async function composeNoGpsFallback(intent: HybridStartIntent): Promise<Composed
     aerobicKind: intent.aerobicKind,
     fallbackHint: needsAssessmentLike
       ? w.description
-      : rest ? 'יום מנוחה — אין אימון היום.'
+      : isGenuineRest ? 'יום מנוחה — אין אימון היום.'
+      : hasNoSuitableContent ? 'לא זיהינו תוכן מתאים לרמתך כרגע — נסו שוב מאוחר יותר.'
       : 'לא זוהתה גישה למיקום — הצגנו לך אימון-כוח בבית במקום מסלול.',
     assessmentDomains: needsAssessmentLike ? w.assessmentDomains : undefined,
   };
@@ -372,19 +379,34 @@ async function composeFullParkWorkout(
     };
 
     // One plan per bolt option — same park + route, only the strength content differs.
-    // ⚠️ (uncertainty #b): an empty pool at a sparse park is a rest-day PER OPTION →
-    // aerobic-only, never an empty station.
+    // §2 fix (09.08.2026, decision-tree v3, David-approved): the old `rest` flag
+    // collapsed THREE distinct causes into one "יום מנוחה" bucket — a genuine rest day
+    // (weekly budget exhausted), AND an assessed user whose level simply has no
+    // matching content at this park (the real bug: "משתמש שכן מילא שאלון אבל
+    // ברמה-גבוהה-בלי-תוכן-מתאים... נופל בטעות ל'יום מנוחה'"). Split using signals that
+    // already exist and are already genuine — `trio.isRestDay` is caller-passed
+    // (options.isScheduledRestDay/isRecoveryDay, never derived from pool size) and
+    // `w.isRecovery` is set ONLY by home-workout.service's dedicated
+    // weekly-budget-exhausted branch (never by an empty level-filtered pool) — so
+    // `isGenuineRest` is never confused with "no suitable content," no new pipeline
+    // signal needed. This is the SAME broadened condition described for §2, not a
+    // second check added elsewhere.
     const built = trio.options.map((opt) => {
       const w = opt.result.workout;
-      const rest = trio.isRestDay || (w.exercises?.length ?? 0) === 0 || w.isRecovery === true;
+      const needsAssessment = w.needsAssessment === true;
+      const isGenuineRest = trio.isRestDay || w.isRecovery === true;
+      const hasNoSuitableContent =
+        !needsAssessment && !isGenuineRest && (w.exercises?.length ?? 0) === 0;
+      const rest = isGenuineRest || hasNoSuitableContent; // still zero the plan's exercises either way
       const planWorkout = rest ? { ...w, exercises: [] } : w;
       return {
-        rest,
+        isGenuineRest,
+        hasNoSuitableContent,
         // needs-assessment bug (scenarios 5/6): buildNeedsAssessmentResult (home-workout.service.ts)
         // already distinguishes "no assessed level for this domain" from a real rest day via
         // w.needsAssessment — `rest` above collapses both into the same exercises.length===0
         // bucket. Carried separately so the selected bolt can show the real reason below.
-        needsAssessment: w.needsAssessment === true,
+        needsAssessment,
         assessmentMessage: w.description,
         assessmentDomains: w.assessmentDomains,
         plan: composeParkWorkoutPlan({
@@ -400,14 +422,15 @@ async function composeFullParkWorkout(
     });
 
     const selectedIndex = 1; // balanced (bolt 2) — the recommended default
-    const restLike = built[selectedIndex].rest;
+    const isGenuineRestLike = built[selectedIndex].isGenuineRest;
+    const hasNoSuitableContentLike = built[selectedIndex].hasNoSuitableContent;
     const needsAssessmentLike = built[selectedIndex].needsAssessment;
     const plans = built.map((b) => b.plan);
 
     console.log(
       `[hybrid:diag] full-park compose: park="${oab.station.name}"` +
       ` equip=[${oab.station.availableEquipment.join(',')}] bolts=${plans.length}` +
-      ` default#${selectedIndex} restLike=${restLike} needsAssessment=${needsAssessmentLike}` +
+      ` default#${selectedIndex} isGenuineRest=${isGenuineRestLike} hasNoSuitableContent=${hasNoSuitableContentLike} needsAssessment=${needsAssessmentLike}` +
       ` routeKm=${plans[selectedIndex].totals.distanceKm}`,
     );
 
@@ -420,7 +443,9 @@ async function composeFullParkWorkout(
       // rest-day string — every other exercises.length===0 cause keeps 'יום מנוחה' as before.
       fallbackHint: needsAssessmentLike
         ? built[selectedIndex].assessmentMessage
-        : restLike ? 'יום מנוחה — הליכה בלבד' : undefined,
+        : isGenuineRestLike ? 'יום מנוחה — הליכה בלבד'
+        : hasNoSuitableContentLike ? 'לא זיהינו תוכן מתאים לרמתך בפארק הזה כרגע — נסו מיקום אחר או חזרו מאוחר יותר.'
+        : undefined,
       // needs-assessment link follow-up: only set alongside the needsAssessment
       // fallbackHint — never for a real rest day — so the caller can render an
       // actionable mini-questionnaire link instead of a dead-end banner.

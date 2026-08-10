@@ -6,8 +6,11 @@ import type { HybridSessionContext } from '../start-hybrid-session';
  * scenarios 5/6 regression: composeFullParkWorkout must NOT relabel a
  * generateHomeWorkoutTrio `needsAssessment` result (buildNeedsAssessmentResult,
  * home-workout.service.ts) as a generic rest day. It must surface the workout's
- * own assessment message instead — every OTHER exercises.length===0 cause
- * (isRecovery, a genuinely empty pool) must still read as "יום מנוחה".
+ * own assessment message instead. A genuine rest day (isRecovery/trio.isRestDay,
+ * weekly-budget-driven) still reads as "יום מנוחה" — but (§2 fix, 09.08.2026) a
+ * genuinely empty pool that is NEITHER a real rest day NOR a needsAssessment case
+ * (i.e. an assessed user with no suitable content at this level/park) no longer
+ * gets mislabeled as rest either — it gets its own distinct message.
  */
 
 const routePath = [
@@ -122,12 +125,14 @@ describe('composeFullParkWorkout — needs-assessment vs real rest day (scenario
     expect(composed!.assessmentDomains).toBeUndefined();
   });
 
-  it('keeps "יום מנוחה — הליכה בלבד" for a genuinely empty pool (not needsAssessment)', async () => {
+  it('§2 fix (09.08.2026): a genuinely empty pool (not rest, not needsAssessment) is NO LONGER mislabeled "יום מנוחה" — this was the real bug §2 fixed (assessed user, no suitable content at this level, was silently shown a rest-day message)', async () => {
     trioMock = makeTrio({ title: 'ריק', exercises: [], isRecovery: false, needsAssessment: false });
     const { composeHybridPlan } = await import('../start-hybrid-session');
     const composed = await composeHybridPlan(baseIntent, makeCtx());
     expect(composed).not.toBeNull();
-    expect(composed!.fallbackHint).toBe('יום מנוחה — הליכה בלבד');
+    expect(composed!.fallbackHint).not.toBe('יום מנוחה — הליכה בלבד');
+    expect(composed!.fallbackHint).toBe('לא זיהינו תוכן מתאים לרמתך בפארק הזה כרגע — נסו מיקום אחר או חזרו מאוחר יותר.');
+    expect(composed!.assessmentDomains).toBeUndefined(); // not an assessment issue — no actionable link
   });
 
   it('leaves a real training bolt with no fallbackHint at all', async () => {
