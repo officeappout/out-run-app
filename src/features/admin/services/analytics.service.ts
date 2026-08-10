@@ -287,6 +287,7 @@ export interface GenderDistribution {
   male: number;
   female: number;
   other: number;
+  unknown: number;
   total: number;
 }
 
@@ -295,20 +296,23 @@ export async function getGenderDistribution(
 ): Promise<GenderDistribution> {
   try {
     const docs = await getUserDocsForAuthority(authorityId);
-    const distribution: GenderDistribution = { male: 0, female: 0, other: 0, total: 0 };
+    const distribution: GenderDistribution = { male: 0, female: 0, other: 0, unknown: 0, total: 0 };
 
     docs.forEach(({ data }) => {
-      const gender = (data as { core?: { gender?: string } })?.core?.gender ?? 'other';
+      // Missing gender is its own honest bucket — previously silently merged
+      // into 'other', which conflated "didn't say" with an actual response.
+      const gender = (data as { core?: { gender?: string } })?.core?.gender;
       if (gender === 'male') distribution.male++;
       else if (gender === 'female') distribution.female++;
-      else distribution.other++;
+      else if (gender) distribution.other++;
+      else distribution.unknown++;
       distribution.total++;
     });
 
     return distribution;
   } catch (error) {
     console.error('Error calculating gender distribution:', error);
-    return { male: 0, female: 0, other: 0, total: 0 };
+    return { male: 0, female: 0, other: 0, unknown: 0, total: 0 };
   }
 }
 
@@ -318,6 +322,7 @@ export interface AgeDistribution {
   '36-45': number;
   '46-55': number;
   '56+': number;
+  unknown: number;
   total: number;
 }
 
@@ -327,14 +332,14 @@ export async function getAgeDistribution(
   try {
     const docs = await getUserDocsForAuthority(authorityId);
     const distribution: AgeDistribution = {
-      '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0, total: 0,
+      '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0, unknown: 0, total: 0,
     };
     const currentYear = new Date().getFullYear();
 
     docs.forEach(({ data }) => {
       const birthDate = (data as { core?: { birthDate?: Timestamp | Date | string } })?.core?.birthDate;
+      let birthYear: number | null = null;
       if (birthDate) {
-        let birthYear: number | null = null;
         if (birthDate instanceof Date) {
           birthYear = birthDate.getFullYear();
         } else if (typeof birthDate === 'string') {
@@ -343,13 +348,21 @@ export async function getAgeDistribution(
         } else if (typeof (birthDate as Timestamp).toDate === 'function') {
           birthYear = (birthDate as Timestamp).toDate().getFullYear();
         }
-        if (birthYear == null) { distribution.total++; return; }
+      }
+
+      // Missing/unparseable birthDate used to be counted in `total` but
+      // dropped from every bucket — bucket sum < total with no visible gap.
+      // Now explicit, so bucket sum always equals total.
+      if (birthYear == null) {
+        distribution.unknown++;
+      } else {
         const age = currentYear - birthYear;
         if (age >= 18 && age <= 25) distribution['18-25']++;
         else if (age >= 26 && age <= 35) distribution['26-35']++;
         else if (age >= 36 && age <= 45) distribution['36-45']++;
         else if (age >= 46 && age <= 55) distribution['46-55']++;
         else if (age >= 56) distribution['56+']++;
+        else distribution.unknown++; // age < 18 — outside all buckets
       }
       distribution.total++;
     });
@@ -357,7 +370,7 @@ export async function getAgeDistribution(
     return distribution;
   } catch (error) {
     console.error('Error calculating age distribution:', error);
-    return { '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0, total: 0 };
+    return { '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0, unknown: 0, total: 0 };
   }
 }
 

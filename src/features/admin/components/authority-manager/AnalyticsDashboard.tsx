@@ -423,6 +423,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         { name: 'גברים', value: genderData.male },
         { name: 'נשים', value: genderData.female },
         { name: 'אחר', value: genderData.other },
+        { name: 'לא ידוע', value: genderData.unknown },
       ]
     : [];
 
@@ -433,6 +434,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
         { name: '36-45', value: ageData['36-45'] },
         { name: '46-55', value: ageData['46-55'] },
         { name: '56+', value: ageData['56+'] },
+        { name: 'לא ידוע', value: ageData.unknown },
       ]
     : [];
 
