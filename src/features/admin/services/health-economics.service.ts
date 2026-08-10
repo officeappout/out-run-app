@@ -178,6 +178,190 @@ export async function getWHO150Tracker(authorityId: string): Promise<WHO150Track
   }
 }
 
+// ── Real WHO-150 Compliance (category-based, 2-condition) ──────────────────────
+//
+// Distinct from getWHO150Tracker above: that one sums `workouts.duration`
+// (any workout type, session-based) against a single 150-min threshold. The
+// actual WHO 2020 guideline has TWO conditions — see WHO_COMPLIANCE_BASELINE /
+// WeeklyComplianceStatus in src/features/activity/types/activity.types.ts,
+// which define this correctly but (per grep) have zero live compute/write
+// sites anywhere in the codebase:
+//   1. >= 150 min/week combined strength+cardio minutes (aerobic)
+//   2. >= 2 distinct days/week with a strength session (>= STREAK_MINIMUM_MINUTES
+//      strength minutes that day)
+// Reads dailyActivity.categories directly (per-day, per-category minutes) —
+// the same collection/index Phase 1's getCityStepsTotals uses, but filtered
+// by userId (existing composite index: userId ASC, date DESC — see
+// firestore.indexes.json) instead of authorityId.
+//
+// STREAK_MINIMUM_MINUTES is duplicated here (rather than imported from
+// src/features/activity/types/activity.types.ts) per the domain-agnostic
+// rule — src/features/admin/ does not cross-import another feature's types.
+
+const DAILY_ACTIVITY_COLLECTION = 'dailyActivity';
+const STREAK_MINIMUM_MINUTES = 10;
+
+export interface WHOComplianceResult {
+  totalUsers: number;
+  usersCompliant: number; // BOTH conditions met (WHO Gold Medal)
+  percentageCompliant: number;
+  usersMeetingAerobicOnly: number;
+  usersMeetingStrengthOnly: number;
+  averageAerobicMinutes: number;
+  currentWeek: { start: Date; end: Date };
+}
+
+function toDateStr(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+interface WeeklyActivityAgg {
+  aerobicMinutes: number;
+  strengthDays: number;
+}
+
+async function getBulkWeeklyActivity(
+  userIds: string[],
+  start: Date,
+  end: Date
+): Promise<Map<string, WeeklyActivityAgg>> {
+  const result = new Map<string, WeeklyActivityAgg>();
+  if (userIds.length === 0) return result;
+
+  const startStr = toDateStr(start);
+  const endStr = toDateStr(end);
+
+  await Promise.all(chunk(userIds, 30).map(async (batch) => {
+    const q = query(
+      collection(db, DAILY_ACTIVITY_COLLECTION),
+      where('userId', 'in', batch),
+      where('date', '>=', startStr),
+      where('date', '<=', endStr)
+    );
+    const snap = await getDocs(q);
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const userId: string | undefined = data.userId;
+      if (!userId) return;
+      const strengthMin: number = data.categories?.strength?.minutes ?? 0;
+      const cardioMin: number = data.categories?.cardio?.minutes ?? 0;
+      const entry = result.get(userId) ?? { aerobicMinutes: 0, strengthDays: 0 };
+      entry.aerobicMinutes += strengthMin + cardioMin;
+      if (strengthMin >= STREAK_MINIMUM_MINUTES) entry.strengthDays += 1;
+      result.set(userId, entry);
+    });
+  }));
+
+  return result;
+}
+
+function classifyCompliance(userIds: string[], activityMap: Map<string, WeeklyActivityAgg>) {
+  let usersCompliant = 0, usersMeetingAerobicOnly = 0, usersMeetingStrengthOnly = 0, totalAerobicMinutes = 0;
+
+  for (const userId of userIds) {
+    const entry = activityMap.get(userId) ?? { aerobicMinutes: 0, strengthDays: 0 };
+    totalAerobicMinutes += entry.aerobicMinutes;
+    const aerobicMet = entry.aerobicMinutes >= WHO_WEEKLY_TARGET_MINUTES;
+    const strengthMet = entry.strengthDays >= 2;
+    if (aerobicMet && strengthMet) usersCompliant++;
+    else if (aerobicMet) usersMeetingAerobicOnly++;
+    else if (strengthMet) usersMeetingStrengthOnly++;
+  }
+
+  return { usersCompliant, usersMeetingAerobicOnly, usersMeetingStrengthOnly, totalAerobicMinutes };
+}
+
+export async function getWHOComplianceBreakdown(authorityId: string): Promise<WHOComplianceResult> {
+  const now = new Date();
+  const weekRange = getWeekRange(now);
+  const empty: WHOComplianceResult = {
+    totalUsers: 0, usersCompliant: 0, percentageCompliant: 0,
+    usersMeetingAerobicOnly: 0, usersMeetingStrengthOnly: 0,
+    averageAerobicMinutes: 0, currentWeek: weekRange,
+  };
+
+  try {
+    const userIds = await getAuthorityUsers(authorityId);
+    if (userIds.length === 0) return empty;
+
+    const activityMap = await getBulkWeeklyActivity(userIds, weekRange.start, weekRange.end);
+    const { usersCompliant, usersMeetingAerobicOnly, usersMeetingStrengthOnly, totalAerobicMinutes } =
+      classifyCompliance(userIds, activityMap);
+
+    return {
+      totalUsers: userIds.length,
+      usersCompliant,
+      percentageCompliant: Math.round((usersCompliant / userIds.length) * 1000) / 10,
+      usersMeetingAerobicOnly,
+      usersMeetingStrengthOnly,
+      averageAerobicMinutes: Math.round((totalAerobicMinutes / userIds.length) * 10) / 10,
+      currentWeek: weekRange,
+    };
+  } catch (error) {
+    console.error('Error calculating WHO compliance breakdown:', error);
+    return empty;
+  }
+}
+
+// ── WHO Compliance Over Time (bounded weekly trend) ─────────────────────────
+//
+// Phase 2b: past-weeks trend for the real compliance metric above. Mirrors
+// getSavingsOverTime's proven scale pattern (all weeks run in parallel, each
+// week is one chunked bulk query) — at current user counts this is
+// weeks × ceil(users/30) reads total, same order of magnitude as the
+// existing 12-month savings trend. Hard-capped at 26 weeks (~6 months) so a
+// bad `weeks` argument can't turn into an unbounded read fan-out as the user
+// base grows.
+
+export interface WHOComplianceWeekPoint {
+  weekLabel: string;  // "DD/MM" of the week's Monday, for chart x-axis
+  weekStart: string;  // YYYY-MM-DD
+  percentageCompliant: number;
+  averageAerobicMinutes: number;
+  totalUsers: number;
+}
+
+const MAX_TREND_WEEKS = 26;
+
+export async function getWHOComplianceOverTime(
+  authorityId: string,
+  weeks: number = 8
+): Promise<WHOComplianceWeekPoint[]> {
+  const boundedWeeks = Math.max(1, Math.min(weeks, MAX_TREND_WEEKS));
+
+  try {
+    const userIds = await getAuthorityUsers(authorityId);
+    if (userIds.length === 0) return [];
+
+    const currentWeekStart = getWeekRange(new Date()).start;
+
+    const results = await Promise.all(
+      Array.from({ length: boundedWeeks }, (_, i) => {
+        const weekStart = new Date(currentWeekStart);
+        weekStart.setDate(weekStart.getDate() - (boundedWeeks - 1 - i) * 7);
+        const weekRange = getWeekRange(weekStart);
+
+        return getBulkWeeklyActivity(userIds, weekRange.start, weekRange.end).then(activityMap => {
+          const { usersCompliant, totalAerobicMinutes } = classifyCompliance(userIds, activityMap);
+          const weekLabel = `${String(weekRange.start.getDate()).padStart(2, '0')}/${String(weekRange.start.getMonth() + 1).padStart(2, '0')}`;
+          return {
+            weekLabel,
+            weekStart: toDateStr(weekRange.start),
+            percentageCompliant: Math.round((usersCompliant / userIds.length) * 1000) / 10,
+            averageAerobicMinutes: Math.round((totalAerobicMinutes / userIds.length) * 10) / 10,
+            totalUsers: userIds.length,
+          };
+        });
+      })
+    );
+
+    return results;
+  } catch (error) {
+    console.error('Error calculating WHO compliance over time:', error);
+    return [];
+  }
+}
+
 // ── Health Savings ────────────────────────────────────────────────────────────
 
 export interface HealthSavingsResult {
