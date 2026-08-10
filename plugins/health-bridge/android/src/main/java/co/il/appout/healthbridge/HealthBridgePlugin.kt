@@ -49,10 +49,11 @@ private const val TAG = "HealthBridge"
 /**
  * HealthBridge — Android / Health Connect implementation.
  *
- * Reads three record types:
+ * Reads four record types:
  *   • StepsRecord                  → steps
  *   • ActiveCaloriesBurnedRecord   → active kcal
  *   • ExerciseSessionRecord        → active minutes (duration of session)
+ *   • DistanceRecord                → distance (metres)
  *
  * Background sync is implemented via WorkManager: a unique periodic
  * worker (`HealthBridgeWorker`) runs every ~30 minutes and emits a
@@ -85,6 +86,7 @@ class HealthBridgePlugin : Plugin() {
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        HealthPermission.getReadPermission(DistanceRecord::class),
         // Without this, Health Connect enforces its own ~30-day read-back
         // ceiling regardless of the TimeRangeFilter requested in
         // syncSince() — declaring it in the manifest alone isn't enough,
@@ -416,6 +418,34 @@ class HealthBridgePlugin : Plugin() {
                     sessionsPageToken = sessionsPage.pageToken
                 } while (sessionsPageToken != null)
 
+                // Distance (walking/running) — same pagination fix.
+                var distancePageToken: String? = null
+                do {
+                    val distancePage = client.readRecords(
+                        ReadRecordsRequest(
+                            recordType = DistanceRecord::class,
+                            timeRangeFilter = TimeRangeFilter.between(start, end),
+                            pageToken = distancePageToken,
+                        )
+                    )
+                    for (r in distancePage.records) {
+                        samples.add(buildSample(
+                            uuid = r.metadata.id,
+                            startInstant = r.startTime,
+                            endInstant = r.endTime,
+                            steps = 0,
+                            calories = 0,
+                            activeMinutes = 0,
+                            distanceMeters = r.distance.inMeters,
+                            source = r.metadata.dataOrigin.packageName,
+                        ))
+                        if (maxSampleTime == null || r.startTime.isAfter(maxSampleTime)) {
+                            maxSampleTime = r.startTime
+                        }
+                    }
+                    distancePageToken = distancePage.pageToken
+                } while (distancePageToken != null)
+
                 val arr = JSArray()
                 for (s in samples) arr.put(s)
                 val out = JSObject()
@@ -567,6 +597,7 @@ class HealthBridgePlugin : Plugin() {
         calories: Int,
         activeMinutes: Int,
         source: String?,
+        distanceMeters: Double = 0.0,
     ): JSObject {
         val date = LocalDate.ofInstant(startInstant, ZoneId.systemDefault()).toString()
         val obj = JSObject()
@@ -577,6 +608,7 @@ class HealthBridgePlugin : Plugin() {
         obj.put("steps", steps)
         obj.put("calories", calories)
         obj.put("activeMinutes", activeMinutes)
+        obj.put("distanceMeters", distanceMeters)
         if (source != null) obj.put("source", source)
         return obj
     }

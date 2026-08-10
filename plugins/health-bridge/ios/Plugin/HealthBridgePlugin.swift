@@ -11,10 +11,11 @@ private let hbLog = OSLog(subsystem: "co.il.appout.outrun", category: "HealthBri
 /**
  * HealthBridge — iOS / HealthKit implementation.
  *
- * Reads three sample types from HealthKit:
+ * Reads four sample types from HealthKit:
  *   • HKQuantityTypeIdentifier.stepCount
  *   • HKQuantityTypeIdentifier.activeEnergyBurned
  *   • HKQuantityTypeIdentifier.appleExerciseTime
+ *   • HKQuantityTypeIdentifier.distanceWalkingRunning
  *
  * Writes completed workouts to HealthKit:
  *   • HKWorkoutType — with activity type, duration, and active calories
@@ -60,10 +61,11 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     private var stepType: HKQuantityType { HKObjectType.quantityType(forIdentifier: .stepCount)! }
     private var caloriesType: HKQuantityType { HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)! }
     private var exerciseType: HKQuantityType { HKObjectType.quantityType(forIdentifier: .appleExerciseTime)! }
+    private var distanceType: HKQuantityType { HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)! }
     private var workoutType: HKWorkoutType { HKObjectType.workoutType() }
 
     private var readTypes: Set<HKObjectType> {
-        return [stepType, caloriesType, exerciseType]
+        return [stepType, caloriesType, exerciseType, distanceType]
     }
 
     private var shareTypes: Set<HKSampleType> {
@@ -294,7 +296,7 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         var latestSampleDate: Date?
         let latestSampleDateLock = NSLock()
 
-        for type in [stepType, caloriesType, exerciseType] {
+        for type in [stepType, caloriesType, exerciseType, distanceType] {
             group.enter()
             let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endBound, options: .strictStartDate)
             let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
@@ -319,6 +321,7 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
                         "steps": 0,
                         "calories": 0,
                         "activeMinutes": 0,
+                        "distanceMeters": 0,
                         "source": s.sourceRevision.source.name,
                     ]
                     let value = s.quantity
@@ -331,6 +334,9 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
                     } else if type == self.exerciseType {
                         let mins = Int(value.doubleValue(for: HKUnit.minute()).rounded())
                         entry["activeMinutes"] = mins
+                    } else if type == self.distanceType {
+                        let meters = value.doubleValue(for: HKUnit.meter())
+                        entry["distanceMeters"] = meters
                     }
                     samplesByUUID[key] = entry
                 }
@@ -382,7 +388,7 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         let group = DispatchGroup()
         var firstError: Error?
 
-        for type in [stepType, caloriesType, exerciseType] {
+        for type in [stepType, caloriesType, exerciseType, distanceType] {
             group.enter()
             healthStore.enableBackgroundDelivery(for: type, frequency: .hourly) { _, error in
                 if let error = error { firstError = error }
@@ -391,7 +397,7 @@ public class HealthBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         // Install one observer per type. They'll fire whenever new
         // samples land — including when the app is suspended.
-        for type in [stepType, caloriesType, exerciseType] {
+        for type in [stepType, caloriesType, exerciseType, distanceType] {
             let q = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completionHandler, error in
                 if let error = error {
                     os_log("observer query fired with error: %{public}@", log: hbLog, type: .error, error.localizedDescription)
