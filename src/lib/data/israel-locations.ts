@@ -858,7 +858,28 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
   // council's official administrative-center/seat location, sourced from
   // Wikidata + cross-checked against a second source (NOT the low-confidence
   // geocode matches — see locality-geocoding-phase-a-split.md). ──
-  { id: 'shr-hngb', name: 'שער הנגב', type: 'regional_council', population: 0 },
+  {
+    id: 'shr-hngb', name: 'שער הנגב', type: 'regional_council', population: 0,
+    // Phase B pilot, 10.08.2026 — OSM Overpass place=village within the
+    // council boundary, deduped, distance-filtered (20km from council
+    // seat, all 13 well within), zero name collisions. See
+    // .claude/knowledge/locality-geocoding-phase-a-split.md context.
+    subLocations: [
+      { id: 'shn-yakhini', name: 'יכיני', type: 'settlement' },
+      { id: 'shn-gevim', name: 'גבים', type: 'settlement' },
+      { id: 'shn-mefalsim', name: 'מפלסים', type: 'settlement' },
+      { id: 'shn-nir-am', name: 'ניר עם', type: 'settlement' },
+      { id: 'shn-dorot', name: 'דורות', type: 'settlement' },
+      { id: 'shn-ibim', name: 'איבים', type: 'settlement' },
+      { id: 'shn-kfar-azza', name: 'כפר עזה', type: 'settlement' },
+      { id: 'shn-saad', name: 'סעד', type: 'settlement' },
+      { id: 'shn-or-hanner', name: 'אור הנר', type: 'settlement' },
+      { id: 'shn-erez', name: 'ארז', type: 'settlement' },
+      { id: 'shn-beror-hayil', name: 'ברור חיל', type: 'settlement' },
+      { id: 'shn-nahal-oz', name: 'נחל עוז', type: 'settlement' },
+      { id: 'shn-ruhama', name: 'רוחמה', type: 'settlement' },
+    ],
+  },
   { id: 'shdvt-ngb', name: 'שדות נגב', type: 'regional_council', population: 0 },
   { id: 'chvf-shklvn', name: 'חוף אשקלון', type: 'regional_council', population: 0 },
   { id: 'mrchbym', name: 'מרחבים', type: 'regional_council', population: 0 },

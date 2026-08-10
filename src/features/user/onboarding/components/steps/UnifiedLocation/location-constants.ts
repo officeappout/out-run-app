@@ -541,4 +541,19 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'shdvt-ngb':    { lat: 31.463539, lng: 34.55494 },
   'chvf-shklvn':  { lat: 31.716944, lng: 34.633056 },
   'mrchbym':      { lat: 31.45, lng: 34.7 },
+
+  // ── Phase B pilot, 10.08.2026 — שער הנגב settlements, real OSM coords ──
+  'shn-yakhini':     { lat: 31.483223, lng: 34.600086 },
+  'shn-gevim':       { lat: 31.506739, lng: 34.599177 },
+  'shn-mefalsim':    { lat: 31.502679, lng: 34.562123 },
+  'shn-nir-am':      { lat: 31.519314, lng: 34.580762 },
+  'shn-dorot':       { lat: 31.506606, lng: 34.645993 },
+  'shn-ibim':        { lat: 31.533293, lng: 34.610074 },
+  'shn-kfar-azza':   { lat: 31.483335, lng: 34.533323 },
+  'shn-saad':        { lat: 31.470404, lng: 34.533741 },
+  'shn-or-hanner':   { lat: 31.557559, lng: 34.600053 },
+  'shn-erez':        { lat: 31.560500, lng: 34.566631 },
+  'shn-beror-hayil': { lat: 31.559790, lng: 34.649156 },
+  'shn-nahal-oz':    { lat: 31.472407, lng: 34.498211 },
+  'shn-ruhama':      { lat: 31.497111, lng: 34.706697 },
 };
