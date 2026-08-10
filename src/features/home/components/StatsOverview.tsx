@@ -9,7 +9,7 @@ import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { SHOW_MISSED_DAYS_PROMPTS, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
 import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
-import AnchorOptionToggles from './AnchorOptionToggles';
+import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import AnchorLocationChip from './AnchorLocationChip';
 import type { LocationId } from './WorkoutBuilderSheet';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
@@ -1019,6 +1019,9 @@ export default function StatsOverview({
   const [isTrainAheadModalOpen, setIsTrainAheadModalOpen] = useState(false);
   const [pendingTrainAheadIndex, setPendingTrainAheadIndex] = useState<number | null>(null);
 
+  // ── Intensity-picker sheet state (R Track 1 — replaces AnchorOptionToggles) ─
+  const [isIntensitySheetOpen, setIsIntensitySheetOpen] = useState(false);
+
   // Hebrew name for the target date's day of week (e.g. "חמישי")
   const HEBREW_DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   const targetDayName = useMemo(() => {
@@ -1214,16 +1217,33 @@ export default function StatsOverview({
         >
           {trioResult ? (
             HOME_ANCHOR_V2_ENABLED ? (
-              /* R Track 1 anchor: toggle row (3 options) → single hero (recommended)
-                 → "מחולל" builder. Engine unchanged — still trioResult.options[3];
-                 selection reuses selectedOptionIndex + handleTrioSelect/handleTrioStart. */
+              /* R Track 1 anchor: intensity pill (tap → bottom sheet, 3 options)
+                 → single hero (recommended) → "מחולל" builder. Engine unchanged —
+                 still trioResult.options[3]; selection reuses selectedOptionIndex +
+                 handleTrioSelect/handleTrioStart. Pill replaces the old inline
+                 AnchorOptionToggles 3-way row (see isIntensitySheetOpen sheet in
+                 renderModals()). */
               <div className="flex flex-col items-center gap-3 px-4">
-                <AnchorOptionToggles
-                  labels={trioResult.options.map((o) => o.label)}
-                  selectedIndex={selectedOptionIndex}
-                  onSelect={handleTrioSelect}
-                  recommendedIndex={trioResult.meta?.defaultFocusIndex}
-                />
+                <button
+                  type="button"
+                  onClick={() => setIsIntensitySheetOpen(true)}
+                  aria-label="בחרו עוצמת אימון"
+                  className="w-full max-w-[358px] mx-auto flex items-center justify-between bg-white dark:bg-slate-800 px-4 py-2.5 active:scale-[0.98] transition-transform"
+                  style={{ borderRadius: 12, border: '1px solid #E0E9FF' }}
+                  dir="rtl"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                      {trioResult.options[selectedOptionIndex].label}
+                    </span>
+                    <DifficultyBolts
+                      difficulty={trioResult.options[selectedOptionIndex].result.workout.difficulty}
+                      size="sm"
+                      showLabel={false}
+                    />
+                  </span>
+                  <ChevronDown size={15} className="text-gray-400" />
+                </button>
                 <HeroWorkoutCard
                   variant="active"
                   workout={generatedToHeroWorkout(trioResult.options[selectedOptionIndex].result.workout)}
@@ -1374,6 +1394,83 @@ export default function StatsOverview({
               >
                 תשאירו ביום המקורי
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Intensity-picker sheet (R Track 1) ─────────────────────────────
+          Replaces the old inline AnchorOptionToggles 3-way toggle row with a
+          tap-target pill (rendered above, in the anchor block) that opens this
+          bottom sheet. Structurally modeled on the Train-Ahead modal above
+          (AnimatePresence + motion.div backdrop, click-outside-to-dismiss) —
+          same technique, bottom-sheet layout instead of a centered card.
+          Each row calls the SAME handleTrioSelect used everywhere else
+          (WorkoutSelectionCarousel, HeroWorkoutCard) — unchanged. Start stays
+          on HeroWorkoutCard's onStart (handleTrioStart) — not duplicated here.
+          z-[101] (not the documented z-[100] overlay tier) — see .cursorrules
+          Z-Index Budget: OfflineBanner is a persistent GLOBAL z-[100] bottom
+          bar (ClientLayout, can appear at any time regardless of modal state,
+          not a user-triggered mutually-exclusive flow like the other z-[100]
+          consumers) — one step above it avoids a real stacking collision. */}
+      <AnimatePresence>
+        {isIntensitySheetOpen && trioResult && (
+          <motion.div
+            key="intensity-sheet-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[101] flex items-end justify-center"
+            style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.40)' }}
+            onClick={() => setIsIntensitySheetOpen(false)}
+          >
+            <motion.div
+              key="intensity-sheet-card"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+              className="bg-white dark:bg-slate-800 rounded-t-3xl p-6 w-full max-w-sm shadow-2xl pb-[env(safe-area-inset-bottom)]"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2
+                className="text-lg font-black text-gray-900 dark:text-white mb-4 text-center"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                בחרו עוצמת אימון
+              </h2>
+
+              <div className="flex flex-col gap-2">
+                {trioResult.options.map((option, i) => {
+                  const isActive = i === selectedOptionIndex;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        handleTrioSelect(i);
+                        setIsIntensitySheetOpen(false);
+                      }}
+                      className={[
+                        'flex items-center justify-between px-4 py-3.5 rounded-2xl transition-colors text-right',
+                        isActive ? 'bg-[#F0FBFF] dark:bg-slate-700' : '',
+                      ].join(' ')}
+                      style={{ border: isActive ? '1px solid #00C9F2' : '1px solid #E0E9FF' }}
+                    >
+                      <span className="flex flex-col items-start gap-0.5">
+                        <span className="text-sm font-bold text-gray-800 dark:text-gray-100">
+                          {option.label}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {option.result.workout.estimatedDuration} דק&apos;
+                        </span>
+                      </span>
+                      <DifficultyBolts difficulty={option.result.workout.difficulty} size="sm" showLabel={false} />
+                    </button>
+                  );
+                })}
+              </div>
             </motion.div>
           </motion.div>
         )}
