@@ -14,11 +14,13 @@
  * Reconciliation:
  *   - 7 already existed with clean 1:1 name matches (נווה צדק, רמת אביב, שפירא,
  *     בבלי, פלורנטין, יד אליהו, שכונת התקווה→התקווה) — untouched.
- *   - 5 non-residential zones EXCLUDED here per David's explicit flag (separate
- *     yes/no pending): אוניברסיטת ת"א, מרכז הירידים, אזור שדה דב, אזור המלאכה
- *     יפו, אזור התעסוקה "צומת חולון".
- *   - 'לב תל אביב' HELD OUT — likely duplicate of the existing 'לב העיר' doc;
- *     not created here pending David's confirmation (would risk a real dupe).
+ *   - 5 non-residential zones EXCLUDED — David confirmed residential-only:
+ *     אוניברסיטת ת"א, מרכז הירידים, אזור שדה דב, אזור המלאכה יפו, אזור
+ *     התעסוקה "צומת חולון".
+ *   - 'לב העיר' == 'לב תל אביב' (David-confirmed, same place) — no duplicate
+ *     created; the existing doc's `name` field is renamed to the official
+ *     'לב תל אביב' by a separate one-doc fix script (same pattern as the
+ *     רמת נגב → רמת הנגב spelling fix), run alongside this import.
  *   - 4 existing docs are coarse legacy placeholders that don't 1:1 match any
  *     single official name (יפו, הצפון הישן, הצפון החדש, צהלה / המשתלה) — left
  *     untouched, flagged separately for David, NOT auto-merged/renamed/deleted.

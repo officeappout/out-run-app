@@ -54,7 +54,7 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'ta-ramat-aviv', name: 'רמת אביב', type: 'neighborhood' },
       { id: 'ta-bavli', name: 'בבלי', type: 'neighborhood' },
       { id: 'ta-tzahala', name: 'צהלה / המשתלה', type: 'neighborhood' },
-      { id: 'ta-lev-hair', name: 'לב העיר', type: 'neighborhood' },
+      { id: 'ta-lev-hair', name: 'לב תל אביב', type: 'neighborhood' },
       { id: 'ta-florentin', name: 'פלורנטין', type: 'neighborhood' },
       { id: 'ta-neve-tzedek', name: 'נווה צדק', type: 'neighborhood' },
       { id: 'ta-yad-elyahu', name: 'יד אליהו', type: 'neighborhood' },
@@ -64,8 +64,9 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       // ── Tel Aviv-Yafo neighborhood reconcile, held for review — official
       // municipal ~76-name list (TLV GIS opendata שכונות layer polygon centroids,
       // cross-verified against the city's own official neighborhoods statistical
-      // booklet). 5 non-residential zones excluded (flagged separately, David's
-      // yes/no). 'לב תל אביב' held out — likely duplicate of existing 'לב העיר'.
+      // booklet). 5 non-residential zones excluded — David confirmed
+      // residential-only. 'לב העיר' (ta-lev-hair, above) renamed to the
+      // official 'לב תל אביב' — same place, no duplicate entry created.
       // quarter field = רובע, new metadata, hierarchy stays 2-level (city→neighborhood). ──
       // צפון (מצפון לירקון)
       { id: 'ta-glilot', name: 'גלילות', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
