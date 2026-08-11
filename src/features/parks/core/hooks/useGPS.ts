@@ -105,7 +105,15 @@ export interface GPSState {
   setSimulationActive: (active: boolean) => void;
 }
 
-export function useGPS(): GPSState {
+export function useGPS(options?: { enabled?: boolean }): GPSState {
+  // Defaults to true so the existing sole caller (useMapLogic.ts, mounted only
+  // while MapShellInner/`/map` is mounted) keeps its exact current behaviour
+  // when it doesn't pass the option. A second caller (GlobalGPSTracker) can
+  // pass `enabled: false` to make this instance a fully inert no-op — it never
+  // starts a watch/poll and never writes to useGPSStore — preserving the
+  // store's documented single-driver contract: at most one enabled useGPS()
+  // instance acquires/writes at any given moment.
+  const enabled = options?.enabled ?? true;
   const [currentUserPos, setCurrentUserPos] = useState<GPSCoords | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [userBearing, setUserBearing] = useState(0);
@@ -145,12 +153,15 @@ export function useGPS(): GPSState {
   // extension its caller, useMapLogic/MapShell) ever unmounts on in-app nav,
   // vs. staying mounted the whole time. Passive logging only — no behavior change.
   useEffect(() => {
-    // callSite is a static label, not runtime-traced: useGPS() has exactly
-    // one call site in the live tree today — useMapLogic.ts:36, which is
-    // itself called once at MapShell.tsx's root (MapShellInner). If this
-    // log ever fires more than once without an intervening UNMOUNTED, that
-    // assumption has changed and needs re-verifying.
-    console.log('[A2-SPIKE][useGPS] hook mounted', { isNative, callSite: 'useMapLogic.ts' });
+    // callSite is a static label, not runtime-traced. useGPS() has two call
+    // sites today: useMapLogic.ts:36 (MapShellInner, mounted only on /map,
+    // always enabled=true) and GlobalGPSTracker (mounted once in ClientLayout,
+    // behind GLOBAL_GPS_TRACKING_ENABLED, enabled only off /map during an
+    // active running/walking/hybrid session) — mutually exclusive by the
+    // isMapRoute check, so at most one instance is ever actually acquiring.
+    // This log can now legitimately fire twice concurrently (both instances
+    // mount) without an intervening UNMOUNTED when the flag is on.
+    console.log('[A2-SPIKE][useGPS] hook mounted', { isNative, enabled });
     return () => {
       console.log('[A2-SPIKE][useGPS] hook UNMOUNTED');
     };
@@ -217,6 +228,7 @@ export function useGPS(): GPSState {
     // native/web watch via the battery guard below) even though
     // workoutActive should hold it open?
     console.log('[A2-SPIKE][useGPS] watch-effect run', {
+      enabled,
       simulationActive,
       gpsPaused,
       isForeground,
@@ -225,13 +237,13 @@ export function useGPS(): GPSState {
       isNative,
     });
 
-    if (simulationActive || gpsPaused) {
+    if (!enabled || simulationActive || gpsPaused) {
       // [A2-SPIKE] Battery-guard / sim teardown branch — distinct from the
       // unmount cleanup functions below. If this fires DURING an active run
       // with workoutActive===true logged false above, that's hypothesis (b):
       // the battery guard itself is the culprit, not a component unmount.
       console.log('[A2-SPIKE][useGPS] battery-guard/sim teardown', {
-        reason: simulationActive ? 'simulationActive' : 'gpsPaused',
+        reason: !enabled ? 'disabled' : simulationActive ? 'simulationActive' : 'gpsPaused',
         isNative,
         hadNativeWatch: capWatchId.current != null,
         hadWebWatch: watchId.current != null,
@@ -490,7 +502,7 @@ export function useGPS(): GPSState {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [simulationActive, isNative, gpsPaused, gpsMode]);
+  }, [simulationActive, isNative, gpsPaused, gpsMode, enabled]);
 
   const handleLocationClick = useCallback(() => {
     if (simulationActive) return;
