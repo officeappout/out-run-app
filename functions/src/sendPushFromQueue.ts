@@ -31,11 +31,19 @@
  * The function is idempotent on retry: step 1's compare-and-set on
  * `status` keeps Cloud Functions' at-least-once delivery from sending
  * a notification twice when the function times out and retries.
+ *
+ * Phase 0 Item 1b — behind `app_config/feature_flags.pushRouting_sendPushFromQueue`
+ * (default false): steps 4-6 route through the shared `push.service.ts`
+ * (`sendPush()`) instead of the inline `collectTokens()`/multicast/prune below,
+ * with `rateCapHours: 0` / `skipQuietHours: true` to preserve today's behavior
+ * (admin broadcasts have neither today, by design — one-off sends, any hour).
+ * When the flag is false (default), the legacy inline path runs unchanged.
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { sendPush, type PushChannel } from './services/push.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -50,11 +58,6 @@ const INACTIVE_WINDOW_DAYS = 14;
 const PARK_VISIT_WINDOW_DAYS = 30;
 
 type TargetAudience = 'all' | 'park_users' | 'active_users' | 'inactive_users';
-type PushChannel =
-  | 'encouragement'
-  | 'health_milestone'
-  | 'training_reminder'
-  | 'system';
 
 interface PushQueueDoc {
   authorityId?: string;
@@ -153,7 +156,56 @@ export const sendPushFromQueue = onDocumentCreated(
       return;
     }
 
-    // ── Step 4: collect tokens, applying per-user pref filter ────────
+    // Phase 0 Item 1b — routing flag; a read failure here is non-fatal, it
+    // just means this send falls back to the legacy inline path (flag=false).
+    let useSharedPushService = false;
+    try {
+      const flagsSnap = await db.doc('app_config/feature_flags').get();
+      useSharedPushService =
+        (flagsSnap.data() as Record<string, unknown> | undefined)
+          ?.pushRouting_sendPushFromQueue === true;
+    } catch (e) {
+      logger.warn('[sendPushFromQueue] routing flag read failed, using legacy path', e);
+    }
+
+    // ── Routed path (Phase 0 Item 1b) — delivery via the shared push.service.ts,
+    // gated behind pushRouting_sendPushFromQueue (default false). ──────────────
+    if (useSharedPushService) {
+      const result = await sendPush({
+        toUids: Array.from(candidateUids),
+        channel,
+        title,
+        body,
+        deepLink: data.deepLink,
+        data: {
+          messageId,
+          authorityId,
+          ...(data.parkId ? { parkId: String(data.parkId) } : {}),
+        },
+        // Admin broadcasts have no rate cap or quiet-hours suppression today
+        // (by design — one-off sends, any hour) — preserve that explicitly
+        // rather than falling back to sendPush()'s defaults.
+        rateCapHours: 0,
+        skipQuietHours: true,
+      });
+      await snap.ref.update({
+        status: 'sent',
+        deliveredCount: result.delivered,
+        failedCount: result.failed,
+        tokensRemoved: result.tokensPruned,
+        recipientCount: candidateUids.size,
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      logger.info(
+        `[sendPushFromQueue] (routed) ${messageId} done: delivered=${result.delivered} ` +
+          `failed=${result.failed} skippedPrefs=${result.skippedPrefs} ` +
+          `skippedGlobalKill=${result.skippedGlobalKill} pruned=${result.tokensPruned}`,
+      );
+      return;
+    }
+
+    // ── Legacy path — direct FCM, active while pushRouting_sendPushFromQueue
+    // is false. Step 4: collect tokens, applying per-user pref filter ────────
     const { tokens, tokenOwners } = await collectTokens(candidateUids, channel);
 
     if (tokens.length === 0) {
@@ -306,7 +358,9 @@ async function resolveAudience(
     // composite index, so we fan out client-side after the authority
     // filter. The active/inactive cohort is small relative to total
     // users (typically < 30%) so this is acceptable for Sprint 3.
-    const snap = await baseQuery.get();
+    // .select('lastActive') — only field this branch reads, avoids a full
+    // document fetch (Phase 0 prereq fix, unrelated to the routing flag).
+    const snap = await baseQuery.select('lastActive').get();
     const cutoffActive = Date.now() - ACTIVE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
     const cutoffInactive = Date.now() - INACTIVE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
     const out = new Set<string>();
