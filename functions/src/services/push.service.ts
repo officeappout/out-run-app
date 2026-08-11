@@ -139,7 +139,12 @@ export type PushChannel =
   | 'social'           // group joins, kudos
   | 'progression'      // level-up, streak, PR
   | 'community'        // people nearby, new group
-  | 'retention';       // re-engagement after inactivity
+  | 'retention'        // re-engagement after inactivity
+  | 'onboarding_dropoff'; // stale-signup nudge — deliberately distinct from
+                          // 'training_reminder' so it does NOT share that
+                          // channel's independent rate-cap clock on
+                          // push_rate/{uid}.training_reminder_lastSentAt
+                          // (see onboardingDropoffDispatcher.ts)
 
 export interface SendPushOpts {
   /** Target user UIDs. For authority-scoped broadcasts use sendPushFromQueue instead. */
