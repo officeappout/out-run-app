@@ -140,6 +140,23 @@ export function useGPS(): GPSState {
 
   const isNative = Capacitor.isNativePlatform();
 
+  // [A2-SPIKE] TEMPORARY diagnostic — hook-level mount/unmount, independent of
+  // the watch-lifecycle effect below. Tells us whether useGPS itself (and by
+  // extension its caller, useMapLogic/MapShell) ever unmounts on in-app nav,
+  // vs. staying mounted the whole time. Passive logging only — no behavior change.
+  useEffect(() => {
+    // callSite is a static label, not runtime-traced: useGPS() has exactly
+    // one call site in the live tree today — useMapLogic.ts:36, which is
+    // itself called once at MapShell.tsx's root (MapShellInner). If this
+    // log ever fires more than once without an intervening UNMOUNTED, that
+    // assumption has changed and needs re-verifying.
+    console.log('[A2-SPIKE][useGPS] hook mounted', { isNative, callSite: 'useMapLogic.ts' });
+    return () => {
+      console.log('[A2-SPIKE][useGPS] hook UNMOUNTED');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Apply the best available fallback (last-known → anchor → dev Tel-Aviv → none).
   // Never teleports to a hard-coded coordinate; in production with no anchor it
   // leaves the position null so the UI can prompt to enable location.
@@ -173,6 +190,14 @@ export function useGPS(): GPSState {
     useGPSStore.getState()._setPermissionState('granted');
     setLocationError(null);
     setCurrentUserPos({ lat: newLat, lng: newLng, accuracy: coords.accuracy, altitude: coords.altitude ?? null });
+    // [A2-SPIKE] Passive — confirms a fix was accepted, from ANY acquisition
+    // path (native watch, web watch, or idle-poll) since they all funnel
+    // through here. Single log site covers all of them, so nothing is missed
+    // if the active mode switches mid-session (e.g. idle-poll -> watch on
+    // workout start). NOT reading gpsMode/workoutActive here — this callback's
+    // deps are [], so those would be stale-closure values; the periodic
+    // "watch-effect run" log already reports current workoutActive/gpsMode.
+    console.log('[A2-SPIKE][useGPS] fix accepted', { lat: newLat, lng: newLng, ts: now });
     if (coords.heading != null && Number.isFinite(coords.heading)) {
       setUserBearing(coords.heading);
     }
@@ -185,7 +210,32 @@ export function useGPS(): GPSState {
   const gpsMode = IS_GPS_IDLE_POLLING_ENABLED && !workoutActive ? 'idle-poll' : 'watch';
 
   useEffect(() => {
+    // [A2-SPIKE] TEMPORARY diagnostic — logged every time this effect
+    // (re-)runs, i.e. on every dependency change
+    // [simulationActive, isNative, gpsPaused]. Key question: during an
+    // active run, does gpsPaused ever flip true (which would tear down the
+    // native/web watch via the battery guard below) even though
+    // workoutActive should hold it open?
+    console.log('[A2-SPIKE][useGPS] watch-effect run', {
+      simulationActive,
+      gpsPaused,
+      isForeground,
+      workoutActive,
+      sessionStatus,
+      isNative,
+    });
+
     if (simulationActive || gpsPaused) {
+      // [A2-SPIKE] Battery-guard / sim teardown branch — distinct from the
+      // unmount cleanup functions below. If this fires DURING an active run
+      // with workoutActive===true logged false above, that's hypothesis (b):
+      // the battery guard itself is the culprit, not a component unmount.
+      console.log('[A2-SPIKE][useGPS] battery-guard/sim teardown', {
+        reason: simulationActive ? 'simulationActive' : 'gpsPaused',
+        isNative,
+        hadNativeWatch: capWatchId.current != null,
+        hadWebWatch: watchId.current != null,
+      });
       // Kill any active watcher. Either the mock position drives the UI
       // (simulationActive), or we're paused in the background with no active
       // workout (gpsPaused battery guard). On resume the effect re-runs and
@@ -339,6 +389,9 @@ export function useGPS(): GPSState {
               });
             },
           );
+          // [A2-SPIKE] Native watch established (or re-established after an
+          // effect re-run).
+          console.log('[A2-SPIKE][useGPS] native watch ESTABLISHED', { capWatchId: capWatchId.current });
         } catch (err) {
           console.warn('[useGPS] Capacitor Geolocation error:', err);
           applyFallback();
@@ -348,6 +401,14 @@ export function useGPS(): GPSState {
       startNativeWatch();
 
       return () => {
+        // [A2-SPIKE] Native watch-effect cleanup — fires on unmount OR when
+        // the effect re-runs due to a dep change [simulationActive, isNative,
+        // gpsPaused]. If this fires DURING an active run with no matching
+        // "hook UNMOUNTED" log nearby, the effect re-ran (dep flip), not a
+        // real unmount — points at gpsPaused/isForeground as the culprit.
+        console.log('[A2-SPIKE][useGPS] native watch-effect cleanup', {
+          hadNativeWatch: capWatchId.current != null,
+        });
         active = false;
         if (capWatchId.current != null) {
           Geolocation.clearWatch({ id: capWatchId.current }).catch(() => {});
@@ -413,6 +474,11 @@ export function useGPS(): GPSState {
     }
 
     return () => {
+      // [A2-SPIKE] Web watch-effect cleanup — same caveat as the native one
+      // above: fires on unmount OR on dep re-run, not exclusively on unmount.
+      console.log('[A2-SPIKE][useGPS] web watch-effect cleanup', {
+        hadWebWatch: watchId.current != null,
+      });
       if (devFallbackTimer !== null) clearTimeout(devFallbackTimer);
       if (watchId.current != null) {
         try { navigator.geolocation.clearWatch(watchId.current); } catch { /* ignore */ }

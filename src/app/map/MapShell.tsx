@@ -93,6 +93,33 @@ interface MapShellInnerProps {
 function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
   const logic = useMapLogic(mode, contextActivity);
+
+  // [A2-SPIKE] TEMPORARY diagnostic — logs every `mode` change (MapModeContext
+  // state, NOT a remount) so it's distinguishable from the outer MapShell
+  // MOUNTED/UNMOUNTED log above. Expect this to fire on mode transitions
+  // (e.g. discovery → free_run on "start run") WITHOUT an outer UNMOUNTED
+  // log anywhere near it — that combination proves mode changes alone never
+  // tear down useGPS/useMapLogic.
+  useEffect(() => {
+    console.log('[A2-SPIKE][MapShell] MapShellInner mode changed', { mode });
+  }, [mode]);
+
+  // [A2-SPIKE] TEMPORARY diagnostic — passive only, does NOT alter behavior
+  // (no pause/resume logic attached; this is the eventual real fix, not this
+  // spike). Purely correlates real OS-level backgrounding (screen lock, app
+  // switch) against the mount/mode/interval logs above so scenario (a) can
+  // be told apart from scenario (b) in the console timeline.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisibility = () => {
+      console.log('[A2-SPIKE][MapShell] document.visibilityState changed', {
+        visibilityState: document.visibilityState,
+      });
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
   const routeZones = useRunningPlayer((s) => s.routeZones);
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
   const setMapFollowEnabled = useRunningPlayer((s) => s.setMapFollowEnabled);
@@ -701,6 +728,22 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const isDemoMode = searchParams.get('demo') === '1';
 
   const fromExplorer = searchParams.get('fromExplorer') === 'true';
+
+  // [A2-SPIKE] TEMPORARY diagnostic — this is the true outer root: mounted
+  // once per /map page.tsx → next/dynamic(MapShellEntry) entry. Distinct
+  // from the mode-change log inside MapShellInner below — mode changes are
+  // just MapModeContext state and do NOT unmount this component. If THIS
+  // logs UNMOUNTED then re-MOUNTED while a run is active, that's a full
+  // route-level remount (in-app tab navigation away and back); if it never
+  // logs UNMOUNTED during the whole scenario, MapShell stayed mounted the
+  // entire time and the bug is not about unmounting.
+  useEffect(() => {
+    console.log('[A2-SPIKE][MapShell] outer MapShell MOUNTED');
+    return () => {
+      console.log('[A2-SPIKE][MapShell] outer MapShell UNMOUNTED');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const profile = useUserStore((s) => s.profile);
   const hasHydrated = useUserStore((s) => s._hasHydrated);

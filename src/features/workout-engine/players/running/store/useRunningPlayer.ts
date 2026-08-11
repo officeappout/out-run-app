@@ -34,6 +34,11 @@ const FLUSH_EVERY = 10;
 // without a state read, matching the pattern used for _coordBuffer above.
 let _gpsStoreUnsub: (() => void) | null = null;
 
+// [A2-SPIKE] TEMPORARY — tick counter for the duration interval's diagnostic
+// logging (logs every 10th tick so elapsed progression is visible without
+// flooding the console). Reset on every startGPSTracking() call.
+let _a2SpikeTickCount = 0;
+
 // ── Poor-GPS hysteresis ───────────────────────────────────────────────────────
 // Counts consecutive poor-accuracy samples since the last good fix.
 // Skips accumulation only while count < POOR_RESUME_AFTER (spike guard).
@@ -740,6 +745,13 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // Request wake lock to prevent phone from sleeping
     if (typeof window !== 'undefined') requestWakeLock();
 
+    // [A2-SPIKE] TEMPORARY diagnostic — this action is called imperatively
+    // from a "start run" callback (useWorkoutSession.ts / FreeRun/index.tsx
+    // / PlannedRun/index.tsx), NOT from a mount effect — so nothing tears it
+    // down automatically on navigation/unmount. Reset the tick counter here.
+    _a2SpikeTickCount = 0;
+    console.log('[A2-SPIKE][useRunningPlayer] startGPSTracking called', { isSimulationActive });
+
     // ── Shared: duration ticker (runs in both real and sim modes) ──────
     // SINGLE source of truth for "one second has elapsed". Drives BOTH:
     //   • laps[active].durationSeconds  (consumed by LapMetrics)
@@ -759,6 +771,20 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       // no-op while status !== 'active', so this is pause-safe.
       useSessionStore.getState().tick();
 
+      // [A2-SPIKE] TEMPORARY — log every 10th tick so elapsed-time progression
+      // is visible in the console even if nothing else fires. This is the
+      // key signal for the bug: if this keeps incrementing after backgrounding
+      // / navigating away while "native fix accepted" (useGPS.ts) logging has
+      // stopped, that confirms the timer/GPS desync.
+      _a2SpikeTickCount += 1;
+      if (_a2SpikeTickCount % 10 === 0) {
+        console.log('[A2-SPIKE][useRunningPlayer] duration tick', {
+          tickCount: _a2SpikeTickCount,
+          activeLapDurationSeconds: activeLap.durationSeconds,
+          sessionStatus: useSessionStore.getState().status,
+        });
+      }
+
       const newDuration = activeLap.durationSeconds + 1;
       let updatedLaps = laps.map(lap =>
         lap.isActive ? { ...lap, durationSeconds: newDuration } : lap
@@ -775,6 +801,11 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
       set({ laps: updatedLaps });
     }, 1000);
+
+    // [A2-SPIKE] TEMPORARY — the duration interval is created here, as a
+    // Zustand-store-owned setInterval with NO React unmount cleanup tied to
+    // it. It only stops via an explicit stopGPSTracking() call (see below).
+    console.log('[A2-SPIKE][useRunningPlayer] duration interval CREATED', { isSimulationActive });
 
     // ── Simulation mode: bypass all real GPS entirely ──────────────────
     if (isSimulationActive) {
@@ -1138,7 +1169,17 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // Stop GPS tracking
   stopGPSTracking: () => {
     const { gpsWatchId, durationIntervalId, releaseWakeLock } = get();
-    
+
+    // [A2-SPIKE] TEMPORARY — the ONLY place durationIntervalId is cleared
+    // (verified by grep — no other clearInterval site in this file). If the
+    // duration tick log keeps firing after backgrounding/navigation with NO
+    // matching "duration interval TORN DOWN" log, stopGPSTracking was never
+    // called — confirming the timer has no lifecycle tie to navigation/backgrounding.
+    console.log('[A2-SPIKE][useRunningPlayer] stopGPSTracking called', {
+      hadDurationInterval: durationIntervalId !== null,
+      hadGpsWatchId: gpsWatchId !== null,
+    });
+
     // Cancel the useGPSStore subscription opened by startGPSTracking.
     _gpsStoreUnsub?.();
     _gpsStoreUnsub = null;
@@ -1150,8 +1191,10 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // Clear duration interval
     if (durationIntervalId !== null) {
       clearInterval(durationIntervalId);
+      // [A2-SPIKE] TEMPORARY — confirms the interval handle was actually cleared.
+      console.log('[A2-SPIKE][useRunningPlayer] duration interval TORN DOWN');
     }
-    
+
     // Release wake lock
     releaseWakeLock();
     
