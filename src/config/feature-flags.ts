@@ -407,6 +407,17 @@ export const ACCESS_CODE_SCHOOL_ENABLED = false;
 // until university gets its own tenantType.
 export const ACCESS_CODE_UNIVERSITY_ENABLED = false;
 
+// RUNNING_NATIVE_KEEP_AWAKE_ENABLED: on native (Capacitor.isNativePlatform()), route
+// requestWakeLock/releaseWakeLock in useRunningPlayer.ts through the
+// @capacitor-community/keep-awake plugin instead of the raw browser Wake Lock API
+// (navigator.wakeLock), which WKWebView on iOS does not implement reliably. While
+// false, native falls through to the exact same raw navigator.wakeLock path used
+// today — BYTE-IDENTICAL to pre-flag behavior. Web (non-native) is unaffected either
+// way — it always uses navigator.wakeLock. Requires `npx cap sync` + a native
+// Xcode/Android Studio rebuild before it can take effect on device (plugin must be
+// registered into the native project — installing the npm package alone is not enough).
+export const RUNNING_NATIVE_KEEP_AWAKE_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

@@ -13,6 +13,7 @@ import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
 import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
 import { runnerShouldSelfSave } from '@/features/workout-engine/hybrid/hybrid-finish-policy';
+import { RUNNING_NATIVE_KEEP_AWAKE_ENABLED } from '@/config/feature-flags';
 // Direct sibling import — both stores live under workout-engine/* with no
 // circular concern (core never imports from players). Using a static import
 // instead of the previous `require()`-inside-try/catch eliminates the silent
@@ -233,6 +234,11 @@ interface RunningPlayerState {
   gpsWatchId: number | null;
   durationIntervalId: NodeJS.Timeout | null;
   wakeLock: WakeLockSentinel | null;
+  // Set when the native @capacitor-community/keep-awake path (gated by
+  // RUNNING_NATIVE_KEEP_AWAKE_ENABLED) is holding the screen awake. KeepAwake has no
+  // sentinel-like object to store (unlike the web wakeLock field above), so this is
+  // a plain boolean flag instead. Only ever set on native; web always uses `wakeLock`.
+  isNativeWakeLockActive: boolean;
   gpsAccuracy: number | null;
   gpsStatus: 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
   // Set to true the first time a good/perfect fix arrives; reset on stopGPSTracking.
@@ -341,7 +347,7 @@ interface RunningPlayerState {
   startGPSTracking: () => void;
   stopGPSTracking: () => void;
   requestWakeLock: () => Promise<void>;
-  releaseWakeLock: () => void;
+  releaseWakeLock: () => Promise<void>;
   
   initializeRunningData: () => void;
   clearRunningData: () => void;
@@ -411,6 +417,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   gpsWatchId: null,
   durationIntervalId: null,
   wakeLock: null,
+  isNativeWakeLockActive: false,
   gpsAccuracy: null,
   gpsStatus: 'searching',
   hasHadGoodFix: false,
@@ -695,8 +702,31 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     }));
   },
 
-  // Request screen wake lock to prevent phone from sleeping during workout
+  // Request screen wake lock to prevent phone from sleeping during workout.
+  // RUNNING_NATIVE_KEEP_AWAKE_ENABLED (feature-flags.ts) routes native platforms through
+  // @capacitor-community/keep-awake instead of the raw browser Wake Lock API, which
+  // WKWebView on iOS does not implement reliably. When the flag is off, this falls
+  // straight through to the original navigator.wakeLock path below — byte-identical to
+  // pre-flag behavior on both native and web.
   requestWakeLock: async () => {
+    if (RUNNING_NATIVE_KEEP_AWAKE_ENABLED) {
+      // Dynamic import only — axioms.md §4 (top-level @capacitor/* imports hang webpack).
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const { KeepAwake } = await import('@capacitor-community/keep-awake');
+          await KeepAwake.keepAwake();
+          set({ isNativeWakeLockActive: true });
+          console.log('[useRunningPlayer] ✅ Native keep-awake acquired (KeepAwake plugin)');
+        } catch (error: any) {
+          console.warn('[useRunningPlayer] Failed to acquire native keep-awake:', error?.message);
+          // Continue without wake lock - not critical
+        }
+        return;
+      }
+    }
+
+    // Web path (also the native fallback when the flag is off) — unchanged from before.
     if (typeof window === 'undefined' || !('wakeLock' in navigator)) {
       console.warn('[useRunningPlayer] Wake Lock API not available');
       return;
@@ -718,9 +748,22 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     }
   },
 
-  // Release screen wake lock
-  releaseWakeLock: () => {
-    const { wakeLock } = get();
+  // Release screen wake lock — symmetric with requestWakeLock above.
+  releaseWakeLock: async () => {
+    const { wakeLock, isNativeWakeLockActive } = get();
+
+    if (RUNNING_NATIVE_KEEP_AWAKE_ENABLED && isNativeWakeLockActive) {
+      try {
+        const { KeepAwake } = await import('@capacitor-community/keep-awake');
+        await KeepAwake.allowSleep();
+        set({ isNativeWakeLockActive: false });
+        console.log('[useRunningPlayer] ✅ Native keep-awake released');
+      } catch (error) {
+        console.warn('[useRunningPlayer] Error releasing native keep-awake:', error);
+      }
+      return;
+    }
+
     if (wakeLock) {
       try {
         wakeLock.release();
