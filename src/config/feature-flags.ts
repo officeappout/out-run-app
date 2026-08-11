@@ -227,15 +227,18 @@ export const IS_ADAPTIVE_SHED_ENABLED = true;
 // (useSessionStore.status → 'active'|'paused'), it switches straight back to
 // the exact continuous watch used today — full accuracy, zero change, for the
 // one case that actually needs it.
-// DEFAULT FALSE, unlike every other flag on this page: those defaulted true
-// because the worst case was a flickering marker or a wasted request. This
-// one changes how live position is acquired for a hook many things depend on
-// (map blue dot, route generation, presence, nearby-parks) — a transition bug
-// (e.g. starting a workout doesn't re-arm the continuous watch) would mean a
-// run gets tracked with no live GPS. Ships today but stays inert until David
-// device-tests the idle↔workout transition specifically (not just "does the
-// dot update while idle") and flips this on himself.
-export const IS_GPS_IDLE_POLLING_ENABLED = false;
+// Unlike every other flag on this page (which defaulted true because the
+// worst case was a flickering marker or a wasted request), this one changes
+// how live position is acquired for a hook many things depend on (map blue
+// dot, route generation, presence, nearby-parks) — a transition bug (e.g.
+// starting a workout doesn't re-arm the continuous watch) would mean a run
+// gets tracked with no live GPS. TRUE (11.08.2026, David-approved): device
+// test happens post-flip, matching this session's other flags — verify the
+// idle↔workout transition specifically (start a workout while idle-polling
+// was active → full continuous tracking with no dead zone; end it → back to
+// idle-polling), not just "does the dot update while idle." Kill-switch:
+// flip back to false + redeploy, no code change needed.
+export const IS_GPS_IDLE_POLLING_ENABLED = true;
 
 // ============================================================================
 // SUMMARY CONSOLIDATION (Stage 2/3) — per-screen V2 renderers over the shared
