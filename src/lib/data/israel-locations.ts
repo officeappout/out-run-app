@@ -6,6 +6,7 @@ export interface SubLocation {
   id: string;
   name: string;
   type: LocationType;
+  quarter?: string; // רובע — currently used for Tel Aviv-Yafo neighborhoods only
 }
 
 export interface IsraeliLocation {
@@ -59,7 +60,83 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'ta-yad-elyahu', name: 'יד אליהו', type: 'neighborhood' },
       { id: 'ta-hatikva', name: 'שכונת התקווה', type: 'neighborhood' },
       { id: 'ta-shapira', name: 'שפירא', type: 'neighborhood' },
-      { id: 'ta-jaffa', name: 'יפו', type: 'neighborhood' }
+      { id: 'ta-jaffa', name: 'יפו', type: 'neighborhood' },
+      // ── Tel Aviv-Yafo neighborhood reconcile, held for review — official
+      // municipal ~76-name list (TLV GIS opendata שכונות layer polygon centroids,
+      // cross-verified against the city's own official neighborhoods statistical
+      // booklet). 5 non-residential zones excluded (flagged separately, David's
+      // yes/no). 'לב תל אביב' held out — likely duplicate of existing 'לב העיר'.
+      // quarter field = רובע, new metadata, hierarchy stays 2-level (city→neighborhood). ──
+      // צפון (מצפון לירקון)
+      { id: 'ta-glilot', name: 'גלילות', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
+      { id: 'ta-tzukei-aviv', name: 'צוקי אביב', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
+      { id: 'ta-nofei-yam', name: 'נופי ים', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
+      { id: 'ta-tochnit-lamed', name: 'תוכנית ל\'', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
+      { id: 'ta-kochav-hatzafon', name: 'כוכב הצפון', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
+      { id: 'ta-ramat-aviv-gimel', name: 'רמת אביב ג\'', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
+      { id: 'ta-afeka', name: 'אפקה', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
+      { id: 'ta-neve-avivim', name: 'נווה אביבים וסביבתה', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
+      { id: 'ta-park-hayarkon', name: 'פארק הירקון', type: 'neighborhood', quarter: 'צפון (מצפון לירקון)' },
+      // תיכון
+      { id: 'ta-tel-baruch-tzafon', name: 'תל ברוך צפון', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-tel-baruch', name: 'תל ברוך', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-maoz-aviv', name: 'מעוז אביב', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-neot-afeka-b', name: 'נאות אפקה ב\'', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-neot-afeka-a', name: 'נאות אפקה א\'', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-hadar-yosef', name: 'הדר יוסף', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-kiryat-shaul', name: 'קרית שאול', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-hamishtala', name: 'המשתלה', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-ganei-tzahala', name: 'גני צהלה ורמות צהלה', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-tzahala-shchuna', name: 'צהלה', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-neve-sharet', name: 'נווה שרת', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-revivim', name: 'רביבים', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-neve-dan', name: 'נווה דן', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-ramat-hachayal', name: 'רמת החייל', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-atidim', name: 'עתידים', type: 'neighborhood', quarter: 'תיכון' },
+      { id: 'ta-namal-tlv', name: 'נמל ת"א', type: 'neighborhood', quarter: 'תיכון' },
+      // צפון ישן
+      { id: 'ta-north-old-north', name: 'הצפון הישן – החלק הצפוני', type: 'neighborhood', quarter: 'צפון ישן' },
+      { id: 'ta-north-old-south', name: 'הצפון הישן – החלק הדרומי', type: 'neighborhood', quarter: 'צפון ישן' },
+      // צפון חדש
+      { id: 'ta-north-new-north', name: 'הצפון החדש – החלק הצפוני', type: 'neighborhood', quarter: 'צפון חדש' },
+      { id: 'ta-north-new-kikar-medina', name: 'הצפון החדש – סביבת ככר המדינה', type: 'neighborhood', quarter: 'צפון חדש' },
+      { id: 'ta-north-new-south', name: 'הצפון החדש – החלק הדרומי', type: 'neighborhood', quarter: 'צפון חדש' },
+      { id: 'ta-tzameret-ayalon', name: 'צמרות איילון', type: 'neighborhood', quarter: 'צפון חדש' },
+      // מרכז
+      { id: 'ta-kerem-hatemanim', name: 'כרם התימנים', type: 'neighborhood', quarter: 'מרכז' },
+      { id: 'ta-ganei-sarona', name: 'גני שרונה', type: 'neighborhood', quarter: 'מרכז' },
+      { id: 'ta-montefiore', name: 'מונטיפיורי', type: 'neighborhood', quarter: 'מרכז' },
+      // יפו
+      { id: 'ta-tzafon-yafo', name: 'צפון יפו', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-givat-herzl', name: 'גבעת הרצל', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-yafo-atika', name: 'יפו העתיקה', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-namal-yafo', name: 'נמל יפו', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-ajami', name: 'עג\'מי וגבעת העלייה', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-tzahalon', name: 'צהלון ושיכוני חיסכון', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-yafo-gimel', name: 'יפו ג\' ונווה גולן', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-michlelet-yafo-dakar', name: 'מכללת יפו-ת"א ודקר', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-yafo-dalet', name: 'יפו ד\' (גבעת התמרים)', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-tel-kabir', name: 'תל כביר', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-neve-ofer', name: 'נווה עופר', type: 'neighborhood', quarter: 'יפו' },
+      { id: 'ta-yafo-bet', name: 'יפו ב\'', type: 'neighborhood', quarter: 'יפו' },
+      // דרום
+      { id: 'ta-neve-shaanan', name: 'נווה שאנן', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-park-hachurshot', name: 'פארק החורשות', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-kiryat-shalom', name: 'קרית שלום', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-nachalat-yitzhak', name: 'נחלת יצחק', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-bitzaron', name: 'ביצרון ורמת ישראל', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-tel-chaim', name: 'תל חיים', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-ramat-hatayasim', name: 'רמת הטייסים', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-orot', name: 'אורות', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-ezra', name: 'עזרא והארגזים', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-levana', name: 'לבנה וידידיה', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-park-darom', name: 'פארק דרום', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-kfir', name: 'כפיר', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-neve-barbur', name: 'נווה ברבור', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-kfar-shalem-maarav', name: 'כפר שלם מערב', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-neve-eliezer', name: 'נווה אליעזר וכפר שלם מזרח', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-neve-chen', name: 'נווה חן', type: 'neighborhood', quarter: 'דרום' },
+      { id: 'ta-nir-aviv', name: 'ניר אביב', type: 'neighborhood', quarter: 'דרום' }
     ]
   },
   {
