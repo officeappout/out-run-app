@@ -40,6 +40,22 @@ interface SuggestionEngineState {
   setContext: (context: UserContext) => void;
 }
 
+// Coordinate precision for the dedup key (11.08.2026 fix): 3 decimal places ≈ 110m.
+// Raw GPS lat/lng were compared exactly, so ordinary GPS jitter (a few metres, even
+// standing still) produced a "new" contextKey on nearly every fix, defeating the dedup
+// guard below and re-running the full 5-generator suggestion pipeline (confirmed ~9s,
+// thousands of console.log lines from the workout-engine scoring pass) continuously
+// while the map was open — worse while navigating, since GPS updates more often then.
+// Rounding means "meaningfully moved" (~a block) re-ranks; jitter and in-place idling
+// don't. Not a distance/time throttle — kept simple; revisit if 110m proves too coarse
+// or too fine once measured on-device.
+const CONTEXT_KEY_COORD_PRECISION = 3;
+
+function roundCoord(n: number): number {
+  const factor = 10 ** CONTEXT_KEY_COORD_PRECISION;
+  return Math.round(n * factor) / factor;
+}
+
 /**
  * Stable key built from only the fields that matter for re-ranking — not a hash of the
  * whole UserContext (many fields, e.g. a fresh `activitySignal` object each read, would
@@ -48,8 +64,8 @@ interface SuggestionEngineState {
 export function buildContextKey(context: UserContext): string {
   return JSON.stringify({
     userId: context.userId,
-    lat: context.location?.lat ?? null,
-    lng: context.location?.lng ?? null,
+    lat: context.location ? roundCoord(context.location.lat) : null,
+    lng: context.location ? roundCoord(context.location.lng) : null,
     todayGoal: context.todayGoal,
     availableTimeMin: context.availableTimeMin,
     surface: context.surface,
