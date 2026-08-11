@@ -7,7 +7,7 @@ import { startMiniDomainAssessment } from '@/features/user/onboarding/services/m
 import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
-import { SHOW_MISSED_DAYS_PROMPTS, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
+import { HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
 import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import AnchorLocationChip from './AnchorLocationChip';
@@ -1195,19 +1195,6 @@ export default function StatsOverview({
           </div>
         )}
       </div>
-
-      {/* Periodization / Reactivation Coach Cue Banner */}
-      {/* Gated behind SHOW_MISSED_DAYS_PROMPTS (default off). trioResult.meta.coachCue
-          is still computed by the periodization service — only this display is hidden. */}
-      {SHOW_MISSED_DAYS_PROMPTS && trioResult?.meta?.coachCue && (
-        <div
-          className="mx-4 mb-3 px-4 py-3 rounded-2xl text-sm font-medium text-center"
-          style={{ backgroundColor: 'rgba(99,102,241,0.12)', color: '#4f46e5' }}
-          dir="rtl"
-        >
-          {trioResult.meta.coachCue}
-        </div>
-      )}
 
       {/* Carousel — blurred with lemur teaser overlay when assessment is not completed */}
       <div className="relative">

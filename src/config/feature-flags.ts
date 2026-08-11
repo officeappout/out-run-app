@@ -100,16 +100,6 @@ export const STRENGTH_ASSESSMENT_PROMPT_CARD_V1 = true;
 // deliberately untouched decision — it gates the whole route+stops feature, not just ranking.
 export const MAP_REC_ENGINE_RANKING_V1 = true;
 
-// MISSED_DAYS_PROMPTS: The two "you missed days" nudges on the home screen —
-// (1) the red re-engagement/missed-workout recovery banner at the top of /home, and
-// (2) the purple periodization "coach cue" banner in StatsOverview (long-gap / deload).
-// DEFAULT FALSE = both are hidden. The underlying logic (daysInactive calc, deload /
-// periodization gating) is UNTOUCHED and still runs — only the display is gated, so
-// flipping this back to true fully restores both banners with no other change.
-// NOTE: banner (2) surfaces ALL coach cues (peak / deload / gap re-engagement); while
-// false none of them show. Flip to true to bring the missed-days nudges back.
-export const SHOW_MISSED_DAYS_PROMPTS = false;
-
 // LEAGUES: Arena / leagues surface inside /community. Independent of the feed
 // so leagues can ship to stores while the social feed stays paused. Runtime
 // control lives in system_config/feature_flags.enable_leagues; this compile-time
