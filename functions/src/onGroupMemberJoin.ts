@@ -113,7 +113,7 @@ export const onGroupMemberJoin = onDocumentCreated(
         channel: 'social',
         title: interpolate(JOINER_TITLE, vars),
         body: interpolate(JOINER_BODY, vars),
-        deepLink: `/community/groups/${groupId}`,
+        deepLink: `/community/${groupId}`,
         data: { triggerType: 'GroupJoin_Welcome', groupId },
         rateCapHours: 0, // intentional action — always deliver
       });
@@ -134,7 +134,7 @@ export const onGroupMemberJoin = onDocumentCreated(
         channel: 'social',
         title: interpolate(ADMIN_TITLE, vars),
         body: interpolate(ADMIN_BODY, vars),
-        deepLink: `/community/groups/${groupId}`,
+        deepLink: `/community/${groupId}`,
         data: { triggerType: 'GroupJoin_AdminAlert', groupId, joinerUid },
         rateCapHours: 1, // deduplicate concurrent joins: max 1 alert / hour
       });

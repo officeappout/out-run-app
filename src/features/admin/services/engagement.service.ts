@@ -97,7 +97,7 @@ export interface PushMessage {
    * Examples:
    *   • '/league'                            — League_Overtake trigger
    *   • '/chat/<chatId>'                     — Future_Partner_Plan trigger
-   *   • '/community/groups/<groupId>'        — Community_Group_New trigger
+   *   • '/community/<groupId>'                — Community_Group_New trigger
    *
    * Spread directly into the FCM `data` payload inside
    * `functions/src/sendPushFromQueue.ts` so the value round-trips through

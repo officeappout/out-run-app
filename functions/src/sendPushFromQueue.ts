@@ -72,7 +72,7 @@ interface PushQueueDoc {
    * navigates the web view to it on tap.
    *
    * Examples:
-   *   '/league', '/chat/<chatId>', '/community/groups/<groupId>'
+   *   '/league', '/chat/<chatId>', '/community/<groupId>'
    */
   deepLink?: string;
 }
