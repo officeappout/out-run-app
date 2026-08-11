@@ -28,6 +28,7 @@ import type { Route } from '@/features/parks/core/types/route.types';
 import { useUserStore } from '@/features/user';
 import { syncLocationToFirestore } from '@/lib/firestore.service';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
+import { useIsForeground } from '@/lib/appForeground'; // [A2-SPIKE] temporary diagnostic import
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import ParticleBackground from '@/components/ParticleBackground';
@@ -109,6 +110,18 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
   // spike). Purely correlates real OS-level backgrounding (screen lock, app
   // switch) against the mount/mode/interval logs above so scenario (a) can
   // be told apart from scenario (b) in the console timeline.
+  //
+  // [A2-SPIKE] Two signals, deliberately both logged: a raw `visibilitychange`
+  // listener (below) AND the codebase's own dual-signal `useIsForeground()`
+  // (appForeground.ts, unions visibilitychange + Capacitor's native
+  // App.appStateChange — its own header comment states a single signal isn't
+  // fully trusted on native WKWebView). If the two ever disagree on-device,
+  // that mismatch is itself diagnostic signal — log both, don't pick one.
+  const isForegroundSpike = useIsForeground();
+  useEffect(() => {
+    console.log('[A2-SPIKE][MapShell] useIsForeground() changed', { isForegroundSpike });
+  }, [isForegroundSpike]);
+
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const onVisibility = () => {

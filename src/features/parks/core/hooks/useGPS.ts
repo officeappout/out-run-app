@@ -427,6 +427,10 @@ export function useGPS(): GPSState {
     // continuous position AND heading updates from the device compass.
     if (watchId.current != null) return; // already watching
 
+    // [A2-SPIKE] Web watch established — mirrors the native "watch ESTABLISHED"
+    // log so the two paths are symmetric for on-device diagnosis.
+    console.log('[A2-SPIKE][useGPS] web watch ESTABLISHED');
+
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         if (simulationActive) return;
