@@ -134,7 +134,7 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   // ─── TEL AVIV neighborhoods ────────────────────────────────
   'ta-center':        { lat: 32.0705, lng: 34.7767 },
   'ta-north':         { lat: 32.1010, lng: 34.7838 },
-  'ta-florentine':    { lat: 32.0560, lng: 34.7700 },
+  'ta-florentin':     { lat: 32.0560, lng: 34.7700 },
   'ta-neve-tzedek':   { lat: 32.0620, lng: 34.7660 },
   'ta-jaffa':         { lat: 32.0486, lng: 34.7508 },
   'ta-ramat-aviv':    { lat: 32.1150, lng: 34.8028 },

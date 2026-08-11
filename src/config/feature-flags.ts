@@ -418,6 +418,26 @@ export const ACCESS_CODE_UNIVERSITY_ENABLED = false;
 // registered into the native project — installing the npm package alone is not enough).
 export const RUNNING_NATIVE_KEEP_AWAKE_ENABLED = false;
 
+// NEIGHBORHOOD_GEOCODE_GUARD_ENABLED: forwardGeocode() in UnifiedLocation/
+// location-utils.ts is called on every city/neighborhood search-result
+// selection to "snap" the map to Mapbox's precise centroid instead of our
+// static DEFAULT_COORDINATES. Root cause (11.08.2026 investigation): Mapbox's
+// geocoder has essentially no neighborhood-level index for Israel — a query
+// like "רמת אביב ג', תל אביב-יפו" silently resolves to place_type: ['place']
+// with text "תל אביב-יפו" (the CITY, not the neighborhood), overwriting our
+// correct stored coordinate with the city center. This affected every
+// neighborhood in the app (Jerusalem, Haifa, Rishon LeZion, not just Tel
+// Aviv) — regional-council settlements only ever "worked" because Mapbox
+// usually returns no match at all for those obscure names, so the static
+// fallback survived by accident. While true: forwardGeocode rejects a
+// city-only (place_type: ['place']) result whenever a neighborhood was
+// expected (city.parentName set), keeping the static coordinate instead.
+// Plain city searches and any genuine finer-grained Mapbox match are
+// unaffected either way. While false: BYTE-IDENTICAL to pre-fix behavior
+// (unconditional overwrite) — instant rollback if this guard ever causes an
+// unexpected regression.
+export const NEIGHBORHOOD_GEOCODE_GUARD_ENABLED = true;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

@@ -7,6 +7,7 @@ import { fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { getAllAuthorities, getChildrenByParent } from '@/features/admin/services/authority.service';
 import { ISRAELI_LOCATIONS, type IsraeliLocation, type LocationType } from '@/lib/data/israel-locations';
+import { NEIGHBORHOOD_GEOCODE_GUARD_ENABLED } from '@/config/feature-flags';
 import type { Map as MapboxGLMap } from 'mapbox-gl';
 
 import type {
@@ -207,10 +208,22 @@ export async function reverseGeocodeStreet(
  * Returns the exact center coordinates for the given place name.
  * Used when the user selects a neighborhood from the search list to snap
  * the map to its precise location (instead of the generic city center).
+ *
+ * `expectNeighborhood` — pass true when the query targets a specific
+ * neighborhood (city.parentName set by the caller), not a plain city. Mapbox
+ * has essentially no neighborhood-level index for Israel: a query like
+ * "רמת אביב ג', תל אביב-יפו" silently resolves to place_type: ['place'] with
+ * text "תל אביב-יפו" — the CITY, not the neighborhood. While
+ * NEIGHBORHOOD_GEOCODE_GUARD_ENABLED, that silent city-only match is
+ * rejected (returns null) so the caller keeps its own static coordinate
+ * instead of snapping to the city center. Plain city searches
+ * (expectNeighborhood: false/omitted) and any genuine finer-grained Mapbox
+ * match are unaffected.
  */
 export async function forwardGeocode(
   placeName: string,
-  country = 'il'
+  country = 'il',
+  options?: { expectNeighborhood?: boolean }
 ): Promise<{ lat: number; lng: number } | null> {
   try {
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(placeName)}.json?access_token=${MAPBOX_TOKEN}&country=${country}&language=he&limit=1&types=neighborhood,locality,place`;
@@ -219,8 +232,19 @@ export async function forwardGeocode(
 
     if (!data.features || data.features.length === 0) return null;
 
-    const center = data.features[0]?.center;
+    const feature = data.features[0];
+    const center = feature?.center;
     if (!Array.isArray(center) || center.length < 2) return null;
+
+    if (
+      NEIGHBORHOOD_GEOCODE_GUARD_ENABLED &&
+      options?.expectNeighborhood &&
+      Array.isArray(feature.place_type) &&
+      feature.place_type.length === 1 &&
+      feature.place_type[0] === 'place'
+    ) {
+      return null;
+    }
 
     const [lng, lat] = center;
     return { lat, lng };

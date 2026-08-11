@@ -581,6 +581,10 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     // center for the selected location (city OR neighborhood).
     // Static DEFAULT_COORDINATES are too generic — Mapbox knows the
     // precise centroid for "Bavli, Tel Aviv" or "Haifa" alike.
+    // Neighborhood queries pass expectNeighborhood: true — forwardGeocode
+    // rejects a silent city-only match (Mapbox has no neighborhood-level
+    // index for Israel) so snapLat/snapLng keeps the static coordinate
+    // instead of the city center. See NEIGHBORHOOD_GEOCODE_GUARD_ENABLED.
     let snapLat = city.lat;
     let snapLng = city.lng;
 
@@ -588,7 +592,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       ? `${city.name}, ${city.parentName}`   // neighborhood: "באבלי, תל אביב-יפו"
       : city.name;                           // city: "חיפה"
 
-    const exact = await forwardGeocode(geocodeQuery);
+    const exact = await forwardGeocode(geocodeQuery, 'il', { expectNeighborhood: !!city.parentName });
     if (exact) {
       snapLat = exact.lat;
       snapLng = exact.lng;
