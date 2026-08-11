@@ -1774,12 +1774,13 @@ export default function AppMap({
                         marginBottom: '-3px',
                       }}
                     />
-                    {/* Lemur with pulsing cyan halo */}
+                    {/* Lemur with cyan halo. Pulsing animate-ping glow removed
+                        (perf/heat, 11.08.2026) — nav mode is exactly where heat/
+                        freeze reports were worst, and this ran a continuous
+                        per-frame compositor layer on the user's own marker for
+                        the whole navigation session. Steady ring carries the
+                        identity. Do not re-add without gating. */}
                     <div className="relative">
-                      <div
-                        className="absolute rounded-full animate-ping"
-                        style={{ inset: '-6px', background: 'rgba(0,229,255,0.18)' }}
-                      />
                       <div
                         className="absolute rounded-full"
                         style={{ inset: '-2px', border: '2px solid rgba(0,229,255,0.5)' }}
@@ -1788,14 +1789,13 @@ export default function AppMap({
                     </div>
                   </div>
                 ) : (
-                  // Idle mode: bright cyan ring + soft outer glow distinguishes
-                  // the user's marker from muted partner markers at a glance.
+                  // Idle mode: bright cyan ring distinguishes the user's marker
+                  // from muted partner markers at a glance. The slow animate-ping
+                  // pulse that used to sit here was removed (perf/heat, 11.08.2026)
+                  // — an unconditional continuous per-frame compositor layer on
+                  // the map's default resting state. Same fix already shipped on
+                  // PartnerMarker.tsx; do not re-add without gating.
                   <div className="relative flex items-center justify-center" style={{ width: 52, height: 52 }}>
-                    {/* Slow subtle pulse */}
-                    <div
-                      className="absolute rounded-full animate-ping"
-                      style={{ inset: -6, background: 'rgba(0,229,255,0.12)', animationDuration: '2.8s' }}
-                    />
                     {/* Solid cyan ring */}
                     <div
                       className="absolute rounded-full"
