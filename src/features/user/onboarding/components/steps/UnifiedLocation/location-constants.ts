@@ -198,6 +198,7 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'rl-shaar-hayam':               { lat: 31.999162, lng: 34.736898 },
   'rl-shikuney-hamizrah':         { lat: 31.953108, lng: 34.826865 },
   'rl-tzamarot':                  { lat: 31.95732, lng: 34.824657 },
+  'rl-elef':                      { lat: 31.985895, lng: 34.7456673 },
 
   // ─── PETAH TIKVA neighborhoods ─────────────────────────────
   'pt-center':        { lat: 32.0878, lng: 34.8815 },

@@ -269,7 +269,12 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'rl-rishonim', name: 'ראשונים', type: 'neighborhood' },
       { id: 'rl-shaar-hayam', name: 'שער הים', type: 'neighborhood' },
       { id: 'rl-shikuney-hamizrah', name: 'שיכוני המזרח', type: 'neighborhood' },
-      { id: 'rl-tzamarot', name: 'צמרות', type: 'neighborhood' }
+      { id: 'rl-tzamarot', name: 'צמרות', type: 'neighborhood' },
+      // ── Rishon LeZion spot-check follow-up, held for review — official
+      // municipal list (rishonlezion.muni.il/.../CityNeighborhoods.aspx).
+      // 4 non-residential zones (מעויין שורק, מב"ת צפון/מערב, מכוני מחקר) and
+      // 5 unmatched existing entries flagged separately, not touched here. ──
+      { id: 'rl-elef', name: 'מתחם האלף', type: 'neighborhood' }
     ]
   },
   {
