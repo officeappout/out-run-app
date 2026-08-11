@@ -9,8 +9,15 @@ import WebKit
  * Without this, the SPA runs in a WKWebView where `allowsBackForwardNavigationGestures`
  * defaults to `false`, so the native "swipe from left edge to go back" gesture
  * is disabled. With `true`, iOS handles the gesture by navigating the WebView's
- * history stack — which matches exactly what our `App.addListener('backButton', …)`
- * handler does on Android via `window.history.back()`.
+ * history stack directly — on its own that does NOT run any JS, so it used to
+ * bypass our `App.addListener('backButton', …)` handler on Android entirely
+ * (that handler dispatches `window.history.back()`, or the `nativeBackInWorkout`
+ * event on `/active` and `/workout-builder` routes so `ExitConfirmModal` can
+ * intercept it). `WebContentRecoveryProxy`'s `decidePolicyFor` override below
+ * closes that gap for the route guard that matters: it intercepts the
+ * edge-swipe-back gesture while on an active-workout route and dispatches the
+ * same `nativeBackInWorkout` event Android's handler dispatches, so the exit
+ * confirmation opens on both platforms instead of only Android.
  *
  * Capacitor automatically picks up a `ViewController` subclass of
  * `CAPBridgeViewController` placed in the App target, so no changes
@@ -23,6 +30,8 @@ class ViewController: CAPBridgeViewController {
         // Enable swipe-from-left-edge back navigation in the WebView.
         // This mirrors the Android hardware-back behaviour wired in
         // src/lib/native/init.ts (window.history.back / App.minimizeApp).
+        // The active-workout route guard (nativeBackInWorkout) is enforced
+        // separately below, by WebContentRecoveryProxy.decidePolicyFor.
         webView?.allowsBackForwardNavigationGestures = true
 
         // Disable the native WKWebView rubber-band / elastic overscroll.
@@ -52,11 +61,25 @@ class ViewController: CAPBridgeViewController {
             let proxy = WebContentRecoveryProxy(
                 capacitor: capacitorDelegate,
                 onTerminate: { [weak self] wv in self?.recoverWebContent(wv) },
-                onFinish: { [weak self] in self?.onWebContentRecovered() }
+                onFinish: { [weak self] in self?.onWebContentRecovered() },
+                onNativeBackInWorkout: { [weak self] in self?.notifyNativeBackInWorkout() }
             )
             recoveryProxy = proxy                 // strong retain — navigationDelegate is weak
             webView.navigationDelegate = proxy
         }
+    }
+
+    // MARK: - Workout exit-guard parity (iOS swipe-back ↔ Android back-button)
+
+    /// Mirrors Android's `App.addListener('backButton', …)` route guard in
+    /// `src/lib/native/init.ts`: dispatch the same `nativeBackInWorkout`
+    /// window event so `StrengthRunner` opens `ExitConfirmModal` instead of
+    /// silently discarding an in-progress workout. Called from
+    /// `WebContentRecoveryProxy.decidePolicyFor` after it cancels an
+    /// edge-swipe-back navigation while the SPA is on an active-workout route.
+    fileprivate func notifyNativeBackInWorkout() {
+        NSLog("[nav] intercepted back-forward swipe on active-workout route — dispatching nativeBackInWorkout")
+        bridge?.triggerWindowJSEvent(eventName: "nativeBackInWorkout")
     }
 
     // MARK: - Stage 3 Part A — proactive memory shed (best-effort)
@@ -144,9 +167,15 @@ class ViewController: CAPBridgeViewController {
 
 /// Wraps Capacitor's `WebViewDelegationHandler` (the real `WKNavigationDelegate`).
 /// Forwards EVERY delegate call to Capacitor unchanged via ObjC message
-/// forwarding, and overrides only two: `webViewWebContentProcessDidTerminate`
-/// (replace the silent reload with a backed-off recovery) and `didFinish`
-/// (observe success to clear the overlay / reset back-off, then forward).
+/// forwarding, and overrides only three: `webViewWebContentProcessDidTerminate`
+/// (replace the silent reload with a backed-off recovery), `didFinish`
+/// (observe success to clear the overlay / reset back-off, then forward), and
+/// `decidePolicyFor navigationAction` (intercept the edge-swipe-back gesture
+/// while on an active-workout route and dispatch `nativeBackInWorkout` instead
+/// of letting WKWebView silently pop history — see `notifyNativeBackInWorkout`
+/// on `ViewController`). Every other decidePolicyFor call is forwarded to
+/// Capacitor unchanged, so its plugin overrides / `allowedNavigation`
+/// allowlist / external-link handling are fully preserved.
 /// Do NOT hand the raw VC to `navigationDelegate` — that would drop Capacitor's
 /// nav policy / `allowNavigation` allowlist.
 final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
@@ -155,13 +184,16 @@ final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
     private let capacitor: WKNavigationDelegate
     private let onTerminate: (WKWebView) -> Void
     private let onFinish: () -> Void
+    private let onNativeBackInWorkout: () -> Void
 
     init(capacitor: WKNavigationDelegate,
          onTerminate: @escaping (WKWebView) -> Void,
-         onFinish: @escaping () -> Void) {
+         onFinish: @escaping () -> Void,
+         onNativeBackInWorkout: @escaping () -> Void) {
         self.capacitor = capacitor
         self.onTerminate = onTerminate
         self.onFinish = onFinish
+        self.onNativeBackInWorkout = onNativeBackInWorkout
         super.init()
     }
 
@@ -174,6 +206,27 @@ final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         onFinish()
         capacitor.webView?(webView, didFinish: navigation)
+    }
+
+    // Intercepted only for the back/forward gesture (edge-swipe or the
+    // programmatic goBack()/goForward() it drives) while the SPA is
+    // CURRENTLY on an active-workout route — mirrors the `/active` and
+    // `/workout-builder` substring check in `src/lib/native/init.ts`'s
+    // Android `backButton` handler exactly, checked against the route being
+    // left (`webView.url`), not the back-forward destination. Every other
+    // case — a different route, or a navigationType that isn't
+    // `.backForward` (link taps, JS `location` changes, form submits, the
+    // SPA's own `pushState` navigations, etc.) — falls through to
+    // Capacitor's own decidePolicyFor unchanged.
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if navigationAction.navigationType == .backForward,
+           let currentPath = webView.url?.path,
+           currentPath.contains("/active") || currentPath.contains("/workout-builder") {
+            onNativeBackInWorkout()
+            decisionHandler(.cancel)
+            return
+        }
+        capacitor.webView?(webView, decidePolicyFor: navigationAction, decisionHandler: decisionHandler)
     }
 
     // Everything else → Capacitor, via ObjC message forwarding.
