@@ -7,6 +7,7 @@ import { useGPSStore, DEV_FALLBACK_LOCATION, type GPSCoords } from '../store/use
 import { useIsForeground } from '@/lib/appForeground';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useUserStore } from '@/features/user';
+import { IS_GPS_IDLE_POLLING_ENABLED } from '@/config/feature-flags';
 
 /**
  * Resolve where to place the user when a real GPS fix is unavailable. NO invented
@@ -47,6 +48,11 @@ const GPS_MIN_INTERVAL_MS = 500;
 // Minimum distance (metres) to move before accepting a new position update.
 // Filters out GPS jitter when the user is stationary.
 const GPS_MIN_DISTANCE_M = 3;
+
+// Idle-poll cadence (IS_GPS_IDLE_POLLING_ENABLED): while browsing with no
+// active workout, a one-shot getCurrentPosition replaces the continuous
+// watch every this-many ms instead of holding the chip engaged constantly.
+const GPS_IDLE_POLL_INTERVAL_MS = 20_000;
 
 function haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6_371_000;
@@ -124,6 +130,9 @@ export function useGPS(): GPSState {
   // For the Capacitor (native) path — watchPosition returns a string callbackId
   const capWatchId = useRef<string | null>(null);
   const hasFallback = useRef(false);
+  // Idle-poll interval handle (IS_GPS_IDLE_POLLING_ENABLED) — mutually
+  // exclusive with watchId/capWatchId; only one acquisition mode runs at a time.
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // GPS throttle state — shared between native and web paths
   const lastGPSTime = useRef<number>(0);
@@ -143,6 +152,38 @@ export function useGPS(): GPSState {
     }
   }, []);
 
+  // Shared by every acquisition path (native watch, web watch, idle poll):
+  // throttle + commit a raw fix into React state. Pulled out so the idle-poll
+  // path (getCurrentPosition) funnels through the exact same gate as the
+  // continuous watch instead of a third hand-rolled copy.
+  const processFix = useCallback((coords: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    altitude: number | null;
+    heading: number | null;
+  }) => {
+    const now = Date.now();
+    const { latitude: newLat, longitude: newLng } = coords;
+    const prev = lastGPSPos.current;
+    if (now - lastGPSTime.current < GPS_MIN_INTERVAL_MS) return;
+    if (prev && haversineMetres(prev.lat, prev.lng, newLat, newLng) < GPS_MIN_DISTANCE_M) return;
+    lastGPSTime.current = now;
+    lastGPSPos.current = { lat: newLat, lng: newLng };
+    useGPSStore.getState()._setPermissionState('granted');
+    setLocationError(null);
+    setCurrentUserPos({ lat: newLat, lng: newLng, accuracy: coords.accuracy, altitude: coords.altitude ?? null });
+    if (coords.heading != null && Number.isFinite(coords.heading)) {
+      setUserBearing(coords.heading);
+    }
+  }, []);
+
+  // Idle-poll mode (IS_GPS_IDLE_POLLING_ENABLED): while browsing with no
+  // active workout, a one-shot getCurrentPosition replaces the continuous
+  // watch. Constant when the flag is off, so it never changes the effect's
+  // dependency-driven behaviour below.
+  const gpsMode = IS_GPS_IDLE_POLLING_ENABLED && !workoutActive ? 'idle-poll' : 'watch';
+
   useEffect(() => {
     if (simulationActive || gpsPaused) {
       // Kill any active watcher. Either the mock position drives the UI
@@ -161,8 +202,95 @@ export function useGPS(): GPSState {
           watchId.current = null;
         }
       }
+      if (pollTimer.current != null) {
+        clearInterval(pollTimer.current);
+        pollTimer.current = null;
+      }
       setLocationError(null);
       return;
+    }
+
+    // ── Idle-poll path (IS_GPS_IDLE_POLLING_ENABLED, no active workout) ─────
+    // Same getCurrentPosition already used by handleLocationClick below, just
+    // on a slow interval instead of a one-off tap. Reaches iOS's sane
+    // kCLLocationAccuracyBest tier (only available on this one-shot path —
+    // watchPosition's JS options only reach BestForNavigation or the useless
+    // ThreeKilometers tier) and lets the chip idle between fixes instead of
+    // being held in a continuous subscription.
+    if (gpsMode === 'idle-poll') {
+      // Guards a poll's async result landing after this effect instance has
+      // already torn down (e.g. a workout started mid-request) — mirrors the
+      // `active` flag the native watch path below already uses for the same
+      // class of race, so a late idle fix can't stomp a fresh watch-mode one.
+      let active = true;
+
+      const poll = () => {
+        if (isNative) {
+          Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 20000 })
+            .then((pos) => {
+              if (!active) return;
+              if (!isValidCapacitorCoords(pos.coords)) return;
+              processFix({
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                accuracy: pos.coords.accuracy,
+                altitude: pos.coords.altitude ?? null,
+                heading: pos.coords.heading ?? null,
+              });
+            })
+            .catch((err) => {
+              if (!active) return;
+              applyFallback();
+              setLocationError(err instanceof Error ? err.message : 'Location unavailable');
+              // getCurrentPosition's rejection doesn't reliably carry a
+              // permission-denied signal the way the web error.code does —
+              // ask the plugin directly so a revoked permission still
+              // surfaces to permissionState-gated UI (e.g. "enable in
+              // Settings") instead of silently staying at its last value.
+              Geolocation.checkPermissions()
+                .then((perm) => {
+                  if (!active) return;
+                  useGPSStore.getState()._setPermissionState(
+                    perm.location === 'granted' ? 'granted' : perm.location === 'denied' ? 'denied' : 'prompt',
+                  );
+                })
+                .catch(() => {});
+            });
+          return;
+        }
+        if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (!active) return;
+            if (!isValidGeoSample(pos.coords)) return;
+            processFix({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              altitude: pos.coords.altitude ?? null,
+              heading: pos.coords.heading ?? null,
+            });
+          },
+          (error) => {
+            if (!active) return;
+            applyFallback();
+            setLocationError(error.message);
+            useGPSStore.getState()._setPermissionState(error.code === 1 ? 'denied' : 'prompt');
+          },
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
+        );
+      };
+
+      poll(); // immediate fix on entering idle mode — no up-to-20s stale gap
+      pollTimer.current = setInterval(poll, GPS_IDLE_POLL_INTERVAL_MS);
+
+      return () => {
+        active = false;
+        if (pollTimer.current != null) {
+          clearInterval(pollTimer.current);
+          pollTimer.current = null;
+        }
+      };
     }
 
     // ── Native path (iOS / Android) ────────────────────────────────────────
@@ -202,20 +330,13 @@ export function useGPS(): GPSState {
                 console.warn('[useGPS] Dropping invalid Capacitor GPS sample:', pos.coords);
                 return;
               }
-              // Throttle: skip updates that arrive too soon or haven't moved enough.
-              const now = Date.now();
-              const newLat = pos.coords.latitude;
-              const newLng = pos.coords.longitude;
-              const prev = lastGPSPos.current;
-              if (now - lastGPSTime.current < GPS_MIN_INTERVAL_MS) return;
-              if (prev && haversineMetres(prev.lat, prev.lng, newLat, newLng) < GPS_MIN_DISTANCE_M) return;
-              lastGPSTime.current = now;
-              lastGPSPos.current = { lat: newLat, lng: newLng };
-              setLocationError(null);
-              setCurrentUserPos({ lat: newLat, lng: newLng, accuracy: pos.coords.accuracy, altitude: pos.coords.altitude ?? null });
-              if (pos.coords.heading != null && Number.isFinite(pos.coords.heading)) {
-                setUserBearing(pos.coords.heading);
-              }
+              processFix({
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                accuracy: pos.coords.accuracy,
+                altitude: pos.coords.altitude ?? null,
+                heading: pos.coords.heading ?? null,
+              });
             },
           );
         } catch (err) {
@@ -252,21 +373,13 @@ export function useGPS(): GPSState {
           console.warn('[useGPS] Dropping invalid GPS sample:', pos.coords);
           return;
         }
-        // Throttle: skip updates that arrive too soon or haven't moved enough.
-        const now = Date.now();
-        const newLat = pos.coords.latitude;
-        const newLng = pos.coords.longitude;
-        const prev = lastGPSPos.current;
-        if (now - lastGPSTime.current < GPS_MIN_INTERVAL_MS) return;
-        if (prev && haversineMetres(prev.lat, prev.lng, newLat, newLng) < GPS_MIN_DISTANCE_M) return;
-        lastGPSTime.current = now;
-        lastGPSPos.current = { lat: newLat, lng: newLng };
-        setLocationError(null);
-        setCurrentUserPos({ lat: newLat, lng: newLng, accuracy: pos.coords.accuracy, altitude: pos.coords.altitude ?? null });
-        useGPSStore.getState()._setPermissionState('granted');
-        if (pos.coords.heading != null && !isNaN(pos.coords.heading)) {
-          setUserBearing(pos.coords.heading);
-        }
+        processFix({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          altitude: pos.coords.altitude ?? null,
+          heading: pos.coords.heading ?? null,
+        });
       },
       (error) => {
         if (simulationActive) return;
@@ -307,7 +420,7 @@ export function useGPS(): GPSState {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [simulationActive, isNative, gpsPaused]);
+  }, [simulationActive, isNative, gpsPaused, gpsMode]);
 
   const handleLocationClick = useCallback(() => {
     if (simulationActive) return;
