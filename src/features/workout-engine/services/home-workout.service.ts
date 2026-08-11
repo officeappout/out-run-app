@@ -1225,6 +1225,7 @@ export function shouldSkipSingleOptionSlot(
 // ============================================================================
 
 import type { ScoredExercise, ContextualFilterContext as _CFCtx } from '../logic/ContextualEngine';
+import type { FilterStageCounts } from '../logic/contextual-engine.types';
 
 interface SharedPipelineState {
   scoredExercises: ScoredExercise[];
@@ -1863,75 +1864,114 @@ async function _buildSharedPipeline(
   // PoolFactory encapsulates filterAndScore + PoolRescue retry + profileStale guard.
   // The strategy is derived from the original base-domain count (before sibling
   // expansion) so PoolRescue fires correctly for single-domain sessions.
+  //
+  // Skipped entirely when `needsAssessmentDomains` is set (absent=absent ⑨, detected
+  // above via `activeProgramFilters.length === 0`): every requested domain is
+  // unassessed, so `generateHomeWorkoutTrio` discards this whole pipeline result and
+  // short-circuits to an explicit needs-assessment response the moment this function
+  // returns. Scoring the full exercise DB here would be pure waste — this was the
+  // confirmed cause of a ~9s / 5000+ console.log map-generation stall (11.08.2026):
+  // getEffectiveLevelForExercise ran (and logged) once per exercise in the DB, every
+  // one of them resolving UNASSESSED_DOMAIN_LEVEL, for a result nobody was going to read.
   const poolStrategy = baseDomainCount === 1 ? 'single_domain'
     : baseDomainCount === 2 ? 'antagonist_split'
     : 'full_body';
 
-  const candidatePool = createPoolFactory().build(
-    exercises,
-    filterContext,
-    userProgramLevels,
-    poolStrategy,
-  );
+  let scoredExercises: ScoredExercise[];
+  let filterResult: { exercises: ScoredExercise[]; excludedCount: number; filterCounts: FilterStageCounts };
 
-  let scoredExercises = candidatePool.candidates.get('__shared__') ?? [];
-
-  // ── Precedence rule: explicit muscle intent WINS over program filter ─────
-  // (Stability fix ד׳, 08.07.2026.) When BOTH a strict program filter and
-  // explicit requiredDomains are active and their intersection empties the
-  // pool (program keeps only X-domain exercises, chips demand Y), the old
-  // behavior fell through to the rest-day fallback ("יום מנוחה") — a dead
-  // end for the custom builder. Defined order: the user's EXPLICIT muscle
-  // choice drives the session; the program filter is dropped for this
-  // generation only (levels degrade gracefully to domain-level resolution).
-  if (
-    scoredExercises.length === 0 &&
-    (filterContext.activeProgramFilters?.length ?? 0) > 0 &&
-    strictDomains &&
-    (requiredDomainsOverride?.length ?? 0) > 0
-  ) {
-    console.warn(
-      '[WorkoutTrio] program↔domain conflict emptied the pool — ' +
-      'retrying WITHOUT program filter (explicit domains win)',
-    );
-    const rescuePool = createPoolFactory().build(
-      exercises,
-      {
-        ...filterContext,
-        activeProgramFilters: undefined,
-        activeDomains: requiredDomainsOverride,
+  if (needsAssessmentDomains) {
+    scoredExercises = [];
+    filterResult = {
+      exercises: [],
+      excludedCount: exercises.length,
+      filterCounts: {
+        pool_start: exercises.length,
+        excluded_program_filter: 0,
+        excluded_level_tolerance: 0,
+        excluded_skill_gate: 0,
+        excluded_exclusive_skill_gate: 0,
+        excluded_balance_gate: 0,
+        excluded_injury_shield: 0,
+        excluded_48h_muscle: 0,
+        excluded_field_mode: 0,
+        excluded_location: 0,
+        excluded_sweat: 0,
+        excluded_noise: 0,
+        after_hard_filters: 0,
       },
+    };
+    console.log(
+      `[WorkoutTrio] Shared pipeline: SKIPPED scoring (${exercises.length} exercises) — ` +
+      'needs-assessment short-circuit, see warning above',
+    );
+  } else {
+    const candidatePool = createPoolFactory().build(
+      exercises,
+      filterContext,
       userProgramLevels,
       poolStrategy,
     );
-    scoredExercises = rescuePool.candidates.get('__shared__') ?? [];
-    console.warn(`[WorkoutTrio] domain-precedence rescue recovered ${scoredExercises.length} exercises`);
-  }
 
-  const filterResult = {
-    exercises: scoredExercises,
-    excludedCount: candidatePool.excludedCount,
-    filterCounts: candidatePool.filterCounts,
-  };
-  genPerfMark('filter+score (ContextualEngine/ParkGating, CPU)');
+    scoredExercises = candidatePool.candidates.get('__shared__') ?? [];
 
-  console.log(
-    `[WorkoutTrio] Shared pipeline: ${filterResult.exercises.length} scored exercises ` +
-    `(${filterResult.excludedCount} excluded), ${allExercises.length} total in DB` +
-    `${candidatePool.toleranceExpanded ? ' [tolerance expanded ±5]' : ''}`,
-  );
-  if (filterResult.filterCounts) {
-    const fc = filterResult.filterCounts;
+    // ── Precedence rule: explicit muscle intent WINS over program filter ─────
+    // (Stability fix ד׳, 08.07.2026.) When BOTH a strict program filter and
+    // explicit requiredDomains are active and their intersection empties the
+    // pool (program keeps only X-domain exercises, chips demand Y), the old
+    // behavior fell through to the rest-day fallback ("יום מנוחה") — a dead
+    // end for the custom builder. Defined order: the user's EXPLICIT muscle
+    // choice drives the session; the program filter is dropped for this
+    // generation only (levels degrade gracefully to domain-level resolution).
+    if (
+      scoredExercises.length === 0 &&
+      (filterContext.activeProgramFilters?.length ?? 0) > 0 &&
+      strictDomains &&
+      (requiredDomainsOverride?.length ?? 0) > 0
+    ) {
+      console.warn(
+        '[WorkoutTrio] program↔domain conflict emptied the pool — ' +
+        'retrying WITHOUT program filter (explicit domains win)',
+      );
+      const rescuePool = createPoolFactory().build(
+        exercises,
+        {
+          ...filterContext,
+          activeProgramFilters: undefined,
+          activeDomains: requiredDomainsOverride,
+        },
+        userProgramLevels,
+        poolStrategy,
+      );
+      scoredExercises = rescuePool.candidates.get('__shared__') ?? [];
+      console.warn(`[WorkoutTrio] domain-precedence rescue recovered ${scoredExercises.length} exercises`);
+    }
+
+    filterResult = {
+      exercises: scoredExercises,
+      excludedCount: candidatePool.excludedCount,
+      filterCounts: candidatePool.filterCounts,
+    };
+
     console.log(
-      `[WorkoutTrio] Filter breakdown — ` +
-      `program_filter: ${fc.excluded_program_filter}, ` +
-      `level_tolerance: ${fc.excluded_level_tolerance}, ` +
-      `skill_gate: ${fc.excluded_skill_gate}, ` +
-      `location: ${fc.excluded_location}, ` +
-      `injury: ${fc.excluded_injury_shield}, ` +
-      `passed: ${fc.after_hard_filters}`,
+      `[WorkoutTrio] Shared pipeline: ${filterResult.exercises.length} scored exercises ` +
+      `(${filterResult.excludedCount} excluded), ${allExercises.length} total in DB` +
+      `${candidatePool.toleranceExpanded ? ' [tolerance expanded ±5]' : ''}`,
     );
+    if (filterResult.filterCounts) {
+      const fc = filterResult.filterCounts;
+      console.log(
+        `[WorkoutTrio] Filter breakdown — ` +
+        `program_filter: ${fc.excluded_program_filter}, ` +
+        `level_tolerance: ${fc.excluded_level_tolerance}, ` +
+        `skill_gate: ${fc.excluded_skill_gate}, ` +
+        `location: ${fc.excluded_location}, ` +
+        `injury: ${fc.excluded_injury_shield}, ` +
+        `passed: ${fc.after_hard_filters}`,
+      );
+    }
   }
+  genPerfMark('filter+score (ContextualEngine/ParkGating, CPU)');
 
   // ── 5a. Progressive Overload goals ───────────────────────────────────
   let goalExerciseIds: Set<string> | undefined;
