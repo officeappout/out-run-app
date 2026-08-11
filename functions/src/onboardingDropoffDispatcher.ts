@@ -66,11 +66,36 @@
  *  DROPOFF_RE_NOTIFY_HOURS   — min hours between two notifications       (default 48)
  *  DROPOFF_BATCH_LIMIT       — max users to process per run              (default 100)
  *  DROPOFF_TEST_MODE         — if 'true', logs intent but skips all writes / FCM calls
+ *
+ * ═══════════════════════════════════════════════════════════════════════
+ * PHASE 0 ITEM 1c — routing flag
+ * ═══════════════════════════════════════════════════════════════════════
+ *  Behind `app_config/feature_flags.pushRouting_onboardingDropoff` (default
+ *  false): delivery routes through the shared `push.service.ts` (`sendPush()`)
+ *  on the dedicated `'onboarding_dropoff'` channel — deliberately NOT
+ *  `'training_reminder'` (which the legacy path below still self-tags for
+ *  display), to avoid sharing trainingReminderScheduler's independent
+ *  rate-cap clock on `push_rate/{uid}.training_reminder_lastSentAt`.
+ *  `rateCapHours: 0` is passed because THIS dispatcher's own
+ *  `dropoffNotifiedAt` cooldown (see AUDIT TRAIL above) is the real gate —
+ *  not push.service.ts's generic cap, which stays intentionally unused here.
+ *  `dropoffNotifiedAt`/`dropoffNotifyCount` are stamped identically on both
+ *  paths — this migration only changes the delivery mechanism, not the
+ *  cooldown/audit-trail logic.
+ *  Known minor side effect: Step 2's own eligibility filter still checks
+ *  `notificationPrefs.training_reminder` regardless of routing (unchanged
+ *  from before this migration); when routed, `sendPush()` ALSO
+ *  independently checks `notificationPrefs.onboarding_dropoff`. A routed
+ *  send is therefore gated on BOTH prefs — strictly more conservative
+ *  (can only under-send, never over-send) than either check alone. Not
+ *  fixed here — reconciling Step 2's filter to be routing-aware is out of
+ *  this item's scope.
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { sendPush } from './services/push.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -244,6 +269,18 @@ export const onboardingDropoffDispatcher = onSchedule(
     const staleBefore = cutoffTimestamp(STALE_HOURS);
     const reNotifyBefore = cutoffTimestamp(RE_NOTIFY_HOURS);
 
+    // Phase 0 Item 1c — routing flag; a read failure here is non-fatal, it
+    // just means this run falls back to the legacy inline path (flag=false).
+    let useSharedPushService = false;
+    try {
+      const flagsSnap = await db.doc('app_config/feature_flags').get();
+      useSharedPushService =
+        (flagsSnap.data() as Record<string, unknown> | undefined)
+          ?.pushRouting_onboardingDropoff === true;
+    } catch (err: any) {
+      logger.warn('[dropoff] routing flag read failed, using legacy path:', err?.message);
+    }
+
     logger.info(
       `[dropoff] Query window: createdAt < ${staleBefore.toDate().toISOString()} ` +
         `(${STALE_HOURS}h ago), limit=${BATCH_LIMIT}`,
@@ -368,55 +405,92 @@ export const onboardingDropoffDispatcher = onSchedule(
         continue;
       }
 
-      const fcmMessage: admin.messaging.MulticastMessage = {
-        tokens: [],
-        notification: { title, body },
-        data: {
-          channel: 'training_reminder',
-          triggerType: 'Inactivity',
-          deepLink: DEEP_LINK,
-          onboardingStep: user.onboardingStep ?? '',
-          ...(user.authorityId ? { authorityId: user.authorityId } : {}),
-        },
-        apns: {
-          payload: {
-            aps: { sound: 'default', badge: 1 },
-          },
-        },
-        android: {
-          priority: 'high',
-          notification: { sound: 'default' },
-        },
-      };
-
       let userDelivered = 0;
       let userFailed = 0;
-      const userDeadTokens: string[] = [];
 
-      // Fan out in batches of 500 (FCM multicast ceiling).
-      for (let i = 0; i < user.tokens.length; i += MULTICAST_BATCH_SIZE) {
-        const batch = user.tokens.slice(i, i + MULTICAST_BATCH_SIZE);
-        try {
-          const result = await sendMulticast(
-            batch,
-            { ...fcmMessage, tokens: batch },
-          );
-          userDelivered += result.delivered;
-          userFailed += result.failed;
-          userDeadTokens.push(...result.deadTokens);
-        } catch (err: any) {
-          userFailed += batch.length;
-          logger.warn(`[dropoff] FCM batch failed for uid=${user.uid}:`, err?.message);
+      if (useSharedPushService) {
+        // ── Routed path (Phase 0 Item 1c) — delivery via the shared
+        // push.service.ts, gated behind pushRouting_onboardingDropoff
+        // (default false). See header comment for the channel/rate-cap
+        // reasoning.
+        const result = await sendPush({
+          toUids: [user.uid],
+          channel: 'onboarding_dropoff',
+          title,
+          body,
+          deepLink: DEEP_LINK,
+          data: {
+            triggerType: 'Inactivity',
+            onboardingStep: user.onboardingStep ?? '',
+            ...(user.authorityId ? { authorityId: user.authorityId } : {}),
+          },
+          rateCapHours: 0,
+          skipQuietHours: true,
+        });
+        userDelivered = result.delivered;
+        userFailed = result.failed;
+        totalTokensPruned += result.tokensPruned;
+        logger.info(
+          `[dropoff] (routed) uid=${user.uid} — delivered=${userDelivered} ` +
+            `failed=${userFailed} skippedGlobalKill=${result.skippedGlobalKill} ` +
+            `pruned=${result.tokensPruned}`,
+        );
+      } else {
+        // ── Legacy path — direct FCM, active while pushRouting_onboardingDropoff
+        // is false.
+        const fcmMessage: admin.messaging.MulticastMessage = {
+          tokens: [],
+          notification: { title, body },
+          data: {
+            channel: 'training_reminder',
+            triggerType: 'Inactivity',
+            deepLink: DEEP_LINK,
+            onboardingStep: user.onboardingStep ?? '',
+            ...(user.authorityId ? { authorityId: user.authorityId } : {}),
+          },
+          apns: {
+            payload: {
+              aps: { sound: 'default', badge: 1 },
+            },
+          },
+          android: {
+            priority: 'high',
+            notification: { sound: 'default' },
+          },
+        };
+
+        const userDeadTokens: string[] = [];
+
+        // Fan out in batches of 500 (FCM multicast ceiling).
+        for (let i = 0; i < user.tokens.length; i += MULTICAST_BATCH_SIZE) {
+          const batch = user.tokens.slice(i, i + MULTICAST_BATCH_SIZE);
+          try {
+            const result = await sendMulticast(
+              batch,
+              { ...fcmMessage, tokens: batch },
+            );
+            userDelivered += result.delivered;
+            userFailed += result.failed;
+            userDeadTokens.push(...result.deadTokens);
+          } catch (err: any) {
+            userFailed += batch.length;
+            logger.warn(`[dropoff] FCM batch failed for uid=${user.uid}:`, err?.message);
+          }
         }
+
+        // Prune dead tokens discovered during this send.
+        if (userDeadTokens.length > 0) {
+          await pruneDeadTokens(user.uid, userDeadTokens);
+          totalTokensPruned += userDeadTokens.length;
+        }
+
+        logger.info(
+          `[dropoff] uid=${user.uid} — delivered=${userDelivered} ` +
+            `failed=${userFailed} deadPruned=${userDeadTokens.length}`,
+        );
       }
 
-      // Prune dead tokens discovered during this send.
-      if (userDeadTokens.length > 0) {
-        await pruneDeadTokens(user.uid, userDeadTokens);
-        totalTokensPruned += userDeadTokens.length;
-      }
-
-      // Stamp audit field on user doc.
+      // Stamp audit field on user doc — unconditional, both paths.
       try {
         await db.collection('users').doc(user.uid).update({
           dropoffNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -428,11 +502,6 @@ export const onboardingDropoffDispatcher = onSchedule(
         // Non-fatal — notification was already sent; worst case we re-send
         // next window (still better than silently losing the stamp).
       }
-
-      logger.info(
-        `[dropoff] uid=${user.uid} — delivered=${userDelivered} ` +
-          `failed=${userFailed} deadPruned=${userDeadTokens.length}`,
-      );
 
       totalDelivered += userDelivered;
       totalFailed += userFailed;
