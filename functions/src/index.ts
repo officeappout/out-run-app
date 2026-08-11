@@ -22,3 +22,5 @@ export { trainingReminderScheduler } from './trainingReminderScheduler';
 // ── Push Notification Triggers (Social Engagement Engine — phase 3: social) ───
 export { onGroupMemberJoin } from './onGroupMemberJoin';
 export { onKudosCreated } from './onKudosCreated';
+// ── Notification-Manager-driven Triggers (reads workoutMetadata/notifications) ─
+export { stepGoalNudgeScheduler } from './stepGoalNudgeScheduler';
