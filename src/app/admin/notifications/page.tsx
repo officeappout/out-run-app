@@ -55,6 +55,9 @@ interface ChannelConfig {
 
 interface NotifConfig {
   channels: Partial<Record<ChannelKey, ChannelConfig>>;
+  /** Global emergency kill-switch — halts every channel except `system`.
+   *  Absent/undefined = enabled (matches push.service.ts's safe default). */
+  pushEnabled?: boolean;
   updatedAt?: unknown;
 }
 
@@ -336,6 +339,33 @@ export default function NotificationsPage() {
     loadRecentSends();
   }, [loadConfig, loadRecentSends]);
 
+  // ── Global emergency kill-switch — halts ALL channels (except `system`,
+  // which push.service.ts always exempts). Confirm-dialog-gated since this
+  // is a real "stop everything" action, not a routine per-channel toggle.
+  const isGlobalEnabled = config.pushEnabled !== false; // default true
+
+  const handleGlobalToggle = async () => {
+    const next = !isGlobalEnabled;
+    const confirmed = window.confirm(
+      next
+        ? 'להפעיל מחדש את כל הפושים באפליקציה?'
+        : 'לעצור את כל הפושים באפליקציה כולה? זו פעולת חירום — כל הערוצים ייעצרו מיידית (למעט הודעות מערכת קריטיות).',
+    );
+    if (!confirmed) return;
+
+    const updated: NotifConfig = { ...config, pushEnabled: next };
+    setConfig(updated);
+    try {
+      await setDoc(doc(db, 'app_config', 'notification_configs'), {
+        ...updated,
+        updatedAt: Timestamp.now(),
+      });
+    } catch (err) {
+      console.error('[notifications] global kill-switch save failed:', err);
+      setConfig(config); // revert optimistic update
+    }
+  };
+
   // ── Per-channel enable toggle
   const handleToggle = async (channel: ChannelKey, enabled: boolean) => {
     const updated: NotifConfig = {
@@ -500,6 +530,34 @@ export default function NotificationsPage() {
             שלח ידנית
           </button>
         </div>
+      </div>
+
+      {/* ── Global emergency kill-switch */}
+      <div className={`rounded-xl border p-4 flex items-center justify-between gap-4 ${
+        isGlobalEnabled ? 'bg-white/5 border-white/10' : 'bg-red-950/40 border-red-800'
+      }`}>
+        <div className="flex items-center gap-3">
+          <AlertCircle size={18} className={isGlobalEnabled ? 'text-gray-400' : 'text-red-400'} />
+          <div>
+            <p className="text-sm font-semibold text-white">
+              {isGlobalEnabled ? 'כל הפושים פעילים' : '⚠️ כל הפושים עצורים — מתג חירום פעיל'}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              מתג חירום גלובלי — עוצר את כל שליחת הפוש באפליקציה (למעט הודעות מערכת קריטיות).
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleGlobalToggle}
+          className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 mt-1 ${
+            isGlobalEnabled ? 'bg-green-500' : 'bg-red-600'
+          }`}
+          title={isGlobalEnabled ? 'עצור הכל' : 'הפעל מחדש'}
+        >
+          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+            isGlobalEnabled ? 'translate-x-1' : 'translate-x-5'
+          }`} />
+        </button>
       </div>
 
       {/* ── Catalog */}

@@ -8,6 +8,11 @@
  *
  * FEATURES ENFORCED HERE (not in callers)
  * ────────────────────────────────────────
+ * 0. Global kill-switch      — app_config/notification_configs.pushEnabled. Emergency
+ *    halt for ALL channels except `system`. Absent/undefined = enabled (safe default).
+ *    Unlike the per-channel switch below, this FAILS CLOSED on a Firestore read error —
+ *    an emergency switch that fails open during the exact kind of incident (Firestore
+ *    degradation) that might prompt reaching for it would defeat its own purpose.
  * 1. User preference filter  — settings.pushEnabled + settings.notificationPrefs.{channel}
  *    `system` channel is force-on and bypasses all filters.
  * 2. Quiet hours             — 22:00–07:00 Asia/Jerusalem; skippable for scheduled jobs.
@@ -15,6 +20,9 @@
  *    `push_rate/{uid}.{channel}_lastSentAt`. Default 24 h; pass rateCapHours=0 to disable.
  * 4. Dead token cleanup      — invalid tokens removed from user docs after every batch.
  * 5. dryRun mode             — resolves tokens and logs intent but makes zero writes.
+ * 6. Admin per-channel switch — app_config/notification_configs.channels.{channel}.enabled.
+ *    Fails OPEN on a read error (deliberately the opposite bias from the global switch
+ *    above — see admin per-channel kill-switch section for why).
  *
  * RATE CAP STORAGE
  * ────────────────
@@ -50,31 +58,74 @@ const TZ = 'Asia/Jerusalem';
 // ─── Admin channel-config cache ───────────────────────────────────────────────
 // Reads app_config/notification_configs once per 5 min so admin toggles take
 // effect within one cache window without adding a Firestore read per sendPush call.
+// Shared by both the per-channel switch and the global kill-switch below — they
+// read the same document, so refreshing once serves both checks at no extra cost.
 
 const CONFIG_CACHE_TTL_MS = 5 * 60 * 1000;
-let channelConfigCache: { enabled: Record<string, boolean>; fetchedAt: number } | null = null;
+
+interface ChannelConfigCache {
+  enabled: Record<string, boolean>;
+  /** Global emergency kill-switch — app_config/notification_configs.pushEnabled. */
+  globalEnabled: boolean;
+  fetchedAt: number;
+}
+
+let channelConfigCache: ChannelConfigCache | null = null;
+
+/**
+ * Refresh channelConfigCache from app_config/notification_configs if stale.
+ * Returns the current cache, or null if the doc is unreadable and no fresh
+ * cache could be built — callers decide their own fail-open/fail-closed
+ * behavior based on whether they get null back (see isAdminChannelEnabled
+ * vs isGlobalPushEnabled).
+ */
+async function refreshConfigCache(): Promise<ChannelConfigCache | null> {
+  const now = Date.now();
+  if (channelConfigCache && now - channelConfigCache.fetchedAt <= CONFIG_CACHE_TTL_MS) {
+    return channelConfigCache;
+  }
+  try {
+    const snap = await getDb().doc('app_config/notification_configs').get();
+    const data = snap.exists ? (snap.data() as Record<string, unknown>) : {};
+    const channels = (data?.channels ?? {}) as Record<string, { enabled?: boolean }>;
+    const enabled: Record<string, boolean> = {};
+    for (const [ch, cfg] of Object.entries(channels)) {
+      enabled[ch] = cfg?.enabled !== false;
+    }
+    // Global master switch: absent/undefined → enabled (matches the per-channel
+    // field's own default-true philosophy, so this ships byte-identical to
+    // current behavior until someone explicitly writes pushEnabled: false).
+    const globalEnabled = data?.pushEnabled !== false;
+    channelConfigCache = { enabled, globalEnabled, fetchedAt: now };
+    return channelConfigCache;
+  } catch (e) {
+    logger.warn('[push.service] app_config read failed', e);
+    return null;
+  }
+}
 
 async function isAdminChannelEnabled(channel: PushChannel): Promise<boolean> {
   if (channel === 'system') return true;
-  const now = Date.now();
-  if (!channelConfigCache || now - channelConfigCache.fetchedAt > CONFIG_CACHE_TTL_MS) {
-    try {
-      const snap = await getDb().doc('app_config/notification_configs').get();
-      const channels = snap.exists
-        ? ((snap.data() as Record<string, unknown>)?.channels ?? {}) as Record<string, { enabled?: boolean }>
-        : {};
-      const enabled: Record<string, boolean> = {};
-      for (const [ch, cfg] of Object.entries(channels)) {
-        enabled[ch] = cfg?.enabled !== false;
-      }
-      channelConfigCache = { enabled, fetchedAt: now };
-    } catch (e) {
-      // Fail-open: if config unreadable, allow the push through
-      logger.warn('[push.service] app_config read failed, defaulting enabled', e);
-      return true;
-    }
-  }
-  return channelConfigCache.enabled[channel] !== false;
+  const cache = await refreshConfigCache();
+  // Fail-open: if config unreadable, allow the push through.
+  if (!cache) return true;
+  return cache.enabled[channel] !== false;
+}
+
+/**
+ * Global emergency kill-switch. `system` stays exempt, consistent with its
+ * force-on contract everywhere else in this file — a "kill literally
+ * everything including security pushes" scenario is rare enough to handle
+ * as a deploy-time action instead of a runtime flag.
+ *
+ * Fails CLOSED on a Firestore read error — deliberately the opposite bias
+ * from isAdminChannelEnabled above. See header comment §0 for why.
+ */
+async function isGlobalPushEnabled(channel: PushChannel): Promise<boolean> {
+  if (channel === 'system') return true;
+  const cache = await refreshConfigCache();
+  if (!cache) return false;
+  return cache.globalEnabled;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -123,6 +174,10 @@ export interface SendPushResult {
   attempted: number;
   delivered: number;
   failed: number;
+  /** Blocked by the global emergency kill-switch — tracked separately from
+   *  skippedPrefs so an intentional emergency halt is never confused with
+   *  routine per-user unsubscribes in operational metrics. */
+  skippedGlobalKill: number;
   skippedPrefs: number;
   skippedQuietHours: number;
   skippedRateCap: number;
@@ -157,6 +212,7 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     attempted: toUids.length,
     delivered: 0,
     failed: 0,
+    skippedGlobalKill: 0,
     skippedPrefs: 0,
     skippedQuietHours: 0,
     skippedRateCap: 0,
@@ -164,6 +220,13 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   };
 
   if (toUids.length === 0) return result;
+
+  // ── Global emergency kill-switch (app_config/notification_configs.pushEnabled) ──
+  if (!isSystem && !(await isGlobalPushEnabled(channel))) {
+    result.skippedGlobalKill = toUids.length;
+    logger.warn(`[push.service] ${channel} — global kill-switch active, skipping ${toUids.length} uid(s)`);
+    return result;
+  }
 
   // ── Admin kill-switch (app_config/notification_configs, cached 5 min) ─────
   if (!isSystem && !(await isAdminChannelEnabled(channel))) {
