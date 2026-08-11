@@ -65,6 +65,13 @@ export function acquirePresenceStream(): () => void {
     _unsub = onSnapshot(
       q,
       (snap) => {
+        // [heat-diag] Temporary — idle-map-heat-gps-investigation.md finding #3:
+        // this is the LIVE production path (IS_PERF_BATCH2_PRESENCE_ENABLED=true),
+        // and it previously had zero visibility into snapshot size. Answers
+        // "does the unscoped verified_global query actually return enough docs to
+        // matter for heat, or is this a non-issue in practice?" before deciding
+        // whether to invest in a geo-scoped follow-up. Safe to remove once answered.
+        console.log(`[presenceStore] snapshot: ${snap.docs.length} docs (cap=${PRESENCE_STREAM_MAX})`);
         usePresenceStore.setState({
           docs: snap.docs.map((d) => ({ uid: d.id, ...d.data() })),
         });
