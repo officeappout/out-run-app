@@ -10,16 +10,25 @@
  * Pipeline
  * ────────
  * 1. Guard: bail early if `app_config/feature_flags.chatNotificationsEnabled !== true`.
+ *    This pre-check stays unconditional (default OFF, cheap early-exit) regardless
+ *    of the routing flag below — retiring it would flip chat's default from off to
+ *    effectively-on and lose the early-exit for the common "chat push is off" case.
  * 2. Read the parent `chats/{chatId}` document to resolve the recipient list
  *    (all participants except the sender).
- * 3. Fetch each recipient's user doc; apply per-user push preferences:
- *       settings.pushEnabled !== false
- *       settings.notificationPrefs.chat !== false
- *    Missing fields default to `true` so legacy users keep receiving pushes.
- * 4. Multicast via FCM in batches of 500 (FCM cap).
- *    Dead tokens (`messaging/registration-token-not-registered`, etc.) are
- *    removed from the owning user doc exactly as `sendPushFromQueue` does.
- * 5. Log delivery stats.
+ * 3. Behind `app_config/feature_flags.pushRouting_chatMessageNotification` (default
+ *    false): delivery routes through the shared `push.service.ts` (`sendPush()`),
+ *    with `rateCapHours: 0` / `skipQuietHours: true` to preserve today's behavior
+ *    (chat has neither a rate cap nor a quiet-hours suppression today — this must
+ *    stay explicit, not fall back to sendPush()'s defaults). When the flag is
+ *    false (default), the legacy inline path below runs unchanged:
+ *    a. Fetch each recipient's user doc; apply per-user push preferences:
+ *         settings.pushEnabled !== false
+ *         settings.notificationPrefs.chat !== false
+ *       Missing fields default to `true` so legacy users keep receiving pushes.
+ *    b. Multicast via FCM in batches of 500 (FCM cap).
+ *       Dead tokens (`messaging/registration-token-not-registered`, etc.) are
+ *       removed from the owning user doc exactly as `sendPushFromQueue` does.
+ *    c. Log delivery stats.
  *
  * Deep-link payload: `/chat/{chatId}` — the native push handler in
  * `src/lib/native/push.ts` navigates the web view to this path on tap.
@@ -28,6 +37,7 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { sendPush } from './services/push.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -81,13 +91,16 @@ export const chatMessageNotification = onDocumentCreated(
 
     const [flagsSnap, chatSnap] = await Promise.all([flagsRef.get(), chatRef.get()]);
 
-    const chatNotificationsEnabled =
-      (flagsSnap.data() as Record<string, unknown> | undefined)?.chatNotificationsEnabled === true;
+    const flagsData = flagsSnap.data() as Record<string, unknown> | undefined;
+    const chatNotificationsEnabled = flagsData?.chatNotificationsEnabled === true;
 
     if (!chatNotificationsEnabled) {
       logger.info('[chatMessageNotification] chatNotificationsEnabled=false, skipping');
       return;
     }
+
+    // Phase 0 Item 1a — reads the same flagsSnap fetched above, no extra read.
+    const useSharedPushService = flagsData?.pushRouting_chatMessageNotification === true;
 
     // ── Step 2: Resolve recipient UIDs ─────────────────────────────────────
     if (!chatSnap.exists) {
@@ -108,7 +121,36 @@ export const chatMessageNotification = onDocumentCreated(
       return;
     }
 
-    // ── Step 3: Collect valid FCM tokens, respecting per-user prefs ────────
+    const bodyText =
+      text.length > TEXT_SNIPPET_MAX ? `${text.slice(0, TEXT_SNIPPET_MAX)}...` : text;
+
+    // ── Routed path (Phase 0 Item 1a) — delivery via the shared push.service.ts,
+    // gated behind pushRouting_chatMessageNotification (default false). ────────
+    if (useSharedPushService) {
+      const result = await sendPush({
+        toUids: recipientUids,
+        channel: 'chat',
+        title: senderName,
+        body: bodyText || '💬 הודעה חדשה',
+        deepLink: `/chat/${chatId}`,
+        data: { chatId },
+        // Chat has neither a rate cap nor quiet-hours suppression today —
+        // preserve that explicitly rather than falling back to sendPush()'s
+        // defaults (24h cap, quiet-hours enforced).
+        rateCapHours: 0,
+        skipQuietHours: true,
+      });
+      logger.info(
+        `[chatMessageNotification] (routed) ${chatId} done: ` +
+          `delivered=${result.delivered} failed=${result.failed} ` +
+          `skippedPrefs=${result.skippedPrefs} skippedGlobalKill=${result.skippedGlobalKill} ` +
+          `pruned=${result.tokensPruned}`,
+      );
+      return;
+    }
+
+    // ── Legacy path — direct FCM, active while pushRouting_chatMessageNotification
+    // is false. Step 3: Collect valid FCM tokens, respecting per-user prefs ────
     const tokenSet = new Set<string>();
     const tokenOwners = new Map<string, string>();
 
@@ -144,9 +186,7 @@ export const chatMessageNotification = onDocumentCreated(
     }
 
     // ── Step 4: Build FCM multicast message ────────────────────────────────
-    const bodyText =
-      text.length > TEXT_SNIPPET_MAX ? `${text.slice(0, TEXT_SNIPPET_MAX)}...` : text;
-
+    // (bodyText computed above, shared with the routed path)
     const messageBase: admin.messaging.MulticastMessage = {
       tokens: [],
       notification: {
