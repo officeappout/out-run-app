@@ -16,7 +16,6 @@ import { calculateProfileCompletion } from '@/features/user/identity/services/pr
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import HeroWorkoutCard, { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
-import type { MessageType } from '@/features/messages/services/MessageService';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
 import { useTodayStrengthVolume } from '@/features/home/hooks/useTodayStrengthVolume';
@@ -37,10 +36,9 @@ import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerat
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
-import { calculateDaysInactive } from '@/features/workout-engine';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, SHOW_MISSED_DAYS_PROMPTS, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
+import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -324,68 +322,6 @@ export default function HomePage() {
   // Home page tabs ("כוח" / "בריאות") — below the schedule strip
   const [homeTab, setHomeTab] = useState<'strength' | 'health'>('strength');
 
-  // ── Re-engagement Banner ────────────────────────────────────────────────
-  // Shown once per calendar day when the user has been inactive 4+ days
-  // ("welcome back"), they're past the 48h new-user grace window, and the
-  // per-day localStorage dismiss key is NOT set.
-  // (The old "you missed yesterday's workout" variant was removed — a missed
-  //  day is treated as a rest day, not a failure.)
-  const yesterdayISO = useMemo(() => {
-    const d = new Date(Date.now() - 86_400_000);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }, []);
-
-  const MISSED_BANNER_KEY = `missed_banner_dismissed_${yesterdayISO}`;
-  const [showMissedWorkoutBanner, setShowMissedWorkoutBanner] = useState(false);
-  const [bannerType, setBannerType] = useState<MessageType>('re_engagement');
-
-  useEffect(() => {
-    if (!profile || typeof window === 'undefined') return;
-
-    // Already dismissed today — respect per-day dismiss key for all banner variants
-    if (localStorage.getItem(MISSED_BANNER_KEY) === '1') return;
-
-    // Condition A: New-user protection (0–48 h after registration)
-    // createdAt may arrive as a Firebase Timestamp, a Date, a string, or a number.
-    const rawCreatedAt = (profile as any).createdAt;
-    if (rawCreatedAt) {
-      let createdAtMs: number | null = null;
-      if (typeof rawCreatedAt.toDate === 'function') {
-        createdAtMs = (rawCreatedAt.toDate() as Date).getTime();
-      } else if (rawCreatedAt instanceof Date) {
-        createdAtMs = rawCreatedAt.getTime();
-      } else if (typeof rawCreatedAt === 'string' || typeof rawCreatedAt === 'number') {
-        createdAtMs = new Date(rawCreatedAt).getTime();
-      }
-      if (createdAtMs !== null && Date.now() - createdAtMs < 48 * 60 * 60 * 1000) {
-        return;
-      }
-    }
-
-    const daysInactive = calculateDaysInactive(profile);
-
-    // Condition B: Long inactivity (4+ days) → re-engagement banner
-    if (daysInactive >= 4) {
-      setBannerType('re_engagement');
-      setShowMissedWorkoutBanner(true);
-      return;
-    }
-
-    // (Condition C — the "you missed yesterday's workout" banner — was removed:
-    //  a missed day is treated as a rest day, not a failure, so we no longer nudge
-    //  about it. Only the long-inactivity re-engagement banner (B) remains.)
-  }, [profile, MISSED_BANNER_KEY]);
-
-  const dismissMissedBanner = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(MISSED_BANNER_KEY, '1');
-    }
-    setShowMissedWorkoutBanner(false);
-  }, [MISSED_BANNER_KEY]);
-
   // ── Gear Toast (one-time after onboarding) ──
   const [showGearToast, setShowGearToast] = useState(false);
   useEffect(() => {
@@ -418,7 +354,6 @@ export default function HomePage() {
   const todayStrengthVolume = useTodayStrengthVolume();
   const dailyStrengthTarget = useDailyStrengthTarget(STRENGTH_RING_ENABLED);
   const postWorkoutMsg = useSmartMessage('post_workout');
-  const missedWorkoutMsg = useSmartMessage(bannerType);
   const { celebrate } = useGoalCelebration();
   const [showMotivationBanner, setShowMotivationBanner] = useState(false);
   const { sessions: communitySessions, dismiss: dismissSession } = useCommunitySessionBanner();
@@ -1187,59 +1122,6 @@ export default function HomePage() {
           </AnimatePresence>
         </div>
       )}
-
-      {/* ── Missed Workout Recovery Banner (4th slot) ── */}
-      {/* Gated behind SHOW_MISSED_DAYS_PROMPTS (default off). The daysInactive logic
-          above still runs — only this display is hidden. Flip the flag to restore. */}
-      <AnimatePresence>
-        {SHOW_MISSED_DAYS_PROMPTS && showMissedWorkoutBanner && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-            className="max-w-md mx-auto px-4 pt-3"
-          >
-            <div
-              className="relative flex items-start gap-3 px-4 py-3"
-              dir="rtl"
-              style={{
-                background: '#FFF5F5',
-                border: '1px solid #FECACA',
-                borderRadius: 14,
-              }}
-            >
-              <span className="text-xl flex-shrink-0 mt-0.5">⏰</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-gray-800 leading-snug">
-                  {missedWorkoutMsg.text}
-                </p>
-                {missedWorkoutMsg.subText && (
-                  <p className="text-[12px] text-gray-500 mt-0.5 leading-snug">
-                    {missedWorkoutMsg.subText}
-                  </p>
-                )}
-                <button
-                  onClick={() => {
-                    dismissMissedBanner();
-                    handleHeroPress();
-                  }}
-                  className="mt-2 text-[13px] font-bold text-rose-600 underline underline-offset-2 active:opacity-70 transition-opacity"
-                >
-                  בוא נעשה אימון!
-                </button>
-              </div>
-              <button
-                onClick={dismissMissedBanner}
-                className="flex-shrink-0 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                aria-label="סגור"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Main Content: Clean Execution Zone ── */}
       <div className="max-w-md mx-auto px-4 pt-2 space-y-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 1.5rem)' }}>
