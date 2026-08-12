@@ -710,53 +710,107 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'md-haprachim':    { lat: 31.906292, lng: 35.012294 },
 
   // ─── LOD neighborhoods ─────────────────────────────────────
+  // NOTE: lod-* keys don't match any real picker id (real ids use 'ld-' prefix) — pre-existing
+  // orphaned block, same pattern found throughout this project. Left as-is.
   'lod-center':        { lat: 31.9520, lng: 34.8968 },
   'lod-kiryat-eshkol': { lat: 31.9453, lng: 34.9102 },
   'lod-pardes':        { lat: 31.9601, lng: 34.9013 },
   'lod-south':         { lat: 31.9432, lng: 34.8882 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM/landmark matches. ──
+  'ld-ganei-yaar': { lat: 31.9452721, lng: 34.9038083 },
+  'ld-ganei-aviv': { lat: 31.9593257, lng: 34.8812522 },
+  'ld-neve-zait':  { lat: 31.9464799, lng: 34.8841361 },
+  'ld-center':     { lat: 31.9555870, lng: 34.8963330 }, // medium — landmark (municipality building, Herzl St / Old City area)
 
   // ─── RAANANA neighborhoods ─────────────────────────────────
-  'rn-center': { lat: 32.1840, lng: 34.8706 },
+  // NOTE: rn-north/rn-south/rn-east below don't match any real picker id — pre-existing orphaned
+  // keys. rn-center IS a real id but predates this fix (old quadrant scheme) — upgraded below to
+  // a landmark-anchored value (City Hall) now that real neighborhood data exists for this city.
+  'rn-center': { lat: 32.1798045, lng: 34.8764788 },
   'rn-north':  { lat: 32.2002, lng: 34.8766 },
   'rn-south':  { lat: 32.1674, lng: 34.8635 },
   'rn-east':   { lat: 32.1837, lng: 34.8900 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, real GIS polygon centroids. ──
+  'rn-neve-zemer':  { lat: 32.1952720, lng: 34.8661562 },
+  'rn-2005':        { lat: 32.1804272, lng: 34.8586295 },
+  'rn-lev-hapark':  { lat: 32.1930793, lng: 34.8512530 },
 
   // ─── RAMLA neighborhoods ───────────────────────────────────
+  // NOTE: ram-* keys don't match any real picker id (real ids use 'rm-' prefix) — pre-existing
+  // orphaned block. Left as-is.
   'ram-center': { lat: 31.9282, lng: 34.8717 },
   'ram-south':  { lat: 31.9145, lng: 34.8686 },
   'ram-north':  { lat: 31.9418, lng: 34.8762 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM/landmark matches. ──
+  'rm-kiryat-haomanim': { lat: 31.9168763, lng: 34.8709461 },
+  'rm-neot-shamir':     { lat: 31.9305826, lng: 34.8495711 },
+  'rm-center':          { lat: 31.9314905, lng: 34.8686640 },
 
   // ─── ROSH HAAYIN neighborhoods ─────────────────────────────
+  // NOTE: rha-* keys don't match any real picker id (real ids use 'rh-' prefix) — pre-existing
+  // orphaned block. Left as-is.
   'rha-center': { lat: 32.0958, lng: 34.9572 },
   'rha-north':  { lat: 32.1082, lng: 34.9608 },
   'rha-south':  { lat: 32.0839, lng: 34.9490 },
   'rha-east':   { lat: 32.0966, lng: 34.9672 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, landmark-anchored matches. ──
+  'rh-psagot':     { lat: 32.0876738, lng: 34.9710220 }, // medium — anchored to a founding sub-compound of this fast-growing megadistrict
+  'rh-neve-afek':  { lat: 32.0964470, lng: 34.9766380 }, // medium — bus-stop landmark
+  'rh-givat-tal':  { lat: 32.0961997, lng: 34.9621599 },
+  'rh-vatika':     { lat: 32.0936797, lng: 34.9571607 }, // medium — anchored to city hall (inside the Old City district)
 
   // ─── HOD HASHARON neighborhoods ────────────────────────────
+  // NOTE: hhs-* keys don't match any real picker id (real ids use 'hh-' prefix) — pre-existing
+  // orphaned block. Left as-is.
   'hhs-center':        { lat: 32.1528, lng: 34.8963 },
   'hhs-kiryat-haroeh': { lat: 32.1650, lng: 34.9085 },
   'hhs-magdiel':       { lat: 32.1430, lng: 34.8875 },
   'hhs-north':         { lat: 32.1694, lng: 34.8962 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps. ──
+  'hh-1200':      { lat: 32.1700045, lng: 34.9020123 }, // medium — anchored to Sokolov train station (Complex 1200 borders it)
+  'hh-magdiel':   { lat: 32.1608935, lng: 34.9040760 },
+  'hh-ramatayim': { lat: 32.1574803, lng: 34.8854895 },
+  'hh-green':     { lat: 32.1325000, lng: 34.8886111 },
 
   // ─── KIRYAT GAT neighborhoods ──────────────────────────────
+  // NOTE: kg-center/kg-north below don't match any real picker id (real ids are kg-carmei-gat,
+  // kg-center — wait, kg-center IS real) — kg-north is the orphaned one. Left as-is.
   'kg-center': { lat: 31.6083, lng: 34.7632 },
   'kg-north':  { lat: 31.6200, lng: 34.7710 },
+  // ── Completeness-gate fix (12.08.2026): genuine gap. ──
+  'kg-carmei-gat': { lat: 31.6290203, lng: 34.7724283 },
 
   // ─── NAHARIYA neighborhoods ────────────────────────────────
+  // NOTE: nhr-* keys don't match any real picker id (real ids use 'nh-' prefix) — pre-existing
+  // orphaned block. Left as-is.
   'nhr-center': { lat: 33.0038, lng: 35.0958 },
   'nhr-north':  { lat: 33.0155, lng: 35.0890 },
   'nhr-south':  { lat: 32.9921, lng: 35.0985 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM/landmark matches. ──
+  'nh-ein-sara':    { lat: 32.9925530, lng: 35.0950523 },
+  'nh-nahar-yarok': { lat: 33.0064819, lng: 35.1091779 }, // official name is נווה יצחק רבין, same place
+  'nh-center':      { lat: 33.0049493, lng: 35.0988288 }, // medium — anchored to the train station
 
   // ─── AFULA neighborhoods ───────────────────────────────────
+  // NOTE: afl-* keys don't match any real picker id (real ids use 'af-' prefix) — pre-existing
+  // orphaned block. Left as-is.
   'afl-center': { lat: 32.6092, lng: 35.2894 },
   'afl-north':  { lat: 32.6218, lng: 35.2912 },
   'afl-south':  { lat: 32.5963, lng: 35.2876 },
   'afl-east':   { lat: 32.6094, lng: 35.3063 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps. ──
+  'af-rova-yizrael':   { lat: 32.6150000, lng: 35.3101000 }, // medium — no OSM place node, centroid of 10 street/bus-stop tags
+  'af-illit':          { lat: 32.6334607, lng: 35.3247177 },
+  'af-givat-hamoreh':  { lat: 32.6253550, lng: 35.3274969 },
+  'af-center':         { lat: 32.6063729, lng: 35.2880813 }, // medium — anchored to city hall
 
   // ─── KIRYAT ATA neighborhoods ──────────────────────────────
   'ka-center': { lat: 32.8120, lng: 35.1147 },
   'ka-north':  { lat: 32.8258, lng: 35.1185 },
   'ka-south':  { lat: 32.7992, lng: 35.1098 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM matches. ──
+  'ka-givat-ram': { lat: 32.8005991, lng: 35.1343018 },
+  'ka-givat-tal': { lat: 32.8066398, lng: 35.1388184 },
 
   // ─── YAVNE neighborhoods ───────────────────────────────────
   'yv-center':       { lat: 31.8783, lng: 34.7450 },
@@ -764,14 +818,30 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'yv-north':        { lat: 31.8922, lng: 34.7413 },
 
   // ─── EILAT neighborhoods ───────────────────────────────────
+  // NOTE: eil-* keys don't match any real picker id (real ids use 'ei-' prefix) — pre-existing
+  // orphaned block. Left as-is.
   'eil-center': { lat: 29.5586, lng: 34.9512 },
   'eil-north':  { lat: 29.5710, lng: 34.9498 },
   'eil-south':  { lat: 29.5463, lng: 34.9540 },
+  // ── Completeness-gate fix (12.08.2026): 2 of 3 resolved cleanly. ──
+  'ei-shaham': { lat: 29.5475669, lng: 34.9357898 },
+  'ei-arava':  { lat: 29.5616661, lng: 34.9441794 },
+  // ei-ganim: PARKED, not shipped — flagged for David. "גנים" splits into two distinct areas in
+  // OSM (גנים א / גנים ב, ~640m apart) and the picker only has one undifferentiated entry — can't
+  // pick one without guessing which was meant. Needs a product decision (split the entry, or
+  // confirm which of the two "גנים" is intended).
 
   // ─── NES ZIONA neighborhoods ───────────────────────────────
+  // NOTE: nz-north/nz-south below don't match any real picker id — orphaned. nz-center IS a real
+  // id but predates this fix (old quadrant scheme); left as-is (not one of the 3 real neighborhood
+  // ids being fixed here — nz-argaman/nz-mali/nz-lev are the actual gaps).
   'nz-center': { lat: 31.9311, lng: 34.7978 },
   'nz-north':  { lat: 31.9437, lng: 34.8003 },
   'nz-south':  { lat: 31.9188, lng: 34.7953 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM matches. ──
+  'nz-argaman': { lat: 31.9299800, lng: 34.7865341 },
+  'nz-mali':    { lat: 31.9240436, lng: 34.7831274 }, // medium — reserve-derived name, used as a residential-area name per OSM's own place tagging
+  'nz-lev':     { lat: 31.9266788, lng: 34.8115544 },
 
   // ─── SDEROT neighborhoods ──────────────────────────────────
   'sderot-naot-hanasi':  { lat: 31.5282, lng: 34.6012 },
