@@ -7,7 +7,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/StrengthRunner';
-import { clearWorkoutCheckpoint } from '@/features/workout-engine/players/strength/hooks/useWorkoutPersistence';
+import { clearWorkoutCheckpoint, restoreCheckpoint, type WorkoutCheckpoint } from '@/features/workout-engine/players/strength/hooks/useWorkoutPersistence';
+import ResumeWorkoutDialog from '@/features/workout-engine/players/strength/components/ResumeWorkoutDialog';
 import { mapToCompletedExercises } from '@/features/workout-engine/players/strength/logic/summary-mapping';
 import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
 import { getAllExercises, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
@@ -36,7 +37,7 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
-import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
+import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED } from '@/config/feature-flags';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { Target, Sparkles, Flame } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
@@ -446,6 +447,24 @@ export default function ActiveWorkoutPage() {
   const [error, setError] = useState<string | null>(null);
   // Workout location for location-aware media selection in player components
   const [workoutLocation, setWorkoutLocation] = useState<string>('home');
+
+  // === CRASH-RECOVERY CHECKPOINT (Resume-Offer Gate) ===
+  // Behind STRENGTH_RESUME_CHECKPOINT_ENABLED (src/config/feature-flags.ts).
+  // useWorkoutPersistence.ts already writes a checkpoint continuously
+  // (debounced 500ms auto-save + immediate save on visibilitychange); this
+  // wires up the READ side via the standalone restoreCheckpoint function.
+  // `pendingCheckpoint` stays null (no dialog, no behavior change) unless
+  // the flag is true AND a non-expired checkpoint for this workoutId is
+  // found on mount.
+  const [pendingCheckpoint, setPendingCheckpoint] = useState<WorkoutCheckpoint | null>(null);
+  const [checkpointDecisionMade, setCheckpointDecisionMade] = useState(false);
+
+  useEffect(() => {
+    if (!STRENGTH_RESUME_CHECKPOINT_ENABLED) return;
+    if (!workoutId) return;
+    const cp = restoreCheckpoint(workoutId);
+    setPendingCheckpoint(cp);
+  }, [workoutId]);
 
   // === EXERCISE HISTORY (Progression Memory) ===
   const [exerciseHistoryMap, setExerciseHistoryMap] = useState<Record<string, number[]>>({});
@@ -1288,8 +1307,38 @@ export default function ActiveWorkoutPage() {
     );
   }
 
+  // === CRASH-RECOVERY: RESUME-OFFER GATE ===
+  // Behind STRENGTH_RESUME_CHECKPOINT_ENABLED. While the flag is false,
+  // pendingCheckpoint is never set (see the mount effect above), so this
+  // block is unreachable — render path is byte-identical to before this
+  // feature existed. When a valid, non-expired checkpoint is found for this
+  // workoutId and the user hasn't decided yet, block StrengthRunner from
+  // mounting and show the resume-offer dialog instead. The segmentIndex
+  // bounds check guards against a stale checkpoint pointing past the
+  // freshly-loaded workout's segments (e.g. the program was edited since
+  // the checkpoint was saved) — if out of bounds, the dialog is silently
+  // skipped and the workout starts fresh, same as no checkpoint at all.
+  if (
+    STRENGTH_RESUME_CHECKPOINT_ENABLED &&
+    pendingCheckpoint &&
+    !checkpointDecisionMade &&
+    pendingCheckpoint.segmentIndex < (stableWorkoutPlan.segments?.length ?? 0)
+  ) {
+    return (
+      <ResumeWorkoutDialog
+        elapsedTime={pendingCheckpoint.elapsedTime}
+        onResume={() => setCheckpointDecisionMade(true)}
+        onStartOver={() => {
+          clearWorkoutCheckpoint();
+          setPendingCheckpoint(null);
+          setCheckpointDecisionMade(true);
+        }}
+      />
+    );
+  }
+
   // === RENDER BASED ON FLOW STATE ===
-  
+
   // Step 1: Active Workout
   if (flowState === 'active') {
     return (
@@ -1304,6 +1353,17 @@ export default function ActiveWorkoutPage() {
           onResume={handleResume}
           onSwapExercise={handleSwapExercise}
           exerciseHistoryMap={exerciseHistoryMap}
+          initialCheckpoint={
+            STRENGTH_RESUME_CHECKPOINT_ENABLED && checkpointDecisionMade && pendingCheckpoint
+              ? {
+                  segmentIndex: pendingCheckpoint.segmentIndex,
+                  exerciseIndex: pendingCheckpoint.exerciseIndex,
+                  setIndex: pendingCheckpoint.setIndex ?? 0,
+                  elapsedTime: pendingCheckpoint.elapsedTime,
+                  exerciseLog: pendingCheckpoint.exerciseLog ?? [],
+                }
+              : undefined
+          }
         />
         <KudoToast kudo={currentKudo} onDismiss={dismissKudo} />
 
