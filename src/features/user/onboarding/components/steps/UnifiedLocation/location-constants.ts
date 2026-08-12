@@ -130,6 +130,16 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'jr-kiryat-moshe': { lat: 31.7838, lng: 35.1862 },
   'jr-bayit-vegan':  { lat: 31.7630, lng: 35.1892 },
   'jr-gilo':         { lat: 31.7213, lng: 35.1842 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM place/boundary matches. ──
+  'jr-har-homa':     { lat: 31.7257259, lng: 35.2212813 },
+  'jr-talpiot':      { lat: 31.7515394, lng: 35.2160228 },
+  'jr-beit-hakerem': { lat: 31.7789979, lng: 35.1894235 },
+  'jr-kiryat-yovel': { lat: 31.7643601, lng: 35.1750449 },
+  'jr-malcha':       { lat: 31.7514658, lng: 35.1829753 },
+  'jr-nachlaot':     { lat: 31.7831454, lng: 35.2123968 },
+  'jr-city-center':  { lat: 31.7821317, lng: 35.2181926 }, // landmark-anchored (Zion Sq, 0.13km from direct match)
+  'jr-neve-yaakov':  { lat: 31.8422120, lng: 35.2420600 },
+  'jr-old-city':     { lat: 31.7782872, lng: 35.2319526 },
 
   // ─── TEL AVIV neighborhoods ────────────────────────────────
   'ta-center':        { lat: 32.0705, lng: 34.7767 },
@@ -144,6 +154,13 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'ta-sarona':        { lat: 32.0718, lng: 34.7852 },
   'ta-shapira':       { lat: 32.0510, lng: 34.7720 },
   'ta-hatikvah':      { lat: 32.0483, lng: 34.7910 },
+  // ── Completeness-gate fix: genuine gaps, OSM place matches. ──
+  'ta-north-old':     { lat: 32.0783535, lng: 34.7784280 }, // landmark-anchored (Kikar Masaryk)
+  'ta-north-new':     { lat: 32.0868520, lng: 34.7896426 },
+  'ta-tzahala':       { lat: 32.1225549, lng: 34.8361806 },
+  'ta-lev-hair':      { lat: 32.0700575, lng: 34.7758065 },
+  'ta-yad-elyahu':    { lat: 32.0587361, lng: 34.7933010 },
+  'ta-hatikva':       { lat: 32.0512931, lng: 34.7880987 },
 
   // ─── HAIFA neighborhoods ───────────────────────────────────
   // NOTE (completeness-gate fix, 12.08.2026): haifa-center/haifa-downtown below are the 2
@@ -209,6 +226,13 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'rl-shikuney-hamizrah':         { lat: 31.953108, lng: 34.826865 },
   'rl-tzamarot':                  { lat: 31.95732, lng: 34.824657 },
   'rl-elef':                      { lat: 31.985895, lng: 34.7456673 },
+  // ── Completeness-gate fix (12.08.2026): 1 of 3 resolved cleanly. ──
+  'rl-cramim':                    { lat: 31.974145, lng: 34.779075 },
+  // rl-west, rl-east: PARKED, not shipped — flagged for David. rl-west's only OSM
+  // candidate ("מערב ותיק") sits east/south of the city's own center, geographically
+  // inconsistent with "west Rishon". rl-east has no clean candidate at all; the one
+  // "east"-named OSM place found is already shipped as a distinct entry
+  // (rl-shikuney-hamizrah) — reusing it would duplicate an existing neighborhood.
 
   // ─── PETAH TIKVA neighborhoods ─────────────────────────────
   'pt-center':        { lat: 32.0878, lng: 34.8815 },
@@ -252,6 +276,13 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'pt-neve-oz':                   { lat: 32.080455, lng: 34.863753 },
   'pt-belinson':                  { lat: 32.080300, lng: 34.917306 },
   'pt-machane-yehuda':            { lat: 32.080659, lng: 34.894248 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, GIS/OSM matches. ──
+  'pt-kfar-ganim':                { lat: 32.076874, lng: 34.875952 }, // mean of the 3 official sub-polygon centroids
+  'pt-hadar-ganim':               { lat: 32.073784, lng: 34.908022 },
+  'pt-neve-gan':                  { lat: 32.094979, lng: 34.874475 },
+  'pt-ein-ganim':                 { lat: 32.088606, lng: 34.893860 },
+  'pt-shaaria':                   { lat: 32.072843, lng: 34.899748 },
+  'pt-em-hamoshavot':             { lat: 32.102940, lng: 34.878960 }, // medium confidence — not one of the 41 official GIS polygons; OSM "אם המושבות החדשה" landed in a business/industrial belt near Kiryat Arye, not a "historic old city" area. Flag for a closer look if this reads oddly on the map.
 
   // ─── ASHDOD neighborhoods ──────────────────────────────────
   // NOTE: the 6 keys below (asd-*) do not match any real picker id (real ids use 'ad-' prefix:
@@ -276,6 +307,13 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'ad-yud-gimel':  { lat: 31.776228, lng: 34.642795 },
   'ad-tet-zayin':  { lat: 31.771354, lng: 34.637920 },
   'ad-yud-zayin':  { lat: 31.768858, lng: 34.625286 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM place/landmark matches. ──
+  'ad-a':          { lat: 31.811135, lng: 34.646443 },
+  'ad-d':          { lat: 31.797860, lng: 34.640778 },
+  'ad-yud-nun':    { lat: 31.780842, lng: 34.633157 }, // mean of רובע י"א + רובע י"ב
+  'ad-tu':         { lat: 31.773929, lng: 34.629620 },
+  'ad-marina':     { lat: 31.794170, lng: 34.629861 }, // medium-high — landmark (אגם המרינה), ~280m from the marina basin itself
+  'ad-city':       { lat: 31.790727, lng: 34.639802 }, // medium — landmark (קניון הסיטי), no direct place-node named "הסיטי" exists
 
   // ─── NETANYA neighborhoods ─────────────────────────────────
   'nt-center':          { lat: 32.3293, lng: 34.8572 },
@@ -303,6 +341,10 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'nt-galei-hayam':               { lat: 32.302739, lng: 34.850035 },
   'nt-ben-tzion':                 { lat: 32.316684, lng: 34.856443 },
   'nt-neve-itamar':               { lat: 32.323972, lng: 34.875854 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM matches. ──
+  'nt-poleg':                     { lat: 32.2706589, lng: 34.8404671 }, // medium — biased toward the Wingate/stream edge, see commit note
+  'nt-agami':                     { lat: 32.2912367, lng: 34.8540225 },
+  'nt-dora':                      { lat: 32.2973883, lng: 34.8570189 },
 
   // ─── BEER SHEVA neighborhoods ──────────────────────────────
   // NOTE: bs-center/bs-dalet below are pre-existing orphaned keys (bs-dalet doesn't match the
@@ -324,6 +366,10 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'bs-nahal-beka':   { lat: 31.22396, lng: 34.77501 },
   'bs-neve-noy':     { lat: 31.23082, lng: 34.78619 },
   'bs-neot-lon':     { lat: 31.24829, lng: 34.76232 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM boundary-relation matches. ──
+  'bs-neve-zeev':    { lat: 31.2386831, lng: 34.7731294 },
+  'bs-b':            { lat: 31.2553377, lng: 34.7920936 },
+  'bs-old-city':     { lat: 31.2406357, lng: 34.7887983 },
 
   // ─── HOLON neighborhoods ───────────────────────────────────
   // NOTE: the 5 keys below (holon-*) do not match any real picker id (real ids use 'ho-' prefix)
@@ -354,6 +400,12 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'ho-merkaz':                { lat: 32.0171486, lng: 34.7702776 },
   'ho-green':                 { lat: 32.0337615, lng: 34.7653633 },
   'ho-migdalim-bshdera':      { lat: 32.0118153, lng: 34.7774368 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM matches (scoped to Holon, not Bnei Brak). ──
+  'ho-kiryat-sharett':        { lat: 32.0080686, lng: 34.7927613 },
+  'ho-agrobank':              { lat: 32.0238634, lng: 34.7811110 },
+  'ho-neot-rachel':           { lat: 32.0172109, lng: 34.7639573 },
+  'ho-tel-giborim':           { lat: 32.0315993, lng: 34.7639031 },
+  'ho-kiryat-bin-gurion':     { lat: 31.9982334, lng: 34.7700078 },
 
   // ─── BNEI BRAK neighborhoods ───────────────────────────────
   // NOTE: bb-kahaneman below does not match any real picker id — pre-existing orphaned key,
@@ -371,6 +423,8 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'bb-kiryat-herzog':   { lat: 32.09734, lng: 34.84095 },
   'bb-tel-giborim':     { lat: 32.09450, lng: 34.82572 },
   'bb-ramat-elchanan':  { lat: 32.08162, lng: 34.84316 },
+  // ── Completeness-gate fix (12.08.2026): genuine gap, OSM match. ──
+  'bb-pardes-katz':     { lat: 32.0952765, lng: 34.8394409 },
 
   // ─── RAMAT GAN neighborhoods ───────────────────────────────
   // NOTE: rg-kikar-hamedina/rg-geha/rg-borochov below don't match real picker ids (no
@@ -401,6 +455,11 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'rg-kfar-azar':         { lat: 32.0564642, lng: 34.8415912 },
   'rg-ramat-yitzhak':     { lat: 32.0749395, lng: 34.8231287 },
   'rg-bilu':              { lat: 32.0605764, lng: 34.8231378 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM matches. ──
+  'rg-marom-nave':        { lat: 32.072611, lng: 34.828892 },
+  'rg-ramat-hen':         { lat: 32.056247, lng: 34.819369 },
+  'rg-bursa':             { lat: 32.086028, lng: 34.802398 },
+  'rg-krinitsi':          { lat: 32.056007, lng: 34.847534 },
 
   // ─── ASHKELON neighborhoods ────────────────────────────────
   // NOTE: the 5 keys below (ask-*) do not match any real picker id (real ids use 'as-' prefix)
@@ -422,6 +481,12 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'as-shimshon-tzafon':           { lat: 31.659426, lng: 34.566767 },
   'as-shimshon-mizrach':          { lat: 31.653341, lng: 34.560828 },
   'as-ir-yamim':                  { lat: 31.703772, lng: 34.578055 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, GIS/OSM landmark matches. ──
+  'as-barnea':                    { lat: 31.691625, lng: 34.572276 },
+  'as-afridar':                   { lat: 31.674777, lng: 34.566520 },
+  'as-marina':                    { lat: 31.682599, lng: 34.555882 },
+  'as-agamim':                    { lat: 31.648975, lng: 34.563824 },
+  'as-city':                      { lat: 31.666459, lng: 34.565560 },
 
   // ─── REHOVOT neighborhoods ─────────────────────────────────
   // NOTE: the 5 keys below (reh-*) do not match any real picker id (real ids use 'rv-' prefix)
@@ -455,6 +520,12 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'rv-kiryat-david':       { lat: 31.8916688, lng: 34.8242615 },
   'rv-hayovel':            { lat: 31.8877337, lng: 34.8260900 },
   'rv-chatzrot-hamoshava': { lat: 31.8925728, lng: 34.7923660 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM matches. ──
+  'rv-science':            { lat: 31.916400, lng: 34.803803 },
+  'rv-new':                { lat: 31.879395, lng: 34.810704 },
+  'rv-dutch':              { lat: 31.893730, lng: 34.780757 },
+  'rv-center':             { lat: 31.894153, lng: 34.808148 }, // medium — landmark-anchored (city hall), no direct "מרכז העיר" place exists in OSM
+  'rv-shaarayim':          { lat: 31.887899, lng: 34.813283 },
 
   // ─── BAT YAM neighborhoods ─────────────────────────────────
   // NOTE: the 3 keys below don't match any real picker id (real ids are by-sea, by-ramat-yosef,
@@ -470,6 +541,10 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'by-karavanim':       { lat: 32.0031317, lng: 34.7464864 },
   'by-park-hayam':      { lat: 32.0059250, lng: 34.7360370 },
   'by-merkaz-lev-hair': { lat: 32.0162006, lng: 34.7412740 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM matches. ──
+  'by-ramat-yosef':     { lat: 32.0188421, lng: 34.7573597 },
+  'by-ramat-hanasi':    { lat: 32.0120789, lng: 34.7575278 },
+  'by-sea':             { lat: 32.0116614, lng: 34.7363566 }, // medium — landmark-anchored (Marina Beach), no bounded "טיילת הים" feature exists
 
   // ─── BEIT SHEMESH neighborhoods ────────────────────────────
   // NOTE: the 5 keys below don't match any real picker id (real ids are bsh-rama-a/b/c/d,
@@ -487,6 +562,12 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'bsh-chazon-ovadia':    { lat: 31.7036037, lng: 34.9937219 },
   'bsh-dovev-meisharim':  { lat: 31.7059415, lng: 34.9711772 },
   'bsh-ramat-ezra':       { lat: 31.7115353, lng: 34.9663951 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, OSM matches. ──
+  'bsh-rama-a':           { lat: 31.7144803, lng: 34.9904439 },
+  'bsh-rama-b':           { lat: 31.7297672, lng: 34.9925698 },
+  'bsh-rama-c':           { lat: 31.7041121, lng: 34.9886952 },
+  'bsh-rama-d':           { lat: 31.7063990, lng: 34.9671405 }, // medium — generic centroid across the district's sub-quarters, not hand-picked to the established core only (see commit note re: partial population)
+  'bsh-vatika':           { lat: 31.7490297, lng: 34.9859038 }, // OSM's own combined name "רמת משה - בית שמש הוותיקה"
 
   // ─── KFAR SABA neighborhoods ───────────────────────────────
   // NOTE: ks-neve-yarko/ks-north/ks-south below don't match any real picker id — pre-existing
@@ -524,6 +605,10 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'ks-sviyonei-hakfar':  { lat: 32.185744, lng: 34.897532 },
   'ks-hazamer-haivri':   { lat: 32.187356, lng: 34.892902 },
   'ks-shchuna-yeruka':   { lat: 32.196285, lng: 34.891574 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, GIS matches. ──
+  'ks-hadarim':          { lat: 32.180621, lng: 34.932876 },
+  'ks-aliyah':           { lat: 32.190654, lng: 34.900027 },
+  'ks-green':            { lat: 32.191821, lng: 34.892238 }, // midpoint of the 2 umbrella sub-developments (ks-hazamer-haivri + ks-shchuna-yeruka)
 
   // ─── HERZLIYA neighborhoods ────────────────────────────────
   // NOTE: hz-herzliya-gimmel/hz-shikun-vatikim/hz-north below don't match any real picker id —
@@ -550,6 +635,10 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'hz-weizmann-yavor':      { lat: 32.1649, lng: 34.8367 },
   'hz-yarok-baiir-brenner': { lat: 32.1693, lng: 34.8476 },
   'hz-yochanani-hayeruka':  { lat: 32.1740, lng: 34.8471 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, GIS polygon centroids. ──
+  'hz-green':               { lat: 32.171355, lng: 34.847186 }, // midpoint of the 2 umbrella subs (hz-yarok-baiir-brenner + hz-yochanani-hayeruka)
+  'hz-gan-rashel':          { lat: 32.180533, lng: 34.840778 },
+  'hz-glil-yam':            { lat: 32.158229, lng: 34.822269 },
 
   // ─── HADERA neighborhoods ──────────────────────────────────
   // NOTE: the keys below (hdr-*) don't match any real picker id (real ids use 'hd-' prefix) —
@@ -585,6 +674,12 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'hd-achuzat-dania':        { lat: 32.435056, lng: 34.940315 },
   'hd-hapark':               { lat: 32.427132, lng: 34.935228 },
   'hd-hapark-tzafon-vatik':  { lat: 32.432142, lng: 34.930625 },
+  // ── Completeness-gate fix (12.08.2026): genuine gaps, GIS polygon centroids. ──
+  'hd-ein-hayam':            { lat: 32.429636, lng: 34.882430 },
+  'hd-givat-olga':           { lat: 32.439680, lng: 34.884601 },
+  'hd-beit-eliezer':         { lat: 32.423448, lng: 34.949605 },
+  'hd-weizmann':             { lat: 32.445606, lng: 34.898152 },
+  'hd-center':               { lat: 32.435876, lng: 34.918668 }, // medium-high — the umbrella's own downtown core polygon, narrower than the full 4-cluster/19-neighborhood extent
   'hdr-givat-olga':    { lat: 32.4593, lng: 34.9124 },
   'hdr-kiryat-eliezer':{ lat: 32.4228, lng: 34.8988 },
 
