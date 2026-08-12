@@ -447,9 +447,19 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'rv-chatzrot-hamoshava': { lat: 31.8925728, lng: 34.7923660 },
 
   // ─── BAT YAM neighborhoods ─────────────────────────────────
+  // NOTE: the 3 keys below don't match any real picker id (real ids are by-sea, by-ramat-yosef,
+  // by-ramat-hanasi) — pre-existing orphaned block, same pattern found in several other cities
+  // this run. Left as-is, flagged for the later cleanup commit.
   'by-center': { lat: 32.0199, lng: 34.7523 },
   'by-kikar':  { lat: 32.0163, lng: 34.7453 },
   'by-north':  { lat: 32.0285, lng: 34.7504 },
+  // ── Bat Yam neighborhood reconcile, held for review. ──
+  'by-vatikim':         { lat: 32.0210436, lng: 34.7523161 },
+  'by-amidar':          { lat: 32.0285187, lng: 34.7561268 },
+  'by-kiryat-bobov':    { lat: 32.0089901, lng: 34.7528765 },
+  'by-karavanim':       { lat: 32.0031317, lng: 34.7464864 },
+  'by-park-hayam':      { lat: 32.0059250, lng: 34.7360370 },
+  'by-merkaz-lev-hair': { lat: 32.0162006, lng: 34.7412740 },
 
   // ─── BEIT SHEMESH neighborhoods ────────────────────────────
   // NOTE: the 5 keys below don't match any real picker id (real ids are bsh-rama-a/b/c/d,

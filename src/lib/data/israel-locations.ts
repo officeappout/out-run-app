@@ -619,11 +619,18 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     id: 'bat-yam',
     name: 'בת ים',
     type: 'city',
-    population: 129000,
+    population: 128895,
     subLocations: [
       { id: 'by-sea', name: 'טיילת הים', type: 'neighborhood' },
       { id: 'by-ramat-yosef', name: 'רמת יוסף', type: 'neighborhood' },
-      { id: 'by-ramat-hanasi', name: 'רמת הנשיא', type: 'neighborhood' }
+      { id: 'by-ramat-hanasi', name: 'רמת הנשיא', type: 'neighborhood' },
+      // ── Bat Yam neighborhood reconcile, held for review (no official GIS source; OSM + Wikipedia cross-validated). ──
+      { id: 'by-vatikim', name: 'שיכון ותיקים', type: 'neighborhood' },
+      { id: 'by-amidar', name: 'עמידר', type: 'neighborhood' },
+      { id: 'by-kiryat-bobov', name: 'קריית באבוב', type: 'neighborhood' },
+      { id: 'by-karavanim', name: 'שכונת הקרוואנים', type: 'neighborhood' },
+      { id: 'by-park-hayam', name: 'שכונת פארק הים', type: 'neighborhood' },
+      { id: 'by-merkaz-lev-hair', name: 'מרכז העיר / לב העיר', type: 'neighborhood' }
     ]
   },
   {
