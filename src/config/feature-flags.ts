@@ -465,6 +465,18 @@ export const RUNNING_NATIVE_KEEP_AWAKE_ENABLED = false;
 // unexpected regression.
 export const NEIGHBORHOOD_GEOCODE_GUARD_ENABLED = true;
 
+// STEP_GOAL_ROUTE_PREVIEW: when a /map?openRun=walking deep-link also carries
+// &targetSteps=N (sent by the step-goal push, functions/src/stepGoalNudgeScheduler.ts),
+// skip the empty FreeRunDrawer config step and jump straight to the RouteCarousel
+// pre-built at that target size (steps converted to km via
+// route-request.utils.ts's stepsToTargetKm — raw gap, no time-of-day chunking yet,
+// that's a later design decision). While false: openRun=walking behaves exactly as
+// before (lands on the config drawer), even if targetSteps is present in the URL.
+// Test scope: only David's account currently ever receives a push with targetSteps
+// (gated by app_config/feature_flags.stepGoalTestUids on the push side) — this flag
+// is a second, independent safety net on the map-consumption side.
+export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

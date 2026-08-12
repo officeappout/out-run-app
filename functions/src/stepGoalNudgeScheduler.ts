@@ -90,7 +90,6 @@ const DEFAULT_DAILY_STEP_GOAL = 3000; // matches profile.service.ts:66's fresh-a
 
 const TRIGGER_TYPE = 'Habit_Maintenance';
 const BUNDLE_ID_PREFIX = 'steps_';
-const DEEP_LINK = '/map?openRun=walking';
 const PUSH_TITLE = '💪 יעד הצעדים היומי';
 const TOKEN_FETCH_BATCH = 100;
 
@@ -179,12 +178,18 @@ async function dispatchToUser(user: CandidateUser): Promise<{ sent: boolean; rea
     steps_left: String(stepsLeft),
   });
 
+  // Carries the gap so the map side (behind IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED,
+  // src/config/feature-flags.ts) can pre-build a route sized to it instead of
+  // landing on the empty config drawer. Raw gap only for this test — no
+  // time-of-day chunking yet, that's a later design decision.
+  const deepLink = `/map?openRun=walking&targetSteps=${stepsLeft}`;
+
   const result = await sendPush({
     toUids: [user.uid],
     channel: 'health_milestone',
     title: PUSH_TITLE,
     body,
-    deepLink: DEEP_LINK,
+    deepLink,
     data: { triggerType: 'StepGoal', bundleId: selected.bundleId },
     rateCapHours: 24,
     skipQuietHours: true,

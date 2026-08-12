@@ -88,10 +88,12 @@ export interface MapShellProps {
 interface MapShellInnerProps {
   spotFocus?: { lat: number; lng: number } | null;
   initialOpenRun?: string | null;
+  /** Step-goal push deep-link target (see IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED). */
+  targetSteps?: string | null;
   isDemoMode?: boolean;
 }
 
-function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShellInnerProps) {
+function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
   const logic = useMapLogic(mode, contextActivity);
 
@@ -636,7 +638,7 @@ function MapShellInner({ spotFocus, initialOpenRun, isDemoMode = false }: MapShe
       </AnimatePresence>
 
       {/* ══════ LAYER ROUTER ══════ */}
-      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} onRecenter={handleRecenter} />}
+      {mode === 'discover' && <DiscoverLayer logic={logic} flyoverComplete={flyover.flyoverComplete} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} onRecenter={handleRecenter} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
       {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} onRecenter={handleRecenter} />}
@@ -738,6 +740,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const searchParams = useSearchParams();
   const mapPurpose = (initialContext ?? searchParams.get('context') ?? 'general') as MapPurpose;
   const initialOpenRun = searchParams.get('openRun'); // 'running' | 'walking' | null
+  const targetSteps = searchParams.get('targetSteps'); // step-goal push deep-link target, or null
   const isDemoMode = searchParams.get('demo') === '1';
 
   const fromExplorer = searchParams.get('fromExplorer') === 'true';
@@ -912,7 +915,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     <>
       {/* Map tree always mounts — Mapbox warms up behind the gate */}
       <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext}>
-        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} isDemoMode={isDemoMode} />
+        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} targetSteps={targetSteps} isDemoMode={isDemoMode} />
       </MapModeProvider>
 
       {/* Location gate — high z-index overlay, not a tree gate.

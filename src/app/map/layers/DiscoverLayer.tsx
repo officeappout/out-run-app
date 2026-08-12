@@ -28,7 +28,8 @@ import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybri
 import { useSuggestionEngineStore } from '@/features/workout-engine/core/store/useSuggestionEngineStore';
 import { buildMapUserContext } from '@/features/workout-engine/core/context/build-map-user-context';
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
-import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1 } from '@/config/feature-flags';
+import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED } from '@/config/feature-flags';
+import { stepsToTargetKm } from '@/features/parks/core/services/route-request.utils';
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
@@ -159,11 +160,13 @@ interface DiscoverLayerProps {
   flyoverComplete: boolean;
   devSim?: DevSimulationState;
   initialOpenRun?: string | null;
+  /** Step-goal push deep-link target (see IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED). */
+  targetSteps?: string | null;
   /** Center the camera on the best-available fix (live GPS or fallback dot). */
   onRecenter?: () => void;
 }
 
-export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, onRecenter }: DiscoverLayerProps) {
+export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, targetSteps, onRecenter }: DiscoverLayerProps) {
   const router = useRouter();
   const { setMode } = useMapMode();
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -173,6 +176,15 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // onStartLegPlanRun below once the route is drawn + the drawer has
   // exited; LegPlanStartPreview confirms (auto or tap) → startActiveWorkout.
   const [legPlanPreview, setLegPlanPreview] = useState<CompiledLegPlanRoute | null>(null);
+
+  // Moved up from its original position further down (was line ~576) — the
+  // step-goal deep-link effect below needs it in a dependency array, which
+  // TS evaluates synchronously at that point in render, unlike a normal
+  // closure-body reference. `devSim`/`logic` are stable props, available
+  // from the top of this component, so moving this earlier is safe; every
+  // other usage further down in the file is unaffected (still after this
+  // declaration either way).
+  const userLocation = (devSim?.effectiveLocation(logic.currentUserPos) ?? logic.currentUserPos) ?? null;
 
   // ── Viewport-search ("חפש באזור זה") state ───────────────────────────────
   const viewportBounds = useMapStore((s) => s.viewportBounds);
@@ -343,14 +355,42 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // Graceful fallback: if localStorage is malformed or membership expired,
   // the drawer still opens — the user can run alone without partner visibility.
   const openRunConsumedRef = useRef(false);
+  // Step-goal push deep-link (/map?openRun=walking&targetSteps=N) — separate ref
+  // so this can fire on a LATER effect run than the one-time setup below (it
+  // needs userLocation, which may not be ready yet on mount; the setup below
+  // doesn't). See IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED in config/feature-flags.ts.
+  const openRunRoutePreviewFiredRef = useRef(false);
   useEffect(() => {
-    if (!initialOpenRun || openRunConsumedRef.current) return;
+    if (!initialOpenRun) return;
+
+    // Checked BEFORE the one-time setup below, and independently of it, so a
+    // same-tick case (userLocation already resolved on mount) still lands on
+    // 'route' rather than being overwritten by the setup's own setFreeRunStep
+    // ('config') call further down — jumpedToRoute suppresses that call.
+    let jumpedToRoute = false;
+    if (
+      IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED &&
+      initialOpenRun === 'walking' &&
+      targetSteps &&
+      userLocation &&
+      !openRunRoutePreviewFiredRef.current
+    ) {
+      openRunRoutePreviewFiredRef.current = true;
+      const targetKm = stepsToTargetKm(Number(targetSteps));
+      setRouteCarouselConfig({ targetKm, includeStrength: false, surface: 'road' });
+      setFreeRunStep('route');
+      jumpedToRoute = true;
+    }
+
+    if (openRunConsumedRef.current) return;
     openRunConsumedRef.current = true;
 
     // Pre-select host's activity type (default, not locked — user can change it)
     logic.handleActivityChange(initialOpenRun as ActivityType);
     setMapMode('freeRun');
-    setFreeRunStep('config'); // deep-link → the drawer (explicit SM)
+    if (!jumpedToRoute) {
+      setFreeRunStep('config'); // deep-link → the drawer (explicit SM)
+    }
 
     // Consume pending_run_invite — restore partner context after Zustand reset (iOS hard-close).
     // Normal navigation path: Zustand already has groupId + membershipReady=true from the
@@ -406,7 +446,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       // Malformed JSON — FreeRunDrawer is already open, just no partner context
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialOpenRun]);
+  }, [initialOpenRun, targetSteps, userLocation]);
 
   // ── Commute (A-to-B) flow state ───────────────────────────────────────────
   // `commuteRouteConfig` mirrors `routeCarouselConfig` for the commute
@@ -542,7 +582,6 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   // bumped to 15km when fewer than 3 results show up. The bump happens via
   // a state set inside the effect below, NOT inside `usePartnerData` itself,
   // so we get exactly one re-subscription cycle when expansion fires.
-  const userLocation = (devSim?.effectiveLocation(logic.currentUserPos) ?? logic.currentUserPos) ?? null;
   const requestedDistanceKm = usePartnerFilters((s) => s.distanceKm);
 
   // Resolved city for the FreeRunDrawer route flow. Same hook that

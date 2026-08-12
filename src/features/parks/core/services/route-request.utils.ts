@@ -41,6 +41,18 @@ export function computeTargetKm(goal: DrawerGoal, activity: DrawerActivity): num
   return Math.max(MIN_TARGET_KM, goal.caloriesValue / KCAL_PER_KM[activity]);
 }
 
+/** Assumed average walking stride (meters/step) — used only to convert a raw
+ * step-count target (e.g. steps_left from the step-goal push) into a route
+ * distance target. Deliberately simple: no pace/time-of-day chunking — that's
+ * a later design decision, this is the raw-gap test scope. */
+const AVG_WALK_STRIDE_METERS = 0.75;
+
+/** Convert a target step count into a route-generation distance (km). */
+export function stepsToTargetKm(steps: number): number {
+  const safeSteps = Number.isFinite(steps) && steps > 0 ? steps : 0;
+  return Math.max(MIN_TARGET_KM, (safeSteps * AVG_WALK_STRIDE_METERS) / 1000);
+}
+
 export interface RouteGenRequest {
   targetKm: number;
   includeStrength: boolean;
