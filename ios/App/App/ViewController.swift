@@ -27,6 +27,20 @@ class ViewController: CAPBridgeViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        // Heat investigation diagnostic (11.08.2026) — see MARK section below.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(thermalStateDidChange),
+            name: ProcessInfo.thermalStateDidChangeNotification,
+            object: nil
+        )
+        // NOT seeded here: at viewDidLoad time the WKWebView's JS context doesn't exist
+        // yet (window.Capacitor isn't defined), so triggerWindowJSEvent would silently
+        // no-op (Capacitor logs the eval failure, doesn't crash). The real baseline seed
+        // is in onWebContentRecovered() below, which already fires on the first
+        // successful navigation finish — the actual "web content is ready" signal.
+
         // Enable swipe-from-left-edge back navigation in the WebView.
         // This mirrors the Android hardware-back behaviour wired in
         // src/lib/native/init.ts (window.history.back / App.minimizeApp).
@@ -96,6 +110,32 @@ class ViewController: CAPBridgeViewController {
         bridge?.triggerWindowJSEvent(eventName: "memoryWarning")
     }
 
+    // MARK: - Heat investigation — real thermal-state diagnostic (11.08.2026)
+
+    /// Forwards iOS's actual `ProcessInfo.thermalState` to the web layer — an OBJECTIVE
+    /// signal for the map-heat investigation, instead of inferring heat indirectly from
+    /// workload (log volume, operation timing). Diagnostic only: unlike the memory-warning
+    /// signal above, nothing currently sheds behavior on this — it exists so a real number
+    /// (nominal/fair/serious/critical, the same tiers iOS itself uses to throttle the CPU/
+    /// GPU) shows up in the console instead of relying on "does the phone feel hot."
+    /// Safe to remove once the investigation is done.
+    @objc private func thermalStateDidChange() {
+        notifyThermalState()
+    }
+
+    private func notifyThermalState() {
+        let level: String
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: level = "nominal"
+        case .fair: level = "fair"
+        case .serious: level = "serious"
+        case .critical: level = "critical"
+        @unknown default: level = "unknown"
+        }
+        NSLog("[thermal] state=%@", level)
+        bridge?.triggerWindowJSEvent(eventName: "thermalStateChanged", data: "{\"state\":\"\(level)\"}")
+    }
+
     // MARK: - Stage 3 Part B — web-content OOM recovery (the loop-breaker)
 
     /// Strong ref to the recovery proxy — `navigationDelegate` is weak, so once
@@ -125,6 +165,11 @@ class ViewController: CAPBridgeViewController {
     fileprivate func onWebContentRecovered() {
         terminateBackoff = 1.0
         hideReconnectOverlay()
+        // Real baseline seed for the thermal-state diagnostic (see the MARK section
+        // above): this is the first point where window.Capacitor actually exists in
+        // the WebView's JS context, so it's the correct place to seed — not
+        // viewDidLoad. Also harmlessly re-fires on later recoveries/reloads.
+        notifyThermalState()
     }
 
     private func showReconnectOverlay() {

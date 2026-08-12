@@ -85,6 +85,23 @@ export function initAppForegroundTracking(): void {
     useAppForegroundStore.getState()._signalMemoryWarning();
   });
 
+  // ── Heat investigation — real thermal-state diagnostic (11.08.2026) ─────
+  // iOS posts a `thermalStateChanged` window event (ViewController.notifyThermalState
+  // → bridge.triggerWindowJSEvent, seeded once on load + on every real change) carrying
+  // the OS's actual ProcessInfo.thermalState (nominal/fair/serious/critical — the same
+  // tiers iOS itself uses to throttle CPU/GPU). Diagnostic only, console-only, not wired
+  // to any store/shedding behavior — answers "is the phone objectively hot" without
+  // relying on inferring it from workload. NATIVE-ONLY: requires a new iOS build to
+  // reach a device (ViewController.swift change, not deployable via a web push alone —
+  // axioms.md §10). Safe to remove once the investigation is done.
+  window.addEventListener('thermalStateChanged', (e) => {
+    // NOT a CustomEvent — Capacitor's native-bridge `triggerEvent` spreads the data
+    // object's own keys directly onto the Event instance (`ev[key] = value`), not into
+    // `event.detail`. Confirmed by reading native-bridge.js's `createEvent` directly.
+    const state = (e as unknown as { state?: string }).state;
+    console.log(`[thermal] state=${state ?? 'unknown'}`);
+  });
+
   // ── Native (Capacitor) — dynamic import per axiom §4 ─────────────────────
   if (isNativeApp()) {
     void (async () => {
