@@ -254,10 +254,29 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   // ─── NETANYA neighborhoods ─────────────────────────────────
   'nt-center':          { lat: 32.3293, lng: 34.8572 },
   'nt-north':           { lat: 32.3530, lng: 34.8510 },
-  'nt-kiryat-nordau':   { lat: 32.3189, lng: 34.8548 },
   'nt-ir-yamim':        { lat: 32.3401, lng: 34.8686 },
   'nt-kiryat-hasharon': { lat: 32.3157, lng: 34.8722 },
   'nt-maccabim':        { lat: 32.3060, lng: 34.8781 },
+  // ── Netanya neighborhood reconcile, held for review. ──
+  // nt-kiryat-nordau below replaces a pre-existing orphaned-key value with the geocoded result.
+  'nt-merkaz-hair-tsafon-maarav': { lat: 32.3364, lng: 34.8518 }, // anchored to Sderot Nitza (real street in this official neighborhood)
+  'nt-merkaz-hair-darom':         { lat: 32.3304, lng: 34.8515 }, // anchored to כיכר העצמאות (Independence Sq, old-city core landmark)
+  'nt-merkaz-hair-tsafon-mizrach':{ lat: 32.3340, lng: 34.8620 }, // approximate — no landmark match; positioned per muni page's Herzl/Herzog St boundary description, flagged lower-confidence
+  'nt-kiryat-nordau':             { lat: 32.283953, lng: 34.856102 },
+  'nt-neot-shaked':               { lat: 32.295847, lng: 34.850560 },
+  'nt-neot-herzl':                { lat: 32.335261, lng: 34.868679 },
+  'nt-neot-ganim':                { lat: 32.315237, lng: 34.886703 },
+  'nt-ramat-efraim':              { lat: 32.324062, lng: 34.864174 },
+  'nt-pardes-hagdud':             { lat: 32.343448, lng: 34.866428 },
+  'nt-mishkenot-zvulun':          { lat: 32.309351, lng: 34.878845 },
+  'nt-kiryat-rabin':              { lat: 32.305753, lng: 34.882842 },
+  'nt-kiryat-sanz':               { lat: 32.342733, lng: 34.861602 },
+  'nt-ein-hatchelet':             { lat: 32.350288, lng: 34.860677 },
+  'nt-ramat-chen':                { lat: 32.311030, lng: 34.858325 },
+  'nt-givat-hairusim':            { lat: 32.285363, lng: 34.847771 },
+  'nt-galei-hayam':               { lat: 32.302739, lng: 34.850035 },
+  'nt-ben-tzion':                 { lat: 32.316684, lng: 34.856443 },
+  'nt-neve-itamar':               { lat: 32.323972, lng: 34.875854 },
 
   // ─── BEER SHEVA neighborhoods ──────────────────────────────
   'bs-center': { lat: 31.2454, lng: 34.7869 },

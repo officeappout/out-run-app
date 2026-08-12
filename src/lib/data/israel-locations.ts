@@ -411,7 +411,26 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'nt-kiryat-hasharon', name: 'קרית השרון', type: 'neighborhood' },
       { id: 'nt-agami', name: 'אגמים', type: 'neighborhood' },
       { id: 'nt-center', name: 'מרכז העיר', type: 'neighborhood' },
-      { id: 'nt-dora', name: 'רמת ידין (דורה)', type: 'neighborhood' }
+      { id: 'nt-dora', name: 'רמת ידין · דורה', type: 'neighborhood' },
+      // ── Netanya neighborhood reconcile, held for review (official odata.org.il municipal feed, 27 named). ──
+      { id: 'nt-merkaz-hair-tsafon-maarav', name: 'צפון מערב מרכז העיר', type: 'neighborhood' }, // legacy nt-center kept untouched; flagged for later hide/merge pass
+      { id: 'nt-merkaz-hair-darom', name: 'מרכז העיר דרום', type: 'neighborhood' },
+      { id: 'nt-merkaz-hair-tsafon-mizrach', name: 'צפון מזרח מרכז העיר', type: 'neighborhood' },
+      { id: 'nt-kiryat-nordau', name: 'קרית נורדאו', type: 'neighborhood' },
+      { id: 'nt-neot-shaked', name: 'נאות שקד', type: 'neighborhood' },
+      { id: 'nt-neot-herzl', name: 'נאות הרצל', type: 'neighborhood' },
+      { id: 'nt-neot-ganim', name: 'נאות גנים', type: 'neighborhood' },
+      { id: 'nt-ramat-efraim', name: 'רמת אפרים', type: 'neighborhood' },
+      { id: 'nt-pardes-hagdud', name: 'פרדס הגדוד', type: 'neighborhood' },
+      { id: 'nt-mishkenot-zvulun', name: 'משכנות זבולון', type: 'neighborhood' },
+      { id: 'nt-kiryat-rabin', name: 'קרית רבין', type: 'neighborhood' },
+      { id: 'nt-kiryat-sanz', name: 'קריית צאנז', type: 'neighborhood' },
+      { id: 'nt-ein-hatchelet', name: 'עין התכלת', type: 'neighborhood' },
+      { id: 'nt-ramat-chen', name: 'רמת חן', type: 'neighborhood' },
+      { id: 'nt-givat-hairusim', name: 'גבעת האירוסים', type: 'neighborhood' },
+      { id: 'nt-galei-hayam', name: 'גלי הים', type: 'neighborhood' },
+      { id: 'nt-ben-tzion', name: 'בן ציון', type: 'neighborhood' },
+      { id: 'nt-neve-itamar', name: 'נווה איתמר', type: 'neighborhood' }
     ]
   },
   {
