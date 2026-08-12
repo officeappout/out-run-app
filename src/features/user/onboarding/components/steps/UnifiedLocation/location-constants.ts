@@ -516,11 +516,30 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'ks-shchuna-yeruka':   { lat: 32.196285, lng: 34.891574 },
 
   // ─── HERZLIYA neighborhoods ────────────────────────────────
+  // NOTE: hz-herzliya-gimmel/hz-shikun-vatikim/hz-north below don't match any real picker id —
+  // pre-existing orphaned keys, flagged for the later cleanup commit. hz-pituah (no final ch) is
+  // a near-miss typo of the real id hz-pituach — hz-pituach added below reusing this value.
   'hz-center':          { lat: 32.1620, lng: 34.8432 },
   'hz-pituah':          { lat: 32.1552, lng: 34.8252 },
   'hz-herzliya-gimmel': { lat: 32.1710, lng: 34.8538 },
   'hz-shikun-vatikim':  { lat: 32.1680, lng: 34.8390 },
   'hz-north':           { lat: 32.1788, lng: 34.8508 },
+  // ── Herzliya neighborhood reconcile, held for review. ──
+  'hz-pituach':             { lat: 32.1552, lng: 34.8252 },
+  'hz-nachalat-ada':        { lat: 32.1835, lng: 34.8381 },
+  'hz-yad-hatisha':         { lat: 32.1751, lng: 34.8555 },
+  'hz-neve-amal':           { lat: 32.1655, lng: 34.8585 },
+  'hz-herzliya-hatzeira':   { lat: 32.1567, lng: 34.8471 },
+  'hz-neve-israel':         { lat: 32.1576, lng: 34.8371 },
+  'hz-neve-amirim':         { lat: 32.1541, lng: 34.8376 },
+  'hz-herzliya-bet':        { lat: 32.1667, lng: 34.8167 },
+  'hz-hills':               { lat: 32.1620, lng: 34.8134 },
+  'hz-nof-yam':             { lat: 32.1861, lng: 34.8098 },
+  'hz-navon':               { lat: 32.1755, lng: 34.8354 },
+  'hz-hanadiv':             { lat: 32.1675, lng: 34.8323 },
+  'hz-weizmann-yavor':      { lat: 32.1649, lng: 34.8367 },
+  'hz-yarok-baiir-brenner': { lat: 32.1693, lng: 34.8476 },
+  'hz-yochanani-hayeruka':  { lat: 32.1740, lng: 34.8471 },
 
   // ─── HADERA neighborhoods ──────────────────────────────────
   'hdr-center':        { lat: 32.4327, lng: 34.9239 },

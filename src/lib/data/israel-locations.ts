@@ -697,13 +697,28 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     id: 'herzliya',
     name: 'הרצליה',
     type: 'city',
-    population: 108000,
+    population: 112723,
     subLocations: [
       { id: 'hz-pituach', name: 'הרצליה פיתוח', type: 'neighborhood' },
       { id: 'hz-green', name: 'הרצליה הירוקה', type: 'neighborhood' },
-      { id: 'hz-center', name: 'מרכז העיר', type: 'neighborhood' },
+      { id: 'hz-center', name: 'שז״ר המרכזית · מרכז העיר', type: 'neighborhood' },
       { id: 'hz-gan-rashel', name: 'גן רש״ל', type: 'neighborhood' },
-      { id: 'hz-glil-yam', name: 'גליל ים', type: 'neighborhood' }
+      { id: 'hz-glil-yam', name: 'גליל ים', type: 'neighborhood' },
+      // ── Herzliya neighborhood reconcile, held for review (official municipal ArcGIS "קהילות" layer, 17 features). ──
+      { id: 'hz-nachalat-ada', name: 'נחלת עדה', type: 'neighborhood' },
+      { id: 'hz-yad-hatisha', name: 'יד התשעה', type: 'neighborhood' },
+      { id: 'hz-neve-amal', name: 'נווה עמל', type: 'neighborhood' },
+      { id: 'hz-herzliya-hatzeira', name: 'הרצליה הצעירה', type: 'neighborhood' },
+      { id: 'hz-neve-israel', name: 'נווה ישראל', type: 'neighborhood' },
+      { id: 'hz-neve-amirim', name: 'נווה אמירים', type: 'neighborhood' },
+      { id: 'hz-herzliya-bet', name: 'הרצליה ב׳', type: 'neighborhood' },
+      { id: 'hz-hills', name: 'הרצליה הילס', type: 'neighborhood' },
+      { id: 'hz-nof-yam', name: 'נוף ים', type: 'neighborhood' },
+      { id: 'hz-navon', name: 'נבון', type: 'neighborhood' },
+      { id: 'hz-hanadiv', name: 'הנדיב', type: 'neighborhood' },
+      { id: 'hz-weizmann-yavor', name: 'ויצמן · יבור', type: 'neighborhood' },
+      { id: 'hz-yarok-baiir-brenner', name: 'ירוק בעיר - ברנר', type: 'neighborhood' },
+      { id: 'hz-yochanani-hayeruka', name: 'יוחנני הירוקה', type: 'neighborhood' }
     ]
   },
   {
