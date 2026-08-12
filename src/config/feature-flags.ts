@@ -37,7 +37,7 @@ export const HYBRID_SLOT_PREVIEW_ENABLED = true;
 // Set to true to switch to the unified text-only design (name + meta + Difficulty
 // Bolts + CTA, no top image). Rollout-safe compile-time guard. Mirrors the same
 // flag on the fix/route-card-park-style branch.
-export const UNIFIED_ROUTE_CARDS_ENABLED = false;
+export const UNIFIED_ROUTE_CARDS_ENABLED = true; // ⚠️ LOCAL PREVIEW ONLY — committed false
 
 // LEAGUES: Arena / leagues surface inside /community. Independent of the feed
 // so leagues can ship to stores while the social feed stays paused. Runtime

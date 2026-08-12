@@ -12,9 +12,10 @@
  * whole plan; peek only reveals the map.)
  */
 
-import { Ruler, Clock, Flame, Dumbbell, MapPin, Play, ArrowRight, Info } from 'lucide-react';
+import { Ruler, Clock, Flame, Dumbbell, MapPin, Play, ArrowRight, Info, ChevronLeft } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
+import { resolveIconKey, getProgramIcon } from '@/features/content/programs/core/program-icon.util';
 import HybridJourneyAxis from './HybridJourneyAxis';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/features/workout-engine/shared/hooks/useSheetDrag';
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
@@ -56,10 +57,39 @@ interface Props {
 }
 
 export default function HybridOverviewScreen({ composed, cityName, onStart, onBack, onExerciseTap, onSwapExercise }: Props) {
-  const { plan, fallbackHint } = composed;
+  const { plan, fallbackHint, aerobicKind } = composed;
   const t = plan.totals;
   const exCount = plan.segments.reduce((n, s) => n + (s.kind === 'strength' ? s.content?.exercises?.length ?? 0 : 0), 0);
   const totalMin = Math.round((t.aerobicMin ?? 0) + (t.strengthMin ?? 0));
+
+  // Moovit-style at-a-glance sequence (RTL): walk-leg (mins) › station (program icon
+  // + "כוח") › walk-leg … Built from the SAME composed segments the axis renders, and
+  // both icons come from the shared program-icon map — no new icon logic.
+  const journeyStrip: JSX.Element[] = [];
+  plan.segments.forEach((seg, i) => {
+    if (journeyStrip.length > 0) {
+      journeyStrip.push(<ChevronLeft key={`sep${i}`} size={13} style={{ color: '#CBD5E1', flexShrink: 0 }} />);
+    }
+    if (seg.kind === 'aerobic') {
+      const kind = seg.aerobicType ?? aerobicKind; // 'walking' → WalkingIcon · 'running' → RunIcon
+      journeyStrip.push(
+        <span key={`leg${i}`} className="inline-flex items-center gap-1 text-[12.5px] font-bold whitespace-nowrap" style={{ color: '#374151' }}>
+          <span className="inline-flex" style={{ color: AER }}>{getProgramIcon(resolveIconKey(kind === 'walking' ? 'walking' : 'running'), 'w-[15px] h-[15px]')}</span>
+          {Math.round((seg.durationSec ?? 0) / 60)} דק׳
+        </span>,
+      );
+    } else {
+      // domainFocus = the station's program (push | pull | legs_core). The shared map
+      // keys legs/core separately, so legs_core → legs for the icon lookup.
+      const alias = seg.domainFocus === 'legs_core' ? 'legs' : seg.domainFocus;
+      journeyStrip.push(
+        <span key={`stn${i}`} className="inline-flex items-center gap-1 text-[12.5px] font-extrabold whitespace-nowrap" style={{ color: '#B45309' }}>
+          <span className="inline-flex" style={{ color: STR }}>{getProgramIcon(resolveIconKey(alias), 'w-[15px] h-[15px]')}</span>
+          כוח
+        </span>,
+      );
+    }
+  });
 
   const dragControls = useDragControls();
   const { cardRef, currentAnchor, controls, handleDragEnd, dragConstraints, viewportH } =
@@ -116,6 +146,15 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 <Info size={15} /> {fallbackHint}
               </div>
             )}
+
+            {/* Moovit-style journey strip — SAME bolts pill (bg/border/shadow/radius),
+                sequence + icons pulled from the composed plan + the program-icon map. */}
+            <div className="mt-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              <div className="inline-flex items-center gap-2 bg-white rounded-lg"
+                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: '7px 11px' }}>
+                {journeyStrip}
+              </div>
+            </div>
 
             {/* chips */}
             <div className="flex gap-2 mt-3 flex-wrap">
