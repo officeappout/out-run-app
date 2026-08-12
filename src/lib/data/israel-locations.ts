@@ -397,7 +397,19 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'ad-a', name: 'רובע א׳', type: 'neighborhood' },
       { id: 'ad-d', name: 'רובע ד׳', type: 'neighborhood' },
       { id: 'ad-yud-nun', name: 'רובע י״א / י״ב', type: 'neighborhood' },
-      { id: 'ad-tu', name: 'רובע ט״ו', type: 'neighborhood' }
+      { id: 'ad-tu', name: 'רובע ט״ו', type: 'neighborhood' },
+      // ── Ashdod neighborhood reconcile, held for review (17 numbered רבעים per official municipal source, 3-source cross-checked). ──
+      { id: 'ad-bet', name: 'רובע ב׳', type: 'neighborhood' },
+      { id: 'ad-gimel', name: 'רובע ג׳', type: 'neighborhood' },
+      { id: 'ad-hey', name: 'רובע ה׳', type: 'neighborhood' },
+      { id: 'ad-vav', name: 'רובע ו׳', type: 'neighborhood' },
+      { id: 'ad-zayin', name: 'רובע ז׳', type: 'neighborhood' },
+      { id: 'ad-het', name: 'רובע ח׳', type: 'neighborhood' },
+      { id: 'ad-tet', name: 'רובע ט׳', type: 'neighborhood' },
+      { id: 'ad-yud', name: 'רובע י׳', type: 'neighborhood' },
+      { id: 'ad-yud-gimel', name: 'רובע י״ג', type: 'neighborhood' },
+      { id: 'ad-tet-zayin', name: 'רובע ט״ז', type: 'neighborhood' },
+      { id: 'ad-yud-zayin', name: 'רובע י״ז', type: 'neighborhood' }
     ]
   },
   {

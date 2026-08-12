@@ -244,12 +244,28 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'pt-machane-yehuda':            { lat: 32.080659, lng: 34.894248 },
 
   // ─── ASHDOD neighborhoods ──────────────────────────────────
+  // NOTE: the 6 keys below (asd-*) do not match any real picker id (real ids use 'ad-' prefix:
+  // ad-city, ad-marina, ad-a, ad-d, ad-yud-nun, ad-tu) — pre-existing dead/orphaned block, found
+  // while adding the reconcile below. Left as-is (ambiguous 1:1 remap, not touched this round);
+  // flagged for the later cleanup commit alongside the other orphaned-key findings.
   'asd-center':   { lat: 31.8008, lng: 34.6445 },
   'asd-yud-alef': { lat: 31.8220, lng: 34.6630 },
   'asd-yud-bet':  { lat: 31.8320, lng: 34.6745 },
   'asd-gimmel':   { lat: 31.7905, lng: 34.6520 },
   'asd-dalet':    { lat: 31.8015, lng: 34.6670 },
   'asd-hey':      { lat: 31.8153, lng: 34.6528 },
+  // ── Ashdod neighborhood reconcile, held for review. ──
+  'ad-bet':        { lat: 31.805012, lng: 34.654017 },
+  'ad-gimel':      { lat: 31.799647, lng: 34.662811 },
+  'ad-hey':        { lat: 31.795897, lng: 34.646809 },
+  'ad-vav':        { lat: 31.793337, lng: 34.655112 },
+  'ad-zayin':      { lat: 31.790419, lng: 34.664468 },
+  'ad-het':        { lat: 31.787615, lng: 34.653582 },
+  'ad-tet':        { lat: 31.783634, lng: 34.662236 },
+  'ad-yud':        { lat: 31.782302, lng: 34.653499 },
+  'ad-yud-gimel':  { lat: 31.776228, lng: 34.642795 },
+  'ad-tet-zayin':  { lat: 31.771354, lng: 34.637920 },
+  'ad-yud-zayin':  { lat: 31.768858, lng: 34.625286 },
 
   // ─── NETANYA neighborhoods ─────────────────────────────────
   'nt-center':          { lat: 32.3293, lng: 34.8572 },
