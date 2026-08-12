@@ -146,14 +146,24 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'ta-hatikvah':      { lat: 32.0483, lng: 34.7910 },
 
   // ─── HAIFA neighborhoods ───────────────────────────────────
+  // NOTE (completeness-gate fix, 12.08.2026): haifa-center/haifa-downtown below are the 2
+  // orphaned keys left over after the mechanical remap — neither is a real match for
+  // hf-ahuza/hf-denya (both are lower-city/Hadar-area coordinates, while Ahuza/Denya are
+  // upper-Carmel neighborhoods) so they were NOT force-fit; hf-ahuza/hf-denya got fresh
+  // OSM-geocoded values instead (see below). haifa-center/haifa-downtown remain dead,
+  // flagged for the later cleanup commit.
   'haifa-center':        { lat: 32.8100, lng: 34.9900 },
-  'haifa-carmel':        { lat: 32.7881, lng: 34.9819 },
-  'haifa-hadar':         { lat: 32.8173, lng: 34.9993 },
-  'haifa-neve-shaanan':  { lat: 32.7994, lng: 35.0055 },
-  'haifa-bat-galim':     { lat: 32.8334, lng: 34.9707 },
-  'haifa-kiryat-haim':   { lat: 32.8317, lng: 35.0693 },
-  'haifa-kiryat-eliezer':{ lat: 32.8251, lng: 34.9826 },
   'haifa-downtown':      { lat: 32.8170, lng: 34.9989 },
+  // ── Completeness-gate fix: mechanical prefix remap (haifa- → hf-), coords unchanged. ──
+  'hf-carmel':           { lat: 32.7881, lng: 34.9819 },
+  'hf-hadar':            { lat: 32.8173, lng: 34.9993 },
+  'hf-neve-shaanan':     { lat: 32.7994, lng: 35.0055 },
+  'hf-bat-galim':        { lat: 32.8334, lng: 34.9707 },
+  'hf-kiryat-haim':      { lat: 32.8317, lng: 35.0693 },
+  'hf-kiryat-eliezer':   { lat: 32.8251, lng: 34.9826 },
+  // ── Completeness-gate fix: genuine gaps, fresh OSM administrative-boundary matches. ──
+  'hf-ahuza':            { lat: 32.7864707, lng: 34.9798763 },
+  'hf-denya':            { lat: 32.7659520, lng: 34.9957997 },
 
   // ─── RISHON LEZION neighborhoods ───────────────────────────
   'rl-center':        { lat: 31.9636, lng: 34.7988 },
