@@ -1,13 +1,26 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Dumbbell, Timer, Flame, Layers, Star } from 'lucide-react';
+import { ArrowRight, Dumbbell, Timer, Flame, Layers, Star, Trash2 } from 'lucide-react';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
+import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
+import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 
 interface Props {
   workout: WorkoutHistoryEntry;
   onClose: () => void;
+  /**
+   * Called with the deleted workout's id right after
+   * deleteWorkoutWithReversal() succeeds. ProfilePage wires this to the
+   * same removeWorkout() from useWorkoutHistory() that HistoryTab's own
+   * swipe-to-delete flow uses (see HistoryTab.tsx), so the row disappears
+   * from HistoryTab's list immediately instead of waiting on HistoryTab's
+   * next remount + one-shot refetch (useWorkoutHistory() is not a live
+   * subscription). Optional so this component still renders standalone.
+   */
+  onWorkoutDeleted?: (workoutId: string) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -38,7 +51,29 @@ function DifficultyBolts({ level }: { level?: 1 | 2 | 3 }) {
   );
 }
 
-export default function StrengthHistoryDetail({ workout, onClose }: Props) {
+export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDeleted }: Props) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!workout.id) {
+      // No id to delete against — dismiss the confirm and bail rather than
+      // calling deleteWorkoutWithReversal with an empty string.
+      setShowDeleteConfirm(false);
+      return;
+    }
+    const workoutId = workout.id;
+    const result = await deleteWorkoutWithReversal(workoutId);
+    // Mirrors HistoryTab.tsx's own swipe-to-delete flow: only tell the list
+    // to drop the row once the delete actually succeeded (a failed delete
+    // leaves the doc in place, so it should still show up when the user
+    // returns to the list).
+    if (result.deleted) {
+      onWorkoutDeleted?.(workoutId);
+    }
+    setShowDeleteConfirm(false);
+    onClose();
+  };
+
   const completionRate =
     workout.setsPlanned && workout.setsPlanned > 0
       ? Math.round(((workout.setsCompleted ?? 0) / workout.setsPlanned) * 100)
@@ -83,6 +118,15 @@ export default function StrengthHistoryDetail({ workout, onClose }: Props) {
           <h1 className="text-base font-bold text-gray-900">סיכום אימון כוח</h1>
           <p className="text-xs text-gray-500 mt-0.5">{formatDate(workout.date)}</p>
         </div>
+        {WORKOUT_DELETE_EXPANDED_ENABLED && (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2 rounded-full hover:bg-red-50 transition-colors"
+            aria-label="מחק אימון"
+          >
+            <Trash2 className="w-5 h-5 text-red-400" />
+          </button>
+        )}
       </div>
 
       {/* Body */}
@@ -151,6 +195,17 @@ export default function StrengthHistoryDetail({ workout, onClose }: Props) {
           </motion.div>
         )}
       </div>
+
+      {WORKOUT_DELETE_EXPANDED_ENABLED && (
+        <DeleteWorkoutConfirmModal
+          isOpen={showDeleteConfirm}
+          activityLabel="אימון כוח"
+          dateLabel={formatDate(workout.date)}
+          xpToReverse={workout.xpEarned ?? 0}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </div>
   );
 }

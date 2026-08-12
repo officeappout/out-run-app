@@ -18,9 +18,25 @@ interface HistorySheetProps {
   isOpen: boolean;
   onClose: () => void;
   onWorkoutClick: (workout: WorkoutHistoryEntry) => void;
+  /**
+   * Forwarded straight through to HistoryTab. Owned by ProfilePage (not by
+   * this component or HistoryTab) so the list survives ProfilePage's swap
+   * to StrengthHistoryDetail/FreeRunSummary — see HistoryTab's prop doc
+   * comment for why that matters.
+   */
+  workouts: WorkoutHistoryEntry[];
+  isLoading: boolean;
+  removeWorkout: (workoutId: string) => void;
 }
 
-export default function HistorySheet({ isOpen, onClose, onWorkoutClick }: HistorySheetProps) {
+export default function HistorySheet({
+  isOpen,
+  onClose,
+  onWorkoutClick,
+  workouts,
+  isLoading,
+  removeWorkout,
+}: HistorySheetProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -58,7 +74,12 @@ export default function HistorySheet({ isOpen, onClose, onWorkoutClick }: Histor
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
-              <HistoryTab onWorkoutClick={onWorkoutClick} />
+              <HistoryTab
+                onWorkoutClick={onWorkoutClick}
+                workouts={workouts}
+                isLoading={isLoading}
+                removeWorkout={removeWorkout}
+              />
               <div className="h-6" />
             </div>
           </motion.div>

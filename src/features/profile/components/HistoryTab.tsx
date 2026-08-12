@@ -1,19 +1,93 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useWorkoutHistory } from '@/features/profile/hooks/useWorkoutHistory';
+import React, { useState, useMemo, useCallback } from 'react';
 import WorkoutHistoryCard from '@/features/profile/components/WorkoutHistoryCard';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
+import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
+import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 
 type FilterType = 'all' | 'running' | 'strength';
 
 interface HistoryTabProps {
   onWorkoutClick: (workout: WorkoutHistoryEntry) => void;
+  /**
+   * List state now lives in ProfilePage (see src/app/profile/page.tsx),
+   * not in this component — ProfilePage is the common ancestor that stays
+   * mounted across the swap to StrengthHistoryDetail/FreeRunSummary (this
+   * component itself gets fully unmounted during that swap, since
+   * ProfilePage's top-level `if (selectedWorkout)` early-return replaces its
+   * entire returned subtree). Lifting the list here would mean a fresh
+   * useWorkoutHistory() instance on every return trip, losing any
+   * removeWorkout() call made while the detail view was showing.
+   */
+  workouts: WorkoutHistoryEntry[];
+  isLoading: boolean;
+  removeWorkout: (workoutId: string) => void;
 }
 
-export default function HistoryTab({ onWorkoutClick }: HistoryTabProps) {
-  const { workouts, isLoading } = useWorkoutHistory();
+// Short activity label for the shared delete-confirm modal's copy — same
+// simple per-workoutType mapping style AerobicSummaryShell and
+// StrengthHistoryDetail already use for their own delete confirmations.
+function activityLabelFor(workoutType: WorkoutHistoryEntry['workoutType']): string {
+  switch (workoutType) {
+    case 'running':
+      return 'ריצה';
+    case 'walking':
+      return 'הליכה';
+    case 'cycling':
+      return 'רכיבה';
+    case 'strength':
+      return 'אימון כוח';
+    case 'hybrid':
+      return 'אימון משולב';
+    default:
+      return 'אימון';
+  }
+}
+
+// Long-form Hebrew date for the modal body — matches
+// StrengthHistoryDetail.tsx's formatDate() convention.
+function formatDateLabel(date: Date): string {
+  return date.toLocaleDateString('he-IL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+export default function HistoryTab({ onWorkoutClick, workouts, isLoading, removeWorkout }: HistoryTabProps) {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  // Workout pending delete-confirmation; null when the modal is hidden.
+  const [pendingDelete, setPendingDelete] = useState<WorkoutHistoryEntry | null>(null);
+
+  const handleDeleteRequest = useCallback((workout: WorkoutHistoryEntry) => {
+    setPendingDelete(workout);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!pendingDelete?.id) {
+      // No id to delete against — dismiss rather than calling
+      // deleteWorkoutWithReversal with an empty string.
+      setPendingDelete(null);
+      return;
+    }
+    const workoutId = pendingDelete.id;
+    try {
+      const result = await deleteWorkoutWithReversal(workoutId);
+      // useWorkoutHistory() is a one-shot fetch, not a live Firestore
+      // subscription — it will NOT pick up this deletion on its own, so the
+      // row must be removed from local state explicitly, and only once the
+      // delete actually succeeded (a failed delete leaves the doc in place,
+      // so the row should stay visible for retry).
+      if (result.deleted) {
+        removeWorkout(workoutId);
+      }
+    } finally {
+      setPendingDelete(null);
+    }
+  }, [pendingDelete, removeWorkout]);
 
   // Filter workouts based on active filter
   const filteredWorkouts = useMemo(() => {
@@ -80,6 +154,7 @@ export default function HistoryTab({ onWorkoutClick }: HistoryTabProps) {
                   key={workout.id}
                   workout={workout}
                   onClick={() => onWorkoutClick(workout)}
+                  onDeleteRequest={handleDeleteRequest}
                 />
               );
             } catch (error) {
@@ -96,6 +171,17 @@ export default function HistoryTab({ onWorkoutClick }: HistoryTabProps) {
             }
           })}
         </div>
+      )}
+
+      {WORKOUT_DELETE_EXPANDED_ENABLED && (
+        <DeleteWorkoutConfirmModal
+          isOpen={pendingDelete !== null}
+          activityLabel={pendingDelete ? activityLabelFor(pendingDelete.workoutType) : ''}
+          dateLabel={pendingDelete ? formatDateLabel(pendingDelete.date) : ''}
+          xpToReverse={pendingDelete?.xpEarned ?? 0}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
       )}
     </div>
   );

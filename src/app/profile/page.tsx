@@ -24,7 +24,11 @@ const CreateGroupWizard = nextDynamic(
 );
 import FreeRunSummary from '@/features/workout-engine/players/running/components/FreeRun/FreeRunSummary';
 import StrengthHistoryDetail from '@/features/profile/components/StrengthHistoryDetail';
+import { useWorkoutHistory } from '@/features/profile/hooks/useWorkoutHistory';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
+import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
+import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 import type { OnboardingStepId } from '@/features/user/onboarding/types';
 import { getAllGearDefinitions, type GearDefinition } from '@/features/content/equipment/gear';
 import { doc as firestoreDoc, updateDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -40,6 +44,37 @@ function formatBirthDate(raw: unknown): string | null {
   const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (match) return `${match[3]}/${match[2]}/${match[1]}`;
   return str;
+}
+
+// Hebrew label for DeleteWorkoutConfirmModal's `activityLabel` prop — same
+// workoutType set ActivityHistoryCard/HistoryTab already switch on, extended
+// to cover 'running' and 'strength' since a delete can be triggered from
+// either read-only detail screen (FreeRunSummary or StrengthHistoryDetail).
+function workoutActivityLabel(workoutType: WorkoutHistoryEntry['workoutType']): string {
+  switch (workoutType) {
+    case 'running':
+      return 'ריצה';
+    case 'walking':
+      return 'הליכה';
+    case 'cycling':
+      return 'רכיבה';
+    case 'hybrid':
+      return 'אימון משולב';
+    case 'strength':
+      return 'אימון כוח';
+    default:
+      return 'אימון';
+  }
+}
+
+// DeleteWorkoutConfirmModal's `dateLabel` prop wants an already-formatted,
+// human string (its own doc comment example: "12.08.2026"). dot-separated,
+// zero-padded day/month.
+function workoutDateLabel(date: Date): string {
+  const d = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  return `${day}.${month}.${d.getFullYear()}`;
 }
 
 const EQUIPMENT_SVG_MAP: Record<string, string> = {
@@ -96,6 +131,24 @@ export default function ProfilePage() {
   const [managementGroupId, setManagementGroupId] = useState<string | null>(null);
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutHistoryEntry | null>(null);
+  // Delete-confirm state for the FreeRunSummary read-only (historical) path.
+  // Only ever opened when WORKOUT_DELETE_EXPANDED_ENABLED is true — see the
+  // onDelete wiring below.
+  const [showWorkoutDeleteConfirm, setShowWorkoutDeleteConfirm] = useState(false);
+
+  // Owned here (not inside HistoryTab) so the list + removeWorkout survive
+  // the swap below to StrengthHistoryDetail/FreeRunSummary: that swap is a
+  // top-level `if (selectedWorkout) return ...` early-return that replaces
+  // ProfilePage's ENTIRE returned subtree, which fully unmounts HistorySheet
+  // → HistoryTab (and would destroy a hook-local list there) every time a
+  // workout is opened, then remounts it fresh on close. ProfilePage itself
+  // never unmounts across that swap, so state kept here does. `enabled`
+  // defers the fetch until the history sheet has actually been opened (or a
+  // workout is already selected, e.g. StrengthHistoryDetail's delete path),
+  // matching HistoryTab's previous on-open-only fetch instead of reading on
+  // every profile page load.
+  const { workouts: historyWorkouts, isLoading: historyLoading, removeWorkout } =
+    useWorkoutHistory(50, historySheetOpen || !!selectedWorkout);
 
   const [gearDefs, setGearDefs] = useState<GearDefinition[]>([]);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
@@ -269,6 +322,23 @@ export default function ProfilePage() {
     );
   }
 
+  // Confirm-delete for the FreeRunSummary read-only path (past aerobic/hybrid
+  // workouts). Only reachable while WORKOUT_DELETE_EXPANDED_ENABLED is true —
+  // FreeRunSummary only renders its trash-icon trigger when it was passed a
+  // real onDelete, which is itself only passed while the flag is on (see
+  // below). Mirrors StrengthHistoryDetail's handleConfirmDelete shape.
+  const handleConfirmDeleteWorkout = async () => {
+    if (!selectedWorkout?.id) {
+      // No id to delete against — dismiss and bail rather than calling
+      // deleteWorkoutWithReversal with an empty string.
+      setShowWorkoutDeleteConfirm(false);
+      return;
+    }
+    await deleteWorkoutWithReversal(selectedWorkout.id);
+    setShowWorkoutDeleteConfirm(false);
+    setSelectedWorkout(null);
+  };
+
   if (selectedWorkout) {
     const isStrength =
       selectedWorkout.workoutType === 'strength' || selectedWorkout.category === 'strength';
@@ -277,15 +347,33 @@ export default function ProfilePage() {
         <StrengthHistoryDetail
           workout={selectedWorkout}
           onClose={() => setSelectedWorkout(null)}
+          onWorkoutDeleted={removeWorkout}
         />
       );
     }
     return (
-      <FreeRunSummary
-        workout={selectedWorkout}
-        isReadOnly={true}
-        onClose={() => setSelectedWorkout(null)}
-      />
+      <>
+        <FreeRunSummary
+          workout={selectedWorkout}
+          isReadOnly={true}
+          onClose={() => setSelectedWorkout(null)}
+          onDelete={
+            WORKOUT_DELETE_EXPANDED_ENABLED
+              ? () => setShowWorkoutDeleteConfirm(true)
+              : undefined
+          }
+        />
+        {WORKOUT_DELETE_EXPANDED_ENABLED && (
+          <DeleteWorkoutConfirmModal
+            isOpen={showWorkoutDeleteConfirm}
+            activityLabel={workoutActivityLabel(selectedWorkout.workoutType)}
+            dateLabel={workoutDateLabel(selectedWorkout.date)}
+            xpToReverse={selectedWorkout.xpEarned ?? 0}
+            onConfirm={handleConfirmDeleteWorkout}
+            onCancel={() => setShowWorkoutDeleteConfirm(false)}
+          />
+        )}
+      </>
     );
   }
 
@@ -453,6 +541,9 @@ export default function ProfilePage() {
         isOpen={historySheetOpen}
         onClose={() => setHistorySheetOpen(false)}
         onWorkoutClick={(workout) => setSelectedWorkout(workout)}
+        workouts={historyWorkouts}
+        isLoading={historyLoading}
+        removeWorkout={removeWorkout}
       />
 
       {/* ── Inline Edit Modal: Name / DOB ── */}
