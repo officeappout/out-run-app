@@ -657,12 +657,40 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     id: 'kfar-saba',
     name: 'כפר סבא',
     type: 'city',
-    population: 102000,
+    population: 99004,
     subLocations: [
       { id: 'ks-green', name: 'השכונה הירוקה', type: 'neighborhood' },
       { id: 'ks-hadarim', name: 'שכונת הדרים', type: 'neighborhood' },
-      { id: 'ks-center', name: 'מרכז העיר', type: 'neighborhood' },
-      { id: 'ks-aliyah', name: 'שכונת עלייה', type: 'neighborhood' }
+      { id: 'ks-center', name: 'מרכז העיר', type: 'neighborhood' }, // flagged for David's review — which official sub-neighborhoods (if any) nest under this umbrella is ambiguous in the source, not attempted
+      { id: 'ks-aliyah', name: 'שכונת עלייה', type: 'neighborhood' },
+      // ── Kfar Saba neighborhood reconcile, held for review (official municipal ArcGIS layer, "שכונות וגבול שיפוט ספטמבר 2024"). ──
+      { id: 'ks-eliezer', name: 'אליעזר', type: 'neighborhood' },
+      { id: 'ks-sirkin', name: 'סירקין', type: 'neighborhood' },
+      { id: 'ks-vatikim', name: 'ותיקים', type: 'neighborhood' },
+      { id: 'ks-eli-cohen', name: 'אלי כהן', type: 'neighborhood' },
+      { id: 'ks-tkuma', name: 'תקומה', type: 'neighborhood' },
+      { id: 'ks-geulim', name: 'גאולים', type: 'neighborhood' },
+      { id: 'ks-ganei-hasharon', name: 'גני השרון', type: 'neighborhood' },
+      { id: 'ks-givat-eshkol', name: 'גבעת אשכול', type: 'neighborhood' },
+      { id: 'ks-kaplan', name: 'קפלן', type: 'neighborhood' },
+      { id: 'ks-yoseftal', name: 'יוספטל', type: 'neighborhood' },
+      { id: 'ks-chalutzim', name: 'חלוצים', type: 'neighborhood' },
+      { id: 'ks-dgania', name: 'דגניה', type: 'neighborhood' },
+      { id: 'ks-prachim', name: 'פרחים', type: 'neighborhood' },
+      { id: 'ks-lampert', name: 'למפרט', type: 'neighborhood' },
+      { id: 'ks-oved-ben-tzion', name: 'עובד בן ציון', type: 'neighborhood' },
+      { id: 'ks-maoz', name: 'מעוז', type: 'neighborhood' },
+      { id: 'ks-grin', name: 'גרין', type: 'neighborhood' },
+      { id: 'ks-motzkin', name: 'מוצקין', type: 'neighborhood' },
+      { id: 'ks-progressivim', name: 'פרוגרסיבים', type: 'neighborhood' },
+      { id: 'ks-mizrachi-alef', name: 'מזרחי א', type: 'neighborhood' },
+      { id: 'ks-ksufim', name: 'כסופים', type: 'neighborhood' },
+      { id: 'ks-alumim', name: 'עלומים', type: 'neighborhood' },
+      { id: 'ks-haogen', name: 'העוגן', type: 'neighborhood' },
+      { id: 'ks-beit-vanof', name: 'בית ונוף', type: 'neighborhood' },
+      { id: 'ks-sviyonei-hakfar', name: 'סביוני הכפר', type: 'neighborhood' },
+      { id: 'ks-hazamer-haivri', name: 'הזמר העברי', type: 'neighborhood' },
+      { id: 'ks-shchuna-yeruka', name: 'שכונה ירוקה', type: 'neighborhood' }
     ]
   },
   {

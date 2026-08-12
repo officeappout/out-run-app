@@ -479,10 +479,41 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'bsh-ramat-ezra':       { lat: 31.7115353, lng: 34.9663951 },
 
   // ─── KFAR SABA neighborhoods ───────────────────────────────
+  // NOTE: ks-neve-yarko/ks-north/ks-south below don't match any real picker id — pre-existing
+  // orphaned keys, same pattern found in several other cities this run. Left as-is, flagged for
+  // the later cleanup commit. ks-center IS a real match, untouched (existing entry, rule 7).
   'ks-center':     { lat: 32.1810, lng: 34.9108 },
   'ks-neve-yarko': { lat: 32.1676, lng: 34.9188 },
   'ks-north':      { lat: 32.1940, lng: 34.9072 },
   'ks-south':      { lat: 32.1683, lng: 34.9075 },
+  // ── Kfar Saba neighborhood reconcile, held for review. ──
+  'ks-eliezer':          { lat: 32.187817, lng: 34.907754 },
+  'ks-sirkin':           { lat: 32.184176, lng: 34.899687 },
+  'ks-vatikim':          { lat: 32.179622, lng: 34.891938 },
+  'ks-eli-cohen':        { lat: 32.173200, lng: 34.921472 },
+  'ks-tkuma':            { lat: 32.171734, lng: 34.920198 },
+  'ks-geulim':           { lat: 32.168083, lng: 34.925406 },
+  'ks-ganei-hasharon':   { lat: 32.184981, lng: 34.929609 },
+  'ks-givat-eshkol':     { lat: 32.180703, lng: 34.938618 },
+  'ks-kaplan':           { lat: 32.188912, lng: 34.937894 },
+  'ks-yoseftal':         { lat: 32.183227, lng: 34.941772 },
+  'ks-chalutzim':        { lat: 32.169300, lng: 34.922031 },
+  'ks-dgania':           { lat: 32.172689, lng: 34.895174 },
+  'ks-prachim':          { lat: 32.175623, lng: 34.894657 },
+  'ks-lampert':          { lat: 32.178814, lng: 34.897581 },
+  'ks-oved-ben-tzion':   { lat: 32.172621, lng: 34.900280 },
+  'ks-maoz':             { lat: 32.181499, lng: 34.899440 },
+  'ks-grin':             { lat: 32.183512, lng: 34.903560 },
+  'ks-motzkin':          { lat: 32.180526, lng: 34.920385 },
+  'ks-progressivim':     { lat: 32.181118, lng: 34.902214 },
+  'ks-mizrachi-alef':    { lat: 32.178845, lng: 34.913926 },
+  'ks-ksufim':           { lat: 32.180563, lng: 34.914477 },
+  'ks-alumim':           { lat: 32.176861, lng: 34.918675 },
+  'ks-haogen':           { lat: 32.181939, lng: 34.908310 },
+  'ks-beit-vanof':       { lat: 32.185125, lng: 34.933627 },
+  'ks-sviyonei-hakfar':  { lat: 32.185744, lng: 34.897532 },
+  'ks-hazamer-haivri':   { lat: 32.187356, lng: 34.892902 },
+  'ks-shchuna-yeruka':   { lat: 32.196285, lng: 34.891574 },
 
   // ─── HERZLIYA neighborhoods ────────────────────────────────
   'hz-center':          { lat: 32.1620, lng: 34.8432 },
