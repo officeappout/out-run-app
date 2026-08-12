@@ -412,11 +412,21 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'by-north':  { lat: 32.0285, lng: 34.7504 },
 
   // ─── BEIT SHEMESH neighborhoods ────────────────────────────
+  // NOTE: the 5 keys below don't match any real picker id (real ids are bsh-rama-a/b/c/d,
+  // bsh-vatika) — pre-existing orphaned block, same pattern found in several other cities
+  // this run. Left as-is, flagged for the later cleanup commit.
   'bsh-center':                 { lat: 31.7462, lng: 34.9874 },
   'bsh-ramat-beit-shemesh-alef':{ lat: 31.7387, lng: 34.9762 },
   'bsh-ramat-beit-shemesh-bet': { lat: 31.7295, lng: 34.9682 },
   'bsh-old-city':               { lat: 31.7539, lng: 34.9925 },
   'bsh-north':                  { lat: 31.7578, lng: 34.9978 },
+  // ── Beit Shemesh neighborhood reconcile, held for review. ──
+  'bsh-givat-sharet':     { lat: 31.7407902, lng: 34.9777976 },
+  'bsh-pisgot-hasheva':   { lat: 31.7478646, lng: 34.9959199 },
+  'bsh-kiryat-avi-ezri':  { lat: 31.7040076, lng: 34.9826819 },
+  'bsh-chazon-ovadia':    { lat: 31.7036037, lng: 34.9937219 },
+  'bsh-dovev-meisharim':  { lat: 31.7059415, lng: 34.9711772 },
+  'bsh-ramat-ezra':       { lat: 31.7115353, lng: 34.9663951 },
 
   // ─── KFAR SABA neighborhoods ───────────────────────────────
   'ks-center':     { lat: 32.1810, lng: 34.9108 },

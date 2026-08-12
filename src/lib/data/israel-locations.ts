@@ -602,7 +602,14 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'bsh-rama-b', name: 'רמת בית שמש ב׳', type: 'neighborhood' },
       { id: 'bsh-rama-c', name: 'רמת בית שמש ג׳', type: 'neighborhood' },
       { id: 'bsh-rama-d', name: 'רמת בית שמש ד׳', type: 'neighborhood' },
-      { id: 'bsh-vatika', name: 'העיר הוותיקה', type: 'neighborhood' }
+      { id: 'bsh-vatika', name: 'העיר הוותיקה', type: 'neighborhood' },
+      // ── Beit Shemesh neighborhood reconcile, held for review (no official GIS source found; Wikipedia + OSM + real-estate cross-validated). ──
+      { id: 'bsh-givat-sharet', name: 'גבעת שרת', type: 'neighborhood' },
+      { id: 'bsh-pisgot-hasheva', name: 'פסגות השבע', type: 'neighborhood' },
+      { id: 'bsh-kiryat-avi-ezri', name: 'קריית אבי עזרי', type: 'neighborhood' },
+      { id: 'bsh-chazon-ovadia', name: 'חזון עובדיה', type: 'neighborhood' },
+      { id: 'bsh-dovev-meisharim', name: 'דובב מישרים', type: 'neighborhood' },
+      { id: 'bsh-ramat-ezra', name: 'רמת עזרא', type: 'neighborhood' }
     ]
   },
   {
