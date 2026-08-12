@@ -475,12 +475,14 @@ export const NEIGHBORHOOD_GEOCODE_GUARD_ENABLED = true;
 // Test scope: only David's account currently ever receives a push with targetSteps
 // (gated by app_config/feature_flags.stepGoalTestUids on the push side) — this flag
 // is a second, independent safety net on the map-consumption side.
-// REVERTED to false 12.08.2026 — the device test regressed the deep-link tap
-// to land on home instead of /map (previously-working openRun=walking-only
-// behavior broke too, not just the new targetSteps path). Root cause not yet
-// confirmed — see .claude/knowledge/step-goal-route-preview-regression.md.
-// Do not flip true again until that's resolved and understood.
-export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = false;
+// RE-ENABLED 12.08.2026 — the 12.08 "lands on home" regression (documented in
+// .claude/knowledge/step-goal-route-preview-regression.md) was root-caused to
+// the notificationActionPerformed tap listener being registered too late in
+// the native boot sequence (src/lib/native/init.ts / push.ts,
+// installTapListener()), NOT to this feature's own code. Confirmed on a real
+// device cold-launch tap after the boot-sequencing fix landed. Safe to
+// re-enable.
+export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = true;
 
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
