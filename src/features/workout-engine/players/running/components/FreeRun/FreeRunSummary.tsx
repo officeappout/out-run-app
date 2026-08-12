@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useEffect, useState, useMemo, type ReactNode } from 'react';
-import { Save, Share2, Coins, Flag, Clock, Navigation as NavIcon, Sparkles, Maximize2, X } from 'lucide-react';
+import { Save, Share2, Coins, Flag, Clock, Navigation as NavIcon, Sparkles, Maximize2, X, Trash2 } from 'lucide-react';
 import LapPaceChart from '@/features/workout-engine/summary/components/shared/LapPaceChart';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
@@ -21,6 +21,21 @@ import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/service
 import type { Lap } from '@/features/workout-engine/core/types/session.types';
 
 interface FreeRunSummaryProps {
+  /**
+   * Delete trigger. This component does NOT own the confirm/delete flow
+   * itself — it only surfaces a trash icon (next to the close button) when
+   * `isReadOnly && onDelete` are both truthy, and calls `onDelete()` on tap.
+   * The caller owns opening its own confirmation UI (e.g.
+   * DeleteWorkoutConfirmModal) and performing the actual delete — same
+   * caller-owns-the-flow split used by `onSave`/`onClose` below.
+   *
+   * Only wired for the read-only (historical) path today — the live
+   * just-finished-session flow (FreeRun/index.tsx, PlannedRun/index.tsx)
+   * also passes an `onDelete` (its own "discard the just-finished session"
+   * handler), but that path never sets `isReadOnly`, so the trigger added
+   * here intentionally never renders for it — see FreeRunSummary's read of
+   * `isReadOnly && onDelete` below before changing this gate.
+   */
   onDelete?: () => void;
   onSave?: () => void;
   // Read-only mode for historical workouts
@@ -657,9 +672,25 @@ export default function FreeRunSummary({
                   שתף
                 </button>
               )}
+              {/* Delete trigger — only for the read-only (historical) view,
+                  and only when the caller actually wired an onDelete (i.e.
+                  WORKOUT_DELETE_EXPANDED_ENABLED at the call site). This
+                  component doesn't own the confirm/delete flow — tapping
+                  just calls the caller's onDelete(), same contract as the
+                  prop's doc comment above. */}
+              {isReadOnly && onDelete && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  aria-label="מחק אימון"
+                  className="px-4 py-4 rounded-xl font-bold bg-red-50 text-red-500 hover:bg-red-100 transition-all shadow-sm min-h-[44px] flex items-center justify-center gap-2 pointer-events-auto"
+                >
+                  <Trash2 size={20} />
+                </button>
+              )}
               <button
                 onClick={handleSaveAndClose}
-                className={`${isReadOnly ? 'w-full' : 'flex-1'} py-4 rounded-xl font-bold bg-[#00ADEF] text-white hover:bg-[#00D4EE] transition-all shadow-md hover:shadow-lg min-h-[44px] flex items-center justify-center gap-2 pointer-events-auto`}
+                className={`${isReadOnly && !onDelete ? 'w-full' : 'flex-1'} py-4 rounded-xl font-bold bg-[#00ADEF] text-white hover:bg-[#00D4EE] transition-all shadow-md hover:shadow-lg min-h-[44px] flex items-center justify-center gap-2 pointer-events-auto`}
               >
                 {isReadOnly ? (
                   <>
