@@ -453,10 +453,20 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     subLocations: [
       { id: 'bs-ramot', name: 'שכונת רמות', type: 'neighborhood' },
       { id: 'bs-neve-zeev', name: 'נווה זאב', type: 'neighborhood' },
-      { id: 'bs-nahal-ashan', name: 'נחל עשן', type: 'neighborhood' },
+      { id: 'bs-nahal-ashan', name: 'נווה מנחם · נחל עשן', type: 'neighborhood' },
       { id: 'bs-d', name: 'שכונה ד׳', type: 'neighborhood' },
       { id: 'bs-b', name: 'שכונה ב׳', type: 'neighborhood' },
-      { id: 'bs-old-city', name: 'העיר העתיקה', type: 'neighborhood' }
+      { id: 'bs-old-city', name: 'העיר העתיקה', type: 'neighborhood' },
+      // ── Beer Sheva neighborhood reconcile, held for review (municipal GIS point layer, 19 named features). ──
+      { id: 'bs-alef', name: 'שכונה א׳', type: 'neighborhood' },
+      { id: 'bs-gimel', name: 'שכונה ג׳', type: 'neighborhood' },
+      { id: 'bs-hey', name: 'שכונה ה׳', type: 'neighborhood' },
+      { id: 'bs-vav', name: 'שכונה ו׳', type: 'neighborhood' },
+      { id: 'bs-tet', name: 'שכונה ט׳', type: 'neighborhood' },
+      { id: 'bs-yud-alef', name: 'שכונה יא', type: 'neighborhood' },
+      { id: 'bs-nahal-beka', name: 'נחל בקע', type: 'neighborhood' },
+      { id: 'bs-neve-noy', name: 'נווה נוי', type: 'neighborhood' },
+      { id: 'bs-neot-lon', name: 'נאות לון', type: 'neighborhood' }
     ]
   },
   {

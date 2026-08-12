@@ -295,12 +295,25 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'nt-neve-itamar':               { lat: 32.323972, lng: 34.875854 },
 
   // ─── BEER SHEVA neighborhoods ──────────────────────────────
+  // NOTE: bs-center/bs-dalet below are pre-existing orphaned keys (bs-dalet doesn't match the
+  // real bs-d id; bs-center matches no real id — the civic-center area is excluded as
+  // non-residential). Left as-is; bs-d added below reusing bs-dalet's value (semantic match).
   'bs-center': { lat: 31.2454, lng: 34.7869 },
   'bs-ramot':  { lat: 31.2701, lng: 34.8066 },
   'bs-dalet':  { lat: 31.2600, lng: 34.7950 },
-  'bs-alef':   { lat: 31.2538, lng: 34.8078 },
-  'bs-gimel':  { lat: 31.2576, lng: 34.8007 },
-  'bs-tet':    { lat: 31.2358, lng: 34.7935 },
+  // ── Beer Sheva neighborhood reconcile, held for review. ──
+  // bs-alef / bs-gimel / bs-tet below replace pre-existing orphaned-key values with real GIS centroids.
+  'bs-d':            { lat: 31.2600, lng: 34.7950 },
+  'bs-nahal-ashan':  { lat: 31.26685, lng: 34.76268 },
+  'bs-alef':         { lat: 31.24833, lng: 34.79098 },
+  'bs-gimel':        { lat: 31.25494, lng: 34.80518 },
+  'bs-hey':          { lat: 31.25221, lng: 34.77852 },
+  'bs-vav':          { lat: 31.26461, lng: 34.77935 },
+  'bs-tet':          { lat: 31.24599, lng: 34.77375 },
+  'bs-yud-alef':     { lat: 31.25838, lng: 34.76738 },
+  'bs-nahal-beka':   { lat: 31.22396, lng: 34.77501 },
+  'bs-neve-noy':     { lat: 31.23082, lng: 34.78619 },
+  'bs-neot-lon':     { lat: 31.24829, lng: 34.76232 },
 
   // ─── HOLON neighborhoods ───────────────────────────────────
   'holon-center':         { lat: 32.0063, lng: 34.7752 },
