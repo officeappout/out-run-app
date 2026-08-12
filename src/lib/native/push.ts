@@ -388,9 +388,15 @@ export async function initPushNotifications(
           // mints when opts.measurement is set (see push-events.service.ts) —
           // same field, same gate as the CTR write above, so this is a no-op
           // for every send that didn't opt into measurement.
+          //
+          // Deterministic doc ID (`{pushId}_{uid}_push_opened`) mirrors the
+          // server-side writer's own `{pushId}_{uid}_{eventType}` scheme
+          // (push-events.service.ts) — a duplicate tap or a retried listener
+          // call overwrites the same doc instead of creating a fresh row, so
+          // open-rate metrics can't be inflated by repeat client writes.
           if (messageId) {
             try {
-              await addDoc(collection(db, 'push_events'), {
+              await setDoc(doc(db, 'push_events', `${messageId}_${uid}_push_opened`), {
                 pushId: messageId,
                 uid,
                 eventType: 'push_opened',
@@ -424,7 +430,7 @@ export async function initPushNotifications(
                   // messageId-as-pushId gate as push_opened above.
                   if (messageId) {
                     try {
-                      await addDoc(collection(db, 'push_events'), {
+                      await setDoc(doc(db, 'push_events', `${messageId}_${uid}_landing_screen`), {
                         pushId: messageId,
                         uid,
                         eventType: 'landing_screen',

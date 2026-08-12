@@ -198,7 +198,16 @@ export function personaliseNotificationText(
   text: string,
   vars: PersonaliseVars & Record<string, string | number | undefined>,
 ): string {
-  let result = text.replace(/@שם/g, vars.name || 'חבר');
+  // Generic {key} pass runs FIRST, on the raw template only — every
+  // legitimate {word} placeholder is authored by David in the panel, not
+  // user-controlled. @שם's replacement value (a free-text, user-controlled
+  // display name) is spliced in LAST specifically so it is never re-scanned
+  // by this pass — a name containing a literal "{steps_left}"-shaped
+  // substring must never be treated as a template placeholder.
+  let result = text.replace(/\{(\w+)\}/g, (_, key: string) => {
+    const v = vars[key];
+    return v === undefined ? '' : String(v);
+  });
   result = result.replace(/@רצף/g, () =>
     vars.streakDays !== undefined && vars.streakDays !== null ? String(vars.streakDays) : '0',
   );
@@ -212,10 +221,7 @@ export function personaliseNotificationText(
     if (vars.distanceMeters < 1000) return `${vars.distanceMeters} מטר`;
     return `${(vars.distanceMeters / 1000).toFixed(1)} ק"מ`;
   });
-  result = result.replace(/\{(\w+)\}/g, (_, key: string) => {
-    const v = vars[key];
-    return v === undefined ? '' : String(v);
-  });
+  result = result.replace(/@שם/g, vars.name || 'חבר');
   return result;
 }
 

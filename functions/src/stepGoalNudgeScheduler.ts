@@ -72,6 +72,7 @@ import {
   personaliseNotificationText,
   resolveCanonicalPersona,
 } from './services/notification-content.service';
+import { DEFAULT_OUTCOME_WINDOW_HOURS } from './services/push-events.service';
 import type { PersonaResolvableProfile } from './services/persona-alias-map.service';
 
 if (!admin.apps.length) {
@@ -197,7 +198,9 @@ async function fetchTodaySteps(uids: string[], dateStr: string): Promise<Map<str
   return out;
 }
 
-async function dispatchToUser(user: CandidateUser): Promise<{ sent: boolean; reason?: string }> {
+async function dispatchToUser(
+  user: CandidateUser,
+): Promise<{ sent: boolean; reason?: string; bucket: string }> {
   const persona = resolveCanonicalPersona(user.personaProfile);
   const bucket = computeDailyGoalBucket(user.todaySteps, user.dailyStepGoal);
   const selected = await selectNotificationContent({
@@ -209,7 +212,7 @@ async function dispatchToUser(user: CandidateUser): Promise<{ sent: boolean; rea
   });
 
   if (!selected) {
-    return { sent: false, reason: `no content for persona=${persona} bucket=${bucket}` };
+    return { sent: false, bucket, reason: `no content for persona=${persona} bucket=${bucket}` };
   }
 
   const stepsLeft = Math.max(0, user.dailyStepGoal - user.todaySteps);
@@ -244,7 +247,7 @@ async function dispatchToUser(user: CandidateUser): Promise<{ sent: boolean; rea
       activityType: ACTIVITY_TYPE,
       framing: selected.psychologicalTrigger,
       timeOfDay: timeOfDayIsrael(),
-      outcomeWindowHours: 6,
+      outcomeWindowHours: DEFAULT_OUTCOME_WINDOW_HOURS,
     },
   });
 
@@ -255,7 +258,7 @@ async function dispatchToUser(user: CandidateUser): Promise<{ sent: boolean; rea
       `skippedRateCap=${result.skippedRateCap}`,
   );
 
-  return { sent: result.delivered > 0 };
+  return { sent: result.delivered > 0, bucket };
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -340,14 +343,26 @@ export const stepGoalNudgeScheduler = onSchedule(
     }
 
     let sent = 0;
-    let skippedNoContent = 0;
+    // Split by bucket: 'no content' for a below-goal user is a real content
+    // gap worth noticing; 'no content' for a hit/over user is EXPECTED this
+    // wave (no celebration copy seeded yet) — collapsing both into one
+    // counter would bury a real gap under the normal daily hit/over cohort.
+    let skippedBelowGoalNoContent = 0;
+    let skippedAtOrOverGoalNoContent = 0;
     let errors = 0;
 
     for (const user of candidates) {
       try {
         const outcome = await dispatchToUser(user);
-        if (outcome.sent) sent += 1;
-        else if (outcome.reason) skippedNoContent += 1;
+        if (outcome.sent) {
+          sent += 1;
+        } else if (outcome.reason) {
+          if (outcome.bucket === 'hit' || outcome.bucket === 'over') {
+            skippedAtOrOverGoalNoContent += 1;
+          } else {
+            skippedBelowGoalNoContent += 1;
+          }
+        }
       } catch (err: any) {
         errors += 1;
         logger.warn(`[stepGoalNudge] dispatch failed for uid=${user.uid}:`, err?.message);
@@ -356,7 +371,9 @@ export const stepGoalNudgeScheduler = onSchedule(
 
     logger.info(
       `[stepGoalNudge] run complete — candidates=${candidates.length} sent=${sent} ` +
-        `skippedNoContent=${skippedNoContent} errors=${errors}`,
+        `skippedBelowGoalNoContent=${skippedBelowGoalNoContent} ` +
+        `skippedAtOrOverGoalNoContent=${skippedAtOrOverGoalNoContent} (expected — no hit/over copy seeded yet) ` +
+        `errors=${errors}`,
     );
   },
 );

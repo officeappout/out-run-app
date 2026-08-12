@@ -2055,8 +2055,8 @@ export default function WorkoutSettingsPage() {
                       >
                         <option value="start">התחלה (0-25%)</option>
                         <option value="mid">אמצע (25-70%)</option>
-                        <option value="close">קרוב ליעד (70-95%)</option>
-                        <option value="hit">הושלם (100%)</option>
+                        <option value="close">קרוב ליעד (70-99%)</option>
+                        <option value="hit">הושלם (100% בדיוק)</option>
                         <option value="over">מעבר ליעד (100%+)</option>
                       </select>
                     </div>
@@ -2507,6 +2507,8 @@ export default function WorkoutSettingsPage() {
                               programId: notification.programId || '',
                               minLevel: notification.minLevel,
                               maxLevel: notification.maxLevel,
+                              dailyGoalBucket: notification.dailyGoalBucket,
+                              activityType: notification.activityType,
                             });
                             setShowNewNotificationForm(false);
                           }}

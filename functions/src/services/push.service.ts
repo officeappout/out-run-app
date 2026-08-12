@@ -410,6 +410,17 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
       });
     } catch (e: unknown) {
       result.failed += batch.length;
+      // Same accounting as the per-token failure path above — a whole-batch
+      // throw (FCM outage/quota/network) must still leave a delivered:false
+      // record for measured sends, or these uids are silently invisible to
+      // push_events entirely (no push_sent doc at all), exactly the outage
+      // scenario the measurement layer exists to catch.
+      if (measurement) {
+        batch.forEach((token) => {
+          const uid = tokenOwners.get(token);
+          if (uid && !uidDelivered.has(uid)) uidDelivered.set(uid, false);
+        });
+      }
       logger.warn(`[push.service] multicast batch failed channel=${channel}`, e);
     }
   }

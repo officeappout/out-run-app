@@ -490,15 +490,26 @@ service cloud.firestore {
 
     // ============================================================
     // PUSH_EVENTS — notification-engine measurement (Wave 1).
-    // Server (Admin SDK, bypasses rules) writes push_sent/post_push_outcome.
-    // Client may only create the 2 event types it observes directly, for
-    // itself only — cannot write/inflate delivery or outcome events.
+    // Server (Admin SDK, bypasses rules) writes push_sent/post_push_outcome —
+    // NOT reachable via these rules at all. Client may create ONLY the 2
+    // event types it actually writes (push.ts), for itself only, and ONLY
+    // with the exact field set each writes — a field-level allowlist so a
+    // client can never smuggle in delivered/goalCompleted/variantId/etc.
+    // (fields real only on the server-only event types) onto its own doc.
+    // push_dismissed is intentionally NOT in the allowed set — no client
+    // code writes it yet (see push-events.service.ts header comment).
     // ============================================================
     match /push_events/{docId} {
       allow read: if isAdmin();
       allow create: if isAuthenticated()
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.eventType in ['push_opened', 'push_dismissed', 'landing_screen'];
+        && (
+          (request.resource.data.eventType == 'push_opened'
+            && request.resource.data.keys().hasOnly(['pushId', 'uid', 'eventType', 'channel', 'openedAt']))
+          ||
+          (request.resource.data.eventType == 'landing_screen'
+            && request.resource.data.keys().hasOnly(['pushId', 'uid', 'eventType', 'channel', 'landingPath', 'loggedAt']))
+        );
     }
 
     // ============================================================

@@ -53,7 +53,7 @@ export interface WritePushSentOpts extends PushEventMetadata {
   outcomeWindowHours?: number;
 }
 
-const DEFAULT_OUTCOME_WINDOW_HOURS = 6;
+export const DEFAULT_OUTCOME_WINDOW_HOURS = 6;
 
 /** Server-side write (Admin SDK — bypasses Firestore rules). Called from
  * push.service.ts's sendPush() when opts.measurement is provided. */
