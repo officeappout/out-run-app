@@ -319,10 +319,22 @@ export default function StrengthRunner({
     onComplete?.(sm.getExerciseLog());
   }, [sm.getExerciseLog, onComplete]);
 
-  // Android hardware back button → open the exit confirmation modal instead
-  // of popping the route (which would silently discard all workout progress).
-  // The event is dispatched by src/lib/native/init.ts when the back button
-  // fires while window.location.pathname includes '/active'.
+  // Android hardware back / iOS edge-swipe-back → open the exit confirmation
+  // modal instead of popping the route (which would silently discard all
+  // workout progress). Dispatched by src/lib/native/init.ts (Android) /
+  // ViewController.swift (iOS) while on an /active or /workout-builder route.
+  //
+  // ⚠️ LEGACY-PATH LISTENER (12.08.2026 product-decision reversal): behind
+  // WORKOUT_EXIT_HARD_BLOCK_ENABLED (src/config/feature-flags.ts, default
+  // false), both native handlers now silently absorb the gesture instead of
+  // dispatching this event at all — the flag is the thing that stops this
+  // listener from firing, not a code change here. While the flag is false
+  // (today's shipped state) this is still live and required — do NOT delete
+  // it without also confirming the flag has flipped true everywhere it
+  // matters (web deploy for Android + a shipped native rebuild for iOS).
+  // ExitConfirmModal has a SECOND, independent trigger — the explicit
+  // "סיום אימון" button in PauseOverlay (below) — so the modal itself stays
+  // regardless of this flag's state.
   useEffect(() => {
     const handleNativeBack = () => setShowExitConfirmModal(true);
     window.addEventListener('nativeBackInWorkout', handleNativeBack);
