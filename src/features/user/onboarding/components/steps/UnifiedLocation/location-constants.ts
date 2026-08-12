@@ -684,12 +684,30 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'hdr-kiryat-eliezer':{ lat: 32.4228, lng: 34.8988 },
 
   // ─── MODIIN neighborhoods ──────────────────────────────────
+  // NOTE: the 6 keys below (mod-*) don't match any real picker id (real ids use 'md-' prefix) —
+  // pre-existing orphaned block, same pattern found throughout this project. Left as-is, flagged
+  // for the later cleanup commit.
   'mod-center':        { lat: 31.8939, lng: 35.0123 },
   'mod-buchman':       { lat: 31.9082, lng: 35.0198 },
   'mod-maccabim':      { lat: 31.8673, lng: 34.9961 },
   'mod-reut':          { lat: 31.8938, lng: 35.0295 },
   'mod-yitzhak-rabin': { lat: 31.9025, lng: 35.0057 },
   'mod-kiryat-ilan':   { lat: 31.8854, lng: 35.0188 },
+  // ── Modi'in-Maccabim-Re'ut neighborhood reconcile, held for review. Real GIS polygon centroids. ──
+  'md-buchman':      { lat: 31.881972, lng: 35.006392 },
+  'md-shimshoni':    { lat: 31.909047, lng: 35.000556 },
+  'md-avnei-chen':   { lat: 31.904017, lng: 34.995441 },
+  'md-nofim':        { lat: 31.896466, lng: 34.983789 },
+  'md-reut':         { lat: 31.887845, lng: 35.017836 },
+  'md-maccabim':     { lat: 31.890021, lng: 35.033702 },
+  'md-meshua':       { lat: 31.894607, lng: 35.009301 },
+  'md-hakramim':     { lat: 31.915545, lng: 35.009474 },
+  'md-haneviim':     { lat: 31.912832, lng: 35.004967 },
+  'md-hanchalim':    { lat: 31.898771, lng: 35.016395 },
+  'md-hashvatim':    { lat: 31.887323, lng: 35.003098 },
+  'md-hatziporim':   { lat: 31.896457, lng: 34.996981 },
+  'md-moreshet':     { lat: 31.902784, lng: 34.983197 },
+  'md-haprachim':    { lat: 31.906292, lng: 35.012294 },
 
   // ─── LOD neighborhoods ─────────────────────────────────────
   'lod-center':        { lat: 31.9520, lng: 34.8968 },

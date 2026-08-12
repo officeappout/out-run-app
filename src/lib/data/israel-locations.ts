@@ -765,14 +765,23 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     id: 'modiin',
     name: 'מודיעין-מכבים-רעות',
     type: 'city',
-    population: 100000,
+    population: 102883,
     subLocations: [
       { id: 'md-buchman', name: 'מוריה (בוכמן)', type: 'neighborhood' },
       { id: 'md-shimshoni', name: 'המגינים (שמשוני)', type: 'neighborhood' },
       { id: 'md-avnei-chen', name: 'אבני חן (קייזר)', type: 'neighborhood' },
       { id: 'md-nofim', name: 'נופים', type: 'neighborhood' },
       { id: 'md-reut', name: 'רעות', type: 'neighborhood' },
-      { id: 'md-maccabim', name: 'מכבים', type: 'neighborhood' }
+      { id: 'md-maccabim', name: 'מכבים', type: 'neighborhood' },
+      // ── Modi'in-Maccabim-Re'ut neighborhood reconcile, held for review (official municipal ArcGIS "GeoTabaareasNeighborhood" layer, 18 polygons). ──
+      { id: 'md-meshua', name: 'משואה', type: 'neighborhood' },
+      { id: 'md-hakramim', name: 'הכרמים', type: 'neighborhood' },
+      { id: 'md-haneviim', name: 'הנביאים', type: 'neighborhood' },
+      { id: 'md-hanchalim', name: 'הנחלים', type: 'neighborhood' },
+      { id: 'md-hashvatim', name: 'השבטים', type: 'neighborhood' },
+      { id: 'md-hatziporim', name: 'הציפורים', type: 'neighborhood' },
+      { id: 'md-moreshet', name: 'מורשת', type: 'neighborhood' },
+      { id: 'md-haprachim', name: 'הפרחים', type: 'neighborhood' }
     ]
   },
   {
