@@ -7,6 +7,7 @@ export interface SubLocation {
   name: string;
   type: LocationType;
   quarter?: string; // רובע — currently used for Tel Aviv-Yafo neighborhoods only
+  communityAdmin?: string; // מינהל קהילתי — currently used for Jerusalem neighborhoods only
 }
 
 export interface IsraeliLocation {
@@ -40,7 +41,64 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'jr-nachlaot', name: 'נחלאות', type: 'neighborhood' },
       { id: 'jr-city-center', name: 'מרכז העיר', type: 'neighborhood' },
       { id: 'jr-neve-yaakov', name: 'נווה יעקב', type: 'neighborhood' },
-      { id: 'jr-old-city', name: 'העיר העתיקה', type: 'neighborhood' }
+      { id: 'jr-old-city', name: 'העיר העתיקה', type: 'neighborhood' },
+      // ── Jerusalem neighborhood reconcile, held for review — official
+      // municipal resident-facing list (jerusalem.muni.il/he/neighborhoods/, 57
+      // named neighborhoods), cross-verified against the municipality's own
+      // statistics dashboard as a second source. All 57 confirmed residential —
+      // 0 non-residential flags (unlike Tel Aviv/Haifa's all-inclusive GIS
+      // layers, this resident-services list is already curated to exclude
+      // institutional/industrial zones). communityAdmin = מינהל קהילתי, sourced
+      // from the municipality's own מינהלים קהילתיים dataset (jerusalem.datacity.
+      // org.il); 47/57 mapped, 10 flagged where no admin was found (see commit
+      // message). Old City kept as official source lists it — הרובע היהודי +
+      // הרובע המוסלמי as separate entries; existing 'העיר העתיקה' flagged,
+      // untouched (Christian/Armenian Quarters not in the official source either —
+      // not fabricated here). Hierarchy stays 2-level. ──
+      { id: 'jr-jabel-mukaber', name: 'ג\'אבל מוכבר', type: 'neighborhood' }, // communityAdmin: not found in official source, flagged
+      { id: 'jr-givat-mordechai', name: 'גבעת מרדכי', type: 'neighborhood', communityAdmin: 'מינהל קהילתי מיתרים' },
+      { id: 'jr-givat-masua', name: 'גבעת משואה', type: 'neighborhood', communityAdmin: 'מינהל קהילתי גנים' },
+      { id: 'jr-givat-shaul', name: 'גבעת שאול', type: 'neighborhood', communityAdmin: 'מינהל קהילתי מיתרים' },
+      { id: 'jr-bucharim-beit-yisrael', name: 'הבוכרים – בית ישראל', type: 'neighborhood', communityAdmin: 'מינהל קהילתי הבוכרים' },
+      { id: 'jr-givah-tzarfatit', name: 'הגבעה הצרפתית', type: 'neighborhood', communityAdmin: 'מינהל קהילתי הגבעה הצרפתית' },
+      { id: 'jr-moshava-amerikait', name: 'המושבה האמריקאית', type: 'neighborhood' }, // communityAdmin: not found in official source, flagged
+      { id: 'jr-moshava-germanit', name: 'המושבה הגרמנית', type: 'neighborhood', communityAdmin: 'מינהל קהילתי גינות העיר' },
+      { id: 'jr-har-nof', name: 'הר נוף', type: 'neighborhood', communityAdmin: 'מינהל קהילתי הר נוף' },
+      { id: 'jr-jewish-quarter', name: 'הרובע היהודי', type: 'neighborhood', communityAdmin: 'מינהל קהילתי הרובע היהודי' },
+      { id: 'jr-muslim-quarter', name: 'הרובע המוסלמי', type: 'neighborhood', communityAdmin: 'מינהל קהילתי הרובע המוסלמי' },
+      { id: 'jr-wadi-joz', name: 'ואדי ג\'וז', type: 'neighborhood', communityAdmin: 'מינהל קהילתי ואדי אל גוז' },
+      { id: 'jr-talbiya-komemiyut', name: 'טלביה – קוממיות', type: 'neighborhood', communityAdmin: 'מינהל קהילתי גינות העיר' },
+      { id: 'jr-yemin-moshe', name: 'ימין משה', type: 'neighborhood', communityAdmin: 'מינהל קהילתי גינות העיר' },
+      { id: 'jr-mea-shearim', name: 'מאה שערים', type: 'neighborhood' }, // communityAdmin: not found in official source, flagged
+      { id: 'jr-musrara-morasha', name: 'מוסררה - מורשה', type: 'neighborhood', communityAdmin: 'מינהל קהילתי מורשה' },
+      { id: 'jr-mamilla', name: 'ממילא', type: 'neighborhood' }, // communityAdmin: not found in official source, flagged
+      { id: 'jr-maalot-dafna', name: 'מעלות דפנה', type: 'neighborhood' }, // communityAdmin: not found in official source, flagged
+      { id: 'jr-niot', name: 'ניות', type: 'neighborhood', communityAdmin: 'מינהל קהילתי גינות העיר' },
+      { id: 'jr-silwan', name: 'סילואן', type: 'neighborhood', communityAdmin: 'מינהל קהילתי אבו טור סילוואן' },
+      { id: 'jr-sanhedria', name: 'סנהדריה', type: 'neighborhood' }, // communityAdmin: not found in official source, flagged
+      { id: 'jr-ein-karem', name: 'עין כרם', type: 'neighborhood', communityAdmin: 'מינהל קהילתי יובלים' },
+      { id: 'jr-isawiya', name: 'עיסוויה', type: 'neighborhood', communityAdmin: 'מרכז שכונתי עיסוויה' },
+      { id: 'jr-ir-ganim', name: 'עיר גנים', type: 'neighborhood', communityAdmin: 'מינהל קהילתי גנים' },
+      { id: 'jr-pat', name: 'פת', type: 'neighborhood', communityAdmin: 'בית פאני קפלן' },
+      { id: 'jr-sur-baher', name: 'צור באחר – אום טובה', type: 'neighborhood', communityAdmin: 'מינהל קהילתי צור בהאר' },
+      { id: 'jr-katamon-hayeshana', name: 'קטמון', type: 'neighborhood', communityAdmin: 'מינהל קהילתי גינות העיר' },
+      { id: 'jr-kiryat-menachem', name: 'קריית מנחם', type: 'neighborhood', communityAdmin: 'מינהל קהילתי גנים' },
+      { id: 'jr-kiryat-moshe', name: 'קריית משה', type: 'neighborhood', communityAdmin: 'מינהל קהילתי מיתרים' },
+      { id: 'jr-ras-al-amud', name: 'ראס אל עמוד', type: 'neighborhood', communityAdmin: 'מינהל קהילתי אבו טור סילוואן' },
+      { id: 'jr-romema', name: 'רוממה', type: 'neighborhood', communityAdmin: 'מנהל קהילתי רוממה' },
+      { id: 'jr-ramat-eshkol', name: 'רמת אשכול', type: 'neighborhood', communityAdmin: 'מינהל קהילתי הגבעה הצרפתית' },
+      { id: 'jr-ramat-shlomo', name: 'רמת שלמה', type: 'neighborhood', communityAdmin: 'מינהל קהילתי רמת שלמה' },
+      { id: 'jr-ramat-sharett-denya', name: 'רמת שרת ורמת דניה', type: 'neighborhood', communityAdmin: 'מינהל קהילתי יובלים' },
+      { id: 'jr-rasco-givat-havradim', name: 'רסקו - גבעת הורדים', type: 'neighborhood' }, // communityAdmin: not found in official source, flagged
+      { id: 'jr-shuafat', name: 'שועפט', type: 'neighborhood' }, // communityAdmin: not found in official source, flagged
+      { id: 'jr-sheikh-jarrah', name: 'שיח ג\'ראח', type: 'neighborhood' }, // communityAdmin: not found in official source, flagged
+      { id: 'jr-shmuel-hanavi', name: 'שמואל הנביא', type: 'neighborhood', communityAdmin: 'מינהל קהילתי אשכולות' },
+      { id: 'jr-talpiot-mizrach', name: 'תלפיות מזרח - ארמון הנציב', type: 'neighborhood', communityAdmin: 'מינהל קהילתי תלפ"ז וארנונה הצעירה' },
+      { id: 'jr-abu-tor', name: 'אבו תור', type: 'neighborhood', communityAdmin: 'מינהל קהילתי א-טור / מינהל קהילתי בקעה רבתי' },
+      { id: 'jr-beit-vegan', name: 'בית וגן', type: 'neighborhood', communityAdmin: 'מינהל קהילתי בית וגן' },
+      { id: 'jr-beit-hanina', name: 'בית חנינא', type: 'neighborhood', communityAdmin: 'מינהל קהילתי בית חנינא' },
+      { id: 'jr-beit-safafa', name: 'בית צפאפא', type: 'neighborhood', communityAdmin: 'מינהל קהילתי בית צפאפא' },
+      { id: 'jr-baka', name: 'בקעה', type: 'neighborhood', communityAdmin: 'מינהל קהילתי בקעה רבתי' }
     ]
   },
   {
