@@ -24,3 +24,4 @@ export { onGroupMemberJoin } from './onGroupMemberJoin';
 export { onKudosCreated } from './onKudosCreated';
 // ── Notification-Manager-driven Triggers (reads workoutMetadata/notifications) ─
 export { stepGoalNudgeScheduler } from './stepGoalNudgeScheduler';
+export { pushOutcomeSweeper } from './pushOutcomeSweeper';

@@ -41,6 +41,7 @@
 
 import * as admin from 'firebase-admin';
 import { logger } from 'firebase-functions';
+import { writePushSentEvent } from './push-events.service';
 
 // Lazy accessors — admin is initialized by the calling Cloud Function entry point.
 const getDb = () => admin.firestore();
@@ -146,6 +147,27 @@ export type PushChannel =
                           // push_rate/{uid}.training_reminder_lastSentAt
                           // (see onboardingDropoffDispatcher.ts)
 
+/**
+ * Opt-in measurement (Wave 1 notification engine). When provided, sendPush()
+ * writes a `push_sent` event to `push_events` per attempted uid and stamps
+ * `data.messageId` with the generated pushId (reusing the field the native
+ * tap handler already reads for its notification_clicks CTR write) so the
+ * client can log push_opened/landing_screen against the same pushId. See
+ * `push-events.service.ts`'s header comment for the storage-decision
+ * reasoning. Absent = zero behavior change (no write, no messageId stamp) —
+ * every existing caller stays byte-identical.
+ */
+export interface SendPushMeasurement {
+  variantId: string; // = bundleId
+  category: string; // = triggerType
+  persona: string;
+  activityType?: string;
+  framing?: string; // = psychologicalTrigger
+  timeOfDay?: string;
+  /** Hours after which post_push_outcome should be evaluated. Default 6. */
+  outcomeWindowHours?: number;
+}
+
 export interface SendPushOpts {
   /** Target user UIDs. For authority-scoped broadcasts use sendPushFromQueue instead. */
   toUids: string[];
@@ -173,6 +195,8 @@ export interface SendPushOpts {
    * functions whose cron expression already targets active hours.
    */
   skipQuietHours?: boolean;
+  /** See SendPushMeasurement's doc comment. Opt-in, absent = no-op. */
+  measurement?: SendPushMeasurement;
 }
 
 export interface SendPushResult {
@@ -187,6 +211,9 @@ export interface SendPushResult {
   skippedQuietHours: number;
   skippedRateCap: number;
   tokensPruned: number;
+  /** Present only when opts.measurement was provided — the pushId used to
+   *  correlate push_events records for this send. */
+  pushId?: string;
 }
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
@@ -326,6 +353,13 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     return result;
   }
 
+  // ── Measurement (opt-in, Wave 1) — mint a pushId and stamp it as
+  // messageId so the client tap handler can correlate push_opened /
+  // landing_screen against this send (see push-events.service.ts). ────────
+  const measurement = opts.measurement;
+  const pushId = measurement ? getDb().collection('push_events').doc().id : undefined;
+  if (pushId) result.pushId = pushId;
+
   // ── Build FCM message ─────────────────────────────────────────────────────
   const messageBase: admin.messaging.MulticastMessage = {
     tokens: [],
@@ -333,6 +367,7 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     data: {
       channel,
       ...(deepLink ? { deepLink } : {}),
+      ...(pushId ? { messageId: pushId } : {}),
       ...(extraData ?? {}),
     },
     apns: {
@@ -346,6 +381,9 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
 
   const deadTokens: string[] = [];
   const messaging = getMessaging();
+  // Per-uid delivery, for the measurement write below — a uid counts as
+  // delivered if ANY of its tokens (multi-device) succeeded.
+  const uidDelivered = new Map<string, boolean>();
 
   // ── Multicast in batches of 500 ───────────────────────────────────────────
   for (let i = 0; i < tokenList.length; i += MULTICAST_BATCH_SIZE) {
@@ -353,10 +391,13 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     try {
       const response = await messaging.sendEachForMulticast({ ...messageBase, tokens: batch });
       response.responses.forEach((resp, idx) => {
+        const uid = tokenOwners.get(batch[idx]);
         if (resp.success) {
           result.delivered++;
+          if (uid) uidDelivered.set(uid, true);
         } else {
           result.failed++;
+          if (uid && !uidDelivered.has(uid)) uidDelivered.set(uid, false);
           const code = resp.error?.code ?? '';
           if (
             code === 'messaging/registration-token-not-registered' ||
@@ -381,11 +422,32 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
 
   result.tokensPruned = deadTokens.length;
 
+  if (measurement && pushId) {
+    await Promise.all(
+      Array.from(uidDelivered.entries()).map(([uid, delivered]) =>
+        writePushSentEvent({
+          pushId,
+          uid,
+          delivered,
+          channel,
+          variantId: measurement.variantId,
+          category: measurement.category,
+          persona: measurement.persona,
+          activityType: measurement.activityType,
+          framing: measurement.framing,
+          timeOfDay: measurement.timeOfDay,
+          outcomeWindowHours: measurement.outcomeWindowHours,
+        }),
+      ),
+    );
+  }
+
   logger.info(
     `[push.service] ${channel} done: ` +
       `delivered=${result.delivered} failed=${result.failed} ` +
       `skippedPrefs=${result.skippedPrefs} skippedRateCap=${result.skippedRateCap} ` +
-      `pruned=${result.tokensPruned}`,
+      `pruned=${result.tokensPruned}` +
+      (pushId ? ` pushId=${pushId}` : ''),
   );
 
   return result;

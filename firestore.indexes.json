@@ -1,6 +1,15 @@
 {
   "indexes": [
     {
+      "collectionGroup": "push_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventType", "order": "ASCENDING" },
+        { "fieldPath": "outcomeChecked", "order": "ASCENDING" },
+        { "fieldPath": "checkAfter", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "user_contributions",
       "queryScope": "COLLECTION",
       "fields": [

@@ -55,6 +55,8 @@ interface NotificationLibraryDoc {
   persona?: string;
   bundleId?: string;
   text?: string;
+  dailyGoalBucket?: string;
+  activityType?: string;
 }
 
 let contentCache: { docs: NotificationLibraryDoc[]; fetchedAt: number } | null = null;
@@ -78,6 +80,8 @@ async function getAllNotifications(): Promise<NotificationLibraryDoc[]> {
       persona: typeof data.persona === 'string' ? data.persona : undefined,
       bundleId: typeof data.bundleId === 'string' ? data.bundleId : undefined,
       text: typeof data.text === 'string' ? data.text : undefined,
+      dailyGoalBucket: typeof data.dailyGoalBucket === 'string' ? data.dailyGoalBucket : undefined,
+      activityType: typeof data.activityType === 'string' ? data.activityType : undefined,
     };
   });
   contentCache = { docs, fetchedAt: now };
@@ -105,6 +109,13 @@ export interface SelectNotificationOpts {
    * could hold unrelated future content too). */
   bundleIdPrefix?: string;
   persona: CanonicalPersona;
+  /** Narrows to a specific daily-goal-completion bucket (Daily_Goal trigger
+   * only). When set, only exact-matching docs qualify — no bucket fallback,
+   * since 'start' copy read at 'hit' time would be wrong, not just generic. */
+  dailyGoalBucket?: string;
+  /** Narrows to a specific activity (Daily_Goal trigger only). Same
+   * exact-match rule as dailyGoalBucket. */
+  activityType?: string;
   /** For deterministic selection among multiple matching candidates. */
   uid: string;
 }
@@ -130,6 +141,8 @@ export async function selectNotificationContent(
   const candidates = all.filter((doc) => {
     if (doc.triggerType !== opts.triggerType) return false;
     if (opts.bundleIdPrefix && !(doc.bundleId ?? '').startsWith(opts.bundleIdPrefix)) return false;
+    if (opts.dailyGoalBucket && doc.dailyGoalBucket !== opts.dailyGoalBucket) return false;
+    if (opts.activityType && doc.activityType !== opts.activityType) return false;
     if (!doc.text) return false;
     const docPersona = normalizePersonaValue(doc.persona) ?? 'generic';
     return docPersona === opts.persona || docPersona === 'generic';
@@ -151,19 +164,50 @@ export async function selectNotificationContent(
   };
 }
 
+export interface PersonaliseVars {
+  name?: string;
+  /** @רצף — raw streak day count. */
+  streakDays?: number;
+  /** @צעדים_שנותרו — remaining count to today's daily goal. */
+  stepsLeft?: number;
+  /** @מרחק — suggested route distance in meters (Daily_Goal), or proximity
+   *  distance (Proximity content, if ever routed through this selector). */
+  distanceMeters?: number;
+}
+
 /**
- * Minimal tag resolver — see module header. Supports:
- *   @שם          → vars.name (fallback 'חבר')
- *   {anyKey}     → vars[anyKey] (generic {var}-replace, same regex every
- *                  other scheduler in this codebase already uses; missing
- *                  keys resolve to '' rather than leaving the placeholder
- *                  literal in the sent copy)
+ * Minimal tag resolver — a deliberate mirror of the specific tags
+ * `branding.utils.ts`'s resolveNotificationText/resolveDescription needs
+ * for Cloud-Function-sent copy (that file is `src/`, not importable here —
+ * see module header). Supports:
+ *   @שם              → vars.name (fallback 'חבר')
+ *   @רצף             → vars.streakDays (fallback '0')
+ *   @צעדים_שנותרו    → vars.stepsLeft, locale-formatted (fallback '0')
+ *   @מרחק            → vars.distanceMeters, formatted as meters/km exactly
+ *                       like the client-side @מרחק tag (fallback 'קרוב')
+ *   {anyKey}         → arbitrary extra vars (generic {var}-replace, same
+ *                       regex every other scheduler in this codebase uses;
+ *                       missing keys resolve to '' rather than leaving the
+ *                       placeholder literal in the sent copy)
  */
 export function personaliseNotificationText(
   text: string,
-  vars: { name?: string } & Record<string, string | undefined>,
+  vars: PersonaliseVars & Record<string, string | undefined>,
 ): string {
   let result = text.replace(/@שם/g, vars.name || 'חבר');
+  result = result.replace(/@רצף/g, () =>
+    vars.streakDays !== undefined && vars.streakDays !== null ? String(vars.streakDays) : '0',
+  );
+  result = result.replace(/@צעדים_שנותרו/g, () =>
+    vars.stepsLeft !== undefined && vars.stepsLeft !== null
+      ? vars.stepsLeft.toLocaleString('he-IL')
+      : '0',
+  );
+  result = result.replace(/@מרחק/g, () => {
+    if (vars.distanceMeters === undefined || vars.distanceMeters === null) return 'קרוב';
+    if (vars.distanceMeters < 1000) return `${vars.distanceMeters} מטר`;
+    return `${(vars.distanceMeters / 1000).toFixed(1)} ק"מ`;
+  });
   result = result.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? '');
   return result;
 }

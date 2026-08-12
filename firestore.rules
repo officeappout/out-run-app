@@ -489,6 +489,19 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // PUSH_EVENTS — notification-engine measurement (Wave 1).
+    // Server (Admin SDK, bypasses rules) writes push_sent/post_push_outcome.
+    // Client may only create the 2 event types it observes directly, for
+    // itself only — cannot write/inflate delivery or outcome events.
+    // ============================================================
+    match /push_events/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.eventType in ['push_opened', 'push_dismissed', 'landing_screen'];
+    }
+
+    // ============================================================
     // ACHIEVEMENTS — achievement definitions (public read, admin write)
     // Seeded via scripts/seed-achievements.ts.
     // Users read definitions to display locked/unlocked states.

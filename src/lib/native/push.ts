@@ -383,6 +383,25 @@ export async function initPushNotifications(
             });
           }
 
+          // ── Notification-engine measurement (Wave 1): push_opened ──
+          // `messageId` doubles as the `pushId` push.service.ts's sendPush()
+          // mints when opts.measurement is set (see push-events.service.ts) —
+          // same field, same gate as the CTR write above, so this is a no-op
+          // for every send that didn't opt into measurement.
+          if (messageId) {
+            try {
+              await addDoc(collection(db, 'push_events'), {
+                pushId: messageId,
+                uid,
+                eventType: 'push_opened',
+                channel: (data.channel as string) || 'unknown',
+                openedAt: serverTimestamp(),
+              });
+            } catch (measurementErr) {
+              console.warn('[push] push_opened write failed:', measurementErr);
+            }
+          }
+
           // ── Social Engagement Engine: deep-link navigation ─────────
           // The Cloud Function (`functions/src/sendPushFromQueue.ts`)
           // spreads `data.deepLink` into the outgoing FCM payload when
@@ -400,6 +419,23 @@ export async function initPushNotifications(
               if (typeof window !== 'undefined') {
                 const target = new URL(rawDeepLink, window.location.origin);
                 if (target.origin === window.location.origin) {
+                  // landing_screen — logged BEFORE navigation fires (the
+                  // navigation itself unloads this JS context), same
+                  // messageId-as-pushId gate as push_opened above.
+                  if (messageId) {
+                    try {
+                      await addDoc(collection(db, 'push_events'), {
+                        pushId: messageId,
+                        uid,
+                        eventType: 'landing_screen',
+                        channel: (data.channel as string) || 'unknown',
+                        landingPath: target.pathname + target.search,
+                        loggedAt: serverTimestamp(),
+                      });
+                    } catch (measurementErr) {
+                      console.warn('[push] landing_screen write failed:', measurementErr);
+                    }
+                  }
                   window.location.href = target.href;
                 } else if (process.env.NODE_ENV !== 'production') {
                   console.warn(
