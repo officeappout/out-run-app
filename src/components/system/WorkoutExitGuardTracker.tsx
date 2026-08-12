@@ -7,6 +7,26 @@
  * confirm decision for the iOS edge-swipe-back gesture. See
  * `src/lib/native/workoutExitGuard.ts` for the full mechanism writeup.
  *
+ * The aerobic-active flag is mirrored from a plain `useSessionStore.subscribe`
+ * callback rather than a `useEffect([status, mode])` — `subscribe`'s listener
+ * runs SYNCHRONOUSLY inside the store's own `set()` call (see zustand v5
+ * `vanilla.d.ts`: `subscribe: (listener: (state, prevState) => void) => () => void`),
+ * so the mirror write is triggered at the exact moment `startSession()` /
+ * `pauseSession()` / `resumeSession()` mutate the store — with no dependency
+ * on React scheduling a render, committing it, and flushing a passive effect
+ * afterwards. That render-commit hop was a real propagation-window gap: it
+ * fires on every session start/pause/resume, and the window lands right after
+ * the user taps "start" — the single most likely moment for an immediate
+ * swipe-back. See `.claude/knowledge/` for the review finding this closes.
+ *
+ * Because the store's `set()` also fires on every `tick()` (once/sec) and
+ * every `updateDistance()`/`updateCalories()` (GPS updates), the subscribe
+ * callback must NOT recompute-and-write unconditionally on every store
+ * change — that would be a write-storm against the Preferences bridge for
+ * the entire duration of every run. `lastWrittenAerobicActive` (module-level,
+ * outside the callback) remembers the last value actually written, and the
+ * callback only calls `writeNativeFlag` when the derived boolean changes.
+ *
  * Renders nothing. Mounted once from `NativeBootstrap` (root layout) so the
  * flags are wired from the earliest possible moment, independent of route.
  *
@@ -16,7 +36,7 @@
  */
 
 import { useEffect } from 'react';
-import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
+import { useSessionStore, type SessionMode, type SessionStatus } from '@/features/workout-engine/core/store/useSessionStore';
 import { WORKOUT_EXIT_HARD_BLOCK_ENABLED } from '@/config/feature-flags';
 import {
   writeNativeFlag,
@@ -24,10 +44,20 @@ import {
   AEROBIC_SESSION_ACTIVE_PREF_KEY,
 } from '@/lib/native/workoutExitGuard';
 
-export default function WorkoutExitGuardTracker() {
-  const status = useSessionStore((s) => s.status);
-  const mode = useSessionStore((s) => s.mode);
+function deriveIsAerobicSessionActive(status: SessionStatus, mode: SessionMode): boolean {
+  return (
+    (status === 'active' || status === 'paused')
+    && (mode === 'running' || mode === 'walking' || mode === 'hybrid')
+  );
+}
 
+// Remembers the last value actually written to the Preferences mirror, so
+// the subscribe callback below can skip redundant writes on every tick.
+// Module-level (not component state): the callback is a plain closure
+// registered once, not a React render path.
+let lastWrittenAerobicActive: boolean | null = null;
+
+export default function WorkoutExitGuardTracker() {
   // The hard-block flag is a compile-time constant, but the native side can
   // only read it via the Preferences mirror — write it once on mount so a
   // fresh cold start has it before any gesture can fire.
@@ -35,14 +65,28 @@ export default function WorkoutExitGuardTracker() {
     writeNativeFlag(EXIT_HARD_BLOCK_PREF_KEY, WORKOUT_EXIT_HARD_BLOCK_ENABLED);
   }, []);
 
-  // Re-mirror on every status/mode transition that could change whether an
-  // aerobic (running/walking/hybrid) session is currently active or paused.
+  // Mirror the aerobic-active flag synchronously off the store itself
+  // (see module doc above) instead of off a React effect dependency array.
+  // The `useEffect([])` here only performs one-time SETUP of the
+  // subscription — the real-time work happens inside `handleStoreChange`,
+  // which zustand invokes synchronously from within `set()`, every time,
+  // for as long as the subscription is live.
   useEffect(() => {
-    const isAerobicSessionActive =
-      (status === 'active' || status === 'paused')
-      && (mode === 'running' || mode === 'walking' || mode === 'hybrid');
-    writeNativeFlag(AEROBIC_SESSION_ACTIVE_PREF_KEY, isAerobicSessionActive);
-  }, [status, mode]);
+    const handleStoreChange = (state: { status: SessionStatus; mode: SessionMode }) => {
+      const isAerobicSessionActive = deriveIsAerobicSessionActive(state.status, state.mode);
+      if (isAerobicSessionActive === lastWrittenAerobicActive) return;
+      lastWrittenAerobicActive = isAerobicSessionActive;
+      writeNativeFlag(AEROBIC_SESSION_ACTIVE_PREF_KEY, isAerobicSessionActive);
+    };
+
+    // Prime the mirror with the current state immediately — matches what the
+    // original effect-based version would have written on initial mount,
+    // before any store mutation has happened yet.
+    handleStoreChange(useSessionStore.getState());
+
+    const unsubscribe = useSessionStore.subscribe(handleStoreChange);
+    return unsubscribe;
+  }, []);
 
   return null;
 }
