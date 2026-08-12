@@ -20,8 +20,8 @@
 **Source:** `.cursoragents/XP_Progression_Truth.md` LAW 0 (lines 14–18)
 
 `progression.coins`, `progression.globalLevel`, `progression.globalXP` are server-owned.
-The ONLY authorized writer is the `awardWorkoutXP` Callable Cloud Function ("The Guardian").
-Client code MUST route through `src/lib/awardWorkoutXP.ts`.
+The ONLY authorized writers are the `awardWorkoutXP` Callable Cloud Function ("The Guardian") and, as of the B5 delete-workout batch (12.08.2026), `reverseWorkoutXP` (`functions/src/reverseWorkoutXP.ts`) — a narrowly-scoped sibling callable that reverses `globalXP`/`globalLevel` only (never `coins`) when a workout is deleted. It never touches `applyAward`/`sanitizeDelta`, takes only `{workoutId}` from the client (never a client-supplied amount), reads the reversal amount and ownership server-side from the workout doc, and is idempotent via a transactional `xpReversed` marker written atomically with the progression update.
+Client code MUST route through `src/lib/awardWorkoutXP.ts` (awards) or `src/lib/reverseWorkoutXP.ts` (reversals) — never a direct client write.
 Firestore rules (`noGameIntegrityFieldsChanged()`) reject any direct client write.
 DO NOT invent bonus formulas — every value must trace to a row in `.cursoragents/XP_Progression_Truth.md`.
 
