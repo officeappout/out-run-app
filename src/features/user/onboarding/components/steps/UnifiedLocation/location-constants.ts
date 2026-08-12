@@ -316,11 +316,34 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'bs-neot-lon':     { lat: 31.24829, lng: 34.76232 },
 
   // ─── HOLON neighborhoods ───────────────────────────────────
+  // NOTE: the 5 keys below (holon-*) do not match any real picker id (real ids use 'ho-' prefix)
+  // — pre-existing dead/orphaned block, same pattern as the Ashdod asd-/ad- mismatch found
+  // earlier in this run. Left as-is; flagged for the later cleanup commit.
   'holon-center':         { lat: 32.0063, lng: 34.7752 },
   'holon-kiryat-sharet':  { lat: 32.0163, lng: 34.7891 },
   'holon-neve-holon':     { lat: 31.9992, lng: 34.7680 },
   'holon-bat-yam-border': { lat: 32.0007, lng: 34.7715 },
   'holon-north':          { lat: 32.0208, lng: 34.7810 },
+  // ── Holon neighborhood reconcile, held for review. ──
+  'ho-kiryat-avoda':          { lat: 32.0204142, lng: 34.7716412 },
+  'ho-shchunat-am':           { lat: 32.0256120, lng: 34.7727383 },
+  'ho-shikun-amami':          { lat: 32.0262631, lng: 34.7765121 },
+  'ho-rasco-alef':            { lat: 32.0201270, lng: 34.7821582 },
+  'ho-rasco-bet':             { lat: 32.0114240, lng: 34.7903233 },
+  'ho-rasco-gimel':           { lat: 32.0184312, lng: 34.7850415 },
+  'ho-neve-arazim':           { lat: 32.0187457, lng: 34.7954408 },
+  'ho-neot-yehudit':          { lat: 32.0158535, lng: 34.7920646 },
+  'ho-neve-pinchas':          { lat: 32.0128045, lng: 34.7956321 },
+  'ho-neot-shoshanim':        { lat: 32.0132126, lng: 34.7824663 },
+  'ho-neve-remez':            { lat: 32.0102217, lng: 34.7708269 },
+  'ho-kiryat-micha':          { lat: 32.0057270, lng: 34.7586859 },
+  'ho-jessie-cohen':          { lat: 32.0046469, lng: 34.7648419 },
+  'ho-kiryat-pinchas-eilon':  { lat: 32.0082506, lng: 34.7798849 },
+  'ho-kiryat-yitzhak-rabin':  { lat: 32.0027281, lng: 34.7706063 },
+  'ho-moledet':               { lat: 32.0003908, lng: 34.7884081 },
+  'ho-merkaz':                { lat: 32.0171486, lng: 34.7702776 },
+  'ho-green':                 { lat: 32.0337615, lng: 34.7653633 },
+  'ho-migdalim-bshdera':      { lat: 32.0118153, lng: 34.7774368 },
 
   // ─── BNEI BRAK neighborhoods ───────────────────────────────
   // NOTE: bb-kahaneman below does not match any real picker id — pre-existing orphaned key,

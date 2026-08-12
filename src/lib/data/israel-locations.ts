@@ -479,7 +479,27 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'ho-agrobank', name: 'אגרובנק', type: 'neighborhood' },
       { id: 'ho-neot-rachel', name: 'נאות רחל', type: 'neighborhood' },
       { id: 'ho-tel-giborim', name: 'תל גיבורים', type: 'neighborhood' },
-      { id: 'ho-kiryat-bin-gurion', name: 'קרית בן גוריון', type: 'neighborhood' }
+      { id: 'ho-kiryat-bin-gurion', name: 'קרית בן גוריון', type: 'neighborhood' },
+      // ── Holon neighborhood reconcile, held for review (official municipal City Map 2024, 27 residential areas). ──
+      { id: 'ho-kiryat-avoda', name: 'קריית עבודה', type: 'neighborhood' },
+      { id: 'ho-shchunat-am', name: 'שכונת עם', type: 'neighborhood' },
+      { id: 'ho-shikun-amami', name: 'שיכון עממי', type: 'neighborhood' },
+      { id: 'ho-rasco-alef', name: 'רסקו א׳', type: 'neighborhood' },
+      { id: 'ho-rasco-bet', name: 'רסקו ב׳', type: 'neighborhood' },
+      { id: 'ho-rasco-gimel', name: 'רסקו ג׳', type: 'neighborhood' },
+      { id: 'ho-neve-arazim', name: 'נווה ארזים', type: 'neighborhood' },
+      { id: 'ho-neot-yehudit', name: 'נאות יהודית', type: 'neighborhood' },
+      { id: 'ho-neve-pinchas', name: 'נווה פנחס', type: 'neighborhood' },
+      { id: 'ho-neot-shoshanim', name: 'נאות שושנים', type: 'neighborhood' },
+      { id: 'ho-neve-remez', name: 'נווה רמז', type: 'neighborhood' },
+      { id: 'ho-kiryat-micha', name: 'קריית מיכה', type: 'neighborhood' },
+      { id: 'ho-jessie-cohen', name: 'ג׳סי כהן', type: 'neighborhood' },
+      { id: 'ho-kiryat-pinchas-eilon', name: 'קריית פנחס אילון', type: 'neighborhood' },
+      { id: 'ho-kiryat-yitzhak-rabin', name: 'קריית יצחק רבין', type: 'neighborhood' },
+      { id: 'ho-moledet', name: 'מולדת', type: 'neighborhood' },
+      { id: 'ho-merkaz', name: 'מרכז העיר', type: 'neighborhood' },
+      { id: 'ho-green', name: 'שכונת גרין', type: 'neighborhood' },
+      { id: 'ho-migdalim-bshdera', name: 'מגדלים בשדרה', type: 'neighborhood' }
     ]
   },
   {
