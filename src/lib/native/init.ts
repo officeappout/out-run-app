@@ -35,7 +35,7 @@ import { OutboxFlusher } from '@/lib/outbox/OutboxFlusher';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { WORKOUT_EXIT_HARD_BLOCK_ENABLED } from '@/config/feature-flags';
 import { BackStack } from './backStack';
-import { initPushNotifications, unregisterPushNotifications } from './push';
+import { initPushNotifications, unregisterPushNotifications, installTapListener } from './push';
 
 let installed = false;
 let pushAuthListenerAttached = false;
@@ -334,6 +334,27 @@ export async function initNativeShell(): Promise<void> {
       }
     } catch {
       // getLaunchUrl() is not available on all Capacitor versions — ignore.
+    }
+
+    // 4b. Push-notification TAP listener — registered early and
+    //     unconditionally, deliberately BEFORE the auth-gated push pipeline
+    //     (step 6 below). Root-caused 12.08.2026: a cold launch triggered by
+    //     tapping a notification is a race between this listener becoming
+    //     ready and `src/app/page.tsx`'s own auth-resolve → `/home` redirect
+    //     (which needs no permission/token work and is structurally much
+    //     faster). Waiting for `attachPushAuthBridge()` → permission check →
+    //     APNs token fetch → Firestore save before installing the tap
+    //     listener meant `/home` almost always won first. See
+    //     `installTapListener()`'s doc comment in `push.ts` for the full
+    //     analysis — same class of fix as the `getLaunchUrl()` cold-start
+    //     check just above, applied to push-notification launches instead
+    //     of universal-link launches.
+    try {
+      await installTapListener();
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[native] installTapListener skipped:', err);
+      }
     }
 
     // 5. Initialise the HealthBridge plugin lazily. We never request

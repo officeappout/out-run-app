@@ -21,8 +21,14 @@
  * handled by `requestWebPush`. Both paths are no-ops during SSR.
  *
  * Idempotent — `initPushNotifications()` may be called multiple times
- * (e.g. on every auth state change). Listeners are installed exactly once;
- * subsequent calls only refresh the token / Firestore mapping.
+ * (e.g. on every auth state change). `tokenReceived`/`notificationReceived`
+ * are installed exactly once; subsequent calls only refresh the token /
+ * Firestore mapping. The tap listener (`notificationActionPerformed`) is
+ * NOT installed here — see `installTapListener()` below, called early from
+ * `init.ts`'s `initNativeShell()`, decoupled from this function's
+ * permission/token pipeline (root-caused 12.08.2026: waiting for that
+ * pipeline before the tap listener existed lost a real cold-launch race
+ * against `page.tsx`'s own auth-resolve redirect).
  *
  * === Patch notes ============================================================
  * FIX 1 — silent option:
@@ -44,10 +50,15 @@
  *   previous silent `console.debug`.
  *
  * FIX 4 — click-tracking:
- *   `notificationActionPerformed` writes a click event to
- *   `users/{uid}/notification_clicks` for CTR / open-rate reporting.
- *   Requires `notification_clicks` to be readable by admin queries in
- *   `firestore.rules` (add `allow read: if isAdmin();` on that sub-path).
+ *   `notificationActionPerformed` (now in `installTapListener()`, see above)
+ *   writes a click event to `users/{uid}/notification_clicks` for CTR /
+ *   open-rate reporting. Requires `notification_clicks` to be readable by
+ *   admin queries in `firestore.rules` (add `allow read: if isAdmin();` on
+ *   that sub-path).
+ *
+ * FIX 5 — tap listener registered early, decoupled from permission/token:
+ *   see `installTapListener()`'s own doc comment for the full cold-launch
+ *   race analysis.
  * ===========================================================================
  */
 
@@ -66,6 +77,7 @@ import { db } from '@/lib/firebase';
 import { usePushToastStore } from '@/lib/native/usePushToastStore';
 
 let listenersInstalled = false;
+let tapListenerInstalled = false;
 let lastRegisteredUid: string | null = null;
 let lastRegisteredToken: string | null = null;
 
@@ -246,6 +258,170 @@ export async function removeTokenFromFirestore(
  * Returns `true` when a token was successfully registered, `false` if
  * permission was denied/skipped or the platform is unsupported (web shell).
  */
+
+/**
+ * Register the `notificationActionPerformed` (tap) listener — deliberately
+ * standalone, with NO permission check, NO token fetch, and NO auth
+ * dependency, so it can be called as early as possible in the native boot
+ * sequence, before `initPushNotifications()`'s auth-gated pipeline even
+ * starts. Registering a Capacitor listener does not itself require
+ * permission — only actually RECEIVING a push does — so this is safe to
+ * call unconditionally.
+ *
+ * WHY THIS IS SEPARATE (root-caused 12.08.2026): a cold launch triggered by
+ * tapping a notification races two independent things: `src/app/page.tsx`'s
+ * own auth-resolve → `router.push('/home')` (fast, no permission/token
+ * work needed), against `initNativeShell()` → `attachPushAuthBridge()` →
+ * `initPushNotifications()` → permission check → APNs token fetch (up to 3
+ * retries × 2s backoff) → Firestore save → THEN listener install. The
+ * second path is structurally much slower, so on a cold launch `/home`
+ * almost always wins before the tap listener even exists to catch the
+ * buffered native event — producing a real "lands on home instead of the
+ * push's deep-link target" bug regardless of how fast the listener's OWN
+ * handler body runs. Splitting the tap listener out and registering it
+ * unconditionally/early (alongside `appUrlOpen`/`getLaunchUrl()` in
+ * `init.ts`) gives it a real chance to win that race instead of always
+ * losing it upstream of its own code.
+ *
+ * Idempotent — guarded by `tapListenerInstalled`, safe to call multiple
+ * times (e.g. from multiple mount points) or not at all on the web shell.
+ */
+export async function installTapListener(): Promise<void> {
+  if (tapListenerInstalled) return;
+  if (!isNativePlatform()) return;
+
+  try {
+    const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
+
+    // ── Click-tracking / CTR analytics + notification-engine measurement +
+    // deep-link navigation. Fires when the user taps the OS notification
+    // banner (background/lock-screen delivery) or when a cold launch was
+    // triggered by tapping one (buffered by the native plugin and replayed
+    // to the first listener registered, per platform convention).
+    //
+    // NOTE: Firestore rules must allow the authenticated user to write to
+    // their own `notification_clicks` sub-collection. Example rule:
+    //   match /users/{uid}/notification_clicks/{docId} {
+    //     allow create: if request.auth.uid == uid;
+    //   }
+    await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[push] notificationActionPerformed:', event);
+      }
+
+      try {
+        // Resolve the acting user — prefer the live Auth singleton over
+        // the module-level cache in case of a cold-start race condition.
+        // On a very early cold launch, Firebase Auth's local session
+        // restore usually completes before this native event is delivered
+        // (it has its own async/bridge latency), but if neither source has
+        // resolved yet the tap is dropped — same pre-existing fallback
+        // behavior as before this listener was made early, now logged
+        // (never silent) since registering it earlier makes this branch
+        // more reachable than it used to be.
+        const { auth } = await import('@/lib/firebase');
+        const uid = auth.currentUser?.uid ?? lastRegisteredUid;
+        if (!uid) {
+          console.warn('[push] notificationActionPerformed fired before any uid was available — tap dropped');
+          return;
+        }
+
+        const data = (event?.notification as any)?.data ?? {};
+        const messageId = data.messageId as string | undefined;
+
+        // CTR write — only when the queue stamped a `messageId`.
+        if (messageId) {
+          // Non-blocking Firestore write — errors are caught below and
+          // never propagate to the caller.
+          await addDoc(collection(db, 'users', uid, 'notification_clicks'), {
+            messageId,
+            channel:     (data.channel     as string) || 'unknown',
+            authorityId: (data.authorityId as string) || null,
+            clickedAt:   serverTimestamp(),
+          });
+        }
+
+        // ── Notification-engine measurement (Wave 1): push_opened ──
+        // `messageId` doubles as the `pushId` push.service.ts's sendPush()
+        // mints when opts.measurement is set (see push-events.service.ts) —
+        // same field, same gate as the CTR write above, so this is a no-op
+        // for every send that didn't opt into measurement.
+        //
+        // Deliberately NOT awaited (`void ... .catch(...)`) — restores the
+        // original pre-Wave-1 timing on the path to `window.location.href`
+        // (see the fire-and-forget history in git log for this file).
+        if (messageId) {
+          void setDoc(doc(db, 'push_events', `${messageId}_${uid}_push_opened`), {
+            pushId: messageId,
+            uid,
+            eventType: 'push_opened',
+            channel: (data.channel as string) || 'unknown',
+            openedAt: serverTimestamp(),
+          }).catch((measurementErr) => {
+            console.warn('[push] push_opened write failed:', measurementErr);
+          });
+        }
+
+        // ── Social Engagement Engine: deep-link navigation ─────────
+        // The Cloud Function (`functions/src/sendPushFromQueue.ts`)
+        // spreads `data.deepLink` into the outgoing FCM payload when
+        // the queued message has one. Parse it defensively and route
+        // the web view to the resolved in-app path.
+        //
+        // Security: every link is normalised against the current
+        // origin via `new URL(deepLink, window.location.origin)`, so a
+        // malicious payload like `https://evil.example/...` cannot
+        // navigate the user away from the app. Only the pathname-and-
+        // search part of the resolved URL is honoured.
+        try {
+          const rawDeepLink = data.deepLink;
+          if (typeof rawDeepLink === 'string' && rawDeepLink.length > 0) {
+            if (typeof window !== 'undefined') {
+              const target = new URL(rawDeepLink, window.location.origin);
+              if (target.origin === window.location.origin) {
+                // landing_screen — same messageId-as-pushId gate as
+                // push_opened above, same NOT-awaited reasoning: fired
+                // immediately before navigation rather than blocking it.
+                if (messageId) {
+                  void setDoc(doc(db, 'push_events', `${messageId}_${uid}_landing_screen`), {
+                    pushId: messageId,
+                    uid,
+                    eventType: 'landing_screen',
+                    channel: (data.channel as string) || 'unknown',
+                    landingPath: target.pathname + target.search,
+                    loggedAt: serverTimestamp(),
+                  }).catch((measurementErr) => {
+                    console.warn('[push] landing_screen write failed:', measurementErr);
+                  });
+                }
+                window.location.href = target.href;
+              } else if (process.env.NODE_ENV !== 'production') {
+                console.warn(
+                  '[push] dropping cross-origin deepLink:',
+                  rawDeepLink,
+                );
+              }
+            }
+          }
+        } catch (navErr) {
+          console.warn('[push] deepLink navigation failed:', navErr);
+        }
+      } catch (err) {
+        // Click-tracking / deep-link routing is best-effort — never
+        // crash the app over it.
+        console.warn('[push] click-tracking write failed:', err);
+      }
+    });
+
+    tapListenerInstalled = true;
+  } catch (err) {
+    // Plugin not ready yet / other native error — leave tapListenerInstalled
+    // false so a later call (e.g. from attachPushAuthBridge's own flow) can
+    // retry. Never throw — native shell init must proceed regardless.
+    console.warn('[push] installTapListener failed:', err);
+  }
+}
+
 export async function initPushNotifications(
   uid: string,
   options: { silent?: boolean } = {},
@@ -257,6 +433,21 @@ export async function initPushNotifications(
     }
     return false;
   }
+
+  // Retry net for installTapListener(): its own primary, fast-path call is
+  // from initNativeShell() (early, unconditional, before this function's
+  // permission/token pipeline — see its doc comment for why). That call
+  // site is one-shot (initNativeShell() is itself guarded by a one-time
+  // `installed` flag), so if it fails there is no other path to retry it —
+  // this function, by contrast, is called from 3 places (auth bridge on
+  // every auth-state change, SettingsModal's manual "sync" action,
+  // LifestyleWizard onboarding), giving installTapListener() real retry
+  // opportunities for free. No-op if already installed (tapListenerInstalled
+  // guard), so this costs nothing on the common path where the early call
+  // already succeeded.
+  void installTapListener().catch((err) => {
+    console.warn('[push] installTapListener retry (from initPushNotifications) failed:', err);
+  });
 
   try {
     const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
@@ -298,12 +489,14 @@ export async function initPushNotifications(
 
     // ── Step 2: Install listeners exactly once ────────────────────────
     if (!listenersInstalled) {
-      // IMPORTANT: listenersInstalled is set to true only AFTER all three
-      // addListener calls complete successfully. The previous pattern set
+      // IMPORTANT: listenersInstalled is set to true only AFTER both
+      // addListener calls complete successfully (tokenReceived,
+      // notificationReceived — notificationActionPerformed is handled by
+      // installTapListener() instead, see below). The previous pattern set
       // it to true at the top of this block, which permanently skipped
       // retrying listener setup if any call failed (e.g. plugin not yet
       // ready on first cold-start) — leaving the app with no foreground
-      // toast, no token-refresh handler, and no click-tracking.
+      // toast and no token-refresh handler.
 
       // Token rotation — FCM may issue a new token at any time. Swap out
       // the stale one so the sender doesn't waste quota on a dead handle.
@@ -345,124 +538,14 @@ export async function initPushNotifications(
         }
       });
 
-      // ── FIX 4: Click-tracking / CTR analytics ────────────────────
-      // Fires when the user taps the OS notification banner (background
-      // or lock-screen delivery). We write a lightweight click record to
-      // users/{uid}/notification_clicks so the admin dashboard can
-      // calculate open-rates and per-channel CTR.
-      //
-      // NOTE: Firestore rules must allow the authenticated user to write
-      // to their own `notification_clicks` sub-collection. Example rule:
-      //   match /users/{uid}/notification_clicks/{docId} {
-      //     allow create: if request.auth.uid == uid;
-      //   }
-      await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
-        if (process.env.NODE_ENV !== 'production') {
-          console.debug('[push] notificationActionPerformed:', event);
-        }
+      // NOTE: `notificationActionPerformed` (tap handling — CTR write,
+      // measurement writes, deep-link navigation) is registered separately
+      // by `installTapListener()` below, called EARLY from
+      // `initNativeShell()` — see that function's doc comment for why it's
+      // no longer installed here.
 
-        try {
-          // Resolve the acting user — prefer the live Auth singleton over
-          // the module-level cache in case of a cold-start race condition.
-          const { auth } = await import('@/lib/firebase');
-          const uid = auth.currentUser?.uid ?? lastRegisteredUid;
-          if (!uid) return;
-
-          const data = (event?.notification as any)?.data ?? {};
-          const messageId = data.messageId as string | undefined;
-
-          // CTR write — only when the queue stamped a `messageId`.
-          if (messageId) {
-            // Non-blocking Firestore write — errors are caught below and
-            // never propagate to the caller.
-            await addDoc(collection(db, 'users', uid, 'notification_clicks'), {
-              messageId,
-              channel:     (data.channel     as string) || 'unknown',
-              authorityId: (data.authorityId as string) || null,
-              clickedAt:   serverTimestamp(),
-            });
-          }
-
-          // ── Notification-engine measurement (Wave 1): push_opened ──
-          // `messageId` doubles as the `pushId` push.service.ts's sendPush()
-          // mints when opts.measurement is set (see push-events.service.ts) —
-          // same field, same gate as the CTR write above, so this is a no-op
-          // for every send that didn't opt into measurement.
-          //
-          // Deliberately NOT awaited (`void ... .catch(...)`) — an earlier
-          // version awaited this write and delayed `window.location.href`
-          // by one extra sequential Firestore round-trip, which combined
-          // with the also-awaited landing_screen write below to roughly
-          // triple the pre-navigation latency on a cold app launch and
-          // produced a real "lands on home instead of the deep-link target"
-          // regression (root-caused, reverted, see git history). Firing
-          // without awaiting restores the original pre-Wave-1 timing on the
-          // path to `window.location.href`.
-          if (messageId) {
-            void setDoc(doc(db, 'push_events', `${messageId}_${uid}_push_opened`), {
-              pushId: messageId,
-              uid,
-              eventType: 'push_opened',
-              channel: (data.channel as string) || 'unknown',
-              openedAt: serverTimestamp(),
-            }).catch((measurementErr) => {
-              console.warn('[push] push_opened write failed:', measurementErr);
-            });
-          }
-
-          // ── Social Engagement Engine: deep-link navigation ─────────
-          // The Cloud Function (`functions/src/sendPushFromQueue.ts`)
-          // spreads `data.deepLink` into the outgoing FCM payload when
-          // the queued message has one. Parse it defensively and route
-          // the web view to the resolved in-app path.
-          //
-          // Security: every link is normalised against the current
-          // origin via `new URL(deepLink, window.location.origin)`, so a
-          // malicious payload like `https://evil.example/...` cannot
-          // navigate the user away from the app. Only the pathname-and-
-          // search part of the resolved URL is honoured.
-          try {
-            const rawDeepLink = data.deepLink;
-            if (typeof rawDeepLink === 'string' && rawDeepLink.length > 0) {
-              if (typeof window !== 'undefined') {
-                const target = new URL(rawDeepLink, window.location.origin);
-                if (target.origin === window.location.origin) {
-                  // landing_screen — same messageId-as-pushId gate as
-                  // push_opened above, same NOT-awaited reasoning: fired
-                  // immediately before navigation rather than blocking it.
-                  if (messageId) {
-                    void setDoc(doc(db, 'push_events', `${messageId}_${uid}_landing_screen`), {
-                      pushId: messageId,
-                      uid,
-                      eventType: 'landing_screen',
-                      channel: (data.channel as string) || 'unknown',
-                      landingPath: target.pathname + target.search,
-                      loggedAt: serverTimestamp(),
-                    }).catch((measurementErr) => {
-                      console.warn('[push] landing_screen write failed:', measurementErr);
-                    });
-                  }
-                  window.location.href = target.href;
-                } else if (process.env.NODE_ENV !== 'production') {
-                  console.warn(
-                    '[push] dropping cross-origin deepLink:',
-                    rawDeepLink,
-                  );
-                }
-              }
-            }
-          } catch (navErr) {
-            console.warn('[push] deepLink navigation failed:', navErr);
-          }
-        } catch (err) {
-          // Click-tracking / deep-link routing is best-effort — never
-          // crash the app over it.
-          console.warn('[push] click-tracking write failed:', err);
-        }
-      });
-
-      // All three listeners registered successfully — mark as installed.
-      // If any addListener above threw, we never reach this line and
+      // Both listeners registered successfully — mark as installed.
+      // If either addListener above threw, we never reach this line and
       // listenersInstalled stays false, allowing a clean retry on the
       // next initPushNotifications() invocation.
       listenersInstalled = true;
