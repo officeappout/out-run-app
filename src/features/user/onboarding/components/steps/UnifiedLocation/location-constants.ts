@@ -310,9 +310,21 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'holon-north':          { lat: 32.0208, lng: 34.7810 },
 
   // ─── BNEI BRAK neighborhoods ───────────────────────────────
+  // NOTE: bb-kahaneman below does not match any real picker id — pre-existing orphaned key,
+  // could not confidently identify which official neighborhood it represents. Left untouched,
+  // flagged for the later cleanup commit.
   'bb-center':      { lat: 32.0796, lng: 34.8344 },
   'bb-kahaneman':   { lat: 32.0891, lng: 34.8389 },
   'bb-ramat-aharon':{ lat: 32.0722, lng: 34.8404 },
+  // ── Bnei Brak neighborhood reconcile, held for review. ──
+  'bb-merkaz':          { lat: 32.0796, lng: 34.8344 }, // fills a pre-existing gap; reuses bb-center's value (semantic match, not net-new geocoding)
+  'bb-vizhnitz':        { lat: 32.07355, lng: 34.83628 },
+  'bb-gani-gad':        { lat: 32.0900111, lng: 34.84465 },
+  'bb-har-shalom':      { lat: 32.08481, lng: 34.82813 },
+  'bb-neve-achiezer':   { lat: 32.07261, lng: 34.84181 },
+  'bb-kiryat-herzog':   { lat: 32.09734, lng: 34.84095 },
+  'bb-tel-giborim':     { lat: 32.09450, lng: 34.82572 },
+  'bb-ramat-elchanan':  { lat: 32.08162, lng: 34.84316 },
 
   // ─── RAMAT GAN neighborhoods ───────────────────────────────
   'rg-center':        { lat: 32.0700, lng: 34.8188 },

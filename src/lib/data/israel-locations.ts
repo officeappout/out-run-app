@@ -480,7 +480,15 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     subLocations: [
       { id: 'bb-pardes-katz', name: 'פרדס כץ', type: 'neighborhood' },
       { id: 'bb-merkaz', name: 'מרכז העיר', type: 'neighborhood' },
-      { id: 'bb-vizhnitz', name: 'שיכון ויז׳ניץ', type: 'neighborhood' }
+      { id: 'bb-vizhnitz', name: 'קריית ויז׳ניץ · שיכון ויז׳ניץ', type: 'neighborhood', cluster: 'רובע 1' },
+      // ── Bnei Brak neighborhood reconcile, held for review (11 numbered רבעים per official municipal quarters map). ──
+      { id: 'bb-gani-gad', name: 'גני גד', type: 'neighborhood', cluster: 'רובע 4' },
+      { id: 'bb-har-shalom', name: 'הר שלום', type: 'neighborhood', cluster: 'רובע 7' },
+      { id: 'bb-neve-achiezer', name: 'נווה אחיעזר', type: 'neighborhood', cluster: 'רובע 1' },
+      { id: 'bb-kiryat-herzog', name: 'קריית הרצוג', type: 'neighborhood', cluster: 'רובע 8' },
+      { id: 'bb-tel-giborim', name: 'תל גיבורים', type: 'neighborhood', cluster: 'רובע 9' },
+      { id: 'bb-ramat-elchanan', name: 'רמת אלחנן', type: 'neighborhood', cluster: 'רובע 4' },
+      { id: 'bb-ramat-aharon', name: 'רמת אהרן', type: 'neighborhood' } // quarter placement not confirmed by official map, cluster omitted
     ]
   },
   {
