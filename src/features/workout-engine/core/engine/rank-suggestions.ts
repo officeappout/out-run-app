@@ -90,6 +90,16 @@ function preferenceMatch(context: UserContext, suggestion: Suggestion): number {
  * implemented — it's the one grounded in an existing engine concept
  * (`WorkoutGenerationContext.detrainingLock`, which already caps difficulty elsewhere in the
  * live generator). Locked → linear preference for lower difficulty; not locked → neutral.
+ *
+ * ⚠️ Currently a no-op regardless of IS_CHEAP_SUGGESTION_RANKING_ENABLED — the map's only
+ * live UserContext builder (build-map-user-context.ts) hardcodes `recoveryState.
+ * isDetrainingLocked: false` (real detection lives in periodization.service.ts, not wired to
+ * this surface yet). Latent gap for whoever wires it: with the cheap-ranking flag on, every
+ * generator reports a static `difficulty: 2`, so this factor (and preferenceMatch's
+ * difficulty check above) would tie across all 5 candidates the moment isDetrainingLocked
+ * goes live, instead of differentiating by real difficulty the way the flag-off/real-compose
+ * path can (11.08.2026, adversarial review finding — .claude/knowledge/
+ * map-suggestion-pipeline-thrash.md).
  */
 function recoveryMatch(context: UserContext, suggestion: Suggestion): number {
   if (!context.recoveryState.isDetrainingLocked) return 0;

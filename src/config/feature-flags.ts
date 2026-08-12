@@ -230,6 +230,33 @@ export const IS_ADAPTIVE_SHED_ENABLED = true;
 // flip back to false + redeploy, no code change needed.
 export const IS_GPS_IDLE_POLLING_ENABLED = true;
 
+// CHEAP_SUGGESTION_RANKING — the map's "what to do today" ranking (runSuggestionEngine,
+// 5 generators: route/route-stops/full-park-workout/full-strength/anchor-loop) used to run
+// each generator's REAL, full build (real Mapbox route calls, real generateHomeWorkoutTrio
+// exercise scoring) just to pick which ONE existing card gets the "recommended" badge —
+// confirmed by tracing the only consumer (applyRankedSlotOrder.ts) that ranking output only
+// ever reads `generatorId` off the winning Suggestion; every other field (title, structure,
+// methodsUsed) is discarded. The score itself (rank-suggestions.ts) only reads
+// difficulty/goalTags/stepContribution/requiresLocation — never the real composed content.
+// So building for real bought nothing: same ranking outcome, ~9s + real network calls wasted
+// on every trigger (11.08.2026 finding, .claude/knowledge/map-suggestion-pipeline-thrash.md).
+// While TRUE, each generator returns a cheap, instantly-resolved estimate using only static/
+// already-cached signals — no Mapbox call, no exercise-level scoring — EXCEPT it still
+// preserves the two real "this generator can't produce anything useful right now" exclusions
+// generators self-apply today (full-park-workout: no nearby equipped park; full-strength: no
+// assessed domain) via a cheap synchronous check instead of a full compose-then-discard.
+// While FALSE, every generator's `generate()` is byte-identical to before this flag existed.
+// Does NOT touch tap-to-open COST: the settle/prefetch mechanism that makes tapping a card
+// instant (DiscoverLayer.tsx's `handleSettleSlot`/`hybridPlanCache`) is a completely separate
+// system with its own cache, never fed by these generators either before or after this flag —
+// verified by reading the code, not assumed (adversarial re-check, 11.08.2026: 0 findings).
+// One harmless TIMING nuance the same re-check surfaced: HybridSlotCarousel's settle-effect
+// re-fires when `applyRankedSlotOrder` returns a new `slots` reference on ranking completion;
+// pre-flag that 2nd fire landed ~9s after mount (whenever real ranking finished), post-flag it
+// lands almost immediately — but it's fully deduped by `composeTrioDeduped`/`hybridPlanCache`
+// either way, so it costs nothing extra, just fires sooner. TRUE (11.08.2026, David-approved).
+export const IS_CHEAP_SUGGESTION_RANKING_ENABLED = true;
+
 // ============================================================================
 // SUMMARY CONSOLIDATION (Stage 2/3) — per-screen V2 renderers over the shared
 // summary/blocks kit. ALL DEFAULT FALSE: while false, each summary screen renders

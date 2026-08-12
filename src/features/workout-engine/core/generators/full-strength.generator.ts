@@ -23,6 +23,7 @@ import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { generateHomeWorkoutTrio } from '../../services/home-workout.service';
+import { IS_CHEAP_SUGGESTION_RANKING_ENABLED } from '@/config/feature-flags';
 
 export const fullStrengthGenerator: Generator = {
   id: 'full-strength',
@@ -34,6 +35,36 @@ export const fullStrengthGenerator: Generator = {
   generate: async (context): Promise<Suggestion | null> => {
     const profile = useUserStore.getState().profile;
     if (!profile) return null;
+
+    // Cheap ranking (see feature-flags.ts) — no real generateHomeWorkoutTrio call (that's
+    // the exact per-exercise scoring pass map-suggestion-pipeline-thrash.md fixed the waste
+    // on). Still preserves the real self-exclusion the full generation applies today
+    // (needsAssessment=true → null) via a cheap synchronous read of the already-loaded
+    // profile — "has the user assessed ANY domain/track at all" — instead of running the
+    // full pipeline just to discover the same answer.
+    if (IS_CHEAP_SUGGESTION_RANKING_ENABLED) {
+      const hasAnyAssessedDomain =
+        Object.keys(profile.progression?.domains ?? {}).length > 0 ||
+        Object.keys(profile.progression?.tracks ?? {}).length > 0;
+      if (!hasAnyAssessedDomain) return null;
+      return {
+        id: `full-strength-cheap-${context.userId}`,
+        type: 'daily_workout',
+        generatorId: 'full-strength',
+        title: 'אימון כוח',
+        structure: { segments: 1, durationMin: context.availableTimeMin },
+        methodsUsed: ['straight'],
+        difficulty: 2,
+        goalTags: ['strength'],
+        surfaceEligibility: ['home', 'map'],
+        requiresLocation: false,
+        score: 0,
+        scoreBreakdown: {
+          goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0,
+          recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0,
+        },
+      };
+    }
 
     const trio = await generateHomeWorkoutTrio({
       userProfile: profile,

@@ -30,6 +30,7 @@ import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
 import { composeHybridPlan } from '../../hybrid/start-hybrid-session';
 import { HYBRID_PRESETS, presetToIntent } from '../../hybrid/hybrid-slots';
+import { IS_CHEAP_SUGGESTION_RANKING_ENABLED } from '@/config/feature-flags';
 
 export const anchorLoopGenerator: Generator = {
   id: 'anchor-loop',
@@ -40,6 +41,28 @@ export const anchorLoopGenerator: Generator = {
 
   generate: async (context): Promise<Suggestion | null> => {
     if (!context.location) return null;
+
+    // Cheap ranking (see feature-flags.ts) — see route.generator.ts for the same rationale.
+    // difficulty:2 already matched the real path's own Gate D hardcode (see file header).
+    if (IS_CHEAP_SUGGESTION_RANKING_ENABLED) {
+      return {
+        id: `anchor-loop-cheap-${context.userId}`,
+        type: 'daily_workout',
+        generatorId: 'anchor-loop',
+        title: 'המומלץ',
+        structure: { segments: 1, durationMin: context.availableTimeMin },
+        methodsUsed: [],
+        difficulty: 2,
+        goalTags: ['strength', 'walk'],
+        surfaceEligibility: ['map'],
+        requiresLocation: true,
+        score: 0,
+        scoreBreakdown: {
+          goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0,
+          recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0,
+        },
+      };
+    }
 
     const preset = context.todayGoal === 'run' ? HYBRID_PRESETS.run_balanced : HYBRID_PRESETS.walk_balanced;
     const intent = presetToIntent(preset, context.availableTimeMin);
