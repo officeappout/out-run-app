@@ -24,6 +24,7 @@ import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
 import { composeHybridPlan } from '../../hybrid/start-hybrid-session';
 import { HYBRID_PRESETS, presetToIntent } from '../../hybrid/hybrid-slots';
+import { IS_CHEAP_SUGGESTION_RANKING_ENABLED } from '@/config/feature-flags';
 
 export const routeStopsGenerator: Generator = {
   id: 'route-stops',
@@ -34,6 +35,27 @@ export const routeStopsGenerator: Generator = {
 
   generate: async (context): Promise<Suggestion | null> => {
     if (!context.location) return null;
+
+    // Cheap ranking (see feature-flags.ts) — see route.generator.ts for the same rationale.
+    if (IS_CHEAP_SUGGESTION_RANKING_ENABLED) {
+      return {
+        id: `route-stops-cheap-${context.userId}`,
+        type: 'daily_workout',
+        generatorId: 'route-stops',
+        title: 'מסלול רב-עצירות',
+        structure: { segments: 1, durationMin: context.availableTimeMin },
+        methodsUsed: [],
+        difficulty: 2,
+        goalTags: ['run', 'strength'],
+        surfaceEligibility: ['map'],
+        requiresLocation: true,
+        score: 0,
+        scoreBreakdown: {
+          goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0,
+          recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0,
+        },
+      };
+    }
 
     const preset = {
       ...HYBRID_PRESETS.route_stops,

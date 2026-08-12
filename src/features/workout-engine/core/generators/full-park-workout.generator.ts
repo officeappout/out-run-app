@@ -29,6 +29,9 @@ import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
 import { composeHybridPlan } from '../../hybrid/start-hybrid-session';
 import { HYBRID_PRESETS, presetToIntent } from '../../hybrid/hybrid-slots';
+import { nearestEquippedPark } from '../../hybrid/park-out-and-back';
+import { fetchRealParks } from '@/features/parks/core/services/parks.service';
+import { IS_CHEAP_SUGGESTION_RANKING_ENABLED } from '@/config/feature-flags';
 
 export const fullParkWorkoutGenerator: Generator = {
   id: 'full-park-workout',
@@ -39,6 +42,34 @@ export const fullParkWorkoutGenerator: Generator = {
 
   generate: async (context): Promise<Suggestion | null> => {
     if (!context.location) return null;
+
+    // Cheap ranking (see feature-flags.ts) — no real compose (no Mapbox, no exercise
+    // scoring). Still preserves the real self-exclusion the full compose applies today
+    // (composeHybridPlan returns null with no nearby equipped park) via the same pure,
+    // already-unit-tested nearestEquippedPark check against the already-cached park list
+    // (fetchRealParks — no new network call once warm) — cheap, not free, but the ONLY
+    // piece of real signal actually needed to keep this candidate honest.
+    if (IS_CHEAP_SUGGESTION_RANKING_ENABLED) {
+      const parks = await fetchRealParks();
+      if (!nearestEquippedPark(context.location, parks)) return null;
+      return {
+        id: `full-park-workout-cheap-${context.userId}`,
+        type: 'daily_workout',
+        generatorId: 'full-park-workout',
+        title: 'אימון מלא בפארק · הליכה + תחנת כוח',
+        structure: { segments: 1, durationMin: context.availableTimeMin },
+        methodsUsed: [],
+        difficulty: 2,
+        goalTags: ['strength', 'walk'],
+        surfaceEligibility: ['map'],
+        requiresLocation: true,
+        score: 0,
+        scoreBreakdown: {
+          goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0,
+          recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0,
+        },
+      };
+    }
 
     const preset = {
       ...HYBRID_PRESETS.full_park,
