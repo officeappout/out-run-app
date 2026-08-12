@@ -583,13 +583,36 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     id: 'rehovot',
     name: 'רחובות',
     type: 'city',
-    population: 152000,
+    population: 155475,
     subLocations: [
-      { id: 'rv-science', name: 'פארק המדע', type: 'neighborhood' },
+      { id: 'rv-science', name: 'פארק המדע', type: 'neighborhood' }, // flagged for David's review — confirmed non-residential (hi-tech/business park), not removed (non-destructive)
       { id: 'rv-new', name: 'רחובות החדשה', type: 'neighborhood' },
       { id: 'rv-dutch', name: 'רחובות ההולנדית', type: 'neighborhood' },
       { id: 'rv-center', name: 'מרכז העיר', type: 'neighborhood' },
-      { id: 'rv-shaarayim', name: 'שעריים', type: 'neighborhood' }
+      { id: 'rv-shaarayim', name: 'שעריים', type: 'neighborhood' },
+      // ── Rehovot neighborhood reconcile, held for review (no official GIS source; OSM + municipal pages/press cross-validated). ──
+      { id: 'rv-kiryat-moshe', name: 'קריית משה', type: 'neighborhood' },
+      { id: 'rv-dania', name: 'שכונת דניה', type: 'neighborhood' },
+      { id: 'rv-milchan', name: 'שכונת מילצ׳ן', type: 'neighborhood' },
+      { id: 'rv-havatzelet', name: 'שכונת חבצלת', type: 'neighborhood' },
+      { id: 'rv-oshiyot', name: 'אושיות', type: 'neighborhood' },
+      { id: 'rv-neve-yehuda', name: 'נווה יהודה', type: 'neighborhood' },
+      { id: 'rv-marmorek', name: 'מרמורק', type: 'neighborhood' },
+      { id: 'rv-achuzot-hanasi', name: 'אחוזות הנשיא', type: 'neighborhood' },
+      { id: 'rv-kiryat-hahagana', name: 'קרית ההגנה', type: 'neighborhood' },
+      { id: 'rv-efraim', name: 'שכונת אפרים', type: 'neighborhood' },
+      { id: 'rv-even-gvirol', name: 'אבן גבירול', type: 'neighborhood' },
+      { id: 'rv-neot-karmim', name: 'נאות כרמים', type: 'neighborhood' },
+      { id: 'rv-sela', name: 'סלע', type: 'neighborhood' },
+      { id: 'rv-neve-amit', name: 'נווה עמית', type: 'neighborhood' },
+      { id: 'rv-givati', name: 'גבעתי', type: 'neighborhood' },
+      { id: 'rv-makov', name: 'מקוב', type: 'neighborhood' },
+      { id: 'rv-ramat-aharon', name: 'רמת אהרון', type: 'neighborhood' },
+      { id: 'rv-ein-ganim', name: 'עין גנים', type: 'neighborhood' },
+      { id: 'rv-avnei-chen', name: 'אבני חן', type: 'neighborhood' },
+      { id: 'rv-kiryat-david', name: 'קרית דוד', type: 'neighborhood' },
+      { id: 'rv-hayovel', name: 'היובל', type: 'neighborhood' },
+      { id: 'rv-chatzrot-hamoshava', name: 'חצרות המושבה', type: 'neighborhood' }
     ]
   },
   {

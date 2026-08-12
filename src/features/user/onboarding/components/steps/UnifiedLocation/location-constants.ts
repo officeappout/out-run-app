@@ -414,11 +414,37 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'as-ir-yamim':                  { lat: 31.703772, lng: 34.578055 },
 
   // ─── REHOVOT neighborhoods ─────────────────────────────────
+  // NOTE: the 5 keys below (reh-*) do not match any real picker id (real ids use 'rv-' prefix)
+  // — pre-existing dead/orphaned block, same pattern found in several other cities this run.
+  // Left as-is, flagged for the later cleanup commit.
   'reh-center':       { lat: 31.8988, lng: 34.8072 },
   'reh-kiryat-moshe': { lat: 31.8836, lng: 34.8088 },
   'reh-north':        { lat: 31.9175, lng: 34.8175 },
   'reh-south':        { lat: 31.8773, lng: 34.8023 },
   'reh-kfar-ganim':   { lat: 31.9053, lng: 34.8253 },
+  // ── Rehovot neighborhood reconcile, held for review. ──
+  'rv-kiryat-moshe':       { lat: 31.8873081, lng: 34.7869891 },
+  'rv-dania':              { lat: 31.8912180, lng: 34.8210647 },
+  'rv-milchan':            { lat: 31.8821774, lng: 34.8127600 },
+  'rv-havatzelet':         { lat: 31.8755549, lng: 34.8164292 },
+  'rv-oshiyot':            { lat: 31.8821514, lng: 34.8218915 },
+  'rv-neve-yehuda':        { lat: 31.9015376, lng: 34.8016028 },
+  'rv-marmorek':           { lat: 31.8834309, lng: 34.8024603 },
+  'rv-achuzot-hanasi':     { lat: 31.9073835, lng: 34.8216548 },
+  'rv-kiryat-hahagana':    { lat: 31.8862406, lng: 34.8301622 },
+  'rv-efraim':             { lat: 31.8948311, lng: 34.7989718 },
+  'rv-even-gvirol':        { lat: 31.8958781, lng: 34.7733980 },
+  'rv-neot-karmim':        { lat: 31.8903778, lng: 34.7781748 },
+  'rv-sela':               { lat: 31.8901649, lng: 34.7962547 },
+  'rv-neve-amit':          { lat: 31.9100245, lng: 34.8008408 },
+  'rv-givati':             { lat: 31.8828002, lng: 34.8066536 },
+  'rv-makov':              { lat: 31.8843790, lng: 34.8283892 },
+  'rv-ramat-aharon':       { lat: 31.8830984, lng: 34.8254635 },
+  'rv-ein-ganim':          { lat: 31.8819441, lng: 34.8155991 },
+  'rv-avnei-chen':         { lat: 31.8966164, lng: 34.8257040 },
+  'rv-kiryat-david':       { lat: 31.8916688, lng: 34.8242615 },
+  'rv-hayovel':            { lat: 31.8877337, lng: 34.8260900 },
+  'rv-chatzrot-hamoshava': { lat: 31.8925728, lng: 34.7923660 },
 
   // ─── BAT YAM neighborhoods ─────────────────────────────────
   'by-center': { lat: 32.0199, lng: 34.7523 },
