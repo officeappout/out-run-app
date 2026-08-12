@@ -4,6 +4,7 @@ export { onFeedPostCreate, onWorkoutCreate, rollupLeaderboard } from './leaderbo
 export { runDataMigration } from './runDataMigration';
 export { onUnitWrite } from './onUnitWrite';
 export { awardWorkoutXP } from './awardWorkoutXP';
+export { reverseWorkoutXP } from './reverseWorkoutXP';
 export { ingestHealthSamples } from './ingestHealthSamples';
 export { logAuditAction } from './auditLogger';
 export { cleanupOldLogs } from './cleanupOldLogs';
