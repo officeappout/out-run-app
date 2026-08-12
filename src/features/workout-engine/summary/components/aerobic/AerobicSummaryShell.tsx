@@ -17,6 +17,9 @@ import LapPaceChart from '../shared/LapPaceChart';
 import { createContribution } from '@/features/parks/core/services/contribution.service';
 import { XP_REWARDS } from '@/types/contribution.types';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
+import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
+import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 
 interface Props {
   variant: 'group' | 'solo' | 'pair';
@@ -63,6 +66,10 @@ export default function AerobicSummaryShell({
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // WORKOUT_DELETE_EXPANDED_ENABLED-only: opens the shared DeleteWorkoutConfirmModal.
+  // Kept as a separate state var from `deleteConfirm` (the flag-false inline confirm box)
+  // so the flag-false path below stays byte-identical to pre-rewire behaviour.
+  const [expandedDeleteModalOpen, setExpandedDeleteModalOpen] = useState(false);
 
   const savedWorkoutId = useRunningPlayer((s) => s.savedWorkoutId);
 
@@ -337,10 +344,11 @@ export default function AerobicSummaryShell({
 
       {/* Delete workout — only shown when a workout was actually saved this session */}
       {savedWorkoutId && (
-        !deleteConfirm ? (
+        WORKOUT_DELETE_EXPANDED_ENABLED ? (
+          // ── Flag ON: shared DeleteWorkoutConfirmModal + deleteWorkoutWithReversal ──
           <div style={{ textAlign: 'center', paddingBottom: 12 }}>
             <button
-              onClick={() => setDeleteConfirm(true)}
+              onClick={() => setExpandedDeleteModalOpen(true)}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontSize: 13, color: '#9aa3a1', textDecoration: 'underline', padding: '4px 8px',
@@ -350,52 +358,88 @@ export default function AerobicSummaryShell({
             </button>
           </div>
         ) : (
-          <div
-            style={{
-              background: '#FEF2F2', borderRadius: 14, padding: '14px 16px',
-              marginBottom: 12, textAlign: 'center',
-            }}
-          >
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#B91C1C', marginBottom: 10 }}>
-              למחוק את האימון?
-            </div>
-            <div style={{ fontSize: 12, color: '#5b6664', marginBottom: 14 }}>
-              האימון יימחק, ה-XP והרצף יוחזרו לאחור.
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+          // ── Flag OFF: today's exact existing inline confirm + deleteLastWorkout() ──
+          !deleteConfirm ? (
+            <div style={{ textAlign: 'center', paddingBottom: 12 }}>
               <button
-                onClick={() => setDeleteConfirm(false)}
+                onClick={() => setDeleteConfirm(true)}
                 style={{
-                  flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13,
-                  fontWeight: 600, cursor: 'pointer', border: 'none',
-                  background: '#fff', color: '#5b6664',
-                  boxShadow: '0 0 0 0.5px #e8ebea',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 13, color: '#9aa3a1', textDecoration: 'underline', padding: '4px 8px',
                 }}
               >
-                בטל
-              </button>
-              <button
-                disabled={deleting}
-                onClick={async () => {
-                  setDeleting(true);
-                  try {
-                    await useRunningPlayer.getState().deleteLastWorkout();
-                  } finally {
-                    setDeleting(false);
-                    onClose();
-                  }
-                }}
-                style={{
-                  flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13,
-                  fontWeight: 600, cursor: deleting ? 'wait' : 'pointer', border: 'none',
-                  background: '#B91C1C', color: '#fff', opacity: deleting ? 0.7 : 1,
-                }}
-              >
-                {deleting ? 'מוחק...' : 'מחק אימון'}
+                בטל / מחק אימון
               </button>
             </div>
-          </div>
+          ) : (
+            <div
+              style={{
+                background: '#FEF2F2', borderRadius: 14, padding: '14px 16px',
+                marginBottom: 12, textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#B91C1C', marginBottom: 10 }}>
+                למחוק את האימון?
+              </div>
+              <div style={{ fontSize: 12, color: '#5b6664', marginBottom: 14 }}>
+                האימון יימחק, ה-XP והרצף יוחזרו לאחור.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setDeleteConfirm(false)}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13,
+                    fontWeight: 600, cursor: 'pointer', border: 'none',
+                    background: '#fff', color: '#5b6664',
+                    boxShadow: '0 0 0 0.5px #e8ebea',
+                  }}
+                >
+                  בטל
+                </button>
+                <button
+                  disabled={deleting}
+                  onClick={async () => {
+                    setDeleting(true);
+                    try {
+                      await useRunningPlayer.getState().deleteLastWorkout();
+                    } finally {
+                      setDeleting(false);
+                      onClose();
+                    }
+                  }}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 12, fontSize: 13,
+                    fontWeight: 600, cursor: deleting ? 'wait' : 'pointer', border: 'none',
+                    background: '#B91C1C', color: '#fff', opacity: deleting ? 0.7 : 1,
+                  }}
+                >
+                  {deleting ? 'מוחק...' : 'מחק אימון'}
+                </button>
+              </div>
+            </div>
+          )
         )
+      )}
+
+      {/* WORKOUT_DELETE_EXPANDED_ENABLED-only: shared confirm modal, mounted regardless
+          of tab so it can be triggered from the overview tab's trigger above. */}
+      {WORKOUT_DELETE_EXPANDED_ENABLED && (
+        <DeleteWorkoutConfirmModal
+          isOpen={expandedDeleteModalOpen}
+          activityLabel={activityType === 'walking' ? 'הליכה' : 'ריצה'}
+          dateLabel={dateLabel}
+          xpToReverse={xpEarned}
+          onCancel={() => setExpandedDeleteModalOpen(false)}
+          onConfirm={async () => {
+            if (!savedWorkoutId) return;
+            try {
+              await deleteWorkoutWithReversal(savedWorkoutId);
+            } finally {
+              setExpandedDeleteModalOpen(false);
+              onClose();
+            }
+          }}
+        />
       )}
     </div>
   );
