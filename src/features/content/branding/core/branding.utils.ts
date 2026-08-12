@@ -110,6 +110,9 @@ export interface TagResolverContext {
   /** Remaining count to reach today's daily goal (for @צעדים_שנותרו tag) —
    *  Daily_Goal trigger, activityType-agnostic (steps today, sets later). */
   stepsLeft?: number;
+  /** Approximate walking minutes to close today's step gap (for @דקות tag) —
+   *  Daily_Goal trigger, walking only. Pre-computed by the caller. */
+  walkMinutes?: number;
   /** Display name of today's progression step, e.g. "Diamond Push-ups 3×8" */
   currentProgressionStep?: string;
   /** Average rep count for the workout (used to derive physiological focus) */
@@ -511,6 +514,11 @@ export function getAvailableTags(triggerType?: NotificationTriggerType): Array<{
       tag: '@מרחק',
       description: 'מרחק מסלול מוצע שיסגור את הפער (ק"מ/מטר)',
       example: 'סיבוב קצר של @מרחק וזה שלך',
+    },
+    {
+      tag: '@דקות',
+      description: 'דקות הליכה משוערות לסגירת הפער (Daily_Goal, הליכה בלבד)',
+      example: 'עוד ~@דקות דקות הליכה וסגרת את היום',
     },
     {
       tag: '@רצף',
@@ -1053,6 +1061,16 @@ export function resolveDescription(
       : '0';
   });
 
+  // @דקות — approximate walking minutes to close the gap (Daily_Goal,
+  // walking). Pre-computed and passed in via context.walkMinutes (same
+  // pattern as distanceMeters for @מרחק) rather than derived here, so the
+  // caller controls the exact steps-per-minute assumption in one place.
+  resolved = resolved.replace(/@דקות/g, () => {
+    return context.walkMinutes !== undefined && context.walkMinutes !== null
+      ? String(context.walkMinutes)
+      : '0';
+  });
+
   // @סקייל_נוכחי — today's progression step name
   resolved = resolved.replace(/@סקייל_נוכחי/g, () => {
     return context.currentProgressionStep || 'השלב הנוכחי';
@@ -1295,6 +1313,11 @@ export function getAvailableDescriptionTags(): Array<{
       tag: '@צעדים_שנותרו',
       description: 'כמות שנותרה להשלמת יעד היום (רק בהתראות Daily_Goal, activityType-agnostic)',
       example: 'נשארו לך @צעדים_שנותרו צעדים ליעד היום 👟',
+    },
+    {
+      tag: '@דקות',
+      description: 'דקות הליכה משוערות לסגירת הפער (רק בהתראות Daily_Goal, הליכה בלבד)',
+      example: 'עוד ~@דקות דקות הליכה וסגרת את היום',
     },
     {
       tag: '@רצף',

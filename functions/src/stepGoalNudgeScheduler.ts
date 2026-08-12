@@ -105,6 +105,14 @@ function stepsToDistanceMeters(steps: number): number {
   return Math.round(safeSteps * AVG_WALK_STRIDE_METERS);
 }
 
+/** Approximate walking minutes for @דקות — steps-per-minute assumption for
+ * an average walking pace, min 1 (never "0 minutes" for a nonzero gap). */
+const AVG_STEPS_PER_MINUTE = 110;
+function stepsToWalkMinutes(steps: number): number {
+  const safeSteps = Number.isFinite(steps) && steps > 0 ? steps : 0;
+  return Math.max(1, Math.round(safeSteps / AVG_STEPS_PER_MINUTE));
+}
+
 /** Daily-goal-completion bucket — same 5-value axis as branding.types.ts's
  * DailyGoalBucket, computed here from the raw steps/goal ratio. */
 function computeDailyGoalBucket(todaySteps: number, dailyStepGoal: number): string {
@@ -217,10 +225,12 @@ async function dispatchToUser(
 
   const stepsLeft = Math.max(0, user.dailyStepGoal - user.todaySteps);
   const distanceMeters = stepsToDistanceMeters(stepsLeft);
+  const walkMinutes = stepsToWalkMinutes(stepsLeft);
   const body = personaliseNotificationText(selected.text, {
     name: user.name,
     stepsLeft,
     distanceMeters,
+    walkMinutes,
     streakDays: user.currentStreak,
     steps_left: String(stepsLeft), // legacy {steps_left} form, kept for any older seeded copy
   });

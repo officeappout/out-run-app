@@ -177,6 +177,9 @@ export interface PersonaliseVars {
   /** @מרחק — suggested route distance in meters (Daily_Goal), or proximity
    *  distance (Proximity content, if ever routed through this selector). */
   distanceMeters?: number;
+  /** @דקות — approximate walking minutes to close today's step gap
+   *  (Daily_Goal, walking only). Pre-computed by the caller. */
+  walkMinutes?: number;
 }
 
 /**
@@ -189,6 +192,7 @@ export interface PersonaliseVars {
  *   @צעדים_שנותרו    → vars.stepsLeft, locale-formatted (fallback '0')
  *   @מרחק            → vars.distanceMeters, formatted as meters/km exactly
  *                       like the client-side @מרחק tag (fallback 'קרוב')
+ *   @דקות            → vars.walkMinutes (fallback '0')
  *   {anyKey}         → arbitrary extra vars (generic {var}-replace, same
  *                       regex every other scheduler in this codebase uses;
  *                       missing keys resolve to '' rather than leaving the
@@ -221,6 +225,9 @@ export function personaliseNotificationText(
     if (vars.distanceMeters < 1000) return `${vars.distanceMeters} מטר`;
     return `${(vars.distanceMeters / 1000).toFixed(1)} ק"מ`;
   });
+  result = result.replace(/@דקות/g, () =>
+    vars.walkMinutes !== undefined && vars.walkMinutes !== null ? String(vars.walkMinutes) : '0',
+  );
   result = result.replace(/@שם/g, vars.name || 'חבר');
   return result;
 }

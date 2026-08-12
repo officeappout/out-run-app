@@ -20,7 +20,8 @@
  * fallback every persona-less user hits); parent/office_worker get 1 each —
  * "measurable seed, not the full library."
  *
- * Copy uses the new @ tags wired in this wave (@צעדים_שנותרו, @מרחק, @רצף)
+ * Copy uses the new @ tags wired in this wave (@צעדים_שנותרו, @מרחק, @רצף,
+ * @דקות)
  * — resolved server-side by functions/src/services/notification-content.
  * service.ts's personaliseNotificationText(), same tag names the admin
  * panel's live preview resolves via resolveContentTags(). No brainstorm doc
@@ -125,13 +126,13 @@ const MESSAGES: SeedMessage[] = [
   {
     persona: 'generic', dailyGoalBucket: 'close',
     bundleId: 'daily_goal_walking_generic_close_01',
-    text: 'כמעט שם! רק @צעדים_שנותרו צעדים נשארו — סיבוב קצר של @מרחק וזה שלך',
+    text: 'כמעט שם! עוד ~@דקות דקות הליכה וסגרת את היום',
     psychologicalTrigger: 'Reward',
   },
   {
     persona: 'generic', dailyGoalBucket: 'close',
     bundleId: 'daily_goal_walking_generic_close_02',
-    text: 'היעד ממש קרוב — @צעדים_שנותרו צעדים בלבד. @מרחק וסגרת את היום 💪',
+    text: 'היעד ממש קרוב — @צעדים_שנותרו צעדים בלבד, כ-@דקות דקות הליכה 💪',
     psychologicalTrigger: 'Reward',
   },
   // ── parent — 1 variant per bucket ──
@@ -150,7 +151,7 @@ const MESSAGES: SeedMessage[] = [
   {
     persona: 'parent', dailyGoalBucket: 'close',
     bundleId: 'daily_goal_walking_parent_close_01',
-    text: 'כמעט סיימת את היום — @צעדים_שנותרו צעדים ו-@מרחק סוגרים את זה',
+    text: 'כמעט סיימת את היום — עוד ~@דקות דקות הליכה וזהו',
     psychologicalTrigger: 'Reward',
   },
   // ── office_worker — 1 variant per bucket ──
@@ -169,7 +170,7 @@ const MESSAGES: SeedMessage[] = [
   {
     persona: 'office_worker', dailyGoalBucket: 'close',
     bundleId: 'daily_goal_walking_office_worker_close_01',
-    text: 'סיום יום עבודה — @מרחק הליכה סוגרת @צעדים_שנותרו צעדים אחרונים ליעד',
+    text: 'סיום יום עבודה — ~@דקות דקות הליכה סוגרות @צעדים_שנותרו צעדים אחרונים ליעד',
     psychologicalTrigger: 'Reward',
   },
 ];
@@ -180,6 +181,13 @@ const MESSAGES: SeedMessage[] = [
 const SUPERSEDED_DOC_IDS = [
   'c91f271d', // 11.08.2026 — original static-text test message
   'bfc49eec', // 12.08.2026 — {steps_left}-templated test message, Habit_Maintenance
+  // 12.08.2026 — close-bucket copy switched from @מרחק (route distance) to
+  // @דקות (walking minutes), per David's request. Old @מרחק-based text hashed
+  // to these 4 doc IDs.
+  '673f46c9', // daily_goal_walking_generic_close_01, old @מרחק text
+  '958f8bb9', // daily_goal_walking_generic_close_02, old @מרחק text
+  '07c0b78e', // daily_goal_walking_parent_close_01, old @מרחק text
+  '79c5f5bd', // daily_goal_walking_office_worker_close_01, old @מרחק text
 ];
 
 // ─── Main ─────────────────────────────────────────────────────────────────────

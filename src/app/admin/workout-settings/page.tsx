@@ -2275,6 +2275,7 @@ export default function WorkoutSettingsPage() {
                           stepsLeft: 1200,
                           distanceMeters: 900,
                           streakDays: 4,
+                          walkMinutes: 12,
                         })}
                       </p>
                     </div>
@@ -2461,6 +2462,7 @@ export default function WorkoutSettingsPage() {
                             stepsLeft: 1200,
                             distanceMeters: 900,
                             streakDays: 4,
+                            walkMinutes: 12,
                           })}
                         </div>
                       )}
@@ -2479,6 +2481,7 @@ export default function WorkoutSettingsPage() {
                               stepsLeft: 1200,
                               distanceMeters: 900,
                               streakDays: 4,
+                              walkMinutes: 12,
                             });
                             alert(`תצוגה מקדימה:\n\n${preview}`);
                           }}
