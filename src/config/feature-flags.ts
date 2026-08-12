@@ -522,6 +522,32 @@ export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = false;
 // intentionally decoupled by this constraint, not by a bug.
 export const WORKOUT_EXIT_HARD_BLOCK_ENABLED = false;
 
+// STRENGTH_RESUME_CHECKPOINT_ENABLED: crash-recovery resume-offer dialog on
+// the strength active-workout screen. useWorkoutPersistence.ts already
+// writes a checkpoint continuously (debounced 500ms auto-save + immediate
+// save on visibilitychange) — this flag wires up the READ side, which had
+// zero callers until now.
+//
+// While FALSE (default), active/page.tsx's mount-time restoreCheckpoint
+// call never fires, pendingCheckpoint never gets set, and the new
+// resume-decision early-return block is unreachable — the page renders
+// BYTE-IDENTICAL to before this feature existed: StrengthRunner mounts
+// immediately with no initialCheckpoint (undefined, same as every prior
+// build), exactly like today.
+//
+// While TRUE: on mount, if a non-expired checkpoint (see MAX_AGE_MS,
+// useWorkoutPersistence.ts) matching this workoutId is found,
+// ResumeWorkoutDialog is shown instead of the runner. "Resume" seeds
+// useWorkoutStateMachine via StrengthRunner's initialCheckpoint prop;
+// "Start Over" calls clearWorkoutCheckpoint() and proceeds fresh, same as
+// a normal cold start today.
+//
+// This hook is StrengthRunner's ONLY state-machine call site
+// (src/features/workout-engine/players/strength/StrengthRunner.tsx:85) —
+// every real strength workout in the app runs through it. Kill-switch:
+// flip back to false, no code change needed.
+export const STRENGTH_RESUME_CHECKPOINT_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
