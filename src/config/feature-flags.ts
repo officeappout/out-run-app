@@ -475,8 +475,12 @@ export const NEIGHBORHOOD_GEOCODE_GUARD_ENABLED = true;
 // Test scope: only David's account currently ever receives a push with targetSteps
 // (gated by app_config/feature_flags.stepGoalTestUids on the push side) — this flag
 // is a second, independent safety net on the map-consumption side.
-// TRUE for the 12.08.2026 device test only — flip back to false after verifying.
-export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = true;
+// REVERTED to false 12.08.2026 — the device test regressed the deep-link tap
+// to land on home instead of /map (previously-working openRun=walking-only
+// behavior broke too, not just the new targetSteps path). Root cause not yet
+// confirmed — see .claude/knowledge/step-goal-route-preview-regression.md.
+// Do not flip true again until that's resolved and understood.
+export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = false;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
