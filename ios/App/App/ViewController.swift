@@ -10,14 +10,40 @@ import WebKit
  * defaults to `false`, so the native "swipe from left edge to go back" gesture
  * is disabled. With `true`, iOS handles the gesture by navigating the WebView's
  * history stack directly — on its own that does NOT run any JS, so it used to
- * bypass our `App.addListener('backButton', …)` handler on Android entirely
- * (that handler dispatches `window.history.back()`, or the `nativeBackInWorkout`
- * event on `/active` and `/workout-builder` routes so `ExitConfirmModal` can
- * intercept it). `WebContentRecoveryProxy`'s `decidePolicyFor` override below
- * closes that gap for the route guard that matters: it intercepts the
- * edge-swipe-back gesture while on an active-workout route and dispatches the
- * same `nativeBackInWorkout` event Android's handler dispatches, so the exit
- * confirmation opens on both platforms instead of only Android.
+ * bypass our `App.addListener('backButton', …)` handler on Android entirely.
+ * `WebContentRecoveryProxy`'s `decidePolicyFor` override below closes that gap
+ * for the route guards that matter, mirroring Android's `backButton` handler
+ * in `src/lib/native/init.ts` exactly — including its
+ * `WORKOUT_EXIT_HARD_BLOCK_ENABLED` flag gate:
+ *
+ *   • FLAG OFF (legacy, previously shipped behaviour) — on `/active` /
+ *     `/workout-builder`, cancel the edge-swipe-back navigation AND dispatch
+ *     the `nativeBackInWorkout` window event so `ExitConfirmModal` opens
+ *     (same as Android). `/map` is never touched.
+ *   • FLAG ON (product-decision reversal, 12.08.2026) — silently cancel the
+ *     navigation with NO event dispatch on `/active` / `/workout-builder`
+ *     (no popup — the gesture feels like nothing happened), AND extend the
+ *     same silent cancel to `/map` while a native-mirrored flag says an
+ *     aerobic (running/walking/hybrid) session is currently active/paused.
+ *     Plain map browsing is never blocked.
+ *
+ * `decidePolicyFor` is native Swift with no JS bridge round-trip available at
+ * decision time, so it cannot read `useSessionStore` or `feature-flags.ts`
+ * directly. Both flags are mirrored from JS into `@capacitor/preferences` by
+ * `WorkoutExitGuardTracker` (`src/components/system/WorkoutExitGuardTracker.tsx`,
+ * mounted in `NativeBootstrap`) and read back here directly + synchronously
+ * from the underlying `UserDefaults` storage — see
+ * `readNativeFlag(_:)` below and `src/lib/native/workoutExitGuard.ts` for the
+ * full mechanism writeup (confirmed by reading the installed plugin source at
+ * `node_modules/@capacitor/preferences/ios/Sources/PreferencesPlugin/`).
+ * A missing/unreadable key reads as `false` for both flags — the fail-open
+ * direction (legacy behaviour / no `/map` block), never fail-closed.
+ *
+ * ⚠️ This Swift file's behaviour, once this specific code change ships, is
+ * gated at RUNTIME by the Preferences-mirrored flag — but the CODE ITSELF
+ * (this decidePolicyFor override) still requires its own one-time Xcode
+ * rebuild + TestFlight build to exist on-device at all. Before that build
+ * ships, no flag value has any effect on iOS.
  *
  * Capacitor automatically picks up a `ViewController` subclass of
  * `CAPBridgeViewController` placed in the App target, so no changes
@@ -85,12 +111,13 @@ class ViewController: CAPBridgeViewController {
 
     // MARK: - Workout exit-guard parity (iOS swipe-back ↔ Android back-button)
 
-    /// Mirrors Android's `App.addListener('backButton', …)` route guard in
-    /// `src/lib/native/init.ts`: dispatch the same `nativeBackInWorkout`
-    /// window event so `StrengthRunner` opens `ExitConfirmModal` instead of
-    /// silently discarding an in-progress workout. Called from
-    /// `WebContentRecoveryProxy.decidePolicyFor` after it cancels an
-    /// edge-swipe-back navigation while the SPA is on an active-workout route.
+    /// LEGACY PATH ONLY — called from `WebContentRecoveryProxy.decidePolicyFor`
+    /// only when `WORKOUT_EXIT_HARD_BLOCK_ENABLED` reads `false`. Mirrors
+    /// Android's flag-off branch in `src/lib/native/init.ts`: dispatch the
+    /// `nativeBackInWorkout` window event so `StrengthRunner` opens
+    /// `ExitConfirmModal` instead of silently discarding an in-progress
+    /// workout. When the flag reads `true`, `decidePolicyFor` cancels the
+    /// navigation directly WITHOUT calling this — see the class doc comment.
     fileprivate func notifyNativeBackInWorkout() {
         NSLog("[nav] intercepted back-forward swipe on active-workout route — dispatching nativeBackInWorkout")
         bridge?.triggerWindowJSEvent(eventName: "nativeBackInWorkout")
@@ -216,10 +243,11 @@ class ViewController: CAPBridgeViewController {
 /// (replace the silent reload with a backed-off recovery), `didFinish`
 /// (observe success to clear the overlay / reset back-off, then forward), and
 /// `decidePolicyFor navigationAction` (intercept the edge-swipe-back gesture
-/// while on an active-workout route and dispatch `nativeBackInWorkout` instead
-/// of letting WKWebView silently pop history — see `notifyNativeBackInWorkout`
-/// on `ViewController`). Every other decidePolicyFor call is forwarded to
-/// Capacitor unchanged, so its plugin overrides / `allowedNavigation`
+/// on active-workout routes and, when `WORKOUT_EXIT_HARD_BLOCK_ENABLED`
+/// (mirrored via `readNativeFlag`) is on, also on `/map` while an aerobic
+/// session is active — see the class doc comment on `ViewController` for the
+/// full flag-gated behaviour). Every other decidePolicyFor call is forwarded
+/// to Capacitor unchanged, so its plugin overrides / `allowedNavigation`
 /// allowlist / external-link handling are fully preserved.
 /// Do NOT hand the raw VC to `navigationDelegate` — that would drop Capacitor's
 /// nav policy / `allowNavigation` allowlist.
@@ -230,6 +258,27 @@ final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
     private let onTerminate: (WKWebView) -> Void
     private let onFinish: () -> Void
     private let onNativeBackInWorkout: () -> Void
+
+    // MARK: - Native-readable flags (Capacitor Preferences mirror)
+    //
+    // `@capacitor/preferences` stores every key as a plain string in
+    // `UserDefaults.standard`, prefixed with the plugin's default group name
+    // — confirmed by reading the installed plugin source at
+    // `node_modules/@capacitor/preferences/ios/Sources/PreferencesPlugin/
+    // Preferences.swift`: `prefix = "CapacitorStorage."`, no encryption, no
+    // async I/O. Keep these two string literals in sync with
+    // `src/lib/native/workoutExitGuard.ts`.
+    private let capacitorPreferencesPrefix = "CapacitorStorage."
+    private let exitHardBlockPrefKey = "workout_exit_hard_block_enabled"
+    private let aerobicSessionActivePrefKey = "aerobic_session_active"
+
+    /// Reads a boolean flag written by `WorkoutExitGuardTracker` via
+    /// `@capacitor/preferences`. A missing/unreadable key (fresh install,
+    /// plugin write never landed) reads as `false` — the fail-open direction
+    /// for both flags (legacy behaviour / no `/map` block), never fail-closed.
+    private func readNativeFlag(_ key: String) -> Bool {
+        UserDefaults.standard.string(forKey: capacitorPreferencesPrefix + key) == "1"
+    }
 
     init(capacitor: WKNavigationDelegate,
          onTerminate: @escaping (WKWebView) -> Void,
@@ -255,22 +304,50 @@ final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
 
     // Intercepted only for the back/forward gesture (edge-swipe or the
     // programmatic goBack()/goForward() it drives) while the SPA is
-    // CURRENTLY on an active-workout route — mirrors the `/active` and
-    // `/workout-builder` substring check in `src/lib/native/init.ts`'s
-    // Android `backButton` handler exactly, checked against the route being
-    // left (`webView.url`), not the back-forward destination. Every other
-    // case — a different route, or a navigationType that isn't
+    // CURRENTLY on a guarded route — checked against the route being left
+    // (`webView.url`), not the back-forward destination. Mirrors
+    // `src/lib/native/init.ts`'s Android `backButton` handler exactly,
+    // including its `WORKOUT_EXIT_HARD_BLOCK_ENABLED` flag gate (see the
+    // class doc comment on `ViewController` for the full behaviour table).
+    // Every other case — a different route, or a navigationType that isn't
     // `.backForward` (link taps, JS `location` changes, form submits, the
     // SPA's own `pushState` navigations, etc.) — falls through to
     // Capacitor's own decidePolicyFor unchanged.
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        if navigationAction.navigationType == .backForward,
-           let currentPath = webView.url?.path,
-           currentPath.contains("/active") || currentPath.contains("/workout-builder") {
-            onNativeBackInWorkout()
+        guard navigationAction.navigationType == .backForward,
+              let currentPath = webView.url?.path else {
+            capacitor.webView?(webView, decidePolicyFor: navigationAction, decisionHandler: decisionHandler)
+            return
+        }
+
+        let hardBlockEnabled = readNativeFlag(exitHardBlockPrefKey)
+
+        if currentPath.contains("/active") || currentPath.contains("/workout-builder") {
+            if hardBlockEnabled {
+                // Product-decision reversal: silently absorb — no event, no
+                // popup. The gesture must feel like nothing happened.
+                decisionHandler(.cancel)
+            } else {
+                // Legacy (flag off): preserve the previously shipped
+                // confirm-modal behaviour byte-for-byte.
+                onNativeBackInWorkout()
+                decisionHandler(.cancel)
+            }
+            return
+        }
+
+        // /map extension — ONLY while the hard-block flag is on AND a
+        // native-mirrored flag says an aerobic session is currently
+        // active/paused. Plain map browsing (or the flag mechanism being
+        // unavailable/unreadable) falls through to Capacitor's default
+        // handling unchanged — fail-open toward normal behaviour, never
+        // fail-closed toward blocking ordinary map navigation.
+        if hardBlockEnabled, currentPath.contains("/map"),
+           readNativeFlag(aerobicSessionActivePrefKey) {
             decisionHandler(.cancel)
             return
         }
+
         capacitor.webView?(webView, decidePolicyFor: navigationAction, decisionHandler: decisionHandler)
     }
 
