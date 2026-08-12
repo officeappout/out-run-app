@@ -49,6 +49,7 @@ import {
   useWorkoutStateMachine,
   ExerciseResultLog,
   NextExerciseInfo,
+  InitialWorkoutCheckpoint,
 } from './hooks/useWorkoutStateMachine';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import { usePlayerMedia } from './hooks/usePlayerMedia';
@@ -71,6 +72,13 @@ interface StrengthRunnerProps {
    *  minimize button (no mini-player bar in the hybrid flow). Default false → the
    *  standalone strength session is unchanged. */
   embedded?: boolean;
+  /**
+   * Crash-recovery: seed values from a restored WorkoutCheckpoint, passed
+   * down once the page-level resume-offer dialog resolves to "Resume".
+   * Undefined (the default) is byte-identical to today — the state machine
+   * starts fresh exactly as before this prop existed.
+   */
+  initialCheckpoint?: InitialWorkoutCheckpoint;
 }
 
 export default function StrengthRunner({
@@ -81,8 +89,9 @@ export default function StrengthRunner({
   onSwapExercise,
   exerciseHistoryMap,
   embedded = false,
+  initialCheckpoint,
 }: StrengthRunnerProps) {
-  const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap);
+  const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap, initialCheckpoint);
 
   // ── Offline-cached + network-aware media URLs ──────────────────────────
   const { safeVideoUrl, safeImageUrl, safeNextVideoUrl } = usePlayerMedia({
