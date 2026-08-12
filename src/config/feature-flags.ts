@@ -548,6 +548,43 @@ export const WORKOUT_EXIT_HARD_BLOCK_ENABLED = false;
 // flip back to false, no code change needed.
 export const STRENGTH_RESUME_CHECKPOINT_ENABLED = false;
 
+// WORKOUT_DELETE_EXPANDED_ENABLED: gates the shared
+// DeleteWorkoutConfirmModal (src/components/ui/DeleteWorkoutConfirmModal.tsx)
+// + deleteWorkoutWithReversal orchestration
+// (src/lib/workoutDeletion.ts) across EVERY delete-workout surface: the
+// AerobicSummaryShell rewire, the (home) activity history list,
+// StrengthHistoryDetail, and FreeRunSummary.
+//
+// ⚠️ IMPORTANT NUANCE: this flag gates the FIX ITSELF, not just the new UI
+// surfaces. While FALSE (default), AerobicSummaryShell keeps TODAY'S EXACT
+// EXISTING delete behaviour BYTE-IDENTICAL — including today's existing
+// BROKEN XP/streak reversal: the "בטל / מחק אימון" flow still calls
+// useRunningPlayer.getState().deleteLastWorkout(), which (a) reverses XP via
+// a direct awardWorkoutXP({ xpDelta: -xpToReverse }) call instead of the new
+// server-verified reverseWorkoutXP callable, and (b) "reverses the streak"
+// by decrementing progression.daysActive / clearing progression.lastActiveDate
+// directly — fields that are NOT the same ones useActivityStore's
+// currentStreak/longestStreak/lastStreakDate actually read from, so today's
+// streak reversal silently does nothing for the UI streak counter. The other
+// three surfaces (history list, StrengthHistoryDetail, FreeRunSummary) simply
+// don't offer a delete affordance at all while this is FALSE — nothing to
+// keep byte-identical there, they don't exist yet.
+//
+// While TRUE, all four surfaces render the shared DeleteWorkoutConfirmModal
+// and route their confirm action through deleteWorkoutWithReversal(), which
+// calls the server-verified reverseWorkoutXP callable (correct XP reversal)
+// and useActivityStore's reverseStreakForToday() (correct streak reversal,
+// operating on the fields the UI actually reads) — see src/lib/
+// workoutDeletion.ts for the full ordering contract. deleteLastWorkout() and
+// its awardWorkoutXP/daysActive reversal path are retired once every call
+// site has migrated behind this flag.
+//
+// Kill-switch: flip back to false to instantly revert every surface to
+// today's behaviour (AerobicSummaryShell falls back to deleteLastWorkout();
+// the other three surfaces lose their delete affordance again) — no code
+// change needed, this is a pure runtime/compile-time constant read.
+export const WORKOUT_DELETE_EXPANDED_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
