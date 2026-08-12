@@ -21,6 +21,15 @@
  * If David later re-uploads the identical row via the bulk-upload UI, it
  * resolves to the same doc ID too.
  *
+ * 12.08.2026 update: copy changed to template in the real remaining-steps
+ * count ({steps_left}, computed by stepGoalNudgeScheduler.ts at send time).
+ * Since the doc ID is a hash of the text itself, this is a genuinely
+ * DIFFERENT message, not an edit of the old one — the script now also
+ * deletes the superseded doc (tracked in SUPERSEDED_DOC_IDS below) so the
+ * corpus doesn't end up with two competing steps_-bundle candidates that
+ * the selector could inconsistently alternate between. Safe to re-run
+ * (deleting an already-deleted doc is a no-op).
+ *
  * Usage:
  *   npx tsx scripts/seed-step-goal-notifications.ts
  *
@@ -70,10 +79,17 @@ const MESSAGE = {
   persona: 'generic',
   gender: 'both',
   psychologicalTrigger: 'Support', // existing enum value, 0 real usage before this, UI-dropdown-supported
-  text: 'יש לך עוד זמן היום להשלים את יעד הצעדים. הליכה קצרה בפארק תעשה את העבודה 🚶',
+  text: 'נשארו לך {steps_left} צעדים ליעד היום 👟 סיבוב קצר בפארק וזה שלך.',
   calendarIntegration: false,
   bundleId: 'steps_evening_generic_01', // the selector's bundleIdPrefix filter ('steps_') matches this
 };
+
+// Doc IDs from prior copy revisions of this same logical message — deleted
+// after the new doc is written, so only one steps_-bundle candidate exists
+// at a time. Append here (don't remove old entries) if the copy changes again.
+const SUPERSEDED_DOC_IDS = [
+  'c91f271d', // 11.08.2026 — static text, no {steps_left} templating
+];
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -106,6 +122,19 @@ async function run() {
   const snap = await ref.get();
   console.log('\n📖  Read-back:');
   console.log(JSON.stringify(snap.data(), null, 2));
+
+  console.log('\n🧹  Cleaning up superseded doc(s)…');
+  for (const oldId of SUPERSEDED_DOC_IDS) {
+    if (oldId === docId) continue; // current content hashed back to an old id — nothing to delete
+    const oldRef = db.collection('workoutMetadata').doc('notifications').collection('notifications').doc(oldId);
+    const oldSnap = await oldRef.get();
+    if (oldSnap.exists) {
+      await oldRef.delete();
+      console.log(`    deleted superseded doc: ${oldId}`);
+    } else {
+      console.log(`    (already absent, nothing to do: ${oldId})`);
+    }
+  }
 
   process.exit(0);
 }
