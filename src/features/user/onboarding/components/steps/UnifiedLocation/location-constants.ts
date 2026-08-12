@@ -363,11 +363,34 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'bb-ramat-elchanan':  { lat: 32.08162, lng: 34.84316 },
 
   // ─── RAMAT GAN neighborhoods ───────────────────────────────
+  // NOTE: rg-kikar-hamedina/rg-geha/rg-borochov below don't match real picker ids (no
+  // corresponding subLocation) — pre-existing orphaned keys, flagged for the later cleanup
+  // commit. rg-ramat-amidar's value is replaced below with the fresh researched centroid.
   'rg-center':        { lat: 32.0700, lng: 34.8188 },
   'rg-kikar-hamedina':{ lat: 32.0670, lng: 34.8100 },
   'rg-geha':          { lat: 32.0830, lng: 34.8450 },
   'rg-borochov':      { lat: 32.0770, lng: 34.8285 },
-  'rg-ramat-amidar':  { lat: 32.0615, lng: 34.8365 },
+  // ── Ramat Gan neighborhood reconcile, held for review. ──
+  'rg-hallel':            { lat: 32.0814179, lng: 34.8229026 },
+  'rg-harishonim':        { lat: 32.0808251, lng: 34.8036698 },
+  'rg-vatikim':           { lat: 32.0929205, lng: 34.8126561 },
+  'rg-charuzim':          { lat: 32.0902915, lng: 34.8038868 },
+  'rg-hagefen':           { lat: 32.0892542, lng: 34.8120484 },
+  'rg-nachalat-ganim':    { lat: 32.0932945, lng: 34.8196188 },
+  'rg-yad-labanim':       { lat: 32.0771293, lng: 34.8226476 },
+  'rg-negba':             { lat: 32.0669969, lng: 34.8251045 },
+  'rg-tel-yehuda':        { lat: 32.0723428, lng: 34.8216551 },
+  'rg-neve-yehoshua':     { lat: 32.0602597, lng: 34.8322006 },
+  'rg-kiryat-borochov':   { lat: 32.0686516, lng: 34.8195469 },
+  'rg-ramat-efal':        { lat: 32.0473597, lng: 34.8348769 },
+  'rg-ramat-amidar':      { lat: 32.0677058, lng: 34.8364374 },
+  'rg-ramat-shikma':      { lat: 32.0505330, lng: 34.8172615 },
+  'rg-shikun-mizrachi':   { lat: 32.0669560, lng: 34.8305225 },
+  'rg-tel-binyamin':      { lat: 32.0855223, lng: 34.8068322 },
+  'rg-tel-ganim':         { lat: 32.0651255, lng: 34.8179318 },
+  'rg-kfar-azar':         { lat: 32.0564642, lng: 34.8415912 },
+  'rg-ramat-yitzhak':     { lat: 32.0749395, lng: 34.8231287 },
+  'rg-bilu':              { lat: 32.0605764, lng: 34.8231378 },
 
   // ─── ASHKELON neighborhoods ────────────────────────────────
   'ask-center':  { lat: 31.6626, lng: 34.5743 },

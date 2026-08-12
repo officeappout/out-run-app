@@ -529,9 +529,30 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     subLocations: [
       { id: 'rg-marom-nave', name: 'מרום נווה', type: 'neighborhood' },
       { id: 'rg-ramat-hen', name: 'רמת חן', type: 'neighborhood' },
-      { id: 'rg-center', name: 'מרכז העיר', type: 'neighborhood' },
-      { id: 'rg-bursa', name: 'מתחם הבורסה', type: 'neighborhood' },
-      { id: 'rg-krinitsi', name: 'קריניצי', type: 'neighborhood' }
+      { id: 'rg-center', name: 'לב העיר · מרכז העיר', type: 'neighborhood' },
+      { id: 'rg-bursa', name: 'מתחם הבורסה', type: 'neighborhood' }, // flagged for David's manual review — real official neighborhood, but residential component still under construction as of this run
+      { id: 'rg-krinitsi', name: 'קריניצי', type: 'neighborhood' },
+      // ── Ramat Gan neighborhood reconcile, held for review (municipal engineering-division map, dated April 2023). ──
+      { id: 'rg-hallel', name: 'הלל', type: 'neighborhood' },
+      { id: 'rg-harishonim', name: 'הראשונים', type: 'neighborhood' },
+      { id: 'rg-vatikim', name: 'ותיקים', type: 'neighborhood' },
+      { id: 'rg-charuzim', name: 'חרוזים', type: 'neighborhood' },
+      { id: 'rg-hagefen', name: 'הגפן', type: 'neighborhood' },
+      { id: 'rg-nachalat-ganim', name: 'נחלת גנים', type: 'neighborhood' },
+      { id: 'rg-yad-labanim', name: 'יד לבנים', type: 'neighborhood' },
+      { id: 'rg-negba', name: 'נגבה', type: 'neighborhood' },
+      { id: 'rg-tel-yehuda', name: 'תל יהודה', type: 'neighborhood' },
+      { id: 'rg-neve-yehoshua', name: 'נווה יהושע', type: 'neighborhood' },
+      { id: 'rg-kiryat-borochov', name: 'קריית בורוכוב', type: 'neighborhood' },
+      { id: 'rg-ramat-efal', name: 'רמת אפעל', type: 'neighborhood' },
+      { id: 'rg-ramat-amidar', name: 'רמת עמידר', type: 'neighborhood' },
+      { id: 'rg-ramat-shikma', name: 'רמת שקמה', type: 'neighborhood' },
+      { id: 'rg-shikun-mizrachi', name: 'שיכון מזרחי', type: 'neighborhood' },
+      { id: 'rg-tel-binyamin', name: 'תל בנימין', type: 'neighborhood' },
+      { id: 'rg-tel-ganim', name: 'תל גנים', type: 'neighborhood' },
+      { id: 'rg-kfar-azar', name: 'כפר אז״ר', type: 'neighborhood' },
+      { id: 'rg-ramat-yitzhak', name: 'רמת יצחק', type: 'neighborhood' },
+      { id: 'rg-bilu', name: 'הביל״ויים', type: 'neighborhood' }
     ]
   },
   {
