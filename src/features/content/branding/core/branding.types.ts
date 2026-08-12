@@ -34,6 +34,10 @@ export type PsychologicalTrigger =
  *   • Social_Matchmaking   — peer with matching level/program is exercising nearby
  *   • Future_Partner_Plan  — peer scheduled the user's primary park at a future slot
  *   • Community_Group_New  — a new public group launched in the user's geofence
+ *
+ * Daily-goal trigger (Wave 1, notification-engine):
+ *   • Daily_Goal — how much of TODAY's activity goal remains, independent of the
+ *     multi-week `progressRange` field below. See `dailyGoalBucket`/`activityType`.
  */
 export type NotificationTriggerType =
   | 'Inactivity'
@@ -44,9 +48,25 @@ export type NotificationTriggerType =
   | 'League_Overtake'
   | 'Social_Matchmaking'
   | 'Future_Partner_Plan'
-  | 'Community_Group_New';
+  | 'Community_Group_New'
+  | 'Daily_Goal';
 
 export type DaysInactive = 1 | 2 | 7 | 30;
+
+/**
+ * Daily-goal completion bucket (Wave 1) — how much of TODAY's resettable
+ * activity goal remains. Distinct from `progressRange` (0-20/20-90/90-100),
+ * which measures progress within a multi-week training PROGRAM, not a daily
+ * goal. Only meaningful when `triggerType === 'Daily_Goal'`.
+ */
+export type DailyGoalBucket = 'start' | 'mid' | 'close' | 'hit' | 'over';
+
+/**
+ * Which daily goal this message targets — makes `dailyGoalBucket` agnostic
+ * across activities so the SAME axis/buckets serve steps and strength (and
+ * future running) goals. Only meaningful when `triggerType === 'Daily_Goal'`.
+ */
+export type DailyGoalActivityType = 'walking' | 'strength' | 'running';
 
 /**
  * Notification (Enhanced with Trigger Types)
@@ -65,6 +85,10 @@ export interface Notification {
   completionRate?: number; // Performance tracking placeholder (0-1)
   createdAt?: Date;
   updatedAt?: Date;
+  /** Only for Daily_Goal trigger type. See `DailyGoalBucket`'s doc comment. */
+  dailyGoalBucket?: DailyGoalBucket;
+  /** Only for Daily_Goal trigger type. See `DailyGoalActivityType`'s doc comment. */
+  activityType?: DailyGoalActivityType;
 }
 
 /**

@@ -107,6 +107,9 @@ export interface TagResolverContext {
   weeklyGapPercent?: number;
   /** User's current streak in consecutive training days */
   streakDays?: number;
+  /** Remaining count to reach today's daily goal (for @צעדים_שנותרו tag) —
+   *  Daily_Goal trigger, activityType-agnostic (steps today, sets later). */
+  stepsLeft?: number;
   /** Display name of today's progression step, e.g. "Diamond Push-ups 3×8" */
   currentProgressionStep?: string;
   /** Average rep count for the workout (used to derive physiological focus) */
@@ -497,6 +500,25 @@ export function getAvailableTags(triggerType?: NotificationTriggerType): Array<{
     },
   ];
 
+  // ── Daily-goal vocabulary (Wave 1, notification-engine) ────────────
+  const dailyGoalTags = [
+    {
+      tag: '@צעדים_שנותרו',
+      description: 'כמות שנותרה להשלמת יעד היום (activityType-agnostic)',
+      example: 'נשארו לך @צעדים_שנותרו צעדים ליעד היום 👟',
+    },
+    {
+      tag: '@מרחק',
+      description: 'מרחק מסלול מוצע שיסגור את הפער (ק"מ/מטר)',
+      example: 'סיבוב קצר של @מרחק וזה שלך',
+    },
+    {
+      tag: '@רצף',
+      description: 'מספר ימי הרצף הנוכחי (מספר בלבד)',
+      example: 'רצף של @רצף ימים — אל תעצור עכשיו',
+    },
+  ];
+
   let tags = [...commonTags];
 
   if (triggerType === 'Inactivity') {
@@ -521,6 +543,10 @@ export function getAvailableTags(triggerType?: NotificationTriggerType): Array<{
 
   if (triggerType === 'Community_Group_New') {
     tags = [...tags, ...communityGroupTags];
+  }
+
+  if (triggerType === 'Daily_Goal') {
+    tags = [...tags, ...dailyGoalTags];
   }
 
   return tags;
@@ -1012,6 +1038,21 @@ export function resolveDescription(
     return 'התחלה טובה';
   });
 
+  // @רצף — raw streak day count (Daily_Goal / Habit_Maintenance)
+  resolved = resolved.replace(/@רצף/g, () => {
+    return context.streakDays !== undefined && context.streakDays !== null
+      ? String(context.streakDays)
+      : '0';
+  });
+
+  // @צעדים_שנותרו — remaining count to today's daily goal (Daily_Goal trigger,
+  // activityType-agnostic: steps today, could carry a different unit later)
+  resolved = resolved.replace(/@צעדים_שנותרו/g, () => {
+    return context.stepsLeft !== undefined && context.stepsLeft !== null
+      ? context.stepsLeft.toLocaleString('he-IL')
+      : '0';
+  });
+
   // @סקייל_נוכחי — today's progression step name
   resolved = resolved.replace(/@סקייל_נוכחי/g, () => {
     return context.currentProgressionStep || 'השלב הנוכחי';
@@ -1242,13 +1283,23 @@ export function getAvailableDescriptionTags(): Array<{
     },
     {
       tag: '@מרחק',
-      description: 'מרחק לפארק/מתקן (רק בהתראות Proximity)',
+      description: 'מרחק לפארק/מתקן (Proximity), או מרחק מסלול מוצע (Daily_Goal)',
       example: '@את/ה במרחק @מרחק מהפארק',
     },
     {
       tag: '@זמן_הגעה',
       description: 'זמן הגעה משוער (רק בהתראות Proximity)',
       example: '@זמן_הגעה מפרידים אותך מאימון מושלם',
+    },
+    {
+      tag: '@צעדים_שנותרו',
+      description: 'כמות שנותרה להשלמת יעד היום (רק בהתראות Daily_Goal, activityType-agnostic)',
+      example: 'נשארו לך @צעדים_שנותרו צעדים ליעד היום 👟',
+    },
+    {
+      tag: '@רצף',
+      description: 'מספר ימי הרצף הנוכחי (מספר בלבד)',
+      example: 'רצף של @רצף ימים — אל תעצור עכשיו',
     },
     {
       tag: '@זמן_אימון',

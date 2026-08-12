@@ -42,7 +42,10 @@ const VALID_TRIGGER_TYPES = [
   'Social_Matchmaking',
   'Future_Partner_Plan',
   'Community_Group_New',
+  'Daily_Goal',
 ];
+const VALID_DAILY_GOAL_BUCKETS = ['start', 'mid', 'close', 'hit', 'over'];
+const VALID_DAILY_GOAL_ACTIVITY_TYPES = ['walking', 'strength', 'running'];
 const VALID_LOCATIONS = ['home', 'park', 'street', 'office', 'school', 'gym', 'airport', 'library', 'desk', 'any', ''];
 const VALID_VARIANTS = ['balanced', 'intense', 'naked', 'easy', 'all', ''];
 
@@ -262,6 +265,16 @@ export default function BulkUploadPage() {
       if (trigger && !VALID_TRIGGER_TYPES.includes(trigger)) {
         warnings.push(`triggerType לא תקין: "${trigger}"`);
       }
+      if (trigger === 'Daily_Goal') {
+        const bucket = item.dailyGoalBucket || item.יעד_יומי_דלי || '';
+        if (bucket && !VALID_DAILY_GOAL_BUCKETS.includes(bucket)) {
+          warnings.push(`dailyGoalBucket לא תקין: "${bucket}" (ערכים: start, mid, close, hit, over)`);
+        }
+        const activityType = item.activityType || item.סוג_פעילות || '';
+        if (activityType && !VALID_DAILY_GOAL_ACTIVITY_TYPES.includes(activityType)) {
+          warnings.push(`activityType לא תקין: "${activityType}" (ערכים: walking, strength, running)`);
+        }
+      }
     } else if (contentType === 'descriptions') {
       textContent = item.description || item.תיאור || item.text || item.טקסט || '';
       if (!textContent) errors.push('חסר שדה description/תיאור/טקסט');
@@ -404,6 +417,12 @@ export default function BulkUploadPage() {
           if (data.triggerType === 'Proximity') {
             data.distanceMeters = parseInt(item.distanceMeters || item.מרחק_במטרים || '500') || 500;
           }
+          if (data.triggerType === 'Daily_Goal') {
+            const bucket = item.dailyGoalBucket || item.יעד_יומי_דלי || '';
+            if (bucket) data.dailyGoalBucket = bucket;
+            const activityType = item.activityType || item.סוג_פעילות || '';
+            if (activityType) data.activityType = activityType;
+          }
         } else if (contentType === 'descriptions') {
           collectionPath = `${WORKOUT_METADATA_COLLECTION}/smartDescriptions/descriptions`;
           data.location = item.location || item.מיקום || 'home';
@@ -537,9 +556,10 @@ mobility,library,student,any,both,flexibility,zen,beginner,,weekend,,,,,"הפס�
 home,parent,morning,both,,encouraging,beginner,0-20,start_of_week,,,,morning_parent,גם ביום עמוס, 5 דקות זה כל מה שצריך
 park,student,any,male,running,tough,intermediate,90-100,,pull,3,8,levelup_push,@את/ה ב-@אחוז_התקדמות! עוד קצת ל-@רמה_הבאה`;
     } else if (contentType === 'notifications') {
-      return `triggerType,persona,daysInactive,distanceMeters,gender,psychologicalTrigger,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,text
-Inactivity,parent,2,,both,FOMO,,,beginner,0-20,start_of_week,,,,,כבר @ימי_אי_פעילות ימים שלא ראינו אותך. @בוא/י נחזור לשגרה!
-Proximity,student,,500,female,Challenge,running,tough,advanced,90-100,,push,5,15,,@את/ה במרחק @מרחק מהפארק. זמן ל-@שם_תוכנית!`;
+      return `triggerType,persona,daysInactive,distanceMeters,dailyGoalBucket,activityType,gender,psychologicalTrigger,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,text
+Inactivity,parent,2,,,,both,FOMO,,,beginner,0-20,start_of_week,,,,,כבר @ימי_אי_פעילות ימים שלא ראינו אותך. @בוא/י נחזור לשגרה!
+Proximity,student,,500,,,female,Challenge,running,tough,advanced,90-100,,push,5,15,,@את/ה במרחק @מרחק מהפארק. זמן ל-@שם_תוכנית!
+Daily_Goal,generic,,,close,walking,both,Support,,,,,,,,,steps_evening_generic_close_01,נשארו לך @צעדים_שנותרו צעדים ליעד היום 👟`;
     } else if (contentType === 'descriptions') {
       return `location,persona,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,description
 home,parent,both,,encouraging,beginner,0-20,start_of_week,,,,morning_parent,אימון מושלם ל-@שם ב-@מיקום. מתמקד ב-@שריר

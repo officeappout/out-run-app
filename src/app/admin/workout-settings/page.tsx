@@ -28,7 +28,7 @@ import {
   BarChart2, Send, Users, TrendingUp, Clock, XCircle, RefreshCw, MessageSquare,
 } from 'lucide-react';
 import Link from 'next/link';
-import { resolveNotificationText, getAvailableTags, resolveDescription, getAvailableDescriptionTags, TagResolverContext } from '@/features/content/branding/core/branding.utils';
+import { resolveContentTags, getAvailableTags, resolveDescription, getAvailableDescriptionTags, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { injectParentPersonaData } from './inject-parent-data';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
@@ -155,7 +155,7 @@ function toDate(timestamp: unknown): Date | undefined {
 
 interface Notification {
   id: string;
-  triggerType: 'Inactivity' | 'Scheduled' | 'Location_Based' | 'Habit_Maintenance' | 'Proximity';
+  triggerType: 'Inactivity' | 'Scheduled' | 'Location_Based' | 'Habit_Maintenance' | 'Proximity' | 'Daily_Goal';
   daysInactive?: number;
   persona: string;
   psychologicalTrigger: 'FOMO' | 'Challenge' | 'Support' | 'Reward';
@@ -173,6 +173,10 @@ interface Notification {
   programId?: string;
   minLevel?: number;
   maxLevel?: number;
+  /** Only for Daily_Goal trigger type — how much of TODAY's activity goal remains. */
+  dailyGoalBucket?: 'start' | 'mid' | 'close' | 'hit' | 'over';
+  /** Only for Daily_Goal trigger type — which daily goal this message targets. */
+  activityType?: 'walking' | 'strength' | 'running';
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -379,7 +383,7 @@ export default function WorkoutSettingsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [editingNotification, setEditingNotification] = useState<string | null>(null);
   const [showNewNotificationForm, setShowNewNotificationForm] = useState(false);
-  const [notificationFilter, setNotificationFilter] = useState<'All' | 'Inactivity' | 'Scheduled' | 'Location_Based' | 'Habit_Maintenance' | 'Proximity'>('All');
+  const [notificationFilter, setNotificationFilter] = useState<'All' | 'Inactivity' | 'Scheduled' | 'Location_Based' | 'Habit_Maintenance' | 'Proximity' | 'Daily_Goal'>('All');
   const [notificationForm, setNotificationForm] = useState<Partial<Notification>>({
     triggerType: 'Inactivity',
     daysInactive: 1,
@@ -397,6 +401,8 @@ export default function WorkoutSettingsPage() {
     programId: '',
     minLevel: undefined,
     maxLevel: undefined,
+    dailyGoalBucket: undefined,
+    activityType: undefined,
   });
 
   // Smart Descriptions state
@@ -2019,11 +2025,13 @@ export default function WorkoutSettingsPage() {
                     value={notificationForm.triggerType || 'Inactivity'}
                     onChange={(e) => {
                       const triggerType = e.target.value as any;
-                      setNotificationForm({ 
-                        ...notificationForm, 
+                      setNotificationForm({
+                        ...notificationForm,
                         triggerType,
                         daysInactive: triggerType === 'Inactivity' ? (notificationForm.daysInactive || 1) : undefined,
-                        distanceMeters: triggerType === 'Proximity' ? (notificationForm.distanceMeters || 500) : undefined
+                        distanceMeters: triggerType === 'Proximity' ? (notificationForm.distanceMeters || 500) : undefined,
+                        dailyGoalBucket: triggerType === 'Daily_Goal' ? (notificationForm.dailyGoalBucket || 'start') : undefined,
+                        activityType: triggerType === 'Daily_Goal' ? (notificationForm.activityType || 'walking') : undefined,
                       });
                     }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500"
@@ -2033,8 +2041,39 @@ export default function WorkoutSettingsPage() {
                     <option value="Location_Based">מבוסס מיקום</option>
                     <option value="Habit_Maintenance">תחזוקת הרגל</option>
                     <option value="Proximity">קרבה (Proximity)</option>
+                    <option value="Daily_Goal">יעד יומי (Daily Goal)</option>
                   </select>
                 </div>
+                {notificationForm.triggerType === 'Daily_Goal' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">השלמת יעד יומי</label>
+                      <select
+                        value={notificationForm.dailyGoalBucket || 'start'}
+                        onChange={(e) => setNotificationForm({ ...notificationForm, dailyGoalBucket: e.target.value as any })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500"
+                      >
+                        <option value="start">התחלה (0-25%)</option>
+                        <option value="mid">אמצע (25-70%)</option>
+                        <option value="close">קרוב ליעד (70-95%)</option>
+                        <option value="hit">הושלם (100%)</option>
+                        <option value="over">מעבר ליעד (100%+)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">סוג פעילות</label>
+                      <select
+                        value={notificationForm.activityType || 'walking'}
+                        onChange={(e) => setNotificationForm({ ...notificationForm, activityType: e.target.value as any })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500"
+                      >
+                        <option value="walking">הליכה (צעדים)</option>
+                        <option value="strength">כוח</option>
+                        <option value="running">ריצה</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
                 {notificationForm.triggerType === 'Inactivity' && (
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">ימים ללא אימון</label>
@@ -2225,13 +2264,17 @@ export default function WorkoutSettingsPage() {
                     <div className="mt-3 p-3 bg-cyan-50 border border-cyan-200 rounded-xl">
                       <p className="text-xs font-bold text-cyan-700 mb-1">תצוגה מקדימה:</p>
                       <p className="text-sm text-gray-800">
-                        {resolveNotificationText(notificationForm.text, {
+                        {resolveContentTags(notificationForm.text, {
                           triggerType: notificationForm.triggerType,
                           daysInactive: notificationForm.daysInactive,
                           persona: notificationForm.persona,
                           location: 'park',
                           locationName: 'פארק הירקון',
                           currentTime: new Date(),
+                          // Sample values so the Daily_Goal preview resolves realistically
+                          stepsLeft: 1200,
+                          distanceMeters: 900,
+                          streakDays: 4,
                         })}
                       </p>
                     </div>
@@ -2376,6 +2419,7 @@ export default function WorkoutSettingsPage() {
                          notification.triggerType === 'Scheduled' ? 'מתוזמן' :
                          notification.triggerType === 'Location_Based' ? 'מבוסס מיקום' :
                          notification.triggerType === 'Proximity' ? 'קרבה' :
+                         notification.triggerType === 'Daily_Goal' ? 'יעד יומי' :
                          'תחזוקת הרגל'}
                       </span>
                     </td>
@@ -2407,13 +2451,16 @@ export default function WorkoutSettingsPage() {
                       <div className="font-medium text-gray-900">{notification.text}</div>
                       {notification.text.includes('@') && (
                         <div className="mt-1 text-xs text-gray-500">
-                          תצוגה מקדימה: {resolveNotificationText(notification.text, {
+                          תצוגה מקדימה: {resolveContentTags(notification.text, {
                             triggerType: notification.triggerType,
                             daysInactive: notification.daysInactive,
                             persona: notification.persona,
                             location: 'park',
                             locationName: 'פארק הירקון',
                             currentTime: new Date(),
+                            stepsLeft: 1200,
+                            distanceMeters: 900,
+                            streakDays: 4,
                           })}
                         </div>
                       )}
@@ -2422,13 +2469,16 @@ export default function WorkoutSettingsPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => {
-                            const preview = resolveNotificationText(notification.text, {
+                            const preview = resolveContentTags(notification.text, {
                               triggerType: notification.triggerType,
                               daysInactive: notification.daysInactive,
                               persona: notification.persona,
                               location: 'park',
                               locationName: 'פארק הירקון',
                               currentTime: new Date(),
+                              stepsLeft: 1200,
+                              distanceMeters: 900,
+                              streakDays: 4,
                             });
                             alert(`תצוגה מקדימה:\n\n${preview}`);
                           }}
