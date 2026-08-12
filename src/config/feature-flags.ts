@@ -482,6 +482,46 @@ export const NEIGHBORHOOD_GEOCODE_GUARD_ENABLED = true;
 // Do not flip true again until that's resolved and understood.
 export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = false;
 
+// WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
+// swipe-back (iOS) / hardware-back (Android) during an active workout no
+// longer opens ExitConfirmModal; it is blocked ENTIRELY and silently, as if
+// nothing happened. The only way out of an active workout is the explicit
+// stop/finish button already in the UI. Also NEW: extends the same silent
+// block to /map while an aerobic (running/walking/hybrid) session is active
+// or paused — previously /map was not blocked on either platform.
+//
+// While FALSE (default), both platforms preserve the PREVIOUSLY SHIPPED
+// behaviour byte-for-byte:
+//   • /active + /workout-builder → dispatch 'nativeBackInWorkout' (opens
+//     ExitConfirmModal), exactly as before this flag existed.
+//   • /map → never blocked, on either platform (unchanged — this is a new
+//     extension, not a prior behaviour, so "off" means "does not exist yet").
+//
+// While TRUE, both platforms silently absorb the gesture — no event
+// dispatch, no popup — on /active, /workout-builder, AND /map (the latter
+// only while an aerobic session is active/paused; plain map browsing is
+// never blocked).
+//
+// Android reads this constant directly in src/lib/native/init.ts (plain JS,
+// no bridging). iOS CANNOT read this constant directly — ViewController.swift's
+// decidePolicyFor is native Swift with no bridge round-trip available at
+// decision time — so the value is mirrored into @capacitor/preferences by
+// WorkoutExitGuardTracker (mounted in NativeBootstrap) and read back
+// synchronously from the same UserDefaults key. See
+// src/lib/native/workoutExitGuard.ts for the full mechanism writeup.
+//
+// ⚠️ IMPORTANT CAVEAT — this does NOT make the iOS side a pure runtime
+// toggle: the Swift CODE that reads the Preferences-mirrored flag (added in
+// the same commit as this flag) still requires its own one-time Xcode
+// rebuild + TestFlight build before it exists on-device AT ALL. Only AFTER
+// that native build has shipped does flipping this constant (a normal web
+// deploy, since the app loads its JS bundle from a remote origin) change
+// behaviour without a further native rebuild. Flipping this flag before that
+// native build ships has NO effect on iOS (old binary, no Preferences read)
+// and DOES have effect on Android (pure JS) — the two platforms are
+// intentionally decoupled by this constraint, not by a bug.
+export const WORKOUT_EXIT_HARD_BLOCK_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
