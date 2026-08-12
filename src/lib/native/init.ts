@@ -32,6 +32,8 @@
  */
 
 import { OutboxFlusher } from '@/lib/outbox/OutboxFlusher';
+import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
+import { WORKOUT_EXIT_HARD_BLOCK_ENABLED } from '@/config/feature-flags';
 import { BackStack } from './backStack';
 import { initPushNotifications, unregisterPushNotifications } from './push';
 
@@ -235,10 +237,24 @@ export async function initNativeShell(): Promise<void> {
     //         consumed the event:
     //           • /home or /gateway   → App.exitApp() instead of navigating
     //             into onboarding/login screens that were replaced off the stack.
-    //           • /active or /workout-builder → dispatches 'nativeBackInWorkout'
-    //             so the active-workout components open the ExitConfirmModal
-    //             rather than silently discarding progress.
+    //           • /active or /workout-builder → the active-workout route guard
+    //             (behaviour gated by WORKOUT_EXIT_HARD_BLOCK_ENABLED — see below).
+    //           • /map, only while an aerobic (running/walking/hybrid) session is
+    //             active/paused → the SAME guard, extended (WORKOUT_EXIT_HARD_BLOCK_ENABLED
+    //             only — /map was never guarded before this flag existed; plain map
+    //             browsing, or a strength-only/idle session, is untouched either way).
     //      c. Standard history back (canGoBack) or App.minimizeApp() fallback.
+    //
+    //    WORKOUT_EXIT_HARD_BLOCK_ENABLED (src/config/feature-flags.ts):
+    //      • FALSE (default) — preserves the previously shipped behaviour on
+    //        /active + /workout-builder byte-for-byte: dispatches
+    //        'nativeBackInWorkout' so the active-workout components open
+    //        ExitConfirmModal. /map is never touched (matches pre-flag behaviour).
+    //      • TRUE — product-decision reversal (12.08.2026): silently absorb the
+    //        back-button press entirely on /active, /workout-builder, AND /map
+    //        (while an aerobic session is active/paused) — no event, no popup,
+    //        no route pop, no App.minimizeApp() fallback. The only way to leave
+    //        an active workout is the explicit stop/finish button in the UI.
     App.addListener('backButton', ({ canGoBack }) => {
       if (BackStack.dispatch()) return;
 
@@ -251,11 +267,29 @@ export async function initNativeShell(): Promise<void> {
         return;
       }
 
-      // Active workout screens: do NOT pop the route — open the exit
-      // confirmation modal so users can't accidentally lose progress.
       if (path.includes('/active') || path.includes('/workout-builder')) {
+        if (WORKOUT_EXIT_HARD_BLOCK_ENABLED) {
+          // Silent absorb — no event, no popup, no route pop. Return
+          // immediately without falling through to history/minimise below.
+          return;
+        }
+        // Legacy (flag off): open the exit confirmation modal so users
+        // can't accidentally lose progress.
         window.dispatchEvent(new CustomEvent('nativeBackInWorkout'));
         return;
+      }
+
+      if (WORKOUT_EXIT_HARD_BLOCK_ENABLED && path.startsWith('/map')) {
+        const { status, mode } = useSessionStore.getState();
+        const isAerobicSessionActive =
+          (status === 'active' || status === 'paused')
+          && (mode === 'running' || mode === 'walking' || mode === 'hybrid');
+        if (isAerobicSessionActive) {
+          // Same silent absorb as /active — a strength-only session, an idle
+          // session, or plain browsing falls through to standard behaviour
+          // below exactly as today.
+          return;
+        }
       }
 
       // Standard: follow browser history or minimise if at history root.
