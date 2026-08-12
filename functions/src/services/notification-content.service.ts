@@ -57,6 +57,7 @@ interface NotificationLibraryDoc {
   text?: string;
   dailyGoalBucket?: string;
   activityType?: string;
+  psychologicalTrigger?: string;
 }
 
 let contentCache: { docs: NotificationLibraryDoc[]; fetchedAt: number } | null = null;
@@ -82,6 +83,7 @@ async function getAllNotifications(): Promise<NotificationLibraryDoc[]> {
       text: typeof data.text === 'string' ? data.text : undefined,
       dailyGoalBucket: typeof data.dailyGoalBucket === 'string' ? data.dailyGoalBucket : undefined,
       activityType: typeof data.activityType === 'string' ? data.activityType : undefined,
+      psychologicalTrigger: typeof data.psychologicalTrigger === 'string' ? data.psychologicalTrigger : undefined,
     };
   });
   contentCache = { docs, fetchedAt: now };
@@ -124,6 +126,7 @@ export interface SelectedNotification {
   text: string;
   bundleId: string;
   docId: string;
+  psychologicalTrigger?: string;
 }
 
 /**
@@ -161,6 +164,7 @@ export async function selectNotificationContent(
     text: chosen.text as string,
     bundleId: chosen.bundleId ?? '',
     docId: chosen.id,
+    psychologicalTrigger: chosen.psychologicalTrigger,
   };
 }
 
@@ -192,7 +196,7 @@ export interface PersonaliseVars {
  */
 export function personaliseNotificationText(
   text: string,
-  vars: PersonaliseVars & Record<string, string | undefined>,
+  vars: PersonaliseVars & Record<string, string | number | undefined>,
 ): string {
   let result = text.replace(/@שם/g, vars.name || 'חבר');
   result = result.replace(/@רצף/g, () =>
@@ -208,7 +212,10 @@ export function personaliseNotificationText(
     if (vars.distanceMeters < 1000) return `${vars.distanceMeters} מטר`;
     return `${(vars.distanceMeters / 1000).toFixed(1)} ק"מ`;
   });
-  result = result.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? '');
+  result = result.replace(/\{(\w+)\}/g, (_, key: string) => {
+    const v = vars[key];
+    return v === undefined ? '' : String(v);
+  });
   return result;
 }
 

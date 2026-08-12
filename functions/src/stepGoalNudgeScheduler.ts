@@ -15,17 +15,18 @@
  * ELIGIBILITY (normal mode)
  * ═══════════════════════════════════════════════════════════════════════
  *   1. `onboardingStatus === 'COMPLETED'`
- *   2. `dailyActivity/{uid}_{today}.steps` < `users/{uid}.progression.dailyStepGoal`
- *      (today = current date in Asia/Jerusalem, YYYY-MM-DD — matches the
- *      format `ingestHealthSamples.ts` uses for the same doc ID, :162-163)
+ *   2. A matching message exists in the content library for the user's
+ *      resolved persona + the bucket they're actually in right now
+ *      (triggerType='Daily_Goal', activityType='walking', dailyGoalBucket=
+ *      computed from `dailyActivity/{uid}_{today}.steps` /
+ *      `users/{uid}.progression.dailyStepGoal` — see `computeDailyGoalBucket`)
+ *      — if none, the user is silently skipped, not an error. Wave 1 only
+ *      seeds start/mid/close copy, so hit/over-bucket users are skipped in
+ *      practice today (no celebration content yet), not specially excluded.
  *      `dailyStepGoal` defaults to 3000 when absent (matches
  *      `src/features/user/identity/services/profile.service.ts:66`'s
  *      client-side default for a fresh account); `steps` defaults to 0
  *      when the day's activity doc doesn't exist yet.
- *   3. A matching message exists in the content library for the user's
- *      resolved persona (triggerType='Habit_Maintenance',
- *      bundleIdPrefix='steps_') — if none, the user is silently skipped,
- *      not an error.
  *   Standard push.service.ts guardrails apply on top (pushEnabled,
  *   notificationPrefs.health_milestone, rate cap, global/per-channel
  *   kill-switch).
@@ -88,10 +89,42 @@ const BATCH_LIMIT = (() => {
 
 const DEFAULT_DAILY_STEP_GOAL = 3000; // matches profile.service.ts:66's fresh-account default
 
-const TRIGGER_TYPE = 'Habit_Maintenance';
-const BUNDLE_ID_PREFIX = 'steps_';
+const TRIGGER_TYPE = 'Daily_Goal';
+const ACTIVITY_TYPE = 'walking';
 const PUSH_TITLE = '💪 יעד הצעדים היומי';
 const TOKEN_FETCH_BATCH = 100;
+
+/** Mirrors route-request.utils.ts's stepsToTargetKm() — src/ code, not
+ * importable into functions/src (cross-project boundary, see axioms.md §4
+ * style rationale in persona-alias-map.service.ts). Same constant, same
+ * formula: average walking stride, no pace/time-of-day chunking. */
+const AVG_WALK_STRIDE_METERS = 0.75;
+function stepsToDistanceMeters(steps: number): number {
+  const safeSteps = Number.isFinite(steps) && steps > 0 ? steps : 0;
+  return Math.round(safeSteps * AVG_WALK_STRIDE_METERS);
+}
+
+/** Daily-goal-completion bucket — same 5-value axis as branding.types.ts's
+ * DailyGoalBucket, computed here from the raw steps/goal ratio. */
+function computeDailyGoalBucket(todaySteps: number, dailyStepGoal: number): string {
+  const pct = dailyStepGoal > 0 ? (todaySteps / dailyStepGoal) * 100 : 0;
+  if (pct > 100) return 'over';
+  if (pct >= 100) return 'hit';
+  if (pct >= 70) return 'close';
+  if (pct >= 25) return 'mid';
+  return 'start';
+}
+
+/** Coarse time-of-day bucket for the measurement layer — this scheduler
+ * runs at a fixed 18:00, so this is 'evening' in practice, but computed
+ * properly (not hardcoded) in case the cron ever changes. */
+function timeOfDayIsrael(): string {
+  const hour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })).getHours();
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  if (hour >= 17 && hour < 22) return 'evening';
+  return 'night';
+}
 
 const FEATURE_FLAGS_DOC = 'app_config/feature_flags';
 
@@ -117,6 +150,7 @@ interface CandidateUser {
   name: string;
   personaProfile: PersonaResolvableProfile;
   dailyStepGoal: number;
+  currentStreak: number;
   /** Filled in after fetchTodaySteps() — 0 until then. */
   todaySteps: number;
 }
@@ -139,6 +173,10 @@ function toCandidateUser(uid: string, data: Record<string, unknown>): CandidateU
       typeof progression.dailyStepGoal === 'number' && progression.dailyStepGoal > 0
         ? progression.dailyStepGoal
         : DEFAULT_DAILY_STEP_GOAL,
+    currentStreak:
+      typeof progression.currentStreak === 'number' && progression.currentStreak >= 0
+        ? progression.currentStreak
+        : 0,
     todaySteps: 0,
   };
 }
@@ -161,21 +199,27 @@ async function fetchTodaySteps(uids: string[], dateStr: string): Promise<Map<str
 
 async function dispatchToUser(user: CandidateUser): Promise<{ sent: boolean; reason?: string }> {
   const persona = resolveCanonicalPersona(user.personaProfile);
+  const bucket = computeDailyGoalBucket(user.todaySteps, user.dailyStepGoal);
   const selected = await selectNotificationContent({
     triggerType: TRIGGER_TYPE,
-    bundleIdPrefix: BUNDLE_ID_PREFIX,
+    activityType: ACTIVITY_TYPE,
+    dailyGoalBucket: bucket,
     persona,
     uid: user.uid,
   });
 
   if (!selected) {
-    return { sent: false, reason: `no content for persona=${persona}` };
+    return { sent: false, reason: `no content for persona=${persona} bucket=${bucket}` };
   }
 
   const stepsLeft = Math.max(0, user.dailyStepGoal - user.todaySteps);
+  const distanceMeters = stepsToDistanceMeters(stepsLeft);
   const body = personaliseNotificationText(selected.text, {
     name: user.name,
-    steps_left: String(stepsLeft),
+    stepsLeft,
+    distanceMeters,
+    streakDays: user.currentStreak,
+    steps_left: String(stepsLeft), // legacy {steps_left} form, kept for any older seeded copy
   });
 
   // Carries the gap so the map side (behind IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED,
@@ -190,14 +234,23 @@ async function dispatchToUser(user: CandidateUser): Promise<{ sent: boolean; rea
     title: PUSH_TITLE,
     body,
     deepLink,
-    data: { triggerType: 'StepGoal', bundleId: selected.bundleId },
+    data: { triggerType: 'DailyGoal', bundleId: selected.bundleId },
     rateCapHours: 24,
     skipQuietHours: true,
+    measurement: {
+      variantId: selected.bundleId,
+      category: TRIGGER_TYPE,
+      persona,
+      activityType: ACTIVITY_TYPE,
+      framing: selected.psychologicalTrigger,
+      timeOfDay: timeOfDayIsrael(),
+      outcomeWindowHours: 6,
+    },
   });
 
   logger.info(
-    `[stepGoalNudge] uid=${user.uid} persona=${persona} bundleId=${selected.bundleId} ` +
-      `delivered=${result.delivered} failed=${result.failed} ` +
+    `[stepGoalNudge] uid=${user.uid} persona=${persona} bucket=${bucket} bundleId=${selected.bundleId} ` +
+      `pushId=${result.pushId ?? '(none)'} delivered=${result.delivered} failed=${result.failed} ` +
       `skippedGlobalKill=${result.skippedGlobalKill} skippedPrefs=${result.skippedPrefs} ` +
       `skippedRateCap=${result.skippedRateCap}`,
   );
@@ -270,12 +323,14 @@ export const stepGoalNudgeScheduler = onSchedule(
 
       const rawCandidates = candidateDocs.map((d) => toCandidateUser(d.id, d.data() as Record<string, unknown>));
       const stepsByUid = await fetchTodaySteps(rawCandidates.map((c) => c.uid), today);
-      const allCandidates = rawCandidates.map((c) => ({ ...c, todaySteps: stepsByUid.get(c.uid) ?? 0 }));
-
-      candidates = allCandidates.filter((c) => c.todaySteps < c.dailyStepGoal);
+      // No below-goal pre-filter: bucket-based selection (dispatchToUser)
+      // naturally skips hit/over-bucket users when no content matches —
+      // Wave 1 only seeds start/mid/close copy, so this is currently
+      // equivalent in practice, but stays correct once celebration content
+      // for hit/over is seeded later.
+      candidates = rawCandidates.map((c) => ({ ...c, todaySteps: stepsByUid.get(c.uid) ?? 0 }));
       logger.info(
-        `[stepGoalNudge] normal mode — ${candidateDocs.length} candidate(s), ` +
-          `${candidates.length} below goal for ${today}`,
+        `[stepGoalNudge] normal mode — ${candidateDocs.length} candidate(s) resolved for ${today}`,
       );
     }
 
