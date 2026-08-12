@@ -563,9 +563,20 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     subLocations: [
       { id: 'as-barnea', name: 'ברנע', type: 'neighborhood' },
       { id: 'as-afridar', name: 'אפרידר', type: 'neighborhood' },
-      { id: 'as-marina', name: 'המרינה', type: 'neighborhood' },
-      { id: 'as-agamim', name: 'אגמים', type: 'neighborhood' },
-      { id: 'as-city', name: 'הסיטי', type: 'neighborhood' }
+      { id: 'as-marina', name: 'המרינה', type: 'neighborhood' }, // flagged for David's review — no standalone official GIS polygon, falls inside the excluded national-park/beaches area
+      { id: 'as-agamim', name: 'אגמים', type: 'neighborhood' }, // flagged for David's review — official GIS has no standalone Agamim polygon; overlaps עמק דרומי/גבעת ציון, parked rather than auto-merged
+      { id: 'as-city', name: 'הסיטי', type: 'neighborhood' },
+      // ── Ashkelon neighborhood reconcile, held for review (official municipal GIS polygon layer, 21 features, 2020 snapshot). ──
+      { id: 'as-ramat-carmim-shaked', name: 'רמת כרמים, שקד', type: 'neighborhood' },
+      { id: 'as-ganei-barnea', name: 'גני ברנע, מצפה ברנע, נאות ברנע', type: 'neighborhood' },
+      { id: 'as-neve-dkalim-hadarim', name: 'נווה דקלים, נווה הדרים', type: 'neighborhood' },
+      { id: 'as-neot-ashkelon-neve-eilan', name: 'נאות אשקלון, נווה אילן', type: 'neighborhood' },
+      { id: 'as-migdal-ramat-eshkol', name: 'מגדל, רמת אשכול, כוכב הצפון', type: 'neighborhood' },
+      { id: 'as-givat-zion', name: 'גבעת ציון', type: 'neighborhood' },
+      { id: 'as-shimshon-maarav', name: 'שמשון מערב - נווה אלונים, נווה ים', type: 'neighborhood' },
+      { id: 'as-shimshon-tzafon', name: 'שמשון צפון - בן גוריון, גן הורדים', type: 'neighborhood' },
+      { id: 'as-shimshon-mizrach', name: 'שמשון מזרח - זיבוטינסקי, שקמים', type: 'neighborhood' },
+      { id: 'as-ir-yamim', name: 'עיר ימים', type: 'neighborhood' }
     ]
   },
   {

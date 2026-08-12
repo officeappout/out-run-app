@@ -393,11 +393,25 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'rg-bilu':              { lat: 32.0605764, lng: 34.8231378 },
 
   // ─── ASHKELON neighborhoods ────────────────────────────────
+  // NOTE: the 5 keys below (ask-*) do not match any real picker id (real ids use 'as-' prefix)
+  // — pre-existing dead/orphaned block, same pattern found in several other cities this run.
+  // Left as-is, flagged for the later cleanup commit.
   'ask-center':  { lat: 31.6626, lng: 34.5743 },
   'ask-barnea':  { lat: 31.6823, lng: 34.5681 },
   'ask-migdal':  { lat: 31.6495, lng: 34.5686 },
   'ask-north':   { lat: 31.6790, lng: 34.5603 },
   'ask-shikmim': { lat: 31.6701, lng: 34.5826 },
+  // ── Ashkelon neighborhood reconcile, held for review. ──
+  'as-ramat-carmim-shaked':       { lat: 31.695697, lng: 34.582783 },
+  'as-ganei-barnea':              { lat: 31.684161, lng: 34.578454 },
+  'as-neve-dkalim-hadarim':       { lat: 31.676997, lng: 34.582935 },
+  'as-neot-ashkelon-neve-eilan':  { lat: 31.665354, lng: 34.579032 },
+  'as-migdal-ramat-eshkol':       { lat: 31.667493, lng: 34.588811 },
+  'as-givat-zion':                { lat: 31.651372, lng: 34.578816 },
+  'as-shimshon-maarav':           { lat: 31.656912, lng: 34.555478 },
+  'as-shimshon-tzafon':           { lat: 31.659426, lng: 34.566767 },
+  'as-shimshon-mizrach':          { lat: 31.653341, lng: 34.560828 },
+  'as-ir-yamim':                  { lat: 31.703772, lng: 34.578055 },
 
   // ─── REHOVOT neighborhoods ─────────────────────────────────
   'reh-center':       { lat: 31.8988, lng: 34.8072 },
