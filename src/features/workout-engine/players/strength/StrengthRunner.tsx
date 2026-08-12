@@ -170,6 +170,7 @@ export default function StrengthRunner({
     isPaused: sm.isPaused,
     currentSegmentIndex: sm.currentSegmentIndex,
     currentExerciseIndex: sm.currentExerciseIndex,
+    currentSetIndex: sm.currentRound - 1,
     elapsedTime: sm.elapsedTime,
     getExerciseLog: sm.getExerciseLog,
     togglePause: sm.togglePause,

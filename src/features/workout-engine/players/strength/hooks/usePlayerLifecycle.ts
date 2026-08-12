@@ -44,6 +44,8 @@ export interface PlayerLifecycleDeps {
   /** Current navigation indices for auto-save. */
   currentSegmentIndex: number;
   currentExerciseIndex: number;
+  /** 0-based index of the current set within the current exercise. */
+  currentSetIndex: number;
   /** Elapsed workout time in seconds. */
   elapsedTime: number;
   /** Snapshot accessor for the exercise log — invoked on every checkpoint write. */
@@ -62,6 +64,7 @@ export function usePlayerLifecycle({
   isPaused,
   currentSegmentIndex,
   currentExerciseIndex,
+  currentSetIndex,
   elapsedTime,
   getExerciseLog,
   togglePause,
@@ -102,6 +105,7 @@ export function usePlayerLifecycle({
     workoutId,
     segmentIndex: currentSegmentIndex,
     exerciseIndex: currentExerciseIndex,
+    setIndex: currentSetIndex,
     elapsedTime,
     exerciseLog: getExerciseLog(),
     enabled: workoutState !== 'PREPARING',

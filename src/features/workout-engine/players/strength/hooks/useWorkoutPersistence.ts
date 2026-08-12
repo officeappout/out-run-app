@@ -11,6 +11,8 @@ export interface WorkoutCheckpoint {
   workoutId: string;
   segmentIndex: number;
   exerciseIndex: number;
+  /** 0-based index of the current set within the current exercise (straight-sets counter). */
+  setIndex: number;
   elapsedTime: number;
   exerciseLog: ExerciseResultLog[];
   savedAt: number; // Unix timestamp
@@ -35,6 +37,8 @@ export interface UseWorkoutPersistenceOptions {
   /** Current navigation indices and elapsed time for auto-save */
   segmentIndex: number;
   exerciseIndex: number;
+  /** 0-based index of the current set within the current exercise */
+  setIndex: number;
   elapsedTime: number;
   exerciseLog: ExerciseResultLog[];
   /**
@@ -103,6 +107,32 @@ export function clearWorkoutCheckpoint(): void {
   }
 }
 
+/**
+ * Read back a saved checkpoint for the given workoutId, without needing a
+ * hook instance — no live state-machine values are required for this read,
+ * it is a pure synchronous localStorage read/parse/staleness-check.
+ *
+ * Call this from the page-level mount effect (active/page.tsx) BEFORE
+ * StrengthRunner mounts, so the resume-offer dialog can be shown (or skipped)
+ * before the state machine's initial state is committed.
+ *
+ * Returns null when: no checkpoint stored, the checkpoint belongs to a
+ * different workoutId, or the checkpoint is older than MAX_AGE_MS (2 hours).
+ */
+export function restoreCheckpoint(workoutId: string): WorkoutCheckpoint | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const checkpoint = JSON.parse(raw) as WorkoutCheckpoint;
+    if (checkpoint.workoutId !== workoutId) return null;
+    if (Date.now() - checkpoint.savedAt > MAX_AGE_MS) return null;
+    return checkpoint;
+  } catch {
+    return null;
+  }
+}
+
 // ============================================================================
 // HOOK
 // ============================================================================
@@ -129,6 +159,7 @@ export function useWorkoutPersistence({
   workoutId,
   segmentIndex,
   exerciseIndex,
+  setIndex,
   elapsedTime,
   exerciseLog,
   enabled,
@@ -143,6 +174,7 @@ export function useWorkoutPersistence({
     workoutId,
     segmentIndex,
     exerciseIndex,
+    setIndex,
     elapsedTime,
     exerciseLog,
     enabled,
@@ -156,6 +188,7 @@ export function useWorkoutPersistence({
       workoutId,
       segmentIndex,
       exerciseIndex,
+      setIndex,
       elapsedTime,
       exerciseLog,
       enabled,
@@ -184,6 +217,7 @@ export function useWorkoutPersistence({
       workoutId: cur.workoutId,
       segmentIndex: cur.segmentIndex,
       exerciseIndex: cur.exerciseIndex,
+      setIndex: cur.setIndex,
       elapsedTime: cur.elapsedTime,
       exerciseLog: cur.exerciseLog,
       savedAt: Date.now(),
@@ -193,18 +227,10 @@ export function useWorkoutPersistence({
     });
   }, [writeToStorage]);
 
-  const restoreCheckpoint = useCallback((id: string): WorkoutCheckpoint | null => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
-      const checkpoint = JSON.parse(raw) as WorkoutCheckpoint;
-      if (checkpoint.workoutId !== id) return null;
-      if (Date.now() - checkpoint.savedAt > MAX_AGE_MS) return null;
-      return checkpoint;
-    } catch {
-      return null;
-    }
-  }, []);
+  // `restoreCheckpoint` is the module-level standalone function above — its
+  // body has zero dependency on this hook's closure (only its own `workoutId`
+  // argument + localStorage), so the hook returns it directly rather than
+  // wrapping it in a duplicate useCallback.
 
   const clearCheckpoint = useCallback(() => {
     try {
@@ -230,6 +256,7 @@ export function useWorkoutPersistence({
         workoutId,
         segmentIndex,
         exerciseIndex,
+        setIndex,
         elapsedTime,
         exerciseLog,
         savedAt: Date.now(),
@@ -243,7 +270,7 @@ export function useWorkoutPersistence({
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workoutId, segmentIndex, exerciseIndex, elapsedTime, enabled, writeToStorage, exerciseLog, blockId, blockType, meta]);
+  }, [workoutId, segmentIndex, exerciseIndex, setIndex, elapsedTime, enabled, writeToStorage, exerciseLog, blockId, blockType, meta]);
 
   // --------------------------------------------------------------------------
   // EFFECT — visibilitychange Listener
