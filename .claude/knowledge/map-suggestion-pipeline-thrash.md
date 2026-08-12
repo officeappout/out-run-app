@@ -63,18 +63,53 @@ no automated test exercises either new branch end-to-end (tsc + manual trace onl
 any static-grid dedup key, already called out as "revisit if this proves wrong" in the fix's
 own comment).
 
-## Explicitly NOT done (real, separate follow-up work David flagged, not started)
+## Cause 3 — ranking used full real generation instead of a cheap estimate (SHIPPED + PUSHED,
+`bdf84fdd` on `main`; local commit `1fc0b309` on `work/free-run-build`, 11.08.2026)
 
-David's own architectural critique, validated against the code, still stands as future work:
-- **Ranking uses full real generation instead of a cheap estimate.** All 5 generators do
-  real work (route generation makes real Mapbox API calls with 1.5s rate-limit waits;
-  full-strength runs the complete trio builder) just to decide display order. A lightweight
-  scoring/estimate approach — deferring full generation to an explicit slot tap — would be
-  the architecturally correct fix, but touches all 5 generators, not a quick patch.
+David's own architectural critique after the fixes above still left ~9s per rank (evidence:
+live console showed 2 real sequential Mapbox route-generation sequences, each with several
+1.5s artificial rate-limit waits, dominating the remaining wall-clock time). Traced by reading
+the code, not assumed: the ranked `Suggestion[]`'s ONLY consumer
+(`apply-ranked-slot-order.ts`) reads just `generatorId` off the winner — title/structure/
+methodsUsed are always discarded, cards' visible content always comes from `resolveSlots()`
+regardless of ranking. The score itself (`rank-suggestions.ts`) only reads difficulty/
+goalTags/stepContribution/requiresLocation. So all 5 generators building for real (real
+Mapbox calls, real `generateHomeWorkoutTrio` exercise scoring) bought nothing.
+
+Before implementing, David raised a sharp, correct concern: does the current "build all 5"
+double as the prefetch that makes tap-to-open instant? Traced directly: **no** — a separate,
+pre-existing system (`DiscoverLayer.tsx`'s `handleSettleSlot` + module-level `hybridPlanCache`)
+already composes the real plan for the ONE currently-focused card on carousel settle, and
+`handleSelectSlot` (tap) reuses that cache — completely disconnected from the 5 ranking
+generators' output (different file, different cache, never exported/shared). This was the
+green light to proceed.
+
+**Fix:** new flag `IS_CHEAP_SUGGESTION_RANKING_ENABLED` (default true) — each of the 5
+generators returns an instant, near-zero-I/O estimate instead of a real compose. Two still do
+one cheap check each to preserve a real self-exclusion: full-park-workout checks
+`nearestEquippedPark()` against the already-cached park list (no Mapbox); full-strength checks
+whether the user has assessed ANY domain/track (cheap profile read, no exercise scoring).
+Flag-off is byte-identical to before in all 5 files.
+
+8-agent adversarial review, one lens specifically re-verifying the tap-to-open decoupling
+claim: **0 findings** on that lens — claim holds. 2 related "note" findings (both addressed via
+doc comments, not code changes): (1) all 5 cheap paths use a static `difficulty:2`, which would
+flatten `rank-suggestions.ts`'s `recoveryMatch`/`preferenceMatch` factors once
+`recoveryState`/`preferences` ever get wired to real data on this surface — currently a no-op
+either way since `build-map-user-context.ts` already hardcodes both to neutral; flagged inline
+in `rank-suggestions.ts` for whoever wires them. (2) Cheap ranking's near-instant resolution
+can make the carousel's settle-effect re-fire sooner after mount than before — harmless, fully
+deduped by the existing cache, cost unaffected, just noted for accuracy in the flag comment.
+
+**Still not done:**
 - **No reuse between Home's already-computed trio and the map's full-strength suggestion.**
   Unverified whether Home caches its daily-workout result anywhere the map could read instead
   of recomputing independently — not investigated yet.
-- **`fullStrengthGenerator` isn't scoped to nearby park equipment** the way
-  `fullParkWorkoutGenerator` already is — for an unassessed user it's now cheap (returns
-  fast via the needs-assessment skip), but for an assessed user it still scores the whole DB
-  generically rather than just what's relevant to what's actually nearby.
+- **`fullStrengthGenerator`'s real (flag-off) path isn't scoped to nearby park equipment** the
+  way `fullParkWorkoutGenerator` already is — not relevant while the cheap flag is on (it now
+  only checks assessed-domain existence), but still true of the real path if the flag is ever
+  flipped off.
+
+**NOT device-tested yet** — needs verification per the checklist below, especially the explicit
+tap-to-open-still-instant check (not just that ranking is faster), matching what David asked
+for before approving.
