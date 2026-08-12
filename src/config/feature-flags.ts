@@ -407,23 +407,6 @@ export const ACCESS_CODE_SCHOOL_ENABLED = false;
 // until university gets its own tenantType.
 export const ACCESS_CODE_UNIVERSITY_ENABLED = false;
 
-// GLOBAL_GPS_TRACKING_ENABLED: makes GPS acquisition survive navigating away
-// from /map during an active running/walking/hybrid session, instead of dying
-// with MapShellInner's unmount (the root cause of the GPS/timer desync bug —
-// the store-owned session timer keeps climbing with no GPS to back it,
-// inflating distance/pace). Mounts a second, always-present useGPS({enabled})
-// instance (GlobalGPSTracker, in ClientLayout) that is enabled ONLY when
-// (status active|paused) AND (mode running|walking|hybrid) AND NOT on /map —
-// mutually exclusive by construction with MapShellInner's own always-enabled
-// instance, so useGPSStore's documented single-driver contract still holds:
-// at most one enabled useGPS() instance acquires/writes at any moment.
-// While FALSE, GlobalGPSTracker forces its enabled condition to always be
-// false — useGPS({enabled:false}) never starts a watch/poll and never writes
-// to the store — BYTE-IDENTICAL to today: GPS acquisition only ever happens
-// via MapShellInner. Also a hard prerequisite for the upcoming persistent
-// cross-screen "return to workout" strip (separate, later task).
-export const GLOBAL_GPS_TRACKING_ENABLED = false;
-
 // RUNNING_NATIVE_KEEP_AWAKE_ENABLED: on native (Capacitor.isNativePlatform()), route
 // requestWakeLock/releaseWakeLock in useRunningPlayer.ts through the
 // @capacitor-community/keep-awake plugin instead of the raw browser Wake Lock API

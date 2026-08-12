@@ -7,7 +7,6 @@ import BottomNavigation from "@/features/navigation/BottomNavbar";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useSessionStore } from "@/features/workout-engine/core/store/useSessionStore";
 import GlobalDetailOverlay from "@/features/parks/core/components/GlobalDetailOverlay";
-import GlobalGPSTracker from "@/features/parks/core/components/GlobalGPSTracker";
 import ChatInbox from "@/features/social/components/ChatInbox";
 import { useChatStore } from "@/features/social/store/useChatStore";
 import ActivityPanel from "@/features/social/components/ActivityPanel";
@@ -99,7 +98,6 @@ export default function ClientLayout({
 
           {shouldShowBottomNav && <BottomNavigation />}
           <GlobalDetailOverlay />
-          <GlobalGPSTracker />
           <ChatInbox
             isOpen={chatIsOpen}
             onClose={chatClose}
