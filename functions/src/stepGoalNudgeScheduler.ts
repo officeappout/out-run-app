@@ -118,9 +118,13 @@ interface CandidateUser {
   name: string;
   personaProfile: PersonaResolvableProfile;
   dailyStepGoal: number;
+  /** Filled in after fetchTodaySteps() — 0 until then. */
+  todaySteps: number;
 }
 
-/** Reads a raw users/{uid} doc snapshot into the shape this scheduler needs. */
+/** Reads a raw users/{uid} doc snapshot into the shape this scheduler needs.
+ * todaySteps is NOT set here (this fires before the steps fetch) — callers
+ * must merge it in via fetchTodaySteps() before dispatching. */
 function toCandidateUser(uid: string, data: Record<string, unknown>): CandidateUser {
   const core = (data.core ?? {}) as Record<string, unknown>;
   const progression = (data.progression ?? {}) as Record<string, unknown>;
@@ -136,6 +140,7 @@ function toCandidateUser(uid: string, data: Record<string, unknown>): CandidateU
       typeof progression.dailyStepGoal === 'number' && progression.dailyStepGoal > 0
         ? progression.dailyStepGoal
         : DEFAULT_DAILY_STEP_GOAL,
+    todaySteps: 0,
   };
 }
 
@@ -168,7 +173,11 @@ async function dispatchToUser(user: CandidateUser): Promise<{ sent: boolean; rea
     return { sent: false, reason: `no content for persona=${persona}` };
   }
 
-  const body = personaliseNotificationText(selected.text, { name: user.name });
+  const stepsLeft = Math.max(0, user.dailyStepGoal - user.todaySteps);
+  const body = personaliseNotificationText(selected.text, {
+    name: user.name,
+    steps_left: String(stepsLeft),
+  });
 
   const result = await sendPush({
     toUids: [user.uid],
@@ -232,9 +241,13 @@ export const stepGoalNudgeScheduler = onSchedule(
     if (isTestMode) {
       const refs = testUids.map((uid) => db.collection('users').doc(uid));
       const docs = await db.getAll(...refs);
-      candidates = docs
+      const baseCandidates = docs
         .filter((d) => d.exists)
         .map((d) => toCandidateUser(d.id, d.data() as Record<string, unknown>));
+      // Test mode bypasses the eligibility filter but still needs a real
+      // steps_left number for the copy, so fetch today's steps too.
+      const stepsByUid = await fetchTodaySteps(baseCandidates.map((c) => c.uid), today);
+      candidates = baseCandidates.map((c) => ({ ...c, todaySteps: stepsByUid.get(c.uid) ?? 0 }));
       logger.info(`[stepGoalNudge] TEST mode — resolved ${candidates.length}/${testUids.length} uid(s)`);
     } else {
       let candidateDocs: admin.firestore.QueryDocumentSnapshot[];
@@ -250,10 +263,11 @@ export const stepGoalNudgeScheduler = onSchedule(
         return;
       }
 
-      const allCandidates = candidateDocs.map((d) => toCandidateUser(d.id, d.data() as Record<string, unknown>));
-      const stepsByUid = await fetchTodaySteps(allCandidates.map((c) => c.uid), today);
+      const rawCandidates = candidateDocs.map((d) => toCandidateUser(d.id, d.data() as Record<string, unknown>));
+      const stepsByUid = await fetchTodaySteps(rawCandidates.map((c) => c.uid), today);
+      const allCandidates = rawCandidates.map((c) => ({ ...c, todaySteps: stepsByUid.get(c.uid) ?? 0 }));
 
-      candidates = allCandidates.filter((c) => (stepsByUid.get(c.uid) ?? 0) < c.dailyStepGoal);
+      candidates = allCandidates.filter((c) => c.todaySteps < c.dailyStepGoal);
       logger.info(
         `[stepGoalNudge] normal mode — ${candidateDocs.length} candidate(s), ` +
           `${candidates.length} below goal for ${today}`,

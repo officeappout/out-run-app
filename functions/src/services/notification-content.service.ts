@@ -27,9 +27,13 @@
  * `resolveNotificationText()` — that's `src/` code, not importable into
  * `functions/src` (same cross-project boundary as the persona alias-map).
  * `personaliseNotificationText()` below is a DELIBERATELY MINIMAL mirror —
- * only `@שם` (name) today. Extend here if a future message needs more of
- * the full tag vocabulary (location / league rank / social context) rather
- * than porting the whole resolver speculatively.
+ * `@שם` (name) plus generic `{word}` placeholders (the same `{var}`-replace
+ * pattern retentionScheduler.ts/onboardingDropoffDispatcher.ts/
+ * onGroupMemberJoin.ts already use), driven by an arbitrary vars map so
+ * callers can template in computed values like `{steps_left}`. Extend here
+ * if a future message needs more of the full `@tag` vocabulary (location /
+ * league rank / social context) rather than porting the whole resolver
+ * speculatively.
  */
 
 import { logger } from 'firebase-functions';
@@ -147,9 +151,21 @@ export async function selectNotificationContent(
   };
 }
 
-/** Minimal @tag resolver — @שם → name today. See module header. */
-export function personaliseNotificationText(text: string, vars: { name?: string }): string {
-  return text.replace(/@שם/g, vars.name || 'חבר');
+/**
+ * Minimal tag resolver — see module header. Supports:
+ *   @שם          → vars.name (fallback 'חבר')
+ *   {anyKey}     → vars[anyKey] (generic {var}-replace, same regex every
+ *                  other scheduler in this codebase already uses; missing
+ *                  keys resolve to '' rather than leaving the placeholder
+ *                  literal in the sent copy)
+ */
+export function personaliseNotificationText(
+  text: string,
+  vars: { name?: string } & Record<string, string | undefined>,
+): string {
+  let result = text.replace(/@שם/g, vars.name || 'חבר');
+  result = result.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? '');
+  return result;
 }
 
 // Re-exported for callers that only need persona resolution, not selection.
