@@ -1,5 +1,12 @@
 #!/usr/bin/env npx tsx
 /**
+ * ⚠️ SUPERSEDED (12.08.2026, Wave 1) — do not re-run. The doc this script
+ * writes (bundleId 'steps_evening_generic_01', triggerType='Habit_Maintenance')
+ * is deleted by scripts/seed-daily-goal-notifications.ts's SUPERSEDED_DOC_IDS
+ * cleanup and is no longer reachable by stepGoalNudgeScheduler.ts's selector
+ * (now filters on triggerType='Daily_Goal'). Kept only as a historical record
+ * of the original ad-hoc test. Use seed-daily-goal-notifications.ts instead.
+ *
  * scripts/seed-step-goal-notifications.ts
  *
  * Seeds the FIRST step-goal message into the EXISTING notification-manager
