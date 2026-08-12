@@ -41,6 +41,12 @@ export interface ExerciseLogInput {
   currentSetIndex: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getExercises: (seg: any) => any[] | null;
+  /**
+   * Crash-recovery seed — pre-populates exerciseLogRef on mount (used only
+   * once, by useRef's initializer). Undefined (the default) preserves
+   * today's behavior exactly: an empty log.
+   */
+  initialLog?: ExerciseResultLog[];
 }
 
 export interface ExerciseLogResult {
@@ -74,10 +80,14 @@ export function useExerciseLog({
   currentExerciseIndex,
   currentSetIndex,
   getExercises,
+  initialLog,
 }: ExerciseLogInput): ExerciseLogResult {
 
   // ── Log storage ────────────────────────────────────────────────────────────
-  const exerciseLogRef = useRef<ExerciseResultLog[]>([]);
+  // useRef's initializer only runs on first mount, so seeding here is a
+  // one-time crash-recovery hydration — subsequent re-renders never re-apply
+  // initialLog even if the caller's reference changes.
+  const exerciseLogRef = useRef<ExerciseResultLog[]>(initialLog ?? []);
 
   // ── Reactive version counter ───────────────────────────────────────────────
   const [logVersion, setLogVersion] = useState(0);

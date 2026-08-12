@@ -58,6 +58,27 @@ export interface ForceTransitionPayload {
   data?: Record<string, unknown>;
 }
 
+// ── Crash-Recovery Checkpoint Seed ──────────────────────────────────────────
+
+/**
+ * Crash-recovery seed — passed by the page-level resume-offer gate
+ * (active/page.tsx) after the user chooses "Resume" on a checkpoint restored
+ * via `restoreCheckpoint` (useWorkoutPersistence.ts). Every field besides the
+ * two indices is optional, and the whole param is optional: the existing
+ * caller (StrengthRunner.tsx) that doesn't pass it gets byte-identical
+ * initial state, since every seeded useState below falls back to today's
+ * hardcoded literal via `??`.
+ */
+export interface InitialWorkoutCheckpoint {
+  segmentIndex: number;
+  exerciseIndex: number;
+  /** 0-based index of the current set within the current exercise. */
+  setIndex?: number;
+  elapsedTime?: number;
+  exerciseLog?: ExerciseResultLog[];
+  workoutState?: WorkoutState;
+}
+
 // ── Result Interface ──────────────────────────────────────────────────────
 
 export interface WorkoutStateMachineResult {
@@ -187,21 +208,27 @@ export function useWorkoutStateMachine(
   blockContext?: WorkoutBlockContext,
   /** Pre-fetched map of exerciseId → last-session confirmed reps (for smart target selection) */
   exerciseHistoryMap?: Record<string, number[]>,
+  /** Crash-recovery seed (see InitialWorkoutCheckpoint) — optional, additive. */
+  initialCheckpoint?: InitialWorkoutCheckpoint,
 ): WorkoutStateMachineResult {
   // --------------------------------------------------------------------------
   // REFS
   // --------------------------------------------------------------------------
 
   const transitionLock = useRef(false);
-  const prevIndicesRef = useRef({ segment: 0, exercise: 0, set: 0 });
+  const prevIndicesRef = useRef({
+    segment: initialCheckpoint?.segmentIndex ?? 0,
+    exercise: initialCheckpoint?.exerciseIndex ?? 0,
+    set: initialCheckpoint?.setIndex ?? 0,
+  });
   const workoutIdRef = useRef(workout.id);
   // --------------------------------------------------------------------------
   // STATE
   // --------------------------------------------------------------------------
 
-  const [workoutState, setWorkoutState] = useState<WorkoutState>('PREPARING');
-  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [workoutState, setWorkoutState] = useState<WorkoutState>(initialCheckpoint?.workoutState ?? 'PREPARING');
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(initialCheckpoint?.segmentIndex ?? 0);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(initialCheckpoint?.exerciseIndex ?? 0);
   const [isPaused, setIsPaused] = useState(false);
   const [completedReps, setCompletedReps] = useState<number | null>(null);
   useEffect(() => {
@@ -222,8 +249,8 @@ export function useWorkoutStateMachine(
    * A ref mirrors the state so moveToNext reads the canonical value
    * even if called twice before React flushes.
    */
-  const [currentSetIndex, _setCurrentSetIndex] = useState(0);
-  const currentSetRef = useRef(0);
+  const [currentSetIndex, _setCurrentSetIndex] = useState(initialCheckpoint?.setIndex ?? 0);
+  const currentSetRef = useRef(initialCheckpoint?.setIndex ?? 0);
   const setCurrentSetIndex = useCallback((val: number | ((prev: number) => number)) => {
     _setCurrentSetIndex((prev) => {
       const next = typeof val === 'function' ? val(prev) : val;
@@ -301,6 +328,7 @@ export function useWorkoutStateMachine(
     currentExerciseIndex,
     currentSetIndex,
     getExercises,
+    initialLog: initialCheckpoint?.exerciseLog,
   });
 
   // --------------------------------------------------------------------------
@@ -427,7 +455,7 @@ export function useWorkoutStateMachine(
     isPaused,
     onPreparationComplete: handlePrepComplete,
     onRestComplete: handleRestTimerDone,
-    initialElapsedTime: blockContext?.initialElapsedTime,
+    initialElapsedTime: initialCheckpoint?.elapsedTime ?? blockContext?.initialElapsedTime,
   });
 
   // --------------------------------------------------------------------------
