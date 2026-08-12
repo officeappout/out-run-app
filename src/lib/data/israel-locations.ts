@@ -8,6 +8,7 @@ export interface SubLocation {
   type: LocationType;
   quarter?: string; // רובע — currently used for Tel Aviv-Yafo neighborhoods only
   communityAdmin?: string; // מינהל קהילתי — currently used for Jerusalem neighborhoods only
+  cluster?: string; // אשכול — currently used for Petah Tikva neighborhoods only
 }
 
 export interface IsraeliLocation {
@@ -347,7 +348,42 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'pt-neve-gan', name: 'נווה גן', type: 'neighborhood' },
       { id: 'pt-center', name: 'מרכז העיר', type: 'neighborhood' },
       { id: 'pt-ein-ganim', name: 'עין גנים', type: 'neighborhood' },
-      { id: 'pt-shaaria', name: 'שעריה', type: 'neighborhood' }
+      { id: 'pt-shaaria', name: 'שעריה', type: 'neighborhood' },
+      // ── Petah Tikva neighborhood reconcile, held for review (official ArcGIS ADM_Neighborhoods, 41 total). ──
+      { id: 'pt-lev-hamoshava', name: 'לב המושבה', type: 'neighborhood', cluster: 'אלה' }, // legacy pt-center kept untouched; flagged for later hide/merge pass
+      { id: 'pt-kfar-ganim-alef', name: 'כפר גנים א', type: 'neighborhood', cluster: 'אשל' },
+      { id: 'pt-kfar-ganim-bet', name: 'כפר גנים ב', type: 'neighborhood', cluster: 'אשל' },
+      { id: 'pt-kfar-ganim-gimel', name: 'כפר גנים ג', type: 'neighborhood', cluster: 'אשל' },
+      { id: 'pt-hadar-hamoshavot-vatika', name: 'הדר המושבות הותיקה', type: 'neighborhood', cluster: 'רותם' },
+      { id: 'pt-hadar-hamoshavot-hadasha', name: 'הדר המושבות החדשה', type: 'neighborhood', cluster: 'רותם' },
+      { id: 'pt-mishkenot-haganim', name: 'משכנות הגנים', type: 'neighborhood', cluster: 'שקד' },
+      { id: 'pt-shikun-hapoel-hamizrahi', name: 'שיכון הפועל המזרחי ותיקים', type: 'neighborhood', cluster: 'שקד' },
+      { id: 'pt-yoseftal', name: 'יוספטל', type: 'neighborhood', cluster: 'שקד' },
+      { id: 'pt-kfar-avraham', name: 'כפר אברהם', type: 'neighborhood', cluster: 'שקד' },
+      { id: 'pt-kiryat-david-elazar', name: 'קרית דוד אלעזר', type: 'neighborhood', cluster: 'שקד' },
+      { id: 'pt-tkuma', name: 'תקומה', type: 'neighborhood', cluster: 'שקד' },
+      { id: 'pt-kiryat-eliezer-perry', name: 'קרית אליעזר פרי', type: 'neighborhood', cluster: 'שקד' },
+      { id: 'pt-tzameret-ganim', name: 'צמרת גנים', type: 'neighborhood', cluster: 'ארז' },
+      { id: 'pt-achdut', name: 'אחדות', type: 'neighborhood', cluster: 'ארז' },
+      { id: 'pt-shikun-mapam', name: 'שיכון מפ"ם', type: 'neighborhood', cluster: 'ארז' },
+      { id: 'pt-bat-ganim', name: 'בת גנים', type: 'neighborhood', cluster: 'אשל' },
+      { id: 'pt-hamerkaz-hashaket', name: 'המרכז השקט', type: 'neighborhood', cluster: 'אלון' },
+      { id: 'pt-neve-ganim', name: 'נוה גנים', type: 'neighborhood', cluster: 'זית' },
+      { id: 'pt-bar-yehuda', name: 'בר יהודה', type: 'neighborhood', cluster: 'זית' },
+      { id: 'pt-ramat-verber', name: 'רמת ורבר', type: 'neighborhood', cluster: 'זית' },
+      { id: 'pt-karol', name: 'קרול', type: 'neighborhood', cluster: 'תמר' },
+      { id: 'pt-haachim-israelit', name: 'האחים ישראלית', type: 'neighborhood', cluster: 'רותם' },
+      { id: 'pt-kiryat-matalon', name: 'קרית מטלון', type: 'neighborhood', cluster: 'זית' },
+      { id: 'pt-amishav', name: 'עמישב', type: 'neighborhood', cluster: 'הדס' },
+      { id: 'pt-kiryat-alon', name: 'קרית אלון', type: 'neighborhood', cluster: 'שקד' },
+      { id: 'pt-kiryat-harav-salomon', name: 'קרית הרב סלומון', type: 'neighborhood', cluster: 'שקד' },
+      { id: 'pt-neve-dkalim', name: 'נווה דקלים', type: 'neighborhood', cluster: 'תמר' },
+      { id: 'pt-pisgat-hadar', name: 'פסגת הדר', type: 'neighborhood', cluster: 'זית' },
+      { id: 'pt-gani-eucalyptus', name: 'גני אקליפטוס', type: 'neighborhood' }, // no cluster assigned in official source
+      { id: 'pt-shiffer', name: 'שיפר', type: 'neighborhood', cluster: 'תמר' },
+      { id: 'pt-neve-oz', name: 'נוה עוז', type: 'neighborhood', cluster: 'זית' },
+      { id: 'pt-belinson', name: 'בילינסון', type: 'neighborhood', cluster: 'הדס' },
+      { id: 'pt-machane-yehuda', name: 'מחנה יהודה', type: 'neighborhood', cluster: 'ארז' }
     ]
   },
   {
