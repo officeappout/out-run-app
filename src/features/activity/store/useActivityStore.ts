@@ -169,6 +169,14 @@ interface ActivityActions {
     entries: Array<{ category: ActivityCategory; durationMinutes: number; calories?: number }>
   ) => void;
 
+  // Undo today's streak increment (e.g. a workout completion gets reversed/
+  // deleted after the fact). Mirrors the increment logic in logWorkout /
+  // logMultiCategoryWorkout in reverse, using the same 'YYYY-MM-DD' date
+  // convention, then pushes the correction via the existing syncToServer.
+  // No-ops (returns { reversed: false }) if lastStreakDate isn't today —
+  // i.e. there is nothing to reverse.
+  reverseStreakForToday: () => Promise<{ reversed: boolean; newStreak?: number }>;
+
   // Set daily goals
   setDailyGoals: (goals: Partial<Record<ActivityCategory, number>>) => void;
   
@@ -230,12 +238,35 @@ function debouncedSync(syncFn: () => Promise<void>) {
 // HELPER FUNCTIONS
 // ============================================================================
 
-function getTodayString(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
+/**
+ * Single source of truth for "what LOCAL calendar day is this Date in".
+ * Every date-string helper in this file — and any external caller that needs
+ * to convert a Date/Firestore-Timestamp-derived Date into the same
+ * 'YYYY-MM-DD' convention (e.g. workoutDeletion.ts converting a workout doc's
+ * `date` field) — must route through this so the whole app agrees on the
+ * local-vs-UTC convention by construction, not by convention-matching.
+ * Exported for exactly that reason.
+ */
+export function toLocalDayString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+export function getTodayString(): string {
+  return toLocalDayString(new Date());
+}
+
+/**
+ * Same convention as getTodayString(), shifted back one calendar day.
+ * Used by reverseStreakForToday() to restore lastStreakDate to "yesterday"
+ * when a streak-increment is undone but the streak itself survives (>0).
+ */
+export function getYesterdayString(): string {
+  const now = new Date();
+  now.setDate(now.getDate() - 1);
+  return toLocalDayString(now);
 }
 
 function getWeekStartString(): string {
@@ -632,6 +663,54 @@ export const useActivityStore = create<ActivityStore>()(
         get().syncToServer().catch(err =>
           console.error('[ActivityStore] Multi-category workout sync failed:', err)
         );
+      },
+
+      // Reverse today's streak increment. Counterpart to the streak-increment
+      // logic in logWorkout / logMultiCategoryWorkout, run backwards:
+      // - Defensive no-op if lastStreakDate !== today (caller should already
+      //   have checked this, but re-verify here too).
+      // - currentStreak - 1, floored at 0.
+      // - If the new currentStreak > 0, lastStreakDate rolls back to
+      //   yesterday (same 'YYYY-MM-DD' convention as getTodayString()).
+      // - If the new currentStreak is 0, lastStreakDate clears to '' — the
+      //   same "no active streak" value used everywhere else in this file
+      //   (initial state, and loadFromServer's broken-streak branch).
+      // - longestStreak is DELIBERATELY left untouched on reversal. It is a
+      //   monotonic, permanent best-ever record — only ever raised by new
+      //   records during normal logging (see Math.max in logWorkout /
+      //   logMultiCategoryWorkout), never lowered by a later deletion. An
+      //   earlier attempt decremented it whenever `longestStreak ===
+      //   preDecrementStreak`, but value-equality cannot distinguish "today's
+      //   run set this record" from "some unrelated historical run years ago
+      //   also happened to reach this same number" — e.g. an old run peaked
+      //   at 5, the streak later resets and climbs back to 5 again today;
+      //   deleting today's workout would wrongly decrement the permanent
+      //   record to 4 even though the original independent 5-day run
+      //   genuinely happened. Removed as a bug-prone heuristic.
+      // Pushes the correction through the EXISTING syncToServer — same
+      // streaks/{uid} + users/{uid}.progression mirror write path as every
+      // other streak mutation. No second write path.
+      reverseStreakForToday: async () => {
+        const state = get();
+        const todayStr = getTodayString();
+
+        if (state.lastStreakDate !== todayStr) {
+          return { reversed: false };
+        }
+
+        const newStreak = Math.max(0, state.currentStreak - 1);
+        const newLastStreakDate = newStreak > 0 ? getYesterdayString() : '';
+
+        set({
+          currentStreak: newStreak,
+          lastStreakDate: newLastStreakDate,
+        });
+
+        await get().syncToServer().catch(err =>
+          console.error('[ActivityStore] Streak reversal sync failed:', err)
+        );
+
+        return { reversed: true, newStreak };
       },
 
       setDailyGoals: (goals: Partial<Record<ActivityCategory, number>>) => {
