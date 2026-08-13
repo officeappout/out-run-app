@@ -188,6 +188,14 @@ interface RouteCarouselProps {
   /** Surface preference from the extras drawer — drives segment scoring and route features. Loop-only. */
   surface?: 'road' | 'trail';
   /**
+   * Opt-in short-target generation (loop-preferred, out-and-back fallback —
+   * see route-generator.service.ts's RouteGenerationOptions.shortRouteMode).
+   * Loop-only; ignored in commute mode. Phase 1: only the step-goal deep-link
+   * (DiscoverLayer.tsx, behind IS_STEP_GOAL_SHORT_ROUTE_ENABLED) sets this.
+   * Defaults to false — byte-identical to today's behavior for every other caller.
+   */
+  shortRouteMode?: boolean;
+  /**
    * Destination coord for A-to-B commutes. Required when `mode === 'commute'`,
    * ignored otherwise. Stored as `{ lat, lng }` (NOT the `[lng, lat]` tuple)
    * so the boundary with the route generator stays explicit.
@@ -241,6 +249,7 @@ export default function RouteCarousel({
   targetKm,
   includeStrength = false,
   surface = 'road',
+  shortRouteMode = false,
   destination,
   destinationLabel,
   onActivityChange,
@@ -341,9 +350,13 @@ export default function RouteCarousel({
                 // hybrid route-stops caller (start-hybrid-session.ts), generalized
                 // to free-run's now-uncapped distance goal so waypoint scoring
                 // targets the actual loop radius instead of the 1.0km default.
+                // Shape-invariant (a geometric ratio, not a scale-dependent
+                // constant), so the same formula also applies correctly when
+                // shortRouteMode kicks in for small targets.
                 preferences: { includeStrength, surface, idealWaypointDistanceKm: (targetKm ?? 3) / 6 },
                 parks,
                 cityName,
+                shortRouteMode,
               },
         );
         if (cancelled) return;

@@ -484,6 +484,22 @@ export const NEIGHBORHOOD_GEOCODE_GUARD_ENABLED = true;
 // re-enable.
 export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = true;
 
+// IS_STEP_GOAL_SHORT_ROUTE_ENABLED: fixes the "push promised 12 min, route
+// card showed 32 min / 2.7km" mismatch — root-caused to route-generator
+// .service.ts's MIN_GENERATION_KM=1.5 floor silently inflating small
+// step-goal targets. When true, the step-goal deep-link effect
+// (DiscoverLayer.tsx) passes RouteGenerationOptions.shortRouteMode: true so
+// small targets try a genuinely short loop first (falling back to an
+// out-and-back shape) instead of being clamped up to 1.5km. Kept SEPARATE
+// from IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED so "does the preview open at all"
+// and "does it use this new, not-yet-device-verified short-route geometry"
+// can be rolled back independently. Default false pending on-device
+// verification (see the short-route plan's verification section). Same
+// scope as the route-preview flag: only David's account currently ever
+// receives a push with targetSteps (gated by
+// app_config/feature_flags.stepGoalTestUids on the push side).
+export const IS_STEP_GOAL_SHORT_ROUTE_ENABLED = false;
+
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
 // longer opens ExitConfirmModal; it is blocked ENTIRELY and silently, as if

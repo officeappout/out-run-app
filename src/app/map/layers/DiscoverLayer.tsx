@@ -28,7 +28,7 @@ import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybri
 import { useSuggestionEngineStore } from '@/features/workout-engine/core/store/useSuggestionEngineStore';
 import { buildMapUserContext } from '@/features/workout-engine/core/context/build-map-user-context';
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
-import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED } from '@/config/feature-flags';
+import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED, IS_STEP_GOAL_SHORT_ROUTE_ENABLED } from '@/config/feature-flags';
 import { stepsToTargetKm } from '@/features/parks/core/services/route-request.utils';
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
@@ -271,6 +271,10 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     targetKm: number;
     includeStrength: boolean;
     surface: 'road' | 'trail';
+    /** Opt-in short-target generation — see RouteCarousel's shortRouteMode
+     *  prop. Only the step-goal deep-link effect below sets this; the manual
+     *  FreeRunDrawer path leaves it undefined (byte-identical to before). */
+    shortRouteMode?: boolean;
   } | null>(null);
 
   // ── Hybrid slot layer state ("מה עושים היום?") — Phase 1, flag-gated ───────
@@ -377,7 +381,12 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     ) {
       openRunRoutePreviewFiredRef.current = true;
       const targetKm = stepsToTargetKm(Number(targetSteps));
-      setRouteCarouselConfig({ targetKm, includeStrength: false, surface: 'road' });
+      setRouteCarouselConfig({
+        targetKm,
+        includeStrength: false,
+        surface: 'road',
+        shortRouteMode: IS_STEP_GOAL_SHORT_ROUTE_ENABLED,
+      });
       setFreeRunStep('route');
       jumpedToRoute = true;
     }
@@ -1758,6 +1767,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   targetKm={routeCarouselConfig.targetKm}
                   includeStrength={routeCarouselConfig.includeStrength}
                   surface={routeCarouselConfig.surface}
+                  shortRouteMode={routeCarouselConfig.shortRouteMode}
                   cityName={userCityName}
                   // Bidirectional sync: when the user taps a route line on
                   // the map, the parent's focusedRoute updates and the
