@@ -112,6 +112,65 @@ describe('scoreWaypoint — proportionalDistanceTiers (13.08.2026, fixes short-l
   });
 });
 
+describe('scoreWaypoint — preferOfficialRoutes (13.08.2026, official/curated-route preference)', () => {
+  const officialWp = (km: number) => ({ ...wpAt(km), isOfficial: true });
+  const nonOfficialWp = (km: number) => ({ ...wpAt(km), isOfficial: false });
+
+  it('default (flag omitted): isOfficial has zero effect — byte-identical for every existing caller', () => {
+    const official = scoreWaypoint(officialWp(1.0), USER, [], { includeStrength: false });
+    const nonOfficial = scoreWaypoint(nonOfficialWp(1.0), USER, [], { includeStrength: false });
+    expect(official.score).toBe(nonOfficial.score);
+  });
+
+  it('with the flag: a well-positioned official candidate scores a modest bonus over an identical non-official one', () => {
+    const official = scoreWaypoint(officialWp(1.0), USER, [], { includeStrength: false, preferOfficialRoutes: true });
+    const nonOfficial = scoreWaypoint(nonOfficialWp(1.0), USER, [], { includeStrength: false, preferOfficialRoutes: true });
+    expect(official.score).toBe(nonOfficial.score + 10);
+  });
+
+  it('the bonus magnitude is exactly the documented +10 (tie-breaker scale), not the 5× OFFICIAL_ROUTE_BIAS_MULTIPLIER used elsewhere', () => {
+    const official = scoreWaypoint(officialWp(1.0), USER, [], { includeStrength: false, preferOfficialRoutes: true });
+    // 50 base + 20 tight-tier (diff=0) + 10 official bonus = 80.
+    expect(official.score).toBe(80);
+    // A 5× bias on the same base (the OTHER, deviation-recovery mechanism's
+    // scale) would land far higher (e.g. 350+) — confirms this bonus is a
+    // deliberately different, much smaller order of magnitude.
+    expect(official.score).toBeLessThan(150);
+  });
+
+  it('CRITICAL — a candidate already in the "no bonus / no penalty" gap gets only the modest official nudge, never enough to look like a well-fitted candidate', () => {
+    const smallIdeal = 0.233;
+    // 0.45km off a 0.233km ideal — the exact real-diagnostic shape that
+    // caused short loops to overshoot before proportionalDistanceTiers.
+    // This sits just inside the (proportional) penalty threshold (0.466),
+    // so it's neither bonused nor penalized on fit alone — base 50.
+    const farOfficial = scoreWaypoint(
+      { ...wpAt(smallIdeal + 0.45), isOfficial: true },
+      USER, [],
+      { includeStrength: false, idealWaypointDistanceKm: smallIdeal, proportionalDistanceTiers: true, preferOfficialRoutes: true },
+    );
+    const wellFitted = scoreWaypoint(
+      { ...wpAt(smallIdeal), isOfficial: false },
+      USER, [],
+      { includeStrength: false, idealWaypointDistanceKm: smallIdeal, proportionalDistanceTiers: true },
+    );
+    // The official nudge (50+10=60) must not outscore a genuinely
+    // well-fitted real candidate (50+20=70) — fit still wins over "official".
+    expect(farOfficial.score).toBe(60);
+    expect(farOfficial.score).toBeLessThan(wellFitted.score);
+  });
+
+  it('a genuinely far official candidate (past the penalty tier) is still penalized — bonus never overrides the penalty', () => {
+    const smallIdeal = 0.233;
+    const veryFarOfficial = scoreWaypoint(
+      { ...wpAt(smallIdeal + 1.0), isOfficial: true },
+      USER, [],
+      { includeStrength: false, idealWaypointDistanceKm: smallIdeal, proportionalDistanceTiers: true, preferOfficialRoutes: true },
+    );
+    expect(veryFarOfficial.score).toBeLessThan(50); // still takes the -15 penalty, no rescue
+  });
+});
+
 describe('computeDistanceWindow — proportional acceptance band (08.08, fixes live 22km "no route found")', () => {
   it('small targets: byte-identical to the original fixed [target-0.5, target+2.5] window', () => {
     expect(computeDistanceWindow(3)).toEqual({ minKm: 2.5, maxKm: 5.5 });

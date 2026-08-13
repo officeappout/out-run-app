@@ -70,6 +70,10 @@ interface WaypointCandidate {
   nearbyParks: number;
   isGreen: boolean;
   isSafe: boolean;
+  /** True when this candidate came from a broadcast official/curated route
+   *  segment (official-route-broadcaster.ts). See scoreWaypoint's
+   *  preferOfficialRoutes opt-in. */
+  isOfficial?: boolean;
 }
 
 interface RouteGenerationOptions {
@@ -312,8 +316,24 @@ export function resolveCityNameQueryAliases(cleanCity: string): string[] {
  * score = 10, a 5× multiplier yields 50 — guaranteed to dominate ALL
  * other candidates in the top-12 sort. This is the dial to turn down to
  * 2–3 if the recovery loop ever feels too aggressive.
+ *
+ * NOT the same mechanism as OFFICIAL_ROUTE_PREFERENCE_BONUS below — this
+ * multiplier only fires during live deviation-recovery (a specific route id
+ * the user wandered off). OFFICIAL_ROUTE_PREFERENCE_BONUS is a general,
+ * always-on (when opted in) nudge toward ANY nearby official corridor, not
+ * tied to a specific route id.
  */
 const OFFICIAL_ROUTE_BIAS_MULTIPLIER = 5;
+
+/**
+ * scoreWaypoint's preferOfficialRoutes bonus (see its doc comment for the
+ * off-target guard). Deliberately modest — tie-breaker scale, matching the
+ * existing distanceDiff "mid tier" bonus (+10), NOT dominant like
+ * OFFICIAL_ROUTE_BIAS_MULTIPLIER above. A larger value risks reopening the
+ * exact "official segment drags the loop off-target" failure mode
+ * proportionalDistanceTiers was built to fix.
+ */
+const OFFICIAL_ROUTE_PREFERENCE_BONUS = 10;
 
 /**
  * Shared official-bias + soft-shuffle scoring tail — used by BOTH
@@ -327,7 +347,7 @@ export function scoreAndShuffleStreetSegments(
   segmentsInRadius: Array<{ point: { lat: number; lng: number }; seg: StreetSegment }>,
   activeOfficialRouteId: string | undefined,
 ): {
-  candidates: Array<{ lat: number; lng: number; score: number }>;
+  candidates: Array<{ lat: number; lng: number; score: number; isOfficial: boolean }>;
   officialBiasApplied: number;
   officialBackboneCount: number;
 } {
@@ -356,7 +376,7 @@ export function scoreAndShuffleStreetSegments(
         : baseScore;
       if (matchesActiveRoute) officialBiasApplied += 1;
 
-      return { ...point, score: effectiveScore };
+      return { ...point, score: effectiveScore, isOfficial: isOfficialSegment };
     })
     .sort((a, b) => b.score - a.score);
 
@@ -382,7 +402,7 @@ async function fetchScoredWaypoints(
   userLocation: { lat: number; lng: number },
   targetDistance: number,
   activeOfficialRouteId?: string,
-): Promise<Array<{ lat: number; lng: number }> | null> {
+): Promise<Array<{ lat: number; lng: number; isOfficial: boolean }> | null> {
   // Defensive sanitisation at the query boundary. Even though useUserCityName
   // normalises before returning, callers (and any future upstream code path)
   // could feed us a string with invisible bidi marks and silently produce a
@@ -524,7 +544,7 @@ async function fetchScoredWaypoints(
       segmentsFetched: snap.size,
       segmentsInRadius: candidates.length,
     });
-    return candidates.map(({ lat, lng }) => ({ lat, lng }));
+    return candidates.map(({ lat, lng, isOfficial }) => ({ lat, lng, isOfficial }));
   } catch (err: any) {
     console.warn('[RouteGenerator] fetchScoredWaypoints failed, falling back to random:', err?.message ?? err);
     setDiagnostics({
@@ -577,7 +597,7 @@ async function fetchScoredWaypointsByProximity(
   userLocation: { lat: number; lng: number },
   targetDistance: number,
   activeOfficialRouteId?: string,
-): Promise<Array<{ lat: number; lng: number }> | null> {
+): Promise<Array<{ lat: number; lng: number; isOfficial: boolean }> | null> {
   const cleanCity = sanitizeCityKey(cityName);
   const searchRadiusKm = targetDistance / 2;
   const searchRadiusMeters = searchRadiusKm * 1000;
@@ -686,7 +706,7 @@ async function fetchScoredWaypointsByProximity(
       docsFetchedRaw,
       docsAfterDedupe,
     });
-    return candidates.map(({ lat, lng }) => ({ lat, lng }));
+    return candidates.map(({ lat, lng, isOfficial }) => ({ lat, lng, isOfficial }));
   } catch (err: any) {
     console.warn('[RouteGenerator] fetchScoredWaypointsByProximity failed, falling back:', err?.message ?? err);
     setDiagnostics({
@@ -824,7 +844,7 @@ export function computeShortRouteDistanceWindow(safeDistance: number): { minKm: 
 }
 
 export function scoreWaypoint(
-  waypoint: { lat: number; lng: number },
+  waypoint: { lat: number; lng: number; isOfficial?: boolean },
   userLocation: { lat: number; lng: number },
   parks: MapPark[],
   preferences: {
@@ -853,6 +873,27 @@ export function scoreWaypoint(
      * threshold.
      */
     proportionalDistanceTiers?: boolean;
+    /**
+     * Opt-in (default false — byte-identical for every existing caller):
+     * a modest, tie-breaker-scale bonus for candidates known to come from a
+     * published official/curated route corridor (waypoint.isOfficial, set
+     * by fetchScoredWaypoints/fetchScoredWaypointsByProximity from a
+     * segment broadcast by official-route-broadcaster.ts).
+     *
+     * Deliberately gated on `distanceDiff <= penaltyTierKm` — i.e. it can
+     * only help a candidate that ISN'T already being penalized for poor
+     * fit. This is the exact guard against reopening the short-loop
+     * off-target bug proportionalDistanceTiers fixes: a badly-positioned
+     * official segment must not get rescued into winning its sector just
+     * because it's "official" — that was the failure mode being tuned out
+     * of computeShortRouteDistanceWindow above. It's a nudge/tie-breaker
+     * among reasonably-well-fitted candidates, not an override.
+     *
+     * Set true only by short-route-mode callers for now (generateLoopRoutes'
+     * shortMode, generateOutAndBackRoutes) — same flag/email-gated Phase-1
+     * scope as proportionalDistanceTiers, pending validation.
+     */
+    preferOfficialRoutes?: boolean;
   }
 ): WaypointCandidate {
   const distanceFromUser = getDistanceKm(userLocation.lat, userLocation.lng, waypoint.lat, waypoint.lng);
@@ -876,6 +917,13 @@ export function scoreWaypoint(
   if (distanceDiff < tightTierKm) score += 20;
   else if (distanceDiff < midTierKm) score += 10;
   else if (distanceDiff > penaltyTierKm) score -= 15;
+
+  // Official/curated-route preference — modest tie-breaker, only among
+  // candidates that aren't already being penalized for poor fit. See the
+  // preferOfficialRoutes doc above for why the guard is load-bearing.
+  if (preferences.preferOfficialRoutes && waypoint.isOfficial && distanceDiff <= penaltyTierKm) {
+    score += OFFICIAL_ROUTE_PREFERENCE_BONUS;
+  }
 
   const hasNearbyGym = parks.some(park => {
     const dist = getDistanceKm(park.location.lat, park.location.lng, waypoint.lat, waypoint.lng);
@@ -1179,7 +1227,7 @@ async function generateLoopRoutes(
 
   // 2. Fetch waypoint candidates — prefer proximity-bounded street_segments
   //    (if enabled), fall back to citywide-by-score, fall back to random.
-  let rawCandidates: Array<{ lat: number; lng: number }> | null = null;
+  let rawCandidates: Array<{ lat: number; lng: number; isOfficial: boolean }> | null = null;
   if (cityName) {
     if (IS_PROXIMITY_SEGMENT_QUERY_ENABLED) {
       rawCandidates = await fetchScoredWaypointsByProximity(
@@ -1210,7 +1258,7 @@ async function generateLoopRoutes(
     });
   }
 
-  const candidateWaypoints: Array<{ lat: number; lng: number }> = rawCandidates ?? generateRandomWaypoints(
+  const candidateWaypoints: Array<{ lat: number; lng: number; isOfficial?: boolean }> = rawCandidates ?? generateRandomWaypoints(
     userLocation,
     safeDistance,
     15, // More candidates for variety
@@ -1221,6 +1269,7 @@ async function generateLoopRoutes(
     scoreWaypoint(wp, userLocation, parks, {
       ...preferences,
       proportionalDistanceTiers: loopOpts.shortMode,
+      preferOfficialRoutes: loopOpts.shortMode,
     })
   );
 
@@ -1503,7 +1552,7 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
 
   console.log(`[RouteGenerator] Out-and-back: target ${safeDistance.toFixed(2)}km round-trip, ideal turnaround ${idealWaypointDistanceKm.toFixed(2)}km.`);
 
-  let rawCandidates: Array<{ lat: number; lng: number }> | null = null;
+  let rawCandidates: Array<{ lat: number; lng: number; isOfficial: boolean }> | null = null;
   if (cityName) {
     if (IS_PROXIMITY_SEGMENT_QUERY_ENABLED) {
       rawCandidates = await fetchScoredWaypointsByProximity(cityName, userLocation, safeDistance, activeOfficialRouteId);
@@ -1512,7 +1561,7 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
       rawCandidates = await fetchScoredWaypoints(cityName, userLocation, safeDistance, activeOfficialRouteId);
     }
   }
-  const candidateWaypoints: Array<{ lat: number; lng: number }> = rawCandidates ?? generateRandomWaypoints(
+  const candidateWaypoints: Array<{ lat: number; lng: number; isOfficial?: boolean }> = rawCandidates ?? generateRandomWaypoints(
     userLocation,
     safeDistance,
     15,
@@ -1524,6 +1573,7 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
       ...preferences,
       idealWaypointDistanceKm,
       proportionalDistanceTiers: true,
+      preferOfficialRoutes: true,
     }),
   );
 
