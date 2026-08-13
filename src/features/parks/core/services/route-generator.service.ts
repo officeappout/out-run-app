@@ -604,18 +604,24 @@ async function fetchScoredWaypointsByProximity(
     const seenIds = new Set<string>();
     const rawDocs: Array<{ point: { lat: number; lng: number }; seg: StreetSegment }> = [];
     let docsFetchedRaw = 0;
+    let docsAfterDedupe = 0;
     for (const snap of snapshots) {
       for (const d of snap.docs) {
         docsFetchedRaw += 1;
         if (seenIds.has(d.id)) continue;
         seenIds.add(d.id);
+        // Counted here (unique doc ids), NOT via rawDocs.length below — a
+        // doc with a missing/malformed midpoint is still a real, uniquely
+        // fetched doc; it gets dropped for a DIFFERENT reason just below,
+        // and conflating the two counts would understate what this
+        // diagnostic's own name promises.
+        docsAfterDedupe += 1;
         const seg = d.data() as StreetSegment;
         const point = segmentMidpoint(seg);
         if (!point) continue;
         rawDocs.push({ point, seg });
       }
     }
-    const docsAfterDedupe = rawDocs.length;
 
     // Precise client-side circle trim — a geohash bounding box over-covers a
     // true circle at the corners (a well-known property of the technique,
