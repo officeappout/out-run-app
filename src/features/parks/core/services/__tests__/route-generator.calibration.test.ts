@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreWaypoint, computeDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases } from '../route-generator.service';
+import { scoreWaypoint, computeDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments } from '../route-generator.service';
 
 const USER = { lat: 0, lng: 0 };
 // ~0.267km east of user (route-stops' targetKm=1.6 / 6 calibration) and ~1.0km east.
@@ -336,5 +336,93 @@ describe('resolveCityNameQueryAliases — Tel Aviv-Yafo naming variant (08.08, f
     for (const city of ['תל אביב', 'חיפה', 'ירושלים', 'תל אביב-יפו']) {
       expect(resolveCityNameQueryAliases(city).length).toBeLessThanOrEqual(10);
     }
+  });
+});
+
+describe('scoreAndShuffleStreetSegments — shared scoring tail (13.08.2026, extracted for the proximity-query rewrite)', () => {
+  // A minimal, valid segment shape — score is the only field
+  // scoreAndShuffleStreetSegments truly requires from StreetSegment.
+  const seg = (over: Record<string, unknown> = {}) => ({ score: 5, ...over });
+  const at = (lat: number, lng: number) => ({ lat, lng });
+
+  it('official segments (isOfficial or officialRouteId set) get the score=10 floor even with a low raw score', () => {
+    const { candidates } = scoreAndShuffleStreetSegments(
+      [{ point: at(0, 0), seg: seg({ score: 2, isOfficial: true }) }],
+      undefined,
+    );
+    expect(candidates[0].score).toBe(10);
+  });
+
+  it('a non-official low-raw-score segment keeps its raw score, no floor applied', () => {
+    const { candidates } = scoreAndShuffleStreetSegments(
+      [{ point: at(0, 0), seg: seg({ score: 2 }) }],
+      undefined,
+    );
+    expect(candidates[0].score).toBe(2);
+  });
+
+  it('officialRouteId alone (isOfficial unset) is also treated as official — matches fetchScoredWaypoints\' documented detection rule', () => {
+    const { candidates } = scoreAndShuffleStreetSegments(
+      [{ point: at(0, 0), seg: seg({ score: 3, officialRouteId: 'route-1' }) }],
+      undefined,
+    );
+    expect(candidates[0].score).toBe(10);
+  });
+
+  it('deviation-recovery: a segment matching activeOfficialRouteId gets the 5× multiplier on top of the official floor', () => {
+    const { candidates, officialBiasApplied } = scoreAndShuffleStreetSegments(
+      [{ point: at(0, 0), seg: seg({ score: 2, officialRouteId: 'route-1' }) }],
+      'route-1',
+    );
+    expect(candidates[0].score).toBe(50); // official floor (10) × 5
+    expect(officialBiasApplied).toBe(1);
+  });
+
+  it('deviation-recovery bias does NOT apply to a segment with a different officialRouteId', () => {
+    const { candidates, officialBiasApplied } = scoreAndShuffleStreetSegments(
+      [{ point: at(0, 0), seg: seg({ score: 2, officialRouteId: 'route-1' }) }],
+      'route-2',
+    );
+    expect(candidates[0].score).toBe(10); // official floor only, no 5× bonus
+    expect(officialBiasApplied).toBe(0);
+  });
+
+  it('officialBackboneCount counts every candidate that landed at score>=10', () => {
+    const { officialBackboneCount } = scoreAndShuffleStreetSegments(
+      [
+        { point: at(0, 0), seg: seg({ score: 10 }) },
+        { point: at(0, 0.01), seg: seg({ score: 2, isOfficial: true }) },
+        { point: at(0, 0.02), seg: seg({ score: 4 }) },
+      ],
+      undefined,
+    );
+    expect(officialBackboneCount).toBe(2);
+  });
+
+  it('is sorted by score descending', () => {
+    const { candidates } = scoreAndShuffleStreetSegments(
+      [
+        { point: at(0, 0), seg: seg({ score: 3 }) },
+        { point: at(0, 0.01), seg: seg({ score: 9 }) },
+        { point: at(0, 0.02), seg: seg({ score: 6 }) },
+      ],
+      undefined,
+    );
+    expect(candidates.map((c) => c.score)).toEqual([9, 6, 3]);
+  });
+
+  it('returns lat/lng unchanged from the input point', () => {
+    const { candidates } = scoreAndShuffleStreetSegments(
+      [{ point: at(32.05, 34.78), seg: seg() }],
+      undefined,
+    );
+    expect(candidates[0]).toMatchObject({ lat: 32.05, lng: 34.78 });
+  });
+
+  it('empty input returns an empty result, not a crash', () => {
+    const result = scoreAndShuffleStreetSegments([], undefined);
+    expect(result.candidates).toEqual([]);
+    expect(result.officialBiasApplied).toBe(0);
+    expect(result.officialBackboneCount).toBe(0);
   });
 });

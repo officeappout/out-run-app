@@ -323,7 +323,7 @@ const OFFICIAL_ROUTE_BIAS_MULTIPLIER = 5;
  * segments the caller has ALREADY filtered to its search radius; the
  * math here is byte-identical to what both functions need.
  */
-function scoreAndShuffleStreetSegments(
+export function scoreAndShuffleStreetSegments(
   segmentsInRadius: Array<{ point: { lat: number; lng: number }; seg: StreetSegment }>,
   activeOfficialRouteId: string | undefined,
 ): {
