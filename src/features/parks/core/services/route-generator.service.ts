@@ -600,12 +600,20 @@ export function computeDistanceWindow(safeDistance: number): { minKm: number; ma
  * Percentage-only tolerance with small absolute floors scaled to the
  * short-route domain (~0.2-1.5km), not the loop domain.
  *
- * Initial guess — the exact tolerance is a live-device calibration question
- * (see the short-route plan's verification section), not a settled constant.
+ * Upper tolerance calibrated 13.08.2026 via a real-Firestore-data diagnostic
+ * (real street_segments + real Mapbox calls, Tel Aviv reference location):
+ * even after fixing the two candidate-selection bugs that were causing loops
+ * to massively overshoot (scoreWaypoint's proportionalDistanceTiers,
+ * selectAngularlyDiverseCandidates' proportionalGap), a genuine 3-waypoint
+ * triangular loop's best-fit real distance still runs ~35-40% over target —
+ * inherent to routing through 3 real streets and back, not a bug. 35% was
+ * juuust under what real loops needed and always lost to out-and-back;
+ * 50% clears real loop candidates while staying far tighter than the
+ * original bug (a 0.6km target validating a 417%-oversized 3.1km result).
  */
 export function computeShortRouteDistanceWindow(safeDistance: number): { minKm: number; maxKm: number } {
   const belowToleranceKm = Math.max(0.15, safeDistance * 0.25);
-  const aboveToleranceKm = Math.max(0.25, safeDistance * 0.35);
+  const aboveToleranceKm = Math.max(0.35, safeDistance * 0.50);
   return {
     minKm: Math.max(0.1, safeDistance - belowToleranceKm),
     maxKm: safeDistance + aboveToleranceKm,
@@ -616,7 +624,33 @@ export function scoreWaypoint(
   waypoint: { lat: number; lng: number },
   userLocation: { lat: number; lng: number },
   parks: MapPark[],
-  preferences: { includeStrength: boolean; idealWaypointDistanceKm?: number }
+  preferences: {
+    includeStrength: boolean;
+    idealWaypointDistanceKm?: number;
+    /**
+     * Opt-in (default false — byte-identical for every existing caller):
+     * scale the distanceDiff scoring tiers below PROPORTIONALLY to
+     * idealWaypointDistanceKm instead of using the fixed absolute-km
+     * thresholds (0.3/0.6/2.0km).
+     *
+     * Root cause this fixes (found via a real-Firestore-data diagnostic,
+     * 13.08.2026): those thresholds were tuned for the historical ~1.0km
+     * default. At a genuinely small idealWaypointDistanceKm (short-route
+     * mode, e.g. 0.233km for a 1.4km target), a real candidate 0.4-0.7km
+     * away — 2-3× the ENTIRE ideal radius — still fell inside the fixed
+     * "< 0.6km" tier and got the same +10 fit bonus as a candidate
+     * actually close to ideal. That's how a short-loop attempt kept
+     * selecting real-but-wildly-scattered candidates and coming back
+     * 2-3× the requested distance, always rejected by the acceptance
+     * window and always falling back to out-and-back. Set true only by
+     * short-route-mode callers (generateLoopRoutes' shortMode,
+     * generateOutAndBackRoutes) — every idealWaypointDistanceKm≥1.0
+     * caller (the existing 3-100km free-run/hybrid loops) is COMPLETELY
+     * unaffected either way, since this is an opt-in flag, not a value
+     * threshold.
+     */
+    proportionalDistanceTiers?: boolean;
+  }
 ): WaypointCandidate {
   const distanceFromUser = getDistanceKm(userLocation.lat, userLocation.lng, waypoint.lat, waypoint.lng);
   const nearbyParks = parks.filter(park => {
@@ -633,9 +667,12 @@ export function scoreWaypoint(
   // small-target caller (route-stops) overrides this.
   const idealDistance = preferences.idealWaypointDistanceKm ?? 1.0;
   const distanceDiff = Math.abs(distanceFromUser - idealDistance);
-  if (distanceDiff < 0.3) score += 20;
-  else if (distanceDiff < 0.6) score += 10;
-  else if (distanceDiff > 2.0) score -= 15;
+  const tightTierKm = preferences.proportionalDistanceTiers ? idealDistance * 0.3 : 0.3;
+  const midTierKm = preferences.proportionalDistanceTiers ? idealDistance * 0.6 : 0.6;
+  const penaltyTierKm = preferences.proportionalDistanceTiers ? idealDistance * 2.0 : 2.0;
+  if (distanceDiff < tightTierKm) score += 20;
+  else if (distanceDiff < midTierKm) score += 10;
+  else if (distanceDiff > penaltyTierKm) score -= 15;
 
   const hasNearbyGym = parks.some(park => {
     const dist = getDistanceKm(park.location.lat, park.location.lng, waypoint.lat, waypoint.lng);
@@ -713,6 +750,23 @@ export function selectAngularlyDiverseCandidates(
   userLocation: { lat: number; lng: number },
   maxCount: number,
   idealDistanceKm: number,
+  opts: {
+    /**
+     * Opt-in (default false — byte-identical for every existing caller):
+     * scale the sector-synthesis gap trigger PROPORTIONALLY to
+     * idealDistanceKm (× 0.5) instead of the fixed SECTOR_POSITION_GAP_KM
+     * (1.0km). Companion fix to scoreWaypoint's proportionalDistanceTiers
+     * — found via the same real-Firestore-data diagnostic (13.08.2026):
+     * at a small idealDistanceKm (short-route mode), a real sector
+     * candidate 0.3-0.5km off ideal is still "≤1.0km gap" under the fixed
+     * threshold, so it wins its sector's round-robin slot outright even
+     * though it's 2-3× the ENTIRE ideal radius away — a synthetic point
+     * placed exactly at ideal is never even considered. Set true only by
+     * short-route-mode callers; every existing idealDistanceKm≥1.0 caller
+     * is unaffected either way (opt-in, not a value threshold).
+     */
+    proportionalGap?: boolean;
+  } = {},
 ): WaypointCandidate[] {
   const bearingOf = (wp: { lat: number; lng: number }) =>
     (segBearing([userLocation.lng, userLocation.lat], [wp.lng, wp.lat]) + 360) % 360;
@@ -728,10 +782,11 @@ export function selectAngularlyDiverseCandidates(
 
   // Fill empty/badly-positioned sectors with a synthetic candidate BEFORE
   // round-robin picking, so it's just another entry competing on score.
+  const gapThresholdKm = opts.proportionalGap ? idealDistanceKm * 0.5 : SECTOR_POSITION_GAP_KM;
   for (let idx = 0; idx < ANGULAR_SECTOR_COUNT; idx++) {
     const sector = sectors[idx];
     const bestGap = sector.length > 0 ? Math.abs(sector[0].distanceFromUser - idealDistanceKm) : Infinity;
-    if (sector.length > 0 && bestGap <= SECTOR_POSITION_GAP_KM) continue; // real coverage already good enough
+    if (sector.length > 0 && bestGap <= gapThresholdKm) continue; // real coverage already good enough
     const centerBearingDeg = (idx + 0.5) * sectorWidth;
     const mathAngleRad = ((90 - centerBearingDeg) * Math.PI) / 180; // compass bearing -> generateRandomWaypoints' math-angle convention
     const radiusDeg = idealDistanceKm / KM_PER_DEGREE;
@@ -949,7 +1004,10 @@ async function generateLoopRoutes(
   );
 
   const scoredWaypoints = candidateWaypoints.map(wp =>
-    scoreWaypoint(wp, userLocation, parks, preferences)
+    scoreWaypoint(wp, userLocation, parks, {
+      ...preferences,
+      proportionalDistanceTiers: loopOpts.shortMode,
+    })
   );
 
   // Angularly-diverse selection (08.08 fix), not just top-12-by-score — see
@@ -960,6 +1018,7 @@ async function generateLoopRoutes(
     userLocation,
     12,
     preferences.idealWaypointDistanceKm ?? 1.0,
+    { proportionalGap: loopOpts.shortMode },
   );
 
   // 3. Create route combinations (triangular loops)
@@ -1242,7 +1301,11 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
   );
 
   const scoredWaypoints = candidateWaypoints.map(wp =>
-    scoreWaypoint(wp, userLocation, parks, { ...preferences, idealWaypointDistanceKm }),
+    scoreWaypoint(wp, userLocation, parks, {
+      ...preferences,
+      idealWaypointDistanceKm,
+      proportionalDistanceTiers: true,
+    }),
   );
 
   const MIN_REQUIRED_ROUTES = Math.max(1, preferences.maxRoutes ?? 3);
@@ -1254,6 +1317,7 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
     userLocation,
     Math.max(MIN_REQUIRED_ROUTES, 6),
     idealWaypointDistanceKm,
+    { proportionalGap: true },
   );
 
   const validRoutes: Route[] = [];

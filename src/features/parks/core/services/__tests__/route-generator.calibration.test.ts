@@ -71,6 +71,47 @@ describe('scoreWaypoint — isSafe scaling for free-run\'s now-uncapped distance
   });
 });
 
+describe('scoreWaypoint — proportionalDistanceTiers (13.08.2026, fixes short-loop candidates 2-3× off ideal scoring a fit bonus)', () => {
+  it('default (flag omitted): tiers stay the fixed absolute 0.3/0.6/2.0km — byte-identical for every existing caller', () => {
+    const smallIdeal = 0.233; // short-route calibration, 1.4km target / 6
+    // A candidate 0.45km off a 0.233km ideal — under the fixed 0.6km "mid"
+    // tier, so it still gets the +10 bonus without the flag (proves the bug).
+    const farReal = scoreWaypoint(wpAt(smallIdeal + 0.45), USER, [], { includeStrength: false, idealWaypointDistanceKm: smallIdeal });
+    const atIdeal = scoreWaypoint(wpAt(smallIdeal), USER, [], { includeStrength: false, idealWaypointDistanceKm: smallIdeal });
+    expect(farReal.score).toBe(60); // 50 base + 10 (mid tier, unscaled)
+    expect(atIdeal.score).toBe(70); // 50 base + 20 (tight tier)
+  });
+
+  it('with the flag: the same far candidate loses its fit bonus once tiers scale to the small ideal', () => {
+    const smallIdeal = 0.233;
+    const farReal = scoreWaypoint(wpAt(smallIdeal + 0.45), USER, [], {
+      includeStrength: false,
+      idealWaypointDistanceKm: smallIdeal,
+      proportionalDistanceTiers: true,
+    });
+    // 0.45km diff vs a proportional penalty tier of 0.233*2.0=0.466 — just
+    // under the penalty threshold, so it lands in the "no bonus" gap: 50.
+    expect(farReal.score).toBe(50);
+    expect(farReal.score).toBeLessThan(60); // strictly worse than the unscaled case above
+  });
+
+  it('with the flag, at idealDistance=1.0 (the default): scoring is byte-identical to today (0.3/0.6/2.0 proportional to 1.0 = 0.3/0.6/2.0)', () => {
+    const withFlag = scoreWaypoint(wpAt(1.5), USER, [], { includeStrength: false, proportionalDistanceTiers: true });
+    const withoutFlag = scoreWaypoint(wpAt(1.5), USER, [], { includeStrength: false });
+    expect(withFlag.score).toBe(withoutFlag.score);
+  });
+
+  it('a candidate genuinely close to a small ideal still scores the top tier with the flag on', () => {
+    const smallIdeal = 0.233;
+    const close = scoreWaypoint(wpAt(smallIdeal + 0.05), USER, [], {
+      includeStrength: false,
+      idealWaypointDistanceKm: smallIdeal,
+      proportionalDistanceTiers: true,
+    });
+    expect(close.score).toBe(70); // 0.05 < 0.233*0.3=0.070 → tight tier
+  });
+});
+
 describe('computeDistanceWindow — proportional acceptance band (08.08, fixes live 22km "no route found")', () => {
   it('small targets: byte-identical to the original fixed [target-0.5, target+2.5] window', () => {
     expect(computeDistanceWindow(3)).toEqual({ minKm: 2.5, maxKm: 5.5 });
@@ -232,6 +273,47 @@ describe('selectAngularlyDiverseCandidates — angular spread for large loops (0
     const pool = [0, 45, 90, 135, 180, 225, 270, 315].map((b) => scoreAt(idealKm, b + 5));
     const selected = selectAngularlyDiverseCandidates(pool, USER, 12, idealKm);
     expect(selected.length).toBe(8);
+  });
+});
+
+describe('selectAngularlyDiverseCandidates — proportionalGap (13.08.2026, fixes short-loop candidates 2-3× off ideal blocking synthesis)', () => {
+  // Small ideal — short-route scale, where the fixed 1.0km SECTOR_POSITION_GAP_KM
+  // is nowhere near proportionally tight (real diagnostic case: 1.4km target / 6).
+  const smallIdeal = 0.233;
+  // One real candidate per sector, all ~0.45km off smallIdeal — under the fixed
+  // 1.0km gap (so synthesis is skipped today) but 2× the ideal itself.
+  const farRealPool = Array.from({ length: 8 }, (_, i) =>
+    scoreWaypoint(wpAtBearing(smallIdeal + 0.45, i * 45 + 5), USER, [], { includeStrength: false, idealWaypointDistanceKm: smallIdeal }),
+  );
+
+  it('default (flag omitted): the far-but-"within 1.0km" real candidate wins its sector — byte-identical for every existing caller', () => {
+    const selected = selectAngularlyDiverseCandidates(farRealPool, USER, 8, smallIdeal);
+    // No synthetic (score=70) candidates — every slot is a real, far, unscaled-tier candidate.
+    expect(selected.every((c) => c.distanceFromUser > smallIdeal + 0.4)).toBe(true);
+  });
+
+  it('with the flag: the far real candidate no longer "covers" its sector, so a synthetic-at-ideal candidate is preferred', () => {
+    const selected = selectAngularlyDiverseCandidates(farRealPool, USER, 8, smallIdeal, { proportionalGap: true });
+    // Synthetic candidates sit exactly at idealDistanceKm and outscore the
+    // now-unscaled-tier-penalized real ones (70 vs the real candidates'
+    // lower score under proportionalDistanceTiers-style scoring here —
+    // scoreWaypoint was already called with the small ideal above, so the
+    // far candidates score via the DEFAULT absolute tiers in this pool;
+    // the key assertion is purely about which one WINS the sector).
+    expect(selected.every((c) => Math.abs(c.distanceFromUser - smallIdeal) < 0.01)).toBe(true);
+  });
+
+  it('with the flag, at a large ideal (existing large-loop scale): behaves like the fixed-gap default when real candidates sit exactly at ideal', () => {
+    // Well-covered sectors, real candidates exactly at idealKm (gap=0) — both
+    // flag states must agree: no synthesis, regardless of gap-threshold value.
+    const idealKm = 3.6;
+    const pool = [0, 45, 90, 135, 180, 225, 270, 315].map((b) =>
+      scoreWaypoint(wpAtBearing(idealKm, b + 5), USER, [], { includeStrength: false, idealWaypointDistanceKm: idealKm }),
+    );
+    const withFlag = selectAngularlyDiverseCandidates(pool, USER, 12, idealKm, { proportionalGap: true });
+    const withoutFlag = selectAngularlyDiverseCandidates(pool, USER, 12, idealKm);
+    expect(withFlag.length).toBe(withoutFlag.length);
+    expect(withFlag.length).toBe(8);
   });
 });
 
