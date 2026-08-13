@@ -22,7 +22,7 @@
 import type { Park } from '@/features/parks/core/types/park.types';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import type { StationPark } from './find-station-park.service';
-import { haversineMeters } from '@/features/parks/core/services/geoUtils';
+import { haversineMeters, buildOutAndBackPath } from '@/features/parks/core/services/geoUtils';
 import { isPrimaryFitness } from './park-fitness.util';
 
 /** A canonical route vertex: `[lng, lat]` (matches RoutePath used across the engine). */
@@ -34,20 +34,10 @@ export interface LatLng {
   lng: number;
 }
 
-/**
- * Append the reversed outbound leg so a one-way user→park path becomes a full
- * out-and-back user→park→user. The turnaround vertex (last of `outbound`) is NOT
- * duplicated. Pure. Inputs shorter than 2 vertices are returned unchanged.
- *
- *   [A,B,C] → [A,B,C,B,A]   ·   [A,B] → [A,B,A]   ·   [A] → [A]   ·   [] → []
- *
- * For any input of length n ≥ 2 the result length is 2n − 1.
- */
-export function buildOutAndBackPath(outbound: LngLat[]): LngLat[] {
-  if (outbound.length < 2) return [...outbound];
-  const returnLeg = outbound.slice(0, -1).reverse();
-  return [...outbound, ...returnLeg];
-}
+// buildOutAndBackPath now lives in geoUtils.ts (shared home — also used by the
+// route generator's short-route fallback). Re-exported here so this module's
+// existing callers/tests are unaffected.
+export { buildOutAndBackPath };
 
 /** Straight-line round-trip distance (km): user↔park one-way haversine × 2. */
 export function roundTripKm(user: LatLng, park: LatLng): number {

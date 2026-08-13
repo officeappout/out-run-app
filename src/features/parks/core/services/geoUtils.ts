@@ -248,6 +248,21 @@ export function interpolatePath(
   ];
 }
 
+/**
+ * Append the reversed outbound leg so a one-way A→B path becomes a full
+ * out-and-back A→B→A. The turnaround vertex (last of `outbound`) is NOT
+ * duplicated. Pure. Inputs shorter than 2 vertices are returned unchanged.
+ *
+ *   [A,B,C] → [A,B,C,B,A]   ·   [A,B] → [A,B,A]   ·   [A] → [A]   ·   [] → []
+ *
+ * For any input of length n ≥ 2 the result length is 2n − 1.
+ */
+export function buildOutAndBackPath(outbound: [number, number][]): [number, number][] {
+  if (outbound.length < 2) return [...outbound];
+  const returnLeg = outbound.slice(0, -1).reverse();
+  return [...outbound, ...returnLeg];
+}
+
 // ── Route turns (bearing-change derived) ───────────────────────────
 //
 // Lightweight pre-computation of the maneuver list along a route's
