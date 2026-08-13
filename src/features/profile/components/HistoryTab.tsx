@@ -41,6 +41,8 @@ function activityLabelFor(workoutType: WorkoutHistoryEntry['workoutType']): stri
       return 'אימון כוח';
     case 'hybrid':
       return 'אימון משולב';
+    case 'recovery':
+      return 'אימון התאוששות';
     default:
       return 'אימון';
   }

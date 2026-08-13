@@ -1,6 +1,6 @@
 'use client';
 
-import { Dumbbell, PersonStanding, Bike, Activity } from 'lucide-react';
+import { Dumbbell, PersonStanding, Bike, Activity, Moon } from 'lucide-react';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
 interface RecentActivityListProps {
@@ -23,6 +23,8 @@ function getActivityMeta(workout: WorkoutHistoryEntry): {
       return { Icon: PersonStanding, label: 'הליכה', iconColor: 'text-green-500' };
     case 'cycling':
       return { Icon: Bike, label: 'רכיבה', iconColor: 'text-amber-500' };
+    case 'recovery':
+      return { Icon: Moon, label: 'אימון התאוששות', iconColor: 'text-slate-500' };
     case 'running':
     default:
       return { Icon: Activity, label: 'ריצה', iconColor: 'text-[#00ADEF]' };

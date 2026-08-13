@@ -62,6 +62,8 @@ function workoutActivityLabel(workoutType: WorkoutHistoryEntry['workoutType']): 
       return 'אימון משולב';
     case 'strength':
       return 'אימון כוח';
+    case 'recovery':
+      return 'אימון התאוששות';
     default:
       return 'אימון';
   }
@@ -346,8 +348,14 @@ export default function ProfilePage() {
   };
 
   if (selectedWorkout) {
+    // 'recovery' routes to the same strength-shaped detail view (StrengthHistoryDetail
+    // is itself made recovery-aware — see its workoutType==='recovery' branches) —
+    // otherwise a recovery session would incorrectly fall through to FreeRunSummary,
+    // a GPS/pace/distance UI that doesn't fit a video session.
     const isStrength =
-      selectedWorkout.workoutType === 'strength' || selectedWorkout.category === 'strength';
+      selectedWorkout.workoutType === 'strength' ||
+      selectedWorkout.workoutType === 'recovery' ||
+      selectedWorkout.category === 'strength';
     if (isStrength) {
       return (
         <StrengthHistoryDetail

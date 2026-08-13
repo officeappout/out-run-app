@@ -24,7 +24,7 @@ import {
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw, 
   Building2, Clock, CheckCircle2, AlertCircle, Dumbbell, Footprints, Move, Bike,
   FileText, ExternalLink, Edit3, Save, Plus, ArrowRightLeft, Shuffle,
-  Bell, BellOff, Smartphone
+  Bell, BellOff, Smartphone, Moon
 } from 'lucide-react';
 import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import dynamicImport from 'next/dynamic';
@@ -2503,6 +2503,8 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                                   return <Dumbbell {...iconProps} />;
                                 case 'hybrid':
                                   return <Activity {...iconProps} />;
+                                case 'recovery':
+                                  return <Moon {...iconProps} />;
                                 default:
                                   return <Activity {...iconProps} />;
                               }
@@ -2521,6 +2523,8 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                                   return 'אימון כוח';
                                 case 'hybrid':
                                   return 'אימון משולב';
+                                case 'recovery':
+                                  return 'אימון התאוששות';
                                 default:
                                   return workout.activityType || 'פעילות';
                               }

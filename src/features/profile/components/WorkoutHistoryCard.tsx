@@ -8,6 +8,7 @@ import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
 import RunningHistoryCard from './cards/RunningHistoryCard';
 import StrengthHistoryCard from './cards/StrengthHistoryCard';
 import ActivityHistoryCard from './cards/ActivityHistoryCard';
+import RecoveryHistoryCard from './cards/RecoveryHistoryCard';
 
 interface WorkoutHistoryCardProps {
   workout: WorkoutHistoryEntry;
@@ -35,6 +36,9 @@ export default function WorkoutHistoryCard({ workout, onClick, onDeleteRequest }
 
       case 'strength':
         return <StrengthHistoryCard workout={workout} onClick={handleTap} />;
+
+      case 'recovery':
+        return <RecoveryHistoryCard workout={workout} onClick={handleTap} />;
 
       case 'walking':
       case 'cycling':

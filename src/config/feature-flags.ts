@@ -639,6 +639,39 @@ export const STRENGTH_RESUME_CHECKPOINT_ENABLED = false;
 // change needed, this is a pure runtime/compile-time constant read.
 export const WORKOUT_DELETE_EXPANDED_ENABLED = false;
 
+// RECOVERY_WORKOUT_CATEGORIZATION_ENABLED: gates the write-site classification
+// fix for the rest-day "recovery video trio" (a rest-day session that is
+// exactly one follow-along video) — today it is saved and displayed
+// identically to a real strength workout everywhere in the app (workoutType:
+// 'strength', category: 'strength', dumbbell icon, "אימון כוח" label).
+//
+// While FALSE (default), the write site in active/page.tsx's
+// handleSummaryFinish is BYTE-IDENTICAL to today: the saveWorkout() call
+// always receives the same hardcoded workoutType: 'strength' / category:
+// 'strength' / displayIcon: 'dumbbell', regardless of whether the completed
+// session was the recovery video trio. Every downstream read site gated on
+// workoutType === 'recovery' (history cards, profile detail, admin panel,
+// dashboard widgets) is unreachable dead code while this is false, since no
+// document is ever written with workoutType: 'recovery'.
+//
+// While TRUE, the write site additionally checks
+// isPureRecoveryVideoTrioWorkout(stableWorkoutPlan) (see
+// recovery-video-trio.utils.ts) — a narrow discriminator requiring the EXACT
+// single-`seg-recovery`-segment shape, so it does NOT fire for the other two
+// isRecovery:true producers (the multi-exercise Budget-Floor cooldown workout
+// and the standard rest-day generator), which keep saving as 'strength'
+// exactly as before. Only the pure video-trio session gets workoutType:
+// 'recovery' / category: 'recovery' / displayIcon: 'moon', and is shown
+// everywhere as "אימון התאוששות" with its own card/icon/detail view instead
+// of being indistinguishable from a real strength workout.
+//
+// Classification-only change: duration/calories/coins/xp/segments and every
+// other saved field are untouched either way.
+//
+// DEFAULT FALSE (13.08.2026) pending David's on-device verification — this is
+// this code path's first-ever execution, live or in test.
+export const RECOVERY_WORKOUT_CATEGORIZATION_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

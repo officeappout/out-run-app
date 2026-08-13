@@ -356,7 +356,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
 // because Block 6 already provides its own card + section header + "הכל" link.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Activity, Bike, PersonStanding, Dumbbell } from 'lucide-react';
+import { Activity, Bike, PersonStanding, Dumbbell, Moon } from 'lucide-react';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
 const DATE_FMT = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' });
@@ -375,6 +375,8 @@ function getActivityMeta(workout: WorkoutHistoryEntry): {
       return { Icon: PersonStanding, label: 'הליכה', iconBg: 'bg-emerald-50', iconColor: 'text-emerald-500' };
     case 'cycling':
       return { Icon: Bike, label: 'רכיבה', iconBg: 'bg-amber-50', iconColor: 'text-amber-500' };
+    case 'recovery':
+      return { Icon: Moon, label: 'אימון התאוששות', iconBg: 'bg-slate-50', iconColor: 'text-slate-500' };
     case 'running':
     default:
       return { Icon: Activity, label: 'ריצה', iconBg: 'bg-cyan-50', iconColor: 'text-[#00ADEF]' };

@@ -63,8 +63,13 @@ export interface WorkoutHistoryEntry {
    */
   activityType: 'running' | 'walking' | 'cycling' | 'workout' | 'strength' | 'hybrid';
   // Future-proof fields
-  workoutType: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid';
-  category: 'cardio' | 'strength' | 'hybrid';
+  // 'recovery' added for the recovery-video-trio classification fix — see
+  // RECOVERY_WORKOUT_CATEGORIZATION_ENABLED (src/config/feature-flags.ts).
+  // activityType (above) is intentionally NOT widened: it's a legacy field
+  // and every real consumer only falls back to it when workoutType is
+  // absent, which never happens at the recovery write site.
+  workoutType: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid' | 'recovery';
+  category: 'cardio' | 'strength' | 'hybrid' | 'recovery';
   displayIcon: string; // Lucide icon name (e.g., 'run-fast', 'walk', 'bike')
   distance: number; // km
   duration: number; // seconds
@@ -497,6 +502,7 @@ export async function getWorkoutHistory(userId: string, limitCount: number = 50)
         xpEarned: data.xpEarned ?? 0,
         laps: Array.isArray(data.laps) ? data.laps : undefined,
         elevationGain: typeof data.elevationGain === 'number' ? data.elevationGain : undefined,
+        isRecovery: data.isRecovery,
       });
       } catch (error) {
         console.error('[WorkoutStorage] Error parsing workout document:', docSnap.id, error);

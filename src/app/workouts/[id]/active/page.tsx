@@ -37,7 +37,8 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
-import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED } from '@/config/feature-flags';
+import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED } from '@/config/feature-flags';
+import { isPureRecoveryVideoTrioWorkout } from '@/features/workout-engine/shared/utils/recovery-video-trio.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { Target, Sparkles, Flame } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
@@ -1028,6 +1029,33 @@ export default function ActiveWorkoutPage() {
           ...(detectedPark ? { parkId: detectedPark.parkId } : {}),
         };
 
+        // RECOVERY_WORKOUT_CATEGORIZATION_ENABLED (classification-only fix):
+        // the pure recovery-video-trio session (exactly one 'seg-recovery'
+        // segment — see isPureRecoveryVideoTrioWorkout) gets its own
+        // workoutType/category/icon instead of being saved as a real
+        // strength workout. While the flag is off, or for either of the
+        // other two isRecovery:true producers (Budget-Floor cooldown /
+        // standard rest-day generator — both fail the discriminator), this
+        // falls through to today's exact hardcoded 'strength' values.
+        const isPureRecoveryVideoTrio =
+          RECOVERY_WORKOUT_CATEGORIZATION_ENABLED &&
+          isPureRecoveryVideoTrioWorkout(stableWorkoutPlan);
+        const classificationFields = isPureRecoveryVideoTrio
+          ? {
+              workoutType: 'recovery' as const,
+              category: 'recovery' as const,
+              isRecovery: true,
+              displayIcon: 'moon',
+            }
+          : {
+              // Lowercase on purpose: every reader compares === 'strength'.
+              // The old 'STRENGTH' literal only matched via the category
+              // fallback — legacy docs keep the uppercase value.
+              workoutType: 'strength' as const,
+              category: 'strength' as const,
+              displayIcon: 'dumbbell',
+            };
+
         saved = await saveWorkout({
           userId: currentUser.uid,
           activityType: 'strength',
@@ -1038,12 +1066,7 @@ export default function ActiveWorkoutPage() {
           earnedCoins: 0,
           xpEarned: xpToStore,
           ...(xpAwardStatus === 'failed' ? { xpAwardFailed: true } : {}),
-          // Lowercase on purpose: every reader compares === 'strength'.
-          // The old 'STRENGTH' literal only matched via the category
-          // fallback — legacy docs keep the uppercase value.
-          workoutType: 'strength',
-          category: 'strength',
-          displayIcon: 'dumbbell',
+          ...classificationFields,
           segments: [strengthSegment],
           ...(detectedPark
             ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }

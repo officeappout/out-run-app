@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Dumbbell, Timer, Flame, Layers, Star, Trash2 } from 'lucide-react';
+import { ArrowRight, Dumbbell, Moon, Timer, Flame, Layers, Star, Trash2 } from 'lucide-react';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
 import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
@@ -53,6 +53,15 @@ function DifficultyBolts({ level }: { level?: 1 | 2 | 3 }) {
 
 export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDeleted }: Props) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // RECOVERY_WORKOUT_CATEGORIZATION_ENABLED: this screen doubles as the
+  // detail view for the pure recovery-video-trio session (see
+  // isPureRecoveryVideoTrioWorkout + the isStrength routing check in
+  // profile/page.tsx) — swap title/hero-icon/delete-label to the recovery
+  // variant instead of building a separate screen. The existing stat layout
+  // (duration/calories/coins, sets-related fields already conditionally
+  // hidden when unset below) already fits a video session unchanged.
+  const isRecoveryWorkout = workout.workoutType === 'recovery';
 
   const handleConfirmDelete = async () => {
     if (!workout.id) {
@@ -115,7 +124,9 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
           <ArrowRight className="w-5 h-5 text-gray-600" />
         </button>
         <div className="flex-1">
-          <h1 className="text-base font-bold text-gray-900">סיכום אימון כוח</h1>
+          <h1 className="text-base font-bold text-gray-900">
+            {isRecoveryWorkout ? 'סיכום אימון התאוששות' : 'סיכום אימון כוח'}
+          </h1>
           <p className="text-xs text-gray-500 mt-0.5">{formatDate(workout.date)}</p>
         </div>
         {WORKOUT_DELETE_EXPANDED_ENABLED && (
@@ -138,8 +149,16 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
           transition={{ type: 'spring', stiffness: 260, damping: 22 }}
           className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center"
         >
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#00ADEF] to-cyan-600 flex items-center justify-center mx-auto mb-4 shadow-md">
-            <Dumbbell className="w-8 h-8 text-white" />
+          <div
+            className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-md bg-gradient-to-br ${
+              isRecoveryWorkout ? 'from-slate-400 to-slate-600' : 'from-[#00ADEF] to-cyan-600'
+            }`}
+          >
+            {isRecoveryWorkout ? (
+              <Moon className="w-8 h-8 text-white" />
+            ) : (
+              <Dumbbell className="w-8 h-8 text-white" />
+            )}
           </div>
 
           <DifficultyBolts level={workout.difficulty} />
@@ -199,7 +218,7 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
       {WORKOUT_DELETE_EXPANDED_ENABLED && (
         <DeleteWorkoutConfirmModal
           isOpen={showDeleteConfirm}
-          activityLabel="אימון כוח"
+          activityLabel={isRecoveryWorkout ? 'אימון התאוששות' : 'אימון כוח'}
           dateLabel={formatDate(workout.date)}
           xpToReverse={workout.xpEarned ?? 0}
           onConfirm={handleConfirmDelete}
