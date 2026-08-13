@@ -175,6 +175,7 @@ function buildSegmentFields(
     midpoint: toFirestoreValue(seg.midpoint),
     path: toFirestoreValue(seg.path),
     tags: toFirestoreValue(seg.tags),
+    geohash: { stringValue: seg.geohash },
   };
 }
 

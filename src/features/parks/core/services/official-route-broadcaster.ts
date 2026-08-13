@@ -52,6 +52,7 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
+import { geohashForLocation } from 'geofire-common';
 import { db } from '@/lib/firebase';
 import type { Route } from '../types/route.types';
 import { getAuthority } from '@/features/admin/services/authority.service';
@@ -145,6 +146,10 @@ function buildSegmentDoc(
   const aLng = a[0];
   const bLat = b[1];
   const bLng = b[0];
+  const midpoint = {
+    lat: (aLat + bLat) / 2,
+    lng: (aLng + bLng) / 2,
+  };
 
   return {
     osmId: null,
@@ -157,10 +162,11 @@ function buildSegmentDoc(
       { lat: aLat, lng: aLng },
       { lat: bLat, lng: bLng },
     ],
-    midpoint: {
-      lat: (aLat + bLat) / 2,
-      lng: (aLng + bLng) / 2,
-    },
+    midpoint,
+    // Enables route-generator.service.ts's fetchScoredWaypointsByProximity
+    // geohash bounding-box query (IS_PROXIMITY_SEGMENT_QUERY_ENABLED) —
+    // see the matching field doc on osm-segment-importer.ts's ScoredSegment.
+    geohash: geohashForLocation([midpoint.lat, midpoint.lng]),
     lengthMeters: Math.round(haversineMeters(aLat, aLng, bLat, bLng)),
     tags: {
       highway: 'official',

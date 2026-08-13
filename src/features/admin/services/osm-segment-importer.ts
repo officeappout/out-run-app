@@ -17,6 +17,7 @@
  */
 
 import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { geohashForLocation } from 'geofire-common';
 import { db } from '@/lib/firebase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -78,6 +79,15 @@ export interface ScoredSegment {
   };
   midpoint: { lat: number; lng: number };
   lengthMeters: number;
+  /**
+   * geohash of `midpoint`, via geofire-common's geohashForLocation. Enables
+   * a Firestore geohash bounding-box query (route-generator.service.ts's
+   * fetchScoredWaypointsByProximity, behind IS_PROXIMITY_SEGMENT_QUERY_ENABLED)
+   * instead of the citywide-top-300-by-score query. Existing docs need a
+   * one-time backfill (scripts/backfill-street-segments-geohash.ts) — this
+   * field only covers segments imported AFTER this change.
+   */
+  geohash: string;
 }
 
 export interface ScoreHistogram {
@@ -495,6 +505,7 @@ export function processSegments(
 
     const midpoint = path[Math.floor(path.length / 2)];
     const lengthMeters = Math.round(pathLengthMeters(path));
+    const geohash = geohashForLocation([midpoint.lat, midpoint.lng]);
 
     segments.push({
       osmId: String(w.id),
@@ -518,6 +529,7 @@ export function processSegments(
       },
       midpoint,
       lengthMeters,
+      geohash,
     });
 
     if ((idx + 1) % 100 === 0) {
