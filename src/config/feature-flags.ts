@@ -506,6 +506,27 @@ export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = true;
 // after David's device test.
 export const IS_STEP_GOAL_SHORT_ROUTE_ENABLED = true;
 
+// IS_PROXIMITY_SEGMENT_QUERY_ENABLED: switches route-generator.service.ts's
+// street_segments candidate fetch from "top 300 by score, citywide"
+// (fetchScoredWaypoints) to a geohash bounding-box query around the user
+// (fetchScoredWaypointsByProximity) — a correctness AND performance fix.
+// Root problem: the citywide-by-score query can be saturated by unrelated
+// high-score content before reaching a genuinely nearby segment — confirmed
+// live (13.08.2026): 300 docs fetched, zero within 0.7km of a real point
+// ~150m from a real published route's segment, because other content
+// citywide filled all 300 score-ranked slots first. Also wastes Firestore
+// reads/bandwidth/battery on every generation, worse in dense cities.
+// While false: fetchScoredWaypointsByProximity is never called —
+// fetchScoredWaypoints (unchanged) is the only strategy, byte-identical to
+// before this flag existed. Requires the one-time geohash backfill
+// (scripts/backfill-street-segments-geohash.ts) to have real effect —
+// segments without a geohash are simply invisible to the new query, which
+// falls back to fetchScoredWaypoints automatically per-request either way
+// (a defensive third rung, not just a flag-off fallback).
+// Default false pending: backfill run + device-verified before/after
+// doc-fetch numbers (see the proximity-query plan's verification section).
+export const IS_PROXIMITY_SEGMENT_QUERY_ENABLED = false;
+
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
 // longer opens ExitConfirmModal; it is blocked ENTIRELY and silently, as if

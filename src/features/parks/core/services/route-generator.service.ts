@@ -1,6 +1,7 @@
 // src/features/map/services/route-generator.service.ts
 
-import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import { collection, endAt, getDocs, limit, orderBy, query, startAt, where } from 'firebase/firestore';
+import { geohashQueryBounds } from 'geofire-common';
 import { db } from '@/lib/firebase';
 import { Route, ActivityType, CommuteVariant } from '../types/route.types';
 import { Park as MapPark } from '../types/park.types';
@@ -9,6 +10,7 @@ import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
 import { buildOutAndBackPath } from './geoUtils';
+import { IS_PROXIMITY_SEGMENT_QUERY_ENABLED } from '@/config/feature-flags';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -37,6 +39,19 @@ export interface RouteGenerationDiagnostics {
   segmentsInRadius: number;
   collectionSampleCityName?: string;
   timestamp: number;
+  /**
+   * Which street_segments fetch strategy produced this result. Absent =
+   * the citywide-by-score query (today's only strategy). Present when
+   * IS_PROXIMITY_SEGMENT_QUERY_ENABLED is on and fetchScoredWaypointsByProximity
+   * ran — see its own doc comment for the geohash bounding-box approach.
+   */
+  queryStrategy?: 'city_score' | 'proximity_geohash';
+  /** Proximity path only: how many geohash startAt/endAt sub-queries fired. */
+  geohashBoxesQueried?: number;
+  /** Proximity path only: total docs returned across all sub-queries, before dedupe. */
+  docsFetchedRaw?: number;
+  /** Proximity path only: docs remaining after de-duplicating by doc id. */
+  docsAfterDedupe?: number;
 }
 
 let _lastDiagnostics: RouteGenerationDiagnostics | null = null;
@@ -300,6 +315,68 @@ export function resolveCityNameQueryAliases(cleanCity: string): string[] {
  */
 const OFFICIAL_ROUTE_BIAS_MULTIPLIER = 5;
 
+/**
+ * Shared official-bias + soft-shuffle scoring tail — used by BOTH
+ * fetchScoredWaypoints (citywide-by-score query) and
+ * fetchScoredWaypointsByProximity (geohash-bounded query) so this scoring
+ * logic is never duplicated between the two fetch strategies. Takes
+ * segments the caller has ALREADY filtered to its search radius; the
+ * math here is byte-identical to what both functions need.
+ */
+function scoreAndShuffleStreetSegments(
+  segmentsInRadius: Array<{ point: { lat: number; lng: number }; seg: StreetSegment }>,
+  activeOfficialRouteId: string | undefined,
+): {
+  candidates: Array<{ lat: number; lng: number; score: number }>;
+  officialBiasApplied: number;
+  officialBackboneCount: number;
+} {
+  let officialBiasApplied = 0;
+  const scored = segmentsInRadius
+    .map(({ point, seg }) => {
+      // Official segments (admin-created via the back-office) always get a
+      // minimum score of 10 — the maximum possible Firestore score value.
+      // This makes them dominate the top-12 candidate pool so any dynamic
+      // route "gravitates" toward pre-approved official corridors.
+      // Detection: `isOfficial: true` (set by official-route-broadcaster)
+      // OR `officialRouteId` is present (implies official lineage).
+      const isOfficialSegment = seg.isOfficial === true || seg.officialRouteId != null;
+      const rawScore = seg.score ?? 0;
+      const baseScore = isOfficialSegment ? Math.max(rawScore, 10) : rawScore;
+
+      // Deviation-recovery: 5× multiplier when the orchestrator has flagged
+      // a specific route the user should return to. Applied on top of the
+      // official-backbone floor, so an official segment in recovery mode
+      // scores 50 — guaranteed to dominate ALL other candidates.
+      const matchesActiveRoute =
+        activeOfficialRouteId !== undefined &&
+        seg.officialRouteId === activeOfficialRouteId;
+      const effectiveScore = matchesActiveRoute
+        ? baseScore * OFFICIAL_ROUTE_BIAS_MULTIPLIER
+        : baseScore;
+      if (matchesActiveRoute) officialBiasApplied += 1;
+
+      return { ...point, score: effectiveScore };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  // ── Soft Shuffle — vary daily variety without sacrificing quality ──────
+  // Groups of consecutive candidates whose scores are within 1 point of
+  // each other get Fisher-Yates shuffled using `activeOfficialRouteId`
+  // (deviation-recovery) or a timestamp-derived seed. This means: the
+  // top-10 cluster still wins, but their internal order rotates every
+  // session so the same 3 routes don't appear every day from the same spot.
+  const shuffleSeed =
+    activeOfficialRouteId != null
+      ? activeOfficialRouteId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+      : Math.floor(Date.now() / 86_400_000); // changes once per calendar day
+
+  const candidates = softShuffleTiedGroups(scored, shuffleSeed);
+  const officialBackboneCount = candidates.filter((c) => c.score >= 10).length;
+
+  return { candidates, officialBiasApplied, officialBackboneCount };
+}
+
 async function fetchScoredWaypoints(
   cityName: string,
   userLocation: { lat: number; lng: number },
@@ -391,53 +468,6 @@ async function fetchScoredWaypoints(
 
     const searchRadiusKm = targetDistance / 2;
 
-    let officialBiasApplied = 0;
-    const scored = snap.docs
-      .map((d) => {
-        const seg = d.data() as StreetSegment;
-        const point = segmentMidpoint(seg);
-        if (!point) return null;
-        const distKm = getDistanceKm(userLocation.lat, userLocation.lng, point.lat, point.lng);
-        if (distKm > searchRadiusKm) return null;
-
-        // Official segments (admin-created via the back-office) always get a
-        // minimum score of 10 — the maximum possible Firestore score value.
-        // This makes them dominate the top-12 candidate pool so any dynamic
-        // route "gravitates" toward pre-approved official corridors.
-        // Detection: `isOfficial: true` (set by official-route-broadcaster)
-        // OR `officialRouteId` is present (implies official lineage).
-        const isOfficialSegment = seg.isOfficial === true || seg.officialRouteId != null;
-        const rawScore = seg.score ?? 0;
-        const baseScore = isOfficialSegment ? Math.max(rawScore, 10) : rawScore;
-
-        // Deviation-recovery: 5× multiplier when the orchestrator has flagged
-        // a specific route the user should return to. Applied on top of the
-        // official-backbone floor, so an official segment in recovery mode
-        // scores 50 — guaranteed to dominate ALL other candidates.
-        const matchesActiveRoute =
-          activeOfficialRouteId !== undefined &&
-          seg.officialRouteId === activeOfficialRouteId;
-        const effectiveScore = matchesActiveRoute
-          ? baseScore * OFFICIAL_ROUTE_BIAS_MULTIPLIER
-          : baseScore;
-        if (matchesActiveRoute) officialBiasApplied += 1;
-
-        return { ...point, score: effectiveScore };
-      })
-      .filter((c): c is { lat: number; lng: number; score: number } => c !== null)
-      .sort((a, b) => b.score - a.score);
-
-    // ── Soft Shuffle — vary daily variety without sacrificing quality ──────
-    // Groups of consecutive candidates whose scores are within 1 point of
-    // each other get Fisher-Yates shuffled using `activeOfficialRouteId`
-    // (deviation-recovery) or a timestamp-derived seed. This means: the
-    // top-10 cluster still wins, but their internal order rotates every
-    // session so the same 3 routes don't appear every day from the same spot.
-    const shuffleSeed =
-      activeOfficialRouteId != null
-        ? activeOfficialRouteId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-        : Math.floor(Date.now() / 86_400_000); // changes once per calendar day
-
     // No slice(12) here (08.08 fix) — this function's own score is quality-only
     // (official-boost + soft-shuffle), with zero awareness of the caller's
     // target distance. Truncating to 12 HERE, before generateDynamicRoutes'
@@ -448,9 +478,19 @@ async function fetchScoredWaypoints(
     // (already radius-filtered, already capped at `limit(300)` above)
     // candidate pool and let the caller's target-aware re-scoring — which
     // already exists and already picks the real top-12 — do the selection.
-    const candidates = softShuffleTiedGroups(scored, shuffleSeed);
+    const segmentsInRadius: Array<{ point: { lat: number; lng: number }; seg: StreetSegment }> = [];
+    for (const d of snap.docs) {
+      const seg = d.data() as StreetSegment;
+      const point = segmentMidpoint(seg);
+      if (!point) continue;
+      const distKm = getDistanceKm(userLocation.lat, userLocation.lng, point.lat, point.lng);
+      if (distKm > searchRadiusKm) continue;
+      segmentsInRadius.push({ point, seg });
+    }
 
-    const officialBackboneCount = candidates.filter((c) => c.score >= 10).length;
+    const { candidates, officialBiasApplied, officialBackboneCount } =
+      scoreAndShuffleStreetSegments(segmentsInRadius, activeOfficialRouteId);
+
     if (officialBackboneCount > 0) {
       console.log(
         `[RouteGenerator] Official backbone: ${officialBackboneCount} segment(s) ` +
@@ -493,6 +533,163 @@ async function fetchScoredWaypoints(
       source: 'random_fallback_query_error',
       segmentsFetched: 0,
       segmentsInRadius: 0,
+    });
+    return null;
+  }
+}
+
+/**
+ * Proximity-first alternative to fetchScoredWaypoints — queries street_segments
+ * by GEOGRAPHIC BOUNDING BOX around the user (via geofire-common's geohash
+ * technique) instead of "top 300 by score, citywide". Same return shape,
+ * same searchRadiusKm formula, same scoring/shuffle tail (via
+ * scoreAndShuffleStreetSegments) — a drop-in alternative fetch strategy, not
+ * a parallel scoring implementation.
+ *
+ * Why this exists: fetchScoredWaypoints' city-wide-by-score query can be
+ * saturated by unrelated high-score content before it ever reaches a
+ * genuinely nearby segment — confirmed live (13.08.2026): 300 docs fetched,
+ * zero within 0.7km of a real test point ~150m from a real published route's
+ * segment, because other content citywide filled all 300 score-ranked slots
+ * first. In Zichron Yaakov, ALL 2177 segments are score=10 — the 300-cap
+ * alone is already the bottleneck there, independent of proximity.
+ *
+ * Firestore query design note: `where('score','>=',6)` is deliberately
+ * dropped from the SERVER query and applied client-side instead. The
+ * documented, Firebase-endorsed geohash-bounding-box pattern is a range
+ * query on `geohash` alone (orderBy + startAt/endAt); stacking a second
+ * inequality on `score` alongside it is unverified for this specific
+ * cursor-based shape, so this stays on the safe, documented path. The cost
+ * is free: client-side filtering on an already geo-bounded (small) set.
+ * `cityName` is accepted (for diagnostics/logging) but NOT used as a query
+ * filter — geo-bounding already implies "the right area", and this
+ * sidesteps the exact city-name-alias bug class (CITY_NAME_QUERY_ALIASES,
+ * the 1144-doc invisible-Tel-Aviv-Yafo pool) fetchScoredWaypoints has to
+ * work around.
+ *
+ * Existing docs need a one-time geohash backfill
+ * (scripts/backfill-street-segments-geohash.ts) — until that runs (or for
+ * any doc it somehow misses), this returns null and the caller falls back
+ * to fetchScoredWaypoints (the old city-wide query) as a safety net.
+ */
+async function fetchScoredWaypointsByProximity(
+  cityName: string,
+  userLocation: { lat: number; lng: number },
+  targetDistance: number,
+  activeOfficialRouteId?: string,
+): Promise<Array<{ lat: number; lng: number }> | null> {
+  const cleanCity = sanitizeCityKey(cityName);
+  const searchRadiusKm = targetDistance / 2;
+  const searchRadiusMeters = searchRadiusKm * 1000;
+
+  try {
+    const center: [number, number] = [userLocation.lat, userLocation.lng];
+    const bounds = geohashQueryBounds(center, searchRadiusMeters);
+
+    const snapshots = await Promise.all(
+      bounds.map(([rangeStart, rangeEnd]) =>
+        getDocs(
+          query(
+            collection(db, 'street_segments'),
+            orderBy('geohash'),
+            startAt(rangeStart),
+            endAt(rangeEnd),
+          ),
+        ),
+      ),
+    );
+
+    // Merge across boxes + dedupe by doc id. geohashQueryBounds' ranges are
+    // constructed not to overlap, but dedup defensively — cheap insurance.
+    const seenIds = new Set<string>();
+    const rawDocs: Array<{ point: { lat: number; lng: number }; seg: StreetSegment }> = [];
+    let docsFetchedRaw = 0;
+    for (const snap of snapshots) {
+      for (const d of snap.docs) {
+        docsFetchedRaw += 1;
+        if (seenIds.has(d.id)) continue;
+        seenIds.add(d.id);
+        const seg = d.data() as StreetSegment;
+        const point = segmentMidpoint(seg);
+        if (!point) continue;
+        rawDocs.push({ point, seg });
+      }
+    }
+    const docsAfterDedupe = rawDocs.length;
+
+    // Precise client-side circle trim — a geohash bounding box over-covers a
+    // true circle at the corners (a well-known property of the technique,
+    // not a bug); geohashQueryBounds guarantees the circle is a SUBSET of
+    // the boxes, never the reverse, so this only ever removes false positives.
+    const segmentsInRadius = rawDocs.filter(({ point }) => {
+      const distKm = getDistanceKm(userLocation.lat, userLocation.lng, point.lat, point.lng);
+      return distKm <= searchRadiusKm;
+    });
+
+    // score>=6 filter, client-side — see the doc comment above.
+    const scoredEligible = segmentsInRadius.filter(({ seg }) => (seg.score ?? 0) >= 6);
+
+    if (scoredEligible.length === 0) {
+      console.log(
+        `[RouteGenerator] Proximity query: 0 usable street_segments within ${searchRadiusKm.toFixed(2)}km ` +
+          `of user (${bounds.length} geohash box(es), ${docsFetchedRaw} raw docs) — falling back.`,
+      );
+      setDiagnostics({
+        cityNameUsed: cleanCity,
+        cityNameRaw: cityName,
+        source: 'random_fallback_out_of_radius',
+        segmentsFetched: docsFetchedRaw,
+        segmentsInRadius: 0,
+        queryStrategy: 'proximity_geohash',
+        geohashBoxesQueried: bounds.length,
+        docsFetchedRaw,
+        docsAfterDedupe,
+      });
+      return null;
+    }
+
+    const { candidates, officialBiasApplied, officialBackboneCount } =
+      scoreAndShuffleStreetSegments(scoredEligible, activeOfficialRouteId);
+
+    if (officialBackboneCount > 0) {
+      console.log(
+        `[RouteGenerator] Official backbone: ${officialBackboneCount} segment(s) ` +
+          `scored to 10 (admin-approved corridors will dominate this generation).`,
+      );
+    }
+    if (activeOfficialRouteId) {
+      console.log(
+        `[RouteGenerator] Deviation recovery: ${officialBiasApplied} segment(s) matched ` +
+          `officialRouteId=${activeOfficialRouteId} and got a ${OFFICIAL_ROUTE_BIAS_MULTIPLIER}× bonus.`,
+      );
+    }
+
+    console.log(
+      `[RouteGenerator] Proximity query: using ${candidates.length} scored waypoints ` +
+        `(${bounds.length} geohash box(es), ${docsFetchedRaw} raw → ${docsAfterDedupe} deduped → ` +
+        `${segmentsInRadius.length} in radius → ${scoredEligible.length} score≥6, city: "${cleanCity}").`,
+    );
+    setDiagnostics({
+      cityNameUsed: cleanCity,
+      cityNameRaw: cityName,
+      source: 'street_segments',
+      segmentsFetched: docsFetchedRaw,
+      segmentsInRadius: candidates.length,
+      queryStrategy: 'proximity_geohash',
+      geohashBoxesQueried: bounds.length,
+      docsFetchedRaw,
+      docsAfterDedupe,
+    });
+    return candidates.map(({ lat, lng }) => ({ lat, lng }));
+  } catch (err: any) {
+    console.warn('[RouteGenerator] fetchScoredWaypointsByProximity failed, falling back:', err?.message ?? err);
+    setDiagnostics({
+      cityNameUsed: cleanCity,
+      cityNameRaw: cityName,
+      source: 'random_fallback_query_error',
+      segmentsFetched: 0,
+      segmentsInRadius: 0,
+      queryStrategy: 'proximity_geohash',
     });
     return null;
   }
@@ -974,15 +1171,26 @@ async function generateLoopRoutes(
     ? await findFitnessAnchor(userLocation, safeDistance, parks)
     : null;
 
-  // 2. Fetch waypoint candidates — prefer scored street_segments, fall back to random
+  // 2. Fetch waypoint candidates — prefer proximity-bounded street_segments
+  //    (if enabled), fall back to citywide-by-score, fall back to random.
   let rawCandidates: Array<{ lat: number; lng: number }> | null = null;
   if (cityName) {
-    rawCandidates = await fetchScoredWaypoints(
-      cityName,
-      userLocation,
-      safeDistance,
-      activeOfficialRouteId,
-    );
+    if (IS_PROXIMITY_SEGMENT_QUERY_ENABLED) {
+      rawCandidates = await fetchScoredWaypointsByProximity(
+        cityName,
+        userLocation,
+        safeDistance,
+        activeOfficialRouteId,
+      );
+    }
+    if (!rawCandidates) {
+      rawCandidates = await fetchScoredWaypoints(
+        cityName,
+        userLocation,
+        safeDistance,
+        activeOfficialRouteId,
+      );
+    }
   } else {
     // Record the no-city case so the dev banner can suggest "we never even
     // tried — useUserCityName returned undefined". Different remediation
@@ -1291,7 +1499,12 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
 
   let rawCandidates: Array<{ lat: number; lng: number }> | null = null;
   if (cityName) {
-    rawCandidates = await fetchScoredWaypoints(cityName, userLocation, safeDistance, activeOfficialRouteId);
+    if (IS_PROXIMITY_SEGMENT_QUERY_ENABLED) {
+      rawCandidates = await fetchScoredWaypointsByProximity(cityName, userLocation, safeDistance, activeOfficialRouteId);
+    }
+    if (!rawCandidates) {
+      rawCandidates = await fetchScoredWaypoints(cityName, userLocation, safeDistance, activeOfficialRouteId);
+    }
   }
   const candidateWaypoints: Array<{ lat: number; lng: number }> = rawCandidates ?? generateRandomWaypoints(
     userLocation,
