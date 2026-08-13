@@ -8,6 +8,7 @@ import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
+import { buildOutAndBackPath } from './geoUtils';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -133,6 +134,26 @@ interface RouteGenerationOptions {
    * of them apply to point-to-point navigation.
    */
   destination?: { lat: number; lng: number };
+  /**
+   * Opt-in short-target generation. When true AND targetDistance is below
+   * MIN_GENERATION_KM, the generator skips the usual floor-inflation and
+   * instead tries a genuinely short LOOP first (same triangular-loop
+   * pipeline, recalibrated acceptance thresholds — see generateLoopRoutes'
+   * `shortMode`), falling back to an OUT-AND-BACK shape
+   * (generateOutAndBackRoutes) only if the loop attempt yields zero routes.
+   *
+   * Deliberately generic — not step-goal-specific. Phase 1 (current): only
+   * the step-goal deep-link (DiscoverLayer.tsx, behind
+   * IS_STEP_GOAL_SHORT_ROUTE_ENABLED) ever sets this. Phase 2 (future,
+   * not built yet): the manual free-run flow could set the same flag for
+   * any small target — no changes needed here, since this option carries
+   * no caller-specific logic.
+   *
+   * Ignored when targetDistance >= MIN_GENERATION_KM (today's loop
+   * behavior already handles those targets fine) or when `destination` is
+   * set (commute mode is a distinct branch, untouched by this option).
+   */
+  shortRouteMode?: boolean;
 }
 
 // ── Street-segment types ───────────────────────────────────────────────────────
@@ -570,6 +591,27 @@ export function computeDistanceWindow(safeDistance: number): { minKm: number; ma
   };
 }
 
+/**
+ * Acceptance window for SHORT targets (below MIN_GENERATION_KM, short-route
+ * mode only). computeDistanceWindow's absolute floors (0.5km below / 2.5km
+ * above) were tuned for multi-km loops and are wide enough to "validate" a
+ * ~3km result against a 0.6km target — exactly the regression behind the
+ * reported "push promised 12 min, route card showed 32 min/2.7km" mismatch.
+ * Percentage-only tolerance with small absolute floors scaled to the
+ * short-route domain (~0.2-1.5km), not the loop domain.
+ *
+ * Initial guess — the exact tolerance is a live-device calibration question
+ * (see the short-route plan's verification section), not a settled constant.
+ */
+export function computeShortRouteDistanceWindow(safeDistance: number): { minKm: number; maxKm: number } {
+  const belowToleranceKm = Math.max(0.15, safeDistance * 0.25);
+  const aboveToleranceKm = Math.max(0.25, safeDistance * 0.35);
+  return {
+    minKm: Math.max(0.1, safeDistance - belowToleranceKm),
+    maxKm: safeDistance + aboveToleranceKm,
+  };
+}
+
 export function scoreWaypoint(
   waypoint: { lat: number; lng: number },
   userLocation: { lat: number; lng: number },
@@ -753,25 +795,31 @@ async function findFitnessAnchor(
 }
 
 /**
- * MAIN GENERATOR FUNCTION
+ * MAIN GENERATOR FUNCTION — dispatcher.
  *
- * Two modes, picked by the presence of `options.destination`:
+ * Three modes, in priority order:
  *
- *   • Loop mode (no destination) — original behaviour, untouched. Builds
- *     up to 3 triangular loops back to `userLocation` using street_segments
- *     waypoints (or random fallback) sequenced through Mapbox Directions.
- *
- *   • Commute mode (destination set) — returns up to 3 A-to-B variants
+ *   • Commute mode (`destination` set) — returns up to 3 A-to-B variants
  *     (fastest / alternative / quiet) for the same point pair. A single
  *     Mapbox call with `alternatives=true` yields all three; quiet is the
  *     longest-duration alternative. See `RouteGenerationOptions.destination`.
  *
- * The two branches share NOTHING beyond the function entry — commute
- * mode does not touch the waypoint pool, the soft-shuffle, the
- * triangular-combo builder, or the 1.5 s rate-limit delay loop. This
- * separation is intentional: the loop pipeline has years of tuning
- * baked in (MIN_PATH_POINTS, distance-window guards, deviation-recovery
- * bias, etc.) and the commute pipeline has different needs.
+ *   • Short-route mode (`shortRouteMode: true` AND targetDistance below
+ *     MIN_GENERATION_KM) — tries a genuinely short LOOP first, falls back
+ *     to an OUT-AND-BACK shape only if the loop attempt yields zero
+ *     routes. See `generateShortRoutes` and
+ *     `RouteGenerationOptions.shortRouteMode`.
+ *
+ *   • Loop mode (default) — original behaviour, unchanged. Builds up to 3
+ *     triangular loops back to `userLocation` using street_segments
+ *     waypoints (or random fallback) sequenced through Mapbox Directions.
+ *
+ * Commute mode shares NOTHING beyond the function entry — it does not
+ * touch the waypoint pool, the soft-shuffle, the triangular-combo
+ * builder, or the 1.5 s rate-limit delay loop. Short-route mode, by
+ * contrast, REUSES the loop pipeline's own scoring/selection machinery
+ * (fetchScoredWaypoints / scoreWaypoint / selectAngularlyDiverseCandidates)
+ * — see `generateLoopRoutes`'s `shortMode` param and `generateOutAndBackRoutes`.
  *
  * Waypoint strategy (loop mode, in priority order):
  *   1. Firestore street_segments (scored, city-specific) — via fetchScoredWaypoints()
@@ -786,6 +834,56 @@ export async function generateDynamicRoutes(
     return generateCommuteRoutes(options);
   }
 
+  const rawDistance = typeof options.targetDistance === 'number' && !isNaN(options.targetDistance)
+    ? options.targetDistance
+    : 3;
+
+  if (options.shortRouteMode && rawDistance < MIN_GENERATION_KM) {
+    return generateShortRoutes(options);
+  }
+
+  return generateLoopRoutes(options);
+}
+
+/**
+ * Mapbox Directions returns disappointingly few path points for very short
+ * routes (~1km loops can come back with 10–30 points), which then fail the
+ * MIN_PATH_POINTS guard below and the user sees an empty card list. Below
+ * this size, normal loop mode clamps the *generation* target up (the
+ * user-facing goal is untouched); short-route mode instead tries a
+ * recalibrated short loop / out-and-back — see `generateShortRoutes`.
+ */
+const MIN_GENERATION_KM = 1.5;
+/** Tiny numeric-safety floor for short-route mode — NOT a UX floor like
+ *  MIN_GENERATION_KM. Short-route mode exists specifically to honor
+ *  genuinely small targets; this only guards a pathological 0/negative
+ *  targetDistance. */
+const MIN_SHORT_TARGET_KM = 0.1;
+/** Initial guess, short-target LOOP legs — looser than the existing 30/50
+ *  adaptive MIN_PATH_POINTS since short legs genuinely return fewer points
+ *  even when valid. Calibrate on real device data (see short-route plan's
+ *  verification section) before any Phase 2 rollout. */
+const MIN_PATH_POINTS_SHORT = 20;
+/** Initial guess, out-and-back's ONE-WAY leg (half the round trip, before
+ *  mirroring) — same calibration caveat as MIN_PATH_POINTS_SHORT. */
+const MIN_PATH_POINTS_ONE_WAY = 10;
+
+/**
+ * Loop-mode generator — original behaviour, extracted unchanged from
+ * `generateDynamicRoutes` (pure rename, byte-identical for every existing
+ * caller when `loopOpts.shortMode` is omitted).
+ *
+ * `shortMode` (new, set only by `generateShortRoutes`): skips the
+ * MIN_GENERATION_KM floor-inflation and swaps in the short-route-calibrated
+ * MIN_PATH_POINTS_SHORT guard + computeShortRouteDistanceWindow acceptance
+ * band. Everything else — waypoint fetch, scoring, angular-diverse
+ * selection, triangular combination, Mapbox call shape — is IDENTICAL to
+ * normal loop mode. No parallel scoring logic.
+ */
+async function generateLoopRoutes(
+  options: RouteGenerationOptions,
+  loopOpts: { shortMode?: boolean } = {},
+): Promise<Route[]> {
   const {
     userLocation,
     targetDistance,
@@ -798,19 +896,23 @@ export async function generateDynamicRoutes(
   } = options;
 
   const rawDistance = typeof targetDistance === 'number' && !isNaN(targetDistance) ? targetDistance : 3;
-  // Mapbox Directions returns disappointingly few path points for very short
-  // routes (~1km loops can come back with 10–30 points), which then fail the
-  // MIN_PATH_POINTS guard below and the user sees an empty card list. Clamp
-  // the target up to 1.5km so the loop is always long enough to densify the
-  // returned polyline. The user-facing duration/calorie target stays as the
-  // user picked it — we only inflate the *generation* distance, not the
-  // workout goal.
-  const MIN_GENERATION_KM = 1.5;
-  const safeDistance = Math.max(rawDistance, MIN_GENERATION_KM);
-  if (safeDistance !== rawDistance) {
-    console.log(`[RouteGenerator] Bumping target ${rawDistance.toFixed(2)}km → ${safeDistance.toFixed(2)}km (below MIN_GENERATION_KM)`);
+  let safeDistance: number;
+  if (loopOpts.shortMode) {
+    safeDistance = Math.max(rawDistance, MIN_SHORT_TARGET_KM);
+  } else {
+    // Mapbox Directions returns disappointingly few path points for very short
+    // routes (~1km loops can come back with 10–30 points), which then fail the
+    // MIN_PATH_POINTS guard below and the user sees an empty card list. Clamp
+    // the target up to 1.5km so the loop is always long enough to densify the
+    // returned polyline. The user-facing duration/calorie target stays as the
+    // user picked it — we only inflate the *generation* distance, not the
+    // workout goal.
+    safeDistance = Math.max(rawDistance, MIN_GENERATION_KM);
+    if (safeDistance !== rawDistance) {
+      console.log(`[RouteGenerator] Bumping target ${rawDistance.toFixed(2)}km → ${safeDistance.toFixed(2)}km (below MIN_GENERATION_KM)`);
+    }
   }
-  console.log(`[RouteGenerator] Starting generation. Target: ${safeDistance.toFixed(1)}km, Activity: ${activity}, City: ${cityName ?? '(none)'}`);
+  console.log(`[RouteGenerator] Starting generation. Target: ${safeDistance.toFixed(1)}km, Activity: ${activity}, City: ${cityName ?? '(none)'}${loopOpts.shortMode ? ' [short-route mode]' : ''}`);
 
   // 1. Find fitness anchor if needed
   const fitnessAnchor = preferences.includeStrength
@@ -904,8 +1006,11 @@ export async function generateDynamicRoutes(
   // even when they're geometrically valid (a 1.2km loop with 6 turns can be
   // ~30 points and still be a real walk). Loosen the bar for short targets,
   // keep the strict 50 for anything 2km+ where straight-line shortcuts would
-  // really stand out as broken routes.
-  const MIN_PATH_POINTS = safeDistance < 2 ? 30 : 50;
+  // really stand out as broken routes. Short-route mode uses its own,
+  // looser, separately-calibrated floor (see MIN_PATH_POINTS_SHORT).
+  const MIN_PATH_POINTS = loopOpts.shortMode
+    ? MIN_PATH_POINTS_SHORT
+    : (safeDistance < 2 ? 30 : 50);
 
   // 4. ✅ SEQUENTIAL PROCESSING - One at a time with delays (prevents 429 errors)
   for (let i = 0; i < routeCombinations.length; i++) {
@@ -976,7 +1081,9 @@ export async function generateDynamicRoutes(
       }
 
       const routeDistanceKm = result.distance / 1000;
-      const { minKm, maxKm } = computeDistanceWindow(safeDistance);
+      const { minKm, maxKm } = loopOpts.shortMode
+        ? computeShortRouteDistanceWindow(safeDistance)
+        : computeDistanceWindow(safeDistance);
       if (routeDistanceKm < minKm || routeDistanceKm > maxKm) {
         console.warn(
           `[RouteGenerator] Route ${i} REJECTED: distance ${routeDistanceKm.toFixed(
@@ -1053,6 +1160,179 @@ export async function generateDynamicRoutes(
   }
 
   console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid routes.`);
+  return validRoutes;
+}
+
+// ── Short-route mode (loop-preferred, out-and-back fallback) ──────────────
+//
+// Design principle (locked in with the plan): short-route generation stays a
+// CONDITION inside the ONE shared scoring pipeline — never a parallel
+// implementation. Both branches below call the exact same
+// fetchScoredWaypoints / scoreWaypoint / selectAngularlyDiverseCandidates
+// used by loop mode. Any future scoring change (rating, difficulty,
+// route-type preference) is added ONCE to scoreWaypoint and every shape
+// (loop / short-loop / out-and-back / commute) inherits it automatically.
+
+/**
+ * Short-route dispatcher: try a short LOOP first (reusing generateLoopRoutes
+ * in short-target mode), fall back to an OUT-AND-BACK shape only if the loop
+ * attempt produces zero routes. A per-request decision, not a static shape
+ * choice — sidesteps having to predict in advance whether a given area has
+ * enough real street candidates for a clean short loop.
+ */
+async function generateShortRoutes(options: RouteGenerationOptions): Promise<Route[]> {
+  const loopRoutes = await generateLoopRoutes(options, { shortMode: true });
+  if (loopRoutes.length > 0) {
+    console.log(`[RouteGenerator] Short-route: loop succeeded (${loopRoutes.length} route(s)).`);
+    return loopRoutes;
+  }
+  console.log('[RouteGenerator] Short-route: loop attempt produced 0 routes — falling back to out-and-back.');
+  return generateOutAndBackRoutes(options);
+}
+
+/**
+ * Out-and-back fallback for short-route mode. Reuses the SAME
+ * scoring/selection pipeline as the loop (idealWaypointDistanceKm =
+ * safeDistance/2, since the turnaround sits at half the round-trip
+ * distance), but calls Mapbox for a plain ONE-WAY leg per candidate (no
+ * waypoints, no `continue_straight` — a U-turn at the turnaround is exactly
+ * what an out-and-back wants) and synthesises the return leg deterministically
+ * via `buildOutAndBackPath()` (geoUtils.ts) — no second Mapbox call, no
+ * sparse-polyline risk on the return leg at all.
+ */
+async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promise<Route[]> {
+  const {
+    userLocation,
+    targetDistance,
+    activity,
+    routeGenerationIndex,
+    preferences,
+    parks,
+    cityName,
+    activeOfficialRouteId,
+  } = options;
+
+  const rawDistance = typeof targetDistance === 'number' && !isNaN(targetDistance) ? targetDistance : 3;
+  const safeDistance = Math.max(rawDistance, MIN_SHORT_TARGET_KM);
+  // Turnaround sits at half the round-trip distance.
+  const idealWaypointDistanceKm = safeDistance / 2;
+
+  console.log(`[RouteGenerator] Out-and-back: target ${safeDistance.toFixed(2)}km round-trip, ideal turnaround ${idealWaypointDistanceKm.toFixed(2)}km.`);
+
+  let rawCandidates: Array<{ lat: number; lng: number }> | null = null;
+  if (cityName) {
+    rawCandidates = await fetchScoredWaypoints(cityName, userLocation, safeDistance, activeOfficialRouteId);
+  }
+  const candidateWaypoints: Array<{ lat: number; lng: number }> = rawCandidates ?? generateRandomWaypoints(
+    userLocation,
+    safeDistance,
+    15,
+    routeGenerationIndex,
+  );
+
+  const scoredWaypoints = candidateWaypoints.map(wp =>
+    scoreWaypoint(wp, userLocation, parks, { ...preferences, idealWaypointDistanceKm }),
+  );
+
+  const MIN_REQUIRED_ROUTES = Math.max(1, preferences.maxRoutes ?? 3);
+  // A few extra candidates beyond MIN_REQUIRED_ROUTES so a rejected leg
+  // (sparse Mapbox points or an out-of-window distance) doesn't starve the
+  // carousel down to fewer than 3 cards.
+  const topCandidates = selectAngularlyDiverseCandidates(
+    scoredWaypoints,
+    userLocation,
+    Math.max(MIN_REQUIRED_ROUTES, 6),
+    idealWaypointDistanceKm,
+  );
+
+  const validRoutes: Route[] = [];
+  const profile = activity === 'cycling' ? 'cycling' : 'walking';
+
+  for (let i = 0; i < topCandidates.length; i++) {
+    if (validRoutes.length >= MIN_REQUIRED_ROUTES) {
+      console.log(`[RouteGenerator] Out-and-back: got ${MIN_REQUIRED_ROUTES} routes, stopping.`);
+      break;
+    }
+    const candidate = topCandidates[i];
+
+    try {
+      // One-way leg only — no waypoints, no continue_straight (a U-turn at
+      // the turnaround is exactly what an out-and-back wants).
+      const result = await MapboxService.getSmartPath(
+        userLocation,
+        { lat: candidate.lat, lng: candidate.lng },
+        profile,
+        [],
+      );
+
+      if (!result || !result.path || result.path.length < MIN_PATH_POINTS_ONE_WAY) {
+        console.warn(`[RouteGenerator] Out-and-back leg ${i} REJECTED: only ${result?.path?.length || 0} points (need ${MIN_PATH_POINTS_ONE_WAY}+)`);
+        if (i < topCandidates.length - 1 && validRoutes.length < MIN_REQUIRED_ROUTES) await delay(1500);
+        continue;
+      }
+
+      const routeDistanceKm = (result.distance / 1000) * 2; // round trip
+      const { minKm, maxKm } = computeShortRouteDistanceWindow(safeDistance);
+      if (routeDistanceKm < minKm || routeDistanceKm > maxKm) {
+        console.warn(
+          `[RouteGenerator] Out-and-back leg ${i} REJECTED: round-trip ${routeDistanceKm.toFixed(2)}km outside ` +
+            `[${minKm.toFixed(2)}–${maxKm.toFixed(2)}]km (target ${safeDistance.toFixed(2)}km)`,
+        );
+        if (i < topCandidates.length - 1 && validRoutes.length < MIN_REQUIRED_ROUTES) await delay(1500);
+        continue;
+      }
+
+      const durationMinutes = Math.round((result.duration * 2) / 60); // round trip
+      const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 70));
+      const mirroredPath = buildOutAndBackPath(result.path);
+      const cleanPath = rdpSimplify(mirroredPath, 4);
+
+      const route: Route = {
+        id: `gen-oab-${Date.now()}-${i}-${routeGenerationIndex}`,
+        name: 'הלוך ושוב',
+        description: `מסלול הלוך-ושוב של ${routeDistanceKm.toFixed(1)} ק"מ`,
+        distance: parseFloat(routeDistanceKm.toFixed(1)),
+        duration: durationMinutes,
+        score: Math.round(candidate.score + routeDistanceKm * 10),
+        type: activity,
+        activityType: activity,
+        difficulty: 'easy',
+        path: cleanPath,
+        segments: [],
+        rating: 4.5 + Math.random() * 0.5,
+        calories,
+        analytics: { usageCount: 0, rating: 0, heatMapScore: 0 },
+        source: { type: 'system', name: 'OutRun AI' },
+        features: {
+          hasGym: false,
+          hasBenches: true,
+          scenic: candidate.score > 70,
+          lit: true,
+          terrain: 'road',
+          environment: 'urban',
+          trafficLoad: 'low',
+          surface: preferences.surface === 'trail' ? 'dirt' : 'asphalt',
+        },
+        calculatedScore: candidate.score,
+        distanceFromUser: 0,
+        isReachableWithoutCar: true,
+        includesOfficialSegments: false,
+        visitingParkId: null,
+        includesFitnessStop: false,
+      };
+
+      validRoutes.push(route);
+      console.log(`[RouteGenerator] ✅ Out-and-back ${i} VALID! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km)`);
+    } catch (err: any) {
+      console.error(`[RouteGenerator] Error on out-and-back leg ${i}:`, err?.message || err);
+    }
+
+    if (i < topCandidates.length - 1 && validRoutes.length < MIN_REQUIRED_ROUTES) {
+      await delay(1500);
+    }
+  }
+
+  console.log(`[RouteGenerator] Out-and-back finished. Generated ${validRoutes.length} valid route(s).`);
   return validRoutes;
 }
 
