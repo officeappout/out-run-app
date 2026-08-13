@@ -7,14 +7,17 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 /**
- * Redirect page for /onboarding -> /onboarding-new/intro
- * This ensures backward compatibility with any old links
+ * Redirect page for /onboarding -> /gateway
+ * Backward compatibility for stale external links (old bookmarks, old
+ * marketing/QR/bio-link URLs not tracked in the admin links tool).
+ * Was /onboarding-new/intro — a dead-ended pre-08.2026 onboarding chain
+ * (intro/selection/roadmap/persona-selection), removed 13.08.2026.
  */
 export default function OnboardingRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/onboarding-new/intro');
+    router.replace('/gateway');
   }, [router]);
 
   return (

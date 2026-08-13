@@ -301,8 +301,14 @@ export default function ProfilePage() {
   }, [showUpdateToast]);
 
   React.useEffect(() => {
+    // Was '/onboarding' — a redirect stub into a dead-ended pre-08.2026
+    // onboarding chain (intro/selection/roadmap/persona-selection). Also
+    // raced logout: signOut() clears `profile`, so this effect fired at the
+    // same time as SettingsModal's own router.replace('/'), and whichever
+    // resolved last decided the user's landing page. Targeting the same '/'
+    // destination as logout makes the race harmless either way.
     if (_hasHydrated && !profile) {
-      router.replace('/onboarding');
+      router.replace('/');
     }
   }, [_hasHydrated, profile, router]);
 

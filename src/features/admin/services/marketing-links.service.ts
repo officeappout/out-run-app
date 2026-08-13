@@ -47,7 +47,7 @@ const COLLECTION = 'marketing_links' as const;
  *   • `id`                  Firestore doc id, exposed to API routes.
  *   • `friendlyName`        Internal label visible only in the registry UI.
  *   • `oneLinkUrl`          The bare share URL (before UTM concatenation),
- *                           e.g. 'https://out.app/onboarding-new/intro'.
+ *                           e.g. 'https://outrun.co.il/gateway'.
  *   • `utmSource/Medium/Campaign`
  *                           UTM tokens — when present, the public click
  *                           handler synthesises the final tracking URL by

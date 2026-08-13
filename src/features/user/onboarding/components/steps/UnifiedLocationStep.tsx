@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
@@ -72,7 +71,6 @@ const MapboxLayer = dynamic(() => import('react-map-gl').then((mod) => mod.Layer
 
 function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, purpose }: UnifiedLocationStepProps) {
   const { updateData, setMajorRoadmapStep } = useOnboardingStore();
-  const router = useRouter();
   const isExplorer = mode === 'explorer' || mode === 'bridge';
   const mapRef = useRef<MapRef>(null);
   
@@ -555,8 +553,15 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       } as any);
     }
 
+    // Was a hardcoded router.push('/onboarding-new/roadmap') — a leftover
+    // from the pre-08.2026 onboarding chain (intro/selection/roadmap/
+    // persona-selection), now dead-ended. Delegate to the caller instead,
+    // same as bridge mode above. The only current default-mode caller is
+    // OnboardingWizard's case 'LOCATION', whose onNext already correctly
+    // branches full-program (→ HEALTH_DECLARATION) vs JIT/MAP_ONLY
+    // (→ wizard's own next step) — this was previously bypassed entirely.
     setMajorRoadmapStep(2);
-    router.push('/onboarding-new/roadmap');
+    onNext();
   };
 
   const handleSearchOtherCity = () => {
