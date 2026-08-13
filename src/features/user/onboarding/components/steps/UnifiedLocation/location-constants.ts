@@ -2012,8 +2012,7 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'rht-33': { lat: 31.3869342, lng: 34.7442009 },
   'rht-34': { lat: 31.3860173, lng: 34.7411270 },
   'rht-38': { lat: 31.3904954, lng: 34.7755886 },
-  'rht-al-nur':          { lat: 31.3913930, lng: 34.7572423 },
-  'rht-al-marwa':        { lat: 31.3956250, lng: 34.7711742 },
+  // rht-al-nur / rht-al-marwa PARKED — see israel-locations.ts comment
   'rht-al-zayadna':      { lat: 31.3683157, lng: 34.7396573 },
   'rht-khirbet-zbalih':  { lat: 31.4088561, lng: 34.7491824 }, // medium — OSM node only, no polygon confirms extent
 

@@ -963,8 +963,12 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'rht-33', name: 'שכונה 33', type: 'neighborhood' },
       { id: 'rht-34', name: 'שכונה 34', type: 'neighborhood' },
       { id: 'rht-38', name: 'שכונה 38', type: 'neighborhood' },
-      { id: 'rht-al-nur', name: 'אל-נור', type: 'neighborhood' },
-      { id: 'rht-al-marwa', name: 'אל-מרוואה', type: 'neighborhood' },
+      // rht-al-nur / rht-al-marwa PARKED, not shipped — their OSM polygon
+      // centroids sit 30-46m from rht-24/rht-5's, under the haversine
+      // no-collision gate. Research itself noted Rahat's named areas may
+      // overlap with the numbered-district system; can't confirm these are
+      // distinct places vs. the same spot under a second name without a
+      // real per-name source. Needs a municipal GIS pass to resolve.
       { id: 'rht-al-zayadna', name: 'א-זידאנה אל-נסאסרה', type: 'neighborhood' },
       { id: 'rht-khirbet-zbalih', name: "ח'רבת זבאלה", type: 'neighborhood' },
     ]
