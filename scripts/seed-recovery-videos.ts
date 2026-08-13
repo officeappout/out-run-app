@@ -11,7 +11,9 @@
  *   - showOnRestDays: <flag>        → STARTS false (dormant) — see modes below
  *   - isFollowAlong: true           → follow-along playback + tap-advance
  *   - execution_methods[0].media.previewVideo.he.videoId = <bunny guid>
- *                                   → the slot the runtime player actually plays
+ *                                   → short muted preview loop (list-card thumbnail only)
+ *   - execution_methods[0].media.fullTutorial.he.videoId  = <bunny guid>
+ *                                   → the actual playable session video (hero/detail view)
  *   - execution_methods[0].media.videoDurationSeconds     → card duration
  *   - programIds/targetPrograms/muscleGroups EMPTY         → no strength credit
  *
@@ -157,8 +159,10 @@ function buildRecord(
       gearIds: [],
       equipmentIds: [],
       media: {
-        // ← the slot the runtime player resolves (methodBunnyId → previewVideo.videoId)
+        // previewVideo = short muted preview loop only (list-card thumbnail).
+        // fullTutorial (below) is the actual playable video the hero/detail view resolves.
         previewVideo: { he: { videoId: v.bunnyGuid, provider: 'bunny' } },
+        fullTutorial: { he: { videoId: v.bunnyGuid, provider: 'bunny' } },
         videoDurationSeconds: v.durationSeconds,   // ← card's displayed minutes (else defaults to 10)
         mainVideoUrl: null,
         imageUrl: null,
