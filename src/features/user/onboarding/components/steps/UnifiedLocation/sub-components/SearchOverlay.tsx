@@ -81,7 +81,7 @@ export function SearchOverlay({
                   key={city.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.02 }}
+                  transition={{ delay: Math.min(index, 20) * 0.02 }}
                   onClick={() => onCitySelect(city)}
                   className="w-full pr-5 pl-4 py-4 flex flex-row items-center gap-3 border-b border-gray-100 last:border-b-0 hover:bg-[#5BC2F2]/5 active:bg-[#5BC2F2]/10 transition-colors"
                 >

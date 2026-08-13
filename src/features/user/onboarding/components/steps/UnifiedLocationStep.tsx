@@ -222,8 +222,21 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       const filtered = cities.filter(city => {
         const cityFullName = `${city.name} ${city.displayName} ${city.parentName || ''}`.toLowerCase();
         return queryWords.every(word => cityFullName.includes(word));
-      }).slice(0, 15);
-      setFilteredCities(filtered);
+      });
+
+      // City-aware cap — every neighborhood/settlement inherits its parent's
+      // population as sort key, so searching a city name (e.g. "תל אביב")
+      // matches the city itself plus every one of its neighborhoods with no
+      // way to distinguish them by relevance. If ALL matches belong to the
+      // same city (grouping by parentId, falling back to the entry's own id
+      // for city/council-level matches), the user is drilling into one
+      // specific place — show it in full (a large city can have 50-75+
+      // neighborhoods, all legitimately "the" result for that search). Only
+      // cap when matches span multiple distinct cities, so a generic word
+      // shared across many places (e.g. "מרכז העיר") can't flood the list.
+      const distinctCityIds = new Set(filtered.map(city => city.parentId || city.id));
+      const results = distinctCityIds.size <= 1 ? filtered : filtered.slice(0, 15);
+      setFilteredCities(results);
     }
   }, [searchQuery, cities]);
 
