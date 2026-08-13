@@ -115,6 +115,21 @@ function ActionSpeedDial({ onAdd, onReport }: { onAdd: () => void; onReport: () 
 // (~110m) | activity: a different user / slot / meaningful move / activity misses
 // naturally; GPS jitter under ~110m does not. FIFO-capped so a long session can't
 // grow the Maps unbounded.
+// IS_SHORT_ROUTE_MANUAL_TEST_EMAIL: gates shortRouteMode in the MANUAL
+// free-run generator (onRequestRouteGeneration below) to David's own account
+// only — testing convenience toward Phase 2 (extending short-route
+// generation to every user's manual "give me a short route" flow), while the
+// calibration constants (MIN_PATH_POINTS_SHORT etc., route-generator.service.ts)
+// are still initial guesses. Same identity anchor
+// scripts/_test-daily-goal-dispatch.ts already uses (email → uid via Admin
+// SDK); client-side we only have the signed-in user's own auth object, so we
+// compare email directly instead of a server-side lookup. Also gated on
+// IS_STEP_GOAL_SHORT_ROUTE_ENABLED so both toggles roll back independently.
+// Phase 2 (open to everyone) = delete this constant + the email check that
+// uses it, once device data calibrates the constants — the generator branch
+// itself needs no changes.
+const IS_SHORT_ROUTE_MANUAL_TEST_EMAIL = 'office@appout.co.il';
+
 const HYBRID_WARM_CAP = 24;
 const hybridPlanCache = new Map<string, ComposedHybridSession>();
 const hybridRoutePreviewCache = new Map<string, HybridRoutePreview>();
@@ -1544,7 +1559,17 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 userPosition={userLocation}
                 cityName={userCityName}
                 onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
-                  setRouteCarouselConfig({ targetKm, includeStrength, surface });
+                  // Phase "1.5" — manual free-run generator, David-only testing
+                  // convenience toward Phase 2 (see IS_SHORT_ROUTE_MANUAL_TEST_EMAIL
+                  // above). Lets short-route generation be exercised at any target
+                  // size directly in the generator, not just via the step-goal
+                  // deep-link. Same shortRouteMode field, same generator branch —
+                  // no parallel path. Phase 2 (open to everyone) = deleting the
+                  // email check below once device data calibrates the constants.
+                  const shortRouteMode =
+                    IS_STEP_GOAL_SHORT_ROUTE_ENABLED &&
+                    auth.currentUser?.email === IS_SHORT_ROUTE_MANUAL_TEST_EMAIL;
+                  setRouteCarouselConfig({ targetKm, includeStrength, surface, shortRouteMode });
                   setFreeRunStep('route');
                 }}
                 onStartHybrid={HYBRID_SLOTS_ENABLED ? (intent) => {
