@@ -523,9 +523,18 @@ export const IS_STEP_GOAL_SHORT_ROUTE_ENABLED = true;
 // segments without a geohash are simply invisible to the new query, which
 // falls back to fetchScoredWaypoints automatically per-request either way
 // (a defensive third rung, not just a flag-off fallback).
-// Default false pending: backfill run + device-verified before/after
-// doc-fetch numbers (see the proximity-query plan's verification section).
-export const IS_PROXIMITY_SEGMENT_QUERY_ENABLED = false;
+// FLIPPED TRUE, GLOBAL (13.08.2026) — backfill committed (11,180/11,180
+// segments migrated, 0 errors), independent review passed, and live
+// before/after numbers confirmed the win in both test scenarios:
+//   Tel Aviv near "הקפת פארק המסילה": 0 → 534 segments in radius (103 official)
+//   Zichron Yaakov: 0 → 22 segments in radius (22 official)
+// Global rather than uid-scoped — deliberate: street_segments is public-read
+// (no security/data exposure either way), RouteGenerationOptions carries no
+// caller identity today (scoping would mean threading a uid/email through
+// ~6 call sites, a materially bigger change than the risk here justifies),
+// and the 3-rung fallback ladder guarantees worst case = today's exact
+// behavior. Kill-switch: flip back to false, byte-identical instantly.
+export const IS_PROXIMITY_SEGMENT_QUERY_ENABLED = true;
 
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
