@@ -38,6 +38,7 @@ import {
   calculateDistance,
   formatDistance,
   reverseGeocode,
+  reverseGeocodeStreet,
   forwardGeocode,
   getSettlementType,
   getSettlementNaming,
@@ -328,7 +329,20 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       const result = await reverseGeocode(centerLat, centerLng);
       setDetectedCity(result.city);
       setDetectedNeighborhood(result.neighborhood);
-      setDisplayName(result.displayName);
+
+      // Mapbox's place/locality/neighborhood index is sparse for Israel — a
+      // drag that lands just outside a small settlement's indexed footprint
+      // (e.g. onto surrounding farmland) commonly has no match at that
+      // level, even though the drag itself is a deliberate "refine my exact
+      // home position" gesture. Fall back to street-level geocoding
+      // (types=address, much denser coverage) so the user sees a real
+      // street name instead of "מיקום לא ידוע" whenever one exists nearby.
+      let displayNameToShow = result.displayName;
+      if (!result.city && !result.neighborhood) {
+        const street = await reverseGeocodeStreet(centerLat, centerLng);
+        if (street) displayNameToShow = street;
+      }
+      setDisplayName(displayNameToShow);
 
       const authId = await findAuthorityIdByCity(result.city || '');
       setResolvedAuthorityId(authId);
@@ -366,8 +380,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
         loadInfrastructureContext(result.city, authId);
         updateData({
           locationAllowed: true,
-          city: result.displayName,
-          location: { lat: centerLat, lng: centerLng, city: result.displayName },
+          city: displayNameToShow,
+          location: { lat: centerLat, lng: centerLng, city: displayNameToShow },
         });
       }
       
