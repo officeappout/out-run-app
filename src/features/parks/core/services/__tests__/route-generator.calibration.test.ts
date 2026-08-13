@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreWaypoint, computeDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases } from '../route-generator.service';
+import { scoreWaypoint, computeDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases } from '../route-generator.service';
 
 const USER = { lat: 0, lng: 0 };
 // ~0.267km east of user (route-stops' targetKm=1.6 / 6 calibration) and ~1.0km east.
@@ -103,6 +103,39 @@ describe('computeDistanceWindow — proportional acceptance band (08.08, fixes l
   it('minKm never goes below the 0.5km floor even for a very large target with a large percentage cut', () => {
     const { minKm } = computeDistanceWindow(100);
     expect(minKm).toBeGreaterThanOrEqual(0.5);
+  });
+});
+
+describe('computeShortRouteDistanceWindow — short-route acceptance band (David\'s "12min push → 32min/2.7km route" regression)', () => {
+  it('a 0.6km target does NOT validate a ~3km result — the exact regression this function exists to prevent', () => {
+    const { maxKm } = computeShortRouteDistanceWindow(0.6);
+    expect(maxKm).toBeLessThan(3.0);
+  });
+
+  it('is proportionally tighter than computeDistanceWindow at the same small target', () => {
+    const loose = computeDistanceWindow(0.6);
+    const tight = computeShortRouteDistanceWindow(0.6);
+    expect(tight.maxKm).toBeLessThan(loose.maxKm);
+    expect(tight.maxKm - tight.minKm).toBeLessThan(loose.maxKm - loose.minKm);
+  });
+
+  it('minKm never goes below the small numeric-safety floor even for a tiny target', () => {
+    const { minKm } = computeShortRouteDistanceWindow(0.2);
+    expect(minKm).toBeGreaterThanOrEqual(0.1);
+  });
+
+  it('window still contains the exact target distance (no off-by-construction gap)', () => {
+    for (const target of [0.2, 0.6, 1.0, 1.4]) {
+      const { minKm, maxKm } = computeShortRouteDistanceWindow(target);
+      expect(minKm).toBeLessThanOrEqual(target);
+      expect(maxKm).toBeGreaterThanOrEqual(target);
+    }
+  });
+
+  it('window width grows with target, same proportional-scaling principle as computeDistanceWindow', () => {
+    const w02 = computeShortRouteDistanceWindow(0.2);
+    const w14 = computeShortRouteDistanceWindow(1.4);
+    expect(w14.maxKm - w14.minKm).toBeGreaterThan(w02.maxKm - w02.minKm);
   });
 });
 
