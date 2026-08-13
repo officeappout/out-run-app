@@ -668,9 +668,12 @@ export const WORKOUT_DELETE_EXPANDED_ENABLED = false;
 // Classification-only change: duration/calories/coins/xp/segments and every
 // other saved field are untouched either way.
 //
-// DEFAULT FALSE (13.08.2026) pending David's on-device verification — this is
-// this code path's first-ever execution, live or in test.
-export const RECOVERY_WORKOUT_CATEGORIZATION_ENABLED = false;
+// FLIPPED TRUE (13.08.2026) — David approved going straight to production for
+// this one (no separate device-verification pass first). Live for all users
+// once this ships: any future recovery-video-trio completion will be labeled
+// "אימון התאוששות" and excluded from the weekly strength-day count. Does not
+// retroactively relabel past completions already saved as 'strength'.
+export const RECOVERY_WORKOUT_CATEGORIZATION_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
