@@ -498,7 +498,13 @@ export const IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED = true;
 // scope as the route-preview flag: only David's account currently ever
 // receives a push with targetSteps (gated by
 // app_config/feature_flags.stepGoalTestUids on the push side).
-export const IS_STEP_GOAL_SHORT_ROUTE_ENABLED = false;
+// FLIPPED TRUE for on-device verification (13.08.2026) — the both-fail edge
+// (loop AND out-and-back both return zero routes) now falls back to the
+// standard floored loop, so a thin-coverage city degrades to a
+// longer-than-promised route instead of an empty screen. Calibration
+// constants (MIN_PATH_POINTS_SHORT etc.) are still initial guesses — revisit
+// after David's device test.
+export const IS_STEP_GOAL_SHORT_ROUTE_ENABLED = true;
 
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
