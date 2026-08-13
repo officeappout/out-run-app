@@ -1976,4 +1976,120 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   // ─── Yavne (יבנה) — bonus gap-only fix, caught while scoping Tier 3 ───
   'yv-green':       { lat: 31.8653623, lng: 34.7362563 },
   'yv-neot-shamir': { lat: 31.8600000, lng: 34.7200000 }, // medium — no OSM node exists (nearest match is a mistagged node ~12km away near Rehovot, discarded); landmark-anchored per myavne.co.il's own description (west Yavne, between the city and the Route 4 Yavne-South interchange)
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Tier 2 full-build (13.08.2026): 5 cities with zero prior neighborhood
+  // data (Rahat, Umm al-Fahm, Nazareth, Akko, Tiberias, Givatayim). Elad
+  // stays a bare city entry — research found no colloquial neighborhood
+  // structure exists there (see israel-locations.ts comment).
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ─── רהט (Rahat) — numbered districts + named areas ───
+  'rht-2':  { lat: 31.4017513, lng: 34.7602840 },
+  'rht-3':  { lat: 31.4012521, lng: 34.7658817 },
+  'rht-4':  { lat: 31.3989695, lng: 34.7695120 },
+  'rht-5':  { lat: 31.3960304, lng: 34.7710531 },
+  'rht-7':  { lat: 31.3957893, lng: 34.7635444 },
+  'rht-8':  { lat: 31.3949493, lng: 34.7681991 },
+  'rht-9':  { lat: 31.4013850, lng: 34.7544526 },
+  'rht-10': { lat: 31.4029315, lng: 34.7517598 },
+  'rht-12': { lat: 31.3999784, lng: 34.7452008 },
+  'rht-13': { lat: 31.3941260, lng: 34.7462434 },
+  'rht-14': { lat: 31.3969076, lng: 34.7419702 },
+  'rht-17': { lat: 31.3919805, lng: 34.7388186 },
+  'rht-18': { lat: 31.3882195, lng: 34.7346500 },
+  'rht-20': { lat: 31.3912527, lng: 34.7508084 },
+  'rht-21': { lat: 31.3891602, lng: 34.7489317 },
+  'rht-22': { lat: 31.3889052, lng: 34.7456416 },
+  'rht-24': { lat: 31.3915983, lng: 34.7570412 },
+  'rht-25': { lat: 31.3923118, lng: 34.7624018 },
+  'rht-26': { lat: 31.3878567, lng: 34.7619486 },
+  'rht-27': { lat: 31.3886159, lng: 34.7563444 },
+  'rht-29': { lat: 31.3867955, lng: 34.7686681 },
+  'rht-30': { lat: 31.3853237, lng: 34.7609047 },
+  'rht-31': { lat: 31.3851747, lng: 34.7558334 },
+  'rht-32': { lat: 31.3859775, lng: 34.7514848 },
+  'rht-33': { lat: 31.3869342, lng: 34.7442009 },
+  'rht-34': { lat: 31.3860173, lng: 34.7411270 },
+  'rht-38': { lat: 31.3904954, lng: 34.7755886 },
+  'rht-al-nur':          { lat: 31.3913930, lng: 34.7572423 },
+  'rht-al-marwa':        { lat: 31.3956250, lng: 34.7711742 },
+  'rht-al-zayadna':      { lat: 31.3683157, lng: 34.7396573 },
+  'rht-khirbet-zbalih':  { lat: 31.4088561, lng: 34.7491824 }, // medium — OSM node only, no polygon confirms extent
+
+  // ─── אום אל-פחם (Umm al-Fahm) ───
+  'uaf-ein-ibrahim': { lat: 32.5356842, lng: 35.1441692 },
+  'uaf-abu-sabri':   { lat: 32.5528092, lng: 35.1679012 },
+  'uaf-qahawesh':    { lat: 32.5342107, lng: 35.1524495 },
+  'uaf-al-moalaka':  { lat: 32.5039325, lng: 35.1242066 },
+  'uaf-akkada':      { lat: 32.5416027, lng: 35.1703007 },
+  'uaf-al-bayar':    { lat: 32.5142892, lng: 35.1146224 },
+
+  // ─── נצרת (Nazareth) ───
+  'ntz-al-kurum':          { lat: 32.706503, lng: 35.285207 },
+  'ntz-umm-qubi':          { lat: 32.704913, lng: 35.284776 }, // medium
+  'ntz-al-ummal-al-arab':  { lat: 32.702030, lng: 35.288120 },
+  'ntz-al-bishara':        { lat: 32.710803, lng: 35.294004 },
+  'ntz-al-fakhura':        { lat: 32.684009, lng: 35.289002 },
+  'ntz-khalat-a-dir':      { lat: 32.693988, lng: 35.292427 },
+  'ntz-wadi-al-hajj':      { lat: 32.689986, lng: 35.297590 }, // medium
+  'ntz-safafra':           { lat: 32.712112, lng: 35.299468 },
+  'ntz-namsawi':           { lat: 32.704900, lng: 35.306316 },
+  'ntz-a-rum':             { lat: 32.707759, lng: 35.307306 },
+  'ntz-al-khanuk':         { lat: 32.710611, lng: 35.305625 },
+  'ntz-al-sharqiya':       { lat: 32.698167, lng: 35.305582 },
+
+  // ─── עכו (Akko) ───
+  'ak-kiryat-wolfson':      { lat: 32.9293909, lng: 35.0813912 },
+  'ak-menachem-begin':      { lat: 32.9384719, lng: 35.0772494 },
+  'ak-neve-alon':           { lat: 32.9306814, lng: 35.0919848 },
+  'ak-neve-aviv':           { lat: 32.9358892, lng: 35.0937893 },
+  'ak-avraham-danino':      { lat: 32.9256498, lng: 35.0936954 },
+  'ak-moriya':              { lat: 32.9263343, lng: 35.0958626 },
+  'ak-ben-gurion':          { lat: 32.9231823, lng: 35.0954120 },
+  'ak-neve-yoni-netanyahu': { lat: 32.9248831, lng: 35.0897854 },
+  'ak-neot-yam':            { lat: 32.9297715, lng: 35.0874619 },
+  'ak-tzafon-hakerem':      { lat: 32.9441584, lng: 35.0786651 },
+  'ak-mishkenot-hakerem':   { lat: 32.9389467, lng: 35.0830284 },
+  'ak-old-city':            { lat: 32.9220000, lng: 35.0697000 }, // medium — polygon-anchored (UNESCO protected area)
+  'ak-neve-sapir':          { lat: 32.9202000, lng: 35.0929000 }, // medium — landmark-anchored (named shopping center)
+
+  // ─── טבריה (Tiberias) ───
+  // tb-kiryat-moshe / tb-achuzat-kinneret-east intentionally NOT shipped —
+  // both resolve to the exact same CBS statistical-area centroid (0m apart),
+  // the source polygon bundles both names under one point. Shipping either
+  // would misrepresent precision; shipping both would recreate the exact
+  // centering bug this project exists to fix. Parked pending a real per-name
+  // source (e.g. municipal GIS, if one becomes accessible).
+  'tb-peer':                    { lat: 32.784457, lng: 35.512429 },
+  'tb-shikun-gimel':            { lat: 32.783332, lng: 35.507373 },
+  'tb-ramat-egoz':              { lat: 32.778172, lng: 35.512538 },
+  'tb-ben-gurion':              { lat: 32.780578, lng: 35.515227 },
+  'tb-plus-200':                { lat: 32.784981, lng: 35.517874 },
+  'tb-mordot-tiberias':         { lat: 32.783713, lng: 35.522840 },
+  'tb-tveria-illit':            { lat: 32.783011, lng: 35.513839 },
+  'tb-nof-kinneret':            { lat: 32.786582, lng: 35.525224 },
+  'tb-ramat-kinneret':          { lat: 32.794503, lng: 35.522458 },
+  'tb-rabbi-akiva':             { lat: 32.790123, lng: 35.524460 },
+  'tb-david-remez':             { lat: 32.799994, lng: 35.524245 },
+  'tb-don-yosef-hanasi':        { lat: 32.794199, lng: 35.537219 },
+  'tb-geulim':                  { lat: 32.781234, lng: 35.537936 },
+  'tb-achva':                   { lat: 32.782656, lng: 35.541232 },
+  'tb-old-city':                { lat: 32.786206, lng: 35.542649 },
+  'tb-harambam':                { lat: 32.789920, lng: 35.539191 },
+  'tb-kiryat-shmuel':           { lat: 32.796909, lng: 35.531456 },
+  'tb-achuzat-kinneret-west':   { lat: 32.789741, lng: 35.523632 },
+
+  // ─── גבעתיים (Givatayim) ───
+  'gv-borochov':                  { lat: 32.0775747, lng: 34.8081818 },
+  'gv-sheinkin':                  { lat: 32.0740320, lng: 34.8100563 },
+  'gv-arlosoroff':                { lat: 32.0712815, lng: 34.8112931 },
+  'gv-givat-rambam':              { lat: 32.0668104, lng: 34.8043334 },
+  'gv-kiryat-yosef':              { lat: 32.0756350, lng: 34.8037708 },
+  'gv-kozlovsky':                 { lat: 32.0712146, lng: 34.8166130 },
+  'gv-poalei-harakevet':          { lat: 32.0777065, lng: 34.8179752 },
+  'gv-tel-ganim':                 { lat: 32.0652509, lng: 34.8181405 },
+  'gv-shikun-hevrat-hahashmal':   { lat: 32.0633253, lng: 34.8080207 },
+  'gv-shikun-kupat-holim':        { lat: 32.0652413, lng: 34.8053698 },
+  'gv-shetach-9':                 { lat: 32.0673352, lng: 34.8126793 },
 };

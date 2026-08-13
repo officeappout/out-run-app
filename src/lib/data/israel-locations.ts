@@ -928,11 +928,107 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
   // ============================================================
   // 2. ערים ומועצות מקומיות (ללא פירוט שכונות - יחידה אחת)
   // ============================================================
-  { id: 'rahat', name: 'רהט', type: 'city', population: 81000 },
-  { id: 'umm-al-fahm', name: 'אום אל-פחם', type: 'city', population: 59000 },
-  { id: 'nazareth', name: 'נצרת', type: 'city', population: 78000 },
-  { id: 'akko', name: 'עכו', type: 'city', population: 51000 },
-  { id: 'elad', name: 'אלעד', type: 'city', population: 50000 },
+  {
+    id: 'rahat', name: 'רהט', type: 'city', population: 81829,
+    // ── Full-build (13.08.2026): Rahat uses numbered residential districts
+    // ("שכונה N"), not Western-style named neighborhoods — confirmed via
+    // municipal planning docs + dense OSM tagging. 11 numbering gaps (1, 6,
+    // 11, 15, 16, 19, 23, 28, 35, 36, 37) have zero OSM data — parked, not
+    // guessed.
+    subLocations: [
+      { id: 'rht-2', name: 'שכונה 2', type: 'neighborhood' },
+      { id: 'rht-3', name: 'שכונה 3', type: 'neighborhood' },
+      { id: 'rht-4', name: 'שכונה 4', type: 'neighborhood' },
+      { id: 'rht-5', name: 'שכונה 5', type: 'neighborhood' },
+      { id: 'rht-7', name: 'שכונה 7', type: 'neighborhood' },
+      { id: 'rht-8', name: 'שכונה 8', type: 'neighborhood' },
+      { id: 'rht-9', name: 'שכונה 9', type: 'neighborhood' },
+      { id: 'rht-10', name: 'שכונה 10', type: 'neighborhood' },
+      { id: 'rht-12', name: 'שכונה 12', type: 'neighborhood' },
+      { id: 'rht-13', name: 'שכונה 13', type: 'neighborhood' },
+      { id: 'rht-14', name: 'שכונה 14', type: 'neighborhood' },
+      { id: 'rht-17', name: 'שכונה 17', type: 'neighborhood' },
+      { id: 'rht-18', name: 'שכונה 18', type: 'neighborhood' },
+      { id: 'rht-20', name: 'שכונה 20', type: 'neighborhood' },
+      { id: 'rht-21', name: 'שכונה 21', type: 'neighborhood' },
+      { id: 'rht-22', name: 'שכונה 22', type: 'neighborhood' },
+      { id: 'rht-24', name: 'שכונה 24', type: 'neighborhood' },
+      { id: 'rht-25', name: 'שכונה 25', type: 'neighborhood' },
+      { id: 'rht-26', name: 'שכונה 26', type: 'neighborhood' },
+      { id: 'rht-27', name: 'שכונה 27', type: 'neighborhood' },
+      { id: 'rht-29', name: 'שכונה 29', type: 'neighborhood' },
+      { id: 'rht-30', name: 'שכונה 30', type: 'neighborhood' },
+      { id: 'rht-31', name: 'שכונה 31', type: 'neighborhood' },
+      { id: 'rht-32', name: 'שכונה 32', type: 'neighborhood' },
+      { id: 'rht-33', name: 'שכונה 33', type: 'neighborhood' },
+      { id: 'rht-34', name: 'שכונה 34', type: 'neighborhood' },
+      { id: 'rht-38', name: 'שכונה 38', type: 'neighborhood' },
+      { id: 'rht-al-nur', name: 'אל-נור', type: 'neighborhood' },
+      { id: 'rht-al-marwa', name: 'אל-מרוואה', type: 'neighborhood' },
+      { id: 'rht-al-zayadna', name: 'א-זידאנה אל-נסאסרה', type: 'neighborhood' },
+      { id: 'rht-khirbet-zbalih', name: "ח'רבת זבאלה", type: 'neighborhood' },
+    ]
+  },
+  {
+    id: 'umm-al-fahm', name: 'אום אל-פחם', type: 'city', population: 59319,
+    // ── Full-build (13.08.2026): OSM tagging here is sparse (structure is
+    // hamula/clan-based socially, not geographically — no cluster field
+    // shipped). ~40 more named micro-neighborhoods exist per CBS statistical
+    // areas but have zero coordinate source — parked in bulk, not guessed.
+    subLocations: [
+      { id: 'uaf-ein-ibrahim', name: 'עין איברהים', type: 'neighborhood' },
+      { id: 'uaf-abu-sabri', name: 'אבו סברי', type: 'neighborhood' },
+      { id: 'uaf-qahawesh', name: 'קחאווש', type: 'neighborhood' },
+      { id: 'uaf-al-moalaka', name: 'אל-מועלקה', type: 'neighborhood' },
+      { id: 'uaf-akkada', name: 'עקאדה', type: 'neighborhood' },
+      { id: 'uaf-al-bayar', name: 'אל ביאר', type: 'neighborhood' },
+    ]
+  },
+  {
+    id: 'nazareth', name: 'נצרת', type: 'city', population: 75241,
+    // ── Full-build (13.08.2026): official·local naming — Arabic name first
+    // (as locally used), Hebrew transliteration after the middle dot. No
+    // municipal GIS layer exists; sourced via OSM bus-stop naming convention
+    // + Wikipedia cross-check. 16 additional named quarters referenced in
+    // sources but unconfirmed by an independent coordinate — parked.
+    subLocations: [
+      { id: 'ntz-al-kurum', name: 'الكروم · אל-כורום', type: 'neighborhood' },
+      { id: 'ntz-umm-qubi', name: 'أم قبي · אום קוביי', type: 'neighborhood' },
+      { id: 'ntz-al-ummal-al-arab', name: 'العمال العرب · אל-עומאל אל-ערב', type: 'neighborhood' },
+      { id: 'ntz-al-bishara', name: 'البشارة · אל-בשארה', type: 'neighborhood' },
+      { id: 'ntz-al-fakhura', name: "الفاخورة · אל-פאח'ורה", type: 'neighborhood' },
+      { id: 'ntz-khalat-a-dir', name: 'خلة الدير · ח\'לת א-דיר', type: 'neighborhood' },
+      { id: 'ntz-wadi-al-hajj', name: "وادي الحاج · ואדי אל-חאג'", type: 'neighborhood' },
+      { id: 'ntz-safafra', name: 'الصفافرة · ספאפרה', type: 'neighborhood' },
+      { id: 'ntz-namsawi', name: 'النمساوي · נמסאווי', type: 'neighborhood' },
+      { id: 'ntz-a-rum', name: 'الروم · א-רום', type: 'neighborhood' },
+      { id: 'ntz-al-khanuk', name: "الخانوق · אל-ח'אנוק", type: 'neighborhood' },
+      { id: 'ntz-al-sharqiya', name: 'الشرقية · הרובע המזרחי', type: 'neighborhood' },
+    ]
+  },
+  {
+    id: 'akko', name: 'עכו', type: 'city', population: 52992,
+    // ── Full-build (13.08.2026): no municipal GIS access; OSM place-nodes
+    // cross-checked against Wikipedia's own neighborhood list. Old City +
+    // Neve Sapir are medium-confidence (polygon/landmark-anchored, not exact
+    // OSM nodes). רמות ים and הכרם ג' parked — confirmed active construction.
+    subLocations: [
+      { id: 'ak-kiryat-wolfson', name: 'קרית וולפסון', type: 'neighborhood' },
+      { id: 'ak-menachem-begin', name: 'מנחם בגין', type: 'neighborhood' },
+      { id: 'ak-neve-alon', name: 'נווה אלון', type: 'neighborhood' },
+      { id: 'ak-neve-aviv', name: 'נווה אביב', type: 'neighborhood' },
+      { id: 'ak-avraham-danino', name: 'אברהם דנינו', type: 'neighborhood' },
+      { id: 'ak-moriya', name: 'מוריה', type: 'neighborhood' },
+      { id: 'ak-ben-gurion', name: 'בן גוריון', type: 'neighborhood' },
+      { id: 'ak-neve-yoni-netanyahu', name: 'נווה יוני נתניהו', type: 'neighborhood' },
+      { id: 'ak-neot-yam', name: 'נאות ים', type: 'neighborhood' },
+      { id: 'ak-tzafon-hakerem', name: 'צפון הכרם', type: 'neighborhood' },
+      { id: 'ak-mishkenot-hakerem', name: 'משכנות הכרם', type: 'neighborhood' },
+      { id: 'ak-old-city', name: 'העיר העתיקה', type: 'neighborhood' },
+      { id: 'ak-neve-sapir', name: 'נווה ספיר', type: 'neighborhood' },
+    ]
+  },
+  { id: 'elad', name: 'אלעד', type: 'city', population: 51800 },
   { id: 'ramat-hasharon', name: 'רמת השרון', type: 'city', population: 48000 },
   { id: 'karmiel', name: 'כרמיאל', type: 'city', population: 47000 },
   { id: 'tayibe', name: 'טייבה', type: 'city', population: 46000 },
@@ -965,7 +1061,38 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     ],
   },
   { id: 'givat-shmuel', name: 'גבעת שמואל', type: 'city', population: 29000 },
-  { id: 'tiberias', name: 'טבריה', type: 'city', population: 48000 },
+  {
+    id: 'tiberias', name: 'טבריה', type: 'city', population: 50215,
+    // ── Full-build (13.08.2026): sourced via CBS ArcGIS statistical-areas
+    // FeatureServer (real polygon centroids, filtered to settlement code
+    // 6700) cross-checked against OSM. tb-kiryat-moshe and
+    // tb-achuzat-kinneret-east PARKED — both resolve to the exact same CBS
+    // centroid (0m apart), the polygon bundles two names under one point;
+    // shipping either would misrepresent precision, shipping both would
+    // recreate the exact centering bug this project exists to fix. 7 more
+    // items parked from the original research (see report) for drift/
+    // ambiguity/under-construction reasons.
+    subLocations: [
+      { id: 'tb-peer', name: 'פאר', type: 'neighborhood' },
+      { id: 'tb-shikun-gimel', name: "שיכון ג'", type: 'neighborhood' },
+      { id: 'tb-ramat-egoz', name: 'רמת אגוז', type: 'neighborhood' },
+      { id: 'tb-ben-gurion', name: 'בן גוריון', type: 'neighborhood' },
+      { id: 'tb-plus-200', name: '200 פלוס', type: 'neighborhood' },
+      { id: 'tb-mordot-tiberias', name: 'מורדות טבריה', type: 'neighborhood' },
+      { id: 'tb-tveria-illit', name: 'טבריה עילית', type: 'neighborhood' },
+      { id: 'tb-nof-kinneret', name: 'נוף כנרת', type: 'neighborhood' },
+      { id: 'tb-ramat-kinneret', name: 'רמת כנרת', type: 'neighborhood' },
+      { id: 'tb-rabbi-akiva', name: 'רבי עקיבא · בית וגן', type: 'neighborhood' },
+      { id: 'tb-david-remez', name: 'דוד רמז', type: 'neighborhood' },
+      { id: 'tb-don-yosef-hanasi', name: 'דון יוסף הנשיא · שיכון ותיקים', type: 'neighborhood' },
+      { id: 'tb-geulim', name: 'גאולים', type: 'neighborhood' },
+      { id: 'tb-achva', name: 'אחווה', type: 'neighborhood' },
+      { id: 'tb-old-city', name: 'העיר העתיקה', type: 'neighborhood' },
+      { id: 'tb-harambam', name: 'הרמב"ם · מימוניה', type: 'neighborhood' },
+      { id: 'tb-kiryat-shmuel', name: 'קריית שמואל', type: 'neighborhood' },
+      { id: 'tb-achuzat-kinneret-west', name: 'אחוזת כנרת מערב', type: 'neighborhood' },
+    ]
+  },
   { id: 'safed', name: 'צפת', type: 'city', population: 38000 },
   { id: 'shoham', name: 'שוהם', type: 'local_council', population: 22000 },
   { id: 'mevaseret-zion', name: 'מבשרת ציון', type: 'local_council', population: 25000 },
@@ -1164,7 +1291,27 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
   { id: 'bkh-l-grbyh', name: 'באקה אל-גרביה', type: 'city', population: 32933 },
   { id: 'br-ykb', name: 'באר יעקב', type: 'city', population: 39079 },
   { id: 'byt-shn', name: 'בית שאן', type: 'city', population: 21813 },
-  { id: 'gbtyym', name: 'גבעתיים', type: 'city', population: 65883 },
+  {
+    id: 'gbtyym', name: 'גבעתיים', type: 'city', population: 58290,
+    // ── Full-build (13.08.2026): built on 4 hills + mid-century "shikun"
+    // enclaves, no structured cluster source. Several OSM boundary-adjacency
+    // false-positives (נחלת יצחק, רמת הטייסים, הראשונים etc.) confirmed to
+    // actually belong to Tel Aviv/Ramat Gan and excluded. דרום גבעתיים
+    // parked — confirmed a generic directional label, not a distinct place.
+    subLocations: [
+      { id: 'gv-borochov', name: 'בורוכוב', type: 'neighborhood' },
+      { id: 'gv-sheinkin', name: 'שנקין · שיינקין', type: 'neighborhood' },
+      { id: 'gv-arlosoroff', name: 'ארלוזורוב', type: 'neighborhood' },
+      { id: 'gv-givat-rambam', name: 'גבעת רמב"ם', type: 'neighborhood' },
+      { id: 'gv-kiryat-yosef', name: 'קריית יוסף', type: 'neighborhood' },
+      { id: 'gv-kozlovsky', name: 'גבעת קוזלובסקי', type: 'neighborhood' },
+      { id: 'gv-poalei-harakevet', name: 'פועלי הרכבת', type: 'neighborhood' },
+      { id: 'gv-tel-ganim', name: 'תל גנים', type: 'neighborhood' },
+      { id: 'gv-shikun-hevrat-hahashmal', name: 'שיכון חברת חשמל', type: 'neighborhood' },
+      { id: 'gv-shikun-kupat-holim', name: 'שיכון קופת חולים', type: 'neighborhood' },
+      { id: 'gv-shetach-9', name: 'שטח 9 · בן צבי', type: 'neighborhood' },
+    ]
+  },
   { id: 'gny-tkvvh', name: 'גני תקווה', type: 'city', population: 26562 },
   { id: 'chrysh', name: 'חריש', type: 'city', population: 42153 },
   { id: 'tyrt-krml', name: 'טירת כרמל', type: 'city', population: 34061 },
