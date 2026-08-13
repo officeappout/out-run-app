@@ -826,10 +826,10 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   // ── Completeness-gate fix (12.08.2026): 2 of 3 resolved cleanly. ──
   'ei-shaham': { lat: 29.5475669, lng: 34.9357898 },
   'ei-arava':  { lat: 29.5616661, lng: 34.9441794 },
-  // ei-ganim: PARKED, not shipped — flagged for David. "גנים" splits into two distinct areas in
-  // OSM (גנים א / גנים ב, ~640m apart) and the picker only has one undifferentiated entry — can't
-  // pick one without guessing which was meant. Needs a product decision (split the entry, or
-  // confirm which of the two "גנים" is intended).
+  // ei-ganim: resolved 13.08.2026 per David's decision — keep ONE picker entry,
+  // don't split for a 640m OSM artifact. Midpoint of גנים א (29.5517664, 34.9407235)
+  // and גנים ב (29.5482058, 34.9454381).
+  'ei-ganim':  { lat: 29.5499861, lng: 34.9430808 },
 
   // ─── NES ZIONA neighborhoods ───────────────────────────────
   // NOTE: nz-north/nz-south below don't match any real picker id — orphaned. nz-center IS a real

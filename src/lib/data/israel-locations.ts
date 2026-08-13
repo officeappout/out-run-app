@@ -285,10 +285,14 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     type: 'city',
     population: 260000,
     subLocations: [
-      { id: 'rl-west', name: 'מערב ראשון', type: 'neighborhood' },
+      // rl-west / rl-east (מערב/מזרח ראשון) DEPRECATED + removed 13.08.2026 —
+      // legacy coarse directional halves, superseded by the 41 real OSM-sourced
+      // neighborhoods below. Confirmed 0 users had either saved
+      // (core.neighborhoodId query against both Firestore docs, gt5dEz4v66RsTxABvx1y
+      // / u9G6dHMeceShjRZsvlj3). Firestore docs left in place, untouched, for the
+      // structural duplicate-authority cleanup pass — just no longer selectable here.
       { id: 'rl-cramim', name: 'כרמים', type: 'neighborhood' },
       { id: 'rl-center', name: 'מרכז העיר', type: 'neighborhood' },
-      { id: 'rl-east', name: 'מזרח ראשון', type: 'neighborhood' },
       { id: 'rl-ramat-eliyahu', name: 'רמת אליהו', type: 'neighborhood' },
       { id: 'rl-nahalat', name: 'נחלת יהודה', type: 'neighborhood' },
       // ── OSM import, 10.08.2026 (Overpass place=suburb/neighbourhood within
