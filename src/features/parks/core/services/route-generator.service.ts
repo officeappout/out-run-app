@@ -1187,7 +1187,18 @@ async function generateShortRoutes(options: RouteGenerationOptions): Promise<Rou
     return loopRoutes;
   }
   console.log('[RouteGenerator] Short-route: loop attempt produced 0 routes — falling back to out-and-back.');
-  return generateOutAndBackRoutes(options);
+  const outAndBackRoutes = await generateOutAndBackRoutes(options);
+  if (outAndBackRoutes.length > 0) {
+    console.log(`[RouteGenerator] Short-route: out-and-back succeeded (${outAndBackRoutes.length} route(s)).`);
+    return outAndBackRoutes;
+  }
+  // Both short-route attempts failed (extreme thin street_segments coverage —
+  // not enough real candidates near the tiny ideal radius for either shape).
+  // Final fallback: the standard floored loop (today's known-safe behavior,
+  // shortMode omitted). A route that's longer than the push promised beats
+  // an empty "no route" screen after the user tapped a notification.
+  console.log('[RouteGenerator] Short-route: out-and-back also produced 0 routes — falling back to the standard floored loop so the user never sees an empty screen after a push tap.');
+  return generateLoopRoutes(options);
 }
 
 /**
