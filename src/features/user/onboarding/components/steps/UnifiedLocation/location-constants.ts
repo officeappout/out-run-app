@@ -1873,4 +1873,107 @@ export const DEFAULT_COORDINATES: Record<string, { lat: number; lng: number }> =
   'jr-beit-vegan':              { lat: 31.7641422, lng: 35.1866879 },
   'jr-beit-hanina':             { lat: 31.8248703, lng: 35.2277301 },
   'jr-beit-safafa':             { lat: 31.7441489, lng: 35.2062517 },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Tier 3 (13.08.2026): 13 named regional councils' member settlements +
+  // one bonus gap-only fix (Yavne, caught while scoping this pass).
+  // All OSM place-node coordinates via Overpass, cross-checked against
+  // Wikidata IDs; 2 items landmark-anchored/medium confidence where noted.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ─── מועצה אזורית עמק חפר (Emek Hefer) ───
+  'eh-bat-hefer':        { lat: 32.3345015, lng: 35.0123510 },
+  'eh-vitkin':           { lat: 32.3809359, lng: 34.8751918 },
+  'eh-michmoret':        { lat: 32.4062774, lng: 34.8728998 },
+  'eh-avihayil':         { lat: 32.3502322, lng: 34.8717347 },
+  'eh-maabarot':         { lat: 32.3639465, lng: 34.9046905 },
+  'eh-mishmar-hasharon': { lat: 32.3564792, lng: 34.9033593 },
+  'eh-ein-hahoresh':     { lat: 32.3863188, lng: 34.9400265 },
+
+  // ─── מועצה אזורית מטה יהודה (Mateh Yehuda) ───
+  'my-tzur-hadassah': { lat: 31.7156945, lng: 35.0948306 },
+  'my-tzora':         { lat: 31.7627391, lng: 34.9686245 },
+  'my-eshtaol':       { lat: 31.7801952, lng: 35.0097885 },
+  'my-shoresh':       { lat: 31.7974834, lng: 35.0651321 },
+  'my-nes-harim':     { lat: 31.7444618, lng: 35.0579576 },
+  'my-nehusha':       { lat: 31.6287914, lng: 34.9522836 },
+
+  // ─── מועצה אזורית דרום השרון (Drom HaSharon) ───
+  'dh-nir-eliyahu': { lat: 32.1973859, lng: 34.9483587 },
+  'dh-eyal':        { lat: 32.2113762, lng: 34.9789972 },
+  'dh-hagor':       { lat: 32.1375681, lng: 34.9481658 },
+  'dh-matan':       { lat: 32.1561435, lng: 34.9742805 },
+  'dh-zur-natan':   { lat: 32.2407088, lng: 35.0138835 },
+
+  // ─── מועצה אזורית חוף השרון (Hof HaSharon) ───
+  // NOTE: 'hhs-' prefix is ALSO used above (line ~765) by Hod HaSharon's
+  // orphaned legacy block (hhs-center/hhs-kiryat-haroeh/hhs-magdiel/hhs-north
+  // — dead keys, real Hod HaSharon ids use 'hh-'). No actual string collision
+  // (different suffixes) but don't assume 'hhs-' always means Hod HaSharon.
+  'hhs-shefayim':    { lat: 32.2169192, lng: 34.8248191 },
+  'hhs-gaash':       { lat: 32.2288879, lng: 34.8234798 },
+  'hhs-yakum':       { lat: 32.2485734, lng: 34.8420870 },
+  'hhs-rishpon':     { lat: 32.1995547, lng: 34.8244371 },
+  'hhs-udim':        { lat: 32.2647709, lng: 34.8469332 },
+  'hhs-tel-yitzhak': { lat: 32.2527746, lng: 34.8696976 },
+
+  // ─── מועצה אזורית עמק יזרעאל (Emek Yizrael) ───
+  'ey-nahalal':         { lat: 32.6900631, lng: 35.1968485 },
+  'ey-mishmar-haemek':  { lat: 32.6105821, lng: 35.1421972 },
+  'ey-ifat':            { lat: 32.6771965, lng: 35.2238731 },
+  'ey-genigar':         { lat: 32.6642603, lng: 35.2569439 },
+  'ey-balfouria':       { lat: 32.6302897, lng: 35.2970682 },
+
+  // ─── מועצה אזורית משגב (Misgav) ───
+  'mg-atzmon':   { lat: 32.8659821, lng: 35.2512054 },
+  'mg-yodfat':   { lat: 32.8372367, lng: 35.2715538 },
+  'mg-manof':    { lat: 32.8541336, lng: 35.2367706 },
+  'mg-shorashim':{ lat: 32.8927231, lng: 35.2599068 },
+
+  // ─── מועצה אזורית אשכול (Eshkol) ───
+  'es-beeri':          { lat: 31.4241619, lng: 34.4911156 },
+  'es-magen':          { lat: 31.2990681, lng: 34.4289248 },
+  'es-nir-oz':         { lat: 31.3095982, lng: 34.4008150 },
+  'es-ein-hashlosha':  { lat: 31.3513501, lng: 34.4009660 },
+
+  // ─── מועצה אזורית שומרון (Shomron) ───
+  'sh-barkan':       { lat: 32.1066179, lng: 35.1065559 },
+  'sh-revava':       { lat: 32.1191025, lng: 35.1276417 },
+  'sh-avnei-hefetz': { lat: 32.2847457, lng: 35.0735508 },
+  'sh-itamar':       { lat: 32.1744995, lng: 35.3083649 },
+
+  // ─── מועצה אזורית מטה בנימין (Mateh Binyamin) ───
+  'bn-kochav-yaakov': { lat: 31.8814286, lng: 35.2452887 },
+  'bn-adam':          { lat: 31.8494569, lng: 35.2734356 }, // medium — Overpass timed out repeatedly on this token, sourced from Hebrew Wikipedia infobox
+  'bn-ofra':          { lat: 31.9520884, lng: 35.2661081 }, // medium — same reason; official spelling עפרה, not עופרה
+  'bn-shilo':         { lat: 32.0552166, lng: 35.2994873 },
+
+  // ─── מועצה אזורית גוש עציון (Gush Etzion) ───
+  'ge-alon-shvut':  { lat: 31.6549203, lng: 35.1267718 },
+  'ge-tekos':       { lat: 31.6532800, lng: 35.2293265 },
+  'ge-kfar-etzion': { lat: 31.6486820, lng: 35.1149731 },
+  'ge-neve-daniel': { lat: 31.6761931, lng: 35.1428321 },
+
+  // ─── מועצה אזורית חבל מודיעין (Hevel Modiin) ───
+  'hm-shoham':      { lat: 32.0004845, lng: 34.9465419 }, // Shoham is a standalone ~21k-pop town, not a small settlement — coordinate is town center
+  'hm-lapid':       { lat: 31.9175529, lng: 35.0319405 },
+  'hm-kfar-daniel': { lat: 31.9332996, lng: 34.9326218 },
+  'hm-ben-shemen':  { lat: 31.9522788, lng: 34.9219440 },
+
+  // ─── מועצה אזורית גזר (Gezer) ───
+  'gz-karmei-yosef':  { lat: 31.8469647, lng: 34.9204701 },
+  'gz-naan':          { lat: 31.8837553, lng: 34.8570894 },
+  'gz-mishmar-david': { lat: 31.8224828, lng: 34.9009264 },
+
+  // ─── מועצה אזורית גולן (Golan) ───
+  // 'רמות' disambiguated against 2 same-named unrelated places (Jerusalem
+  // neighborhood, Beit Shemesh-area neighborhood) — confirmed via elevation
+  // (below sea level, Kinneret-area) and Wikipedia's own "רמות (מושב)" title.
+  'go-hispin':      { lat: 32.8450731, lng: 35.7928356 },
+  'go-bene-yehuda': { lat: 32.7984155, lng: 35.6902145 },
+  'go-ramot':       { lat: 32.8498005, lng: 35.6667474 },
+
+  // ─── Yavne (יבנה) — bonus gap-only fix, caught while scoping Tier 3 ───
+  'yv-green':       { lat: 31.8653623, lng: 34.7362563 },
+  'yv-neot-shamir': { lat: 31.8600000, lng: 34.7200000 }, // medium — no OSM node exists (nearest match is a mistagged node ~12km away near Rehovot, discarded); landmark-anchored per myavne.co.il's own description (west Yavne, between the city and the Route 4 Yavne-South interchange)
 };
