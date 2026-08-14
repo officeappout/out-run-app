@@ -29,6 +29,7 @@ import {
 } from '@/features/user/scheduling/services/userSchedule.service';
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { useUserStore } from '@/features/user';
+import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -441,15 +442,15 @@ export default function RollingAgenda({
           ? `${startDay}–${endDay} ${startMonth}`
           : `${startDay} ${startMonth} — ${endDay} ${endMonth}`;
 
-        // Week number from program start, or null
-        let weekNumber: number | null = null;
-        if (programStart) {
-          const start = new Date(programStart + 'T00:00:00');
-          start.setHours(0, 0, 0, 0);
-          const diffDays = Math.floor((sunday.getTime() - start.getTime()) / 86_400_000);
-          const wn = Math.floor(diffDays / 7) + 1;
-          if (wn >= 1) weekNumber = wn;
-        }
+        // Week number from program start, or null. Gated by
+        // RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED (via resolveRunningCurrentWeek):
+        // while false, stays `null` exactly as today (this hand-rolled version
+        // was always broken — `programStart` is a real Date object, and
+        // string-concatenating it here silently produced an Invalid Date, so
+        // this badge has never actually rendered). Once true, computes the
+        // real week via the canonical calculateCurrentWeek(startDate, asOfDate)
+        // for real, using `sunday` (this week-group's Sunday) as asOfDate.
+        const weekNumber = resolveRunningCurrentWeek(programStart, null, sunday) ?? null;
 
         map.set(sundayISO, {
           weekSunday:    sundayISO,

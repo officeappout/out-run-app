@@ -32,11 +32,18 @@ export type AlignmentAction =
 /**
  * Calculate the current program week from the start date.
  * Week 1 = days 0-6, Week 2 = days 7-13, etc.
+ *
+ * `asOfDate` — optional. Defaults to today (`new Date()`), preserving exact
+ * existing behavior for callers that omit it (markSessionComplete,
+ * rollBackOneWeek — both unchanged by this parameter). Pass an explicit
+ * date to ask "what week does THIS calendar day fall in" instead of "what
+ * week is it right now" — e.g. resolving the week for an arbitrary rendered
+ * agenda day rather than for today.
  */
-export function calculateCurrentWeek(startDate: Date | string | number): number {
+export function calculateCurrentWeek(startDate: Date | string | number, asOfDate?: Date): number {
   const start = new Date(startDate);
   start.setHours(0, 0, 0, 0);
-  const now = new Date();
+  const now = asOfDate ? new Date(asOfDate) : new Date();
   now.setHours(0, 0, 0, 0);
   const diffMs = now.getTime() - start.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));

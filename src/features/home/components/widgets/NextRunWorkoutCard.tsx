@@ -17,6 +17,7 @@ import {
   detectTimeOfDay,
   detectDayPeriod,
 } from '@/features/workout-engine/services/workout-metadata.service';
+import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import type RunWorkout from '@/features/workout-engine/players/running/types/run-workout.type';
 
 const DAY_TO_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -107,6 +108,15 @@ export default function NextRunWorkoutCard() {
   const targetDist = running?.generatedProgramTemplate?.targetDistance ?? '5k';
   const basePace = running?.paceProfile?.basePace ?? 0;
 
+  // Canonical current-week resolution (flag-gated recompute; falls back to
+  // the stored field exactly as today while RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED
+  // is false). Computed once here and reused at every read site below instead
+  // of re-reading the (possibly stale) stored field independently at each one.
+  const effectiveCurrentWeek = resolveRunningCurrentWeek(
+    running?.activeProgram?.startDate,
+    running?.activeProgram?.currentWeek,
+  );
+
   // ── Skip today / rest toggle ──
   const [skippedToday, setSkippedToday] = useState(false);
 
@@ -128,7 +138,7 @@ export default function NextRunWorkoutCard() {
     }
 
     const schedule = running!.activeProgram!.schedule as any[];
-    const currentWeek = running!.activeProgram!.currentWeek ?? 1;
+    const currentWeek = effectiveCurrentWeek ?? 1;
     const weekEntries = schedule.filter((s: any) => s.week === currentWeek);
 
     if (weekEntries.length > 0) {
@@ -171,10 +181,10 @@ export default function NextRunWorkoutCard() {
       workout: 'easy' as WorkoutType,
       workoutLabel: undefined as string | undefined,
       pendingWorkoutId: undefined as string | undefined,
-      pendingWeek: running?.activeProgram?.currentWeek ?? 1,
+      pendingWeek: effectiveCurrentWeek ?? 1,
       pendingDay: undefined as number | undefined,
     };
-  }, [running?.activeProgram, hasActiveSchedule, scheduleDays]);
+  }, [running?.activeProgram, hasActiveSchedule, scheduleDays, effectiveCurrentWeek]);
 
   // ── Load full workout when briefing drawer opens ──
   useEffect(() => {
@@ -229,8 +239,8 @@ export default function NextRunWorkoutCard() {
             category: template.category,
             categoryLabel: template.category ? runningCategoryLabels[template.category] ?? template.category : undefined,
             currentProgram: programId,
-            programProgress: running?.activeProgram?.currentWeek
-              ? Math.round(((running.activeProgram.currentWeek - 1) / ((fullProgram as any)?.totalWeeks ?? 8)) * 100)
+            programProgress: effectiveCurrentWeek
+              ? Math.round(((effectiveCurrentWeek - 1) / ((fullProgram as any)?.totalWeeks ?? 8)) * 100)
               : undefined,
             dayPeriod: detectDayPeriod(),
             runningBasePace: paceProfile.basePace,
@@ -255,7 +265,7 @@ export default function NextRunWorkoutCard() {
         setBriefingLoading(false);
       })
       .catch(() => setBriefingLoading(false));
-  }, [briefingOpen, pendingWorkoutId, running?.paceProfile, running?.activeProgram?.programId, pendingWeek]);
+  }, [briefingOpen, pendingWorkoutId, running?.paceProfile, running?.activeProgram?.programId, pendingWeek, effectiveCurrentWeek]);
 
   const handleBriefingGo = () => {
     setBriefingOpen(false);
@@ -316,7 +326,7 @@ export default function NextRunWorkoutCard() {
     const nextRun = findNextRun(
       scheduleDays,
       running?.activeProgram?.schedule as any[],
-      running?.activeProgram?.currentWeek ?? 1,
+      effectiveCurrentWeek ?? 1,
     );
 
     const CATEGORY_LABELS_HE: Record<string, string> = {
