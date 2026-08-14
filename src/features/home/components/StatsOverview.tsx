@@ -7,7 +7,7 @@ import { startMiniDomainAssessment } from '@/features/user/onboarding/services/m
 import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
-import { HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
+import { HOME_ANCHOR_V2_ENABLED, RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED } from '@/config/feature-flags';
 import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import AnchorLocationChip from './AnchorLocationChip';
@@ -1042,12 +1042,22 @@ export default function StatsOverview({
   const strengthGoal = Math.max(1, scheduleDaysCount);
 
   // Running sessions: use the running schedule as source of truth (matches Profile page)
+  //
+  // currentWeek: flag-gated recompute via the canonical calculateCurrentWeek
+  // (already imported above) instead of trusting the stored field, which only
+  // advances on two narrow write events and goes stale at every week boundary
+  // — see RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED in feature-flags.ts. While
+  // false, this is byte-identical to the prior `?? 1` stored-field read.
   const runningScheduleCompletedThisWeek = useMemo(() => {
     const schedule = profile?.running?.activeProgram?.schedule as Array<{
       week?: number; status?: string;
     }> | undefined;
     if (!schedule?.length) return 0;
-    const currentWeek = profile?.running?.activeProgram?.currentWeek ?? 1;
+    const storedWeek = profile?.running?.activeProgram?.currentWeek ?? 1;
+    const startDate = profile?.running?.activeProgram?.startDate;
+    const currentWeek = RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED && startDate
+      ? calculateCurrentWeek(startDate)
+      : storedWeek;
     return schedule.filter(
       (e) => e.week === currentWeek && e.status === 'completed',
     ).length;

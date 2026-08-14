@@ -20,6 +20,7 @@ import { COMMUNITY_CATEGORY_COLORS } from '@/features/home/utils/day-display.uti
 import { WalkingIcon, RunIcon, getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
+import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
 
 // ── Skill-aware helpers ────────────────────────────────────────────────────
 
@@ -188,15 +189,17 @@ function resolveRunningEntry(
   const letter = DAY_LETTERS[dayIdx];
   if (!scheduleDays.includes(letter)) return null;
 
-  // Calculate which week this date falls in relative to program start
-  let weekNum = currentWeek;
-  if (programStartDate) {
-    const start = new Date(programStartDate);
-    start.setHours(0, 0, 0, 0);
-    const diffMs = d.getTime() - start.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    weekNum = Math.max(1, Math.floor(diffDays / 7) + 1);
-  }
+  // Calculate which week this date falls in relative to program start — via
+  // the canonical calculateCurrentWeek(startDate, asOfDate), asOfDate being
+  // the rendered day `d` (not "today"). Same formula this used to hand-
+  // duplicate inline; NOT gated by RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED —
+  // this call site already unconditionally recomputed per rendered day
+  // whenever programStartDate is present (falling back to the stored
+  // `currentWeek` only in the same rare case as before — startDate itself
+  // missing), so this is a pure de-duplication refactor with no behavior change.
+  const weekNum = programStartDate
+    ? calculateCurrentWeek(programStartDate, d)
+    : currentWeek;
 
   // Find the slot index (1-based "day" in the schedule)
   const trainingDayIndices = scheduleDays

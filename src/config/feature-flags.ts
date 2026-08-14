@@ -723,6 +723,51 @@ export const RECOVERY_WORKOUT_CATEGORIZATION_ENABLED = true;
 // Budget-Floor) stops showing the violet "Beast Mode" bonus flame.
 export const RECOVERY_DAY_BADGE_FIX_ENABLED = true;
 
+// RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED: fixes a real, reproducible staleness
+// bug in "which week of the running program is the user on." Multiple home
+// widgets need this number; some read the stored field
+// (`running.activeProgram.currentWeek`), others already recompute fresh from
+// `(today − startDate) / 7` via the canonical calculateCurrentWeek()
+// (workout-completion.service.ts). The stored field only advances on two
+// narrow write events — completing that week's first planned run, or the
+// explicit "back one week" button — so it goes stale at every week boundary:
+// a user who opens the app before completing this week's first run sees ONE
+// widget correctly say "rest day" (calendar-derived) while ANOTHER widget on
+// the same home screen still shows LAST week's already-finished workout as
+// if it were new and tappable (stored-field-derived).
+//
+// Gates the DISPLAY (read) sites only, via the shared resolveRunningCurrentWeek
+// helper (workout-engine/shared/utils/running-current-week.utils.ts):
+// NextRunWorkoutCard, StatsOverview, SmartWeeklySchedule, RollingAgenda,
+// TrainingPlannerOverlay. The two WRITE sites — markSessionComplete and
+// rollBackOneWeek, both in workout-completion.service.ts — already call
+// calculateCurrentWeek() directly and are UNCHANGED by this flag either way.
+// AgendaDayCard's resolveRunningEntry() is also UNCHANGED by this flag: it
+// already unconditionally recomputes per rendered calendar day whenever
+// startDate is present (only falling back to the stored field in the same
+// rare case as today — startDate itself missing), so this flag has nothing
+// to gate there; the refactor just de-duplicates its own hand-written copy
+// of the same formula into a per-day calculateCurrentWeek(startDate, asOfDate)
+// call instead of "today".
+//
+// While FALSE (default), every gated read site falls back to the stored
+// `activeProgram.currentWeek` field exactly as today — byte-identical,
+// including RollingAgenda's and TrainingPlannerOverlay's "שבוע N" week-badge
+// staying invisible exactly as it is now. (Those two currently have an
+// INDEPENDENT, always-on bug: `new Date(startDate + 'T00:00:00')` where
+// startDate is already a real Date object, not a string — the string
+// coercion silently produces an Invalid Date, so the badge never renders
+// today, regardless of this flag. Routing through calculateCurrentWeek fixes
+// that coercion for free, but only takes effect once this flag is TRUE.)
+//
+// While TRUE, all five gated sites recompute the calendar-correct week via
+// calculateCurrentWeek(startDate) instead of trusting the stored field, and
+// the two week-badges above start rendering "שבוע N" for the first time.
+//
+// Default FALSE pending on-device verification. Kill-switch: flip back to
+// false, byte-identical instantly, no code change needed.
+export const RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

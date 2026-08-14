@@ -26,6 +26,7 @@ import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/sched
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
 import { getSundayWeekStart, toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
+import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { 
   ACTIVITY_COLORS, 
   ACTIVITY_LABELS,
@@ -751,15 +752,22 @@ export default function SmartWeeklySchedule({
   // Infer workout category from day position in the frequency cycle
   const freq = scheduleDays.length || 3;
 
+  // Canonical current-week resolution (flag-gated recompute; falls back to
+  // the `runningCurrentWeek` prop exactly as today while
+  // RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED is false). Activates the
+  // previously-plumbed-but-dead `runningProgramStartDate` prop instead of
+  // trusting the (possibly stale) `runningCurrentWeek` prop directly.
+  const effectiveCurrentWeek = resolveRunningCurrentWeek(runningProgramStartDate, runningCurrentWeek);
+
   const currentWeekEntries = useMemo(() => {
-    if (!isRunningMode || !runningSchedule?.length || !runningCurrentWeek) return [];
-    const entries = runningSchedule.filter((e) => e.week === runningCurrentWeek);
+    if (!isRunningMode || !runningSchedule?.length || !effectiveCurrentWeek) return [];
+    const entries = runningSchedule.filter((e) => e.week === effectiveCurrentWeek);
     return entries.map((entry) => ({
       ...entry,
       category: entry.category || 'easy_run',
       workoutName: entry.workoutName || (CATEGORY_LABELS_HE[entry.category ?? ''] ?? 'אימון ריצה'),
     }));
-  }, [isRunningMode, runningSchedule, runningCurrentWeek]);
+  }, [isRunningMode, runningSchedule, effectiveCurrentWeek]);
 
   // Map running schedule entries to week day indices (0=Sunday)
   const runningEntriesByDayIndex = useMemo(() => {
@@ -1629,7 +1637,7 @@ export default function SmartWeeklySchedule({
       {isRunningMode && currentWeekEntries.length > 0 && calendarMode === 'week' && (
         <RunningWorkoutCards
           entries={currentWeekEntries}
-          currentWeek={runningCurrentWeek ?? 1}
+          currentWeek={effectiveCurrentWeek ?? 1}
           basePace={runningBasePace ?? 0}
           onCardClick={handleRunCardClick}
           todayScheduleDay={runningEntriesByDayIndex.get(new Date().getDay())?.day}

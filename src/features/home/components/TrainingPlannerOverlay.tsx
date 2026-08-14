@@ -21,6 +21,7 @@ import RollingAgenda from './agenda/RollingAgenda';
 import AddWorkoutModal from './AddWorkoutModal';
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { useUserStore } from '@/features/user';
+import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -139,13 +140,16 @@ export default function TrainingPlannerOverlay({
 
   const weekDateRange = useMemo(() => getWeekDateRange(weekStart), [weekStart]);
 
+  // Gated by RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED (via resolveRunningCurrentWeek):
+  // while false, stays `null` exactly as today (this hand-rolled version was
+  // always broken — `programStartDate` is a real Date object, and string-
+  // concatenating it here silently produced an Invalid Date, so this badge
+  // has never actually rendered). Once true, computes the real week via the
+  // canonical calculateCurrentWeek(startDate, asOfDate), asOfDate being the
+  // navigated week's Sunday (`weekStart`), not necessarily today.
   const weekNumber = useMemo((): number | null => {
-    if (!programStartDate) return null;
-    const start  = new Date(programStartDate + 'T00:00:00');
-    const sunday = new Date(weekStart       + 'T00:00:00');
-    const diffDays = Math.floor((sunday.getTime() - start.getTime()) / 86_400_000);
-    const wn = Math.floor(diffDays / 7) + 1;
-    return wn >= 1 ? wn : null;
+    const sunday = new Date(weekStart + 'T00:00:00');
+    return resolveRunningCurrentWeek(programStartDate, null, sunday) ?? null;
   }, [weekStart, programStartDate]);
 
   // ── Drag handle state ────────────────────────────────────────────────────
