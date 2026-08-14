@@ -717,9 +717,11 @@ export const RECOVERY_WORKOUT_CATEGORIZATION_ENABLED = true;
 // inspection (13.08.2026) — so gating at this single strength choke point is
 // sufficient; no other syncWorkoutCompletion caller needs its own gate.
 //
-// DEFAULT FALSE pending David's device verification (13.08.2026, scoped build
-// — not yet visually verified in a browser/device from this environment).
-export const RECOVERY_DAY_BADGE_FIX_ENABLED = false;
+// FLIPPED TRUE (14.08.2026) — David approved production rollout after
+// reviewing the diff himself. Live for all users once this ships: a rest
+// day whose only completion was recovery content (video-trio or
+// Budget-Floor) stops showing the violet "Beast Mode" bonus flame.
+export const RECOVERY_DAY_BADGE_FIX_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
