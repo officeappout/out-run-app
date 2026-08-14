@@ -10,7 +10,7 @@ import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
 import { buildOutAndBackPath } from './geoUtils';
-import { IS_PROXIMITY_SEGMENT_QUERY_ENABLED } from '@/config/feature-flags';
+import { IS_PROXIMITY_SEGMENT_QUERY_ENABLED, IS_TIGHTENED_DISTANCE_WINDOW_ENABLED } from '@/config/feature-flags';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -815,6 +815,39 @@ export function computeDistanceWindow(safeDistance: number): { minKm: number; ma
 }
 
 /**
+ * Behind IS_TIGHTENED_DISTANCE_WINDOW_ENABLED — a full replacement for
+ * computeDistanceWindow (not a separate tier for a narrow sub-range), so
+ * there's exactly one formula and one flag covering the whole normal-mode
+ * target range (1.5km up to the 100km slider ceiling), no seam.
+ *
+ * Root problem this fixes: computeDistanceWindow's absolute floors (0.5km
+ * below / 2.5km above) dominate the ENTIRE 1.5-8km band (the percentage
+ * terms don't overtake them until ~5km below / ~16.7km above) — live
+ * confirmed (14.08.2026, Tel Aviv): a 5km target's real window is
+ * [4.5,7.5]km, wide enough that a 30%+ oversized result is accepted every
+ * time; a 1.5km target's window is [1.0,4.0]km, a 167%-wide band.
+ *
+ * Calibration values are placeholders pending live verification (see the
+ * plan's verification section) in both Tel Aviv (dense) and Sderot (the
+ * only other city with real, non-official-only street_segments coverage —
+ * confirmed live, every other checked city has zero). Design constraint
+ * that MUST hold regardless of the exact numbers: below-floor ≤ 0.5,
+ * above-floor ≤ 2.5, below-% ≥ 0.10, above-% ≥ 0.15 — i.e. this function
+ * can only ever be EQUAL OR TIGHTER than computeDistanceWindow at small
+ * targets and EQUAL OR WIDER at large ones, so the already-proven 22km+
+ * behavior (the 08.08 "no route found" fix) can only get safer, never
+ * regress, no matter how the medium-range calibration lands.
+ */
+export function computeTightenedDistanceWindow(safeDistance: number): { minKm: number; maxKm: number } {
+  const belowToleranceKm = Math.max(0.2, safeDistance * 0.15);
+  const aboveToleranceKm = Math.max(0.5, safeDistance * 0.20);
+  return {
+    minKm: Math.max(0.2, safeDistance - belowToleranceKm),
+    maxKm: safeDistance + aboveToleranceKm,
+  };
+}
+
+/**
  * Acceptance window for SHORT targets (below MIN_GENERATION_KM, short-route
  * mode only). computeDistanceWindow's absolute floors (0.5km below / 2.5km
  * above) were tuned for multi-km loops and are wide enough to "validate" a
@@ -1448,7 +1481,9 @@ async function generateLoopRoutes(
       const routeDistanceKm = result.distance / 1000;
       const { minKm, maxKm } = loopOpts.shortMode
         ? computeShortRouteDistanceWindow(safeDistance)
-        : computeDistanceWindow(safeDistance);
+        : IS_TIGHTENED_DISTANCE_WINDOW_ENABLED
+          ? computeTightenedDistanceWindow(safeDistance)
+          : computeDistanceWindow(safeDistance);
       if (routeDistanceKm < minKm || routeDistanceKm > maxKm) {
         console.warn(
           `[RouteGenerator] Route ${i} REJECTED: distance ${routeDistanceKm.toFixed(

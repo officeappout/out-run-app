@@ -536,6 +536,27 @@ export const IS_STEP_GOAL_SHORT_ROUTE_ENABLED = true;
 // behavior. Kill-switch: flip back to false, byte-identical instantly.
 export const IS_PROXIMITY_SEGMENT_QUERY_ENABLED = true;
 
+// IS_TIGHTENED_DISTANCE_WINDOW_ENABLED: switches route-generator.service.ts's
+// normal-mode (non-short-route) acceptance check from computeDistanceWindow
+// to computeTightenedDistanceWindow for targets in the ~1.5-8km range.
+// Root problem: computeDistanceWindow's absolute floors (0.5km below /
+// 2.5km above) dominate the whole 1.5-8km band — live-confirmed (14.08.2026,
+// Tel Aviv): a 5km target's real window is [4.5,7.5]km, wide enough that a
+// 30%+ oversized result sails through unrejected every time. This is the
+// same class of bug already fixed once for sub-1.5km targets
+// (computeShortRouteDistanceWindow) and once for 15km+ targets (the 08.08
+// proportional-scaling fix) — the medium band between them was never
+// covered by either pass.
+// While false: computeTightenedDistanceWindow is never called — every
+// generation uses computeDistanceWindow exactly as today, byte-identical.
+// Default false pending: live calibration in both Tel Aviv (dense) and a
+// known-thin-coverage city (Sderot — confirmed the only other city besides
+// Zichron Yaakov with any real street_segments coverage at all) before
+// this is safe to default on — a tighter window trades "wrong distance but
+// a route" for "right distance but occasionally none," the exact failure
+// mode the original wide floors existed to prevent at the large end.
+export const IS_TIGHTENED_DISTANCE_WINDOW_ENABLED = false;
+
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
 // longer opens ExitConfirmModal; it is blocked ENTIRELY and silently, as if
