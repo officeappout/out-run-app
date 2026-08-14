@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreWaypoint, computeDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments } from '../route-generator.service';
+import { scoreWaypoint, computeDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments, buildTriangleCombinations } from '../route-generator.service';
 
 const USER = { lat: 0, lng: 0 };
 // ~0.267km east of user (route-stops' targetKm=1.6 / 6 calibration) and ~1.0km east.
@@ -483,5 +483,62 @@ describe('scoreAndShuffleStreetSegments — shared scoring tail (13.08.2026, ext
     expect(result.candidates).toEqual([]);
     expect(result.officialBiasApplied).toBe(0);
     expect(result.officialBackboneCount).toBe(0);
+  });
+});
+
+describe('buildTriangleCombinations — periodicity fix (14.08.2026, fixes live Tel Aviv duplicate-route-card bug)', () => {
+  // Build N distinct WaypointCandidate-shaped fixtures via the real scoreWaypoint,
+  // matching this file's established fixture style — the specific score values
+  // don't matter here, only that each index is a distinct, identifiable object.
+  const buildCandidates = (n: number) =>
+    Array.from({ length: n }, (_, i) => scoreWaypoint(wpAtBearing(1.0, (360 / n) * i), USER, [], { includeStrength: false }));
+
+  const vertexSetsOf = (combos: ReturnType<typeof buildTriangleCombinations>, candidates: ReturnType<typeof buildCandidates>) =>
+    combos.map((c) => c.waypoints.map((wp) => candidates.indexOf(wp)).sort((a, b) => a - b).join(','));
+
+  it('CRITICAL — N=12 (the requested max, the common real-world case) yields 5 genuinely distinct triangles, not 2', () => {
+    const candidates = buildCandidates(12);
+    const combos = buildTriangleCombinations(candidates, 0);
+    const sets = vertexSetsOf(combos, candidates);
+    expect(combos.length).toBe(5);
+    expect(new Set(sets).size).toBe(5); // proves the old 2-distinct-shapes bug is fixed
+  });
+
+  it('N=12 reaches 5 distinct triangles for every possible baseOffset, not just 0', () => {
+    const candidates = buildCandidates(12);
+    for (let base = 0; base < 12; base++) {
+      const combos = buildTriangleCombinations(candidates, base);
+      const sets = vertexSetsOf(combos, candidates);
+      expect(new Set(sets).size).toBe(combos.length); // no duplicates, whatever the count
+      expect(combos.length).toBe(5);
+    }
+  });
+
+  it('no two returned combinations ever share the same vertex set, across a spread of N', () => {
+    for (const n of [3, 4, 6, 8, 9, 10, 12, 15, 20]) {
+      const candidates = buildCandidates(n);
+      const combos = buildTriangleCombinations(candidates, 0);
+      const sets = vertexSetsOf(combos, candidates);
+      expect(new Set(sets).size).toBe(sets.length);
+    }
+  });
+
+  it('very small N is genuinely combinatorially capped, not a bug — N=3 has exactly one possible triangle', () => {
+    const candidates = buildCandidates(3);
+    const combos = buildTriangleCombinations(candidates, 0);
+    expect(combos.length).toBe(1);
+  });
+
+  it('each combination carries the mean of its 3 waypoints\' scores, unchanged from before', () => {
+    const candidates = buildCandidates(12);
+    const combos = buildTriangleCombinations(candidates, 0);
+    for (const combo of combos) {
+      const expected = combo.waypoints.reduce((sum, wp) => sum + wp.score, 0) / 3;
+      expect(combo.score).toBeCloseTo(expected, 10);
+    }
+  });
+
+  it('empty candidates return no combinations, not a crash', () => {
+    expect(buildTriangleCombinations([], 0)).toEqual([]);
   });
 });

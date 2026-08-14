@@ -1175,6 +1175,74 @@ const MIN_PATH_POINTS_SHORT = 20;
 const MIN_PATH_POINTS_ONE_WAY = 10;
 
 /**
+ * Builds up to 5 triangle-vertex combinations from `topCandidates`, each a
+ * genuinely distinct 3-point set. Pure, deterministic, no I/O — extracted
+ * for direct unit testing.
+ *
+ * Periodicity fix (14.08.2026, verified live in Tel Aviv): the previous
+ * version derived each combination via a FIXED stride of 2 per attempt and
+ * a single rigid leg-spacing (`legSpan = floor(N/3)`), which collided with
+ * itself whenever N (topCandidates.length) was an exact multiple of 3 —
+ * including N=12, the requested maximum and thus the COMMON case whenever
+ * candidate data is abundant. At N=12, legSpan=4, shifting the triangle by
+ * 2·legSpan=8 maps it onto itself, so combinations i=0,2,4 were
+ * byte-identical (same 3-point set) and i=1,3 were a second identical set
+ * — only 2 distinct triangles ever existed among the intended 5, so the
+ * "3rd valid route" was frequently a silent duplicate of an earlier one,
+ * and long targets got only 2 real shots at satisfying the acceptance
+ * window instead of 5.
+ *
+ * Fix: (a) alternate between two adjacent leg-spacings (legSpan and
+ * legSpan+1) across attempts — a single rigid spacing whose vertices are
+ * evenly divisible into N can mathematically never produce more than
+ * `legSpan` distinct sets when N = 3·legSpan exactly (provable, not
+ * tunable away with a different stride alone — verified via simulation:
+ * N=12 with spacing-alternation reaches the full 5/5 distinct sets for
+ * every possible baseOffset, versus a hard cap of 4/5 with a single rigid
+ * spacing); (b) an explicit dedup by vertex-index SET (order-independent —
+ * the caller's own bearing-sort picks visit order, not this) is the real
+ * guarantee, independent of what N turns out to be — no combination is
+ * ever returned twice, tried across up to 10 attempts (double the 5
+ * actually needed) so there's room to find distinct shapes even when some
+ * attempts collide. Very small N (3, 4, 6) are genuinely combinatorially
+ * capped below 5 (N=3 has only 1 possible triangle at all) — those are
+ * real limits of a 3-point pool, not a bug this fix can lift further.
+ */
+export function buildTriangleCombinations(
+  topCandidates: WaypointCandidate[],
+  baseOffset: number,
+): Array<{ waypoints: WaypointCandidate[]; score: number }> {
+  const legSpan = Math.max(1, Math.floor(topCandidates.length / 3));
+  const N = Math.max(1, topCandidates.length);
+  const seenVertexSets = new Set<string>();
+  const combinations: Array<{ waypoints: WaypointCandidate[]; score: number }> = [];
+  const MAX_COMBINATION_ATTEMPTS = 10;
+
+  for (let i = 0; i < MAX_COMBINATION_ATTEMPTS && combinations.length < 5; i++) {
+    const spanForAttempt = i % 2 === 0 ? legSpan : Math.max(1, legSpan + 1);
+    const offset = (baseOffset + i) % N;
+    const idx1 = offset;
+    const idx2 = (offset + spanForAttempt) % N;
+    const idx3 = (offset + spanForAttempt * 2) % N;
+    const wp1 = topCandidates[idx1];
+    const wp2 = topCandidates[idx2];
+    const wp3 = topCandidates[idx3];
+    if (!wp1 || !wp2 || !wp3) continue;
+
+    const vertexKey = [idx1, idx2, idx3].sort((a, b) => a - b).join(',');
+    if (seenVertexSets.has(vertexKey)) continue;
+    seenVertexSets.add(vertexKey);
+
+    combinations.push({
+      waypoints: [wp1, wp2, wp3],
+      score: (wp1.score + wp2.score + wp3.score) / 3,
+    });
+  }
+
+  return combinations;
+}
+
+/**
  * Loop-mode generator — original behaviour, extracted unchanged from
  * `generateDynamicRoutes` (pure rename, byte-identical for every existing
  * caller when `loopOpts.shortMode` is omitted).
@@ -1285,9 +1353,6 @@ async function generateLoopRoutes(
   );
 
   // 3. Create route combinations (triangular loops)
-  const routeCombinations: Array<{ waypoints: Array<WaypointCandidate>, score: number }> = [];
-
-  // Generate up to 5 combinations to ensure we get at least 3 valid routes.
   // The starting offset is rotated by `routeGenerationIndex` so every shuffle /
   // carousel mount picks a different triangle from the top-12 pool — this is the
   // primary variety lever when street_segments are present and the soft-shuffle
@@ -1295,29 +1360,7 @@ async function generateLoopRoutes(
   const baseOffset = topCandidates.length > 0
     ? routeGenerationIndex % topCandidates.length
     : 0;
-
-  // Spacing (08.08 fix): was +1/+2 (3 CONSECUTIVE candidates by array index).
-  // topCandidates is now bearing-sorted, so 3 consecutive entries could still
-  // be adjacent compass-wise if a sector cluster dominates the pool — the
-  // exact near-collinear-triangle failure this whole fix chain is closing.
-  // Spacing by a third of the array instead approximates the ~120°-apart
-  // triangle vertices the combination logic already assumes (per the
-  // existing bearing-sort-before-Mapbox-call below).
-  const legSpan = Math.max(1, Math.floor(topCandidates.length / 3));
-
-  for (let i = 0; i < 5; i++) {
-    const offset = (baseOffset + i * 2) % Math.max(1, topCandidates.length);
-    const wp1 = topCandidates[offset % topCandidates.length];
-    const wp2 = topCandidates[(offset + legSpan) % topCandidates.length];
-    const wp3 = topCandidates[(offset + legSpan * 2) % topCandidates.length];
-
-    if (wp1 && wp2 && wp3) {
-      routeCombinations.push({
-        waypoints: [wp1, wp2, wp3],
-        score: (wp1.score + wp2.score + wp3.score) / 3
-      });
-    }
-  }
+  const routeCombinations = buildTriangleCombinations(topCandidates, baseOffset);
 
   const validRoutes: Route[] = [];
   // Default 3 (free-run carousel shows three cards); hybrid passes maxRoutes:1
