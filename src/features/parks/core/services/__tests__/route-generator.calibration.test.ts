@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreWaypoint, computeDistanceWindow, computeTightenedDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments, buildTriangleCombinations } from '../route-generator.service';
+import { scoreWaypoint, computeDistanceWindow, computeTightenedDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments, buildTriangleCombinations, isBetterNearMissCandidate } from '../route-generator.service';
 
 const USER = { lat: 0, lng: 0 };
 // ~0.267km east of user (route-stops' targetKm=1.6 / 6 calibration) and ~1.0km east.
@@ -276,6 +276,41 @@ describe('computeTightenedDistanceWindow — recalibrated 1.5-100km acceptance b
   it('minKm never goes below the 0.3km floor even at the 100km slider ceiling', () => {
     const { minKm } = computeTightenedDistanceWindow(100);
     expect(minKm).toBeGreaterThanOrEqual(0.3);
+  });
+});
+
+describe('isBetterNearMissCandidate — IS_GUARANTEED_ROUTE_FALLBACK_ENABLED Tier 1 selection (14.08.2026)', () => {
+  // 5km target, computeDistanceWindow(5) = [4.5, 7.5] — used as the near-miss
+  // window throughout, matching how generateLoopRoutes actually calls this.
+  const window = computeDistanceWindow(5);
+
+  it('rejects a candidate outside the near-miss window, regardless of how close it is numerically', () => {
+    expect(isBetterNearMissCandidate(4.4, 5, window, Infinity)).toBe(false); // just under minKm
+    expect(isBetterNearMissCandidate(7.6, 5, window, Infinity)).toBe(false); // just over maxKm
+  });
+
+  it('accepts a candidate inside the window as the first-ever near-miss (currentBestDelta = Infinity)', () => {
+    expect(isBetterNearMissCandidate(6.5, 5, window, Infinity)).toBe(true);
+  });
+
+  it('accepts the window boundaries themselves (inclusive)', () => {
+    expect(isBetterNearMissCandidate(window.minKm, 5, window, Infinity)).toBe(true);
+    expect(isBetterNearMissCandidate(window.maxKm, 5, window, Infinity)).toBe(true);
+  });
+
+  it('prefers a strictly closer-to-target candidate over the current best', () => {
+    const currentBestDelta = Math.abs(6.5 - 5); // a previously-tracked 6.5km near-miss, delta 1.5
+    expect(isBetterNearMissCandidate(5.8, 5, window, currentBestDelta)).toBe(true); // delta 0.8, closer
+  });
+
+  it('rejects a candidate that is farther from target than the current best, even if within the window', () => {
+    const currentBestDelta = Math.abs(5.8 - 5); // delta 0.8
+    expect(isBetterNearMissCandidate(6.5, 5, window, currentBestDelta)).toBe(false); // delta 1.5, farther
+  });
+
+  it('rejects an exact tie (strictly-closer, not closer-or-equal)', () => {
+    const currentBestDelta = Math.abs(5.8 - 5); // delta 0.8
+    expect(isBetterNearMissCandidate(5.8, 5, window, currentBestDelta)).toBe(false); // exact same delta as current best
   });
 });
 

@@ -10,7 +10,11 @@ import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
 import { buildOutAndBackPath } from './geoUtils';
-import { IS_PROXIMITY_SEGMENT_QUERY_ENABLED, IS_TIGHTENED_DISTANCE_WINDOW_ENABLED } from '@/config/feature-flags';
+import {
+  IS_PROXIMITY_SEGMENT_QUERY_ENABLED,
+  IS_TIGHTENED_DISTANCE_WINDOW_ENABLED,
+  IS_GUARANTEED_ROUTE_FALLBACK_ENABLED,
+} from '@/config/feature-flags';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -52,6 +56,18 @@ export interface RouteGenerationDiagnostics {
   docsFetchedRaw?: number;
   /** Proximity path only: docs remaining after de-duplicating by doc id. */
   docsAfterDedupe?: number;
+  /**
+   * Set only when IS_GUARANTEED_ROUTE_FALLBACK_ENABLED is on AND the main
+   * loop's primary window (computeTightenedDistanceWindow) accepted zero
+   * routes. 'tier1_near_miss': the closest-to-target result already computed
+   * during the main loop, admitted because it fell within computeDistanceWindow
+   * (today's pre-tightening bound). 'tier2_relaxed_refetch': Tier 1 also found
+   * nothing, so a second, relaxed candidate fetch + combination pass ran and
+   * found something within computeDistanceWindow. Absent = the main loop's
+   * primary window itself accepted a route, no fallback tier needed — or the
+   * flag is off. Diagnostics-only; does not affect what's returned.
+   */
+  guaranteedFallbackTier?: 'tier1_near_miss' | 'tier2_relaxed_refetch';
 }
 
 let _lastDiagnostics: RouteGenerationDiagnostics | null = null;
@@ -597,9 +613,25 @@ async function fetchScoredWaypointsByProximity(
   userLocation: { lat: number; lng: number },
   targetDistance: number,
   activeOfficialRouteId?: string,
+  relaxation?: {
+    /**
+     * Multiplies targetDistance to get the search radius (default 0.5,
+     * reproducing today's exact searchRadiusKm = targetDistance/2 for every
+     * caller that omits this). Only IS_GUARANTEED_ROUTE_FALLBACK_ENABLED's
+     * Tier 2 re-fetch passes a wider value — see its call site.
+     */
+    radiusMultiplier?: number;
+    /**
+     * Client-side score floor (default 6, reproducing today's exact
+     * hardcoded filter for every caller that omits this).
+     */
+    minScore?: number;
+  },
 ): Promise<Array<{ lat: number; lng: number; isOfficial: boolean }> | null> {
   const cleanCity = sanitizeCityKey(cityName);
-  const searchRadiusKm = targetDistance / 2;
+  const radiusMultiplier = relaxation?.radiusMultiplier ?? 0.5;
+  const minScore = relaxation?.minScore ?? 6;
+  const searchRadiusKm = targetDistance * radiusMultiplier;
   const searchRadiusMeters = searchRadiusKm * 1000;
 
   try {
@@ -652,8 +684,8 @@ async function fetchScoredWaypointsByProximity(
       return distKm <= searchRadiusKm;
     });
 
-    // score>=6 filter, client-side — see the doc comment above.
-    const scoredEligible = segmentsInRadius.filter(({ seg }) => (seg.score ?? 0) >= 6);
+    // score>=minScore filter, client-side — see the doc comment above.
+    const scoredEligible = segmentsInRadius.filter(({ seg }) => (seg.score ?? 0) >= minScore);
 
     if (scoredEligible.length === 0) {
       console.log(
@@ -1257,6 +1289,17 @@ const MIN_PATH_POINTS_SHORT = 20;
 const MIN_PATH_POINTS_ONE_WAY = 10;
 
 /**
+ * IS_GUARANTEED_ROUTE_FALLBACK_ENABLED Tier 2 (relaxed re-fetch) parameters —
+ * how much wider/lower-bar the second fetchScoredWaypointsByProximity call
+ * goes relative to the default (radiusMultiplier 0.5, minScore 6). INITIAL
+ * GUESS pending live calibration in Tel Aviv + a thin-coverage city (same
+ * discipline as computeTightenedDistanceWindow's calibration) — do not
+ * default IS_GUARANTEED_ROUTE_FALLBACK_ENABLED on before that pass.
+ */
+const TIER2_RADIUS_MULTIPLIER = 1.0; // double the default 0.5 (i.e. full targetDistance as radius, not half)
+const TIER2_MIN_SCORE = 3; // half the default 6
+
+/**
  * Builds up to 5 triangle-vertex combinations from `topCandidates`, each a
  * genuinely distinct 3-point set. Pure, deterministic, no I/O — extracted
  * for direct unit testing.
@@ -1336,6 +1379,227 @@ export function buildTriangleCombinations(
  * selection, triangular combination, Mapbox call shape — is IDENTICAL to
  * normal loop mode. No parallel scoring logic.
  */
+/**
+ * Pure near-miss admission check for IS_GUARANTEED_ROUTE_FALLBACK_ENABLED's
+ * Tier 1: should `candidateDistanceKm` replace whatever near-miss is
+ * currently tracked (`currentBestDelta`, Infinity if none yet)? True only if
+ * BOTH the candidate falls within `nearMissWindow` (today's pre-tightening
+ * computeDistanceWindow bound — the guarantee never admits anything wider
+ * than that) AND it's strictly closer to `safeDistance` than the current
+ * best. Exported standalone (no Mapbox/Firestore I/O) so the selection logic
+ * — not the network plumbing around it — is what gets unit-tested.
+ */
+export function isBetterNearMissCandidate(
+  candidateDistanceKm: number,
+  safeDistance: number,
+  nearMissWindow: { minKm: number; maxKm: number },
+  currentBestDelta: number,
+): boolean {
+  if (candidateDistanceKm < nearMissWindow.minKm || candidateDistanceKm > nearMissWindow.maxKm) return false;
+  return Math.abs(candidateDistanceKm - safeDistance) < currentBestDelta;
+}
+
+/**
+ * Runs the sequential Mapbox-call + point-count + distance-window pipeline
+ * over a list of pre-built triangle combinations. Extracted from
+ * generateLoopRoutes (14.08.2026) so IS_GUARANTEED_ROUTE_FALLBACK_ENABLED's
+ * Tier 2 — a second pass over a relaxed, re-fetched candidate pool — can
+ * reuse the exact same per-combination logic instead of a parallel copy.
+ * Behavior for a plain single-window pass (nearMissWindow omitted) is
+ * byte-identical to the pre-extraction inline loop.
+ *
+ * acceptWindow is the primary bound: a route inside it is pushed to
+ * validRoutes, and the loop stops early once maxRoutesNeeded is reached.
+ * nearMissWindow, when provided, is a WIDER bound checked only for routes
+ * that failed acceptWindow — the single closest-to-target such result is
+ * tracked and returned as bestNearMiss.
+ */
+async function attemptRouteCombinations(
+  combinations: Array<{ waypoints: WaypointCandidate[]; score: number }>,
+  params: {
+    userLocation: { lat: number; lng: number };
+    activity: ActivityType;
+    preferences: RouteGenerationOptions['preferences'];
+    fitnessAnchor: { lat: number; lng: number; id: string } | null;
+    routeGenerationIndex: number;
+    safeDistance: number;
+    minPathPoints: number;
+    acceptWindow: { minKm: number; maxKm: number };
+    nearMissWindow?: { minKm: number; maxKm: number };
+    maxRoutesNeeded: number;
+  },
+): Promise<{ validRoutes: Route[]; bestNearMiss: Route | null }> {
+  const {
+    userLocation,
+    activity,
+    preferences,
+    fitnessAnchor,
+    routeGenerationIndex,
+    safeDistance,
+    minPathPoints,
+    acceptWindow,
+    nearMissWindow,
+    maxRoutesNeeded,
+  } = params;
+
+  const validRoutes: Route[] = [];
+  let bestNearMiss: Route | null = null;
+  let bestNearMissDelta = Infinity;
+
+  // ✅ SEQUENTIAL PROCESSING - One at a time with delays (prevents 429 errors)
+  for (let i = 0; i < combinations.length; i++) {
+    // Stop if we have enough valid routes
+    if (validRoutes.length >= maxRoutesNeeded) {
+      console.log(`[RouteGenerator] Got ${maxRoutesNeeded} routes, stopping.`);
+      break;
+    }
+
+    const combination = combinations[i];
+    const [wp1, wp2, wp3] = combination.waypoints;
+
+    // Change 2 — order the 3 chosen waypoints by their bearing around the user so
+    // the visit sequence sweeps monotonically around the origin (a convex-ish fan)
+    // instead of the score-ranked order, which jumps across the user and makes the
+    // loop cross itself / look boxy. Selection stays score-based — only the ORDER
+    // of the three changes.
+    const bearingFromUser = (wp: { lat: number; lng: number }) =>
+      (segBearing([userLocation.lng, userLocation.lat], [wp.lng, wp.lat]) + 360) % 360;
+    const waypointsToUse: Array<{ lat: number; lng: number }> = [wp1, wp2, wp3]
+      .map(wp => ({ lat: wp.lat, lng: wp.lng }))
+      .sort((a, b) => bearingFromUser(a) - bearingFromUser(b));
+
+    // Add fitness anchor if available (kept at index 1 — a must-visit gym; its slot
+    // in the sweep is not critical to loop convexity).
+    if (fitnessAnchor) {
+      waypointsToUse.splice(1, 0, { lat: fitnessAnchor.lat, lng: fitnessAnchor.lng });
+    }
+
+    console.log(`[RouteGenerator] Fetching route ${i + 1}/${combinations.length}...`);
+
+    try {
+      const profile = activity === 'cycling' ? 'cycling' : 'walking';
+
+      // Change 1 — ask Mapbox for a NON-backtracking loop. `continue_straight`
+      // defaults to false for walking/cycling, letting the router U-turn at every
+      // via point (the "חוזרת אחורה" shape). Force it on for the loop call only,
+      // via getSmartPath's existing extraParams — mapbox.service.ts stays untouched
+      // (no clash with the UX-chat work there). alternatives:'false' because a loop
+      // has no use for them and Mapbox dislikes pairing them with continue_straight.
+      let result = await MapboxService.getSmartPath(
+        userLocation,
+        userLocation, // Loop back home
+        profile,
+        waypointsToUse,
+        { continue_straight: 'true', alternatives: 'false' },
+      );
+      let csMode: 'continue_straight' | 'fallback' = 'continue_straight';
+
+      // Fallback (retry-without): continue_straight can yield NoRoute on some
+      // waypoint combos. One retry without it — worst case = the pre-change-1
+      // behaviour for this single combo. (Change 2's bearing-ordering makes this
+      // even rarer, since ordered waypoints are more routable.)
+      if (!result || !result.path || result.path.length === 0) {
+        result = await MapboxService.getSmartPath(userLocation, userLocation, profile, waypointsToUse);
+        csMode = 'fallback';
+      }
+
+      // ✅ STRICT VALIDATION: Must have 50+ points (prevents straight lines/triangles)
+      if (!result || !result.path || result.path.length < minPathPoints) {
+        console.warn(`[RouteGenerator] Route ${i} REJECTED: only ${result?.path?.length || 0} points (need ${minPathPoints}+)`);
+
+        // ✅ Wait before next attempt to avoid 429
+        if (i < combinations.length - 1 && validRoutes.length < maxRoutesNeeded) {
+          await delay(1500);
+        }
+        continue;
+      }
+
+      const routeDistanceKm = result.distance / 1000;
+      const hasGym = !!fitnessAnchor;
+
+      // Use Mapbox API duration (in seconds) as the single source of truth
+      const durationMinutes = Math.round(result.duration / 60);
+      const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 70));
+
+      // Change 3 — strip micro-zig with Ramer–Douglas–Peucker (~4 m). Preserves the
+      // overall shape but removes the dense near-collinear wiggle Mapbox emits at
+      // overview=full (the "square/boxy" micro-jaggedness). Distance/duration stay
+      // from Mapbox — do NOT recompute them from the simplified path.
+      const cleanPath = rdpSimplify(result.path, 4);
+
+      const route: Route = {
+        id: `gen-${Date.now()}-${i}-${routeGenerationIndex}`,
+        name: hasGym ? 'סיבוב כושר' : 'סיבוב אורבני',
+        description: `מסלול מעגלי של ${routeDistanceKm.toFixed(1)} ק"מ`,
+        distance: parseFloat(routeDistanceKm.toFixed(1)),
+        duration: durationMinutes,
+        score: Math.round(combination.score + (routeDistanceKm * 10)),
+        type: activity,
+        activityType: activity,
+        difficulty: 'easy',
+        path: cleanPath,
+        segments: [],
+        rating: 4.5 + (Math.random() * 0.5),
+        calories: calories,
+        analytics: { usageCount: 0, rating: 0, heatMapScore: 0 },
+        source: { type: 'system', name: 'OutRun AI' },
+        features: {
+          hasGym: hasGym,
+          hasBenches: true,
+          scenic: combination.score > 70,
+          lit: true,
+          terrain: 'road',
+          environment: 'urban',
+          trafficLoad: 'low',
+          surface: preferences.surface === 'trail' ? 'dirt' : 'asphalt'
+        },
+        calculatedScore: combination.score,
+        distanceFromUser: 0,
+        isReachableWithoutCar: true,
+        includesOfficialSegments: false,
+        visitingParkId: fitnessAnchor?.id || null,
+        includesFitnessStop: hasGym
+      };
+
+      if (routeDistanceKm >= acceptWindow.minKm && routeDistanceKm <= acceptWindow.maxKm) {
+        validRoutes.push(route);
+        console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
+      } else {
+        console.warn(
+          `[RouteGenerator] Route ${i} REJECTED: distance ${routeDistanceKm.toFixed(
+            1,
+          )}km outside allowed range [${acceptWindow.minKm.toFixed(1)}–${acceptWindow.maxKm.toFixed(
+            1,
+          )}]km (target ${safeDistance.toFixed(1)}km)`,
+        );
+
+        if (nearMissWindow && isBetterNearMissCandidate(routeDistanceKm, safeDistance, nearMissWindow, bestNearMissDelta)) {
+          bestNearMiss = route;
+          bestNearMissDelta = Math.abs(routeDistanceKm - safeDistance);
+        }
+
+        // ✅ Wait before next attempt to avoid 429
+        if (i < combinations.length - 1 && validRoutes.length < maxRoutesNeeded) {
+          await delay(1500);
+        }
+        continue;
+      }
+
+    } catch (err: any) {
+      console.error(`[RouteGenerator] Error on route ${i}:`, err?.message || err);
+    }
+
+    // ✅ CRITICAL: 1.5 second delay at the END of each iteration (except last or when we have enough routes)
+    if (i < combinations.length - 1 && validRoutes.length < maxRoutesNeeded) {
+      console.log('[RouteGenerator] Waiting 1.5s before next API call...');
+      await delay(1500);
+    }
+  }
+
+  console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid routes.`);
+  return { validRoutes, bestNearMiss };
+}
+
 async function generateLoopRoutes(
   options: RouteGenerationOptions,
   loopOpts: { shortMode?: boolean } = {},
@@ -1444,7 +1708,6 @@ async function generateLoopRoutes(
     : 0;
   const routeCombinations = buildTriangleCombinations(topCandidates, baseOffset);
 
-  const validRoutes: Route[] = [];
   // Default 3 (free-run carousel shows three cards); hybrid passes maxRoutes:1
   // since it only uses routes[0]. Lowering the target makes the loop break right
   // after the first valid route — before the trailing delay(1500) below.
@@ -1459,156 +1722,104 @@ async function generateLoopRoutes(
     ? MIN_PATH_POINTS_SHORT
     : (safeDistance < 2 ? 30 : 50);
 
-  // 4. ✅ SEQUENTIAL PROCESSING - One at a time with delays (prevents 429 errors)
-  for (let i = 0; i < routeCombinations.length; i++) {
-    // Stop if we have enough valid routes
-    if (validRoutes.length >= MIN_REQUIRED_ROUTES) {
-      console.log(`[RouteGenerator] Got ${MIN_REQUIRED_ROUTES} routes, stopping.`);
-      break;
-    }
+  const primaryWindow = loopOpts.shortMode
+    ? computeShortRouteDistanceWindow(safeDistance)
+    : IS_TIGHTENED_DISTANCE_WINDOW_ENABLED
+      ? computeTightenedDistanceWindow(safeDistance)
+      : computeDistanceWindow(safeDistance);
 
-    const combination = routeCombinations[i];
-    const [wp1, wp2, wp3] = combination.waypoints;
+  // IS_GUARANTEED_ROUTE_FALLBACK_ENABLED only ever backstops the tightened
+  // window specifically — short-route mode has its own, separately-tuned
+  // ladder (generateShortRoutes), and when the tight-window flag is off,
+  // the "loose" bound IS already the primary window, so there is nothing
+  // for a same-bound near-miss pass to find that the primary check didn't.
+  const guaranteedFallbackActive =
+    IS_GUARANTEED_ROUTE_FALLBACK_ENABLED && !loopOpts.shortMode && IS_TIGHTENED_DISTANCE_WINDOW_ENABLED;
 
-    // Change 2 — order the 3 chosen waypoints by their bearing around the user so
-    // the visit sequence sweeps monotonically around the origin (a convex-ish fan)
-    // instead of the score-ranked order, which jumps across the user and makes the
-    // loop cross itself / look boxy. Selection stays score-based — only the ORDER
-    // of the three changes.
-    const bearingFromUser = (wp: { lat: number; lng: number }) =>
-      (segBearing([userLocation.lng, userLocation.lat], [wp.lng, wp.lat]) + 360) % 360;
-    const waypointsToUse: Array<{ lat: number; lng: number }> = [wp1, wp2, wp3]
-      .map(wp => ({ lat: wp.lat, lng: wp.lng }))
-      .sort((a, b) => bearingFromUser(a) - bearingFromUser(b));
+  const commonAttemptParams = {
+    userLocation,
+    activity,
+    preferences,
+    fitnessAnchor,
+    routeGenerationIndex,
+    safeDistance,
+    minPathPoints: MIN_PATH_POINTS,
+    maxRoutesNeeded: MIN_REQUIRED_ROUTES,
+  };
 
-    // Add fitness anchor if available (kept at index 1 — a must-visit gym; its slot
-    // in the sweep is not critical to loop convexity).
-    if (fitnessAnchor) {
-      waypointsToUse.splice(1, 0, { lat: fitnessAnchor.lat, lng: fitnessAnchor.lng });
-    }
+  // 4. Main pass — unchanged behavior when the flag is off: single window,
+  //    no near-miss tracking, returns exactly what it always has.
+  const mainPass = await attemptRouteCombinations(routeCombinations, {
+    ...commonAttemptParams,
+    acceptWindow: primaryWindow,
+    nearMissWindow: guaranteedFallbackActive ? computeDistanceWindow(safeDistance) : undefined,
+  });
 
-    console.log(`[RouteGenerator] Fetching route ${i + 1}/${routeCombinations.length}...`);
+  let validRoutes = mainPass.validRoutes;
 
-    try {
-      const profile = activity === 'cycling' ? 'cycling' : 'walking';
-
-      // Change 1 — ask Mapbox for a NON-backtracking loop. `continue_straight`
-      // defaults to false for walking/cycling, letting the router U-turn at every
-      // via point (the "חוזרת אחורה" shape). Force it on for the loop call only,
-      // via getSmartPath's existing extraParams — mapbox.service.ts stays untouched
-      // (no clash with the UX-chat work there). alternatives:'false' because a loop
-      // has no use for them and Mapbox dislikes pairing them with continue_straight.
-      let result = await MapboxService.getSmartPath(
-        userLocation,
-        userLocation, // Loop back home
-        profile,
-        waypointsToUse,
-        { continue_straight: 'true', alternatives: 'false' },
+  if (validRoutes.length === 0 && guaranteedFallbackActive) {
+    if (mainPass.bestNearMiss) {
+      // Tier 1 — a real, already-computed route existed within
+      // computeDistanceWindow (today's pre-tightening bound); the tight
+      // window just discarded it. Use it instead of returning empty.
+      validRoutes = [mainPass.bestNearMiss];
+      console.log(
+        `[RouteGenerator] Guaranteed fallback: Tier 1 near-miss used ` +
+          `(${mainPass.bestNearMiss.distance}km vs target ${safeDistance.toFixed(1)}km).`,
       );
-      let csMode: 'continue_straight' | 'fallback' = 'continue_straight';
+      const prevDiag = getLastGenerationDiagnostics();
+      if (prevDiag) setDiagnostics({ ...prevDiag, guaranteedFallbackTier: 'tier1_near_miss' });
+    } else if (cityName) {
+      // Tier 2 — Tier 1 found nothing either (every combination failed the
+      // point-count guard or errored, not just the window check). Re-fetch
+      // with a wider radius / lower score floor and try once more, checked
+      // only against computeDistanceWindow (no third window invented).
+      console.log('[RouteGenerator] Guaranteed fallback: Tier 1 empty, attempting Tier 2 relaxed re-fetch...');
+      const relaxedCandidates = await fetchScoredWaypointsByProximity(
+        cityName,
+        userLocation,
+        safeDistance,
+        activeOfficialRouteId,
+        { radiusMultiplier: TIER2_RADIUS_MULTIPLIER, minScore: TIER2_MIN_SCORE },
+      );
 
-      // Fallback (retry-without): continue_straight can yield NoRoute on some
-      // waypoint combos. One retry without it — worst case = the pre-change-1
-      // behaviour for this single combo. (Change 2's bearing-ordering makes this
-      // even rarer, since ordered waypoints are more routable.)
-      if (!result || !result.path || result.path.length === 0) {
-        result = await MapboxService.getSmartPath(userLocation, userLocation, profile, waypointsToUse);
-        csMode = 'fallback';
-      }
-
-      // ✅ STRICT VALIDATION: Must have 50+ points (prevents straight lines/triangles)
-      if (!result || !result.path || result.path.length < MIN_PATH_POINTS) {
-        console.warn(`[RouteGenerator] Route ${i} REJECTED: only ${result?.path?.length || 0} points (need ${MIN_PATH_POINTS}+)`);
-        
-        // ✅ Wait before next attempt to avoid 429
-        if (i < routeCombinations.length - 1 && validRoutes.length < MIN_REQUIRED_ROUTES) {
-          await delay(1500);
-        }
-        continue;
-      }
-
-      const routeDistanceKm = result.distance / 1000;
-      const { minKm, maxKm } = loopOpts.shortMode
-        ? computeShortRouteDistanceWindow(safeDistance)
-        : IS_TIGHTENED_DISTANCE_WINDOW_ENABLED
-          ? computeTightenedDistanceWindow(safeDistance)
-          : computeDistanceWindow(safeDistance);
-      if (routeDistanceKm < minKm || routeDistanceKm > maxKm) {
-        console.warn(
-          `[RouteGenerator] Route ${i} REJECTED: distance ${routeDistanceKm.toFixed(
-            1,
-          )}km outside allowed range [${minKm.toFixed(1)}–${maxKm.toFixed(1)}]km (target ${safeDistance.toFixed(
-            1,
-          )}km)`,
+      if (relaxedCandidates && relaxedCandidates.length > 0) {
+        const relaxedScored = relaxedCandidates.map(wp =>
+          scoreWaypoint(wp, userLocation, parks, {
+            ...preferences,
+            proportionalDistanceTiers: loopOpts.shortMode,
+            preferOfficialRoutes: loopOpts.shortMode,
+          })
         );
+        const relaxedTop = selectAngularlyDiverseCandidates(
+          relaxedScored,
+          userLocation,
+          12,
+          preferences.idealWaypointDistanceKm ?? 1.0,
+          { proportionalGap: loopOpts.shortMode },
+        );
+        const relaxedBaseOffset = relaxedTop.length > 0 ? routeGenerationIndex % relaxedTop.length : 0;
+        const relaxedCombinations = buildTriangleCombinations(relaxedTop, relaxedBaseOffset);
 
-        // ✅ Wait before next attempt to avoid 429
-        if (i < routeCombinations.length - 1 && validRoutes.length < MIN_REQUIRED_ROUTES) {
-          await delay(1500);
+        const tier2Pass = await attemptRouteCombinations(relaxedCombinations, {
+          ...commonAttemptParams,
+          acceptWindow: computeDistanceWindow(safeDistance),
+        });
+
+        if (tier2Pass.validRoutes.length > 0) {
+          validRoutes = tier2Pass.validRoutes;
+          console.log(`[RouteGenerator] Guaranteed fallback: Tier 2 relaxed re-fetch found ${validRoutes.length} route(s).`);
+          const prevDiag = getLastGenerationDiagnostics();
+          if (prevDiag) setDiagnostics({ ...prevDiag, guaranteedFallbackTier: 'tier2_relaxed_refetch' });
+        } else {
+          console.log('[RouteGenerator] Guaranteed fallback: Tier 2 also found nothing — returning empty (genuine data sparsity).');
         }
-        continue;
+      } else {
+        console.log('[RouteGenerator] Guaranteed fallback: Tier 2 relaxed re-fetch returned no candidates — returning empty (genuine data sparsity).');
       }
-
-      // Use Mapbox API duration (in seconds) as the single source of truth
-      const durationMinutes = Math.round(result.duration / 60);
-      const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 70));
-      const hasGym = !!fitnessAnchor;
-
-      // Change 3 — strip micro-zig with Ramer–Douglas–Peucker (~4 m). Preserves the
-      // overall shape but removes the dense near-collinear wiggle Mapbox emits at
-      // overview=full (the "square/boxy" micro-jaggedness). Distance/duration stay
-      // from Mapbox — do NOT recompute them from the simplified path.
-      const cleanPath = rdpSimplify(result.path, 4);
-
-      const route: Route = {
-        id: `gen-${Date.now()}-${i}-${routeGenerationIndex}`,
-        name: hasGym ? 'סיבוב כושר' : 'סיבוב אורבני',
-        description: `מסלול מעגלי של ${routeDistanceKm.toFixed(1)} ק"מ`,
-        distance: parseFloat(routeDistanceKm.toFixed(1)),
-        duration: durationMinutes,
-        score: Math.round(combination.score + (routeDistanceKm * 10)),
-        type: activity,
-        activityType: activity,
-        difficulty: 'easy',
-        path: cleanPath,
-        segments: [],
-        rating: 4.5 + (Math.random() * 0.5),
-        calories: calories,
-        analytics: { usageCount: 0, rating: 0, heatMapScore: 0 },
-        source: { type: 'system', name: 'OutRun AI' },
-        features: {
-          hasGym: hasGym,
-          hasBenches: true,
-          scenic: combination.score > 70,
-          lit: true,
-          terrain: 'road',
-          environment: 'urban',
-          trafficLoad: 'low',
-          surface: preferences.surface === 'trail' ? 'dirt' : 'asphalt'
-        },
-        calculatedScore: combination.score,
-        distanceFromUser: 0,
-        isReachableWithoutCar: true,
-        includesOfficialSegments: false,
-        visitingParkId: fitnessAnchor?.id || null,
-        includesFitnessStop: hasGym
-      };
-
-      validRoutes.push(route);
-      console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
-
-    } catch (err: any) {
-      console.error(`[RouteGenerator] Error on route ${i}:`, err?.message || err);
-    }
-
-    // ✅ CRITICAL: 1.5 second delay at the END of each iteration (except last or when we have enough routes)
-    if (i < routeCombinations.length - 1 && validRoutes.length < MIN_REQUIRED_ROUTES) {
-      console.log('[RouteGenerator] Waiting 1.5s before next API call...');
-      await delay(1500);
     }
   }
 
-  console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid routes.`);
   return validRoutes;
 }
 

@@ -563,6 +563,39 @@ export const IS_PROXIMITY_SEGMENT_QUERY_ENABLED = true;
 // decision. Flip back to false for an instant, byte-identical revert.
 export const IS_TIGHTENED_DISTANCE_WINDOW_ENABLED = true;
 
+// IS_GUARANTEED_ROUTE_FALLBACK_ENABLED: switches route-generator.service.ts's
+// generateLoopRoutes from "return whatever validRoutes collected, possibly
+// empty" to a two-tier guarantee that kicks in ONLY when the main loop (which
+// runs unchanged, still checked against computeTightenedDistanceWindow when
+// that flag is on) ends up with zero accepted routes.
+//
+// Root problem this fixes: IS_TIGHTENED_DISTANCE_WINDOW_ENABLED's tighter
+// window can reject a route that Mapbox already successfully built from real
+// street data — live-confirmed (14.08.2026, Tel Aviv, 3km/30min/40min
+// targets): the exact same spot the old loose window used to return valid
+// routes now shows the empty-state card, even though a real, on-street route
+// was computed and simply discarded by the tighter check.
+//
+// Both tiers are bounded by computeDistanceWindow — today's exact,
+// pre-tightening window, unchanged by this session's work — so the guarantee
+// can NEVER accept a route the app wouldn't have accepted before
+// IS_TIGHTENED_DISTANCE_WINDOW_ENABLED existed. Tier 1: retain the closest-
+// to-target result already computed during the main loop's combinations
+// (zero extra network calls) if it falls within that bound. Tier 2, only if
+// Tier 1 finds nothing: one relaxed re-fetch (wider search radius, lower
+// score floor) and one more bounded pass. If both tiers find nothing, falls
+// through unchanged to today's exact empty-state behavior.
+//
+// While false: neither tier ever runs — generateLoopRoutes returns exactly
+// what it does today, byte-identical, including with
+// IS_TIGHTENED_DISTANCE_WINDOW_ENABLED on. Independent of that flag on
+// purpose — lets either be flipped off alone if something about the other
+// looks wrong.
+// Default false pending live calibration of Tier 2's relaxation numbers in
+// Tel Aviv + a thin-coverage city (same discipline as
+// IS_TIGHTENED_DISTANCE_WINDOW_ENABLED's calibration).
+export const IS_GUARANTEED_ROUTE_FALLBACK_ENABLED = false;
+
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
 // longer opens ExitConfirmModal; it is blocked ENTIRELY and silently, as if
