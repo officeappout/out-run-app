@@ -829,8 +829,11 @@ export function computeDistanceWindow(safeDistance: number): { minKm: number; ma
  * 8km ceiling, not from hand-picking a boundary. No seam beyond that:
  * both tolerances are in pure-percentage mode by target=3km (below) /
  * target=2km (above), so from 3km to 100km this is one uniform ~40%
- * relative-width band (below% + above% = 0.10+0.30); only 1.5-3km sits
- * slightly above that (~45% at target=2, still floor-influenced).
+ * relative-width band (below% + above% = 0.10+0.30). Below 3km the
+ * below-floor is still active and relative width rises as target shrinks
+ * — 45% at target=2km, 60% at target=1.5km (this function's floor,
+ * i.e. the smallest target it's ever called with; anything below 1.5km
+ * dispatches to computeShortRouteDistanceWindow instead, see below).
  *
  * Root problem this fixes: computeDistanceWindow's absolute floors (0.5km
  * below / 2.5km above) dominate the ENTIRE 1.5-8km band (the percentage
@@ -863,10 +866,16 @@ export function computeDistanceWindow(safeDistance: number): { minKm: number; ma
  * exists for).
  *
  * Design constraint that holds regardless of any future recalibration:
- * below-floor ≤ 0.5, below-% ≤ 0.10 (so belowTolerance(x) ≤
- * computeDistanceWindow's belowTolerance(x) for every x, by construction —
- * same-or-lower floor, same-or-lower percentage). Above-tolerance has NO
- * such unconditional guarantee (its % exceeds computeDistanceWindow's) —
+ * below-floor ≤ 0.5, below-% ≤ 0.10, so the below TOLERANCE AMOUNT
+ * (belowToleranceKm) is ≤ computeDistanceWindow's for every x, by
+ * construction — same-or-lower floor, same-or-lower percentage. This is
+ * NOT the same claim as "tight.minKm ≥ loose.minKm for every x" — the two
+ * functions also clamp minKm against different outer floors (0.3 vs
+ * 0.5km), which can flip the comparison below x≈1.0km. Irrelevant in
+ * practice since this function is never called under 1.5km (short-mode
+ * intercepts first), but don't conflate the two claims when recalibrating.
+ * Above-tolerance has NO unconditional guarantee at all (its % exceeds
+ * computeDistanceWindow's) —
  * the "tighter through 8km" property is verified live/by-test at this
  * function's actual calibrated values (see tests below), not structurally
  * guaranteed to survive arbitrary future recalibration of the above-side.

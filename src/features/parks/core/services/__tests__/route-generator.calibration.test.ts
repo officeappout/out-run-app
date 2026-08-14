@@ -258,7 +258,7 @@ describe('computeTightenedDistanceWindow — recalibrated 1.5-100km acceptance b
     }
   });
 
-  it('belowTolerance is pointwise ≤ computeDistanceWindow\'s at every target — structural guarantee (same 10% percentage, lower 0.3 vs 0.5 floor), not just observed at test points', () => {
+  it('belowTolerance stays ≤ computeDistanceWindow\'s at every sampled target — same 10% percentage, lower 0.3 vs 0.5 floor makes this true for any x by construction, verified here at representative points', () => {
     for (const target of [1.5, 2, 3, 5, 8, 22, 50, 100]) {
       const loose = computeDistanceWindow(target);
       const tight = computeTightenedDistanceWindow(target);
