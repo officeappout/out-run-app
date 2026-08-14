@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreWaypoint, computeDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments, buildTriangleCombinations } from '../route-generator.service';
+import { scoreWaypoint, computeDistanceWindow, computeTightenedDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments, buildTriangleCombinations } from '../route-generator.service';
 
 const USER = { lat: 0, lng: 0 };
 // ~0.267km east of user (route-stops' targetKm=1.6 / 6 calibration) and ~1.0km east.
@@ -203,6 +203,79 @@ describe('computeDistanceWindow — proportional acceptance band (08.08, fixes l
   it('minKm never goes below the 0.5km floor even for a very large target with a large percentage cut', () => {
     const { minKm } = computeDistanceWindow(100);
     expect(minKm).toBeGreaterThanOrEqual(0.5);
+  });
+});
+
+describe('computeTightenedDistanceWindow — recalibrated 1.5-100km acceptance band (14.08.2026, live-calibrated in Tel Aviv + Sderot)', () => {
+  it('exact calibrated values at the reported live-failure targets', () => {
+    expect(computeTightenedDistanceWindow(1.5)).toEqual({ minKm: 1.2, maxKm: 2.1 });
+    expect(computeTightenedDistanceWindow(3)).toEqual({ minKm: 2.7, maxKm: 3.9 });
+    expect(computeTightenedDistanceWindow(5)).toEqual({ minKm: 4.5, maxKm: 6.5 });
+  });
+
+  it('CRITICAL — is strictly tighter than computeDistanceWindow across the whole 1.5-8km range this exists to fix', () => {
+    for (const target of [1.5, 2, 3, 5, 8]) {
+      const loose = computeDistanceWindow(target);
+      const tight = computeTightenedDistanceWindow(target);
+      const looseWidth = loose.maxKm - loose.minKm;
+      const tightWidth = tight.maxKm - tight.minKm;
+      expect(tightWidth).toBeLessThan(looseWidth);
+    }
+  });
+
+  it('a 5km target meaningfully narrows the old 7.5km ceiling — though the exact 6.5km live-reported symptom sits right at the new boundary, a deliberate tradeoff for Sderot availability, not a gap', () => {
+    const loose = computeDistanceWindow(5);
+    const tight = computeTightenedDistanceWindow(5);
+    expect(loose.maxKm).toBe(7.5);
+    expect(tight.maxKm).toBe(6.5); // anything 6.5-7.5km, previously accepted, is now correctly rejected
+  });
+
+  it('a 1.5km target does NOT validate a ~2.6km result — the exact live-reported symptom', () => {
+    const { maxKm } = computeTightenedDistanceWindow(1.5);
+    expect(maxKm).toBeLessThan(2.6);
+  });
+
+  it('no gap or seam from 3km to 100km — both tolerances are in pure-percentage mode by then (below% + above% = 0.40 relative width, constant); only 1.5-3km sits slightly wider (~45%) while the below-floor is still active', () => {
+    const targets = [3, 8, 22, 50, 100];
+    const relativeWidths = targets.map((t) => {
+      const { minKm, maxKm } = computeTightenedDistanceWindow(t);
+      return (maxKm - minKm) / t;
+    });
+    for (const w of relativeWidths) {
+      expect(w).toBeCloseTo(0.4, 5);
+    }
+  });
+
+  it('design constraint — can only be tighter-or-equal to computeDistanceWindow at small targets, wider-or-equal at large ones (22km+ can only get safer)', () => {
+    for (const target of [1.5, 3, 5, 8, 22, 50, 100]) {
+      const loose = computeDistanceWindow(target);
+      const tight = computeTightenedDistanceWindow(target);
+      if (target <= 8) {
+        expect(tight.maxKm - tight.minKm).toBeLessThanOrEqual(loose.maxKm - loose.minKm);
+      } else {
+        expect(tight.maxKm - tight.minKm).toBeGreaterThanOrEqual(loose.maxKm - loose.minKm);
+      }
+    }
+  });
+
+  it('belowTolerance is pointwise ≤ computeDistanceWindow\'s at every target — structural guarantee (same 10% percentage, lower 0.3 vs 0.5 floor), not just observed at test points', () => {
+    for (const target of [1.5, 2, 3, 5, 8, 22, 50, 100]) {
+      const loose = computeDistanceWindow(target);
+      const tight = computeTightenedDistanceWindow(target);
+      expect(target - tight.minKm).toBeLessThanOrEqual(target - loose.minKm);
+    }
+  });
+
+  it('22km — the already-proven large-target behavior only gets safer (wider), never regresses', () => {
+    const loose = computeDistanceWindow(22);
+    const tight = computeTightenedDistanceWindow(22);
+    expect(tight.minKm).toBeLessThanOrEqual(loose.minKm);
+    expect(tight.maxKm).toBeGreaterThanOrEqual(loose.maxKm);
+  });
+
+  it('minKm never goes below the 0.3km floor even at the 100km slider ceiling', () => {
+    const { minKm } = computeTightenedDistanceWindow(100);
+    expect(minKm).toBeGreaterThanOrEqual(0.3);
   });
 });
 

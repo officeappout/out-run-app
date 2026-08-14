@@ -818,7 +818,19 @@ export function computeDistanceWindow(safeDistance: number): { minKm: number; ma
  * Behind IS_TIGHTENED_DISTANCE_WINDOW_ENABLED — a full replacement for
  * computeDistanceWindow (not a separate tier for a narrow sub-range), so
  * there's exactly one formula and one flag covering the whole normal-mode
- * target range (1.5km up to the 100km slider ceiling), no seam.
+ * target range (1.5km up to the 100km slider ceiling). Below-tolerance
+ * uses the SAME 10% as computeDistanceWindow (only the floor drops, 0.5→
+ * 0.3) — this side needed no loosening, undershooting was never the
+ * reported problem. Above-tolerance uses a higher 30% but a much lower
+ * floor (2.5→0.6); because computeDistanceWindow's 2.5km floor still
+ * dominates its own formula up to target≈16.7km, the new 30%-based value
+ * stays below it until target≈8.33km — so the crossover from "tighter
+ * than today" to "wider than today" falls naturally just past this fix's
+ * 8km ceiling, not from hand-picking a boundary. No seam beyond that:
+ * both tolerances are in pure-percentage mode by target=3km (below) /
+ * target=2km (above), so from 3km to 100km this is one uniform ~40%
+ * relative-width band (below% + above% = 0.10+0.30); only 1.5-3km sits
+ * slightly above that (~45% at target=2, still floor-influenced).
  *
  * Root problem this fixes: computeDistanceWindow's absolute floors (0.5km
  * below / 2.5km above) dominate the ENTIRE 1.5-8km band (the percentage
@@ -827,22 +839,50 @@ export function computeDistanceWindow(safeDistance: number): { minKm: number; ma
  * [4.5,7.5]km, wide enough that a 30%+ oversized result is accepted every
  * time; a 1.5km target's window is [1.0,4.0]km, a 167%-wide band.
  *
- * Calibration values are placeholders pending live verification (see the
- * plan's verification section) in both Tel Aviv (dense) and Sderot (the
- * only other city with real, non-official-only street_segments coverage —
- * confirmed live, every other checked city has zero). Design constraint
- * that MUST hold regardless of the exact numbers: below-floor ≤ 0.5,
- * above-floor ≤ 2.5, below-% ≥ 0.10, above-% ≥ 0.15 — i.e. this function
- * can only ever be EQUAL OR TIGHTER than computeDistanceWindow at small
- * targets and EQUAL OR WIDER at large ones, so the already-proven 22km+
- * behavior (the 08.08 "no route found" fix) can only get safer, never
- * regress, no matter how the medium-range calibration lands.
+ * Calibrated live (14.08.2026) in Tel Aviv (dense, ~90-150 segments/km²)
+ * and Sderot (thin, ~72 segments/km² — confirmed the only other city with
+ * real, non-official-only street_segments coverage; every other checked
+ * city has zero). An initial, tighter hypothesis (0.2/0.15 below,
+ * 0.5/0.20 above) rejected real, legitimate routes too often in Sderot
+ * (consistent ~25-34% overshoot there even on genuinely valid triangles,
+ * likely from sparser real candidates forcing less precise loops) —
+ * loosened the above-side to 0.6/0.30 specifically because tighter
+ * measurably cost availability without a matching correctness gain. A
+ * documented consequence of that loosening: at a 5km target the new
+ * window's ceiling (6.5km) sits exactly at the specific 6.5km result that
+ * originally flagged this as broken — still a real win (old ceiling was
+ * 7.5km — anything 6.5-7.5km, which was common, is now correctly
+ * rejected) but this exact borderline case is a deliberate tradeoff, not
+ * fully closed. Even so this is a real, quantified cost, not a free
+ * lunch: repeated live trials showed occasional degraded results (1-2 of
+ * the usual 3 cards) and, rarely, a full empty state (Tel Aviv 2km: 1 of
+ * 3 trials returned zero routes) — worse in Sderot than Tel Aviv, as
+ * expected. That's the exact reason this stays flag-gated pending
+ * David's own device judgment, not something to paper over by loosening
+ * further (which would just re-erode the correctness gain this whole fix
+ * exists for).
+ *
+ * Design constraint that holds regardless of any future recalibration:
+ * below-floor ≤ 0.5, below-% ≤ 0.10 (so belowTolerance(x) ≤
+ * computeDistanceWindow's belowTolerance(x) for every x, by construction —
+ * same-or-lower floor, same-or-lower percentage). Above-tolerance has NO
+ * such unconditional guarantee (its % exceeds computeDistanceWindow's) —
+ * the "tighter through 8km" property is verified live/by-test at this
+ * function's actual calibrated values (see tests below), not structurally
+ * guaranteed to survive arbitrary future recalibration of the above-side.
+ * The already-proven 22km+ behavior (the 08.08 "no route found" fix) DOES
+ * stay structurally safe regardless: above-floor (0.6) is far below
+ * computeDistanceWindow's (2.5), and above-% (0.30) exceeds its (0.15), so
+ * at large targets this can only be equal-or-wider, never tighter/riskier.
+ * Verified live at 22km in both cities: consistently 2-3 valid routes, no
+ * rejections worse than what computeDistanceWindow already tolerated
+ * there.
  */
 export function computeTightenedDistanceWindow(safeDistance: number): { minKm: number; maxKm: number } {
-  const belowToleranceKm = Math.max(0.2, safeDistance * 0.15);
-  const aboveToleranceKm = Math.max(0.5, safeDistance * 0.20);
+  const belowToleranceKm = Math.max(0.3, safeDistance * 0.10);
+  const aboveToleranceKm = Math.max(0.6, safeDistance * 0.30);
   return {
-    minKm: Math.max(0.2, safeDistance - belowToleranceKm),
+    minKm: Math.max(0.3, safeDistance - belowToleranceKm),
     maxKm: safeDistance + aboveToleranceKm,
   };
 }
