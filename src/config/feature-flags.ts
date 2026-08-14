@@ -791,9 +791,13 @@ export const RECOVERY_DAY_BADGE_FIX_ENABLED = true;
 // calculateCurrentWeek(startDate) instead of trusting the stored field, and
 // the two week-badges above start rendering "שבוע N" for the first time.
 //
-// Default FALSE pending on-device verification. Kill-switch: flip back to
-// false, byte-identical instantly, no code change needed.
-export const RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED = false;
+// FLIPPED TRUE (14.08.2026) — David verified on-device first (uncommitted
+// local flip, not deployed) before approving: confirmed the home page shows
+// the correct current-week workout when opened before completing that
+// week's first run, and the Planner's "שבוע N" pill now renders correctly.
+// Kill-switch: flip back to false, byte-identical instantly, no code change
+// needed.
+export const RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
