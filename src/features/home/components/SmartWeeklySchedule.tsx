@@ -119,6 +119,12 @@ interface DayActivityData {
   isCompleted: boolean;
   /** S8-only: completed an OUT workout (drives the FLAME). Split from the blended isCompleted. */
   workoutDone?: boolean;
+  /**
+   * True when workoutDone's completion was recovery-only content (video
+   * trio / Budget-Floor cooldown) rather than bonus effort — suppresses
+   * Beast Mode downstream. Gated by RECOVERY_DAY_BADGE_FIX_ENABLED.
+   */
+  isRecoveryCompletion?: boolean;
   isMissed: boolean;
   isRest: boolean;
   isToday: boolean;
@@ -867,7 +873,7 @@ export default function SmartWeeklySchedule({
     return isos;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey]);
-  const pastProgressMap = usePastWorkoutCompleted(userId, weekPastIsos);
+  const { completedMap: pastProgressMap, recoveryMap: pastRecoveryMap } = usePastWorkoutCompleted(userId, weekPastIsos);
 
   // Normalize selected days from props
   const selectedDays = scheduleDays || [];
@@ -918,6 +924,7 @@ export default function SmartWeeklySchedule({
         hasActivity: false,
         isCompleted: false,
         workoutDone: false,
+        isRecoveryCompletion: false,
         isMissed: false,
         isRest: isRestDay,
         isToday,
@@ -940,12 +947,17 @@ export default function SmartWeeklySchedule({
       // usePastWorkoutCompleted), NOT the S7 scheduleCompleted flag. useDayStatus
       // still bridges real per-category activity minutes for the ring.
       if (!isFuture) {
-        const status = getDayStatus(isoDate, pastProgressMap.get(isoDate) ?? false);
+        const status = getDayStatus(
+          isoDate,
+          pastProgressMap.get(isoDate) ?? false,
+          pastRecoveryMap.get(isoDate) ?? false,
+        );
         dayData = {
           ...dayData,
           hasActivity: status.hasActivity,
           isCompleted: status.isCompleted,
           workoutDone: status.workoutDone,
+          isRecoveryCompletion: status.isRecoveryCompletion,
           totalMinutes: status.totalMinutes,
           categories: status.categories,
           dominantCategory: status.dominantCategory,
@@ -1102,6 +1114,11 @@ export default function SmartWeeklySchedule({
       });
       // props are required by DayIconCell but ignored when activityRing is set;
       // pass minimal valid state so the cell can echo today/selection if needed.
+      // isRecoveryCompletion intentionally NOT threaded here: isRest and
+      // isCompleted are both hardcoded false in this branch (the ring view
+      // never renders the flame/Beast-Mode UI), so resolveDayDisplayProps'
+      // `isRest && isCompleted` Beast Mode gate is structurally unreachable
+      // regardless of recovery status — confirmed by reading both branches.
       const displayProps = resolveDayDisplayProps({
         state,
         isSelected: isCellSelected,
@@ -1126,6 +1143,22 @@ export default function SmartWeeklySchedule({
       const runningCategory = runEntry?.category;
       const runningColor = runningCategory ? getCategoryColor(runningCategory) : undefined;
 
+      // isRecoveryCompletion IS threaded here even though this branch uses the
+      // deprecated blended `dayData.isCompleted` (wasActive || workoutDone),
+      // not `workoutDone` — reachability check (13.08.2026): on a rest day
+      // with no matching runEntry, the isRunningMode block above (weekActivityData
+      // useMemo) only overrides isCompleted when `!isRestDay`; on an actual rest
+      // day it falls through untouched, keeping the general `status.isCompleted`
+      // value set by the earlier `!isFuture` block — the SAME dailyProgress-backed
+      // signal the icon-view branch below uses. Recovery-video-trio always plays
+      // through the STRENGTH runner (confirmed: home/page.tsx's composer builds
+      // trainingType:'strength', and StrengthSummaryPage → useActivitySync is the
+      // only isRecovery producer), never the running player — but the
+      // dailyProgress/{uid}_{date} document it writes is global per user+date,
+      // not scoped to currentTrack. So a running-track user who completes a
+      // recovery-video-trio (via the strength runner) on their rest day WILL
+      // reach this branch with isCompleted=true, isRest=true — Beast Mode would
+      // incorrectly fire here too without this field.
       const displayProps = resolveDayDisplayProps({
         state,
         isSelected: isCellSelected,
@@ -1138,6 +1171,7 @@ export default function SmartWeeklySchedule({
         programIconKey: 'shoe',
         runningCategory,
         runningColor,
+        isRecoveryCompletion: dayData.isRecoveryCompletion,
       });
 
       return <DayIconCell props={displayProps} />;
@@ -1206,6 +1240,7 @@ export default function SmartWeeklySchedule({
         // Flame = the workout axis only; no activity-session alternation (that belongs
         // to the ring, Stage 2). Multi-OUT-workout days re-introduce S7-based sessions later.
         sessions: undefined,
+        isRecoveryCompletion: dayData.isRecoveryCompletion,
       });
 
       return <DayIconCell props={displayProps} />;

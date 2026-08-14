@@ -31,6 +31,15 @@ export interface CompletionPayload {
   /** Thumbnail URL for the completed workout hero image */
   thumbnailUrl?: string;
   /**
+   * True when the completed session was recovery-only content (rest-day
+   * video trio OR the "Budget Floor" cooldown/mobility fallback) rather than
+   * a bonus effort. Gated end-to-end by RECOVERY_DAY_BADGE_FIX_ENABLED at the
+   * single write choke point (useActivitySync.ts) — see feature-flags.ts.
+   * Only the strength completion path ever sets this; running/hybrid
+   * completions have no recovery concept and leave it undefined.
+   */
+  isRecovery?: boolean;
+  /**
    * Multi-category split (hybrid). When present, minutes/calories are logged
    * PER category in ONE atomic activity-store write (e.g. cardio legs + strength
    * station) instead of the single `activityCategory`. The once-per-session
@@ -71,7 +80,7 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
   }
 
   // 2. Progression Store → dailyProgress + goalHistory (Firestore write)
-  await useProgressionStore.getState().markTodayAsCompleted(payload.workoutType).catch((err) => {
+  await useProgressionStore.getState().markTodayAsCompleted(payload.workoutType, payload.isRecovery).catch((err) => {
     console.error('[completion-sync] markTodayAsCompleted failed:', err);
   });
 

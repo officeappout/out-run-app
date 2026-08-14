@@ -8,6 +8,7 @@ import { syncWorkoutCompletion } from '@/features/workout-engine/services/comple
 import { trackMuscleUsage } from '@/features/workout-engine/services/split-decision';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
 import type { MuscleGroup } from '@/features/content/exercises/core/exercise.types';
+import { RECOVERY_DAY_BADGE_FIX_ENABLED } from '@/config/feature-flags';
 
 import type { CompletedExercise, Difficulty } from '../utils/summary.utils';
 
@@ -109,6 +110,12 @@ export function useActivitySync(params: UseActivitySyncParams): void {
       activityCategory,
       displayIcon: 'dumbbell',
       workoutTitle: programName,
+      // RECOVERY_DAY_BADGE_FIX_ENABLED — single write choke point (see
+      // feature-flags.ts). While false, `isRecovery` is never passed through
+      // regardless of this session's real value, so dailyProgress.isRecovery
+      // is never written `true` and every downstream Beast-Mode-suppression
+      // branch stays unreachable.
+      isRecovery: RECOVERY_DAY_BADGE_FIX_ENABLED ? isRecovery : undefined,
     });
 
     // 2. Progression Store (global coins)

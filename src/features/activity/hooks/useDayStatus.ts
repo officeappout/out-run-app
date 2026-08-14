@@ -40,6 +40,16 @@ export interface DayStatusResult {
    */
   workoutDone: boolean;
   wasActive: boolean;
+  /**
+   * True when workoutDone's completion was recovery-only content (rest-day
+   * video trio OR the "Budget Floor" cooldown/mobility fallback) rather than
+   * bonus effort — mirrors workoutDone's today/past source split (today:
+   * live `dailyProgress.isRecovery` via useDailyProgress; past: the
+   * `scheduleRecovery` param the caller passes, sourced from
+   * usePastWorkoutCompleted's recoveryMap). Gated end-to-end by
+   * RECOVERY_DAY_BADGE_FIX_ENABLED — always false while that flag is off.
+   */
+  isRecoveryCompletion: boolean;
   /** @deprecated Blended (minutes>=10 OR workoutCompleted). Use workoutDone / wasActive. Kept until consumers migrate. */
   isCompleted: boolean;
   /** @deprecated Blended (any activity OR workoutCompleted). Use wasActive / workoutDone. */
@@ -68,6 +78,11 @@ export interface DayStatusResult {
  *                          For today, this is ignored in favour of the live
  *                          `workoutCompleted` flag from `useDailyProgress`.
  *                          For past days, it is used as the secondary bridge signal.
+ * @param scheduleRecovery - Optional past-day `isRecovery` bridge signal (mirrors
+ *                          scheduleCompleted), typically sourced from
+ *                          usePastWorkoutCompleted's recoveryMap. For today, this
+ *                          is ignored in favour of the live `isRecovery` flag from
+ *                          `useDailyProgress`.
  */
 export function useDayStatus() {
   const weekActivities = useActivityStore((s) => s.weekActivities);
@@ -79,7 +94,7 @@ export function useDayStatus() {
   const dateKey        = useDateKey();
 
   return useCallback(
-    (date: string, scheduleCompleted?: boolean): DayStatusResult => {
+    (date: string, scheduleCompleted?: boolean, scheduleRecovery?: boolean): DayStatusResult => {
       // Read "today" from the dateKey atom (kept fresh by useMidnightRefresh)
       // rather than from a fresh `new Date()` on every call. This way a stale
       // closure cannot misclassify an over-midnight date.
@@ -110,6 +125,10 @@ export function useDayStatus() {
       // wasActive   = S10 only (>=10 min activity)      → ring.
       const workoutDone = workoutCompleted;                  // S8 (today) / scheduleCompleted param (past)
       const wasActive   = totalMinutes >= STREAK_MINIMUM_MINUTES;
+      // Mirrors workoutDone's today/past source split exactly.
+      const isRecoveryCompletion = isToday
+        ? !!todayProgress?.isRecovery
+        : !!scheduleRecovery;
       // Deprecated blended flags — retained until every consumer migrates off them.
       const isCompleted = wasActive || workoutDone;
       const hasActivity = totalMinutes > 0 || workoutDone;
@@ -128,6 +147,7 @@ export function useDayStatus() {
       return {
         workoutDone,
         wasActive,
+        isRecoveryCompletion,
         isCompleted,
         hasActivity,
         totalMinutes,

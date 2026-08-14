@@ -675,6 +675,52 @@ export const WORKOUT_DELETE_EXPANDED_ENABLED = false;
 // retroactively relabel past completions already saved as 'strength'.
 export const RECOVERY_WORKOUT_CATEGORIZATION_ENABLED = true;
 
+// RECOVERY_DAY_BADGE_FIX_ENABLED: gates the write-site fix for the "Beast Mode"
+// bonus-flame badge (resolveDayDisplayProps, BONUS_WORKOUT_COLOR) incorrectly
+// showing on a scheduled rest day whose ONLY completed activity was recovery
+// content — either the rest-day recovery-video-trio OR the "Budget Floor"
+// fallback cooldown/mobility workout. Both are the day's INTENDED content, not
+// bonus effort, so Beast Mode should not fire for either. Deliberately keys off
+// the BROAD `isRecovery` flag (true for all three isRecovery producers), NOT
+// the narrow isPureRecoveryVideoTrioWorkout discriminator that
+// RECOVERY_WORKOUT_CATEGORIZATION_ENABLED uses for history-list labeling —
+// that narrow check intentionally excludes the Budget-Floor cooldown and the
+// standard rest-day generator, but both of those should ALSO suppress Beast
+// Mode here, since they're equally the day's designated content.
+//
+// While FALSE (default), the single write choke point — useActivitySync.ts's
+// syncWorkoutCompletion() call — passes `isRecovery: undefined` regardless of
+// the session's real isRecovery value, so completion-sync.service.ts →
+// useProgressionStore.markTodayAsCompleted() always receives `isRecovery:
+// undefined` → the dailyProgress/{userId}_{date} Firestore write always
+// stores `isRecovery: false` (never `true`, by any document, from any user).
+// Every downstream read site (useDailyProgress, usePastWorkoutCompleted,
+// useDayStatus's isRecoveryCompletion, DayDisplayInput.isRecoveryCompletion)
+// therefore always evaluates falsy, and both Beast Mode branches in
+// resolveDayDisplayProps (today + past) keep firing exactly as today — the
+// pre-existing bug is preserved, not the pre-existing Firestore document
+// shape (the new `isRecovery` field is written either way; only its value is
+// gated). BYTE-IDENTICAL in the sense that matters: every new branch this fix
+// adds is structurally unreachable while this flag is false.
+//
+// While TRUE, the real per-session isRecovery boolean (already threaded into
+// useActivitySync's params, previously only consumed by recordStrengthSession)
+// flows through to dailyProgress.isRecovery, and both Beast Mode branches
+// additionally require `!isRecoveryCompletion` — a rest day whose only
+// completed activity was recovery content falls through to the ordinary
+// rest-day (Zz) treatment instead of the violet bonus flame.
+//
+// Only strength-runner completions (useActivitySync, fed by
+// StrengthSummaryPage.tsx) ever carry a real isRecovery value — running
+// (useRunningPlayer.ts) and hybrid (useHybridRun.ts) syncWorkoutCompletion
+// calls have no recovery concept and never set this field, confirmed by
+// inspection (13.08.2026) — so gating at this single strength choke point is
+// sufficient; no other syncWorkoutCompletion caller needs its own gate.
+//
+// DEFAULT FALSE pending David's device verification (13.08.2026, scoped build
+// — not yet visually verified in a browser/device from this environment).
+export const RECOVERY_DAY_BADGE_FIX_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

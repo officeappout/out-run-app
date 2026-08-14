@@ -92,7 +92,7 @@ interface ProgressionState {
   awardCommuteXP: (params: CommuteWorkoutXPParams) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
   /** Award a flat XP bonus (e.g. for completing a LevelGoal). Uses atomic Firestore increment. */
   awardBonusXP: (xp: number, reason?: string) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
-  markTodayAsCompleted: (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid') => Promise<void>;
+  markTodayAsCompleted: (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid', isRecovery?: boolean) => Promise<void>;
   setLastActivityType: (type: ActivityType) => void;
   recordDailyGoalProgress: (steps: number, floors: number) => void;
   updateDomainProgress: (domain: string, level: number, percent: number) => void;
@@ -826,7 +826,7 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
    * Mark today as completed (workout done)
    * Syncs to Firestore dailyProgress collection
    */
-  markTodayAsCompleted: async (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid') => {
+  markTodayAsCompleted: async (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid', isRecovery?: boolean) => {
     try {
       if (typeof window === 'undefined') return;
       
@@ -867,6 +867,12 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
         workoutCompleted: true,
         workoutType: type,
         displayIcon: getWorkoutIcon(type),
+        // RECOVERY_DAY_BADGE_FIX_ENABLED — additive sibling field, never a
+        // replacement for workoutCompleted (which keeps writing `true`
+        // unconditionally above). Caller (completion-sync.service.ts) only
+        // ever passes a real `true` when the flag is on; otherwise this is
+        // always `false`. See feature-flags.ts.
+        isRecovery: !!isRecovery,
         ...existingData, // Preserve other fields (steps, floors, etc.)
         updatedAt: serverTimestamp(),
       }, { merge: true });

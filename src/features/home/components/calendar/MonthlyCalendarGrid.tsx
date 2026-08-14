@@ -136,6 +136,10 @@ function buildCellProps(
    * to "past" — even if `userSchedule.completed` was never written.
    */
   pastProgressCompleted?: boolean,
+  /** Today's `dailyProgress.isRecovery` bridge — mirrors todayCompletedOverride. */
+  todayRecoveryOverride?: boolean,
+  /** Past-day `dailyProgress.isRecovery` bridge — mirrors pastProgressCompleted. */
+  pastRecoveryCompleted?: boolean,
 ): DayDisplayInput {
   const dayLetter = HEBREW_DAYS[new Date(cell.iso + 'T00:00:00').getDay()];
   const isTraining = scheduleDays?.includes(dayLetter) ?? false;
@@ -154,6 +158,12 @@ function buildCellProps(
   const isCompleted = cell.isToday
     ? (todayCompletedOverride ?? primary?.completed ?? false)
     : (primary?.completed || pastProgressCompleted || false);
+  // Recovery-only completion bridge — mirrors isCompleted above. A scheduled
+  // UserScheduleEntry has no recovery concept, so unlike isCompleted there's
+  // no `primary?.` fallback here — the sole sources are the two override params.
+  const isRecoveryCompletion = cell.isToday
+    ? (todayRecoveryOverride ?? false)
+    : (pastRecoveryCompleted ?? false);
   const isMissed = cell.isPast && !cell.isToday && !isRest && !isCompleted;
   const state: DayDisplayInput['state'] = cell.isToday ? 'today' : cell.isPast ? 'past' : 'future';
   // Map the primary's first scheduled category → dominantCategory for the engine
@@ -169,6 +179,7 @@ function buildCellProps(
     isRest,
     isMissed,
     isCompleted,
+    isRecoveryCompletion,
     debtCleared: false,
     isSuper: false,
     stepGoalMet: false,
@@ -241,7 +252,7 @@ export default function MonthlyCalendarGrid({
     () => cells.filter((c) => c.isPast && c.isCurrentMonth).map((c) => c.iso),
     [cells],
   );
-  const pastProgressMap = usePastWorkoutCompleted(userId, pastIsos);
+  const { completedMap: pastProgressMap, recoveryMap: pastRecoveryMap } = usePastWorkoutCompleted(userId, pastIsos);
 
   // When collapsing, snap back to today's month so the week strip
   // always shows the current week and not some navigated-away month.
@@ -452,6 +463,10 @@ export default function MonthlyCalendarGrid({
                         // pastProgressMap — keeps the flame alive after a day
                         // transitions from "today" to "past".
                         cell.isPast ? (pastProgressMap.get(cell.iso) ?? false) : undefined,
+                        // Today/Past recovery-completion bridge (RECOVERY_DAY_BADGE_FIX_ENABLED)
+                        // — mirrors the two params above; suppresses Beast Mode downstream.
+                        cell.isToday ? getDayStatus(cell.iso).isRecoveryCompletion : undefined,
+                        cell.isPast ? (pastRecoveryMap.get(cell.iso) ?? false) : undefined,
                       )
                     )}
                   />

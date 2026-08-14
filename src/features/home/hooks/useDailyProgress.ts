@@ -17,6 +17,14 @@ export interface DailyProgress {
   floorsAchieved?: number;
   stepGoalMet?: boolean;
   floorGoalMet?: boolean;
+  /**
+   * True when this completion was recovery-only content (rest-day video trio
+   * OR the "Budget Floor" cooldown/mobility fallback) rather than a bonus
+   * effort — suppresses the "Beast Mode" badge downstream. Gated by
+   * RECOVERY_DAY_BADGE_FIX_ENABLED (see feature-flags.ts); absent/false on
+   * every document written while the flag is off.
+   */
+  isRecovery?: boolean;
   updatedAt?: any;
 }
 

@@ -265,6 +265,16 @@ export interface DayDisplayInput {
   isRest: boolean;
   isMissed: boolean;
   isCompleted: boolean;
+  /**
+   * True when `isCompleted`'s completion was recovery-only content (rest-day
+   * video trio OR the "Budget Floor" cooldown/mobility fallback) rather than
+   * bonus effort. When true, suppresses the "Beast Mode" bonus-flame
+   * treatment on an `isRest && isCompleted` day — that content is the day's
+   * INTENDED programming, not surprise effort. Gated end-to-end by
+   * RECOVERY_DAY_BADGE_FIX_ENABLED (see feature-flags.ts); always false/
+   * undefined while that flag is off, so Beast Mode fires exactly as before.
+   */
+  isRecoveryCompletion?: boolean;
   /** True if this missed training day was made up on a later rest day. */
   debtCleared?: boolean;
   /** True if a full workout (super) was logged. */
@@ -591,7 +601,11 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     // The user trained on a scheduled rest day right now. Render the
     // premium violet bonus treatment immediately so the cell celebrates
     // the surprise effort instead of mimicking a routine training day.
-    if (input.isRest && input.isCompleted) {
+    // Exception: if the only completed activity was recovery-only content
+    // (video trio / Budget-Floor cooldown), that's the day's INTENDED
+    // content, not bonus effort — fall through to the ordinary rest
+    // treatment below instead.
+    if (input.isRest && input.isCompleted && !input.isRecoveryCompletion) {
       return {
         ...echo,
         container: {
@@ -674,7 +688,10 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
     // bonus effort with a premium violet glow that visually outranks the
     // routine training-day flame. Container ring + label both adopt the
     // bonus hue so the cell reads as a distinct achievement at a glance.
-    if (input.isRest && input.isCompleted) {
+    // Exception: recovery-only content (video trio / Budget-Floor cooldown)
+    // is the day's INTENDED programming, not bonus effort — falls through
+    // to the ordinary past-rest treatment below instead.
+    if (input.isRest && input.isCompleted && !input.isRecoveryCompletion) {
       return {
         ...echo,
         container: selectableContainer(BONUS_WORKOUT_COLOR, selForChrome),
