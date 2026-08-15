@@ -1032,16 +1032,73 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'ak-neve-sapir', name: 'נווה ספיר', type: 'neighborhood' },
     ]
   },
-  { id: 'elad', name: 'אלעד', type: 'city', population: 51800 },
-  { id: 'ramat-hasharon', name: 'רמת השרון', type: 'city', population: 48000 },
-  { id: 'karmiel', name: 'כרמיאל', type: 'city', population: 47000 },
-  { id: 'tayibe', name: 'טייבה', type: 'city', population: 46000 },
-  { id: 'kiryat-ono', name: 'קרית אונו', type: 'city', population: 43000 },
+  { id: 'elad', name: 'אלעד', type: 'city', population: 51388 },
+  {
+    id: 'ramat-hasharon', name: 'רמת השרון', type: 'city', population: 49266,
+    // ── Locality batch 2a reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'rhs-morasha', name: 'מורשה', type: 'neighborhood' },
+      { id: 'rhs-neve-magen', name: 'נווה מגן', type: 'neighborhood' },
+      { id: 'rhs-kiryat-yearim', name: 'קריית יערים', type: 'neighborhood' },
+      { id: 'rhs-golan', name: 'גולן', type: 'neighborhood' },
+      { id: 'rhs-neve-rom', name: 'נווה רום', type: 'neighborhood' },
+      { id: 'rhs-hadar', name: 'הדר', type: 'neighborhood' },
+      { id: 'rhs-neve-rasko', name: 'נווה רסקו', type: 'neighborhood' },
+      { id: 'rhs-neve-gan', name: 'נווה גן', type: 'neighborhood' },
+      { id: 'rhs-alon', name: 'אלון', type: 'neighborhood' },
+    ]
+  },
+  {
+    id: 'karmiel', name: 'כרמיאל', type: 'city', population: 47749,
+    // ── Locality batch 2a reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'krm-shikun-hameyasdim', name: 'שיכון המייסדים', type: 'neighborhood' },
+      { id: 'krm-merkaz-hair', name: 'מרכז העיר', type: 'neighborhood' },
+      { id: 'krm-tene', name: 'טנא', type: 'neighborhood' },
+      { id: 'krm-megadim', name: 'מגדים', type: 'neighborhood' },
+      { id: 'krm-sagi', name: 'שׂגיא', type: 'neighborhood' },
+      { id: 'krm-eshkol', name: 'אשכול', type: 'neighborhood' },
+      { id: 'krm-haarava', name: 'הערבה', type: 'neighborhood' },
+      { id: 'krm-hadar', name: 'הדר', type: 'neighborhood' },
+      { id: 'krm-arbel-yehiam', name: 'ארבל–יחיעם', type: 'neighborhood' },
+      { id: 'krm-hairusim', name: 'האירוסים', type: 'neighborhood' },
+      { id: 'krm-hagalil', name: 'הגליל', type: 'neighborhood' },
+      { id: 'krm-givat-ram', name: 'גבעת רם', type: 'neighborhood' },
+      { id: 'krm-givat-makosh', name: 'גבעת מכוש', type: 'neighborhood' },
+      { id: 'krm-ramat-rabin', name: 'רמת רבין', type: 'neighborhood' },
+      { id: 'krm-ramat-navon', name: 'רמת נבון', type: 'neighborhood' },
+    ]
+  },
+  { id: 'tayibe', name: 'טייבה', type: 'city', population: 47635 },
+  {
+    id: 'kiryat-ono', name: 'קרית אונו', type: 'city', population: 46994,
+    // ── Locality batch 2a reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'kro-kiraon', name: 'קיראון', type: 'neighborhood' },
+      { id: 'kro-neot-ariel-sharon', name: 'נאות אריאל שרון', type: 'neighborhood' },
+      { id: 'kro-ono-hatzeira', name: 'אונו הצעירה', type: 'neighborhood' },
+      { id: 'kro-reisfeld', name: 'רייספלד', type: 'neighborhood' },
+      { id: 'kro-rimon', name: 'רימון', type: 'neighborhood' },
+      { id: 'kro-ever-hayarden', name: 'עבר הירדן', type: 'neighborhood' },
+      { id: 'kro-migdal-hamayim', name: 'מגדל המים', type: 'neighborhood' },
+    ]
+  },
   { id: 'or-yehuda', name: 'אור יהודה', type: 'city', population: 38000 },
   { id: 'maale-adumim', name: 'מעלה אדומים', type: 'city', population: 38000 },
   { id: 'dimona', name: 'דימונה', type: 'city', population: 37000 },
   { id: 'ofakim', name: 'אופקים', type: 'city', population: 36000 },
-  { id: 'netivot', name: 'נתיבות', type: 'city', population: 45000 },
+  {
+    id: 'netivot', name: 'נתיבות', type: 'city', population: 60193,
+    // ── Locality batch 2a reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'ntv-shaar-hair', name: 'שכונת שער העיר', type: 'neighborhood' },
+      { id: 'ntv-baba-sali', name: 'שכונת באבא סאלי', type: 'neighborhood' },
+      { id: 'ntv-shivtei-israel', name: 'שבטי ישראל', type: 'neighborhood' },
+      { id: 'ntv-malkhei-israel', name: 'מלכי ישראל', type: 'neighborhood' },
+      { id: 'ntv-harav-tzaban', name: 'הרב צבאן', type: 'neighborhood' },
+      { id: 'ntv-neve-noy', name: 'נווה נוי', type: 'neighborhood' },
+    ]
+  },
   {
     id: 'sderot',
     name: 'שדרות',
@@ -1128,7 +1185,19 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
   { id: 'nesher', name: 'נשר', type: 'city', population: 24000 },
   { id: 'tirah', name: 'טירה', type: 'city', population: 28000 },
   { id: 'tamra', name: 'טמרה', type: 'city', population: 36000 },
-  { id: 'pardes-hanna', name: 'פרדס חנה-כרכור', type: 'local_council', population: 45000 },
+  {
+    id: 'pardes-hanna', name: 'פרדס חנה-כרכור', type: 'local_council', population: 48056,
+    // ── Locality batch 2a reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'phk-karkur', name: 'כרכור', type: 'neighborhood' },
+      { id: 'phk-magad', name: 'מגד', type: 'neighborhood' },
+      { id: 'phk-yuvalim', name: 'יובלים', type: 'neighborhood' },
+      { id: 'phk-omerim', name: 'עומרים', type: 'neighborhood' },
+      { id: 'phk-chalomot-karkur', name: 'חלומות כרכור', type: 'neighborhood' },
+      { id: 'phk-tel-tzvi', name: 'תל צבי', type: 'neighborhood' },
+      { id: 'phk-rambam', name: 'רמב"ם', type: 'neighborhood' },
+    ]
+  },
   { id: 'kadima-zoran', name: 'קדימה-צורן', type: 'local_council', population: 23000 },
   { id: 'kfar-yona', name: 'כפר יונה', type: 'city', population: 29000 },
 
@@ -1710,7 +1779,17 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     ]
   },
   { id: 'gny-tkvvh', name: 'גני תקווה', type: 'city', population: 26562 },
-  { id: 'chrysh', name: 'חריש', type: 'city', population: 42153 },
+  {
+    id: 'chrysh', name: 'חריש', type: 'city', population: 43259,
+    // ── Locality batch 2a reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'hrs-avnei-chen', name: 'אבני חן', type: 'neighborhood' },
+      { id: 'hrs-hachoresh', name: 'החורש', type: 'neighborhood' },
+      { id: 'hrs-haprachim', name: 'הפרחים', type: 'neighborhood' },
+      { id: 'hrs-maof', name: 'מעו"ף', type: 'neighborhood' },
+      { id: 'hrs-betzavta', name: 'בצוותא', type: 'neighborhood' },
+    ]
+  },
   { id: 'tyrt-krml', name: 'טירת כרמל', type: 'city', population: 34061 },
   { id: 'yhvd-mvnvsvn', name: 'יהוד-מונוסון', type: 'city', population: 33453 },
   { id: 'kpr-ksm', name: 'כפר קאסם', type: 'city', population: 27754 },
@@ -1769,7 +1848,18 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'kb-kiryat-shmaryahu', name: 'קריית שמריהו', type: 'neighborhood' },
     ]
   },
-  { id: 'kryyt-ym', name: 'קריית ים', type: 'city', population: 50025 },
+  {
+    id: 'kryyt-ym', name: 'קריית ים', type: 'city', population: 42657,
+    // ── Locality batch 2a reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'ky-savyonei-yam', name: 'סביוני ים', type: 'neighborhood' },
+      { id: 'ky-pisgot-yam', name: 'פסגות ים', type: 'neighborhood' },
+      { id: 'ky-bneh-beitcha', name: 'בנה ביתך', type: 'neighborhood' },
+      { id: 'ky-shikun-tzva-keva', name: 'שיכון צבא קבע', type: 'neighborhood' },
+      { id: 'ky-almogim', name: 'אלמוגים', type: 'neighborhood' },
+      { id: 'ky-shapira', name: 'שכונת שפירא', type: 'neighborhood' },
+    ]
+  },
   {
     id: 'kryyt-mvtzkyn', name: 'קריית מוצקין', type: 'city', population: 51350,
     // ── Locality batch reconcile, 15.08.2026 — GIS/OSM/landmark-sourced
@@ -1785,7 +1875,17 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
   },
   { id: 'kryyt-mlky', name: 'קריית מלאכי', type: 'city', population: 30482 },
   { id: 'kryyt-shmvnh', name: 'קריית שמונה', type: 'city', population: 25452 },
-  { id: 'shprm', name: 'שפרעם', type: 'city', population: 44880 },
+  {
+    id: 'shprm', name: 'שפרעם', type: 'city', population: 44440,
+    // ── Locality batch 2a reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'shf-hachai-hatzefoni', name: 'הרובע הצפוני', type: 'neighborhood' },
+      { id: 'shf-al-maidan', name: 'אלמידאן', type: 'neighborhood' },
+      { id: 'shf-al-fawwar', name: 'אלפוואר', type: 'neighborhood' },
+      { id: 'shf-osman', name: 'עוסמאן', type: 'neighborhood' },
+      { id: 'shf-al-burj', name: 'אלבורג\'', type: 'neighborhood' },
+    ]
+  },
   { id: 'bv-gvsh', name: 'אבו גוש', type: 'local_council', population: 8984 },
   { id: 'bv-snn', name: 'אבו סנאן', type: 'local_council', population: 14964 },
   { id: 'bn-yhvdh', name: 'אבן יהודה', type: 'local_council', population: 16174 },
