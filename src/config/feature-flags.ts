@@ -1017,6 +1017,84 @@ export const RECOVERY_VIDEO_EXIT_BUTTON_ENABLED = true;
 // follow-along clip — no code change needed.
 export const FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED = false;
 
+// RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED: makes a "pure recovery video trio"
+// rest-day session (a rest-day workout that is structurally just ONE
+// follow-along video — see isPureRecoveryVideoTrioWorkout in
+// workout-engine/shared/utils/recovery-video-trio.utils.ts) start WITH
+// sound, instead of today's always-muted default. Every OTHER follow-along
+// video — any real strength workout with follow-along content, the
+// Budget-Floor cooldown, the standard rest-day generator — is completely
+// unaffected either way; this flag only ever touches the narrow video-trio
+// shape.
+//
+// Mechanism: reuses the EXISTING global `isAudioEnabled` sessionStorage flag
+// that ExerciseVideoPlayer.tsx already reads (`shouldMuteVideo =
+// exerciseType === 'follow-along' ? !isAudioEnabled : true`) and
+// WorkoutPreviewDrawer's manual audio-toggle already writes — no new prop,
+// no new state, and zero changes to that existing read/write code. Gated at
+// the single choke point where active/page.tsx's loadWorkout() resolves a
+// WorkoutPlan — all three priority branches (active_workout_data, legacy
+// currentWorkoutPlan, and the Firestore fallback) — so both the
+// HOME_RECOVERY_START_SHORTCUT_ENABLED shortcut (which bypasses
+// WorkoutPreviewDrawer, and therefore its toggle, entirely) and the normal
+// drawer-Start-button flow are covered identically, regardless of which
+// sessionStorage key the resolved plan actually arrived through. Whenever
+// the resolved plan is a pure recovery-video-trio, sessionStorage's
+// isAudioEnabled key is set to 'true' BEFORE setWorkoutPlan is called — i.e.
+// before that state update can schedule the render that mounts
+// StrengthRunner -> ExerciseVideoPlayer. This ordering is required, not
+// cosmetic: ExerciseVideoPlayer reads the flag via a useMemo keyed on
+// exerciseId, evaluated synchronously during render, so a companion
+// useEffect (which only fires after the child tree's first commit) would be
+// one render too late for a session that never changes exerciseId again.
+//
+// Because this writes the SAME global switch the manual toggle writes, it
+// WOULD be sticky exactly like the manual toggle already is today — except
+// unlike the manual toggle (a deliberate, explicit user choice that is
+// INTENTIONALLY sticky across workouts in the same app session, and MUST
+// stay that way), this auto-set has no user-consent signal behind it. So
+// active/page.tsx cleans it up itself when THIS session ends — not the
+// manual toggle's stickiness contract, which is untouched. Both places a
+// recovery-video-trio session can end (handleComplete's
+// RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED branch; and handleRecoveryVideoExit,
+// gated on RECOVERY_VIDEO_EXIT_BUTTON_ENABLED) call
+// sessionStorage.removeItem('isAudioEnabled') themselves, re-checking this
+// same flag + isPureRecoveryVideoTrioWorkout(...) condition before doing so.
+// Without that cleanup, a recovery-video-trio session would silently leave a
+// REGULAR follow-along strength workout started afterward, in the same app
+// session, unmuted — even though the user never opted into that.
+//
+// Known tradeoff (accepted — minor UX nicety, not correctness-critical): the
+// cleanup cannot distinguish "isAudioEnabled is true because THIS auto-set
+// just wrote it" from "isAudioEnabled is true because the manual toggle,
+// used earlier in the same app session for an unrelated regular workout, is
+// still sticky and happens to already be true" — both look identical in
+// sessionStorage, and the cleanup clears the flag either way. So: manual
+// toggle ON during a regular workout, then a recovery-video-trio session
+// started and finished afterward in that same uninterrupted app session,
+// wipes the earlier manual choice too — the next follow-along workout reverts
+// to muted, contrary to what the user explicitly chose. This needs a fairly
+// specific cross-session-type sequence and was judged acceptable rather than
+// adding a second sessionStorage marker key just to track auto-set
+// provenance separately from the toggle's own value.
+//
+// While FALSE (default), loadWorkout() never touches sessionStorage's
+// isAudioEnabled key on any branch, and neither cleanup site's
+// isAudioEnabled removal ever runs (both gate on this same flag) —
+// byte-identical to today: a recovery-video-trio session still starts muted
+// (unless the flag is already on from an earlier manual toggle, exactly as
+// today), and the manual toggle in WorkoutPreviewDrawer, when reachable,
+// still works exactly as before — including its stickiness.
+//
+// While TRUE, a recovery-video-trio session always starts with sound,
+// regardless of which entry point (shortcut or drawer) reached it, and is
+// cleaned up when that same session ends (subject to the tradeoff above).
+//
+// Kill-switch: flip back to false to instantly restore today's always-muted
+// default for recovery-video-trio sessions (and disable the cleanup with
+// it) — no code change needed.
+export const RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

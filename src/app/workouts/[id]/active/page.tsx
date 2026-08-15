@@ -37,7 +37,7 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
-import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED, RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED, RECOVERY_VIDEO_EXIT_BUTTON_ENABLED } from '@/config/feature-flags';
+import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED, RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED, RECOVERY_VIDEO_EXIT_BUTTON_ENABLED, RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED } from '@/config/feature-flags';
 import { isPureRecoveryVideoTrioWorkout } from '@/features/workout-engine/shared/utils/recovery-video-trio.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { runActivitySync } from '@/features/workout-engine/components/strength/hooks/useActivitySync';
@@ -748,7 +748,21 @@ export default function ActiveWorkoutPage() {
               console.log('[ActiveWorkoutPage] Full warmup & joint segments stripped (Priority-1 path).');
             }
 
-            setWorkoutPlan({ ...parsed, workoutLocation: storedLocation || parsed.workoutLocation || 'home' });
+            const resolvedPlan = { ...parsed, workoutLocation: storedLocation || parsed.workoutLocation || 'home' };
+            // RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED (feature-flags.ts): seed the
+            // global isAudioEnabled sessionStorage flag to 'true' for a pure
+            // recovery-video-trio session, BEFORE setWorkoutPlan schedules the
+            // render that mounts StrengthRunner -> ExerciseVideoPlayer. Must run
+            // here — plain imperative code, strictly before the state update —
+            // because ExerciseVideoPlayer reads the flag via a useMemo evaluated
+            // synchronously during render; a useEffect keyed off the loaded plan
+            // would fire one render too late. See feature-flags.ts for the full
+            // writeup (mechanism, both-entry-points coverage, non-recovery
+            // isolation).
+            if (RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED && isPureRecoveryVideoTrioWorkout(resolvedPlan)) {
+              sessionStorage.setItem('isAudioEnabled', 'true');
+            }
+            setWorkoutPlan(resolvedPlan);
 
             // Fetch per-exercise history in the background for smart target selection
             const uid = auth.currentUser?.uid;
@@ -792,7 +806,13 @@ export default function ActiveWorkoutPage() {
             sessionStorage.removeItem('currentWorkoutPlan');
             sessionStorage.removeItem('currentWorkoutPlanId');
             console.log('[ActiveWorkoutPage] Loaded workout from legacy sessionStorage');
-            setWorkoutPlan({ ...parsed, workoutLocation: storedLocation || parsed.workoutLocation || 'home' });
+            const resolvedPlan = { ...parsed, workoutLocation: storedLocation || parsed.workoutLocation || 'home' };
+            // RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED — see the Priority-1 branch
+            // above (and feature-flags.ts) for the full rationale/ordering note.
+            if (RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED && isPureRecoveryVideoTrioWorkout(resolvedPlan)) {
+              sessionStorage.setItem('isAudioEnabled', 'true');
+            }
+            setWorkoutPlan(resolvedPlan);
             setIsLoading(false);
             return;
           }
@@ -810,7 +830,13 @@ export default function ActiveWorkoutPage() {
       const firestoreWorkout = await fetchWorkoutFromFirestore(workoutId, storedLocation || 'home');
       
       if (firestoreWorkout) {
-        setWorkoutPlan({ ...firestoreWorkout, workoutLocation: storedLocation || firestoreWorkout.workoutLocation || 'home' });
+        const resolvedPlan = { ...firestoreWorkout, workoutLocation: storedLocation || firestoreWorkout.workoutLocation || 'home' };
+        // RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED — see the Priority-1 branch
+        // above (and feature-flags.ts) for the full rationale/ordering note.
+        if (RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED && isPureRecoveryVideoTrioWorkout(resolvedPlan)) {
+          sessionStorage.setItem('isAudioEnabled', 'true');
+        }
+        setWorkoutPlan(resolvedPlan);
       } else {
         setError('לא הצלחנו לטעון את האימון. נסה שוב.');
       }
@@ -871,6 +897,16 @@ export default function ActiveWorkoutPage() {
    * clearSession, router.push('/home')) minus every write step — nothing was
    * saved here, so (unlike those two call sites) there is nothing to protect
    * by gating the checkpoint clear behind a `saved` flag.
+   *
+   * Also undoes loadWorkout()'s RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED auto-set
+   * of the global isAudioEnabled flag — re-checking the exact same flag +
+   * isPureRecoveryVideoTrioWorkout(...) condition used to set it, rather than
+   * relying on this handler's two callers already being gated on
+   * isRecoveryVideoExitEligible (that memo tests RECOVERY_VIDEO_EXIT_BUTTON_
+   * ENABLED, a DIFFERENT flag, so it can't stand in for this one). See
+   * feature-flags.ts for the full writeup, including the one accepted
+   * tradeoff (a manual toggle choice from earlier in the same app session can
+   * get cleared too).
    */
   const handleRecoveryVideoExit = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -879,11 +915,14 @@ export default function ActiveWorkoutPage() {
       sessionStorage.removeItem('generatedExerciseRanges');
       sessionStorage.removeItem('progression_started_this_session');
       sessionStorage.removeItem('progression_failed_this_session');
+      if (RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED && isPureRecoveryVideoTrioWorkout(stableWorkoutPlan)) {
+        sessionStorage.removeItem('isAudioEnabled');
+      }
     }
     clearWorkoutCheckpoint();
     if (ownsSessionRef.current) useSessionStore.getState().clearSession();
     router.push('/home');
-  }, [router]);
+  }, [router, stableWorkoutPlan]);
 
   // Native back gesture while a recovery-video-trio exit is eligible: a NEW,
   // distinctly-named event ('nativeBackRecoveryExit' — dispatched by
@@ -1053,6 +1092,17 @@ export default function ActiveWorkoutPage() {
         sessionStorage.removeItem('generatedExerciseRanges');
         sessionStorage.removeItem('progression_started_this_session');
         sessionStorage.removeItem('progression_failed_this_session');
+        // RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED: undo loadWorkout()'s auto-set
+        // of the global isAudioEnabled flag so it doesn't outlive THIS
+        // recovery-video-trio session. Only the flag itself is re-checked
+        // here — isPureRecoveryVideoTrioWorkout(workoutPlan) is already
+        // established true by the enclosing `if` above. See feature-flags.ts
+        // for the full writeup, including the one accepted tradeoff (a
+        // manual toggle choice from earlier in the same app session can get
+        // cleared too).
+        if (RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED) {
+          sessionStorage.removeItem('isAudioEnabled');
+        }
       }
       // Best-effort profile refresh so /home doesn't show a brief stale-data
       // flash (streak/rings/coins) — same try/catch shape handleSummaryFinish
