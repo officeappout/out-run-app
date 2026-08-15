@@ -15,6 +15,7 @@ import {
   IS_PROXIMITY_SEGMENT_QUERY_ENABLED,
   IS_TIGHTENED_DISTANCE_WINDOW_ENABLED,
   IS_GUARANTEED_ROUTE_FALLBACK_ENABLED,
+  IS_ROUTE_ADJACENCY_ENABLED,
 } from '@/config/feature-flags';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
@@ -222,6 +223,18 @@ interface RouteGenerationOptions {
    * length is the route's distance, not a generation target.
    */
   followOfficialRouteId?: string;
+  /**
+   * Chain-discovery mode (Phase 2 of the corridor-following engine, see
+   * .claude/plans/build-the-phase-0-noble-kahn.md). When true, the generator
+   * finds nearby `official_routes` corridors, walks the precomputed
+   * `route_adjacency` graph to sequence 2+ of them with real Mapbox
+   * connectors into one long chained route — NO hardcoded corridor list.
+   * Requires `IS_ROUTE_ADJACENCY_ENABLED`; returns `[]` immediately when
+   * that flag is off (see `generateDiscoveredChainRoute`). Uses
+   * `userLocation`, `targetDistance`, `cityName`, and `activity`; ignores
+   * `preferences` and the `street_segments` waypoint pool entirely.
+   */
+  discoverCorridorChain?: boolean;
 }
 
 // ── Street-segment types ───────────────────────────────────────────────────────
@@ -1281,8 +1294,13 @@ async function findFitnessAnchor(
 export async function generateDynamicRoutes(
   options: RouteGenerationOptions
 ): Promise<Route[]> {
-  // Corridor-following mode — most specific request wins, checked first.
-  // Skips the loop pipeline entirely; returns the stored corridor path verbatim.
+  // Chain-discovery mode — most specific request wins, checked first.
+  if (options.discoverCorridorChain) {
+    return generateDiscoveredChainRoute(options);
+  }
+
+  // Corridor-following mode — skips the loop pipeline entirely; returns the
+  // stored corridor path verbatim.
   if (options.followOfficialRouteId) {
     return generateCorridorRoute(options);
   }
@@ -1408,6 +1426,330 @@ export function buildCorridorRoute(
     includesFitnessStop: false,
     sourceOfficialRouteIds: [followOfficialRouteId],
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Phase 2 — chain discovery (.claude/plans/build-the-phase-0-noble-kahn.md)
+// ═══════════════════════════════════════════════════════════════════
+
+/** A single attempted connector during chain discovery — kept regardless of
+ *  accept/reject so David can review every candidate the discovery pass
+ *  actually tried, not just the ones that made it into the final route. */
+export interface ChainDiscoveryAttempt {
+  fromRouteId: string;
+  toRouteId: string;
+  toRouteName: string;
+  precomputedGapMeters: number;
+  connectorLengthMeters: number | null; // null = Mapbox returned no route at all
+  accepted: boolean;
+  rejectReason?: 'over_cap' | 'no_mapbox_route';
+  connectorStart: { lat: number; lng: number };
+  connectorEnd: { lat: number; lng: number };
+}
+
+export interface ChainDiscoveryDiagnostics {
+  cityNameUsed?: string;
+  corridorsConsidered: number;
+  edgesAvailable: number;
+  chainRouteIds: string[];
+  attempts: ChainDiscoveryAttempt[];
+  finalDistanceKm: number;
+  stopReason: 'target_reached' | 'no_more_edges' | 'max_corridors' | 'no_starting_corridor' | 'flag_disabled';
+  timestamp: number;
+}
+
+let _lastChainDiscoveryDiagnostics: ChainDiscoveryDiagnostics | null = null;
+export function getLastChainDiscoveryDiagnostics(): ChainDiscoveryDiagnostics | null {
+  return _lastChainDiscoveryDiagnostics;
+}
+
+/** Real-world connector reject cap — the actual walkability gate (a Mapbox-
+ *  routed street path, not the cheap straight-line proxy `route_adjacency`
+ *  candidates are filtered by). Per David's explicit steer (15.08.2026):
+ *  keep this cap, and surface every attempt for human review — a geometric
+ *  pass can prove "close," never "walkable" (a fence/highway/tracks could
+ *  sit between two corridors that measure meters apart). */
+const CONNECTOR_REJECT_METERS = 300;
+/** Safety cap on chain length — David's own acceptance test targets 2-3
+ *  corridors; this just prevents an unbounded walk on a very dense city. */
+const MAX_CHAIN_CORRIDORS = 5;
+
+interface ChainAdjacencyEdge {
+  otherRouteId: string;
+  gapMeters: number;
+}
+
+/**
+ * Pure edge-selection step: among all `route_adjacency` edges touching any
+ * already-visited corridor, pick the smallest-gap edge leading to an
+ * UNVISITED corridor (greedy nearest — simplest defensible MVP policy; not
+ * distance-target-aware beyond the caller's own stop condition). Returns
+ * null when no visited corridor has an edge to anything new. Extracted for
+ * direct unit testing, same discipline as `buildTriangleCombinations`.
+ */
+export function selectNextChainEdge(
+  edgesByRouteId: Map<string, ChainAdjacencyEdge[]>,
+  visitedIds: string[],
+): { fromRouteId: string; toRouteId: string; gapMeters: number } | null {
+  const visitedSet = new Set(visitedIds);
+  let best: { fromRouteId: string; toRouteId: string; gapMeters: number } | null = null;
+  for (const fromRouteId of visitedIds) {
+    const edges = edgesByRouteId.get(fromRouteId) ?? [];
+    for (const edge of edges) {
+      if (visitedSet.has(edge.otherRouteId)) continue;
+      if (!best || edge.gapMeters < best.gapMeters) {
+        best = { fromRouteId, toRouteId: edge.otherRouteId, gapMeters: edge.gapMeters };
+      }
+    }
+  }
+  return best;
+}
+
+/**
+ * Phase 2's real deliverable: discovers connectable corridors near the user
+ * and chains them with real Mapbox connectors — no hardcoded corridor list.
+ * Requires `IS_ROUTE_ADJACENCY_ENABLED`; a true no-op (empty result,
+ * `stopReason: 'flag_disabled'`) while it's off, matching every other flag
+ * in this file.
+ *
+ * Algorithm (greedy nearest-edge walk, capped at MAX_CHAIN_CORRIDORS):
+ *  1. Fetch published official_routes + route_adjacency edges for the
+ *     user's city (alias-resolved — grounding fact #5).
+ *  2. Start from the corridor nearest the user.
+ *  3. Repeat: pick the smallest-gap precomputed edge from any corridor
+ *     already in the chain to an unvisited one; build a REAL Mapbox
+ *     connector for it; if the connector's real length clears
+ *     CONNECTOR_REJECT_METERS, splice it in — otherwise reject this edge
+ *     and try the next-best one. Every attempt (accepted or rejected) is
+ *     recorded in `getLastChainDiscoveryDiagnostics()` for review.
+ *  4. Stop once targetDistance is reached, no edges remain, or the
+ *     MAX_CHAIN_CORRIDORS cap is hit.
+ */
+async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Promise<Route[]> {
+  if (!IS_ROUTE_ADJACENCY_ENABLED) {
+    _lastChainDiscoveryDiagnostics = {
+      corridorsConsidered: 0,
+      edgesAvailable: 0,
+      chainRouteIds: [],
+      attempts: [],
+      finalDistanceKm: 0,
+      stopReason: 'flag_disabled',
+      timestamp: Date.now(),
+    };
+    return [];
+  }
+
+  const { userLocation, cityName, activity, routeGenerationIndex, targetDistance } = options;
+  const attempts: ChainDiscoveryAttempt[] = [];
+
+  const cleanCity = (cityName || '').trim();
+  const cityCandidates = resolveCityNameQueryAliases(cleanCity);
+
+  const { InventoryService } = await import('./inventory.service');
+  const { MapboxService } = await import('./mapbox.service');
+  const {
+    findNearestContactPoint,
+    orientCorridorForSplice,
+    spliceCorridorChain,
+  } = await import('./route-adjacency.service');
+
+  // ── Fetch candidate corridors + precomputed edges for this city ────────
+  const corridorDocs = await Promise.all(
+    cityCandidates.map((c) =>
+      getDocs(query(collection(db, 'official_routes'), where('city', '==', c), where('published', '==', true))),
+    ),
+  );
+  const corridors = new Map<string, { id: string; name: string; path: [number, number][] }>();
+  for (const snap of corridorDocs) {
+    for (const d of snap.docs) {
+      const data = d.data();
+      const rawPath = data.path;
+      if (!Array.isArray(rawPath) || rawPath.length < 2) continue;
+      const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
+      corridors.set(d.id, { id: d.id, name: data.name || 'מסלול מסומן', path });
+    }
+  }
+
+  const edgeDocs = await Promise.all(
+    cityCandidates.map((c) => getDocs(query(collection(db, 'route_adjacency'), where('cityName', '==', c)))),
+  );
+  const edgesByRouteId = new Map<string, ChainAdjacencyEdge[]>();
+  let edgesAvailable = 0;
+  for (const snap of edgeDocs) {
+    for (const d of snap.docs) {
+      const e = d.data();
+      edgesAvailable++;
+      if (!edgesByRouteId.has(e.routeIdA)) edgesByRouteId.set(e.routeIdA, []);
+      if (!edgesByRouteId.has(e.routeIdB)) edgesByRouteId.set(e.routeIdB, []);
+      edgesByRouteId.get(e.routeIdA)!.push({ otherRouteId: e.routeIdB, gapMeters: e.gapMeters });
+      edgesByRouteId.get(e.routeIdB)!.push({ otherRouteId: e.routeIdA, gapMeters: e.gapMeters });
+    }
+  }
+
+  const finish = (chainRouteIds: string[], finalDistanceKm: number, stopReason: ChainDiscoveryDiagnostics['stopReason'], route: Route[]): Route[] => {
+    _lastChainDiscoveryDiagnostics = {
+      cityNameUsed: cleanCity,
+      corridorsConsidered: corridors.size,
+      edgesAvailable,
+      chainRouteIds,
+      attempts,
+      finalDistanceKm,
+      stopReason,
+      timestamp: Date.now(),
+    };
+    console.log(`[RouteGenerator] generateDiscoveredChainRoute: ${chainRouteIds.length} corridors, ${finalDistanceKm.toFixed(2)}km, stop=${stopReason} (${attempts.length} connector attempts, ${attempts.filter(a => a.accepted).length} accepted)`);
+    return route;
+  };
+
+  if (corridors.size === 0) return finish([], 0, 'no_starting_corridor', []);
+
+  // ── Start from the corridor nearest the user ────────────────────────────
+  let nearestId: string | null = null;
+  let nearestDist = Infinity;
+  for (const c of Array.from(corridors.values())) {
+    const contact = findNearestContactPoint([[userLocation.lng, userLocation.lat]], c.path);
+    if (contact.gapMeters < nearestDist) {
+      nearestDist = contact.gapMeters;
+      nearestId = c.id;
+    }
+  }
+  if (!nearestId) return finish([], 0, 'no_starting_corridor', []);
+
+  const chainIds: string[] = [nearestId];
+  let orientedPaths: [number, number][][] = [corridors.get(nearestId)!.path];
+  const connectors: [number, number][][] = [];
+  let totalDistanceKm = pathLengthMeters(orientedPaths[0]) / 1000;
+  const rejectedEdgeKeys = new Set<string>();
+
+  while (totalDistanceKm < targetDistance && chainIds.length < MAX_CHAIN_CORRIDORS) {
+    // Build the candidate edge list excluding ones already rejected this run.
+    const filteredEdges = new Map<string, ChainAdjacencyEdge[]>();
+    for (const id of chainIds) {
+      const edges = (edgesByRouteId.get(id) ?? []).filter(
+        (e) => !rejectedEdgeKeys.has([id, e.otherRouteId].sort().join('_')),
+      );
+      filteredEdges.set(id, edges);
+    }
+    const next = selectNextChainEdge(filteredEdges, chainIds);
+    if (!next) break;
+
+    const fromCorridor = corridors.get(next.fromRouteId)!;
+    const toCorridor = corridors.get(next.toRouteId);
+    if (!toCorridor) {
+      rejectedEdgeKeys.add([next.fromRouteId, next.toRouteId].sort().join('_'));
+      continue;
+    }
+
+    // Orient live off the two real paths (not the precomputed edge's stored
+    // contact) — cheap at these path sizes, and avoids needing to persist
+    // array indices (which would be fragile schema-wise) in route_adjacency.
+    const fromPathInChain = orientedPaths[chainIds.indexOf(next.fromRouteId)];
+    const contact = findNearestContactPoint(fromPathInChain, toCorridor.path);
+    const orientedTo = orientCorridorForSplice(toCorridor.path, contact.indexB);
+    // fromPathInChain is only re-oriented when it's the CURRENT chain tail —
+    // an interior visited corridor stays as already spliced.
+    const fromIsTail = next.fromRouteId === chainIds[chainIds.length - 1];
+    const fromForConnector = fromIsTail
+      ? orientCorridorForSplice(fromPathInChain, contact.indexA)
+      : fromPathInChain;
+    if (fromIsTail) orientedPaths[orientedPaths.length - 1] = fromForConnector;
+
+    const connectorStart = fromForConnector[fromForConnector.length - 1];
+    const connectorEnd = orientedTo[0];
+    const connectorResult = await MapboxService.getSmartPath(connectorStart, connectorEnd, activity === 'cycling' ? 'cycling' : 'walking');
+
+    const attempt: ChainDiscoveryAttempt = {
+      fromRouteId: next.fromRouteId,
+      toRouteId: next.toRouteId,
+      toRouteName: toCorridor.name,
+      precomputedGapMeters: next.gapMeters,
+      connectorLengthMeters: null,
+      accepted: false,
+      connectorStart: { lat: connectorStart[1], lng: connectorStart[0] },
+      connectorEnd: { lat: connectorEnd[1], lng: connectorEnd[0] },
+    };
+
+    if (!connectorResult || !connectorResult.path || connectorResult.path.length < 2) {
+      attempt.rejectReason = 'no_mapbox_route';
+      attempts.push(attempt);
+      rejectedEdgeKeys.add([next.fromRouteId, next.toRouteId].sort().join('_'));
+      continue;
+    }
+
+    const connectorLengthMeters = pathLengthMeters(connectorResult.path);
+    attempt.connectorLengthMeters = connectorLengthMeters;
+
+    if (connectorLengthMeters > CONNECTOR_REJECT_METERS) {
+      attempt.rejectReason = 'over_cap';
+      attempts.push(attempt);
+      rejectedEdgeKeys.add([next.fromRouteId, next.toRouteId].sort().join('_'));
+      continue;
+    }
+
+    attempt.accepted = true;
+    attempts.push(attempt);
+
+    if (!fromIsTail) {
+      // The chosen edge originates from an interior (already-spliced)
+      // corridor, not the current tail — safety net only: MAX_CHAIN_CORRIDORS
+      // keeps chains short enough that this is rare, and branching mid-chain
+      // is out of scope for this pass. Skip and try the next-best edge.
+      rejectedEdgeKeys.add([next.fromRouteId, next.toRouteId].sort().join('_'));
+      continue;
+    }
+
+    connectors.push(connectorResult.path);
+    orientedPaths.push(orientedTo);
+    chainIds.push(next.toRouteId);
+    totalDistanceKm += connectorLengthMeters / 1000 + pathLengthMeters(orientedTo) / 1000;
+  }
+
+  if (chainIds.length < 2) return finish(chainIds, totalDistanceKm, 'no_more_edges', []);
+
+  const splicedPath = spliceCorridorChain(orientedPaths, connectors);
+  const speedKmh = activity === 'cycling' ? SPEED_KMH.cycling : activity === 'running' ? SPEED_KMH.running : SPEED_KMH.walking;
+  const durationMinutes = Math.round((totalDistanceKm / speedKmh) * 60);
+  const calories = Math.round(totalDistanceKm * kcalPerKmFor(activity));
+  const names = chainIds.map((id) => corridors.get(id)!.name);
+
+  const route: Route = {
+    id: `chain-${chainIds.join('-')}-${routeGenerationIndex}`,
+    name: `${names[0]} ↔ ${names[names.length - 1]}`,
+    description: `מסלול משורשר: ${names.join(' → ')} (${totalDistanceKm.toFixed(1)} ק"מ)`,
+    distance: parseFloat(totalDistanceKm.toFixed(1)),
+    duration: durationMinutes,
+    score: 100,
+    type: activity,
+    activityType: activity,
+    difficulty: 'medium',
+    path: splicedPath,
+    segments: [],
+    rating: 4.5,
+    calories,
+    analytics: { usageCount: 0, rating: 0, heatMapScore: 0 },
+    source: { type: 'official_api', name: 'route_adjacency_discovery' },
+    features: {
+      hasGym: false,
+      hasBenches: true,
+      scenic: true,
+      lit: true,
+      terrain: 'road',
+      environment: 'urban',
+      trafficLoad: 'low',
+      surface: 'asphalt',
+    },
+    calculatedScore: 100,
+    distanceFromUser: 0,
+    isReachableWithoutCar: true,
+    includesOfficialSegments: true,
+    visitingParkId: null,
+    includesFitnessStop: false,
+    sourceOfficialRouteIds: chainIds,
+  };
+
+  const stopReason: ChainDiscoveryDiagnostics['stopReason'] =
+    totalDistanceKm >= targetDistance ? 'target_reached' : chainIds.length >= MAX_CHAIN_CORRIDORS ? 'max_corridors' : 'no_more_edges';
+  return finish(chainIds, totalDistanceKm, stopReason, [route]);
 }
 
 /**
