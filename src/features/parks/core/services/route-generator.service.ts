@@ -1465,11 +1465,16 @@ export function getLastChainDiscoveryDiagnostics(): ChainDiscoveryDiagnostics | 
 
 /** Real-world connector reject cap — the actual walkability gate (a Mapbox-
  *  routed street path, not the cheap straight-line proxy `route_adjacency`
- *  candidates are filtered by). Per David's explicit steer (15.08.2026):
- *  keep this cap, and surface every attempt for human review — a geometric
- *  pass can prove "close," never "walkable" (a fence/highway/tracks could
- *  sit between two corridors that measure meters apart). */
-const CONNECTOR_REJECT_METERS = 300;
+ *  candidates are filtered by). Raised 300m -> 650m (15.08.2026) — David
+ *  confirmed on the ground that Park HaMesila -> Charles Clore's real 554m
+ *  connector (park-to-beach) is a normal, pleasant walk; 300m was too tight
+ *  for connecting two genuinely separate corridors. Still a real cap, still
+ *  surfaced for human review per David's standing steer — a geometric pass
+ *  can prove "close," never "walkable" (a fence/highway/tracks could sit
+ *  between two corridors that measure meters apart), so every accepted AND
+ *  rejected attempt still needs eyeballing against a real map before being
+ *  trusted at scale, not just because it cleared a wider number. */
+const CONNECTOR_REJECT_METERS = 650;
 /** Safety cap on chain length — David's own acceptance test targets 2-3
  *  corridors; this just prevents an unbounded walk on a very dense city. */
 const MAX_CHAIN_CORRIDORS = 5;

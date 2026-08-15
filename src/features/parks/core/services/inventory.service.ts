@@ -172,15 +172,19 @@ export function invalidateOfficialRoutesCache(): void {
 /**
  * Precompute net for `route_adjacency` candidate detection — deliberately
  * WIDER than the real connector-length reject cap (CONNECTOR_REJECT_METERS
- * = 300m in route-generator.service.ts's chain assembly). A candidate edge
- * here only means "close enough to be worth trying a real Mapbox connector
- * for" — the actual accept/reject decision always happens later, against
- * the REAL routed connector's length, never this straight-line proxy alone
- * (verified live, 15.08.2026 smoke-test: the acceptance test's own weakest
- * link — Park HaMesila<->Charles Clore — measures 374m straight-line, which
- * this wider net still captures as a candidate worth actually trying).
+ * = 650m in route-generator.service.ts's chain assembly, raised 15.08.2026
+ * from 300m — see that constant's comment). A candidate edge here only
+ * means "close enough to be worth trying a real Mapbox connector for" — the
+ * actual accept/reject decision always happens later, against the REAL
+ * routed connector's length, never this straight-line proxy alone. Raised
+ * 500m -> 1000m alongside the cap, keeping roughly the same ~1.5-1.7x
+ * margin (real street distance is consistently longer than straight-line —
+ * verified: Park HaMesila<->Charles Clore measured 374m straight-line vs.
+ * 554-1301m real-walked, depending on approach direction) so a candidate
+ * near the new 650m cap doesn't get pre-filtered out before ever getting a
+ * real connector attempt.
  */
-const ROUTE_ADJACENCY_DETECTION_THRESHOLD_METERS = 500;
+const ROUTE_ADJACENCY_DETECTION_THRESHOLD_METERS = 1000;
 
 /**
  * Phase 2 of the corridor-following engine
