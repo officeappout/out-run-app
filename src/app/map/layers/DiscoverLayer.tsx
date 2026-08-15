@@ -1290,8 +1290,25 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 onFocus={() => logic.setNavState('searching')}
               />
 
+              {/* Mode header pills — also hidden in commute mode so the
+                  top surface stays focused on the active navigation flow. */}
+              {mapMode !== 'commute' && (
+                <div className="pointer-events-auto">
+                  <MapModeHeader
+                    activeMode={mapMode}
+                    onModeChange={handleMapModeChange}
+                    hasNearbyRoutes={hasNearbyRoutes}
+                    partnerCount={live.length}
+                  />
+                </div>
+              )}
+
               {/* "חפש באזור זה" pill — appears after panning > 30% viewport from
-                  the baseline position. Tapping activates viewport-search mode. */}
+                  the baseline position. Tapping activates viewport-search mode.
+                  15.08.2026: moved below the mode-pills row (was between the
+                  search bar and the pills) — David wants it positioned like
+                  Google Maps' "search this area", under the top controls, not
+                  above them. */}
               <AnimatePresence>
                 {showSearchAreaButton && (
                   <motion.div
@@ -1312,19 +1329,6 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   </motion.div>
                 )}
               </AnimatePresence>
-
-              {/* Mode header pills — also hidden in commute mode so the
-                  top surface stays focused on the active navigation flow. */}
-              {mapMode !== 'commute' && (
-                <div className="pointer-events-auto">
-                  <MapModeHeader
-                    activeMode={mapMode}
-                    onModeChange={handleMapModeChange}
-                    hasNearbyRoutes={hasNearbyRoutes}
-                    partnerCount={live.length}
-                  />
-                </div>
-              )}
             </div>
           </motion.div>
         )}
@@ -1483,17 +1487,17 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 Hidden while the partner overlay is open so the layers icon
                 doesn't visually attach itself to the partners pill area —
                 the overlay owns the top-right slot in that mode.
-                14.08.2026 fix: this offset used to be a static 116px, which
-                assumed the header is always exactly 2 rows (search bar +
-                mode pills). When panning triggers the "חפש באזור זה" pill
-                (a 3rd row, see renderTopBar()), the mode-pills row shifts
-                down into this button's fixed slot and visually collides
-                with it. +44px (pill height ~36px + one extra space-y-2 gap
-                8px) accounts for that 3rd row when it's showing. */}
+                15.08.2026: back to a static offset — the "חפש באזור זה" pill
+                now renders BELOW the mode-pills row (renderTopBar()), not
+                between the search bar and the pills, so the mode-pills row's
+                own position no longer shifts when the pill shows/hides; this
+                button's "below the 2-row header" anchor is correct again
+                without needing to react to showSearchAreaButton (the 14.08
+                fix that made it reactive is reverted along with that reorder). */}
             {partnerTab === null && isMapVisuallyReady && !overviewChromeActive && (
               <div
-                className="absolute right-4 z-[50] pointer-events-none transition-[top] duration-200"
-                style={{ top: `calc(52px + env(safe-area-inset-top, 0px) + ${showSearchAreaButton ? 160 : 116}px)` }}
+                className="absolute right-4 z-[50] pointer-events-none"
+                style={{ top: 'calc(52px + env(safe-area-inset-top, 0px) + 116px)' }}
               >
                 <MapLayersControl liveCount={live.length} />
               </div>
