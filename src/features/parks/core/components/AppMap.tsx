@@ -355,15 +355,20 @@ export default function AppMap({
   // after the first successful pass; a real 'style.load' (setStyle / hot-reload
   // rebuilds the layers) re-arms it. See handleMapLoad.
   const hebrewLabelsAppliedRef = useRef(false);
-  // ── Map paint readiness gate ──────────────────────────────────────────
+  // ── Map paint + location readiness gate ─────────────────────────────────
   // Drives the AI-themed `MapLoadingSkeleton` overlay. False until BOTH:
-  //   1. The Mapbox style has finished parsing (so the declutter pass
-  //      ran and the noisy POI / transit / minor-road labels are gone).
-  //   2. The first `idle` event has fired (so tiles for the current
-  //      viewport have rendered and no animation is in flight).
-  // Combined, this guarantees the skeleton dissolves into a clean,
-  // styled, settled map — never the raw streets-v12 default with a
-  // visible style swap mid-paint.
+  //   1. Paint: the Mapbox style has finished parsing (so the declutter pass
+  //      ran and the noisy POI / transit / minor-road labels are gone) AND
+  //      the first `idle`/`render` event has fired.
+  //   2. Location: `currentLocation` has resolved (real GPS fix or a
+  //      deliberate fallback from useGPS), OR a bounded timeout has elapsed.
+  // Combined, this guarantees the skeleton dissolves into a clean, styled,
+  // settled, CORRECTLY-CENTERED map — never the raw streets-v12 default with
+  // a visible style swap mid-paint, and never the initialViewState
+  // anchor/Tel-Aviv fallback with a visible flyTo jump to the real location
+  // right after (14.08.2026 fix — see useCameraController's initial-zoom
+  // flyTo, which used to run fully in view because paint-readiness alone
+  // used to gate the skeleton, decoupled from location-readiness).
   //
   // The lazy initializer reads `mapHasInitializedInSession` (module
   // scope) so warm re-mounts (tab switch back to /map) start with the
@@ -372,6 +377,17 @@ export default function AppMap({
   // state AND the module flag together — so the very next remount in
   // the same session skips the skeleton entirely.
   const [isVisuallyReady, setIsVisuallyReady] = useState(() => mapHasInitializedInSession);
+  const [isPaintReady, setIsPaintReady] = useState(() => mapHasInitializedInSession);
+  // Bounded so denied/slow GPS doesn't strand the user on the skeleton
+  // forever — 3s comfortably covers a typical first-fix while staying
+  // "brief" per the product ask; if it elapses, the skeleton clears onto
+  // whatever initialViewState already is (today's exact behavior, not a
+  // regression), and the flyTo still fires normally once/if a fix lands
+  // later.
+  const LOCATION_READY_TIMEOUT_MS = 3000;
+  const [isLocationReady, setIsLocationReady] = useState(
+    () => mapHasInitializedInSession || !!currentLocation,
+  );
 
   // Publish the splash-gate state to the store so sibling map layers
   // (DiscoverLayer's search / mode chips / FAB / recenter / entry button)
@@ -868,8 +884,8 @@ export default function AppMap({
     };
   }, [isMapLoaded]);
 
-  // ── Skeleton dissolve trigger ─────────────────────────────────────────
-  // Flips `isVisuallyReady` true on the first Mapbox `idle` event after
+  // ── Skeleton dissolve trigger: paint readiness ──────────────────────────
+  // Flips `isPaintReady` true on the first Mapbox `idle` event after
   // the style has loaded. By that point the declutter pass has already
   // mutated the style (style.load fires before the first idle), tiles
   // for the viewport are painted, and any in-flight camera animation
@@ -883,19 +899,16 @@ export default function AppMap({
   //
   // Short-circuits entirely on warm mounts (already-initialised
   // session) — see the `mapHasInitializedInSession` comment up top.
+  // Note (14.08.2026): this only marks paint-readiness now — the actual
+  // skeleton-dissolve gate is `isVisuallyReady`, combined below from BOTH
+  // this AND location-readiness.
   useEffect(() => {
     if (!isMapLoaded || !mapRef.current) return;
     if (mapHasInitializedInSession) return; // warm mount — skeleton stays hidden, no listener needed
     const map = mapRef.current.getMap();
     if (!map) return;
 
-    const markReady = () => {
-      // Persist the "ready" state at module scope so the next AppMap
-      // mount in this session (tab switch / soft nav) starts with the
-      // skeleton already disabled and skips this whole effect.
-      mapHasInitializedInSession = true;
-      setIsVisuallyReady(true);
-    };
+    const markReady = () => setIsPaintReady(true);
 
     // Field-test feedback: waiting for the full `idle` event added a
     // perceptible 1-2s delay over slow tile downloads. We now flip
@@ -927,6 +940,37 @@ export default function AppMap({
       try { map.off('style.load', armReadyListeners); } catch { /* */ }
     };
   }, [isMapLoaded]);
+
+  // ── Skeleton dissolve trigger: location readiness (14.08.2026 fix) ─────
+  // Flips `isLocationReady` true once `currentLocation` resolves (real GPS
+  // fix or useGPS's own deliberate fallback), or after a bounded timeout.
+  // Root problem this fixes: the skeleton used to clear on paint-readiness
+  // ALONE, fully independent of GPS — so the user would see the map sitting
+  // at the wrong default center (initialViewState's onboarding anchor, or a
+  // hardcoded Tel Aviv coordinate), already interactive, for however long GPS
+  // took to resolve, and only THEN watch a visible 2s animated flyTo correct
+  // it (useCameraController's initial-zoom effect) — a jarring default-then-
+  // jump. Waiting for location too means the skeleton now stays up through
+  // that dead time; the flyTo still starts the instant location resolves
+  // (same as before), but now that's also the instant the skeleton reveals
+  // the map — so what the user sees is a "flying in to your location" reveal
+  // animation, not a wrong center they'd already started orienting to.
+  useEffect(() => {
+    if (isLocationReady) return;
+    if (currentLocation) { setIsLocationReady(true); return; }
+    const t = setTimeout(() => setIsLocationReady(true), LOCATION_READY_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [currentLocation, isLocationReady]);
+
+  // ── Skeleton dissolve trigger: combine ──────────────────────────────────
+  useEffect(() => {
+    if (isPaintReady && isLocationReady) {
+      // Persist at module scope so the next AppMap mount in this session
+      // (tab switch / soft nav) starts with the skeleton already disabled.
+      mapHasInitializedInSession = true;
+      setIsVisuallyReady(true);
+    }
+  }, [isPaintReady, isLocationReady]);
 
   // ── Register custom pin images once the map is loaded ──
   useEffect(() => {
