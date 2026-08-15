@@ -23,8 +23,20 @@ interface UseWorkoutSessionParams {
 }
 
 interface UseWorkoutSessionReturn {
-  /** Serialise the resolved workout to sessionStorage and hand off to the player. */
-  handleStartWorkout: () => void;
+  /**
+   * Serialise the resolved workout to sessionStorage and hand off to the player.
+   * `overrideGeneratedWorkout` — when passed (including explicit `null`), takes
+   * priority over the hook-captured `generatedWorkout` prop above. For callers
+   * holding a fresher value than this hook's own closed-over React-state prop
+   * at call time (e.g. a ref updated synchronously ahead of a pending state
+   * update — see home/page.tsx's recovery-shortcut caller), passing it
+   * explicitly here guarantees the exact intended workout is used, never a
+   * stale one. Omit it (the default, `undefined`) to keep using the
+   * hook-captured `generatedWorkout` — every pre-existing call site (e.g.
+   * WorkoutPreviewDrawer's own "Start" button, via DrawerFooter) does this and
+   * is completely unaffected by this parameter's addition.
+   */
+  handleStartWorkout: (overrideGeneratedWorkout?: GeneratedWorkout | null) => void;
 }
 
 /**
@@ -49,18 +61,28 @@ export function useWorkoutSession({
 }: UseWorkoutSessionParams): UseWorkoutSessionReturn {
   const router = useRouter();
 
-  const handleStartWorkout = useCallback(() => {
+  const handleStartWorkout = useCallback((overrideGeneratedWorkout?: GeneratedWorkout | null) => {
     const workoutId = workout?.id || 'favorites-workout';
+
+    // `overrideGeneratedWorkout` wins whenever explicitly passed (checked via
+    // `!== undefined` so an explicit `null` override is honoured too) — see the
+    // JSDoc on UseWorkoutSessionReturn above. Every existing call site omits
+    // the argument, so `effectiveGeneratedWorkout` falls back to the
+    // hook-captured `generatedWorkout` prop exactly as before this parameter
+    // existed.
+    const effectiveGeneratedWorkout =
+      overrideGeneratedWorkout !== undefined ? overrideGeneratedWorkout : generatedWorkout;
 
     // Source of truth for the runner: the legacy `workoutPlan` (favorites flow)
     // OR — when the drawer was opened with a CustomBuilder/generator output —
-    // that `generatedWorkout` converted to a runner `WorkoutPlan`. Without this
-    // conversion the generated workout never reaches the runner and the else
-    // branch below falls through to a STALE `active_workout_data` snapshot.
+    // that `generatedWorkout` (or its fresher override) converted to a runner
+    // `WorkoutPlan`. Without this conversion the generated workout never
+    // reaches the runner and the else branch below falls through to a STALE
+    // `active_workout_data` snapshot.
     const resolvedPlan: WorkoutPlan | null =
       workoutPlan ??
-      (generatedWorkout
-        ? buildRunnerWorkoutPlanFromGenerated(generatedWorkout, { id: workoutId })
+      (effectiveGeneratedWorkout
+        ? buildRunnerWorkoutPlanFromGenerated(effectiveGeneratedWorkout, { id: workoutId })
         : null);
 
     if (typeof window !== 'undefined') {

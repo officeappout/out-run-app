@@ -38,7 +38,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED } from '@/config/feature-flags';
+import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -60,6 +60,7 @@ import NearbyGroupsRow from '@/features/home/components/NearbyGroupsRow';
 import AppHeader from '@/components/ui/AppHeader';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
+import { useWorkoutSession } from '@/features/workouts/components/workout-preview-drawer/hooks/useWorkoutSession';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -579,6 +580,64 @@ export default function HomePage() {
     setIsWorkoutLoading(false);
   }, []);
 
+  // ── Recovery-video-trio direct-start hand-off (HOME_RECOVERY_START_SHORTCUT_ENABLED) ──
+  // Same useWorkoutSession hook WorkoutPreviewDrawer's own "Start" button uses
+  // (see hooks/useWorkoutSession.ts) — called here at HomePage's top level so
+  // handleHeroPress can hand off straight to the active player, bypassing
+  // setSelectedWorkout(...) (which is what opens the drawer) for the
+  // discriminator-matched case. Every input mirrors what openWorkoutPreview
+  // already builds for the SAME tap:
+  //   - id: identical scheme to openWorkoutPreview's uniqueWorkoutId
+  //     (`workout-${date}-${uid8}`), keyed on `selectedDate` rather than the
+  //     tap-local `dateToUse` — provably the same value here: the only case
+  //     where handleHeroPress's `dateToUse` differs from `selectedDate` is an
+  //     explicitDate-driven different-date tap, which unconditionally clears
+  //     generatedWorkoutRef.current (see the block below) BEFORE this hook's
+  //     discriminator can ever match, so the shortcut never fires with a
+  //     mismatched id.
+  //   - workoutPlan: always null — this shortcut only ever targets the
+  //     generatedWorkout-sourced trio, never the legacy favorites-flow plan.
+  //   - generatedWorkout: the React state, passed here only to satisfy
+  //     useWorkoutSession's shape (WorkoutPreviewDrawer is wired the same
+  //     way). This closed-over state CAN be stale at the exact instant the
+  //     shortcut fires (same-tap synchronous re-entrancy — see the race
+  //     explained at the call site below, inside handleHeroPress), so the
+  //     actual start call never trusts it: it passes
+  //     generatedWorkoutRef.current explicitly as handleStartWorkout's
+  //     override argument, which always wins over this closed-over value
+  //     when provided.
+  //   - isWarmupActive: true, matching the drawer's own initial default. A
+  //     pure recovery-video-trio plan never has a seg-warmup segment, so this
+  //     flag has nothing to gate either way.
+  //   - workoutLocation: undefined — home/page.tsx does not pass this prop to
+  //     <WorkoutPreviewDrawer/> today either; unchanged.
+  const recoveryShortcutWorkoutId = `workout-${selectedDate}-${profile?.id?.slice(0, 8) || 'guest'}`;
+  const { handleStartWorkout: handleRecoveryShortcutStart } = useWorkoutSession({
+    workout: {
+      id: recoveryShortcutWorkoutId,
+      title: generatedWorkout?.title || 'שיקום',
+      segments: [],
+    },
+    workoutPlan: null,
+    generatedWorkout,
+    isWarmupActive: true,
+    workoutLocation: undefined,
+    onStartWorkout: (workoutId) => router.push(`/workouts/${workoutId}/active`),
+  });
+  // Latest-ref indirection purely so handleHeroPress does not need
+  // handleRecoveryShortcutStart in its own dependency array. The function
+  // above already gets a new identity on every HomePage render regardless
+  // (its onStartWorkout is an inline closure recreated each render, and
+  // generatedWorkout is also one of its deps, needed for the drawer's own
+  // no-arg use case) — that churn is harmless here now that the call site
+  // below always passes the fresh workout explicitly as an argument rather
+  // than relying on this closure's captured state. Assigning `.current`
+  // directly in the render body (not inside an effect) keeps it current
+  // before any subsequent tap can invoke it — the same pattern already used
+  // by generatedWorkoutRef above.
+  const handleRecoveryShortcutStartRef = useRef(handleRecoveryShortcutStart);
+  handleRecoveryShortcutStartRef.current = handleRecoveryShortcutStart;
+
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
   // schedule day renders the correct muscle icon everywhere, rather than
@@ -925,8 +984,66 @@ export default function HomePage() {
       }
 
       // Health declaration hard-block (first start only). Passes through
-      // synchronously once the user has accepted or on repeat taps.
-      interceptWorkoutStart(() => openWorkoutPreview(dateToUse), 'strength');
+      // synchronously once the user has accepted or on repeat taps — for
+      // EVERY path below, including the recovery-video-trio shortcut, so the
+      // gate can never be bypassed by the shortcut.
+      interceptWorkoutStart(() => {
+        // HOME_RECOVERY_START_SHORTCUT_ENABLED: skip the preview drawer's
+        // 3-tap chain (hero → exercise card → Start) for a "pure recovery
+        // video trio" session — structurally just one continuous follow-along
+        // video, so there is nothing meaningful to preview. Flag checked
+        // FIRST (short-circuits before the discriminator read) so flag-off
+        // tap handling is byte-identical to before this diff for every
+        // workout type.
+        if (HOME_RECOVERY_START_SHORTCUT_ENABLED) {
+          // Pre-flatten equivalent of isPureRecoveryVideoTrioWorkout (which
+          // takes a post-flatten WorkoutPlan, not available yet at this
+          // point). Reads generatedWorkoutRef.current directly (NOT the
+          // `generatedWorkout` state) — this callback can run synchronously
+          // inside the SAME tap that just wrote the ref (StatsOverview's
+          // handleTrioStart calls onWorkoutGenerated → this component's
+          // handleWorkoutGenerated → generatedWorkoutRef.current = workout,
+          // all BEFORE onStartWorkout() fires) — the ref update lands
+          // immediately, while the `generatedWorkout` state update from that
+          // same call is still batched/pending at this exact instant.
+          //
+          // Provably equivalent to running buildRunnerWorkoutPlanFromGenerated
+          // + isPureRecoveryVideoTrioWorkout on the result: the recovery-
+          // video-trio producer (tryBuildRecoveryVideoTrio,
+          // home-workout.service.ts) always emits isRecovery:true with
+          // EXACTLY one exercise tagged exercise.exerciseRole === 'recovery'.
+          // Mirroring the same role-filters the flatten below (and
+          // buildRunnerWorkoutPlanFromGenerated) uses: when a single
+          // recovery-role exercise is the ONLY exercise present, every other
+          // role-filter (warmup/main/cooldown) is necessarily empty, so the
+          // flatten always yields exactly one seg-recovery segment — the
+          // exact shape isPureRecoveryVideoTrioWorkout requires. The OTHER
+          // two isRecovery:true producers never match this check: the Budget
+          // Floor cooldown workout (generateRecoveryWorkout) always tags its
+          // exercises exerciseRole: 'main', and the standard rest-day
+          // generator (REST_DAY_CONFIGS) produces a normal multi-exercise,
+          // warmup/cooldown-shaped workout.
+          const gw = generatedWorkoutRef.current;
+          const isPureRecoveryVideoTrioGenerated =
+            !!gw &&
+            gw.isRecovery === true &&
+            gw.exercises.length === 1 &&
+            gw.exercises[0].exercise.exerciseRole === 'recovery';
+          if (isPureRecoveryVideoTrioGenerated) {
+            // Pass `gw` (generatedWorkoutRef.current, just read above)
+            // explicitly as the override — never rely on handleStartWorkout's
+            // closed-over `generatedWorkout` REACT STATE, which can still be
+            // the PREVIOUS option at this exact synchronous instant (the
+            // state update queued by this same tap's onWorkoutGenerated call
+            // is batched/pending, not yet committed — see the comment above
+            // `gw`). This guarantees the runner plan is built from the
+            // identical fresh workout the discriminator above just matched.
+            handleRecoveryShortcutStartRef.current(gw);
+            return;
+          }
+        }
+        openWorkoutPreview(dateToUse);
+      }, 'strength');
     } else {
       if (typeof window !== 'undefined') {
         // onboarding_path persists via onboardingPrefs so a hard close
