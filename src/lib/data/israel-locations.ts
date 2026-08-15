@@ -1195,7 +1195,20 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'sderot-bengurion',      name: 'בן גוריון (קסדור)',        type: 'neighborhood' },
     ],
   },
-  { id: 'givat-shmuel', name: 'גבעת שמואל', type: 'city', population: 29000 },
+  {
+    id: 'givat-shmuel', name: 'גבעת שמואל', type: 'city', population: 30965,
+    // ── Locality batch 2c reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'gvsh-ramat-ilan', name: 'רמת אילן', type: 'neighborhood' },
+      { id: 'gvsh-ramat-ilan-hadasha', name: 'רמת אילן חדשה', type: 'neighborhood' },
+      { id: 'gvsh-hashachar', name: 'שכונת השחר', type: 'neighborhood' },
+      { id: 'gvsh-givat-yehuda', name: 'גבעת יהודה', type: 'neighborhood' },
+      { id: 'gvsh-ramat-hadar', name: 'רמת הדר', type: 'neighborhood' },
+      { id: 'gvsh-pardes-rosenblum', name: 'פרדס רוזנבלום', type: 'neighborhood' },
+      { id: 'gvsh-giora', name: 'שכונת גיורא', type: 'neighborhood' },
+      { id: 'gvsh-ramat-dekalim', name: 'רמת דקלים', type: 'neighborhood' },
+    ]
+  },
   {
     id: 'tiberias', name: 'טבריה', type: 'city', population: 50215,
     // ── Full-build (13.08.2026): sourced via CBS ArcGIS statistical-areas
@@ -1266,7 +1279,18 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
   // estimate end of June 2026, he.wikipedia.org infobox. ──
   { id: 'tzur-hadassah', name: 'צור הדסה', type: 'local_council', population: 10353 },
   { id: 'mevaseret-zion', name: 'מבשרת ציון', type: 'local_council', population: 25000 },
-  { id: 'gedera', name: 'גדרה', type: 'local_council', population: 30000 },
+  {
+    id: 'gedera', name: 'גדרה', type: 'local_council', population: 31730,
+    // ── Locality batch 2c reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'gdr-kfar-uriel', name: 'כפר אוריאל', type: 'neighborhood' },
+      { id: 'gdr-gedera-hatzeira', name: 'גדרה הצעירה', type: 'neighborhood' },
+      { id: 'gdr-golda', name: 'שכונת גולדה', type: 'neighborhood' },
+      { id: 'gdr-habiluyim', name: 'הביל"ויים', type: 'neighborhood' },
+      { id: 'gdr-shapira', name: 'שכונת שפירא', type: 'neighborhood' },
+      { id: 'gdr-nachalim', name: 'נחלים', type: 'neighborhood' },
+    ]
+  },
   { id: 'gan-yavne', name: 'גן יבנה', type: 'local_council', population: 24000 },
   { id: 'zichron-yaakov', name: 'זכרון יעקב', type: 'local_council', population: 24000 },
   { id: 'ariel', name: 'אריאל', type: 'city', population: 20000 },
@@ -1283,10 +1307,30 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     ]
   },
   { id: 'yokneam-illit', name: 'יקנעם עילית', type: 'city', population: 24000 },
-  { id: 'arad', name: 'ערד', type: 'city', population: 28000 },
+  {
+    id: 'arad', name: 'ערד', type: 'city', population: 30750,
+    // ── Locality batch 2c reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'arad-rishonim', name: 'ראשונים', type: 'neighborhood' },
+      { id: 'arad-neurim', name: 'נעורים', type: 'neighborhood' },
+      { id: 'arad-avishur', name: 'אבישור', type: 'neighborhood' },
+      { id: 'arad-talalim', name: 'טללים', type: 'neighborhood' },
+      { id: 'arad-yealim', name: 'יעלים', type: 'neighborhood' },
+      { id: 'arad-lvaot', name: 'לבאות', type: 'neighborhood' },
+      { id: 'arad-gevim', name: 'גבים', type: 'neighborhood' },
+      { id: 'arad-chalamish', name: 'חלמיש', type: 'neighborhood' },
+      { id: 'arad-maof', name: 'מעוף', type: 'neighborhood' },
+      { id: 'arad-shaked', name: 'שקד', type: 'neighborhood' },
+      { id: 'arad-rotem', name: 'רותם', type: 'neighborhood' },
+      { id: 'arad-chatzavim', name: 'חצבים', type: 'neighborhood' },
+      { id: 'arad-harduf', name: 'הרדוף', type: 'neighborhood' },
+      { id: 'arad-renanim', name: 'רננים', type: 'neighborhood' },
+      { id: 'arad-yehoshafat', name: 'יהושפט', type: 'neighborhood' },
+    ]
+  },
   { id: 'migdal-haemek', name: 'מגדל העמק', type: 'city', population: 27000 },
   { id: 'nesher', name: 'נשר', type: 'city', population: 24000 },
-  { id: 'tirah', name: 'טירה', type: 'city', population: 28000 },
+  { id: 'tirah', name: 'טירה', type: 'city', population: 28379 },
   {
     id: 'tamra', name: 'טמרה', type: 'city', population: 37692,
     // ── Locality batch 2b reconcile, 15.08.2026 ──
@@ -1319,7 +1363,16 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
     ]
   },
   { id: 'kadima-zoran', name: 'קדימה-צורן', type: 'local_council', population: 23000 },
-  { id: 'kfar-yona', name: 'כפר יונה', type: 'city', population: 29000 },
+  {
+    id: 'kfar-yona', name: 'כפר יונה', type: 'city', population: 30005,
+    // ── Locality batch 2c reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'kfy-shvut-am', name: 'שבות עם', type: 'neighborhood' },
+      { id: 'kfy-sharona', name: 'שרונה', type: 'neighborhood' },
+      { id: 'kfy-yafe-nof', name: 'יפה נוף', type: 'neighborhood' },
+      { id: 'kfy-givat-haalonim', name: 'גבעת האלונים', type: 'neighborhood' },
+    ]
+  },
 
   // ============================================================
   // 3. מועצות אזוריות (עם רשימת יישובים לצורך B2G)
@@ -1873,7 +1926,19 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
   // צור הדסה excluded — already exists as a settlement under Mateh Yehuda
   // Regional Council (my-tzur-hadassah); flagged separately, not auto-merged.
   // ============================================================
-  { id: 'vr-kyb', name: 'אור עקיבא', type: 'city', population: 28183 },
+  {
+    id: 'vr-kyb', name: 'אור עקיבא', type: 'city', population: 26878,
+    // ── Locality batch 2c reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'orak-hayovel', name: 'היובל', type: 'neighborhood' },
+      { id: 'orak-shazar', name: 'שכונת שז"ר', type: 'neighborhood' },
+      { id: 'orak-neve-alon', name: 'נווה אלון', type: 'neighborhood' },
+      { id: 'orak-ganei-or', name: 'גני אור', type: 'neighborhood' },
+      { id: 'orak-orot', name: 'אורות', type: 'neighborhood' },
+      { id: 'orak-ganei-rabin', name: 'גני רבין', type: 'neighborhood' },
+      { id: 'orak-or-yam', name: 'אור ים', type: 'neighborhood' },
+    ]
+  },
   { id: 'bkh-l-grbyh', name: 'באקה אל-גרביה', type: 'city', population: 32933 },
   {
     id: 'br-ykb', name: 'באר יעקב', type: 'city', population: 41146,
@@ -1910,7 +1975,21 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'gv-shetach-9', name: 'שטח 9 · בן צבי', type: 'neighborhood' },
     ]
   },
-  { id: 'gny-tkvvh', name: 'גני תקווה', type: 'city', population: 26562 },
+  {
+    id: 'gny-tkvvh', name: 'גני תקווה', type: 'city', population: 25627,
+    // ── Locality batch 2c reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'gnt-merkaz-hair', name: 'מרכז העיר', type: 'neighborhood' },
+      { id: 'gnt-hapisga', name: 'הפסגה', type: 'neighborhood' },
+      { id: 'gnt-kiryat-yismach-moshe', name: 'קריית ישמח משה', type: 'neighborhood' },
+      { id: 'gnt-givat-savyon', name: 'גבעת סביון', type: 'neighborhood' },
+      { id: 'gnt-ganim', name: 'גנים', type: 'neighborhood' },
+      { id: 'gnt-ganim-tzafon', name: 'גנים צפון', type: 'neighborhood' },
+      { id: 'gnt-nof-savyon', name: 'נוף סביון', type: 'neighborhood' },
+      { id: 'gnt-tzamarot-harama', name: 'צמרות הרמה', type: 'neighborhood' },
+      { id: 'gnt-givat-savyon-hachadasha', name: 'גבעת סביון החדשה', type: 'neighborhood' },
+    ]
+  },
   {
     id: 'chrysh', name: 'חריש', type: 'city', population: 43259,
     // ── Locality batch 2a reconcile, 15.08.2026 ──
@@ -1950,7 +2029,7 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'ym-givat-avia', name: 'גבעת אוויה', type: 'neighborhood' },
     ]
   },
-  { id: 'kpr-ksm', name: 'כפר קאסם', type: 'city', population: 27754 },
+  { id: 'kpr-ksm', name: 'כפר קאסם', type: 'city', population: 28625 },
   { id: 'kpr-kr', name: 'כפר קרע', type: 'city', population: 21914 },
   { id: 'mgr', name: 'מגאר', type: 'city', population: 25346 },
   {
@@ -2018,7 +2097,27 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'skn-mishpachat-tarbiya', name: 'משפחת טרבייה', type: 'neighborhood' },
     ]
   },
-  { id: 'rbh', name: 'עראבה', type: 'city', population: 29253 },
+  {
+    id: 'rbh', name: 'עראבה', type: 'city', population: 27717,
+    // ── Locality batch 2c reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'arb-al-balan', name: 'אל-בלאן', type: 'neighborhood' },
+      { id: 'arb-al-wafar', name: 'אל-ופאר', type: 'neighborhood' },
+      { id: 'arb-al-khalah', name: 'אל-ח\'אלה', type: 'neighborhood' },
+      { id: 'arb-al-harika', name: 'אל-חריקה', type: 'neighborhood' },
+      { id: 'arb-al-marush', name: 'אל-מרוש', type: 'neighborhood' },
+      { id: 'arb-al-gharbiyya', name: 'אל-ר\'רבייה', type: 'neighborhood' },
+      { id: 'arb-jalama', name: 'ג\'למה', type: 'neighborhood' },
+      { id: 'arb-gareen-hakfar', name: 'גרעין הכפר', type: 'neighborhood' },
+      { id: 'arb-wadi-al-ain', name: 'ואדי אל-עין', type: 'neighborhood' },
+      { id: 'arb-wadi-a-tur', name: 'ואדי א-תור', type: 'neighborhood' },
+      { id: 'arb-wadi-hussein', name: 'ואדי חוסיין', type: 'neighborhood' },
+      { id: 'arb-harat-al-bir', name: 'חארת אל-ביר', type: 'neighborhood' },
+      { id: 'arb-kanaana', name: 'כנאענה', type: 'neighborhood' },
+      { id: 'arb-aasla', name: 'עאסלה', type: 'neighborhood' },
+      { id: 'arb-ras-al-ain', name: 'ראס אל-עין', type: 'neighborhood' },
+    ]
+  },
   { id: 'klnsvvh', name: 'קלנסווה', type: 'city', population: 25705 },
   {
     id: 'kryyt-bylyk', name: 'קריית ביאליק', type: 'city', population: 48340,
@@ -2059,7 +2158,26 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'km-pentagon', name: 'פנטגון', type: 'neighborhood' },
     ]
   },
-  { id: 'kryyt-mlky', name: 'קריית מלאכי', type: 'city', population: 30482 },
+  {
+    id: 'kryyt-mlky', name: 'קריית מלאכי', type: 'city', population: 29771,
+    // ── Locality batch 2c reconcile, 15.08.2026 ──
+    subLocations: [
+      { id: 'kml-chabad', name: 'חב"ד', type: 'neighborhood' },
+      { id: 'kml-karmei-hanadiv', name: 'כרמי הנדיב', type: 'neighborhood' },
+      { id: 'kml-ganei-shmuel', name: 'גני שמואל', type: 'neighborhood' },
+      { id: 'kml-hamem-gimel', name: 'המ"ג', type: 'neighborhood' },
+      { id: 'kml-weizmann', name: 'וייצמן', type: 'neighborhood' },
+      { id: 'kml-herzl', name: 'הרצל', type: 'neighborhood' },
+      { id: 'kml-hanarkisim', name: 'הנרקיסים', type: 'neighborhood' },
+      { id: 'kml-kibbutz-galuyot', name: 'קיבוץ גלויות', type: 'neighborhood' },
+      { id: 'kml-hameyasdim', name: 'המייסדים', type: 'neighborhood' },
+      { id: 'kml-yigal-alon', name: 'יגאל אלון', type: 'neighborhood' },
+      { id: 'kml-merkaz-hair', name: 'מרכז העיר', type: 'neighborhood' },
+      { id: 'kml-givat-hasavyonim', name: 'גבעת הסביונים', type: 'neighborhood' },
+      { id: 'kml-neot-hakfar', name: 'נאות הכפר', type: 'neighborhood' },
+      { id: 'kml-hamachane', name: 'המחנה', type: 'neighborhood' },
+    ]
+  },
   { id: 'kryyt-shmvnh', name: 'קריית שמונה', type: 'city', population: 25452 },
   {
     id: 'shprm', name: 'שפרעם', type: 'city', population: 44440,
