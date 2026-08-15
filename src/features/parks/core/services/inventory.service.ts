@@ -22,6 +22,7 @@ import {
     deleteOfficialRouteSegments,
     deleteOfficialRouteSegmentsForMany,
 } from './official-route-broadcaster';
+import { IS_ROUTE_ADJACENCY_ENABLED } from '@/config/feature-flags';
 
 // ── Facilities client cache (stale-while-revalidate, localStorage, 6h TTL) ──
 // Mirrors parks.service.ts's fetchRealParks/_inflightParksFetch pattern —
@@ -166,6 +167,95 @@ export async function getCachedOfficialRoutes(): Promise<Route[]> {
 /** Invalidate the in-memory official-routes cache so the next read re-fetches from Firestore. */
 export function invalidateOfficialRoutesCache(): void {
     _officialCache = null;
+}
+
+/**
+ * Precompute net for `route_adjacency` candidate detection — deliberately
+ * WIDER than the real connector-length reject cap (CONNECTOR_REJECT_METERS
+ * = 300m in route-generator.service.ts's chain assembly). A candidate edge
+ * here only means "close enough to be worth trying a real Mapbox connector
+ * for" — the actual accept/reject decision always happens later, against
+ * the REAL routed connector's length, never this straight-line proxy alone
+ * (verified live, 15.08.2026 smoke-test: the acceptance test's own weakest
+ * link — Park HaMesila<->Charles Clore — measures 374m straight-line, which
+ * this wider net still captures as a candidate worth actually trying).
+ */
+const ROUTE_ADJACENCY_DETECTION_THRESHOLD_METERS = 500;
+
+/**
+ * Phase 2 of the corridor-following engine
+ * (.claude/plans/build-the-phase-0-noble-kahn.md): full per-city recompute
+ * of the `route_adjacency` collection — replaces (not incrementally
+ * patches) every edge for `cityName` with a freshly computed set. Simpler
+ * and always-correct at this data scale (189 official_routes total) versus
+ * tracking incremental deltas; `official_routes.path` is immutable
+ * post-creation (verified, RouteEditor's updateRoute strips `path` from
+ * updates) so only create/delete needs to trigger this, never an edit.
+ *
+ * Fire-and-forget from every real `official_routes` mutator below (both
+ * create and delete sides) — never awaited by the caller, matching the
+ * existing `broadcastRouteToStreetSegments`/`deleteOfficialRouteSegments*`
+ * fire-and-forget convention right next to each call site.
+ */
+export async function recomputeRouteAdjacencyForCity(cityName: string | undefined | null): Promise<{ edgesWritten: number }> {
+    if (!cityName) return { edgesWritten: 0 };
+    try {
+        const { computeCorridorAdjacency } = await import('./route-adjacency.service');
+
+        const routesSnap = await getDocs(
+            query(collection(db, 'official_routes'), where('city', '==', cityName), where('published', '==', true)),
+        );
+        const corridors: Array<{ id: string; path: [number, number][] }> = [];
+        for (const d of routesSnap.docs) {
+            const data = d.data();
+            const rawPath = data.path;
+            if (!Array.isArray(rawPath) || rawPath.length < 2) continue;
+            const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
+            corridors.push({ id: d.id, path });
+        }
+
+        const edges = computeCorridorAdjacency(corridors, ROUTE_ADJACENCY_DETECTION_THRESHOLD_METERS);
+
+        const existingSnap = await getDocs(query(collection(db, 'route_adjacency'), where('cityName', '==', cityName)));
+        const batch = writeBatch(db);
+        for (const d of existingSnap.docs) batch.delete(d.ref);
+        for (const edge of edges) {
+            const edgeId = [edge.routeIdA, edge.routeIdB].sort().join('_');
+            batch.set(doc(db, 'route_adjacency', edgeId), {
+                routeIdA: edge.routeIdA,
+                routeIdB: edge.routeIdB,
+                contactA: edge.contactA,
+                contactB: edge.contactB,
+                gapMeters: edge.gapMeters,
+                cityName,
+                updatedAt: serverTimestamp(),
+            });
+        }
+        await batch.commit();
+
+        console.log(`[route-adjacency] Recomputed "${cityName}": ${corridors.length} corridors → ${edges.length} candidate edges`);
+        return { edgesWritten: edges.length };
+    } catch (error) {
+        console.warn('[route-adjacency] recomputeRouteAdjacencyForCity failed (non-fatal):', error);
+        return { edgesWritten: 0 };
+    }
+}
+
+/**
+ * Fire-and-forget helper for the 8 real `official_routes` mutation sites
+ * below — dedupes city names and kicks off `recomputeRouteAdjacencyForCity`
+ * for each without blocking the caller. Gated on IS_ROUTE_ADJACENCY_ENABLED
+ * so this is a true no-op (not even the dedupe/import cost) while the flag
+ * is off.
+ */
+function recomputeAdjacencyForCities(cityNames: Array<string | undefined | null>): void {
+    if (!IS_ROUTE_ADJACENCY_ENABLED) return;
+    const distinct = Array.from(new Set(cityNames.filter((c): c is string => !!c)));
+    for (const cityName of distinct) {
+        recomputeRouteAdjacencyForCity(cityName).catch((err) => {
+            console.warn('[route-adjacency] recomputeAdjacencyForCities failed (non-fatal):', err);
+        });
+    }
 }
 
 export const InventoryService = {
@@ -374,6 +464,7 @@ export const InventoryService = {
                 .catch((err) => {
                     console.warn('[InventoryService] Broadcast to street_segments failed (non-fatal):', err);
                 });
+            recomputeAdjacencyForCities(persistedRoutes.map((r) => r.city));
 
             return true;
         } catch (error) {
@@ -486,6 +577,7 @@ export const InventoryService = {
             // still match by `officialRouteId == X` — once the docs are
             // gone we'd lose the reference list.
             const deletedIds = snapshot.docs.map((d) => d.id);
+            const deletedCities = snapshot.docs.map((d) => d.data().city);
 
             // Firestore batch limit is 500, so chunk if needed
             const docs = snapshot.docs;
@@ -503,6 +595,7 @@ export const InventoryService = {
             deleteOfficialRouteSegmentsForMany(deletedIds).catch((err) => {
                 console.warn('[InventoryService] Batch-delete broadcast cleanup failed (non-fatal):', err);
             });
+            recomputeAdjacencyForCities(deletedCities);
 
             return deleted;
         } catch (error) {
@@ -575,6 +668,7 @@ export const InventoryService = {
             // Capture ids first — broadcast cleanup needs them to match
             // by `officialRouteId == X`, and these refs are about to die.
             const deletedOfficialIds = officialSnap.docs.map((d) => d.id);
+            const deletedOfficialCities = officialSnap.docs.map((d) => d.data().city);
 
             for (let i = 0; i < officialSnap.docs.length; i += 500) {
                 const batch = writeBatch(db);
@@ -603,6 +697,7 @@ export const InventoryService = {
             deleteOfficialRouteSegmentsForMany(deletedOfficialIds).catch((err) => {
                 console.warn('[InventoryService] Authority-wide broadcast cleanup failed (non-fatal):', err);
             });
+            recomputeAdjacencyForCities(deletedOfficialCities);
 
             return totalDeleted;
         } catch (error) {
@@ -675,6 +770,7 @@ export const InventoryService = {
                 .catch((err) => {
                     console.warn('[InventoryService] Curated broadcast failed (non-fatal):', err);
                 });
+            recomputeAdjacencyForCities(persistedRoutes.map((r) => r.city));
 
             return true;
         } catch (error) {
@@ -926,6 +1022,7 @@ export const InventoryService = {
                     .catch((err) => {
                         console.warn('[InventoryService] Approve broadcast failed (non-fatal):', err);
                     });
+                recomputeAdjacencyForCities([route.city]);
             }
         } catch (error) {
             console.error('❌ Error approving route:', error);
@@ -952,6 +1049,11 @@ export const InventoryService = {
             deleteOfficialRouteSegments(routeId).catch((err) => {
                 console.warn('[InventoryService] Reject cleanup failed (non-fatal):', err);
             });
+            if (IS_ROUTE_ADJACENCY_ENABLED) {
+                InventoryService.getRouteById(routeId).then((route) => {
+                    if (route) recomputeAdjacencyForCities([route.city]);
+                });
+            }
         } catch (error) {
             console.error('❌ Error rejecting route:', error);
             throw error;
@@ -964,6 +1066,13 @@ export const InventoryService = {
     bulkDeleteRoutes: async (routeIds: string[]): Promise<number> => {
         if (routeIds.length === 0) return 0;
         try {
+            // Only fetched when the flag is on — bulkDeleteRoutes otherwise never
+            // reads these docs at all (blind-deletes by id), so this is pure
+            // added cost gated on the same flag as the recompute it feeds.
+            const deletedCities: Array<string | undefined> = IS_ROUTE_ADJACENCY_ENABLED
+                ? await Promise.all(routeIds.map(async (id) => (await InventoryService.getRouteById(id))?.city))
+                : [];
+
             let deleted = 0;
             for (let i = 0; i < routeIds.length; i += 500) {
                 const batch = writeBatch(db);
@@ -981,6 +1090,7 @@ export const InventoryService = {
             deleteOfficialRouteSegmentsForMany(routeIds).catch((err) => {
                 console.warn('[InventoryService] Bulk-delete broadcast cleanup failed (non-fatal):', err);
             });
+            recomputeAdjacencyForCities(deletedCities);
 
             return deleted;
         } catch (error) {
@@ -1018,6 +1128,7 @@ export const InventoryService = {
             deleteOfficialRouteSegmentsForMany(deletedIds).catch((err) => {
                 console.warn('[InventoryService] City-wide broadcast cleanup failed (non-fatal):', err);
             });
+            recomputeAdjacencyForCities([city]);
 
             return deleted;
         } catch (error) {

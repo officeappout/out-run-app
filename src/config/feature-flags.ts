@@ -601,6 +601,34 @@ export const IS_TIGHTENED_DISTANCE_WINDOW_ENABLED = true;
 // back to false for an instant, byte-identical revert.
 export const IS_GUARANTEED_ROUTE_FALLBACK_ENABLED = true;
 
+// IS_ROUTE_ADJACENCY_ENABLED: Phase 2 of the corridor-following engine
+// (.claude/plans/build-the-phase-0-noble-kahn.md, David-approved 15.08.2026
+// — explicit steer: no hardcoded corridor chain ships in the product, the
+// engine must discover which corridors connect on its own).
+//
+// While false (default): `inventory.service.ts`'s `recomputeAdjacencyForCities`
+// is a true no-op at every one of its 8 call sites (saveRoutes,
+// saveCuratedRoutes, approveRoute, rejectRoute, bulkDeleteRoutes,
+// deleteRoutesByCity, deleteImportBatch, deleteAllRoutesByAuthority) — the
+// `route_adjacency` collection is never written, and
+// `route-generator.service.ts`'s chain-discovery dispatch branch
+// (`options.discoverCorridorChain`) is never reachable. Byte-identical to
+// today's behavior everywhere else.
+//
+// While true: every `official_routes` create/delete triggers a full
+// per-city recompute of `route_adjacency` (geohash-prefiltered nearest-
+// contact pass — see `route-adjacency.service.ts`), and a chain-discovery
+// request walks those precomputed edges to auto-build a multi-corridor
+// route with real Mapbox connectors, no hand-written corridor list
+// anywhere in the path.
+//
+// Standing risk, not solved by this flag: a geometric gap threshold proves
+// "close," never "walkable" (a fence/highway/tracks can sit between two
+// corridors that measure a few meters apart) — every discovered connector
+// must be reviewed against a real map before being trusted, same discipline
+// as `computeTightenedDistanceWindow`'s live per-city calibration.
+export const IS_ROUTE_ADJACENCY_ENABLED = false;
+
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
 // longer opens ExitConfirmModal; it is blocked ENTIRELY and silently, as if
