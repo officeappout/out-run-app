@@ -24,7 +24,7 @@ import { registerPinImage, registerArrowTipImage, drawPullUpBarIcon, drawDumbbel
 import { applyFitnessMapStyle, resetFitnessMapStyle } from './mapStyleConfig';
 import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
-import { segmentPathByZone, bearingBetween } from '../services/geoUtils';
+import { segmentPathByZone, bearingBetween, buildLaneOffsetPath } from '../services/geoUtils';
 import type { RouteTurn } from '../services/geoUtils';
 import {
   isFiniteNum,
@@ -44,7 +44,7 @@ import {
   TRAIL_FADE_LINE, ROUTE_PASSED_LINE, ROUTE_DEVIATION_LINE,
   PARK_CLUSTERS_GLOW, PARK_CLUSTERS, PARK_PINS, PARK_MINOR_PINS, PARK_CLUSTER_COUNT,
 } from './mapLayersConfig';
-import { HYBRID_AER, buildHybridRouteGradient } from './hybrid/hybrid-colors';
+import { HYBRID_AER, HYBRID_STR, buildHybridRouteGradient } from './hybrid/hybrid-colors';
 // Store read for the off-route flag only — same cross-read precedent as
 // useWorkoutSession.ts. Subscribing to the boolean means AppMap re-renders
 // on off-route flips, not on every GPS sample.
@@ -412,20 +412,26 @@ export default function AppMap({
   // Point 15: when a hybrid route is focused, its strength-station fractions drive a
   // green(walk)→blue(strength)→green line-gradient on the active route line, and the
   // cyan glow is neutralized to green so it doesn't fight the gradient. Null →
-  // non-hybrid route → the ORIGINAL flat cyan paints, byte-identical.
+  // non-hybrid route → the modality-colored flat paint below.
   const hybridRouteStations = useMapStore((s) => s.hybridRouteStations);
   const isHybridRoute = !!hybridRouteStations && hybridRouteStations.length > 0;
+  // 15.08.2026 route-styling batch: non-hybrid focused routes now color by
+  // MODALITY instead of a flat cyan — aerobic (walking/running/cycling, the
+  // vast majority of routes) gets HYBRID_AER, a 'workout' activityType route
+  // (see ParkDetailSheet.tsx) gets HYBRID_STR, matching the hybrid gradient's
+  // own two colors so standalone and hybrid strength look identical.
+  const focusedModalityColor = focusedRoute?.activityType === 'workout' ? HYBRID_STR : HYBRID_AER;
   const routesActivePaint = useMemo(
     () => (isHybridRoute
-      ? { 'line-gradient': buildHybridRouteGradient(hybridRouteStations!), 'line-width': 7, 'line-opacity': 1 }
-      : ROUTES_ACTIVE.paint),
-    [isHybridRoute, hybridRouteStations],
+      ? { 'line-gradient': buildHybridRouteGradient(hybridRouteStations!), 'line-width': 6, 'line-opacity': 1 }
+      : { ...ROUTES_ACTIVE.paint, 'line-color': focusedModalityColor }),
+    [isHybridRoute, hybridRouteStations, focusedModalityColor],
   );
   const routesGlowPaint = useMemo(
     () => (isHybridRoute
       ? { ...ROUTES_ACTIVE_GLOW.paint, 'line-color': HYBRID_AER }
-      : ROUTES_ACTIVE_GLOW.paint),
-    [isHybridRoute],
+      : { ...ROUTES_ACTIVE_GLOW.paint, 'line-color': focusedModalityColor }),
+    [isHybridRoute, focusedModalityColor],
   );
   // Selected park id powers the cyan-ring highlight on ParkPhotoMarker so
   // tapping a pin gives instant visual feedback BEFORE the preview sheet
@@ -1135,9 +1141,13 @@ export default function AppMap({
         // Prefer the rotated/user-prepended displayPath (set by useRouteFilter) for
         // rendering, so the line on the map matches where the user would actually run.
         // Fall back to the original stored path when displayPath is absent.
-        const coords = (route.displayPath && route.displayPath.length > 1)
+        const rawCoords = (route.displayPath && route.displayPath.length > 1)
           ? route.displayPath
           : route.path;
+        // 15.08.2026 fix: out-and-back paths (outbound leg retraced in
+        // reverse) render as a single overlapping line — no-op for any
+        // other shape (loop, one-way), so this is safe to apply always.
+        const coords = buildLaneOffsetPath(rawCoords);
         return {
           type: 'Feature',
           properties: { id: route.id, isFocused: focusedRoute?.id === route.id, isInfrastructure: route.isInfrastructure || false },
@@ -1153,10 +1163,14 @@ export default function AppMap({
   // the 'hybrid-route' focus id → no other route's rendering changes (overview only, gated below).
   const routeDirectionArrowsGeoJSON = useMemo(() => {
     if (focusedRoute?.id !== 'hybrid-route') return null;
-    const coords = (focusedRoute.displayPath && focusedRoute.displayPath.length > 1)
+    const rawCoords = (focusedRoute.displayPath && focusedRoute.displayPath.length > 1)
       ? focusedRoute.displayPath
       : focusedRoute.path;
-    if (!coords || coords.length < 2) return null;
+    if (!rawCoords || rawCoords.length < 2) return null;
+    // Same lane-offset as the line itself (see routesGeoJSON) — without it,
+    // the outbound and return legs' arrows compete for the same pixel on
+    // shared streets and only one direction ever wins the collision check.
+    const coords = buildLaneOffsetPath(rawCoords);
     return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }] };
   }, [focusedRoute?.id, focusedRoute?.path, focusedRoute?.displayPath]);
 
@@ -1289,7 +1303,16 @@ export default function AppMap({
     // pathIndex === turn vertex index in the original path array.
     const idx = isFiniteNum(t.pathIndex) ? t.pathIndex : -1;
     const startIdx = Math.max(0, idx - NAV_ARROW_PATH_RADIUS);
-    const endIdx   = Math.min(path.length - 1, idx + NAV_ARROW_PATH_RADIUS);
+    // 15.08.2026 fix: a turnaround vertex (out-and-back reversal) sits at
+    // the exact midpoint of a symmetric path — slicing past it the same
+    // way as an ordinary turn just re-enters the mirrored return leg
+    // (identical coordinates in reverse), producing a folded, misleading
+    // "continue" direction. There's no real new geometry past a genuine
+    // reversal to show, so cap the slice AT the vertex — the arrow traces
+    // the approach and its tip lands on the turnaround point itself.
+    const endIdx = t.isTurnaround
+      ? idx
+      : Math.min(path.length - 1, idx + NAV_ARROW_PATH_RADIUS);
     const slice = path
       .slice(startIdx, endIdx + 1)
       .filter(

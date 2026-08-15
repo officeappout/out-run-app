@@ -32,11 +32,16 @@ export const ROUTES_ACTIVE_GLOW = {
   layout: ROUTE_LINE_LAYOUT,
 };
 
+// 15.08.2026 route-styling batch: casing strengthened (11→12px) and the
+// colored core made slightly thinner (7→6px) — a clearer white border +
+// core ratio, Google/Strava-style, so the modality color (see AppMap.tsx's
+// routesActivePaint/routesGlowPaint) reads cleanly against the light
+// basemap without needing a separate dark-edge layer.
 export const ROUTES_ACTIVE_OUTLINE = {
   filter: ['==', ['get', 'isFocused'], true] as any,
   paint: {
     'line-color': '#ffffff',
-    'line-width': 11,
+    'line-width': 12,
     'line-opacity': 0.95,
   },
   layout: ROUTE_LINE_LAYOUT,
@@ -45,8 +50,11 @@ export const ROUTES_ACTIVE_OUTLINE = {
 export const ROUTES_ACTIVE = {
   filter: ['==', ['get', 'isFocused'], true] as any,
   paint: {
+    // Overridden per-focused-route by modality (aerobic/strength) in
+    // AppMap.tsx's routesActivePaint — this default only applies before a
+    // route is focused / as a structural fallback.
     'line-color': '#00E5FF',
-    'line-width': 7,
+    'line-width': 6,
     'line-opacity': 1,
   },
   layout: ROUTE_LINE_LAYOUT,

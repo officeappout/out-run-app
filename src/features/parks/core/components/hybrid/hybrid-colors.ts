@@ -1,13 +1,22 @@
 /**
  * hybrid-colors — SINGLE SOURCE OF TRUTH for hybrid MODALITY colors (point 15).
+ * Also the source for the standalone (non-hybrid) route line's modality color
+ * (15.08.2026, route-styling batch) — AppMap.tsx's routes-active/-glow paints
+ * use these same two constants, keyed off the focused route's activityType,
+ * so a standalone strength route and a hybrid route's strength band render
+ * identically.
  *
- * Imported by the journey axis, the overview drawer, AND the map route gradient.
- * Do NOT redefine #10B981 / #00C9F2 anywhere else — if these need to change, they
- * change here once and every surface follows.
+ * Imported by the journey axis, the overview drawer, AND the map route
+ * (gradient + standalone line). Do NOT redefine #10B981 / #06B6D4 anywhere
+ * else — if these need to change, they change here once and every surface
+ * follows.
  */
 
 export const HYBRID_AER = '#10B981'; // walking / aerobic — green
-export const HYBRID_STR = '#00C9F2'; // strength — cyan (BRAND_CYAN)
+// 15.08.2026: #00C9F2 → #06B6D4 (deeper cyan) — the lighter cyan washed out
+// against the light Mapbox basemap; the deeper value keeps enough contrast
+// for both the line itself and the white casing around it to read clearly.
+export const HYBRID_STR = '#06B6D4'; // strength — deep cyan
 
 /** Fraction of the route (each side of a station) that blends to the strength
  *  color. Big enough to read the station, small enough not to swallow the route. */

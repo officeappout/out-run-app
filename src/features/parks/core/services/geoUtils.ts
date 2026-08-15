@@ -236,6 +236,110 @@ export function bearingBetween(
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
+const EARTH_RADIUS_METERS = 6371000;
+
+/**
+ * Standard spherical "destination point given distance and bearing" formula
+ * (the inverse of `bearingBetween`). Used only for DISPLAY-layer geometry
+ * (out-and-back lane offsetting, see `buildLaneOffsetPath`) — never for
+ * navigation/distance logic, which always uses the real, un-offset path.
+ */
+export function destinationPoint(
+  lat: number, lng: number,
+  distanceMeters: number, bearingDeg: number,
+): [number, number] {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const delta = distanceMeters / EARTH_RADIUS_METERS;
+  const theta = toRad(bearingDeg);
+  const phi1 = toRad(lat);
+  const lambda1 = toRad(lng);
+
+  const phi2 = Math.asin(
+    Math.sin(phi1) * Math.cos(delta) + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta),
+  );
+  const lambda2 = lambda1 + Math.atan2(
+    Math.sin(theta) * Math.sin(delta) * Math.cos(phi1),
+    Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2),
+  );
+
+  return [toDeg(lambda2), toDeg(phi2)]; // [lng, lat]
+}
+
+/**
+ * Structural detection of an out-and-back ("palindrome") path: does the
+ * second half exactly mirror the first half, as produced by
+ * `buildOutAndBackPath`? Pure geometry check — doesn't care whether the
+ * route is hybrid, short-route-mode, or anything else; any path built that
+ * way (`[...outbound, ...outbound.slice(0,-1).reverse()]`) qualifies.
+ * `epsilonDeg` is a tiny coordinate-equality tolerance (default ~1cm) to
+ * absorb float round-trip noise, not real geometric difference.
+ */
+export function isOutAndBackPath(
+  path: [number, number][],
+  epsilonDeg: number = 1e-7,
+): boolean {
+  if (path.length < 3 || path.length % 2 === 0) return false; // 2n-1 is always odd
+  const n = path.length;
+  for (let i = 0; i < n; i++) {
+    const mirrorIdx = n - 1 - i;
+    if (mirrorIdx <= i) break; // reached the middle
+    const [lngA, latA] = path[i];
+    const [lngB, latB] = path[mirrorIdx];
+    if (Math.abs(lngA - lngB) > epsilonDeg || Math.abs(latA - latB) > epsilonDeg) return false;
+  }
+  return true;
+}
+
+/**
+ * DISPLAY-ONLY: offsets an out-and-back path's outbound and return legs
+ * into two parallel "lanes" so they don't visually overlap on the map —
+ * lets direction arrows (Mapbox's automatic line-tangent rotation under
+ * symbol-placement:'line') resolve to one correct-per-lane direction
+ * instead of two opposite-bearing candidates competing for the same pixel
+ * on shared streets (the root cause of "arrows point the wrong way" on
+ * out-and-back routes). Each point is offset perpendicular to the path's
+ * LOCAL bearing at that point, so the offset follows curves reasonably —
+ * not a full cartographic miter-join offset (no new geometry dependency
+ * needed for this display-polish use case), but adequate at typical route
+ * zoom levels for a few-meter separation.
+ *
+ * No-op (returns the input unchanged) if the path isn't structurally an
+ * out-and-back — safe to call unconditionally.
+ */
+export function buildLaneOffsetPath(
+  path: [number, number][],
+  laneOffsetMeters: number = 3,
+): [number, number][] {
+  if (!isOutAndBackPath(path)) return path;
+  const n = path.length;
+  const turnaroundIdx = (n - 1) / 2;
+
+  // Smooth taper (4t(1-t), a parabola: 0 at each leg's ends, peak=1 at its
+  // midpoint) instead of a constant offset — so the two lanes meet EXACTLY
+  // at the true start and the true turnaround (no stitching seam/jump) and
+  // only visually separate in the middle of each leg, where separation
+  // actually matters for arrow legibility.
+  return path.map((point, i) => {
+    const prev = path[Math.max(0, i - 1)];
+    const next = path[Math.min(n - 1, i + 1)];
+    const bearing = bearingBetween(prev[1], prev[0], next[1], next[0]);
+
+    const isOutbound = i <= turnaroundIdx;
+    // t: 0 at each leg's TRUE (shared) endpoint, 1 at the OTHER end. Outbound:
+    // t=0 at the true start (i=0), t=1 at the turnaround. Return: t=0 at the
+    // true end (i=n-1), t=1 at the turnaround. The ramp below (4t(1-t)) is
+    // symmetric, so both legs land at ramp=0 on their true/shared points and
+    // peak in the middle regardless of which direction t runs.
+    const t = isOutbound ? i / turnaroundIdx : (n - 1 - i) / turnaroundIdx;
+    const ramp = 4 * t * (1 - t); // 0 → 1 → 0 across the leg
+    const side = isOutbound ? 1 : -1;
+    const perpBearing = (bearing + 90 * side + 360) % 360;
+    const [lng, lat] = destinationPoint(point[1], point[0], laneOffsetMeters * ramp, perpBearing);
+    return [lng, lat] as [number, number];
+  });
+}
+
 /** Linear interpolation between two [lng, lat] points. */
 export function interpolatePath(
   p1: [number, number],
@@ -304,7 +408,24 @@ export interface RouteTurn {
    * legacy NavigationHUD or RouteDetailSheet) keeps working unchanged.
    */
   streetName?: string | null;
+
+  /**
+   * True when this "turn" is actually a near-total reversal (~180°) — e.g.
+   * the strength-station turnaround vertex on an out-and-back route
+   * (15.08.2026 fix). Before this field existed, a genuine U-turn fell
+   * through to the same `Math.abs(n) >= 70` bucket as an ordinary sharp
+   * turn and was mislabeled "turn left" — see `turnLabelFromDiff`. Consumers
+   * that render a curve-following arrow (`turnArrowGeoJSON` in AppMap.tsx)
+   * should treat this case specially: the path is symmetric around this
+   * vertex (outbound and return legs are the same coordinates reversed), so
+   * there is no real "continue in this direction" geometry past it — slice
+   * up TO the vertex, not past it.
+   */
+  isTurnaround?: boolean;
 }
+
+/** Near-180° bearing changes are a reversal, not an ordinary sharp turn. */
+const ROUTE_TURNAROUND_BEARING_THRESHOLD = 150;
 
 /**
  * Convert a signed bearing-difference (-180..+180) into a Hebrew
@@ -316,6 +437,7 @@ export interface RouteTurn {
 function turnLabelFromDiff(diff: number): string {
   const n = ((diff + 540) % 360) - 180;
   if (Math.abs(n) < 20) return 'ישר';
+  if (Math.abs(n) >= ROUTE_TURNAROUND_BEARING_THRESHOLD) return 'פנה לאחור';
   if (n > 0 && n < 70) return 'ימינה קל';
   if (n < 0 && n > -70) return 'שמאלה קל';
   if (n >= 70) return 'פנה ימינה';
@@ -356,6 +478,8 @@ export function computeRouteTurns(path: [number, number][]): RouteTurn[] {
     );
 
     if (Math.abs(diff) > ROUTE_TURN_BEARING_THRESHOLD) {
+      // `diff` is already normalized to [-180, 180) above — no need to
+      // re-normalize before comparing against the turnaround threshold.
       turns.push({
         instruction: turnLabelFromDiff(diff),
         distanceMeters: Math.round(segmentDistance),
@@ -363,6 +487,7 @@ export function computeRouteTurns(path: [number, number][]): RouteTurn[] {
         lng: path[i][0],
         bearingAfter: segBearing,
         pathIndex: i,
+        isTurnaround: Math.abs(diff) >= ROUTE_TURNAROUND_BEARING_THRESHOLD,
       });
       segmentDistance = segLen;
     } else {
