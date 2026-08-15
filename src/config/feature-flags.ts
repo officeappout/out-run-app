@@ -1125,6 +1125,31 @@ export const FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED = true;
 // the cleanup with it) — no code change needed.
 export const RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED = true;
 
+// HOME_STEP_DEFICIT_CARD_ENABLED (C3, 15.08.2026): a new home-page card, shown ONLY on a
+// rest day (trioResult.isRestDay === true), ALONGSIDE the existing hero/recovery-video
+// cards — never replacing them. Suggests a short walk/run sized to close today's
+// remaining step-goal gap (stepsRemaining/stepGoal), reusing the map's own route
+// machinery: buildHomeUserContext -> deriveAerobicTargetKm (the same step-gap-boost
+// formula the 3 hybrid map paths already use) -> generateDynamicRoutes (the identical
+// function free-run uses) -> rendered via RouteCardUnified (the same live component the
+// map's 3 route carousels already use). No new distance/route logic invented.
+//
+// Deliberately calls generateDynamicRoutes directly rather than going through
+// runSuggestionEngine/routeGenerator.generate() (the rec-engine's own retrofit of this
+// exact computation, workout-engine/core/generators/route.generator.ts) — a pragmatic
+// shortcut for a single always-eligible card that doesn't need ranking against other
+// generators, not an abandonment of the shared-engine contract. See the doc-comment on
+// build-home-user-context.ts for what must stay unified if/when a future combined
+// (strength+aerobic) suggestion needs to render identically on home and map.
+//
+// GPS is requested softly (useGPSStore.getState().requestPermissionIfAllowed(), the same
+// courtesy pattern WorkoutLocationSuggestions.tsx already uses) — denied/unsupported
+// simply means the card doesn't render, never a hard prompt.
+//
+// While FALSE (default), the new hook never runs and nothing new renders —
+// byte-identical to today.
+export const HOME_STEP_DEFICIT_CARD_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
