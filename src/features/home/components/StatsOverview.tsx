@@ -7,8 +7,10 @@ import { startMiniDomainAssessment } from '@/features/user/onboarding/services/m
 import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
-import { HOME_ANCHOR_V2_ENABLED, RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED } from '@/config/feature-flags';
+import { HOME_ANCHOR_V2_ENABLED, RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED, HOME_STEP_DEFICIT_CARD_ENABLED } from '@/config/feature-flags';
 import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
+import { useStepDeficitRoute } from '../hooks/useStepDeficitRoute';
+import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import AnchorLocationChip from './AnchorLocationChip';
 import type { LocationId } from './WorkoutBuilderSheet';
@@ -540,6 +542,11 @@ export default function StatsOverview({
   const [currentWorkoutLocation, setCurrentWorkoutLocation] = useState<string | null>(null);
   const didGenerate = useRef(false);
   const lastGeneratedDate = useRef<string | null>(null);
+
+  // C3 (15.08.2026): rest-day step-deficit walking route, alongside the hero/recovery
+  // cards below -- never replacing them. No-op while HOME_STEP_DEFICIT_CARD_ENABLED is
+  // false or trioResult hasn't resolved isRestDay yet.
+  const { route: stepDeficitRoute } = useStepDeficitRoute(profile, trioResult?.isRestDay ?? false);
   // Stores the program IDs used to generate the current trio so they can be
   // forwarded to the builder when the custom card is tapped.
   const scheduledProgramIdsRef = useRef<string[]>([]);
@@ -1251,6 +1258,25 @@ export default function StatsOverview({
                   onStart={() => handleTrioStart(selectedOptionIndex)}
                 />
                 <BuildCustomButton onTap={handleBuildCustomWrapped} userGender={profile?.core?.gender} />
+                {HOME_STEP_DEFICIT_CARD_ENABLED && trioResult.isRestDay && stepDeficitRoute && (
+                  <div className="w-full max-w-[358px] mx-auto">
+                    {/* CTA opens the map screen (plain navigation, same as
+                        WorkoutLocationSuggestions.tsx) rather than attempting to hand off
+                        this specific generated Route -- there is no existing pre-generated-
+                        route transfer mechanism between screens (FreeRunDrawer's own
+                        onRequestRouteGeneration always triggers a FRESH generation inside
+                        the map/run flow, never loads a passed-in Route by id). Flagged as a
+                        follow-up decision, not guessed at here. */}
+                    <RouteCardUnified
+                      name={stepDeficitRoute.name}
+                      distanceText={`${stepDeficitRoute.distance.toFixed(1)} ק״מ`}
+                      durationText={`~${stepDeficitRoute.duration} דק׳`}
+                      difficulty={stepDeficitRoute.difficulty}
+                      ctaContent={<><Footprints size={14} /><span>הליכה עד היעד</span></>}
+                      onCta={() => router.push('/map')}
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <WorkoutSelectionCarousel
