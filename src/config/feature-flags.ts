@@ -1013,9 +1013,10 @@ export const RECOVERY_VIDEO_EXIT_BUTTON_ENABLED = true;
 // (hasValidDirectVideoUrl false), where Maximize itself does not render
 // either — so a follow-along exercise is never left with neither affordance.
 //
-// Kill-switch: flip back to false to instantly restore the CTA for every
-// follow-along clip — no code change needed.
-export const FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED = false;
+// FLIPPED TRUE (15.08.2026) — David approved production rollout after
+// reviewing the branch. Kill-switch: flip back to false to instantly restore
+// the CTA for every follow-along clip — no code change needed.
+export const FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED = true;
 
 // RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED: makes a "pure recovery video trio"
 // rest-day session (a rest-day workout that is structurally just ONE
@@ -1090,10 +1091,11 @@ export const FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED = false;
 // regardless of which entry point (shortcut or drawer) reached it, and is
 // cleaned up when that same session ends (subject to the tradeoff above).
 //
-// Kill-switch: flip back to false to instantly restore today's always-muted
-// default for recovery-video-trio sessions (and disable the cleanup with
-// it) — no code change needed.
-export const RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED = false;
+// FLIPPED TRUE (15.08.2026) — David approved production rollout after
+// reviewing the branch. Kill-switch: flip back to false to instantly restore
+// today's always-muted default for recovery-video-trio sessions (and disable
+// the cleanup with it) — no code change needed.
+export const RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
