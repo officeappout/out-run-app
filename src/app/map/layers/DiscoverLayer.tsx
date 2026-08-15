@@ -1255,60 +1255,80 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     // Keep the search bar (z-[70]) + mode chips out of the loading splash —
     // they sit ABOVE the z-[50] skeleton, so without this they poke through.
     if (!isMapVisuallyReady) return null;
+    // UX polish (14.08.2026): collapse the top bar once free-run's generated
+    // routes are on screen (RouteCarousel, freeRunStep === 'route'), giving
+    // the map + route cards more room. Expands again the moment the user
+    // returns to input (freeRunStep leaves 'route' — editing, dismissing, a
+    // new search). Scoped to free-run only: commute deliberately keeps its
+    // top bar visible (see the COMMUTE case's own comment — "so the user can
+    // change their destination at any time"), and ambient discover-mode
+    // nearby routes (hasNearbyRoutes) aren't part of this input→generate
+    // flow, so they're untouched. Same slide+fade shape as OverviewTitleBar's
+    // existing chrome-swap above, for visual consistency.
+    const topBarCollapsed = mapMode === 'freeRun' && freeRunStep === 'route';
     return (
-      <div
-        className="absolute left-0 right-0 z-[70] px-4 pointer-events-none"
-        style={{ top: 'calc(52px + env(safe-area-inset-top, 0px))', paddingTop: '0.75rem' }}
-      >
-        <div className="max-w-md mx-auto w-full space-y-2">
-          {/* Premium glass search bar — focus opens NavigationHub overlay.
-              Home / Work saved-place shortcuts are surfaced inside the
-              NavigationHub full-screen overlay (Quick Actions grid) so
-              the map canvas stays uncluttered. */}
-          <FloatingSearchBar
-            inputRef={logic.searchInputRef}
-            searchQuery={logic.searchQuery}
-            onSearchChange={logic.setSearchQuery}
-            onFocus={() => logic.setNavState('searching')}
-          />
-
-          {/* "חפש באזור זה" pill — appears after panning > 30% viewport from
-              the baseline position. Tapping activates viewport-search mode. */}
-          <AnimatePresence>
-            {showSearchAreaButton && (
-              <motion.div
-                key="search-area-btn"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.18 }}
-                className="flex justify-center pointer-events-auto"
-              >
-                <button
-                  onClick={handleSearchArea}
-                  className="bg-white text-gray-800 text-sm font-semibold px-5 py-2 rounded-full shadow-md ring-1 ring-black/10 active:scale-95 transition-all"
-                  dir="rtl"
-                >
-                  חפש באזור זה
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Mode header pills — also hidden in commute mode so the
-              top surface stays focused on the active navigation flow. */}
-          {mapMode !== 'commute' && (
-            <div className="pointer-events-auto">
-              <MapModeHeader
-                activeMode={mapMode}
-                onModeChange={handleMapModeChange}
-                hasNearbyRoutes={hasNearbyRoutes}
-                partnerCount={live.length}
+      <AnimatePresence>
+        {!topBarCollapsed && (
+          <motion.div
+            key="top-bar"
+            initial={{ y: -160, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -160, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="absolute left-0 right-0 z-[70] px-4 pointer-events-none"
+            style={{ top: 'calc(52px + env(safe-area-inset-top, 0px))', paddingTop: '0.75rem' }}
+          >
+            <div className="max-w-md mx-auto w-full space-y-2">
+              {/* Premium glass search bar — focus opens NavigationHub overlay.
+                  Home / Work saved-place shortcuts are surfaced inside the
+                  NavigationHub full-screen overlay (Quick Actions grid) so
+                  the map canvas stays uncluttered. */}
+              <FloatingSearchBar
+                inputRef={logic.searchInputRef}
+                searchQuery={logic.searchQuery}
+                onSearchChange={logic.setSearchQuery}
+                onFocus={() => logic.setNavState('searching')}
               />
+
+              {/* "חפש באזור זה" pill — appears after panning > 30% viewport from
+                  the baseline position. Tapping activates viewport-search mode. */}
+              <AnimatePresence>
+                {showSearchAreaButton && (
+                  <motion.div
+                    key="search-area-btn"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.18 }}
+                    className="flex justify-center pointer-events-auto"
+                  >
+                    <button
+                      onClick={handleSearchArea}
+                      className="bg-white text-gray-800 text-sm font-semibold px-5 py-2 rounded-full shadow-md ring-1 ring-black/10 active:scale-95 transition-all"
+                      dir="rtl"
+                    >
+                      חפש באזור זה
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Mode header pills — also hidden in commute mode so the
+                  top surface stays focused on the active navigation flow. */}
+              {mapMode !== 'commute' && (
+                <div className="pointer-events-auto">
+                  <MapModeHeader
+                    activeMode={mapMode}
+                    onModeChange={handleMapModeChange}
+                    hasNearbyRoutes={hasNearbyRoutes}
+                    partnerCount={live.length}
+                  />
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     );
   }
 

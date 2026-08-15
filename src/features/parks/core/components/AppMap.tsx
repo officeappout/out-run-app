@@ -1897,18 +1897,25 @@ export default function AppMap({
           const isSelected = focusedRoute?.id === route.id;
           if (isSelected && currentLocation && Math.abs(currentLocation.lat - startPoint[1]) < 0.0003 && Math.abs(currentLocation.lng - startPoint[0]) < 0.0003) return null;
           return (
+            // Modest origin dot (14.08.2026 UX polish) — replaces the old
+            // 28px white-circle+gray-dot with a small solid out-blue dot,
+            // matching the "Google-Maps-style" live-location pulse dot
+            // precedent above (no ping animation here — a route start is
+            // static, not a live position). The outer div is a larger
+            // invisible tap target so the visual shrink doesn't shrink the
+            // actual touch area.
             <Marker key={route.id} longitude={startPoint[0]} latitude={startPoint[1]} anchor="center"
               onClick={(e) => { e.originalEvent.stopPropagation(); onRouteSelect && onRouteSelect(route); }}>
-              <div
-                className={`flex items-center justify-center rounded-full transition-all duration-300 cursor-pointer ${isSelected ? 'scale-110' : 'scale-90 opacity-80'}`}
-                style={{
-                  width: '28px', height: '28px', background: 'rgba(255,255,255,0.95)',
-                  boxShadow: isSelected
-                    ? '0 2px 8px rgba(0,122,255,0.35), 0 0 0 2px rgba(0,122,255,0.3)'
-                    : '0 1px 4px rgba(0,0,0,0.15), 0 0 0 2px rgba(255,255,255,0.8)',
-                }}
-              >
-                <div className={`w-3 h-3 rounded-full ${isSelected ? 'bg-[#007aff]' : 'bg-gray-400'}`} />
+              <div className="flex items-center justify-center cursor-pointer" style={{ width: '32px', height: '32px' }}>
+                <div
+                  className={`rounded-full border-2 border-white transition-all duration-300 ${isSelected ? 'scale-110' : 'scale-90 opacity-80'}`}
+                  style={{
+                    width: '14px', height: '14px', background: '#007aff',
+                    boxShadow: isSelected
+                      ? '0 2px 6px rgba(0,122,255,0.45)'
+                      : '0 1px 4px rgba(0,0,0,0.25)',
+                  }}
+                />
               </div>
             </Marker>
           );
