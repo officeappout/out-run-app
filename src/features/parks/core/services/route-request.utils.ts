@@ -27,9 +27,17 @@ export interface DrawerGoal {
   caloriesValue: number;  // kcal
 }
 
-/** Planning speed/energy assumptions per activity (unchanged values). */
-const SPEED_KMH: Record<DrawerActivity, number> = { cycling: 20, running: 10, walking: 5 };
-const KCAL_PER_KM: Record<DrawerActivity, number> = { cycling: 25, running: 70, walking: 50 };
+/**
+ * Planning speed/energy assumptions per activity (unchanged values).
+ * Exported (14.08.2026, Fix 3) so route-generator.service.ts's 3 route-
+ * building call sites can share the SAME pace/calorie table instead of their
+ * own inline `activity === 'cycling' ? 25 : 70` — the bug this fixes: running
+ * duration used Mapbox's walking-paced estimate directly (no running
+ * profile exists to ask for instead), and running/walking shared one
+ * calorie rate despite this table already distinguishing them (70 vs 50).
+ */
+export const SPEED_KMH: Record<DrawerActivity, number> = { cycling: 20, running: 10, walking: 5 };
+export const KCAL_PER_KM: Record<DrawerActivity, number> = { cycling: 25, running: 70, walking: 50 };
 const MIN_TARGET_KM = 0.5;
 
 /** Convert the active goal to a target route length (km). */

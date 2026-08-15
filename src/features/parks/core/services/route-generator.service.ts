@@ -10,6 +10,7 @@ import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
 import { buildOutAndBackPath } from './geoUtils';
+import { SPEED_KMH, KCAL_PER_KM } from './route-request.utils';
 import {
   IS_PROXIMITY_SEGMENT_QUERY_ENABLED,
   IS_TIGHTENED_DISTANCE_WINDOW_ENABLED,
@@ -76,6 +77,24 @@ function setDiagnostics(d: Omit<RouteGenerationDiagnostics, 'timestamp'>) {
 }
 export function getLastGenerationDiagnostics(): RouteGenerationDiagnostics | null {
   return _lastDiagnostics;
+}
+
+/**
+ * Per-activity calorie rate for the 3 route-building call sites (14.08.2026,
+ * Fix 3). Shares route-request.utils.ts's KCAL_PER_KM table instead of each
+ * site's own inline `activity === 'cycling' ? 25 : 70` (or, in
+ * buildCommuteRoute's case, `: 65` — a THIRD, undocumented value; this
+ * unifies all three onto the one already-correct, already-in-production
+ * table). ActivityType includes 'workout' (route generation never actually
+ * produces it, but the type allows it) — DrawerActivity does not, so it
+ * falls back to the walking rate, matching how the rest of this file already
+ * treats any non-cycling, non-running-specific activity (see the `profile`
+ * selection a few lines below each call site).
+ */
+function kcalPerKmFor(activity: ActivityType): number {
+  if (activity === 'cycling') return KCAL_PER_KM.cycling;
+  if (activity === 'running') return KCAL_PER_KM.running;
+  return KCAL_PER_KM.walking;
 }
 
 interface WaypointCandidate {
@@ -1517,9 +1536,17 @@ async function attemptRouteCombinations(
       const routeDistanceKm = result.distance / 1000;
       const hasGym = !!fitnessAnchor;
 
-      // Use Mapbox API duration (in seconds) as the single source of truth
-      const durationMinutes = Math.round(result.duration / 60);
-      const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 70));
+      // Fix 3 (14.08.2026) — Mapbox has no running profile (confirmed;
+      // route shape/selection correctly stays identical between walking and
+      // running), so `result.duration` is always walking-paced. Recompute
+      // for running from the route's real distance at the drawer's own
+      // running pace (SPEED_KMH.running) instead of showing Mapbox's
+      // ~2×-too-long walking estimate. Walking and cycling are BYTE-
+      // IDENTICAL — still Mapbox's own duration, exactly as before.
+      const durationMinutes = activity === 'running'
+        ? Math.round((routeDistanceKm / SPEED_KMH.running) * 60)
+        : Math.round(result.duration / 60);
+      const calories = Math.round(routeDistanceKm * kcalPerKmFor(activity));
 
       // Change 3 — strip micro-zig with Ramer–Douglas–Peucker (~4 m). Preserves the
       // overall shape but removes the dense near-collinear wiggle Mapbox emits at
@@ -1964,8 +1991,13 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
         continue;
       }
 
-      const durationMinutes = Math.round((result.duration * 2) / 60); // round trip
-      const calories = Math.round(routeDistanceKm * (activity === 'cycling' ? 25 : 70));
+      // Fix 3 (14.08.2026) — same running-pace recompute as the loop
+      // generator; see its comment. routeDistanceKm here is already the
+      // round-trip distance, so no extra ×2 is needed on this side.
+      const durationMinutes = activity === 'running'
+        ? Math.round((routeDistanceKm / SPEED_KMH.running) * 60)
+        : Math.round((result.duration * 2) / 60); // round trip
+      const calories = Math.round(routeDistanceKm * kcalPerKmFor(activity));
       const mirroredPath = buildOutAndBackPath(result.path);
       const cleanPath = rdpSimplify(mirroredPath, 4);
 
@@ -2041,8 +2073,14 @@ function buildCommuteRoute(
   index: number,
 ): Route {
   const km = parseFloat((result.distance / 1000).toFixed(2));
-  const durationMin = Math.max(1, Math.round(result.duration / 60));
-  const calories = Math.round(km * (activity === 'cycling' ? 25 : 65));
+  // Fix 3 (14.08.2026) — same running-pace recompute as the loop/out-and-back
+  // generators; see attemptRouteCombinations' comment. Calories here used to be a
+  // THIRD hardcoded value (65, not the other two sites' 70) — now unified
+  // onto the one shared, already-correct KCAL_PER_KM table.
+  const durationMin = activity === 'running'
+    ? Math.max(1, Math.round((km / SPEED_KMH.running) * 60))
+    : Math.max(1, Math.round(result.duration / 60));
+  const calories = Math.round(km * kcalPerKmFor(activity));
 
   // Variant-specific name. Kept short so it fits the existing RouteCard
   // title row without truncating; the chip badge carries the secondary
