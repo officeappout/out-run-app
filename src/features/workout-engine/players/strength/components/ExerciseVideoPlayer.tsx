@@ -443,20 +443,52 @@ export default function ExerciseVideoPlayer({
       )}
 
       {/* Fullscreen long-form tutorial — reuses the facility-page provider-aware
-          player (Bunny HLS + controls). Rendered above the live player surface. */}
+          player (Bunny HLS + controls). Rendered above the live player surface.
+
+          15.08.2026 reachability fix (app-wide — this is the single shared overlay
+          for every strength/follow-along workout's "watch full explanation" video,
+          reached via ActiveExerciseView):
+            1. Safe-area insets — this overlay had none. Capacitor runs
+               `ios: { contentInset: 'never' }` (edge-to-edge WKWebView), so the web
+               layer must inset itself, same as every neighboring component in this
+               screen family. Top padding matches RunnerHeader.tsx's exact idiom
+               (`calc(env(safe-area-inset-top, 44px) + 0.75rem)`). Bottom padding on
+               the outer container keeps TutorialVideoPlayer's native <video controls>
+               bar off the home-indicator zone — fallback 0px (not InputStateView's
+               24px: there's no fixed chrome here needing a non-notch cushion, only
+               the real device inset matters).
+            2. Close button grew from 40×40 to a 44×44 floor via min-w/min-h — the
+               same hit-slop idiom already used codebase-wide (WorkoutSettingsDrawer's
+               X button, PlannedRunActive's back arrow) instead of scaling the icon.
+            3. Close button moved from top-left to top-right (now DOM-first, so it
+               lands on the RTL start/right edge; title trails on the left) — top-left
+               is the hardest one-handed corner for the right-handed majority to
+               reach, top-right stays on the thumb's natural side. Kept in the top
+               area rather than moved to the bottom: every fullscreen-video
+               convention in this app (incl. the native-Fullscreen-API player) puts
+               close/back at the top, and the bottom is already claimed by
+               TutorialVideoPlayer's own native control bar — stacking a close button
+               there would collide with it, not just be "reachable but cramped". */}
       {showTutorial && fullTutorial?.videoId && (
-        <div className="fixed inset-0 z-[100] bg-black flex flex-col" dir="rtl">
-          <div className="flex items-center justify-between px-4 py-3 shrink-0">
-            <span className="text-white text-base font-bold truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
-              {exerciseName}
-            </span>
+        <div
+          className="fixed inset-0 z-[100] bg-black flex flex-col"
+          dir="rtl"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
+          <div
+            className="flex items-center justify-between px-4 pb-3 shrink-0"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 44px) + 0.75rem)' }}
+          >
             <button
               onClick={() => setShowTutorial(false)}
-              className="flex items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20 shrink-0"
+              className="flex items-center justify-center w-10 h-10 min-w-[44px] min-h-[44px] bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20 shrink-0"
               aria-label="סגור"
             >
               <X size={20} />
             </button>
+            <span className="text-white text-base font-bold truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
+              {exerciseName}
+            </span>
           </div>
           <div className="flex-1 min-h-0 flex items-center justify-center">
             <TutorialVideoPlayer
