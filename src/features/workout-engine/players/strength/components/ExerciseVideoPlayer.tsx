@@ -15,6 +15,7 @@ import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import { FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED } from '@/config/feature-flags';
 
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
@@ -419,8 +420,17 @@ export default function ExerciseVideoPlayer({
           Positioned in the visible video band just ABOVE the white metrics card
           (which peeks ~220px up from the bottom — see ActiveExerciseView spacer)
           and BELOW the RunnerHeader top overlay. z-[46] lifts it above the
-          header (z-[45]) and the scroll card (z-10) so it is never covered. */}
-      {fullTutorial?.videoId && !showTutorial && (
+          header (z-[45]) and the scroll card (z-10) so it is never covered.
+          FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED (feature-flags.ts): hides this
+          CTA specifically when the fullscreen Maximize toggle below is ALSO
+          about to render (isGuidedFollowAlong && hasValidDirectVideoUrl — the
+          identical pair Maximize itself gates on), since David judged the two
+          redundant for guided follow-along clips — the clip already IS the
+          full guided video, so fullscreen is enough. Reps/time exercises (no
+          Maximize button) and the YouTube/image-fallback follow-along edge
+          case (no Maximize button either) both keep the CTA untouched. */}
+      {fullTutorial?.videoId && !showTutorial &&
+        !(FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED && isGuidedFollowAlong && hasValidDirectVideoUrl) && (
         <button
           onClick={() => setShowTutorial(true)}
           className="absolute bottom-[236px] right-4 z-[46] inline-flex items-center gap-1.5 px-3.5 py-2 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white rounded-full shadow-lg transition-all border border-white/20"

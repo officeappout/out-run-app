@@ -978,6 +978,45 @@ export const RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED = true;
 // byte-identical instantly, no code change needed.
 export const RECOVERY_VIDEO_EXIT_BUTTON_ENABLED = true;
 
+// FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED: hides the "צפה בהסבר המלא" (watch
+// full tutorial) CTA in ExerciseVideoPlayer.tsx
+// (workout-engine/players/strength/components/) specifically for guided
+// follow-along clips — recovery + guided warmup, isGuidedFollowAlong, see the
+// B1 comment in that file — that ALSO have the fullscreen Maximize toggle
+// available right below it. These two affordances are NOT the same video:
+// the CTA opens exerciseFullTutorial (a separate long-form instructional
+// resource resolved by useExerciseDerivedValues, independent of whatever is
+// playing inline), while Maximize enters native fullscreen on the
+// follow-along clip that is ALREADY playing (which, unlike the short
+// reps/time preview loop, is itself "a full guided clip the user opted into"
+// — see the mute-policy comment in ExerciseVideoPlayer.tsx). David judged
+// that during guided follow-along playback specifically, a second "watch the
+// full video"-style CTA that opens a DIFFERENT resource is redundant UX —
+// the viewer is already watching the complete guided content, so fullscreen
+// is the only affordance they need there. Reps/time exercises are
+// unaffected either way: Maximize never renders for them (isGuidedFollowAlong
+// is false), so their tutorial CTA — often their ONLY way to reach the full
+// tutorial — is untouched.
+//
+// Gates a single condition in ExerciseVideoPlayer.tsx's tutorial-CTA render
+// guard. While FALSE (default), the guard is unchanged — the CTA shows
+// whenever fullTutorial?.videoId is present, exactly as today, on every
+// exercise type including follow-along (so a follow-along clip that has both
+// a full tutorial AND a valid direct video currently shows both affordances
+// stacked — the redundant state this flag addresses).
+//
+// While TRUE, the CTA additionally hides when isGuidedFollowAlong &&
+// hasValidDirectVideoUrl — the EXACT same pair the Maximize button itself
+// gates on — so the CTA disappears only in the precise cases where Maximize
+// is actually rendered as its replacement. This deliberately leaves the CTA
+// visible in the YouTube-hosted / image-fallback follow-along edge case
+// (hasValidDirectVideoUrl false), where Maximize itself does not render
+// either — so a follow-along exercise is never left with neither affordance.
+//
+// Kill-switch: flip back to false to instantly restore the CTA for every
+// follow-along clip — no code change needed.
+export const FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
