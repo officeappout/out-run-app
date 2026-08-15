@@ -5,6 +5,7 @@ import {
   MovementGroup,
   AppLanguage,
   ExerciseFormData,
+  resolveTutorialForLang,
 } from '../../../core/exercise.types';
 import { HelpCircle, Hash, CheckCircle2, Flame, Activity, Wind, Users, User, Moon, Zap, AlertTriangle, Info } from 'lucide-react';
 import { safeRenderText } from '@/utils/render-helpers';
@@ -365,12 +366,19 @@ export default function BasicsSection({
         {/* Recovery: Rest Day Settings panel */}
         {formData.exerciseRole === 'recovery' && (() => {
           // Resolve the canonical recovery video slot.
-          // Generator (home-workout.service.ts → tryBuildRecoveryVideoTrio) reads
-          // execution_methods[0].media.mainVideoUrl + .videoDurationSeconds ONLY.
-          // The global "סרטוני ספרייה (Bunny.net)" band writes to formData.media.*
-          // which is NEVER picked up by the rest-day trio builder.
+          // Generator (home-workout.service.ts → tryBuildRecoveryVideoTrio) sources
+          // the trio ENTRY from execution_methods[0].media.videoDurationSeconds, but
+          // actual playback (MasterExerciseView hero-mode) resolves the clip via
+          // resolveTutorialForLang(media) → execution_methods[0].media.fullTutorial
+          // ONLY — see media-resolution.utils.ts. mainVideoUrl/videoUrl are NOT what
+          // hero-mode plays (fix 15.08.2026 — this check used to test mainVideoUrl,
+          // which is exactly the field-mismatch bug already fixed for the 7 existing
+          // recovery docs in 7fc00480; this readiness check was still testing the old
+          // field, so it could show "ready" for a video that wouldn't actually play,
+          // or "not ready" for one that would). The global "סרטוני ספרייה (Bunny.net)"
+          // band writes to formData.media.* which is NEVER picked up by rest-day.
           const firstMethodMedia = (executionMethods?.[0] as any)?.media || {};
-          const hasMethodVideo = !!(firstMethodMedia.mainVideoUrl || firstMethodMedia.videoUrl);
+          const hasMethodVideo = !!resolveTutorialForLang(firstMethodMedia);
           const hasMethodDuration = typeof firstMethodMedia.videoDurationSeconds === 'number'
             && firstMethodMedia.videoDurationSeconds > 0;
           const restDayReady = hasMethodVideo && hasMethodDuration;
@@ -383,22 +391,21 @@ export default function BasicsSection({
             </h3>
 
             {/* Canonical video-slot guidance — recovery video must live on the
-                execution method, not in the global Bunny library section. */}
+                execution method's "Tutorial (מלא)" Bunny slot, not the global
+                Bunny library section and not the "Preview (לולאה)" slot alone. */}
             <div className="flex items-start gap-2 bg-white/70 border border-teal-300 rounded-lg p-3">
               <Info size={16} className="text-teal-600 mt-0.5 flex-shrink-0" />
               <div className="text-xs text-teal-900 leading-relaxed">
                 <strong>איפה להעלות את סרטון ההתאוששות?</strong>
                 <br />
-                המנוע של ימי מנוחה קורא את הסרטון ואת משך הסרטון
-                <strong> רק </strong>
-                משיטת הביצוע הראשונה (
-                <code className="bg-teal-100 px-1 rounded">execution_methods[0].media</code>
-                ). העלאות בקטע
+                הסרטון שבפועל מתנגן ביום מנוחה הוא זה שמועלה לתא
+                <strong> &ldquo;Tutorial (מלא)&rdquo; </strong>
+                בכרטיס שיטת הביצוע הראשונה למטה (לא &ldquo;Preview (לולאה)&rdquo; לצידו — זו לולאה שקטה לתצוגה מקדימה בלבד, לא מתנגנת בפועל). העלאות בקטע
                 <strong> &ldquo;סרטוני ספרייה (Bunny.net)&rdquo; </strong>
-                הגלובלי הן רק לתצוגה מקדימה — הן לא יוזרמו ליום מנוחה.
+                הגלובלי (למעלה בטופס) הן רק לתצוגה מקדימה — הן לא יוזרמו ליום מנוחה כלל.
                 <br />
                 ודא ש־
-                <code className="bg-teal-100 px-1 rounded">mainVideoUrl</code>
+                <code className="bg-teal-100 px-1 rounded">Tutorial (מלא)</code>
                 {' '}ו־
                 <code className="bg-teal-100 px-1 rounded">videoDurationSeconds</code>
                 {' '}מוגדרים בכרטיס שיטת הביצוע למטה.
@@ -413,7 +420,7 @@ export default function BasicsSection({
                   <strong>הסרטון לא יוצג ביום מנוחה.</strong>
                   {' '}חסרים:&nbsp;
                   {!hasMethodVideo && (
-                    <span className="font-bold">mainVideoUrl</span>
+                    <span className="font-bold">Tutorial (מלא)</span>
                   )}
                   {!hasMethodVideo && !hasMethodDuration && <span>, </span>}
                   {!hasMethodDuration && (
