@@ -591,10 +591,15 @@ export const IS_TIGHTENED_DISTANCE_WINDOW_ENABLED = true;
 // IS_TIGHTENED_DISTANCE_WINDOW_ENABLED on. Independent of that flag on
 // purpose — lets either be flipped off alone if something about the other
 // looks wrong.
-// Default false pending live calibration of Tier 2's relaxation numbers in
-// Tel Aviv + a thin-coverage city (same discipline as
-// IS_TIGHTENED_DISTANCE_WINDOW_ENABLED's calibration).
-export const IS_GUARANTEED_ROUTE_FALLBACK_ENABLED = false;
+// FLIPPED TRUE (15.08.2026) — David approved global (no active users yet, so
+// scoping cost isn't justified), for his own device judgment on (a) whether
+// the empties disappear at his real address, (b) whether Tier 1's rescued
+// route (bounded by the old computeDistanceWindow) feels acceptable when it
+// overshoots. Tier 2's relaxation-number calibration and the official-route
+// scoring-dominance issue (a known cause of some empties Tier 2 can't always
+// rescue) are explicit, parked follow-ups — not blockers for this flip. Flip
+// back to false for an instant, byte-identical revert.
+export const IS_GUARANTEED_ROUTE_FALLBACK_ENABLED = true;
 
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
