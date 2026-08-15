@@ -9,7 +9,7 @@ import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
-import { buildOutAndBackPath } from './geoUtils';
+import { buildOutAndBackPath, isSameCoord, pathLengthMeters } from './geoUtils';
 import { SPEED_KMH, KCAL_PER_KM } from './route-request.utils';
 import {
   IS_PROXIMITY_SEGMENT_QUERY_ENABLED,
@@ -208,6 +208,20 @@ interface RouteGenerationOptions {
    * set (commute mode is a distinct branch, untouched by this option).
    */
   shortRouteMode?: boolean;
+  /**
+   * Corridor-following mode. When set, the generator skips the entire
+   * waypoint-pool / triangular-combination pipeline and instead fetches
+   * `official_routes/{followOfficialRouteId}` via `InventoryService.getRouteById`
+   * and returns its stored `path` verbatim as the route geometry — see
+   * `generateCorridorRoute`. Distinct from `activeOfficialRouteId` (above),
+   * which only *biases scoring* toward a corridor during deviation recovery;
+   * this option *replaces generation* with the corridor itself.
+   *
+   * `targetDistance`, `cityName`, `preferences`, and the `street_segments`
+   * waypoint pool are IGNORED on this branch — the corridor's own real
+   * length is the route's distance, not a generation target.
+   */
+  followOfficialRouteId?: string;
 }
 
 // ── Street-segment types ───────────────────────────────────────────────────────
@@ -1267,6 +1281,12 @@ async function findFitnessAnchor(
 export async function generateDynamicRoutes(
   options: RouteGenerationOptions
 ): Promise<Route[]> {
+  // Corridor-following mode — most specific request wins, checked first.
+  // Skips the loop pipeline entirely; returns the stored corridor path verbatim.
+  if (options.followOfficialRouteId) {
+    return generateCorridorRoute(options);
+  }
+
   // Commute mode — destination provided, skip the entire loop pipeline.
   // Returns immediately with up to 3 variant routes.
   if (options.destination) {
@@ -1282,6 +1302,112 @@ export async function generateDynamicRoutes(
   }
 
   return generateLoopRoutes(options);
+}
+
+/**
+ * Corridor-following mode (Phase 1 of the corridor-following engine, see
+ * .claude/plans/build-the-phase-0-noble-kahn.md). Fetches a single
+ * `official_routes/{id}` doc via `InventoryService.getRouteById` and returns
+ * its stored `path` VERBATIM as the route geometry — no Mapbox call, no
+ * waypoint scoring. `official_routes.path` is already real, walkable
+ * geometry (Directions-snapped via RouteEditor, or OSM-way-derived via the
+ * TLV import pilot — both are real surveyed paths, David 15.08.2026); Mapbox's
+ * 25-coordinate Directions cap also makes resubmitting a 20-180 point
+ * corridor as waypoints impossible anyway.
+ *
+ * Distance/duration are computed from the real path (pathLengthMeters +
+ * SPEED_KMH), not copied from the corridor doc's own `distance`/`duration`
+ * fields — those may reflect a different activity's pace than the one being
+ * requested.
+ *
+ * `InventoryService` is dynamically imported (not a top-level import) —
+ * same convention as `googleapis`/`@capacitor/*` elsewhere in this codebase
+ * (see axioms.md §4), for a concretely verified reason here: its import
+ * chain (`official-route-broadcaster.ts` → `authority.service.ts` →
+ * `@/types/admin-types.ts`, which re-exports real values — not just types —
+ * from the `@/features/parks` barrel) eagerly pulls in `AppMap.tsx` and
+ * `gis-parser.service.ts` (which imports the browser-only `shpjs`, `self is
+ * not defined` under Node). A top-level import broke every existing test in
+ * this file, not just corridor ones. Deferring to call-time keeps that whole
+ * chain out of every consumer's module graph unless corridor-following is
+ * actually invoked — a rare path — and keeps this file's pure functions
+ * (buildTriangleCombinations, buildCorridorRoute, etc.) importable in a
+ * plain Node test environment.
+ */
+async function generateCorridorRoute(options: RouteGenerationOptions): Promise<Route[]> {
+  const { followOfficialRouteId, activity, routeGenerationIndex } = options;
+  if (!followOfficialRouteId) return [];
+
+  const { InventoryService } = await import('./inventory.service');
+  const corridor = await InventoryService.getRouteById(followOfficialRouteId);
+  if (!corridor || !corridor.path || corridor.path.length < 2) {
+    console.warn(`[RouteGenerator] generateCorridorRoute: official_routes/${followOfficialRouteId} not found or has no usable path`);
+    return [];
+  }
+
+  const route = buildCorridorRoute(corridor, followOfficialRouteId, activity, routeGenerationIndex);
+  console.log(`[RouteGenerator] generateCorridorRoute: following ${followOfficialRouteId} — ${corridor.path.length} pts, ${route.distance}km`);
+  return [route];
+}
+
+/**
+ * Pure Route-construction step of corridor-following — extracted from
+ * `generateCorridorRoute` so the distance/duration/field-mapping logic is
+ * directly unit-testable without mocking Firestore (same extraction
+ * discipline as `buildTriangleCombinations` / `isBetterNearMissCandidate`
+ * above). Takes an already-fetched corridor `Route` (any source — a real
+ * `InventoryService.getRouteById` result or a hand-built test fixture) and
+ * returns the new corridor-following Route built from its `path` verbatim.
+ */
+export function buildCorridorRoute(
+  corridor: Route,
+  followOfficialRouteId: string,
+  activity: ActivityType,
+  routeGenerationIndex: number,
+): Route {
+  const distanceKm = pathLengthMeters(corridor.path) / 1000;
+  const speedKmh = activity === 'cycling' ? SPEED_KMH.cycling : activity === 'running' ? SPEED_KMH.running : SPEED_KMH.walking;
+  const durationMinutes = Math.round((distanceKm / speedKmh) * 60);
+  const calories = Math.round(distanceKm * kcalPerKmFor(activity));
+
+  return {
+    id: `corridor-${followOfficialRouteId}-${routeGenerationIndex}`,
+    name: corridor.name || 'מסלול מסומן',
+    description: corridor.description || `עוקב אחרי מסלול מסומן, ${distanceKm.toFixed(1)} ק"מ`,
+    distance: parseFloat(distanceKm.toFixed(1)),
+    duration: durationMinutes,
+    score: 100,
+    type: activity,
+    activityType: activity,
+    difficulty: corridor.difficulty || 'easy',
+    path: corridor.path,
+    segments: [],
+    rating: corridor.rating || 4.5,
+    calories,
+    analytics: corridor.analytics ?? { usageCount: 0, rating: 0, heatMapScore: 0 },
+    source: {
+      type: 'official_api',
+      name: corridor.source?.name || 'official_routes',
+      externalId: followOfficialRouteId,
+    },
+    features: corridor.features ?? {
+      hasGym: false,
+      hasBenches: true,
+      scenic: true,
+      lit: true,
+      terrain: 'road',
+      environment: 'urban',
+      trafficLoad: 'low',
+      surface: 'asphalt',
+    },
+    calculatedScore: 100,
+    distanceFromUser: 0,
+    isReachableWithoutCar: true,
+    includesOfficialSegments: true,
+    visitingParkId: null,
+    includesFitnessStop: false,
+    sourceOfficialRouteIds: [followOfficialRouteId],
+  };
 }
 
 /**

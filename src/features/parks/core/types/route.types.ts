@@ -448,6 +448,18 @@ export interface Route {
    * minute precision when computing arrival time vs current pace.
    */
   etaSeconds?: number;
+
+  /**
+   * Set ONLY when this Route's `path` was produced by following (or chaining)
+   * one or more `official_routes/{id}` corridors verbatim — see
+   * `generateCorridorRoute` / chain assembly in route-generator.service.ts.
+   * Single-corridor follow: the one source id. Chained: the ordered list of
+   * corridor ids spliced together (connectors are not corridors, so they
+   * don't appear here). Undefined for every other generation path
+   * (loop/out-and-back/commute/short) — those build geometry via Mapbox
+   * Directions, not from stored corridor paths.
+   */
+  sourceOfficialRouteIds?: string[];
 }
 
 // ── Hybrid Route Types ──────────────────────────────────────────────
