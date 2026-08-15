@@ -20,11 +20,11 @@ import PartnerMarker from './PartnerMarker';
 import ParkPhotoMarker from './ParkPhotoMarker';
 import DestinationMarker from './DestinationMarker';
 
-import { registerPinImage, registerArrowTipImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
+import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
 import { applyFitnessMapStyle, resetFitnessMapStyle } from './mapStyleConfig';
 import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
-import { segmentPathByZone, bearingBetween, buildLaneOffsetPath } from '../services/geoUtils';
+import { segmentPathByZone, bearingBetween, buildLaneOffsetPath, buildDirectionMarkers, isOutAndBackPath, pathLengthMeters } from '../services/geoUtils';
 import type { RouteTurn } from '../services/geoUtils';
 import {
   isFiniteNum,
@@ -419,8 +419,10 @@ export default function AppMap({
   // MODALITY instead of a flat cyan — aerobic (walking/running/cycling, the
   // vast majority of routes) gets HYBRID_AER, a 'workout' activityType route
   // (see ParkDetailSheet.tsx) gets HYBRID_STR, matching the hybrid gradient's
-  // own two colors so standalone and hybrid strength look identical.
-  const focusedModalityColor = focusedRoute?.activityType === 'workout' ? HYBRID_STR : HYBRID_AER;
+  // own two colors so standalone and hybrid strength look identical. Shared
+  // with the direction-marker icon choice below (route-direction-arrows).
+  const focusedIsStrength = focusedRoute?.activityType === 'workout';
+  const focusedModalityColor = focusedIsStrength ? HYBRID_STR : HYBRID_AER;
   const routesActivePaint = useMemo(
     () => (isHybridRoute
       ? { 'line-gradient': buildHybridRouteGradient(hybridRouteStations!), 'line-width': 6, 'line-opacity': 1 }
@@ -990,6 +992,16 @@ export default function AppMap({
     // Sleek arrowhead used at the end of the navigation curve LineString.
     // No badge / circle — just a clean white tip that lies on the road.
     registerArrowTipImage(map, 'nav-arrow-tip', ratio);
+    // Route-direction markers (15.08.2026 redesign) — filled circle + white
+    // ring + white glyph, colored by modality, reused from the existing
+    // (previously unwired) registerArrowImage. 'straight' glyph = a plain
+    // forward chevron; these mark flow direction, not upcoming maneuvers.
+    if (!map.hasImage('route-direction-marker-aerobic')) {
+      registerArrowImage(map, 'route-direction-marker-aerobic', HYBRID_AER, ratio, 'straight');
+    }
+    if (!map.hasImage('route-direction-marker-strength')) {
+      registerArrowImage(map, 'route-direction-marker-strength', HYBRID_STR, ratio, 'straight');
+    }
   }, [isMapLoaded]);
 
   // ── Mapbox event-listener disposal (OOM fix) ──────────────────────────────
@@ -1157,22 +1169,45 @@ export default function AppMap({
     return { type: 'FeatureCollection', features };
   }, [visibleRoutes, focusedRoute]);
 
-  // Direction arrows for the focused route-stops/hybrid route (§7.3). Repeats the nav-arrow-tip
-  // glyph along the line via symbol-placement:'line' (Mapbox auto-rotates it to the travel
-  // direction), so the entry-relative traversal reads with a clear forward direction. Scoped to
-  // the 'hybrid-route' focus id → no other route's rendering changes (overview only, gated below).
+  // Direction markers for the focused route — ANY focused route (15.08.2026
+  // redesign; used to be scoped to the 'hybrid-route' focus id only, which
+  // is why generated aerobic routes never got arrows — see the investigation
+  // in this batch's report). A fixed small set of Point markers (not a
+  // repeated line-following symbol) placed by buildDirectionMarkers: each
+  // carries its own precomputed windowed bearing (net direction over a
+  // short stretch, not one jittery micro-segment) and a modality-colored
+  // circular icon. Overview only (gated below, !isActiveWorkout).
   const routeDirectionArrowsGeoJSON = useMemo(() => {
-    if (focusedRoute?.id !== 'hybrid-route') return null;
+    if (!focusedRoute) return null;
     const rawCoords = (focusedRoute.displayPath && focusedRoute.displayPath.length > 1)
       ? focusedRoute.displayPath
       : focusedRoute.path;
     if (!rawCoords || rawCoords.length < 2) return null;
     // Same lane-offset as the line itself (see routesGeoJSON) — without it,
-    // the outbound and return legs' arrows compete for the same pixel on
-    // shared streets and only one direction ever wins the collision check.
+    // an out-and-back's outbound and return legs would place markers on top
+    // of each other pointing opposite ways. Markers placed on the ALREADY
+    // lane-offset path automatically land on the correct lane.
     const coords = buildLaneOffsetPath(rawCoords);
-    return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }] };
-  }, [focusedRoute?.id, focusedRoute?.path, focusedRoute?.displayPath]);
+    const iconImage = focusedIsStrength ? 'route-direction-marker-strength' : 'route-direction-marker-aerobic';
+    // Detect the turnaround on the RAW (pre-offset) coords — isOutAndBackPath
+    // needs the exact mirror-symmetry that lane-offsetting deliberately
+    // breaks — then measure its along-path distance on the (offset) coords
+    // actually being rendered, so buildDirectionMarkers can keep its
+    // windowed bearing sample from ever straddling the reversal.
+    const seamDistances = isOutAndBackPath(rawCoords)
+      ? [pathLengthMeters(coords.slice(0, (coords.length - 1) / 2 + 1))]
+      : [];
+    const markers = buildDirectionMarkers(coords, { seamDistances });
+    if (markers.length === 0) return null;
+    return {
+      type: 'FeatureCollection',
+      features: markers.map((m) => ({
+        type: 'Feature' as const,
+        properties: { bearing: m.bearing, iconImage },
+        geometry: { type: 'Point' as const, coordinates: [m.lng, m.lat] },
+      })),
+    };
+  }, [focusedRoute?.id, focusedRoute?.path, focusedRoute?.displayPath, focusedIsStrength]);
 
   // ── Imperative live-path update ────────────────────────────────────────────
   // Fires only when the number of accepted GPS samples grows (every 5 m /
@@ -1538,25 +1573,32 @@ export default function AppMap({
           </Source>
         )}
 
-        {/* ── Route-stops direction arrows: repeated nav-arrow-tip along the focused hybrid route,
-            auto-rotated to the travel direction (symbol-placement:'line'). Overview only; scoped
-            to the 'hybrid-route' focus so every other route renders identically. ── */}
+        {/* ── Route direction markers (15.08.2026 redesign): a small fixed set of
+            Point features (buildDirectionMarkers — evenly spaced by real distance,
+            each with its own precomputed windowed bearing), NOT a repeated
+            line-following symbol — that's what made the old version crowd
+            longer routes and fan out on windy streets (each tiny segment
+            auto-rotating independently). Filled circle + white ring + white
+            glyph, colored by modality (route-direction-marker-aerobic/-strength,
+            registered above). Overview only; now renders for ANY focused route,
+            not just the hybrid one — this is what fixes generated routes having
+            no arrows at all. icon-allow-overlap:true because the count is
+            already small/deliberate — no reason to let Mapbox's collision
+            engine drop any of them. ── */}
         {!isActiveWorkout && visibleLayers?.includes('routes') && routeDirectionArrowsGeoJSON && (
           <Source id="route-direction-arrows" type="geojson" data={routeDirectionArrowsGeoJSON as any}>
             <Layer
               id="route-direction-arrows"
               type="symbol"
               layout={{
-                'symbol-placement': 'line',
-                'symbol-spacing': 70,
-                'icon-image': 'nav-arrow-tip',
-                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.3, 17, 0.55],
+                'icon-image': ['get', 'iconImage'],
+                'icon-rotate': ['get', 'bearing'],
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 13, 0.35, 17, 0.6],
                 'icon-rotation-alignment': 'map',
-                'icon-allow-overlap': false,
-                'icon-ignore-placement': false,
-                'icon-keep-upright': false,
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
               }}
-              paint={{ 'icon-opacity': 0.9 }}
+              paint={{ 'icon-opacity': 0.95 }}
             />
           </Source>
         )}

@@ -320,6 +320,17 @@ export function buildLaneOffsetPath(
   // at the true start and the true turnaround (no stitching seam/jump) and
   // only visually separate in the middle of each leg, where separation
   // actually matters for arrow legibility.
+  //
+  // 15.08.2026 correctness fix: the offset side must be CONSTANT (always
+  // "+90° from this point's own local direction of travel", i.e. always
+  // keep-right relative to travel direction), NOT flipped by leg. The
+  // return leg's local bearing at any point is already ~180° reversed from
+  // the outbound leg's (same physical street, opposite direction of
+  // travel) — flipping the sign ALSO by leg cancels that reversal back
+  // out, so both legs ended up offset to the SAME compass side and the
+  // "two lanes" coincided (off by only sub-meter spherical noise, not the
+  // intended separation). Caught by a unit test using a straight-line path
+  // (where the bug's effect is unmasked instead of hidden in float noise).
   return path.map((point, i) => {
     const prev = path[Math.max(0, i - 1)];
     const next = path[Math.min(n - 1, i + 1)];
@@ -333,8 +344,7 @@ export function buildLaneOffsetPath(
     // peak in the middle regardless of which direction t runs.
     const t = isOutbound ? i / turnaroundIdx : (n - 1 - i) / turnaroundIdx;
     const ramp = 4 * t * (1 - t); // 0 → 1 → 0 across the leg
-    const side = isOutbound ? 1 : -1;
-    const perpBearing = (bearing + 90 * side + 360) % 360;
+    const perpBearing = (bearing + 90 + 360) % 360;
     const [lng, lat] = destinationPoint(point[1], point[0], laneOffsetMeters * ramp, perpBearing);
     return [lng, lat] as [number, number];
   });
@@ -350,6 +360,146 @@ export function interpolatePath(
     p1[0] + (p2[0] - p1[0]) * t,
     p1[1] + (p2[1] - p1[1]) * t,
   ];
+}
+
+/**
+ * Total real-world length of a path (sum of consecutive haversine
+ * distances), in meters. Pure. Returns 0 for paths shorter than 2 points.
+ */
+export function pathLengthMeters(path: [number, number][]): number {
+  let total = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    total += haversineMeters(path[i][1], path[i][0], path[i + 1][1], path[i + 1][0]);
+  }
+  return total;
+}
+
+/**
+ * Walks `path` and returns the point at `targetMeters` along it (clamped to
+ * [0, pathLength]), linearly interpolating within whichever segment
+ * contains that distance. Returns null for paths shorter than 2 points.
+ */
+export function pointAtDistanceAlongPath(
+  path: [number, number][],
+  targetMeters: number,
+): [number, number] | null {
+  if (path.length < 2) return null;
+  if (targetMeters <= 0) return path[0];
+  let accumulated = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const segLen = haversineMeters(path[i][1], path[i][0], path[i + 1][1], path[i + 1][0]);
+    if (accumulated + segLen >= targetMeters) {
+      const t = segLen > 0 ? (targetMeters - accumulated) / segLen : 0;
+      return interpolatePath(path[i], path[i + 1], t);
+    }
+    accumulated += segLen;
+  }
+  return path[path.length - 1]; // targetMeters >= total length (float slack)
+}
+
+export interface DirectionMarker {
+  lng: number;
+  lat: number;
+  /** Compass bearing (0-360°) of net travel direction at this point. */
+  bearing: number;
+}
+
+// Route-direction-marker placement (15.08.2026 redesign). Constant
+// on-screen density, not scaling with route length: short routes taper
+// below the target so they don't look crowded; anything ~3.5km+ is capped
+// at maxCount rather than growing more markers as the route gets longer.
+const DIRECTION_MARKER_MIN_COUNT = 3;
+const DIRECTION_MARKER_MAX_COUNT = 7;
+const DIRECTION_MARKER_TARGET_SPACING_METERS = 500;
+// Bearing is computed from a window around each marker (before→after, NOT
+// the raw bearing of one path segment) so it reads as the net travel
+// direction, not a jittery micro-segment on a windy street.
+const DIRECTION_MARKER_BEARING_WINDOW_METERS = 30;
+
+/**
+ * Places evenly-spaced direction markers along `path`, by real distance
+ * (not vertex count), each with a bearing computed over a short window
+ * around its position — see DIRECTION_MARKER_BEARING_WINDOW_METERS. Markers
+ * sit in the open interval between the true start and true end (fractions
+ * 1/(n+1) .. n/(n+1) of total length) so they never crash into the start
+ * marker or look clustered at either end.
+ *
+ * Call this AFTER any display-only path transform (e.g. buildLaneOffsetPath)
+ * — markers placed on an out-and-back's lane-offset path automatically land
+ * on the correct lane with the correct per-lane direction (outbound and
+ * return legs are roughly equal length, so the count splits ~evenly
+ * between them), no special-casing needed.
+ */
+export function buildDirectionMarkers(
+  path: [number, number][],
+  opts: {
+    minCount?: number;
+    maxCount?: number;
+    targetSpacingMeters?: number;
+    bearingWindowMeters?: number;
+    /**
+     * Distances-along-path (meters) where the path reverses direction —
+     * e.g. an out-and-back turnaround. The windowed bearing sample below
+     * NEVER straddles one of these: a marker whose window would cross a
+     * seam falls back to a one-sided window (the approach direction only)
+     * instead of averaging two opposite travel directions into a
+     * near-meaningless, roughly-perpendicular bearing. Found live
+     * (15.08.2026): with an odd marker count, one marker always lands
+     * EXACTLY at totalLength/2 — the out-and-back turnaround — where a
+     * symmetric window samples the outbound lane on one side and the
+     * return lane (physically ~the same spot, opposite direction) on the
+     * other.
+     */
+    seamDistances?: number[];
+  } = {},
+): DirectionMarker[] {
+  if (path.length < 2) return [];
+  const minCount = opts.minCount ?? DIRECTION_MARKER_MIN_COUNT;
+  const maxCount = opts.maxCount ?? DIRECTION_MARKER_MAX_COUNT;
+  const targetSpacing = opts.targetSpacingMeters ?? DIRECTION_MARKER_TARGET_SPACING_METERS;
+  const bearingWindow = opts.bearingWindowMeters ?? DIRECTION_MARKER_BEARING_WINDOW_METERS;
+  const seams = opts.seamDistances ?? [];
+
+  const totalLength = pathLengthMeters(path);
+  if (totalLength <= 0) return [];
+
+  const rawCount = Math.round(totalLength / targetSpacing);
+  const count = Math.min(maxCount, Math.max(minCount, rawCount));
+
+  const markers: DirectionMarker[] = [];
+  for (let i = 1; i <= count; i++) {
+    const targetMeters = (totalLength * i) / (count + 1);
+    const point = pointAtDistanceAlongPath(path, targetMeters);
+    if (!point) continue;
+
+    const halfWindow = bearingWindow / 2;
+    let beforeMeters = Math.max(0, targetMeters - halfWindow);
+    let afterMeters = Math.min(totalLength, targetMeters + halfWindow);
+
+    // A seam inside this window means the "before" and "after" samples
+    // would land on opposite sides of a direction reversal — collapse to
+    // a one-sided window (whichever side has more room) instead.
+    const straddlesSeam = seams.some((s) => s > beforeMeters && s < afterMeters);
+    if (straddlesSeam) {
+      const roomBefore = targetMeters - beforeMeters;
+      const roomAfter = afterMeters - targetMeters;
+      if (roomBefore >= roomAfter) {
+        afterMeters = targetMeters;
+        beforeMeters = Math.max(0, targetMeters - bearingWindow);
+      } else {
+        beforeMeters = targetMeters;
+        afterMeters = Math.min(totalLength, targetMeters + bearingWindow);
+      }
+    }
+
+    const before = pointAtDistanceAlongPath(path, beforeMeters);
+    const after = pointAtDistanceAlongPath(path, afterMeters);
+    if (!before || !after || (before[0] === after[0] && before[1] === after[1])) continue;
+
+    const bearing = bearingBetween(before[1], before[0], after[1], after[0]);
+    markers.push({ lng: point[0], lat: point[1], bearing });
+  }
+  return markers;
 }
 
 /**
