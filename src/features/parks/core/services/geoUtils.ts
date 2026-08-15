@@ -363,6 +363,21 @@ export function interpolatePath(
 }
 
 /**
+ * True if two [lng, lat] points are the same real-world location within
+ * `toleranceMeters` (default 5m — GPS/float slack, not "roughly nearby").
+ * Used (15.08.2026) to decide whether a route's start and end are the SAME
+ * point (loop / out-and-back → one combined start/finish marker) or
+ * genuinely different (point-to-point → a distinct finish marker too).
+ */
+export function isSameCoord(
+  a: [number, number],
+  b: [number, number],
+  toleranceMeters: number = 5,
+): boolean {
+  return haversineMeters(a[1], a[0], b[1], b[0]) <= toleranceMeters;
+}
+
+/**
  * Total real-world length of a path (sum of consecutive haversine
  * distances), in meters. Pure. Returns 0 for paths shorter than 2 points.
  */
@@ -404,25 +419,87 @@ export interface DirectionMarker {
   bearing: number;
 }
 
-// Route-direction-marker placement (15.08.2026 redesign). Constant
-// on-screen density, not scaling with route length: short routes taper
-// below the target so they don't look crowded; anything ~3.5km+ is capped
-// at maxCount rather than growing more markers as the route gets longer.
-const DIRECTION_MARKER_MIN_COUNT = 3;
-const DIRECTION_MARKER_MAX_COUNT = 7;
+// Route-direction-marker placement (15.08.2026 redesign, refined
+// 15.08.2026). Constant on-screen density, not scaling with route length:
+// short routes taper below the target so they don't look crowded; anything
+// ~4km+ is capped at maxCount rather than growing more markers as the
+// route gets longer.
+const DIRECTION_MARKER_MIN_COUNT = 4;
+const DIRECTION_MARKER_MAX_COUNT = 9;
 const DIRECTION_MARKER_TARGET_SPACING_METERS = 500;
 // Bearing is computed from a window around each marker (before→after, NOT
 // the raw bearing of one path segment) so it reads as the net travel
 // direction, not a jittery micro-segment on a windy street.
 const DIRECTION_MARKER_BEARING_WINDOW_METERS = 30;
+// How far in from the TRUE start the dedicated "which way to set off"
+// marker sits — close enough to read as "right at the start", far enough
+// not to visually collide with the start/finish marker itself.
+const DIRECTION_MARKER_START_ANCHOR_METERS = 20;
+
+/**
+ * Computes a single marker's position + windowed, seam-aware bearing at
+ * `targetMeters` along `path`. Shared by both the start-anchor marker and
+ * the regular evenly-spaced interior markers in `buildDirectionMarkers` so
+ * the seam-avoidance logic exists in exactly one place. Returns null if
+ * the position or window collapses to a degenerate (zero-length) sample.
+ */
+function markerAtDistance(
+  path: [number, number][],
+  targetMeters: number,
+  totalLength: number,
+  bearingWindow: number,
+  seams: number[],
+): DirectionMarker | null {
+  const point = pointAtDistanceAlongPath(path, targetMeters);
+  if (!point) return null;
+
+  const halfWindow = bearingWindow / 2;
+  let beforeMeters = Math.max(0, targetMeters - halfWindow);
+  let afterMeters = Math.min(totalLength, targetMeters + halfWindow);
+
+  // A seam inside this window means the "before" and "after" samples
+  // would land on opposite sides of a direction reversal — collapse to
+  // a one-sided window (whichever side has more room) instead.
+  const straddlesSeam = seams.some((s) => s > beforeMeters && s < afterMeters);
+  if (straddlesSeam) {
+    const roomBefore = targetMeters - beforeMeters;
+    const roomAfter = afterMeters - targetMeters;
+    if (roomBefore >= roomAfter) {
+      afterMeters = targetMeters;
+      beforeMeters = Math.max(0, targetMeters - bearingWindow);
+    } else {
+      beforeMeters = targetMeters;
+      afterMeters = Math.min(totalLength, targetMeters + bearingWindow);
+    }
+  }
+
+  const before = pointAtDistanceAlongPath(path, beforeMeters);
+  const after = pointAtDistanceAlongPath(path, afterMeters);
+  if (!before || !after || (before[0] === after[0] && before[1] === after[1])) return null;
+
+  const bearing = bearingBetween(before[1], before[0], after[1], after[0]);
+  return { lng: point[0], lat: point[1], bearing };
+}
 
 /**
  * Places evenly-spaced direction markers along `path`, by real distance
  * (not vertex count), each with a bearing computed over a short window
- * around its position — see DIRECTION_MARKER_BEARING_WINDOW_METERS. Markers
- * sit in the open interval between the true start and true end (fractions
- * 1/(n+1) .. n/(n+1) of total length) so they never crash into the start
- * marker or look clustered at either end.
+ * around its position — see DIRECTION_MARKER_BEARING_WINDOW_METERS. The
+ * regular (interior) markers sit in the open interval between the true
+ * start and true end (fractions 1/(n+1) .. n/(n+1) of total length) so
+ * they never crash into the start marker or look clustered at either end.
+ *
+ * When `startAnchorMeters` is set (default on — see
+ * DIRECTION_MARKER_START_ANCHOR_METERS), ONE extra marker is prepended a
+ * short, fixed distance from the true start, pointing the initial travel
+ * direction — "which way do I go" was the one position users actually
+ * needed an arrow and the regular even-spacing formula doesn't guarantee
+ * one lands there. This is IN ADDITION to the regular count, not carved
+ * out of it. Not an absolute guarantee: on a loop/out-and-back shorter than
+ * ~20m (the anchor distance + half the bearing window), the anchor's
+ * before/after window collapses onto the same point as the true start
+ * (loops return to it) and the degenerate-sample guard drops it silently —
+ * no real route is anywhere near this short, so not worth a fallback path.
  *
  * Call this AFTER any display-only path transform (e.g. buildLaneOffsetPath)
  * — markers placed on an out-and-back's lane-offset path automatically land
@@ -451,6 +528,13 @@ export function buildDirectionMarkers(
      * other.
      */
     seamDistances?: number[];
+    /**
+     * Distance (meters) from the true start for the dedicated "which way
+     * to set off" marker. Pass 0/null to disable it entirely. Clamped to
+     * at most 30% of total route length so it doesn't push past a
+     * meaningful chunk of a very short route.
+     */
+    startAnchorMeters?: number | null;
   } = {},
 ): DirectionMarker[] {
   if (path.length < 2) return [];
@@ -459,45 +543,28 @@ export function buildDirectionMarkers(
   const targetSpacing = opts.targetSpacingMeters ?? DIRECTION_MARKER_TARGET_SPACING_METERS;
   const bearingWindow = opts.bearingWindowMeters ?? DIRECTION_MARKER_BEARING_WINDOW_METERS;
   const seams = opts.seamDistances ?? [];
+  const startAnchorMeters = opts.startAnchorMeters === undefined
+    ? DIRECTION_MARKER_START_ANCHOR_METERS
+    : opts.startAnchorMeters;
 
   const totalLength = pathLengthMeters(path);
   if (totalLength <= 0) return [];
 
+  const markers: DirectionMarker[] = [];
+
+  if (startAnchorMeters) {
+    const anchorMeters = Math.min(startAnchorMeters, totalLength * 0.3);
+    const startMarker = markerAtDistance(path, anchorMeters, totalLength, bearingWindow, seams);
+    if (startMarker) markers.push(startMarker);
+  }
+
   const rawCount = Math.round(totalLength / targetSpacing);
   const count = Math.min(maxCount, Math.max(minCount, rawCount));
 
-  const markers: DirectionMarker[] = [];
   for (let i = 1; i <= count; i++) {
     const targetMeters = (totalLength * i) / (count + 1);
-    const point = pointAtDistanceAlongPath(path, targetMeters);
-    if (!point) continue;
-
-    const halfWindow = bearingWindow / 2;
-    let beforeMeters = Math.max(0, targetMeters - halfWindow);
-    let afterMeters = Math.min(totalLength, targetMeters + halfWindow);
-
-    // A seam inside this window means the "before" and "after" samples
-    // would land on opposite sides of a direction reversal — collapse to
-    // a one-sided window (whichever side has more room) instead.
-    const straddlesSeam = seams.some((s) => s > beforeMeters && s < afterMeters);
-    if (straddlesSeam) {
-      const roomBefore = targetMeters - beforeMeters;
-      const roomAfter = afterMeters - targetMeters;
-      if (roomBefore >= roomAfter) {
-        afterMeters = targetMeters;
-        beforeMeters = Math.max(0, targetMeters - bearingWindow);
-      } else {
-        beforeMeters = targetMeters;
-        afterMeters = Math.min(totalLength, targetMeters + bearingWindow);
-      }
-    }
-
-    const before = pointAtDistanceAlongPath(path, beforeMeters);
-    const after = pointAtDistanceAlongPath(path, afterMeters);
-    if (!before || !after || (before[0] === after[0] && before[1] === after[1])) continue;
-
-    const bearing = bearingBetween(before[1], before[0], after[1], after[0]);
-    markers.push({ lng: point[0], lat: point[1], bearing });
+    const marker = markerAtDistance(path, targetMeters, totalLength, bearingWindow, seams);
+    if (marker) markers.push(marker);
   }
   return markers;
 }

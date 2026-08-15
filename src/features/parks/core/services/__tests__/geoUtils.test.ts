@@ -10,6 +10,7 @@ import {
   pointAtDistanceAlongPath,
   buildDirectionMarkers,
   haversineMeters,
+  isSameCoord,
 } from '../geoUtils';
 
 describe('destinationPoint — inverse of bearingBetween (15.08.2026, route-styling batch)', () => {
@@ -222,25 +223,28 @@ describe('buildDirectionMarkers (15.08.2026, route-direction-marker redesign)', 
 
   it('a very short route clamps to the minimum count (not crowded)', () => {
     const path = straightPath(2, 50); // 100m total — far below any spacing target
-    const markers = buildDirectionMarkers(path, { minCount: 3, maxCount: 7, targetSpacingMeters: 500 });
+    // startAnchorMeters:0 isolates the interior-count clamp being tested
+    // here from the (default-on) start-anchor marker — that has its own
+    // dedicated describe block below.
+    const markers = buildDirectionMarkers(path, { minCount: 3, maxCount: 7, targetSpacingMeters: 500, startAnchorMeters: 0 });
     expect(markers.length).toBe(3);
   });
 
   it('a long route caps at the maximum count (constant density, not scaling with length)', () => {
     const path = straightPath(100, 200); // 20km — far above any spacing target
-    const markers = buildDirectionMarkers(path, { minCount: 3, maxCount: 7, targetSpacingMeters: 500 });
+    const markers = buildDirectionMarkers(path, { minCount: 3, maxCount: 7, targetSpacingMeters: 500, startAnchorMeters: 0 });
     expect(markers.length).toBe(7);
   });
 
   it('a mid-length route lands inside the target range, roughly per the spacing formula', () => {
     const path = straightPath(60, 50); // 3000m total; 3000/500 = 6
-    const markers = buildDirectionMarkers(path, { minCount: 3, maxCount: 7, targetSpacingMeters: 500 });
+    const markers = buildDirectionMarkers(path, { minCount: 3, maxCount: 7, targetSpacingMeters: 500, startAnchorMeters: 0 });
     expect(markers.length).toBe(6);
   });
 
   it('markers are evenly spaced by real distance along the path', () => {
     const path = straightPath(70, 50); // 3500m
-    const markers = buildDirectionMarkers(path, { minCount: 3, maxCount: 7, targetSpacingMeters: 500 });
+    const markers = buildDirectionMarkers(path, { minCount: 3, maxCount: 7, targetSpacingMeters: 500, startAnchorMeters: 0 });
     const totalLength = pathLengthMeters(path);
     const distances = markers.map((m) => haversineMeters(path[0][1], path[0][0], m.lat, m.lng));
     const expectedStep = totalLength / (markers.length + 1);
@@ -251,7 +255,7 @@ describe('buildDirectionMarkers (15.08.2026, route-direction-marker redesign)', 
 
   it('bearing reads as the net travel direction on a straight path (due north ≈ 0°)', () => {
     const path = straightPath(60, 50);
-    const markers = buildDirectionMarkers(path);
+    const markers = buildDirectionMarkers(path, { startAnchorMeters: 0 });
     for (const m of markers) {
       expect(m.bearing).toBeCloseTo(0, 0);
     }
@@ -261,7 +265,7 @@ describe('buildDirectionMarkers (15.08.2026, route-direction-marker redesign)', 
     const outbound = straightPath(30, 50); // 1500m one-way, due north
     const oab = buildOutAndBackPath(outbound);
     const laneOffset = buildLaneOffsetPath(oab, 3);
-    const markers = buildDirectionMarkers(laneOffset, { minCount: 4, maxCount: 4, targetSpacingMeters: 500 });
+    const markers = buildDirectionMarkers(laneOffset, { minCount: 4, maxCount: 4, targetSpacingMeters: 500, startAnchorMeters: 0 });
     expect(markers.length).toBe(4);
 
     // Circular comparison — a bearing of 359.7° is ~0.3° off true north, not
@@ -297,16 +301,102 @@ describe('buildDirectionMarkers (15.08.2026, route-direction-marker redesign)', 
     // totalLength/2 — i.e. right on the seam. Without seamDistances, this
     // is the exact bug found live: the windowed before/after points sample
     // opposite lanes near the reversal, producing a ~perpendicular bearing.
-    const withoutSeamFix = buildDirectionMarkers(laneOffset, { minCount: 3, maxCount: 3, targetSpacingMeters: 500 });
+    const withoutSeamFix = buildDirectionMarkers(laneOffset, { minCount: 3, maxCount: 3, targetSpacingMeters: 500, startAnchorMeters: 0 });
     const middleBroken = withoutSeamFix[1]; // fraction 2/4 = exactly totalLength/2
     const angularDiff = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
     expect(angularDiff(middleBroken.bearing, 0)).toBeGreaterThan(45); // confirms the bug reproduces without the fix
 
-    const withSeamFix = buildDirectionMarkers(laneOffset, { minCount: 3, maxCount: 3, targetSpacingMeters: 500, seamDistances });
+    const withSeamFix = buildDirectionMarkers(laneOffset, { minCount: 3, maxCount: 3, targetSpacingMeters: 500, seamDistances, startAnchorMeters: 0 });
     const middleFixed = withSeamFix[1];
     // One-sided fallback (approach direction) — still reads as "heading
     // outbound/north", not the degenerate perpendicular bearing.
     expect(angularDiff(middleFixed.bearing, 0)).toBeLessThan(5);
     void totalLength;
+  });
+});
+
+describe('isSameCoord (15.08.2026, arrow refinements — combined vs distinct start/finish marker)', () => {
+  it('the exact same point is the same coord', () => {
+    expect(isSameCoord([34.77, 32.05], [34.77, 32.05])).toBe(true);
+  });
+
+  it('points within the default 5m tolerance count as the same coord', () => {
+    const [lng, lat] = destinationPoint(32.05, 34.77, 3, 90); // 3m east
+    expect(isSameCoord([34.77, 32.05], [lng, lat])).toBe(true);
+  });
+
+  it('points beyond the default tolerance are NOT the same coord', () => {
+    const [lng, lat] = destinationPoint(32.05, 34.77, 50, 90); // 50m east
+    expect(isSameCoord([34.77, 32.05], [lng, lat])).toBe(false);
+  });
+
+  it('respects a custom tolerance', () => {
+    const [lng, lat] = destinationPoint(32.05, 34.77, 50, 90);
+    expect(isSameCoord([34.77, 32.05], [lng, lat], 100)).toBe(true);
+  });
+
+  it('a real loop/out-and-back path (buildOutAndBackPath) has the same start and end', () => {
+    const outbound: [number, number][] = [[34.77, 32.05], [34.78, 32.06], [34.79, 32.07]];
+    const oab = buildOutAndBackPath(outbound);
+    expect(isSameCoord(oab[0], oab[oab.length - 1])).toBe(true);
+  });
+
+  it('a point-to-point (commute-style) path has a genuinely different start and end', () => {
+    const commutePath: [number, number][] = [[34.77, 32.05], [34.80, 32.08]]; // ~4km apart
+    expect(isSameCoord(commutePath[0], commutePath[commutePath.length - 1])).toBe(false);
+  });
+});
+
+describe('buildDirectionMarkers — count clamp bumped to [4,9] (15.08.2026 arrow refinements)', () => {
+  it('a very short route clamps to the new minimum (4), not the old (3)', () => {
+    const path = straightPath(2, 50); // 100m — far below any spacing target
+    const markers = buildDirectionMarkers(path, { startAnchorMeters: 0 }); // isolate the interior-count clamp
+    expect(markers.length).toBe(4);
+  });
+
+  it('a long route caps at the new maximum (9), not the old (7)', () => {
+    const path = straightPath(100, 200); // 20km — far above any spacing target
+    const markers = buildDirectionMarkers(path, { startAnchorMeters: 0 });
+    expect(markers.length).toBe(9);
+  });
+});
+
+describe('buildDirectionMarkers — start-anchor marker (15.08.2026 arrow refinements)', () => {
+  const path = straightPath(60, 50); // 3000m, due north
+
+  it('is included by default, as the FIRST marker, pointing the initial travel direction', () => {
+    const markers = buildDirectionMarkers(path);
+    expect(markers.length).toBeGreaterThan(0);
+    const angularDiff = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+    expect(angularDiff(markers[0].bearing, 0)).toBeLessThan(1); // heading north, same as the route
+  });
+
+  it('sits a short, fixed distance from the true start — not exactly AT it (no overlap with the start/finish marker)', () => {
+    const markers = buildDirectionMarkers(path);
+    const distFromStart = haversineMeters(path[0][1], path[0][0], markers[0].lat, markers[0].lng);
+    expect(distFromStart).toBeGreaterThan(0);
+    expect(distFromStart).toBeLessThan(30); // close to the start, not drifted into the regular interior spacing
+  });
+
+  it('is IN ADDITION to the regular count, not carved out of it', () => {
+    const withAnchor = buildDirectionMarkers(path); // default startAnchorMeters
+    const withoutAnchor = buildDirectionMarkers(path, { startAnchorMeters: 0 });
+    expect(withAnchor.length).toBe(withoutAnchor.length + 1);
+  });
+
+  it('can be disabled entirely via startAnchorMeters: 0', () => {
+    const markers = buildDirectionMarkers(path, { startAnchorMeters: 0 });
+    const distFromStart = haversineMeters(path[0][1], path[0][0], markers[0].lat, markers[0].lng);
+    // Without the anchor, the first marker is the regular first interior
+    // marker — meaningfully farther from the start than the anchor would be.
+    expect(distFromStart).toBeGreaterThan(100);
+  });
+
+  it('is clamped to at most 30% of total length on a very short route (never overshoots into the back half)', () => {
+    const shortPath = straightPath(2, 10); // 20m total
+    const markers = buildDirectionMarkers(shortPath, { minCount: 4, maxCount: 9, targetSpacingMeters: 500 });
+    const totalLength = pathLengthMeters(shortPath);
+    const distFromStart = haversineMeters(shortPath[0][1], shortPath[0][0], markers[0].lat, markers[0].lng);
+    expect(distFromStart).toBeLessThanOrEqual(totalLength * 0.3 + 0.01); // small float slack
   });
 });

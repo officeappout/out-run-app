@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import Map, { Source, Layer, Marker, MapRef } from 'react-map-gl';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MapPin, Droplet, Dumbbell } from 'lucide-react';
+import { MapPin, Droplet, Dumbbell, Flag } from 'lucide-react';
 import { Route } from '../types/route.types';
 import { fetchRealParks } from '../services/parks.service';
 import { useMapStore, LayerType, PartnerActivityFilter } from '../store/useMapStore';
@@ -24,7 +24,7 @@ import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUp
 import { applyFitnessMapStyle, resetFitnessMapStyle } from './mapStyleConfig';
 import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
-import { segmentPathByZone, bearingBetween, buildLaneOffsetPath, buildDirectionMarkers, isOutAndBackPath, pathLengthMeters } from '../services/geoUtils';
+import { segmentPathByZone, bearingBetween, buildLaneOffsetPath, buildDirectionMarkers, isOutAndBackPath, pathLengthMeters, isSameCoord } from '../services/geoUtils';
 import type { RouteTurn } from '../services/geoUtils';
 import {
   isFiniteNum,
@@ -91,6 +91,19 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 // skeleton re-arms for the next mount. There is no current code path
 // that does this.
 let mapHasInitializedInSession = false;
+
+// ── Direction-marker zoom-dependent visibility (15.08.2026 arrow refinements) ──
+// Direction markers should read as a close-up detail, not clutter the
+// whole-route overview (the zoom level fitBounds lands on when a route
+// first appears). Hidden below DIRECTION_ARROW_MIN_ZOOM, fully visible at
+// DIRECTION_ARROW_MIN_ZOOM + DIRECTION_ARROW_FADE_ZOOM_RANGE — a smooth
+// opacity ramp (not a hard minzoom cutoff) so they fade in rather than pop.
+// Route line and the start/finish marker are untouched by this — they're
+// separate layers with their own fixed opacity, visible at every zoom.
+// Tune on-device: bump DIRECTION_ARROW_MIN_ZOOM up if arrows still show at
+// an overview-ish zoom, down if they take too long to appear while zooming in.
+const DIRECTION_ARROW_MIN_ZOOM = 15;
+const DIRECTION_ARROW_FADE_ZOOM_RANGE = 0.75;
 
 // ── Pure GeoJSON builder for the live-path trace (module-level = no closure) ──
 // Extracted from the previous livePathGeoJSON useMemo so it can be called
@@ -1584,7 +1597,11 @@ export default function AppMap({
             not just the hybrid one — this is what fixes generated routes having
             no arrows at all. icon-allow-overlap:true because the count is
             already small/deliberate — no reason to let Mapbox's collision
-            engine drop any of them. ── */}
+            engine drop any of them. Zoom-dependent opacity fade (refinement,
+            15.08.2026): hidden at the whole-route overview zoom, fades in
+            once the user zooms in — see DIRECTION_ARROW_MIN_ZOOM above. The
+            route line and start/finish marker are separate layers and stay
+            visible at every zoom. ── */}
         {!isActiveWorkout && visibleLayers?.includes('routes') && routeDirectionArrowsGeoJSON && (
           <Source id="route-direction-arrows" type="geojson" data={routeDirectionArrowsGeoJSON as any}>
             <Layer
@@ -1598,7 +1615,13 @@ export default function AppMap({
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
               }}
-              paint={{ 'icon-opacity': 0.95 }}
+              paint={{
+                'icon-opacity': [
+                  'interpolate', ['linear'], ['zoom'],
+                  DIRECTION_ARROW_MIN_ZOOM, 0,
+                  DIRECTION_ARROW_MIN_ZOOM + DIRECTION_ARROW_FADE_ZOOM_RANGE, 0.95,
+                ],
+              }}
             />
           </Source>
         )}
@@ -1995,7 +2018,12 @@ export default function AppMap({
           </Marker>
         ))}
 
-        {/* ── Route start markers ── */}
+        {/* ── Route start/finish markers (15.08.2026 arrow refinements: made
+            more prominent + a flag glyph). Generated routes are loops or
+            out-and-backs — start and finish are the SAME point — so this
+            ONE marker plays both roles. A genuinely point-to-point route
+            (today: only commute — see the distinct-finish-marker block
+            below) gets a second, separate marker at its actual end. ── */}
         {!isActiveWorkout && visibleRoutes.map(route => {
           const startPoint = route.path?.[0];
           // Guard against malformed paths produced by upstream generators.
@@ -2006,25 +2034,68 @@ export default function AppMap({
           const isSelected = focusedRoute?.id === route.id;
           if (isSelected && currentLocation && Math.abs(currentLocation.lat - startPoint[1]) < 0.0003 && Math.abs(currentLocation.lng - startPoint[0]) < 0.0003) return null;
           return (
-            // Modest origin dot (14.08.2026 UX polish) — replaces the old
-            // 28px white-circle+gray-dot with a small solid out-blue dot,
-            // matching the "Google-Maps-style" live-location pulse dot
-            // precedent above (no ping animation here — a route start is
-            // static, not a live position). The outer div is a larger
-            // invisible tap target so the visual shrink doesn't shrink the
-            // actual touch area.
+            // Modest origin dot (14.08.2026 UX polish; enlarged + flag glyph
+            // added 15.08.2026) — a small solid out-blue circle with a white
+            // flag icon, matching the "Google-Maps-style" origin-dot
+            // precedent but readable as "start/finish" at a glance (no ping
+            // animation — a route start is static, not a live position).
+            // The outer div is a larger invisible tap target so the visual
+            // size doesn't shrink the actual touch area.
             <Marker key={route.id} longitude={startPoint[0]} latitude={startPoint[1]} anchor="center"
               onClick={(e) => { e.originalEvent.stopPropagation(); onRouteSelect && onRouteSelect(route); }}>
-              <div className="flex items-center justify-center cursor-pointer" style={{ width: '32px', height: '32px' }}>
+              <div className="flex items-center justify-center cursor-pointer" style={{ width: '36px', height: '36px' }}>
                 <div
-                  className={`rounded-full border-2 border-white transition-all duration-300 ${isSelected ? 'scale-110' : 'scale-90 opacity-80'}`}
+                  className={`flex items-center justify-center rounded-full border-2 border-white transition-all duration-300 ${isSelected ? 'scale-110' : 'scale-90 opacity-80'}`}
                   style={{
-                    width: '14px', height: '14px', background: '#007aff',
+                    width: '20px', height: '20px', background: '#007aff',
                     boxShadow: isSelected
                       ? '0 2px 6px rgba(0,122,255,0.45)'
                       : '0 1px 4px rgba(0,0,0,0.25)',
                   }}
-                />
+                >
+                  <Flag size={10} color="#ffffff" fill="#ffffff" strokeWidth={2.5} />
+                </div>
+              </div>
+            </Marker>
+          );
+        })}
+
+        {/* ── Distinct finish marker — point-to-point routes ONLY (15.08.2026).
+            Confirmed before building: the only route type with a genuinely
+            different start and end today is commute (`route.variant` is set
+            ONLY on commute routes — route.types.ts's own doc comment: "Loop
+            routes... leave `variant` undefined"). Commute already has its
+            own DestinationMarker at the user-picked destination, so this is
+            deliberately gated off for commute (variant !== undefined) —
+            otherwise it would render a second, redundant "you're heading
+            here" marker on top of the existing one. Every generated loop/
+            out-and-back has path[0] === path[last] by construction, so
+            isSameCoord already excludes them with zero extra logic — this
+            block is future-proofing for any genuinely point-to-point,
+            non-commute route (e.g. a curated point-to-point trail), not
+            something that fires for today's generated routes. ── */}
+        {!isActiveWorkout && visibleRoutes.map(route => {
+          if (route.variant !== undefined) return null; // commute — DestinationMarker already covers this
+          const startPoint = route.path?.[0];
+          const endPoint = route.path?.[route.path.length - 1];
+          if (!isFiniteLngLat(startPoint) || !isFiniteLngLat(endPoint)) return null;
+          if (isSameCoord(startPoint, endPoint)) return null; // loop/out-and-back — combined marker above covers it
+          const isSelected = focusedRoute?.id === route.id;
+          return (
+            <Marker key={`${route.id}-finish`} longitude={endPoint[0]} latitude={endPoint[1]} anchor="center"
+              onClick={(e) => { e.originalEvent.stopPropagation(); onRouteSelect && onRouteSelect(route); }}>
+              <div className="flex items-center justify-center cursor-pointer" style={{ width: '36px', height: '36px' }}>
+                <div
+                  className={`flex items-center justify-center rounded-full border-2 border-white transition-all duration-300 ${isSelected ? 'scale-110' : 'scale-90 opacity-80'}`}
+                  style={{
+                    width: '20px', height: '20px', background: '#007aff',
+                    boxShadow: isSelected
+                      ? '0 2px 6px rgba(0,122,255,0.45)'
+                      : '0 1px 4px rgba(0,0,0,0.25)',
+                  }}
+                >
+                  <Flag size={10} color="#ffffff" fill="#ffffff" strokeWidth={2.5} />
+                </div>
               </div>
             </Marker>
           );
