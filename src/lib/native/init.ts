@@ -237,8 +237,11 @@ export async function initNativeShell(): Promise<void> {
     //         consumed the event:
     //           • /home or /gateway   → App.exitApp() instead of navigating
     //             into onboarding/login screens that were replaced off the stack.
-    //           • /active or /workout-builder → the active-workout route guard
-    //             (behaviour gated by WORKOUT_EXIT_HARD_BLOCK_ENABLED — see below).
+    //           • /active or /workout-builder → FIRST, the RECOVERY_VIDEO_EXIT_
+    //             BUTTON_ENABLED check (below) — takes priority whenever
+    //             useSessionStore.getState().isRecoveryVideoSession is true.
+    //             Only if that's false does the active-workout route guard
+    //             (behaviour gated by WORKOUT_EXIT_HARD_BLOCK_ENABLED — see below) run.
     //           • /map, only while an aerobic (running/walking/hybrid) session is
     //             active/paused → the SAME guard, extended (WORKOUT_EXIT_HARD_BLOCK_ENABLED
     //             only — /map was never guarded before this flag existed; plain map
@@ -255,6 +258,22 @@ export async function initNativeShell(): Promise<void> {
     //        (while an aerobic session is active/paused) — no event, no popup,
     //        no route pop, no App.minimizeApp() fallback. The only way to leave
     //        an active workout is the explicit stop/finish button in the UI.
+    //
+    //    RECOVERY_VIDEO_EXIT_BUTTON_ENABLED (src/config/feature-flags.ts):
+    //      Checked FIRST on /active + /workout-builder, before the
+    //      WORKOUT_EXIT_HARD_BLOCK_ENABLED branch above. When
+    //      useSessionStore.getState().isRecoveryVideoSession is true (mirrored
+    //      from active/page.tsx's discriminator+flag memo — see that file and
+    //      feature-flags.ts for the full writeup), this dispatches a NEW,
+    //      distinctly-named 'nativeBackRecoveryExit' event and returns
+    //      immediately, WITHOUT falling through to the hard-block logic below.
+    //      That event routes to a genuinely separate, no-save, no-confirmation
+    //      termination path (active/page.tsx's handleRecoveryVideoExit) — it
+    //      never touches 'nativeBackInWorkout' or ExitConfirmModal. While the
+    //      flag is off (default), isRecoveryVideoSession never becomes true,
+    //      so this branch's condition is always false and every workout type
+    //      falls through to the WORKOUT_EXIT_HARD_BLOCK_ENABLED logic exactly
+    //      as before this feature existed.
     App.addListener('backButton', ({ canGoBack }) => {
       if (BackStack.dispatch()) return;
 
@@ -268,6 +287,12 @@ export async function initNativeShell(): Promise<void> {
       }
 
       if (path.includes('/active') || path.includes('/workout-builder')) {
+        if (useSessionStore.getState().isRecoveryVideoSession) {
+          // RECOVERY_VIDEO_EXIT_BUTTON_ENABLED — takes priority over the
+          // hard-block branch below. See the dispatch-order doc comment above.
+          window.dispatchEvent(new CustomEvent('nativeBackRecoveryExit'));
+          return;
+        }
         if (WORKOUT_EXIT_HARD_BLOCK_ENABLED) {
           // Silent absorb — no event, no popup, no route pop. Return
           // immediately without falling through to history/minimise below.

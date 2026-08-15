@@ -13,7 +13,7 @@
  * `"CapacitorStorage." + key`. No encryption, no async I/O, no bridge hop.
  * `ViewController.swift` reads that exact same `UserDefaults` key directly.
  *
- * Two flags are mirrored here, both plain `"1"` / `"0"` strings:
+ * Three flags are mirrored here, all plain `"1"` / `"0"` strings:
  *
  *   • `EXIT_HARD_BLOCK_PREF_KEY` — mirrors `WORKOUT_EXIT_HARD_BLOCK_ENABLED`
  *     (`src/config/feature-flags.ts`). This app loads its JS bundle from a
@@ -27,15 +27,28 @@
  *     `ViewController.swift` can tell an in-progress aerobic session on
  *     `/map` apart from plain map browsing.
  *
- * Both keys are written fire-and-forget by `WorkoutExitGuardTracker`
+ *   • `RECOVERY_VIDEO_EXIT_ACTIVE_PREF_KEY` — reflects `useSessionStore`'s
+ *     `isRecoveryVideoSession` field (RECOVERY_VIDEO_EXIT_BUTTON_ENABLED,
+ *     `src/config/feature-flags.ts`), i.e. whether the CURRENT session is a
+ *     pure recovery-video-trio eligible for the new no-confirmation,
+ *     no-save exit path. `ViewController.swift` checks this FIRST, before
+ *     `EXIT_HARD_BLOCK_PREF_KEY`, so it can route the edge-swipe-back
+ *     gesture to that separate path instead of the hard-block/legacy-modal
+ *     logic. Same one-time-native-rebuild caveat as
+ *     `EXIT_HARD_BLOCK_PREF_KEY` above — the Swift code that reads this key
+ *     must ship in a native build before flipping the flag has any effect
+ *     on iOS.
+ *
+ * All three keys are written fire-and-forget by `WorkoutExitGuardTracker`
  * (mounted once in `ClientLayout`). No-op on web / non-native platforms —
- * Android does not need either key: `src/lib/native/init.ts`'s `backButton`
+ * Android does not need any of them: `src/lib/native/init.ts`'s `backButton`
  * handler runs in plain JS and reads `useSessionStore.getState()` +
  * `WORKOUT_EXIT_HARD_BLOCK_ENABLED` directly, no mirror required.
  */
 
 export const EXIT_HARD_BLOCK_PREF_KEY = 'workout_exit_hard_block_enabled';
 export const AEROBIC_SESSION_ACTIVE_PREF_KEY = 'aerobic_session_active';
+export const RECOVERY_VIDEO_EXIT_ACTIVE_PREF_KEY = 'recovery_video_exit_active';
 
 function isNativePlatform(): boolean {
   if (typeof window === 'undefined') return false;
@@ -53,9 +66,10 @@ function isNativePlatform(): boolean {
  *
  * A failed write (plugin unavailable, I/O error) is swallowed on purpose:
  * the native side treats a missing/unreadable key as `false` (nil !== "1"),
- * which is the fail-open direction for both flags — no hard-block, no
- * silent-block on `/map` — so a write failure degrades to legacy behaviour
- * rather than an unexpectedly stuck block.
+ * which is the fail-open direction for all three flags — no hard-block, no
+ * silent-block on `/map`, no recovery-video no-confirmation exit — so a
+ * write failure degrades to legacy behaviour rather than an unexpectedly
+ * stuck block.
  */
 export function writeNativeFlag(key: string, value: boolean): void {
   if (!isNativePlatform()) return;

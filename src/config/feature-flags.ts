@@ -877,6 +877,66 @@ export const HOME_RECOVERY_START_SHORTCUT_ENABLED = false;
 // byte-identical instantly, no code change needed.
 export const RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED = false;
 
+// RECOVERY_VIDEO_EXIT_BUTTON_ENABLED: adds a plain, always-visible exit
+// button during recovery-video-trio playback (a rest-day session that is
+// structurally just ONE follow-along video — see isPureRecoveryVideoTrioWorkout
+// in workout-engine/shared/utils/recovery-video-trio.utils.ts). Tapping it —
+// or the native back gesture while it is eligible — exits with NO
+// confirmation dialog and NO save/streak write, straight to /home. This is a
+// genuinely SEPARATE termination path: it never calls onComplete/
+// handleComplete (active/page.tsx), so it cannot converge with the real
+// completion writes RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED added to that
+// function (runActivitySync + saveWorkoutToHistory). Every other workout
+// type's exit behaviour — native swipe-back/hardware-back dispatching
+// 'nativeBackInWorkout' → ExitConfirmModal, or the silent-absorb under
+// WORKOUT_EXIT_HARD_BLOCK_ENABLED — is completely untouched by this flag;
+// the two systems are wired through entirely separate window events
+// ('nativeBackRecoveryExit' vs 'nativeBackInWorkout') and never share a
+// handler. Also deliberately untouched: the OLD pause-menu exit chain
+// (StrengthRunner's handleEarlyExit → PauseOverlay → ExitConfirmModal) still
+// calls onComplete (and therefore still writes a streak/save on an abandoned
+// recovery-trio session) — a known, already-flagged, already-deferred
+// follow-up, out of scope for this flag.
+//
+// Single source of truth: the discriminator (isPureRecoveryVideoTrioWorkout)
+// + this flag are checked ONCE, in a useMemo in active/page.tsx. Every other
+// layer (the new useSessionStore.isRecoveryVideoSession field, Android's
+// backButton handler, iOS's decidePolicyFor) derives from that memo's
+// resulting boolean via the store — none of them re-check this constant
+// directly.
+//
+// While FALSE (default): the memo is always false, so the in-app exit button
+// never renders, the 'nativeBackRecoveryExit' listener never attaches,
+// isRecoveryVideoSession never becomes true, Android's new first-checked
+// branch (src/lib/native/init.ts) is always skipped (falls through to the
+// existing WORKOUT_EXIT_HARD_BLOCK_ENABLED logic unchanged), and the iOS
+// Preferences mirror always writes "0" — behavior-identical to before this
+// feature existed, on every platform. (iOS storage-state note: this DOES
+// write a new "0" entry for the recovery_video_exit_active UserDefaults key
+// on first mount, where none existed before — readNativeFlag treats a
+// missing key and an explicit "0" identically as false, so behavior is
+// unaffected either way.)
+//
+// Android reads the resulting store field directly in src/lib/native/init.ts
+// (plain JS, no bridging) — same pattern as WORKOUT_EXIT_HARD_BLOCK_ENABLED.
+// iOS CANNOT read the store directly (ViewController.swift's decidePolicyFor
+// is native Swift with no bridge round-trip at decision time), so the value
+// is mirrored into @capacitor/preferences by WorkoutExitGuardTracker and read
+// back synchronously via the same readNativeFlag helper — see
+// src/lib/native/workoutExitGuard.ts.
+//
+// ⚠️ IMPORTANT CAVEAT (same asymmetry as WORKOUT_EXIT_HARD_BLOCK_ENABLED
+// above): this does NOT make the iOS side a pure runtime toggle. The Swift
+// CODE that reads the new Preferences-mirrored key (ViewController.swift)
+// still requires its own one-time Xcode rebuild + TestFlight build before it
+// exists on-device AT ALL. Flipping this flag alone (a normal web deploy,
+// since the app loads its JS bundle from a remote origin) makes the in-app
+// button and Android's hardware-back handling take effect immediately — but
+// iOS swipe-back keeps its OLD behaviour until a new native build ships.
+// This platform split is an accepted, already-shipped pattern in this
+// codebase, not a bug to fix here.
+export const RECOVERY_VIDEO_EXIT_BUTTON_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
