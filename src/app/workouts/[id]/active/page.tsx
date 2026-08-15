@@ -37,12 +37,12 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
-import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED, RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED } from '@/config/feature-flags';
+import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED, RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED, RECOVERY_VIDEO_EXIT_BUTTON_ENABLED } from '@/config/feature-flags';
 import { isPureRecoveryVideoTrioWorkout } from '@/features/workout-engine/shared/utils/recovery-video-trio.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { runActivitySync } from '@/features/workout-engine/components/strength/hooks/useActivitySync';
 import { calculateCalories, calculateCoins } from '@/features/workout-engine/components/strength/utils/summary.utils';
-import { Target, Sparkles, Flame } from 'lucide-react';
+import { Target, Sparkles, Flame, X } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { MASTER_PROGRAM_CHILDREN, MASTER_LEVEL_CAP } from '@/features/home/hooks/useProgramProgress';
@@ -829,6 +829,75 @@ export default function ActiveWorkoutPage() {
     return workoutPlan;
   }, [workoutPlan?.id, workoutVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // === RECOVERY_VIDEO_EXIT_BUTTON_ENABLED (feature-flags.ts) ===
+  // Discriminator + flag computed ONCE here — the single source point every
+  // other layer (useSessionStore.isRecoveryVideoSession, Android's
+  // backButton handler in src/lib/native/init.ts, iOS's decidePolicyFor in
+  // ViewController.swift) derives from via the mirrored store boolean below,
+  // never by re-checking RECOVERY_VIDEO_EXIT_BUTTON_ENABLED itself. Keyed on
+  // stableWorkoutPlan (the same reference StrengthRunner's `workout` prop
+  // already uses) so this only recomputes on a real workout change (id) or a
+  // mid-session swap (workoutVersion), not on every render.
+  const isRecoveryVideoExitEligible = useMemo(
+    () => RECOVERY_VIDEO_EXIT_BUTTON_ENABLED && isPureRecoveryVideoTrioWorkout(stableWorkoutPlan),
+    [stableWorkoutPlan],
+  );
+
+  // Mirror into useSessionStore so Android (plain JS, src/lib/native/init.ts)
+  // and, via WorkoutExitGuardTracker's @capacitor/preferences mirror, iOS's
+  // native decidePolicyFor (ViewController.swift) can read this without
+  // re-deriving the discriminator themselves. See useSessionStore.ts's
+  // isRecoveryVideoSession doc comment for why it is reset to false in both
+  // startSession() and clearSession() — this effect only ever WRITES the
+  // live value; the reset-on-boundary safety net lives in the store itself.
+  useEffect(() => {
+    useSessionStore.getState().setRecoveryVideoSession(isRecoveryVideoExitEligible);
+  }, [isRecoveryVideoExitEligible]);
+
+  /**
+   * handleRecoveryVideoExit — plain, always-visible, NO-confirmation exit for
+   * a recovery-video-trio session. Deliberately NOT routed through
+   * onComplete/handleComplete — it must never converge with the real
+   * completion writes RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED added to that
+   * function (runActivitySync + saveWorkoutToHistory, see above), so exiting
+   * here never triggers a save or a streak write. Also deliberately NOT
+   * routed through the existing hard-exit-block system (StrengthRunner's
+   * handleEarlyExit → PauseOverlay → ExitConfirmModal /
+   * WORKOUT_EXIT_HARD_BLOCK_ENABLED) — that chain, and every other workout
+   * type's exit behaviour, is completely untouched by this handler.
+   *
+   * Mirrors the cleanup TAIL of handleComplete's own recovery-shortcut branch
+   * and handleSummaryFinish (same sessionStorage keys, clearWorkoutCheckpoint,
+   * clearSession, router.push('/home')) minus every write step — nothing was
+   * saved here, so (unlike those two call sites) there is nothing to protect
+   * by gating the checkpoint clear behind a `saved` flag.
+   */
+  const handleRecoveryVideoExit = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('active_workout_data');
+      sessionStorage.removeItem('currentWorkoutPlanId');
+      sessionStorage.removeItem('generatedExerciseRanges');
+      sessionStorage.removeItem('progression_started_this_session');
+      sessionStorage.removeItem('progression_failed_this_session');
+    }
+    clearWorkoutCheckpoint();
+    if (ownsSessionRef.current) useSessionStore.getState().clearSession();
+    router.push('/home');
+  }, [router]);
+
+  // Native back gesture while a recovery-video-trio exit is eligible: a NEW,
+  // distinctly-named event ('nativeBackRecoveryExit' — dispatched by
+  // src/lib/native/init.ts on Android and ViewController.swift on iOS, each
+  // once they read isRecoveryVideoSession as true) routes to the SAME
+  // no-save, no-confirmation handler above. This is entirely independent of
+  // the legacy 'nativeBackInWorkout' event StrengthRunner still listens for
+  // on its own — untouched, still live for every other workout type.
+  useEffect(() => {
+    if (!isRecoveryVideoExitEligible) return;
+    window.addEventListener('nativeBackRecoveryExit', handleRecoveryVideoExit);
+    return () => window.removeEventListener('nativeBackRecoveryExit', handleRecoveryVideoExit);
+  }, [isRecoveryVideoExitEligible, handleRecoveryVideoExit]);
+
   // === FLOW HANDLERS ===
   
   /**
@@ -1533,6 +1602,40 @@ export default function ActiveWorkoutPage() {
               : undefined
           }
         />
+        {/* RECOVERY_VIDEO_EXIT_BUTTON_ENABLED — plain, always-visible exit for
+            a recovery-video-trio session, zero confirmation. Sibling to
+            StrengthRunner (not threaded through it/RunnerHeader — neither
+            has an exit affordance today). Style matches the fullscreen-
+            tutorial close button in ExerciseVideoPlayer.tsx (content/
+            exercises, style precedent only — that button closes a
+            sub-overlay, not the session).
+            Position/z-index instead reuse the EXACT precedent already
+            established by THIS screen family's own follow-along overlay
+            buttons — the "fullscreen" toggle + "צפה בהסבר המלא" CTA in
+            workout-engine/players/strength/components/ExerciseVideoPlayer.tsx
+            (bottom-[236px], z-[46]) — proven there to clear both RunnerHeader
+            (z-[45], top-only) and the white metrics card peeking up from
+            below (140px for follow-along exercises — see
+            ActiveExerciseView's spacer). RunnerHeader's minimize + pause
+            buttons occupy BOTH top corners in every non-PREPARING state, so
+            no top placement is collision-free; right-4 (not left-4, which
+            that sibling file's "fullscreen" button already occupies
+            whenever a follow-along video is guided — true for every
+            recovery-video-trio session) keeps this clear of that button
+            too. z-[46] is not in .cursorrules' Map-UI-scoped Z-Index Budget
+            table, but is already the established local convention in that
+            exact sibling file for this exact screen state (see its own
+            comment: "no new z-index value is introduced"). */}
+        {isRecoveryVideoExitEligible && (
+          <button
+            onClick={handleRecoveryVideoExit}
+            className="absolute bottom-[236px] right-4 z-[46] flex items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20"
+            aria-label="סגור"
+          >
+            <X size={20} />
+          </button>
+        )}
+
         <KudoToast kudo={currentKudo} onDismiss={dismissKudo} />
 
         {/* Mid-workout exercise replacement modal */}

@@ -27,17 +27,29 @@ import WebKit
  *     aerobic (running/walking/hybrid) session is currently active/paused.
  *     Plain map browsing is never blocked.
  *
+ *   • RECOVERY_VIDEO_EXIT_BUTTON_ENABLED (checked FIRST, before either branch
+ *     above, on `/active` / `/workout-builder` only) — when a native-mirrored
+ *     flag says the current session is a pure recovery-video-trio eligible
+ *     for the new no-confirmation exit button, cancel the edge-swipe-back
+ *     navigation and dispatch a NEW, distinctly-named `nativeBackRecoveryExit`
+ *     window event instead — a genuinely separate, no-save termination path
+ *     that never dispatches `nativeBackInWorkout` and never falls through to
+ *     the `WORKOUT_EXIT_HARD_BLOCK_ENABLED` branches above. Mirrors Android's
+ *     equally-first check in `src/lib/native/init.ts`. See
+ *     `src/config/feature-flags.ts` for the full writeup.
+ *
  * `decidePolicyFor` is native Swift with no JS bridge round-trip available at
  * decision time, so it cannot read `useSessionStore` or `feature-flags.ts`
- * directly. Both flags are mirrored from JS into `@capacitor/preferences` by
- * `WorkoutExitGuardTracker` (`src/components/system/WorkoutExitGuardTracker.tsx`,
+ * directly. All three flags are mirrored from JS into `@capacitor/preferences`
+ * by `WorkoutExitGuardTracker` (`src/components/system/WorkoutExitGuardTracker.tsx`,
  * mounted in `NativeBootstrap`) and read back here directly + synchronously
  * from the underlying `UserDefaults` storage — see
  * `readNativeFlag(_:)` below and `src/lib/native/workoutExitGuard.ts` for the
  * full mechanism writeup (confirmed by reading the installed plugin source at
  * `node_modules/@capacitor/preferences/ios/Sources/PreferencesPlugin/`).
- * A missing/unreadable key reads as `false` for both flags — the fail-open
- * direction (legacy behaviour / no `/map` block), never fail-closed.
+ * A missing/unreadable key reads as `false` for all three flags — the
+ * fail-open direction (legacy behaviour / no `/map` block / no recovery-video
+ * no-confirmation exit), never fail-closed.
  *
  * ⚠️ This Swift file's behaviour, once this specific code change ships, is
  * gated at RUNTIME by the Preferences-mirrored flag — but the CODE ITSELF
@@ -102,7 +114,8 @@ class ViewController: CAPBridgeViewController {
                 capacitor: capacitorDelegate,
                 onTerminate: { [weak self] wv in self?.recoverWebContent(wv) },
                 onFinish: { [weak self] in self?.onWebContentRecovered() },
-                onNativeBackInWorkout: { [weak self] in self?.notifyNativeBackInWorkout() }
+                onNativeBackInWorkout: { [weak self] in self?.notifyNativeBackInWorkout() },
+                onNativeBackRecoveryExit: { [weak self] in self?.notifyNativeBackRecoveryExit() }
             )
             recoveryProxy = proxy                 // strong retain — navigationDelegate is weak
             webView.navigationDelegate = proxy
@@ -121,6 +134,21 @@ class ViewController: CAPBridgeViewController {
     fileprivate func notifyNativeBackInWorkout() {
         NSLog("[nav] intercepted back-forward swipe on active-workout route — dispatching nativeBackInWorkout")
         bridge?.triggerWindowJSEvent(eventName: "nativeBackInWorkout")
+    }
+
+    /// RECOVERY_VIDEO_EXIT_BUTTON_ENABLED — called from
+    /// `WebContentRecoveryProxy.decidePolicyFor` FIRST, before the
+    /// `hardBlockEnabled` check, whenever `recoveryVideoExitActivePrefKey`
+    /// reads `true` (mirrors Android's equally-first check in
+    /// `src/lib/native/init.ts`). Dispatches a NEW, distinctly-named window
+    /// event — 'nativeBackRecoveryExit' — so active/page.tsx's
+    /// handleRecoveryVideoExit runs: a genuinely separate, no-confirmation,
+    /// no-save termination path that never dispatches `nativeBackInWorkout`
+    /// and is never followed by a call to `notifyNativeBackInWorkout` above.
+    /// See the class doc comment for the full priority order.
+    fileprivate func notifyNativeBackRecoveryExit() {
+        NSLog("[nav] intercepted back-forward swipe on recovery-video-trio session — dispatching nativeBackRecoveryExit")
+        bridge?.triggerWindowJSEvent(eventName: "nativeBackRecoveryExit")
     }
 
     // MARK: - Stage 3 Part A — proactive memory shed (best-effort)
@@ -243,12 +271,13 @@ class ViewController: CAPBridgeViewController {
 /// (replace the silent reload with a backed-off recovery), `didFinish`
 /// (observe success to clear the overlay / reset back-off, then forward), and
 /// `decidePolicyFor navigationAction` (intercept the edge-swipe-back gesture
-/// on active-workout routes and, when `WORKOUT_EXIT_HARD_BLOCK_ENABLED`
-/// (mirrored via `readNativeFlag`) is on, also on `/map` while an aerobic
-/// session is active — see the class doc comment on `ViewController` for the
-/// full flag-gated behaviour). Every other decidePolicyFor call is forwarded
-/// to Capacitor unchanged, so its plugin overrides / `allowedNavigation`
-/// allowlist / external-link handling are fully preserved.
+/// on active-workout routes — FIRST for RECOVERY_VIDEO_EXIT_BUTTON_ENABLED,
+/// then, when `WORKOUT_EXIT_HARD_BLOCK_ENABLED` (mirrored via
+/// `readNativeFlag`) is on, also on `/map` while an aerobic session is active
+/// — see the class doc comment on `ViewController` for the full flag-gated
+/// behaviour). Every other decidePolicyFor call is forwarded to Capacitor
+/// unchanged, so its plugin overrides / `allowedNavigation` allowlist /
+/// external-link handling are fully preserved.
 /// Do NOT hand the raw VC to `navigationDelegate` — that would drop Capacitor's
 /// nav policy / `allowNavigation` allowlist.
 final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
@@ -258,6 +287,7 @@ final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
     private let onTerminate: (WKWebView) -> Void
     private let onFinish: () -> Void
     private let onNativeBackInWorkout: () -> Void
+    private let onNativeBackRecoveryExit: () -> Void
 
     // MARK: - Native-readable flags (Capacitor Preferences mirror)
     //
@@ -266,16 +296,18 @@ final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
     // — confirmed by reading the installed plugin source at
     // `node_modules/@capacitor/preferences/ios/Sources/PreferencesPlugin/
     // Preferences.swift`: `prefix = "CapacitorStorage."`, no encryption, no
-    // async I/O. Keep these two string literals in sync with
+    // async I/O. Keep these three string literals in sync with
     // `src/lib/native/workoutExitGuard.ts`.
     private let capacitorPreferencesPrefix = "CapacitorStorage."
     private let exitHardBlockPrefKey = "workout_exit_hard_block_enabled"
     private let aerobicSessionActivePrefKey = "aerobic_session_active"
+    private let recoveryVideoExitActivePrefKey = "recovery_video_exit_active"
 
     /// Reads a boolean flag written by `WorkoutExitGuardTracker` via
     /// `@capacitor/preferences`. A missing/unreadable key (fresh install,
     /// plugin write never landed) reads as `false` — the fail-open direction
-    /// for both flags (legacy behaviour / no `/map` block), never fail-closed.
+    /// for all three flags (legacy behaviour / no `/map` block / no
+    /// recovery-video no-confirmation exit), never fail-closed.
     private func readNativeFlag(_ key: String) -> Bool {
         UserDefaults.standard.string(forKey: capacitorPreferencesPrefix + key) == "1"
     }
@@ -283,11 +315,13 @@ final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
     init(capacitor: WKNavigationDelegate,
          onTerminate: @escaping (WKWebView) -> Void,
          onFinish: @escaping () -> Void,
-         onNativeBackInWorkout: @escaping () -> Void) {
+         onNativeBackInWorkout: @escaping () -> Void,
+         onNativeBackRecoveryExit: @escaping () -> Void) {
         self.capacitor = capacitor
         self.onTerminate = onTerminate
         self.onFinish = onFinish
         self.onNativeBackInWorkout = onNativeBackInWorkout
+        self.onNativeBackRecoveryExit = onNativeBackRecoveryExit
         super.init()
     }
 
@@ -317,6 +351,19 @@ final class WebContentRecoveryProxy: NSObject, WKNavigationDelegate {
         guard navigationAction.navigationType == .backForward,
               let currentPath = webView.url?.path else {
             capacitor.webView?(webView, decidePolicyFor: navigationAction, decisionHandler: decisionHandler)
+            return
+        }
+
+        // RECOVERY_VIDEO_EXIT_BUTTON_ENABLED — checked FIRST, before
+        // hardBlockEnabled below. Mirrors Android's equally-first check in
+        // src/lib/native/init.ts. A genuinely separate, no-confirmation,
+        // no-save termination path (active/page.tsx's handleRecoveryVideoExit,
+        // via the 'nativeBackRecoveryExit' event) — never falls through to
+        // the hardBlockEnabled / legacy-modal logic below.
+        if (currentPath.contains("/active") || currentPath.contains("/workout-builder")),
+           readNativeFlag(recoveryVideoExitActivePrefKey) {
+            onNativeBackRecoveryExit()
+            decisionHandler(.cancel)
             return
         }
 

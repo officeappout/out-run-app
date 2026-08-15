@@ -34,6 +34,7 @@
 - z-20: Active workout overlay, navigate bottom
 - z-30: ParkPreview floating card
 - z-40: BottomJourneyContainer, HUD controls, RunStoryBar (running session top strip)
+- z-[46]: Follow-along video overlay controls inside the strength runner (ExerciseVideoPlayer's fullscreen/tutorial buttons; the recovery-video-trio exit button, active/page.tsx, RECOVERY_VIDEO_EXIT_BUTTON_ENABLED) — clears RunnerHeader (which occupies both top corners) by sitting lower (bottom-[236px]) instead of stacking above it. Pre-existing value, backfilled into this table (13.08.2026) — was previously used at 3 sites without being documented here.
 - z-50: Mapbox facility popups
 - z-[60]: WorkoutDrawer, NavigationHub (navigating), RoutePreviewCard
 - z-[70]: Search bars in discover mode + OverviewTitleBar (route-preview "מבט על אימון" bar; mutually exclusive with the search bar, MAP_OVERVIEW_CHROME_V1)

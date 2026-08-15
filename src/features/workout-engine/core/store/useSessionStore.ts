@@ -12,17 +12,29 @@ interface SessionState {
   // Activity Mode
   mode: SessionMode;
   status: SessionStatus;
-  
+
   // Universal Metrics (persist across mode switches)
   totalDuration: number;      // seconds
   totalCalories: number;      // computed
   totalDistance: number;      // km (for running/walking modes)
-  
+
   // Timestamps
   startTime: number | null;
   pausedTime: number;         // accumulated paused time in seconds
   lastTickTime: number | null; // for accurate duration tracking
-  
+
+  // RECOVERY_VIDEO_EXIT_BUTTON_ENABLED (feature-flags.ts): true while the
+  // CURRENT session is a pure recovery-video-trio (isPureRecoveryVideoTrioWorkout)
+  // AND the flag is on — set exclusively from active/page.tsx's discriminator
+  // memo. Read by src/lib/native/init.ts (Android) and mirrored into
+  // @capacitor/preferences by WorkoutExitGuardTracker for iOS
+  // (ViewController.swift) so both native back-gesture handlers can route to
+  // the new no-confirmation exit path instead of the existing hard-exit-block
+  // system. Reset to false in both startSession() and clearSession() below —
+  // without that, a stale true from one session could leak into the next,
+  // unrelated session and incorrectly suppress native-gesture guarding there.
+  isRecoveryVideoSession: boolean;
+
   // Actions
   startSession: (mode: SessionMode) => void;
   pauseSession: () => void;
@@ -33,6 +45,7 @@ interface SessionState {
   updateDistance: (distanceDelta: number) => void;
   updateCalories: (caloriesDelta: number) => void;
   clearSession: () => void;
+  setRecoveryVideoSession: (active: boolean) => void;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -45,7 +58,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   startTime: null,
   pausedTime: 0,
   lastTickTime: null,
-  
+  isRecoveryVideoSession: false,
+
   // Start a new session
   startSession: (mode: SessionMode) => {
     const now = Date.now();
@@ -58,6 +72,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       totalCalories: 0,
       totalDistance: 0,
       pausedTime: 0,
+      // Reset on every new session — see the field's doc comment above for
+      // why a stale true must never leak from a previous session.
+      isRecoveryVideoSession: false,
     });
     
     // Log workout session started event
@@ -139,6 +156,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       startTime: null,
       pausedTime: 0,
       lastTickTime: null,
+      // Reset on every session clear — see the field's doc comment above for
+      // why a stale true must never leak into the next, unrelated session.
+      isRecoveryVideoSession: false,
     });
+  },
+
+  setRecoveryVideoSession: (active: boolean) => {
+    set({ isRecoveryVideoSession: active });
   },
 }));
