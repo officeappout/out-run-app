@@ -864,12 +864,11 @@ export const RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED = true;
 // instead of setSelectedWorkout(...), so the drawer never mounts and the
 // active video-playback screen opens on the first tap.
 //
-// While FALSE (default), the discriminator check never runs — short-
-// circuited on this flag first — so home/page.tsx's tap handling is byte-
-// identical to before this diff for every workout type, including the video
-// trio: the drawer still opens exactly as now. Kill-switch: flip back to
-// false, byte-identical instantly, no code change needed.
-export const HOME_RECOVERY_START_SHORTCUT_ENABLED = false;
+// FLIPPED TRUE (15.08.2026) — David approved production rollout for all
+// three recovery-video-flow flags together after reviewing the branch.
+// Kill-switch: flip back to false, byte-identical instantly, no code change
+// needed.
+export const HOME_RECOVERY_START_SHORTCUT_ENABLED = true;
 
 // RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED: skips the dopamine + summary screens
 // entirely for a "pure recovery video trio" rest-day session (a rest-day
@@ -906,14 +905,11 @@ export const HOME_RECOVERY_START_SHORTCUT_ENABLED = false;
 // are deliberately NOT relocated — for this shortcut path they simply
 // never fire, same as any other early return before that code.
 //
-// While FALSE (default), the discriminator + flag check inside
-// handleComplete is short-circuited on this flag first, so handleComplete's
-// behaviour is byte-identical to before this diff for every workout type,
-// including the video trio: dopamine → summary → Finish still shows, and
-// saveWorkout/the streak write still only fire from their existing
-// locations on the Finish tap. Kill-switch: flip back to false,
-// byte-identical instantly, no code change needed.
-export const RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED = false;
+// FLIPPED TRUE (15.08.2026) — David approved production rollout for all
+// three recovery-video-flow flags together after reviewing the branch.
+// Kill-switch: flip back to false, byte-identical instantly, no code change
+// needed.
+export const RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED = true;
 
 // RECOVERY_VIDEO_EXIT_BUTTON_ENABLED: adds a plain, always-visible exit
 // button during recovery-video-trio playback (a rest-day session that is
@@ -973,7 +969,14 @@ export const RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED = false;
 // iOS swipe-back keeps its OLD behaviour until a new native build ships.
 // This platform split is an accepted, already-shipped pattern in this
 // codebase, not a bug to fix here.
-export const RECOVERY_VIDEO_EXIT_BUTTON_ENABLED = false;
+//
+// FLIPPED TRUE (15.08.2026) — David approved production rollout for all
+// three recovery-video-flow flags together after reviewing the branch. The
+// iOS caveat above still applies: the in-app button and Android are live
+// immediately on this web deploy; iOS swipe-back stays on its old behavior
+// until a native rebuild ships. Kill-switch: flip back to false,
+// byte-identical instantly, no code change needed.
+export const RECOVERY_VIDEO_EXIT_BUTTON_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
