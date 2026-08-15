@@ -37,9 +37,11 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
-import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED } from '@/config/feature-flags';
+import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED, RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { isPureRecoveryVideoTrioWorkout } from '@/features/workout-engine/shared/utils/recovery-video-trio.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
+import { runActivitySync } from '@/features/workout-engine/components/strength/hooks/useActivitySync';
+import { calculateCalories, calculateCoins } from '@/features/workout-engine/components/strength/utils/summary.utils';
 import { Target, Sparkles, Flame } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
@@ -364,6 +366,167 @@ async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: st
 // category comes from segment.protocol (legacy fallback: pairedWith — never
 // the "2+ exercises ⇒ superset" heuristic) and keying is segmentId:exerciseId.
 
+interface SaveWorkoutToHistoryParams {
+  userId: string | undefined;
+  durationSec: number;
+  difficulty: Difficulty;
+  totalReps: number;
+  completedExercises: CompletedExercise[];
+  workoutPlan: WorkoutPlan | null;
+  xpEarned: number;
+  xpStatus: 'pending' | 'awarded' | 'failed';
+}
+
+/**
+ * saveWorkoutToHistory — shared saveWorkout payload builder + write.
+ *
+ * Extracted (RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED, see feature-flags.ts) so
+ * the discriminator-gated classification fields (workoutType/category/
+ * isRecovery/displayIcon) and the rest of the payload shape are
+ * byte-identical whether this fires from handleSummaryFinish's Finish tap
+ * (every other workout type, and a recovery-trio session while the flag is
+ * off) or from handleComplete's early-exit branch (recovery-trio shortcut,
+ * flag on). Also runs the nearest-park detection the payload's parkId/
+ * parkName come from — NOT the separate "park check-in" write (sessions doc
+ * + preferredParkId), which intentionally stays inline in handleSummaryFinish
+ * only (out of scope for the shortcut path). The caller gets `detectedPark`
+ * back so handleSummaryFinish can still feed its own unrelocated park
+ * check-in + feed-post steps from the same single detection call.
+ */
+async function saveWorkoutToHistory({
+  userId,
+  durationSec,
+  difficulty,
+  totalReps,
+  completedExercises,
+  workoutPlan,
+  xpEarned: awardedXP,
+  xpStatus: xpAwardStatus,
+}: SaveWorkoutToHistoryParams): Promise<{
+  saved: boolean;
+  detectedPark: Awaited<ReturnType<typeof detectNearbyPark>>;
+}> {
+  const durationMin = Math.max(1, Math.round(durationSec / 60));
+
+  // 0. Detect nearest park (within 200 m) up front so the workout doc, the
+  // sessions check-in, and the feed post all see the same parkId. Coordinates
+  // come from the shared GPS store (driven by useGPS) — no prompt here; if
+  // there's no fix we simply skip park tagging.
+  let detectedPark: Awaited<ReturnType<typeof detectNearbyPark>> = null;
+  const gpsFix = useGPSStore.getState().coords;
+  if (gpsFix) {
+    detectedPark = await detectNearbyPark(gpsFix.lat, gpsFix.lng).catch(() => null);
+  }
+
+  // 1. Save workout to Firestore history (include XP + optional park tagging)
+  let saved = false;
+  if (userId) {
+    try {
+      const bolts: 1 | 2 | 3 =
+        difficulty === 'easy' ? 1 :
+        difficulty === 'hard' ? 3 : 2;
+      const totalSetsCount = completedExercises.reduce(
+        (acc, ex) => acc + ex.sets.length, 0,
+      );
+      // sessionXP (streak:0) is used only as a fallback when the Cloud
+      // Function hasn't resolved yet. The authoritative value comes from the
+      // caller: for the summary flow it's StrengthSummaryPage's onFinish
+      // callback (captures what the Guardian CF actually persisted); for the
+      // recovery-trio shortcut it's the constant {0, 'awarded'} pair
+      // useXpAward's own isRecovery guard would have produced (recovery
+      // sessions never call the strength-XP CF — see useXpAward.ts).
+      const sessionXP = calculateStrengthWorkoutXP({
+        durationMinutes: durationMin,
+        difficultyBolts: bolts,
+        totalSets: totalSetsCount,
+        totalReps,
+        streak: 0,
+      });
+
+      const xpToStore =
+        xpAwardStatus === 'awarded' ? awardedXP
+        : xpAwardStatus === 'pending' ? sessionXP
+        : 0;
+
+      // Phase 0 (hybrid plumbing): one strength segment record — the same
+      // planned-vs-actual segments[] shape the combined summary will
+      // consume. Keys are conditionally spread (no undefined in arrays).
+      const plannedExercises = workoutPlan?.segments?.reduce(
+        (acc, seg) => acc + (seg.exercises?.length ?? 0), 0) ?? 0;
+      const plannedSets = workoutPlan?.segments?.reduce(
+        (acc, seg) => acc + (seg.exercises?.reduce((a, ex) => a + (ex.sets ?? 0), 0) ?? 0), 0) ?? 0;
+      const strengthSegment = {
+        index: 0,
+        kind: 'strength' as const,
+        ...(workoutPlan?.name ? { label: workoutPlan.name } : {}),
+        ...(plannedExercises > 0 || plannedSets > 0
+          ? {
+              planned: {
+                ...(plannedExercises > 0 ? { exercises: plannedExercises } : {}),
+                ...(plannedSets > 0 ? { sets: plannedSets } : {}),
+              },
+            }
+          : {}),
+        actual: {
+          durationSec,
+          exercises: completedExercises.length,
+          sets: totalSetsCount,
+        },
+        ...(detectedPark ? { parkId: detectedPark.parkId } : {}),
+      };
+
+      // RECOVERY_WORKOUT_CATEGORIZATION_ENABLED (classification-only fix):
+      // the pure recovery-video-trio session (exactly one 'seg-recovery'
+      // segment — see isPureRecoveryVideoTrioWorkout) gets its own
+      // workoutType/category/icon instead of being saved as a real
+      // strength workout. While the flag is off, or for either of the
+      // other two isRecovery:true producers (Budget-Floor cooldown /
+      // standard rest-day generator — both fail the discriminator), this
+      // falls through to today's exact hardcoded 'strength' values.
+      const isPureRecoveryVideoTrio =
+        RECOVERY_WORKOUT_CATEGORIZATION_ENABLED &&
+        isPureRecoveryVideoTrioWorkout(workoutPlan);
+      const classificationFields = isPureRecoveryVideoTrio
+        ? {
+            workoutType: 'recovery' as const,
+            category: 'recovery' as const,
+            isRecovery: true,
+            displayIcon: 'moon',
+          }
+        : {
+            // Lowercase on purpose: every reader compares === 'strength'.
+            // The old 'STRENGTH' literal only matched via the category
+            // fallback — legacy docs keep the uppercase value.
+            workoutType: 'strength' as const,
+            category: 'strength' as const,
+            displayIcon: 'dumbbell',
+          };
+
+      saved = await saveWorkout({
+        userId,
+        activityType: 'strength',
+        distance: 0,
+        duration: durationSec,
+        calories: 0,
+        pace: 0,
+        earnedCoins: 0,
+        xpEarned: xpToStore,
+        ...(xpAwardStatus === 'failed' ? { xpAwardFailed: true } : {}),
+        ...classificationFields,
+        segments: [strengthSegment],
+        ...(detectedPark
+          ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
+          : {}),
+      });
+      console.log('[ActiveWorkoutPage] Workout saved to history');
+    } catch (err) {
+      console.error('[ActiveWorkoutPage] Failed to save workout:', err);
+    }
+  }
+
+  return { saved, detectedPark };
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -672,7 +835,7 @@ export default function ActiveWorkoutPage() {
    * Handle workout completion - merge real exercise log with plan data,
    * then transition to dopamine screen.
    */
-  const handleComplete = useCallback((exerciseLog?: ExerciseResultLog[]) => {
+  const handleComplete = useCallback(async (exerciseLog?: ExerciseResultLog[]) => {
     if (!workoutPlan) return;
     
     // Freeze pre-workout percent before any Firestore writes
@@ -753,9 +916,91 @@ export default function ActiveWorkoutPage() {
     // moment the player finishes, before the dopamine/summary screens.
     if (ownsSessionRef.current) useSessionStore.getState().endSession();
 
+    // ── RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED shortcut ────────────────────────
+    // Pure recovery-video-trio session (see feature-flags.ts for the full
+    // writeup): skip dopamine + summary entirely and go straight to /home,
+    // but still perform the two writes that would otherwise only fire from
+    // the (now-skipped) summary screen's mount effect + Finish tap — reusing
+    // the exact same functions those call sites use, not reimplementing them.
+    // Every other workout type (flag false, or isPureRecoveryVideoTrioWorkout
+    // false) falls through unchanged to today's setFlowState('dopamine').
+    if (RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED && isPureRecoveryVideoTrioWorkout(workoutPlan)) {
+      // 3a. Streak/completion write — same body useActivitySync's mount
+      // effect performs (Activity Store, coins, Weekly Volume Store,
+      // 48h muscle shield), relocated to fire here instead of never mounting.
+      // durationMinutes/calories/coins are computed with the exact same pure
+      // helpers useSummaryAnalytics uses, from the same local `duration`/
+      // `difficulty` this function already computed above.
+      const durationMinutes = Math.max(Math.round(duration / 60), 1);
+      const calories = calculateCalories(duration, difficulty);
+      const coins = calculateCoins(calories);
+      await runActivitySync({
+        trainingType: workoutPlan.trainingType,
+        durationMinutes,
+        calories,
+        coins,
+        programName: workoutPlan.name || 'אימון כוח',
+        programId: userProgression.programId,
+        rawExerciseLog: exerciseLog ?? [],
+        completedExercises,
+        difficulty,
+        isRecovery: workoutPlan.isRecovery === true,
+        domainSets: Object.keys(domainSets).length > 0 ? domainSets : undefined,
+      });
+
+      // 3b. saveWorkout — same classification + payload logic
+      // handleSummaryFinish uses (saveWorkoutToHistory above), reused rather
+      // than reimplemented. Recovery sessions never call the strength-XP
+      // Cloud Function (useXpAward's isRecovery guard short-circuits it) —
+      // xpEarned is always 0 and xpStatus always 'awarded', synchronously —
+      // so those exact constants are passed here instead of running the hook.
+      const { saved } = await saveWorkoutToHistory({
+        userId: auth.currentUser?.uid,
+        durationSec: duration,
+        difficulty,
+        totalReps,
+        completedExercises,
+        workoutPlan,
+        xpEarned: 0,
+        xpStatus: 'awarded',
+      });
+
+      // Clear the crash-recovery checkpoint ONLY on a successful Firestore
+      // save — same guard + placement handleSummaryFinish uses (see its own
+      // step 3) before its sessionStorage cleanup below.
+      if (saved) {
+        clearWorkoutCheckpoint();
+      }
+
+      // Match handleSummaryFinish's sessionStorage-cleanup + session-clearing
+      // tail behaviour (gated the same way, via ownsSessionRef.current) before
+      // navigating to the exact same destination its own Finish button uses.
+      // Deliberately NOT replicated here (out of scope for this shortcut —
+      // see feature-flags.ts): the park check-in write and the social-feed
+      // post, both of which also live inside handleSummaryFinish.
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('active_workout_data');
+        sessionStorage.removeItem('currentWorkoutPlanId');
+        sessionStorage.removeItem('generatedExerciseRanges');
+        sessionStorage.removeItem('progression_started_this_session');
+        sessionStorage.removeItem('progression_failed_this_session');
+      }
+      // Best-effort profile refresh so /home doesn't show a brief stale-data
+      // flash (streak/rings/coins) — same try/catch shape handleSummaryFinish
+      // uses right before its own navigation.
+      try {
+        await refreshProfile();
+      } catch (e) {
+        console.error('[ActiveWorkoutPage] Failed to refresh profile before navigating:', e);
+      }
+      if (ownsSessionRef.current) useSessionStore.getState().clearSession();
+      router.push('/home');
+      return;
+    }
+
     // Transition to dopamine screen (NOT router.push)
     setFlowState('dopamine');
-  }, [workoutPlan, workoutStats.startTime, userProgression.percent]);
+  }, [workoutPlan, workoutStats.startTime, userProgression.percent, userProgression.programId, router, refreshProfile]);
 
   // === RUN PROGRESSION ENGINE ONCE (shared by Dopamine + Summary) ===
   useEffect(() => {
@@ -962,121 +1207,21 @@ export default function ActiveWorkoutPage() {
     const durationSec = workoutStats.duration;
     const durationMin = Math.max(1, Math.round(durationSec / 60));
 
-    // 0. Detect nearest park (within 200 m) up front so the workout doc, the
-    // sessions check-in, and the feed post all see the same parkId. Coordinates
-    // come from the shared GPS store (driven by useGPS) — no prompt here; if
-    // there's no fix we simply skip park tagging.
-    let detectedPark: Awaited<ReturnType<typeof detectNearbyPark>> = null;
-    const gpsFix = useGPSStore.getState().coords;
-    if (gpsFix) {
-      detectedPark = await detectNearbyPark(gpsFix.lat, gpsFix.lng).catch(() => null);
-    }
-
-    // 1. Save workout to Firestore history (include XP + optional park tagging)
-    let saved = false;
-    if (currentUser) {
-      try {
-        const bolts: 1 | 2 | 3 =
-          workoutStats.difficulty === 'easy' ? 1 :
-          workoutStats.difficulty === 'hard' ? 3 : 2;
-        const totalSetsCount = workoutStats.completedExercises.reduce(
-          (acc, ex) => acc + ex.sets.length, 0,
-        );
-        // sessionXP (streak:0) is used only as a fallback when the Cloud Function
-        // hasn't resolved yet.  The authoritative value comes from StrengthSummaryPage
-        // via the onFinish callback, which captures what the Guardian CF actually persisted.
-        const sessionXP = calculateStrengthWorkoutXP({
-          durationMinutes: durationMin,
-          difficultyBolts: bolts,
-          totalSets: totalSetsCount,
-          totalReps: workoutStats.totalReps,
-          streak: 0,
-        });
-
-        // xpAwardStatus from StrengthSummaryPage.runAwardXP:
-        //   'awarded'  → CF succeeded, awardedXP is exact
-        //   'pending'  → user tapped finish before CF resolved; use sessionXP (close enough)
-        //   'failed'   → CF failed and was rolled back; store 0 and flag for recovery
-        const xpToStore =
-          xpAwardStatus === 'awarded' ? awardedXP
-          : xpAwardStatus === 'pending' ? sessionXP
-          : 0;
-
-        // Phase 0 (hybrid plumbing): one strength segment record — the same
-        // planned-vs-actual segments[] shape the combined summary will
-        // consume. Keys are conditionally spread (no undefined in arrays).
-        const plannedExercises = stableWorkoutPlan?.segments?.reduce(
-          (acc, seg) => acc + (seg.exercises?.length ?? 0), 0) ?? 0;
-        const plannedSets = stableWorkoutPlan?.segments?.reduce(
-          (acc, seg) => acc + (seg.exercises?.reduce((a, ex) => a + (ex.sets ?? 0), 0) ?? 0), 0) ?? 0;
-        const strengthSegment = {
-          index: 0,
-          kind: 'strength' as const,
-          ...(stableWorkoutPlan?.name ? { label: stableWorkoutPlan.name } : {}),
-          ...(plannedExercises > 0 || plannedSets > 0
-            ? {
-                planned: {
-                  ...(plannedExercises > 0 ? { exercises: plannedExercises } : {}),
-                  ...(plannedSets > 0 ? { sets: plannedSets } : {}),
-                },
-              }
-            : {}),
-          actual: {
-            durationSec,
-            exercises: workoutStats.completedExercises.length,
-            sets: totalSetsCount,
-          },
-          ...(detectedPark ? { parkId: detectedPark.parkId } : {}),
-        };
-
-        // RECOVERY_WORKOUT_CATEGORIZATION_ENABLED (classification-only fix):
-        // the pure recovery-video-trio session (exactly one 'seg-recovery'
-        // segment — see isPureRecoveryVideoTrioWorkout) gets its own
-        // workoutType/category/icon instead of being saved as a real
-        // strength workout. While the flag is off, or for either of the
-        // other two isRecovery:true producers (Budget-Floor cooldown /
-        // standard rest-day generator — both fail the discriminator), this
-        // falls through to today's exact hardcoded 'strength' values.
-        const isPureRecoveryVideoTrio =
-          RECOVERY_WORKOUT_CATEGORIZATION_ENABLED &&
-          isPureRecoveryVideoTrioWorkout(stableWorkoutPlan);
-        const classificationFields = isPureRecoveryVideoTrio
-          ? {
-              workoutType: 'recovery' as const,
-              category: 'recovery' as const,
-              isRecovery: true,
-              displayIcon: 'moon',
-            }
-          : {
-              // Lowercase on purpose: every reader compares === 'strength'.
-              // The old 'STRENGTH' literal only matched via the category
-              // fallback — legacy docs keep the uppercase value.
-              workoutType: 'strength' as const,
-              category: 'strength' as const,
-              displayIcon: 'dumbbell',
-            };
-
-        saved = await saveWorkout({
-          userId: currentUser.uid,
-          activityType: 'strength',
-          distance: 0,
-          duration: durationSec,
-          calories: 0,
-          pace: 0,
-          earnedCoins: 0,
-          xpEarned: xpToStore,
-          ...(xpAwardStatus === 'failed' ? { xpAwardFailed: true } : {}),
-          ...classificationFields,
-          segments: [strengthSegment],
-          ...(detectedPark
-            ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
-            : {}),
-        });
-        console.log('[ActiveWorkoutPage] Workout saved to history');
-      } catch (err) {
-        console.error('[ActiveWorkoutPage] Failed to save workout:', err);
-      }
-    }
+    // 0 + 1. Detect nearest park + save workout to Firestore history
+    // (include XP + optional park tagging). Extracted to saveWorkoutToHistory
+    // (above) so this exact payload-building + classification logic is
+    // shared with the recovery-video-trio shortcut branch in handleComplete
+    // instead of being duplicated by hand.
+    const { saved, detectedPark } = await saveWorkoutToHistory({
+      userId: currentUser?.uid,
+      durationSec,
+      difficulty: workoutStats.difficulty,
+      totalReps: workoutStats.totalReps,
+      completedExercises: workoutStats.completedExercises,
+      workoutPlan: stableWorkoutPlan,
+      xpEarned: awardedXP,
+      xpStatus: xpAwardStatus,
+    });
 
     // 1b. Park check-in for `getPopularParks()` analytics.
     // Best-effort: never block UI / navigation on this write.

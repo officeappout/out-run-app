@@ -871,6 +871,50 @@ export const RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED = true;
 // false, byte-identical instantly, no code change needed.
 export const HOME_RECOVERY_START_SHORTCUT_ENABLED = false;
 
+// RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED: skips the dopamine + summary screens
+// entirely for a "pure recovery video trio" rest-day session (a rest-day
+// workout that is structurally just ONE follow-along video — see
+// isPureRecoveryVideoTrioWorkout in
+// workout-engine/shared/utils/recovery-video-trio.utils.ts for the canonical
+// WorkoutPlan-shaped discriminator). Today, when that single video's
+// exercise completes (auto-advance or the "סיימתי" tap), the state
+// machine's workoutComplete decision fires StrengthRunner's onComplete →
+// active/page.tsx's handleComplete, which unconditionally shows
+// StrengthDopamineScreen (percentage/level-up celebration) then
+// StrengthSummaryPage (stats + "Finish" button) — and ONLY the Finish tap
+// actually writes the workout to history (saveWorkout) and fires the
+// streak/completion write (useActivitySync's mount effect). Every OTHER
+// workout type (real strength, multi-exercise recovery e.g. the Budget
+// Floor cooldown) is completely unaffected — they keep showing
+// dopamine → summary → Finish exactly as today.
+//
+// Gates a single branch inside active/page.tsx's handleComplete, checked
+// exactly where it unconditionally calls setFlowState('dopamine'): when
+// isPureRecoveryVideoTrioWorkout(workoutPlan) AND this flag are both true,
+// handleComplete performs the same two writes the summary flow would have
+// performed instead — runActivitySync (useActivitySync.ts's mount-effect
+// body, extracted into a standalone callable so both call sites share one
+// implementation) and saveWorkoutToHistory (the same classification-gated
+// saveWorkout payload builder handleSummaryFinish uses, likewise extracted
+// and shared) — then navigates straight to /home, WITHOUT ever calling
+// setFlowState('dopamine') or setFlowState('summary'). XP is unaffected
+// either way: useXpAward already never calls the strength-XP Cloud Function
+// for isRecovery:true sessions (recoveryXp defaults to 0, status resolves
+// 'awarded' synchronously, no CF round-trip) — the shortcut passes that
+// same {0, 'awarded'} pair instead of running the hook. The park check-in
+// write and the social-feed post that also live inside handleSummaryFinish
+// are deliberately NOT relocated — for this shortcut path they simply
+// never fire, same as any other early return before that code.
+//
+// While FALSE (default), the discriminator + flag check inside
+// handleComplete is short-circuited on this flag first, so handleComplete's
+// behaviour is byte-identical to before this diff for every workout type,
+// including the video trio: dopamine → summary → Finish still shows, and
+// saveWorkout/the streak write still only fire from their existing
+// locations on the Finish tap. Kill-switch: flip back to false,
+// byte-identical instantly, no code change needed.
+export const RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
