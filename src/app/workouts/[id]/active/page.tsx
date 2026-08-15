@@ -1625,14 +1625,49 @@ export default function ActiveWorkoutPage() {
             too. z-[46] is not in .cursorrules' Map-UI-scoped Z-Index Budget
             table, but is already the established local convention in that
             exact sibling file for this exact screen state (see its own
-            comment: "no new z-index value is introduced"). */}
+            comment: "no new z-index value is introduced").
+
+            15.08.2026 follow-up (on-device feedback): David asked for (1) a
+            top placement and (2) white text added. (2) is done below — the
+            literal string "עצור אימון" does not exist anywhere in the
+            codebase (repo-wide grep, zero hits); the nearest real button is
+            PauseOverlay.tsx's "סיום אימון", which is dark-text-on-white
+            (bg-white + text-slate-800) and is NOT white text, so it could
+            not be matched verbatim without contradicting the explicit
+            "white text" ask. Matched instead on the traits shared by EVERY
+            actionable button in this family regardless of which one —
+            PauseOverlay's "סיום אימון"/"התחילו שוב", ExitConfirmModal's
+            "יאללה להמשיך", and this exact sibling file's own "צפה בהסבר
+            המלא" pill: font-bold + fontFamily var(--font-simpler). Text
+            stays white (already this button's own text-white, and the one
+            genuinely-white-text button in the target family — "התחילו
+            שוב"). Pill sizing (gap-1.5/px-3.5/py-2, text-[13px]) is lifted
+            from THIS file's own "צפה בהסבר המלא" sibling one screen away —
+            a closer size-analog than PauseOverlay's h-16 CTAs, which are a
+            different scale of control entirely.
+            (1) was NOT done — re-verified against live RunnerHeader.tsx
+            (not just this comment): it renders `absolute top-0 left-0
+            right-0` for every workoutState except PREPARING (i.e.
+            essentially this whole session, since a recovery-video-trio's
+            single seg-recovery segment lives in ACTIVE), its gradient is
+            ≥98% opaque white through the top 35% of its own height (a
+            white icon/label would be near-invisible there), and both
+            corner buttons are live (embedded=false on this route, so
+            hideMinimize is false too — minimize occupies left, pause
+            occupies right). No slot is simultaneously collision-free and
+            legible without editing RunnerHeader.tsx itself, which is out of
+            this change's scope — reported as a blocking finding instead of
+            forcing a placement. Left at bottom-[236px] pending direction. */}
         {isRecoveryVideoExitEligible && (
           <button
             onClick={handleRecoveryVideoExit}
-            className="absolute bottom-[236px] right-4 z-[46] flex items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20"
+            className="absolute bottom-[236px] right-4 z-[46] inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20"
+            style={{ fontFamily: 'var(--font-simpler)' }}
             aria-label="סגור"
+            dir="rtl"
           >
             <X size={20} />
+            <span className="text-[13px] font-bold">סגור</span>
           </button>
         )}
 
