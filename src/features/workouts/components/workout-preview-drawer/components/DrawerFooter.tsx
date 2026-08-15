@@ -99,7 +99,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
       <div className="flex items-center gap-3" dir="rtl">
         {/* Start Workout — gradient pill, full-width (RIGHT in RTL) */}
         <button
-          onClick={onStart}
+          onClick={() => onStart()}
           disabled={startDisabled}
           className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-lg border-0 outline-none disabled:opacity-40 disabled:active:scale-100"
           style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 42 }}

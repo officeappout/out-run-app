@@ -799,6 +799,40 @@ export const RECOVERY_DAY_BADGE_FIX_ENABLED = true;
 // needed.
 export const RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED = true;
 
+// HOME_RECOVERY_START_SHORTCUT_ENABLED: skips the workout-preview drawer
+// entirely for a "pure recovery video trio" rest-day session (a rest-day
+// workout that is structurally just ONE follow-along video — see
+// isPureRecoveryVideoTrioWorkout in
+// workout-engine/shared/utils/recovery-video-trio.utils.ts for the canonical
+// WorkoutPlan-shaped discriminator). Today, tapping that hero card on the
+// home page opens WorkoutPreviewDrawer (tap 1), which requires a second tap
+// on the single exercise card and a third tap on "Start" before the video
+// actually plays — three taps of friction for what is, structurally, one
+// continuous video with nothing else to preview. Every OTHER workout type
+// (real strength workouts, multi-exercise recovery workouts e.g. the Budget
+// Floor cooldown) is completely unaffected — they keep opening the drawer
+// exactly as today.
+//
+// Gates a single branch inside home/page.tsx's handleHeroPress: AFTER the
+// existing interceptWorkoutStart() health-declaration hard-block passes
+// (unconditional, unchanged — runs for every path including this shortcut),
+// a pre-flatten equivalent of isPureRecoveryVideoTrioWorkout is checked
+// against generatedWorkoutRef.current (the raw GeneratedWorkout, before the
+// WorkoutPlan flatten that normally happens inside openWorkoutPreview). When
+// it matches, handleHeroPress calls useWorkoutSession's handleStartWorkout
+// directly (the exact same hand-off WorkoutPreviewDrawer's own "Start"
+// button already uses — see
+// features/workouts/components/workout-preview-drawer/hooks/useWorkoutSession.ts)
+// instead of setSelectedWorkout(...), so the drawer never mounts and the
+// active video-playback screen opens on the first tap.
+//
+// While FALSE (default), the discriminator check never runs — short-
+// circuited on this flag first — so home/page.tsx's tap handling is byte-
+// identical to before this diff for every workout type, including the video
+// trio: the drawer still opens exactly as now. Kill-switch: flip back to
+// false, byte-identical instantly, no code change needed.
+export const HOME_RECOVERY_START_SHORTCUT_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
