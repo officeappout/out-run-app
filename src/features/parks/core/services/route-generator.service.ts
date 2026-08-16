@@ -1602,6 +1602,24 @@ export async function fetchPublishedCorridorsForCity(cityCandidates: string[]): 
   return corridors;
 }
 
+/**
+ * Shared fallback to normal (non-corridor) generation — same decision
+ * `generateDynamicRoutes`' own dispatcher makes for a request with neither
+ * `discoverCorridorChain` nor `userAnchoredCorridorFlow` set. Extracted
+ * 16.08.2026 (pre-flip safety review, David-requested) after finding
+ * `generateDiscoveredChainRoute` had NO fallback for a corridor-less city —
+ * it returned `[]` instead, unlike `generateUserAnchoredFlowRoute`'s
+ * explicit fallback (Stage B). Both corridor-adjacency entry points now use
+ * this so neither can return empty just because a city has zero corridors —
+ * the ~244 cities without any `official_routes` data must still get a
+ * valid, non-empty route when `IS_ROUTE_ADJACENCY_ENABLED` is on.
+ */
+function fallbackToNormalGeneration(options: RouteGenerationOptions): Promise<Route[]> {
+  const rawDistance = typeof options.targetDistance === 'number' && !isNaN(options.targetDistance) ? options.targetDistance : 3;
+  if (options.shortRouteMode && rawDistance < MIN_GENERATION_KM) return generateShortRoutes(options);
+  return generateLoopRoutes(options);
+}
+
 async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Promise<Route[]> {
   if (!IS_ROUTE_ADJACENCY_ENABLED) {
     _lastChainDiscoveryDiagnostics = {
@@ -1622,16 +1640,39 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
   const cleanCity = (cityName || '').trim();
   const cityCandidates = resolveCityNameQueryAliases(cleanCity);
 
-  const { InventoryService } = await import('./inventory.service');
+  const finish = (chainRouteIds: string[], finalDistanceKm: number, stopReason: ChainDiscoveryDiagnostics['stopReason'], edgesAvailable: number, route: Route[]): Route[] => {
+    _lastChainDiscoveryDiagnostics = {
+      cityNameUsed: cleanCity,
+      corridorsConsidered: corridors.size,
+      edgesAvailable,
+      chainRouteIds,
+      attempts,
+      finalDistanceKm,
+      stopReason,
+      timestamp: Date.now(),
+    };
+    console.log(`[RouteGenerator] generateDiscoveredChainRoute: ${chainRouteIds.length} corridors, ${finalDistanceKm.toFixed(2)}km, stop=${stopReason} (${attempts.length} connector attempts, ${attempts.filter(a => a.accepted).length} accepted)`);
+    return route;
+  };
+
+  // ── Fetch candidate corridors FIRST and bail immediately for a
+  // corridor-less city — before any route_adjacency query or other work.
+  // (16.08.2026, pre-flip safety fix: this used to run the route_adjacency
+  // query unconditionally, which both wasted a read for the ~244
+  // corridor-less cities and meant this function had a hard runtime
+  // dependency on route_adjacency even when there was nothing to chain.)
+  const corridors = await fetchPublishedCorridorsForCity(cityCandidates);
+  if (corridors.size === 0) {
+    console.log('[RouteGenerator] generateDiscoveredChainRoute: no published corridors for this city — falling back to normal generation');
+    return finish([], 0, 'no_starting_corridor', 0, await fallbackToNormalGeneration(options));
+  }
+
   const { MapboxService } = await import('./mapbox.service');
   const {
     findNearestContactPoint,
     orientCorridorForSplice,
     spliceCorridorChain,
   } = await import('./route-adjacency.service');
-
-  // ── Fetch candidate corridors + precomputed edges for this city ────────
-  const corridors = await fetchPublishedCorridorsForCity(cityCandidates);
 
   const edgeDocs = await Promise.all(
     cityCandidates.map((c) => getDocs(query(collection(db, 'route_adjacency'), where('cityName', '==', c)))),
@@ -1649,23 +1690,6 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
     }
   }
 
-  const finish = (chainRouteIds: string[], finalDistanceKm: number, stopReason: ChainDiscoveryDiagnostics['stopReason'], route: Route[]): Route[] => {
-    _lastChainDiscoveryDiagnostics = {
-      cityNameUsed: cleanCity,
-      corridorsConsidered: corridors.size,
-      edgesAvailable,
-      chainRouteIds,
-      attempts,
-      finalDistanceKm,
-      stopReason,
-      timestamp: Date.now(),
-    };
-    console.log(`[RouteGenerator] generateDiscoveredChainRoute: ${chainRouteIds.length} corridors, ${finalDistanceKm.toFixed(2)}km, stop=${stopReason} (${attempts.length} connector attempts, ${attempts.filter(a => a.accepted).length} accepted)`);
-    return route;
-  };
-
-  if (corridors.size === 0) return finish([], 0, 'no_starting_corridor', []);
-
   // ── Start from the corridor nearest the user ────────────────────────────
   let nearestId: string | null = null;
   let nearestDist = Infinity;
@@ -1676,7 +1700,7 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
       nearestId = c.id;
     }
   }
-  if (!nearestId) return finish([], 0, 'no_starting_corridor', []);
+  if (!nearestId) return finish([], 0, 'no_starting_corridor', edgesAvailable, []);
 
   const chainIds: string[] = [nearestId];
   let orientedPaths: [number, number][][] = [corridors.get(nearestId)!.path];
@@ -1767,7 +1791,7 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
     totalDistanceKm += connectorLengthMeters / 1000 + pathLengthMeters(orientedTo) / 1000;
   }
 
-  if (chainIds.length < 2) return finish(chainIds, totalDistanceKm, 'no_more_edges', []);
+  if (chainIds.length < 2) return finish(chainIds, totalDistanceKm, 'no_more_edges', edgesAvailable, []);
 
   const splicedPath = spliceCorridorChain(orientedPaths, connectors);
   const speedKmh = activity === 'cycling' ? SPEED_KMH.cycling : activity === 'running' ? SPEED_KMH.running : SPEED_KMH.walking;
@@ -1812,7 +1836,7 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
 
   const stopReason: ChainDiscoveryDiagnostics['stopReason'] =
     totalDistanceKm >= targetDistance ? 'target_reached' : chainIds.length >= MAX_CHAIN_CORRIDORS ? 'max_corridors' : 'no_more_edges';
-  return finish(chainIds, totalDistanceKm, stopReason, [route]);
+  return finish(chainIds, totalDistanceKm, stopReason, edgesAvailable, [route]);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1929,29 +1953,19 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
   // accepted here but not branched on until a real loop-return layer exists.
   const returnShape: NonNullable<RouteGenerationOptions['returnShape']> = options.returnShape ?? 'out_and_back';
 
-  // Fallback to normal (non-corridor) generation — same decision
-  // generateDynamicRoutes' own dispatcher makes, duplicated here (not
-  // extracted) since it's 3 lines and this function needs it from two
-  // different bail-out points below.
-  const fallbackToNormalGeneration = (): Promise<Route[]> => {
-    const rawDistance = typeof targetDistance === 'number' && !isNaN(targetDistance) ? targetDistance : 3;
-    if (options.shortRouteMode && rawDistance < MIN_GENERATION_KM) return generateShortRoutes(options);
-    return generateLoopRoutes(options);
-  };
-
   const { orientCorridorForFlow, orientCorridorForSplice, findNearestContactPoint } = await import('./route-adjacency.service');
   const { MapboxService } = await import('./mapbox.service');
 
   const corridors = await fetchPublishedCorridorsForCity(cityCandidates);
   if (corridors.size === 0) {
     console.log('[RouteGenerator] generateUserAnchoredFlowRoute: no published corridors for this city — falling back to normal generation');
-    return fallbackToNormalGeneration();
+    return fallbackToNormalGeneration(options);
   }
 
   const selection = await selectProximityAwareCorridor(userLocation, targetMeters, corridors, profile);
   if (!selection) {
     console.log('[RouteGenerator] generateUserAnchoredFlowRoute: no corridor close enough for this target (f<=0.5) — falling back to normal generation');
-    return fallbackToNormalGeneration();
+    return fallbackToNormalGeneration(options);
   }
 
   const nearestId = selection.corridorId;
