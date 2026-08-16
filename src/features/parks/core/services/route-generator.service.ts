@@ -253,6 +253,18 @@ interface RouteGenerationOptions {
    * is close enough to be worth the detour, per `selectProximityAwareCorridor`.
    */
   userAnchoredCorridorFlow?: boolean;
+  /**
+   * Structural hook only (Stage C, 16.08.2026, David-approved — explicitly
+   * "no junction/traffic-light-aware scoring... a placeholder seam, not a
+   * partial implementation"). `'out_and_back'` is the only supported value
+   * today and `generateUserAnchoredFlowRoute` builds it unconditionally
+   * regardless of what's passed — this field exists purely so a future
+   * loop-return layer (once real junction/scoring logic is designed) has
+   * somewhere to plug in `'loop'` as a second value without another
+   * `RouteGenerationOptions` interface change. Ignored by every other
+   * generation path; defaults to `'out_and_back'` when omitted.
+   */
+  returnShape?: 'out_and_back';
 }
 
 // ── Street-segment types ───────────────────────────────────────────────────────
@@ -1913,6 +1925,9 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
   const cityCandidates = resolveCityNameQueryAliases(cleanCity);
   const profile = activity === 'cycling' ? 'cycling' : 'walking';
   const targetMeters = targetDistance * 1000;
+  // Stage C structural hook: 'out_and_back' is the only supported value —
+  // accepted here but not branched on until a real loop-return layer exists.
+  const returnShape: NonNullable<RouteGenerationOptions['returnShape']> = options.returnShape ?? 'out_and_back';
 
   // Fallback to normal (non-corridor) generation — same decision
   // generateDynamicRoutes' own dispatcher makes, duplicated here (not
@@ -2056,7 +2071,7 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
     sourceOfficialRouteIds: chainIds,
   };
 
-  console.log(`[RouteGenerator] generateUserAnchoredFlowRoute: ${chainIds.length} corridor(s) [${corridorNames.join(' -> ')}], one-way ${oneWayKm.toFixed(2)}km, round-trip ${totalDistanceKm.toFixed(2)}km (target ${targetDistance}km)`);
+  console.log(`[RouteGenerator] generateUserAnchoredFlowRoute: ${chainIds.length} corridor(s) [${corridorNames.join(' -> ')}], one-way ${oneWayKm.toFixed(2)}km, round-trip ${totalDistanceKm.toFixed(2)}km (target ${targetDistance}km, returnShape=${returnShape})`);
 
   return [route];
 }
