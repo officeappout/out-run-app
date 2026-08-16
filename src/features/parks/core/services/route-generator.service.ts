@@ -9,7 +9,7 @@ import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
-import { buildOutAndBackPath, isSameCoord, pathLengthMeters } from './geoUtils';
+import { buildOutAndBackPath, isSameCoord, pathLengthMeters, sliceFlowPathToDistance } from './geoUtils';
 import { SPEED_KMH, KCAL_PER_KM } from './route-request.utils';
 import {
   IS_PROXIMITY_SEGMENT_QUERY_ENABLED,
@@ -235,6 +235,24 @@ interface RouteGenerationOptions {
    * `preferences` and the `street_segments` waypoint pool entirely.
    */
   discoverCorridorChain?: boolean;
+  /**
+   * User-anchored, corridor-flowing, distance-trimmed mode (David-approved
+   * 16.08.2026, .claude/plans/build-the-phase-0-noble-kahn.md — "NEW
+   * CAPABILITY" section). Unlike `followOfficialRouteId`/`discoverCorridorChain`,
+   * the route starts AT THE USER, not at a corridor: the user->corridor leg
+   * is a real Mapbox connector and counts toward `targetDistance`. Flows
+   * through one or more nearby corridors (extending via the same
+   * `route_adjacency` chain-walk `discoverCorridorChain` uses), TRIMS the
+   * accumulated flow to exactly half of `targetDistance`, then mirrors it
+   * into a round trip (`buildOutAndBackPath`) — out-and-back is the
+   * guaranteed shape (a future `returnShape` field is the planned seam for
+   * an eventual loop-return option — not built yet). Requires
+   * `IS_ROUTE_ADJACENCY_ENABLED`; returns `[]`
+   * immediately when that flag is off (see `generateUserAnchoredFlowRoute`).
+   * Falls back to normal (non-corridor) generation when no nearby corridor
+   * is close enough to be worth the detour, per `selectProximityAwareCorridor`.
+   */
+  userAnchoredCorridorFlow?: boolean;
 }
 
 // ── Street-segment types ───────────────────────────────────────────────────────
@@ -1294,7 +1312,12 @@ async function findFitnessAnchor(
 export async function generateDynamicRoutes(
   options: RouteGenerationOptions
 ): Promise<Route[]> {
-  // Chain-discovery mode — most specific request wins, checked first.
+  // User-anchored corridor-flow mode — most specific request wins, checked first.
+  if (options.userAnchoredCorridorFlow) {
+    return generateUserAnchoredFlowRoute(options);
+  }
+
+  // Chain-discovery mode.
   if (options.discoverCorridorChain) {
     return generateDiscoveredChainRoute(options);
   }
@@ -1778,6 +1801,192 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
   const stopReason: ChainDiscoveryDiagnostics['stopReason'] =
     totalDistanceKm >= targetDistance ? 'target_reached' : chainIds.length >= MAX_CHAIN_CORRIDORS ? 'max_corridors' : 'no_more_edges';
   return finish(chainIds, totalDistanceKm, stopReason, [route]);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Stage A/B — user-anchored corridor flow
+// (.claude/plans/build-the-phase-0-noble-kahn.md, David-approved 16.08.2026)
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Stage A of the user-anchored corridor-flow build. Starts the route AT
+ * THE USER (unlike `followOfficialRouteId`/`discoverCorridorChain`, both of
+ * which start from a corridor) — the user->corridor leg is a real Mapbox
+ * connector and counts toward `targetDistance`. Flows through one or more
+ * corridors (extending via the same `route_adjacency` chain-walk
+ * `generateDiscoveredChainRoute` already runs — a small local walk here
+ * rather than a shared function, so that already-shipped, already-tested
+ * function stays untouched; see Stage 0's isolation discipline), trims the
+ * accumulated flow to exactly half of `targetDistance`
+ * (`sliceFlowPathToDistance`), then mirrors it into a round trip
+ * (`buildOutAndBackPath` — confirmed by its own doc comment to do exactly
+ * this job, no adaptation needed).
+ *
+ * Stage A ships with the SIMPLEST correct corridor selection — nearest to
+ * the user, unconditionally. Stage B replaces just that selection step with
+ * `selectProximityAwareCorridor` (the `f <= 0.5` proximity check) plus a
+ * fallback to normal generation when nothing qualifies.
+ */
+async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): Promise<Route[]> {
+  if (!IS_ROUTE_ADJACENCY_ENABLED) return [];
+
+  const { userLocation, cityName, activity, routeGenerationIndex, targetDistance } = options;
+  const cleanCity = (cityName || '').trim();
+  const cityCandidates = resolveCityNameQueryAliases(cleanCity);
+  const profile = activity === 'cycling' ? 'cycling' : 'walking';
+
+  const { MapboxService } = await import('./mapbox.service');
+  const { findNearestContactPoint, orientCorridorForFlow, orientCorridorForSplice } = await import('./route-adjacency.service');
+
+  const corridors = await fetchPublishedCorridorsForCity(cityCandidates);
+  if (corridors.size === 0) {
+    console.log('[RouteGenerator] generateUserAnchoredFlowRoute: no published corridors for this city, nothing to flow through');
+    return [];
+  }
+
+  // Stage A selection: nearest corridor, unconditionally.
+  let nearestId: string | null = null;
+  let nearestDist = Infinity;
+  let nearestIndex = 0;
+  for (const c of Array.from(corridors.values())) {
+    const contact = findNearestContactPoint([[userLocation.lng, userLocation.lat]], c.path);
+    if (contact.gapMeters < nearestDist) {
+      nearestDist = contact.gapMeters;
+      nearestId = c.id;
+      nearestIndex = contact.indexB;
+    }
+  }
+  if (!nearestId) return [];
+  const firstCorridor = corridors.get(nearestId)!;
+
+  // Real user -> corridor connector (this leg counts toward targetDistance).
+  const entryPoint = firstCorridor.path[nearestIndex];
+  const homeConnector = await MapboxService.getSmartPath(
+    userLocation,
+    { lat: entryPoint[1], lng: entryPoint[0] },
+    profile,
+  );
+  if (!homeConnector || !homeConnector.path || homeConnector.path.length < 2) {
+    console.log('[RouteGenerator] generateUserAnchoredFlowRoute: Mapbox returned no route from user to nearest corridor');
+    return [];
+  }
+
+  const orientedFirst = orientCorridorForFlow(firstCorridor.path, nearestIndex);
+  let flowPath: [number, number][] = [...homeConnector.path, ...orientedFirst.slice(1)];
+  const chainIds = [nearestId];
+  const targetMeters = targetDistance * 1000;
+  const halfTargetMeters = targetMeters / 2;
+
+  // Extend into further corridors via the precomputed route_adjacency graph
+  // if the first one alone doesn't reach half the target — same primitives
+  // generateDiscoveredChainRoute uses (selectNextChainEdge, CONNECTOR_REJECT_METERS,
+  // MAX_CHAIN_CORRIDORS), applied to a flow that already starts with a user
+  // connector rather than a bare corridor.
+  if (pathLengthMeters(flowPath) < halfTargetMeters) {
+    const edgeDocs = await Promise.all(
+      cityCandidates.map((c) => getDocs(query(collection(db, 'route_adjacency'), where('cityName', '==', c)))),
+    );
+    const edgesByRouteId = new Map<string, ChainAdjacencyEdge[]>();
+    for (const snap of edgeDocs) {
+      for (const d of snap.docs) {
+        const e = d.data();
+        if (!edgesByRouteId.has(e.routeIdA)) edgesByRouteId.set(e.routeIdA, []);
+        if (!edgesByRouteId.has(e.routeIdB)) edgesByRouteId.set(e.routeIdB, []);
+        edgesByRouteId.get(e.routeIdA)!.push({ otherRouteId: e.routeIdB, gapMeters: e.gapMeters });
+        edgesByRouteId.get(e.routeIdB)!.push({ otherRouteId: e.routeIdA, gapMeters: e.gapMeters });
+      }
+    }
+
+    const rejectedKeys = new Set<string>();
+    while (pathLengthMeters(flowPath) < halfTargetMeters && chainIds.length < MAX_CHAIN_CORRIDORS) {
+      const filtered = new Map<string, ChainAdjacencyEdge[]>();
+      for (const id of chainIds) {
+        filtered.set(id, (edgesByRouteId.get(id) ?? []).filter((e) => !rejectedKeys.has([id, e.otherRouteId].sort().join('_'))));
+      }
+      const next = selectNextChainEdge(filtered, chainIds);
+      // Only extend from the flow's current tail — branching mid-flow is out
+      // of scope here, same call as generateDiscoveredChainRoute makes.
+      if (!next || next.fromRouteId !== chainIds[chainIds.length - 1]) break;
+
+      const nextCorridor = corridors.get(next.toRouteId);
+      if (!nextCorridor) {
+        rejectedKeys.add([next.fromRouteId, next.toRouteId].sort().join('_'));
+        continue;
+      }
+
+      const tailPoint = flowPath[flowPath.length - 1];
+      const contact = findNearestContactPoint([tailPoint], nextCorridor.path);
+      const orientedNext = orientCorridorForSplice(nextCorridor.path, contact.indexB);
+      const connector = await MapboxService.getSmartPath(
+        { lat: tailPoint[1], lng: tailPoint[0] },
+        { lat: orientedNext[0][1], lng: orientedNext[0][0] },
+        profile,
+      );
+      if (!connector || !connector.path || connector.path.length < 2) {
+        rejectedKeys.add([next.fromRouteId, next.toRouteId].sort().join('_'));
+        continue;
+      }
+      const connectorLen = pathLengthMeters(connector.path);
+      if (connectorLen > CONNECTOR_REJECT_METERS) {
+        rejectedKeys.add([next.fromRouteId, next.toRouteId].sort().join('_'));
+        continue;
+      }
+
+      flowPath = [...flowPath, ...connector.path.slice(1), ...orientedNext.slice(1)];
+      chainIds.push(next.toRouteId);
+    }
+  }
+
+  // Trim to exactly half the target, then mirror for the round trip.
+  const trimmedFlow = sliceFlowPathToDistance(flowPath, halfTargetMeters);
+  const mirroredPath = buildOutAndBackPath(trimmedFlow);
+  const cleanPath = rdpSimplify(mirroredPath, 4);
+
+  const oneWayKm = pathLengthMeters(trimmedFlow) / 1000;
+  const totalDistanceKm = oneWayKm * 2;
+  const speedKmh = activity === 'cycling' ? SPEED_KMH.cycling : activity === 'running' ? SPEED_KMH.running : SPEED_KMH.walking;
+  const durationMinutes = Math.round((totalDistanceKm / speedKmh) * 60);
+  const calories = Math.round(totalDistanceKm * kcalPerKmFor(activity));
+  const corridorNames = chainIds.map((id) => corridors.get(id)?.name).filter(Boolean);
+
+  const route: Route = {
+    id: `flow-${chainIds.join('-')}-${routeGenerationIndex}`,
+    name: `זרימה דרך ${corridorNames[0] || 'מסלול מסומן'}`,
+    description: `מסלול הלוך-חזור דרך ${corridorNames.join(', ')}, ${totalDistanceKm.toFixed(1)} ק"מ`,
+    distance: parseFloat(totalDistanceKm.toFixed(1)),
+    duration: durationMinutes,
+    score: 100,
+    type: activity,
+    activityType: activity,
+    difficulty: 'medium',
+    path: cleanPath,
+    segments: [],
+    rating: 4.5,
+    calories,
+    analytics: { usageCount: 0, rating: 0, heatMapScore: 0 },
+    source: { type: 'official_api', name: 'user_anchored_corridor_flow' },
+    features: {
+      hasGym: false,
+      hasBenches: true,
+      scenic: true,
+      lit: true,
+      terrain: 'road',
+      environment: 'urban',
+      trafficLoad: 'low',
+      surface: 'asphalt',
+    },
+    calculatedScore: 100,
+    distanceFromUser: 0,
+    isReachableWithoutCar: true,
+    includesOfficialSegments: true,
+    visitingParkId: null,
+    includesFitnessStop: false,
+    sourceOfficialRouteIds: chainIds,
+  };
+
+  console.log(`[RouteGenerator] generateUserAnchoredFlowRoute: ${chainIds.length} corridor(s) [${corridorNames.join(' -> ')}], one-way ${oneWayKm.toFixed(2)}km, round-trip ${totalDistanceKm.toFixed(2)}km (target ${targetDistance}km)`);
+
+  return [route];
 }
 
 /**

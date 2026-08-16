@@ -412,6 +412,41 @@ export function pointAtDistanceAlongPath(
   return path[path.length - 1]; // targetMeters >= total length (float slack)
 }
 
+/**
+ * Truncates `path` to exactly `targetMeters` of real walked distance,
+ * appending the precise interpolated endpoint (via `interpolatePath`)
+ * rather than snapping to the nearest vertex — the counterpart to
+ * `pointAtDistanceAlongPath` (16.08.2026, user-anchored corridor-flow
+ * build): that function returns a single point at a given distance; this
+ * one returns the whole path UP TO that point. Returns `path` unchanged
+ * when `targetMeters` is >= the path's total real length (nothing to
+ * trim) or the path has under 2 points. `targetMeters <= 0` returns a
+ * degenerate 1-point path at `path[0]`.
+ */
+export function sliceFlowPathToDistance(path: [number, number][], targetMeters: number): [number, number][] {
+  if (path.length === 0) return path;
+  if (targetMeters <= 0) return [path[0]];
+  if (path.length < 2) return path;
+
+  // Tiny epsilon (1mm) so a target that lands almost exactly on a vertex
+  // (float accumulation error from repeated haversine sums) doesn't overshoot
+  // into the NEXT segment and produce a redundant near-duplicate final point.
+  const EPSILON_METERS = 0.001;
+  let accumulated = 0;
+  const result: [number, number][] = [path[0]];
+  for (let i = 0; i < path.length - 1; i++) {
+    const segLen = haversineMeters(path[i][1], path[i][0], path[i + 1][1], path[i + 1][0]);
+    if (accumulated + segLen >= targetMeters - EPSILON_METERS) {
+      const t = segLen > 0 ? Math.min(1, (targetMeters - accumulated) / segLen) : 0;
+      result.push(interpolatePath(path[i], path[i + 1], t));
+      return result;
+    }
+    result.push(path[i + 1]);
+    accumulated += segLen;
+  }
+  return path; // targetMeters >= total length — nothing to trim
+}
+
 export interface DirectionMarker {
   lng: number;
   lat: number;

@@ -7,7 +7,9 @@ import {
   computeCorridorAdjacency,
   orientCorridorForSplice,
   spliceCorridorChain,
+  orientCorridorForFlow,
 } from '../route-adjacency.service';
+import { pathLengthMeters } from '../geoUtils';
 
 const KM_PER_DEGREE = 111;
 // A tiny square loop near Tel Aviv, ~4 points, closed (start===end).
@@ -138,5 +140,43 @@ describe('spliceCorridorChain', () => {
 
   it('returns empty for zero corridors', () => {
     expect(spliceCorridorChain([], [])).toEqual([]);
+  });
+});
+
+describe('orientCorridorForFlow — user-anchored corridor-flow traversal (16.08.2026, Stage A)', () => {
+  it('delegates to orientCorridorForSplice for a closed loop (same rotation, no separate logic)', () => {
+    const flowOriented = orientCorridorForFlow(SQUARE_LOOP, 2);
+    const spliceOriented = orientCorridorForSplice(SQUARE_LOOP, 2);
+    expect(flowOriented).toEqual(spliceOriented);
+    expect(flowOriented[0]).toEqual(SQUARE_LOOP[2]);
+    expect(flowOriented[flowOriented.length - 1]).toEqual(SQUARE_LOOP[2]);
+  });
+
+  it('for a point-to-point corridor, picks the direction with MORE remaining distance', () => {
+    // Entry near the START (index 1 of 5) — the FORWARD direction (toward
+    // the end) has much more remaining distance than backward (toward start).
+    const openPath: [number, number][] = [
+      [34.77, 32.05], [34.771, 32.05], [34.772, 32.05], [34.773, 32.05], [34.774, 32.05],
+    ];
+    const oriented = orientCorridorForFlow(openPath, 1);
+    expect(oriented[0]).toEqual(openPath[1]);
+    expect(oriented[oriented.length - 1]).toEqual(openPath[4]); // walked forward to the far end
+    expect(pathLengthMeters(oriented)).toBeGreaterThan(0);
+  });
+
+  it('for a point-to-point corridor, picks BACKWARD when it has more remaining distance', () => {
+    // Entry near the END (index 3 of 5) — backward (toward start) is longer.
+    const openPath: [number, number][] = [
+      [34.77, 32.05], [34.771, 32.05], [34.772, 32.05], [34.773, 32.05], [34.774, 32.05],
+    ];
+    const oriented = orientCorridorForFlow(openPath, 3);
+    expect(oriented[0]).toEqual(openPath[3]);
+    expect(oriented[oriented.length - 1]).toEqual(openPath[0]); // walked backward to the far start
+  });
+
+  it('the oriented path always starts at the entry point, regardless of direction chosen', () => {
+    const openPath: [number, number][] = [[0, 0], [1, 0], [2, 0], [3, 0]];
+    expect(orientCorridorForFlow(openPath, 0)[0]).toEqual(openPath[0]);
+    expect(orientCorridorForFlow(openPath, 3)[0]).toEqual(openPath[3]);
   });
 });

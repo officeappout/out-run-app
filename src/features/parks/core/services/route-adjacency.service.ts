@@ -196,6 +196,33 @@ export function orientCorridorForSplice(
 }
 
 /**
+ * Orients a corridor for a "flow through" traversal starting at
+ * `entryIndex` (16.08.2026, user-anchored corridor-flow build) — distinct
+ * job from `orientCorridorForSplice`'s "rotate a loop to meet another
+ * corridor": here there's no second corridor yet, just a user arriving at
+ * an interior point and needing to walk SOME direction.
+ *
+ * Closed loop: delegates to `orientCorridorForSplice` — walking the entry
+ * point all the way around back to itself is well-defined regardless of
+ * why the loop was entered, no separate logic needed.
+ *
+ * Genuine point-to-point corridor: picks whichever direction (toward the
+ * end, or back toward the start) has MORE remaining real distance —
+ * maximizes room for the caller's eventual distance-trim to work with.
+ */
+export function orientCorridorForFlow(
+  path: [number, number][],
+  entryIndex: number,
+): [number, number][] {
+  if (isSameCoord(path[0], path[path.length - 1])) {
+    return orientCorridorForSplice(path, entryIndex);
+  }
+  const forward = path.slice(entryIndex);
+  const backward = [...path.slice(0, entryIndex + 1)].reverse();
+  return pathLengthMeters(forward) >= pathLengthMeters(backward) ? forward : backward;
+}
+
+/**
  * Splices an ordered sequence of corridor paths with connector paths
  * between them: `corridors.length` must be `connectors.length + 1`. Each
  * connector's first point is dropped (duplicate of the preceding corridor's

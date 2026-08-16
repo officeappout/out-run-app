@@ -11,6 +11,7 @@ import {
   buildDirectionMarkers,
   haversineMeters,
   isSameCoord,
+  sliceFlowPathToDistance,
 } from '../geoUtils';
 
 describe('destinationPoint — inverse of bearingBetween (15.08.2026, route-styling batch)', () => {
@@ -398,5 +399,48 @@ describe('buildDirectionMarkers — start-anchor marker (15.08.2026 arrow refine
     const totalLength = pathLengthMeters(shortPath);
     const distFromStart = haversineMeters(shortPath[0][1], shortPath[0][0], markers[0].lat, markers[0].lng);
     expect(distFromStart).toBeLessThanOrEqual(totalLength * 0.3 + 0.01); // small float slack
+  });
+});
+
+describe('sliceFlowPathToDistance — user-anchored corridor-flow trim (16.08.2026, Stage A)', () => {
+  it('returns the full path unchanged when targetMeters exceeds the total length', () => {
+    const path = straightPath(4, 100); // 400m total
+    const result = sliceFlowPathToDistance(path, 1000);
+    expect(result).toEqual(path);
+  });
+
+  it('cuts exactly at targetMeters, appending a precisely interpolated endpoint (not snapping to a vertex)', () => {
+    const path = straightPath(4, 100); // vertices at 0,100,200,300,400m
+    const result = sliceFlowPathToDistance(path, 250);
+    const cutLength = pathLengthMeters(result);
+    expect(cutLength).toBeCloseTo(250, 1);
+    // The endpoint must be a NEW interpolated point, not one of the original vertices.
+    expect(result[result.length - 1]).not.toEqual(path[2]); // 200m vertex
+    expect(result[result.length - 1]).not.toEqual(path[3]); // 300m vertex
+  });
+
+  it('the trimmed path\'s real length matches targetMeters, not the vertex count', () => {
+    const path = straightPath(10, 50); // 500m total, 50m hops
+    const result = sliceFlowPathToDistance(path, 137); // deliberately not a multiple of 50
+    expect(pathLengthMeters(result)).toBeCloseTo(137, 1);
+  });
+
+  it('returns a degenerate 1-point path at targetMeters <= 0', () => {
+    const path = straightPath(3, 100);
+    expect(sliceFlowPathToDistance(path, 0)).toEqual([path[0]]);
+    expect(sliceFlowPathToDistance(path, -5)).toEqual([path[0]]);
+  });
+
+  it('returns the path unchanged for fewer than 2 points', () => {
+    expect(sliceFlowPathToDistance([], 100)).toEqual([]);
+    const single: [number, number][] = [[34.8, 32.0]];
+    expect(sliceFlowPathToDistance(single, 100)).toEqual(single);
+  });
+
+  it('exact match at a vertex returns that vertex, not an extra duplicate point', () => {
+    const path = straightPath(4, 100); // vertex exactly at 200m
+    const result = sliceFlowPathToDistance(path, 200);
+    expect(result[result.length - 1]).toEqual(path[2]);
+    expect(result.length).toBe(3); // [0m, 100m, 200m] — no extra trailing duplicate
   });
 });
