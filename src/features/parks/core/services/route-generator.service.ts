@@ -1908,6 +1908,8 @@ async function selectProximityAwareCorridor(
     .slice(0, PROXIMITY_PREFILTER_CANDIDATES);
 
   let best: ProximityAwareSelection | null = null;
+  let bestF = Infinity; // tracks the closest miss too, not just qualifiers — diagnostic value even on full reject
+  let candidatesEvaluated = 0;
   for (const candidate of prefiltered) {
     const entryPoint = candidate.corridor.path[candidate.entryIndex];
     const connector = await MapboxService.getSmartPath(
@@ -1917,13 +1919,23 @@ async function selectProximityAwareCorridor(
     );
     if (!connector || !connector.path || connector.path.length < 2) continue;
 
+    candidatesEvaluated++;
     const connectorMeters = pathLengthMeters(connector.path);
     const f = computeProximityFraction(connectorMeters, targetMeters);
+    if (f < bestF) bestF = f;
     if (!qualifiesForCorridorFlow(connectorMeters, targetMeters)) continue;
     if (!best || f < best.f) {
       best = { corridorId: candidate.corridor.id, entryIndex: candidate.entryIndex, connector, f };
     }
   }
+
+  // ALWAYS-ON diagnostic (16.08.2026, David-requested) — fires whenever this
+  // function is reached at all (i.e. userAnchoredCorridorFlow was true AND
+  // the city had >=1 published corridor), regardless of outcome. Its ABSENCE
+  // for a request that should have reached here is itself the diagnostic:
+  // proof the dispatcher never entered generateUserAnchoredFlowRoute.
+  console.log(`[Corridor] considered: ${prefiltered.length} candidates (${candidatesEvaluated} got a real connector), best f=${bestF === Infinity ? 'n/a' : bestF.toFixed(2)}, qualified=${!!best} -> ${best ? 'corridor' : 'fallback'}`);
+
   return best;
 }
 
