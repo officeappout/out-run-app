@@ -213,9 +213,13 @@ function ScopeRow({ entry }: { entry: ScopeCompetitionEntry }) {
         </p>
       </div>
 
-      {/* Total score — mechanical patch only (avgScore -> totalScore) to keep
-          this compiling after Stage D's total-not-average engine change;
-          dynamic metric label + full row redesign is Stage E. */}
+      {/* Total score. Label is metric-qualified, never a bare "נקודות" —
+          getScopeCompetitionLeaderboard always sums activityCredit (not a
+          real-world unit like steps), so "נק' פעילות" is the honest label,
+          same "נק' X" convention as the Individuals podium (Stage A). A
+          truly per-metric total (e.g. actual step counts) would need
+          getScopeCompetitionLeaderboard to filter by category — new backend
+          work, not built here; full row redesign is Stage E. */}
       <div className="text-left flex-shrink-0">
         <p
           className="text-sm font-black tabular-nums"
@@ -223,7 +227,7 @@ function ScopeRow({ entry }: { entry: ScopeCompetitionEntry }) {
         >
           {entry.totalScore.toLocaleString('he-IL')}
         </p>
-        <p className="text-[10px] text-gray-400 text-left">סה&quot;כ</p>
+        <p className="text-[10px] text-gray-400 text-left">נק&apos; פעילות</p>
       </div>
     </div>
   );
