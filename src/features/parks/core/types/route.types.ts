@@ -304,6 +304,23 @@ export interface Route {
   activityTypes?: ActivityType[];
   difficulty: 'easy' | 'medium' | 'hard';
 
+  /**
+   * Persisted record of the route's actual built shape, classified from its
+   * geometry (see `classifyRouteShape` / `isLoopPath` / `isOutAndBackPath`
+   * in geoUtils.ts). Undefined when neither shape applies (e.g. a
+   * point-to-point commute, or a linear OSM-discovered trail).
+   *
+   * Distinct from `RouteGenerationOptions.returnShape` (route-generator.service.ts)
+   * — that's a generation-time *request* knob for one specific corridor-flow
+   * mode, not a record of what was actually built. Don't conflate the two.
+   */
+  routeShape?: 'loop' | 'out_and_back';
+
+  /** DEM-derived total elevation gain in meters (see demProfile() in scripts/geo-discovery-routes.ts). */
+  elevationGain?: number;
+  /** DEM-derived maximum grade in percent, over a 15m step (see demProfile()). */
+  maxGrade?: number;
+
   // Ratings
   /** User-facing star rating (1–5, decimal precision e.g. 4.3). */
   rating: number;

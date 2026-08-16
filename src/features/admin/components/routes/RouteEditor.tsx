@@ -25,6 +25,7 @@ import {
 import dynamicImport from 'next/dynamic';
 import { Route, ActivityType } from '@/features/parks';
 import { InventoryService, invalidateOfficialRoutesCache } from '@/features/parks';
+import { classifyRouteShape } from '@/features/parks/core/services/geoUtils';
 import {
     ROUTE_SUB_SPORT_MAPPING,
     ALL_ROUTE_FEATURE_TAGS,
@@ -312,6 +313,7 @@ export default function RouteEditor({
                 type: activity,
                 activityType: activity,
                 difficulty,
+                routeShape: classifyRouteShape(fullPath.length > 0 ? fullPath : waypoints),
                 rating: routeRating,
                 calories: Math.round(totalDistanceKm * (activity === 'cycling' ? 30 : 65)),
                 adminRating: qualityScore,

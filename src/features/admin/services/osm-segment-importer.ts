@@ -36,6 +36,9 @@ export interface OsmTags {
   smoothness?: string;
   maxspeed?: string;
   sidewalk?: string;
+  /** Raw OSM incline tag (e.g. "5%", "-3.2%"). Parsed into ScoredSegment.inclinePct
+   *  below — same regex/convention as scripts/write-climb-segments-tlv.ts:176. */
+  incline?: string;
   [key: string]: string | undefined;
 }
 
@@ -79,6 +82,16 @@ export interface ScoredSegment {
   };
   midpoint: { lat: number; lng: number };
   lengthMeters: number;
+  /**
+   * Percent grade parsed from the OSM `incline` tag, when present (same
+   * regex/convention as scripts/write-climb-segments-tlv.ts:176 — absolute
+   * value, direction is not captured here). Stage 1A: parsed and stored,
+   * zero consumers wired — deliberately NOT folded into `score` (this is a
+   * routing-desirability score, not a difficulty signal; see route-enrichment-
+   * pipeline plan Stage 0 Decision 2). Sets up Stage 3's climb↔segment
+   * spatial-join heuristic. null when the tag is absent or unparseable.
+   */
+  inclinePct: number | null;
   /**
    * geohash of `midpoint`, via geofire-common's geohashForLocation. Enables
    * a Firestore geohash bounding-box query (route-generator.service.ts's
@@ -510,6 +523,9 @@ export function processSegments(
     const midpoint = path[Math.floor(path.length / 2)];
     const lengthMeters = Math.round(pathLengthMeters(path));
     const geohash = geohashForLocation([midpoint.lat, midpoint.lng]);
+    // Same regex/convention as scripts/write-climb-segments-tlv.ts:176.
+    const inclineRaw = tags.incline || '';
+    const inclinePct = /^-?\d+(\.\d+)?%$/.test(inclineRaw) ? Math.abs(parseFloat(inclineRaw)) : null;
 
     segments.push({
       osmId: String(w.id),
@@ -534,6 +550,7 @@ export function processSegments(
       midpoint,
       lengthMeters,
       geohash,
+      inclinePct,
     });
 
     if ((idx + 1) % 100 === 0) {

@@ -176,6 +176,11 @@ function buildSegmentFields(
     path: toFirestoreValue(seg.path),
     tags: toFirestoreValue(seg.tags),
     geohash: { stringValue: seg.geohash },
+    // toFirestoreValue handles null via nullValue — inclinePct is
+    // number|null. Stage 1A: without this line, this explicit-field-list
+    // writer would silently drop the field (unlike commitSegmentsToFirestore's
+    // spread-based write) — exactly the class of bug this pipeline exists to close.
+    inclinePct: toFirestoreValue(seg.inclinePct),
   };
 }
 

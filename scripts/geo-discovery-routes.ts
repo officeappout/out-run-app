@@ -20,7 +20,7 @@
  *   - drops artifacts: geometry sitting over water or inside a building polygon
  *   - length window per source (see LEN_* below)
  *
- * Enrichment: elevationGain + maxGrade via Mapbox Terrain-RGB DEM, isLoop flag.
+ * Enrichment: elevationGain + maxGrade via Mapbox Terrain-RGB DEM, routeShape ('loop' when geometrically closed, omitted otherwise).
  * Idempotent: keyed on source.externalId — re-runs UPDATE, never duplicate.
  * Does NOT broadcast to street_segments (pending routes stay out of the generator).
  *
@@ -420,7 +420,13 @@ function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | 
     source: { type: 'official_api', name: c.sourceName ?? 'OSM Geo-Discovery', externalId: c.externalId, ...(c.relRef ? { osmRef: c.relRef } : {}) },
     elevationGain: gain,
     maxGrade: dem?.maxGrade ?? 0,
-    isLoop: c.isLoop,
+    // routeShape retires the old isLoop boolean (Stage 1A) — c.isLoop only means
+    // "geometrically closed" (start≈end); when false the candidate is a plain
+    // linear trail/segment, which is neither 'loop' nor 'out_and_back', so we
+    // omit the field rather than guess (Firestore admin SDK write — omit,
+    // don't set undefined, matching this file's existing conditional-spread
+    // convention for optional fields like osmRef above).
+    ...(c.isLoop ? { routeShape: 'loop' as const } : {}),
     geohash: geohash(mid[0], mid[1]),
     city: REGION.label,
     importBatchId: REGION.batchId,

@@ -9,7 +9,7 @@ import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
-import { buildOutAndBackPath, isSameCoord, pathLengthMeters, sliceFlowPathToDistance } from './geoUtils';
+import { buildOutAndBackPath, isSameCoord, pathLengthMeters, sliceFlowPathToDistance, classifyRouteShape } from './geoUtils';
 import { SPEED_KMH, KCAL_PER_KM } from './route-request.utils';
 import {
   IS_PROXIMITY_SEGMENT_QUERY_ENABLED,
@@ -300,6 +300,13 @@ interface StreetSegment {
    * bias when the user wanders off the corresponding route.
    */
   officialRouteId?: string;
+  /**
+   * Percent grade parsed from the OSM `incline` tag by osm-segment-importer.ts
+   * (Stage 1A of the route-enrichment-pipeline plan). Not yet consumed by
+   * scoreSegment/scoreWaypoint or any generator logic — parsed and stored
+   * only, sets up Stage 3's climb↔segment spatial-join heuristic.
+   */
+  inclinePct?: number | null;
 }
 
 /** Extract a single representative { lat, lng } point from a segment document.
@@ -1433,6 +1440,7 @@ export function buildCorridorRoute(
     type: activity,
     activityType: activity,
     difficulty: corridor.difficulty || 'easy',
+    routeShape: classifyRouteShape(corridor.path),
     path: corridor.path,
     segments: [],
     rating: corridor.rating || 4.5,
@@ -1809,6 +1817,7 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
     type: activity,
     activityType: activity,
     difficulty: 'medium',
+    routeShape: classifyRouteShape(splicedPath),
     path: splicedPath,
     segments: [],
     rating: 4.5,
@@ -2077,6 +2086,9 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
     type: activity,
     activityType: activity,
     difficulty: 'medium',
+    // Known by construction, not geometrically re-derived — built above via
+    // buildOutAndBackPath(trimmedFlow) then simplified.
+    routeShape: 'out_and_back',
     path: cleanPath,
     segments: [],
     rating: 4.5,
@@ -2387,6 +2399,7 @@ async function attemptRouteCombinations(
         type: activity,
         activityType: activity,
         difficulty: 'easy',
+        routeShape: classifyRouteShape(cleanPath),
         path: cleanPath,
         segments: [],
         rating: 4.5 + (Math.random() * 0.5),
@@ -2834,6 +2847,8 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
         type: activity,
         activityType: activity,
         difficulty: 'easy',
+        // Known by construction — built above via buildOutAndBackPath(result.path).
+        routeShape: 'out_and_back',
         path: cleanPath,
         segments: [],
         rating: 4.5 + Math.random() * 0.5,
