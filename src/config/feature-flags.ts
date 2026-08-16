@@ -301,7 +301,12 @@ export const PLS_CACHE_ENABLED = true;
 // (home does not populate completionData.ring → the card renders the improvement
 // row, and the useDailyStrengthTarget Firestore read is skipped). The shared
 // StrengthRing primitives are unreferenced until this flag wires them in.
-export const STRENGTH_RING_ENABLED = false;
+//
+// FLIPPED TRUE (16.08.2026, David) — after useDailyStrengthTarget's
+// resolveActiveProgramBudget call was routed through the cached program list
+// (getCachedPrograms, 5-min TTL) instead of a raw per-load getAllPrograms() read.
+// Kill-switch: flip back to false, byte-identical instantly, no code change needed.
+export const STRENGTH_RING_ENABLED = true;
 
 // TIMER_AUTO_ADVANCE: when false (default), the live strength/hybrid player never
 // advances on a timer. The reps FillingButton shows NO fill bar at all — it is a
