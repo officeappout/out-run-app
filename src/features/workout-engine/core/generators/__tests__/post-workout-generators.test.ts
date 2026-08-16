@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { recoveryFollowUpGenerator } from '../recovery-follow-up.generator';
 import { complementaryShortGenerator } from '../complementary-short.generator';
+import { partialCompletionGenerator } from '../partial-completion.generator';
 import type { UserContext } from '../../types/user-context.types';
 
 // generate() itself calls generateHomeWorkoutTrio (Firestore-touching) and reads
@@ -58,5 +59,22 @@ describe('complementaryShortGenerator', () => {
     // stepsRemaining gate short-circuits before the profile check either way.
     expect(complementaryShortGenerator.eligible(makeContext({ stepsRemaining: 0 }))).toBe(false);
     expect(complementaryShortGenerator.eligible(makeContext({ stepsRemaining: -5 }))).toBe(false);
+  });
+});
+
+describe('partialCompletionGenerator', () => {
+  it('declares post_workout only', () => {
+    expect(partialCompletionGenerator.surfaces).toEqual(['post_workout']);
+  });
+
+  it('eligible() ignores the passed-in UserContext — sources setsCompleted/setsPlanned and profile itself', () => {
+    // Default (unhydrated) store state in this node env: no sessionLogs -> setsCompleted
+    // === setsPlanned === 0 (not <), and no profile -> both halves of the cheap eligible()
+    // check fail regardless of what's in `context`, confirming it doesn't read UserContext
+    // fields at all (unlike complementary-short's stepsRemaining check).
+    const withStepsRemaining = partialCompletionGenerator.eligible(makeContext({ stepsRemaining: 9000 }));
+    const withoutStepsRemaining = partialCompletionGenerator.eligible(makeContext({ stepsRemaining: 0 }));
+    expect(withStepsRemaining).toBe(false);
+    expect(withStepsRemaining).toBe(withoutStepsRemaining);
   });
 });

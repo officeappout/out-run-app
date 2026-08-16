@@ -21,6 +21,12 @@
  * accepted second call, the same "cheap/fast for ranking, real recompute for the one
  * thing actually selected" pattern the map surface already uses (composeTrioDeduped
  * after a settle/tap), not a novel one.
+ *
+ * Task 2 (16.08.2026): partial-completion also caches by suggestion.id (same reasoning as
+ * recovery-follow-up), but for a different reason than rendering — the domain it targets is
+ * resolved dynamically (largest real per-domain gap), so a cache-miss re-derive would risk
+ * resolving a DIFFERENT domain if today's logged sets changed between ranking and the tap.
+ * Reusing the cached result keeps "start" building exactly what was ranked and shown.
  */
 
 import type { UserContext } from '../types/user-context.types';
@@ -29,6 +35,7 @@ import type { GeneratedWorkout } from '../../logic/WorkoutGenerator';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { buildRecoveryFollowUpWorkout, getCachedRecoveryWorkout } from '../generators/recovery-follow-up.generator';
 import { buildComplementaryShortWorkout } from '../generators/complementary-short.generator';
+import { buildPartialCompletionWorkoutFresh, getCachedPartialCompletionWorkout } from '../generators/partial-completion.generator';
 
 export async function suggestionToGeneratedWorkout(
   _context: UserContext,
@@ -42,6 +49,8 @@ export async function suggestionToGeneratedWorkout(
       return getCachedRecoveryWorkout(suggestion.id) ?? buildRecoveryFollowUpWorkout(profile);
     case 'complementary-short':
       return buildComplementaryShortWorkout(profile);
+    case 'partial-completion':
+      return getCachedPartialCompletionWorkout(suggestion.id) ?? buildPartialCompletionWorkoutFresh(profile);
     default:
       return null;
   }
