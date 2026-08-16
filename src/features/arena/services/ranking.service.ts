@@ -810,3 +810,112 @@ export async function getGroupCompetitionLeaderboard(params: {
 
   return { entries, generatedAt: new Date() };
 }
+
+// ── Scope-vs-scope competition leaderboard ─────────────────────────────────
+
+/**
+ * Ranks scopes AGAINST EACH OTHER as competing entities — city-vs-city or
+ * neighborhood-vs-neighborhood — unlike every other function in this file,
+ * which ranks individuals/groups WITHIN one already-selected scope.
+ *
+ * Adapted from getGroupCompetitionLeaderboard's aggregation engine: same
+ * Map<key, {totalScore, members}> shape and avg-per-active-member sort,
+ * just grouped by the scope's own FK field (via scopeToField — authorityId
+ * or neighborhoodId) instead of `groupIds`, and named via the `authorities`
+ * collection instead of `community_groups`.
+ *
+ * 'city' works with today's data — authorityId has always been stamped on
+ * feed_posts. 'neighborhood' will return an empty/sparse result until
+ * neighborhoodId stamping (added alongside this function) has had time to
+ * accumulate real posts.
+ */
+
+export interface ScopeCompetitionEntry {
+  rank: number;
+  scopeId: string;
+  scopeName: string;
+  totalScore: number;
+  /** Rounded average credit per active member in the window. */
+  avgScore: number;
+  activeMemberCount: number;
+}
+
+export interface ScopeCompetitionResult {
+  entries: ScopeCompetitionEntry[];
+  generatedAt: Date;
+}
+
+export async function getScopeCompetitionLeaderboard(params: {
+  granularity: 'city' | 'neighborhood';
+  timeWindow: LeaderboardTimeWindow;
+  maxEntries?: number;
+}): Promise<ScopeCompetitionResult> {
+  const { granularity, timeWindow, maxEntries = 20 } = params;
+  const groupField = scopeToField(granularity) as string; // 'authorityId' | 'neighborhoodId' — always non-null for these two
+  const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
+
+  const q = query(
+    collection(db, 'feed_posts'),
+    where('createdAt', '>=', windowStart),
+  );
+  const snap = await getDocs(q);
+
+  // scopeId → { totalScore, active member UIDs }
+  const scopeMap = new Map<string, { totalScore: number; members: Set<string> }>();
+
+  snap.forEach((d) => {
+    const data = d.data();
+    const scopeId = data[groupField] as string | undefined;
+    if (!scopeId) return;
+
+    const credit = (data.activityCredit as number) || 0;
+    const uid = data.authorUid as string;
+
+    const existing = scopeMap.get(scopeId);
+    if (existing) {
+      existing.totalScore += credit;
+      existing.members.add(uid);
+    } else {
+      scopeMap.set(scopeId, { totalScore: credit, members: new Set([uid]) });
+    }
+  });
+
+  if (scopeMap.size === 0) {
+    return { entries: [], generatedAt: new Date() };
+  }
+
+  // Batch-fetch scope names from `authorities`
+  const scopeIds = Array.from(scopeMap.keys());
+  const nameLookup = new Map<string, string>();
+
+  await Promise.all(
+    scopeIds.map(async (id) => {
+      try {
+        const d = await getDoc(doc(db, 'authorities', id));
+        nameLookup.set(id, d.exists() ? (d.data()?.name as string) ?? id : id);
+      } catch {
+        nameLookup.set(id, id);
+      }
+    }),
+  );
+
+  // Compute average and sort descending
+  const allSorted = scopeIds
+    .map((id) => {
+      const { totalScore, members } = scopeMap.get(id)!;
+      return {
+        scopeId: id,
+        scopeName: nameLookup.get(id) ?? id,
+        totalScore,
+        avgScore: Math.round(totalScore / Math.max(members.size, 1)),
+        activeMemberCount: members.size,
+      };
+    })
+    .sort((a, b) => b.avgScore - a.avgScore);
+
+  const entries: ScopeCompetitionEntry[] = allSorted
+    .slice(0, maxEntries)
+    .map((row, idx) => ({ rank: idx + 1, ...row }));
+
+  return { entries, generatedAt: new Date() };
+}
