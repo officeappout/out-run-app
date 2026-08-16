@@ -455,9 +455,15 @@ export default function HomePage() {
   const [postWorkoutSuggestions, setPostWorkoutSuggestions] = useState<Suggestion[] | null>(null);
   const [showPostWorkoutSuggestions, setShowPostWorkoutSuggestions] = useState(false);
   const [startingSuggestionId, setStartingSuggestionId] = useState<string | null>(null);
+  // TEMPORARY (David, 16.08.2026): while the flag is off for everyone, let an admin email
+  // see it live in production — real device verification needs real prod data, not local.
+  // Remove this OR once POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED itself flips true for real.
+  const postWorkoutCarouselEnabled =
+    POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED ||
+    isAdminEmailAllowed(auth.currentUser?.email || profile?.core?.email || null);
 
   useEffect(() => {
-    if (!POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED) return;
+    if (!postWorkoutCarouselEnabled) return;
     if (!(postWorkoutData || todayWorkoutDone) || !profile) return;
     let cancelled = false;
     // location: null — none of the registered post_workout generators (recovery-follow-up,
@@ -497,7 +503,7 @@ export default function HomePage() {
   }, [profile, handlePostWorkoutStart]);
 
   const handleRequestMore = useCallback(() => {
-    if (POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED) {
+    if (postWorkoutCarouselEnabled) {
       // Reveals the already-computed carousel below the SAME completion card —
       // deliberately does NOT dismiss postWorkoutData/showMotivationBanner (unlike the
       // flag-off path below): "give me more" means "show suggestions alongside this
@@ -509,7 +515,7 @@ export default function HomePage() {
     setPostWorkoutData(null);
     setShowMotivationBanner(false);
     setTimeout(() => handleHeroPress(), 200);
-  }, []);
+  }, [postWorkoutCarouselEnabled]);
 
   // Check for query params from post-workout CTA, JIT return, or join landing
   useEffect(() => {
@@ -1497,7 +1503,7 @@ export default function HomePage() {
         {/* post_workout suggestion carousel (home-generator-v2 plan, step 6) — revealed by
             the completion card's own "תציעו לי עוד אימון" CTA (handleRequestMore), directly
             below the same completion card, same vertical slot. */}
-        {POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED &&
+        {postWorkoutCarouselEnabled &&
           showPostWorkoutSuggestions && postWorkoutSuggestions && postWorkoutSuggestions.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
