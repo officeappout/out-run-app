@@ -19,6 +19,18 @@
 import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { geohashForLocation } from 'geofire-common';
 import { db } from '@/lib/firebase';
+import { mapOsmSurfaceToType, type SurfaceType } from '@/lib/route-collections/surface-type';
+import { buildValidatedDoc } from '@/lib/route-collections/validate';
+// getAllAuthorities is dynamically imported (not top-level) — this file is
+// used by BOTH the browser-only admin UI AND a bare Node CLI script
+// (src/scripts/import-osm-segments.ts). A top-level import here was found
+// to transitively pull in a browser-only shapefile library (`shpjs`, via
+// authority.service.ts's import graph) that crashes under Node with
+// `ReferenceError: self is not defined` — breaking the CLI's dry-run even
+// though it never actually calls commitSegmentsToFirestore (the only
+// function that needs this import; the CLI has its own separate REST-based
+// writer). Same fix pattern axioms.md §4 already establishes for
+// googleapis/capacitor: dynamic import at the point of use, not top-level.
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -92,6 +104,16 @@ export interface ScoredSegment {
    * spatial-join heuristic. null when the tag is absent or unparseable.
    */
   inclinePct: number | null;
+  /**
+   * Granular ground-material vocabulary, mapped from the raw `tags.surface`
+   * OSM tag via mapOsmSurfaceToType() (src/lib/route-collections/surface-type.ts)
+   * — surface-type phase of the route-enrichment-pipeline plan. `tags.surface`
+   * above stays the raw, unmapped OSM value (used by scoreSegment's rubric,
+   * untouched); this is the new, separate, canonicalized field. Always
+   * 'unknown' rather than undefined when the raw tag is absent or unrecognized
+   * — never guessed.
+   */
+  surfaceType: SurfaceType;
   /**
    * geohash of `midpoint`, via geofire-common's geohashForLocation. Enables
    * a Firestore geohash bounding-box query (route-generator.service.ts's
@@ -526,6 +548,7 @@ export function processSegments(
     // Same regex/convention as scripts/write-climb-segments-tlv.ts:176.
     const inclineRaw = tags.incline || '';
     const inclinePct = /^-?\d+(\.\d+)?%$/.test(inclineRaw) ? Math.abs(parseFloat(inclineRaw)) : null;
+    const surfaceType = mapOsmSurfaceToType(tags.surface);
 
     segments.push({
       osmId: String(w.id),
@@ -551,6 +574,7 @@ export function processSegments(
       lengthMeters,
       geohash,
       inclinePct,
+      surfaceType,
     });
 
     if ((idx + 1) % 100 === 0) {
@@ -578,38 +602,10 @@ export function processSegments(
 
 // ── Firestore commit (browser / authenticated client SDK path) ────────────────
 
-/**
- * Recursively drops keys whose value is strictly `undefined` from any
- * plain object/array, returning a structurally-cloned copy. Sentinels
- * such as `serverTimestamp()` are objects with internal symbols — we must
- * NOT walk into them, so anything that's not a plain object or array is
- * passed through untouched.
- *
- * This is belt-and-braces: `processSegments` already maps sparse OSM tags
- * to `null` (the explicit, queryable representation), but a recursive
- * stripper guarantees that any future field added to `ScoredSegment`
- * without a `?? null` default cannot crash a commit.
- */
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  if (v === null || typeof v !== 'object') return false;
-  const proto = Object.getPrototypeOf(v);
-  return proto === Object.prototype || proto === null;
-}
-
-function stripUndefinedDeep<T>(value: T): T {
-  if (Array.isArray(value)) {
-    return value.map((v) => stripUndefinedDeep(v)) as unknown as T;
-  }
-  if (isPlainObject(value)) {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) {
-      if (v === undefined) continue;
-      out[k] = stripUndefinedDeep(v);
-    }
-    return out as unknown as T;
-  }
-  return value;
-}
+// isPlainObject/stripUndefinedDeep retired (surface-type phase) — superseded
+// by buildValidatedDoc's own internal stripUndefined, now called at this
+// file's one Firestore write site (commitSegmentsToFirestore, below) as
+// part of migrating street_segments onto the Stage 1B chokepoint.
 
 /**
  * Writes scored segments to the `street_segments` collection in 500-doc
@@ -626,16 +622,27 @@ export async function commitSegmentsToFirestore(
   const col = collection(db, 'street_segments');
   let written = 0;
 
+  // Stage 1B chokepoint, wired here for the first time (surface-type
+  // phase) — street_segments had no chokepoint-migrated writer before this.
+  // Fetched once, not per-segment.
+  const { getAllAuthorities } = await import('@/features/admin/services/authority.service');
+  const authorities = await getAllAuthorities();
+  const knownAuthorityIds = new Set(authorities.map((a) => a.id));
+
   for (let i = 0; i < segments.length; i += FIRESTORE_BATCH_SIZE) {
     const slice = segments.slice(i, i + FIRESTORE_BATCH_SIZE);
     const batch = writeBatch(db);
     slice.forEach((seg) => {
       const ref = doc(col, `osm_${seg.osmId}`);
-      // Strip undefineds BEFORE attaching the serverTimestamp sentinel —
-      // the sentinel is an opaque object that the stripper deliberately
-      // refuses to recurse into (see isPlainObject), so attaching it
-      // afterwards keeps it intact.
-      const safeSeg = stripUndefinedDeep(seg);
+      // buildValidatedDoc strips undefineds internally (replaces the former
+      // bare stripUndefinedDeep call) and validates surfaceType/authorityId/
+      // cityName against the real schema — same discipline as every other
+      // migrated writer. A validation failure here throws
+      // RouteDocValidationError for the WHOLE batch (unlike InventoryService's
+      // per-item try/catch) — deliberately strict, since a bad segment here
+      // usually means a config problem (e.g. an unresolved/placeholder
+      // authorityId) worth surfacing loudly rather than silently skipping.
+      const safeSeg = buildValidatedDoc('street_segments', seg, { mode: 'create', knownAuthorityIds });
       batch.set(ref, { ...safeSeg, importedAt: serverTimestamp() });
     });
     await batch.commit();

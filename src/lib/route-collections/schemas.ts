@@ -82,9 +82,16 @@ export const ClimbSegmentUpdateSchema = ClimbSegmentFieldsSchema.partial().passt
 
 const StreetSegmentFieldsSchema = z.object({
   score: z.number(),
-  cityName: z.string().min(1).optional(), // legacy docs may lack this — see grandfather note in validate.ts
+  // street_segments' city field is named `cityName`, NOT `city` — verified
+  // against every real writer (osm-segment-importer.ts, ImportOptions,
+  // route-generator.service.ts's StreetSegment read type). An earlier draft
+  // of this schema incorrectly required a `city` field this collection has
+  // never had, while leaving the REAL field optional — caught before it was
+  // ever actually enforced (street_segments had no chokepoint-migrated
+  // writer until the surface-type phase). See CITY_FIELD_BY_COLLECTION
+  // below, which validate.ts uses instead of a hardcoded 'city' literal.
   authorityId: z.string().min(1),
-  city: z.string().min(1),
+  cityName: z.string().min(1),
   /** Granular ground-material vocabulary, parsed from the OSM `surface`
    *  tag — see surface-type.ts's header comment. */
   surfaceType: SurfaceTypeSchema.optional(),
@@ -116,9 +123,27 @@ export type RouteCollectionName =
   | 'street_segments'
   | 'route_adjacency';
 
-/** cityName-keyed collections (no authorityId field) — route_adjacency only
- *  today. The chokepoint skips the authorityId requirement/lock for these. */
+/** cityName-keyed collections (no authorityId field at all) — route_adjacency
+ *  only today. The chokepoint skips the authorityId requirement/lock
+ *  entirely for these (there's nothing to check). */
 export const CITY_ONLY_COLLECTIONS = new Set<RouteCollectionName>(['route_adjacency']);
+
+/**
+ * Which field actually holds the city string, per collection — NOT
+ * uniform. official_routes/curated_routes/climb_segments use `city`;
+ * street_segments/route_adjacency use `cityName`. validate.ts reads this
+ * instead of hardcoding a literal field name, specifically because that
+ * hardcoding already produced one real bug (street_segments' schema
+ * originally required a nonexistent `city` field while leaving the real
+ * `cityName` merely optional — fixed alongside this map, surface-type phase).
+ */
+export const CITY_FIELD_BY_COLLECTION: Record<RouteCollectionName, 'city' | 'cityName'> = {
+  official_routes: 'city',
+  curated_routes: 'city',
+  climb_segments: 'city',
+  street_segments: 'cityName',
+  route_adjacency: 'cityName',
+};
 
 export const SCHEMA_REGISTRY: Record<RouteCollectionName, { create: z.ZodTypeAny; update: z.ZodTypeAny }> = {
   official_routes: { create: RouteCreateSchema, update: RouteUpdateSchema },

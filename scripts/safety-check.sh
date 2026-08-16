@@ -105,7 +105,8 @@ fi
 #     (just needs adding here) — either way, a human should look at it.
 #   MIGRATED_CHOKEPOINT_WRITERS — the subset already wired through
 #     buildValidatedDoc() (Stage 1B: InventoryService.saveRoutes/
-#     saveCuratedRoutes/updateRoute, geo-discovery-routes.ts). New write-verb
+#     saveCuratedRoutes/updateRoute, geo-discovery-routes.ts; surface-type
+#     phase: osm-segment-importer.ts's commitSegmentsToFirestore). New write-verb
 #     lines added to one of THESE files must co-occur with a
 #     buildValidatedDoc( call in the same diff — a regression here means an
 #     edit bypassed the chokepoint entirely, which is exactly how the
@@ -141,6 +142,10 @@ AUTHORIZED_ROUTE_WRITERS=(
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
   "scripts/geo-discovery-routes.ts"
+  # commitSegmentsToFirestore migrated in the surface-type phase — the CLI's
+  # separate REST-based writer (src/scripts/import-osm-segments.ts) is NOT
+  # migrated yet (flagged, not fixed — see that file's own header comment).
+  "src/features/admin/services/osm-segment-importer.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

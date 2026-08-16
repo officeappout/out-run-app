@@ -9,6 +9,19 @@
  *   --dry-run   Fetch + score + print histogram. NO Firestore writes.
  *   --commit    Same as dry-run, then writes via Firestore REST API.
  *
+ * NOT chokepoint-validated (known gap, flagged not fixed — surface-type
+ * phase of the route-enrichment-pipeline plan): unlike
+ * commitSegmentsToFirestore (osm-segment-importer.ts, the admin UI's
+ * writer), this REST-based --commit path does NOT call buildValidatedDoc
+ * before writing. Restructuring it to validate a plain ScoredSegment object
+ * before encoding to Firestore REST field values is a real, doable fix —
+ * just a bigger lift than this phase's "capture surface data granularly"
+ * scope justified taking on. buildSegmentFields below is kept in sync
+ * field-by-field with ScoredSegment manually instead (see inclinePct's and
+ * surfaceType's comments) — same "explicit field list can silently drop a
+ * new field" risk the chokepoint exists to close for every OTHER migrated
+ * writer, just not closed here yet.
+ *
  * ── Required args ─────────────────────────────────────────────────────────
  *   --city <string>          City name (Hebrew OK, will be wrapped in quotes)
  *   --authority <string>     Authority document id (or a placeholder)
@@ -181,6 +194,10 @@ function buildSegmentFields(
     // writer would silently drop the field (unlike commitSegmentsToFirestore's
     // spread-based write) — exactly the class of bug this pipeline exists to close.
     inclinePct: toFirestoreValue(seg.inclinePct),
+    // Same reasoning, surface-type phase: always a non-null string (never
+    // 'unknown' vs undefined — mapOsmSurfaceToType always returns a real
+    // SurfaceType value), so a plain stringValue, no toFirestoreValue needed.
+    surfaceType: { stringValue: seg.surfaceType },
   };
 }
 

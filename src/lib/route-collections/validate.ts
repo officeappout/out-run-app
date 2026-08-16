@@ -18,7 +18,7 @@
  * browser code (client SDK) and Node/tsx scripts (Admin SDK).
  */
 
-import { SCHEMA_REGISTRY, CITY_ONLY_COLLECTIONS, type RouteCollectionName } from './schemas';
+import { SCHEMA_REGISTRY, CITY_ONLY_COLLECTIONS, CITY_FIELD_BY_COLLECTION, type RouteCollectionName } from './schemas';
 
 export class RouteDocValidationError extends Error {
   constructor(
@@ -52,7 +52,7 @@ export function stripUndefined<T extends Record<string, any>>(obj: T): T {
 
 export type ValidateContext =
   | { mode: 'create'; knownAuthorityIds: Set<string> }
-  | { mode: 'update'; knownAuthorityIds: Set<string>; existing: { authorityId?: string; city?: string } };
+  | { mode: 'update'; knownAuthorityIds: Set<string>; existing: { authorityId?: string; city?: string; cityName?: string } };
 
 /**
  * Validates + returns a Firestore-write-ready doc (stripped of undefineds).
@@ -67,18 +67,21 @@ export type ValidateContext =
  * authority — that would break the admin panel's ordinary edit flow for
  * every route created before this rule existed.
  *
- * The rule actually enforced, precisely:
- *   - CREATE: authorityId + city are REQUIRED, and authorityId must be a
- *     real doc in `knownAuthorityIds`.
+ * The rule actually enforced, precisely (the "city field" is whichever one
+ * CITY_FIELD_BY_COLLECTION says for this collection — `city` for most,
+ * `cityName` for street_segments — never a hardcoded literal):
+ *   - CREATE: authorityId + the city field are REQUIRED, and authorityId
+ *     must be a real doc in `knownAuthorityIds`.
  *   - UPDATE: NEITHER field is required. If the update payload doesn't
- *     touch authorityId/city at all, nothing is enforced — a legacy
+ *     touch authorityId/city-field at all, nothing is enforced — a legacy
  *     authority-less doc keeps saving exactly as it always did. If the
- *     payload DOES include authorityId/city, and the EXISTING doc already
- *     had a non-empty value for that field, the new value must match it
- *     (the field is "locked once set" — mirrors noTenantFieldsChanged()'s
- *     shape for users/{uid}.core.authorityId). If the existing value was
- *     empty, the payload is free to set it (that's the legacy doc's
- *     authority resolution finally completing) with no lock to violate.
+ *     payload DOES include authorityId/city-field, and the EXISTING doc
+ *     already had a non-empty value for that field, the new value must
+ *     match it (the field is "locked once set" — mirrors
+ *     noTenantFieldsChanged()'s shape for users/{uid}.core.authorityId). If
+ *     the existing value was empty, the payload is free to set it (that's
+ *     the legacy doc's authority resolution finally completing) with no
+ *     lock to violate.
  */
 export function buildValidatedDoc(
   collection: RouteCollectionName,
@@ -97,20 +100,27 @@ export function buildValidatedDoc(
   }
 
   const cityOnly = CITY_ONLY_COLLECTIONS.has(collection);
+  // Which field actually holds the city string for THIS collection — not
+  // uniform (official_routes/curated_routes/climb_segments use `city`;
+  // street_segments uses `cityName`). Never hardcode the literal 'city'
+  // here — that already produced one real bug (street_segments' schema
+  // originally required a nonexistent `city` field), caught and fixed
+  // alongside this lookup in the surface-type phase.
+  const cityField = CITY_FIELD_BY_COLLECTION[collection];
 
   if (!cityOnly) {
     if (ctx.mode === 'create') {
-      // Schema already enforced non-empty authorityId/city via the Create
-      // schema. This adds the one check a static schema can't do on its
-      // own: is it a REAL authority, not just a non-empty string (this is
-      // what would have caught the shipped 'placeholder_tlv' non-existent-
+      // Schema already enforced non-empty authorityId/cityField via the
+      // Create schema. This adds the one check a static schema can't do on
+      // its own: is it a REAL authority, not just a non-empty string (this
+      // is what would have caught the shipped 'placeholder_tlv' non-existent-
       // authority-id bug found during the original investigation).
       const authorityId = stripped.authorityId;
       if (typeof authorityId === 'string' && authorityId.length > 0 && !ctx.knownAuthorityIds.has(authorityId)) {
         issues.push(`authorityId: "${authorityId}" is not a known authority (checked against ${ctx.knownAuthorityIds.size} known ids)`);
       }
     } else {
-      for (const key of ['authorityId', 'city'] as const) {
+      for (const key of ['authorityId', cityField] as const) {
         const payloadHasKey = Object.prototype.hasOwnProperty.call(stripped, key);
         if (!payloadHasKey) continue; // didn't touch it — always fine, legacy doc or not
         const existingValue = ctx.existing[key];

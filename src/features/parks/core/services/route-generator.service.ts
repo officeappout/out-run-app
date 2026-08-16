@@ -307,6 +307,14 @@ interface StreetSegment {
    * only, sets up Stage 3's climb↔segment spatial-join heuristic.
    */
   inclinePct?: number | null;
+  /**
+   * Granular ground-material vocabulary, mapped from the OSM `surface` tag
+   * by osm-segment-importer.ts (surface-type phase of the route-enrichment-
+   * pipeline plan). Not yet consumed by scoreSegment/scoreWaypoint — parsed
+   * and stored only, same "capture the data, don't build preference logic
+   * yet" scope as inclinePct above.
+   */
+  surfaceType?: import('@/lib/route-collections/surface-type').SurfaceType;
 }
 
 /** Extract a single representative { lat, lng } point from a segment document.
