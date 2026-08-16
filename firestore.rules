@@ -770,6 +770,30 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // ROUTE ADJACENCY — precomputed geometric-adjacency edges between
+    // official_routes corridors (route-adjacency.service.ts /
+    // recomputeRouteAdjacencyForCity), used by the client-side
+    // corridor-chaining generator (generateDiscoveredChainRoute,
+    // generateUserAnchoredFlowRoute). Public read so the client
+    // generator can query by cityName; admin-only write (populated by
+    // InventoryService's official_routes create/delete hooks, which
+    // already require isAdmin() to reach official_routes itself).
+    // Mirrors official_routes/street_segments exactly. Added 16.08.2026
+    // — discovered missing when the first real end-to-end run of the
+    // corridor-chaining code (client SDK, not the admin-bypass Admin
+    // SDK used in prior verification scripts) hit "Missing or
+    // insufficient permissions" on this collection; both
+    // IS_ROUTE_ADJACENCY_ENABLED features are non-functional for any
+    // real user without this rule. NOT YET DEPLOYED — drafted for
+    // David's review; deploy only after his explicit go-ahead per the
+    // Firestore-rules-change discipline (axioms.md §14).
+    // ============================================================
+    match /route_adjacency/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
     // CRM / AUTHORITIES — public read for city lookups, admin write
     // Pillar 7: pressureCount is incrementable by authenticated users
     // ============================================================
