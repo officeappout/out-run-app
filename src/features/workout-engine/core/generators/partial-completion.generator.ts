@@ -44,6 +44,17 @@
  * (pick-post-workout-suggestion.ts) reuses the SAME result instead of re-running the whole
  * domain-gap computation (which could theoretically resolve a different domain if state
  * changed between ranking and the tap) — a re-derive only happens on a genuine cache miss.
+ *
+ * Logging (David, device-test follow-up, 16.08.2026): this was the only generator with zero
+ * console output, unlike the rest of the engine (WorkoutGenerator, DomainBudget, LeadProgram,
+ * LevelSync all narrate their decisions) — undiagnosable from device logs. Follows the SAME
+ * conventions as those, verified before writing: `${LOG_PREFIX} message` template-string
+ * interpolation only (no structured-object logging anywhere in this codebase), console.log
+ * for normal narration, console.warn reserved for fallback/conflict/caught-exception paths
+ * (none of those apply here — every early-return below is a legitimate business outcome, not
+ * a degraded state, matching level-resolution.utils.ts's own "absent=absent... left ABSENT
+ * (no invention)" using console.log, not warn, for the same category of "nothing found, by
+ * design" case), `L${level}`-style level formatting, and `→` for before/after transitions.
  */
 
 import type { Generator } from '../types/generator.types';
@@ -58,6 +69,8 @@ import { getCachedPrograms } from '../../services/program-hierarchy.utils';
 import { buildUserProgramLevels } from '../../services/level-resolution.utils';
 import { summarizeTodayStrengthVolume } from '@/features/home/utils/todayStrengthVolume';
 import { useWeeklyVolumeStore } from '../store/useWeeklyVolumeStore';
+
+const LOG_PREFIX = '[PartialCompletion]';
 
 const DOMAIN_ORDER: readonly MovementPattern[] = ['push', 'pull', 'legs', 'core'];
 const DOMAIN_LABELS: Record<MovementPattern, string> = {
@@ -94,7 +107,7 @@ async function resolveWorstDomainGap(
   const { levels: userProgramLevels } = buildUserProgramLevels(
     profile,
     masterProgramIds,
-    '[PartialCompletion]',
+    LOG_PREFIX,
   );
   const scheduleDays = (profile.lifestyle?.scheduleDays?.length ?? 0) || 3;
 
@@ -107,17 +120,33 @@ async function resolveWorstDomainGap(
   let worstDomain: MovementPattern | null = null;
   let worstGap = 0;
   for (const domain of DOMAIN_ORDER) {
-    if (!userProgramLevels.has(domain)) continue; // absent=absent guard — no invented level-1
+    if (!userProgramLevels.has(domain)) {
+      console.log(`${LOG_PREFIX} ${domain}: no assessed level, left ABSENT (no invention) — skipped`);
+      continue;
+    }
     const entry = domainBudgets.find((e) => e.domain === domain);
-    if (!entry) continue;
-    const gap = entry.daily - (byDomain[domain] ?? 0);
+    if (!entry) {
+      console.log(`${LOG_PREFIX} ${domain}: assessed but no domainBudgets entry found — skipped`);
+      continue;
+    }
+    const completed = byDomain[domain] ?? 0;
+    const gap = entry.daily - completed;
+    console.log(
+      `${LOG_PREFIX} ${domain} L${entry.level}: completed ${completed} → daily budget ${entry.daily} (gap=${gap})`,
+    );
     if (gap > worstGap) {
       worstGap = gap;
       worstDomain = domain;
     }
   }
 
-  return worstDomain ? { domain: worstDomain, gap: worstGap } : null;
+  if (!worstDomain) {
+    console.log(`${LOG_PREFIX} no domain has a gap — nothing to suggest`);
+    return null;
+  }
+
+  console.log(`${LOG_PREFIX} resolved worst-gap domain: ${worstDomain} (gap=${worstGap})`);
+  return { domain: worstDomain, gap: worstGap };
 }
 
 export async function buildPartialCompletionWorkout(
@@ -156,21 +185,34 @@ export const partialCompletionGenerator: Generator = {
     const { setsCompleted, setsPlanned } = summarizeTodayStrengthVolume(
       useWeeklyVolumeStore.getState().sessionLogs,
     );
-    return setsCompleted < setsPlanned && useUserStore.getState().profile !== null;
+    const hasProfile = useUserStore.getState().profile !== null;
+    const result = setsCompleted < setsPlanned && hasProfile;
+    console.log(
+      `${LOG_PREFIX} eligible(): setsCompleted=${setsCompleted} setsPlanned=${setsPlanned} ` +
+      `hasProfile=${hasProfile} → ${result}`,
+    );
+    return result;
   },
 
   generate: async (): Promise<Suggestion | null> => {
     const profile = useUserStore.getState().profile;
-    if (!profile) return null;
+    if (!profile) {
+      console.log(`${LOG_PREFIX} generate(): no profile — returning null`);
+      return null;
+    }
 
     const worst = await resolveWorstDomainGap(profile);
-    if (!worst) return null;
+    if (!worst) return null; // resolveWorstDomainGap already logged the reason
 
     const workout = await buildPartialCompletionWorkout(profile, worst.domain);
-    if (!workout) return null;
+    if (!workout) {
+      console.log(`${LOG_PREFIX} ${worst.domain}: generateHomeWorkoutTrio needsAssessment=true — returning null`);
+      return null;
+    }
 
     const id = `partial-completion-${Date.now()}`;
     cachePartialCompletionWorkout(id, workout);
+    console.log(`${LOG_PREFIX} suggestion built: id=${id} domain=${worst.domain} title="${workout.title}"`);
 
     return {
       id,
