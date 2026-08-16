@@ -9,6 +9,7 @@ import type {
   LeaderboardGenderFilter,
   LeaderboardEntry,
 } from '@/features/arena/services/ranking.service';
+import type { LeaderboardMode } from './format-leaderboard-score';
 
 interface CityArenaViewProps {
   authority: Authority;
@@ -23,6 +24,7 @@ interface CityArenaViewProps {
   genderFilter?: LeaderboardGenderFilter;
   setGenderFilter?: (value: LeaderboardGenderFilter) => void;
   onMyEntryChange?: (entry: LeaderboardEntry | null) => void;
+  onMyModeChange?: (mode: LeaderboardMode, isSegmentMode: boolean) => void;
 }
 
 export default function CityArenaView({
@@ -34,6 +36,7 @@ export default function CityArenaView({
   genderFilter,
   setGenderFilter,
   onMyEntryChange,
+  onMyModeChange,
 }: CityArenaViewProps) {
   // Normalize the raw Firestore string defensively — handles 'Soft Launch',
   // 'soft_launch', 'SOFT_LAUNCH', etc. stored by older admin writes.
@@ -60,6 +63,7 @@ export default function CityArenaView({
         genderFilter={genderFilter}
         setGenderFilter={setGenderFilter}
         onMyEntryChange={onMyEntryChange}
+        onMyModeChange={onMyModeChange}
       />
 
       {/* Upcoming Events section removed — events live in /search now,

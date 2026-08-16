@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, Share2, ChevronDown } from 'lucide-react';
+import { Users, RefreshCw, Share2, ChevronDown, UserPlus } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -56,6 +56,7 @@ import type {
   LeaderboardGenderFilter,
   LeaderboardEntry,
 } from '@/features/arena/services/ranking.service';
+import { formatLeaderboardScore, type LeaderboardMode } from '@/features/arena/components/format-leaderboard-score';
 import { joinGroup, leaveGroup, getMyGroups } from '@/features/arena/services/group.service';
 import { joinEvent } from '@/features/admin/services/community.service';
 import { addCommunitySessionsToPlanner } from '@/features/user/scheduling/services/communitySchedule.service';
@@ -185,6 +186,15 @@ export default function CommunityPage() {
   const [activeMyEntry, setActiveMyEntry] = useState<LeaderboardEntry | null>(
     null,
   );
+  // Bubbled alongside activeMyEntry (Stage B) — the currently-selected
+  // metric mode, so the sticky "your rank" hero can format the score with
+  // formatLeaderboardScore instead of a hardcoded generic label.
+  const [activeMyMode, setActiveMyMode] = useState<LeaderboardMode>('general');
+  const [activeMyIsSegment, setActiveMyIsSegment] = useState(false);
+  const handleMyModeChange = (mode: LeaderboardMode, isSegmentMode: boolean) => {
+    setActiveMyMode(mode);
+    setActiveMyIsSegment(isSegmentMode);
+  };
 
   // Reset the bubbled rank whenever the user selects a different league —
   // the new leaderboard hasn't fetched yet, so showing the previous rank
@@ -681,6 +691,20 @@ export default function CommunityPage() {
       }
     };
 
+    // Stage B: "הזמן חברים" alongside "שתף" on the hero — same lightweight
+    // native-share/clipboard mechanism as handleShareMyRank, invite-oriented
+    // copy instead of a rank announcement. Reuses the existing pattern
+    // rather than pulling in a heavier sheet component for a compact bar.
+    const handleInviteFromMyRank = () => {
+      const scopeName = activeCard?.name || 'הליגה';
+      const text = `בוא תצטרף אליי ב${scopeName} על Out! 🔥`;
+      if (navigator.share) {
+        navigator.share({ text }).catch(() => {});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+      }
+    };
+
     return (
       <>
         {/* League selector — a single summary button showing the active league.
@@ -867,13 +891,33 @@ export default function CommunityPage() {
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-gray-900 truncate leading-tight">
+                <p className="text-sm font-black text-gray-900 truncate leading-tight flex items-center gap-1">
                   {activeMyEntry.name}
+                  {/* Streak badge — secondary to the metric-first score below
+                      (Stage B). profile.progression.currentStreak is already
+                      loaded client-side (no new fetch) and reflects the
+                      current user regardless of which metric is selected. */}
+                  {!!profile?.progression?.currentStreak && (
+                    <span className="text-[10px] font-bold text-orange-500 flex-shrink-0" aria-hidden>
+                      {profile.progression.currentStreak}🔥
+                    </span>
+                  )}
                 </p>
                 <p className="text-[11px] text-[#147C5C] font-bold tabular-nums leading-tight">
-                  {activeMyEntry.totalCredit.toLocaleString('he-IL')} קרדיט
+                  {formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)}
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={handleInviteFromMyRank}
+                aria-label="הזמן חברים"
+                className="flex items-center justify-center w-9 h-9 rounded-xl text-[#147C5C] active:scale-95 transition-transform flex-shrink-0"
+                style={{
+                  background: 'rgba(20,124,92,0.1)',
+                }}
+              >
+                <UserPlus className="w-4 h-4" />
+              </button>
               <button
                 type="button"
                 onClick={handleShareMyRank}
@@ -1048,6 +1092,7 @@ export default function CommunityPage() {
             genderFilter={leaderboardGender}
             setGenderFilter={setLeaderboardGender}
             onMyEntryChange={setActiveMyEntry}
+            onMyModeChange={handleMyModeChange}
           />
         ) : (
           <GroupLeaderboard
@@ -1090,6 +1135,7 @@ export default function CommunityPage() {
               genderFilter={leaderboardGender}
               setGenderFilter={setLeaderboardGender}
               onMyEntryChange={setActiveMyEntry}
+            onMyModeChange={handleMyModeChange}
             />
           </>
         )}
@@ -1109,6 +1155,7 @@ export default function CommunityPage() {
                 genderFilter={leaderboardGender}
                 setGenderFilter={setLeaderboardGender}
                 onMyEntryChange={setActiveMyEntry}
+            onMyModeChange={handleMyModeChange}
               />
             ) : (
               <GroupLeaderboard
@@ -1169,6 +1216,7 @@ export default function CommunityPage() {
             genderFilter={leaderboardGender}
             setGenderFilter={setLeaderboardGender}
             onMyEntryChange={setActiveMyEntry}
+            onMyModeChange={handleMyModeChange}
           />
         ) : (
           <GroupLeaderboard
@@ -1221,6 +1269,7 @@ export default function CommunityPage() {
           genderFilter={leaderboardGender}
           setGenderFilter={setLeaderboardGender}
           onMyEntryChange={setActiveMyEntry}
+          onMyModeChange={handleMyModeChange}
         />
       </div>
     );
@@ -1240,6 +1289,7 @@ export default function CommunityPage() {
           genderFilter={leaderboardGender}
           setGenderFilter={setLeaderboardGender}
           onMyEntryChange={setActiveMyEntry}
+          onMyModeChange={handleMyModeChange}
         />
       </div>
     );

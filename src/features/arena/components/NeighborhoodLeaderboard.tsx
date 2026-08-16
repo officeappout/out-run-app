@@ -294,8 +294,17 @@ function PodiumColumn({ entry, rank, mode, isSegmentMode, onInvite }: PodiumColu
       <span className="text-[11px] font-black text-gray-900 truncate max-w-[84px] text-center mt-0.5">
         {entry.name}
       </span>
-      <span className="text-[10px] font-bold text-gray-500 tabular-nums leading-none">
+      <span className="text-[10px] font-bold text-gray-500 tabular-nums leading-none flex items-center gap-1">
         {formatLeaderboardScore(entry.totalCredit, mode, isSegmentMode)}
+        {/* Streak badge — secondary to the metric-first number above (Stage
+            B). Only shown in 'general' mode, where entry.totalCredit IS the
+            streak count already (see getStreakLeaderboard) — no new fetch
+            needed. Other podium members' streaks aren't available on
+            LeaderboardEntry for strength/running/steps modes without a
+            small new per-entry fetch; deferred rather than guessed. */}
+        {mode === 'general' && entry.totalCredit > 0 && (
+          <span aria-hidden>🔥</span>
+        )}
       </span>
 
       {/* 3D gradient step */}
@@ -384,6 +393,11 @@ interface NeighborhoodLeaderboardProps {
   /** Bubbles up the current user's entry whenever results change. Used by
    *  the leagues page to show "rank #N" on the active league card. */
   onMyEntryChange?: (entry: LeaderboardEntry | null) => void;
+  /** Bubbles up the currently-selected metric mode alongside the entry, so
+   *  the page-level sticky "your rank" hero (Stage B) can format the score
+   *  with the correct dynamic unit via formatLeaderboardScore instead of a
+   *  generic hardcoded label. */
+  onMyModeChange?: (mode: LeaderboardMode, isSegmentMode: boolean) => void;
   /**
    * When true, skips the social-viral gate entirely (rows 4+ are never
    * blurred, the "הזמן שותף" overlay never appears). Set to true for
@@ -408,6 +422,7 @@ export default function NeighborhoodLeaderboard({
   genderFilter: genderFilterProp,
   setGenderFilter: setGenderFilterProp,
   onMyEntryChange,
+  onMyModeChange,
   bypassSocialGate = false,
 }: NeighborhoodLeaderboardProps) {
   // ── Controlled-mode fallbacks ────────────────────────────────────────────
@@ -490,6 +505,10 @@ export default function NeighborhoodLeaderboard({
   useEffect(() => {
     onMyEntryChange?.(myEntry);
   }, [myEntry, onMyEntryChange]);
+
+  useEffect(() => {
+    onMyModeChange?.(localMode, isSegmentMode);
+  }, [localMode, isSegmentMode, onMyModeChange]);
 
   const top3 = entries.slice(0, 3);
   const rest  = entries.slice(3);
