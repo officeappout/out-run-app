@@ -1809,23 +1809,101 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * Stage A of the user-anchored corridor-flow build. Starts the route AT
+ * Round-trip fraction of `targetMeters` spent just getting to and from a
+ * corridor's nearest point (16.08.2026, Stage B — proximity-aware
+ * selection). Pure, directly testable. `targetMeters <= 0` returns
+ * `Infinity` (never qualifies) rather than dividing by zero.
+ */
+export function computeProximityFraction(connectorMeters: number, targetMeters: number): number {
+  if (targetMeters <= 0) return Infinity;
+  return (2 * connectorMeters) / targetMeters;
+}
+
+/**
+ * Qualification rule for the proximity-aware corridor selector: at least
+ * half of the requested round trip must be spent ON the corridor, not
+ * commuting to and from it. Threshold confirmed by David (16.08.2026)
+ * against two worked examples — a 6km target with a ~1.2km connector
+ * qualifies (f=0.40); a 3km target from a genuinely close home (~≤400m
+ * connector) also qualifies (f~0.27) — the two examples use different
+ * home locations, not one connector distance stretched across both.
+ */
+const PROXIMITY_QUALIFY_THRESHOLD = 0.5;
+export function qualifiesForCorridorFlow(connectorMeters: number, targetMeters: number): boolean {
+  return computeProximityFraction(connectorMeters, targetMeters) <= PROXIMITY_QUALIFY_THRESHOLD;
+}
+
+/** How many straight-line-nearest candidates get a real (network) connector check — keeps Stage B's Mapbox call count bounded regardless of how many corridors a city has. */
+const PROXIMITY_PREFILTER_CANDIDATES = 5;
+
+interface ProximityAwareSelection {
+  corridorId: string;
+  entryIndex: number;
+  connector: MapboxPathResult;
+  f: number;
+}
+
+/**
+ * Stage B: picks WHICH corridor (if any) a user-anchored flow should enter,
+ * weighing real connector distance against how much of `targetMeters` it
+ * would consume. Cheap straight-line prefilter first (`findNearestContactPoint`,
+ * no network calls), then a REAL Mapbox connector for the closest few
+ * survivors — `f <= 0.5` (see `qualifiesForCorridorFlow`) decides
+ * qualification; among qualifiers, the lowest `f` (most corridor, least
+ * commute) wins. Returns `null` when nothing qualifies — the caller falls
+ * back to normal (non-corridor) generation, exactly like `generateShortRoutes`'s
+ * own existing "never show nothing" philosophy.
+ */
+async function selectProximityAwareCorridor(
+  userLocation: { lat: number; lng: number },
+  targetMeters: number,
+  corridors: Map<string, CorridorRecord>,
+  profile: 'walking' | 'cycling',
+): Promise<ProximityAwareSelection | null> {
+  const { findNearestContactPoint } = await import('./route-adjacency.service');
+  const { MapboxService } = await import('./mapbox.service');
+
+  const prefiltered = Array.from(corridors.values())
+    .map((c) => {
+      const contact = findNearestContactPoint([[userLocation.lng, userLocation.lat]], c.path);
+      return { corridor: c, entryIndex: contact.indexB, straightLineGapMeters: contact.gapMeters };
+    })
+    .sort((a, b) => a.straightLineGapMeters - b.straightLineGapMeters)
+    .slice(0, PROXIMITY_PREFILTER_CANDIDATES);
+
+  let best: ProximityAwareSelection | null = null;
+  for (const candidate of prefiltered) {
+    const entryPoint = candidate.corridor.path[candidate.entryIndex];
+    const connector = await MapboxService.getSmartPath(
+      userLocation,
+      { lat: entryPoint[1], lng: entryPoint[0] },
+      profile,
+    );
+    if (!connector || !connector.path || connector.path.length < 2) continue;
+
+    const connectorMeters = pathLengthMeters(connector.path);
+    const f = computeProximityFraction(connectorMeters, targetMeters);
+    if (!qualifiesForCorridorFlow(connectorMeters, targetMeters)) continue;
+    if (!best || f < best.f) {
+      best = { corridorId: candidate.corridor.id, entryIndex: candidate.entryIndex, connector, f };
+    }
+  }
+  return best;
+}
+
+/**
+ * Stage A+B of the user-anchored corridor-flow build. Starts the route AT
  * THE USER (unlike `followOfficialRouteId`/`discoverCorridorChain`, both of
  * which start from a corridor) — the user->corridor leg is a real Mapbox
- * connector and counts toward `targetDistance`. Flows through one or more
- * corridors (extending via the same `route_adjacency` chain-walk
- * `generateDiscoveredChainRoute` already runs — a small local walk here
- * rather than a shared function, so that already-shipped, already-tested
- * function stays untouched; see Stage 0's isolation discipline), trims the
+ * connector and counts toward `targetDistance`. Selects a qualifying
+ * corridor via `selectProximityAwareCorridor` (falling back to normal
+ * generation when nothing qualifies — Stage B), flows through it (extending
+ * into further corridors via the same `route_adjacency` chain-walk
+ * `generateDiscoveredChainRoute` already runs, if needed), trims the
  * accumulated flow to exactly half of `targetDistance`
  * (`sliceFlowPathToDistance`), then mirrors it into a round trip
  * (`buildOutAndBackPath` — confirmed by its own doc comment to do exactly
  * this job, no adaptation needed).
- *
- * Stage A ships with the SIMPLEST correct corridor selection — nearest to
- * the user, unconditionally. Stage B replaces just that selection step with
- * `selectProximityAwareCorridor` (the `f <= 0.5` proximity check) plus a
- * fallback to normal generation when nothing qualifies.
  */
 async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): Promise<Route[]> {
   if (!IS_ROUTE_ADJACENCY_ENABLED) return [];
@@ -1834,47 +1912,41 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
   const cleanCity = (cityName || '').trim();
   const cityCandidates = resolveCityNameQueryAliases(cleanCity);
   const profile = activity === 'cycling' ? 'cycling' : 'walking';
+  const targetMeters = targetDistance * 1000;
 
+  // Fallback to normal (non-corridor) generation — same decision
+  // generateDynamicRoutes' own dispatcher makes, duplicated here (not
+  // extracted) since it's 3 lines and this function needs it from two
+  // different bail-out points below.
+  const fallbackToNormalGeneration = (): Promise<Route[]> => {
+    const rawDistance = typeof targetDistance === 'number' && !isNaN(targetDistance) ? targetDistance : 3;
+    if (options.shortRouteMode && rawDistance < MIN_GENERATION_KM) return generateShortRoutes(options);
+    return generateLoopRoutes(options);
+  };
+
+  const { orientCorridorForFlow, orientCorridorForSplice, findNearestContactPoint } = await import('./route-adjacency.service');
   const { MapboxService } = await import('./mapbox.service');
-  const { findNearestContactPoint, orientCorridorForFlow, orientCorridorForSplice } = await import('./route-adjacency.service');
 
   const corridors = await fetchPublishedCorridorsForCity(cityCandidates);
   if (corridors.size === 0) {
-    console.log('[RouteGenerator] generateUserAnchoredFlowRoute: no published corridors for this city, nothing to flow through');
-    return [];
+    console.log('[RouteGenerator] generateUserAnchoredFlowRoute: no published corridors for this city — falling back to normal generation');
+    return fallbackToNormalGeneration();
   }
 
-  // Stage A selection: nearest corridor, unconditionally.
-  let nearestId: string | null = null;
-  let nearestDist = Infinity;
-  let nearestIndex = 0;
-  for (const c of Array.from(corridors.values())) {
-    const contact = findNearestContactPoint([[userLocation.lng, userLocation.lat]], c.path);
-    if (contact.gapMeters < nearestDist) {
-      nearestDist = contact.gapMeters;
-      nearestId = c.id;
-      nearestIndex = contact.indexB;
-    }
+  const selection = await selectProximityAwareCorridor(userLocation, targetMeters, corridors, profile);
+  if (!selection) {
+    console.log('[RouteGenerator] generateUserAnchoredFlowRoute: no corridor close enough for this target (f<=0.5) — falling back to normal generation');
+    return fallbackToNormalGeneration();
   }
-  if (!nearestId) return [];
+
+  const nearestId = selection.corridorId;
+  const nearestIndex = selection.entryIndex;
+  const homeConnector = selection.connector; // already fetched during selection — no re-fetch
   const firstCorridor = corridors.get(nearestId)!;
-
-  // Real user -> corridor connector (this leg counts toward targetDistance).
-  const entryPoint = firstCorridor.path[nearestIndex];
-  const homeConnector = await MapboxService.getSmartPath(
-    userLocation,
-    { lat: entryPoint[1], lng: entryPoint[0] },
-    profile,
-  );
-  if (!homeConnector || !homeConnector.path || homeConnector.path.length < 2) {
-    console.log('[RouteGenerator] generateUserAnchoredFlowRoute: Mapbox returned no route from user to nearest corridor');
-    return [];
-  }
 
   const orientedFirst = orientCorridorForFlow(firstCorridor.path, nearestIndex);
   let flowPath: [number, number][] = [...homeConnector.path, ...orientedFirst.slice(1)];
   const chainIds = [nearestId];
-  const targetMeters = targetDistance * 1000;
   const halfTargetMeters = targetMeters / 2;
 
   // Extend into further corridors via the precomputed route_adjacency graph
