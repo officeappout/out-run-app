@@ -808,6 +808,7 @@ export const useActivityStore = create<ActivityStore>()(
           const userProfile = useUserStore.getState().profile;
           const activityScopeExtra: Record<string, unknown> = {};
           if (userProfile?.core?.authorityId) activityScopeExtra.authorityId = userProfile.core.authorityId;
+          if (userProfile?.core?.neighborhoodId) activityScopeExtra.neighborhoodId = userProfile.core.neighborhoodId;
           if (userProfile?.core?.name) activityScopeExtra.displayName = userProfile.core.name;
 
           // Read the current server baseline so a store write (triggered by a
@@ -855,6 +856,7 @@ export const useActivityStore = create<ActivityStore>()(
             longestStreak: state.longestStreak,
             lastActivityDate: state.today.date,
             ...(userProfile?.core?.authorityId ? { authorityId: userProfile.core.authorityId } : {}),
+            ...(userProfile?.core?.neighborhoodId ? { neighborhoodId: userProfile.core.neighborhoodId } : {}),
             ...(userProfile?.core?.name ? { displayName: userProfile.core.name } : {}),
             updatedAt: serverTimestamp(),
           }, { merge: true });

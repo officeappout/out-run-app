@@ -4,6 +4,7 @@
 
 export interface FeedScopeFields {
   authorityId?: string;
+  neighborhoodId?: string;
   schoolId?: string;
   ageGroup?: 'minor' | 'adult';
   gender?: 'male' | 'female' | 'other';
@@ -41,6 +42,7 @@ export function extractFeedScope(profile: any): FeedScopeFields {
 
   return {
     authorityId: cityAff?.id ?? undefined,
+    neighborhoodId: profile?.core?.neighborhoodId ?? undefined,
     schoolId: schoolAff?.id ?? undefined,
     ageGroup,
     gender,

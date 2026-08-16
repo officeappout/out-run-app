@@ -51,6 +51,7 @@ export interface FeedPost {
   createdAt: Date;
   // Scope fields for leaderboard queries
   authorityId?: string;
+  neighborhoodId?: string;
   schoolId?: string;
   parkId?: string;
   parkName?: string;
@@ -90,6 +91,7 @@ export async function createWorkoutPost(params: {
   audience?: FeedAudience;
   // Scope fields for leaderboard
   authorityId?: string;
+  neighborhoodId?: string;
   schoolId?: string;
   parkId?: string;
   parkName?: string;
@@ -133,6 +135,7 @@ export async function createWorkoutPost(params: {
       title: params.title || null,
       audience: params.audience ?? 'partners',
       authorityId: params.authorityId ?? null,
+      neighborhoodId: params.neighborhoodId ?? null,
       schoolId: params.schoolId ?? null,
       parkId: params.parkId ?? null,
       parkName: params.parkName ?? null,
@@ -197,6 +200,7 @@ export async function getFeedPosts(
         audience: data.audience ?? undefined,
         reactionCount: data.reactionCount ?? 0,
         authorityId: data.authorityId ?? undefined,
+        neighborhoodId: data.neighborhoodId ?? undefined,
         schoolId: data.schoolId ?? undefined,
         parkId: data.parkId ?? undefined,
         parkName: data.parkName ?? undefined,
