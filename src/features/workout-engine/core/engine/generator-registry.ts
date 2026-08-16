@@ -10,6 +10,7 @@ import { routeStopsGenerator } from '../generators/route-stops.generator';
 import { fullParkWorkoutGenerator } from '../generators/full-park-workout.generator';
 import { fullStrengthGenerator } from '../generators/full-strength.generator';
 import { anchorLoopGenerator } from '../generators/anchor-loop.generator';
+import { safetyNetGenerator } from '../generators/safety-net.generator';
 
 export const GENERATOR_REGISTRY: Generator[] = [
   routeGenerator,
@@ -17,4 +18,5 @@ export const GENERATOR_REGISTRY: Generator[] = [
   fullParkWorkoutGenerator,
   fullStrengthGenerator,
   anchorLoopGenerator,
+  safetyNetGenerator,
 ];
