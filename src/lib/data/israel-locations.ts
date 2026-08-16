@@ -3632,6 +3632,78 @@ export const ISRAELI_LOCATIONS: IsraeliLocation[] = [
       { id: 'mrvm-hglyl-kdyt', name: 'קדיתא', type: 'settlement' },
     ],
   },
+
+  // ══════════════════════════════════════════════════════════════════
+  // Orphan-coverage batch — 12 municipalities that existed as Firestore
+  // authority docs (CBS registry import) but had no static entry, 16.08.2026
+  // ══════════════════════════════════════════════════════════════════
+  { id: 'daburiyya', name: 'דבורייה', type: 'local_council', population: 11505 },
+  { id: 'immanuel', name: 'עמנואל', type: 'local_council', population: 6657 },
+  { id: 'oranit', name: 'אורנית', type: 'local_council', population: 10198 },
+  { id: 'julis', name: 'ג\'ולס', type: 'local_council', population: 7080 },
+  { id: 'eilabun', name: 'עיילבון', type: 'local_council', population: 6015 },
+  { id: 'kiryat-yearim', name: 'קריית יערים', type: 'local_council', population: 7995 },
+  {
+    id: 'kedumim', name: 'קדומים', type: 'local_council', population: 4825,
+    // ── Orphan-coverage batch, 16.08.2026 — matches existing Firestore authority doc by name ──
+    subLocations: [
+      { id: 'kdm-darom', name: 'קדומים דרום', type: 'neighborhood' },
+      { id: 'kdm-givat-shalem', name: 'גבעת שלם', type: 'neighborhood' },
+      { id: 'kdm-mitzpe-kedumim', name: 'מצפה קדומים', type: 'neighborhood' },
+      { id: 'kdm-mitzpe-yishai', name: 'מצפה ישי', type: 'neighborhood' },
+      { id: 'kdm-givat-rashi', name: 'גבעת רש"י', type: 'neighborhood' },
+      { id: 'kdm-har-hemed', name: 'הר חמד', type: 'neighborhood' },
+      { id: 'kdm-nofei-gidon', name: 'נופי גדעון', type: 'neighborhood' },
+      { id: 'kdm-tzafnat', name: 'צפנת (קדומים צפון)', type: 'neighborhood' },
+      { id: 'kdm-mizrach', name: 'קדומים מזרח', type: 'neighborhood' },
+    ]
+  },
+  {
+    id: 'dayr-al-asad', name: 'דייר אל-אסד', type: 'local_council', population: 13860,
+    // ── Orphan-coverage batch, 16.08.2026 — matches existing Firestore authority doc by name ──
+    subLocations: [
+      { id: 'dsd-al-bayara', name: 'אלביארה', type: 'neighborhood' },
+      { id: 'dsd-al-arid', name: 'אלעריד', type: 'neighborhood' },
+      { id: 'dsd-shchuna-maaravit', name: 'שכונה מערבית', type: 'neighborhood' },
+      { id: 'dsd-al-ein-al-jabal', name: 'אלעין / אלג\'בל', type: 'neighborhood' },
+    ]
+  },
+  {
+    id: 'kiryat-arba', name: 'קריית ארבע', type: 'local_council', population: 8450,
+    // ── Orphan-coverage batch, 16.08.2026 — matches existing Firestore authority doc by name ──
+    subLocations: [
+      { id: 'kba-ramat-mamre', name: 'רמת ממרא (גבעת חרסינה)', type: 'neighborhood' },
+      { id: 'kba-givat-haavot', name: 'גבעת האבות', type: 'neighborhood' },
+      { id: 'kba-nofei-mamre', name: 'נופי ממרא', type: 'neighborhood' },
+      { id: 'kba-shchunat-gal', name: 'שכונת גל', type: 'neighborhood' },
+    ]
+  },
+  {
+    id: 'bueine-nujeidat', name: 'בועיינה-נוג\'ידאת', type: 'local_council', population: 11271,
+    // ── Orphan-coverage batch, 16.08.2026 — matches existing Firestore authority doc by name ──
+    subLocations: [
+      { id: 'bnj-bueine', name: 'בועיינה', type: 'neighborhood' },
+      { id: 'bnj-nujeidat', name: 'נוג\'ידאת', type: 'neighborhood' },
+      { id: 'bnj-tzfonit', name: 'שכונה צפונית', type: 'neighborhood' },
+      { id: 'bnj-mizrachit', name: 'שכונה מזרחית', type: 'neighborhood' },
+    ]
+  },
+  {
+    id: 'beit-arye-ofarim', name: 'בית אריה-עופרים', type: 'local_council', population: 6191,
+    // ── Orphan-coverage batch, 16.08.2026 — matches existing Firestore authority doc by name ──
+    subLocations: [
+      { id: 'bao-beit-arye', name: 'בית אריה', type: 'neighborhood' },
+      { id: 'bao-ofarim', name: 'עופרים', type: 'neighborhood' },
+    ]
+  },
+  {
+    id: 'kisra-sumei', name: 'כסרא-סמיע', type: 'local_council', population: 9921,
+    // ── Orphan-coverage batch, 16.08.2026 — matches existing Firestore authority doc by name ──
+    subLocations: [
+      { id: 'ksm-kisra', name: 'כסרא', type: 'neighborhood' },
+      { id: 'ksm-sumei', name: 'כפר סמיע', type: 'neighborhood' },
+    ]
+  },
 ];
 
 export const getAllSubLocations = () => {
