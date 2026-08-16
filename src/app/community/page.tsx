@@ -693,7 +693,7 @@ export default function CommunityPage() {
     const handleShareMyRank = () => {
       if (!activeMyEntry) return;
       const scopeName = activeCard?.name || 'הליגה';
-      const windowHe = leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
+      const windowHe = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
       const text = `אני במקום #${activeMyEntry.rank} ב${scopeName} ${windowHe} על Out! 🔥`;
       if (navigator.share) {
         navigator.share({ text }).catch(() => {});
@@ -1049,7 +1049,7 @@ export default function CommunityPage() {
         : leaderboardCategory === 'cardio'
           ? 'ריצה'
           : 'כוח';
-    const windowLabel = leaderboardTimeWindow === 'weekly' ? 'שבועי' : 'חודשי';
+    const windowLabel = leaderboardTimeWindow === 'daily' ? 'יומי' : leaderboardTimeWindow === 'weekly' ? 'שבועי' : 'חודשי';
     return `${categoryLabel} • ${windowLabel}`;
   }
 

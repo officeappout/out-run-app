@@ -59,6 +59,7 @@ const GENDER_OPTIONS: { value: LeaderboardGenderFilter; label: string }[] = [
 ];
 
 const TIME_OPTIONS: { value: LeaderboardTimeWindow; label: string }[] = [
+  { value: 'daily',   label: 'יומי'   },
   { value: 'weekly',  label: 'שבועי'  },
   { value: 'monthly', label: 'חודשי' },
 ];

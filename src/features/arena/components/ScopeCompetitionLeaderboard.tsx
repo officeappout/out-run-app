@@ -156,7 +156,7 @@ export default function ScopeCompetitionLeaderboard({
       {/* Header row */}
       <div className="flex items-center justify-between px-1 pb-1">
         <span className="text-xs font-bold text-gray-500">
-          {GRANULARITY_LABEL[granularity]} • {timeWindow === 'weekly' ? 'שבועי' : 'חודשי'}
+          {GRANULARITY_LABEL[granularity]} • {timeWindow === 'daily' ? 'יומי' : timeWindow === 'weekly' ? 'שבועי' : 'חודשי'}
         </span>
         <button
           onClick={fetch}

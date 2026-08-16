@@ -133,7 +133,7 @@ export default function GroupLeaderboard({
     <div className="space-y-2" dir="rtl">
       {/* Header row */}
       <div className="flex items-center justify-between px-1 pb-1">
-        <span className="text-xs font-bold text-gray-500">קבוצות • {timeWindow === 'weekly' ? 'שבועי' : 'חודשי'}</span>
+        <span className="text-xs font-bold text-gray-500">קבוצות • {timeWindow === 'daily' ? 'יומי' : timeWindow === 'weekly' ? 'שבועי' : 'חודשי'}</span>
         <button
           onClick={fetch}
           className="p-1 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"

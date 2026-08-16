@@ -22,7 +22,7 @@ import { db } from '@/lib/firebase';
 
 export type LeaderboardScope = 'city' | 'school' | 'park' | 'neighborhood' | 'global' | 'league' | 'tenant';
 export type LeaderboardCategory = 'overall' | 'cardio' | 'strength';
-export type LeaderboardTimeWindow = 'weekly' | 'monthly';
+export type LeaderboardTimeWindow = 'daily' | 'weekly' | 'monthly';
 export type LeaderboardGenderFilter = 'all' | 'male' | 'female';
 
 export interface LeaderboardEntry {
@@ -69,6 +69,11 @@ export function scopeToField(scope: LeaderboardScope): string | null {
 
 // ── Time helpers ───────────────────────────────────────────────────────
 
+function getDayStart(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+}
+
 function getWeekStart(): Date {
   const now = new Date();
   const day = now.getDay(); // 0 = Sunday
@@ -85,6 +90,7 @@ function getMonthStart(): Date {
 }
 
 export function getWindowStart(window: LeaderboardTimeWindow): Date {
+  if (window === 'daily') return getDayStart();
   return window === 'weekly' ? getWeekStart() : getMonthStart();
 }
 
