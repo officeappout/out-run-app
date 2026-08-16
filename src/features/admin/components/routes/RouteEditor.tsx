@@ -28,10 +28,9 @@ import { InventoryService, invalidateOfficialRoutesCache } from '@/features/park
 import { classifyRouteShape } from '@/features/parks/core/services/geoUtils';
 import {
     ROUTE_SUB_SPORT_MAPPING,
-    ALL_ROUTE_FEATURE_TAGS,
-    ROUTE_FEATURE_TAG_LABELS,
     type RouteFeatureTag,
 } from '@/features/parks';
+import { FeatureTagPicker } from './FeatureTagPicker';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { auth } from '@/lib/firebase';
 import type { Authority } from '@/types/admin-types';
@@ -580,36 +579,10 @@ export default function RouteEditor({
 
                     {/* Feature tags (extended amenities along the route) —
                         same multi-select pattern as ParkFeatureTag in
-                        admin/locations, but writes to `route.featureTags`. */}
-                    <div className="space-y-3">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                            תכונות נוספות
-                            {featureTags.length > 0 && (
-                                <span className="text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded-full">
-                                    {featureTags.length}
-                                </span>
-                            )}
-                        </label>
-                        <div className="flex flex-wrap gap-1.5">
-                            {ALL_ROUTE_FEATURE_TAGS.map((tag) => {
-                                const selected = featureTags.includes(tag);
-                                return (
-                                    <button
-                                        key={tag}
-                                        type="button"
-                                        onClick={() => toggleFeatureTag(tag)}
-                                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
-                                            selected
-                                                ? 'bg-emerald-600 text-white border-emerald-600'
-                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-emerald-300'
-                                        }`}
-                                    >
-                                        {ROUTE_FEATURE_TAG_LABELS[tag]}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
+                        admin/locations, but writes to `route.featureTags`.
+                        Extracted to FeatureTagPicker (Stage 2.2) so the
+                        bulk-tag modal reuses this instead of a second copy. */}
+                    <FeatureTagPicker selected={featureTags} onToggle={toggleFeatureTag} />
 
                     {/* Auto sport mapping */}
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-3">

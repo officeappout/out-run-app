@@ -11,8 +11,9 @@ import {
     limit,
     updateDoc,
     serverTimestamp,
+    arrayUnion,
 } from 'firebase/firestore';
-import { Route } from '../types/route.types';
+import { Route, type RouteFeatureTag } from '../types/route.types';
 import { MapFacility } from '../types/facility.types';
 import { normalizeStoredRoutePath } from '../utils/routePath';
 import { getParksByAuthority } from './parks.service';
@@ -1229,6 +1230,47 @@ export const InventoryService = {
             return rejected;
         } catch (error) {
             console.error('❌ Error bulk-rejecting routes:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Bulk-assign RouteFeatureTag values to multiple routes — Stage 2.2 of
+     * the route-enrichment-pipeline plan. 'add' (default) is non-destructive
+     * to a route's existing tags (arrayUnion); 'replace' overwrites the
+     * whole array — callers should confirm with the admin before using it.
+     *
+     * `tags` is TypeScript-constrained to RouteFeatureTag[] (a closed enum),
+     * and the payload is otherwise fixed-shape (just featureTags +
+     * updatedAt) — same reasoning as bulkApprove/bulkReject above for why
+     * this doesn't need the Stage 1B chokepoint: there's no free-form,
+     * caller-coercible field here for it to catch.
+     */
+    bulkTagRoutes: async (
+        routeIds: string[],
+        tags: RouteFeatureTag[],
+        mode: 'add' | 'replace' = 'add',
+    ): Promise<number> => {
+        if (routeIds.length === 0 || tags.length === 0) return 0;
+        try {
+            let tagged = 0;
+            for (let i = 0; i < routeIds.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = routeIds.slice(i, i + 500);
+                chunk.forEach(id => {
+                    const payload = mode === 'add'
+                        ? { featureTags: arrayUnion(...tags), updatedAt: serverTimestamp() }
+                        : { featureTags: tags, updatedAt: serverTimestamp() };
+                    batch.update(doc(db, 'official_routes', id), payload);
+                });
+                await batch.commit();
+                tagged += chunk.length;
+            }
+            console.log(`✅ Bulk-tagged ${tagged} routes (mode: ${mode}, tags: ${tags.join(', ')})`);
+            invalidateOfficialRoutesCache();
+            return tagged;
+        } catch (error) {
+            console.error('❌ Error bulk-tagging routes:', error);
             throw error;
         }
     },
