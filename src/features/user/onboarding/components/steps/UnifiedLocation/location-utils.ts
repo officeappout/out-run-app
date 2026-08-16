@@ -354,6 +354,14 @@ export async function findAuthorityIdByCity(cityName: string): Promise<string | 
  * findAuthorityIdByCity above, just scoped to getChildrenByParent(cityId)
  * instead of every authority in the system.
  *
+ * Defense in depth: every candidate is re-checked against its OWN
+ * parentAuthorityId before being returned, rather than trusting that
+ * whatever getChildrenByParent(cityAuthorityId) returned is necessarily
+ * scoped correctly. Closes a real production case where a user's
+ * core.neighborhoodId resolved to a different city's neighborhood
+ * (Ramat Aviv, a Tel Aviv neighborhood, on a user whose core.authorityId
+ * was Rishon LeZion) — never trust the query, verify the field.
+ *
  * Returns null when the city has no matching neighborhood authority set up
  * yet (most cities today) — callers should treat that as "no neighborhood",
  * not an error.
@@ -364,7 +372,8 @@ export async function findNeighborhoodIdByCity(
 ): Promise<string | null> {
   if (!cityAuthorityId || !neighborhoodName) return null;
   try {
-    const children = await getChildrenByParent(cityAuthorityId);
+    const allChildren = await getChildrenByParent(cityAuthorityId);
+    const children = allChildren.filter((c) => c.parentAuthorityId === cityAuthorityId);
     const normalised = (s: string) => s.replace(/[\s\-]/g, '').toLowerCase();
     const target = normalised(neighborhoodName);
 
