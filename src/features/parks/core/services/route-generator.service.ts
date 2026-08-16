@@ -1970,7 +1970,7 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
   // accepted here but not branched on until a real loop-return layer exists.
   const returnShape: NonNullable<RouteGenerationOptions['returnShape']> = options.returnShape ?? 'out_and_back';
 
-  const { orientCorridorForFlow, orientCorridorForSplice, findNearestContactPoint } = await import('./route-adjacency.service');
+  const { orientCorridorForFlow, orientCorridorForSplice, orientLoopArc, findNearestContactPoint } = await import('./route-adjacency.service');
   const { MapboxService } = await import('./mapbox.service');
 
   const corridors = await fetchPublishedCorridorsForCity(cityCandidates);
@@ -1990,6 +1990,10 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
   const homeConnector = selection.connector; // already fetched during selection — no re-fetch
   const firstCorridor = corridors.get(nearestId)!;
 
+  // GUARD (hard requirement, 16.08.2026): this computation is UNCHANGED from
+  // before the chaining fix below, and if the guard condition just after is
+  // false, absolutely nothing below touches flowPath/chainIds again — single-
+  // corridor generation (no chain needed) takes this exact path, untouched.
   const orientedFirst = orientCorridorForFlow(firstCorridor.path, nearestIndex);
   let flowPath: [number, number][] = [...homeConnector.path, ...orientedFirst.slice(1)];
   const chainIds = [nearestId];
@@ -2032,9 +2036,34 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
         continue;
       }
 
-      const tailPoint = flowPath[flowPath.length - 1];
-      const contact = findNearestContactPoint([tailPoint], nextCorridor.path);
-      const orientedNext = orientCorridorForSplice(nextCorridor.path, contact.indexB);
+      // Loop-orientation chaining fix (16.08.2026): on the FIRST hop only,
+      // the flow's tail is still wherever orientCorridorForFlow rotated the
+      // loop to end (the user's own entry point) — not a useful proxy for
+      // "where this corridor actually comes closest to the next one." Re-cut
+      // the first corridor's loop as an arc from the entry point to its real
+      // exit toward the next corridor (found via findNearestContactPoint on
+      // the full paths, not the flow tail) before building the connector.
+      // Later hops already orient correctly off their immediate predecessor
+      // (unchanged below) — this branch only ever fires once per flow.
+      const isFirstHop = chainIds.length === 1;
+      let tailPoint: [number, number];
+      let orientedNext: [number, number][];
+      let firstHopPath: [number, number][] | null = null;
+
+      if (isFirstHop) {
+        const firstContact = findNearestContactPoint(firstCorridor.path, nextCorridor.path);
+        const firstIsLoop = isSameCoord(firstCorridor.path[0], firstCorridor.path[firstCorridor.path.length - 1]);
+        firstHopPath = firstIsLoop
+          ? orientLoopArc(firstCorridor.path, nearestIndex, firstContact.indexA)
+          : orientedFirst; // non-loop: unchanged, orientCorridorForFlow's choice already stands
+        tailPoint = firstHopPath[firstHopPath.length - 1];
+        orientedNext = orientCorridorForSplice(nextCorridor.path, firstContact.indexB);
+      } else {
+        tailPoint = flowPath[flowPath.length - 1];
+        const contact = findNearestContactPoint([tailPoint], nextCorridor.path);
+        orientedNext = orientCorridorForSplice(nextCorridor.path, contact.indexB);
+      }
+
       const connector = await MapboxService.getSmartPath(
         { lat: tailPoint[1], lng: tailPoint[0] },
         { lat: orientedNext[0][1], lng: orientedNext[0][0] },
@@ -2050,7 +2079,9 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
         continue;
       }
 
-      flowPath = [...flowPath, ...connector.path.slice(1), ...orientedNext.slice(1)];
+      flowPath = isFirstHop && firstHopPath
+        ? [...homeConnector.path, ...firstHopPath.slice(1), ...connector.path.slice(1), ...orientedNext.slice(1)]
+        : [...flowPath, ...connector.path.slice(1), ...orientedNext.slice(1)];
       chainIds.push(next.toRouteId);
     }
   }
