@@ -203,6 +203,26 @@ export function detectDayPeriod(): DayPeriod {
 }
 
 /**
+ * Detect Israel workday state from the user's local clock — reuses the exact boundaries
+ * already established elsewhere in this file rather than inventing new ones: the Sun-Thu
+ * workweek split (detectDayPeriod, above) and the 12:00-14:00 lunch window (see the
+ * "DESK RESET BOOST" persona scoring below) so this codebase doesn't end up with two
+ * competing definitions of "lunch."
+ */
+export interface WorkdayState {
+  isWorkday: boolean;
+  isLunchWindow: boolean;
+}
+
+export function detectWorkdayState(): WorkdayState {
+  const hour = new Date().getHours();
+  return {
+    isWorkday: detectDayPeriod() !== 'weekend',
+    isLunchWindow: hour >= 12 && hour < 14,
+  };
+}
+
+/**
  * Hebrew labels for time of day (for UI selectors).
  */
 export const TIME_OF_DAY_OPTIONS: { id: TimeOfDay; label: string; icon: string }[] = [
