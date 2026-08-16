@@ -30,7 +30,7 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { HYBRID_PRESETS } from '../../hybrid/hybrid-slots';
 import { buildStepContext } from './build-step-context';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
-import { detectTimeOfDay } from '../../services/workout-metadata.service';
+import { detectTimeOfDay, detectWorkdayState } from '../../services/workout-metadata.service';
 
 export interface BuildHomeUserContextInput {
   profile: UserFullProfile;
@@ -61,7 +61,7 @@ export function buildHomeUserContext({
     surface: 'home',
     venue: null,
     transitState: null,
-    workdayState: null,
+    workdayState: detectWorkdayState(),
     activitySignal: null,
   };
 }

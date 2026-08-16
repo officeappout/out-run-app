@@ -27,7 +27,7 @@ import type { AerobicKind } from '../../hybrid/compose-hybrid-session.service';
 import { HYBRID_PRESETS } from '../../hybrid/hybrid-slots';
 import { buildStepContext } from './build-step-context';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
-import { detectTimeOfDay } from '../../services/workout-metadata.service';
+import { detectTimeOfDay, detectWorkdayState } from '../../services/workout-metadata.service';
 
 export interface BuildMapUserContextInput {
   profile: UserFullProfile;
@@ -60,7 +60,7 @@ export function buildMapUserContext({
     surface: 'map',
     venue: null,
     transitState: null,
-    workdayState: null,
+    workdayState: detectWorkdayState(),
     activitySignal: null,
   };
 }
