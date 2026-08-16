@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { generateDynamicRoutes } from '../services/route-generator.service';
+import { generateDynamicRoutes, MIN_GENERATION_KM } from '../services/route-generator.service';
 import { MOCK_ROUTES } from '../data/mock-routes';
 import { fetchRealParks } from '../services/parks.service';
 import { InventoryService, getCachedOfficialRoutes } from '../services/inventory.service';
@@ -181,6 +181,10 @@ export function useRouteGeneration(
         preferences: { includeStrength: preferences.includeStrength || false, surface: preferences.surface as 'road' | 'trail' },
         parks,
         cityName: userCityName,
+        // Corridor-preference for the map's route-discovery flow
+        // (David-approved, 16.08.2026) — only for normal-sized targets; no-op
+        // while IS_ROUTE_ADJACENCY_ENABLED is false (kill-switch).
+        userAnchoredCorridorFlow: targetKm >= MIN_GENERATION_KM,
       });
       if (newRoutes.length > 0) { setAllRoutes(newRoutes); setFocusedRoute(newRoutes[0]); }
       else { setAllRoutes(MOCK_ROUTES); if (MOCK_ROUTES.length > 0) setFocusedRoute(MOCK_ROUTES[0]); }

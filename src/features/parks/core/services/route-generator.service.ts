@@ -1942,7 +1942,12 @@ async function selectProximityAwareCorridor(
  * this job, no adaptation needed).
  */
 async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): Promise<Route[]> {
-  if (!IS_ROUTE_ADJACENCY_ENABLED) return [];
+  // Falls back to normal generation, not []: (16.08.2026) this is now called
+  // unconditionally from the real free-run flow (not just when a caller
+  // explicitly opts in), so IS_ROUTE_ADJACENCY_ENABLED must work as a true
+  // kill-switch — flipping it off has to revert to today's exact generation,
+  // never break it. See fallbackToNormalGeneration's own doc comment.
+  if (!IS_ROUTE_ADJACENCY_ENABLED) return fallbackToNormalGeneration(options);
 
   const { userLocation, cityName, activity, routeGenerationIndex, targetDistance } = options;
   const cleanCity = (cityName || '').trim();
@@ -2098,7 +2103,7 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
  * user-facing goal is untouched); short-route mode instead tries a
  * recalibrated short loop / out-and-back — see `generateShortRoutes`.
  */
-const MIN_GENERATION_KM = 1.5;
+export const MIN_GENERATION_KM = 1.5;
 /** Tiny numeric-safety floor for short-route mode — NOT a UX floor like
  *  MIN_GENERATION_KM. Short-route mode exists specifically to honor
  *  genuinely small targets; this only guards a pathological 0/negative

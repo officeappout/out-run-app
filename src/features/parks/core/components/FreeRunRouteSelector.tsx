@@ -37,6 +37,7 @@ import {
   generateDynamicRoutes,
   getLastGenerationDiagnostics,
   type RouteGenerationDiagnostics,
+  MIN_GENERATION_KM,
 } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import type { ActivityType, Route } from '../types/route.types';
@@ -128,6 +129,11 @@ export default function FreeRunRouteSelector({
           preferences: { includeStrength: false },
           parks,
           cityName, // captured at firing time, not at mount
+          // Corridor-preference for the primary free-run map flow
+          // (David-approved, 16.08.2026) — only for normal-sized targets;
+          // short targets keep today's exact short-route logic untouched.
+          // No-op while IS_ROUTE_ADJACENCY_ENABLED is false (kill-switch).
+          userAnchoredCorridorFlow: targetKm >= MIN_GENERATION_KM,
         });
         if (cancelled) return;
         setRoutes(result.slice(0, 3));
