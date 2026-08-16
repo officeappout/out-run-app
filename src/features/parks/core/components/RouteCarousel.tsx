@@ -100,6 +100,7 @@ import {
 } from 'lucide-react';
 import {
   generateDynamicRoutes,
+  MIN_GENERATION_KM,
 } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import { useMapStore } from '../store/useMapStore';
@@ -357,6 +358,16 @@ export default function RouteCarousel({
                 parks,
                 cityName,
                 shortRouteMode,
+                // Corridor-preference for the primary free-run map flow
+                // (David-approved, 16.08.2026 — this IS "the original
+                // free-run experience" per this file's own doc comment,
+                // the actual entry point behind DiscoverLayer's carousel;
+                // the two OTHER call sites wired earlier were not it).
+                // Only for normal-sized targets — short targets keep
+                // today's exact shortRouteMode/generateShortRoutes path
+                // untouched. No-op while IS_ROUTE_ADJACENCY_ENABLED is
+                // false (kill-switch, verified live).
+                userAnchoredCorridorFlow: (targetKm ?? 3) >= MIN_GENERATION_KM,
               },
         );
         if (cancelled) return;

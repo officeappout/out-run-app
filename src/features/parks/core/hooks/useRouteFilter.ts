@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Route, ActivityType, PlannedRoute } from '../types/route.types';
 import { useUserStore } from '@/features/user';
 import { calculateCalories } from '@/lib/calories.utils';
-import { generateDynamicRoutes } from '../services/route-generator.service';
+import { generateDynamicRoutes, MIN_GENERATION_KM } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import { Park } from '../types/park.types';
 
@@ -105,6 +105,14 @@ export function useRouteFilter(
               idealWaypointDistanceKm: targetDistance / 6,
             },
             parks,
+            // Corridor-preference (David-approved, 16.08.2026), same
+            // pattern as the other free-run entry points. NOTE: this call
+            // site never passes cityName, so fetchPublishedCorridorsForCity
+            // will resolve zero corridors regardless — this wiring is
+            // correct/safe (falls back cleanly) but functionally inert
+            // here until cityName is threaded through, a separate,
+            // pre-existing gap not addressed by this change.
+            userAnchoredCorridorFlow: targetDistance >= MIN_GENERATION_KM,
           }),
         )
         .then((routes) => {
