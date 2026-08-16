@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, RefreshCw, Lock, ChevronDown, Plus, UserPlus } from 'lucide-react';
+import { Trophy, RefreshCw, Lock, ChevronDown, Plus, UserPlus, Share2 } from 'lucide-react';
 import { useLeaderboard } from '@/features/arena/hooks/useLeaderboard';
 import { useUserStore } from '@/features/user';
 import ViralUnlockSheet from '@/features/safecity/components/ViralUnlockSheet';
@@ -24,7 +24,9 @@ type OpenDropdown = 'cat' | 'sub' | 'gender' | 'time' | null;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const ACCENT = '#1D9E75';
+// Brand palette (screens mockup, 16.08.2026): emerald is the accent.
+const ACCENT = '#10B981';
+const GOLD = '#f4b400';
 
 // Stage A (leagues design pass, 16.08.2026): nav row consolidated to exactly
 // two dropdowns — metric + time — per the mockups. Flip to `true` to bring
@@ -88,38 +90,37 @@ function avatarGradient(seed: string): string {
   return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
 }
 
-// Metallic rank rings (gold / silver / bronze) + per-rank podium geometry.
+// Podium geometry + per-rank pedestal shade — mockup alignment (16.08.2026).
+// Simplified from the old metallic gold/silver/bronze ring treatment: only
+// #1 gets a border (gold), matching the mockup's flatter look. Sizes/heights
+// match the mockup's px values exactly.
 const RANK_CONFIG: Record<1 | 2 | 3, {
-  ring: string;
   medal: string;
-  glow: string;
+  border: string | null;
   step: string;
   stepHeight: number;
   avatar: number;
 }> = {
   1: {
-    ring: 'linear-gradient(135deg, #FEF3C7 0%, #FBBF24 45%, #B45309 100%)',
     medal: '🥇',
-    glow: '0 6px 18px rgba(245,158,11,0.45)',
-    step: 'linear-gradient(180deg, #34D399 0%, #1D9E75 55%, #147C5C 100%)',
-    stepHeight: 78,
-    avatar: 62,
+    border: `3px solid ${GOLD}`,
+    step: 'linear-gradient(180deg, #38b487 0%, #2f9e78 100%)',
+    stepHeight: 94,
+    avatar: 74,
   },
   2: {
-    ring: 'linear-gradient(135deg, #F8FAFC 0%, #CBD5E1 45%, #8593A8 100%)',
     medal: '🥈',
-    glow: '0 5px 14px rgba(148,163,184,0.4)',
-    step: 'linear-gradient(180deg, #2BB587 0%, #1D9E75 60%, #15805F 100%)',
-    stepHeight: 56,
-    avatar: 50,
+    border: null,
+    step: 'linear-gradient(180deg, #38b487 0%, #2f9e78 100%)',
+    stepHeight: 68,
+    avatar: 60,
   },
   3: {
-    ring: 'linear-gradient(135deg, #FED7AA 0%, #FB923C 45%, #9A3412 100%)',
     medal: '🥉',
-    glow: '0 5px 14px rgba(234,88,12,0.4)',
-    step: 'linear-gradient(180deg, #25A87B 0%, #1B9070 60%, #136B50 100%)',
-    stepHeight: 42,
-    avatar: 50,
+    border: null,
+    step: 'linear-gradient(180deg, #38b487 0%, #2f9e78 100%)',
+    stepHeight: 50,
+    avatar: 56,
   },
 };
 
@@ -246,9 +247,14 @@ interface PodiumColumnProps {
   mode: LeaderboardMode;
   isSegmentMode: boolean;
   onInvite: () => void;
+  /** Current user's real currentStreak (profile.progression), shown as a
+   *  small badge ONLY on their own column and ONLY outside 'general' mode
+   *  (in 'general' mode the main value IS the streak already — a second
+   *  badge would just repeat the same number). */
+  myStreak?: number;
 }
 
-function PodiumColumn({ entry, rank, mode, isSegmentMode, onInvite }: PodiumColumnProps) {
+function PodiumColumn({ entry, rank, mode, isSegmentMode, onInvite, myStreak }: PodiumColumnProps) {
   const cfg = RANK_CONFIG[rank];
 
   // ── Empty slot → gorgeous dashed placeholder that opens the invite sheet ──
@@ -281,38 +287,39 @@ function PodiumColumn({ entry, rank, mode, isSegmentMode, onInvite }: PodiumColu
     <div className={`flex flex-col items-center justify-end gap-1 ${elevated ? '-mt-2' : ''}`}>
       <span className={elevated ? 'text-xl leading-none' : 'text-base leading-none'}>{cfg.medal}</span>
 
-      {/* Metallic ring wrapper → vibrant gradient avatar */}
+      {/* Avatar — plain shadow, gold border on #1 only (mockup's flatter look) */}
       <div
-        style={{ background: cfg.ring, padding: elevated ? 4 : 3, borderRadius: 9999, boxShadow: cfg.glow }}
+        className="rounded-full flex items-center justify-center text-white font-black"
+        style={{
+          width: cfg.avatar,
+          height: cfg.avatar,
+          background: avatarGradient(entry.uid || entry.name),
+          fontSize: elevated ? 26 : 20,
+          border: cfg.border ?? undefined,
+          boxShadow: '0 4px 12px rgba(15,23,42,0.18)',
+        }}
       >
-        <div
-          className="rounded-full flex items-center justify-center text-white font-black"
-          style={{
-            width: cfg.avatar,
-            height: cfg.avatar,
-            background: avatarGradient(entry.uid || entry.name),
-            fontSize: elevated ? 22 : 18,
-          }}
-        >
-          {entry.name.charAt(0)}
-        </div>
+        {entry.name.charAt(0)}
       </div>
 
       <span className="text-[11px] font-black text-gray-900 truncate max-w-[84px] text-center mt-0.5">
         {entry.name}
       </span>
-      <span className="text-[10px] font-bold text-gray-500 tabular-nums leading-none flex items-center gap-1">
+      <span className="text-[10px] font-bold tabular-nums leading-none" style={{ color: ACCENT }}>
         {formatLeaderboardScore(entry.totalCredit, mode, isSegmentMode)}
-        {/* Streak badge — secondary to the metric-first number above (Stage
-            B). Only shown in 'general' mode, where entry.totalCredit IS the
-            streak count already (see getStreakLeaderboard) — no new fetch
-            needed. Other podium members' streaks aren't available on
-            LeaderboardEntry for strength/running/steps modes without a
-            small new per-entry fetch; deferred rather than guessed. */}
-        {mode === 'general' && entry.totalCredit > 0 && (
-          <span aria-hidden>🔥</span>
-        )}
       </span>
+      {/* Streak badge — its own small line (mockup .sb), secondary to the
+          metric-first value above. 'general' mode's value IS the streak
+          already (see getStreakLeaderboard), so a second badge there would
+          just repeat the same number — shown only for OTHER modes, and
+          only on the current user's own column, since per-entry streaks
+          for other podium members aren't available on LeaderboardEntry
+          outside 'general' mode without a new per-entry fetch. */}
+      {mode !== 'general' && entry.isCurrentUser && !!myStreak && myStreak > 0 && (
+        <span className="text-[10px] font-black leading-none" style={{ color: GOLD }}>
+          🔥 {myStreak}
+        </span>
+      )}
 
       {/* 3D gradient step */}
       <div
@@ -489,13 +496,14 @@ export default function NeighborhoodLeaderboard({
   // ── Leaderboard data ─────────────────────────────────────────────────────
   const getSocialUnlocked = useUserStore((s) => s.getSocialUnlocked);
   const socialUnlocked    = getSocialUnlocked();
+  const profile           = useUserStore((s) => s.profile);
   // bypassSocialGate overrides both gates — used for soft_launch cities so
   // seeded demo data is fully visible without a real referral.
   const shouldBlur = !bypassSocialGate && (!isLeagueActive || !socialUnlocked);
 
   const isSegmentMode = localMode === 'running' && runSegment !== 'all';
 
-  const { entries, myEntry, isLoading, refresh } = useLeaderboard({
+  const { entries, myEntry, totalParticipants, isLoading, refresh } = useLeaderboard({
     scope,
     scopeId,
     category,
@@ -510,6 +518,28 @@ export default function NeighborhoodLeaderboard({
     runSegment: isSegmentMode ? (runSegment as RunSegmentFilter) : undefined,
   });
 
+  // ── Hero card (mockup alignment, 16.08.2026) ─────────────────────────────
+  // Share/invite use the same lightweight native-share/clipboard mechanism
+  // as the page-level sticky "my rank" footer (community/page.tsx), scoped
+  // to this leaderboard's own `scopeLabel` instead of the page-level active
+  // league card name — same behavior, no cross-component reach-through.
+  const heroWindowPhrase = timeWindow === 'daily' ? 'היום' : timeWindow === 'weekly' ? 'השבוע' : 'החודש';
+
+  function handleHeroShare() {
+    if (!myEntry) return;
+    const name = scopeLabel ?? 'הליגה';
+    const text = `אני במקום #${myEntry.rank} ב${name} ${heroWindowPhrase} על Out! 🔥`;
+    if (navigator.share) navigator.share({ text }).catch(() => {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(text);
+  }
+
+  function handleHeroInvite() {
+    const name = scopeLabel ?? 'הליגה';
+    const text = `בוא תצטרף אליי ב${name} על Out! 🔥`;
+    if (navigator.share) navigator.share({ text }).catch(() => {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(text);
+  }
+
   useEffect(() => {
     onMyEntryChange?.(myEntry);
   }, [myEntry, onMyEntryChange]);
@@ -522,7 +552,6 @@ export default function NeighborhoodLeaderboard({
   const rest  = entries.slice(3);
 
   // ── Derived filter UI values ─────────────────────────────────────────────
-  const activeCatOpt      = CATEGORY_OPTIONS.find((o) => o.value === localMode) ?? CATEGORY_OPTIONS[0];
   const activeStrengthProg = programs.find((p) => p.id === strengthProgramId) ?? null;
   // Stage A (leagues design pass): nav consolidated to exactly two dropdowns
   // (metric + time), per the mockups — the running-segment/strength-program
@@ -533,7 +562,6 @@ export default function NeighborhoodLeaderboard({
   const showSubFilter      = false && (localMode === 'running' || localMode === 'strength');
   const contextLabel       = getContextLabel(localMode, runSegment, activeStrengthProg);
 
-  const catActive    = localMode !== 'general';
   const subActive    = localMode === 'running' ? runSegment !== 'all' : strengthProgramId !== null;
   const genderActive = genderFilter !== 'all';
   const timeActive   = timeWindow !== 'weekly';
@@ -584,27 +612,36 @@ export default function NeighborhoodLeaderboard({
             </button>
           </div>
 
-          {/* ── Dropdown filter buttons ───────────────────────────────── */}
-          <div ref={filterRef} className="flex gap-2 flex-wrap">
+          {/* ── Filter row ───────────────────────────────────────────── */}
+          <div ref={filterRef} className="flex gap-2 flex-wrap items-center">
 
-            {/* קטגוריה */}
-            <FilterDropdown
-              label={`${activeCatOpt.emoji} ${activeCatOpt.label}`}
-              isActive={catActive}
-              isOpen={openDropdown === 'cat'}
-              onToggle={() => setOpenDropdown(openDropdown === 'cat' ? null : 'cat')}
-            >
-              {CATEGORY_OPTIONS.map((opt) => (
-                <DropdownItem
+            {/* קטגוריה — always-visible pill row (mockup .fc/.fc.on), not a
+                dropdown. handleSetMode/localMode/CATEGORY_OPTIONS unchanged
+                — only the trigger surface changed from one dropdown button
+                to N inline pills. */}
+            {CATEGORY_OPTIONS.map((opt) => {
+              const isOn = localMode === opt.value;
+              return (
+                <button
                   key={opt.value}
-                  isSelected={localMode === opt.value}
+                  type="button"
                   onClick={() => handleSetMode(opt.value)}
+                  className="flex items-center gap-1 whitespace-nowrap transition-colors"
+                  style={{
+                    padding: '9px 13px',
+                    borderRadius: 999,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    border: isOn ? '1px solid #cdeafe' : '1px solid #e3e8ef',
+                    backgroundColor: isOn ? '#eaf6ff' : '#f1f4f8',
+                    color: isOn ? '#00ADEF' : '#64748b',
+                  }}
                 >
                   <span>{opt.emoji}</span>
                   {opt.label}
-                </DropdownItem>
-              ))}
-            </FilterDropdown>
+                </button>
+              );
+            })}
 
             {/* Sub-filter (running segments or strength programs) */}
             {showSubFilter && (
@@ -666,23 +703,25 @@ export default function NeighborhoodLeaderboard({
               </FilterDropdown>
             )}
 
-            {/* טווח */}
-            <FilterDropdown
-              label={(TIME_OPTIONS.find((o) => o.value === timeWindow) ?? TIME_OPTIONS[0]).label}
-              isActive={timeActive}
-              isOpen={openDropdown === 'time'}
-              onToggle={() => setOpenDropdown(openDropdown === 'time' ? null : 'time')}
-            >
-              {TIME_OPTIONS.map((opt) => (
-                <DropdownItem
-                  key={opt.value}
-                  isSelected={timeWindow === opt.value}
-                  onClick={() => { setTimeWindow(opt.value); setOpenDropdown(null); }}
-                >
-                  {opt.label}
-                </DropdownItem>
-              ))}
-            </FilterDropdown>
+            {/* טווח — pushed to the row's end (mockup: margin-inline-start:auto) */}
+            <div className="ms-auto">
+              <FilterDropdown
+                label={(TIME_OPTIONS.find((o) => o.value === timeWindow) ?? TIME_OPTIONS[0]).label}
+                isActive={timeActive}
+                isOpen={openDropdown === 'time'}
+                onToggle={() => setOpenDropdown(openDropdown === 'time' ? null : 'time')}
+              >
+                {TIME_OPTIONS.map((opt) => (
+                  <DropdownItem
+                    key={opt.value}
+                    isSelected={timeWindow === opt.value}
+                    onClick={() => { setTimeWindow(opt.value); setOpenDropdown(null); }}
+                  >
+                    {opt.label}
+                  </DropdownItem>
+                ))}
+              </FilterDropdown>
+            </div>
 
           </div>
 
@@ -693,6 +732,73 @@ export default function NeighborhoodLeaderboard({
             </p>
           )}
         </div>
+
+        {/* Hero — "your position" card. Dark ink card with a radial cyan
+            glow, metric-first big number (never a bare/generic label —
+            formatLeaderboardScore), rank pill, streak line, share/invite
+            CTAs. Only shown once a real entry exists to summarize. */}
+        {!isLoading && myEntry && (
+          <div
+            className="mx-5 mt-4 rounded-2xl p-4 text-white relative overflow-hidden"
+            style={{ background: '#0f172a' }}
+            dir="rtl"
+          >
+            <div
+              aria-hidden
+              className="absolute -top-8 -left-8 w-40 h-40 rounded-full pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(0,173,239,0.4), transparent 70%)' }}
+            />
+            <div className="relative z-10 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px]" style={{ color: '#9fb3c8' }}>
+                  המיקום שלך {heroWindowPhrase} · {scopeLabel ?? 'הליגה'}
+                </p>
+                <p className="text-lg font-black mt-0.5 truncate" style={{ color: '#00ADEF' }}>
+                  {formatLeaderboardScore(myEntry.totalCredit, localMode, isSegmentMode)}
+                </p>
+              </div>
+              <div
+                className="text-center rounded-xl px-3 py-1.5 flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)' }}
+              >
+                <p className="text-lg font-black leading-none" style={{ color: '#10B981' }}>#{myEntry.rank}</p>
+                <p className="text-[9px] mt-0.5" style={{ color: '#9fb3c8' }}>מתוך {totalParticipants}</p>
+              </div>
+            </div>
+
+            {/* Streak line — 'general' mode's totalCredit IS the real
+                currentStreak count (getStreakLeaderboard), so this is
+                genuine data, not a duplicate fetch. The mockup's "עוד N
+                לשיא שלך" (distance to personal-best streak) has no source
+                anywhere in progression — no longestStreak/bestStreak field
+                exists — so it's intentionally omitted rather than guessed. */}
+            {localMode === 'general' && myEntry.totalCredit > 0 && (
+              <p className="relative z-10 mt-2 text-xs font-bold" style={{ color: '#ffd9a8' }}>
+                🔥 {myEntry.totalCredit} ימי אימון ברצף
+              </p>
+            )}
+
+            <div className="relative z-10 flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={handleHeroShare}
+                className="flex-1 text-center rounded-xl py-2.5 text-[13px] font-black active:scale-95 transition-transform"
+                style={{ background: 'linear-gradient(90deg, #00ADEF, #00dcd0)' }}
+              >
+                שתף את המיקום שלי
+              </button>
+              <button
+                type="button"
+                onClick={handleHeroInvite}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13px] font-black active:scale-95 transition-transform"
+                style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.16)' }}
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                הזמן חברים
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Podium + rows ────────────────────────────────────────────── */}
         {isLoading ? (
@@ -712,9 +818,9 @@ export default function NeighborhoodLeaderboard({
             <div className="px-5 pt-6 pb-3">
               <div className="grid grid-cols-3 items-end gap-2">
                 {/* DOM order [2,1,3] → 1st place lands in the centre column */}
-                <PodiumColumn entry={top3[1] ?? null} rank={2} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} />
-                <PodiumColumn entry={top3[0] ?? null} rank={1} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} />
-                <PodiumColumn entry={top3[2] ?? null} rank={3} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} />
+                <PodiumColumn entry={top3[1] ?? null} rank={2} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} myStreak={profile?.progression?.currentStreak} />
+                <PodiumColumn entry={top3[0] ?? null} rank={1} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} myStreak={profile?.progression?.currentStreak} />
+                <PodiumColumn entry={top3[2] ?? null} rank={3} mode={localMode} isSegmentMode={isSegmentMode} onInvite={() => setShowInvite(true)} myStreak={profile?.progression?.currentStreak} />
               </div>
             </div>
 

@@ -741,7 +741,10 @@ export default function CommunityPage() {
             className="w-full flex items-center gap-3 rounded-2xl px-3 py-3 bg-white border border-gray-200 shadow-subtle active:scale-[0.98] transition-transform mb-3"
             dir="rtl"
           >
-            <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div
+              className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+              style={activeCard?.logoUrl ? undefined : { background: 'linear-gradient(135deg, #00ADEF, #00dcd0)' }}
+            >
               {activeCard?.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -750,7 +753,7 @@ export default function CommunityPage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-xl leading-none">
+                <span className="text-xl leading-none text-white">
                   {activeCard?.emoji ?? '🏆'}
                 </span>
               )}
@@ -771,7 +774,7 @@ export default function CommunityPage() {
               <div className="flex flex-col items-center flex-shrink-0 leading-none">
                 <span
                   className="font-black tabular-nums text-sm"
-                  style={{ color: '#1D9E75' }}
+                  style={{ color: '#10B981' }}
                 >
                   #{activeMyEntry.rank}
                 </span>
@@ -892,8 +895,8 @@ export default function CommunityPage() {
               <div
                 className="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0 text-white"
                 style={{
-                  background: 'linear-gradient(135deg, #2BB587, #147C5C)',
-                  boxShadow: '0 4px 12px rgba(20,124,92,0.35)',
+                  background: 'linear-gradient(135deg, #10B981, #0d9668)',
+                  boxShadow: '0 4px 12px rgba(16,185,129,0.35)',
                 }}
               >
                 <span className="text-[8px] font-bold leading-none opacity-80">דירוג</span>
@@ -909,12 +912,12 @@ export default function CommunityPage() {
                       loaded client-side (no new fetch) and reflects the
                       current user regardless of which metric is selected. */}
                   {!!profile?.progression?.currentStreak && (
-                    <span className="text-[10px] font-bold text-orange-500 flex-shrink-0" aria-hidden>
+                    <span className="text-[10px] font-bold flex-shrink-0" style={{ color: '#f4b400' }} aria-hidden>
                       {profile.progression.currentStreak}🔥
                     </span>
                   )}
                 </p>
-                <p className="text-[11px] text-[#147C5C] font-bold tabular-nums leading-tight">
+                <p className="text-[11px] text-[#10B981] font-bold tabular-nums leading-tight">
                   {formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)}
                 </p>
               </div>
@@ -922,9 +925,9 @@ export default function CommunityPage() {
                 type="button"
                 onClick={handleInviteFromMyRank}
                 aria-label="הזמן חברים"
-                className="flex items-center justify-center w-9 h-9 rounded-xl text-[#147C5C] active:scale-95 transition-transform flex-shrink-0"
+                className="flex items-center justify-center w-9 h-9 rounded-xl text-[#10B981] active:scale-95 transition-transform flex-shrink-0"
                 style={{
-                  background: 'rgba(20,124,92,0.1)',
+                  background: 'rgba(16,185,129,0.1)',
                 }}
               >
                 <UserPlus className="w-4 h-4" />
@@ -934,8 +937,8 @@ export default function CommunityPage() {
                 onClick={handleShareMyRank}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-xs font-black active:scale-95 transition-transform flex-shrink-0"
                 style={{
-                  background: 'linear-gradient(135deg, #2BB587, #147C5C)',
-                  boxShadow: '0 4px 12px rgba(20,124,92,0.3)',
+                  background: 'linear-gradient(135deg, #10B981, #0d9668)',
+                  boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
                 }}
               >
                 <Share2 className="w-3.5 h-3.5" />
