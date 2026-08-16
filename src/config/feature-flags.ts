@@ -1168,6 +1168,28 @@ export const RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED = true;
 // code change needed.
 export const HOME_STEP_DEFICIT_CARD_ENABLED = true;
 
+// POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED (home-generator-v2 plan, step 6, 16.08.2026): a
+// new post_workout suggestion carousel — 1-3 real, ranked suggestions (recovery-follow-up /
+// complementary-short / safety-net) shown when the existing "תציעו לי עוד אימון" CTA
+// (HeroWorkoutCard's onRequestMore, home/page.tsx) is tapped after a completed workout.
+// Reuses the SAME registry/engine (generator-registry.ts, runSuggestionEngine) that already
+// ranks the map's cards — not a second mechanism. "Start" reuses useWorkoutSession exactly
+// as-is (same session-storage + navigation every other workout-start call site uses) and
+// each generator's real-generation call is skipCycleRestart:true — a tap here never mutates
+// users/{id}.progression.activePrograms on its own, only an actual "Start" does (unchanged
+// from every other read-only preview call site in this codebase).
+//
+// While FALSE (default), the eager-compute effect never runs (no runSuggestionEngine call,
+// no generateHomeWorkoutTrio call) and the carousel never renders — byte-identical to
+// today's handleRequestMore, which still resets to the generic pre-workout hero-press flow.
+//
+// NOT YET FLIPPED — awaiting David's own device verification (real workout completion, both
+// full and mid-workout-quit endings, both a rest-day and a strength-day-already-done
+// screen, tap "Start" and confirm progression.activePrograms is untouched by viewing alone)
+// before production rollout. Kill-switch: leave/flip back to false, byte-identical
+// instantly, no code change needed.
+export const POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
