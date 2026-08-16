@@ -25,7 +25,7 @@
  * between surfaces. Keep this builder in sync with buildMapUserContext's shape/defaults.
  */
 
-import type { UserContext, GeoLocation } from '../types/user-context.types';
+import type { UserContext, GeoLocation, UserContextSurface } from '../types/user-context.types';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { HYBRID_PRESETS } from '../../hybrid/hybrid-slots';
 import { buildStepContext } from './build-step-context';
@@ -35,11 +35,17 @@ import { detectTimeOfDay, detectWorkdayState } from '../../services/workout-meta
 export interface BuildHomeUserContextInput {
   profile: UserFullProfile;
   location: GeoLocation | null;
+  /** Defaults to 'home' — the only caller before step 6 of the home-generator-v2 plan
+   *  (the post_workout suggestion carousel, home/page.tsx). Same computation either way,
+   *  per this file's own header comment: surfaces must never diverge on the underlying
+   *  context, only on this one tag. */
+  surface?: UserContextSurface;
 }
 
 export function buildHomeUserContext({
   profile,
   location,
+  surface = 'home',
 }: BuildHomeUserContextInput): UserContext {
   const stepContext = buildStepContext(useActivityStore.getState().today);
 
@@ -58,7 +64,7 @@ export function buildHomeUserContext({
     questionnaires: {},
     location,
     timeOfDay: detectTimeOfDay(),
-    surface: 'home',
+    surface,
     venue: null,
     transitState: null,
     workdayState: detectWorkdayState(),
