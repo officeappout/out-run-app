@@ -389,7 +389,7 @@ async function seedRoutes(
       estimatedTime: 40,
       difficulty: 'easy',
       tags: ['מואר', 'מוגן', 'שביל הליכה', 'מתאים למשפחות', 'בטוח', 'נגיש'],
-      featureTags: ['lit', 'safe', 'accessible', 'family_friendly'],
+      featureTags: ['night_lighting', 'safe_zone', 'wheelchair_accessible'],
       meetingPoints: [
         {
           name: 'כניסה ראשית - פארק הבריאות',
@@ -418,7 +418,7 @@ async function seedRoutes(
       estimatedTime: 55,
       difficulty: 'easy',
       tags: ['ריצה', 'שביל טבע', 'נוף'],
-      featureTags: ['shaded', 'nature'],
+      featureTags: ['shaded'],
       path: [
         { lat: SDEROT_COORDS.lat - 0.004, lng: SDEROT_COORDS.lng + 0.008 },
         { lat: SDEROT_COORDS.lat - 0.005, lng: SDEROT_COORDS.lng + 0.009 },
@@ -433,9 +433,9 @@ async function seedRoutes(
       authorityId: cityId,
       distance: 5.1,
       estimatedTime: 65,
-      difficulty: 'moderate',
+      difficulty: 'medium',
       tags: ['הליכה עירונית', 'כל הגילאים'],
-      featureTags: ['lit', 'urban'],
+      featureTags: ['night_lighting'],
       path: [
         { lat: SDEROT_COORDS.lat, lng: SDEROT_COORDS.lng },
         { lat: SDEROT_COORDS.lat + 0.003, lng: SDEROT_COORDS.lng + 0.003 },

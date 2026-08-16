@@ -164,6 +164,10 @@ const OVERPASS_RETRY_STATUSES = new Set([429, 502, 503, 504]);
 const OVERPASS_RETRY_DELAY_MS = 5_000;
 const OVERPASS_ATTEMPTS_PER_ENDPOINT = 2;
 
+// Deliberately does NOT include 'steps' — canonical stairs model (Stage 0,
+// route-enrichment-pipeline plan): stairs are never street/route segments.
+// OSM-derived stairs data lives exclusively in the climb_segments collection
+// (type:'stairs', see scripts/write-climb-segments-tlv.ts).
 const HIGHWAY_TYPES = [
   'footway',
   'cycleway',

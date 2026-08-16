@@ -31,7 +31,9 @@ function getMET(activityType: 'running' | 'walking' | 'cycling' | 'workout', dif
     hard: 1.3,
   };
 
-  return baseMET[activityType] * difficultyMultiplier[difficulty];
+  // ?? 1.0 (neutral) guards against any doc still carrying an unrecognized
+  // difficulty value (e.g. the historical 'moderate' bug) — was producing NaN.
+  return baseMET[activityType] * (difficultyMultiplier[difficulty] ?? 1.0);
 }
 
 // ==========================================
@@ -76,7 +78,9 @@ function calculateMatchScore(
   // 1. התאמה לרמת קושי (0-4 נקודות)
   // עבור אופניים, נשתמש בגרסה מקלה יותר של ההתאמה
   const userLevel = userProfile.progression.domains.upper_body?.currentLevel || 1;
-  const routeLevel = route.difficulty === 'easy' ? 1 : route.difficulty === 'medium' ? 3 : 5;
+  // Unrecognized values (e.g. the historical 'moderate' bug) land at the
+  // neutral tier (3), not silently at the hardest tier (5).
+  const routeLevel = route.difficulty === 'easy' ? 1 : route.difficulty === 'medium' ? 3 : route.difficulty === 'hard' ? 5 : 3;
   const levelDiff = Math.abs(userLevel - routeLevel);
   // אופניים בדרך כלל קלים יותר מבחינת קושי גופני
   const adjustedDiff = (route.activityType === 'cycling' || route.type === 'cycling') ? levelDiff * 0.7 : levelDiff;

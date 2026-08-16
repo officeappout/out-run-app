@@ -45,10 +45,21 @@ const ACTIVITY_TYPES = [
 ];
 
 const DIFFICULTY_OPTIONS = [
-  { value: 'easy',     label: 'קל' },
-  { value: 'moderate', label: 'בינוני' },
-  { value: 'hard',     label: 'קשה' },
+  { value: 'easy',   label: 'קל' },
+  { value: 'medium', label: 'בינוני' },
+  { value: 'hard',   label: 'קשה' },
 ];
+
+/**
+ * Route.difficulty is 'easy'|'medium'|'hard' only. A prior bug wrote 'moderate'
+ * here and in scripts/geo-discovery-routes.ts, which silently broke calorie calc
+ * (NaN), ranking (mis-scored as hardest), and DifficultyBolts (mis-rendered as
+ * easiest) depending on which code path read it. Normalize defensively so this
+ * page also self-heals any already-corrupted doc it loads.
+ */
+function normalizeDifficulty(value: string | undefined): 'easy' | 'medium' | 'hard' {
+  return value === 'easy' || value === 'medium' || value === 'hard' ? value : 'medium';
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function pathCenter(path: [number, number][]): { lng: number; lat: number } {
@@ -87,7 +98,7 @@ export default function EditRoutePage() {
   const [name,         setName]         = useState('');
   const [description,  setDescription]  = useState('');
   const [activityType, setActivityType] = useState('running');
-  const [difficulty,   setDifficulty]   = useState('moderate');
+  const [difficulty,   setDifficulty]   = useState<'easy' | 'medium' | 'hard'>('medium');
 
   // ── Image handling ───────────────────────────────────────────────────────
   const [imageUrl,      setImageUrl]      = useState('');       // committed URL (saved to Firestore)
@@ -115,7 +126,7 @@ export default function EditRoutePage() {
         setName(data.name || '');
         setDescription(data.description || '');
         setActivityType(data.activityType || data.type || 'running');
-        setDifficulty(data.difficulty || 'moderate');
+        setDifficulty(normalizeDifficulty(data.difficulty));
 
         const firstImage = data.images?.[0] || '';
         setImageUrl(firstImage);
@@ -197,7 +208,7 @@ export default function EditRoutePage() {
         name:         name.trim(),
         description:  description.trim(),
         activityType: activityType as any,
-        difficulty:   difficulty as any,
+        difficulty,
         images,
       });
 
@@ -509,7 +520,7 @@ export default function EditRoutePage() {
             <label className="text-xs font-bold text-gray-600 mb-1.5 block">רמת קושי</label>
             <select
               value={difficulty}
-              onChange={e => setDifficulty(e.target.value)}
+              onChange={e => setDifficulty(normalizeDifficulty(e.target.value))}
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
             >
               {DIFFICULTY_OPTIONS.map(d => (

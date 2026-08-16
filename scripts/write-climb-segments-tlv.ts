@@ -4,6 +4,18 @@
  * Writes the unified TLV CLIMB LAYER to a NEW collection `climb_segments`.
  * Does NOT touch official_routes or any existing data.
  *
+ * CANONICAL STAIRS MODEL (decided Stage 0, route-enrichment-pipeline plan):
+ * stairs are NEVER route/street segments — a routing engine must never route
+ * someone onto a staircase as if it were a path (see the exclusions in
+ * osm-segment-importer.ts's HIGHWAY_TYPES and geo-discovery-routes.ts's
+ * highway=steps filter, both cross-referenced back to this file). This
+ * collection's `type:'stairs'` schema (escalator filtering + significance
+ * thresholds, below) is the single canonical home for OSM-derived stairs
+ * data going forward — do not build a second stairs pipeline elsewhere.
+ * The separate, unrelated `RouteFeatureTag.stairs_training` value (route.types.ts)
+ * is a manual admin amenity flag ("good for stairs training") and is never
+ * synced with this OSM-derived detection.
+ *
  * Sources:
  *   terrain   — 23 isolated DEM climbs w/ climbType (/tmp/tlv_climb_segments.json)
  *   structure — OSM foot ways with incline=* or ramp=yes (man-made ramps)
