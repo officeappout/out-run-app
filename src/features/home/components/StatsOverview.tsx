@@ -546,7 +546,8 @@ export default function StatsOverview({
   // C3 (15.08.2026): rest-day step-deficit walking route, alongside the hero/recovery
   // cards below -- never replacing them. No-op while HOME_STEP_DEFICIT_CARD_ENABLED is
   // false or trioResult hasn't resolved isRestDay yet.
-  const { route: stepDeficitRoute } = useStepDeficitRoute(profile, trioResult?.isRestDay ?? false);
+  const { route: stepDeficitRoute, stepsRemaining: stepDeficitStepsRemaining } =
+    useStepDeficitRoute(profile, trioResult?.isRestDay ?? false);
   // Stores the program IDs used to generate the current trio so they can be
   // forwarded to the builder when the custom card is tapped.
   const scheduledProgramIdsRef = useRef<string[]>([]);
@@ -1260,20 +1261,23 @@ export default function StatsOverview({
                 <BuildCustomButton onTap={handleBuildCustomWrapped} userGender={profile?.core?.gender} />
                 {HOME_STEP_DEFICIT_CARD_ENABLED && trioResult.isRestDay && stepDeficitRoute && (
                   <div className="w-full max-w-[358px] mx-auto">
-                    {/* CTA opens the map screen (plain navigation, same as
-                        WorkoutLocationSuggestions.tsx) rather than attempting to hand off
-                        this specific generated Route -- there is no existing pre-generated-
-                        route transfer mechanism between screens (FreeRunDrawer's own
-                        onRequestRouteGeneration always triggers a FRESH generation inside
-                        the map/run flow, never loads a passed-in Route by id). Flagged as a
-                        follow-up decision, not guessed at here. */}
+                    {/* CTA reuses the existing, device-verified step-goal deep-link
+                        (IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED, DiscoverLayer.tsx:390-407) --
+                        opens /map already jumped past the empty config drawer straight to
+                        the route carousel, pre-built at this same step-gap target (targetSteps
+                        -> stepsToTargetKm, the identical formula useStepDeficitRoute used for
+                        this card's own preview above). Not a new hand-off mechanism -- the
+                        SAME mechanism a step-goal push notification already uses today,
+                        just triggered from a home tap instead of a push tap. David approved
+                        this focused reuse (16.08.2026) over building a general Route-object
+                        transfer mechanism. */}
                     <RouteCardUnified
                       name={stepDeficitRoute.name}
                       distanceText={`${stepDeficitRoute.distance.toFixed(1)} ק״מ`}
                       durationText={`~${stepDeficitRoute.duration} דק׳`}
                       difficulty={stepDeficitRoute.difficulty}
                       ctaContent={<><Footprints size={14} /><span>הליכה עד היעד</span></>}
-                      onCta={() => router.push('/map')}
+                      onCta={() => router.push(`/map?openRun=walking&targetSteps=${stepDeficitStepsRemaining}`)}
                     />
                   </div>
                 )}
