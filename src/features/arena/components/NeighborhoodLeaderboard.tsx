@@ -7,9 +7,6 @@ import { useUserStore } from '@/features/user';
 import ViralUnlockSheet from '@/features/safecity/components/ViralUnlockSheet';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
-import {
-  formatPaceSecPerKm,
-} from '@/features/arena/services/ranking.service';
 import type {
   LeaderboardScope,
   LeaderboardCategory,
@@ -18,16 +15,21 @@ import type {
   LeaderboardEntry,
 } from '@/features/arena/services/ranking.service';
 import type { RunSegmentFilter } from '@/features/arena/services/ranking.service';
+import { formatLeaderboardScore, type LeaderboardMode } from './format-leaderboard-score';
 
 // ── Local types ──────────────────────────────────────────────────────────────
 
-type LeaderboardMode = 'general' | 'running' | 'strength' | 'steps';
 type RunSegment = 'all' | '3k' | '5k' | '10k';
 type OpenDropdown = 'cat' | 'sub' | 'gender' | 'time' | null;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const ACCENT = '#1D9E75';
+
+// Stage A (leagues design pass, 16.08.2026): nav row consolidated to exactly
+// two dropdowns — metric + time — per the mockups. Flip to `true` to bring
+// the gender filter back; underlying genderFilter state/logic is untouched.
+const SHOW_GENDER_FILTER = false;
 
 const MODE_TO_CATEGORY: Record<LeaderboardMode, LeaderboardCategory> = {
   general: 'overall',
@@ -117,16 +119,8 @@ const RANK_CONFIG: Record<1 | 2 | 3, {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** `isSegmentMode` is true when running sub-filter is a specific segment (not 'all'). */
-function formatScore(value: number, mode: LeaderboardMode, isSegmentMode?: boolean): string {
-  if (mode === 'general') return `${value} ימים`;
-  if (mode === 'steps')   return `${value.toLocaleString('he-IL')} צעדים`;
-  if (mode === 'running' && isSegmentMode) {
-    // value is paceSecPerKm — display as "MM:SS /ק״מ"
-    return value > 0 ? `${formatPaceSecPerKm(value)} /ק״מ` : '—';
-  }
-  return value.toLocaleString('he-IL');
-}
+// formatScore moved to format-leaderboard-score.ts (as formatLeaderboardScore)
+// so it's unit-testable without jsx — see that file for the full doc comment.
 
 function getContextLabel(
   mode: LeaderboardMode,
@@ -301,7 +295,7 @@ function PodiumColumn({ entry, rank, mode, isSegmentMode, onInvite }: PodiumColu
         {entry.name}
       </span>
       <span className="text-[10px] font-bold text-gray-500 tabular-nums leading-none">
-        {formatScore(entry.totalCredit, mode, isSegmentMode)}
+        {formatLeaderboardScore(entry.totalCredit, mode, isSegmentMode)}
       </span>
 
       {/* 3D gradient step */}
@@ -503,7 +497,13 @@ export default function NeighborhoodLeaderboard({
   // ── Derived filter UI values ─────────────────────────────────────────────
   const activeCatOpt      = CATEGORY_OPTIONS.find((o) => o.value === localMode) ?? CATEGORY_OPTIONS[0];
   const activeStrengthProg = programs.find((p) => p.id === strengthProgramId) ?? null;
-  const showSubFilter      = localMode === 'running' || localMode === 'strength';
+  // Stage A (leagues design pass): nav consolidated to exactly two dropdowns
+  // (metric + time), per the mockups — the running-segment/strength-program
+  // sub-filter dropdown is hidden, not removed. runSegment/strengthProgramId
+  // state, handleSetMode, and the JSX below are all still intact and still
+  // drive useLeaderboard as before; only the trigger to open this dropdown
+  // is hidden. Flip this back to the original condition to re-show it.
+  const showSubFilter      = false && (localMode === 'running' || localMode === 'strength');
   const contextLabel       = getContextLabel(localMode, runSegment, activeStrengthProg);
 
   const catActive    = localMode !== 'general';
@@ -617,23 +617,27 @@ export default function NeighborhoodLeaderboard({
               </FilterDropdown>
             )}
 
-            {/* מגדר */}
-            <FilterDropdown
-              label={(GENDER_OPTIONS.find((o) => o.value === genderFilter) ?? GENDER_OPTIONS[0]).label}
-              isActive={genderActive}
-              isOpen={openDropdown === 'gender'}
-              onToggle={() => setOpenDropdown(openDropdown === 'gender' ? null : 'gender')}
-            >
-              {GENDER_OPTIONS.map((opt) => (
-                <DropdownItem
-                  key={opt.value}
-                  isSelected={genderFilter === opt.value}
-                  onClick={() => { setGenderFilter(opt.value); setOpenDropdown(null); }}
-                >
-                  {opt.label}
-                </DropdownItem>
-              ))}
-            </FilterDropdown>
+            {/* מגדר — hidden for Stage A (nav consolidated to metric + time
+                only, per the mockups). State/logic untouched; wrap in
+                {SHOW_GENDER_FILTER && (...)} to re-show. */}
+            {SHOW_GENDER_FILTER && (
+              <FilterDropdown
+                label={(GENDER_OPTIONS.find((o) => o.value === genderFilter) ?? GENDER_OPTIONS[0]).label}
+                isActive={genderActive}
+                isOpen={openDropdown === 'gender'}
+                onToggle={() => setOpenDropdown(openDropdown === 'gender' ? null : 'gender')}
+              >
+                {GENDER_OPTIONS.map((opt) => (
+                  <DropdownItem
+                    key={opt.value}
+                    isSelected={genderFilter === opt.value}
+                    onClick={() => { setGenderFilter(opt.value); setOpenDropdown(null); }}
+                  >
+                    {opt.label}
+                  </DropdownItem>
+                ))}
+              </FilterDropdown>
+            )}
 
             {/* טווח */}
             <FilterDropdown
@@ -755,7 +759,7 @@ export default function NeighborhoodLeaderboard({
                       </div>
 
                       <span className="text-xs font-black text-gray-600 tabular-nums">
-                        {formatScore(entry.totalCredit, localMode, isSegmentMode)}
+                        {formatLeaderboardScore(entry.totalCredit, localMode, isSegmentMode)}
                       </span>
                     </div>
                   ))}
