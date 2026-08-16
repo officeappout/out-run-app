@@ -831,15 +831,24 @@ export async function getGroupCompetitionLeaderboard(params: {
  * which ranks individuals/groups WITHIN one already-selected scope.
  *
  * Adapted from getGroupCompetitionLeaderboard's aggregation engine: same
- * Map<key, {totalScore, members}> shape and avg-per-active-member sort,
- * just grouped by the scope's own FK field (via scopeToField — authorityId
- * or neighborhoodId) instead of `groupIds`, and named via the `authorities`
- * collection instead of `community_groups`.
+ * Map<key, {totalScore, members}> shape, grouped by the scope's own FK
+ * field (via scopeToField — authorityId or neighborhoodId) instead of
+ * `groupIds`, and named via the `authorities` collection instead of
+ * `community_groups`. Ranked by TOTAL score (sum across all active
+ * members), not average — a big city's/neighborhood's collective total is
+ * the intended competitive metric here, not per-member efficiency.
  *
  * 'city' works with today's data — authorityId has always been stamped on
  * feed_posts. 'neighborhood' will return an empty/sparse result until
- * neighborhoodId stamping (added alongside this function) has had time to
- * accumulate real posts.
+ * neighborhoodId stamping has had time to accumulate real posts.
+ *
+ * CORRECTNESS GATE — neighborhoods compete ONLY within their own city:
+ * `granularity: 'neighborhood'` REQUIRES `cityAuthorityId`. Without it, this
+ * function fails closed (returns an empty result) rather than silently
+ * scanning every city's neighborhoods nationwide and ranking them against
+ * each other — a Tel Aviv neighborhood must never appear in the same
+ * leaderboard as a Be'er Sheva one. `cityAuthorityId` is ignored for
+ * `granularity: 'city'` (cities always compete nationwide).
  */
 
 export interface ScopeCompetitionEntry {
@@ -847,8 +856,6 @@ export interface ScopeCompetitionEntry {
   scopeId: string;
   scopeName: string;
   totalScore: number;
-  /** Rounded average credit per active member in the window. */
-  avgScore: number;
   activeMemberCount: number;
 }
 
@@ -860,16 +867,25 @@ export interface ScopeCompetitionResult {
 export async function getScopeCompetitionLeaderboard(params: {
   granularity: 'city' | 'neighborhood';
   timeWindow: LeaderboardTimeWindow;
+  /** Required when granularity === 'neighborhood' — see correctness gate above. Ignored for 'city'. */
+  cityAuthorityId?: string | null;
   maxEntries?: number;
 }): Promise<ScopeCompetitionResult> {
-  const { granularity, timeWindow, maxEntries = 20 } = params;
+  const { granularity, timeWindow, cityAuthorityId, maxEntries = 20 } = params;
+
+  if (granularity === 'neighborhood' && !cityAuthorityId) {
+    return { entries: [], generatedAt: new Date() };
+  }
+
   const groupField = scopeToField(granularity) as string; // 'authorityId' | 'neighborhoodId' — always non-null for these two
   const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
 
-  const q = query(
-    collection(db, 'feed_posts'),
-    where('createdAt', '>=', windowStart),
-  );
+  const constraints = [where('createdAt', '>=', windowStart)];
+  if (granularity === 'neighborhood' && cityAuthorityId) {
+    constraints.push(where('authorityId', '==', cityAuthorityId));
+  }
+
+  const q = query(collection(db, 'feed_posts'), ...constraints);
   const snap = await getDocs(q);
 
   // scopeId → { totalScore, active member UIDs }
@@ -911,7 +927,7 @@ export async function getScopeCompetitionLeaderboard(params: {
     }),
   );
 
-  // Compute average and sort descending
+  // Sort descending by TOTAL score
   const allSorted = scopeIds
     .map((id) => {
       const { totalScore, members } = scopeMap.get(id)!;
@@ -919,11 +935,10 @@ export async function getScopeCompetitionLeaderboard(params: {
         scopeId: id,
         scopeName: nameLookup.get(id) ?? id,
         totalScore,
-        avgScore: Math.round(totalScore / Math.max(members.size, 1)),
         activeMemberCount: members.size,
       };
     })
-    .sort((a, b) => b.avgScore - a.avgScore);
+    .sort((a, b) => b.totalScore - a.totalScore);
 
   const entries: ScopeCompetitionEntry[] = allSorted
     .slice(0, maxEntries)

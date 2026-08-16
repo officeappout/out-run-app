@@ -33,6 +33,9 @@ export type ScopeCompetitionGranularity = 'city' | 'neighborhood';
 interface ScopeCompetitionLeaderboardProps {
   granularity: ScopeCompetitionGranularity;
   timeWindow?: LeaderboardTimeWindow;
+  /** Required when granularity === 'neighborhood' — neighborhoods compete
+   * only within this city. Ignored for granularity === 'city'. */
+  cityAuthorityId?: string | null;
 }
 
 const GRANULARITY_LABEL: Record<ScopeCompetitionGranularity, string> = {
@@ -81,6 +84,7 @@ function ScopeRowSkeleton() {
 export default function ScopeCompetitionLeaderboard({
   granularity,
   timeWindow = 'weekly',
+  cityAuthorityId = null,
 }: ScopeCompetitionLeaderboardProps) {
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -90,7 +94,7 @@ export default function ScopeCompetitionLeaderboard({
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getScopeCompetitionLeaderboard({ granularity, timeWindow });
+      const data = await getScopeCompetitionLeaderboard({ granularity, timeWindow, cityAuthorityId });
       setResult(data);
     } catch (err) {
       console.error('[ScopeCompetitionLeaderboard]', err);
@@ -100,7 +104,7 @@ export default function ScopeCompetitionLeaderboard({
     }
   };
 
-  useEffect(() => { fetch(); }, [granularity, timeWindow]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetch(); }, [granularity, timeWindow, cityAuthorityId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading) {
     return (
@@ -209,15 +213,17 @@ function ScopeRow({ entry }: { entry: ScopeCompetitionEntry }) {
         </p>
       </div>
 
-      {/* Avg score */}
+      {/* Total score — mechanical patch only (avgScore -> totalScore) to keep
+          this compiling after Stage D's total-not-average engine change;
+          dynamic metric label + full row redesign is Stage E. */}
       <div className="text-left flex-shrink-0">
         <p
           className="text-sm font-black tabular-nums"
           style={{ color: ACCENT }}
         >
-          {entry.avgScore.toLocaleString('he-IL')}
+          {entry.totalScore.toLocaleString('he-IL')}
         </p>
-        <p className="text-[10px] text-gray-400 text-left">ממוצע</p>
+        <p className="text-[10px] text-gray-400 text-left">סה&quot;כ</p>
       </div>
     </div>
   );
