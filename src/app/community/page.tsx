@@ -57,8 +57,10 @@ import type {
   LeaderboardTimeWindow,
   LeaderboardGenderFilter,
   LeaderboardEntry,
+  ScopeCompetitionEntry,
 } from '@/features/arena/services/ranking.service';
 import { formatLeaderboardScore, type LeaderboardMode } from '@/features/arena/components/format-leaderboard-score';
+import { CATEGORY_UNIT_LABEL } from '@/features/arena/components/scope-category-unit-label';
 import { joinGroup, leaveGroup, getMyGroups } from '@/features/arena/services/group.service';
 import { joinEvent } from '@/features/admin/services/community.service';
 import { addCommunitySessionsToPlanner } from '@/features/user/scheduling/services/communitySchedule.service';
@@ -197,6 +199,11 @@ export default function CommunityPage() {
     setActiveMyMode(mode);
     setActiveMyIsSegment(isSegmentMode);
   };
+  // Bubbled from the active ScopeBattleCard's own getScopeCompetitionLeaderboard
+  // fetch — the current user's SCOPE's own rank/name/totalScore (e.g. "your
+  // city, rank #1"), for the Groups-tab "your contribution" hero card. No
+  // duplicate fetch — ScopeBattleCard already computes this internally.
+  const [activeScopeEntry, setActiveScopeEntry] = useState<ScopeCompetitionEntry | null>(null);
 
   // Reset the bubbled rank whenever the user selects a different league —
   // the new leaderboard hasn't fetched yet, so showing the previous rank
@@ -1086,50 +1093,126 @@ export default function CommunityPage() {
 
   // ── Stage C: axis chooser for the Groups tab (City segment only). Pure UI
   // switch between 3 already-working engines — no new backend here.
+  // מדד/טווח chips shown read-only next to the scope chooser (Groups mode
+  // has no metric/time dropdown of its own — these reflect the shared
+  // leaderboardCategory/leaderboardTimeWindow state that Individuals mode
+  // and getScopeCompetitionLeaderboard's category filter already drive, per
+  // the mockup's .chip pattern. Not a new interactive control.
+  const GROUP_CATEGORY_LABEL: Record<LeaderboardCategory, string> = {
+    overall: 'כל הפעילות',
+    cardio: 'ריצה',
+    strength: 'כוח',
+  };
+
   function renderGroupAxisChooser() {
     const AXIS_OPTIONS: GroupAxis[] = ['city', 'neighborhood', 'group'];
     return (
-      <div className="relative mb-3" dir="rtl">
-        <button
-          type="button"
-          onClick={() => setAxisMenuOpen((o) => !o)}
-          aria-haspopup="listbox"
-          aria-expanded={axisMenuOpen}
-          className="w-full flex items-center justify-between rounded-2xl px-4 py-3 bg-[#EAF9F3] active:scale-[0.98] transition-transform"
+      <div className="flex items-center gap-2 mb-3" dir="rtl">
+        <div className="relative flex-1">
+          <button
+            type="button"
+            onClick={() => setAxisMenuOpen((o) => !o)}
+            aria-haspopup="listbox"
+            aria-expanded={axisMenuOpen}
+            className="w-full flex items-center justify-between rounded-2xl px-4 py-3 active:scale-[0.98] transition-transform"
+            style={{
+              background: 'linear-gradient(90deg, rgba(0,173,239,0.10), rgba(16,185,129,0.10))',
+              border: '1px solid #cdeafe',
+            }}
+          >
+            <div className="text-right">
+              <span className="text-sm font-black text-gray-900">
+                בין {AXIS_LABEL[groupAxis]}
+              </span>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                {groupAxis === 'neighborhood' && access.cityName ? `ב${access.cityName} · ` : ''}
+                לחץ להחלפת ציר
+              </p>
+            </div>
+            <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform text-gray-500 ${axisMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {axisMenuOpen && (
+            <div
+              role="listbox"
+              className="absolute z-20 top-full mt-1 w-full rounded-2xl bg-white border border-gray-100 shadow-lg overflow-hidden"
+            >
+              {AXIS_OPTIONS.map((axis) => (
+                <button
+                  key={axis}
+                  type="button"
+                  role="option"
+                  aria-selected={groupAxis === axis}
+                  onClick={() => { setGroupAxis(axis); setAxisMenuOpen(false); }}
+                  className={`w-full text-right px-4 py-3 text-sm font-bold transition-colors ${
+                    groupAxis === axis ? 'text-[#10B981] bg-[#EAF9F3]' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {AXIS_LABEL[axis]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <span
+          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-gray-500"
+          style={{ background: '#f1f4f8', border: '1px solid #e3e8ef' }}
         >
-          <div className="text-right">
-            <span className="text-sm font-black" style={{ color: '#1D9E75' }}>
-              בין {AXIS_LABEL[groupAxis]}
-            </span>
-            <p className="text-[11px] text-gray-500 mt-0.5">
-              {groupAxis === 'neighborhood' && access.cityName ? `ב${access.cityName} · ` : ''}
-              לחץ להחלפת ציר
+          מדד: <b className="text-gray-900">{GROUP_CATEGORY_LABEL[leaderboardCategory]}</b>
+        </span>
+        <span
+          className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-gray-900"
+          style={{ background: '#f1f4f8', border: '1px solid #e3e8ef' }}
+        >
+          {leaderboardTimeWindow === 'daily' ? 'יומי' : leaderboardTimeWindow === 'weekly' ? 'שבועי' : 'חודשי'}
+        </span>
+      </div>
+    );
+  }
+
+  // "התרומה שלך" dark contribution card (mockup, Screens 2/3). Left side =
+  // your own real activity total, reusing activeMyEntry/activeMyMode
+  // already bubbled from the Individuals tab (zero extra fetch) — note this
+  // reflects whichever metric was last selected there, which can lag behind
+  // Groups mode's own `leaderboardCategory` filter since nothing here fetches
+  // your personal total pre-filtered to it; a fully metric-synced version
+  // would need a small new fetch, parked alongside the other per-metric
+  // follow-ups. Right side = your scope's real rank, bubbled from
+  // ScopeBattleCard's existing getScopeCompetitionLeaderboard fetch.
+  function renderScopeContribution(scopeTypeLabel: string) {
+    if (!activeScopeEntry) return null;
+    const windowPhrase = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
+    return (
+      <div
+        className="rounded-2xl p-4 text-white relative overflow-hidden mb-3"
+        style={{ background: '#0f172a' }}
+        dir="rtl"
+      >
+        <div
+          aria-hidden
+          className="absolute -top-8 -left-8 w-36 h-36 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.45), transparent 70%)' }}
+        />
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px]" style={{ color: '#9fb3c8' }}>
+              התרומה שלך {windowPhrase} · {activeScopeEntry.scopeName}
+            </p>
+            <p className="text-lg font-black mt-0.5 truncate" style={{ color: '#10B981' }}>
+              {activeMyEntry
+                ? formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)
+                : CATEGORY_UNIT_LABEL[leaderboardCategory]}
             </p>
           </div>
-          <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${axisMenuOpen ? 'rotate-180' : ''}`} style={{ color: '#1D9E75' }} />
-        </button>
-
-        {axisMenuOpen && (
           <div
-            role="listbox"
-            className="absolute z-20 top-full mt-1 w-full rounded-2xl bg-white border border-gray-100 shadow-lg overflow-hidden"
+            className="text-center rounded-xl px-3 py-1.5 flex-shrink-0"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)' }}
           >
-            {AXIS_OPTIONS.map((axis) => (
-              <button
-                key={axis}
-                type="button"
-                role="option"
-                aria-selected={groupAxis === axis}
-                onClick={() => { setGroupAxis(axis); setAxisMenuOpen(false); }}
-                className={`w-full text-right px-4 py-3 text-sm font-bold transition-colors ${
-                  groupAxis === axis ? 'text-[#1D9E75] bg-[#EAF9F3]' : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {AXIS_LABEL[axis]}
-              </button>
-            ))}
+            <p className="text-lg font-black leading-none" style={{ color: '#00ADEF' }}>#{activeScopeEntry.rank}</p>
+            <p className="text-[9px] mt-0.5" style={{ color: '#9fb3c8' }}>{scopeTypeLabel}</p>
           </div>
-        )}
+        </div>
       </div>
     );
   }
@@ -1226,11 +1309,13 @@ export default function CommunityPage() {
                 {renderGroupAxisChooser()}
                 {groupAxis === 'city' && (
                   <>
+                    {renderScopeContribution('העיר שלך')}
                     <ScopeBattleCard
                       granularity="city"
                       timeWindow={leaderboardTimeWindow}
                       myScopeId={authority.id}
                       category={leaderboardCategory}
+                      onMyScopeEntryChange={setActiveScopeEntry}
                     />
                     <ScopeCompetitionLeaderboard
                       granularity="city"
@@ -1241,12 +1326,14 @@ export default function CommunityPage() {
                 )}
                 {groupAxis === 'neighborhood' && (
                   <>
+                    {renderScopeContribution('השכונה שלך')}
                     <ScopeBattleCard
                       granularity="neighborhood"
                       timeWindow={leaderboardTimeWindow}
                       myScopeId={access.neighborhoodAuthorityId}
                       cityAuthorityId={authority.id}
                       category={leaderboardCategory}
+                      onMyScopeEntryChange={setActiveScopeEntry}
                     />
                     <ScopeCompetitionLeaderboard
                       granularity="neighborhood"

@@ -24,20 +24,13 @@ import {
   type ScopeCompetitionResult,
 } from '@/features/arena/services/ranking.service';
 import type { LeaderboardTimeWindow, LeaderboardCategory } from '@/features/arena/services/ranking.service';
+import { CATEGORY_UNIT_LABEL } from './scope-category-unit-label';
 
-const ACCENT = '#1D9E75';
-const GOLD = '#F59E0B';
+// Brand palette (screens mockup, 16.08.2026).
+const ACCENT = '#10B981';
+const GOLD = '#f4b400';
 
 export type ScopeCompetitionGranularity = 'city' | 'neighborhood';
-
-// Metric-qualified unit label — never a bare/generic "נק' פעילות" when a
-// specific category is selected, same "נק' X" convention as the Individuals
-// podium (Stage A / format-leaderboard-score.ts).
-const CATEGORY_UNIT_LABEL: Record<LeaderboardCategory, string> = {
-  overall: "נק' פעילות",
-  cardio: "נק' ריצה",
-  strength: "נק' כוח",
-};
 
 interface ScopeCompetitionLeaderboardProps {
   granularity: ScopeCompetitionGranularity;
@@ -180,9 +173,88 @@ export default function ScopeCompetitionLeaderboard({
         </button>
       </div>
 
+      {/* Podium — top 3 scopes as a visual highlight (mockup). The full
+          ranked list below still includes ranks 1-3 again (matches the
+          mockup exactly: the podium previews the standings, the list is
+          the complete standings, not "rest after the podium" like the
+          Individuals tab's podium+rows split). */}
+      <ScopePodium entries={entries.slice(0, 3)} />
+
       {entries.map((entry) => (
         <ScopeRow key={entry.scopeId} entry={entry} category={category} />
       ))}
+    </div>
+  );
+}
+
+const PODIUM_CONFIG: Record<1 | 2 | 3, { avatar: number; pedestal: number; medal: string }> = {
+  1: { avatar: 74, pedestal: 94, medal: '🥇' },
+  2: { avatar: 60, pedestal: 68, medal: '🥈' },
+  3: { avatar: 56, pedestal: 50, medal: '🥉' },
+};
+
+function ScopePodium({ entries }: { entries: ScopeCompetitionEntry[] }) {
+  if (entries.length === 0) return null;
+  const byRank = (rank: 1 | 2 | 3) => entries.find((e) => e.rank === rank) ?? null;
+  return (
+    <div className="flex items-end justify-center gap-2.5 py-2" dir="rtl">
+      <ScopePodiumColumn entry={byRank(2)} rank={2} />
+      <ScopePodiumColumn entry={byRank(1)} rank={1} />
+      <ScopePodiumColumn entry={byRank(3)} rank={3} />
+    </div>
+  );
+}
+
+function ScopePodiumColumn({ entry, rank }: { entry: ScopeCompetitionEntry | null; rank: 1 | 2 | 3 }) {
+  const cfg = PODIUM_CONFIG[rank];
+  const elevated = rank === 1;
+
+  if (!entry) {
+    return (
+      <div className="flex flex-col items-center justify-end gap-1 w-1/3">
+        <div
+          className="rounded-full border-2 border-dashed border-gray-300 bg-gray-50/70"
+          style={{ width: cfg.avatar, height: cfg.avatar }}
+        />
+        <div
+          className="w-full rounded-t-xl border-2 border-dashed border-gray-200 bg-gray-50/50 mt-1"
+          style={{ height: cfg.pedestal }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex flex-col items-center justify-end gap-1 w-1/3 ${elevated ? '-mt-2' : ''}`}>
+      <span className={elevated ? 'text-xl leading-none' : 'text-base leading-none'}>{cfg.medal}</span>
+      <div
+        className="rounded-full flex items-center justify-center text-white font-black"
+        style={{
+          width: cfg.avatar,
+          height: cfg.avatar,
+          background: ACCENT,
+          fontSize: elevated ? 26 : 20,
+          border: elevated ? `3px solid ${GOLD}` : undefined,
+          boxShadow: '0 4px 12px rgba(15,23,42,0.18)',
+        }}
+      >
+        {initialsOf(entry.scopeName)}
+      </div>
+      <span className="text-xs font-black text-gray-900 truncate max-w-[84px] text-center mt-0.5">
+        {entry.scopeName}
+      </span>
+      <span className="text-[11px] font-black tabular-nums leading-none" style={{ color: ACCENT }}>
+        {entry.totalScore.toLocaleString('he-IL')}
+      </span>
+      <div
+        className="w-full rounded-t-xl relative overflow-hidden mt-1 shadow-[0_4px_10px_rgba(20,124,92,0.25)]"
+        style={{ height: cfg.pedestal, background: 'linear-gradient(180deg, #38b487 0%, #2f9e78 100%)' }}
+      >
+        <div className="absolute top-0 inset-x-0 h-1.5 bg-white/30" />
+        <span className="absolute inset-0 flex items-center justify-center text-white font-black text-lg opacity-90 tabular-nums">
+          {rank}
+        </span>
+      </div>
     </div>
   );
 }

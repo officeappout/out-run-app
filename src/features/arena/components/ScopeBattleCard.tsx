@@ -16,13 +16,18 @@ import { RefreshCw } from 'lucide-react';
 import {
   getScopeCompetitionLeaderboard,
   type ScopeCompetitionResult,
+  type ScopeCompetitionEntry,
 } from '@/features/arena/services/ranking.service';
 import type { LeaderboardTimeWindow, LeaderboardCategory } from '@/features/arena/services/ranking.service';
 import OpponentPickerSheet from './OpponentPickerSheet';
 import { pickDefaultOpponent } from './pick-default-opponent';
+import { CATEGORY_UNIT_LABEL } from './scope-category-unit-label';
 
-const ACCENT = '#1D9E75';
-const OPPONENT_COLOR = '#EC7C4C';
+// Battle-bar "opponent" side — none of the 5 brand tokens reads as a
+// neutral "vs" color without implying success/failure (emerald = good,
+// gold = flourish), so the mockup's own muted rose is kept here as a
+// semantic exception, same reasoning as gold for streak/fire elsewhere.
+const OPPONENT_COLOR = '#f0b2b5';
 
 interface ScopeBattleCardProps {
   granularity: 'city' | 'neighborhood';
@@ -37,9 +42,15 @@ interface ScopeBattleCardProps {
   /** Filters the battling scopes' totals by activity category. Omitted or
    * 'overall' → every category summed (unchanged default). */
   category?: LeaderboardCategory;
+  /** Bubbles up the current user's own scope entry (rank/name/totalScore)
+   *  from this component's existing getScopeCompetitionLeaderboard fetch,
+   *  so the parent can show it in the "your contribution" hero card
+   *  without a second, duplicate fetch — same lift-up pattern as
+   *  NeighborhoodLeaderboard's onMyEntryChange. */
+  onMyScopeEntryChange?: (entry: ScopeCompetitionEntry | null) => void;
 }
 
-export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, cityAuthorityId, category = 'overall' }: ScopeBattleCardProps) {
+export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, cityAuthorityId, category = 'overall', onMyScopeEntryChange }: ScopeBattleCardProps) {
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [opponentScopeId, setOpponentScopeId] = useState<string | null>(null);
@@ -59,6 +70,11 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
   const entries = result?.entries ?? [];
   const myIndex = useMemo(() => entries.findIndex((e) => e.scopeId === myScopeId), [entries, myScopeId]);
   const myEntry = myIndex >= 0 ? entries[myIndex] : null;
+
+  useEffect(() => {
+    onMyScopeEntryChange?.(myEntry);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myEntry, onMyScopeEntryChange]);
 
   // Reset the opponent selection to the natural default whenever the
   // underlying entries change (new window, new granularity, first load).
@@ -101,19 +117,24 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
       <div className="space-y-2">
         {[leader, trailer].map((entity) => {
           const isMe = entity.scopeId === myScopeId;
-          const color = isMe ? ACCENT : OPPONENT_COLOR;
           const widthPct = Math.max(4, Math.round((entity.totalScore / maxScore) * 100));
           return (
-            <div key={entity.scopeId}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-black tabular-nums" style={{ color }}>
-                  {entity.totalScore.toLocaleString('he-IL')}
-                </span>
-                <span className="text-xs font-bold text-gray-800 truncate">{entity.scopeName}</span>
+            <div key={entity.scopeId} className="flex items-center gap-2">
+              <span className="text-[13px] font-black text-gray-900 truncate flex-shrink-0" style={{ maxWidth: 84 }}>
+                {entity.scopeName}
+              </span>
+              <div className="h-3 rounded-full bg-gray-100 overflow-hidden flex-1">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${widthPct}%`,
+                    background: isMe ? 'linear-gradient(90deg, #00ADEF, #00dcd0)' : OPPONENT_COLOR,
+                  }}
+                />
               </div>
-              <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${widthPct}%`, backgroundColor: color }} />
-              </div>
+              <span className="text-[13px] font-black text-gray-900 tabular-nums flex-shrink-0">
+                {entity.totalScore.toLocaleString('he-IL')}
+              </span>
             </div>
           );
         })}
@@ -122,7 +143,7 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
       <p className="text-[11px] text-gray-500 font-medium mt-2.5 text-center">
         {iAmLeading
           ? `אתה מוביל על ${opponent.scopeName} 🔥`
-          : `רק ${gap.toLocaleString('he-IL')} נק' מ${leader.scopeName}!`}
+          : `רק ${gap.toLocaleString('he-IL')} ${CATEGORY_UNIT_LABEL[category]} מ${leader.scopeName}!`}
       </p>
 
       <OpponentPickerSheet

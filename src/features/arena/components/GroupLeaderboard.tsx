@@ -20,8 +20,9 @@ import {
 } from '@/features/arena/services/ranking.service';
 import type { LeaderboardTimeWindow } from '@/features/arena/services/ranking.service';
 
-const ACCENT = '#1D9E75';
-const GOLD = '#F59E0B';
+// Brand palette (screens mockup, 16.08.2026).
+const ACCENT = '#10B981';
+const GOLD = '#f4b400';
 
 interface GroupLeaderboardProps {
   scope: 'city' | 'school' | 'global';
