@@ -9,7 +9,7 @@ import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
-import { buildOutAndBackPath, isSameCoord, pathLengthMeters, sliceFlowPathToDistance } from './geoUtils';
+import { buildOutAndBackPath, computeRouteTurns, isSameCoord, pathLengthMeters, sliceFlowPathToDistance } from './geoUtils';
 import { SPEED_KMH, KCAL_PER_KM } from './route-request.utils';
 import {
   IS_PROXIMITY_SEGMENT_QUERY_ENABLED,
@@ -1743,7 +1743,12 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
 
     const connectorStart = fromForConnector[fromForConnector.length - 1];
     const connectorEnd = orientedTo[0];
-    const connectorResult = await MapboxService.getSmartPath(connectorStart, connectorEnd, activity === 'cycling' ? 'cycling' : 'walking');
+    // Option A (16.08.2026): pick the fewest-turn alternative Mapbox offers
+    // for this connector, not just routes[0] — see pickStraightest's doc
+    // comment. Does not change accept/reject: CONNECTOR_REJECT_METERS below
+    // still checks whatever real length the picked alternative has.
+    const connectorAlternatives = await MapboxService.getSmartPathAlternatives(connectorStart, connectorEnd, activity === 'cycling' ? 'cycling' : 'walking');
+    const connectorResult = pickStraightest(connectorAlternatives);
 
     const attempt: ChainDiscoveryAttempt = {
       fromRouteId: next.fromRouteId,
@@ -1912,11 +1917,16 @@ async function selectProximityAwareCorridor(
   let candidatesEvaluated = 0;
   for (const candidate of prefiltered) {
     const entryPoint = candidate.corridor.path[candidate.entryIndex];
-    const connector = await MapboxService.getSmartPath(
+    // Option A (16.08.2026): fewest-turn alternative within the accepted
+    // distance band, not just Mapbox's routes[0] — see pickStraightest.
+    // f/qualifiesForCorridorFlow below still run against the picked
+    // alternative's own real distance; the 0.5 threshold itself is untouched.
+    const connectorAlternatives = await MapboxService.getSmartPathAlternatives(
       userLocation,
       { lat: entryPoint[1], lng: entryPoint[0] },
       profile,
     );
+    const connector = pickStraightest(connectorAlternatives);
     if (!connector || !connector.path || connector.path.length < 2) continue;
 
     candidatesEvaluated++;
@@ -2064,11 +2074,15 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
         orientedNext = orientCorridorForSplice(nextCorridor.path, contact.indexB);
       }
 
-      const connector = await MapboxService.getSmartPath(
+      // Option A (16.08.2026): fewest-turn alternative within the accepted
+      // distance band — CONNECTOR_REJECT_METERS just below still gates on
+      // whatever real length the picked alternative has, unchanged.
+      const connectorAlternatives = await MapboxService.getSmartPathAlternatives(
         { lat: tailPoint[1], lng: tailPoint[0] },
         { lat: orientedNext[0][1], lng: orientedNext[0][0] },
         profile,
       );
+      const connector = pickStraightest(connectorAlternatives);
       if (!connector || !connector.path || connector.path.length < 2) {
         rejectedKeys.add([next.fromRouteId, next.toRouteId].sort().join('_'));
         continue;
@@ -2371,8 +2385,15 @@ async function attemptRouteCombinations(
       // waypoint combos. One retry without it — worst case = the pre-change-1
       // behaviour for this single combo. (Change 2's bearing-ordering makes this
       // even rarer, since ordered waypoints are more routable.)
+      //
+      // Option A (16.08.2026): unlike the continue_straight attempt above
+      // (which deliberately keeps alternatives:'false' — Mapbox dislikes
+      // pairing them with continue_straight, per Change 1's own comment),
+      // this fallback has no such conflict, so it's the one that gets the
+      // fewest-turn alternative picker.
       if (!result || !result.path || result.path.length === 0) {
-        result = await MapboxService.getSmartPath(userLocation, userLocation, profile, waypointsToUse);
+        const fallbackAlternatives = await MapboxService.getSmartPathAlternatives(userLocation, userLocation, profile, waypointsToUse);
+        result = pickStraightest(fallbackAlternatives);
         csMode = 'fallback';
       }
 
@@ -2821,12 +2842,16 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
     try {
       // One-way leg only — no waypoints, no continue_straight (a U-turn at
       // the turnaround is exactly what an out-and-back wants).
-      const result = await MapboxService.getSmartPath(
+      // Option A (16.08.2026): fewest-turn alternative within the accepted
+      // distance band — the distance-window check just below still runs
+      // against the picked alternative's own real (round-trip) distance.
+      const legAlternatives = await MapboxService.getSmartPathAlternatives(
         userLocation,
         { lat: candidate.lat, lng: candidate.lng },
         profile,
         [],
       );
+      const result = pickStraightest(legAlternatives);
 
       if (!result || !result.path || result.path.length < MIN_PATH_POINTS_ONE_WAY) {
         console.warn(`[RouteGenerator] Out-and-back leg ${i} REJECTED: only ${result?.path?.length || 0} points (need ${MIN_PATH_POINTS_ONE_WAY}+)`);
@@ -2976,6 +3001,48 @@ function buildCommuteRoute(
     variant,
     etaSeconds: result.duration,
   };
+}
+
+/**
+ * Runnability picker (Option A, approved 16.08.2026, read-only investigation
+ * → build): among Mapbox's own alternatives for ONE request, picks the
+ * geometry with the FEWEST turns — reusing `computeRouteTurns` (the same
+ * bearing-change detector the turn-by-turn UI carousel already uses)
+ * outright, no new geometry math. Restricted to alternatives within
+ * `MAX_EXTRA_DISTANCE_FRACTION` of the shortest one returned, so a small
+ * straightness win never gets traded for a materially longer walk.
+ *
+ * Deliberately does NOT touch any accept/reject threshold elsewhere in this
+ * file (CONNECTOR_REJECT_METERS, the f<=0.5 corridor-qualify rule, the
+ * distance-window checks) — this only changes WHICH already-in-range
+ * geometry a caller receives; every existing downstream check still runs
+ * against whatever real distance the picked alternative actually has.
+ *
+ * Same "score N alternatives, pick one" shape as `pickMostDifferent` below
+ * (commute mode's picker) — never returns null given at least one input, so
+ * every existing `getSmartPath` call site can swap in
+ * `getSmartPathAlternatives` + this picker as a drop-in replacement.
+ */
+const MAX_EXTRA_DISTANCE_FRACTION = 0.2;
+
+function pickStraightest(alternatives: MapboxPathResult[]): MapboxPathResult | null {
+  if (alternatives.length === 0) return null;
+  if (alternatives.length === 1) return alternatives[0];
+
+  const shortest = [...alternatives].sort((a, b) => a.distance - b.distance)[0];
+  const maxAcceptableDistance = shortest.distance * (1 + MAX_EXTRA_DISTANCE_FRACTION);
+  const withinBand = alternatives.filter((alt) => alt.distance <= maxAcceptableDistance);
+
+  let best = withinBand[0];
+  let bestTurns = computeRouteTurns(best.path).length;
+  for (const alt of withinBand.slice(1)) {
+    const turns = computeRouteTurns(alt.path).length;
+    if (turns < bestTurns || (turns === bestTurns && alt.distance < best.distance)) {
+      best = alt;
+      bestTurns = turns;
+    }
+  }
+  return best;
 }
 
 /**
