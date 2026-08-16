@@ -214,7 +214,12 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
   // still needs a real equipped park near the user for composeFullParkWorkout to build —
   // otherwise the CTA composes null and falls back to the carousel (no crash). Flag OFF =
   // the original hard gate (equipped park AND a strength program), byte-identical.
-  const fullParkWouldShow = HYBRID_FULL_PARK_WORKOUT_ENABLED
+  // env.hasGps gate (home-generator-v2 plan, step 3): composeFullParkRoutePreview's own
+  // settle-preview path has no fallback session for missing GPS (unlike the CTA path, which
+  // routes through composeHybridPlan's composeNoGpsFallback) — closing the gap here, matching
+  // route_stops's existing env.hasGps gate below, is simpler than special-casing the preview
+  // function itself.
+  const fullParkWouldShow = HYBRID_FULL_PARK_WORKOUT_ENABLED && env.hasGps
     && (MAP_OVERVIEW_CHROME_V1 || (env.hasEquippedPark && env.hasStrengthProgram));
   if (fullParkWouldShow) {
     // Assessment-prompt substitution (STRENGTH_ASSESSMENT_PROMPT_CARD_V1, 08.08.2026):
