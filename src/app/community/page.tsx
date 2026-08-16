@@ -46,6 +46,7 @@ import CityArenaView from '@/features/arena/components/CityArenaView';
 import NeighborhoodLeaderboard from '@/features/arena/components/NeighborhoodLeaderboard';
 import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
 import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
+import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
 import MunicipalPressureCard from '@/features/arena/components/MunicipalPressureCard';
 import SchoolOutreachCard from '@/features/arena/components/SchoolOutreachCard';
 import LeagueCarousel, {
@@ -1221,17 +1222,32 @@ export default function CommunityPage() {
               <>
                 {renderGroupAxisChooser()}
                 {groupAxis === 'city' && (
-                  <ScopeCompetitionLeaderboard
-                    granularity="city"
-                    timeWindow={leaderboardTimeWindow}
-                  />
+                  <>
+                    <ScopeBattleCard
+                      granularity="city"
+                      timeWindow={leaderboardTimeWindow}
+                      myScopeId={authority.id}
+                    />
+                    <ScopeCompetitionLeaderboard
+                      granularity="city"
+                      timeWindow={leaderboardTimeWindow}
+                    />
+                  </>
                 )}
                 {groupAxis === 'neighborhood' && (
-                  <ScopeCompetitionLeaderboard
-                    granularity="neighborhood"
-                    timeWindow={leaderboardTimeWindow}
-                    cityAuthorityId={authority.id}
-                  />
+                  <>
+                    <ScopeBattleCard
+                      granularity="neighborhood"
+                      timeWindow={leaderboardTimeWindow}
+                      myScopeId={access.neighborhoodAuthorityId}
+                      cityAuthorityId={authority.id}
+                    />
+                    <ScopeCompetitionLeaderboard
+                      granularity="neighborhood"
+                      timeWindow={leaderboardTimeWindow}
+                      cityAuthorityId={authority.id}
+                    />
+                  </>
                 )}
                 {groupAxis === 'group' && (
                   <GroupLeaderboard
