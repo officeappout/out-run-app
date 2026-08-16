@@ -39,11 +39,15 @@ import {
     ChevronDown,
     SquareCheck,
     Square,
+    XCircle,
+    Tag,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import { GISParserService } from '@/features/parks';
 import { Route, ActivityType } from '@/features/parks';
 import { InventoryService, ImportBatchSummary, RouteStitchingService } from '@/features/parks';
+import type { RouteFeatureTag } from '@/features/parks';
+import { BulkTagModal } from '@/features/admin/components/routes/BulkTagModal';
 import { GISIntegrationService, GISFetchProgress } from '@/features/parks/core/services/gis-integration.service';
 import { Park } from '@/features/parks/core/types/park.types';
 import { getParksByAuthority } from '@/features/parks/core/services/parks.service';
@@ -228,6 +232,9 @@ export default function AdminRouteManager() {
     const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
     const [isBulkDeleting, setIsBulkDeleting] = useState(false);
     const [isDeletingByCity, setIsDeletingByCity] = useState(false);
+    const [isBulkApproving, setIsBulkApproving] = useState(false);
+    const [isBulkRejecting, setIsBulkRejecting] = useState(false);
+    const [isBulkTagModalOpen, setIsBulkTagModalOpen] = useState(false);
 
     // Toast state (moved up so handlers below can reference it)
     const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -609,6 +616,62 @@ export default function AdminRouteManager() {
             setIsDeletingByCity(false);
         }
     }, [existingRoutes, showToast]);
+
+    // ── Inventory: Bulk approve/reject/tag selected (Stage 2.3) ──────────
+    const handleBulkApproveSelected = useCallback(async () => {
+        if (selectedRouteIds.size === 0) return;
+        setIsBulkApproving(true);
+        try {
+            const count = await InventoryService.bulkApproveRoutes(Array.from(selectedRouteIds));
+            setExistingRoutes(prev => prev.map(r =>
+                selectedRouteIds.has(r.id) ? { ...r, published: true, status: 'published' } : r
+            ));
+            setSelectedRouteIds(new Set());
+            showToast(`✅ ${count} מסלולים אושרו ופורסמו`);
+        } catch {
+            alert('שגיאה באישור');
+        } finally {
+            setIsBulkApproving(false);
+        }
+    }, [selectedRouteIds, showToast]);
+
+    const handleBulkRejectSelected = useCallback(async () => {
+        if (selectedRouteIds.size === 0) return;
+        if (!confirm(`האם להחזיר ${selectedRouteIds.size} מסלולים למצב ממתין?`)) return;
+        setIsBulkRejecting(true);
+        try {
+            const count = await InventoryService.bulkRejectRoutes(Array.from(selectedRouteIds));
+            setExistingRoutes(prev => prev.map(r =>
+                selectedRouteIds.has(r.id) ? { ...r, published: false, status: 'pending' } : r
+            ));
+            setSelectedRouteIds(new Set());
+            showToast(`✅ ${count} מסלולים הוחזרו למצב ממתין`);
+        } catch {
+            alert('שגיאה בדחייה');
+        } finally {
+            setIsBulkRejecting(false);
+        }
+    }, [selectedRouteIds, showToast]);
+
+    const handleBulkTagApply = useCallback(async (tags: RouteFeatureTag[], mode: 'add' | 'replace') => {
+        const ids = Array.from(selectedRouteIds);
+        if (ids.length === 0) return;
+        try {
+            const count = await InventoryService.bulkTagRoutes(ids, tags, mode);
+            setExistingRoutes(prev => prev.map(r => {
+                if (!selectedRouteIds.has(r.id)) return r;
+                const nextTags = mode === 'replace'
+                    ? tags
+                    : Array.from(new Set([...(r.featureTags || []), ...tags]));
+                return { ...r, featureTags: nextTags };
+            }));
+            setIsBulkTagModalOpen(false);
+            setSelectedRouteIds(new Set());
+            showToast(`✅ ${count} מסלולים תויגו`);
+        } catch {
+            alert('שגיאה בתיוג');
+        }
+    }, [selectedRouteIds, showToast]);
 
     // ── Inventory: Recalculate distances ──────────────────────────────
     const handleRecalculateDistances = useCallback(async () => {
@@ -1958,6 +2021,29 @@ export default function AdminRouteManager() {
                                     <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 animate-in fade-in duration-200">
                                         <span className="text-xs font-bold text-red-700">{selectedRouteIds.size} נבחרו</span>
                                         <button
+                                            onClick={handleBulkApproveSelected}
+                                            disabled={isBulkApproving}
+                                            className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                                        >
+                                            {isBulkApproving ? <Loader2 className="animate-spin" size={12} /> : <CheckCircle2 size={12} />}
+                                            אשר נבחרים
+                                        </button>
+                                        <button
+                                            onClick={handleBulkRejectSelected}
+                                            disabled={isBulkRejecting}
+                                            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                                        >
+                                            {isBulkRejecting ? <Loader2 className="animate-spin" size={12} /> : <XCircle size={12} />}
+                                            דחה נבחרים
+                                        </button>
+                                        <button
+                                            onClick={() => setIsBulkTagModalOpen(true)}
+                                            className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all"
+                                        >
+                                            <Tag size={12} />
+                                            תייג נבחרים
+                                        </button>
+                                        <button
                                             onClick={handleBulkDeleteSelected}
                                             disabled={isBulkDeleting}
                                             className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
@@ -1986,6 +2072,14 @@ export default function AdminRouteManager() {
                                     </button>
                                 )}
                             </div>
+
+                            {isBulkTagModalOpen && (
+                                <BulkTagModal
+                                    routeCount={selectedRouteIds.size}
+                                    onApply={handleBulkTagApply}
+                                    onClose={() => setIsBulkTagModalOpen(false)}
+                                />
+                            )}
 
                             {/* ── Recalculate progress ── */}
                             {isRecalculating && recalcProgress && (
