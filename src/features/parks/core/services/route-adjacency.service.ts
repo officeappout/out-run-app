@@ -223,6 +223,47 @@ export function orientCorridorForFlow(
 }
 
 /**
+ * Cuts a closed loop into an ARC from `fromIndex` to `toIndex` — the piece
+ * of the loop's own recorded point order between those two indices, walked
+ * whichever way (forward or backward) is the shorter real distance. Built
+ * for the first hop of a chain-extension (16.08.2026, loop-orientation
+ * chaining fix): `orientCorridorForFlow` rotates a loop to start AND end at
+ * the user's entry point, which is correct for a single, unextended
+ * corridor but wrong once a chain continues — the connector to the next
+ * corridor was being built from that entry-point tail instead of from
+ * wherever the loop actually passes closest to the next corridor. Verified
+ * live: Park HaMesila's real exit toward Charles Clore measures ~553m by
+ * this arc, vs. ~1681m when (mis)measured from the entry-point tail.
+ *
+ * Same standing geometric-vs-walkable caveat as the rest of this file:
+ * "shorter arc" is a heuristic, not a walkability guarantee.
+ */
+export function orientLoopArc(
+  path: [number, number][],
+  fromIndex: number,
+  toIndex: number,
+): [number, number][] {
+  if (!isSameCoord(path[0], path[path.length - 1])) return path;
+
+  const n = path.length - 1; // unique point count — path[n] duplicates path[0]
+  const from = fromIndex % n;
+  const to = toIndex % n;
+  if (from === to) return [path[from]];
+
+  const forward: [number, number][] = [];
+  for (let i = from; ; i = (i + 1) % n) {
+    forward.push(path[i]);
+    if (i === to) break;
+  }
+  const backward: [number, number][] = [];
+  for (let i = from; ; i = (i - 1 + n) % n) {
+    backward.push(path[i]);
+    if (i === to) break;
+  }
+  return pathLengthMeters(forward) <= pathLengthMeters(backward) ? forward : backward;
+}
+
+/**
  * Splices an ordered sequence of corridor paths with connector paths
  * between them: `corridors.length` must be `connectors.length + 1`. Each
  * connector's first point is dropped (duplicate of the preceding corridor's

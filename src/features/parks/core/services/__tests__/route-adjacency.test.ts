@@ -8,6 +8,7 @@ import {
   orientCorridorForSplice,
   spliceCorridorChain,
   orientCorridorForFlow,
+  orientLoopArc,
 } from '../route-adjacency.service';
 import { pathLengthMeters } from '../geoUtils';
 
@@ -178,5 +179,53 @@ describe('orientCorridorForFlow — user-anchored corridor-flow traversal (16.08
     const openPath: [number, number][] = [[0, 0], [1, 0], [2, 0], [3, 0]];
     expect(orientCorridorForFlow(openPath, 0)[0]).toEqual(openPath[0]);
     expect(orientCorridorForFlow(openPath, 3)[0]).toEqual(openPath[3]);
+  });
+});
+
+describe('orientLoopArc — cuts a loop into an arc toward a chosen exit point (16.08.2026, chaining fix)', () => {
+  it('picks the forward arc when it is shorter than backward (1 side vs. 3 sides of the square)', () => {
+    const arc = orientLoopArc(SQUARE_LOOP, 0, 1);
+    expect(arc).toEqual([SQUARE_LOOP[0], SQUARE_LOOP[1]]);
+  });
+
+  it('picks the backward arc when it is shorter than forward (3 sides vs. 1 side of the square)', () => {
+    const arc = orientLoopArc(SQUARE_LOOP, 0, 3);
+    expect(arc).toEqual([SQUARE_LOOP[0], SQUARE_LOOP[3]]);
+  });
+
+  it('the arc always starts at fromIndex and ends at toIndex', () => {
+    const arc = orientLoopArc(SQUARE_LOOP, 1, 3);
+    expect(arc[0]).toEqual(SQUARE_LOOP[1]);
+    expect(arc[arc.length - 1]).toEqual(SQUARE_LOOP[3]);
+  });
+
+  it('returns a single-point degenerate arc when fromIndex === toIndex', () => {
+    const arc = orientLoopArc(SQUARE_LOOP, 2, 2);
+    expect(arc).toEqual([SQUARE_LOOP[2]]);
+  });
+
+  it('normalizes an index equal to the unique point count back to index 0', () => {
+    // SQUARE_LOOP has 5 stored points, 4 unique (path[4] duplicates path[0]).
+    const arc = orientLoopArc(SQUARE_LOOP, 4, 1);
+    expect(arc[0]).toEqual(SQUARE_LOOP[0]);
+  });
+
+  it('leaves a non-loop (point-to-point) path unchanged', () => {
+    const openPath: [number, number][] = [[34.77, 32.05], [34.78, 32.06], [34.79, 32.07]];
+    expect(orientLoopArc(openPath, 0, 2)).toEqual(openPath);
+  });
+
+  it('an arc never exceeds the full loop length', () => {
+    const fullLoopLength = pathLengthMeters(SQUARE_LOOP);
+    const arc = orientLoopArc(SQUARE_LOOP, 0, 2);
+    expect(pathLengthMeters(arc)).toBeLessThanOrEqual(fullLoopLength);
+  });
+
+  it('picking the shorter arc never exceeds half the full loop length (uniform square)', () => {
+    // For a roughly-uniform loop, the shorter of the two arcs between any
+    // two points is at most half the total loop length.
+    const fullLoopLength = pathLengthMeters(SQUARE_LOOP);
+    const arc = orientLoopArc(SQUARE_LOOP, 0, 2); // opposite corners
+    expect(pathLengthMeters(arc)).toBeLessThanOrEqual(fullLoopLength / 2 + 1);
   });
 });
