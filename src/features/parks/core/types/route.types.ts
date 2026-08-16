@@ -10,6 +10,7 @@ import type {
   SegmentProtocolConfig,
   SegmentProtocolId,
 } from '@/features/workout-engine/core/types/protocol.types';
+import type { SurfaceType } from '@/lib/route-collections/surface-type';
 
 export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
 export type SegmentType = 'run' | 'walk' | 'workout' | 'bench' | 'finish';
@@ -320,6 +321,20 @@ export interface Route {
   elevationGain?: number;
   /** DEM-derived maximum grade in percent, over a 15m step (see demProfile()). */
   maxGrade?: number;
+
+  /**
+   * Granular ground-material vocabulary, parsed from the OSM `surface` tag
+   * (see src/lib/route-collections/surface-type.ts). Undefined when no raw
+   * OSM surface tag was available at ingestion (trail-relation-derived and
+   * Mapbox-round-trip candidates have none) — never guessed.
+   *
+   * Deliberately DISTINCT from `features.surface` below — that's an older,
+   * coarser "paved-ish vs trail-ish vs mixed" concept (values like
+   * 'road'/'trail'/'paved'/'mixed') actively read by useRouteFilter.ts's
+   * match-scoring and RouteDetailSheet.tsx's SURFACE_LABELS table. Do not
+   * conflate the two or repoint either field's readers at the other.
+   */
+  surfaceType?: SurfaceType;
 
   // Ratings
   /** User-facing star rating (1–5, decimal precision e.g. 4.3). */

@@ -34,6 +34,7 @@
  */
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.config();
 import * as zlib from 'zlib'; import * as https from 'https'; import * as admin from 'firebase-admin';
+import { mapOsmSurfaceToType } from '../src/lib/route-collections/surface-type';
 
 // ─────────────────────────────── CLI + region config ───────────────────────────────
 const DRY = process.argv.includes('--dry-run');
@@ -232,6 +233,11 @@ type Candidate = {
   externalId: string; osmName: string | null; kind: 'trail' | 'loop' | 'segment';
   pts: number[][]; lengthM: number; isLoop: boolean; surface: 'road' | 'trail'; highway?: string; relRef?: string;
   sourceName?: string; // overrides source.name (round-trips → 'Mapbox Round-Trip (foot)'); OSM → default
+  // Raw OSM surface=* tag, when available — only the standalone/loop/segment
+  // branch below has direct way-tag access; trail-relation-derived and
+  // Mapbox-round-trip candidates have none (undefined, never guessed).
+  // Mapped to the granular SurfaceType in buildRouteDoc via mapOsmSurfaceToType.
+  osmSurface?: string;
 };
 
 // Stitch relation member ways (that intersect the region) into ordered polylines by
@@ -331,14 +337,14 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     const surface: 'road' | 'trail' = (t.highway === 'pedestrian' || t.surface === 'paved' || t.surface === 'asphalt') ? 'road' : 'trail';
     if (isLoop) {
       if (L < LEN_LOOP_MIN || L > LEN_LOOP_MAX) continue;
-      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name || null, kind: 'loop', pts, lengthM: Math.round(L), isLoop: true, surface, highway: t.highway });
+      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name || null, kind: 'loop', pts, lengthM: Math.round(L), isLoop: true, surface, highway: t.highway, osmSurface: t.surface });
       stats.loops++;
     } else {
       // standalone non-loop segments: only keep NAMED ways of usable length (an unnamed
       // 300m path fragment is rarely a route on its own; named ones are real trails/promenades)
       if (!t.name) continue;
       if (L < LEN_SEG_MIN || L > LEN_SEG_MAX) continue;
-      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name, kind: 'segment', pts, lengthM: Math.round(L), isLoop: false, surface, highway: t.highway });
+      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name, kind: 'segment', pts, lengthM: Math.round(L), isLoop: false, surface, highway: t.highway, osmSurface: t.surface });
       stats.segments++;
     }
   }
@@ -420,6 +426,14 @@ function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | 
     source: { type: 'official_api', name: c.sourceName ?? 'OSM Geo-Discovery', externalId: c.externalId, ...(c.relRef ? { osmRef: c.relRef } : {}) },
     elevationGain: gain,
     maxGrade: dem?.maxGrade ?? 0,
+    // Granular ground-material vocabulary — deliberately a NEW top-level
+    // field, not a rewrite of features.surface above (that field is a
+    // different, coarser concept, actively read elsewhere as 'road'/'trail'
+    // — see surface-type.ts's header comment). mapOsmSurfaceToType always
+    // returns a value ('unknown' when c.osmSurface is absent, e.g.
+    // trail-relation-derived candidates never had a raw way tag) — never
+    // undefined, so no conditional-spread needed here.
+    surfaceType: mapOsmSurfaceToType(c.osmSurface),
     // routeShape retires the old isLoop boolean (Stage 1A) — c.isLoop only means
     // "geometrically closed" (start≈end); when false the candidate is a plain
     // linear trail/segment, which is neither 'loop' nor 'out_and_back', so we
