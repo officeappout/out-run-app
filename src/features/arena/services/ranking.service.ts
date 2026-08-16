@@ -196,6 +196,110 @@ export async function getLeaderboard(params: {
   return { entries, myEntry, totalParticipants, window: timeWindow, generatedAt: new Date() };
 }
 
+// ── Distance leaderboard ───────────────────────────────────────────────────
+
+/**
+ * Ranks users by real summed `distanceKm` (a genuine feed_posts field —
+ * see feed.service.ts createWorkoutPost) rather than activityCredit, so the
+ * מרחק metric shows actual kilometres instead of a points figure. Mirrors
+ * getLeaderboard's shape/params exactly, swapping the aggregated field.
+ *
+ * Hardcoded to `activityCategory === 'cardio'` — distanceKm is only ever
+ * meaningfully non-zero for cardio (running/walking) posts; strength posts
+ * write it as null. Posts with no positive distance are skipped, same as
+ * getSegmentLeaderboard skips posts with no positive pace.
+ */
+export async function getDistanceLeaderboard(params: {
+  scope: LeaderboardScope;
+  scopeId: string | null;
+  timeWindow: LeaderboardTimeWindow;
+  ageGroup: 'minor' | 'adult';
+  genderFilter?: LeaderboardGenderFilter;
+  currentUid: string;
+  currentName?: string;
+  maxEntries?: number;
+}): Promise<LeaderboardResult> {
+  const { scope, scopeId, timeWindow, ageGroup, genderFilter = 'all', currentUid, currentName, maxEntries = 50 } = params;
+  const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
+
+  const constraints = [
+    where('ageGroup', '==', ageGroup),
+    where('createdAt', '>=', windowStart),
+    where('activityCategory', '==', 'cardio'),
+  ];
+
+  const scopeField = scopeToField(scope);
+  if (scopeField && scopeId) {
+    constraints.push(where(scopeField, '==', scopeId));
+  }
+
+  if (genderFilter !== 'all') {
+    constraints.push(where('gender', '==', genderFilter));
+  }
+
+  const q = query(collection(db, 'feed_posts'), ...constraints);
+  const snap = await getDocs(q);
+
+  // Aggregate distance + workout count per user
+  const distMap = new Map<string, { name: string; total: number; count: number }>();
+
+  snap.forEach((d) => {
+    const data = d.data();
+    const uid = data.authorUid as string;
+    const dist = (data.distanceKm as number) || 0;
+    if (dist <= 0) return; // no real distance on this post — skip, don't count as a zero
+    const name = (data.authorName as string) || '???';
+
+    const existing = distMap.get(uid);
+    if (existing) {
+      existing.total += dist;
+      existing.count += 1;
+    } else {
+      distMap.set(uid, { name, total: dist, count: 1 });
+    }
+  });
+
+  // Round to 1 decimal (matches FeedPostCard's distanceKm.toFixed(1) display) to avoid float noise.
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+
+  const allSorted = Array.from(distMap.entries())
+    .map(([uid, v]) => [uid, { ...v, total: round1(v.total) }] as const)
+    .sort(([, a], [, b]) => b.total - a.total);
+
+  const totalParticipants = allSorted.length;
+  const sorted = allSorted.slice(0, maxEntries);
+
+  const entries: LeaderboardEntry[] = sorted.map(([uid, { name, total, count }], idx) => ({
+    rank: idx + 1,
+    uid,
+    name,
+    totalCredit: total,
+    workoutCount: count,
+    isCurrentUser: uid === currentUid,
+  }));
+
+  let myEntry = entries.find((e) => e.isCurrentUser) ?? null;
+
+  if (!myEntry && currentUid) {
+    const myIdx = allSorted.findIndex(([uid]) => uid === currentUid);
+    if (myIdx >= 0) {
+      const [, { name, total, count }] = allSorted[myIdx];
+      myEntry = { rank: myIdx + 1, uid: currentUid, name, totalCredit: total, workoutCount: count, isCurrentUser: true };
+    } else {
+      myEntry = {
+        rank: totalParticipants + 1,
+        uid: currentUid,
+        name: currentName ?? 'את/ה',
+        totalCredit: 0,
+        workoutCount: 0,
+        isCurrentUser: true,
+      };
+    }
+  }
+
+  return { entries, myEntry, totalParticipants, window: timeWindow, generatedAt: new Date() };
+}
+
 // ── Segment (3k/5k/10k) leaderboard ───────────────────────────────────────
 
 /**

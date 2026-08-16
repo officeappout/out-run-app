@@ -6,7 +6,7 @@
  */
 import { formatPaceSecPerKm } from '@/features/arena/services/ranking.service';
 
-export type LeaderboardMode = 'general' | 'running' | 'strength' | 'steps';
+export type LeaderboardMode = 'general' | 'running' | 'strength' | 'steps' | 'distance';
 
 /**
  * The displayed unit always follows the selected metric — never a bare
@@ -19,10 +19,15 @@ export type LeaderboardMode = 'general' | 'running' | 'strength' | 'steps';
  *
  * `isSegmentMode` is true when the running sub-filter is a specific segment
  * (not 'all') — value is then paceSecPerKm, not activityCredit.
+ *
+ * 'distance' is real summed distanceKm (getDistanceLeaderboard, pre-launch
+ * backend task) — an actual real-world unit, unlike 'strength'/'running'
+ * credit, so it's displayed as km rather than a "נק' X" points label.
  */
 export function formatLeaderboardScore(value: number, mode: LeaderboardMode, isSegmentMode?: boolean): string {
   if (mode === 'general') return `${value} ימים`;
   if (mode === 'steps')   return `${value.toLocaleString('he-IL')} צעדים`;
+  if (mode === 'distance') return `${value.toLocaleString('he-IL', { maximumFractionDigits: 1 })} ק"מ`;
   if (mode === 'running' && isSegmentMode) {
     // value is paceSecPerKm — display as "MM:SS /ק״מ"
     return value > 0 ? `${formatPaceSecPerKm(value)} /ק״מ` : '—';

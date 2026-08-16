@@ -42,10 +42,15 @@ describe('formatLeaderboardScore — dynamic unit per metric, never a bare/gener
     expect(result).not.toBe('60');
   });
 
+  it('distance mode: real km unit, not a "נק\' X" points label', () => {
+    expect(formatLeaderboardScore(12.5, 'distance')).toBe('12.5 ק"מ');
+    expect(formatLeaderboardScore(0, 'distance')).toBe('0 ק"מ');
+  });
+
   it('no mode ever produces the literal word "נקודות"', () => {
-    const modes: Array<['general' | 'steps' | 'strength' | 'running', boolean | undefined]> = [
+    const modes: Array<['general' | 'steps' | 'strength' | 'running' | 'distance', boolean | undefined]> = [
       ['general', undefined], ['steps', undefined], ['strength', undefined],
-      ['running', true], ['running', false],
+      ['running', true], ['running', false], ['distance', undefined],
     ];
     for (const [mode, seg] of modes) {
       expect(formatLeaderboardScore(42, mode, seg)).not.toContain('נקודות');

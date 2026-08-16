@@ -11,6 +11,7 @@ import {
   getSegmentLeaderboard,
   getLeagueLeaderboard,
   getTenantLeaderboard,
+  getDistanceLeaderboard,
   type LeaderboardScope,
   type LeaderboardCategory,
   type LeaderboardTimeWindow,
@@ -19,7 +20,7 @@ import {
   type RunSegmentFilter,
 } from '@/features/arena/services/ranking.service';
 
-export type LeaderboardDataMode = 'credit' | 'streak' | 'steps' | 'segment';
+export type LeaderboardDataMode = 'credit' | 'streak' | 'steps' | 'segment' | 'distance';
 
 export interface UseLeaderboardOptions {
   scope: LeaderboardScope;
@@ -28,7 +29,7 @@ export interface UseLeaderboardOptions {
   timeWindow: LeaderboardTimeWindow;
   genderFilter?: LeaderboardGenderFilter;
   programId?: string | null;
-  /** 'streak' → streaks collection; 'steps' → dailyActivity; 'segment' → feed_posts by runSegment; 'credit' (default) → feed_posts activityCredit */
+  /** 'streak' → streaks collection; 'steps' → dailyActivity; 'segment' → feed_posts by runSegment; 'distance' → feed_posts summed distanceKm; 'credit' (default) → feed_posts activityCredit */
   dataMode?: LeaderboardDataMode;
   /** Required when dataMode === 'segment' */
   runSegment?: RunSegmentFilter;
@@ -100,6 +101,17 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
         data = await getStepsLeaderboard({
           scope,
           scopeId,
+          currentUid: uid,
+          currentName: profile?.core?.name,
+        });
+      } else if (dataMode === 'distance') {
+        const feedScope = extractFeedScope(profile);
+        data = await getDistanceLeaderboard({
+          scope,
+          scopeId,
+          timeWindow,
+          ageGroup: feedScope.ageGroup ?? 'adult',
+          genderFilter,
           currentUid: uid,
           currentName: profile?.core?.name,
         });

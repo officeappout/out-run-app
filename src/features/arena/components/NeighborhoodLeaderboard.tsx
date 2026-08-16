@@ -36,13 +36,18 @@ const MODE_TO_CATEGORY: Record<LeaderboardMode, LeaderboardCategory> = {
   running: 'cardio',
   strength: 'strength',
   steps: 'overall',
+  distance: 'cardio',
 };
 
+// מרחק un-hidden (pre-launch backend task) now that getDistanceLeaderboard
+// aggregates real summed distanceKm instead of being a stub — see
+// ranking.service.ts getDistanceLeaderboard doc comment.
 const CATEGORY_OPTIONS: { value: LeaderboardMode; label: string; emoji: string }[] = [
   { value: 'general',  label: 'כללי',   emoji: '🔥' },
   { value: 'running',  label: 'ריצה',   emoji: '🏃' },
   { value: 'strength', label: 'כוח',    emoji: '💪' },
   { value: 'steps',    label: 'צעדים',  emoji: '👟' },
+  { value: 'distance', label: 'מרחק',   emoji: '📍' },
 ];
 
 const RUN_SEGMENT_OPTIONS: { value: RunSegment; label: string; emoji: string }[] = [
@@ -131,6 +136,7 @@ function getContextLabel(
   switch (mode) {
     case 'general': return 'ימי אימון ברצף';
     case 'steps':   return 'ממוצע יומי שבועי';
+    case 'distance': return 'סה"כ ק"מ';
     case 'running':
       if (runSegment === '3k')  return 'שיא קצב ל-3 ק"מ';
       if (runSegment === '5k')  return 'שיא קצב ל-5 ק"מ';
@@ -498,6 +504,7 @@ export default function NeighborhoodLeaderboard({
     programId: localMode === 'strength' ? strengthProgramId : null,
     dataMode: localMode === 'general'                    ? 'streak'
             : localMode === 'steps'                      ? 'steps'
+            : localMode === 'distance'                   ? 'distance'
             : isSegmentMode                              ? 'segment'
             : 'credit',
     runSegment: isSegmentMode ? (runSegment as RunSegmentFilter) : undefined,
