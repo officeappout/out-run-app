@@ -61,6 +61,12 @@ import AppHeader from '@/components/ui/AppHeader';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
 import { useWorkoutSession } from '@/features/workouts/components/workout-preview-drawer/hooks/useWorkoutSession';
+import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
+import { runSuggestionEngine } from '@/features/workout-engine/core/engine/suggestion-engine';
+import { buildHomeUserContext } from '@/features/workout-engine/core/context/build-home-user-context';
+import { suggestionToGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-post-workout-suggestion';
+import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
+import { SuggestionCard } from '@/features/workout-engine/core/components/SuggestionCard';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -439,10 +445,61 @@ export default function HomePage() {
     setShowMotivationBanner(false);
   }, []);
 
+  // ── post_workout suggestion carousel (home-generator-v2 plan, step 6) ──
+  // Eager-compute the moment a completed workout is detected (mirrors the celebration
+  // effect above) — reveal stays gated behind handleRequestMore's tap for now (Phase A,
+  // David-approved 16.08.2026). Phase B (auto-reveal, no tap needed) is the planned
+  // immediate next step once this is verified in production, per the same conversation —
+  // not built here; the eager-compute-then-gated-reveal split already makes that a
+  // small follow-up change (remove the reveal gate), not a redesign.
+  const [postWorkoutSuggestions, setPostWorkoutSuggestions] = useState<Suggestion[] | null>(null);
+  const [showPostWorkoutSuggestions, setShowPostWorkoutSuggestions] = useState(false);
+  const [startingSuggestionId, setStartingSuggestionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!(postWorkoutData || todayWorkoutDone) || !profile) return;
+    let cancelled = false;
+    // location: null — none of the registered post_workout generators (recovery-follow-up,
+    // complementary-short, safety-net) read UserContext.location; skips an unnecessary GPS
+    // permission prompt right after a workout, unlike the pull-surface builders.
+    const context = buildHomeUserContext({ profile, location: null, surface: 'post_workout' });
+    runSuggestionEngine(context).then((ranked) => {
+      if (!cancelled) setPostWorkoutSuggestions(ranked);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postWorkoutData, todayWorkoutDone, profile?.id]);
+
+  // Dedicated useWorkoutSession instance for post_workout suggestion starts — always fed via
+  // handleStartWorkout's overrideGeneratedWorkout argument (see its own JSDoc: "for callers
+  // holding a fresher value than this hook's own closed-over React-state prop"), so the
+  // hook-captured workout/generatedWorkout props below are deliberately static/unused.
+  const { handleStartWorkout: handlePostWorkoutStart } = useWorkoutSession({
+    workout: { id: 'post-workout-suggestion', title: '', segments: [] },
+    workoutPlan: null,
+    generatedWorkout: null,
+    isWarmupActive: true,
+    workoutLocation: undefined,
+  });
+
+  const handlePostWorkoutSuggestionStart = useCallback(async (suggestion: Suggestion) => {
+    if (!profile) return;
+    setStartingSuggestionId(suggestion.id);
+    try {
+      const context = buildHomeUserContext({ profile, location: null, surface: 'post_workout' });
+      const workout = await suggestionToGeneratedWorkout(context, suggestion);
+      if (!workout) return;
+      handlePostWorkoutStart(workout);
+    } finally {
+      setStartingSuggestionId(null);
+    }
+  }, [profile, handlePostWorkoutStart]);
+
   const handleRequestMore = useCallback(() => {
-    setPostWorkoutData(null);
-    setShowMotivationBanner(false);
-    setTimeout(() => handleHeroPress(), 200);
+    // Reveals the already-computed carousel below the SAME completion card — deliberately
+    // does NOT dismiss postWorkoutData/showMotivationBanner (unlike before): "give me more"
+    // now means "show suggestions alongside this celebration," not "start over."
+    setShowPostWorkoutSuggestions(true);
   }, []);
 
   // Check for query params from post-workout CTA, JIT return, or join landing
@@ -1424,6 +1481,30 @@ export default function HomePage() {
               onRequestMore={handleRequestMore}
               onDismissCelebration={handleDismissCelebration}
               userGender={profile?.core?.gender}
+            />
+          </motion.div>
+        )}
+
+        {/* post_workout suggestion carousel (home-generator-v2 plan, step 6) — revealed by
+            the completion card's own "תציעו לי עוד אימון" CTA (handleRequestMore), directly
+            below the same completion card, same vertical slot. */}
+        {showPostWorkoutSuggestions && postWorkoutSuggestions && postWorkoutSuggestions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <SuggestionCarousel<Suggestion>
+              items={postWorkoutSuggestions}
+              keyExtractor={(s) => s.id}
+              cardHeight={200}
+              renderCard={(s) => (
+                <SuggestionCard
+                  suggestion={s}
+                  onStart={() => handlePostWorkoutSuggestionStart(s)}
+                  isStarting={startingSuggestionId === s.id}
+                />
+              )}
             />
           </motion.div>
         )}
