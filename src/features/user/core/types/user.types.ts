@@ -264,6 +264,7 @@ export interface UserFullProfile {
     birthDate?: Date;
     photoURL?: string;
     authorityId?: string; // Link to authority (city/region) for manager access control
+    neighborhoodId?: string; // Link to a neighborhood-level authorities/{id} doc, scoped under authorityId (see location-utils.ts findNeighborhoodIdByCity)
     // Closed-community (tenant) binding — written server-side by the
     // validateAccessCode CF (functions/src/validateAccessCode.ts). Companies
     // (Wix), schools and military units bind via tenantId/unitId; municipalities

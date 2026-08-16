@@ -20,7 +20,7 @@ import { db } from '@/lib/firebase';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
-export type LeaderboardScope = 'city' | 'school' | 'park' | 'global' | 'league' | 'tenant';
+export type LeaderboardScope = 'city' | 'school' | 'park' | 'neighborhood' | 'global' | 'league' | 'tenant';
 export type LeaderboardCategory = 'overall' | 'cardio' | 'strength';
 export type LeaderboardTimeWindow = 'weekly' | 'monthly';
 export type LeaderboardGenderFilter = 'all' | 'male' | 'female';
@@ -40,6 +40,31 @@ export interface LeaderboardResult {
   totalParticipants: number;
   window: LeaderboardTimeWindow;
   generatedAt: Date;
+}
+
+// ── Scope → Firestore field mapping ──────────────────────────────────────
+
+/**
+ * Maps a leaderboard scope to the Firestore field that narrows a query to
+ * it. Single source of truth for all scoped queries below — every function
+ * that filters by scope goes through this instead of its own inline
+ * ternary, so adding a new scope (or fixing one) only happens once.
+ *
+ * 'global' and 'league' span all authorities (no narrowing field); 'tenant'
+ * is handled entirely by getTenantLeaderboard (leaderboard_shards, not
+ * feed_posts/streaks/dailyActivity) and never reaches a query built here.
+ */
+export function scopeToField(scope: LeaderboardScope): string | null {
+  switch (scope) {
+    case 'city': return 'authorityId';
+    case 'school': return 'schoolId';
+    case 'park': return 'parkId';
+    case 'neighborhood': return 'neighborhoodId';
+    case 'global':
+    case 'league':
+    case 'tenant':
+      return null;
+  }
 }
 
 // ── Time helpers ───────────────────────────────────────────────────────
@@ -85,16 +110,11 @@ export async function getLeaderboard(params: {
     where('createdAt', '>=', windowStart),
   ];
 
-  // Global and league scopes span all authorities.
-  // city/school/park scopes narrow by their respective FK column.
-  if (scope !== 'global' && scope !== 'league') {
-    const scopeField =
-      scope === 'city'   ? 'authorityId' :
-      scope === 'school' ? 'schoolId' :
-                           'parkId';        // park
-    if (scopeId) {
-      constraints.push(where(scopeField, '==', scopeId));
-    }
+  // Global and league scopes span all authorities; other scopes narrow by
+  // their respective FK column (see scopeToField).
+  const scopeField = scopeToField(scope);
+  if (scopeField && scopeId) {
+    constraints.push(where(scopeField, '==', scopeId));
   }
 
   if (category !== 'overall') {
@@ -210,12 +230,9 @@ export async function getSegmentLeaderboard(params: {
     where('runSegment', '==', runSegment),
   ];
 
-  if (scope !== 'global' && scopeId) {
-    const scopeField =
-      scope === 'city' ? 'authorityId' :
-      scope === 'school' ? 'schoolId' :
-      'parkId';
-    constraints.push(where(scopeField, '==', scopeId));
+  const segmentScopeField = scopeToField(scope);
+  if (segmentScopeField && scopeId) {
+    constraints.push(where(segmentScopeField, '==', scopeId));
   }
 
   if (genderFilter !== 'all') {
@@ -285,6 +302,13 @@ export async function getSegmentLeaderboard(params: {
  * Streak docs acquire `authorityId` / `displayName` the first time a user
  * syncs after the field was added to useActivityStore.syncToServer.
  *
+ * Scoped via scopeToField like every other query here — but only 'city'
+ * (authorityId) is actually stamped on `streaks` docs today. 'park' and
+ * 'neighborhood' resolve to the correct field name but will return empty
+ * results until parkId/neighborhoodId are also stamped on this collection
+ * (neighborhoodId stamping is tracked separately; parkId stamping on
+ * streaks/dailyActivity is not, and is a prerequisite for park scope here).
+ *
  * Fallback: if `displayName` is missing or '???' on a streak doc the service
  * performs a batched read of `users/{uid}.core.name` so the leaderboard
  * never shows '???' to the end user.
@@ -302,8 +326,9 @@ export async function getStreakLeaderboard(params: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const constraints: any[] = [];
 
-  if (scope !== 'global' && scopeId) {
-    constraints.push(where('authorityId', '==', scopeId));
+  const streakScopeField = scopeToField(scope);
+  if (streakScopeField && scopeId) {
+    constraints.push(where(streakScopeField, '==', scopeId));
   }
 
   constraints.push(orderBy('currentStreak', 'desc'));
@@ -397,6 +422,12 @@ export async function getStreakLeaderboard(params: {
  * a user completes a workout sync after the scope-stamp was added to
  * useActivityStore.syncToServer. Until then they appear in global queries
  * but are invisible in city-scoped ones.
+ *
+ * Scoped via scopeToField like every other query here — same caveat as
+ * getStreakLeaderboard: only 'city' (authorityId) is actually stamped on
+ * `dailyActivity` docs today, so 'park' and 'neighborhood' resolve to the
+ * correct field name but return empty until that field is also stamped
+ * on this collection.
  */
 export async function getStepsLeaderboard(params: {
   scope: LeaderboardScope;
@@ -420,8 +451,9 @@ export async function getStepsLeaderboard(params: {
     where('date', '<=', todayStr),
   ];
 
-  if (scope !== 'global' && scopeId) {
-    constraints.push(where('authorityId', '==', scopeId));
+  const stepsScopeField = scopeToField(scope);
+  if (stepsScopeField && scopeId) {
+    constraints.push(where(stepsScopeField, '==', scopeId));
   }
 
   // Limit to a reasonable scan size — 50 entries × 7 days + buffer
