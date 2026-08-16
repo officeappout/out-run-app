@@ -45,6 +45,7 @@ import CreateGroupWizard from '@/features/arena/components/CreateGroupWizard';
 import CityArenaView from '@/features/arena/components/CityArenaView';
 import NeighborhoodLeaderboard from '@/features/arena/components/NeighborhoodLeaderboard';
 import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
+import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import MunicipalPressureCard from '@/features/arena/components/MunicipalPressureCard';
 import SchoolOutreachCard from '@/features/arena/components/SchoolOutreachCard';
 import LeagueCarousel, {
@@ -218,9 +219,18 @@ export default function CommunityPage() {
   // ── Individual vs group competition toggle ────────────────────────────────
   const [competitionMode, setCompetitionMode] = useState<'individual' | 'group'>('individual');
 
+  // ── Stage C: Groups-tab axis chooser (City segment only for this pass —
+  // matches Stage F's City-only wiring scope). 'פלוגות' stays out (Stage G —
+  // needs the leaderboard_shards data source, not feed_posts).
+  type GroupAxis = 'city' | 'neighborhood' | 'group';
+  const [groupAxis, setGroupAxis] = useState<GroupAxis>('city');
+  const [axisMenuOpen, setAxisMenuOpen] = useState(false);
+  const AXIS_LABEL: Record<GroupAxis, string> = { city: 'ערים', neighborhood: 'שכונות', group: 'קבוצות' };
+
   // Reset to individual whenever the active league card changes.
   useEffect(() => {
     setCompetitionMode('individual');
+    setGroupAxis('city');
   }, [selectedLeague]);
 
   // ── Feed-only state ──────────────────────────────────────────────────────
@@ -1070,6 +1080,56 @@ export default function CommunityPage() {
     );
   }
 
+  // ── Stage C: axis chooser for the Groups tab (City segment only). Pure UI
+  // switch between 3 already-working engines — no new backend here.
+  function renderGroupAxisChooser() {
+    const AXIS_OPTIONS: GroupAxis[] = ['city', 'neighborhood', 'group'];
+    return (
+      <div className="relative mb-3" dir="rtl">
+        <button
+          type="button"
+          onClick={() => setAxisMenuOpen((o) => !o)}
+          aria-haspopup="listbox"
+          aria-expanded={axisMenuOpen}
+          className="w-full flex items-center justify-between rounded-2xl px-4 py-3 bg-[#EAF9F3] active:scale-[0.98] transition-transform"
+        >
+          <div className="text-right">
+            <span className="text-sm font-black" style={{ color: '#1D9E75' }}>
+              בין {AXIS_LABEL[groupAxis]}
+            </span>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              {groupAxis === 'neighborhood' && access.cityName ? `ב${access.cityName} · ` : ''}
+              לחץ להחלפת ציר
+            </p>
+          </div>
+          <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${axisMenuOpen ? 'rotate-180' : ''}`} style={{ color: '#1D9E75' }} />
+        </button>
+
+        {axisMenuOpen && (
+          <div
+            role="listbox"
+            className="absolute z-20 top-full mt-1 w-full rounded-2xl bg-white border border-gray-100 shadow-lg overflow-hidden"
+          >
+            {AXIS_OPTIONS.map((axis) => (
+              <button
+                key={axis}
+                type="button"
+                role="option"
+                aria-selected={groupAxis === axis}
+                onClick={() => { setGroupAxis(axis); setAxisMenuOpen(false); }}
+                className={`w-full text-right px-4 py-3 text-sm font-bold transition-colors ${
+                  groupAxis === axis ? 'text-[#1D9E75] bg-[#EAF9F3]' : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {AXIS_LABEL[axis]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderGlobalSegment() {
     return (
       <div className="space-y-4" dir="rtl">
@@ -1158,11 +1218,29 @@ export default function CommunityPage() {
             onMyModeChange={handleMyModeChange}
               />
             ) : (
-              <GroupLeaderboard
-                scope="city"
-                scopeId={authority.id}
-                timeWindow={leaderboardTimeWindow}
-              />
+              <>
+                {renderGroupAxisChooser()}
+                {groupAxis === 'city' && (
+                  <ScopeCompetitionLeaderboard
+                    granularity="city"
+                    timeWindow={leaderboardTimeWindow}
+                  />
+                )}
+                {groupAxis === 'neighborhood' && (
+                  <ScopeCompetitionLeaderboard
+                    granularity="neighborhood"
+                    timeWindow={leaderboardTimeWindow}
+                    cityAuthorityId={authority.id}
+                  />
+                )}
+                {groupAxis === 'group' && (
+                  <GroupLeaderboard
+                    scope="city"
+                    scopeId={authority.id}
+                    timeWindow={leaderboardTimeWindow}
+                  />
+                )}
+              </>
             )}
           </>
         )}
