@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useUserStore } from '@/features/user';
 import { resolveActiveProgramBudget } from '@/features/workout-engine/services/lead-program.service';
+import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { calculateWeeklyBudget } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import {
   computeBaseLevel,
@@ -62,7 +63,13 @@ export function useDailyStrengthTarget(enabled: boolean = true): DailyStrengthTa
       return;
     }
     let cancelled = false;
-    resolveActiveProgramBudget(profile)
+    // Perf fix (David, pre-STRENGTH_RING_ENABLED-flip, 16.08.2026): resolveActiveProgramBudget's
+    // second arg is optional and falls back to a raw, uncached getAllPrograms() call when
+    // omitted — which this effect re-runs on every home-page mount for every user. Passing
+    // getCachedPrograms() (program-hierarchy.utils.ts's 5-minute TTL cache, the same one
+    // partial-completion.generator.ts already uses) avoids that Firestore read on every load.
+    getCachedPrograms()
+      .then((allPrograms) => resolveActiveProgramBudget(profile, allPrograms))
       .then((lead) => {
         if (cancelled) return;
         setResolved(
