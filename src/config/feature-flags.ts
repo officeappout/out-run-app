@@ -1148,7 +1148,12 @@ export const RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED = true;
 //
 // While FALSE (default), the new hook never runs and nothing new renders —
 // byte-identical to today.
-export const HOME_STEP_DEFICIT_CARD_ENABLED = false;
+//
+// FLIPPED TRUE (16.08.2026) — David approved production rollout after both the
+// initial build and the deep-link-reuse follow-up (3f8d8477) passed independent
+// code review. Kill-switch: flip back to false, byte-identical instantly, no
+// code change needed.
+export const HOME_STEP_DEFICIT_CARD_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
