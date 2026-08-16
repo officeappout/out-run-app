@@ -783,10 +783,8 @@ service cloud.firestore {
     // corridor-chaining code (client SDK, not the admin-bypass Admin
     // SDK used in prior verification scripts) hit "Missing or
     // insufficient permissions" on this collection; both
-    // IS_ROUTE_ADJACENCY_ENABLED features are non-functional for any
-    // real user without this rule. NOT YET DEPLOYED — drafted for
-    // David's review; deploy only after his explicit go-ahead per the
-    // Firestore-rules-change discipline (axioms.md §14).
+    // IS_ROUTE_ADJACENCY_ENABLED features were non-functional for any
+    // real user without this rule. DEPLOYED 16.08.2026, David-approved.
     // ============================================================
     match /route_adjacency/{docId} {
       allow read: if true;
