@@ -1217,6 +1217,40 @@ export default function CommunityPage() {
     );
   }
 
+  // Neighborhood-axis-only invite CTA (mockup Screen 3, Frame A). Uses the
+  // real neighborhood name from activeScopeEntry (already bubbled by
+  // ScopeBattleCard) — no new fetch. Same native-share/clipboard mechanism
+  // as the other invite buttons on this page. Copy is deliberately metric-
+  // agnostic ("יותר פעילות") rather than the mockup's "יותר צעדים" — the
+  // selected metric might not be steps, and claiming it always is would be
+  // dishonest given getScopeCompetitionLeaderboard still sums activityCredit,
+  // not a literal step count.
+  function renderNeighborhoodInviteCTA() {
+    if (!activeScopeEntry) return null;
+    const handleInviteNeighbors = () => {
+      const text = `בוא תצטרף אליי ב${activeScopeEntry.scopeName} על Out! 🔥`;
+      if (navigator.share) navigator.share({ text }).catch(() => {});
+      else if (navigator.clipboard) navigator.clipboard.writeText(text);
+    };
+    return (
+      <button
+        type="button"
+        onClick={handleInviteNeighbors}
+        className="w-full flex items-center gap-2.5 rounded-2xl px-3.5 py-3 text-white text-right active:scale-[0.98] transition-transform"
+        style={{ background: 'linear-gradient(90deg, #00ADEF, #00dcd0)' }}
+        dir="rtl"
+      >
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
+          <Users className="w-[18px] h-[18px]" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-black">הזמן שכנים ל{activeScopeEntry.scopeName}</p>
+          <p className="text-[11px] opacity-90">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
+        </div>
+      </button>
+    );
+  }
+
   function renderGlobalSegment() {
     return (
       <div className="space-y-4" dir="rtl">
@@ -1341,6 +1375,7 @@ export default function CommunityPage() {
                       cityAuthorityId={authority.id}
                       category={leaderboardCategory}
                     />
+                    {renderNeighborhoodInviteCTA()}
                   </>
                 )}
                 {groupAxis === 'group' && (

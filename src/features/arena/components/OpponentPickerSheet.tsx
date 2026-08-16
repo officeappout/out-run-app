@@ -18,7 +18,21 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { ScopeCompetitionEntry } from '@/features/arena/services/ranking.service';
 
-const ACCENT = '#1D9E75';
+// Brand palette (screens mockup, 16.08.2026). Two distinct accents, matching
+// the mockup exactly: the pinned "mine" card is emerald-toned, while a
+// selected candidate's highlight is cyan — not the same color reused twice.
+const MINE_ACCENT = '#10B981';
+const SELECT_ACCENT = '#00ADEF';
+
+function initialsOf(name: string): string {
+  return (name ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || '?';
+}
 
 interface OpponentPickerSheetProps {
   isOpen: boolean;
@@ -96,18 +110,28 @@ export function OpponentPickerSheet({
             <div className="px-5 pb-4 space-y-2 max-h-[55vh] overflow-y-auto">
               {/* My entity — pinned, not selectable */}
               <div
-                className="flex items-center justify-between rounded-xl px-4 py-3"
-                style={{ backgroundColor: '#E1F5EE', border: `1px solid ${ACCENT}` }}
+                className="flex items-center gap-3 rounded-xl px-4 py-3"
+                style={{
+                  background: 'linear-gradient(90deg, rgba(16,185,129,0.12), rgba(0,173,239,0.10))',
+                  border: '1px solid #bff0dc',
+                }}
               >
-                <div className="text-right">
-                  <p className="text-sm font-black text-gray-900">{myEntry.scopeName}</p>
-                  <p className="text-[11px] font-bold" style={{ color: ACCENT }}>
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black text-white"
+                  style={{ backgroundColor: MINE_ACCENT }}
+                  aria-hidden
+                >
+                  {initialsOf(myEntry.scopeName)}
+                </div>
+                <div className="flex-1 min-w-0 text-right">
+                  <p className="text-sm font-black text-gray-900 truncate">{myEntry.scopeName}</p>
+                  <p className="text-[11px] font-bold" style={{ color: MINE_ACCENT }}>
                     {myEntry.totalScore.toLocaleString('he-IL')}
                   </p>
                 </div>
                 <span
                   className="text-[10px] font-black px-2 py-1 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: ACCENT, color: '#fff' }}
+                  style={{ backgroundColor: MINE_ACCENT, color: '#fff' }}
                 >
                   📌 קבוע
                 </span>
@@ -122,14 +146,21 @@ export function OpponentPickerSheet({
                     key={c.scopeId}
                     type="button"
                     onClick={() => { onSelect(c.scopeId); onClose(); }}
-                    className="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-colors"
+                    className="w-full flex items-center gap-3 rounded-xl px-4 py-3 transition-colors"
                     style={{
-                      border: selected ? `1.5px solid ${ACCENT}` : '0.5px solid #E5E7EB',
-                      backgroundColor: selected ? '#F0FBF6' : '#fff',
+                      border: selected ? `1.5px solid ${SELECT_ACCENT}` : '0.5px solid #E5E7EB',
+                      backgroundColor: selected ? '#EAF6FF' : '#fff',
                     }}
                   >
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-gray-900">{c.scopeName}</p>
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black text-white"
+                      style={{ backgroundColor: MINE_ACCENT }}
+                      aria-hidden
+                    >
+                      {initialsOf(c.scopeName)}
+                    </div>
+                    <div className="flex-1 min-w-0 text-right">
+                      <p className="text-sm font-bold text-gray-900 truncate">{c.scopeName}</p>
                       <p className="text-[11px] text-gray-500 tabular-nums">
                         {c.rank === 1 ? 'המקום הראשון' : `מקום #${c.rank}`} · {c.totalScore.toLocaleString('he-IL')}
                       </p>
@@ -137,8 +168,8 @@ export function OpponentPickerSheet({
                     <span
                       className="w-4 h-4 rounded-full flex-shrink-0"
                       style={{
-                        border: `2px solid ${selected ? ACCENT : '#D1D5DB'}`,
-                        backgroundColor: selected ? ACCENT : 'transparent',
+                        border: `2px solid ${selected ? SELECT_ACCENT : '#D1D5DB'}`,
+                        backgroundColor: selected ? SELECT_ACCENT : 'transparent',
                       }}
                       aria-hidden
                     />
