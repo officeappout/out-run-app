@@ -182,14 +182,26 @@ ${MATCHED}
     done
 
     if $IS_MIGRATED && echo "$DIFF_LINES" | grep -qE "$WRITE_VERB_PATTERN"; then
-      if ! echo "$DIFF_LINES" | grep -q 'buildValidatedDoc('; then
+      # Check the FULL staged file content (the blob about to be committed),
+      # not just this diff's new lines — buildValidatedDoc( may already be
+      # present from an earlier commit (e.g. a later, unrelated function
+      # added to an already-migrated file legitimately doesn't need to
+      # reintroduce the call). A diff-only check here would false-positive-
+      # block exactly that case.
+      STAGED_FILE_CONTENT=$(git show ":$file" 2>/dev/null || true)
+      if ! echo "$STAGED_FILE_CONTENT" | grep -q 'buildValidatedDoc('; then
         MATCHED=$(echo "$DIFF_LINES" | grep -E "$WRITE_VERB_PATTERN" | head -3 | sed 's/^/   /')
         VIOLATIONS="${VIOLATIONS}
-❌ BLOCKED — new write in a chokepoint-migrated file without buildValidatedDoc(
+❌ BLOCKED — new write in a chokepoint-migrated file, and buildValidatedDoc(
+   is not called ANYWHERE in the file
    file: $file
 ${MATCHED}
    This file is already wired through the Stage 1B chokepoint — route new
-   writes through buildValidatedDoc() too, don't bypass it."
+   writes through buildValidatedDoc() too, don't bypass it. (If this write
+   is a fixed-shape payload with no arbitrary caller fields — e.g.
+   bulkApproveRoutes' hardcoded {published,status,...} — that's a legitimate
+   reason to skip the chokepoint; this check only verifies the call exists
+   SOMEWHERE in the file, not that every write-site uses it.)"
       fi
     fi
   done <<< "$STAGED_ALL"
