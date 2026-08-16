@@ -775,28 +775,40 @@ export async function getGroupCompetitionLeaderboard(params: {
     return { entries: [], generatedAt: new Date() };
   }
 
-  // Batch-fetch group names from community_groups
+  // Batch-fetch group name + type from community_groups. Ephemeral groups
+  // (single-session run/walk invites, e.g. "ריצה מתוזמנת" — created by
+  // api/invite/run-session/route.ts with type: 'ephemeral', whose own
+  // comment says they're meant to stay out of any group discovery/
+  // management list) are excluded here — this leaderboard never filtered
+  // on `type` before, so a one-off invite session could leak in ranked
+  // alongside real persistent groups.
   const groupIds = Array.from(groupMap.keys());
-  const nameLookup = new Map<string, string>();
+  const groupMeta = new Map<string, { name: string; type?: string }>();
 
   await Promise.all(
     groupIds.map(async (id) => {
       try {
         const d = await getDoc(doc(db, 'community_groups', id));
-        nameLookup.set(id, d.exists() ? (d.data()?.name as string) ?? id : id);
+        const data = d.data();
+        groupMeta.set(id, {
+          name: d.exists() ? (data?.name as string) ?? id : id,
+          type: data?.type as string | undefined,
+        });
       } catch {
-        nameLookup.set(id, id);
+        groupMeta.set(id, { name: id, type: undefined });
       }
     }),
   );
 
+  const eligibleGroupIds = groupIds.filter((gid) => groupMeta.get(gid)?.type !== 'ephemeral');
+
   // Compute average and sort descending
-  const allSorted = groupIds
+  const allSorted = eligibleGroupIds
     .map((gid) => {
       const { totalScore, members } = groupMap.get(gid)!;
       return {
         groupId: gid,
-        groupName: nameLookup.get(gid) ?? gid,
+        groupName: groupMeta.get(gid)?.name ?? gid,
         totalScore,
         avgScore: Math.round(totalScore / Math.max(members.size, 1)),
         activeMemberCount: members.size,
