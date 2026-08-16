@@ -22,87 +22,12 @@ import { updatePark } from './parks.service';
 import { Park } from '@/types/admin-types';
 import { updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+// findAuthorityByCityName (+ its normalizer/variant table) moved to
+// src/lib/route-collections/authority-resolution.ts (Stage 1B) so it's
+// shared with the route-enrichment chokepoint instead of duplicated.
+import { findAuthorityByCityName, normalizeCityName } from '@/lib/route-collections/authority-resolution';
 
 const PARKS_COLLECTION = 'parks';
-
-/**
- * City name mapping to common variations
- * Maps Hebrew city names and common variations to standardized names
- */
-const CITY_NAME_MAP: Record<string, string[]> = {
-  'תל אביב': ['תל אביב', 'תל אביב יפו', 'תל-אביב', 'תל-אביב-יפו', 'tel aviv', 'tel-aviv', 'telaviv'],
-  'ירושלים': ['ירושלים', 'jerusalem', 'yerushalayim'],
-  'חיפה': ['חיפה', 'haifa'],
-  'ראשון לציון': ['ראשון לציון', 'ראשון-לציון', 'rishon lezion', 'rishon-lezion', 'rishon le tsiyon'],
-  'פתח תקווה': ['פתח תקווה', 'פתח-תקווה', 'petah tikva', 'petah-tikva'],
-  'אשדוד': ['אשדוד', 'ashdod'],
-  'נתניה': ['נתניה', 'netanya'],
-  'באר שבע': ['באר שבע', 'באר-שבע', 'beer sheva', 'beer-sheva', 'beersheba'],
-  'חולון': ['חולון', 'holon'],
-  'רמת גן': ['רמת גן', 'רמת-גן', 'ramat gan', 'ramat-gan'],
-  'בת ים': ['בת ים', 'בת-ים', 'bat yam', 'bat-yam'],
-  'אשקלון': ['אשקלון', 'ashkelon'],
-  'רחובות': ['רחובות', 'rehovot'],
-  'הרצליה': ['הרצליה', 'herzliya', 'herzliyya'],
-  'כפר סבא': ['כפר סבא', 'כפר-סבא', 'kfar saba', 'kfar-saba'],
-  'בית שמש': ['בית שמש', 'בית-שמש', 'beit shemesh', 'beit-shemesh'],
-};
-
-/**
- * Normalize city name for matching (remove spaces, dashes, convert to lowercase)
- */
-function normalizeCityName(cityName: string): string {
-  return cityName
-    .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/-/g, '')
-    .trim();
-}
-
-/**
- * Find authority ID by city name
- * Supports fuzzy matching with common variations
- */
-function findAuthorityByCityName(
-  cityName: string,
-  authorities: Array<{ id: string; name: string }>
-): string | null {
-  if (!cityName || !cityName.trim()) {
-    return null;
-  }
-
-  const normalizedCity = normalizeCityName(cityName);
-
-  // First, try exact match (case-insensitive, no spaces/dashes)
-  for (const authority of authorities) {
-    if (normalizeCityName(authority.name) === normalizedCity) {
-      return authority.id;
-    }
-  }
-
-  // Second, try city name mapping (common variations)
-  for (const [standardName, variations] of Object.entries(CITY_NAME_MAP)) {
-    if (variations.some(v => normalizeCityName(v) === normalizedCity)) {
-      // Find authority with standard name
-      const authority = authorities.find(a => 
-        normalizeCityName(a.name) === normalizeCityName(standardName)
-      );
-      if (authority) {
-        return authority.id;
-      }
-    }
-  }
-
-  // Third, try partial match (if city name contains authority name or vice versa)
-  for (const authority of authorities) {
-    const normalizedAuthority = normalizeCityName(authority.name);
-    if (normalizedCity.includes(normalizedAuthority) || normalizedAuthority.includes(normalizedCity)) {
-      return authority.id;
-    }
-  }
-
-  return null;
-}
 
 /**
  * Bulk re-map parks to authorities

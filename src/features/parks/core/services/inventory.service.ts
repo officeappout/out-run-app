@@ -23,6 +23,8 @@ import {
     deleteOfficialRouteSegmentsForMany,
 } from './official-route-broadcaster';
 import { IS_ROUTE_ADJACENCY_ENABLED } from '@/config/feature-flags';
+import { getAllAuthorities } from '@/features/admin/services/authority.service';
+import { buildValidatedDoc, stripUndefined } from '@/lib/route-collections';
 
 // ── Facilities client cache (stale-while-revalidate, localStorage, 6h TTL) ──
 // Mirrors parks.service.ts's fetchRealParks/_inflightParksFetch pattern —
@@ -86,21 +88,18 @@ export interface ImportBatchSummary {
     authorityId?: string;
 }
 
+// stripUndefined moved to src/lib/route-collections/validate.ts (Stage 1B) —
+// imported above. Same implementation, shared instead of duplicated.
+
 /**
- * Recursively strips `undefined` values from an object.
- * Firestore does NOT accept `undefined` — this prevents WriteBatch.set() errors.
+ * The set of real authority doc ids, for buildValidatedDoc's "authorityId is
+ * a REAL authority, not just a non-empty string" check. getAllAuthorities()
+ * is already module-level-cached (authority.service.ts) — no extra caching
+ * needed here.
  */
-function stripUndefined<T extends Record<string, any>>(obj: T): T {
-    const clean = {} as any;
-    for (const [key, value] of Object.entries(obj)) {
-        if (value === undefined) continue;
-        if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
-            clean[key] = stripUndefined(value);
-        } else {
-            clean[key] = value;
-        }
-    }
-    return clean as T;
+async function getKnownAuthorityIds(): Promise<Set<string>> {
+    const authorities = await getAllAuthorities();
+    return new Set(authorities.map((a) => a.id));
 }
 
 /**
@@ -398,6 +397,9 @@ export const InventoryService = {
             const routesRef = collection(db, 'official_routes');
             let saved = 0;
 
+            // Stage 1B chokepoint: fetched once per call, not per-route.
+            const knownAuthorityIds = await getKnownAuthorityIds();
+
             // Tracks the Firestore-assigned doc id for every successfully
             // prepared route. Used downstream to broadcast each route to
             // `street_segments` keyed by its REAL doc id (the in-memory
@@ -422,7 +424,13 @@ export const InventoryService = {
                     ? r.duration
                     : Math.round(distance / ((r.activityType === 'cycling' || r.type === 'cycling') ? 250 : 100));
 
-                        const routeDoc = stripUndefined({
+                        // buildValidatedDoc strips undefineds internally — replaces the
+                        // former bare stripUndefined() call. A validation failure here
+                        // (e.g. no authorityId, an invalid difficulty) throws
+                        // RouteDocValidationError, caught below same as any other
+                        // per-route prep error — this route is skipped, logged, and
+                        // the rest of the batch proceeds.
+                        const routeDoc = buildValidatedDoc('official_routes', {
                     ...r,
                     path: transformedPath,
                     distance,
@@ -431,7 +439,7 @@ export const InventoryService = {
                             activityTypes: r.activityTypes || [r.activityType || r.type],
                     createdAt: serverTimestamp(),
                             updatedAt: serverTimestamp(),
-                        });
+                        }, { mode: 'create', knownAuthorityIds });
 
                         batch.set(newDocRef, routeDoc);
 
@@ -720,24 +728,30 @@ export const InventoryService = {
      */
     saveCuratedRoutes: async (routes: Route[]): Promise<boolean> => {
         try {
-            // Helper to build a clean Firestore document from a route
-            const buildDoc = (r: Route) => {
+            // Stage 1B chokepoint: fetched once per call, not per-route/collection.
+            const knownAuthorityIds = await getKnownAuthorityIds();
+
+            // Helper to build a clean, validated Firestore document from a
+            // route. `collectionName` matters — official_routes and
+            // curated_routes are validated against their own schema even
+            // though they share the same input shape here.
+            const buildDoc = (r: Route, collectionName: 'curated_routes' | 'official_routes') => {
                 const transformedPath = r.path.map(p => ({ lng: p[0], lat: p[1] }));
-                return stripUndefined({
+                return buildValidatedDoc(collectionName, {
                     ...r,
                     path: transformedPath,
                     activityType: r.activityType || r.type,
                     isInfrastructure: false,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
-                });
+                }, { mode: 'create', knownAuthorityIds });
             };
 
             // 1️⃣ Save to curated_routes collection (indexed by authorityId for instant fetch)
             const curatedRef = collection(db, 'curated_routes');
             for (let i = 0; i < routes.length; i += 500) {
                 const batch = writeBatch(db);
-                routes.slice(i, i + 500).forEach(r => batch.set(doc(curatedRef), buildDoc(r)));
+                routes.slice(i, i + 500).forEach(r => batch.set(doc(curatedRef), buildDoc(r, 'curated_routes')));
                 await batch.commit();
             }
 
@@ -751,7 +765,7 @@ export const InventoryService = {
                 const batch = writeBatch(db);
                 routes.slice(i, i + 500).forEach(r => {
                     const ref = doc(officialRef);
-                    batch.set(ref, buildDoc(r));
+                    batch.set(ref, buildDoc(r, 'official_routes'));
                     persistedRoutes.push({ ...r, id: ref.id });
                 });
                 await batch.commit();
@@ -963,9 +977,26 @@ export const InventoryService = {
     updateRoute: async (routeId: string, data: Partial<Route>): Promise<void> => {
         try {
             const { id, path, createdAt, ...rest } = data as any;
-            const payload = stripUndefined({
+
+            // Stage 1B chokepoint, UPDATE mode — grandfather clause: fetch the
+            // existing doc's authorityId/city so buildValidatedDoc can tell a
+            // legacy authority-less doc (existing value empty — no lock, this
+            // update must not be blocked just because a route predates this
+            // rule) from one that already had a resolved authority (existing
+            // value set — locked, can't silently change). If the doc doesn't
+            // exist, `existing` is empty — updateDoc below will fail on its
+            // own with Firestore's own not-found error either way.
+            const existingSnap = await getDoc(doc(db, 'official_routes', routeId));
+            const existingData = existingSnap.exists() ? existingSnap.data() : {};
+            const knownAuthorityIds = await getKnownAuthorityIds();
+
+            const payload = buildValidatedDoc('official_routes', {
                 ...rest,
                 updatedAt: serverTimestamp(),
+            }, {
+                mode: 'update',
+                knownAuthorityIds,
+                existing: { authorityId: existingData?.authorityId, city: existingData?.city },
             });
             await updateDoc(doc(db, 'official_routes', routeId), payload);
         } catch (error) {

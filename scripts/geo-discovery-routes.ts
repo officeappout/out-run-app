@@ -376,7 +376,7 @@ function artifactReason(pts: number[][], blockPolys: { poly: number[][]; label: 
 const B32 = '0123456789bcdefghjkmnpqrstuvwxyz';
 function geohash(lat: number, lon: number, prec = 7) { let idx = 0, bit = 0, even = true, h = ''; const la = [-90, 90], lo = [-180, 180]; while (h.length < prec) { if (even) { const m = (lo[0] + lo[1]) / 2; if (lon >= m) { idx = idx * 2 + 1; lo[0] = m; } else { idx = idx * 2; lo[1] = m; } } else { const m = (la[0] + la[1]) / 2; if (lat >= m) { idx = idx * 2 + 1; la[0] = m; } else { idx = idx * 2; la[1] = m; } } even = !even; if (++bit === 5) { h += B32[idx]; bit = 0; idx = 0; } } return h; }
 
-function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | null) {
+function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | null, authorityId: string) {
   const distance = c.lengthM; // meters (matches formatDistance + TLV pilot)
   // walking is the safe default for nature trails; paved pedestrian promenades also run well.
   const activityTypes = ['walking', 'running'];
@@ -429,6 +429,11 @@ function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | 
     ...(c.isLoop ? { routeShape: 'loop' as const } : {}),
     geohash: geohash(mid[0], mid[1]),
     city: REGION.label,
+    // Stage 1B: this script never set authorityId before — resolved once per
+    // run in main() (REGION.label -> authorityId via findAuthorityByCityName)
+    // and threaded through here. Required by the chokepoint's CREATE-mode
+    // validation (hard rule 1).
+    authorityId,
     importBatchId: REGION.batchId,
     origin: 'osm_import',
     status: 'pending',
@@ -546,6 +551,24 @@ async function main() {
     console.log('✅ deleted'); return;
   }
 
+  // Stage 1B — this script never set authorityId before (confirmed absent
+  // via grep during the route-enrichment-pipeline investigation). Resolve
+  // it once for the whole region: REGION.label is a city NAME (not raw
+  // coordinates), so the fuzzy name-matcher is the right tool, not the
+  // polygon resolver. Fail fast if it doesn't resolve — every candidate in
+  // this run shares the same authority, so an unresolved region means
+  // nothing in this run can pass the chokepoint anyway.
+  const { findAuthorityByCityName, buildValidatedDoc } = await import('../src/lib/route-collections');
+  const authoritySnap = await db.collection('authorities').get();
+  const authorityList = authoritySnap.docs.map(d => ({ id: d.id, name: (d.data().name as string) || '' }));
+  const knownAuthorityIds = new Set(authorityList.map(a => a.id));
+  const resolvedAuthorityId = findAuthorityByCityName(REGION.label, authorityList);
+  if (!resolvedAuthorityId) {
+    console.error(`❌ Could not resolve an authority for REGION.label="${REGION.label}" — checked against ${authorityList.length} known authorities. Aborting (no candidate in this run could pass the chokepoint without it).`);
+    process.exit(1);
+  }
+  console.log(`resolved authority: ${REGION.label} → ${resolvedAuthorityId}`);
+
   console.log('loading Terrain-RGB DEM tiles …'); await loadTiles(); console.log(`  decoded ${tiles.size} tiles`);
   let candidates: Candidate[] = [];
   let blockPolys: { poly: number[][]; label: string }[] = [];
@@ -565,15 +588,29 @@ async function main() {
     console.log(`round-trips: attempted ${rt.stats.attempted}, built ${rt.stats.built} (3km:${rt.stats.perDist[3]} · 5km:${rt.stats.perDist[5]} · 10km:${rt.stats.perDist[10]}), loop-closed ${rt.stats.closed}, failed ${rt.stats.failed}. blocking polygons: ${blockPolys.length}`);
   }
 
-  // filter artifacts + enrich
+  // filter artifacts + enrich + validate through the Stage 1B chokepoint.
+  // Validated in the SAME code path regardless of --dry-run, so the dry-run
+  // preview reflects what would actually be allowed to write, not just what
+  // buildRouteDoc happened to produce. A validation failure drops just that
+  // one candidate (logged, not silent) rather than aborting the whole run —
+  // in practice none should fail, since authorityId is resolved above and
+  // difficulty was fixed in Stage 0, but this is the safety net for
+  // anything this investigation missed.
   const kept: { doc: ReturnType<typeof buildRouteDoc>; c: Candidate }[] = [];
   const dropped: { name: string; reason: string }[] = [];
   for (const c of candidates) {
     const reason = artifactReason(c.pts, blockPolys);
     if (reason) { dropped.push({ name: c.osmName || c.externalId, reason }); continue; }
     const dem = demProfile(c.pts);
-    kept.push({ doc: buildRouteDoc(c, dem), c });
+    const doc = buildRouteDoc(c, dem, resolvedAuthorityId);
+    try {
+      const validatedDoc = buildValidatedDoc('official_routes', doc, { mode: 'create', knownAuthorityIds }) as typeof doc;
+      kept.push({ doc: validatedDoc, c });
+    } catch (e: any) {
+      dropped.push({ name: c.osmName || c.externalId, reason: `chokepoint: ${e.message}` });
+    }
   }
+
   // Prefer loops: loops first, then by (climb-weighted) length descending.
   kept.sort((a, b) => (Number(b.c.isLoop) - Number(a.c.isLoop)) || (b.doc.distance * (1 + (b.doc.elevationGain || 0) / 100) - a.doc.distance * (1 + (a.doc.elevationGain || 0) / 100)));
 

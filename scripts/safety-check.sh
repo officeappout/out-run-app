@@ -10,9 +10,12 @@
 #     TODO: replicate as .githooks/pre-commit + `git config core.hooksPath .githooks`
 #     for full coverage.
 #
-# What this checks (2 patterns only — everything else is AI-layer):
+# What this checks (3 patterns only — everything else is AI-layer):
 #   1. 'social.groupIds': as Firestore field key outside authorized routes
 #   2. New get(/databases/.../documents/users/) in .rules files (1MiB read risk)
+#   3. New route-collection writes outside authorized files; and for the
+#      subset of those files already migrated to the Stage 1B chokepoint,
+#      a new write-verb line without a matching buildValidatedDoc( call
 #
 # What this does NOT check (AI reviewer's job):
 #   - arrayRemove usage (legitimate uses exist)
@@ -87,6 +90,111 @@ ${MATCHED}
   done <<< "$STAGED_RULES"
 fi
 
+# ── Check 3: route-collection writes must be authorized; migrated files ───────
+# must go through buildValidatedDoc() ── route-enrichment-pipeline plan Stage 1B
+#
+# Source: .claude/plans/route-enrichment-pipeline-kickoff-vast-pelican.md,
+#         src/lib/route-collections/validate.ts
+#
+# Two tiers, deliberately not one flat allowlist:
+#   AUTHORIZED_ROUTE_WRITERS  — every file known (as of this check's writing)
+#     to legitimately touch one of the 5 route collections. A file NOT on
+#     this list that starts writing to one of these collections is almost
+#     always either a genuinely new write path (needs review + likely
+#     migration to the chokepoint) or a rename/move of an existing one
+#     (just needs adding here) — either way, a human should look at it.
+#   MIGRATED_CHOKEPOINT_WRITERS — the subset already wired through
+#     buildValidatedDoc() (Stage 1B: InventoryService.saveRoutes/
+#     saveCuratedRoutes/updateRoute, geo-discovery-routes.ts). New write-verb
+#     lines added to one of THESE files must co-occur with a
+#     buildValidatedDoc( call in the same diff — a regression here means an
+#     edit bypassed the chokepoint entirely, which is exactly how the
+#     'moderate' bug happened twice independently before this existed.
+#   Everything else on AUTHORIZED_ROUTE_WRITERS but not yet migrated
+#     (official-route-broadcaster.ts, the climb/segment scripts, etc.) is
+#     legitimate today and gets no positive requirement — Stage 3 migrates
+#     the rest as each script is generalized for multi-city use.
+AUTHORIZED_ROUTE_WRITERS=(
+  "src/lib/route-collections/validate.ts"
+  "src/lib/route-collections/schemas.ts"
+  "src/lib/route-collections/authority-resolution.ts"
+  "src/lib/route-collections/index.ts"
+  "src/features/parks/core/services/inventory.service.ts"
+  "src/features/parks/core/services/official-route-broadcaster.ts"
+  "src/features/parks/core/services/route-generator.service.ts"
+  "src/features/parks/core/services/route-stitching.service.ts"
+  "src/features/admin/services/osm-segment-importer.ts"
+  "src/features/admin/services/moderation.service.ts"
+  "src/features/admin/services/edit-requests.service.ts"
+  "src/features/admin/services/seed-sderot-demo.ts"
+  "src/features/admin/components/routes/RouteEditor.tsx"
+  "src/app/admin/segments/page.tsx"
+  "src/scripts/import-osm-segments.ts"
+  "scripts/geo-discovery-routes.ts"
+  "scripts/import-osm-routes-tlv.ts"
+  "scripts/write-climb-segments-tlv.ts"
+  "scripts/backfill-route-adjacency.ts"
+  "scripts/backfill-street-segments-geohash.ts"
+  "scripts/recalc-route-distances.ts"
+  "scripts/backfill-difficulty-moderate.ts"
+)
+MIGRATED_CHOKEPOINT_WRITERS=(
+  "src/features/parks/core/services/inventory.service.ts"
+  "scripts/geo-discovery-routes.ts"
+)
+
+ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"
+WRITE_VERB_PATTERN='\.(add|set|update)\(|writeBatch\(|batch\.(set|update)\('
+
+STAGED_ALL=$(git diff --cached --name-only 2>/dev/null | grep -E '\.(ts|tsx)$' || true)
+
+if [ -n "$STAGED_ALL" ]; then
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+
+    DIFF_LINES=$(git diff --cached -- "$file" 2>/dev/null \
+      | grep '^+[^+]' \
+      | grep -vE '^\+\s*(//|\*|#)' \
+      || true)
+    [ -z "$DIFF_LINES" ] && continue
+
+    IS_AUTHORIZED=false
+    for auth in "${AUTHORIZED_ROUTE_WRITERS[@]}"; do
+      [ "$file" = "$auth" ] && IS_AUTHORIZED=true && break
+    done
+
+    if echo "$DIFF_LINES" | grep -qE "$ROUTE_COLLECTION_PATTERN"; then
+      if ! $IS_AUTHORIZED; then
+        MATCHED=$(echo "$DIFF_LINES" | grep -E "$ROUTE_COLLECTION_PATTERN" | head -3 | sed 's/^/   /')
+        VIOLATIONS="${VIOLATIONS}
+❌ BLOCKED — new route-collection write from an unauthorized file
+   file: $file
+${MATCHED}
+   If this is a legitimate new writer, add it to AUTHORIZED_ROUTE_WRITERS in
+   scripts/safety-check.sh AND route it through buildValidatedDoc() in
+   src/lib/route-collections/validate.ts — don't build a parallel write path."
+      fi
+    fi
+
+    IS_MIGRATED=false
+    for mig in "${MIGRATED_CHOKEPOINT_WRITERS[@]}"; do
+      [ "$file" = "$mig" ] && IS_MIGRATED=true && break
+    done
+
+    if $IS_MIGRATED && echo "$DIFF_LINES" | grep -qE "$WRITE_VERB_PATTERN"; then
+      if ! echo "$DIFF_LINES" | grep -q 'buildValidatedDoc('; then
+        MATCHED=$(echo "$DIFF_LINES" | grep -E "$WRITE_VERB_PATTERN" | head -3 | sed 's/^/   /')
+        VIOLATIONS="${VIOLATIONS}
+❌ BLOCKED — new write in a chokepoint-migrated file without buildValidatedDoc(
+   file: $file
+${MATCHED}
+   This file is already wired through the Stage 1B chokepoint — route new
+   writes through buildValidatedDoc() too, don't bypass it."
+      fi
+    fi
+  done <<< "$STAGED_ALL"
+fi
+
 # ── Result ────────────────────────────────────────────────────────────────────
 if [ -n "$VIOLATIONS" ]; then
   printf "\n🚫 safety-check FAILED — commit blocked%s\n" "$VIOLATIONS"
@@ -94,5 +202,5 @@ if [ -n "$VIOLATIONS" ]; then
   exit 1
 fi
 
-printf "✅ safety-check passed (2 static checks)\n"
+printf "✅ safety-check passed (3 static checks)\n"
 exit 0

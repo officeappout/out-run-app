@@ -5,6 +5,7 @@ import Map, { Marker, Source, Layer, MapLayerMouseEvent } from 'react-map-gl';
 import type { MapRef } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { MapPin, AlertTriangle } from 'lucide-react';
+import { isPointInPolygon } from '@/lib/route-collections/authority-resolution';
 
 // ── Geo helpers (no external deps) ────────────────────────────────────
 
@@ -29,23 +30,9 @@ function createCirclePolygon(
   };
 }
 
-function isPointInPolygon(
-  point: { lat: number; lng: number },
-  polygon: GeoJSON.Feature<GeoJSON.Polygon>,
-): boolean {
-  const ring = polygon.geometry.coordinates[0];
-  if (!ring || ring.length < 3) return true;
-  let inside = false;
-  const x = point.lng;
-  const y = point.lat;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const xi = ring[i][0], yi = ring[i][1];
-    const xj = ring[j][0], yj = ring[j][1];
-    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
+// isPointInPolygon moved to src/lib/route-collections/authority-resolution.ts
+// (Stage 1B) so it's shared with the route-enrichment chokepoint instead of
+// duplicated — imported above.
 
 // ── Props ─────────────────────────────────────────────────────────────
 
