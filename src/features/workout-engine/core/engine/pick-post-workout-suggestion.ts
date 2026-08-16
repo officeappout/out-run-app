@@ -9,17 +9,25 @@
  * (it's a static fallback) and is not handled here — its "start" affordance, if ever tapped,
  * degrades to the ordinary free-walk flow, not a GeneratedWorkout.
  *
- * A second real generateHomeWorkoutTrio call at tap-time (vs. the one already made during
- * ranking) is a deliberate, small, accepted cost — the same "cheap/fast for ranking, real
- * recompute for the one thing actually selected" pattern the map surface already uses
- * (composeTrioDeduped after a settle/tap), not a novel one.
+ * Home-generator-v2 follow-ups, Task 1 (16.08.2026): recovery-follow-up now checks
+ * getCachedRecoveryWorkout(suggestion.id) first — the card renderer needs the same real
+ * GeneratedWorkout to render (HeroWorkoutCard, matching the existing rest-day hero card),
+ * and generate() already cached its result keyed by the exact Suggestion.id being passed
+ * in here. A re-derive call only happens on a genuine cache miss (cap eviction, or a
+ * suggestion surviving a reload) — the ordinary path is now a single real
+ * generateHomeWorkoutTrio call per suggestion, reused for ranking, rendering, AND
+ * starting, not three independent ones. complementary-short has no such renderer need
+ * yet (still the generic SuggestionCard per Task 1's scope) — still a deliberate, small,
+ * accepted second call, the same "cheap/fast for ranking, real recompute for the one
+ * thing actually selected" pattern the map surface already uses (composeTrioDeduped
+ * after a settle/tap), not a novel one.
  */
 
 import type { UserContext } from '../types/user-context.types';
 import type { Suggestion } from '../types/suggestion.types';
 import type { GeneratedWorkout } from '../../logic/WorkoutGenerator';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
-import { buildRecoveryFollowUpWorkout } from '../generators/recovery-follow-up.generator';
+import { buildRecoveryFollowUpWorkout, getCachedRecoveryWorkout } from '../generators/recovery-follow-up.generator';
 import { buildComplementaryShortWorkout } from '../generators/complementary-short.generator';
 
 export async function suggestionToGeneratedWorkout(
@@ -31,7 +39,7 @@ export async function suggestionToGeneratedWorkout(
 
   switch (suggestion.generatorId) {
     case 'recovery-follow-up':
-      return buildRecoveryFollowUpWorkout(profile);
+      return getCachedRecoveryWorkout(suggestion.id) ?? buildRecoveryFollowUpWorkout(profile);
     case 'complementary-short':
       return buildComplementaryShortWorkout(profile);
     default:

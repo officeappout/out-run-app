@@ -66,7 +66,7 @@ import { runSuggestionEngine } from '@/features/workout-engine/core/engine/sugge
 import { buildHomeUserContext } from '@/features/workout-engine/core/context/build-home-user-context';
 import { suggestionToGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-post-workout-suggestion';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
-import { SuggestionCard } from '@/features/workout-engine/core/components/SuggestionCard';
+import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -1513,12 +1513,13 @@ export default function HomePage() {
             <SuggestionCarousel<Suggestion>
               items={postWorkoutSuggestions}
               keyExtractor={(s) => s.id}
-              cardHeight={200}
+              cardHeight={330}
               renderCard={(s) => (
-                <SuggestionCard
+                <PostWorkoutCardRenderer
                   suggestion={s}
                   onStart={() => handlePostWorkoutSuggestionStart(s)}
                   isStarting={startingSuggestionId === s.id}
+                  userGender={profile?.core?.gender}
                 />
               )}
             />
