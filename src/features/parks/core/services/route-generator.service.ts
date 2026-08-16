@@ -1530,6 +1530,43 @@ export function selectNextChainEdge(
  *  4. Stop once targetDistance is reached, no edges remain, or the
  *     MAX_CHAIN_CORRIDORS cap is hit.
  */
+/** A published official_routes corridor as fetched for generation-time use — just enough to compute geometry, no admin/CRM fields. */
+export interface CorridorRecord {
+  id: string;
+  name: string;
+  path: [number, number][];
+}
+
+/**
+ * Shared corridor-fetch helper — extracted (16.08.2026, Stage 0 of the
+ * user-anchored-flow build, David-approved) from `generateDiscoveredChainRoute`'s
+ * own inline query so Stage B's `selectProximityAwareCorridor` can reuse the
+ * exact same fetch instead of duplicating it. Fetches every PUBLISHED
+ * official_routes doc across all of `cityCandidates` (the alias-resolved
+ * set from `resolveCityNameQueryAliases` — grounding fact #5: official_routes
+ * uses `city`, not `cityName`, and the value itself has city-specific
+ * aliases e.g. 'תל אביב' vs 'תל אביב-יפו'). Pure I/O, no filtering beyond
+ * published+valid-path — callers apply their own distance/quality logic.
+ */
+export async function fetchPublishedCorridorsForCity(cityCandidates: string[]): Promise<Map<string, CorridorRecord>> {
+  const corridorDocs = await Promise.all(
+    cityCandidates.map((c) =>
+      getDocs(query(collection(db, 'official_routes'), where('city', '==', c), where('published', '==', true))),
+    ),
+  );
+  const corridors = new Map<string, CorridorRecord>();
+  for (const snap of corridorDocs) {
+    for (const d of snap.docs) {
+      const data = d.data();
+      const rawPath = data.path;
+      if (!Array.isArray(rawPath) || rawPath.length < 2) continue;
+      const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
+      corridors.set(d.id, { id: d.id, name: data.name || 'מסלול מסומן', path });
+    }
+  }
+  return corridors;
+}
+
 async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Promise<Route[]> {
   if (!IS_ROUTE_ADJACENCY_ENABLED) {
     _lastChainDiscoveryDiagnostics = {
@@ -1559,21 +1596,7 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
   } = await import('./route-adjacency.service');
 
   // ── Fetch candidate corridors + precomputed edges for this city ────────
-  const corridorDocs = await Promise.all(
-    cityCandidates.map((c) =>
-      getDocs(query(collection(db, 'official_routes'), where('city', '==', c), where('published', '==', true))),
-    ),
-  );
-  const corridors = new Map<string, { id: string; name: string; path: [number, number][] }>();
-  for (const snap of corridorDocs) {
-    for (const d of snap.docs) {
-      const data = d.data();
-      const rawPath = data.path;
-      if (!Array.isArray(rawPath) || rawPath.length < 2) continue;
-      const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
-      corridors.set(d.id, { id: d.id, name: data.name || 'מסלול מסומן', path });
-    }
-  }
+  const corridors = await fetchPublishedCorridorsForCity(cityCandidates);
 
   const edgeDocs = await Promise.all(
     cityCandidates.map((c) => getDocs(query(collection(db, 'route_adjacency'), where('cityName', '==', c)))),
