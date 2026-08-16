@@ -9,3 +9,9 @@ export {
   type AuthorityBoundary,
   type AuthorityResolution,
 } from './authority-resolution';
+export {
+  ALL_SURFACE_TYPES,
+  SURFACE_TYPE_LABELS,
+  mapOsmSurfaceToType,
+  type SurfaceType,
+} from './surface-type';

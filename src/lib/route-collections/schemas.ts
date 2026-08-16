@@ -16,12 +16,16 @@
  */
 
 import { z } from 'zod';
+import { ALL_SURFACE_TYPES } from './surface-type';
 
 // ── Shared primitives ────────────────────────────────────────────────────
 
 export const DifficultySchema = z.enum(['easy', 'medium', 'hard']);
 export const ActivityTypeSchema = z.enum(['running', 'walking', 'cycling', 'workout']);
 export const RouteShapeSchema = z.enum(['loop', 'out_and_back']);
+/** Mirrors SurfaceType (surface-type.ts) verbatim — same "enum copied
+ *  verbatim from the TS union" discipline as every other schema here. */
+export const SurfaceTypeSchema = z.enum(ALL_SURFACE_TYPES as [string, ...string[]]);
 
 const LatLngObjectSchema = z.object({ lat: z.number(), lng: z.number() });
 const PathSchema = z.array(z.union([
@@ -39,6 +43,9 @@ const RouteFieldsSchema = z.object({
   type: ActivityTypeSchema,
   path: PathSchema.min(2),
   routeShape: RouteShapeSchema.optional(),
+  /** Granular ground-material vocabulary, distinct from the existing
+   *  coarse `features.surface` — see surface-type.ts's header comment. */
+  surfaceType: SurfaceTypeSchema.optional(),
   // Required on CREATE (hard rule 1) — see RouteCreateSchema/RouteUpdateSchema
   // below for how create vs. update enforce this differently.
   authorityId: z.string().min(1),
@@ -78,6 +85,9 @@ const StreetSegmentFieldsSchema = z.object({
   cityName: z.string().min(1).optional(), // legacy docs may lack this — see grandfather note in validate.ts
   authorityId: z.string().min(1),
   city: z.string().min(1),
+  /** Granular ground-material vocabulary, parsed from the OSM `surface`
+   *  tag — see surface-type.ts's header comment. */
+  surfaceType: SurfaceTypeSchema.optional(),
 });
 
 export const StreetSegmentCreateSchema = StreetSegmentFieldsSchema.passthrough();
