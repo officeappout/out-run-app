@@ -627,7 +627,20 @@ export const IS_GUARANTEED_ROUTE_FALLBACK_ENABLED = true;
 // corridors that measure a few meters apart) — every discovered connector
 // must be reviewed against a real map before being trusted, same discipline
 // as `computeTightenedDistanceWindow`'s live per-city calibration.
-export const IS_ROUTE_ADJACENCY_ENABLED = false;
+//
+// FLIPPED TRUE (16.08.2026) — David approved after: (1) route_adjacency
+// Firestore rule deployed (public read / admin write, mirrors
+// official_routes/street_segments), (2) one-time backfill run live (88
+// edges across 3 cities: Zichron Yaakov 56, Tel Aviv-Yafo 32, Sderot 0),
+// (3) the empty-corridor-city fallback made airtight for both entry points
+// (verified live against Haifa), (4) corridor-preference wired into the
+// free-run map flow specifically (FreeRunRouteSelector.tsx,
+// useRouteGeneration.ts) — NOT the shared dispatcher fallthrough, so hybrid
+// sessions / the step-deficit card / deviation-recovery are unaffected —
+// with the flag verified as a true kill-switch (flag-off + the new option
+// set still returns a byte-identical normal route, confirmed live). Flip
+// back to false for an instant, verified-safe revert.
+export const IS_ROUTE_ADJACENCY_ENABLED = true;
 
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
