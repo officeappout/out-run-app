@@ -38,7 +38,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED } from '@/config/feature-flags';
+import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -457,6 +457,7 @@ export default function HomePage() {
   const [startingSuggestionId, setStartingSuggestionId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED) return;
     if (!(postWorkoutData || todayWorkoutDone) || !profile) return;
     let cancelled = false;
     // location: null — none of the registered post_workout generators (recovery-follow-up,
@@ -496,10 +497,18 @@ export default function HomePage() {
   }, [profile, handlePostWorkoutStart]);
 
   const handleRequestMore = useCallback(() => {
-    // Reveals the already-computed carousel below the SAME completion card — deliberately
-    // does NOT dismiss postWorkoutData/showMotivationBanner (unlike before): "give me more"
-    // now means "show suggestions alongside this celebration," not "start over."
-    setShowPostWorkoutSuggestions(true);
+    if (POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED) {
+      // Reveals the already-computed carousel below the SAME completion card —
+      // deliberately does NOT dismiss postWorkoutData/showMotivationBanner (unlike the
+      // flag-off path below): "give me more" means "show suggestions alongside this
+      // celebration," not "start over."
+      setShowPostWorkoutSuggestions(true);
+      return;
+    }
+    // Flag OFF (default) — byte-identical to pre-step-6 behavior.
+    setPostWorkoutData(null);
+    setShowMotivationBanner(false);
+    setTimeout(() => handleHeroPress(), 200);
   }, []);
 
   // Check for query params from post-workout CTA, JIT return, or join landing
@@ -1488,7 +1497,8 @@ export default function HomePage() {
         {/* post_workout suggestion carousel (home-generator-v2 plan, step 6) — revealed by
             the completion card's own "תציעו לי עוד אימון" CTA (handleRequestMore), directly
             below the same completion card, same vertical slot. */}
-        {showPostWorkoutSuggestions && postWorkoutSuggestions && postWorkoutSuggestions.length > 0 && (
+        {POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED &&
+          showPostWorkoutSuggestions && postWorkoutSuggestions && postWorkoutSuggestions.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
