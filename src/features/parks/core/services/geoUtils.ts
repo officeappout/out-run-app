@@ -750,3 +750,60 @@ export function computeRouteTurns(path: [number, number][]): RouteTurn[] {
 
   return turns;
 }
+
+// ── Self-intersection (clean-geometry check, 16.08.2026) ───────────────────
+//
+// Strict segment-crossing test (does segment p1-p2 cross segment p3-p4,
+// endpoints excluded) via the standard orientation/CCW method. Deliberately
+// treats [lng, lat] as flat Cartesian coordinates rather than correcting for
+// sphere curvature — fine for a qualitative "do these two lines cross"
+// test at the few-km scale a generated route spans (unlike distance/bearing
+// math elsewhere in this file, which DOES need the spherical correction).
+function ccw(a: [number, number], b: [number, number], c: [number, number]): number {
+  return (c[1] - a[1]) * (b[0] - a[0]) - (b[1] - a[1]) * (c[0] - a[0]);
+}
+
+function segmentsCross(
+  p1: [number, number], p2: [number, number],
+  p3: [number, number], p4: [number, number],
+): boolean {
+  const d1 = ccw(p3, p4, p1);
+  const d2 = ccw(p3, p4, p2);
+  const d3 = ccw(p1, p2, p3);
+  const d4 = ccw(p1, p2, p4);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+
+/**
+ * Does a route's own path cross itself anywhere ("square within a square",
+ * a leg doubling back through an earlier leg)? Built for the loop-generator's
+ * clean-geometry ranking layer (16.08.2026) — a generated triangular loop's
+ * real Mapbox-routed geometry can self-intersect even when the 3 abstract
+ * waypoints were chosen in a non-crossing bearing order (see
+ * attemptRouteCombinations' "Change 2" comment): Mapbox routes each leg
+ * independently through the real street network, with no awareness of the
+ * OTHER legs' geometry, so a leg can loop back near or across an earlier one.
+ *
+ * O(n²) pairwise segment check — fine at real route sizes (tens to a few
+ * hundred points after RDP simplification; sub-millisecond in practice).
+ * Skips immediately-adjacent segments (they share an endpoint by
+ * construction, not a real crossing) and, for a closed loop
+ * (`path[0] ~= path[last]`), also skips the first/last segment pair (they
+ * share the closure point). A route legitimately passing near its own
+ * earlier line without crossing it is NOT flagged — this is a strict
+ * topological crossing test, not a proximity check.
+ */
+export function pathSelfIntersects(path: [number, number][]): boolean {
+  const n = path.length;
+  if (n < 4) return false;
+  const numSegments = n - 1;
+  const isClosedLoop = isSameCoord(path[0], path[n - 1]);
+  for (let i = 0; i < numSegments; i++) {
+    for (let j = i + 1; j < numSegments; j++) {
+      if (j === i + 1) continue; // adjacent — shares an endpoint, not a crossing
+      if (isClosedLoop && i === 0 && j === numSegments - 1) continue; // loop closure, same reason
+      if (segmentsCross(path[i], path[i + 1], path[j], path[j + 1])) return true;
+    }
+  }
+  return false;
+}

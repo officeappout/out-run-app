@@ -7,6 +7,7 @@ import {
   buildOutAndBackPath,
   computeRouteTurns,
   pathLengthMeters,
+  pathSelfIntersects,
   pointAtDistanceAlongPath,
   buildDirectionMarkers,
   haversineMeters,
@@ -442,5 +443,60 @@ describe('sliceFlowPathToDistance — user-anchored corridor-flow trim (16.08.20
     const result = sliceFlowPathToDistance(path, 200);
     expect(result[result.length - 1]).toEqual(path[2]);
     expect(result.length).toBe(3); // [0m, 100m, 200m] — no extra trailing duplicate
+  });
+});
+
+describe('pathSelfIntersects — clean-geometry check (16.08.2026)', () => {
+  it('returns false for a simple, non-crossing loop (square)', () => {
+    const square: [number, number][] = [
+      [34.77, 32.05], [34.771, 32.05], [34.771, 32.051], [34.77, 32.051], [34.77, 32.05],
+    ];
+    expect(pathSelfIntersects(square)).toBe(false);
+  });
+
+  it('returns true for a classic figure-eight (bowtie) crossing', () => {
+    // Two triangles sharing a crossing point in the middle — a textbook
+    // self-intersecting shape.
+    const bowtie: [number, number][] = [
+      [34.77, 32.05], [34.772, 32.052], [34.77, 32.052], [34.772, 32.05], [34.77, 32.05],
+    ];
+    expect(pathSelfIntersects(bowtie)).toBe(true);
+  });
+
+  it('returns false for a straight out-and-back path (retracing is not crossing)', () => {
+    const outbound: [number, number][] = [[34.77, 32.05], [34.78, 32.05], [34.79, 32.05]];
+    const path = buildOutAndBackPath(outbound);
+    expect(pathSelfIntersects(path)).toBe(false);
+  });
+
+  it('does not flag the loop-closure segment (last point back to first) as a false crossing', () => {
+    // A simple triangle loop — first/last segments share the closure point
+    // by construction; must not be flagged as a self-intersection.
+    const triangle: [number, number][] = [
+      [34.77, 32.05], [34.78, 32.05], [34.775, 32.06], [34.77, 32.05],
+    ];
+    expect(pathSelfIntersects(triangle)).toBe(false);
+  });
+
+  it('returns false for paths shorter than 4 points (no possible non-adjacent segment pair)', () => {
+    expect(pathSelfIntersects([[0, 0], [1, 1], [2, 2]])).toBe(false);
+    expect(pathSelfIntersects([[0, 0], [1, 1]])).toBe(false);
+    expect(pathSelfIntersects([])).toBe(false);
+  });
+
+  it('detects a crossing that occurs later in a longer, denser path (not just the first pair checked)', () => {
+    // seg0 is the long horizontal leg (index 0-1). Points 2-4 wander away,
+    // then segment 3-4 (a later, non-adjacent segment) cuts back through
+    // seg0's interior — well clear of seg0's own endpoints, so this is an
+    // unambiguous interior crossing, not a boundary touch.
+    const path: [number, number][] = [
+      [34.770, 32.050],
+      [34.774, 32.050],
+      [34.774, 32.054],
+      [34.771, 32.054],
+      [34.771, 32.048], // crosses seg0 (y=32.050, x in [34.770,34.774]) at x=34.771 — interior of both segments
+      [34.773, 32.048],
+    ];
+    expect(pathSelfIntersects(path)).toBe(true);
   });
 });

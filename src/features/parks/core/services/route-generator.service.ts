@@ -9,7 +9,7 @@ import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
-import { buildOutAndBackPath, computeRouteTurns, isSameCoord, pathLengthMeters, sliceFlowPathToDistance } from './geoUtils';
+import { buildOutAndBackPath, computeRouteTurns, isSameCoord, pathLengthMeters, pathSelfIntersects, sliceFlowPathToDistance } from './geoUtils';
 import { SPEED_KMH, KCAL_PER_KM } from './route-request.utils';
 import {
   IS_PROXIMITY_SEGMENT_QUERY_ENABLED,
@@ -2329,15 +2329,29 @@ async function attemptRouteCombinations(
     maxRoutesNeeded,
   } = params;
 
-  const validRoutes: Route[] = [];
+  // Clean-geometry layer (16.08.2026, approved): a ranking/reject pass that
+  // only ever decides WHICH already-distance-valid candidates to prefer —
+  // never a new hard gate on its own. `cleanCandidates` (no self-intersection,
+  // per pathSelfIntersects) is what the early-exit below targets;
+  // `dirtyRoutes` (self-intersecting but otherwise distance-valid — today's
+  // exact old definition of "valid") is a fallback pool, never discarded, so
+  // the total pool size can never shrink below what today's plain
+  // distance-window-only check would have returned. See generateLoopRoutes'
+  // caller-side doc for the Sderot/Tel-Aviv verification this shipped with.
+  const cleanCandidates: Array<{ route: Route; turnCount: number }> = [];
+  const dirtyRoutes: Route[] = [];
   let bestNearMiss: Route | null = null;
   let bestNearMissDelta = Infinity;
 
   // ✅ SEQUENTIAL PROCESSING - One at a time with delays (prevents 429 errors)
   for (let i = 0; i < combinations.length; i++) {
-    // Stop if we have enough valid routes
-    if (validRoutes.length >= maxRoutesNeeded) {
-      console.log(`[RouteGenerator] Got ${maxRoutesNeeded} routes, stopping.`);
+    // Stop once we have enough CLEAN routes — latency-conscious early exit
+    // (don't try all 5 combinations every time). Never triggers on dirty
+    // candidates alone, so a run of self-intersecting attempts keeps trying
+    // further combinations in search of a clean one, up to the same
+    // combinations.length ceiling as before this change.
+    if (cleanCandidates.length >= maxRoutesNeeded) {
+      console.log(`[RouteGenerator] Got ${maxRoutesNeeded} clean route(s), stopping.`);
       break;
     }
 
@@ -2402,7 +2416,7 @@ async function attemptRouteCombinations(
         console.warn(`[RouteGenerator] Route ${i} REJECTED: only ${result?.path?.length || 0} points (need ${minPathPoints}+)`);
 
         // ✅ Wait before next attempt to avoid 429
-        if (i < combinations.length - 1 && validRoutes.length < maxRoutesNeeded) {
+        if (i < combinations.length - 1 && cleanCandidates.length < maxRoutesNeeded) {
           await delay(1500);
         }
         continue;
@@ -2464,8 +2478,18 @@ async function attemptRouteCombinations(
       };
 
       if (routeDistanceKm >= acceptWindow.minKm && routeDistanceKm <= acceptWindow.maxKm) {
-        validRoutes.push(route);
-        console.log(`[RouteGenerator] ✅ Route ${i} VALID! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
+        // Clean-geometry check — only among candidates that already pass the
+        // distance window above; never a new gate on its own. Self-
+        // intersection is a hard split (clean vs. fallback pool); turn count
+        // (already-tested computeRouteTurns, no new geometry math there) is
+        // the ranking signal among whatever ends up in cleanCandidates.
+        if (!pathSelfIntersects(cleanPath)) {
+          cleanCandidates.push({ route, turnCount: computeRouteTurns(cleanPath).length });
+          console.log(`[RouteGenerator] ✅ Route ${i} CLEAN! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
+        } else {
+          dirtyRoutes.push(route);
+          console.log(`[RouteGenerator] ⚠️ Route ${i} self-intersects — held as fallback (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
+        }
       } else {
         console.warn(
           `[RouteGenerator] Route ${i} REJECTED: distance ${routeDistanceKm.toFixed(
@@ -2481,7 +2505,7 @@ async function attemptRouteCombinations(
         }
 
         // ✅ Wait before next attempt to avoid 429
-        if (i < combinations.length - 1 && validRoutes.length < maxRoutesNeeded) {
+        if (i < combinations.length - 1 && cleanCandidates.length < maxRoutesNeeded) {
           await delay(1500);
         }
         continue;
@@ -2491,14 +2515,22 @@ async function attemptRouteCombinations(
       console.error(`[RouteGenerator] Error on route ${i}:`, err?.message || err);
     }
 
-    // ✅ CRITICAL: 1.5 second delay at the END of each iteration (except last or when we have enough routes)
-    if (i < combinations.length - 1 && validRoutes.length < maxRoutesNeeded) {
+    // ✅ CRITICAL: 1.5 second delay at the END of each iteration (except last or when we have enough clean routes)
+    if (i < combinations.length - 1 && cleanCandidates.length < maxRoutesNeeded) {
       console.log('[RouteGenerator] Waiting 1.5s before next API call...');
       await delay(1500);
     }
   }
 
-  console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid routes.`);
+  // Graceful fallback (hard requirement, 16.08.2026): clean candidates first
+  // (ranked by fewest turns), dirty ones fill any remaining slots. Total size
+  // is never smaller than today's old plain-distance-window behavior would
+  // have returned — clean+dirty together are exactly the same set that
+  // definition used to accept outright, just reordered by cleanliness.
+  cleanCandidates.sort((a, b) => a.turnCount - b.turnCount);
+  const validRoutes = [...cleanCandidates.map((c) => c.route), ...dirtyRoutes].slice(0, maxRoutesNeeded);
+
+  console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid route(s) (${cleanCandidates.length} clean, ${Math.min(dirtyRoutes.length, Math.max(0, maxRoutesNeeded - cleanCandidates.length))} fallback).`);
   return { validRoutes, bestNearMiss };
 }
 
