@@ -23,12 +23,21 @@ import {
   type ScopeCompetitionEntry,
   type ScopeCompetitionResult,
 } from '@/features/arena/services/ranking.service';
-import type { LeaderboardTimeWindow } from '@/features/arena/services/ranking.service';
+import type { LeaderboardTimeWindow, LeaderboardCategory } from '@/features/arena/services/ranking.service';
 
 const ACCENT = '#1D9E75';
 const GOLD = '#F59E0B';
 
 export type ScopeCompetitionGranularity = 'city' | 'neighborhood';
+
+// Metric-qualified unit label — never a bare/generic "נק' פעילות" when a
+// specific category is selected, same "נק' X" convention as the Individuals
+// podium (Stage A / format-leaderboard-score.ts).
+const CATEGORY_UNIT_LABEL: Record<LeaderboardCategory, string> = {
+  overall: "נק' פעילות",
+  cardio: "נק' ריצה",
+  strength: "נק' כוח",
+};
 
 interface ScopeCompetitionLeaderboardProps {
   granularity: ScopeCompetitionGranularity;
@@ -36,6 +45,9 @@ interface ScopeCompetitionLeaderboardProps {
   /** Required when granularity === 'neighborhood' — neighborhoods compete
    * only within this city. Ignored for granularity === 'city'. */
   cityAuthorityId?: string | null;
+  /** Filters the competing scopes' totals by activity category. Omitted or
+   * 'overall' → every category summed (unchanged default). */
+  category?: LeaderboardCategory;
 }
 
 const GRANULARITY_LABEL: Record<ScopeCompetitionGranularity, string> = {
@@ -85,6 +97,7 @@ export default function ScopeCompetitionLeaderboard({
   granularity,
   timeWindow = 'weekly',
   cityAuthorityId = null,
+  category = 'overall',
 }: ScopeCompetitionLeaderboardProps) {
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,7 +107,7 @@ export default function ScopeCompetitionLeaderboard({
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getScopeCompetitionLeaderboard({ granularity, timeWindow, cityAuthorityId });
+      const data = await getScopeCompetitionLeaderboard({ granularity, timeWindow, cityAuthorityId, category });
       setResult(data);
     } catch (err) {
       console.error('[ScopeCompetitionLeaderboard]', err);
@@ -104,7 +117,7 @@ export default function ScopeCompetitionLeaderboard({
     }
   };
 
-  useEffect(() => { fetch(); }, [granularity, timeWindow, cityAuthorityId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetch(); }, [granularity, timeWindow, cityAuthorityId, category]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading) {
     return (
@@ -168,13 +181,13 @@ export default function ScopeCompetitionLeaderboard({
       </div>
 
       {entries.map((entry) => (
-        <ScopeRow key={entry.scopeId} entry={entry} />
+        <ScopeRow key={entry.scopeId} entry={entry} category={category} />
       ))}
     </div>
   );
 }
 
-function ScopeRow({ entry }: { entry: ScopeCompetitionEntry }) {
+function ScopeRow({ entry, category }: { entry: ScopeCompetitionEntry; category: LeaderboardCategory }) {
   const isFirst = entry.rank === 1;
 
   return (
@@ -214,12 +227,11 @@ function ScopeRow({ entry }: { entry: ScopeCompetitionEntry }) {
       </div>
 
       {/* Total score. Label is metric-qualified, never a bare "נקודות" —
-          getScopeCompetitionLeaderboard always sums activityCredit (not a
-          real-world unit like steps), so "נק' פעילות" is the honest label,
-          same "נק' X" convention as the Individuals podium (Stage A). A
-          truly per-metric total (e.g. actual step counts) would need
-          getScopeCompetitionLeaderboard to filter by category — new backend
-          work, not built here; full row redesign is Stage E. */}
+          getScopeCompetitionLeaderboard sums activityCredit filtered by
+          `category` (pre-launch backend task), so a selected metric shows
+          its own honest label ("נק' כוח" / "נק' ריצה") instead of the
+          generic 'overall' fallback ("נק' פעילות"), same "נק' X" convention
+          as the Individuals podium (Stage A). */}
       <div className="text-left flex-shrink-0">
         <p
           className="text-sm font-black tabular-nums"
@@ -227,7 +239,7 @@ function ScopeRow({ entry }: { entry: ScopeCompetitionEntry }) {
         >
           {entry.totalScore.toLocaleString('he-IL')}
         </p>
-        <p className="text-[10px] text-gray-400 text-left">נק&apos; פעילות</p>
+        <p className="text-[10px] text-gray-400 text-left">{CATEGORY_UNIT_LABEL[category]}</p>
       </div>
     </div>
   );

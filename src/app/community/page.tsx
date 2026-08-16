@@ -1227,10 +1227,12 @@ export default function CommunityPage() {
                       granularity="city"
                       timeWindow={leaderboardTimeWindow}
                       myScopeId={authority.id}
+                      category={leaderboardCategory}
                     />
                     <ScopeCompetitionLeaderboard
                       granularity="city"
                       timeWindow={leaderboardTimeWindow}
+                      category={leaderboardCategory}
                     />
                   </>
                 )}
@@ -1241,11 +1243,13 @@ export default function CommunityPage() {
                       timeWindow={leaderboardTimeWindow}
                       myScopeId={access.neighborhoodAuthorityId}
                       cityAuthorityId={authority.id}
+                      category={leaderboardCategory}
                     />
                     <ScopeCompetitionLeaderboard
                       granularity="neighborhood"
                       timeWindow={leaderboardTimeWindow}
                       cityAuthorityId={authority.id}
+                      category={leaderboardCategory}
                     />
                   </>
                 )}

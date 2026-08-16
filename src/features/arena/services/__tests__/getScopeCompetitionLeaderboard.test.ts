@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // returning every post unconditionally.
 
 const state = vi.hoisted(() => ({
-  POSTS: [] as { id: string; authorUid: string; activityCredit: number; authorityId?: string; neighborhoodId?: string }[],
+  POSTS: [] as { id: string; authorUid: string; activityCredit: number; authorityId?: string; neighborhoodId?: string; activityCategory?: string }[],
   AUTHORITIES: {} as Record<string, { name: string }>,
 }));
 
@@ -200,6 +200,55 @@ describe('getScopeCompetitionLeaderboard — scopes ranked against each other', 
 
       // Both cities still appear — cityAuthorityId must not accidentally narrow city-granularity queries.
       expect(result.entries).toHaveLength(2);
+    });
+  });
+
+  describe('category filtering — pre-launch backend task: per-metric totals', () => {
+    it('omitted category (default "overall") sums every activityCategory together — unchanged prior behavior', async () => {
+      state.POSTS = [
+        { id: 'p1', authorUid: 'u1', activityCredit: 10, authorityId: 'city-tlv', activityCategory: 'strength' },
+        { id: 'p2', authorUid: 'u2', activityCredit: 20, authorityId: 'city-tlv', activityCategory: 'cardio' },
+      ];
+      state.AUTHORITIES = { 'city-tlv': { name: 'תל אביב' } };
+
+      const result = await getScopeCompetitionLeaderboard({ granularity: 'city', timeWindow: 'weekly' });
+
+      expect(result.entries[0]).toMatchObject({ scopeId: 'city-tlv', totalScore: 30 });
+    });
+
+    it('switching metric (category) changes the totals — strength vs cardio sum different subsets', async () => {
+      state.POSTS = [
+        { id: 'p1', authorUid: 'u1', activityCredit: 10, authorityId: 'city-tlv', activityCategory: 'strength' },
+        { id: 'p2', authorUid: 'u2', activityCredit: 20, authorityId: 'city-tlv', activityCategory: 'cardio' },
+        { id: 'p3', authorUid: 'u3', activityCredit: 5,  authorityId: 'city-haifa', activityCategory: 'strength' },
+      ];
+      state.AUTHORITIES = { 'city-tlv': { name: 'תל אביב' }, 'city-haifa': { name: 'חיפה' } };
+
+      const strengthResult = await getScopeCompetitionLeaderboard({ granularity: 'city', timeWindow: 'weekly', category: 'strength' });
+      const cardioResult = await getScopeCompetitionLeaderboard({ granularity: 'city', timeWindow: 'weekly', category: 'cardio' });
+
+      expect(strengthResult.entries).toMatchObject([
+        { scopeId: 'city-tlv', totalScore: 10 },
+        { scopeId: 'city-haifa', totalScore: 5 },
+      ]);
+      // cardio-only: Haifa has no cardio posts at all, so it drops out entirely — proves the
+      // filter narrows the query rather than just re-labeling the same unfiltered total.
+      expect(cardioResult.entries).toMatchObject([{ scopeId: 'city-tlv', totalScore: 20 }]);
+      expect(cardioResult.entries.some((e) => e.scopeId === 'city-haifa')).toBe(false);
+    });
+
+    it('cityAuthorityId + category compose correctly for neighborhood granularity', async () => {
+      state.POSTS = [
+        { id: 'p1', authorUid: 'u1', activityCredit: 15, authorityId: 'city-tlv', neighborhoodId: 'nb-florentin', activityCategory: 'strength' },
+        { id: 'p2', authorUid: 'u2', activityCredit: 40, authorityId: 'city-tlv', neighborhoodId: 'nb-florentin', activityCategory: 'cardio' },
+      ];
+      state.AUTHORITIES = { 'nb-florentin': { name: 'פלורנטין' } };
+
+      const result = await getScopeCompetitionLeaderboard({
+        granularity: 'neighborhood', timeWindow: 'weekly', cityAuthorityId: 'city-tlv', category: 'strength',
+      });
+
+      expect(result.entries).toMatchObject([{ scopeId: 'nb-florentin', totalScore: 15 }]);
     });
   });
 });

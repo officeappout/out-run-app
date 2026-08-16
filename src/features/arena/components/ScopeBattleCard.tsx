@@ -17,7 +17,7 @@ import {
   getScopeCompetitionLeaderboard,
   type ScopeCompetitionResult,
 } from '@/features/arena/services/ranking.service';
-import type { LeaderboardTimeWindow } from '@/features/arena/services/ranking.service';
+import type { LeaderboardTimeWindow, LeaderboardCategory } from '@/features/arena/services/ranking.service';
 import OpponentPickerSheet from './OpponentPickerSheet';
 import { pickDefaultOpponent } from './pick-default-opponent';
 
@@ -34,9 +34,12 @@ interface ScopeBattleCardProps {
   /** Forwarded to getScopeCompetitionLeaderboard — required by Stage D's
    *  correctness gate when granularity === 'neighborhood'. */
   cityAuthorityId?: string | null;
+  /** Filters the battling scopes' totals by activity category. Omitted or
+   * 'overall' → every category summed (unchanged default). */
+  category?: LeaderboardCategory;
 }
 
-export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, cityAuthorityId }: ScopeBattleCardProps) {
+export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, cityAuthorityId, category = 'overall' }: ScopeBattleCardProps) {
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [opponentScopeId, setOpponentScopeId] = useState<string | null>(null);
@@ -46,12 +49,12 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
     if (!myScopeId) { setResult(null); setIsLoading(false); return; }
     let cancelled = false;
     setIsLoading(true);
-    getScopeCompetitionLeaderboard({ granularity, timeWindow, cityAuthorityId, maxEntries: 50 })
+    getScopeCompetitionLeaderboard({ granularity, timeWindow, cityAuthorityId, category, maxEntries: 50 })
       .then((data) => { if (!cancelled) setResult(data); })
       .catch((err) => console.error('[ScopeBattleCard]', err))
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [granularity, timeWindow, myScopeId, cityAuthorityId]);
+  }, [granularity, timeWindow, myScopeId, cityAuthorityId, category]);
 
   const entries = result?.entries ?? [];
   const myIndex = useMemo(() => entries.findIndex((e) => e.scopeId === myScopeId), [entries, myScopeId]);

@@ -848,6 +848,13 @@ export async function getGroupCompetitionLeaderboard(params: {
  * feed_posts. 'neighborhood' will return an empty/sparse result until
  * neighborhoodId stamping has had time to accumulate real posts.
  *
+ * `category` filters by activityCategory exactly like getLeaderboard — when
+ * omitted or 'overall', every category is summed together (today's
+ * behavior, unchanged). When a specific category is selected, scopes
+ * compete on that category's real activityCredit only (e.g. total strength
+ * credit city-vs-city), so the result is never a blended cross-category
+ * total mislabeled as a single generic "activity points" figure.
+ *
  * CORRECTNESS GATE — neighborhoods compete ONLY within their own city:
  * `granularity: 'neighborhood'` REQUIRES `cityAuthorityId`. Without it, this
  * function fails closed (returns an empty result) rather than silently
@@ -875,9 +882,11 @@ export async function getScopeCompetitionLeaderboard(params: {
   timeWindow: LeaderboardTimeWindow;
   /** Required when granularity === 'neighborhood' — see correctness gate above. Ignored for 'city'. */
   cityAuthorityId?: string | null;
+  /** Filters by activityCategory, same convention as getLeaderboard. Omitted or 'overall' → every category summed (unchanged default). */
+  category?: LeaderboardCategory;
   maxEntries?: number;
 }): Promise<ScopeCompetitionResult> {
-  const { granularity, timeWindow, cityAuthorityId, maxEntries = 20 } = params;
+  const { granularity, timeWindow, cityAuthorityId, category = 'overall', maxEntries = 20 } = params;
 
   if (granularity === 'neighborhood' && !cityAuthorityId) {
     return { entries: [], generatedAt: new Date() };
@@ -889,6 +898,9 @@ export async function getScopeCompetitionLeaderboard(params: {
   const constraints = [where('createdAt', '>=', windowStart)];
   if (granularity === 'neighborhood' && cityAuthorityId) {
     constraints.push(where('authorityId', '==', cityAuthorityId));
+  }
+  if (category !== 'overall') {
+    constraints.push(where('activityCategory', '==', category));
   }
 
   const q = query(collection(db, 'feed_posts'), ...constraints);
