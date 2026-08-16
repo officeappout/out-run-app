@@ -1135,6 +1135,105 @@ export const InventoryService = {
     },
 
     /**
+     * Approve (publish) multiple routes by their document IDs — Stage 2 of
+     * the route-enrichment-pipeline plan. Modeled directly on bulkDeleteRoutes
+     * above: 500-chunked writeBatch, fire-and-forget broadcast + adjacency
+     * recompute. Fixed-shape payload (same as single approveRoute) — no
+     * arbitrary caller-supplied fields, so this doesn't need the Stage 1B
+     * chokepoint (nothing to validate beyond what approveRoute already is).
+     * Does NOT touch single approveRoute — that stays exactly as-is.
+     */
+    bulkApproveRoutes: async (routeIds: string[]): Promise<number> => {
+        if (routeIds.length === 0) return 0;
+        try {
+            let approved = 0;
+            const payload = {
+                published: true,
+                status: 'published',
+                publishedAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            };
+            for (let i = 0; i < routeIds.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = routeIds.slice(i, i + 500);
+                chunk.forEach(id => batch.update(doc(db, 'official_routes', id), payload));
+                await batch.commit();
+                approved += chunk.length;
+            }
+            console.log(`✅ Bulk-approved ${approved} routes`);
+            invalidateOfficialRoutesCache();
+
+            // ── Broadcast on publish ───────────────────────────────────────
+            // Same "approve → broadcast" logic as single approveRoute. No
+            // broadcastRoutesToStreetSegmentsForMany exists — reuse the
+            // single-route broadcaster via Promise.all rather than inventing
+            // a bulk variant. Fire-and-forget so the admin UI returns
+            // immediately.
+            const routes = await Promise.all(routeIds.map(id => InventoryService.getRouteById(id)));
+            const validRoutes = routes.filter((r): r is Route => r !== null);
+            Promise.all(validRoutes.map(r => broadcastRouteToStreetSegments(r)))
+                .then((results) => {
+                    const totalWritten = results.reduce((sum, res) => sum + (res?.written ?? 0), 0);
+                    console.log(`📡 Bulk-approve broadcast: ${totalWritten} segments across ${validRoutes.length} routes.`);
+                })
+                .catch((err) => {
+                    console.warn('[InventoryService] Bulk-approve broadcast failed (non-fatal):', err);
+                });
+            recomputeAdjacencyForCities(validRoutes.map(r => r.city));
+
+            return approved;
+        } catch (error) {
+            console.error('❌ Error bulk-approving routes:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Reject (un-publish) multiple routes by their document IDs — soft
+     * "back to pending", same semantics as single rejectRoute (the inventory
+     * tab's draft/publish toggle, NOT Approval Center's harder "archived"
+     * reject in moderation.service.ts — those are different operations
+     * despite the shared name, see route-enrichment-pipeline-scoping.md).
+     * Does NOT touch single rejectRoute — that stays exactly as-is.
+     */
+    bulkRejectRoutes: async (routeIds: string[]): Promise<number> => {
+        if (routeIds.length === 0) return 0;
+        try {
+            let rejected = 0;
+            const payload = {
+                published: false,
+                status: 'pending',
+                updatedAt: serverTimestamp(),
+            };
+            for (let i = 0; i < routeIds.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = routeIds.slice(i, i + 500);
+                chunk.forEach(id => batch.update(doc(db, 'official_routes', id), payload));
+                await batch.commit();
+                rejected += chunk.length;
+            }
+            console.log(`✅ Bulk-rejected ${rejected} routes`);
+            invalidateOfficialRoutesCache();
+
+            // ── Pull broadcast on reject ─────────────────────────────────────
+            deleteOfficialRouteSegmentsForMany(routeIds).catch((err) => {
+                console.warn('[InventoryService] Bulk-reject broadcast cleanup failed (non-fatal):', err);
+            });
+            if (IS_ROUTE_ADJACENCY_ENABLED) {
+                Promise.all(routeIds.map(id => InventoryService.getRouteById(id))).then((routes) => {
+                    const cities = routes.filter((r): r is Route => r !== null).map(r => r.city);
+                    recomputeAdjacencyForCities(cities);
+                });
+            }
+
+            return rejected;
+        } catch (error) {
+            console.error('❌ Error bulk-rejecting routes:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Delete ALL routes that have a specific city value.
      * Returns the number of deleted documents.
      */
