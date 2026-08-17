@@ -10,6 +10,19 @@ import type { LifestyleOption } from './location-types';
 export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 export const MAPBOX_STYLE = 'mapbox://styles/mapbox/streets-v12';
 
+// ── Nearest-Centroid Neighborhood Fallback (GPS path only) ──
+//
+// Sanity cap for findNearestNeighborhoodByCoordinates (location-utils.ts).
+// 2000m ≈ Tel Aviv's own average neighborhood radius with margin (76
+// neighborhoods / ~52km² ≈ 0.68km² each ≈ ~465m radius if circular) — dense,
+// well-mapped cities match comfortably inside this. It's also loose enough
+// for cities with only a handful of broad quarters (e.g. a handful of ~2-4km²
+// zones) rather than Tel-Aviv-style fine-grained coverage. Beyond 2km, the
+// "nearest" defined neighborhood is likely just the least-wrong of a sparse
+// list, not an actual match — declining to tag one (neighborhoodId stays
+// null) is preferable to a confidently-wrong guess several km away.
+export const NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS = 2000;
+
 // ── Lifestyle Persona Options ────────────────────────────
 
 export const LIFESTYLE_OPTIONS: LifestyleOption[] = [

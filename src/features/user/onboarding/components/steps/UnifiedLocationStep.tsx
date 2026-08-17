@@ -44,6 +44,7 @@ import {
   getSettlementNaming,
   findAuthorityIdByCity,
   findNeighborhoodIdByCity,
+  findNearestNeighborhoodByCoordinates,
   classifySportContext,
   fetchNearbyFacilities,
   fetchHeroRoute,
@@ -430,9 +431,19 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     if (authId && typeof window !== 'undefined') {
       sessionStorage.setItem('selected_authority_id', authId);
     }
-    const neighborhoodId = authId && result.neighborhood
+    let neighborhoodId = authId && result.neighborhood
       ? await findNeighborhoodIdByCity(authId, result.neighborhood)
       : null;
+    // Nearest-centroid fallback — GPS-button path only. Mapbox's
+    // neighborhood-level index is sparse for Israel, so the text match above
+    // frequently comes back null even when the coordinate genuinely sits
+    // inside a mapped neighborhood. Fallback only: never runs when the text
+    // match already succeeded, and is itself capped by
+    // NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS (declines to tag anything
+    // when the nearest defined neighborhood is implausibly far).
+    if (!neighborhoodId && authId) {
+      neighborhoodId = await findNearestNeighborhoodByCoordinates(authId, latitude, longitude);
+    }
     setResolvedNeighborhoodId(neighborhoodId);
     if (typeof window !== 'undefined') {
       if (neighborhoodId) sessionStorage.setItem('selected_neighborhood_id', neighborhoodId);
