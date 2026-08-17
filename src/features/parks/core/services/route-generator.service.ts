@@ -2521,7 +2521,7 @@ async function attemptOneCombination(
         return { index, outcome: 'clean', route, turnCount, routeDistanceKm };
       } else {
         console.log(`[RouteGenerator] ⚠️ Route ${index} self-intersects — held as fallback (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
-        return { index, outcome: 'dirty', route, routeDistanceKm };
+        return { index, outcome: 'dirty', route, turnCount, routeDistanceKm };
       }
     } else {
       console.warn(
@@ -2600,22 +2600,40 @@ async function attemptRouteCombinations(
   // Clean-geometry layer (16.08.2026, approved): a ranking/reject pass that
   // only ever decides WHICH already-distance-valid candidates to prefer —
   // never a new hard gate on its own. `cleanCandidates` (no self-intersection,
-  // per pathSelfIntersects) is what the ranking below prefers;
-  // `dirtyRoutes` (self-intersecting but otherwise distance-valid — today's
-  // exact old definition of "valid") is a fallback pool, never discarded, so
-  // the total pool size can never shrink below what today's plain
-  // distance-window-only check would have returned.
-  const cleanCandidates: Array<{ route: Route; turnCount: number }> = [];
-  const dirtyRoutes: Route[] = [];
+  // per pathSelfIntersects) is what the ranking below prefers over
+  // `dirtyCandidates` (self-intersecting but otherwise distance-valid —
+  // today's exact old definition of "valid"), a fallback pool never
+  // discarded, so the total pool size can never shrink below what today's
+  // plain distance-window-only check would have returned.
+  //
+  // Runnability ranking (17.08.2026, David-approved — "cheaper lever before
+  // perturb-and-reroute"): within EACH pool, prefer straighter routes —
+  // fewer direction changes relative to distance, i.e. longer average
+  // straight legs. Ranks by turns-PER-KM rather than raw turn count: a
+  // 3km/15-turn candidate is twistier than a 5km/20-turn one even though it
+  // has fewer total turns, so comparing raw counts across candidates of
+  // different real distances (each is independently ~target±window) would
+  // unfairly penalize a longer-but-actually-straighter route. This is a
+  // reorder/select-among-already-valid-candidates refinement only — it
+  // never synthesizes new geometry or accepts a candidate that wouldn't
+  // already have qualified, so it can't degrade into a boring rectangle or
+  // an out-and-back that wasn't already one of the 6 real candidates
+  // generated for this request.
+  const cleanCandidates: Array<{ route: Route; turnsPerKm: number }> = [];
+  const dirtyCandidates: Array<{ route: Route; turnsPerKm: number }> = [];
   let bestNearMiss: Route | null = null;
   let bestNearMissDelta = Infinity;
 
   for (const result of results) {
-    if (result.outcome === 'clean' && result.route && result.turnCount !== undefined) {
-      cleanCandidates.push({ route: result.route, turnCount: result.turnCount });
-    } else if (result.outcome === 'dirty' && result.route) {
-      dirtyRoutes.push(result.route);
-    } else if (result.outcome === 'rejected_distance' && result.route && result.routeDistanceKm !== undefined) {
+    if (result.route && result.turnCount !== undefined && result.routeDistanceKm) {
+      const turnsPerKm = result.turnCount / result.routeDistanceKm;
+      if (result.outcome === 'clean') {
+        cleanCandidates.push({ route: result.route, turnsPerKm });
+      } else if (result.outcome === 'dirty') {
+        dirtyCandidates.push({ route: result.route, turnsPerKm });
+      }
+    }
+    if (result.outcome === 'rejected_distance' && result.route && result.routeDistanceKm !== undefined) {
       if (nearMissWindow && isBetterNearMissCandidate(result.routeDistanceKm, safeDistance, nearMissWindow, bestNearMissDelta)) {
         bestNearMiss = result.route;
         bestNearMissDelta = Math.abs(result.routeDistanceKm - safeDistance);
@@ -2625,14 +2643,17 @@ async function attemptRouteCombinations(
   }
 
   // Graceful fallback (hard requirement, 16.08.2026): clean candidates first
-  // (ranked by fewest turns), dirty ones fill any remaining slots. Total size
-  // is never smaller than today's old plain-distance-window behavior would
+  // (ranked straightest-first), dirty ones fill any remaining slots (also
+  // ranked straightest-first, not left in arbitrary order). Total size is
+  // never smaller than today's old plain-distance-window behavior would
   // have returned — clean+dirty together are exactly the same set that
-  // definition used to accept outright, just reordered by cleanliness.
-  cleanCandidates.sort((a, b) => a.turnCount - b.turnCount);
-  const validRoutes = [...cleanCandidates.map((c) => c.route), ...dirtyRoutes].slice(0, maxRoutesNeeded);
+  // definition used to accept outright, just reordered by cleanliness then
+  // straightness.
+  cleanCandidates.sort((a, b) => a.turnsPerKm - b.turnsPerKm);
+  dirtyCandidates.sort((a, b) => a.turnsPerKm - b.turnsPerKm);
+  const validRoutes = [...cleanCandidates.map((c) => c.route), ...dirtyCandidates.map((c) => c.route)].slice(0, maxRoutesNeeded);
 
-  console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid route(s) (${cleanCandidates.length} clean, ${Math.min(dirtyRoutes.length, Math.max(0, maxRoutesNeeded - cleanCandidates.length))} fallback).`);
+  console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid route(s) (${cleanCandidates.length} clean, ${Math.min(dirtyCandidates.length, Math.max(0, maxRoutesNeeded - cleanCandidates.length))} fallback).`);
   return { validRoutes, bestNearMiss };
 }
 
