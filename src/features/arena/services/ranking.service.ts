@@ -849,13 +849,23 @@ export async function getGroupCompetitionLeaderboard(params: {
 
   // For 'global', omit the scope constraint to scan all groups country-wide.
   // For 'city'/'school', filter to the specific authority or school.
-  const constraints = [where('createdAt', '>=', windowStart)];
+  // Explicit orderBy('createdAt', 'desc') — required to match the deployed
+  // composite indexes (17.08.2026 index-mismatch fix): a bare `where(...,
+  // '>=', ...)` range filter with no orderBy makes Firestore's query planner
+  // require an ASCENDING index on that field by default; every feed_posts
+  // index in this codebase (including the ones just added for this
+  // function) is DESCENDING, matching this file's house style. The explicit
+  // orderBy has zero effect on the aggregation below (order-independent
+  // Map sum) — it exists purely to pin which index direction is required.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const constraints: any[] = [where('createdAt', '>=', windowStart)];
   if (scope !== 'global' && scopeId) {
     constraints.push(where(scope === 'city' ? 'authorityId' : 'schoolId', '==', scopeId));
   }
   if (genderFilter !== 'all') {
     constraints.push(where('gender', '==', genderFilter));
   }
+  constraints.push(orderBy('createdAt', 'desc'));
   const q = query(collection(db, 'feed_posts'), ...constraints);
   const snap = await getDocs(q);
 
@@ -1001,7 +1011,8 @@ export async function getScopeCompetitionLeaderboard(params: {
   const groupField = scopeToField(granularity) as string; // 'authorityId' | 'neighborhoodId' — always non-null for these two
   const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
 
-  const constraints = [where('createdAt', '>=', windowStart)];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const constraints: any[] = [where('createdAt', '>=', windowStart)];
   if (granularity === 'neighborhood' && cityAuthorityId) {
     constraints.push(where('authorityId', '==', cityAuthorityId));
   }
@@ -1011,6 +1022,10 @@ export async function getScopeCompetitionLeaderboard(params: {
   if (genderFilter !== 'all') {
     constraints.push(where('gender', '==', genderFilter));
   }
+  // Explicit orderBy — same 17.08.2026 index-mismatch fix as
+  // getGroupCompetitionLeaderboard above (see that function's comment for
+  // the full explanation). Zero effect on the aggregation below.
+  constraints.push(orderBy('createdAt', 'desc'));
 
   const q = query(collection(db, 'feed_posts'), ...constraints);
   const snap = await getDocs(q);

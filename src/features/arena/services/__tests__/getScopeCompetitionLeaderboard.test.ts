@@ -35,6 +35,7 @@ vi.mock('firebase/firestore', () => {
       return { exists: () => false, data: () => undefined };
     },
     where: (field: string, op: string, value: unknown) => ({ __kind: 'where', field, op, value }),
+    orderBy: (field: string, dir: string) => ({ __kind: 'orderBy', field, dir }),
     query: (col: { __col: string }, ...constraints: { __kind: string; field?: string; op?: string; value?: unknown }[]) => ({
       __col: col.__col,
       __wheres: constraints.filter((c) => c.__kind === 'where').map((c) => ({ field: c.field!, op: c.op!, value: c.value })),

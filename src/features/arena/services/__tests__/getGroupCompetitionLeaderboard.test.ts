@@ -31,6 +31,7 @@ vi.mock('firebase/firestore', () => {
       return { exists: () => false, data: () => undefined };
     },
     where: (field: string, op: string, value: unknown) => ({ __kind: 'where', field, op, value }),
+    orderBy: (field: string, dir: string) => ({ __kind: 'orderBy', field, dir }),
     query: (col: { __col: string }) => ({ __col: col.__col }),
     getDocs: async (q: { __col: string }) => {
       if (q.__col === 'feed_posts') {
