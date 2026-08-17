@@ -1299,6 +1299,31 @@ export default function CommunityPage() {
     );
   }
 
+  // 17.08.2026: friendly empty state for users with no core.neighborhoodId —
+  // replaces the contribution card + battle card (which need "you" resolved
+  // in the neighborhood ranking and would otherwise just silently vanish,
+  // same "not broken, just missing an anchor" issue the battle-card empty
+  // state already addresses). The scope-vs-scope podium/list below this
+  // still renders regardless — it isn't personal, so it's not gated on
+  // having a neighborhood set.
+  function renderNeighborhoodSetupCTA() {
+    return (
+      <div className="rounded-2xl bg-white p-4 mb-3 text-center" style={{ border: '0.5px solid #E5E7EB' }} dir="rtl">
+        <span className="text-2xl">🏘️</span>
+        <p className="text-sm font-black text-gray-900 mt-2">בחר שכונה כדי להצטרף לליגת השכונה</p>
+        <p className="text-xs text-gray-500 mt-1">עדיין לא הגדרת שכונה בפרופיל שלך</p>
+        <button
+          type="button"
+          onClick={() => router.push('/profile')}
+          className="mt-3 mx-auto flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-xs font-black active:scale-95 transition-transform"
+          style={{ background: 'linear-gradient(90deg, #00ADEF, #00dcd0)' }}
+        >
+          בחר שכונה בפרופיל
+        </button>
+      </div>
+    );
+  }
+
   function renderGlobalSegment() {
     return (
       <div className="space-y-4" dir="rtl">
@@ -1419,16 +1444,22 @@ export default function CommunityPage() {
                 {renderGroupAxisChooser(cityGroupAxis, setCityGroupAxis, ['neighborhood', 'group'])}
                 {cityGroupAxis === 'neighborhood' && (
                   <>
-                    {renderScopeContribution('השכונה שלך')}
-                    <ScopeBattleCard
-                      granularity="neighborhood"
-                      timeWindow={leaderboardTimeWindow}
-                      myScopeId={access.neighborhoodAuthorityId}
-                      cityAuthorityId={authority.id}
-                      category={leaderboardCategory}
-                      genderFilter={leaderboardGender}
-                      onMyScopeEntryChange={setActiveScopeEntry}
-                    />
+                    {access.hasNeighborhoodAccess ? (
+                      <>
+                        {renderScopeContribution('השכונה שלך')}
+                        <ScopeBattleCard
+                          granularity="neighborhood"
+                          timeWindow={leaderboardTimeWindow}
+                          myScopeId={access.neighborhoodAuthorityId}
+                          cityAuthorityId={authority.id}
+                          category={leaderboardCategory}
+                          genderFilter={leaderboardGender}
+                          onMyScopeEntryChange={setActiveScopeEntry}
+                        />
+                      </>
+                    ) : (
+                      renderNeighborhoodSetupCTA()
+                    )}
                     <ScopeCompetitionLeaderboard
                       granularity="neighborhood"
                       timeWindow={leaderboardTimeWindow}
@@ -1436,7 +1467,7 @@ export default function CommunityPage() {
                       category={leaderboardCategory}
                       genderFilter={leaderboardGender}
                     />
-                    {renderNeighborhoodInviteCTA()}
+                    {access.hasNeighborhoodAccess && renderNeighborhoodInviteCTA()}
                   </>
                 )}
                 {cityGroupAxis === 'group' && (
