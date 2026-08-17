@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Pre-launch backend task: add 'daily' alongside weekly/monthly so the TIME
 // dropdown's יומי/שבועי/חודשי all work. getWindowStart is the single source
@@ -72,6 +72,12 @@ describe('getWindowStart — daily/weekly/monthly', () => {
 });
 
 describe('getLeaderboard — daily time window actually reaches the query', () => {
+  // Fixed to a Wednesday (not a week/month boundary) so daily/weekly/monthly
+  // are guaranteed distinct — real "now" flakes on Mondays (daily === weekly)
+  // and the 1st of the month (weekly === monthly or daily === monthly).
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 7, 19, 12, 0, 0)); });
+  afterEach(() => { vi.useRealTimers(); });
+
   it('threads getWindowStart(\'daily\') into the createdAt >= where-clause, not the weekly/monthly start', async () => {
     state.POSTS = [{ id: 'p1', authorUid: 'u1', activityCredit: 10, ageGroup: 'adult' }];
 

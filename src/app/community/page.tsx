@@ -93,6 +93,11 @@ const EVENT_VERB: Record<string, string> = {
   other:            'יתאמן',
 };
 
+// 16.08.2026 design review: hide "ליגת הפארק" from the league selector for
+// now — the scope='park' data path (renderParkSegment, useLeaderboard,
+// getStreakLeaderboard/getStepsLeaderboard park-scope handling) is untouched.
+const SHOW_PARK_LEAGUE = false;
+
 export default function CommunityPage() {
   // ── Shared hooks (called ONCE for both sub-views) ────────────────────────
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
@@ -917,8 +922,8 @@ export default function CommunityPage() {
               <div
                 className="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0 text-white"
                 style={{
-                  background: 'linear-gradient(135deg, #10B981, #0d9668)',
-                  boxShadow: '0 4px 12px rgba(16,185,129,0.35)',
+                  background: 'linear-gradient(135deg, #00ADEF, #00dcd0)',
+                  boxShadow: '0 4px 12px rgba(0,173,239,0.35)',
                 }}
               >
                 <span className="text-[8px] font-bold leading-none opacity-80">דירוג</span>
@@ -939,7 +944,7 @@ export default function CommunityPage() {
                     </span>
                   )}
                 </p>
-                <p className="text-[11px] text-[#10B981] font-bold tabular-nums leading-tight">
+                <p className="text-[11px] text-[#00ADEF] font-bold tabular-nums leading-tight">
                   {formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)}
                 </p>
               </div>
@@ -947,9 +952,9 @@ export default function CommunityPage() {
                 type="button"
                 onClick={handleInviteFromMyRank}
                 aria-label="הזמן חברים"
-                className="flex items-center justify-center w-9 h-9 rounded-xl text-[#10B981] active:scale-95 transition-transform flex-shrink-0"
+                className="flex items-center justify-center w-9 h-9 rounded-xl text-[#00ADEF] active:scale-95 transition-transform flex-shrink-0"
                 style={{
-                  background: 'rgba(16,185,129,0.1)',
+                  background: 'rgba(0,173,239,0.1)',
                 }}
               >
                 <UserPlus className="w-4 h-4" />
@@ -959,8 +964,8 @@ export default function CommunityPage() {
                 onClick={handleShareMyRank}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-xs font-black active:scale-95 transition-transform flex-shrink-0"
                 style={{
-                  background: 'linear-gradient(135deg, #10B981, #0d9668)',
-                  boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                  background: 'linear-gradient(135deg, #00ADEF, #00dcd0)',
+                  boxShadow: '0 4px 12px rgba(0,173,239,0.3)',
                 }}
               >
                 <Share2 className="w-3.5 h-3.5" />
@@ -1034,7 +1039,10 @@ export default function CommunityPage() {
       });
     }
 
-    if (access.preferredParkId) {
+    // 16.08.2026 design review: park league hidden from the selector for
+    // now — code/data path untouched (renderParkSegment, scope='park'
+    // queries all still work), flip SHOW_PARK_LEAGUE back to re-surface it.
+    if (SHOW_PARK_LEAGUE && access.preferredParkId) {
       cards.push({
         key: 'park',
         name: 'ליגת הפארק',

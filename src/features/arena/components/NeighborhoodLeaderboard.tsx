@@ -44,10 +44,17 @@ const MODE_TO_CATEGORY: Record<LeaderboardMode, LeaderboardCategory> = {
 // מרחק un-hidden (pre-launch backend task) now that getDistanceLeaderboard
 // aggregates real summed distanceKm instead of being a stub — see
 // ranking.service.ts getDistanceLeaderboard doc comment.
-const CATEGORY_OPTIONS: { value: LeaderboardMode; label: string; emoji: string }[] = [
+// 16.08.2026 design review: ריצה/כוח don't have a defined leaderboard
+// behavior yet — as currently exposed (the real per-segment pace sub-filter
+// is hidden, see showSubFilter/Stage A) they rank by activityCredit, a
+// synthetic points figure with no real-world unit (see this file's own
+// formatLeaderboardScore doc comment), unlike general/steps/distance which
+// all rank by a genuine measured quantity. Shown but disabled ("בקרוב")
+// rather than removed, so the full intended metric set stays visible.
+const CATEGORY_OPTIONS: { value: LeaderboardMode; label: string; emoji: string; comingSoon?: boolean }[] = [
   { value: 'general',  label: 'כללי',   emoji: '🔥' },
-  { value: 'running',  label: 'ריצה',   emoji: '🏃' },
-  { value: 'strength', label: 'כוח',    emoji: '💪' },
+  { value: 'running',  label: 'ריצה',   emoji: '🏃', comingSoon: true },
+  { value: 'strength', label: 'כוח',    emoji: '💪', comingSoon: true },
   { value: 'steps',    label: 'צעדים',  emoji: '👟' },
   { value: 'distance', label: 'מרחק',   emoji: '📍' },
 ];
@@ -218,23 +225,42 @@ function FilterDropdown({
 function DropdownItem({
   isSelected,
   onClick,
+  disabled = false,
+  trailingLabel,
   children,
 }: {
   isSelected: boolean;
   onClick: () => void;
+  /** Visible but not selectable — e.g. a metric with no defined leaderboard
+   *  behavior yet ("בקרוב"). */
+  disabled?: boolean;
+  /** Small muted badge on the trailing edge, shown only when disabled. */
+  trailingLabel?: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors text-right"
-      style={{ color: isSelected ? ACCENT : '#374151' }}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      aria-disabled={disabled}
+      className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors text-right ${
+        disabled ? 'cursor-not-allowed' : 'hover:bg-gray-50'
+      }`}
+      style={{ color: disabled ? '#9CA3AF' : isSelected ? ACCENT : '#374151' }}
     >
-      {isSelected && (
+      {isSelected && !disabled && (
         <span className="text-xs flex-shrink-0" style={{ color: ACCENT }}>✓</span>
       )}
-      {children}
+      <span className="flex-1 flex items-center gap-2">{children}</span>
+      {disabled && trailingLabel && (
+        <span
+          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+          style={{ backgroundColor: '#F3F4F6', color: '#9CA3AF' }}
+        >
+          {trailingLabel}
+        </span>
+      )}
     </button>
   );
 }
@@ -552,6 +578,7 @@ export default function NeighborhoodLeaderboard({
   const rest  = entries.slice(3);
 
   // ── Derived filter UI values ─────────────────────────────────────────────
+  const activeCatOpt      = CATEGORY_OPTIONS.find((o) => o.value === localMode) ?? CATEGORY_OPTIONS[0];
   const activeStrengthProg = programs.find((p) => p.id === strengthProgramId) ?? null;
   // Stage A (leagues design pass): nav consolidated to exactly two dropdowns
   // (metric + time), per the mockups — the running-segment/strength-program
@@ -561,6 +588,8 @@ export default function NeighborhoodLeaderboard({
   // is hidden. Flip this back to the original condition to re-show it.
   const showSubFilter      = false && (localMode === 'running' || localMode === 'strength');
   const contextLabel       = getContextLabel(localMode, runSegment, activeStrengthProg);
+
+  const catActive    = localMode !== 'general';
 
   const subActive    = localMode === 'running' ? runSegment !== 'all' : strengthProgramId !== null;
   const genderActive = genderFilter !== 'all';
@@ -615,33 +644,30 @@ export default function NeighborhoodLeaderboard({
           {/* ── Filter row ───────────────────────────────────────────── */}
           <div ref={filterRef} className="flex gap-2 flex-wrap items-center">
 
-            {/* קטגוריה — always-visible pill row (mockup .fc/.fc.on), not a
-                dropdown. handleSetMode/localMode/CATEGORY_OPTIONS unchanged
-                — only the trigger surface changed from one dropdown button
-                to N inline pills. */}
-            {CATEGORY_OPTIONS.map((opt) => {
-              const isOn = localMode === opt.value;
-              return (
-                <button
+            {/* קטגוריה — 16.08.2026 design review: consolidated back into a
+                single dropdown (matching the Groups tab's "מדד:" dropdown
+                and the time dropdown) — the always-visible pill row this
+                replaced was one screen's worth of chrome, not the final
+                call. ריצה/כוח render as disabled "בקרוב" items. */}
+            <FilterDropdown
+              label={`${activeCatOpt.emoji} ${activeCatOpt.label}`}
+              isActive={catActive}
+              isOpen={openDropdown === 'cat'}
+              onToggle={() => setOpenDropdown(openDropdown === 'cat' ? null : 'cat')}
+            >
+              {CATEGORY_OPTIONS.map((opt) => (
+                <DropdownItem
                   key={opt.value}
-                  type="button"
+                  isSelected={localMode === opt.value}
                   onClick={() => handleSetMode(opt.value)}
-                  className="flex items-center gap-1 whitespace-nowrap transition-colors"
-                  style={{
-                    padding: '9px 13px',
-                    borderRadius: 999,
-                    fontSize: 13,
-                    fontWeight: 800,
-                    border: isOn ? '1px solid #cdeafe' : '1px solid #e3e8ef',
-                    backgroundColor: isOn ? '#eaf6ff' : '#f1f4f8',
-                    color: isOn ? '#00ADEF' : '#64748b',
-                  }}
+                  disabled={opt.comingSoon}
+                  trailingLabel={opt.comingSoon ? 'בקרוב' : undefined}
                 >
                   <span>{opt.emoji}</span>
                   {opt.label}
-                </button>
-              );
-            })}
+                </DropdownItem>
+              ))}
+            </FilterDropdown>
 
             {/* Sub-filter (running segments or strength programs) */}
             {showSubFilter && (
@@ -703,8 +729,10 @@ export default function NeighborhoodLeaderboard({
               </FilterDropdown>
             )}
 
-            {/* טווח — pushed to the row's end (mockup: margin-inline-start:auto) */}
-            <div className="ms-auto">
+            {/* טווח — sits directly beside the metric dropdown (matches the
+                Groups tab's adjacent "מדד:" / time chips), not pushed to
+                the row's end. */}
+            <div>
               <FilterDropdown
                 label={(TIME_OPTIONS.find((o) => o.value === timeWindow) ?? TIME_OPTIONS[0]).label}
                 isActive={timeActive}
