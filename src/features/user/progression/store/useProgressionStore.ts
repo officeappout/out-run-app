@@ -14,6 +14,19 @@ import type { StrengthWorkoutXPParams, RunningWorkoutXPParams, CommuteWorkoutXPP
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getUserProgression } from '@/lib/firestore.service';
+import { HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
+
+/**
+ * Local mirror of completion-sync.service.ts's `StrengthCompletionSnapshot` —
+ * duplicated (not imported) to avoid a circular import, since that file
+ * already imports `useProgressionStore` from here.
+ */
+interface StrengthCompletionInput {
+  targetSets: number;
+  completedSets: number;
+  pct: number;
+  met: boolean;
+}
 import { awardWorkoutXP as guardianAward } from '@/lib/awardWorkoutXP';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 
@@ -92,7 +105,11 @@ interface ProgressionState {
   awardCommuteXP: (params: CommuteWorkoutXPParams) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
   /** Award a flat XP bonus (e.g. for completing a LevelGoal). Uses atomic Firestore increment. */
   awardBonusXP: (xp: number, reason?: string) => Promise<{ xpEarned: number; newLevel: number; leveledUp: boolean }>;
-  markTodayAsCompleted: (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid', isRecovery?: boolean) => Promise<void>;
+  markTodayAsCompleted: (
+    type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid',
+    isRecovery?: boolean,
+    strengthCompletion?: StrengthCompletionInput,
+  ) => Promise<void>;
   setLastActivityType: (type: ActivityType) => void;
   recordDailyGoalProgress: (steps: number, floors: number) => void;
   updateDomainProgress: (domain: string, level: number, percent: number) => void;
@@ -826,7 +843,11 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
    * Mark today as completed (workout done)
    * Syncs to Firestore dailyProgress collection
    */
-  markTodayAsCompleted: async (type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid', isRecovery?: boolean) => {
+  markTodayAsCompleted: async (
+    type: 'running' | 'walking' | 'cycling' | 'strength' | 'hybrid',
+    isRecovery?: boolean,
+    strengthCompletion?: StrengthCompletionInput,
+  ) => {
     try {
       if (typeof window === 'undefined') return;
       
@@ -860,11 +881,20 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
         }
       };
 
+      // HOME_DAILY_GOAL_V1 — while OFF (default) or when no strengthCompletion
+      // was computed (aerobic/hybrid/recovery/strength-computation failure),
+      // workoutCompleted stays the legacy unconditional `true` — byte-identical
+      // to pre-flag behaviour. Only a real strength completion snapshot with
+      // the flag ON gates it on the ⅔-of-daily-target `met` result.
+      const workoutCompleted = HOME_DAILY_GOAL_V1 && strengthCompletion
+        ? strengthCompletion.met
+        : true;
+
       // Update with workout completion
       await setDoc(dailyProgressRef, {
         userId,
         date: today,
-        workoutCompleted: true,
+        workoutCompleted,
         workoutType: type,
         displayIcon: getWorkoutIcon(type),
         // RECOVERY_DAY_BADGE_FIX_ENABLED — additive sibling field, never a
@@ -873,7 +903,30 @@ export const useProgressionStore = create<ProgressionState>((set, get) => ({
         // ever passes a real `true` when the flag is on; otherwise this is
         // always `false`. See feature-flags.ts.
         isRecovery: !!isRecovery,
-        ...existingData, // Preserve other fields (steps, floors, etc.)
+        // HOME_DAILY_GOAL_V1 — additive sibling fields, same choke point as
+        // isRecovery above. Conditionally spread (never set to `undefined`,
+        // which the Firestore SDK rejects) — absent entirely while the flag
+        // is off or strengthCompletion wasn't computed for this session.
+        ...(HOME_DAILY_GOAL_V1 && strengthCompletion
+          ? {
+              dailyStrengthTargetSets: strengthCompletion.targetSets,
+              dailyStrengthCompletedSets: strengthCompletion.completedSets,
+              dailyStrengthPct: strengthCompletion.pct,
+              strengthGoalMet: strengthCompletion.met,
+            }
+          : {}),
+        // NOT spreading ...existingData here (adversarial review, 17.08.2026):
+        // `merge: true` below already preserves every field this payload does
+        // NOT mention (steps, floors, etc.) — that was the sole intent behind
+        // spreading existingData. But spreading it AFTER the fields THIS call
+        // just computed (workoutCompleted, isRecovery, the 4 strength fields)
+        // meant a stale value from an EARLIER call the same day would silently
+        // overwrite a fresh, correct one from a LATER call (e.g. a 2nd
+        // same-day strength session, or any subsequent non-strength
+        // completion) — turning workoutCompleted from a hardcoded `true`
+        // (where this ordering was an inert no-op) into a real per-call
+        // computed value now genuinely at risk of reverting to stale data.
+        // Dropping the spread removes the bug with zero loss of behaviour.
         updatedAt: serverTimestamp(),
       }, { merge: true });
       

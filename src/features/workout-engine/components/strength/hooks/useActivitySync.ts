@@ -2,13 +2,23 @@
 
 import { useEffect, useRef } from 'react';
 import { auth } from '@/lib/firebase';
+import { useUserStore } from '@/features/user';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
-import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
-import { syncWorkoutCompletion } from '@/features/workout-engine/services/completion-sync.service';
+import { useWeeklyVolumeStore, calculateWeeklyBudget } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
+import { syncWorkoutCompletion, type StrengthCompletionSnapshot } from '@/features/workout-engine/services/completion-sync.service';
 import { trackMuscleUsage } from '@/features/workout-engine/services/split-decision';
 import { getExercise } from '@/features/content/exercises/core/exercise.service';
 import type { MuscleGroup } from '@/features/content/exercises/core/exercise.types';
-import { RECOVERY_DAY_BADGE_FIX_ENABLED } from '@/config/feature-flags';
+import { resolveActiveProgramBudget } from '@/features/workout-engine/services/lead-program.service';
+import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
+import {
+  computeBaseLevel,
+  computeDailyStrengthTarget,
+  isTodayTrainingDay,
+  type DailyStrengthTargetSource,
+} from '@/features/home/utils/dailyStrengthTarget';
+import { summarizeTodayStrengthVolume } from '@/features/home/utils/todayStrengthVolume';
+import { RECOVERY_DAY_BADGE_FIX_ENABLED, HOME_DAILY_GOAL_V1 } from '@/config/feature-flags';
 
 import type { CompletedExercise, Difficulty } from '../utils/summary.utils';
 
@@ -38,6 +48,15 @@ import type { CompletedExercise, Difficulty } from '../utils/summary.utils';
  * (no summary-screen mount) for the recovery-video-trio shortcut path,
  * instead of duplicating it by hand. Behaviour for every existing caller of
  * this hook is unchanged — same writes, same single-fire-on-mount guarantee.
+ *
+ * **HOME_DAILY_GOAL_V1 (17.08.2026):** for a non-recovery strength completion,
+ * `runActivitySync` also resolves a ⅔-of-daily-target completion snapshot
+ * (`resolveActiveProgramBudget` + `computeDailyStrengthTarget`, the same
+ * resolver the daily strength ring uses) and forwards it to
+ * `syncWorkoutCompletion` → `markTodayAsCompleted`, which gates
+ * `dailyProgress.workoutCompleted` on it instead of the unconditional `true`.
+ * While the flag is off (default) this resolution never runs — zero extra
+ * Firestore reads, byte-identical to today.
  */
 
 const LEG_MUSCLES: ReadonlySet<MuscleGroup> = new Set<MuscleGroup>([
@@ -112,6 +131,65 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
     domainSets,
   } = params;
 
+  // Hoisted from step 3 below — needed here too (HOME_DAILY_GOAL_V1's
+  // strengthCompletion snapshot) so it's computed once, not duplicated.
+  const actualSetsCompleted = rawExerciseLog && rawExerciseLog.length > 0
+    ? rawExerciseLog.reduce((sum, entry) => sum + entry.confirmedReps.length, 0)
+    : completedExercises
+        .filter((ex) => ex.category === 'main' || ex.category === 'superset')
+        .reduce((sum, ex) => sum + ex.sets.length, 0);
+
+  // HOME_DAILY_GOAL_V1: ⅔-of-daily-target strength completion snapshot —
+  // strength sessions only, never recovery (recovery has no volume-budget
+  // concept; aerobic/hybrid intentionally stay on the legacy unconditional-
+  // true path, per the ⅔-threshold design's own decision). Computed BEFORE
+  // step 3's recordStrengthSession call below, so summarizeTodayStrengthVolume
+  // reads PRIOR-today sets only — this session's actualSetsCompleted (already
+  // computed above) is added on top, avoiding a double-count of this session.
+  // While the flag is off this whole block is skipped — zero extra Firestore
+  // reads, byte-identical to today.
+  let strengthCompletion: StrengthCompletionSnapshot | undefined;
+  if (HOME_DAILY_GOAL_V1 && trainingType !== 'cardio' && !isRecovery) {
+    const profile = useUserStore.getState().profile;
+    if (profile) {
+      try {
+        const scheduleDaysArr = profile.lifestyle?.scheduleDays;
+        const recurringTemplate = profile.lifestyle?.recurringTemplate as
+          | Record<string, string[] | undefined>
+          | undefined;
+        const baseLevel = computeBaseLevel(profile.progression?.tracks, profile.progression?.domains);
+        const scheduleDays = scheduleDaysArr?.length ?? 0;
+        const isRestDay = !isTodayTrainingDay(scheduleDaysArr, recurringTemplate);
+
+        // Same cached-programs + resolveActiveProgramBudget pattern as
+        // useDailyStrengthTarget.ts (the ring's own resolver) — avoids a raw,
+        // uncached getAllPrograms() read.
+        const allPrograms = await getCachedPrograms();
+        const lead = await resolveActiveProgramBudget(profile, allPrograms);
+        const weeklyTarget = lead?.weeklyVolumeTarget ?? calculateWeeklyBudget(baseLevel);
+        const source: DailyStrengthTargetSource = lead?.weeklyVolumeTarget != null ? 'lead' : 'fallback';
+        const dailyTarget = computeDailyStrengthTarget({ weeklyTarget, scheduleDays, isRestDay, source });
+
+        const priorSetsToday = summarizeTodayStrengthVolume(
+          useWeeklyVolumeStore.getState().sessionLogs,
+        ).setsCompleted;
+        const completedSets = priorSetsToday + actualSetsCompleted;
+        const targetSets = dailyTarget.targetSets;
+        // Rest day / no resolvable budget (targetSets <= 0) → always met, per
+        // the ⅔-threshold design's explicit decision (a day with no strength
+        // target can't fail one).
+        const met = targetSets <= 0 || completedSets >= Math.ceil((targetSets * 2) / 3);
+        const pct = targetSets <= 0 ? 1 : Math.max(0, Math.min(1, completedSets / targetSets));
+
+        strengthCompletion = { targetSets, completedSets, pct, met };
+      } catch (e) {
+        // Never blocks completion — degrades to the legacy unconditional-true
+        // write below (strengthCompletion stays undefined).
+        console.warn('[ActivitySync] HOME_DAILY_GOAL_V1 strengthCompletion computation failed:', e);
+      }
+    }
+  }
+
   // 1. Activity Store (rings + streak)
   const activityCategory = trainingType === 'cardio' ? 'cardio' : 'strength';
   syncWorkoutCompletion({
@@ -127,6 +205,7 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
     // is never written `true` and every downstream Beast-Mode-suppression
     // branch stays unreachable.
     isRecovery: RECOVERY_DAY_BADGE_FIX_ENABLED ? isRecovery : undefined,
+    strengthCompletion,
   });
 
   // 2. Progression Store (global coins)
@@ -134,11 +213,6 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
   useProgressionStore.getState().addCoins(coins);
 
   // 3. Weekly Volume Store
-  const actualSetsCompleted = rawExerciseLog && rawExerciseLog.length > 0
-    ? rawExerciseLog.reduce((sum, entry) => sum + entry.confirmedReps.length, 0)
-    : completedExercises
-        .filter((ex) => ex.category === 'main' || ex.category === 'superset')
-        .reduce((sum, ex) => sum + ex.sets.length, 0);
   const plannedSets = totalPlannedSets ?? actualSetsCompleted;
   const diffNum: 1 | 2 | 3 =
     difficultyBolts ?? (difficulty === 'easy' ? 1 : difficulty === 'hard' ? 3 : 2);
