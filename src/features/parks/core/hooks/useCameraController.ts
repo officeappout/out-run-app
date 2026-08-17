@@ -33,6 +33,14 @@ import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
 import { useMapStore } from '../store/useMapStore';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 
+// Mobile map default->jump fix (18.08.2026): MapShell now seeds initialCenter
+// from a durable last-known-location cache (map_anchor_lat/lng), so the map
+// usually already opens near the real GPS fix by the time it resolves. When
+// the two are already this close, an animated flyTo is pure motion with
+// nothing meaningful to show for it — jump straight there instead. Named,
+// tunable — not a magic number.
+const INITIAL_ZOOM_INSTANT_THRESHOLD_METERS = 300;
+
 export type CameraOwner = 'user' | 'follow' | 'preview';
 
 export interface CameraControllerParams {
@@ -912,12 +920,24 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         !destinationMarker
       ) {
         hasInitialZoomed.current = true;
-        if (process.env.NODE_ENV !== 'production') console.log('[Cam] initial-zoom (flat)');
         try {
+          // Distance from wherever the map is ACTUALLY centered right now
+          // (the seeded initialCenter, or the hardcoded fallback if seeding
+          // found nothing) to the just-resolved real fix — read live via
+          // getCenter() rather than threading initialCenter through as a
+          // new prop, so this stays a self-contained, minimal change.
+          const seededCenter = m.getCenter();
+          const distanceFromSeededMeters = haversineMeters(
+            seededCenter.lat, seededCenter.lng, currentLocation.lat, currentLocation.lng,
+          );
+          const isAlreadyClose = distanceFromSeededMeters <= INITIAL_ZOOM_INSTANT_THRESHOLD_METERS;
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[Cam] initial-zoom (flat) — ${distanceFromSeededMeters.toFixed(0)}m from seeded center, ${isAlreadyClose ? 'instant' : 'animated'}`);
+          }
           m.flyTo({
             center: [currentLocation.lng, currentLocation.lat],
             zoom: 15, pitch: 0,
-            duration: 2000, essential: true,
+            duration: isAlreadyClose ? 0 : 2000, essential: true,
           });
         } catch (err) {
           console.error('[Cam] initial-zoom flyTo threw — ignored.', err);
