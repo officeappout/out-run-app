@@ -315,6 +315,16 @@ interface StreetSegment {
    * yet" scope as inclinePct above.
    */
   surfaceType?: import('@/lib/route-collections/surface-type').SurfaceType;
+  /**
+   * Cross-reference to nearby `climb_segments` doc ids, from Stage 3's
+   * spatial join (route-enrichment.service.ts's computeClimbRouteAssociations,
+   * route-enrichment-pipeline plan). Not yet consumed by scoreSegment/
+   * scoreWaypoint or any generator logic — same "parsed and stored only"
+   * scope as inclinePct/surfaceType above, lean id-list only (not the richer
+   * RouteTerrainFeatureRef shape Route.terrainFeatures gets — street_segments
+   * are generator-scoring documents, not curated/admin-visible content).
+   */
+  nearbyClimbSegmentIds?: string[];
 }
 
 /** Extract a single representative { lat, lng } point from a segment document.

@@ -46,6 +46,15 @@ const RouteFieldsSchema = z.object({
   /** Granular ground-material vocabulary, distinct from the existing
    *  coarse `features.surface` — see surface-type.ts's header comment. */
   surfaceType: SurfaceTypeSchema.optional(),
+  /** Cross-refs to nearby climb_segments docs, written by Stage 3's spatial
+   *  join (route-enrichment.service.ts). See Route.terrainFeatures's doc
+   *  comment (route.types.ts) — mirrors RouteTerrainFeatureRef verbatim. */
+  terrainFeatures: z.array(z.object({
+    climbSegmentId: z.string().min(1),
+    type: z.enum(['terrain', 'structure', 'stairs']),
+    climbType: z.enum(['short-sharp', 'repeats', 'long-gentle', 'structure-ramp', 'stairs']),
+    distanceFromPathMeters: z.number(),
+  })).optional(),
   // Required on CREATE (hard rule 1) — see RouteCreateSchema/RouteUpdateSchema
   // below for how create vs. update enforce this differently.
   authorityId: z.string().min(1),
@@ -73,6 +82,12 @@ const ClimbSegmentFieldsSchema = z.object({
   status: z.enum(['pending', 'published', 'rejected']),
   authorityId: z.string().min(1),
   city: z.string().min(1),
+  /** Cross-refs written by Stage 3's spatial join — see
+   *  ClimbSegment.routeIds/streetSegmentIds's doc comments
+   *  (climb-segment.types.ts) for why these are two separate arrays, not one
+   *  mixed list. */
+  routeIds: z.array(z.string().min(1)).optional(),
+  streetSegmentIds: z.array(z.string().min(1)).optional(),
 });
 
 export const ClimbSegmentCreateSchema = ClimbSegmentFieldsSchema.passthrough();
@@ -95,6 +110,10 @@ const StreetSegmentFieldsSchema = z.object({
   /** Granular ground-material vocabulary, parsed from the OSM `surface`
    *  tag — see surface-type.ts's header comment. */
   surfaceType: SurfaceTypeSchema.optional(),
+  /** Cross-refs to nearby climb_segments doc ids, written by Stage 3's
+   *  spatial join — see StreetSegment.nearbyClimbSegmentIds's doc comment
+   *  (route-generator.service.ts). */
+  nearbyClimbSegmentIds: z.array(z.string().min(1)).optional(),
 });
 
 export const StreetSegmentCreateSchema = StreetSegmentFieldsSchema.passthrough();

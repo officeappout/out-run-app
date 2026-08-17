@@ -607,10 +607,12 @@ export const IS_GUARANTEED_ROUTE_FALLBACK_ENABLED = true;
 // engine must discover which corridors connect on its own).
 //
 // While false (default): `inventory.service.ts`'s `recomputeAdjacencyForCities`
-// is a true no-op at every one of its 8 call sites (saveRoutes,
+// is a true no-op at every one of its 10 call sites (saveRoutes,
 // saveCuratedRoutes, approveRoute, rejectRoute, bulkDeleteRoutes,
-// deleteRoutesByCity, deleteImportBatch, deleteAllRoutesByAuthority) — the
-// `route_adjacency` collection is never written, and
+// bulkApproveRoutes, bulkRejectRoutes, deleteRoutesByCity, deleteImportBatch,
+// deleteAllRoutesByAuthority — count corrected 17.08.2026, Stage 3: the
+// bulkApprove/bulkRejectRoutes pair was added in Stage 2 after this comment
+// was originally written) — the `route_adjacency` collection is never written, and
 // `route-generator.service.ts`'s chain-discovery dispatch branch
 // (`options.discoverCorridorChain`) is never reachable. Byte-identical to
 // today's behavior everywhere else.
@@ -641,6 +643,38 @@ export const IS_GUARANTEED_ROUTE_FALLBACK_ENABLED = true;
 // set still returns a byte-identical normal route, confirmed live). Flip
 // back to false for an instant, verified-safe revert.
 export const IS_ROUTE_ADJACENCY_ENABLED = true;
+
+// IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED: Stage 3 of the route-enrichment-
+// pipeline plan (.claude/plans/route-enrichment-pipeline-kickoff-vast-pelican.md,
+// David-approved 17.08.2026) — the climb_segments ↔ official_routes/
+// street_segments spatial join. Structural sibling of IS_ROUTE_ADJACENCY_ENABLED
+// immediately above: same dedupe/fire-and-forget/non-fatal dispatcher shape
+// (recomputeEnrichmentForCities in inventory.service.ts), same "byte-identical
+// no-op while false" guarantee at every one of its call sites.
+//
+// While false (default): recomputeEnrichmentForCities is a true no-op
+// everywhere it's wired — climb_segments.routeIds/streetSegmentIds,
+// official_routes/curated_routes.terrainFeatures, and
+// street_segments.nearbyClimbSegmentIds are never written by the live
+// dispatcher. Byte-identical to today's behavior everywhere else.
+//
+// While true: an official_routes/curated_routes create/update/delete/bulk
+// mutation in one of ROUTE_ENRICHMENT_PILOT_CITIES below triggers a full
+// per-city recompute of the climb↔route/segment spatial join (see
+// route-enrichment.service.ts's computeClimbRouteAssociations — reuses
+// route-adjacency.service.ts's findNearestContactPoint, no new geometric
+// primitive). A mutation in any OTHER city is silently skipped even with
+// this flag on — the allowlist is a second, independent gate, not just this
+// boolean. This is a deliberate two-layer gate (flag + allowlist) so a full
+// national rollout is never one accidental flag flip away.
+//
+// TLV-only for this entire build (Stage 3, 17.08.2026): every layer —
+// routeShape backfill, the join itself — gets proven end-to-end on Tel Aviv
+// before any other city is ever added to the allowlist. Haifa is the
+// deliberate final full-pipeline pilot once every layer works, not part of
+// this build.
+export const ROUTE_ENRICHMENT_PILOT_CITIES: string[] = ['תל אביב-יפו'];
+export const IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED = false;
 
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no

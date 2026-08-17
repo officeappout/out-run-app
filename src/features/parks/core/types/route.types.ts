@@ -11,6 +11,7 @@ import type {
   SegmentProtocolId,
 } from '@/features/workout-engine/core/types/protocol.types';
 import type { SurfaceType } from '@/lib/route-collections/surface-type';
+import type { ClimbType } from './climb-segment.types';
 
 export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
 export type SegmentType = 'run' | 'walk' | 'workout' | 'bench' | 'finish';
@@ -288,6 +289,21 @@ export const ALL_ROUTE_FEATURE_TAGS = Object.keys(
   ROUTE_FEATURE_TAG_LABELS,
 ) as RouteFeatureTag[];
 
+/**
+ * One `climb_segments` doc's cross-reference onto a route it passes near —
+ * see `Route.terrainFeatures`. `distanceFromPathMeters` is the nearest-vertex
+ * gap found by `findNearestContactPoint` (route-adjacency.service.ts, reused
+ * as-is by route-enrichment.service.ts), not a true point-to-segment
+ * distance — same approximation the shipped corridor-adjacency engine
+ * already relies on at its own (much larger) threshold.
+ */
+export interface RouteTerrainFeatureRef {
+  climbSegmentId: string;
+  type: 'terrain' | 'structure' | 'stairs';
+  climbType: ClimbType;
+  distanceFromPathMeters: number;
+}
+
 export interface Route {
   id: string;
   name: string;
@@ -335,6 +351,17 @@ export interface Route {
    * conflate the two or repoint either field's readers at the other.
    */
   surfaceType?: SurfaceType;
+
+  /**
+   * Cross-reference to nearby `climb_segments` docs whose geometry passes
+   * within CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS of this route's path
+   * (see route-enrichment.service.ts's computeClimbRouteAssociations).
+   * Populated by Stage 3's spatial join (route-enrichment-pipeline plan) —
+   * undefined until that join has run for this route's city. Reverse of
+   * ClimbSegment.routeIds — this array and that one are two ends of the
+   * same edge, written together by the same recompute pass.
+   */
+  terrainFeatures?: RouteTerrainFeatureRef[];
 
   // Ratings
   /** User-facing star rating (1–5, decimal precision e.g. 4.3). */

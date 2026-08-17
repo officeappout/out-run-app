@@ -89,8 +89,20 @@ export interface ClimbSegment {
   /** City authority this climb belongs to. Not yet set on any existing doc —
    *  write-climb-segments-tlv.ts doesn't set it today. */
   authorityId?: string;
-  /** Cross-reference to official_routes/street_segments docs whose path
-   *  this climb overlaps. Populated later by Stage 3's spatial join — no
-   *  existing code writes this yet. */
+  /** Cross-reference to `official_routes`/`curated_routes` docs whose path
+   *  this climb overlaps. Populated by Stage 3's spatial join
+   *  (route-enrichment.service.ts's computeClimbRouteAssociations).
+   *  Deliberately NOT street_segments — see streetSegmentIds below; this
+   *  field held a mixed "official_routes/street_segments" doc comment
+   *  before Stage 3's build (17.08.2026), corrected before any doc was ever
+   *  written to it (zero writers existed at that point) — a route id and a
+   *  street-segment id are different-typed references, and a reader
+   *  expecting only real named routes here would otherwise silently also
+   *  get generator-scoring segment ids. */
   routeIds?: string[];
+  /** Cross-reference to `street_segments` docs whose path this climb
+   *  overlaps — the street_segments half of routeIds' original mixed scope,
+   *  split out for the same reason. Populated by the same Stage 3 spatial
+   *  join, written together with routeIds by one recompute pass. */
+  streetSegmentIds?: string[];
 }
