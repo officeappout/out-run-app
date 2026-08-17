@@ -1219,14 +1219,24 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 dir="ltr"
                               />
                             </div>
-                            {/* City — display-only here, links out to the JIT
-                                onboarding flow (core.authorityId is
-                                client-write-locked, can't join this staged save). */}
+                            {/* City — display-only here, links out to /explorer
+                                (core.authorityId is client-write-locked, can't
+                                join this staged save). NOT /onboarding-new —
+                                that's the old full onboarding wizard; its JIT
+                                mode has no exit for the LOCATION step (dead-
+                                ends past confirm). /explorer is the current
+                                location-edit flow (same UnifiedLocationStep,
+                                explorer mode) and returns here via
+                                explorer_return_to. */}
                             <div>
                               <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">עיר</label>
                               <button
                                 type="button"
-                                onClick={() => { onClose(); router.push('/onboarding-new/setup?step=LOCATION&jit=true'); }}
+                                onClick={() => {
+                                  onClose();
+                                  sessionStorage.setItem('explorer_return_to', 'profile');
+                                  router.push('/explorer');
+                                }}
                                 className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-right"
                               >
                                 <span className="text-cyan-600 font-semibold text-xs">ערוך</span>
