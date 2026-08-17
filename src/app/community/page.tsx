@@ -234,6 +234,21 @@ export default function CommunityPage() {
   const [groupAxis, setGroupAxis] = useState<GroupAxis>('city');
   const [axisMenuOpen, setAxisMenuOpen] = useState(false);
   const AXIS_LABEL: Record<GroupAxis, string> = { city: 'ערים', neighborhood: 'שכונות', group: 'קבוצות' };
+  // מדד/טווח chips shown read-only next to the scope chooser (Groups mode
+  // has no metric/time dropdown of its own — these reflect the shared
+  // leaderboardCategory/leaderboardTimeWindow state that Individuals mode
+  // and getScopeCompetitionLeaderboard's category filter already drive, per
+  // the mockup's .chip pattern. Not a new interactive control.
+  // NOTE: must be declared before the component's return statement (like
+  // AXIS_LABEL above) — declaring it later, after the return, is a genuine
+  // TDZ bug: the return synchronously calls renderLeaguesTab() →
+  // renderCitySegment() → renderGroupAxisChooser(), which reads this
+  // constant before a later-positioned `const` would have initialized.
+  const GROUP_CATEGORY_LABEL: Record<LeaderboardCategory, string> = {
+    overall: 'כל הפעילות',
+    cardio: 'ריצה',
+    strength: 'כוח',
+  };
 
   // Reset to individual whenever the active league card changes.
   useEffect(() => {
@@ -1093,16 +1108,6 @@ export default function CommunityPage() {
 
   // ── Stage C: axis chooser for the Groups tab (City segment only). Pure UI
   // switch between 3 already-working engines — no new backend here.
-  // מדד/טווח chips shown read-only next to the scope chooser (Groups mode
-  // has no metric/time dropdown of its own — these reflect the shared
-  // leaderboardCategory/leaderboardTimeWindow state that Individuals mode
-  // and getScopeCompetitionLeaderboard's category filter already drive, per
-  // the mockup's .chip pattern. Not a new interactive control.
-  const GROUP_CATEGORY_LABEL: Record<LeaderboardCategory, string> = {
-    overall: 'כל הפעילות',
-    cardio: 'ריצה',
-    strength: 'כוח',
-  };
 
   function renderGroupAxisChooser() {
     const AXIS_OPTIONS: GroupAxis[] = ['city', 'neighborhood', 'group'];
