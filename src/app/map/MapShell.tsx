@@ -27,7 +27,7 @@ import { useMapLogic } from '@/features/parks';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { useUserStore } from '@/features/user';
 import { syncLocationToFirestore } from '@/lib/firestore.service';
-import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
+import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { useIsForeground } from '@/lib/appForeground'; // [A2-SPIKE] temporary diagnostic import
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
@@ -234,8 +234,21 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   const { celebrate } = useGoalCelebration();
 
   // Resolve the initial map center: prefer the persisted profile anchor, then
-  // fall back to sessionStorage so the map lands on the right neighborhood
-  // even before the Firestore profile has fully hydrated.
+  // sessionStorage (same-session fallback, set during the just-completed
+  // onboarding/explorer flow), then the durable cross-launch map_anchor_lat/lng
+  // cache (mobile map default->jump fix, 18.08.2026 — see MapShell.tsx's own
+  // history: on a cold app launch this Firestore profile read hasn't hydrated
+  // yet, so without this tier initialMapCenter was null almost every time,
+  // AppMap fell back to a hardcoded Tel Aviv default, and the later flyTo to
+  // the real GPS fix read as a jarring jump — mobile-only because native
+  // geolocation's cold-start time reliably exceeds AppMap's 3s reveal gate).
+  // Sync read only (getOnboardingPref, not the Async/Preferences-fallback
+  // variant already used elsewhere in this file for the authority-recovery
+  // effect) — deliberately minimal: this keeps initialMapCenter's existing
+  // synchronous-IIFE shape unchanged, covers the common case (localStorage
+  // intact across a normal close/reopen), and only degrades to today's
+  // pre-fix behavior in the rarer case WKWebView evicted localStorage
+  // specifically (axioms.md §19) — not a new gap, same as before this fix.
   const initialMapCenter: { lat: number; lng: number } | null = (() => {
     if (profile?.core?.anchorLat && profile?.core?.anchorLng) {
       return { lat: profile.core.anchorLat, lng: profile.core.anchorLng };
@@ -245,6 +258,9 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
       const lng = sessionStorage.getItem('selected_anchor_lng');
       if (lat && lng) return { lat: parseFloat(lat), lng: parseFloat(lng) };
     }
+    const cachedLat = getOnboardingPref('map_anchor_lat');
+    const cachedLng = getOnboardingPref('map_anchor_lng');
+    if (cachedLat && cachedLng) return { lat: parseFloat(cachedLat), lng: parseFloat(cachedLng) };
     return null;
   })();
 
