@@ -138,7 +138,7 @@ export default function RouteCardUnified({
         className="inline-flex items-center rounded-full mb-4"
         style={{ border: '0.5px solid #E0E9FF', padding: '4px 10px' }}
       >
-        <DifficultyBolts difficulty={difficulty} size="sm" />
+        <DifficultyBolts difficulty={difficulty} size="sm" colorScheme="severity" />
       </div>
 
       {/* CTA — home strength-card style (rounded-full + cyan→turquoise gradient) */}

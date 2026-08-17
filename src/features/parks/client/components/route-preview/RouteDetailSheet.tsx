@@ -513,7 +513,7 @@ export default function RouteDetailSheet({
                       the user sees the three "headline" facts first. */}
                   <div className="flex items-center gap-2 flex-wrap mb-3">
                     <div className={STAT_PILL_CLASS} style={{ border: PILL_BORDER }}>
-                      <DifficultyBolts difficulty={route.difficulty} size="md" />
+                      <DifficultyBolts difficulty={route.difficulty} size="md" colorScheme="severity" />
                     </div>
                     {route.duration > 0 && (
                       <div className={STAT_PILL_CLASS} style={{ border: PILL_BORDER }}>
