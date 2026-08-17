@@ -16,7 +16,7 @@
  *     authenticated browser session)
  */
 
-import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, writeBatch, query, where, getDocs, limit } from 'firebase/firestore';
 import { geohashForLocation } from 'geofire-common';
 import { db } from '@/lib/firebase';
 import { mapOsmSurfaceToType, type SurfaceType } from '@/lib/route-collections/surface-type';
@@ -703,4 +703,48 @@ export async function runOsmImport(
     segments,
     committed,
   };
+}
+
+export interface CyclewaySegmentPreview {
+  id: string;
+  path: [number, number][];
+}
+
+/**
+ * Fetches street_segments tagged highway=cycleway for a city, for the admin
+ * lab map's toggleable cycleways layer (Stage 5 quick win, route-enrichment-
+ * pipeline plan, 17.08.2026). Cycleways already flow into street_segments
+ * via the existing HIGHWAY_TYPES fetch (:206-214) — this is purely a new
+ * read for DISPLAY, no new ingestion path.
+ *
+ * cityName-filtered (not authorityId) to match street_segments' one existing
+ * composite index (cityName ASC, score DESC, firestore.indexes.json) — an
+ * authorityId+tags.highway query would need a NEW composite index this repo
+ * doesn't have yet, which would surface as a runtime "create index" error on
+ * first use rather than results. Capped at `limitCount` (default 500) — this
+ * is a display layer, not an export/analysis tool.
+ */
+export async function fetchCyclewaySegmentsByCity(
+  cityName: string,
+  limitCount: number = 500,
+): Promise<CyclewaySegmentPreview[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'street_segments'),
+      where('cityName', '==', cityName),
+      where('tags.highway', '==', 'cycleway'),
+      limit(limitCount),
+    ),
+  );
+  const results: CyclewaySegmentPreview[] = [];
+  for (const d of snap.docs) {
+    const data = d.data();
+    const rawPath = Array.isArray(data.path) ? data.path : null;
+    const path: [number, number][] = rawPath
+      ? rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0])
+      : data.midpoint ? [[Number(data.midpoint.lng) || 0, Number(data.midpoint.lat) || 0]] : [];
+    if (path.length === 0) continue;
+    results.push({ id: d.id, path });
+  }
+  return results;
 }

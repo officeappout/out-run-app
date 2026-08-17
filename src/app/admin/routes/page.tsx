@@ -55,6 +55,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
+import { fetchCyclewaySegmentsByCity, type CyclewaySegmentPreview } from '@/features/admin/services/osm-segment-importer';
 import { Authority } from '@/types/admin-types';
 
 // Dynamic import for Map to avoid SSR issues
@@ -269,6 +270,14 @@ export default function AdminRouteManager() {
     const [showLabAuthorityDropdown, setShowLabAuthorityDropdown] = useState(false);
     const [labActivityMode, setLabActivityMode] = useState<LabActivityMode>('all');
     const [labInfraLayers, setLabInfraLayers] = useState({ cycling: true, pedestrian: true, shared: true });
+    // OSM cycleway street_segments — a DIFFERENT thing from labInfraLayers.cycling
+    // above (that filters curated official_routes by their infrastructureMode
+    // field). This is a raw display of street_segments tagged highway=cycleway,
+    // off by default (a new/exploratory layer, unlike the always-on facility/
+    // infra layers) — Stage 5 quick win, route-enrichment-pipeline plan, 17.08.2026.
+    const [showCycleways, setShowCycleways] = useState(false);
+    const [labCyclewaySegments, setLabCyclewaySegments] = useState<CyclewaySegmentPreview[]>([]);
+    const [isLoadingCycleways, setIsLoadingCycleways] = useState(false);
     const [labFacilityLayers, setLabFacilityLayers] = useState({ water_fountain: true, gym_park: true, stairs: true, bench: true });
     const [labPoiLayers, setLabPoiLayers] = useState({ scenic: true, spring: true, zen: true });
 
@@ -428,6 +437,21 @@ export default function AdminRouteManager() {
             loadLabData();
         }
     }, [activeTab, labAuthorityId, loadLabData]);
+
+    // Cycleways — fetched only when the toggle is on (unlike the always-loaded
+    // parks/infra/curated data above), re-fetched when the lab city changes
+    // while the toggle stays on. Doesn't re-fetch on every toggle-off/on to
+    // avoid a query per click — toggling off just hides the already-fetched data.
+    useEffect(() => {
+        if (activeTab !== 'lab' || !showCycleways || !labAuthority?.name) return;
+        let cancelled = false;
+        setIsLoadingCycleways(true);
+        fetchCyclewaySegmentsByCity(labAuthority.name)
+            .then(segs => { if (!cancelled) setLabCyclewaySegments(segs); })
+            .catch(err => console.error('Cycleway segments fetch error:', err))
+            .finally(() => { if (!cancelled) setIsLoadingCycleways(false); });
+        return () => { cancelled = true; };
+    }, [activeTab, showCycleways, labAuthority?.name]);
 
     // ── Lab: Filtered Data (useMemo) ──────────────────────────────────
     const filteredLabInfra = useMemo(() => {
@@ -1447,6 +1471,27 @@ export default function AdminRouteManager() {
                             </div>
                         </div>
 
+                        {/* OSM Cycleways — raw street_segments tagged highway=cycleway, distinct
+                            from the curated infrastructure layer above. Off by default. */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Layers size={16} className="text-indigo-500" />
+                                <h4 className="font-black text-gray-800 text-xs uppercase tracking-wider">שבילי אופניים (OSM)</h4>
+                            </div>
+                            <label className="flex items-center gap-2.5 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={showCycleways}
+                                    onChange={(e) => setShowCycleways(e.target.checked)}
+                                    className="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-400"
+                                />
+                                <div className="w-3 h-1 rounded-full bg-teal-400" />
+                                <span className="text-xs font-bold text-gray-600 group-hover:text-gray-800">
+                                    🚴 שבילי אופניים גולמיים {isLoadingCycleways ? '(טוען...)' : labCyclewaySegments.length > 0 ? `(${labCyclewaySegments.length})` : ''}
+                                </span>
+                            </label>
+                        </div>
+
                         {/* Facility Layers */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
                             <div className="flex items-center gap-2 mb-3">
@@ -1679,6 +1724,35 @@ export default function AdminRouteManager() {
                                                 'line-opacity': 0.5,
                                                 'line-dasharray': [2, 2],
                                             }}
+                                        />
+                                    </Source>
+                                ))}
+
+                                {/* ── LAB: OSM Cycleway Polylines (raw street_segments,
+                                    highway=cycleway) ─────────────── */}
+                                {activeTab === 'lab' && showCycleways && labCyclewaySegments.map((seg) => (
+                                    <Source
+                                        key={`lab-cycleway-${seg.id}`}
+                                        id={`lab-cycleway-${seg.id}`}
+                                        type="geojson"
+                                        data={{
+                                            type: 'Feature',
+                                            properties: {},
+                                            geometry: {
+                                                type: 'LineString',
+                                                coordinates: seg.path
+                                            }
+                                        }}
+                                    >
+                                        <Layer
+                                            id={`lab-cycleway-${seg.id}-layer`}
+                                            type="line"
+                                            paint={{
+                                                'line-color': '#14b8a6',
+                                                'line-width': 3,
+                                                'line-opacity': 0.7,
+                                            }}
+                                            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
                                         />
                                     </Source>
                                 ))}
