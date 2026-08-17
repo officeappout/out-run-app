@@ -934,9 +934,16 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           if (process.env.NODE_ENV !== 'production') {
             console.log(`[Cam] initial-zoom (flat) — ${distanceFromSeededMeters.toFixed(0)}m from seeded center, ${isAlreadyClose ? 'instant' : 'animated'}`);
           }
+          // When already close, this flyTo must be a true no-op visually —
+          // not just an instant center snap. AppMap's initialViewState seeds
+          // zoom 14 (or 13, unseeded fallback); targeting zoom 15 here
+          // unconditionally caused a visible zoom-in even on the duration:0
+          // path. Preserve the map's current zoom in that case; the animated
+          // (genuinely-far) correction path keeps its original zoom:15 —
+          // that's an intentional "found you" zoom-in, not a bug.
           m.flyTo({
             center: [currentLocation.lng, currentLocation.lat],
-            zoom: 15, pitch: 0,
+            zoom: isAlreadyClose ? m.getZoom() : 15, pitch: 0,
             duration: isAlreadyClose ? 0 : 2000, essential: true,
           });
         } catch (err) {
