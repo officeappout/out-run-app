@@ -16,8 +16,15 @@
 
 /** Where the request for a Suggestion originated. Orthogonal to `venue` (physical place) and
  *  to the existing `ExecutionLocation` (`'park'|'home'|'gym'|...`, InputSanitizerMiddleware) —
- *  do not conflate "where the request came from" with "where the workout happens." */
-export type UserContextSurface = 'map' | 'home' | 'park_page' | 'post_workout' | 'nudge';
+ *  do not conflate "where the request came from" with "where the workout happens."
+ *
+ *  `'pre_workout'` (added 17.08.2026, pre-workout hero carousel Stage 1): deliberately a
+ *  DISTINCT literal from `'home'`, not a reuse of it — `'home'` is already declared by
+ *  full-strength/route/safety-net generators (generator-registry.ts) for unrelated purposes
+ *  (see suggestion-engine.ts's surface filter); a dedicated tag keeps the pre-workout hero
+ *  carousel's suggestion set scoped to generators that explicitly opt in, not an accidental
+ *  superset. Zero existing exhaustive switch on this type — purely additive. */
+export type UserContextSurface = 'map' | 'home' | 'park_page' | 'post_workout' | 'pre_workout' | 'nudge';
 
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 

@@ -7,9 +7,16 @@ import { startMiniDomainAssessment } from '@/features/user/onboarding/services/m
 import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
-import { HOME_ANCHOR_V2_ENABLED, RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED, HOME_STEP_DEFICIT_CARD_ENABLED } from '@/config/feature-flags';
+import { HOME_ANCHOR_V2_ENABLED, RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED, HOME_STEP_DEFICIT_CARD_ENABLED, HOME_PRE_WORKOUT_CAROUSEL_ENABLED } from '@/config/feature-flags';
 import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
 import { useStepDeficitRoute } from '../hooks/useStepDeficitRoute';
+import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
+import { PreWorkoutCardRenderer } from './PreWorkoutCardRenderer';
+import { ScaledHeroCard } from './ScaledHeroCard';
+import { runSuggestionEngine } from '@/features/workout-engine/core/engine/suggestion-engine';
+import { buildHomeUserContext } from '@/features/workout-engine/core/context/build-home-user-context';
+import { suggestionToGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-post-workout-suggestion';
+import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
 import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import AnchorLocationChip from './AnchorLocationChip';
@@ -1020,12 +1027,88 @@ export default function StatsOverview({
     onBuildCustom?.(ctx);
   }, [trioResult, selectedOptionIndex, currentWorkoutLocation, onBuildCustom]);
 
+  // ── Pre-workout hero carousel (Stage 1, 17.08.2026, David-approved plan) ──
+  // Eager-compute a pre_workout suggestion set once the trio is known to be a rest day —
+  // mirrors home/page.tsx's post_workout eager-compute pattern (buildHomeUserContext ->
+  // runSuggestionEngine), but scoped inside StatsOverview itself (not home/page.tsx) since
+  // rendering needs direct access to trioResult/selectedOptionIndex/handleTrioStart for the
+  // carousel's own "hero" slide — those are local to this component, not props.
+  const [preWorkoutSuggestions, setPreWorkoutSuggestions] = useState<Suggestion[] | null>(null);
+  const [startingPreWorkoutSuggestionId, setStartingPreWorkoutSuggestionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!HOME_PRE_WORKOUT_CAROUSEL_ENABLED) return;
+    // Rest-day gate lives here, not inside recovery-follow-up.generator.ts's eligible() —
+    // per its own doc comment, eligible() stays surface-agnostic and ranker-differentiated;
+    // this call site decides WHEN it's worth asking the engine at all for this surface.
+    if (!profile || !trioResult?.isRestDay) { setPreWorkoutSuggestions(null); return; }
+    let cancelled = false;
+    const context = buildHomeUserContext({ profile, location: null, surface: 'pre_workout' });
+    runSuggestionEngine(context).then((ranked) => {
+      if (!cancelled) setPreWorkoutSuggestions(ranked);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, trioResult?.isRestDay]);
+
+  // Item 0 is always the trio-driven "hero" (unchanged mechanism) — item 1+ are real
+  // engine suggestions, only when the flag is on AND today is a rest day AND the engine
+  // has actually returned something. Any other case degrades to a single-item list, which
+  // SuggestionCarousel itself special-cases (kept out of the carousel entirely below,
+  // rendering the existing bare HeroWorkoutCard byte-identical to pre-Stage-1 behavior).
+  type PreWorkoutSlide = { kind: 'hero' } | { kind: 'suggestion'; suggestion: Suggestion };
+  const preWorkoutCarouselItems = useMemo<PreWorkoutSlide[]>(() => {
+    if (!HOME_PRE_WORKOUT_CAROUSEL_ENABLED || !trioResult?.isRestDay
+      || !preWorkoutSuggestions || preWorkoutSuggestions.length === 0) {
+      return [{ kind: 'hero' }];
+    }
+    return [{ kind: 'hero' }, ...preWorkoutSuggestions.map((s) => ({ kind: 'suggestion' as const, suggestion: s }))];
+  }, [trioResult?.isRestDay, preWorkoutSuggestions]);
+
   // ── Nudge popup state (for locked widgets) — must be before any early return ──
   const [showNudge, setShowNudge] = useState(false);
 
   // ── Train-Ahead modal state ───────────────────────────────────────────────
   const [isTrainAheadModalOpen, setIsTrainAheadModalOpen] = useState(false);
   const [pendingTrainAheadIndex, setPendingTrainAheadIndex] = useState<number | null>(null);
+
+  // Mirrors home/page.tsx's handlePostWorkoutSuggestionStart: resolve the real
+  // GeneratedWorkout, then reuse the SAME onWorkoutGenerated/onStartWorkout props the trio
+  // hero already calls — handleHeroPress's existing HOME_RECOVERY_START_SHORTCUT_ENABLED
+  // check already special-cases a single-exercise isRecovery:true workout (built for the
+  // trio's own rest-day recovery option), so a recovery-follow-up suggestion started this
+  // way is indistinguishable from it and gets the same direct-start treatment for free — no
+  // new navigation logic needed here.
+  //
+  // Also mirrors handleTrioStart's isViewingFutureDate guard (adversarial review, 17.08.2026:
+  // this slide sits beside the trio hero in the SAME carousel — skipping the Train-Ahead
+  // confirmation here while the hero slide enforces it one swipe away would be an
+  // inconsistent, easy-to-miss gap for a train-ahead start). Reuses the SAME modal/state
+  // (isTrainAheadModalOpen) — its own render is fully generic (targetDayName only, no
+  // dependency on pendingTrainAheadIndex's value, which is unread even in the trio path).
+  //
+  // The startingPreWorkoutSuggestionId re-entrancy check guards the await window (resolving
+  // the real workout) against a rapid double-tap firing two overlapping start chains — the
+  // card's own busy/disabled UI doesn't reach ScaledHeroCard yet (matches PostWorkoutCard
+  // Renderer's pre-existing ScaledHeroRecoveryCard, same gap, not newly introduced by this
+  // diff), so this is the one place that actually can't double-fire.
+  const handlePreWorkoutSuggestionStart = useCallback(async (suggestion: Suggestion) => {
+    if (!profile || startingPreWorkoutSuggestionId) return;
+    setStartingPreWorkoutSuggestionId(suggestion.id);
+    try {
+      const context = buildHomeUserContext({ profile, location: null, surface: 'pre_workout' });
+      const workout = await suggestionToGeneratedWorkout(context, suggestion);
+      if (!workout) return;
+      onWorkoutGenerated?.(workout);
+      if (isViewingFutureDate) {
+        setIsTrainAheadModalOpen(true);
+        return;
+      }
+      onStartWorkout?.();
+    } finally {
+      setStartingPreWorkoutSuggestionId(null);
+    }
+  }, [profile, onWorkoutGenerated, onStartWorkout, isViewingFutureDate, startingPreWorkoutSuggestionId]);
 
   // ── Intensity-picker sheet state (R Track 1 — replaces AnchorOptionToggles) ─
   const [isIntensitySheetOpen, setIsIntensitySheetOpen] = useState(false);
@@ -1249,15 +1332,44 @@ export default function StatsOverview({
                   </span>
                   <ChevronDown size={15} className="text-gray-400" />
                 </button>
-                <HeroWorkoutCard
-                  variant="active"
-                  workout={generatedToHeroWorkout(trioResult.options[selectedOptionIndex].result.workout)}
-                  exercises={trioResult.options[selectedOptionIndex].result.workout.exercises}
-                  workoutLocation={currentWorkoutLocation}
-                  programIconKey={primaryDomainId}
-                  userGender={profile?.core?.gender}
-                  onStart={() => handleTrioStart(selectedOptionIndex)}
-                />
+                {preWorkoutCarouselItems.length > 1 ? (
+                  /* Pre-workout hero carousel, Stage 1 — the pill above and
+                     BuildCustomButton below stay outside, always trio-driven; only this
+                     single-card slot becomes a 2-item swipeable carousel. */
+                  <SuggestionCarousel<PreWorkoutSlide>
+                    items={preWorkoutCarouselItems}
+                    keyExtractor={(item) => (item.kind === 'hero' ? 'hero' : item.suggestion.id)}
+                    cardHeight={330}
+                    renderCard={(item) => (
+                      item.kind === 'hero' ? (
+                        <ScaledHeroCard
+                          workout={trioResult.options[selectedOptionIndex].result.workout}
+                          onStart={() => handleTrioStart(selectedOptionIndex)}
+                          userGender={profile?.core?.gender}
+                          workoutLocation={currentWorkoutLocation}
+                          programIconKey={primaryDomainId}
+                        />
+                      ) : (
+                        <PreWorkoutCardRenderer
+                          suggestion={item.suggestion}
+                          onStart={() => handlePreWorkoutSuggestionStart(item.suggestion)}
+                          isStarting={startingPreWorkoutSuggestionId === item.suggestion.id}
+                          userGender={profile?.core?.gender}
+                        />
+                      )
+                    )}
+                  />
+                ) : (
+                  <HeroWorkoutCard
+                    variant="active"
+                    workout={generatedToHeroWorkout(trioResult.options[selectedOptionIndex].result.workout)}
+                    exercises={trioResult.options[selectedOptionIndex].result.workout.exercises}
+                    workoutLocation={currentWorkoutLocation}
+                    programIconKey={primaryDomainId}
+                    userGender={profile?.core?.gender}
+                    onStart={() => handleTrioStart(selectedOptionIndex)}
+                  />
+                )}
                 <BuildCustomButton onTap={handleBuildCustomWrapped} userGender={profile?.core?.gender} />
                 {HOME_STEP_DEFICIT_CARD_ENABLED && trioResult.isRestDay && stepDeficitRoute && (
                   <div className="w-full max-w-[358px] mx-auto">

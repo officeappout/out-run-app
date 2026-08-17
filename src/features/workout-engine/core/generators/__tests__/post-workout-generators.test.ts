@@ -35,8 +35,8 @@ function makeContext(overrides: Partial<UserContext> = {}): UserContext {
 }
 
 describe('recoveryFollowUpGenerator', () => {
-  it('declares post_workout only', () => {
-    expect(recoveryFollowUpGenerator.surfaces).toEqual(['post_workout']);
+  it('declares post_workout and pre_workout only (pre-workout hero carousel Stage 1, 17.08.2026)', () => {
+    expect(recoveryFollowUpGenerator.surfaces).toEqual(['post_workout', 'pre_workout']);
   });
 
   it('does not self-check context.surface — relies on suggestion-engine.ts central enforcement', () => {
@@ -45,7 +45,9 @@ describe('recoveryFollowUpGenerator', () => {
     // would indicate an accidental, redundant (and easy-to-drift) self-check crept in.
     const home = recoveryFollowUpGenerator.eligible(makeContext({ surface: 'home' }));
     const postWorkout = recoveryFollowUpGenerator.eligible(makeContext({ surface: 'post_workout' }));
+    const preWorkout = recoveryFollowUpGenerator.eligible(makeContext({ surface: 'pre_workout' }));
     expect(home).toBe(postWorkout);
+    expect(home).toBe(preWorkout);
   });
 });
 

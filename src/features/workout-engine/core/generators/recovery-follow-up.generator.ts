@@ -13,6 +13,14 @@
  * per the home-generator-v2 plan's explicit call to prefer that over a hand-rolled
  * precedence chain per generator.
  *
+ * Pre-workout hero carousel Stage 1 (17.08.2026): also registered for the 'pre_workout'
+ * surface — eligible()/generate() needed zero changes (confirmed zero post_workout-specific
+ * branching in either, only descriptive `type`/`surfaceEligibility` literals on the returned
+ * Suggestion). The pre-workout call site (StatsOverview.tsx) additionally gates inclusion on
+ * trioResult.isRestDay before calling the engine at all — kept at the call site, not here, so
+ * this generator's own eligibility stays surface-agnostic per the ranker-differentiates
+ * principle above.
+ *
  * `buildRecoveryFollowUpWorkout` is exported separately from the Generator itself so a
  * "start" tap (which needs the real GeneratedWorkout, not just the Suggestion summary
  * generate() returns) can re-derive it via the SAME single source of truth instead of a
@@ -73,7 +81,7 @@ export async function buildRecoveryFollowUpWorkout(
 export const recoveryFollowUpGenerator: Generator = {
   id: 'recovery-follow-up',
   name: 'התאוששות',
-  surfaces: ['post_workout'],
+  surfaces: ['post_workout', 'pre_workout'],
 
   eligible: () => useUserStore.getState().profile !== null,
 
@@ -100,7 +108,11 @@ export const recoveryFollowUpGenerator: Generator = {
       methodsUsed: [],
       difficulty: workout.difficulty,
       goalTags: ['recovery'],
-      surfaceEligibility: ['post_workout'],
+      // Mirrors `surfaces` above. `type` stays 'post_workout' — SuggestionType has no
+      // 'pre_workout' literal (not requested for Stage 1) and `.type` has zero readers
+      // anywhere in the codebase (verified: only `generatorId` is switched on) — a
+      // cosmetically stale label, not a functional gap.
+      surfaceEligibility: ['post_workout', 'pre_workout'],
       requiresLocation: false,
       score: 0,
       scoreBreakdown: {

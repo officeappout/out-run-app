@@ -1195,6 +1195,25 @@ export const HOME_STEP_DEFICIT_CARD_ENABLED = true;
 // instantly, no code change needed.
 export const POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = false;
 
+// HOME_PRE_WORKOUT_CAROUSEL_ENABLED (pre-workout hero carousel, Stage 1, 17.08.2026,
+// David-approved plan): on a rest day only (trioResult.isRestDay), swaps the single
+// recommended-workout HeroWorkoutCard for a 2-item swipeable carousel — the SAME trio hero
+// (unchanged mechanism: trioResult/selectedOptionIndex/handleTrioStart, still item 0) plus a
+// recovery-follow-up suggestion from the shared engine (recovery-follow-up.generator.ts, now
+// also registered for the 'pre_workout' surface), rendered via the new
+// PreWorkoutCardRenderer/ScaledHeroCard. The intensity pill and BuildCustomButton are
+// unaffected — they stay outside the carousel, always trio-driven, exactly as today.
+//
+// While FALSE (default), or on a training day, or before the pre_workout suggestion finishes
+// computing: StatsOverview renders the existing single HeroWorkoutCard exactly as today —
+// byte-identical, no carousel shell mounted at all.
+//
+// Stage 1 only — explicitly stops short of the step-deficit/route-card reconciliation
+// (David, 17.08.2026: real formula/prod-flag gaps found in investigation, wants to review
+// that piece separately before it's built). NOT YET FLIPPED — awaiting device verification.
+// Kill-switch: leave/flip back to false, byte-identical instantly, no code change needed.
+export const HOME_PRE_WORKOUT_CAROUSEL_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
