@@ -287,11 +287,27 @@ export default function ProfilePage() {
     getAllGearDefinitions().then(setGearDefs).catch(() => {});
   }, []);
 
+  // 17.08.2026 — this page never re-fetches on its own; it purely trusts
+  // whatever's already in useUserStore. Every caller that navigates here
+  // after an edit (handleJITSave, /explorer's return-to-profile path) is
+  // expected to refresh the store itself before navigating, but that made
+  // "does the profile look fresh" depend on every current AND future caller
+  // getting its own refresh exactly right. Doing an authoritative re-fetch
+  // here too — gated on the same profile_update_toast signal each caller
+  // already sets — means this page is correct regardless of whether the
+  // caller's own refresh succeeded, and covers new JIT return points for
+  // free without needing another fix here.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const flag = sessionStorage.getItem('profile_update_toast');
     if (!flag) return;
     sessionStorage.removeItem('profile_update_toast');
+    const uid = auth.currentUser?.uid;
+    if (uid) {
+      getUserFromFirestore(uid)
+        .then((fresh) => { if (fresh) useUserStore.getState().initializeProfile(fresh); })
+        .catch(() => {});
+    }
     const t = setTimeout(() => setShowUpdateToast(true), 400);
     return () => clearTimeout(t);
   }, []);

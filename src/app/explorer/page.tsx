@@ -124,7 +124,16 @@ export default function ExplorerPage() {
                   const freshProfile = await getUserFromFirestore(uid);
                   if (freshProfile) useUserStore.getState().initializeProfile(freshProfile);
                 }
-              } catch { /* /profile will self-recover */ }
+              } catch { /* /profile does its own re-fetch below, via profile_update_toast */ }
+              // /profile doesn't otherwise re-fetch on mount — it trusts
+              // whatever's already in useUserStore. This flag makes it do
+              // an authoritative re-fetch of its own instead of relying
+              // solely on the refresh above landing before the navigation
+              // below is observed (same signal handleJITSave already uses
+              // for its own /profile returns).
+              if (typeof window !== 'undefined') {
+                sessionStorage.setItem('profile_update_toast', '1');
+              }
             } else {
               showToast('error', 'לא הצלחנו לשמור את המיקום. בדקו חיבור לאינטרנט ונסו שוב.');
             }
