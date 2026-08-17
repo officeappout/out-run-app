@@ -183,7 +183,34 @@ async function build() {
   }
   console.log(`terrain: ${terr.length} → kept ${terr.length - rejectedTerrain.length}, rejected ${rejectedTerrain.length} artifact(s); ${curved} curved lines (>2 pts)`);
   // 2) structure — incline / ramp foot ways
-  const ds = await overpass(`[out:json][timeout:90];(way["highway"~"footway|path|pedestrian"]["incline"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});way["ramp"="yes"]["highway"~"footway|path|pedestrian|steps"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax}););out geom tags;`);
+  //
+  // Two real fixes, Stage 6 (17.08.2026) — verified live against Overpass
+  // before landing, not guessed:
+  //
+  // (a) The REAL cause of most of the reported "construction ramp" noise:
+  //     the ramp=yes branch matched highway=steps too, so a staircase with a
+  //     side ramp (a very common real pattern — steps + an adjoining
+  //     wheelchair/stroller/bike ramp, e.g. handrail+ramp:wheelchair tags)
+  //     got written TWICE — once correctly as type:'stairs' (query 3 below),
+  //     once again here as a bogus separate type:'structure' climb for the
+  //     exact same physical feature. Verified live: 12 of the current 27
+  //     pending structure docs are highway=steps ways that only exist here
+  //     because of this OR-branch — dropping `steps` from this branch's
+  //     highway filter removes them at the source; the stairs entry for the
+  //     same way already exists and is unaffected.
+  // (b) Genuinely absent before: any exclusion for construction=*,
+  //     lifecycle=construction|disused|proposed, or access=no. Verified live
+  //     that NONE of today's 27 pending docs actually carry these tags (so
+  //     this fix has zero effect on today's backlog) — but it's a real,
+  //     principled gap regardless, worth closing for future runs/cities
+  //     where OSM data might actually carry them.
+  //
+  // What's NOT auto-fixed (confirmed no reliable signal exists): ~13 of the
+  // 27 are bare, unnamed footway/path segments with only an incline tag and
+  // no other context — genuinely low-confidence, but nothing distinguishes
+  // them from a real short ramp without a human look. That's what
+  // bulkRejectClimbs (Approval Center) is for, not a query filter.
+  const ds = await overpass(`[out:json][timeout:90];(way["highway"~"footway|path|pedestrian"]["incline"]["access"!="no"][!"construction"][!"lifecycle"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});way["ramp"="yes"]["highway"~"footway|path|pedestrian"]["access"!="no"][!"construction"][!"lifecycle"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax}););out geom tags;`);
   const seenS = new Set<number>();
   for (const w of ds.elements) { if (!w.geometry || w.geometry.length < 2 || seenS.has(w.id)) continue; seenS.add(w.id); const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const inc = w.tags.incline || ''; const pct = /^-?\d+(\.\d+)?%$/.test(inc) ? Math.abs(parseFloat(inc)) : null; docs.push({ _id: `structure_${w.id}`, type: 'structure', climbType: 'structure-ramp', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM: Math.round(len(g)), avgGrade: pct, maxGrade: pct, dir: inc === 'down' ? 'down' : 'up', geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: `osm:${w.tags.highway}${w.tags.ramp === 'yes' ? '+ramp' : ''}`, inclineTag: inc || (w.tags.ramp === 'yes' ? 'ramp=yes' : null) }); }
   // 3) stairs — highway=steps
