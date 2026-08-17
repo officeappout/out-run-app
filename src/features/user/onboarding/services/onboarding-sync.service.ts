@@ -311,11 +311,19 @@ export async function syncOnboardingToFirestore(
       }
     }
 
-    // Collects the authorityId to write after the main setDoc.
+    // Collects authorityId (+ neighborhoodId, when they change together) to
+    // write in ONE atomic Admin-SDK call after the main setDoc.
     // core.authorityId is locked by noTenantFieldsChanged() in firestore.rules —
-    // it must go through /api/user/update-authority (Admin SDK) rather than being
-    // embedded in the main write payload.
+    // it must go through /api/user/update-authority (Admin SDK) rather than
+    // being embedded in the main client write payload. neighborhoodId itself
+    // isn't locked, but a city+neighborhood pick is one logical user action:
+    // bundling both into the same Admin call (rather than neighborhoodId
+    // going into this client setDoc while authorityId goes through a
+    // separate, independently-racing call) is what makes the pair atomic.
+    // Fixes a real bug where the two landed out of order and left
+    // core.authorityId / core.neighborhoodId pointing at unrelated cities.
     let authorityIdToSync: string | null = null;
+    let neighborhoodIdToSync: string | null | undefined = undefined; // undefined = leave untouched
 
     // If this is a new user (first time syncing), create initial structure
     if (!exists) {
@@ -323,16 +331,16 @@ export async function syncOnboardingToFirestore(
       const selectedAuthorityId = typeof window !== 'undefined'
         ? sessionStorage.getItem('selected_authority_id')
         : null;
-      if (selectedAuthorityId) authorityIdToSync = selectedAuthorityId;
-
-      // Neighborhood, unlike authorityId, is NOT in firestore.rules'
-      // noTenantFieldsChanged() lock — it doesn't gate paying-municipality
-      // features, only informational/analytics grouping — so it's written
-      // directly in this same payload rather than routed through the
-      // Admin-SDK update-authority endpoint.
       const selectedNeighborhoodId = typeof window !== 'undefined'
         ? sessionStorage.getItem('selected_neighborhood_id')
         : null;
+
+      if (selectedAuthorityId) {
+        // City is changing this cycle — route neighborhoodId through the
+        // same atomic call below instead of this client setDoc.
+        authorityIdToSync = selectedAuthorityId;
+        neighborhoodIdToSync = selectedNeighborhoodId;
+      }
 
       updateData.core = {
         name: userName || data.city || 'User', // Use name from sessionStorage, or city, or fallback
@@ -348,8 +356,9 @@ export async function syncOnboardingToFirestore(
         gender: userGender || (data.gender as 'male' | 'female' | 'other') || 'other', // Get gender from sessionStorage or data, default to 'other'
         weight: 70,
         isAnonymous: isAnonymous,
-        ...(selectedNeighborhoodId ? { neighborhoodId: selectedNeighborhoodId } : {}),
-        // authorityId written separately via updateUserAuthority() after setDoc.
+        ...(!selectedAuthorityId && selectedNeighborhoodId ? { neighborhoodId: selectedNeighborhoodId } : {}),
+        // authorityId (+ neighborhoodId, when paired with it) written
+        // together via updateUserAuthority() after setDoc — see above.
       };
       
       // Ensure gender is always set (even if it's 'other')
@@ -439,14 +448,21 @@ export async function syncOnboardingToFirestore(
         const selectedAuthorityId = typeof window !== 'undefined'
           ? sessionStorage.getItem('selected_authority_id')
           : null;
-        if (selectedAuthorityId) authorityIdToSync = selectedAuthorityId;
-
-        // neighborhoodId is not lock-protected (see create-branch comment
-        // above) — written directly into this same payload.
         const selectedNeighborhoodId = typeof window !== 'undefined'
           ? sessionStorage.getItem('selected_neighborhood_id')
           : null;
-        if (selectedNeighborhoodId) coreUpdate.neighborhoodId = selectedNeighborhoodId;
+
+        if (selectedAuthorityId) {
+          // City is changing this cycle — route neighborhoodId through the
+          // same atomic call below instead of this client setDoc (see
+          // create-branch comment above for why).
+          authorityIdToSync = selectedAuthorityId;
+          neighborhoodIdToSync = selectedNeighborhoodId;
+        } else if (selectedNeighborhoodId) {
+          // City isn't changing this cycle — no atomicity concern, write
+          // neighborhoodId directly (not lock-protected).
+          coreUpdate.neighborhoodId = selectedNeighborhoodId;
+        }
 
         // Sanitize undefined values - remove them
         Object.keys(coreUpdate).forEach(key => {
@@ -1762,12 +1778,23 @@ export async function syncOnboardingToFirestore(
     await setDoc(userDocRef, sanitizedUpdateData, { merge: true });
 
     // core.authorityId is locked from direct client writes (noTenantFieldsChanged).
-    // Write it after the main setDoc via Admin SDK endpoint — non-fatal if it fails
-    // (the rest of the onboarding data is already committed).
+    // Written after the main setDoc via the Admin SDK endpoint, bundled with
+    // neighborhoodId (when both changed this cycle) into ONE update() call so
+    // the pair is atomic — either both land or neither does.
+    //
+    // Failure is NOT swallowed: it throws, caught by this function's outer
+    // try/catch below, which returns false. The caller (useOnboardingStore's
+    // debounced sync) surfaces that as a toast via OnboardingSyncErrorToast.
+    // The rest of the onboarding data from the main setDoc above is still
+    // committed either way — only this authority/neighborhood pair is at
+    // risk, and staying silent about that is exactly what let
+    // core.authorityId / core.neighborhoodId drift to mismatched cities with
+    // zero visible error previously.
     if (authorityIdToSync) {
-      await updateUserAuthority(authorityIdToSync).catch((err) =>
-        console.error('[OnboardingSync] updateUserAuthority failed (non-critical):', err),
-      );
+      const authorityWriteOk = await updateUserAuthority(authorityIdToSync, neighborhoodIdToSync);
+      if (!authorityWriteOk) {
+        throw new Error('[OnboardingSync] updateUserAuthority failed — authorityId/neighborhoodId not persisted');
+      }
     }
 
     // ── Kelly Welcome Bot (Phase 1) ───────────────────────────────────────

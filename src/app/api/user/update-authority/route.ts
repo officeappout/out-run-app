@@ -1,13 +1,24 @@
 /**
  * /api/user/update-authority
  *
- * POST { authorityId: string }
+ * POST { authorityId: string, neighborhoodId?: string | null }
  *
- * Server-side update of users/{uid}.core.authorityId.
+ * Server-side update of users/{uid}.core.authorityId (and, optionally,
+ * core.neighborhoodId in the SAME update() call).
  *
  * core.authorityId is locked from client self-write by noTenantFieldsChanged()
  * in firestore.rules to prevent users from self-assigning to paying municipalities.
  * All mutations flow through this route via the Admin SDK.
+ *
+ * neighborhoodId itself isn't rules-locked, but a city+neighborhood pick is one
+ * logical user action — bundling both fields into this single Admin update()
+ * call (instead of a separate client setDoc for neighborhoodId + a decoupled
+ * fire-and-forget call for authorityId) makes the pair atomic: one Firestore
+ * write, both fields land together or neither does. Fixes a real production
+ * bug where the two were written by unsynchronized calls and could resolve
+ * out of order, leaving authorityId and neighborhoodId pointing at unrelated
+ * cities. Pass neighborhoodId: null explicitly to clear it; omit the key
+ * entirely to leave the existing value untouched.
  *
  * Auth: Firebase ID token in Authorization: Bearer <token>.
  * The caller may only update their own doc.
@@ -42,9 +53,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { authorityId } = body as { authorityId?: string };
+    const { authorityId, neighborhoodId } = body as {
+      authorityId?: string;
+      neighborhoodId?: string | null;
+    };
     if (!authorityId || typeof authorityId !== 'string' || authorityId.trim() === '') {
       return NextResponse.json({ error: 'authorityId required' }, { status: 400 });
+    }
+    const hasNeighborhoodKey = Object.prototype.hasOwnProperty.call(body, 'neighborhoodId');
+    if (hasNeighborhoodKey && neighborhoodId != null && typeof neighborhoodId !== 'string') {
+      return NextResponse.json({ error: 'neighborhoodId must be a string or null' }, { status: 400 });
     }
 
     const db = getAdminDb();
@@ -56,10 +74,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authority not found' }, { status: 404 });
     }
 
-    await db.doc(`users/${uid}`).update({
+    // Defense in depth (same rule as findNeighborhoodIdByCity client-side):
+    // never trust that a passed neighborhoodId actually belongs to authorityId —
+    // re-verify its own parentAuthorityId server-side before writing either field.
+    if (hasNeighborhoodKey && neighborhoodId) {
+      const neighborhoodSnap = await db.doc(`authorities/${neighborhoodId}`).get();
+      if (!neighborhoodSnap.exists || neighborhoodSnap.data()?.parentAuthorityId !== authorityId) {
+        return NextResponse.json(
+          { error: 'neighborhoodId does not belong to authorityId' },
+          { status: 400 },
+        );
+      }
+    }
+
+    const update: Record<string, unknown> = {
       'core.authorityId': authorityId,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    if (hasNeighborhoodKey) {
+      update['core.neighborhoodId'] = neighborhoodId ?? FieldValue.delete();
+    }
+
+    await db.doc(`users/${uid}`).update(update);
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {

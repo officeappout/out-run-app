@@ -387,6 +387,12 @@ export async function syncFieldToFirestore(
  *
  * core.authorityId is locked from client self-write by noTenantFieldsChanged()
  * in firestore.rules — it is routed through /api/user/update-authority instead.
+ * When BOTH authorityId and neighborhoodId are provided (a city+neighborhood
+ * pick), neighborhoodId is bundled into that same Admin-SDK call instead of
+ * this client updateDoc, so the pair lands as one atomic write — never two
+ * independently-racing writes that can resolve out of order and leave the
+ * two fields pointing at unrelated cities (see onboarding-sync.service.ts
+ * for the incident this pattern was copied from and the full writeup).
  */
 export async function syncLocationToFirestore(data: {
   authorityId?: string | null;
@@ -398,14 +404,19 @@ export async function syncLocationToFirestore(data: {
   if (!uid) return false;
 
   const results: boolean[] = [];
+  const bundleNeighborhoodWithAuthority = data.authorityId != null && data.neighborhoodId !== undefined;
 
   // anchorLat / anchorLng / neighborhoodId — allowed direct client write
   // (none are in noTenantFieldsChanged; neighborhoodId doesn't gate paying-
   // municipality features the way authorityId does, only analytics grouping).
+  // neighborhoodId is excluded here when it's being bundled into the atomic
+  // authorityId call below instead.
   const fields: Record<string, unknown> = { updatedAt: serverTimestamp() };
   if (data.anchorLat != null) fields['core.anchorLat'] = data.anchorLat;
   if (data.anchorLng != null) fields['core.anchorLng'] = data.anchorLng;
-  if (data.neighborhoodId != null) fields['core.neighborhoodId'] = data.neighborhoodId;
+  if (data.neighborhoodId != null && !bundleNeighborhoodWithAuthority) {
+    fields['core.neighborhoodId'] = data.neighborhoodId;
+  }
 
   if (Object.keys(fields).length > 1) {
     try {
@@ -420,34 +431,50 @@ export async function syncLocationToFirestore(data: {
 
   // core.authorityId — server-write-only via /api/user/update-authority.
   if (data.authorityId != null) {
-    results.push(await updateUserAuthority(data.authorityId));
+    results.push(
+      await updateUserAuthority(
+        data.authorityId,
+        bundleNeighborhoodWithAuthority ? data.neighborhoodId : undefined,
+      ),
+    );
   }
 
   return results.length === 0 || results.every(Boolean);
 }
 
 /**
- * Route core.authorityId through the server endpoint.
+ * Route core.authorityId (and, optionally, core.neighborhoodId in the same
+ * Admin update() call) through the server endpoint.
  *
  * core.authorityId is locked from client self-write by noTenantFieldsChanged()
  * in firestore.rules (prevents self-assignment to paying municipalities).
  * This function is the single call-site for all authority updates from the client.
+ *
+ * Pass neighborhoodId to bundle it into the SAME atomic write as authorityId —
+ * this is the only way a city+neighborhood pick lands as one Firestore write
+ * instead of two independently-racing calls. Omit it to leave neighborhoodId
+ * untouched; pass null to explicitly clear it.
  */
-export async function updateUserAuthority(authorityId: string): Promise<boolean> {
+export async function updateUserAuthority(
+  authorityId: string,
+  neighborhoodId?: string | null,
+): Promise<boolean> {
   try {
     const token = await auth.currentUser?.getIdToken();
     if (!token) return false;
+    const body: Record<string, unknown> = { authorityId };
+    if (neighborhoodId !== undefined) body.neighborhoodId = neighborhoodId;
     const res = await fetch('/api/user/update-authority', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ authorityId }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { error?: string };
-      console.error('[updateUserAuthority] failed:', body.error ?? res.status);
+      const resBody = await res.json().catch(() => ({})) as { error?: string };
+      console.error('[updateUserAuthority] failed:', resBody.error ?? res.status);
     }
     return res.ok;
   } catch (error) {
