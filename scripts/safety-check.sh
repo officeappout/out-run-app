@@ -140,6 +140,7 @@ AUTHORIZED_ROUTE_WRITERS=(
   "scripts/backfill-difficulty-moderate.ts"
   "scripts/backfill-route-shape.ts"
   "scripts/backfill-route-enrichment-tlv.ts"
+  "scripts/backfill-corrupted-timestamps.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -152,6 +153,10 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # both chokepoint-migrated from birth, not retrofitted.
   "scripts/backfill-route-shape.ts"
   "scripts/backfill-route-enrichment-tlv.ts"
+  # stripUndefined-corruption recovery script (17.08.2026) — chokepoint-
+  # migrated from birth (which is exactly why it's safe to run AFTER the fix
+  # lands, not before — see the script's own header comment).
+  "scripts/backfill-corrupted-timestamps.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"
