@@ -141,6 +141,10 @@ AUTHORIZED_ROUTE_WRITERS=(
   "scripts/backfill-route-shape.ts"
   "scripts/backfill-route-enrichment-tlv.ts"
   "scripts/backfill-corrupted-timestamps.ts"
+  # Stage 5 quick win (route-enrichment-pipeline plan, 17.08.2026) — fixed-shape
+  # payload only ({featureTags: arrayUnion(...), updatedAt}), same chokepoint
+  # exemption as bulkTagRoutes (inventory.service.ts) — no free-form field.
+  "scripts/backfill-route-lit-tag-tlv.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
