@@ -70,7 +70,14 @@ export function NeighborhoodPickerSheet({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/40 z-[48] pointer-events-auto"
+            // z-[70] — NOT the z-[48] used by this sheet's arena/partners
+            // siblings (PartnerFilterSheet/OpponentPickerSheet/LeagueFilterSheet),
+            // which only need to clear a z-[45] overlay in that context. This
+            // sheet is launched from inside SettingsModal (z-50) — z-[48]
+            // rendered it BEHIND the modal that opens it. Matches
+            // EquipmentFilterSheet (z-70/71), SettingsModal's other sibling
+            // sheet with the identical role.
+            className="fixed inset-0 bg-black/40 z-[70] pointer-events-auto"
           />
 
           <motion.div
@@ -86,7 +93,7 @@ export function NeighborhoodPickerSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-[49] bg-white rounded-t-3xl shadow-2xl pointer-events-auto max-w-md mx-auto"
+            className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl shadow-2xl pointer-events-auto max-w-md mx-auto"
             dir="rtl"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 56px)' }}
           >
