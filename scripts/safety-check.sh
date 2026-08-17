@@ -139,6 +139,7 @@ AUTHORIZED_ROUTE_WRITERS=(
   "scripts/recalc-route-distances.ts"
   "scripts/backfill-difficulty-moderate.ts"
   "scripts/backfill-route-shape.ts"
+  "scripts/backfill-route-enrichment-tlv.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -147,9 +148,10 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # separate REST-based writer (src/scripts/import-osm-segments.ts) is NOT
   # migrated yet (flagged, not fixed — see that file's own header comment).
   "src/features/admin/services/osm-segment-importer.ts"
-  # Stage 3 Phase 3.2 (route-enrichment-pipeline plan, 17.08.2026) —
-  # chokepoint-migrated from birth, not retrofitted.
+  # Stage 3 Phases 3.2/3.3 (route-enrichment-pipeline plan, 17.08.2026) —
+  # both chokepoint-migrated from birth, not retrofitted.
   "scripts/backfill-route-shape.ts"
+  "scripts/backfill-route-enrichment-tlv.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"
