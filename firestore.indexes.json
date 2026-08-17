@@ -647,6 +647,77 @@
         { "fieldPath": "gender",     "order": "ASCENDING" },
         { "fieldPath": "bestValue",  "order": "DESCENDING" }
       ]
+    },
+
+    // ── Leagues: getScopeCompetitionLeaderboard / getGroupCompetitionLeaderboard ──
+    // (17.08.2026) These two ranking.service.ts functions query feed_posts
+    // via collection(db, 'feed_posts') — a top-level COLLECTION query, not
+    // collection-group — filtering some combination of authorityId/schoolId,
+    // activityCategory, gender, plus a mandatory createdAt >= range. Unlike
+    // every other feed_posts leaderboard query in this file, these two never
+    // filter by ageGroup, so none of the ageGroup-prefixed indexes above
+    // cover them — each distinct combination below needs its own index.
+    // The crash this fixes: neighborhood-granularity + a gender filter hits
+    // authorityId+gender+createdAt with no matching index at all.
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activityCategory", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "gender", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activityCategory", "order": "ASCENDING" },
+        { "fieldPath": "gender", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "activityCategory", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "gender", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "activityCategory", "order": "ASCENDING" },
+        { "fieldPath": "gender", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    { "collectionGroup": "feed_posts", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolId", "order": "ASCENDING" },
+        { "fieldPath": "gender", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
