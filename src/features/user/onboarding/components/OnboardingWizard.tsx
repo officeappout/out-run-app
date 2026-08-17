@@ -152,10 +152,21 @@ export default function OnboardingWizard() {
 
   // ── Effects ────────────────────────────────────────────────────────
 
-  // Sync to Firestore on mount so the user appears in the admin panel
+  // Sync to Firestore on mount so the user appears in the admin panel.
+  //
+  // Routed through updateData({}) (the store's own debounced/serialized
+  // dispatch — see useOnboardingStore) instead of calling
+  // syncOnboardingToFirestore directly. A direct call here bypassed the
+  // debounce entirely and fired on EVERY mount with whatever currentStep/
+  // sessionStorage happened to be at that moment — including stale leftovers
+  // from an earlier, abandoned session (e.g. a wizard remount forced by
+  // retrying after getting stuck). That re-persisted stale
+  // core.authorityId/neighborhoodId values regardless of what the user
+  // was actually doing in THIS session. updateData({}) is a no-op data
+  // merge that still triggers the same sync, just through the guarded path.
   useEffect(() => {
     Analytics.logOnboardingStart('onboarding_wizard_phase2').catch(() => {});
-    syncOnboardingToFirestore(currentStep, data).catch(() => {});
+    updateData({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
