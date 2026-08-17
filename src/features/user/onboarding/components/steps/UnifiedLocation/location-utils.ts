@@ -37,6 +37,7 @@ import {
   STAIRS_ELIGIBLE_PROGRAMS,
   BALL_GAME_SPORTS,
   DEFAULT_COORDINATES,
+  NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS,
 } from './location-constants';
 
 
@@ -426,6 +427,51 @@ export async function findNeighborhoodIdByCity(
       }
     }
     return best?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fallback-only neighborhood resolution for the GPS button path.
+ *
+ * findNeighborhoodIdByCity (above) needs Mapbox to have returned a
+ * neighborhood-level text feature for the coordinate, then match it by name
+ * against this city's children — and Mapbox's neighborhood-level index is
+ * sparse for Israel (see reverseGeocode / forwardGeocode comments), so that
+ * text match frequently comes back null even when the coordinate genuinely
+ * sits inside a real, mapped neighborhood. Every neighborhood authority
+ * already carries a `coordinates` centroid (used for admin map display) —
+ * this reuses that existing data: nearest child-neighborhood centroid to the
+ * GPS coordinate, scoped to the already-resolved city, via Haversine
+ * distance. Capped by NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS so a
+ * genuinely sparse/unmapped area doesn't get tagged with a wildly-wrong
+ * "closest" neighborhood — see that constant's comment for the reasoning.
+ *
+ * Callers should only reach for this when findNeighborhoodIdByCity has
+ * already returned null — Mapbox's own neighborhood match, when it exists,
+ * is always preferred.
+ */
+export async function findNearestNeighborhoodByCoordinates(
+  cityAuthorityId: string,
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  if (!cityAuthorityId || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  try {
+    const allChildren = await getChildrenByParent(cityAuthorityId);
+    const children = allChildren.filter((c) => c.parentAuthorityId === cityAuthorityId);
+
+    let best: { id: string; distanceMeters: number } | null = null;
+    for (const c of children) {
+      const coords = (c as { coordinates?: { lat?: number; lng?: number } }).coordinates;
+      if (!coords || typeof coords.lat !== 'number' || typeof coords.lng !== 'number') continue;
+      const distanceMeters = calculateDistance(lat, lng, coords.lat, coords.lng);
+      if (!best || distanceMeters < best.distanceMeters) best = { id: c.id, distanceMeters };
+    }
+
+    if (!best || best.distanceMeters > NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS) return null;
+    return best.id;
   } catch {
     return null;
   }
