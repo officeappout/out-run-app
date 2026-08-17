@@ -234,6 +234,16 @@ interface AppMapProps {
   onPartnerClick?: (partner: { uid: string; name: string; personaImageUrl?: string; lemurStage?: number }) => void;
   /** Neighborhood-level anchor coordinates to use as initial map center (zoom 14). Falls back to Tel Aviv. */
   initialCenter?: { lat: number; lng: number } | null;
+  /**
+   * True only when `initialCenter` came from the user's own last real GPS
+   * fix (not a coarser anchor tier). When true, the loading skeleton reveals
+   * as soon as the map paints instead of also waiting on a fresh GPS fix —
+   * the seed is already accurate enough that the initial-zoom flyTo is a
+   * guaranteed no-op, so there's nothing left to hide. Default false
+   * preserves the original wait-for-GPS behavior for every other seed tier
+   * (round 4 mobile map fix, 18.08.2026 — see MapShell.tsx's initialMapCenter).
+   */
+  hasAccurateLocationSeed?: boolean;
   /** Current map mode — forwarded to the camera controller so it can run a
    * one-shot fit-all on first entry into discover mode. */
   mapMode?: string;
@@ -326,6 +336,7 @@ export default function AppMap({
   userPersonaId,
   onPartnerClick,
   initialCenter,
+  hasAccurateLocationSeed = false,
   mapMode,
   navigationTurns,
   activityType,
@@ -396,10 +407,18 @@ export default function AppMap({
   // "brief" per the product ask; if it elapses, the skeleton clears onto
   // whatever initialViewState already is (today's exact behavior, not a
   // regression), and the flyTo still fires normally once/if a fix lands
-  // later.
+  // later. Only reached when `hasAccurateLocationSeed` is false — see below.
   const LOCATION_READY_TIMEOUT_MS = 3000;
+  // `hasAccurateLocationSeed` (round 4 mobile map fix, 18.08.2026) skips
+  // this wait entirely: real-world cold-GPS latency regularly exceeds the
+  // 3s budget above, and once initialCenter is the user's own last real fix
+  // (not a coarser anchor), there's nothing left to hide — the later
+  // initial-zoom flyTo against that seed is a guaranteed no-op. Waiting for
+  // GPS in that case only reintroduces the exact race this is meant to
+  // avoid: the skeleton timing out before GPS, revealing-then-correcting in
+  // full view.
   const [isLocationReady, setIsLocationReady] = useState(
-    () => mapHasInitializedInSession || !!currentLocation,
+    () => mapHasInitializedInSession || !!currentLocation || hasAccurateLocationSeed,
   );
 
   // Publish the splash-gate state to the store so sibling map layers
@@ -976,6 +995,16 @@ export default function AppMap({
   // (same as before), but now that's also the instant the skeleton reveals
   // the map — so what the user sees is a "flying in to your location" reveal
   // animation, not a wrong center they'd already started orienting to.
+  //
+  // Round 4 (18.08.2026): this effect only ever runs when `hasAccurateLocationSeed`
+  // is false — the initializer above already set `isLocationReady` true otherwise,
+  // so the `if (isLocationReady) return;` guard below short-circuits immediately.
+  // Reason: once the seed IS the user's own last real GPS fix, the "wrong default
+  // center" problem this effect was built for no longer applies — the seed is
+  // already accurate, and waiting up to LOCATION_READY_TIMEOUT_MS here only
+  // reintroduces the race (real-world cold-GPS latency regularly exceeds that
+  // budget, force-revealing the skeleton before GPS anyway). Anchor-seeded and
+  // no-seed launches still go through this full wait-then-reveal path.
   useEffect(() => {
     if (isLocationReady) return;
     if (currentLocation) { setIsLocationReady(true); return; }
