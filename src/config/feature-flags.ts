@@ -308,6 +308,24 @@ export const PLS_CACHE_ENABLED = true;
 // Kill-switch: flip back to false, byte-identical instantly, no code change needed.
 export const STRENGTH_RING_ENABLED = true;
 
+// HOME_DAILY_GOAL_V1: Stage-1 home daily-goal redesign — daily strength target
+// (⅔-of-target completion threshold + persisted target/% in dailyProgress),
+// weekly strength story-bar, 7-day aerobic movement-goal bar, active↔passive
+// cardio dedup, adaptive summary card, and rest/return messaging. ONE master
+// switch for the whole stage. DEFAULT FALSE = BYTE-IDENTICAL to today: completion
+// stays the unconditional binary flag (useProgressionStore.markTodayAsCompleted),
+// no new dailyProgress fields are written, and none of the new home UI mounts.
+// Critical: this flag gates a completion-behaviour change for ALL users — do NOT
+// enable in prod until David has verified on device.
+//
+// Cherry-picked (17.08.2026) from feat/home-daily-goal-v1 (8b42fca1) — only the
+// flag + the two weekly-goal read hooks + a 4-field additive DailyProgress type
+// extension came over. Everything else that branch's original commits touched
+// (useProgressionStore.ts, useActivitySync.ts, completion-sync.service.ts —
+// 513 commits stale by the time of this cherry-pick) was deliberately left
+// behind; wiring real writers/consumers for this flag is a separate, later step.
+export const HOME_DAILY_GOAL_V1 = false;
+
 // TIMER_AUTO_ADVANCE: when false (default), the live strength/hybrid player never
 // advances on a timer. The reps FillingButton shows NO fill bar at all — it is a
 // plain tap-only "סיימתי" (the auto-fill animation is removed, per product
@@ -329,6 +347,51 @@ export const TIMER_AUTO_ADVANCE_ENABLED = false;
 // While FALSE the anchor renders the existing WorkoutSelectionCarousel and home keeps
 // its current order — BYTE-IDENTICAL. Gates every R-1.x sub-change.
 export const HOME_ANCHOR_V2_ENABLED = true;
+
+// POST_WORKOUT_LANDING_V1: the post-workout landing redesign (R, Block A) — after a
+// workout finishes, the top "now" carousel slot is replaced by a compact, NON-blocking
+// summary strip ABOVE the schedule (ring = % of the STABLE daily strength target via
+// useDailyStrengthTarget + praise + duration/#exercises/~kcal + "עצרת אחרי X — נשאר
+// קצת לסגור" + X-dismiss), the old in-anchor celebration card is removed (one summary,
+// floated to top), and the anchor slot keeps the existing "another workout" button as a
+// bridge (Block B replaces it with the "smart close" toggles). The detailed summary stays
+// a drill-in. DEPENDS ON the ring engine being on (STRENGTH_RING_ENABLED, already true
+// on main) — the strip reads the shared stable selector, NOT HOME_DAILY_GOAL_V1's
+// shrinking target (single source of truth). While FALSE the post-workout surface is
+// byte-identical to today (old celebration card, no top strip). Isolated flag =
+// independent rollback for the riskier layout change.
+//
+// Cherry-picked (17.08.2026) from feat/home-daily-goal-v1 — flag declaration only;
+// the sessionStorage handoff/completion-hook changes that commit also carried
+// (home/page.tsx, useActivitySync.ts, completion-sync.service.ts) were left behind
+// as stale/out-of-scope. Nothing wires into this flag yet.
+export const POST_WORKOUT_LANDING_V1 = false;
+
+// HOME_DAY_SELECT_SCOPE_V1: fixes the "day strip frozen after a workout" bug. The
+// post-workout completion surfaces (hidden workout section, summary card/bridge, and
+// the Block-A top strip) are "TODAY just got done" states, but they were gated on
+// today's completion GLOBALLY — so after finishing, tapping another day moved the
+// highlight yet the section stayed on the frozen "done" state (couldn't view that
+// day's plan). When ON, those three surfaces are scoped to `selectedDate === today`,
+// so browsing another day unfurls THAT day's plan; and "start" is neutralised for
+// PAST days (view-only — the completion pipeline date-anchors every write to today,
+// so a past-day start would silently credit today). Future days keep the existing
+// train-ahead confirm. While FALSE → the scope condition collapses to true and the
+// start guard is inert → BYTE-IDENTICAL to today.
+//
+// Cherry-picked (17.08.2026) from feat/home-daily-goal-v1 — flag declaration only,
+// unwired.
+export const HOME_DAY_SELECT_SCOPE_V1 = false;
+
+// BLOCK_B_SMART_CLOSE_V1: originally gated the post-workout "smart close"
+// recommendation (hero + 2 alternatives) as its own standalone assembler — this
+// approach is SUPERSEDED by the unified suggestion engine actually built and
+// shipped 16-17.08.2026 (core/types/{suggestion,generator}.types.ts,
+// runSuggestionEngine, the post_workout carousel in home/page.tsx). Do not build
+// a second competing post_workout mechanism behind this flag. Cherry-picked
+// (17.08.2026) from feat/home-daily-goal-v1 as an inert, unwired declaration only
+// — kept for continuity with that branch's flag list, not as a live build target.
+export const BLOCK_B_SMART_CLOSE_V1 = false;
 
 // MAP_OVERVIEW_CHROME_V1: the route-preview "מבט על אימון" chrome for the hybrid
 // overview screen (Moovit/Waze pattern). ONE master switch for BOTH sub-changes:
