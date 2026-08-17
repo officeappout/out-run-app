@@ -18,6 +18,21 @@ import type { ActivityCategory } from '@/features/activity/types/activity.types'
 
 export type CompletionWorkoutType = 'strength' | 'running' | 'walking' | 'cycling' | 'hybrid';
 
+/**
+ * HOME_DAILY_GOAL_V1 (strength only): ⅔-of-daily-target completion snapshot,
+ * computed at completion time (useActivitySync.ts) and forwarded to
+ * markTodayAsCompleted. When the flag is ON, that store gates
+ * `workoutCompleted` on `met` and persists target/completed/pct/met onto the
+ * dailyProgress doc. Absent for aerobic/hybrid, recovery sessions, or when
+ * the flag is off (legacy unconditional-true behaviour).
+ */
+export interface StrengthCompletionSnapshot {
+  targetSets: number;
+  completedSets: number;
+  pct: number;
+  met: boolean;
+}
+
 export interface CompletionPayload {
   workoutType: CompletionWorkoutType;
   durationMinutes: number;
@@ -39,6 +54,8 @@ export interface CompletionPayload {
    * completions have no recovery concept and leave it undefined.
    */
   isRecovery?: boolean;
+  /** See `StrengthCompletionSnapshot` doc comment above. */
+  strengthCompletion?: StrengthCompletionSnapshot;
   /**
    * Multi-category split (hybrid). When present, minutes/calories are logged
    * PER category in ONE atomic activity-store write (e.g. cardio legs + strength
@@ -80,9 +97,11 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
   }
 
   // 2. Progression Store → dailyProgress + goalHistory (Firestore write)
-  await useProgressionStore.getState().markTodayAsCompleted(payload.workoutType, payload.isRecovery).catch((err) => {
-    console.error('[completion-sync] markTodayAsCompleted failed:', err);
-  });
+  await useProgressionStore.getState()
+    .markTodayAsCompleted(payload.workoutType, payload.isRecovery, payload.strengthCompletion)
+    .catch((err) => {
+      console.error('[completion-sync] markTodayAsCompleted failed:', err);
+    });
 
   // 2b. Growth Hub — atomic lifetime workout counter on the user document.
   //
