@@ -326,21 +326,53 @@ export function getSettlementNaming(settlementType: SettlementType, cityName: st
 // AUTHORITY RESOLUTION
 // ══════════════════════════════════════════════════════════════════════
 
+/**
+ * Resolve a city name to its authority ID.
+ *
+ * Scoped to top-level authorities only (parentAuthorityId === null) — this
+ * used to query EVERY authority (cities AND neighborhoods alike) via
+ * getAllAuthorities() with no scoping at all, and its substring-fallback
+ * loop returned whichever authority it hit FIRST in getAllAuthorities()'s
+ * orderBy('name','asc') iteration order. That's a real, confirmed
+ * production bug: searching the short form "תל אביב" (no "-יפו" suffix —
+ * e.g. after Mapbox reverse-geocoding strips it) matched "לב תל אביב", a
+ * Tel Aviv NEIGHBORHOOD, before the loop ever reached "תל אביב-יפו" the
+ * actual city — purely because ל sorts before ת.
+ *
+ * Deliberately scoped by topLevelOnly (parentAuthorityId === null), NOT
+ * type === 'city' — regional councils and local councils are also valid,
+ * legitimately top-level results here (e.g. kibbutzim/moshavim resolve to a
+ * type: 'regional_council' authority, never type: 'city'); every
+ * neighborhood/settlement, by construction, always has a non-null parent,
+ * so topLevelOnly excludes exactly the candidates that caused the bug
+ * without excluding any real municipality. The deterministic length-
+ * closeness tie-break below removes the remaining dependency on iteration
+ * order for any leftover multi-match among top-level authorities.
+ */
 export async function findAuthorityIdByCity(cityName: string): Promise<string | null> {
   if (!cityName) return null;
   try {
-    const authorities = await getAllAuthorities();
+    const cities = await getAllAuthorities(undefined, true);
     const normalised = (s: string) => s.replace(/[\s\-]/g, '').toLowerCase();
     const target = normalised(cityName);
 
-    for (const a of authorities) {
+    for (const a of cities) {
       if (normalised(a.name) === target) return a.id;
     }
-    for (const a of authorities) {
+
+    // Substring fallback — deterministic tie-break: among every city whose
+    // normalised name matches in either direction, prefer the one whose
+    // name length is closest to the search term (the tightest match),
+    // never just whichever the query happened to return first.
+    let best: { id: string; diff: number } | null = null;
+    for (const a of cities) {
       const n = normalised(a.name);
-      if (target.includes(n) || n.includes(target)) return a.id;
+      if (target.includes(n) || n.includes(target)) {
+        const diff = Math.abs(n.length - target.length);
+        if (!best || diff < best.diff) best = { id: a.id, diff };
+      }
     }
-    return null;
+    return best?.id ?? null;
   } catch {
     return null;
   }
@@ -380,11 +412,20 @@ export async function findNeighborhoodIdByCity(
     for (const c of children) {
       if (normalised(c.name) === target) return c.id;
     }
+
+    // Substring fallback — same deterministic length-closeness tie-break as
+    // findAuthorityIdByCity above, so a neighborhood name that's a substring
+    // of a sibling's longer name (e.g. "הצפון הישן" vs "הצפון הישן –
+    // החלק הצפוני") can't win purely by iteration order.
+    let best: { id: string; diff: number } | null = null;
     for (const c of children) {
       const n = normalised(c.name);
-      if (target.includes(n) || n.includes(target)) return c.id;
+      if (target.includes(n) || n.includes(target)) {
+        const diff = Math.abs(n.length - target.length);
+        if (!best || diff < best.diff) best = { id: c.id, diff };
+      }
     }
-    return null;
+    return best?.id ?? null;
   } catch {
     return null;
   }
