@@ -36,12 +36,32 @@ export class RouteDocValidationError extends Error {
  * private copy in inventory.service.ts (Stage 1B) so every writer —
  * client-SDK service and Admin-SDK script alike — shares one implementation
  * instead of each keeping its own.
+ *
+ * ONLY recurses into genuine plain-object literals (`Object.getPrototypeOf
+ * === Object.prototype`) — never into a class instance. This is load-bearing,
+ * not cosmetic: a Firestore `FieldValue` sentinel (`serverTimestamp()`,
+ * `arrayUnion()`, `increment()`, …), a `GeoPoint`, a `Timestamp`, or a
+ * `DocumentReference` is ALSO `typeof === 'object'` but is a class instance
+ * with no own enumerable keys — recursing into one (as an earlier version of
+ * this function did, checking only `!Array.isArray` / `!(value instanceof
+ * Date)`) silently flattens it to `{}`, destroying the sentinel while the
+ * write still "succeeds." Found live 17.08.2026 (route-enrichment-pipeline
+ * plan, Stage 3): `updatedAt: serverTimestamp()` was being corrupted into an
+ * empty map on every chokepoint caller that builds the sentinel INSIDE the
+ * object passed to `buildValidatedDoc` — confirmed against 27 official_routes
+ * + 18 curated_routes docs already written that way since Stage 1B. Verified
+ * fix against a real `ServerTimestampTransform`, `ArrayUnionTransform`, and
+ * `GeoPoint` — see `__tests__/validate.test.ts`.
  */
 export function stripUndefined<T extends Record<string, any>>(obj: T): T {
   const clean = {} as any;
   for (const [key, value] of Object.entries(obj)) {
     if (value === undefined) continue;
-    if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+    // An array's own prototype is Array.prototype, not Object.prototype, so
+    // this check alone already excludes arrays too — no separate
+    // Array.isArray guard needed.
+    const isPlainObject = value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype;
+    if (isPlainObject) {
       clean[key] = stripUndefined(value);
     } else {
       clean[key] = value;
