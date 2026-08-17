@@ -11,7 +11,6 @@ import { useUserStore } from '@/features/user';
 import { useMyGroups } from '@/features/arena/hooks/useMyGroups';
 import DashboardTab from '@/features/profile/components/DashboardTab';
 import HistorySheet from '@/features/profile/components/HistorySheet';
-import NeighborhoodPickerSheet from '@/features/profile/components/NeighborhoodPickerSheet';
 import SettingsModal from '@/features/home/components/SettingsModal';
 import AppHeader from '@/components/ui/AppHeader';
 
@@ -32,7 +31,7 @@ import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal
 import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 import type { OnboardingStepId } from '@/features/user/onboarding/types';
 import { getAllGearDefinitions, type GearDefinition } from '@/features/content/equipment/gear';
-import { doc as firestoreDoc, updateDoc, setDoc, addDoc, collection, serverTimestamp, getDoc } from 'firebase/firestore';
+import { doc as firestoreDoc, updateDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
@@ -439,53 +438,6 @@ export default function ProfilePage() {
     return null;
   })();
 
-  // ── Neighborhood nudge (16.08.2026) ───────────────────────────────────────
-  // core.neighborhoodId has no cached display name on the profile object
-  // (unlike city, which gets a resolved `authority` object or a city-type
-  // affiliation) — resolve it with one light doc read when set. Deliberately
-  // NOT part of calculateProfileCompletion/ProfileProgressBar: that checklist
-  // hides itself entirely once the profile reaches 100% (see
-  // profile-completion.service.ts), so a fully-onboarded user would never
-  // see a neighborhood item there. This card is always visible on /profile
-  // instead, regardless of overall completion — it's an ongoing opt-in
-  // field for leagues, not a one-time onboarding gate.
-  const neighborhoodId = profile?.core?.neighborhoodId ?? null;
-  const [neighborhoodName, setNeighborhoodName] = useState<string | null>(null);
-  useEffect(() => {
-    if (!neighborhoodId) { setNeighborhoodName(null); return; }
-    let cancelled = false;
-    getDoc(firestoreDoc(db, 'authorities', neighborhoodId))
-      .then((snap) => {
-        if (!cancelled) setNeighborhoodName(snap.exists() ? ((snap.data()?.name as string) ?? null) : null);
-      })
-      .catch(() => { if (!cancelled) setNeighborhoodName(null); });
-    return () => { cancelled = true; };
-  }, [neighborhoodId]);
-
-  // 17.08.2026: dedicated in-place picker, constrained to the user's own
-  // city — replaces the earlier JIT-redirect-only entry point. core.neighborhoodId
-  // is not lock-protected by noTenantFieldsChanged() (unlike authorityId — see
-  // axioms.md §20), so a direct client updateDoc is the correct write path
-  // here, same as syncOnboardingToFirestore's existing-user branch already does.
-  const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
-  const [neighborhoodSaving, setNeighborhoodSaving] = useState(false);
-  const handleSelectNeighborhood = async (neighborhood: { id: string; name: string }) => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    setNeighborhoodSaving(true);
-    try {
-      await updateDoc(firestoreDoc(db, 'users', uid), {
-        'core.neighborhoodId': neighborhood.id,
-        'core.updatedAt': serverTimestamp(),
-      });
-      setNeighborhoodName(neighborhood.name);
-    } catch (e) {
-      console.error('[Profile] failed to save neighborhood', e);
-    } finally {
-      setNeighborhoodSaving(false);
-    }
-  };
-
   // Build equipment pill list
   const allGearIds = [...(profile?.equipment?.home ?? []), ...(profile?.equipment?.outdoor ?? [])];
 
@@ -537,42 +489,9 @@ export default function ProfilePage() {
           onNavigateToHistory={() => setHistorySheetOpen(true)}
         />
 
-        {/* ── Neighborhood card — always visible, independent of onboarding
-            completion (see the note above calculateProfileCompletion usage).
-            City set → dedicated in-place picker (NeighborhoodPickerSheet),
-            constrained to that city's real child authorities. No city yet →
-            falls back to the JIT location flow (sets city + neighborhood
-            together) since the picker has nothing to constrain by without one. */}
-        <div
-          dir="rtl"
-          className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-subtle p-4 flex items-center justify-between gap-3"
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-black text-gray-900">שכונה</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {neighborhoodSaving ? 'שומר...' : neighborhoodName ?? 'לא הוגדרה — נדרשת כדי להשתתף בליגת השכונות'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (hasLocation) setNeighborhoodPickerOpen(true);
-              else router.push('/onboarding-new/setup?step=LOCATION&jit=true');
-            }}
-            className="flex-shrink-0 text-[13px] font-bold text-[#00ADEF] active:opacity-70"
-          >
-            {neighborhoodName ? 'ערוך' : 'הוסף שכונה'}
-          </button>
-        </div>
-
-        <NeighborhoodPickerSheet
-          isOpen={neighborhoodPickerOpen}
-          onClose={() => setNeighborhoodPickerOpen(false)}
-          cityAuthorityId={profile?.core?.authorityId ?? null}
-          cityName={locationDisplay}
-          currentNeighborhoodId={neighborhoodId}
-          onSelect={handleSelectNeighborhood}
-        />
+        {/* Neighborhood card retired 17.08.2026 — עיר/שכונה now live inside
+            SettingsModal's "פרטים אישיים" section (grouped with שם/משקל/
+            תאריך לידה), not a separate easy-to-miss card here. */}
 
         {/* ── Feedback card ──────────────────────────────────────────────── */}
         <div

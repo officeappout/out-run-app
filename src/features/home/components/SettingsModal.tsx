@@ -10,7 +10,7 @@ import {
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar,
 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { doc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { signOutUser } from '@/lib/auth.service';
 import { useUserStore } from '@/features/user';
@@ -23,6 +23,7 @@ import { validateAccessCode } from '@/features/user/onboarding/services/access-c
 import { disconnectHealth } from '@/lib/healthBridge/init';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
+import NeighborhoodPickerSheet from '@/features/profile/components/NeighborhoodPickerSheet';
 import LegalDocModal from '@/features/legal/components/LegalDocModal';
 import EquipmentFilterSheet from '@/features/content/exercises/client/components/EquipmentFilterSheet';
 import { useToast } from '@/components/ui/Toast';
@@ -311,6 +312,37 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [editWeight, setEditWeight] = useState('');
   const [editDob, setEditDob] = useState({ day: '', month: '', year: '' });
   const [editSaving, setEditSaving] = useState(false);
+
+  // 17.08.2026: עיר + שכונה moved into this same "פרטים אישיים" section —
+  // was a separate, easy-to-miss card at the bottom of /profile. Neighborhood
+  // is staged (editNeighborhoodId) like name/weight/DOB and only committed on
+  // "שמור" alongside them; city stays display-only here with a link out to
+  // the JIT onboarding flow (core.authorityId is client-write-locked —
+  // noTenantFieldsChanged(), axioms.md §20 — routes through
+  // /api/user/update-authority, not a plain updateDoc, so it can't join the
+  // same staged-save batch as the other fields).
+  const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
+  const [neighborhoodName, setNeighborhoodName] = useState<string | null>(null);
+  const [editNeighborhoodId, setEditNeighborhoodId] = useState<string | null>(null);
+  const [editNeighborhoodName, setEditNeighborhoodName] = useState<string | null>(null);
+  const cityAuthorityId = profile?.core?.authorityId ?? null;
+  const cityDisplay = (() => {
+    const a = (profile?.core as any)?.authority;
+    if (a && typeof a === 'object' && a.name) return String(a.name);
+    const aff = profile?.core?.affiliations?.find((x) => x.type === 'city' && x.name);
+    if (aff?.name) return aff.name;
+    return null;
+  })();
+
+  useEffect(() => {
+    const nid = profile?.core?.neighborhoodId;
+    if (!nid) { setNeighborhoodName(null); return; }
+    let cancelled = false;
+    getDoc(doc(db, 'authorities', nid))
+      .then((snap) => { if (!cancelled) setNeighborhoodName(snap.exists() ? ((snap.data()?.name as string) ?? null) : null); })
+      .catch(() => { if (!cancelled) setNeighborhoodName(null); });
+    return () => { cancelled = true; };
+  }, [profile?.core?.neighborhoodId]);
   const monthRef = useRef<HTMLInputElement>(null);
   const yearRef  = useRef<HTMLInputElement>(null);
 
@@ -604,8 +636,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } else {
       setEditDob({ day: '', month: '', year: '' });
     }
+    setEditNeighborhoodId(profile?.core?.neighborhoodId ?? null);
+    setEditNeighborhoodName(neighborhoodName);
     setEditPersonalOpen(true);
-  }, [profile]);
+  }, [profile, neighborhoodName]);
 
   const savePersonalEdit = useCallback(async () => {
     const uid = auth.currentUser?.uid ?? userId;
@@ -631,19 +665,25 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         update['core.birthDate'] = new Date(year, month - 1, day);
       }
 
+      if (editNeighborhoodId && editNeighborhoodId !== profile?.core?.neighborhoodId) {
+        update['core.neighborhoodId'] = editNeighborhoodId;
+      }
+
       if (Object.keys(update).length > 0) {
+        update['core.updatedAt'] = serverTimestamp();
         await updateDoc(doc(db, 'users', uid), update);
         const fresh = await getUserFromFirestore(uid);
         if (fresh) useUserStore.setState({ profile: fresh });
         showToast('success', 'הפרטים עודכנו בהצלחה');
       }
       setEditPersonalOpen(false);
-    } catch {
+    } catch (e) {
+      console.error('[Settings] failed to save personal details', e);
       showToast('error', 'שגיאה בשמירת הפרטים');
     } finally {
       setEditSaving(false);
     }
-  }, [editName, editWeight, editDob, userId, profile, editSaving, showToast]);
+  }, [editName, editWeight, editDob, editNeighborhoodId, userId, profile, editSaving, showToast]);
 
   // ── Coupon code ──────────────────────────────────────────────────────────
 
@@ -1178,6 +1218,38 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none"
                                 dir="ltr"
                               />
+                            </div>
+                            {/* City — display-only here, links out to the JIT
+                                onboarding flow (core.authorityId is
+                                client-write-locked, can't join this staged save). */}
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">עיר</label>
+                              <button
+                                type="button"
+                                onClick={() => { onClose(); router.push('/onboarding-new/setup?step=LOCATION&jit=true'); }}
+                                className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-right"
+                              >
+                                <span className="text-cyan-600 font-semibold text-xs">ערוך</span>
+                                <span className="text-gray-900">{cityDisplay ?? 'לא הוגדרה'}</span>
+                              </button>
+                            </div>
+                            {/* Neighborhood — staged like name/weight/DOB,
+                                constrained to the selected city's children. */}
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">שכונה</label>
+                              <button
+                                type="button"
+                                onClick={() => setNeighborhoodPickerOpen(true)}
+                                disabled={!cityAuthorityId}
+                                className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-xl text-sm font-simpler text-right disabled:opacity-50"
+                              >
+                                <span className="text-cyan-600 font-semibold text-xs">
+                                  {editNeighborhoodName ? 'ערוך' : 'בחר'}
+                                </span>
+                                <span className="text-gray-900">
+                                  {!cityAuthorityId ? 'קודם בחר עיר' : editNeighborhoodName ?? 'לא הוגדרה'}
+                                </span>
+                              </button>
                             </div>
                             {/* Birthdate */}
                             <div>
@@ -1940,6 +2012,18 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         isOpen={equipmentSheetOpen}
         onClose={() => setEquipmentSheetOpen(false)}
         initialIds={profile?.equipment?.home ?? []}
+      />
+
+      {/* ── Neighborhood picker (עיר/שכונה, פרטים אישיים section) — staged
+          into editNeighborhoodId, committed together with name/weight/DOB
+          by savePersonalEdit's "שמור", not written immediately on select. */}
+      <NeighborhoodPickerSheet
+        isOpen={neighborhoodPickerOpen}
+        onClose={() => setNeighborhoodPickerOpen(false)}
+        cityAuthorityId={cityAuthorityId}
+        cityName={cityDisplay}
+        currentNeighborhoodId={editNeighborhoodId}
+        onSelect={(n) => { setEditNeighborhoodId(n.id); setEditNeighborhoodName(n.name); }}
       />
 
       {/* ── Legal modals ──────────────────────────────────────────────────── */}
