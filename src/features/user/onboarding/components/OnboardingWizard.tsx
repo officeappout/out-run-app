@@ -329,9 +329,22 @@ export default function OnboardingWizard() {
 
       case 'LOCATION':
         return <UnifiedLocationStep onNext={() => {
-          // In FULL_PROGRAM path, LOCATION exits to roadmap for phase 2 transition
-          // In JIT/MAP_ONLY, just advance to next step
-          if (!isJIT && onboardingPath !== 'MAP_ONLY') {
+          // JIT mode — same exit as every other JIT step (stepOnNext →
+          // handleJITSave): save + return the user to wherever they came
+          // from. This used to fall through to the MAP_ONLY branch below
+          // (handleNext(undefined, 10)), which advances the wizard's OWN
+          // step sequence (LOCATION → COMPLETED → SUMMARY) — SUMMARY renders
+          // null with no redirect anywhere in this file, a dead end. Live
+          // entry point: home/page.tsx's ProfileProgressBar "מיקום ועיר"
+          // checklist item routes here with jit=true.
+          if (isJIT) {
+            handleJITSave();
+            return;
+          }
+          // In FULL_PROGRAM path, LOCATION exits to roadmap for phase 2 transition.
+          // MAP_ONLY's own wizardSteps sequence doesn't include LOCATION at all
+          // (unreachable in practice without JIT), kept as a harmless fallback.
+          if (onboardingPath !== 'MAP_ONLY') {
             handleNext('HEALTH_DECLARATION', 10);
           } else {
             handleNext(undefined, 10);
