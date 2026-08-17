@@ -31,7 +31,7 @@ import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal
 import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 import type { OnboardingStepId } from '@/features/user/onboarding/types';
 import { getAllGearDefinitions, type GearDefinition } from '@/features/content/equipment/gear';
-import { doc as firestoreDoc, updateDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc as firestoreDoc, updateDoc, setDoc, addDoc, collection, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
@@ -438,6 +438,29 @@ export default function ProfilePage() {
     return null;
   })();
 
+  // ── Neighborhood nudge (16.08.2026) ───────────────────────────────────────
+  // core.neighborhoodId has no cached display name on the profile object
+  // (unlike city, which gets a resolved `authority` object or a city-type
+  // affiliation) — resolve it with one light doc read when set. Deliberately
+  // NOT part of calculateProfileCompletion/ProfileProgressBar: that checklist
+  // hides itself entirely once the profile reaches 100% (see
+  // profile-completion.service.ts), so a fully-onboarded user would never
+  // see a neighborhood item there. This card is always visible on /profile
+  // instead, regardless of overall completion — it's an ongoing opt-in
+  // field for leagues, not a one-time onboarding gate.
+  const neighborhoodId = profile?.core?.neighborhoodId ?? null;
+  const [neighborhoodName, setNeighborhoodName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!neighborhoodId) { setNeighborhoodName(null); return; }
+    let cancelled = false;
+    getDoc(firestoreDoc(db, 'authorities', neighborhoodId))
+      .then((snap) => {
+        if (!cancelled) setNeighborhoodName(snap.exists() ? ((snap.data()?.name as string) ?? null) : null);
+      })
+      .catch(() => { if (!cancelled) setNeighborhoodName(null); });
+    return () => { cancelled = true; };
+  }, [neighborhoodId]);
+
   // Build equipment pill list
   const allGearIds = [...(profile?.equipment?.home ?? []), ...(profile?.equipment?.outdoor ?? [])];
 
@@ -488,6 +511,30 @@ export default function ProfilePage() {
           onOpenSettings={() => setSettingsOpen(true)}
           onNavigateToHistory={() => setHistorySheetOpen(true)}
         />
+
+        {/* ── Neighborhood card — always visible, independent of onboarding
+            completion (see the note above calculateProfileCompletion usage).
+            Reuses the same JIT location flow as onboarding's LOCATION step —
+            its search already supports picking a neighborhood-level result;
+            this card is the missing discoverable entry point to it. */}
+        <div
+          dir="rtl"
+          className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-subtle p-4 flex items-center justify-between gap-3"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-black text-gray-900">שכונה</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {neighborhoodName ?? 'לא הוגדרה — נדרשת כדי להשתתף בליגת השכונות'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push('/onboarding-new/setup?step=LOCATION&jit=true')}
+            className="flex-shrink-0 text-[13px] font-bold text-[#00ADEF] active:opacity-70"
+          >
+            {neighborhoodName ? 'ערוך' : 'הוסף שכונה'}
+          </button>
+        </div>
 
         {/* ── Feedback card ──────────────────────────────────────────────── */}
         <div
