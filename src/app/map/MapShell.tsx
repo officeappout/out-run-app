@@ -233,23 +233,23 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   const { profile, refreshProfile } = useUserStore();
   const { celebrate } = useGoalCelebration();
 
-  // Resolve the initial map center: prefer the persisted profile anchor, then
-  // sessionStorage (same-session fallback, set during the just-completed
-  // onboarding/explorer flow), then the durable cross-launch map_anchor_lat/lng
-  // cache (mobile map default->jump fix, 18.08.2026 — see MapShell.tsx's own
-  // history: on a cold app launch this Firestore profile read hasn't hydrated
-  // yet, so without this tier initialMapCenter was null almost every time,
-  // AppMap fell back to a hardcoded Tel Aviv default, and the later flyTo to
-  // the real GPS fix read as a jarring jump — mobile-only because native
-  // geolocation's cold-start time reliably exceeds AppMap's 3s reveal gate).
-  // Sync read only (getOnboardingPref, not the Async/Preferences-fallback
-  // variant already used elsewhere in this file for the authority-recovery
-  // effect) — deliberately minimal: this keeps initialMapCenter's existing
-  // synchronous-IIFE shape unchanged, covers the common case (localStorage
-  // intact across a normal close/reopen), and only degrades to today's
-  // pre-fix behavior in the rarer case WKWebView evicted localStorage
-  // specifically (axioms.md §19) — not a new gap, same as before this fix.
+  // Resolve the initial map center. Mobile map default->jump fix, follow-up
+  // (18.08.2026 device test): the first version of this fix seeded from the
+  // onboarding/home anchor, which killed the "hardcoded Tel Aviv" jump but
+  // NOT the jump itself — the anchor is a coarse, often-stale "home city"
+  // signal, not where the user actually is, so GPS still resolved somewhere
+  // else and flyTo'd. Real fix: prefer the user's own last real GPS fix
+  // (last_gps_lat/lng, written durably on every accepted fix by useGPS.ts —
+  // see GPS_DURABLE_WRITE_MIN_INTERVAL_MS there) OVER every anchor-based
+  // fallback below — it's the freshest, most precise "where is this person
+  // likely to be" signal, so the later flyTo to the new fix is a small
+  // nudge (usually <300m, i.e. useCameraController's instant-threshold),
+  // not a cross-city correction. Anchor-based tiers stay as the fallback
+  // chain for a genuinely first-ever launch, where no GPS history exists yet.
   const initialMapCenter: { lat: number; lng: number } | null = (() => {
+    const lastGpsLat = getOnboardingPref('last_gps_lat');
+    const lastGpsLng = getOnboardingPref('last_gps_lng');
+    if (lastGpsLat && lastGpsLng) return { lat: parseFloat(lastGpsLat), lng: parseFloat(lastGpsLng) };
     if (profile?.core?.anchorLat && profile?.core?.anchorLng) {
       return { lat: profile.core.anchorLat, lng: profile.core.anchorLng };
     }
