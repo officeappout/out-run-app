@@ -233,35 +233,57 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   const { profile, refreshProfile } = useUserStore();
   const { celebrate } = useGoalCelebration();
 
-  // Resolve the initial map center. Mobile map default->jump fix, follow-up
-  // (18.08.2026 device test): the first version of this fix seeded from the
-  // onboarding/home anchor, which killed the "hardcoded Tel Aviv" jump but
-  // NOT the jump itself — the anchor is a coarse, often-stale "home city"
-  // signal, not where the user actually is, so GPS still resolved somewhere
-  // else and flyTo'd. Real fix: prefer the user's own last real GPS fix
-  // (last_gps_lat/lng, written durably on every accepted fix by useGPS.ts —
-  // see GPS_DURABLE_WRITE_MIN_INTERVAL_MS there) OVER every anchor-based
-  // fallback below — it's the freshest, most precise "where is this person
-  // likely to be" signal, so the later flyTo to the new fix is a small
-  // nudge (usually <300m, i.e. useCameraController's instant-threshold),
-  // not a cross-city correction. Anchor-based tiers stay as the fallback
-  // chain for a genuinely first-ever launch, where no GPS history exists yet.
-  const initialMapCenter: { lat: number; lng: number } | null = (() => {
+  // Resolve the initial map center. Mobile map default->jump fix, round 4
+  // (18.08.2026, root-cause investigation): rounds 1-3 fixed WHAT the initial
+  // flyTo targets (seeded center, distance-aware duration, preserved zoom)
+  // but not WHEN it becomes visible — AppMap's loading skeleton used to wait
+  // up to LOCATION_READY_TIMEOUT_MS (3s) for a real GPS fix before revealing,
+  // and real-world cold-GPS latency regularly exceeds that budget, so the
+  // skeleton force-revealed at the seeded center with no marker, then the
+  // (now-fixed, usually near-instant) flyTo + marker pop-in played out in
+  // full view anyway — reading as a "reload." `hasAccurateLocationSeed`
+  // tells AppMap when it's safe to skip that wait entirely: true only for
+  // the last_gps_lat/lng tier (the user's own last real fix, written durably
+  // on every accepted fix by useGPS.ts — see GPS_DURABLE_WRITE_MIN_INTERVAL_MS
+  // there), since that seed is accurate enough that the later flyTo is a
+  // guaranteed no-op (usually <300m, useCameraController's instant-threshold).
+  // The anchor-based fallback tiers below stay coarse/unreliable, so a
+  // genuinely first-ever launch (no GPS history yet) still gets the brief
+  // GPS wait — the one real flyTo there stays hidden behind the skeleton.
+  const { initialMapCenter, hasAccurateLocationSeed } = (() => {
     const lastGpsLat = getOnboardingPref('last_gps_lat');
     const lastGpsLng = getOnboardingPref('last_gps_lng');
-    if (lastGpsLat && lastGpsLng) return { lat: parseFloat(lastGpsLat), lng: parseFloat(lastGpsLng) };
+    if (lastGpsLat && lastGpsLng) {
+      return {
+        initialMapCenter: { lat: parseFloat(lastGpsLat), lng: parseFloat(lastGpsLng) },
+        hasAccurateLocationSeed: true,
+      };
+    }
     if (profile?.core?.anchorLat && profile?.core?.anchorLng) {
-      return { lat: profile.core.anchorLat, lng: profile.core.anchorLng };
+      return {
+        initialMapCenter: { lat: profile.core.anchorLat, lng: profile.core.anchorLng },
+        hasAccurateLocationSeed: false,
+      };
     }
     if (typeof window !== 'undefined') {
       const lat = sessionStorage.getItem('selected_anchor_lat');
       const lng = sessionStorage.getItem('selected_anchor_lng');
-      if (lat && lng) return { lat: parseFloat(lat), lng: parseFloat(lng) };
+      if (lat && lng) {
+        return {
+          initialMapCenter: { lat: parseFloat(lat), lng: parseFloat(lng) },
+          hasAccurateLocationSeed: false,
+        };
+      }
     }
     const cachedLat = getOnboardingPref('map_anchor_lat');
     const cachedLng = getOnboardingPref('map_anchor_lng');
-    if (cachedLat && cachedLng) return { lat: parseFloat(cachedLat), lng: parseFloat(cachedLng) };
-    return null;
+    if (cachedLat && cachedLng) {
+      return {
+        initialMapCenter: { lat: parseFloat(cachedLat), lng: parseFloat(cachedLng) },
+        hasAccurateLocationSeed: false,
+      };
+    }
+    return { initialMapCenter: null, hasAccurateLocationSeed: false };
   })();
 
   // Auto-rerouting on deviation. Subscribes to `useRunningPlayer.offRouteEventToken`
@@ -505,6 +527,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
           routes={mapRoutes}
           currentLocation={effectivePos}
           initialCenter={demoCenter ?? initialMapCenter}
+          hasAccurateLocationSeed={!demoCenter && hasAccurateLocationSeed}
           focusedRoute={logic.focusedRoute}
           userBearing={devSim.isMockEnabled && devSim.isSimulating ? devSim.simulatedBearing : logic.userBearing}
           livePath={showLivePath ? logic.livePath : undefined}
