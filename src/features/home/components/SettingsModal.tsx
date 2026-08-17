@@ -326,13 +326,34 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [editNeighborhoodId, setEditNeighborhoodId] = useState<string | null>(null);
   const [editNeighborhoodName, setEditNeighborhoodName] = useState<string | null>(null);
   const cityAuthorityId = profile?.core?.authorityId ?? null;
-  const cityDisplay = (() => {
+  // 17.08.2026 fix — was: profile.core.authority.name (a joined field the
+  // location-save path never populates) → core.affiliations' first city
+  // entry (written by a DIFFERENT mechanism — addAffiliation()/
+  // persistResolvedCity() in useUserCityName.ts, not this save path). Never
+  // read authorityId itself, so a successful, correctly-persisted city
+  // change could never show here — the display just kept whatever stale
+  // affiliations entry happened to exist from an unrelated earlier action.
+  // Now resolves authorityId directly, same live-lookup pattern as
+  // neighborhoodName below. Legacy fallbacks kept for older records that
+  // may only have the old fields populated.
+  const [resolvedCityName, setResolvedCityName] = useState<string | null>(null);
+  const cityDisplay = resolvedCityName ?? (() => {
     const a = (profile?.core as any)?.authority;
     if (a && typeof a === 'object' && a.name) return String(a.name);
     const aff = profile?.core?.affiliations?.find((x) => x.type === 'city' && x.name);
     if (aff?.name) return aff.name;
     return null;
   })();
+
+  useEffect(() => {
+    const aid = profile?.core?.authorityId;
+    if (!aid) { setResolvedCityName(null); return; }
+    let cancelled = false;
+    getDoc(doc(db, 'authorities', aid))
+      .then((snap) => { if (!cancelled) setResolvedCityName(snap.exists() ? ((snap.data()?.name as string) ?? null) : null); })
+      .catch(() => { if (!cancelled) setResolvedCityName(null); });
+    return () => { cancelled = true; };
+  }, [profile?.core?.authorityId]);
 
   useEffect(() => {
     const nid = profile?.core?.neighborhoodId;
