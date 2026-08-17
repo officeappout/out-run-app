@@ -3,8 +3,6 @@
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
-import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
-import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { HOME_ANCHOR_V2_ENABLED, RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED, HOME_STEP_DEFICIT_CARD_ENABLED } from '@/config/feature-flags';
@@ -59,11 +57,10 @@ import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedul
 import { toISODate, isLateNightPivot, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
 import UserWorkoutAdjuster from './UserWorkoutAdjuster';
 import ProcessingOverlay from './ProcessingOverlay';
-import { getProgramByTemplateId } from '@/features/content/programs/core/program.service';
 import { useGoalsForProgram } from '@/features/user/progression/hooks/useGoalsForProgram';
 import type { GoalItem } from './widgets/ProgramProgressCard';
 import { getLocalizedText } from '@/features/content/exercises';
-import { resolveIconKey, getProgramIcon } from '@/features/content/programs';
+import { getProgramIcon } from '@/features/content/programs';
 import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
 import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { Target, ChevronDown } from 'lucide-react';
@@ -425,7 +422,7 @@ export default function StatsOverview({
   }, [activeProgram?.templateId, profile?.progression?.domains, profile?.progression?.tracks]);
 
   // Read level AND percent from tracks (source of truth), fallback to domains
-  const { domainLevel, inLevelPercent, domainMaxLevel, hasProgramData } = useMemo(() => {
+  const { domainLevel, hasProgramData } = useMemo(() => {
     const tracks = profile?.progression?.tracks;
     const domains = profile?.progression?.domains;
     const track = primaryDomainId ? tracks?.[primaryDomainId] : undefined;
@@ -435,8 +432,6 @@ export default function StatsOverview({
     const level = track?.currentLevel ?? domain?.currentLevel ?? 1;
     // Percent: tracks > 0
     const percent = track?.percent != null ? Math.round(track.percent) : 0;
-    // MaxLevel: domains > 25
-    const maxLvl = domain?.maxLevel ?? 25;
     const hasData = !!(activeProgram || primaryDomainId);
 
     if (process.env.NODE_ENV === 'development') {
@@ -448,56 +443,8 @@ export default function StatsOverview({
       );
     }
 
-    return { domainLevel: level, inLevelPercent: percent, domainMaxLevel: maxLvl, hasProgramData: hasData };
+    return { domainLevel: level, hasProgramData: hasData };
   }, [primaryDomainId, profile?.progression?.tracks, profile?.progression?.domains, activeProgram]);
-
-  // ── Fetch program data (name, isMaster, subPrograms) from Firestore ──
-  const [hebrewProgramName, setHebrewProgramName] = useState<string | null>(null);
-  const [programMeta, setProgramMeta] = useState<{
-    isMaster: boolean;
-    subPrograms: string[];
-  } | null>(null);
-
-  useEffect(() => {
-    if (!primaryDomainId && !activeProgram?.templateId) return;
-    const programId = activeProgram?.templateId || primaryDomainId;
-    if (!programId) return;
-
-    let cancelled = false;
-    getProgramByTemplateId(programId)
-      .then((prog) => {
-        if (cancelled || !prog) return;
-        if (prog.name) setHebrewProgramName(prog.name);
-        setProgramMeta({
-          isMaster: !!prog.isMaster,
-          subPrograms: prog.subPrograms ?? [],
-        });
-        console.log(
-          `[StatsOverview] Program loaded: ${prog.name} — isMaster=${prog.isMaster}, children=[${(prog.subPrograms ?? []).join(', ')}]`,
-        );
-      })
-      .catch((err) => console.warn('[StatsOverview] Failed to fetch program:', err));
-    return () => { cancelled = true; };
-  }, [primaryDomainId, activeProgram?.templateId]);
-
-  const PROGRAM_NAME_HE: Record<string, string> = {
-    full_body: 'כל הגוף', fullbody: 'כל הגוף',
-    upper_body: 'פלג גוף עליון', push: 'דחיפה', pushing: 'דחיפה',
-    lower_body: 'רגליים', legs: 'רגליים',
-    pull: 'משיכה', pulling: 'משיכה', calisthenics: 'קליסטניקס',
-    running: 'ריצה', cardio: 'קרדיו',
-    pilates: 'פילאטיס', yoga: 'יוגה',
-    healthy_lifestyle: 'אורח חיים בריא', pull_up_pro: 'מתח מקצועי',
-  };
-  const resolvedProgramName = hebrewProgramName
-    || (primaryDomainId ? PROGRAM_NAME_HE[primaryDomainId.toLowerCase()] : undefined)
-    || 'תוכנית אימון';
-
-  // Resolve icon key for ProgramProgressCard (full_body vs muscle vs heart etc.)
-  const resolvedProgramIcon = useMemo(
-    () => resolveIconKey(undefined, primaryDomainId ?? undefined),
-    [primaryDomainId],
-  );
 
   // ── Fetch level goals (milestones) via shared hook ──────────────────────
   // useGoalsForProgram handles master expansion, tracks-based discovery, and
@@ -1075,74 +1022,6 @@ export default function StatsOverview({
     weeklySummaryData?.categorySessions?.cardio ?? 0,
     runningScheduleCompletedThisWeek,
   );
-  // ── Build carousel slides from tracks / subPrograms ──
-  type ProgramSlide = {
-    id: string;
-    name: string;
-    iconKey: string;
-    level: number;
-    maxLevel: number;
-    percent: number;
-    /**
-     * True when the domain has a real assessed level (> 0). Distinguishes a
-     * genuinely-assessed Level 1 from the silent `?? 1` display default used
-     * below for an unassessed domain — the carousel card renders an explicit
-     * "not yet assessed" cue + CTA instead of a fabricated level number.
-     */
-    isAssessed: boolean;
-  };
-
-  const programSlides = useMemo<ProgramSlide[]>(() => {
-    const tracks = profile?.progression?.tracks;
-    const domains = profile?.progression?.domains;
-    const subs = programMeta?.subPrograms ?? [];
-
-    const slideIds = subs.length > 0
-      ? subs
-      : tracks
-        ? Object.keys(tracks)
-        : primaryDomainId
-          ? [primaryDomainId]
-          : [];
-
-    if (slideIds.length === 0 && primaryDomainId) {
-      return [{
-        id: primaryDomainId,
-        name: resolvedProgramName,
-        iconKey: resolvedProgramIcon,
-        level: domainLevel,
-        maxLevel: domainMaxLevel,
-        percent: inLevelPercent,
-        // Single source of truth shared with the workout engine (same check
-        // resolveChildDomainsForParent uses) — not a locally-reinvented one-liner.
-        isAssessed: profile ? isDomainAssessed(profile, primaryDomainId) : false,
-      }];
-    }
-
-    return slideIds.map((sid) => {
-      // subs (programMeta.subPrograms) mixes raw Firestore doc IDs and literal
-      // slugs — domains/tracks are always keyed by slug, so resolve first or
-      // a genuinely-assessed child (e.g. core) reads as unassessed.
-      const slug = resolveToSlug(sid);
-      const track = tracks?.[slug];
-      const domain = domains?.[slug];
-      return {
-        id: sid,
-        name: PROGRAM_NAME_HE[sid.toLowerCase()] ?? sid,
-        iconKey: resolveIconKey(undefined, sid),
-        level: track?.currentLevel ?? domain?.currentLevel ?? 1,
-        maxLevel: domain?.maxLevel ?? 25,
-        percent: track?.percent != null ? Math.round(track.percent) : 0,
-        isAssessed: profile ? isDomainAssessed(profile, slug) : false,
-      };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    profile, profile?.progression?.tracks, profile?.progression?.domains,
-    programMeta?.subPrograms, primaryDomainId,
-    resolvedProgramName, resolvedProgramIcon, domainLevel, domainMaxLevel, inLevelPercent,
-  ]);
-
   const [activeSlide, setActiveSlide] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -1186,32 +1065,6 @@ export default function StatsOverview({
             ? 'התאימו את האימונים לרמה שלכם .'
             : dynamicWorkout?.description || 'מוכן להתחיל?'}
         </p>
-
-        {/* Per-domain program chips — only surfaced when the user actually has
-            more than one tracked domain (e.g. a full_body master's push/pull/legs
-            children). A domain the user hasn't assessed yet shows an explicit
-            "not yet assessed" cue + CTA to the mini-questionnaire, instead of
-            silently defaulting to "Level 1" (that display default is untouched
-            elsewhere — this is purely a UI-level cue). */}
-        {programSlides.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 mb-3 scrollbar-hide" dir="rtl">
-            {programSlides.map((slide) => (
-              <button
-                key={slide.id}
-                type="button"
-                onClick={() => { if (!slide.isAssessed) startMiniDomainAssessment(router, slide.id); }}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95 ${
-                  slide.isAssessed
-                    ? 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-                    : 'border-dashed border-[#00C9F2] text-[#00C9F2]'
-                }`}
-              >
-                <span>{slide.name}</span>
-                <span>{slide.isAssessed ? `L${slide.level}` : 'טרם הוערך'}</span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Carousel — blurred with lemur teaser overlay when assessment is not completed */}
