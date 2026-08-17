@@ -11,6 +11,7 @@ import { getUserFromFirestore } from '@/lib/firestore.service';
 import {
   approveEntity,
   rejectEntity,
+  bulkRejectClimbs,
   type ModerationEntityType,
 } from '@/features/admin/services/moderation.service';
 import {
@@ -66,6 +67,10 @@ export default function ApprovalCenterPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<ApprovalDetailItem | null>(null);
   const [climbFilter, setClimbFilter] = useState<string>('all');
+  // Bulk-reject selection — climbs tab only (Stage 6, 17.08.2026): triaging
+  // structural noise at scale means selecting many, not clicking "דחה" 175 times.
+  const [selectedClimbIds, setSelectedClimbIds] = useState<Set<string>>(new Set());
+  const [bulkRejecting, setBulkRejecting] = useState(false);
 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [authorityIds, setAuthorityIds] = useState<string[]>([]);
@@ -227,6 +232,37 @@ export default function ApprovalCenterPage() {
     } finally { setProcessingId(null); }
   };
 
+  const handleTabChange = (tab: ApprovalTab) => {
+    setActiveTab(tab);
+    setSelectedClimbIds(new Set()); // selection is climbs-tab-scoped, don't carry stale ids across tabs
+  };
+
+  const toggleClimbSelected = (id: string) => {
+    setSelectedClimbIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkRejectClimbs = async () => {
+    if (selectedClimbIds.size === 0) return;
+    const reason = window.prompt(`דחיית ${selectedClimbIds.size} עליות — סיבה (אופציונלי, יחול על כולן):`);
+    if (reason === null) return; // cancelled
+    setBulkRejecting(true);
+    try {
+      const ids = Array.from(selectedClimbIds);
+      await bulkRejectClimbs(ids, reason || null, { adminId: currentUserId || '', adminName });
+      setClimbs(prev => prev.filter(c => !selectedClimbIds.has(c.id)));
+      setSelectedClimbIds(new Set());
+    } catch (e) {
+      console.error(e);
+      alert('שגיאה בדחייה מרוכזת');
+    } finally {
+      setBulkRejecting(false);
+    }
+  };
+
   const totalPending = parks.length + routes.length + climbs.length + ugc.length;
 
   if (loading) {
@@ -305,7 +341,7 @@ export default function ApprovalCenterPage() {
               {TABS.filter(tab => tab.group === group.key).map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
                     activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                   }`}
@@ -347,6 +383,38 @@ export default function ApprovalCenterPage() {
         </div>
       )}
 
+      {/* Bulk-reject bar — climbs tab only. Triaging noise (stairs / construction-
+          ramp false positives) at 175-item scale needs select-many, not 175 clicks. */}
+      {activeTab === 'climbs' && isSuperAdmin && shownItems.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setSelectedClimbIds(
+              selectedClimbIds.size === shownItems.length
+                ? new Set()
+                : new Set(shownItems.map(i => i.id)),
+            )}
+            className="text-xs font-bold text-orange-700 hover:text-orange-900 transition-colors"
+          >
+            {selectedClimbIds.size === shownItems.length ? 'נקה בחירה' : `בחר הכל (${shownItems.length} מוצגים)`}
+          </button>
+          {selectedClimbIds.size > 0 && (
+            <>
+              <span className="text-xs font-bold text-orange-600">{selectedClimbIds.size} נבחרו</span>
+              <button
+                type="button"
+                onClick={handleBulkRejectClimbs}
+                disabled={bulkRejecting}
+                className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60 mr-auto"
+              >
+                {bulkRejecting ? <Loader2 className="animate-spin" size={12} /> : <X size={12} />}
+                {bulkRejecting ? 'דוחה...' : `דחה ${selectedClimbIds.size} נבחרות`}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Active tab list */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         {shownItems.length === 0 ? (
@@ -361,6 +429,14 @@ export default function ApprovalCenterPage() {
           <div className="divide-y divide-gray-50">
             {shownItems.map(item => (
               <div key={item.id} className="px-6 py-4 flex items-center gap-4 hover:bg-amber-50/30 transition-colors">
+                {activeTab === 'climbs' && isSuperAdmin && (
+                  <input
+                    type="checkbox"
+                    checked={selectedClimbIds.has(item.id)}
+                    onChange={() => toggleClimbSelected(item.id)}
+                    className="w-4 h-4 flex-shrink-0 accent-orange-500 cursor-pointer"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => setSelectedItem({ entityType: item.entityType, id: item.id, title: item.title })}
