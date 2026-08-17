@@ -23,7 +23,7 @@ import {
   type ScopeCompetitionEntry,
   type ScopeCompetitionResult,
 } from '@/features/arena/services/ranking.service';
-import type { LeaderboardTimeWindow, LeaderboardCategory } from '@/features/arena/services/ranking.service';
+import type { LeaderboardTimeWindow, LeaderboardCategory, LeaderboardGenderFilter } from '@/features/arena/services/ranking.service';
 import { CATEGORY_UNIT_LABEL } from './scope-category-unit-label';
 
 // Brand palette (screens mockup, 16.08.2026).
@@ -41,6 +41,9 @@ interface ScopeCompetitionLeaderboardProps {
   /** Filters the competing scopes' totals by activity category. Omitted or
    * 'overall' → every category summed (unchanged default). */
   category?: LeaderboardCategory;
+  /** Filters the competing scopes' totals by gender. Omitted or 'all' →
+   * every gender summed (unchanged default). */
+  genderFilter?: LeaderboardGenderFilter;
 }
 
 const GRANULARITY_LABEL: Record<ScopeCompetitionGranularity, string> = {
@@ -91,6 +94,7 @@ export default function ScopeCompetitionLeaderboard({
   timeWindow = 'weekly',
   cityAuthorityId = null,
   category = 'overall',
+  genderFilter = 'all',
 }: ScopeCompetitionLeaderboardProps) {
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,7 +104,7 @@ export default function ScopeCompetitionLeaderboard({
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getScopeCompetitionLeaderboard({ granularity, timeWindow, cityAuthorityId, category });
+      const data = await getScopeCompetitionLeaderboard({ granularity, timeWindow, cityAuthorityId, category, genderFilter });
       setResult(data);
     } catch (err) {
       console.error('[ScopeCompetitionLeaderboard]', err);
@@ -110,7 +114,7 @@ export default function ScopeCompetitionLeaderboard({
     }
   };
 
-  useEffect(() => { fetch(); }, [granularity, timeWindow, cityAuthorityId, category]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetch(); }, [granularity, timeWindow, cityAuthorityId, category, genderFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading) {
     return (

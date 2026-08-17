@@ -18,7 +18,7 @@ import {
   type ScopeCompetitionResult,
   type ScopeCompetitionEntry,
 } from '@/features/arena/services/ranking.service';
-import type { LeaderboardTimeWindow, LeaderboardCategory } from '@/features/arena/services/ranking.service';
+import type { LeaderboardTimeWindow, LeaderboardCategory, LeaderboardGenderFilter } from '@/features/arena/services/ranking.service';
 import OpponentPickerSheet from './OpponentPickerSheet';
 import { pickDefaultOpponent } from './pick-default-opponent';
 import { CATEGORY_UNIT_LABEL } from './scope-category-unit-label';
@@ -42,6 +42,9 @@ interface ScopeBattleCardProps {
   /** Filters the battling scopes' totals by activity category. Omitted or
    * 'overall' → every category summed (unchanged default). */
   category?: LeaderboardCategory;
+  /** Filters the battling scopes' totals by gender. Omitted or 'all' →
+   * every gender summed (unchanged default). */
+  genderFilter?: LeaderboardGenderFilter;
   /** Bubbles up the current user's own scope entry (rank/name/totalScore)
    *  from this component's existing getScopeCompetitionLeaderboard fetch,
    *  so the parent can show it in the "your contribution" hero card
@@ -50,7 +53,7 @@ interface ScopeBattleCardProps {
   onMyScopeEntryChange?: (entry: ScopeCompetitionEntry | null) => void;
 }
 
-export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, cityAuthorityId, category = 'overall', onMyScopeEntryChange }: ScopeBattleCardProps) {
+export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, cityAuthorityId, category = 'overall', genderFilter = 'all', onMyScopeEntryChange }: ScopeBattleCardProps) {
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [opponentScopeId, setOpponentScopeId] = useState<string | null>(null);
@@ -60,12 +63,12 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
     if (!myScopeId) { setResult(null); setIsLoading(false); return; }
     let cancelled = false;
     setIsLoading(true);
-    getScopeCompetitionLeaderboard({ granularity, timeWindow, cityAuthorityId, category, maxEntries: 50 })
+    getScopeCompetitionLeaderboard({ granularity, timeWindow, cityAuthorityId, category, genderFilter, maxEntries: 50 })
       .then((data) => { if (!cancelled) setResult(data); })
       .catch((err) => console.error('[ScopeBattleCard]', err))
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [granularity, timeWindow, myScopeId, cityAuthorityId, category]);
+  }, [granularity, timeWindow, myScopeId, cityAuthorityId, category, genderFilter]);
 
   const entries = result?.entries ?? [];
   const myIndex = useMemo(() => entries.findIndex((e) => e.scopeId === myScopeId), [entries, myScopeId]);

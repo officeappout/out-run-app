@@ -18,7 +18,7 @@ import {
   type GroupCompetitionEntry,
   type GroupCompetitionResult,
 } from '@/features/arena/services/ranking.service';
-import type { LeaderboardTimeWindow } from '@/features/arena/services/ranking.service';
+import type { LeaderboardTimeWindow, LeaderboardGenderFilter } from '@/features/arena/services/ranking.service';
 
 // Brand palette (screens mockup, 16.08.2026).
 const ACCENT = '#10B981';
@@ -29,6 +29,9 @@ interface GroupLeaderboardProps {
   /** null is valid for scope='global' (no city/school constraint). */
   scopeId: string | null;
   timeWindow?: LeaderboardTimeWindow;
+  /** Filters the ranked groups' totals by gender. Omitted or 'all' → every
+   * gender summed (unchanged default). */
+  genderFilter?: LeaderboardGenderFilter;
 }
 
 function initialsOf(name: string): string {
@@ -62,6 +65,7 @@ export default function GroupLeaderboard({
   scope,
   scopeId,
   timeWindow = 'weekly',
+  genderFilter = 'all',
 }: GroupLeaderboardProps) {
   const [result, setResult] = useState<GroupCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +76,7 @@ export default function GroupLeaderboard({
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getGroupCompetitionLeaderboard({ scope, scopeId, timeWindow });
+      const data = await getGroupCompetitionLeaderboard({ scope, scopeId, timeWindow, genderFilter });
       setResult(data);
     } catch (err) {
       console.error('[GroupLeaderboard]', err);
@@ -82,7 +86,7 @@ export default function GroupLeaderboard({
     }
   };
 
-  useEffect(() => { fetch(); }, [scope, scopeId, timeWindow]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetch(); }, [scope, scopeId, timeWindow, genderFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading) {
     return (

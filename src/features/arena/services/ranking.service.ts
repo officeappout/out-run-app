@@ -840,23 +840,23 @@ export async function getGroupCompetitionLeaderboard(params: {
   scope: 'city' | 'school' | 'global';
   scopeId: string | null;
   timeWindow: LeaderboardTimeWindow;
+  /** Filters by gender, same convention as getLeaderboard. Omitted or 'all' → every gender summed (unchanged default). */
+  genderFilter?: LeaderboardGenderFilter;
   maxEntries?: number;
 }): Promise<GroupCompetitionResult> {
-  const { scope, scopeId, timeWindow, maxEntries = 20 } = params;
+  const { scope, scopeId, timeWindow, genderFilter = 'all', maxEntries = 20 } = params;
   const windowStart = Timestamp.fromDate(getWindowStart(timeWindow));
 
   // For 'global', omit the scope constraint to scan all groups country-wide.
   // For 'city'/'school', filter to the specific authority or school.
-  const q = scope === 'global' || !scopeId
-    ? query(
-        collection(db, 'feed_posts'),
-        where('createdAt', '>=', windowStart),
-      )
-    : query(
-        collection(db, 'feed_posts'),
-        where(scope === 'city' ? 'authorityId' : 'schoolId', '==', scopeId),
-        where('createdAt', '>=', windowStart),
-      );
+  const constraints = [where('createdAt', '>=', windowStart)];
+  if (scope !== 'global' && scopeId) {
+    constraints.push(where(scope === 'city' ? 'authorityId' : 'schoolId', '==', scopeId));
+  }
+  if (genderFilter !== 'all') {
+    constraints.push(where('gender', '==', genderFilter));
+  }
+  const q = query(collection(db, 'feed_posts'), ...constraints);
   const snap = await getDocs(q);
 
   // groupId → { totalScore, active member UIDs, placeholder name }
@@ -988,9 +988,11 @@ export async function getScopeCompetitionLeaderboard(params: {
   cityAuthorityId?: string | null;
   /** Filters by activityCategory, same convention as getLeaderboard. Omitted or 'overall' → every category summed (unchanged default). */
   category?: LeaderboardCategory;
+  /** Filters by gender, same convention as getLeaderboard. Omitted or 'all' → every gender summed (unchanged default). */
+  genderFilter?: LeaderboardGenderFilter;
   maxEntries?: number;
 }): Promise<ScopeCompetitionResult> {
-  const { granularity, timeWindow, cityAuthorityId, category = 'overall', maxEntries = 20 } = params;
+  const { granularity, timeWindow, cityAuthorityId, category = 'overall', genderFilter = 'all', maxEntries = 20 } = params;
 
   if (granularity === 'neighborhood' && !cityAuthorityId) {
     return { entries: [], generatedAt: new Date() };
@@ -1005,6 +1007,9 @@ export async function getScopeCompetitionLeaderboard(params: {
   }
   if (category !== 'overall') {
     constraints.push(where('activityCategory', '==', category));
+  }
+  if (genderFilter !== 'all') {
+    constraints.push(where('gender', '==', genderFilter));
   }
 
   const q = query(collection(db, 'feed_posts'), ...constraints);

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, RefreshCw, Lock, ChevronDown, Plus, UserPlus, Share2 } from 'lucide-react';
+import { Trophy, RefreshCw, Lock, ChevronDown, Plus, UserPlus, Share2, SlidersHorizontal } from 'lucide-react';
+import LeagueFilterSheet from './LeagueFilterSheet';
 import { useLeaderboard } from '@/features/arena/hooks/useLeaderboard';
 import { useUserStore } from '@/features/user';
 import ViralUnlockSheet from '@/features/safecity/components/ViralUnlockSheet';
@@ -27,11 +28,6 @@ type OpenDropdown = 'cat' | 'sub' | 'gender' | 'time' | null;
 // Brand palette (screens mockup, 16.08.2026): emerald is the accent.
 const ACCENT = '#10B981';
 const GOLD = '#f4b400';
-
-// Stage A (leagues design pass, 16.08.2026): nav row consolidated to exactly
-// two dropdowns — metric + time — per the mockups. Flip to `true` to bring
-// the gender filter back; underlying genderFilter state/logic is untouched.
-const SHOW_GENDER_FILTER = false;
 
 const MODE_TO_CATEGORY: Record<LeaderboardMode, LeaderboardCategory> = {
   general: 'overall',
@@ -64,12 +60,6 @@ const RUN_SEGMENT_OPTIONS: { value: RunSegment; label: string; emoji: string }[]
   { value: '3k',  label: '3 ק"מ',   emoji: '⚡' },
   { value: '5k',  label: '5 ק"מ',   emoji: '⚡' },
   { value: '10k', label: '10 ק"מ',  emoji: '⚡' },
-];
-
-const GENDER_OPTIONS: { value: LeaderboardGenderFilter; label: string }[] = [
-  { value: 'all',    label: 'הכל'   },
-  { value: 'male',   label: 'גברים' },
-  { value: 'female', label: 'נשים'  },
 ];
 
 const TIME_OPTIONS: { value: LeaderboardTimeWindow; label: string }[] = [
@@ -484,6 +474,7 @@ export default function NeighborhoodLeaderboard({
   const [openDropdown, setOpenDropdown]         = useState<OpenDropdown>(null);
   const [programs, setPrograms]                 = useState<Program[]>([]);
   const [showInvite, setShowInvite]             = useState(false);
+  const [filterSheetOpen, setFilterSheetOpen]   = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
   // Load non-master strength programs (only once)
@@ -707,28 +698,6 @@ export default function NeighborhoodLeaderboard({
               </FilterDropdown>
             )}
 
-            {/* מגדר — hidden for Stage A (nav consolidated to metric + time
-                only, per the mockups). State/logic untouched; wrap in
-                {SHOW_GENDER_FILTER && (...)} to re-show. */}
-            {SHOW_GENDER_FILTER && (
-              <FilterDropdown
-                label={(GENDER_OPTIONS.find((o) => o.value === genderFilter) ?? GENDER_OPTIONS[0]).label}
-                isActive={genderActive}
-                isOpen={openDropdown === 'gender'}
-                onToggle={() => setOpenDropdown(openDropdown === 'gender' ? null : 'gender')}
-              >
-                {GENDER_OPTIONS.map((opt) => (
-                  <DropdownItem
-                    key={opt.value}
-                    isSelected={genderFilter === opt.value}
-                    onClick={() => { setGenderFilter(opt.value); setOpenDropdown(null); }}
-                  >
-                    {opt.label}
-                  </DropdownItem>
-                ))}
-              </FilterDropdown>
-            )}
-
             {/* טווח — sits directly beside the metric dropdown (matches the
                 Groups tab's adjacent "מדד:" / time chips), not pushed to
                 the row's end. */}
@@ -750,6 +719,26 @@ export default function NeighborhoodLeaderboard({
                 ))}
               </FilterDropdown>
             </div>
+
+            {/* פילטרים — opens the secondary-filters sheet (מגדר). Icon-only
+                button, active state (filled) when a non-default filter is
+                set, matching the FilterDropdown pills' active styling. */}
+            <button
+              type="button"
+              onClick={() => setFilterSheetOpen(true)}
+              aria-label="פילטרים"
+              className="flex items-center justify-center flex-shrink-0 transition-colors"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 20,
+                border: genderActive ? `1px solid ${ACCENT}` : '0.5px solid #D1D5DB',
+                backgroundColor: genderActive ? '#E1F5EE' : '#FFFFFF',
+                color: genderActive ? ACCENT : '#374151',
+              }}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+            </button>
 
           </div>
 
@@ -1002,6 +991,13 @@ export default function NeighborhoodLeaderboard({
       {/* Invite sheet — opened by dashed podium placeholders, the locked-table
           CTA, and the empty-state button. */}
       <ViralUnlockSheet isOpen={showInvite} onClose={() => setShowInvite(false)} />
+
+      <LeagueFilterSheet
+        isOpen={filterSheetOpen}
+        onClose={() => setFilterSheetOpen(false)}
+        genderFilter={genderFilter}
+        onGenderFilterChange={setGenderFilter}
+      />
 
       {/* Personal "you" rank card — rendered by the parent (community/page.tsx)
           as a shared sticky footer. Not duplicated here. */}

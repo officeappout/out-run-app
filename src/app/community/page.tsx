@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { m, AnimatePresence, motion } from 'framer-motion';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Users, RefreshCw, Share2, ChevronDown, UserPlus } from 'lucide-react';
+import { Users, RefreshCw, Share2, ChevronDown, UserPlus, SlidersHorizontal } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -47,6 +47,7 @@ import NeighborhoodLeaderboard from '@/features/arena/components/NeighborhoodLea
 import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
 import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
+import LeagueFilterSheet from '@/features/arena/components/LeagueFilterSheet';
 import MunicipalPressureCard from '@/features/arena/components/MunicipalPressureCard';
 import SchoolOutreachCard from '@/features/arena/components/SchoolOutreachCard';
 import LeagueCarousel, {
@@ -238,6 +239,7 @@ export default function CommunityPage() {
   type GroupAxis = 'city' | 'neighborhood' | 'group';
   const [groupAxis, setGroupAxis] = useState<GroupAxis>('city');
   const [axisMenuOpen, setAxisMenuOpen] = useState(false);
+  const [leagueFilterSheetOpen, setLeagueFilterSheetOpen] = useState(false);
   const AXIS_LABEL: Record<GroupAxis, string> = { city: 'ערים', neighborhood: 'שכונות', group: 'קבוצות' };
   // מדד/טווח chips shown read-only next to the scope chooser (Groups mode
   // has no metric/time dropdown of its own — these reflect the shared
@@ -1180,6 +1182,26 @@ export default function CommunityPage() {
         >
           {leaderboardTimeWindow === 'daily' ? 'יומי' : leaderboardTimeWindow === 'weekly' ? 'שבועי' : 'חודשי'}
         </span>
+
+        {/* פילטרים — same LeagueFilterSheet as the Individuals tab, driving
+            the same shared leaderboardGender state; layers on top of the
+            מדד/טווח already chosen. */}
+        <button
+          type="button"
+          onClick={() => setLeagueFilterSheetOpen(true)}
+          aria-label="פילטרים"
+          className="flex items-center justify-center flex-shrink-0 transition-colors"
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 20,
+            border: leaderboardGender !== 'all' ? '1px solid #10B981' : '0.5px solid #D1D5DB',
+            backgroundColor: leaderboardGender !== 'all' ? '#E1F5EE' : '#FFFFFF',
+            color: leaderboardGender !== 'all' ? '#10B981' : '#374151',
+          }}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+        </button>
       </div>
     );
   }
@@ -1362,12 +1384,14 @@ export default function CommunityPage() {
                       timeWindow={leaderboardTimeWindow}
                       myScopeId={authority.id}
                       category={leaderboardCategory}
+                      genderFilter={leaderboardGender}
                       onMyScopeEntryChange={setActiveScopeEntry}
                     />
                     <ScopeCompetitionLeaderboard
                       granularity="city"
                       timeWindow={leaderboardTimeWindow}
                       category={leaderboardCategory}
+                      genderFilter={leaderboardGender}
                     />
                   </>
                 )}
@@ -1380,6 +1404,7 @@ export default function CommunityPage() {
                       myScopeId={access.neighborhoodAuthorityId}
                       cityAuthorityId={authority.id}
                       category={leaderboardCategory}
+                      genderFilter={leaderboardGender}
                       onMyScopeEntryChange={setActiveScopeEntry}
                     />
                     <ScopeCompetitionLeaderboard
@@ -1387,6 +1412,7 @@ export default function CommunityPage() {
                       timeWindow={leaderboardTimeWindow}
                       cityAuthorityId={authority.id}
                       category={leaderboardCategory}
+                      genderFilter={leaderboardGender}
                     />
                     {renderNeighborhoodInviteCTA()}
                   </>
@@ -1396,12 +1422,19 @@ export default function CommunityPage() {
                     scope="city"
                     scopeId={authority.id}
                     timeWindow={leaderboardTimeWindow}
+                    genderFilter={leaderboardGender}
                   />
                 )}
               </>
             )}
           </>
         )}
+        <LeagueFilterSheet
+          isOpen={leagueFilterSheetOpen}
+          onClose={() => setLeagueFilterSheetOpen(false)}
+          genderFilter={leaderboardGender}
+          onGenderFilterChange={setLeaderboardGender}
+        />
       </div>
     );
   }

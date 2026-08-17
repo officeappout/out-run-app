@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // returning every post unconditionally.
 
 const state = vi.hoisted(() => ({
-  POSTS: [] as { id: string; authorUid: string; activityCredit: number; authorityId?: string; neighborhoodId?: string; activityCategory?: string }[],
+  POSTS: [] as { id: string; authorUid: string; activityCredit: number; authorityId?: string; neighborhoodId?: string; activityCategory?: string; gender?: string }[],
   AUTHORITIES: {} as Record<string, { name: string }>,
 }));
 
@@ -249,6 +249,53 @@ describe('getScopeCompetitionLeaderboard — scopes ranked against each other', 
       });
 
       expect(result.entries).toMatchObject([{ scopeId: 'nb-florentin', totalScore: 15 }]);
+    });
+  });
+
+  describe('gender filtering — pre-launch backend task: secondary filters drawer', () => {
+    it('omitted genderFilter (default "all") sums every gender together — unchanged prior behavior', async () => {
+      state.POSTS = [
+        { id: 'p1', authorUid: 'u1', activityCredit: 10, authorityId: 'city-tlv', gender: 'male' },
+        { id: 'p2', authorUid: 'u2', activityCredit: 20, authorityId: 'city-tlv', gender: 'female' },
+      ];
+      state.AUTHORITIES = { 'city-tlv': { name: 'תל אביב' } };
+
+      const result = await getScopeCompetitionLeaderboard({ granularity: 'city', timeWindow: 'weekly' });
+
+      expect(result.entries[0]).toMatchObject({ scopeId: 'city-tlv', totalScore: 30 });
+    });
+
+    it('a specific genderFilter narrows the query, not just re-labels the same total', async () => {
+      state.POSTS = [
+        { id: 'p1', authorUid: 'u1', activityCredit: 10, authorityId: 'city-tlv', gender: 'male' },
+        { id: 'p2', authorUid: 'u2', activityCredit: 20, authorityId: 'city-tlv', gender: 'female' },
+        { id: 'p3', authorUid: 'u3', activityCredit: 5,  authorityId: 'city-haifa', gender: 'male' },
+      ];
+      state.AUTHORITIES = { 'city-tlv': { name: 'תל אביב' }, 'city-haifa': { name: 'חיפה' } };
+
+      const maleResult = await getScopeCompetitionLeaderboard({ granularity: 'city', timeWindow: 'weekly', genderFilter: 'male' });
+
+      expect(maleResult.entries).toMatchObject([
+        { scopeId: 'city-tlv', totalScore: 10 },
+        { scopeId: 'city-haifa', totalScore: 5 },
+      ]);
+      // city-tlv's female-only post never counted — proves the where-clause applied, not a re-label.
+      expect(maleResult.entries.find((e) => e.scopeId === 'city-tlv')?.totalScore).not.toBe(30);
+    });
+
+    it('category + genderFilter compose together', async () => {
+      state.POSTS = [
+        { id: 'p1', authorUid: 'u1', activityCredit: 10, authorityId: 'city-tlv', activityCategory: 'strength', gender: 'male' },
+        { id: 'p2', authorUid: 'u2', activityCredit: 20, authorityId: 'city-tlv', activityCategory: 'strength', gender: 'female' },
+        { id: 'p3', authorUid: 'u3', activityCredit: 30, authorityId: 'city-tlv', activityCategory: 'cardio', gender: 'male' },
+      ];
+      state.AUTHORITIES = { 'city-tlv': { name: 'תל אביב' } };
+
+      const result = await getScopeCompetitionLeaderboard({
+        granularity: 'city', timeWindow: 'weekly', category: 'strength', genderFilter: 'male',
+      });
+
+      expect(result.entries).toMatchObject([{ scopeId: 'city-tlv', totalScore: 10 }]);
     });
   });
 });
