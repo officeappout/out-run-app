@@ -8,6 +8,7 @@ import { useIsForeground } from '@/lib/appForeground';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useUserStore } from '@/features/user';
 import { IS_GPS_IDLE_POLLING_ENABLED } from '@/config/feature-flags';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
 /**
  * Resolve where to place the user when a real GPS fix is unavailable. NO invented
@@ -48,6 +49,18 @@ const GPS_MIN_INTERVAL_MS = 500;
 // Minimum distance (metres) to move before accepting a new position update.
 // Filters out GPS jitter when the user is stationary.
 const GPS_MIN_DISTANCE_M = 3;
+
+// Mobile map default->jump fix, follow-up (18.08.2026): lastGPSPos.current
+// below is in-memory only — lost on cold launch, so MapShell had no way to
+// seed the map near the user's ACTUAL last position, only their onboarding-
+// time anchor (a coarser signal, often >300m from where someone really is).
+// Separate, much coarser throttle than GPS_MIN_INTERVAL_MS/GPS_MIN_DISTANCE_M
+// above — those gate REACT STATE updates; this gates a DURABLE WRITE (a real
+// native Preferences bridge call on-device), which only needs to be "roughly
+// where the user was last," not continuously fresh. Time-only (no distance
+// check) — simpler, and the existing 2Hz/3m state gate already means this
+// can fire at most every GPS_MIN_INTERVAL_MS regardless.
+const GPS_DURABLE_WRITE_MIN_INTERVAL_MS = 15000;
 
 // Idle-poll cadence (IS_GPS_IDLE_POLLING_ENABLED): while browsing with no
 // active workout, a one-shot getCurrentPosition replaces the continuous
@@ -137,6 +150,10 @@ export function useGPS(): GPSState {
   // GPS throttle state — shared between native and web paths
   const lastGPSTime = useRef<number>(0);
   const lastGPSPos = useRef<{ lat: number; lng: number } | null>(null);
+  // Separate throttle for the durable last-known-location write (see
+  // GPS_DURABLE_WRITE_MIN_INTERVAL_MS above) — deliberately independent of
+  // lastGPSTime, which the 2Hz state-update gate already owns.
+  const lastDurableWriteTime = useRef<number>(0);
 
   const isNative = Capacitor.isNativePlatform();
 
@@ -187,6 +204,13 @@ export function useGPS(): GPSState {
     if (prev && haversineMetres(prev.lat, prev.lng, newLat, newLng) < GPS_MIN_DISTANCE_M) return;
     lastGPSTime.current = now;
     lastGPSPos.current = { lat: newLat, lng: newLng };
+    // Durable persistence — see GPS_DURABLE_WRITE_MIN_INTERVAL_MS above for
+    // why this is throttled separately from the state update just above.
+    if (now - lastDurableWriteTime.current >= GPS_DURABLE_WRITE_MIN_INTERVAL_MS) {
+      lastDurableWriteTime.current = now;
+      setOnboardingPref('last_gps_lat', String(newLat));
+      setOnboardingPref('last_gps_lng', String(newLng));
+    }
     useGPSStore.getState()._setPermissionState('granted');
     setLocationError(null);
     setCurrentUserPos({ lat: newLat, lng: newLng, accuracy: coords.accuracy, altitude: coords.altitude ?? null });
