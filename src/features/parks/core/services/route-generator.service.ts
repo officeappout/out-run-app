@@ -2220,6 +2220,45 @@ const TIER2_MIN_SCORE = 3; // half the default 6
  * capped below 5 (N=3 has only 1 possible triangle at all) — those are
  * real limits of a 3-point pool, not a bug this fix can lift further.
  */
+/**
+ * Lever 2 (17.08.2026, David-approved after on-device judgment): minimum
+ * pairwise separation between two candidate waypoints, reusing getDistanceKm
+ * — no new distance math. Targets the "small square" self-crossing pattern
+ * specifically: two waypoints placed close together forces Mapbox into a
+ * tiny in-and-out detour between them, distinct from the LARGE
+ * self-intersections `pathSelfIntersects` (Lever 4) also catches downstream.
+ * Scaled to the pair's own average distance-from-user rather than a flat
+ * meters value (same proportional-threshold idiom as
+ * scoreWaypoint/selectAngularlyDiverseCandidates elsewhere in this file) so
+ * it doesn't over-constrain short targets (small radius) or
+ * under-constrain long ones.
+ *
+ * CALIBRATION HISTORY (live-tested before merge, per the "show me before
+ * merging" gate): the first-pass values (0.35 / 0.12km) were PROVEN
+ * counterproductive by direct live A/B on real Tel Aviv data — clean rate
+ * dropped to 0% (0/8) vs a ~25-33% baseline with the check disabled.
+ * Diagnosis: real candidate waypoints aren't evenly spread like the unit
+ * tests' synthetic fixtures, so an aggressive separation floor forces
+ * `buildTriangleCombinations`' already-tuned index-striding (see its own
+ * "periodicity fix" doc above) through many rejected offsets, landing on
+ * worse-positioned real candidates than an untouched attempt would have.
+ * Recalibrated down to these much gentler values — live-verified to
+ * recover to ~43% (6/14) on the same kind of sweep, a real but modest-
+ * sample improvement over baseline, not a dramatic one. This is a
+ * DEMONSTRATED-SAFE floor, not a fully-proven fix for the small-square
+ * pattern specifically — flag for recalibration if on-device review shows
+ * it's not pulling its weight.
+ */
+const MIN_SEPARATION_FACTOR = 0.15;
+const MIN_SEPARATION_FLOOR_KM = 0.05;
+
+export function waypointsTooClose(a: WaypointCandidate, b: WaypointCandidate): boolean {
+  const gapKm = getDistanceKm(a.lat, a.lng, b.lat, b.lng);
+  const avgRadiusKm = (a.distanceFromUser + b.distanceFromUser) / 2;
+  const minSeparationKm = Math.max(MIN_SEPARATION_FLOOR_KM, avgRadiusKm * MIN_SEPARATION_FACTOR);
+  return gapKm < minSeparationKm;
+}
+
 export function buildTriangleCombinations(
   topCandidates: WaypointCandidate[],
   baseOffset: number,
@@ -2228,9 +2267,12 @@ export function buildTriangleCombinations(
   const N = Math.max(1, topCandidates.length);
   const seenVertexSets = new Set<string>();
   const combinations: Array<{ waypoints: WaypointCandidate[]; score: number }> = [];
-  const MAX_COMBINATION_ATTEMPTS = 10;
+  // Bumped 5->6 (17.08.2026, Lever 3/"generate N and keep cleanest") —
+  // MAX_COMBINATION_ATTEMPTS kept at double the target, same margin as before.
+  const TARGET_COMBINATIONS = 6;
+  const MAX_COMBINATION_ATTEMPTS = 12;
 
-  for (let i = 0; i < MAX_COMBINATION_ATTEMPTS && combinations.length < 5; i++) {
+  for (let i = 0; i < MAX_COMBINATION_ATTEMPTS && combinations.length < TARGET_COMBINATIONS; i++) {
     const spanForAttempt = i % 2 === 0 ? legSpan : Math.max(1, legSpan + 1);
     const offset = (baseOffset + i) % N;
     const idx1 = offset;
@@ -2240,6 +2282,11 @@ export function buildTriangleCombinations(
     const wp2 = topCandidates[idx2];
     const wp3 = topCandidates[idx3];
     if (!wp1 || !wp2 || !wp3) continue;
+
+    // Lever 2: reject combinations whose waypoints are too close to each
+    // other — try the next offset/spacing instead, same retry idiom as the
+    // vertex-set dedup just below.
+    if (waypointsTooClose(wp1, wp2) || waypointsTooClose(wp2, wp3) || waypointsTooClose(wp1, wp3)) continue;
 
     const vertexKey = [idx1, idx2, idx3].sort((a, b) => a - b).join(',');
     if (seenVertexSets.has(vertexKey)) continue;
@@ -2344,17 +2391,16 @@ async function attemptRouteCombinations(
   let bestNearMissDelta = Infinity;
 
   // ✅ SEQUENTIAL PROCESSING - One at a time with delays (prevents 429 errors)
+  //
+  // Lever 3 (17.08.2026, David-approved): no early-exit on first-enough-clean
+  // anymore — every available combination (now up to 6, see
+  // buildTriangleCombinations) is tried, and the cleanest ones win at the
+  // end. This deliberately trades latency (more Mapbox calls per request)
+  // for a higher effective clean-rate than picking the first clean-enough
+  // single attempt — David's explicit call after on-device judgment that the
+  // single-shot ~25% clean rate wasn't good enough. See the clean-rate
+  // report this shipped with for the before/after numbers.
   for (let i = 0; i < combinations.length; i++) {
-    // Stop once we have enough CLEAN routes — latency-conscious early exit
-    // (don't try all 5 combinations every time). Never triggers on dirty
-    // candidates alone, so a run of self-intersecting attempts keeps trying
-    // further combinations in search of a clean one, up to the same
-    // combinations.length ceiling as before this change.
-    if (cleanCandidates.length >= maxRoutesNeeded) {
-      console.log(`[RouteGenerator] Got ${maxRoutesNeeded} clean route(s), stopping.`);
-      break;
-    }
-
     const combination = combinations[i];
     const [wp1, wp2, wp3] = combination.waypoints;
 
@@ -2369,10 +2415,16 @@ async function attemptRouteCombinations(
       .map(wp => ({ lat: wp.lat, lng: wp.lng }))
       .sort((a, b) => bearingFromUser(a) - bearingFromUser(b));
 
-    // Add fitness anchor if available (kept at index 1 — a must-visit gym; its slot
-    // in the sweep is not critical to loop convexity).
+    // Add fitness anchor if available — re-sorted alongside the 3 waypoints
+    // (17.08.2026 fix, confirming/hardening Change 2) rather than spliced at
+    // a fixed index 1: a fixed-index insert can land the anchor angularly
+    // out of order, breaking the monotonic bearing sweep Change 2 exists to
+    // guarantee and reintroducing exactly the self-crossing edge it was
+    // built to prevent. Still a must-visit gym — just correctly placed in
+    // the sweep instead of forced into a fixed slot.
     if (fitnessAnchor) {
-      waypointsToUse.splice(1, 0, { lat: fitnessAnchor.lat, lng: fitnessAnchor.lng });
+      waypointsToUse.push({ lat: fitnessAnchor.lat, lng: fitnessAnchor.lng });
+      waypointsToUse.sort((a, b) => bearingFromUser(a) - bearingFromUser(b));
     }
 
     console.log(`[RouteGenerator] Fetching route ${i + 1}/${combinations.length}...`);
@@ -2416,7 +2468,7 @@ async function attemptRouteCombinations(
         console.warn(`[RouteGenerator] Route ${i} REJECTED: only ${result?.path?.length || 0} points (need ${minPathPoints}+)`);
 
         // ✅ Wait before next attempt to avoid 429
-        if (i < combinations.length - 1 && cleanCandidates.length < maxRoutesNeeded) {
+        if (i < combinations.length - 1) {
           await delay(1500);
         }
         continue;
@@ -2505,7 +2557,7 @@ async function attemptRouteCombinations(
         }
 
         // ✅ Wait before next attempt to avoid 429
-        if (i < combinations.length - 1 && cleanCandidates.length < maxRoutesNeeded) {
+        if (i < combinations.length - 1) {
           await delay(1500);
         }
         continue;
@@ -2515,8 +2567,8 @@ async function attemptRouteCombinations(
       console.error(`[RouteGenerator] Error on route ${i}:`, err?.message || err);
     }
 
-    // ✅ CRITICAL: 1.5 second delay at the END of each iteration (except last or when we have enough clean routes)
-    if (i < combinations.length - 1 && cleanCandidates.length < maxRoutesNeeded) {
+    // ✅ CRITICAL: 1.5 second delay at the END of each iteration (except the last)
+    if (i < combinations.length - 1) {
       console.log('[RouteGenerator] Waiting 1.5s before next API call...');
       await delay(1500);
     }

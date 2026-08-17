@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreWaypoint, computeDistanceWindow, computeTightenedDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments, buildTriangleCombinations, isBetterNearMissCandidate } from '../route-generator.service';
+import { scoreWaypoint, computeDistanceWindow, computeTightenedDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments, buildTriangleCombinations, isBetterNearMissCandidate, waypointsTooClose } from '../route-generator.service';
 
 const USER = { lat: 0, lng: 0 };
 // ~0.267km east of user (route-stops' targetKm=1.6 / 6 calibration) and ~1.0km east.
@@ -604,21 +604,21 @@ describe('buildTriangleCombinations — periodicity fix (14.08.2026, fixes live 
   const vertexSetsOf = (combos: ReturnType<typeof buildTriangleCombinations>, candidates: ReturnType<typeof buildCandidates>) =>
     combos.map((c) => c.waypoints.map((wp) => candidates.indexOf(wp)).sort((a, b) => a - b).join(','));
 
-  it('CRITICAL — N=12 (the requested max, the common real-world case) yields 5 genuinely distinct triangles, not 2', () => {
+  it('CRITICAL — N=12 (the requested max, the common real-world case) yields 6 genuinely distinct triangles, not 2', () => {
     const candidates = buildCandidates(12);
     const combos = buildTriangleCombinations(candidates, 0);
     const sets = vertexSetsOf(combos, candidates);
-    expect(combos.length).toBe(5);
-    expect(new Set(sets).size).toBe(5); // proves the old 2-distinct-shapes bug is fixed
+    expect(combos.length).toBe(6);
+    expect(new Set(sets).size).toBe(6); // proves the old 2-distinct-shapes bug is fixed
   });
 
-  it('N=12 reaches 5 distinct triangles for every possible baseOffset, not just 0', () => {
+  it('N=12 reaches 6 distinct triangles for every possible baseOffset, not just 0', () => {
     const candidates = buildCandidates(12);
     for (let base = 0; base < 12; base++) {
       const combos = buildTriangleCombinations(candidates, base);
       const sets = vertexSetsOf(combos, candidates);
       expect(new Set(sets).size).toBe(combos.length); // no duplicates, whatever the count
-      expect(combos.length).toBe(5);
+      expect(combos.length).toBe(6);
     }
   });
 
@@ -648,5 +648,47 @@ describe('buildTriangleCombinations — periodicity fix (14.08.2026, fixes live 
 
   it('empty candidates return no combinations, not a crash', () => {
     expect(buildTriangleCombinations([], 0)).toEqual([]);
+  });
+});
+
+describe('waypointsTooClose — Lever 2, minimum pairwise separation (17.08.2026)', () => {
+  it('flags two candidates well under the separation floor at a shared radius', () => {
+    // 5 deg apart at 1.0km radius -> ~0.087km chord, well under the
+    // max(0.05, 1.0*0.15)=0.15km threshold.
+    const a = scoreWaypoint(wpAtBearing(1.0, 200), USER, [], { includeStrength: false });
+    const b = scoreWaypoint(wpAtBearing(1.0, 205), USER, [], { includeStrength: false });
+    expect(waypointsTooClose(a, b)).toBe(true);
+  });
+
+  it('does not flag two candidates comfortably spread at the same radius', () => {
+    // 120 deg apart at 1.0km -> ~1.73km chord, far past the 0.15km threshold.
+    const a = scoreWaypoint(wpAtBearing(1.0, 0), USER, [], { includeStrength: false });
+    const b = scoreWaypoint(wpAtBearing(1.0, 120), USER, [], { includeStrength: false });
+    expect(waypointsTooClose(a, b)).toBe(false);
+  });
+
+  it('scales the threshold down for a small target radius (short-route mode) instead of using a flat meters value', () => {
+    // At 0.1km radius, the proportional threshold (0.15*0.1=0.015km) is
+    // below the 0.05km floor, so the floor governs — a real, if small, gap
+    // still required.
+    const a = scoreWaypoint(wpAtBearing(0.1, 0), USER, [], { includeStrength: false });
+    const b = scoreWaypoint(wpAtBearing(0.1, 10), USER, [], { includeStrength: false }); // ~0.0175km chord
+    expect(waypointsTooClose(a, b)).toBe(true); // under the 0.05km floor
+  });
+
+  it('buildTriangleCombinations rejects a triangle whose only possible vertex pair is too close (N=3)', () => {
+    const tooCloseA = scoreWaypoint(wpAtBearing(1.0, 0), USER, [], { includeStrength: false });
+    const tooCloseB = scoreWaypoint(wpAtBearing(1.0, 3), USER, [], { includeStrength: false }); // ~0.052km chord
+    const far = scoreWaypoint(wpAtBearing(1.0, 180), USER, [], { includeStrength: false });
+    const combos = buildTriangleCombinations([tooCloseA, tooCloseB, far], 0);
+    expect(combos.length).toBe(0); // the only possible triangle includes the too-close pair
+  });
+
+  it('buildTriangleCombinations accepts the same shape once all 3 vertices are properly spread (N=3)', () => {
+    const a = scoreWaypoint(wpAtBearing(1.0, 0), USER, [], { includeStrength: false });
+    const b = scoreWaypoint(wpAtBearing(1.0, 120), USER, [], { includeStrength: false });
+    const c = scoreWaypoint(wpAtBearing(1.0, 240), USER, [], { includeStrength: false });
+    const combos = buildTriangleCombinations([a, b, c], 0);
+    expect(combos.length).toBe(1);
   });
 });
