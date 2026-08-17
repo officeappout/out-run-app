@@ -588,6 +588,15 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     // branches full-program (→ HEALTH_DECLARATION) vs JIT/MAP_ONLY
     // (→ wizard's own next step) — this was previously bypassed entirely.
     setMajorRoadmapStep(2);
+
+    // Fire any still-debounced city/neighborhood write immediately instead
+    // of leaving it to its debounce window — this component is about to
+    // unmount via onNext(), and there's no reason to add that delay when
+    // the user just gave a deliberate, final confirmation. Not awaited —
+    // failure surfaces via the global OnboardingSyncErrorToast regardless
+    // of which screen is mounted by the time it resolves.
+    useOnboardingStore.getState().flushPendingSync().catch(() => {});
+
     onNext();
   };
 
