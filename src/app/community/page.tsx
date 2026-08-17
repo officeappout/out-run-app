@@ -233,11 +233,23 @@ export default function CommunityPage() {
   // ── Individual vs group competition toggle ────────────────────────────────
   const [competitionMode, setCompetitionMode] = useState<'individual' | 'group'>('individual');
 
-  // ── Stage C: Groups-tab axis chooser (City segment only for this pass —
-  // matches Stage F's City-only wiring scope). 'פלוגות' stays out (Stage G —
-  // needs the leaderboard_shards data source, not feed_posts).
+  // ── Groups-tab axis chooser. 'פלוגות' stays out (Stage G — needs the
+  // leaderboard_shards data source, not feed_posts).
+  //
+  // 16.08.2026 IA fix: "ערים" (city-vs-city) moved from City→Groups to
+  // Global→Groups. It was never actually city-scoped —
+  // getScopeCompetitionLeaderboard({granularity:'city'}) has no scope
+  // filter, it's a nationwide ranking — so nesting it three taps under "my
+  // city" was misleading. City→Groups now offers only שכונות + קבוצות,
+  // both genuinely scoped to the selected city. Global→Groups gained an
+  // axis chooser of its own (ערים / קבוצות) where it didn't have one before.
+  // Two separate state variables (not one shared axis) because the two
+  // segments now offer different option sets — a stale 'city' value left
+  // over from Global shouldn't be silently reinterpreted when the user
+  // switches to City.
   type GroupAxis = 'city' | 'neighborhood' | 'group';
-  const [groupAxis, setGroupAxis] = useState<GroupAxis>('city');
+  const [cityGroupAxis, setCityGroupAxis] = useState<GroupAxis>('group');
+  const [globalGroupAxis, setGlobalGroupAxis] = useState<GroupAxis>('city');
   const [axisMenuOpen, setAxisMenuOpen] = useState(false);
   const [leagueFilterSheetOpen, setLeagueFilterSheetOpen] = useState(false);
   const AXIS_LABEL: Record<GroupAxis, string> = { city: 'ערים', neighborhood: 'שכונות', group: 'קבוצות' };
@@ -260,7 +272,8 @@ export default function CommunityPage() {
   // Reset to individual whenever the active league card changes.
   useEffect(() => {
     setCompetitionMode('individual');
-    setGroupAxis('city');
+    setCityGroupAxis('group');
+    setGlobalGroupAxis('city');
   }, [selectedLeague]);
 
   // ── Feed-only state ──────────────────────────────────────────────────────
@@ -1116,11 +1129,11 @@ export default function CommunityPage() {
     );
   }
 
-  // ── Stage C: axis chooser for the Groups tab (City segment only). Pure UI
-  // switch between 3 already-working engines — no new backend here.
-
-  function renderGroupAxisChooser() {
-    const AXIS_OPTIONS: GroupAxis[] = ['city', 'neighborhood', 'group'];
+  // ── Axis chooser for the Groups tab. Reused by both City (שכונות/קבוצות)
+  // and Global (ערים/קבוצות) — each passes its own state + option set, since
+  // the two segments now offer different axes (see the 16.08.2026 IA-fix
+  // note above cityGroupAxis/globalGroupAxis).
+  function renderGroupAxisChooser(axis: GroupAxis, setAxis: (a: GroupAxis) => void, options: GroupAxis[]) {
     return (
       <div className="flex items-center gap-2 mb-3" dir="rtl">
         <div className="relative flex-1">
@@ -1137,10 +1150,10 @@ export default function CommunityPage() {
           >
             <div className="text-right">
               <span className="text-sm font-black text-gray-900">
-                בין {AXIS_LABEL[groupAxis]}
+                בין {AXIS_LABEL[axis]}
               </span>
               <p className="text-[11px] text-gray-500 mt-0.5">
-                {groupAxis === 'neighborhood' && access.cityName ? `ב${access.cityName} · ` : ''}
+                {axis === 'neighborhood' && access.cityName ? `ב${access.cityName} · ` : ''}
                 לחץ להחלפת ציר
               </p>
             </div>
@@ -1152,18 +1165,18 @@ export default function CommunityPage() {
               role="listbox"
               className="absolute z-20 top-full mt-1 w-full rounded-2xl bg-white border border-gray-100 shadow-lg overflow-hidden"
             >
-              {AXIS_OPTIONS.map((axis) => (
+              {options.map((opt) => (
                 <button
-                  key={axis}
+                  key={opt}
                   type="button"
                   role="option"
-                  aria-selected={groupAxis === axis}
-                  onClick={() => { setGroupAxis(axis); setAxisMenuOpen(false); }}
+                  aria-selected={axis === opt}
+                  onClick={() => { setAxis(opt); setAxisMenuOpen(false); }}
                   className={`w-full text-right px-4 py-3 text-sm font-bold transition-colors ${
-                    groupAxis === axis ? 'text-[#10B981] bg-[#EAF9F3]' : 'text-gray-700 hover:bg-gray-50'
+                    axis === opt ? 'text-[#10B981] bg-[#EAF9F3]' : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  {AXIS_LABEL[axis]}
+                  {AXIS_LABEL[opt]}
                 </button>
               ))}
             </div>
@@ -1311,11 +1324,39 @@ export default function CommunityPage() {
             onMyModeChange={handleMyModeChange}
           />
         ) : (
-          <GroupLeaderboard
-            scope="global"
-            scopeId={null}
-            timeWindow={leaderboardTimeWindow}
-          />
+          <>
+            {/* 16.08.2026 IA fix: ערים (city-vs-city, always nationwide —
+                see the note above cityGroupAxis) now lives here instead of
+                nested under "ליגת העיר", where it was misleading. */}
+            {renderGroupAxisChooser(globalGroupAxis, setGlobalGroupAxis, ['city', 'group'])}
+            {globalGroupAxis === 'city' && (
+              <>
+                {renderScopeContribution('העיר שלך')}
+                <ScopeBattleCard
+                  granularity="city"
+                  timeWindow={leaderboardTimeWindow}
+                  myScopeId={authority?.id ?? null}
+                  category={leaderboardCategory}
+                  genderFilter={leaderboardGender}
+                  onMyScopeEntryChange={setActiveScopeEntry}
+                />
+                <ScopeCompetitionLeaderboard
+                  granularity="city"
+                  timeWindow={leaderboardTimeWindow}
+                  category={leaderboardCategory}
+                  genderFilter={leaderboardGender}
+                />
+              </>
+            )}
+            {globalGroupAxis === 'group' && (
+              <GroupLeaderboard
+                scope="global"
+                scopeId={null}
+                timeWindow={leaderboardTimeWindow}
+                genderFilter={leaderboardGender}
+              />
+            )}
+          </>
         )}
       </div>
     );
@@ -1375,27 +1416,8 @@ export default function CommunityPage() {
               />
             ) : (
               <>
-                {renderGroupAxisChooser()}
-                {groupAxis === 'city' && (
-                  <>
-                    {renderScopeContribution('העיר שלך')}
-                    <ScopeBattleCard
-                      granularity="city"
-                      timeWindow={leaderboardTimeWindow}
-                      myScopeId={authority.id}
-                      category={leaderboardCategory}
-                      genderFilter={leaderboardGender}
-                      onMyScopeEntryChange={setActiveScopeEntry}
-                    />
-                    <ScopeCompetitionLeaderboard
-                      granularity="city"
-                      timeWindow={leaderboardTimeWindow}
-                      category={leaderboardCategory}
-                      genderFilter={leaderboardGender}
-                    />
-                  </>
-                )}
-                {groupAxis === 'neighborhood' && (
+                {renderGroupAxisChooser(cityGroupAxis, setCityGroupAxis, ['neighborhood', 'group'])}
+                {cityGroupAxis === 'neighborhood' && (
                   <>
                     {renderScopeContribution('השכונה שלך')}
                     <ScopeBattleCard
@@ -1417,7 +1439,7 @@ export default function CommunityPage() {
                     {renderNeighborhoodInviteCTA()}
                   </>
                 )}
-                {groupAxis === 'group' && (
+                {cityGroupAxis === 'group' && (
                   <GroupLeaderboard
                     scope="city"
                     scopeId={authority.id}

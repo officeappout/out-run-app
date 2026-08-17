@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, UserPlus } from 'lucide-react';
 import {
   getScopeCompetitionLeaderboard,
   type ScopeCompetitionResult,
@@ -89,7 +89,34 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
   }, [myIndex, entries.length, granularity, timeWindow]);
 
   if (!myScopeId || isLoading) return null;
-  if (!myEntry || entries.length < 2) return null; // no "you" to anchor to, or nobody to battle
+  if (!myEntry) return null; // no "you" to anchor a battle to (zero activity this window)
+
+  // 16.08.2026 design review: friendly empty state instead of silently
+  // rendering nothing — you exist in the ranking, but there's no second
+  // entity yet to battle against (a near-empty board, expected while the
+  // user base is small).
+  if (entries.length < 2) {
+    const handleInvite = () => {
+      const text = `בוא תצטרף אליי ב${myEntry.scopeName} על Out! 🔥`;
+      if (navigator.share) navigator.share({ text }).catch(() => {});
+      else if (navigator.clipboard) navigator.clipboard.writeText(text);
+    };
+    return (
+      <div className="rounded-2xl bg-white p-4 mb-3 text-center" style={{ border: '0.5px solid #E5E7EB' }} dir="rtl">
+        <span className="text-sm font-black text-gray-900">🔥 קרב השבוע</span>
+        <p className="text-xs text-gray-500 mt-2">עדיין אין יריב ל{myEntry.scopeName}</p>
+        <button
+          type="button"
+          onClick={handleInvite}
+          className="mt-3 mx-auto flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-xs font-black active:scale-95 transition-transform"
+          style={{ background: 'linear-gradient(90deg, #00ADEF, #00dcd0)' }}
+        >
+          <UserPlus className="w-3.5 h-3.5" />
+          הזמן חברים
+        </button>
+      </div>
+    );
+  }
 
   const opponent = entries.find((e) => e.scopeId === opponentScopeId) ?? null;
   if (!opponent) return null;
