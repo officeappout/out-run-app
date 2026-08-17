@@ -33,14 +33,6 @@ import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
 import { useMapStore } from '../store/useMapStore';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 
-// Mobile map default->jump fix (18.08.2026): MapShell now seeds initialCenter
-// from a durable last-known-location cache (map_anchor_lat/lng), so the map
-// usually already opens near the real GPS fix by the time it resolves. When
-// the two are already this close, an animated flyTo is pure motion with
-// nothing meaningful to show for it — jump straight there instead. Named,
-// tunable — not a magic number.
-const INITIAL_ZOOM_INSTANT_THRESHOLD_METERS = 300;
-
 export type CameraOwner = 'user' | 'follow' | 'preview';
 
 export interface CameraControllerParams {
@@ -260,6 +252,10 @@ export function useCameraController(params: CameraControllerParams): CameraContr
 
   const ownerRef = useRef<CameraOwner>('preview');
   const hasInitialZoomed = useRef(false);
+  // True once the initial dive has locked onto a real GPS fix — either it
+  // was already known at kickoff, or the one-time retarget below has fired.
+  // Guards that retarget to happen at most once per mount.
+  const hasRetargetedInitialZoom = useRef(false);
   const prevSimActive = useRef(false);
   const rawMapRef = useRef<mapboxgl.Map | null>(null);
 
@@ -908,46 +904,69 @@ export function useCameraController(params: CameraControllerParams): CameraContr
         }
       }
 
-      // Initial zoom — flat overview, NO angle. Uses isFiniteLatLng so a
-      // GPS sample of `{lat: NaN, lng: NaN}` (desktop / pre-fix) is
-      // rejected before reaching Mapbox.
+      // Initial "dive" — flat overview, NO angle. Round 6 (18.08.2026):
+      // fires immediately on mount, no longer gated on GPS being ready, so
+      // there is ALWAYS exactly one felt entrance animation — never a
+      // static sit (rounds 4-5's isAlreadyClose/duration:0 no-op is exactly
+      // what made an accurate seed read as "stuck"; removed). Targets
+      // currentLocation if already resolved; otherwise targets wherever the
+      // map is already centered (the seeded position), so a GPS-pending
+      // entry still gets a real zoom-in dive (13/14→15) instead of silence.
+      // If GPS wasn't ready at kickoff, the retarget block right below
+      // smoothly redirects THIS SAME dive the instant a real fix lands —
+      // Mapbox eases from the camera's current (in-flight or already-
+      // settled) position, so it never reads as a hard snap or a second,
+      // disconnected animation.
       if (
         !skipInitialZoom &&
         !hasInitialZoomed.current &&
-        isFiniteLatLng(currentLocation) &&
         !focusedRoute &&
         !isActiveWorkout &&
         !destinationMarker
       ) {
         hasInitialZoomed.current = true;
+        const gpsAlreadyKnown = isFiniteLatLng(currentLocation);
+        // Already precise at kickoff — no retarget needed later.
+        hasRetargetedInitialZoom.current = gpsAlreadyKnown;
         try {
-          // Distance from wherever the map is ACTUALLY centered right now
-          // (the seeded initialCenter, or the hardcoded fallback if seeding
-          // found nothing) to the just-resolved real fix — read live via
-          // getCenter() rather than threading initialCenter through as a
-          // new prop, so this stays a self-contained, minimal change.
-          const seededCenter = m.getCenter();
-          const distanceFromSeededMeters = haversineMeters(
-            seededCenter.lat, seededCenter.lng, currentLocation.lat, currentLocation.lng,
-          );
-          const isAlreadyClose = distanceFromSeededMeters <= INITIAL_ZOOM_INSTANT_THRESHOLD_METERS;
+          const target = gpsAlreadyKnown ? currentLocation : m.getCenter();
           if (process.env.NODE_ENV !== 'production') {
-            console.log(`[Cam] initial-zoom (flat) — ${distanceFromSeededMeters.toFixed(0)}m from seeded center, ${isAlreadyClose ? 'instant' : 'animated'}`);
+            console.log(`[Cam] initial dive — ${gpsAlreadyKnown ? 'real GPS fix' : 'seeded center (GPS pending)'}`);
           }
-          // When already close, this flyTo must be a true no-op visually —
-          // not just an instant center snap. AppMap's initialViewState seeds
-          // zoom 14 (or 13, unseeded fallback); targeting zoom 15 here
-          // unconditionally caused a visible zoom-in even on the duration:0
-          // path. Preserve the map's current zoom in that case; the animated
-          // (genuinely-far) correction path keeps its original zoom:15 —
-          // that's an intentional "found you" zoom-in, not a bug.
           m.flyTo({
-            center: [currentLocation.lng, currentLocation.lat],
-            zoom: isAlreadyClose ? m.getZoom() : 15, pitch: 0,
-            duration: isAlreadyClose ? 0 : 2000, essential: true,
+            center: [target.lng, target.lat],
+            zoom: 15, pitch: 0,
+            duration: 2000, essential: true,
           });
         } catch (err) {
-          console.error('[Cam] initial-zoom flyTo threw — ignored.', err);
+          console.error('[Cam] initial dive flyTo threw — ignored.', err);
+        }
+      }
+
+      // One-time retarget: the initial dive above kicked off before GPS was
+      // ready (targeting the seed) — redirect it the instant a real fix
+      // lands, rather than leaving the camera settled on the coarser seed
+      // forever. Mapbox's flyTo natively eases from wherever the camera
+      // currently is (mid-flight or already-settled) when called again, so
+      // this reads as one continuous dive, never a jarring second motion.
+      if (
+        hasInitialZoomed.current &&
+        !hasRetargetedInitialZoom.current &&
+        isFiniteLatLng(currentLocation) &&
+        !focusedRoute &&
+        !isActiveWorkout &&
+        !destinationMarker
+      ) {
+        hasRetargetedInitialZoom.current = true;
+        try {
+          if (process.env.NODE_ENV !== 'production') console.log('[Cam] initial dive — retargeting to real GPS fix');
+          m.flyTo({
+            center: [currentLocation.lng, currentLocation.lat],
+            zoom: 15, pitch: 0,
+            duration: 1000, essential: true,
+          });
+        } catch (err) {
+          console.error('[Cam] initial dive retarget flyTo threw — ignored.', err);
         }
       }
       }
