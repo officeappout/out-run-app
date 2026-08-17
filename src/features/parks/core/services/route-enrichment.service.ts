@@ -44,6 +44,11 @@ export interface ClimbJoinInput {
   path: [number, number][];
   type: 'terrain' | 'structure' | 'stairs';
   climbType: ClimbType;
+  /** Denormalized straight into RouteTerrainFeatureRef on a match — see that
+   *  type's doc comment (route.types.ts). null for stairs, mirroring
+   *  ClimbSegment.avgGrade/maxGrade's own nullability. */
+  avgGrade: number | null;
+  maxGrade: number | null;
 }
 
 export interface ClimbRouteAssociation {
@@ -138,6 +143,8 @@ export function buildEnrichmentWritesFromAssociations(
         type: climb.type,
         climbType: climb.climbType,
         distanceFromPathMeters: assoc.distanceMeters,
+        avgGrade: climb.avgGrade,
+        maxGrade: climb.maxGrade,
       });
     } else {
       climbEntry.streetSegmentIds.push(assoc.targetId);

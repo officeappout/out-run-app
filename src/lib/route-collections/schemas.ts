@@ -54,6 +54,10 @@ const RouteFieldsSchema = z.object({
     type: z.enum(['terrain', 'structure', 'stairs']),
     climbType: z.enum(['short-sharp', 'repeats', 'long-gentle', 'structure-ramp', 'stairs']),
     distanceFromPathMeters: z.number(),
+    /** Percent grade, denormalized from the joined climb_segment — null for
+     *  stairs, mirroring ClimbSegment.avgGrade/maxGrade. */
+    avgGrade: z.number().nullable(),
+    maxGrade: z.number().nullable(),
   })).optional(),
   // Required on CREATE (hard rule 1) — see RouteCreateSchema/RouteUpdateSchema
   // below for how create vs. update enforce this differently.

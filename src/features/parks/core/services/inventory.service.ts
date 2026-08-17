@@ -325,7 +325,7 @@ export async function recomputeRouteEnrichmentForCity(
         const climbsSnap = await getDocs(
             query(collection(db, 'climb_segments'), where('city', '==', cityName), where('status', '==', 'published')),
         );
-        interface ClimbRow { id: string; path: [number, number][]; type: 'terrain' | 'structure' | 'stairs'; climbType: string; center?: { lat: number; lng: number }; authorityId?: string; existingCity?: string }
+        interface ClimbRow { id: string; path: [number, number][]; type: 'terrain' | 'structure' | 'stairs'; climbType: string; avgGrade: number | null; maxGrade: number | null; center?: { lat: number; lng: number }; authorityId?: string; existingCity?: string }
         const climbs: ClimbRow[] = [];
         let climbsSkippedNoAuthority = 0;
         for (const d of climbsSnap.docs) {
@@ -336,7 +336,11 @@ export async function recomputeRouteEnrichmentForCity(
                 ? rawGeometry.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number])
                 : data.center ? [[Number(data.center.lng) || 0, Number(data.center.lat) || 0] as [number, number]] : [];
             if (path.length === 0) continue;
-            climbs.push({ id: d.id, path, type: data.type, climbType: data.climbType, center: data.center, authorityId: data.authorityId, existingCity: data.city });
+            climbs.push({
+                id: d.id, path, type: data.type, climbType: data.climbType,
+                avgGrade: data.avgGrade ?? null, maxGrade: data.maxGrade ?? null,
+                center: data.center, authorityId: data.authorityId, existingCity: data.city,
+            });
         }
 
         // ── official_routes: published + city-scoped — identical filter to
@@ -355,7 +359,7 @@ export async function recomputeRouteEnrichmentForCity(
             routes.push({ id: d.id, path, authorityId: data.authorityId, existingCity: data.city });
         }
 
-        const climbJoinInputs = climbs.map((c) => ({ id: c.id, path: c.path, type: c.type, climbType: c.climbType as any }));
+        const climbJoinInputs = climbs.map((c) => ({ id: c.id, path: c.path, type: c.type, climbType: c.climbType as any, avgGrade: c.avgGrade, maxGrade: c.maxGrade }));
 
         // ── Routes side: full cross-product — TLV scale (~180 climbs × a few
         // dozen routes) makes geohash prefiltering unnecessary here (same
@@ -395,7 +399,7 @@ export async function recomputeRouteEnrichmentForCity(
                     candidates.push({ id: d.id, path });
                 }
             }
-            const climbInput = { id: climb.id, path: climb.path, type: climb.type, climbType: climb.climbType as any };
+            const climbInput = { id: climb.id, path: climb.path, type: climb.type, climbType: climb.climbType as any, avgGrade: climb.avgGrade, maxGrade: climb.maxGrade };
             segmentAssociations.push(...findNearestAssociations(climbInput, candidates, 'segment', CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS));
         }
 

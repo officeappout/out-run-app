@@ -92,7 +92,7 @@ async function main() {
   const climbsSnap = await db.collection('climb_segments').where('city', '==', TLV_CITY).where('status', '==', 'published').get();
   console.log(`   ${climbsSnap.size} published TLV climb(s) total.`);
 
-  interface ClimbRow { id: string; path: [number, number][]; type: 'terrain' | 'structure' | 'stairs'; climbType: string; center?: { lat: number; lng: number }; authorityId?: string; city?: string }
+  interface ClimbRow { id: string; path: [number, number][]; type: 'terrain' | 'structure' | 'stairs'; climbType: string; avgGrade: number | null; maxGrade: number | null; center?: { lat: number; lng: number }; authorityId?: string; city?: string }
   const climbs: ClimbRow[] = [];
   let climbsSkippedNoAuthority = 0, climbsSkippedNoGeometry = 0;
   for (const d of climbsSnap.docs) {
@@ -103,7 +103,11 @@ async function main() {
       ? rawGeometry.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number])
       : data.center ? [[Number(data.center.lng) || 0, Number(data.center.lat) || 0] as [number, number]] : [];
     if (path.length === 0) { climbsSkippedNoGeometry++; continue; }
-    climbs.push({ id: d.id, path, type: data.type, climbType: data.climbType, center: data.center, authorityId: data.authorityId, city: data.city });
+    climbs.push({
+      id: d.id, path, type: data.type, climbType: data.climbType,
+      avgGrade: data.avgGrade ?? null, maxGrade: data.maxGrade ?? null,
+      center: data.center, authorityId: data.authorityId, city: data.city,
+    });
   }
   console.log(`   ${climbs.length} eligible after filtering (${climbsSkippedNoAuthority} skipped: no authorityId; ${climbsSkippedNoGeometry} skipped: no usable geometry).`);
 
@@ -120,7 +124,7 @@ async function main() {
   }
   console.log(`   ${routes.length} published TLV route(s) with usable geometry.`);
 
-  const climbJoinInputs = climbs.map((c) => ({ id: c.id, path: c.path, type: c.type, climbType: c.climbType as any }));
+  const climbJoinInputs = climbs.map((c) => ({ id: c.id, path: c.path, type: c.type, climbType: c.climbType as any, avgGrade: c.avgGrade, maxGrade: c.maxGrade }));
 
   console.log(`\n🔍 Routes side: full cross-product (${climbs.length} climbs × ${routes.length} routes)...`);
   const routeAssociations = computeClimbRouteAssociations(climbJoinInputs, routes, CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS);
@@ -151,7 +155,7 @@ async function main() {
         candidates.push({ id: d.id, path });
       }
     }
-    const climbInput = { id: climb.id, path: climb.path, type: climb.type, climbType: climb.climbType as any };
+    const climbInput = { id: climb.id, path: climb.path, type: climb.type, climbType: climb.climbType as any, avgGrade: climb.avgGrade, maxGrade: climb.maxGrade };
     segmentAssociations.push(...findNearestAssociations(climbInput, candidates, 'segment', CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS));
   }
   console.log(`   ${segmentDocsFetchedTotal} street_segments doc(s) fetched across all geohash boxes (with dedupe). ${segmentAssociations.length} pairing(s) found within ${CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS}m.`);
@@ -167,7 +171,9 @@ async function main() {
     console.log('  (none found)');
   } else {
     for (const a of allAssociations) {
-      console.log(`  climb=${a.climbId}  →  ${a.targetType}=${a.targetId}  distance=${a.distanceMeters.toFixed(1)}m`);
+      const climb = climbsById.get(a.climbId);
+      const gradeStr = climb?.avgGrade != null ? `avgGrade=${climb.avgGrade}% maxGrade=${climb.maxGrade}%` : 'grade=n/a (stairs)';
+      console.log(`  climb=${a.climbId} (${gradeStr})  →  ${a.targetType}=${a.targetId}  distance=${a.distanceMeters.toFixed(1)}m`);
     }
   }
 

@@ -14,6 +14,8 @@ const climbNearRoute: ClimbJoinInput = {
   path: [[34.77 + 0.0001, 32.05]], // ~10m east of routeA's only point
   type: 'terrain',
   climbType: 'short-sharp',
+  avgGrade: 8.5,
+  maxGrade: 12,
 };
 
 const climbFarFromRoute: ClimbJoinInput = {
@@ -21,6 +23,8 @@ const climbFarFromRoute: ClimbJoinInput = {
   path: [[34.77, 32.05 + 2 / KM_PER_DEGREE]], // ~2km north
   type: 'stairs',
   climbType: 'stairs',
+  avgGrade: null, // stairs — grade isn't the relevant metric, mirrors ClimbSegment
+  maxGrade: null,
 };
 
 const routeA = { id: 'route-a', path: [[34.77, 32.05]] as [number, number][] };
@@ -82,9 +86,15 @@ describe('buildEnrichmentWritesFromAssociations', () => {
 
     expect(climbUpdates.get('climb-1')).toEqual({ routeIds: ['route-a'], streetSegmentIds: [] });
     expect(routeUpdates.get('route-a')).toEqual([
-      { climbSegmentId: 'climb-1', type: 'terrain', climbType: 'short-sharp', distanceFromPathMeters: 12.3 },
+      { climbSegmentId: 'climb-1', type: 'terrain', climbType: 'short-sharp', distanceFromPathMeters: 12.3, avgGrade: 8.5, maxGrade: 12 },
     ]);
     expect(segmentUpdates.size).toBe(0);
+  });
+
+  it('carries a null avgGrade/maxGrade through for a stairs climb (no false grade claim)', () => {
+    const associations = [{ climbId: 'climb-2', targetId: 'route-a', targetType: 'route' as const, distanceMeters: 3 }];
+    const { routeUpdates } = buildEnrichmentWritesFromAssociations(associations, climbsById);
+    expect(routeUpdates.get('route-a')?.[0]).toMatchObject({ avgGrade: null, maxGrade: null });
   });
 
   it('groups a segment association into climbUpdates.streetSegmentIds and segmentUpdates', () => {

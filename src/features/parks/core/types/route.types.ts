@@ -296,12 +296,24 @@ export const ALL_ROUTE_FEATURE_TAGS = Object.keys(
  * as-is by route-enrichment.service.ts), not a true point-to-segment
  * distance — same approximation the shipped corridor-adjacency engine
  * already relies on at its own (much larger) threshold.
+ *
+ * `avgGrade`/`maxGrade` are denormalized straight from the joined
+ * `ClimbSegment` (percent — the running/cycling standard unit; a degrees
+ * conversion is display-only if ever wanted, never stored) so a route can
+ * report each climb's steepness directly ("12% climb at ~km 2") without a
+ * second `climb_segments` fetch. `null` for stairs, mirroring
+ * `ClimbSegment.avgGrade`/`maxGrade`'s own nullability — grade isn't the
+ * relevant metric there. Composes with, and is deliberately distinct from,
+ * `Route.elevationGain`/`maxGrade` (Stage 1A): those are the route's OWN
+ * overall hardness; these are per-climb detail about a nearby feature.
  */
 export interface RouteTerrainFeatureRef {
   climbSegmentId: string;
   type: 'terrain' | 'structure' | 'stairs';
   climbType: ClimbType;
   distanceFromPathMeters: number;
+  avgGrade: number | null;
+  maxGrade: number | null;
 }
 
 export interface Route {
