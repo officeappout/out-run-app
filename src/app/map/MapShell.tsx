@@ -261,26 +261,32 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   // genuinely first-ever launch (no GPS history yet) still gets the brief
   // GPS wait — the one real flyTo there stays hidden behind the skeleton.
   //
-  // Round 7 (18.08.2026): last_gps_lat/lng alone isn't enough to trust as an
-  // "accurate" seed — it's whatever fix was last durably written, which
-  // could be hours or days old (last time the app was used, possibly
-  // somewhere else entirely). Gated by GPS_SEED_STALENESS_THRESHOLD_MS
-  // against last_gps_at: only this-tier-fresh counts as accurate; stale (or
-  // unknown-age — last_gps_at missing, e.g. a value durably written before
-  // this field existed) falls through to the coarser anchor tiers instead
-  // of risking a seed at a location the user has since left.
+  // Round 7 (18.08.2026): a SEPARATE, independent `isSeedFresh` signal for
+  // the location marker's own trust bar — deliberately NOT folded into
+  // hasAccurateLocationSeed above, which the camera (via initialCenter /
+  // AppMap's skeleton-reveal timing) also consumes and which must stay
+  // age-agnostic (round 6, 428f161a: the camera intentionally seeds from
+  // last_gps of ANY age — a stale seed is still a fine place to START the
+  // dive from, since the dive+retarget mechanism corrects it regardless).
+  // Marker trust is a different bar: showing the user's own avatar at a
+  // location is a factual claim, not just an animation starting point, so
+  // it additionally requires the seed to be recent — GPS_SEED_STALENESS_
+  // THRESHOLD_MS against last_gps_at. Unknown age (last_gps_at missing, a
+  // value durably written before this field existed) is never trusted.
+  // initialMapCenter/hasAccurateLocationSeed's own tier logic is otherwise
+  // untouched from round 6 — same tiers, same age-agnostic last_gps check.
+  let isSeedFresh = false;
   const { initialMapCenter, hasAccurateLocationSeed } = (() => {
     const lastGpsLat = getOnboardingPref('last_gps_lat');
     const lastGpsLng = getOnboardingPref('last_gps_lng');
     if (lastGpsLat && lastGpsLng) {
       const lastGpsAt = getOnboardingPref('last_gps_at');
       const ageMs = lastGpsAt ? Date.now() - parseFloat(lastGpsAt) : Infinity;
-      if (ageMs <= GPS_SEED_STALENESS_THRESHOLD_MS) {
-        return {
-          initialMapCenter: { lat: parseFloat(lastGpsLat), lng: parseFloat(lastGpsLng) },
-          hasAccurateLocationSeed: true,
-        };
-      }
+      isSeedFresh = ageMs <= GPS_SEED_STALENESS_THRESHOLD_MS;
+      return {
+        initialMapCenter: { lat: parseFloat(lastGpsLat), lng: parseFloat(lastGpsLng) },
+        hasAccurateLocationSeed: true,
+      };
     }
     if (profile?.core?.anchorLat && profile?.core?.anchorLng) {
       return {
@@ -551,6 +557,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
           currentLocation={effectivePos}
           initialCenter={demoCenter ?? initialMapCenter}
           hasAccurateLocationSeed={!demoCenter && hasAccurateLocationSeed}
+          isSeedFresh={!demoCenter && isSeedFresh}
           focusedRoute={logic.focusedRoute}
           userBearing={devSim.isMockEnabled && devSim.isSimulating ? devSim.simulatedBearing : logic.userBearing}
           livePath={showLivePath ? logic.livePath : undefined}

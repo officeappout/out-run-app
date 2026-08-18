@@ -236,14 +236,32 @@ interface AppMapProps {
   initialCenter?: { lat: number; lng: number } | null;
   /**
    * True only when `initialCenter` came from the user's own last real GPS
-   * fix (not a coarser anchor tier). When true, the loading skeleton reveals
-   * as soon as the map paints instead of also waiting on a fresh GPS fix —
-   * the seed is already accurate enough that the initial-zoom flyTo is a
-   * guaranteed no-op, so there's nothing left to hide. Default false
-   * preserves the original wait-for-GPS behavior for every other seed tier
-   * (round 4 mobile map fix, 18.08.2026 — see MapShell.tsx's initialMapCenter).
+   * fix (not a coarser anchor tier), of ANY age — deliberately age-agnostic
+   * (round 7, 18.08.2026: see `isSeedFresh` below for the age-gated
+   * counterpart). When true, the loading skeleton reveals as soon as the
+   * map paints instead of also waiting on a fresh GPS fix — a stale-but-
+   * present seed is still a perfectly good place for the initial dive to
+   * start from, since it always corrects (round 6) rather than assuming a
+   * no-op. Default false preserves the original wait-for-GPS behavior for
+   * every other seed tier (round 4 mobile map fix, 18.08.2026 — see
+   * MapShell.tsx's initialMapCenter).
    */
   hasAccurateLocationSeed?: boolean;
+  /**
+   * True only when `initialCenter` is BOTH the accurate GPS-tier seed
+   * (`hasAccurateLocationSeed`) AND recent enough (MapShell's
+   * GPS_SEED_STALENESS_THRESHOLD_MS against the fix's own `last_gps_at`
+   * timestamp) to trust as "the user is plausibly still here." Deliberately
+   * a SEPARATE flag from `hasAccurateLocationSeed`, not folded into it —
+   * the camera (via `hasAccurateLocationSeed`/`initialCenter`) intentionally
+   * stays age-agnostic (round 6: a stale seed is still fine to dive FROM,
+   * since the dive+retarget mechanism corrects it regardless), but showing
+   * the user's own location marker at a position is a factual claim, not
+   * just an animation starting point — it needs the stricter, age-gated
+   * bar. Only consumed by the location marker's seed fallback (round 7,
+   * 18.08.2026).
+   */
+  isSeedFresh?: boolean;
   /** Current map mode — forwarded to the camera controller so it can run a
    * one-shot fit-all on first entry into discover mode. */
   mapMode?: string;
@@ -337,6 +355,7 @@ export default function AppMap({
   onPartnerClick,
   initialCenter,
   hasAccurateLocationSeed = false,
+  isSeedFresh = false,
   mapMode,
   navigationTurns,
   activityType,
@@ -1881,21 +1900,26 @@ export default function AppMap({
             before the React tree ever mounts the Marker. */}
         {/* Round 7 (18.08.2026): seed the marker from the last-known GPS fix
             while the live one is still resolving — mirrors the camera's own
-            seed-first dive (round 4/6). Gated on hasAccurateLocationSeed, NOT
-            a naive `currentLocation ?? initialCenter`: initialCenter can be
-            the hardcoded Tel Aviv fallback (no cached GPS at all) or a
-            coarse anchor-tier seed, and hasAccurateLocationSeed is only true
-            for the freshness-checked last_gps_lat/lng tier specifically
-            (MapShell.tsx's initialMapCenter, round 4/7) — placing the marker
-            at a fallback/anchor would show the user somewhere they
-            provably are not. No live fix and no accurate seed → render no
-            marker, exactly as before. Swaps to the live position the instant
-            it lands — same <Marker> either way, no distinct provisional
-            visual (matches the camera precedent). */}
+            seed-first dive (round 4/6). Gated on BOTH hasAccurateLocationSeed
+            AND isSeedFresh, NOT a naive `currentLocation ?? initialCenter`:
+            initialCenter can be the hardcoded Tel Aviv fallback (no cached
+            GPS at all) or a coarse anchor-tier seed — hasAccurateLocationSeed
+            alone only rules those out, it's deliberately age-agnostic (the
+            camera's own seed, which must stay that way — see its own doc
+            comment above). isSeedFresh is the separate, additional bar: even
+            a real last-GPS seed can be hours/days stale, and unlike the
+            camera (which always corrects via dive+retarget regardless of
+            accuracy), showing the user's own avatar at a position is a
+            factual claim — a stale-but-technically-real seed would show the
+            user somewhere they may no longer be. No live fix and no
+            fresh+accurate seed → render no marker, exactly as before. Swaps
+            to the live position the instant it lands — same <Marker> either
+            way, no distinct provisional visual (matches the camera
+            precedent). */}
         {(() => {
           const markerPos = isFiniteLatLng(currentLocation)
             ? currentLocation
-            : (hasAccurateLocationSeed && isFiniteLatLng(initialCenter) ? initialCenter : null);
+            : (hasAccurateLocationSeed && isSeedFresh && isFiniteLatLng(initialCenter) ? initialCenter : null);
           if (!markerPos) return null;
 
           // Scale the lemur based on zoom. CSS transform keeps the anchor point stable
