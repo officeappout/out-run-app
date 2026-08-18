@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreWaypoint, computeDistanceWindow, computeTightenedDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments, buildTriangleCombinations, isBetterNearMissCandidate, waypointsTooClose } from '../route-generator.service';
+import { scoreWaypoint, computeDistanceWindow, computeTightenedDistanceWindow, computeShortRouteDistanceWindow, selectAngularlyDiverseCandidates, resolveCityNameQueryAliases, scoreAndShuffleStreetSegments, buildTriangleCombinations, isBetterNearMissCandidate, waypointsTooClose, sampleTopCandidates } from '../route-generator.service';
 
 const USER = { lat: 0, lng: 0 };
 // ~0.267km east of user (route-stops' targetKm=1.6 / 6 calibration) and ~1.0km east.
@@ -690,5 +690,57 @@ describe('waypointsTooClose — Lever 2, minimum pairwise separation (17.08.2026
     const c = scoreWaypoint(wpAtBearing(1.0, 240), USER, [], { includeStrength: false });
     const combos = buildTriangleCombinations([a, b, c], 0);
     expect(combos.length).toBe(1);
+  });
+});
+
+describe('sampleTopCandidates — regenerate variety (18.08.2026)', () => {
+  const byTurns = (turnsPerKm: number, label: string) => ({ turnsPerKm, label });
+
+  it('returns the input unchanged for 0 or 1 candidates', () => {
+    expect(sampleTopCandidates([], 5)).toEqual([]);
+    const single = [byTurns(6.0, 'a')];
+    expect(sampleTopCandidates(single, 5)).toEqual(single);
+  });
+
+  it('never promotes a candidate outside the quality margin, regardless of routeGenerationIndex', () => {
+    // best=6.0, margin 15% -> max acceptable 6.9. The 8.0 candidate is
+    // well outside and must never become the winner.
+    const sorted = [byTurns(6.0, 'best'), byTurns(6.5, 'ok'), byTurns(8.0, 'twisty')];
+    for (let idx = 0; idx < 20; idx++) {
+      const result = sampleTopCandidates(sorted, idx, 0.15);
+      expect(result[0].label).not.toBe('twisty');
+    }
+  });
+
+  it('does sample the winner among genuinely comparable candidates as routeGenerationIndex varies', () => {
+    const sorted = [byTurns(6.0, 'a'), byTurns(6.3, 'b'), byTurns(6.6, 'c')]; // all within 15% of 6.0 (max 6.9)
+    const winners = new Set(Array.from({ length: 6 }, (_, i) => sampleTopCandidates(sorted, i, 0.15)[0].label));
+    expect(winners.size).toBeGreaterThan(1); // real variety across different routeGenerationIndex values
+  });
+
+  it('same routeGenerationIndex always picks the same winner (deterministic, not random)', () => {
+    const sorted = [byTurns(6.0, 'a'), byTurns(6.3, 'b'), byTurns(6.6, 'c')];
+    const first = sampleTopCandidates(sorted, 42, 0.15);
+    const second = sampleTopCandidates(sorted, 42, 0.15);
+    expect(first.map((c) => c.label)).toEqual(second.map((c) => c.label));
+  });
+
+  it('keeps the non-winning qualifying candidates in original quality order after the picked winner', () => {
+    const sorted = [byTurns(6.0, 'a'), byTurns(6.3, 'b'), byTurns(6.6, 'c')];
+    const result = sampleTopCandidates(sorted, 1, 0.15); // picks index 1 ('b')
+    expect(result.map((c) => c.label)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('when only the best candidate qualifies, always returns the original order unchanged', () => {
+    const sorted = [byTurns(6.0, 'best'), byTurns(9.0, 'twisty')]; // 9.0 way outside 15% margin
+    for (let idx = 0; idx < 5; idx++) {
+      expect(sampleTopCandidates(sorted, idx, 0.15).map((c) => c.label)).toEqual(['best', 'twisty']);
+    }
+  });
+
+  it('a real-data-shaped case: 6.69 vs 7.07 turns/km (5.7% delta) both qualify under the 15% margin', () => {
+    const sorted = [byTurns(6.69, 'a'), byTurns(7.07, 'b')];
+    const winners = new Set([0, 1, 2, 3].map((i) => sampleTopCandidates(sorted, i, 0.15)[0].label));
+    expect(winners.size).toBe(2); // both should show up as the winner across different indices
   });
 });

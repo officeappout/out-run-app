@@ -2569,6 +2569,73 @@ async function collectWithTimeBudget<T>(promises: Promise<T>[], budgetMs: number
  *  not yet stress-tested against real device network variance. */
 const GENERATION_TIME_BUDGET_MS = 8000;
 
+/**
+ * Regenerate-variety quality margin (18.08.2026, David-approved). Live
+ * investigation confirmed generation was effectively deterministic across
+ * regenerate clicks — the underlying real-candidate pool barely varies
+ * with routeGenerationIndex (real street data is stable; the score
+ * shuffle in scoreAndShuffleStreetSegments is bucketed per CALENDAR DAY,
+ * not per click), so always serving the single lowest-turnsPerKm
+ * candidate meant regenerating from the same spot returned the same
+ * route almost every time.
+ *
+ * 15% — chosen from real observed spreads between the best and 2nd-best
+ * clean candidate in the SAME generation call (live sampling, 18.08.2026):
+ * the one clear real multi-candidate case found was 6.69 vs 7.07
+ * turns/km, a 5.7% delta — comfortably inside 15%. Real single-route
+ * turnsPerKm values observed this session otherwise range roughly
+ * 4.4-11+ across different requests, so 15% stays well clear of anything
+ * that would read as "meaningfully twistier" (e.g. a 20%+ delta) while
+ * still being loose enough to admit genuinely-comparable candidates when
+ * more than one exists. First-pass value — true multi-clean-candidate
+ * calls were uncommon in live sampling (most calls produce 0-1 clean
+ * candidate out of up to 6 attempts), so this margin has limited real
+ * data to calibrate against; revisit if on-device use surfaces a case
+ * where it's clearly too tight or too loose.
+ */
+const REGENERATE_QUALITY_MARGIN_FACTOR = 0.15;
+
+/**
+ * Picks among the top-quality candidates for regenerate variety
+ * (18.08.2026, David-approved — "cheaper lever before perturb-and-
+ * reroute"). Pure re-selection over already-ranked, already-computed
+ * candidates — no new geometry, no new network calls, no change to which
+ * candidates exist or how they're scored.
+ *
+ * `sorted` must already be ascending by turnsPerKm (cheapest/straightest
+ * first). Restricts sampling to the prefix within
+ * REGENERATE_QUALITY_MARGIN_FACTOR of the best (see its own doc comment)
+ * — candidates outside that margin never get promoted to the winning
+ * slot no matter what routeGenerationIndex is, so this can never serve a
+ * materially twistier route just for variety. Within the qualifying
+ * prefix, picks via `routeGenerationIndex % qualifyingCount` — same
+ * routeGenerationIndex always picks the same winner (useful for
+ * debugging/tests), but real clicks (routeGenerationIndex = Date.now()
+ * client-side) vary every time. The rest of the qualifying prefix (and
+ * everything after it) keeps its original quality order, so only the
+ * WINNING slot varies — the remaining carousel cards stay predictable.
+ */
+export function sampleTopCandidates<T extends { turnsPerKm: number }>(
+  sorted: T[],
+  routeGenerationIndex: number,
+  qualityMarginFactor: number = REGENERATE_QUALITY_MARGIN_FACTOR,
+): T[] {
+  if (sorted.length <= 1) return sorted;
+  const bestTurnsPerKm = sorted[0].turnsPerKm;
+  const maxAcceptable = bestTurnsPerKm * (1 + qualityMarginFactor);
+  let qualifyingCount = 1;
+  while (qualifyingCount < sorted.length && sorted[qualifyingCount].turnsPerKm <= maxAcceptable) {
+    qualifyingCount++;
+  }
+  if (qualifyingCount <= 1) return sorted; // only the best qualifies — nothing to sample among
+
+  const pickIndex = ((routeGenerationIndex % qualifyingCount) + qualifyingCount) % qualifyingCount;
+  if (pickIndex === 0) return sorted;
+  const picked = sorted[pickIndex];
+  const rest = sorted.filter((_, i) => i !== pickIndex);
+  return [picked, ...rest];
+}
+
 async function attemptRouteCombinations(
   combinations: Array<{ waypoints: WaypointCandidate[]; score: number }>,
   params: {
@@ -2584,7 +2651,7 @@ async function attemptRouteCombinations(
     maxRoutesNeeded: number;
   },
 ): Promise<{ validRoutes: Route[]; bestNearMiss: Route | null }> {
-  const { nearMissWindow, safeDistance, maxRoutesNeeded } = params;
+  const { nearMissWindow, safeDistance, maxRoutesNeeded, routeGenerationIndex } = params;
 
   // Parallel + time-budgeted (17.08.2026, David-approved) — replaces the
   // old sequential-with-1.5s-delay loop. See attemptOneCombination's doc
@@ -2651,7 +2718,14 @@ async function attemptRouteCombinations(
   // straightness.
   cleanCandidates.sort((a, b) => a.turnsPerKm - b.turnsPerKm);
   dirtyCandidates.sort((a, b) => a.turnsPerKm - b.turnsPerKm);
-  const validRoutes = [...cleanCandidates.map((c) => c.route), ...dirtyCandidates.map((c) => c.route)].slice(0, maxRoutesNeeded);
+
+  // Regenerate variety (18.08.2026, David-approved): sample among the
+  // top-quality clean candidates instead of always serving the single
+  // straightest one — see sampleTopCandidates' doc comment. Only touches
+  // the clean tier; dirty fallback stays deterministic best-first (it's
+  // already a degraded tier, not the place to spend variety budget).
+  const sampledClean = sampleTopCandidates(cleanCandidates, routeGenerationIndex);
+  const validRoutes = [...sampledClean.map((c) => c.route), ...dirtyCandidates.map((c) => c.route)].slice(0, maxRoutesNeeded);
 
   console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid route(s) (${cleanCandidates.length} clean, ${Math.min(dirtyCandidates.length, Math.max(0, maxRoutesNeeded - cleanCandidates.length))} fallback).`);
   return { validRoutes, bestNearMiss };
