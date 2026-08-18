@@ -162,7 +162,14 @@ export default function CommunityPage() {
   // which card is currently highlighted and which segment renders below.
   // Type is `string` (not `ArenaTabKey`) because social group keys are dynamic:
   // 'league_<groupId>'.
-  const [selectedLeague, setSelectedLeague] = useState<string>('global');
+  //
+  // Initial value is 'city', not 'global' — city is the intended default
+  // landing scope (18.08.2026). The effect below already re-asserts 'city'
+  // once access.activeTabs loads (falling back to the first available tab
+  // when the user has no city), so this doesn't change the final landing
+  // state for anyone — it only removes the brief flash of the global scope
+  // rendering/fetching before that effect corrects it on first paint.
+  const [selectedLeague, setSelectedLeague] = useState<string>('city');
   const defaultLeagueApplied = useRef(false);
 
   // Bottom-sheet league selector — replaces the inline horizontal carousel.
