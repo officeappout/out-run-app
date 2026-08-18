@@ -121,6 +121,26 @@ const TURN_APPROACH_DIST_M = 50;
 const FOLLOW_ZOOM = 17;
 const FOLLOW_PITCH = 45;
 
+// Initial-dive tuning (round 8, 18.08.2026 — cold-launch entrance fix).
+// Investigation found: on a cold launch where GPS isn't resolved yet at
+// kickoff, the WARM-case dive duration (2000ms) reliably SETTLES before
+// real-world cold-GPS latency (~3-4s) delivers a fix — leaving the camera
+// static for a beat, then the later retarget plays alone. Extending the
+// duration ONLY on that no-live-fix-yet path keeps the camera in continuous
+// motion so the retarget below lands mid-flight and blends in, instead of
+// firing into dead air. Deliberately NOT applied when GPS is already known
+// at kickoff (the warm case, INITIAL_DIVE_DURATION_WARM_MS) — there's no
+// retarget to blend into there, so extending it would just make an already-
+// good entrance feel sluggish for no benefit. Feel-based starting points,
+// not derived from a formula — expect on-device tuning.
+const INITIAL_DIVE_DURATION_WARM_MS = 2000;
+const INITIAL_DIVE_DURATION_COLD_MS = 3000;
+// Retarget duration (round 8): switched from flyTo to easeTo (see below) —
+// easeTo has no Van-Wijk arc/curve physics, so even a real-distance
+// correction reads as a gentle glide rather than a "zoom-in reset." Shorter
+// than the initial dive on purpose — it's a correction, not an entrance.
+const RETARGET_EASE_DURATION_MS = 800;
+
 /**
  * Compute the straight-line distance (metres) from `location` to the nearest
  * turn in `turns`. Returns null when location or turns are unavailable.
@@ -917,6 +937,15 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       // Mapbox eases from the camera's current (in-flight or already-
       // settled) position, so it never reads as a hard snap or a second,
       // disconnected animation.
+      //
+      // Round 8 (18.08.2026, cold-launch fix): duration is now conditional
+      // on whether GPS was already known at kickoff. Warm case (fix already
+      // known) keeps the original 2000ms — there's no retarget coming, so
+      // nothing to blend into. Cold case (fix still pending) uses the
+      // longer 3000ms — real-world cold-GPS latency (~3-4s) otherwise
+      // reliably outlasts a short dive, letting it fully settle before the
+      // retarget fires alone into dead air. See INITIAL_DIVE_DURATION_*
+      // constants above for the full reasoning.
       if (
         !skipInitialZoom &&
         !hasInitialZoomed.current &&
@@ -936,7 +965,8 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           m.flyTo({
             center: [target.lng, target.lat],
             zoom: 15, pitch: 0,
-            duration: 2000, essential: true,
+            duration: gpsAlreadyKnown ? INITIAL_DIVE_DURATION_WARM_MS : INITIAL_DIVE_DURATION_COLD_MS,
+            essential: true,
           });
         } catch (err) {
           console.error('[Cam] initial dive flyTo threw — ignored.', err);
@@ -946,9 +976,20 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       // One-time retarget: the initial dive above kicked off before GPS was
       // ready (targeting the seed) — redirect it the instant a real fix
       // lands, rather than leaving the camera settled on the coarser seed
-      // forever. Mapbox's flyTo natively eases from wherever the camera
-      // currently is (mid-flight or already-settled) when called again, so
-      // this reads as one continuous dive, never a jarring second motion.
+      // forever.
+      //
+      // Round 8 (18.08.2026): switched from flyTo to easeTo. flyTo computes
+      // a curved "fly" trajectory (Mapbox's default curve/speed physics) for
+      // any non-trivial-distance move, arcing the camera out and back in
+      // even when the target zoom matches where it already is — which read
+      // as a jarring "zoom-in reset" rather than a correction, especially
+      // since the camera-seed is intentionally age-agnostic (round 7) and
+      // can genuinely be a real distance from the live fix. easeTo has no
+      // such arc — a plain eased linear interpolation — so the correction
+      // now reads as a gentle glide regardless of distance. Mapbox natively
+      // eases FROM wherever the camera currently is (mid-flight or already-
+      // settled) when this fires, so it still reads as one continuous
+      // motion, never a hard snap.
       if (
         hasInitialZoomed.current &&
         !hasRetargetedInitialZoom.current &&
@@ -959,14 +1000,14 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       ) {
         hasRetargetedInitialZoom.current = true;
         try {
-          if (process.env.NODE_ENV !== 'production') console.log('[Cam] initial dive — retargeting to real GPS fix');
-          m.flyTo({
+          if (process.env.NODE_ENV !== 'production') console.log('[Cam] initial dive — retargeting to real GPS fix (ease)');
+          m.easeTo({
             center: [currentLocation.lng, currentLocation.lat],
             zoom: 15, pitch: 0,
-            duration: 1000, essential: true,
+            duration: RETARGET_EASE_DURATION_MS, essential: true,
           });
         } catch (err) {
-          console.error('[Cam] initial dive retarget flyTo threw — ignored.', err);
+          console.error('[Cam] initial dive retarget easeTo threw — ignored.', err);
         }
       }
       }

@@ -431,11 +431,17 @@ export default function AppMap({
   // `hasAccurateLocationSeed` (round 4 mobile map fix, 18.08.2026) skips
   // this wait entirely: real-world cold-GPS latency regularly exceeds the
   // 3s budget above, and once initialCenter is the user's own last real fix
-  // (not a coarser anchor), there's nothing left to hide — the later
-  // initial-zoom flyTo against that seed is a guaranteed no-op. Waiting for
-  // GPS in that case only reintroduces the exact race this is meant to
-  // avoid: the skeleton timing out before GPS, revealing-then-correcting in
-  // full view.
+  // (not a coarser anchor), there's nothing left to hide behind a skeleton —
+  // reveal real tiles at the seed immediately, and let useCameraController's
+  // initial dive (always animates, round 6) + one-time retarget (round 8:
+  // easeTo, no arc, blends into an in-flight cold-case dive instead of
+  // firing alone once it's already settled) handle correcting to the live
+  // fix, whether that lands during the dive or well after. Waiting for GPS
+  // here would only reintroduce the exact race this is meant to avoid: the
+  // skeleton timing out before GPS, revealing-then-correcting in full view.
+  // NOTE: this is no longer a "guaranteed no-op" claim (that was true only
+  // under round 3-5's now-removed instant/duration:0 branch) — the seed can
+  // be visibly corrected, just smoothly rather than as a jarring reveal.
   const [isLocationReady, setIsLocationReady] = useState(
     () => mapHasInitializedInSession || !!currentLocation || hasAccurateLocationSeed,
   );
