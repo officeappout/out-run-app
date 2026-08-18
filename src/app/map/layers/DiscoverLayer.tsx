@@ -66,9 +66,11 @@ import MockLocationPanel from '@/features/dev/components/MockLocationPanel';
 import { useCommunityEnrichment } from '@/features/parks/core/hooks/useCommunityEnrichment';
 import {
   Navigation,
-  Plus, X, Zap, Users, Footprints,
+  Plus, X, Zap,
 } from 'lucide-react';
 import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
+import UnifiedPlusDrawer from '@/features/parks/client/components/planned-activity/UnifiedPlusDrawer';
+import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
 
@@ -77,36 +79,15 @@ type MapLogic = ReturnType<typeof useMapLogic>;
 const BRAND_COLOR = '#00E5FF';
 const GRAY_COLOR = '#6B7280';
 
-function ActionSpeedDial({
-  onAdd,
-  onReport,
-  onCreateGroup,
-  onGoTrain,
-}: {
-  onAdd: () => void;
-  onReport: () => void;
-  onCreateGroup: () => void;
-  onGoTrain: () => void;
-}) {
+// Pre-Phase-1 map "+" — kept byte-identical, rendered only while
+// SOCIAL_COMPOSE_UI_ENABLED is false (see feature-flags.ts). 2-button
+// fan-out: report + add-location only, no compose/group options.
+function ActionSpeedDial({ onAdd, onReport }: { onAdd: () => void; onReport: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="relative flex flex-col items-center gap-2">
       {isOpen && (
         <>
-          <button
-            onClick={() => { onGoTrain(); setIsOpen(false); }}
-            className="w-11 h-11 rounded-full shadow-lg flex items-center justify-center bg-[#00C9F2] text-white active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200"
-            title="יוצא להתאמן"
-          >
-            <Footprints size={16} />
-          </button>
-          <button
-            onClick={() => { onCreateGroup(); setIsOpen(false); }}
-            className="w-11 h-11 rounded-full shadow-lg flex items-center justify-center bg-violet-500 text-white active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200"
-            title="פתח קבוצה/ליגה"
-          >
-            <Users size={16} />
-          </button>
           <button
             onClick={() => { onReport(); setIsOpen(false); }}
             className="w-11 h-11 rounded-full shadow-lg flex items-center justify-center bg-amber-500 text-white active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200"
@@ -130,6 +111,23 @@ function ActionSpeedDial({
         {isOpen ? <X size={22} /> : <Plus size={22} />}
       </button>
     </div>
+  );
+}
+
+// PlusFab — a single "+" button that opens UnifiedPlusDrawer. Replaces
+// ActionSpeedDial's 4-button fan-out (report/add-location/create-group/
+// go-train) per the north-star doc's own model: one unified drawer with
+// organized options, not more FAB buttons ("מגירה מאוחדת אחת עם אופציות
+// מסודרות" — see .claude/plans/new-chat-investigation-stateful-fern.md).
+// Rendered only while SOCIAL_COMPOSE_UI_ENABLED is true.
+function PlusFab({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      onClick={onOpen}
+      className="w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-white active:scale-95 transition-all"
+    >
+      <Plus size={22} />
+    </button>
   );
 }
 
@@ -212,6 +210,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [plusDrawerOpen, setPlusDrawerOpen] = useState(false);
   const [mapMode, setMapMode] = useState<MapMode>('idle');
   // Settle-preview-lite for a composed leg-plan run (ג', 08.08) — armed by
   // onStartLegPlanRun below once the route is drawn + the drawer has
@@ -1534,12 +1533,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 rest, rather than sitting hidden behind the skeleton during load. */}
             {isMapVisuallyReady && (
             <div className="absolute right-4 z-[40] flex flex-col gap-3" style={{ bottom: 'calc(max(340px, env(safe-area-inset-bottom, 0px) + 310px))' }}>
-              <ActionSpeedDial
-                onAdd={() => setWizardOpen(true)}
-                onReport={() => setReportOpen(true)}
-                onCreateGroup={() => router.push('/community?openCreate=true')}
-                onGoTrain={() => setComposeOpen(true)}
-              />
+              {SOCIAL_COMPOSE_UI_ENABLED ? (
+                <PlusFab onOpen={() => setPlusDrawerOpen(true)} />
+              ) : (
+                <ActionSpeedDial
+                  onAdd={() => setWizardOpen(true)}
+                  onReport={() => setReportOpen(true)}
+                />
+              )}
               <button
                 onClick={() => {
                   // Also exits viewport-search mode and resets the pan baseline
@@ -1962,6 +1963,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       <PlannedActivityComposeSheet
         isOpen={composeOpen}
         onClose={() => setComposeOpen(false)}
+      />
+      <UnifiedPlusDrawer
+        isOpen={plusDrawerOpen}
+        onClose={() => setPlusDrawerOpen(false)}
+        onGoTrain={() => setComposeOpen(true)}
+        onCreateGroup={() => router.push('/community?openCreate=true')}
+        onAddLocation={() => setWizardOpen(true)}
+        onReport={() => setReportOpen(true)}
       />
 
       {/* Saved-places editor — opened from the Quick Row tap-to-set

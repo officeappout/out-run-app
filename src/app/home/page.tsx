@@ -51,6 +51,10 @@ import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOv
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
 import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps } from '@/features/home/components/WorkoutBuilderSheet';
 import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
+import UnifiedPlusDrawer from '@/features/parks/client/components/planned-activity/UnifiedPlusDrawer';
+import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
+import ContributionWizard from '@/features/parks/client/components/contribution-wizard';
+import QuickReportSheet from '@/features/parks/client/components/contribution-wizard/QuickReportSheet';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 
@@ -284,10 +288,14 @@ export default function HomePage() {
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderProps, setBuilderProps] = useState<Omit<WorkoutBuilderSheetProps, 'onClose'>>({});
 
-  // Unified activity compose — promoted top-level "+" entry point (Phase 1
-  // of the social-activities build plan). Mirrors the map's ActionSpeedDial
-  // FAB visually; opens the same PlannedActivityComposeSheet used there.
+  // Unified "+" — promoted top-level entry point (Phase 1 of the
+  // social-activities build plan). Opens the same UnifiedPlusDrawer the
+  // map "+" opens, which in turn opens one of these 3 sheets.
   const [composeOpen, setComposeOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [plusDrawerOpen, setPlusDrawerOpen] = useState(false);
+  const gpsCoords = useGPSStore((s) => s.coords);
 
   // Handle "pencil" tap from WorkoutPreviewDrawer — close drawer and open edit modal
   const handleEditFromDrawer = useCallback(() => {
@@ -1640,25 +1648,45 @@ export default function HomePage() {
         </AnimatePresence>
       </div>
 
-      {/* ── Unified activity compose FAB — promoted home "+" entry point ──
-          Hidden while any full-screen home overlay is active (same guarding
-          discipline as the map's ActionSpeedDial, which hides during its
-          own full-screen states). z-[55]: above BottomNavbar/TrainingPlannerOverlay
-          (z-50) so it's tappable when idle, but every gating state below
-          covers it anyway before z-order would matter. */}
-      {!showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && (
+      {/* ── Unified "+" FAB — promoted home entry point, opens the SAME
+          UnifiedPlusDrawer the map "+" opens (Phase 1 revision — one
+          unified drawer, not a home-only shortcut straight to compose).
+          Hidden while any full-screen home overlay is active (same
+          guarding discipline the map screen already applies to its own
+          FAB). z-[55]: above BottomNavbar/TrainingPlannerOverlay (z-50) so
+          it's tappable when idle, but every gating state below covers it
+          anyway before z-order would matter. */}
+      {SOCIAL_COMPOSE_UI_ENABLED && !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && (
         <button
-          onClick={() => setComposeOpen(true)}
+          onClick={() => setPlusDrawerOpen(true)}
           className="fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-white active:scale-95 transition-all"
           style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', right: '16px' }}
-          title="יוצא להתאמן"
+          title="הוסף"
         >
           <Plus size={22} />
         </button>
       )}
+      <UnifiedPlusDrawer
+        isOpen={plusDrawerOpen}
+        onClose={() => setPlusDrawerOpen(false)}
+        onGoTrain={() => setComposeOpen(true)}
+        onCreateGroup={() => router.push('/community?openCreate=true')}
+        onAddLocation={() => setWizardOpen(true)}
+        onReport={() => setReportOpen(true)}
+      />
       <PlannedActivityComposeSheet
         isOpen={composeOpen}
         onClose={() => setComposeOpen(false)}
+      />
+      <ContributionWizard
+        isOpen={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        initialLocation={gpsCoords}
+      />
+      <QuickReportSheet
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        userLocation={gpsCoords ?? null}
       />
 
       {/* ── Training Planner Full-Screen Overlay ── */}
