@@ -77,6 +77,19 @@ export interface ScoredSegment {
   path: Array<{ lat: number; lng: number }>;
   score: number;
   /**
+   * Road-hierarchy flow score (0–10), computed by `scoreArterialFlow` —
+   * a SEPARATE rubric from `score` above, deliberately OPPOSITE-biased.
+   * `score` rewards calm/walkable streets (footway, cycleway, lit,
+   * low-speed); `flowScore` rewards continuous arteries (primary >
+   * secondary > tertiary > residential) for the "runner intuition" case
+   * where a longer route benefits from a straight, uninterrupted main
+   * road instead of a maze of calm side streets. Computed at import
+   * time (not per-request) and stored on the segment so the generator
+   * can read it directly — see route-generator.service.ts's
+   * scoreWaypoint `preferArterialFlow` gate.
+   */
+  flowScore: number;
+  /**
    * OSM tag projection. Optional tags use `string | null` (not
    * `string | undefined`) on purpose: Firestore rejects field values of
    * `undefined` outright (`Unsupported field value: undefined`), but
@@ -140,6 +153,14 @@ export interface ImportOptions {
   minScore?: number;
   /** Skip ways with fewer than this many nodes. Default 3. */
   minNodes?: number;
+  /**
+   * OSM `highway` tag values to fetch/keep, overriding the default
+   * calm-street set (HIGHWAY_TYPES). Pass ARTERIAL_HIGHWAY_TYPES for a
+   * main-road pass. Byte-identical to today's behaviour when omitted —
+   * every existing caller (CLI default, admin UI) keeps fetching exactly
+   * HIGHWAY_TYPES.
+   */
+  highwayTypes?: readonly string[];
 }
 
 export interface ImportResult {
@@ -212,6 +233,17 @@ const HIGHWAY_TYPES = [
   'living_street',
   'tertiary',
 ] as const;
+
+/**
+ * Main-artery pass (19.08.2026, runner-flow investigation Tier 1). Deliberately
+ * a SEPARATE list from HIGHWAY_TYPES, not a merge — the two passes serve
+ * opposite scoring intents (calm-street quality vs. arterial continuity, see
+ * scoreArterialFlow) and importing them separately means an arterial-only
+ * re-run never touches the existing calm-street segment set. `trunk` is
+ * deliberately excluded — those are typically grade-separated/motorway-like
+ * in Israel (e.g. Ayalon), not walkable/runnable street segments.
+ */
+export const ARTERIAL_HIGHWAY_TYPES = ['primary', 'secondary'] as const;
 
 const HIGHWAY_TYPES_SET = new Set<string>(HIGHWAY_TYPES);
 
@@ -290,9 +322,10 @@ async function fetchOverpassOnce(
 export async function fetchOsmSegments(
   bbox: BoundingBox,
   onProgress?: ProgressFn,
+  highwayTypes: readonly string[] = HIGHWAY_TYPES,
 ): Promise<OsmWay[]> {
   const { south, west, north, east } = bbox;
-  const filter = HIGHWAY_TYPES.join('|');
+  const filter = highwayTypes.join('|');
 
   // `out tags geom` already minimises payload: it returns each way's tags
   // AND inline lat/lon for every node in a single call — no node-IDs, no
@@ -473,6 +506,42 @@ export function scoreSegment(tags: OsmTags): number {
   return Math.min(10, Math.max(0, s));
 }
 
+/**
+ * Pure, deterministic 0–10 road-hierarchy "flow" score (19.08.2026, runner-flow
+ * investigation Tier 1). Purely `highway`-tag-driven, on purpose — no surface/
+ * lit/smoothness/maxspeed terms, and no named-street or manual "this is a
+ * promenade" tagging (David's explicit scope: generic road hierarchy only).
+ *
+ * Deliberately the OPPOSITE bias from scoreSegment: that rubric rewards calm,
+ * walkable streets and treats continuous arteries (tertiary) as merely
+ * neutral, with no case at all for primary/secondary (falls through to the
+ * default, effectively untouched). This rubric rewards arterial continuity —
+ * "run down Salame straight to the sea" needs the road hierarchy that
+ * scoreSegment was never designed to reward. Kept as a fully separate
+ * function/field (flowScore) rather than folded into scoreSegment/score so
+ * the existing calm-street quality signal (and everything already tuned
+ * against it — minScore filtering, admin UI histograms) is untouched.
+ */
+export function scoreArterialFlow(tags: OsmTags): number {
+  switch (tags.highway) {
+    case 'primary':
+      return 10;
+    case 'secondary':
+      return 8;
+    case 'tertiary':
+      return 5;
+    case 'residential':
+      return 2;
+    case 'living_street':
+      return 1;
+    // footway / cycleway / pedestrian / path / anything else: no arterial
+    // continuity value for a "flow" route — calm/leisure streets, not the
+    // through-roads a runner would pick for a long straight stretch.
+    default:
+      return 0;
+  }
+}
+
 // ── Geometry helpers ──────────────────────────────────────────────────────────
 
 function haversineMeters(
@@ -516,6 +585,9 @@ export function processSegments(
 } {
   const minScore = opts.minScore ?? 3;
   const minNodes = opts.minNodes ?? 3;
+  const highwayTypesSet = opts.highwayTypes
+    ? new Set<string>(opts.highwayTypes)
+    : HIGHWAY_TYPES_SET;
 
   const segments: ScoredSegment[] = [];
   let skippedTooShort = 0;
@@ -528,7 +600,7 @@ export function processSegments(
     }
 
     const tags = (w.tags ?? {}) as OsmTags;
-    if (!tags.highway || !HIGHWAY_TYPES_SET.has(tags.highway)) {
+    if (!tags.highway || !highwayTypesSet.has(tags.highway)) {
       // Overpass shouldn't return these (regex filter), but be defensive.
       skippedTooShort++;
       return;
@@ -556,6 +628,7 @@ export function processSegments(
       authorityId: opts.authorityId,
       path,
       score: Math.round(rawScore * 10) / 10,
+      flowScore: scoreArterialFlow(tags),
       // EXPLICIT `?? null` per Firestore rule: undefined is rejected, null
       // is stored. The vast majority of OSM ways carry only `highway` and
       // maybe `surface`; everything else is sparse, so this default fires
@@ -668,7 +741,7 @@ export async function runOsmImport(
 ): Promise<ImportResult> {
   const log: ProgressFn = onProgress ?? (() => undefined);
 
-  const ways = await fetchOsmSegments(opts.bbox, log);
+  const ways = await fetchOsmSegments(opts.bbox, log, opts.highwayTypes);
   const fetchedFromOSM = ways.length;
 
   const { segments, histogram, skippedTooShort, skippedLowScore } =

@@ -216,6 +216,89 @@ describe('scoreWaypoint — park-proximity tiebreaker gating (18.08.2026, Fix A)
   });
 });
 
+describe('scoreWaypoint — preferArterialFlow gating (19.08.2026, runner-flow Tier 1)', () => {
+  const wpFlow = (km: number, flowScore: number) => ({ ...wpAt(km), flowScore });
+
+  it('default (flag omitted): flowScore has zero effect — byte-identical for every existing caller', () => {
+    const artery = scoreWaypoint(wpFlow(1.0, 10), USER, [], { includeStrength: false });
+    const calm = scoreWaypoint(wpFlow(1.0, 0), USER, [], { includeStrength: false });
+    expect(artery.score).toBe(calm.score);
+  });
+
+  it('with the flag: a well-positioned primary-road candidate (flowScore=10) scores the full bonus over an identical footway (flowScore=0)', () => {
+    const artery = scoreWaypoint(wpFlow(1.0, 10), USER, [], { includeStrength: false, preferArterialFlow: true });
+    const calm = scoreWaypoint(wpFlow(1.0, 0), USER, [], { includeStrength: false, preferArterialFlow: true });
+    expect(artery.score).toBe(calm.score + 5); // ARTERIAL_FLOW_BONUS_MAX
+  });
+
+  it('the bonus scales linearly with flowScore, not flat — a tertiary road (flowScore=5) gets half the primary-road bonus', () => {
+    const primary = scoreWaypoint(wpFlow(1.0, 10), USER, [], { includeStrength: false, preferArterialFlow: true });
+    const tertiary = scoreWaypoint(wpFlow(1.0, 5), USER, [], { includeStrength: false, preferArterialFlow: true });
+    const calm = scoreWaypoint(wpFlow(1.0, 0), USER, [], { includeStrength: false, preferArterialFlow: true });
+    expect(tertiary.score).toBe(calm.score + 2.5);
+    expect(primary.score).toBe(calm.score + 5);
+  });
+
+  it('missing flowScore (segment imported before this change, or official-route segment) is treated as flowScore=0, not a crash or an accidental bonus', () => {
+    const noFlowScore = scoreWaypoint(wpAt(1.0), USER, [], { includeStrength: false, preferArterialFlow: true });
+    const explicitZero = scoreWaypoint(wpFlow(1.0, 0), USER, [], { includeStrength: false, preferArterialFlow: true });
+    expect(noFlowScore.score).toBe(explicitZero.score);
+  });
+
+  it('the bonus magnitude is exactly the documented max +5 (tie-breaker scale), well under the +10 mid-tier and +20 tight-tier distance-fit bonuses', () => {
+    const artery = scoreWaypoint(wpFlow(1.0, 10), USER, [], { includeStrength: false, preferArterialFlow: true });
+    // 50 base + 20 tight-tier (diff=0) + 5 full arterial bonus = 75.
+    expect(artery.score).toBe(75);
+  });
+
+  it('CRITICAL — a high-flowScore candidate outside the distance-fit window is NOT rescued into beating a well-fitted, non-arterial candidate (same bug class as the park-bonus overshoot Fix A closed)', () => {
+    const smallIdeal = 0.233;
+    // 2x the ideal radius away, past the penalty tier — the exact real
+    // "short loop overshoots" shape from the park-bonus/official-route
+    // investigations, now with a primary-road (flowScore=10) candidate.
+    const farArtery = scoreWaypoint(
+      { ...wpAt(smallIdeal + 1.0), flowScore: 10 },
+      USER, [],
+      { includeStrength: false, idealWaypointDistanceKm: smallIdeal, proportionalDistanceTiers: true, preferArterialFlow: true },
+    );
+    const wellFittedCalm = scoreWaypoint(
+      { ...wpAt(smallIdeal), flowScore: 0 },
+      USER, [],
+      { includeStrength: false, idealWaypointDistanceKm: smallIdeal, proportionalDistanceTiers: true, preferArterialFlow: true },
+    );
+    expect(farArtery.score).toBeLessThan(50); // still takes the -15 penalty, no rescue
+    expect(farArtery.score).toBeLessThan(wellFittedCalm.score);
+  });
+
+  it('a candidate in the "no bonus / no penalty" gap gets only the modest arterial nudge, never enough to look like a well-fitted candidate', () => {
+    const smallIdeal = 0.233;
+    const midGapArtery = scoreWaypoint(
+      { ...wpAt(smallIdeal + 0.45), flowScore: 10 },
+      USER, [],
+      { includeStrength: false, idealWaypointDistanceKm: smallIdeal, proportionalDistanceTiers: true, preferArterialFlow: true },
+    );
+    const wellFitted = scoreWaypoint(
+      { ...wpAt(smallIdeal), flowScore: 0 },
+      USER, [],
+      { includeStrength: false, idealWaypointDistanceKm: smallIdeal, proportionalDistanceTiers: true },
+    );
+    // 50 base + 5 full arterial bonus = 55 — well below a genuinely
+    // well-fitted candidate's 70 (50+20).
+    expect(midGapArtery.score).toBe(55);
+    expect(midGapArtery.score).toBeLessThan(wellFitted.score);
+  });
+
+  it('the arterial bonus and the official-route bonus stack additively (both tie-breaker scale, no interaction bug)', () => {
+    const both = scoreWaypoint(
+      { ...wpAt(1.0), isOfficial: true, flowScore: 10 },
+      USER, [],
+      { includeStrength: false, preferOfficialRoutes: true, preferArterialFlow: true },
+    );
+    // 50 base + 20 tight-tier + 10 official + 5 arterial = 85.
+    expect(both.score).toBe(85);
+  });
+});
+
 describe('computeDistanceWindow — proportional acceptance band (08.08, fixes live 22km "no route found")', () => {
   it('small targets: byte-identical to the original fixed [target-0.5, target+2.5] window', () => {
     expect(computeDistanceWindow(3)).toEqual({ minKm: 2.5, maxKm: 5.5 });
@@ -636,6 +719,22 @@ describe('scoreAndShuffleStreetSegments — shared scoring tail (13.08.2026, ext
     expect(result.candidates).toEqual([]);
     expect(result.officialBiasApplied).toBe(0);
     expect(result.officialBackboneCount).toBe(0);
+  });
+
+  it('threads seg.flowScore through to the returned candidate (19.08.2026, runner-flow Tier 1)', () => {
+    const { candidates } = scoreAndShuffleStreetSegments(
+      [{ point: at(0, 0), seg: seg({ score: 6, flowScore: 8 }) }],
+      undefined,
+    );
+    expect(candidates[0].flowScore).toBe(8);
+  });
+
+  it('a segment with no flowScore field (pre-19.08.2026 import, or an official-broadcast segment) defaults to 0, not undefined', () => {
+    const { candidates } = scoreAndShuffleStreetSegments(
+      [{ point: at(0, 0), seg: seg({ score: 6 }) }],
+      undefined,
+    );
+    expect(candidates[0].flowScore).toBe(0);
   });
 });
 

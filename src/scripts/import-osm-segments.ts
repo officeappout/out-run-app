@@ -33,6 +33,11 @@
  * ── Optional args ─────────────────────────────────────────────────────────
  *   --min-score <number>     Drop segments below this score (default 3)
  *   --min-nodes <number>     Drop segments with fewer than N nodes (default 3)
+ *   --arterial                Fetch primary|secondary instead of the default
+ *                              calm-street set (footway/cycleway/path/
+ *                              pedestrian/residential/living_street/tertiary).
+ *                              Separate pass, not merged — re-run without
+ *                              this flag to keep importing calm streets.
  *
  * ── How to get your ID token (only required for --commit) ─────────────────
  *   1. Open the app in Chrome while logged in as admin.
@@ -60,6 +65,7 @@ import * as https from 'https';
 import {
   fetchOsmSegments,
   processSegments,
+  ARTERIAL_HIGHWAY_TYPES,
   type ScoredSegment,
   type ImportOptions,
   type ProgressFn,
@@ -79,6 +85,7 @@ type CliArgs = {
   commit: boolean;
   minScore?: number;
   minNodes?: number;
+  arterial: boolean;
 };
 
 function parseArgs(argv: string[]): CliArgs {
@@ -129,6 +136,7 @@ function parseArgs(argv: string[]): CliArgs {
     commit,
     minScore: num('--min-score'),
     minNodes: num('--min-nodes'),
+    arterial: argv.includes('--arterial'),
   };
 }
 
@@ -183,6 +191,7 @@ function buildSegmentFields(
     cityName: { stringValue: seg.cityName },
     authorityId: { stringValue: seg.authorityId },
     score: { doubleValue: seg.score },
+    flowScore: { doubleValue: seg.flowScore },
     lengthMeters: { integerValue: String(seg.lengthMeters) },
     importedAt: { timestampValue: importedAtIso },
     midpoint: toFirestoreValue(seg.midpoint),
@@ -299,6 +308,9 @@ async function main(): Promise<void> {
     `  BBox:      S=${args.bbox.south}, W=${args.bbox.west}, N=${args.bbox.north}, E=${args.bbox.east}`,
   );
   console.log(`  Min score: ${args.minScore ?? 3}`);
+  console.log(
+    `  Highways:  ${args.arterial ? `ARTERIAL (${ARTERIAL_HIGHWAY_TYPES.join('|')})` : 'default (calm streets)'}`,
+  );
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   const opts: ImportOptions = {
@@ -307,10 +319,11 @@ async function main(): Promise<void> {
     authorityId: args.authority,
     minScore: args.minScore,
     minNodes: args.minNodes,
+    highwayTypes: args.arterial ? ARTERIAL_HIGHWAY_TYPES : undefined,
   };
 
   // 1. Fetch
-  const ways = await fetchOsmSegments(opts.bbox, log);
+  const ways = await fetchOsmSegments(opts.bbox, log, opts.highwayTypes);
 
   // 2. Score + filter
   const { segments, histogram, skippedTooShort, skippedLowScore } =
@@ -324,11 +337,26 @@ async function main(): Promise<void> {
   console.log(`  Skipped (too short / bad):  ${skippedTooShort}`);
   console.log(`  Skipped (score < ${args.minScore ?? 3}):       ${skippedLowScore}`);
   console.log(`  Kept (passed filter):       ${segments.length}`);
-  console.log('  ─── Score histogram ────────────────────');
+  console.log('  ─── Score histogram (calm-street rubric) ─');
   console.log(`    3-4:  ${histogram.bucket3to4}`);
   console.log(`    5-6:  ${histogram.bucket5to6}`);
   console.log(`    7-8:  ${histogram.bucket7to8}`);
   console.log(`    9-10: ${histogram.bucket9to10}`);
+  if (args.arterial) {
+    const byHighway: Record<string, number> = {};
+    let flowSum = 0;
+    for (const s of segments) {
+      byHighway[s.tags.highway] = (byHighway[s.tags.highway] ?? 0) + 1;
+      flowSum += s.flowScore;
+    }
+    console.log('  ─── Arterial highway-type breakdown ──────');
+    for (const [hw, n] of Object.entries(byHighway).sort((a, b) => b[1] - a[1])) {
+      console.log(`    ${hw}: ${n}`);
+    }
+    console.log(
+      `    avg flowScore: ${segments.length > 0 ? (flowSum / segments.length).toFixed(2) : 'n/a'}`,
+    );
+  }
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
   // 4. (optional) Commit
