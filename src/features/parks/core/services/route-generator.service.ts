@@ -2810,10 +2810,31 @@ async function generateLoopRoutes(
     routeGenerationIndex
   );
 
+  // Proportional-tiers gap fix (18.08.2026, David-approved, investigated the
+  // prior turn): proportionalDistanceTiers/proportionalGap used to fire only
+  // on loopOpts.shortMode (targetDistance < MIN_GENERATION_KM = 1.5km), but
+  // the fixed-absolute-km tiers they replace (scoreWaypoint's 0.3/0.6/2.0km,
+  // selectAngularlyDiverseCandidates' SECTOR_POSITION_GAP_KM=1.0km) were
+  // never actually about short-route MODE — they're wrong whenever
+  // idealWaypointDistanceKm itself is small, and useRouteFilter.ts computes
+  // idealWaypointDistanceKm = targetDistance/6 for EVERY target, not just
+  // short ones. A 2.5-6km target lands idealWaypointDistanceKm in the
+  // 0.4-1.0km range — well under the ~1.0km scale those fixed tiers were
+  // calibrated for — but shortMode is false the whole time (only targets
+  // under 1.5km trigger it), so the fix built for short-route mode never
+  // applied here. Live-confirmed root cause of a 2.5km target overshooting
+  // to 4.3-4.7km (72-88% over): candidates ~2x the ideal radius scored as
+  // good a fit as ones actually near it, so nothing pulled selection toward
+  // the real target radius. Gate on the actual quantity that matters
+  // (idealWaypointDistanceKm < 1.0) instead of the shortMode flag — same
+  // proven mechanism, correct trigger condition.
+  const idealWaypointDistanceKm = preferences.idealWaypointDistanceKm ?? 1.0;
+  const useProportionalDistanceTiers = idealWaypointDistanceKm < 1.0;
+
   const scoredWaypoints = candidateWaypoints.map(wp =>
     scoreWaypoint(wp, userLocation, parks, {
       ...preferences,
-      proportionalDistanceTiers: loopOpts.shortMode,
+      proportionalDistanceTiers: useProportionalDistanceTiers,
       preferOfficialRoutes: loopOpts.shortMode,
     })
   );
@@ -2825,8 +2846,8 @@ async function generateLoopRoutes(
     scoredWaypoints,
     userLocation,
     12,
-    preferences.idealWaypointDistanceKm ?? 1.0,
-    { proportionalGap: loopOpts.shortMode },
+    idealWaypointDistanceKm,
+    { proportionalGap: useProportionalDistanceTiers },
   );
 
   // 3. Create route combinations (triangular loops)
@@ -2918,7 +2939,7 @@ async function generateLoopRoutes(
         const relaxedScored = relaxedCandidates.map(wp =>
           scoreWaypoint(wp, userLocation, parks, {
             ...preferences,
-            proportionalDistanceTiers: loopOpts.shortMode,
+            proportionalDistanceTiers: useProportionalDistanceTiers,
             preferOfficialRoutes: loopOpts.shortMode,
           })
         );
@@ -2926,8 +2947,8 @@ async function generateLoopRoutes(
           relaxedScored,
           userLocation,
           12,
-          preferences.idealWaypointDistanceKm ?? 1.0,
-          { proportionalGap: loopOpts.shortMode },
+          idealWaypointDistanceKm,
+          { proportionalGap: useProportionalDistanceTiers },
         );
         const relaxedBaseOffset = relaxedTop.length > 0 ? routeGenerationIndex % relaxedTop.length : 0;
         const relaxedCombinations = buildTriangleCombinations(relaxedTop, relaxedBaseOffset);
