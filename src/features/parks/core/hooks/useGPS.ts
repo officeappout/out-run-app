@@ -206,10 +206,15 @@ export function useGPS(): GPSState {
     lastGPSPos.current = { lat: newLat, lng: newLng };
     // Durable persistence — see GPS_DURABLE_WRITE_MIN_INTERVAL_MS above for
     // why this is throttled separately from the state update just above.
+    // `last_gps_at` (round 7, 18.08.2026) lets a reader (MapShell's marker/
+    // camera seed) judge whether this cached fix is still trustworthy —
+    // without it, a seed from hours/days ago (last time the app was used
+    // somewhere else entirely) would look identical to a fresh one.
     if (now - lastDurableWriteTime.current >= GPS_DURABLE_WRITE_MIN_INTERVAL_MS) {
       lastDurableWriteTime.current = now;
       setOnboardingPref('last_gps_lat', String(newLat));
       setOnboardingPref('last_gps_lng', String(newLng));
+      setOnboardingPref('last_gps_at', String(now));
     }
     useGPSStore.getState()._setPermissionState('granted');
     setLocationError(null);

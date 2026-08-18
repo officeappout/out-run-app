@@ -1879,7 +1879,25 @@ export default function AppMap({
             value to be of type number, but found null" — same crash
             class the user is hitting. The finite gate stops it cold
             before the React tree ever mounts the Marker. */}
-        {isFiniteLatLng(currentLocation) && (() => {
+        {/* Round 7 (18.08.2026): seed the marker from the last-known GPS fix
+            while the live one is still resolving — mirrors the camera's own
+            seed-first dive (round 4/6). Gated on hasAccurateLocationSeed, NOT
+            a naive `currentLocation ?? initialCenter`: initialCenter can be
+            the hardcoded Tel Aviv fallback (no cached GPS at all) or a
+            coarse anchor-tier seed, and hasAccurateLocationSeed is only true
+            for the freshness-checked last_gps_lat/lng tier specifically
+            (MapShell.tsx's initialMapCenter, round 4/7) — placing the marker
+            at a fallback/anchor would show the user somewhere they
+            provably are not. No live fix and no accurate seed → render no
+            marker, exactly as before. Swaps to the live position the instant
+            it lands — same <Marker> either way, no distinct provisional
+            visual (matches the camera precedent). */}
+        {(() => {
+          const markerPos = isFiniteLatLng(currentLocation)
+            ? currentLocation
+            : (hasAccurateLocationSeed && isFiniteLatLng(initialCenter) ? initialCenter : null);
+          if (!markerPos) return null;
+
           // Scale the lemur based on zoom. CSS transform keeps the anchor point stable
           // (no DOM reflow) and the 0.2s transition makes the resize feel organic.
           // Below zoom 10 we replace the avatar with a compact blue pulse dot.
@@ -1888,7 +1906,7 @@ export default function AppMap({
 
           if (showPulseDot) {
             return (
-              <Marker longitude={currentLocation.lng} latitude={currentLocation.lat} anchor="center">
+              <Marker longitude={markerPos.lng} latitude={markerPos.lat} anchor="center">
                 <div className="relative flex items-center justify-center" style={{ width: 20, height: 20 }}>
                   {/* Outer ping ring */}
                   <div
@@ -1906,7 +1924,7 @@ export default function AppMap({
           }
 
           return (
-            <Marker longitude={currentLocation.lng} latitude={currentLocation.lat} anchor="center">
+            <Marker longitude={markerPos.lng} latitude={markerPos.lat} anchor="center">
               {/* Fixed 60 px wrapper so the Mapbox anchor never shifts; only the visual
                   scale changes via CSS transform — no layout reflow, pure compositing. */}
               <div
