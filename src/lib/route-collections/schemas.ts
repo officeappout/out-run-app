@@ -46,6 +46,15 @@ const RouteFieldsSchema = z.object({
   /** Granular ground-material vocabulary, distinct from the existing
    *  coarse `features.surface` — see surface-type.ts's header comment. */
   surfaceType: SurfaceTypeSchema.optional(),
+  /** Route-level hardness (Stage 1A) — `demProfile()`-computed. First real
+   *  writer is the Stage 5 Phase B DEM population script (autonomous build
+   *  run, 18.08.2026); the field existed on the TS type since Stage 1A but
+   *  was never in the write-time schema (would have silently passed
+   *  through unvalidated via RouteFieldsSchema's own `.passthrough()`).
+   *  Distinct from `terrainFeatures[].avgGrade/maxGrade` above — per-climb
+   *  detail, not route-level (see route.types.ts's own doc comment). */
+  elevationGain: z.number().min(0).optional(),
+  maxGrade: z.number().min(0).optional(),
   /** Cross-refs to nearby climb_segments docs, written by Stage 3's spatial
    *  join (route-enrichment.service.ts). See Route.terrainFeatures's doc
    *  comment (route.types.ts) — mirrors RouteTerrainFeatureRef verbatim. */

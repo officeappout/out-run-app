@@ -97,3 +97,18 @@ export function computeDifficulty(
     inputs: { elevationGain, maxGrade, distanceKm, gainRate },
   };
 }
+
+/**
+ * Numeric 1-3 level -> Route.difficulty's own 'easy'|'medium'|'hard'
+ * string enum (route.types.ts:305 — see axioms.md §23 / Stage 0's own
+ * history on why this enum must never gain a 4th ad-hoc value like the
+ * historical 'moderate' bug). Lives here, not difficulty-display.ts —
+ * that module is deliberately domain-agnostic (shared with the workout
+ * engine), while 'easy'/'medium'/'hard' is specifically Route's own typed
+ * enum, a parks-domain concept.
+ */
+export function difficultyLevelToRouteDifficulty(level: DifficultyLevel): 'easy' | 'medium' | 'hard' {
+  if (level >= 3) return 'hard';
+  if (level === 2) return 'medium';
+  return 'easy';
+}
