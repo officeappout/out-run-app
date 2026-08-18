@@ -11,7 +11,8 @@ import { getUserFromFirestore } from '@/lib/firestore.service';
 import {
   approveEntity,
   rejectEntity,
-  bulkRejectClimbs,
+  bulkApproveEntities,
+  bulkRejectEntities,
   type ModerationEntityType,
 } from '@/features/admin/services/moderation.service';
 import {
@@ -95,6 +96,11 @@ export default function ApprovalCenterPage() {
   const [amenityCategoryFilter, setAmenityCategoryFilter] = useState<'all' | AmenityCategory>('all');
   const [amenitySportFilter, setAmenitySportFilter] = useState<'all' | CourtSport>('all');
   const [amenityCityFilter, setAmenityCityFilter] = useState<string>('all');
+  // Bulk approve/reject selection — amenities tab, separate Set from
+  // selectedClimbIds so this addition can't perturb the existing climbs path.
+  const [selectedAmenityIds, setSelectedAmenityIds] = useState<Set<string>>(new Set());
+  const [bulkApprovingAmenities, setBulkApprovingAmenities] = useState(false);
+  const [bulkRejectingAmenities, setBulkRejectingAmenities] = useState(false);
 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [authorityIds, setAuthorityIds] = useState<string[]>([]);
@@ -291,6 +297,7 @@ export default function ApprovalCenterPage() {
   const handleTabChange = (tab: ApprovalTab) => {
     setActiveTab(tab);
     setSelectedClimbIds(new Set()); // selection is climbs-tab-scoped, don't carry stale ids across tabs
+    setSelectedAmenityIds(new Set()); // same — amenities-tab-scoped
     if (tab === 'amenities' && !amenitiesLoaded) {
       setLoadingAmenities(true);
       loadPendingAmenities(isSuperAdmin, authorityIds, currentUserId)
@@ -314,7 +321,7 @@ export default function ApprovalCenterPage() {
     setBulkRejecting(true);
     try {
       const ids = Array.from(selectedClimbIds);
-      await bulkRejectClimbs(ids, reason || null, { adminId: currentUserId || '', adminName });
+      await bulkRejectEntities('climb', ids, reason || null, { adminId: currentUserId || '', adminName });
       setClimbs(prev => prev.filter(c => !selectedClimbIds.has(c.id)));
       setSelectedClimbIds(new Set());
     } catch (e) {
@@ -322,6 +329,49 @@ export default function ApprovalCenterPage() {
       alert('שגיאה בדחייה מרוכזת');
     } finally {
       setBulkRejecting(false);
+    }
+  };
+
+  const toggleAmenitySelected = (id: string) => {
+    setSelectedAmenityIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkApproveAmenities = async () => {
+    if (selectedAmenityIds.size === 0) return;
+    if (!window.confirm(`לאשר ${selectedAmenityIds.size} פריטים נבחרים?`)) return;
+    setBulkApprovingAmenities(true);
+    try {
+      const ids = Array.from(selectedAmenityIds);
+      await bulkApproveEntities('amenity', ids, { adminId: currentUserId || '', adminName });
+      setAmenities(prev => prev.filter(a => !selectedAmenityIds.has(a.id)));
+      setSelectedAmenityIds(new Set());
+    } catch (e) {
+      console.error(e);
+      alert('שגיאה באישור מרוכז');
+    } finally {
+      setBulkApprovingAmenities(false);
+    }
+  };
+
+  const handleBulkRejectAmenities = async () => {
+    if (selectedAmenityIds.size === 0) return;
+    const reason = window.prompt(`דחיית ${selectedAmenityIds.size} מתקנים — סיבה (אופציונלי, יחול על כולם):`);
+    if (reason === null) return; // cancelled
+    setBulkRejectingAmenities(true);
+    try {
+      const ids = Array.from(selectedAmenityIds);
+      await bulkRejectEntities('amenity', ids, reason || null, { adminId: currentUserId || '', adminName });
+      setAmenities(prev => prev.filter(a => !selectedAmenityIds.has(a.id)));
+      setSelectedAmenityIds(new Set());
+    } catch (e) {
+      console.error(e);
+      alert('שגיאה בדחייה מרוכזת');
+    } finally {
+      setBulkRejectingAmenities(false);
     }
   };
 
@@ -552,6 +602,49 @@ export default function ApprovalCenterPage() {
         </div>
       )}
 
+      {/* Bulk approve/reject bar — amenities tab only. "Approve all 649 benches"
+          needs select-many + bulk approve, not 649 individual clicks. */}
+      {activeTab === 'amenities' && isSuperAdmin && shownItems.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 bg-teal-50 border border-teal-200 rounded-2xl px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setSelectedAmenityIds(
+              selectedAmenityIds.size === shownItems.length
+                ? new Set()
+                : new Set(shownItems.map(i => i.id)),
+            )}
+            className="text-xs font-bold text-teal-700 hover:text-teal-900 transition-colors"
+          >
+            {selectedAmenityIds.size === shownItems.length ? 'נקה בחירה' : `בחר הכל (${shownItems.length} מוצגים)`}
+          </button>
+          {selectedAmenityIds.size > 0 && (
+            <>
+              <span className="text-xs font-bold text-teal-600">{selectedAmenityIds.size} נבחרו</span>
+              <div className="flex items-center gap-2 mr-auto">
+                <button
+                  type="button"
+                  onClick={handleBulkApproveAmenities}
+                  disabled={bulkApprovingAmenities || bulkRejectingAmenities}
+                  className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60"
+                >
+                  {bulkApprovingAmenities ? <Loader2 className="animate-spin" size={12} /> : <ShieldCheck size={12} />}
+                  {bulkApprovingAmenities ? 'מאשר...' : `אשר ${selectedAmenityIds.size} נבחרים`}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkRejectAmenities}
+                  disabled={bulkApprovingAmenities || bulkRejectingAmenities}
+                  className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60"
+                >
+                  {bulkRejectingAmenities ? <Loader2 className="animate-spin" size={12} /> : <X size={12} />}
+                  {bulkRejectingAmenities ? 'דוחה...' : `דחה ${selectedAmenityIds.size} נבחרים`}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Active tab list */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         {activeTab === 'amenities' && loadingAmenities ? (
@@ -577,6 +670,14 @@ export default function ApprovalCenterPage() {
                     checked={selectedClimbIds.has(item.id)}
                     onChange={() => toggleClimbSelected(item.id)}
                     className="w-4 h-4 flex-shrink-0 accent-orange-500 cursor-pointer"
+                  />
+                )}
+                {activeTab === 'amenities' && isSuperAdmin && (
+                  <input
+                    type="checkbox"
+                    checked={selectedAmenityIds.has(item.id)}
+                    onChange={() => toggleAmenitySelected(item.id)}
+                    className="w-4 h-4 flex-shrink-0 accent-teal-500 cursor-pointer"
                   />
                 )}
                 <button

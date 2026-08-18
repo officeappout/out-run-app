@@ -161,21 +161,60 @@ export async function rejectEntity(
 }
 
 /**
- * Bulk-reject climb_segments — Stage 6 (route-enrichment-pipeline plan, 17.08.2026),
- * built so triaging structural noise (e.g. construction-ramp false positives,
- * unwanted stairs) at scale doesn't mean 175 individual clicks. Fixed-shape
- * payload only (status + reviewFields, no arbitrary caller fields) — same
- * "no chokepoint needed" reasoning as InventoryService.bulkRejectRoutes. Lives
- * here (not InventoryService) because climb_segments' status transitions
- * already live in this file, not there. Modeled on bulkRejectRoutes'
- * chunked-batch skeleton (inventory.service.ts) but the body is climb-specific,
- * not copied verbatim — per Stage 5's own finding that the skeleton is
- * portable but route-specific side effects are not (this has none to strip:
- * climb_segments has no broadcast/adjacency/cache side effects to replicate).
- * No per-item audit log entry — matches bulkApproveRoutes/bulkRejectRoutes'
- * own precedent of skipping individual audit rows for bulk operations.
+ * Bulk approve/reject — Stage 6 (route-enrichment-pipeline plan, 17.08.2026),
+ * generalized in Phase 2 of the POI-moderation build (18.08.2026) to also
+ * cover osm_amenities ("approve all 649 benches" without 649 clicks).
+ *
+ * Deliberately restricted to entity types whose approve/reject is a fixed-
+ * shape status flip with no other side effects — park/route/contribution are
+ * NOT eligible here (approveEntity/rejectEntity for those call real side-
+ * effecting logic: park publish hooks, InventoryService's broadcast+adjacency
+ * cascade, UGC's park-creation+XP-award — none of that collapses into a
+ * `writeBatch.update()` payload). Same "no chokepoint needed" reasoning as
+ * InventoryService.bulkRejectRoutes: a fixed 2-4 field payload, no arbitrary
+ * caller-supplied fields. Lives here (not InventoryService) because both
+ * entities' status transitions already live in this file.
+ *
+ * One real per-type difference preserved below: climb approve sets
+ * `publishedAt` (matches its single-item approveEntity case); amenity does
+ * not (OsmAmenity has no such field). No per-item audit log entry — matches
+ * the original bulkRejectClimbs' own precedent of skipping individual audit
+ * rows for bulk operations (chunked writeBatch, not one doc at a time).
  */
-export async function bulkRejectClimbs(
+export type BulkModerationEntityType = 'climb' | 'amenity';
+
+const BULK_COLLECTION: Record<BulkModerationEntityType, string> = {
+  climb: 'climb_segments',
+  amenity: 'osm_amenities',
+};
+
+export async function bulkApproveEntities(
+  entityType: BulkModerationEntityType,
+  ids: string[],
+  admin: ModeratorInfo,
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const reviewFields = {
+    status: 'published' as const,
+    reviewedBy: admin.adminId,
+    reviewedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...(entityType === 'climb' ? { publishedAt: serverTimestamp() } : {}),
+  };
+  const CHUNK = 500;
+  let approved = 0;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const batch = writeBatch(db);
+    for (const id of chunk) batch.update(doc(db, BULK_COLLECTION[entityType], id), reviewFields);
+    await batch.commit();
+    approved += chunk.length;
+  }
+  return approved;
+}
+
+export async function bulkRejectEntities(
+  entityType: BulkModerationEntityType,
   ids: string[],
   reason: string | null,
   admin: ModeratorInfo,
@@ -193,7 +232,7 @@ export async function bulkRejectClimbs(
   for (let i = 0; i < ids.length; i += CHUNK) {
     const chunk = ids.slice(i, i + CHUNK);
     const batch = writeBatch(db);
-    for (const id of chunk) batch.update(doc(db, 'climb_segments', id), reviewFields);
+    for (const id of chunk) batch.update(doc(db, BULK_COLLECTION[entityType], id), reviewFields);
     await batch.commit();
     rejected += chunk.length;
   }
