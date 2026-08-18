@@ -143,6 +143,28 @@ const RouteAdjacencyFieldsSchema = z.object({
 export const RouteAdjacencyCreateSchema = RouteAdjacencyFieldsSchema.passthrough();
 export const RouteAdjacencyUpdateSchema = RouteAdjacencyFieldsSchema.partial().passthrough();
 
+// ── osm_amenities (see osm-amenity.types.ts — OsmAmenity) ────────────────
+// The 6th collection, exactly as this registry's own comment (above,
+// unmoved) anticipated — Stage 5 Phase C, autonomous build run 18.08.2026.
+
+const OsmAmenityFieldsSchema = z.object({
+  category: z.enum(['court', 'bench', 'drinking_water', 'fitness_station']),
+  sport: z.enum(['basketball', 'football', 'tennis', 'padel', 'multi', 'unknown']).optional(),
+  location: LatLngObjectSchema,
+  geohash: z.string().min(1),
+  osmId: z.string().min(1),
+  status: z.enum(['pending', 'published', 'rejected']),
+  origin: z.literal('osm_import'),
+  authorityId: z.string().min(1),
+  city: z.string().min(1),
+  /** THE HARD GATE marker — see OsmAmenity's own doc comment. Present only
+   *  on a garden-dedup-suppressed point. */
+  suppressedDuplicateOfParkId: z.string().min(1).nullable().optional(),
+});
+
+export const OsmAmenityCreateSchema = OsmAmenityFieldsSchema.passthrough();
+export const OsmAmenityUpdateSchema = OsmAmenityFieldsSchema.partial().passthrough();
+
 // ── Per-collection registry ──────────────────────────────────────────────
 // Extensible: adding a 6th collection later (e.g. Stage 4's osm_amenities)
 // means adding one entry here and one name to RouteCollectionName — nothing
@@ -153,7 +175,8 @@ export type RouteCollectionName =
   | 'curated_routes'
   | 'climb_segments'
   | 'street_segments'
-  | 'route_adjacency';
+  | 'route_adjacency'
+  | 'osm_amenities';
 
 /** cityName-keyed collections (no authorityId field at all) — route_adjacency
  *  only today. The chokepoint skips the authorityId requirement/lock
@@ -175,6 +198,7 @@ export const CITY_FIELD_BY_COLLECTION: Record<RouteCollectionName, 'city' | 'cit
   climb_segments: 'city',
   street_segments: 'cityName',
   route_adjacency: 'cityName',
+  osm_amenities: 'city',
 };
 
 export const SCHEMA_REGISTRY: Record<RouteCollectionName, { create: z.ZodTypeAny; update: z.ZodTypeAny }> = {
@@ -183,4 +207,5 @@ export const SCHEMA_REGISTRY: Record<RouteCollectionName, { create: z.ZodTypeAny
   climb_segments: { create: ClimbSegmentCreateSchema, update: ClimbSegmentUpdateSchema },
   street_segments: { create: StreetSegmentCreateSchema, update: StreetSegmentUpdateSchema },
   route_adjacency: { create: RouteAdjacencyCreateSchema, update: RouteAdjacencyUpdateSchema },
+  osm_amenities: { create: OsmAmenityCreateSchema, update: OsmAmenityUpdateSchema },
 };

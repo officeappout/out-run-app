@@ -56,6 +56,7 @@ import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { fetchCyclewaySegmentsByCity, type CyclewaySegmentPreview } from '@/features/admin/services/osm-segment-importer';
+import { fetchAmenitiesByCity, amenityEmoji, type AmenityPreview } from '@/features/admin/services/osm-amenity-admin.service';
 import { Authority } from '@/types/admin-types';
 
 // Dynamic import for Map to avoid SSR issues
@@ -278,6 +279,13 @@ export default function AdminRouteManager() {
     const [showCycleways, setShowCycleways] = useState(false);
     const [labCyclewaySegments, setLabCyclewaySegments] = useState<CyclewaySegmentPreview[]>([]);
     const [isLoadingCycleways, setIsLoadingCycleways] = useState(false);
+    // osm_amenities lab layer (Stage 5 Phase C, route-enrichment-pipeline
+    // plan, autonomous build run 18.08.2026) — same off-by-default,
+    // fetch-on-toggle pattern as showCycleways above. Admin-only display;
+    // no bulk-moderation UI this round (deferred — see the run's report).
+    const [showAmenities, setShowAmenities] = useState(false);
+    const [labAmenities, setLabAmenities] = useState<AmenityPreview[]>([]);
+    const [isLoadingAmenities, setIsLoadingAmenities] = useState(false);
     const [labFacilityLayers, setLabFacilityLayers] = useState({ water_fountain: true, gym_park: true, stairs: true, bench: true });
     const [labPoiLayers, setLabPoiLayers] = useState({ scenic: true, spring: true, zen: true });
 
@@ -452,6 +460,18 @@ export default function AdminRouteManager() {
             .finally(() => { if (!cancelled) setIsLoadingCycleways(false); });
         return () => { cancelled = true; };
     }, [activeTab, showCycleways, labAuthority?.name]);
+
+    // Amenities — same fetch-only-when-toggled-on shape as cycleways above.
+    useEffect(() => {
+        if (activeTab !== 'lab' || !showAmenities || !labAuthority?.name) return;
+        let cancelled = false;
+        setIsLoadingAmenities(true);
+        fetchAmenitiesByCity(labAuthority.name)
+            .then(items => { if (!cancelled) setLabAmenities(items); })
+            .catch(err => console.error('Amenities fetch error:', err))
+            .finally(() => { if (!cancelled) setIsLoadingAmenities(false); });
+        return () => { cancelled = true; };
+    }, [activeTab, showAmenities, labAuthority?.name]);
 
     // ── Lab: Filtered Data (useMemo) ──────────────────────────────────
     const filteredLabInfra = useMemo(() => {
@@ -1492,6 +1512,30 @@ export default function AdminRouteManager() {
                             </label>
                         </div>
 
+                        {/* osm_amenities lab layer — courts/benches/drinking-water/
+                            fitness-stations from Overpass, pending Approval Center
+                            moderation. Off by default (Stage 5 Phase C, autonomous
+                            build run, 18.08.2026). Excludes garden-dedup-suppressed
+                            (rejected) points — see osm-amenity-admin.service.ts. */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Layers size={16} className="text-indigo-500" />
+                                <h4 className="font-black text-gray-800 text-xs uppercase tracking-wider">מתקני OSM (מגרשים/ספסלים/ברזיות)</h4>
+                            </div>
+                            <label className="flex items-center gap-2.5 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={showAmenities}
+                                    onChange={(e) => setShowAmenities(e.target.checked)}
+                                    className="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-400"
+                                />
+                                <div className="w-3 h-1 rounded-full bg-amber-400" />
+                                <span className="text-xs font-bold text-gray-600 group-hover:text-gray-800">
+                                    🏀 מתקני OSM {isLoadingAmenities ? '(טוען...)' : labAmenities.length > 0 ? `(${labAmenities.length})` : ''}
+                                </span>
+                            </label>
+                        </div>
+
                         {/* Facility Layers */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
                             <div className="flex items-center gap-2 mb-3">
@@ -1755,6 +1799,25 @@ export default function AdminRouteManager() {
                                             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
                                         />
                                     </Source>
+                                ))}
+
+                                {/* ── LAB: OSM Amenity Markers (courts/benches/drinking-water/
+                                    fitness-stations, osm_amenities) — Stage 5 Phase C,
+                                    autonomous build run, 18.08.2026 ─────────────── */}
+                                {activeTab === 'lab' && showAmenities && labAmenities.map((item) => (
+                                    <Marker
+                                        key={`lab-amenity-${item.id}`}
+                                        longitude={item.location.lng}
+                                        latitude={item.location.lat}
+                                        anchor="center"
+                                    >
+                                        <div
+                                            className="w-6 h-6 bg-white border-2 border-amber-500 rounded-full flex items-center justify-center text-[10px] font-black shadow-lg"
+                                            title={item.name ?? item.category}
+                                        >
+                                            {amenityEmoji(item.category)}
+                                        </div>
+                                    </Marker>
                                 ))}
 
                                 {/* ── LAB: Curated Route Polylines ─────────────── */}
