@@ -412,7 +412,15 @@ export interface PlannedSession {
   programName?: string;
   programLevel?: number;
   activityType: ActivityType;
-  level: FitnessLevel;
+  /**
+   * Optional as of the unified-compose Phase 1 build: strength sessions
+   * derive this from the publisher's active program/track level (required —
+   * compose blocks submission and prompts program setup if absent, never a
+   * silent default). Running/walking have no level system yet, so the field
+   * is simply omitted for those — NOT defaulted to 'beginner'. Readers must
+   * treat a missing `level` as "not applicable," not "unknown beginner."
+   */
+  level?: FitnessLevel;
   startTime: Date;
   /**
    * End of the announced arrival window. Replaces the single-point
@@ -430,6 +438,14 @@ export interface PlannedSession {
   /** Geographic coordinates of the intended workout location */
   lat?: number | null;
   lng?: number | null;
+  /**
+   * Geohash of `lat`/`lng`, computed at write time via `geofire-common`
+   * (`geohashForLocation`). Written from the unified-compose Phase 1 build
+   * onward so Phase 3's radius-based push targeting can bounding-box query
+   * without a backfill. Absent on sessions created before this field existed
+   * or without a location fix.
+   */
+  geohash?: string;
   /** Shared key linking multiple sessions into a group run */
   groupSessionId?: string;
   groupName?: string;

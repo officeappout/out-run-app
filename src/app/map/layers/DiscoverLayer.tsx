@@ -66,8 +66,9 @@ import MockLocationPanel from '@/features/dev/components/MockLocationPanel';
 import { useCommunityEnrichment } from '@/features/parks/core/hooks/useCommunityEnrichment';
 import {
   Navigation,
-  Plus, X, Zap,
+  Plus, X, Zap, Users, Footprints,
 } from 'lucide-react';
+import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
 
@@ -76,12 +77,36 @@ type MapLogic = ReturnType<typeof useMapLogic>;
 const BRAND_COLOR = '#00E5FF';
 const GRAY_COLOR = '#6B7280';
 
-function ActionSpeedDial({ onAdd, onReport }: { onAdd: () => void; onReport: () => void }) {
+function ActionSpeedDial({
+  onAdd,
+  onReport,
+  onCreateGroup,
+  onGoTrain,
+}: {
+  onAdd: () => void;
+  onReport: () => void;
+  onCreateGroup: () => void;
+  onGoTrain: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="relative flex flex-col items-center gap-2">
       {isOpen && (
         <>
+          <button
+            onClick={() => { onGoTrain(); setIsOpen(false); }}
+            className="w-11 h-11 rounded-full shadow-lg flex items-center justify-center bg-[#00C9F2] text-white active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200"
+            title="יוצא להתאמן"
+          >
+            <Footprints size={16} />
+          </button>
+          <button
+            onClick={() => { onCreateGroup(); setIsOpen(false); }}
+            className="w-11 h-11 rounded-full shadow-lg flex items-center justify-center bg-violet-500 text-white active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200"
+            title="פתח קבוצה/ליגה"
+          >
+            <Users size={16} />
+          </button>
           <button
             onClick={() => { onReport(); setIsOpen(false); }}
             className="w-11 h-11 rounded-full shadow-lg flex items-center justify-center bg-amber-500 text-white active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-200"
@@ -186,6 +211,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const { setMode } = useMapMode();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
   const [mapMode, setMapMode] = useState<MapMode>('idle');
   // Settle-preview-lite for a composed leg-plan run (ג', 08.08) — armed by
   // onStartLegPlanRun below once the route is drawn + the drawer has
@@ -1511,6 +1537,8 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
               <ActionSpeedDial
                 onAdd={() => setWizardOpen(true)}
                 onReport={() => setReportOpen(true)}
+                onCreateGroup={() => router.push('/community?openCreate=true')}
+                onGoTrain={() => setComposeOpen(true)}
               />
               <button
                 onClick={() => {
@@ -1930,6 +1958,10 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
         isOpen={reportOpen}
         onClose={() => setReportOpen(false)}
         userLocation={logic.currentUserPos ?? null}
+      />
+      <PlannedActivityComposeSheet
+        isOpen={composeOpen}
+        onClose={() => setComposeOpen(false)}
       />
 
       {/* Saved-places editor — opened from the Quick Row tap-to-set

@@ -18,6 +18,7 @@ import {
   onSnapshot,
   type Unsubscribe,
 } from 'firebase/firestore';
+import { geohashForLocation } from 'geofire-common';
 import { db } from '@/lib/firebase';
 import type {
   PlannedSession,
@@ -80,7 +81,10 @@ function normalizeSession(docId: string, data: any): PlannedSession {
       ? { programLevel: data.programLevel }
       : {}),
     activityType: data.activityType ?? 'running',
-    level: data.level ?? 'beginner',
+    // No fallback to 'beginner' — a missing level means "not applicable"
+    // (running/walking today), not "unknown beginner". See the field's
+    // doc comment on `PlannedSession` in community.types.ts.
+    ...(typeof data.level === 'string' ? { level: data.level as FitnessLevel } : {}),
     startTime,
     endTime,
     expiresAt: toDate(data.expiresAt),
@@ -89,6 +93,7 @@ function normalizeSession(docId: string, data: any): PlannedSession {
     createdAt: toDate(data.createdAt),
     lat: typeof data.lat === 'number' ? data.lat : null,
     lng: typeof data.lng === 'number' ? data.lng : null,
+    ...(typeof data.geohash === 'string' ? { geohash: data.geohash } : {}),
     groupSessionId: data.groupSessionId ?? undefined,
     groupName: data.groupName ?? undefined,
     isGroupLeader: data.isGroupLeader ?? undefined,
@@ -121,7 +126,8 @@ export interface CreatePlannedSessionInput {
   /** Active program level captured at publish time. */
   programLevel?: number;
   activityType: ActivityType;
-  level: FitnessLevel;
+  /** Omit for running/walking (no level system yet) — never pass a guessed default. */
+  level?: FitnessLevel;
   startTime: Date;
   /**
    * End of the arrival window. When omitted we default to
@@ -156,6 +162,16 @@ export async function createPlannedSession(
   // Expire a little after the declared end so partner-finder cards
   // don't disappear the instant the window closes.
   const expiresAt = new Date(endTime.getTime() + EXPIRY_GRACE_MS);
+  // Geohash the location at write time — Phase 3's radius-based push
+  // targeting needs a queryable index from day one; retrofitting it later
+  // would mean backfilling every doc created before this field existed.
+  // Precision 9 matches the existing parks/routes usage of geofire-common
+  // (e.g. route-adjacency.service.ts) so future radius queries share the
+  // same bounding-box behavior across domains.
+  const geohash =
+    input.lat != null && input.lng != null
+      ? geohashForLocation([input.lat, input.lng], 9)
+      : undefined;
   const docRef = await addDoc(collection(db, COLLECTION), {
     userId: input.userId,
     displayName: input.displayName,
@@ -172,7 +188,10 @@ export async function createPlannedSession(
       ? { programLevel: input.programLevel }
       : {}),
     activityType: input.activityType,
-    level: input.level,
+    // Omit entirely when not supplied — never write a guessed default.
+    // Callers decide per-activity-type whether a level applies (see
+    // PlannedActivityComposeSheet's per-type level handling).
+    ...(input.level ? { level: input.level } : {}),
     startTime: Timestamp.fromDate(input.startTime),
     endTime: Timestamp.fromDate(endTime),
     expiresAt: Timestamp.fromDate(expiresAt),
@@ -181,6 +200,7 @@ export async function createPlannedSession(
     createdAt: serverTimestamp(),
     ...(input.lat != null && { lat: input.lat }),
     ...(input.lng != null && { lng: input.lng }),
+    ...(geohash ? { geohash } : {}),
   });
   return docRef.id;
 }

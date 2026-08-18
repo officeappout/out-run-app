@@ -28,7 +28,7 @@ import PostJoinSuccessDrawer from '@/features/arena/components/PostJoinSuccessDr
 import type { CommunityGroup, ScheduleSlot } from '@/types/community.types';
 
 import {
-  Shield, CheckCircle2, Circle, ChevronDown, X,
+  Shield, CheckCircle2, Circle, ChevronDown, X, Plus,
 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { UserFullProfile } from '@/types/user-profile';
@@ -49,6 +49,7 @@ import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCar
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
 import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps } from '@/features/home/components/WorkoutBuilderSheet';
+import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 
@@ -274,6 +275,11 @@ export default function HomePage() {
   // Workout builder sheet
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderProps, setBuilderProps] = useState<Omit<WorkoutBuilderSheetProps, 'onClose'>>({});
+
+  // Unified activity compose — promoted top-level "+" entry point (Phase 1
+  // of the social-activities build plan). Mirrors the map's ActionSpeedDial
+  // FAB visually; opens the same PlannedActivityComposeSheet used there.
+  const [composeOpen, setComposeOpen] = useState(false);
 
   // Handle "pencil" tap from WorkoutPreviewDrawer — close drawer and open edit modal
   const handleEditFromDrawer = useCallback(() => {
@@ -1544,6 +1550,27 @@ export default function HomePage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── Unified activity compose FAB — promoted home "+" entry point ──
+          Hidden while any full-screen home overlay is active (same guarding
+          discipline as the map's ActionSpeedDial, which hides during its
+          own full-screen states). z-[55]: above BottomNavbar/TrainingPlannerOverlay
+          (z-50) so it's tappable when idle, but every gating state below
+          covers it anyway before z-order would matter. */}
+      {!showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && (
+        <button
+          onClick={() => setComposeOpen(true)}
+          className="fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-white active:scale-95 transition-all"
+          style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', right: '16px' }}
+          title="יוצא להתאמן"
+        >
+          <Plus size={22} />
+        </button>
+      )}
+      <PlannedActivityComposeSheet
+        isOpen={composeOpen}
+        onClose={() => setComposeOpen(false)}
+      />
 
       {/* ── Training Planner Full-Screen Overlay ── */}
       <TrainingPlannerOverlay
