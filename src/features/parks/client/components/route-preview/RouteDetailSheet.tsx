@@ -513,6 +513,9 @@ export default function RouteDetailSheet({
                       the user sees the three "headline" facts first. */}
                   <div className="flex items-center gap-2 flex-wrap mb-3">
                     <div className={STAT_PILL_CLASS} style={{ border: PILL_BORDER }}>
+                      {/* colorScheme="severity" held back for the dormant
+                          merge (18.08.2026) — see RouteCardUnified.tsx's
+                          identical note. */}
                       <DifficultyBolts difficulty={route.difficulty} size="md" />
                     </div>
                     {route.duration > 0 && (

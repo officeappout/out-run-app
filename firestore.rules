@@ -728,8 +728,80 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ============================================================
+    // ROUTE-COLLECTION AUTHORITY GUARD — Stage 2.5 (route-enrichment-
+    // pipeline plan, .claude/plans/route-enrichment-pipeline-kickoff-
+    // vast-pelican.md). STAGED 16.08.2026, NOT YET DEPLOYED — written +
+    // reviewed pending David's explicit go per that plan's Stage 2.5 gate.
+    //
+    // Client-SDK/admin-UI defense-in-depth only — cannot stop Admin-SDK
+    // script writes (those bypass rules entirely by design). Primary
+    // enforcement for scripts is src/lib/route-collections/validate.ts's
+    // buildValidatedDoc chokepoint (Stage 1B), already live in application
+    // code for the 4 migrated call sites.
+    //
+    // `is string` guards matter here: a field value of `null` is NOT equal
+    // to `''`, so a naive `!= ''` check alone would let a null-valued
+    // authorityId slip straight through. Found during the Stage 2.5
+    // write-path audit: official-route-broadcaster.ts intentionally writes
+    // `authorityId: null` on street_segments docs broadcast from a route
+    // that itself has no authorityId (confirmed live 16.08.2026: 156 of 183
+    // official_routes docs have no authorityId at all).
+    //
+    // ⚠️ WRITE-PATH AUDIT FINDING — DO NOT DEPLOY street_segments' create
+    // guard until this is resolved: applying hasResolvedAuthority() to
+    // street_segments as currently written WOULD BREAK
+    // official-route-broadcaster.ts's broadcast for any of those 156 routes
+    // (it's fire-and-forget with a swallowed .catch(), so the failure would
+    // be SILENT to the admin — exactly the "PERMISSION-DENIED silently"
+    // failure mode axioms.md §17 already warns about). Fix
+    // official-route-broadcaster.ts to resolve/require authorityId before
+    // broadcasting (or explicitly skip+warn when absent, not write null),
+    // OR backfill the 156 legacy official_routes docs' authorityId first
+    // (bulkAssignAuthority already exists for exactly this — not yet run).
+    // Audited SAFE to deploy as-is: official_routes, curated_routes
+    // (InventoryService's migrated saveRoutes/saveCuratedRoutes/updateRoute
+    // already guarantee authorityId via the Stage 1B chokepoint before any
+    // write reaches here — this rule is redundant-but-safe defense-in-depth
+    // for those two), climb_segments (only writer is an Admin-SDK script,
+    // bypasses rules; moderation.service.ts's approve/reject only updates
+    // status, never touches authorityId/city, so the grandfather clause
+    // makes it a no-op either way), route_adjacency (cityName always
+    // set by recomputeRouteAdjacencyForCity — see its own match block).
+    // route-stitching.service.ts's curated_routes writer also audited safe
+    // — authorityId is a required, always-set function parameter.
+    // ============================================================
+    function hasResolvedAuthority() {
+      return request.resource.data.get('authorityId', '') is string
+          && request.resource.data.get('authorityId', '') != ''
+          && request.resource.data.get('city', '') is string
+          && request.resource.data.get('city', '') != '';
+    }
+    function authorityFieldsLocked() {
+      let cur = resource.data;
+      let nxt = request.resource.data;
+      return (cur.get('authorityId', '') == '' || cur.get('authorityId', '') == nxt.get('authorityId', ''))
+          && (cur.get('city', '') == ''        || cur.get('city', '')        == nxt.get('city', ''));
+    }
+    function hasResolvedCityName() {
+      return request.resource.data.get('cityName', '') is string
+          && request.resource.data.get('cityName', '') != '';
+    }
+    function cityNameFieldLocked() {
+      let cur = resource.data;
+      let nxt = request.resource.data;
+      return cur.get('cityName', '') == '' || cur.get('cityName', '') == nxt.get('cityName', '');
+    }
+
     match /official_routes/{docId} {
       allow read: if true;
+      // AUDITED SAFE — see the guard block comment above. Not yet deployed:
+      // `allow write: if isAdmin();` stays authoritative below until David's
+      // explicit go per Stage 2.5's gate; the split create/update form is
+      // shown commented so the exact target rule is reviewable in-place.
+      // allow create: if isAdmin() && hasResolvedAuthority();
+      // allow update: if isAdmin() && authorityFieldsLocked();
+      // allow delete: if isAdmin();
       allow write: if isAdmin();
       // Authenticated users may update ONLY the `analytics` sub-object
       // (e.g. usageCount, lastUsed) when completing a guided route.
@@ -742,6 +814,10 @@ service cloud.firestore {
 
     match /curated_routes/{docId} {
       allow read: if true;
+      // AUDITED SAFE — see the guard block comment above. Not yet deployed.
+      // allow create: if isAdmin() && hasResolvedAuthority();
+      // allow update: if isAdmin() && authorityFieldsLocked();
+      // allow delete: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -754,6 +830,18 @@ service cloud.firestore {
     // ============================================================
     match /climb_segments/{docId} {
       allow read: if true;
+      // AUDITED SAFE — see the guard block comment above. Not yet deployed.
+      // Note: as of 16.08.2026 NO existing climb_segments doc has
+      // authorityId set (Stage 2.4's backfill script is prepared and
+      // dry-run reviewed, NOT yet applied) — deploying this create guard
+      // has no effect on existing docs (rules gate new writes only), but
+      // any FUTURE create must resolve one; the only live writer
+      // (write-climb-segments-tlv.ts) is Admin-SDK and bypasses this rule
+      // regardless, so enforcement for it still routes through the
+      // chokepoint once that script is migrated (Stage 3).
+      // allow create: if isAdmin() && hasResolvedAuthority();
+      // allow update: if isAdmin() && authorityFieldsLocked();
+      // allow delete: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -766,6 +854,15 @@ service cloud.firestore {
     // ============================================================
     match /street_segments/{docId} {
       allow read: if true;
+      // ⚠️ NOT AUDITED SAFE — see the guard block comment above.
+      // official-route-broadcaster.ts writes authorityId:null for routes
+      // lacking one (156 of 183 official_routes docs, live 16.08.2026).
+      // DO NOT enable the create guard below until that's fixed or the
+      // legacy routes are backfilled — it would silently break the
+      // fire-and-forget broadcast for most existing routes.
+      // allow create: if isAdmin() && hasResolvedAuthority();   // ⚠️ DO NOT ENABLE YET
+      // allow update: if isAdmin() && authorityFieldsLocked();
+      // allow delete: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -785,9 +882,16 @@ service cloud.firestore {
     // insufficient permissions" on this collection; both
     // IS_ROUTE_ADJACENCY_ENABLED features were non-functional for any
     // real user without this rule. DEPLOYED 16.08.2026, David-approved.
+    //
+    // cityName-only guard (this collection has no authorityId field —
+    // keyed by city, see recomputeRouteAdjacencyForCity). AUDITED SAFE —
+    // cityName is always set by the one writer. Not yet deployed.
     // ============================================================
     match /route_adjacency/{docId} {
       allow read: if true;
+      // allow create: if isAdmin() && hasResolvedCityName();
+      // allow update: if isAdmin() && cityNameFieldLocked();
+      // allow delete: if isAdmin();
       allow write: if isAdmin();
     }
 

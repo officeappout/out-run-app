@@ -292,6 +292,50 @@ export function isOutAndBackPath(
 }
 
 /**
+ * A path is treated as a loop when its first and last vertices land within
+ * `thresholdMeters` of each other — same definition
+ * useRouteDeviationOrchestrator's isLoopRoute() uses for return-navigation
+ * (it delegates here). Extracted as a pure path-only primitive so ingestion
+ * scripts and the generator can classify a path's shape before a full
+ * `Route` object exists, without re-deriving the geometry check.
+ *
+ * NOTE: an out-and-back path also has start≈end (it retraces itself back to
+ * the start) — check `isOutAndBackPath` FIRST when classifying route shape;
+ * this function alone can't distinguish "loop" from "out-and-back," only
+ * "returns near start" from "doesn't."
+ */
+export function isLoopPath(
+  path: [number, number][],
+  thresholdMeters: number = 50,
+): boolean {
+  if (!path || path.length < 2) return false;
+  const [startLng, startLat] = path[0];
+  const [endLng, endLat] = path[path.length - 1];
+  if (
+    typeof startLng !== 'number' || typeof startLat !== 'number' ||
+    typeof endLng !== 'number' || typeof endLat !== 'number'
+  ) return false;
+  return haversineMeters(startLat, startLng, endLat, endLng) < thresholdMeters;
+}
+
+/**
+ * Classifies a path's persisted `Route.routeShape` from its geometry alone —
+ * checks the more specific out-and-back mirror test first, falls back to the
+ * general loop-closure test, and returns undefined (neither shape applies)
+ * for a genuine point-to-point path. Use this wherever the shape isn't
+ * already known for certain by construction (e.g. a function that literally
+ * builds via `buildOutAndBackPath` already knows its output is 'out_and_back'
+ * and doesn't need this check).
+ */
+export function classifyRouteShape(
+  path: [number, number][],
+): 'loop' | 'out_and_back' | undefined {
+  if (isOutAndBackPath(path)) return 'out_and_back';
+  if (isLoopPath(path)) return 'loop';
+  return undefined;
+}
+
+/**
  * DISPLAY-ONLY: offsets an out-and-back path's outbound and return legs
  * into two parallel "lanes" so they don't visually overlap on the map —
  * lets direction arrows (Mapbox's automatic line-tangent rotation under

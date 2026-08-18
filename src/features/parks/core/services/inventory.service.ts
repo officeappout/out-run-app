@@ -8,11 +8,15 @@ import {
     query,
     where,
     orderBy,
+    startAt,
+    endAt,
     limit,
     updateDoc,
     serverTimestamp,
+    arrayUnion,
 } from 'firebase/firestore';
-import { Route } from '../types/route.types';
+import { geohashQueryBounds } from 'geofire-common';
+import { Route, type RouteFeatureTag } from '../types/route.types';
 import { MapFacility } from '../types/facility.types';
 import { normalizeStoredRoutePath } from '../utils/routePath';
 import { getParksByAuthority } from './parks.service';
@@ -22,7 +26,9 @@ import {
     deleteOfficialRouteSegments,
     deleteOfficialRouteSegmentsForMany,
 } from './official-route-broadcaster';
-import { IS_ROUTE_ADJACENCY_ENABLED } from '@/config/feature-flags';
+import { IS_ROUTE_ADJACENCY_ENABLED, IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED, ROUTE_ENRICHMENT_PILOT_CITIES } from '@/config/feature-flags';
+import { getAllAuthorities } from '@/features/admin/services/authority.service';
+import { buildValidatedDoc, stripUndefined } from '@/lib/route-collections';
 
 // ── Facilities client cache (stale-while-revalidate, localStorage, 6h TTL) ──
 // Mirrors parks.service.ts's fetchRealParks/_inflightParksFetch pattern —
@@ -86,21 +92,18 @@ export interface ImportBatchSummary {
     authorityId?: string;
 }
 
+// stripUndefined moved to src/lib/route-collections/validate.ts (Stage 1B) —
+// imported above. Same implementation, shared instead of duplicated.
+
 /**
- * Recursively strips `undefined` values from an object.
- * Firestore does NOT accept `undefined` — this prevents WriteBatch.set() errors.
+ * The set of real authority doc ids, for buildValidatedDoc's "authorityId is
+ * a REAL authority, not just a non-empty string" check. getAllAuthorities()
+ * is already module-level-cached (authority.service.ts) — no extra caching
+ * needed here.
  */
-function stripUndefined<T extends Record<string, any>>(obj: T): T {
-    const clean = {} as any;
-    for (const [key, value] of Object.entries(obj)) {
-        if (value === undefined) continue;
-        if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
-            clean[key] = stripUndefined(value);
-        } else {
-            clean[key] = value;
-        }
-    }
-    return clean as T;
+async function getKnownAuthorityIds(): Promise<Set<string>> {
+    const authorities = await getAllAuthorities();
+    return new Set(authorities.map((a) => a.id));
 }
 
 /**
@@ -246,11 +249,15 @@ export async function recomputeRouteAdjacencyForCity(cityName: string | undefine
 }
 
 /**
- * Fire-and-forget helper for the 8 real `official_routes` mutation sites
- * below — dedupes city names and kicks off `recomputeRouteAdjacencyForCity`
- * for each without blocking the caller. Gated on IS_ROUTE_ADJACENCY_ENABLED
- * so this is a true no-op (not even the dedupe/import cost) while the flag
- * is off.
+ * Fire-and-forget helper for the 10 real `official_routes` mutation sites
+ * below (saveRoutes, saveCuratedRoutes, approveRoute, rejectRoute,
+ * bulkDeleteRoutes, bulkApproveRoutes, bulkRejectRoutes, deleteRoutesByCity,
+ * deleteImportBatch, deleteAllRoutesByAuthority — count corrected 17.08.2026,
+ * Stage 3: the bulkApprove/bulkRejectRoutes pair was added in Stage 2 after
+ * this comment was originally written) — dedupes city names and kicks off
+ * `recomputeRouteAdjacencyForCity` for each without blocking the caller.
+ * Gated on IS_ROUTE_ADJACENCY_ENABLED so this is a true no-op (not even the
+ * dedupe/import cost) while the flag is off.
  */
 function recomputeAdjacencyForCities(cityNames: Array<string | undefined | null>): void {
     if (!IS_ROUTE_ADJACENCY_ENABLED) return;
@@ -258,6 +265,237 @@ function recomputeAdjacencyForCities(cityNames: Array<string | undefined | null>
     for (const cityName of distinct) {
         recomputeRouteAdjacencyForCity(cityName).catch((err) => {
             console.warn('[route-adjacency] recomputeAdjacencyForCities failed (non-fatal):', err);
+        });
+    }
+}
+
+/**
+ * Generous prefilter radius for the street_segments side of the enrichment
+ * join — must exceed CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS (40m) by a
+ * wide margin, same "prefilter radius >> real threshold" reasoning as
+ * findCandidatePairsByGeohash's own 5000m default vs. its ~150-300m real
+ * gap (route-adjacency.service.ts:118-128): the geohash box only needs to
+ * rule out segments obviously far away, never approximate the real cutoff —
+ * the precise findNearestAssociations pass does the actual filtering.
+ */
+const CLIMB_ROUTE_QUERY_RADIUS_METERS = 500;
+
+/**
+ * Stage 3 of the route-enrichment-pipeline plan (17.08.2026): full per-city
+ * recompute of the climb_segments ↔ official_routes/street_segments spatial
+ * join. Structural sibling of recomputeRouteAdjacencyForCity immediately
+ * above — same "full replace, not incremental patch" strategy, same
+ * fire-and-forget-from-every-mutator convention, same try/catch non-fatal
+ * shape. Also doubles as the backfill entry point (Stage 3 Phase 3.3's
+ * scripts/backfill-route-enrichment-tlv.ts calls this directly with
+ * `{dryRun: true}`) — one implementation serves both the live dispatcher and
+ * the one-time backfill, matching the adjacency engine's own history (its
+ * original 88-edge backfill and its live per-mutation recompute are the same
+ * function, not two).
+ *
+ * Query shape deliberately mirrors recomputeRouteAdjacencyForCity's proven
+ * pattern rather than inventing a new one — see inline comments below for
+ * where and why it diverges (climb_segments' authorityId guard; street_segments'
+ * geohash-bounded query instead of a cityName filter, to sidestep that
+ * collection's known cityName alias bug).
+ */
+export async function recomputeRouteEnrichmentForCity(
+    cityName: string | undefined | null,
+    opts?: { dryRun?: boolean },
+): Promise<{
+    climbsUpdated: number;
+    routesUpdated: number;
+    segmentsUpdated: number;
+    pairings?: Array<{ climbId: string; targetId: string; targetType: 'route' | 'segment'; distanceMeters: number }>;
+}> {
+    if (!cityName) return { climbsUpdated: 0, routesUpdated: 0, segmentsUpdated: 0 };
+    const dryRun = opts?.dryRun ?? false;
+    try {
+        const {
+            findNearestAssociations,
+            computeClimbRouteAssociations,
+            buildEnrichmentWritesFromAssociations,
+            CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS,
+        } = await import('./route-enrichment.service');
+
+        // ── climb_segments: published + city-scoped (same filter shape as
+        // official_routes below), plus hard rule 1's authority guard — a
+        // climb missing authorityId is skipped + counted, never force-joined.
+        // Defensive only: Stage 2.4 already backfilled all 180 TLV docs. ──
+        const climbsSnap = await getDocs(
+            query(collection(db, 'climb_segments'), where('city', '==', cityName), where('status', '==', 'published')),
+        );
+        interface ClimbRow { id: string; path: [number, number][]; type: 'terrain' | 'structure' | 'stairs'; climbType: string; avgGrade: number | null; maxGrade: number | null; center?: { lat: number; lng: number }; authorityId?: string; existingCity?: string }
+        const climbs: ClimbRow[] = [];
+        let climbsSkippedNoAuthority = 0;
+        for (const d of climbsSnap.docs) {
+            const data = d.data();
+            if (!data.authorityId) { climbsSkippedNoAuthority++; continue; }
+            const rawGeometry = Array.isArray(data.geometry) ? data.geometry : [];
+            const path: [number, number][] = rawGeometry.length > 0
+                ? rawGeometry.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number])
+                : data.center ? [[Number(data.center.lng) || 0, Number(data.center.lat) || 0] as [number, number]] : [];
+            if (path.length === 0) continue;
+            climbs.push({
+                id: d.id, path, type: data.type, climbType: data.climbType,
+                avgGrade: data.avgGrade ?? null, maxGrade: data.maxGrade ?? null,
+                center: data.center, authorityId: data.authorityId, existingCity: data.city,
+            });
+        }
+
+        // ── official_routes: published + city-scoped — identical filter to
+        // recomputeRouteAdjacencyForCity's own proven query (no city-alias
+        // issue reported for official_routes.city, unlike street_segments). ──
+        const routesSnap = await getDocs(
+            query(collection(db, 'official_routes'), where('city', '==', cityName), where('published', '==', true)),
+        );
+        interface RouteRow { id: string; path: [number, number][]; authorityId?: string; existingCity?: string }
+        const routes: RouteRow[] = [];
+        for (const d of routesSnap.docs) {
+            const data = d.data();
+            const rawPath = data.path;
+            if (!Array.isArray(rawPath) || rawPath.length < 2) continue;
+            const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
+            routes.push({ id: d.id, path, authorityId: data.authorityId, existingCity: data.city });
+        }
+
+        const climbJoinInputs = climbs.map((c) => ({ id: c.id, path: c.path, type: c.type, climbType: c.climbType as any, avgGrade: c.avgGrade, maxGrade: c.maxGrade }));
+
+        // ── Routes side: full cross-product — TLV scale (~180 climbs × a few
+        // dozen routes) makes geohash prefiltering unnecessary here (same
+        // "brute-force is fine at this scale" call recomputeRouteAdjacencyForCity
+        // itself already makes for 189 official_routes total). ──
+        const routeAssociations = computeClimbRouteAssociations(climbJoinInputs, routes, CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS);
+
+        // ── Segments side: per-climb geohash-bounded query — avoids loading
+        // the whole (potentially thousands-of-docs) street_segments
+        // collection, AND sidesteps street_segments.cityName's documented
+        // alias bug entirely by never filtering on cityName — geo-bounding
+        // around each climb's own center instead (same reasoning
+        // fetchScoredWaypointsByProximity's own doc comment gives). ──
+        const segmentAssociations: typeof routeAssociations = [];
+        const segmentExistingById = new Map<string, { authorityId?: string; cityName?: string }>();
+        for (const climb of climbs) {
+            if (!climb.center) continue;
+            const bounds = geohashQueryBounds([climb.center.lat, climb.center.lng], CLIMB_ROUTE_QUERY_RADIUS_METERS);
+            const seenSegmentIds = new Set<string>();
+            const candidates: Array<{ id: string; path: [number, number][] }> = [];
+            const snaps = await Promise.all(
+                bounds.map(([start, end]) =>
+                    getDocs(query(collection(db, 'street_segments'), orderBy('geohash'), startAt(start), endAt(end))),
+                ),
+            );
+            for (const snap of snaps) {
+                for (const d of snap.docs) {
+                    if (seenSegmentIds.has(d.id)) continue;
+                    seenSegmentIds.add(d.id);
+                    const data = d.data();
+                    segmentExistingById.set(d.id, { authorityId: data.authorityId, cityName: data.cityName });
+                    const rawPath = Array.isArray(data.path) ? data.path : null;
+                    const path: [number, number][] = rawPath
+                        ? rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number])
+                        : data.midpoint ? [[Number(data.midpoint.lng) || 0, Number(data.midpoint.lat) || 0] as [number, number]] : [];
+                    if (path.length === 0) continue;
+                    candidates.push({ id: d.id, path });
+                }
+            }
+            const climbInput = { id: climb.id, path: climb.path, type: climb.type, climbType: climb.climbType as any, avgGrade: climb.avgGrade, maxGrade: climb.maxGrade };
+            segmentAssociations.push(...findNearestAssociations(climbInput, candidates, 'segment', CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS));
+        }
+
+        const allAssociations = [...routeAssociations, ...segmentAssociations];
+        const climbsById = new Map(climbJoinInputs.map((c) => [c.id, c]));
+        const { climbUpdates, routeUpdates, segmentUpdates } = buildEnrichmentWritesFromAssociations(allAssociations, climbsById);
+
+        if (dryRun) {
+            console.log(
+                `[route-enrichment] DRY RUN "${cityName}": ${climbs.length} climbs (${climbsSkippedNoAuthority} skipped, no authorityId), ` +
+                `${routes.length} routes → ${allAssociations.length} pairings (${routeAssociations.length} route, ${segmentAssociations.length} segment); ` +
+                `${climbUpdates.size} climbs / ${routeUpdates.size} routes / ${segmentUpdates.size} segments would be updated`,
+            );
+            return { climbsUpdated: climbUpdates.size, routesUpdated: routeUpdates.size, segmentsUpdated: segmentUpdates.size, pairings: allAssociations };
+        }
+
+        // ── Write, chunked writeBatch (500 ops/batch), through the Stage 1B
+        // chokepoint. `existing` for the lock-check comes from data already
+        // fetched above — no redundant getDoc round-trips. None of these
+        // three payloads ever touch authorityId/city, so the chokepoint's
+        // lock-check is a no-op regardless — `existing` is still passed
+        // faithfully for defensiveness/correctness if a future edit changes
+        // that. ──
+        const knownAuthorityIds = await getKnownAuthorityIds();
+        const routeExistingById = new Map(routes.map((r) => [r.id, { authorityId: r.authorityId, city: r.existingCity }]));
+        const climbExistingById = new Map(climbs.map((c) => [c.id, { authorityId: c.authorityId, city: c.existingCity }]));
+
+        const batches: ReturnType<typeof writeBatch>[] = [writeBatch(db)];
+        let opsInBatch = 0;
+        const addOp = (ref: ReturnType<typeof doc>, data: Record<string, unknown>) => {
+            if (opsInBatch >= 500) { batches.push(writeBatch(db)); opsInBatch = 0; }
+            batches[batches.length - 1].update(ref, data);
+            opsInBatch++;
+        };
+
+        // .forEach() rather than for-of over the Map — matches this repo's
+        // existing TS2802 workaround pattern elsewhere (direct Map iteration
+        // needs --downlevelIteration/es2015+, which this tsconfig doesn't set).
+        climbUpdates.forEach((upd, climbId) => {
+            const existing = climbExistingById.get(climbId) ?? {};
+            const validated = buildValidatedDoc(
+                'climb_segments',
+                { routeIds: upd.routeIds, streetSegmentIds: upd.streetSegmentIds, updatedAt: serverTimestamp() },
+                { mode: 'update', knownAuthorityIds, existing },
+            );
+            addOp(doc(db, 'climb_segments', climbId), validated);
+        });
+        routeUpdates.forEach((features, routeId) => {
+            const existing = routeExistingById.get(routeId) ?? {};
+            const validated = buildValidatedDoc(
+                'official_routes',
+                { terrainFeatures: features, updatedAt: serverTimestamp() },
+                { mode: 'update', knownAuthorityIds, existing },
+            );
+            addOp(doc(db, 'official_routes', routeId), validated);
+        });
+        segmentUpdates.forEach((climbIds, segmentId) => {
+            const existing = segmentExistingById.get(segmentId) ?? {};
+            const validated = buildValidatedDoc(
+                'street_segments',
+                { nearbyClimbSegmentIds: climbIds, updatedAt: serverTimestamp() },
+                { mode: 'update', knownAuthorityIds, existing },
+            );
+            addOp(doc(db, 'street_segments', segmentId), validated);
+        });
+
+        for (const batch of batches) await batch.commit();
+
+        console.log(
+            `[route-enrichment] Recomputed "${cityName}": ${climbUpdates.size} climbs, ${routeUpdates.size} routes, ${segmentUpdates.size} segments updated`,
+        );
+        return { climbsUpdated: climbUpdates.size, routesUpdated: routeUpdates.size, segmentsUpdated: segmentUpdates.size };
+    } catch (error) {
+        console.warn('[route-enrichment] recomputeRouteEnrichmentForCity failed (non-fatal):', error);
+        return { climbsUpdated: 0, routesUpdated: 0, segmentsUpdated: 0 };
+    }
+}
+
+/**
+ * Fire-and-forget helper for the SAME 10 `official_routes` mutation sites as
+ * `recomputeAdjacencyForCities` immediately above — structural sibling, not
+ * a rewrite (route-enrichment-pipeline plan, Stage 3, 17.08.2026). Two
+ * independent gates, both required: the flag (byte-identical no-op when
+ * off) AND the pilot-city allowlist (a mutation in any city outside
+ * ROUTE_ENRICHMENT_PILOT_CITIES is silently skipped even with the flag on —
+ * see the flag's own doc comment in feature-flags.ts for why this is
+ * deliberately two layers, not one). Fires independently of
+ * recomputeAdjacencyForCities — one failing must never affect the other.
+ */
+function recomputeEnrichmentForCities(cityNames: Array<string | undefined | null>): void {
+    if (!IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED) return;
+    const distinct = Array.from(new Set(cityNames.filter((c): c is string => !!c)))
+        .filter((cityName) => ROUTE_ENRICHMENT_PILOT_CITIES.includes(cityName));
+    for (const cityName of distinct) {
+        recomputeRouteEnrichmentForCity(cityName).catch((err) => {
+            console.warn('[route-enrichment] recomputeEnrichmentForCities failed (non-fatal):', err);
         });
     }
 }
@@ -398,6 +636,9 @@ export const InventoryService = {
             const routesRef = collection(db, 'official_routes');
             let saved = 0;
 
+            // Stage 1B chokepoint: fetched once per call, not per-route.
+            const knownAuthorityIds = await getKnownAuthorityIds();
+
             // Tracks the Firestore-assigned doc id for every successfully
             // prepared route. Used downstream to broadcast each route to
             // `street_segments` keyed by its REAL doc id (the in-memory
@@ -422,7 +663,13 @@ export const InventoryService = {
                     ? r.duration
                     : Math.round(distance / ((r.activityType === 'cycling' || r.type === 'cycling') ? 250 : 100));
 
-                        const routeDoc = stripUndefined({
+                        // buildValidatedDoc strips undefineds internally — replaces the
+                        // former bare stripUndefined() call. A validation failure here
+                        // (e.g. no authorityId, an invalid difficulty) throws
+                        // RouteDocValidationError, caught below same as any other
+                        // per-route prep error — this route is skipped, logged, and
+                        // the rest of the batch proceeds.
+                        const routeDoc = buildValidatedDoc('official_routes', {
                     ...r,
                     path: transformedPath,
                     distance,
@@ -431,7 +678,7 @@ export const InventoryService = {
                             activityTypes: r.activityTypes || [r.activityType || r.type],
                     createdAt: serverTimestamp(),
                             updatedAt: serverTimestamp(),
-                        });
+                        }, { mode: 'create', knownAuthorityIds });
 
                         batch.set(newDocRef, routeDoc);
 
@@ -469,6 +716,7 @@ export const InventoryService = {
                     console.warn('[InventoryService] Broadcast to street_segments failed (non-fatal):', err);
                 });
             recomputeAdjacencyForCities(persistedRoutes.map((r) => r.city));
+            recomputeEnrichmentForCities(persistedRoutes.map((r) => r.city));
 
             return true;
         } catch (error) {
@@ -600,6 +848,7 @@ export const InventoryService = {
                 console.warn('[InventoryService] Batch-delete broadcast cleanup failed (non-fatal):', err);
             });
             recomputeAdjacencyForCities(deletedCities);
+            recomputeEnrichmentForCities(deletedCities);
 
             return deleted;
         } catch (error) {
@@ -702,6 +951,7 @@ export const InventoryService = {
                 console.warn('[InventoryService] Authority-wide broadcast cleanup failed (non-fatal):', err);
             });
             recomputeAdjacencyForCities(deletedOfficialCities);
+            recomputeEnrichmentForCities(deletedOfficialCities);
 
             return totalDeleted;
         } catch (error) {
@@ -720,24 +970,30 @@ export const InventoryService = {
      */
     saveCuratedRoutes: async (routes: Route[]): Promise<boolean> => {
         try {
-            // Helper to build a clean Firestore document from a route
-            const buildDoc = (r: Route) => {
+            // Stage 1B chokepoint: fetched once per call, not per-route/collection.
+            const knownAuthorityIds = await getKnownAuthorityIds();
+
+            // Helper to build a clean, validated Firestore document from a
+            // route. `collectionName` matters — official_routes and
+            // curated_routes are validated against their own schema even
+            // though they share the same input shape here.
+            const buildDoc = (r: Route, collectionName: 'curated_routes' | 'official_routes') => {
                 const transformedPath = r.path.map(p => ({ lng: p[0], lat: p[1] }));
-                return stripUndefined({
+                return buildValidatedDoc(collectionName, {
                     ...r,
                     path: transformedPath,
                     activityType: r.activityType || r.type,
                     isInfrastructure: false,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
-                });
+                }, { mode: 'create', knownAuthorityIds });
             };
 
             // 1️⃣ Save to curated_routes collection (indexed by authorityId for instant fetch)
             const curatedRef = collection(db, 'curated_routes');
             for (let i = 0; i < routes.length; i += 500) {
                 const batch = writeBatch(db);
-                routes.slice(i, i + 500).forEach(r => batch.set(doc(curatedRef), buildDoc(r)));
+                routes.slice(i, i + 500).forEach(r => batch.set(doc(curatedRef), buildDoc(r, 'curated_routes')));
                 await batch.commit();
             }
 
@@ -751,7 +1007,7 @@ export const InventoryService = {
                 const batch = writeBatch(db);
                 routes.slice(i, i + 500).forEach(r => {
                     const ref = doc(officialRef);
-                    batch.set(ref, buildDoc(r));
+                    batch.set(ref, buildDoc(r, 'official_routes'));
                     persistedRoutes.push({ ...r, id: ref.id });
                 });
                 await batch.commit();
@@ -775,6 +1031,7 @@ export const InventoryService = {
                     console.warn('[InventoryService] Curated broadcast failed (non-fatal):', err);
                 });
             recomputeAdjacencyForCities(persistedRoutes.map((r) => r.city));
+            recomputeEnrichmentForCities(persistedRoutes.map((r) => r.city));
 
             return true;
         } catch (error) {
@@ -963,9 +1220,26 @@ export const InventoryService = {
     updateRoute: async (routeId: string, data: Partial<Route>): Promise<void> => {
         try {
             const { id, path, createdAt, ...rest } = data as any;
-            const payload = stripUndefined({
+
+            // Stage 1B chokepoint, UPDATE mode — grandfather clause: fetch the
+            // existing doc's authorityId/city so buildValidatedDoc can tell a
+            // legacy authority-less doc (existing value empty — no lock, this
+            // update must not be blocked just because a route predates this
+            // rule) from one that already had a resolved authority (existing
+            // value set — locked, can't silently change). If the doc doesn't
+            // exist, `existing` is empty — updateDoc below will fail on its
+            // own with Firestore's own not-found error either way.
+            const existingSnap = await getDoc(doc(db, 'official_routes', routeId));
+            const existingData = existingSnap.exists() ? existingSnap.data() : {};
+            const knownAuthorityIds = await getKnownAuthorityIds();
+
+            const payload = buildValidatedDoc('official_routes', {
                 ...rest,
                 updatedAt: serverTimestamp(),
+            }, {
+                mode: 'update',
+                knownAuthorityIds,
+                existing: { authorityId: existingData?.authorityId, city: existingData?.city },
             });
             await updateDoc(doc(db, 'official_routes', routeId), payload);
         } catch (error) {
@@ -1027,6 +1301,7 @@ export const InventoryService = {
                         console.warn('[InventoryService] Approve broadcast failed (non-fatal):', err);
                     });
                 recomputeAdjacencyForCities([route.city]);
+                recomputeEnrichmentForCities([route.city]);
             }
         } catch (error) {
             console.error('❌ Error approving route:', error);
@@ -1053,9 +1328,16 @@ export const InventoryService = {
             deleteOfficialRouteSegments(routeId).catch((err) => {
                 console.warn('[InventoryService] Reject cleanup failed (non-fatal):', err);
             });
-            if (IS_ROUTE_ADJACENCY_ENABLED) {
+            if (IS_ROUTE_ADJACENCY_ENABLED || IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED) {
+                // Outer if is purely an optimization to skip the getRouteById
+                // fetch when BOTH flags are off — each dispatcher below still
+                // internally no-ops on its own flag, so this must OR the two
+                // flags, not gate on adjacency's alone (that would incorrectly
+                // tie enrichment's firing to a different feature's flag).
                 InventoryService.getRouteById(routeId).then((route) => {
-                    if (route) recomputeAdjacencyForCities([route.city]);
+                    if (!route) return;
+                    recomputeAdjacencyForCities([route.city]);
+                    recomputeEnrichmentForCities([route.city]);
                 });
             }
         } catch (error) {
@@ -1095,10 +1377,156 @@ export const InventoryService = {
                 console.warn('[InventoryService] Bulk-delete broadcast cleanup failed (non-fatal):', err);
             });
             recomputeAdjacencyForCities(deletedCities);
+            recomputeEnrichmentForCities(deletedCities);
 
             return deleted;
         } catch (error) {
             console.error('❌ Error bulk-deleting routes:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Approve (publish) multiple routes by their document IDs — Stage 2 of
+     * the route-enrichment-pipeline plan. Modeled directly on bulkDeleteRoutes
+     * above: 500-chunked writeBatch, fire-and-forget broadcast + adjacency
+     * recompute. Fixed-shape payload (same as single approveRoute) — no
+     * arbitrary caller-supplied fields, so this doesn't need the Stage 1B
+     * chokepoint (nothing to validate beyond what approveRoute already is).
+     * Does NOT touch single approveRoute — that stays exactly as-is.
+     */
+    bulkApproveRoutes: async (routeIds: string[]): Promise<number> => {
+        if (routeIds.length === 0) return 0;
+        try {
+            let approved = 0;
+            const payload = {
+                published: true,
+                status: 'published',
+                publishedAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            };
+            for (let i = 0; i < routeIds.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = routeIds.slice(i, i + 500);
+                chunk.forEach(id => batch.update(doc(db, 'official_routes', id), payload));
+                await batch.commit();
+                approved += chunk.length;
+            }
+            console.log(`✅ Bulk-approved ${approved} routes`);
+            invalidateOfficialRoutesCache();
+
+            // ── Broadcast on publish ───────────────────────────────────────
+            // Same "approve → broadcast" logic as single approveRoute. No
+            // broadcastRoutesToStreetSegmentsForMany exists — reuse the
+            // single-route broadcaster via Promise.all rather than inventing
+            // a bulk variant. Fire-and-forget so the admin UI returns
+            // immediately.
+            const routes = await Promise.all(routeIds.map(id => InventoryService.getRouteById(id)));
+            const validRoutes = routes.filter((r): r is Route => r !== null);
+            Promise.all(validRoutes.map(r => broadcastRouteToStreetSegments(r)))
+                .then((results) => {
+                    const totalWritten = results.reduce((sum, res) => sum + (res?.written ?? 0), 0);
+                    console.log(`📡 Bulk-approve broadcast: ${totalWritten} segments across ${validRoutes.length} routes.`);
+                })
+                .catch((err) => {
+                    console.warn('[InventoryService] Bulk-approve broadcast failed (non-fatal):', err);
+                });
+            recomputeAdjacencyForCities(validRoutes.map(r => r.city));
+            recomputeEnrichmentForCities(validRoutes.map(r => r.city));
+
+            return approved;
+        } catch (error) {
+            console.error('❌ Error bulk-approving routes:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Reject (un-publish) multiple routes by their document IDs — soft
+     * "back to pending", same semantics as single rejectRoute (the inventory
+     * tab's draft/publish toggle, NOT Approval Center's harder "archived"
+     * reject in moderation.service.ts — those are different operations
+     * despite the shared name, see route-enrichment-pipeline-scoping.md).
+     * Does NOT touch single rejectRoute — that stays exactly as-is.
+     */
+    bulkRejectRoutes: async (routeIds: string[]): Promise<number> => {
+        if (routeIds.length === 0) return 0;
+        try {
+            let rejected = 0;
+            const payload = {
+                published: false,
+                status: 'pending',
+                updatedAt: serverTimestamp(),
+            };
+            for (let i = 0; i < routeIds.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = routeIds.slice(i, i + 500);
+                chunk.forEach(id => batch.update(doc(db, 'official_routes', id), payload));
+                await batch.commit();
+                rejected += chunk.length;
+            }
+            console.log(`✅ Bulk-rejected ${rejected} routes`);
+            invalidateOfficialRoutesCache();
+
+            // ── Pull broadcast on reject ─────────────────────────────────────
+            deleteOfficialRouteSegmentsForMany(routeIds).catch((err) => {
+                console.warn('[InventoryService] Bulk-reject broadcast cleanup failed (non-fatal):', err);
+            });
+            if (IS_ROUTE_ADJACENCY_ENABLED || IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED) {
+                // Same OR-the-two-flags reasoning as rejectRoute above — the
+                // outer if only optimizes away the getRouteById fan-out when
+                // BOTH flags are off; each dispatcher still no-ops on its own.
+                Promise.all(routeIds.map(id => InventoryService.getRouteById(id))).then((routes) => {
+                    const cities = routes.filter((r): r is Route => r !== null).map(r => r.city);
+                    recomputeAdjacencyForCities(cities);
+                    recomputeEnrichmentForCities(cities);
+                });
+            }
+
+            return rejected;
+        } catch (error) {
+            console.error('❌ Error bulk-rejecting routes:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Bulk-assign RouteFeatureTag values to multiple routes — Stage 2.2 of
+     * the route-enrichment-pipeline plan. 'add' (default) is non-destructive
+     * to a route's existing tags (arrayUnion); 'replace' overwrites the
+     * whole array — callers should confirm with the admin before using it.
+     *
+     * `tags` is TypeScript-constrained to RouteFeatureTag[] (a closed enum),
+     * and the payload is otherwise fixed-shape (just featureTags +
+     * updatedAt) — same reasoning as bulkApprove/bulkReject above for why
+     * this doesn't need the Stage 1B chokepoint: there's no free-form,
+     * caller-coercible field here for it to catch.
+     */
+    bulkTagRoutes: async (
+        routeIds: string[],
+        tags: RouteFeatureTag[],
+        mode: 'add' | 'replace' = 'add',
+    ): Promise<number> => {
+        if (routeIds.length === 0 || tags.length === 0) return 0;
+        try {
+            let tagged = 0;
+            for (let i = 0; i < routeIds.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = routeIds.slice(i, i + 500);
+                chunk.forEach(id => {
+                    const payload = mode === 'add'
+                        ? { featureTags: arrayUnion(...tags), updatedAt: serverTimestamp() }
+                        : { featureTags: tags, updatedAt: serverTimestamp() };
+                    batch.update(doc(db, 'official_routes', id), payload);
+                });
+                await batch.commit();
+                tagged += chunk.length;
+            }
+            console.log(`✅ Bulk-tagged ${tagged} routes (mode: ${mode}, tags: ${tags.join(', ')})`);
+            invalidateOfficialRoutesCache();
+            return tagged;
+        } catch (error) {
+            console.error('❌ Error bulk-tagging routes:', error);
             throw error;
         }
     },
@@ -1133,6 +1561,7 @@ export const InventoryService = {
                 console.warn('[InventoryService] City-wide broadcast cleanup failed (non-fatal):', err);
             });
             recomputeAdjacencyForCities([city]);
+            recomputeEnrichmentForCities([city]);
 
             return deleted;
         } catch (error) {

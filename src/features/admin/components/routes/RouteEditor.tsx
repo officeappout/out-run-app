@@ -25,12 +25,12 @@ import {
 import dynamicImport from 'next/dynamic';
 import { Route, ActivityType } from '@/features/parks';
 import { InventoryService, invalidateOfficialRoutesCache } from '@/features/parks';
+import { classifyRouteShape } from '@/features/parks/core/services/geoUtils';
 import {
     ROUTE_SUB_SPORT_MAPPING,
-    ALL_ROUTE_FEATURE_TAGS,
-    ROUTE_FEATURE_TAG_LABELS,
     type RouteFeatureTag,
 } from '@/features/parks';
+import { FeatureTagPicker } from './FeatureTagPicker';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { auth } from '@/lib/firebase';
 import type { Authority } from '@/types/admin-types';
@@ -294,6 +294,13 @@ export default function RouteEditor({
     const handleSave = async () => {
         if (waypoints.length < 2) { alert('יש לסמן לפחות 2 נקודות על המפה'); return; }
         if (!routeName.trim())    { alert('יש להזין שם מסלול'); return; }
+        // Chokepoint requires a resolved authorityId+city on CREATE
+        // (axioms.md §23) — both derive from `selectedAuthority` below.
+        // Locked mode always resolves (falls back to the id as name); the
+        // real gap this guards is the unlocked picker with nothing chosen
+        // (or a stale id no longer in `authorities`), which previously
+        // saved silently with an empty authorityId/city.
+        if (!selectedAuthority) { alert('אנא בחרו רשות/עיר לפני שמירת המסלול'); return; }
 
         setIsSaving(true);
         try {
@@ -312,6 +319,7 @@ export default function RouteEditor({
                 type: activity,
                 activityType: activity,
                 difficulty,
+                routeShape: classifyRouteShape(fullPath.length > 0 ? fullPath : waypoints),
                 rating: routeRating,
                 calories: Math.round(totalDistanceKm * (activity === 'cycling' ? 30 : 65)),
                 adminRating: qualityScore,
@@ -578,36 +586,10 @@ export default function RouteEditor({
 
                     {/* Feature tags (extended amenities along the route) —
                         same multi-select pattern as ParkFeatureTag in
-                        admin/locations, but writes to `route.featureTags`. */}
-                    <div className="space-y-3">
-                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                            תכונות נוספות
-                            {featureTags.length > 0 && (
-                                <span className="text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded-full">
-                                    {featureTags.length}
-                                </span>
-                            )}
-                        </label>
-                        <div className="flex flex-wrap gap-1.5">
-                            {ALL_ROUTE_FEATURE_TAGS.map((tag) => {
-                                const selected = featureTags.includes(tag);
-                                return (
-                                    <button
-                                        key={tag}
-                                        type="button"
-                                        onClick={() => toggleFeatureTag(tag)}
-                                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
-                                            selected
-                                                ? 'bg-emerald-600 text-white border-emerald-600'
-                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-emerald-300'
-                                        }`}
-                                    >
-                                        {ROUTE_FEATURE_TAG_LABELS[tag]}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
+                        admin/locations, but writes to `route.featureTags`.
+                        Extracted to FeatureTagPicker (Stage 2.2) so the
+                        bulk-tag modal reuses this instead of a second copy. */}
+                    <FeatureTagPicker selected={featureTags} onToggle={toggleFeatureTag} />
 
                     {/* Auto sport mapping */}
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-3">

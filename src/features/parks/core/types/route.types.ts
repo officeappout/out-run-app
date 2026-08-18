@@ -10,6 +10,8 @@ import type {
   SegmentProtocolConfig,
   SegmentProtocolId,
 } from '@/features/workout-engine/core/types/protocol.types';
+import type { SurfaceType } from '@/lib/route-collections/surface-type';
+import type { ClimbType } from './climb-segment.types';
 
 export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
 export type SegmentType = 'run' | 'walk' | 'workout' | 'bench' | 'finish';
@@ -287,6 +289,33 @@ export const ALL_ROUTE_FEATURE_TAGS = Object.keys(
   ROUTE_FEATURE_TAG_LABELS,
 ) as RouteFeatureTag[];
 
+/**
+ * One `climb_segments` doc's cross-reference onto a route it passes near —
+ * see `Route.terrainFeatures`. `distanceFromPathMeters` is the nearest-vertex
+ * gap found by `findNearestContactPoint` (route-adjacency.service.ts, reused
+ * as-is by route-enrichment.service.ts), not a true point-to-segment
+ * distance — same approximation the shipped corridor-adjacency engine
+ * already relies on at its own (much larger) threshold.
+ *
+ * `avgGrade`/`maxGrade` are denormalized straight from the joined
+ * `ClimbSegment` (percent — the running/cycling standard unit; a degrees
+ * conversion is display-only if ever wanted, never stored) so a route can
+ * report each climb's steepness directly ("12% climb at ~km 2") without a
+ * second `climb_segments` fetch. `null` for stairs, mirroring
+ * `ClimbSegment.avgGrade`/`maxGrade`'s own nullability — grade isn't the
+ * relevant metric there. Composes with, and is deliberately distinct from,
+ * `Route.elevationGain`/`maxGrade` (Stage 1A): those are the route's OWN
+ * overall hardness; these are per-climb detail about a nearby feature.
+ */
+export interface RouteTerrainFeatureRef {
+  climbSegmentId: string;
+  type: 'terrain' | 'structure' | 'stairs';
+  climbType: ClimbType;
+  distanceFromPathMeters: number;
+  avgGrade: number | null;
+  maxGrade: number | null;
+}
+
 export interface Route {
   id: string;
   name: string;
@@ -303,6 +332,48 @@ export interface Route {
   /** Multiple activity types this route supports (e.g., walking + running) */
   activityTypes?: ActivityType[];
   difficulty: 'easy' | 'medium' | 'hard';
+
+  /**
+   * Persisted record of the route's actual built shape, classified from its
+   * geometry (see `classifyRouteShape` / `isLoopPath` / `isOutAndBackPath`
+   * in geoUtils.ts). Undefined when neither shape applies (e.g. a
+   * point-to-point commute, or a linear OSM-discovered trail).
+   *
+   * Distinct from `RouteGenerationOptions.returnShape` (route-generator.service.ts)
+   * — that's a generation-time *request* knob for one specific corridor-flow
+   * mode, not a record of what was actually built. Don't conflate the two.
+   */
+  routeShape?: 'loop' | 'out_and_back';
+
+  /** DEM-derived total elevation gain in meters (see demProfile() in scripts/geo-discovery-routes.ts). */
+  elevationGain?: number;
+  /** DEM-derived maximum grade in percent, over a 15m step (see demProfile()). */
+  maxGrade?: number;
+
+  /**
+   * Granular ground-material vocabulary, parsed from the OSM `surface` tag
+   * (see src/lib/route-collections/surface-type.ts). Undefined when no raw
+   * OSM surface tag was available at ingestion (trail-relation-derived and
+   * Mapbox-round-trip candidates have none) — never guessed.
+   *
+   * Deliberately DISTINCT from `features.surface` below — that's an older,
+   * coarser "paved-ish vs trail-ish vs mixed" concept (values like
+   * 'road'/'trail'/'paved'/'mixed') actively read by useRouteFilter.ts's
+   * match-scoring and RouteDetailSheet.tsx's SURFACE_LABELS table. Do not
+   * conflate the two or repoint either field's readers at the other.
+   */
+  surfaceType?: SurfaceType;
+
+  /**
+   * Cross-reference to nearby `climb_segments` docs whose geometry passes
+   * within CLIMB_ROUTE_ASSOCIATION_THRESHOLD_METERS of this route's path
+   * (see route-enrichment.service.ts's computeClimbRouteAssociations).
+   * Populated by Stage 3's spatial join (route-enrichment-pipeline plan) —
+   * undefined until that join has run for this route's city. Reverse of
+   * ClimbSegment.routeIds — this array and that one are two ends of the
+   * same edge, written together by the same recompute pass.
+   */
+  terrainFeatures?: RouteTerrainFeatureRef[];
 
   // Ratings
   /** User-facing star rating (1–5, decimal precision e.g. 4.3). */

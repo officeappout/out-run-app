@@ -54,12 +54,17 @@ async function main() {
 
   let created = 0, updated = 0;
   for (const r of routes) {
-    // strip probe-debug keys
-    const { _segs, _hw, _maxgap, path, ...rest } = r;
+    // strip probe-debug keys, and the orphaned isLoop boolean (Stage 1A
+    // retires it — the probe's source JSON may still carry it from an older
+    // enrichment run). isLoop:false doesn't mean 'out_and_back' — a non-loop
+    // candidate here is just a linear trail, so we omit routeShape rather
+    // than guess.
+    const { _segs, _hw, _maxgap, path, isLoop, ...rest } = r;
     const transformedPath = (path as [number, number][]).map(p => ({ lng: p[0], lat: p[1] }));
 
     const doc: any = {
       ...rest,
+      ...(isLoop ? { routeShape: 'loop' } : {}),
       path: transformedPath,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };

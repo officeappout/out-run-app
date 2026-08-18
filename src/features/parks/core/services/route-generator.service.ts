@@ -9,8 +9,9 @@ import { MapboxService } from './mapbox.service';
 import type { MapboxPathResult } from './mapbox.service';
 import { rdpSimplify } from '@/utils/pathSimplify';
 import { withCancelPrevious } from '@/lib/requestGovernor';
-import { buildOutAndBackPath, computeRouteTurns, isSameCoord, pathLengthMeters, pathSelfIntersects, sliceFlowPathToDistance } from './geoUtils';
+import { buildOutAndBackPath, classifyRouteShape, computeRouteTurns, isSameCoord, pathLengthMeters, pathSelfIntersects, sliceFlowPathToDistance } from './geoUtils';
 import { SPEED_KMH, KCAL_PER_KM } from './route-request.utils';
+import { computeGeneratorDifficulty } from './generator-elevation.service';
 import {
   IS_PROXIMITY_SEGMENT_QUERY_ENABLED,
   IS_TIGHTENED_DISTANCE_WINDOW_ENABLED,
@@ -300,6 +301,31 @@ interface StreetSegment {
    * bias when the user wanders off the corresponding route.
    */
   officialRouteId?: string;
+  /**
+   * Percent grade parsed from the OSM `incline` tag by osm-segment-importer.ts
+   * (Stage 1A of the route-enrichment-pipeline plan). Not yet consumed by
+   * scoreSegment/scoreWaypoint or any generator logic — parsed and stored
+   * only, sets up Stage 3's climb↔segment spatial-join heuristic.
+   */
+  inclinePct?: number | null;
+  /**
+   * Granular ground-material vocabulary, mapped from the OSM `surface` tag
+   * by osm-segment-importer.ts (surface-type phase of the route-enrichment-
+   * pipeline plan). Not yet consumed by scoreSegment/scoreWaypoint — parsed
+   * and stored only, same "capture the data, don't build preference logic
+   * yet" scope as inclinePct above.
+   */
+  surfaceType?: import('@/lib/route-collections/surface-type').SurfaceType;
+  /**
+   * Cross-reference to nearby `climb_segments` doc ids, from Stage 3's
+   * spatial join (route-enrichment.service.ts's computeClimbRouteAssociations,
+   * route-enrichment-pipeline plan). Not yet consumed by scoreSegment/
+   * scoreWaypoint or any generator logic — same "parsed and stored only"
+   * scope as inclinePct/surfaceType above, lean id-list only (not the richer
+   * RouteTerrainFeatureRef shape Route.terrainFeatures gets — street_segments
+   * are generator-scoring documents, not curated/admin-visible content).
+   */
+  nearbyClimbSegmentIds?: string[];
 }
 
 /** Extract a single representative { lat, lng } point from a segment document.
@@ -1461,6 +1487,7 @@ export function buildCorridorRoute(
     type: activity,
     activityType: activity,
     difficulty: corridor.difficulty || 'easy',
+    routeShape: classifyRouteShape(corridor.path),
     path: corridor.path,
     segments: [],
     rating: corridor.rating || 4.5,
@@ -1831,6 +1858,12 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
   const durationMinutes = Math.round((totalDistanceKm / speedKmh) * 60);
   const calories = Math.round(totalDistanceKm * kcalPerKmFor(activity));
   const names = chainIds.map((id) => corridors.get(id)!.name);
+  // Cached-DEM difficulty (Stage 5 Phase B, 18.08.2026) — samples the
+  // already-warmed tile cache, never a live per-route Mapbox call. Falls
+  // back to 'easy' with no elevationGain/maxGrade on any coverage gap
+  // (e.g. a city outside the current TLV pilot bbox) — see
+  // generator-elevation.service.ts's own header for the full contract.
+  const demResult = await computeGeneratorDifficulty(splicedPath);
 
   const route: Route = {
     id: `chain-${chainIds.join('-')}-${routeGenerationIndex}`,
@@ -1841,7 +1874,10 @@ async function generateDiscoveredChainRoute(options: RouteGenerationOptions): Pr
     score: 100,
     type: activity,
     activityType: activity,
-    difficulty: 'medium',
+    difficulty: demResult.difficulty,
+    elevationGain: demResult.elevationGain,
+    maxGrade: demResult.maxGrade,
+    routeShape: classifyRouteShape(splicedPath),
     path: splicedPath,
     segments: [],
     rating: 4.5,
@@ -2139,6 +2175,9 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
   const durationMinutes = Math.round((totalDistanceKm / speedKmh) * 60);
   const calories = Math.round(totalDistanceKm * kcalPerKmFor(activity));
   const corridorNames = chainIds.map((id) => corridors.get(id)?.name).filter(Boolean);
+  // Cached-DEM difficulty (Stage 5 Phase B, 18.08.2026) — see generator-
+  // elevation.service.ts's header for the fallback contract.
+  const demResult = await computeGeneratorDifficulty(cleanPath);
 
   const route: Route = {
     id: `flow-${chainIds.join('-')}-${routeGenerationIndex}`,
@@ -2149,7 +2188,12 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
     score: 100,
     type: activity,
     activityType: activity,
-    difficulty: 'medium',
+    difficulty: demResult.difficulty,
+    elevationGain: demResult.elevationGain,
+    maxGrade: demResult.maxGrade,
+    // Known by construction, not geometrically re-derived — built above via
+    // buildOutAndBackPath(trimmedFlow) then simplified.
+    routeShape: 'out_and_back',
     path: cleanPath,
     segments: [],
     rating: 4.5,
@@ -2501,6 +2545,14 @@ async function attemptOneCombination(
     // overview=full (the "square/boxy" micro-jaggedness). Distance/duration stay
     // from Mapbox — do NOT recompute them from the simplified path.
     const cleanPath = rdpSimplify(result.path, 4);
+    // Cached-DEM difficulty (Stage 5 Phase B, 18.08.2026) — see generator-
+    // elevation.service.ts's header for the fallback contract. Relocated
+    // here (18.08.2026, full-branch dormant merge) from attemptRouteCombinations'
+    // now-obsolete inline-construction site — attemptOneCombination is the
+    // CURRENT real construction site after main's own parallel/time-budgeted
+    // refactor; the old site's own wiring was discarded as dead code, not
+    // applied twice.
+    const demResult = await computeGeneratorDifficulty(cleanPath);
 
     const route: Route = {
       id: `gen-${Date.now()}-${index}-${routeGenerationIndex}`,
@@ -2511,7 +2563,10 @@ async function attemptOneCombination(
       score: Math.round(combination.score + (routeDistanceKm * 10)),
       type: activity,
       activityType: activity,
-      difficulty: 'easy',
+      difficulty: demResult.difficulty,
+      elevationGain: demResult.elevationGain,
+      maxGrade: demResult.maxGrade,
+      routeShape: classifyRouteShape(cleanPath),
       path: cleanPath,
       segments: [],
       rating: 4.5 + (Math.random() * 0.5),
@@ -3166,6 +3221,9 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
       const calories = Math.round(routeDistanceKm * kcalPerKmFor(activity));
       const mirroredPath = buildOutAndBackPath(result.path);
       const cleanPath = rdpSimplify(mirroredPath, 4);
+      // Cached-DEM difficulty (Stage 5 Phase B, 18.08.2026) — see generator-
+      // elevation.service.ts's header for the fallback contract.
+      const demResult = await computeGeneratorDifficulty(cleanPath);
 
       const route: Route = {
         id: `gen-oab-${Date.now()}-${i}-${routeGenerationIndex}`,
@@ -3176,7 +3234,11 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
         score: Math.round(candidate.score + routeDistanceKm * 10),
         type: activity,
         activityType: activity,
-        difficulty: 'easy',
+        difficulty: demResult.difficulty,
+        elevationGain: demResult.elevationGain,
+        maxGrade: demResult.maxGrade,
+        // Known by construction — built above via buildOutAndBackPath(result.path).
+        routeShape: 'out_and_back',
         path: cleanPath,
         segments: [],
         rating: 4.5 + Math.random() * 0.5,
@@ -3231,14 +3293,17 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
  * homogeneous Route — the only difference is the optional `variant` and
  * `etaSeconds` metadata that flips on the variant chip in the UI.
  */
-function buildCommuteRoute(
+async function buildCommuteRoute(
   result: MapboxPathResult,
   variant: CommuteVariant,
   activity: ActivityType,
   destination: { lat: number; lng: number },
   index: number,
-): Route {
+): Promise<Route> {
   const km = parseFloat((result.distance / 1000).toFixed(2));
+  // Cached-DEM difficulty (Stage 5 Phase B, 18.08.2026) — see generator-
+  // elevation.service.ts's header for the fallback contract.
+  const demResult = await computeGeneratorDifficulty(result.path);
   // Fix 3 (14.08.2026) — same running-pace recompute as the loop/out-and-back
   // generators; see attemptRouteCombinations' comment. Calories here used to be a
   // THIRD hardcoded value (65, not the other two sites' 70) — now unified
@@ -3268,7 +3333,9 @@ function buildCommuteRoute(
     calories,
     type: activity,
     activityType: activity,
-    difficulty: 'easy',
+    difficulty: demResult.difficulty,
+    elevationGain: demResult.elevationGain,
+    maxGrade: demResult.maxGrade,
     path: result.path,
     segments: [],
     features: {
@@ -3434,12 +3501,12 @@ async function generateCommuteRoutes(
   }
 
   const out: Route[] = [];
-  out.push(buildCommuteRoute(fastest, 'fastest', activity, destination, 0));
+  out.push(await buildCommuteRoute(fastest, 'fastest', activity, destination, 0));
   if (alternative) {
-    out.push(buildCommuteRoute(alternative, 'alternative', activity, destination, 1));
+    out.push(await buildCommuteRoute(alternative, 'alternative', activity, destination, 1));
   }
   if (quiet) {
-    out.push(buildCommuteRoute(quiet, 'quiet', activity, destination, 2));
+    out.push(await buildCommuteRoute(quiet, 'quiet', activity, destination, 2));
   }
 
   console.log(

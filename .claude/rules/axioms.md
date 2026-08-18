@@ -215,3 +215,20 @@ If a knowledge file contains `⚠️ PLACEHOLDER` anywhere in its body:
 
 This applies to every agent and skill that loads knowledge files.
 A PLACEHOLDER file is safer than a missing file — it signals a known unknown instead of a silent gap.
+
+---
+
+## 23. Route-Collection Writes — Resolved Authority Required on Create, Correct-Typed Fields Always
+**Source:** `.claude/plans/route-enrichment-pipeline-kickoff-vast-pelican.md` (route-enrichment-pipeline plan, Stage 0-1B); `src/lib/route-collections/validate.ts`; `scripts/safety-check.sh` check 3
+
+Two hard rules for the 5 route/geo Firestore collections (`official_routes`, `curated_routes`, `climb_segments`, `street_segments`, `route_adjacency`), discovered because convention alone already failed twice independently:
+
+1. **No CREATE without a resolved city/authority.** `authorityId` must be a real doc in the `authorities` collection, `city` must be non-empty. **UPDATE is NOT held to the same bar** — production has many legacy docs with no authorityId at all (`InventoryService.bulkAssignAuthority` exists specifically to backfill them). An update that doesn't touch `authorityId`/`city` must never be blocked on their account. Once a field IS set (create-time or a later update), it locks — a further update cannot silently change it (mirrors `noTenantFieldsChanged()`, §20 above).
+2. **Every value must go in its correctly-typed field, cast or no cast.** `Route.difficulty` is `'easy'|'medium'|'hard'` — a value like `'moderate'` must be rejected at the moment of write, not merely disallowed by a TypeScript type a caller can defeat with `as any` (which is exactly how this rule was broken twice — see the `.claude/knowledge/route-enrichment-pipeline-scoping.md` audit).
+
+**Enforcement (3 layers, since neither alone covers every writer):**
+- `src/lib/route-collections/validate.ts`'s `buildValidatedDoc(collection, raw, ctx)` — the chokepoint. Runs a zod schema (mirroring the real TS types verbatim) at the moment of write, plus the create/update authority rules above. Every migrated writer calls this immediately before its actual Firestore write.
+- `scripts/safety-check.sh` check 3 — pre-commit tripwire: blocks a new route-collection write from a file not in `AUTHORIZED_ROUTE_WRITERS`, and blocks a new write-verb line in a chokepoint-migrated file (`AUTHORIZED_ROUTE_WRITERS` ∩ `MIGRATED_CHOKEPOINT_WRITERS`) that doesn't co-occur with a `buildValidatedDoc(` call.
+- `firestore.rules` (Stage 2 Phase 2.5, not yet deployed as of Stage 1B) — client-SDK/admin-UI-only defense-in-depth; cannot stop Admin-SDK script writes (those bypass rules by design), which is why the chokepoint above is the primary enforcement for scripts.
+
+As of Stage 1B, only 4 write paths were migrated to the chokepoint: `InventoryService.saveRoutes`/`saveCuratedRoutes`/`updateRoute`, and `scripts/geo-discovery-routes.ts`. The surface-type phase (17.08.2026) added a 5th: `osm-segment-importer.ts`'s `commitSegmentsToFirestore`. Stage 3 (spatial join, 17.08.2026) added a 6th, chokepoint-migrated from birth: `InventoryService.recomputeRouteEnrichmentForCity` (climb_segments/official_routes/street_segments cross-ref writes). Its pure geometry lives in a separate, deliberately I/O-free sibling file (`route-enrichment.service.ts`) that never touches Firestore directly and is therefore NOT itself in `AUTHORIZED_ROUTE_WRITERS` — same reasoning `route-adjacency.service.ts` (its structural precedent) is also absent from that list. The rest of the ~14 originally-known writers are authorized (in the safety-check allowlist) but not yet chokepoint-enforced — migrated as each is generalized for multi-city use, which is how the count keeps climbing one phase at a time rather than in one big-bang pass.

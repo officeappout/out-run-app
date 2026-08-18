@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { DIFFICULTY_DISPLAY } from '@/lib/difficulty-display';
 
 /**
  * DifficultyBolts — shared 3-bolt difficulty pill.
@@ -14,21 +15,23 @@ import React from 'react';
  * Difficulty input accepts BOTH numeric (1|2|3 — used by GeneratedWorkout)
  * AND string (`easy`|`medium`|`hard` — used by Route.difficulty), and
  * normalises internally so callers can pass the field as-is.
+ *
+ * `colorScheme` (Stage 5 quick win, route-enrichment-pipeline plan,
+ * 17.08.2026): defaults to 'cyan' — the ORIGINAL binary cyan/dark-grey fill,
+ * byte-identical output for every pre-existing (workout) call site, nothing
+ * changes unless a caller opts in. 'severity' is new, opt-in, green/amber/red
+ * keyed to DIFFICULTY_DISPLAY — used ONLY at the 2 route call sites
+ * (RouteCardUnified, RouteDetailSheet), not the 11 workout ones.
  */
 
 export type DifficultyValue = 1 | 2 | 3 | 'easy' | 'medium' | 'hard';
 export type DifficultyBoltsSize = 'sm' | 'md';
+export type DifficultyBoltsColorScheme = 'cyan' | 'severity';
 
 const STRING_TO_NUMERIC: Record<'easy' | 'medium' | 'hard', 1 | 2 | 3> = {
   easy: 1,
   medium: 2,
   hard: 3,
-};
-
-const LABELS: Record<1 | 2 | 3, string> = {
-  1: 'קל',
-  2: 'בינוני',
-  3: 'קשה',
 };
 
 const SIZE_PX: Record<DifficultyBoltsSize, number> = {
@@ -63,35 +66,65 @@ interface DifficultyBoltsProps {
   showLabel?: boolean;
   /** Optional className for the outer wrapper. */
   className?: string;
+  /** 'cyan' (default) — unchanged existing look. 'severity' — opt-in
+   *  green/amber/red, route call sites only. See file header comment. */
+  colorScheme?: DifficultyBoltsColorScheme;
 }
+
+// Neutral "empty" fill for the severity scheme — matches gray-300, the same
+// role FILTER_EMPTY plays for the cyan scheme (an unfilled bolt, not a color).
+const SEVERITY_EMPTY_COLOR = '#D1D5DB';
 
 export default function DifficultyBolts({
   difficulty,
   size = 'md',
   showLabel = true,
   className = '',
+  colorScheme = 'cyan',
 }: DifficultyBoltsProps) {
   const level = normalize(difficulty);
   const px = SIZE_PX[size];
+  const severityColor = DIFFICULTY_DISPLAY[level].color;
 
   return (
     <div className={`inline-flex items-center gap-1.5 ${className}`} dir="rtl">
       <div className="flex items-center gap-0.5">
-        {[1, 2, 3].map((n) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={n}
-            src="/icons/ui/Bolt.svg"
-            alt=""
-            width={px}
-            height={px}
-            style={{ filter: n <= level ? FILTER_FILLED : FILTER_EMPTY }}
-          />
-        ))}
+        {[1, 2, 3].map((n) =>
+          colorScheme === 'severity' ? (
+            // Mask (not filter) — a filter chain only reproduces ONE fixed
+            // hue; masking the SVG shape with an arbitrary background-color
+            // is the simplest way to support 3 different severity colors
+            // without hand-deriving a filter-chain per color.
+            <div
+              key={n}
+              style={{
+                width: px,
+                height: px,
+                backgroundColor: n <= level ? severityColor : SEVERITY_EMPTY_COLOR,
+                WebkitMaskImage: 'url(/icons/ui/Bolt.svg)',
+                maskImage: 'url(/icons/ui/Bolt.svg)',
+                WebkitMaskSize: 'contain',
+                maskSize: 'contain',
+                WebkitMaskRepeat: 'no-repeat',
+                maskRepeat: 'no-repeat',
+              }}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={n}
+              src="/icons/ui/Bolt.svg"
+              alt=""
+              width={px}
+              height={px}
+              style={{ filter: n <= level ? FILTER_FILLED : FILTER_EMPTY }}
+            />
+          ),
+        )}
       </div>
       {showLabel && (
         <span className={`${LABEL_CLASS[size]} font-normal text-gray-800 dark:text-gray-100`}>
-          {LABELS[level]}
+          {DIFFICULTY_DISPLAY[level].label}
         </span>
       )}
     </div>

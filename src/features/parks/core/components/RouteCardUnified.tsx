@@ -138,6 +138,12 @@ export default function RouteCardUnified({
         className="inline-flex items-center rounded-full mb-4"
         style={{ border: '0.5px solid #E0E9FF', padding: '4px 10px' }}
       >
+        {/* colorScheme="severity" (Stage 5 QW3) deliberately held back for
+            the dormant merge (18.08.2026) — DifficultyBolts' new prop is
+            additive/opt-in, but wiring it HERE changes real route-card
+            bolt colors for every end user immediately on deploy, which is
+            a live user-facing change, not dormant. Re-add once approved —
+            see the route-enrichment plan's final activation checklist. */}
         <DifficultyBolts difficulty={difficulty} size="sm" />
       </div>
 

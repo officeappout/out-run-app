@@ -42,7 +42,7 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { audioService } from '@/features/workout-engine/core/services/AudioService';
 import { generateDynamicRoutes } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
-import { haversineKm, haversineMeters } from '../services/geoUtils';
+import { haversineKm, isLoopPath } from '../services/geoUtils';
 import { useUserCityName } from './useUserCityName';
 import type { Route, ActivityType } from '../types/route.types';
 import type { Park } from '../types/park.types';
@@ -103,15 +103,8 @@ async function getCachedParks(): Promise<Park[]> {
  * linear routes continue toward the original end.
  */
 function isLoopRoute(route: Route | null): boolean {
-  if (!route?.path || route.path.length < 2) return false;
-  const [startLng, startLat] = route.path[0];
-  const [endLng, endLat] = route.path[route.path.length - 1];
-  if (
-    typeof startLng !== 'number' || typeof startLat !== 'number' ||
-    typeof endLng !== 'number' || typeof endLat !== 'number'
-  ) return false;
-  return haversineMeters(startLat, startLng, endLat, endLng)
-    < LOOP_DETECTION_THRESHOLD_M;
+  if (!route?.path) return false;
+  return isLoopPath(route.path, LOOP_DETECTION_THRESHOLD_M);
 }
 
 /**

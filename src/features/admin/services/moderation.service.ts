@@ -17,7 +17,7 @@
  *   climb         climb_segments.status: pending → published | rejected(+rejectionReason)
  *   contribution  user_contributions.status: pending → approved | rejected(+rejectionReason)
  */
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { logAction } from './audit.service';
 import { approvePark } from './parks.service';
@@ -142,4 +142,44 @@ export async function rejectEntity(
     targetId: id,
     details: `Rejected ${entityType} ${id}${reason ? ` — ${reason}` : ''}`,
   });
+}
+
+/**
+ * Bulk-reject climb_segments — Stage 6 (route-enrichment-pipeline plan, 17.08.2026),
+ * built so triaging structural noise (e.g. construction-ramp false positives,
+ * unwanted stairs) at scale doesn't mean 175 individual clicks. Fixed-shape
+ * payload only (status + reviewFields, no arbitrary caller fields) — same
+ * "no chokepoint needed" reasoning as InventoryService.bulkRejectRoutes. Lives
+ * here (not InventoryService) because climb_segments' status transitions
+ * already live in this file, not there. Modeled on bulkRejectRoutes'
+ * chunked-batch skeleton (inventory.service.ts) but the body is climb-specific,
+ * not copied verbatim — per Stage 5's own finding that the skeleton is
+ * portable but route-specific side effects are not (this has none to strip:
+ * climb_segments has no broadcast/adjacency/cache side effects to replicate).
+ * No per-item audit log entry — matches bulkApproveRoutes/bulkRejectRoutes'
+ * own precedent of skipping individual audit rows for bulk operations.
+ */
+export async function bulkRejectClimbs(
+  ids: string[],
+  reason: string | null,
+  admin: ModeratorInfo,
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const reviewFields = {
+    status: 'rejected' as const,
+    rejectionReason: reason || null,
+    reviewedBy: admin.adminId,
+    reviewedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  const CHUNK = 500;
+  let rejected = 0;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const batch = writeBatch(db);
+    for (const id of chunk) batch.update(doc(db, 'climb_segments', id), reviewFields);
+    await batch.commit();
+    rejected += chunk.length;
+  }
+  return rejected;
 }

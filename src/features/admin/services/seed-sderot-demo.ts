@@ -386,10 +386,10 @@ async function seedRoutes(
         'שעות פעילות מומלצות: 06:00-09:00 ו-17:00-21:00.',
       authorityId: neighborhoodIds['sderot-naot-shikma'],
       distance: 3.2,
-      estimatedTime: 40,
+      duration: 40,
       difficulty: 'easy',
       tags: ['מואר', 'מוגן', 'שביל הליכה', 'מתאים למשפחות', 'בטוח', 'נגיש'],
-      featureTags: ['lit', 'safe', 'accessible', 'family_friendly'],
+      featureTags: ['night_lighting', 'safe_zone', 'wheelchair_accessible'],
       meetingPoints: [
         {
           name: 'כניסה ראשית - פארק הבריאות',
@@ -415,10 +415,10 @@ async function seedRoutes(
       description: 'מסלול ריצה קלה לאנשי בוקר. מתחיל בפארק ועובר דרך שבילי הצמחיה. אור שמש ונוף נפלא לאורך כל הדרך.',
       authorityId: neighborhoodIds['sderot-bapark'],
       distance: 4.5,
-      estimatedTime: 55,
+      duration: 55,
       difficulty: 'easy',
       tags: ['ריצה', 'שביל טבע', 'נוף'],
-      featureTags: ['shaded', 'nature'],
+      featureTags: ['shaded'],
       path: [
         { lat: SDEROT_COORDS.lat - 0.004, lng: SDEROT_COORDS.lng + 0.008 },
         { lat: SDEROT_COORDS.lat - 0.005, lng: SDEROT_COORDS.lng + 0.009 },
@@ -432,10 +432,10 @@ async function seedRoutes(
       description: 'מסלול הליכה עירוני המחבר בין שכונות שדרות דרך מרכז העיר. מתאים לכל אחד בכל שעה.',
       authorityId: cityId,
       distance: 5.1,
-      estimatedTime: 65,
-      difficulty: 'moderate',
+      duration: 65,
+      difficulty: 'medium',
       tags: ['הליכה עירונית', 'כל הגילאים'],
-      featureTags: ['lit', 'urban'],
+      featureTags: ['night_lighting'],
       path: [
         { lat: SDEROT_COORDS.lat, lng: SDEROT_COORDS.lng },
         { lat: SDEROT_COORDS.lat + 0.003, lng: SDEROT_COORDS.lng + 0.003 },
@@ -453,7 +453,13 @@ async function seedRoutes(
       authorityId: route.authorityId,
       city: 'שדרות',
       distance: route.distance,
-      estimatedTime: route.estimatedTime,
+      // Fixed field name (was 'estimatedTime', which isn't in the Route type
+      // at all — Route.duration is the real field. Route-enrichment-pipeline
+      // plan, Sderot check: found via calculateRouteRewards returning NaN on
+      // these routes' calorie calc because duration was always undefined.
+      // Cheap correctness fix only — the already-written demo docs (which
+      // David is retiring) are NOT backfilled here.
+      duration: route.duration,
       difficulty: route.difficulty,
       tags: route.tags,
       featureTags: route.featureTags,

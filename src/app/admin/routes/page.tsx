@@ -39,11 +39,15 @@ import {
     ChevronDown,
     SquareCheck,
     Square,
+    XCircle,
+    Tag,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import { GISParserService } from '@/features/parks';
 import { Route, ActivityType } from '@/features/parks';
 import { InventoryService, ImportBatchSummary, RouteStitchingService } from '@/features/parks';
+import type { RouteFeatureTag } from '@/features/parks';
+import { BulkTagModal } from '@/features/admin/components/routes/BulkTagModal';
 import { GISIntegrationService, GISFetchProgress } from '@/features/parks/core/services/gis-integration.service';
 import { Park } from '@/features/parks/core/types/park.types';
 import { getParksByAuthority } from '@/features/parks/core/services/parks.service';
@@ -51,6 +55,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
+import { fetchCyclewaySegmentsByCity, type CyclewaySegmentPreview } from '@/features/admin/services/osm-segment-importer';
+import { fetchAmenitiesByCity, amenityEmoji, type AmenityPreview } from '@/features/admin/services/osm-amenity-admin.service';
 import { Authority } from '@/types/admin-types';
 
 // Dynamic import for Map to avoid SSR issues
@@ -228,6 +234,9 @@ export default function AdminRouteManager() {
     const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
     const [isBulkDeleting, setIsBulkDeleting] = useState(false);
     const [isDeletingByCity, setIsDeletingByCity] = useState(false);
+    const [isBulkApproving, setIsBulkApproving] = useState(false);
+    const [isBulkRejecting, setIsBulkRejecting] = useState(false);
+    const [isBulkTagModalOpen, setIsBulkTagModalOpen] = useState(false);
 
     // Toast state (moved up so handlers below can reference it)
     const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -262,6 +271,21 @@ export default function AdminRouteManager() {
     const [showLabAuthorityDropdown, setShowLabAuthorityDropdown] = useState(false);
     const [labActivityMode, setLabActivityMode] = useState<LabActivityMode>('all');
     const [labInfraLayers, setLabInfraLayers] = useState({ cycling: true, pedestrian: true, shared: true });
+    // OSM cycleway street_segments — a DIFFERENT thing from labInfraLayers.cycling
+    // above (that filters curated official_routes by their infrastructureMode
+    // field). This is a raw display of street_segments tagged highway=cycleway,
+    // off by default (a new/exploratory layer, unlike the always-on facility/
+    // infra layers) — Stage 5 quick win, route-enrichment-pipeline plan, 17.08.2026.
+    const [showCycleways, setShowCycleways] = useState(false);
+    const [labCyclewaySegments, setLabCyclewaySegments] = useState<CyclewaySegmentPreview[]>([]);
+    const [isLoadingCycleways, setIsLoadingCycleways] = useState(false);
+    // osm_amenities lab layer (Stage 5 Phase C, route-enrichment-pipeline
+    // plan, autonomous build run 18.08.2026) — same off-by-default,
+    // fetch-on-toggle pattern as showCycleways above. Admin-only display;
+    // no bulk-moderation UI this round (deferred — see the run's report).
+    const [showAmenities, setShowAmenities] = useState(false);
+    const [labAmenities, setLabAmenities] = useState<AmenityPreview[]>([]);
+    const [isLoadingAmenities, setIsLoadingAmenities] = useState(false);
     const [labFacilityLayers, setLabFacilityLayers] = useState({ water_fountain: true, gym_park: true, stairs: true, bench: true });
     const [labPoiLayers, setLabPoiLayers] = useState({ scenic: true, spring: true, zen: true });
 
@@ -421,6 +445,33 @@ export default function AdminRouteManager() {
             loadLabData();
         }
     }, [activeTab, labAuthorityId, loadLabData]);
+
+    // Cycleways — fetched only when the toggle is on (unlike the always-loaded
+    // parks/infra/curated data above), re-fetched when the lab city changes
+    // while the toggle stays on. Doesn't re-fetch on every toggle-off/on to
+    // avoid a query per click — toggling off just hides the already-fetched data.
+    useEffect(() => {
+        if (activeTab !== 'lab' || !showCycleways || !labAuthority?.name) return;
+        let cancelled = false;
+        setIsLoadingCycleways(true);
+        fetchCyclewaySegmentsByCity(labAuthority.name)
+            .then(segs => { if (!cancelled) setLabCyclewaySegments(segs); })
+            .catch(err => console.error('Cycleway segments fetch error:', err))
+            .finally(() => { if (!cancelled) setIsLoadingCycleways(false); });
+        return () => { cancelled = true; };
+    }, [activeTab, showCycleways, labAuthority?.name]);
+
+    // Amenities — same fetch-only-when-toggled-on shape as cycleways above.
+    useEffect(() => {
+        if (activeTab !== 'lab' || !showAmenities || !labAuthority?.name) return;
+        let cancelled = false;
+        setIsLoadingAmenities(true);
+        fetchAmenitiesByCity(labAuthority.name)
+            .then(items => { if (!cancelled) setLabAmenities(items); })
+            .catch(err => console.error('Amenities fetch error:', err))
+            .finally(() => { if (!cancelled) setIsLoadingAmenities(false); });
+        return () => { cancelled = true; };
+    }, [activeTab, showAmenities, labAuthority?.name]);
 
     // ── Lab: Filtered Data (useMemo) ──────────────────────────────────
     const filteredLabInfra = useMemo(() => {
@@ -609,6 +660,62 @@ export default function AdminRouteManager() {
             setIsDeletingByCity(false);
         }
     }, [existingRoutes, showToast]);
+
+    // ── Inventory: Bulk approve/reject/tag selected (Stage 2.3) ──────────
+    const handleBulkApproveSelected = useCallback(async () => {
+        if (selectedRouteIds.size === 0) return;
+        setIsBulkApproving(true);
+        try {
+            const count = await InventoryService.bulkApproveRoutes(Array.from(selectedRouteIds));
+            setExistingRoutes(prev => prev.map(r =>
+                selectedRouteIds.has(r.id) ? { ...r, published: true, status: 'published' } : r
+            ));
+            setSelectedRouteIds(new Set());
+            showToast(`✅ ${count} מסלולים אושרו ופורסמו`);
+        } catch {
+            alert('שגיאה באישור');
+        } finally {
+            setIsBulkApproving(false);
+        }
+    }, [selectedRouteIds, showToast]);
+
+    const handleBulkRejectSelected = useCallback(async () => {
+        if (selectedRouteIds.size === 0) return;
+        if (!confirm(`האם להחזיר ${selectedRouteIds.size} מסלולים למצב ממתין?`)) return;
+        setIsBulkRejecting(true);
+        try {
+            const count = await InventoryService.bulkRejectRoutes(Array.from(selectedRouteIds));
+            setExistingRoutes(prev => prev.map(r =>
+                selectedRouteIds.has(r.id) ? { ...r, published: false, status: 'pending' } : r
+            ));
+            setSelectedRouteIds(new Set());
+            showToast(`✅ ${count} מסלולים הוחזרו למצב ממתין`);
+        } catch {
+            alert('שגיאה בדחייה');
+        } finally {
+            setIsBulkRejecting(false);
+        }
+    }, [selectedRouteIds, showToast]);
+
+    const handleBulkTagApply = useCallback(async (tags: RouteFeatureTag[], mode: 'add' | 'replace') => {
+        const ids = Array.from(selectedRouteIds);
+        if (ids.length === 0) return;
+        try {
+            const count = await InventoryService.bulkTagRoutes(ids, tags, mode);
+            setExistingRoutes(prev => prev.map(r => {
+                if (!selectedRouteIds.has(r.id)) return r;
+                const nextTags = mode === 'replace'
+                    ? tags
+                    : Array.from(new Set([...(r.featureTags || []), ...tags]));
+                return { ...r, featureTags: nextTags };
+            }));
+            setIsBulkTagModalOpen(false);
+            setSelectedRouteIds(new Set());
+            showToast(`✅ ${count} מסלולים תויגו`);
+        } catch {
+            alert('שגיאה בתיוג');
+        }
+    }, [selectedRouteIds, showToast]);
 
     // ── Inventory: Recalculate distances ──────────────────────────────
     const handleRecalculateDistances = useCallback(async () => {
@@ -1384,6 +1491,51 @@ export default function AdminRouteManager() {
                             </div>
                         </div>
 
+                        {/* OSM Cycleways — raw street_segments tagged highway=cycleway, distinct
+                            from the curated infrastructure layer above. Off by default. */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Layers size={16} className="text-indigo-500" />
+                                <h4 className="font-black text-gray-800 text-xs uppercase tracking-wider">שבילי אופניים (OSM)</h4>
+                            </div>
+                            <label className="flex items-center gap-2.5 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={showCycleways}
+                                    onChange={(e) => setShowCycleways(e.target.checked)}
+                                    className="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-400"
+                                />
+                                <div className="w-3 h-1 rounded-full bg-teal-400" />
+                                <span className="text-xs font-bold text-gray-600 group-hover:text-gray-800">
+                                    🚴 שבילי אופניים גולמיים {isLoadingCycleways ? '(טוען...)' : labCyclewaySegments.length > 0 ? `(${labCyclewaySegments.length})` : ''}
+                                </span>
+                            </label>
+                        </div>
+
+                        {/* osm_amenities lab layer — courts/benches/drinking-water/
+                            fitness-stations from Overpass, pending Approval Center
+                            moderation. Off by default (Stage 5 Phase C, autonomous
+                            build run, 18.08.2026). Excludes garden-dedup-suppressed
+                            (rejected) points — see osm-amenity-admin.service.ts. */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Layers size={16} className="text-indigo-500" />
+                                <h4 className="font-black text-gray-800 text-xs uppercase tracking-wider">מתקני OSM (מגרשים/ספסלים/ברזיות)</h4>
+                            </div>
+                            <label className="flex items-center gap-2.5 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={showAmenities}
+                                    onChange={(e) => setShowAmenities(e.target.checked)}
+                                    className="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-400"
+                                />
+                                <div className="w-3 h-1 rounded-full bg-amber-400" />
+                                <span className="text-xs font-bold text-gray-600 group-hover:text-gray-800">
+                                    🏀 מתקני OSM {isLoadingAmenities ? '(טוען...)' : labAmenities.length > 0 ? `(${labAmenities.length})` : ''}
+                                </span>
+                            </label>
+                        </div>
+
                         {/* Facility Layers */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
                             <div className="flex items-center gap-2 mb-3">
@@ -1618,6 +1770,54 @@ export default function AdminRouteManager() {
                                             }}
                                         />
                                     </Source>
+                                ))}
+
+                                {/* ── LAB: OSM Cycleway Polylines (raw street_segments,
+                                    highway=cycleway) ─────────────── */}
+                                {activeTab === 'lab' && showCycleways && labCyclewaySegments.map((seg) => (
+                                    <Source
+                                        key={`lab-cycleway-${seg.id}`}
+                                        id={`lab-cycleway-${seg.id}`}
+                                        type="geojson"
+                                        data={{
+                                            type: 'Feature',
+                                            properties: {},
+                                            geometry: {
+                                                type: 'LineString',
+                                                coordinates: seg.path
+                                            }
+                                        }}
+                                    >
+                                        <Layer
+                                            id={`lab-cycleway-${seg.id}-layer`}
+                                            type="line"
+                                            paint={{
+                                                'line-color': '#14b8a6',
+                                                'line-width': 3,
+                                                'line-opacity': 0.7,
+                                            }}
+                                            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                                        />
+                                    </Source>
+                                ))}
+
+                                {/* ── LAB: OSM Amenity Markers (courts/benches/drinking-water/
+                                    fitness-stations, osm_amenities) — Stage 5 Phase C,
+                                    autonomous build run, 18.08.2026 ─────────────── */}
+                                {activeTab === 'lab' && showAmenities && labAmenities.map((item) => (
+                                    <Marker
+                                        key={`lab-amenity-${item.id}`}
+                                        longitude={item.location.lng}
+                                        latitude={item.location.lat}
+                                        anchor="center"
+                                    >
+                                        <div
+                                            className="w-6 h-6 bg-white border-2 border-amber-500 rounded-full flex items-center justify-center text-[10px] font-black shadow-lg"
+                                            title={item.name ?? item.category}
+                                        >
+                                            {amenityEmoji(item.category)}
+                                        </div>
+                                    </Marker>
                                 ))}
 
                                 {/* ── LAB: Curated Route Polylines ─────────────── */}
@@ -1958,6 +2158,29 @@ export default function AdminRouteManager() {
                                     <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 animate-in fade-in duration-200">
                                         <span className="text-xs font-bold text-red-700">{selectedRouteIds.size} נבחרו</span>
                                         <button
+                                            onClick={handleBulkApproveSelected}
+                                            disabled={isBulkApproving}
+                                            className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                                        >
+                                            {isBulkApproving ? <Loader2 className="animate-spin" size={12} /> : <CheckCircle2 size={12} />}
+                                            אשר נבחרים
+                                        </button>
+                                        <button
+                                            onClick={handleBulkRejectSelected}
+                                            disabled={isBulkRejecting}
+                                            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                                        >
+                                            {isBulkRejecting ? <Loader2 className="animate-spin" size={12} /> : <XCircle size={12} />}
+                                            דחה נבחרים
+                                        </button>
+                                        <button
+                                            onClick={() => setIsBulkTagModalOpen(true)}
+                                            className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all"
+                                        >
+                                            <Tag size={12} />
+                                            תייג נבחרים
+                                        </button>
+                                        <button
                                             onClick={handleBulkDeleteSelected}
                                             disabled={isBulkDeleting}
                                             className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
@@ -1986,6 +2209,14 @@ export default function AdminRouteManager() {
                                     </button>
                                 )}
                             </div>
+
+                            {isBulkTagModalOpen && (
+                                <BulkTagModal
+                                    routeCount={selectedRouteIds.size}
+                                    onApply={handleBulkTagApply}
+                                    onClose={() => setIsBulkTagModalOpen(false)}
+                                />
+                            )}
 
                             {/* ── Recalculate progress ── */}
                             {isRecalculating && recalcProgress && (
