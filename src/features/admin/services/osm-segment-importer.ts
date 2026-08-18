@@ -288,7 +288,18 @@ async function fetchOverpassOnce(
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      // Fixes the flagged-not-fixed gap from the Phase C amenity-extraction
+      // fix (scripts/extract-osm-amenities-tlv.ts, 18.08.2026): Overpass
+      // returns a 406/429 without a real User-Agent ("Please include a
+      // meaningful User-Agent string with your requests to avoid
+      // rate-limiting") — Node's default fetch User-Agent doesn't satisfy
+      // it. Hit live here (19.08.2026, per-city pipeline dry-run) exactly
+      // as that earlier fix's own comment predicted. Same header value as
+      // the amenity extractor for consistency.
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'OUT-OutRun-app (route-enrichment-pipeline osm_amenities extraction; office@appout.co.il)',
+      },
       body,
       signal: controller.signal,
     });
