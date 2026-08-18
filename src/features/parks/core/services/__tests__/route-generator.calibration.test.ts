@@ -171,6 +171,51 @@ describe('scoreWaypoint — preferOfficialRoutes (13.08.2026, official/curated-r
   });
 });
 
+describe('scoreWaypoint — park-proximity tiebreaker gating (18.08.2026, Fix A)', () => {
+  const parkNear = (km: number) => [{ location: { lat: 0, lng: (km / KM_PER_DEGREE) } } as any];
+  const parksNear = (km: number, count: number) => Array.from({ length: count }, () => ({ location: { lat: 0, lng: (km / KM_PER_DEGREE) } } as any));
+
+  it('plain run/walk (includeStrength: false): a nearby park gives zero bonus — byte-identical to no parks at all', () => {
+    const withPark = scoreWaypoint(wpAt(1.0), USER, parkNear(1.0), { includeStrength: false });
+    const withoutPark = scoreWaypoint(wpAt(1.0), USER, [], { includeStrength: false });
+    expect(withPark.score).toBe(withoutPark.score);
+  });
+
+  it('fitness-station mode (includeStrength: true): a nearby park gives the flat PARK_TIEBREAKER_BONUS', () => {
+    const withPark = scoreWaypoint(wpAt(1.0), USER, parkNear(1.0), { includeStrength: true });
+    const withoutPark = scoreWaypoint(wpAt(1.0), USER, [], { includeStrength: true });
+    expect(withPark.score).toBe(withoutPark.score + 5);
+  });
+
+  it('multiple nearby parks in fitness-station mode still give only the flat bonus — no more per-park stacking', () => {
+    const onePark = scoreWaypoint(wpAt(1.0), USER, parksNear(1.0, 1), { includeStrength: true });
+    const threeParks = scoreWaypoint(wpAt(1.0), USER, parksNear(1.0, 3), { includeStrength: true });
+    expect(onePark.score).toBe(threeParks.score); // same flat bonus regardless of count
+  });
+
+  it('CRITICAL — even in fitness-station mode, the park bonus never overrides a real distance-fit advantage', () => {
+    // A well-positioned candidate (diff=0, tight tier +20) vs. a mid-tier
+    // candidate (diff sits in the +10 tier) that also happens to be near a
+    // park (+5 tiebreaker) — the well-fitted one must still win outright.
+    const wellFitted = scoreWaypoint(wpAt(1.0), USER, [], { includeStrength: true, idealWaypointDistanceKm: 1.0 });
+    const midTierWithPark = scoreWaypoint(wpAt(1.4), USER, parkNear(1.4), { includeStrength: true, idealWaypointDistanceKm: 1.0 });
+    expect(wellFitted.score).toBeGreaterThan(midTierWithPark.score);
+  });
+
+  it('the tiebreaker only settles genuine ties: two equally-positioned candidates, only the park-adjacent one wins', () => {
+    const noPark = scoreWaypoint(wpAt(1.0), USER, [], { includeStrength: true, idealWaypointDistanceKm: 1.0 });
+    const withPark = scoreWaypoint(wpAt(1.0), USER, parkNear(1.0), { includeStrength: true, idealWaypointDistanceKm: 1.0 });
+    expect(withPark.score).toBeGreaterThan(noPark.score);
+    expect(withPark.score - noPark.score).toBe(5);
+  });
+
+  it('nearbyParks/isGreen data fields are still populated regardless of includeStrength — only the SCORE contribution is gated', () => {
+    const result = scoreWaypoint(wpAt(1.0), USER, parkNear(1.0), { includeStrength: false });
+    expect(result.nearbyParks).toBe(1);
+    expect(result.isGreen).toBe(true);
+  });
+});
+
 describe('computeDistanceWindow — proportional acceptance band (08.08, fixes live 22km "no route found")', () => {
   it('small targets: byte-identical to the original fixed [target-0.5, target+2.5] window', () => {
     expect(computeDistanceWindow(3)).toEqual({ minKm: 2.5, maxKm: 5.5 });
