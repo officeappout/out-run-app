@@ -674,7 +674,18 @@ export const IS_ROUTE_ADJACENCY_ENABLED = true;
 // deliberate final full-pipeline pilot once every layer works, not part of
 // this build.
 export const ROUTE_ENRICHMENT_PILOT_CITIES: string[] = ['תל אביב-יפו'];
-export const IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED = false;
+//
+// FLIPPED TRUE (autonomous city-enrichment build run, 18.08.2026): Phase
+// 3.4's static verification (tsc, unit tests, byte-identical-while-false
+// code read, Phase 3.2/3.3 dry-run review) is complete — see the plan
+// doc's Phase A section for the full checklist and its results. Steps 6-7
+// of that checklist (triggering a real TLV mutation against a live/deployed
+// environment and confirming no latency regression) could NOT be executed
+// here — this flip is staged on an unpushed branch, never deployed, so
+// there is no live environment to mutate against. Held for that live
+// verification post-deploy, alongside every other staged item this run —
+// see the run's final report for the full apply/push checklist.
+export const IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED = true;
 
 // WORKOUT_EXIT_HARD_BLOCK_ENABLED: product-decision reversal (12.08.2026) —
 // swipe-back (iOS) / hardware-back (Android) during an active workout no
