@@ -11,31 +11,54 @@
  * flow) rather than a forced merge — this sheet's only job is broadcasting
  * ephemeral intent, not writing a personal schedule entry.
  *
- * v1 simplification (documented, not silent): "where" is always a park
- * picker regardless of activity type, for every entry point that opens this
- * generic sheet. A route-scoped "where" for running/walking is intentionally
- * deferred to Phase 2, where the existing ShareAsLiveToggle call sites
- * (RouteDetailSheet / WorkoutPreviewScreen) already know their route and can
- * prefill it directly — building a full route-picker inside a brand-new
- * generic sheet was judged out of proportion for this slice.
+ * "Where" is activity-aware, not one-size-fits-all:
+ *   - workout (strength): park picker only.
+ *   - running: route picker (default), park also offered as a secondary tab.
+ *   - walking: park picker (default), route also offered as a secondary tab.
+ * Routes are fetched via `InventoryService.fetchCuratedRoutesByAuthority` —
+ * the real, authority-scoped, already-client-proven equivalent of
+ * `getParksByAuthority` for named/curated routes (confirmed live outside the
+ * map at onboarding's location-utils.ts). The heavier live-map route pickers
+ * (RouteCarousel/BottomJourneyContainer) are ad-hoc-generation-focused and
+ * tightly coupled to map camera/GPS state — not reusable inside a generic
+ * bottom sheet, so this deliberately does not attempt to embed them.
+ *
+ * Level: no `level: FitnessLevel` value is ever written by this sheet, for
+ * ANY activity type — confirmed (grounded investigation, not assumption)
+ * that no authoritative numeric-level→beginner/intermediate/advanced bucket
+ * exists anywhere in the codebase. Three separate, mutually-inconsistent
+ * threshold systems exist (split-decision.types.ts's getLevelTier,
+ * RestCalculator.ts's LEVEL_REST_ADJUSTMENT, and an earlier placeholder
+ * here), and the one genuinely comparable live feature — the partner
+ * finder's own level filter (PartnerFilterBar.tsx) — deliberately avoids
+ * bucketing entirely and compares raw numeric levels scoped to each
+ * program's own `maxLevels` instead. This sheet follows that real
+ * precedent: `programLevel: number` (already an existing PlannedSession
+ * field, already read by usePartnerData.ts and rendered by PartnerCard's
+ * "🎯 program · רמה N" badge) is the granular, ungueseed source of truth a
+ * future ±N-level range match (Phase 3) can use. `PlannedSession.level`
+ * stays in the schema as an optional escape hatch for whenever a real
+ * division is defined — nothing here fabricates a value for it.
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Dumbbell, MapPin, Clock, Eye, AlertTriangle } from 'lucide-react';
+import { X, Dumbbell, MapPin, Route as RouteIcon, Clock, Eye, AlertTriangle } from 'lucide-react';
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
 import { g } from '@/lib/utils/gendered-text';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
+import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
 import type { Park } from '@/features/parks/core/types/park.types';
-import type { FitnessLevel, PrivacyMode } from '@/types/community.types';
-import type { ActivityType } from '@/features/parks/core/types/route.types';
+import type { PrivacyMode } from '@/types/community.types';
+import type { ActivityType, Route } from '@/features/parks/core/types/route.types';
 import { WalkingIcon, RunIcon, MuscleIcon, getProgramIcon, ICON_MAP } from '@/features/content/programs/core/program-icon.util';
 
 export type ComposeActivityType = 'workout' | 'running' | 'walking';
+type WhereType = 'park' | 'route';
 
 interface PlannedActivityComposeSheetProps {
   isOpen: boolean;
@@ -58,6 +81,17 @@ const ACTIVITY_TYPE_FOR: Record<ComposeActivityType, ActivityType> = {
   walking: 'walking',
 };
 
+// Which "where" kinds each activity type offers, and which is default.
+// Strength = park only (no toggle shown). Running = route-primary, park
+// offered as a secondary tab. Walking = park-primary, route offered as a
+// secondary tab. Per David's explicit correction — running attached to a
+// park is not a usable v1, so this is not deferrable to Phase 2.
+const WHERE_OPTIONS_FOR: Record<ComposeActivityType, WhereType[]> = {
+  workout: ['park'],
+  running: ['route', 'park'],
+  walking: ['park', 'route'],
+};
+
 const TYPE_OPTIONS: Array<{ value: ComposeActivityType; label: string; icon: React.ReactNode }> = [
   { value: 'workout', label: 'כוח', icon: <MuscleIcon className="w-6 h-6" /> },
   { value: 'running', label: 'ריצה', icon: <RunIcon className="w-6 h-6" /> },
@@ -75,19 +109,6 @@ function getNextFullHour(): string {
   return `${String(h).padStart(2, '0')}:00`;
 }
 
-/**
- * Numeric program level → FitnessLevel bucket.
- * ⚠️ PLACEHOLDER heuristic, not a grounded product decision — level scales
- * are not confirmed to be uniform across programs/domains. Flagged
- * explicitly for David's confirmation rather than silently trusted; see the
- * Phase 1 build report. Do not treat these thresholds as authoritative.
- */
-function bucketProgramLevel(level: number): FitnessLevel {
-  if (level >= 8) return 'advanced';
-  if (level >= 4) return 'intermediate';
-  return 'beginner';
-}
-
 export default function PlannedActivityComposeSheet({
   isOpen,
   onClose,
@@ -95,42 +116,70 @@ export default function PlannedActivityComposeSheet({
   onCreated,
 }: PlannedActivityComposeSheetProps) {
   const router = useRouter();
-  const profile = useUserStore((s) => s.profile);
   const gender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
   const authorityId = useUserStore((s) => s.profile?.core?.authorityId ?? '');
   const activePrograms = useUserStore((s) => s.profile?.progression?.activePrograms ?? EMPTY_PROGRAMS) as Array<{ templateId: string; name?: string }>;
   const tracks = useUserStore((s) => s.profile?.progression?.tracks ?? EMPTY_TRACKS) as Record<string, { currentLevel?: number }>;
 
   const [type, setType] = useState<ComposeActivityType>(initialType ?? 'workout');
+  const [whereType, setWhereType] = useState<WhereType>('park');
   const [parks, setParks] = useState<Park[]>([]);
   const [parksLoading, setParksLoading] = useState(false);
   const [selectedParkId, setSelectedParkId] = useState<string | null>(null);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [routesLoading, setRoutesLoading] = useState(false);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [when, setWhen] = useState<'now' | 'scheduled'>('now');
   const [day, setDay] = useState<'today' | 'tomorrow'>('today');
   const [time, setTime] = useState(() => getNextFullHour());
   const [visibility, setVisibility] = useState<PrivacyMode>('verified_global');
   const [saving, setSaving] = useState(false);
 
+  const whereOptions = WHERE_OPTIONS_FOR[type];
+
   useEffect(() => {
     if (!isOpen) return;
-    setType(initialType ?? 'workout');
+    const initial = initialType ?? 'workout';
+    setType(initial);
+    setWhereType(WHERE_OPTIONS_FOR[initial][0]);
     setSelectedParkId(null);
+    setSelectedRouteId(null);
     setWhen('now');
     setDay('today');
     setTime(getNextFullHour());
     setVisibility('verified_global');
   }, [isOpen, initialType]);
 
+  // Switching type resets "where" to that type's default kind — a park
+  // picked for strength shouldn't linger selected after flipping to running.
   useEffect(() => {
-    if (!isOpen || !authorityId) return;
+    if (!isOpen) return;
+    setWhereType(WHERE_OPTIONS_FOR[type][0]);
+    setSelectedParkId(null);
+    setSelectedRouteId(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type]);
+
+  useEffect(() => {
+    if (!isOpen || !authorityId || whereType !== 'park') return;
     setParksLoading(true);
     getParksByAuthority(authorityId)
       .then(setParks)
       .finally(() => setParksLoading(false));
-  }, [isOpen, authorityId]);
+  }, [isOpen, authorityId, whereType]);
 
-  // Strength level derivation (Decision 2) — pinned/most-recent program
-  // first, mirroring AddWorkoutModal's sortedTracks pattern.
+  useEffect(() => {
+    if (!isOpen || !authorityId || whereType !== 'route') return;
+    setRoutesLoading(true);
+    InventoryService.fetchCuratedRoutesByAuthority(authorityId)
+      .then(setRoutes)
+      .finally(() => setRoutesLoading(false));
+  }, [isOpen, authorityId, whereType]);
+
+  // Strength program/level — pinned/most-recent program first, mirroring
+  // AddWorkoutModal's sortedTracks pattern. `selectedTrack.level` (raw
+  // numeric) is the only level value this sheet ever writes — see file
+  // header for why no bucket enum is derived from it.
   const sortedTracks = useMemo(() => {
     const entries = Object.entries(tracks).map(([id, data]) => ({
       id,
@@ -145,18 +194,17 @@ export default function PlannedActivityComposeSheet({
 
   const selectedTrack = sortedTracks[0] ?? null;
   const hasStrengthLevel = type !== 'workout' || !!selectedTrack;
-  const derivedLevel: FitnessLevel | undefined = selectedTrack
-    ? bucketProgramLevel(selectedTrack.level)
-    : undefined;
   const programName = selectedTrack
     ? ((ICON_MAP as Record<string, { label: string }>)[selectedTrack.id]?.label ?? selectedTrack.id)
     : undefined;
 
   const selectedPark = parks.find((p) => p.id === selectedParkId) ?? null;
-  const canSubmit = !!selectedPark && !saving && (type !== 'workout' || hasStrengthLevel);
+  const selectedRoute = routes.find((r) => r.id === selectedRouteId) ?? null;
+  const hasPlace = whereType === 'park' ? !!selectedPark : !!selectedRoute;
+  const canSubmit = hasPlace && !saving && (type !== 'workout' || hasStrengthLevel);
 
   const handleSubmit = useCallback(async () => {
-    if (!canSubmit || !selectedPark || !auth.currentUser) return;
+    if (!canSubmit || !auth.currentUser) return;
     setSaving(true);
     try {
       let startTime = new Date();
@@ -167,22 +215,34 @@ export default function PlannedActivityComposeSheet({
         startTime.setHours(parseInt(hh, 10) || 0, parseInt(mm, 10) || 0, 0, 0);
       }
 
+      const placeFields = whereType === 'park' && selectedPark
+        ? {
+            parkId: selectedPark.id,
+            parkName: selectedPark.name,
+            lat: selectedPark.location?.lat ?? null,
+            lng: selectedPark.location?.lng ?? null,
+          }
+        : whereType === 'route' && selectedRoute
+        ? {
+            routeId: selectedRoute.id,
+            routeName: selectedRoute.name,
+            lat: selectedRoute.path?.[0]?.[1] ?? null,
+            lng: selectedRoute.path?.[0]?.[0] ?? null,
+          }
+        : null;
+      if (!placeFields) return;
+
       await createPlannedSession({
         userId: auth.currentUser.uid,
         displayName: auth.currentUser.displayName ?? auth.currentUser.email ?? 'משתמש',
         photoURL: auth.currentUser.photoURL,
-        parkId: selectedPark.id,
-        parkName: selectedPark.name,
+        ...placeFields,
         ...(programName ? { programName } : {}),
         ...(selectedTrack ? { programLevel: selectedTrack.level } : {}),
         activityType: ACTIVITY_TYPE_FOR[type],
-        // Only strength carries a level (Decision 2) — never a guessed
-        // default for running/walking.
-        ...(type === 'workout' && derivedLevel ? { level: derivedLevel } : {}),
+        // No `level` — see file header. Never a guessed default.
         startTime,
         privacyMode: visibility,
-        lat: selectedPark.location?.lat ?? null,
-        lng: selectedPark.location?.lng ?? null,
       }).then((id) => onCreated?.(id));
 
       onClose();
@@ -191,7 +251,7 @@ export default function PlannedActivityComposeSheet({
     } finally {
       setSaving(false);
     }
-  }, [canSubmit, selectedPark, when, day, time, type, derivedLevel, programName, selectedTrack, visibility, onClose, onCreated]);
+  }, [canSubmit, whereType, selectedPark, selectedRoute, when, day, time, type, programName, selectedTrack, visibility, onClose, onCreated]);
 
   return (
     <AnimatePresence>
@@ -284,28 +344,71 @@ export default function PlannedActivityComposeSheet({
                 )
               )}
 
-              {/* Q2 — Where (park picker, all types — see file header) */}
+              {/* Q2 — Where (activity-aware: route/park, per WHERE_OPTIONS_FOR) */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5">
-                  <MapPin className="w-3.5 h-3.5" /> איפה <span className="text-red-400">*</span>
-                </label>
-                {parksLoading ? (
-                  <div className="text-xs text-gray-400 py-2">טוען פארקים...</div>
-                ) : parks.length === 0 ? (
-                  <div className="text-xs text-gray-400 py-2">לא נמצאו פארקים עירוניים</div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500">
+                    {whereType === 'route' ? <RouteIcon className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
+                    איפה <span className="text-red-400">*</span>
+                  </label>
+                  {whereOptions.length > 1 && (
+                    <div className="flex gap-1 bg-gray-50 rounded-lg p-0.5">
+                      {whereOptions.map((w) => (
+                        <button
+                          key={w}
+                          onClick={() => setWhereType(w)}
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                            whereType === w
+                              ? 'bg-white text-[#00C9F2] shadow-sm'
+                              : 'text-gray-400'
+                          }`}
+                        >
+                          {w === 'route' ? 'מסלול' : 'פארק'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {whereType === 'park' ? (
+                  parksLoading ? (
+                    <div className="text-xs text-gray-400 py-2">טוען פארקים...</div>
+                  ) : parks.length === 0 ? (
+                    <div className="text-xs text-gray-400 py-2">לא נמצאו פארקים עירוניים</div>
+                  ) : (
+                    <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+                      {parks.map((park) => (
+                        <button
+                          key={park.id}
+                          onClick={() => setSelectedParkId(park.id)}
+                          className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                            selectedParkId === park.id
+                              ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
+                              : 'bg-gray-50 text-gray-600 border border-gray-100'
+                          }`}
+                        >
+                          {park.name}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                ) : routesLoading ? (
+                  <div className="text-xs text-gray-400 py-2">טוען מסלולים...</div>
+                ) : routes.length === 0 ? (
+                  <div className="text-xs text-gray-400 py-2">לא נמצאו מסלולים עירוניים</div>
                 ) : (
                   <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                    {parks.map((park) => (
+                    {routes.map((route) => (
                       <button
-                        key={park.id}
-                        onClick={() => setSelectedParkId(park.id)}
+                        key={route.id}
+                        onClick={() => setSelectedRouteId(route.id)}
                         className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                          selectedParkId === park.id
+                          selectedRouteId === route.id
                             ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
                             : 'bg-gray-50 text-gray-600 border border-gray-100'
                         }`}
                       >
-                        {park.name}
+                        {route.name}
                       </button>
                     ))}
                   </div>
