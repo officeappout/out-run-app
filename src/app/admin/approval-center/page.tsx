@@ -13,6 +13,7 @@ import {
   rejectEntity,
   bulkApproveEntities,
   bulkRejectEntities,
+  unsuppressAmenity,
   type ModerationEntityType,
 } from '@/features/admin/services/moderation.service';
 import {
@@ -40,6 +41,7 @@ import {
   Landmark,
   X,
   ChevronLeft,
+  RotateCcw,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
@@ -70,6 +72,7 @@ interface QueueItem {
   sport?: CourtSport;
   city?: string;
   location?: { lat: number; lng: number };
+  suppressedDuplicateOfParkId?: string | null;
 }
 
 export default function ApprovalCenterPage() {
@@ -112,6 +115,16 @@ export default function ApprovalCenterPage() {
   // List/map toggle — amenities tab only. No clustering lib in this codebase,
   // so the map caps rendered markers (see AmenitiesQueueMap's own comment).
   const [amenityViewMode, setAmenityViewMode] = useState<'list' | 'map'>('list');
+  // Suppressed sub-view (Phase 4) — the garden-dedup-suppressed items
+  // (status:'rejected' + suppressedDuplicateOfParkId set at ingestion time).
+  // Separate lazy fetch from the main pending queue; unfiltered by
+  // category/city (the ~113-item scale doesn't need it — keep this addition
+  // small, matching "minimal usable moderation first, polish later").
+  const [amenitySubView, setAmenitySubView] = useState<'pending' | 'suppressed'>('pending');
+  const [suppressedAmenities, setSuppressedAmenities] = useState<QueueItem[]>([]);
+  const [suppressedLoaded, setSuppressedLoaded] = useState(false);
+  const [loadingSuppressed, setLoadingSuppressed] = useState(false);
+  const [unsuppressingId, setUnsuppressingId] = useState<string | null>(null);
 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [authorityIds, setAuthorityIds] = useState<string[]>([]);
@@ -275,6 +288,35 @@ export default function ApprovalCenterPage() {
     } catch { return []; }
   };
 
+  // Garden-dedup-suppressed amenities only (rejected + suppressedDuplicateOfParkId
+  // set) — a plain human rejection (suppressedDuplicateOfParkId == null) is NOT
+  // shown here, out of scope for this sub-view.
+  const loadSuppressedAmenities = async (sa: boolean, aids: string[], uid: string | null): Promise<QueueItem[]> => {
+    try {
+      const list = await fetchAmenitiesByStatus('rejected');
+      const items: QueueItem[] = list
+        .filter(a => a.suppressedDuplicateOfParkId != null)
+        .map(a => ({
+          entityType: 'amenity' as const,
+          id: a.id,
+          title: a.name || AMENITY_CATEGORY_LABELS[a.category] || a.category,
+          subtitle: [
+            AMENITY_CATEGORY_LABELS[a.category] || a.category,
+            a.sport ? COURT_SPORT_LABELS[a.sport] || a.sport : '',
+            a.city,
+          ].filter(Boolean).join(' · '),
+          origin: 'osm_import',
+          authorityId: a.authorityId,
+          city: a.city,
+          category: a.category,
+          sport: a.sport,
+          location: a.location,
+          suppressedDuplicateOfParkId: a.suppressedDuplicateOfParkId,
+        }));
+      return scoped(items, sa, aids, uid);
+    } catch { return []; }
+  };
+
   const removeFromState = (entityType: ModerationEntityType, id: string) => {
     const setter = { park: setParks, route: setRoutes, climb: setClimbs, contribution: setUgc, amenity: setAmenities }[entityType];
     setter(prev => prev.filter(i => i.id !== id));
@@ -310,6 +352,7 @@ export default function ApprovalCenterPage() {
     setActiveTab(tab);
     setSelectedClimbIds(new Set()); // selection is climbs-tab-scoped, don't carry stale ids across tabs
     setSelectedAmenityIds(new Set()); // same — amenities-tab-scoped
+    setAmenitySubView('pending'); // always land on the main queue, not wherever the sub-view was left
     if (tab === 'amenities' && !amenitiesLoaded) {
       setLoadingAmenities(true);
       loadPendingAmenities(isSuperAdmin, authorityIds, currentUserId)
@@ -387,6 +430,38 @@ export default function ApprovalCenterPage() {
     }
   };
 
+  const handleAmenitySubViewChange = (view: 'pending' | 'suppressed') => {
+    setAmenitySubView(view);
+    setSelectedAmenityIds(new Set()); // selection is pending-sub-view-scoped
+    // The list/map toggle only renders in the pending sub-view — force list
+    // mode so switching to 'suppressed' can never strand map mode with no
+    // visible control to switch back.
+    setAmenityViewMode('list');
+    if (view === 'suppressed' && !suppressedLoaded) {
+      setLoadingSuppressed(true);
+      loadSuppressedAmenities(isSuperAdmin, authorityIds, currentUserId)
+        .then(items => { setSuppressedAmenities(items); setSuppressedLoaded(true); })
+        .finally(() => setLoadingSuppressed(false));
+    }
+  };
+
+  const handleUnsuppress = async (id: string) => {
+    setUnsuppressingId(id);
+    try {
+      await unsuppressAmenity(id, { adminId: currentUserId || '', adminName });
+      setSuppressedAmenities(prev => prev.filter(a => a.id !== id));
+      // The item is 'pending' again now — drop the cached pending list's
+      // staleness by forcing a re-fetch next time the pending sub-view is
+      // viewed. Simplest correct fix: just re-run the amenities loader now.
+      setAmenities(await loadPendingAmenities(isSuperAdmin, authorityIds, currentUserId));
+    } catch (e) {
+      console.error(e);
+      alert('שגיאה בהחזרה לבדיקה');
+    } finally {
+      setUnsuppressingId(null);
+    }
+  };
+
   const totalPending = parks.length + routes.length + climbs.length + ugc.length + amenities.length;
 
   if (loading) {
@@ -435,7 +510,7 @@ export default function ApprovalCenterPage() {
   const shownItems = activeTab === 'climbs' && climbFilter !== 'all'
     ? active.items.filter(i => i.climbType === climbFilter)
     : activeTab === 'amenities'
-    ? filteredAmenities
+    ? (amenitySubView === 'suppressed' ? suppressedAmenities : filteredAmenities)
     : active.items;
 
   return (
@@ -526,8 +601,36 @@ export default function ApprovalCenterPage() {
         </div>
       )}
 
-      {/* Amenity category + sport sub-filter, and per-city filter — amenities tab only */}
-      {activeTab === 'amenities' && amenities.length > 0 && (
+      {/* Sub-view toggle — pending queue vs garden-dedup-suppressed items (Phase 4) */}
+      {activeTab === 'amenities' && (
+        <div className="flex items-center gap-1 bg-gray-100 rounded-2xl p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => handleAmenitySubViewChange('pending')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${amenitySubView === 'pending' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            תור בדיקה
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAmenitySubViewChange('suppressed')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${amenitySubView === 'suppressed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            הוסתרו אוטומטית{suppressedLoaded && suppressedAmenities.length > 0 ? ` (${suppressedAmenities.length})` : ''}
+          </button>
+        </div>
+      )}
+
+      {/* Explanatory banner for the suppressed sub-view */}
+      {activeTab === 'amenities' && amenitySubView === 'suppressed' && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-2xl px-4 py-3">
+          פריטים אלו הוסתרו אוטומטית בזמן הייבוא כי הם נמצאו במרחק קרוב (עד 40 מ׳) לפארק קיים במערכת.
+          בדקו שלא הוסתר בטעות מתקן אמיתי — ניתן להחזיר כל פריט לבדיקה רגילה.
+        </div>
+      )}
+
+      {/* Amenity category + sport sub-filter, and per-city filter — amenities tab, pending sub-view only */}
+      {activeTab === 'amenities' && amenitySubView === 'pending' && amenities.length > 0 && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {AMENITY_CATEGORIES.map(c => {
@@ -630,9 +733,9 @@ export default function ApprovalCenterPage() {
         </div>
       )}
 
-      {/* Bulk approve/reject bar — amenities tab only. "Approve all 649 benches"
-          needs select-many + bulk approve, not 649 individual clicks. */}
-      {activeTab === 'amenities' && isSuperAdmin && shownItems.length > 0 && (
+      {/* Bulk approve/reject bar — amenities tab, pending sub-view only. "Approve
+          all 649 benches" needs select-many + bulk approve, not 649 clicks. */}
+      {activeTab === 'amenities' && amenitySubView === 'pending' && isSuperAdmin && shownItems.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 bg-teal-50 border border-teal-200 rounded-2xl px-4 py-3">
           <button
             type="button"
@@ -675,17 +778,21 @@ export default function ApprovalCenterPage() {
 
       {/* Active tab list */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        {activeTab === 'amenities' && loadingAmenities ? (
+        {activeTab === 'amenities' && (amenitySubView === 'suppressed' ? loadingSuppressed : loadingAmenities) ? (
           <div className="py-16 flex flex-col items-center gap-3 text-center">
             <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
-            <p className="text-sm text-gray-400">טוען מתקנים...</p>
+            <p className="text-sm text-gray-400">{amenitySubView === 'suppressed' ? 'טוען פריטים מוסתרים...' : 'טוען מתקנים...'}</p>
           </div>
         ) : shownItems.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-4 text-center">
             <CheckCircle2 size={40} className="text-green-400" />
-            <p className="text-lg font-black text-gray-700">אין {active.label} ממתינים</p>
+            <p className="text-lg font-black text-gray-700">
+              {activeTab === 'amenities' && amenitySubView === 'suppressed' ? 'אין פריטים מוסתרים' : `אין ${active.label} ממתינים`}
+            </p>
             <p className="text-sm text-gray-400">
-              {activeTab === 'climbs' && !isSuperAdmin ? 'עליות מנוהלות ע״י מנהל ראשי בלבד' : isSuperAdmin ? 'הכל אושר' : 'לא הגשת פריטים לאישור'}
+              {activeTab === 'amenities' && amenitySubView === 'suppressed'
+                ? 'שום מתקן לא הוסתר אוטומטית בייבוא הנוכחי'
+                : activeTab === 'climbs' && !isSuperAdmin ? 'עליות מנוהלות ע״י מנהל ראשי בלבד' : isSuperAdmin ? 'הכל אושר' : 'לא הגשת פריטים לאישור'}
             </p>
           </div>
         ) : activeTab === 'amenities' && amenityViewMode === 'map' ? (
@@ -712,7 +819,7 @@ export default function ApprovalCenterPage() {
                     className="w-4 h-4 flex-shrink-0 accent-orange-500 cursor-pointer"
                   />
                 )}
-                {activeTab === 'amenities' && isSuperAdmin && (
+                {activeTab === 'amenities' && amenitySubView === 'pending' && isSuperAdmin && (
                   <input
                     type="checkbox"
                     checked={selectedAmenityIds.has(item.id)}
@@ -752,30 +859,48 @@ export default function ApprovalCenterPage() {
                     פירוט <ChevronLeft size={13} />
                   </span>
                 </button>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
-                    <Clock size={9} /> {isSuperAdmin ? 'ממתין לאישורך' : 'ממתין לאישור'}
-                  </span>
-                  {isSuperAdmin && (
-                    <>
+                {activeTab === 'amenities' && amenitySubView === 'suppressed' ? (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                      הוסתר אוטומטית — כפילות אפשרית
+                    </span>
+                    {isSuperAdmin && (
                       <button
-                        onClick={() => handleApprove(item.entityType, item.id)}
-                        disabled={processingId === item.id}
-                        className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60 shadow-sm"
+                        onClick={() => handleUnsuppress(item.id)}
+                        disabled={unsuppressingId === item.id}
+                        className="flex items-center gap-1.5 bg-white border border-teal-200 text-teal-700 hover:bg-teal-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60"
                       >
-                        {processingId === item.id ? <Loader2 className="animate-spin" size={12} /> : <ShieldCheck size={12} />}
-                        {processingId === item.id ? 'מעבד...' : 'אשר'}
+                        {unsuppressingId === item.id ? <Loader2 className="animate-spin" size={12} /> : <RotateCcw size={12} />}
+                        {unsuppressingId === item.id ? 'מעבד...' : 'החזר לבדיקה'}
                       </button>
-                      <button
-                        onClick={() => handleReject(item.entityType, item.id)}
-                        disabled={processingId === item.id}
-                        className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60"
-                      >
-                        <X size={12} /> דחה
-                      </button>
-                    </>
-                  )}
-                </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                      <Clock size={9} /> {isSuperAdmin ? 'ממתין לאישורך' : 'ממתין לאישור'}
+                    </span>
+                    {isSuperAdmin && (
+                      <>
+                        <button
+                          onClick={() => handleApprove(item.entityType, item.id)}
+                          disabled={processingId === item.id}
+                          className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60 shadow-sm"
+                        >
+                          {processingId === item.id ? <Loader2 className="animate-spin" size={12} /> : <ShieldCheck size={12} />}
+                          {processingId === item.id ? 'מעבד...' : 'אשר'}
+                        </button>
+                        <button
+                          onClick={() => handleReject(item.entityType, item.id)}
+                          disabled={processingId === item.id}
+                          className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60"
+                        >
+                          <X size={12} /> דחה
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

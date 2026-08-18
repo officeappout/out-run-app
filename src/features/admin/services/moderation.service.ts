@@ -238,3 +238,32 @@ export async function bulkRejectEntities(
   }
   return rejected;
 }
+
+/**
+ * Un-suppress a garden-dedup-suppressed amenity (Phase 4, POI-moderation
+ * build) — returns it to 'pending' so it re-enters the normal queue on next
+ * load. Clears BOTH suppressedDuplicateOfParkId and rejectionReason so the
+ * item doesn't carry a stale "matched park X" reason into its next real
+ * review. Distinct from rejectEntity/approveEntity: this is a correction to
+ * an automated ingestion-time decision, not a moderation verdict — logged as
+ * UPDATE, not APPROVE/REJECT.
+ */
+export async function unsuppressAmenity(id: string, admin: ModeratorInfo): Promise<void> {
+  await updateDoc(doc(db, 'osm_amenities', id), {
+    status: 'pending',
+    suppressedDuplicateOfParkId: null,
+    rejectionReason: null,
+    reviewedBy: admin.adminId,
+    reviewedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  logAction({
+    adminId: admin.adminId,
+    adminName: admin.adminName,
+    actionType: 'UPDATE',
+    targetEntity: 'Amenity',
+    targetId: id,
+    details: `Un-suppressed amenity ${id} (returned to pending review)`,
+  });
+}
