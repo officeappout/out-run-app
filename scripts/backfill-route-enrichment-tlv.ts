@@ -49,7 +49,15 @@ import { geohashQueryBounds } from 'geofire-common';
 const isApply = process.argv.includes('--apply');
 const mode = isApply ? 'APPLY' : 'DRY-RUN';
 
-const TLV_CITY = 'תל אביב-יפו';
+// --city <name> override (19.08.2026, per-city pipeline generalization) —
+// see populate-route-elevation-tlv.ts's identical comment (space-separated,
+// not --flag=value). Defaults to the original hardcoded literal,
+// byte-identical when omitted.
+function getArg(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i !== -1 && i + 1 < process.argv.length ? process.argv[i + 1] : undefined;
+}
+const TLV_CITY = getArg('--city') ?? 'תל אביב-יפו';
 // Generous prefilter radius for the street_segments side — must exceed the
 // real association threshold by a wide margin, same reasoning
 // inventory.service.ts's own CLIMB_ROUTE_QUERY_RADIUS_METERS documents.

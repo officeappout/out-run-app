@@ -22,17 +22,28 @@
  * Destructive/Irreversible-Step Register"), same as every other backfill
  * script in this plan.
  *
- * TODAY: TLV only (CITY_CONFIGS has exactly one entry), matching every
- * underlying script's own current scope — see
- * .claude/knowledge/autonomous-city-mapping-audit.md Gap #5 ("Region
- * hardcoding … single-city hardcoded"). Adding a real second city needs
- * BOTH a new CITY_CONFIGS entry here AND generalizing each currently-
- * TLV-hardcoded backfill script (populate-route-elevation-tlv.ts,
- * backfill-route-lit-tag-tlv.ts, backfill-route-enrichment-tlv.ts,
- * extract-osm-amenities-tlv.ts all read a literal TLV_CITY/hardcoded bbox
- * internally, not a CLI arg) — that generalization is separate, larger
- * work, not done as part of this orchestrator. Only the street-segment
- * import step (calm + arterial) is already bbox/city-parameterized today.
+ * City-parameterization (19.08.2026, first real second-city run — Haifa):
+ * all 4 previously-TLV-hardcoded backfill scripts (populate-route-
+ * elevation-tlv.ts, backfill-route-lit-tag-tlv.ts, backfill-route-
+ * enrichment-tlv.ts, extract-osm-amenities-tlv.ts) now accept a
+ * `--city <name>` override, space-separated (defaults to the original TLV
+ * literal when omitted — byte-identical for any direct invocation that
+ * doesn't pass it). extract-osm-amenities-tlv.ts also accepts
+ * `--bbox <s,w,n,e>` (also space-separated — not `--flag=value`, a real
+ * bug found+fixed this run: the scripts were first written expecting
+ * `=`-joined args while this orchestrator always passes space-separated
+ * ones, silently falling back to the TLV default every time) — it
+ * derives its extraction bbox from EXISTING official_routes geometry by
+ * default (fine for TLV), but a brand-new city has none yet, so this
+ * orchestrator passes CITY_CONFIGS' own bbox explicitly as a fallback
+ * that skips the route-geometry derivation entirely. The other 3 scripts
+ * degrade gracefully to "0 routes found, nothing to do" on a city with no
+ * existing official_routes — a real, valid, reportable result for a
+ * first-ever run, not an error.
+ *
+ * Script filenames themselves stay TLV-suffixed (not renamed) — only the
+ * internal hardcoded constant was generalized; renaming 4 files is out of
+ * scope for this change and would touch every existing reference to them.
  *
  * Garden-proximity dedup backfill (backfill-parks-geohash.ts) is
  * deliberately NOT a step here — `parks` is admin-curated, global
@@ -42,8 +53,10 @@
  * own header).
  *
  * Usage:
- *   DRY RUN (default — every step dry-run, zero writes anywhere):
+ *   DRY RUN (default — every step dry-run, zero writes anywhere; prints
+ *   per-step counts AND per-step wall-clock timing):
  *     npx tsx scripts/map-city.ts --city=tlv
+ *     npx tsx scripts/map-city.ts --city=haifa
  *
  *   APPLY (cascades --apply/--commit to EVERY step — HARD STOP. Each
  *   underlying script still prints its own report; nothing here skips
@@ -65,6 +78,12 @@ interface CityConfig {
   cityName: string;
   authorityId: string;
   bbox: { south: number; west: number; north: number; east: number };
+  /** True when this bbox is derived from the authority's registered point
+   *  coordinate + an estimated margin, NOT from real route/segment
+   *  geometry (which doesn't exist yet for a brand-new city). Surfaced in
+   *  the run banner so an authority-coordinate estimate is never mistaken
+   *  for TLV's own route-geometry-precise bbox. */
+  bboxIsEstimated?: boolean;
 }
 
 // Bbox/authorityId already established+verified live this session
@@ -76,6 +95,27 @@ const CITY_CONFIGS: Record<string, CityConfig> = {
     cityName: 'תל אביב-יפו',
     authorityId: 't9hiRkDnJtgZESlNCBp8',
     bbox: { south: 32.0319, west: 34.7418, north: 32.1421, east: 34.828 },
+  },
+  // Haifa (19.08.2026, first real second-city dry-run): authorityId +
+  // center coordinate read directly from the live `authorities` doc
+  // (id=9ZdWFmlkP0njOyFPceEw, name="חיפה", coordinates={lat:32.794,
+  // lng:34.9896}) — real, not guessed. UNLIKE tlv's bbox above, Haifa has
+  // zero existing official_routes/street_segments to derive a precise bbox
+  // from (verified live — 0 official_routes, 0 curated_routes, 0
+  // street_segments, 0 climb_segments for city="חיפה"; 31 existing `parks`
+  // docs do match, useful for the amenity-dedup gate), so this bbox is an
+  // ESTIMATED ±0.06°/±0.06° box around the authority's center point
+  // (~13km span, roughly matching TLV's own route-derived bbox scale) —
+  // flagged via bboxIsEstimated, not asserted as route-precise. Also note:
+  // this authority's own doc has `status:'inactive'`, `isActiveClient:
+  // false` — this dry-run is purely a geo-data pipeline test, not a signal
+  // Haifa is going live as a paying city (axioms.md §6 — isActiveClient
+  // untouched either way, this pipeline never writes to it).
+  haifa: {
+    cityName: 'חיפה',
+    authorityId: '9ZdWFmlkP0njOyFPceEw',
+    bbox: { south: 32.734, west: 34.9296, north: 32.854, east: 35.0496 },
+    bboxIsEstimated: true,
   },
 };
 
@@ -93,8 +133,6 @@ type WriteFlagStyle = 'apply' | 'commit';
 interface Step {
   label: string;
   script: string;
-  /** Extra args always passed (bbox/city/authority for the bbox-driven
-   *  street-segment step; empty for every TLV-hardcoded script). */
   baseArgs: string[];
   writeFlagStyle: WriteFlagStyle;
   /** Street-segment import requires exactly one of --dry-run/--commit
@@ -102,6 +140,8 @@ interface Step {
    *  dry-run-when-omitted default) — this flag controls that quirk. */
   requiresExplicitDryRunFlag?: boolean;
 }
+
+const bboxArg = `${config.bbox.south},${config.bbox.west},${config.bbox.north},${config.bbox.east}`;
 
 const steps: Step[] = [
   {
@@ -136,36 +176,55 @@ const steps: Step[] = [
   {
     label: 'DEM elevation (route difficulty)',
     script: 'scripts/populate-route-elevation-tlv.ts',
-    baseArgs: [],
+    // No --bbox needed: this script derives its own bbox from existing
+    // official_routes and gracefully no-ops ("nothing to do") when there
+    // are none yet — nothing to fall back to since there's no route data
+    // to sample DEM elevation FOR regardless of bbox.
+    baseArgs: ['--city', config.cityName],
     writeFlagStyle: 'apply',
   },
   {
     label: 'Lit-tag rollup (night_lighting auto-suggest)',
     script: 'scripts/backfill-route-lit-tag-tlv.ts',
-    baseArgs: [],
+    baseArgs: ['--city', config.cityName],
     writeFlagStyle: 'apply',
   },
   {
     label: 'Route-enrichment join (climb ↔ route/segment)',
     script: 'scripts/backfill-route-enrichment-tlv.ts',
-    baseArgs: [],
+    baseArgs: ['--city', config.cityName],
     writeFlagStyle: 'apply',
   },
   {
     label: 'Amenity extraction (courts/benches/drinking-water/fitness-stations)',
     script: 'scripts/extract-osm-amenities-tlv.ts',
-    baseArgs: [],
+    // --bbox is REQUIRED here for a city with no existing official_routes
+    // (the script hard-fails without a route-geometry-derived bbox
+    // otherwise) — always passed explicitly so this orchestrator works
+    // identically for a brand-new city and an established one.
+    baseArgs: ['--city', config.cityName, '--bbox', bboxArg],
     writeFlagStyle: 'apply',
   },
   {
     label: 'Route-adjacency recompute',
     script: 'scripts/backfill-route-adjacency.ts',
+    // City-agnostic by design — processes ALL cities' official_routes in
+    // one pass (see its own dry-run output's per-city breakdown). No
+    // --city arg exists or is needed; included as the pipeline's last step
+    // since it's the one place a newly-mapped city's routes (once curated)
+    // would show up.
     baseArgs: [],
     writeFlagStyle: 'commit',
   },
 ];
 
-function runStep(step: Step, index: number, total: number): void {
+interface StepResult {
+  label: string;
+  durationMs: number;
+  exitCode: number;
+}
+
+function runStep(step: Step, index: number, total: number): StepResult {
   const args = [...step.baseArgs];
   if (isApply) {
     args.push(step.writeFlagStyle === 'apply' ? '--apply' : '--commit');
@@ -178,13 +237,27 @@ function runStep(step: Step, index: number, total: number): void {
   console.log(`  ${isApply ? '⚠️  APPLY' : 'DRY-RUN'} — npx tsx ${step.script} ${args.join(' ')}`);
   console.log('━'.repeat(70));
 
-  execFileSync('npx', ['tsx', step.script, ...args], { stdio: 'inherit' });
+  const startedAt = Date.now();
+  let exitCode = 0;
+  try {
+    execFileSync('npx', ['tsx', step.script, ...args], { stdio: 'inherit' });
+  } catch (err: any) {
+    exitCode = typeof err?.status === 'number' ? err.status : 1;
+    throw err;
+  } finally {
+    const durationMs = Date.now() - startedAt;
+    console.log(`  ⏱  ${step.label}: ${(durationMs / 1000).toFixed(1)}s`);
+  }
+  return { label: step.label, durationMs: Date.now() - startedAt, exitCode };
 }
 
 async function main(): Promise<void> {
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log(`║  Map City Pipeline — ${config.cityName.padEnd(20)} [${(isApply ? 'APPLY' : 'DRY-RUN').padEnd(7)}] ║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
+  console.log(`\n  City:      ${config.cityName}`);
+  console.log(`  Authority: ${config.authorityId}`);
+  console.log(`  BBox:      S=${config.bbox.south} W=${config.bbox.west} N=${config.bbox.north} E=${config.bbox.east}${config.bboxIsEstimated ? '  (⚠️  ESTIMATED — no existing route geometry to derive it from)' : ''}`);
 
   if (isApply) {
     console.log('\n⚠️  APPLY mode — every step below WILL write to production Firestore.');
@@ -194,13 +267,22 @@ async function main(): Promise<void> {
     console.log('\n✅  DRY-RUN mode — every step is read-only. No Firestore writes.\n');
   }
 
+  const results: StepResult[] = [];
+  const pipelineStartedAt = Date.now();
   for (let i = 0; i < steps.length; i++) {
-    runStep(steps[i], i, steps.length);
+    results.push(runStep(steps[i], i, steps.length));
   }
+  const totalDurationMs = Date.now() - pipelineStartedAt;
 
   console.log('\n' + '═'.repeat(70));
   console.log(`  Pipeline complete for ${config.cityName} (${steps.length} steps, ${isApply ? 'APPLY' : 'DRY-RUN'}).`);
   console.log('═'.repeat(70));
+  console.log('  Per-step timing:');
+  for (const r of results) {
+    console.log(`    ${(r.durationMs / 1000).toFixed(1).padStart(7)}s   ${r.label}`);
+  }
+  console.log(`    ${'─'.repeat(9)}`);
+  console.log(`    ${(totalDurationMs / 1000).toFixed(1).padStart(7)}s   TOTAL`);
 }
 
 main().catch((err) => {

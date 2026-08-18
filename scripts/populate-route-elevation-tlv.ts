@@ -60,7 +60,19 @@ import { buildValidatedDoc } from '../src/lib/route-collections';
 const isApply = process.argv.includes('--apply');
 const mode = isApply ? 'APPLY' : 'DRY-RUN';
 
-const TLV_CITY = 'תל אביב-יפו';
+// --city <name> override (19.08.2026, per-city pipeline generalization) —
+// space-separated, matching src/scripts/import-osm-segments.ts's own
+// established --flag <value> convention (NOT --flag=value — the two don't
+// mix; scripts/map-city.ts passes every arg this way). Defaults to the
+// original hardcoded literal, byte-identical for every existing caller
+// that omits it. Script name/file stays TLV-suffixed (still the only
+// route-elevation script, not renamed) but the logic itself was always
+// city-agnostic — only this constant was hardcoded.
+function getArg(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i !== -1 && i + 1 < process.argv.length ? process.argv[i + 1] : undefined;
+}
+const TLV_CITY = getArg('--city') ?? 'תל אביב-יפו';
 const BBOX_MARGIN_METERS = 300; // covers bilinear-interpolation edge-neighbor needs
 
 const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;

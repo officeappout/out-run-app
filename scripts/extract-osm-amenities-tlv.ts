@@ -66,7 +66,29 @@ import type { AmenityCategory, CourtSport, OsmAmenity } from '../src/features/pa
 const isApply = process.argv.includes('--apply');
 const mode = isApply ? 'APPLY' : 'DRY-RUN';
 
-const TLV_CITY = 'תל אביב-יפו';
+// --city <name> / --bbox <s,w,n,e> overrides (19.08.2026, per-city pipeline
+// generalization) — space-separated, matching src/scripts/import-osm-
+// segments.ts's own established --flag <value> convention (NOT
+// --flag=value — scripts/map-city.ts passes every arg this way).
+function getArg(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i !== -1 && i + 1 < process.argv.length ? process.argv[i + 1] : undefined;
+}
+// Defaults to the original hardcoded literal, byte-identical when omitted.
+const TLV_CITY = getArg('--city') ?? 'תל אביב-יפו';
+// A brand-new city has zero official_routes to derive a bbox from (the
+// route-geometry derivation below would hard-fail), so the per-city
+// pipeline orchestrator passes its own authority-coordinate-derived bbox
+// explicitly for that case. Used AS-IS, no extra margin applied (the
+// caller already sized it) — unlike the route-geometry path below, which
+// still gets AMENITY_BBOX_MARGIN_METERS.
+const explicitBboxArg = getArg('--bbox');
+const EXPLICIT_BBOX = explicitBboxArg
+  ? (() => {
+      const [south, west, north, east] = explicitBboxArg.split(',').map(Number);
+      return { latMin: south, lonMin: west, latMax: north, lonMax: east };
+    })()
+  : null;
 // Broader than Phase B's route-elevation bbox on purpose — amenities can be
 // anywhere in the city, not just tight to existing route paths. Still
 // derived from the same 27 real TLV routes' geometry (no hardcoded
@@ -238,25 +260,33 @@ async function main() {
     console.error(`❌  Could not resolve an authority for "${TLV_CITY}" — aborting (never guessing an authorityId).`);
     process.exit(1);
   }
-  console.log(`📍 Resolved TLV authorityId: ${tlvAuthorityId}`);
+  console.log(`📍 Resolved ${TLV_CITY} authorityId: ${tlvAuthorityId}`);
 
-  // ── Derive extraction bbox from the 27 real TLV routes (same technique
-  // as Phase B, wider margin — see header comment) ──
-  const routesSnap = await db.collection('official_routes').where('city', '==', TLV_CITY).get();
-  const routePoints: Array<{ lat: number; lng: number }> = [];
-  for (const d of routesSnap.docs) {
-    const rawPath = d.data().path;
-    if (Array.isArray(rawPath)) {
-      for (const p of rawPath) routePoints.push({ lat: Number(p.lat) || 0, lng: Number(p.lng) || 0 });
+  // ── Derive extraction bbox: explicit --bbox override (new city, no
+  // existing routes) takes priority; otherwise the original TLV technique
+  // (real route geometry + margin) ──
+  let bbox: { latMin: number; lonMin: number; latMax: number; lonMax: number };
+  if (EXPLICIT_BBOX) {
+    bbox = EXPLICIT_BBOX;
+    console.log(`📍 Extraction bbox (explicit --bbox override, no route geometry needed):`);
+    console.log(`   lat [${bbox.latMin.toFixed(4)}, ${bbox.latMax.toFixed(4)}]  lon [${bbox.lonMin.toFixed(4)}, ${bbox.lonMax.toFixed(4)}]`);
+  } else {
+    const routesSnap = await db.collection('official_routes').where('city', '==', TLV_CITY).get();
+    const routePoints: Array<{ lat: number; lng: number }> = [];
+    for (const d of routesSnap.docs) {
+      const rawPath = d.data().path;
+      if (Array.isArray(rawPath)) {
+        for (const p of rawPath) routePoints.push({ lat: Number(p.lat) || 0, lng: Number(p.lng) || 0 });
+      }
     }
+    if (routePoints.length === 0) {
+      console.error(`❌  No ${TLV_CITY} route geometry found to derive a bbox from — aborting. Pass --bbox=south,west,north,east explicitly for a city with no existing routes yet.`);
+      process.exit(1);
+    }
+    bbox = boundingBoxWithMargin(routePoints, AMENITY_BBOX_MARGIN_METERS);
+    console.log(`📍 Extraction bbox (+${AMENITY_BBOX_MARGIN_METERS}m margin around real ${TLV_CITY} route geometry):`);
+    console.log(`   lat [${bbox.latMin.toFixed(4)}, ${bbox.latMax.toFixed(4)}]  lon [${bbox.lonMin.toFixed(4)}, ${bbox.lonMax.toFixed(4)}]`);
   }
-  if (routePoints.length === 0) {
-    console.error('❌  No TLV route geometry found to derive a bbox from — aborting.');
-    process.exit(1);
-  }
-  const bbox = boundingBoxWithMargin(routePoints, AMENITY_BBOX_MARGIN_METERS);
-  console.log(`📍 Extraction bbox (+${AMENITY_BBOX_MARGIN_METERS}m margin around real TLV route geometry):`);
-  console.log(`   lat [${bbox.latMin.toFixed(4)}, ${bbox.latMax.toFixed(4)}]  lon [${bbox.lonMin.toFixed(4)}, ${bbox.lonMax.toFixed(4)}]`);
 
   // ── Load ALL parks for the dedup gate (brute-force at this scale — see
   // header comment for why a geohash-bounded query isn't needed today) ──
