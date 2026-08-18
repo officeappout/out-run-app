@@ -40,9 +40,20 @@ function currentWeekDates(now: Date = new Date()): string[] {
 
 export function useWeeklyMovementGoal(enabled: boolean): DayMovementState[] | undefined {
   const weekActivities = useActivityStore((s) => s.weekActivities);
+  // Stage G (18.08.2026, adversarial review): weekActivities starts as {} and
+  // only fills in after async rehydration + loadFromServer, both triggered
+  // elsewhere (useDailyActivity in sibling components — this hook doesn't
+  // trigger its own fetch). Without gating on _hasHydrated, every date
+  // defaults to {minutes:0, goal:30} and this hook would return a fully
+  // "resolved" 0% array on the very first render, indistinguishable from a
+  // genuine zero. Mirrors the same _hasHydrated gate useActivityRings/
+  // useWeeklyProgress already use from this exact store for isLoading, and
+  // matches useWeeklyStrengthGoal's sibling behavior of staying undefined
+  // until real data has actually arrived.
+  const hasHydrated = useActivityStore((s) => s._hasHydrated);
 
   return useMemo(() => {
-    if (!enabled) return undefined;
+    if (!enabled || !hasHydrated) return undefined;
     // Key-agnostic: index by the activity's own `date` field.
     const byDate: Record<string, { minutes: number; goal: number }> = {};
     Object.values(weekActivities ?? {}).forEach((a) => {
@@ -59,7 +70,7 @@ export function useWeeklyMovementGoal(enabled: boolean): DayMovementState[] | un
       const pct = goal > 0 ? Math.max(0, Math.min(1, minutes / goal)) : 0;
       return { date, pct, met: goal > 0 && minutes >= goal };
     });
-  }, [enabled, weekActivities]);
+  }, [enabled, hasHydrated, weekActivities]);
 }
 
 export default useWeeklyMovementGoal;

@@ -290,11 +290,26 @@ export interface DayDisplayInput {
   /** Color override for running mode (when not strength/cardio/maintenance). */
   runningColor?: string;
   /**
-   * 2+ sessions logged on this day. When provided, the engine returns
-   * `sessions` in the output and DayIconCell alternates between them.
-   * Only honored for `state==='today'` or `state==='past' && isCompleted`.
+   * 2+ sessions logged/scheduled on this day. When provided, the engine
+   * returns `sessions` in the output and DayIconCell alternates between
+   * them. Honored for `state==='today'`, `state==='future'`, or
+   * `state==='past' && sessionsCompleted` — i.e. any day whose activities are
+   * either already done or genuinely scheduled; never for an unresolved
+   * past day (missed/rest), where a session list wouldn't mean anything.
    */
   sessions?: DaySessionInput[];
+  /**
+   * True when `sessions` reflects real completed activity rather than a
+   * planned/scheduled fallback — deliberately DECOUPLED from `isCompleted`
+   * (the single-session WORKOUT axis — did the user finish a structured OUT
+   * workout). `sessions` is sourced from the ACTIVITY axis (real per-category
+   * minutes / scheduled entries), which is not 1:1 with the workout axis — a
+   * user can log real activity without pressing "workout complete", or have
+   * a scheduled run still pending while other activities that day are
+   * already done. Only read by the multi-session branch (2+ sessions); the
+   * single-session branches keep using `isCompleted` as before, unchanged.
+   */
+  sessionsCompleted?: boolean;
 }
 
 /** Single resolved session, ready to render. */
@@ -362,9 +377,10 @@ export interface DayDisplayProps {
    */
   sessions?: DaySession[];
   /**
-   * Pager-dot list rendered in the 4 px gap below the icon.
-   * Length = number of sessions/planned activities (1, 2, or 3).
-   * Empty for pure-rest (Lemur) and missed / rest days.
+   * Pager-dot list. Only ever rendered (by DayIconCell) when length >= 2 —
+   * a single activity shows just its flame/icon, no dot. Length = number of
+   * sessions/planned activities when multi (2 or 3, capped); computed but
+   * suppressed at length 1; empty for pure-rest (Lemur) and missed/rest days.
    * The dot at index === activeSessionIndex renders at 100 % opacity;
    * all other dots stay at 30 %.
    */
@@ -471,7 +487,7 @@ const CATEGORY_FALLBACK_LABEL: Record<ActivityCategory, string> = {
  */
 function buildSession(
   state: DayState,
-  isPastCompleted: boolean,
+  isCompletedDay: boolean,
   isSelected: boolean,
   sessionInput: DaySessionInput,
 ): DaySession {
@@ -486,15 +502,21 @@ function buildSession(
   const programIconKey =
     sessionInput.programIconKey ?? CATEGORY_DEFAULT_ICON_KEY[sessionInput.category];
 
-  // Container: solid for today, selectable elsewhere
+  // Container: today-completed mirrors the single-session "medal" treatment
+  // (transparent + 2px border); today-pending / future stays solid-or-selectable
+  // exactly like the single-session branches below.
   const container: DayDisplayProps['container'] =
     state === 'today'
-      ? { bgColor: color, bgOpacity: 1, borderColor: color, borderWidth: 0 }
+      ? (isCompletedDay
+          ? { bgColor: color, bgOpacity: 0, borderColor: color, borderWidth: 2 }
+          : { bgColor: color, bgOpacity: 1, borderColor: color, borderWidth: 0 })
       : selectableContainer(color, isSelected);
 
-  // Icon: branded flame for past completed, program icon otherwise
+  // Icon: branded flame for ANY completed day (today or past — matches the
+  // single-session today-completed and past-completed branches respectively),
+  // program icon otherwise (today-pending or future/planned).
   let icon: DayDisplayProps['icon'];
-  if (isPastCompleted) {
+  if (isCompletedDay) {
     icon = {
       type: 'img',
       src: resolveFlameSrc({
@@ -507,6 +529,9 @@ function buildSession(
         runningCategory: sessionInput.runningCategory,
         dominantCategory: sessionInput.category,
       }),
+      // Today's single-session completed flame is 28px + glow + category tint;
+      // past-completed is plain. Mirror that split here.
+      ...(state === 'today' ? { overrideSizePx: 28, glow: true, color } : {}),
     };
   } else {
     icon = {
@@ -519,7 +544,10 @@ function buildSession(
   return {
     container,
     icon,
-    label: { text: labelText, color: state === 'today' ? '#FFFFFF' : color },
+    // White only for today-PENDING (matches the today-pending single-session
+    // branch); today-completed (medal, transparent bg) and past/future all
+    // use the category color, same as their single-session siblings.
+    label: { text: labelText, color: (state === 'today' && !isCompletedDay) ? '#FFFFFF' : color },
     color,
   };
 }
@@ -543,21 +571,24 @@ export function resolveDayDisplayProps(input: DayDisplayInput): DayDisplayProps 
   const echo = { state: input.state, isSelected: input.isSelected };
 
   // ── MULTI-SESSION (alternating icons) ───────────────────────────────────
-  // Only fires when 2+ sessions are passed AND the day is either today
-  // OR a past completed (non-rest, non-missed) day.
+  // Fires when 2+ sessions are passed AND the day is today, a future/planned
+  // day, or a past completed (non-rest, non-missed) day — i.e. any day whose
+  // activities are either already done or genuinely scheduled. Gated on
+  // sessionsCompleted (the ACTIVITY axis `sessions` was actually built from),
+  // not `isCompleted` (the WORKOUT axis) — see sessionsCompleted's doc.
   const sessionInputs = input.sessions ?? [];
   const allowMulti =
     sessionInputs.length >= 2 &&
     !input.isRest &&
     !input.isMissed &&
-    (input.state === 'today' || (input.state === 'past' && input.isCompleted));
+    (input.state === 'today' || input.state === 'future' || (input.state === 'past' && !!input.sessionsCompleted));
 
   if (allowMulti) {
-    const isPastCompleted = input.state === 'past' && input.isCompleted;
+    const isCompletedDay = (input.state === 'past' || input.state === 'today') && !!input.sessionsCompleted;
     // Cap at 3 sessions for the pager UI; assume already sorted by minutes desc.
     const sessions = sessionInputs
       .slice(0, 3)
-      .map((s) => buildSession(input.state, isPastCompleted, selForChrome, s));
+      .map((s) => buildSession(input.state, isCompletedDay, selForChrome, s));
 
     return {
       ...echo,
@@ -937,13 +968,14 @@ const FADE_DURATION_S = 0.15;
  *  • Selected (non-today): 15 % category bg + 1 px solid 100 %-opacity border
  *
  * Phase 5 dots-only UI (replaces all text labels):
- *  • Below the icon (4 px gap area) we render `props.dots.length` 3 px dots
- *    (1 for single-session/planned days, 2–3 for multi-session days).
+ *  • Below the icon (4 px gap area) we render dots ONLY when there are 2+
+ *    sessions (Stage H, 18.08.2026) — a single activity/goal shows just its
+ *    flame/icon, no dot underneath.
  *  • Each dot uses its corresponding session's category color.
  *  • Active dot = 100 % opacity, inactive dots = 30 %.
  *  • Multi-session: the icon cross-fades every 2 s (300 ms transition) and
  *    the active dot rotates in lock-step with the visible icon.
- *  • Rest (Zz) and missed-no-debt days render zero dots.
+ *  • Rest (Zz), missed-no-debt days, and single-activity days render zero dots.
  */
 /**
  * ActivityDayRing — the single summary ring for the ACTIVITY schedule (S10).
@@ -952,8 +984,14 @@ const FADE_DURATION_S = 0.15;
  * colour, over a faded track. No activity → track only (empty/faded ring).
  * This is deliberately NOT the multi-ring ConcentricRingsProgress — the activity
  * schedule shows one aggregate ring per day.
+ *
+ * Exported (Stage G, 18.08.2026) so DailyGoalRingsCard can reuse the exact same
+ * arc-drawing component for its two goal rings — only the ActivityRingData
+ * input differs (per-axis pct there vs the day-cell's aggregate here), the
+ * rendering is identical, per the plan's own conclusion that this component
+ * is "reusable as-is."
  */
-function ActivityDayRing({
+export function ActivityDayRing({
   ring,
   sizePx,
   isToday,
@@ -1114,8 +1152,10 @@ export function DayIconCell({ props, hideDots = false, sizeOverride, activityRin
         )}
       </div>
 
-      {/* ── 4 px gap → pager dots row (1 / 2 / 3 dots, or empty) ───────── */}
-      {!hideDots && (
+      {/* ── 4 px gap → pager dots row (2 or 3 dots; suppressed at 0/1 —
+          Stage H, 18.08.2026: a single activity shows only its flame/icon,
+          no redundant dot underneath) ───────────────────────────────────── */}
+      {!hideDots && dots.length >= 2 && (
         <div
           className="flex items-center justify-center gap-[2px]"
           style={{ height: 4, marginTop: 4 }}
