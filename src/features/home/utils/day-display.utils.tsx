@@ -984,8 +984,14 @@ const FADE_DURATION_S = 0.15;
  * colour, over a faded track. No activity → track only (empty/faded ring).
  * This is deliberately NOT the multi-ring ConcentricRingsProgress — the activity
  * schedule shows one aggregate ring per day.
+ *
+ * Exported (Stage G, 18.08.2026) so DailyGoalRingsCard can reuse the exact same
+ * arc-drawing component for its two goal rings — only the ActivityRingData
+ * input differs (per-axis pct there vs the day-cell's aggregate here), the
+ * rendering is identical, per the plan's own conclusion that this component
+ * is "reusable as-is."
  */
-function ActivityDayRing({
+export function ActivityDayRing({
   ring,
   sizePx,
   isToday,

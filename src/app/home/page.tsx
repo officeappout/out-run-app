@@ -41,6 +41,7 @@ import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firesto
 import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
+import DailyGoalRingsCard from '@/features/home/components/DailyGoalRingsCard';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
 import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
@@ -1350,6 +1351,13 @@ export default function HomePage() {
             />
           </motion.div>
         )}
+
+        {/* Daily Goal Rings — Stage G (18.08.2026, "completion-loop" plan).
+            Placed right after the week strip, before the tabbed Row 2/3 block —
+            a self-contained card, no interaction with the tab-switching grid
+            below. Renders null while both goal hooks are still resolving, so
+            no empty-card flash on mount. */}
+        <DailyGoalRingsCard />
 
         {/* ════════════════════════════════════════════════════════════════
             Dashboard Restructure — 5-Row Hierarchy (Apr 2026 spec)
