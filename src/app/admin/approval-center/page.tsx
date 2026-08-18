@@ -41,11 +41,18 @@ import {
   X,
   ChevronLeft,
 } from 'lucide-react';
+import dynamicImport from 'next/dynamic';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
 import {
   CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, AMENITY_CATEGORY_LABELS, COURT_SPORT_LABELS,
   formatDistance, climbDisplayName,
 } from '@/features/admin/components/approval/approval-labels';
+
+// Map is client-only (react-map-gl) — load lazily, same pattern as ApprovalDetailModal.
+const AmenitiesQueueMap = dynamicImport(() => import('@/features/admin/components/approval/AmenitiesQueueMap'), {
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-gray-100 animate-pulse rounded-3xl" />,
+});
 
 type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc' | 'amenities';
 
@@ -62,6 +69,7 @@ interface QueueItem {
   category?: AmenityCategory;
   sport?: CourtSport;
   city?: string;
+  location?: { lat: number; lng: number };
 }
 
 export default function ApprovalCenterPage() {
@@ -101,6 +109,9 @@ export default function ApprovalCenterPage() {
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<Set<string>>(new Set());
   const [bulkApprovingAmenities, setBulkApprovingAmenities] = useState(false);
   const [bulkRejectingAmenities, setBulkRejectingAmenities] = useState(false);
+  // List/map toggle — amenities tab only. No clustering lib in this codebase,
+  // so the map caps rendered markers (see AmenitiesQueueMap's own comment).
+  const [amenityViewMode, setAmenityViewMode] = useState<'list' | 'map'>('list');
 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [authorityIds, setAuthorityIds] = useState<string[]>([]);
@@ -258,6 +269,7 @@ export default function ApprovalCenterPage() {
         city: a.city,
         category: a.category,
         sport: a.sport,
+        location: a.location,
       }));
       return scoped(items, sa, aids, uid);
     } catch { return []; }
@@ -539,11 +551,27 @@ export default function ApprovalCenterPage() {
             <select
               value={amenityCityFilter}
               onChange={e => setAmenityCityFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-full text-xs font-bold border border-gray-200 bg-white text-gray-600 mr-auto"
+              className="px-3 py-1.5 rounded-full text-xs font-bold border border-gray-200 bg-white text-gray-600"
             >
               <option value="all">כל הערים</option>
               {amenityCities.map(city => <option key={city} value={city}>{city}</option>)}
             </select>
+            <div className="flex items-center gap-0.5 bg-gray-100 rounded-full p-0.5 mr-auto">
+              <button
+                type="button"
+                onClick={() => setAmenityViewMode('list')}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${amenityViewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              >
+                רשימה
+              </button>
+              <button
+                type="button"
+                onClick={() => setAmenityViewMode('map')}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${amenityViewMode === 'map' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              >
+                מפה
+              </button>
+            </div>
           </div>
           {amenityCategoryFilter === 'court' && (
             <div className="flex flex-wrap gap-1.5 pr-2">
@@ -659,6 +687,18 @@ export default function ApprovalCenterPage() {
             <p className="text-sm text-gray-400">
               {activeTab === 'climbs' && !isSuperAdmin ? 'עליות מנוהלות ע״י מנהל ראשי בלבד' : isSuperAdmin ? 'הכל אושר' : 'לא הגשת פריטים לאישור'}
             </p>
+          </div>
+        ) : activeTab === 'amenities' && amenityViewMode === 'map' ? (
+          <div className="h-[480px]">
+            <AmenitiesQueueMap
+              items={shownItems
+                .filter(i => i.category && i.location)
+                .map(i => ({ id: i.id, category: i.category!, sport: i.sport, location: i.location!, name: i.title }))}
+              onSelect={id => {
+                const found = shownItems.find(i => i.id === id);
+                if (found) setSelectedItem({ entityType: 'amenity', id, title: found.title });
+              }}
+            />
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
