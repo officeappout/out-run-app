@@ -110,6 +110,9 @@ interface WaypointCandidate {
    *  segment (official-route-broadcaster.ts). See scoreWaypoint's
    *  preferOfficialRoutes opt-in. */
   isOfficial?: boolean;
+  /** Road-hierarchy flow score (0-10) carried through from street_segments.
+   *  See scoreWaypoint's preferArterialFlow opt-in. */
+  flowScore?: number;
 }
 
 interface RouteGenerationOptions {
@@ -300,6 +303,14 @@ interface StreetSegment {
    * bias when the user wanders off the corresponding route.
    */
   officialRouteId?: string;
+  /**
+   * Road-hierarchy flow score (0-10), written by osm-segment-importer.ts's
+   * scoreArterialFlow — arterial-biased, opposite of `score` above. Absent
+   * on segments imported before 19.08.2026 and on official-route-broadcast
+   * segments (official-route-broadcaster.ts doesn't set it); `?? 0` at every
+   * read site treats missing exactly like "not an artery", never like a bug.
+   */
+  flowScore?: number;
 }
 
 /** Extract a single representative { lat, lng } point from a segment document.
@@ -437,6 +448,15 @@ const OFFICIAL_ROUTE_PREFERENCE_BONUS = 10;
 const PARK_TIEBREAKER_BONUS = 5;
 
 /**
+ * Max road-hierarchy "flow" bonus (19.08.2026, runner-flow investigation
+ * Tier 1) — see scoreWaypoint's preferArterialFlow doc comment for the full
+ * gating story. Same conservative scale as PARK_TIEBREAKER_BONUS (well
+ * under the smallest distance-tier gap of 10), applied linearly by
+ * flowScore/10 so only a genuine primary road gets the full bonus.
+ */
+const ARTERIAL_FLOW_BONUS_MAX = 5;
+
+/**
  * Shared official-bias + soft-shuffle scoring tail — used by BOTH
  * fetchScoredWaypoints (citywide-by-score query) and
  * fetchScoredWaypointsByProximity (geohash-bounded query) so this scoring
@@ -448,7 +468,7 @@ export function scoreAndShuffleStreetSegments(
   segmentsInRadius: Array<{ point: { lat: number; lng: number }; seg: StreetSegment }>,
   activeOfficialRouteId: string | undefined,
 ): {
-  candidates: Array<{ lat: number; lng: number; score: number; isOfficial: boolean }>;
+  candidates: Array<{ lat: number; lng: number; score: number; isOfficial: boolean; flowScore: number }>;
   officialBiasApplied: number;
   officialBackboneCount: number;
 } {
@@ -477,7 +497,7 @@ export function scoreAndShuffleStreetSegments(
         : baseScore;
       if (matchesActiveRoute) officialBiasApplied += 1;
 
-      return { ...point, score: effectiveScore, isOfficial: isOfficialSegment };
+      return { ...point, score: effectiveScore, isOfficial: isOfficialSegment, flowScore: seg.flowScore ?? 0 };
     })
     .sort((a, b) => b.score - a.score);
 
@@ -503,7 +523,7 @@ async function fetchScoredWaypoints(
   userLocation: { lat: number; lng: number },
   targetDistance: number,
   activeOfficialRouteId?: string,
-): Promise<Array<{ lat: number; lng: number; isOfficial: boolean }> | null> {
+): Promise<Array<{ lat: number; lng: number; isOfficial: boolean; flowScore: number }> | null> {
   // Defensive sanitisation at the query boundary. Even though useUserCityName
   // normalises before returning, callers (and any future upstream code path)
   // could feed us a string with invisible bidi marks and silently produce a
@@ -645,7 +665,7 @@ async function fetchScoredWaypoints(
       segmentsFetched: snap.size,
       segmentsInRadius: candidates.length,
     });
-    return candidates.map(({ lat, lng, isOfficial }) => ({ lat, lng, isOfficial }));
+    return candidates.map(({ lat, lng, isOfficial, flowScore }) => ({ lat, lng, isOfficial, flowScore }));
   } catch (err: any) {
     console.warn('[RouteGenerator] fetchScoredWaypoints failed, falling back to random:', err?.message ?? err);
     setDiagnostics({
@@ -712,7 +732,7 @@ async function fetchScoredWaypointsByProximity(
      */
     minScore?: number;
   },
-): Promise<Array<{ lat: number; lng: number; isOfficial: boolean }> | null> {
+): Promise<Array<{ lat: number; lng: number; isOfficial: boolean; flowScore: number }> | null> {
   const cleanCity = sanitizeCityKey(cityName);
   const radiusMultiplier = relaxation?.radiusMultiplier ?? 0.5;
   const minScore = relaxation?.minScore ?? 6;
@@ -823,7 +843,7 @@ async function fetchScoredWaypointsByProximity(
       docsFetchedRaw,
       docsAfterDedupe,
     });
-    return candidates.map(({ lat, lng, isOfficial }) => ({ lat, lng, isOfficial }));
+    return candidates.map(({ lat, lng, isOfficial, flowScore }) => ({ lat, lng, isOfficial, flowScore }));
   } catch (err: any) {
     console.warn('[RouteGenerator] fetchScoredWaypointsByProximity failed, falling back:', err?.message ?? err);
     setDiagnostics({
@@ -1043,7 +1063,7 @@ export function computeShortRouteDistanceWindow(safeDistance: number): { minKm: 
 }
 
 export function scoreWaypoint(
-  waypoint: { lat: number; lng: number; isOfficial?: boolean },
+  waypoint: { lat: number; lng: number; isOfficial?: boolean; flowScore?: number },
   userLocation: { lat: number; lng: number },
   parks: MapPark[],
   preferences: {
@@ -1093,6 +1113,29 @@ export function scoreWaypoint(
      * scope as proportionalDistanceTiers, pending validation.
      */
     preferOfficialRoutes?: boolean;
+    /**
+     * Opt-in (default false — byte-identical for every existing caller):
+     * a modest, tie-breaker-scale bonus for candidates with a higher
+     * `waypoint.flowScore` (road-hierarchy "flow" score, 0-10, written by
+     * osm-segment-importer.ts's scoreArterialFlow — arterial continuity,
+     * e.g. primary/secondary, over calm side streets).
+     *
+     * Same "critical gating discipline" as the park-proximity fix
+     * (18.08.2026, Fix A) that this comment intentionally echoes: the
+     * bonus is (a) SCALED, not flat — up to ARTERIAL_FLOW_BONUS_MAX,
+     * linearly by flowScore/10, so a footway (flowScore 0) gets nothing
+     * and a primary road (flowScore 10) gets the full bonus; (b) capped
+     * well under the smallest distance-tier gap (10, the mid-tier bonus),
+     * so it can only settle a tie among similarly-positioned candidates;
+     * (c) gated on `distanceDiff <= penaltyTierKm`, the EXACT same guard
+     * preferOfficialRoutes uses — a badly-positioned arterial segment
+     * must not get rescued into winning its sector just because it's a
+     * main road. This is the same bug class Fix A closed (an unbounded/
+     * unconditional bonus overriding real distance-fit → systematic
+     * overshoot); do not loosen this gate without re-verifying the
+     * distance-window sweep that guards it.
+     */
+    preferArterialFlow?: boolean;
   }
 ): WaypointCandidate {
   const distanceFromUser = getDistanceKm(userLocation.lat, userLocation.lng, waypoint.lat, waypoint.lng);
@@ -1141,6 +1184,17 @@ export function scoreWaypoint(
   // preferOfficialRoutes doc above for why the guard is load-bearing.
   if (preferences.preferOfficialRoutes && waypoint.isOfficial && distanceDiff <= penaltyTierKm) {
     score += OFFICIAL_ROUTE_PREFERENCE_BONUS;
+  }
+
+  // Arterial road-hierarchy flow preference (19.08.2026) — same guard shape
+  // as the official-route bonus above, on purpose: scaled by flowScore/10
+  // (not flat) and gated on distanceDiff <= penaltyTierKm, so it can only
+  // ever break a tie among candidates that already fit the distance window,
+  // never rescue a badly-positioned-but-arterial candidate. See
+  // preferArterialFlow's doc comment for the full "same bug class as Fix A"
+  // rationale.
+  if (preferences.preferArterialFlow && distanceDiff <= penaltyTierKm) {
+    score += ((waypoint.flowScore ?? 0) / 10) * ARTERIAL_FLOW_BONUS_MAX;
   }
 
   const hasNearbyGym = parks.some(park => {
@@ -2800,7 +2854,7 @@ async function generateLoopRoutes(
 
   // 2. Fetch waypoint candidates — prefer proximity-bounded street_segments
   //    (if enabled), fall back to citywide-by-score, fall back to random.
-  let rawCandidates: Array<{ lat: number; lng: number; isOfficial: boolean }> | null = null;
+  let rawCandidates: Array<{ lat: number; lng: number; isOfficial: boolean; flowScore: number }> | null = null;
   if (cityName) {
     if (IS_PROXIMITY_SEGMENT_QUERY_ENABLED) {
       rawCandidates = await fetchScoredWaypointsByProximity(
@@ -2831,7 +2885,7 @@ async function generateLoopRoutes(
     });
   }
 
-  const candidateWaypoints: Array<{ lat: number; lng: number; isOfficial?: boolean }> = rawCandidates ?? generateRandomWaypoints(
+  const candidateWaypoints: Array<{ lat: number; lng: number; isOfficial?: boolean; flowScore?: number }> = rawCandidates ?? generateRandomWaypoints(
     userLocation,
     safeDistance,
     15, // More candidates for variety
@@ -2868,6 +2922,11 @@ async function generateLoopRoutes(
       // 1.5-6km gap unfixed. Reuses official-backbone data already scored
       // to 10 in scoreAndShuffleStreetSegments; no new mechanism.
       preferOfficialRoutes: useProportionalDistanceTiers,
+      // Tier 1 (19.08.2026, David-approved): generic main-street awareness,
+      // unconditional (no idealWaypointDistanceKm gate like the two above)
+      // — arterial preference is desirable at any target size, distance-fit
+      // gating inside scoreWaypoint is what keeps it safe.
+      preferArterialFlow: true,
     })
   );
 
@@ -2978,6 +3037,9 @@ async function generateLoopRoutes(
             // already scored to 10 in scoreAndShuffleStreetSegments; no
             // new mechanism.
             preferOfficialRoutes: useProportionalDistanceTiers,
+            // Tier 1 (19.08.2026): same unconditional arterial preference
+            // as the main pass above.
+            preferArterialFlow: true,
           })
         );
         const relaxedTop = selectAngularlyDiverseCandidates(
@@ -3079,7 +3141,7 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
 
   console.log(`[RouteGenerator] Out-and-back: target ${safeDistance.toFixed(2)}km round-trip, ideal turnaround ${idealWaypointDistanceKm.toFixed(2)}km.`);
 
-  let rawCandidates: Array<{ lat: number; lng: number; isOfficial: boolean }> | null = null;
+  let rawCandidates: Array<{ lat: number; lng: number; isOfficial: boolean; flowScore: number }> | null = null;
   if (cityName) {
     if (IS_PROXIMITY_SEGMENT_QUERY_ENABLED) {
       rawCandidates = await fetchScoredWaypointsByProximity(cityName, userLocation, safeDistance, activeOfficialRouteId);
@@ -3088,7 +3150,7 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
       rawCandidates = await fetchScoredWaypoints(cityName, userLocation, safeDistance, activeOfficialRouteId);
     }
   }
-  const candidateWaypoints: Array<{ lat: number; lng: number; isOfficial?: boolean }> = rawCandidates ?? generateRandomWaypoints(
+  const candidateWaypoints: Array<{ lat: number; lng: number; isOfficial?: boolean; flowScore?: number }> = rawCandidates ?? generateRandomWaypoints(
     userLocation,
     safeDistance,
     15,
@@ -3101,6 +3163,9 @@ async function generateOutAndBackRoutes(options: RouteGenerationOptions): Promis
       idealWaypointDistanceKm,
       proportionalDistanceTiers: true,
       preferOfficialRoutes: true,
+      // Tier 1 (19.08.2026): same unconditional arterial preference as the
+      // loop-mode call sites above.
+      preferArterialFlow: true,
     }),
   );
 
