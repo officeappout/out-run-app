@@ -32,6 +32,22 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   cycling: 'רכיבה',
 };
 
+export const AMENITY_CATEGORY_LABELS: Record<string, string> = {
+  court: 'מגרש ספורט',
+  bench: 'ספסל',
+  drinking_water: 'ברזיית שתייה',
+  fitness_station: 'עמדת כושר',
+};
+
+export const COURT_SPORT_LABELS: Record<string, string> = {
+  basketball: 'כדורסל',
+  football: 'כדורגל',
+  tennis: 'טניס',
+  padel: 'פאדל',
+  multi: 'מגוון',
+  unknown: 'לא ידוע',
+};
+
 /** meters → "1.2 ק״מ" / "450מ׳" */
 export function formatDistance(distance: unknown): string {
   if (typeof distance !== 'number' || !isFinite(distance)) return '';

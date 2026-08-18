@@ -32,6 +32,8 @@ export type AuditTargetEntity =
   // Climb layer + moderation entities (feat/climb-layer-moderation)
   | 'ClimbSegment'
   | 'Contribution'
+  // POI/amenities moderation (osm_amenities)
+  | 'Amenity'
   | 'System';
 
 export interface AuditLog {

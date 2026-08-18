@@ -24,6 +24,25 @@ export interface AmenityPreview {
   status: 'pending' | 'published' | 'rejected';
 }
 
+/** Approval Center queue row shape — a superset of AmenityPreview carrying the
+ *  moderation/scoping fields the queue and detail modal need (authorityId for
+ *  role-scoping, city for the tab's city filter, suppressedDuplicateOfParkId
+ *  for the Phase-4 suppressed sub-view). */
+export interface AmenityQueueItem {
+  id: string;
+  category: AmenityCategory;
+  sport?: CourtSport;
+  location: { lat: number; lng: number };
+  name: string | null;
+  status: 'pending' | 'published' | 'rejected';
+  authorityId: string;
+  city: string;
+  importBatchId?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  suppressedDuplicateOfParkId?: string | null;
+}
+
 const AMENITY_EMOJI: Record<AmenityCategory, string> = {
   court: '🏀',
   bench: '🪑',
@@ -31,7 +50,19 @@ const AMENITY_EMOJI: Record<AmenityCategory, string> = {
   fitness_station: '💪',
 };
 
-export function amenityEmoji(category: AmenityCategory): string {
+const COURT_SPORT_EMOJI: Record<CourtSport, string> = {
+  basketball: '🏀',
+  football: '⚽',
+  tennis: '🎾',
+  padel: '🏓',
+  multi: '🏟️',
+  unknown: '❓',
+};
+
+/** category-level emoji, or — for courts with a known sport — a sport-specific
+ *  one. Optional 2nd param keeps existing (category-only) call sites working. */
+export function amenityEmoji(category: AmenityCategory, sport?: CourtSport): string {
+  if (category === 'court' && sport) return COURT_SPORT_EMOJI[sport];
   return AMENITY_EMOJI[category];
 }
 
@@ -67,6 +98,55 @@ export async function fetchAmenitiesByCity(
       location: { lat, lng },
       name: data.name ?? null,
       status: data.status ?? 'pending',
+    });
+  }
+  return results;
+}
+
+/**
+ * Fetches osm_amenities docs by moderation status, for the Approval Center's
+ * amenities tab — 'pending' for the normal queue, 'rejected' for the Phase-4
+ * suppressed sub-view (further split client-side by suppressedDuplicateOfParkId).
+ * Single-field equality query, national in scope (not city-scoped like
+ * fetchAmenitiesByCity) — the tab applies its own city/category filters
+ * client-side over this result, same pattern as the climbs tab's climbType
+ * filter. limitCount default (3000) comfortably covers one city's TLV-scale
+ * dry-run (~1,556 pending); logs a warning if the cap is actually hit, since
+ * that would silently truncate the queue.
+ */
+export async function fetchAmenitiesByStatus(
+  status: 'pending' | 'rejected',
+  limitCount: number = 3000,
+): Promise<AmenityQueueItem[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'osm_amenities'),
+      where('status', '==', status),
+      limit(limitCount),
+    ),
+  );
+  if (snap.size >= limitCount) {
+    console.warn(`[osm-amenity-admin] fetchAmenitiesByStatus('${status}') hit the ${limitCount}-doc cap — results may be truncated.`);
+  }
+  const results: AmenityQueueItem[] = [];
+  for (const d of snap.docs) {
+    const data = d.data();
+    const lat = Number(data.location?.lat);
+    const lng = Number(data.location?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    results.push({
+      id: d.id,
+      category: data.category,
+      sport: data.sport,
+      location: { lat, lng },
+      name: data.name ?? null,
+      status: data.status ?? 'pending',
+      authorityId: data.authorityId,
+      city: data.city,
+      importBatchId: data.importBatchId,
+      reviewedBy: data.reviewedBy,
+      rejectionReason: data.rejectionReason,
+      suppressedDuplicateOfParkId: data.suppressedDuplicateOfParkId ?? null,
     });
   }
   return results;

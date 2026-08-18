@@ -16,6 +16,7 @@
  *   route         official_routes.status: pending → published | archived(+rejectionReason)
  *   climb         climb_segments.status: pending → published | rejected(+rejectionReason)
  *   contribution  user_contributions.status: pending → approved | rejected(+rejectionReason)
+ *   amenity       osm_amenities.status: pending → published | rejected(+rejectionReason)
  */
 import { doc, getDoc, updateDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -29,7 +30,7 @@ import {
 import type { UserContribution } from '@/types/contribution.types';
 import type { AuditTargetEntity } from '@/types/audit-log.type';
 
-export type ModerationEntityType = 'park' | 'route' | 'climb' | 'contribution';
+export type ModerationEntityType = 'park' | 'route' | 'climb' | 'contribution' | 'amenity';
 
 export interface ModeratorInfo {
   adminId: string;
@@ -41,6 +42,7 @@ const AUDIT_ENTITY: Record<ModerationEntityType, AuditTargetEntity> = {
   route: 'Route',
   climb: 'ClimbSegment',
   contribution: 'Contribution',
+  amenity: 'Amenity',
 };
 
 /** Approve a pending item — dispatches the entity-specific publish side-effect + audits. */
@@ -62,6 +64,16 @@ export async function approveEntity(
       await updateDoc(doc(db, 'climb_segments', id), {
         status: 'published',
         publishedAt: serverTimestamp(),
+        reviewedBy: admin.adminId,
+        reviewedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      break;
+
+    case 'amenity':
+      // No publishedAt — OsmAmenity has no such field (unlike climb_segments).
+      await updateDoc(doc(db, 'osm_amenities', id), {
+        status: 'published',
         reviewedBy: admin.adminId,
         reviewedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -124,6 +136,10 @@ export async function rejectEntity(
 
     case 'climb':
       await updateDoc(doc(db, 'climb_segments', id), { status: 'rejected', ...reviewFields });
+      break;
+
+    case 'amenity':
+      await updateDoc(doc(db, 'osm_amenities', id), { status: 'rejected', ...reviewFields });
       break;
 
     case 'contribution':

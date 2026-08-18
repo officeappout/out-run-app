@@ -14,14 +14,15 @@ import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
-  X, Loader2, MapPin, Route as RouteIcon, Mountain, Users, ShieldCheck, Building2, AlertTriangle,
+  X, Loader2, MapPin, Route as RouteIcon, Mountain, Users, ShieldCheck, Building2, AlertTriangle, Landmark,
 } from 'lucide-react';
 import type { ModerationEntityType } from '@/features/admin/services/moderation.service';
 import dynamicImport from 'next/dynamic';
 import type { PreviewGeometry } from './ApprovalPreviewMap';
 import { normalizeStoredRoutePath } from '@/features/parks/core/utils/routePath';
 import {
-  CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, ACTIVITY_LABELS, formatDistance, isRealStreetName,
+  CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, ACTIVITY_LABELS,
+  AMENITY_CATEGORY_LABELS, COURT_SPORT_LABELS, formatDistance, isRealStreetName,
 } from './approval-labels';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
@@ -38,6 +39,7 @@ const COLLECTION: Record<ModerationEntityType, string> = {
   route: 'official_routes',
   climb: 'climb_segments',
   contribution: 'user_contributions',
+  amenity: 'osm_amenities',
 };
 
 const ENTITY_META: Record<ModerationEntityType, { label: string; icon: typeof MapPin; color: string; bg: string }> = {
@@ -45,6 +47,7 @@ const ENTITY_META: Record<ModerationEntityType, { label: string; icon: typeof Ma
   route: { label: 'מסלול', icon: RouteIcon, color: 'text-cyan-600', bg: 'bg-cyan-50' },
   climb: { label: 'עלייה', icon: Mountain, color: 'text-orange-600', bg: 'bg-orange-50' },
   contribution: { label: 'תרומת משתמש', icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
+  amenity: { label: 'נקודת עניין', icon: Landmark, color: 'text-teal-600', bg: 'bg-teal-50' },
 };
 
 export interface ApprovalDetailItem {
@@ -94,6 +97,12 @@ function buildGeometry(entityType: ModerationEntityType, id: string, x: any): Ge
       const lng = loc?.lng ?? x.lng;
       // A contribution with no coords at all is legitimately map-less; a park is not.
       if (lat == null && lng == null) return { status: entityType === 'contribution' ? 'none' : 'invalid' };
+      if (!isFiniteNum(lat) || !isFiniteNum(lng)) return warn({ lat, lng });
+      return { status: 'ok', geometry: { kind: 'point', lat, lng } };
+    }
+    case 'amenity': {
+      const lat = x.location?.lat;
+      const lng = x.location?.lng;
       if (!isFiniteNum(lat) || !isFiniteNum(lng)) return warn({ lat, lng });
       return { status: 'ok', geometry: { kind: 'point', lat, lng } };
     }
@@ -160,6 +169,17 @@ function infoRows(entityType: ModerationEntityType, x: any): Array<[string, stri
         ['פארק', x.parkName],
         ['סוג מתקן', x.facilityType ? FACILITY_LABELS[x.facilityType] || x.facilityType : undefined],
         ['הערה', x.note || x.description],
+      );
+      break;
+    case 'amenity':
+      rows.push(
+        ['סוג מתקן', AMENITY_CATEGORY_LABELS[x.category] || x.category],
+        ['ענף ספורט', x.sport ? (COURT_SPORT_LABELS[x.sport] || x.sport) : undefined],
+        ['עיר', x.city],
+        ['שם', x.name || undefined],
+        // Visible even outside the dedicated suppressed sub-view — a reviewer
+        // opening any rejected amenity's detail should see why immediately.
+        ['הוסתר אוטומטית', x.suppressedDuplicateOfParkId ? `כפילות אפשרית של פארק ${x.suppressedDuplicateOfParkId}` : undefined],
       );
       break;
   }

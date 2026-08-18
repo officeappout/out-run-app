@@ -18,6 +18,10 @@ import {
   getAllContributions,
   getContributionsByAuthority,
 } from '@/features/parks/core/services/contribution.service';
+import {
+  fetchAmenitiesByStatus, amenityEmoji,
+} from '@/features/admin/services/osm-amenity-admin.service';
+import type { AmenityCategory, CourtSport } from '@/features/parks/core/types/osm-amenity.types';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
   CheckCircle2,
@@ -32,15 +36,17 @@ import {
   User,
   Mountain,
   Users,
+  Landmark,
   X,
   ChevronLeft,
 } from 'lucide-react';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
 import {
-  CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, formatDistance, climbDisplayName,
+  CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, AMENITY_CATEGORY_LABELS, COURT_SPORT_LABELS,
+  formatDistance, climbDisplayName,
 } from '@/features/admin/components/approval/approval-labels';
 
-type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc';
+type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc' | 'amenities';
 
 // A row in the queue, normalised across entity types.
 interface QueueItem {
@@ -52,6 +58,9 @@ interface QueueItem {
   authorityId?: string;
   createdByUser?: string;
   climbType?: string;
+  category?: AmenityCategory;
+  sport?: CourtSport;
+  city?: string;
 }
 
 export default function ApprovalCenterPage() {
@@ -64,6 +73,15 @@ export default function ApprovalCenterPage() {
   const [routes, setRoutes] = useState<QueueItem[]>([]);
   const [climbs, setClimbs] = useState<QueueItem[]>([]);
   const [ugc, setUgc] = useState<QueueItem[]>([]);
+  const [amenities, setAmenities] = useState<QueueItem[]>([]);
+  // Amenities are lazy-loaded (only when the tab is first opened this session)
+  // — TLV alone is ~1,556 pending docs, an order of magnitude above every
+  // other tab's typical volume; paying that read on every page load/refresh
+  // regardless of whether the tab is opened would be wasteful. Consequence:
+  // the header's total-pending count under-counts amenities until the tab
+  // has been opened once (accepted trade-off).
+  const [amenitiesLoaded, setAmenitiesLoaded] = useState(false);
+  const [loadingAmenities, setLoadingAmenities] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<ApprovalDetailItem | null>(null);
   const [climbFilter, setClimbFilter] = useState<string>('all');
@@ -71,6 +89,12 @@ export default function ApprovalCenterPage() {
   // structural noise at scale means selecting many, not clicking "דחה" 175 times.
   const [selectedClimbIds, setSelectedClimbIds] = useState<Set<string>>(new Set());
   const [bulkRejecting, setBulkRejecting] = useState(false);
+  // Amenities tab filters — category/sport chips + city dropdown. Tab-local:
+  // no other tab has a per-city concept today (parks/routes/contributions are
+  // already role-scoped by authority; climbs carry no city at all).
+  const [amenityCategoryFilter, setAmenityCategoryFilter] = useState<'all' | AmenityCategory>('all');
+  const [amenitySportFilter, setAmenitySportFilter] = useState<'all' | CourtSport>('all');
+  const [amenityCityFilter, setAmenityCityFilter] = useState<string>('all');
 
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [authorityIds, setAuthorityIds] = useState<string[]>([]);
@@ -111,6 +135,13 @@ export default function ApprovalCenterPage() {
         loadPendingContributions(sa, aids),
       ]);
       setParks(p); setRoutes(r); setClimbs(c); setUgc(u);
+      // Amenities are lazy — only refetch on refresh if the tab was already
+      // opened once this session; never on the initial page load.
+      if (amenitiesLoaded) {
+        setLoadingAmenities(true);
+        try { setAmenities(await loadPendingAmenities(sa, aids, uid)); }
+        finally { setLoadingAmenities(false); }
+      }
     } catch (err) {
       console.error('Error loading pending items:', err);
     } finally {
@@ -201,8 +232,33 @@ export default function ApprovalCenterPage() {
     } catch { return []; }
   };
 
+  // Amenities carry authorityId exactly like parks/routes (unlike climbs, which
+  // have none and are super-admin-only) — the existing scoped() helper applies
+  // unchanged, no new role logic needed.
+  const loadPendingAmenities = async (sa: boolean, aids: string[], uid: string | null): Promise<QueueItem[]> => {
+    try {
+      const list = await fetchAmenitiesByStatus('pending');
+      const items: QueueItem[] = list.map(a => ({
+        entityType: 'amenity' as const,
+        id: a.id,
+        title: a.name || AMENITY_CATEGORY_LABELS[a.category] || a.category,
+        subtitle: [
+          AMENITY_CATEGORY_LABELS[a.category] || a.category,
+          a.sport ? COURT_SPORT_LABELS[a.sport] || a.sport : '',
+          a.city,
+        ].filter(Boolean).join(' · '),
+        origin: 'osm_import',
+        authorityId: a.authorityId,
+        city: a.city,
+        category: a.category,
+        sport: a.sport,
+      }));
+      return scoped(items, sa, aids, uid);
+    } catch { return []; }
+  };
+
   const removeFromState = (entityType: ModerationEntityType, id: string) => {
-    const setter = { park: setParks, route: setRoutes, climb: setClimbs, contribution: setUgc }[entityType];
+    const setter = { park: setParks, route: setRoutes, climb: setClimbs, contribution: setUgc, amenity: setAmenities }[entityType];
     setter(prev => prev.filter(i => i.id !== id));
   };
 
@@ -235,6 +291,12 @@ export default function ApprovalCenterPage() {
   const handleTabChange = (tab: ApprovalTab) => {
     setActiveTab(tab);
     setSelectedClimbIds(new Set()); // selection is climbs-tab-scoped, don't carry stale ids across tabs
+    if (tab === 'amenities' && !amenitiesLoaded) {
+      setLoadingAmenities(true);
+      loadPendingAmenities(isSuperAdmin, authorityIds, currentUserId)
+        .then(items => { setAmenities(items); setAmenitiesLoaded(true); })
+        .finally(() => setLoadingAmenities(false));
+    }
   };
 
   const toggleClimbSelected = (id: string) => {
@@ -263,7 +325,7 @@ export default function ApprovalCenterPage() {
     }
   };
 
-  const totalPending = parks.length + routes.length + climbs.length + ugc.length;
+  const totalPending = parks.length + routes.length + climbs.length + ugc.length + amenities.length;
 
   if (loading) {
     return (
@@ -280,6 +342,7 @@ export default function ApprovalCenterPage() {
     { id: 'locations' as const, group: 'agent' as const, label: 'מיקומים', icon: MapPin, items: parks, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', rowIcon: Dumbbell },
     { id: 'routes' as const, group: 'agent' as const, label: 'מסלולים', icon: RouteIcon, items: routes, iconBg: 'bg-cyan-50', iconColor: 'text-cyan-600', rowIcon: RouteIcon },
     { id: 'climbs' as const, group: 'agent' as const, label: 'עליות', icon: Mountain, items: climbs, iconBg: 'bg-orange-50', iconColor: 'text-orange-600', rowIcon: Mountain },
+    { id: 'amenities' as const, group: 'agent' as const, label: 'מתקנים', icon: Landmark, items: amenities, iconBg: 'bg-teal-50', iconColor: 'text-teal-600', rowIcon: Landmark },
     { id: 'ugc' as const, group: 'user' as const, label: 'תרומות משתמשים', icon: Users, items: ugc, iconBg: 'bg-purple-50', iconColor: 'text-purple-600', rowIcon: Users },
   ];
   const TAB_GROUPS = [
@@ -291,8 +354,26 @@ export default function ApprovalCenterPage() {
   // climbType sub-filter (climbs tab) — find the ~real training climbs without scrolling 196.
   const CLIMB_FILTERS = ['all', 'short-sharp', 'repeats', 'long-gentle', 'structure-ramp', 'stairs'];
   const climbCount = (t: string) => t === 'all' ? climbs.length : climbs.filter(c => c.climbType === t).length;
+
+  // Amenities sub-filters — category chips, sport sub-chips (courts only), city dropdown.
+  const AMENITY_CATEGORIES: Array<'all' | AmenityCategory> = ['all', 'court', 'bench', 'drinking_water', 'fitness_station'];
+  const amenityCategoryCount = (c: 'all' | AmenityCategory) =>
+    c === 'all' ? amenities.length : amenities.filter(a => a.category === c).length;
+  const COURT_SPORTS: Array<'all' | CourtSport> = ['all', 'basketball', 'football', 'tennis', 'padel', 'multi', 'unknown'];
+  const amenitySportCount = (s: 'all' | CourtSport) => s === 'all'
+    ? amenities.filter(a => a.category === 'court').length
+    : amenities.filter(a => a.category === 'court' && a.sport === s).length;
+  const amenityCities = Array.from(new Set(amenities.map(a => a.city).filter(Boolean) as string[])).sort();
+  const filteredAmenities = amenities.filter(a =>
+    (amenityCategoryFilter === 'all' || a.category === amenityCategoryFilter) &&
+    (amenityCategoryFilter !== 'court' || amenitySportFilter === 'all' || a.sport === amenitySportFilter) &&
+    (amenityCityFilter === 'all' || a.city === amenityCityFilter),
+  );
+
   const shownItems = activeTab === 'climbs' && climbFilter !== 'all'
     ? active.items.filter(i => i.climbType === climbFilter)
+    : activeTab === 'amenities'
+    ? filteredAmenities
     : active.items;
 
   return (
@@ -383,6 +464,62 @@ export default function ApprovalCenterPage() {
         </div>
       )}
 
+      {/* Amenity category + sport sub-filter, and per-city filter — amenities tab only */}
+      {activeTab === 'amenities' && amenities.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {AMENITY_CATEGORIES.map(c => {
+              const count = amenityCategoryCount(c);
+              if (c !== 'all' && count === 0) return null;
+              const label = c === 'all' ? 'הכל' : (AMENITY_CATEGORY_LABELS[c] || c);
+              return (
+                <button
+                  key={c}
+                  onClick={() => { setAmenityCategoryFilter(c); setAmenitySportFilter('all'); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                    amenityCategoryFilter === c ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-teal-50'
+                  }`}
+                >
+                  {c !== 'all' && <span>{amenityEmoji(c)}</span>}
+                  {label}
+                  <span className={`text-[10px] font-black ${amenityCategoryFilter === c ? 'text-white/90' : 'text-gray-400'}`}>{count}</span>
+                </button>
+              );
+            })}
+            <select
+              value={amenityCityFilter}
+              onChange={e => setAmenityCityFilter(e.target.value)}
+              className="px-3 py-1.5 rounded-full text-xs font-bold border border-gray-200 bg-white text-gray-600 mr-auto"
+            >
+              <option value="all">כל הערים</option>
+              {amenityCities.map(city => <option key={city} value={city}>{city}</option>)}
+            </select>
+          </div>
+          {amenityCategoryFilter === 'court' && (
+            <div className="flex flex-wrap gap-1.5 pr-2">
+              {COURT_SPORTS.map(s => {
+                const count = amenitySportCount(s);
+                if (s !== 'all' && count === 0) return null;
+                const label = s === 'all' ? 'כל הענפים' : (COURT_SPORT_LABELS[s] || s);
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setAmenitySportFilter(s)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                      amenitySportFilter === s ? 'bg-teal-100 text-teal-800 border-teal-300' : 'bg-white text-gray-500 border-gray-200 hover:bg-teal-50'
+                    }`}
+                  >
+                    {s !== 'all' && <span>{amenityEmoji('court', s)}</span>}
+                    {label}
+                    <span className="text-[10px] font-black text-gray-400">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Bulk-reject bar — climbs tab only. Triaging noise (stairs / construction-
           ramp false positives) at 175-item scale needs select-many, not 175 clicks. */}
       {activeTab === 'climbs' && isSuperAdmin && shownItems.length > 0 && (
@@ -417,7 +554,12 @@ export default function ApprovalCenterPage() {
 
       {/* Active tab list */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        {shownItems.length === 0 ? (
+        {activeTab === 'amenities' && loadingAmenities ? (
+          <div className="py-16 flex flex-col items-center gap-3 text-center">
+            <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
+            <p className="text-sm text-gray-400">טוען מתקנים...</p>
+          </div>
+        ) : shownItems.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-4 text-center">
             <CheckCircle2 size={40} className="text-green-400" />
             <p className="text-lg font-black text-gray-700">אין {active.label} ממתינים</p>
@@ -443,7 +585,9 @@ export default function ApprovalCenterPage() {
                   className="flex items-center gap-4 flex-1 min-w-0 text-right group"
                 >
                   <div className={`w-10 h-10 rounded-xl ${active.iconBg} flex items-center justify-center ${active.iconColor} flex-shrink-0`}>
-                    <active.rowIcon size={18} />
+                    {activeTab === 'amenities' && item.category
+                      ? <span className="text-lg leading-none">{amenityEmoji(item.category, item.sport)}</span>
+                      : <active.rowIcon size={18} />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-900 text-sm truncate group-hover:text-cyan-700 transition-colors">{item.title}</p>
@@ -499,7 +643,7 @@ export default function ApprovalCenterPage() {
 
       {totalPending > 0 && (
         <p className="text-xs text-gray-400 text-center">
-          {parks.length} מיקומים · {routes.length} מסלולים · {climbs.length} עליות · {ugc.length} תרומות = {totalPending} פריטים {isSuperAdmin ? 'ממתינים לאישורך' : 'ממתינים לאישור'}
+          {parks.length} מיקומים · {routes.length} מסלולים · {climbs.length} עליות · {amenities.length} מתקנים · {ugc.length} תרומות = {totalPending} פריטים {isSuperAdmin ? 'ממתינים לאישורך' : 'ממתינים לאישור'}
         </p>
       )}
 

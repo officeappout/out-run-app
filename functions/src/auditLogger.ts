@@ -38,6 +38,12 @@ const ALLOWED_ENTITIES = new Set([
   'Exercise', 'Park', 'Authority', 'Admin', 'User', 'Program',
   'Level', 'Questionnaire', 'EditRequest', 'Route', 'AccessCode',
   'ProductTask', 'ProductTag', 'PushMessage',
+  // ClimbSegment/Contribution were added to the client-side AuditTargetEntity
+  // union (audit-log.type.ts) without ever being mirrored here — every climb/
+  // contribution approve-reject in Approval Center has been silently failing
+  // to write its audit row (logAction's fire-and-forget .catch() swallows the
+  // resulting invalid-argument error). Amenity is the new POI-moderation entity.
+  'ClimbSegment', 'Contribution', 'Amenity',
   'System',
 ]);
 
