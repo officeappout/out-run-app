@@ -19,10 +19,10 @@ import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastW
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
-import { resolveDayDisplayProps, DayIconCell } from '@/features/home/utils/day-display.utils';
+import { resolveDayDisplayProps, DayIconCell, type DaySessionInput } from '@/features/home/utils/day-display.utils';
 import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
-import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
+import type { RecurringTemplate, UserScheduleEntry, ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
 import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule.service';
 import { getSundayWeekStart, toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
@@ -99,6 +99,17 @@ interface SmartWeeklyScheduleProps {
   onSetSchedule?: () => void;
   /** Running program schedule entries for the current week */
   runningSchedule?: RunningScheduleEntry[];
+  /**
+   * Stage H (18.08.2026) — the active running program's own id
+   * (profile.running.activeProgram.programId). Used ONLY to filter
+   * buildPlannedSessions' manualEntries: onboarding-sync.service.ts's running
+   * bridge seeds `recurringTemplate[day] = [programTemplate.id]` for every
+   * running training day specifically so hydrateFromTemplate() produces a
+   * userSchedule entry for it — the SAME planned run runningSchedule/
+   * runningEntriesByDayIndex already represents, not a second activity.
+   * Without this, a running day would double-count as 2 sessions.
+   */
+  runningProgramId?: string;
   /** Current program week number */
   runningCurrentWeek?: number;
   /** Program start date (ISO or Date) */
@@ -149,6 +160,23 @@ interface DayActivityData {
   communityIconKey?: string;
   /** Primary personal schedule entry for this day — used for per-entry icon resolution. */
   primaryEntry?: UserScheduleEntry;
+  /**
+   * Stage H (18.08.2026) — every distinct activity/goal relevant to this day,
+   * completed or planned. Fed to resolveDayDisplayProps so DayIconCell can
+   * alternate between them (2+) instead of collapsing to one. Completed axis:
+   * useDayStatus().sessions (real logged category-minutes). Planned axis:
+   * scheduled entries (weekScheduleEntries) + the running program's entry for
+   * the day, merged — see buildPlannedSessions().
+   */
+  sessions?: DaySessionInput[];
+  /**
+   * True when `sessions` above came from the completed/activity axis
+   * (useDayStatus().sessions, non-empty) rather than the planned fallback.
+   * Deliberately independent of `isCompleted`/`workoutDone` (the WORKOUT
+   * axis, which the isRunningMode block below can also override) — see
+   * DayDisplayInput.sessionsCompleted's doc for why these must stay decoupled.
+   */
+  sessionsCompleted?: boolean;
 }
 
 // ============================================================================
@@ -210,6 +238,67 @@ function getCategoryColor(category: string | undefined): string {
 function getCategoryLabel(category: string | undefined): string {
   if (!category) return 'אימון ריצה';
   return CATEGORY_LABELS_HE[category] ?? category;
+}
+
+/** ScheduleActivityCategory (includes 'walking') → the 3-way ActivityCategory bucket. */
+function toActivityCategory(cat?: ScheduleActivityCategory): ActivityCategory {
+  if (cat === 'maintenance') return 'maintenance';
+  if (cat === 'cardio' || cat === 'walking') return 'cardio';
+  return 'strength';
+}
+
+/**
+ * Stage H (18.08.2026) — planned-axis session list for one day: one
+ * DaySessionInput per scheduled training entry (weekScheduleEntries —
+ * manual/recurring/community) plus the running program's entry for that day
+ * when present and not yet completed. Mirrors the per-entry icon-resolution
+ * rules already used for the single `primaryEntry` (communityIconKey /
+ * resolveIconKey) — applied to every entry instead of only the first one, so
+ * a day with 2+ scheduled activities (e.g. a personal + a community session,
+ * or a scheduled run alongside a scheduled strength session) can alternate
+ * between all of them instead of collapsing to one. Reuses the same two
+ * already-fetched data sources the single-entry path uses — no new counting
+ * mechanism, no new Firestore reads.
+ *
+ * runningProgramId excludes the ONE manual entry that double-represents the
+ * running program's own scheduled run (David caught this, 18.08.2026):
+ * onboarding-sync.service.ts's running bridge seeds
+ * recurringTemplate[day] = [programTemplate.id] for every running training
+ * day specifically so hydrateFromTemplate() materializes a userSchedule doc
+ * for it — that doc surfaces here as a manualEntries entry with
+ * programIds[0] === the running program's own id, representing the SAME
+ * planned run `runEntry` below already represents via a completely separate
+ * data source (profile.running.activeProgram.schedule). Without this filter,
+ * a plain running day (nothing else scheduled) would wrongly show 2 dots for
+ * 1 real activity.
+ */
+function buildPlannedSessions(
+  manualEntries: UserScheduleEntry[],
+  runEntry: RunningScheduleEntry | undefined,
+  runningProgramId: string | undefined,
+): DaySessionInput[] {
+  const sessions: DaySessionInput[] = manualEntries
+    .filter((e) => e.type === 'training')
+    .filter((e) => !(runningProgramId && e.programIds?.[0] === runningProgramId))
+    .map((e) => ({
+      category: toActivityCategory(e.scheduledCategories?.[0]),
+      minutes: 0,
+      programIconKey:
+        e.source === 'community'
+          ? PROGRAM_ALIAS_TO_ICON[e.scheduledCategories?.[0] ?? '']
+          : resolveIconKey(e.programIds?.[0] ?? e.scheduledCategories?.[0]),
+    }));
+
+  if (runEntry && runEntry.status === 'pending') {
+    sessions.push({
+      category: 'cardio',
+      minutes: 0,
+      runningCategory: runEntry.category,
+      runningColor: runEntry.category ? getCategoryColor(runEntry.category) : undefined,
+    });
+  }
+
+  return sessions;
 }
 
 // Helper to build RingData array from day categories
@@ -727,6 +816,7 @@ export default function SmartWeeklySchedule({
   runningCurrentWeek,
   runningProgramStartDate,
   runningBasePace,
+  runningProgramId,
   scheduleVersion,
   activityView = false,
 }: SmartWeeklyScheduleProps) {
@@ -926,7 +1016,17 @@ export default function SmartWeeklySchedule({
       const communityIconKey: string | undefined = communityEntry
         ? (PROGRAM_ALIAS_TO_ICON[communityEntry.scheduledCategories?.[0] ?? ''] ?? undefined)
         : undefined;
-      
+
+      // Stage H (18.08.2026) — planned-axis sessions for this day, from the
+      // same two already-fetched sources used elsewhere in this loop
+      // (manualEntries below, runningEntriesByDayIndex above). Used as-is for
+      // future days; used as today's fallback when nothing's been done yet.
+      const plannedSessions = buildPlannedSessions(
+        manualEntries,
+        isRunningMode ? runningEntriesByDayIndex.get(i) : undefined,
+        isRunningMode ? runningProgramId : undefined,
+      );
+
       // Default data
       let dayData: DayActivityData = {
         hasActivity: false,
@@ -947,6 +1047,8 @@ export default function SmartWeeklySchedule({
         primaryEntry: manualEntries.find((e) => e.type === 'training' && e.source !== 'community')
           ?? manualEntries.find((e) => e.type === 'training')
           ?? manualEntries[0],
+        sessions: isFuture ? plannedSessions : [],
+        sessionsCompleted: false,
       };
 
       const scheduleDay = schedule.find(s => s.day === dayLetter);
@@ -972,6 +1074,13 @@ export default function SmartWeeklySchedule({
           // Keep steps/calories from the store when available (today only)
           steps: isToday && todayActivity ? todayActivity.steps : dayData.steps,
           calories: isToday && todayActivity ? todayActivity.calories : dayData.calories,
+          // Stage H: real logged sessions when there are any; for today with
+          // nothing done yet, fall back to what's planned (today hasn't
+          // happened yet either — same "planned" bucket as a future day).
+          // Past days with nothing logged keep [] — allowMulti requires
+          // sessionsCompleted for past anyway, so it's unused there regardless.
+          sessions: status.sessions.length > 0 ? status.sessions : (isToday ? plannedSessions : []),
+          sessionsCompleted: status.sessions.length > 0,
         };
         // Mark missed: past training day with no activity and not completed.
         // Prefer the manual entry override; fall back to scheduleDay / scheduleDays.
@@ -1049,7 +1158,7 @@ export default function SmartWeeklySchedule({
     }
 
     return map;
-  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex, scheduleVersion, weekScheduleEntries, pastProgressMap]);
+  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex, runningProgramId, scheduleVersion, weekScheduleEntries, pastProgressMap]);
   
   // Get indices of completed days for the liquid path
   const completedIndices = useMemo(() => {
@@ -1180,6 +1289,17 @@ export default function SmartWeeklySchedule({
         runningCategory,
         runningColor,
         isRecoveryCompletion: dayData.isRecoveryCompletion,
+        // Stage H (18.08.2026): 2+ distinct activities this day (e.g. the
+        // running program's entry alongside a manually-scheduled strength
+        // session) alternate icon+dots instead of collapsing to this single
+        // run entry. Falls through to the fields above unchanged when there's
+        // only 1 (the common case). sessionsCompleted is intentionally NOT
+        // dayData.isCompleted — that's overwritten above (by the isRunningMode
+        // block later in weekActivityData) to the RUN entry's own status,
+        // which can disagree with whether the OTHER sessions in this list
+        // (e.g. strength, logged separately) are actually done.
+        sessions: dayData.sessions,
+        sessionsCompleted: dayData.sessionsCompleted,
       });
 
       return <DayIconCell props={displayProps} />;
@@ -1245,9 +1365,17 @@ export default function SmartWeeklySchedule({
           dayData.communityIconKey ??
           resolveIconKey(dayData.primaryEntry?.programIds?.[0] ?? dayData.primaryEntry?.scheduledCategories?.[0]) ??
           resolvedIconKey,
-        // Flame = the workout axis only; no activity-session alternation (that belongs
-        // to the ring, Stage 2). Multi-OUT-workout days re-introduce S7-based sessions later.
-        sessions: undefined,
+        // Stage H (18.08.2026) re-introduces multi-session alternation, per
+        // David's explicit request — deliberately on the ACTIVITY axis
+        // (dayData.sessions, sourced from useDayStatus()/scheduled entries),
+        // not a new S7-workout-count. Single S7 workout still drives the
+        // single-icon fields above unchanged; this only takes over when 2+
+        // distinct activities are relevant to the day (done or planned).
+        // sessionsCompleted (NOT dayData.workoutDone) decides flame-vs-plain
+        // for those sessions — the workout axis and activity axis aren't 1:1
+        // (a user can log real activity without pressing "workout complete").
+        sessions: dayData.sessions,
+        sessionsCompleted: dayData.sessionsCompleted,
         isRecoveryCompletion: dayData.isRecoveryCompletion,
       });
 

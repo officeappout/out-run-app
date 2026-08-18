@@ -1344,6 +1344,7 @@ export default function HomePage() {
               runningCurrentWeek={profile?.running?.activeProgram?.currentWeek}
               runningProgramStartDate={profile?.running?.activeProgram?.startDate as any}
               runningBasePace={profile?.running?.paceProfile?.basePace}
+              runningProgramId={profile?.running?.activeProgram?.programId}
               scheduleVersion={scheduleVersion}
               activityView={homeTab === 'health'}
             />
