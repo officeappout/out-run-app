@@ -1356,8 +1356,11 @@ export default function HomePage() {
             Placed right after the week strip, before the tabbed Row 2/3 block —
             a self-contained card, no interaction with the tab-switching grid
             below. Renders null while both goal hooks are still resolving, so
-            no empty-card flash on mount. */}
-        <DailyGoalRingsCard />
+            no empty-card flash on mount. Gated on hasCompletedAssessment
+            (David caught this, 18.08.2026) — same gate as the week strip
+            above; a schedule-derived goal % is meaningless before the user
+            has a program, consistent with the rest of this section. */}
+        {hasCompletedAssessment && <DailyGoalRingsCard />}
 
         {/* ════════════════════════════════════════════════════════════════
             Dashboard Restructure — 5-Row Hierarchy (Apr 2026 spec)
