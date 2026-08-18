@@ -428,6 +428,15 @@ const OFFICIAL_ROUTE_BIAS_MULTIPLIER = 5;
 const OFFICIAL_ROUTE_PREFERENCE_BONUS = 10;
 
 /**
+ * Flat park-proximity tiebreaker (18.08.2026, Fix A) — see scoreWaypoint's
+ * own doc comment at the call site for the full root-cause story. Kept
+ * well under the smallest distance-tier score gap (10) so it can only
+ * settle a genuine tie among similarly-positioned candidates, never
+ * override a real distance-fit advantage — even in fitness-station mode.
+ */
+const PARK_TIEBREAKER_BONUS = 5;
+
+/**
  * Shared official-bias + soft-shuffle scoring tail — used by BOTH
  * fetchScoredWaypoints (citywide-by-score query) and
  * fetchScoredWaypointsByProximity (geohash-bounded query) so this scoring
@@ -1093,7 +1102,26 @@ export function scoreWaypoint(
   }).length;
 
   let score = 50;
-  if (nearbyParks > 0) score += nearbyParks * 15;
+  // Park-proximity tiebreaker (18.08.2026, David-approved — Fix A, root
+  // cause of the small-target overshoot investigation): was unconditional
+  // and unbounded (nearbyParks*15 — 2+ parks stacked to +30/+45+), meaning
+  // a far-but-park-rich candidate could easily outscore a genuinely
+  // well-positioned one for EVERY generation, including a plain run/walk
+  // that never asked for fitness stops. Live-confirmed: this is exactly
+  // why the sector-synthesis safety net (placed at the ideal distance)
+  // kept losing to real candidates 2x too far, by 40-100 score points.
+  // Now: (a) gated behind includeStrength — the existing, already-threaded
+  // fitness-station/combined-workout intent signal (confirmed via
+  // WorkoutPreferencesModal.tsx's "שילוב מתקני כושר" toggle, the same flag
+  // that already gates the separate hasNearbyGym bonus below) — a plain
+  // run/walk (includeStrength: false) gets zero park bonus, so distance-fit
+  // fully dominates; (b) flattened from per-park stacking to a single flat
+  // PARK_TIEBREAKER_BONUS, deliberately well under the smallest distance-
+  // tier gap (10, between the +10 mid-tier and +20 tight-tier bonuses) so
+  // even in fitness-station mode it can only break a genuine tie between
+  // similarly-positioned candidates, never override a real distance-fit
+  // advantage.
+  if (preferences.includeStrength && nearbyParks > 0) score += PARK_TIEBREAKER_BONUS;
 
   // Default 1.0km preserved exactly when the caller doesn't opt in — byte-identical
   // for every existing caller (free-run, discover, hybrid general). See the
@@ -2835,7 +2863,11 @@ async function generateLoopRoutes(
     scoreWaypoint(wp, userLocation, parks, {
       ...preferences,
       proportionalDistanceTiers: useProportionalDistanceTiers,
-      preferOfficialRoutes: loopOpts.shortMode,
+      // Fix B (18.08.2026, David-approved): same gating fix as
+      // proportionalDistanceTiers — was shortMode-only, leaving the same
+      // 1.5-6km gap unfixed. Reuses official-backbone data already scored
+      // to 10 in scoreAndShuffleStreetSegments; no new mechanism.
+      preferOfficialRoutes: useProportionalDistanceTiers,
     })
   );
 
@@ -2940,7 +2972,12 @@ async function generateLoopRoutes(
           scoreWaypoint(wp, userLocation, parks, {
             ...preferences,
             proportionalDistanceTiers: useProportionalDistanceTiers,
-            preferOfficialRoutes: loopOpts.shortMode,
+            // Fix B (18.08.2026, David-approved): same gating fix as
+            // proportionalDistanceTiers — was shortMode-only, leaving the
+            // same 1.5-6km gap unfixed. Reuses official-backbone data
+            // already scored to 10 in scoreAndShuffleStreetSegments; no
+            // new mechanism.
+            preferOfficialRoutes: useProportionalDistanceTiers,
           })
         );
         const relaxedTop = selectAngularlyDiverseCandidates(
