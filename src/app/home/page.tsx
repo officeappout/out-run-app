@@ -45,7 +45,7 @@ import DailyGoalRingsCard from '@/features/home/components/DailyGoalRingsCard';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
 import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
-import { useWeeklyProgress } from '@/features/activity';
+import { useWeeklyProgress, useDailyActivity } from '@/features/activity';
 import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCard';
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
@@ -364,6 +364,21 @@ export default function HomePage() {
   // the user has logged a session.
   const todayProgress = useDailyProgress();
   const todayWorkoutDone = !!todayProgress?.workoutCompleted;
+  // Stage B (18.08.2026, "completion-loop" plan) — allGoalsMet drives the
+  // post-workout carousel header's "finished everything" copy variant below.
+  // Pre-existing, already-computed signal (useDailyActivity.ts:226-229,
+  // .every(cat => cat.isGoalMet) over today.categories) — not a new
+  // computation. No local duplicate of this existed in this file to
+  // consolidate (checked before adding this call).
+  //
+  // Adversarial review (18.08.2026): this hook's data comes from the shared
+  // useActivityStore, but its subscribeToChanges/loadFromServer effects are
+  // NOT deduped across call sites — this is the 4th independent
+  // useDailyActivity() call on this page (AppHeader, SmartWeeklySchedule,
+  // StatsOverview already call it), each mounting its own onSnapshot pair.
+  // Consistent with this page's existing convention (not a new pattern this
+  // diff introduces), but a real modest listener cost, not a free read.
+  const { allGoalsMet } = useDailyActivity();
   // Daily Strength Ring (Layer A). The target hook is gated by the flag so no
   // Firestore read fires while STRENGTH_RING_ENABLED is off (byte-identical).
   const todayStrengthVolume = useTodayStrengthVolume();
@@ -480,6 +495,13 @@ export default function HomePage() {
   // normal short wait, not a functioning "start something" fallback — the carousel is
   // expected to auto-reveal on its own moments later. It only becomes closeable again if
   // the fetch actually stalls past POST_WORKOUT_CAROUSEL_TIMEOUT_MS.
+  //
+  // Stage B (18.08.2026): also the single source of truth for the header directly above the
+  // carousel (see the render site below) — postWorkoutCarouselReady already means exactly
+  // "is the carousel itself showing right now," so the header re-uses it as-is instead of a
+  // separate postWorkoutCarouselVisible boolean (that boolean existed only because this file
+  // didn't have postWorkoutCarouselReady yet at the time Stage B was first built against a
+  // stale pre-Stage-A main — removed once rebased on top of Stage A).
   const postWorkoutCarouselReady =
     postWorkoutCarouselEnabled && !!postWorkoutSuggestions && postWorkoutSuggestions.length > 0;
   // Guards against a real dead-end (adversarial review, 18.08.2026): runSuggestionEngine's
@@ -1562,13 +1584,21 @@ export default function HomePage() {
 
         {/* post_workout suggestion carousel (home-generator-v2 plan, step 6) — Phase B
             (18.08.2026): auto-reveals the moment postWorkoutSuggestions resolves, directly
-            below the same completion card, same vertical slot. No tap required. */}
+            below the same completion card, same vertical slot. No tap required.
+            Stage B (18.08.2026, "completion-loop" plan, requirement 5): header above the
+            carousel, same visibility gate (postWorkoutCarouselReady) so it never shows
+            without the carousel or vice versa. Copy variant driven by allGoalsMet —
+            condition explicitly confirmed by David before this shipped, not decided
+            unilaterally (per his instruction on this stage). */}
         {postWorkoutCarouselReady && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
           >
+            <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3" dir="rtl">
+              {allGoalsMet ? 'סיימת הכל, מגיע לך מנוחה' : 'המשך הפעילות של היום'}
+            </h3>
             <SuggestionCarousel<Suggestion>
               items={postWorkoutSuggestions}
               keyExtractor={(s) => s.id}
