@@ -23,12 +23,15 @@
  * Use this helper ONLY for the keys that should outlive a hard close
  * (e.g. `onboarding_language`, `onboarding_path`, `gateway_uid`,
  * `gateway_track`, the map-arrival location answer `map_authority_id` /
- * `map_anchor_lat` / `map_anchor_lng`, and `last_gps_lat` / `last_gps_lng` —
- * the user's own last real GPS fix, written by useGPS.ts on every accepted
- * fix (throttled) so MapShell can seed the map near their ACTUAL last
- * position on cold launch, not just their onboarding-time home anchor —
- * see MapShell.tsx's initialMapCenter, mobile map default->jump fix,
- * 18.08.2026). Short-lived UI navigation hints like `jit_return_to` and
+ * `map_anchor_lat` / `map_anchor_lng`, and `last_gps_lat` / `last_gps_lng` /
+ * `last_gps_at` — the user's own last real GPS fix + when it was taken
+ * (epoch ms), written by useGPS.ts on every accepted fix (throttled) so
+ * MapShell can seed the map (and the location marker) near their ACTUAL
+ * last position on cold launch, not just their onboarding-time home anchor
+ * — see MapShell.tsx's initialMapCenter, mobile map default->jump fix,
+ * 18.08.2026; `last_gps_at` also gates a staleness check so a days-old fix
+ * is never used as if it were fresh — round 7, 18.08.2026). Short-lived UI
+ * navigation hints like `jit_return_to` and
  * `show_gear_toast` should remain in plain sessionStorage so they don't
  * leak across launches.
  */

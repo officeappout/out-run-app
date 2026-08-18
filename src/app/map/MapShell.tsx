@@ -76,6 +76,16 @@ const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppM
   ssr: false,
 });
 
+// Round 7 mobile map fix (18.08.2026): how old a durably-cached last_gps_at
+// fix may be and still count as an "accurate" seed for the map center /
+// location marker. Long enough to comfortably cover a brief backgrounding
+// or in-app tab-switch back to /map (the common re-entry case this round
+// targets); short enough that a genuine relocation since the fix was taken
+// (closed the app at home, opened it later somewhere else) doesn't falsely
+// seed — and briefly show the "you" marker at — a stale position. Named,
+// tunable — not a magic number.
+const GPS_SEED_STALENESS_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
 // ── Outer entry-point props (forwarded from page.tsx) ────────────────────────
 export interface MapShellProps {
   initialWorkoutId?: string | null;
@@ -250,14 +260,27 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   // The anchor-based fallback tiers below stay coarse/unreliable, so a
   // genuinely first-ever launch (no GPS history yet) still gets the brief
   // GPS wait — the one real flyTo there stays hidden behind the skeleton.
+  //
+  // Round 7 (18.08.2026): last_gps_lat/lng alone isn't enough to trust as an
+  // "accurate" seed — it's whatever fix was last durably written, which
+  // could be hours or days old (last time the app was used, possibly
+  // somewhere else entirely). Gated by GPS_SEED_STALENESS_THRESHOLD_MS
+  // against last_gps_at: only this-tier-fresh counts as accurate; stale (or
+  // unknown-age — last_gps_at missing, e.g. a value durably written before
+  // this field existed) falls through to the coarser anchor tiers instead
+  // of risking a seed at a location the user has since left.
   const { initialMapCenter, hasAccurateLocationSeed } = (() => {
     const lastGpsLat = getOnboardingPref('last_gps_lat');
     const lastGpsLng = getOnboardingPref('last_gps_lng');
     if (lastGpsLat && lastGpsLng) {
-      return {
-        initialMapCenter: { lat: parseFloat(lastGpsLat), lng: parseFloat(lastGpsLng) },
-        hasAccurateLocationSeed: true,
-      };
+      const lastGpsAt = getOnboardingPref('last_gps_at');
+      const ageMs = lastGpsAt ? Date.now() - parseFloat(lastGpsAt) : Infinity;
+      if (ageMs <= GPS_SEED_STALENESS_THRESHOLD_MS) {
+        return {
+          initialMapCenter: { lat: parseFloat(lastGpsLat), lng: parseFloat(lastGpsLng) },
+          hasAccurateLocationSeed: true,
+        };
+      }
     }
     if (profile?.core?.anchorLat && profile?.core?.anchorLng) {
       return {
