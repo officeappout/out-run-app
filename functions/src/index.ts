@@ -26,3 +26,9 @@ export { onKudosCreated } from './onKudosCreated';
 // ── Notification-Manager-driven Triggers (reads workoutMetadata/notifications) ─
 export { stepGoalNudgeScheduler } from './stepGoalNudgeScheduler';
 export { pushOutcomeSweeper } from './pushOutcomeSweeper';
+// ── Social-Activities Build Plan Phase 3 — nearby-activity push ───────────────
+// Flag-gated (app_config/feature_flags.socialActivityNearbyPushEnabled,
+// default false) — see onPlannedActivityCreated.ts header. NOT deployed yet;
+// exported here so it's ready to ship once David re-authenticates the
+// Firebase CLI (same blocker as logAuditAction).
+export { onPlannedActivityCreated } from './onPlannedActivityCreated';

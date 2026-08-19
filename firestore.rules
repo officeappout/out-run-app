@@ -1043,6 +1043,20 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // USER_LOCATIONS — geohash index for radius-based push targeting
+    // (Phase 3, social-activities build plan). Written opportunistically by
+    // the client (useUserLocationSync) whenever a map/home session has a GPS
+    // fix — NOT a heartbeat, NOT presence (see presence/{userId} above for
+    // that; this is a coarser, lower-frequency index purpose-built for
+    // onPlannedActivityCreated's geohashQueryBounds radius query). Owner-only
+    // read/write — the Cloud Function reads via Admin SDK, which bypasses
+    // Rules entirely, so no cross-user read grant is needed here.
+    // ============================================================
+    match /userLocations/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ============================================================
     // USER_MEMBERSHIPS — lean group-membership mirror for Rules evaluation.
     //
     // Mirrors users/{uid}.social.groupIds in a tiny dedicated document so

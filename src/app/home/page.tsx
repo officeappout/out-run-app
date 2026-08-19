@@ -56,6 +56,7 @@ import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps } from '@/features/h
 import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
 import UnifiedPlusDrawer from '@/features/parks/client/components/planned-activity/UnifiedPlusDrawer';
 import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
+import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocationSync';
 import ContributionWizard from '@/features/parks/client/components/contribution-wizard';
 import QuickReportSheet from '@/features/parks/client/components/contribution-wizard/QuickReportSheet';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
@@ -314,6 +315,11 @@ export default function HomePage() {
   // Workout builder sheet
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderProps, setBuilderProps] = useState<Omit<WorkoutBuilderSheetProps, 'onClose'>>({});
+
+  // Phase 3 (social-activities plan): opportunistically refresh the
+  // userLocations/{uid} geohash index while home has a GPS fix. Feeds
+  // onPlannedActivityCreated's radius push targeting.
+  useUserLocationSync();
 
   // Unified "+" — promoted top-level entry point (Phase 1 of the
   // social-activities build plan). Opens the same UnifiedPlusDrawer the

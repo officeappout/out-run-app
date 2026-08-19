@@ -71,6 +71,7 @@ import {
 import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
 import UnifiedPlusDrawer from '@/features/parks/client/components/planned-activity/UnifiedPlusDrawer';
 import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
+import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocationSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
 
@@ -207,6 +208,11 @@ interface DiscoverLayerProps {
 export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialOpenRun, targetSteps, onRecenter }: DiscoverLayerProps) {
   const router = useRouter();
   const { setMode } = useMapMode();
+  // Phase 3 (social-activities plan): opportunistically refresh the
+  // userLocations/{uid} geohash index while the map has a GPS fix. Feeds
+  // onPlannedActivityCreated's radius push targeting — write-only from here,
+  // nothing reads this hook's own state.
+  useUserLocationSync();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
