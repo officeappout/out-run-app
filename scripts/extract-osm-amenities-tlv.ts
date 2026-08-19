@@ -188,6 +188,8 @@ async function fetchAmenityElements(bbox: { latMin: number; lonMin: number; latM
   node["leisure"="fitness_station"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
   way["leisure"="fitness_station"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
   node["highway"="crossing"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
+  node["leisure"="dog_park"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
+  way["leisure"="dog_park"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
 );
 out center tags;
 `.trim();
@@ -295,6 +297,7 @@ function classifyElement(el: OverpassElement): { category: AmenityCategory; spor
   if (tags.amenity === 'bench') return { category: 'bench' };
   if (tags.amenity === 'drinking_water') return { category: 'drinking_water' };
   if (tags.leisure === 'fitness_station') return { category: 'fitness_station' };
+  if (tags.leisure === 'dog_park') return { category: 'dog_park' };
   return null;
 }
 
@@ -328,8 +331,8 @@ async function main() {
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log(`║  OSM Amenity Extraction — TLV only   [${mode.padEnd(8)}]         ║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
-  console.log('  Categories: court (basketball/football/tennis/padel), bench, drinking_water, fitness_station, crossing');
-  console.log('  crossing = data capture only, NOT wired into the route generator (no prefer/avoid logic) — a separate future project.');
+  console.log('  Categories: court (basketball/football/tennis/padel), bench, drinking_water, fitness_station, crossing, dog_park');
+  console.log('  crossing/dog_park = data/moderation capture only, NOT wired into the generator or any UI — a separate future project.');
   console.log('  Scope OUT this run (deferred, per instruction): polygon/lawn geometry, consumer-facing cycleway layer.\n');
 
   if (!isApply) {
@@ -431,7 +434,7 @@ async function main() {
     });
   }
 
-  const byCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0, crossing: 0 };
+  const byCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0, crossing: 0, dog_park: 0 };
   let suppressedCount = 0;
   for (const o of outcomes) {
     byCategory[o.category]++;
@@ -446,6 +449,7 @@ async function main() {
   console.log(`  drinking_water:   ${byCategory.drinking_water}`);
   console.log(`  fitness_station:  ${byCategory.fitness_station}`);
   console.log(`  crossing:         ${byCategory.crossing}`);
+  console.log(`  dog_park:         ${byCategory.dog_park}`);
   console.log(`  TOTAL candidates: ${outcomes.length}`);
   console.log(`  Dropped as outside the boundary: ${boundaryDroppedCount}`);
   console.log(`  Suppressed by garden-dedup gate: ${suppressedCount}`);

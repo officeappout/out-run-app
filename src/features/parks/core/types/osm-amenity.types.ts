@@ -19,18 +19,21 @@
  * layer), autonomous build run 18.08.2026.
  */
 
-/** The 5 amenity categories this build extracts. Deliberately NOT
+/** The 6 amenity categories this build extracts. Deliberately NOT
  *  extensible-by-string — a closed enum, same "no invented values" rule
- *  every other typed field in this plan follows. Benches/toilets/
- *  playgrounds/dog-parks (named in Stage 5's own discovery table but not
- *  part of THIS build) would each be a new enum member when built, not a
- *  free-text category.
+ *  every other typed field in this plan follows. Toilets/playgrounds
+ *  (named in Stage 5's own discovery table but not part of THIS build)
+ *  would each be a new enum member when built, not a free-text category.
  *  `crossing` (19.08.2026, full city-mapping build): OSM `highway=crossing`
  *  nodes — data capture only. Deliberately NOT wired into the route
  *  generator (no "prefer/avoid crossings" logic) — that's a separate,
  *  larger future project. This point sits available for display/moderation/
- *  filtering exactly like the other 4 categories, nothing more yet. */
-export type AmenityCategory = 'court' | 'bench' | 'drinking_water' | 'fitness_station' | 'crossing';
+ *  filtering exactly like the other categories, nothing more yet.
+ *  `dog_park` (19.08.2026): OSM `leisure=dog_park` (node or way — a way's
+ *  centroid is used as its location, same `center` convention as
+ *  `fitness_station`/`court`). Same "data/moderation only, no generator or
+ *  UI wiring" scope as `crossing`. */
+export type AmenityCategory = 'court' | 'bench' | 'drinking_water' | 'fitness_station' | 'crossing' | 'dog_park';
 
 /** Only meaningful when category === 'court' — which sport(s) the OSM
  *  `sport=*` tag indicates. 'multi' when OSM lists more than one sport on

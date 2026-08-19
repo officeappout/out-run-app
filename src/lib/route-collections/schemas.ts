@@ -153,7 +153,7 @@ export const RouteAdjacencyUpdateSchema = RouteAdjacencyFieldsSchema.partial().p
 // unmoved) anticipated — Stage 5 Phase C, autonomous build run 18.08.2026.
 
 const OsmAmenityFieldsSchema = z.object({
-  category: z.enum(['court', 'bench', 'drinking_water', 'fitness_station', 'crossing']),
+  category: z.enum(['court', 'bench', 'drinking_water', 'fitness_station', 'crossing', 'dog_park']),
   sport: z.enum(['basketball', 'football', 'tennis', 'padel', 'multi', 'unknown']).optional(),
   location: LatLngObjectSchema,
   geohash: z.string().min(1),
