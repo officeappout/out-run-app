@@ -14,8 +14,6 @@ import {
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { SmartMessage } from '@/features/messages/services/MessageService';
 import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
-import CircularProgress from '@/components/CircularProgress';
-import { getStrengthRingView } from '../utils/strengthRingView';
 
 // Hero-media selection + resolution moved to a shared util so the map/workout
 // preview drawer can compute the hero from its OWN generatedWorkout (no more
@@ -526,46 +524,51 @@ export default function HeroWorkoutCard({
     })();
     const workoutLabel = completionData.workoutTitle || workout.title || 'אימון כוח';
 
-    // Daily Strength Ring (Layer A) — reuses the shared CircularProgress. Center
-    // shows % of the daily target (minutes are intentionally NOT shown here — they
-    // are reserved for push notifications). Always 'active' in the celebration: the
-    // card exists only because the user trained today, so on a scheduled rest day
-    // (targetSets 0) we fall back to completedSets → a full ring, not the rest visual.
-    const ringView = completionData.ring
-      ? getStrengthRingView({
-          completedSets: completionData.ring.completedSets,
-          targetSets:
-            completionData.ring.targetSets > 0
-              ? completionData.ring.targetSets
-              : completionData.ring.completedSets,
-          avgMinutesPerSet: completionData.ring.avgMinutesPerSet,
-          mode: 'active',
-        })
-      : null;
-
     return (
       <div className="w-full" dir="rtl">
         {/* Section title */}
         <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3">האימון היומי שלך</h3>
 
-        {/* Card */}
+        {/* Card — Stage C (18.08.2026, "completion-loop" plan): full-color-fill for a
+            completed workout, replacing the previous white card + %-ring
+            (STRENGTH_RING_ENABLED / getStrengthRingView / CircularProgress — all
+            removed; completionData.ring itself is left untouched upstream, now simply
+            unread here). Not category-aware (completionData.workoutType can be
+            strength/running/walking/cycling/hybrid, but this file never had a
+            workoutType→color mapping to begin with — the checkmark/header text were
+            already hardcoded brand-cyan regardless of type; this just extends that
+            same existing color to the whole card rather than inventing a new one). */}
         <div
-          className="w-full overflow-hidden bg-white"
-          style={{ borderRadius: 16, border: '1px solid #E0E9FF', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
+          className="w-full overflow-hidden"
+          style={{ borderRadius: 16, background: '#00BAF7', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
         >
-          {/* Header row: checkmark + success text */}
+          {/* Header row: checkmark + success text — colors inverted (white badge,
+              white text) since the card is now solid brand-cyan, not white. */}
           <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-            <div className="w-7 h-7 rounded-full bg-[#00BAF7] flex items-center justify-center flex-shrink-0">
-              <Check size={16} className="text-white stroke-[3]" />
+            <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+              <Check size={16} className="text-[#00BAF7] stroke-[3]" />
             </div>
-            <span className="text-[15px] font-bold text-[#00BAF7]">האימון בוצע בהצלחה!</span>
+            <span className="text-[15px] font-bold text-white">האימון בוצע בהצלחה!</span>
           </div>
 
-          {/* Two-column body: thumbnail (right in RTL = first child) + stats (left in RTL = second child) */}
+          {/* Two-column body: thumbnail (right in RTL = first child) + stats (left in RTL = second child).
+              Adversarial review (19.08.2026) caught a real gap in the first pass: the old
+              ring-based gate ({!completionData.ring && ...}) never actually fired in
+              production (STRENGTH_RING_ENABLED=true means ring was always populated), so
+              removing it made the thumbnail render for the first time ever — but
+              completionData.thumbnailUrl is never actually set by any of the 3 real
+              completion paths (useActivitySync/useRunningPlayer/useHybridRun), and no
+              exercises prop reaches this render site either, so thumbSrc always resolves
+              to heroMedia.utils.ts's hardcoded generic stock photo — the SAME image on
+              every single completion, contradicting "restore the real workout thumbnail".
+              Gated on completionData.thumbnailUrl specifically (the one signal that means
+              "a real per-completion image was actually provided") instead of thumbSrc's
+              full fallback chain — shows nothing today (byte-identical to the always-hidden
+              production behavior before this diff), but correctly starts working the moment
+              any completion path is wired to set a real thumbnailUrl, with zero further UI
+              change needed. Wiring that is out of scope here — a separate, unrelated task. */}
           <div className="flex items-stretch px-4 pb-4 gap-3">
-            {/* Thumbnail — first child → right side in RTL. Dropped in the ring
-                variant (the ring is the focal metric → "בלי תמונה"). */}
-            {!completionData.ring && (
+            {completionData.thumbnailUrl && (
               <div className="w-[120px] flex-shrink-0 overflow-hidden" style={{ borderRadius: 12 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -577,33 +580,23 @@ export default function HeroWorkoutCard({
               </div>
             )}
 
-            {/* Stats box — second child → left side in RTL */}
+            {/* Stats box — second child → left side in RTL. Already a light tint
+                (#F0FBFF bg / #B8E8F5 border) — kept unchanged, it reads clearly
+                against the new solid-cyan card without needing any color inversion. */}
             <div
               className="flex-1 flex flex-col justify-center items-center gap-2 py-3 px-3 text-center"
               style={{ borderRadius: 12, border: '1px solid #B8E8F5', background: '#F0FBFF' }}
             >
               <span className="text-[14px] font-bold text-gray-900">{workoutLabel}</span>
 
-              {ringView ? (
-                <div className="flex flex-col items-center gap-0.5">
-                  <CircularProgress
-                    percentage={Math.round(ringView.fillPct * 100)}
-                    size={72}
-                    strokeWidth={6}
-                    colorClass="text-[#00C9F2]"
-                  />
-                  <span className="text-[11px] font-semibold text-gray-400">מהיעד היומי</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-[13px] text-gray-700">
-                  <TrendingUp size={14} className="text-gray-600" />
-                  <span>
-                    {improvement != null && improvement !== 0
-                      ? `שיפור בביצועים של ${Math.abs(improvement)}%`
-                      : 'שיפור בביצועים'}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center gap-1 text-[13px] text-gray-700">
+                <TrendingUp size={14} className="text-gray-600" />
+                <span>
+                  {improvement != null && improvement !== 0
+                    ? `שיפור בביצועים של ${Math.abs(improvement)}%`
+                    : 'שיפור בביצועים'}
+                </span>
+              </div>
 
               <div className="flex items-center gap-1 text-[13px] text-gray-700">
                 <Clock size={14} className="text-gray-500" />

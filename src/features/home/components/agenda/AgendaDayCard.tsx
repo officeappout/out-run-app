@@ -553,26 +553,46 @@ function StrengthCard({
             style={{
               position: 'relative',
               width: '100%',
-              border: `0.5px solid ${isToday ? '#00C9F240' : '#E0E9FF'}`,
-              background: 'var(--color-background-primary, #ffffff)',
+              // Stage C (18.08.2026): a completed entry fills the whole card solid
+              // (barColor as background) instead of a white card + 4px stripe — the
+              // border becomes redundant on a solid-fill card, so it's dropped too.
+              border: isCompleted ? 'none' : `0.5px solid ${isToday ? '#00C9F240' : '#E0E9FF'}`,
+              background: isCompleted ? barColor : 'var(--color-background-primary, #ffffff)',
               borderRadius: 8,
               overflow: 'hidden',
               minHeight: 36,
             }}
           >
-            {/* 4px accent bar on the RIGHT (first child in RTL flex = visual right) */}
-            <div
-              className="flex-shrink-0"
-              style={{ width: 4, backgroundColor: barColor }}
-            />
+            {/* 4px accent bar — only for not-yet-completed entries. A completed card
+                is filled solid with this same color, so a same-color stripe would be
+                invisible against it — the fill itself is now the completion signal. */}
+            {!isCompleted && (
+              <div
+                className="flex-shrink-0"
+                style={{ width: 4, backgroundColor: barColor }}
+              />
+            )}
 
-            {/* Card body */}
-            <div className="flex items-center gap-1.5 flex-1 min-w-0" style={{ padding: '6px 8px', color: barColor }}>
+            {/* Card body — icon/text color inverts to white once the card is filled
+                solid (barColor), matching the same fill. */}
+            <div className="flex items-center gap-1.5 flex-1 min-w-0" style={{ padding: '6px 8px', color: isCompleted ? '#FFFFFF' : barColor }}>
               {isCommunity
                 ? (CommunityIcon && <CommunityIcon className="w-4 h-4 flex-shrink-0" />)
                 : (() => {
                     const primaryId = entry.programIds?.[0];
-                    const skillDisplay = primaryId
+                    // Adversarial review (19.08.2026): 6 of 9 SKILL_DISPLAY assets
+                    // (PLANCHE/HSPU/FRONT_LEVER/OAPU/MUSCLE_UP/HANDSTAND — the core
+                    // calisthenics skill tracks) are raster SVGs whose FIRST path is an
+                    // opaque near-white (#FEFEFE) full-canvas background rectangle —
+                    // confirmed by reading the actual asset files. Loaded via <img>, not
+                    // inline/masked, so they can't inherit `color` at all: on a completed
+                    // card's solid green fill they'd render as a visibly broken white
+                    // square, not just "stay uncolored". Skip the raster path entirely
+                    // when completed and fall back to getProgramIcon — a real currentColor
+                    // SVG (program-icon.util.tsx's own doc comment confirms this) that
+                    // correctly renders white here. Not-completed cards are unaffected —
+                    // the raster's white background already matches the white card bg.
+                    const skillDisplay = !isCompleted && primaryId
                       ? SKILL_DISPLAY[primaryId as keyof typeof SKILL_DISPLAY]
                       : null;
                     return skillDisplay
@@ -588,7 +608,7 @@ function StrengthCard({
                   })()
               }
               <p className={`text-[13px] font-medium leading-tight truncate ${
-                isCompleted ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-white'
+                isCompleted ? 'text-white line-through' : 'text-gray-900 dark:text-white'
               }`}>
                 {title}
               </p>
@@ -894,30 +914,41 @@ export default function AgendaDayCard({
                 className="min-w-0 flex items-stretch flex-shrink-0"
                 style={{
                   width: '50%',
-                  border: `0.5px solid ${isCompleted ? '#1D9E7540' : `${runColor}26`}`,
-                  background: isCompleted ? 'var(--color-background-primary, #ffffff)' : `${runColor}0D`,
+                  // Stage C (18.08.2026): same full-color-fill treatment as StrengthCard
+                  // above — completed fills solid instead of white+stripe, so the border
+                  // (only meaningful against a white/tinted bg) is dropped too.
+                  border: isCompleted ? 'none' : `0.5px solid ${runColor}26`,
+                  background: isCompleted ? '#1D9E75' : `${runColor}0D`,
                   borderRadius: 8,
                   overflow: 'hidden',
                   minHeight: 36,
                 }}
               >
-                {/* Accent bar */}
-                <div className="flex-shrink-0" style={{ width: 4, backgroundColor: isCompleted ? '#1D9E75' : runColor }} />
+                {/* Accent bar — only for not-yet-completed; see StrengthCard's identical
+                    reasoning above (same-color stripe on a same-color fill is invisible). */}
+                {!isCompleted && (
+                  <div className="flex-shrink-0" style={{ width: 4, backgroundColor: runColor }} />
+                )}
 
                 {/* Card body */}
                 <div className="flex items-center gap-1.5 flex-1 min-w-0" style={{ padding: '5px 10px' }}>
-                  <span style={{ color: isCompleted ? '#1D9E75' : runColor, flexShrink: 0 }}>
+                  <span style={{ color: isCompleted ? '#FFFFFF' : runColor, flexShrink: 0 }}>
                     {getCategoryIcon(runningWorkout?.category)}
                   </span>
                   <span className={`text-[11px] font-semibold truncate flex-1 min-w-0 ${
-                    isCompleted ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-white'
+                    isCompleted ? 'text-white line-through' : 'text-gray-900 dark:text-white'
                   }`}>
                     {runningWorkout!.name}
                   </span>
                   {isCompleted ? (
-                    <div className="flex items-center gap-0.5 px-1.5 py-px rounded-md bg-emerald-50 dark:bg-emerald-900/20 flex-shrink-0">
-                      <Check className="w-2.5 h-2.5 text-emerald-500" />
-                      <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">הושלם</span>
+                    // Colors inverted (white pill, green text/icon) from the previous
+                    // light-emerald-on-white treatment — that combination would have
+                    // very poor contrast against the new solid #1D9E75 fill. Keeping the
+                    // pill+label (not just relying on the fill color) preserves an
+                    // accessible, non-color-only "done" signal.
+                    <div className="flex items-center gap-0.5 px-1.5 py-px rounded-md bg-white/90 flex-shrink-0">
+                      <Check className="w-2.5 h-2.5 text-[#1D9E75]" />
+                      <span className="text-[9px] font-bold text-[#1D9E75]">הושלם</span>
                     </div>
                   ) : isToday ? (
                     <div className="flex items-center gap-1 px-1.5 py-px rounded-md flex-shrink-0" style={{ background: `${runColor}20` }}>
