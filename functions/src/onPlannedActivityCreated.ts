@@ -36,12 +36,12 @@
  * CHANNEL: 'community' — reserved but previously unused (its own doc
  * comment in push.service.ts already says "people nearby, new group").
  *
- * DEEP LINK: '/map' with parkId/routeId riding along as decoration in
- * `data`, same pattern as the pre-existing training-reminder push's
- * deepLink:'/' + undecoded data fields — no client-side query-param
- * consumer exists yet for a specific park/route screen (confirmed: no
- * `openPark`/`openRoute` handling anywhere in src/app/map), and building
- * one is out of this task's scope (backend/function only). Flagged here,
+ * DEEP LINK: '/map?openPark=<id>' or '/map?openRoute=<id>' — consumed by
+ * src/app/map/MapShell.tsx's openParkId/openRouteId effects, which fetch
+ * the doc and open it via the same GlobalDetailOverlay mechanism
+ * ParkDetailSheet/RouteDetailSheet already use elsewhere. A session with
+ * neither field (shouldn't happen — createPlannedSession requires exactly
+ * one of parkId/routeId) falls back to plain '/map'. Flagged here,
  * not silently left as if it were fully wired.
  *
  * FLAG: app_config/feature_flags.socialActivityNearbyPushEnabled, same
@@ -234,7 +234,11 @@ export const onPlannedActivityCreated = onDocumentCreated(
     }
 
     const libraryActivityType = toLibraryActivityType(session.activityType);
-    const deepLink = '/map';
+    const deepLink = session.parkId
+      ? `/map?openPark=${encodeURIComponent(session.parkId)}`
+      : session.routeId
+      ? `/map?openRoute=${encodeURIComponent(session.routeId)}`
+      : '/map';
     const baseData: Record<string, string> = {
       triggerType: TRIGGER_TYPE,
       sessionId,

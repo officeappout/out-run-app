@@ -44,6 +44,8 @@ import type { MapPurpose } from '@/features/user/onboarding/components/steps/Uni
 import { useMapMode, MapModeProvider } from '@/features/parks/core/context/MapModeContext';
 import { useDevSimulation } from '@/features/parks/core/hooks/useDevSimulation';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { getPark } from '@/features/parks/core/services/parks.service';
+import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { useLegPlanStore } from '@/features/parks/core/store/useLegPlanStore';
 import { useDemoPresence } from '@/features/parks/core/hooks/useDemoPresence';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
@@ -811,6 +813,14 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const initialOpenRun = searchParams.get('openRun'); // 'running' | 'walking' | null
   const targetSteps = searchParams.get('targetSteps'); // step-goal push deep-link target, or null
   const isDemoMode = searchParams.get('demo') === '1';
+  // Social-activities push deep-link (Phase 3, onPlannedActivityCreated) —
+  // opens the specific park/route via the SAME global-store mechanism
+  // ParkDetailSheet/RouteDetailSheet already use elsewhere (GlobalDetailOverlay,
+  // injected once in ClientLayout — works from /map same as from Home).
+  // Not-found is a valid, silent outcome (see InventoryService.getRouteById's
+  // doc comment) — the user just lands on a plain map, no error surfaced.
+  const openParkId = searchParams.get('openPark');
+  const openRouteId = searchParams.get('openRoute');
 
   const fromExplorer = searchParams.get('fromExplorer') === 'true';
 
@@ -829,6 +839,26 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Social-activities push deep-link (Phase 3) — see openParkId/openRouteId
+  // above. Fire-and-forget fetch; a not-found id just never opens anything.
+  useEffect(() => {
+    if (!openParkId) return;
+    getPark(openParkId)
+      .then((park) => {
+        if (park) useMapStore.getState().openGlobalParkSheet(park);
+      })
+      .catch((err) => console.warn('[MapShell] openPark deep-link fetch failed:', err));
+  }, [openParkId]);
+
+  useEffect(() => {
+    if (!openRouteId) return;
+    InventoryService.getRouteByIdAnyCollection(openRouteId)
+      .then((route) => {
+        if (route) useMapStore.getState().openGlobalRouteSheet(route);
+      })
+      .catch((err) => console.warn('[MapShell] openRoute deep-link fetch failed:', err));
+  }, [openRouteId]);
 
   const profile = useUserStore((s) => s.profile);
   const hasHydrated = useUserStore((s) => s._hasHydrated);

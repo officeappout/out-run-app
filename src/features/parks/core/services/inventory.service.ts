@@ -1089,6 +1089,52 @@ export const InventoryService = {
     },
 
     /**
+     * Fetch a single route by ID for deep-linking (e.g. a push notification's
+     * ?openRoute=<id>, see src/app/map/MapShell.tsx). Checks curated_routes
+     * first (the collection PlannedActivityComposeSheet's route picker
+     * writes routeId from), falling back to official_routes. Returns null —
+     * not a throw — when the id exists in neither collection (e.g. an
+     * ad-hoc generated route from RouteDetailSheet's contextRoute prefill
+     * that was never persisted anywhere); callers must treat that as a
+     * valid "nothing to show", same fail-soft posture as getPark's own
+     * not-found path in parks.service.ts.
+     *
+     * Deliberately NOT named getRouteById — that name is already taken
+     * (official_routes-only, ~1290 below, 5+ existing callers assume that
+     * scope). Extending the existing one to also check curated_routes
+     * risked changing behavior for those unrelated callers (city
+     * resolution, broadcast, admin approval) — safer to add a distinctly-
+     * named sibling than to widen a function other code already depends on.
+     */
+    async getRouteByIdAnyCollection(routeId: string): Promise<Route | null> {
+        if (!routeId) return null;
+        for (const collectionName of ['curated_routes', 'official_routes'] as const) {
+            try {
+                const snap = await getDoc(doc(db, collectionName, routeId));
+                if (!snap.exists()) continue;
+                const data = snap.data();
+                const rawPath = data.path;
+                if (!Array.isArray(rawPath) || rawPath.length < 2) continue;
+                const path = rawPath.map(
+                    (p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number],
+                );
+                return {
+                    ...data,
+                    id: snap.id,
+                    path,
+                    distance: typeof data.distance === 'number' && !isNaN(data.distance) ? data.distance : 0,
+                    rating: typeof data.rating === 'number' && !isNaN(data.rating) ? data.rating : 0,
+                    duration: typeof data.duration === 'number' && !isNaN(data.duration) ? data.duration : 0,
+                    score: typeof data.score === 'number' && !isNaN(data.score) ? data.score : 0,
+                } as Route;
+            } catch (error) {
+                console.error(`❌ Error fetching route ${routeId} from ${collectionName}:`, error);
+            }
+        }
+        return null;
+    },
+
+    /**
      * Fetch raw infrastructure segments for a specific authority.
      * Used by the stitching engine on the admin side.
      */
