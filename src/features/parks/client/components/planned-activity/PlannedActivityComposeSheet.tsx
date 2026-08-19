@@ -60,11 +60,31 @@ import { WalkingIcon, RunIcon, MuscleIcon, getProgramIcon, ICON_MAP } from '@/fe
 export type ComposeActivityType = 'workout' | 'running' | 'walking';
 type WhereType = 'park' | 'route';
 
+/** Uniform shape for a selectable place chip — a park or a route, whichever
+ *  the caller already has in scope (e.g. RouteDetailSheet knows its own
+ *  route). Decoupled from the real `Park`/`Route` types so a caller's
+ *  in-scope place can be pinned as a selectable option even when it isn't
+ *  present in the fetched authority-scoped list (e.g. an ad-hoc generated
+ *  route that was never persisted to `curated_routes`). */
+interface PlaceOption {
+  id: string;
+  name: string;
+  lat: number | null;
+  lng: number | null;
+}
+
 interface PlannedActivityComposeSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Optional context prefill — reserved for Phase 2's toggle rewiring. */
+  /** Context prefill (Phase 2 — ShareAsLiveToggle rewiring). */
   initialType?: ComposeActivityType;
+  /**
+   * A specific place the caller already has in scope — pinned as the first,
+   * pre-selected option for its kind, in addition to (not instead of) the
+   * normal fetched list. Only meaningful when it matches `initialType`'s
+   * available `whereOptions`.
+   */
+  initialPlace?: { kind: WhereType } & PlaceOption;
   onCreated?: (sessionId: string) => void;
 }
 
@@ -113,6 +133,7 @@ export default function PlannedActivityComposeSheet({
   isOpen,
   onClose,
   initialType,
+  initialPlace,
   onCreated,
 }: PlannedActivityComposeSheetProps) {
   const router = useRouter();
@@ -141,17 +162,27 @@ export default function PlannedActivityComposeSheet({
     if (!isOpen) return;
     const initial = initialType ?? 'workout';
     setType(initial);
-    setWhereType(WHERE_OPTIONS_FOR[initial][0]);
-    setSelectedParkId(null);
-    setSelectedRouteId(null);
+    // Context prefill (Phase 2): pre-select the caller's own place when its
+    // kind matches this type's available where-options — e.g. RouteDetailSheet
+    // already knows its own route. Otherwise fall back to the type's default
+    // where-kind with nothing pre-selected, same as opening from a generic
+    // "+" entry point.
+    const defaultWhere = WHERE_OPTIONS_FOR[initial][0];
+    const placeMatches = initialPlace && WHERE_OPTIONS_FOR[initial].includes(initialPlace.kind);
+    setWhereType(placeMatches ? initialPlace!.kind : defaultWhere);
+    setSelectedParkId(placeMatches && initialPlace!.kind === 'park' ? initialPlace!.id : null);
+    setSelectedRouteId(placeMatches && initialPlace!.kind === 'route' ? initialPlace!.id : null);
     setWhen('now');
     setDay('today');
     setTime(getNextFullHour());
     setVisibility('verified_global');
-  }, [isOpen, initialType]);
+  }, [isOpen, initialType, initialPlace]);
 
-  // Switching type resets "where" to that type's default kind — a park
-  // picked for strength shouldn't linger selected after flipping to running.
+  // Switching type (via the in-sheet type selector, a user action) resets
+  // "where" to that type's default kind — a park picked for strength
+  // shouldn't linger selected after flipping to running. Does not re-apply
+  // initialPlace — that's an open-time prefill only, not re-asserted every
+  // time the user changes their mind about the type.
   useEffect(() => {
     if (!isOpen) return;
     setWhereType(WHERE_OPTIONS_FOR[type][0]);
@@ -176,6 +207,38 @@ export default function PlannedActivityComposeSheet({
       .finally(() => setRoutesLoading(false));
   }, [isOpen, authorityId, whereType]);
 
+  // Uniform PlaceOption lists — the fetched authority-scoped list, with the
+  // caller's own pinned place (if any, matching this whereType) prepended
+  // and deduped by id. Pinning separately from the fetch means a route the
+  // caller already knows about (e.g. an ad-hoc generated one never
+  // persisted to curated_routes) is always selectable even if the
+  // background fetch never returns it.
+  const parkOptions = useMemo<PlaceOption[]>(() => {
+    const fetched: PlaceOption[] = parks.map((p) => ({
+      id: p.id,
+      name: p.name,
+      lat: p.location?.lat ?? null,
+      lng: p.location?.lng ?? null,
+    }));
+    if (initialPlace?.kind === 'park' && !fetched.some((p) => p.id === initialPlace.id)) {
+      return [{ id: initialPlace.id, name: initialPlace.name, lat: initialPlace.lat, lng: initialPlace.lng }, ...fetched];
+    }
+    return fetched;
+  }, [parks, initialPlace]);
+
+  const routeOptions = useMemo<PlaceOption[]>(() => {
+    const fetched: PlaceOption[] = routes.map((r) => ({
+      id: r.id,
+      name: r.name,
+      lat: r.path?.[0]?.[1] ?? null,
+      lng: r.path?.[0]?.[0] ?? null,
+    }));
+    if (initialPlace?.kind === 'route' && !fetched.some((r) => r.id === initialPlace.id)) {
+      return [{ id: initialPlace.id, name: initialPlace.name, lat: initialPlace.lat, lng: initialPlace.lng }, ...fetched];
+    }
+    return fetched;
+  }, [routes, initialPlace]);
+
   // Strength program/level — pinned/most-recent program first, mirroring
   // AddWorkoutModal's sortedTracks pattern. `selectedTrack.level` (raw
   // numeric) is the only level value this sheet ever writes — see file
@@ -198,8 +261,8 @@ export default function PlannedActivityComposeSheet({
     ? ((ICON_MAP as Record<string, { label: string }>)[selectedTrack.id]?.label ?? selectedTrack.id)
     : undefined;
 
-  const selectedPark = parks.find((p) => p.id === selectedParkId) ?? null;
-  const selectedRoute = routes.find((r) => r.id === selectedRouteId) ?? null;
+  const selectedPark = parkOptions.find((p) => p.id === selectedParkId) ?? null;
+  const selectedRoute = routeOptions.find((r) => r.id === selectedRouteId) ?? null;
   const hasPlace = whereType === 'park' ? !!selectedPark : !!selectedRoute;
   const canSubmit = hasPlace && !saving && (type !== 'workout' || hasStrengthLevel);
 
@@ -219,15 +282,15 @@ export default function PlannedActivityComposeSheet({
         ? {
             parkId: selectedPark.id,
             parkName: selectedPark.name,
-            lat: selectedPark.location?.lat ?? null,
-            lng: selectedPark.location?.lng ?? null,
+            lat: selectedPark.lat,
+            lng: selectedPark.lng,
           }
         : whereType === 'route' && selectedRoute
         ? {
             routeId: selectedRoute.id,
             routeName: selectedRoute.name,
-            lat: selectedRoute.path?.[0]?.[1] ?? null,
-            lng: selectedRoute.path?.[0]?.[0] ?? null,
+            lat: selectedRoute.lat,
+            lng: selectedRoute.lng,
           }
         : null;
       if (!placeFields) return;
@@ -371,13 +434,13 @@ export default function PlannedActivityComposeSheet({
                 </div>
 
                 {whereType === 'park' ? (
-                  parksLoading ? (
+                  parksLoading && parkOptions.length === 0 ? (
                     <div className="text-xs text-gray-400 py-2">טוען פארקים...</div>
-                  ) : parks.length === 0 ? (
+                  ) : parkOptions.length === 0 ? (
                     <div className="text-xs text-gray-400 py-2">לא נמצאו פארקים עירוניים</div>
                   ) : (
                     <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                      {parks.map((park) => (
+                      {parkOptions.map((park) => (
                         <button
                           key={park.id}
                           onClick={() => setSelectedParkId(park.id)}
@@ -392,13 +455,13 @@ export default function PlannedActivityComposeSheet({
                       ))}
                     </div>
                   )
-                ) : routesLoading ? (
+                ) : routesLoading && routeOptions.length === 0 ? (
                   <div className="text-xs text-gray-400 py-2">טוען מסלולים...</div>
-                ) : routes.length === 0 ? (
+                ) : routeOptions.length === 0 ? (
                   <div className="text-xs text-gray-400 py-2">לא נמצאו מסלולים עירוניים</div>
                 ) : (
                   <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                    {routes.map((route) => (
+                    {routeOptions.map((route) => (
                       <button
                         key={route.id}
                         onClick={() => setSelectedRouteId(route.id)}

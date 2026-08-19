@@ -11,26 +11,43 @@ import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
 import { g, type AppGender } from '@/lib/utils/gendered-text';
+import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
+import PlannedActivityComposeSheet, {
+  type ComposeActivityType,
+} from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
 
 /**
  * ShareAsLiveToggle — single-source-of-truth "Share that I'm working out" toggle.
  *
- * Replaces three inline copies that previously lived in:
- *   - WorkoutPreviewDrawer.tsx
- *   - WorkoutPreviewScreen.tsx (running)
- *   - RouteDetailSheet.tsx (new caller)
+ * Used at 3 call sites: strength preview (DrawerFooter.tsx), planned-run
+ * preview (WorkoutPreviewScreen.tsx), and free-run/route preview
+ * (RunShareBar.tsx, RouteDetailSheet.tsx).
  *
- * Owns:
- *   • Local on/off state (always starts off — never persisted across opens)
- *   • updatePresence / clearPresence calls keyed by `auth.currentUser.uid`
- *   • Unmount safety net: if the user navigates away while live, clear presence
- *   • Gendered Hebrew copy keyed by activityType
+ * Two distinct behaviors depending on SOCIAL_COMPOSE_UI_ENABLED (Phase 2 of
+ * the social-activities build plan — see
+ * .claude/plans/new-chat-investigation-stateful-fern.md):
  *
- * userLocation is taken as a prop so callers that already need GPS for
- * other reasons (partner finder, route details) don't double-fetch. When
- * not available (null/undefined), the toggle still toggles its own visual
- * state but skips the Firestore write — same fail-soft behaviour as the
- * original inline implementations.
+ *   FLAG OFF (byte-identical to pre-Phase-2): owns local on/off state,
+ *   updatePresence/clearPresence calls keyed by auth.currentUser.uid, and
+ *   an unmount safety net that clears presence if the user navigates away
+ *   while "live". This was investigated and found broken in both
+ *   directions — strength: decorative (no onChange, the real active-workout
+ *   heartbeat ignores this toggle entirely); running: writes presence then
+ *   the preview screen's unmount immediately deletes it, nothing
+ *   recreates it during the actual run. Kept verbatim behind the flag
+ *   rather than fixed, since fixing presence semantics is a separate,
+ *   out-of-scope infra task (explicitly not this task — see Phase 1 plan).
+ *
+ *   FLAG ON: turning the toggle on opens the Phase 1 PlannedActivityComposeSheet
+ *   instead — context-prefilled (type from `activityType`, "now", and the
+ *   caller's own place via `contextPark`/`contextRoute` when it has one in
+ *   scope), leaving visibility to the user. No presence write/delete of any
+ *   kind happens through this component anymore; the unmount safety net is
+ *   skipped entirely (there is nothing for it to clean up, and firing it
+ *   could otherwise clobber an unrelated real presence doc written by
+ *   useWorkoutPresence on the strength active screen). Turning the toggle
+ *   back off is purely visual — there is no "un-announce" primitive wired
+ *   here, matching the plan's explicit "no new compose logic" scope.
  */
 
 const ACTIVITY_LABELS: Record<WorkoutActivityStatus, { male: string; female: string }> = {
@@ -40,6 +57,30 @@ const ACTIVITY_LABELS: Record<WorkoutActivityStatus, { male: string; female: str
   cycling: { male: 'שתף שאני יוצא לרכיבה', female: 'שתפי שאני יוצאת לרכיבה' },
 };
 
+/** Minimal place shape a caller can pass when it already has a specific
+ *  park/route in scope (e.g. RouteDetailSheet knows its own route). */
+interface PlaceContext {
+  id: string;
+  name: string;
+  lat?: number | null;
+  lng?: number | null;
+}
+
+// WorkoutActivityStatus (4 values, presence-domain) → ComposeActivityType (3
+// values, planned_sessions-domain — v1 scope is aerobic+strength only, per
+// the north-star doc). 'cycling' has no compose-sheet equivalent; falls
+// back to 'running' as the closest self-propelled-route bucket rather than
+// blocking the sheet from opening. No call site passes 'cycling' today
+// (confirmed: DrawerFooter=strength, WorkoutPreviewScreen=running,
+// RunShareBar=running|walking, RouteDetailSheet can in principle for a
+// cycling route) — flagged here so it's a deliberate, visible choice if
+// that ever changes, not a silent gap.
+function toComposeActivityType(activityType: WorkoutActivityStatus): ComposeActivityType {
+  if (activityType === 'strength') return 'workout';
+  if (activityType === 'walking') return 'walking';
+  return 'running'; // running, and cycling as fallback
+}
+
 interface ShareAsLiveToggleProps {
   activityType: WorkoutActivityStatus;
   workoutTitle: string;
@@ -47,6 +88,8 @@ interface ShareAsLiveToggleProps {
    * Current user GPS location. When null/undefined the toggle still flips
    * visually but no Firestore write happens (same behaviour as the
    * original inline implementations when GPS permission was denied).
+   * Unused when SOCIAL_COMPOSE_UI_ENABLED is true (the compose sheet
+   * sources its own place data instead of the user's live GPS).
    */
   userLocation?: { lat: number; lng: number } | null;
   /**
@@ -56,6 +99,10 @@ interface ShareAsLiveToggleProps {
   gender?: AppGender;
   /** Optional outer className. */
   className?: string;
+  /** Context prefill (flag-on path only) — a specific park already in scope. */
+  contextPark?: PlaceContext;
+  /** Context prefill (flag-on path only) — a specific route already in scope. */
+  contextRoute?: PlaceContext;
 }
 
 export default function ShareAsLiveToggle({
@@ -64,12 +111,15 @@ export default function ShareAsLiveToggle({
   userLocation,
   gender,
   className = '',
+  contextPark,
+  contextRoute,
 }: ShareAsLiveToggleProps) {
   const profile = useUserStore((s) => s.profile);
   const storedGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
   const effectiveGender: AppGender = gender ?? storedGender;
 
   const [shareAsLive, setShareAsLive] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
 
   // Ref mirror — lets the unmount cleanup read the latest value without
   // re-running the effect on every state change.
@@ -78,8 +128,10 @@ export default function ShareAsLiveToggle({
     shareAsLiveRef.current = shareAsLive;
   }, [shareAsLive]);
 
-  // Unmount safety net — clear presence if the user navigates away while live.
+  // Unmount safety net (flag-off path only — see file header for why this
+  // is skipped entirely when SOCIAL_COMPOSE_UI_ENABLED is true).
   useEffect(() => {
+    if (SOCIAL_COMPOSE_UI_ENABLED) return;
     return () => {
       if (shareAsLiveRef.current && auth.currentUser) {
         // Surface the failure rather than swallowing it. A
@@ -100,6 +152,15 @@ export default function ShareAsLiveToggle({
   }, []);
 
   const handleToggle = useCallback(async () => {
+    if (SOCIAL_COMPOSE_UI_ENABLED) {
+      if (!shareAsLive) {
+        setComposeOpen(true);
+      } else {
+        setShareAsLive(false);
+      }
+      return;
+    }
+
     // Tightened guard. The previous `!userLocation` check passed any
     // truthy object, including `{ lat: null, lng: null }` produced by
     // upstream callers that hadn't resolved GPS yet — which then wrote
@@ -163,6 +224,12 @@ export default function ShareAsLiveToggle({
     'תופיעי לאחרים שמחפשות שותפה',
   );
 
+  const initialPlace = contextRoute
+    ? { kind: 'route' as const, id: contextRoute.id, name: contextRoute.name, lat: contextRoute.lat ?? null, lng: contextRoute.lng ?? null }
+    : contextPark
+    ? { kind: 'park' as const, id: contextPark.id, name: contextPark.name, lat: contextPark.lat ?? null, lng: contextPark.lng ?? null }
+    : undefined;
+
   return (
     <div className={`flex items-center gap-3 ${className}`} dir="rtl">
       <Users size={16} color="#00ADEF" className="flex-shrink-0" />
@@ -188,6 +255,15 @@ export default function ShareAsLiveToggle({
           }`}
         />
       </button>
+      {SOCIAL_COMPOSE_UI_ENABLED && (
+        <PlannedActivityComposeSheet
+          isOpen={composeOpen}
+          onClose={() => setComposeOpen(false)}
+          initialType={toComposeActivityType(activityType)}
+          initialPlace={initialPlace}
+          onCreated={() => setShareAsLive(true)}
+        />
+      )}
     </div>
   );
 }

@@ -1072,11 +1072,20 @@ export default function RouteDetailSheet({
                 className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200/50 px-4 pt-3"
                 style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
               >
-                {/* Share-as-live toggle — same primitive used by strength + running previews */}
+                {/* Share-as-live toggle — same primitive used by strength + running previews.
+                    contextRoute: this sheet already knows its own route, so the Phase-2
+                    compose flow (SOCIAL_COMPOSE_UI_ENABLED) pre-selects it instead of
+                    opening an empty route picker. */}
                 <ShareAsLiveToggle
                   activityType={mapRouteActivityToPresence(route.activityType ?? route.type)}
                   workoutTitle={route.name || 'מסלול'}
                   userLocation={userLocation ?? null}
+                  contextRoute={{
+                    id: route.id,
+                    name: route.name || 'מסלול',
+                    lat: route.path?.[0]?.[1] ?? null,
+                    lng: route.path?.[0]?.[0] ?? null,
+                  }}
                   className="pb-2"
                 />
 
