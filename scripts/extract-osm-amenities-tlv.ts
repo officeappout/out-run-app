@@ -39,6 +39,26 @@
  * import, matching how every other OSM-ingestion script in this codebase
  * already keeps its own copy).
  *
+ * ── BOUNDARY CLIP (added 19.08.2026 — city-accuracy fix) ────────────────
+ * The tlv-amenities-2026-08-19 batch's extraction bbox (derived from real
+ * TLV route geometry + AMENITY_BBOX_MARGIN_METERS) is a superset — it
+ * spills into neighboring municipalities (Herzliya, Ramat Gan, Bnei Brak,
+ * Bat Yam, Holon all confirmed present in-bbox via Overpass). Every
+ * candidate is now additionally clipped against Tel Aviv-Yafo's REAL
+ * admin_level=8 boundary (OSM relation 1382494 — confirmed via Overpass:
+ * boundary=administrative, ref:IL:cbs=5000, wikidata=Q33935; matched by
+ * relation id, NOT by name — OSM's name:he uses maqaf/en-dash characters
+ * ("תל־אביב–יפו") that don't equal the plain-hyphen TLV_CITY string used
+ * elsewhere in this file). Fetched once per run (`(._;>;) out geom;`,
+ * assembled to GeoJSON via `osmtogeojson`), then every candidate point is
+ * tested with `@turf/boolean-point-in-polygon` BEFORE the garden-dedup
+ * gate — a point outside the real boundary isn't a TLV amenity at all, so
+ * it's dropped entirely (never written, not even as 'rejected' — that
+ * status is reserved for genuine garden-dedup duplicates, a different
+ * concept). Verified against 9 known reference points (central TLV
+ * landmarks + neighboring city centers + Jerusalem control) before this
+ * was wired in — see the task's dry-run report for those results.
+ *
  * Usage:
  *   DRY RUN (default — runs Overpass + the dedup gate for real, prints
  *   every candidate + its outcome, writes NOTHING to osm_amenities):
@@ -57,6 +77,9 @@ dotenv.config({ path: '.env.local' });
 dotenv.config();
 import * as admin from 'firebase-admin';
 import { geohashForLocation } from 'geofire-common';
+import osmtogeojson from 'osmtogeojson';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import { point as turfPoint } from '@turf/helpers';
 import { buildValidatedDoc } from '../src/lib/route-collections';
 import { findAuthorityByCityName } from '../src/lib/route-collections/authority-resolution';
 import { findNearestGardenMatch, GARDEN_DEDUP_RADIUS_METERS, type GardenCandidate } from '../src/features/parks/core/services/garden-dedup.service';
@@ -72,7 +95,17 @@ const TLV_CITY = 'תל אביב-יפו';
 // derived from the same 27 real TLV routes' geometry (no hardcoded
 // municipal boundary — geo-discovery-routes.ts has no TLV REGION entry at
 // all, confirmed by inspection in Phase B), just with a much larger margin.
+// This bbox is intentionally a SUPERSET of the real city (see
+// fetchTlvBoundary below) — the boundary clip is what enforces accuracy,
+// not this margin.
 const AMENITY_BBOX_MARGIN_METERS = 2500;
+// OSM relation id for Tel Aviv-Yafo's admin_level=8 boundary — resolved via
+// Overpass (boundary=administrative, ref:IL:cbs=5000, wikidata=Q33935).
+// Hardcoded (matching TLV_CITY's own hardcoding — this is a single-city
+// script by design) rather than name-matched: OSM's name:he for this
+// relation is "תל־אביב–יפו" (maqaf + en-dash), which does NOT string-equal
+// TLV_CITY's plain-hyphen "תל אביב-יפו" used elsewhere in this file/Firestore.
+const TLV_ADMIN_RELATION_ID = 1382494;
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -138,6 +171,30 @@ async function fetchOverpassOnce(endpoint: string, body: string): Promise<{ elem
   }
 }
 
+// Shared retry/mirror-fallback loop — used by both the amenity-element fetch
+// and the boundary-relation fetch below (extracted here, previously
+// inlined only in fetchAmenityElements, since the boundary fetch needs the
+// exact same resilience and duplicating the loop verbatim would drift).
+async function fetchOverpassRaw(query: string): Promise<{ elements: OverpassElement[] }> {
+  const body = 'data=' + encodeURIComponent(query);
+  let lastError: unknown = null;
+  for (let e = 0; e < OVERPASS_ENDPOINTS.length; e++) {
+    const endpoint = OVERPASS_ENDPOINTS[e];
+    for (let attempt = 1; attempt <= OVERPASS_ATTEMPTS_PER_ENDPOINT; attempt++) {
+      try {
+        return await fetchOverpassOnce(endpoint, body);
+      } catch (err) {
+        lastError = err;
+        const status = (err as Error & { status?: number }).status;
+        const transient = status !== undefined && OVERPASS_RETRY_STATUSES.has(status);
+        if (!transient) throw err; // our bug, not worth retrying
+        if (attempt < OVERPASS_ATTEMPTS_PER_ENDPOINT) await sleep(OVERPASS_RETRY_DELAY_MS);
+      }
+    }
+  }
+  throw new Error(`Overpass fetch failed across all endpoints. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+}
+
 async function fetchAmenityElements(bbox: { latMin: number; lonMin: number; latMax: number; lonMax: number }): Promise<OverpassElement[]> {
   const query = `
 [out:json][timeout:${OVERPASS_QUERY_TIMEOUT_SEC}];
@@ -151,25 +208,38 @@ async function fetchAmenityElements(bbox: { latMin: number; lonMin: number; latM
 );
 out center tags;
 `.trim();
-  const body = 'data=' + encodeURIComponent(query);
+  const json = await fetchOverpassRaw(query);
+  return json.elements ?? [];
+}
 
-  let lastError: unknown = null;
-  for (let e = 0; e < OVERPASS_ENDPOINTS.length; e++) {
-    const endpoint = OVERPASS_ENDPOINTS[e];
-    for (let attempt = 1; attempt <= OVERPASS_ATTEMPTS_PER_ENDPOINT; attempt++) {
-      try {
-        const json = await fetchOverpassOnce(endpoint, body);
-        return json.elements ?? [];
-      } catch (err) {
-        lastError = err;
-        const status = (err as Error & { status?: number }).status;
-        const transient = status !== undefined && OVERPASS_RETRY_STATUSES.has(status);
-        if (!transient) throw err; // our bug, not worth retrying
-        if (attempt < OVERPASS_ATTEMPTS_PER_ENDPOINT) await sleep(OVERPASS_RETRY_DELAY_MS);
-      }
-    }
+/**
+ * THE CITY-ACCURACY FIX. Fetches Tel Aviv-Yafo's real admin_level=8 boundary
+ * (OSM relation 1382494) and assembles it into a GeoJSON Polygon via
+ * osmtogeojson (`(._;>;) out geom;` pulls the relation + every member way's
+ * full geometry, which osmtogeojson needs to stitch the ring correctly —
+ * `out geom;` alone on just the relation is NOT enough). Throws if the
+ * relation can't be resolved to a Polygon/MultiPolygon — a missing/broken
+ * boundary must hard-fail the run, not silently fall back to bbox-only
+ * (which is the exact bug this fixes).
+ */
+async function fetchTlvBoundary(): Promise<GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>> {
+  const query = `[out:json][timeout:90];relation(${TLV_ADMIN_RELATION_ID});(._;>;);out geom;`;
+  const json = await fetchOverpassRaw(query);
+  const geojson = osmtogeojson(json as any) as any;
+  const feature = geojson.features.find(
+    (f: any) => f.id === `relation/${TLV_ADMIN_RELATION_ID}` && (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon'),
+  );
+  if (!feature) {
+    throw new Error(
+      `Could not assemble a Polygon/MultiPolygon for TLV admin boundary (relation/${TLV_ADMIN_RELATION_ID}) — ` +
+      `osmtogeojson returned ${geojson.features?.length ?? 0} feature(s). Aborting rather than silently falling back to bbox-only clipping.`,
+    );
   }
-  throw new Error(`Overpass fetch failed across all endpoints. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+  return feature;
+}
+
+function isInsideTlvBoundary(point: { lat: number; lng: number }, boundary: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): boolean {
+  return booleanPointInPolygon(turfPoint([point.lng, point.lat]), boundary as any);
 }
 
 function classifyElement(el: OverpassElement): { category: AmenityCategory; sport?: CourtSport } | null {
@@ -257,6 +327,17 @@ async function main() {
   const bbox = boundingBoxWithMargin(routePoints, AMENITY_BBOX_MARGIN_METERS);
   console.log(`📍 Extraction bbox (+${AMENITY_BBOX_MARGIN_METERS}m margin around real TLV route geometry):`);
   console.log(`   lat [${bbox.latMin.toFixed(4)}, ${bbox.latMax.toFixed(4)}]  lon [${bbox.lonMin.toFixed(4)}, ${bbox.lonMax.toFixed(4)}]`);
+  console.log('   ⚠️  This bbox is a superset of the real city — spillover is expected and clipped below.');
+
+  // ── Fetch the REAL TLV admin boundary and confirm it resolved — THE
+  // city-accuracy fix. Hard-fails the run if the boundary can't be
+  // assembled, rather than silently degrading to bbox-only. ──
+  console.log(`\n🗺️  Fetching TLV admin boundary (OSM relation ${TLV_ADMIN_RELATION_ID})...`);
+  const tlvBoundary = await fetchTlvBoundary();
+  const ringCount = tlvBoundary.geometry.type === 'Polygon'
+    ? tlvBoundary.geometry.coordinates.length
+    : tlvBoundary.geometry.coordinates.reduce((n, poly) => n + poly.length, 0);
+  console.log(`   ✔ Boundary resolved: ${tlvBoundary.geometry.type}, ${ringCount} ring(s).`);
 
   // ── Load ALL parks for the dedup gate (brute-force at this scale — see
   // header comment for why a geohash-bounded query isn't needed today) ──
@@ -278,13 +359,23 @@ async function main() {
   const elements = await fetchAmenityElements(bbox);
   console.log(`   ${elements.length} raw element(s) returned.`);
 
-  // ── Classify + dedup-gate every candidate ──
+  // ── Boundary-clip, then classify + dedup-gate every candidate. The
+  // boundary check runs FIRST and unconditionally drops spillover — a
+  // point outside the real city isn't a TLV amenity at all, so it never
+  // reaches the dedup gate and is never written in any status. ──
   const outcomes: CandidateOutcome[] = [];
+  const spilloverByCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0 };
+  let spilloverCount = 0;
   for (const el of elements) {
     const classified = classifyElement(el);
     if (!classified) continue;
     const point = elementPoint(el);
     if (!point) continue;
+    if (!isInsideTlvBoundary(point, tlvBoundary)) {
+      spilloverByCategory[classified.category]++;
+      spilloverCount++;
+      continue;
+    }
     const suppressed = findNearestGardenMatch(point, gardenCandidates, GARDEN_DEDUP_RADIUS_METERS);
     outcomes.push({
       category: classified.category,
@@ -304,7 +395,17 @@ async function main() {
   }
 
   console.log('\n╔══════════════════════════════════════════════════════════╗');
-  console.log('║  COUNTS PER AMENITY TYPE                                     ║');
+  console.log('║  BOUNDARY CLIP (spillover dropped BEFORE dedup gate)         ║');
+  console.log('╚══════════════════════════════════════════════════════════╝');
+  console.log(`  court:            ${spilloverByCategory.court}`);
+  console.log(`  bench:            ${spilloverByCategory.bench}`);
+  console.log(`  drinking_water:   ${spilloverByCategory.drinking_water}`);
+  console.log(`  fitness_station:  ${spilloverByCategory.fitness_station}`);
+  console.log(`  TOTAL spillover (outside real TLV boundary, dropped): ${spilloverCount}`);
+  console.log(`  Remaining candidates inside the real boundary: ${outcomes.length}`);
+
+  console.log('\n╔══════════════════════════════════════════════════════════╗');
+  console.log('║  COUNTS PER AMENITY TYPE (inside boundary only)               ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
   console.log(`  court:            ${byCategory.court}`);
   console.log(`  bench:            ${byCategory.bench}`);
@@ -364,7 +465,9 @@ async function main() {
   console.log('║                        SUMMARY                              ║');
   console.log('╠══════════════════════════════════════════════════════════╣');
   console.log(`║  Mode:                    ${mode.padEnd(31)}║`);
-  console.log(`║  Candidates found:        ${String(outcomes.length).padEnd(31)}║`);
+  console.log(`║  Raw elements (bbox):     ${String(elements.length).padEnd(31)}║`);
+  console.log(`║  Spillover (boundary clip, dropped): ${String(spilloverCount).padEnd(20)}║`);
+  console.log(`║  Candidates found (inside boundary): ${String(outcomes.length).padEnd(20)}║`);
   console.log(`║  Suppressed (dedup gate): ${String(suppressedCount).padEnd(31)}║`);
   console.log(`║  Would be 'pending':      ${String(outcomes.length - suppressedCount).padEnd(31)}║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
