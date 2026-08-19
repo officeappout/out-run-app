@@ -1128,7 +1128,14 @@ export default function StatsOverview({
       const domain = domains?.[slug];
       return {
         id: sid,
-        name: PROGRAM_NAME_HE[sid.toLowerCase()] ?? sid,
+        // Bug fix (19.08.2026, fix-round): sid can be a raw Firestore doc id
+        // (see the comment above resolveToSlug()) — track/domain already
+        // resolve via `slug`, but the name lookup was still keyed on the
+        // raw `sid`, so an unrecognized id fell straight to `?? sid` and
+        // displayed the raw doc id as the chip's name. Try slug first (the
+        // fix), fall back to sid for safety, then slug itself — never the
+        // raw sid — as the final fallback.
+        name: PROGRAM_NAME_HE[slug.toLowerCase()] ?? PROGRAM_NAME_HE[sid.toLowerCase()] ?? slug,
         iconKey: resolveIconKey(undefined, sid),
         level: track?.currentLevel ?? domain?.currentLevel ?? 1,
         maxLevel: domain?.maxLevel ?? 25,
