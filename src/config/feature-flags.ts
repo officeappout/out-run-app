@@ -1308,9 +1308,9 @@ export const POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = false;
 // (report + add-location only, no compose/group options); home has no "+" FAB
 // at all (matching pre-Phase-1 behavior — the only path is the pre-existing
 // buried per-day "+ הוסף אימון" inside the Training Planner, untouched).
-// Approved for internal testing (David's own account, incl. in production) —
-// push to main / prod flag-flip still require explicit go-ahead per standing rule.
-export const SOCIAL_COMPOSE_UI_ENABLED = false;
+// Flipped TRUE 19.08.2026 for live device test (David's own account only,
+// in production) — explicit go-ahead given.
+export const SOCIAL_COMPOSE_UI_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
