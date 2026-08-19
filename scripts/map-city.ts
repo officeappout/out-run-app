@@ -2,25 +2,52 @@
  * scripts/map-city.ts — per-city mapping pipeline orchestrator.
  *
  * Sequences every import/backfill step a city goes through when it's
- * "mapped": street segments (calm-street pass, then the arterial
- * primary|secondary pass — road-hierarchy flowScore, runner-flow
- * investigation Tier 1, 19.08.2026), DEM elevation, lit-tag rollup,
- * climb↔route/segment enrichment join, amenity extraction, and a final
- * route-adjacency recompute. This is the concrete "scripts-and-moderation
- * workflow" the route-enrichment-pipeline merge (20899b56) was staged for
- * — city-mapping stops being a manually-remembered sequence of separate
- * `npx tsx scripts/…` invocations and becomes one ordered pipeline.
+ * "mapped", 10 steps in order: city-wide DEM tile-cache warm, street
+ * segments (calm-street pass, then the arterial primary|secondary pass —
+ * road-hierarchy flowScore, runner-flow investigation Tier 1, 19.08.2026),
+ * DEM elevation (route difficulty), climb discovery (terrain, DEM sliding-
+ * window classify), climb+stairs write (structure/stairs, → climb_segments),
+ * lit-tag rollup, climb↔route/segment enrichment join, amenity extraction,
+ * and a final route-adjacency recompute. This is the concrete "scripts-and-
+ * moderation workflow" the route-enrichment-pipeline merge (20899b56) was
+ * staged for — city-mapping stops being a manually-remembered sequence of
+ * separate `npx tsx scripts/…` invocations and becomes one ordered pipeline.
  *
  * Each step is DRY-RUN by default (every underlying script already
  * defaults to dry-run on its own — this orchestrator does not change
- * that). --apply cascades the equivalent write-flag to every step
- * (--apply for the 4 --apply-style scripts, --commit for the 2 scripts
- * that use that older convention: street-segment import and route-
- * adjacency) — a genuine, deliberate hard-stop. This orchestrator does
- * not gate --apply itself; the discipline is procedural (David's
+ * that; the 2 climb-discovery steps are the exception — see their own
+ * comments below). --apply cascades the equivalent write-flag to every
+ * write-capable step (--apply for the --apply-style scripts, --commit for
+ * the 3 scripts that use that older convention: street-segment import ×2
+ * and route-adjacency) — a genuine, deliberate hard-stop. This orchestrator
+ * does not gate --apply itself; the discipline is procedural (David's
  * explicit go per the route-enrichment-pipeline plan's "Consolidated
  * Destructive/Irreversible-Step Register"), same as every other backfill
  * script in this plan.
+ *
+ * Climb-discovery generalization + orchestration wiring (19.08.2026, full
+ * city-mapping build): the previously fully TLV-hardcoded 2-script chain
+ * (climb-segments-tlv.ts → write-climb-segments-tlv.ts — a 3rd script,
+ * dem-climbs-tlv.ts, was found to be a disconnected, superseded pilot with
+ * no consumer in the real write path and was NOT touched) now accepts
+ * --bbox/--city/--in/--out, is boundary-clippable via --boundary-wikidata
+ * (CityConfig.boundaryClipWikidata), resolves authorityId live at write
+ * time (no more manual backfill-climb-segments-authority.ts step needed
+ * for a new city — that script remains for legacy pre-existing docs), and
+ * derives its Firestore batch id from --city instead of a fixed historical
+ * literal. Wired here as 2 steps, positioned BEFORE the route-enrichment
+ * join (which needs climb_segments to already exist to have anything to
+ * join). The first (climb discovery — terrain) never touches Firestore at
+ * all (local /tmp file only) — writeFlagStyle:'none' means no --dry-run/
+ * --apply/--commit flag is ever appended to it, since the script doesn't
+ * understand any of them; it is not itself a hard-stop, only the second
+ * step (climb + stairs write) is.
+ *
+ * --include-pending (off by default): cascaded only to the lit-tag and
+ * route-enrichment steps, which are published/status=='published'-gated by
+ * default. Pass this flag for a brand-new city's initial mapping pass so
+ * its pending routes show real lighting suggestions + climb-links before
+ * approval — see both scripts' own --include-pending comments.
  *
  * City-parameterization (19.08.2026, first real second-city run — Haifa):
  * all 4 previously-TLV-hardcoded backfill scripts (populate-route-
@@ -53,14 +80,16 @@
  * own header).
  *
  * Usage:
- *   DRY RUN (default — every step dry-run, zero writes anywhere; prints
+ *   DRY RUN (default — every write-capable step dry-run, zero writes
+ *   anywhere except the always-real local-file climb-discovery step; prints
  *   per-step counts AND per-step wall-clock timing):
  *     npx tsx scripts/map-city.ts --city=tlv
  *     npx tsx scripts/map-city.ts --city=haifa
+ *     npx tsx scripts/map-city.ts --city=haifa --include-pending
  *
- *   APPLY (cascades --apply/--commit to EVERY step — HARD STOP. Each
- *   underlying script still prints its own report; nothing here skips
- *   that. Do not run this without explicit per-step review, same
+ *   APPLY (cascades --apply/--commit to EVERY write-capable step — HARD
+ *   STOP. Each underlying script still prints its own report; nothing here
+ *   skips that. Do not run this without explicit per-step review, same
  *   discipline as running any of the underlying scripts directly):
  *     npx tsx scripts/map-city.ts --city=tlv --apply
  *
@@ -84,6 +113,15 @@ interface CityConfig {
    *  the run banner so an authority-coordinate estimate is never mistaken
    *  for TLV's own route-geometry-precise bbox. */
   bboxIsEstimated?: boolean;
+  /** Wikidata id of the real municipal admin boundary (same field geo-
+   *  discovery-routes.ts's REGIONS entries carry) — passed through to both
+   *  the route-discovery step (informational only; that script reads its
+   *  OWN REGIONS config, this orchestrator doesn't drive it directly) and
+   *  the climb-write step's --boundary-wikidata. Optional — a city without
+   *  one simply gets no boundary clip on its climb docs (fail-open, same
+   *  as routes). Manually researched per city, same as every REGIONS
+   *  entry's areaWikidata/boundaryClipWikidata already is. */
+  boundaryClipWikidata?: string;
 }
 
 // Bbox/authorityId already established+verified live this session
@@ -116,6 +154,9 @@ const CITY_CONFIGS: Record<string, CityConfig> = {
     authorityId: '9ZdWFmlkP0njOyFPceEw',
     bbox: { south: 32.734, west: 34.9296, north: 32.854, east: 35.0496 },
     bboxIsEstimated: true,
+    // rel/1387888, wikidata Q41621, admin_level 8 — verified real OSM
+    // boundary, same value as geo-discovery-routes.ts's REGIONS.haifa.
+    boundaryClipWikidata: 'Q41621',
   },
 };
 
@@ -128,7 +169,16 @@ if (!config) {
   process.exit(1);
 }
 
-type WriteFlagStyle = 'apply' | 'commit';
+// --include-pending (19.08.2026, full city-mapping build): off by default,
+// preserving byte-identical behavior for existing TLV usage. Cascaded ONLY
+// to the lit-tag and route-enrichment steps (the two that are published-
+// gated by default) so a brand-new city's pending routes can show real
+// lighting suggestions + climb-links before approval — an explicit,
+// operator-controlled opt-in for a new city's initial mapping pass, not an
+// auto-detected "is this city new" heuristic.
+const includePending = process.argv.includes('--include-pending');
+
+type WriteFlagStyle = 'apply' | 'commit' | 'none';
 
 interface Step {
   label: string;
@@ -142,8 +192,29 @@ interface Step {
 }
 
 const bboxArg = `${config.bbox.south},${config.bbox.west},${config.bbox.north},${config.bbox.east}`;
+// ASCII-safe per-city path so climb-segments-tlv.ts's --out and write-climb-
+// segments-tlv.ts's --in always agree on the same file, without needing to
+// filesystem-sanitize a Hebrew city name.
+const climbSegmentsJsonPath = `/tmp/${cityKey}_climb_segments.json`;
+
+const boundaryArgs = config.boundaryClipWikidata ? ['--boundary-wikidata', config.boundaryClipWikidata] : [];
+const includePendingArgs = includePending ? ['--include-pending'] : [];
 
 const steps: Step[] = [
+  {
+    label: 'DEM tile-cache warm (city-wide, route-independent)',
+    script: 'scripts/warm-dem-tile-cache.ts',
+    // Genuinely low-effort addition (19.08.2026, full city-mapping build):
+    // warmDemTileCache() already takes a plain bbox with zero route
+    // dependency. Runs first, ahead of route/climb discovery, purely to
+    // get the slow Mapbox tile fetch out of the way early — the cache is
+    // idempotent and shared with the later DEM-elevation step, so this
+    // only reorders WHEN the fetch happens, not what gets fetched. Not a
+    // hard dependency: DEM-elevation would still warm the cache itself
+    // once real routes exist, even if this step is skipped.
+    baseArgs: ['--bbox', bboxArg],
+    writeFlagStyle: 'apply',
+  },
   {
     label: 'Street segments — calm-street pass',
     script: 'src/scripts/import-osm-segments.ts',
@@ -184,15 +255,33 @@ const steps: Step[] = [
     writeFlagStyle: 'apply',
   },
   {
+    label: 'Climb discovery — terrain (DEM sliding-window classify)',
+    script: 'scripts/climb-segments-tlv.ts',
+    // Never touches Firestore (local /tmp file only) — writeFlagStyle
+    // 'none' below means no --dry-run/--apply/--commit flag is ever
+    // appended, since the script doesn't understand any of them.
+    baseArgs: ['--bbox', bboxArg, '--out', climbSegmentsJsonPath],
+    writeFlagStyle: 'none',
+  },
+  {
+    label: 'Climb + stairs write (terrain/structure/stairs → climb_segments)',
+    script: 'scripts/write-climb-segments-tlv.ts',
+    // Reads the previous step's exact output path. --boundary-wikidata
+    // only appended when the city config has one (fail-open otherwise,
+    // same as routes).
+    baseArgs: ['--city', config.cityName, '--bbox', bboxArg, '--in', climbSegmentsJsonPath, ...boundaryArgs],
+    writeFlagStyle: 'apply',
+  },
+  {
     label: 'Lit-tag rollup (night_lighting auto-suggest)',
     script: 'scripts/backfill-route-lit-tag-tlv.ts',
-    baseArgs: ['--city', config.cityName],
+    baseArgs: ['--city', config.cityName, ...includePendingArgs],
     writeFlagStyle: 'apply',
   },
   {
     label: 'Route-enrichment join (climb ↔ route/segment)',
     script: 'scripts/backfill-route-enrichment-tlv.ts',
-    baseArgs: ['--city', config.cityName],
+    baseArgs: ['--city', config.cityName, ...includePendingArgs],
     writeFlagStyle: 'apply',
   },
   {
@@ -226,7 +315,9 @@ interface StepResult {
 
 function runStep(step: Step, index: number, total: number): StepResult {
   const args = [...step.baseArgs];
-  if (isApply) {
+  if (step.writeFlagStyle === 'none') {
+    // Never touches Firestore — no --dry-run/--apply/--commit concept applies.
+  } else if (isApply) {
     args.push(step.writeFlagStyle === 'apply' ? '--apply' : '--commit');
   } else if (step.requiresExplicitDryRunFlag) {
     args.push('--dry-run');
