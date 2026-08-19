@@ -17,6 +17,7 @@
 import { createPortal } from 'react-dom';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import { useHybridRun } from './useHybridRun';
+import { toSegmentExerciseDetail } from '@/features/workout-engine/core/services/storage.service';
 
 const ACCENT = '#00ADEF';
 
@@ -35,7 +36,16 @@ export default function HybridStationLayer() {
   if (phase === 'station' && stationPlan) {
     return (
       <div className="fixed inset-0 z-[120] bg-white pointer-events-auto" dir="rtl">
-        <StrengthRunner workout={stationPlan} onComplete={() => completeStation()} embedded />
+        <StrengthRunner
+          workout={stationPlan}
+          // F1 (19.08.2026): StrengthRunner's real exerciseLog was previously
+          // discarded here (onComplete={() => completeStation()}) — the root
+          // cause of hybrid's strength segments having zero per-set detail.
+          // Mapped through the same toSegmentExerciseDetail() solo strength
+          // uses, so both paths persist an identical shape.
+          onComplete={(exerciseLog) => completeStation(toSegmentExerciseDetail(exerciseLog ?? []))}
+          embedded
+        />
       </div>
     );
   }

@@ -18,7 +18,7 @@
  */
 
 import type { HybridPlannedSegment } from './compose-hybrid-session.service';
-import type { SessionSegmentRecord, SegmentMetrics } from '../core/services/storage.service';
+import type { SessionSegmentRecord, SegmentMetrics, SegmentExerciseDetail } from '../core/services/storage.service';
 
 // ============================================================================
 // STATE + EVENTS
@@ -31,6 +31,13 @@ export interface HybridSegmentActual {
   durationSec: number;
   distanceKm?: number;
   sets?: number;
+  /**
+   * Strength station only (F1, 19.08.2026 — "unified workout summary" plan).
+   * Full per-exercise/per-set detail, additive alongside `sets` above —
+   * never replacing it. Absent when the runtime layer doesn't pass one
+   * (e.g. a test replaying raw events with no exerciseLog payload).
+   */
+  exerciseLog?: SegmentExerciseDetail[];
   completed: boolean;
   startedAtMs?: number;
   endedAtMs?: number;
@@ -58,7 +65,7 @@ export type HybridEvent =
   /** Reached the station (distance threshold crossed, or manual "הגעתי" override). */
   | { type: 'ARRIVE_STATION'; cumulativeKm: number; elapsedSec: number; atMs?: number }
   /** Strength block finished (from StrengthRunner.onComplete). */
-  | { type: 'STATION_DONE'; completedSets: number; actualDurationSec: number; atMs?: number }
+  | { type: 'STATION_DONE'; completedSets: number; actualDurationSec: number; atMs?: number; exerciseLog?: SegmentExerciseDetail[] }
   /** Final aerobic leg finished → session complete. */
   | { type: 'FINISH'; cumulativeKm: number; elapsedSec: number; atMs?: number };
 
@@ -180,6 +187,7 @@ export function hybridReduce(state: HybridRunState, event: HybridEvent): HybridR
       actuals[state.cursor] = {
         durationSec: Math.max(0, event.actualDurationSec),
         sets: Math.max(0, event.completedSets),
+        ...(event.exerciseLog && event.exerciseLog.length > 0 ? { exerciseLog: event.exerciseLog } : {}),
         completed: true,
         startedAtMs: state.currentStartMs,
         endedAtMs: event.atMs,
@@ -255,8 +263,9 @@ function actualMetrics(kind: HybridPlannedSegment['kind'], a: HybridSegmentActua
   if (a.durationSec != null) m.durationSec = a.durationSec;
   if (kind === 'aerobic') {
     if (a.distanceKm != null) m.distanceKm = a.distanceKm;
-  } else if (a.sets != null) {
-    m.sets = a.sets;
+  } else {
+    if (a.sets != null) m.sets = a.sets;
+    if (a.exerciseLog && a.exerciseLog.length > 0) m.exerciseLog = a.exerciseLog;
   }
   return m;
 }

@@ -3,6 +3,7 @@ import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getD
 // NOTE: getStepsTrend lives in activity-history.service.ts (queries dailyActivity collection).
 import { db, auth } from '@/lib/firebase';
 import type { Lap } from '@/features/workout-engine/core/types/session.types';
+import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/hooks/useWorkoutStateMachine';
 
 // Route coordinate format stored in Firestore (object format to avoid nested arrays)
 export interface RoutePoint {
@@ -36,6 +37,22 @@ export interface SegmentExerciseDetail {
   confirmedRepsRight?: number[];
   /** Per-side reps for unilateral exercises (left side / שמאל). */
   confirmedRepsLeft?: number[];
+}
+
+/**
+ * Map live ExerciseResultLog[] (solo strength AND hybrid's strength station —
+ * same player, same onComplete shape) into the persisted SegmentExerciseDetail[]
+ * shape. Single shared conversion so the two call sites can't drift apart.
+ */
+export function toSegmentExerciseDetail(log: ExerciseResultLog[]): SegmentExerciseDetail[] {
+  return log.map((entry) => ({
+    exerciseId: entry.exerciseId,
+    exerciseName: entry.exerciseName,
+    confirmedReps: entry.confirmedReps,
+    targetReps: entry.targetReps,
+    ...(entry.confirmedRepsRight ? { confirmedRepsRight: entry.confirmedRepsRight } : {}),
+    ...(entry.confirmedRepsLeft ? { confirmedRepsLeft: entry.confirmedRepsLeft } : {}),
+  }));
 }
 
 /**

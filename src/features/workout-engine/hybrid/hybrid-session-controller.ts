@@ -10,6 +10,7 @@
  */
 
 import type { HybridPlannedSegment } from './compose-hybrid-session.service';
+import type { SegmentExerciseDetail } from '../core/services/storage.service';
 import {
   initHybridRun,
   hybridReduce,
@@ -32,7 +33,12 @@ export interface HybridControllerHandle {
   /** Manual "הגעתי" / auto threshold: close the leg, enter the station. */
   arrive(cumulativeKm: number, elapsedSec: number, atMs?: number): void;
   /** StrengthRunner.onComplete → close the station, resume the next leg. */
-  completeStation(completedSets: number, actualDurationSec: number, atMs?: number): void;
+  completeStation(
+    completedSets: number,
+    actualDurationSec: number,
+    atMs?: number,
+    exerciseLog?: SegmentExerciseDetail[],
+  ): void;
   /** Final leg finished → session done. */
   finish(cumulativeKm: number, elapsedSec: number, atMs?: number): void;
   /** 3 SessionSegmentRecords + summary (LAW-10 display gate lives in summary). */
@@ -59,8 +65,8 @@ export function createHybridSessionController(
     },
     arrive: (cumulativeKm, elapsedSec, atMs) =>
       apply({ type: 'ARRIVE_STATION', cumulativeKm, elapsedSec, atMs }),
-    completeStation: (completedSets, actualDurationSec, atMs) =>
-      apply({ type: 'STATION_DONE', completedSets, actualDurationSec, atMs }),
+    completeStation: (completedSets, actualDurationSec, atMs, exerciseLog) =>
+      apply({ type: 'STATION_DONE', completedSets, actualDurationSec, atMs, exerciseLog }),
     finish: (cumulativeKm, elapsedSec, atMs) =>
       apply({ type: 'FINISH', cumulativeKm, elapsedSec, atMs }),
     finalize: () => finalizeHybridRun(state),

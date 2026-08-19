@@ -8,9 +8,12 @@
  * `segments[]`; root distance/duration/calories stay session-wide aggregates so
  * existing history/league filters keep working (storage.service header contract).
  *
- * ⚠️ NOT wired into any live path yet. Going live requires suppressing
- * useRunningPlayer.finishWorkout()'s own auto-save (it would otherwise double-write
- * + double-count) — that is the pre-live-save review gate.
+ * LIVE (doc-hygiene fix, 19.08.2026): called unconditionally from
+ * useHybridRun.finishHybrid() whenever a uid exists. useRunningPlayer's own
+ * auto-save is suppressed via hybridMode + runnerShouldSelfSave() (see
+ * hybrid-finish-policy.ts) so this is the single write for a hybrid session,
+ * not a double-write. (This comment previously said "NOT wired into any live
+ * path yet" — that was stale; confirmed live during F1's investigation.)
  * XP/coins: display-only (design §8). earnedCoins:0; no awardWorkoutXP call here.
  */
 
@@ -70,7 +73,8 @@ export function buildHybridWorkoutEntry(
 
 /**
  * Persist the hybrid session (single doc). Dynamic import keeps this module free
- * of Firebase at load time. NOT called from any live path yet — see header.
+ * of Firebase at load time. Called unconditionally from useHybridRun.finishHybrid()
+ * — see header.
  */
 export async function saveHybridWorkout(
   result: HybridFinalizeResult,

@@ -32,7 +32,7 @@ import { processWorkoutCompletion } from '@/features/user/progression/services/p
 import type { WorkoutCompletionResult, WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
 import { auth, db } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
-import { saveWorkout, type SegmentExerciseDetail } from '@/features/workout-engine/core/services/storage.service';
+import { saveWorkout, toSegmentExerciseDetail } from '@/features/workout-engine/core/services/storage.service';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
@@ -468,15 +468,10 @@ async function saveWorkoutToHistory({
       // the aggregate exercises/sets counts below — never replacing them.
       // Empty when rawExerciseLog is empty (e.g. the recovery-trio shortcut
       // path, which has no real reps to log) so `actual` stays byte-identical
-      // to today's shape in that case.
-      const exerciseLog: SegmentExerciseDetail[] = rawExerciseLog.map((log) => ({
-        exerciseId: log.exerciseId,
-        exerciseName: log.exerciseName,
-        confirmedReps: log.confirmedReps,
-        targetReps: log.targetReps,
-        ...(log.confirmedRepsRight ? { confirmedRepsRight: log.confirmedRepsRight } : {}),
-        ...(log.confirmedRepsLeft ? { confirmedRepsLeft: log.confirmedRepsLeft } : {}),
-      }));
+      // to today's shape in that case. Shared mapping (F1.2) — hybrid's
+      // strength station uses the exact same helper, so the two paths can't
+      // drift apart.
+      const exerciseLog = toSegmentExerciseDetail(rawExerciseLog);
 
       const strengthSegment = {
         index: 0,

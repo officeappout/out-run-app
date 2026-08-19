@@ -20,6 +20,7 @@ import type { HybridPhase, HybridRunState, HybridFinalizeResult } from './hybrid
 import { createHybridSessionController } from './hybrid-session-controller';
 import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
+import type { SegmentExerciseDetail } from '../core/services/storage.service';
 
 // Non-reactive handles (a controller closure can't live in reactive state).
 let controllerRef: HybridControllerHandle | null = null;
@@ -64,7 +65,7 @@ export interface HybridRunStore {
   /** "הגעתי לתחנה" / distance threshold — close the leg, open the station. */
   arrive: () => void;
   /** StrengthRunner.onComplete — close the station, resume the next leg. */
-  completeStation: () => void;
+  completeStation: (exerciseLog?: SegmentExerciseDetail[]) => void;
   /** "סיים אימון משולב" — finalize, write the single doc, tear down the run. */
   finishHybrid: () => Promise<void>;
   reset: () => void;
@@ -143,12 +144,19 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     set({ phase: controllerRef.getPhase(), stationPlan, isFinalLeg: false });
   },
 
-  completeStation: () => {
+  completeStation: (exerciseLog) => {
     if (!controllerRef) return;
     const station = controllerRef.getActiveStation();
+    // F1 (19.08.2026): `sets` here is still the PLANNED total, not derived
+    // from exerciseLog — a known pre-existing gap (see hybrid-orchestrator's
+    // STATION_DONE handling), deliberately left untouched by this change.
+    // exerciseLog is carried alongside it purely for summary-screen display;
+    // it must not be used to correct `sets`/volume-tracking here — that's a
+    // separate, unrelated fix (flagged, not in scope for the detail-capture
+    // work this diff is doing).
     const sets = station?.content?.totalPlannedSets ?? 0;
     const dur = station?.content?.estimatedDurationSec ?? 0;
-    controllerRef.completeStation(sets, dur, Date.now());
+    controllerRef.completeStation(sets, dur, Date.now(), exerciseLog);
     useSessionStore.getState().resumeSession(); // resume the run clock for the next leg
     set({
       phase: controllerRef.getPhase(),
