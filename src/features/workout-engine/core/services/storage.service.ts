@@ -17,6 +17,28 @@ export interface RoutePoint {
 export type SessionSegmentKind = 'aerobic' | 'strength';
 
 /**
+ * Per-exercise, per-set detail for a completed strength segment (F1,
+ * 19.08.2026 — "unified workout summary" plan). Field names intentionally
+ * mirror ExerciseResultLog (useWorkoutStateMachine.ts) so callers can map
+ * 1:1, but this type is storage-service-owned rather than a re-export —
+ * same pattern as RoutePoint above — so the persisted schema stays
+ * decoupled from that player-internal type's name/shape over time.
+ * segmentId is deliberately dropped: it's an internal state-machine id with
+ * no display value, and this array is already scoped to one segment via its
+ * parent SessionSegmentRecord.index.
+ */
+export interface SegmentExerciseDetail {
+  exerciseId: string;
+  exerciseName: string;
+  confirmedReps: number[];
+  targetReps: number;
+  /** Per-side reps for unilateral exercises (right side / ימין). */
+  confirmedRepsRight?: number[];
+  /** Per-side reps for unilateral exercises (left side / שמאל). */
+  confirmedRepsLeft?: number[];
+}
+
+/**
  * Planned targets / actual results for one segment. All fields optional —
  * callers must OMIT unknown keys (conditional spread), never pass undefined:
  * Firestore rejects undefined inside array elements.
@@ -29,6 +51,13 @@ export interface SegmentMetrics {
   /** Strength segments: exercise / set counts. */
   exercises?: number;
   sets?: number;
+  /**
+   * Strength segments: full per-exercise/per-set detail (F1, 19.08.2026).
+   * Additive-only — absent on every doc saved before this field existed;
+   * consumers must treat it as optional and fall back to the exercises/sets
+   * counts above when it's missing.
+   */
+  exerciseLog?: SegmentExerciseDetail[];
 }
 
 export interface SessionSegmentRecord {

@@ -32,7 +32,7 @@ import { processWorkoutCompletion } from '@/features/user/progression/services/p
 import type { WorkoutCompletionResult, WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
 import { auth, db } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
-import { saveWorkout } from '@/features/workout-engine/core/services/storage.service';
+import { saveWorkout, type SegmentExerciseDetail } from '@/features/workout-engine/core/services/storage.service';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { calculateStrengthWorkoutXP } from '@/features/user/progression/services/xp.service';
 import { createWorkoutPost } from '@/features/social/services/feed.service';
@@ -372,6 +372,14 @@ interface SaveWorkoutToHistoryParams {
   difficulty: Difficulty;
   totalReps: number;
   completedExercises: CompletedExercise[];
+  /**
+   * Full per-exercise/per-set detail (F1, 19.08.2026 — "unified workout
+   * summary" plan). Exists in memory at every real call site already
+   * (workoutStats.rawExerciseLog / handleComplete's exerciseLog param) —
+   * this just stops it from being discarded after the aggregate counts
+   * below are derived from it.
+   */
+  rawExerciseLog: ExerciseResultLog[];
   workoutPlan: WorkoutPlan | null;
   xpEarned: number;
   xpStatus: 'pending' | 'awarded' | 'failed';
@@ -399,6 +407,7 @@ async function saveWorkoutToHistory({
   difficulty,
   totalReps,
   completedExercises,
+  rawExerciseLog,
   workoutPlan,
   xpEarned: awardedXP,
   xpStatus: xpAwardStatus,
@@ -455,6 +464,20 @@ async function saveWorkoutToHistory({
         (acc, seg) => acc + (seg.exercises?.length ?? 0), 0) ?? 0;
       const plannedSets = workoutPlan?.segments?.reduce(
         (acc, seg) => acc + (seg.exercises?.reduce((a, ex) => a + (ex.sets ?? 0), 0) ?? 0), 0) ?? 0;
+      // F1 (19.08.2026): full per-exercise/per-set detail, additive alongside
+      // the aggregate exercises/sets counts below — never replacing them.
+      // Empty when rawExerciseLog is empty (e.g. the recovery-trio shortcut
+      // path, which has no real reps to log) so `actual` stays byte-identical
+      // to today's shape in that case.
+      const exerciseLog: SegmentExerciseDetail[] = rawExerciseLog.map((log) => ({
+        exerciseId: log.exerciseId,
+        exerciseName: log.exerciseName,
+        confirmedReps: log.confirmedReps,
+        targetReps: log.targetReps,
+        ...(log.confirmedRepsRight ? { confirmedRepsRight: log.confirmedRepsRight } : {}),
+        ...(log.confirmedRepsLeft ? { confirmedRepsLeft: log.confirmedRepsLeft } : {}),
+      }));
+
       const strengthSegment = {
         index: 0,
         kind: 'strength' as const,
@@ -471,6 +494,7 @@ async function saveWorkoutToHistory({
           durationSec,
           exercises: completedExercises.length,
           sets: totalSetsCount,
+          ...(exerciseLog.length > 0 ? { exerciseLog } : {}),
         },
         ...(detectedPark ? { parkId: detectedPark.parkId } : {}),
       };
@@ -1068,6 +1092,7 @@ export default function ActiveWorkoutPage() {
         difficulty,
         totalReps,
         completedExercises,
+        rawExerciseLog: exerciseLog ?? [],
         workoutPlan,
         xpEarned: 0,
         xpStatus: 'awarded',
@@ -1337,6 +1362,7 @@ export default function ActiveWorkoutPage() {
       difficulty: workoutStats.difficulty,
       totalReps: workoutStats.totalReps,
       completedExercises: workoutStats.completedExercises,
+      rawExerciseLog: workoutStats.rawExerciseLog,
       workoutPlan: stableWorkoutPlan,
       xpEarned: awardedXP,
       xpStatus: xpAwardStatus,
@@ -1420,7 +1446,7 @@ export default function ActiveWorkoutPage() {
     // the next workout of any mode can startSession() cleanly.
     if (ownsSessionRef.current) useSessionStore.getState().clearSession();
     router.push('/home');
-  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, profile, stableWorkoutPlan]);
+  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, profile, stableWorkoutPlan]);
 
   // Handle pause
   const handlePause = () => {
