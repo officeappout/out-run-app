@@ -100,7 +100,6 @@ import {
 } from 'lucide-react';
 import {
   generateDynamicRoutes,
-  MIN_GENERATION_KM,
 } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import { useMapStore } from '../store/useMapStore';
@@ -358,16 +357,20 @@ export default function RouteCarousel({
                 parks,
                 cityName,
                 shortRouteMode,
-                // Corridor-preference for the primary free-run map flow
-                // (David-approved, 16.08.2026 — this IS "the original
-                // free-run experience" per this file's own doc comment,
-                // the actual entry point behind DiscoverLayer's carousel;
-                // the two OTHER call sites wired earlier were not it).
-                // Only for normal-sized targets — short targets keep
-                // today's exact shortRouteMode/generateShortRoutes path
-                // untouched. No-op while IS_ROUTE_ADJACENCY_ENABLED is
-                // false (kill-switch, verified live).
-                userAnchoredCorridorFlow: (targetKm ?? 3) >= MIN_GENERATION_KM,
+                // Corridor-preference deliberately NOT set here (19.08.2026,
+                // scope-drift fix). It was wired into this file on
+                // 16.08.2026 after discovering THIS is the actual entry
+                // point behind DiscoverLayer's card carousel — but the
+                // original 16.08.2026 approval (.claude/plans/build-the-
+                // phase-0-noble-kahn.md) scoped corridor-preference to the
+                // free-run map flow only (FreeRunRouteSelector.tsx,
+                // useRouteGeneration.ts). Wiring it here too went beyond
+                // that approval and routed the card carousel through
+                // Machine B (generateUserAnchoredFlowRoute) before it had
+                // any of Machine A's quality gates — the root cause of the
+                // "auto cards regressed" report. Cards now always go
+                // through the standard loop pipeline (Machine A); free-run
+                // keeps corridor-preference.
               },
         );
         if (cancelled) return;

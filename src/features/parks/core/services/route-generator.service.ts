@@ -2068,6 +2068,23 @@ async function selectProximityAwareCorridor(
 }
 
 /**
+ * Quality-gate ceiling for corridor-flow (19.08.2026, David-approved —
+ * parity fix, this path had NONE of Machine A's quality gates before this).
+ * Machine A never uses an absolute cutoff like this — it generates several
+ * triangle candidates and ranks them relative to each other (turns-per-km,
+ * `sampleTopCandidates`'s doc comment records real clean-candidate values
+ * observed in the 4.4-11+ turns/km range). Corridor-flow builds exactly ONE
+ * candidate (a single deterministic corridor pick, not several to rank), so
+ * there's nothing to rank it against — an absolute ceiling is the only
+ * applicable shape here. Set well above the entire observed Machine A clean
+ * range so this only catches genuinely pathological chains, not ordinary
+ * twistiness. First-pass value, same as this file's other uncalibrated
+ * thresholds (e.g. `MIN_PATH_POINTS_SHORT`, `GENERATION_TIME_BUDGET_MS`) —
+ * revisit once real corridor-flow rejections are observed on-device.
+ */
+const MAX_TURNS_PER_KM_CORRIDOR_FLOW = 15;
+
+/**
  * Stage A+B of the user-anchored corridor-flow build. Starts the route AT
  * THE USER (unlike `followOfficialRouteId`/`discoverCorridorChain`, both of
  * which start from a corridor) — the user->corridor leg is a real Mapbox
@@ -2080,6 +2097,16 @@ async function selectProximityAwareCorridor(
  * (`sliceFlowPathToDistance`), then mirrors it into a round trip
  * (`buildOutAndBackPath` — confirmed by its own doc comment to do exactly
  * this job, no adaptation needed).
+ *
+ * Quality gates (19.08.2026, David-approved — parity fix): the same two
+ * checks Machine A's `attemptOneCombination` runs — `pathSelfIntersects`
+ * and a turns-per-km ceiling — are applied to the finished `cleanPath`
+ * below. Either failing falls back to `fallbackToNormalGeneration` (Machine
+ * A) instead of returning a self-crossing or excessively twisty single
+ * route. Pass/fail only, never a re-pick: corridor selection, chaining, and
+ * the first-hop `orientLoopArc` guard above are completely untouched, so a
+ * chain that already passes both gates (the common case) returns
+ * byte-for-byte identical to before this change.
  */
 async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): Promise<Route[]> {
   // Falls back to normal generation, not []: (16.08.2026) this is now called
@@ -2225,6 +2252,20 @@ async function generateUserAnchoredFlowRoute(options: RouteGenerationOptions): P
 
   const oneWayKm = pathLengthMeters(trimmedFlow) / 1000;
   const totalDistanceKm = oneWayKm * 2;
+
+  // Quality gates (19.08.2026) — see this function's own doc comment above.
+  // Checked before any further work (DEM lookup, route-object construction)
+  // so a rejected chain doesn't pay for work that gets thrown away.
+  if (pathSelfIntersects(cleanPath)) {
+    console.log(`[RouteGenerator] generateUserAnchoredFlowRoute: chain [${chainIds.join(' -> ')}] self-intersects — falling back to normal generation.`);
+    return fallbackToNormalGeneration(options);
+  }
+  const turnsPerKm = computeRouteTurns(cleanPath).length / totalDistanceKm;
+  if (turnsPerKm > MAX_TURNS_PER_KM_CORRIDOR_FLOW) {
+    console.log(`[RouteGenerator] generateUserAnchoredFlowRoute: chain [${chainIds.join(' -> ')}] too twisty (${turnsPerKm.toFixed(1)} turns/km > ${MAX_TURNS_PER_KM_CORRIDOR_FLOW}) — falling back to normal generation.`);
+    return fallbackToNormalGeneration(options);
+  }
+
   const speedKmh = activity === 'cycling' ? SPEED_KMH.cycling : activity === 'running' ? SPEED_KMH.running : SPEED_KMH.walking;
   const durationMinutes = Math.round((totalDistanceKm / speedKmh) * 60);
   const calories = Math.round(totalDistanceKm * kcalPerKmFor(activity));
