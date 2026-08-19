@@ -22,24 +22,61 @@
  *   stairs    — OSM highway=steps (separate category, type='stairs')
  *
  * Each doc: type, climbType, center{lat,lng}, bbox, lengthM, avgGrade, maxGrade,
- *           dir, geohash (precision 7), source, city, importBatchId.
+ *           dir, geohash (precision 7), source, city, authorityId, importBatchId.
  * Idempotent: deterministic doc id per source+way → re-run updates, never dupes.
+ *
+ * Per-city pipeline generalization (19.08.2026):
+ *   --city <name>           defaults to 'תל אביב-יפו', byte-identical when omitted
+ *   --bbox <s,w,n,e>        defaults to the original hardcoded TLV bbox
+ *   --in <path>             terrain climb_segments JSON from climb-segments-tlv.ts's
+ *                            own --out — defaults to /tmp/tlv_climb_segments.json
+ *   --boundary-wikidata <id> optional — real municipal admin boundary (same
+ *                            mechanism as geo-discovery-routes.ts's
+ *                            Region.boundaryClipWikidata), clips all 3 sources
+ *                            (terrain/structure/stairs) to inside the real city
+ *                            polygon. Omitted ⇒ no clip (fail-open, same as
+ *                            before this capability existed).
+ * authorityId is now resolved live from --city (findAuthorityByCityName, same
+ * pattern geo-discovery-routes.ts uses) and set on every doc at write time —
+ * no more separate manual backfill-climb-segments-authority.ts step needed for
+ * NEW cities (that script remains available for any pre-existing docs that
+ * predate this fix). importBatchId is now derived from --city, not a fixed
+ * historical literal (a real, deliberate behavior change vs. the old
+ * always-'tlv-climbs-2026-07-08' constant — see its own comment below).
  *
  *   npx tsx scripts/write-climb-segments-tlv.ts --dry-run
  *   npx tsx scripts/write-climb-segments-tlv.ts
  *   npx tsx scripts/write-climb-segments-tlv.ts --delete
+ *   npx tsx scripts/write-climb-segments-tlv.ts --city חיפה --bbox 32.734,34.9296,32.854,35.0496 --in /tmp/haifa_climb_segments.json --boundary-wikidata Q41621 --dry-run
  */
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' });
 import * as https from 'https'; import * as fs from 'fs'; import * as admin from 'firebase-admin';
 
+function getArg(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i !== -1 && i + 1 < process.argv.length ? process.argv[i + 1] : undefined;
+}
 const DRY = process.argv.includes('--dry-run');
 const DEL = process.argv.includes('--delete');
 const PRUNE = process.argv.includes('--prune-stairs');
 // a staircase is training-relevant only if it's a real flight, not a 3-step hop
 const STAIR_MIN_STEPS = 15, STAIR_MIN_LEN = 15;
 const stairSignificant = (stepCount: number | null, lengthM: number) => (stepCount != null && stepCount >= STAIR_MIN_STEPS) || (stepCount == null && lengthM >= STAIR_MIN_LEN);
-const BBOX = { latMin: 32.040, latMax: 32.118, lonMin: 34.740, lonMax: 34.800 };
-const BATCH = 'tlv-climbs-2026-07-08';
+const bboxArg = getArg('--bbox');
+const BBOX = bboxArg
+  ? (() => { const [latMin, lonMin, latMax, lonMax] = bboxArg.split(',').map(Number); return { latMin, latMax, lonMin, lonMax }; })()
+  : { latMin: 32.040, latMax: 32.118, lonMin: 34.740, lonMax: 34.800 };
+const CITY = getArg('--city') ?? 'תל אביב-יפו';
+const IN_PATH = getArg('--in') ?? '/tmp/tlv_climb_segments.json';
+const BOUNDARY_WIKIDATA = getArg('--boundary-wikidata');
+// City-derived, not a fixed historical literal (the old hardcoded
+// 'tlv-climbs-2026-07-08' stays attached to already-written TLV docs until
+// this script's next re-run naturally re-stamps them via the idempotent
+// merge-write — harmless drift, same as any batch-id scheme). No date
+// component — one stable, evergreen batch per city, matching
+// geo-discovery-routes.ts's REGIONS.batchId convention (a fixed per-region
+// string, not re-derived per run).
+const BATCH = `climbs-${CITY.trim().replace(/\s+/g, '_')}`;
 const COL = 'climb_segments';
 
 const Rd = 6371000;
@@ -113,6 +150,66 @@ function inPoly(p: number[], poly: number[][]): boolean {
   return ins;
 }
 const wayGeom = (e: any): number[][] => (e.geometry || []).map((p: any) => [p.lat, p.lon]);
+
+// Greedy nearest-endpoint chaining of way fragments into ordered polylines — same
+// algorithm as geo-discovery-routes.ts's stitch() (duplicated, not imported, matching
+// this file's existing convention of self-contained geometry helpers). Used only to
+// assemble a municipal boundary relation's outer ways into a ring, below.
+function stitch(ways: number[][][], gapM = 80): number[][][] {
+  const segs = ways.filter(w => w.length >= 2);
+  if (!segs.length) return [];
+  const used = new Array(segs.length).fill(false);
+  const out: number[][][] = [];
+  while (used.some(u => !u)) {
+    let start = used.findIndex(u => !u); used[start] = true;
+    let line = segs[start].slice();
+    let extended = true;
+    while (extended) {
+      extended = false;
+      const tail = line[line.length - 1], head = line[0];
+      let best = -1, bestD = gapM, bestRev = false, atTail = true;
+      for (let i = 0; i < segs.length; i++) {
+        if (used[i]) continue;
+        const s = segs[i], a = s[0], b = s[s.length - 1];
+        const dTA = hav(tail, a), dTB = hav(tail, b), dHA = hav(head, a), dHB = hav(head, b);
+        const m = Math.min(dTA, dTB, dHA, dHB);
+        if (m < bestD) { bestD = m; best = i; if (m === dTA) { atTail = true; bestRev = false; } else if (m === dTB) { atTail = true; bestRev = true; } else if (m === dHA) { atTail = false; bestRev = true; } else { atTail = false; bestRev = false; } }
+      }
+      if (best >= 0) { used[best] = true; const s = bestRev ? segs[best].slice().reverse() : segs[best].slice(); if (atTail) line = line.concat(s); else line = s.concat(line); extended = true; }
+    }
+    out.push(line);
+    if (out.length > 5000) break;
+  }
+  return out;
+}
+
+// Fetches the real admin boundary polygon for --boundary-wikidata, used ONLY as a
+// post-discovery clipping filter (same mechanism + same reasoning as
+// geo-discovery-routes.ts's Region.boundaryClipWikidata — decoupled from any
+// discovery-scope concept, since this file never uses an area-based Overpass
+// scope at all, only bbox).
+async function fetchAdminBoundaryPoly(wikidataId: string): Promise<number[][] | null> {
+  const q = `[out:json][timeout:120];rel["wikidata"="${wikidataId}"]["boundary"="administrative"];out geom;(._;>;);out geom;`;
+  const data = await overpass(q);
+  const rel = data.elements.find((e: any) => e.type === 'relation');
+  if (!rel) return null;
+  const wayById = new Map<number, number[][]>();
+  for (const e of data.elements) if (e.type === 'way' && e.geometry) wayById.set(e.id, wayGeom(e));
+  const outerWays: number[][][] = [];
+  for (const m of rel.members || []) if (m.type === 'way' && m.role !== 'inner' && wayById.has(m.ref)) outerWays.push(wayById.get(m.ref)!);
+  const rings = stitch(outerWays, 200);
+  if (!rings.length) return null;
+  return rings.reduce((a, b) => b.length > a.length ? b : a);
+}
+// Mirrors the terrain-artifact filter's fraction style: drop a candidate if a
+// majority of its points fall OUTSIDE the real municipal boundary. Fail-open
+// (never filters) when no --boundary-wikidata was passed.
+function outsideBoundaryReason(pts: number[][], boundaryPoly: number[][] | null): string | null {
+  if (!boundaryPoly) return null;
+  let outside = 0;
+  for (const p of pts) if (!inPoly(p, boundaryPoly)) outside++;
+  return outside / pts.length > 0.5 ? `outside boundary (${outside}/${pts.length} pts)` : null;
+}
 // Index of the way vertex nearest a target [lat,lng].
 const nearestIdx = (full: number[][], t: number[]): number => { let bi = 0, bd = Infinity; for (let i = 0; i < full.length; i++) { const d = hav(full[i], t); if (d < bd) { bd = d; bi = i; } } return bi; };
 // The curved sub-path of a way between the climb's start & end points (follows the
@@ -128,10 +225,15 @@ function subLine(full: number[][] | undefined, start: number[], end: number[]): 
 
 function initFb() { const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id }); return admin.firestore(); }
 
-async function build() {
+async function build(boundaryPoly: number[][] | null) {
   const docs: any[] = [];
   const rejectedTerrain: { id: string; wayName: string; center: { lat: number; lng: number }; reason: string }[] = [];
   const escalators: { id: string; label: string }[] = []; // conveying=yes moving stairs — not training stairs
+  // Boundary-clip drops, tracked separately per type (not mixed into
+  // rejectedTerrain, which means "artifact" — a different reason) so the run
+  // report can break down "how many of each type were dropped as outside the
+  // boundary" precisely, same shape as geo-discovery-routes.ts's own report.
+  const boundaryDropped: { id: string; type: 'terrain' | 'structure' | 'stairs'; wayName: string | null; reason: string }[] = [];
   // 1) terrain — validate each against a real walkable way + reject water/private artifacts.
   // Two bbox fetches (padded), then LOCAL geometry per climb — fast + rate-limit friendly.
   const pad = 0.004;
@@ -163,7 +265,7 @@ async function build() {
     return best;
   };
 
-  const terr = JSON.parse(fs.readFileSync('/tmp/tlv_climb_segments.json', 'utf8'));
+  const terr = JSON.parse(fs.readFileSync(IN_PATH, 'utf8'));
   let curved = 0;
   for (const c of terr) {
     const center = { lat: c.center[0], lng: c.center[1] };
@@ -178,10 +280,12 @@ async function build() {
     // start & end, sourced from the already-fetched walkable ways (no extra query).
     const full = walkById.get(c.id.split(':')[1]) || nearestWalkway(center.lat, center.lng);
     const line = subLine(full, c.start, c.end);
+    const boundaryReason = outsideBoundaryReason(line, boundaryPoly);
+    if (boundaryReason) { boundaryDropped.push({ id: _id, type: 'terrain', wayName: c.wayName, reason: boundaryReason }); continue; }
     if (line.length > 2) curved++;
     docs.push({ _id, type: 'terrain', climbType: c.climbType, center, bbox: bboxOf(line), geometry: toLine(line), lengthM: c.lengthM, avgGrade: c.avgGrade, maxGrade: c.maxGrade, dir: c.dir, geohash: geohash(center.lat, center.lng), wayName: c.wayName, source: 'dem:terrain-rgb' });
   }
-  console.log(`terrain: ${terr.length} → kept ${terr.length - rejectedTerrain.length}, rejected ${rejectedTerrain.length} artifact(s); ${curved} curved lines (>2 pts)`);
+  console.log(`terrain: ${terr.length} → kept ${terr.length - rejectedTerrain.length - boundaryDropped.filter(b => b.type === 'terrain').length}, rejected ${rejectedTerrain.length} artifact(s), ${boundaryDropped.filter(b => b.type === 'terrain').length} outside boundary; ${curved} curved lines (>2 pts)`);
   // 2) structure — incline / ramp foot ways
   //
   // Two real fixes, Stage 6 (17.08.2026) — verified live against Overpass
@@ -212,9 +316,18 @@ async function build() {
   // bulkRejectClimbs (Approval Center) is for, not a query filter.
   const ds = await overpass(`[out:json][timeout:90];(way["highway"~"footway|path|pedestrian"]["incline"]["access"!="no"][!"construction"][!"lifecycle"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});way["ramp"="yes"]["highway"~"footway|path|pedestrian"]["access"!="no"][!"construction"][!"lifecycle"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax}););out geom tags;`);
   const seenS = new Set<number>();
-  for (const w of ds.elements) { if (!w.geometry || w.geometry.length < 2 || seenS.has(w.id)) continue; seenS.add(w.id); const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const inc = w.tags.incline || ''; const pct = /^-?\d+(\.\d+)?%$/.test(inc) ? Math.abs(parseFloat(inc)) : null; docs.push({ _id: `structure_${w.id}`, type: 'structure', climbType: 'structure-ramp', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM: Math.round(len(g)), avgGrade: pct, maxGrade: pct, dir: inc === 'down' ? 'down' : 'up', geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: `osm:${w.tags.highway}${w.tags.ramp === 'yes' ? '+ramp' : ''}`, inclineTag: inc || (w.tags.ramp === 'yes' ? 'ramp=yes' : null) }); }
+  let structureBoundaryDropped = 0;
+  for (const w of ds.elements) {
+    if (!w.geometry || w.geometry.length < 2 || seenS.has(w.id)) continue; seenS.add(w.id);
+    const g = w.geometry.map((p: any) => [p.lat, p.lon]);
+    const boundaryReason = outsideBoundaryReason(g, boundaryPoly);
+    if (boundaryReason) { boundaryDropped.push({ id: `structure_${w.id}`, type: 'structure', wayName: w.tags.name || null, reason: boundaryReason }); structureBoundaryDropped++; continue; }
+    const mid = g[Math.floor(g.length / 2)]; const inc = w.tags.incline || ''; const pct = /^-?\d+(\.\d+)?%$/.test(inc) ? Math.abs(parseFloat(inc)) : null; docs.push({ _id: `structure_${w.id}`, type: 'structure', climbType: 'structure-ramp', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM: Math.round(len(g)), avgGrade: pct, maxGrade: pct, dir: inc === 'down' ? 'down' : 'up', geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: `osm:${w.tags.highway}${w.tags.ramp === 'yes' ? '+ramp' : ''}`, inclineTag: inc || (w.tags.ramp === 'yes' ? 'ramp=yes' : null) });
+  }
+  if (boundaryPoly) console.log(`structure: ${structureBoundaryDropped} dropped as outside the boundary`);
   // 3) stairs — highway=steps
   const dst = await overpass(`[out:json][timeout:120];way["highway"="steps"](${BBOX.latMin},${BBOX.lonMin},${BBOX.latMax},${BBOX.lonMax});out geom tags;`);
+  let stairsBoundaryDropped = 0;
   for (const w of dst.elements) {
     if (!w.geometry || w.geometry.length < 2) continue;
     const _id = `stairs_${w.id}`;
@@ -222,11 +335,15 @@ async function build() {
     // training stairs — drop + delete any that a prior run wrote. conveying=no is a real
     // (explicitly non-moving) staircase, so keep it.
     if (w.tags.conveying && w.tags.conveying !== 'no') { escalators.push({ id: _id, label: w.tags.name || `way/${w.id}` }); continue; }
-    const g = w.geometry.map((p: any) => [p.lat, p.lon]); const mid = g[Math.floor(g.length / 2)]; const lengthM = Math.round(len(g)); const stepCount = w.tags.step_count ? +w.tags.step_count : null; if (!stairSignificant(stepCount, lengthM)) continue;
+    const g = w.geometry.map((p: any) => [p.lat, p.lon]);
+    const boundaryReason = outsideBoundaryReason(g, boundaryPoly);
+    if (boundaryReason) { boundaryDropped.push({ id: _id, type: 'stairs', wayName: w.tags.name || null, reason: boundaryReason }); stairsBoundaryDropped++; continue; }
+    const mid = g[Math.floor(g.length / 2)]; const lengthM = Math.round(len(g)); const stepCount = w.tags.step_count ? +w.tags.step_count : null; if (!stairSignificant(stepCount, lengthM)) continue;
     docs.push({ _id, type: 'stairs', climbType: 'stairs', center: { lat: mid[0], lng: mid[1] }, bbox: bboxOf(g), geometry: toLine(g), lengthM, stepCount, avgGrade: null, maxGrade: null, dir: w.tags.incline || null, geohash: geohash(mid[0], mid[1]), wayName: w.tags.name || null, source: 'osm:steps' });
   }
+  if (boundaryPoly) console.log(`stairs: ${stairsBoundaryDropped} dropped as outside the boundary`);
   console.log(`stairs: filtered ${escalators.length} escalator(s) (conveying=yes)`);
-  return { docs, rejectedTerrain, escalators };
+  return { docs, rejectedTerrain, escalators, boundaryDropped };
 }
 
 async function main() {
@@ -243,7 +360,30 @@ async function main() {
     return;
   }
 
-  const { docs, rejectedTerrain, escalators } = await build();
+  // Resolve authorityId live from --city (same pattern geo-discovery-routes.ts's
+  // main() uses) — no more separate manual backfill-climb-segments-authority.ts
+  // step needed for a NEW city's docs. Fail fast if unresolved: every doc this
+  // run produces shares the same authority, so an unresolved city means nothing
+  // in this run could carry a correct authorityId anyway.
+  console.log(`\n=== WRITE-CLIMB-SEGMENTS — city: ${CITY} ===`);
+  const { findAuthorityByCityName } = await import('../src/lib/route-collections/authority-resolution');
+  const authoritySnap = await db.collection('authorities').get();
+  const authorityList = authoritySnap.docs.map(d => ({ id: d.id, name: (d.data().name as string) || '' }));
+  const resolvedAuthorityId = findAuthorityByCityName(CITY, authorityList);
+  if (!resolvedAuthorityId) {
+    console.error(`❌ Could not resolve an authority for city="${CITY}" — checked against ${authorityList.length} known authorities. Aborting.`);
+    process.exit(1);
+  }
+  console.log(`resolved authority: ${CITY} → ${resolvedAuthorityId}`);
+
+  let boundaryPoly: number[][] | null = null;
+  if (BOUNDARY_WIKIDATA) {
+    console.log(`fetching admin boundary polygon (wikidata=${BOUNDARY_WIKIDATA}, clip-filter only) …`);
+    boundaryPoly = await fetchAdminBoundaryPoly(BOUNDARY_WIKIDATA);
+    console.log(boundaryPoly ? `  boundary polygon loaded: ${boundaryPoly.length} vertices` : '  ⚠ boundary polygon not found — clip filter skipped');
+  }
+
+  const { docs, rejectedTerrain, escalators, boundaryDropped } = await build(boundaryPoly);
   const byType: any = {}; docs.forEach(d => byType[d.type] = (byType[d.type] || 0) + 1);
   console.log(`built ${docs.length} climb_segments →`, JSON.stringify(byType));
 
@@ -262,9 +402,11 @@ async function main() {
   console.log(`resolved ${geocoded} street names (${need.length - geocoded} left unnamed → null)`);
 
   if (DRY) {
-    console.log(`[dry-run] ${rejectedTerrain.length} terrain artifact(s) + ${escalators.length} escalator(s) would be dropped + deleted:`);
-    rejectedTerrain.forEach(r => console.log(`   - terrain ${r.wayName} (${r.center.lat.toFixed(5)},${r.center.lng.toFixed(5)}) — ${r.reason}`));
+    const byTypeBoundaryDropped: any = {}; boundaryDropped.forEach(b => byTypeBoundaryDropped[b.type] = (byTypeBoundaryDropped[b.type] || 0) + 1);
+    console.log(`[dry-run] ${rejectedTerrain.length} terrain artifact(s) + ${escalators.length} escalator(s) + ${boundaryDropped.length} outside-boundary (by type: ${JSON.stringify(byTypeBoundaryDropped)}) would be dropped + deleted:`);
+    rejectedTerrain.forEach(r => console.log(`   - terrain artifact: ${r.wayName} (${r.center.lat.toFixed(5)},${r.center.lng.toFixed(5)}) — ${r.reason}`));
     escalators.forEach(e => console.log(`   - escalator ${e.label} (${e.id})`));
+    boundaryDropped.slice(0, 15).forEach(b => console.log(`   - outside boundary (${b.type}): ${b.wayName ?? b.id} — ${b.reason}`));
     console.log('[dry-run] terrain sample:', JSON.stringify(docs.find(d => d.type === 'terrain'), null, 1));
     return;
   }
@@ -279,7 +421,7 @@ async function main() {
     const prev = snap.exists ? snap.data() : null;
     const status = prev?.status ?? 'pending';
     const origin = prev?.origin ?? 'osm_import';
-    b.set(col.doc(_id), { ...rest, status, origin, city: 'תל אביב-יפו', importBatchId: BATCH, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    b.set(col.doc(_id), { ...rest, status, origin, city: CITY, authorityId: resolvedAuthorityId, importBatchId: BATCH, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     if (++n % 450 === 0) { await b.commit(); b = db.batch(); }
     written++;
   }
@@ -287,11 +429,13 @@ async function main() {
   console.log(`✅ ${COL}: wrote ${written} docs (${JSON.stringify(byType)}), status defaulted to 'pending' where unset. ADDITIVE — official_routes untouched.`);
 
   // Remove filtered docs a previous run may have written (before these filters existed):
-  // terrain artifacts (over water/private) + escalators (conveying=yes).
-  const toDelete = [...rejectedTerrain.map(r => r.id), ...escalators.map(e => e.id)];
+  // terrain artifacts (over water/private) + escalators (conveying=yes) + docs
+  // outside the boundary (only possible on a re-run after --boundary-wikidata
+  // was newly added or the boundary polygon changed).
+  const toDelete = [...rejectedTerrain.map(r => r.id), ...escalators.map(e => e.id), ...boundaryDropped.map(b => b.id)];
   if (toDelete.length) {
     let db2 = db.batch(); for (const id of toDelete) db2.delete(col.doc(id)); await db2.commit();
-    console.log(`🧹 deleted ${rejectedTerrain.length} terrain artifact(s) + ${escalators.length} escalator(s)`);
+    console.log(`🧹 deleted ${rejectedTerrain.length} terrain artifact(s) + ${escalators.length} escalator(s) + ${boundaryDropped.length} outside-boundary doc(s)`);
   }
 }
 main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
