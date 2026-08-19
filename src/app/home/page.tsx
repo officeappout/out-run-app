@@ -14,7 +14,7 @@ import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBri
 import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
 import { calculateProfileCompletion } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
-import HeroWorkoutCard, { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
+import { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
@@ -45,7 +45,10 @@ import DailyGoalRingsCard from '@/features/home/components/DailyGoalRingsCard';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
 import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
-import { useWeeklyProgress, useDailyActivity } from '@/features/activity';
+import { useWeeklyProgress, useDailyActivity, useDayStatus } from '@/features/activity';
+import type { ActivityCategory } from '@/features/activity/types/activity.types';
+import TodayActivityStrip from '@/features/home/components/TodayActivityStrip';
+import type { TodayActivityCardData } from '@/features/home/components/TodayActivityCard';
 import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCard';
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
@@ -215,6 +218,30 @@ const WHO_WEEKLY_TARGET = 150;
 // Not tuned against real network data; a conservative bound safely longer than the generators'
 // normal (non-instant but sub-second-to-low-seconds) resolve time.
 const POST_WORKOUT_CAROUSEL_TIMEOUT_MS = 8000;
+
+// Stage D+E (19.08.2026) — Hebrew label for a today-activity card representing
+// a category with no richer per-completion data available (see
+// buildTodayActivityCards' isRich distinction below).
+const TODAY_ACTIVITY_CATEGORY_LABEL: Record<ActivityCategory, string> = {
+  strength: 'אימון כוח',
+  cardio: 'אימון אירובי',
+  maintenance: 'גמישות ותנועתיות',
+};
+
+/**
+ * CompletionWorkoutType ('strength'|'running'|'walking'|'cycling'|'hybrid',
+ * from completion-sync.service.ts) → the 3-way ActivityCategory bucket
+ * useDayStatus().sessions is keyed by. 'hybrid' deliberately maps to null —
+ * a hybrid completion can touch multiple categories at once, and there's no
+ * existing signal for which one to attribute the rich (title/thumbnail)
+ * completion data to, so it's left to fall back to the generic per-category
+ * cards rather than guessing.
+ */
+function workoutTypeToCategory(workoutType: string | undefined): ActivityCategory | null {
+  if (workoutType === 'strength') return 'strength';
+  if (workoutType === 'running' || workoutType === 'walking' || workoutType === 'cycling') return 'cardio';
+  return null;
+}
 
 /** Weekly activity minutes card */
 function ActivityCard() {
@@ -393,6 +420,20 @@ export default function HomePage() {
   // Consistent with this page's existing convention (not a new pattern this
   // diff introduces), but a real modest listener cost, not a free read.
   const { allGoalsMet } = useDailyActivity();
+  // Stage D+E (19.08.2026) — real, already-live per-category minutes for
+  // today (strength/cardio/maintenance, >=10 real logged min each), sorted
+  // desc. Drives the today-activity strip below: one card per category
+  // actually present today. Investigated before using it: this is
+  // category-bucketed (max 3 entries, one per category), not a raw
+  // per-workout-event count — two separate same-category sessions today
+  // still collapse into one bucket here. That's a deliberate, confirmed
+  // choice, not an oversight: a true per-instance count exists
+  // (activity.categories[cat].sessions, currently unread anywhere) but
+  // would only ever produce visually-identical duplicate cards for the
+  // same category (no per-instance title/thumbnail data exists to tell
+  // "session 1" apart from "session 2" of the same category) — it doesn't
+  // buy more useful information, just more cards, so it's not used here.
+  const getDayStatus = useDayStatus();
   // Daily Strength Ring (Layer A). The target hook is gated by the flag so no
   // Firestore read fires while STRENGTH_RING_ENABLED is off (byte-identical).
   const todayStrengthVolume = useTodayStrengthVolume();
@@ -477,10 +518,113 @@ export default function HomePage() {
         }
       : undefined;
 
-  const handleDismissCelebration = useCallback(() => {
-    setPostWorkoutData(null);
-    setShowMotivationBanner(false);
-  }, []);
+  // Stage D+E (19.08.2026) — the card list TodayActivityStrip renders, REPLACING
+  // HeroWorkoutCard's old single completion card (locked decision, documented in
+  // adaptive-snacking-valiant.md). Empty array = the strip renders null = the
+  // exact "no visible empty state on a rest day" behavior the plan calls for —
+  // no separate empty-state branch needed, this array being empty already is one.
+  //
+  // Which category gets the "rich" (real title/thumbnail/duration) card: only
+  // the just-completed workout's own category, via workoutTypeToCategory —
+  // every other category present today (e.g. an earlier walk, same day as
+  // today's strength session) gets a generic category-labeled card instead,
+  // since no title/thumbnail data exists for anything but the most recent
+  // completion (completionData's fields all trace back to a single 30-min-TTL
+  // sessionStorage payload — see completion-sync.service.ts).
+  //
+  // Dependency array below reads completionData's individual primitive fields
+  // (workoutType/workoutTitle/thumbnailUrl/streak/durationMinutes), not the
+  // completionData object itself — completionData is a plain ternary
+  // expression (not its own useMemo), so it's a fresh object reference every
+  // render; depending on the object directly would make THIS memo recompute
+  // every render too, same as not memoizing at all (caught by
+  // react-hooks/exhaustive-deps). The primitives are what actually determine
+  // the output, and they only change when the underlying data really changes.
+  const todayActivityCards: TodayActivityCardData[] = useMemo(() => {
+    if (!profile) return [];
+    const todayISO = toISODate(new Date());
+    const dayStatus = getDayStatus(todayISO);
+    const richCategory = completionData ? workoutTypeToCategory(completionData.workoutType) : null;
+
+    const cards: TodayActivityCardData[] = dayStatus.sessions.map((s) => {
+      const isRich = s.category === richCategory && !!completionData;
+      return {
+        key: s.category,
+        category: s.category,
+        title: isRich
+          ? (completionData!.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[s.category])
+          : TODAY_ACTIVITY_CATEGORY_LABEL[s.category],
+        minutes: Math.round(s.minutes),
+        thumbnailUrl: isRich ? completionData!.thumbnailUrl : undefined,
+        streak: completionData?.streak ?? 1,
+      };
+    });
+
+    // Safety net 1: dayStatus.sessions only includes categories that crossed the
+    // 10-min STREAK_MINIMUM_MINUTES floor. A short/express completion under
+    // that floor would otherwise vanish from the strip entirely even though
+    // completionData proves a real workout just finished — add it explicitly
+    // if its category isn't already represented above.
+    //
+    // Minutes come from dayStatus.categories (the real per-category total
+    // logged today), not completionData.durationMinutes — the latter is
+    // hardcoded to 0 on the persistent Firestore-only fallback branch of
+    // completionData (no postWorkoutData sessionStorage payload — e.g. any
+    // home revisit after the first post-workout mount, confirmed to be the
+    // steady state on remount), which would otherwise show a fabricated
+    // "0 min" for a real completed workout (adversarial review, 19.08.2026).
+    if (completionData && richCategory && !cards.some((c) => c.category === richCategory)) {
+      cards.unshift({
+        key: richCategory,
+        category: richCategory,
+        title: completionData.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[richCategory],
+        minutes: Math.round(dayStatus.categories[richCategory] || completionData.durationMinutes || 0),
+        thumbnailUrl: completionData.thumbnailUrl,
+        streak: completionData.streak ?? 1,
+      });
+    }
+
+    // Safety net 2: a hybrid completion (richCategory === null, so safety net 1
+    // can't attribute it to one category) that also logged under 10 min in
+    // every category would otherwise still show nothing — the one invariant
+    // that matters most here is "never regress to showing NOTHING in a case
+    // where the old HeroWorkoutCard-based code would have shown something."
+    //
+    // fallbackCategory is a styling-only choice (fill color) here, not a
+    // factual claim — TodayActivityCard's headline text is category-agnostic
+    // ("האימון בוצע בהצלחה!", matching the old HeroWorkoutCard wording
+    // exactly) specifically so a genuine hybrid completion never gets
+    // mislabeled in words as "strength" (adversarial review, 19.08.2026).
+    // Minutes sum every category's real total when richCategory is null
+    // (hybrid splits its duration across categories — see useHybridRun.ts's
+    // categorySplits — so summing is a closer estimate of total duration
+    // than picking one category alone).
+    if (completionData && cards.length === 0) {
+      const fallbackCategory: ActivityCategory = richCategory ?? 'strength';
+      const fallbackMinutes = richCategory
+        ? dayStatus.categories[richCategory]
+        : dayStatus.categories.strength + dayStatus.categories.cardio + dayStatus.categories.maintenance;
+      cards.push({
+        key: 'completion-fallback',
+        category: fallbackCategory,
+        title: completionData.workoutTitle || 'האימון היומי שלך',
+        minutes: Math.round(fallbackMinutes || completionData.durationMinutes || 0),
+        thumbnailUrl: completionData.thumbnailUrl,
+        streak: completionData.streak ?? 1,
+      });
+    }
+
+    return cards;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see the primitive-deps note above
+  }, [
+    profile,
+    getDayStatus,
+    completionData?.workoutType,
+    completionData?.workoutTitle,
+    completionData?.thumbnailUrl,
+    completionData?.streak,
+    completionData?.durationMinutes,
+  ]);
 
   // ── post_workout suggestion carousel (home-generator-v2 plan, step 6) ──
   // Eager-compute the moment a completed workout is detected (mirrors the celebration
@@ -1561,37 +1705,30 @@ export default function HomePage() {
           );
         })()}
 
-        {/* Post-Workout Celebration Card — replaces the workout trio when completed.
-            Rendered here so it occupies the same vertical slot as the workout
-            section (above NearbyGroupsRow), not below it.
-            Two render modes:
-              • Fresh celebration (postWorkoutData): full title + streak + thumbnail.
-              • Persistent "done for today" (todayWorkoutDone only): minimal restful
-                card driven solely by Firestore `dailyProgress.workoutCompleted`.
-            Either path keeps the action zone replaced — no empty layout gap. */}
-        {(postWorkoutData || todayWorkoutDone) && completionData && (
+        {/* Today Activity Strip — Stage D+E (19.08.2026, "completion-loop" plan).
+            REPLACES the old single HeroWorkoutCard completion card entirely (locked
+            product decision — see adaptive-snacking-valiant.md's Stage C/D section):
+            this is not an addition alongside it. Rendered here so it occupies the
+            same vertical slot the old card did (above NearbyGroupsRow), same gate
+            as before — (postWorkoutData || todayWorkoutDone), the exact compound
+            confirmed load-bearing (postWorkoutData can go true before
+            todayWorkoutDone's Firestore round-trip catches up; relying on either
+            alone reintroduces that race). todayActivityCards.length>0 replaces the
+            old `&& completionData` check — empty array (rest day / nothing done
+            yet) means TodayActivityStrip renders null on its own; no separate
+            visible empty-state needed, an absent strip already IS the empty state
+            the plan calls for. */}
+        {(postWorkoutData || todayWorkoutDone) && todayActivityCards.length > 0 && (
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
           >
-            <HeroWorkoutCard
-              workout={{ id: 'completed', title: completionData.workoutTitle || '', duration: completionData.durationMinutes, difficulty: 2 } as any}
-              onStart={handleHeroPress}
-              isCompleted
-              completionData={completionData}
-              // Phase B: the "תציעו לי עוד אימון" CTA hides only once the carousel is
-              // actually ready to show (postWorkoutCarouselReady) — NOT just because the
-              // flag is on. While the real, Firestore-backed suggestion computation is
-              // still in flight (flag on, not ready yet), the button stays mounted but
-              // handleRequestMore itself is a no-op in that case (see its definition) —
-              // the carousel takes over on its own the moment it resolves, no tap needed.
-              // Flag fully off: unchanged, closes the card and starts a fresh workout.
-              // HeroWorkoutCard.tsx only renders the button at all when onRequestMore is
-              // truthy, so undefined here hides it cleanly once the carousel takes over.
+            <TodayActivityStrip
+              cards={todayActivityCards}
+              // Same CTA-visibility logic the old completion card used: hides only
+              // once the post_workout carousel is actually ready to show.
               onRequestMore={postWorkoutCarouselReady ? undefined : handleRequestMore}
-              onDismissCelebration={handleDismissCelebration}
-              userGender={profile?.core?.gender}
             />
           </motion.div>
         )}

@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { MockWorkout } from '../data/mock-schedule-data';
-import { Dumbbell, Check, TrendingUp, Clock, Flag, PersonStanding } from 'lucide-react';
+import { Dumbbell, PersonStanding } from 'lucide-react';
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { pickHeroExercise, resolveHeroMedia } from '@/features/workout-engine/shared/utils/heroMedia.utils';
 import {
@@ -423,13 +423,6 @@ interface HeroWorkoutCardProps {
   programIconKey?: string | null;
   /** Carousel variant — 'active' (300x330) or 'side' (256x242). Defaults to 'active'. */
   variant?: CardVariant;
-  /** Post-workout celebration mode */
-  isCompleted?: boolean;
-  completionData?: CompletionData;
-  /** "I'm on a roll" — generate another workout */
-  onRequestMore?: () => void;
-  /** Dismiss celebration mode */
-  onDismissCelebration?: () => void;
   /** User gender for gendered CTA copy */
   userGender?: 'male' | 'female' | 'other' | null;
 }
@@ -446,10 +439,6 @@ export default function HeroWorkoutCard({
   workoutLocation,
   programIconKey,
   variant = 'active',
-  isCompleted = false,
-  completionData,
-  onRequestMore,
-  onDismissCelebration,
   userGender,
 }: HeroWorkoutCardProps) {
   const dims = CARD_VARIANTS[variant];
@@ -512,124 +501,18 @@ export default function HeroWorkoutCard({
 
   const ctaText = useMemo(() => getGenderedCtaText(userGender, workout.title), [userGender, workout.title]);
 
-  // ── Celebration Mode — matches reference design ──
-  if (isCompleted && completionData) {
-    const improvement = completionData.improvementPercent;
-    const thumbSrc = completionData.thumbnailUrl || heroMedia.thumbnailUrl;
-    const durationStr = (() => {
-      const mins = completionData.durationMinutes;
-      const m = mins % 60;
-      const h = Math.floor(mins / 60);
-      return h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}:00`;
-    })();
-    const workoutLabel = completionData.workoutTitle || workout.title || 'אימון כוח';
-
-    return (
-      <div className="w-full" dir="rtl">
-        {/* Section title */}
-        <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3">האימון היומי שלך</h3>
-
-        {/* Card — Stage C (18.08.2026, "completion-loop" plan): full-color-fill for a
-            completed workout, replacing the previous white card + %-ring
-            (STRENGTH_RING_ENABLED / getStrengthRingView / CircularProgress — all
-            removed; completionData.ring itself is left untouched upstream, now simply
-            unread here). Not category-aware (completionData.workoutType can be
-            strength/running/walking/cycling/hybrid, but this file never had a
-            workoutType→color mapping to begin with — the checkmark/header text were
-            already hardcoded brand-cyan regardless of type; this just extends that
-            same existing color to the whole card rather than inventing a new one). */}
-        <div
-          className="w-full overflow-hidden"
-          style={{ borderRadius: 16, background: '#00BAF7', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
-        >
-          {/* Header row: checkmark + success text — colors inverted (white badge,
-              white text) since the card is now solid brand-cyan, not white. */}
-          <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-            <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-              <Check size={16} className="text-[#00BAF7] stroke-[3]" />
-            </div>
-            <span className="text-[15px] font-bold text-white">האימון בוצע בהצלחה!</span>
-          </div>
-
-          {/* Two-column body: thumbnail (right in RTL = first child) + stats (left in RTL = second child).
-              Adversarial review (19.08.2026) caught a real gap in the first pass: the old
-              ring-based gate ({!completionData.ring && ...}) never actually fired in
-              production (STRENGTH_RING_ENABLED=true means ring was always populated), so
-              removing it made the thumbnail render for the first time ever — but
-              completionData.thumbnailUrl is never actually set by any of the 3 real
-              completion paths (useActivitySync/useRunningPlayer/useHybridRun), and no
-              exercises prop reaches this render site either, so thumbSrc always resolves
-              to heroMedia.utils.ts's hardcoded generic stock photo — the SAME image on
-              every single completion, contradicting "restore the real workout thumbnail".
-              Gated on completionData.thumbnailUrl specifically (the one signal that means
-              "a real per-completion image was actually provided") instead of thumbSrc's
-              full fallback chain — shows nothing today (byte-identical to the always-hidden
-              production behavior before this diff), but correctly starts working the moment
-              any completion path is wired to set a real thumbnailUrl, with zero further UI
-              change needed. Wiring that is out of scope here — a separate, unrelated task. */}
-          <div className="flex items-stretch px-4 pb-4 gap-3">
-            {completionData.thumbnailUrl && (
-              <div className="w-[120px] flex-shrink-0 overflow-hidden" style={{ borderRadius: 12 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={thumbSrc}
-                  alt={workoutLabel}
-                  className="w-full h-full object-cover"
-                  style={{ minHeight: 120 }}
-                />
-              </div>
-            )}
-
-            {/* Stats box — second child → left side in RTL. Already a light tint
-                (#F0FBFF bg / #B8E8F5 border) — kept unchanged, it reads clearly
-                against the new solid-cyan card without needing any color inversion. */}
-            <div
-              className="flex-1 flex flex-col justify-center items-center gap-2 py-3 px-3 text-center"
-              style={{ borderRadius: 12, border: '1px solid #B8E8F5', background: '#F0FBFF' }}
-            >
-              <span className="text-[14px] font-bold text-gray-900">{workoutLabel}</span>
-
-              <div className="flex items-center gap-1 text-[13px] text-gray-700">
-                <TrendingUp size={14} className="text-gray-600" />
-                <span>
-                  {improvement != null && improvement !== 0
-                    ? `שיפור בביצועים של ${Math.abs(improvement)}%`
-                    : 'שיפור בביצועים'}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1 text-[13px] text-gray-700">
-                <Clock size={14} className="text-gray-500" />
-                <span>{durationStr}</span>
-              </div>
-
-              <div className="flex items-center gap-1 text-[13px] text-gray-700">
-                <Flag size={14} className="text-gray-500" />
-                <span>{(completionData.streak ?? 1)} אימונים ברצף</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Full-width CTA below the card */}
-        {onRequestMore && (
-          <button
-            onClick={onRequestMore}
-            className="w-full mt-3 text-white font-extrabold rounded-full shadow-lg shadow-cyan-400/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-            style={{
-              background: 'linear-gradient(to left, #0CF2E3, #00BAF7)',
-              height: 48,
-              fontSize: 16,
-            }}
-          >
-            <span>אני על הגל, תציעו לי עוד אימון!</span>
-          </button>
-        )}
-      </div>
-    );
-  }
-
   // ── Normal (pre-workout) Mode ──
+  // Stage D+E (19.08.2026, "completion-loop" plan): the celebration-mode branch
+  // that used to live here (isCompleted && completionData) was REMOVED — it's
+  // been replaced end-to-end by TodayActivityStrip/TodayActivityCard
+  // (src/features/home/components/), rendered from home/page.tsx instead of
+  // this component. Confirmed before removing: home/page.tsx was the only
+  // caller that ever passed isCompleted/completionData (grepped the whole
+  // repo) — this branch had zero other reachability. isCompleted,
+  // completionData, onDismissCelebration, and onRequestMore were removed from
+  // this component's props for the same reason (onDismissCelebration was
+  // already fully dead even before this — declared/destructured but never
+  // once invoked in this file, going back further than this change).
   const handleCardClick = useCallback(() => {
     (onCardTap ?? onStart)();
   }, [onCardTap, onStart]);
