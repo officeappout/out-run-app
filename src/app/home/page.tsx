@@ -63,6 +63,7 @@ import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 
 import { toISODate, getHebrewDayLetter, stepSelectedDate } from '@/features/user/scheduling/utils/dateUtils';
+import { getWorkoutsForDate } from '@/features/workout-engine/core/services/storage.service';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
@@ -337,25 +338,6 @@ export default function HomePage() {
     setEditEntry(previewEntry);
   }, [previewEntry]);
 
-  // Open WorkoutPreviewDrawer from a MonthlyCalendarGrid cell tap (via TrainingPlannerOverlay)
-  const handleCalendarEntryTap = useCallback((entry: UserScheduleEntry) => {
-    setPreviewEntry(entry);
-    const cats = entry.scheduledCategories ?? [];
-    const title = cats.length > 0
-      ? cats.map(c => c === 'strength' ? 'כוח' : c === 'cardio' ? 'ריצה' : c === 'walking' ? 'הליכה' : 'גמישות').join(' + ')
-      : 'אימון מתוזמן';
-    setSelectedWorkout({
-      id: entry.entryId ?? entry.date,
-      title,
-      description: '',
-      level: 'medium',
-      difficulty: 'medium',
-      duration: 45,
-      coverImage: '',
-      segments: [],
-    });
-  }, []);
-
   // Selected date drives SmartWeeklySchedule highlight + StatsOverview workout gen
   const [selectedDate, setSelectedDate] = useState(() => toISODate(new Date()));
 
@@ -411,6 +393,83 @@ export default function HomePage() {
   // the user has logged a session.
   const todayProgress = useDailyProgress();
   const todayWorkoutDone = !!todayProgress?.workoutCompleted;
+
+  // F2.2 (19.08.2026, "unified workout summary" plan): resolves a tapped
+  // schedule day to its real completed workout doc (if any) and navigates
+  // to /workouts/[id]/history. Returns true when it navigated — callers
+  // should skip their own start-a-new-workout fallback in that case.
+  //
+  // No existing link from a schedule entry/calendar cell to a real workout
+  // doc id existed before this (confirmed during F2's investigation —
+  // schedule entries come from userSchedule/planned data, completion
+  // coloring comes from dailyProgress, neither carries a workout id), so
+  // this queries the workouts collection directly via getWorkoutsForDate
+  // (storage.service.ts) — deliberately uses only the EXISTING
+  // {userId, date} composite index (see that function's own doc comment),
+  // no new index needed. A day can have >1 real workout doc; picks the
+  // most recent, matching the same "one consistent destination, no
+  // session-picker" principle already used for the home entry point.
+  //
+  // Cost-aware: future dates are skipped outright (can never have a real
+  // workout). For TODAY specifically, also skipped unless todayWorkoutDone
+  // is already true (declared just above — an existing, zero-cost signal)
+  // — the common "tap today's not-yet-done workout" path stays exactly as
+  // fast as before this diff, no added network round-trip. Past dates
+  // always query: there was no existing fast path to preserve there
+  // (AgendaDayCard's own past-day tap was a hard no-op before this diff —
+  // see its activate()).
+  //
+  // In-flight guard (adversarial review, 19.08.2026): this does a real
+  // Firestore round-trip before router.push, with no debounce anywhere else
+  // in this file to reuse. Without a guard, rapidly tapping two different
+  // schedule entries could resolve out of order — whichever query finishes
+  // last wins the navigation, even if the user tapped it first. A plain
+  // ref (not state — no re-render needed) drops any tap that starts while
+  // a previous one is still resolving; the common case (same entry tapped
+  // twice) is already idempotent regardless.
+  const isResolvingCompletedTapRef = useRef(false);
+  const tryOpenCompletedWorkout = useCallback(async (dateISO: string): Promise<boolean> => {
+    const todayISO = toISODate(new Date());
+    if (dateISO > todayISO) return false;
+    if (dateISO === todayISO && !todayWorkoutDone) return false;
+    if (!profile?.id) return false;
+    if (isResolvingCompletedTapRef.current) return false;
+    isResolvingCompletedTapRef.current = true;
+    try {
+      const existing = await getWorkoutsForDate(profile.id, dateISO);
+      if (existing.length > 0 && existing[0].id) {
+        router.push(`/workouts/${existing[0].id}/history`);
+        return true;
+      }
+      return false;
+    } finally {
+      isResolvingCompletedTapRef.current = false;
+    }
+  }, [profile?.id, router, todayWorkoutDone]);
+
+  // Open WorkoutPreviewDrawer from a MonthlyCalendarGrid cell tap (via TrainingPlannerOverlay)
+  const handleCalendarEntryTap = useCallback(async (entry: UserScheduleEntry) => {
+    // Community entries have their own separate handling elsewhere
+    // (AgendaDayCard's onCommunityTap) — group-session history isn't in
+    // scope here, so this redirect only ever applies to personal entries.
+    if (entry.source !== 'community' && (await tryOpenCompletedWorkout(entry.date))) return;
+    setPreviewEntry(entry);
+    const cats = entry.scheduledCategories ?? [];
+    const title = cats.length > 0
+      ? cats.map(c => c === 'strength' ? 'כוח' : c === 'cardio' ? 'ריצה' : c === 'walking' ? 'הליכה' : 'גמישות').join(' + ')
+      : 'אימון מתוזמן';
+    setSelectedWorkout({
+      id: entry.entryId ?? entry.date,
+      title,
+      description: '',
+      level: 'medium',
+      difficulty: 'medium',
+      duration: 45,
+      coverImage: '',
+      segments: [],
+    });
+  }, [tryOpenCompletedWorkout]);
+
   // Stage B (18.08.2026, "completion-loop" plan) — allGoalsMet drives the
   // post-workout carousel header's "finished everything" copy variant below.
   // Pre-existing, already-computed signal (useDailyActivity.ts:226-229,
@@ -1246,8 +1305,35 @@ export default function HomePage() {
   // state-batching race: we resolve the target date immediately and call
   // setSelectedDate before React's next render cycle so StatsOverview starts
   // generating the correct workout trio in parallel with the preview opening.
-  const handleHeroPress = useCallback((explicitDate?: string) => {
+  const handleHeroPress = useCallback(async (explicitDate?: string) => {
     const dateToUse = (typeof explicitDate === 'string') ? explicitDate : selectedDate;
+
+    // F2.2 (19.08.2026): a day that already has a real completed workout
+    // opens its summary instead of the start-a-new-workout flow below —
+    // checked FIRST, before any of that flow's logic (health gate,
+    // map-only-user redirect, generated-workout resets), none of which
+    // applies once we're navigating away. See tryOpenCompletedWorkout's own
+    // doc comment for the cost-aware date gating.
+    if (await tryOpenCompletedWorkout(dateToUse)) return;
+    const todayISO = toISODate(new Date());
+    if (dateToUse < todayISO) {
+      // Past + nothing real found → no-op, matches this card's pre-existing
+      // dead-tap behavior for past days. Must still reset previewEntry
+      // (adversarial review, must-fix, 19.08.2026): AgendaDayCard's
+      // activate() calls onPreviewEntry(entry) — setPreviewEntry — BEFORE
+      // onTap(date) reaches this function, so a past-day tap with nothing
+      // completed leaves a stale entry sitting in previewEntry with no
+      // drawer open to consume/clear it. Left alone, a LATER, unrelated
+      // drawer open (e.g. tapping the main hero card for today) would
+      // inherit that stale entry's id via WorkoutPreviewDrawer's
+      // onEditEntry gate, silently pointing its pencil/edit button at the
+      // wrong day's schedule entry. Cancels out the just-queued
+      // setPreviewEntry(entry) in the same batch (both calls land in the
+      // same synchronous tick), so this is a true no-op for the
+      // already-null case (main hero card path) too.
+      setPreviewEntry(null);
+      return;
+    }
 
     // Sync the selected-date highlight immediately — StatsOverview will begin
     // generating for dateToUse before the preview drawer finishes mounting.
@@ -1361,7 +1447,7 @@ export default function HomePage() {
       }
       router.push('/onboarding-new/assessment-visual');
     }
-  }, [hasStrengthProgram, isMapOnlyUser, openWorkoutPreview, profile, router, selectedDate]);
+  }, [hasStrengthProgram, isMapOnlyUser, openWorkoutPreview, profile, router, selectedDate, tryOpenCompletedWorkout]);
 
   const handleBuildCustom = useCallback((ctx?: BuilderContext) => {
     const props: Omit<WorkoutBuilderSheetProps, 'onClose'> = {};

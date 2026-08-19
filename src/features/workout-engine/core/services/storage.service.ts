@@ -432,53 +432,106 @@ export async function getWorkoutById(
       console.warn('[getWorkoutById] Not found or access denied:', workoutId);
       return null;
     }
-
-    const data = snap.data();
-    let routePath: RoutePoint[] | [number, number][] | undefined;
-    if (data.routePath && Array.isArray(data.routePath)) {
-      if (data.routePath.length > 0 && typeof data.routePath[0] === 'object' && 'lat' in data.routePath[0]) {
-        routePath = data.routePath as RoutePoint[];
-      } else if (Array.isArray(data.routePath[0])) {
-        routePath = data.routePath as [number, number][];
-      }
-    }
-
-    return {
-      id: snap.id,
-      userId: data.userId,
-      date: toDate(data.date) || new Date(),
-      activityType: data.activityType || 'running',
-      workoutType: data.workoutType || 'running',
-      category: data.category || 'cardio',
-      displayIcon: data.displayIcon || 'run-fast',
-      distance: data.distance || 0,
-      duration: data.duration || 0,
-      calories: data.calories || 0,
-      pace: data.pace || 0,
-      routePath,
-      routeId: data.routeId,
-      routeName: data.routeName,
-      parkId: data.parkId,
-      parkName: data.parkName,
-      earnedCoins: data.earnedCoins || 0,
-      xpEarned: data.xpEarned ?? 0,
-      xpAwardFailed: data.xpAwardFailed,
-      laps: Array.isArray(data.laps) ? data.laps : undefined,
-      elevationGain: typeof data.elevationGain === 'number' ? data.elevationGain : undefined,
-      segments: Array.isArray(data.segments) ? data.segments : undefined,
-      isRecovery: data.isRecovery,
-      difficulty: data.difficulty,
-      setsCompleted: data.setsCompleted,
-      setsPlanned: data.setsPlanned,
-      sessionKind: data.sessionKind,
-      commuteDestination: data.commuteDestination,
-      commuteLabel: data.commuteLabel,
-      groupId: data.groupId,
-      attendanceId: data.attendanceId,
-    } as WorkoutHistoryEntry;
+    return mapFullWorkoutDoc(snap.id, snap.data());
   } catch (error) {
     console.error('[getWorkoutById] Failed to fetch workout:', workoutId, error);
     return null;
+  }
+}
+
+/**
+ * Full-fidelity Firestore doc -> WorkoutHistoryEntry mapping, shared between
+ * getWorkoutById (F1.3) and getWorkoutsForDate (F2.2, below) so the two
+ * single-purpose fetches can't drift apart on which fields they map.
+ */
+function mapFullWorkoutDoc(id: string, data: Record<string, unknown>): WorkoutHistoryEntry {
+  let routePath: RoutePoint[] | [number, number][] | undefined;
+  if (data.routePath && Array.isArray(data.routePath)) {
+    if (data.routePath.length > 0 && typeof data.routePath[0] === 'object' && 'lat' in (data.routePath[0] as object)) {
+      routePath = data.routePath as RoutePoint[];
+    } else if (Array.isArray(data.routePath[0])) {
+      routePath = data.routePath as [number, number][];
+    }
+  }
+
+  return {
+    id,
+    userId: data.userId,
+    date: toDate(data.date) || new Date(),
+    activityType: data.activityType || 'running',
+    workoutType: data.workoutType || 'running',
+    category: data.category || 'cardio',
+    displayIcon: data.displayIcon || 'run-fast',
+    distance: data.distance || 0,
+    duration: data.duration || 0,
+    calories: data.calories || 0,
+    pace: data.pace || 0,
+    routePath,
+    routeId: data.routeId,
+    routeName: data.routeName,
+    parkId: data.parkId,
+    parkName: data.parkName,
+    earnedCoins: data.earnedCoins || 0,
+    xpEarned: data.xpEarned ?? 0,
+    xpAwardFailed: data.xpAwardFailed,
+    laps: Array.isArray(data.laps) ? data.laps : undefined,
+    elevationGain: typeof data.elevationGain === 'number' ? data.elevationGain : undefined,
+    segments: Array.isArray(data.segments) ? data.segments : undefined,
+    isRecovery: data.isRecovery,
+    difficulty: data.difficulty,
+    setsCompleted: data.setsCompleted,
+    setsPlanned: data.setsPlanned,
+    sessionKind: data.sessionKind,
+    commuteDestination: data.commuteDestination,
+    commuteLabel: data.commuteLabel,
+    groupId: data.groupId,
+    attendanceId: data.attendanceId,
+  } as WorkoutHistoryEntry;
+}
+
+/**
+ * Every real workout doc for one user on one local calendar day, most recent
+ * first (F2.2/F2.3, 19.08.2026 — "unified workout summary" plan). No entry
+ * point (schedule tap, home activity-card tap) had any existing link from
+ * "this day/category" to a real `workouts` doc id before this — confirmed
+ * during F2's investigation: schedule entries come from `userSchedule`
+ * (planned data), completion coloring comes from `dailyProgress`, neither
+ * carries a workout doc id.
+ *
+ * Deliberately uses ONLY `where('userId', ...)` + a `date` range + `orderBy`,
+ * matching the EXISTING {userId, date} composite index in
+ * firestore.indexes.json byte-for-byte (verified before writing this) — no
+ * new index needs deploying. A `category`/`workoutType` filter was
+ * deliberately left OUT for the same reason (would need a new composite
+ * index); callers that need one category filter the small returned list
+ * client-side instead — a real calendar day realistically has 1-3 workout
+ * docs, so this is cheap.
+ *
+ * `dateISO` is a LOCAL calendar day ('YYYY-MM-DD', toISODate's format) —
+ * boundaries are constructed in local time to match, not UTC.
+ */
+export async function getWorkoutsForDate(
+  userId: string,
+  dateISO: string,
+): Promise<WorkoutHistoryEntry[]> {
+  try {
+    const [year, month, day] = dateISO.split('-').map(Number);
+    if (!year || !month || !day) return [];
+    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const endOfDay = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+
+    const q = query(
+      collection(db, 'workouts'),
+      where('userId', '==', userId),
+      where('date', '>=', Timestamp.fromDate(startOfDay)),
+      where('date', '<', Timestamp.fromDate(endOfDay)),
+      orderBy('date', 'desc'),
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => mapFullWorkoutDoc(docSnap.id, docSnap.data()));
+  } catch (error) {
+    console.error('[getWorkoutsForDate] Failed to fetch workouts for date:', dateISO, error);
+    return [];
   }
 }
 

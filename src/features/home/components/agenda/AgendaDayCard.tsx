@@ -410,13 +410,19 @@ function StrengthCard({
 
   /**
    * Community cards navigate to the group drawer; personal cards call the
-   * workout-preview `onTap`.  Past-day taps are suppressed in both cases.
-   * If the card is swiped open, a tap closes the swipe instead.
+   * workout-preview `onTap`. If the card is swiped open, a tap closes the
+   * swipe instead. Community past-day taps are still suppressed (group-
+   * session history isn't wired anywhere yet — out of scope, F2.2,
+   * 19.08.2026). Personal past-day taps used to be suppressed too (a hard
+   * no-op) — no longer: onTap's caller (home/page.tsx's handleHeroPress)
+   * now resolves whether that day has a real completed workout and opens
+   * its summary; a past day with nothing real found still ends up a no-op
+   * there, so this is additive, not a behavior change for the empty case.
    */
   const activate = useCallback(() => {
-    if (baseMode === 'past') return;
     if (swipeX.get() < -10) { closeSwipe(); return; }
     if (isCommunity) {
+      if (baseMode === 'past') return;
       onCommunityTap?.(entry.groupId ?? '', entry.groupName ?? '');
       return;
     }
