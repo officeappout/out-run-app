@@ -88,6 +88,20 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
       ? Math.round(((workout.setsCompleted ?? 0) / workout.setsPlanned) * 100)
       : null;
 
+  // F1.3 (19.08.2026, "unified workout summary" plan): full per-exercise/
+  // per-set detail when present (F1.1/F1.2 additive field — absent on every
+  // doc saved before this field existed, and on recovery-trio workouts,
+  // which never have real sets). filter(), not find()/segments[0] — a
+  // hybrid doc can have MULTIPLE strength segments (route-stops mode
+  // supports up to 4 stations, confirmed live in production), each with its
+  // own exerciseLog; find() would silently drop every station after the
+  // first (adversarial review, 19.08.2026). One entry per station that
+  // actually has real logged data.
+  const strengthStations =
+    workout.segments
+      ?.filter((seg) => seg.kind === 'strength' && seg.actual?.exerciseLog && seg.actual.exerciseLog.length > 0)
+      .map((seg) => seg.actual!.exerciseLog!) ?? [];
+
   const stats: { icon: React.ReactNode; label: string; value: string }[] = [
     {
       icon: <Timer className="w-5 h-5 text-[#00ADEF]" />,
@@ -197,6 +211,52 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
             </div>
           ))}
         </motion.div>
+
+        {/* Exercise detail — F1.3, only when the workout has real per-set data
+            (additive field, absent on pre-F1 docs and recovery workouts).
+            One card per strength station — a hybrid workout can have several
+            (route-stops mode, up to 4), each with its own real exerciseLog;
+            rendering them separately (not flattened into one list) keeps
+            each station's exercises attributable, and a numbered label only
+            appears at all when there's genuinely more than one. */}
+        {strengthStations.map((stationLog, stationIndex) => (
+          <motion.div
+            key={stationIndex}
+            initial={{ y: 16, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.12 + stationIndex * 0.04 }}
+            className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3"
+          >
+            <h2 className="text-sm font-bold text-gray-900">
+              {strengthStations.length > 1 ? `פירוט תרגילים — תחנה ${stationIndex + 1}` : 'פירוט תרגילים'}
+            </h2>
+            {stationLog.map((ex) => (
+              <div key={ex.exerciseId} className="border-b border-gray-50 last:border-b-0 pb-3 last:pb-0">
+                <div className="text-sm font-semibold text-gray-800 mb-1">{ex.exerciseName}</div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {ex.confirmedReps.map((reps, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-[#EAF7FD] text-[#00ADEF] text-xs font-bold"
+                    >
+                      {reps}
+                    </span>
+                  ))}
+                  {/* יעד מוצג פעם אחת לתרגיל, לא לכל סט — לפרוטוקולים פירמידליים
+                      היעד האמיתי משתנה מסט לסט, אך רק היעד של הסט הראשון נשמר
+                      היום (מגבלה ידועה, לא קשורה לשלב זה). */}
+                  <span className="text-[11px] text-gray-400 mr-1">יעד {ex.targetReps}</span>
+                </div>
+                {(ex.confirmedRepsRight || ex.confirmedRepsLeft) && (
+                  <div className="mt-1.5 flex flex-col gap-1 text-[11px] text-gray-500">
+                    {ex.confirmedRepsRight && <div>ימין: {ex.confirmedRepsRight.join(' · ')}</div>}
+                    {ex.confirmedRepsLeft && <div>שמאל: {ex.confirmedRepsLeft.join(' · ')}</div>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </motion.div>
+        ))}
 
         {/* Coins earned */}
         {workout.earnedCoins > 0 && (

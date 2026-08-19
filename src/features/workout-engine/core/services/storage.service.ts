@@ -406,6 +406,83 @@ export async function deleteWorkout(workoutId: string): Promise<WorkoutHistoryEn
 }
 
 /**
+ * Fetch one workout doc by id (F1.3, 19.08.2026 — "unified workout summary"
+ * plan). No precedent existed for this before F1 — active/page.tsx's own
+ * Firestore fallback synthesizes a fresh generic plan, it doesn't read a
+ * saved workout doc (confirmed during F1's investigation).
+ *
+ * Same "don't distinguish not-found from access-denied" posture as
+ * deleteWorkout() above (both return null either way) — avoids leaking
+ * whether a given id exists to a caller who isn't its owner.
+ *
+ * Maps every WorkoutHistoryEntry field, unlike getWorkoutHistory() above
+ * (which omits segments/setsCompleted/setsPlanned/difficulty — a real,
+ * separate, pre-existing gap in the list-view mapping, not something this
+ * function should copy). A single-doc fetch has no list-performance reason
+ * to trim fields.
+ */
+export async function getWorkoutById(
+  workoutId: string,
+  userId: string,
+): Promise<WorkoutHistoryEntry | null> {
+  try {
+    const { doc, getDoc } = await import('firebase/firestore');
+    const snap = await getDoc(doc(db, 'workouts', workoutId));
+    if (!snap.exists() || snap.data().userId !== userId) {
+      console.warn('[getWorkoutById] Not found or access denied:', workoutId);
+      return null;
+    }
+
+    const data = snap.data();
+    let routePath: RoutePoint[] | [number, number][] | undefined;
+    if (data.routePath && Array.isArray(data.routePath)) {
+      if (data.routePath.length > 0 && typeof data.routePath[0] === 'object' && 'lat' in data.routePath[0]) {
+        routePath = data.routePath as RoutePoint[];
+      } else if (Array.isArray(data.routePath[0])) {
+        routePath = data.routePath as [number, number][];
+      }
+    }
+
+    return {
+      id: snap.id,
+      userId: data.userId,
+      date: toDate(data.date) || new Date(),
+      activityType: data.activityType || 'running',
+      workoutType: data.workoutType || 'running',
+      category: data.category || 'cardio',
+      displayIcon: data.displayIcon || 'run-fast',
+      distance: data.distance || 0,
+      duration: data.duration || 0,
+      calories: data.calories || 0,
+      pace: data.pace || 0,
+      routePath,
+      routeId: data.routeId,
+      routeName: data.routeName,
+      parkId: data.parkId,
+      parkName: data.parkName,
+      earnedCoins: data.earnedCoins || 0,
+      xpEarned: data.xpEarned ?? 0,
+      xpAwardFailed: data.xpAwardFailed,
+      laps: Array.isArray(data.laps) ? data.laps : undefined,
+      elevationGain: typeof data.elevationGain === 'number' ? data.elevationGain : undefined,
+      segments: Array.isArray(data.segments) ? data.segments : undefined,
+      isRecovery: data.isRecovery,
+      difficulty: data.difficulty,
+      setsCompleted: data.setsCompleted,
+      setsPlanned: data.setsPlanned,
+      sessionKind: data.sessionKind,
+      commuteDestination: data.commuteDestination,
+      commuteLabel: data.commuteLabel,
+      groupId: data.groupId,
+      attendanceId: data.attendanceId,
+    } as WorkoutHistoryEntry;
+  } catch (error) {
+    console.error('[getWorkoutById] Failed to fetch workout:', workoutId, error);
+    return null;
+  }
+}
+
+/**
  * Convert Firestore Timestamp to Date
  */
 function toDate(timestamp: unknown): Date | undefined {
