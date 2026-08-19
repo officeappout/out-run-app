@@ -7,13 +7,27 @@
  * them to the new `osm_amenities` collection.
  *
  * ── THE HARD GATE (read this before changing anything below) ────────────
- * Every candidate point is checked against the ~1166 existing curated
- * `parks` docs via garden-dedup.service.ts's findNearestGardenMatch
- * BEFORE it is ever written — a point within GARDEN_DEDUP_RADIUS_METERS of
- * an existing park is written with status:'rejected' and
- * suppressedDuplicateOfParkId set, NEVER as a fresh 'pending' point. This
- * is enforced structurally in buildAmenityDoc() below — there is no code
- * path that writes a point without first running this check.
+ * fitness_station candidates ONLY are checked against the ~1166 existing
+ * curated `parks` docs via garden-dedup.service.ts's findNearestGardenMatch
+ * BEFORE they're ever written — a fitness_station within
+ * GARDEN_DEDUP_RADIUS_METERS of an existing park is written with
+ * status:'rejected' and suppressedDuplicateOfParkId set, NEVER as a fresh
+ * 'pending' point. This is enforced in the classify-loop in main() below
+ * (`classified.category === 'fitness_station'` gates the dedup call
+ * entirely) — there is no code path that suppresses a non-fitness_station
+ * candidate.
+ *
+ * ── DEDUP SCOPE: fitness_station ONLY (David's product decision,
+ * 19.08.2026) ────────────────────────────────────────────────────────────
+ * Originally every category was gated by this dedup check. Narrowed to
+ * fitness_station only: park exercise equipment near an existing curated
+ * park genuinely is the same thing (redundant to surface twice). Benches,
+ * courts, and drinking-water fountains are NOT redundant just for sitting
+ * near a park — a bench 30m from a park entrance is still a real, distinct,
+ * useful amenity, and suppressing it hid genuinely useful data (56 of the
+ * first 88 suppressed docs were non-fitness_station, confirmed by category
+ * breakdown before this fix). Applies to every future run (Haifa included)
+ * from the start — not a TLV-only patch.
  *
  * Dedup candidate list: a full `parks` collection scan (~1166 docs, small
  * enough that brute-force point-to-point comparison is fine at this scale
@@ -376,7 +390,12 @@ async function main() {
       spilloverCount++;
       continue;
     }
-    const suppressed = findNearestGardenMatch(point, gardenCandidates, GARDEN_DEDUP_RADIUS_METERS);
+    // Dedup scope: fitness_station only (see header comment) — benches,
+    // courts, and drinking-water fountains skip this gate entirely and are
+    // never suppressed for merely being near a park.
+    const suppressed = classified.category === 'fitness_station'
+      ? findNearestGardenMatch(point, gardenCandidates, GARDEN_DEDUP_RADIUS_METERS)
+      : null;
     outcomes.push({
       category: classified.category,
       sport: classified.sport,
