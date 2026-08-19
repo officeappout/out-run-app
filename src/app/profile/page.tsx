@@ -22,13 +22,7 @@ const CreateGroupWizard = nextDynamic(
   () => import('@/features/arena/components/CreateGroupWizard'),
   { ssr: false },
 );
-import FreeRunSummary from '@/features/workout-engine/players/running/components/FreeRun/FreeRunSummary';
-import StrengthHistoryDetail from '@/features/profile/components/StrengthHistoryDetail';
 import { useWorkoutHistory } from '@/features/profile/hooks/useWorkoutHistory';
-import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
-import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
-import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
-import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 import type { OnboardingStepId } from '@/features/user/onboarding/types';
 import { getAllGearDefinitions, type GearDefinition } from '@/features/content/equipment/gear';
 import { doc as firestoreDoc, updateDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -44,39 +38,6 @@ function formatBirthDate(raw: unknown): string | null {
   const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (match) return `${match[3]}/${match[2]}/${match[1]}`;
   return str;
-}
-
-// Hebrew label for DeleteWorkoutConfirmModal's `activityLabel` prop — same
-// workoutType set ActivityHistoryCard/HistoryTab already switch on, extended
-// to cover 'running' and 'strength' since a delete can be triggered from
-// either read-only detail screen (FreeRunSummary or StrengthHistoryDetail).
-function workoutActivityLabel(workoutType: WorkoutHistoryEntry['workoutType']): string {
-  switch (workoutType) {
-    case 'running':
-      return 'ריצה';
-    case 'walking':
-      return 'הליכה';
-    case 'cycling':
-      return 'רכיבה';
-    case 'hybrid':
-      return 'אימון משולב';
-    case 'strength':
-      return 'אימון כוח';
-    case 'recovery':
-      return 'אימון התאוששות';
-    default:
-      return 'אימון';
-  }
-}
-
-// DeleteWorkoutConfirmModal's `dateLabel` prop wants an already-formatted,
-// human string (its own doc comment example: "12.08.2026"). dot-separated,
-// zero-padded day/month.
-function workoutDateLabel(date: Date): string {
-  const d = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  return `${day}.${month}.${d.getFullYear()}`;
 }
 
 const EQUIPMENT_SVG_MAP: Record<string, string> = {
@@ -132,25 +93,17 @@ export default function ProfilePage() {
   // ── Creator Hub drawers ──
   const [managementGroupId, setManagementGroupId] = useState<string | null>(null);
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
-  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutHistoryEntry | null>(null);
-  // Delete-confirm state for the FreeRunSummary read-only (historical) path.
-  // Only ever opened when WORKOUT_DELETE_EXPANDED_ENABLED is true — see the
-  // onDelete wiring below.
-  const [showWorkoutDeleteConfirm, setShowWorkoutDeleteConfirm] = useState(false);
 
-  // Owned here (not inside HistoryTab) so the list + removeWorkout survive
-  // the swap below to StrengthHistoryDetail/FreeRunSummary: that swap is a
-  // top-level `if (selectedWorkout) return ...` early-return that replaces
-  // ProfilePage's ENTIRE returned subtree, which fully unmounts HistorySheet
-  // → HistoryTab (and would destroy a hook-local list there) every time a
-  // workout is opened, then remounts it fresh on close. ProfilePage itself
-  // never unmounts across that swap, so state kept here does. `enabled`
-  // defers the fetch until the history sheet has actually been opened (or a
-  // workout is already selected, e.g. StrengthHistoryDetail's delete path),
-  // matching HistoryTab's previous on-open-only fetch instead of reading on
-  // every profile page load.
+  // F2.1 (19.08.2026, "unified workout summary" plan): tapping a workout now
+  // navigates to /workouts/[id]/history (real route) instead of swapping to
+  // an in-page overlay (selectedWorkout state, StrengthHistoryDetail/
+  // FreeRunSummary rendered inline here, their own delete-confirm flow) —
+  // that whole overlay is gone; the new route owns viewing AND deleting a
+  // workout on its own now. `enabled` still defers the fetch until the
+  // history sheet has actually been opened, matching HistoryTab's previous
+  // on-open-only fetch instead of reading on every profile page load.
   const { workouts: historyWorkouts, isLoading: historyLoading, removeWorkout } =
-    useWorkoutHistory(50, historySheetOpen || !!selectedWorkout);
+    useWorkoutHistory(50, historySheetOpen);
 
   const [gearDefs, setGearDefs] = useState<GearDefinition[]>([]);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
@@ -346,74 +299,6 @@ export default function ProfilePage() {
     );
   }
 
-  // Confirm-delete for the FreeRunSummary read-only path (past aerobic/hybrid
-  // workouts). Only reachable while WORKOUT_DELETE_EXPANDED_ENABLED is true —
-  // FreeRunSummary only renders its trash-icon trigger when it was passed a
-  // real onDelete, which is itself only passed while the flag is on (see
-  // below). Mirrors StrengthHistoryDetail's handleConfirmDelete shape.
-  const handleConfirmDeleteWorkout = async () => {
-    if (!selectedWorkout?.id) {
-      // No id to delete against — dismiss and bail rather than calling
-      // deleteWorkoutWithReversal with an empty string.
-      setShowWorkoutDeleteConfirm(false);
-      return;
-    }
-    await deleteWorkoutWithReversal(selectedWorkout.id);
-    setShowWorkoutDeleteConfirm(false);
-    setSelectedWorkout(null);
-  };
-
-  if (selectedWorkout) {
-    // 'recovery' routes to the same strength-shaped detail view (StrengthHistoryDetail
-    // is itself made recovery-aware — see its workoutType==='recovery' branches) —
-    // otherwise a recovery session would incorrectly fall through to FreeRunSummary,
-    // a GPS/pace/distance UI that doesn't fit a video session.
-    // 'hybrid' fix (F1.4, 19.08.2026 — "unified workout summary" plan): a hybrid
-    // workout used to fall through to FreeRunSummary too — the same wrong-UI bug
-    // recovery already had a fix for, just never extended to hybrid. Now that
-    // StrengthHistoryDetail shows real per-station exercise detail (F1.3), it's
-    // the correct destination for hybrid the same way it already was for recovery.
-    const isStrength =
-      selectedWorkout.workoutType === 'strength' ||
-      selectedWorkout.workoutType === 'recovery' ||
-      selectedWorkout.workoutType === 'hybrid' ||
-      selectedWorkout.category === 'strength' ||
-      selectedWorkout.category === 'hybrid';
-    if (isStrength) {
-      return (
-        <StrengthHistoryDetail
-          workout={selectedWorkout}
-          onClose={() => setSelectedWorkout(null)}
-          onWorkoutDeleted={removeWorkout}
-        />
-      );
-    }
-    return (
-      <>
-        <FreeRunSummary
-          workout={selectedWorkout}
-          isReadOnly={true}
-          onClose={() => setSelectedWorkout(null)}
-          onDelete={
-            WORKOUT_DELETE_EXPANDED_ENABLED
-              ? () => setShowWorkoutDeleteConfirm(true)
-              : undefined
-          }
-        />
-        {WORKOUT_DELETE_EXPANDED_ENABLED && (
-          <DeleteWorkoutConfirmModal
-            isOpen={showWorkoutDeleteConfirm}
-            activityLabel={workoutActivityLabel(selectedWorkout.workoutType)}
-            dateLabel={workoutDateLabel(selectedWorkout.date)}
-            xpToReverse={selectedWorkout.xpEarned ?? 0}
-            onConfirm={handleConfirmDeleteWorkout}
-            onCancel={() => setShowWorkoutDeleteConfirm(false)}
-          />
-        )}
-      </>
-    );
-  }
-
   const progression = profile?.progression;
   const activeProgramName =
     progression?.activePrograms?.[0]?.name ?? progression?.currentLevel ?? null;
@@ -581,7 +466,15 @@ export default function ProfilePage() {
       <HistorySheet
         isOpen={historySheetOpen}
         onClose={() => setHistorySheetOpen(false)}
-        onWorkoutClick={(workout) => setSelectedWorkout(workout)}
+        onWorkoutClick={(workout) => {
+          // F2.1 (19.08.2026): navigates to the shared unified-summary route
+          // instead of swapping to an in-page overlay (see the removed
+          // selectedWorkout state above). Guarded on workout.id existing —
+          // WorkoutHistoryEntry.id is optional in the type (a doc always has
+          // one once it's come back from Firestore, which every real
+          // HistorySheet entry has, but the type itself doesn't guarantee it).
+          if (workout.id) router.push(`/workouts/${workout.id}/history`);
+        }}
         workouts={historyWorkouts}
         isLoading={historyLoading}
         removeWorkout={removeWorkout}

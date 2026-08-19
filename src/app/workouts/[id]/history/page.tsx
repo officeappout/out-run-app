@@ -13,42 +13,31 @@
  *
  * Branches on category, not a new component: strength/hybrid/recovery reuse
  * StrengthHistoryDetail (now showing the F1.1/F1.2 per-set exerciseLog when
- * present); cardio reuses the existing summary display blocks
- * (RunMapBlock/LapPaceChart/LapTableBlock) against the doc's own saved
- * routePath/laps — no new GPS-trace persistence (David's call, 19.08.2026):
- * "יש כבר בסיס מספיק... זה מספיק ל-F1".
+ * present, and delete-capable on its own — no wiring needed here); cardio
+ * reuses FreeRunSummary in its existing isReadOnly mode (F2.1 fix, 19.08.2026
+ * — the initial F1.3 cut built a smaller custom view here instead of reusing
+ * FreeRunSummary, which silently dropped delete capability for cardio
+ * workouts and diverged from what the plan's own investigation identified as
+ * the correct destination; caught while wiring real navigation to this route
+ * in F2.1, before that gap could reach production). FreeRunSummary owns its
+ * own map/stats/laps rendering; this file only owns the delete-confirm flow
+ * around it, mirroring the exact pattern profile/page.tsx used to own before
+ * F2.1 replaced its in-page overlay with real navigation here.
  */
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ArrowRight } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { getWorkoutById, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import StrengthHistoryDetail from '@/features/profile/components/StrengthHistoryDetail';
-import SummaryStatsGrid from '@/features/workout-engine/summary/components/shared/SummaryStatsGrid';
-import RunMapBlock from '@/features/workout-engine/summary/components/running/RunMapBlock';
-import LapTableBlock from '@/features/workout-engine/summary/components/running/LapTableBlock';
-import LapPaceChart from '@/features/workout-engine/summary/components/shared/LapPaceChart';
+import FreeRunSummary from '@/features/workout-engine/players/running/components/FreeRun/FreeRunSummary';
+import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
+import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
+import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
+import { workoutActivityLabel, workoutDateLabel } from '@/features/workout-engine/core/utils/workoutLabels';
 
 type LoadStatus = 'loading' | 'ready' | 'not-found';
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('he-IL', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-/** Firestore always persists {lat,lng} objects (storage.service.ts's saveWorkout
- * conversion) — this tolerates legacy [lng,lat] tuple docs too, matching the
- * same defensive check getWorkoutById itself already does on read. */
-function toLngLatTuples(routePath: WorkoutHistoryEntry['routePath']): number[][] {
-  if (!routePath) return [];
-  return routePath.map((p) => (Array.isArray(p) ? p : [p.lng, p.lat]));
-}
 
 export default function WorkoutHistoryPage() {
   const params = useParams();
@@ -56,6 +45,12 @@ export default function WorkoutHistoryPage() {
   const workoutId = params.id as string;
   const [workout, setWorkout] = useState<WorkoutHistoryEntry | null>(null);
   const [status, setStatus] = useState<LoadStatus>('loading');
+  // Cardio-branch delete-confirm state — declared unconditionally at the top
+  // (rules-of-hooks) even though it's only ever used once status==='ready'
+  // and the workout is cardio. Mirrors profile/page.tsx's pre-F2.1
+  // handleConfirmDeleteWorkout, just relocated here now that this route (not
+  // the old in-page overlay) owns viewing a cardio workout.
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (!workoutId) {
@@ -117,57 +112,38 @@ export default function WorkoutHistoryPage() {
     return <StrengthHistoryDetail workout={workout} onClose={handleClose} />;
   }
 
-  // Cardio — reuse the existing summary display blocks against the doc's own
-  // saved routePath/laps. Same header chrome as StrengthHistoryDetail's for
-  // visual consistency across the two branches of this one shared route.
-  const routeCoords = toLngLatTuples(workout.routePath);
-  const hasLaps = !!workout.laps && workout.laps.length > 0;
+  // Cardio — FreeRunSummary already owns the exact read-only rendering this
+  // needs (map/stats/laps + share/save chrome hidden via isReadOnly); this
+  // route only owns the delete-confirm flow around it, same split
+  // profile/page.tsx's pre-F2.1 overlay used.
+  const handleConfirmDeleteWorkout = async () => {
+    if (!workout.id) {
+      setShowDeleteConfirm(false);
+      return;
+    }
+    await deleteWorkoutWithReversal(workout.id);
+    setShowDeleteConfirm(false);
+    handleClose();
+  };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#F8FAFC] flex flex-col" dir="rtl">
-      <div className="flex items-center gap-3 px-4 pt-safe pt-4 pb-3 bg-white border-b border-gray-100">
-        <button
-          onClick={handleClose}
-          className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-          aria-label="חזור"
-        >
-          <ArrowRight className="w-5 h-5 text-gray-600" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-base font-bold text-gray-900">סיכום אימון</h1>
-          <p className="text-xs text-gray-500 mt-0.5">{formatDate(workout.date)}</p>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {routeCoords.length > 1 ? (
-          <div style={{ height: 200, borderRadius: 12, overflow: 'hidden' }}>
-            <RunMapBlock
-              routeCoords={routeCoords}
-              startCoord={routeCoords[0]}
-              endCoord={routeCoords[routeCoords.length - 1]}
-            />
-          </div>
-        ) : (
-          <div
-            style={{ height: 200, borderRadius: 12, background: '#E7F1ED' }}
-            className="flex items-center justify-center text-[13px] text-gray-400"
-          >
-            אין נתוני מסלול
-          </div>
-        )}
-
-        <SummaryStatsGrid
-          time={workout.duration}
-          distance={workout.distance}
-          calories={workout.calories}
-          pace={workout.pace}
-          elevationGain={workout.elevationGain}
+    <>
+      <FreeRunSummary
+        workout={workout}
+        isReadOnly
+        onClose={handleClose}
+        onDelete={WORKOUT_DELETE_EXPANDED_ENABLED ? () => setShowDeleteConfirm(true) : undefined}
+      />
+      {WORKOUT_DELETE_EXPANDED_ENABLED && (
+        <DeleteWorkoutConfirmModal
+          isOpen={showDeleteConfirm}
+          activityLabel={workoutActivityLabel(workout.workoutType)}
+          dateLabel={workoutDateLabel(workout.date)}
+          xpToReverse={workout.xpEarned ?? 0}
+          onConfirm={handleConfirmDeleteWorkout}
+          onCancel={() => setShowDeleteConfirm(false)}
         />
-
-        {hasLaps && <LapPaceChart laps={workout.laps!} />}
-        {hasLaps && <LapTableBlock laps={workout.laps!} />}
-      </div>
-    </div>
+      )}
+    </>
   );
 }
