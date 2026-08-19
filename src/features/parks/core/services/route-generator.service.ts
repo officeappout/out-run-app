@@ -312,6 +312,24 @@ interface StreetSegment {
    */
   inclinePct?: number | null;
   /**
+   * DEM-sampled grade (percent, steepest local pitch) and elevation gain
+   * (meters), computed from Mapbox Terrain-RGB via scripts/populate-street-
+   * segment-elevation.ts (19.08.2026, full city-mapping build) —
+   * DELIBERATELY SEPARATE from inclinePct above, not a replacement/merge:
+   * inclinePct is sparse and only present where OSM happened to tag an
+   * `incline=*` value on the way (confirmed live: 0/11,180 real segments
+   * have it, as of this field's own introduction); demGradePercent is
+   * computed for EVERY segment with usable path geometry, regardless of
+   * OSM tagging, from the same DEM tile cache routes/climbs already use.
+   * Two different provenances (OSM-tag vs. DEM-sampled) kept in two
+   * different fields on purpose — smearing them into one would hide which
+   * source produced a given value. Not yet consumed by scoreSegment/
+   * scoreWaypoint or any generator logic — same "parsed and stored only,
+   * generator wiring is a separate future step" scope as inclinePct.
+   */
+  demGradePercent?: number | null;
+  demElevationGainM?: number | null;
+  /**
    * Granular ground-material vocabulary, mapped from the OSM `surface` tag
    * by osm-segment-importer.ts (surface-type phase of the route-enrichment-
    * pipeline plan). Not yet consumed by scoreSegment/scoreWaypoint — parsed

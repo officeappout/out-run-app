@@ -123,6 +123,11 @@ const StreetSegmentFieldsSchema = z.object({
   /** Granular ground-material vocabulary, parsed from the OSM `surface`
    *  tag — see surface-type.ts's header comment. */
   surfaceType: SurfaceTypeSchema.optional(),
+  /** DEM-sampled grade/elevation — see StreetSegment.demGradePercent's own
+   *  doc comment (route-generator.service.ts) for why this is deliberately
+   *  separate from the OSM-tag-derived inclinePct above. */
+  demGradePercent: z.number().nullable().optional(),
+  demElevationGainM: z.number().nullable().optional(),
   /** Cross-refs to nearby climb_segments doc ids, written by Stage 3's
    *  spatial join — see StreetSegment.nearbyClimbSegmentIds's doc comment
    *  (route-generator.service.ts). */
