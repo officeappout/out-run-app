@@ -271,6 +271,19 @@ const steps: Step[] = [
     // same as routes).
     baseArgs: ['--city', config.cityName, '--bbox', bboxArg, '--in', climbSegmentsJsonPath, ...boundaryArgs],
     writeFlagStyle: 'apply',
+    // CRITICAL, found by independent review before this ever ran live:
+    // write-climb-segments-tlv.ts's own CLI convention is opt-in dry-run
+    // (`DRY = process.argv.includes('--dry-run')`, default = LIVE write) —
+    // the inverse of every other 'apply'-style script here (default =
+    // safe dry-run, `--apply` opts INTO writing). Without this flag,
+    // runStep()'s default (non-apply) branch appends nothing at all for a
+    // plain 'apply'-style step, so a bare `map-city.ts --city=<x>` (the
+    // documented "everything dry-run" default) would have silently
+    // written real climb_segments docs for ANY city, including a routine
+    // TLV re-verification. requiresExplicitDryRunFlag forces --dry-run to
+    // be appended on the default path, same fix already in place for the
+    // 2 street-segment-import steps, which have this exact same quirk.
+    requiresExplicitDryRunFlag: true,
   },
   {
     label: 'Lit-tag rollup (night_lighting auto-suggest)',

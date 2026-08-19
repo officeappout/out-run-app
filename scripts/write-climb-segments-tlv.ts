@@ -347,6 +347,14 @@ async function build(boundaryPoly: number[][] | null) {
 }
 
 async function main() {
+  // This script's convention is opt-in dry-run (--dry-run required to stay
+  // safe; the DEFAULT with no flags at all is a LIVE write) — the inverse
+  // of every --apply-style script in this pipeline. Printed loudly and
+  // explicitly on every run, not just implied, after a real bug (found by
+  // independent review, 19.08.2026, before it ever ran live) where the
+  // orchestrator's default "dry-run everything" invocation appended no
+  // flag at all to this step, silently writing real climb_segments docs.
+  console.log(DRY ? '⚠️  DRY-RUN mode — climb_segments will NOT be written.' : '🔴 LIVE mode — climb_segments WILL be written (no --dry-run flag present).');
   const db = initFb(); const col = db.collection(COL);
   if (DEL) { const snap = await col.where('importBatchId', '==', BATCH).get(); console.log(`deleting ${snap.size} ...`); let b = db.batch(), n = 0; for (const d of snap.docs) { b.delete(d.ref); if (++n % 450 === 0) { await b.commit(); b = db.batch(); } } await b.commit(); console.log('✅ deleted'); return; }
 
