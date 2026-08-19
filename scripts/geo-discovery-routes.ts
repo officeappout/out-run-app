@@ -48,6 +48,15 @@ interface Region {
   label: string;        // city label persisted on each route
   /** Overpass area selector body (e.g. an admin boundary by wikidata) — the primary boundary. */
   areaWikidata?: string;
+  /** Wikidata id of the real admin boundary, used ONLY as a post-discovery clipping
+   *  filter — deliberately decoupled from areaWikidata. Using the admin area as
+   *  Overpass DISCOVERY SCOPE collapses marked-trail RELATION matching (Overpass's
+   *  area-vs-bbox relation-containment semantics differ for relations that only
+   *  partially cross the boundary — confirmed empirically on Haifa: 51→0
+   *  trail-relations when areaWikidata was used for both). Optional — a region
+   *  without this field simply gets no boundary clip (fail-open, same as every
+   *  region before this field existed). */
+  boundaryClipWikidata?: string;
   /** Extra bounding boxes to also sweep (e.g. an adjacent nature park not in the admin area). */
   extraBboxes?: Array<{ latMin: number; lonMin: number; latMax: number; lonMax: number }>;
   /** Overall bbox that encloses the whole region — used for DEM tiles + blocking-polygon fetch. */
@@ -140,6 +149,24 @@ const REGIONS: Record<string, Region> = {
       { key: 'national-park', label: 'גן לאומי אשקלון', lat: 31.6577, lng: 34.5444 },
     ],
     batchId: 'ashkelon-roundtrip-2026-07-22',
+  },
+
+  // חיפה — full municipal boundary (rel/1387888, wikidata Q41621, admin_level 8).
+  // Discovery scope is bbox-only (areaWikidata deliberately NOT set — see
+  // boundaryClipWikidata's doc comment on the Region interface: using the admin
+  // area as discovery scope collapses marked-trail relation matching). bbox
+  // matches scripts/map-city.ts's CITY_CONFIGS.haifa exactly (estimated ±0.06°
+  // around the authority's center — no existing route/segment geometry to derive
+  // a tighter one from as of 19.08.2026). boundaryClipWikidata drives the
+  // post-discovery clip only, dropping real-but-out-of-bounds candidates (e.g.
+  // שוויצריה הקטנה / Little Switzerland, ~2km outside the real boundary).
+  haifa: {
+    key: 'haifa',
+    label: 'חיפה',
+    extraBboxes: [{ latMin: 32.734, lonMin: 34.9296, latMax: 32.854, lonMax: 35.0496 }],
+    bbox: { latMin: 32.734, lonMin: 34.9296, latMax: 32.854, lonMax: 35.0496 },
+    boundaryClipWikidata: 'Q41621',
+    batchId: 'haifa-geodiscovery-2026-08-19',
   },
 };
 
@@ -238,6 +265,19 @@ type Candidate = {
   // Mapbox-round-trip candidates have none (undefined, never guessed).
   // Mapped to the granular SurfaceType in buildRouteDoc via mapOsmSurfaceToType.
   osmSurface?: string;
+  // Broad bicycle-infrastructure detection (19.08.2026, standard for every region,
+  // not a fallback): set when highway=cycleway (dedicated way), bicycle=designated|
+  // yes on a footway/path (shared/permitted-cycling path), segregated=yes (shared
+  // foot/bike path), OR the way was fetched via the dedicated road-bike-lane query
+  // (cycleway=lane|track|opposite_lane|opposite_track / cycleway:left|right=* — a
+  // lane painted onto an ordinary street). Length/name floor deliberately left
+  // as-is for these candidates (same 500-12000m + named-only bar as every other
+  // segment) — real dedicated cycleway fragments that are unnamed or individually
+  // short (a common OSM way-splitting pattern) are correctly NOT surfaced by this
+  // floor; confirmed via direct Overpass query against Haifa's real Bat Galim /
+  // Hulda Gurevich promenade cycleway. Deferred, not silently dropped — see the
+  // Haifa runbook's Part A for the concrete example.
+  isBicycle?: boolean;
 };
 
 // Stitch relation member ways (that intersect the region) into ordered polylines by
@@ -335,18 +375,46 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     const L = pathLen(pts);
     const isLoop = hav(pts[0], pts[pts.length - 1]) < LOOP_CLOSE_M && L > LEN_LOOP_MIN;
     const surface: 'road' | 'trail' = (t.highway === 'pedestrian' || t.surface === 'paved' || t.surface === 'asphalt') ? 'road' : 'trail';
+    // Broad bike-vocabulary detection on already-fetched footway/path/track/
+    // pedestrian/cycleway candidates: dedicated cycleway ways, shared paths
+    // explicitly open to cycling, and segregated=yes shared foot/bike paths.
+    // (Roads with a cycleway=* lane tag are a separate universe, not in this
+    // fetch — handled by the dedicated query below, step 2b.)
+    const isBicycle = t.highway === 'cycleway' || t.bicycle === 'designated' || t.bicycle === 'yes' || t.segregated === 'yes';
     if (isLoop) {
       if (L < LEN_LOOP_MIN || L > LEN_LOOP_MAX) continue;
-      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name || null, kind: 'loop', pts, lengthM: Math.round(L), isLoop: true, surface, highway: t.highway, osmSurface: t.surface });
+      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name || null, kind: 'loop', pts, lengthM: Math.round(L), isLoop: true, surface, highway: t.highway, osmSurface: t.surface, isBicycle });
       stats.loops++;
     } else {
       // standalone non-loop segments: only keep NAMED ways of usable length (an unnamed
       // 300m path fragment is rarely a route on its own; named ones are real trails/promenades)
       if (!t.name) continue;
       if (L < LEN_SEG_MIN || L > LEN_SEG_MAX) continue;
-      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name, kind: 'segment', pts, lengthM: Math.round(L), isLoop: false, surface, highway: t.highway, osmSurface: t.surface });
+      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name, kind: 'segment', pts, lengthM: Math.round(L), isLoop: false, surface, highway: t.highway, osmSurface: t.surface, isBicycle });
       stats.segments++;
     }
+  }
+
+  // 2b) road bike lanes: cycleway=lane|track|opposite_lane|opposite_track, or
+  // cycleway:left/right=* (a lane painted onto an ordinary street, not a
+  // dedicated way) — a separate highway-type universe (residential/primary/
+  // secondary/etc.) not covered by the footway|path|track|pedestrian|cycleway
+  // fetch above, so this is its own dedicated Overpass query.
+  console.log('discovering road bike lanes (cycleway=lane|track|opposite_lane|opposite_track or cycleway:left/right) …');
+  const bikeLaneParts = scopes.map(sc => `way["cycleway"~"^(lane|track|opposite_lane|opposite_track)$"]${sc};way["cycleway:left"]${sc};way["cycleway:right"]${sc};`).join('');
+  const bikeLaneData = await overpass(`[out:json][timeout:180];${decl}(${bikeLaneParts})->.bl;.bl out geom tags;`);
+  stats.bikeLaneWays = bikeLaneData.elements.filter((e: any) => e.type === 'way').length;
+  for (const e of bikeLaneData.elements) {
+    if (e.type !== 'way' || !e.geometry || e.geometry.length < 2) continue;
+    if (seenWayIds.has(e.id)) continue;
+    const t = e.tags || {};
+    if (!t.name) continue; // same named-only bar as standalone segments — street name counts as a name
+    const pts = wayGeom(e);
+    const L = pathLen(pts);
+    if (L < LEN_SEG_MIN || L > LEN_SEG_MAX) continue;
+    const isLoop = hav(pts[0], pts[pts.length - 1]) < LOOP_CLOSE_M && L > LEN_LOOP_MIN;
+    candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name, kind: isLoop ? 'loop' : 'segment', pts, lengthM: Math.round(L), isLoop, surface: 'road', highway: t.highway, osmSurface: t.surface, isBicycle: true });
+    stats.bikeLaneSegments = (stats.bikeLaneSegments || 0) + 1;
   }
 
   // 3) blocking polygons (water + buildings) for artifact filtering.
@@ -378,6 +446,36 @@ function artifactReason(pts: number[][], blockPolys: { poly: number[][]; label: 
   return inside / pts.length > 0.2 ? `over ${label} (${inside}/${pts.length} pts)` : null;
 }
 
+// ─────────────────── municipal-boundary clip (standing capability) ───────────────────
+// Fetches the real admin boundary polygon for a region's `boundaryClipWikidata` (when
+// set), used ONLY as a post-discovery clipping filter — see the Region interface's
+// doc comment for why this is deliberately never used as discovery scope. Any region
+// may opt in by supplying the field; a region without it gets no boundary clip
+// (outsideBoundaryReason fails open below), matching every region's behavior before
+// this capability existed.
+async function fetchAdminBoundaryPoly(wikidataId: string): Promise<number[][] | null> {
+  const q = `[out:json][timeout:120];rel["wikidata"="${wikidataId}"]["boundary"="administrative"];out geom;(._;>;);out geom;`;
+  const data = await overpass(q);
+  const rel = data.elements.find((e: any) => e.type === 'relation');
+  if (!rel) return null;
+  const wayById = new Map<number, number[][]>();
+  for (const e of data.elements) if (e.type === 'way' && e.geometry) wayById.set(e.id, wayGeom(e));
+  const outerWays: number[][][] = [];
+  for (const m of rel.members || []) if (m.type === 'way' && m.role !== 'inner' && wayById.has(m.ref)) outerWays.push(wayById.get(m.ref)!);
+  const rings = stitch(outerWays, 200);
+  if (!rings.length) return null;
+  return rings.reduce((a, b) => b.length > a.length ? b : a);
+}
+// Mirrors artifactReason's fraction style, inverted: drop a candidate if a majority
+// of its points fall OUTSIDE the real municipal boundary. Fail-open (never filters)
+// when no polygon was loaded — this file's "never silently guess" discipline.
+function outsideBoundaryReason(pts: number[][], boundaryPoly: number[][] | null): string | null {
+  if (!boundaryPoly) return null;
+  let outside = 0;
+  for (const p of pts) if (!inPoly(p, boundaryPoly)) outside++;
+  return outside / pts.length > 0.5 ? `outside boundary (${outside}/${pts.length} pts)` : null;
+}
+
 // ─────────────────────────────── route doc builder ───────────────────────────────
 const B32 = '0123456789bcdefghjkmnpqrstuvwxyz';
 function geohash(lat: number, lon: number, prec = 7) { let idx = 0, bit = 0, even = true, h = ''; const la = [-90, 90], lo = [-180, 180]; while (h.length < prec) { if (even) { const m = (lo[0] + lo[1]) / 2; if (lon >= m) { idx = idx * 2 + 1; lo[0] = m; } else { idx = idx * 2; lo[1] = m; } } else { const m = (la[0] + la[1]) / 2; if (lat >= m) { idx = idx * 2 + 1; la[0] = m; } else { idx = idx * 2; la[1] = m; } } even = !even; if (++bit === 5) { h += B32[idx]; bit = 0; idx = 0; } } return h; }
@@ -385,8 +483,9 @@ function geohash(lat: number, lon: number, prec = 7) { let idx = 0, bit = 0, eve
 function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | null, authorityId: string) {
   const distance = c.lengthM; // meters (matches formatDistance + TLV pilot)
   // walking is the safe default for nature trails; paved pedestrian promenades also run well.
-  const activityTypes = ['walking', 'running'];
-  const activityType = c.surface === 'road' ? 'running' : 'walking';
+  // Bicycle-tagged candidates (isBicycle) get their own activityType — see Candidate.isBicycle.
+  const activityTypes = c.isBicycle ? ['cycling'] : ['walking', 'running'];
+  const activityType = c.isBicycle ? 'cycling' : (c.surface === 'road' ? 'running' : 'walking');
   const kindHe = c.isLoop ? 'לולאה' : c.kind === 'trail' ? 'שביל מסומן' : 'מסלול';
   const name = c.osmName
     ? (c.isLoop ? `לולאת ${c.osmName}` : c.osmName)
@@ -404,10 +503,12 @@ function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | 
     name,
     description: `${kindHe} ${c.surface === 'trail' ? 'שטח' : 'סלול'} ב${REGION.label}${c.osmName ? ` — ${c.osmName}` : ''}`,
     distance,
-    duration: Math.round(distance / (activityType === 'running' ? 150 : 90)),
+    // Cycling divisor/multiplier are feel-based estimates, same rigor level as the
+    // walking/running constants they sit beside — flagged for calibration review.
+    duration: Math.round(distance / (c.isBicycle ? 250 : activityType === 'running' ? 150 : 90)),
     score: Math.round(distanceKm * 10),
     rating: c.isLoop ? 5 : 4,
-    calories: Math.round(distanceKm * 65),
+    calories: Math.round(distanceKm * (c.isBicycle ? 35 : 65)),
     type: activityType,
     activityType,
     activityTypes,
@@ -584,13 +685,19 @@ async function main() {
   console.log(`resolved authority: ${REGION.label} → ${resolvedAuthorityId}`);
 
   console.log('loading Terrain-RGB DEM tiles …'); await loadTiles(); console.log(`  decoded ${tiles.size} tiles`);
+  let boundaryPoly: number[][] | null = null;
+  if (REGION.boundaryClipWikidata) {
+    console.log(`fetching admin boundary polygon (wikidata=${REGION.boundaryClipWikidata}, clip-filter only — not used as discovery scope) …`);
+    boundaryPoly = await fetchAdminBoundaryPoly(REGION.boundaryClipWikidata);
+    console.log(boundaryPoly ? `  boundary polygon loaded: ${boundaryPoly.length} vertices` : '  ⚠ boundary polygon not found — clip filter skipped');
+  }
   let candidates: Candidate[] = [];
   let blockPolys: { poly: number[][]; label: string }[] = [];
   let stats: any = {};
   if (!SKIP_OSM) {
     const d = await discover();
     candidates = d.candidates; blockPolys = d.blockPolys; stats = d.stats;
-    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways). blocking polygons: ${blockPolys.length}`);
+    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
   } else {
     console.log('--skip-osm: skipping Overpass discovery; fetching blocking polygons only (for the round-trip artifact filter) …');
     blockPolys = await fetchBlockPolys(REGION.bbox);
@@ -612,9 +719,12 @@ async function main() {
   // anything this investigation missed.
   const kept: { doc: ReturnType<typeof buildRouteDoc>; c: Candidate }[] = [];
   const dropped: { name: string; reason: string }[] = [];
+  const boundaryDropped: { name: string; reason: string }[] = [];
   for (const c of candidates) {
     const reason = artifactReason(c.pts, blockPolys);
     if (reason) { dropped.push({ name: c.osmName || c.externalId, reason }); continue; }
+    const boundaryReason = outsideBoundaryReason(c.pts, boundaryPoly);
+    if (boundaryReason) { boundaryDropped.push({ name: c.osmName || c.externalId, reason: boundaryReason }); continue; }
     const dem = demProfile(c.pts);
     const doc = buildRouteDoc(c, dem, resolvedAuthorityId);
     try {
@@ -628,15 +738,20 @@ async function main() {
   // Prefer loops: loops first, then by (climb-weighted) length descending.
   kept.sort((a, b) => (Number(b.c.isLoop) - Number(a.c.isLoop)) || (b.doc.distance * (1 + (b.doc.elevationGain || 0) / 100) - a.doc.distance * (1 + (a.doc.elevationGain || 0) / 100)));
 
-  const nLoops = kept.filter(k => k.c.isLoop).length;
-  const nTrails = kept.filter(k => k.c.kind === 'trail').length;
-  console.log(`\nAFTER FILTER: ${kept.length} routes kept (${nLoops} loops, ${nTrails} marked-trail lines), ${dropped.length} artifacts dropped.`);
-  if (dropped.length) dropped.slice(0, 10).forEach(d => console.log(`   ✗ ${d.name} — ${d.reason}`));
+  const nLoops = kept.filter(k => k.c.isLoop && !k.c.isBicycle).length;
+  const nTrails = kept.filter(k => k.c.kind === 'trail' && !k.c.isBicycle).length;
+  const nSegments = kept.filter(k => k.c.kind === 'segment' && !k.c.isLoop && !k.c.isBicycle).length;
+  const nCycling = kept.filter(k => k.c.isBicycle).length;
+  console.log(`\nAFTER FILTER: ${kept.length} routes kept (${nLoops} loops, ${nTrails} marked-trail lines), ${dropped.length} artifacts dropped, ${boundaryDropped.length} dropped as outside the boundary.`);
+  console.log(`  by type: ${nTrails} trail · ${nLoops} loop · ${nSegments} named segment · ${nCycling} cycling`);
+  if (dropped.length) dropped.slice(0, 10).forEach(d => console.log(`   ✗ artifact: ${d.name} — ${d.reason}`));
+  if (boundaryDropped.length) boundaryDropped.slice(0, 15).forEach(d => console.log(`   ✗ outside boundary: ${d.name} — ${d.reason}`));
 
   console.log('\n── candidates (loops first) ──');
   for (const k of kept) {
     const d = k.doc;
-    console.log(`  ${k.c.isLoop ? '🔁' : k.c.kind === 'trail' ? '🥾' : '·'} ${String(d.distance).padStart(5)}m  gain ${String(d.elevationGain).padStart(4)}m  ${d.difficulty.padEnd(8)} ${d.name}  [${k.c.externalId}]`);
+    const icon = k.c.isBicycle ? '🚲' : k.c.isLoop ? '🔁' : k.c.kind === 'trail' ? '🥾' : '·';
+    console.log(`  ${icon} ${String(d.distance).padStart(5)}m  gain ${String(d.elevationGain).padStart(4)}m  ${d.difficulty.padEnd(8)} ${d.activityType.padEnd(8)} ${d.name}  [${k.c.externalId}]`);
   }
 
   if (DRY) { console.log(`\n[dry-run] no writes. ${kept.length} pending routes would be written to official_routes (batch ${REGION.batchId}).`); return; }
