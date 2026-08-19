@@ -47,6 +47,9 @@
  *   LIVE RUN (commits to osm_amenities — requires explicit --apply):
  *     npx tsx scripts/extract-osm-amenities-tlv.ts --apply
  *
+ *   With municipal-boundary clip + a new city (19.08.2026):
+ *     npx tsx scripts/extract-osm-amenities-tlv.ts --city חיפה --bbox 32.734,34.9296,32.854,35.0496 --boundary-wikidata Q41621
+ *
  * Prerequisites:
  *   - FIREBASE_SERVICE_ACCOUNT_KEY set in .env.local
  *   - Run from the repo root so dotenv/.env.local resolves.
@@ -89,6 +92,16 @@ const EXPLICIT_BBOX = explicitBboxArg
       return { latMin: south, lonMin: west, latMax: north, lonMax: east };
     })()
   : null;
+// --boundary-wikidata (19.08.2026, full city-mapping build): real municipal
+// boundary clip, same mechanism as geo-discovery-routes.ts's
+// Region.boundaryClipWikidata and write-climb-segments-tlv.ts's own
+// --boundary-wikidata — ported a 3rd time (not extracted into a shared
+// module, matching this codebase's established per-script convention of
+// self-contained geometry helpers). Optional — a city without one gets no
+// clip (fail-open), same as before this capability existed. Unlike routes/
+// climbs (polylines, fraction-based clip), amenities are single POINTS —
+// a point is simply in or out, no fraction threshold needed.
+const BOUNDARY_WIKIDATA = getArg('--boundary-wikidata');
 // Broader than Phase B's route-elevation bbox on purpose — amenities can be
 // anywhere in the city, not just tight to existing route paths. Still
 // derived from the same 27 real TLV routes' geometry (no hardcoded
@@ -125,6 +138,10 @@ interface OverpassElement {
   lon?: number;
   center?: { lat: number; lon: number };
   tags?: Record<string, string>;
+  // Only present on the boundary-fetch response (way/relation geometry) —
+  // absent on the amenity-fetch response, which uses lat/lon or center only.
+  geometry?: Array<{ lat: number; lon: number }>;
+  members?: Array<{ type: string; ref: number; role?: string }>;
 }
 
 async function fetchOverpassOnce(endpoint: string, body: string): Promise<{ elements: OverpassElement[] }> {
@@ -170,6 +187,7 @@ async function fetchAmenityElements(bbox: { latMin: number; lonMin: number; latM
   node["amenity"="drinking_water"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
   node["leisure"="fitness_station"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
   way["leisure"="fitness_station"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
+  node["highway"="crossing"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
 );
 out center tags;
 `.trim();
@@ -194,8 +212,76 @@ out center tags;
   throw new Error(`Overpass fetch failed across all endpoints. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 }
 
+// ── Municipal-boundary clip (ported from geo-discovery-routes.ts /
+// write-climb-segments-tlv.ts — see BOUNDARY_WIKIDATA's own comment above) ──
+const R_EARTH = 6_371_000;
+function hav(a: number[], b: number[]): number {
+  const p1 = (a[0] * Math.PI) / 180, p2 = (b[0] * Math.PI) / 180;
+  const dp = ((b[0] - a[0]) * Math.PI) / 180, dl = ((b[1] - a[1]) * Math.PI) / 180;
+  return 2 * R_EARTH * Math.asin(Math.sqrt(Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2));
+}
+function inPoly(p: number[], poly: number[][]): boolean {
+  let ins = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const yi = poly[i][0], xi = poly[i][1], yj = poly[j][0], xj = poly[j][1];
+    if (((yi > p[0]) !== (yj > p[0])) && (p[1] < (xj - xi) * (p[0] - yi) / (yj - yi) + xi)) ins = !ins;
+  }
+  return ins;
+}
+const wayGeom = (e: OverpassElement): number[][] => (e.geometry || []).map((p) => [p.lat, p.lon]);
+function stitch(ways: number[][][], gapM = 80): number[][][] {
+  const segs = ways.filter((w) => w.length >= 2);
+  if (!segs.length) return [];
+  const used = new Array(segs.length).fill(false);
+  const out: number[][][] = [];
+  while (used.some((u) => !u)) {
+    let start = used.findIndex((u) => !u); used[start] = true;
+    let line = segs[start].slice();
+    let extended = true;
+    while (extended) {
+      extended = false;
+      const tail = line[line.length - 1], head = line[0];
+      let best = -1, bestD = gapM, bestRev = false, atTail = true;
+      for (let i = 0; i < segs.length; i++) {
+        if (used[i]) continue;
+        const s = segs[i], a = s[0], b = s[s.length - 1];
+        const dTA = hav(tail, a), dTB = hav(tail, b), dHA = hav(head, a), dHB = hav(head, b);
+        const m = Math.min(dTA, dTB, dHA, dHB);
+        if (m < bestD) { bestD = m; best = i; if (m === dTA) { atTail = true; bestRev = false; } else if (m === dTB) { atTail = true; bestRev = true; } else if (m === dHA) { atTail = false; bestRev = true; } else { atTail = false; bestRev = false; } }
+      }
+      if (best >= 0) { used[best] = true; const s = bestRev ? segs[best].slice().reverse() : segs[best].slice(); if (atTail) line = line.concat(s); else line = s.concat(line); extended = true; }
+    }
+    out.push(line);
+    if (out.length > 5000) break;
+  }
+  return out;
+}
+/** Fetches the real admin boundary polygon for BOUNDARY_WIKIDATA, reusing the
+ *  existing fetchOverpassOnce retry/mirror machinery (not a bespoke overpass()
+ *  copy — this file already has proper retry machinery, unlike some of the
+ *  other TLV scripts that needed to bring their own). */
+async function fetchAdminBoundaryPoly(wikidataId: string): Promise<number[][] | null> {
+  const query = `[out:json][timeout:120];rel["wikidata"="${wikidataId}"]["boundary"="administrative"];out geom;(._;>;);out geom;`;
+  const body = 'data=' + encodeURIComponent(query);
+  let elements: OverpassElement[] = [];
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try { elements = (await fetchOverpassOnce(endpoint, body)).elements ?? []; if (elements.length) break; }
+    catch { /* try next endpoint */ }
+  }
+  const rel = elements.find((e) => e.type === 'relation');
+  if (!rel) return null;
+  const wayById = new Map<number, number[][]>();
+  for (const e of elements) if (e.type === 'way' && e.geometry) wayById.set(e.id, wayGeom(e));
+  const outerWays: number[][][] = [];
+  for (const m of rel.members || []) if (m.type === 'way' && m.role !== 'inner' && wayById.has(m.ref)) outerWays.push(wayById.get(m.ref)!);
+  const rings = stitch(outerWays, 200);
+  if (!rings.length) return null;
+  return rings.reduce((a, b) => (b.length > a.length ? b : a));
+}
+
 function classifyElement(el: OverpassElement): { category: AmenityCategory; sport?: CourtSport } | null {
   const tags = el.tags ?? {};
+  if (tags.highway === 'crossing') return { category: 'crossing' };
   if (tags.leisure === 'pitch') {
     const sportsTag = (tags.sport ?? '').split(';').map((s) => s.trim());
     let sport: CourtSport = 'unknown';
@@ -242,8 +328,9 @@ async function main() {
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log(`║  OSM Amenity Extraction — TLV only   [${mode.padEnd(8)}]         ║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
-  console.log('  Categories: court (basketball/football/tennis/padel), bench, drinking_water, fitness_station');
-  console.log('  Scope OUT this run (deferred, per instruction): pedestrian crossings, polygon/lawn geometry, consumer-facing cycleway layer.\n');
+  console.log('  Categories: court (basketball/football/tennis/padel), bench, drinking_water, fitness_station, crossing');
+  console.log('  crossing = data capture only, NOT wired into the route generator (no prefer/avoid logic) — a separate future project.');
+  console.log('  Scope OUT this run (deferred, per instruction): polygon/lawn geometry, consumer-facing cycleway layer.\n');
 
   if (!isApply) {
     console.log('⚠️  DRY-RUN mode — osm_amenities will NOT be written.');
@@ -288,6 +375,14 @@ async function main() {
     console.log(`   lat [${bbox.latMin.toFixed(4)}, ${bbox.latMax.toFixed(4)}]  lon [${bbox.lonMin.toFixed(4)}, ${bbox.lonMax.toFixed(4)}]`);
   }
 
+  // ── Municipal-boundary polygon (clip-filter only, optional) ──
+  let boundaryPoly: number[][] | null = null;
+  if (BOUNDARY_WIKIDATA) {
+    console.log(`\n🗺️  Fetching admin boundary polygon (wikidata=${BOUNDARY_WIKIDATA}, clip-filter only)...`);
+    boundaryPoly = await fetchAdminBoundaryPoly(BOUNDARY_WIKIDATA);
+    console.log(boundaryPoly ? `   boundary polygon loaded: ${boundaryPoly.length} vertices` : '   ⚠ boundary polygon not found — clip filter skipped');
+  }
+
   // ── Load ALL parks for the dedup gate (brute-force at this scale — see
   // header comment for why a geohash-bounded query isn't needed today) ──
   console.log('\n🌳 Loading parks collection for the garden-dedup HARD GATE...');
@@ -308,13 +403,23 @@ async function main() {
   const elements = await fetchAmenityElements(bbox);
   console.log(`   ${elements.length} raw element(s) returned.`);
 
-  // ── Classify + dedup-gate every candidate ──
+  // ── Classify + boundary-clip + dedup-gate every candidate ──
   const outcomes: CandidateOutcome[] = [];
+  let boundaryDroppedCount = 0;
+  const boundaryDropped: string[] = [];
   for (const el of elements) {
     const classified = classifyElement(el);
     if (!classified) continue;
     const point = elementPoint(el);
     if (!point) continue;
+    // Point-in-polygon: a point is simply in or out, no fraction threshold
+    // (unlike the polyline clip routes/climbs use). Fails open (never
+    // filters) when no boundaryPoly was loaded.
+    if (boundaryPoly && !inPoly([point.lat, point.lng], boundaryPoly)) {
+      boundaryDroppedCount++;
+      boundaryDropped.push(`${el.type}_${el.id} (${classified.category})`);
+      continue;
+    }
     const suppressed = findNearestGardenMatch(point, gardenCandidates, GARDEN_DEDUP_RADIUS_METERS);
     outcomes.push({
       category: classified.category,
@@ -326,7 +431,7 @@ async function main() {
     });
   }
 
-  const byCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0 };
+  const byCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0, crossing: 0 };
   let suppressedCount = 0;
   for (const o of outcomes) {
     byCategory[o.category]++;
@@ -340,9 +445,14 @@ async function main() {
   console.log(`  bench:            ${byCategory.bench}`);
   console.log(`  drinking_water:   ${byCategory.drinking_water}`);
   console.log(`  fitness_station:  ${byCategory.fitness_station}`);
+  console.log(`  crossing:         ${byCategory.crossing}`);
   console.log(`  TOTAL candidates: ${outcomes.length}`);
+  console.log(`  Dropped as outside the boundary: ${boundaryDroppedCount}`);
   console.log(`  Suppressed by garden-dedup gate: ${suppressedCount}`);
   console.log(`  Will be written as fresh 'pending': ${outcomes.length - suppressedCount}`);
+  if (boundaryDroppedCount > 0) {
+    console.log(`\n  outside-boundary sample (up to 10): ${boundaryDropped.slice(0, 10).join(', ')}`);
+  }
 
   if (suppressedCount > 0) {
     console.log('\n╔══════════════════════════════════════════════════════════╗');

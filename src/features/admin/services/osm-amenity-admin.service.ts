@@ -29,6 +29,7 @@ const AMENITY_EMOJI: Record<AmenityCategory, string> = {
   bench: '🪑',
   drinking_water: '🚰',
   fitness_station: '💪',
+  crossing: '🚶',
 };
 
 export function amenityEmoji(category: AmenityCategory): string {
