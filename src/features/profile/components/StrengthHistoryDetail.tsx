@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Dumbbell, Moon, Timer, Flame, Layers, Star, Trash2 } from 'lucide-react';
+import { ArrowRight, Dumbbell, Moon, Activity, Timer, Flame, Layers, MapPin, Gauge, Star, Trash2 } from 'lucide-react';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
 import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
 import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
+import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 
 interface Props {
   workout: WorkoutHistoryEntry;
@@ -62,6 +63,21 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
   // (duration/calories/coins, sets-related fields already conditionally
   // hidden when unset below) already fits a video session unchanged.
   const isRecoveryWorkout = workout.workoutType === 'recovery';
+  // F1.4 (19.08.2026): profile/page.tsx's routing fix now sends hybrid
+  // workouts here too (previously fell through to FreeRunSummary, a
+  // GPS/pace UI that doesn't fit a session with a real strength segment).
+  // Without this, the header/icon below would mislabel a hybrid workout as
+  // plain "strength" — the same class of bug already fixed for
+  // TodayActivityCard on the home screen (Stage D+E, 19.08.2026).
+  const isHybridWorkout = workout.workoutType === 'hybrid' || workout.category === 'hybrid';
+
+  // 3-way theme, one place — avoids repeating the same branch at each of the
+  // 4 call sites below (title / gradient+icon / delete-modal label).
+  const heroTheme = isRecoveryWorkout
+    ? { title: 'סיכום אימון התאוששות', gradient: 'from-slate-400 to-slate-600', Icon: Moon, deleteLabel: 'אימון התאוששות' }
+    : isHybridWorkout
+      ? { title: 'סיכום אימון משולב', gradient: 'from-[#00ADEF] to-emerald-500', Icon: Activity, deleteLabel: 'אימון משולב' }
+      : { title: 'סיכום אימון כוח', gradient: 'from-[#00ADEF] to-cyan-600', Icon: Dumbbell, deleteLabel: 'אימון כוח' };
 
   const handleConfirmDelete = async () => {
     if (!workout.id) {
@@ -113,6 +129,31 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
       label: 'קלוריות',
       value: `${workout.calories} קל'`,
     },
+    // Distance/pace — F1.4 (19.08.2026, adversarial review): a hybrid workout
+    // routed here now has a real aerobic leg (distance/pace on the root doc,
+    // from buildHybridWorkoutEntry) that would otherwise vanish from the
+    // summary entirely — the old FreeRunSummary destination showed it
+    // prominently even though it mislabeled the workout as a run. Guarded on
+    // distance>0, not category, so this stays byte-identical for solo
+    // strength (always distance:0) without a category check.
+    ...(workout.distance > 0
+      ? [
+          {
+            icon: <MapPin className="w-5 h-5 text-emerald-500" />,
+            label: 'מרחק',
+            value: `${workout.distance.toFixed(2)} ק"מ`,
+          },
+          ...(workout.pace > 0
+            ? [
+                {
+                  icon: <Gauge className="w-5 h-5 text-emerald-500" />,
+                  label: 'קצב ממוצע',
+                  value: `${formatPace(workout.pace)} /ק"מ`,
+                },
+              ]
+            : []),
+        ]
+      : []),
     ...(workout.setsCompleted != null
       ? [
           {
@@ -138,9 +179,7 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
           <ArrowRight className="w-5 h-5 text-gray-600" />
         </button>
         <div className="flex-1">
-          <h1 className="text-base font-bold text-gray-900">
-            {isRecoveryWorkout ? 'סיכום אימון התאוששות' : 'סיכום אימון כוח'}
-          </h1>
+          <h1 className="text-base font-bold text-gray-900">{heroTheme.title}</h1>
           <p className="text-xs text-gray-500 mt-0.5">{formatDate(workout.date)}</p>
         </div>
         {WORKOUT_DELETE_EXPANDED_ENABLED && (
@@ -164,15 +203,9 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
           className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center"
         >
           <div
-            className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-md bg-gradient-to-br ${
-              isRecoveryWorkout ? 'from-slate-400 to-slate-600' : 'from-[#00ADEF] to-cyan-600'
-            }`}
+            className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-md bg-gradient-to-br ${heroTheme.gradient}`}
           >
-            {isRecoveryWorkout ? (
-              <Moon className="w-8 h-8 text-white" />
-            ) : (
-              <Dumbbell className="w-8 h-8 text-white" />
-            )}
+            <heroTheme.Icon className="w-8 h-8 text-white" />
           </div>
 
           <DifficultyBolts level={workout.difficulty} />
@@ -278,7 +311,7 @@ export default function StrengthHistoryDetail({ workout, onClose, onWorkoutDelet
       {WORKOUT_DELETE_EXPANDED_ENABLED && (
         <DeleteWorkoutConfirmModal
           isOpen={showDeleteConfirm}
-          activityLabel={isRecoveryWorkout ? 'אימון התאוששות' : 'אימון כוח'}
+          activityLabel={heroTheme.deleteLabel}
           dateLabel={formatDate(workout.date)}
           xpToReverse={workout.xpEarned ?? 0}
           onConfirm={handleConfirmDelete}

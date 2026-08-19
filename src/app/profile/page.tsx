@@ -368,10 +368,17 @@ export default function ProfilePage() {
     // is itself made recovery-aware — see its workoutType==='recovery' branches) —
     // otherwise a recovery session would incorrectly fall through to FreeRunSummary,
     // a GPS/pace/distance UI that doesn't fit a video session.
+    // 'hybrid' fix (F1.4, 19.08.2026 — "unified workout summary" plan): a hybrid
+    // workout used to fall through to FreeRunSummary too — the same wrong-UI bug
+    // recovery already had a fix for, just never extended to hybrid. Now that
+    // StrengthHistoryDetail shows real per-station exercise detail (F1.3), it's
+    // the correct destination for hybrid the same way it already was for recovery.
     const isStrength =
       selectedWorkout.workoutType === 'strength' ||
       selectedWorkout.workoutType === 'recovery' ||
-      selectedWorkout.category === 'strength';
+      selectedWorkout.workoutType === 'hybrid' ||
+      selectedWorkout.category === 'strength' ||
+      selectedWorkout.category === 'hybrid';
     if (isStrength) {
       return (
         <StrengthHistoryDetail
