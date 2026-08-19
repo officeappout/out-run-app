@@ -2,7 +2,7 @@
  * scripts/map-city.ts — per-city mapping pipeline orchestrator.
  *
  * Sequences every import/backfill step a city goes through when it's
- * "mapped", 12 steps in order: city-wide DEM tile-cache warm, street
+ * "mapped", 11 steps in order: city-wide DEM tile-cache warm, street
  * segments (calm-street pass, then the arterial primary|secondary pass —
  * road-hierarchy flowScore, runner-flow investigation Tier 1, 19.08.2026),
  * DEM elevation for routes (route difficulty), DEM elevation for street

@@ -121,6 +121,18 @@ export function computeDemProfile(pathLatLng: Array<[number, number]>, tiles: El
     acc += segLen;
   }
 
+  // A path shorter than STEP never fires the resample loop above, leaving
+  // `resampled` a single point — the gain/grade accumulation loop below
+  // would then silently no-op and this function would return a FAKE
+  // {elevationGainM:0, maxGradePercent:0} instead of a real measurement,
+  // violating this function's own "never a partial/guessed profile"
+  // contract (see header comment). Found by independent review (19.08.2026,
+  // full city-mapping build) when a new caller — populate-street-segment-
+  // elevation.ts, unlike routes, routinely samples paths well under 15m —
+  // exposed this for the first time. A degenerate resample is a genuine
+  // coverage gap, not a real flat measurement.
+  if (resampled.length < 2) return null;
+
   const elevations = resampled.map((p) => sampleElevation(tiles, p[0], p[1], zoom));
   if (elevations.some((e) => e == null)) return null;
   const el = elevations as number[];
