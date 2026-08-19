@@ -41,9 +41,29 @@ export interface TodayActivityStripProps {
   cards: TodayActivityCardData[];
   /** Same "תציעו לי עוד אימון" CTA the old completion card had — undefined hides it. */
   onRequestMore?: () => void;
+  /**
+   * F2.3 (19.08.2026, "unified workout summary" plan) — tap a card to open
+   * its workout's summary. Wrapped here (not inside TodayActivityCard
+   * itself, which stays a pure display component).
+   *
+   * Gated on SuggestionCarousel's own `isActive` param (adversarial review,
+   * 19.08.2026 — the FIRST version of this comment claimed the outer
+   * carousel's `!isActive && handleSelect(i)` onClick alone was enough to
+   * prevent a race, but that's wrong: renderCard's own isActive argument
+   * was being silently discarded here, so a tap on ANY card — including a
+   * partially-visible, non-centered side card, N>=2 only — fired
+   * navigation immediately, before the user had even brought it into
+   * focus. Explicitly checking `isActive` here restores the intended
+   * two-tap sequence: first tap on a side card focuses it (via the
+   * carousel's own onClick), a second tap (now active) opens it. For N=1
+   * (SuggestionCarousel's static single-card path) isActive is always
+   * `true` — confirmed by reading its source — so this is a no-op change
+   * for the single-card case, which is the common one.
+   */
+  onCardTap?: (card: TodayActivityCardData) => void;
 }
 
-export default function TodayActivityStrip({ cards, onRequestMore }: TodayActivityStripProps) {
+export default function TodayActivityStrip({ cards, onRequestMore, onCardTap }: TodayActivityStripProps) {
   if (cards.length === 0) return null;
 
   return (
@@ -54,7 +74,19 @@ export default function TodayActivityStrip({ cards, onRequestMore }: TodayActivi
         items={cards}
         keyExtractor={(c) => c.key}
         cardHeight={CARD_HEIGHT}
-        renderCard={(c) => <TodayActivityCard {...c} />}
+        renderCard={(c, isActive) =>
+          onCardTap ? (
+            <button
+              type="button"
+              onClick={() => isActive && onCardTap(c)}
+              className="w-full h-full block text-right bg-transparent border-0 p-0 m-0 cursor-pointer active:scale-[0.98] transition-transform"
+            >
+              <TodayActivityCard {...c} />
+            </button>
+          ) : (
+            <TodayActivityCard {...c} />
+          )
+        }
       />
 
       {onRequestMore && (

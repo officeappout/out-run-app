@@ -616,6 +616,15 @@ export default function HomePage() {
       return {
         key: s.category,
         category: s.category,
+        // F2.3: matches `category` here — dayStatus.sessions is bucketed by
+        // ActivityCategory with no hybrid-attribution available at this
+        // layer, so a hybrid workout that happens to cross the 10-min floor
+        // in exactly one category is a known, narrower, deferred gap (not
+        // the confirmed bug the adversarial review found — that was Safety
+        // Net 2 below, fixed). Flagged, not fixed: fixing this path would
+        // need dayStatus.sessions itself to carry hybrid-attribution, which
+        // it doesn't today.
+        matchCategory: s.category,
         title: isRich
           ? (completionData!.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[s.category])
           : TODAY_ACTIVITY_CATEGORY_LABEL[s.category],
@@ -642,6 +651,10 @@ export default function HomePage() {
       cards.unshift({
         key: richCategory,
         category: richCategory,
+        // F2.3: richCategory is guaranteed non-null and non-hybrid inside
+        // this `if` (workoutTypeToCategory never returns 'hybrid'), so this
+        // genuinely matches the real doc's category — no mismatch risk here.
+        matchCategory: richCategory,
         title: completionData.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[richCategory],
         minutes: Math.round(dayStatus.categories[richCategory] || completionData.durationMinutes || 0),
         thumbnailUrl: completionData.thumbnailUrl,
@@ -672,6 +685,15 @@ export default function HomePage() {
       cards.push({
         key: 'completion-fallback',
         category: fallbackCategory,
+        // F2.3 (adversarial review, must-fix, 19.08.2026): fallbackCategory
+        // above is a STYLING choice only ('strength' when richCategory is
+        // null, i.e. exactly the hybrid case) — matching a tap against it
+        // would compare 'strength' against a real hybrid doc's category:
+        // 'hybrid' and never find it (silent no-op, or worse, a wrong-doc
+        // match against an unrelated real strength session). matchCategory
+        // carries the REAL category instead: richCategory when set, else
+        // 'hybrid' (the only reason this branch's richCategory is ever null).
+        matchCategory: richCategory ?? 'hybrid',
         title: completionData.workoutTitle || 'האימון היומי שלך',
         minutes: Math.round(fallbackMinutes || completionData.durationMinutes || 0),
         thumbnailUrl: completionData.thumbnailUrl,
@@ -690,6 +712,48 @@ export default function HomePage() {
     completionData?.streak,
     completionData?.durationMinutes,
   ]);
+
+  // F2.3 (19.08.2026, "unified workout summary" plan): tapping a
+  // TodayActivityCard opens the real workout it represents. Its data
+  // (TodayActivityCardData) carries only `category` — no per-instance
+  // workout id, since useDayStatus().sessions is category-bucketed
+  // (confirmed during F2's investigation) — so this resolves to the MOST
+  // RECENT real workout doc for that category today, via getWorkoutsForDate
+  // (already built for F2.2's schedule entry point, reused here as-is — no
+  // category filter in the query itself, since that would need a new
+  // Firestore index; filtered client-side instead, cheap given a single day
+  // realistically has 1-3 docs). No session-picker, matching David's own
+  // stated principle for this exact ambiguity (19.08.2026): "לחיצה על כרטיס
+  // תמיד מובילה ליעד סיכום אחד עקבי לאותה קטגוריה... אין צורך במנגנון
+  // בחירה בין sessions."
+  //
+  // In-flight guard (adversarial review, must-fix, 19.08.2026): a separate
+  // ref from F2.2's tryOpenCompletedWorkout (that one lives in a different
+  // closure) — without it, tapping two different cards in quick succession
+  // fires two independent Firestore queries whose RESOLUTION order isn't
+  // guaranteed to match tap order, so the wrong one could win the
+  // navigation. Matches `card.matchCategory`, not `card.category` — see
+  // TodayActivityCardData's own doc comment for why those differ for the
+  // hybrid-fallback card specifically (also an adversarial-review must-fix:
+  // matching on `category` there would compare a styling-only 'strength'
+  // against a real hybrid doc's category:'hybrid' and never find it).
+  const isResolvingCardTapRef = useRef(false);
+  const handleTodayActivityCardTap = useCallback(async (card: TodayActivityCardData) => {
+    if (!profile?.id) return;
+    if (isResolvingCardTapRef.current) return;
+    isResolvingCardTapRef.current = true;
+    try {
+      const todayISO = toISODate(new Date());
+      const todaysWorkouts = await getWorkoutsForDate(profile.id, todayISO);
+      const match = todaysWorkouts.find((w) => w.category === card.matchCategory);
+      // No real doc found for a card that's already showing — a rare
+      // data-race edge case (e.g. a doc write still in flight), not expected
+      // in practice — silent no-op rather than an error UI.
+      if (match?.id) router.push(`/workouts/${match.id}/history`);
+    } finally {
+      isResolvingCardTapRef.current = false;
+    }
+  }, [profile?.id, router]);
 
   // ── post_workout suggestion carousel (home-generator-v2 plan, step 6) ──
   // Eager-compute the moment a completed workout is detected (mirrors the celebration
@@ -1821,6 +1885,7 @@ export default function HomePage() {
               // Same CTA-visibility logic the old completion card used: hides only
               // once the post_workout carousel is actually ready to show.
               onRequestMore={postWorkoutCarouselReady ? undefined : handleRequestMore}
+              onCardTap={handleTodayActivityCardTap}
             />
           </motion.div>
         )}
