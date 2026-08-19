@@ -1,21 +1,43 @@
 /**
- * scripts/climb-segments-tlv.ts — PILOT, READ-ONLY (no DB writes)
+ * scripts/climb-segments-tlv.ts — READ-ONLY (no DB writes)
  *
  * ISOLATES discrete climb segments (not route averages) via multi-scale sliding
  * windows over the dense DEM elevation profile, and classifies each:
  *   short-sharp  : avgGrade ≥8%,  50–150m
  *   repeats      : avgGrade 5–8%, 150–300m
  *   long-gentle  : avgGrade 3–5%, 300m+
- * Writes a climbType onto every terrain climb; structural(OSM ramp) + stairs kept separate.
+ * Writes a climbType onto every terrain climb; structural(OSM ramp) + stairs kept separate
+ * (see write-climb-segments-tlv.ts, which reads this script's output file).
  *
- * Proof probe: isolates the specific steep pitch on שדרות רוטשילד toward הבימה
- * (80–200m window) and reports ITS grade alone — not the 4.7km boulevard average.
+ * Proof probe: isolates the specific steep pitch on שדרות רוטשילד toward
+ * הבימה (80–200m window) and reports ITS grade alone — not the 4.7km
+ * boulevard average. TLV-specific fixed coordinates — only runs when using
+ * the default TLV bbox (skipped for any --bbox override, see main()).
+ *
+ * Accepts --bbox <south,west,north,east> (defaults to the original hardcoded
+ * TLV bbox, byte-identical when omitted) and --out <path> (defaults to the
+ * original /tmp/tlv_climb_segments.json, byte-identical when omitted) — added
+ * 19.08.2026 for the per-city pipeline generalization. This script has no
+ * concept of "city" at all (its output has no city/authority field — that's
+ * resolved downstream by write-climb-segments-tlv.ts), so only bbox + output
+ * path are parameterized here.
+ *
+ *   npx tsx scripts/climb-segments-tlv.ts
+ *   npx tsx scripts/climb-segments-tlv.ts --bbox 32.734,34.9296,32.854,35.0496 --out /tmp/haifa_climb_segments.json
  */
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' });
 import * as zlib from 'zlib'; import * as https from 'https'; import * as fs from 'fs';
 
+function getArg(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i !== -1 && i + 1 < process.argv.length ? process.argv[i + 1] : undefined;
+}
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
-const BBOX = { latMin: 32.040, latMax: 32.118, lonMin: 34.740, lonMax: 34.800 };
+const bboxArg = getArg('--bbox');
+const BBOX = bboxArg
+  ? (() => { const [latMin, lonMin, latMax, lonMax] = bboxArg.split(',').map(Number); return { latMin, latMax, lonMin, lonMax }; })()
+  : { latMin: 32.040, latMax: 32.118, lonMin: 34.740, lonMax: 34.800 };
+const OUT_PATH = getArg('--out') ?? '/tmp/tlv_climb_segments.json';
 const Z = 14, n = 2 ** Z, STEP = 10;
 const lon2gx = (lo: number) => (lo + 180) / 360 * 256 * n;
 const lat2gy = (la: number) => { const r = la * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 256 * n; };
@@ -55,15 +77,22 @@ async function main() {
   console.log('loading Terrain-RGB tiles ...'); await loadTiles(); console.log(`decoded ${tiles.size} tiles`);
 
   // ---------- PROOF: isolate the steep pitch on Rothschild → Habima ----------
-  console.log('\n=== ISOLATION PROOF — שדרות רוטשילד → כיכר הבימה ===');
-  const center = [[32.0632, 34.7695], [32.0655, 34.7720], [32.0672, 34.7741], [32.0690, 34.7766], [32.0703, 34.7786], [32.0715, 34.7806]];
-  const d = densify(center)!;
-  const whole = ((d.sm[d.sm.length - 1] - d.sm[0]) / ((d.rs.length - 1) * STEP) * 100);
-  console.log(`whole-boulevard average: ${whole.toFixed(2)}%  ← useless (dilutes the pitch)`);
-  console.log('sliding-window steepest pitch, per scale:');
-  for (const W of [50, 80, 100, 150, 200]) { const s = steepestWindow(d.rs, d.sm, W); if (s) console.log(`  ${String(W).padStart(3)}m window → avg ${s.avgGrade}%  max ${s.maxGrade}%  ${s.dir}  @${s.mid.map(x => x.toFixed(4)).join(',')}`); }
-  const cls = classify(d.rs, d.sm);
-  console.log(`ISOLATED climb → ${cls ? `${cls.seg.lengthM}m @ ${cls.seg.avgGrade}% (max ${cls.seg.maxGrade}%), ${cls.seg.dir} → climbType='${cls.climbType}'` : 'below thresholds'}`);
+  // TLV-specific fixed coordinates — only meaningful (and only safe: the DEM
+  // tiles loaded above cover BBOX, and these points fall outside any non-TLV
+  // bbox, which would make densify() return null and crash the non-null
+  // assertion below) when running against the default TLV bbox. Skipped
+  // entirely for any --bbox override.
+  if (!bboxArg) {
+    console.log('\n=== ISOLATION PROOF — שדרות רוטשילד → כיכר הבימה ===');
+    const center = [[32.0632, 34.7695], [32.0655, 34.7720], [32.0672, 34.7741], [32.0690, 34.7766], [32.0703, 34.7786], [32.0715, 34.7806]];
+    const d = densify(center)!;
+    const whole = ((d.sm[d.sm.length - 1] - d.sm[0]) / ((d.rs.length - 1) * STEP) * 100);
+    console.log(`whole-boulevard average: ${whole.toFixed(2)}%  ← useless (dilutes the pitch)`);
+    console.log('sliding-window steepest pitch, per scale:');
+    for (const W of [50, 80, 100, 150, 200]) { const s = steepestWindow(d.rs, d.sm, W); if (s) console.log(`  ${String(W).padStart(3)}m window → avg ${s.avgGrade}%  max ${s.maxGrade}%  ${s.dir}  @${s.mid.map(x => x.toFixed(4)).join(',')}`); }
+    const cls = classify(d.rs, d.sm);
+    console.log(`ISOLATED climb → ${cls ? `${cls.seg.lengthM}m @ ${cls.seg.avgGrade}% (max ${cls.seg.maxGrade}%), ${cls.seg.dir} → climbType='${cls.climbType}'` : 'below thresholds'}`);
+  }
 
   // ---------- rebuild terrain climb_segments with climbType ----------
   console.log('\n=== rebuilding climb_segments (isolated windows + climbType) ===');
@@ -90,7 +119,7 @@ async function main() {
     console.log(` ${ct}:`);
     for (const c of ex) console.log(`   ${c.lengthM}m @ ${c.avgGrade}% (max ${c.maxGrade}%) ${c.dir} — ${c.wayName}`);
   }
-  fs.writeFileSync('/tmp/tlv_climb_segments.json', JSON.stringify(uniq));
-  console.log(`\nclimb_segments → /tmp/tlv_climb_segments.json (${uniq.length}). No DB writes.`);
+  fs.writeFileSync(OUT_PATH, JSON.stringify(uniq));
+  console.log(`\nclimb_segments → ${OUT_PATH} (${uniq.length}). No DB writes.`);
 }
 main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
