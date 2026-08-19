@@ -2,16 +2,19 @@
  * scripts/map-city.ts — per-city mapping pipeline orchestrator.
  *
  * Sequences every import/backfill step a city goes through when it's
- * "mapped", 10 steps in order: city-wide DEM tile-cache warm, street
+ * "mapped", 12 steps in order: city-wide DEM tile-cache warm, street
  * segments (calm-street pass, then the arterial primary|secondary pass —
  * road-hierarchy flowScore, runner-flow investigation Tier 1, 19.08.2026),
- * DEM elevation (route difficulty), climb discovery (terrain, DEM sliding-
- * window classify), climb+stairs write (structure/stairs, → climb_segments),
- * lit-tag rollup, climb↔route/segment enrichment join, amenity extraction,
- * and a final route-adjacency recompute. This is the concrete "scripts-and-
- * moderation workflow" the route-enrichment-pipeline merge (20899b56) was
- * staged for — city-mapping stops being a manually-remembered sequence of
- * separate `npx tsx scripts/…` invocations and becomes one ordered pipeline.
+ * DEM elevation for routes (route difficulty), DEM elevation for street
+ * segments (per-segment grade, all segments, 19.08.2026), climb discovery
+ * (terrain, DEM sliding-window classify), climb+stairs write (structure/
+ * stairs, → climb_segments), lit-tag rollup, climb↔route/segment
+ * enrichment join, amenity extraction (incl. pedestrian crossings,
+ * 19.08.2026), and a final route-adjacency recompute. This is the concrete
+ * "scripts-and-moderation workflow" the route-enrichment-pipeline merge
+ * (20899b56) was staged for — city-mapping stops being a
+ * manually-remembered sequence of separate `npx tsx scripts/…` invocations
+ * and becomes one ordered pipeline.
  *
  * Each step is DRY-RUN by default (every underlying script already
  * defaults to dry-run on its own — this orchestrator does not change
@@ -48,6 +51,24 @@
  * default. Pass this flag for a brand-new city's initial mapping pass so
  * its pending routes show real lighting suggestions + climb-links before
  * approval — see both scripts' own --include-pending comments.
+ *
+ * Two DATA-CAPTURE-ONLY additions (19.08.2026, full city-mapping build) —
+ * both explicitly NOT wired into the live route generator, by design, a
+ * separate future project if ever wanted: pedestrian crossings (a new 5th
+ * osm_amenities category, 'crossing') and per-segment DEM grade
+ * (StreetSegment.demGradePercent/demElevationGainM, deliberately kept
+ * separate from the OSM-tag-derived inclinePct field). See
+ * .claude/knowledge/haifa-city-mapping-runbook.md's "captured but NOT yet
+ * read by the generator" section for the full list of what's data-only vs.
+ * live generation input.
+ *
+ * Boundary-clip (municipal polygon, not just a bbox) now applies to 3 of
+ * the write steps that share a city's real boundary via
+ * CityConfig.boundaryClipWikidata: climb+stairs write, amenity extraction
+ * (added this round — closes bbox-spillover into neighboring municipalities,
+ * e.g. Kiryat Ata/Nesher around Haifa), and route discovery (a separate
+ * script, not a step here — see geo-discovery-routes.ts's own REGIONS
+ * entries).
  *
  * City-parameterization (19.08.2026, first real second-city run — Haifa):
  * all 4 previously-TLV-hardcoded backfill scripts (populate-route-
@@ -255,6 +276,18 @@ const steps: Step[] = [
     writeFlagStyle: 'apply',
   },
   {
+    label: 'Street-segment elevation (DEM grade, all segments)',
+    script: 'scripts/populate-street-segment-elevation.ts',
+    // Same "no --bbox needed, derives its own from existing docs, no-ops
+    // gracefully" shape as the route-elevation step above. Verified cheap
+    // against real TLV data before wiring this in (100% coverage, 1144/1144
+    // real segments, 0.02s total sampling time, 0 new Mapbox calls against
+    // an already-warmed cache) — so this runs against ALL segments, not
+    // just arterials.
+    baseArgs: ['--city', config.cityName],
+    writeFlagStyle: 'apply',
+  },
+  {
     label: 'Climb discovery — terrain (DEM sliding-window classify)',
     script: 'scripts/climb-segments-tlv.ts',
     // Never touches Firestore (local /tmp file only) — writeFlagStyle
@@ -298,13 +331,18 @@ const steps: Step[] = [
     writeFlagStyle: 'apply',
   },
   {
-    label: 'Amenity extraction (courts/benches/drinking-water/fitness-stations)',
+    label: 'Amenity extraction (courts/benches/drinking-water/fitness-stations/crossings)',
     script: 'scripts/extract-osm-amenities-tlv.ts',
     // --bbox is REQUIRED here for a city with no existing official_routes
     // (the script hard-fails without a route-geometry-derived bbox
     // otherwise) — always passed explicitly so this orchestrator works
     // identically for a brand-new city and an established one.
-    baseArgs: ['--city', config.cityName, '--bbox', bboxArg],
+    // --boundary-wikidata (19.08.2026): closes the bbox-spillover gap
+    // (rectangular bbox always includes slivers of neighboring
+    // municipalities) — same boundaryArgs already used by the climb-write
+    // step, reused here since both steps share the same city's real
+    // boundary polygon.
+    baseArgs: ['--city', config.cityName, '--bbox', bboxArg, ...boundaryArgs],
     writeFlagStyle: 'apply',
   },
   {
