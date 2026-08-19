@@ -436,10 +436,13 @@ async function main() {
 
   const byCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0, crossing: 0, dog_park: 0 };
   let suppressedCount = 0;
+  let autoPublishedCount = 0; // crossings, not suppressed — see status assignment below
   for (const o of outcomes) {
     byCategory[o.category]++;
     if (o.suppressed) suppressedCount++;
+    else if (o.category === 'crossing') autoPublishedCount++;
   }
+  const pendingCount = outcomes.length - suppressedCount - autoPublishedCount;
 
   console.log('\n╔══════════════════════════════════════════════════════════╗');
   console.log('║  COUNTS PER AMENITY TYPE                                     ║');
@@ -448,12 +451,13 @@ async function main() {
   console.log(`  bench:            ${byCategory.bench}`);
   console.log(`  drinking_water:   ${byCategory.drinking_water}`);
   console.log(`  fitness_station:  ${byCategory.fitness_station}`);
-  console.log(`  crossing:         ${byCategory.crossing}`);
+  console.log(`  crossing:         ${byCategory.crossing}  (auto-published, NOT queued for moderation)`);
   console.log(`  dog_park:         ${byCategory.dog_park}`);
   console.log(`  TOTAL candidates: ${outcomes.length}`);
   console.log(`  Dropped as outside the boundary: ${boundaryDroppedCount}`);
   console.log(`  Suppressed by garden-dedup gate: ${suppressedCount}`);
-  console.log(`  Will be written as fresh 'pending': ${outcomes.length - suppressedCount}`);
+  console.log(`  Auto-published (crossings, bypass moderation): ${autoPublishedCount}`);
+  console.log(`  Will be written as fresh 'pending' (moderation queue): ${pendingCount}`);
   if (boundaryDroppedCount > 0) {
     console.log(`\n  outside-boundary sample (up to 10): ${boundaryDropped.slice(0, 10).join(', ')}`);
   }
@@ -467,7 +471,7 @@ async function main() {
     }
   }
 
-  console.log(`\n[${isApply ? 'APPLY' : 'dry-run'}] would write ${outcomes.length} osm_amenities doc(s) (${outcomes.length - suppressedCount} pending, ${suppressedCount} rejected/suppressed).`);
+  console.log(`\n[${isApply ? 'APPLY' : 'dry-run'}] would write ${outcomes.length} osm_amenities doc(s) (${pendingCount} pending, ${autoPublishedCount} auto-published, ${suppressedCount} rejected/suppressed).`);
 
   if (isApply && outcomes.length > 0) {
     console.log('\n✍️  Writing to osm_amenities...');
@@ -484,7 +488,13 @@ async function main() {
           geohash: geohashForLocation([o.location.lat, o.location.lng]),
           osmId: o.osmId,
           name: o.name,
-          status: o.suppressed ? 'rejected' : 'pending',
+          // Crossings are behind-the-scenes background data (19.08.2026,
+          // per instruction) — auto-published, never queued for moderation,
+          // so 2000+ of them don't flood the Approval Center. Every other
+          // category still lands pending, moderated like real content.
+          // Dedup-suppression still wins over auto-publish (a suppressed
+          // crossing is still a duplicate of a real park, still rejected).
+          status: o.suppressed ? 'rejected' : (o.category === 'crossing' ? 'published' : 'pending'),
           origin: 'osm_import',
           authorityId: tlvAuthorityId,
           city: TLV_CITY,

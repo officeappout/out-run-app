@@ -41,6 +41,7 @@ import {
     Square,
     XCircle,
     Tag,
+    Dog,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import { GISParserService } from '@/features/parks';
@@ -1815,7 +1816,9 @@ export default function AdminRouteManager() {
                                             className="w-6 h-6 bg-white border-2 border-amber-500 rounded-full flex items-center justify-center text-[10px] font-black shadow-lg"
                                             title={item.name ?? item.category}
                                         >
-                                            {amenityEmoji(item.category)}
+                                            {item.category === 'dog_park'
+                                                ? <Dog size={14} className="text-amber-600" />
+                                                : amenityEmoji(item.category)}
                                         </div>
                                     </Marker>
                                 ))}
