@@ -22,9 +22,11 @@
  * geometry is what's actually shared across the live dispatcher and this
  * backfill, not the Firestore-facing wrapper.
  *
- * TLV ONLY — hardcoded, not a --city flag. The build-out arc is explicitly
- * TLV-prove-every-layer-first; a second city is a deliberate separate future
- * run, not a flag this script should make casually easy to widen yet.
+ * Accepts --city <name> (defaults to Tel Aviv, byte-identical when omitted)
+ * and --include-pending (default OFF, see its own comment below) — both
+ * added 19.08.2026 for the per-city pipeline generalization. This stale
+ * "TLV ONLY, hardcoded" note is corrected here; don't trust the old wording
+ * if you see it copy-pasted elsewhere.
  *
  * Usage:
  *   DRY RUN (default — no writes, prints every pairing found):
@@ -58,6 +60,16 @@ function getArg(flag: string): string | undefined {
   return i !== -1 && i + 1 < process.argv.length ? process.argv[i + 1] : undefined;
 }
 const TLV_CITY = getArg('--city') ?? 'תל אביב-יפו';
+// --include-pending (19.08.2026, per-city pipeline generalization): default OFF,
+// preserving today's published/status=='published'-only behavior for the live
+// per-mutation dispatcher and existing TLV usage. Explicitly passed ON by
+// map-city.ts's own --include-pending flag for a brand-new city's initial
+// mapping pass, so David can review a pending route's climb-links before
+// approving it, not only after. Loosens BOTH sides — climbs' status=='published'
+// AND routes' published==true — since a join needs both sides eligible to mean
+// anything; a pending route can only show climb-links once matching pending
+// climbs also become visible to this query.
+const INCLUDE_PENDING = process.argv.includes('--include-pending');
 // Generous prefilter radius for the street_segments side — must exceed the
 // real association threshold by a wide margin, same reasoning
 // inventory.service.ts's own CLIMB_ROUTE_QUERY_RADIUS_METERS documents.
@@ -96,9 +108,11 @@ async function main() {
   const authoritySnap = await db.collection('authorities').get();
   const knownAuthorityIds = new Set(authoritySnap.docs.map((d) => d.id));
 
-  console.log(`📊 Fetching climb_segments (city="${TLV_CITY}", status="published")...`);
-  const climbsSnap = await db.collection('climb_segments').where('city', '==', TLV_CITY).where('status', '==', 'published').get();
-  console.log(`   ${climbsSnap.size} published TLV climb(s) total.`);
+  console.log(`📊 Fetching climb_segments (city="${TLV_CITY}"${INCLUDE_PENDING ? ', ALL statuses [--include-pending]' : ', status="published"'})...`);
+  let climbsQuery: FirebaseFirestore.Query = db.collection('climb_segments').where('city', '==', TLV_CITY);
+  if (!INCLUDE_PENDING) climbsQuery = climbsQuery.where('status', '==', 'published');
+  const climbsSnap = await climbsQuery.get();
+  console.log(`   ${climbsSnap.size} ${INCLUDE_PENDING ? '' : 'published '}climb(s) total.`);
 
   interface ClimbRow { id: string; path: [number, number][]; type: 'terrain' | 'structure' | 'stairs'; climbType: string; avgGrade: number | null; maxGrade: number | null; center?: { lat: number; lng: number }; authorityId?: string; city?: string }
   const climbs: ClimbRow[] = [];
@@ -119,8 +133,10 @@ async function main() {
   }
   console.log(`   ${climbs.length} eligible after filtering (${climbsSkippedNoAuthority} skipped: no authorityId; ${climbsSkippedNoGeometry} skipped: no usable geometry).`);
 
-  console.log(`\n📊 Fetching official_routes (city="${TLV_CITY}", published=true)...`);
-  const routesSnap = await db.collection('official_routes').where('city', '==', TLV_CITY).where('published', '==', true).get();
+  console.log(`\n📊 Fetching official_routes (city="${TLV_CITY}"${INCLUDE_PENDING ? ', ALL statuses [--include-pending]' : ', published=true'})...`);
+  let routesQuery: FirebaseFirestore.Query = db.collection('official_routes').where('city', '==', TLV_CITY);
+  if (!INCLUDE_PENDING) routesQuery = routesQuery.where('published', '==', true);
+  const routesSnap = await routesQuery.get();
   interface RouteRow { id: string; path: [number, number][]; authorityId?: string; city?: string }
   const routes: RouteRow[] = [];
   for (const d of routesSnap.docs) {
@@ -130,7 +146,7 @@ async function main() {
     const path = rawPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0] as [number, number]);
     routes.push({ id: d.id, path, authorityId: data.authorityId, city: data.city });
   }
-  console.log(`   ${routes.length} published TLV route(s) with usable geometry.`);
+  console.log(`   ${routes.length} ${INCLUDE_PENDING ? '' : 'published '}route(s) with usable geometry.`);
 
   const climbJoinInputs = climbs.map((c) => ({ id: c.id, path: c.path, type: c.type, climbType: c.climbType as any, avgGrade: c.avgGrade, maxGrade: c.maxGrade }));
 

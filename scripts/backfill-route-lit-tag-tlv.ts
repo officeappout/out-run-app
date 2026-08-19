@@ -6,8 +6,11 @@
  * source. Uses the pure computeLitCoverage/shouldSuggestNightLighting
  * (route-comfort-tags.service.ts).
  *
- * TLV ONLY — matches the build-out arc (every layer proven on Tel Aviv
- * before any other city).
+ * Accepts --city <name> (defaults to Tel Aviv, byte-identical when omitted)
+ * and --include-pending (default OFF, see its own comment below) — both
+ * added 19.08.2026 for the per-city pipeline generalization. This stale
+ * "TLV ONLY, hardcoded" note is corrected here; don't trust the old wording
+ * if you see it copy-pasted elsewhere.
  *
  * Per route: samples up to 20 evenly-spaced path points (bounding query
  * count — a dense Mapbox-derived path can have 100+ raw vertices, sampling
@@ -47,6 +50,12 @@ function getArg(flag: string): string | undefined {
   return i !== -1 && i + 1 < process.argv.length ? process.argv[i + 1] : undefined;
 }
 const TLV_CITY = getArg('--city') ?? 'תל אביב-יפו';
+// --include-pending (19.08.2026, per-city pipeline generalization): default OFF,
+// preserving today's published-only behavior for the live per-mutation path and
+// existing TLV usage. Explicitly passed ON by map-city.ts's own --include-pending
+// flag for a brand-new city's initial mapping pass, so David can review a route's
+// lighting suggestion before approving it, not only after.
+const INCLUDE_PENDING = process.argv.includes('--include-pending');
 const MAX_SAMPLES_PER_ROUTE = 20;
 // Generous prefilter radius around each sample point — must exceed
 // LIT_TAG_PROXIMITY_METERS (20m) by a wide margin, same "coarse box, precise
@@ -86,9 +95,11 @@ async function main() {
   const { computeLitCoverage, shouldSuggestNightLighting, LIT_TAG_PROXIMITY_METERS, LIT_TAG_COVERAGE_THRESHOLD } =
     await import('../src/features/parks/core/services/route-comfort-tags.service');
 
-  console.log(`📊 Fetching published official_routes (city="${TLV_CITY}")...`);
-  const routesSnap = await db.collection('official_routes').where('city', '==', TLV_CITY).where('published', '==', true).get();
-  console.log(`   ${routesSnap.size} published TLV route(s) total.`);
+  console.log(`📊 Fetching ${INCLUDE_PENDING ? 'ALL (pending+published)' : 'published'} official_routes (city="${TLV_CITY}")${INCLUDE_PENDING ? ' [--include-pending]' : ''}...`);
+  let routesQuery: FirebaseFirestore.Query = db.collection('official_routes').where('city', '==', TLV_CITY);
+  if (!INCLUDE_PENDING) routesQuery = routesQuery.where('published', '==', true);
+  const routesSnap = await routesQuery.get();
+  console.log(`   ${routesSnap.size} ${INCLUDE_PENDING ? '' : 'published '}route(s) total.`);
 
   const suggested: Array<{ id: string; name: string; coverage: number }> = [];
   let alreadyTagged = 0, noUsablePath = 0;
