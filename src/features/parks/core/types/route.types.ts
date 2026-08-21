@@ -388,7 +388,17 @@ export interface Route {
     name: string;
     externalId?: string;
     externalLink?: string;
+    /** OSM relation ref ("rel/<id>") when this route was sourced from a
+     *  relation — already written by geo-discovery-routes.ts, added here to
+     *  match (was previously untyped/passthrough-only). */
+    osmRef?: string;
   };
+  /** Individual OSM way/relation refs ("way/<id>"/"rel/<id>") merged into
+   *  this route by geo-discovery-routes.ts's promenade-stitching passes
+   *  (Stage 7) or its relation-rejection rescue path — top-level, not
+   *  nested under `source` (see RouteFieldsSchema.sourceWayIds). Absent for
+   *  a plain single-way/single-relation route. */
+  sourceWayIds?: string[];
 
   // Analytics
   analytics?: {

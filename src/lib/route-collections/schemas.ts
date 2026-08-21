@@ -68,6 +68,13 @@ const RouteFieldsSchema = z.object({
     avgGrade: z.number().nullable(),
     maxGrade: z.number().nullable(),
   })).optional(),
+  /** Individual OSM way/relation refs ("way/<id>"/"rel/<id>") merged into this
+   *  route by geo-discovery-routes.ts's promenade-stitching passes (Stage 7)
+   *  or its relation-rejection rescue path — a top-level field (not nested
+   *  under `source`, which isn't itself schema-validated here) for
+   *  provenance/traceability + idempotent re-run detection. Absent for a
+   *  plain single-way/single-relation route (no behavior change there). */
+  sourceWayIds: z.array(z.string().min(1)).optional(),
   // Required on CREATE (hard rule 1) — see RouteCreateSchema/RouteUpdateSchema
   // below for how create vs. update enforce this differently.
   authorityId: z.string().min(1),

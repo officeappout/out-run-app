@@ -10,15 +10,63 @@
  *
  * Sources (all "good for running/walking"):
  *   trail    — marked route relations (route=hiking|foot|walking) clipped to the
- *              region → e.g. שביל ישראל, שבילי רמת הנדיב
+ *              region → e.g. שביל ישראל, שבילי רמת הנדיב. A relation-line
+ *              exceeding LEN_TRAIL_MAX is not just discarded: any individually-
+ *              NAMED member way is rescued and re-offered to the segment/loop
+ *              pipeline below (see "relation-rejection rescue"), so a short,
+ *              locally-special way isn't silently swallowed by its parent
+ *              trail's own length cap.
+ *   park     — NEW: named leisure=park/garden polygons (way or relation) inside
+ *              the region → a perimeter loop tracing the park's own real OSM
+ *              boundary ring (never a synthetic circle). See buildLoop() below
+ *              for why this is a real trace and not a reuse of the live app's
+ *              generator (checked, infeasible: Firebase-client entanglement,
+ *              and it has zero polygon awareness anyway).
  *   loop     — closed footway/path/track ways (start≈end) — loops are PREFERRED
- *   segment  — named footway/path/track/pedestrian ways of usable length
+ *   segment  — NAMED footway/path/track/pedestrian/cycleway ways, PLUS named
+ *              living_street/residential/service/tertiary/unclassified ways
+ *              ("street-based promenades stay continuous" — a promenade tagged
+ *              as an ordinary street is no longer invisible to discovery).
+ *              Same-named and geometrically-adjacent fragments are STITCHED
+ *              into one continuous candidate before length/name filtering —
+ *              see "promenade stitching" below — instead of being emitted as
+ *              separate, shorter, easily-length-filtered stubs.
+ *
+ * Promenade stitching (two passes, before length/name filters apply):
+ *   pass 1 — same-name: every standalone named way sharing an exact `name` tag
+ *            is greedily chained (stitchWithIds, SAME_NAME_GAP_M) into one or
+ *            more continuous lines.
+ *   pass 2 — geometric continuity, across DIFFERENT names: pass 1's results
+ *            (plus any unmerged singly-named way) are chained again, ignoring
+ *            name, purely by endpoint proximity — a tighter gap tolerance
+ *            (CROSS_NAME_GAP_M) than pass 1, and only within a compatible tag
+ *            family (foot/track/street/bicycle), since cross-name merging
+ *            carries real false-positive risk. The canonical name of a
+ *            cross-name merge is the LONGEST constituent segment's real name;
+ *            every constituent way id is preserved on `source.sourceWayIds`
+ *            for traceability. A stitched candidate's `source.externalId` is
+ *            deterministic — `osm:stitched/<sorted way ids>` — so re-running
+ *            discovery against unchanged OSM data always regenerates the same
+ *            id, never a duplicate (stitch()/stitchWithIds' greedy chaining is
+ *            input-order-sensitive, and Overpass mirror response order isn't
+ *            guaranteed stable run-to-run).
  *
  * Filters:
  *   - drops steps / escalators (highway=steps, conveying=*) — routes are not stairs
  *   - drops access=private / foot=no / indoor ways
  *   - drops artifacts: geometry sitting over water or inside a building polygon
- *   - length window per source (see LEN_* below)
+ *   - length window per source (see LEN_* below) — LEN_SEG_MIN_NAMED (50m) applies
+ *     to named NON-LOOP segments/promenades specifically; LOOP candidates (park or
+ *     otherwise) keep LEN_LOOP_MIN (400m) regardless of naming — a loop is a
+ *     different length regime by nature, not a "specialness" question.
+ *   - every standalone-way candidate (loop or not) must carry a real OSM name —
+ *     no anonymous filler loops (a bare unnamed closed way used to be exempt from
+ *     the named-only rule; that exemption is removed). Trail-RELATION candidates
+ *     are a deliberate, stated exception — a relation is already real, human-
+ *     mapped, officially-classified evidence of "specialness" even without a
+ *     `name` tag (Israel's paint-color-marked-trail convention), so an unnamed
+ *     trail relation still gets the existing generic fallback name rather than
+ *     being dropped.
  *
  * Enrichment: elevationGain + maxGrade via Mapbox Terrain-RGB DEM, routeShape ('loop' when geometrically closed, omitted otherwise).
  * Idempotent: keyed on source.externalId — re-runs UPDATE, never duplicate.
@@ -177,7 +225,22 @@ if (!REGION) { console.error(`Unknown region "${regionArg}". Known: ${Object.key
 const LEN_TRAIL_MIN = 400, LEN_TRAIL_MAX = 25000;
 const LEN_LOOP_MIN = 400, LEN_LOOP_MAX = 15000;
 const LEN_SEG_MIN = 500, LEN_SEG_MAX = 12000;
+// Named non-loop segments/promenades (post-stitching) get a much lower floor
+// than the general LEN_SEG_MIN — filters true noise (a several-meter OSM
+// stub) without dropping a real, short, famous promenade (e.g. a ~288m
+// named promenade that LEN_SEG_MIN would otherwise silently drop). Deliberately
+// NOT applied to loop-kind candidates (see LEN_LOOP_MIN) — a loop is a
+// different length regime by nature. Starting number, flagged for review —
+// not derived from data (Stage 7 plan, item C).
+const LEN_SEG_MIN_NAMED = 50;
 const LOOP_CLOSE_M = 60; // start↔end within this ⇒ a loop
+// Stitching gap tolerances (meters) — also starting numbers, flagged for
+// review (Stage 7 plan, item B). Same-name merges are lower-risk (both
+// fragments already share a real name) than cross-name geometric-continuity
+// merges (higher false-positive risk — a wrong-direction street crossing
+// could chain two unrelated nearby paths), hence the tighter cross-name gap.
+const SAME_NAME_GAP_M = 100;
+const CROSS_NAME_GAP_M = 35;
 
 // ─────────────────────────────── geometry helpers ───────────────────────────────
 const R = 6371000;
@@ -197,6 +260,16 @@ function inPoly(p: number[], poly: number[][]): boolean {
   return ins;
 }
 const wayGeom = (e: any): number[][] => (e.geometry || []).map((p: any) => [p.lat, p.lon]);
+// OSM `name` tags on different fragments of the SAME real promenade sometimes
+// disagree only in whitespace — found live in this exact run: two of three
+// Kiryat Eliezer promenade fragments use U+00A0 (non-breaking space) between
+// words, the third uses a plain space, so exact-string matching silently
+// treated them as different names and only 2/3 fragments stitched together.
+// Collapse any whitespace run (including nbsp) to a single plain space before
+// using a name as a same-name-stitching grouping key or promenade-name lookup
+// — the DISPLAYED name benefits from this too (an invisible nbsp reads
+// identically to a space either way).
+const normalizeName = (name: string): string => name.replace(/[\s ]+/g, ' ').trim();
 
 // ─────────────────────────────── Overpass ───────────────────────────────
 const MIRRORS = ['https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass-api.de/api/interpreter'];
@@ -257,9 +330,15 @@ function demProfile(pts: number[][]): { gainM: number; maxGrade: number } | null
 
 // ─────────────────────────────── discovery ───────────────────────────────
 type Candidate = {
-  externalId: string; osmName: string | null; kind: 'trail' | 'loop' | 'segment';
+  externalId: string; osmName: string | null; kind: 'trail' | 'loop' | 'segment' | 'park';
   pts: number[][]; lengthM: number; isLoop: boolean; surface: 'road' | 'trail'; highway?: string; relRef?: string;
   sourceName?: string; // overrides source.name (round-trips → 'Mapbox Round-Trip (foot)'); OSM → default
+  // Individual OSM way refs ("way/<id>") merged into this candidate by the
+  // same-name/geometric-continuity stitching passes, or by the relation-
+  // rejection rescue path — undefined for a plain single-way/single-relation
+  // candidate (no behavior change there). See buildValidatedDoc's
+  // RouteFieldsSchema.sourceWayIds and route.types.ts's Route['source'].
+  sourceWayIds?: string[];
   // Raw OSM surface=* tag, when available — only the standalone/loop/segment
   // branch below has direct way-tag access; trail-relation-derived and
   // Mapbox-round-trip candidates have none (undefined, never guessed).
@@ -313,27 +392,77 @@ function stitch(ways: number[][][], gapM = 80): number[][][] {
   return out;
 }
 
+// Same greedy nearest-endpoint chaining as stitch() above, but also tracks
+// which input item(s) contributed to each output line — needed for the
+// promenade-stitching passes' `sourceWayIds` provenance and for the
+// relation-rejection rescue's per-line (not per-relation) way lookup.
+// stitch() itself is left untouched — still used unmodified for trail-
+// relation members and the admin-boundary ring — so this is purely additive.
+function stitchWithIds<T>(items: Array<{ pts: number[][]; id: T }>, gapM: number): Array<{ pts: number[][]; ids: T[] }> {
+  const segs = items.filter(it => it.pts.length >= 2);
+  if (!segs.length) return [];
+  const used = new Array(segs.length).fill(false);
+  const out: Array<{ pts: number[][]; ids: T[] }> = [];
+  let curIdx = 0;
+  while (used.some(u => !u)) {
+    let start = used.findIndex(u => !u); used[start] = true;
+    let line = segs[start].pts.slice();
+    let ids: T[] = [segs[start].id];
+    let extended = true;
+    while (extended) {
+      extended = false;
+      const tail = line[line.length - 1], head = line[0];
+      let best = -1, bestD = gapM, bestRev = false, atTail = true;
+      for (let i = 0; i < segs.length; i++) {
+        if (used[i]) continue;
+        const s = segs[i].pts, a = s[0], b = s[s.length - 1];
+        const dTA = hav(tail, a), dTB = hav(tail, b), dHA = hav(head, a), dHB = hav(head, b);
+        const m = Math.min(dTA, dTB, dHA, dHB);
+        if (m < bestD) { bestD = m; best = i; if (m === dTA) { atTail = true; bestRev = false; } else if (m === dTB) { atTail = true; bestRev = true; } else if (m === dHA) { atTail = false; bestRev = true; } else { atTail = false; bestRev = false; } }
+      }
+      if (best >= 0) {
+        used[best] = true;
+        const s = bestRev ? segs[best].pts.slice().reverse() : segs[best].pts.slice();
+        if (atTail) { line = line.concat(s); ids.push(segs[best].id); } else { line = s.concat(line); ids = [segs[best].id, ...ids]; }
+        extended = true;
+      }
+    }
+    out.push({ pts: line, ids });
+    curIdx++;
+    if (curIdx > 5000) break;
+  }
+  return out;
+}
+
 async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly: number[][]; label: string }[]; stats: any }> {
   const { decl, scopes } = regionSelectors();
-  const stats: any = { relations: 0, relLines: 0, ways: 0, loops: 0, segments: 0 };
+  const stats: any = { relations: 0, relLines: 0, relRescued: 0, ways: 0, loops: 0, segments: 0, stitchedSameName: 0, stitchedCrossName: 0, parks: 0 };
+
+  type RawWay = { id: number; name: string; pts: number[][]; highway: string; osmSurface?: string; isBicycle: boolean };
+  // Named member ways rescued from a trail-relation line that exceeded
+  // LEN_TRAIL_MAX (item D) — fed into the SAME same-name/geometric-continuity
+  // stitching pipeline as standalone ways below, so a rescue doesn't just
+  // re-fragment the relation into disconnected named stubs.
+  const rescuedRawWays: RawWay[] = [];
 
   // 1) marked route relations (hiking/foot/walking) intersecting the region → clip members.
   console.log('discovering marked trails (route relations) …');
   const relParts = scopes.map(sc => `rel["route"~"^(hiking|foot|walking|running)$"]${sc};`).join('');
   const relData = await overpass(`[out:json][timeout:180];${decl}(${relParts})->.r;.r out tags;(.r;>;);out geom;`);
   const relTags = new Map<number, any>();
-  const relMembersByRel = new Map<number, number[][][]>();
-  // Overpass returns the relation (with members list) + member ways (with geometry).
+  const relMembersByRel = new Map<number, Array<{ id: number; pts: number[][] }>>();
+  // Overpass returns the relation (with members list) + member ways (with geometry + tags).
   const wayById = new Map<number, number[][]>();
-  for (const e of relData.elements) { if (e.type === 'way' && e.geometry) wayById.set(e.id, wayGeom(e)); }
+  const wayTagsById = new Map<number, any>(); // needed for item D's rescue (named member-way lookup)
+  for (const e of relData.elements) { if (e.type === 'way' && e.geometry) { wayById.set(e.id, wayGeom(e)); wayTagsById.set(e.id, e.tags || {}); } }
   for (const e of relData.elements) {
     if (e.type !== 'relation') continue;
     relTags.set(e.id, e.tags || {});
-    const memberWays: number[][][] = [];
+    const memberWays: Array<{ id: number; pts: number[][] }> = [];
     for (const m of e.members || []) if (m.type === 'way' && wayById.has(m.ref)) {
       const g = wayById.get(m.ref)!;
       // clip: keep member ways that actually touch the region (any point in overall bbox)
-      if (g.some(p => inBbox(p, REGION.bbox))) memberWays.push(g);
+      if (g.some(p => inBbox(p, REGION.bbox))) memberWays.push({ id: m.ref, pts: g });
     }
     if (memberWays.length) relMembersByRel.set(e.id, memberWays);
   }
@@ -341,58 +470,152 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
 
   const candidates: Candidate[] = [];
   const seenWayIds = new Set<number>(); // way ids consumed by a trail relation → don't re-emit as standalone
-  for (const [relId, memberWays] of relMembersByRel) {
+  for (const [relId, memberWays] of Array.from(relMembersByRel)) {
     for (const m of (relData.elements.find((e: any) => e.type === 'relation' && e.id === relId)?.members || [])) if (m.type === 'way') seenWayIds.add(m.ref);
     const tags = relTags.get(relId) || {};
-    const lines = stitch(memberWays);
+    const lines = stitchWithIds(memberWays, 80); // same default gapM as the original stitch()
     let part = 0;
     for (const line of lines) {
-      const L = pathLen(line);
-      if (L < LEN_TRAIL_MIN || L > LEN_TRAIL_MAX) continue;
-      const isLoop = hav(line[0], line[line.length - 1]) < LOOP_CLOSE_M && L > LEN_LOOP_MIN;
-      candidates.push({ externalId: `osm:rel/${relId}${lines.length > 1 ? `#${part}` : ''}`, osmName: tags.name || null, kind: 'trail', pts: line, lengthM: Math.round(L), isLoop, surface: 'trail', relRef: `rel/${relId}` });
+      const L = pathLen(line.pts);
+      if (L > LEN_TRAIL_MAX) {
+        // item D: rescue individually-named member ways FROM THIS REJECTED LINE
+        // ONLY (not the whole relation — a sibling line from the same relation
+        // may already be kept, and rescuing its ways too would duplicate them).
+        for (const wid of line.ids) {
+          const mt = wayTagsById.get(wid) || {};
+          if (mt.name) rescuedRawWays.push({ id: wid, name: normalizeName(mt.name), pts: wayById.get(wid)!, highway: mt.highway, osmSurface: mt.surface, isBicycle: false });
+        }
+        stats.relRescued++;
+        continue;
+      }
+      if (L < LEN_TRAIL_MIN) continue;
+      const isLoop = hav(line.pts[0], line.pts[line.pts.length - 1]) < LOOP_CLOSE_M && L > LEN_LOOP_MIN;
+      candidates.push({ externalId: `osm:rel/${relId}${lines.length > 1 ? `#${part}` : ''}`, osmName: tags.name || null, kind: 'trail', pts: line.pts, lengthM: Math.round(L), isLoop, surface: 'trail', relRef: `rel/${relId}` });
       part++; stats.relLines++;
     }
   }
 
-  // 2) standalone footway/path/track/pedestrian ways (exclude steps, private, indoor).
-  console.log('discovering standalone paths / loops (footway|path|track|pedestrian|cycleway) …');
-  const wayParts = scopes.map(sc => `way["highway"~"^(footway|path|track|pedestrian|cycleway)$"]["highway"!~"steps"]${sc};`).join('');
+  // 2) standalone NAMED footway/path/track/pedestrian/cycleway ways (the
+  // proven-safe vocabulary, unchanged) PLUS — "street-based promenades stay
+  // continuous", item B, NARROWLY scoped — named living_street/residential/
+  // service/tertiary/unclassified ways, but ONLY when a way's name EXACTLY
+  // MATCHES the name of an already-real pedestrian-tagged way found in the
+  // SAME fetch. A first implementation admitted ANY named street-type way
+  // unconditionally and was caught live in this exact dry-run: combined with
+  // item C's low named-segment floor, it flooded Haifa with ~640 ordinary
+  // named residential streets (e.g. a bare 51m "סלים ג'ובראן" block) — real
+  // named streets, but not promenades, and not what this stage exists to
+  // surface. The fix: a street-type way only ever joins as a same-named
+  // CONTINUATION of a genuine footway/path/pedestrian/track/cycleway
+  // promenade (e.g. a promenade that briefly changes OSM highway tag at one
+  // intersection) — never as an independently-viable candidate on its own,
+  // which is what let ordinary streets in before. Every standalone candidate
+  // (loop or not) must be named — item F: no anonymous filler loops, so
+  // unnamed ways are filtered out at collection time, before stitching runs.
+  console.log('discovering standalone paths / loops (footway|path|track|pedestrian|cycleway) + same-named street continuations …');
+  const wayParts = scopes.map(sc =>
+    `way["highway"~"^(footway|path|track|pedestrian|cycleway)$"]["highway"!~"steps"]${sc};` +
+    `way["highway"~"^(living_street|residential|service|tertiary|unclassified)$"]["name"]${sc};`
+  ).join('');
   const wayData = await overpass(`[out:json][timeout:180];${decl}(${wayParts})->.w;.w out geom tags;`);
   stats.ways = wayData.elements.filter((e: any) => e.type === 'way').length;
+  const PRIMARY_HIGHWAY_RE = /^(footway|path|track|pedestrian|cycleway)$/;
+  const primaryRawWays: RawWay[] = [];
+  const streetTypeRawWays: RawWay[] = [];
+  const seenStandaloneWayIds = new Set<number>(); // item B: avoid double-discovery vs the bike-lane query below
   for (const e of wayData.elements) {
     if (e.type !== 'way' || !e.geometry || e.geometry.length < 2) continue;
     if (seenWayIds.has(e.id)) continue; // already covered by a trail relation
     const t = e.tags || {};
-    if (t.conveying && t.conveying !== 'no') continue;       // escalator / moving walkway
+    if (!t.name) continue;                                    // item F: named-only, unconditionally
+    if (t.conveying && t.conveying !== 'no') continue;         // escalator / moving walkway
     // Canonical stairs model (Stage 0, route-enrichment-pipeline plan): stairs
     // are never route candidates. OSM-derived stairs live exclusively in
     // climb_segments (type:'stairs', scripts/write-climb-segments-tlv.ts).
     if (t.highway === 'steps') continue;                      // stairs are not routes
     if (t.access === 'private' || t.foot === 'no' || t.foot === 'private') continue;
     if (t.indoor === 'yes' || t.tunnel === 'building_passage') continue;
-    const pts = wayGeom(e);
-    const L = pathLen(pts);
-    const isLoop = hav(pts[0], pts[pts.length - 1]) < LOOP_CLOSE_M && L > LEN_LOOP_MIN;
-    const surface: 'road' | 'trail' = (t.highway === 'pedestrian' || t.surface === 'paved' || t.surface === 'asphalt') ? 'road' : 'trail';
-    // Broad bike-vocabulary detection on already-fetched footway/path/track/
-    // pedestrian/cycleway candidates: dedicated cycleway ways, shared paths
-    // explicitly open to cycling, and segregated=yes shared foot/bike paths.
-    // (Roads with a cycleway=* lane tag are a separate universe, not in this
-    // fetch — handled by the dedicated query below, step 2b.)
     const isBicycle = t.highway === 'cycleway' || t.bicycle === 'designated' || t.bicycle === 'yes' || t.segregated === 'yes';
-    if (isLoop) {
-      if (L < LEN_LOOP_MIN || L > LEN_LOOP_MAX) continue;
-      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name || null, kind: 'loop', pts, lengthM: Math.round(L), isLoop: true, surface, highway: t.highway, osmSurface: t.surface, isBicycle });
-      stats.loops++;
-    } else {
-      // standalone non-loop segments: only keep NAMED ways of usable length (an unnamed
-      // 300m path fragment is rarely a route on its own; named ones are real trails/promenades)
-      if (!t.name) continue;
-      if (L < LEN_SEG_MIN || L > LEN_SEG_MAX) continue;
-      candidates.push({ externalId: `osm:way/${e.id}`, osmName: t.name, kind: 'segment', pts, lengthM: Math.round(L), isLoop: false, surface, highway: t.highway, osmSurface: t.surface, isBicycle });
-      stats.segments++;
+    const raw: RawWay = { id: e.id, name: normalizeName(t.name), pts: wayGeom(e), highway: t.highway, osmSurface: t.surface, isBicycle };
+    (PRIMARY_HIGHWAY_RE.test(t.highway) ? primaryRawWays : streetTypeRawWays).push(raw);
+    seenStandaloneWayIds.add(e.id);
+  }
+  const promenadeNames = new Set(primaryRawWays.map(w => w.name));
+  const rawWays: RawWay[] = [...primaryRawWays, ...streetTypeRawWays.filter(w => promenadeNames.has(w.name))];
+  // item D: rescued relation-member ways join the same stitching pipeline.
+  // Deduplicate by way id — a way can be a member of MULTIPLE overlapping
+  // trail relations (a real, common OSM pattern for Haifa's wadi network,
+  // where one physical path segment is shared by several regional hiking
+  // routes); if two or more of those relations each get rejected for
+  // LEN_TRAIL_MAX, the SAME way was rescued once per rejecting relation.
+  // Caught live in this exact dry-run: without this dedup, a doubly-rescued
+  // way got stitched into its own candidate twice, geometrically doubling
+  // back over itself (e.g. "osm:stitched/35014061+35014061+1470987339" — a
+  // real way id appearing twice) — a genuine geometry bug, not cosmetic.
+  const rawWayIdsSoFar = new Set(rawWays.map(w => w.id));
+  for (const w of rescuedRawWays) { if (rawWayIdsSoFar.has(w.id)) continue; rawWayIdsSoFar.add(w.id); rawWays.push(w); }
+
+  // Pass 1 — same-name stitching (item B): every raw way sharing an exact
+  // `name` tag is greedily chained into one or more continuous lines. A name
+  // with only one way is a trivial pass-through (no merge needed).
+  const byName = new Map<string, RawWay[]>();
+  for (const w of rawWays) { const arr = byName.get(w.name) || []; arr.push(w); byName.set(w.name, arr); }
+  type StitchedGroup = { name: string; ids: number[]; pts: number[][]; highway: string; osmSurface?: string; isBicycle: boolean };
+  const pass1: StitchedGroup[] = [];
+  for (const [name, ways] of Array.from(byName)) {
+    const lines = stitchWithIds(ways.map(w => ({ pts: w.pts, id: w.id })), SAME_NAME_GAP_M);
+    for (const line of lines) {
+      if (line.ids.length > 1) stats.stitchedSameName++;
+      const rep = ways.find(w => w.id === line.ids[0])!;
+      pass1.push({ name, ids: line.ids, pts: line.pts, highway: rep.highway, osmSurface: rep.osmSurface, isBicycle: line.ids.every(id => ways.find(w => w.id === id)!.isBicycle) });
     }
+  }
+
+  // Pass 2 — geometric-continuity stitching, ACROSS different names (item B):
+  // pass 1's results are chained again purely by endpoint proximity, at a
+  // tighter gap tolerance, only within a compatible tag family (a footway
+  // never silently absorbs an unrelated cycleway). Canonical name of a
+  // cross-name merge = the LONGEST constituent segment's real name.
+  function tagFamily(highway: string, isBicycle: boolean): string {
+    if (isBicycle) return 'bicycle';
+    if (highway === 'footway' || highway === 'path' || highway === 'pedestrian') return 'foot';
+    if (highway === 'track') return 'track';
+    return 'street'; // living_street/residential/service/tertiary/unclassified
+  }
+  const families = new Map<string, StitchedGroup[]>();
+  for (const g of pass1) { const f = tagFamily(g.highway, g.isBicycle); const arr = families.get(f) || []; arr.push(g); families.set(f, arr); }
+  const pass2: StitchedGroup[] = [];
+  for (const [, groups] of Array.from(families)) {
+    const lines = stitchWithIds(groups.map(g => ({ pts: g.pts, id: g })), CROSS_NAME_GAP_M);
+    for (const line of lines) {
+      if (line.ids.length === 1) { pass2.push(line.ids[0]); continue; }
+      stats.stitchedCrossName++;
+      const longest = line.ids.reduce((a, b) => pathLen(b.pts) > pathLen(a.pts) ? b : a);
+      pass2.push({ name: longest.name, ids: line.ids.flatMap(g => g.ids), pts: line.pts, highway: longest.highway, osmSurface: longest.osmSurface, isBicycle: line.ids.every(g => g.isBicycle) });
+    }
+  }
+
+  // Final classification of the (possibly stitched) named candidates: loop vs
+  // segment, computed AFTER stitching (a promenade merged from several
+  // fragments might now close back on itself) — item C's length floor split.
+  for (const g of pass2) {
+    const L = pathLen(g.pts);
+    const isLoopG = hav(g.pts[0], g.pts[g.pts.length - 1]) < LOOP_CLOSE_M && L > LEN_LOOP_MIN;
+    const surface: 'road' | 'trail' = (g.highway === 'pedestrian' || g.osmSurface === 'paved' || g.osmSurface === 'asphalt') ? 'road' : 'trail';
+    if (isLoopG) {
+      if (L < LEN_LOOP_MIN || L > LEN_LOOP_MAX) continue; // loops keep the unchanged floor regardless of naming
+    } else {
+      if (L < LEN_SEG_MIN_NAMED || L > LEN_SEG_MAX) continue; // item C: named non-loop gets the low floor
+    }
+    const stitched = g.ids.length > 1;
+    const externalId = stitched ? `osm:stitched/${[...g.ids].sort((a, b) => a - b).join('+')}` : `osm:way/${g.ids[0]}`;
+    candidates.push({
+      externalId, osmName: g.name, kind: isLoopG ? 'loop' : 'segment',
+      pts: g.pts, lengthM: Math.round(L), isLoop: isLoopG, surface,
+      highway: g.highway, osmSurface: g.osmSurface, isBicycle: g.isBicycle,
+      ...(stitched ? { sourceWayIds: g.ids.map(id => `way/${id}`) } : {}),
+    });
+    if (isLoopG) stats.loops++; else stats.segments++;
   }
 
   // 2b) road bike lanes: cycleway=lane|track|opposite_lane|opposite_track, or
@@ -407,6 +630,7 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
   for (const e of bikeLaneData.elements) {
     if (e.type !== 'way' || !e.geometry || e.geometry.length < 2) continue;
     if (seenWayIds.has(e.id)) continue;
+    if (seenStandaloneWayIds.has(e.id)) continue; // item B: already discovered via the broadened standalone-way query
     const t = e.tags || {};
     if (!t.name) continue; // same named-only bar as standalone segments — street name counts as a name
     const pts = wayGeom(e);
@@ -417,9 +641,87 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     stats.bikeLaneSegments = (stats.bikeLaneSegments || 0) + 1;
   }
 
-  // 3) blocking polygons (water + buildings) for artifact filtering.
+  // 3) NEW — named park/garden-anchored perimeter loops (item A). See
+  // discoverParkLoops()'s own header comment for why this traces the park's
+  // real OSM boundary ring rather than reusing the live app's generator or a
+  // synthetic circle.
+  const parkCandidates = await discoverParkLoops(decl, scopes);
+  candidates.push(...parkCandidates);
+  stats.parks = parkCandidates.length;
+
+  // 4) blocking polygons (water + buildings) for artifact filtering.
   const blockPolys = await fetchBlockPolys(REGION.bbox);
   return { candidates, blockPolys, stats };
+}
+
+// ─────────────────── park/garden-anchored loops (item A, new) ───────────────────
+// Fetches every NAMED leisure=park/garden polygon (way or relation) inside the
+// region and emits ONE perimeter-loop Candidate per park: the ring's own
+// OSM-mapped boundary vertices, used directly as route geometry — never a
+// synthetic circle. Checked and confirmed infeasible/inapplicable to reuse the
+// live app's own loop generator (route-generator.service.ts's generateLoopRoutes):
+// it can't be imported into a Node/Admin-SDK script (hard Firebase-CLIENT-SDK
+// dependency for its waypoint fetch + a 'use client' DEM-tile loader), and even
+// if it could be, it has zero polygon/perimeter awareness — like buildLoop()
+// below, it's fundamentally "synthetic anchor + Mapbox Directions," never a
+// real boundary trace. Structural template mirrors fetchAdminBoundaryPoly
+// (below) — same query shape, same stitch()-for-ring-assembly, same
+// role!=='inner' outer-only member filtering (single-outer-ring only, no true
+// multipolygon/hole support — a known, carried-forward simplification, same as
+// fetchAdminBoundaryPoly's own).
+async function discoverParkLoops(decl: string, scopes: string[]): Promise<Candidate[]> {
+  console.log('discovering named parks/gardens (leisure=park|garden) for perimeter loops …');
+  const parts = scopes.map(sc => `way["leisure"~"^(park|garden)$"]["name"]${sc};relation["leisure"~"^(park|garden)$"]["name"]${sc};`).join('');
+  const data = await overpass(`[out:json][timeout:180];${decl}(${parts})->.p;.p out tags;(.p;>;);out geom;`);
+  const wayById = new Map<number, number[][]>();
+  for (const e of data.elements) if (e.type === 'way' && e.geometry) wayById.set(e.id, wayGeom(e));
+  const candidates: Candidate[] = [];
+  const seenRefs = new Set<string>();
+  for (const e of data.elements) {
+    if (e.type === 'way') {
+      const t = e.tags || {};
+      if (!t.name || !e.geometry || e.geometry.length < 3) continue;
+      const ref = `way/${e.id}`;
+      if (seenRefs.has(ref)) continue; seenRefs.add(ref);
+      const cand = buildParkLoopCandidate(ref, t.name, wayGeom(e));
+      if (cand) candidates.push(cand);
+    } else if (e.type === 'relation') {
+      const t = e.tags || {};
+      if (!t.name) continue;
+      const outerWays: number[][][] = [];
+      for (const m of e.members || []) if (m.type === 'way' && m.role !== 'inner' && wayById.has(m.ref)) outerWays.push(wayById.get(m.ref)!);
+      if (!outerWays.length) continue;
+      const rings = stitch(outerWays, 80);
+      if (!rings.length) continue;
+      const ring = rings.reduce((a, b) => b.length > a.length ? b : a);
+      const ref = `rel/${e.id}`;
+      if (seenRefs.has(ref)) continue; seenRefs.add(ref);
+      const cand = buildParkLoopCandidate(ref, t.name, ring);
+      if (cand) candidates.push(cand);
+    }
+  }
+  return candidates;
+}
+
+function buildParkLoopCandidate(ref: string, name: string, ring: number[][]): Candidate | null {
+  if (ring.length < 3) return null;
+  // A park polygon must be a real closed ring to be treated as a walkable
+  // loop — today's admin-boundary fetcher never needed this check (an admin
+  // boundary is always closed by definition), but a park `way` result could
+  // in principle come back open if OSM tagging/geometry is incomplete.
+  if (hav(ring[0], ring[ring.length - 1]) >= LOOP_CLOSE_M) return null;
+  const L = pathLen(ring);
+  if (L < LEN_LOOP_MIN || L > LEN_LOOP_MAX) return null;
+  return {
+    externalId: `osm:${ref}`,
+    osmName: name,
+    kind: 'park',
+    pts: ring,
+    lengthM: Math.round(L),
+    isLoop: true,
+    surface: 'trail',
+    ...(ref.startsWith('rel/') ? { relRef: ref } : {}),
+  };
 }
 
 // Blocking polygons (water + buildings) consumed by artifactReason. Extracted from discover()
@@ -487,9 +789,19 @@ function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | 
   const activityTypes = c.isBicycle ? ['cycling'] : ['walking', 'running'];
   const activityType = c.isBicycle ? 'cycling' : (c.surface === 'road' ? 'running' : 'walking');
   const kindHe = c.isLoop ? 'לולאה' : c.kind === 'trail' ? 'שביל מסומן' : 'מסלול';
-  const name = c.osmName
-    ? (c.isLoop ? `לולאת ${c.osmName}` : c.osmName)
-    : `${kindHe} ${REGION.label}${c.isLoop ? ' (לולאה)' : ''}`;
+  // Park-anchored perimeter loops (item A) get their own naming convention —
+  // "הקפת X" ("circuit of X"), distinct from the general "לולאת X" loop
+  // prefix — both because it reads more naturally for "loop around a park"
+  // in Hebrew, and because it's the exact naming pattern the lost TLV probe
+  // used (e.g. "הקפת פארק חופי רידינג"), giving this rebuild continuity with
+  // the capability it's replacing. discoverParkLoops() only ever emits
+  // NAMED candidates (Overpass query requires ["name"]), so the fallback
+  // here is defensive only.
+  const name = c.kind === 'park'
+    ? `הקפת ${c.osmName ?? REGION.label}`
+    : c.osmName
+      ? (c.isLoop ? `לולאת ${c.osmName}` : c.osmName)
+      : `${kindHe} ${REGION.label}${c.isLoop ? ' (לולאה)' : ''}`;
   const distanceKm = distance / 1000;
   const mid = c.pts[Math.floor(c.pts.length / 2)];
   const gain = dem?.gainM ?? 0;
@@ -525,6 +837,9 @@ function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | 
       surface: c.surface,
     },
     source: { type: 'official_api', name: c.sourceName ?? 'OSM Geo-Discovery', externalId: c.externalId, ...(c.relRef ? { osmRef: c.relRef } : {}) },
+    // Top-level, not nested under `source` (see RouteFieldsSchema.sourceWayIds's
+    // doc comment — `source` itself isn't schema-validated as a nested object).
+    ...(c.sourceWayIds ? { sourceWayIds: c.sourceWayIds } : {}),
     elevationGain: gain,
     maxGrade: dem?.maxGrade ?? 0,
     // Granular ground-material vocabulary — deliberately a NEW top-level
@@ -697,7 +1012,7 @@ async function main() {
   if (!SKIP_OSM) {
     const d = await discover();
     candidates = d.candidates; blockPolys = d.blockPolys; stats = d.stats;
-    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
+    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines (${stats.relRescued || 0} rejected-for-length, rescued named members) · ${stats.parks || 0} named park/garden loops · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways, ${stats.stitchedSameName || 0} same-name + ${stats.stitchedCrossName || 0} cross-name stitches). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
   } else {
     console.log('--skip-osm: skipping Overpass discovery; fetching blocking polygons only (for the round-trip artifact filter) …');
     blockPolys = await fetchBlockPolys(REGION.bbox);
@@ -738,20 +1053,23 @@ async function main() {
   // Prefer loops: loops first, then by (climb-weighted) length descending.
   kept.sort((a, b) => (Number(b.c.isLoop) - Number(a.c.isLoop)) || (b.doc.distance * (1 + (b.doc.elevationGain || 0) / 100) - a.doc.distance * (1 + (a.doc.elevationGain || 0) / 100)));
 
-  const nLoops = kept.filter(k => k.c.isLoop && !k.c.isBicycle).length;
+  const nParks = kept.filter(k => k.c.kind === 'park').length;
+  const nLoops = kept.filter(k => k.c.isLoop && !k.c.isBicycle && k.c.kind !== 'park').length;
   const nTrails = kept.filter(k => k.c.kind === 'trail' && !k.c.isBicycle).length;
   const nSegments = kept.filter(k => k.c.kind === 'segment' && !k.c.isLoop && !k.c.isBicycle).length;
   const nCycling = kept.filter(k => k.c.isBicycle).length;
-  console.log(`\nAFTER FILTER: ${kept.length} routes kept (${nLoops} loops, ${nTrails} marked-trail lines), ${dropped.length} artifacts dropped, ${boundaryDropped.length} dropped as outside the boundary.`);
-  console.log(`  by type: ${nTrails} trail · ${nLoops} loop · ${nSegments} named segment · ${nCycling} cycling`);
+  const nStitched = kept.filter(k => (k.c.sourceWayIds?.length ?? 0) > 0).length;
+  console.log(`\nAFTER FILTER: ${kept.length} routes kept (${nParks} park loops, ${nLoops} loops, ${nTrails} marked-trail lines), ${dropped.length} artifacts dropped, ${boundaryDropped.length} dropped as outside the boundary.`);
+  console.log(`  by type: ${nTrails} trail · ${nParks} park · ${nLoops} loop · ${nSegments} named segment · ${nCycling} cycling  (${nStitched} of these are stitched from >1 OSM way)`);
   if (dropped.length) dropped.slice(0, 10).forEach(d => console.log(`   ✗ artifact: ${d.name} — ${d.reason}`));
   if (boundaryDropped.length) boundaryDropped.slice(0, 15).forEach(d => console.log(`   ✗ outside boundary: ${d.name} — ${d.reason}`));
 
   console.log('\n── candidates (loops first) ──');
   for (const k of kept) {
     const d = k.doc;
-    const icon = k.c.isBicycle ? '🚲' : k.c.isLoop ? '🔁' : k.c.kind === 'trail' ? '🥾' : '·';
-    console.log(`  ${icon} ${String(d.distance).padStart(5)}m  gain ${String(d.elevationGain).padStart(4)}m  ${d.difficulty.padEnd(8)} ${d.activityType.padEnd(8)} ${d.name}  [${k.c.externalId}]`);
+    const icon = k.c.kind === 'park' ? '🌳' : k.c.isBicycle ? '🚲' : k.c.isLoop ? '🔁' : k.c.kind === 'trail' ? '🥾' : '·';
+    const stitchNote = (k.c.sourceWayIds?.length ?? 0) > 0 ? ` (stitched from ${k.c.sourceWayIds!.length} ways)` : '';
+    console.log(`  ${icon} ${String(d.distance).padStart(5)}m  gain ${String(d.elevationGain).padStart(4)}m  ${d.difficulty.padEnd(8)} ${d.activityType.padEnd(8)} ${d.name}  [${k.c.externalId}]${stitchNote}`);
   }
 
   if (DRY) { console.log(`\n[dry-run] no writes. ${kept.length} pending routes would be written to official_routes (batch ${REGION.batchId}).`); return; }
