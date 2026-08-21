@@ -382,6 +382,16 @@ export default function HomePage() {
     return () => clearTimeout(timer);
   }, [showGearToast]);
 
+  // ── Completed-workout lookup failure toast (fix-round #6, 19-21.08.2026) ──
+  // Surfaces tryOpenCompletedWorkout's real query failures — distinct from
+  // "genuinely no workout that day," which stays a silent, correct fallback.
+  const [completedWorkoutLookupFailed, setCompletedWorkoutLookupFailed] = useState(false);
+  useEffect(() => {
+    if (!completedWorkoutLookupFailed) return;
+    const timer = setTimeout(() => setCompletedWorkoutLookupFailed(false), 5000);
+    return () => clearTimeout(timer);
+  }, [completedWorkoutLookupFailed]);
+
   // ── Post-Workout Celebration Mode ──
   const [postWorkoutData, setPostWorkoutData] = useState<{
     workoutType: string; durationMinutes: number; completedAt: string;
@@ -442,6 +452,16 @@ export default function HomePage() {
         return true;
       }
       return false;
+    } catch (error) {
+      // getWorkoutsForDate now throws instead of swallowing (fix-round #6,
+      // 19-21.08.2026) — a real query failure must NOT fall through to the
+      // caller's normal "genuinely no workout that day" fallback (that used
+      // to open a start-new-workout drawer, silently pretending nothing
+      // happened). Returning true here tells the caller "handled, stop" —
+      // the toast below is what actually surfaces this to the user.
+      console.error('[tryOpenCompletedWorkout] Failed to check for a completed workout on', dateISO, error);
+      setCompletedWorkoutLookupFailed(true);
+      return true;
     } finally {
       isResolvingCompletedTapRef.current = false;
     }
@@ -750,6 +770,13 @@ export default function HomePage() {
       // data-race edge case (e.g. a doc write still in flight), not expected
       // in practice — silent no-op rather than an error UI.
       if (match?.id) router.push(`/workouts/${match.id}/history`);
+    } catch (error) {
+      // getWorkoutsForDate now throws instead of swallowing (fix-round #6,
+      // 19-21.08.2026). This call site's own no-match case is already a
+      // deliberate silent no-op (above) — a genuine query failure gets the
+      // same treatment here (nothing to navigate to either way), just
+      // logged instead of silently caught two layers down.
+      console.error('[handleTodayActivityCardTap] Failed to resolve a workout for tap:', error);
     } finally {
       isResolvingCardTapRef.current = false;
     }
@@ -2129,6 +2156,31 @@ export default function HomePage() {
                 <p className="text-xs text-slate-300">תמיד אפשר לערוך אותו בפרופיל האישי</p>
               </div>
               <ChevronDown size={16} className="text-slate-400 rotate-[-90deg]" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Completed-workout lookup failure toast (fix-round #6, 19-21.08.2026) */}
+      <AnimatePresence>
+        {completedWorkoutLookupFailed && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className="fixed bottom-24 inset-x-0 z-50 flex justify-center px-4"
+          >
+            <button
+              onClick={() => setCompletedWorkoutLookupFailed(false)}
+              className="flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl max-w-sm w-full"
+              dir="rtl"
+            >
+              <span className="text-lg">⚠️</span>
+              <div className="flex-1 text-right">
+                <p className="text-sm font-bold leading-snug">לא הצלחנו לבדוק את האימון</p>
+                <p className="text-xs text-slate-300">נסו ללחוץ שוב בעוד רגע</p>
+              </div>
             </button>
           </motion.div>
         )}

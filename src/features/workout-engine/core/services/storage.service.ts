@@ -509,30 +509,34 @@ function mapFullWorkoutDoc(id: string, data: Record<string, unknown>): WorkoutHi
  *
  * `dateISO` is a LOCAL calendar day ('YYYY-MM-DD', toISODate's format) —
  * boundaries are constructed in local time to match, not UTC.
+ *
+ * A malformed `dateISO` resolves to `[]` (nothing to query). A genuine
+ * Firestore failure THROWS instead of resolving to `[]` (fix-round, #6,
+ * 19-21.08.2026) — a caught-and-swallowed error here used to be
+ * indistinguishable from "no workout that day," which sent
+ * `tryOpenCompletedWorkout` (home/page.tsx) silently down the wrong
+ * fallback path (opening a new-workout drawer instead of surfacing that the
+ * lookup itself failed). Callers now decide their own fallback per call
+ * site — see `tryOpenCompletedWorkout`'s own try/catch.
  */
 export async function getWorkoutsForDate(
   userId: string,
   dateISO: string,
 ): Promise<WorkoutHistoryEntry[]> {
-  try {
-    const [year, month, day] = dateISO.split('-').map(Number);
-    if (!year || !month || !day) return [];
-    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
-    const endOfDay = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+  const [year, month, day] = dateISO.split('-').map(Number);
+  if (!year || !month || !day) return [];
+  const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+  const endOfDay = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
 
-    const q = query(
-      collection(db, 'workouts'),
-      where('userId', '==', userId),
-      where('date', '>=', Timestamp.fromDate(startOfDay)),
-      where('date', '<', Timestamp.fromDate(endOfDay)),
-      orderBy('date', 'desc'),
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((docSnap) => mapFullWorkoutDoc(docSnap.id, docSnap.data()));
-  } catch (error) {
-    console.error('[getWorkoutsForDate] Failed to fetch workouts for date:', dateISO, error);
-    return [];
-  }
+  const q = query(
+    collection(db, 'workouts'),
+    where('userId', '==', userId),
+    where('date', '>=', Timestamp.fromDate(startOfDay)),
+    where('date', '<', Timestamp.fromDate(endOfDay)),
+    orderBy('date', 'desc'),
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => mapFullWorkoutDoc(docSnap.id, docSnap.data()));
 }
 
 /**
