@@ -269,7 +269,14 @@ const wayGeom = (e: any): number[][] => (e.geometry || []).map((p: any) => [p.la
 // using a name as a same-name-stitching grouping key or promenade-name lookup
 // — the DISPLAYED name benefits from this too (an invisible nbsp reads
 // identically to a space either way).
-const normalizeName = (name: string): string => name.replace(/[\s ]+/g, ' ').trim();
+const normalizeName = (name: string): string => name
+  // Zero-width RTL/LTR/joiner marks (U+200B-U+200F, U+FEFF) — real for
+  // mixed-direction Hebrew OSM tags, same class of invisible-character bug
+  // as the whitespace/nbsp case below (an independent code review,
+  // 21.08.2026, flagged this as the same failure mode, not yet covered).
+  .replace(/[​-‏﻿]+/g, '')
+  .replace(/\s+/g, ' ') // \s already covers U+00A0 (nbsp) per the ECMAScript spec
+  .trim();
 
 // ─────────────────────────────── Overpass ───────────────────────────────
 const MIRRORS = ['https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass-api.de/api/interpreter'];
@@ -336,8 +343,11 @@ type Candidate = {
   // Individual OSM way refs ("way/<id>") merged into this candidate by the
   // same-name/geometric-continuity stitching passes, or by the relation-
   // rejection rescue path — undefined for a plain single-way/single-relation
-  // candidate (no behavior change there). See buildValidatedDoc's
-  // RouteFieldsSchema.sourceWayIds and route.types.ts's Route['source'].
+  // candidate (no behavior change there). Written TOP-LEVEL on the Firestore
+  // doc, NOT nested under `source` (`source` itself isn't schema-validated
+  // as a nested object) — see RouteFieldsSchema.sourceWayIds (schemas.ts)
+  // and the top-level Route.sourceWayIds field (route.types.ts, sibling of
+  // Route.source, not inside it).
   sourceWayIds?: string[];
   // Raw OSM surface=* tag, when available — only the standalone/loop/segment
   // branch below has direct way-tag access; trail-relation-derived and
@@ -470,6 +480,17 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
 
   const candidates: Candidate[] = [];
   const seenWayIds = new Set<number>(); // way ids consumed by a trail relation → don't re-emit as standalone
+  // item D: way ids that ended up in a KEPT trail line (any relation) — a way
+  // can be a member of multiple overlapping relations (Haifa's wadi network);
+  // if one relation's line is rejected (rescuing this way) while ANOTHER
+  // relation's line containing the SAME way is kept, the rescue must not
+  // re-add it — its geometry is already present in the kept trail candidate.
+  // Independent code review (21.08.2026) caught this as a gap in the
+  // original rescue-dedup (which only prevented double-RESCUE, not
+  // rescue-overlapping-a-kept-line). Populated across the whole relation
+  // loop below, applied once, after it finishes (rescue order vs. a later
+  // relation's keep can't be known mid-loop).
+  const keptTrailWayIds = new Set<number>();
   for (const [relId, memberWays] of Array.from(relMembersByRel)) {
     for (const m of (relData.elements.find((e: any) => e.type === 'relation' && e.id === relId)?.members || [])) if (m.type === 'way') seenWayIds.add(m.ref);
     const tags = relTags.get(relId) || {};
@@ -491,6 +512,7 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
       if (L < LEN_TRAIL_MIN) continue;
       const isLoop = hav(line.pts[0], line.pts[line.pts.length - 1]) < LOOP_CLOSE_M && L > LEN_LOOP_MIN;
       candidates.push({ externalId: `osm:rel/${relId}${lines.length > 1 ? `#${part}` : ''}`, osmName: tags.name || null, kind: 'trail', pts: line.pts, lengthM: Math.round(L), isLoop, surface: 'trail', relRef: `rel/${relId}` });
+      for (const wid of line.ids) keptTrailWayIds.add(wid);
       part++; stats.relLines++;
     }
   }
@@ -553,7 +575,11 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
   // back over itself (e.g. "osm:stitched/35014061+35014061+1470987339" — a
   // real way id appearing twice) — a genuine geometry bug, not cosmetic.
   const rawWayIdsSoFar = new Set(rawWays.map(w => w.id));
-  for (const w of rescuedRawWays) { if (rawWayIdsSoFar.has(w.id)) continue; rawWayIdsSoFar.add(w.id); rawWays.push(w); }
+  for (const w of rescuedRawWays) {
+    if (rawWayIdsSoFar.has(w.id)) continue;
+    if (keptTrailWayIds.has(w.id)) continue; // already present in a kept trail candidate — don't duplicate its geometry
+    rawWayIdsSoFar.add(w.id); rawWays.push(w);
+  }
 
   // Pass 1 — same-name stitching (item B): every raw way sharing an exact
   // `name` tag is greedily chained into one or more continuous lines. A name
