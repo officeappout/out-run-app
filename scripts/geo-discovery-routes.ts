@@ -251,6 +251,17 @@ const CROSS_NAME_GAP_M = 35;
 // scale — no length threshold alone separates them. Starting number, not
 // derived — flagged for review, same as every other threshold in this file.
 const SPECIALNESS_RADIUS_M = 150;
+// Second refinement (21.08.2026): "within radius of ANY named park/garden"
+// was still too loose, verified live — Haifa has many small pocket gardens
+// between apartment blocks, so ordinary residential walkways (כורש 181m,
+// אוליפנט 209m, בן זכאי 116m, פרישמן 65m) sat near one without being a real
+// promenade. Fix: only a park/garden ring whose OWN area clears this
+// threshold counts as a specialness signal — a genuinely significant park
+// (the Bahai Gardens, beside Louis Promenade) vs. a tiny pocket garden.
+// Starting number, not derived — flagged for review, same discipline as
+// every other threshold in this file. Coastline proximity is unaffected
+// (a line has no area to threshold).
+const MIN_PARK_AREA_M2 = 5000; // ~0.5 hectare
 
 // ─────────────────────────────── geometry helpers ───────────────────────────────
 const R = 6371000;
@@ -535,6 +546,13 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
   // second fetch.
   const parkRings = await fetchParkGardenRings(decl, scopes);
   const coastlinePts = await fetchCoastlinePoints(REGION.bbox);
+  // Second refinement: only a SIGNIFICANT park/garden (area ≥ MIN_PARK_AREA_M2)
+  // counts as a specialness signal — see that constant's own comment. Logged
+  // so the real computed areas (not just the pass/fail outcome) are visible
+  // for tuning review, not just asserted.
+  const significantParkRings = parkRings.filter(pr => ringAreaM2(pr.ring) >= MIN_PARK_AREA_M2);
+  console.log(`  park/garden rings: ${parkRings.length} named, ${significantParkRings.length} clear the ${MIN_PARK_AREA_M2}m² significance threshold: ${significantParkRings.map(pr => pr.name).join(', ') || '(none)'}`);
+  stats.parkRingsTotal = parkRings.length; stats.parkRingsSignificant = significantParkRings.length;
 
   // 2) standalone NAMED footway/path/track/pedestrian/cycleway ways (the
   // proven-safe vocabulary, unchanged) PLUS — "street-based promenades stay
@@ -746,7 +764,7 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
       // near a real specialness signal (park/garden or coastline) — see
       // SPECIALNESS_RADIUS_M's own comment. Named ways at or above the old
       // floor are unaffected (pass through exactly as before this change).
-      if (L < LEN_SEG_MIN && !isNearSpecialFeature(g.pts, parkRings, coastlinePts)) { stats.shortNoSignalDropped = (stats.shortNoSignalDropped || 0) + 1; continue; }
+      if (L < LEN_SEG_MIN && !isNearSpecialFeature(g.pts, significantParkRings, coastlinePts)) { stats.shortNoSignalDropped = (stats.shortNoSignalDropped || 0) + 1; continue; }
     }
     const stitched = g.ids.length > 1;
     const externalId = stitched ? `osm:stitched/${[...g.ids].sort((a, b) => a - b).join('+')}` : `osm:way/${g.ids[0]}`;
@@ -873,14 +891,31 @@ async function fetchCoastlinePoints(b: Region['bbox']): Promise<number[][]> {
   return pts;
 }
 
+// Planar-approximation polygon area (shoelace formula, after projecting
+// lat/lng to local meters via a flat equirectangular approximation centered
+// on the ring's own latitude) — same precision level as this file's other
+// geometry (haversine distances, ray-cast point-in-polygon): good enough at
+// city scale to distinguish a real park from a pocket garden, not survey-
+// grade. Used only for the MIN_PARK_AREA_M2 specialness-gate threshold.
+function ringAreaM2(ring: number[][]): number {
+  if (ring.length < 3) return 0;
+  const lat0 = ring[0][0];
+  const mPerDegLat = 111320, mPerDegLng = 111320 * Math.cos(lat0 * Math.PI / 180);
+  const xy = ring.map(p => [p[1] * mPerDegLng, p[0] * mPerDegLat]);
+  let area = 0;
+  for (let i = 0; i < xy.length; i++) { const [x1, y1] = xy[i], [x2, y2] = xy[(i + 1) % xy.length]; area += x1 * y2 - x2 * y1; }
+  return Math.abs(area) / 2;
+}
+
 // The specialness gate itself: true if ANY point of a candidate's path sits
-// within SPECIALNESS_RADIUS_M of a park/garden ring vertex or a coastline
-// vertex. Applied ONLY to named non-loop candidates below the OLD LEN_SEG_MIN
-// floor (see the final classification loop) — named ways above that floor,
-// and all loops, are unaffected.
-function isNearSpecialFeature(pts: number[][], parkRings: Array<{ ring: number[][] }>, coastlinePts: number[][]): boolean {
+// within SPECIALNESS_RADIUS_M of a SIGNIFICANT park/garden ring (area ≥
+// MIN_PARK_AREA_M2 — pre-filtered by the caller, not every named park/
+// garden) or a coastline vertex. Applied ONLY to named non-loop candidates
+// below the OLD LEN_SEG_MIN floor (see the final classification loop) —
+// named ways above that floor, and all loops, are unaffected.
+function isNearSpecialFeature(pts: number[][], significantParkRings: Array<{ ring: number[][] }>, coastlinePts: number[][]): boolean {
   for (const p of pts) {
-    for (const pr of parkRings) for (const rp of pr.ring) if (hav(p, rp) < SPECIALNESS_RADIUS_M) return true;
+    for (const pr of significantParkRings) for (const rp of pr.ring) if (hav(p, rp) < SPECIALNESS_RADIUS_M) return true;
     for (const cp of coastlinePts) if (hav(p, cp) < SPECIALNESS_RADIUS_M) return true;
   }
   return false;
