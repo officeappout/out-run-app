@@ -12,7 +12,7 @@ import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
 import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
-import { calculateProfileCompletion } from '@/features/user/identity/services/profile-completion.service';
+import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
@@ -115,8 +115,15 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
 
   if (completion.isVerified || completion.percentage >= 100) return null;
 
-  const handleGoToStep = async (step: string) => {
-    if (step === 'GPS_PERMISSION') {
+  const handleGoToStep = async (item: CompletionItem) => {
+    if (item.jitPath) {
+      // Running items have no OnboardingWizard step — route into the dynamic
+      // questionnaire directly, seeding the same track signal Gateway sets.
+      setOnboardingPref('gateway_track', item.bucket === 'running' ? 'RUNNING' : 'STRENGTH');
+      router.push(item.jitPath);
+      return;
+    }
+    if (item.id === 'gpsAccess') {
       // Explicit checklist tap → prompt via the shared store action. On grant,
       // persist the completion flag; on denial the store records it and we no-op.
       const coords = await useGPSStore.getState().requestPermissionNow();
@@ -132,7 +139,7 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
       }
       return;
     }
-    router.push(`/onboarding-new/setup?step=${step}&jit=true`);
+    router.push(`/onboarding-new/setup?step=${item.step}&jit=true`);
   };
 
   return (
@@ -180,9 +187,9 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
                   <span className={`flex-1 text-xs ${item.completed ? 'text-slate-400 line-through' : 'text-slate-700 font-medium'}`}>
                     {item.label}
                   </span>
-                  {!item.completed && item.step && (
+                  {!item.completed && (item.step || item.jitPath) && (
                     <button
-                      onClick={() => handleGoToStep(item.step!)}
+                      onClick={() => handleGoToStep(item)}
                       className="text-[11px] text-[#00C9F2] font-bold hover:underline"
                     >
                       השלם
