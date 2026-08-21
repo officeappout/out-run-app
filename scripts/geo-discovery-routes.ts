@@ -241,6 +241,16 @@ const LOOP_CLOSE_M = 60; // start↔end within this ⇒ a loop
 // could chain two unrelated nearby paths), hence the tighter cross-name gap.
 const SAME_NAME_GAP_M = 100;
 const CROSS_NAME_GAP_M = 35;
+// Quality-over-quantity refinement (21.08.2026, per instruction): a short
+// named way (below the OLD LEN_SEG_MIN=500 floor — the new territory item C
+// opened up) is only kept if it's near a genuine special feature — a park/
+// garden polygon (already fetched for item A) or the coastline. Without
+// this, the low floor surfaces both real short promenades (Louis, 292m,
+// beside the Bahai Gardens) AND ~80 ordinary named walkways between
+// buildings (a real Israeli OSM addressing convention) at the same length
+// scale — no length threshold alone separates them. Starting number, not
+// derived — flagged for review, same as every other threshold in this file.
+const SPECIALNESS_RADIUS_M = 150;
 
 // ─────────────────────────────── geometry helpers ───────────────────────────────
 const R = 6371000;
@@ -517,6 +527,15 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     }
   }
 
+  // 1.5) NEW, moved earlier (21.08.2026, quality-over-quantity refinement) —
+  // park/garden rings + coastline points, fetched now instead of at the end,
+  // because the short-named-way specialness gate below (step 2's final
+  // classification) needs them as input. buildParkLoopCandidates(parkRings)
+  // is still called at the very end (step 3), reusing these same rings — no
+  // second fetch.
+  const parkRings = await fetchParkGardenRings(decl, scopes);
+  const coastlinePts = await fetchCoastlinePoints(REGION.bbox);
+
   // 2) standalone NAMED footway/path/track/pedestrian/cycleway ways (the
   // proven-safe vocabulary, unchanged) PLUS — "street-based promenades stay
   // continuous", item B, NARROWLY scoped — named living_street/residential/
@@ -531,10 +550,16 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
   // CONTINUATION of a genuine footway/path/pedestrian/track/cycleway
   // promenade (e.g. a promenade that briefly changes OSM highway tag at one
   // intersection) — never as an independently-viable candidate on its own,
-  // which is what let ordinary streets in before. Every standalone candidate
-  // (loop or not) must be named — item F: no anonymous filler loops, so
-  // unnamed ways are filtered out at collection time, before stitching runs.
-  console.log('discovering standalone paths / loops (footway|path|track|pedestrian|cycleway) + same-named street continuations …');
+  // which is what let ordinary streets in before. Every NAMED standalone
+  // candidate must clear item F's bar — but see the UNNAMED bridge-way
+  // collection just below: an unnamed footway/path/pedestrian/track way is
+  // now also collected, not to become its own candidate (F's "no anonymous
+  // junk" guarantee still holds — see the pass-2 discard rule), but to let
+  // pass 2 bridge a real physical gap between two named promenades whose OSM
+  // tagging happens to break at an unnamed connector segment (found live:
+  // Louis Promenade → an unnamed ~200m pedestrian connector → Panorama
+  // Promenade — two different real names, previously never joined).
+  console.log('discovering standalone paths / loops (footway|path|track|pedestrian|cycleway) + same-named street continuations + unnamed bridge connectors …');
   const wayParts = scopes.map(sc =>
     `way["highway"~"^(footway|path|track|pedestrian|cycleway)$"]["highway"!~"steps"]${sc};` +
     `way["highway"~"^(living_street|residential|service|tertiary|unclassified)$"]["name"]${sc};`
@@ -544,12 +569,13 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
   const PRIMARY_HIGHWAY_RE = /^(footway|path|track|pedestrian|cycleway)$/;
   const primaryRawWays: RawWay[] = [];
   const streetTypeRawWays: RawWay[] = [];
+  type BridgeWay = { id: number; pts: number[][]; highway: string; osmSurface?: string; isBicycle: boolean };
+  const bridgeRawWays: BridgeWay[] = []; // unnamed primary-family ways — connector-only, see pass-2 discard rule below
   const seenStandaloneWayIds = new Set<number>(); // item B: avoid double-discovery vs the bike-lane query below
   for (const e of wayData.elements) {
     if (e.type !== 'way' || !e.geometry || e.geometry.length < 2) continue;
     if (seenWayIds.has(e.id)) continue; // already covered by a trail relation
     const t = e.tags || {};
-    if (!t.name) continue;                                    // item F: named-only, unconditionally
     if (t.conveying && t.conveying !== 'no') continue;         // escalator / moving walkway
     // Canonical stairs model (Stage 0, route-enrichment-pipeline plan): stairs
     // are never route candidates. OSM-derived stairs live exclusively in
@@ -558,8 +584,20 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     if (t.access === 'private' || t.foot === 'no' || t.foot === 'private') continue;
     if (t.indoor === 'yes' || t.tunnel === 'building_passage') continue;
     const isBicycle = t.highway === 'cycleway' || t.bicycle === 'designated' || t.bicycle === 'yes' || t.segregated === 'yes';
+    const isPrimary = PRIMARY_HIGHWAY_RE.test(t.highway);
+    if (!t.name) {
+      // item F still holds unconditionally: an unnamed way is NEVER its own
+      // candidate. Street-type ways were already Overpass-query-filtered to
+      // named-only (["name"] in the query itself), so only an unnamed
+      // PRIMARY-family way can reach here — kept ONLY as bridge material for
+      // pass 2 (see the discard rule there), never added to seenStandaloneWayIds
+      // (a bridge way never independently survives, so it never needs to
+      // shadow the bike-lane query the way a real standalone candidate does).
+      if (isPrimary) bridgeRawWays.push({ id: e.id, pts: wayGeom(e), highway: t.highway, osmSurface: t.surface, isBicycle });
+      continue;
+    }
     const raw: RawWay = { id: e.id, name: normalizeName(t.name), pts: wayGeom(e), highway: t.highway, osmSurface: t.surface, isBicycle };
-    (PRIMARY_HIGHWAY_RE.test(t.highway) ? primaryRawWays : streetTypeRawWays).push(raw);
+    (isPrimary ? primaryRawWays : streetTypeRawWays).push(raw);
     seenStandaloneWayIds.add(e.id);
   }
   const promenadeNames = new Set(primaryRawWays.map(w => w.name));
@@ -586,7 +624,11 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
   // with only one way is a trivial pass-through (no merge needed).
   const byName = new Map<string, RawWay[]>();
   for (const w of rawWays) { const arr = byName.get(w.name) || []; arr.push(w); byName.set(w.name, arr); }
-  type StitchedGroup = { name: string; ids: number[]; pts: number[][]; highway: string; osmSurface?: string; isBicycle: boolean };
+  // `name: string | null` — null marks a bridge-only group (from an unnamed
+  // primary-family way, see the collection loop above). A bridge group must
+  // NEVER become its own final candidate — only ever absorbed into a real
+  // named chain during pass 2 — see the discard rule there.
+  type StitchedGroup = { name: string | null; ids: number[]; pts: number[][]; highway: string; osmSurface?: string; isBicycle: boolean };
   const pass1: StitchedGroup[] = [];
   for (const [name, ways] of Array.from(byName)) {
     const lines = stitchWithIds(ways.map(w => ({ pts: w.pts, id: w.id })), SAME_NAME_GAP_M);
@@ -596,20 +638,87 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
       pass1.push({ name, ids: line.ids, pts: line.pts, highway: rep.highway, osmSurface: rep.osmSurface, isBicycle: line.ids.every(id => ways.find(w => w.id === id)!.isBicycle) });
     }
   }
-
-  // Pass 2 — geometric-continuity stitching, ACROSS different names (item B):
-  // pass 1's results are chained again purely by endpoint proximity, at a
-  // tighter gap tolerance, only within a compatible tag family (a footway
-  // never silently absorbs an unrelated cycleway). Canonical name of a
-  // cross-name merge = the LONGEST constituent segment's real name.
   function tagFamily(highway: string, isBicycle: boolean): string {
     if (isBicycle) return 'bicycle';
     if (highway === 'footway' || highway === 'path' || highway === 'pedestrian') return 'foot';
     if (highway === 'track') return 'track';
     return 'street'; // living_street/residential/service/tertiary/unclassified
   }
+
+  // Bridge merging (item B, Louis+Panorama fix) — PAIRWISE, not pooled.
+  // First attempt fed every unnamed primary-family way into the SAME
+  // multi-item pool as pass-1 groups and ran the general greedy stitcher
+  // over it — live result: Louis Promenade ballooned to 2058m/35 ways
+  // (should have been ~2, Louis+Panorama) because several independently-
+  // eligible bridges near Mount Carmel's dense promenade network let the
+  // stitcher chain through an entire local footpath cluster, not just
+  // bridge the one verified real gap. A length-budget-with-fallback second
+  // attempt then regressed the good Louis+Panorama pairing too, because the
+  // budget check ran on the WHOLE connected component (bridge+group+bridge+
+  // group+...), not the specific pair — the fallback threw out everything
+  // in that component when ANY part of it went over budget.
+  //
+  // Fix: evaluate each unnamed bridge way INDIVIDUALLY, direct-endpoint-only
+  // — does bridge endpoint A sit within CROSS_NAME_GAP_M of EXACTLY ONE
+  // pass-1 group's endpoint, and bridge endpoint B of a DIFFERENT pass-1
+  // group's endpoint? If so, merge those two SPECIFIC groups through the
+  // bridge and nothing else. A bridge can never act as a link in a longer
+  // chain (no other bridges are ever considered in the same check), and two
+  // unrelated named clusters can never merge just because some third
+  // unrelated bridge happens to be nearby. This is a structural guarantee,
+  // not a length-based judgment call — no MAX_BRIDGE_TOTAL_M constant
+  // needed. Ambiguous cases (an endpoint touching 0, 2+, or the SAME group
+  // on both ends) are skipped, not guessed.
+  function orientToEnd(pts: number[][], endpointIsHead: boolean, wantEndpointLast: boolean): number[][] {
+    const alreadyLast = !endpointIsHead;
+    return (alreadyLast === wantEndpointLast) ? pts : pts.slice().reverse();
+  }
+  let bridged: StitchedGroup[] = pass1.slice();
+  for (const bw of bridgeRawWays) {
+    const bStart = bw.pts[0], bEnd = bw.pts[bw.pts.length - 1];
+    // For each bridge endpoint, find every (groupIndex, isHead) match within tolerance.
+    const matchesFor = (p: number[]) => {
+      const out: Array<{ idx: number; isHead: boolean }> = [];
+      for (let i = 0; i < bridged.length; i++) {
+        const g = bridged[i];
+        if (hav(p, g.pts[0]) < CROSS_NAME_GAP_M) out.push({ idx: i, isHead: true });
+        else if (hav(p, g.pts[g.pts.length - 1]) < CROSS_NAME_GAP_M) out.push({ idx: i, isHead: false });
+      }
+      return out;
+    };
+    const atStart = matchesFor(bStart), atEnd = matchesFor(bEnd);
+    if (atStart.length !== 1 || atEnd.length !== 1) continue; // ambiguous (0 or 2+ touches) — skip
+    const mA = atStart[0], mB = atEnd[0];
+    if (mA.idx === mB.idx) continue; // both bridge ends touch the SAME group — not a real bridge between two things
+    const groupA = bridged[mA.idx], groupB = bridged[mB.idx];
+    if (tagFamily(groupA.highway, groupA.isBicycle) !== tagFamily(groupB.highway, groupB.isBicycle)) continue; // compatible-family rule still applies
+    const aPts = orientToEnd(groupA.pts, mA.isHead, true);   // A's matching end becomes its LAST point
+    const bridgePts = hav(aPts[aPts.length - 1], bStart) <= hav(aPts[aPts.length - 1], bEnd) ? bw.pts : bw.pts.slice().reverse();
+    const bPts = orientToEnd(groupB.pts, mB.isHead, false);  // B's matching end becomes its FIRST point
+    const merged: StitchedGroup = {
+      name: pathLen(groupB.pts) > pathLen(groupA.pts) ? groupB.name : groupA.name, // longer real constituent's name
+      ids: [...groupA.ids, bw.id, ...groupB.ids],
+      pts: [...aPts, ...bridgePts, ...bPts],
+      highway: pathLen(groupB.pts) > pathLen(groupA.pts) ? groupB.highway : groupA.highway,
+      osmSurface: pathLen(groupB.pts) > pathLen(groupA.pts) ? groupB.osmSurface : groupA.osmSurface,
+      isBicycle: groupA.isBicycle && groupB.isBicycle,
+    };
+    // Replace both consumed groups with the single merged one.
+    bridged = bridged.filter((_, i) => i !== mA.idx && i !== mB.idx);
+    bridged.push(merged);
+    stats.bridgedPairs = (stats.bridgedPairs || 0) + 1;
+  }
+
+  // Pass 2 — geometric-continuity stitching, ACROSS different names (item B):
+  // the (possibly bridge-merged) named groups are chained again purely by
+  // endpoint proximity — a DIRECT zero-or-near-zero gap between two
+  // different-named real promenades, e.g. a genuine coastal run where one
+  // named stretch's OSM way happens to end exactly where the next begins,
+  // no connector needed. This pass never sees unnamed bridge material —
+  // that's fully handled above — so it needs no discard rule of its own.
+  // Canonical name of a merge = the LONGEST constituent segment's real name.
   const families = new Map<string, StitchedGroup[]>();
-  for (const g of pass1) { const f = tagFamily(g.highway, g.isBicycle); const arr = families.get(f) || []; arr.push(g); families.set(f, arr); }
+  for (const g of bridged) { const f = tagFamily(g.highway, g.isBicycle); const arr = families.get(f) || []; arr.push(g); families.set(f, arr); }
   const pass2: StitchedGroup[] = [];
   for (const [, groups] of Array.from(families)) {
     const lines = stitchWithIds(groups.map(g => ({ pts: g.pts, id: g })), CROSS_NAME_GAP_M);
@@ -632,6 +741,12 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
       if (L < LEN_LOOP_MIN || L > LEN_LOOP_MAX) continue; // loops keep the unchanged floor regardless of naming
     } else {
       if (L < LEN_SEG_MIN_NAMED || L > LEN_SEG_MAX) continue; // item C: named non-loop gets the low floor
+      // Quality-over-quantity refinement (21.08.2026): a named non-loop
+      // candidate below the OLD LEN_SEG_MIN=500 floor is ONLY kept if it's
+      // near a real specialness signal (park/garden or coastline) — see
+      // SPECIALNESS_RADIUS_M's own comment. Named ways at or above the old
+      // floor are unaffected (pass through exactly as before this change).
+      if (L < LEN_SEG_MIN && !isNearSpecialFeature(g.pts, parkRings, coastlinePts)) { stats.shortNoSignalDropped = (stats.shortNoSignalDropped || 0) + 1; continue; }
     }
     const stitched = g.ids.length > 1;
     const externalId = stitched ? `osm:stitched/${[...g.ids].sort((a, b) => a - b).join('+')}` : `osm:way/${g.ids[0]}`;
@@ -667,11 +782,13 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     stats.bikeLaneSegments = (stats.bikeLaneSegments || 0) + 1;
   }
 
-  // 3) NEW — named park/garden-anchored perimeter loops (item A). See
-  // discoverParkLoops()'s own header comment for why this traces the park's
-  // real OSM boundary ring rather than reusing the live app's generator or a
-  // synthetic circle.
-  const parkCandidates = await discoverParkLoops(decl, scopes);
+  // 3) NEW — named park/garden-anchored perimeter loops (item A), built from
+  // `parkRings` (fetched early, step 1.5, so the specialness gate above
+  // could use them too — no second fetch here). See
+  // fetchParkGardenRings()'s own header comment for why this traces the
+  // park's real OSM boundary ring rather than reusing the live app's
+  // generator or a synthetic circle.
+  const parkCandidates = buildParkLoopCandidates(parkRings);
   candidates.push(...parkCandidates);
   stats.parks = parkCandidates.length;
 
@@ -695,13 +812,20 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
 // role!=='inner' outer-only member filtering (single-outer-ring only, no true
 // multipolygon/hole support — a known, carried-forward simplification, same as
 // fetchAdminBoundaryPoly's own).
-async function discoverParkLoops(decl: string, scopes: string[]): Promise<Candidate[]> {
-  console.log('discovering named parks/gardens (leisure=park|garden) for perimeter loops …');
+// Split into a ring-fetch phase and a candidate-build phase (21.08.2026):
+// the raw rings are now ALSO needed earlier, as the park-proximity input to
+// the short-named-way specialness gate — not just to build park loop
+// candidates at the end. fetchParkGardenRings returns every named ring
+// found (unfiltered by loop-closure/length); buildParkLoopCandidates applies
+// those filters afterward, same logic as before, just no longer coupled to
+// the fetch itself.
+async function fetchParkGardenRings(decl: string, scopes: string[]): Promise<Array<{ ref: string; name: string; ring: number[][] }>> {
+  console.log('discovering named parks/gardens (leisure=park|garden) …');
   const parts = scopes.map(sc => `way["leisure"~"^(park|garden)$"]["name"]${sc};relation["leisure"~"^(park|garden)$"]["name"]${sc};`).join('');
   const data = await overpass(`[out:json][timeout:180];${decl}(${parts})->.p;.p out tags;(.p;>;);out geom;`);
   const wayById = new Map<number, number[][]>();
   for (const e of data.elements) if (e.type === 'way' && e.geometry) wayById.set(e.id, wayGeom(e));
-  const candidates: Candidate[] = [];
+  const out: Array<{ ref: string; name: string; ring: number[][] }> = [];
   const seenRefs = new Set<string>();
   for (const e of data.elements) {
     if (e.type === 'way') {
@@ -709,8 +833,7 @@ async function discoverParkLoops(decl: string, scopes: string[]): Promise<Candid
       if (!t.name || !e.geometry || e.geometry.length < 3) continue;
       const ref = `way/${e.id}`;
       if (seenRefs.has(ref)) continue; seenRefs.add(ref);
-      const cand = buildParkLoopCandidate(ref, t.name, wayGeom(e));
-      if (cand) candidates.push(cand);
+      out.push({ ref, name: t.name, ring: wayGeom(e) });
     } else if (e.type === 'relation') {
       const t = e.tags || {};
       if (!t.name) continue;
@@ -722,11 +845,45 @@ async function discoverParkLoops(decl: string, scopes: string[]): Promise<Candid
       const ring = rings.reduce((a, b) => b.length > a.length ? b : a);
       const ref = `rel/${e.id}`;
       if (seenRefs.has(ref)) continue; seenRefs.add(ref);
-      const cand = buildParkLoopCandidate(ref, t.name, ring);
-      if (cand) candidates.push(cand);
+      out.push({ ref, name: t.name, ring });
     }
   }
+  return out;
+}
+
+function buildParkLoopCandidates(parkRings: Array<{ ref: string; name: string; ring: number[][] }>): Candidate[] {
+  const candidates: Candidate[] = [];
+  for (const p of parkRings) { const cand = buildParkLoopCandidate(p.ref, p.name, p.ring); if (cand) candidates.push(cand); }
   return candidates;
+}
+
+// Coastline (natural=coastline ways) — the second specialness signal for the
+// short-named-way gate (a real promenade along the shore, e.g. Bat Galim/Hof
+// HaCarmel-style, should survive even if a specific short fragment isn't
+// itself beside a park). Lines, not polygons — collected as raw vertices for
+// a coarse point-proximity check, matching this file's existing precision
+// level (inPoly/artifactReason are also point-based, not true segment-
+// distance tests).
+async function fetchCoastlinePoints(b: Region['bbox']): Promise<number[][]> {
+  console.log('fetching coastline (natural=coastline) for the short-way specialness signal …');
+  const bb = `${b.latMin},${b.lonMin},${b.latMax},${b.lonMax}`;
+  const data = await overpass(`[out:json][timeout:90];way["natural"="coastline"](${bb});out geom;`);
+  const pts: number[][] = [];
+  for (const e of data.elements) if (e.type === 'way' && e.geometry) for (const p of e.geometry) pts.push([p.lat, p.lon]);
+  return pts;
+}
+
+// The specialness gate itself: true if ANY point of a candidate's path sits
+// within SPECIALNESS_RADIUS_M of a park/garden ring vertex or a coastline
+// vertex. Applied ONLY to named non-loop candidates below the OLD LEN_SEG_MIN
+// floor (see the final classification loop) — named ways above that floor,
+// and all loops, are unaffected.
+function isNearSpecialFeature(pts: number[][], parkRings: Array<{ ring: number[][] }>, coastlinePts: number[][]): boolean {
+  for (const p of pts) {
+    for (const pr of parkRings) for (const rp of pr.ring) if (hav(p, rp) < SPECIALNESS_RADIUS_M) return true;
+    for (const cp of coastlinePts) if (hav(p, cp) < SPECIALNESS_RADIUS_M) return true;
+  }
+  return false;
 }
 
 function buildParkLoopCandidate(ref: string, name: string, ring: number[][]): Candidate | null {
@@ -1038,7 +1195,7 @@ async function main() {
   if (!SKIP_OSM) {
     const d = await discover();
     candidates = d.candidates; blockPolys = d.blockPolys; stats = d.stats;
-    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines (${stats.relRescued || 0} rejected-for-length, rescued named members) · ${stats.parks || 0} named park/garden loops · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways, ${stats.stitchedSameName || 0} same-name + ${stats.stitchedCrossName || 0} cross-name stitches). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
+    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines (${stats.relRescued || 0} rejected-for-length, rescued named members) · ${stats.parks || 0} named park/garden loops · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways, ${stats.stitchedSameName || 0} same-name + ${stats.stitchedCrossName || 0} cross-name stitches, ${stats.shortNoSignalDropped || 0} short-band candidates dropped for no park/coastline specialness signal). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
   } else {
     console.log('--skip-osm: skipping Overpass discovery; fetching blocking polygons only (for the round-trip artifact filter) …');
     blockPolys = await fetchBlockPolys(REGION.bbox);
