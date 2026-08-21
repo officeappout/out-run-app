@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation';
 import HealthConnectOptInStep from '@/features/user/onboarding/components/HealthConnectOptInStep';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
+import { getOnboardingPref } from '@/lib/onboardingPrefs';
 
 export default function HealthConnectOptInPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
-  const isRunningTrack = typeof window !== 'undefined' &&
-    sessionStorage.getItem('gateway_track') === 'RUNNING';
+  const isRunningTrack = getOnboardingPref('gateway_track') === 'RUNNING';
 
   useEffect(() => {
     setMounted(true);

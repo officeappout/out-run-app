@@ -11,6 +11,7 @@ import { loadAssessmentContext } from '@/features/user/onboarding/services/branc
 import { useUserStore } from '@/features/user';
 import { mapAnswersToProfile } from '@/features/user/identity/services/profile.service';
 import { getOnboardingLocale } from '@/lib/i18n/onboarding-locales';
+import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import DynamicQuestionRenderer from '@/features/user/onboarding/components/DynamicQuestionRenderer';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
@@ -78,8 +79,7 @@ export default function DynamicOnboardingPage() {
     : 'he';
   const direction = savedLanguage === 'he' ? 'rtl' : 'ltr';
 
-  const isRunningTrackRender = typeof window !== 'undefined' &&
-    sessionStorage.getItem('gateway_track') === 'RUNNING';
+  const isRunningTrackRender = getOnboardingPref('gateway_track') === 'RUNNING';
 
   // Save claim params
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function DynamicOnboardingPage() {
         // Track-aware initialization:
         // Running track → start directly at q_run_goal (the running tree entry point)
         // Strength track → use default getFirstQuestion (Firestore isFirstQuestion query)
-        const gatewayTrack = sessionStorage.getItem('gateway_track');
+        const gatewayTrack = getOnboardingPref('gateway_track');
         const isRunningTrack = gatewayTrack === 'RUNNING';
         const startQuestionId = isRunningTrack ? 'q_run_goal' : undefined;
 
@@ -433,8 +433,7 @@ export default function DynamicOnboardingPage() {
       console.log('✅ Profile initialized with Level:', effectiveLevel, 'LevelId:', effectiveLevelId, 'Program:', effectiveProgramId, 'SubLevels:', effectiveSubLevels);
 
       // Detect running track once — used for sync step and first-workout guard.
-      const isRunningTrack = typeof window !== 'undefined' &&
-        sessionStorage.getItem('gateway_track') === 'RUNNING';
+      const isRunningTrack = getOnboardingPref('gateway_track') === 'RUNNING';
 
       // ✅ PERSISTENCE FIX: Sync assignedResults to Firestore immediately
       // This ensures quiz results are saved even if user drops off before Phase 2

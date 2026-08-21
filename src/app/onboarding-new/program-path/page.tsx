@@ -9,6 +9,7 @@ import {
 } from '@/features/content/exercises/core/exercise.types';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
+import { getOnboardingPref } from '@/lib/onboardingPrefs';
 
 /** Muscle icon paths — used inside chips */
 const MUSCLE_ICON_PATHS: Record<string, string> = {
@@ -95,7 +96,7 @@ export default function ProgramPathPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const track = sessionStorage.getItem('gateway_track');
+    const track = getOnboardingPref('gateway_track');
     if (track === 'RUNNING') {
       router.replace('/onboarding-new/dynamic');
       return;

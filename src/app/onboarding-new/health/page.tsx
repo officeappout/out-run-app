@@ -10,6 +10,7 @@ import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/o
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
+import { getOnboardingPref } from '@/lib/onboardingPrefs';
 
 export default function HealthDeclarationPage() {
   const router = useRouter();
@@ -17,8 +18,7 @@ export default function HealthDeclarationPage() {
   const { data: onboardingData } = useOnboardingStore();
   const [mounted, setMounted] = useState(false);
 
-  const isRunningTrack = typeof window !== 'undefined' &&
-    sessionStorage.getItem('gateway_track') === 'RUNNING';
+  const isRunningTrack = getOnboardingPref('gateway_track') === 'RUNNING';
 
   useEffect(() => {
     setMounted(true);
