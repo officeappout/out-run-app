@@ -854,7 +854,7 @@ export const STRENGTH_RESUME_CHECKPOINT_ENABLED = false;
 // today's behaviour (AerobicSummaryShell falls back to deleteLastWorkout();
 // the other three surfaces lose their delete affordance again) — no code
 // change needed, this is a pure runtime/compile-time constant read.
-export const WORKOUT_DELETE_EXPANDED_ENABLED = false;
+export const WORKOUT_DELETE_EXPANDED_ENABLED = true;
 
 // RECOVERY_WORKOUT_CATEGORIZATION_ENABLED: gates the write-site classification
 // fix for the rest-day "recovery video trio" (a rest-day session that is
