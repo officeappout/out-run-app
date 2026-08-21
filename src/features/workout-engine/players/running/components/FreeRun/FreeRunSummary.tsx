@@ -663,15 +663,13 @@ export default function FreeRunSummary({
               className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex gap-3 shadow-lg -mx-6 -mb-6 mt-6"
               style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
             >
-              {!isReadOnly && (
-                <button
-                  onClick={handleShare}
-                  className="px-4 py-4 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all shadow-sm min-h-[44px] flex items-center justify-center gap-2 pointer-events-auto"
-                >
-                  <Share2 size={20} />
-                  שתף
-                </button>
-              )}
+              <button
+                onClick={handleShare}
+                className="px-4 py-4 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all shadow-sm min-h-[44px] flex items-center justify-center gap-2 pointer-events-auto"
+              >
+                <Share2 size={20} />
+                שתף
+              </button>
               {/* Delete trigger — only for the read-only (historical) view,
                   and only when the caller actually wired an onDelete (i.e.
                   WORKOUT_DELETE_EXPANDED_ENABLED at the call site). This
@@ -690,7 +688,7 @@ export default function FreeRunSummary({
               )}
               <button
                 onClick={handleSaveAndClose}
-                className={`${isReadOnly && !onDelete ? 'w-full' : 'flex-1'} py-4 rounded-xl font-bold bg-[#00ADEF] text-white hover:bg-[#00D4EE] transition-all shadow-md hover:shadow-lg min-h-[44px] flex items-center justify-center gap-2 pointer-events-auto`}
+                className="flex-1 py-4 rounded-xl font-bold bg-[#00ADEF] text-white hover:bg-[#00D4EE] transition-all shadow-md hover:shadow-lg min-h-[44px] flex items-center justify-center gap-2 pointer-events-auto"
               >
                 {isReadOnly ? (
                   <>
