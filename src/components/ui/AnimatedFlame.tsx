@@ -21,7 +21,21 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { Flame } from 'lucide-react';
+import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
 import type { ActivityType } from '@/features/activity/types/activity.types';
+
+// Fix-round §3.5/3.6 (20.08.2026) — first Lottie pass. Same file for all three
+// active tiers (micro/survival/super) — deliberately no per-tier color yet
+// (the source file has no theming `slots` to swap; David chose to ship this
+// now and revisit per-tier color in a future round rather than block on it).
+const FLAME_ANIMATION_SRC = '/assets/animations/flame-orange.lottie';
+
+// dotlottie-web defaults to fetching its WASM engine from a version-pinned
+// jsdelivr/unpkg CDN URL at runtime — unreliable for a Capacitor WebView
+// (CSP, offline, first-cold-launch latency). Self-host it instead; this call
+// only needs to happen once per app load, and module top-level code runs
+// exactly once regardless of how many AnimatedFlame instances mount.
+setWasmUrl('/assets/animations/dotlottie-player.wasm');
 
 interface FlameConfig {
   color: string;
@@ -33,7 +47,7 @@ interface FlameConfig {
 const FLAME_CONFIG: Record<ActivityType, FlameConfig> = {
   super: {
     color: '#06B6D4',
-    glowColor: 'rgba(6, 182, 212, 0.4)',
+    glowColor: 'transparent', // neutralized (20.08.2026) — was cyan, clashed behind the orange Lottie flame
     glowIntensity: '0 0 20px',
     show: true,
   },
@@ -137,11 +151,11 @@ export default function AnimatedFlame({ activityType, previousType }: AnimatedFl
           ease: 'easeInOut',
         }}
       >
-        <Flame
+        <DotLottieReact
+          src={FLAME_ANIMATION_SRC}
+          loop
+          autoplay
           className="w-5 h-5 relative z-10"
-          style={{ color: config.color }}
-          fill={activityType === 'super' ? config.color : 'none'}
-          strokeWidth={activityType === 'super' ? 1.5 : 2}
         />
       </motion.div>
     </motion.div>
