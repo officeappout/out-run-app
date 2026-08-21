@@ -45,6 +45,14 @@ export interface CompletionItem {
   /** Which bucket this item belongs to */
   bucket: 'basic' | 'strength' | 'running';
   step?: OnboardingStepId;
+  /**
+   * Full-path override for items whose JIT completion isn't an OnboardingWizard
+   * step — e.g. the running items below, since `/onboarding-new/setup` has no
+   * running screens wired into its step machine at all. When set, callers should
+   * navigate here directly (after seeding `gateway_track`) instead of building a
+   * `/onboarding-new/setup?step=...` URL from `step`.
+   */
+  jitPath?: string;
 }
 
 export interface CompletionResult {
@@ -202,6 +210,7 @@ export function calculateProfileCompletion(
         !!(profile.running as any)?.generatedProgramTemplate,
       weight: 20,
       bucket: 'running',
+      jitPath: '/onboarding-new/dynamic',
     },
     {
       id: 'runningPace',
@@ -209,6 +218,7 @@ export function calculateProfileCompletion(
       completed: !!(profile.running?.paceProfile?.basePace),
       weight: 15,
       bucket: 'running',
+      jitPath: '/onboarding-new/dynamic',
     },
   ];
 

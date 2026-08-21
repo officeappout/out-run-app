@@ -11,8 +11,9 @@ import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react';
 import { useUserStore } from '@/features/user';
-import { calculateProfileCompletion } from '@/features/user/identity/services/profile-completion.service';
+import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { setOnboardingPref } from '@/lib/onboardingPrefs';
 
 export default function ProfileCompletionWidget() {
   const router = useRouter();
@@ -32,8 +33,15 @@ export default function ProfileCompletionWidget() {
   const circumference = 2 * Math.PI * 28; // radius = 28
   const dashOffset = circumference - (completion.percentage / 100) * circumference;
 
-  const handleGoToStep = (step: string) => {
-    router.push(`/onboarding-new/setup?step=${step}&jit=true`);
+  const handleGoToStep = (item: CompletionItem) => {
+    if (item.jitPath) {
+      // Running items have no OnboardingWizard step — route into the dynamic
+      // questionnaire directly, seeding the same track signal Gateway sets.
+      setOnboardingPref('gateway_track', item.bucket === 'running' ? 'RUNNING' : 'STRENGTH');
+      router.push(item.jitPath);
+      return;
+    }
+    router.push(`/onboarding-new/setup?step=${item.step}&jit=true`);
   };
 
   return (
@@ -118,9 +126,9 @@ export default function ProfileCompletionWidget() {
                 {item.label}
               </span>
 
-              {!item.completed && item.step && (
+              {!item.completed && (item.step || item.jitPath) && (
                 <button
-                  onClick={() => handleGoToStep(item.step!)}
+                  onClick={() => handleGoToStep(item)}
                   className="text-xs text-emerald-600 font-bold hover:underline"
                 >
                   השלם
