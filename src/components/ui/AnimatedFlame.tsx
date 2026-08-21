@@ -80,9 +80,11 @@ const FLAME_CONFIG: Record<ActivityType, FlameConfig> = {
 interface AnimatedFlameProps {
   activityType: ActivityType;
   previousType: ActivityType | null;
+  /** Icon footprint in pixels. Defaults to 20 (the original w-5/h-5 size) — pass a larger value for call sites that need a bigger flame (e.g. AppHeader). */
+  size?: number;
 }
 
-export default function AnimatedFlame({ activityType, previousType }: AnimatedFlameProps) {
+export default function AnimatedFlame({ activityType, previousType, size = 20 }: AnimatedFlameProps) {
   const controls = useAnimation();
   const config = FLAME_CONFIG[activityType];
 
@@ -109,11 +111,20 @@ export default function AnimatedFlame({ activityType, previousType }: AnimatedFl
 
   if (!config.show) {
     return (
-      <div className="w-5 h-5 flex items-center justify-center opacity-30">
-        <Flame className="w-4 h-4 text-slate-300" />
+      <div
+        className="flex items-center justify-center opacity-30"
+        style={{ width: size, height: size }}
+      >
+        <Flame style={{ width: size * 0.8, height: size * 0.8 }} className="text-slate-300" />
       </div>
     );
   }
+
+  // 'super' tier's glow ring, sized relative to the icon (was a fixed 28px/-4px
+  // offset for the original 20px icon — kept proportional so it still centers
+  // correctly now that `size` is caller-configurable).
+  const ringSize = size * 1.4;
+  const ringOffset = -(ringSize - size) / 2;
 
   return (
     <motion.div
@@ -132,10 +143,10 @@ export default function AnimatedFlame({ activityType, previousType }: AnimatedFl
             className="absolute inset-0 rounded-full"
             style={{
               background: `radial-gradient(circle, ${config.glowColor} 0%, transparent 70%)`,
-              width: '28px',
-              height: '28px',
-              top: '-4px',
-              left: '-4px',
+              width: ringSize,
+              height: ringSize,
+              top: ringOffset,
+              left: ringOffset,
             }}
           />
         )}
@@ -151,11 +162,18 @@ export default function AnimatedFlame({ activityType, previousType }: AnimatedFl
           ease: 'easeInOut',
         }}
       >
+        {/* No `className` here — dotlottie-react's internal wrapper only
+            applies the `style` prop when no className is passed (its outer
+            div does `!className && {style: {width:'100%', height:'100%',
+            ...yourStyle}}`); passing both silently drops the size entirely
+            and the inner canvas's own 100%/100% then resolves against an
+            unbounded ancestor. `position`/`zIndex` (for stacking above the
+            glow ring below) go through `style` instead, for the same reason. */}
         <DotLottieReact
           src={FLAME_ANIMATION_SRC}
           loop
           autoplay
-          className="w-5 h-5 relative z-10"
+          style={{ width: size, height: size, position: 'relative', zIndex: 10 }}
         />
       </motion.div>
     </motion.div>

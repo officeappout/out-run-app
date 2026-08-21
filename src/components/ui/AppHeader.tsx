@@ -117,18 +117,16 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
           )}
         </div>
 
-        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-0.5 shadow-sm">
+        <div className="flex items-center gap-1.5">
           <AnimatedFlame
             activityType={activityType}
             previousType={previousType}
+            size={32}
           />
           {streak > 0 && !activityLoading && (
-            <>
-              <div className="w-px h-4 bg-gray-200" />
-              <span className="text-xs font-bold text-orange-600 tabular-nums">
-                {streak}
-              </span>
-            </>
+            <span className="text-xs font-bold text-orange-600 tabular-nums">
+              {streak}
+            </span>
           )}
         </div>
       </button>
