@@ -25,6 +25,14 @@ export interface HybridSummaryProps {
    * tapping just calls the caller's onDelete().
    */
   onDelete?: () => void;
+  /**
+   * Transparent gap above the drawer, forwarded to SummaryDrawerShell — it
+   * exists so the live Mapbox behind SummaryLayer peeks through on /map.
+   * There's no map mounted behind the history view, so history callers
+   * should pass 0 rather than leave an empty gap. Defaults to 150 (the live
+   * post-finish flow's existing behavior).
+   */
+  peekHeight?: number;
 }
 
 const HYBRID_TABS: DrawerTab[] = [
@@ -75,6 +83,7 @@ export default function HybridSummary({
   xpEarned = 0,
   onFinish,
   onDelete,
+  peekHeight = 150,
 }: HybridSummaryProps) {
   const [tab, setTab] = useState<string>('overview');
   const { summary, segments } = result;
@@ -234,7 +243,7 @@ export default function HybridSummary({
       activeTab={tab}
       onTabChange={setTab}
       onDismiss={onFinish}
-      peekHeight={150}
+      peekHeight={peekHeight}
       footer={footer}
     >
       {tabBody[tab] ?? tabBody.overview}
