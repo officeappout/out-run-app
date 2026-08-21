@@ -4,7 +4,7 @@ import React from 'react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import WorkoutSummaryPage from '@/features/workout-engine/summary/WorkoutSummaryPage';
-import { StrengthDopamineScreen, StrengthSummaryPage } from '@/features/workout-engine/components/strength';
+import { StrengthDopamineScreen } from '@/features/workout-engine/components/strength';
 import { useMapLogic } from '@/features/parks';
 import { useHybridRun } from '@/features/workout-engine/hybrid/useHybridRun';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
@@ -79,25 +79,19 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
     );
   }
 
-  // Structured workout summary
-  if (logic.showSummary && logic.workoutMode !== 'free') {
-    return (
-      <StrengthSummaryPage
-        duration={logic.elapsedTime || 0}
-        totalReps={0}
-        completedExercises={[]}
-        difficulty="medium"
-        streak={3}
-        programName="תוכנית כל הגוף"
-        currentLevel={5}
-        maxLevel={25}
-        progressToNextLevel={80}
-        onFinish={handleFinish}
-      />
-    );
-  }
-
-  // Free run summary
+  // Run summary (free, planned, or my_routes) — showSummary is only ever set
+  // true from the running-session finish bridge (MapShell.tsx), so this is
+  // the correct catch-all for every non-hybrid case reaching this layer.
+  // Do NOT branch on logic.workoutMode here: it's a local discover/free flag
+  // that DiscoverLayer/BuilderLayer never update before startActiveWorkout()
+  // (see the comment on MapShell.tsx's mode-sync effect), so it can't
+  // reliably distinguish "free run" from "planned run" — runMode does that.
+  // A previous version of this branch used workoutMode !== 'free' to guess
+  // "this must be a real structured strength workout" and rendered a mock
+  // StrengthSummaryPage — but no strength workout ever reaches SummaryLayer,
+  // so it only ever misfired for planned/my_routes runs: a second,
+  // strength-classified XP + activity/streak write on top of the real
+  // running award finishWorkout already made.
   if (logic.showSummary) {
     return (
       <WorkoutSummaryPage
