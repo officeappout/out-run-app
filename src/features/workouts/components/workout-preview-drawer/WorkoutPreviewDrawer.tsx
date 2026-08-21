@@ -7,6 +7,7 @@ import { X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import StrengthOverviewCard from '@/features/workout-engine/components/StrengthOverviewCard';
+import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import type { ExecutionLocation } from '@/features/content/exercises';
 import { useUserStore } from '@/features/user';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -80,6 +81,9 @@ export default function WorkoutPreviewDrawer({
   onGeneratedWorkoutUpdate,
   onEditEntry,
   isGeneratingWorkout = false,
+  intensityOptions,
+  selectedIntensityIndex,
+  onSelectIntensity,
 }: WorkoutPreviewDrawerProps) {
   const router = useRouter();
   const { profile } = useUserStore();
@@ -545,6 +549,50 @@ export default function WorkoutPreviewDrawer({
                     </h1>
                   </div>
                 </motion.div>
+
+                {/* Intensity toggle row (Part א, "ארכיטקטורת הבית ומנוע-ההמלצות"
+                    doc, 21.08.2026) — pattern replicated from HybridOverviewScreen's
+                    difficulty carousel (role="group" pill, per-option
+                    DifficultyBolts+label+minutes, active option tinted inline),
+                    not copied verbatim. Same trio engine as before (StatsOverview
+                    still owns trioResult/selectedOptionIndex/handleTrioSelect) —
+                    only the toggle's RENDER location moved, from the home screen's
+                    pill+bottom-sheet into this drawer. Only rendered when there's
+                    genuinely a choice; other WorkoutPreviewDrawer callers
+                    (calendar-tap preview, custom builder, FavoritesSheet) don't
+                    pass intensityOptions at all. */}
+                {intensityOptions && intensityOptions.length > 1 && (
+                  <div className="relative z-20 px-6 pb-3">
+                    <div
+                      className="flex w-full items-stretch bg-white dark:bg-slate-800 rounded-full"
+                      role="group"
+                      aria-label="בחירת עצימות"
+                      style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}
+                    >
+                      {intensityOptions.map((option, i) => {
+                        const active = i === selectedIntensityIndex;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => onSelectIntensity?.(i)}
+                            aria-pressed={active}
+                            className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full active:scale-[0.98] transition-all duration-200"
+                            style={{ padding: '7px 6px', background: active ? '#F0FBFF' : 'transparent' }}
+                          >
+                            <DifficultyBolts difficulty={option.difficulty} size="sm" showLabel={false} />
+                            <span
+                              className="text-[11px] font-bold whitespace-nowrap"
+                              style={{ color: active ? '#00ADEF' : '#6B7280' }}
+                            >
+                              {option.label} · {option.duration}׳
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-white dark:bg-slate-900 relative z-10 px-4 pt-4 pb-8">
                   {/* Priority: skeleton while loading → generated list → legacy overview */}

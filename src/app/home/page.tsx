@@ -40,7 +40,7 @@ import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
-import StatsOverview, { type BuilderContext } from '@/features/home/components/StatsOverview';
+import StatsOverview, { type BuilderContext, type TrioSelector } from '@/features/home/components/StatsOverview';
 import DailyGoalRingsCard from '@/features/home/components/DailyGoalRingsCard';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
@@ -1022,6 +1022,11 @@ export default function HomePage() {
   const generatedWorkoutRef = useRef<GeneratedWorkout | null>(null);
   const [generatedWorkout, setGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
 
+  // Trio intensity selector — mirrored out of StatsOverview (see TrioSelector's
+  // own doc comment) so WorkoutPreviewDrawer can render the inline toggle row
+  // (Part א, "ארכיטקטורת הבית ומנוע-ההמלצות" doc) once the preview opens.
+  const [trioSelector, setTrioSelector] = useState<TrioSelector | null>(null);
+
   const handleWorkoutGenerated = useCallback((workout: GeneratedWorkout) => {
     generatedWorkoutRef.current = workout;
     setGeneratedWorkout(workout);
@@ -1878,6 +1883,7 @@ export default function HomePage() {
                     onBuildCustom={handleBuildCustom}
                     generateSingleOption={isWorkoutLoading}
                     isViewingFutureDate={selectedDate > toISODate(new Date())}
+                    onTrioSelectorChange={setTrioSelector}
                   />
                 );
                 return HOME_ANCHOR_V2_ENABLED
@@ -2064,6 +2070,9 @@ export default function HomePage() {
         onStartWorkout={(workoutId) => router.push(`/workouts/${workoutId}/active`)}
         onGeneratedWorkoutUpdate={handleWorkoutGenerated}
         onEditEntry={previewEntry?.entryId ? handleEditFromDrawer : undefined}
+        intensityOptions={trioSelector?.options}
+        selectedIntensityIndex={trioSelector?.selectedIndex}
+        onSelectIntensity={trioSelector?.onSelect}
       />
 
       {/* Edit modal — opened by drawer pencil or directly from other entry points */}
