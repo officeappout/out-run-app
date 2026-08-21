@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Share2 } from 'lucide-react';
+import { Share2, Trash2 } from 'lucide-react';
 import type { HybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import SummaryDrawerShell, { type DrawerTab } from '../blocks/SummaryDrawerShell';
 import SegmentRail, { type SegmentRailItem } from '../blocks/SegmentRail';
@@ -18,6 +18,13 @@ export interface HybridSummaryProps {
   xpEarned?: number;
   /** Finish/dismiss — the caller does clearSession + navigate(/home). */
   onFinish: () => void;
+  /**
+   * Delete trigger — shown only when the caller wires it (the history view;
+   * the live post-finish flow never passes this). Mirrors FreeRunSummary's
+   * onDelete contract: this component doesn't own the confirm/delete flow,
+   * tapping just calls the caller's onDelete().
+   */
+  onDelete?: () => void;
 }
 
 const HYBRID_TABS: DrawerTab[] = [
@@ -67,6 +74,7 @@ export default function HybridSummary({
   streakDays = 0,
   xpEarned = 0,
   onFinish,
+  onDelete,
 }: HybridSummaryProps) {
   const [tab, setTab] = useState<string>('overview');
   const { summary, segments } = result;
@@ -181,6 +189,26 @@ export default function HybridSummary({
       >
         <Share2 size={16} /> שתפו
       </button>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label="מחק אימון"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 12,
+            borderRadius: 16,
+            border: 'none',
+            cursor: 'pointer',
+            background: '#FEF2F2',
+            color: '#EF4444',
+          }}
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
       <button
         onClick={onFinish}
         style={{
