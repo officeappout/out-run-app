@@ -625,6 +625,29 @@ export default function HomePage() {
   // every render too, same as not memoizing at all (caught by
   // react-hooks/exhaustive-deps). The primitives are what actually determine
   // the output, and they only change when the underlying data really changes.
+  // F2.3 follow-up (21.08.2026) — today's real workout docs' categories, used
+  // only to correct hybrid matchCategory below (see that comment). Reuses
+  // the exact query handleTodayActivityCardTap already runs at tap time;
+  // this just runs it earlier, at card-build time. Stays null (safe no-op —
+  // matchCategory falls back to the pre-fix raw-category behavior) until it
+  // resolves, or on error.
+  const [todaysWorkoutCategories, setTodaysWorkoutCategories] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!profile?.id) return;
+    let cancelled = false;
+    getWorkoutsForDate(profile.id, toISODate(new Date()))
+      .then((workouts) => {
+        if (cancelled) return;
+        setTodaysWorkoutCategories(new Set(workouts.map((w) => w.category)));
+      })
+      .catch((error) => {
+        console.error('[home] Failed to load today\'s workout categories for hybrid card matching:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id]);
+
   const todayActivityCards: TodayActivityCardData[] = useMemo(() => {
     if (!profile) return [];
     const todayISO = toISODate(new Date());
@@ -633,18 +656,32 @@ export default function HomePage() {
 
     const cards: TodayActivityCardData[] = dayStatus.sessions.map((s) => {
       const isRich = s.category === richCategory && !!completionData;
+      // F2.3 follow-up (21.08.2026): dayStatus.sessions is bucketed by raw
+      // ActivityCategory with no hybrid-attribution — a hybrid completion
+      // splits into a 'cardio' bucket and a 'strength' bucket, each still
+      // tagged with its raw category here, while the real saved doc is
+      // always category:'hybrid'. todaysWorkoutCategories (queried above,
+      // same query handleTodayActivityCardTap already runs at tap time)
+      // lets us correct this: if today has no direct doc of this raw
+      // category but does have a hybrid doc, this bucket's minutes almost
+      // certainly came from that hybrid workout's other half. Scoped to
+      // cardio/strength only — those are the only two categories a hybrid
+      // split ever touches (useHybridRun.ts's categorySplits). Falls back
+      // to the raw category before the query resolves, or when a genuine
+      // direct-category doc also exists today (ambiguous — no per-session
+      // id to disambiguate further, so prefer the real matching doc over
+      // guessing).
+      const matchCategory: ActivityCategory | 'hybrid' =
+        (s.category === 'cardio' || s.category === 'strength') &&
+        todaysWorkoutCategories &&
+        !todaysWorkoutCategories.has(s.category) &&
+        todaysWorkoutCategories.has('hybrid')
+          ? 'hybrid'
+          : s.category;
       return {
         key: s.category,
         category: s.category,
-        // F2.3: matches `category` here — dayStatus.sessions is bucketed by
-        // ActivityCategory with no hybrid-attribution available at this
-        // layer, so a hybrid workout that happens to cross the 10-min floor
-        // in exactly one category is a known, narrower, deferred gap (not
-        // the confirmed bug the adversarial review found — that was Safety
-        // Net 2 below, fixed). Flagged, not fixed: fixing this path would
-        // need dayStatus.sessions itself to carry hybrid-attribution, which
-        // it doesn't today.
-        matchCategory: s.category,
+        matchCategory,
         title: isRich
           ? (completionData!.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[s.category])
           : TODAY_ACTIVITY_CATEGORY_LABEL[s.category],
@@ -731,6 +768,7 @@ export default function HomePage() {
     completionData?.thumbnailUrl,
     completionData?.streak,
     completionData?.durationMinutes,
+    todaysWorkoutCategories,
   ]);
 
   // F2.3 (19.08.2026, "unified workout summary" plan): tapping a
