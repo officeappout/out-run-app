@@ -11,25 +11,40 @@
  * investigation) — so this is genuinely new fetch code, via the new
  * getWorkoutById() in storage.service.ts.
  *
- * Branches on category, not a new component: strength/recovery reuse
- * StrengthHistoryDetail (now showing the F1.1/F1.2 per-set exerciseLog when
- * present, and delete-capable on its own — no wiring needed here); cardio
- * reuses FreeRunSummary in its existing isReadOnly mode (F2.1 fix, 19.08.2026
- * — the initial F1.3 cut built a smaller custom view here instead of reusing
- * FreeRunSummary, which silently dropped delete capability for cardio
- * workouts and diverged from what the plan's own investigation identified as
- * the correct destination; caught while wiring real navigation to this route
- * in F2.1, before that gap could reach production). FreeRunSummary owns its
- * own map/stats/laps rendering; this file only owns the delete-confirm flow
- * around it, mirroring the exact pattern profile/page.tsx used to own before
- * F2.1 replaced its in-page overlay with real navigation here.
+ * Branches on category, not a new component — every branch reuses the exact
+ * live post-workout screen in its own isReadOnly mode rather than a
+ * from-scratch history-only view:
  *
- * hybrid reuses HybridSummary (21.08.2026 fix) instead of StrengthHistoryDetail
- * — it was grouped under isStrengthLike originally because no mapping existed
- * from the saved WorkoutHistoryEntry to the HybridFinalizeResult shape
- * HybridSummary expects. hybrid-history-adapter.ts rebuilds it (segments are
- * a byte-compatible passthrough; summary is recomputed from them). This file
- * owns the delete-confirm flow around it too, same split as cardio.
+ * - strength/recovery → StrengthSummaryPage (commit 3 of the
+ *   kill-StrengthHistoryDetail plan, 22.08.2026), replacing the old
+ *   from-scratch StrengthHistoryDetail component that never had XP status,
+ *   streak, GainBreakdownCard's progression %, LevelGoalsChecklist,
+ *   PersonalRecords, WeeklyAchievementsGrid, or ProgramSuggestionCard.
+ *   strength-history-adapter.ts maps the saved WorkoutHistoryEntry into
+ *   StrengthSummaryPageProps; fields no real writer ever persisted
+ *   (difficulty, programId, currentLevel, maxLevel, progressToNextLevel,
+ *   levelGoals) are hidden by StrengthSummaryPage's own isReadOnly UI gates
+ *   rather than shown as fabricated defaults.
+ *
+ * - hybrid → HybridSummary (21.08.2026 fix) — was grouped under
+ *   isStrengthLike originally because no mapping existed from the saved
+ *   WorkoutHistoryEntry to the HybridFinalizeResult shape HybridSummary
+ *   expects. hybrid-history-adapter.ts rebuilds it (segments are a
+ *   byte-compatible passthrough; summary is recomputed from them).
+ *
+ * - cardio → FreeRunSummary in its existing isReadOnly mode (F2.1 fix,
+ *   19.08.2026 — the initial F1.3 cut built a smaller custom view here
+ *   instead of reusing FreeRunSummary, which silently dropped delete
+ *   capability for cardio workouts and diverged from what the plan's own
+ *   investigation identified as the correct destination; caught while
+ *   wiring real navigation to this route in F2.1, before that gap could
+ *   reach production).
+ *
+ * Every branch's own component owns its rendering (map/stats/laps for
+ * cardio, exercise breakdown for strength, rail items for hybrid); this
+ * file only owns the delete-confirm flow around all three, mirroring the
+ * exact pattern profile/page.tsx used to own before F2.1 replaced its
+ * in-page overlay with real navigation here.
  */
 
 import { useEffect, useState } from 'react';
@@ -37,7 +52,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getWorkoutById, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
-import StrengthHistoryDetail from '@/features/profile/components/StrengthHistoryDetail';
+import StrengthSummaryPage from '@/features/workout-engine/components/strength/StrengthSummaryPage';
+import { workoutHistoryEntryToStrengthSummaryProps } from '@/features/workout-engine/components/strength/strength-history-adapter';
 import FreeRunSummary from '@/features/workout-engine/players/running/components/FreeRun/FreeRunSummary';
 import HybridSummary from '@/features/workout-engine/summary/pages/HybridSummary';
 import { workoutHistoryEntryToHybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-history-adapter';
@@ -55,10 +71,11 @@ export default function WorkoutHistoryPage() {
   const workoutId = params.id as string;
   const [workout, setWorkout] = useState<WorkoutHistoryEntry | null>(null);
   const [status, setStatus] = useState<LoadStatus>('loading');
-  // Cardio/hybrid delete-confirm state — declared unconditionally at the top
-  // (rules-of-hooks) even though it's only ever used once status==='ready'.
-  // Shared across both branches since exactly one of them renders per page
-  // instance (category is fixed for a given workout). Mirrors profile/page.tsx's
+  // Delete-confirm state, shared by all 3 category branches below —
+  // declared unconditionally at the top (rules-of-hooks) even though it's
+  // only ever used once status==='ready'. Safe to share since exactly one
+  // branch renders per page instance (category is fixed for a given
+  // workout). Mirrors profile/page.tsx's
   // pre-F2.1 handleConfirmDeleteWorkout, just relocated here now that this
   // route (not the old in-page overlay) owns viewing these workouts.
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -122,7 +139,7 @@ export default function WorkoutHistoryPage() {
 
   const isStrengthLike = workout.category === 'strength' || workout.category === 'recovery';
 
-  // Shared by the hybrid and cardio branches below — category-agnostic.
+  // Shared by all 3 branches below — category-agnostic.
   const handleConfirmDeleteWorkout = async () => {
     if (!workout.id) {
       setShowDeleteConfirm(false);
@@ -134,7 +151,27 @@ export default function WorkoutHistoryPage() {
   };
 
   if (isStrengthLike) {
-    return <StrengthHistoryDetail workout={workout} onClose={handleClose} />;
+    return (
+      <>
+        <StrengthSummaryPage
+          {...workoutHistoryEntryToStrengthSummaryProps(workout)}
+          streak={currentStreak}
+          isReadOnly
+          onClose={handleClose}
+          onDelete={WORKOUT_DELETE_EXPANDED_ENABLED ? () => setShowDeleteConfirm(true) : undefined}
+        />
+        {WORKOUT_DELETE_EXPANDED_ENABLED && (
+          <DeleteWorkoutConfirmModal
+            isOpen={showDeleteConfirm}
+            activityLabel={workoutActivityLabel(workout.workoutType)}
+            dateLabel={workoutDateLabel(workout.date)}
+            xpToReverse={workout.xpEarned ?? 0}
+            onConfirm={handleConfirmDeleteWorkout}
+            onCancel={() => setShowDeleteConfirm(false)}
+          />
+        )}
+      </>
+    );
   }
 
   if (workout.category === 'hybrid') {

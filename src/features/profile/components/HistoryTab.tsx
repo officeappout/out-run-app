@@ -27,8 +27,8 @@ interface HistoryTabProps {
 }
 
 // Short activity label for the shared delete-confirm modal's copy — same
-// simple per-workoutType mapping style AerobicSummaryShell and
-// StrengthHistoryDetail already use for their own delete confirmations.
+// simple per-workoutType mapping style AerobicSummaryShell uses for its own
+// delete confirmations.
 function activityLabelFor(workoutType: WorkoutHistoryEntry['workoutType']): string {
   switch (workoutType) {
     case 'running':
@@ -48,8 +48,8 @@ function activityLabelFor(workoutType: WorkoutHistoryEntry['workoutType']): stri
   }
 }
 
-// Long-form Hebrew date for the modal body — matches
-// StrengthHistoryDetail.tsx's formatDate() convention.
+// Long-form Hebrew date for the modal body — same Hebrew long-date
+// convention used across the workout-history surfaces.
 function formatDateLabel(date: Date): string {
   return date.toLocaleDateString('he-IL', {
     weekday: 'long',

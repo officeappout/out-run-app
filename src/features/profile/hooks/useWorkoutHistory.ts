@@ -15,9 +15,8 @@ export function useWorkoutHistory(limit: number = 50, enabled: boolean = true) {
   useEffect(() => {
     // `enabled` lets a caller that owns this hook at a higher, always-mounted
     // level (e.g. ProfilePage, so the list + removeWorkout survive a sibling
-    // view swap — see StrengthHistoryDetail's onWorkoutDeleted) defer the
-    // fetch until it's actually needed, instead of eagerly reading on every
-    // mount of the owning component.
+    // view swap) defer the fetch until it's actually needed, instead of
+    // eagerly reading on every mount of the owning component.
     if (!enabled) return;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
