@@ -14,6 +14,7 @@ import {
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { SmartMessage } from '@/features/messages/services/MessageService';
 import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
+import { hapticMedium } from '@/lib/haptics';
 
 // Hero-media selection + resolution moved to a shared util so the map/workout
 // preview drawer can compute the hero from its OWN generatedWorkout (no more
@@ -514,6 +515,7 @@ export default function HeroWorkoutCard({
   // already fully dead even before this — declared/destructured but never
   // once invoked in this file, going back further than this change).
   const handleCardClick = useCallback(() => {
+    hapticMedium();
     (onCardTap ?? onStart)();
   }, [onCardTap, onStart]);
 

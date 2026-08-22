@@ -23,6 +23,7 @@ import {
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import { useToast } from '@/components/ui/Toast';
+import { hapticMedium } from '@/lib/haptics';
 
 // ─── Layout — tuned for 260px card on a 390px viewport ──────────────────────
 const CARD_MAX_W = 260;
@@ -338,9 +339,14 @@ function TrioCard({
     ? PROGRAM_ICON_MAP[programIconKey.toLowerCase()] ?? null
     : null;
 
+  const handleClick = useCallback(() => {
+    hapticMedium();
+    onStart();
+  }, [onStart]);
+
   return (
     <div
-      onClick={onStart}
+      onClick={handleClick}
       className="relative overflow-hidden group cursor-pointer w-full h-full transition-transform active:scale-[0.98]"
       style={{
         borderRadius: CARD_RADIUS,
