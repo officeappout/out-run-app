@@ -55,19 +55,6 @@ export interface TodayActivityCardData {
   thumbnailUrl?: string;
   streak: number;
   /**
-   * F2.3 (19.08.2026, adversarial review — must-fix): the REAL category to
-   * match against a saved workout doc when resolving a tap, distinct from
-   * `category` above. `category` is display-only and can't hold 'hybrid'
-   * (ActivityCategory = 'strength'|'cardio'|'maintenance'), but a real
-   * hybrid workout's Firestore doc has category:'hybrid' — for the one
-   * card type where `category` is a styling choice rather than a fact
-   * (home/page.tsx's Safety Net 2, a hybrid completion under the 10-min
-   * floor in every category), matching on `category` would compare
-   * 'strength' against a real doc's 'hybrid' and never find it. Usually
-   * equal to `category`; differs only for that one fallback case.
-   */
-  matchCategory: ActivityCategory | 'hybrid';
-  /**
    * Strength-only active-program templateId (e.g. 'upper_body', 'push') —
    * only ever populated for the one "rich" card describing a specific
    * just-completed workout (22.08.2026 icon fix). Undefined for category-

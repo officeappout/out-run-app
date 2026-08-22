@@ -146,6 +146,19 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
   }
 
   // 3. Session flag for Home Screen celebration mode
+  //
+  // Home Screen bug fix (22.08.2026, David caught on-device): home/page.tsx
+  // used to read this sessionStorage key exactly once, in a mount-only
+  // useEffect ([] deps) — correct for the FIRST workout of a home-page
+  // lifetime, but a SECOND completion while home stays mounted (no full
+  // remount in between) overwrote this key with fresh data that effect
+  // would never read again, leaving the card stuck on the first workout's
+  // stale data (or the daily-total fallback). sessionStorage itself doesn't
+  // fire a same-tab 'storage' event, so there's no free signal to react to
+  // — dispatching this CustomEvent (same pattern src/lib/native/init.ts
+  // already uses for other same-tab signals, e.g. 'nativeBackInWorkout')
+  // gives home/page.tsx something to listen for on every completion, not
+  // just the first.
   if (typeof window !== 'undefined') {
     const streak = useActivityStore.getState().currentStreak;
     sessionStorage.setItem(
@@ -160,6 +173,7 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
         programId: payload.programId,
       }),
     );
+    window.dispatchEvent(new CustomEvent('post-workout-completed'));
   }
 
   // 4. Apple Health — write the completed workout to HealthKit (iOS only).

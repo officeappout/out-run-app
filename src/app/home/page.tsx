@@ -44,7 +44,7 @@ import StatsOverview, { type BuilderContext, type TrioSelector } from '@/feature
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
 import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
-import { useWeeklyProgress, useDailyActivity, useDayStatus } from '@/features/activity';
+import { useWeeklyProgress, useDailyActivity } from '@/features/activity';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import TodayActivityStrip from '@/features/home/components/TodayActivityStrip';
 import type { TodayActivityCardData } from '@/features/home/components/TodayActivityCard';
@@ -62,7 +62,7 @@ import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 
 import { toISODate, getHebrewDayLetter, stepSelectedDate } from '@/features/user/scheduling/utils/dateUtils';
-import { getWorkoutsForDate } from '@/features/workout-engine/core/services/storage.service';
+import { getWorkoutsForDate, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
@@ -228,21 +228,6 @@ const TODAY_ACTIVITY_CATEGORY_LABEL: Record<ActivityCategory, string> = {
   cardio: 'אימון אירובי',
   maintenance: 'גמישות ותנועתיות',
 };
-
-/**
- * CompletionWorkoutType ('strength'|'running'|'walking'|'cycling'|'hybrid',
- * from completion-sync.service.ts) → the 3-way ActivityCategory bucket
- * useDayStatus().sessions is keyed by. 'hybrid' deliberately maps to null —
- * a hybrid completion can touch multiple categories at once, and there's no
- * existing signal for which one to attribute the rich (title/thumbnail)
- * completion data to, so it's left to fall back to the generic per-category
- * cards rather than guessing.
- */
-function workoutTypeToCategory(workoutType: string | undefined): ActivityCategory | null {
-  if (workoutType === 'strength') return 'strength';
-  if (workoutType === 'running' || workoutType === 'walking' || workoutType === 'cycling') return 'cardio';
-  return null;
-}
 
 /** Weekly activity minutes card */
 function ActivityCard() {
@@ -504,20 +489,6 @@ export default function HomePage() {
   // Consistent with this page's existing convention (not a new pattern this
   // diff introduces), but a real modest listener cost, not a free read.
   const { allGoalsMet } = useDailyActivity();
-  // Stage D+E (19.08.2026) — real, already-live per-category minutes for
-  // today (strength/cardio/maintenance, >=10 real logged min each), sorted
-  // desc. Drives the today-activity strip below: one card per category
-  // actually present today. Investigated before using it: this is
-  // category-bucketed (max 3 entries, one per category), not a raw
-  // per-workout-event count — two separate same-category sessions today
-  // still collapse into one bucket here. That's a deliberate, confirmed
-  // choice, not an oversight: a true per-instance count exists
-  // (activity.categories[cat].sessions, currently unread anywhere) but
-  // would only ever produce visually-identical duplicate cards for the
-  // same category (no per-instance title/thumbnail data exists to tell
-  // "session 1" apart from "session 2" of the same category) — it doesn't
-  // buy more useful information, just more cards, so it's not used here.
-  const getDayStatus = useDayStatus();
   // Daily Strength Ring (Layer A). The target hook is gated by the flag so no
   // Firestore read fires while STRENGTH_RING_ENABLED is off (byte-identical).
   const todayStrengthVolume = useTodayStrengthVolume();
@@ -547,19 +518,33 @@ export default function HomePage() {
     }
   }, []);
 
+  // Bug fix (22.08.2026, David caught on-device — "swallows the second
+  // workout"): this used to be a mount-only effect ([] deps), so a SECOND
+  // workout completed while home stays mounted (no remount in between) was
+  // never picked up — its fresh sessionStorage payload just sat unread.
+  // sessionStorage has no same-tab 'storage' event to react to, so
+  // completion-sync.service.ts now dispatches a 'post-workout-completed'
+  // CustomEvent right after writing the key; this listens for it in
+  // addition to the original mount-time read, so every completion during
+  // this page's lifetime — not just the first — updates postWorkoutData.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const raw = sessionStorage.getItem('post_workout_completed');
-    if (!raw) return;
-    try {
-      const data = JSON.parse(raw);
-      const elapsed = Date.now() - new Date(data.completedAt).getTime();
-      if (elapsed < 30 * 60 * 1000) {
-        setPostWorkoutData(data);
-        setShowMotivationBanner(true);
-      }
-    } catch { /* ignore parse errors */ }
-    sessionStorage.removeItem('post_workout_completed');
+    const readPostWorkoutData = () => {
+      const raw = sessionStorage.getItem('post_workout_completed');
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        const elapsed = Date.now() - new Date(data.completedAt).getTime();
+        if (elapsed < 30 * 60 * 1000) {
+          setPostWorkoutData(data);
+          setShowMotivationBanner(true);
+        }
+      } catch { /* ignore parse errors */ }
+      sessionStorage.removeItem('post_workout_completed');
+    };
+    readPostWorkoutData();
+    window.addEventListener('post-workout-completed', readPostWorkoutData);
+    return () => window.removeEventListener('post-workout-completed', readPostWorkoutData);
   }, []);
 
   useEffect(() => {
@@ -609,12 +594,12 @@ export default function HomePage() {
   // exact "no visible empty state on a rest day" behavior the plan calls for —
   // no separate empty-state branch needed, this array being empty already is one.
   //
-  // Which category gets the "rich" (real title/thumbnail/duration) card: only
-  // the just-completed workout's own category, via workoutTypeToCategory —
-  // every other category present today (e.g. an earlier walk, same day as
-  // today's strength session) gets a generic category-labeled card instead,
-  // since no title/thumbnail data exists for anything but the most recent
-  // completion (completionData's fields all trace back to a single 30-min-TTL
+  // Which workout gets the "rich" (real title/thumbnail/duration) card: only
+  // the most recently saved doc for today (index 0 below) — every OTHER
+  // workout today (e.g. an earlier walk, same day as today's strength
+  // session) gets a generic category-labeled card instead, since no title/
+  // thumbnail data exists for anything but the most recent completion
+  // (completionData's fields all trace back to a single 30-min-TTL
   // sessionStorage payload — see completion-sync.service.ts).
   //
   // Dependency array below reads completionData's individual primitive fields
@@ -625,225 +610,120 @@ export default function HomePage() {
   // every render too, same as not memoizing at all (caught by
   // react-hooks/exhaustive-deps). The primitives are what actually determine
   // the output, and they only change when the underlying data really changes.
-  // F2.3 follow-up (21.08.2026) — today's real workout docs' categories, used
-  // only to correct hybrid matchCategory below (see that comment). Reuses
-  // the exact query handleTodayActivityCardTap already runs at tap time;
-  // this just runs it earlier, at card-build time. Stays null (safe no-op —
-  // matchCategory falls back to the pre-fix raw-category behavior) until it
-  // resolves, or on error.
-  const [todaysWorkoutCategories, setTodaysWorkoutCategories] = useState<Set<string> | null>(null);
+  // Card-per-workout (22.08.2026, David-directed — the old one-card-per-
+  // CATEGORY design was swallowing a second same-day workout of the same
+  // category into a single card, showing the day's cumulative minutes
+  // instead of that specific session's own duration, and never gave
+  // SuggestionCarousel more than 1 item so it never scrolled). Every
+  // real workout doc for today, most recent first — same query
+  // handleTodayActivityCardTap already ran at tap time (F2.2), now run
+  // earlier, at card-build time, and reused (not re-run) at tap time too.
+  // Refetches on profile.id AND on postWorkoutData change (not just
+  // profile.id) — a new completion writes a new doc, and this needs to
+  // pick it up without waiting for a remount. Stays null (cards render
+  // empty, same as an unresolved rest day) until it resolves, or forever
+  // on a genuine query failure — logged, not thrown, so one failed refetch
+  // doesn't crash the home screen.
+  const [todaysWorkouts, setTodaysWorkouts] = useState<WorkoutHistoryEntry[] | null>(null);
   useEffect(() => {
     if (!profile?.id) return;
     let cancelled = false;
     getWorkoutsForDate(profile.id, toISODate(new Date()))
       .then((workouts) => {
         if (cancelled) return;
-        setTodaysWorkoutCategories(new Set(workouts.map((w) => w.category)));
+        setTodaysWorkouts(workouts);
       })
       .catch((error) => {
-        console.error('[home] Failed to load today\'s workout categories for hybrid card matching:', error);
+        console.error('[home] Failed to load today\'s workouts for the activity strip:', error);
       });
     return () => {
       cancelled = true;
     };
-  }, [profile?.id]);
+  }, [profile?.id, postWorkoutData]);
 
   const todayActivityCards: TodayActivityCardData[] = useMemo(() => {
     if (!profile) return [];
-    const todayISO = toISODate(new Date());
-    const dayStatus = getDayStatus(todayISO);
-    const richCategory = completionData ? workoutTypeToCategory(completionData.workoutType) : null;
+    // todaysWorkouts is null until the fetch above resolves (or forever on a
+    // genuine query failure) — empty strip meanwhile, same as a rest day.
+    // No "safety nets" needed here anymore (unlike the old category-bucketed
+    // version below, now removed): every real doc for today is already in
+    // this list regardless of duration, so a short/express or hybrid
+    // completion is never at risk of vanishing — there's no 10-min floor or
+    // category-collapse to work around in the first place.
+    if (!todaysWorkouts || todaysWorkouts.length === 0) return [];
 
-    const cards: TodayActivityCardData[] = dayStatus.sessions.map((s) => {
-      const isRich = s.category === richCategory && !!completionData;
-      // F2.3 follow-up (21.08.2026): dayStatus.sessions is bucketed by raw
-      // ActivityCategory with no hybrid-attribution — a hybrid completion
-      // splits into a 'cardio' bucket and a 'strength' bucket, each still
-      // tagged with its raw category here, while the real saved doc is
-      // always category:'hybrid'. todaysWorkoutCategories (queried above,
-      // same query handleTodayActivityCardTap already runs at tap time)
-      // lets us correct this: if today has no direct doc of this raw
-      // category but does have a hybrid doc, this bucket's minutes almost
-      // certainly came from that hybrid workout's other half. Scoped to
-      // cardio/strength only — those are the only two categories a hybrid
-      // split ever touches (useHybridRun.ts's categorySplits). Falls back
-      // to the raw category before the query resolves, or when a genuine
-      // direct-category doc also exists today (ambiguous — no per-session
-      // id to disambiguate further, so prefer the real matching doc over
-      // guessing).
-      const matchCategory: ActivityCategory | 'hybrid' =
-        (s.category === 'cardio' || s.category === 'strength') &&
-        todaysWorkoutCategories &&
-        !todaysWorkoutCategories.has(s.category) &&
-        todaysWorkoutCategories.has('hybrid')
-          ? 'hybrid'
-          : s.category;
+    // getWorkoutsForDate already orders desc by date — the most recently
+    // SAVED doc is index 0. sessionStorage's postWorkoutData always holds
+    // the latest completion (each save overwrites the key), so "index 0" and
+    // "the workout completionData describes" are the same doc by
+    // construction — no id-matching needed, and correct even for a hybrid
+    // completion (its own doc's category is genuinely 'hybrid', no more
+    // guessing which raw-category bucket it landed in).
+    return todaysWorkouts.map((w, i) => {
+      const isRich = i === 0 && !!completionData;
+      // Real saved category ('cardio'|'strength'|'hybrid'|'recovery') vs. the
+      // 3-way ActivityCategory the card's fill color/label need. hybrid and
+      // recovery both style as 'strength' here — a styling-only choice
+      // (mirrors the activity store's own bucketing: useActivitySync.ts logs
+      // every trainingType!=='cardio' case, recovery included, under
+      // activityCategory:'strength'), never surfaced as fact in the card's
+      // text (the real title wins whenever one exists; the category label is
+      // only a generic fallback).
+      const displayCategory: ActivityCategory =
+        w.category === 'hybrid' || w.category === 'recovery' ? 'strength' : w.category;
+      const label = isRich
+        ? (completionData!.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[displayCategory])
+        : TODAY_ACTIVITY_CATEGORY_LABEL[displayCategory];
       return {
-        key: s.category,
-        category: s.category,
-        matchCategory,
-        title: isRich
-          ? (completionData!.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[s.category])
-          : TODAY_ACTIVITY_CATEGORY_LABEL[s.category],
-        // Bug fix (22.08.2026, David caught on-device): this used to be
-        // Math.round(s.minutes) unconditionally — s.minutes is dayStatus's
-        // per-category DAILY TOTAL (useDayStatus.ts's sessions array, built
-        // from activity.categories[cat].minutes), not this specific
-        // workout's own duration. For the isRich card (a real, specific
-        // completionData.workoutTitle — e.g. "אימון סבב 14 דק' בפארק...")
-        // that mismatched badly: title said 14 min, the line below it said
-        // 81 (today's cumulative total for that category). Prefer the
-        // specific workout's own completionData.durationMinutes whenever
-        // it's genuinely populated; only a NON-rich card (generic category
-        // label, no specific workout attached) should show the daily total.
+        key: w.id ?? `${w.category}-${w.date.getTime()}-${i}`,
+        category: displayCategory,
+        title: label,
+        // completionData.durationMinutes is this specific workout's own real
+        // duration (not a daily total) — prefer it for the rich card; every
+        // other card (including the rich one once completionData's 30-min
+        // TTL has lapsed) falls back to its OWN doc's duration (seconds →
+        // minutes), never another workout's or the day's cumulative total.
         minutes: Math.round(isRich && completionData!.durationMinutes > 0
           ? completionData!.durationMinutes
-          : s.minutes),
+          : w.duration / 60),
         thumbnailUrl: isRich ? completionData!.thumbnailUrl : undefined,
         streak: completionData?.streak ?? 1,
         programId: isRich ? completionData!.programId : undefined,
-        workoutType: isRich ? completionData!.workoutType : undefined,
+        // Real workoutType for every card now (not just the rich one) — lets
+        // icon resolution distinguish walking/running/cycling for older
+        // same-day cards too, not only the just-finished one.
+        workoutType: isRich ? completionData!.workoutType : w.workoutType,
       };
     });
-
-    // Safety net 1: dayStatus.sessions only includes categories that crossed the
-    // 10-min STREAK_MINIMUM_MINUTES floor. A short/express completion under
-    // that floor would otherwise vanish from the strip entirely even though
-    // completionData proves a real workout just finished — add it explicitly
-    // if its category isn't already represented above.
-    //
-    // Minutes: prefer completionData.durationMinutes (this specific workout's
-    // real duration) when it's genuinely populated — same bug/fix as the main
-    // loop above (22.08.2026). Falls back to dayStatus.categories (today's
-    // per-category total) only when durationMinutes is the hardcoded-0
-    // placeholder from the persistent Firestore-only fallback branch of
-    // completionData (no postWorkoutData sessionStorage payload — e.g. any
-    // home revisit after the first post-workout mount), which would
-    // otherwise show a fabricated "0 min" for a real completed workout
-    // (adversarial review, 19.08.2026) — title is equally generic in that
-    // branch (workoutTitle absent), so a daily-total number stays consistent
-    // with the generic framing rather than claiming a specific one.
-    if (completionData && richCategory && !cards.some((c) => c.category === richCategory)) {
-      cards.unshift({
-        key: richCategory,
-        category: richCategory,
-        // F2.3: richCategory is guaranteed non-null and non-hybrid inside
-        // this `if` (workoutTypeToCategory never returns 'hybrid'), so this
-        // genuinely matches the real doc's category — no mismatch risk here.
-        matchCategory: richCategory,
-        title: completionData.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[richCategory],
-        minutes: Math.round(completionData.durationMinutes || dayStatus.categories[richCategory] || 0),
-        thumbnailUrl: completionData.thumbnailUrl,
-        streak: completionData.streak ?? 1,
-        programId: completionData.programId,
-        workoutType: completionData.workoutType,
-      });
-    }
-
-    // Safety net 2: a hybrid completion (richCategory === null, so safety net 1
-    // can't attribute it to one category) that also logged under 10 min in
-    // every category would otherwise still show nothing — the one invariant
-    // that matters most here is "never regress to showing NOTHING in a case
-    // where the old HeroWorkoutCard-based code would have shown something."
-    //
-    // fallbackCategory is a styling-only choice (fill color) here, not a
-    // factual claim — TodayActivityCard's headline text is category-agnostic
-    // ("האימון בוצע בהצלחה!", matching the old HeroWorkoutCard wording
-    // exactly) specifically so a genuine hybrid completion never gets
-    // mislabeled in words as "strength" (adversarial review, 19.08.2026).
-    // Minutes sum every category's real total when richCategory is null
-    // (hybrid splits its duration across categories — see useHybridRun.ts's
-    // categorySplits — so summing is a closer estimate of total duration
-    // than picking one category alone).
-    if (completionData && cards.length === 0) {
-      const fallbackCategory: ActivityCategory = richCategory ?? 'strength';
-      const fallbackMinutes = richCategory
-        ? dayStatus.categories[richCategory]
-        : dayStatus.categories.strength + dayStatus.categories.cardio + dayStatus.categories.maintenance;
-      cards.push({
-        key: 'completion-fallback',
-        category: fallbackCategory,
-        // F2.3 (adversarial review, must-fix, 19.08.2026): fallbackCategory
-        // above is a STYLING choice only ('strength' when richCategory is
-        // null, i.e. exactly the hybrid case) — matching a tap against it
-        // would compare 'strength' against a real hybrid doc's category:
-        // 'hybrid' and never find it (silent no-op, or worse, a wrong-doc
-        // match against an unrelated real strength session). matchCategory
-        // carries the REAL category instead: richCategory when set, else
-        // 'hybrid' (the only reason this branch's richCategory is ever null).
-        matchCategory: richCategory ?? 'hybrid',
-        title: completionData.workoutTitle || 'האימון היומי שלך',
-        // Same bug/fix as the two card sites above (22.08.2026) — prefer the
-        // specific workout's own duration over the daily-total estimate.
-        minutes: Math.round(completionData.durationMinutes || fallbackMinutes || 0),
-        thumbnailUrl: completionData.thumbnailUrl,
-        streak: completionData.streak ?? 1,
-        programId: completionData.programId,
-        workoutType: completionData.workoutType,
-      });
-    }
-
-    return cards;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see the primitive-deps note above
   }, [
     profile,
-    getDayStatus,
+    todaysWorkouts,
     completionData?.workoutType,
     completionData?.workoutTitle,
     completionData?.thumbnailUrl,
     completionData?.streak,
     completionData?.durationMinutes,
-    todaysWorkoutCategories,
+    completionData?.programId,
   ]);
 
   // F2.3 (19.08.2026, "unified workout summary" plan): tapping a
-  // TodayActivityCard opens the real workout it represents. Its data
-  // (TodayActivityCardData) carries only `category` — no per-instance
-  // workout id, since useDayStatus().sessions is category-bucketed
-  // (confirmed during F2's investigation) — so this resolves to the MOST
-  // RECENT real workout doc for that category today, via getWorkoutsForDate
-  // (already built for F2.2's schedule entry point, reused here as-is — no
-  // category filter in the query itself, since that would need a new
-  // Firestore index; filtered client-side instead, cheap given a single day
-  // realistically has 1-3 docs). No session-picker, matching David's own
-  // stated principle for this exact ambiguity (19.08.2026): "לחיצה על כרטיס
-  // תמיד מובילה ליעד סיכום אחד עקבי לאותה קטגוריה... אין צורך במנגנון
-  // בחירה בין sessions."
+  // TodayActivityCard opens the real workout it represents.
   //
-  // In-flight guard (adversarial review, must-fix, 19.08.2026): a separate
-  // ref from F2.2's tryOpenCompletedWorkout (that one lives in a different
-  // closure) — without it, tapping two different cards in quick succession
-  // fires two independent Firestore queries whose RESOLUTION order isn't
-  // guaranteed to match tap order, so the wrong one could win the
-  // navigation. Matches `card.matchCategory`, not `card.category` — see
-  // TodayActivityCardData's own doc comment for why those differ for the
-  // hybrid-fallback card specifically (also an adversarial-review must-fix:
-  // matching on `category` there would compare a styling-only 'strength'
-  // against a real hybrid doc's category:'hybrid' and never find it).
-  const isResolvingCardTapRef = useRef(false);
-  const handleTodayActivityCardTap = useCallback(async (card: TodayActivityCardData) => {
-    if (!profile?.id) return;
-    if (isResolvingCardTapRef.current) return;
-    isResolvingCardTapRef.current = true;
-    try {
-      const todayISO = toISODate(new Date());
-      const todaysWorkouts = await getWorkoutsForDate(profile.id, todayISO);
-      const match = todaysWorkouts.find((w) => w.category === card.matchCategory);
-      // No real doc found for a card that's already showing — a rare
-      // data-race edge case (e.g. a doc write still in flight), not expected
-      // in practice — silent no-op rather than an error UI.
-      if (match?.id) router.push(`/workouts/${match.id}/history`);
-    } catch (error) {
-      // getWorkoutsForDate now throws instead of swallowing (fix-round #6,
-      // 19-21.08.2026). This call site's own no-match case is already a
-      // deliberate silent no-op (above) — a genuine query failure gets the
-      // same treatment here (nothing to navigate to either way), just
-      // logged instead of silently caught two layers down.
-      console.error('[handleTodayActivityCardTap] Failed to resolve a workout for tap:', error);
-    } finally {
-      isResolvingCardTapRef.current = false;
-    }
-  }, [profile?.id, router]);
+  // Simplified (22.08.2026, card-per-workout): card.key IS the real
+  // Firestore doc id now — every card is built directly from one
+  // getWorkoutsForDate doc (see todayActivityCards above), so there's no
+  // more re-querying + category-matching at tap time, and no more
+  // ambiguity about WHICH same-category doc a tap means (each card already
+  // points at its own specific doc, not a category it happens to share with
+  // others). The synthetic fallback key (used only when a doc genuinely has
+  // no `.id`, not expected in practice — every other real-doc call site in
+  // this file extends the same trust) is not a valid doc id; the history
+  // route already renders its own "not found" state for that case (see
+  // /workouts/[id]/history/page.tsx), so no special-casing is needed here.
+  const handleTodayActivityCardTap = useCallback((card: TodayActivityCardData) => {
+    router.push(`/workouts/${card.key}/history`);
+  }, [router]);
 
   // ── post_workout suggestion carousel (home-generator-v2 plan, step 6) ──
   // Eager-compute the moment a completed workout is detected (mirrors the celebration
