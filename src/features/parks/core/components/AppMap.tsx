@@ -21,6 +21,7 @@ import ParkPhotoMarker from './ParkPhotoMarker';
 import DestinationMarker from './DestinationMarker';
 
 import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
+import { hapticLight } from '@/lib/haptics';
 import { applyFitnessMapStyle, resetFitnessMapStyle } from './mapStyleConfig';
 import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
 import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
@@ -1163,7 +1164,7 @@ export default function AppMap({
       const park = parks.find(p => p.id === parkId);
       if (park) {
         setSelectedPark(park);
-        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10);
+        hapticLight();
       }
       return;
     }
@@ -1178,7 +1179,7 @@ export default function AppMap({
           if (route) {
             onRouteSelect(route);
             setSelectedPark(null);
-            if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10);
+            hapticLight();
             return;
           }
         }
@@ -1863,9 +1864,7 @@ export default function AppMap({
               size={56}
               isSelected
               onClick={() => {
-                if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-                  navigator.vibrate(8);
-                }
+                hapticLight();
               }}
             />
           </Marker>

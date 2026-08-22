@@ -21,6 +21,7 @@ import { WalkingIcon, RunIcon, getProgramIcon, resolveIconKey } from '@/features
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
 import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
+import { hapticLight } from '@/lib/haptics';
 
 // ── Skill-aware helpers ────────────────────────────────────────────────────
 
@@ -421,6 +422,7 @@ function StrengthCard({
    */
   const activate = useCallback(() => {
     if (swipeX.get() < -10) { closeSwipe(); return; }
+    hapticLight();
     if (isCommunity) {
       if (baseMode === 'past') return;
       onCommunityTap?.(entry.groupId ?? '', entry.groupName ?? '');
