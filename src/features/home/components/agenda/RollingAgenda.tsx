@@ -17,8 +17,10 @@
 import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, Reorder } from 'framer-motion';
-import AgendaDayCard from './AgendaDayCard';
+import AgendaDayCard, { type AgendaProgressEntry } from './AgendaDayCard';
 import { toISODate, addDays, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
+import { usePastWorkoutCompleted } from '@/features/activity';
+import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
 import {
   moveScheduleEntry,
   removeScheduleEntry,
@@ -314,6 +316,49 @@ export default function RollingAgenda({
     return () => { cancelled = true; };
   }, [userId, dates, combinedRefreshKey]);
 
+  // ── Plan-independent completion signal (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED) ──
+  //
+  // dailyProgress/{uid}_{date} — same S8 source MonthlyCalendarGrid and
+  // SmartWeeklySchedule already read for exactly this purpose. Past days via
+  // the shared batched hook (same ~30-day range MonthlyCalendarGrid already
+  // fetches on this same overlay); today via the live/reactive single-date
+  // hook. No `null` "in flight" state needed here (unlike `scheduleMap`
+  // above) — both source hooks degrade a fetch failure to "not completed,"
+  // never to a destructive false-positive, so `progressMap` simply starts
+  // `{}` and fills in progressively, same characteristic
+  // MonthlyCalendarGrid's own `pastProgressMap` already has today.
+  const pastDatesForProgress = useMemo(
+    () => dates.filter((d) => d < todayISO),
+    [dates, todayISO],
+  );
+  const {
+    completedMap: pastCompletedMap,
+    recoveryMap: pastRecoveryMap,
+    workoutTypeMap: pastWorkoutTypeMap,
+  } = usePastWorkoutCompleted(userId, pastDatesForProgress);
+  const todayProgress = useDailyProgress();
+
+  const progressMap: Record<string, AgendaProgressEntry> = useMemo(() => {
+    const map: Record<string, AgendaProgressEntry> = {};
+    for (const iso of pastDatesForProgress) {
+      if (pastCompletedMap.get(iso)) {
+        map[iso] = {
+          completed: true,
+          workoutType: pastWorkoutTypeMap.get(iso),
+          isRecovery: pastRecoveryMap.get(iso) ?? false,
+        };
+      }
+    }
+    if (todayProgress?.workoutCompleted) {
+      map[todayISO] = {
+        completed: true,
+        workoutType: todayProgress.workoutType,
+        isRecovery: todayProgress.isRecovery ?? false,
+      };
+    }
+    return map;
+  }, [pastDatesForProgress, pastCompletedMap, pastWorkoutTypeMap, pastRecoveryMap, todayProgress, todayISO]);
+
   // ── Drag callbacks ────────────────────────────────────────────────────
 
   const handleDragMoveIntent = useCallback(
@@ -563,6 +608,7 @@ export default function RollingAgenda({
                       onCommunityTap={onCommunityTap}
                       refreshKey={combinedRefreshKey}
                       scheduleMap={scheduleMap}
+                      progressMap={progressMap}
                       rowRef={(el) => setCardRef(iso, el)}
                     />
                   </div>
@@ -609,6 +655,7 @@ export default function RollingAgenda({
                 onCommunityTap={onCommunityTap}
                 refreshKey={combinedRefreshKey}
                 scheduleMap={scheduleMap}
+                progressMap={progressMap}
                 rowRef={(el) => setCardRef(iso, el)}
               />
             </Reorder.Item>

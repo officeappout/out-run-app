@@ -22,6 +22,7 @@ import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
 import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
 import { hapticLight } from '@/lib/haptics';
+import type { DailyProgress } from '@/features/home/hooks/useDailyProgress';
 
 // ── Skill-aware helpers ────────────────────────────────────────────────────
 
@@ -46,6 +47,19 @@ function resolveStrengthTitle(programIds: string[] | undefined): string {
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type CardMode = 'past' | 'today' | 'future' | 'rest';
+
+/**
+ * Plan-independent per-date completion signal, batched by `RollingAgenda`
+ * from `dailyProgress` (`usePastWorkoutCompleted` for past days,
+ * `useDailyProgress` for today) and threaded down via `progressMap`. Used
+ * by the AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED tier-4 fallback to detect
+ * a genuinely completed workout that has no `UserScheduleEntry` at all.
+ */
+export interface AgendaProgressEntry {
+  completed: boolean;
+  workoutType?: DailyProgress['workoutType'];
+  isRecovery?: boolean;
+}
 
 interface AgendaDayCardProps {
   date: string;
@@ -85,6 +99,18 @@ interface AgendaDayCardProps {
    * entries from here instead — see schedule-editor-perf-audit.md.
    */
   scheduleMap?: Record<string, UserScheduleEntry[]> | null;
+  /**
+   * Batched plan-independent completion signal from the parent
+   * (`RollingAgenda`), keyed by date — see `AgendaProgressEntry`. Sparse: a
+   * missing key means "not completed" (or the batch hasn't filled in yet
+   * — this map starts empty and progressively populates, same
+   * characteristic as `MonthlyCalendarGrid`'s own `pastProgressMap`
+   * today). `undefined` when the parent doesn't provide one (e.g.
+   * `progress/page.tsx` renders this card standalone) — the tier-4
+   * fallback is simply skipped in that case, current behavior preserved.
+   * Gated by AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED.
+   */
+  progressMap?: Record<string, AgendaProgressEntry>;
   rowRef?: (el: HTMLDivElement | null) => void;
 }
 
