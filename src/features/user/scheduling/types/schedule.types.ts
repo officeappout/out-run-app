@@ -32,12 +32,19 @@ export type ScheduleEntryType = 'training' | 'rest' | 'assessment';
 // 'auto'           → system placed this (e.g., first-workout flow)
 // 'google_calendar'→ synced from external calendar (Phase 4)
 // 'community'      → auto-populated from a joined community group's scheduleSlots
+// 'reconstructed'  → NOT placed by any process; synthesized in-memory (never
+//                    persisted) from a plan-independent completion signal
+//                    (dailyProgress) when a genuinely completed workout has
+//                    no corresponding schedule entry. See AgendaDayCard.tsx
+//                    tier-4 fallback, gated by
+//                    AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED.
 export type ScheduleEntrySource =
   | 'recurring'
   | 'manual'
   | 'auto'
   | 'google_calendar'
-  | 'community';
+  | 'community'
+  | 'reconstructed';
 
 // ── Activity category (mirrors activity.types but avoids circular import) ──
 export type ScheduleActivityCategory = 'strength' | 'cardio' | 'maintenance' | 'walking';

@@ -1313,6 +1313,50 @@ export const POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = true;
 // in production) — explicit go-ahead given.
 export const SOCIAL_COMPOSE_UI_ENABLED = true;
 
+// AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED: fixes the big schedule
+// (TrainingPlannerOverlay → RollingAgenda → AgendaDayCard) showing an empty
+// "+ הוסף אימון" placeholder on a day where a workout genuinely completed
+// but no UserScheduleEntry exists for that day — e.g. a spontaneous/
+// unplanned hybrid workout done without being tied to any plan.
+// AgendaDayCard's isCompleted/isEmpty/isRest are derived exclusively from
+// primaryEntry (a UserScheduleEntry); on a zero-entry day, primaryEntry is
+// null, which forces isRest=true, which renders the "add workout" button
+// unconditionally, before isCompleted is ever consulted. The correct,
+// plan-independent signal (dailyProgress/{uid}_{date}.workoutCompleted)
+// already exists and already drives MonthlyCalendarGrid (same overlay,
+// the icon grid above the agenda list) and SmartWeeklySchedule (home
+// strip) correctly — AgendaDayCard never reads it.
+//
+// Gates a new 4th tier in AgendaDayCard's entries-population fallback
+// chain (Firestore batch → recurring-template → scheduleDays synthesis →
+// THIS), which synthesizes a lightweight, never-persisted "virtual"
+// UserScheduleEntry (source:'reconstructed', completed:true) ONLY when
+// zero entries exist after all 3 existing tiers AND the plan-independent
+// signal says the day was completed. Deliberately does NOT touch
+// primaryEntry?.completed for real, persisted entries (a separate, larger
+// finding — every real entry's completed field is also never flipped
+// true by any live writer — deferred as its own decision).
+//
+// Confirmed isolated from running programs: hasRunning/runningWorkout are
+// derived purely from users/{uid}.running.activeProgram.schedule (a
+// separate Firestore path) and short-circuit entries to [] BEFORE this
+// tier ever runs (`if (hasRunning) { setEntries([]); return; }`) — this
+// fix never reads or writes anything under running.activeProgram.
+//
+// While FALSE (default), RollingAgenda still computes/threads the new
+// progressMap prop (read-only, harmless), but AgendaDayCard's tier-4
+// block never fires — byte-identical to today, bug reproduces exactly as
+// before.
+//
+// While TRUE, a zero-entry day with a completed dailyProgress record
+// renders a colored completed card (correct category icon/color via
+// workoutType, correct Hebrew title) instead of the empty add-workout
+// placeholder. The synthesized entry is explicitly non-draggable
+// (source==='reconstructed' excluded from isDraggable) and has no swipe
+// edit/delete affordance (no entryId, same as the existing scheduleDays
+// synthetic entry today).
+export const AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
