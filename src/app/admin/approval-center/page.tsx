@@ -42,6 +42,7 @@ import {
   X,
   ChevronLeft,
   RotateCcw,
+  Search,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
@@ -71,6 +72,7 @@ interface QueueItem {
   category?: AmenityCategory;
   sport?: CourtSport;
   city?: string;
+  activityType?: string;
   location?: { lat: number; lng: number };
   suppressedDuplicateOfParkId?: string | null;
 }
@@ -97,6 +99,13 @@ export default function ApprovalCenterPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<ApprovalDetailItem | null>(null);
   const [climbFilter, setClimbFilter] = useState<string>('all');
+  // Routes tab filters — client-side over the already-fetched pending queue (mirrors
+  // admin/routes/page.tsx's inventory-tab invFilterCity/invFilterActivity pattern).
+  // Makes reviewing one city's routes practical among a mixed-city queue (e.g. 118
+  // Haifa routes among 216 total). Tab-local, same convention as amenity*Filter below.
+  const [routeCityFilter, setRouteCityFilter] = useState<string>('all');
+  const [routeActivityFilter, setRouteActivityFilter] = useState<'all' | 'pedestrian' | 'cycling'>('all');
+  const [routeSearchQuery, setRouteSearchQuery] = useState('');
   // Bulk-reject selection — climbs tab only (Stage 6, 17.08.2026): triaging
   // structural noise at scale means selecting many, not clicking "דחה" 175 times.
   const [selectedClimbIds, setSelectedClimbIds] = useState<Set<string>>(new Set());
@@ -220,6 +229,7 @@ export default function ApprovalCenterPage() {
           title: x.name || '(ללא שם)',
           subtitle: [dist, act].filter(Boolean).join(' · '),
           origin: x.origin, authorityId: x.authorityId, createdByUser: x.createdByUser,
+          city: x.city, activityType: x.activityType,
         };
       });
       return scoped(items, sa, aids, uid);
@@ -507,10 +517,26 @@ export default function ApprovalCenterPage() {
     (amenityCityFilter === 'all' || a.city === amenityCityFilter),
   );
 
+  // Routes tab — city/activity/name filters, same "distinct values from the loaded
+  // list" approach as uniqueCities/filteredInventoryRoutes in admin/routes/page.tsx.
+  const routeCities = Array.from(new Set(routes.map(r => r.city).filter(Boolean) as string[])).sort();
+  const filteredRoutes = routes.filter(r => {
+    if (routeCityFilter !== 'all' && r.city !== routeCityFilter) return false;
+    if (routeActivityFilter !== 'all') {
+      const act = r.activityType || '';
+      if (routeActivityFilter === 'cycling' && act !== 'cycling') return false;
+      if (routeActivityFilter === 'pedestrian' && act !== 'walking' && act !== 'running') return false;
+    }
+    if (routeSearchQuery.trim() && !r.title.toLowerCase().includes(routeSearchQuery.trim().toLowerCase())) return false;
+    return true;
+  });
+
   const shownItems = activeTab === 'climbs' && climbFilter !== 'all'
     ? active.items.filter(i => i.climbType === climbFilter)
     : activeTab === 'amenities'
     ? (amenitySubView === 'suppressed' ? suppressedAmenities : filteredAmenities)
+    : activeTab === 'routes'
+    ? filteredRoutes
     : active.items;
 
   return (
@@ -598,6 +624,52 @@ export default function ApprovalCenterPage() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* City / activity / name filters — routes tab only, client-side over the already-
+          fetched pending queue. No new query, no moderation-logic change. */}
+      {activeTab === 'routes' && routes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 bg-gray-50 rounded-xl p-3 border border-gray-100">
+          <div className="relative flex-1 min-w-[160px] max-w-xs">
+            <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={routeSearchQuery}
+              onChange={(e) => setRouteSearchQuery(e.target.value)}
+              placeholder="חיפוש לפי שם מסלול..."
+              className="w-full pr-9 pl-3 py-1.5 bg-white rounded-lg border border-gray-200 focus:border-cyan-400 outline-none text-xs"
+            />
+          </div>
+          <select
+            value={routeCityFilter}
+            onChange={(e) => setRouteCityFilter(e.target.value)}
+            className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[11px] font-bold text-gray-700 focus:border-cyan-400 focus:outline-none cursor-pointer"
+          >
+            <option value="all">כל הערים ({routeCities.length})</option>
+            {routeCities.map(c => (
+              <option key={c} value={c}>{c} ({routes.filter(r => r.city === c).length})</option>
+            ))}
+          </select>
+          <select
+            value={routeActivityFilter}
+            onChange={(e) => setRouteActivityFilter(e.target.value as 'all' | 'pedestrian' | 'cycling')}
+            className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[11px] font-bold text-gray-700 focus:border-cyan-400 focus:outline-none cursor-pointer"
+          >
+            <option value="all">כל הפעילויות</option>
+            <option value="pedestrian">🚶 הולכי רגל / ריצה</option>
+            <option value="cycling">🚴 רכיבה</option>
+          </select>
+          {(routeCityFilter !== 'all' || routeActivityFilter !== 'all' || routeSearchQuery) && (
+            <button
+              onClick={() => { setRouteCityFilter('all'); setRouteActivityFilter('all'); setRouteSearchQuery(''); }}
+              className="flex items-center gap-1 text-[10px] font-bold text-red-500 hover:text-red-700 transition-colors"
+            >
+              <X size={12} />
+              נקה סינון
+            </button>
+          )}
+          <span className="text-[10px] font-bold text-gray-400 mr-auto">{filteredRoutes.length} מתוך {routes.length}</span>
         </div>
       )}
 
