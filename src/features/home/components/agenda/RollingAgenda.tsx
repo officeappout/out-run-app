@@ -17,10 +17,9 @@
 import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, Reorder } from 'framer-motion';
-import AgendaDayCard, { type AgendaProgressEntry } from './AgendaDayCard';
+import AgendaDayCard from './AgendaDayCard';
 import { toISODate, addDays, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
-import { usePastWorkoutCompleted } from '@/features/activity';
-import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
+import { getWorkoutsInDateRange, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import {
   moveScheduleEntry,
   removeScheduleEntry,
@@ -316,48 +315,35 @@ export default function RollingAgenda({
     return () => { cancelled = true; };
   }, [userId, dates, combinedRefreshKey]);
 
-  // ── Plan-independent completion signal (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED) ──
+  // ── Real completed-workout signal (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED) ──
   //
-  // dailyProgress/{uid}_{date} — same S8 source MonthlyCalendarGrid and
-  // SmartWeeklySchedule already read for exactly this purpose. Past days via
-  // the shared batched hook (same ~30-day range MonthlyCalendarGrid already
-  // fetches on this same overlay); today via the live/reactive single-date
-  // hook. No `null` "in flight" state needed here (unlike `scheduleMap`
-  // above) — both source hooks degrade a fetch failure to "not completed,"
-  // never to a destructive false-positive, so `progressMap` simply starts
-  // `{}` and fills in progressively, same characteristic
-  // MonthlyCalendarGrid's own `pastProgressMap` already has today.
-  const pastDatesForProgress = useMemo(
-    () => dates.filter((d) => d < todayISO),
-    [dates, todayISO],
-  );
-  const {
-    completedMap: pastCompletedMap,
-    recoveryMap: pastRecoveryMap,
-    workoutTypeMap: pastWorkoutTypeMap,
-  } = usePastWorkoutCompleted(userId, pastDatesForProgress);
-  const todayProgress = useDailyProgress();
-
-  const progressMap: Record<string, AgendaProgressEntry> = useMemo(() => {
-    const map: Record<string, AgendaProgressEntry> = {};
-    for (const iso of pastDatesForProgress) {
-      if (pastCompletedMap.get(iso)) {
-        map[iso] = {
-          completed: true,
-          workoutType: pastWorkoutTypeMap.get(iso),
-          isRecovery: pastRecoveryMap.get(iso) ?? false,
-        };
+  // One batched range query over the `workouts` collection — same
+  // {userId,date} composite index `getWorkoutsForDate` already uses, just
+  // wider bounds (see getWorkoutsInDateRange's own doc comment). Covers
+  // past dates + today only — future days can't have real workout docs.
+  // Real per-document data (not a day-level aggregate like dailyProgress),
+  // so a day with 2+ spontaneous workouts is represented as 2+ distinct
+  // docs, not collapsed into one flag. Starts `{}` and fills in once the
+  // query resolves — a fetch failure degrades to "no actual workouts
+  // known," never a destructive false-positive, so no `null` "in flight"
+  // gate is needed (unlike `scheduleMap` above).
+  const [actualWorkoutsMap, setActualWorkoutsMap] = useState<Record<string, WorkoutHistoryEntry[]>>({});
+  useEffect(() => {
+    if (!userId) { setActualWorkoutsMap({}); return; }
+    const pastDates = dates.filter((d) => d <= todayISO);
+    const rangeStart = pastDates.length > 0 ? pastDates[0] : todayISO;
+    let cancelled = false;
+    getWorkoutsInDateRange(userId, rangeStart, todayISO).then((workouts) => {
+      if (cancelled) return;
+      const map: Record<string, WorkoutHistoryEntry[]> = {};
+      for (const w of workouts) {
+        const iso = toISODate(w.date);
+        (map[iso] ??= []).push(w);
       }
-    }
-    if (todayProgress?.workoutCompleted) {
-      map[todayISO] = {
-        completed: true,
-        workoutType: todayProgress.workoutType,
-        isRecovery: todayProgress.isRecovery ?? false,
-      };
-    }
-    return map;
-  }, [pastDatesForProgress, pastCompletedMap, pastWorkoutTypeMap, pastRecoveryMap, todayProgress, todayISO]);
+      setActualWorkoutsMap(map);
+    });
+    return () => { cancelled = true; };
+  }, [userId, dates, todayISO, combinedRefreshKey]);
 
   // ── Drag callbacks ────────────────────────────────────────────────────
 
@@ -608,7 +594,7 @@ export default function RollingAgenda({
                       onCommunityTap={onCommunityTap}
                       refreshKey={combinedRefreshKey}
                       scheduleMap={scheduleMap}
-                      progressMap={progressMap}
+                      actualWorkoutsMap={actualWorkoutsMap}
                       rowRef={(el) => setCardRef(iso, el)}
                     />
                   </div>
@@ -655,7 +641,7 @@ export default function RollingAgenda({
                 onCommunityTap={onCommunityTap}
                 refreshKey={combinedRefreshKey}
                 scheduleMap={scheduleMap}
-                progressMap={progressMap}
+                actualWorkoutsMap={actualWorkoutsMap}
                 rowRef={(el) => setCardRef(iso, el)}
               />
             </Reorder.Item>

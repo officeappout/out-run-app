@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { DailyProgress } from '@/features/home/hooks/useDailyProgress';
 
 /**
  * Two parallel per-date maps returned by `usePastWorkoutCompleted`, built
@@ -24,14 +23,6 @@ export interface PastWorkoutCompletionMaps {
    * with `isRecovery: true`.
    */
   recoveryMap: Map<string, boolean>;
-  /**
-   * ISO date → that completed day's `dailyProgress.workoutType`, when
-   * present. Captured from the SAME per-date doc read as the two maps
-   * above — no additional Firestore reads. Only meaningful for dates also
-   * present in `completedMap`; `undefined` on a legacy doc that predates
-   * this field (consumers should fall back to a generic category).
-   */
-  workoutTypeMap: Map<string, DailyProgress['workoutType']>;
 }
 
 /**
@@ -53,7 +44,6 @@ export function usePastWorkoutCompleted(
 ): PastWorkoutCompletionMaps {
   const [completedMap, setCompletedMap] = useState<Map<string, boolean>>(new Map());
   const [recoveryMap, setRecoveryMap] = useState<Map<string, boolean>>(new Map());
-  const [workoutTypeMap, setWorkoutTypeMap] = useState<Map<string, DailyProgress['workoutType']>>(new Map());
 
   // Join into a stable primitive so the effect refires only when the SET of
   // past dates changes — a fresh array identity every render would thrash it.
@@ -63,7 +53,6 @@ export function usePastWorkoutCompleted(
     if (!userId || !key) {
       setCompletedMap(new Map());
       setRecoveryMap(new Map());
-      setWorkoutTypeMap(new Map());
       return;
     }
     let cancelled = false;
@@ -76,9 +65,9 @@ export function usePastWorkoutCompleted(
             const ref = doc(db, 'dailyProgress', `${userId}_${iso}`);
             const snap = await getDoc(ref);
             const data = snap.exists() ? snap.data() : undefined;
-            return [iso, !!data?.workoutCompleted, !!data?.isRecovery, data?.workoutType as DailyProgress['workoutType'] | undefined] as const;
+            return [iso, !!data?.workoutCompleted, !!data?.isRecovery] as const;
           } catch {
-            return [iso, false, false, undefined] as const;
+            return [iso, false, false] as const;
           }
         }),
       );
@@ -86,7 +75,6 @@ export function usePastWorkoutCompleted(
         const completedEntries = results.filter(([, done]) => done);
         setCompletedMap(new Map(completedEntries.map(([iso, done]) => [iso, done])));
         setRecoveryMap(new Map(completedEntries.map(([iso, , isRecovery]) => [iso, isRecovery])));
-        setWorkoutTypeMap(new Map(completedEntries.map(([iso, , , workoutType]) => [iso, workoutType])));
       }
     })();
 
@@ -95,5 +83,5 @@ export function usePastWorkoutCompleted(
     };
   }, [userId, key]);
 
-  return { completedMap, recoveryMap, workoutTypeMap };
+  return { completedMap, recoveryMap };
 }

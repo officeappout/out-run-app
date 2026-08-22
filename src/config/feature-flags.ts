@@ -1314,47 +1314,56 @@ export const POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = true;
 export const SOCIAL_COMPOSE_UI_ENABLED = true;
 
 // AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED: fixes the big schedule
-// (TrainingPlannerOverlay → RollingAgenda → AgendaDayCard) showing an empty
-// "+ הוסף אימון" placeholder on a day where a workout genuinely completed
-// but no UserScheduleEntry exists for that day — e.g. a spontaneous/
-// unplanned hybrid workout done without being tied to any plan.
-// AgendaDayCard's isCompleted/isEmpty/isRest are derived exclusively from
-// primaryEntry (a UserScheduleEntry); on a zero-entry day, primaryEntry is
-// null, which forces isRest=true, which renders the "add workout" button
-// unconditionally, before isCompleted is ever consulted. The correct,
-// plan-independent signal (dailyProgress/{uid}_{date}.workoutCompleted)
-// already exists and already drives MonthlyCalendarGrid (same overlay,
-// the icon grid above the agenda list) and SmartWeeklySchedule (home
-// strip) correctly — AgendaDayCard never reads it.
+// (TrainingPlannerOverlay → RollingAgenda → AgendaDayCard) not showing what
+// actually happened on a day, in two related cases: (1) a day with zero
+// UserScheduleEntry rows shows an empty "+ הוסף אימון" placeholder even
+// when a workout genuinely completed (e.g. a spontaneous/unplanned hybrid
+// workout with no plan behind it), and (2) a day that DOES have a planned
+// entry gives no signal at all when the user actually did something
+// different — the planned entry just sits there unchanged.
 //
-// Gates a new 4th tier in AgendaDayCard's entries-population fallback
-// chain (Firestore batch → recurring-template → scheduleDays synthesis →
-// THIS), which synthesizes a lightweight, never-persisted "virtual"
-// UserScheduleEntry (source:'reconstructed', completed:true) ONLY when
-// zero entries exist after all 3 existing tiers AND the plan-independent
-// signal says the day was completed. Deliberately does NOT touch
+// Round 2 (this version): RollingAgenda batches a real per-document
+// completed-workout signal — one query over the `workouts` collection for
+// the whole visible date range (getWorkoutsInDateRange, same {userId,date}
+// composite index getWorkoutsForDate already uses, no new index needed) —
+// and passes it to AgendaDayCard as `actualWorkoutsMap`. For each real
+// workout doc on a day (baseMode !== 'future'), AgendaDayCard appends a
+// lightweight, never-persisted "reconstructed" UserScheduleEntry
+// (source:'reconstructed', completed:true, completedWorkoutId: the real
+// doc id) UNCONDITIONALLY — alongside whatever the existing 3-tier planned-
+// entry fallback chain (Firestore batch → recurring-template →
+// scheduleDays synthesis) already produced, not gated on it being empty.
+// One card per real doc, so a day with 2+ spontaneous workouts renders 2+
+// distinct cards, not one aggregate flag — this replaced round 1's
+// dailyProgress-based single-entry tier, which could only represent one
+// "was something completed" boolean per day. Deliberately does NOT touch
 // primaryEntry?.completed for real, persisted entries (a separate, larger
-// finding — every real entry's completed field is also never flipped
-// true by any live writer — deferred as its own decision).
+// finding — every real entry's completed field is also never flipped true
+// by any live writer — still deferred as its own decision).
 //
 // Confirmed isolated from running programs: hasRunning/runningWorkout are
 // derived purely from users/{uid}.running.activeProgram.schedule (a
-// separate Firestore path) and short-circuit entries to [] BEFORE this
-// tier ever runs (`if (hasRunning) { setEntries([]); return; }`) — this
+// separate Firestore path) and short-circuit entries to [] BEFORE any of
+// this logic runs (`if (hasRunning) { setEntries([]); return; }`) — this
 // fix never reads or writes anything under running.activeProgram.
 //
-// While FALSE (default), RollingAgenda still computes/threads the new
-// progressMap prop (read-only, harmless), but AgendaDayCard's tier-4
-// block never fires — byte-identical to today, bug reproduces exactly as
-// before.
+// While FALSE (default), RollingAgenda still computes/threads
+// actualWorkoutsMap (read-only, harmless), but AgendaDayCard never appends
+// a reconstructed entry — byte-identical to the pre-fix baseline.
 //
-// While TRUE, a zero-entry day with a completed dailyProgress record
-// renders a colored completed card (correct category icon/color via
-// workoutType, correct Hebrew title) instead of the empty add-workout
-// placeholder. The synthesized entry is explicitly non-draggable
-// (source==='reconstructed' excluded from isDraggable) and has no swipe
-// edit/delete affordance (no entryId, same as the existing scheduleDays
-// synthetic entry today).
+// While TRUE: a zero-entry day with a real completed workout renders a
+// colored completed card (correct category icon/color via workoutType,
+// correct Hebrew title, including 'recovery' which dailyProgress's
+// workoutType never carried); a day with an existing planned entry ALSO
+// gets a separate reconstructed card for what actually happened, side by
+// side, without altering the planned entry. Reconstructed entries are
+// explicitly non-draggable (source==='reconstructed' excluded from
+// isDraggable), have no swipe edit/delete affordance (no entryId, same as
+// the existing scheduleDays synthetic entry), and tap straight to
+// `/workouts/{completedWorkoutId}/history` — precise even when a day has
+// more than one real workout doc, unlike the generic onStartWorkout(date)
+// flow (home/page.tsx's tryOpenCompletedWorkout), which resolves only by
+// {userId, date} and would be ambiguous in that case.
 export const AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED = false;
 
 // Helper function for conditional rendering

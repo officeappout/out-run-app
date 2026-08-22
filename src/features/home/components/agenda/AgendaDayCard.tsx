@@ -11,6 +11,7 @@
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, useDragControls, useMotionValue, animate, type PanInfo } from 'framer-motion';
 import { Plus, GripVertical, Footprints, Check, Zap, Timer, TrendingUp, Mountain, Users, Trash2, Pencil } from 'lucide-react';
 import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
@@ -22,7 +23,7 @@ import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
 import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
 import { hapticLight } from '@/lib/haptics';
-import type { DailyProgress } from '@/features/home/hooks/useDailyProgress';
+import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED } from '@/config/feature-flags';
 
 // ── Skill-aware helpers ────────────────────────────────────────────────────
@@ -45,55 +46,44 @@ function resolveStrengthTitle(programIds: string[] | undefined): string {
 }
 
 /**
- * Maps a `dailyProgress.workoutType` to the `ScheduleActivityCategory` the
- * tier-4 reconstructed entry (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED)
- * should carry, so its accent color/icon match the real workout instead of
- * defaulting to strength. `undefined` (legacy doc predating the field) and
- * `'strength'` both fall back to `['strength']`.
+ * Maps a real workout doc's `workoutType` to the `ScheduleActivityCategory`
+ * a reconstructed entry (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED) should
+ * carry, so its accent color/icon match the real workout instead of
+ * defaulting to strength. `undefined` (shouldn't happen for a real doc, but
+ * guards it anyway) and `'strength'` both fall back to `['strength']`.
  */
-function workoutTypeToCategories(t: DailyProgress['workoutType'] | undefined): ScheduleActivityCategory[] {
+function workoutTypeToCategories(t: WorkoutHistoryEntry['workoutType'] | undefined): ScheduleActivityCategory[] {
   switch (t) {
-    case 'walking': return ['walking'];
+    case 'walking':  return ['walking'];
     case 'running':
-    case 'cycling': return ['cardio'];
-    case 'hybrid':  return ['strength', 'cardio'];
-    default:        return ['strength'];
+    case 'cycling':  return ['cardio'];
+    case 'hybrid':   return ['strength', 'cardio'];
+    case 'recovery': return ['maintenance'];
+    default:         return ['strength'];
   }
 }
 
 /**
- * Hebrew title for a tier-4 reconstructed entry — `resolveStrengthTitle`
- * always falls back to "אימון כוח" (its `programIds` is empty for a
- * synthesized entry), which would mislabel a walking/cardio/hybrid virtual
+ * Hebrew title for a reconstructed entry — `resolveStrengthTitle` always
+ * falls back to "אימון כוח" (its `programIds` is empty for a synthesized
+ * entry), which would mislabel a walking/cardio/hybrid/recovery virtual
  * card even though its color/icon are already correct via
  * `workoutTypeToCategories`.
  */
-function resolveReconstructedTitle(workoutType: DailyProgress['workoutType'] | undefined): string {
+function resolveReconstructedTitle(workoutType: WorkoutHistoryEntry['workoutType'] | undefined): string {
   switch (workoutType) {
-    case 'walking': return 'הליכה';
+    case 'walking':  return 'הליכה';
     case 'running':
-    case 'cycling': return 'אימון קרדיו';
-    case 'hybrid':  return 'אימון משולב';
-    default:        return 'אימון כוח';
+    case 'cycling':  return 'אימון קרדיו';
+    case 'hybrid':   return 'אימון משולב';
+    case 'recovery': return 'אימון התאוששות';
+    default:         return 'אימון כוח';
   }
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type CardMode = 'past' | 'today' | 'future' | 'rest';
-
-/**
- * Plan-independent per-date completion signal, batched by `RollingAgenda`
- * from `dailyProgress` (`usePastWorkoutCompleted` for past days,
- * `useDailyProgress` for today) and threaded down via `progressMap`. Used
- * by the AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED tier-4 fallback to detect
- * a genuinely completed workout that has no `UserScheduleEntry` at all.
- */
-export interface AgendaProgressEntry {
-  completed: boolean;
-  workoutType?: DailyProgress['workoutType'];
-  isRecovery?: boolean;
-}
 
 interface AgendaDayCardProps {
   date: string;
@@ -134,17 +124,17 @@ interface AgendaDayCardProps {
    */
   scheduleMap?: Record<string, UserScheduleEntry[]> | null;
   /**
-   * Batched plan-independent completion signal from the parent
-   * (`RollingAgenda`), keyed by date — see `AgendaProgressEntry`. Sparse: a
-   * missing key means "not completed" (or the batch hasn't filled in yet
-   * — this map starts empty and progressively populates, same
-   * characteristic as `MonthlyCalendarGrid`'s own `pastProgressMap`
-   * today). `undefined` when the parent doesn't provide one (e.g.
-   * `progress/page.tsx` renders this card standalone) — the tier-4
-   * fallback is simply skipped in that case, current behavior preserved.
-   * Gated by AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED.
+   * Batched real completed-workout docs from the parent (`RollingAgenda`),
+   * keyed by ISO date — one query over the `workouts` collection covering
+   * the whole visible range (see `getWorkoutsInDateRange`). Sparse: a
+   * missing key means "no known actual workouts that day" (or the batch
+   * hasn't resolved yet — starts `{}` and fills in progressively).
+   * `undefined` when the parent doesn't provide one (e.g. `progress/page.tsx`
+   * renders this card standalone) — the reconstructed-entry logic is simply
+   * skipped in that case, current behavior preserved. Gated by
+   * AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED.
    */
-  progressMap?: Record<string, AgendaProgressEntry>;
+  actualWorkoutsMap?: Record<string, WorkoutHistoryEntry[]>;
   rowRef?: (el: HTMLDivElement | null) => void;
 }
 
@@ -401,6 +391,7 @@ function StrengthCard({
   onEditRequest,
   onPreviewEntry,
 }: StrengthCardProps) {
+  const router = useRouter();
   const dragControls = useDragControls();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -496,9 +487,18 @@ function StrengthCard({
       onCommunityTap?.(entry.groupId ?? '', entry.groupName ?? '');
       return;
     }
+    // Reconstructed entries carry a real workout doc id — navigate straight
+    // to that specific workout's history instead of the generic
+    // onPreviewEntry/onTap(date) flow, which resolves purely by {userId,
+    // date} (home/page.tsx's tryOpenCompletedWorkout) and would be
+    // ambiguous on a day with more than one real workout doc.
+    if (entry.source === 'reconstructed' && entry.completedWorkoutId) {
+      router.push(`/workouts/${entry.completedWorkoutId}/history`);
+      return;
+    }
     onPreviewEntry?.(entry);
     onTap?.(entry.date);
-  }, [baseMode, isCommunity, entry.groupId, entry.groupName, onCommunityTap, onTap, swipeX, closeSwipe, onPreviewEntry, entry]);
+  }, [baseMode, isCommunity, entry, onCommunityTap, onTap, swipeX, closeSwipe, onPreviewEntry, router]);
 
   const handleTap = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -746,7 +746,7 @@ export default function AgendaDayCard({
   onCommunityTap,
   refreshKey,
   scheduleMap,
-  progressMap,
+  actualWorkoutsMap,
   rowRef,
 }: AgendaDayCardProps) {
   const { profile } = useUserStore();
@@ -825,33 +825,35 @@ export default function AgendaDayCard({
           }
         }
 
-        // Tier 4 — plan-independent completion fallback
-        // (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED). Only reached when
-        // tiers 1-3 produced NOTHING at all for this day, but the parent's
-        // progressMap (dailyProgress) says the workout was genuinely
-        // completed — e.g. a spontaneous/unplanned hybrid session with no
-        // UserScheduleEntry. Gated to non-future days (a "completed" day
-        // can only be today or past — mirrors isEmpty's own future-only
-        // gate). Deliberately scoped to fully-empty days only — a day that
-        // already has ANY entry (including a community one) is untouched.
-        if (
-          AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED &&
-          result.length === 0 &&
-          baseMode !== 'future' &&
-          progressMap
-        ) {
-          const progress = progressMap[date];
-          if (progress?.completed) {
-            result = [{
+        // Reconstructed entries — plan-independent, real per-document
+        // completion signal (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED).
+        // Unconditional: appended alongside whatever tiers 1-3 already
+        // produced (a real planned entry, a recurring-template entry, a
+        // scheduleDays synthetic entry, or nothing) — no attempt to match
+        // or dedupe against them. Every real workout doc for the day gets
+        // its own card, so a day with 2+ spontaneous workouts renders 2+
+        // distinct cards instead of one aggregate flag. Gated to
+        // non-future days (a "completed" day can only be today or past —
+        // mirrors isEmpty's own future-only gate).
+        const actualWorkouts = actualWorkoutsMap?.[date] ?? [];
+        if (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED && baseMode !== 'future' && actualWorkouts.length > 0) {
+          result = [
+            ...result,
+            ...actualWorkouts.map((w) => ({
               userId,
               date,
               programIds: [],
               type: 'training',
               source: 'reconstructed',
               completed: true,
-              scheduledCategories: workoutTypeToCategories(progress.workoutType),
-            } as UserScheduleEntry];
-          }
+              // Real workout doc id — lets a tap route straight to that
+              // specific workout's history instead of the generic
+              // onStartWorkout(date)/onPreviewEntry(entry) flow, which
+              // would be ambiguous with 2+ docs on the same day.
+              completedWorkoutId: w.id,
+              scheduledCategories: workoutTypeToCategories(w.workoutType),
+            } as UserScheduleEntry)),
+          ];
         }
 
         if (!cancelled) setEntries(result);
@@ -861,7 +863,7 @@ export default function AgendaDayCard({
     }
     load();
     return () => { cancelled = true; };
-  }, [userId, date, recurringTemplate, refreshKey, hasRunning, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, scheduleMap, progressMap, baseMode]);
+  }, [userId, date, recurringTemplate, refreshKey, hasRunning, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, scheduleMap, actualWorkoutsMap, baseMode]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1097,7 +1099,9 @@ export default function AgendaDayCard({
                       ? (COMMUNITY_CATEGORY_COLORS[e.scheduledCategories?.[0] as string ?? ''] ?? '#9CA3AF')
                       : undefined
                   }
-                  title={e.source === 'reconstructed' ? resolveReconstructedTitle(progressMap?.[date]?.workoutType) : undefined}
+                  title={e.source === 'reconstructed'
+                    ? resolveReconstructedTitle(actualWorkoutsMap?.[date]?.find((w) => w.id === e.completedWorkoutId)?.workoutType)
+                    : undefined}
                   onTap={onStartWorkout}
                   onCommunityTap={onCommunityTap}
                   onDragStart={onDragStart}
