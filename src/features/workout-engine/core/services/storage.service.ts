@@ -540,6 +540,43 @@ export async function getWorkoutsForDate(
 }
 
 /**
+ * Every real workout doc for one user across a range of local calendar days,
+ * most recent first — same query shape as `getWorkoutsForDate` above (single
+ * `where('userId', ...)` + a `date` range + `orderBy`), just with wider
+ * bounds, so it matches the SAME existing `{userId, date}` composite index —
+ * no new Firestore index needs deploying.
+ *
+ * One query for a whole visible date range (e.g. RollingAgenda's past dates
+ * + today) instead of N per-date reads — cost is proportional to actual
+ * workout docs in the window (realistically 1-3 per active day), not to
+ * day-count. Callers group the flat result by ISO date client-side.
+ *
+ * `startISO`/`endISO` are LOCAL calendar days ('YYYY-MM-DD'), inclusive on
+ * both ends — boundaries are constructed in local time to match.
+ */
+export async function getWorkoutsInDateRange(
+  userId: string,
+  startISO: string,
+  endISO: string,
+): Promise<WorkoutHistoryEntry[]> {
+  const [sy, sm, sd] = startISO.split('-').map(Number);
+  const [ey, em, ed] = endISO.split('-').map(Number);
+  if (!sy || !sm || !sd || !ey || !em || !ed) return [];
+  const startOfRange = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+  const endOfRange = new Date(ey, em - 1, ed + 1, 0, 0, 0, 0); // exclusive upper bound = day AFTER endISO
+
+  const q = query(
+    collection(db, 'workouts'),
+    where('userId', '==', userId),
+    where('date', '>=', Timestamp.fromDate(startOfRange)),
+    where('date', '<', Timestamp.fromDate(endOfRange)),
+    orderBy('date', 'desc'),
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => mapFullWorkoutDoc(docSnap.id, docSnap.data()));
+}
+
+/**
  * Convert Firestore Timestamp to Date
  */
 function toDate(timestamp: unknown): Date | undefined {
