@@ -23,6 +23,7 @@ import { useUserStore } from '@/features/user';
 import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
 import { hapticLight } from '@/lib/haptics';
 import type { DailyProgress } from '@/features/home/hooks/useDailyProgress';
+import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED } from '@/config/feature-flags';
 
 // ── Skill-aware helpers ────────────────────────────────────────────────────
 
@@ -43,6 +44,39 @@ function resolveStrengthTitle(programIds: string[] | undefined): string {
   return 'אימון כוח';
 }
 
+/**
+ * Maps a `dailyProgress.workoutType` to the `ScheduleActivityCategory` the
+ * tier-4 reconstructed entry (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED)
+ * should carry, so its accent color/icon match the real workout instead of
+ * defaulting to strength. `undefined` (legacy doc predating the field) and
+ * `'strength'` both fall back to `['strength']`.
+ */
+function workoutTypeToCategories(t: DailyProgress['workoutType'] | undefined): ScheduleActivityCategory[] {
+  switch (t) {
+    case 'walking': return ['walking'];
+    case 'running':
+    case 'cycling': return ['cardio'];
+    case 'hybrid':  return ['strength', 'cardio'];
+    default:        return ['strength'];
+  }
+}
+
+/**
+ * Hebrew title for a tier-4 reconstructed entry — `resolveStrengthTitle`
+ * always falls back to "אימון כוח" (its `programIds` is empty for a
+ * synthesized entry), which would mislabel a walking/cardio/hybrid virtual
+ * card even though its color/icon are already correct via
+ * `workoutTypeToCategories`.
+ */
+function resolveReconstructedTitle(workoutType: DailyProgress['workoutType'] | undefined): string {
+  switch (workoutType) {
+    case 'walking': return 'הליכה';
+    case 'running':
+    case 'cycling': return 'אימון קרדיו';
+    case 'hybrid':  return 'אימון משולב';
+    default:        return 'אימון כוח';
+  }
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -312,6 +346,13 @@ interface StrengthCardProps {
    */
   accentColor?: string;
   /**
+   * Overrides the resolved title. `resolveStrengthTitle(entry.programIds)`
+   * always falls back to "אימון כוח" for a tier-4 reconstructed entry
+   * (its `programIds` is empty) — pass a `workoutType`-derived label for
+   * `source === 'reconstructed'` entries; omit for every other entry.
+   */
+  title?: string;
+  /**
    * Tap handler — typically opens the workout preview. Skipped for past days.
    * Receives the ISO date string of the tapped entry so callers can update
    * their selected-date state synchronously before opening the preview.
@@ -351,6 +392,7 @@ function StrengthCard({
   isShared,
   isDraggable,
   accentColor,
+  title: titleProp,
   onTap,
   onCommunityTap,
   onDragStart,
@@ -482,9 +524,9 @@ function StrengthCard({
   }, [closeSwipe, entry.entryId, onEditRequest]);
 
   const barColor = isCompleted ? '#1D9E75' : (accentColor ?? '#00C9F2');
-  const title = isCommunity
+  const title = titleProp ?? (isCommunity
     ? getCommunityTitle(entry)
-    : resolveStrengthTitle(entry.programIds);
+    : resolveStrengthTitle(entry.programIds));
   const CommunityIcon: React.FC<{ className?: string }> | undefined = isCommunity
     ? COMMUNITY_CARD_ICON[entry.scheduledCategories?.[0] as string ?? '']
     : undefined;
@@ -704,6 +746,7 @@ export default function AgendaDayCard({
   onCommunityTap,
   refreshKey,
   scheduleMap,
+  progressMap,
   rowRef,
 }: AgendaDayCardProps) {
   const { profile } = useUserStore();
@@ -782,6 +825,35 @@ export default function AgendaDayCard({
           }
         }
 
+        // Tier 4 — plan-independent completion fallback
+        // (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED). Only reached when
+        // tiers 1-3 produced NOTHING at all for this day, but the parent's
+        // progressMap (dailyProgress) says the workout was genuinely
+        // completed — e.g. a spontaneous/unplanned hybrid session with no
+        // UserScheduleEntry. Gated to non-future days (a "completed" day
+        // can only be today or past — mirrors isEmpty's own future-only
+        // gate). Deliberately scoped to fully-empty days only — a day that
+        // already has ANY entry (including a community one) is untouched.
+        if (
+          AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED &&
+          result.length === 0 &&
+          baseMode !== 'future' &&
+          progressMap
+        ) {
+          const progress = progressMap[date];
+          if (progress?.completed) {
+            result = [{
+              userId,
+              date,
+              programIds: [],
+              type: 'training',
+              source: 'reconstructed',
+              completed: true,
+              scheduledCategories: workoutTypeToCategories(progress.workoutType),
+            } as UserScheduleEntry];
+          }
+        }
+
         if (!cancelled) setEntries(result);
       } catch {
         if (!cancelled) setEntries([]);
@@ -789,7 +861,7 @@ export default function AgendaDayCard({
     }
     load();
     return () => { cancelled = true; };
-  }, [userId, date, recurringTemplate, refreshKey, hasRunning, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, scheduleMap]);
+  }, [userId, date, recurringTemplate, refreshKey, hasRunning, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, scheduleMap, progressMap, baseMode]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1019,12 +1091,13 @@ export default function AgendaDayCard({
                   isToday={isToday}
                   baseMode={baseMode}
                   isShared={trainingCount > 1}
-                  isDraggable={isDraggable && e.source !== 'community'}
+                  isDraggable={isDraggable && e.source !== 'community' && e.source !== 'reconstructed'}
                   accentColor={
                     e.source === 'community'
                       ? (COMMUNITY_CATEGORY_COLORS[e.scheduledCategories?.[0] as string ?? ''] ?? '#9CA3AF')
                       : undefined
                   }
+                  title={e.source === 'reconstructed' ? resolveReconstructedTitle(progressMap?.[date]?.workoutType) : undefined}
                   onTap={onStartWorkout}
                   onCommunityTap={onCommunityTap}
                   onDragStart={onDragStart}
