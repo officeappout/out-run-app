@@ -802,13 +802,31 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
 
   // 3) NEW — named park/garden-anchored perimeter loops (item A), built from
   // `parkRings` (fetched early, step 1.5, so the specialness gate above
-  // could use them too — no second fetch here). See
-  // fetchParkGardenRings()'s own header comment for why this traces the
-  // park's real OSM boundary ring rather than reusing the live app's
-  // generator or a synthetic circle.
-  const parkCandidates = buildParkLoopCandidates(parkRings);
+  // could use them too — no second fetch here) — but the LOOP GEOMETRY itself
+  // (22.08.2026 rewrite) now comes from a real walkable-way graph, not the
+  // park polygon boundary. See buildParkLoopCandidate's own header comment
+  // for why (investigation found 0/21 Haifa park loops traced a continuous
+  // real path under the old "ring = polygon" construction).
+  const walkableGraph = await fetchWalkableGraphForRings(parkRings);
+  const { candidates: parkCandidates, reports: parkReports } = buildParkLoopCandidates(parkRings, walkableGraph);
   candidates.push(...parkCandidates);
   stats.parks = parkCandidates.length;
+
+  console.log(`\n── park-loop rebuild ("הקפת X") — polygon perimeter vs. real walkable-graph loop ──`);
+  console.log('Name'.padEnd(38) + 'OldPerim'.padStart(10) + 'NewLength'.padStart(11) + '  Verdict'.padStart(9) + '  Coverage%'.padStart(12) + '  LongestRun%'.padStart(14) + '  Reason');
+  for (const r of parkReports) {
+    console.log(
+      r.name.padEnd(38) +
+      `${r.oldPerimeterM}m`.padStart(10) +
+      (r.newLengthM != null ? `${r.newLengthM}m`.padStart(11) : '—'.padStart(11)) +
+      `  ${r.verdict}`.padStart(9) +
+      (r.verdict === 'KEPT' ? `${r.coveragePct}%`.padStart(12) : '—'.padStart(12)) +
+      (r.verdict === 'KEPT' ? `${r.longestRunPct}%`.padStart(14) : '—'.padStart(14)) +
+      (r.reason ? `  ${r.reason}` : '')
+    );
+  }
+  const parkKeptCount = parkReports.filter(r => r.verdict === 'KEPT').length;
+  console.log(`\n${parkKeptCount}/${parkReports.length} park loops survive as genuine walkable "הקפת" candidates; ${parkReports.length - parkKeptCount} dropped (no polygon fallback, no synthetic geometry).`);
 
   // 4) blocking polygons (water + buildings) for artifact filtering.
   const blockPolys = await fetchBlockPolys(REGION.bbox);
@@ -869,11 +887,9 @@ async function fetchParkGardenRings(decl: string, scopes: string[]): Promise<Arr
   return out;
 }
 
-function buildParkLoopCandidates(parkRings: Array<{ ref: string; name: string; ring: number[][] }>): Candidate[] {
-  const candidates: Candidate[] = [];
-  for (const p of parkRings) { const cand = buildParkLoopCandidate(p.ref, p.name, p.ring); if (cand) candidates.push(cand); }
-  return candidates;
-}
+// buildParkLoopCandidates/buildParkLoopCandidate are defined further below, alongside the
+// walkable-graph rebuild machinery they depend on (22.08.2026 rewrite — see that block's own
+// header comment for why the polygon-ring approach was replaced).
 
 // Coastline (natural=coastline ways) — the second specialness signal for the
 // short-named-way gate (a real promenade along the shore, e.g. Bat Galim/Hof
@@ -921,25 +937,229 @@ function isNearSpecialFeature(pts: number[][], significantParkRings: Array<{ rin
   return false;
 }
 
-function buildParkLoopCandidate(ref: string, name: string, ring: number[][]): Candidate | null {
-  if (ring.length < 3) return null;
-  // A park polygon must be a real closed ring to be treated as a walkable
-  // loop — today's admin-boundary fetcher never needed this check (an admin
-  // boundary is always closed by definition), but a park `way` result could
-  // in principle come back open if OSM tagging/geometry is incomplete.
-  if (hav(ring[0], ring[ring.length - 1]) >= LOOP_CLOSE_M) return null;
-  const L = pathLen(ring);
-  if (L < LEN_LOOP_MIN || L > LEN_LOOP_MAX) return null;
-  return {
+// ─────────────── park loop rebuild — real walkable-graph routing (22.08.2026) ───────────────
+// Replaces the old "ring = park polygon boundary" construction. Investigation (read-only POC,
+// see haifa-city-mapping-runbook.md-adjacent chat log) confirmed 0/21 Haifa park-loop
+// candidates traced a continuous real path — even the ones that scored 100% "near some
+// walkable way" turned out to graze a dense mesh of many short, disconnected fragments (up to
+// 41 distinct-way switches on an 802m loop), because a leisure=park|garden polygon is a
+// land-use boundary, not a routable way. Fix: build the loop from an actual node graph of
+// nearby walkable ways, snap a downsampled set of polygon anchor points onto it, and Dijkstra
+// between consecutive anchors. Drop the candidate outright if any leg can't be resolved on
+// real ways — no polygon fallback, matching this file's existing "no anonymous filler, no
+// synthetic geometry" principle for every other candidate type.
+const MIN_ANCHOR_SPACING_M = 35; // 30-40m per spec — decimates the polygon to a handful of anchor points, not hundreds of micro-vertices.
+const ANCHOR_SNAP_TOLERANCE_M = 28; // 25-30m per spec — an anchor with no walkable node this close signals "no real perimeter path here."
+const MAX_LOOP_LENGTH_RATIO = 1.3; // assembled walkable loop vs. the polygon's own perimeter — a real perimeter path wanders a little, shouldn't balloon.
+const DIJKSTRA_NODE_CAP = 20000; // hard backstop against a pathological search on a sparse/disconnected local network — should never bind in practice at park scale.
+
+interface WalkGraphEdge { to: number; distM: number; wayId: number }
+interface WalkGraph { nodeCoord: Map<number, number[]>; adj: Map<number, WalkGraphEdge[]>; grid: Map<string, number[]> }
+
+interface ParkLoopReport {
+  name: string; oldPerimeterM: number; newLengthM: number | null;
+  verdict: 'KEPT' | 'DROPPED'; reason?: string;
+  coveragePct?: number; longestRunPct?: number; distinctWays?: number; runs?: number;
+}
+
+const GRAPH_GRID_DEG = 0.0006; // ~60-65m cells at Haifa's latitude — coarse spatial prefilter, same precision level as this file's other geometry.
+function graphGridKey(p: number[]): string { return `${Math.floor(p[0] / GRAPH_GRID_DEG)}:${Math.floor(p[1] / GRAPH_GRID_DEG)}`; }
+
+// Fetches the walkable-way node graph once for the union bbox of every park ring in this
+// region (padded) — one combined Overpass call for all parks, not one per park. Same
+// vocabulary as this file's own standalone-segment fetch (footway|path|track|pedestrian|
+// cycleway|living_street|residential|service|tertiary|unclassified) PLUS steps — a human
+// can walk stairs even though this file's routing engine deliberately excludes them from
+// routable segments elsewhere (osm-segment-importer.ts's own "never route someone onto a
+// staircase" comment is about the LIVE generator's routing UX, not human walkability).
+async function fetchWalkableGraphForRings(parkRings: Array<{ ring: number[][] }>): Promise<WalkGraph> {
+  const nodeCoord = new Map<number, number[]>();
+  const adj = new Map<number, WalkGraphEdge[]>();
+  const grid = new Map<string, number[]>();
+  if (!parkRings.length) return { nodeCoord, adj, grid };
+
+  const PAD_DEG = 0.0015; // ~150-165m padding around the combined bbox.
+  let latMin = Infinity, latMax = -Infinity, lonMin = Infinity, lonMax = -Infinity;
+  for (const p of parkRings) for (const pt of p.ring) {
+    latMin = Math.min(latMin, pt[0]); latMax = Math.max(latMax, pt[0]);
+    lonMin = Math.min(lonMin, pt[1]); lonMax = Math.max(lonMax, pt[1]);
+  }
+  latMin -= PAD_DEG; latMax += PAD_DEG; lonMin -= PAD_DEG; lonMax += PAD_DEG;
+  console.log(`fetching walkable-way graph for ${parkRings.length} park perimeter(s) (footway|path|track|pedestrian|cycleway|steps|living_street|residential|service|tertiary|unclassified) …`);
+  const bb = `${latMin},${lonMin},${latMax},${lonMax}`;
+  const data = await overpass(`[out:json][timeout:150];(way["highway"~"^(footway|path|track|pedestrian|cycleway|steps|living_street|residential|service|tertiary|unclassified)$"](${bb}););out geom;`);
+
+  const addEdge = (a: number, b: number, distM: number, wayId: number) => {
+    if (!adj.has(a)) adj.set(a, []);
+    adj.get(a)!.push({ to: b, distM, wayId });
+  };
+  let wayCount = 0;
+  for (const e of data.elements) {
+    if (e.type !== 'way' || !e.geometry || !e.nodes || e.geometry.length !== e.nodes.length || e.geometry.length < 2) continue;
+    wayCount++;
+    for (let i = 1; i < e.nodes.length; i++) {
+      const nA = e.nodes[i - 1], nB = e.nodes[i];
+      const pA = [e.geometry[i - 1].lat, e.geometry[i - 1].lon], pB = [e.geometry[i].lat, e.geometry[i].lon];
+      if (!nodeCoord.has(nA)) { nodeCoord.set(nA, pA); const k = graphGridKey(pA); if (!grid.has(k)) grid.set(k, []); grid.get(k)!.push(nA); }
+      if (!nodeCoord.has(nB)) { nodeCoord.set(nB, pB); const k = graphGridKey(pB); if (!grid.has(k)) grid.set(k, []); grid.get(k)!.push(nB); }
+      const d = hav(pA, pB);
+      if (d === 0) continue;
+      addEdge(nA, nB, d, e.id); addEdge(nB, nA, d, e.id);
+    }
+  }
+  console.log(`  graph: ${wayCount} ways, ${nodeCoord.size} nodes, ${adj.size} nodes with edges.`);
+  return { nodeCoord, adj, grid };
+}
+
+// Decimates a closed ring to ~spacingM-spaced anchor points (pure distance-based, not
+// Douglas-Peucker — spec asks for "drop vertices closer than X apart", not shape-preserving
+// simplification). Always keeps the first vertex; drops a trailing anchor that would land
+// too close to the first (avoids a near-zero final leg).
+function downsampleRing(ring: number[][], spacingM: number): number[][] {
+  if (!ring.length) return [];
+  const out = [ring[0]];
+  for (let i = 1; i < ring.length; i++) if (hav(out[out.length - 1], ring[i]) >= spacingM) out.push(ring[i]);
+  if (out.length > 1 && hav(out[out.length - 1], out[0]) < spacingM) out.pop();
+  return out;
+}
+
+function snapToGraph(p: number[], graph: WalkGraph): { nodeId: number; distM: number } | null {
+  const [la, lo] = [Math.floor(p[0] / GRAPH_GRID_DEG), Math.floor(p[1] / GRAPH_GRID_DEG)];
+  let best = Infinity, bestId: number | null = null;
+  for (let da = -1; da <= 1; da++) for (let dob = -1; dob <= 1; dob++) {
+    const bucket = graph.grid.get(`${la + da}:${lo + dob}`);
+    if (!bucket) continue;
+    for (const nodeId of bucket) {
+      const d = hav(p, graph.nodeCoord.get(nodeId)!);
+      if (d < best) { best = d; bestId = nodeId; }
+    }
+  }
+  return bestId === null ? null : { nodeId: bestId, distM: best };
+}
+
+// Dijkstra between two graph nodes, bounded by maxDistM (both a correctness bound — no point
+// routing 2km to close a 40m gap — and a performance backstop). Simple array-backed binary
+// heap; this is a one-shot dry-run script, not hot-path production code. Returns the ordered
+// node-id path plus, for each traversed edge, which OSM way it came from (for the continuity
+// audit in buildParkLoopCandidate below) — or null if no path resolves within the bound.
+function dijkstraPath(graph: WalkGraph, from: number, to: number, maxDistM: number): { nodeIds: number[]; edgeWayIds: number[] } | null {
+  if (from === to) return { nodeIds: [from], edgeWayIds: [] };
+  const dist = new Map<number, number>([[from, 0]]);
+  const prev = new Map<number, { node: number; wayId: number }>();
+  const heap: [number, number][] = [[0, from]]; // [distance, nodeId]
+  const siftDown = (i: number) => { const n = heap.length; while (true) { let s = i, l = 2 * i + 1, r = 2 * i + 2; if (l < n && heap[l][0] < heap[s][0]) s = l; if (r < n && heap[r][0] < heap[s][0]) s = r; if (s === i) break; [heap[i], heap[s]] = [heap[s], heap[i]]; i = s; } };
+  const siftUp = (i: number) => { while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[i], heap[p]] = [heap[p], heap[i]]; i = p; } };
+  const push = (d: number, n: number) => { heap.push([d, n]); siftUp(heap.length - 1); };
+  const pop = (): [number, number] | undefined => { if (!heap.length) return undefined; const top = heap[0]; const last = heap.pop()!; if (heap.length) { heap[0] = last; siftDown(0); } return top; };
+
+  let visited = 0;
+  while (heap.length) {
+    const top = pop()!; const [d, node] = top;
+    if (d > (dist.get(node) ?? Infinity)) continue; // stale heap entry
+    if (node === to) break;
+    if (d > maxDistM || ++visited > DIJKSTRA_NODE_CAP) return null;
+    for (const edge of graph.adj.get(node) || []) {
+      const nd = d + edge.distM;
+      if (nd < (dist.get(edge.to) ?? Infinity)) {
+        dist.set(edge.to, nd);
+        prev.set(edge.to, { node, wayId: edge.wayId });
+        push(nd, edge.to);
+      }
+    }
+  }
+  if (!dist.has(to) || (dist.get(to) as number) > maxDistM) return null;
+
+  const nodeIds = [to]; const edgeWayIds: number[] = [];
+  let cur = to;
+  while (cur !== from) {
+    const p = prev.get(cur);
+    if (!p) return null; // unreachable — shouldn't happen once dist.has(to) is true, defensive only
+    edgeWayIds.push(p.wayId);
+    cur = p.node;
+    nodeIds.push(cur);
+  }
+  nodeIds.reverse(); edgeWayIds.reverse();
+  return { nodeIds, edgeWayIds };
+}
+
+function buildParkLoopCandidate(ref: string, name: string, ring: number[][], graph: WalkGraph): { candidate: Candidate | null; report: ParkLoopReport } {
+  const drop = (reason: string, oldPerimeterM = 0, newLengthM: number | null = null): { candidate: null; report: ParkLoopReport } =>
+    ({ candidate: null, report: { name, oldPerimeterM: Math.round(oldPerimeterM), newLengthM, verdict: 'DROPPED', reason } });
+
+  if (ring.length < 3) return drop('degenerate ring (<3 points)');
+  const oldPerimeterM = pathLen(ring);
+  if (oldPerimeterM < LEN_LOOP_MIN || oldPerimeterM > LEN_LOOP_MAX) return drop(`polygon perimeter ${Math.round(oldPerimeterM)}m outside the [${LEN_LOOP_MIN},${LEN_LOOP_MAX}]m loop window`, oldPerimeterM);
+
+  const anchors = downsampleRing(ring, MIN_ANCHOR_SPACING_M);
+  if (anchors.length < 3) return drop(`only ${anchors.length} anchor(s) after ${MIN_ANCHOR_SPACING_M}m downsampling — too small/degenerate to route`, oldPerimeterM);
+
+  const snapped = anchors.map(a => snapToGraph(a, graph));
+  const failIdx = snapped.findIndex(s => s === null || s.distM > ANCHOR_SNAP_TOLERANCE_M);
+  if (failIdx !== -1) return drop(`anchor ${failIdx + 1}/${anchors.length} has no walkable way within ${ANCHOR_SNAP_TOLERANCE_M}m — no real perimeter path here`, oldPerimeterM);
+  const snappedIds = snapped.map(s => s!.nodeId);
+
+  const legs: { nodeIds: number[]; edgeWayIds: number[] }[] = [];
+  for (let i = 0; i < snappedIds.length; i++) {
+    const from = snappedIds[i], to = snappedIds[(i + 1) % snappedIds.length];
+    const straightM = hav(anchors[i], anchors[(i + 1) % anchors.length]);
+    const leg = dijkstraPath(graph, from, to, Math.max(600, straightM * 4));
+    if (!leg) return drop(`no walkable path between anchor ${i + 1} and ${((i + 1) % anchors.length) + 1}`, oldPerimeterM);
+    legs.push(leg);
+  }
+
+  const pts: number[][] = [];
+  const edgeWayIds: number[] = [];
+  for (const leg of legs) {
+    const startAt = pts.length === 0 ? 0 : 1; // skip the shared node with the previous leg's tail — avoid a duplicate point at each anchor.
+    for (let i = startAt; i < leg.nodeIds.length; i++) pts.push(graph.nodeCoord.get(leg.nodeIds[i])!);
+    edgeWayIds.push(...leg.edgeWayIds);
+  }
+  const newLengthM = pathLen(pts);
+  const ratio = newLengthM / oldPerimeterM;
+  if (ratio > MAX_LOOP_LENGTH_RATIO) return drop(`assembled walkable loop ${Math.round(newLengthM)}m is ${ratio.toFixed(2)}x the polygon perimeter (limit ${MAX_LOOP_LENGTH_RATIO}x)`, oldPerimeterM, Math.round(newLengthM));
+
+  // Continuity audit — exact, not sampled (every point of `pts` sits exactly on a real graph
+  // edge by construction, so coverage is 100% by definition; this measures HOW that 100% is
+  // made up: one long real path / a legitimate multi-way perimeter route, vs. a pathological
+  // zig-zag). distinctWays > 4x the anchor count is a sanity backstop against a Dijkstra
+  // result that's technically all-real-edges but absurdly fragmented — should essentially
+  // never trigger given the length-ratio gate above already rejects wandering routes.
+  const distinctWays = new Set(edgeWayIds).size;
+  let runs = 0, longestRun = 0, curRun = 0, prevWay: number | null = null;
+  for (const wid of edgeWayIds) {
+    if (wid === prevWay) curRun++;
+    else { if (prevWay !== null) { runs++; longestRun = Math.max(longestRun, curRun); } curRun = 1; }
+    prevWay = wid;
+  }
+  if (prevWay !== null) { runs++; longestRun = Math.max(longestRun, curRun); }
+  const longestRunPct = edgeWayIds.length ? Math.round((longestRun / edgeWayIds.length) * 1000) / 10 : 100;
+  if (distinctWays > anchors.length * 4) return drop(`assembled from ${distinctWays} distinct ways across only ${anchors.length} anchors — too fragmented to be a real perimeter path`, oldPerimeterM, Math.round(newLengthM));
+
+  const candidate: Candidate = {
     externalId: `osm:${ref}`,
     osmName: name,
     kind: 'park',
-    pts: ring,
-    lengthM: Math.round(L),
+    pts,
+    lengthM: Math.round(newLengthM),
     isLoop: true,
     surface: 'trail',
     ...(ref.startsWith('rel/') ? { relRef: ref } : {}),
+    // Real provenance of the assembled perimeter — distinct from externalId (which stays
+    // `osm:${ref}`, the PARK's own way/relation id, so re-runs still upsert the same doc).
+    sourceWayIds: Array.from(new Set(edgeWayIds)).map(id => `way/${id}`),
   };
+  return { candidate, report: { name, oldPerimeterM: Math.round(oldPerimeterM), newLengthM: Math.round(newLengthM), verdict: 'KEPT', coveragePct: 100, longestRunPct, distinctWays, runs } };
+}
+
+function buildParkLoopCandidates(parkRings: Array<{ ref: string; name: string; ring: number[][] }>, graph: WalkGraph): { candidates: Candidate[]; reports: ParkLoopReport[] } {
+  const candidates: Candidate[] = [];
+  const reports: ParkLoopReport[] = [];
+  for (const p of parkRings) {
+    const { candidate, report } = buildParkLoopCandidate(p.ref, p.name, p.ring, graph);
+    if (candidate) candidates.push(candidate);
+    reports.push(report);
+  }
+  return { candidates, reports };
 }
 
 // Blocking polygons (water + buildings) consumed by artifactReason. Extracted from discover()
