@@ -4,11 +4,10 @@
  * Specialized UI components for strength training flow
  */
 
-export { 
+export {
   default as StrengthDopamineScreen,
   ANIMATION_DELAYS,
   STATUS_MESSAGES,
-  triggerHaptic,
   type BonusStep,
   type StrengthDopamineScreenProps,
 } from './StrengthDopamineScreen';

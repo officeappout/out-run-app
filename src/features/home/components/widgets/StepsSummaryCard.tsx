@@ -15,7 +15,7 @@
  * appear instantly via the in-memory overlay (Native Phase, Apr 2026).
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Footprints, ChevronLeft } from 'lucide-react';
 import CircularProgress from '@/components/CircularProgress';
@@ -25,6 +25,8 @@ import { useHealthConnected } from '@/hooks/useHealthConnected';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { hapticMedium } from '@/lib/haptics';
+import { playSuccessChime } from '@/lib/sound';
 
 const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
 
@@ -62,6 +64,25 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
   const goal = todayActivity?.stepsGoal ?? FALLBACK_STEPS_GOAL;
   const percentage =
     showPlaceholder || goal <= 0 ? 0 : Math.min(100, Math.round((stepsToday / goal) * 100));
+
+  // Celebrate reaching the daily step goal — fires on mount if already at
+  // goal, or the instant a live update crosses into it. Does not re-fire on
+  // subsequent re-renders while it stays at 100 within the same mount; the
+  // guard re-arms when percentage drops back under 100, which happens
+  // naturally on day rollover via the isStale check above (percentage is
+  // forced to 0 until fresh data lands for the new day).
+  const hasCelebratedThisMountRef = useRef(false);
+  useEffect(() => {
+    if (percentage >= 100) {
+      if (!hasCelebratedThisMountRef.current) {
+        hasCelebratedThisMountRef.current = true;
+        hapticMedium();
+        playSuccessChime();
+      }
+    } else {
+      hasCelebratedThisMountRef.current = false;
+    }
+  }, [percentage]);
 
   const { triggerHealthPermission, disclosureProps, unavailableReason } = useHealthWithDisclosure({
     onGranted: () => router.push('/activity/steps'),

@@ -16,6 +16,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate as animateValue } from 'framer-motion';
 import { Trophy, Share2, ArrowRight, Sparkles, Flame, Target, CheckCircle2 } from 'lucide-react';
+import { hapticLight, hapticSuccess } from '@/lib/haptics';
+import { playTick, playSuccessChime } from '@/lib/sound';
 
 // ============================================================================
 // TYPES
@@ -92,23 +94,6 @@ const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-/**
- * Trigger haptic feedback (mobile devices)
- */
-function triggerHaptic(type: 'light' | 'medium' | 'heavy' = 'medium'): void {
-  if (typeof window === 'undefined') return;
-  
-  // Try Vibration API
-  if ('vibrate' in navigator) {
-    const patterns = {
-      light: [10],
-      medium: [20, 10, 20],
-      heavy: [30, 20, 30, 20, 50],
-    };
-    navigator.vibrate(patterns[type]);
-  }
-}
 
 /**
  * Calculate stroke-dashoffset for circular progress
@@ -395,10 +380,17 @@ export default function StrengthDopamineScreen({
   const totalBonus = bonuses ? bonuses.reduce((sum, b) => sum + b.percentage, 0) : 0;
   const finalPercentage = Math.min(100, initialProgress + totalBonus);
 
-  // Trigger haptic feedback
-  const haptic = useCallback((type: 'light' | 'medium' | 'heavy' = 'medium') => {
-    if (enableHaptics) {
-      triggerHaptic(type);
+  // Trigger the haptic + sound pair for one bonus-reveal step. Bundled under
+  // the same enableHaptics gate — sound and haptic are presented together as
+  // one sensory beat per step, same as the final-step success pairing below.
+  const celebrateBonusStep = useCallback((isLast: boolean) => {
+    if (!enableHaptics) return;
+    if (isLast) {
+      hapticSuccess();
+      playSuccessChime();
+    } else {
+      hapticLight();
+      playTick();
     }
   }, [enableHaptics]);
 
@@ -438,7 +430,7 @@ export default function StrengthDopamineScreen({
         setDisplayPercent(runningPercent);
         setVisibleBonuses(prev => [...prev, bonus.id]);
         setStatusMessage(isLast ? STATUS_MESSAGES.complete : (stepMessages[idx] ?? STATUS_MESSAGES.step2));
-        haptic(isLast ? 'heavy' : 'light');
+        celebrateBonusStep(isLast);
 
         if (isLast) {
           setIsComplete(true);
@@ -455,7 +447,7 @@ export default function StrengthDopamineScreen({
     }
 
     return () => timers.forEach(clearTimeout);
-  }, [initialProgress, bonuses, haptic]);
+  }, [initialProgress, bonuses, celebrateBonusStep]);
   
   return (
     <div 
@@ -560,5 +552,4 @@ export default function StrengthDopamineScreen({
 export {
   ANIMATION_DELAYS,
   STATUS_MESSAGES,
-  triggerHaptic,
 };
