@@ -23,24 +23,23 @@
  * case; see the doc comment at the call site in home/page.tsx for the
  * card-list construction, which is empty on a rest day by design).
  *
- * The CTA ("תציעו לי עוד אימון") lives here once, below the whole strip —
- * not per-card. Its action ("suggest me something else") is about the
- * overall post-workout moment, not any one specific session card.
+ * The "תציעו לי עוד אימון" CTA that used to sit below the strip was
+ * removed (21.08.2026, "ארכיטקטורת הבית" doc redesign) — David: it was a
+ * temporary mechanism, now redundant with the real post-workout
+ * suggestions carousel ("המשך הפעילות של היום") that already renders
+ * separately, below this strip's new top-of-page position. Its handler,
+ * home/page.tsx's handleRequestMore, also owned the post-workout-carousel
+ * stall/timeout escape hatch (postWorkoutCarouselTimedOut) — removed
+ * along with it, since that was its only remaining call site. See that
+ * removal's own commit message for the tradeoff this drops.
  */
 
 import React from 'react';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
-import TodayActivityCard, { type TodayActivityCardData } from './TodayActivityCard';
-
-// Checkmark row (~40px) + thumbnail-or-info-box row (~130px incl. padding).
-// Not device-verified — a reasonable estimate; visual check on-device
-// recommended before this ships, per this project's UI verification rules.
-const CARD_HEIGHT = 220;
+import TodayActivityCard, { TODAY_ACTIVITY_CARD_HEIGHT, type TodayActivityCardData } from './TodayActivityCard';
 
 export interface TodayActivityStripProps {
   cards: TodayActivityCardData[];
-  /** Same "תציעו לי עוד אימון" CTA the old completion card had — undefined hides it. */
-  onRequestMore?: () => void;
   /**
    * F2.3 (19.08.2026, "unified workout summary" plan) — tap a card to open
    * its workout's summary. Wrapped here (not inside TodayActivityCard
@@ -63,7 +62,7 @@ export interface TodayActivityStripProps {
   onCardTap?: (card: TodayActivityCardData) => void;
 }
 
-export default function TodayActivityStrip({ cards, onRequestMore, onCardTap }: TodayActivityStripProps) {
+export default function TodayActivityStrip({ cards, onCardTap }: TodayActivityStripProps) {
   if (cards.length === 0) return null;
 
   return (
@@ -73,7 +72,7 @@ export default function TodayActivityStrip({ cards, onRequestMore, onCardTap }: 
       <SuggestionCarousel<TodayActivityCardData>
         items={cards}
         keyExtractor={(c) => c.key}
-        cardHeight={CARD_HEIGHT}
+        cardHeight={TODAY_ACTIVITY_CARD_HEIGHT}
         renderCard={(c, isActive) =>
           onCardTap ? (
             <button
@@ -88,20 +87,6 @@ export default function TodayActivityStrip({ cards, onRequestMore, onCardTap }: 
           )
         }
       />
-
-      {onRequestMore && (
-        <button
-          onClick={onRequestMore}
-          className="w-full mt-3 text-white font-extrabold rounded-full shadow-lg shadow-cyan-400/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-          style={{
-            background: 'linear-gradient(to left, #0CF2E3, #00BAF7)',
-            height: 48,
-            fontSize: 16,
-          }}
-        >
-          <span>אני על הגל, תציעו לי עוד אימון!</span>
-        </button>
-      )}
     </div>
   );
 }

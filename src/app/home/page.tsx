@@ -41,7 +41,6 @@ import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firesto
 import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext, type TrioSelector } from '@/features/home/components/StatsOverview';
-import DailyGoalRingsCard from '@/features/home/components/DailyGoalRingsCard';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
 import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
@@ -220,13 +219,6 @@ const HEALTH_CARD_STYLE: React.CSSProperties = {
 };
 
 const WHO_WEEKLY_TARGET = 150;
-
-// How long the post_workout completion card waits for runSuggestionEngine before giving up
-// and letting handleRequestMore's CTA close the card / start a fresh workout instead of
-// staying a permanent no-op (adversarial review, 18.08.2026 — see postWorkoutCarouselTimedOut).
-// Not tuned against real network data; a conservative bound safely longer than the generators'
-// normal (non-instant but sub-second-to-low-seconds) resolve time.
-const POST_WORKOUT_CAROUSEL_TIMEOUT_MS = 8000;
 
 // Stage D+E (19.08.2026) — Hebrew label for a today-activity card representing
 // a category with no richer per-completion data available (see
@@ -846,12 +838,8 @@ export default function HomePage() {
   // Adversarial review (18.08.2026) caught a real gap: runSuggestionEngine's post_workout
   // generators do genuine Firestore-backed work (generateHomeWorkoutTrio), so there's a
   // real (not instant) window after completion where the flag is on but
-  // postWorkoutSuggestions is still null. The CTA stays mounted (onRequestMore below) during
-  // this window rather than hiding immediately — but per the Stage-A bugfix (18.08.2026,
-  // see handleRequestMore + postWorkoutCarouselTimedOut below), it's a no-op tap during a
-  // normal short wait, not a functioning "start something" fallback — the carousel is
-  // expected to auto-reveal on its own moments later. It only becomes closeable again if
-  // the fetch actually stalls past POST_WORKOUT_CAROUSEL_TIMEOUT_MS.
+  // postWorkoutSuggestions is still null — the carousel is expected to auto-reveal on its
+  // own once it resolves.
   //
   // Stage B (18.08.2026): also the single source of truth for the header directly above the
   // carousel (see the render site below) — postWorkoutCarouselReady already means exactly
@@ -861,21 +849,22 @@ export default function HomePage() {
   // stale pre-Stage-A main — removed once rebased on top of Stage A).
   const postWorkoutCarouselReady =
     postWorkoutCarouselEnabled && !!postWorkoutSuggestions && postWorkoutSuggestions.length > 0;
-  // Guards against a real dead-end (adversarial review, 18.08.2026): a stalled generator (e.g.
-  // a Firestore call stuck on a bad connection right after an outdoor workout) can leave
-  // postWorkoutSuggestions null forever even with the .catch() below (rejection isn't the only
-  // way to hang — an unresolved promise is another). HeroWorkoutCard's celebration mode has no
-  // other interactive element in that
-  // state (onDismissCelebration is accepted as a prop but never actually invoked inside
-  // HeroWorkoutCard.tsx) — without this, a permanent no-op handleRequestMore would strand the
-  // user on the completion card with nothing tappable that does anything.
-  const [postWorkoutCarouselTimedOut, setPostWorkoutCarouselTimedOut] = useState(false);
+  // A stalled generator (e.g. a Firestore call stuck on a bad connection right after an
+  // outdoor workout) can leave postWorkoutSuggestions null forever even with the .catch()
+  // below (rejection isn't the only way to hang — an unresolved promise is another). This
+  // used to be tracked via postWorkoutCarouselTimedOut and surfaced through
+  // TodayActivityStrip's "תציעו לי עוד אימון" CTA as a close-card-and-start-fresh escape
+  // hatch — removed 21.08.2026 ("ארכיטקטורת הבית ומנוע-ההמלצות" doc redesign; David: that
+  // CTA was a temporary mechanism, superseded by the real post-workout suggestions
+  // carousel) along with the timeout tracking itself, since the CTA was its only remaining
+  // consumer. Net effect: a stalled fetch in this narrow case now leaves the completion
+  // card showing with no in-app escape hatch — flagged to David as a known tradeoff of
+  // this removal, not silently dropped.
 
   useEffect(() => {
     if (!postWorkoutCarouselEnabled) return;
     if (!(postWorkoutData || todayWorkoutDone) || !profile) return;
     let cancelled = false;
-    setPostWorkoutCarouselTimedOut(false);
     // location: null — none of the registered post_workout generators (recovery-follow-up,
     // complementary-short, safety-net) read UserContext.location; skips an unnecessary GPS
     // permission prompt right after a workout, unlike the pull-surface builders.
@@ -890,10 +879,7 @@ export default function HomePage() {
       // regardless and worth closing here now that it's been found).
       console.error('[home] runSuggestionEngine failed for post_workout surface', error);
     });
-    const timeoutId = setTimeout(() => {
-      if (!cancelled) setPostWorkoutCarouselTimedOut(true);
-    }, POST_WORKOUT_CAROUSEL_TIMEOUT_MS);
-    return () => { cancelled = true; clearTimeout(timeoutId); };
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postWorkoutData, todayWorkoutDone, profile?.id]);
 
@@ -921,28 +907,6 @@ export default function HomePage() {
       setStartingSuggestionId(null);
     }
   }, [profile, handlePostWorkoutStart]);
-
-  // Phase B (18.08.2026): the CTA that calls this stays mounted (and wired to this handler)
-  // whenever postWorkoutCarouselReady is false — which includes BOTH "flag off entirely" AND
-  // "flag on, but postWorkoutSuggestions hasn't resolved yet" (the real, non-instant loading
-  // window; see postWorkoutCarouselReady above). Those two cases need different behavior, so
-  // this can no longer be a single unconditional body:
-  //   - flag off → unchanged: close the celebration card, start a fresh workout.
-  //   - flag on, still within the normal wait → no-op. Closing the card / starting a new
-  //     workout here would yank the user out from under the carousel that's about to
-  //     auto-reveal on its own — the whole point of Phase B is that no tap is needed once
-  //     it resolves.
-  //   - flag on, but postWorkoutCarouselTimedOut (the fetch stalled past
-  //     POST_WORKOUT_CAROUSEL_TIMEOUT_MS) → falls through to the same close+start-fresh
-  //     path as flag-off. Without this branch a stalled fetch makes this a PERMANENT no-op
-  //     (adversarial review, 18.08.2026) — the completion card has no other interactive
-  //     element (onDismissCelebration is never actually invoked inside HeroWorkoutCard.tsx).
-  const handleRequestMore = useCallback(() => {
-    if (postWorkoutCarouselEnabled && !postWorkoutCarouselTimedOut) return;
-    setPostWorkoutData(null);
-    setShowMotivationBanner(false);
-    setTimeout(() => handleHeroPress(), 200);
-  }, [postWorkoutCarouselEnabled, postWorkoutCarouselTimedOut]);
 
   // Check for query params from post-workout CTA, JIT return, or join landing
   useEffect(() => {
@@ -1774,6 +1738,35 @@ export default function HomePage() {
       {/* ── Main Content: Clean Execution Zone ── */}
       <div className="max-w-md mx-auto px-4 pt-2 space-y-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 1.5rem)' }}>
 
+        {/* Today Activity Strip — Stage D+E (19.08.2026, "completion-loop" plan),
+            relocated to the very top of the page (21.08.2026, "ארכיטקטורת הבית
+            ומנוע-ההמלצות" doc — compact top-of-page carousel redesign): first
+            thing on the page, above the week strip, instead of below the tabbed
+            stats section. REPLACES the old single HeroWorkoutCard completion
+            card entirely (locked product decision — see
+            adaptive-snacking-valiant.md's Stage C/D section): this is not an
+            addition alongside it. Gate unchanged — (postWorkoutData ||
+            todayWorkoutDone), the exact compound confirmed load-bearing
+            (postWorkoutData can go true before todayWorkoutDone's Firestore
+            round-trip catches up; relying on either alone reintroduces that
+            race). todayActivityCards.length>0 replaces the old `&&
+            completionData` check — empty array (rest day / nothing done yet)
+            means TodayActivityStrip renders null on its own; no separate
+            visible empty-state needed, an absent strip already IS the empty
+            state the plan calls for. */}
+        {(postWorkoutData || todayWorkoutDone) && todayActivityCards.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+          >
+            <TodayActivityStrip
+              cards={todayActivityCards}
+              onCardTap={handleTodayActivityCardTap}
+            />
+          </motion.div>
+        )}
+
         {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program) */}
         {hasCompletedAssessment && (
           <motion.div
@@ -1809,16 +1802,6 @@ export default function HomePage() {
             />
           </motion.div>
         )}
-
-        {/* Daily Goal Rings — Stage G (18.08.2026, "completion-loop" plan).
-            Placed right after the week strip, before the tabbed Row 2/3 block —
-            a self-contained card, no interaction with the tab-switching grid
-            below. Renders null while both goal hooks are still resolving, so
-            no empty-card flash on mount. Gated on hasCompletedAssessment
-            (David caught this, 18.08.2026) — same gate as the week strip
-            above; a schedule-derived goal % is meaningless before the user
-            has a program, consistent with the rest of this section. */}
-        {hasCompletedAssessment && <DailyGoalRingsCard />}
 
         {/* ════════════════════════════════════════════════════════════════
             Dashboard Restructure — 5-Row Hierarchy (Apr 2026 spec)
@@ -1944,35 +1927,6 @@ export default function HomePage() {
             </div>
           );
         })()}
-
-        {/* Today Activity Strip — Stage D+E (19.08.2026, "completion-loop" plan).
-            REPLACES the old single HeroWorkoutCard completion card entirely (locked
-            product decision — see adaptive-snacking-valiant.md's Stage C/D section):
-            this is not an addition alongside it. Rendered here so it occupies the
-            same vertical slot the old card did (above NearbyGroupsRow), same gate
-            as before — (postWorkoutData || todayWorkoutDone), the exact compound
-            confirmed load-bearing (postWorkoutData can go true before
-            todayWorkoutDone's Firestore round-trip catches up; relying on either
-            alone reintroduces that race). todayActivityCards.length>0 replaces the
-            old `&& completionData` check — empty array (rest day / nothing done
-            yet) means TodayActivityStrip renders null on its own; no separate
-            visible empty-state needed, an absent strip already IS the empty state
-            the plan calls for. */}
-        {(postWorkoutData || todayWorkoutDone) && todayActivityCards.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-          >
-            <TodayActivityStrip
-              cards={todayActivityCards}
-              // Same CTA-visibility logic the old completion card used: hides only
-              // once the post_workout carousel is actually ready to show.
-              onRequestMore={postWorkoutCarouselReady ? undefined : handleRequestMore}
-              onCardTap={handleTodayActivityCardTap}
-            />
-          </motion.div>
-        )}
 
         {/* post_workout suggestion carousel (home-generator-v2 plan, step 6) — Phase B
             (18.08.2026): auto-reveals the moment postWorkoutSuggestions resolves, directly
