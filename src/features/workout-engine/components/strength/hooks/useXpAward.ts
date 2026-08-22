@@ -170,16 +170,19 @@ export function useXpAward({
     runAwardXP();
   }, [runAwardXP]);
 
-  // Dopamine Chain Step 2: elastic XP pulse → gates Step 3 (streak flame ignite)
+  // Dopamine Chain Step 2: elastic XP pulse → gates Step 3 (streak flame ignite).
+  // Skipped in isReadOnly mode — same reasoning as FreeRunSummary's `!isReadOnly`
+  // confetti gate: this is a "you just earned this" celebration and must not
+  // replay on a passive history view. streakChainReady simply stays false.
   useEffect(() => {
-    if (xpStatus !== 'awarded') return;
+    if (xpStatus !== 'awarded' || isReadOnly) return;
     xpControls
       .start({
         scale: [1, 1.35, 0.9, 1.15, 1],
         transition: { duration: 0.7, times: [0, 0.25, 0.55, 0.75, 1], ease: 'easeOut' },
       })
       .then(() => setStreakChainReady(true));
-  }, [xpStatus, xpControls]);
+  }, [xpStatus, xpControls, isReadOnly]);
 
   return { xpStatus, xpEarnedAmount, xpControls, streakChainReady, runAwardXP };
 }

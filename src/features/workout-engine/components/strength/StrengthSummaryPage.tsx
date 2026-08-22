@@ -18,7 +18,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trophy } from 'lucide-react';
+import { Trophy, Trash2 } from 'lucide-react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
 import type { WorkoutCompletionResult } from '@/features/user/core/types/progression.types';
@@ -106,6 +106,13 @@ export interface StrengthSummaryPageProps {
   savedXpEarned?: number;
   /** Close callback for `isReadOnly` mode (replaces `onFinish`). */
   onClose?: () => void;
+  /**
+   * Delete-trigger callback for `isReadOnly` mode — mirrors FreeRunSummary's
+   * contract exactly. This component doesn't own the confirm/delete flow;
+   * tapping the trigger just calls the caller's `onDelete()`. Only rendered
+   * when `isReadOnly && onDelete` are both present.
+   */
+  onDelete?: () => void;
 
   // ── Training OS fields ────────────────────────────────────────────────
   /** Whether this workout was a recovery session (skip volume budget) */
@@ -173,6 +180,7 @@ export default function StrengthSummaryPage({
   isReadOnly = false,
   savedXpEarned = 0,
   onClose,
+  onDelete,
 }: StrengthSummaryPageProps) {
   // ── User profile (for lifestyle CTA gate) ──
   const { profile } = useUserStore();
@@ -321,20 +329,33 @@ export default function StrengthSummaryPage({
           streakChainReady={xp.streakChainReady}
         />
 
-        <ProgramProgressCard
-          programName={programName ?? 'תוכנית אימון'}
-          iconKey={propProgramId ?? ''}
-          currentLevel={analytics.liveLevel}
-          maxLevel={maxLevel ?? 25}
-          progressPercent={analytics.livePercent ?? 0}
-          className="!max-w-none"
-        />
+        {/* Program-level progression display — hidden in isReadOnly mode.
+            None of currentLevel/maxLevel/progressToNextLevel/levelGoals are
+            ever persisted on a saved workout doc (confirmed — no real
+            writer sets them), so rendering these with the component's
+            static defaults would show fabricated progress for an old
+            workout instead of nothing. Gated explicitly here rather than
+            relying on GainBreakdownCard/LevelGoalsChecklist's own internal
+            "no data" guards, so the hide is robust regardless of how those
+            guards evolve. */}
+        {!isReadOnly && (
+          <ProgramProgressCard
+            programName={programName ?? 'תוכנית אימון'}
+            iconKey={propProgramId ?? ''}
+            currentLevel={analytics.liveLevel}
+            maxLevel={maxLevel ?? 25}
+            progressPercent={analytics.livePercent ?? 0}
+            className="!max-w-none"
+          />
+        )}
 
-        <GainBreakdownCard
-          progressionResult={progression.progressionResult}
-          weeklyStrengthSessions={analytics.weeklyStrengthSessions}
-          weeklyGoalSessions={analytics.weeklyGoalSessions}
-        />
+        {!isReadOnly && (
+          <GainBreakdownCard
+            progressionResult={progression.progressionResult}
+            weeklyStrengthSessions={analytics.weeklyStrengthSessions}
+            weeklyGoalSessions={analytics.weeklyGoalSessions}
+          />
+        )}
 
         <ProgramSuggestionCard
           suggestions={visibleSuggestions}
@@ -342,7 +363,7 @@ export default function StrengthSummaryPage({
           onDismiss={handleDismissSuggestion}
         />
 
-        <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} />
+        {!isReadOnly && <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} />}
 
         <PersonalRecords exercises={completedExercises} />
 
@@ -374,9 +395,24 @@ export default function StrengthSummaryPage({
 
       {/* Footer button — pinned outside scroll */}
       <div
-        className="shrink-0 z-[100] relative p-5 bg-white dark:bg-card-dark"
+        className="shrink-0 z-[100] relative p-5 bg-white dark:bg-card-dark flex gap-3"
         style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
       >
+        {/* Delete trigger — isReadOnly history view only, and only when the
+            caller wired an onDelete (WORKOUT_DELETE_EXPANDED_ENABLED at the
+            call site). This component doesn't own the confirm/delete flow —
+            tapping just calls the caller's onDelete(), same contract as
+            FreeRunSummary's onDelete prop. */}
+        {isReadOnly && onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label="מחק אימון"
+            className="px-5 py-4 rounded-2xl font-bold bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 transition-all shadow-sm flex items-center justify-center"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        )}
         <button
           onClick={() => {
             if (isReadOnly) {
@@ -385,7 +421,7 @@ export default function StrengthSummaryPage({
               onFinish?.({ xpEarned: xp.xpEarnedAmount, xpStatus: xp.xpStatus });
             }
           }}
-          className="w-full bg-primary py-4 rounded-2xl text-white font-extrabold text-xl shadow-lg shadow-primary/25 active:scale-[0.98] transition-all"
+          className="flex-1 bg-primary py-4 rounded-2xl text-white font-extrabold text-xl shadow-lg shadow-primary/25 active:scale-[0.98] transition-all"
         >
           {isReadOnly ? 'סגור' : 'תודה על האימון!'}
         </button>
