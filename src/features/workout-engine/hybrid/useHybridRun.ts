@@ -187,7 +187,7 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
       const uid = auth.currentUser?.uid;
       if (uid) {
         const { saveHybridWorkout } = await import('./hybrid-save.service');
-        await saveHybridWorkout(result, {
+        const hybridWorkoutId = await saveHybridWorkout(result, {
           userId: uid,
           aerobicKind: planAerobicKind,
           totalCalories: planCalories,
@@ -203,6 +203,11 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
         );
         const aerobicSec = result.summary.totalActualAerobicSec;
         const strengthSec = Math.max(0, totalDurationSec - aerobicSec);
+        // The REAL aerobic share of this specific session (not the planned
+        // preset) — decision 4, workout-completion-badge-audit: "the real
+        // ratio of THIS hybrid workout". Falls back to 'balanced' only in
+        // the degenerate zero-duration case.
+        const actualAerobicShare = totalDurationSec > 0 ? aerobicSec / totalDurationSec : 0.55;
 
         const { syncWorkoutCompletion } = await import(
           '@/features/workout-engine/services/completion-sync.service'
@@ -243,6 +248,22 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
           }
         } catch (volErr) {
           console.error('[useHybridRun] weekly volume record failed', volErr);
+        }
+
+        // ── Planner completion (decisions 2 + 4, workout-completion-badge-audit) ──
+        // Find-or-create the date's hybrid entry (there's no pre-scheduling UI
+        // for hybrid today, so this is almost always a create) and mark it
+        // completed with the real aerobicShare, driving the card's gradient.
+        if (hybridWorkoutId) {
+          try {
+            const { getTodayString } = await import('@/features/activity/store/useActivityStore');
+            const { completeHybridEntry } = await import(
+              '@/features/user/scheduling/services/userSchedule.service'
+            );
+            await completeHybridEntry(uid, getTodayString(), hybridWorkoutId, actualAerobicShare);
+          } catch (linkErr) {
+            console.error('[useHybridRun] completeHybridEntry failed', linkErr);
+          }
         }
       }
     } catch (e) {

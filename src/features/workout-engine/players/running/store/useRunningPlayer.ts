@@ -1832,6 +1832,57 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
               console.error('[useRunningPlayer] awardWorkoutCoins error:', e)
             );
           }
+
+          // ── Planner completion (workout-completion-badge-audit, 22.08.2026) ──
+          // Two independent linkages, both best-effort / non-blocking:
+          const savedWorkoutIdForLinking = get().savedWorkoutId;
+          if (workoutSaved && savedWorkoutIdForLinking) {
+            const { getTodayString } = await import('@/features/activity/store/useActivityStore');
+            const today = getTodayString();
+
+            // (decision 3) Planned-program run: previously only written from
+            // PlannedRun/index.tsx's Save-button handler, gated behind the
+            // user reaching the summary screen AND tapping "Save" — an
+            // abandoned/back-navigated run left the home strip credited
+            // (syncWorkoutCompletion below always fires) while the planner
+            // stayed stuck "pending" forever. Fires here instead, unconditionally,
+            // the same place every other completion signal is written.
+            // planned_run_week/day are set at launch time
+            // (PlannedPreviewLayer.tsx), so they're already available now,
+            // not just at save-tap time.
+            if (get().runMode === 'plan') {
+              const weekStr = sessionStorage.getItem('planned_run_week');
+              const dayStr = sessionStorage.getItem('planned_run_day');
+              if (weekStr && dayStr) {
+                const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+                const activeProgram = useUserStore.getState().profile?.running?.activeProgram;
+                if (activeProgram) {
+                  const { markSessionComplete } = await import('@/features/workout-engine/core/services/workout-completion.service');
+                  // RunWorkout carries no target-distance field to compare
+                  // against (pre-existing — completionRate was always 1
+                  // before this move too); kept as-is, not a behavior change.
+                  markSessionComplete(
+                    currentUser.uid,
+                    parseInt(weekStr, 10),
+                    parseInt(dayStr, 10),
+                    { avgPace: safePace, completionRate: 1, distanceKm: safeDistance, durationSeconds: safeDuration },
+                    activeProgram,
+                  ).catch((e) => console.error('[useRunningPlayer] markSessionComplete error:', e));
+                }
+                sessionStorage.removeItem('planned_run_week');
+                sessionStorage.removeItem('planned_run_day');
+              }
+            }
+
+            // (decision 2) Group/community run — exact entryId linkage, not
+            // day+category matching, so a busy day with 2+ different groups
+            // meeting doesn't mis-mark the wrong one.
+            if (groupSessionFields.groupId) {
+              const { completeCommunityEntry } = await import('@/features/user/scheduling/services/userSchedule.service');
+              completeCommunityEntry(currentUser.uid, today, groupSessionFields.groupId, savedWorkoutIdForLinking)
+                .catch((e) => console.error('[useRunningPlayer] completeCommunityEntry error:', e));
+            }
+          }
         }
 
         // Analytics event

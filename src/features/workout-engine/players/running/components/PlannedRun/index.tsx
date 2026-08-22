@@ -4,29 +4,21 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
-import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { audioService } from '@/features/workout-engine/core/services/AudioService';
-import {
-  markSessionComplete,
-  getCurrentUid,
-  type SessionSummary,
-} from '@/features/workout-engine/core/services/workout-completion.service';
 import WorkoutPreviewScreen from './WorkoutPreviewScreen';
 import PlannedRunActive from './PlannedRunActive';
 import FreeRunSummary from '../FreeRun/FreeRunSummary';
 
 export default function PlannedRun() {
   const router = useRouter();
-  const { status, startSession, endSession, clearSession, totalDistance, totalDuration } = useSessionStore();
+  const { status, startSession, endSession, clearSession } = useSessionStore();
   const {
     currentWorkout,
     startGPSTracking,
     stopGPSTracking,
     clearRunningData,
     initializeRunningData,
-    currentPace,
   } = useRunningPlayer();
-  const profile = useUserStore((s) => s.profile);
 
   // Unlock audio for iOS on mount
   useEffect(() => {
@@ -63,32 +55,11 @@ export default function PlannedRun() {
     router.push('/map');
   };
 
-  const handleSave = async () => {
-    const uid = getCurrentUid();
-    const activeProgram = profile?.running?.activeProgram;
-    const weekStr = typeof window !== 'undefined' ? sessionStorage.getItem('planned_run_week') : null;
-    const dayStr = typeof window !== 'undefined' ? sessionStorage.getItem('planned_run_day') : null;
-
-    if (uid && activeProgram && weekStr && dayStr) {
-      const week = parseInt(weekStr, 10);
-      const day = parseInt(dayStr, 10);
-      const avgPace = currentPace || 0;
-      const targetDist = currentWorkout?.totalDistance || 0;
-      const completionRate = targetDist > 0 ? Math.min(1, totalDistance / targetDist) : 1;
-
-      const summary: SessionSummary = {
-        avgPace,
-        completionRate,
-        distanceKm: totalDistance,
-        durationSeconds: totalDuration,
-      };
-
-      await markSessionComplete(uid, week, day, summary, activeProgram);
-
-      sessionStorage.removeItem('planned_run_week');
-      sessionStorage.removeItem('planned_run_day');
-    }
-
+  // Planner completion (markSessionComplete) no longer happens here — it
+  // fires unconditionally inside useRunningPlayer.finishWorkout(), the same
+  // place the home-strip's syncWorkoutCompletion already fires (decision 3,
+  // workout-completion-badge-audit). This handler is now pure navigation.
+  const handleSave = () => {
     clearRunningData();
     clearSession();
     router.push('/home');

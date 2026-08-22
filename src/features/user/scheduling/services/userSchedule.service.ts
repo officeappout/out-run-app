@@ -747,6 +747,124 @@ export async function removeScheduleEntry(
 }
 
 /**
+ * Mark a single entry within a date's entries[] as completed, linking it to
+ * the workout doc that fulfilled it. Read-modify-write on the whole day doc
+ * (same pattern as removeScheduleEntry/addScheduleEntry) — entries[] has no
+ * per-element Firestore update, so a partial merge isn't possible.
+ */
+async function markEntryCompleted(
+  uid: string,
+  date: string,
+  entryId: string,
+  completedWorkoutId: string,
+): Promise<boolean> {
+  const day = await getScheduleDay(uid, date);
+  if (!day) return false;
+
+  let matched = false;
+  const nowIso = new Date().toISOString();
+  const updatedEntries = day.entries.map((e) => {
+    if (e.entryId !== entryId) return e;
+    matched = true;
+    return { ...e, completed: true, completedWorkoutId, updatedAt: nowIso };
+  });
+  if (!matched) return false;
+
+  const cleanEntries = updatedEntries.map(
+    (e) => stripUndefined(e as unknown as Record<string, unknown>) as unknown as UserScheduleEntry,
+  );
+
+  try {
+    await setDoc(
+      doc(db, COLLECTION, docId(uid, date)),
+      { userId: uid, date, entries: cleanEntries, updatedAt: serverTimestamp() } satisfies UserScheduleDay,
+      { merge: false },
+    );
+    console.log(`[UserSchedule] ENTRY COMPLETED  ${date}  entryId=${entryId}  workoutId=${completedWorkoutId}`);
+    return true;
+  } catch (err) {
+    console.error(`[UserSchedule] markEntryCompleted FAILED  ${date}`, err);
+    return false;
+  }
+}
+
+/**
+ * Community-session completion (workout-completion-badge-audit decision 2 —
+ * exact entryId linkage, not day+category matching). Finds the date's
+ * not-yet-completed entry for this specific group and marks it completed.
+ * Returns false (no-op) if no matching entry exists — a live community
+ * session with no pre-existing entry means `addCommunitySessionsToPlanner`
+ * never ran for it (a data-consistency gap elsewhere), not something this
+ * call should paper over by inventing an entry.
+ */
+export async function completeCommunityEntry(
+  _userId: string,
+  date: string,
+  groupId: string,
+  completedWorkoutId: string,
+): Promise<boolean> {
+  const uid = await resolveAuthUid();
+  if (!uid) return false;
+
+  const day = await getScheduleDay(uid, date);
+  const target = day?.entries.find(
+    (e) => e.source === 'community' && e.groupId === groupId && !e.completed,
+  );
+  if (!target?.entryId) return false;
+
+  return markEntryCompleted(uid, date, target.entryId, completedWorkoutId);
+}
+
+/**
+ * Hybrid-session completion (decision 2 + decision 4). Unlike community
+ * sessions, hybrid has no pre-scheduling UI today — a hybrid workout is
+ * always started ad-hoc, so the common case is CREATE, not find-then-update.
+ * The find-first branch only matters if hybrid pre-scheduling gets built
+ * later; for now it practically always falls through to create.
+ */
+export async function completeHybridEntry(
+  _userId: string,
+  date: string,
+  completedWorkoutId: string,
+  aerobicShare: number,
+): Promise<boolean> {
+  const uid = await resolveAuthUid();
+  if (!uid) return false;
+
+  const day = await getScheduleDay(uid, date);
+  const existing = day?.entries.find(
+    (e) => e.scheduledCategories?.includes('hybrid') && !e.completed,
+  );
+  if (existing?.entryId) {
+    return markEntryCompleted(uid, date, existing.entryId, completedWorkoutId);
+  }
+
+  const nowIso = new Date().toISOString();
+  const entry: UserScheduleEntry = {
+    entryId: genEntryId(),
+    userId: uid,
+    date,
+    programIds: [],
+    type: 'training',
+    source: 'auto',
+    completed: true,
+    completedWorkoutId,
+    scheduledCategories: ['hybrid'],
+    aerobicShare,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+
+  try {
+    await addScheduleEntry(uid, date, entry);
+    return true;
+  } catch (err) {
+    console.error(`[UserSchedule] completeHybridEntry (create) FAILED  ${date}`, err);
+    return false;
+  }
+}
+
+/**
  * Remove every entry on a date that is `source === 'community' && groupId === groupId`.
  * Personal entries on the same day are never touched. Called from the
  * community-schedule sync when a user leaves a group.

@@ -12,7 +12,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, useDragControls, useMotionValue, animate, type PanInfo } from 'framer-motion';
-import { Plus, GripVertical, Footprints, Check, Zap, Timer, TrendingUp, Mountain, Users, Trash2, Pencil } from 'lucide-react';
+import { Plus, GripVertical, Footprints, Check, Zap, Timer, TrendingUp, Mountain, Users, Trash2, Pencil, Lock } from 'lucide-react';
 import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
 import type { UserScheduleEntry, RecurringTemplate, ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
 import { getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
@@ -121,7 +121,7 @@ const CATEGORY_ACCENT: Record<ScheduleActivityCategory, string> = {
   maintenance: '#A855F7',
   walking: '#F59E0B',
   // Flat fallback only (pill/bar/icon tint where a single color is needed).
-  // The card itself renders a strength↔aerobic gradient — see HYBRID_CARD_GRADIENT.
+  // The card itself renders a strength↔aerobic gradient — see buildHybridCardGradient().
   hybrid: HYBRID_STR,
 };
 const CATEGORY_PILL_LABEL: Record<ScheduleActivityCategory, string> = {
@@ -636,8 +636,11 @@ function StrengthCard({
               </p>
             </div>
 
-            {/* Grip handle */}
-            {isDraggable && (
+            {/* Grip handle (draggable) / lock glyph (not draggable) — decision 5,
+                workout-completion-badge-audit: every non-draggable card (completed,
+                community, or a past card) gets the SAME "locked" visual instead of
+                silently showing nothing, whatever the underlying reason is. */}
+            {isDraggable ? (
               <div
                 className="text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing flex items-center flex-shrink-0"
                 style={{ touchAction: 'none', padding: '4px 2px' }}
@@ -646,6 +649,14 @@ function StrengthCard({
                 onPointerCancel={handleGripUp}
               >
                 <GripVertical className="w-3.5 h-3.5" />
+              </div>
+            ) : (
+              <div
+                className={isCompleted ? 'text-white/70' : 'text-gray-300 dark:text-gray-600'}
+                style={{ padding: '4px 2px', flexShrink: 0 }}
+                aria-hidden="true"
+              >
+                <Lock className="w-3 h-3" />
               </div>
             )}
 
@@ -1007,7 +1018,7 @@ export default function AgendaDayCard({
                   isToday={isToday}
                   baseMode={baseMode}
                   isShared={trainingCount > 1}
-                  isDraggable={isDraggable && e.source !== 'community'}
+                  isDraggable={isDraggable && e.source !== 'community' && !e.completed}
                   accentColor={
                     e.source === 'community'
                       ? (COMMUNITY_CATEGORY_COLORS[e.scheduledCategories?.[0] as string ?? ''] ?? '#9CA3AF')
