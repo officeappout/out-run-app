@@ -35,13 +35,24 @@ export interface UseEmailCaptureResult {
   dismissEmailDrawer: () => void;
 }
 
-export function useEmailCapture(): UseEmailCaptureResult {
+export interface UseEmailCaptureParams {
+  /**
+   * Read-only history view of an already-saved workout — never auto-open
+   * the account-secure drawer (no data-safety concern, just wrong UX to
+   * prompt account setup while passively reviewing an old workout).
+   */
+  isReadOnly?: boolean;
+}
+
+export function useEmailCapture(params: UseEmailCaptureParams = {}): UseEmailCaptureResult {
+  const { isReadOnly = false } = params;
   const { profile } = useUserStore();
 
   const [showEmailDrawer, setShowEmailDrawer] = useState(false);
   const [showInlineAccount, setShowInlineAccount] = useState(false);
 
   useEffect(() => {
+    if (isReadOnly) return;
     const isAnonymous = auth.currentUser?.isAnonymous ?? true;
     const hasEmail = !!profile?.core?.email;
     const dismissed = typeof window !== 'undefined'
@@ -52,7 +63,7 @@ export function useEmailCapture(): UseEmailCaptureResult {
       const timer = setTimeout(() => setShowEmailDrawer(true), 1200);
       return () => clearTimeout(timer);
     }
-  }, [profile]);
+  }, [profile, isReadOnly]);
 
   const handleEmailCaptured = async (
     secured: boolean,

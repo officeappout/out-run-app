@@ -62,6 +62,14 @@ export interface UseProgressionSyncParams {
    * level% via the summary's fallback path. Defaults to false (normal workout).
    */
   isRecovery?: boolean;
+  /**
+   * Read-only history view of an already-saved workout — skip every branch
+   * below (no `processWorkoutCompletion` recompute, no goal-bonus Guardian
+   * call, no level-up modal replay). Independent of `precomputedProgression`,
+   * which only ever closed this hook's own recompute gap for the same-session
+   * ActiveWorkoutPage→Summary handoff, not a history revisit.
+   */
+  isReadOnly?: boolean;
 }
 
 export interface UseProgressionSyncResult {
@@ -78,6 +86,7 @@ export function useProgressionSync({
   durationMinutes,
   precomputedProgression,
   isRecovery = false,
+  isReadOnly = false,
 }: UseProgressionSyncParams): UseProgressionSyncResult {
   const { showToast } = useToast();
   const { celebrate } = useGoalCelebration();
@@ -98,6 +107,13 @@ export function useProgressionSync({
   useEffect(() => {
     if (hasFired.current) return;
     hasFired.current = true;
+
+    // Branch -1 (read-only guard): history view of an already-saved workout —
+    // never recompute or write domain progression, never re-award goal-bonus
+    // XP, and never replay the level-up modal for an old session.
+    // progressionResult stays whatever the initial state was (null, since
+    // `precomputedProgression` is never supplied for a history view).
+    if (isReadOnly) return;
 
     // Branch 0 (recovery guard): rest-day / recovery sessions never credit
     // strength progression. Return before every branch so the summary fallback

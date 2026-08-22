@@ -56,6 +56,15 @@ export interface UseXpAwardParams {
    * XP_Progression_Truth — wire that here, then feed the earned amount back.
    */
   recoveryXp?: number;
+  /**
+   * Read-only history view of an already-saved workout — never call the
+   * Guardian CF (`awardStrengthXP`) again. `savedXpEarned` is shown instead,
+   * as-is, with no CF round-trip (the CF has zero server-side idempotency,
+   * so a replayed call would mint duplicate real XP — see axioms.md LAW 0).
+   */
+  isReadOnly?: boolean;
+  /** Already-awarded XP to display when `isReadOnly` is true. */
+  savedXpEarned?: number;
 }
 
 export interface UseXpAwardResult {
@@ -77,6 +86,8 @@ export function useXpAward({
   completedExercises,
   isRecovery = false,
   recoveryXp = 0,
+  isReadOnly = false,
+  savedXpEarned = 0,
 }: UseXpAwardParams): UseXpAwardResult {
   const { showToast } = useToast();
 
@@ -91,6 +102,14 @@ export function useXpAward({
   const runAwardXP = useCallback(async () => {
     if (xpCallRef.current) return;
     xpCallRef.current = true;
+
+    // Read-only guard: history view of an already-saved workout — never
+    // call the Guardian CF again, just surface the value already awarded.
+    if (isReadOnly) {
+      setXpEarnedAmount(savedXpEarned);
+      setXpStatus('awarded');
+      return;
+    }
 
     // Recovery guard: rest-day / recovery sessions do NOT award strength XP.
     // Skip the awardStrengthXP Cloud Function entirely (no strength XP/level, no
@@ -141,7 +160,7 @@ export function useXpAward({
       setXpStatus('failed');
       showToast('error', 'לא הצלחנו לשמור את ה-XP. לחץ "נסה שוב" כדי לנסות שוב.');
     }
-  }, [difficultyBolts, difficulty, completedExercises, durationMinutes, totalReps, showToast, isRecovery, recoveryXp]);
+  }, [difficultyBolts, difficulty, completedExercises, durationMinutes, totalReps, showToast, isRecovery, recoveryXp, isReadOnly, savedXpEarned]);
 
   // Fire once on mount.  Declared after useActivitySync in the orchestrator so
   // syncWorkoutCompletion has already updated useActivityStore.currentStreak.

@@ -100,6 +100,14 @@ export interface UseActivitySyncParams {
   isRecovery: boolean;
   /** Per-domain set counts for the weekly volume store (Phase 3). */
   domainSets?: Record<string, number>;
+  /**
+   * Read-only history view of an already-saved workout — skip all 4 writes
+   * entirely (`runActivitySync` is never called). Only checked by the
+   * `useActivitySync` hook wrapper below; the standalone `runActivitySync`
+   * export (used directly by active/page.tsx's recovery-trio shortcut) is
+   * unaffected.
+   */
+  isReadOnly?: boolean;
 }
 
 /**
@@ -297,6 +305,7 @@ export function useActivitySync(params: UseActivitySyncParams): void {
   useEffect(() => {
     if (hasFired.current) return;
     hasFired.current = true;
+    if (params.isReadOnly) return;
     runActivitySync(params);
   // Intentional mount-only fire; the ref guard handles correctness.
   // eslint-disable-next-line react-hooks/exhaustive-deps

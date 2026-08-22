@@ -89,8 +89,23 @@ export interface StrengthSummaryPageProps {
    * Callback when user finishes viewing summary.
    * Receives the XP that was actually awarded by the Cloud Function so the
    * workout Firestore document can store the real value (not the base estimate).
+   * Not called in `isReadOnly` mode — use `onClose` instead.
    */
-  onFinish: (xpData: { xpEarned: number; xpStatus: 'pending' | 'awarded' | 'failed' }) => void;
+  onFinish?: (xpData: { xpEarned: number; xpStatus: 'pending' | 'awarded' | 'failed' }) => void;
+
+  // ── Read-only history view ─────────────────────────────────────────────
+  /**
+   * Renders this same live post-workout screen for an already-saved past
+   * workout instead of the fresh-completion flow. Hard-bypasses every write
+   * side effect (XP award CF, activity/coin/volume/muscle-shield writes,
+   * domain progression, email-capture drawer) — see the 3 write hooks below.
+   * Defaults to `false`, preserving the existing live-flow behavior exactly.
+   */
+  isReadOnly?: boolean;
+  /** Already-awarded XP to display when `isReadOnly` is true. */
+  savedXpEarned?: number;
+  /** Close callback for `isReadOnly` mode (replaces `onFinish`). */
+  onClose?: () => void;
 
   // ── Training OS fields ────────────────────────────────────────────────
   /** Whether this workout was a recovery session (skip volume budget) */
@@ -155,6 +170,9 @@ export default function StrengthSummaryPage({
   rawExerciseLog,
   precomputedProgression,
   domainSets,
+  isReadOnly = false,
+  savedXpEarned = 0,
+  onClose,
 }: StrengthSummaryPageProps) {
   // ── User profile (for lifestyle CTA gate) ──
   const { profile } = useUserStore();
@@ -200,7 +218,7 @@ export default function StrengthSummaryPage({
   //                              currentStreak is updated before the CF call
   // ──────────────────────────────────────────────────────────────────────
 
-  const email = useEmailCapture();
+  const email = useEmailCapture({ isReadOnly });
 
   const progression = useProgressionSync({
     programId: propProgramId,
@@ -210,6 +228,7 @@ export default function StrengthSummaryPage({
     durationMinutes: Math.max(1, Math.round(duration / 60)),
     precomputedProgression,
     isRecovery,
+    isReadOnly,
   });
 
   const analytics = useSummaryAnalytics({
@@ -243,6 +262,7 @@ export default function StrengthSummaryPage({
     difficultyBolts,
     isRecovery,
     domainSets,
+    isReadOnly,
   });
 
   const xp = useXpAward({
@@ -252,6 +272,8 @@ export default function StrengthSummaryPage({
     totalReps,
     completedExercises,
     isRecovery,
+    isReadOnly,
+    savedXpEarned,
   });
 
   // ── Lifestyle CTA handlers (inline — pure navigation/storage) ──
@@ -356,10 +378,16 @@ export default function StrengthSummaryPage({
         style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
       >
         <button
-          onClick={() => onFinish({ xpEarned: xp.xpEarnedAmount, xpStatus: xp.xpStatus })}
+          onClick={() => {
+            if (isReadOnly) {
+              onClose?.();
+            } else {
+              onFinish?.({ xpEarned: xp.xpEarnedAmount, xpStatus: xp.xpStatus });
+            }
+          }}
           className="w-full bg-primary py-4 rounded-2xl text-white font-extrabold text-xl shadow-lg shadow-primary/25 active:scale-[0.98] transition-all"
         >
-          תודה על האימון!
+          {isReadOnly ? 'סגור' : 'תודה על האימון!'}
         </button>
       </div>
 
