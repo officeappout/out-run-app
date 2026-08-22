@@ -24,6 +24,7 @@ import {
   fetchAmenitiesByStatus, amenityEmoji,
 } from '@/features/admin/services/osm-amenity-admin.service';
 import type { AmenityCategory, CourtSport } from '@/features/parks/core/types/osm-amenity.types';
+import { InventoryService } from '@/features/parks';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
   CheckCircle2,
@@ -106,6 +107,14 @@ export default function ApprovalCenterPage() {
   const [routeCityFilter, setRouteCityFilter] = useState<string>('all');
   const [routeActivityFilter, setRouteActivityFilter] = useState<'all' | 'pedestrian' | 'cycling'>('all');
   const [routeSearchQuery, setRouteSearchQuery] = useState('');
+  // Bulk approve/reject selection — routes tab, mirrors selectedAmenityIds/
+  // bulkApprovingAmenities/bulkRejectingAmenities exactly (separate Set, same shape).
+  const [selectedRouteIds, setSelectedRouteIds] = useState<Set<string>>(new Set());
+  const [bulkApprovingRoutes, setBulkApprovingRoutes] = useState(false);
+  const [bulkRejectingRoutes, setBulkRejectingRoutes] = useState(false);
+  // Selection is filter-scoped: a route hidden by the city/activity/search filters must
+  // not stay silently selected for a bulk action once it's out of view.
+  useEffect(() => { setSelectedRouteIds(new Set()); }, [routeCityFilter, routeActivityFilter, routeSearchQuery]);
   // Bulk-reject selection — climbs tab only (Stage 6, 17.08.2026): triaging
   // structural noise at scale means selecting many, not clicking "דחה" 175 times.
   const [selectedClimbIds, setSelectedClimbIds] = useState<Set<string>>(new Set());
@@ -362,6 +371,7 @@ export default function ApprovalCenterPage() {
     setActiveTab(tab);
     setSelectedClimbIds(new Set()); // selection is climbs-tab-scoped, don't carry stale ids across tabs
     setSelectedAmenityIds(new Set()); // same — amenities-tab-scoped
+    setSelectedRouteIds(new Set()); // same — routes-tab-scoped
     setAmenitySubView('pending'); // always land on the main queue, not wherever the sub-view was left
     if (tab === 'amenities' && !amenitiesLoaded) {
       setLoadingAmenities(true);
@@ -437,6 +447,62 @@ export default function ApprovalCenterPage() {
       alert('שגיאה בדחייה מרוכזת');
     } finally {
       setBulkRejectingAmenities(false);
+    }
+  };
+
+  const toggleRouteSelected = (id: string) => {
+    setSelectedRouteIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // Routes aren't in BulkModerationEntityType ('climb' | 'amenity' only) — see that
+  // type's own doc comment: route approve/reject aren't a fixed-shape status flip,
+  // they carry real side effects (broadcast to street_segments, adjacency/enrichment
+  // recompute), so the generic bulk writeBatch helper deliberately excludes them.
+  // Approve: InventoryService.bulkApproveRoutes IS the routes-specific equivalent —
+  // same payload + same broadcast/recompute chain as InventoryService.approveRoute,
+  // which is exactly what the per-row approveEntity('route', id) already calls here.
+  // Reject: InventoryService.bulkRejectRoutes is NOT a match despite the name — it's
+  // the inventory tab's soft un-publish (status:'pending', draft toggle). Approval
+  // Center's own per-row rejectEntity('route', ...) sets status:'archived' (terminal,
+  // out of this queue for good). Using the inventory one would silently leave
+  // "rejected" routes back in this same pending queue, so this loops the existing
+  // per-route rejectEntity instead — same call handleReject already makes per id.
+  const handleBulkApproveRoutes = async () => {
+    if (selectedRouteIds.size === 0) return;
+    if (!window.confirm(`לאשר ${selectedRouteIds.size} מסלולים נבחרים?`)) return;
+    setBulkApprovingRoutes(true);
+    try {
+      const ids = Array.from(selectedRouteIds);
+      await InventoryService.bulkApproveRoutes(ids);
+      setRoutes(prev => prev.filter(r => !selectedRouteIds.has(r.id)));
+      setSelectedRouteIds(new Set());
+    } catch (e) {
+      console.error(e);
+      alert('שגיאה באישור מרוכז');
+    } finally {
+      setBulkApprovingRoutes(false);
+    }
+  };
+
+  const handleBulkRejectRoutes = async () => {
+    if (selectedRouteIds.size === 0) return;
+    const reason = window.prompt(`דחיית ${selectedRouteIds.size} מסלולים — סיבה (אופציונלי, יירשם ב-audit לכל אחד):`);
+    if (reason === null) return; // cancelled
+    setBulkRejectingRoutes(true);
+    try {
+      const ids = Array.from(selectedRouteIds);
+      await Promise.all(ids.map(id => rejectEntity('route', id, reason, { adminId: currentUserId || '', adminName })));
+      setRoutes(prev => prev.filter(r => !selectedRouteIds.has(r.id)));
+      setSelectedRouteIds(new Set());
+    } catch (e) {
+      console.error(e);
+      alert('שגיאה בדחייה מרוכזת');
+    } finally {
+      setBulkRejectingRoutes(false);
     }
   };
 
@@ -773,6 +839,52 @@ export default function ApprovalCenterPage() {
         </div>
       )}
 
+      {/* Bulk approve/reject bar — routes tab. Mirrors the amenities tab's bulk-
+          select pattern exactly (master toggle + action bar), cyan instead of
+          teal to match this tab's own accent (TABS' iconColor). "בחר הכל" selects
+          shownItems, which for the routes tab IS filteredRoutes (city/activity/
+          search) — never the full unfiltered queue. */}
+      {activeTab === 'routes' && isSuperAdmin && shownItems.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 bg-cyan-50 border border-cyan-200 rounded-2xl px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setSelectedRouteIds(
+              selectedRouteIds.size === shownItems.length
+                ? new Set()
+                : new Set(shownItems.map(i => i.id)),
+            )}
+            className="text-xs font-bold text-cyan-700 hover:text-cyan-900 transition-colors"
+          >
+            {selectedRouteIds.size === shownItems.length ? 'נקה בחירה' : `בחר הכל (${shownItems.length} מוצגים)`}
+          </button>
+          {selectedRouteIds.size > 0 && (
+            <>
+              <span className="text-xs font-bold text-cyan-600">{selectedRouteIds.size} נבחרו</span>
+              <div className="flex items-center gap-2 mr-auto">
+                <button
+                  type="button"
+                  onClick={handleBulkApproveRoutes}
+                  disabled={bulkApprovingRoutes || bulkRejectingRoutes}
+                  className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60"
+                >
+                  {bulkApprovingRoutes ? <Loader2 className="animate-spin" size={12} /> : <ShieldCheck size={12} />}
+                  {bulkApprovingRoutes ? 'מאשר...' : `אשר ${selectedRouteIds.size} נבחרים`}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkRejectRoutes}
+                  disabled={bulkApprovingRoutes || bulkRejectingRoutes}
+                  className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold px-3 py-1.5 rounded-xl transition-all disabled:opacity-60"
+                >
+                  {bulkRejectingRoutes ? <Loader2 className="animate-spin" size={12} /> : <X size={12} />}
+                  {bulkRejectingRoutes ? 'דוחה...' : `דחה ${selectedRouteIds.size} נבחרים`}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Bulk-reject bar — climbs tab only. Triaging noise (stairs / construction-
           ramp false positives) at 175-item scale needs select-many, not 175 clicks. */}
       {activeTab === 'climbs' && isSuperAdmin && shownItems.length > 0 && (
@@ -897,6 +1009,14 @@ export default function ApprovalCenterPage() {
                     checked={selectedAmenityIds.has(item.id)}
                     onChange={() => toggleAmenitySelected(item.id)}
                     className="w-4 h-4 flex-shrink-0 accent-teal-500 cursor-pointer"
+                  />
+                )}
+                {activeTab === 'routes' && isSuperAdmin && (
+                  <input
+                    type="checkbox"
+                    checked={selectedRouteIds.has(item.id)}
+                    onChange={() => toggleRouteSelected(item.id)}
+                    className="w-4 h-4 flex-shrink-0 accent-cyan-500 cursor-pointer"
                   />
                 )}
                 <button
