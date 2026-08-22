@@ -6,6 +6,8 @@
  */
 
 import React, { useRef, useEffect, useCallback } from 'react';
+import { hapticSelection } from '@/lib/haptics';
+import { playTick } from '@/lib/sound';
 
 const DRUM_ITEM_H = 36; // px — height of each item row
 
@@ -52,6 +54,8 @@ function DrumColumn({
     const newVal = items[clamped];
     if (newVal !== value) {
       fromScrollRef.current = true;
+      hapticSelection();
+      playTick();
       onChange(newVal);
     }
   }, [items, value, onChange]);

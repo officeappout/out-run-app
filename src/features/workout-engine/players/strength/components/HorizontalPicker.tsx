@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useRef, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { hapticSelection } from '@/lib/haptics';
+import { playTick } from '@/lib/sound';
 
 interface HorizontalPickerProps {
   min?: number;
@@ -319,6 +321,8 @@ export default function HorizontalPicker({
     if (v !== lastEmittedValue.current) {
       console.trace(`[Picker emitValue] EMIT v=${v}, prev=${lastEmittedValue.current}, gesture=${userIsInteracting}, msSinceReveal=${msSinceReveal}`);
       lastEmittedValue.current = v;
+      hapticSelection();
+      playTick();
       onChange(v);
     }
   }, [onChange, isVisible]);

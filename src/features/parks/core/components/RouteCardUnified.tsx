@@ -23,6 +23,7 @@ import React from 'react';
 import { MapPin, Timer } from 'lucide-react';
 import DifficultyBolts, { type DifficultyValue } from '@/features/workout-engine/components/DifficultyBolts';
 import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 // Aerobic-card accent — the single stat-icon colour shared by all three cards.
 const BRAND = '#00ADEF';
@@ -85,10 +86,20 @@ export default function RouteCardUnified({
   recommended = false,
 }: RouteCardUnifiedProps) {
   const hasStats = !!distanceText && !!durationText;
+  const handleClick = onClick
+    ? () => {
+        hapticLight();
+        onClick();
+      }
+    : undefined;
+  const handleCta = (e: React.MouseEvent) => {
+    hapticMedium();
+    onCta(e);
+  };
   return (
     <div
       dir="rtl"
-      onClick={onClick}
+      onClick={handleClick}
       className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
         isActive
           ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_14px_32px_rgba(0,0,0,0.18)] scale-[1.02]'
@@ -156,7 +167,7 @@ export default function RouteCardUnified({
         <button
           type="button"
           onPointerDown={onCtaPointerDown}
-          onClick={onCta}
+          onClick={handleCta}
           className="w-full py-3 rounded-full text-black font-semibold text-sm shadow-md shadow-cyan-400/25 flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
           style={{ background: HOME_CTA_GRADIENT }}
         >

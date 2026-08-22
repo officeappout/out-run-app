@@ -38,6 +38,7 @@ import {
   type PushChannel,
 } from '@/features/notifications/services/notification-prefs.service';
 import { initPushNotifications } from '@/lib/native/push';
+import { hapticSelection } from '@/lib/haptics';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES & CONSTANTS
@@ -136,7 +137,7 @@ function Toggle({
     <div
       role="switch"
       aria-checked={checked}
-      onClick={() => { if (!disabled) onChange(!checked); }}
+      onClick={() => { if (!disabled) { hapticSelection(); onChange(!checked); } }}
       className={`w-12 h-6 rounded-full relative flex-shrink-0 transition-colors ${
         disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
       } ${checked ? 'bg-cyan-500' : 'bg-gray-200'}`}

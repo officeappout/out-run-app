@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { hapticLight } from '@/lib/haptics';
 
 // Simple className utility function
 const cn = (...classes: (string | undefined | null | false)[]): string => {
@@ -25,10 +26,16 @@ export default function WorkoutCardWrapper({
   onClick,
 }: WorkoutCardWrapperProps) {
   const Component = onClick ? 'button' : 'div';
+  const handleClick = onClick
+    ? () => {
+        hapticLight();
+        onClick();
+      }
+    : undefined;
 
   return (
     <Component
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
         'relative w-full',
         'bg-white dark:bg-card-dark',
