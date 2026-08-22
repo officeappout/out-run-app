@@ -22,7 +22,7 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 import { findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
-import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
+import { HYBRID_AER as AER, HYBRID_STR as STR } from '@/lib/hybrid-colors'; // single source (point 15)
 
 const FINISH = '#EF4444'; // journey end (matches the finish dot); the spine blends to it on the last leg
 const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';

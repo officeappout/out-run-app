@@ -6,10 +6,16 @@
  * so a standalone strength route and a hybrid route's strength band render
  * identically.
  *
- * Imported by the journey axis, the overview drawer, AND the map route
- * (gradient + standalone line). Do NOT redefine #10B981 / #06B6D4 anywhere
- * else — if these need to change, they change here once and every surface
- * follows.
+ * Lives in src/lib (not src/features/parks) because it's consumed across
+ * domains — the map (parks) AND the planner card (home, 22.08.2026,
+ * workout-completion-badge-audit decision 4) — per the domain-agnostic rule
+ * (CLAUDE.md law 7: cross-domain imports go through src/lib, not directly
+ * between features/*).
+ *
+ * Imported by the journey axis, the overview drawer, the map route (gradient
+ * + standalone line), and the planner's hybrid schedule card. Do NOT redefine
+ * #10B981 / #06B6D4 anywhere else — if these need to change, they change
+ * here once and every surface follows.
  */
 
 export const HYBRID_AER = '#10B981'; // walking / aerobic — green
@@ -50,4 +56,25 @@ export function buildHybridRouteGradient(
   const expr: unknown[] = ['interpolate', ['linear'], ['line-progress']];
   for (const [p, c] of clean) expr.push(p, c);
   return expr;
+}
+
+/** Soft transition band (± percentage points) centered on the split, so the
+ *  card doesn't read as a hard two-block edge. */
+const CARD_GRADIENT_BAND_PCT = 8;
+
+/**
+ * CSS `linear-gradient` for a hybrid schedule card: the planner-card analog
+ * of `buildHybridRouteGradient` — same two colors, same "single source of
+ * truth" intent, but a plain two-stop split (not per-station bands) since a
+ * card has no line-progress to place bands along, only an overall session
+ * ratio (`UserScheduleEntry.aerobicShare`, written at hybrid-completion time
+ * — see schedule.types.ts). Aerobic share is the GREEN portion's size, so a
+ * 0.7 (aerobic-emphasis) session reads as "mostly green, a cyan wedge."
+ */
+export function buildHybridCardGradient(aerobicShare: number, angleDeg = 135): string {
+  const share = Math.min(1, Math.max(0, aerobicShare));
+  const splitPct = Math.round(share * 100);
+  const lo = Math.max(0, splitPct - CARD_GRADIENT_BAND_PCT);
+  const hi = Math.min(100, splitPct + CARD_GRADIENT_BAND_PCT);
+  return `linear-gradient(${angleDeg}deg, ${HYBRID_AER} 0%, ${HYBRID_AER} ${lo}%, ${HYBRID_STR} ${hi}%, ${HYBRID_STR} 100%)`;
 }

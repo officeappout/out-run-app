@@ -22,6 +22,7 @@ import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
 import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
 import { hapticLight } from '@/lib/haptics';
+import { HYBRID_STR, buildHybridCardGradient } from '@/lib/hybrid-colors';
 
 // ── Skill-aware helpers ────────────────────────────────────────────────────
 
@@ -119,12 +120,16 @@ const CATEGORY_ACCENT: Record<ScheduleActivityCategory, string> = {
   cardio: '#84CC16',
   maintenance: '#A855F7',
   walking: '#F59E0B',
+  // Flat fallback only (pill/bar/icon tint where a single color is needed).
+  // The card itself renders a strength↔aerobic gradient — see HYBRID_CARD_GRADIENT.
+  hybrid: HYBRID_STR,
 };
 const CATEGORY_PILL_LABEL: Record<ScheduleActivityCategory, string> = {
   strength: 'כוח',
   cardio: 'קרדיו',
   maintenance: 'תחזוקה',
   walking: 'הליכה',
+  hybrid: 'משולב',
 };
 const STRENGTH_DURATION_ESTIMATE = '30–45 דק׳';
 
@@ -456,6 +461,15 @@ function StrengthCard({
   }, [closeSwipe, entry.entryId, onEditRequest]);
 
   const barColor = isCompleted ? '#1D9E75' : (accentColor ?? '#00C9F2');
+  // A completed hybrid entry fills solid with a strength↔aerobic gradient
+  // instead of one flat color — see decision 4, workout-completion-badge-audit.
+  // aerobicShare is only meaningful once real (written at completion); an
+  // entry missing it (legacy/unknown) falls back to the 'balanced' anchor.
+  const isHybridEntry = entry.scheduledCategories?.includes('hybrid') ?? false;
+  const hybridGradient = isHybridEntry
+    ? buildHybridCardGradient(entry.aerobicShare ?? 0.55)
+    : null;
+  const completedBackground = hybridGradient ?? barColor;
   const title = isCommunity
     ? getCommunityTitle(entry)
     : resolveStrengthTitle(entry.programIds);
@@ -565,7 +579,7 @@ function StrengthCard({
               // (barColor as background) instead of a white card + 4px stripe — the
               // border becomes redundant on a solid-fill card, so it's dropped too.
               border: isCompleted ? 'none' : `0.5px solid ${isToday ? '#00C9F240' : '#E0E9FF'}`,
-              background: isCompleted ? barColor : 'var(--color-background-primary, #ffffff)',
+              background: isCompleted ? completedBackground : 'var(--color-background-primary, #ffffff)',
               borderRadius: 8,
               overflow: 'hidden',
               minHeight: 36,

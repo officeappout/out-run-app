@@ -40,7 +40,12 @@ export type ScheduleEntrySource =
   | 'community';
 
 // ── Activity category (mirrors activity.types but avoids circular import) ──
-export type ScheduleActivityCategory = 'strength' | 'cardio' | 'maintenance' | 'walking';
+// 'hybrid' is schedule-only — it has no counterpart in ActivityCategory
+// (activity.types.ts) because a hybrid workout fills the existing
+// strength + cardio rings proportionally (via categorySplits), not a
+// third ring. It exists here purely so the planner can distinguish a
+// combined session from a single-category one.
+export type ScheduleActivityCategory = 'strength' | 'cardio' | 'maintenance' | 'walking' | 'hybrid';
 
 // ── Firestore Document: userSchedule/{userId}_{dateISO} ───────────────────
 //
@@ -66,6 +71,15 @@ export interface UserScheduleEntry {
   completedWorkoutId?: string; // set when the workout session is finished
   /** Which ring categories are scheduled for this day (e.g. ['strength','cardio']) */
   scheduledCategories?: ScheduleActivityCategory[];
+  /**
+   * Aerobic fraction (0-1) of a hybrid session's time budget, mirroring
+   * HybridStartIntent.aerobicShare (hybrid-slots.ts's EMPHASIS_TO_SHARE).
+   * Only meaningful when scheduledCategories includes 'hybrid'. Drives the
+   * card's strength↔aerobic gradient — read the real value written at
+   * completion time; entries without it (legacy/unknown) fall back to the
+   * 'balanced' anchor (0.55) at render time, not here.
+   */
+  aerobicShare?: number;
   /** Time-based scheduling — 'HH:MM' (24h) within the day */
   startTime?: string;
   /** Reserved for Google Calendar Phase 4 */

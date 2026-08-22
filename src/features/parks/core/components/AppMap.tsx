@@ -45,7 +45,7 @@ import {
   TRAIL_FADE_LINE, ROUTE_PASSED_LINE, ROUTE_DEVIATION_LINE,
   PARK_CLUSTERS_GLOW, PARK_CLUSTERS, PARK_PINS, PARK_MINOR_PINS, PARK_CLUSTER_COUNT,
 } from './mapLayersConfig';
-import { HYBRID_AER, HYBRID_STR, buildHybridRouteGradient } from './hybrid/hybrid-colors';
+import { HYBRID_AER, HYBRID_STR, buildHybridRouteGradient } from '@/lib/hybrid-colors';
 // Store read for the off-route flag only — same cross-read precedent as
 // useWorkoutSession.ts. Subscribing to the boolean means AppMap re-renders
 // on off-route flips, not on every GPS sample.

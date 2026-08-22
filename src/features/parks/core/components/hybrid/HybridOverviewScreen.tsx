@@ -22,7 +22,7 @@ import HybridJourneyAxis from './HybridJourneyAxis';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/features/workout-engine/shared/hooks/useSheetDrag';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
-import { HYBRID_AER as AER, HYBRID_STR as STR } from './hybrid-colors'; // single source (point 15)
+import { HYBRID_AER as AER, HYBRID_STR as STR } from '@/lib/hybrid-colors'; // single source (point 15)
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
 import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
