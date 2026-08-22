@@ -831,12 +831,10 @@ export default function HomePage() {
   // showPostWorkoutSuggestions boolean entirely — removed, not left dead.
   const [postWorkoutSuggestions, setPostWorkoutSuggestions] = useState<Suggestion[] | null>(null);
   const [startingSuggestionId, setStartingSuggestionId] = useState<string | null>(null);
-  // TEMPORARY (David, 16.08.2026): while the flag is off for everyone, let an admin email
-  // see it live in production — real device verification needs real prod data, not local.
-  // Remove this OR once POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED itself flips true for real.
-  const postWorkoutCarouselEnabled =
-    POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED ||
-    isAdminEmailAllowed(auth.currentUser?.email || profile?.core?.email || null);
+  // POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED flipped true (22.08.2026) — the admin-email OR
+  // this carried while the flag was off for everyone is gone; it was the actual gate keeping
+  // this off for non-admin accounts (confirmed via device debugging), not just a local dev aid.
+  const postWorkoutCarouselEnabled = POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED;
   // True only once the carousel has something real to show — NOT just "the flag is on".
   // Adversarial review (18.08.2026) caught a real gap: runSuggestionEngine's post_workout
   // generators do genuine Firestore-backed work (generateHomeWorkoutTrio), so there's a
@@ -856,10 +854,11 @@ export default function HomePage() {
   // stale pre-Stage-A main — removed once rebased on top of Stage A).
   const postWorkoutCarouselReady =
     postWorkoutCarouselEnabled && !!postWorkoutSuggestions && postWorkoutSuggestions.length > 0;
-  // Guards against a real dead-end (adversarial review, 18.08.2026): runSuggestionEngine's
-  // .then() below has no .catch/timeout, so a stalled generator (e.g. a Firestore call stuck
-  // on a bad connection right after an outdoor workout) can leave postWorkoutSuggestions null
-  // forever. HeroWorkoutCard's celebration mode has no other interactive element in that
+  // Guards against a real dead-end (adversarial review, 18.08.2026): a stalled generator (e.g.
+  // a Firestore call stuck on a bad connection right after an outdoor workout) can leave
+  // postWorkoutSuggestions null forever even with the .catch() below (rejection isn't the only
+  // way to hang — an unresolved promise is another). HeroWorkoutCard's celebration mode has no
+  // other interactive element in that
   // state (onDismissCelebration is accepted as a prop but never actually invoked inside
   // HeroWorkoutCard.tsx) — without this, a permanent no-op handleRequestMore would strand the
   // user on the completion card with nothing tappable that does anything.
@@ -876,6 +875,13 @@ export default function HomePage() {
     const context = buildHomeUserContext({ profile, location: null, surface: 'post_workout' });
     runSuggestionEngine(context).then((ranked) => {
       if (!cancelled) setPostWorkoutSuggestions(ranked);
+    }).catch((error) => {
+      // Without this, a rejection left postWorkoutSuggestions null forever with
+      // no visible error — confirmed 22.08.2026 (this was NOT what actually
+      // caused the missing-cards-after-hybrid bug, which was the flag itself
+      // being off for non-admin accounts, but the silent-rejection gap is real
+      // regardless and worth closing here now that it's been found).
+      console.error('[home] runSuggestionEngine failed for post_workout surface', error);
     });
     const timeoutId = setTimeout(() => {
       if (!cancelled) setPostWorkoutCarouselTimedOut(true);

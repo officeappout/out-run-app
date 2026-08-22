@@ -1294,12 +1294,13 @@ export const HOME_STEP_DEFICIT_CARD_ENABLED = true;
 // no generateHomeWorkoutTrio call) and the carousel never renders — byte-identical to
 // today's handleRequestMore, which still resets to the generic pre-workout hero-press flow.
 //
-// NOT YET FLIPPED — awaiting David's own device verification (real workout completion, both
-// full and mid-workout-quit endings, both a rest-day and a strength-day-already-done
-// screen, tap "Start" and confirm progression.activePrograms is untouched by viewing alone)
-// before production rollout. Kill-switch: leave/flip back to false, byte-identical
+// FLIPPED TRUE (22.08.2026, David's explicit decision) — device-verified via a real hybrid
+// workout completion; the carousel was actually gated OFF for non-admin accounts by this flag
+// alone (isAdminEmailAllowed was the only other path in), confirmed via TEMP-DEBUG logging
+// that the effect fires correctly (postWorkoutData/todayWorkoutDone both true) and returns
+// at the very first guard while this was false. Kill-switch: flip back to false, byte-identical
 // instantly, no code change needed.
-export const POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = false;
+export const POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = true;
 
 // SOCIAL_COMPOSE_UI: Phase 1 of the unified activity-compose flow (map "+" /
 // home "+" → UnifiedPlusDrawer → PlannedActivityComposeSheet, writing to
