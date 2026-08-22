@@ -15,6 +15,7 @@ import {
   getOnboardingLevelsForCategory,
   type ResolvedContent,
 } from '../../services/visual-content-resolver.service';
+import { hapticSelection } from '@/lib/haptics';
 
 // ── Category display metadata ──────────────────────────────────────
 
@@ -247,14 +248,12 @@ export default function VisualSlider({
       setShowTutorial(false);
       const clamped = Math.max(sliderMin, Math.min(sliderMax, newSliderVal));
 
-      // Haptic feedback — only fires when the step actually changes
+      // Haptic feedback — only fires when the step actually changes.
+      // Was a raw navigator.vibrate() scaled 5-40ms by position (no iOS
+      // support); Capacitor's selectionChanged() is a fixed-intensity tick,
+      // so the by-position intensity scaling is intentionally dropped here.
       if (prevSliderValRef.current !== null && clamped !== prevSliderValRef.current) {
-        const range = sliderMax - sliderMin;
-        const normalizedPos = range > 0 ? (clamped - sliderMin) / range : 0;
-        const vibrationMs = Math.round(5 + normalizedPos * 35); // 5ms (easy) → 40ms (hard)
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate(vibrationMs);
-        }
+        hapticSelection();
       }
       prevSliderValRef.current = clamped;
 
