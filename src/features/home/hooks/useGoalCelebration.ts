@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useCallback } from 'react';
+import { playSuccessChime } from '@/lib/sound';
+import { hapticSuccess } from '@/lib/haptics';
 
 // ════════════════════════════════════════════════════════════════════
 // SESSION KEY HELPERS — fire once per metric per calendar day
@@ -19,75 +21,6 @@ function hasAlreadyCelebrated(metric: string): boolean {
 function markCelebrated(metric: string): void {
   if (typeof window === 'undefined') return;
   sessionStorage.setItem(getTodayKey(metric), 'true');
-}
-
-// ════════════════════════════════════════════════════════════════════
-// WEB AUDIO API — Apple-style ascending success chime
-// ════════════════════════════════════════════════════════════════════
-
-let audioCtx: AudioContext | null = null;
-
-function getAudioContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
-  if (!audioCtx) {
-    const AC = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AC) return null;
-    audioCtx = new AC();
-  }
-  return audioCtx;
-}
-
-/**
- * Synthesises a light, airy C-E-G major triad chime using sine
- * oscillators with quick attack and gentle exponential decay.
- * Total duration ≈ 1 s.  Zero dependencies.
- */
-function playSuccessChime(): void {
-  const ctx = getAudioContext();
-  if (!ctx) return;
-
-  // Resume if suspended (browser autoplay policy)
-  if (ctx.state === 'suspended') ctx.resume();
-
-  const now = ctx.currentTime;
-
-  // ── Master gain (overall volume — keep it subtle) ──
-  const master = ctx.createGain();
-  master.gain.setValueAtTime(0.32, now);
-  master.gain.setValueAtTime(0.32, now + 0.85);
-  master.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
-  master.connect(ctx.destination);
-
-  // Helper: spawn a sine note with quick attack + exponential decay
-  const spawnNote = (freq: number, startOffset: number, peakGain: number, decayEnd: number) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, now + startOffset);
-    gain.gain.setValueAtTime(0, now + startOffset);
-    gain.gain.linearRampToValueAtTime(peakGain, now + startOffset + 0.025);   // 25 ms attack
-    gain.gain.exponentialRampToValueAtTime(0.001, now + decayEnd);             // smooth decay
-    osc.connect(gain);
-    gain.connect(master);
-    osc.start(now + startOffset);
-    osc.stop(now + decayEnd + 0.02);
-  };
-
-  // ── Three ascending notes — C6 → E6 → G6 (major triad) ──
-  spawnNote(1046.50, 0,    0.55, 0.65);   // C6  — root
-  spawnNote(1318.51, 0.09, 0.45, 0.78);   // E6  — major third
-  spawnNote(1567.98, 0.17, 0.30, 0.92);   // G6  — fifth (softest)
-}
-
-// ════════════════════════════════════════════════════════════════════
-// HAPTIC FEEDBACK — celebratory triple-pulse
-// ════════════════════════════════════════════════════════════════════
-
-function triggerCelebrationHaptic(): void {
-  if (typeof window === 'undefined') return;
-  if ('vibrate' in navigator) {
-    navigator.vibrate([15, 40, 15, 40, 30]);
-  }
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -154,7 +87,7 @@ export function useGoalCelebration() {
 
     const fire = () => {
       playSuccessChime();
-      triggerCelebrationHaptic();
+      hapticSuccess();
       fireConfetti();
     };
 
