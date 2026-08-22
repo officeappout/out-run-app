@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 // ============================================================================
 // TYPES
@@ -141,9 +142,11 @@ export function useWorkoutTimers({
         if (next === 3 || next === 2) {
           if ((shortBeepRef as any).playBeep) (shortBeepRef as any).playBeep();
           else shortBeepRef.current?.play().catch(() => {});
+          hapticLight();
         } else if (next === 1) {
           if ((longBeepRef as any).playBeep) (longBeepRef as any).playBeep();
           else longBeepRef.current?.play().catch(() => {});
+          hapticMedium();
         }
 
         if (next <= 0) {

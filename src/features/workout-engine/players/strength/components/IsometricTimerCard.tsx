@@ -19,6 +19,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { RotateCcw, Pause, Play, Timer, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PreparingStateView from './PreparingStateView';
@@ -110,14 +111,6 @@ function playLongBeep() {
   setTimeout(() => playTone(880, 350, 0.6), 260);
 }
 
-function haptic(pattern: number | number[]) {
-  try {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(pattern);
-    }
-  } catch { /* ignore */ }
-}
-
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function IsometricTimerCard({
@@ -197,7 +190,7 @@ export default function IsometricTimerCard({
         if (next <= 3 && next > 0 && !prepAlertedRef.current.has(next)) {
           prepAlertedRef.current.add(next);
           playShortBeep();
-          haptic([30]);
+          hapticLight();
         }
 
         if (next <= 0) {
@@ -240,14 +233,14 @@ export default function IsometricTimerCard({
           alertedRef.current.add(remaining);
           if (remaining > 0) {
             playShortBeep();
-            haptic([40]);
+            hapticLight();
           }
         }
 
         if (next >= duration && !targetAlertedRef.current) {
           targetAlertedRef.current = true;
           playLongBeep();
-          haptic([80, 40, 120]);
+          hapticSuccess();
           if (autoCompleteAtTarget) {
             // Block-protocol mode: hand the elapsed time to the machine
             // immediately — no overtime, no "סיימתי" tap. Deferred out of
@@ -271,7 +264,7 @@ export default function IsometricTimerCard({
 
   const handleComplete = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    haptic([50]);
+    hapticMedium();
     onComplete(elapsed);
   }, [elapsed, onComplete]);
 
