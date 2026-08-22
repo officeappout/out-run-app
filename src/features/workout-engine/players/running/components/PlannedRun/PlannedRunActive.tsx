@@ -22,6 +22,7 @@ import RunStoryBar from './RunStoryBar';
 import LongPressPauseButton from './LongPressPauseButton';
 import RunBlockPlaylist from './RunBlockPlaylist';
 import FloatingMetricBubble from './FloatingMetricBubble';
+import { hapticLight, hapticMedium, hapticWarning } from '@/lib/haptics';
 
 const PACE_HINT_COOLDOWN_MS = 30_000;
 const PACE_HINT_THRESHOLD_S = 10;
@@ -459,7 +460,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
 
             <div className="w-full max-w-xs space-y-3 px-6">
               <button
-                onClick={() => resumeSession()}
+                onClick={() => { hapticLight(); resumeSession(); }}
                 className="w-full h-16 rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-cyan-500/30 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF]"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
@@ -467,7 +468,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
                 התחילו שוב
               </button>
               <button
-                onClick={() => setShowExitConfirm(true)}
+                onClick={() => { hapticMedium(); setShowExitConfirm(true); }}
                 className="w-full h-16 bg-white rounded-2xl font-bold text-slate-800 text-lg active:scale-[0.98] transition-transform shadow-lg"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
@@ -530,7 +531,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
               </button>
 
               <button
-                onClick={handleFinishWorkout}
+                onClick={() => { hapticWarning(); handleFinishWorkout(); }}
                 className="text-sm text-slate-500 underline underline-offset-2 hover:text-slate-700 transition-colors"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >

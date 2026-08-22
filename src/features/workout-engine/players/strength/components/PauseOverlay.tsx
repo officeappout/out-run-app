@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Play } from 'lucide-react';
+import { hapticLight, hapticMedium } from '@/lib/haptics';
 
 /**
  * PauseOverlay — unified full-screen pause veil.
@@ -27,6 +28,14 @@ export interface PauseOverlayProps {
 }
 
 export default function PauseOverlay({ onResume, onOpenExitModal }: PauseOverlayProps) {
+  const handleResume = () => {
+    hapticLight();
+    onResume();
+  };
+  const handleOpenExitModal = () => {
+    hapticMedium();
+    onOpenExitModal();
+  };
   return (
     <motion.div
       key="pause-overlay"
@@ -47,7 +56,7 @@ export default function PauseOverlay({ onResume, onOpenExitModal }: PauseOverlay
 
       <div className="w-full max-w-xs space-y-3 px-6">
         <button
-          onClick={onResume}
+          onClick={handleResume}
           className="w-full h-16 bg-[#F97316] rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-orange-500/30"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
@@ -55,7 +64,7 @@ export default function PauseOverlay({ onResume, onOpenExitModal }: PauseOverlay
           התחילו שוב
         </button>
         <button
-          onClick={onOpenExitModal}
+          onClick={handleOpenExitModal}
           className="w-full h-16 bg-white rounded-2xl font-bold text-slate-800 text-lg active:scale-[0.98] transition-transform shadow-lg"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >

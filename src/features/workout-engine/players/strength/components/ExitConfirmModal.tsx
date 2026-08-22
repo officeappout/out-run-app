@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Square } from 'lucide-react';
+import { hapticWarning } from '@/lib/haptics';
 
 /**
  * ExitConfirmModal — early-exit confirmation dialog.
@@ -30,6 +31,10 @@ export interface ExitConfirmModalProps {
 }
 
 export default function ExitConfirmModal({ isOpen, onDismiss, onExit }: ExitConfirmModalProps) {
+  const handleExit = () => {
+    hapticWarning();
+    onExit();
+  };
   return (
     <AnimatePresence>
       {isOpen && (
@@ -76,7 +81,7 @@ export default function ExitConfirmModal({ isOpen, onDismiss, onExit }: ExitConf
             </button>
 
             <button
-              onClick={onExit}
+              onClick={handleExit}
               className="text-sm text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >

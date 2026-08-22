@@ -33,6 +33,7 @@ import { useActivityFeed } from '@/features/social/hooks/useActivityFeed';
 import { useChatInbox } from '@/features/social/hooks/useChatInbox';
 import { isUserVerified } from '@/features/user/identity/services/access-control.service';
 import type { ActivityType } from '@/features/activity/types/activity.types';
+import { hapticSuccess } from '@/lib/haptics';
 
 interface AppHeaderProps {
   /**
@@ -91,7 +92,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
       {/* Right zone (visually leftmost in RTL) — avatar + flame + streak */}
       <button
         type="button"
-        onClick={() => router.push('/profile')}
+        onClick={() => { hapticSuccess(); router.push('/profile'); }}
         className="flex items-center gap-1.5 active:scale-95 transition-transform"
         aria-label="פרופיל"
       >

@@ -57,6 +57,7 @@ import { usePlayerDrag } from './hooks/usePlayerDrag';
 import { useInputPickerState } from './hooks/useInputPickerState';
 import { usePlayerLifecycle } from './hooks/usePlayerLifecycle';
 import { usePlayerMediaSession } from './hooks/usePlayerMediaSession';
+import { hapticMedium } from '@/lib/haptics';
 
 export type { ExerciseResultLog };
 
@@ -278,7 +279,10 @@ export default function StrengthRunner({
   const handleSwap = onSwapExercise
     ? () => {
         const exId = sm.activeExercise?.id || '';
-        if (exId) onSwapExercise(exId, sm.currentSegmentIndex, sm.currentExerciseIndex);
+        if (exId) {
+          hapticMedium();
+          onSwapExercise(exId, sm.currentSegmentIndex, sm.currentExerciseIndex);
+        }
       }
     : undefined;
 
