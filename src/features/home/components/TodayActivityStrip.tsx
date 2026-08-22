@@ -32,6 +32,16 @@
  * stall/timeout escape hatch (postWorkoutCarouselTimedOut) — removed
  * along with it, since that was its only remaining call site. See that
  * removal's own commit message for the tradeoff this drops.
+ *
+ * Shape (22.08.2026, David: wider/shorter — "יותר פס מוארך, פחות מלבן
+ * צפוף"): SuggestionCarousel's own CARD_MAX_W/CARD_VW (260px/68vw) are
+ * shared with the real post-workout suggestions carousel, so widening
+ * them globally would resize those cards too — passes the new
+ * maxCardWidthPx/maxCardWidthVw override props instead (added to
+ * SuggestionCarousel this same pass, defaulting to the old shared
+ * constants everywhere else). ~320px on a typical phone width — close to
+ * the original mockup's own 314px, which had to be compressed to fit the
+ * shared 260px cap when this card was first built.
  */
 
 import React from 'react';
@@ -73,6 +83,8 @@ export default function TodayActivityStrip({ cards, onCardTap }: TodayActivitySt
         items={cards}
         keyExtractor={(c) => c.key}
         cardHeight={TODAY_ACTIVITY_CARD_HEIGHT}
+        maxCardWidthPx={320}
+        maxCardWidthVw={85}
         renderCard={(c, isActive) =>
           onCardTap ? (
             <button

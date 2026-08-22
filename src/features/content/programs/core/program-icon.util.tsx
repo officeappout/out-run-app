@@ -203,6 +203,11 @@ export const PROGRAM_ALIAS_TO_ICON: Record<string, ProgramIconKey> = {
   // Normalized engine slug — was missing, causing resolveIconKey('calisthenics_upper') to fall through
   calisthenics_upper: 'muscle',
   upper_calisthenics: 'muscle',
+  // ActivityCategory 'maintenance' (flexibility/mobility) — added for the home
+  // compact-card icon fix (22.08.2026) so it doesn't fall through to the
+  // strength-flavored 'muscle' default. Matches this table's own existing
+  // pilates/yoga → 'core' precedent.
+  maintenance: 'core',
 };
 
 /**

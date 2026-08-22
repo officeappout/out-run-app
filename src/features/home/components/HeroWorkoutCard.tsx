@@ -398,6 +398,8 @@ export interface CompletionData {
   workoutTitle?: string;
   streak?: number;
   thumbnailUrl?: string;
+  /** Strength-only active-program templateId — see CompletionPayload's own doc comment (completion-sync.service.ts). */
+  programId?: string;
   /**
    * Daily Strength Ring (Layer A). When present, the celebration card renders
    * the ring in place of the static improvement row. Populated by home only

@@ -48,6 +48,14 @@ export interface SuggestionCarouselProps<T> {
   renderCard: (item: T, isActive: boolean) => ReactNode;
   keyExtractor: (item: T, index: number) => string;
   cardHeight: number;
+  /**
+   * Per-instance width cap override (22.08.2026, home compact-card shape
+   * fix) — both default to CARD_MAX_W/CARD_VW when omitted, so every
+   * existing caller (post-workout suggestions) stays byte-identical.
+   * TodayActivityStrip is the one caller opting into a wider card.
+   */
+  maxCardWidthPx?: number;
+  maxCardWidthVw?: number;
   /** Fires SETTLE_DELAY_MS after the active card stops changing. */
   onSettle?: (item: T, index: number) => void;
   activeIndex?: number;
@@ -59,6 +67,8 @@ export function SuggestionCarousel<T>({
   renderCard,
   keyExtractor,
   cardHeight,
+  maxCardWidthPx = CARD_MAX_W,
+  maxCardWidthVw = CARD_VW,
   onSettle,
   activeIndex: controlledIndex,
   onActiveIndexChange,
@@ -67,19 +77,19 @@ export function SuggestionCarousel<T>({
   const activeIndex = controlledIndex ?? internalIndex;
 
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [cardW, setCardW] = useState(CARD_MAX_W);
+  const [cardW, setCardW] = useState(maxCardWidthPx);
   const [viewportW, setViewportW] = useState(390);
 
   useEffect(() => {
     const sync = () => {
-      setCardW(Math.min(CARD_MAX_W, (window.innerWidth * CARD_VW) / 100));
+      setCardW(Math.min(maxCardWidthPx, (window.innerWidth * maxCardWidthVw) / 100));
       if (viewportRef.current) setViewportW(viewportRef.current.offsetWidth);
     };
     sync();
     const ro = new ResizeObserver(sync);
     if (viewportRef.current) ro.observe(viewportRef.current);
     return () => ro.disconnect();
-  }, []);
+  }, [maxCardWidthPx, maxCardWidthVw]);
 
   const stride = cardW + GAP;
   const centerX = viewportW / 2 - cardW / 2;

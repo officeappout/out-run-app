@@ -394,7 +394,7 @@ export default function HomePage() {
   // ── Post-Workout Celebration Mode ──
   const [postWorkoutData, setPostWorkoutData] = useState<{
     workoutType: string; durationMinutes: number; completedAt: string;
-    workoutTitle?: string; streak?: number; thumbnailUrl?: string;
+    workoutTitle?: string; streak?: number; thumbnailUrl?: string; programId?: string;
   } | null>(null);
   // Persistent completion gate — reads Firestore `dailyProgress/{uid}_{today}`.
   // Survives page refreshes / re-mounts and elapsed time within the same
@@ -592,6 +592,7 @@ export default function HomePage() {
         workoutTitle: postWorkoutData.workoutTitle,
         streak: postWorkoutData.streak,
         thumbnailUrl: postWorkoutData.thumbnailUrl,
+        programId: postWorkoutData.programId,
         ring: strengthRingData,
       }
     : todayWorkoutDone
@@ -684,9 +685,24 @@ export default function HomePage() {
         title: isRich
           ? (completionData!.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[s.category])
           : TODAY_ACTIVITY_CATEGORY_LABEL[s.category],
-        minutes: Math.round(s.minutes),
+        // Bug fix (22.08.2026, David caught on-device): this used to be
+        // Math.round(s.minutes) unconditionally — s.minutes is dayStatus's
+        // per-category DAILY TOTAL (useDayStatus.ts's sessions array, built
+        // from activity.categories[cat].minutes), not this specific
+        // workout's own duration. For the isRich card (a real, specific
+        // completionData.workoutTitle — e.g. "אימון סבב 14 דק' בפארק...")
+        // that mismatched badly: title said 14 min, the line below it said
+        // 81 (today's cumulative total for that category). Prefer the
+        // specific workout's own completionData.durationMinutes whenever
+        // it's genuinely populated; only a NON-rich card (generic category
+        // label, no specific workout attached) should show the daily total.
+        minutes: Math.round(isRich && completionData!.durationMinutes > 0
+          ? completionData!.durationMinutes
+          : s.minutes),
         thumbnailUrl: isRich ? completionData!.thumbnailUrl : undefined,
         streak: completionData?.streak ?? 1,
+        programId: isRich ? completionData!.programId : undefined,
+        workoutType: isRich ? completionData!.workoutType : undefined,
       };
     });
 
@@ -696,13 +712,17 @@ export default function HomePage() {
     // completionData proves a real workout just finished — add it explicitly
     // if its category isn't already represented above.
     //
-    // Minutes come from dayStatus.categories (the real per-category total
-    // logged today), not completionData.durationMinutes — the latter is
-    // hardcoded to 0 on the persistent Firestore-only fallback branch of
+    // Minutes: prefer completionData.durationMinutes (this specific workout's
+    // real duration) when it's genuinely populated — same bug/fix as the main
+    // loop above (22.08.2026). Falls back to dayStatus.categories (today's
+    // per-category total) only when durationMinutes is the hardcoded-0
+    // placeholder from the persistent Firestore-only fallback branch of
     // completionData (no postWorkoutData sessionStorage payload — e.g. any
-    // home revisit after the first post-workout mount, confirmed to be the
-    // steady state on remount), which would otherwise show a fabricated
-    // "0 min" for a real completed workout (adversarial review, 19.08.2026).
+    // home revisit after the first post-workout mount), which would
+    // otherwise show a fabricated "0 min" for a real completed workout
+    // (adversarial review, 19.08.2026) — title is equally generic in that
+    // branch (workoutTitle absent), so a daily-total number stays consistent
+    // with the generic framing rather than claiming a specific one.
     if (completionData && richCategory && !cards.some((c) => c.category === richCategory)) {
       cards.unshift({
         key: richCategory,
@@ -712,9 +732,11 @@ export default function HomePage() {
         // genuinely matches the real doc's category — no mismatch risk here.
         matchCategory: richCategory,
         title: completionData.workoutTitle || TODAY_ACTIVITY_CATEGORY_LABEL[richCategory],
-        minutes: Math.round(dayStatus.categories[richCategory] || completionData.durationMinutes || 0),
+        minutes: Math.round(completionData.durationMinutes || dayStatus.categories[richCategory] || 0),
         thumbnailUrl: completionData.thumbnailUrl,
         streak: completionData.streak ?? 1,
+        programId: completionData.programId,
+        workoutType: completionData.workoutType,
       });
     }
 
@@ -751,9 +773,13 @@ export default function HomePage() {
         // 'hybrid' (the only reason this branch's richCategory is ever null).
         matchCategory: richCategory ?? 'hybrid',
         title: completionData.workoutTitle || 'האימון היומי שלך',
-        minutes: Math.round(fallbackMinutes || completionData.durationMinutes || 0),
+        // Same bug/fix as the two card sites above (22.08.2026) — prefer the
+        // specific workout's own duration over the daily-total estimate.
+        minutes: Math.round(completionData.durationMinutes || fallbackMinutes || 0),
         thumbnailUrl: completionData.thumbnailUrl,
         streak: completionData.streak ?? 1,
+        programId: completionData.programId,
+        workoutType: completionData.workoutType,
       });
     }
 

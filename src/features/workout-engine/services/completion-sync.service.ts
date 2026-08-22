@@ -46,6 +46,16 @@ export interface CompletionPayload {
   /** Thumbnail URL for the completed workout hero image */
   thumbnailUrl?: string;
   /**
+   * Strength-only. The active program's templateId (e.g. 'upper_body',
+   * 'push', 'full_body') — same value SmartWeeklySchedule already threads
+   * into resolveIconKey() for schedule-cell icons. Lets the post-workout
+   * completion card show a program-specific icon instead of a generic one
+   * (22.08.2026, home compact-card icon fix). Running/walking/cycling/
+   * hybrid have no equivalent "program" concept — always undefined there;
+   * icon resolution falls back to workoutType/category for those.
+   */
+  programId?: string;
+  /**
    * True when the completed session was recovery-only content (rest-day
    * video trio OR the "Budget Floor" cooldown/mobility fallback) rather than
    * a bonus effort. Gated end-to-end by RECOVERY_DAY_BADGE_FIX_ENABLED at the
@@ -147,6 +157,7 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
         workoutTitle: payload.workoutTitle,
         thumbnailUrl: payload.thumbnailUrl,
         streak,
+        programId: payload.programId,
       }),
     );
   }

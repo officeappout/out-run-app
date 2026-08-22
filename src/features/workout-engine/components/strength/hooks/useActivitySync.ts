@@ -207,6 +207,11 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
     activityCategory,
     displayIcon: 'dumbbell',
     workoutTitle: programName,
+    // Was already sitting in this function's own params (used a few lines
+    // down for recordStrengthSession + the muscle-shield's sessionFocus) but
+    // never threaded into CompletionPayload — see this field's own doc
+    // comment on CompletionPayload for what it unlocks (22.08.2026).
+    programId,
     // RECOVERY_DAY_BADGE_FIX_ENABLED — single write choke point (see
     // feature-flags.ts). While false, `isRecovery` is never passed through
     // regardless of this session's real value, so dailyProgress.isRecovery
