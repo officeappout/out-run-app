@@ -149,6 +149,9 @@ function infoRows(entityType: ModerationEntityType, x: any): Array<[string, stri
         ['רמת קושי', x.difficulty],
         ['עיר', x.city],
         ['נקודות מסלול', Array.isArray(x.path) ? String(x.path.length) : undefined],
+        ['עלייה מצטברת', x.elevationGain != null ? `${x.elevationGain} מ׳` : undefined],
+        ['שיפוע מקסימלי', x.maxGrade != null ? `${x.maxGrade}%` : undefined],
+        ['עליות בסביבה', Array.isArray(x.terrainFeatures) && x.terrainFeatures.length > 0 ? `${x.terrainFeatures.length}` : undefined],
       );
       break;
     case 'climb':
