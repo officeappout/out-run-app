@@ -1302,6 +1302,25 @@ export const HOME_STEP_DEFICIT_CARD_ENABLED = true;
 // instantly, no code change needed.
 export const POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = true;
 
+// HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED (17.8 build-plan, Stage 3): the pre-workout
+// mirror of POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED above — runSuggestionEngine called with
+// surface:'home' instead of 'post_workout'. Stage 3 only wires the call + local state; it does
+// NOT render anything new (WorkoutSelectionCarousel still consumes the old
+// generateHomeWorkoutTrio trio, unchanged — that swap to real Suggestion[] is Stage 4, a
+// separate step). Also does not touch route.generator.ts/full-park-workout.generator.ts/
+// anchor-loop.generator.ts's eligibility — those stay map-only/location-gated until their own
+// follow-up; with buildHomeUserContext's home-surface call passing location:null (same
+// reasoning as the post_workout call site: skip an unnecessary GPS prompt), route.generator.ts
+// (surfaces:['map','home']) is naturally excluded by its own `eligible: context =>
+// context.location !== null` regardless, so this flag's actual reachable-today generator set is
+// full-strength (Stage 2, verified compatible) + safety-net (always eligible on every surface,
+// zero I/O) — not a restriction coded here, just what the existing generators' own eligible()
+// rules produce with a null location.
+//
+// While FALSE (default): the new effect never runs (no runSuggestionEngine call), the new local
+// state stays null — byte-identical to today.
+export const HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = false;
+
 // SOCIAL_COMPOSE_UI: Phase 1 of the unified activity-compose flow (map "+" /
 // home "+" → UnifiedPlusDrawer → PlannedActivityComposeSheet, writing to
 // planned_sessions). See .claude/plans/new-chat-investigation-stateful-fern.md.

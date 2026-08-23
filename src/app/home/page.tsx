@@ -38,7 +38,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED } from '@/config/feature-flags';
+import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import StatsOverview, { type BuilderContext, type TrioSelector } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
@@ -804,6 +804,41 @@ export default function HomePage() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postWorkoutData, todayWorkoutDone, profile?.id]);
+
+  // ── pre-workout suggestion carousel (17.8 build-plan, Stage 3) ──
+  // Mirrors the post_workout effect directly above, one surface over. Stage 3 scope only:
+  // wires the real runSuggestionEngine call + holds the result in local state. Nothing reads
+  // preWorkoutSuggestions yet — WorkoutSelectionCarousel keeps consuming the old
+  // generateHomeWorkoutTrio trio unchanged (that swap is Stage 4). While
+  // HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED is false (default), this effect never runs —
+  // byte-identical to today.
+  const [preWorkoutSuggestions, setPreWorkoutSuggestions] = useState<Suggestion[] | null>(null);
+  useEffect(() => {
+    if (!HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED) return;
+    if (!profile) return;
+    let cancelled = false;
+    // location: null — same reasoning as the post_workout call site above: skip an
+    // unnecessary GPS prompt. route.generator.ts (surfaces:['map','home']) requires a real
+    // location in its own eligible(), so it's naturally excluded here, not specially filtered.
+    const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
+    runSuggestionEngine(context).then((ranked) => {
+      if (!cancelled) setPreWorkoutSuggestions(ranked);
+    }).catch((error) => {
+      console.error('[home] runSuggestionEngine failed for home surface', error);
+    });
+    return () => { cancelled = true; };
+  }, [profile]);
+  // Stage 3's only observability — nothing else reads preWorkoutSuggestions yet (Stage 4
+  // wires it into the actual carousel). Manual verification while the flag is on: this logs
+  // once per resolved call, letting a real generatorId list be confirmed on-device without a
+  // temporary render.
+  useEffect(() => {
+    if (!HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED || !preWorkoutSuggestions) return;
+    console.log(
+      '[home] pre-workout suggestions (Stage 3, surface:home):',
+      preWorkoutSuggestions.map((s) => s.generatorId),
+    );
+  }, [preWorkoutSuggestions]);
 
   // Dedicated useWorkoutSession instance for post_workout suggestion starts — always fed via
   // handleStartWorkout's overrideGeneratedWorkout argument (see its own JSDoc: "for callers
