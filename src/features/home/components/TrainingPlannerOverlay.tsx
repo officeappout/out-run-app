@@ -81,7 +81,7 @@ interface TrainingPlannerOverlayProps {
   selectedDate: string;
   onDaySelect: (iso: string) => void;
   /** Receives the ISO date of the tapped workout card — mirrors AgendaDayCardProps.onStartWorkout. */
-  onStartWorkout?: (date: string) => void;
+  onStartWorkout?: (date: string, skipCompletedLookup?: boolean) => void;
   /** Fired after any schedule mutation (add / move / remove) so the home screen can re-render */
   onScheduleChanged?: () => void;
   /** Called when a personal card is tapped — lets home/page.tsx track the preview entry for the drawer pencil. */

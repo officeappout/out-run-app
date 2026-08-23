@@ -81,6 +81,62 @@ function resolveReconstructedTitle(workoutType: WorkoutHistoryEntry['workoutType
   }
 }
 
+/**
+ * Fraction of a completed workout's actual duration that was strength (vs.
+ * aerobic) — 1 = pure strength, 0 = pure aerobic. Built from
+ * `segments[].actual.durationSec` grouped by `kind`, per-doc real data —
+ * no existing calculation for this was found anywhere in the codebase
+ * (confirmed by an exhaustive search, 23.08.2026), so this is new.
+ *
+ * NOTE: for a hybrid workout saved before commit dbd8533c (23.08.2026,
+ * "fix(hybrid): missing card title + planned-not-actual station duration"),
+ * the strength segment's `actual.durationSec` holds the pre-workout PLANNED
+ * estimate, not real elapsed time — this fraction (and therefore the
+ * completed-card color) will be off for those older docs. Not fixable
+ * retroactively from already-saved data; only new completions are accurate.
+ *
+ * Falls back to the doc's own `category` when `segments` is absent or
+ * yields zero total duration (e.g. a doc that predates the segments field).
+ */
+function computeStrengthPercent(
+  segments: WorkoutHistoryEntry['segments'],
+  fallbackCategory: WorkoutHistoryEntry['category'] | undefined,
+): number {
+  const aerobicSec = (segments ?? [])
+    .filter((s) => s.kind === 'aerobic')
+    .reduce((sum, s) => sum + (s.actual?.durationSec ?? 0), 0);
+  const strengthSec = (segments ?? [])
+    .filter((s) => s.kind === 'strength')
+    .reduce((sum, s) => sum + (s.actual?.durationSec ?? 0), 0);
+  const total = aerobicSec + strengthSec;
+  if (total > 0) return strengthSec / total;
+  if (fallbackCategory === 'cardio') return 0;
+  if (fallbackCategory === 'hybrid') return 0.5;
+  return 1; // 'strength' / 'recovery' / unknown
+}
+
+// Reuses the existing strength/cardio brand accents (CATEGORY_ACCENT below)
+// as the two poles, rather than inventing new colors.
+const STRENGTH_FILL_COLOR = '#00C9F2';
+const AEROBIC_FILL_COLOR = '#84CC16';
+
+/**
+ * CSS `background` value for a completed card, per `computeStrengthPercent`.
+ * A pure (>=98% / <=2%) result stays a flat color, matching today's
+ * single-color convention at the poles. A mixed result blends across a
+ * ~30-point-wide zone centered on the actual ratio, so the split point
+ * visually communicates the real proportion rather than a fixed 50/50
+ * blend. Running-specific colors are a known follow-up, not handled here.
+ */
+function completedFillColor(strengthPercent: number): string {
+  if (strengthPercent >= 0.98) return STRENGTH_FILL_COLOR;
+  if (strengthPercent <= 0.02) return AEROBIC_FILL_COLOR;
+  const mid = strengthPercent * 100;
+  const from = Math.max(0, Math.round(mid - 15));
+  const to = Math.min(100, Math.round(mid + 15));
+  return `linear-gradient(135deg, ${STRENGTH_FILL_COLOR} ${from}%, ${AEROBIC_FILL_COLOR} ${to}%)`;
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type CardMode = 'past' | 'today' | 'future' | 'rest';
@@ -91,8 +147,13 @@ interface AgendaDayCardProps {
   onSelect: () => void;
   userId: string;
   recurringTemplate?: RecurringTemplate;
-  /** Receives the ISO date of the tapped workout card so parents can synchronously update selectedDate. */
-  onStartWorkout?: (date: string) => void;
+  /**
+   * Receives the ISO date of the tapped workout card so parents can
+   * synchronously update selectedDate. The second (optional) arg tells the
+   * caller to skip its own date-based completed-workout lookup — see
+   * `handleHeroPress`'s `skipCompletedLookup` param in home/page.tsx.
+   */
+  onStartWorkout?: (date: string, skipCompletedLookup?: boolean) => void;
   onAddWorkout?: (date: string) => void;
   /** Called when a long-press drag activates on any card in this row. */
   onDragStart?: () => void;
@@ -343,11 +404,28 @@ interface StrengthCardProps {
    */
   title?: string;
   /**
+   * Overrides the completed-state fill (flat color or `linear-gradient(...)`
+   * CSS value) — see `completedFillColor`/`computeStrengthPercent`. Applies
+   * only when `isCompleted`; a real, actually-strength-vs-actually-aerobic
+   * split for the specific workout that was done, not the category the
+   * entry happens to be filed under. Omit to keep the flat green default.
+   */
+  completedFill?: string;
+  /**
    * Tap handler — typically opens the workout preview. Skipped for past days.
    * Receives the ISO date string of the tapped entry so callers can update
    * their selected-date state synchronously before opening the preview.
    */
-  onTap?: (date: string) => void;
+  onTap?: (date: string, skipCompletedLookup?: boolean) => void;
+  /**
+   * True when this entry is a planned (not reconstructed) card on a date
+   * that ALSO has its own real completed-workout card(s) — i.e. onTap's
+   * caller should not redirect to that unrelated completion, since it
+   * already has its own dedicated tap route. Always false for reconstructed
+   * entries themselves (they never reach onTap — see the router.push
+   * special-case in `activate` below).
+   */
+  skipCompletedLookupOnTap?: boolean;
   /** Fires when long-press → drag activates so the parent can lift z-index. */
   onDragStart?: () => void;
   /** Fires on drag release with the absolute Y of the release event. */
@@ -383,6 +461,8 @@ function StrengthCard({
   isDraggable,
   accentColor,
   title: titleProp,
+  completedFill,
+  skipCompletedLookupOnTap,
   onTap,
   onCommunityTap,
   onDragStart,
@@ -493,12 +573,18 @@ function StrengthCard({
     // date} (home/page.tsx's tryOpenCompletedWorkout) and would be
     // ambiguous on a day with more than one real workout doc.
     if (entry.source === 'reconstructed' && entry.completedWorkoutId) {
+      // This tap only ever fires while TrainingPlannerOverlay is open (the
+      // card can't be tapped otherwise) — safe to unconditionally flag a
+      // reopen. See home/page.tsx's matching mount-effect.
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('reopen_training_planner', 'true');
+      }
       router.push(`/workouts/${entry.completedWorkoutId}/history`);
       return;
     }
     onPreviewEntry?.(entry);
-    onTap?.(entry.date);
-  }, [baseMode, isCommunity, entry, onCommunityTap, onTap, swipeX, closeSwipe, onPreviewEntry, router]);
+    onTap?.(entry.date, skipCompletedLookupOnTap);
+  }, [baseMode, isCommunity, entry, onCommunityTap, onTap, swipeX, closeSwipe, onPreviewEntry, router, skipCompletedLookupOnTap]);
 
   const handleTap = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -523,7 +609,7 @@ function StrengthCard({
     if (entry.entryId) onEditRequest?.(entry.entryId);
   }, [closeSwipe, entry.entryId, onEditRequest]);
 
-  const barColor = isCompleted ? '#1D9E75' : (accentColor ?? '#00C9F2');
+  const barColor = isCompleted ? (completedFill ?? '#1D9E75') : (accentColor ?? '#00C9F2');
   const title = titleProp ?? (isCommunity
     ? getCommunityTitle(entry)
     : resolveStrengthTitle(entry.programIds));
@@ -1102,6 +1188,13 @@ export default function AgendaDayCard({
                   title={e.source === 'reconstructed'
                     ? resolveReconstructedTitle(actualWorkoutsMap?.[date]?.find((w) => w.id === e.completedWorkoutId)?.workoutType)
                     : undefined}
+                  completedFill={e.source === 'reconstructed'
+                    ? (() => {
+                        const w = actualWorkoutsMap?.[date]?.find((x) => x.id === e.completedWorkoutId);
+                        return completedFillColor(computeStrengthPercent(w?.segments, w?.category));
+                      })()
+                    : undefined}
+                  skipCompletedLookupOnTap={e.source !== 'reconstructed' && (actualWorkoutsMap?.[date]?.length ?? 0) > 0}
                   onTap={onStartWorkout}
                   onCommunityTap={onCommunityTap}
                   onDragStart={onDragStart}

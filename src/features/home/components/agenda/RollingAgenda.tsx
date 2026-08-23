@@ -74,7 +74,7 @@ interface RollingAgendaProps {
   userId: string;
   recurringTemplate?: RecurringTemplate;
   /** Receives the ISO date of the tapped workout card — mirrors AgendaDayCardProps.onStartWorkout. */
-  onStartWorkout?: (date: string) => void;
+  onStartWorkout?: (date: string, skipCompletedLookup?: boolean) => void;
   filterMode?: RollingAgendaFilterMode;
   onAddWorkout?: (date: string) => void;
   refreshKey?: number;
@@ -339,6 +339,13 @@ export default function RollingAgenda({
       for (const w of workouts) {
         const iso = toISODate(w.date);
         (map[iso] ??= []).push(w);
+      }
+      // The query itself is orderBy('date','desc') — most-recent-first,
+      // appropriate for its sibling getWorkoutsForDate's general use. A
+      // day's own agenda row instead wants chronological (ascending) order
+      // — "first I did X, then Y" — so re-sort each day's group locally.
+      for (const iso in map) {
+        map[iso].sort((a, b) => a.date.getTime() - b.date.getTime());
       }
       setActualWorkoutsMap(map);
     });

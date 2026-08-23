@@ -340,6 +340,22 @@ export default function HomePage() {
   // Training Planner Overlay (calendar icon → full-screen planner)
   const [showPlanner, setShowPlanner] = useState(false);
 
+  // Reopen the planner after a round-trip navigation away from it (23.08.2026,
+  // AGENDA_UNPLANNED_COMPLETION_FIX). showPlanner is plain React state, not
+  // URL-synced — router.push to /workouts/[id]/history (e.g. tapping a
+  // reconstructed completed-workout card from inside the planner) fully
+  // unmounts this page; router.back() then remounts it fresh, resetting
+  // showPlanner to false and silently dropping the user back at bare /home
+  // instead of where they tapped from. AgendaDayCard sets this flag right
+  // before that specific push (only ever true when the planner was
+  // genuinely open, by construction — the card can't be tapped otherwise).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (sessionStorage.getItem('reopen_training_planner') !== 'true') return;
+    sessionStorage.removeItem('reopen_training_planner');
+    setShowPlanner(true);
+  }, []);
+
   // Incremented whenever a schedule entry is added/moved/removed in the planner,
   // so StatsOverview and SmartWeeklySchedule re-derive their data immediately.
   const [scheduleVersion, setScheduleVersion] = useState(0);
@@ -1322,7 +1338,7 @@ export default function HomePage() {
   // state-batching race: we resolve the target date immediately and call
   // setSelectedDate before React's next render cycle so StatsOverview starts
   // generating the correct workout trio in parallel with the preview opening.
-  const handleHeroPress = useCallback(async (explicitDate?: string) => {
+  const handleHeroPress = useCallback(async (explicitDate?: string, skipCompletedLookup?: boolean) => {
     const dateToUse = (typeof explicitDate === 'string') ? explicitDate : selectedDate;
 
     // F2.2 (19.08.2026): a day that already has a real completed workout
@@ -1331,7 +1347,19 @@ export default function HomePage() {
     // map-only-user redirect, generated-workout resets), none of which
     // applies once we're navigating away. See tryOpenCompletedWorkout's own
     // doc comment for the cost-aware date gating.
-    if (await tryOpenCompletedWorkout(dateToUse)) return;
+    //
+    // skipCompletedLookup (23.08.2026, AGENDA_UNPLANNED_COMPLETION_FIX):
+    // tryOpenCompletedWorkout resolves purely by {userId, date} — it has no
+    // way to know WHICH card was tapped, just "does this date have a real
+    // completion at all." That's fine when a date maps to at most one
+    // relevant thing, but AgendaDayCard can now render a planned (not-done)
+    // card AND a separate reconstructed card for an unrelated completion on
+    // the SAME date — tapping the planned one must not hijack to the
+    // unrelated completion, which already has its own dedicated card and
+    // its own direct tap route. AgendaDayCard passes this true only for
+    // that specific case; every other caller of this function is unaffected
+    // (parameter defaults to undefined/false, preserving today's lookup).
+    if (!skipCompletedLookup && await tryOpenCompletedWorkout(dateToUse)) return;
     const todayISO = toISODate(new Date());
     if (dateToUse < todayISO) {
       // Past + nothing real found → no-op, matches this card's pre-existing
