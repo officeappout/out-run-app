@@ -155,8 +155,16 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
     // separate, unrelated fix (flagged, not in scope for the detail-capture
     // work this diff is doing).
     const sets = station?.content?.totalPlannedSets ?? 0;
-    const dur = station?.content?.estimatedDurationSec ?? 0;
-    controllerRef.completeStation(sets, dur, Date.now(), exerciseLog);
+    // Bug fix (23.08.2026): this used to be treated as the REAL station
+    // duration and stored as such — it's actually the station's pre-planned
+    // estimate (fixed at plan-composition time), the same class of gap the
+    // comment above already flags for `sets`. hybrid-orchestrator.ts's
+    // STATION_DONE now derives the real duration from atMs/currentStartMs
+    // (same approach the aerobic legs already used) and only falls back to
+    // this value if a timestamp is ever missing — kept as that fallback,
+    // renamed to make the "planned, not measured" nature explicit.
+    const plannedDurationSecFallback = station?.content?.estimatedDurationSec ?? 0;
+    controllerRef.completeStation(sets, plannedDurationSecFallback, Date.now(), exerciseLog);
     useSessionStore.getState().resumeSession(); // resume the run clock for the next leg
     set({
       phase: controllerRef.getPhase(),
@@ -209,6 +217,17 @@ export const useHybridRun = create<HybridRunStore>((set) => ({
         );
         await syncWorkoutCompletion({
           workoutType: 'hybrid',
+          // Bug fix (23.08.2026, David caught on-device): this was never
+          // sent, so home's completionData.workoutTitle was always
+          // undefined for a hybrid completion — the card silently fell back
+          // to its generic category label, which for hybrid (styled as
+          // 'strength' for display, see home/page.tsx) reads "אימון כוח"
+          // even though a hybrid session was completed. No per-session name
+          // exists for a hybrid workout (HybridPlan carries no name/title
+          // field, confirmed before this fix) — HybridSummary.tsx's own
+          // header hardcodes the identical literal for the same reason;
+          // matching it here keeps the card and the summary screen in sync.
+          workoutTitle: 'אימון משולב',
           durationMinutes: Math.max(Math.round(totalDurationSec / 60), 1),
           calories: planCalories,
           activityCategory: 'cardio', // aggregate fallback (unused — categorySplits wins)

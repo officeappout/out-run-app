@@ -184,8 +184,26 @@ export function hybridReduce(state: HybridRunState, event: HybridEvent): HybridR
     case 'STATION_DONE': {
       if (state.phase !== 'station') return ignore(state, event);
       const actuals = state.actuals.slice();
+      // Bug fix (23.08.2026, David caught on-device — hybrid's own History
+      // screen showed a station duration that looked like the PLANNED
+      // duration, not how long the station actually took): event.
+      // actualDurationSec is mislabeled — the runtime caller (useHybridRun.ts)
+      // actually passes the station's pre-planned estimatedDurationSec, a
+      // fixed value from plan-composition time, never the real elapsed time.
+      // The real elapsed time was ALREADY being captured right below
+      // (startedAtMs/endedAtMs) but never used for durationSec — unlike every
+      // aerobic leg (AEROBIC_TICK/ARRIVE_STATION/FINISH above), which all
+      // correctly derive durationSec from live elapsedSec deltas. Mirrors
+      // that same real-time approach here. event.actualDurationSec stays as
+      // a fallback only for the (untested-in-production) case where atMs
+      // wasn't provided — this file is PURE CORE (LAW 0, no clock read), so
+      // it can't call Date.now() itself to cover that gap.
+      const measuredDurationSec =
+        event.atMs != null && state.currentStartMs != null
+          ? Math.round((event.atMs - state.currentStartMs) / 1000)
+          : event.actualDurationSec;
       actuals[state.cursor] = {
-        durationSec: Math.max(0, event.actualDurationSec),
+        durationSec: Math.max(0, measuredDurationSec),
         sets: Math.max(0, event.completedSets),
         ...(event.exerciseLog && event.exerciseLog.length > 0 ? { exerciseLog: event.exerciseLog } : {}),
         completed: true,

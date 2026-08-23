@@ -67,13 +67,22 @@ function sandwichPlan(): HybridPlannedSegment[] {
   ];
 }
 
+// atMs values are real milliseconds (×1000 vs. this fixture's pre-23.08.2026
+// shape) — STATION_DONE's durationSec is now derived from the atMs delta
+// (hybrid-orchestrator.ts bug fix), so it needs a genuine ms gap matching
+// the 540-SECOND station duration this fixture intends, not a same-sized
+// raw-number gap that only worked by coincidence when atMs was unused for
+// the station's own duration math. Every relative gap is preserved exactly
+// (uniform ×1000), so `actualDurationSec: 540` stays the meaningful "given"
+// for the invalid-event-guard case below, which never reaches STATION_DONE's
+// real branch (phase is 'aerobic', so it's ignored — see [6]).
 const HAPPY_PATH: HybridEvent[] = [
-  { type: 'START', atMs: 1000 },
+  { type: 'START', atMs: 1_000_000 },
   { type: 'AEROBIC_TICK', cumulativeKm: 0.5, elapsedSec: 300 },
-  { type: 'ARRIVE_STATION', cumulativeKm: 1.0, elapsedSec: 600, atMs: 1600 },
-  { type: 'STATION_DONE', completedSets: 9, actualDurationSec: 540, atMs: 2140 },
+  { type: 'ARRIVE_STATION', cumulativeKm: 1.0, elapsedSec: 600, atMs: 1_600_000 },
+  { type: 'STATION_DONE', completedSets: 9, actualDurationSec: 540, atMs: 2_140_000 },
   { type: 'AEROBIC_TICK', cumulativeKm: 1.5, elapsedSec: 870 },
-  { type: 'FINISH', cumulativeKm: 2.0, elapsedSec: 1140, atMs: 2680 },
+  { type: 'FINISH', cumulativeKm: 2.0, elapsedSec: 1140, atMs: 2_680_000 },
 ];
 
 // ── 1. shape resolver ───────────────────────────────────────────────────────
@@ -121,8 +130,8 @@ console.log('\n[3] finalize default → 3 records (legA / station / legB)');
   eq('legA actual durationSec (600-0)', legA.actual?.durationSec, 600);
   eq('legA planned paceMinKm midpoint 6.5', legA.planned?.paceMinKm, 6.5);
   eq('legA aerobicType running', legA.aerobicType, 'running');
-  eq('legA startedAtMs', legA.startedAtMs, 1000);
-  eq('legA endedAtMs', legA.endedAtMs, 1600);
+  eq('legA startedAtMs', legA.startedAtMs, 1_000_000);
+  eq('legA endedAtMs', legA.endedAtMs, 1_600_000);
 
   eq('station kind', station.kind, 'strength');
   eq('station actual sets 9', station.actual?.sets, 9);
@@ -134,8 +143,8 @@ console.log('\n[3] finalize default → 3 records (legA / station / legB)');
 
   eq('legB actual distanceKm sliced (2.0-1.0)', legB.actual?.distanceKm, 1.0);
   eq('legB actual durationSec sliced (1140-600)', legB.actual?.durationSec, 540);
-  eq('legB startedAtMs (station end)', legB.startedAtMs, 2140);
-  eq('legB endedAtMs', legB.endedAtMs, 2680);
+  eq('legB startedAtMs (station end)', legB.startedAtMs, 2_140_000);
+  eq('legB endedAtMs', legB.endedAtMs, 2_680_000);
 
   eq('summary completedAerobic 2', summary.completedAerobicSegments, 2);
   eq('summary completedStrength 1', summary.completedStrengthSegments, 1);
