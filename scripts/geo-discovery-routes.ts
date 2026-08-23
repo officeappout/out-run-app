@@ -222,7 +222,16 @@ const REGION = REGIONS[regionArg];
 if (!REGION) { console.error(`Unknown region "${regionArg}". Known: ${Object.keys(REGIONS).join(', ')}`); process.exit(1); }
 
 // Length windows (meters) per source.
-const LEN_TRAIL_MIN = 400, LEN_TRAIL_MAX = 25000;
+// LEN_TRAIL_MIN raised 400 -> 600 (23.08.2026, Haifa drop-audit): every trail-relation
+// candidate is BY CONSTRUCTION a marked-trail member (that's the discovery mechanism
+// itself, see the route~ query below) — so under the finalized recreational-quality gate
+// (RECREATIONAL_* below), a trail candidate's "recreational character" test is always
+// unconditionally satisfied, and the ONLY variable is this length floor. Confirmed by
+// hand-auditing all 39 Haifa trail-relation candidates (see
+// .claude/knowledge/city-mapping-learnings.md): 600m correctly drops the 412m
+// "שביל חיפה - הדר עליון ורמת הדר" fragment (a real stub of a much longer relation) while
+// keeping its other 3 genuine fragments (1221m/1411m/5361m) and 32/39 overall.
+const LEN_TRAIL_MIN = 600, LEN_TRAIL_MAX = 25000;
 const LEN_LOOP_MIN = 400, LEN_LOOP_MAX = 15000;
 const LEN_SEG_MIN = 500, LEN_SEG_MAX = 12000;
 // Named non-loop segments/promenades (post-stitching) get a much lower floor
@@ -262,6 +271,36 @@ const SPECIALNESS_RADIUS_M = 150;
 // every other threshold in this file. Coastline proximity is unaffected
 // (a line has no area to threshold).
 const MIN_PARK_AREA_M2 = 5000; // ~0.5 hectare
+
+// ─── Recreational-quality gate (23.08.2026, Haifa drop-audit) ───────────────────────
+// REPLACES the specialness-below-LEN_SEG_MIN rule above for named non-loop segments
+// (and, via LEN_TRAIL_MIN above, sets the trail-relation floor too — same gate, one
+// finalized rule for both capabilities). That older rule was both too permissive
+// (anything >=500m passed unconditionally, no matter how ordinary — flagged live:
+// "שביל חיפה - הדר עליון ורמת הדר" 412m, plain named residential streets with 0%
+// dedicated infra) and too narrow (didn't apply to trail-relation candidates at all,
+// which had no length floor beyond LEN_TRAIL_MIN's original 400m and no composition
+// test whatsoever). Read-only investigation audited all 53 Haifa named-segment
+// candidates + all 39 trail-relation candidates by hand before this was codified —
+// see .claude/knowledge/city-mapping-learnings.md. Result on that data: 64/92 KEEP
+// (32/53 named-segment, 32/39 trail-relation).
+//
+// KEEP a candidate only if BOTH:
+//  1. Recreational character: dedicated-infra length share >= RECREATIONAL_DEDICATED_MIN_FRAC,
+//     OR it's a marked-trail-relation member (unconditional — see LEN_TRAIL_MIN's comment),
+//     OR (near a significant park/coastline AND dedicated share >= RECREATIONAL_SPECIAL_DEDICATED_MIN_FRAC).
+//  2. Length: >= RECREATIONAL_LENGTH_FLOOR_TRAIL_M if a marked-trail member (NO exemption
+//     for trail membership — a 412m trail fragment is still just 412m), else
+//     >= RECREATIONAL_LENGTH_FLOOR_STANDALONE_M.
+// Every threshold here is a David-approved number from the audit, not a first guess —
+// flagged for review the same as every other constant in this file, but with real
+// evidence behind it (the audit's borderline-case table) rather than none.
+const RECREATIONAL_DEDICATED_HIGHWAY = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'steps']);
+const RECREATIONAL_ORDINARY_HIGHWAY = new Set(['residential', 'tertiary', 'service', 'living_street', 'unclassified']);
+const RECREATIONAL_DEDICATED_MIN_FRAC = 0.5;
+const RECREATIONAL_SPECIAL_DEDICATED_MIN_FRAC = 0.2;
+const RECREATIONAL_LENGTH_FLOOR_STANDALONE_M = 800;
+const RECREATIONAL_LENGTH_FLOOR_TRAIL_M = 600;
 
 // ─────────────────────────────── geometry helpers ───────────────────────────────
 const R = 6371000;
@@ -748,6 +787,16 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     }
   }
 
+  // Lookups for the recreational-quality gate below — built from data already fetched
+  // above (RawWay.highway from the standalone-ways fetch; relation membership from
+  // step 1's trail-relation fetch), no extra Overpass calls.
+  const wayHighwayById = new Map<number, string>();
+  const wayLengthById = new Map<number, number>();
+  for (const w of rawWays) { wayHighwayById.set(w.id, w.highway); wayLengthById.set(w.id, pathLen(w.pts)); }
+  for (const w of bridgeRawWays) { wayHighwayById.set(w.id, w.highway); wayLengthById.set(w.id, pathLen(w.pts)); }
+  const anyTrailRelationMemberWayIds = new Set<number>();
+  for (const [, memberWays] of Array.from(relMembersByRel)) for (const m of memberWays) anyTrailRelationMemberWayIds.add(m.id);
+
   // Final classification of the (possibly stitched) named candidates: loop vs
   // segment, computed AFTER stitching (a promenade merged from several
   // fragments might now close back on itself) — item C's length floor split.
@@ -758,13 +807,25 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     if (isLoopG) {
       if (L < LEN_LOOP_MIN || L > LEN_LOOP_MAX) continue; // loops keep the unchanged floor regardless of naming
     } else {
-      if (L < LEN_SEG_MIN_NAMED || L > LEN_SEG_MAX) continue; // item C: named non-loop gets the low floor
-      // Quality-over-quantity refinement (21.08.2026): a named non-loop
-      // candidate below the OLD LEN_SEG_MIN=500 floor is ONLY kept if it's
-      // near a real specialness signal (park/garden or coastline) — see
-      // SPECIALNESS_RADIUS_M's own comment. Named ways at or above the old
-      // floor are unaffected (pass through exactly as before this change).
-      if (L < LEN_SEG_MIN && !isNearSpecialFeature(g.pts, significantParkRings, coastlinePts)) { stats.shortNoSignalDropped = (stats.shortNoSignalDropped || 0) + 1; continue; }
+      if (L < LEN_SEG_MIN_NAMED || L > LEN_SEG_MAX) continue; // absolute noise floor (a several-meter OSM tagging glitch) — unchanged, unrelated to recreational quality.
+      // Recreational-quality gate — see that constant block's own header comment for
+      // the full rationale and the audit it's based on. Composition is length-weighted
+      // across this candidate's real constituent ways (dedicated pedestrian/cycle infra
+      // vs. ordinary street), not just a representative tag.
+      const markedTrail = g.ids.some(id => anyTrailRelationMemberWayIds.has(id));
+      let dedicatedLen = 0, ordinaryLen = 0, otherLen = 0;
+      for (const wid of g.ids) {
+        const hw = wayHighwayById.get(wid); const wlen = wayLengthById.get(wid) ?? 0;
+        if (hw && RECREATIONAL_DEDICATED_HIGHWAY.has(hw)) dedicatedLen += wlen;
+        else if (hw && RECREATIONAL_ORDINARY_HIGHWAY.has(hw)) ordinaryLen += wlen;
+        else otherLen += wlen;
+      }
+      const totalLen = dedicatedLen + ordinaryLen + otherLen || 1;
+      const dedicatedFrac = dedicatedLen / totalLen;
+      const special = isNearSpecialFeature(g.pts, significantParkRings, coastlinePts);
+      const hasRecreationalCharacter = markedTrail || dedicatedFrac >= RECREATIONAL_DEDICATED_MIN_FRAC || (special && dedicatedFrac >= RECREATIONAL_SPECIAL_DEDICATED_MIN_FRAC);
+      const lengthFloor = markedTrail ? RECREATIONAL_LENGTH_FLOOR_TRAIL_M : RECREATIONAL_LENGTH_FLOOR_STANDALONE_M;
+      if (!hasRecreationalCharacter || L < lengthFloor) { stats.recreationalGateDropped = (stats.recreationalGateDropped || 0) + 1; continue; }
     }
     const stitched = g.ids.length > 1;
     const externalId = stitched ? `osm:stitched/${[...g.ids].sort((a, b) => a - b).join('+')}` : `osm:way/${g.ids[0]}`;
@@ -1562,7 +1623,7 @@ async function main() {
   if (!SKIP_OSM) {
     const d = await discover();
     candidates = d.candidates; blockPolys = d.blockPolys; stats = d.stats;
-    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines (${stats.relRescued || 0} rejected-for-length, rescued named members) · ${stats.parks || 0} named park/garden loops · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways, ${stats.stitchedSameName || 0} same-name + ${stats.stitchedCrossName || 0} cross-name stitches, ${stats.shortNoSignalDropped || 0} short-band candidates dropped for no park/coastline specialness signal). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
+    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines (${stats.relRescued || 0} rejected-for-length, rescued named members) · ${stats.parks || 0} named park/garden loops · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways, ${stats.stitchedSameName || 0} same-name + ${stats.stitchedCrossName || 0} cross-name stitches, ${stats.recreationalGateDropped || 0} candidates dropped by the recreational-quality gate). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
   } else {
     console.log('--skip-osm: skipping Overpass discovery; fetching blocking polygons only (for the round-trip artifact filter) …');
     blockPolys = await fetchBlockPolys(REGION.bbox);
