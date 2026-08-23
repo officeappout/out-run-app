@@ -1364,7 +1364,7 @@ export const SOCIAL_COMPOSE_UI_ENABLED = true;
 // more than one real workout doc, unlike the generic onStartWorkout(date)
 // flow (home/page.tsx's tryOpenCompletedWorkout), which resolves only by
 // {userId, date} and would be ambiguous in that case.
-export const AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED = false;
+export const AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
