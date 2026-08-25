@@ -848,6 +848,55 @@ export async function syncOnboardingToFirestore(
     }
 
     // ================================================================
+    // RUNNING BRANCH DETECTION (on COMPLETED) — hoisted ahead of PROGRAM &
+    // LEVEL ASSIGNMENT below.
+    //
+    // The strength-fallback skip-check further down needs to know whether
+    // THIS call will unlock a running program, but `updateData.running.isUnlocked`
+    // is only set true inside the RUNNING IMPROVEMENT BRIDGE block, which used
+    // to run AFTER program/level assignment — so on a user's first-ever running
+    // completion the skip-check always saw isUnlocked=false and fell through to
+    // the GOAL_TO_PROGRAM fallback, silently assigning a phantom full_body
+    // strength program to running-only users.
+    //
+    // This detection itself is cheap and side-effect-free (sessionStorage read +
+    // a pure two-field type check) — no Firestore, no await — so it's hoisted
+    // here rather than reordering the much heavier RUNNING IMPROVEMENT BRIDGE
+    // block (which does two awaited Firestore fetches + plan generation).
+    // `runningAnswers` is reused verbatim by the RUNNING IMPROVEMENT BRIDGE
+    // block further below instead of being recomputed.
+    // ================================================================
+    let runningAnswers: Record<string, string> | null = null;
+    if (typeof window !== 'undefined') {
+      try {
+        const storedRunning = sessionStorage.getItem('onboarding_running_answers');
+        if (storedRunning) {
+          runningAnswers = JSON.parse(storedRunning);
+        }
+      } catch (e) {
+        console.warn('[OnboardingSync] Could not parse running answers:', e);
+      }
+    }
+    // Inject weeklyFrequency from RunningScheduleStep (single source of truth).
+    // The bridge's parseAnswers expects a number, so we pass a numeric value.
+    if (runningAnswers && (data as any).runningWeeklyFrequency !== undefined) {
+      (runningAnswers as any).weeklyFrequency = Number((data as any).runningWeeklyFrequency);
+    }
+    // Inject user-selected plan length from PlanLengthStep (overrides resolveWeeks)
+    if (runningAnswers) {
+      try {
+        const storedAnswers = sessionStorage.getItem('onboarding_running_answers');
+        if (storedAnswers) {
+          const parsed = JSON.parse(storedAnswers);
+          if (typeof parsed.runningPlanWeeks === 'number') {
+            (runningAnswers as any).runningPlanWeeks = parsed.runningPlanWeeks;
+          }
+        }
+      } catch {}
+    }
+    const runningBranchWillComplete = !!(runningAnswers && isRunningBranchCompleted(runningAnswers));
+
+    // ================================================================
     // PROGRAM & LEVEL ASSIGNMENT (on COMPLETED)
     // Priority: assignedResults > legacy fields > GOAL_TO_PROGRAM
     // ================================================================
@@ -1403,9 +1452,13 @@ export async function syncOnboardingToFirestore(
           ...(r.masterProgramSubLevels ? { masterProgramSubLevels: r.masterProgramSubLevels } : {}),
         }));
 
-      } else if (updateData.running?.isUnlocked) {
+      } else if (updateData.running?.isUnlocked || runningBranchWillComplete) {
         // Running-only user with no strength quiz results — skip strength program assignment.
-        console.log('[OnboardingSync] Running-only user detected (no assignedResults, running.isUnlocked=true). Skipping strength program fallback.');
+        // Covers both an already-unlocked returning user (isUnlocked, carried over from Firestore)
+        // and a user whose running branch is about to unlock in THIS call (runningBranchWillComplete,
+        // detected above — isUnlocked itself isn't set true until the RUNNING IMPROVEMENT BRIDGE
+        // block runs, further below).
+        console.log('[OnboardingSync] Running-only user detected (no assignedResults, running.isUnlocked=' + !!updateData.running?.isUnlocked + ', runningBranchWillComplete=' + runningBranchWillComplete + '). Skipping strength program fallback.');
       } else {
         // ============================================================
         // PRIORITY 2 / FALLBACK: GOAL_TO_PROGRAM legacy mapping
@@ -1494,40 +1547,15 @@ export async function syncOnboardingToFirestore(
     // If the dynamic questionnaire included a running improvement branch,
     // aggregate answers into RunningOnboardingData, generate a program
     // template via PlanGeneratorService, and persist both on the user doc.
+    //
+    // `runningAnswers` was built once, above, ahead of PROGRAM & LEVEL ASSIGNMENT
+    // (sessionStorage read + weeklyFrequency/runningPlanWeeks injection) — reused
+    // verbatim here rather than recomputed. `isRunningBranchCompleted` is
+    // re-evaluated (not reused from `runningBranchWillComplete`) purely so
+    // TypeScript narrows `runningAnswers` to non-null below; it's a pure,
+    // trivial two-field check, not the part that was actually duplicated.
     // ================================================================
     if (step === 'COMPLETED') {
-      let runningAnswers: Record<string, string> | null = null;
-
-      if (typeof window !== 'undefined') {
-        try {
-          const storedRunning = sessionStorage.getItem('onboarding_running_answers');
-          if (storedRunning) {
-            runningAnswers = JSON.parse(storedRunning);
-          }
-        } catch (e) {
-          console.warn('[OnboardingSync] Could not parse running answers:', e);
-        }
-      }
-
-      // Inject weeklyFrequency from RunningScheduleStep (single source of truth).
-      // The bridge's parseAnswers expects a number, so we pass a numeric value.
-      if (runningAnswers && (data as any).runningWeeklyFrequency !== undefined) {
-        (runningAnswers as any).weeklyFrequency = Number((data as any).runningWeeklyFrequency);
-      }
-
-      // Inject user-selected plan length from PlanLengthStep (overrides resolveWeeks)
-      if (runningAnswers) {
-        try {
-          const storedAnswers = sessionStorage.getItem('onboarding_running_answers');
-          if (storedAnswers) {
-            const parsed = JSON.parse(storedAnswers);
-            if (typeof parsed.runningPlanWeeks === 'number') {
-              (runningAnswers as any).runningPlanWeeks = parsed.runningPlanWeeks;
-            }
-          }
-        } catch {}
-      }
-
       if (runningAnswers && isRunningBranchCompleted(runningAnswers)) {
         try {
           const bridge = bridgeRunningOnboarding(runningAnswers);
