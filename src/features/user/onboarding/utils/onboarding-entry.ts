@@ -44,8 +44,18 @@ function backfillPersonalSessionStorage(profile: UserFullProfile | null | undefi
     sessionStorage.setItem('onboarding_personal_gender', profile.core.gender);
   }
   if (profile?.core?.birthDate && !sessionStorage.getItem('onboarding_personal_dob')) {
-    const bd = profile.core.birthDate;
-    const date = bd instanceof Date ? bd : new Date(bd as unknown as string);
+    // Mirrors useUserStore.ts's reviveDates handling exactly: core.birthDate is
+    // typed as Date, but a raw Firestore Timestamp ({seconds, nanoseconds}) is
+    // not `instanceof Date` and `new Date(timestamp)` silently produces Invalid
+    // Date — the same failure mode reviveDates's own comment documents already
+    // happened once for activePrograms.startDate ("turned Timestamps into
+    // Invalid Date, which crashed toISOString()"). Check the {seconds} shape
+    // first before falling back to the Date constructor.
+    const raw = profile.core.birthDate as unknown;
+    const date =
+      typeof raw === 'object' && raw !== null && typeof (raw as { seconds?: unknown }).seconds === 'number'
+        ? new Date((raw as { seconds: number }).seconds * 1000)
+        : new Date(raw as string | number | Date);
     if (!isNaN(date.getTime())) {
       sessionStorage.setItem('onboarding_personal_dob', date.toISOString().split('T')[0]);
     }
