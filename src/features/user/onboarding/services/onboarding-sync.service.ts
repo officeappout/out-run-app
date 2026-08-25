@@ -1698,11 +1698,18 @@ export async function syncOnboardingToFirestore(
                 for (const dayLetter of runScheduleDays) {
                   runTemplate[dayLetter] = [bridge.programTemplate.id];
                 }
+                // MERGE (not overwrite) — same pattern as the strength block above
+                // (Smart Schedule v1.3 UTS Bridge). A wholesale replace here would
+                // silently drop a returning user's existing strength training days
+                // from the calendar the moment they complete running onboarding.
                 updateData.lifestyle = {
                   ...updateData.lifestyle,
-                  recurringTemplate: runTemplate,
+                  recurringTemplate: {
+                    ...((updateData.lifestyle as any)?.recurringTemplate ?? {}),
+                    ...runTemplate,
+                  },
                 };
-                console.log('[OnboardingSync] recurringTemplate built from scheduleDays:', runScheduleDays);
+                console.log('[OnboardingSync] recurringTemplate merged with scheduleDays:', runScheduleDays);
               }
             } else {
               console.warn('[OnboardingSync] No workout templates available — activeProgram deferred to first run');
@@ -1711,6 +1718,19 @@ export async function syncOnboardingToFirestore(
             console.warn('[OnboardingSync] Plan generation failed (non-critical, activeProgram deferred):', planErr);
           }
 
+          // Deliberate, temporary policy — the running branch always wins primaryTrack/
+          // dashboardMode on success, even if THIS SAME call also assigned a real
+          // strength program above (PRIORITY 1 / assignedResults). Not an accident:
+          // there's no designed "hybrid" home experience yet, so a single-session
+          // dual-track user is routed to the running view rather than a half-built
+          // blended one. Revisit once hybrid dashboard design lands.
+          //
+          // primaryTrack is not display-only — it's also read by:
+          //   - useDailyActivity.ts (trackToProgram[primaryTrack] → which program
+          //     feeds the daily activity ring)
+          //   - StrengthVolumeWidget.tsx (gates cardio- vs strength-widget content)
+          //   - dashboardMode derivation (track-mapper.service.ts) → indirectly the
+          //     WHO activity rings ('health' track → DEFAULT mode → WHO rings)
           if (updateData.lifestyle) {
             updateData.lifestyle.primaryTrack = 'run';
             updateData.lifestyle.dashboardMode = 'RUNNING';
