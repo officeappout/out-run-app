@@ -400,7 +400,25 @@ export function buildNeedsAssessmentResult(
  * BEFORE the full shared pipeline runs — see generateHomeWorkoutTrio's own call site and
  * recovery-video-content.service.ts's header for the measured performance motivation. Returns
  * null (falls through unchanged to the existing pipeline — tryBuildRecoveryVideoTrio below,
- * then Budget Floor, then REST_DAY_CONFIGS) when nothing qualifies.
+ * then Budget Floor, then REST_DAY_CONFIGS) when nothing qualifies, OR when the query itself
+ * fails for any reason (missing index, permissions, network) — this must never be the reason
+ * the whole home screen goes down; the entire point of a fast path is a safe, gracefully-
+ * degrading shortcut, not a new single point of failure. (Code review finding, 25.08.2026.)
+ *
+ * needs-assessment guard (code review finding, 25.08.2026): the old pipeline checks
+ * pipeline.needsAssessmentDomains BEFORE it even looks at isRestDay — an unassessed user on a
+ * rest day gets the explicit "needs assessment" result today, regardless of video availability.
+ * Replicating that check exactly isn't cheap: it depends on buildActiveProgramFilters +
+ * shadowMatrix, both real _buildSharedPipeline outputs — computing them here would defeat the
+ * fast path's own purpose. Mirrors full-strength.generator.ts's own already-established
+ * cheap-path precedent instead (hasAnyAssessedDomain, a synchronous profile-only check) rather
+ * than inventing a new approximation: a user with genuinely zero assessed domains/tracks
+ * anywhere falls through to the old pipeline, which gates them correctly. This isn't a perfect
+ * replica of needsAssessmentDomains' own per-program logic (a user assessed in some OTHER
+ * domain than what's scheduled today could still hit the fast path) — recovery-video content
+ * isn't level/domain-scored to begin with (see buildRecoveryVideoWorkoutResult), so that
+ * residual gap is judged acceptable, unlike showing scored content to a genuinely brand-new
+ * unassessed user.
  *
  * This function itself is a disposable legacy-shape adapter, NOT the reusable part: it pads to
  * exactly 3 options because HomeWorkoutTrioResult.options is a fixed 3-tuple today
@@ -411,48 +429,59 @@ export function buildNeedsAssessmentResult(
  */
 async function tryRestDayFastPath(options: HomeWorkoutOptions): Promise<HomeWorkoutTrioResult | null> {
   const { scheduledProgramIds = [], userProfile } = options;
-  const pool = await queryRestDayRecoveryVideos(scheduledProgramIds);
-  if (pool.length === 0) return null;
 
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  const picked = shuffled.slice(0, 3);
-  while (picked.length < 3) picked.push(picked[picked.length - 1]);
+  const hasAnyAssessedDomain =
+    Object.keys(userProfile?.progression?.domains ?? {}).length > 0 ||
+    Object.keys(userProfile?.progression?.tracks ?? {}).length > 0;
+  if (!hasAnyAssessedDomain) return null;
 
-  const { labels } = await fetchTrioLabels();
-  const labelKeys: Array<keyof typeof labels.restDayLabels> = [
-    'option1Label', 'option2Label', 'option3Label',
-  ];
+  try {
+    const pool = await queryRestDayRecoveryVideos(scheduledProgramIds);
+    if (pool.length === 0) return null;
 
-  const location = (options.location ?? DEFAULT_LOCATION);
-  const daysInactive = calculateDaysInactive(userProfile);
-  const persona = userProfile ? mapPersonaIdToLifestylePersona(userProfile) : null;
-  const timeOfDay = detectTimeOfDay();
-  const context: RecoveryVideoWorkoutContext = { location, daysInactive, persona, timeOfDay };
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, 3);
+    while (picked.length < 3) picked.push(picked[picked.length - 1]);
 
-  const trio: WorkoutTrioOption[] = picked.map((ex, i) => ({
-    label: labels.restDayLabels[labelKeys[i]] ?? 'התאוששות',
-    result: buildRecoveryVideoWorkoutResult(ex, context, pool.length),
-  }));
+    const { labels, source: labelsSource } = await fetchTrioLabels();
+    const labelKeys: Array<keyof typeof labels.restDayLabels> = [
+      'option1Label', 'option2Label', 'option3Label',
+    ];
 
-  console.log(
-    `[WorkoutTrio] Rest-day fast path: ${trio.length} options from pool of ${pool.length} ` +
-    '(targeted query, full pipeline skipped)',
-  );
+    const location = (options.location ?? DEFAULT_LOCATION);
+    const daysInactive = calculateDaysInactive(userProfile);
+    const persona = userProfile ? mapPersonaIdToLifestylePersona(userProfile) : null;
+    const timeOfDay = detectTimeOfDay();
+    const context: RecoveryVideoWorkoutContext = { location, daysInactive, persona, timeOfDay };
 
-  return {
-    options: trio as [WorkoutTrioOption, WorkoutTrioOption, WorkoutTrioOption],
-    isRestDay: true,
-    labelsSource: 'firestore',
-    meta: {
-      daysInactive,
-      persona,
-      location,
-      timeOfDay,
-      injuryAreas: [],
-      exercisesConsidered: pool.length,
-      exercisesExcluded: 0,
-    },
-  };
+    const trio: WorkoutTrioOption[] = picked.map((ex, i) => ({
+      label: labels.restDayLabels[labelKeys[i]] ?? 'התאוששות',
+      result: buildRecoveryVideoWorkoutResult(ex, context, pool.length),
+    }));
+
+    console.log(
+      `[WorkoutTrio] Rest-day fast path: ${trio.length} options from pool of ${pool.length} ` +
+      '(targeted query, full pipeline skipped)',
+    );
+
+    return {
+      options: trio as [WorkoutTrioOption, WorkoutTrioOption, WorkoutTrioOption],
+      isRestDay: true,
+      labelsSource,
+      meta: {
+        daysInactive,
+        persona,
+        location,
+        timeOfDay,
+        injuryAreas: [],
+        exercisesConsidered: pool.length,
+        exercisesExcluded: 0,
+      },
+    };
+  } catch (error) {
+    console.error('[WorkoutTrio] Rest-day fast path failed — falling back to the full pipeline', error);
+    return null;
+  }
 }
 
 async function tryBuildRecoveryVideoTrio(
