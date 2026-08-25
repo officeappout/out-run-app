@@ -78,7 +78,18 @@ export async function POST(request: NextRequest) {
 
     const userRef = db.collection('users').doc(uid);
 
-    if (isNewUser) {
+    // `isNewUser` is client-supplied and must not be trusted for a branch that
+    // resets access-control fields (core.affiliations, core.accessLevel,
+    // core.unlockedProgramIds) — a returning user who lands back on this screen
+    // (e.g. adding a second onboarding track) sends isNewUser:true today with
+    // no server-side check, silently wiping their city affiliation and access
+    // level. core.name is the exact field this endpoint itself writes, so its
+    // presence on the existing doc is ground truth over the client's claim.
+    const existingSnap = await userRef.get();
+    const alreadyIdentified = !!existingSnap.data()?.core?.name;
+    const treatAsNewUser = isNewUser && !alreadyIdentified;
+
+    if (treatAsNewUser) {
       // Full onboarding create — set the onboarding scaffolding too.
       // merge:true preserves any fields set earlier (e.g. by gateway).
       batch.set(userRef, {
