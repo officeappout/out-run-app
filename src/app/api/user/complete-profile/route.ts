@@ -85,8 +85,18 @@ export async function POST(request: NextRequest) {
     // no server-side check, silently wiping their city affiliation and access
     // level. core.name is the exact field this endpoint itself writes, so its
     // presence on the existing doc is ground truth over the client's claim.
-    const existingSnap = await userRef.get();
-    const alreadyIdentified = !!existingSnap.data()?.core?.name;
+    //
+    // This read is a safety check, not a prerequisite — if it fails, fall back
+    // to trusting the client's isNewUser (pre-fix behavior) rather than failing
+    // the whole registration on a transient Firestore error. The common path
+    // stays fully protected; only this rare failure mode is no worse than before.
+    let alreadyIdentified = false;
+    try {
+      const existingSnap = await userRef.get();
+      alreadyIdentified = !!existingSnap.data()?.core?.name;
+    } catch (err) {
+      console.error('[complete-profile] existing-doc lookup failed, falling back to client isNewUser:', err);
+    }
     const treatAsNewUser = isNewUser && !alreadyIdentified;
 
     if (treatAsNewUser) {
