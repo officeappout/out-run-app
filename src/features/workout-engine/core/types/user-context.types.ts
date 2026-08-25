@@ -21,7 +21,15 @@ export type UserContextSurface = 'map' | 'home' | 'park_page' | 'post_workout' |
 
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 
-export type TodayGoal = 'strength' | 'run' | 'core' | 'active_recovery' | null;
+// 'recovery' (17.8 build-plan, Stage 4 — rest-day-aware ranking, 25.08.2026): was
+// 'active_recovery' — renamed to match the string every real generator already tags rest
+// content with (safety-net.generator.ts/recovery-follow-up.generator.ts's own
+// goalTags:['recovery',...]), confirmed as the only 2 producers/consumers of this exact
+// literal in the whole codebase before this rename (grepped) — 'active_recovery' had zero
+// real readers, so goalMatch()'s suggestion.goalTags.includes(context.todayGoal) could never
+// actually match anything on a rest day. Not a new field, not new logic — just fixing a
+// string mismatch that silently made an already-written mechanism inert.
+export type TodayGoal = 'strength' | 'run' | 'core' | 'recovery' | null;
 
 /** Physical place the user is currently in (PUSH-mode trigger input, §9.1). Not populated by
  *  any real source yet — needs the location/activity infra built in §11.7. */

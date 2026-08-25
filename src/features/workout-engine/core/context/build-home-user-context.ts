@@ -62,12 +62,23 @@ export interface BuildHomeUserContextInput {
    *  per this file's own header comment: surfaces must never diverge on the underlying
    *  context, only on this one tag. */
   surface?: UserContextSurface;
+  /**
+   * 17.8 build-plan, Stage 4 (25.08.2026): the day being VIEWED, not necessarily today —
+   * home/page.tsx's own selectedDate (week-strip / planner day-tap) can be a past or future
+   * day. Defaults to real `new Date()` (isTodayTrainingDay's own default) for every existing
+   * caller that doesn't pass one — byte-identical there. Only affects todayGoal below; every
+   * other field here (steps, recoveryState.daysInactive, etc.) stays real-now-relative on
+   * purpose — e.g. daysInactive genuinely means "days since your last real workout as of
+   * right now," not "as of the day you happen to be looking at."
+   */
+  date?: Date;
 }
 
 export function buildHomeUserContext({
   profile,
   location,
   surface = 'home',
+  date,
 }: BuildHomeUserContextInput): UserContext {
   const stepContext = buildStepContext(useActivityStore.getState().today);
 
@@ -80,9 +91,10 @@ export function buildHomeUserContext({
     todayGoal: isTodayTrainingDay(
       profile.lifestyle?.scheduleDays,
       profile.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,
+      date,
     )
       ? 'strength'
-      : 'active_recovery',
+      : 'recovery',
     stepGoal: stepContext.stepGoal,
     stepsToday: stepContext.stepsToday,
     stepsRemaining: stepContext.stepsRemaining,

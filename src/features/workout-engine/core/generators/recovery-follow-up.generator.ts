@@ -73,7 +73,11 @@ export async function buildRecoveryFollowUpWorkout(
 export const recoveryFollowUpGenerator: Generator = {
   id: 'recovery-follow-up',
   name: 'התאוששות',
-  surfaces: ['post_workout'],
+  // 'home' added (17.8 build-plan, Stage 4, 25.08.2026): rest-day-aware ranking on the home
+  // surface (todayGoal:'recovery' boosting goalMatch for goalTags:['recovery']) only has a
+  // real recovery suggestion to boost if this generator can actually run there —
+  // safety-net alone is a deliberately-medium generic fallback, not "the good one."
+  surfaces: ['post_workout', 'home'],
 
   eligible: () => useUserStore.getState().profile !== null,
 

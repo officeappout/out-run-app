@@ -835,8 +835,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED || !preWorkoutSuggestions) return;
     console.log(
-      '[home] pre-workout suggestions (Stage 3, surface:home):',
-      preWorkoutSuggestions.map((s) => s.generatorId),
+      '[home] pre-workout suggestions (Stage 3):',
+      preWorkoutSuggestions.map((s) => s.generatorId).join(', '),
     );
   }, [preWorkoutSuggestions]);
 

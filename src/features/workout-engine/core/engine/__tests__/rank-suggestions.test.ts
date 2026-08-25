@@ -128,3 +128,30 @@ describe('rankSuggestions — ordering', () => {
     expect(original.score).toBe(0);
   });
 });
+
+// 17.8 build-plan, Stage 4 (25.08.2026) — rest-day-aware ranking, downrank not block.
+// goalTags below mirror the real generators' own literal values (full-strength.generator.ts,
+// safety-net.generator.ts) rather than re-deriving them, so this stays a faithful proxy for
+// the real pipeline even though it never touches the generators/engine directly — the whole
+// point of testing at this layer is avoiding recoveryFollowUpGenerator's real, Firestore-
+// touching generate() now that it's 'home'-eligible too (see suggestion-engine.test.ts's own
+// comment on why it stopped testing this scenario through the real engine).
+describe('rankSuggestions — Stage 4 rest-day downranking', () => {
+  const fullStrengthLike = { ...baseSuggestion, id: 'full-strength', goalTags: ['strength'] };
+  const safetyNetLike = { ...baseSuggestion, id: 'safety-net', goalTags: ['recovery', 'walk'] };
+
+  it('todayGoal:"recovery" ranks safety-net-like above full-strength-like, without dropping either', () => {
+    const ctx = { ...baseContext, todayGoal: 'recovery' as const };
+    const ranked = rankSuggestions(ctx, [fullStrengthLike, safetyNetLike]);
+
+    expect(ranked.map((s) => s.id)).toEqual(['safety-net', 'full-strength']);
+    expect(ranked.find((s) => s.id === 'full-strength')).toBeDefined(); // downranked, not excluded
+  });
+
+  it('todayGoal:"strength" ranks full-strength-like above safety-net-like (training day, unchanged)', () => {
+    const ctx = { ...baseContext, todayGoal: 'strength' as const };
+    const ranked = rankSuggestions(ctx, [safetyNetLike, fullStrengthLike]);
+
+    expect(ranked.map((s) => s.id)).toEqual(['full-strength', 'safety-net']);
+  });
+});

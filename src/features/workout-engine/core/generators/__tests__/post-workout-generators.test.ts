@@ -35,8 +35,8 @@ function makeContext(overrides: Partial<UserContext> = {}): UserContext {
 }
 
 describe('recoveryFollowUpGenerator', () => {
-  it('declares post_workout only', () => {
-    expect(recoveryFollowUpGenerator.surfaces).toEqual(['post_workout']);
+  it('declares post_workout and home (17.8 Stage 4, 25.08.2026 — rest-day-aware ranking on home needs a real recovery generator eligible there, not just safety-net)', () => {
+    expect(recoveryFollowUpGenerator.surfaces).toEqual(['post_workout', 'home']);
   });
 
   it('does not self-check context.surface — relies on suggestion-engine.ts central enforcement', () => {

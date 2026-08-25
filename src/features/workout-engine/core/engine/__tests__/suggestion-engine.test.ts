@@ -13,11 +13,22 @@ import type { UserContext } from '../../types/user-context.types';
 // eligible: context => context.location !== null) ineligible, so their Firestore/network-
 // touching generate() never runs. fullStrengthGenerator itself has no location dependency,
 // and — with IS_CHEAP_SUGGESTION_RANKING_ENABLED true in this codebase today — its generate()
-// takes the cheap, zero-I/O branch (a synchronous read of the already-mocked profile), so
-// this test needs no Firestore/network mocking at all, matching the profile mock's own
-// documented convention (full-park-needs-assessment.test.ts) rather than the untested
-// generate()-with-real-I/O boundary post-workout-generators.test.ts documents for the other
-// generators.
+// takes the cheap, zero-I/O branch (a synchronous read of the already-mocked profile), matching
+// the profile mock's own documented convention (full-park-needs-assessment.test.ts) rather than
+// the untested generate()-with-real-I/O boundary post-workout-generators.test.ts documents for
+// the other generators.
+//
+// NOT zero-I/O for surface:'home' as of Stage 4 (25.08.2026): recoveryFollowUpGenerator's
+// surfaces grew to include 'home' (rest-day-aware ranking needs a real recovery generator
+// eligible there, not just safety-net — see recovery-follow-up.generator.ts), and its own
+// eligible() has no context-based escape (just profile !== null), so it's now unavoidably
+// eligible whenever this test's mocked profile is set. Its generate() calls the real
+// generateHomeWorkoutTrio, which fails fast with a graceful Firestore permission-denied catch
+// in this test environment (no hang, ~3.5s one-time SDK-init cost the first time any test in
+// this file exercises it) rather than genuinely completing — accepted as-is rather than adding
+// a broader generateHomeWorkoutTrio mock across this file for what's still a fast, reliable
+// pass. The surface:'map' test below stays genuinely zero-I/O: recoveryFollowUpGenerator was
+// never map-eligible.
 vi.mock('@/features/user/identity/store/useUserStore', () => ({
   useUserStore: {
     getState: () => ({
@@ -79,4 +90,13 @@ describe('runSuggestionEngine — surface:\'home\' reaches fullStrengthGenerator
   // Running it through here would also make recoveryFollowUpGenerator eligible (its
   // eligible() has no context-based escape, only `profile !== null`), triggering its real,
   // Firestore-touching generate() — outside this test file's deliberately zero-I/O design.
+  //
+  // For the same reason, the Stage 4 (25.08.2026) rest-day-ranking behavior — full-strength
+  // staying eligible but downranked below safety-net/recovery-follow-up when
+  // todayGoal:'recovery' — is proven in rank-suggestions.test.ts instead, against
+  // scoreSuggestion/rankSuggestions directly with hand-built Suggestion objects, NOT through
+  // this real engine: recoveryFollowUpGenerator is now 'home'-eligible too (see
+  // post-workout-generators.test.ts), and running it for real here would trigger its
+  // Firestore-touching generate() as an unintended side effect of an assertion that isn't
+  // even about that generator.
 });
