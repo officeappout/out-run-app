@@ -139,7 +139,12 @@ export default function DynamicOnboardingPage() {
       }
     };
 
-    if (!hasCompletedOnboarding()) {
+    // hasCompletedOnboarding() is whole-profile (strength-shaped) and has no
+    // concept of tracks — bypass it for the running track so a returning
+    // strength user (or a running user hitting Reset/Rebuild) can re-enter.
+    // The strength branch (isRunningTrackRender === false) is byte-identical
+    // to the pre-existing check below; nothing here changes for it.
+    if (isRunningTrackRender || !hasCompletedOnboarding()) {
       init();
     } else {
       router.replace('/home');
