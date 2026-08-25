@@ -865,36 +865,44 @@ export async function syncOnboardingToFirestore(
     // block (which does two awaited Firestore fetches + plan generation).
     // `runningAnswers` is reused verbatim by the RUNNING IMPROVEMENT BRIDGE
     // block further below instead of being recomputed.
+    //
+    // Declared outside the COMPLETED gate (so both blocks below can read them)
+    // but only ever populated inside it — every other block in this function
+    // scopes its work to `if (step === 'COMPLETED')`, and sessionStorage/JSON.parse
+    // work has no reason to run on JIT/partial-step calls (PERSONA, SCHEDULE, etc.).
     // ================================================================
     let runningAnswers: Record<string, string> | null = null;
-    if (typeof window !== 'undefined') {
-      try {
-        const storedRunning = sessionStorage.getItem('onboarding_running_answers');
-        if (storedRunning) {
-          runningAnswers = JSON.parse(storedRunning);
-        }
-      } catch (e) {
-        console.warn('[OnboardingSync] Could not parse running answers:', e);
-      }
-    }
-    // Inject weeklyFrequency from RunningScheduleStep (single source of truth).
-    // The bridge's parseAnswers expects a number, so we pass a numeric value.
-    if (runningAnswers && (data as any).runningWeeklyFrequency !== undefined) {
-      (runningAnswers as any).weeklyFrequency = Number((data as any).runningWeeklyFrequency);
-    }
-    // Inject user-selected plan length from PlanLengthStep (overrides resolveWeeks)
-    if (runningAnswers) {
-      try {
-        const storedAnswers = sessionStorage.getItem('onboarding_running_answers');
-        if (storedAnswers) {
-          const parsed = JSON.parse(storedAnswers);
-          if (typeof parsed.runningPlanWeeks === 'number') {
-            (runningAnswers as any).runningPlanWeeks = parsed.runningPlanWeeks;
+    let runningBranchWillComplete = false;
+    if (step === 'COMPLETED') {
+      if (typeof window !== 'undefined') {
+        try {
+          const storedRunning = sessionStorage.getItem('onboarding_running_answers');
+          if (storedRunning) {
+            runningAnswers = JSON.parse(storedRunning);
           }
+        } catch (e) {
+          console.warn('[OnboardingSync] Could not parse running answers:', e);
         }
-      } catch {}
+      }
+      // Inject weeklyFrequency from RunningScheduleStep (single source of truth).
+      // The bridge's parseAnswers expects a number, so we pass a numeric value.
+      if (runningAnswers && (data as any).runningWeeklyFrequency !== undefined) {
+        (runningAnswers as any).weeklyFrequency = Number((data as any).runningWeeklyFrequency);
+      }
+      // Inject user-selected plan length from PlanLengthStep (overrides resolveWeeks)
+      if (runningAnswers) {
+        try {
+          const storedAnswers = sessionStorage.getItem('onboarding_running_answers');
+          if (storedAnswers) {
+            const parsed = JSON.parse(storedAnswers);
+            if (typeof parsed.runningPlanWeeks === 'number') {
+              (runningAnswers as any).runningPlanWeeks = parsed.runningPlanWeeks;
+            }
+          }
+        } catch {}
+      }
+      runningBranchWillComplete = !!(runningAnswers && isRunningBranchCompleted(runningAnswers));
     }
-    const runningBranchWillComplete = !!(runningAnswers && isRunningBranchCompleted(runningAnswers));
 
     // ================================================================
     // PROGRAM & LEVEL ASSIGNMENT (on COMPLETED)
