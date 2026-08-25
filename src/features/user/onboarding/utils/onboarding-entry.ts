@@ -53,6 +53,24 @@ function backfillPersonalSessionStorage(profile: UserFullProfile | null | undefi
 }
 
 /**
+ * Seeds gateway_track and backfills the sessionStorage identity fields for a
+ * caller that already navigates to a fixed target (a static href or a known
+ * route) rather than needing one resolved — RunForecastWidget,
+ * StrengthVolumeWidget, PerformanceMetricsRow, StatsOverview's Reset/Rebuild.
+ * These surfaces only render for a user with an already-established program
+ * (dashboardMode/hasStrengthSurvey/hasRunSurvey gates upstream), so identity
+ * is always known in practice — this just prepares the same side effects
+ * resolveOnboardingEntryHref would, without the href-resolution branch.
+ */
+export function seedOnboardingTrackEntry(
+  profile: UserFullProfile | null | undefined,
+  track: OnboardingTrack,
+): void {
+  setOnboardingPref('gateway_track', track);
+  backfillPersonalSessionStorage(profile);
+}
+
+/**
  * Resolves where an "add/complete a track" CTA should navigate, seeding
  * gateway_track (the signal program-path/dynamic read to pick a branch) as a
  * side effect. Known identity → skip straight to the track's next step
@@ -64,12 +82,11 @@ export function resolveOnboardingEntryHref(
   profile: UserFullProfile | null | undefined,
   track: OnboardingTrack,
 ): string {
-  setOnboardingPref('gateway_track', track);
+  seedOnboardingTrackEntry(profile, track);
 
   if (!hasKnownIdentity(profile)) {
     return '/onboarding-new/profile';
   }
 
-  backfillPersonalSessionStorage(profile);
   return track === 'RUNNING' ? '/onboarding-new/dynamic' : '/onboarding-new/program-path';
 }

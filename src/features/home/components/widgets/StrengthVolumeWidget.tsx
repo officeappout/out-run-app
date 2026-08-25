@@ -12,6 +12,7 @@ import React, { useMemo } from 'react';
 import { Dumbbell } from 'lucide-react';
 import { useWeeklyProgress } from '@/features/activity';
 import { useUserStore } from '@/features/user';
+import { seedOnboardingTrackEntry } from '@/features/user/onboarding/utils/onboarding-entry';
 import { getProgramIcon } from '@/features/content/programs';
 import { SegmentedBar } from './SegmentedBar';
 import { SessionBarRow } from './SessionBarRow';
@@ -126,6 +127,7 @@ export function StrengthVolumeWidget({
             </p>
             <a
               href="/onboarding-new/program-path?track=strength"
+              onClick={() => seedOnboardingTrackEntry(profile, 'STRENGTH')}
               className="text-xs font-bold text-[#5BC2F2] hover:underline"
             >
               להגיע ל-100% →

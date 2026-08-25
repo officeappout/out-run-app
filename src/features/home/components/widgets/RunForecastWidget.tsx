@@ -14,6 +14,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Timer, Trophy, TrendingUp, Footprints } from 'lucide-react';
 import { useUserStore } from '@/features/user';
+import { seedOnboardingTrackEntry } from '@/features/user/onboarding/utils/onboarding-entry';
 
 // ============================================================================
 // TYPES
@@ -134,6 +135,7 @@ export function RunForecastWidget({
           </p>
           <a
             href="/onboarding-new/dynamic"
+            onClick={() => seedOnboardingTrackEntry(profile, 'RUNNING')}
             className="text-xs font-bold text-orange-500 hover:underline"
           >
             להגיע ל-100% →
