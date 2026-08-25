@@ -34,6 +34,11 @@ import { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
 import { resolveTabataFinisher, type TabataCandidate } from './tabata-finisher.utils';
 import { genPerfMark, isGenVerboseEnabled } from '@/lib/gen-perf';
+import {
+  queryRestDayRecoveryVideos,
+  buildRecoveryVideoWorkoutResult,
+  type RecoveryVideoWorkoutContext,
+} from './recovery-video-content.service';
 
 // -- Engine imports --
 import {
@@ -390,6 +395,66 @@ export function buildNeedsAssessmentResult(
  * via the teal Recovery Settings panel in `BasicsSection.tsx`, which warns when
  * either field is missing on the first execution method.
  */
+/**
+ * Rest-day fast path (25.08.2026, 17.8 build-plan): tries a targeted recovery-video query
+ * BEFORE the full shared pipeline runs — see generateHomeWorkoutTrio's own call site and
+ * recovery-video-content.service.ts's header for the measured performance motivation. Returns
+ * null (falls through unchanged to the existing pipeline — tryBuildRecoveryVideoTrio below,
+ * then Budget Floor, then REST_DAY_CONFIGS) when nothing qualifies.
+ *
+ * This function itself is a disposable legacy-shape adapter, NOT the reusable part: it pads to
+ * exactly 3 options because HomeWorkoutTrioResult.options is a fixed 3-tuple today
+ * (WorkoutSelectionCarousel's current contract) — the two genuinely reusable pieces
+ * (queryRestDayRecoveryVideos, buildRecoveryVideoWorkoutResult) live in
+ * recovery-video-content.service.ts, shaped so a future recovery-video.generator.ts can call
+ * them directly without this padding step.
+ */
+async function tryRestDayFastPath(options: HomeWorkoutOptions): Promise<HomeWorkoutTrioResult | null> {
+  const { scheduledProgramIds = [], userProfile } = options;
+  const pool = await queryRestDayRecoveryVideos(scheduledProgramIds);
+  if (pool.length === 0) return null;
+
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const picked = shuffled.slice(0, 3);
+  while (picked.length < 3) picked.push(picked[picked.length - 1]);
+
+  const { labels } = await fetchTrioLabels();
+  const labelKeys: Array<keyof typeof labels.restDayLabels> = [
+    'option1Label', 'option2Label', 'option3Label',
+  ];
+
+  const location = (options.location ?? DEFAULT_LOCATION);
+  const daysInactive = calculateDaysInactive(userProfile);
+  const persona = userProfile ? mapPersonaIdToLifestylePersona(userProfile) : null;
+  const timeOfDay = detectTimeOfDay();
+  const context: RecoveryVideoWorkoutContext = { location, daysInactive, persona, timeOfDay };
+
+  const trio: WorkoutTrioOption[] = picked.map((ex, i) => ({
+    label: labels.restDayLabels[labelKeys[i]] ?? 'התאוששות',
+    result: buildRecoveryVideoWorkoutResult(ex, context, pool.length),
+  }));
+
+  console.log(
+    `[WorkoutTrio] Rest-day fast path: ${trio.length} options from pool of ${pool.length} ` +
+    '(targeted query, full pipeline skipped)',
+  );
+
+  return {
+    options: trio as [WorkoutTrioOption, WorkoutTrioOption, WorkoutTrioOption],
+    isRestDay: true,
+    labelsSource: 'firestore',
+    meta: {
+      daysInactive,
+      persona,
+      location,
+      timeOfDay,
+      injuryAreas: [],
+      exercisesConsidered: pool.length,
+      exercisesExcluded: 0,
+    },
+  };
+}
+
 async function tryBuildRecoveryVideoTrio(
   allExercises: Exercise[],
   options: HomeWorkoutOptions,
@@ -590,6 +655,15 @@ export async function generateHomeWorkoutTrio(
   options: HomeWorkoutOptions,
 ): Promise<HomeWorkoutTrioResult> {
   const isRestDay = options.isScheduledRestDay || options.isRecoveryDay || false;
+
+  // Rest-day fast path (25.08.2026): try a targeted recovery-video query before paying for the
+  // full shared pipeline below — measured ~2414ms -> ~1050-1100ms when a tagged video exists.
+  // See tryRestDayFastPath's own doc comment + recovery-video-content.service.ts for the full
+  // reasoning. Falls through unchanged (returns null) when nothing qualifies.
+  if (isRestDay) {
+    const fastPathResult = await tryRestDayFastPath(options);
+    if (fastPathResult) return fastPathResult;
+  }
 
   console.group(`[WorkoutTrio] Generating 3 options — ${isRestDay ? 'REST DAY' : 'TRAINING DAY'}`);
 
