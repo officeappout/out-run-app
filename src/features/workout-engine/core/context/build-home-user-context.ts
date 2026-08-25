@@ -53,6 +53,39 @@ import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { detectTimeOfDay, detectWorkdayState } from '../../services/workout-metadata.service';
 import { calculateDaysInactive } from '../../services/user-profile.utils';
 import { isTodayTrainingDay } from '@/features/home/utils/dailyStrengthTarget';
+import { summarizeTodayStrengthVolume } from '@/features/home/utils/todayStrengthVolume';
+import { useWeeklyVolumeStore } from '../store/useWeeklyVolumeStore';
+import { buildUserProgramLevels } from '../../services/level-resolution.utils';
+import { getDefaultVolumeTarget } from '../../services/lead-program.service';
+
+const FULL_BODY_DOMAINS = ['push', 'pull', 'legs', 'core'] as const;
+
+/**
+ * todayCompletedDomains (17.8 build-plan Section 1/Step 0, 25.08.2026) — see this field's own
+ * doc comment on UserContext for the full "cheap approximation, ranking-only" rationale.
+ *
+ * Deliberately synchronous, matching this whole builder's contract: buildUserProgramLevels is
+ * called with an EMPTY masterProgramIds set (normally sourced from getCachedPrograms(), an
+ * async call) rather than the real one — safe here because that set is only used to EXCLUDE
+ * master-program entries (e.g. 'full_body') from the returned map, and none of push/pull/legs/
+ * core is ever itself a master-program id, so the 4 keys this function actually reads are
+ * unaffected by the omission. getDefaultVolumeTarget(level) is the same synchronous fallback
+ * resolveAggregateFullBodyBudget itself already falls back to when no program-specific
+ * Firestore override applies — not a new heuristic invented for this.
+ */
+function resolveTodayCompletedDomains(profile: UserFullProfile): string[] {
+  const { byDomain } = summarizeTodayStrengthVolume(useWeeklyVolumeStore.getState().sessionLogs);
+  const { levels: userProgramLevels } = buildUserProgramLevels(profile, new Set(), '[HomeContext]');
+  const scheduleDays = (profile.lifestyle?.scheduleDays?.length ?? 0) || 3;
+
+  return FULL_BODY_DOMAINS.filter((domain) => {
+    const level = userProgramLevels.get(domain);
+    if (level == null) return false; // never assessed — absent=absent, no invented target
+    const dailyApprox = Math.ceil(getDefaultVolumeTarget(level) / scheduleDays);
+    const completed = byDomain[domain] ?? 0;
+    return completed >= dailyApprox;
+  });
+}
 
 export interface BuildHomeUserContextInput {
   profile: UserFullProfile;
@@ -88,6 +121,7 @@ export function buildHomeUserContext({
     domainLevels: {},
     weeklyPerformance: { trainedDomainsThisWeek: [], neglectedDomains: [], totalSetsCompleted: 0, weeklyBudget: 0 },
     recoveryState: { isDetrainingLocked: false, daysInactive: calculateDaysInactive(profile) },
+    todayCompletedDomains: resolveTodayCompletedDomains(profile),
     todayGoal: isTodayTrainingDay(
       profile.lifestyle?.scheduleDays,
       profile.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,

@@ -107,6 +107,21 @@ export interface UserContext {
   todayGoal: TodayGoal;
 
   /**
+   * Domains ('push'|'pull'|'legs'|'core') whose approximate daily volume target is already met
+   * today (17.8 build-plan Section 1/Step 0, 25.08.2026). RANKING-ONLY signal — deliberately a
+   * cheap approximation (getDefaultVolumeTarget, not the real per-program Firestore override
+   * resolveAggregateFullBodyBudget would use), computed synchronously in build-home-user-
+   * context.ts from data already free at that call site (summarizeTodayStrengthVolume's
+   * byDomain + buildUserProgramLevels, both synchronous). Used to downrank — never block —
+   * domain-matching generators once a domain is already sufficiently trained today (David: a
+   * hard block leaves no room for "move a missed workout up" or similar). The exact number, if
+   * ever needed for real display copy, is recomputed via the authoritative
+   * resolveAggregateFullBodyBudget only for whichever suggestion actually wins ranking, never
+   * here — same "cheap for ranking, exact for the winner" split as the rest of this plan.
+   */
+  todayCompletedDomains: string[];
+
+  /**
    * NOT in the doc's §4.1 table — a real gap discovered while building the first generator
    * translator (§11.3, route.generator.ts): every existing generator (home-workout's
    * `availableTime`, hybrid's `timeBudgetMin`) requires a session-duration input, and §4.1

@@ -48,6 +48,10 @@ export function buildMapUserContext({
     domainLevels: {},
     weeklyPerformance: { trainedDomainsThisWeek: [], neglectedDomains: [], totalSetsCompleted: 0, weeklyBudget: 0 },
     recoveryState: { isDetrainingLocked: false, daysInactive: 0 },
+    // Map surface doesn't compute this (17.8 build-plan Section 1/Step 0 was scoped to home) —
+    // [] is a safe, neutral default: alreadyTrained() (rank-suggestions.ts) simply no-ops when
+    // empty, same as today's map ranking behavior before this factor existed.
+    todayCompletedDomains: [],
     todayGoal: slotActivity === 'running' ? 'run' : null,
     stepGoal: stepContext.stepGoal,
     stepsToday: stepContext.stepsToday,

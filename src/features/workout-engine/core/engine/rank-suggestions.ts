@@ -123,6 +123,35 @@ function timeOfDayMatch(_context: UserContext, _suggestion: Suggestion): number 
   return 0;
 }
 
+const FULL_BODY_DOMAINS = ['push', 'pull', 'legs', 'core'];
+
+/**
+ * alreadyTrained — NOT one of the doc's original 8 §8.1 factors (17.8 build-plan Section
+ * 1/Step 0, 25.08.2026 addition): downranks, never blocks, a strength suggestion once
+ * context.todayCompletedDomains says the relevant domain(s) are already approximately trained
+ * today (see that field's own UserContext doc comment for the "cheap approximation, ranking-
+ * only" reasoning — full-strength.generator.ts's eligible() is deliberately untouched, this is
+ * ranking-only). Two shapes, because generators tag domains differently:
+ *   - Domain-specific (e.g. a future partial-completion-style generator with
+ *     goalTags:['strength', 'push']) — penalized only if THAT domain is already covered.
+ *   - Generic full-body (full-strength.generator.ts's goalTags:['strength'], no domain tag) —
+ *     penalized proportionally to how many of the 4 domains are already covered; a suggestion
+ *     covering the whole body loses more value the more of that body is already done, but
+ *     never goes to zero from this factor alone while any domain remains uncovered.
+ */
+function alreadyTrained(context: UserContext, suggestion: Suggestion): number {
+  if (!suggestion.goalTags.includes('strength')) return 0;
+  if (context.todayCompletedDomains.length === 0) return 0;
+
+  const specificDomain = suggestion.goalTags.find((tag) => FULL_BODY_DOMAINS.includes(tag));
+  if (specificDomain) {
+    return context.todayCompletedDomains.includes(specificDomain) ? -RANK_WEIGHTS.alreadyTrained : 0;
+  }
+
+  const coverageRatio = context.todayCompletedDomains.length / FULL_BODY_DOMAINS.length;
+  return -RANK_WEIGHTS.alreadyTrained * coverageRatio;
+}
+
 export function scoreSuggestion(context: UserContext, suggestion: Suggestion): ScoreBreakdown {
   return {
     goalMatch: goalMatch(context, suggestion),
@@ -132,6 +161,7 @@ export function scoreSuggestion(context: UserContext, suggestion: Suggestion): S
     recoveryMatch: recoveryMatch(context, suggestion),
     locationBonus: locationBonus(context, suggestion),
     timeOfDayMatch: timeOfDayMatch(context, suggestion),
+    alreadyTrained: alreadyTrained(context, suggestion),
   };
 }
 

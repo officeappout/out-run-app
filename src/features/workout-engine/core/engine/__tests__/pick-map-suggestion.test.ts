@@ -10,6 +10,7 @@ const baseContext: UserContext = {
   domainLevels: {},
   weeklyPerformance: { trainedDomainsThisWeek: [], neglectedDomains: [], totalSetsCompleted: 0, weeklyBudget: 0 },
   recoveryState: { isDetrainingLocked: false, daysInactive: 0 },
+  todayCompletedDomains: [],
   todayGoal: null,
   stepGoal: 8000,
   stepsToday: 0,
@@ -40,7 +41,7 @@ const baseSuggestion: Suggestion = {
   score: 0,
   scoreBreakdown: {
     goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0,
-    recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0,
+    recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0, alreadyTrained: 0,
   },
 };
 

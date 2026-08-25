@@ -109,7 +109,7 @@ export const recoveryFollowUpGenerator: Generator = {
       score: 0,
       scoreBreakdown: {
         goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0,
-        recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0,
+        recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0, alreadyTrained: 0,
       },
     };
   },

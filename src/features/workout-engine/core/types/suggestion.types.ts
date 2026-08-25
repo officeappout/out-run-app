@@ -37,6 +37,9 @@ export interface ScoreBreakdown {
   recoveryMatch: number;
   locationBonus: number;
   timeOfDayMatch: number;
+  /** Not one of the doc's original 8 §8.1 factors — see rank-suggestions.ts's own
+   *  alreadyTrained() (17.8 build-plan Section 1/Step 0, 25.08.2026). */
+  alreadyTrained: number;
   [factor: string]: number;
 }
 

@@ -23,6 +23,7 @@ const ctx = (overrides: Partial<UserContext> = {}): UserContext => ({
   domainLevels: {},
   weeklyPerformance: { trainedDomainsThisWeek: [], neglectedDomains: [], totalSetsCompleted: 0, weeklyBudget: 0 },
   recoveryState: { isDetrainingLocked: false, daysInactive: 0 },
+  todayCompletedDomains: [],
   todayGoal: null,
   stepGoal: 0, stepsToday: 0, stepsRemaining: 0,
   availableTimeMin: 30,

@@ -45,6 +45,7 @@ function makeContext(overrides: Partial<UserContext> = {}): UserContext {
     domainLevels: {},
     weeklyPerformance: { trainedDomainsThisWeek: [], neglectedDomains: [], totalSetsCompleted: 0, weeklyBudget: 0 },
     recoveryState: { isDetrainingLocked: false, daysInactive: 0 },
+    todayCompletedDomains: [],
     todayGoal: null,
     stepGoal: 8000,
     stepsToday: 0,

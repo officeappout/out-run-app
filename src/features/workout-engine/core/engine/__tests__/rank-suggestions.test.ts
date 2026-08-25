@@ -10,6 +10,7 @@ const baseContext: UserContext = {
   domainLevels: {},
   weeklyPerformance: { trainedDomainsThisWeek: [], neglectedDomains: [], totalSetsCompleted: 0, weeklyBudget: 0 },
   recoveryState: { isDetrainingLocked: false, daysInactive: 0 },
+  todayCompletedDomains: [],
   todayGoal: null,
   stepGoal: 8000,
   stepsToday: 0,
@@ -40,7 +41,7 @@ const baseSuggestion: Suggestion = {
   score: 0,
   scoreBreakdown: {
     goalMatch: 0, gapFilling: 0, stepDeficit: 0, preferenceMatch: 0,
-    recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0,
+    recoveryMatch: 0, locationBonus: 0, timeOfDayMatch: 0, alreadyTrained: 0,
   },
 };
 
@@ -106,6 +107,30 @@ describe('scoreSuggestion — per-factor', () => {
     expect(scoreSuggestion(ctx, { ...baseSuggestion, difficulty: 2 }).preferenceMatch).toBe(RANK_WEIGHTS.preferenceMatch);
     // only one of two hits -> half weight
     expect(scoreSuggestion(ctx, { ...baseSuggestion, difficulty: 3 }).preferenceMatch).toBeCloseTo(RANK_WEIGHTS.preferenceMatch * 0.5);
+  });
+
+  it('alreadyTrained: 0 when no domains completed today, or suggestion has no strength tag', () => {
+    expect(scoreSuggestion(baseContext, baseSuggestion).alreadyTrained).toBe(0); // todayCompletedDomains: []
+    const someDomainsDone = { ...baseContext, todayCompletedDomains: ['push', 'pull'] };
+    const walkSuggestion = { ...baseSuggestion, goalTags: ['walk'] };
+    expect(scoreSuggestion(someDomainsDone, walkSuggestion).alreadyTrained).toBe(0);
+  });
+
+  it('alreadyTrained: domain-specific suggestion penalized only if its own domain is covered', () => {
+    const pushDone = { ...baseContext, todayCompletedDomains: ['push'] };
+    const pushSuggestion = { ...baseSuggestion, goalTags: ['strength', 'push'] };
+    const legsSuggestion = { ...baseSuggestion, goalTags: ['strength', 'legs'] };
+
+    expect(scoreSuggestion(pushDone, pushSuggestion).alreadyTrained).toBe(-RANK_WEIGHTS.alreadyTrained);
+    expect(scoreSuggestion(pushDone, legsSuggestion).alreadyTrained).toBe(0);
+  });
+
+  it('alreadyTrained: generic full-body suggestion penalized proportionally to domain coverage', () => {
+    const twoDone = { ...baseContext, todayCompletedDomains: ['push', 'pull'] };
+    const allFourDone = { ...baseContext, todayCompletedDomains: ['push', 'pull', 'legs', 'core'] };
+
+    expect(scoreSuggestion(twoDone, baseSuggestion).alreadyTrained).toBeCloseTo(-RANK_WEIGHTS.alreadyTrained * 0.5);
+    expect(scoreSuggestion(allFourDone, baseSuggestion).alreadyTrained).toBeCloseTo(-RANK_WEIGHTS.alreadyTrained);
   });
 });
 
