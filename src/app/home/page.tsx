@@ -1157,9 +1157,28 @@ export default function HomePage() {
       if (!workout) return;
 
       if (suggestion.generatorId === 'recovery-follow-up' && HOME_RECOVERY_START_SHORTCUT_ENABLED) {
+        // No activityType arg (defaults to 'unknown') — a recovery video is neither of the two
+        // documented categories ('running' strips equipment from the requirements list;
+        // 'strength' keeps it), so 'unknown' is the honest default rather than mislabeling it
+        // 'strength'. Functionally identical either way today: useRequiredSetup.ts's
+        // checkRequirements only branches on 'running'.
         interceptWorkoutStart(() => {
+          // handleRecoveryShortcutStartRef is the SAME useWorkoutSession instance the anchor
+          // card's own recovery-video-trio shortcut uses (handleHeroPress below) — its
+          // `workout.id` is recoveryShortcutWorkoutId (date+profile-scoped), not derived from
+          // this suggestion.id. Sharing that id with the anchor's shortcut is safe, not
+          // accidental: useWorkoutSession's handleStartWorkout builds `currentWorkoutPlan`
+          // fresh from the EXPLICIT override argument passed here (`workout`, this
+          // suggestion's own resolved GeneratedWorkout) every time — the id is only a
+          // sessionStorage key / URL segment / last-resort Firestore-lookup key, never the
+          // source of which content gets shown. Both entry points also genuinely target the
+          // same underlying thing (today's rest-day recovery video, same profile, same
+          // generateHomeWorkoutTrio({isRecoveryDay:true}) pipeline) — a shared id reflects
+          // that correctly rather than colliding two unrelated sessions. In a single browser
+          // tab, whichever card the user taps last simply overwrites sessionStorage and
+          // navigates immediately after, so there is no concurrent-write race either.
           handleRecoveryShortcutStartRef.current(workout);
-        }, 'strength');
+        });
         return;
       }
 
