@@ -32,6 +32,7 @@
 
 import type { UserFullProfile } from '../../core/types/user.types';
 import type { OnboardingStepId } from '../../onboarding/types';
+import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 
 // ============================================================================
 // TYPES
@@ -127,9 +128,7 @@ export function calculateProfileCompletion(
     {
       id: 'health',
       label: 'הצהרת בריאות',
-      completed:
-        !!(profile as any)?.healthDeclarationAccepted ||
-        !!(profile.health as any)?.healthDeclarationAccepted,
+      completed: hasAcceptedHealthDeclaration(profile as any),
       weight: 5,
       bucket: 'basic',
       step: 'HEALTH_DECLARATION',

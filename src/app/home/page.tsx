@@ -40,6 +40,7 @@ import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import StatsOverview, { type BuilderContext, type TrioSelector } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
@@ -969,10 +970,7 @@ export default function HomePage() {
   // Health declaration check
   const isHealthMissing = (() => {
     if (!profile) return false;
-    const healthAccepted =
-      (profile as any)?.healthDeclarationAccepted ||
-      (profile.health as any)?.healthDeclarationAccepted;
-    return !healthAccepted;
+    return !hasAcceptedHealthDeclaration(profile as any);
   })();
 
   // Dev Mode

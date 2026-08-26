@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -11,18 +11,38 @@ import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardi
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
+import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 
 export default function HealthDeclarationPage() {
   const router = useRouter();
-  const { refreshProfile } = useUserStore();
+  const { profile, refreshProfile } = useUserStore();
   const { data: onboardingData } = useOnboardingStore();
   const [mounted, setMounted] = useState(false);
+  const autoSkipStartedRef = useRef(false);
 
   const isRunningTrack = getOnboardingPref('gateway_track') === 'RUNNING';
+
+  // Already accepted (e.g. via the other track's onboarding) — skip this
+  // screen silently rather than asking again. Matches the existing
+  // precedent at OnboardingWizard.tsx's HEALTH_DECLARATION auto-skip effect,
+  // useRequiredSetup.ts's hard-block check, and profile-completion.service.ts's
+  // "health" completion item — none of those show a confirmation screen
+  // either, they just treat it as already satisfied.
+  const alreadyAccepted = !!profile && hasAcceptedHealthDeclaration(profile as any);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fires the same completion sync + navigation handleContinue's own submit
+  // path would, without re-rendering HealthDeclarationStep (which would
+  // re-collect a signature/PDF the user already provided the first time).
+  useEffect(() => {
+    if (!mounted || !alreadyAccepted || autoSkipStartedRef.current) return;
+    autoSkipStartedRef.current = true;
+    handleContinue(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, alreadyAccepted]);
 
   const handleContinue = async (_value: boolean) => {
     try {
@@ -89,7 +109,11 @@ export default function HealthDeclarationPage() {
     }
   };
 
-  if (!mounted) {
+  // alreadyAccepted also gates the render (not just the effect above) — the
+  // effect only starts the async handleContinue, it doesn't run
+  // synchronously with this render, so without this check the real form
+  // would still flash for a frame before the skip takes over.
+  if (!mounted || alreadyAccepted) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center">
         <div className="text-slate-500">טוען...</div>
