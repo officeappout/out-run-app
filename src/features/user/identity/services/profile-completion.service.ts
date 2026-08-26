@@ -16,18 +16,24 @@
  *     F. Account        =  0%  (delayed — post-first-workout)
  *     G. GPS Access     =  5%
  *
- *   STRENGTH TRACK (35%)                 — always counted
+ *   STRENGTH TRACK (35%)         — counted only when the user has a strength track
  *     G. Goals          = 10%
  *     H. Persona        = 10%
  *     I. Schedule       = 10%
  *     J. Equipment      =  5%
  *
- *   RUNNING TRACK (35%)                  — counted only when enableRunningPrograms = true
+ *   RUNNING TRACK (35%)          — counted only when enableRunningPrograms = true
+ *                                  AND the user has a running track
  *     K. Running Plan   = 20%
  *     L. Running Pace   = 15%
  *   ─────────────────────────────────────
- *   When running is disabled: 100% = Basic (30) + Strength (35) × normalised to 100.
- *   The weights are re-normalised so a strength-only user can always reach 100%.
+ *   Track ownership (does this specific user have a strength/running track at
+ *   all) is symmetric and independent of which track is excluded — a
+ *   running-only user never sees the strength bucket, a strength-only user
+ *   never sees the running bucket, and a user with both sees both. The
+ *   weights are re-normalised (see rawMax/scaleFactor below) so each
+ *   population can always reach 100% on exactly what applies to them —
+ *   never held to items they have no track for and no way to complete.
  */
 
 import type { UserFullProfile } from '../../core/types/user.types';
@@ -221,13 +227,41 @@ export function calculateProfileCompletion(
     },
   ];
 
-  // Filter items based on active flags
-  const items = enableRunningPrograms
-    ? allItems
-    : allItems.filter((i) => i.bucket !== 'running');
+  // Track ownership — the existing source of truth already used elsewhere in
+  // this exact file/codebase for each track, not invented here:
+  //   - Strength: profile.progression.domains non-empty is the SAME check
+  //     the 'goals' item above already uses as its own completed signal —
+  //     the earliest strength-track evidence available on the profile (set
+  //     right after the assessment step, before persona/schedule/equipment
+  //     are even reachable in the live flow).
+  //   - Running: profile.running.isUnlocked is the canonical flag for this
+  //     exact purpose (RunningProfile.isUnlocked — "is running unlocked for
+  //     this user"), set by the running bridge in onboarding-sync.service.ts
+  //     alongside activeProgram/paceProfile. There is no earlier live signal
+  //     for "started but not finished" running onboarding on the profile —
+  //     an abandoned mid-flow attempt is indistinguishable from never having
+  //     started, on both tracks equally (progression.domains is the one
+  //     partial exception, since it's set slightly before the rest of the
+  //     strength items).
+  const hasStrengthTrack = !!(
+    profile.progression?.domains && Object.keys(profile.progression.domains).length > 0
+  );
+  const hasRunningTrack = !!(profile.running as any)?.isUnlocked;
 
-  // When running is excluded, re-normalise so the max possible = 100
-  // Basic (30) + Strength (35) = 65 raw → scale factor = 100/65
+  // Filter items based on active flags AND per-user track ownership — a
+  // bucket only counts (numerator or denominator) for a user who actually
+  // has that track. Symmetric in both directions; weights themselves are
+  // untouched, only membership in `items` changes.
+  const items = allItems.filter((i) => {
+    if (i.bucket === 'running') return enableRunningPrograms && hasRunningTrack;
+    if (i.bucket === 'strength') return hasStrengthTrack;
+    return true;
+  });
+
+  // Whatever buckets survived the filter above, re-normalise so the max
+  // possible always = 100 — e.g. Basic (30) + Strength (35) = 65 raw for a
+  // strength-only user → scale factor 100/65; Basic (30) alone = 30 raw for
+  // a user with neither track yet → scale factor 100/30.
   const rawMax = items.reduce((sum, i) => sum + i.weight, 0);
   const scaleFactor = rawMax > 0 ? 100 / rawMax : 1;
 

@@ -97,21 +97,19 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
+  // calculateProfileCompletion now excludes the strength bucket from
+  // completion.items itself for a user without a strength track (same
+  // profile.progression.domains check this component used to duplicate
+  // locally as `hasProgram` to filter a separate `visibleItems` list) — the
+  // percentage and the displayed checklist are computed from the same
+  // filtered set, so they can no longer disagree the way they used to
+  // (a running-only user seeing every displayed item checked, but the
+  // percentage still short because strength items counted against them
+  // invisibly). completion.items is now correct to render directly.
   const completion = useMemo(
     () => calculateProfileCompletion(profile),
     [profile],
   );
-
-  // Pre-registration users (no strength program yet) shouldn't see the strength
-  // setup items — they're redundant entries into the questionnaire the always-
-  // visible Hero already offers. Hide the strength bucket; keep basic-info items.
-  // They return once a program exists.
-  const hasProgram = !!(
-    profile.progression?.domains && Object.keys(profile.progression.domains).length > 0
-  );
-  const visibleItems = hasProgram
-    ? completion.items
-    : completion.items.filter((i) => i.bucket !== 'strength');
 
   if (completion.isVerified || completion.percentage >= 100) return null;
 
@@ -177,7 +175,7 @@ function ProfileProgressBar({ profile }: { profile: UserFullProfile }) {
             className="overflow-hidden bg-white border-b border-slate-100"
           >
             <div className="px-4 py-3 space-y-1.5">
-              {visibleItems.map((item) => (
+              {completion.items.map((item) => (
                 <div key={item.id} className="flex items-center gap-2.5 py-1.5">
                   {item.completed ? (
                     <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
