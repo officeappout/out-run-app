@@ -78,6 +78,7 @@ import { buildHomeUserContext } from '@/features/workout-engine/core/context/bui
 import { suggestionToGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-post-workout-suggestion';
 import { suggestionToHomeGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-home-suggestion';
 import { resolveFullStrengthWorkout } from '@/features/workout-engine/core/generators/full-strength.generator';
+import { resolveRouteWorkout } from '@/features/workout-engine/core/generators/route.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
 import { PreWorkoutCardRenderer } from '@/features/home/components/PreWorkoutCardRenderer';
@@ -832,11 +833,26 @@ export default function HomePage() {
   // whether the new value itself is read anywhere.
   const [, setTier2ResolvedTick] = useState(0);
 
+  // route joined full-strength with a Tier-2 resolver (26.08.2026, David's device-test
+  // follow-up) — resolveRouteWorkout reuses useStepDeficitRoute.ts's own stepsToTargetKm
+  // formula, not a second/competing distance computation. Dormant under TODAY's wiring though:
+  // route.generator.ts's eligible() requires context.location!==null, and this effect always
+  // passes location:null (see the comment on the effect below) — kept that way deliberately
+  // (unrelated decision, not reopened here), so this resolver simply never fires yet. Left
+  // wired in so the plumbing is ready and testable the moment home starts passing a real
+  // location.
   const resolveHomeTier2 = useCallback((suggestion: Suggestion, context: UserContext, currentProfile: UserFullProfile) => {
-    if (suggestion.generatorId !== 'full-strength') return;
-    resolveFullStrengthWorkout(suggestion.id, currentProfile, context)
-      .then(() => setTier2ResolvedTick((t) => t + 1))
-      .catch((error) => console.error('[home] resolveFullStrengthWorkout failed', error));
+    if (suggestion.generatorId === 'full-strength') {
+      resolveFullStrengthWorkout(suggestion.id, currentProfile, context)
+        .then(() => setTier2ResolvedTick((t) => t + 1))
+        .catch((error) => console.error('[home] resolveFullStrengthWorkout failed', error));
+      return;
+    }
+    if (suggestion.generatorId === 'route') {
+      resolveRouteWorkout(suggestion.id, context)
+        .then(() => setTier2ResolvedTick((t) => t + 1))
+        .catch((error) => console.error('[home] resolveRouteWorkout failed', error));
+    }
   }, []);
 
   useEffect(() => {
@@ -848,6 +864,12 @@ export default function HomePage() {
     // location in its own eligible(), so it's naturally excluded here, not specially filtered.
     const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
     runSuggestionEngineStreaming(context, (suggestion) => {
+      // TEMPORARY diagnostic (26.08.2026, per David's request) — understand why one suggestion
+      // outranks another on a real device; remove once ranking behavior is understood/tuned.
+      console.log(
+        `[home] scoreBreakdown "${suggestion.generatorId}" (score=${suggestion.score}):`,
+        suggestion.scoreBreakdown,
+      );
       if (!cancelled) resolveHomeTier2(suggestion, context, profile);
     }).then((ranked) => {
       if (!cancelled) setPreWorkoutSuggestions(ranked.slice(0, 3));
