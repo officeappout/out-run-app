@@ -12,6 +12,7 @@ import { useUserStore } from '@/features/user';
 import { mapAnswersToProfile } from '@/features/user/identity/services/profile.service';
 import { getOnboardingLocale } from '@/lib/i18n/onboarding-locales';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
+import { shouldInitOnboardingEngine } from '@/features/user/onboarding/utils/onboarding-guard';
 import DynamicQuestionRenderer from '@/features/user/onboarding/components/DynamicQuestionRenderer';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
@@ -139,12 +140,9 @@ export default function DynamicOnboardingPage() {
       }
     };
 
-    // hasCompletedOnboarding() is whole-profile (strength-shaped) and has no
-    // concept of tracks — bypass it for the running track so a returning
-    // strength user (or a running user hitting Reset/Rebuild) can re-enter.
-    // The strength branch (isRunningTrackRender === false) is byte-identical
-    // to the pre-existing check below; nothing here changes for it.
-    if (isRunningTrackRender || !hasCompletedOnboarding()) {
+    // See onboarding-guard.ts for why this is extracted to a pure predicate
+    // and unit-tested there instead of inline here.
+    if (shouldInitOnboardingEngine(isRunningTrackRender, hasCompletedOnboarding())) {
       init();
     } else {
       router.replace('/home');
