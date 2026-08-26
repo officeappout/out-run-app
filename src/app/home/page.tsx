@@ -1057,43 +1057,10 @@ export default function HomePage() {
     setGeneratedWorkout(workout);
     setIsWorkoutLoading(false);
   }, []);
-
-  // Tapping a pre-workout card (17.8 build-plan, Section 1 follow-up, 26.08.2026) opens the
-  // SAME shared WorkoutPreviewDrawer instance the anchor card already uses below (David's
-  // explicit call: "exactly like the old card's behavior today" — a preview first, never
-  // straight into a live workout). No dedicated useWorkoutSession instance needed: the drawer's
-  // OWN internal "Start" button already instantiates useWorkoutSession itself
-  // (WorkoutPreviewDrawer.tsx), reading directly from the SAME `workout`/`generatedWorkout`
-  // props/state populated here — handleWorkoutGenerated above is the same setter StatsOverview's
-  // own generation effect already calls (onWorkoutGenerated), and setSelectedWorkout's minimal
-  // stub shape (segments: []) mirrors handleCalendarEntryTap's own established pattern earlier
-  // in this file: the drawer renders real exercise/media content from `generatedWorkout`, not
-  // from this stub's segments.
-  const handlePreWorkoutCardTap = useCallback(async (suggestion: Suggestion) => {
-    if (!profile) return;
-    setStartingPreWorkoutSuggestionId(suggestion.id);
-    try {
-      const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
-      const workout = await suggestionToHomeGeneratedWorkout(context, suggestion);
-      // No real GeneratedWorkout to preview (e.g. safety-net/route, which have no Tier-2
-      // resolver yet) — same documented degrade pick-post-workout-suggestion.ts already
-      // established for safety-net: no-op rather than opening an empty/broken drawer.
-      if (!workout) return;
-      handleWorkoutGenerated(workout);
-      setSelectedWorkout({
-        id: `pre-workout-${suggestion.id}`,
-        title: workout.title,
-        description: workout.description,
-        level: 'medium',
-        difficulty: String(workout.difficulty),
-        duration: workout.estimatedDuration,
-        coverImage: '',
-        segments: [],
-      });
-    } finally {
-      setStartingPreWorkoutSuggestionId(null);
-    }
-  }, [profile, handleWorkoutGenerated]);
+  // handlePreWorkoutCardTap (the pre-workout carousel's onStart handler) is declared further
+  // below, right after handleRecoveryShortcutStartRef — it needs that ref for its
+  // recovery-follow-up direct-start branch (26.08.2026 follow-up), which is declared later in
+  // this file than the carousel wiring itself.
 
   // ── Recovery-video-trio direct-start hand-off (HOME_RECOVERY_START_SHORTCUT_ENABLED) ──
   // Same useWorkoutSession hook WorkoutPreviewDrawer's own "Start" button uses
@@ -1152,6 +1119,65 @@ export default function HomePage() {
   // by generatedWorkoutRef above.
   const handleRecoveryShortcutStartRef = useRef(handleRecoveryShortcutStart);
   handleRecoveryShortcutStartRef.current = handleRecoveryShortcutStart;
+
+  // Tapping a pre-workout card (17.8 build-plan, Section 1 follow-up, 26.08.2026) opens the
+  // SAME shared WorkoutPreviewDrawer instance the anchor card already uses below (David's
+  // explicit call: "exactly like the old card's behavior today" — a preview first, never
+  // straight into a live workout) — EXCEPT recovery-follow-up, scoped narrowly (26.08.2026
+  // follow-up #1) to reuse the SAME "pure recovery video trio" direct-start shortcut
+  // handleHeroPress already uses above (HOME_RECOVERY_START_SHORTCUT_ENABLED): structurally
+  // just one continuous follow-along video, nothing meaningful to preview. Branching on
+  // suggestion.generatorId directly here — rather than re-deriving handleHeroPress's own
+  // isPureRecoveryVideoTrioGenerated shape-check on the resolved `workout` — is a safe,
+  // equivalent simplification for this one generator specifically: recovery-follow-up's
+  // buildRecoveryFollowUpWorkout always routes through the same recovery-video-trio content
+  // pool (isRecoveryDay:true), so every suggestion it produces already has that exact shape by
+  // construction. full-strength (and anything else) keeps the drawer-first flow below,
+  // unchanged (1ddd3df4, approved). interceptWorkoutStart still gates this branch — the health
+  // declaration must never be bypassable by this shortcut, exactly like handleHeroPress's own
+  // comment on the same guard above.
+  //
+  // No dedicated useWorkoutSession instance needed for the drawer-first branch: the drawer's OWN
+  // internal "Start" button already instantiates useWorkoutSession itself
+  // (WorkoutPreviewDrawer.tsx), reading directly from the SAME `workout`/`generatedWorkout`
+  // props/state populated here — handleWorkoutGenerated above is the same setter StatsOverview's
+  // own generation effect already calls (onWorkoutGenerated), and setSelectedWorkout's minimal
+  // stub shape (segments: []) mirrors handleCalendarEntryTap's own established pattern earlier
+  // in this file: the drawer renders real exercise/media content from `generatedWorkout`, not
+  // from this stub's segments.
+  const handlePreWorkoutCardTap = useCallback(async (suggestion: Suggestion) => {
+    if (!profile) return;
+    setStartingPreWorkoutSuggestionId(suggestion.id);
+    try {
+      const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
+      const workout = await suggestionToHomeGeneratedWorkout(context, suggestion);
+      // No real GeneratedWorkout to preview (e.g. safety-net/route, which have no Tier-2
+      // resolver yet) — same documented degrade pick-post-workout-suggestion.ts already
+      // established for safety-net: no-op rather than opening an empty/broken drawer.
+      if (!workout) return;
+
+      if (suggestion.generatorId === 'recovery-follow-up' && HOME_RECOVERY_START_SHORTCUT_ENABLED) {
+        interceptWorkoutStart(() => {
+          handleRecoveryShortcutStartRef.current(workout);
+        }, 'strength');
+        return;
+      }
+
+      handleWorkoutGenerated(workout);
+      setSelectedWorkout({
+        id: `pre-workout-${suggestion.id}`,
+        title: workout.title,
+        description: workout.description,
+        level: 'medium',
+        difficulty: String(workout.difficulty),
+        duration: workout.estimatedDuration,
+        coverImage: '',
+        segments: [],
+      });
+    } finally {
+      setStartingPreWorkoutSuggestionId(null);
+    }
+  }, [profile, handleWorkoutGenerated, interceptWorkoutStart]);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
