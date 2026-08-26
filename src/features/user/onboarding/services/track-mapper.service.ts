@@ -9,7 +9,7 @@
  *   health   → DEFAULT  (WHO rings, general fitness)
  *   strength → PERFORMANCE (volume gauge, skill tracking)
  *   run      → RUNNING  (distance, pace, cardio stats)
- *   hybrid   → DEFAULT  (blended view, all rings)
+ *   hybrid   → HYBRID   (blended view, all rings)
  */
 
 import type { PrimaryTrack, DashboardMode } from '@/features/user/core/types/user.types';
@@ -38,12 +38,19 @@ const GOAL_TO_TRACK: Record<string, PrimaryTrack> = {
 /**
  * Maps each PrimaryTrack to its corresponding DashboardMode.
  * This ensures a single, deterministic path from track to UI.
+ *
+ * Must stay in sync with useDashboardMode.ts's TRACK_TO_MODE — that file's
+ * own comment already said so; hybrid diverged (DEFAULT here vs HYBRID
+ * there) until this fix. useDashboardMode.ts is the one actually read at
+ * render time (its own priority-2 fallback already resolves primaryTrack
+ * this same way when no explicit lifestyle.dashboardMode override exists),
+ * so this table is the one that was wrong, not the other.
  */
 const TRACK_TO_DASHBOARD: Record<PrimaryTrack, DashboardMode> = {
   health: 'DEFAULT',
   strength: 'PERFORMANCE',
   run: 'RUNNING',
-  hybrid: 'DEFAULT',
+  hybrid: 'HYBRID',
 };
 
 // ============================================================================
