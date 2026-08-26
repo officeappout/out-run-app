@@ -72,11 +72,15 @@ import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSe
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
 import { useWorkoutSession } from '@/features/workouts/components/workout-preview-drawer/hooks/useWorkoutSession';
 import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
-import { runSuggestionEngine } from '@/features/workout-engine/core/engine/suggestion-engine';
+import type { UserContext } from '@/features/workout-engine/core/types/user-context.types';
+import { runSuggestionEngine, runSuggestionEngineStreaming } from '@/features/workout-engine/core/engine/suggestion-engine';
 import { buildHomeUserContext } from '@/features/workout-engine/core/context/build-home-user-context';
 import { suggestionToGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-post-workout-suggestion';
+import { suggestionToHomeGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-home-suggestion';
+import { resolveFullStrengthWorkout } from '@/features/workout-engine/core/generators/full-strength.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
+import { PreWorkoutCardRenderer } from '@/features/home/components/PreWorkoutCardRenderer';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -805,14 +809,36 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postWorkoutData, todayWorkoutDone, profile?.id]);
 
-  // ── pre-workout suggestion carousel (17.8 build-plan, Stage 3) ──
-  // Mirrors the post_workout effect directly above, one surface over. Stage 3 scope only:
-  // wires the real runSuggestionEngine call + holds the result in local state. Nothing reads
-  // preWorkoutSuggestions yet — WorkoutSelectionCarousel keeps consuming the old
-  // generateHomeWorkoutTrio trio unchanged (that swap is Stage 4). While
-  // HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED is false (default), this effect never runs —
-  // byte-identical to today.
+  // ── pre-workout suggestion carousel (17.8 build-plan, Section 1, commit 4/4) ──
+  // Mirrors the post_workout effect above, one surface over, PLUS the Tier-1/Tier-2 split
+  // full-strength.generator.ts now supports: runSuggestionEngineStreaming (not the plain
+  // runSuggestionEngine Stage 3 used) lets full-strength's own suggestion (fast — the existing
+  // IS_CHEAP_SUGGESTION_RANKING_ENABLED placeholder) kick off its real Tier-2 build the moment
+  // it's known, instead of waiting for the slowest eligible generator (recovery-follow-up always
+  // awaits a real generateHomeWorkoutTrio call inside its own generate()) to settle first.
+  //
+  // Only full-strength has a Tier-2 resolver today, so there's no "wasted build on a candidate
+  // that gets dropped" risk in resolving unconditionally on discovery: with at most 4 home-
+  // eligible generators, its suggestion either lands in the top 3 (kept below) or is the one
+  // suggestion excluded — either way the resolved content isn't wasted, since a second Tier-2
+  // generator doesn't exist yet to compete against it for priority. Revisit (prioritize the
+  // eventual top-ranked suggestion, defer the rest) once a second one does.
   const [preWorkoutSuggestions, setPreWorkoutSuggestions] = useState<Suggestion[] | null>(null);
+  const [startingPreWorkoutSuggestionId, setStartingPreWorkoutSuggestionId] = useState<string | null>(null);
+  // Bumped after each Tier-2 resolve — getCachedFullStrengthWorkout's cache lives outside React
+  // state, so nothing else would trigger a re-render of PreWorkoutCardRenderer (which reads that
+  // cache directly at render time) once a background/on-settle resolve populates it. Only the
+  // setter is needed — any state update re-renders this component's children regardless of
+  // whether the new value itself is read anywhere.
+  const [, setTier2ResolvedTick] = useState(0);
+
+  const resolveHomeTier2 = useCallback((suggestion: Suggestion, context: UserContext, currentProfile: UserFullProfile) => {
+    if (suggestion.generatorId !== 'full-strength') return;
+    resolveFullStrengthWorkout(suggestion.id, currentProfile, context)
+      .then(() => setTier2ResolvedTick((t) => t + 1))
+      .catch((error) => console.error('[home] resolveFullStrengthWorkout failed', error));
+  }, []);
+
   useEffect(() => {
     if (!HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED) return;
     if (!profile) return;
@@ -821,24 +847,50 @@ export default function HomePage() {
     // unnecessary GPS prompt. route.generator.ts (surfaces:['map','home']) requires a real
     // location in its own eligible(), so it's naturally excluded here, not specially filtered.
     const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
-    runSuggestionEngine(context).then((ranked) => {
-      if (!cancelled) setPreWorkoutSuggestions(ranked);
+    runSuggestionEngineStreaming(context, (suggestion) => {
+      if (!cancelled) resolveHomeTier2(suggestion, context, profile);
+    }).then((ranked) => {
+      if (!cancelled) setPreWorkoutSuggestions(ranked.slice(0, 3));
     }).catch((error) => {
       console.error('[home] runSuggestionEngine failed for home surface', error);
     });
     return () => { cancelled = true; };
-  }, [profile]);
-  // Stage 3's only observability — nothing else reads preWorkoutSuggestions yet (Stage 4
-  // wires it into the actual carousel). Manual verification while the flag is on: this logs
-  // once per resolved call, letting a real generatorId list be confirmed on-device without a
-  // temporary render.
-  useEffect(() => {
-    if (!HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED || !preWorkoutSuggestions) return;
-    console.log(
-      '[home] pre-workout suggestions (Stage 3):',
-      preWorkoutSuggestions.map((s) => s.generatorId).join(', '),
-    );
-  }, [preWorkoutSuggestions]);
+  }, [profile, resolveHomeTier2]);
+
+  // Defensive backstop, not the primary mechanism: by the time streaming above has discovered
+  // every eligible generator, full-strength's Tier-2 build is already resolved or in flight.
+  // This only matters if that build somehow never started or was dropped — settling on it here
+  // re-triggers resolveFullStrengthWorkout, which is cache-first and de-dupes concurrent calls
+  // for the same id, so this can never cause a redundant generateHomeWorkoutTrio call.
+  const handlePreWorkoutSettle = useCallback((suggestion: Suggestion) => {
+    if (!profile) return;
+    const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
+    resolveHomeTier2(suggestion, context, profile);
+  }, [profile, resolveHomeTier2]);
+
+  // Dedicated useWorkoutSession instance for pre-workout suggestion starts — mirrors
+  // handlePostWorkoutStart's own instance directly below (separate, isolated instance rather
+  // than sharing state between two conceptually different start flows).
+  const { handleStartWorkout: handlePreWorkoutStart } = useWorkoutSession({
+    workout: { id: 'pre-workout-suggestion', title: '', segments: [] },
+    workoutPlan: null,
+    generatedWorkout: null,
+    isWarmupActive: true,
+    workoutLocation: undefined,
+  });
+
+  const handlePreWorkoutSuggestionStart = useCallback(async (suggestion: Suggestion) => {
+    if (!profile) return;
+    setStartingPreWorkoutSuggestionId(suggestion.id);
+    try {
+      const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
+      const workout = await suggestionToHomeGeneratedWorkout(context, suggestion);
+      if (!workout) return;
+      handlePreWorkoutStart(workout);
+    } finally {
+      setStartingPreWorkoutSuggestionId(null);
+    }
+  }, [profile, handlePreWorkoutStart]);
 
   // Dedicated useWorkoutSession instance for post_workout suggestion starts — always fed via
   // handleStartWorkout's overrideGeneratedWorkout argument (see its own JSDoc: "for callers
@@ -1896,6 +1948,27 @@ export default function HomePage() {
             </div>
           );
         })()}
+
+        {/* pre-workout suggestion carousel (17.8 build-plan, Section 1, commit 4/4) — additive,
+            flag-gated (HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, default false); does not
+            replace the anchor above yet. Same SuggestionCarousel shell + per-generatorId card
+            router pattern as the post_workout carousel directly below. */}
+        {HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED && preWorkoutSuggestions && preWorkoutSuggestions.length > 0 && (
+          <SuggestionCarousel<Suggestion>
+            items={preWorkoutSuggestions}
+            keyExtractor={(s) => s.id}
+            cardHeight={330}
+            onSettle={handlePreWorkoutSettle}
+            renderCard={(s) => (
+              <PreWorkoutCardRenderer
+                suggestion={s}
+                onStart={() => handlePreWorkoutSuggestionStart(s)}
+                isStarting={startingPreWorkoutSuggestionId === s.id}
+                userGender={profile?.core?.gender}
+              />
+            )}
+          />
+        )}
 
         {/* post_workout suggestion carousel (home-generator-v2 plan, step 6) — Phase B
             (18.08.2026): auto-reveals the moment postWorkoutSuggestions resolves, directly

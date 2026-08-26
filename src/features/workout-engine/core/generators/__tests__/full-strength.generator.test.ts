@@ -112,4 +112,24 @@ describe('resolveFullStrengthWorkout — Tier-2 real build', () => {
     expect(resolved).toBeNull();
     expect(getCachedFullStrengthWorkout('sug-needs-assessment')).toBeUndefined();
   });
+
+  it('de-dupes concurrent calls for the same not-yet-cached id to a single generateHomeWorkoutTrio call', async () => {
+    vi.mocked(generateHomeWorkoutTrio).mockClear();
+    let resolveTrio!: (v: Awaited<ReturnType<typeof generateHomeWorkoutTrio>>) => void;
+    const pendingTrio = new Promise<Awaited<ReturnType<typeof generateHomeWorkoutTrio>>>((res) => { resolveTrio = res; });
+    vi.mocked(generateHomeWorkoutTrio).mockReturnValue(pendingTrio);
+
+    const realWorkout = { title: 'אימון כוח', exercises: [], needsAssessment: false } as unknown as GeneratedWorkout;
+    const context = makeContext();
+    // Two concurrent callers (streaming prefetch + carousel onSettle) racing for the same id.
+    const call1 = resolveFullStrengthWorkout('sug-concurrent', assessedProfile, context);
+    const call2 = resolveFullStrengthWorkout('sug-concurrent', assessedProfile, context);
+
+    resolveTrio({ options: [null, { label: 'מאוזן', result: { workout: realWorkout } }, null] } as unknown as Awaited<ReturnType<typeof generateHomeWorkoutTrio>>);
+    const [result1, result2] = await Promise.all([call1, call2]);
+
+    expect(generateHomeWorkoutTrio).toHaveBeenCalledTimes(1);
+    expect(result1).toBe(realWorkout);
+    expect(result2).toBe(realWorkout);
+  });
 });

@@ -40,6 +40,11 @@ import { IS_CHEAP_SUGGESTION_RANKING_ENABLED } from '@/config/feature-flags';
 
 const FULL_STRENGTH_WORKOUT_CACHE_CAP = 10;
 const fullStrengthWorkoutCache = new Map<string, GeneratedWorkout>();
+// In-flight de-dup (commit 4/4, 26.08.2026): the home carousel now has TWO independent triggers
+// that can call resolveFullStrengthWorkout for the same not-yet-cached id — the streaming
+// engine's own prefetch-on-discover, and the carousel's onSettle backstop — without this, a
+// settle landing mid-prefetch would fire a second, fully redundant generateHomeWorkoutTrio call.
+const fullStrengthInFlight = new Map<string, Promise<GeneratedWorkout | null>>();
 
 function cacheFullStrengthWorkout(suggestionId: string, workout: GeneratedWorkout): void {
   if (fullStrengthWorkoutCache.size >= FULL_STRENGTH_WORKOUT_CACHE_CAP) {
@@ -91,18 +96,30 @@ export async function resolveFullStrengthWorkout(
   const cached = fullStrengthWorkoutCache.get(suggestionId);
   if (cached) return cached;
 
-  const trio = await generateHomeWorkoutTrio({
-    userProfile: profile,
-    availableTime: context.availableTimeMin,
-    difficulty: 2,
-    generateSingleOption: true,
-    targetOptionIndex: 1,
-  });
-  const { workout } = trio.options[1].result;
-  if (workout.needsAssessment) return null;
+  const inFlight = fullStrengthInFlight.get(suggestionId);
+  if (inFlight) return inFlight;
 
-  cacheFullStrengthWorkout(suggestionId, workout);
-  return workout;
+  const promise = (async (): Promise<GeneratedWorkout | null> => {
+    const trio = await generateHomeWorkoutTrio({
+      userProfile: profile,
+      availableTime: context.availableTimeMin,
+      difficulty: 2,
+      generateSingleOption: true,
+      targetOptionIndex: 1,
+    });
+    const { workout } = trio.options[1].result;
+    if (workout.needsAssessment) return null;
+
+    cacheFullStrengthWorkout(suggestionId, workout);
+    return workout;
+  })();
+
+  fullStrengthInFlight.set(suggestionId, promise);
+  try {
+    return await promise;
+  } finally {
+    fullStrengthInFlight.delete(suggestionId);
+  }
 }
 
 export const fullStrengthGenerator: Generator = {
