@@ -9,15 +9,21 @@
  *
  * - `full-strength` → checks the generator's own Tier-2 cache
  *   (getCachedFullStrengthWorkout, full-strength.generator.ts). A cache hit renders the real
- *   HeroWorkoutCard (same card the live single-anchor home experience and post-workout's
- *   recovery-follow-up cards already use) via the existing generatedToHeroWorkout() adapter. A
- *   cache miss — Tier-2 hasn't resolved yet — renders HeroWorkoutCard's own already-exported
- *   HeroCardSkeleton (HeroWorkoutCard.tsx: "shown until dynamicWorkout is fully resolved"),
- *   explicitly NOT a fabricated preview (David's call, 26.08.2026).
- * - Every other generatorId (route/safety-net/recovery-follow-up when NOT yet Tier-2-split,
- *   etc.) → the generic SuggestionCard, unchanged — those either already carry their full,
- *   real content in generate() itself (no separate Tier-2 step to wait on) or have no richer
- *   surface to show yet.
+ *   HeroWorkoutCard via the existing generatedToHeroWorkout() adapter. A cache miss — Tier-2
+ *   hasn't resolved yet — renders HeroWorkoutCard's own already-exported HeroCardSkeleton
+ *   (HeroWorkoutCard.tsx: "shown until dynamicWorkout is fully resolved"), explicitly NOT a
+ *   fabricated preview (David's call, 26.08.2026).
+ * - `recovery-follow-up` → same HeroWorkoutCard treatment, but checks
+ *   getCachedRecoveryWorkout (recovery-follow-up.generator.ts) instead — the SAME card
+ *   PostWorkoutCardRenderer.tsx's own recovery-follow-up branch already uses. This generator
+ *   has no Tier-2 split (its generate() always awaits the real trio call itself before
+ *   returning a Suggestion at all — see that file's header), so this cache is expected to be
+ *   populated by the time a Suggestion referencing it exists; HeroCardSkeleton on a miss is a
+ *   defensive fallback (cap eviction / a suggestion surviving a reload), not the normal path.
+ *   Fixed 26.08.2026 — this generator previously fell through to the generic SuggestionCard
+ *   below by omission, losing its real video/equipment/title.
+ * - Every other generatorId (route/safety-net, etc.) → the generic SuggestionCard, unchanged —
+ *   no richer surface exists for them yet.
  *
  * Sizing: HeroWorkoutCard's `active` variant is a fixed 300x330 — wider than the carousel
  * shell's own card-width ceiling (SuggestionCarousel's CARD_MAX_W=260), same mismatch
@@ -32,6 +38,8 @@ import HeroWorkoutCard, { HeroCardSkeleton } from './HeroWorkoutCard';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 import { SuggestionCard } from '@/features/workout-engine/core/components/SuggestionCard';
 import { getCachedFullStrengthWorkout } from '@/features/workout-engine/core/generators/full-strength.generator';
+import { getCachedRecoveryWorkout } from '@/features/workout-engine/core/generators/recovery-follow-up.generator';
+import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
 
 const HERO_CARD_NATURAL_WIDTH = 300;
@@ -73,14 +81,23 @@ function ScaledHeroSlot({ children }: { children: ReactNode }) {
   );
 }
 
+// generatorId -> its own Tier-2/real-content cache lookup. Both generators here already write
+// this cache themselves (full-strength.generator.ts's resolveFullStrengthWorkout;
+// recovery-follow-up.generator.ts's generate() itself) — this is read-only.
+const HERO_CACHE_LOOKUP: Record<string, (suggestionId: string) => GeneratedWorkout | undefined> = {
+  'full-strength': getCachedFullStrengthWorkout,
+  'recovery-follow-up': getCachedRecoveryWorkout,
+};
+
 export function PreWorkoutCardRenderer({
   suggestion,
   onStart,
   isStarting,
   userGender,
 }: PreWorkoutCardRendererProps) {
-  if (suggestion.generatorId === 'full-strength') {
-    const workout = getCachedFullStrengthWorkout(suggestion.id);
+  const heroLookup = HERO_CACHE_LOOKUP[suggestion.generatorId];
+  if (heroLookup) {
+    const workout = heroLookup(suggestion.id);
     return (
       <ScaledHeroSlot>
         {workout ? (

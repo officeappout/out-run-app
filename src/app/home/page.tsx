@@ -867,30 +867,9 @@ export default function HomePage() {
     const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
     resolveHomeTier2(suggestion, context, profile);
   }, [profile, resolveHomeTier2]);
-
-  // Dedicated useWorkoutSession instance for pre-workout suggestion starts — mirrors
-  // handlePostWorkoutStart's own instance directly below (separate, isolated instance rather
-  // than sharing state between two conceptually different start flows).
-  const { handleStartWorkout: handlePreWorkoutStart } = useWorkoutSession({
-    workout: { id: 'pre-workout-suggestion', title: '', segments: [] },
-    workoutPlan: null,
-    generatedWorkout: null,
-    isWarmupActive: true,
-    workoutLocation: undefined,
-  });
-
-  const handlePreWorkoutSuggestionStart = useCallback(async (suggestion: Suggestion) => {
-    if (!profile) return;
-    setStartingPreWorkoutSuggestionId(suggestion.id);
-    try {
-      const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
-      const workout = await suggestionToHomeGeneratedWorkout(context, suggestion);
-      if (!workout) return;
-      handlePreWorkoutStart(workout);
-    } finally {
-      setStartingPreWorkoutSuggestionId(null);
-    }
-  }, [profile, handlePreWorkoutStart]);
+  // handlePreWorkoutCardTap (the pre-workout carousel's onStart handler) is declared further
+  // below, right after handleWorkoutGenerated — it depends on that setter, which itself depends
+  // on state declared later in this file.
 
   // Dedicated useWorkoutSession instance for post_workout suggestion starts — always fed via
   // handleStartWorkout's overrideGeneratedWorkout argument (see its own JSDoc: "for callers
@@ -1056,6 +1035,43 @@ export default function HomePage() {
     setGeneratedWorkout(workout);
     setIsWorkoutLoading(false);
   }, []);
+
+  // Tapping a pre-workout card (17.8 build-plan, Section 1 follow-up, 26.08.2026) opens the
+  // SAME shared WorkoutPreviewDrawer instance the anchor card already uses below (David's
+  // explicit call: "exactly like the old card's behavior today" — a preview first, never
+  // straight into a live workout). No dedicated useWorkoutSession instance needed: the drawer's
+  // OWN internal "Start" button already instantiates useWorkoutSession itself
+  // (WorkoutPreviewDrawer.tsx), reading directly from the SAME `workout`/`generatedWorkout`
+  // props/state populated here — handleWorkoutGenerated above is the same setter StatsOverview's
+  // own generation effect already calls (onWorkoutGenerated), and setSelectedWorkout's minimal
+  // stub shape (segments: []) mirrors handleCalendarEntryTap's own established pattern earlier
+  // in this file: the drawer renders real exercise/media content from `generatedWorkout`, not
+  // from this stub's segments.
+  const handlePreWorkoutCardTap = useCallback(async (suggestion: Suggestion) => {
+    if (!profile) return;
+    setStartingPreWorkoutSuggestionId(suggestion.id);
+    try {
+      const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
+      const workout = await suggestionToHomeGeneratedWorkout(context, suggestion);
+      // No real GeneratedWorkout to preview (e.g. safety-net/route, which have no Tier-2
+      // resolver yet) — same documented degrade pick-post-workout-suggestion.ts already
+      // established for safety-net: no-op rather than opening an empty/broken drawer.
+      if (!workout) return;
+      handleWorkoutGenerated(workout);
+      setSelectedWorkout({
+        id: `pre-workout-${suggestion.id}`,
+        title: workout.title,
+        description: workout.description,
+        level: 'medium',
+        difficulty: String(workout.difficulty),
+        duration: workout.estimatedDuration,
+        coverImage: '',
+        segments: [],
+      });
+    } finally {
+      setStartingPreWorkoutSuggestionId(null);
+    }
+  }, [profile, handleWorkoutGenerated]);
 
   // ── Recovery-video-trio direct-start hand-off (HOME_RECOVERY_START_SHORTCUT_ENABLED) ──
   // Same useWorkoutSession hook WorkoutPreviewDrawer's own "Start" button uses
@@ -1952,17 +1968,28 @@ export default function HomePage() {
         {/* pre-workout suggestion carousel (17.8 build-plan, Section 1, commit 4/4) — additive,
             flag-gated (HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, default false); does not
             replace the anchor above yet. Same SuggestionCarousel shell + per-generatorId card
-            router pattern as the post_workout carousel directly below. */}
+            router pattern as the post_workout carousel directly below.
+            maxCardWidthPx/maxCardWidthVw (26.08.2026, David's device-test feedback): matches the
+            OLD anchor's real, static rendered size — HeroWorkoutCard's `active` variant is a
+            fixed, unconditional 300x330 (CARD_VARIANTS in HeroWorkoutCard.tsx, no viewport
+            scaling of its own), not the carousel shell's own default 260px/68vw cap (that
+            default would shrink PreWorkoutCardRenderer's HeroWorkoutCard via ScaledHeroSlot,
+            making the new focused card visibly smaller than the anchor it's meant to match).
+            100vw as the vw ceiling ensures the px cap (300) is what actually binds on any real
+            device width, mirroring the old card's own unconditional sizing. Same per-instance
+            override mechanism TodayActivityStrip already uses for its own wider-card case. */}
         {HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED && preWorkoutSuggestions && preWorkoutSuggestions.length > 0 && (
           <SuggestionCarousel<Suggestion>
             items={preWorkoutSuggestions}
             keyExtractor={(s) => s.id}
             cardHeight={330}
+            maxCardWidthPx={300}
+            maxCardWidthVw={100}
             onSettle={handlePreWorkoutSettle}
             renderCard={(s) => (
               <PreWorkoutCardRenderer
                 suggestion={s}
-                onStart={() => handlePreWorkoutSuggestionStart(s)}
+                onStart={() => handlePreWorkoutCardTap(s)}
                 isStarting={startingPreWorkoutSuggestionId === s.id}
                 userGender={profile?.core?.gender}
               />
