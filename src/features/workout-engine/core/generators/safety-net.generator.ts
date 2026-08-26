@@ -25,9 +25,24 @@
  * even those cheap paths come back empty.
  *
  * Deliberately scores low via the ranker's existing weighted factors (no special-casing
- * needed in rank-suggestions.ts): no `todayGoal` value matches its goalTags, and
- * `requiresLocation: false` means it never earns `locationBonus` — so it naturally loses to
- * any other real, eligible suggestion and only wins when it's the only one left.
+ * needed in rank-suggestions.ts): `requiresLocation: false` means it never earns
+ * `locationBonus` — so it naturally loses to any other real, eligible suggestion and only wins
+ * when it's the only one left.
+ *
+ * goalTags is `['recovery']` only — NOT `['recovery', 'walk']` (fixed 26.08.2026, confirmed via
+ * a real device scoreBreakdown log: full-strength=0, safety-net=50, recovery-follow-up=30 on a
+ * rest day). This file's own comment above ("no todayGoal value matches its goalTags") was
+ * written before `todayGoal` gained a `'recovery'` value (17.8 build-plan Stage 4) and was
+ * never revisited — `'recovery'` DOES match this generator's own tag, which is fine and
+ * intended on its own (goalMatch=30, matching any other rest-day suggestion). The bug was the
+ * SECOND tag: `'walk'` ALSO made this generator collect rank-suggestions.ts's `stepDeficit`
+ * bonus (up to 20 more) via its `stepsWalking` check, on top of `goalMatch` — a double-dip no
+ * other rest-day generator gets (recovery-follow-up's own `goalTags: ['recovery']` only ever
+ * earns `goalMatch`), letting this generic, deliberately-last-resort fallback outrank a real,
+ * fully-generated recovery workout. Dropping `'walk'` closes the double-dip and restores the
+ * "naturally loses to any real, eligible suggestion" invariant this file's own header already
+ * claims — this generator's title/subtitle already communicate "a light walk" to the user
+ * regardless of this internal ranking tag, so nothing user-facing changes.
  */
 
 import type { Generator } from '../types/generator.types';
@@ -49,7 +64,7 @@ export const safetyNetGenerator: Generator = {
     structure: { segments: 1, durationMin: context.availableTimeMin || 10 },
     methodsUsed: [],
     difficulty: 1,
-    goalTags: ['recovery', 'walk'],
+    goalTags: ['recovery'],
     surfaceEligibility: ['home', 'map', 'post_workout'],
     requiresLocation: false,
     score: 0,

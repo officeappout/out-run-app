@@ -161,9 +161,16 @@ describe('rankSuggestions — ordering', () => {
 // point of testing at this layer is avoiding recoveryFollowUpGenerator's real, Firestore-
 // touching generate() now that it's 'home'-eligible too (see suggestion-engine.test.ts's own
 // comment on why it stopped testing this scenario through the real engine).
+//
+// safetyNetLike's goalTags is `['recovery']` (26.08.2026 fix) — was `['recovery', 'walk']`
+// until a real device scoreBreakdown log caught a genuine ranking bug: the 'walk' tag let
+// safety-net collect BOTH goalMatch (30, via 'recovery') AND stepDeficit (up to 20, via
+// stepDeficit()'s own stepsWalking check on 'walk') on a rest day with steps remaining,
+// double-dipping past recovery-follow-up's own goalTags:['recovery']-only total of 30 — see
+// safety-net.generator.ts's own updated header comment for the full trace.
 describe('rankSuggestions — Stage 4 rest-day downranking', () => {
   const fullStrengthLike = { ...baseSuggestion, id: 'full-strength', goalTags: ['strength'] };
-  const safetyNetLike = { ...baseSuggestion, id: 'safety-net', goalTags: ['recovery', 'walk'] };
+  const safetyNetLike = { ...baseSuggestion, id: 'safety-net', goalTags: ['recovery'] };
 
   it('todayGoal:"recovery" ranks safety-net-like above full-strength-like, without dropping either', () => {
     const ctx = { ...baseContext, todayGoal: 'recovery' as const };
@@ -178,5 +185,26 @@ describe('rankSuggestions — Stage 4 rest-day downranking', () => {
     const ranked = rankSuggestions(ctx, [safetyNetLike, fullStrengthLike]);
 
     expect(ranked.map((s) => s.id)).toEqual(['full-strength', 'safety-net']);
+  });
+
+  // Regression for the 26.08.2026 double-dip bug itself (see safety-net.generator.ts's own
+  // header for the full trace) — recovery-follow-up-like's goalTags:['recovery'] only ever
+  // earns goalMatch; safety-net-like must score no higher on a rest day with steps remaining,
+  // not outrank it via a spurious stepDeficit bonus the way the pre-fix ['recovery','walk']
+  // tags did.
+  it('todayGoal:"recovery" with steps remaining: safety-net-like no longer earns a stepDeficit bonus (the fixed double-dip)', () => {
+    const recoveryFollowUpLike = { ...baseSuggestion, id: 'recovery-follow-up', goalTags: ['recovery'] };
+    const ctx = { ...baseContext, todayGoal: 'recovery' as const, stepGoal: 8000, stepsRemaining: 8000 };
+
+    const safetyNetBreakdown = scoreSuggestion(ctx, safetyNetLike);
+    const recoveryBreakdown = scoreSuggestion(ctx, recoveryFollowUpLike);
+
+    expect(safetyNetBreakdown.stepDeficit).toBe(0);
+    expect(safetyNetBreakdown.goalMatch).toBe(recoveryBreakdown.goalMatch);
+    // Same tags today => same total. Documented, accepted gap (not fixed here, out of this
+    // scope): nothing in the ranker yet distinguishes "a real generated recovery workout" from
+    // "a generic last-resort fallback" beyond goalTags — see rank-suggestions.ts's own header
+    // on gapFilling/timeOfDayMatch for the same category of documented, deliberate no-op.
+    expect(safetyNetBreakdown).toEqual(recoveryBreakdown);
   });
 });
