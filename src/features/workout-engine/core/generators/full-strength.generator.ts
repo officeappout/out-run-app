@@ -17,13 +17,93 @@
  * independently generatable today — it is a finisher attached to a full-strength
  * generation (`WorkoutGenerator`'s `tabataProbability` roll), so its presence is reported
  * here via `methodsUsed`, not as its own Generator.
+ *
+ * Tier-2 real-build resolver (17.8 build-plan, Section 1, 26.08.2026): generate() itself is
+ * UNCHANGED — home still gets whatever IS_CHEAP_SUGGESTION_RANKING_ENABLED's cheap placeholder
+ * or the real branch below already returns, exactly as before. What's new is
+ * resolveFullStrengthWorkout, a separate, on-demand real build for one specific, already-ranked
+ * suggestion id — called by the home carousel's orchestration hook immediately for its
+ * focused/center card and via background prefetch for the rest. David's explicit call
+ * (26.08.2026): no fabricated Tier-1 preview content for the other cards — they show the app's
+ * existing loading-skeleton pattern (CarouselSkeleton's own shimmer, sized per-card) until this
+ * resolver's real result lands, not an invented placeholder exercise.
  */
 
+import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
+import type { UserContext } from '../types/user-context.types';
+import type { GeneratedWorkout } from '../../logic/WorkoutGenerator';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { generateHomeWorkoutTrio } from '../../services/home-workout.service';
 import { IS_CHEAP_SUGGESTION_RANKING_ENABLED } from '@/config/feature-flags';
+
+const FULL_STRENGTH_WORKOUT_CACHE_CAP = 10;
+const fullStrengthWorkoutCache = new Map<string, GeneratedWorkout>();
+
+function cacheFullStrengthWorkout(suggestionId: string, workout: GeneratedWorkout): void {
+  if (fullStrengthWorkoutCache.size >= FULL_STRENGTH_WORKOUT_CACHE_CAP) {
+    const oldestKey = fullStrengthWorkoutCache.keys().next().value;
+    if (oldestKey !== undefined) fullStrengthWorkoutCache.delete(oldestKey);
+  }
+  fullStrengthWorkoutCache.set(suggestionId, workout);
+}
+
+/** Read-only lookup for callers that already have a ranked Suggestion.id — mirrors
+ *  recovery-follow-up.generator.ts's getCachedRecoveryWorkout exactly. Returns undefined on a
+ *  cache miss (cap eviction, not yet resolved, or a suggestion from a different session/reload)
+ *  — callers must degrade gracefully (keep showing a loading skeleton), not assume a hit. */
+export function getCachedFullStrengthWorkout(suggestionId: string): GeneratedWorkout | undefined {
+  return fullStrengthWorkoutCache.get(suggestionId);
+}
+
+/** Real detection, not a hardcoded guess: 'straight' as the baseline (warmup/cooldown are never
+ *  superset/pyramid/tabata-tagged), plus superset/pyramid presence read off the same exercise
+ *  fields the live player/preview dispatch on (pairedWith / pyramidSequence —
+ *  advance-registry.ts's resolveExerciseProtocol uses the identical check). Exported: both the
+ *  map real-branch below and resolveFullStrengthWorkout's home Tier-2 build need the identical
+ *  logic on the same GeneratedWorkout shape. */
+export function detectFullStrengthMethodsUsed(workout: GeneratedWorkout): string[] {
+  const methodsUsed: string[] = ['straight'];
+  if (workout.exercises.some((ex) => ex.pairedWith)) methodsUsed.push('superset');
+  if (workout.exercises.some((ex) => Array.isArray(ex.pyramidSequence) && ex.pyramidSequence.length > 0)) {
+    methodsUsed.push('pyramid');
+  }
+  if (workout.tabataBlock) methodsUsed.push('tabata');
+  return methodsUsed;
+}
+
+/**
+ * Tier-2 — the real, full build for one specific, already-ranked suggestion id. Called
+ * immediately for the home carousel's focused/center card, and via background prefetch for the
+ * (up to 2) others (17.8 build-plan Section 1) — never eagerly for every candidate.
+ *
+ * generateSingleOption+targetOptionIndex:1 computes only the balanced slot instead of all 3 trio
+ * difficulty options — ~66% less generation work than the map real-branch below, which still
+ * computes all 3 (left alone there; the win only matters where a UI is actually waiting on it,
+ * which today is home's carousel, not map).
+ */
+export async function resolveFullStrengthWorkout(
+  suggestionId: string,
+  profile: UserFullProfile,
+  context: UserContext,
+): Promise<GeneratedWorkout | null> {
+  const cached = fullStrengthWorkoutCache.get(suggestionId);
+  if (cached) return cached;
+
+  const trio = await generateHomeWorkoutTrio({
+    userProfile: profile,
+    availableTime: context.availableTimeMin,
+    difficulty: 2,
+    generateSingleOption: true,
+    targetOptionIndex: 1,
+  });
+  const { workout } = trio.options[1].result;
+  if (workout.needsAssessment) return null;
+
+  cacheFullStrengthWorkout(suggestionId, workout);
+  return workout;
+}
 
 export const fullStrengthGenerator: Generator = {
   id: 'full-strength',
@@ -76,17 +156,6 @@ export const fullStrengthGenerator: Generator = {
     const { workout } = option.result;
     if (workout.needsAssessment) return null;
 
-    // Real detection, not a hardcoded guess: 'straight' as the baseline (warmup/cooldown are
-    // never superset/pyramid/tabata-tagged), plus superset/pyramid presence read off the same
-    // exercise fields the live player/preview dispatch on (pairedWith / pyramidSequence —
-    // advance-registry.ts's resolveExerciseProtocol uses the identical check).
-    const methodsUsed: string[] = ['straight'];
-    if (workout.exercises.some((ex) => ex.pairedWith)) methodsUsed.push('superset');
-    if (workout.exercises.some((ex) => Array.isArray(ex.pyramidSequence) && ex.pyramidSequence.length > 0)) {
-      methodsUsed.push('pyramid');
-    }
-    if (workout.tabataBlock) methodsUsed.push('tabata');
-
     return {
       id: `full-strength-${Date.now()}`,
       type: 'daily_workout',
@@ -98,7 +167,7 @@ export const fullStrengthGenerator: Generator = {
         durationMin: workout.estimatedDuration,
         totalSets: workout.totalPlannedSets,
       },
-      methodsUsed,
+      methodsUsed: detectFullStrengthMethodsUsed(workout),
       difficulty: workout.difficulty,
       goalTags: ['strength'],
       surfaceEligibility: ['home', 'map'],
