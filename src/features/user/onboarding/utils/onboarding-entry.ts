@@ -12,16 +12,20 @@
 
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import { hasKnownIdentity as hasKnownIdentityFromCore } from '@/lib/identity';
 
 export type OnboardingTrack = 'STRENGTH' | 'RUNNING';
 
 /**
  * True when /onboarding-new/profile has nothing left to collect — name,
  * gender, and birthDate are exactly the 3 fields IdentityProfilePage gathers
- * (mirrors its own isFormComplete check, profile/page.tsx).
+ * (mirrors its own isFormComplete check, profile/page.tsx). Thin wrapper
+ * around the shared core-level definition in @/lib/identity — that's the one
+ * place this rule is actually defined; complete-profile/route.ts calls the
+ * same function server-side rather than inventing its own check.
  */
 export function hasKnownIdentity(profile: UserFullProfile | null | undefined): boolean {
-  return !!(profile?.core?.name && profile?.core?.gender && profile?.core?.birthDate);
+  return hasKnownIdentityFromCore(profile?.core);
 }
 
 /**
