@@ -165,7 +165,9 @@ export function scoreSuggestion(context: UserContext, suggestion: Suggestion): S
   };
 }
 
-function sumBreakdown(breakdown: ScoreBreakdown): number {
+/** Exported so callers that score suggestions incrementally (suggestion-engine.ts's streaming
+ *  path) can total a ScoreBreakdown themselves without re-implementing this reduction. */
+export function sumBreakdown(breakdown: ScoreBreakdown): number {
   return Object.values(breakdown).reduce((total: number, v) => total + (typeof v === 'number' ? v : 0), 0);
 }
 

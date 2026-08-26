@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runSuggestionEngine } from '../suggestion-engine';
+import { runSuggestionEngine, runSuggestionEngineStreaming } from '../suggestion-engine';
 import type { UserContext } from '../../types/user-context.types';
+import type { Suggestion } from '../../types/suggestion.types';
 
 // Home-daily-goal-v1 Stage 2: proves runSuggestionEngine(surface:'home') actually reaches
 // fullStrengthGenerator (previously "zero live call sites") and returns a valid Suggestion,
@@ -100,4 +101,35 @@ describe('runSuggestionEngine — surface:\'home\' reaches fullStrengthGenerator
   // post-workout-generators.test.ts), and running it for real here would trigger its
   // Firestore-touching generate() as an unintended side effect of an assertion that isn't
   // even about that generator.
+});
+
+// surface:'map' (not 'home') — same zero-I/O reasoning as the block above: keeps
+// recoveryFollowUpGenerator (profile!==null-only eligible()) out of the candidate set entirely,
+// so this stays a genuine unit test of the streaming mechanism itself, not a Firestore-dependent
+// integration test.
+describe('runSuggestionEngineStreaming — streams scored suggestions as generators resolve', () => {
+  it('invokes onSuggestion once per eligible generator that resolves non-null, each pre-scored', async () => {
+    const seen: Suggestion[] = [];
+    const ranked = await runSuggestionEngineStreaming(makeContext({ surface: 'map' }), (s) => seen.push(s));
+
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.length).toBe(ranked.length);
+    // Every streamed suggestion already carries a real score/scoreBreakdown, not a placeholder —
+    // the whole point of streaming is the caller never sees an unscored Suggestion.
+    for (const s of seen) {
+      expect(typeof s.score).toBe('number');
+      expect(s.scoreBreakdown).toBeDefined();
+    }
+  });
+
+  it('final resolved array is sorted score-descending, same candidate set as runSuggestionEngine', async () => {
+    const ctx = makeContext({ surface: 'map' });
+    const streamed = await runSuggestionEngineStreaming(ctx, () => {});
+    const nonStreamed = await runSuggestionEngine(ctx);
+
+    for (let i = 1; i < streamed.length; i++) {
+      expect(streamed[i - 1].score).toBeGreaterThanOrEqual(streamed[i].score);
+    }
+    expect(streamed.map((s) => s.generatorId).sort()).toEqual(nonStreamed.map((s) => s.generatorId).sort());
+  });
 });

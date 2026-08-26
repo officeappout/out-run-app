@@ -9,6 +9,7 @@
  */
 
 import type { UserContextSurface } from './user-context.types';
+import type { GeneratedWorkout } from '../../logic/WorkoutGenerator';
 
 export type SuggestionType =
   | 'daily_workout'
@@ -69,4 +70,17 @@ export interface Suggestion {
 
   score: number;
   scoreBreakdown: ScoreBreakdown;
+
+  /**
+   * Cheap, immediately-available preview (17.8 build-plan, Section 1, 26.08.2026) — a minimal
+   * GeneratedWorkout built from a targeted, single-exercise query, NOT the full generation
+   * pipeline. Lets a generator rank AND render something real on the home carousel's non-focused
+   * cards without paying full-pipeline cost for every candidate up front. Superseded by a real,
+   * full GeneratedWorkout once the focused card is decided and (for it immediately, for the
+   * others via background prefetch) each generator's own Tier-2 resolver runs — see
+   * full-strength.generator.ts's resolveFullStrengthWorkout for the first concrete
+   * implementation. Absent (undefined) is a normal, valid state: not every generator has a
+   * cheap preview worth building (e.g. safety-net's suggestion IS its own full content already).
+   */
+  preview?: GeneratedWorkout;
 }
