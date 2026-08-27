@@ -57,6 +57,7 @@ import { summarizeTodayStrengthVolume } from '@/features/home/utils/todayStrengt
 import { useWeeklyVolumeStore } from '../store/useWeeklyVolumeStore';
 import { buildUserProgramLevels } from '../../services/level-resolution.utils';
 import { getDefaultVolumeTarget } from '../../services/lead-program.service';
+import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
 
 const FULL_BODY_DOMAINS = ['push', 'pull', 'legs', 'core'] as const;
 
@@ -72,9 +73,17 @@ const FULL_BODY_DOMAINS = ['push', 'pull', 'legs', 'core'] as const;
  * unaffected by the omission. getDefaultVolumeTarget(level) is the same synchronous fallback
  * resolveAggregateFullBodyBudget itself already falls back to when no program-specific
  * Firestore override applies — not a new heuristic invented for this.
+ *
+ * `date` (Section 0 date-awareness fix, 27.08.2026): threaded through to
+ * summarizeTodayStrengthVolume's own OPTIONAL dateISO param — that primitive already supported
+ * a target date, this builder just never passed one. Without this, a future-day suggestion's
+ * `alreadyTrained` ranking factor would read TODAY's completed sets instead of the viewed day's
+ * (always empty for a real future day) — David's explicit call: "already trained" must reflect
+ * the day being viewed, not get confused with today's completed sets.
  */
-function resolveTodayCompletedDomains(profile: UserFullProfile): string[] {
-  const { byDomain } = summarizeTodayStrengthVolume(useWeeklyVolumeStore.getState().sessionLogs);
+function resolveTodayCompletedDomains(profile: UserFullProfile, date?: Date): string[] {
+  const dateISO = date ? toISODate(date) : undefined;
+  const { byDomain } = summarizeTodayStrengthVolume(useWeeklyVolumeStore.getState().sessionLogs, dateISO);
   const { levels: userProgramLevels } = buildUserProgramLevels(profile, new Set(), '[HomeContext]');
   const scheduleDays = (profile.lifestyle?.scheduleDays?.length ?? 0) || 3;
 
@@ -99,10 +108,11 @@ export interface BuildHomeUserContextInput {
    * 17.8 build-plan, Stage 4 (25.08.2026): the day being VIEWED, not necessarily today —
    * home/page.tsx's own selectedDate (week-strip / planner day-tap) can be a past or future
    * day. Defaults to real `new Date()` (isTodayTrainingDay's own default) for every existing
-   * caller that doesn't pass one — byte-identical there. Only affects todayGoal below; every
-   * other field here (steps, recoveryState.daysInactive, etc.) stays real-now-relative on
-   * purpose — e.g. daysInactive genuinely means "days since your last real workout as of
-   * right now," not "as of the day you happen to be looking at."
+   * caller that doesn't pass one — byte-identical there. Affects `todayGoal` and (Section 0
+   * date-awareness fix, 27.08.2026) `todayCompletedDomains` below; every other field here
+   * (steps, recoveryState.daysInactive, etc.) stays real-now-relative on purpose — e.g.
+   * daysInactive genuinely means "days since your last real workout as of right now," not "as
+   * of the day you happen to be looking at."
    */
   date?: Date;
 }
@@ -121,7 +131,7 @@ export function buildHomeUserContext({
     domainLevels: {},
     weeklyPerformance: { trainedDomainsThisWeek: [], neglectedDomains: [], totalSetsCompleted: 0, weeklyBudget: 0 },
     recoveryState: { isDetrainingLocked: false, daysInactive: calculateDaysInactive(profile) },
-    todayCompletedDomains: resolveTodayCompletedDomains(profile),
+    todayCompletedDomains: resolveTodayCompletedDomains(profile, date),
     todayGoal: isTodayTrainingDay(
       profile.lifestyle?.scheduleDays,
       profile.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,

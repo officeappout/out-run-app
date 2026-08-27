@@ -861,7 +861,17 @@ export default function HomePage() {
     // location: null — same reasoning as the post_workout call site above: skip an
     // unnecessary GPS prompt. route.generator.ts (surfaces:['map','home']) requires a real
     // location in its own eligible(), so it's naturally excluded here, not specially filtered.
-    const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
+    // date (Section 0 date-awareness fix, 27.08.2026): the day being VIEWED, not always "now" —
+    // without this, todayGoal/todayCompletedDomains (and the alreadyTrained ranking factor they
+    // feed) were silently computed against the real calendar date regardless of which day the
+    // user was actually looking at. selectedDate is now also a dependency below for the same
+    // reason — switching days previously didn't even re-run this effect at all.
+    const context = buildHomeUserContext({
+      profile,
+      location: null,
+      surface: 'home',
+      date: new Date(selectedDate + 'T00:00:00'),
+    });
     runSuggestionEngineStreaming(context, (suggestion) => {
       // TEMPORARY diagnostic (26.08.2026, per David's request) — understand why one suggestion
       // outranks another on a real device; remove once ranking behavior is understood/tuned.
@@ -876,7 +886,7 @@ export default function HomePage() {
       console.error('[home] runSuggestionEngine failed for home surface', error);
     });
     return () => { cancelled = true; };
-  }, [profile, resolveHomeTier2]);
+  }, [profile, resolveHomeTier2, selectedDate]);
 
   // Defensive backstop, not the primary mechanism: by the time streaming above has discovered
   // every eligible generator, full-strength's Tier-2 build is already resolved or in flight.
@@ -885,9 +895,14 @@ export default function HomePage() {
   // for the same id, so this can never cause a redundant generateHomeWorkoutTrio call.
   const handlePreWorkoutSettle = useCallback((suggestion: Suggestion) => {
     if (!profile) return;
-    const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
+    const context = buildHomeUserContext({
+      profile,
+      location: null,
+      surface: 'home',
+      date: new Date(selectedDate + 'T00:00:00'),
+    });
     resolveHomeTier2(suggestion, context, profile);
-  }, [profile, resolveHomeTier2]);
+  }, [profile, resolveHomeTier2, selectedDate]);
   // handlePreWorkoutCardTap (the pre-workout carousel's onStart handler) is declared further
   // below, right after handleWorkoutGenerated — it depends on that setter, which itself depends
   // on state declared later in this file.
@@ -1145,7 +1160,12 @@ export default function HomePage() {
     if (!profile) return;
     setStartingPreWorkoutSuggestionId(suggestion.id);
     try {
-      const context = buildHomeUserContext({ profile, location: null, surface: 'home' });
+      const context = buildHomeUserContext({
+        profile,
+        location: null,
+        surface: 'home',
+        date: new Date(selectedDate + 'T00:00:00'),
+      });
       const workout = await suggestionToHomeGeneratedWorkout(context, suggestion);
       // No real GeneratedWorkout to preview (e.g. safety-net/route, which have no Tier-2
       // resolver yet) — same documented degrade pick-post-workout-suggestion.ts already
@@ -1192,7 +1212,7 @@ export default function HomePage() {
     } finally {
       setStartingPreWorkoutSuggestionId(null);
     }
-  }, [profile, handleWorkoutGenerated, interceptWorkoutStart]);
+  }, [profile, handleWorkoutGenerated, interceptWorkoutStart, selectedDate]);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
