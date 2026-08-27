@@ -12,13 +12,15 @@ import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLa
 import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
+import { createSkipAttemptGuard } from '@/features/user/onboarding/utils/skip-attempt-guard';
 
 export default function HealthDeclarationPage() {
   const router = useRouter();
   const { profile, refreshProfile } = useUserStore();
   const { data: onboardingData } = useOnboardingStore();
   const [mounted, setMounted] = useState(false);
-  const autoSkipStartedRef = useRef(false);
+  const [skipFailed, setSkipFailed] = useState(false);
+  const skipGuardRef = useRef(createSkipAttemptGuard());
 
   const isRunningTrack = getOnboardingPref('gateway_track') === 'RUNNING';
 
@@ -37,19 +39,40 @@ export default function HealthDeclarationPage() {
   // Fires the same completion sync + navigation handleContinue's own submit
   // path would, without re-rendering HealthDeclarationStep (which would
   // re-collect a signature/PDF the user already provided the first time).
+  // On failure (transient network/Firestore error), handleContinue resolves
+  // false rather than throwing — that lets us reset skipGuardRef and surface
+  // a retry affordance instead of leaving the render gate below stuck on
+  // "טוען..." forever with no way for the user to proceed. skipGuardRef
+  // (see skip-attempt-guard.ts) is the same fire-once/reset-on-failure
+  // contract as the plain boolean ref this replaced, extracted so it's
+  // unit-testable without needing component/DOM test infra this repo
+  // doesn't have yet (vitest.config.ts is node-environment, logic-only).
+  const runAutoSkip = async () => {
+    skipGuardRef.current.markStarted();
+    setSkipFailed(false);
+    const success = await handleContinue(true);
+    if (!success) {
+      skipGuardRef.current.markFailed();
+      setSkipFailed(true);
+    }
+  };
+
   useEffect(() => {
-    if (!mounted || !alreadyAccepted || autoSkipStartedRef.current) return;
-    autoSkipStartedRef.current = true;
-    handleContinue(true);
+    if (!mounted || !alreadyAccepted || !skipGuardRef.current.shouldStart()) return;
+    runAutoSkip();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, alreadyAccepted]);
 
-  const handleContinue = async (_value: boolean) => {
+  // Returns whether the sync + navigation actually completed — the
+  // auto-skip path (runAutoSkip above) needs this signal to tell a real
+  // failure apart from success; the manual HealthDeclarationStep submit
+  // path ignores the return value (onContinue is typed to return void).
+  const handleContinue = async (_value: boolean): Promise<boolean> => {
     try {
       const uid = auth.currentUser?.uid;
       if (!uid) {
         console.error('[Health] No user authenticated');
-        return;
+        return false;
       }
 
       // Build payload with running schedule data from the onboarding store.
@@ -104,8 +127,10 @@ export default function HealthDeclarationPage() {
       await refreshProfile();
 
       router.replace('/onboarding-new/health-connect');
+      return true;
     } catch (error) {
       console.error('[Health] Error completing onboarding:', error);
+      return false;
     }
   };
 
@@ -113,10 +138,33 @@ export default function HealthDeclarationPage() {
   // effect only starts the async handleContinue, it doesn't run
   // synchronously with this render, so without this check the real form
   // would still flash for a frame before the skip takes over.
-  if (!mounted || alreadyAccepted) {
+  if (!mounted || (alreadyAccepted && !skipFailed)) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center">
         <div className="text-slate-500">טוען...</div>
+      </div>
+    );
+  }
+
+  // skipFailed: the auto-skip's sync failed (transient network/Firestore
+  // error) — retry the same silent-skip attempt rather than falling back to
+  // HealthDeclarationStep, which would needlessly re-collect a
+  // signature/PDF the user already provided the first time and contradict
+  // the "silent skip, no re-declaration screen" decision this whole flow is
+  // built on. Without this branch, alreadyAccepted stays true forever and
+  // the loading screen above never releases — the exact dead end the fix
+  // to Finding 1 (round-3 review) closes.
+  if (skipFailed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <div className="text-slate-500">לא הצלחנו לשמור את ההמשך. בדקו את החיבור ונסו שוב.</div>
+        <button
+          type="button"
+          onClick={runAutoSkip}
+          className="px-5 py-2 bg-[#00C9F2] text-white text-sm font-bold rounded-full active:scale-95 transition-transform"
+        >
+          נסה שוב
+        </button>
       </div>
     );
   }
