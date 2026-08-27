@@ -36,6 +36,7 @@ import type { Program } from '@/features/content/programs/core/program.types';
 import { startMiniDomainAssessment, type MiniAssessmentDomainType } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { isDomainAssessed, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { resolveAdditionalProgramSlugs, domainTypeForSlug, resolveMasterAssessDomainType } from './program-groups.utils';
+import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -306,7 +307,7 @@ export default function ProgramsSection() {
           </p>
           <button
             type="button"
-            onClick={() => router.push('/home')}
+            onClick={() => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'))}
             className="mt-1 px-5 py-2 bg-[#00C9F2] text-white text-sm font-bold rounded-full active:scale-95 transition-transform"
           >
             בחר תוכנית

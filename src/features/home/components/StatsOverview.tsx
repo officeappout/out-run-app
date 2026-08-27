@@ -3,6 +3,7 @@
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
+import { seedOnboardingTrackEntry } from '@/features/user/onboarding/utils/onboarding-entry';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { HOME_ANCHOR_V2_ENABLED, RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED, HOME_STEP_DEFICIT_CARD_ENABLED } from '@/config/feature-flags';
@@ -1360,6 +1361,7 @@ export default function StatsOverview({
           onBackOneWeek={handleRollBack}
           onReset={() => {
             setShowRealignPopup(false);
+            seedOnboardingTrackEntry(profile, 'RUNNING');
             window.location.href = '/onboarding-new/dynamic';
           }}
           onClose={() => setShowRealignPopup(false)}
@@ -1368,6 +1370,7 @@ export default function StatsOverview({
           open={showRebuildPopup}
           onRebuild={() => {
             setShowRebuildPopup(false);
+            seedOnboardingTrackEntry(profile, 'RUNNING');
             window.location.href = '/onboarding-new/dynamic';
           }}
           onContinue={dismissAlignment}

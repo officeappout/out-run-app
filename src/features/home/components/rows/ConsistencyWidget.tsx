@@ -23,14 +23,7 @@ import { useWeeklyProgress, getStrengthAdherence } from '@/features/activity';
 import { WIDGET_CARD_STYLE } from '@/features/home/components/widgets/StrengthVolumeWidget';
 import { GhostUpsell } from './GhostUpsell';
 import { hasStrengthSurvey, hasRunSurvey } from '@/features/home/hooks/useProgramProgress';
-import { setOnboardingPref } from '@/lib/onboardingPrefs';
-
-// Both onboarding entry points land on the shared identity screen — it
-// pre-fills from the existing profile, so returning users breeze through it.
-// gateway_track (set below, same mechanism as Gateway's handleGetProgram) is
-// what actually steers program-path/dynamic into the STRENGTH vs RUNNING tree.
-const STRENGTH_ONBOARDING_HREF = '/onboarding-new/profile';
-const RUN_ONBOARDING_HREF = '/onboarding-new/profile';
+import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
 
 interface MiniBarsProps {
   /** Short Hebrew caption, e.g. "כוח" or "ריצה". */
@@ -175,10 +168,7 @@ export function ConsistencyWidget() {
       ) : (
         <GhostUpsell
           variant="silent"
-          onClick={() => {
-            setOnboardingPref('gateway_track', 'STRENGTH');
-            router.push(STRENGTH_ONBOARDING_HREF);
-          }}
+          onClick={() => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'))}
           label="הוסף תוכנית כוח"
         >
           {strengthRow}
@@ -190,10 +180,7 @@ export function ConsistencyWidget() {
       ) : (
         <GhostUpsell
           variant="silent"
-          onClick={() => {
-            setOnboardingPref('gateway_track', 'RUNNING');
-            router.push(RUN_ONBOARDING_HREF);
-          }}
+          onClick={() => router.push(resolveOnboardingEntryHref(profile, 'RUNNING'))}
           label="הוסף תוכנית ריצה"
         >
           {runRow}

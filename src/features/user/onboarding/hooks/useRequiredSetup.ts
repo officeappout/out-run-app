@@ -27,6 +27,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useUserStore } from '../../identity/store/useUserStore';
 import type { OnboardingStepId } from '../types';
+import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 
 // ============================================================================
 // TYPES
@@ -89,9 +90,7 @@ export function useRequiredSetup() {
 
       // Health Declaration — HARD BLOCK (the only requirement that
       // gates workout start, regardless of activity type).
-      const healthAccepted =
-        (profile as any)?.healthDeclarationAccepted ||
-        (profile.health as any)?.healthDeclarationAccepted;
+      const healthAccepted = hasAcceptedHealthDeclaration(profile as any);
 
       if (!healthAccepted) {
         missing.push({

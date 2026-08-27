@@ -17,10 +17,11 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { useUserStore } from '@/features/user';
 import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramProgressCard';
 import { useProgramProgress } from '@/features/home/hooks/useProgramProgress';
 import { GhostUpsell } from './GhostUpsell';
-const STRENGTH_ONBOARDING_HREF = '/onboarding-new/profile';
+import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
 
 /**
  * No explicit height is set here — ProgramProgressCard sizes to its own
@@ -35,12 +36,13 @@ const FIT_PARENT_CLASS = '';
 
 export function ProgramProgressRow() {
   const router = useRouter();
+  const { profile } = useUserStore();
   const data = useProgramProgress();
 
   if (!data) {
     return (
       <GhostUpsell
-        onClick={() => router.push(STRENGTH_ONBOARDING_HREF)}
+        onClick={() => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'))}
         label="בואו נראה מאיפה מתחילים"
         ctaText="לחצו כאן "
       >

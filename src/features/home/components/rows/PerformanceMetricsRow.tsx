@@ -34,6 +34,7 @@ import SectionHeader from './SectionHeader';
 import GhostUpsell from './GhostUpsell';
 import CompactMetricTile from '@/features/home/components/widgets/CompactMetricTile';
 import RaceAndKmCarousel from './RaceAndKmCarousel';
+import { seedOnboardingTrackEntry } from '@/features/user/onboarding/utils/onboarding-entry';
 
 const RUN_ONBOARDING_HREF = '/onboarding-new/program-path?track=run';
 
@@ -95,7 +96,10 @@ function RaceSlot() {
   if (!hasRunSurvey(profile)) {
     return (
       <GhostUpsell
-        onClick={() => router.push(RUN_ONBOARDING_HREF)}
+        onClick={() => {
+          seedOnboardingTrackEntry(profile, 'RUNNING');
+          router.push(RUN_ONBOARDING_HREF);
+        }}
         label="הוסף תוכנית ריצה"
         ctaText="התחל סקר →"
         icon={<Footprints size={18} className="text-[#5BC2F2]" />}

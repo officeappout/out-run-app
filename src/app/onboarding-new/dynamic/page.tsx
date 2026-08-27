@@ -12,6 +12,7 @@ import { useUserStore } from '@/features/user';
 import { mapAnswersToProfile } from '@/features/user/identity/services/profile.service';
 import { getOnboardingLocale } from '@/lib/i18n/onboarding-locales';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
+import { shouldInitOnboardingEngine } from '@/features/user/onboarding/utils/onboarding-guard';
 import DynamicQuestionRenderer from '@/features/user/onboarding/components/DynamicQuestionRenderer';
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
@@ -139,7 +140,9 @@ export default function DynamicOnboardingPage() {
       }
     };
 
-    if (!hasCompletedOnboarding()) {
+    // See onboarding-guard.ts for why this is extracted to a pure predicate
+    // and unit-tested there instead of inline here.
+    if (shouldInitOnboardingEngine(isRunningTrackRender, hasCompletedOnboarding())) {
       init();
     } else {
       router.replace('/home');

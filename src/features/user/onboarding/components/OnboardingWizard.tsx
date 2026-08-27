@@ -24,6 +24,7 @@ import { useUserStore } from '@/features/user';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { LEGAL_VERSION } from '@/features/legal/legal-content';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
+import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 
 /**
  * Phase 2 Onboarding Wizard - Lifestyle Adaptation
@@ -199,9 +200,7 @@ export default function OnboardingWizard() {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     getUserFromFirestore(uid).then((p) => {
-      const accepted =
-        (p as any)?.healthDeclarationAccepted ||
-        (p as any)?.health?.healthDeclarationAccepted;
+      const accepted = hasAcceptedHealthDeclaration(p as any);
       if (accepted) {
         updateData({ healthDeclarationAccepted: true } as any);
         setStep('ACCOUNT_SECURE');
