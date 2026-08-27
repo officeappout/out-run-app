@@ -857,6 +857,18 @@ export default function HomePage() {
   useEffect(() => {
     if (!HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED) return;
     if (!profile) return;
+    // Section 1 (17.8 build-plan next-phase, 27.08.2026): only ever rank for the REAL
+    // current day — a past/future selectedDate gets its own separate content (Sections 2/3),
+    // not a re-run of this generator competition. NOT just a render-time filter:
+    // resolveHomeTier2's full-strength branch resolves into a cache keyed ONLY by userId
+    // (`full-strength-cheap-${userId}`, full-strength.generator.ts — confirmed NOT
+    // date-scoped, no invalidation hook), so letting this effect actually run for a
+    // future/past day would silently overwrite today's already-cached Tier-2 workout with
+    // that other day's content.
+    if (selectedDate !== toISODate(new Date())) {
+      setPreWorkoutSuggestions(null);
+      return;
+    }
     let cancelled = false;
     // location: null — same reasoning as the post_workout call site above: skip an
     // unnecessary GPS prompt. route.generator.ts (surfaces:['map','home']) requires a real
@@ -2019,11 +2031,62 @@ export default function HomePage() {
               {/* ── Daily Workout Hero — always visible ───────────────
                   R-1.5 (order B, workout-first): with HOME_ANCHOR_V2_ENABLED the
                   anchor is pulled ABOVE the tabs/metrics via flex `order-first`,
-                  giving schedule → anchor → metrics. A single element is reused for
-                  both branches (no prop duplication); while the flag is off it is
-                  rendered bare, last, exactly as before → byte-identical DOM. */}
+                  giving schedule → anchor → metrics. A single wrapper is reused across
+                  branches (no prop duplication); while the flag is off it is rendered
+                  bare, last, exactly as before → byte-identical DOM.
+
+                  Section 1 (17.8 build-plan next-phase, 27.08.2026): this slot now also
+                  decides between the OLD anchor (StatsOverview) and the NEW pre-workout
+                  suggestion carousel, in place — not a sibling below the whole block
+                  anymore. The new carousel only ever wins when viewing TODAY
+                  (isViewingToday, matches the effect's own gate above) with real ranked
+                  suggestions ready; a past/future selectedDate — or today before ranking
+                  resolves — falls back to the old anchor exactly as it renders now.
+                  Sections 2/3 give past/future days their own dedicated card later; until
+                  then, falling back here is the safe, behavior-preserving choice, not a
+                  gap. `onPanEnd` is suppressed outright when the new carousel is showing
+                  (Section 1 decision: the day-swipe gesture is retired for the new
+                  experience, not carried over) — the SAME motion.div wrapper is reused for
+                  both so the order-first positioning above still applies to the new
+                  carousel too, rather than a second wrapper that would silently lose it. */}
               {(() => {
-                const anchor = (
+                const isViewingToday = selectedDate === toISODate(new Date());
+                const readyPreWorkoutSuggestions = (
+                  HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED
+                  && isViewingToday
+                  && preWorkoutSuggestions
+                  && preWorkoutSuggestions.length > 0
+                ) ? preWorkoutSuggestions : null;
+
+                const content = readyPreWorkoutSuggestions ? (
+                  // maxCardWidthPx/maxCardWidthVw (26.08.2026, David's device-test
+                  // feedback): matches the OLD anchor's real, static rendered size —
+                  // HeroWorkoutCard's `active` variant is a fixed, unconditional 300x330
+                  // (CARD_VARIANTS in HeroWorkoutCard.tsx, no viewport scaling of its own),
+                  // not the carousel shell's own default 260px/68vw cap (that default would
+                  // shrink PreWorkoutCardRenderer's HeroWorkoutCard via ScaledHeroSlot,
+                  // making the new focused card visibly smaller than the anchor it
+                  // replaces). 100vw as the vw ceiling ensures the px cap (300) is what
+                  // actually binds on any real device width, mirroring the old card's own
+                  // unconditional sizing. Same per-instance override mechanism
+                  // TodayActivityStrip already uses for its own wider-card case.
+                  <SuggestionCarousel<Suggestion>
+                    items={readyPreWorkoutSuggestions}
+                    keyExtractor={(s) => s.id}
+                    cardHeight={330}
+                    maxCardWidthPx={300}
+                    maxCardWidthVw={100}
+                    onSettle={handlePreWorkoutSettle}
+                    renderCard={(s) => (
+                      <PreWorkoutCardRenderer
+                        suggestion={s}
+                        onStart={() => handlePreWorkoutCardTap(s)}
+                        isStarting={startingPreWorkoutSuggestionId === s.id}
+                        userGender={profile?.core?.gender}
+                      />
+                    )}
+                  />
+                ) : (
                   <StatsOverview
                     stats={MOCK_STATS}
                     onStartWorkout={handleHeroPress}
@@ -2041,44 +2104,19 @@ export default function HomePage() {
                   />
                 );
                 return HOME_ANCHOR_V2_ENABLED
-                  ? <motion.div className="order-first" onPanEnd={hasCompletedAssessment ? handleAnchorDayPan : undefined}>{anchor}</motion.div>
-                  : anchor;
+                  ? (
+                    <motion.div
+                      className="order-first"
+                      onPanEnd={!readyPreWorkoutSuggestions && hasCompletedAssessment ? handleAnchorDayPan : undefined}
+                    >
+                      {content}
+                    </motion.div>
+                  )
+                  : content;
               })()}
             </div>
           );
         })()}
-
-        {/* pre-workout suggestion carousel (17.8 build-plan, Section 1, commit 4/4) — additive,
-            flag-gated (HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, default false); does not
-            replace the anchor above yet. Same SuggestionCarousel shell + per-generatorId card
-            router pattern as the post_workout carousel directly below.
-            maxCardWidthPx/maxCardWidthVw (26.08.2026, David's device-test feedback): matches the
-            OLD anchor's real, static rendered size — HeroWorkoutCard's `active` variant is a
-            fixed, unconditional 300x330 (CARD_VARIANTS in HeroWorkoutCard.tsx, no viewport
-            scaling of its own), not the carousel shell's own default 260px/68vw cap (that
-            default would shrink PreWorkoutCardRenderer's HeroWorkoutCard via ScaledHeroSlot,
-            making the new focused card visibly smaller than the anchor it's meant to match).
-            100vw as the vw ceiling ensures the px cap (300) is what actually binds on any real
-            device width, mirroring the old card's own unconditional sizing. Same per-instance
-            override mechanism TodayActivityStrip already uses for its own wider-card case. */}
-        {HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED && preWorkoutSuggestions && preWorkoutSuggestions.length > 0 && (
-          <SuggestionCarousel<Suggestion>
-            items={preWorkoutSuggestions}
-            keyExtractor={(s) => s.id}
-            cardHeight={330}
-            maxCardWidthPx={300}
-            maxCardWidthVw={100}
-            onSettle={handlePreWorkoutSettle}
-            renderCard={(s) => (
-              <PreWorkoutCardRenderer
-                suggestion={s}
-                onStart={() => handlePreWorkoutCardTap(s)}
-                isStarting={startingPreWorkoutSuggestionId === s.id}
-                userGender={profile?.core?.gender}
-              />
-            )}
-          />
-        )}
 
         {/* post_workout suggestion carousel (home-generator-v2 plan, step 6) — Phase B
             (18.08.2026): auto-reveals the moment postWorkoutSuggestions resolves, directly
