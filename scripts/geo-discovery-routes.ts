@@ -580,12 +580,24 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     return flagged;
   }
   // Per-way "does this length count toward genuine recreational content" test — shared
-  // by the trail-relation gate and the named-segment gate. `allowTrailBonus` is only
-  // true for named-segment candidates — see the sidewalk-hole-fix header comment above
-  // RECREATIONAL_MAJORITY_MIN_FRAC for why a trail-relation candidate's OWN ways never
-  // get this bonus (it would be vacuous — they're all its own relation's members).
+  // by the trail-relation gate and the named-segment gate. `isTrailMemberElsewhere` bonus
+  // is only meaningful for named-segment candidates — see the sidewalk-hole-fix header
+  // comment above RECREATIONAL_MAJORITY_MIN_FRAC for why a trail-relation candidate's OWN
+  // ways never get it (it would be vacuous — they're all its own relation's members).
+  // The sidewalk test is scoped to dedicated-tagged (footway-family) ways ONLY, and — when
+  // it fires — disqualifies the way OUTRIGHT, without falling through to the trail-bonus.
+  // Caught live: a real, ground-truth-confirmed OSM footway=sidewalk way on Louis
+  // Promenade (the exact motivating example for this whole fix) is ALSO a member of a
+  // marked-trail relation (real hiking/foot routes commonly detour through a city via its
+  // sidewalks where no dedicated path exists) — an earlier version of this function fell
+  // through to the bonus for a disqualified-by-sidewalk way, silently re-crediting the
+  // very sidewalk this fix exists to exclude. The test is deliberately NOT run against
+  // non-footway-family ways (residential/track/etc.) — an ordinary street running near a
+  // bigger road is normal street geometry, not a disguised sidewalk, and must stay
+  // eligible for the trail-bonus on its own terms.
   function isGenuineRecreationalWay(id: number, highway: string | undefined, footwayTag: string | undefined, isSidepath: boolean, pts: number[][], lenM: number, isTrailMemberElsewhere: boolean): boolean {
-    if (highway && RECREATIONAL_DEDICATED_HIGHWAY.has(highway) && !isSidewalkLikeWay(id, footwayTag, isSidepath, pts, lenM)) return true;
+    const isDedicatedTag = !!highway && RECREATIONAL_DEDICATED_HIGHWAY.has(highway);
+    if (isDedicatedTag) return !isSidewalkLikeWay(id, footwayTag, isSidepath, pts, lenM);
     return isTrailMemberElsewhere;
   }
 
