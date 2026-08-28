@@ -383,4 +383,23 @@ describe('syncOnboardingToFirestore — JIT edit: COMPLETED-only side effects mu
     expect(written.lifestyle.primaryTrack).toBe('run');
     expect(written.lifestyle.dashboardMode).toBe('RUNNING');
   });
+
+  it('closes doors not yet born: a plain COMPLETED call (no isJitEdit, no goal signal) on an already-tracked user changes nothing — covers callers that never opt into isJitEdit (single-domain-assessment.service.ts, dynamic/page.tsx re-entry)', async () => {
+    state.EXISTING_DOC = existingOnboardedUser();
+    stubBrowserStorage();
+
+    // No isJitEdit option at all — this is exactly single-domain-assessment.service.ts's
+    // and dynamic/page.tsx's call shape: step 'COMPLETED', a payload with no
+    // selectedGoalIds/selectedGoal and no assignedResults.
+    const ok = await syncOnboardingToFirestore('COMPLETED', {} as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.lifestyle.primaryTrack).toBe('run');
+    expect(written.currentProgramId).toBeUndefined();
+    expect(written.progression.tracks).toEqual({ planche: { currentLevel: 7, percent: 0 } });
+    expect(written.progression.activePrograms).toHaveLength(1);
+    expect(written.progression.activePrograms[0]).toMatchObject({ id: 'planche' });
+  });
 });

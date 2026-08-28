@@ -839,6 +839,20 @@ export async function syncOnboardingToFirestore(
     // Skipped on a JIT edit — a JIT call's `data` never has selectedGoalIds,
     // so this would silently derive 'health' and overwrite an already-correct
     // primaryTrack for an unrelated single-field save.
+    //
+    // Second, independent guard below (`hasTrackSignal || !alreadyHasPrimaryTrack`):
+    // `!isJitEdit` only protects callers that remember to pass the flag. A caller
+    // that never opts in — single-domain-assessment.service.ts (no selectedGoalIds
+    // in its payload at all), or dynamic/page.tsx's re-entry sync for an
+    // already-onboarded running user — can still reach this block with
+    // step==='COMPLETED' and zero goal signal, and silently reset primaryTrack to
+    // 'health' the same way. Only derive/overwrite when there's a real signal to
+    // derive from, or the user genuinely has no primaryTrack yet — otherwise leave
+    // the existing value alone. `existingRaw` (declared above, whole-function scope)
+    // is the raw pre-write document, not `updateData.lifestyle` — reading the
+    // latter here would still work today (it's seeded from existingRaw at
+    // "Preserve progression/lifestyle" above) but `existingRaw` is the more
+    // honest source for "what does the document actually have right now."
     // ================================================================
     if (step === 'COMPLETED' && !isJitEdit) {
       const assessmentCtx = loadAssessmentContext();
@@ -849,22 +863,33 @@ export async function syncOnboardingToFirestore(
         onboardingAnswers.allGoals ||
         [];
 
-      const primaryTrack = ruleOverrideTrack || derivePrimaryTrack(goalIds, onboardingAnswers) || 'health';
-      const dashboardMode = trackToDashboardMode(primaryTrack) || 'DEFAULT';
+      const hasTrackSignal = !!ruleOverrideTrack || goalIds.length > 0;
+      const alreadyHasPrimaryTrack = !!(existingRaw as any)?.lifestyle?.primaryTrack;
 
-      updateData.lifestyle = {
-        ...updateData.lifestyle,
-        primaryTrack,
-        dashboardMode,
-      };
+      if (hasTrackSignal || !alreadyHasPrimaryTrack) {
+        const primaryTrack = ruleOverrideTrack || derivePrimaryTrack(goalIds, onboardingAnswers) || 'health';
+        const dashboardMode = trackToDashboardMode(primaryTrack) || 'DEFAULT';
+
+        updateData.lifestyle = {
+          ...updateData.lifestyle,
+          primaryTrack,
+          dashboardMode,
+        };
+
+        console.log(
+          '[OnboardingSync] Persona Engine → primaryTrack:', primaryTrack,
+          ruleOverrideTrack ? '(SET_PROGRAM_TRACK override)' : '(goal-derived)',
+          '→ dashboardMode:', dashboardMode,
+        );
+      } else {
+        console.log(
+          '[OnboardingSync] Persona Engine skipped — no goal signal and primaryTrack already set:',
+          (existingRaw as any)?.lifestyle?.primaryTrack,
+          '. Leaving it untouched.',
+        );
+      }
 
       updateData.onboardingComplete = true;
-
-      console.log(
-        '[OnboardingSync] Persona Engine → primaryTrack:', primaryTrack,
-        ruleOverrideTrack ? '(SET_PROGRAM_TRACK override)' : '(goal-derived)',
-        '→ dashboardMode:', dashboardMode,
-      );
     }
 
     // ================================================================
@@ -1494,6 +1519,25 @@ export async function syncOnboardingToFirestore(
         // block runs, further below).
         console.log('[OnboardingSync] Running-only user detected (no assignedResults, running.isUnlocked=' + !!updateData.running?.isUnlocked + ', runningBranchWillComplete=' + runningBranchWillComplete + '). Skipping strength program fallback.');
       } else {
+        // Guard beyond `!isJitEdit`: a caller that never opts into isJitEdit
+        // (single-domain-assessment.service.ts's { assignedResults } payload has
+        // no selectedGoalIds either; dynamic/page.tsx's re-entry sync for an
+        // already-onboarded running user) can still reach this fallback with no
+        // real goal signal. Without this, `rawGoalIds` below defaults to
+        // ['healthy_lifestyle'] and silently overwrites currentProgramId with
+        // 'full_body' for a user who already has a real program. Only run the
+        // fallback when there's a real signal, or the user genuinely has no
+        // program yet.
+        const hasGoalSignal = !!((data as any).selectedGoalIds?.length || (data as any).selectedGoal);
+        const alreadyHasProgram = !!(existingRaw as any)?.currentProgramId;
+
+        if (!hasGoalSignal && alreadyHasProgram) {
+          console.log(
+            '[OnboardingSync] GOAL_TO_PROGRAM fallback skipped — no goal signal and currentProgramId already set:',
+            (existingRaw as any)?.currentProgramId,
+            '. Leaving program/level untouched.',
+          );
+        } else {
         // ============================================================
         // PRIORITY 2 / FALLBACK: GOAL_TO_PROGRAM legacy mapping
         // Used only when no dynamic questionnaire results are available
@@ -1572,6 +1616,7 @@ export async function syncOnboardingToFirestore(
               ? updateData.progression.tracks
               : initialTracks,
           };
+        }
         }
       }
     }
