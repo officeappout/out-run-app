@@ -60,6 +60,10 @@ interface PreWorkoutCardRendererProps {
    */
   workoutLocation?: string | null;
   programIconKey?: string | null;
+  /** Location-swap parity fix (27.08.2026) — home/page.tsx's own per-suggestion swap result
+   *  (swappedWorkoutById), kept outside this generator's cache. Takes priority over the
+   *  cache when present; see resolveHeroWorkout's own doc comment for why. */
+  overrideWorkout?: GeneratedWorkout | null;
 }
 
 /** Measures its own slot and scales its (fixed-size, 300x330-natural) child to fit — same idiom
@@ -131,9 +135,10 @@ export function PreWorkoutCardRenderer({
   userGender,
   workoutLocation,
   programIconKey,
+  overrideWorkout,
 }: PreWorkoutCardRendererProps) {
   if (hasHeroCardTreatment(suggestion.generatorId)) {
-    const workout = resolveHeroWorkout(suggestion);
+    const workout = resolveHeroWorkout(suggestion, overrideWorkout);
     return (
       <ScaledHeroSlot>
         {workout ? (

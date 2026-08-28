@@ -52,7 +52,11 @@ import type { TodayActivityCardData } from '@/features/home/components/TodayActi
 import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCard';
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
-import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps } from '@/features/home/components/WorkoutBuilderSheet';
+import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps, type LocationId } from '@/features/home/components/WorkoutBuilderSheet';
+import AnchorLocationChip from '@/features/home/components/AnchorLocationChip';
+import { useSwapAll } from '@/features/workouts/components/workout-preview-drawer/hooks/useSwapAll';
+import { useExercisePool } from '@/features/workouts/components/workout-preview-drawer/hooks/useExercisePool';
+import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
 import UnifiedPlusDrawer from '@/features/parks/client/components/planned-activity/UnifiedPlusDrawer';
 import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
@@ -82,7 +86,7 @@ import { resolveFullStrengthWorkout } from '@/features/workout-engine/core/gener
 import { resolveRouteWorkout } from '@/features/workout-engine/core/generators/route.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
-import { PreWorkoutCardRenderer, resolveHeroWorkout } from '@/features/home/components/PreWorkoutCardRenderer';
+import { PreWorkoutCardRenderer, resolveHeroWorkout, hasHeroCardTreatment } from '@/features/home/components/PreWorkoutCardRenderer';
 import { BuildCustomButton } from '@/features/home/components/WorkoutSelectionCarousel';
 
 const GROUP_VERB: Record<string, string> = {
@@ -834,6 +838,16 @@ export default function HomePage() {
   // own onSettle, already firing once per settle — including the initial mount settle at
   // index 0, so this is never left null once suggestions exist).
   const [activePreWorkoutSuggestion, setActivePreWorkoutSuggestion] = useState<Suggestion | null>(null);
+  // Parity fix (27.08.2026), location-chip swap: per-suggestion swap results, kept OUTSIDE
+  // full-strength.generator.ts's/recovery-follow-up.generator.ts's own Tier-2 caches on
+  // purpose — this stays a pure, additive rendering-layer change with zero touches to
+  // generator/cache internals. Mirrors StatsOverview.tsx's writeSwappedOption (lines 588-599),
+  // but keyed by suggestion.id instead of "the one and only trio option index", since the
+  // carousel can hold 3 independent workouts, each swappable on its own. Once a suggestion.id
+  // is swapped it STAYS swapped (its own stamped executionLocation becomes that card's new
+  // source of truth) even after the carousel settles on a different card — see
+  // resolveHeroWorkout's overrideWorkout param.
+  const [swappedWorkoutById, setSwappedWorkoutById] = useState<Record<string, GeneratedWorkout>>({});
   // Bumped after each Tier-2 resolve — getCachedFullStrengthWorkout's cache lives outside React
   // state, so nothing else would trigger a re-render of PreWorkoutCardRenderer (which reads that
   // cache directly at render time) once a background/on-settle resolve populates it. Only the
@@ -942,6 +956,64 @@ export default function HomePage() {
     const tracksKeys = profile.progression?.tracks ? Object.keys(profile.progression.tracks) : [];
     return tracksKeys.length > 0 ? tracksKeys[0] : null;
   }, [profile]);
+
+  // Parity fix (27.08.2026), location-chip swap: the active suggestion's real workout, WITH
+  // any prior swap override applied — computed at the top level (not inside the render IIFE
+  // further below) because useExercisePool/useSwapAll right after need it, and hooks must run
+  // unconditionally every render, not nested inside a render-time closure.
+  const activeCarouselOverride = activePreWorkoutSuggestion
+    ? swappedWorkoutById[activePreWorkoutSuggestion.id]
+    : undefined;
+  const activeCarouselWorkout = activePreWorkoutSuggestion
+    ? resolveHeroWorkout(activePreWorkoutSuggestion, activeCarouselOverride)
+    : null;
+  // Effective location for the active suggestion: its own stamped executionLocation once
+  // swapped (useSwapAll.ts:294 stamps this on every swap result), else the profile-seed
+  // default — same fallback chain StatsOverview.tsx's own anchorShownLocation uses (lines
+  // 602-605).
+  const activeCarouselLocation = (activeCarouselWorkout?.executionLocation
+    || carouselSeedLocation
+    || 'park') as ExecutionLocation;
+  const isActiveSuggestionHeroTreated = !!activePreWorkoutSuggestion
+    && hasHeroCardTreatment(activePreWorkoutSuggestion.generatorId);
+
+  // item 2 — reuse the drawer's pool hook so the swap does 0 per-exercise reads. Gated on
+  // isActiveSuggestionHeroTreated too: safety-net/route have no swappable content, no reason
+  // to fetch the full exercise catalogue while one of those is focused.
+  const { exercisePool: carouselExercisePool } = useExercisePool({
+    isOpen: HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED && isActiveSuggestionHeroTreated,
+    generatedWorkout: activeCarouselWorkout,
+    workoutId: undefined,
+  });
+
+  // Writeback: keyed by the suggestion that was ACTIVE when the swap was requested (captured
+  // via this callback's own closure/dependency, not re-read after the async swap resolves) —
+  // correct even if the carousel settles on a different card while a swap is still in flight.
+  const writeSwappedCarouselOption = useCallback((gw: GeneratedWorkout) => {
+    if (!activePreWorkoutSuggestion) return;
+    setSwappedWorkoutById((prev) => ({ ...prev, [activePreWorkoutSuggestion.id]: gw }));
+  }, [activePreWorkoutSuggestion]);
+
+  const { swapAll: carouselSwapAll } = useSwapAll({
+    generatedWorkout: activeCarouselWorkout,
+    onGeneratedWorkoutUpdate: writeSwappedCarouselOption,
+    userProfile: profile,
+    currentLocation: activeCarouselLocation,
+    exercisePool: carouselExercisePool,
+  });
+
+  /** Carousel location chip → swap methods/exercises in place (NOT a regen) — same pattern as
+   *  StatsOverview.tsx's own handleAnchorLocationChange (lines 632-639), minus pinnedLocation:
+   *  the chip's displayed value and each card's workoutLocation both already derive from
+   *  swappedWorkoutById's own stamped executionLocation once a swap lands (see
+   *  activeCarouselLocation above and the render section below), so a separate "pin" state
+   *  would just duplicate that. */
+  const handleCarouselLocationChange = useCallback((id: LocationId) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('currentWorkoutLocation', id);
+    }
+    void carouselSwapAll('location', id);
+  }, [carouselSwapAll]);
 
   // Defensive backstop, not the primary mechanism: by the time streaming above has discovered
   // every eligible generator, full-strength's Tier-2 build is already resolved or in flight.
@@ -2102,34 +2174,46 @@ export default function HomePage() {
                   && preWorkoutSuggestions.length > 0
                 ) ? preWorkoutSuggestions : null;
 
-                // Parity fix (27.08.2026): the currently-centered suggestion's real
-                // GeneratedWorkout (Hero-treated generators only — resolveHeroWorkout
-                // returns null for safety-net/route, which have no such content), used
-                // below for the header description. Same source PreWorkoutCardRenderer
-                // itself reads for that suggestion's card — no second, drifting copy.
-                const activeHeroWorkout = activePreWorkoutSuggestion
-                  ? resolveHeroWorkout(activePreWorkoutSuggestion)
-                  : null;
+                // Parity fix (27.08.2026): description text for whichever suggestion is
+                // centered — activeCarouselWorkout (computed at the top level, above, since
+                // useExercisePool/useSwapAll need it there) already IS this suggestion's real
+                // GeneratedWorkout with any swap override applied; reused here rather than a
+                // second, independently-drifting resolveHeroWorkout call.
                 const preWorkoutDescription =
-                  activeHeroWorkout?.description
+                  activeCarouselWorkout?.description
                   || activePreWorkoutSuggestion?.subtitle
                   || 'מוכן להתחיל?';
 
                 const content = readyPreWorkoutSuggestions ? (
                   <div>
-                    {/* Header + description — parity fix (27.08.2026), mirrors
+                    {/* Header + chip + description — parity fix (27.08.2026), mirrors
                         StatsOverview.tsx's own renderWorkoutSection (lines 1075-1114):
                         the old anchor always paired its single workout with this exact
-                        heading + a real description paragraph above the card. The
-                        carousel replaced that single slot with 3 scrollable suggestions,
-                        so "the description" now tracks whichever one is centered
-                        (activePreWorkoutSuggestion, set by handlePreWorkoutSettle —
-                        already fires on the initial mount settle too, so this is never
-                        stuck on a stale/empty value). */}
+                        heading + location chip + a real description paragraph above the
+                        card. The carousel replaced that single slot with 3 scrollable
+                        suggestions, so both the chip and the description now track
+                        whichever one is centered (activePreWorkoutSuggestion, set by
+                        handlePreWorkoutSettle — already fires on the initial mount settle
+                        too, so this is never stuck on a stale/empty value). Chip only shows
+                        for Hero-treated suggestions (isActiveSuggestionHeroTreated) —
+                        safety-net/route have no swappable content, so there's nothing for
+                        it to control. */}
                     <div className="px-5" dir="rtl">
-                      <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1">
-                        האימון היומי שלך
-                      </h3>
+                      <div className="relative mb-1 flex items-center justify-between gap-2">
+                        <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                          האימון היומי שלך
+                        </h3>
+                        {isActiveSuggestionHeroTreated && (
+                          <AnchorLocationChip
+                            value={
+                              activeCarouselLocation === 'park' || activeCarouselLocation === 'home'
+                                ? activeCarouselLocation
+                                : 'park'
+                            }
+                            onSelect={handleCarouselLocationChange}
+                          />
+                        )}
+                      </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-right">
                         {preWorkoutDescription}
                       </p>
@@ -2159,8 +2243,13 @@ export default function HomePage() {
                           onStart={() => handlePreWorkoutCardTap(s)}
                           isStarting={startingPreWorkoutSuggestionId === s.id}
                           userGender={profile?.core?.gender}
-                          workoutLocation={carouselSeedLocation}
+                          // Per-card location: THIS suggestion's own stamped location once
+                          // swapped (persists independently of which card is active), else the
+                          // shared profile-seed default — never the active card's pin bleeding
+                          // into a suggestion the user hasn't touched the chip for.
+                          workoutLocation={swappedWorkoutById[s.id]?.executionLocation ?? carouselSeedLocation}
                           programIconKey={carouselProgramIconKey}
+                          overrideWorkout={swappedWorkoutById[s.id]}
                         />
                       )}
                     />
@@ -2171,11 +2260,17 @@ export default function HomePage() {
                         handleBuildCustom as-is (home/page.tsx's own, already shared with the old
                         anchor) — no new builder-context logic. */}
                     <div className="flex flex-col items-center px-4 mt-3">
+                      {/* TODO(programIds): StatsOverview.tsx's own handleBuildCustomWrapped
+                          (lines 1006-1017) also pre-fills programIds from
+                          scheduledProgramIdsRef.current — a ref private to StatsOverview, with
+                          no equivalent resolved here. Effect of the gap: the builder still opens
+                          correctly, just without the day's scheduled program pre-selected. Not
+                          wired here — flagged, not blocking. */}
                       <BuildCustomButton
                         onTap={() => handleBuildCustom({
-                          location: carouselSeedLocation,
-                          duration: activeHeroWorkout?.estimatedDuration,
-                          difficulty: activeHeroWorkout?.difficulty,
+                          location: activeCarouselLocation,
+                          duration: activeCarouselWorkout?.estimatedDuration,
+                          difficulty: activeCarouselWorkout?.difficulty,
                         })}
                         userGender={profile?.core?.gender}
                       />
