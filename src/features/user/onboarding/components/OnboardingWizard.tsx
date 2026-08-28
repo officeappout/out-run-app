@@ -270,7 +270,7 @@ export default function OnboardingWizard() {
 
   // ── JIT save handler with Firestore sync + profile hydration ─────
   const handleJITSave = async () => {
-    await syncOnboardingToFirestore('COMPLETED', data).catch(() => {});
+    await syncOnboardingToFirestore('COMPLETED', data, { isJitEdit: true }).catch(() => {});
     try {
       const uid = auth.currentUser?.uid;
       if (uid) {
