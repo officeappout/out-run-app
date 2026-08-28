@@ -82,7 +82,8 @@ import { resolveFullStrengthWorkout } from '@/features/workout-engine/core/gener
 import { resolveRouteWorkout } from '@/features/workout-engine/core/generators/route.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
-import { PreWorkoutCardRenderer } from '@/features/home/components/PreWorkoutCardRenderer';
+import { PreWorkoutCardRenderer, resolveHeroWorkout } from '@/features/home/components/PreWorkoutCardRenderer';
+import { BuildCustomButton } from '@/features/home/components/WorkoutSelectionCarousel';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -825,6 +826,14 @@ export default function HomePage() {
   // eventual top-ranked suggestion, defer the rest) once a second one does.
   const [preWorkoutSuggestions, setPreWorkoutSuggestions] = useState<Suggestion[] | null>(null);
   const [startingPreWorkoutSuggestionId, setStartingPreWorkoutSuggestionId] = useState<string | null>(null);
+  // Parity fix (27.08.2026): which suggestion the new carousel is currently centered on — the
+  // old anchor's own header (title/description/location chip) always described exactly ONE
+  // workout because it never showed more than one at a time; the carousel replaced that single
+  // slot with 3 scrollable cards, so the header needs to know which one is "current" the same
+  // way SuggestionCarousel itself does. Updated by handlePreWorkoutSettle below (the carousel's
+  // own onSettle, already firing once per settle — including the initial mount settle at
+  // index 0, so this is never left null once suggestions exist).
+  const [activePreWorkoutSuggestion, setActivePreWorkoutSuggestion] = useState<Suggestion | null>(null);
   // Bumped after each Tier-2 resolve — getCachedFullStrengthWorkout's cache lives outside React
   // state, so nothing else would trigger a re-render of PreWorkoutCardRenderer (which reads that
   // cache directly at render time) once a background/on-settle resolve populates it. Only the
@@ -900,12 +909,47 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [profile, resolveHomeTier2, selectedDate]);
 
+  // Parity fix (27.08.2026) — location/program-icon context for the new carousel's header and
+  // HeroWorkoutCard props (workoutLocation/programIconKey), copied verbatim from
+  // StatsOverview.tsx's own seed derivations: the "ADVANCED LOCATION CHAIN" (lines 694-706)
+  // and primaryDomainId (lines 442-452). Deliberately two separate copies, not one shared
+  // extraction — StatsOverview's version also feeds its own reactive "engine echo"
+  // (currentWorkoutLocation, rewritten every trio generation) that this carousel has no
+  // equivalent of; sharing the util now would mean threading that extra concept through for
+  // no behavioral gain. Same fallback order either way, so no drift risk in practice.
+  const carouselSeedLocation = useMemo((): string => {
+    if (!profile) return 'home';
+    const storedLocation = typeof window !== 'undefined'
+      ? sessionStorage.getItem('currentWorkoutLocation')
+      : null;
+    // locationPreference isn't in UserFullProfile's typed shape (same untyped runtime field
+    // StatsOverview.tsx's own chain reads) — narrowed via `unknown`, not `any`, so this stays
+    // eslint-clean without inventing a new type for a field this file doesn't otherwise touch.
+    const lifestyleLocation = (profile.lifestyle as Record<string, unknown> | undefined)
+      ?.locationPreference as string | undefined;
+    return storedLocation || lifestyleLocation || profile.firstWorkoutLocation || 'home';
+  }, [profile]);
+
+  const carouselProgramIconKey = useMemo((): string | null => {
+    if (!profile) return null;
+    const activeProgram = profile.progression?.activePrograms?.[0];
+    if (activeProgram?.templateId) return activeProgram.templateId;
+    const isHashKey = (k: string) => k.length > 15 && !k.includes('_');
+    const domainsKeys = profile.progression?.domains ? Object.keys(profile.progression.domains) : [];
+    const slugDomainKeys = domainsKeys.filter((k) => !isHashKey(k));
+    if (slugDomainKeys.length > 0) return slugDomainKeys[0];
+    if (domainsKeys.length > 0) return domainsKeys[0];
+    const tracksKeys = profile.progression?.tracks ? Object.keys(profile.progression.tracks) : [];
+    return tracksKeys.length > 0 ? tracksKeys[0] : null;
+  }, [profile]);
+
   // Defensive backstop, not the primary mechanism: by the time streaming above has discovered
   // every eligible generator, full-strength's Tier-2 build is already resolved or in flight.
   // This only matters if that build somehow never started or was dropped — settling on it here
   // re-triggers resolveFullStrengthWorkout, which is cache-first and de-dupes concurrent calls
   // for the same id, so this can never cause a redundant generateHomeWorkoutTrio call.
   const handlePreWorkoutSettle = useCallback((suggestion: Suggestion) => {
+    setActivePreWorkoutSuggestion(suggestion);
     if (!profile) return;
     const context = buildHomeUserContext({
       profile,
@@ -2058,34 +2102,85 @@ export default function HomePage() {
                   && preWorkoutSuggestions.length > 0
                 ) ? preWorkoutSuggestions : null;
 
+                // Parity fix (27.08.2026): the currently-centered suggestion's real
+                // GeneratedWorkout (Hero-treated generators only — resolveHeroWorkout
+                // returns null for safety-net/route, which have no such content), used
+                // below for the header description. Same source PreWorkoutCardRenderer
+                // itself reads for that suggestion's card — no second, drifting copy.
+                const activeHeroWorkout = activePreWorkoutSuggestion
+                  ? resolveHeroWorkout(activePreWorkoutSuggestion)
+                  : null;
+                const preWorkoutDescription =
+                  activeHeroWorkout?.description
+                  || activePreWorkoutSuggestion?.subtitle
+                  || 'מוכן להתחיל?';
+
                 const content = readyPreWorkoutSuggestions ? (
-                  // maxCardWidthPx/maxCardWidthVw (26.08.2026, David's device-test
-                  // feedback): matches the OLD anchor's real, static rendered size —
-                  // HeroWorkoutCard's `active` variant is a fixed, unconditional 300x330
-                  // (CARD_VARIANTS in HeroWorkoutCard.tsx, no viewport scaling of its own),
-                  // not the carousel shell's own default 260px/68vw cap (that default would
-                  // shrink PreWorkoutCardRenderer's HeroWorkoutCard via ScaledHeroSlot,
-                  // making the new focused card visibly smaller than the anchor it
-                  // replaces). 100vw as the vw ceiling ensures the px cap (300) is what
-                  // actually binds on any real device width, mirroring the old card's own
-                  // unconditional sizing. Same per-instance override mechanism
-                  // TodayActivityStrip already uses for its own wider-card case.
-                  <SuggestionCarousel<Suggestion>
-                    items={readyPreWorkoutSuggestions}
-                    keyExtractor={(s) => s.id}
-                    cardHeight={330}
-                    maxCardWidthPx={300}
-                    maxCardWidthVw={100}
-                    onSettle={handlePreWorkoutSettle}
-                    renderCard={(s) => (
-                      <PreWorkoutCardRenderer
-                        suggestion={s}
-                        onStart={() => handlePreWorkoutCardTap(s)}
-                        isStarting={startingPreWorkoutSuggestionId === s.id}
+                  <div>
+                    {/* Header + description — parity fix (27.08.2026), mirrors
+                        StatsOverview.tsx's own renderWorkoutSection (lines 1075-1114):
+                        the old anchor always paired its single workout with this exact
+                        heading + a real description paragraph above the card. The
+                        carousel replaced that single slot with 3 scrollable suggestions,
+                        so "the description" now tracks whichever one is centered
+                        (activePreWorkoutSuggestion, set by handlePreWorkoutSettle —
+                        already fires on the initial mount settle too, so this is never
+                        stuck on a stale/empty value). */}
+                    <div className="px-5" dir="rtl">
+                      <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1">
+                        האימון היומי שלך
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-right">
+                        {preWorkoutDescription}
+                      </p>
+                    </div>
+
+                    {/* maxCardWidthPx/maxCardWidthVw (26.08.2026, David's device-test
+                        feedback): matches the OLD anchor's real, static rendered size —
+                        HeroWorkoutCard's `active` variant is a fixed, unconditional 300x330
+                        (CARD_VARIANTS in HeroWorkoutCard.tsx, no viewport scaling of its own),
+                        not the carousel shell's own default 260px/68vw cap (that default would
+                        shrink PreWorkoutCardRenderer's HeroWorkoutCard via ScaledHeroSlot,
+                        making the new focused card visibly smaller than the anchor it
+                        replaces). 100vw as the vw ceiling ensures the px cap (300) is what
+                        actually binds on any real device width, mirroring the old card's own
+                        unconditional sizing. Same per-instance override mechanism
+                        TodayActivityStrip already uses for its own wider-card case. */}
+                    <SuggestionCarousel<Suggestion>
+                      items={readyPreWorkoutSuggestions}
+                      keyExtractor={(s) => s.id}
+                      cardHeight={330}
+                      maxCardWidthPx={300}
+                      maxCardWidthVw={100}
+                      onSettle={handlePreWorkoutSettle}
+                      renderCard={(s) => (
+                        <PreWorkoutCardRenderer
+                          suggestion={s}
+                          onStart={() => handlePreWorkoutCardTap(s)}
+                          isStarting={startingPreWorkoutSuggestionId === s.id}
+                          userGender={profile?.core?.gender}
+                          workoutLocation={carouselSeedLocation}
+                          programIconKey={carouselProgramIconKey}
+                        />
+                      )}
+                    />
+
+                    {/* Build-custom CTA — parity fix (27.08.2026), mirrors StatsOverview.tsx:1144
+                        (always shown below the workout, independent of which one is focused —
+                        the old anchor never conditioned this on workout type either). Reuses
+                        handleBuildCustom as-is (home/page.tsx's own, already shared with the old
+                        anchor) — no new builder-context logic. */}
+                    <div className="flex flex-col items-center px-4 mt-3">
+                      <BuildCustomButton
+                        onTap={() => handleBuildCustom({
+                          location: carouselSeedLocation,
+                          duration: activeHeroWorkout?.estimatedDuration,
+                          difficulty: activeHeroWorkout?.difficulty,
+                        })}
                         userGender={profile?.core?.gender}
                       />
-                    )}
-                  />
+                    </div>
+                  </div>
                 ) : (
                   <StatsOverview
                     stats={MOCK_STATS}

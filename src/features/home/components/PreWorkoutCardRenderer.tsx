@@ -50,6 +50,16 @@ interface PreWorkoutCardRendererProps {
   onStart: () => void;
   isStarting?: boolean;
   userGender?: 'male' | 'female' | 'other' | null;
+  /**
+   * Parity fix (27.08.2026, verified against StatsOverview.tsx's own HeroWorkoutCard call
+   * site, lines 1139-1141): both were previously never forwarded from here, silently
+   * dropping the program icon next to the title and risking a location-mismatched
+   * background/equipment pick (resolveHeroMedia/resolveEquipmentSvgPathList fall back to
+   * "first method with any media" when location is undefined — not wrong, just not
+   * location-aware). See home/page.tsx for how these are derived for the new carousel.
+   */
+  workoutLocation?: string | null;
+  programIconKey?: string | null;
 }
 
 /** Measures its own slot and scales its (fixed-size, 300x330-natural) child to fit — same idiom
@@ -89,15 +99,41 @@ const HERO_CACHE_LOOKUP: Record<string, (suggestionId: string) => GeneratedWorko
   'recovery-follow-up': getCachedRecoveryWorkout,
 };
 
+/** True for any generatorId this renderer gives the richer HeroWorkoutCard treatment —
+ *  exported so home/page.tsx can tell whether a header/description/location-swap even
+ *  applies to the currently-focused suggestion (safety-net/route have no such content). */
+export function hasHeroCardTreatment(generatorId: string): boolean {
+  return generatorId in HERO_CACHE_LOOKUP;
+}
+
+/**
+ * Resolves the SAME real GeneratedWorkout this renderer would show for `suggestion` —
+ * exported so home/page.tsx's header (title/description/location chip/program icon) reads
+ * the identical content this card renders, instead of a second, independently-drifting copy.
+ * `overrideWorkout` (27.08.2026, location-swap parity fix) takes priority over the generator's
+ * own cache: the swap result is intentionally kept OUTSIDE that cache (home/page.tsx's own
+ * local state, keyed by suggestion.id) rather than writing back into it, so this stays a
+ * pure, additive rendering-layer change — no generator/cache-internals touched.
+ */
+export function resolveHeroWorkout(
+  suggestion: Suggestion,
+  overrideWorkout?: GeneratedWorkout | null,
+): GeneratedWorkout | null {
+  if (overrideWorkout) return overrideWorkout;
+  const heroLookup = HERO_CACHE_LOOKUP[suggestion.generatorId];
+  return heroLookup ? heroLookup(suggestion.id) ?? null : null;
+}
+
 export function PreWorkoutCardRenderer({
   suggestion,
   onStart,
   isStarting,
   userGender,
+  workoutLocation,
+  programIconKey,
 }: PreWorkoutCardRendererProps) {
-  const heroLookup = HERO_CACHE_LOOKUP[suggestion.generatorId];
-  if (heroLookup) {
-    const workout = heroLookup(suggestion.id);
+  if (hasHeroCardTreatment(suggestion.generatorId)) {
+    const workout = resolveHeroWorkout(suggestion);
     return (
       <ScaledHeroSlot>
         {workout ? (
@@ -107,6 +143,8 @@ export function PreWorkoutCardRenderer({
             onStart={onStart}
             variant="active"
             userGender={userGender}
+            workoutLocation={workoutLocation}
+            programIconKey={programIconKey}
           />
         ) : (
           <HeroCardSkeleton />
