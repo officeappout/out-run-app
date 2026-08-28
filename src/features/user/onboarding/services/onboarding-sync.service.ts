@@ -206,8 +206,23 @@ async function ensureAuthenticated(): Promise<User | null> {
  */
 export async function syncOnboardingToFirestore(
   step: OnboardingStepId,
-  data: Partial<OnboardingData>
+  data: Partial<OnboardingData>,
+  options?: { isJitEdit?: boolean }
 ): Promise<boolean> {
+  // A JIT edit re-saves ONE already-onboarded field (equipment, weight, schedule, ...)
+  // through the same 'COMPLETED' step/status this function otherwise uses for a genuine
+  // full-onboarding completion. `data` on a JIT call starts from the store's fresh
+  // initialState (no selectedGoalIds, no assignedResults, no sessionStorage context) —
+  // so every COMPLETED-gated side-effect block below would run as if the user had just
+  // finished onboarding with empty answers. Confirmed live consequences: the Persona
+  // Engine (below) silently resets lifestyle.primaryTrack to 'health', and the
+  // PROGRAM & LEVEL ASSIGNMENT fallback silently resets currentProgramId to 'full_body'
+  // (consumed by useProgressionSync.ts as priority-1 over the correct
+  // progression.activePrograms[0].id). onboardingStep/onboardingStatus below must still
+  // reflect 'COMPLETED' — an already-onboarded user must not be routed back into the
+  // wizard — so `step` itself stays 'COMPLETED'; only the side-effect blocks below are
+  // gated on `!isJitEdit`.
+  const isJitEdit = options?.isJitEdit ?? false;
   try {
     // Ensure user is authenticated (anonymous if needed)
     const user = await ensureAuthenticated();
@@ -299,7 +314,9 @@ export async function syncOnboardingToFirestore(
     // well-shaped. `onboardingCompletedAt` is a server timestamp so the
     // funnel-activation-velocity report can compute (completedAt -
     // createdAt) reliably.
-    if (step === 'COMPLETED') {
+    // Skipped on a JIT edit — the user already has a real completion date;
+    // a JIT single-field save must not overwrite it or re-flush attribution.
+    if (step === 'COMPLETED' && !isJitEdit) {
       try {
         updateData.marketingAttribution = buildAttributionPayload();
         updateData.onboardingCompletedAt = serverTimestamp();
@@ -819,8 +836,11 @@ export async function syncOnboardingToFirestore(
     // PERSONA ENGINE: Derive primaryTrack from goals (on COMPLETED)
     // Sets lifestyle.primaryTrack + lifestyle.dashboardMode atomically.
     // Priority: SET_PROGRAM_TRACK rule override > goal-based derivation
+    // Skipped on a JIT edit — a JIT call's `data` never has selectedGoalIds,
+    // so this would silently derive 'health' and overwrite an already-correct
+    // primaryTrack for an unrelated single-field save.
     // ================================================================
-    if (step === 'COMPLETED') {
+    if (step === 'COMPLETED' && !isJitEdit) {
       const assessmentCtx = loadAssessmentContext();
       const ruleOverrideTrack = assessmentCtx?.programTrack;
 
@@ -907,8 +927,14 @@ export async function syncOnboardingToFirestore(
     // ================================================================
     // PROGRAM & LEVEL ASSIGNMENT (on COMPLETED)
     // Priority: assignedResults > legacy fields > GOAL_TO_PROGRAM
+    // Skipped on a JIT edit — the GOAL_TO_PROGRAM fallback (below) sets
+    // currentProgramId unconditionally, not gated on whether the user
+    // already has a program, so an empty-data JIT call silently reset it
+    // to 'full_body' (GOAL_TO_PROGRAM['healthy_lifestyle'], the empty-goals
+    // default) — consumed by useProgressionSync.ts as priority-1 over the
+    // correct progression.activePrograms[0].id.
     // ================================================================
-    if (step === 'COMPLETED') {
+    if (step === 'COMPLETED' && !isJitEdit) {
       // Determine fitness level from Phase 1 tier or training history
       let fitnessLevel: number = updateData.core?.initialFitnessTier || 1;
       
@@ -1562,8 +1588,12 @@ export async function syncOnboardingToFirestore(
     // re-evaluated (not reused from `runningBranchWillComplete`) purely so
     // TypeScript narrows `runningAnswers` to non-null below; it's a pure,
     // trivial two-field check, not the part that was actually duplicated.
+    // Skipped on a JIT edit — `runningAnswers` is always null on a JIT call
+    // anyway (no sessionStorage context), so this is a no-op gate in
+    // practice, added for the same "don't run COMPLETED-only side effects
+    // on a single-field save" reason as the other blocks in this function.
     // ================================================================
-    if (step === 'COMPLETED') {
+    if (step === 'COMPLETED' && !isJitEdit) {
       if (runningAnswers && isRunningBranchCompleted(runningAnswers)) {
         try {
           const bridge = bridgeRunningOnboarding(runningAnswers);
@@ -1784,7 +1814,7 @@ export async function syncOnboardingToFirestore(
         unitPath: accessCodeResult.unitPath,
         tenantType: accessCodeResult.tenantType,
       };
-      if (step === 'COMPLETED') {
+      if (step === 'COMPLETED' && !isJitEdit) {
         clearAccessCodeResult();
       }
     }
@@ -1883,7 +1913,8 @@ export async function syncOnboardingToFirestore(
     //     between clicking the final CTA and seeing the Home screen.
     //   • We kick off all keys concurrently with Promise.all (not sequentially)
     //     to halve the Firestore round-trips even in the background.
-    if (step === 'COMPLETED' && updateData.progression?.tracks) {
+    // Skipped on a JIT edit — nothing in the JIT payload can have changed tracks.
+    if (step === 'COMPLETED' && !isJitEdit && updateData.progression?.tracks) {
       const trackKeys = Object.keys(updateData.progression.tracks);
       console.log(
         `[OnboardingSync] Kicking off background master-level recalculation for ${trackKeys.length} tracks (non-blocking).`,
@@ -1904,13 +1935,16 @@ export async function syncOnboardingToFirestore(
 
     // Log analytics event with step index
     const stepIndex = STEP_ORDER[step] || 0;
-    if (step === 'COMPLETED') {
+    if (step === 'COMPLETED' && !isJitEdit) {
       // Log completion event
       await Analytics.logOnboardingCompleted(undefined, stepIndex);
-    } else {
+    } else if (step !== 'COMPLETED') {
       // Log step completion event
       await Analytics.logOnboardingStepComplete(step, 0, stepIndex); // Time spent can be calculated if needed
     }
+    // A JIT edit (step === 'COMPLETED' && isJitEdit) logs neither — it isn't
+    // a funnel completion, and "step complete" for a step literally named
+    // 'COMPLETED' would be a meaningless event.
 
     console.log(`[OnboardingSync] Synced step "${step}" to Firestore for user ${user.uid}`);
     return true;

@@ -299,3 +299,88 @@ describe('syncOnboardingToFirestore — Bug 2: lifestyle.recurringTemplate merge
     expect(template['ב']).toEqual([written.running.generatedProgramTemplate.id]);
   });
 });
+
+describe('syncOnboardingToFirestore — JIT edit: COMPLETED-only side effects must not re-run', () => {
+  // 28.08.2026 fix: OnboardingWizard's handleJITSave always calls
+  // syncOnboardingToFirestore('COMPLETED', data) for a single-field JIT edit
+  // (equipment, weight, schedule, ...), with `data` starting empty (no
+  // selectedGoalIds, no assignedResults). Before this fix, that silently reset
+  // lifestyle.primaryTrack to 'health' (Persona Engine) and currentProgramId to
+  // 'full_body' (GOAL_TO_PROGRAM fallback, consumed as priority-1 by
+  // useProgressionSync.ts over the correct activePrograms[0].id) on every JIT
+  // save. The `{ isJitEdit: true }` option gates those blocks off while keeping
+  // onboardingStep/onboardingStatus correctly 'COMPLETED'.
+  function existingOnboardedUser() {
+    return {
+      createdAt: 'X',
+      core: { name: 'A', gender: 'other', initialFitnessTier: 2 },
+      progression: {
+        globalLevel: 4, globalXP: 500, coins: 10,
+        domains: { planche: { currentLevel: 7, maxLevel: 25, isUnlocked: true } },
+        tracks: { planche: { currentLevel: 7, percent: 0 } },
+        activePrograms: [
+          { id: 'planche', templateId: 'planche', name: 'planche', startDate: 'X', durationWeeks: 52, currentWeek: 1, focusDomains: ['planche'] },
+        ],
+      },
+      currentProgramId: 'planche',
+      onboardingStatus: 'COMPLETED',
+      onboardingCompletedAt: 'ORIGINAL_COMPLETION_TIMESTAMP',
+      lifestyle: {
+        scheduleDays: ['א'], hasDog: false, commute: { method: 'walk', enableChallenges: false },
+        primaryTrack: 'run', dashboardMode: 'RUNNING',
+      },
+      equipment: { home: [], office: [], outdoor: [] },
+      health: { injuries: [], connectedWatch: 'none' },
+      running: { isUnlocked: false, currentGoal: 'couch_to_5k', activeProgram: null, paceProfile: { basePace: 0, profileType: 3, qualityWorkoutsHistory: [], qualityWorkoutCount: 0, lastSelfCorrectionDate: null } },
+    };
+  }
+
+  it('JIT equipment edit: primaryTrack, currentProgramId, and progression are byte-identical to before; status still COMPLETED', async () => {
+    state.EXISTING_DOC = existingOnboardedUser();
+    stubBrowserStorage(); // fresh JIT session — no sessionStorage context, matches handleJITSave's real shape
+
+    const ok = await syncOnboardingToFirestore(
+      'COMPLETED',
+      { equipment: { home: ['pull_up_bar'], office: [], outdoor: [] } } as any,
+      { isJitEdit: true },
+    );
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    // onboardingStep/onboardingStatus must still be correct — an already-onboarded
+    // user must not get routed back into the wizard.
+    expect(written.onboardingStep).toBe('COMPLETED');
+    expect(written.onboardingStatus).toBe('COMPLETED');
+
+    // The two confirmed-live bugs this fix closes:
+    expect(written.lifestyle.primaryTrack).toBe('run'); // not silently reset to 'health'
+    expect(written.currentProgramId).toBeUndefined(); // not silently reset to 'full_body'
+
+    // Nothing about progression changed either (Program & Level Assignment fully skipped).
+    expect(written.progression.tracks).toEqual({ planche: { currentLevel: 7, percent: 0 } });
+    expect(written.progression.activePrograms).toHaveLength(1);
+    expect(written.progression.activePrograms[0]).toMatchObject({ id: 'planche' });
+
+    // Business-metric side effects must not fire on a JIT edit.
+    expect(written.onboardingCompletedAt).toBeUndefined();
+    expect(written.marketingAttribution).toBeUndefined();
+  });
+
+  it('JIT schedule edit on a dual-track user: dashboardMode also untouched (Persona Engine fully skipped, not just primaryTrack)', async () => {
+    state.EXISTING_DOC = existingOnboardedUser();
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore(
+      'COMPLETED',
+      { scheduleDays: ['ב', 'ד'], recurringTemplate: { 'ב': ['planche'], 'ד': ['planche'] } } as any,
+      { isJitEdit: true },
+    );
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.lifestyle.primaryTrack).toBe('run');
+    expect(written.lifestyle.dashboardMode).toBe('RUNNING');
+  });
+});
