@@ -2302,6 +2302,12 @@ export default function LocationsPage() {
                                 if (activeTab === 'parks') {
                                     // Parks: navigate to full edit page
                                     router.push(`/admin/parks/${park.id}/edit`);
+                                } else if (activeTab === 'routes') {
+                                    // Routes: navigate to the canonical route editor
+                                    // (route-editor-scoping-spec.md "one editor, many doors") —
+                                    // never AddLocationModal for routes anymore. park.id here is
+                                    // the official_routes doc id (see refreshOfficialRoutes above).
+                                    router.push(`/admin/authority/routes/${park.id}/edit`);
                                 } else {
                                     // Other categories: use the modal
                                     setEditingPark(park);
