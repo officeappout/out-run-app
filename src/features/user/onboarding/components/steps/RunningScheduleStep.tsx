@@ -225,7 +225,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
           >
             <p className="text-xs text-blue-700 font-medium text-right leading-relaxed">
               ימי הכוח שלך ({strengthDays.join(', ')}) מסומנים בכחול.
-              בחר ימי ריצה — ימים משותפים יוצגו בסגול.
+              אפשר לבחור בהם גם ריצה — שני האימונים יופיעו באותו יום בלוז.
             </p>
           </motion.div>
         )}
@@ -344,7 +344,6 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
               {DAYS_HEBREW.map((day, index) => {
                 const isRunning = selectedDays.includes(index);
                 const isStrength = strengthDayIndices.includes(index);
-                const isShared = isRunning && isStrength;
 
                 return (
                   <div key={index} className="relative">
@@ -354,10 +353,8 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                       onClick={() => handleDayToggle(index)}
                       aria-label={DAY_NAMES_HE[index]}
                       className={`w-11 h-11 flex items-center justify-center rounded-xl text-lg transition-all duration-200 ${
-                        isShared
-                          ? 'bg-purple-500 text-white shadow-[0_4px_12px_rgba(168,85,247,0.25)]'
-                          : isRunning
-                          ? 'text-white shadow-[0_4px_12px_rgba(0,186,247,0.25)]'
+                        isRunning
+                          ? 'text-white shadow-[0_4px_12px_rgba(16,185,129,0.25)]'
                           : isStrength
                           ? 'bg-[#5BC2F2]/20 text-[#5BC2F2] border border-[#5BC2F2]/30'
                           : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
@@ -365,14 +362,17 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                       style={{
                         fontFamily: 'var(--font-simpler)',
                         fontWeight: isRunning || isStrength ? 700 : 500,
-                        ...(isRunning && !isShared ? { background: '#00BAF7' } : {}),
+                        ...(isRunning ? { background: '#10B981' } : {}),
                       }}
                     >
                       {day}
                     </motion.button>
 
-                    {/* Small "כ" dot on strength-only days */}
-                    {isStrength && !isRunning && (
+                    {/* Small "כ" dot marks a strength day — shown regardless of
+                        whether it's also a running day (no more blended "shared"
+                        color; the running color always wins the button, this dot
+                        is the separate strength marker next to it). */}
+                    {isStrength && (
                       <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#5BC2F2] flex items-center justify-center pointer-events-none">
                         <span className="text-[7px] text-white font-bold leading-none">כ</span>
                       </div>
@@ -386,9 +386,8 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             {hasStrengthDays && (
               <div className="mt-3 flex flex-wrap gap-3 justify-center">
                 {[
-                  { color: 'bg-[#00BAF7]', label: 'ריצה' },
+                  { color: 'bg-[#10B981]', label: 'ריצה' },
                   { color: 'bg-[#5BC2F2]', label: 'כוח' },
-                  { color: 'bg-purple-500', label: 'שניהם' },
                 ].map(({ color, label }) => (
                   <div key={label} className="flex items-center gap-1">
                     <div className={`w-3 h-3 rounded-full ${color}`} />
