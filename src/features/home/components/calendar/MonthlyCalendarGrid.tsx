@@ -297,7 +297,7 @@ export default function MonthlyCalendarGrid({
           // even when RollingAgenda races to hydrate the same day at once.
           if (dayEntries.length === 0 && recurringTemplate) {
             const hydrated = await hydrateFromTemplate(userId, iso, recurringTemplate);
-            if (hydrated) dayEntries = [hydrated];
+            if (hydrated.length > 0) dayEntries = hydrated;
           }
           return { iso, dayEntries };
         }),

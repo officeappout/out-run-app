@@ -228,51 +228,77 @@ export async function getScheduleEntriesForDates(
 
 /**
  * Hydrate a concrete day from the user's recurringTemplate, when no Firestore
- * doc yet exists for the date.  Returns the new (or already-existing) entry
- * so callers can render it synchronously.
+ * doc yet exists for the date.  Returns the new (or already-existing) recurring
+ * entries so callers can render them synchronously.
+ *
+ * One entry per id in the day's template array, in the array's own order —
+ * NOT one entry holding the whole array. A day with `['FULL_BODY', 'PLANCHE']`
+ * produces two entries, each with its own stable `entryId`, so every consumer
+ * that already operates per-entry (AgendaDayCard's one-card-per-entry render,
+ * removeScheduleEntry/moveScheduleEntry's entryId-scoped writes, trainingCount/
+ * isShared) becomes correct for a multi-item day without needing its own change.
+ * Each entry's own `programIds` is a single-element array holding just that
+ * entry's id — a caller that needs the whole day's ids must collect across
+ * every returned entry, not read one entry's `programIds` expecting the
+ * day's full list (that was the old, now-removed, single-entry shape).
  *
  * Runs as a single Firestore transaction — the read-then-write is atomic, so
  * two independent callers racing to hydrate the same day (e.g. RollingAgenda
  * and MonthlyCalendarGrid both fetching on TrainingPlannerOverlay's first
- * mount — see schedule-editor-perf-audit.md finding #2) cannot both add a
- * recurring entry: the transaction that commits second re-reads the winner's
- * write and returns it instead of writing a duplicate.
+ * mount — see schedule-editor-perf-audit.md finding #2) cannot both add
+ * recurring entries: the transaction that commits second re-reads the winner's
+ * write and returns those instead of writing duplicates.
  *
  * Guards, both evaluated against the transaction's own read (not a stale
  * pre-check):
  *   1. Zombie-loop guard — an entry with `override === true` (tombstone from
  *      `removeScheduleEntry`) or a manually-set rest entry means the user
  *      intentionally cleared the day; hydration is skipped entirely.
- *   2. Idempotency guard — a `source === 'recurring'` entry already present
- *      means some caller (possibly a racing one) already hydrated this day;
- *      return it rather than adding a second recurring entry.
+ *   2. Idempotency guard — any `source === 'recurring'` entries already present
+ *      mean some caller (possibly a racing one) already hydrated this day;
+ *      return them as-is rather than adding more recurring entries.
  * Non-blocking entries (e.g. a community session) don't trip either guard —
- * the recurring training entry is added alongside them, same as before.
+ * the recurring training entries are added alongside them, same as before.
  */
 export async function hydrateFromTemplate(
   _userId: string,
   date: string,
   template: RecurringTemplate,
-): Promise<UserScheduleEntry | null> {
+): Promise<UserScheduleEntry[]> {
   const uid = await resolveAuthUid();
-  if (!uid) return null;
+  if (!uid) return [];
 
   const dayLetter = getHebrewDayLetter(new Date(date + 'T00:00:00'));
   const programIds = template[dayLetter];
-  if (!programIds) return null;
+  if (!programIds) return [];
 
   const nowIso = new Date().toISOString();
-  const entry: UserScheduleEntry = {
-    entryId: genEntryId(),
-    userId: uid,
-    date,
-    programIds,
-    type: programIds.length === 0 ? 'rest' : 'training',
-    source: 'recurring',
-    completed: false,
-    createdAt: nowIso,
-    updatedAt: nowIso,
-  };
+  // A rest day (empty array) still gets exactly one entry, same as before.
+  // A training day gets one entry PER id, in template order — genEntryId()
+  // called once per entry so each is independently addressable.
+  const newEntries: UserScheduleEntry[] = programIds.length === 0
+    ? [{
+        entryId: genEntryId(),
+        userId: uid,
+        date,
+        programIds: [],
+        type: 'rest',
+        source: 'recurring',
+        completed: false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      }]
+    : programIds.map((pid) => ({
+        entryId: genEntryId(),
+        userId: uid,
+        date,
+        programIds: [pid],
+        type: 'training',
+        source: 'recurring',
+        completed: false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      } as UserScheduleEntry));
 
   const ref = doc(db, COLLECTION, docId(uid, date));
 
@@ -290,38 +316,38 @@ export async function hydrateFromTemplate(
             `[UserSchedule] HYDRATE SKIPPED  date=${date}` +
             `  (entry override=${blockingEntry.override ?? false}, type=${blockingEntry.type}, source=${blockingEntry.source})`,
           );
-          return blockingEntry;
+          return [blockingEntry];
         }
 
-        const existingRecurring = existingDay.entries.find((e) => e.source === 'recurring');
-        if (existingRecurring) {
-          console.log(`[UserSchedule] HYDRATE SKIPPED (already hydrated, racing caller)  date=${date}`);
+        const existingRecurring = existingDay.entries.filter((e) => e.source === 'recurring');
+        if (existingRecurring.length > 0) {
+          console.log(`[UserSchedule] HYDRATE SKIPPED (already hydrated, racing caller)  date=${date}  entries=${existingRecurring.length}`);
           return existingRecurring;
         }
 
         // Non-blocking entries exist (e.g. community session) — add the
-        // recurring training entry alongside them.
+        // recurring training entries alongside them.
         const cleanEntries = [
           ...existingDay.entries.map((e) => stripUndefined(e as unknown as Record<string, unknown>) as unknown as UserScheduleEntry),
-          stripUndefined(entry as unknown as Record<string, unknown>) as unknown as UserScheduleEntry,
+          ...newEntries.map((e) => stripUndefined(e as unknown as Record<string, unknown>) as unknown as UserScheduleEntry),
         ];
         tx.set(ref, { userId: uid, date, entries: cleanEntries, updatedAt: serverTimestamp() });
-        console.log(`[UserSchedule] HYDRATED (alongside existing entries)  ${date}  entryId=${entry.entryId}`);
-        return entry;
+        console.log(`[UserSchedule] HYDRATED (alongside existing entries)  ${date}  entries=${newEntries.length}`);
+        return newEntries;
       }
 
       tx.set(ref, {
         userId: uid,
         date,
-        entries: [stripUndefined(entry as unknown as Record<string, unknown>) as unknown as UserScheduleEntry],
+        entries: newEntries.map((e) => stripUndefined(e as unknown as Record<string, unknown>) as unknown as UserScheduleEntry),
         updatedAt: serverTimestamp(),
       });
-      console.log(`[UserSchedule] HYDRATED  ${date}  entryId=${entry.entryId}`);
-      return entry;
+      console.log(`[UserSchedule] HYDRATED  ${date}  entries=${newEntries.length}`);
+      return newEntries;
     });
   } catch (err) {
     console.error(`[UserSchedule] HYDRATE FAILED  date=${date}  uid=${uid}`, err);
-    return null;
+    return [];
   }
 }
 
