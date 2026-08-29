@@ -46,19 +46,35 @@ export function isAgendaHybridDayDisplayEnabled(): boolean {
 
 /**
  * Resolves a human-readable Hebrew workout title from a schedule entry's
- * `programIds` array. Falls back to "אימון כוח" for unknown IDs.
+ * `programIds` array. Falls back to a `scheduledCategories`-derived generic
+ * label — not "אימון כוח" unconditionally — for a running/walking entry
+ * with no strength id, e.g. a manually-added entry from AddWorkoutModal
+ * (`programIds: []`, `scheduledCategories: ['cardio' | 'walking']`,
+ * per WORKOUT_TYPE_MAPPING). That id/category split is also why the card's
+ * icon (resolveIconKey, driven by `scheduledCategories` as its `programAlias`
+ * fallback — AgendaDayCard.tsx:637) already renders correctly while the
+ * title used to fall to the strength default regardless. Reuses the same
+ * category→title convention as `resolveReconstructedTitle` above, not a
+ * second mapping.
  */
-function resolveStrengthTitle(programIds: string[] | undefined): string {
+function resolveStrengthTitle(
+  programIds: string[] | undefined,
+  scheduledCategories?: ScheduleActivityCategory[],
+): string {
   const primary = programIds?.[0];
-  if (!primary) return 'אימון כוח';
+  if (primary) {
+    // Premium edge-case: combined hybrid session
+    if (primary === 'UPPER_CALISTHENICS') return 'אימון קליסטניקס משולב';
 
-  // Premium edge-case: combined hybrid session
-  if (primary === 'UPPER_CALISTHENICS') return 'אימון קליסטניקס משולב';
+    const display = SKILL_DISPLAY[primary as keyof typeof SKILL_DISPLAY];
+    if (display) return `אימון ${display.shortName}`;
+  }
 
-  const display = SKILL_DISPLAY[primary as keyof typeof SKILL_DISPLAY];
-  if (display) return `אימון ${display.shortName}`;
-
-  return 'אימון כוח';
+  switch (scheduledCategories?.[0]) {
+    case 'cardio':  return 'אימון קרדיו';
+    case 'walking': return 'הליכה';
+    default:        return 'אימון כוח';
+  }
 }
 
 /**
@@ -628,7 +644,7 @@ function StrengthCard({
   const barColor = isCompleted ? (completedFill ?? '#1D9E75') : (accentColor ?? '#00C9F2');
   const title = titleProp ?? (isCommunity
     ? getCommunityTitle(entry)
-    : resolveStrengthTitle(entry.programIds));
+    : resolveStrengthTitle(entry.programIds, entry.scheduledCategories));
   const CommunityIcon: React.FC<{ className?: string }> | undefined = isCommunity
     ? COMMUNITY_CARD_ICON[entry.scheduledCategories?.[0] as string ?? '']
     : undefined;
