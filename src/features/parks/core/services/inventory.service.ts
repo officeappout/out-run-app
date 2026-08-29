@@ -196,8 +196,12 @@ const ROUTE_ADJACENCY_DETECTION_THRESHOLD_METERS = 1000;
  * patches) every edge for `cityName` with a freshly computed set. Simpler
  * and always-correct at this data scale (189 official_routes total) versus
  * tracking incremental deltas; `official_routes.path` is immutable
- * post-creation (verified, RouteEditor's updateRoute strips `path` from
- * updates) so only create/delete needs to trigger this, never an edit.
+ * post-creation by default (RouteEditor's updateRoute strips `path` from
+ * updates unless the caller opts in via `{ allowPathUpdate: true }` — see
+ * route-editor-scoping-spec.md §3.5.6/§9.5) so only create/delete needs to
+ * trigger this today, never an edit — a future path-editing caller that
+ * skips the pending→re-approve cycle (route-editor-scoping-spec.md §10 Q1)
+ * would need to add its own recompute call here too.
  *
  * Fire-and-forget from every real `official_routes` mutator below (both
  * create and delete sides) — never awaited by the caller, matching the
@@ -1261,9 +1265,13 @@ export const InventoryService = {
 
     /**
      * Update metadata fields on an existing route.
-     * Does NOT touch path geometry — only name, description, difficulty, activityType, etc.
+     * Does NOT touch path geometry by default — only name, description, difficulty,
+     * activityType, etc. Pass `{ allowPathUpdate: true }` to also write `path` (route-editor-
+     * scoping-spec.md §3.5.6) — the caller is then responsible for having already recomputed
+     * distance/elevationGain/maxGrade/duration/difficulty to match the new path; this function
+     * does not derive them.
      */
-    updateRoute: async (routeId: string, data: Partial<Route>): Promise<void> => {
+    updateRoute: async (routeId: string, data: Partial<Route>, options?: { allowPathUpdate?: boolean }): Promise<void> => {
         try {
             const { id, path, createdAt, ...rest } = data as any;
 
@@ -1281,6 +1289,7 @@ export const InventoryService = {
 
             const payload = buildValidatedDoc('official_routes', {
                 ...rest,
+                ...(options?.allowPathUpdate ? { path } : {}),
                 updatedAt: serverTimestamp(),
             }, {
                 mode: 'update',
