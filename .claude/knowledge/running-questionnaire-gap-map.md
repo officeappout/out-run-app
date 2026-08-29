@@ -169,7 +169,7 @@ behavior this ordering bug prevents.
   plausible-looking ~85-95% completion score that **masks** the real gap instead of surfacing it,
   arguably worse than a visibly low number
 
-### 🟠 #4 — `lifestyle.recurringTemplate` silently wiped for returning/hybrid users
+### 🟠 #4 — `lifestyle.recurringTemplate` silently wiped for returning/hybrid users — ✅ CLOSED 29.08.2026 (two-stage fix)
 Strength writes this field via a proper merge (`onboarding-sync.service.ts:585-597`:
 `{...(existing recurringTemplate ?? {}), ...(data as any).recurringTemplate}`) — the comment right
 above it states the explicit intent: *"We MERGE rather than overwrite so a user who completes both
@@ -184,15 +184,76 @@ replaced** — the strength days vanish from the calendar (`StatsOverview.tsx:75
 `hydrateFromTemplate` consumes exactly this field). A second, smaller instance of the same
 "running always wins, no check for the other track" pattern: `lifestyle.primaryTrack`/
 `dashboardMode` are unconditionally overwritten by the running bridge (1686-1691) regardless of
-whether the same call also assigned a strength program.
+whether the same call also assigned a strength program — **still open, not part of either fix
+below**, tracked separately (documented as a deliberate, temporary product decision pending the
+hybrid dashboard design, see commit `827450f9`'s message and the schedule-drawer plan's §5).
 
-### 🟠 #5 — `AgendaDayCard.tsx` treats running and strength as mutually exclusive per day
-Line 745: `if (hasRunning) { setEntries([]); return; }` — skips the strength Firestore fetch
-**entirely** the moment a day has a running entry. Render is a strict `if/else-if` chain (944
-running-only, 1011 strength-only) — never both. On any day that is both a running day and a
-strength day (a scenario the running UI itself actively invites — `RunningScheduleStep.tsx:346-347,
-358` renders shared days in **purple**, labeled "שניהם"/"both"), the strength session is simply
-never shown. No crash, no merge, no warning. `SmartWeeklySchedule.tsx` (the other schedule surface,
+**Stage 1 (commit `827450f9`, 25.08.2026):** fixed the *map-level* case above — the running block's
+`recurringTemplate` write now spreads the existing value first (`{...existing, ...runTemplate}`),
+so a returning user's strength days on *other* day-letters survive. Its own test title says the
+boundary out loud: `"completing running on **different days**"`. It explicitly deferred the
+same-day case as out of scope, naming it "gap-map finding #9" in the commit message.
+
+**Stage 2 (this fix, 29.08.2026, both directions):** closed the same-day case #9 pointed at — see #9
+below for the mechanism. Both `recurringTemplate` write sites in this file now merge each
+day-letter's *array* through `mergeDayItems(existing, next, owner)` before their map-level spread:
+- The running bridge (`~1780-1810`, `owner: 'running'`) — a day that already has a strength id (e.g.
+  Dana trains ב/ד/ו for strength, picks ד for running too) keeps both —
+  `template['ד'] === ['FULL_BODY', <runningTemplateId>]`, not just the running id.
+- The strength UTS bridge (`~596-627`, `owner: 'strength'`) — confirmed, during this fix, to have
+  the *identical* bug in reverse: same flat map-level spread, same array-level overwrite, and the
+  same false "keeps both worlds" claim in its own adjacent comment (`:601-602`, pre-fix). A running
+  user who later completes strength onboarding on a day that already has a running id was silently
+  losing the running id — same class of bug, opposite direction, now closed the same way.
+
+Two integration tests, `onboarding-sync.service.test.ts` — describe block
+`"gap-map finding #9: same-day collision"`: `"Dana's bug"` (running write collides with existing
+strength) and `"Dana's bug in reverse"` (strength write collides with existing running) — each
+proves its own direction, a passing pure-function test alone would not have caught either
+integration wiring being wrong or missing.
+
+**⚠️ Data-layer fix only — does not mean a user can now *see* both trainings on a shared day.** See
+#5 below: `AgendaDayCard.tsx` still renders running and strength as mutually exclusive per day,
+completely independent of what `recurringTemplate` now correctly stores. Closing #9 means the data
+survives; #5 is the reason it still won't appear on screen.
+
+### 🟠 #5 — `AgendaDayCard.tsx` treats running and strength as mutually exclusive per day — 🔴 STILL OPEN, confirmed live 29.08.2026, blocks David's own decision
+`AgendaDayCard.tsx:874`: `if (hasRunning) { setEntries([]); return; }` — skips the strength
+Firestore fetch **entirely** the moment a day has a running entry. Render is a strict `if/else-if`
+chain (`:1104` `) : hasRunning ? (`) — never both. On any day that is both a running day and a
+strength day, the strength session is simply never shown. No crash, no merge, no warning. **Not a
+theoretical concern** — re-confirmed by re-reading both lines directly on 29.08.2026, specifically
+because an earlier claim that running and strength already render together on the main agenda was
+wrong and got corrected on re-check; treat that as the standing caution for this file — verify
+against current line numbers before trusting any status claim here, including this one.
+
+**Relationship to #9, precise — do not conflate:** #9 (above) closes the *data* layer —
+`recurringTemplate[day]` now correctly holds both a strength id and a running id for a shared day,
+both directions, and survives every write path that touches it. #5 is the *display* layer, and is
+untouched. **Closing #9 does not mean a user can see both trainings on a shared day** — it means
+the data is finally correct underneath a screen that still shows only one of the two. `hasRunning`
+short-circuits before the strength fetch ever runs, so the now-correctly-persisted strength id for
+that day is simply never read.
+
+**Note, 29.08.2026:** this entry originally cited `RunningScheduleStep.tsx:346-347,358` rendering a
+shared day in **purple**, labeled "שניהם"/"both", as evidence that the running UI "actively
+invites" this collision scenario. That purple/"שניהם" treatment has since been **removed** (same
+pass that closed #4/#9, above) — a day picked for both tracks now renders with the plain running
+color plus a separate small strength marker beside it, matching the "one card/marker per real
+thing" pattern `AgendaDayCard.tsx`/`SmartWeeklySchedule.tsx` already use elsewhere *for entries that
+do get fetched*. **This is a UI-consistency fix on the registration screen only, not a fix for
+#5** — `AgendaDayCard.tsx:874`'s own mutually-exclusive rendering is completely untouched and still
+reachable the exact same way. Removing the misleading "shared" visual just means the registration
+screen itself no longer promises a blended view the agenda doesn't actually deliver.
+
+**Explicitly not touched, needs David's decision (per his own instruction, 29.08.2026):** do not fix
+#5 without a product call on how a shared day should render — options include (a) two entries
+resolved independently once `hasRunning` no longer short-circuits, mirroring how
+`AgendaDayCard.tsx:975`'s `trainingEntries`/one-card-per-entry pattern already handles multiple
+*strength* items on one day (see #4/#9's history above), or (b) something narrower. Not this
+implementer's call.
+
+`SmartWeeklySchedule.tsx` (the other schedule surface,
 home's weekly strip) does have a partial merge (`buildPlannedSessions`, Stage H, 18.08.2026) — but
 only when `dashboardMode` is `RUNNING`/`HYBRID`; in `wellness`/`performance` mode the running
 entry instead surfaces as a generic, mislabeled dot (icon falls back to `'muscle'`, no pace/category/
@@ -260,13 +321,28 @@ not that one.) Net effect: that completion item — and the hybrid-awareness hig
 The awareness is also one-directional: strength days are visible to the running step, but running
 days are never written back for a strength step to see.
 
-### 🟡 #9 — `recurringTemplate` day-value shape diverges between tracks
+### 🟡 #9 — `recurringTemplate` day-value shape diverges between tracks — ✅ CLOSED 29.08.2026 (as an ownership-detection adapter, not a shape normalization)
 Strength writes `recurringTemplate[day] = ScheduleItemId[]` (a typed union like `PLANCHE`/
 `FULL_BODY`, consumed by `MOVEMENT_OF`/`SKILL_DISPLAY` lookups, `smartSchedule.types.ts:193,220`).
 Running writes `recurringTemplate[day] = [bridge.programTemplate.id]` — a raw running-template-id
 string the typed lookups don't recognize, silently falling through to default/unstyled rendering
 wherever this field is consumed outside running-specific surfaces. This is the data-shape half of
 why #4/#5 can't just be unioned without an adapter first.
+
+**Closed differently than originally framed — no shape normalization was needed.** The premise was
+that the two shapes need to be *unified* before #4 could be fixed. Turned out unnecessary: strength
+ids are a small **closed set** (9 values total — `ALL_SKILL_IDS` + `ALL_PROGRAM_IDS`,
+`smartSchedule.types.ts:114,123`), already checkable via `isSkillId`/`isProgramId`
+(`smartSchedule.types.ts:287,291` — written, exported, never called anywhere until now). Running ids
+are free-form (`bridge.programTemplate.id`, no closed set) but don't need their own positive check —
+"not a known strength id" is sufficient to classify an id as running-owned. `mergeDayItems`
+(`src/features/schedule/services/mergeDayItems.ts`) uses exactly this exclusion test as its
+ownership check, without touching either shape. `HANDSTAND` (a deliberately-retained "free slot" in
+the strength template, `ScheduleStep.tsx:558-562`) is in `ALL_SKILL_IDS`, so it's correctly
+classified strength-owned — verified with a dedicated test, not assumed. Residual, theoretical-only
+limitation: exclusion-based detection would misclassify a running template id that happened to
+collide with one of the 9 strength enum strings — considered astronomically unlikely given the two
+naming domains, not guarded against.
 
 ### 🟡 #10 — `WEEKS_LOOKUP` table has real coverage gaps
 `resolveWeeks()`/`WEEKS_LOOKUP` (`bridge.service.ts:118-124`,

@@ -41,6 +41,7 @@ import {
     Square,
     XCircle,
     Tag,
+    Edit,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import { GISParserService } from '@/features/parks';
@@ -2269,6 +2270,7 @@ export default function AdminRouteManager() {
                                             <th className="text-center py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-16">סטטוס</th>
                                             <th className="text-right py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-20">עיר</th>
                                             <th className="text-center py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-16">מקור</th>
+                                            <th className="text-center py-2 px-2 text-[10px] font-black text-gray-400 uppercase tracking-wider w-10">עריכה</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -2364,6 +2366,18 @@ export default function AdminRouteManager() {
                                                     </td>
                                                     <td className="py-2 px-2 text-center">
                                                         <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${dsColor}`}>{dsLabel}</span>
+                                                    </td>
+                                                    <td className="py-2 px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                                        {/* Canonical route editor door (route-editor-scoping-spec.md
+                                                            "one editor, many doors") — every row in this table is
+                                                            already an official_routes doc, route.id is its doc id. */}
+                                                        <Link
+                                                            href={`/admin/authority/routes/${route.id}/edit`}
+                                                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
+                                                            title="ערוך מסלול"
+                                                        >
+                                                            <Edit size={14} />
+                                                        </Link>
                                                     </td>
                                                 </tr>
                                             );

@@ -11,10 +11,11 @@
  * z-[81], slide-in-from-right) — same shell as ParkDetailDrawer.
  */
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
-  X, Loader2, MapPin, Route as RouteIcon, Mountain, Users, ShieldCheck, Building2, AlertTriangle, Landmark,
+  X, Loader2, MapPin, Route as RouteIcon, Mountain, Users, ShieldCheck, Building2, AlertTriangle, Landmark, Edit,
 } from 'lucide-react';
 import type { ModerationEntityType } from '@/features/admin/services/moderation.service';
 import dynamicImport from 'next/dynamic';
@@ -192,6 +193,7 @@ function infoRows(entityType: ModerationEntityType, x: any): Array<[string, stri
 export default function ApprovalDetailModal({
   item, isSuperAdmin, processingId, onApprove, onReject, onClose,
 }: ApprovalDetailModalProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
 
@@ -254,6 +256,19 @@ export default function ApprovalDetailModal({
             <p className="font-black text-gray-900 text-base truncate">{item.title}</p>
             <p className="text-xs text-gray-400">{meta.label} · ממתין לאישור</p>
           </div>
+          {item.entityType === 'route' && (
+            // Canonical route editor door (route-editor-scoping-spec.md "one editor, many
+            // doors") — visible to authority managers too, not gated behind isSuperAdmin like
+            // Approve/Reject below: the target editor's own gate already allows superAdmin OR
+            // authorityManager, so this button just matches that, not the stricter approve gate.
+            <button
+              onClick={() => router.push(`/admin/authority/routes/${item.id}/edit`)}
+              className="w-9 h-9 rounded-full bg-cyan-50 text-cyan-600 flex items-center justify-center hover:bg-cyan-100 transition-colors flex-shrink-0"
+              title="ערוך מסלול"
+            >
+              <Edit size={16} />
+            </button>
+          )}
           <button onClick={onClose} className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200 transition-colors flex-shrink-0">
             <X size={18} />
           </button>
