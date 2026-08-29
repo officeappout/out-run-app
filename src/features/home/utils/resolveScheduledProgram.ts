@@ -1,4 +1,5 @@
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
+import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 
 /**
  * Pure decision logic behind StatsOverview's "what should today's workout be
@@ -22,6 +23,17 @@ export interface ScheduledProgramInput {
   /** `(scheduleDays.length ?? 0) > 0 || Object.keys(recurringTemplate ?? {}).length > 0`. */
   hasScheduleConfigured: boolean;
   activeProgramId: string | undefined;
+  /**
+   * `profile.running.activeProgram?.programId`. The running bridge writes
+   * this same id into `recurringTemplate[day]`, so `hydrateFromTemplate`
+   * materializes a shadow `UserScheduleEntry` for it — excluded from id
+   * collection below via `excludeRunningShadowEntry` so it never leaks into
+   * the strength generator's `scheduledProgramIds` as if it were a real
+   * strength program. Confirmed live bug before this fix (29.08.2026):
+   * `resolveToSlug` doesn't safely reject an unrecognized id, it passes it
+   * through — "exercise may get wrong level" per its own comment.
+   */
+  runningProgramId: string | undefined;
 }
 
 export interface ScheduledProgramResolution {
@@ -30,7 +42,7 @@ export interface ScheduledProgramResolution {
 }
 
 export function resolveScheduledProgram(input: ScheduledProgramInput): ScheduledProgramResolution {
-  const { rawEntries, hydrated, templateDayIds, hasScheduleConfigured, activeProgramId } = input;
+  const { rawEntries, hydrated, templateDayIds, hasScheduleConfigured, activeProgramId, runningProgramId } = input;
 
   const rawMatch: UserScheduleEntry | null =
     rawEntries.find((e) => e.type === 'training' && e.source !== 'community') ??
@@ -59,7 +71,8 @@ export function resolveScheduledProgram(input: ScheduledProgramInput): Scheduled
   const scheduledTrainingIds: string[] = (() => {
     const seen = new Set<string>();
     const out: string[] = [];
-    for (const e of [...rawEntries, ...hydrated]) {
+    const relevantEntries = excludeRunningShadowEntry([...rawEntries, ...hydrated], runningProgramId);
+    for (const e of relevantEntries) {
       if (e.type !== 'training' || e.source === 'community') continue;
       for (const pid of e.programIds ?? []) {
         if (!seen.has(pid)) { seen.add(pid); out.push(pid); }

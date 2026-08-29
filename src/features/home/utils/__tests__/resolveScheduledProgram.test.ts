@@ -5,8 +5,14 @@ import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedul
 // Pins the fix/schedule-entry-per-item StatsOverview fix: this decision logic
 // used to pick ONE entry via .find() and read that entry's .programIds — under
 // hydrateFromTemplate's one-entry-per-id change, that silently dropped every id
-// but the first from what the workout-generation engine builds for "today,"
-// a real regression (not cosmetic) caught in review before this shipped.
+// but the first from what the workout-generation engine builds for "today," a
+// real regression (not cosmetic) caught in review before this shipped.
+//
+// Also pins the 29.08.2026 fix: the id-collection loop didn't exclude the
+// running bridge's own recurringTemplate-hydrated shadow entry, so on a
+// running day its id leaked into scheduledProgramIds and fed the strength
+// generator a garbage program id (resolveToSlug passes unrecognized ids
+// through as-is — "exercise may get wrong level").
 
 function trainingEntry(programId: string, overrides: Partial<UserScheduleEntry> = {}): UserScheduleEntry {
   return {
@@ -42,6 +48,7 @@ describe('resolveScheduledProgram', () => {
       templateDayIds: undefined,
       hasScheduleConfigured: true,
       activeProgramId: 'FULL_BODY',
+      runningProgramId: undefined,
     });
 
     expect(result.isRestDay).toBe(false);
@@ -58,6 +65,7 @@ describe('resolveScheduledProgram', () => {
       templateDayIds: ['FULL_BODY', 'PLANCHE'],
       hasScheduleConfigured: true,
       activeProgramId: undefined,
+      runningProgramId: undefined,
     });
 
     expect(result.isRestDay).toBe(false);
@@ -71,6 +79,7 @@ describe('resolveScheduledProgram', () => {
       templateDayIds: ['FULL_BODY'],
       hasScheduleConfigured: true,
       activeProgramId: 'FULL_BODY',
+      runningProgramId: undefined,
     });
 
     expect(result.isRestDay).toBe(true);
@@ -84,6 +93,7 @@ describe('resolveScheduledProgram', () => {
       templateDayIds: [],
       hasScheduleConfigured: true,
       activeProgramId: 'FULL_BODY',
+      runningProgramId: undefined,
     });
 
     expect(result.isRestDay).toBe(true);
@@ -97,6 +107,7 @@ describe('resolveScheduledProgram', () => {
       templateDayIds: undefined,
       hasScheduleConfigured: true,
       activeProgramId: undefined,
+      runningProgramId: undefined,
     });
 
     expect(result.scheduledProgramIds).toEqual(['FULL_BODY', 'PLANCHE']);
@@ -109,6 +120,7 @@ describe('resolveScheduledProgram', () => {
       templateDayIds: ['FULL_BODY', 'PLANCHE'],
       hasScheduleConfigured: true,
       activeProgramId: undefined,
+      runningProgramId: undefined,
     });
 
     expect(result.isRestDay).toBe(false);
@@ -122,6 +134,7 @@ describe('resolveScheduledProgram', () => {
       templateDayIds: undefined,
       hasScheduleConfigured: true,
       activeProgramId: 'FULL_BODY',
+      runningProgramId: undefined,
     });
 
     expect(result.isRestDay).toBe(true);
@@ -135,9 +148,39 @@ describe('resolveScheduledProgram', () => {
       templateDayIds: undefined,
       hasScheduleConfigured: false,
       activeProgramId: 'FULL_BODY',
+      runningProgramId: undefined,
     });
 
     expect(result.isRestDay).toBe(false);
+    expect(result.scheduledProgramIds).toEqual(['FULL_BODY']);
+  });
+
+  it('the running-shadow bug, 29.08.2026: a pure-running day never leaks the running template id into scheduledProgramIds', () => {
+    const result = resolveScheduledProgram({
+      rawEntries: [trainingEntry('running_template_xyz')],
+      hydrated: [],
+      templateDayIds: ['running_template_xyz'],
+      hasScheduleConfigured: true,
+      activeProgramId: undefined,
+      runningProgramId: 'running_template_xyz',
+    });
+
+    expect(result.scheduledProgramIds).toEqual([]);
+    // Rest-day detection is untouched by the exclusion — the shadow entry
+    // still counts as "something is scheduled today" for that purpose.
+    expect(result.isRestDay).toBe(false);
+  });
+
+  it('a hybrid day: the running shadow id is excluded, the real strength id on the same day survives', () => {
+    const result = resolveScheduledProgram({
+      rawEntries: [trainingEntry('FULL_BODY'), trainingEntry('running_template_xyz')],
+      hydrated: [],
+      templateDayIds: undefined,
+      hasScheduleConfigured: true,
+      activeProgramId: undefined,
+      runningProgramId: 'running_template_xyz',
+    });
+
     expect(result.scheduledProgramIds).toEqual(['FULL_BODY']);
   });
 });

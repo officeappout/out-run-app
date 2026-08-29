@@ -27,6 +27,7 @@ import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule
 import { getSundayWeekStart, toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
+import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 import { 
   ACTIVITY_COLORS, 
   ACTIVITY_LABELS,
@@ -277,9 +278,8 @@ function buildPlannedSessions(
   runEntry: RunningScheduleEntry | undefined,
   runningProgramId: string | undefined,
 ): DaySessionInput[] {
-  const sessions: DaySessionInput[] = manualEntries
+  const sessions: DaySessionInput[] = excludeRunningShadowEntry(manualEntries, runningProgramId)
     .filter((e) => e.type === 'training')
-    .filter((e) => !(runningProgramId && e.programIds?.[0] === runningProgramId))
     .map((e) => ({
       category: toActivityCategory(e.scheduledCategories?.[0]),
       minutes: 0,

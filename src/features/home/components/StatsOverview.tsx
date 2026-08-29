@@ -778,6 +778,7 @@ export default function StatsOverview({
           templateDayIds: profile.lifestyle?.recurringTemplate?.[templateDayLetter],
           hasScheduleConfigured,
           activeProgramId: activeProgram,
+          runningProgramId: profile.running?.activeProgram?.programId,
         });
 
         scheduledProgramIdsRef.current = scheduledProgramIds;

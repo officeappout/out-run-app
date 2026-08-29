@@ -25,6 +25,7 @@ import { calculateCurrentWeek } from '@/features/workout-engine/core/services/wo
 import { hapticLight } from '@/lib/haptics';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED } from '@/config/feature-flags';
+import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 
 // ── Skill-aware helpers ────────────────────────────────────────────────────
 
@@ -871,7 +872,6 @@ export default function AgendaDayCard({
     // Reset to loading state on every re-run so the destination card
     // always re-renders after a drag move (not stuck showing stale data).
     setEntries(undefined);
-    if (hasRunning) { setEntries([]); return; }
     if (!userId) { setEntries([]); return; }
     // Parent's batched fetch (see RollingAgenda) is still in flight — hold
     // the skeleton instead of falling back to a per-card network call.
@@ -942,6 +942,14 @@ export default function AgendaDayCard({
           ];
         }
 
+        // The running bridge seeds recurringTemplate[day] with its own
+        // program's id, so hydrateFromTemplate above may have materialized a
+        // shadow entry representing the same run `runningWorkout` (above)
+        // already represents via profile.running.activeProgram.schedule —
+        // exclude it so a running day doesn't render/count the same activity
+        // twice now that running and strength/community render together.
+        result = excludeRunningShadowEntry(result, profile?.running?.activeProgram?.programId);
+
         if (!cancelled) setEntries(result);
       } catch {
         if (!cancelled) setEntries([]);
@@ -949,7 +957,7 @@ export default function AgendaDayCard({
     }
     load();
     return () => { cancelled = true; };
-  }, [userId, date, recurringTemplate, refreshKey, hasRunning, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, scheduleMap, actualWorkoutsMap, baseMode]);
+  }, [userId, date, recurringTemplate, refreshKey, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, profile?.running?.activeProgram?.programId, scheduleMap, actualWorkoutsMap, baseMode]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -975,7 +983,7 @@ export default function AgendaDayCard({
   const trainingEntries = (entries ?? []).filter((e) => e.type === 'training');
   const trainingCount   = trainingEntries.length;
 
-  const isLoading = entries === undefined && !hasRunning;
+  const isLoading = entries === undefined;
   const isEmpty   = !hasRunning && !isLoading && entries !== undefined && entries.length === 0 && baseMode === 'future';
   const isMissedPast = baseMode === 'past' && primaryEntry?.type === 'training' && primaryEntry?.completed === false;
   const isRest    = !hasRunning && !isEmpty && (!primaryEntry || primaryEntry?.type === 'rest' || isMissedPast);
@@ -996,11 +1004,19 @@ export default function AgendaDayCard({
     [onCardDragEnd],
   );
 
-  const cats: ScheduleActivityCategory[] = hasRunning
-    ? ['cardio']
-    : primaryEntry?.scheduledCategories && primaryEntry.scheduledCategories.length > 0
-      ? primaryEntry.scheduledCategories
-      : (isRest ? [] : ['strength']);
+  // Additive, not exclusive (29.08.2026, §0d stage 3) — a day can now show
+  // running alongside strength/community cards; the day-number/timeline-dot
+  // accent must reflect all of them, not just whichever branch used to win.
+  // dominantCat below still prioritizes strength > cardio > cats[0], unchanged.
+  const cats: ScheduleActivityCategory[] = (() => {
+    const fromEntries = trainingEntries.flatMap((e) => e.scheduledCategories ?? []);
+    const combined = Array.from(new Set([
+      ...(hasRunning ? (['cardio'] as ScheduleActivityCategory[]) : []),
+      ...fromEntries,
+    ]));
+    if (combined.length > 0) return combined;
+    return isRest ? [] : ['strength'];
+  })();
 
   // ── Derived styling helpers ──────────────────────────────────────────────
 
@@ -1101,76 +1117,71 @@ export default function AgendaDayCard({
               <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">🛌 מנוחה</span>
             )
 
-          ) : hasRunning ? (
-            /* ── Running workout — styled card with per-type accent bar ── */
+          ) : (hasRunning || trainingCount > 0) ? (
+            /* ── §0d stage 1-3 (29.08.2026): running + strength/community cards
+               render together, not as mutually-exclusive branches. Running's
+               width now shares the row (flex:1) with other cards the same way
+               StrengthCard's own isShared pattern does (:637) — matches when
+               trainingCount > 0, i.e. running is not the only card. Per-card
+               drag/delete/tap for the running item specifically is still
+               deferred to stage 4-5 (no stable identity — no entryId, no
+               Firestore doc); isDraggable still blanket-excludes hasRunning
+               days, unchanged. ── */
             <div className="flex items-center flex-1 min-w-0" style={{ gap: 4 }}>
-              <div
-                className="min-w-0 flex items-stretch flex-shrink-0"
-                style={{
-                  width: '50%',
-                  // Stage C (18.08.2026): same full-color-fill treatment as StrengthCard
-                  // above — completed fills solid instead of white+stripe, so the border
-                  // (only meaningful against a white/tinted bg) is dropped too.
-                  border: isCompleted ? 'none' : `0.5px solid ${runColor}26`,
-                  background: isCompleted ? '#1D9E75' : `${runColor}0D`,
-                  borderRadius: 8,
-                  overflow: 'hidden',
-                  minHeight: 36,
-                }}
-              >
-                {/* Accent bar — only for not-yet-completed; see StrengthCard's identical
-                    reasoning above (same-color stripe on a same-color fill is invisible). */}
-                {!isCompleted && (
-                  <div className="flex-shrink-0" style={{ width: 4, backgroundColor: runColor }} />
-                )}
-
-                {/* Card body */}
-                <div className="flex items-center gap-1.5 flex-1 min-w-0" style={{ padding: '5px 10px' }}>
-                  <span style={{ color: isCompleted ? '#FFFFFF' : runColor, flexShrink: 0 }}>
-                    {getCategoryIcon(runningWorkout?.category)}
-                  </span>
-                  <span className={`text-[11px] font-semibold truncate flex-1 min-w-0 ${
-                    isCompleted ? 'text-white line-through' : 'text-gray-900 dark:text-white'
-                  }`}>
-                    {runningWorkout!.name}
-                  </span>
-                  {isCompleted ? (
-                    // Colors inverted (white pill, green text/icon) from the previous
-                    // light-emerald-on-white treatment — that combination would have
-                    // very poor contrast against the new solid #1D9E75 fill. Keeping the
-                    // pill+label (not just relying on the fill color) preserves an
-                    // accessible, non-color-only "done" signal.
-                    <div className="flex items-center gap-0.5 px-1.5 py-px rounded-md bg-white/90 flex-shrink-0">
-                      <Check className="w-2.5 h-2.5 text-[#1D9E75]" />
-                      <span className="text-[9px] font-bold text-[#1D9E75]">הושלם</span>
-                    </div>
-                  ) : isToday ? (
-                    <div className="flex items-center gap-1 px-1.5 py-px rounded-md flex-shrink-0" style={{ background: `${runColor}20` }}>
-                      <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: runColor }} />
-                      <span className="text-[9px] font-bold" style={{ color: runColor }}>היום</span>
-                    </div>
-                  ) : timeLabel ? (
-                    <span className="text-[10px] font-bold tabular-nums flex-shrink-0" style={{ color: runColor }}>{timeLabel}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* Inline + button */}
-              {showAddButton && (
-                <button
-                  onClick={handleAddClick}
-                  className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-all"
-                  style={{ color: '#64748B' }}
-                  aria-label="הוסף אימון ליום זה"
+              {hasRunning && (
+                /* ── Running workout — styled card with per-type accent bar ── */
+                <div
+                  className="min-w-0 flex items-stretch flex-shrink-0"
+                  style={{
+                    ...(trainingCount > 0 ? { flex: 1 } : { width: '50%' }),
+                    // Stage C (18.08.2026): same full-color-fill treatment as StrengthCard
+                    // above — completed fills solid instead of white+stripe, so the border
+                    // (only meaningful against a white/tinted bg) is dropped too.
+                    border: isCompleted ? 'none' : `0.5px solid ${runColor}26`,
+                    background: isCompleted ? '#1D9E75' : `${runColor}0D`,
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    minHeight: 36,
+                  }}
                 >
-                  <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-                </button>
-              )}
-            </div>
+                  {/* Accent bar — only for not-yet-completed; see StrengthCard's identical
+                      reasoning above (same-color stripe on a same-color fill is invisible). */}
+                  {!isCompleted && (
+                    <div className="flex-shrink-0" style={{ width: 4, backgroundColor: runColor }} />
+                  )}
 
-          ) : trainingCount > 0 ? (
-            /* ── Strength / cardio / maintenance workout cards + inline + button ── */
-            <div className="flex items-center flex-1 min-w-0" style={{ gap: 4 }}>
+                  {/* Card body */}
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0" style={{ padding: '5px 10px' }}>
+                    <span style={{ color: isCompleted ? '#FFFFFF' : runColor, flexShrink: 0 }}>
+                      {getCategoryIcon(runningWorkout?.category)}
+                    </span>
+                    <span className={`text-[11px] font-semibold truncate flex-1 min-w-0 ${
+                      isCompleted ? 'text-white line-through' : 'text-gray-900 dark:text-white'
+                    }`}>
+                      {runningWorkout!.name}
+                    </span>
+                    {isCompleted ? (
+                      // Colors inverted (white pill, green text/icon) from the previous
+                      // light-emerald-on-white treatment — that combination would have
+                      // very poor contrast against the new solid #1D9E75 fill. Keeping the
+                      // pill+label (not just relying on the fill color) preserves an
+                      // accessible, non-color-only "done" signal.
+                      <div className="flex items-center gap-0.5 px-1.5 py-px rounded-md bg-white/90 flex-shrink-0">
+                        <Check className="w-2.5 h-2.5 text-[#1D9E75]" />
+                        <span className="text-[9px] font-bold text-[#1D9E75]">הושלם</span>
+                      </div>
+                    ) : isToday ? (
+                      <div className="flex items-center gap-1 px-1.5 py-px rounded-md flex-shrink-0" style={{ background: `${runColor}20` }}>
+                        <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: runColor }} />
+                        <span className="text-[9px] font-bold" style={{ color: runColor }}>היום</span>
+                      </div>
+                    ) : timeLabel ? (
+                      <span className="text-[10px] font-bold tabular-nums flex-shrink-0" style={{ color: runColor }}>{timeLabel}</span>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
               {trainingEntries.map((e, idx) => (
                 <StrengthCard
                   key={e.entryId ?? `${date}-${idx}`}
