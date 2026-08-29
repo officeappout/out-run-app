@@ -2167,9 +2167,22 @@ export default function HomePage() {
                   carousel too, rather than a second wrapper that would silently lose it. */}
               {(() => {
                 const isViewingToday = selectedDate === toISODate(new Date());
+                // Parity fix (29.08.2026): same condition StatsOverview's own
+                // hideWorkoutSection already uses (line ~2287 below, unconditional on
+                // which branch renders) — a completed day should look identical whether
+                // the carousel flag is on or off. Without this, the new carousel had no
+                // equivalent check at all (confirmed: zero references to
+                // postWorkoutData/todayWorkoutDone anywhere in this branch), so it kept
+                // showing a redundant "start a workout" carousel underneath
+                // TodayActivityStrip's completion card. Folding it into
+                // readyPreWorkoutSuggestions itself (rather than a separate check) means
+                // the existing `: (<StatsOverview ... hideWorkoutSection={...} />)` fallback
+                // below does the actual hiding — no new UI, reusing what already works.
+                const isTodayWorkoutDone = !!postWorkoutData || todayWorkoutDone;
                 const readyPreWorkoutSuggestions = (
                   HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED
                   && isViewingToday
+                  && !isTodayWorkoutDone
                   && preWorkoutSuggestions
                   && preWorkoutSuggestions.length > 0
                 ) ? preWorkoutSuggestions : null;
