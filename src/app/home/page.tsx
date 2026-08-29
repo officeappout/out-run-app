@@ -21,6 +21,7 @@ import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
 import { useTodayStrengthVolume } from '@/features/home/hooks/useTodayStrengthVolume';
 import { useDailyStrengthTarget } from '@/features/home/hooks/useDailyStrengthTarget';
 import { FRAGMENTER_MINUTES_PER_SET } from '@/features/home/utils/setsToMinutes';
+import { isTodayTrainingDay } from '@/features/home/utils/dailyStrengthTarget';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
 import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
 import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
@@ -747,6 +748,104 @@ export default function HomePage() {
   // route already renders its own "not found" state for that case (see
   // /workouts/[id]/history/page.tsx), so no special-casing is needed here.
   const handleTodayActivityCardTap = useCallback((card: TodayActivityCardData) => {
+    router.push(`/workouts/${card.key}/history`);
+  }, [router]);
+
+  // Section 2 (17.8 build-plan, adaptive-snacking-valiant.md — scope closed 29.08.2026):
+  // past-day activity summary, mounted in the SAME slot the pre-workout carousel/old anchor
+  // already occupy (see the big IIFE below). Reuses getWorkoutsForDate exactly like
+  // tryOpenCompletedWorkout/todaysWorkouts above, just parameterized by selectedDate instead
+  // of "always today" — same primitive, no new query shape.
+  const isViewingPastDate = selectedDate < toISODate(new Date());
+
+  const [pastDayWorkouts, setPastDayWorkouts] = useState<WorkoutHistoryEntry[] | null>(null);
+  useEffect(() => {
+    if (!profile?.id || !isViewingPastDate) {
+      setPastDayWorkouts(null);
+      return;
+    }
+    let cancelled = false;
+    getWorkoutsForDate(profile.id, selectedDate)
+      .then((workouts) => {
+        if (!cancelled) setPastDayWorkouts(workouts);
+      })
+      .catch((error) => {
+        console.error('[home] Failed to load past-day workouts for', selectedDate, error);
+        if (!cancelled) setPastDayWorkouts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id, selectedDate, isViewingPastDate]);
+
+  // No completionData equivalent for a past day (that's a 30-min-TTL sessionStorage payload,
+  // today-only by construction) — every card here is the plain, non-"rich" shape
+  // todayActivityCards above already falls back to for every workout past the rich one.
+  const pastDayActivityCards: TodayActivityCardData[] = useMemo(() => {
+    if (!isViewingPastDate || !pastDayWorkouts || pastDayWorkouts.length === 0) return [];
+    return pastDayWorkouts.map((w, i) => {
+      const displayCategory: ActivityCategory =
+        w.category === 'hybrid' || w.category === 'recovery' ? 'strength' : w.category;
+      return {
+        key: w.id ?? `${w.category}-${w.date.getTime()}-${i}`,
+        category: displayCategory,
+        title: TODAY_ACTIVITY_CATEGORY_LABEL[displayCategory],
+        minutes: Math.round(w.duration / 60),
+        streak: 1,
+        workoutType: w.workoutType,
+      };
+    });
+  }, [isViewingPastDate, pastDayWorkouts]);
+
+  // Step-goal achievement for the viewed date — bounded by design to goalHistory's own
+  // rolling 3-entry window (closed decision, 29.08.2026): there is no live persistence path
+  // for a past day's stepGoalMet/stepsAchieved outside that window (confirmed via audit —
+  // dailyProgress never carries these fields; they exist only on
+  // profile.progression.goalHistory, capped at the 3 most recent days), so a date outside
+  // the window is treated exactly like "no step data available" rather than inventing a new
+  // storage mechanism.
+  const pastDayGoalEntry = useMemo(
+    () => profile?.progression?.goalHistory?.find((entry) => entry.date === selectedDate) ?? null,
+    [profile?.progression?.goalHistory, selectedDate],
+  );
+  const pastDayStepGoalMet = isViewingPastDate && !!pastDayGoalEntry?.stepGoalMet;
+  // Reuses TodayActivityCardData/TodayActivityCard as-is (David's explicit call, 29.08.2026 —
+  // no new card design) even though that component's own copy template ("אימון {label} בוצע"
+  // + "{minutes} דק' · {category}") was built around a real workout, not a step-goal
+  // achievement — framed as a "daily walk" to fit the existing sentence, `minutes: 0` is a
+  // known, flagged cosmetic mismatch (no duration data exists for a step-only day) rather
+  // than a fabricated number.
+  const pastDayStepGoalCard: TodayActivityCardData | null = pastDayStepGoalMet
+    ? { key: `stepgoal-${selectedDate}`, category: 'cardio', title: 'הליכה יומית', minutes: 0, streak: 1, workoutType: 'walking' }
+    : null;
+
+  // null (not []) while the fetch above hasn't settled yet — distinguishes "still loading"
+  // from "confirmed nothing happened", same as todaysWorkouts's own null-until-resolved
+  // contract, so the empty-day text below never flashes before real data has a chance to load.
+  const pastDayDataReady = pastDayWorkouts !== null;
+  const pastDayHasAnyAchievement = pastDayActivityCards.length > 0 || pastDayStepGoalMet;
+
+  // Two-copy empty-day text (closed decision, 27.08.2026) — only shown once pastDayDataReady
+  // AND neither a real workout nor the step goal was achieved on the viewed day.
+  // isTodayTrainingDay is a pure read of the profile's own schedule config (recurringTemplate/
+  // scheduleDays) — no Firestore round-trip, no hydration-timing question — see this file's
+  // own audit note above resolveTodayCompletedDomains-style callers for why that matters.
+  const pastDayWasScheduled = useMemo(
+    () => isTodayTrainingDay(
+      profile?.lifestyle?.scheduleDays,
+      profile?.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,
+      new Date(selectedDate + 'T00:00:00'),
+    ),
+    [profile?.lifestyle?.scheduleDays, profile?.lifestyle?.recurringTemplate, selectedDate],
+  );
+  const pastDayEmptyCopy = pastDayWasScheduled
+    ? 'לא הסתדר הפעם — מחכה לך אימון הבא'
+    : 'רגוע, נחת — איזה כיף';
+
+  const handlePastDayActivityCardTap = useCallback((card: TodayActivityCardData) => {
+    // The synthetic step-goal card (key starts with 'stepgoal-') has no backing workout doc —
+    // no history page to open, so this is a deliberate no-op for it, not a broken link.
+    if (card.key.startsWith('stepgoal-')) return;
     router.push(`/workouts/${card.key}/history`);
   }, [router]);
 
@@ -2158,13 +2257,19 @@ export default function HomePage() {
                   (isViewingToday, matches the effect's own gate above) with real ranked
                   suggestions ready; a past/future selectedDate — or today before ranking
                   resolves — falls back to the old anchor exactly as it renders now.
-                  Sections 2/3 give past/future days their own dedicated card later; until
-                  then, falling back here is the safe, behavior-preserving choice, not a
-                  gap. `onPanEnd` is suppressed outright when the new carousel is showing
-                  (Section 1 decision: the day-swipe gesture is retired for the new
-                  experience, not carried over) — the SAME motion.div wrapper is reused for
-                  both so the order-first positioning above still applies to the new
-                  carousel too, rather than a second wrapper that would silently lose it. */}
+                  Section 2 (29.08.2026) gives a past selectedDate its own dedicated
+                  past-day summary branch (pastDayActivityCards/pastDayEmptyCopy, declared
+                  above near todayActivityCards) instead of falling back to the old anchor.
+                  Section 3 (future days) is not yet built; a future selectedDate still
+                  falls back to the old anchor exactly as it renders today — a safe,
+                  behavior-preserving choice, not a gap. `onPanEnd` is suppressed outright
+                  whenever the new carousel OR the new past-day branch is showing (Section 1
+                  decision: the day-swipe gesture is retired for the new experience, not
+                  carried over; extended to the past-day branch since it can also contain a
+                  horizontally-swipeable SuggestionCarousel, same reasoning) — the SAME
+                  motion.div wrapper is reused for all three so the order-first positioning
+                  above still applies, rather than a second wrapper that would silently lose
+                  it. */}
               {(() => {
                 const isViewingToday = selectedDate === toISODate(new Date());
                 // Parity fix (29.08.2026): same condition StatsOverview's own
@@ -2289,6 +2394,23 @@ export default function HomePage() {
                       />
                     </div>
                   </div>
+                ) : isViewingPastDate ? (
+                  // Section 2 (29.08.2026) — past-day branch. pastDayDataReady mirrors
+                  // todaysWorkouts's own null-until-resolved contract above: render nothing
+                  // while the fetch is in flight, rather than flashing the empty-day text
+                  // before real data has a chance to load.
+                  !pastDayDataReady ? null : pastDayHasAnyAchievement ? (
+                    <TodayActivityStrip
+                      cards={pastDayStepGoalCard ? [...pastDayActivityCards, pastDayStepGoalCard] : pastDayActivityCards}
+                      onCardTap={handlePastDayActivityCardTap}
+                    />
+                  ) : (
+                    <div className="px-5 py-8 text-center" dir="rtl">
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        {pastDayEmptyCopy}
+                      </p>
+                    </div>
+                  )
                 ) : (
                   <StatsOverview
                     stats={MOCK_STATS}
@@ -2310,7 +2432,7 @@ export default function HomePage() {
                   ? (
                     <motion.div
                       className="order-first"
-                      onPanEnd={!readyPreWorkoutSuggestions && hasCompletedAssessment ? handleAnchorDayPan : undefined}
+                      onPanEnd={!readyPreWorkoutSuggestions && !isViewingPastDate && hasCompletedAssessment ? handleAnchorDayPan : undefined}
                     >
                       {content}
                     </motion.div>
