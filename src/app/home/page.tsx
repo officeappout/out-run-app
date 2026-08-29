@@ -810,13 +810,21 @@ export default function HomePage() {
   );
   const pastDayStepGoalMet = isViewingPastDate && !!pastDayGoalEntry?.stepGoalMet;
   // Reuses TodayActivityCardData/TodayActivityCard as-is (David's explicit call, 29.08.2026 —
-  // no new card design) even though that component's own copy template ("אימון {label} בוצע"
-  // + "{minutes} דק' · {category}") was built around a real workout, not a step-goal
-  // achievement — framed as a "daily walk" to fit the existing sentence, `minutes: 0` is a
-  // known, flagged cosmetic mismatch (no duration data exists for a step-only day) rather
-  // than a fabricated number.
+  // no new card design). Follow-up fix (29.08.2026): the first pass forced this through the
+  // workout-shaped copy template ("אימון {label} בוצע" + "{minutes} דק' · {category}") with a
+  // fabricated `minutes: 0`, flagged as a known rough edge. TodayActivityCard now has a small
+  // additive `category: 'steps'` branch for exactly this case (real `stepsAchieved` shown
+  // instead of a fake duration) — closes the gap without touching any other card's rendering.
   const pastDayStepGoalCard: TodayActivityCardData | null = pastDayStepGoalMet
-    ? { key: `stepgoal-${selectedDate}`, category: 'cardio', title: 'הליכה יומית', minutes: 0, streak: 1, workoutType: 'walking' }
+    ? {
+        key: `stepgoal-${selectedDate}`,
+        category: 'steps',
+        title: 'יעד הצעדים הושג',
+        minutes: 0,
+        stepsAchieved: pastDayGoalEntry?.stepsAchieved,
+        streak: 1,
+        workoutType: 'walking',
+      }
     : null;
 
   // null (not []) while the fetch above hasn't settled yet — distinguishes "still loading"
@@ -2403,6 +2411,10 @@ export default function HomePage() {
                     <TodayActivityStrip
                       cards={pastDayStepGoalCard ? [...pastDayActivityCards, pastDayStepGoalCard] : pastDayActivityCards}
                       onCardTap={handlePastDayActivityCardTap}
+                      // Follow-up fix (29.08.2026): TodayActivityStrip's hardcoded default
+                      // header ("הפעילות שלי היום") was flagged as wrong for a past date —
+                      // now overridden via the strip's new optional `title` prop.
+                      title="מה עשית ביום הזה"
                     />
                   ) : (
                     <div className="px-5 py-8 text-center" dir="rtl">

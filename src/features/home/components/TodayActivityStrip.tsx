@@ -70,14 +70,22 @@ export interface TodayActivityStripProps {
    * for the single-card case, which is the common one.
    */
   onCardTap?: (card: TodayActivityCardData) => void;
+  /**
+   * Header override (29.08.2026, Section 2 follow-up — closes a known,
+   * flagged-not-fixed rough edge: the past-day summary branch reuses this
+   * strip for a PAST selectedDate, but the hardcoded default below is only
+   * correct for today's own strip. Optional and additive — every existing
+   * call site keeps the original default, byte-identical.
+   */
+  title?: string;
 }
 
-export default function TodayActivityStrip({ cards, onCardTap }: TodayActivityStripProps) {
+export default function TodayActivityStrip({ cards, onCardTap, title = 'הפעילות שלי היום' }: TodayActivityStripProps) {
   if (cards.length === 0) return null;
 
   return (
     <div className="w-full" dir="rtl">
-      <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3">הפעילות שלי היום</h3>
+      <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3">{title}</h3>
 
       <SuggestionCarousel<TodayActivityCardData>
         items={cards}
