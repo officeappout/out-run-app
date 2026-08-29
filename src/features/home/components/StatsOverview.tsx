@@ -55,6 +55,7 @@ import {
 import { resolveActiveProgramBudget } from '@/features/workout-engine/services/lead-program.service';
 import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
+import { resolveScheduledProgram } from '../utils/resolveScheduledProgram';
 import { toISODate, isLateNightPivot, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
 import UserWorkoutAdjuster from './UserWorkoutAdjuster';
 import ProcessingOverlay from './ProcessingOverlay';
@@ -740,70 +741,49 @@ export default function StatsOverview({
 
         // ── Step 2: Consult UserSchedule ───────────────────────────────────
         //
-        // Priority for picking the entry that drives workout generation:
+        // Priority for picking the entry(ies) that drive workout generation:
         //   1. Personal training entry (non-community) → use programIds
         //   2. Explicit rest entry → marks day as `isRestDay`
         //   3. Community-only or no entry → fall through to recurringTemplate
         //      hydration (or the activeProgram default below) — the user can
         //      still get a workout suggestion alongside their community session.
+        //
+        // Decision logic lives in resolveScheduledProgram (pure, unit-tested —
+        // this component isn't, no jsdom in this repo's vitest setup). It
+        // specifically guards a trap: on a day that has never been hydrated
+        // yet, `rawEntries` is empty (that's WHY hydration runs below) —
+        // collecting ids from `rawEntries` alone after hydrating would
+        // silently miss everything hydration just wrote, degrading a freshly
+        // planned multi-item day into an apparent rest day.
         const rawEntries = await getScheduleEntries(profile.id, targetDate);
-        let entry: UserScheduleEntry | null =
+        const rawMatch =
           rawEntries.find((e) => e.type === 'training' && e.source !== 'community') ??
           rawEntries.find((e) => e.type === 'rest') ??
           null;
-        if (!entry && profile.lifestyle?.recurringTemplate) {
-          entry = await hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate);
+        let hydrated: UserScheduleEntry[] = [];
+        if (!rawMatch && profile.lifestyle?.recurringTemplate) {
+          hydrated = await hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate);
         }
         genPerfMark('#1-2 schedule (getScheduleEntries + hydrateFromTemplate)');
 
-        const isExplicitRestDay = entry?.type === 'rest';
         const activeProgram = profile.progression?.activePrograms?.[0]?.templateId;
-
-        // When both getScheduleEntries AND hydrateFromTemplate returned null
-        // (e.g. network error, but no tombstone), read today's program IDs
-        // directly from the in-memory recurringTemplate as a pure read-only
-        // fallback.  This prevents the engine from falling to activePrograms[0]
-        // (e.g. 'front_lever') when the scheduled day maps to a master session
-        // (e.g. 'UPPER_CALISTHENICS').
-        // NOTE: if entry is a rest-tombstone (override=true), `!entry` is false
-        // and we correctly skip this path — respecting the user's deletion.
         const templateDayLetter = getHebrewDayLetter(new Date(targetDate + 'T00:00:00'));
-        const templateFallbackIds =
-          !entry && profile.lifestyle?.recurringTemplate?.[templateDayLetter]
-            ? (profile.lifestyle.recurringTemplate[templateDayLetter] as string[]).filter(Boolean)
-            : null;
-
-        // ── Off-day detection ─────────────────────────────────────────────────
-        // A user with a configured recurring schedule (scheduleDays or
-        // recurringTemplate) who has NO Firestore entry AND no template programs
-        // for the target date is on an unscheduled/off day.  We must NOT fall
-        // back to activePrograms[0] in this case — doing so leaks the active
-        // program ID into the engine's context and causes it to emit a full
-        // TRAINING DAY trio (muscle-arm icon, intense options) instead of a
-        // REST/RECOVERY trio.
         const hasScheduleConfigured =
           (profile.lifestyle?.scheduleDays?.length ?? 0) > 0 ||
           Object.keys(profile.lifestyle?.recurringTemplate ?? {}).length > 0;
-        // Implicit off-day: schedule is configured but nothing is planned here.
-        const isImplicitOffDay =
-          !entry && !templateFallbackIds?.length && hasScheduleConfigured;
-        // Effective rest-day flag fed to the workout engine.
-        const isRestDay = isExplicitRestDay || isImplicitOffDay;
 
-        // Off-days get an empty program list so the engine can apply
-        // REST_DAY_CONFIGS cleanly, without an activeProgram sneaking in.
-        const scheduledProgramIds: string[] = isRestDay
-          ? []
-          : entry?.type === 'training' && entry.programIds?.length
-            ? entry.programIds
-            : templateFallbackIds?.length
-              ? templateFallbackIds
-              : activeProgram ? [activeProgram] : [];
+        const { isRestDay, scheduledProgramIds } = resolveScheduledProgram({
+          rawEntries,
+          hydrated,
+          templateDayIds: profile.lifestyle?.recurringTemplate?.[templateDayLetter],
+          hasScheduleConfigured,
+          activeProgramId: activeProgram,
+        });
 
         scheduledProgramIdsRef.current = scheduledProgramIds;
         console.log(
           `[UTS] Schedule for ${targetDate}: type=${
-            entry?.type ?? (isImplicitOffDay ? 'off-day' : 'none')
+            isRestDay ? 'rest' : scheduledProgramIds.length > 0 ? 'training' : 'none'
           }` +
           ` programs=[${scheduledProgramIds.join(',')}]` +
           ` lateNight=${lateNight}`,

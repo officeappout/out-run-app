@@ -887,7 +887,7 @@ export default function AgendaDayCard({
         // Recurring-template fallback — only if Firestore returned nothing.
         if (result.length === 0 && recurringTemplate) {
           const hydrated = await hydrateFromTemplate(userId, date, recurringTemplate);
-          if (hydrated) result = [hydrated];
+          if (hydrated.length > 0) result = hydrated;
         }
 
         // scheduleDays fallback — synthesize a recurring strength entry without
