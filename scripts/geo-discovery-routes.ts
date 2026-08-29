@@ -222,7 +222,16 @@ const REGION = REGIONS[regionArg];
 if (!REGION) { console.error(`Unknown region "${regionArg}". Known: ${Object.keys(REGIONS).join(', ')}`); process.exit(1); }
 
 // Length windows (meters) per source.
-const LEN_TRAIL_MIN = 400, LEN_TRAIL_MAX = 25000;
+// LEN_TRAIL_MIN raised 400 -> 600 (23.08.2026, Haifa drop-audit): every trail-relation
+// candidate is BY CONSTRUCTION a marked-trail member (that's the discovery mechanism
+// itself, see the route~ query below) — so under the finalized recreational-quality gate
+// (RECREATIONAL_* below), a trail candidate's "recreational character" test is always
+// unconditionally satisfied, and the ONLY variable is this length floor. Confirmed by
+// hand-auditing all 39 Haifa trail-relation candidates (see
+// .claude/knowledge/city-mapping-learnings.md): 600m correctly drops the 412m
+// "שביל חיפה - הדר עליון ורמת הדר" fragment (a real stub of a much longer relation) while
+// keeping its other 3 genuine fragments (1221m/1411m/5361m) and 32/39 overall.
+const LEN_TRAIL_MIN = 600, LEN_TRAIL_MAX = 25000;
 const LEN_LOOP_MIN = 400, LEN_LOOP_MAX = 15000;
 const LEN_SEG_MIN = 500, LEN_SEG_MAX = 12000;
 // Named non-loop segments/promenades (post-stitching) get a much lower floor
@@ -263,10 +272,78 @@ const SPECIALNESS_RADIUS_M = 150;
 // (a line has no area to threshold).
 const MIN_PARK_AREA_M2 = 5000; // ~0.5 hectare
 
+// ─── Recreational-quality gate (23.08.2026, Haifa drop-audit) ───────────────────────
+// REPLACES the specialness-below-LEN_SEG_MIN rule above for named non-loop segments
+// (and, via LEN_TRAIL_MIN above, sets the trail-relation floor too — same gate, one
+// finalized rule for both capabilities). That older rule was both too permissive
+// (anything >=500m passed unconditionally, no matter how ordinary — flagged live:
+// "שביל חיפה - הדר עליון ורמת הדר" 412m, plain named residential streets with 0%
+// dedicated infra) and too narrow (didn't apply to trail-relation candidates at all,
+// which had no length floor beyond LEN_TRAIL_MIN's original 400m and no composition
+// test whatsoever). Read-only investigation audited all 53 Haifa named-segment
+// candidates + all 39 trail-relation candidates by hand before this was codified —
+// see .claude/knowledge/city-mapping-learnings.md. Result on that data: 64/92 KEEP
+// (32/53 named-segment, 32/39 trail-relation).
+//
+// KEEP a candidate only if BOTH:
+//  1. Recreational character: see the sidewalk-hole fix below (27.08.2026) — this
+//     used to be a 3-way OR (dedicated>=50% OR marked-trail-member OR
+//     special-adjacent+dedicated>=20%); that whole test is now RECREATIONAL_MAJORITY_MIN_FRAC.
+//  2. Length: >= RECREATIONAL_LENGTH_FLOOR_TRAIL_M if a marked-trail member (NO exemption
+//     for trail membership — a 412m trail fragment is still just 412m), else
+//     >= RECREATIONAL_LENGTH_FLOOR_STANDALONE_M.
+// Every threshold here is a David-approved number from the audit, not a first guess —
+// flagged for review the same as every other constant in this file, but with real
+// evidence behind it (the audit's borderline-case table) rather than none.
+const RECREATIONAL_DEDICATED_HIGHWAY = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'steps']);
+const RECREATIONAL_ORDINARY_HIGHWAY = new Set(['residential', 'tertiary', 'service', 'living_street', 'unclassified']);
+const RECREATIONAL_LENGTH_FLOOR_STANDALONE_M = 800;
+const RECREATIONAL_LENGTH_FLOOR_TRAIL_M = 600;
+
+// ─── Sidewalk-hole fix (27.08.2026, David-directed) ─────────────────────────────────
+// Read-only investigation (prior session) found the gate above counted footway=sidewalk
+// (a road-side pedestrian strip, not a real promenade) as "dedicated infra" at face
+// value — validated live: way/325283597 (מרכז הכרמל) is OSM-tagged footway=sidewalk
+// (also caught geometrically: runs within SIDEWALK_PROXIMITY_M of, and bearing-parallel
+// to, a road for most of its length) yet passed the old dedicated-frac test outright.
+// A detector (tag signal footway=sidewalk / is_sidepath=yes, OR the geometric parallel-
+// to-road test) was cross-validated both directions against known cases (flags the
+// sidewalk; does NOT flag five known-genuine טיילת קרית אליעזר legs) before being wired
+// in below — see .claude/knowledge/city-mapping-learnings.md.
+//
+// This REPLACES the OLD 3-way OR test (dedicated>=50% OR marked-trail-member OR
+// special-adjacent+dedicated>=20%) with ONE unified, stricter rule, applied to BOTH
+// named-segment AND trail-relation candidates — no exemption survives for either
+// (a "trail" that's 61% sidewalk isn't a real route, per instruction; "majority
+// sidewalk+street drops" is unconditional, so the old low-bar special-adjacency
+// escape is retired too, not just patched):
+//   genuine-recreational length — dedicated infra EXCLUDING sidewalk-like footways,
+//   PLUS (named-segment candidates only) any way that's independently a member of
+//   some OTHER marked-trail relation even under a non-dedicated tag (a trail-relation
+//   candidate's own ways are ALL its own relation's members by construction, so this
+//   bonus would be vacuous there — it gets no bonus, just its raw composition) — must
+//   be >= RECREATIONAL_MAJORITY_MIN_FRAC of the candidate's total length. Sidewalk-like
+//   footway length and ordinary-street length both count AGAINST.
+const SIDEWALK_PROXIMITY_M = 15;
+const SIDEWALK_ANGLE_DEG = 30;
+const SIDEWALK_FRACTION_THRESHOLD = 0.6;
+const ROAD_REFERENCE_HIGHWAY = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'living_street', 'unclassified', 'service']);
+const RECREATIONAL_MAJORITY_MIN_FRAC = 0.5;
+
 // ─────────────────────────────── geometry helpers ───────────────────────────────
 const R = 6371000;
 const hav = (a: number[], b: number[]) => { const p1 = a[0] * Math.PI / 180, p2 = b[0] * Math.PI / 180, dp = (b[0] - a[0]) * Math.PI / 180, dl = (b[1] - a[1]) * Math.PI / 180; return 2 * R * Math.asin(Math.sqrt(Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2)); };
 const pathLen = (pts: number[][]) => pts.reduce((s, _, i) => i ? s + hav(pts[i - 1], pts[i]) : 0, 0);
+// Sidewalk-hole fix geometry: compass bearing a→b, and the 0-90° difference between two
+// bearings treating a line as undirected (a road and a sidewalk running "parallel" may be
+// digitized in opposite directions in OSM, so 170° apart is just as parallel as 10°).
+function bearingDeg(a: number[], b: number[]): number {
+  const la1 = a[0] * Math.PI / 180, la2 = b[0] * Math.PI / 180, dLo = (b[1] - a[1]) * Math.PI / 180;
+  const y = Math.sin(dLo) * Math.cos(la2);
+  const x = Math.cos(la1) * Math.sin(la2) - Math.sin(la1) * Math.cos(la2) * Math.cos(dLo);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function angleDiffMod180(a: number, b: number): number { const d = Math.abs(a - b) % 180; return d > 90 ? 180 - d : d; }
 const bboxOf = (pts: number[][]) => ({ minLat: Math.min(...pts.map(p => p[0])), maxLat: Math.max(...pts.map(p => p[0])), minLng: Math.min(...pts.map(p => p[1])), maxLng: Math.max(...pts.map(p => p[1])) });
 // internal [lat,lng] → persisted {lng,lat} objects (Firestore forbids nested arrays;
 // matches official_routes.path — normalizeStoredRoutePath reads it back).
@@ -469,7 +546,62 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
   const { decl, scopes } = regionSelectors();
   const stats: any = { relations: 0, relLines: 0, relRescued: 0, ways: 0, loops: 0, segments: 0, stitchedSameName: 0, stitchedCrossName: 0, parks: 0 };
 
-  type RawWay = { id: number; name: string; pts: number[][]; highway: string; osmSurface?: string; isBicycle: boolean };
+  // Sidewalk-hole fix: road reference network + detector, fetched/defined FIRST —
+  // needed by BOTH the trail-relation gate (below, step 1) and the named-segment gate
+  // (step 2, further down), so it must be ready before either runs.
+  const roadSegGrid = buildSegGrid(await fetchRoadReferenceSegments(REGION.bbox));
+  const sidewalkMemo = new Map<number, boolean>();
+  function isSidewalkLikeWay(id: number, footwayTag: string | undefined, isSidepath: boolean, pts: number[][], lenM: number): boolean {
+    if (sidewalkMemo.has(id)) return sidewalkMemo.get(id)!;
+    let flagged = footwayTag === 'sidewalk' || isSidepath;
+    if (!flagged && lenM > 0 && pts.length >= 2) {
+      const SAMPLE_SPACING_M = 10;
+      let parallelLen = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        const segLen = hav(a, b); if (!segLen) continue;
+        const wayBearing = bearingDeg(a, b);
+        const steps = Math.max(1, Math.round(segLen / SAMPLE_SPACING_M));
+        for (let s = 0; s < steps; s++) {
+          const f = (s + 0.5) / steps;
+          const p = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+          let best = Infinity, bestBearing = 0;
+          for (const rs of nearbySegGrid(p, roadSegGrid)) {
+            const { distM } = pointToSegDistAndFrac(p, rs.a, rs.b);
+            if (distM < best) { best = distM; bestBearing = bearingDeg(rs.a, rs.b); }
+          }
+          const sampleLen = segLen / steps;
+          if (best <= SIDEWALK_PROXIMITY_M && angleDiffMod180(wayBearing, bestBearing) <= SIDEWALK_ANGLE_DEG) parallelLen += sampleLen;
+        }
+      }
+      flagged = (parallelLen / lenM) >= SIDEWALK_FRACTION_THRESHOLD;
+    }
+    sidewalkMemo.set(id, flagged);
+    return flagged;
+  }
+  // Per-way "does this length count toward genuine recreational content" test — shared
+  // by the trail-relation gate and the named-segment gate. `isTrailMemberElsewhere` bonus
+  // is only meaningful for named-segment candidates — see the sidewalk-hole-fix header
+  // comment above RECREATIONAL_MAJORITY_MIN_FRAC for why a trail-relation candidate's OWN
+  // ways never get it (it would be vacuous — they're all its own relation's members).
+  // The sidewalk test is scoped to dedicated-tagged (footway-family) ways ONLY, and — when
+  // it fires — disqualifies the way OUTRIGHT, without falling through to the trail-bonus.
+  // Caught live: a real, ground-truth-confirmed OSM footway=sidewalk way on Louis
+  // Promenade (the exact motivating example for this whole fix) is ALSO a member of a
+  // marked-trail relation (real hiking/foot routes commonly detour through a city via its
+  // sidewalks where no dedicated path exists) — an earlier version of this function fell
+  // through to the bonus for a disqualified-by-sidewalk way, silently re-crediting the
+  // very sidewalk this fix exists to exclude. The test is deliberately NOT run against
+  // non-footway-family ways (residential/track/etc.) — an ordinary street running near a
+  // bigger road is normal street geometry, not a disguised sidewalk, and must stay
+  // eligible for the trail-bonus on its own terms.
+  function isGenuineRecreationalWay(id: number, highway: string | undefined, footwayTag: string | undefined, isSidepath: boolean, pts: number[][], lenM: number, isTrailMemberElsewhere: boolean): boolean {
+    const isDedicatedTag = !!highway && RECREATIONAL_DEDICATED_HIGHWAY.has(highway);
+    if (isDedicatedTag) return !isSidewalkLikeWay(id, footwayTag, isSidepath, pts, lenM);
+    return isTrailMemberElsewhere;
+  }
+
+  type RawWay = { id: number; name: string; pts: number[][]; highway: string; osmSurface?: string; isBicycle: boolean; footwayTag?: string; isSidepath?: boolean };
   // Named member ways rescued from a trail-relation line that exceeded
   // LEN_TRAIL_MAX (item D) — fed into the SAME same-name/geometric-continuity
   // stitching pipeline as standalone ways below, so a rescue doesn't just
@@ -525,12 +657,28 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
         // may already be kept, and rescuing its ways too would duplicate them).
         for (const wid of line.ids) {
           const mt = wayTagsById.get(wid) || {};
-          if (mt.name) rescuedRawWays.push({ id: wid, name: normalizeName(mt.name), pts: wayById.get(wid)!, highway: mt.highway, osmSurface: mt.surface, isBicycle: false });
+          if (mt.name) rescuedRawWays.push({ id: wid, name: normalizeName(mt.name), pts: wayById.get(wid)!, highway: mt.highway, osmSurface: mt.surface, isBicycle: false, footwayTag: mt.footway, isSidepath: mt.is_sidepath === 'yes' });
         }
         stats.relRescued++;
         continue;
       }
       if (L < LEN_TRAIL_MIN) continue;
+      // Sidewalk-hole fix: no marked-trail-membership exemption anymore (that was the
+      // OLD gate's "markedTrail" unconditional pass) — a trail candidate's own
+      // composition (dedicated infra EXCLUDING sidewalk-like footways) must clear the
+      // same majority bar as a named segment. No trail-bonus here (last arg `false`):
+      // every way in `line.ids` is already a member of THIS relation by construction,
+      // so an "is this way a trail member" bonus would be vacuous for this loop.
+      let trailGenuineLen = 0, trailTotalLen = 0;
+      for (const wid of line.ids) {
+        const wt = wayTagsById.get(wid) || {};
+        const wpts = wayById.get(wid) || [];
+        const wlen = pathLen(wpts);
+        trailTotalLen += wlen;
+        if (isGenuineRecreationalWay(wid, wt.highway, wt.footway, wt.is_sidepath === 'yes', wpts, wlen, false)) trailGenuineLen += wlen;
+      }
+      const trailMajorityFrac = trailTotalLen > 0 ? trailGenuineLen / trailTotalLen : 0;
+      if (trailMajorityFrac < RECREATIONAL_MAJORITY_MIN_FRAC) { stats.recreationalGateDropped = (stats.recreationalGateDropped || 0) + 1; continue; }
       const isLoop = hav(line.pts[0], line.pts[line.pts.length - 1]) < LOOP_CLOSE_M && L > LEN_LOOP_MIN;
       candidates.push({ externalId: `osm:rel/${relId}${lines.length > 1 ? `#${part}` : ''}`, osmName: tags.name || null, kind: 'trail', pts: line.pts, lengthM: Math.round(L), isLoop, surface: 'trail', relRef: `rel/${relId}` });
       for (const wid of line.ids) keptTrailWayIds.add(wid);
@@ -587,7 +735,7 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
   const PRIMARY_HIGHWAY_RE = /^(footway|path|track|pedestrian|cycleway)$/;
   const primaryRawWays: RawWay[] = [];
   const streetTypeRawWays: RawWay[] = [];
-  type BridgeWay = { id: number; pts: number[][]; highway: string; osmSurface?: string; isBicycle: boolean };
+  type BridgeWay = { id: number; pts: number[][]; highway: string; osmSurface?: string; isBicycle: boolean; footwayTag?: string; isSidepath?: boolean };
   const bridgeRawWays: BridgeWay[] = []; // unnamed primary-family ways — connector-only, see pass-2 discard rule below
   const seenStandaloneWayIds = new Set<number>(); // item B: avoid double-discovery vs the bike-lane query below
   for (const e of wayData.elements) {
@@ -611,10 +759,10 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
       // pass 2 (see the discard rule there), never added to seenStandaloneWayIds
       // (a bridge way never independently survives, so it never needs to
       // shadow the bike-lane query the way a real standalone candidate does).
-      if (isPrimary) bridgeRawWays.push({ id: e.id, pts: wayGeom(e), highway: t.highway, osmSurface: t.surface, isBicycle });
+      if (isPrimary) bridgeRawWays.push({ id: e.id, pts: wayGeom(e), highway: t.highway, osmSurface: t.surface, isBicycle, footwayTag: t.footway, isSidepath: t.is_sidepath === 'yes' });
       continue;
     }
-    const raw: RawWay = { id: e.id, name: normalizeName(t.name), pts: wayGeom(e), highway: t.highway, osmSurface: t.surface, isBicycle };
+    const raw: RawWay = { id: e.id, name: normalizeName(t.name), pts: wayGeom(e), highway: t.highway, osmSurface: t.surface, isBicycle, footwayTag: t.footway, isSidepath: t.is_sidepath === 'yes' };
     (isPrimary ? primaryRawWays : streetTypeRawWays).push(raw);
     seenStandaloneWayIds.add(e.id);
   }
@@ -748,6 +896,16 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     }
   }
 
+  // Lookups for the recreational-quality gate below — built from data already fetched
+  // above (RawWay.highway/footway tags from the standalone-ways fetch; relation
+  // membership from step 1's trail-relation fetch), no extra Overpass calls.
+  type WayInfo = { highway: string; pts: number[][]; lenM: number; footwayTag?: string; isSidepath?: boolean };
+  const wayInfoById = new Map<number, WayInfo>();
+  for (const w of rawWays) wayInfoById.set(w.id, { highway: w.highway, pts: w.pts, lenM: pathLen(w.pts), footwayTag: w.footwayTag, isSidepath: w.isSidepath });
+  for (const w of bridgeRawWays) wayInfoById.set(w.id, { highway: w.highway, pts: w.pts, lenM: pathLen(w.pts), footwayTag: w.footwayTag, isSidepath: w.isSidepath });
+  const anyTrailRelationMemberWayIds = new Set<number>();
+  for (const [, memberWays] of Array.from(relMembersByRel)) for (const m of memberWays) anyTrailRelationMemberWayIds.add(m.id);
+
   // Final classification of the (possibly stitched) named candidates: loop vs
   // segment, computed AFTER stitching (a promenade merged from several
   // fragments might now close back on itself) — item C's length floor split.
@@ -758,13 +916,23 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
     if (isLoopG) {
       if (L < LEN_LOOP_MIN || L > LEN_LOOP_MAX) continue; // loops keep the unchanged floor regardless of naming
     } else {
-      if (L < LEN_SEG_MIN_NAMED || L > LEN_SEG_MAX) continue; // item C: named non-loop gets the low floor
-      // Quality-over-quantity refinement (21.08.2026): a named non-loop
-      // candidate below the OLD LEN_SEG_MIN=500 floor is ONLY kept if it's
-      // near a real specialness signal (park/garden or coastline) — see
-      // SPECIALNESS_RADIUS_M's own comment. Named ways at or above the old
-      // floor are unaffected (pass through exactly as before this change).
-      if (L < LEN_SEG_MIN && !isNearSpecialFeature(g.pts, significantParkRings, coastlinePts)) { stats.shortNoSignalDropped = (stats.shortNoSignalDropped || 0) + 1; continue; }
+      if (L < LEN_SEG_MIN_NAMED || L > LEN_SEG_MAX) continue; // absolute noise floor (a several-meter OSM tagging glitch) — unchanged, unrelated to recreational quality.
+      // Recreational-quality gate — see RECREATIONAL_MAJORITY_MIN_FRAC's header comment
+      // (sidewalk-hole fix, 27.08.2026) for the full rationale. Composition is
+      // length-weighted across this candidate's real constituent ways — dedicated
+      // infra EXCLUDING sidewalk-like footways, plus a per-way bonus for a way that's
+      // independently a real marked-trail-relation member even under a non-dedicated tag.
+      const markedTrail = g.ids.some(id => anyTrailRelationMemberWayIds.has(id));
+      let genuineLen = 0, totalLen = 0;
+      for (const wid of g.ids) {
+        const info = wayInfoById.get(wid);
+        const wlen = info?.lenM ?? 0;
+        totalLen += wlen;
+        if (info && isGenuineRecreationalWay(wid, info.highway, info.footwayTag, !!info.isSidepath, info.pts, wlen, anyTrailRelationMemberWayIds.has(wid))) genuineLen += wlen;
+      }
+      const majorityFrac = totalLen > 0 ? genuineLen / totalLen : 0;
+      const lengthFloor = markedTrail ? RECREATIONAL_LENGTH_FLOOR_TRAIL_M : RECREATIONAL_LENGTH_FLOOR_STANDALONE_M;
+      if (majorityFrac < RECREATIONAL_MAJORITY_MIN_FRAC || L < lengthFloor) { stats.recreationalGateDropped = (stats.recreationalGateDropped || 0) + 1; continue; }
     }
     const stitched = g.ids.length > 1;
     const externalId = stitched ? `osm:stitched/${[...g.ids].sort((a, b) => a - b).join('+')}` : `osm:way/${g.ids[0]}`;
@@ -906,6 +1074,49 @@ async function fetchCoastlinePoints(b: Region['bbox']): Promise<number[][]> {
   const pts: number[][] = [];
   for (const e of data.elements) if (e.type === 'way' && e.geometry) for (const p of e.geometry) pts.push([p.lat, p.lon]);
   return pts;
+}
+
+// ─── Sidewalk-hole fix: road reference network ───────────────────────────────────────
+// Flat road segments (geometry only, no routing graph needed) used purely as the
+// "is this footway running alongside a road" reference for the sidewalk detector below.
+// A simple bbox query, same precision level as fetchCoastlinePoints above — the
+// prototype detector this was validated against (city-mapping investigation) used the
+// same bbox-wide fetch and confirmed correct both directions (flags a known-tagged
+// sidewalk, does not flag known-genuine standalone promenade legs).
+type RoadSeg = { a: number[]; b: number[] };
+async function fetchRoadReferenceSegments(b: Region['bbox']): Promise<RoadSeg[]> {
+  console.log('fetching road network (sidewalk-adjacency reference) …');
+  const bb = `${b.latMin},${b.lonMin},${b.latMax},${b.lonMax}`;
+  const hwRe = Array.from(ROAD_REFERENCE_HIGHWAY).join('|');
+  const data = await overpass(`[out:json][timeout:180];way["highway"~"^(${hwRe})$"](${bb});out geom;`);
+  const segs: RoadSeg[] = [];
+  for (const e of data.elements) {
+    if (e.type !== 'way' || !e.geometry || e.geometry.length < 2) continue;
+    const pts = wayGeom(e);
+    for (let i = 1; i < pts.length; i++) segs.push({ a: pts[i - 1], b: pts[i] });
+  }
+  console.log(`  ${segs.length} road segments loaded for the parallel-to-road test.`);
+  return segs;
+}
+function buildSegGrid(segs: RoadSeg[]): Map<string, RoadSeg[]> {
+  const grid = new Map<string, RoadSeg[]>();
+  for (const s of segs) {
+    for (const p of [s.a, s.b]) {
+      const k = graphGridKey(p);
+      if (!grid.has(k)) grid.set(k, []);
+      grid.get(k)!.push(s);
+    }
+  }
+  return grid;
+}
+function nearbySegGrid(p: number[], grid: Map<string, RoadSeg[]>): RoadSeg[] {
+  const [la, lo] = [Math.floor(p[0] / GRAPH_GRID_DEG), Math.floor(p[1] / GRAPH_GRID_DEG)];
+  const seen = new Set<RoadSeg>();
+  for (let da = -1; da <= 1; da++) for (let dob = -1; dob <= 1; dob++) {
+    const bucket = grid.get(`${la + da}:${lo + dob}`);
+    if (bucket) for (const s of bucket) seen.add(s);
+  }
+  return Array.from(seen);
 }
 
 // Planar-approximation polygon area (shoelace formula, after projecting
@@ -1562,7 +1773,7 @@ async function main() {
   if (!SKIP_OSM) {
     const d = await discover();
     candidates = d.candidates; blockPolys = d.blockPolys; stats = d.stats;
-    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines (${stats.relRescued || 0} rejected-for-length, rescued named members) · ${stats.parks || 0} named park/garden loops · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways, ${stats.stitchedSameName || 0} same-name + ${stats.stitchedCrossName || 0} cross-name stitches, ${stats.shortNoSignalDropped || 0} short-band candidates dropped for no park/coastline specialness signal). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
+    console.log(`\ndiscovered: ${stats.relations} trail-relations → ${stats.relLines} local lines (${stats.relRescued || 0} rejected-for-length, rescued named members) · ${stats.parks || 0} named park/garden loops · ${stats.loops} loops · ${stats.segments} named segments (from ${stats.ways} ways, ${stats.stitchedSameName || 0} same-name + ${stats.stitchedCrossName || 0} cross-name stitches, ${stats.recreationalGateDropped || 0} candidates dropped by the recreational-quality gate). road bike lanes: ${stats.bikeLaneSegments || 0} named (from ${stats.bikeLaneWays || 0} tagged ways). blocking polygons: ${blockPolys.length}`);
   } else {
     console.log('--skip-osm: skipping Overpass discovery; fetching blocking polygons only (for the round-trip artifact filter) …');
     blockPolys = await fetchBlockPolys(REGION.bbox);
