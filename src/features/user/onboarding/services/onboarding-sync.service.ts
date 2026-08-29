@@ -13,6 +13,7 @@ import { recalculateAncestorMasters } from '@/features/user/progression/services
 import { derivePrimaryTrack, trackToDashboardMode } from './track-mapper.service';
 import { isRunningBranchCompleted, bridgeRunningOnboarding } from './running-onboarding-bridge.service';
 import { loadAssessmentContext } from './branching-logic.service';
+import { mergeDayItems } from '@/features/schedule/services/mergeDayItems';
 import { generatePlan } from '@/features/workout-engine/core/services/running-engine.service';
 import {
   getPaceMapConfig,
@@ -597,18 +598,37 @@ export async function syncOnboardingToFirestore(
     // seed userSchedule documents for strength users — closing the gap that
     // previously left strength onboarding without a recurringTemplate (and
     // therefore without calendar hydration). Mirrors the running bridge
-    // block further down. We MERGE rather than overwrite so a user who
-    // completes both strength and running onboarding keeps both worlds.
+    // block further down.
+    //
+    // Item-level merge (gap-map finding #9) — a day-letter this call touches
+    // can already hold a running id from an earlier onboarding. mergeDayItems
+    // strips only strength-owned ids from the existing array before
+    // appending the new ones, so a colliding day keeps its running id
+    // instead of losing it to a naive array replace — the same fix already
+    // applied to the running bridge, mirrored here for the opposite
+    // direction (confirmed live: same flat spread, same array-level
+    // overwrite, same false "keeps both worlds" comment as the running
+    // block had before its own fix).
     if (
       (data as any).recurringTemplate &&
       typeof (data as any).recurringTemplate === 'object' &&
       Object.keys((data as any).recurringTemplate).length > 0
     ) {
+      const existingTemplate = (updateData.lifestyle as any)?.recurringTemplate ?? {};
+      const incomingTemplate = (data as any).recurringTemplate as Record<string, string[]>;
+      const mergedTemplate: Record<string, string[]> = {};
+      for (const dayLetter of Object.keys(incomingTemplate)) {
+        mergedTemplate[dayLetter] = mergeDayItems(
+          existingTemplate[dayLetter] ?? [],
+          incomingTemplate[dayLetter] ?? [],
+          'strength',
+        );
+      }
       updateData.lifestyle = {
         ...updateData.lifestyle,
         recurringTemplate: {
-          ...((updateData.lifestyle as any)?.recurringTemplate ?? {}),
-          ...(data as any).recurringTemplate,
+          ...existingTemplate,
+          ...mergedTemplate,
         },
       } as any;
     }
@@ -1777,18 +1797,29 @@ export async function syncOnboardingToFirestore(
               const runScheduleDays: string[] = (data as any).runningScheduleDays
                 ?? updateData.running?.scheduleDays ?? [];
               if (runScheduleDays.length > 0) {
+                const existingTemplate = (updateData.lifestyle as any)?.recurringTemplate ?? {};
                 const runTemplate: Record<string, string[]> = {};
                 for (const dayLetter of runScheduleDays) {
-                  runTemplate[dayLetter] = [bridge.programTemplate.id];
+                  // Item-level merge (gap-map finding #9) — a day-letter this
+                  // call touches can already hold a strength id from an
+                  // earlier onboarding. mergeDayItems strips only
+                  // running-owned ids from the existing array before
+                  // appending the new one, so a colliding day keeps its
+                  // strength id instead of losing it to a naive array
+                  // replace. Confirmed live bug before this fix (25.08.2026
+                  // gap-map audit, closed 29.08.2026).
+                  runTemplate[dayLetter] = mergeDayItems(
+                    existingTemplate[dayLetter] ?? [],
+                    [bridge.programTemplate.id],
+                    'running',
+                  );
                 }
-                // MERGE (not overwrite) — same pattern as the strength block above
-                // (Smart Schedule v1.3 UTS Bridge). A wholesale replace here would
-                // silently drop a returning user's existing strength training days
-                // from the calendar the moment they complete running onboarding.
+                // Map-level merge — safe now that each value above is
+                // already item-level-merged, not a naive per-day overwrite.
                 updateData.lifestyle = {
                   ...updateData.lifestyle,
                   recurringTemplate: {
-                    ...((updateData.lifestyle as any)?.recurringTemplate ?? {}),
+                    ...existingTemplate,
                     ...runTemplate,
                   },
                 };

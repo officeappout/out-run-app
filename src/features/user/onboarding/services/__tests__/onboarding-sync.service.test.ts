@@ -300,6 +300,81 @@ describe('syncOnboardingToFirestore — Bug 2: lifestyle.recurringTemplate merge
   });
 });
 
+describe('syncOnboardingToFirestore — gap-map finding #9: same-day collision (29.08.2026)', () => {
+  // Commit 827450f9 (25.08.2026) fixed the DIFFERENT-days case above — the map-level
+  // spread. It explicitly left the SAME-day case unfixed (own commit message: "gap-map
+  // finding #9"). "Dana's bug": a strength user picks a running day that already has a
+  // strength entry — before this fix, the running write silently replaced that day's
+  // whole array, deleting the strength id.
+  it("Dana's bug: a strength user picks a running day that already has strength — the strength id survives, both ids present", async () => {
+    state.EXISTING_DOC = {
+      createdAt: 'X',
+      core: { name: 'A', gender: 'other', initialFitnessTier: 1 },
+      progression: { globalLevel: 1, globalXP: 0, coins: 0, domains: {}, activePrograms: [], tracks: {} },
+      lifestyle: {
+        scheduleDays: ['ד'], hasDog: false, commute: { method: 'walk', enableChallenges: false },
+        // Dana trains strength on ב, ד, ו — she picks ד for running too.
+        recurringTemplate: { 'ב': ['FULL_BODY'], 'ד': ['FULL_BODY'], 'ו': ['FULL_BODY'] },
+      },
+      equipment: { home: [], office: [], outdoor: [] },
+      health: { injuries: [], connectedWatch: 'none' },
+      running: { isUnlocked: false, currentGoal: 'couch_to_5k', activeProgram: null, paceProfile: { basePace: 0, profileType: 3, qualityWorkoutsHistory: [], qualityWorkoutCount: 0, lastSelfCorrectionDate: null } },
+    };
+    stubBrowserStorage({
+      onboarding_running_answers: JSON.stringify({ goalPath: 'start_running', targetDistance: '5k' }),
+    });
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      runningWeeklyFrequency: 1,
+      runningScheduleDays: ['ד'],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    const template = written.lifestyle.recurringTemplate as Record<string, string[]>;
+
+    // Untouched days survive exactly as before.
+    expect(template['ב']).toEqual(['FULL_BODY']);
+    expect(template['ו']).toEqual(['FULL_BODY']);
+    // The colliding day keeps BOTH ids — this is the bug, fixed.
+    expect(template['ד']).toEqual(['FULL_BODY', written.running.generatedProgramTemplate.id]);
+  });
+
+  it("Dana's bug in reverse: a running user picks a strength day that already has running — the running id survives, both ids present", async () => {
+    state.EXISTING_DOC = {
+      createdAt: 'X',
+      core: { name: 'A', gender: 'other', initialFitnessTier: 1 },
+      progression: { globalLevel: 1, globalXP: 0, coins: 0, domains: {}, activePrograms: [], tracks: {} },
+      lifestyle: {
+        scheduleDays: ['ד'], hasDog: false, commute: { method: 'walk', enableChallenges: false },
+        // She already runs on ד — a pre-existing free-form running template id.
+        recurringTemplate: { 'ד': ['some_running_template_id_xyz'] },
+      },
+      equipment: { home: [], office: [], outdoor: [] },
+      health: { injuries: [], connectedWatch: 'none' },
+      running: { isUnlocked: true, currentGoal: 'couch_to_5k', activeProgram: null, paceProfile: { basePace: 0, profileType: 3, qualityWorkoutsHistory: [], qualityWorkoutCount: 0, lastSelfCorrectionDate: null } },
+    };
+    stubBrowserStorage(); // no running answers this call — this is a strength-only completion
+
+    // ScheduleStep.tsx's own write shape: a complete strength-only
+    // recurringTemplate covering every strength day chosen this session,
+    // including one that collides with her existing running day (ד) and one
+    // that doesn't (ב).
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      recurringTemplate: { 'ב': ['UPPER_BODY'], 'ד': ['FULL_BODY'] },
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    const template = written.lifestyle.recurringTemplate as Record<string, string[]>;
+
+    // A new, non-colliding strength day is just added.
+    expect(template['ב']).toEqual(['UPPER_BODY']);
+    // The colliding day keeps BOTH ids — running survives the strength write.
+    expect(template['ד']).toEqual(['some_running_template_id_xyz', 'FULL_BODY']);
+  });
+});
+
 describe('syncOnboardingToFirestore — JIT edit: COMPLETED-only side effects must not re-run', () => {
   // 28.08.2026 fix: OnboardingWizard's handleJITSave always calls
   // syncOnboardingToFirestore('COMPLETED', data) for a single-field JIT edit
