@@ -12,6 +12,8 @@ import { auth, storage } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { InventoryService } from '@/features/parks';
 import type { Route } from '@/features/parks';
+import { pathLengthMeters } from '@/features/parks/core/services/geoUtils';
+import { applySafeGeometryEdit, type GeometryEditRange } from '@/features/parks/core/services/route-geometry-edit.service';
 import {
   ArrowLeft,
   Loader2,
@@ -24,6 +26,7 @@ import {
   Link as LinkIcon,
   ImageIcon,
   X,
+  Scissors,
 } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -107,6 +110,15 @@ export default function EditRoutePage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError,   setUploadError]   = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Geometry trim (route-editor-scoping-spec.md §3.2/§9.2, Phase 1) ───────
+  // Point counts to remove from either end of `route.path`. Reset to 0 every
+  // time a trim is applied (indices shift under a shorter path).
+  const [trimStartCount, setTrimStartCount] = useState(0);
+  const [trimEndCount,   setTrimEndCount]   = useState(0);
+  const [trimSaving,     setTrimSaving]     = useState(false);
+  const [trimError,      setTrimError]      = useState<string | null>(null);
+  const [trimUnpublishedNotice, setTrimUnpublishedNotice] = useState(false);
 
   // ── Data load ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -221,15 +233,67 @@ export default function EditRoutePage() {
     }
   };
 
+  // ── Apply geometry trim ───────────────────────────────────────────────────
+  // Separate action from handleSave above (metadata-only) — this one calls
+  // the shared safe-edit primitive (route-geometry-edit.service.ts), which
+  // recomputes distance/elevation/grade/duration/difficulty and, per
+  // route-editor-scoping-spec.md §10 Q1, forces the route back to `pending`
+  // if it was published. Trims both ends together in one write, never partial.
+  const handleApplyTrim = async () => {
+    if (!route || (trimStartCount === 0 && trimEndCount === 0)) return;
+    setTrimSaving(true);
+    setTrimError(null);
+    try {
+      const ranges: GeometryEditRange[] = [];
+      if (trimStartCount > 0) ranges.push({ startIdx: 0, endIdx: trimStartCount - 1 });
+      if (trimEndCount > 0) ranges.push({ startIdx: route.path.length - trimEndCount, endIdx: route.path.length - 1 });
+
+      const result = await applySafeGeometryEdit(routeId, ranges, {
+        initiatedBy: 'owner',
+        decidedBy: auth.currentUser?.uid ?? 'unknown',
+      });
+
+      if (!result.ok) {
+        setTrimError(result.error);
+        return;
+      }
+
+      const refreshed = await InventoryService.getRouteById(routeId);
+      if (refreshed) setRoute(refreshed);
+      setTrimStartCount(0);
+      setTrimEndCount(0);
+      setTrimUnpublishedNotice(result.unpublished);
+    } catch (err: any) {
+      setTrimError(err?.message || 'שגיאה בשמירת הקיצוץ');
+    } finally {
+      setTrimSaving(false);
+    }
+  };
+
   // ── Derived map data ──────────────────────────────────────────────────────
   const path   = route?.path ?? [];
   const center = pathCenter(path);
 
-  const lineGeoJSON = path.length >= 2 ? {
+  // Trim preview — clamp so the kept portion never drops below 2 points.
+  const maxTotalTrim = Math.max(0, path.length - 2);
+  const clampedTrimStart = Math.min(trimStartCount, maxTotalTrim);
+  const clampedTrimEnd = Math.min(trimEndCount, Math.max(0, maxTotalTrim - clampedTrimStart));
+  const keptPath = path.slice(clampedTrimStart, path.length - clampedTrimEnd);
+  const removedStartPath = clampedTrimStart > 0 ? path.slice(0, clampedTrimStart + 1) : [];
+  const removedEndPath = clampedTrimEnd > 0 ? path.slice(path.length - clampedTrimEnd - 1) : [];
+  const removedStartMeters = removedStartPath.length > 1 ? pathLengthMeters(removedStartPath) : 0;
+  const removedEndMeters = removedEndPath.length > 1 ? pathLengthMeters(removedEndPath) : 0;
+  const keptMeters = keptPath.length > 1 ? pathLengthMeters(keptPath) : 0;
+  const hasTrimSelection = clampedTrimStart > 0 || clampedTrimEnd > 0;
+
+  const toLineFeature = (coords: [number, number][]) => ({
     type: 'Feature' as const,
     properties: {},
-    geometry: { type: 'LineString' as const, coordinates: path },
-  } : null;
+    geometry: { type: 'LineString' as const, coordinates: coords },
+  });
+  const lineGeoJSON = keptPath.length >= 2 ? toLineFeature(keptPath) : null;
+  const removedStartGeoJSON = removedStartPath.length >= 2 ? toLineFeature(removedStartPath) : null;
+  const removedEndGeoJSON = removedEndPath.length >= 2 ? toLineFeature(removedEndPath) : null;
 
   const routeColor =
     activityType === 'cycling' ? '#8B5CF6' :
@@ -324,6 +388,28 @@ export default function EditRoutePage() {
               </Source>
             )}
 
+            {/* Trim preview — portions about to be removed, shown dashed red */}
+            {removedStartGeoJSON && (
+              <Source id="trim-removed-start" type="geojson" data={removedStartGeoJSON}>
+                <Layer
+                  id="trim-removed-start-line"
+                  type="line"
+                  paint={{ 'line-color': '#EF4444', 'line-width': 4, 'line-opacity': 0.85, 'line-dasharray': [2, 1.5] }}
+                  layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                />
+              </Source>
+            )}
+            {removedEndGeoJSON && (
+              <Source id="trim-removed-end" type="geojson" data={removedEndGeoJSON}>
+                <Layer
+                  id="trim-removed-end-line"
+                  type="line"
+                  paint={{ 'line-color': '#EF4444', 'line-width': 4, 'line-opacity': 0.85, 'line-dasharray': [2, 1.5] }}
+                  layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                />
+              </Source>
+            )}
+
             {/* Start marker */}
             {path.length > 0 && (
               <Marker longitude={path[0][0]} latitude={path[0][1]} anchor="center">
@@ -342,6 +428,90 @@ export default function EditRoutePage() {
               </Marker>
             )}
           </MapComponent>
+        </div>
+      )}
+
+      {/* ── Geometry trim (route-editor-scoping-spec.md §3.2, Phase 1) ── */}
+      {path.length >= 3 && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <h2 className="text-sm font-black text-gray-900 flex items-center gap-2">
+            <Scissors size={16} className="text-red-500" />
+            קיצוץ גיאומטריה
+          </h2>
+          <p className="text-xs text-gray-500">
+            הזז את המחוונים כדי לקצץ נקודות מתחילת ו/או סוף המסלול (הקטע האדום המקווקו במפה יימחק).
+            קיצוץ נקודות מהאמצע אינו נתמך עדיין.
+          </p>
+
+          {/* Start trim slider */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-gray-600">
+              <span>קיצוץ מההתחלה</span>
+              <span className="text-red-500">{Math.round(removedStartMeters)} מ׳ ({clampedTrimStart} נק׳)</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(0, maxTotalTrim - clampedTrimEnd)}
+              value={clampedTrimStart}
+              onChange={e => setTrimStartCount(Number(e.target.value))}
+              className="w-full accent-red-500"
+            />
+          </div>
+
+          {/* End trim slider */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-gray-600">
+              <span>קיצוץ מהסוף</span>
+              <span className="text-red-500">{Math.round(removedEndMeters)} מ׳ ({clampedTrimEnd} נק׳)</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(0, maxTotalTrim - clampedTrimStart)}
+              value={clampedTrimEnd}
+              onChange={e => setTrimEndCount(Number(e.target.value))}
+              className="w-full accent-red-500"
+            />
+          </div>
+
+          {/* Preview stat */}
+          <div className="bg-gray-50 rounded-xl px-4 py-2.5 text-xs text-gray-500">
+            מרחק לאחר קיצוץ:{' '}
+            <span className="font-bold text-gray-700">
+              {keptMeters < 1000 ? `${Math.round(keptMeters)} מ׳` : `${(keptMeters / 1000).toFixed(2)} ק״מ`}
+            </span>
+          </div>
+
+          {route?.published && hasTrimSelection && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs font-bold text-amber-700">
+              <Clock size={13} />
+              המסלול מפורסם — שמירת קיצוץ תחזיר אותו לסטטוס &ldquo;ממתין לאישור&rdquo;
+            </div>
+          )}
+
+          {trimUnpublishedNotice && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs font-bold text-amber-700">
+              <Clock size={13} />
+              הקיצוץ נשמר. המסלול הוחזר לסטטוס &ldquo;ממתין לאישור&rdquo; בעקבות השינוי.
+            </div>
+          )}
+
+          {trimError && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-xs font-bold text-red-700">
+              <AlertCircle size={13} />
+              {trimError}
+            </div>
+          )}
+
+          <button
+            onClick={handleApplyTrim}
+            disabled={!hasTrimSelection || trimSaving}
+            className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-red-100 transition-all disabled:opacity-50 text-sm"
+          >
+            {trimSaving ? <Loader2 className="animate-spin" size={15} /> : <Scissors size={15} />}
+            {trimSaving ? 'שומר קיצוץ...' : 'החל קיצוץ ושמור'}
+          </button>
         </div>
       )}
 
