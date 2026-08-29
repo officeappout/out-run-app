@@ -3,13 +3,21 @@
  * (route-editor-scoping-spec.md §3.5, §9.2): delete a contiguous point-range
  * from a route's path, recompute every derived field, and write it back
  * in-place. Every driver that mutates an official_routes path — the manual
- * editor (Phase 1, this build) and the future autonomous accuracy agent
+ * editor (Phase 1/2, this build) and the future autonomous accuracy agent
  * (Phase 5) — calls this same function; neither is allowed its own
  * parallel write path.
  *
- * Phase 1 scope: trim-only (a removed range must touch the start and/or the
- * end of the path). A fully inset range is rejected here — mid-route
- * deletion + Directions-snap reconnection is Phase 2 (§3.3), not yet built.
+ * Phase 1 scope (still exactly as shipped, unchanged below): trim-only — a
+ * removed range must touch the start and/or the end of the path.
+ *
+ * Phase 2 scope (new): a SINGLE fully-inset range is now also accepted —
+ * "interior cut". The two remaining halves are re-bridged with a real
+ * Mapbox Directions connector (profile matched to the route's activity),
+ * never a straight line — see fetchBridgeConnector below. Multi-cut in one
+ * call is out of scope (route-editor-scoping-spec.md §3.3's own "apply
+ * twice" note) — a call is either an edge-trim set (1-2 ranges, existing
+ * Phase 1 logic, untouched) or a single interior cut (this new logic), not
+ * both mixed in one call.
  */
 import { InventoryService } from './inventory.service';
 import { pathLengthMeters } from './geoUtils';
@@ -30,6 +38,13 @@ export interface SafeGeometryEditContext {
   decidedBy: string;
 }
 
+export interface BridgeConnector {
+  /** Raw Mapbox Directions geometry, anchor-to-anchor INCLUSIVE, in the
+   *  query's own from->to order (no reversal). */
+  geometry: Array<[number, number]>;
+  distanceMeters: number;
+}
+
 export type SafeGeometryEditOutcome =
   | {
       ok: true;
@@ -43,16 +58,66 @@ export type SafeGeometryEditOutcome =
        *  geometry edit to a published route sends it back to `pending`
        *  rather than re-broadcasting in place). */
       unpublished: boolean;
+      /** True when this was an interior cut that got re-bridged (Phase 2),
+       *  false for a plain trim (Phase 1). */
+      bridged: boolean;
+      /** Only present when bridged. */
+      connectorDistanceMeters?: number;
     }
   | { ok: false; error: string };
 
 const PACE_MIN_PER_KM: Record<string, number> = { cycling: 3, running: 6 };
 const DEFAULT_PACE_MIN_PER_KM = 12; // walking / workout — matches RouteEditor.tsx's create-flow formula
 
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+
+function directionsProfileFor(route: Route): 'walking' | 'cycling' {
+  return (route.activityType ?? route.type) === 'cycling' ? 'cycling' : 'walking';
+}
+
+/**
+ * Fetch a real walkable/cyclable connector between two points via the SAME
+ * Mapbox Directions endpoint RouteEditor.tsx's fetchSnappedRoute already
+ * uses (identical URL/params) — but, deliberately, DIFFERENT failure
+ * behavior. fetchSnappedRoute falls back to a straight `[from, to]` line on
+ * any Directions failure; that fallback is explicitly wrong for a re-bridge
+ * (route-editor-scoping-spec.md Phase 2 brief: "NEVER draw a straight-line
+ * bridge"), so this function returns `null` instead — every caller must
+ * treat null as "can't bridge this cut," never synthesize a substitute.
+ *
+ * Exported (not private to this module) so the editor UI can call the exact
+ * same function for a live preview before the user commits to Apply — the
+ * preview and the actual saved connector are then guaranteed to be the same
+ * fetch, not two independent Directions calls that could silently disagree.
+ */
+export async function fetchBridgeConnector(
+  anchorA: [number, number],
+  anchorB: [number, number],
+  profile: 'walking' | 'cycling',
+): Promise<BridgeConnector | null> {
+  try {
+    const coords = `${anchorA[0]},${anchorA[1]};${anchorB[0]},${anchorB[1]}`;
+    const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coords}?geometries=geojson&overview=full&access_token=${MAPBOX_TOKEN}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const primary = data?.routes?.[0];
+    const geometry = primary?.geometry?.coordinates as Array<[number, number]> | undefined;
+    if (!geometry || geometry.length < 2) return null;
+    return { geometry, distanceMeters: primary.distance ?? 0 };
+  } catch {
+    return null;
+  }
+}
+
 /** [lng, lat] tuple (in-memory Route.path form) -> {lat, lng} object
  *  (documented persisted Firestore form — schemas.ts's PathSchema). */
 function toPersistedPath(tuples: Array<[number, number]>): Array<{ lat: number; lng: number }> {
   return tuples.map(([lng, lat]) => ({ lat, lng }));
+}
+
+function isEdgeRange(range: GeometryEditRange, pathLength: number): boolean {
+  return range.startIdx === 0 || range.endIdx === pathLength - 1;
 }
 
 function validateRanges(ranges: GeometryEditRange[], pathLength: number): string | null {
@@ -69,15 +134,18 @@ function validateRanges(ranges: GeometryEditRange[], pathLength: number): string
     prevEnd = r.endIdx;
     if (r.startIdx === 0) touchesStart = true;
     if (r.endIdx === pathLength - 1) touchesEnd = true;
-    const isEdgeRange = r.startIdx === 0 || r.endIdx === pathLength - 1;
-    if (!isEdgeRange) {
-      return 'range is fully inset (mid-route deletion) — not supported until Phase 2 (route-editor-scoping-spec.md §3.3)';
+    if (!isEdgeRange(r, pathLength)) {
+      // Only reachable when ranges.length > 1 (a lone interior range is
+      // intercepted in applySafeGeometryEdit before this function is even
+      // called) — i.e. an interior range mixed together with another range
+      // in the same call, which Phase 2's v1 doesn't support either.
+      return 'an interior range cannot be combined with another range in the same call — apply the interior cut on its own';
     }
   }
   if (sorted.length === 2 && !(touchesStart && touchesEnd)) {
     return 'two ranges given but they must be one start-trim + one end-trim';
   }
-  if (sorted.length > 2) return 'at most one start-trim and one end-trim range supported in Phase 1';
+  if (sorted.length > 2) return 'at most one start-trim and one end-trim range supported';
   return null;
 }
 
@@ -88,34 +156,33 @@ function splicePath(path: Array<[number, number]>, ranges: GeometryEditRange[]):
 }
 
 /**
- * Delete `removedRanges` from `routeId`'s path, recompute every derived
- * field, and write it back in-place (same doc id, moderation state
- * preserved except for the published->pending downgrade below).
- *
- * Never throws on a validation/business-logic failure — returns
- * `{ok:false, error}` so a caller (UI or, later, the agent) can surface it
- * without a try/catch. Firestore/network errors from InventoryService still
- * propagate as real exceptions — those are infrastructure failures, not
- * validation outcomes.
- *
- * `ctx` is accepted but not yet read by this function — it exists so both
- * drivers (manual editor now, the accuracy agent once Phase 5 exists) share
- * one call signature from day one. Phase 3 (route_decisions logging,
- * route-editor-scoping-spec.md §5/§9.7) is what will start consuming it.
+ * Splice a re-bridged interior cut: [prefix through anchorA] + [connector
+ * interior points, endpoints dropped since prefix/suffix already supply
+ * them] + [suffix from anchorB]. No reversal — connector.geometry is
+ * already oriented anchorA->anchorB because that's the order it was
+ * queried in, so straight concatenation keeps the whole path continuous
+ * and single-direction, exactly as required.
  */
-export async function applySafeGeometryEdit(
+function spliceWithBridge(
+  path: Array<[number, number]>,
+  range: GeometryEditRange,
+  connector: BridgeConnector,
+): Array<[number, number]> {
+  const prefix = path.slice(0, range.startIdx); // ...through anchorA (index startIdx-1)
+  const suffix = path.slice(range.endIdx + 1); // anchorB (index endIdx+1) onward
+  const connectorInterior = connector.geometry.slice(1, -1); // drop duplicate anchors
+  return [...prefix, ...connectorInterior, ...suffix];
+}
+
+/** Shared recompute + write tail for both the trim path and the re-bridge
+ *  path — identical to Phase 1's logic, now called from two branches
+ *  instead of inlined once. */
+async function recomputeAndWrite(
   routeId: string,
-  removedRanges: GeometryEditRange[],
-  ctx: SafeGeometryEditContext,
+  route: Route,
+  newPath: Array<[number, number]>,
+  extra: { bridged: boolean; connectorDistanceMeters?: number },
 ): Promise<SafeGeometryEditOutcome> {
-  const route = await InventoryService.getRouteById(routeId);
-  if (!route) return { ok: false, error: 'route not found' };
-
-  const currentPath = route.path;
-  const rangeError = validateRanges(removedRanges, currentPath.length);
-  if (rangeError) return { ok: false, error: rangeError };
-
-  const newPath = splicePath(currentPath, removedRanges);
   if (newPath.length < 2) {
     return { ok: false, error: `edit would leave only ${newPath.length} point(s) — a route needs at least 2` };
   }
@@ -150,6 +217,13 @@ export async function applySafeGeometryEdit(
     ...(unpublished ? { status: 'pending' as const, published: false } : {}),
   };
 
+  // allowPathUpdate:true, and nothing else — no street_segments/route_adjacency
+  // broadcast call here (deliberately). Re-broadcasting a shortened/re-bridged
+  // path hits the documented ghost-segment bug (official-route-broadcaster.ts's
+  // index-keyed overwrite doesn't clean up trailing stale docs past the new,
+  // shorter count). The unpublished/pending downgrade above is what removes
+  // this route from live visibility instead — re-approval (approveRoute) is
+  // the ONLY path that's allowed to re-broadcast, and only that path does.
   await InventoryService.updateRoute(routeId, payload, { allowPathUpdate: true });
 
   return {
@@ -160,5 +234,75 @@ export async function applySafeGeometryEdit(
     elevationGain: hasRealDemData ? demResult.elevationGain : route.elevationGain,
     maxGrade: hasRealDemData ? demResult.maxGrade : route.maxGrade,
     unpublished,
+    ...extra,
   };
+}
+
+/**
+ * Delete `removedRanges` from `routeId`'s path, recompute every derived
+ * field, and write it back in-place (same doc id, moderation state
+ * preserved except for the published->pending downgrade below).
+ *
+ * Never throws on a validation/business-logic failure — returns
+ * `{ok:false, error}` so a caller (UI or, later, the agent) can surface it
+ * without a try/catch. Firestore/network errors from InventoryService still
+ * propagate as real exceptions — those are infrastructure failures, not
+ * validation outcomes.
+ *
+ * `precomputedBridge`: when the caller (the editor UI) already fetched a
+ * connector for a live preview via fetchBridgeConnector, pass it here so
+ * Apply reuses that EXACT geometry instead of re-querying Directions — the
+ * user then always gets exactly what they previewed, never a second,
+ * possibly-different route from a redundant call. Only meaningful when
+ * `removedRanges` resolves to a single interior cut; ignored otherwise.
+ * When omitted for an interior cut, this function fetches the connector
+ * itself (the path the future accuracy agent, which has no preview step,
+ * will use).
+ *
+ * `ctx` is accepted but not yet read by this function — it exists so both
+ * drivers (manual editor now, the accuracy agent once Phase 5 exists) share
+ * one call signature from day one. Phase 3 (route_decisions logging,
+ * route-editor-scoping-spec.md §5/§9.7) is what will start consuming it —
+ * NOT built yet as of Phase 2 either; see Phase 2's own delivery notes.
+ */
+export async function applySafeGeometryEdit(
+  routeId: string,
+  removedRanges: GeometryEditRange[],
+  ctx: SafeGeometryEditContext,
+  precomputedBridge?: BridgeConnector,
+): Promise<SafeGeometryEditOutcome> {
+  const route = await InventoryService.getRouteById(routeId);
+  if (!route) return { ok: false, error: 'route not found' };
+
+  const currentPath = route.path;
+
+  // Interior-cut dispatch: exactly one range, and it touches neither the
+  // start nor the end -> re-bridge path (Phase 2). Everything else
+  // (0 ranges, 2 ranges, or a single edge-touching range) falls through to
+  // the untouched Phase 1 trim validation/splice below.
+  if (
+    removedRanges.length === 1 &&
+    removedRanges[0].startIdx >= 0 &&
+    removedRanges[0].endIdx < currentPath.length &&
+    removedRanges[0].startIdx <= removedRanges[0].endIdx &&
+    !isEdgeRange(removedRanges[0], currentPath.length)
+  ) {
+    const range = removedRanges[0];
+    const anchorA = currentPath[range.startIdx - 1];
+    const anchorB = currentPath[range.endIdx + 1];
+
+    const connector = precomputedBridge ?? (await fetchBridgeConnector(anchorA, anchorB, directionsProfileFor(route)));
+    if (!connector) {
+      return { ok: false, error: "couldn't build a real connector for this cut" };
+    }
+
+    const newPath = spliceWithBridge(currentPath, range, connector);
+    return recomputeAndWrite(routeId, route, newPath, { bridged: true, connectorDistanceMeters: connector.distanceMeters });
+  }
+
+  const rangeError = validateRanges(removedRanges, currentPath.length);
+  if (rangeError) return { ok: false, error: rangeError };
+
+  const newPath = splicePath(currentPath, removedRanges);
+  return recomputeAndWrite(routeId, route, newPath, { bridged: false });
 }

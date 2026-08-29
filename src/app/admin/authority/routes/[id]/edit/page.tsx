@@ -13,7 +13,12 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
 import { InventoryService } from '@/features/parks';
 import type { Route } from '@/features/parks';
 import { pathLengthMeters } from '@/features/parks/core/services/geoUtils';
-import { applySafeGeometryEdit, type GeometryEditRange } from '@/features/parks/core/services/route-geometry-edit.service';
+import {
+  applySafeGeometryEdit,
+  fetchBridgeConnector,
+  type GeometryEditRange,
+  type BridgeConnector,
+} from '@/features/parks/core/services/route-geometry-edit.service';
 import {
   ArrowLeft,
   Loader2,
@@ -27,6 +32,7 @@ import {
   ImageIcon,
   X,
   Scissors,
+  GitMerge,
 } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -120,6 +126,23 @@ export default function EditRoutePage() {
   const [trimError,      setTrimError]      = useState<string | null>(null);
   const [trimUnpublishedNotice, setTrimUnpublishedNotice] = useState(false);
 
+  // ── Interior cut + re-bridge (route-editor-scoping-spec.md §3.3, Phase 2) ─
+  // A single interior [cutStart, cutEnd] range (indices into route.path,
+  // clamped below so it can never touch the start/end — that's the trim
+  // sliders' job, not this one's). bridgePreview holds the LAST successfully
+  // fetched connector for the current selection — Apply reuses this exact
+  // object rather than re-querying Directions, so what the user previews is
+  // exactly what gets saved.
+  const [cutStartIdx, setCutStartIdx] = useState(1);
+  const [cutEndIdx, setCutEndIdx] = useState(1);
+  const [bridgePreview, setBridgePreview] = useState<BridgeConnector | null>(null);
+  const [bridgePreviewLoading, setBridgePreviewLoading] = useState(false);
+  const [bridgePreviewError, setBridgePreviewError] = useState<string | null>(null);
+  const [cutSaving, setCutSaving] = useState(false);
+  const [cutError, setCutError] = useState<string | null>(null);
+  const [cutUnpublishedNotice, setCutUnpublishedNotice] = useState(false);
+  const [cutBridgedMeters, setCutBridgedMeters] = useState<number | null>(null);
+
   // ── Data load ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!routeId) return;
@@ -139,6 +162,15 @@ export default function EditRoutePage() {
         setDescription(data.description || '');
         setActivityType(data.activityType || data.type || 'running');
         setDifficulty(normalizeDifficulty(data.difficulty));
+
+        // Seed the interior-cut sliders at a sensible interior default (middle
+        // third of the path) instead of the useState(1) declared default —
+        // that default only matters before the route's real length is known.
+        const len = data.path?.length ?? 0;
+        if (len >= 3) {
+          setCutStartIdx(Math.max(1, Math.floor(len * 0.4)));
+          setCutEndIdx(Math.min(len - 2, Math.floor(len * 0.6)));
+        }
 
         const firstImage = data.images?.[0] || '';
         setImageUrl(firstImage);
@@ -270,6 +302,51 @@ export default function EditRoutePage() {
     }
   };
 
+  // ── Apply interior cut + re-bridge (Phase 2) ───────────────────────────────
+  // Reuses the SAME bridgePreview object the user already saw rendered on the
+  // map — no second Directions call, so what was previewed is exactly what
+  // gets saved. Refuses to save without a real connector (never falls back
+  // to a straight line, matching fetchBridgeConnector's own contract).
+  const handleApplyInteriorCut = async () => {
+    if (!route) return;
+    if (!bridgePreview) {
+      setCutError(bridgePreviewError || 'אין עדיין חיבור אמיתי לטווח הזה — נסה טווח אחר או המתן לתצוגה המקדימה');
+      return;
+    }
+    setCutSaving(true);
+    setCutError(null);
+    try {
+      const result = await applySafeGeometryEdit(
+        routeId,
+        [{ startIdx: clampedCutStart, endIdx: clampedCutEnd }],
+        { initiatedBy: 'owner', decidedBy: auth.currentUser?.uid ?? 'unknown' },
+        bridgePreview,
+      );
+
+      if (!result.ok) {
+        setCutError(result.error);
+        return;
+      }
+
+      const refreshed = await InventoryService.getRouteById(routeId);
+      if (refreshed) {
+        setRoute(refreshed);
+        const len = refreshed.path.length;
+        if (len >= 3) {
+          setCutStartIdx(Math.max(1, Math.floor(len * 0.4)));
+          setCutEndIdx(Math.min(len - 2, Math.floor(len * 0.6)));
+        }
+      }
+      setBridgePreview(null);
+      setCutUnpublishedNotice(result.unpublished);
+      setCutBridgedMeters(result.connectorDistanceMeters ?? null);
+    } catch (err: any) {
+      setCutError(err?.message || 'שגיאה בשמירת החיבור');
+    } finally {
+      setCutSaving(false);
+    }
+  };
+
   // ── Derived map data ──────────────────────────────────────────────────────
   const path   = route?.path ?? [];
   const center = pathCenter(path);
@@ -286,6 +363,28 @@ export default function EditRoutePage() {
   const keptMeters = keptPath.length > 1 ? pathLengthMeters(keptPath) : 0;
   const hasTrimSelection = clampedTrimStart > 0 || clampedTrimEnd > 0;
 
+  // Interior cut preview — the range can never touch index 0 or the last
+  // index (that's what the trim sliders above are for), so clamp strictly
+  // inside [1, length-2]. When the path is too short for any interior range
+  // (length < 3) maxInteriorIdx collapses to minInteriorIdx and the whole
+  // card is hidden below (path.length >= 3 gate), so the collapsed range is
+  // never actually rendered as a live control.
+  const minInteriorIdx = 1;
+  const maxInteriorIdx = Math.max(minInteriorIdx, path.length - 2);
+  const clampedCutStart = Math.min(Math.max(cutStartIdx, minInteriorIdx), maxInteriorIdx);
+  const clampedCutEnd = Math.min(Math.max(cutEndIdx, clampedCutStart), maxInteriorIdx);
+  const cutAnchorA = path[clampedCutStart - 1];
+  const cutAnchorB = path[clampedCutEnd + 1];
+  const cutRemovedPath = path.slice(clampedCutStart, clampedCutEnd + 1);
+  const cutRemovedMeters = cutRemovedPath.length > 1 ? pathLengthMeters(cutRemovedPath) : 0;
+  // Full post-apply preview distance: everything kept, plus the real
+  // connector length once fetched (0 while no preview exists yet — the
+  // "distance after" stat then just reads as "unknown until a connector is
+  // found", not a silent wrong number).
+  const cutKeptPath = [...path.slice(0, clampedCutStart), ...path.slice(clampedCutEnd + 1)];
+  const cutKeptMeters = cutKeptPath.length > 1 ? pathLengthMeters(cutKeptPath) : 0;
+  const cutResultMeters = cutKeptMeters + (bridgePreview?.distanceMeters ?? 0);
+
   const toLineFeature = (coords: [number, number][]) => ({
     type: 'Feature' as const,
     properties: {},
@@ -294,10 +393,39 @@ export default function EditRoutePage() {
   const lineGeoJSON = keptPath.length >= 2 ? toLineFeature(keptPath) : null;
   const removedStartGeoJSON = removedStartPath.length >= 2 ? toLineFeature(removedStartPath) : null;
   const removedEndGeoJSON = removedEndPath.length >= 2 ? toLineFeature(removedEndPath) : null;
+  const cutRemovedGeoJSON = cutRemovedPath.length >= 2 ? toLineFeature(cutRemovedPath) : null;
+  const bridgePreviewGeoJSON = bridgePreview && bridgePreview.geometry.length >= 2 ? toLineFeature(bridgePreview.geometry) : null;
 
   const routeColor =
     activityType === 'cycling' ? '#8B5CF6' :
     activityType === 'walking' ? '#10B981' : '#06B6D4';
+
+  // ── Live connector preview (debounced) ─────────────────────────────────────
+  // Fetches via the EXACT same fetchBridgeConnector the save path uses (see
+  // route-geometry-edit.service.ts) — never a fake/straight-line preview.
+  // Debounced 500ms after the interior selection settles so dragging a
+  // slider doesn't fire a Directions call per pixel. Profile is derived from
+  // the loaded route's own activityType/type — not the (possibly still
+  // unsaved) form draft — so preview and the eventual real save always agree.
+  useEffect(() => {
+    if (!route || path.length < 3 || !cutAnchorA || !cutAnchorB) {
+      setBridgePreview(null);
+      setBridgePreviewError(null);
+      setBridgePreviewLoading(false);
+      return;
+    }
+    setBridgePreviewLoading(true);
+    setBridgePreviewError(null);
+    const profile: 'walking' | 'cycling' = (route.activityType ?? route.type) === 'cycling' ? 'cycling' : 'walking';
+    const timer = setTimeout(async () => {
+      const connector = await fetchBridgeConnector(cutAnchorA, cutAnchorB, profile);
+      setBridgePreview(connector);
+      setBridgePreviewLoading(false);
+      if (!connector) setBridgePreviewError('לא נמצא חיבור אמיתי (הליכה/רכיבה) בין שתי הנקודות — נסה טווח אחר');
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route, path.length, clampedCutStart, clampedCutEnd]);
 
   // ── Loading state ─────────────────────────────────────────────────────────
   if (loading) {
@@ -410,6 +538,33 @@ export default function EditRoutePage() {
               </Source>
             )}
 
+            {/* Interior-cut preview — the range about to be removed, dashed
+                red (same style as the trim preview above) */}
+            {cutRemovedGeoJSON && (
+              <Source id="cut-removed" type="geojson" data={cutRemovedGeoJSON}>
+                <Layer
+                  id="cut-removed-line"
+                  type="line"
+                  paint={{ 'line-color': '#EF4444', 'line-width': 4, 'line-opacity': 0.85, 'line-dasharray': [2, 1.5] }}
+                  layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                />
+              </Source>
+            )}
+            {/* Proposed re-bridge connector — real Mapbox Directions
+                geometry, deliberately a DISTINCT dashed style (blue, tighter
+                dash) from the red "being removed" preview so the two are
+                never confused: red = deleted, blue = the new replacement. */}
+            {bridgePreviewGeoJSON && (
+              <Source id="bridge-preview" type="geojson" data={bridgePreviewGeoJSON}>
+                <Layer
+                  id="bridge-preview-line"
+                  type="line"
+                  paint={{ 'line-color': '#3B82F6', 'line-width': 4, 'line-opacity': 0.9, 'line-dasharray': [0.5, 1.5] }}
+                  layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+                />
+              </Source>
+            )}
+
             {/* Start marker */}
             {path.length > 0 && (
               <Marker longitude={path[0][0]} latitude={path[0][1]} anchor="center">
@@ -511,6 +666,118 @@ export default function EditRoutePage() {
           >
             {trimSaving ? <Loader2 className="animate-spin" size={15} /> : <Scissors size={15} />}
             {trimSaving ? 'שומר קיצוץ...' : 'החל קיצוץ ושמור'}
+          </button>
+        </div>
+      )}
+
+      {/* ── Interior cut + re-bridge (route-editor-scoping-spec.md §3.3, Phase 2) ── */}
+      {path.length >= 3 && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <h2 className="text-sm font-black text-gray-900 flex items-center gap-2">
+            <GitMerge size={16} className="text-blue-500" />
+            חיתוך קטע פנימי וגישור מחדש
+          </h2>
+          <p className="text-xs text-gray-500">
+            בחר טווח נקודות באמצע המסלול למחיקה (אדום מקווקו). המערכת תחפש חיבור הליכה/רכיבה אמיתי
+            בין שתי הקצוות שנשארות (כחול מקווקו) — לא קו ישר. אם לא נמצא חיבור אמיתי, לא ניתן לשמור.
+          </p>
+
+          {/* Cut-start slider */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-gray-600">
+              <span>תחילת הקטע להסרה</span>
+              <span className="text-gray-400">נקודה {clampedCutStart}</span>
+            </div>
+            <input
+              type="range"
+              min={minInteriorIdx}
+              max={maxInteriorIdx}
+              value={clampedCutStart}
+              onChange={e => setCutStartIdx(Number(e.target.value))}
+              className="w-full accent-blue-500"
+            />
+          </div>
+
+          {/* Cut-end slider */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-gray-600">
+              <span>סוף הקטע להסרה</span>
+              <span className="text-gray-400">נקודה {clampedCutEnd}</span>
+            </div>
+            <input
+              type="range"
+              min={clampedCutStart}
+              max={maxInteriorIdx}
+              value={clampedCutEnd}
+              onChange={e => setCutEndIdx(Number(e.target.value))}
+              className="w-full accent-blue-500"
+            />
+          </div>
+
+          {/* Cut length + connector status */}
+          <div className="bg-gray-50 rounded-xl px-4 py-2.5 text-xs text-gray-500 space-y-1">
+            <p>
+              קטע להסרה:{' '}
+              <span className="font-bold text-red-500">{Math.round(cutRemovedMeters)} מ׳</span>
+            </p>
+            <p className="flex items-center gap-1.5">
+              <span>חיבור:</span>
+              {bridgePreviewLoading ? (
+                <span className="flex items-center gap-1 text-gray-400">
+                  <Loader2 className="animate-spin" size={11} /> מחפש חיבור אמיתי...
+                </span>
+              ) : bridgePreview ? (
+                <span className="font-bold text-blue-600">נמצא — {Math.round(bridgePreview.distanceMeters)} מ׳</span>
+              ) : (
+                <span className="font-bold text-gray-400">אין עדיין</span>
+              )}
+            </p>
+            <p>
+              מרחק לאחר שמירה (משוער):{' '}
+              <span className="font-bold text-gray-700">
+                {bridgePreview
+                  ? cutResultMeters < 1000 ? `${Math.round(cutResultMeters)} מ׳` : `${(cutResultMeters / 1000).toFixed(2)} ק״מ`
+                  : '—'}
+              </span>
+            </p>
+          </div>
+
+          {route?.published && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs font-bold text-amber-700">
+              <Clock size={13} />
+              המסלול מפורסם — שמירת חיתוך תחזיר אותו לסטטוס &ldquo;ממתין לאישור&rdquo;
+            </div>
+          )}
+
+          {cutUnpublishedNotice && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs font-bold text-amber-700">
+              <Clock size={13} />
+              החיתוך נשמר עם גישור של {cutBridgedMeters != null ? Math.round(cutBridgedMeters) : '—'} מ׳.
+              המסלול הוחזר לסטטוס &ldquo;ממתין לאישור&rdquo; בעקבות השינוי.
+            </div>
+          )}
+
+          {bridgePreviewError && !cutError && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs font-bold text-amber-700">
+              <AlertCircle size={13} />
+              {bridgePreviewError}
+            </div>
+          )}
+
+          {cutError && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-xs font-bold text-red-700">
+              <AlertCircle size={13} />
+              {cutError}
+            </div>
+          )}
+
+          <button
+            onClick={handleApplyInteriorCut}
+            disabled={!bridgePreview || cutSaving || bridgePreviewLoading}
+            className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-blue-100 transition-all disabled:opacity-50 text-sm"
+          >
+            {cutSaving ? <Loader2 className="animate-spin" size={15} /> : <GitMerge size={15} />}
+            {cutSaving ? 'שומר חיתוך...' : 'החל חיתוך + גישור ושמור'}
           </button>
         </div>
       )}
