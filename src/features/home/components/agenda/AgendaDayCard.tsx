@@ -24,8 +24,23 @@ import { useUserStore } from '@/features/user';
 import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
 import { hapticLight } from '@/lib/haptics';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
-import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED } from '@/config/feature-flags';
+import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED, AGENDA_HYBRID_DAY_DISPLAY_ENABLED } from '@/config/feature-flags';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
+
+/** Compile-time flag with an optional runtime A/B override (device-friendly).
+ *  Same pattern as isPlsCacheEnabled (programLevelSettings.service.ts). */
+export function isAgendaHybridDayDisplayEnabled(): boolean {
+  if (typeof window !== 'undefined') {
+    try {
+      const ls = window.localStorage?.getItem('OUT_AGENDA_HYBRID');
+      if (ls === '0' || ls === 'false') return false;
+      if (ls === '1' || ls === 'true') return true;
+    } catch {
+      /* private mode — ignore */
+    }
+  }
+  return AGENDA_HYBRID_DAY_DISPLAY_ENABLED;
+}
 
 // ── Skill-aware helpers ────────────────────────────────────────────────────
 
@@ -868,10 +883,23 @@ export default function AgendaDayCard({
   const hasRunning = !!runningWorkout;
   const runCompleted = runningWorkout?.status === 'completed';
 
+  // AGENDA_HYBRID_DAY_DISPLAY_ENABLED, read once. runningReplacesDay is true
+  // whenever running is still acting as the OLD day-replacing mode (flag
+  // off), false once it's just one item among others (flag on) or there's
+  // no running at all. Every one of the 4 touched pieces below reduces to
+  // hybridDisplayOn/runningReplacesDay instead of re-checking the flag 4
+  // separate times.
+  const hybridDisplayOn = isAgendaHybridDayDisplayEnabled();
+  const runningReplacesDay = hasRunning && !hybridDisplayOn;
+
   useEffect(() => {
     // Reset to loading state on every re-run so the destination card
     // always re-renders after a drag move (not stuck showing stale data).
     setEntries(undefined);
+    // AGENDA_HYBRID_DAY_DISPLAY_ENABLED off: running still replaces the whole
+    // day (original behavior, byte-identical). On: fall through and fetch
+    // strength/community entries even when there's a run today.
+    if (runningReplacesDay) { setEntries([]); return; }
     if (!userId) { setEntries([]); return; }
     // Parent's batched fetch (see RollingAgenda) is still in flight — hold
     // the skeleton instead of falling back to a per-card network call.
@@ -957,7 +985,7 @@ export default function AgendaDayCard({
     }
     load();
     return () => { cancelled = true; };
-  }, [userId, date, recurringTemplate, refreshKey, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, profile?.running?.activeProgram?.programId, scheduleMap, actualWorkoutsMap, baseMode]);
+  }, [userId, date, recurringTemplate, refreshKey, runningReplacesDay, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, profile?.running?.activeProgram?.programId, scheduleMap, actualWorkoutsMap, baseMode]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -983,7 +1011,7 @@ export default function AgendaDayCard({
   const trainingEntries = (entries ?? []).filter((e) => e.type === 'training');
   const trainingCount   = trainingEntries.length;
 
-  const isLoading = entries === undefined;
+  const isLoading = entries === undefined && !runningReplacesDay;
   const isEmpty   = !hasRunning && !isLoading && entries !== undefined && entries.length === 0 && baseMode === 'future';
   const isMissedPast = baseMode === 'past' && primaryEntry?.type === 'training' && primaryEntry?.completed === false;
   const isRest    = !hasRunning && !isEmpty && (!primaryEntry || primaryEntry?.type === 'rest' || isMissedPast);
@@ -1008,15 +1036,26 @@ export default function AgendaDayCard({
   // running alongside strength/community cards; the day-number/timeline-dot
   // accent must reflect all of them, not just whichever branch used to win.
   // dominantCat below still prioritizes strength > cardio > cats[0], unchanged.
-  const cats: ScheduleActivityCategory[] = (() => {
-    const fromEntries = trainingEntries.flatMap((e) => e.scheduledCategories ?? []);
-    const combined = Array.from(new Set([
-      ...(hasRunning ? (['cardio'] as ScheduleActivityCategory[]) : []),
-      ...fromEntries,
-    ]));
-    if (combined.length > 0) return combined;
-    return isRest ? [] : ['strength'];
-  })();
+  // Byte-identical-when-off note: the additive branch below also affects a
+  // NORMAL (non-running) multi-strength day's accent color (reading every
+  // trainingEntries' categories instead of just primaryEntry's) — so it's
+  // gated on hybridDisplayOn, not just runningReplacesDay, or a plain
+  // multi-item strength day would silently change behavior with the flag off.
+  const cats: ScheduleActivityCategory[] = runningReplacesDay
+    ? ['cardio']
+    : !hybridDisplayOn
+      ? (primaryEntry?.scheduledCategories && primaryEntry.scheduledCategories.length > 0
+          ? primaryEntry.scheduledCategories
+          : (isRest ? [] : ['strength']))
+      : (() => {
+          const fromEntries = trainingEntries.flatMap((e) => e.scheduledCategories ?? []);
+          const combined = Array.from(new Set([
+            ...(hasRunning ? (['cardio'] as ScheduleActivityCategory[]) : []),
+            ...fromEntries,
+          ]));
+          if (combined.length > 0) return combined;
+          return isRest ? [] : ['strength'];
+        })();
 
   // ── Derived styling helpers ──────────────────────────────────────────────
 
@@ -1118,15 +1157,19 @@ export default function AgendaDayCard({
             )
 
           ) : (hasRunning || trainingCount > 0) ? (
-            /* ── §0d stage 1-3 (29.08.2026): running + strength/community cards
-               render together, not as mutually-exclusive branches. Running's
-               width now shares the row (flex:1) with other cards the same way
-               StrengthCard's own isShared pattern does (:637) — matches when
-               trainingCount > 0, i.e. running is not the only card. Per-card
-               drag/delete/tap for the running item specifically is still
-               deferred to stage 4-5 (no stable identity — no entryId, no
-               Firestore doc); isDraggable still blanket-excludes hasRunning
-               days, unchanged. ── */
+            /* ── §0d stage 1-3 (29.08.2026, AGENDA_HYBRID_DAY_DISPLAY_ENABLED):
+               this branch's JSX itself needs no flag check — when the flag is
+               off and running is present, runningReplacesDay forced entries
+               to [] upstream (the load() effect's early return), so
+               trainingEntries is empty here and only the running card
+               renders, byte-identical to the old exclusive branch. When the
+               flag is on, entries genuinely loaded and both render together.
+               Running's width shares the row (flex:1) with other cards the
+               same way StrengthCard's own isShared pattern does (:637) —
+               matches when trainingCount > 0. Per-card drag/delete/tap for
+               the running item specifically is still deferred to stage 4-5
+               (no stable identity — no entryId, no Firestore doc);
+               isDraggable still blanket-excludes hasRunning days, unchanged. ── */
             <div className="flex items-center flex-1 min-w-0" style={{ gap: 4 }}>
               {hasRunning && (
                 /* ── Running workout — styled card with per-type accent bar ── */

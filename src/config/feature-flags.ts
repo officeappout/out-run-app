@@ -1385,6 +1385,26 @@ export const SOCIAL_COMPOSE_UI_ENABLED = true;
 // {userId, date} and would be ambiguous in that case.
 export const AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED = true;
 
+// AGENDA_HYBRID_DAY_DISPLAY: gap-map finding #5 — AgendaDayCard.tsx used to
+// treat a running day as a MODE that replaced the whole day's contents
+// (`if (hasRunning) { setEntries([]); return; }`), so a day with a
+// neighborhood walking group + a calisthenics group + a personal strength
+// workout — 3 correctly-rendered cards — showed only the running card the
+// moment a planned run also landed on it. Not a hybrid-user edge case: it
+// silently hid group sessions the municipality is paying for. While FALSE,
+// all 4 touched pieces stay BYTE-IDENTICAL to today: the hasRunning
+// early-return, isLoading's !hasRunning guard, cats' hasRunning-exclusive
+// ternary, and the render fork (running XOR trainingEntries, never both).
+// While TRUE, running renders alongside strength/community cards in the
+// same row instead of replacing them.
+// Runtime A/B override (no rebuild): localStorage['OUT_AGENDA_HYBRID'] = '1' | '0'.
+// excludeRunningShadowEntry (the running-bridge-shadow-entry dedup this
+// depends on) is NOT gated by this flag — it fixes a real bug
+// (resolveScheduledProgram was feeding the running program's own template id
+// into the strength workout generator) that exists independently of whether
+// AgendaDayCard's display changes, so it ships unconditionally.
+export const AGENDA_HYBRID_DAY_DISPLAY_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
