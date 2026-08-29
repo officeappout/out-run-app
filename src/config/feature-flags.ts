@@ -1403,7 +1403,10 @@ export const AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED = true;
 // (resolveScheduledProgram was feeding the running program's own template id
 // into the strength workout generator) that exists independently of whether
 // AgendaDayCard's display changes, so it ships unconditionally.
-export const AGENDA_HYBRID_DAY_DISPLAY_ENABLED = false;
+// Enabled by default 29.08.2026 (David, device-testing directly against
+// prod) — localStorage override above still lets it be flipped off locally
+// without a revert if needed.
+export const AGENDA_HYBRID_DAY_DISPLAY_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
