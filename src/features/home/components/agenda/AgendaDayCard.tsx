@@ -429,10 +429,12 @@ interface StrengthCardProps {
    */
   accentColor?: string;
   /**
-   * Overrides the resolved title. `resolveStrengthTitle(entry.programIds)`
-   * always falls back to "אימון כוח" for a tier-4 reconstructed entry
-   * (its `programIds` is empty) — pass a `workoutType`-derived label for
-   * `source === 'reconstructed'` entries; omit for every other entry.
+   * Overrides the resolved title. Callsite priority: `entry.title` (a real,
+   * user-entered name — AddWorkoutModal's "שם" field) wins when present;
+   * else a `workoutType`-derived label for `source === 'reconstructed'`
+   * entries (their `programIds` is empty, so `resolveStrengthTitle` alone
+   * would mislabel them); omit for every other entry, which falls through
+   * to `resolveStrengthTitle`'s own category-aware guess.
    */
   title?: string;
   /**
@@ -1255,9 +1257,11 @@ export default function AgendaDayCard({
                       ? (COMMUNITY_CATEGORY_COLORS[e.scheduledCategories?.[0] as string ?? ''] ?? '#9CA3AF')
                       : undefined
                   }
-                  title={e.source === 'reconstructed'
-                    ? resolveReconstructedTitle(actualWorkoutsMap?.[date]?.find((w) => w.id === e.completedWorkoutId)?.workoutType)
-                    : undefined}
+                  title={e.title
+                    ? e.title
+                    : e.source === 'reconstructed'
+                      ? resolveReconstructedTitle(actualWorkoutsMap?.[date]?.find((w) => w.id === e.completedWorkoutId)?.workoutType)
+                      : undefined}
                   completedFill={e.source === 'reconstructed'
                     ? (() => {
                         const w = actualWorkoutsMap?.[date]?.find((x) => x.id === e.completedWorkoutId);

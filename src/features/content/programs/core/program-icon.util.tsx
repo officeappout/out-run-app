@@ -211,6 +211,30 @@ export const PROGRAM_ALIAS_TO_ICON: Record<string, ProgramIconKey> = {
 };
 
 /**
+ * Hebrew fallback labels for program slugs, used when neither ICON_MAP nor
+ * a Firestore program doc's own `.name` resolves a label — the last tier
+ * before showing a raw English slug. Single source for every consumer
+ * (WorkoutBuilderSheet, AddWorkoutModal) — do not fork a second copy.
+ */
+export const SLUG_HEBREW_FALLBACK: Record<string, string> = {
+  full_body:          'כל הגוף',
+  upper_body:         'פלג עליון',
+  lower_body:         'פלג תחתון',
+  push:               'לחיצה',
+  pull:               'משיכה',
+  legs:               'רגליים',
+  core:               'ליבה',
+  calisthenics_upper: 'כלים',
+  planche:            'פלאנץ׳',
+  front_lever:        'פרונט לבר',
+  handstand:          'עמידת ידיים',
+  handstand_pushup:   'לחיצת ידיים',
+  muscle_up:          'מאסל אפ',
+  back_lever:         'באק לבר',
+  one_arm_pullup:     'מתח יד אחת',
+};
+
+/**
  * Resolve the canonical iconKey for a program.
  *
  * Priority:
@@ -234,6 +258,20 @@ export function resolveIconKey(
     if (key) return key;
   }
   return 'muscle';
+}
+
+/**
+ * Resolve a program/track id to a Hebrew display label — the same cascade
+ * WorkoutBuilderSheet's `displayPrograms` builder already used inline
+ * (ICON_MAP direct match → the Firestore program doc's own `.name`, when
+ * the caller has one → SLUG_HEBREW_FALLBACK → the raw id as a last resort).
+ * Extracted here so a second caller (AddWorkoutModal, which has no program
+ * doc to pass) doesn't fork its own mapping — pass `docName` as undefined
+ * to skip that tier.
+ */
+export function resolveProgramLabel(id: string, docName?: string): string {
+  const iconMapEntry = ICON_MAP[id as keyof typeof ICON_MAP];
+  return iconMapEntry?.label ?? docName ?? SLUG_HEBREW_FALLBACK[id] ?? id;
 }
 
 /**

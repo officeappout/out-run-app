@@ -14,7 +14,7 @@ import type { ExecutionLocation } from '@/features/content/exercises/core/exerci
 import type { Program } from '@/features/content/programs/core/program.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { KNOWN_MASTER_PROGRAMS } from '@/features/user/progression/services/progression.service';
-import { resolveIconKey, ICON_MAP } from '@/features/content/programs/core/program-icon.util';
+import { resolveIconKey, ICON_MAP, SLUG_HEBREW_FALLBACK, resolveProgramLabel } from '@/features/content/programs/core/program-icon.util';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
 import EquipmentFilterSheet from '@/features/content/exercises/client/components/EquipmentFilterSheet';
 import { BODYWEIGHT_SENTINEL } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
@@ -83,29 +83,6 @@ const TIME_MOTIVATION: Record<number | 'other', { male: string; female: string }
 };
 
 const BOLT_LABELS: Record<1 | 2 | 3, string> = { 1: 'קליל', 2: 'מאוזן', 3: 'עצים' };
-
-// ── Hebrew fallback labels for program slugs ──────────────────────────────────
-// Prevents raw English slugs ('upper_body', 'pull', etc.) from leaking into
-// the program-pill UI when programs[] Firestore state is still loading or when
-// a program document has no name field.  Acts as a third-tier fallback after
-// ICON_MAP and doc.name in the displayPrograms label cascade.
-const SLUG_HEBREW_FALLBACK: Record<string, string> = {
-  full_body:          'כל הגוף',
-  upper_body:         'פלג עליון',
-  lower_body:         'פלג תחתון',
-  push:               'לחיצה',
-  pull:               'משיכה',
-  legs:               'רגליים',
-  core:               'ליבה',
-  calisthenics_upper: 'כלים',
-  planche:            'פלאנץ׳',
-  front_lever:        'פרונט לבר',
-  handstand:          'עמידת ידיים',
-  handstand_pushup:   'לחיצת ידיים',
-  muscle_up:          'מאסל אפ',
-  back_lever:         'באק לבר',
-  one_arm_pullup:     'מתח יד אחת',
-};
 
 // Bolt SVG filters — same values as WorkoutSelectionCarousel
 const BOLT_FILTER_FILLED_INACTIVE =
@@ -391,8 +368,7 @@ export default function WorkoutBuilderSheet({
       const isUnenrolled = !enrolledIds.has(id) && !enrolledIds.has(resolveToSlug(id) || id);
       const isMaster = doc?.isMaster ?? (id in KNOWN_MASTER_PROGRAMS);
       const children: string[] = doc?.subPrograms ?? KNOWN_MASTER_PROGRAMS[id as keyof typeof KNOWN_MASTER_PROGRAMS] ?? [];
-      const iconMapEntry = ICON_MAP[id as keyof typeof ICON_MAP];
-      const label = iconMapEntry?.label ?? doc?.name ?? SLUG_HEBREW_FALLBACK[id] ?? id;
+      const label = resolveProgramLabel(id, doc?.name);
       const resolvedKey = resolveIconKey(doc?.iconKey, id);
       const IconComp = ICON_MAP[resolvedKey]?.component ?? null;
       const level = isUnenrolled ? 0 : (tracks[id] as any)?.currentLevel ?? (tracks[id] as any)?.level ?? 1;

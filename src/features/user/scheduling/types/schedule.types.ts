@@ -71,6 +71,12 @@ export interface UserScheduleEntry {
   source: ScheduleEntrySource;
   completed: boolean;
   completedWorkoutId?: string; // set when the workout session is finished
+  /**
+   * User-entered free-text name for this workout (AddWorkoutModal's "שם"
+   * field). Optional — when absent, display falls back to a guessed title
+   * (resolveReconstructedTitle / resolveStrengthTitle in AgendaDayCard.tsx).
+   */
+  title?: string;
   /** Which ring categories are scheduled for this day (e.g. ['strength','cardio']) */
   scheduledCategories?: ScheduleActivityCategory[];
   /** Time-based scheduling — 'HH:MM' (24h) within the day */

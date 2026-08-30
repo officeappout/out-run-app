@@ -29,7 +29,7 @@ import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
 import { auth } from '@/lib/firebase';
 import { g } from '@/lib/utils/gendered-text';
-import { WalkingIcon, RunIcon, MuscleIcon, getProgramIcon, ICON_MAP } from '@/features/content/programs/core/program-icon.util';
+import { WalkingIcon, RunIcon, MuscleIcon, getProgramIcon, resolveIconKey, resolveProgramLabel } from '@/features/content/programs/core/program-icon.util';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import type { ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
@@ -218,6 +218,7 @@ export default function AddWorkoutModal({
           type: 'training',
           source: 'manual',
           completed: false,
+          title: title || undefined,
           scheduledCategories: [schedCat],
           startTime,
         });
@@ -403,8 +404,12 @@ export default function AddWorkoutModal({
                   style={{ scrollbarWidth: 'none' }}
                 >
                   {sortedTracks.map((track) => {
-                    const iconMapEntry = (ICON_MAP as Record<string, { label: string }>)[track.id];
-                    console.log('[AddWorkoutModal] track.id:', track.id, 'ICON_MAP entry:', iconMapEntry);
+                    // Same resolveIconKey → ICON_MAP → SLUG_HEBREW_FALLBACK
+                    // cascade WorkoutBuilderSheet's displayPrograms uses
+                    // (program-icon.util.tsx) — no doc.name tier here since
+                    // this picker has no Firestore program catalog fetch.
+                    const resolvedIconKey = resolveIconKey(undefined, track.id);
+                    const label = resolveProgramLabel(track.id);
                     const isSelected = selectedProgramId === track.id;
                     return (
                       <button
@@ -420,9 +425,9 @@ export default function AddWorkoutModal({
                           className="flex items-center gap-1.5"
                           style={{ color: isSelected ? '#00C9F2' : '#1f2937' }}
                         >
-                          {getProgramIcon(track.id, 'w-4 h-4')}
+                          {getProgramIcon(resolvedIconKey, 'w-4 h-4')}
                           <span style={{ fontWeight: isSelected ? 700 : 500 }}>
-                            {iconMapEntry?.label ?? track.id}
+                            {label}
                           </span>
                         </span>
                       </button>
