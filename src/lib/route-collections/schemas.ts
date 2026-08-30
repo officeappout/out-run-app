@@ -68,6 +68,27 @@ const RouteFieldsSchema = z.object({
     avgGrade: z.number().nullable(),
     maxGrade: z.number().nullable(),
   })).optional(),
+  /** Quality-certificate v1 (composition only — lighting is a later task,
+   *  hence optional here even though `Route.qualitySignals.composition` is
+   *  required once `qualitySignals` itself is present). Mirrors
+   *  Route.qualitySignals' TS shape verbatim. */
+  qualitySignals: z.object({
+    composition: z.object({
+      sidewalkPct: z.number(),
+      genuinePct: z.number(),
+      ordinaryPct: z.number(),
+      otherPct: z.number(),
+    }),
+    lighting: z.object({
+      status: z.enum(['computed', 'unknown']),
+      litCoveragePct: z.number().nullable(),
+      isLit: z.boolean().nullable(),
+      source: z.enum(['lamp_nodes', 'street_segments_lit']).optional(),
+    }).optional(),
+    computedAt: z.unknown(),
+    source: z.literal('osm_overpass_v1'),
+  }).optional(),
+
   // Required on CREATE (hard rule 1) — see RouteCreateSchema/RouteUpdateSchema
   // below for how create vs. update enforce this differently.
   authorityId: z.string().min(1),

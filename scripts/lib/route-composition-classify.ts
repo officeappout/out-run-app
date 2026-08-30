@@ -147,7 +147,7 @@ export function assignPathToWays(path: [number, number][], allGrid: Map<string, 
 
 export interface RouteComposition {
   sidewalkPct: number;
-  dedicatedPct: number;
+  genuinePct: number;
   ordinaryPct: number;
   otherPct: number;    // matched to a way, but an unlisted highway tag (track/secondary/primary/etc.)
   unmatchedPct: number; // no OSM way found within the 20m snap threshold
@@ -163,22 +163,22 @@ export function computeRouteComposition(
   wayCategoryCache: Map<number, WayCategory>,
 ): RouteComposition {
   const assigns = assignPathToWays(path, allGrid);
-  let sidewalkLen = 0, dedicatedLen = 0, ordinaryLen = 0, otherLen = 0, unmatchedLen = 0;
+  let sidewalkLen = 0, genuineLen = 0, ordinaryLen = 0, otherLen = 0, unmatchedLen = 0;
   for (const a of assigns) {
     if (a.wayId === null) { unmatchedLen += a.segLenM; continue; }
     const way = waysById.get(a.wayId);
     if (!way) { otherLen += a.segLenM; continue; }
     const cat = classifyWay(way, roadGrid, wayCategoryCache);
     if (cat === 'sidewalk') sidewalkLen += a.segLenM;
-    else if (cat === 'dedicated') dedicatedLen += a.segLenM;
+    else if (cat === 'dedicated') genuineLen += a.segLenM;
     else if (cat === 'ordinary') ordinaryLen += a.segLenM;
     else otherLen += a.segLenM;
   }
-  const totalLenM = sidewalkLen + dedicatedLen + ordinaryLen + otherLen + unmatchedLen || 1;
+  const totalLenM = sidewalkLen + genuineLen + ordinaryLen + otherLen + unmatchedLen || 1;
   const pct = (n: number) => Math.round((n / totalLenM) * 1000) / 10;
   return {
     sidewalkPct: pct(sidewalkLen),
-    dedicatedPct: pct(dedicatedLen),
+    genuinePct: pct(genuineLen),
     ordinaryPct: pct(ordinaryLen),
     otherPct: pct(otherLen),
     unmatchedPct: pct(unmatchedLen),

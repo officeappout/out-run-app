@@ -79,7 +79,7 @@ async function main() {
 
   type ComputedRow = {
     id: string; collection: string; name: string; city: string; distance: number;
-    sidewalkPct: number; dedicatedPct: number; ordinaryPct: number; otherPct: number; unmatchedPct: number;
+    sidewalkPct: number; genuinePct: number; ordinaryPct: number; otherPct: number; unmatchedPct: number;
     lighting: { status: string; litCoveragePct: number | null; isLit: boolean | null };
     skipped?: string;
   };
@@ -92,7 +92,7 @@ async function main() {
     const skippedNoPath = cityRoutes.length - validRoutes.length;
     if (validRoutes.length === 0) {
       console.log(`  No routes with a usable path — skipping.`);
-      for (const r of cityRoutes) allRows.push({ id: r.id, collection: r.collection, name: r.name, city, distance: r.distance, sidewalkPct: 0, dedicatedPct: 0, ordinaryPct: 0, otherPct: 0, unmatchedPct: 0, lighting: { status: 'unknown' as const, litCoveragePct: null, isLit: null }, skipped: 'no usable path (<2 points)' });
+      for (const r of cityRoutes) allRows.push({ id: r.id, collection: r.collection, name: r.name, city, distance: r.distance, sidewalkPct: 0, genuinePct: 0, ordinaryPct: 0, otherPct: 0, unmatchedPct: 0, lighting: { status: 'unknown' as const, litCoveragePct: null, isLit: null }, skipped: 'no usable path (<2 points)' });
       cityStats.push({ city, count: cityRoutes.length, wayCount: 0, lampCount: 0, skipped: cityRoutes.length });
       continue;
     }
@@ -137,12 +137,12 @@ async function main() {
       const lighting = classifyLighting(r.path, lampGrid, cityHasLampData);
       allRows.push({
         id: r.id, collection: r.collection, name: r.name, city, distance: r.distance,
-        sidewalkPct: comp.sidewalkPct, dedicatedPct: comp.dedicatedPct, ordinaryPct: comp.ordinaryPct, otherPct: comp.otherPct, unmatchedPct: comp.unmatchedPct,
+        sidewalkPct: comp.sidewalkPct, genuinePct: comp.genuinePct, ordinaryPct: comp.ordinaryPct, otherPct: comp.otherPct, unmatchedPct: comp.unmatchedPct,
         lighting,
       });
     }
     for (const r of cityRoutes.filter((x: RouteDoc) => x.path.length < 2)) {
-      allRows.push({ id: r.id, collection: r.collection, name: r.name, city, distance: r.distance, sidewalkPct: 0, dedicatedPct: 0, ordinaryPct: 0, otherPct: 0, unmatchedPct: 0, lighting: { status: 'unknown', litCoveragePct: null, isLit: null }, skipped: 'no usable path (<2 points)' });
+      allRows.push({ id: r.id, collection: r.collection, name: r.name, city, distance: r.distance, sidewalkPct: 0, genuinePct: 0, ordinaryPct: 0, otherPct: 0, unmatchedPct: 0, lighting: { status: 'unknown', litCoveragePct: null, isLit: null }, skipped: 'no usable path (<2 points)' });
     }
     cityStats.push({ city, count: cityRoutes.length, wayCount: allWays.length, lampCount: lamps.length, skipped: skippedNoPath });
   }
@@ -159,7 +159,7 @@ async function main() {
     const unlitCount = rows.filter(r => r.lighting.isLit === false).length;
     const unknownCount = rows.filter(r => r.lighting.status === 'unknown').length;
     console.log(`\n${stat.city} — ${stat.count} routes (${stat.skipped} skipped, ${stat.wayCount} ways fetched, ${stat.lampCount} lamp nodes fetched)`);
-    console.log(`  Composition avg: sidewalk=${avg(r => r.sidewalkPct)}%  dedicated=${avg(r => r.dedicatedPct)}%  ordinary=${avg(r => r.ordinaryPct)}%  other/unmatched=${avg(r => r.otherPct + r.unmatchedPct)}%`);
+    console.log(`  Composition avg: sidewalk=${avg(r => r.sidewalkPct)}%  dedicated=${avg(r => r.genuinePct)}%  ordinary=${avg(r => r.ordinaryPct)}%  other/unmatched=${avg(r => r.otherPct + r.unmatchedPct)}%`);
     console.log(`  Lighting: lit=${litCount}  unlit=${unlitCount}  unknown=${unknownCount}`);
   }
 
@@ -173,7 +173,7 @@ async function main() {
   for (let i = 0; i < computable.length && sample.length < sampleSize; i += step) sample.push(computable[i]);
   for (const r of sample) {
     console.log(`\n[${r.collection}/${r.id}] "${r.name}" (${r.city}, ${r.distance}km)`);
-    console.log(`  sidewalk=${r.sidewalkPct}%  dedicated=${r.dedicatedPct}%  ordinary=${r.ordinaryPct}%  other=${r.otherPct}%  unmatched=${r.unmatchedPct}%`);
+    console.log(`  sidewalk=${r.sidewalkPct}%  dedicated=${r.genuinePct}%  ordinary=${r.ordinaryPct}%  other=${r.otherPct}%  unmatched=${r.unmatchedPct}%`);
     console.log(`  lighting: ${r.lighting.status}` + (r.lighting.status === 'computed' ? ` — coverage=${r.lighting.litCoveragePct}% isLit=${r.lighting.isLit}` : ' (no OSM lamp data in this city)'));
   }
 

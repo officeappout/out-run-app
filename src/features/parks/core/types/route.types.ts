@@ -375,6 +375,35 @@ export interface Route {
    */
   terrainFeatures?: RouteTerrainFeatureRef[];
 
+  /**
+   * Per-route quality-certificate signals (v1: surface composition only —
+   * see quality-certificate v1 Stage 1/2, 29-30.08.2026). Extensible: future
+   * signals (crosswalks, shade) add sibling keys, not a new top-level field.
+   * `composition` is populated by scripts/lib/route-composition-classify.ts
+   * (a direct port of geo-discovery-routes.ts's sidewalk-gate classifier —
+   * do not build a second, divergent classifier). `genuinePct` matches the
+   * deferred route_decisions.compositionSnapshot naming (route-editor-
+   * scoping-spec.md §5) — same field name, one source of truth.
+   * `lighting` is intentionally optional and NOT written by the composition
+   * backfill/discovery wiring — it's a separate, later task.
+   */
+  qualitySignals?: {
+    composition: {
+      sidewalkPct: number;
+      genuinePct: number;
+      ordinaryPct: number;
+      otherPct: number;
+    };
+    lighting?: {
+      status: 'computed' | 'unknown';
+      litCoveragePct: number | null;
+      isLit: boolean | null;
+      source?: 'lamp_nodes' | 'street_segments_lit';
+    };
+    computedAt: unknown; // FieldValue.serverTimestamp() at write time (climb-segment.types.ts's updatedAt convention)
+    source: 'osm_overpass_v1';
+  };
+
   // Ratings
   /** User-facing star rating (1–5, decimal precision e.g. 4.3). */
   rating: number;
