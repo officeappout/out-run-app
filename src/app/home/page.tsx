@@ -83,7 +83,7 @@ import { runSuggestionEngine, runSuggestionEngineStreaming } from '@/features/wo
 import { buildHomeUserContext } from '@/features/workout-engine/core/context/build-home-user-context';
 import { suggestionToGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-post-workout-suggestion';
 import { suggestionToHomeGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-home-suggestion';
-import { resolveFullStrengthWorkout } from '@/features/workout-engine/core/generators/full-strength.generator';
+import { resolveFullStrengthWorkout, resolveFullStrengthWorkoutAtIndex } from '@/features/workout-engine/core/generators/full-strength.generator';
 import { resolveRouteWorkout } from '@/features/workout-engine/core/generators/route.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
@@ -1339,6 +1339,74 @@ export default function HomePage() {
     setGeneratedWorkout(workout);
     setIsWorkoutLoading(false);
   }, []);
+
+  // Regression fix (30.08.2026, "3 intensity toggles disappeared from the workout preview
+  // drawer"): the old StatsOverview anchor was always mounted and ran generateHomeWorkoutTrio
+  // in the background regardless of whether its preview was even open, mirroring all 3 trio
+  // slots out via onTrioSelectorChange into this same trioSelector state. The new pre-workout
+  // carousel replaces that anchor outright for today (readyPreWorkoutSuggestions ternary,
+  // below) — nothing in handlePreWorkoutCardTap ever touched trioSelector, so it stayed null
+  // forever and WorkoutPreviewDrawer's own `intensityOptions && intensityOptions.length > 1`
+  // gate never had anything to render. Scope: full-strength suggestions only —
+  // recovery-follow-up's own trio options are content-type flavors at one fixed difficulty
+  // (REST_DAY_CONFIGS, home-workout.service.ts), not difficulty levels, so it never showed a
+  // toggle before this regression either and isn't touched here.
+  //
+  // Remembers which suggestion+context the currently-open drawer's toggle belongs to, so a tap
+  // on a different difficulty knows what to (lazily) recompute — cleared on the drawer's
+  // onClose below so it can never leak into the next preview (a different suggestion, a
+  // calendar-tap preview, or StatsOverview on a past/future date, none of which use this).
+  const preWorkoutTrioSuggestionRef = useRef<{ suggestion: Suggestion; context: UserContext } | null>(null);
+
+  // Regression fix (30.08.2026): lazily recomputes ONE specific difficulty slot for the
+  // carousel's full-strength hero card, on an actual toggle tap only — no background
+  // pre-generation of all 3 like the old anchor did (David's explicit call).
+  const handleIntensityToggleSelect = useCallback(async (index: number) => {
+    const remembered = preWorkoutTrioSuggestionRef.current;
+    if (!remembered || !profile) return;
+    const optionIndex = index as 0 | 1 | 2;
+    const previousIndex = trioSelector?.selectedIndex ?? 1;
+    // Optimistic selection — the pill highlights immediately, matching the old anchor's own
+    // toggle feel, even though the real workout for this slot may still need a real fetch.
+    setTrioSelector((prev) => (prev ? { ...prev, selectedIndex: optionIndex } : prev));
+    setIsWorkoutLoading(true);
+    // Clearing generatedWorkout (not just isWorkoutLoading) is what actually makes
+    // WorkoutPreviewDrawer show a loading skeleton BELOW the toggle row — verified directly in
+    // WorkoutPreviewDrawer.tsx before writing this: its branching is `isGeneratingWorkout &&
+    // !generatedWorkout ? <Skeleton> : generatedWorkout ? (...isRecomputing ? <Skeleton> :
+    // <ExerciseList>) : ...` — that second branch's skeleton (isRecomputing) is drawer-internal
+    // (swap-only), with no way to know about this fetch, so leaving generatedWorkout non-null
+    // during this await would silently keep showing the PREVIOUS difficulty's exercises with
+    // no loading indication at all.
+    setGeneratedWorkout(null);
+    try {
+      const workout = await resolveFullStrengthWorkoutAtIndex(
+        remembered.suggestion.id,
+        profile,
+        remembered.context,
+        optionIndex,
+      );
+      if (!workout) {
+        // Assessment-gated or a genuine generation failure — restore the previous workout
+        // rather than leave the drawer stuck on an empty skeleton with nothing to show.
+        setGeneratedWorkout(generatedWorkoutRef.current);
+        setTrioSelector((prev) => (prev ? { ...prev, selectedIndex: previousIndex } : prev));
+        return;
+      }
+      handleWorkoutGenerated(workout);
+      setTrioSelector((prev) => (prev ? {
+        ...prev,
+        selectedIndex: optionIndex,
+        options: prev.options.map((opt, i) => (i === optionIndex ? { ...opt, duration: workout.estimatedDuration } : opt)),
+      } : prev));
+    } catch (error) {
+      console.error('[home] resolveFullStrengthWorkoutAtIndex failed', error);
+      setGeneratedWorkout(generatedWorkoutRef.current);
+      setTrioSelector((prev) => (prev ? { ...prev, selectedIndex: previousIndex } : prev));
+    } finally {
+      setIsWorkoutLoading(false);
+    }
+  }, [profile, handleWorkoutGenerated, trioSelector]);
   // handlePreWorkoutCardTap (the pre-workout carousel's onStart handler) is declared further
   // below, right after handleRecoveryShortcutStartRef — it needs that ref for its
   // recovery-follow-up direct-start branch (26.08.2026 follow-up), which is declared later in
@@ -1480,10 +1548,38 @@ export default function HomePage() {
         coverImage: '',
         segments: [],
       });
+
+      // Regression fix (30.08.2026) — only full-strength has real difficulty-level trio
+      // options (see handleIntensityToggleSelect's own doc comment for why
+      // recovery-follow-up/route/safety-net are excluded). Static placeholder labels/
+      // durations so the toggle row appears the instant the drawer opens, matching David's
+      // explicit call — not fetched, not awaited; durations mirror BOLT_DURATION_CAPS
+      // (home-workout.service.ts) exactly. selectedIndex starts at 1/Balanced because
+      // `workout` above already IS that exact slot (suggestionToHomeGeneratedWorkout ->
+      // resolveHeroWorkout -> resolveFullStrengthWorkout, always index 1) — no extra
+      // computation needed to show the initially-selected pill correctly.
+      if (suggestion.generatorId === 'full-strength') {
+        preWorkoutTrioSuggestionRef.current = { suggestion, context };
+        setTrioSelector({
+          options: [
+            { label: 'קלה', difficulty: 1, duration: 30 },
+            { label: 'מאוזנת', difficulty: 2, duration: 45 },
+            { label: 'אינטנסיבית', difficulty: 3, duration: 60 },
+          ],
+          selectedIndex: 1,
+          onSelect: handleIntensityToggleSelect,
+        });
+      } else {
+        // Clear any toggle state left over from a previous full-strength preview — this
+        // suggestion (recovery-follow-up/route/safety-net) never had toggles before this
+        // regression fix either, so it must not inherit stale ones now.
+        preWorkoutTrioSuggestionRef.current = null;
+        setTrioSelector(null);
+      }
     } finally {
       setStartingPreWorkoutSuggestionId(null);
     }
-  }, [profile, handleWorkoutGenerated, interceptWorkoutStart, selectedDate]);
+  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate]);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
@@ -2712,7 +2808,15 @@ export default function HomePage() {
       <WorkoutPreviewDrawer
         key="workout-preview-drawer"
         isOpen={selectedWorkout !== null}
-        onClose={() => { setSelectedWorkout(null); setPreviewEntry(null); setIsWorkoutLoading(false); }}
+        onClose={() => {
+          setSelectedWorkout(null);
+          setPreviewEntry(null);
+          setIsWorkoutLoading(false);
+          // Regression fix (30.08.2026) — clear any full-strength toggle state left over
+          // from this preview so the next-opened suggestion (of any type) never inherits it.
+          preWorkoutTrioSuggestionRef.current = null;
+          setTrioSelector(null);
+        }}
         workout={selectedWorkout}
         generatedWorkout={generatedWorkout}
         isGeneratingWorkout={isWorkoutLoading}

@@ -122,6 +122,73 @@ export async function resolveFullStrengthWorkout(
   }
 }
 
+const FULL_STRENGTH_TRIO_OPTION_CACHE_CAP = 20;
+const fullStrengthTrioOptionCache = new Map<string, GeneratedWorkout>();
+// key: `${suggestionId}:${optionIndex}` — deliberately separate from fullStrengthWorkoutCache
+// above (keyed by suggestionId alone), so resolving a non-balanced slot here can never touch
+// what the hero card itself displays (always index 1, via resolveFullStrengthWorkout).
+const fullStrengthTrioOptionInFlight = new Map<string, Promise<GeneratedWorkout | null>>();
+
+/**
+ * Regression fix (30.08.2026, "3 intensity toggles disappeared from the workout drawer"):
+ * the old StatsOverview-hosted anchor always had all 3 trio difficulty slots pre-computed in
+ * the background (its own generateHomeWorkoutTrio effect ran unconditionally on mount); the
+ * new pre-workout carousel's hero card only ever resolves index 1/Balanced via
+ * resolveFullStrengthWorkout above, on-demand, per suggestion. Switching to Easy/Intense
+ * inside WorkoutPreviewDrawer's intensity toggle therefore had nothing to show. This is the
+ * on-demand equivalent for the OTHER two slots — called lazily, only when the toggle is
+ * actually tapped (David's explicit call: no background pre-generation of all 3 like before,
+ * one real build per user action).
+ *
+ * index 1 delegates to resolveFullStrengthWorkout unchanged (same cache/suggestion-id key) —
+ * not duplicated here. 0/2 use their own cache/in-flight map above, so a toggle tap can never
+ * overwrite the hero card's own (always-index-1) cached content.
+ */
+export async function resolveFullStrengthWorkoutAtIndex(
+  suggestionId: string,
+  profile: UserFullProfile,
+  context: UserContext,
+  optionIndex: 0 | 1 | 2,
+): Promise<GeneratedWorkout | null> {
+  if (optionIndex === 1) return resolveFullStrengthWorkout(suggestionId, profile, context);
+
+  const cacheKey = `${suggestionId}:${optionIndex}`;
+  const cached = fullStrengthTrioOptionCache.get(cacheKey);
+  if (cached) return cached;
+
+  const inFlight = fullStrengthTrioOptionInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const promise = (async (): Promise<GeneratedWorkout | null> => {
+    // No `difficulty` field passed (unlike resolveFullStrengthWorkout's difficulty:2 above) —
+    // verified against generateHomeWorkoutTrio's own body (home-workout.service.ts): only
+    // options.targetDifficulty is ever read there, options.difficulty is not consulted at all.
+    // TRAINING_DAY_CONFIGS[optionIndex] alone determines the actual difficulty (1/2/3 by slot).
+    const trio = await generateHomeWorkoutTrio({
+      userProfile: profile,
+      availableTime: context.availableTimeMin,
+      generateSingleOption: true,
+      targetOptionIndex: optionIndex,
+    });
+    const { workout } = trio.options[optionIndex].result;
+    if (workout.needsAssessment) return null;
+
+    if (fullStrengthTrioOptionCache.size >= FULL_STRENGTH_TRIO_OPTION_CACHE_CAP) {
+      const oldestKey = fullStrengthTrioOptionCache.keys().next().value;
+      if (oldestKey !== undefined) fullStrengthTrioOptionCache.delete(oldestKey);
+    }
+    fullStrengthTrioOptionCache.set(cacheKey, workout);
+    return workout;
+  })();
+
+  fullStrengthTrioOptionInFlight.set(cacheKey, promise);
+  try {
+    return await promise;
+  } finally {
+    fullStrengthTrioOptionInFlight.delete(cacheKey);
+  }
+}
+
 export const fullStrengthGenerator: Generator = {
   id: 'full-strength',
   name: 'כוח מלא',
