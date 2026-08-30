@@ -1,0 +1,3620 @@
+{
+  "generatedAt": "2026-08-30T11:04:57.174Z",
+  "applied": true,
+  "entries": [
+    {
+      "id": "03Mto6ifTaiM1LZd9byD",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר מצפה ברנע - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 25.7,
+        "genuinePct": 28.1,
+        "ordinaryPct": 39.3,
+        "otherPct": 6.9
+      }
+    },
+    {
+      "id": "0DTuNMckBEvpN9znHcSy",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר חצב - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 16.5,
+        "ordinaryPct": 42.7,
+        "otherPct": 40.8
+      }
+    },
+    {
+      "id": "0Q36j3GoODSOyYMZlMz3",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר חוף בר כוכבא - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 20.4,
+        "genuinePct": 63.9,
+        "ordinaryPct": 14,
+        "otherPct": 1.8
+      }
+    },
+    {
+      "id": "1noUTyIhXMxlQF4lusNz",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הגן העתידני - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 30.9,
+        "genuinePct": 14.8,
+        "ordinaryPct": 48.5,
+        "otherPct": 5.8
+      }
+    },
+    {
+      "id": "2EjQ9EYsKrcutCEFh8kK",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר בולטימור - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 11.9,
+        "genuinePct": 40.2,
+        "ordinaryPct": 48,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "2GCwfk25cq9ODTqefOxR",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר בורטון - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 22.1,
+        "genuinePct": 5.8,
+        "ordinaryPct": 55.7,
+        "otherPct": 16.3
+      }
+    },
+    {
+      "id": "2gZdxYuQX8v9r5sLXOmm",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר רפאל איתן/טיילת - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 31,
+        "genuinePct": 45.9,
+        "ordinaryPct": 23,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "4HWCgn0AX0hfpIIVrBQg",
+      "collection": "official_routes",
+      "name": "לולאת גן לאומי אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 40.5,
+        "genuinePct": 24.1,
+        "ordinaryPct": 28.8,
+        "otherPct": 6.5
+      }
+    },
+    {
+      "id": "4gmlwzCgdPLTSWaAISvV",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר מצפה ברנע - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 47.3,
+        "genuinePct": 23,
+        "ordinaryPct": 28.9,
+        "otherPct": 0.7
+      }
+    },
+    {
+      "id": "5wGJD9lcLh4a4DQGMiIq",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר יקותיאל אדם - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 35.7,
+        "genuinePct": 22.3,
+        "ordinaryPct": 40.7,
+        "otherPct": 1.4
+      }
+    },
+    {
+      "id": "6Cig6yxGnCEHwabbyuw1",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר רוגוזין - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 21.7,
+        "genuinePct": 6.9,
+        "ordinaryPct": 59.3,
+        "otherPct": 12.1
+      }
+    },
+    {
+      "id": "6lGie06VzEKmxhycZy60",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר רמב״ם - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 20.2,
+        "ordinaryPct": 79.8,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "7YVeXzXIKSWvCX4anq2k",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר חוף דלילה - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 30.7,
+        "ordinaryPct": 42.1,
+        "otherPct": 27.2
+      }
+    },
+    {
+      "id": "8PijRPbvkpnKkCB8jWn8",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר אלדן - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 12.1,
+        "ordinaryPct": 84.3,
+        "otherPct": 3.6
+      }
+    },
+    {
+      "id": "8VNpaIuuqDRnOYpqEdV0",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הראשונים - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 8.7,
+        "genuinePct": 9.5,
+        "ordinaryPct": 74.2,
+        "otherPct": 7.6
+      }
+    },
+    {
+      "id": "96aJcZmH6Bt7GKDAPrQn",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הטיילת - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 18.8,
+        "genuinePct": 61.2,
+        "ordinaryPct": 20,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "9Mojlv06q94H0rBHAQpW",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הגן העתידני - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 39,
+        "genuinePct": 31.5,
+        "ordinaryPct": 27.6,
+        "otherPct": 1.9
+      }
+    },
+    {
+      "id": "9rRcfwoL2TIVANoXRLiW",
+      "collection": "official_routes",
+      "name": "לולאת גן לאומי אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 33.2,
+        "genuinePct": 20.9,
+        "ordinaryPct": 39.9,
+        "otherPct": 6
+      }
+    },
+    {
+      "id": "A2twKNk8g3LAdYvWG7T0",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר בר כוכבא - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 14,
+        "genuinePct": 51.1,
+        "ordinaryPct": 32.3,
+        "otherPct": 2.6
+      }
+    },
+    {
+      "id": "AFrhVZGQbLgVUTBDEvi1",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר גל שפירא - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 1.9,
+        "genuinePct": 12.1,
+        "ordinaryPct": 86,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "BF0yYzPtmXzRXuWd8V2n",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר חבר העמים - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 16.5,
+        "genuinePct": 15,
+        "ordinaryPct": 55.8,
+        "otherPct": 12.6
+      }
+    },
+    {
+      "id": "BL64mENjjHFG88DNjQI7",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר סי פארק - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 36.5,
+        "ordinaryPct": 41.2,
+        "otherPct": 22.4
+      }
+    },
+    {
+      "id": "Cdis8C9hUJ3zaJEIi64E",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הסיטי - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 16,
+        "genuinePct": 22.1,
+        "ordinaryPct": 40.3,
+        "otherPct": 21.6
+      }
+    },
+    {
+      "id": "DBHRlq063EFMNwzzWY6R",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר רחוב צוללת - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 23.3,
+        "genuinePct": 25.1,
+        "ordinaryPct": 51.5,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "DEnn6QKkAjmeSObPnViF",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר נאות ברנע - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 59.7,
+        "genuinePct": 21.9,
+        "ordinaryPct": 18.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "EfkSrFiyaGIaJEkB0Z2y",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הראשונים - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 25.9,
+        "genuinePct": 12,
+        "ordinaryPct": 45.6,
+        "otherPct": 16.5
+      }
+    },
+    {
+      "id": "EovyMufx5LNsav6zUvlM",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר גל שפירא - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 10.2,
+        "genuinePct": 9.6,
+        "ordinaryPct": 71.6,
+        "otherPct": 8.5
+      }
+    },
+    {
+      "id": "GPrM6pD4BNYIV1Pnkd8R",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר רמב״ם - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 2.5,
+        "genuinePct": 6.4,
+        "ordinaryPct": 58.5,
+        "otherPct": 32.5
+      }
+    },
+    {
+      "id": "GQxwtCCkMzOEyiTg2wxe",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר גמלא - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 13.1,
+        "genuinePct": 12.9,
+        "ordinaryPct": 70.5,
+        "otherPct": 3.5
+      }
+    },
+    {
+      "id": "Gy8fGWmhzyjYCcjSwQlz",
+      "collection": "official_routes",
+      "name": "לולאת טיילת אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 2.3,
+        "ordinaryPct": 63,
+        "otherPct": 34.7
+      }
+    },
+    {
+      "id": "IMMBq0Zc6MSVZjvymIVN",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר משה מרגלית - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 13.4,
+        "genuinePct": 8.7,
+        "ordinaryPct": 67.6,
+        "otherPct": 10.3
+      }
+    },
+    {
+      "id": "JKvpXLwOdK5R83yc7Mmk",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר רפאל איתן/טיילת - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 28.9,
+        "genuinePct": 24.5,
+        "ordinaryPct": 46.6,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "JWwif5XKrAaHKOMHnjWG",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר דפנה - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 1.1,
+        "genuinePct": 5.5,
+        "ordinaryPct": 60.8,
+        "otherPct": 32.6
+      }
+    },
+    {
+      "id": "JsqM10yDrrZa2LZwUsMl",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר נצח ישראל - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 40.8,
+        "genuinePct": 3.5,
+        "ordinaryPct": 46.6,
+        "otherPct": 9.1
+      }
+    },
+    {
+      "id": "Jt0iR70e5y0wBjnF7wDJ",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר יצחק רבין - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 33.9,
+        "genuinePct": 10.2,
+        "ordinaryPct": 45.3,
+        "otherPct": 10.7
+      }
+    },
+    {
+      "id": "K8z45ykuZgpt3vFZAk55",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר יקותיאל אדם - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 34.7,
+        "genuinePct": 45.4,
+        "ordinaryPct": 19.9,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "MgaWvB3sns2RJRXGkpI1",
+      "collection": "official_routes",
+      "name": "לולאת גן לאומי אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 32.8,
+        "genuinePct": 41.3,
+        "ordinaryPct": 21.1,
+        "otherPct": 4.8
+      }
+    },
+    {
+      "id": "N8Hnm48POCgw2FVb8wYv",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר כנרת - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 3.6,
+        "genuinePct": 9.5,
+        "ordinaryPct": 86.8,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "NEibClTRLzHo1VZOn45c",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר חוף דלילה - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 37.9,
+        "ordinaryPct": 46.8,
+        "otherPct": 15.3
+      }
+    },
+    {
+      "id": "O0McWdWT9kctCVJrqci4",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר גל שפירא - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 3.2,
+        "genuinePct": 13.7,
+        "ordinaryPct": 83.1,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "OImDRseidLYfXK468DeK",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר גמלא - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 27.5,
+        "ordinaryPct": 55.5,
+        "otherPct": 17
+      }
+    },
+    {
+      "id": "Q0vLMRfr3k5m8fEdL6NA",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר משה מרגלית - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 4.8,
+        "ordinaryPct": 90.2,
+        "otherPct": 5
+      }
+    },
+    {
+      "id": "QPyX2hzxWiraFFVCVjg6",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר כצנלסון - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 5.8,
+        "ordinaryPct": 94.2,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "QWjgT39P9rJM0W5B2PHB",
+      "collection": "official_routes",
+      "name": "לולאת טיילת אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 25.4,
+        "ordinaryPct": 61.7,
+        "otherPct": 12.9
+      }
+    },
+    {
+      "id": "R2tduWHdoTFKnZC0DG9c",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הפיקוסים - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0.6,
+        "genuinePct": 8.1,
+        "ordinaryPct": 84.6,
+        "otherPct": 6.6
+      }
+    },
+    {
+      "id": "S686haIVIi5yahITCQHZ",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר כצנלסון - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 3.7,
+        "ordinaryPct": 96.3,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "VnQ69t6sGi5VtIjJy7Cv",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר רחוב צוללת - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 43.7,
+        "genuinePct": 25.5,
+        "ordinaryPct": 30.8,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "YpUl7nUVtg2t4BZif3L8",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר בולטימור - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 24.1,
+        "genuinePct": 39.4,
+        "ordinaryPct": 30.6,
+        "otherPct": 5.9
+      }
+    },
+    {
+      "id": "ZUAnXKSDejJxP0pzb2yZ",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר חוף בר כוכבא - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 21.1,
+        "genuinePct": 50.7,
+        "ordinaryPct": 17,
+        "otherPct": 11.2
+      }
+    },
+    {
+      "id": "a2rySdTPUW0FEAOPqgTB",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר בר כוכבא - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 22.5,
+        "genuinePct": 58.6,
+        "ordinaryPct": 15.4,
+        "otherPct": 3.5
+      }
+    },
+    {
+      "id": "b1XQOnDAchMJjATj2Jil",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר קרבי - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 34.5,
+        "genuinePct": 39.1,
+        "ordinaryPct": 22.3,
+        "otherPct": 4.1
+      }
+    },
+    {
+      "id": "bnYe7nt3S6NYa72t8gSg",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר בר כוכבא - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 23.1,
+        "genuinePct": 27.1,
+        "ordinaryPct": 46.9,
+        "otherPct": 2.8
+      }
+    },
+    {
+      "id": "cH0lJNboNZqMxOMSGVQb",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר יצחק רבין - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 27.9,
+        "genuinePct": 24.8,
+        "ordinaryPct": 42.3,
+        "otherPct": 5
+      }
+    },
+    {
+      "id": "cX5XnjKWJ6FgeAOee79S",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר נאות ברנע - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 47.1,
+        "genuinePct": 18.5,
+        "ordinaryPct": 34.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "fHz1w9NQwYDMUcBqHGnf",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הגן העתידני - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 37.4,
+        "genuinePct": 28.2,
+        "ordinaryPct": 34.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "g4BPUg5jmi7kQ3Hsa47T",
+      "collection": "official_routes",
+      "name": "לולאת מרינה אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 93.7,
+        "ordinaryPct": 6.3,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "g7tSltGaDMIcbQD291aE",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הסיטי - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 7.7,
+        "genuinePct": 31.2,
+        "ordinaryPct": 52,
+        "otherPct": 9.2
+      }
+    },
+    {
+      "id": "gGEaLuEzKqvIxZaCHfzy",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר חבר העמים - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 22.4,
+        "ordinaryPct": 55.7,
+        "otherPct": 21.9
+      }
+    },
+    {
+      "id": "gTb1pIu3x7NH2TEFR3sL",
+      "collection": "official_routes",
+      "name": "לולאת מרינה אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 6.7,
+        "genuinePct": 67.5,
+        "ordinaryPct": 24.4,
+        "otherPct": 1.4
+      }
+    },
+    {
+      "id": "gd1oLa8OuUhz8yha2kUo",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר מידן מרכז - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 30.7,
+        "genuinePct": 15.9,
+        "ordinaryPct": 23.7,
+        "otherPct": 29.7
+      }
+    },
+    {
+      "id": "ggxZtZolzghWhwrxu9JB",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר חוף דלילה - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 37.7,
+        "ordinaryPct": 29.8,
+        "otherPct": 32.5
+      }
+    },
+    {
+      "id": "hAFbCqWdN6gflCWFeZ50",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר חצב - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 13.1,
+        "genuinePct": 13.7,
+        "ordinaryPct": 71.2,
+        "otherPct": 2.1
+      }
+    },
+    {
+      "id": "hjtiyV1BR1Sgq1JMvAvX",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר כנרת - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 28.4,
+        "genuinePct": 16.7,
+        "ordinaryPct": 43.2,
+        "otherPct": 11.7
+      }
+    },
+    {
+      "id": "i4dCtDrlkRJkuapEOa3N",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הפיקוסים - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 12.6,
+        "genuinePct": 3.3,
+        "ordinaryPct": 73.8,
+        "otherPct": 10.2
+      }
+    },
+    {
+      "id": "iC5eIM08sNHKqnK6xsZY",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הפיקוסים - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 16.7,
+        "ordinaryPct": 67.8,
+        "otherPct": 15.5
+      }
+    },
+    {
+      "id": "iZL65FExYI6DTncSDhDS",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר סי פארק - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 7.4,
+        "genuinePct": 39.7,
+        "ordinaryPct": 34.4,
+        "otherPct": 18.5
+      }
+    },
+    {
+      "id": "j7PAzQzx4wKgCjwMzwv8",
+      "collection": "official_routes",
+      "name": "לולאת טיילת אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 22.7,
+        "ordinaryPct": 64.3,
+        "otherPct": 13
+      }
+    },
+    {
+      "id": "jBm82JD8vXTnVd2qoZsS",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר כנרת - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 16.1,
+        "genuinePct": 10.7,
+        "ordinaryPct": 73.3,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "jOXJDK9KM34BJp92fvPT",
+      "collection": "official_routes",
+      "name": "לולאת מרינה אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 11.3,
+        "genuinePct": 65.5,
+        "ordinaryPct": 19.7,
+        "otherPct": 3.5
+      }
+    },
+    {
+      "id": "jXAQRNJarcRS2xGo7C8J",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר בורטון - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 26.3,
+        "genuinePct": 2.8,
+        "ordinaryPct": 64.5,
+        "otherPct": 6.5
+      }
+    },
+    {
+      "id": "jgtnE9iIjJLJuGkNUl4f",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר כצנלסון - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 8,
+        "ordinaryPct": 71.4,
+        "otherPct": 20.599999999999998
+      }
+    },
+    {
+      "id": "kWTobsjELbNfYzVidTBP",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר מצפה ברנע - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 51.2,
+        "genuinePct": 17.5,
+        "ordinaryPct": 31.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "kt9MRK9CbsiqYpiHwq2L",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר רוגוזין - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 27.4,
+        "genuinePct": 10.1,
+        "ordinaryPct": 60.8,
+        "otherPct": 1.7
+      }
+    },
+    {
+      "id": "l0fWADcdkOmX1xzDvDpI",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר רמב״ם - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 17.2,
+        "ordinaryPct": 82.8,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "l6Em0nOSiD2FuDTwfkPm",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר סי פארק - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 30.9,
+        "ordinaryPct": 39.4,
+        "otherPct": 29.7
+      }
+    },
+    {
+      "id": "mCxpMH20GyAg0lemQQzg",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר נאות ברנע - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 50.6,
+        "genuinePct": 26.8,
+        "ordinaryPct": 22.7,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "nVWgYNjVponaUucVqTg3",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר בורטון - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 9.6,
+        "genuinePct": 14.5,
+        "ordinaryPct": 68.5,
+        "otherPct": 7.4
+      }
+    },
+    {
+      "id": "nc20YBg5H3HtHkz8V1xS",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר יצחק רבין - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 31.1,
+        "genuinePct": 24.7,
+        "ordinaryPct": 10,
+        "otherPct": 34.1
+      }
+    },
+    {
+      "id": "oqraMjkeAtjhsqwmTJQq",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר בולטימור - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 39.7,
+        "genuinePct": 28.7,
+        "ordinaryPct": 31.6,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "p0dpynjStNSQBiBpeahu",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר רוגוזין - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 1.8,
+        "genuinePct": 7.6,
+        "ordinaryPct": 84.4,
+        "otherPct": 6.2
+      }
+    },
+    {
+      "id": "p6MvpiukyfJ6xgDI4yD2",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר מידן מרכז - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 2.1,
+        "genuinePct": 19.1,
+        "ordinaryPct": 47.3,
+        "otherPct": 31.4
+      }
+    },
+    {
+      "id": "pKJxs19MwjPXnu13quEa",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר נצח ישראל - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 33.3,
+        "genuinePct": 13.1,
+        "ordinaryPct": 42.8,
+        "otherPct": 10.8
+      }
+    },
+    {
+      "id": "pN5VZPF63tUf8NrSihgH",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר גמלא - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 4.4,
+        "genuinePct": 9.1,
+        "ordinaryPct": 56.9,
+        "otherPct": 29.5
+      }
+    },
+    {
+      "id": "pbvaAZgReT9y9xqLrHnF",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הראשונים - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 18.2,
+        "genuinePct": 3.8,
+        "ordinaryPct": 36,
+        "otherPct": 41.9
+      }
+    },
+    {
+      "id": "po5qTRaRybzxI8TgDX7H",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר אלדן - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 22.3,
+        "ordinaryPct": 68.7,
+        "otherPct": 9
+      }
+    },
+    {
+      "id": "qgQh0YIvaB5SktRaJtnB",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר אלדן - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 6.5,
+        "genuinePct": 3.7,
+        "ordinaryPct": 56.3,
+        "otherPct": 33.4
+      }
+    },
+    {
+      "id": "qjfXcoEQVaQGcO8eEXoA",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר חבר העמים - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 5.8,
+        "genuinePct": 11.7,
+        "ordinaryPct": 71.5,
+        "otherPct": 11
+      }
+    },
+    {
+      "id": "rqncP1kgxrxS29JsC6td",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר קרבי - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 49.5,
+        "genuinePct": 19.7,
+        "ordinaryPct": 26.4,
+        "otherPct": 4.4
+      }
+    },
+    {
+      "id": "sYzVLN3vMK4JjxUvXlkN",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר יקותיאל אדם - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 31.6,
+        "genuinePct": 39.5,
+        "ordinaryPct": 28.9,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "tx9N6QL5noUbsZ1FS21a",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר חצב - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 4.3,
+        "genuinePct": 14.4,
+        "ordinaryPct": 43.3,
+        "otherPct": 38
+      }
+    },
+    {
+      "id": "uhEyFg5aLDVS0G8elpP7",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הטיילת - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 36,
+        "genuinePct": 49.7,
+        "ordinaryPct": 14.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "vyCXZEQZQ3s0jIArcERy",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הטיילת - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 32.4,
+        "genuinePct": 65.1,
+        "ordinaryPct": 2.6,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "vyDmQZMbEVBfwYg4EECA",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר נצח ישראל - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 1.9,
+        "ordinaryPct": 98.1,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "wWjffhqI9Ada7LpzO7Qn",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר חוף בר כוכבא - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 16.4,
+        "genuinePct": 56.4,
+        "ordinaryPct": 26.2,
+        "otherPct": 1
+      }
+    },
+    {
+      "id": "wfVpuy4zbrnBaH66qMSK",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר הסיטי - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 32.1,
+        "ordinaryPct": 45.7,
+        "otherPct": 22.3
+      }
+    },
+    {
+      "id": "xB0gFOJw5cCwTcJHXj6b",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר קרבי - אשקלון · 10 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 24.5,
+        "genuinePct": 25.1,
+        "ordinaryPct": 44.3,
+        "otherPct": 6.1
+      }
+    },
+    {
+      "id": "xHlGdYCSKKkpQwCQYcGA",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר משה מרגלית - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 9,
+        "ordinaryPct": 84.3,
+        "otherPct": 6.7
+      }
+    },
+    {
+      "id": "xqAdqmrnCqC6r0dgypPO",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר מידן מרכז - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 8.6,
+        "genuinePct": 10.6,
+        "ordinaryPct": 68.1,
+        "otherPct": 12.7
+      }
+    },
+    {
+      "id": "zDxEEwypb6sz3aeJ2Tg0",
+      "collection": "official_routes",
+      "name": "לולאת גן כושר רפאל איתן/טיילת - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 14,
+        "genuinePct": 51.4,
+        "ordinaryPct": 34.6,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "zIJ95suLH9nzxr1DmekS",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר רחוב צוללת - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 28.1,
+        "genuinePct": 26.5,
+        "ordinaryPct": 45.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "zne6ahcC9ydbtz00Uao8",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר דפנה - אשקלון · 5 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 9.2,
+        "ordinaryPct": 78.2,
+        "otherPct": 12.7
+      }
+    },
+    {
+      "id": "zwZ5WJBxASmAywq1yg0O",
+      "collection": "official_routes",
+      "name": "לולאת גינת כושר דפנה - אשקלון · 3 ק\"מ",
+      "city": "אשקלון",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 15.7,
+        "ordinaryPct": 84.3,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "0L4RnJqaLiDgvQuEFdJ9",
+      "collection": "official_routes",
+      "name": "תוספת א שכונת בן גוריון",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 12.1,
+        "ordinaryPct": 87.9,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "6sH8WkN08SWozKgWwND7",
+      "collection": "official_routes",
+      "name": "שדרות בפארק קלאסי",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 24.3,
+        "genuinePct": 1.3,
+        "ordinaryPct": 69.5,
+        "otherPct": 5
+      }
+    },
+    {
+      "id": "94imunyvWvneFhbg3Ays",
+      "collection": "official_routes",
+      "name": "מסלול לב העיר - קלאסי",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 30.2,
+        "genuinePct": 4.6,
+        "ordinaryPct": 6.4,
+        "otherPct": 58.8
+      }
+    },
+    {
+      "id": "DEiLNdEpkGR9Mxwy5m7b",
+      "collection": "official_routes",
+      "name": "פארק המוסיקה",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "I529AZhyAjU1D0O8SWgY",
+      "collection": "official_routes",
+      "name": "תוספת א יצחק רבין",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 100,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "Iwb7exNOldO21xHYnDam",
+      "collection": "official_routes",
+      "name": "מוסיקה דרום",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 60.2,
+        "genuinePct": 4.9,
+        "ordinaryPct": 35,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "LEr6UrEftKa5G4xefpHi",
+      "collection": "official_routes",
+      "name": "כלניות",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 51,
+        "genuinePct": 43.6,
+        "ordinaryPct": 5.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "Mw3VcLoD7EEElTcRzXfI",
+      "collection": "official_routes",
+      "name": "מקטע 21",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 8.8,
+        "ordinaryPct": 72.2,
+        "otherPct": 18.9
+      }
+    },
+    {
+      "id": "PHw8hoWZJhqh816FggSO",
+      "collection": "official_routes",
+      "name": "המוסיקה מרכז",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 7.3,
+        "ordinaryPct": 92.7,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "SVfVSdVN1affT1uSU3KY",
+      "collection": "official_routes",
+      "name": "שכונת בן גוריון קלאסי",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 5.5,
+        "ordinaryPct": 79.6,
+        "otherPct": 15
+      }
+    },
+    {
+      "id": "WcGgOTraWppgZsaMYF2o",
+      "collection": "official_routes",
+      "name": "תוספת א שכונת הנביאים ",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 3,
+        "ordinaryPct": 97,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "YVx4pgJjOOXR8j497pPF",
+      "collection": "official_routes",
+      "name": "מסלול קלאסי שכונת הכרמים בדיקה",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 9.1,
+        "ordinaryPct": 37.2,
+        "otherPct": 53.7
+      }
+    },
+    {
+      "id": "cv83WDdZ69zXIIwNuD4M",
+      "collection": "official_routes",
+      "name": "הפרד במסלל שכונת נאות הדקל ונאות אשכול",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 100,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "dhFOpFbTGvGHFu3gpleU",
+      "collection": "official_routes",
+      "name": "מקטע 24",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0.5,
+        "genuinePct": 2.2,
+        "ordinaryPct": 75.7,
+        "otherPct": 21.6
+      }
+    },
+    {
+      "id": "e7DWkWd8wTb7Z4eaQIMJ",
+      "collection": "official_routes",
+      "name": "מקטע 2",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "gKcwVgNou316bHmekrOJ",
+      "collection": "official_routes",
+      "name": "המוסיקה צפון",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 88.7,
+        "otherPct": 11.299999999999999
+      }
+    },
+    {
+      "id": "i69ojCNZTxZtbAOzcg1p",
+      "collection": "official_routes",
+      "name": "אחוזה קלאסי",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 89.3,
+        "otherPct": 10.7
+      }
+    },
+    {
+      "id": "m3UvHFTLsNO5ctLbnIJm",
+      "collection": "official_routes",
+      "name": "פארק נאות השקמה",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 5.1,
+        "genuinePct": 91.4,
+        "ordinaryPct": 1.6,
+        "otherPct": 1.8
+      }
+    },
+    {
+      "id": "oUpdrIUyROf3qFGHyxvV",
+      "collection": "official_routes",
+      "name": "תוספת ב' שכונת נאות הנביאים",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 100,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "oiAlEI0pjyxLcsthMfpA",
+      "collection": "official_routes",
+      "name": "תוספת א' שכונת הכרמים ",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 2.4,
+        "ordinaryPct": 97.6,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "pBNOGfSoKFBuCME1imxO",
+      "collection": "official_routes",
+      "name": "שכונת נאות שקמה עוקף",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 50.8,
+        "genuinePct": 1.5,
+        "ordinaryPct": 34.2,
+        "otherPct": 13.6
+      }
+    },
+    {
+      "id": "pBjFYgXWvUe5pGLhNkKn",
+      "collection": "official_routes",
+      "name": "תוספת ב שכונת הכרמים",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 100,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "sStyBZaaqtnoR4iezLhE",
+      "collection": "official_routes",
+      "name": "שכונת הכרמים קלאסי",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 54.7,
+        "genuinePct": 6.7,
+        "ordinaryPct": 27.7,
+        "otherPct": 10.8
+      }
+    },
+    {
+      "id": "uR7wY8yhtYwQCpYytNax",
+      "collection": "official_routes",
+      "name": "טיילת הכרמים",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 1.2,
+        "genuinePct": 98.8,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "wjepFNV6P6muwO2C954T",
+      "collection": "official_routes",
+      "name": "שכונת נאות הדקל ונאות נביאים",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 5.2,
+        "genuinePct": 5.4,
+        "ordinaryPct": 59.4,
+        "otherPct": 30.1
+      }
+    },
+    {
+      "id": "xOXyHVWwFJoQpt6GRxaa",
+      "collection": "official_routes",
+      "name": "נאות הנביאים קלאסי",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 2.1,
+        "ordinaryPct": 87,
+        "otherPct": 11
+      }
+    },
+    {
+      "id": "zV2yhxhCN7BeMFEecKvv",
+      "collection": "official_routes",
+      "name": "מוסיקה דרום",
+      "city": "שדרות",
+      "before": null,
+      "after": {
+        "sidewalkPct": 49.5,
+        "genuinePct": 0.6,
+        "ordinaryPct": 49.9,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "1QkWsaXyXIip9TIrvyIh",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 95.7,
+        "ordinaryPct": 4.3,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "2w02q2BozgCLvZSAcCq1",
+      "collection": "official_routes",
+      "name": "לולאת שביל הקפה פארק המושבה",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "4Fx8x9OVpqMSlCqMwsaZ",
+      "collection": "official_routes",
+      "name": "Ehud 2",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "5hPDLfAQJq9MYULMLvkd",
+      "collection": "official_routes",
+      "name": "שביל הגנים",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 27.5,
+        "ordinaryPct": 4.1,
+        "otherPct": 68.4
+      }
+    },
+    {
+      "id": "7B8xmCeznIMCxXVg7ULv",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "7G6nGrA7DYDpBobuvfyo",
+      "collection": "official_routes",
+      "name": "לולאת שביל הנשרים",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 96.3,
+        "ordinaryPct": 0,
+        "otherPct": 3.7
+      }
+    },
+    {
+      "id": "AcfewQOQmXSSLcia0tjM",
+      "collection": "official_routes",
+      "name": "לולאת שביל האחוזה",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 81.4,
+        "ordinaryPct": 0,
+        "otherPct": 18.6
+      }
+    },
+    {
+      "id": "CGOHH2fr3ERZKyBvgycY",
+      "collection": "official_routes",
+      "name": "לולאה זכרון יעקב (לולאה)",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 100,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "CIrOzO6eWIucAwvE95Uk",
+      "collection": "official_routes",
+      "name": "שביל ישראל",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 1,
+        "genuinePct": 30.5,
+        "ordinaryPct": 19.8,
+        "otherPct": 48.7
+      }
+    },
+    {
+      "id": "CedbjhdM1PBvXpmkKnPQ",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 4.8,
+        "ordinaryPct": 13.7,
+        "otherPct": 81.5
+      }
+    },
+    {
+      "id": "DtuJ1icGxRFOaW93MgCV",
+      "collection": "official_routes",
+      "name": "לולאה זכרון יעקב (לולאה)",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 100
+      }
+    },
+    {
+      "id": "F6KvMMs7i9mPrNC42Xx5",
+      "collection": "official_routes",
+      "name": "שביל הים",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 97.7,
+        "ordinaryPct": 0,
+        "otherPct": 2.3
+      }
+    },
+    {
+      "id": "Hlm7Tebar1tqY10JX5gT",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "ODqW5QvYznuRhfxBXIHz",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "QG3Eg2vCmNFb1aULJEKE",
+      "collection": "official_routes",
+      "name": "שביל הנשרים",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "QGITqv8YLxMmFsnCDxoN",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "SdXDZcTAMDnk4wN5M5nc",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 2.9,
+        "genuinePct": 0.7,
+        "ordinaryPct": 4.9,
+        "otherPct": 91.5
+      }
+    },
+    {
+      "id": "VHxELCQfk6pIcLcVtqyK",
+      "collection": "official_routes",
+      "name": "לולאה זכרון יעקב (לולאה)",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "VVuDYlStp8beGsKO128d",
+      "collection": "official_routes",
+      "name": "אהוד 10",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "WxCXZThoRP5tJPPgBmPD",
+      "collection": "official_routes",
+      "name": "דרך נוף חורשן",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 100
+      }
+    },
+    {
+      "id": "fhntFXqugOVE91tCOBtN",
+      "collection": "official_routes",
+      "name": "לולאה זכרון יעקב (לולאה)",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 100
+      }
+    },
+    {
+      "id": "jtCcKqlhSWY1DEBTBvCP",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 100
+      }
+    },
+    {
+      "id": "m3F23oZnUZhGjmrfst5w",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 43.4,
+        "ordinaryPct": 0,
+        "otherPct": 56.6
+      }
+    },
+    {
+      "id": "nmfVHW1oafQgMu3ihx6p",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 100
+      }
+    },
+    {
+      "id": "otG1IU2c9bhC8BPIoHce",
+      "collection": "official_routes",
+      "name": "שביל מסומן זכרון יעקב",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 100
+      }
+    },
+    {
+      "id": "tflHVBlMIxHLaK1VqtPd",
+      "collection": "official_routes",
+      "name": "לולאת שביל המעיין",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "wELzmqOBA3q0ABtSVQsO",
+      "collection": "official_routes",
+      "name": "אהוד 1",
+      "city": "זכרון יעקב",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "1abnKJE5G5QmBvXXTVnN",
+      "collection": "official_routes",
+      "name": "הקפת פארק חופי רידינג",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 9.8,
+        "genuinePct": 32,
+        "ordinaryPct": 23.1,
+        "otherPct": 35.1
+      }
+    },
+    {
+      "id": "3GJNC9xkSQzVdaJ2EP3l",
+      "collection": "official_routes",
+      "name": "הקפת גינת דובנוב",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 1.5,
+        "genuinePct": 63,
+        "ordinaryPct": 12.1,
+        "otherPct": 23.4
+      }
+    },
+    {
+      "id": "4vTHQxskkdy63uOTV8W9",
+      "collection": "official_routes",
+      "name": "הקפת היינריך היינה",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 67.8,
+        "genuinePct": 0,
+        "ordinaryPct": 32.2,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "5mS8HwDuumqfAV48ytUx",
+      "collection": "official_routes",
+      "name": "הקפת גן קריית ספר",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 19.5,
+        "genuinePct": 27.2,
+        "ordinaryPct": 46,
+        "otherPct": 7.2
+      }
+    },
+    {
+      "id": "6vunFBskqpTr5YtIC88U",
+      "collection": "official_routes",
+      "name": "הקפת מדרון יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0.7,
+        "genuinePct": 72.8,
+        "ordinaryPct": 14.2,
+        "otherPct": 12.3
+      }
+    },
+    {
+      "id": "C6kPLOyojYTx5ayFCQeR",
+      "collection": "official_routes",
+      "name": "Joseph Schmidt path",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "CCQLHULB0xNa5pI5Zxa6",
+      "collection": "official_routes",
+      "name": "הקפת פארק החורשות",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 29.7,
+        "genuinePct": 52.4,
+        "ordinaryPct": 0.5,
+        "otherPct": 17.5
+      }
+    },
+    {
+      "id": "CY5KMrNMD90UAyuU3wom",
+      "collection": "official_routes",
+      "name": "הקפת פארק המסילה",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 5,
+        "genuinePct": 88.6,
+        "ordinaryPct": 6.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "EjoPs62yiy4ZCarNLqoz",
+      "collection": "official_routes",
+      "name": "הקפת נוזהה",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 4.3,
+        "genuinePct": 30.3,
+        "ordinaryPct": 0,
+        "otherPct": 65.4
+      }
+    },
+    {
+      "id": "FVnzJee0RL7EWtuL8GGc",
+      "collection": "official_routes",
+      "name": "הקפת דוידוף",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 15.9,
+        "genuinePct": 69.1,
+        "ordinaryPct": 3.5,
+        "otherPct": 11.5
+      }
+    },
+    {
+      "id": "HGQUU55WQp36NJjpBA8o",
+      "collection": "official_routes",
+      "name": "הקפת גן המייסדים",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 26.5,
+        "genuinePct": 10.8,
+        "ordinaryPct": 40.5,
+        "otherPct": 22.2
+      }
+    },
+    {
+      "id": "JLvmFijMam9sWca11QCr",
+      "collection": "official_routes",
+      "name": "הקפת פארק כפר שלם",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 5.4,
+        "ordinaryPct": 40.2,
+        "otherPct": 54.4
+      }
+    },
+    {
+      "id": "KbIvqeFa4e6Qhloja4QV",
+      "collection": "official_routes",
+      "name": "הקפת גן העצמאות",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 58,
+        "genuinePct": 36.5,
+        "ordinaryPct": 3.6,
+        "otherPct": 1.9
+      }
+    },
+    {
+      "id": "Nt1OnarxdvHsU1njHqpe",
+      "collection": "official_routes",
+      "name": "הקפת גן שדרות ההשכלה",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 3,
+        "genuinePct": 28.9,
+        "ordinaryPct": 68.1,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "SPuIybOW5609spGcLJIY",
+      "collection": "official_routes",
+      "name": "הקפת פארק צ'ארלס קלור",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 43.8,
+        "genuinePct": 54.3,
+        "ordinaryPct": 1.9,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "TUtGCtmxwjGnoR0KH4B9",
+      "collection": "official_routes",
+      "name": "הקפת גן כרונינגן",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 11,
+        "genuinePct": 29.3,
+        "ordinaryPct": 59.7,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "YgkGSZ0X6hIktLcDjGWA",
+      "collection": "official_routes",
+      "name": "הקפת טיילת רידינג",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 12.9,
+        "genuinePct": 81.5,
+        "ordinaryPct": 0.3,
+        "otherPct": 5.3
+      }
+    },
+    {
+      "id": "dc5qzxl4VLjVhkbkOF2U",
+      "collection": "official_routes",
+      "name": "הקפת פארק מנחם בגין",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 4.5,
+        "genuinePct": 10.3,
+        "ordinaryPct": 22,
+        "otherPct": 63.199999999999996
+      }
+    },
+    {
+      "id": "exeo20trVhbR9WQpVJnK",
+      "collection": "official_routes",
+      "name": "הקפת גינת האצטדיון",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 2.8,
+        "genuinePct": 55.3,
+        "ordinaryPct": 12.8,
+        "otherPct": 29
+      }
+    },
+    {
+      "id": "gB1eSwk4iV5rfIANplMQ",
+      "collection": "official_routes",
+      "name": "הקפת גן כצנלסון",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 39,
+        "ordinaryPct": 43.1,
+        "otherPct": 17.9
+      }
+    },
+    {
+      "id": "h6AvZlnj5YWwHbTjKqSU",
+      "collection": "official_routes",
+      "name": "הקפת Zeev Garden",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 11.2,
+        "otherPct": 88.8
+      }
+    },
+    {
+      "id": "ki7wFmd6uxLarPyd1pcw",
+      "collection": "official_routes",
+      "name": "הטיילת ע״ש שלמה להט",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 100,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "r4br9OpdABLTrpp1nrp5",
+      "collection": "official_routes",
+      "name": "הקפת אקו פארק גלילות",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 25.4,
+        "ordinaryPct": 0.2,
+        "otherPct": 74.3
+      }
+    },
+    {
+      "id": "rEvjL2skcZvDU85bfdLI",
+      "collection": "official_routes",
+      "name": "הקפת גן שפיגל",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 9,
+        "genuinePct": 69.9,
+        "ordinaryPct": 21,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "uKhIT0RY0Y2e9A1fTvOo",
+      "collection": "official_routes",
+      "name": "הקפת פארק החוף",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 2.5,
+        "genuinePct": 27.7,
+        "ordinaryPct": 41.9,
+        "otherPct": 28
+      }
+    },
+    {
+      "id": "wEBlbapvqTZj0dNoOStX",
+      "collection": "official_routes",
+      "name": "הקפת גן מאיר",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 13.8,
+        "genuinePct": 47.1,
+        "ordinaryPct": 31.2,
+        "otherPct": 7.8
+      }
+    },
+    {
+      "id": "wGp7EAfkM1j4vAy6ELQB",
+      "collection": "official_routes",
+      "name": "הקפת ספורטק צפון",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 51.3,
+        "genuinePct": 13.5,
+        "ordinaryPct": 1.4,
+        "otherPct": 33.7
+      }
+    },
+    {
+      "id": "48kSHHMEyaF8eY0M3nVK",
+      "collection": "curated_routes",
+      "name": "סיבוב קצר – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 47.2,
+        "genuinePct": 7.4,
+        "ordinaryPct": 44.5,
+        "otherPct": 0.9
+      }
+    },
+    {
+      "id": "57zo8ZaWojHkBd586jY9",
+      "collection": "curated_routes",
+      "name": "סיבוב קצר – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 13.7,
+        "genuinePct": 24.4,
+        "ordinaryPct": 47.3,
+        "otherPct": 14.6
+      }
+    },
+    {
+      "id": "5Gj5Z4gd3Q4AHDwcCY3m",
+      "collection": "curated_routes",
+      "name": "לופ בינוני – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 19.2,
+        "genuinePct": 25.4,
+        "ordinaryPct": 52.5,
+        "otherPct": 3
+      }
+    },
+    {
+      "id": "6F69ptDnYVEA9yRmCw6Q",
+      "collection": "curated_routes",
+      "name": "מסלול ארוך – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 17.4,
+        "genuinePct": 42.2,
+        "ordinaryPct": 26.5,
+        "otherPct": 13.9
+      }
+    },
+    {
+      "id": "7qpwxomQ3BWR94TkYToB",
+      "collection": "curated_routes",
+      "name": "סיבוב קצר – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 21.2,
+        "genuinePct": 15,
+        "ordinaryPct": 46.7,
+        "otherPct": 17.1
+      }
+    },
+    {
+      "id": "7rEKGIDXzZyAXSdKioGh",
+      "collection": "curated_routes",
+      "name": "סיבוב קצר – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 9.3,
+        "genuinePct": 24.4,
+        "ordinaryPct": 36.1,
+        "otherPct": 30.2
+      }
+    },
+    {
+      "id": "D1yJZI1DnXZNzkCaooH4",
+      "collection": "curated_routes",
+      "name": "מסלול ארוך – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 23,
+        "genuinePct": 13.7,
+        "ordinaryPct": 52.5,
+        "otherPct": 10.8
+      }
+    },
+    {
+      "id": "E4QYgOdNsGB1dVTpIe8t",
+      "collection": "curated_routes",
+      "name": "לופ בינוני – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 43.1,
+        "genuinePct": 7.3,
+        "ordinaryPct": 39.8,
+        "otherPct": 9.8
+      }
+    },
+    {
+      "id": "FEXk8ZETFZTsZKtbRqCJ",
+      "collection": "curated_routes",
+      "name": "לופ בינוני – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 6.9,
+        "genuinePct": 5.3,
+        "ordinaryPct": 85.8,
+        "otherPct": 2
+      }
+    },
+    {
+      "id": "I0ml3Rb3Ue6AjxawY4mK",
+      "collection": "curated_routes",
+      "name": "לופ בינוני – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 18.3,
+        "genuinePct": 52.6,
+        "ordinaryPct": 13.6,
+        "otherPct": 15.6
+      }
+    },
+    {
+      "id": "MNU4n8mvQog9nICHerjY",
+      "collection": "curated_routes",
+      "name": "לופ בינוני – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 12.2,
+        "genuinePct": 21.6,
+        "ordinaryPct": 30.1,
+        "otherPct": 36.2
+      }
+    },
+    {
+      "id": "Uknn3SFKbRsxmQJHZx8Q",
+      "collection": "curated_routes",
+      "name": "מסלול ארוך – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 13.3,
+        "genuinePct": 18.9,
+        "ordinaryPct": 34.5,
+        "otherPct": 33.2
+      }
+    },
+    {
+      "id": "XYn4yH1GD03AbukFScAJ",
+      "collection": "curated_routes",
+      "name": "סיבוב קצר – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 29.7,
+        "genuinePct": 4.4,
+        "ordinaryPct": 55.1,
+        "otherPct": 10.8
+      }
+    },
+    {
+      "id": "iA75cuIm1NrK7leAwXoz",
+      "collection": "curated_routes",
+      "name": "מסלול ארוך – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 21.8,
+        "genuinePct": 59.2,
+        "ordinaryPct": 18.4,
+        "otherPct": 0.6
+      }
+    },
+    {
+      "id": "kekpP8g9kBj2cveCI0DT",
+      "collection": "curated_routes",
+      "name": "מסלול ארוך – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 36.4,
+        "genuinePct": 14,
+        "ordinaryPct": 35.7,
+        "otherPct": 13.8
+      }
+    },
+    {
+      "id": "p7S1hYlYJgEKuwHpVNRc",
+      "collection": "curated_routes",
+      "name": "לופ בינוני – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 17.9,
+        "genuinePct": 40.8,
+        "ordinaryPct": 33.5,
+        "otherPct": 7.8
+      }
+    },
+    {
+      "id": "ulFXsR4tPDBf6NRE6MMj",
+      "collection": "curated_routes",
+      "name": "מסלול ארוך – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 16.3,
+        "genuinePct": 32,
+        "ordinaryPct": 31.2,
+        "otherPct": 20.5
+      }
+    },
+    {
+      "id": "ymYK2Cu23SjKF3dId82i",
+      "collection": "curated_routes",
+      "name": "סיבוב קצר – תל אביב-יפו",
+      "city": "תל אביב-יפו",
+      "before": null,
+      "after": {
+        "sidewalkPct": 25.9,
+        "genuinePct": 35.4,
+        "ordinaryPct": 29.3,
+        "otherPct": 9.3
+      }
+    },
+    {
+      "id": "1cdHqaFSOSHipeQWLpQN",
+      "collection": "official_routes",
+      "name": "הקפת גן אופירה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 15.2,
+        "genuinePct": 77.3,
+        "ordinaryPct": 7.5,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "3OEIRnWxDJkU8gh1p39J",
+      "collection": "official_routes",
+      "name": "טיילת חולדה גורביץ'",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "3WjhliVo9keOg1O30sEv",
+      "collection": "official_routes",
+      "name": "לולאת פינת גן",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 39.1,
+        "ordinaryPct": 60.9,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "55hGgMsLizDcxvaqQSar",
+      "collection": "official_routes",
+      "name": "יער הכרמליתים",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "5HxuoT1Izdkj66Y13q4o",
+      "collection": "official_routes",
+      "name": "קו הדלק הלבן",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "5cTkWWoQgtb49Qx2aF7H",
+      "collection": "official_routes",
+      "name": "ואדי עמירם",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "6UiFYXMDxNo0bN5HvnxY",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר הכרמל",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 93.3,
+        "genuinePct": 4.4,
+        "ordinaryPct": 2.3,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "6shDNCtlTqSLfygsjC0b",
+      "collection": "official_routes",
+      "name": "הקפת גן הזיכרון",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 26.8,
+        "ordinaryPct": 36.6,
+        "otherPct": 36.6
+      }
+    },
+    {
+      "id": "6uqplv3vAEASPkpOSywn",
+      "collection": "official_routes",
+      "name": "ואדי נדר",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "7MdKUAvDAOIlsmgqvBIP",
+      "collection": "official_routes",
+      "name": "ואדי אחוזה תחתון",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "7WlKBvfSaWvWDGde0YpG",
+      "collection": "official_routes",
+      "name": "הקפת פארק הלוחם היהודי",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 81.7,
+        "ordinaryPct": 18.3,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "8nETKrBjZAsnkbMgD0QW",
+      "collection": "official_routes",
+      "name": "טיילת חוף הכרמל",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "AwLgBkCOloNzurXzEwAT",
+      "collection": "official_routes",
+      "name": "יפה נוף",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 1,
+        "ordinaryPct": 99,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "BFucH3htB76wYV9udVcx",
+      "collection": "official_routes",
+      "name": "הטיילת",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 22,
+        "genuinePct": 73.2,
+        "ordinaryPct": 4.8,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "BhkHrBS8nYp6drOmo5Lr",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר הכרמל",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 47,
+        "ordinaryPct": 53,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "CcayTQUfVgRXOSXuMpKc",
+      "collection": "official_routes",
+      "name": "שביל סביוני הכרמל",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "DnJDnFm4ey9ZyjigKkyW",
+      "collection": "official_routes",
+      "name": "דרך התיכונים",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "EOs48ltcRbyUL8ET2j0O",
+      "collection": "official_routes",
+      "name": "מסדרון אקולוגי גבעת העיזים",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "EwERNcl1o6CqIFQeqkHB",
+      "collection": "official_routes",
+      "name": "נחל עובדיה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 95.5,
+        "ordinaryPct": 0,
+        "otherPct": 4.5
+      }
+    },
+    {
+      "id": "FHLguhVzaHTBaZ0wZ8ND",
+      "collection": "official_routes",
+      "name": "מורדות נווה שאנן",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "GDsWzgdOE3Ynxhl35749",
+      "collection": "official_routes",
+      "name": "סעדיה פז",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "H0DekA3BxgwCKWqjCb2Z",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 59.1,
+        "ordinaryPct": 0,
+        "otherPct": 40.9
+      }
+    },
+    {
+      "id": "HuFUi9I24qBMDa4lqQI1",
+      "collection": "official_routes",
+      "name": "שביל חיפה - העיר התחתית",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 14,
+        "genuinePct": 12.4,
+        "ordinaryPct": 66.2,
+        "otherPct": 7.4
+      }
+    },
+    {
+      "id": "Hy5cnIeuCaCsAmty7tmT",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 93.2,
+        "ordinaryPct": 0,
+        "otherPct": 6.8
+      }
+    },
+    {
+      "id": "IJriwoseO5jTXbu83b7y",
+      "collection": "official_routes",
+      "name": "מורדות כרמליה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 8.1,
+        "genuinePct": 91.9,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "IaU8SeGpqVH8ANn5Sxja",
+      "collection": "official_routes",
+      "name": "הקפת גן לוקיי",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 13.3,
+        "genuinePct": 34.2,
+        "ordinaryPct": 52.5,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "JZLUIFZABZtJBnRHrVqI",
+      "collection": "official_routes",
+      "name": "חורשת הבנים",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "K0fMO0D4d3TSnQ6XDah6",
+      "collection": "official_routes",
+      "name": "טיילת איינשטיין",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "MPulUKhbvm3ccimDrCQd",
+      "collection": "official_routes",
+      "name": "ואדי רמז",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "N9kmsg2VajN6UKHJnyK8",
+      "collection": "official_routes",
+      "name": "דרך חיץ אש",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 11.5,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 88.5
+      }
+    },
+    {
+      "id": "OgofhEG9U5jlz51MznZC",
+      "collection": "official_routes",
+      "name": "נחל זיו ונחל רמז",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "Ok1LZhsTk945jMeWp0PY",
+      "collection": "official_routes",
+      "name": "שביל כרמל צרפתי",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 98.3,
+        "ordinaryPct": 1.7,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "PsQHH7nAgAnCAAdPedKr",
+      "collection": "official_routes",
+      "name": "הקפת גן קיסלק",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 36.4,
+        "genuinePct": 63.6,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "QEcSKlc2hb8wLTrgg01l",
+      "collection": "official_routes",
+      "name": "הקפת גן המייסדים",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 25.5,
+        "genuinePct": 61.1,
+        "ordinaryPct": 13.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "QWbQbi6EtWSerEbZVa9e",
+      "collection": "official_routes",
+      "name": "נחל נדר",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "RIyXn6F6J9xXD66QgBnS",
+      "collection": "official_routes",
+      "name": "היסטורי",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 1.4,
+        "genuinePct": 98.6,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "RPo8PqWCZF8ouOsGW3fX",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר הכרמל",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 11.3,
+        "ordinaryPct": 88.7,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "Ren7UPpHRt7D4ndhcjPn",
+      "collection": "official_routes",
+      "name": "נחל עמירם",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 98.6,
+        "ordinaryPct": 1.4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "S5w33ipRGAEaE3jn9OHG",
+      "collection": "official_routes",
+      "name": "שביל הפסגה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "SetKBSkuYRkKa0gcVfYN",
+      "collection": "official_routes",
+      "name": "ואדי זיו",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "U9YDRZvG5ZIqcmJL3uYl",
+      "collection": "official_routes",
+      "name": "הקפת גן אלכס",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "UOoumc9Cj3L9RvAq1aR4",
+      "collection": "official_routes",
+      "name": "דרך נוף עובדיה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "UhL5ORRkm64CDhTnrl0k",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 8.1,
+        "genuinePct": 91.9,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "W84oDxS7EcJ0WnndnZ07",
+      "collection": "official_routes",
+      "name": "ואדי עובדיה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "ZMjVpLKo7Wxpq8G9N9xL",
+      "collection": "official_routes",
+      "name": "המעונות",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 26.6,
+        "genuinePct": 52.9,
+        "ordinaryPct": 20.5,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "bh83yDZiyIRkiwG0qpGq",
+      "collection": "official_routes",
+      "name": "Wadi Vardiya",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 12,
+        "genuinePct": 85.5,
+        "ordinaryPct": 2.5,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "ccRfP8C8TNCZmbt6zoV2",
+      "collection": "official_routes",
+      "name": "הקפת ספורטק חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 29.4,
+        "genuinePct": 22,
+        "ordinaryPct": 48.6,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "cln6BzbR9FlZPsC305sd",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "ctstXVT6uhfVHzygrqAF",
+      "collection": "official_routes",
+      "name": "מורדות כבביר",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "ddDq2aP5HSDm2WtGdA0U",
+      "collection": "official_routes",
+      "name": "היער",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 6.3,
+        "genuinePct": 55.3,
+        "ordinaryPct": 38.5,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "dlYrNQUXrpM7KVRgDJGe",
+      "collection": "official_routes",
+      "name": "שביל רמת אלון",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 78.8,
+        "ordinaryPct": 21.2,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "eLnsY913jFgV6m5tpOtc",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "eniIrjh15Y7AdqA5BYKK",
+      "collection": "official_routes",
+      "name": "דרך גבעת העיזים",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 100
+      }
+    },
+    {
+      "id": "exTA8hehPaquM9RLlLZz",
+      "collection": "official_routes",
+      "name": "טיילת קרית אליעזר",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 98.8,
+        "ordinaryPct": 1.2,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "fVooPwPCgqTPvieNpkvq",
+      "collection": "official_routes",
+      "name": "ואדי בן-דור",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "gjO5kAiTqnR16XBtT7f5",
+      "collection": "official_routes",
+      "name": "נחל עמיק",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 71,
+        "ordinaryPct": 0,
+        "otherPct": 29
+      }
+    },
+    {
+      "id": "hAHQkxYPkIJcgtQzb4hm",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 92.4,
+        "ordinaryPct": 0,
+        "otherPct": 7.6
+      }
+    },
+    {
+      "id": "hIllntA7hZaRvSrUvCai",
+      "collection": "official_routes",
+      "name": "Bahai Garden Upward tour",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "iPxq32HBzhXZDbOvy6YL",
+      "collection": "official_routes",
+      "name": "נחל שיח",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "iyRiJDjelJJjsjQcnxuc",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר עליון ורמת הדר",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 22.7,
+        "ordinaryPct": 77.3,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "jJIP2YBZWKVAWVJr3ugd",
+      "collection": "official_routes",
+      "name": "ואדי שיח",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 0,
+        "ordinaryPct": 0,
+        "otherPct": 100
+      }
+    },
+    {
+      "id": "jdTNWQWhBxCHyV3pnUOg",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 1.4,
+        "genuinePct": 47.9,
+        "ordinaryPct": 0,
+        "otherPct": 50.7
+      }
+    },
+    {
+      "id": "jlEKymaAZeDweol56DzT",
+      "collection": "official_routes",
+      "name": "אסתר המלכה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 11.4,
+        "ordinaryPct": 88.6,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "krzYFb0MHAdB0oFRTe4Q",
+      "collection": "official_routes",
+      "name": "ואדי התשבי",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "m0ZaunguD2UdFMizt9IV",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 82.8,
+        "ordinaryPct": 0,
+        "otherPct": 17.2
+      }
+    },
+    {
+      "id": "mDjtNChRBdWavQH0d9tk",
+      "collection": "official_routes",
+      "name": "טיילת אריה גוראל",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 39.4,
+        "genuinePct": 48.2,
+        "ordinaryPct": 12.3,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "mk5mese5cVvi4a13FvFB",
+      "collection": "official_routes",
+      "name": "מורדות אחוזה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "ntat2rj4cKXCGHsuzrfz",
+      "collection": "official_routes",
+      "name": "טיילת ראסל ברי",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "qVd9kSwTfJfrMWdIPNuo",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר עליון ורמת הדר",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 1.4,
+        "genuinePct": 11.5,
+        "ordinaryPct": 87.1,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "sdeRuWtvNsIts7ZEydYu",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "sqleJoKw8BRScn69Itxj",
+      "collection": "official_routes",
+      "name": "תל אהרון",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 3,
+        "genuinePct": 97,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "v7BK3WWnQe8QiOejZVXM",
+      "collection": "official_routes",
+      "name": "ואדי ראש-מיה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 27.1,
+        "genuinePct": 72.9,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "w66gsTXatsdwzrDm4o2p",
+      "collection": "official_routes",
+      "name": "ואדי אבן",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "w9w374yTMFfdjWtd44s0",
+      "collection": "official_routes",
+      "name": "טיילת לואי",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 95.7,
+        "genuinePct": 0.3,
+        "ordinaryPct": 4,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "x3q1hhPeg9GThwOWNvdJ",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר עליון ורמת הדר",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 61.5,
+        "genuinePct": 10.6,
+        "ordinaryPct": 6.7,
+        "otherPct": 21.1
+      }
+    },
+    {
+      "id": "xGcKEuf655mgrbtfmXS9",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 100,
+        "ordinaryPct": 0,
+        "otherPct": 0
+      }
+    },
+    {
+      "id": "y3p96T3dhKgwxvOGzjXu",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "city": "חיפה",
+      "before": null,
+      "after": {
+        "sidewalkPct": 0,
+        "genuinePct": 90.7,
+        "ordinaryPct": 0,
+        "otherPct": 9.3
+      }
+    }
+  ]
+}
