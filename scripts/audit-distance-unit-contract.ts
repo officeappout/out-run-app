@@ -25,77 +25,20 @@ import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  computePathDistanceMeters,
+  classify,
+  cityKey,
+  normalizePathToLngLatTuples,
+  TOLERANCE,
+  type Classification,
+  type DocResult,
+} from './lib/distance-unit-classify';
 
 function initFb() {
   const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
   if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id });
   return admin.firestore();
-}
-
-// ── Ground-truth distance — identical to InventoryService's private
-// computePathDistanceMeters (inventory.service.ts:113-128), not reinvented. ──
-function computePathDistanceMeters(pathPts: Array<[number, number]>): number {
-  if (!pathPts || pathPts.length < 2) return 0;
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  let total = 0;
-  for (let i = 1; i < pathPts.length; i++) {
-    const [lng1, lat1] = pathPts[i - 1];
-    const [lng2, lat2] = pathPts[i];
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-    total += 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
-  return total; // NOT rounded here — rounding happens only at display/comparison time
-}
-
-// A stored value is considered a match for a candidate interpretation when
-// its relative error is within this fraction. 8% — generous enough to
-// absorb path-simplification/rounding drift between whatever originally
-// computed the stored value and this script's own Haversine, tight enough
-// that km vs meters (a 1000x difference) can never accidentally both match.
-const TOLERANCE = 0.08;
-const EPSILON = 0.001; // avoid divide-by-zero on a literal zero-length path
-
-type Classification = 'canonical-km' | 'needs-conversion-meters-stored' | 'ambiguous-or-corrupt' | 'missing-distance' | 'no-geometry';
-
-interface DocResult {
-  id: string;
-  collection: 'official_routes' | 'curated_routes';
-  name: string;
-  cityLabel: string;
-  authorityId: string | null;
-  storedDistance: number | null;
-  groundTruthMeters: number | null;
-  groundTruthKm: number | null;
-  classification: Classification;
-  proposedNewValue: number | null; // only set for needs-conversion-meters-stored
-}
-
-function classify(storedDistance: unknown, groundTruthMeters: number): { classification: Classification; proposedNewValue: number | null } {
-  if (typeof storedDistance !== 'number' || !isFinite(storedDistance)) {
-    return { classification: 'missing-distance', proposedNewValue: null };
-  }
-  const groundTruthKm = groundTruthMeters / 1000;
-  const relErrKm = Math.abs(storedDistance - groundTruthKm) / Math.max(groundTruthKm, EPSILON);
-  const relErrM = Math.abs(storedDistance - groundTruthMeters) / Math.max(groundTruthMeters, EPSILON);
-
-  const kmMatches = relErrKm <= TOLERANCE;
-  const mMatches = relErrM <= TOLERANCE;
-
-  if (kmMatches && (!mMatches || relErrKm <= relErrM)) {
-    return { classification: 'canonical-km', proposedNewValue: null };
-  }
-  if (mMatches) {
-    return { classification: 'needs-conversion-meters-stored', proposedNewValue: Math.round(groundTruthKm * 100) / 100 };
-  }
-  return { classification: 'ambiguous-or-corrupt', proposedNewValue: null };
-}
-
-function cityKey(authorityId: string | undefined, city: string | undefined): string {
-  if (authorityId) return `auth:${authorityId}`;
-  if (city && city.trim()) return `city:${city.trim()}`;
-  return 'unknown';
 }
 
 async function main() {
@@ -138,9 +81,7 @@ async function main() {
     // path may be stored as {lat,lng} objects OR [lng,lat] tuples (both
     // forms exist live — route-editor-scoping-spec.md's own PathSchema
     // documents this). Normalize to [lng,lat] tuples for computePathDistanceMeters.
-    const pathPts: Array<[number, number]> = rawPath.map((p: any) =>
-      Array.isArray(p) ? [Number(p[0]) || 0, Number(p[1]) || 0] : [Number(p.lng) || 0, Number(p.lat) || 0],
-    );
+    const pathPts = normalizePathToLngLatTuples(rawPath);
 
     const groundTruthMeters = computePathDistanceMeters(pathPts);
     const { classification, proposedNewValue } = classify(data.distance, groundTruthMeters);

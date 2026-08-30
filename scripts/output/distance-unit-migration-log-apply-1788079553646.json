@@ -1,0 +1,545 @@
+{
+  "generatedAt": "2026-08-30T08:45:53.646Z",
+  "applied": true,
+  "entries": [
+    {
+      "id": "1cdHqaFSOSHipeQWLpQN",
+      "collection": "official_routes",
+      "name": "הקפת גן אופירה",
+      "oldValue": 1112,
+      "newValue": 1.11
+    },
+    {
+      "id": "3OEIRnWxDJkU8gh1p39J",
+      "collection": "official_routes",
+      "name": "טיילת חולדה גורביץ'",
+      "oldValue": 515,
+      "newValue": 0.51
+    },
+    {
+      "id": "3WjhliVo9keOg1O30sEv",
+      "collection": "official_routes",
+      "name": "לולאת פינת גן",
+      "oldValue": 513,
+      "newValue": 0.51
+    },
+    {
+      "id": "55hGgMsLizDcxvaqQSar",
+      "collection": "official_routes",
+      "name": "יער הכרמליתים",
+      "oldValue": 1275,
+      "newValue": 1.28
+    },
+    {
+      "id": "5HxuoT1Izdkj66Y13q4o",
+      "collection": "official_routes",
+      "name": "קו הדלק הלבן",
+      "oldValue": 1727,
+      "newValue": 1.73
+    },
+    {
+      "id": "5cTkWWoQgtb49Qx2aF7H",
+      "collection": "official_routes",
+      "name": "ואדי עמירם",
+      "oldValue": 2371,
+      "newValue": 2.37
+    },
+    {
+      "id": "6UiFYXMDxNo0bN5HvnxY",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר הכרמל",
+      "oldValue": 894,
+      "newValue": 0.89
+    },
+    {
+      "id": "6shDNCtlTqSLfygsjC0b",
+      "collection": "official_routes",
+      "name": "הקפת גן הזיכרון",
+      "oldValue": 489,
+      "newValue": 0.49
+    },
+    {
+      "id": "6uqplv3vAEASPkpOSywn",
+      "collection": "official_routes",
+      "name": "ואדי נדר",
+      "oldValue": 758,
+      "newValue": 0.76
+    },
+    {
+      "id": "7MdKUAvDAOIlsmgqvBIP",
+      "collection": "official_routes",
+      "name": "ואדי אחוזה תחתון",
+      "oldValue": 892,
+      "newValue": 0.89
+    },
+    {
+      "id": "7WlKBvfSaWvWDGde0YpG",
+      "collection": "official_routes",
+      "name": "הקפת פארק הלוחם היהודי",
+      "oldValue": 554,
+      "newValue": 0.55
+    },
+    {
+      "id": "8nETKrBjZAsnkbMgD0QW",
+      "collection": "official_routes",
+      "name": "טיילת חוף הכרמל",
+      "oldValue": 2047,
+      "newValue": 2.05
+    },
+    {
+      "id": "AwLgBkCOloNzurXzEwAT",
+      "collection": "official_routes",
+      "name": "יפה נוף",
+      "oldValue": 880,
+      "newValue": 0.88
+    },
+    {
+      "id": "BFucH3htB76wYV9udVcx",
+      "collection": "official_routes",
+      "name": "הטיילת",
+      "oldValue": 1005,
+      "newValue": 1.01
+    },
+    {
+      "id": "BhkHrBS8nYp6drOmo5Lr",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר הכרמל",
+      "oldValue": 1219,
+      "newValue": 1.22
+    },
+    {
+      "id": "CcayTQUfVgRXOSXuMpKc",
+      "collection": "official_routes",
+      "name": "שביל סביוני הכרמל",
+      "oldValue": 902,
+      "newValue": 0.9
+    },
+    {
+      "id": "DnJDnFm4ey9ZyjigKkyW",
+      "collection": "official_routes",
+      "name": "דרך התיכונים",
+      "oldValue": 606,
+      "newValue": 0.61
+    },
+    {
+      "id": "EOs48ltcRbyUL8ET2j0O",
+      "collection": "official_routes",
+      "name": "מסדרון אקולוגי גבעת העיזים",
+      "oldValue": 1367,
+      "newValue": 1.37
+    },
+    {
+      "id": "EwERNcl1o6CqIFQeqkHB",
+      "collection": "official_routes",
+      "name": "נחל עובדיה",
+      "oldValue": 3218,
+      "newValue": 3.22
+    },
+    {
+      "id": "FHLguhVzaHTBaZ0wZ8ND",
+      "collection": "official_routes",
+      "name": "מורדות נווה שאנן",
+      "oldValue": 827,
+      "newValue": 0.83
+    },
+    {
+      "id": "GDsWzgdOE3Ynxhl35749",
+      "collection": "official_routes",
+      "name": "סעדיה פז",
+      "oldValue": 1298,
+      "newValue": 1.3
+    },
+    {
+      "id": "H0DekA3BxgwCKWqjCb2Z",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 1659,
+      "newValue": 1.66
+    },
+    {
+      "id": "HuFUi9I24qBMDa4lqQI1",
+      "collection": "official_routes",
+      "name": "שביל חיפה - העיר התחתית",
+      "oldValue": 3241,
+      "newValue": 3.24
+    },
+    {
+      "id": "Hy5cnIeuCaCsAmty7tmT",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 2963,
+      "newValue": 2.96
+    },
+    {
+      "id": "IJriwoseO5jTXbu83b7y",
+      "collection": "official_routes",
+      "name": "מורדות כרמליה",
+      "oldValue": 2642,
+      "newValue": 2.64
+    },
+    {
+      "id": "IaU8SeGpqVH8ANn5Sxja",
+      "collection": "official_routes",
+      "name": "הקפת גן לוקיי",
+      "oldValue": 973,
+      "newValue": 0.97
+    },
+    {
+      "id": "JZLUIFZABZtJBnRHrVqI",
+      "collection": "official_routes",
+      "name": "חורשת הבנים",
+      "oldValue": 206,
+      "newValue": 0.21
+    },
+    {
+      "id": "K0fMO0D4d3TSnQ6XDah6",
+      "collection": "official_routes",
+      "name": "טיילת איינשטיין",
+      "oldValue": 1150,
+      "newValue": 1.15
+    },
+    {
+      "id": "MPulUKhbvm3ccimDrCQd",
+      "collection": "official_routes",
+      "name": "ואדי רמז",
+      "oldValue": 1131,
+      "newValue": 1.13
+    },
+    {
+      "id": "N9kmsg2VajN6UKHJnyK8",
+      "collection": "official_routes",
+      "name": "דרך חיץ אש",
+      "oldValue": 2834,
+      "newValue": 2.83
+    },
+    {
+      "id": "OgofhEG9U5jlz51MznZC",
+      "collection": "official_routes",
+      "name": "נחל זיו ונחל רמז",
+      "oldValue": 1589,
+      "newValue": 1.59
+    },
+    {
+      "id": "Ok1LZhsTk945jMeWp0PY",
+      "collection": "official_routes",
+      "name": "שביל כרמל צרפתי",
+      "oldValue": 2062,
+      "newValue": 2.06
+    },
+    {
+      "id": "PsQHH7nAgAnCAAdPedKr",
+      "collection": "official_routes",
+      "name": "הקפת גן קיסלק",
+      "oldValue": 580,
+      "newValue": 0.58
+    },
+    {
+      "id": "QEcSKlc2hb8wLTrgg01l",
+      "collection": "official_routes",
+      "name": "הקפת גן המייסדים",
+      "oldValue": 1376,
+      "newValue": 1.38
+    },
+    {
+      "id": "QWbQbi6EtWSerEbZVa9e",
+      "collection": "official_routes",
+      "name": "נחל נדר",
+      "oldValue": 914,
+      "newValue": 0.91
+    },
+    {
+      "id": "RIyXn6F6J9xXD66QgBnS",
+      "collection": "official_routes",
+      "name": "היסטורי",
+      "oldValue": 781,
+      "newValue": 0.78
+    },
+    {
+      "id": "RPo8PqWCZF8ouOsGW3fX",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר הכרמל",
+      "oldValue": 1759,
+      "newValue": 1.76
+    },
+    {
+      "id": "Ren7UPpHRt7D4ndhcjPn",
+      "collection": "official_routes",
+      "name": "נחל עמירם",
+      "oldValue": 2798,
+      "newValue": 2.8
+    },
+    {
+      "id": "S5w33ipRGAEaE3jn9OHG",
+      "collection": "official_routes",
+      "name": "שביל הפסגה",
+      "oldValue": 679,
+      "newValue": 0.68
+    },
+    {
+      "id": "SetKBSkuYRkKa0gcVfYN",
+      "collection": "official_routes",
+      "name": "ואדי זיו",
+      "oldValue": 616,
+      "newValue": 0.62
+    },
+    {
+      "id": "U9YDRZvG5ZIqcmJL3uYl",
+      "collection": "official_routes",
+      "name": "הקפת גן אלכס",
+      "oldValue": 518,
+      "newValue": 0.52
+    },
+    {
+      "id": "UOoumc9Cj3L9RvAq1aR4",
+      "collection": "official_routes",
+      "name": "דרך נוף עובדיה",
+      "oldValue": 1727,
+      "newValue": 1.73
+    },
+    {
+      "id": "UhL5ORRkm64CDhTnrl0k",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 2642,
+      "newValue": 2.64
+    },
+    {
+      "id": "W84oDxS7EcJ0WnndnZ07",
+      "collection": "official_routes",
+      "name": "ואדי עובדיה",
+      "oldValue": 3035,
+      "newValue": 3.03
+    },
+    {
+      "id": "ZMjVpLKo7Wxpq8G9N9xL",
+      "collection": "official_routes",
+      "name": "המעונות",
+      "oldValue": 1969,
+      "newValue": 1.97
+    },
+    {
+      "id": "bh83yDZiyIRkiwG0qpGq",
+      "collection": "official_routes",
+      "name": "Wadi Vardiya",
+      "oldValue": 1352,
+      "newValue": 1.35
+    },
+    {
+      "id": "ccRfP8C8TNCZmbt6zoV2",
+      "collection": "official_routes",
+      "name": "הקפת ספורטק חיפה",
+      "oldValue": 611,
+      "newValue": 0.61
+    },
+    {
+      "id": "cln6BzbR9FlZPsC305sd",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 2426,
+      "newValue": 2.43
+    },
+    {
+      "id": "ctstXVT6uhfVHzygrqAF",
+      "collection": "official_routes",
+      "name": "מורדות כבביר",
+      "oldValue": 752,
+      "newValue": 0.75
+    },
+    {
+      "id": "ddDq2aP5HSDm2WtGdA0U",
+      "collection": "official_routes",
+      "name": "היער",
+      "oldValue": 1531,
+      "newValue": 1.53
+    },
+    {
+      "id": "dlYrNQUXrpM7KVRgDJGe",
+      "collection": "official_routes",
+      "name": "שביל רמת אלון",
+      "oldValue": 1097,
+      "newValue": 1.1
+    },
+    {
+      "id": "eLnsY913jFgV6m5tpOtc",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 1789,
+      "newValue": 1.79
+    },
+    {
+      "id": "eniIrjh15Y7AdqA5BYKK",
+      "collection": "official_routes",
+      "name": "דרך גבעת העיזים",
+      "oldValue": 1980,
+      "newValue": 1.98
+    },
+    {
+      "id": "exTA8hehPaquM9RLlLZz",
+      "collection": "official_routes",
+      "name": "טיילת קרית אליעזר",
+      "oldValue": 1116,
+      "newValue": 1.12
+    },
+    {
+      "id": "fVooPwPCgqTPvieNpkvq",
+      "collection": "official_routes",
+      "name": "ואדי בן-דור",
+      "oldValue": 862,
+      "newValue": 0.86
+    },
+    {
+      "id": "gjO5kAiTqnR16XBtT7f5",
+      "collection": "official_routes",
+      "name": "נחל עמיק",
+      "oldValue": 1772,
+      "newValue": 1.77
+    },
+    {
+      "id": "hAHQkxYPkIJcgtQzb4hm",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 3123,
+      "newValue": 3.12
+    },
+    {
+      "id": "hIllntA7hZaRvSrUvCai",
+      "collection": "official_routes",
+      "name": "Bahai Garden Upward tour",
+      "oldValue": 918,
+      "newValue": 0.92
+    },
+    {
+      "id": "iPxq32HBzhXZDbOvy6YL",
+      "collection": "official_routes",
+      "name": "נחל שיח",
+      "oldValue": 1289,
+      "newValue": 1.29
+    },
+    {
+      "id": "iyRiJDjelJJjsjQcnxuc",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר עליון ורמת הדר",
+      "oldValue": 1221,
+      "newValue": 1.22
+    },
+    {
+      "id": "jJIP2YBZWKVAWVJr3ugd",
+      "collection": "official_routes",
+      "name": "ואדי שיח",
+      "oldValue": 678,
+      "newValue": 0.68
+    },
+    {
+      "id": "jdTNWQWhBxCHyV3pnUOg",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 1183,
+      "newValue": 1.18
+    },
+    {
+      "id": "jlEKymaAZeDweol56DzT",
+      "collection": "official_routes",
+      "name": "אסתר המלכה",
+      "oldValue": 1044,
+      "newValue": 1.04
+    },
+    {
+      "id": "krzYFb0MHAdB0oFRTe4Q",
+      "collection": "official_routes",
+      "name": "ואדי התשבי",
+      "oldValue": 1018,
+      "newValue": 1.02
+    },
+    {
+      "id": "m0ZaunguD2UdFMizt9IV",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 1764,
+      "newValue": 1.76
+    },
+    {
+      "id": "mDjtNChRBdWavQH0d9tk",
+      "collection": "official_routes",
+      "name": "טיילת אריה גוראל",
+      "oldValue": 4263,
+      "newValue": 4.26
+    },
+    {
+      "id": "mk5mese5cVvi4a13FvFB",
+      "collection": "official_routes",
+      "name": "מורדות אחוזה",
+      "oldValue": 1291,
+      "newValue": 1.29
+    },
+    {
+      "id": "ntat2rj4cKXCGHsuzrfz",
+      "collection": "official_routes",
+      "name": "טיילת ראסל ברי",
+      "oldValue": 420,
+      "newValue": 0.42
+    },
+    {
+      "id": "qVd9kSwTfJfrMWdIPNuo",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר עליון ורמת הדר",
+      "oldValue": 5361,
+      "newValue": 5.36
+    },
+    {
+      "id": "sdeRuWtvNsIts7ZEydYu",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 661,
+      "newValue": 0.66
+    },
+    {
+      "id": "sqleJoKw8BRScn69Itxj",
+      "collection": "official_routes",
+      "name": "תל אהרון",
+      "oldValue": 965,
+      "newValue": 0.96
+    },
+    {
+      "id": "v7BK3WWnQe8QiOejZVXM",
+      "collection": "official_routes",
+      "name": "ואדי ראש-מיה",
+      "oldValue": 1798,
+      "newValue": 1.8
+    },
+    {
+      "id": "w66gsTXatsdwzrDm4o2p",
+      "collection": "official_routes",
+      "name": "ואדי אבן",
+      "oldValue": 1337,
+      "newValue": 1.34
+    },
+    {
+      "id": "w9w374yTMFfdjWtd44s0",
+      "collection": "official_routes",
+      "name": "טיילת לואי",
+      "oldValue": 1245,
+      "newValue": 1.24
+    },
+    {
+      "id": "x3q1hhPeg9GThwOWNvdJ",
+      "collection": "official_routes",
+      "name": "שביל חיפה - הדר עליון ורמת הדר",
+      "oldValue": 1411,
+      "newValue": 1.41
+    },
+    {
+      "id": "xGcKEuf655mgrbtfmXS9",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 1179,
+      "newValue": 1.18
+    },
+    {
+      "id": "y3p96T3dhKgwxvOGzjXu",
+      "collection": "official_routes",
+      "name": "שביל מסומן חיפה",
+      "oldValue": 749,
+      "newValue": 0.75
+    }
+  ]
+}
