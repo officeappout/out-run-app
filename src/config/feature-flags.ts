@@ -1304,22 +1304,34 @@ export const POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = true;
 
 // HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED (17.8 build-plan, Stage 3): the pre-workout
 // mirror of POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED above — runSuggestionEngine called with
-// surface:'home' instead of 'post_workout'. Stage 3 only wires the call + local state; it does
-// NOT render anything new (WorkoutSelectionCarousel still consumes the old
-// generateHomeWorkoutTrio trio, unchanged — that swap to real Suggestion[] is Stage 4, a
-// separate step). Also does not touch route.generator.ts/full-park-workout.generator.ts/
-// anchor-loop.generator.ts's eligibility — those stay map-only/location-gated until their own
-// follow-up; with buildHomeUserContext's home-surface call passing location:null (same
-// reasoning as the post_workout call site: skip an unnecessary GPS prompt), route.generator.ts
-// (surfaces:['map','home']) is naturally excluded by its own `eligible: context =>
-// context.location !== null` regardless, so this flag's actual reachable-today generator set is
-// full-strength (Stage 2, verified compatible) + safety-net (always eligible on every surface,
-// zero I/O) — not a restriction coded here, just what the existing generators' own eligible()
-// rules produce with a null location.
+// surface:'home' instead of 'post_workout'. Also does not touch
+// route.generator.ts/full-park-workout.generator.ts/anchor-loop.generator.ts's eligibility —
+// those stay map-only/location-gated until their own follow-up; with buildHomeUserContext's
+// home-surface call passing location:null (same reasoning as the post_workout call site: skip
+// an unnecessary GPS prompt), route.generator.ts (surfaces:['map','home']) is naturally
+// excluded by its own `eligible: context => context.location !== null` regardless — not a
+// restriction coded here, just what the existing generators' own eligible() rules produce
+// with a null location.
 //
-// While FALSE (default): the new effect never runs (no runSuggestionEngine call), the new local
-// state stays null — byte-identical to today.
-export const HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = false;
+// FLIPPED TRUE (30.08.2026, David-approved after a fresh audit — the paragraph this replaces
+// was stale on two counts, not one): the UI this flag gates is fully built and wired, not a
+// Stage-3 stub — home/page.tsx's readyPreWorkoutSuggestions branch + SuggestionCarousel<Suggestion>
+// + PreWorkoutCardRenderer.tsx (real HeroWorkoutCard on a Tier-2 cache hit, real HeroCardSkeleton
+// on a miss — never blank) were completed in the "Section 1, 27.08.2026" phase of this same
+// build plan; the old comment simply never got updated when that later phase shipped. Also
+// corrected: the reachable-today generator set is NOT "full-strength + safety-net" as this
+// comment used to claim — recovery-follow-up.generator.ts declares `surfaces: ['post_workout',
+// 'home']` and an unconditional `eligible()`, so it's registered and reachable here too
+// (confirmed via GENERATOR_REGISTRY, and independently via live device-testing of this exact
+// carousel during Section 1's own build — real recovery-follow-up cards, not a gap this flip
+// introduces). No undocumented operational reason found or given for staying off — confirmed
+// with David directly rather than assumed. Kill-switch verified by code inspection on both
+// sides, not just by analogy to POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED above: the effect that
+// populates preWorkoutSuggestions early-returns at its own top when this flag is false (never
+// calls runSuggestionEngineStreaming, zero side effects), and readyPreWorkoutSuggestions'
+// render-side gate checks this flag first in its own && chain — flipping back to false is
+// still byte-identical instantly, no code change needed, exactly as originally documented.
+export const HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED = true;
 
 // SOCIAL_COMPOSE_UI: Phase 1 of the unified activity-compose flow (map "+" /
 // home "+" → UnifiedPlusDrawer → PlannedActivityComposeSheet, writing to
