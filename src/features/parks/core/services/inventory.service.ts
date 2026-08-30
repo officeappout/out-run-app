@@ -662,7 +662,25 @@ export const InventoryService = {
                     lat: p[1]
                 }));
 
-                const distance = r.distance > 0 ? r.distance : computePathDistanceMeters(r.path);
+                // `distance` here is the value written to the doc's `distance` field, whose
+                // canonical unit is KM (confirmed by ~18 reader sites across mobile+admin —
+                // route-editor-scoping-spec.md's distance-unit-normalization work). The
+                // `r.distance > 0` branch trusts the caller's value as-is (every confirmed
+                // live caller — RouteEditor.tsx's create flow — already provides correct km);
+                // the fallback previously wrote raw METERS from computePathDistanceMeters
+                // straight into this km-contractual field — the same class of bug fixed for
+                // the 77 Haifa docs geo-discovery-routes.ts produced. /1000 makes the fallback
+                // match the same-file recalculateAllDistances's own correct usage of this
+                // exact function (inventory.service.ts:1659).
+                const distance = r.distance > 0 ? r.distance : computePathDistanceMeters(r.path) / 1000;
+                // NOT touched (explicit scope decision, distance-unit-normalization work):
+                // this fallback's divisors (250/100) are meters-per-minute-scale, so they
+                // silently assume `distance` is in meters — inconsistent with `distance` now
+                // being unconditionally km above. Latent, not live: never exercised by any
+                // confirmed caller today (RouteEditor.tsx always also provides r.duration, so
+                // this ternary's fallback branch never fires in practice). Flagged for the
+                // same later duration-focused pass already deferred for geo-discovery-routes.ts
+                // — not silently fixed and not silently left unflagged either.
                 const durationEstimate = r.duration > 0
                     ? r.duration
                     : Math.round(distance / ((r.activityType === 'cycling' || r.type === 'cycling') ? 250 : 100));

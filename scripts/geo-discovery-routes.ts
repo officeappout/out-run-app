@@ -1575,9 +1575,21 @@ function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | 
   return {
     name,
     description: `${kindHe} ${c.surface === 'trail' ? 'שטח' : 'סלול'} ב${REGION.label}${c.osmName ? ` — ${c.osmName}` : ''}`,
-    distance,
+    // The doc's `distance` field is km-contractual (confirmed by ~18 reader
+    // sites across mobile+admin — route-editor-scoping-spec.md's
+    // distance-unit-normalization work); this used to write the raw-meters
+    // `distance` local (line above `distanceKm`'s own declaration), which
+    // is exactly the bug that produced the 77 Haifa docs fixed by
+    // scripts/migrate-distance-unit.ts. `distance` (meters) itself is left
+    // untouched below — `duration` genuinely needs meters (its divisors are
+    // meters-per-minute), and `distanceKm` already correctly feeds `score`/
+    // `calories` above/below — only THIS field's value was wrong, not the
+    // internal meters variable those other fields still correctly rely on.
+    distance: distanceKm,
     // Cycling divisor/multiplier are feel-based estimates, same rigor level as the
     // walking/running constants they sit beside — flagged for calibration review.
+    // NOT a unit bug: `distance` here is the meters local (unchanged), and
+    // 250/150/90 are meters-per-minute — internally consistent as-is.
     duration: Math.round(distance / (c.isBicycle ? 250 : activityType === 'running' ? 150 : 90)),
     score: Math.round(distanceKm * 10),
     rating: c.isLoop ? 5 : 4,
