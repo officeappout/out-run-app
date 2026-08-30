@@ -22,6 +22,7 @@
 import { InventoryService } from './inventory.service';
 import { pathLengthMeters } from './geoUtils';
 import { computeGeneratorDifficulty } from './generator-elevation.service';
+import { auth } from '@/lib/firebase';
 import type { Route } from '../types/route.types';
 
 export interface GeometryEditRange {
@@ -174,6 +175,46 @@ function spliceWithBridge(
   return [...prefix, ...connectorInterior, ...suffix];
 }
 
+interface ServerDemResult {
+  elevationGain: number;
+  maxGrade: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+}
+
+/**
+ * Fallback DEM source for cities the browser cache never warmed (Haifa/
+ * Ashkelon/Zichron-Yaakov — confirmed by scripts/audit-city-coverage.ts to
+ * have real DEM coverage via geo-discovery-routes.ts's own import-time
+ * computation, just not in the browser cache). Calls the server route
+ * (src/app/api/admin/routes/dem-recompute), which live-fetches the SAME
+ * Mapbox Terrain-RGB source discovery uses — see that route + its
+ * fetchLiveDemProfile helper for why this is reachable from app runtime,
+ * not a discovery-only dependency.
+ *
+ * Returns null on ANY failure — network error, non-200, missing auth token,
+ * or the server itself reporting no coverage. Never throws, never guesses.
+ * `newPath` is [lng, lat] tuples (Route.path's in-memory convention); the
+ * server route converts to [lat, lng] itself.
+ */
+async function fetchServerDemFallback(newPath: Array<[number, number]>): Promise<ServerDemResult | null> {
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return null;
+    const res = await fetch('/api/admin/routes/dem-recompute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ path: newPath }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data?.coverage) return null;
+    if (typeof data.elevationGain !== 'number' || typeof data.maxGrade !== 'number') return null;
+    return { elevationGain: data.elevationGain, maxGrade: data.maxGrade, difficulty: data.difficulty };
+  } catch {
+    return null;
+  }
+}
+
 /** Shared recompute + write tail for both the trim path and the re-bridge
  *  path — identical to Phase 1's logic, now called from two branches
  *  instead of inlined once. */
@@ -192,18 +233,32 @@ async function recomputeAndWrite(
   const duration = Math.round(distanceKm * paceMinPerKm);
 
   // computeGeneratorDifficulty never throws — it degrades to
-  // {difficulty:'easy', elevationGain:undefined, maxGrade:undefined} on any
-  // DEM cache miss (route-editor-scoping-spec.md §10 Q2's Haifa-first scope
-  // means most routes today have NO cached DEM tiles at all — TLV is the
-  // only city warmed so far). Only trust its difficulty/elevation/grade
-  // when it actually found real coverage (elevationGain !== undefined) —
-  // otherwise leave those three fields OUT of the update payload entirely
-  // so the route's existing (possibly real, already-backfilled) values
-  // survive Firestore's partial-update semantics untouched. Silently
-  // stamping every DEM-cache-miss edit with a hardcoded 'easy' would be a
-  // real, silent difficulty downgrade, not a recompute.
-  const demResult = await computeGeneratorDifficulty(newPath);
-  const hasRealDemData = demResult.elevationGain !== undefined;
+  // {difficulty:'easy', elevationGain:undefined, maxGrade:undefined} on a
+  // browser-cache miss (the client-side dem-tile-cache/ was only ever
+  // warmed for the TLV pilot). Historically that miss meant "no real DEM
+  // data available" and this function stopped there. It DOESN'T mean that
+  // anymore for discovery-imported cities (Haifa/Ashkelon/Zichron-Yaakov) —
+  // scripts/audit-city-coverage.ts confirmed those routes already have 100%
+  // real DEM coverage from geo-discovery-routes.ts's own import-time
+  // computation, just not cached in the browser. So on a browser-cache
+  // miss, fall through to the server-side live fetch (same Mapbox
+  // Terrain-RGB source, proven reachable from app runtime) before giving
+  // up. Only when BOTH the browser cache AND the server fetch come back
+  // empty do difficulty/elevation/maxGrade get left OUT of the update
+  // payload entirely — never a guess, never the hardcoded 'easy' fallback,
+  // and the route's existing (possibly real) values survive Firestore's
+  // partial-update semantics untouched rather than being overwritten wrong.
+  let demResult: { difficulty: 'easy' | 'medium' | 'hard'; elevationGain?: number; maxGrade?: number } =
+    await computeGeneratorDifficulty(newPath);
+  let hasRealDemData = demResult.elevationGain !== undefined;
+
+  if (!hasRealDemData) {
+    const serverResult = await fetchServerDemFallback(newPath);
+    if (serverResult) {
+      demResult = serverResult;
+      hasRealDemData = true;
+    }
+  }
 
   const unpublished = route.published === true;
 
