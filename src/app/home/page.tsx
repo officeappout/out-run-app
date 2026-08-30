@@ -88,7 +88,7 @@ import { resolveRouteWorkout } from '@/features/workout-engine/core/generators/r
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
 import { PreWorkoutCardRenderer, resolveHeroWorkout, hasHeroCardTreatment } from '@/features/home/components/PreWorkoutCardRenderer';
-import { BuildCustomButton } from '@/features/home/components/WorkoutSelectionCarousel';
+import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -2486,6 +2486,24 @@ export default function HomePage() {
                   && preWorkoutSuggestions.length > 0
                 ) ? preWorkoutSuggestions : null;
 
+                // Fix (30.08.2026, "no loading state, widgets jump then get pushed down"):
+                // preWorkoutSuggestions is null BOTH while the fetch is still in flight AND
+                // is genuinely resolved-empty — readyPreWorkoutSuggestions above collapses
+                // both into the same falsy value, which used to fall straight through to the
+                // `: (<StatsOverview .../>)` branch below even during the initial load. That
+                // branch runs its OWN independent trio-generation with its own CarouselSkeleton
+                // (StatsOverview.tsx, sized for the OLD single-card anchor: header+chip+one
+                // 260-wide card), a different height than this carousel's real resolved
+                // content (header+description+3 300-wide/330-tall cards+build-custom button) —
+                // the gap between those two heights is the reflow David saw. Distinguishing
+                // "still loading" (this) from "resolved empty" (falls through to StatsOverview
+                // same as before, unchanged) fixes it without touching StatsOverview at all.
+                const preWorkoutSuggestionsLoading =
+                  HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED
+                  && isViewingToday
+                  && !isTodayWorkoutDone
+                  && preWorkoutSuggestions === null;
+
                 // Parity fix (27.08.2026): description text for whichever suggestion is
                 // centered — activeCarouselWorkout (computed at the top level, above, since
                 // useExercisePool/useSwapAll need it there) already IS this suggestion's real
@@ -2588,6 +2606,28 @@ export default function HomePage() {
                       />
                     </div>
                   </div>
+                ) : preWorkoutSuggestionsLoading ? (
+                  // Sized to match the resolved carousel above exactly (same 330px card
+                  // height / 300px max width the real <SuggestionCarousel> uses, not
+                  // StatsOverview's own CarouselSkeleton which is sized for its old
+                  // 260px anchor card) — header + description + one card-width placeholder
+                  // (real carousel shows 3, but only one is on-screen at a time) + button,
+                  // so the widgets below never see a height jump when this resolves.
+                  <div>
+                    <div className="px-5" dir="rtl">
+                      <div className="h-8 w-40 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse mb-1" />
+                      <div className="h-4 w-56 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse mb-4" />
+                    </div>
+                    <div className="w-full flex justify-center" style={{ height: 330 + 24, paddingTop: 8 }}>
+                      <div
+                        className="bg-gray-100 dark:bg-slate-800 animate-pulse"
+                        style={{ width: 'min(300px, 100vw)', height: 330, borderRadius: 16 }}
+                      />
+                    </div>
+                    <div className="flex flex-col items-center px-4 mt-3">
+                      <div className="w-full h-[52px] rounded-full bg-gray-100 dark:bg-slate-800 animate-pulse" />
+                    </div>
+                  </div>
                 ) : isViewingPastDate ? (
                   // Section 2 (29.08.2026) — past-day branch. pastDayDataReady mirrors
                   // todaysWorkouts's own null-until-resolved contract above: render nothing
@@ -2649,7 +2689,30 @@ export default function HomePage() {
           // awareness at all, only the flag + whether postWorkoutSuggestions resolved),
           // unrelated to whichever day selectedDate points at — without this it kept
           // showing while scrolling to a past or future day.
-          const continueActivityBlock = isSelectedDateToday && postWorkoutCarouselReady ? (
+          // Fix (30.08.2026, "no loading state going from workout summary back to home,
+          // suddenly appears"): mirrors the pre-workout carousel's own loading distinction
+          // above (preWorkoutSuggestionsLoading) — this effect's real trigger condition
+          // (postWorkoutCarouselEnabled && (postWorkoutData || todayWorkoutDone) && profile,
+          // see the useEffect this mirrors, above) is known here, so "a completed workout
+          // exists but suggestions haven't resolved yet" is distinguishable from "nothing
+          // to show at all" (flag off, or no completed workout today). CarouselSkeleton is
+          // WorkoutSelectionCarousel's own existing export — its default sizing (260px/
+          // 68vw, 330 tall) already matches this carousel's own SuggestionCarousel call
+          // below exactly (neither overrides width, both use cardHeight 330), so it's
+          // reused as-is rather than a second bespoke skeleton like the pre-workout one
+          // needed (that carousel overrides to 300px/100vw, CarouselSkeleton does not).
+          const postWorkoutCarouselLoading =
+            isSelectedDateToday
+            && postWorkoutCarouselEnabled
+            && (postWorkoutData || todayWorkoutDone)
+            && postWorkoutSuggestions === null;
+
+          const continueActivityBlock = isSelectedDateToday && postWorkoutCarouselLoading ? (
+            <div>
+              <div className="h-4 w-40 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse mb-3" dir="rtl" />
+              <CarouselSkeleton />
+            </div>
+          ) : isSelectedDateToday && postWorkoutCarouselReady ? (
             /* post_workout suggestion carousel (home-generator-v2 plan, step 6) — Phase B
                (18.08.2026): auto-reveals the moment postWorkoutSuggestions resolves,
                directly below the same completion card, same vertical slot. No tap
