@@ -83,6 +83,8 @@
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.config();
 import * as zlib from 'zlib'; import * as https from 'https'; import * as admin from 'firebase-admin';
 import { mapOsmSurfaceToType } from '../src/lib/route-collections/surface-type';
+import { fetchCityWayGrid, type CityWayGrid } from './lib/route-quality-osm-fetch.node';
+import { computeRouteComposition, type WayCategory } from './lib/route-composition-classify';
 
 // ─────────────────────────────── CLI + region config ───────────────────────────────
 const DRY = process.argv.includes('--dry-run');
@@ -1543,7 +1545,7 @@ function outsideBoundaryReason(pts: number[][], boundaryPoly: number[][] | null)
 const B32 = '0123456789bcdefghjkmnpqrstuvwxyz';
 function geohash(lat: number, lon: number, prec = 7) { let idx = 0, bit = 0, even = true, h = ''; const la = [-90, 90], lo = [-180, 180]; while (h.length < prec) { if (even) { const m = (lo[0] + lo[1]) / 2; if (lon >= m) { idx = idx * 2 + 1; lo[0] = m; } else { idx = idx * 2; lo[1] = m; } } else { const m = (la[0] + la[1]) / 2; if (lat >= m) { idx = idx * 2 + 1; la[0] = m; } else { idx = idx * 2; la[1] = m; } } even = !even; if (++bit === 5) { h += B32[idx]; bit = 0; idx = 0; } } return h; }
 
-function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | null, authorityId: string) {
+function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | null, authorityId: string, composition?: { sidewalkPct: number; genuinePct: number; ordinaryPct: number; otherPct: number }) {
   const distance = c.lengthM; // meters (matches formatDistance + TLV pilot)
   // walking is the safe default for nature trails; paved pedestrian promenades also run well.
   // Bicycle-tagged candidates (isBicycle) get their own activityType — see Candidate.isBicycle.
@@ -1630,6 +1632,13 @@ function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | 
     // don't set undefined, matching this file's existing conditional-spread
     // convention for optional fields like osmRef above).
     ...(c.isLoop ? { routeShape: 'loop' as const } : {}),
+    // Quality-certificate v1 (composition only — lighting is a separate,
+    // later task). Only set when a composition was actually computed for
+    // this run (main() skips the city-wide way-grid fetch under --skip-osm,
+    // and round-trip-only candidates never go through this path) — omitted,
+    // not written with zeros, when unavailable; qualitySignals stays
+    // genuinely optional rather than a false "computed" claim.
+    ...(composition ? { qualitySignals: { composition, computedAt: admin.firestore.FieldValue.serverTimestamp(), source: 'osm_overpass_v1' as const } } : {}),
     geohash: geohash(mid[0], mid[1]),
     city: REGION.label,
     // Stage 1B: this script never set authorityId before — resolved once per
@@ -1805,6 +1814,24 @@ async function main() {
   // in practice none should fail, since authorityId is resolved above and
   // difficulty was fixed in Stage 0, but this is the safety net for
   // anything this investigation missed.
+  // Quality-certificate v1 composition — ONE city-wide way-grid fetch for the
+  // whole run (not per-candidate), reusing the exact same classifier module
+  // Stage 1/2's backfill uses (scripts/lib/route-composition-classify.ts).
+  // discover()'s own internal way-fetches (roadSegGrid, the named-segment
+  // fetch, etc.) are each scoped narrower for their own purpose — none is
+  // the unrestricted "every highway way, all tags" fetch composition
+  // classification needs — so this is a genuinely separate fetch, not a
+  // duplicate of one discover() already made. Skipped under --skip-osm
+  // (no way data fetched at all that run) — composition is then simply
+  // omitted from every doc, never faked.
+  let cityGrid: CityWayGrid | null = null;
+  if (!SKIP_OSM) {
+    console.log('\nFetching city-wide way grid for quality-certificate composition …');
+    cityGrid = await fetchCityWayGrid(`${REGION.bbox.latMin},${REGION.bbox.lonMin},${REGION.bbox.latMax},${REGION.bbox.lonMax}`);
+    console.log(`  ${cityGrid.wayCount} ways fetched (${cityGrid.roadWayCount} road-category).`);
+  }
+  const wayCategoryCache = new Map<number, WayCategory>();
+
   const kept: { doc: ReturnType<typeof buildRouteDoc>; c: Candidate }[] = [];
   const dropped: { name: string; reason: string }[] = [];
   const boundaryDropped: { name: string; reason: string }[] = [];
@@ -1814,7 +1841,13 @@ async function main() {
     const boundaryReason = outsideBoundaryReason(c.pts, boundaryPoly);
     if (boundaryReason) { boundaryDropped.push({ name: c.osmName || c.externalId, reason: boundaryReason }); continue; }
     const dem = demProfile(c.pts);
-    const doc = buildRouteDoc(c, dem, resolvedAuthorityId);
+    const composition = cityGrid
+      ? (() => {
+          const comp = computeRouteComposition(c.pts as [number, number][], cityGrid!.waysById, cityGrid!.allGrid, cityGrid!.roadGrid, wayCategoryCache);
+          return { sidewalkPct: comp.sidewalkPct, genuinePct: comp.genuinePct, ordinaryPct: comp.ordinaryPct, otherPct: comp.otherPct + comp.unmatchedPct };
+        })()
+      : undefined;
+    const doc = buildRouteDoc(c, dem, resolvedAuthorityId, composition);
     try {
       const validatedDoc = buildValidatedDoc('official_routes', doc, { mode: 'create', knownAuthorityIds }) as typeof doc;
       kept.push({ doc: validatedDoc, c });
