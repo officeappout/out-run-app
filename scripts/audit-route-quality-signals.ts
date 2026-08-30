@@ -16,40 +16,15 @@
  * Usage: npx tsx scripts/audit-route-quality-signals.ts
  */
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.config();
-import * as https from 'https';
 import * as admin from 'firebase-admin';
-import {
-  WayInfo, buildWayGrid, segsFromWays, computeRouteComposition, pathLenM,
-  RECREATIONAL_DEDICATED_HIGHWAY, RECREATIONAL_ORDINARY_HIGHWAY, WayCategory,
-} from './lib/route-composition-classify';
 import { LampPoint, buildLampGrid, classifyLighting } from './lib/route-lighting-classify';
+import { overpass, deriveCityBbox, fetchCityWayGrid, computeCityComposition } from './lib/route-quality-osm-fetch.node';
 
 function initFb() {
   const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
   if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id });
   return admin.firestore();
 }
-
-const MIRRORS = ['https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass-api.de/api/interpreter'];
-async function overpass(q: string): Promise<any> {
-  for (let a = 0; a < 6; a++) for (const m of MIRRORS) {
-    try {
-      const buf: Buffer = await new Promise((res, rej) => {
-        const req = https.request(m, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'OUT/1.0 (office@appout.co.il) quality-cert-stage1' } }, r => {
-          const b: Buffer[] = []; r.on('data', d => b.push(d));
-          r.on('end', () => r.statusCode === 200 ? res(Buffer.concat(b)) : rej(new Error('HTTP ' + r.statusCode)));
-        });
-        req.on('error', rej); req.setTimeout(190000, () => req.destroy(new Error('socket timeout'))); req.write('data=' + encodeURIComponent(q)); req.end();
-      });
-      return JSON.parse(buf.toString());
-    } catch (e: any) { console.error(`  overpass ${m.split('/')[2]} → ${e.message}, retry…`); await new Promise(r => setTimeout(r, 3000)); }
-  }
-  throw new Error('overpass failed (all mirrors, all retries)');
-}
-
-const HIGHWAY_VOCAB = ['footway', 'path', 'pedestrian', 'cycleway', 'steps', 'track', 'residential', 'tertiary', 'service', 'living_street', 'unclassified', 'secondary', 'primary', 'trunk', 'motorway'];
-const ROAD_HIGHWAY = new Set(['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'living_street', 'unclassified', 'service']);
-const BBOX_MARGIN_DEG = 0.005; // ~550m
 
 interface RouteDoc { id: string; collection: string; name: string; city: string; distance: number; path: [number, number][]; activityType?: string; routeShape?: string; }
 
@@ -97,43 +72,23 @@ async function main() {
       continue;
     }
 
-    let latMin = Infinity, latMax = -Infinity, lonMin = Infinity, lonMax = -Infinity;
-    for (const r of validRoutes) for (const [lat, lng] of r.path) {
-      latMin = Math.min(latMin, lat); latMax = Math.max(latMax, lat);
-      lonMin = Math.min(lonMin, lng); lonMax = Math.max(lonMax, lng);
-    }
-    latMin -= BBOX_MARGIN_DEG; latMax += BBOX_MARGIN_DEG; lonMin -= BBOX_MARGIN_DEG; lonMax += BBOX_MARGIN_DEG;
-    const bb = `${latMin},${lonMin},${latMax},${lonMax}`;
-    console.log(`  bbox (derived from ${validRoutes.length} route paths + margin): ${bb}`);
+    const { bboxStr } = deriveCityBbox(validRoutes.map(r => r.path));
+    console.log(`  bbox (derived from ${validRoutes.length} route paths + margin): ${bboxStr}`);
 
     console.log(`  Fetching highway ways …`);
-    const wayData = await overpass(`[out:json][timeout:180];way["highway"~"^(${HIGHWAY_VOCAB.join('|')})$"](${bb});out geom tags;`);
-    const waysById = new Map<number, WayInfo>();
-    const allWays: WayInfo[] = [];
-    const roadWays: WayInfo[] = [];
-    for (const e of wayData.elements || []) {
-      if (e.type !== 'way' || !e.geometry || e.geometry.length < 2) continue;
-      const pts: [number, number][] = e.geometry.map((p: any) => [p.lat, p.lon]);
-      const t = e.tags || {};
-      const info: WayInfo = { id: e.id, highway: t.highway || '(none)', footwayTag: t.footway || null, isSidepath: t.is_sidepath === 'yes', pts, lenM: pathLenM(pts) };
-      waysById.set(e.id, info);
-      allWays.push(info);
-      if (ROAD_HIGHWAY.has(info.highway)) roadWays.push(info);
-    }
-    console.log(`  ${allWays.length} ways fetched (${roadWays.length} road-category for sidewalk-parallel check).`);
-    const allGrid = buildWayGrid(segsFromWays(allWays));
-    const roadGrid = buildWayGrid(segsFromWays(roadWays));
+    const grid = await fetchCityWayGrid(bboxStr);
+    console.log(`  ${grid.wayCount} ways fetched (${grid.roadWayCount} road-category for sidewalk-parallel check).`);
 
     console.log(`  Fetching street_lamp nodes …`);
-    const lampData = await overpass(`[out:json][timeout:180];node["highway"="street_lamp"](${bb});out;`);
+    const lampData = await overpass(`[out:json][timeout:180];node["highway"="street_lamp"](${bboxStr});out;`);
     const lamps: LampPoint[] = (lampData.elements || []).filter((e: any) => e.type === 'node').map((e: any) => ({ lat: e.lat, lng: e.lon }));
     console.log(`  ${lamps.length} street_lamp nodes fetched.`);
     const lampGrid = buildLampGrid(lamps);
     const cityHasLampData = lamps.length > 0;
 
-    const wayCategoryCache = new Map<number, WayCategory>();
+    const compositionByRouteId = computeCityComposition(validRoutes.map(r => ({ id: r.id, path: r.path })), grid);
     for (const r of validRoutes) {
-      const comp = computeRouteComposition(r.path, waysById, allGrid, roadGrid, wayCategoryCache);
+      const comp = compositionByRouteId.get(r.id)!;
       const lighting = classifyLighting(r.path, lampGrid, cityHasLampData);
       allRows.push({
         id: r.id, collection: r.collection, name: r.name, city, distance: r.distance,
@@ -144,7 +99,7 @@ async function main() {
     for (const r of cityRoutes.filter((x: RouteDoc) => x.path.length < 2)) {
       allRows.push({ id: r.id, collection: r.collection, name: r.name, city, distance: r.distance, sidewalkPct: 0, genuinePct: 0, ordinaryPct: 0, otherPct: 0, unmatchedPct: 0, lighting: { status: 'unknown', litCoveragePct: null, isLit: null }, skipped: 'no usable path (<2 points)' });
     }
-    cityStats.push({ city, count: cityRoutes.length, wayCount: allWays.length, lampCount: lamps.length, skipped: skippedNoPath });
+    cityStats.push({ city, count: cityRoutes.length, wayCount: grid.wayCount, lampCount: lamps.length, skipped: skippedNoPath });
   }
 
   require('fs').writeFileSync('/tmp/quality-cert-stage1-results.json', JSON.stringify(allRows, null, 2));
