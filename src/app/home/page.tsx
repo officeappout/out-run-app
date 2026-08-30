@@ -733,6 +733,39 @@ export default function HomePage() {
     completionData?.programId,
   ]);
 
+  // Gap 1 fix (30.08.2026, home/page.tsx 3-gap audit): mirrors pastDayStepGoalCard exactly
+  // (below, near pastDayActivityCards), just for TODAY's own goalHistory entry instead of
+  // selectedDate's. Without this, a day where only the step goal was met (no workout) showed
+  // nothing at all in the top activity strip — todayActivityCards only ever reflects real
+  // workout docs, and today's own goalHistory entry was never read anywhere in this file.
+  const todayISO = toISODate(new Date());
+  // Gap 3 fix (30.08.2026, David: full symmetry — hide on both past AND future, not past
+  // only): shared by the top activity strip and the post-workout carousel gates below, both
+  // of which describe real TODAY regardless of which day selectedDate points at.
+  const isSelectedDateToday = selectedDate === todayISO;
+  const todayGoalEntry = useMemo(
+    () => profile?.progression?.goalHistory?.find((entry) => entry.date === todayISO) ?? null,
+    [profile?.progression?.goalHistory, todayISO],
+  );
+  const todayStepGoalMet = !!todayGoalEntry?.stepGoalMet;
+  const todayStepGoalCard: TodayActivityCardData | null = todayStepGoalMet
+    ? {
+        key: `stepgoal-${todayISO}`,
+        category: 'steps',
+        title: 'יעד הצעדים הושג',
+        minutes: 0,
+        stepsAchieved: todayGoalEntry?.stepsAchieved,
+        streak: 1,
+        workoutType: 'walking',
+      }
+    : null;
+
+  // Gap 2 fix (30.08.2026): hoisted out of the anchor's own inner IIFE below (where it was
+  // previously declared locally) so the widgets/continue-activity reorder decision can use
+  // the exact same value — not a second copy of the same expression that could silently
+  // drift from this one.
+  const isTodayWorkoutDone = !!postWorkoutData || todayWorkoutDone;
+
   // F2.3 (19.08.2026, "unified workout summary" plan): tapping a
   // TodayActivityCard opens the real workout it represents.
   //
@@ -748,6 +781,9 @@ export default function HomePage() {
   // route already renders its own "not found" state for that case (see
   // /workouts/[id]/history/page.tsx), so no special-casing is needed here.
   const handleTodayActivityCardTap = useCallback((card: TodayActivityCardData) => {
+    // Mirrors handlePastDayActivityCardTap's guard below — the synthetic step-goal card (key
+    // starts with 'stepgoal-') has no backing workout doc to open (Gap 1 fix, 30.08.2026).
+    if (card.key.startsWith('stepgoal-')) return;
     router.push(`/workouts/${card.key}/history`);
   }, [router]);
 
@@ -2100,7 +2136,7 @@ export default function HomePage() {
             stats section. REPLACES the old single HeroWorkoutCard completion
             card entirely (locked product decision — see
             adaptive-snacking-valiant.md's Stage C/D section): this is not an
-            addition alongside it. Gate unchanged — (postWorkoutData ||
+            addition alongside it. Gate base — (postWorkoutData ||
             todayWorkoutDone), the exact compound confirmed load-bearing
             (postWorkoutData can go true before todayWorkoutDone's Firestore
             round-trip catches up; relying on either alone reintroduces that
@@ -2108,15 +2144,27 @@ export default function HomePage() {
             completionData` check — empty array (rest day / nothing done yet)
             means TodayActivityStrip renders null on its own; no separate
             visible empty-state needed, an absent strip already IS the empty
-            state the plan calls for. */}
-        {(postWorkoutData || todayWorkoutDone) && todayActivityCards.length > 0 && (
+            state the plan calls for.
+
+            Gap 1 fix (30.08.2026): `|| todayStepGoalMet` / `|| todayStepGoalCard` added —
+            a day where only the step goal was met (no workout at all) previously showed
+            nothing here, even though the mirrored past-day branch already handles this
+            exact case (pastDayHasAnyAchievement, above).
+
+            Gap 3 fix (30.08.2026, David: full symmetry): `isSelectedDateToday &&` added —
+            this strip describes real TODAY's own completion state, unrelated to whichever
+            day selectedDate points at (todaysWorkouts/todayProgress are both hardcoded to
+            toISODate(new Date()), never selectedDate) — without this it kept showing while
+            scrolling to a past or future day, clashing with Section 2's own past-day summary
+            rendered further down this same page for that other date. */}
+        {isSelectedDateToday && (postWorkoutData || todayWorkoutDone || todayStepGoalMet) && (todayActivityCards.length > 0 || todayStepGoalCard) && (
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
           >
             <TodayActivityStrip
-              cards={todayActivityCards}
+              cards={todayStepGoalCard ? [...todayActivityCards, todayStepGoalCard] : todayActivityCards}
               onCardTap={handleTodayActivityCardTap}
             />
           </motion.div>
@@ -2184,6 +2232,25 @@ export default function HomePage() {
                    PerformanceMetricsRow returns null until the strength
                    survey is complete (goals are derived from active strength
                    programs, so the section is meaningless beforehand).
+
+            Gap 2 fix (30.08.2026, home/page.tsx 3-gap audit): Rows 2/4/5 (the tabs +
+            their content — "widgetsBlock" below) and the post-workout carousel
+            ("continueActivityBlock" below, previously a separate sibling further down
+            this file) now swap relative order once today's workout is done —
+            widgetsBlock moves to sit AFTER "המשך הפעילות של היום" instead of always
+            before it. The anchor/Daily Workout Hero (Row 3, "anchorBlock" below) is
+            deliberately NOT part of this reorder — it stays exactly where it already
+            renders (David's explicit instruction on this fix): with
+            HOME_ANCHOR_V2_ENABLED, StatsOverview's own hideWorkoutSection=true state
+            (the exact state active whenever the anchor's slot would otherwise need
+            hiding) renders empty in all 3 dashboard modes except one narrow,
+            pre-existing, unrelated case — LoadAdvisorBanner (PERFORMANCE/HYBRID modes
+            only) can still show a real coaching banner independent of
+            hideWorkoutSection, if the weekly-volume store has genuine push/pull-
+            imbalance or budget-exhaustion advice to give. That banner's own visibility
+            has nothing to do with this reorder and isn't fixed here — flagging it as a
+            pre-existing nuance found while reading StatsOverview.tsx before touching
+            this layout (CLAUDE.md §6), not a new gap introduced by this change.
             ════════════════════════════════════════════════════════════════ */}
         {(() => {
           const TAB_LABELS: Record<'strength' | 'health', string> = {
@@ -2200,7 +2267,12 @@ export default function HomePage() {
             : ['health'];
           const effectiveTab: 'strength' | 'health' = hasProgram ? homeTab : 'health';
 
-          return (
+          // Gap 2 fix (30.08.2026): widgetsBlock is now its own value (previously inline
+          // JSX sharing one flex-col div with the anchor below) so it can independently
+          // swap order with continueActivityBlock further down, based on
+          // isTodayWorkoutDone. Internal tabs/content logic is completely untouched, only
+          // extracted into a variable — same JSX, same behavior when nothing has changed.
+          const widgetsBlock = (
             <div className="flex flex-col gap-4 mt-0">
               {/* ── Tabs bar ─────────────────────────────────────────── */}
               <div
@@ -2250,7 +2322,17 @@ export default function HomePage() {
                   <StepsSummaryCard variant="compact" />
                 </div>
               )}
+            </div>
+          );
 
+          // Gap 2 fix (30.08.2026): the anchor/Daily Workout Hero now renders in its own
+          // div, no longer sharing one flex-col container with widgetsBlock above —
+          // deliberately left in this exact position, unmoved (see the Dashboard
+          // Restructure comment above for why). `order-first` a few lines down is now a
+          // no-op (this div's only child, nothing left to reorder against) — harmless to
+          // leave; removing it isn't needed for correctness and isn't part of this fix.
+          const anchorBlock = (
+            <div className="flex flex-col gap-4 mt-0">
               {/* ── Daily Workout Hero — always visible ───────────────
                   R-1.5 (order B, workout-first): with HOME_ANCHOR_V2_ENABLED the
                   anchor is pulled ABOVE the tabs/metrics via flex `order-first`,
@@ -2291,7 +2373,9 @@ export default function HomePage() {
                 // readyPreWorkoutSuggestions itself (rather than a separate check) means
                 // the existing `: (<StatsOverview ... hideWorkoutSection={...} />)` fallback
                 // below does the actual hiding — no new UI, reusing what already works.
-                const isTodayWorkoutDone = !!postWorkoutData || todayWorkoutDone;
+                // isTodayWorkoutDone itself moved to the outer component scope (Gap 2 fix,
+                // 30.08.2026) — read via closure here, not redeclared, so the widgets/
+                // continue-activity reorder decision further down uses this exact same value.
                 const readyPreWorkoutSuggestions = (
                   HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED
                   && isViewingToday
@@ -2453,40 +2537,73 @@ export default function HomePage() {
               })()}
             </div>
           );
-        })()}
 
-        {/* post_workout suggestion carousel (home-generator-v2 plan, step 6) — Phase B
-            (18.08.2026): auto-reveals the moment postWorkoutSuggestions resolves, directly
-            below the same completion card, same vertical slot. No tap required.
-            Stage B (18.08.2026, "completion-loop" plan, requirement 5): header above the
-            carousel, same visibility gate (postWorkoutCarouselReady) so it never shows
-            without the carousel or vice versa. Copy variant driven by allGoalsMet —
-            condition explicitly confirmed by David before this shipped, not decided
-            unilaterally (per his instruction on this stage). */}
-        {postWorkoutCarouselReady && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
-            <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3" dir="rtl">
-              {allGoalsMet ? 'סיימת הכל, מגיע לך מנוחה' : 'המשך הפעילות של היום'}
-            </h3>
-            <SuggestionCarousel<Suggestion>
-              items={postWorkoutSuggestions}
-              keyExtractor={(s) => s.id}
-              cardHeight={330}
-              renderCard={(s) => (
-                <PostWorkoutCardRenderer
-                  suggestion={s}
-                  onStart={() => handlePostWorkoutSuggestionStart(s)}
-                  isStarting={startingSuggestionId === s.id}
-                  userGender={profile?.core?.gender}
-                />
+          // Gap 2 fix (30.08.2026): continueActivityBlock extracted the same way as
+          // widgetsBlock above — a value, not inline JSX — so it can render either before
+          // or after widgetsBlock depending on isTodayWorkoutDone, below. Gap 3 fix
+          // (30.08.2026, David: full symmetry — hide on both past AND future): also gated
+          // on `isSelectedDateToday &&` now — this describes real TODAY's own
+          // post-workout suggestions (postWorkoutCarouselReady itself has no date-
+          // awareness at all, only the flag + whether postWorkoutSuggestions resolved),
+          // unrelated to whichever day selectedDate points at — without this it kept
+          // showing while scrolling to a past or future day.
+          const continueActivityBlock = isSelectedDateToday && postWorkoutCarouselReady ? (
+            /* post_workout suggestion carousel (home-generator-v2 plan, step 6) — Phase B
+               (18.08.2026): auto-reveals the moment postWorkoutSuggestions resolves,
+               directly below the same completion card, same vertical slot. No tap
+               required. Stage B (18.08.2026, "completion-loop" plan, requirement 5):
+               header above the carousel, same visibility gate (postWorkoutCarouselReady)
+               so it never shows without the carousel or vice versa. Copy variant driven
+               by allGoalsMet — condition explicitly confirmed by David before this
+               shipped, not decided unilaterally (per his instruction on this stage). */
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3" dir="rtl">
+                {allGoalsMet ? 'סיימת הכל, מגיע לך מנוחה' : 'המשך הפעילות של היום'}
+              </h3>
+              <SuggestionCarousel<Suggestion>
+                items={postWorkoutSuggestions}
+                keyExtractor={(s) => s.id}
+                cardHeight={330}
+                renderCard={(s) => (
+                  <PostWorkoutCardRenderer
+                    suggestion={s}
+                    onStart={() => handlePostWorkoutSuggestionStart(s)}
+                    isStarting={startingSuggestionId === s.id}
+                    userGender={profile?.core?.gender}
+                  />
+                )}
+              />
+            </motion.div>
+          ) : null;
+
+          // Gap 2 fix (30.08.2026): anchorBlock's own JSX position is now what controls
+          // its visual placement (always first — see the Dashboard Restructure comment
+          // above for why it doesn't move), not flex `order` against siblings it no
+          // longer shares a container with. widgetsBlock/continueActivityBlock swap
+          // relative order based on isTodayWorkoutDone (hoisted near todayActivityCards,
+          // above) — a completed day shows "המשך הפעילות של היום" before these widgets,
+          // instead of always-widgets-first.
+          return (
+            <>
+              {anchorBlock}
+              {isTodayWorkoutDone ? (
+                <>
+                  {continueActivityBlock}
+                  {widgetsBlock}
+                </>
+              ) : (
+                <>
+                  {widgetsBlock}
+                  {continueActivityBlock}
+                </>
               )}
-            />
-          </motion.div>
-        )}
+            </>
+          );
+        })()}
 
         {/* Nearby community groups discovery carousel */}
         <NearbyGroupsRow />
