@@ -2739,6 +2739,7 @@ export default function HomePage() {
             initialType={entryType}
             initialProgramId={editEntry.programIds?.[0]}
             initialStartTime={editEntry.startTime}
+            initialTitle={editEntry.title}
             onOpenBuilder={(params) => {
               setEditEntry(null);
               setBuilderProps({ mode: params.mode, date: params.date, defaultDuration: params.defaultDuration, defaultProgramIds: params.defaultProgramIds });

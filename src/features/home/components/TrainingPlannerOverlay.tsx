@@ -458,6 +458,7 @@ export default function TrainingPlannerOverlay({
             initialType={entryType}
             initialProgramId={editEntry.programIds?.[0]}
             initialStartTime={editEntry.startTime}
+            initialTitle={editEntry.title}
             onOpenBuilder={onOpenBuilder}
           />
         );

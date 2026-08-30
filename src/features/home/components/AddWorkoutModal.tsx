@@ -46,6 +46,7 @@ interface AddWorkoutModalProps {
   initialType?: WorkoutType;
   initialProgramId?: string;
   initialStartTime?: string;
+  initialTitle?: string;
   /** Optional: open the Smart Workout Builder sheet instead of navigating to /workout-builder */
   onOpenBuilder?: (params: { mode: string; date: string; defaultDuration?: string; defaultProgramIds?: string }) => void;
 }
@@ -98,6 +99,7 @@ export default function AddWorkoutModal({
   initialType,
   initialProgramId,
   initialStartTime,
+  initialTitle,
   onOpenBuilder,
 }: AddWorkoutModalProps) {
   const router = useRouter();
@@ -129,6 +131,7 @@ export default function AddWorkoutModal({
       if (initialType) setType(initialType);
       if (initialStartTime) setStartTime(initialStartTime);
       if (initialProgramId) setSelectedProgramId(initialProgramId);
+      if (initialTitle) setTitle(initialTitle);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -408,7 +411,17 @@ export default function AddWorkoutModal({
                     // cascade WorkoutBuilderSheet's displayPrograms uses
                     // (program-icon.util.tsx) — no doc.name tier here since
                     // this picker has no Firestore program catalog fetch.
-                    const resolvedIconKey = resolveIconKey(undefined, track.id);
+                    // track.id goes in as the first (firestoreIconKey) arg,
+                    // not the second (programAlias) — tier 1 checks ICON_MAP
+                    // directly before falling to PROGRAM_ALIAS_TO_ICON, so
+                    // it's a strict superset of tier 2 alone. Passing it as
+                    // programAlias would skip the direct ICON_MAP match (5
+                    // of ICON_MAP's 11 keys aren't in PROGRAM_ALIAS_TO_ICON:
+                    // muscle, pullup, leg, shoe, heart) and also run icon
+                    // resolution one tier "behind" resolveProgramLabel below,
+                    // which checks ICON_MAP first — the exact drift this
+                    // shared cascade exists to remove.
+                    const resolvedIconKey = resolveIconKey(track.id);
                     const label = resolveProgramLabel(track.id);
                     const isSelected = selectedProgramId === track.id;
                     return (
