@@ -125,6 +125,24 @@ export function buildHomeUserContext({
 }: BuildHomeUserContextInput): UserContext {
   const stepContext = buildStepContext(useActivityStore.getState().today);
 
+  // Fix (30.08.2026, "new user gets recovery priority before filling in a schedule"):
+  // isTodayTrainingDay (dailyStrengthTarget.ts) returns false both for "today is an
+  // explicit rest day" AND "no schedule has ever been configured at all" — it has no
+  // way to tell those apart, and callers other than this one (the Daily Strength Ring,
+  // useActivitySync) legitimately want that exact behavior, so isTodayTrainingDay
+  // itself is untouched. Here specifically, "no data yet" was being read as "rest day",
+  // which fed goalMatch() a +30 bonus (rank-suggestions.weights.ts) toward
+  // recovery-follow-up over full-strength for every brand-new user — not an intentional
+  // product decision (LAW 26 Scheduled Rest Day is about a day explicitly marked rest,
+  // not the absence of any schedule). hasAnySchedule distinguishes "genuinely never
+  // configured" (→ default to strength) from "configured, and today just isn't in it"
+  // (→ existing recovery behavior, unchanged).
+  const hasAnySchedule =
+    (profile.lifestyle?.scheduleDays?.length ?? 0) > 0 ||
+    Object.values(profile.lifestyle?.recurringTemplate ?? {}).some(
+      (dayPrograms) => Array.isArray(dayPrograms) && dayPrograms.length > 0,
+    );
+
   return {
     userId: profile.id,
     baseLevel: profile.progression?.globalLevel ?? 1,
@@ -132,7 +150,7 @@ export function buildHomeUserContext({
     weeklyPerformance: { trainedDomainsThisWeek: [], neglectedDomains: [], totalSetsCompleted: 0, weeklyBudget: 0 },
     recoveryState: { isDetrainingLocked: false, daysInactive: calculateDaysInactive(profile) },
     todayCompletedDomains: resolveTodayCompletedDomains(profile, date),
-    todayGoal: isTodayTrainingDay(
+    todayGoal: !hasAnySchedule || isTodayTrainingDay(
       profile.lifestyle?.scheduleDays,
       profile.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,
       date,
