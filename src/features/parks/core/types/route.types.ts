@@ -211,6 +211,20 @@ export interface WorkoutPlan {
    * Absent/false ⇒ a normal strength workout (every guard is a no-op).
    */
   isRecovery?: boolean;
+  /**
+   * Fix (30.08.2026, "no complete-your-sets follow-up after a partial
+   * workout"): carried through from `GeneratedWorkout.totalPlannedSets` at
+   * the generate→flatten boundary so `StrengthSummaryPage`/`useActivitySync`
+   * can report the real planned/completed split to `recordStrengthSession`
+   * (`useWeeklyVolumeStore`). Without it, `useActivitySync.ts`'s own
+   * `totalPlannedSets ?? actualSetsCompleted` fallback silently treats
+   * "planned" as "whatever was actually completed" — `setsCompleted <
+   * setsPlanned` can then never be true, so `partial-completion.generator.ts`'s
+   * eligibility never fires, no matter how incomplete the real session was.
+   * Absent ⇒ same fallback behavior as before this fix (no regression for
+   * plans that don't set it).
+   */
+  totalPlannedSets?: number;
 }
 
 export interface PlannedRoute {

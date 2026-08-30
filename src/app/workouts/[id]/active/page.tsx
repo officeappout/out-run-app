@@ -1821,6 +1821,11 @@ export default function ActiveWorkoutPage() {
         precomputedProgression={progressionResult}
         domainSets={workoutStats.domainSets}
         isRecovery={stableWorkoutPlan.isRecovery}
+        // Fix (30.08.2026) — see WorkoutPlan.totalPlannedSets's own doc comment
+        // (route.types.ts) for why this was missing and what it unblocks
+        // (partial-completion.generator.ts's "finish your remaining sets"
+        // eligibility check).
+        totalPlannedSets={stableWorkoutPlan.totalPlannedSets}
       />
     );
   }

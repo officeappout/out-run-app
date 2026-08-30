@@ -1861,6 +1861,12 @@ export default function HomePage() {
         // Recovery flag — carried so the active runner + summary skip strength
         // progression (level% / strength-XP / weekly volume) for rest-day videos.
         isRecovery: gw.isRecovery ?? false,
+        // Fix (30.08.2026) — see WorkoutPlan.totalPlannedSets's own doc comment
+        // (route.types.ts): without this, StrengthSummaryPage/useActivitySync
+        // can never tell a partial session from a complete one, so
+        // partial-completion.generator.ts's "finish your remaining sets"
+        // follow-up suggestion could never become eligible.
+        totalPlannedSets: gw.totalPlannedSets,
       };
 
       sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));
