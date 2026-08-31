@@ -169,19 +169,21 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
     { id: 'crossfit', label: isHebrew ? 'קרוספיט' : 'CrossFit',  icon: Flame },
   ];
 
+  // Local-only until handleContinue's single consolidated updateData() call —
+  // these used to also call updateData() per-click, but every value they
+  // touch is already local state that handleContinue re-sends in full, so
+  // that was a pure redundant write, not a resume/checkpoint mechanism
+  // (David, 31.08.2026: write on step-completion, not on field-touch).
   const handleHistoryFreq = (id: string) => {
     setHistoryFreq(id);
-    updateData({ historyFrequency: id });
   };
   const toggleHistoryLoc = (id: string) => {
     const next = historyLocs.includes(id) ? historyLocs.filter(l => l !== id) : [...historyLocs, id];
     setHistoryLocs(next);
-    updateData({ historyLocations: next });
   };
   const toggleHistorySport = (id: string) => {
     const next = historySpts.includes(id) ? historySpts.filter(s => s !== id) : [...historySpts, id];
     setHistorySpts(next);
-    updateData({ historySports: next });
   };
 
   // Recommended frequency (default 3, can be based on goal)
@@ -710,10 +712,9 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
           {/* Left side: Calendar Sync Toggle (inline) - Delicate styling */}
           <button
             onClick={() => {
-              const newValue = !calendarSyncEnabled;
-              setCalendarSyncEnabled(newValue);
-              // Sync to store immediately
-              updateData({ calendarSyncEnabled: newValue } as any);
+              // Local-only until handleContinue's consolidated write — see
+              // the note above handleHistoryFreq.
+              setCalendarSyncEnabled(!calendarSyncEnabled);
             }}
             className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 ${
               calendarSyncEnabled 
