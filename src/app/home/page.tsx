@@ -939,10 +939,22 @@ export default function HomePage() {
     if (!postWorkoutCarouselEnabled) return;
     if (!(postWorkoutData || todayWorkoutDone) || !profile) return;
     let cancelled = false;
-    // location: null — none of the registered post_workout generators (recovery-follow-up,
-    // complementary-short, safety-net) read UserContext.location; skips an unnecessary GPS
-    // permission prompt right after a workout, unlike the pull-surface builders.
-    const context = buildHomeUserContext({ profile, location: null, surface: 'post_workout' });
+    // Fix (31.08.2026, Section E — "no real route/walking suggestion post-workout"):
+    // location used to be hardcoded null here because none of the post_workout generators
+    // read it. That's no longer true — route.generator.ts now has 'post_workout' in its
+    // surfaces (David's explicit choice among 3 options) and its own eligible() requires
+    // a non-null location. gpsCoords (component-level, subscribed above) is a SILENT read —
+    // same mechanism StatsOverview.tsx's own resolveWorkoutContext call already uses — never
+    // triggers a permission prompt itself, so the original "skip an unnecessary GPS prompt
+    // right after a workout" intent is preserved: users who already granted GPS access
+    // elsewhere get the real route suggestion, everyone else falls back to null exactly like
+    // before (David's explicit choice over the alternative — a soft-ask/requestPermissionIfAllowed
+    // call here, which would reintroduce a real prompt right after finishing a workout).
+    // gpsCoords deliberately stays out of the deps array below (same existing
+    // eslint-disable as profile's own full object) — this effect fires once per completed
+    // workout, not on every GPS position update; it reads whatever fix is available at that
+    // moment, it doesn't re-rank as the user's location drifts while viewing the carousel.
+    const context = buildHomeUserContext({ profile, location: gpsCoords, surface: 'post_workout' });
     runSuggestionEngine(context).then((ranked) => {
       if (!cancelled) setPostWorkoutSuggestions(ranked);
     }).catch((error) => {
@@ -1194,14 +1206,18 @@ export default function HomePage() {
     if (!profile) return;
     setStartingSuggestionId(suggestion.id);
     try {
-      const context = buildHomeUserContext({ profile, location: null, surface: 'post_workout' });
+      // Fix (31.08.2026, Section E) — see the post_workout ranking effect's own comment,
+      // above, for why this is now a silent gpsCoords read instead of hardcoded null: a
+      // tapped route suggestion needs the real location to resolve its actual route, not
+      // just to rank it.
+      const context = buildHomeUserContext({ profile, location: gpsCoords, surface: 'post_workout' });
       const workout = await suggestionToGeneratedWorkout(context, suggestion);
       if (!workout) return;
       handlePostWorkoutStart(workout);
     } finally {
       setStartingSuggestionId(null);
     }
-  }, [profile, handlePostWorkoutStart]);
+  }, [profile, handlePostWorkoutStart, gpsCoords]);
 
   // Check for query params from post-workout CTA, JIT return, or join landing
   useEffect(() => {

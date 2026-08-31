@@ -108,7 +108,14 @@ export async function resolveRouteWorkout(
 export const routeGenerator: Generator = {
   id: 'route',
   name: 'הליכה / מסלול',
-  surfaces: ['map', 'home'],
+  // 'post_workout' added 31.08.2026 (Section E — the real step-aware route/walking
+  // suggestion was missing after finishing a workout; complementary-short.generator.ts is
+  // registered there but actually builds a generic core workout, unrelated to steps/route
+  // despite its stepsRemaining eligibility gate — David's explicit choice among 3 options
+  // was to add this generator here rather than fix that one). Requires home/page.tsx's
+  // post_workout UserContext to carry a real (non-null) location — see that file's own
+  // post_workout context-build comments for the silent-GPS-read mechanism this depends on.
+  surfaces: ['map', 'home', 'post_workout'],
 
   eligible: (context) => context.location !== null,
 
@@ -130,7 +137,7 @@ export const routeGenerator: Generator = {
         methodsUsed: [],
         difficulty: 2,
         goalTags: [activity === 'running' ? 'run' : 'walk'],
-        surfaceEligibility: ['map', 'home'],
+        surfaceEligibility: ['map', 'home', 'post_workout'],
         requiresLocation: true,
         score: 0,
         scoreBreakdown: {
@@ -168,7 +175,7 @@ export const routeGenerator: Generator = {
       methodsUsed: [],
       difficulty: DIFFICULTY_MAP[top.difficulty],
       goalTags: [activity === 'running' ? 'run' : 'walk'],
-      surfaceEligibility: ['map', 'home'],
+      surfaceEligibility: ['map', 'home', 'post_workout'],
       requiresLocation: true,
       score: 0,
       scoreBreakdown: {
