@@ -57,7 +57,9 @@ import { summarizeTodayStrengthVolume } from '@/features/home/utils/todayStrengt
 import { useWeeklyVolumeStore } from '../store/useWeeklyVolumeStore';
 import { buildUserProgramLevels } from '../../services/level-resolution.utils';
 import { getDefaultVolumeTarget } from '../../services/lead-program.service';
-import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
+import { toISODate, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
+import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
+import { resolveScheduledProgram } from '@/features/home/utils/resolveScheduledProgram';
 
 const FULL_BODY_DOMAINS = ['push', 'pull', 'legs', 'core'] as const;
 
@@ -115,6 +117,21 @@ export interface BuildHomeUserContextInput {
    * of the day you happen to be looking at."
    */
   date?: Date;
+  /**
+   * Fix (31.08.2026, "edited today to strength in the schedule, still recommends recovery"):
+   * `userSchedule/{uid}_{date}` real per-day override entries for the date `todayGoal` is
+   * being computed for — e.g. from `getScheduleEntries(profile.id, dateISO)`. Optional and
+   * caller-resolved (this builder stays synchronous on principle — see this file's own
+   * header comment on why `todayGoal` was deliberately kept sync-only) — every existing
+   * caller that doesn't pass this keeps the prior scheduleDays/recurringTemplate-only
+   * behavior, byte-identical. When passed, `resolveScheduledProgram` (StatsOverview's own
+   * pure rest-day resolver, `resolveScheduledProgram.ts`) decides isRestDay from the REAL
+   * entry first — a one-off "add workout for today" (which writes only to this collection,
+   * never to `lifestyle.scheduleDays`/`recurringTemplate`) now overrides the recurring
+   * pattern exactly like it already does for `MonthlyCalendarGrid`'s own day-icon rendering,
+   * instead of being invisible to the ranking engine entirely.
+   */
+  todayScheduleEntries?: UserScheduleEntry[];
 }
 
 export function buildHomeUserContext({
@@ -122,6 +139,7 @@ export function buildHomeUserContext({
   location,
   surface = 'home',
   date,
+  todayScheduleEntries,
 }: BuildHomeUserContextInput): UserContext {
   const stepContext = buildStepContext(useActivityStore.getState().today);
 
@@ -143,6 +161,27 @@ export function buildHomeUserContext({
       (dayPrograms) => Array.isArray(dayPrograms) && dayPrograms.length > 0,
     );
 
+  // Fix (31.08.2026) — see BuildHomeUserContextInput.todayScheduleEntries's own doc comment.
+  // Reuses resolveScheduledProgram as-is (no changes there) rather than re-deriving its
+  // rest/training precedence a second time — hydrated:[] is correct here (this builder never
+  // writes a hydration entry itself, unlike StatsOverview's own caller of the same function;
+  // a real per-day override is either already in todayScheduleEntries or it isn't, nothing to
+  // hydrate-and-retry for a ranking-only computation).
+  const todayGoal: UserContext['todayGoal'] = todayScheduleEntries !== undefined
+    ? (resolveScheduledProgram({
+        rawEntries: todayScheduleEntries,
+        hydrated: [],
+        templateDayIds: profile.lifestyle?.recurringTemplate?.[getHebrewDayLetter(date ?? new Date())],
+        hasScheduleConfigured: hasAnySchedule,
+        activeProgramId: undefined,
+        runningProgramId: profile.running?.activeProgram?.programId,
+      }).isRestDay ? 'recovery' : 'strength')
+    : (!hasAnySchedule || isTodayTrainingDay(
+        profile.lifestyle?.scheduleDays,
+        profile.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,
+        date,
+      ) ? 'strength' : 'recovery');
+
   return {
     userId: profile.id,
     baseLevel: profile.progression?.globalLevel ?? 1,
@@ -150,13 +189,7 @@ export function buildHomeUserContext({
     weeklyPerformance: { trainedDomainsThisWeek: [], neglectedDomains: [], totalSetsCompleted: 0, weeklyBudget: 0 },
     recoveryState: { isDetrainingLocked: false, daysInactive: calculateDaysInactive(profile) },
     todayCompletedDomains: resolveTodayCompletedDomains(profile, date),
-    todayGoal: !hasAnySchedule || isTodayTrainingDay(
-      profile.lifestyle?.scheduleDays,
-      profile.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,
-      date,
-    )
-      ? 'strength'
-      : 'recovery',
+    todayGoal,
     stepGoal: stepContext.stepGoal,
     stepsToday: stepContext.stepsToday,
     stepsRemaining: stepContext.stepsRemaining,

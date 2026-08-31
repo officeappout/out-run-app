@@ -66,6 +66,7 @@ import ContributionWizard from '@/features/parks/client/components/contribution-
 import QuickReportSheet from '@/features/parks/client/components/contribution-wizard/QuickReportSheet';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
+import { getScheduleEntries } from '@/features/user/scheduling/services/userSchedule.service';
 
 import { toISODate, getHebrewDayLetter, stepSelectedDate } from '@/features/user/scheduling/utils/dateUtils';
 import { getWorkoutsForDate, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
@@ -954,9 +955,17 @@ export default function HomePage() {
     // eslint-disable as profile's own full object) — this effect fires once per completed
     // workout, not on every GPS position update; it reads whatever fix is available at that
     // moment, it doesn't re-rank as the user's location drifts while viewing the carousel.
-    const context = buildHomeUserContext({ profile, location: gpsCoords, surface: 'post_workout' });
-    runSuggestionEngine(context).then((ranked) => {
-      if (!cancelled) setPostWorkoutSuggestions(ranked);
+    // Fix (31.08.2026, "edited today to strength, still recommends recovery"): a real
+    // per-day userSchedule override for today (e.g. "add workout for today" in the planner)
+    // is invisible to todayGoal unless fetched and passed in explicitly — see
+    // BuildHomeUserContextInput.todayScheduleEntries's own doc comment (build-home-user-
+    // context.ts) for why this builder doesn't fetch it internally.
+    getScheduleEntries(profile.id, toISODate(new Date())).then((todayScheduleEntries) => {
+      if (cancelled) return;
+      const context = buildHomeUserContext({ profile, location: gpsCoords, surface: 'post_workout', todayScheduleEntries });
+      return runSuggestionEngine(context).then((ranked) => {
+        if (!cancelled) setPostWorkoutSuggestions(ranked);
+      });
     }).catch((error) => {
       // Without this, a rejection left postWorkoutSuggestions null forever with
       // no visible error — confirmed 22.08.2026 (this was NOT what actually
@@ -1056,22 +1065,30 @@ export default function HomePage() {
     // feed) were silently computed against the real calendar date regardless of which day the
     // user was actually looking at. selectedDate is now also a dependency below for the same
     // reason — switching days previously didn't even re-run this effect at all.
-    const context = buildHomeUserContext({
-      profile,
-      location: null,
-      surface: 'home',
-      date: new Date(selectedDate + 'T00:00:00'),
-    });
-    runSuggestionEngineStreaming(context, (suggestion) => {
-      // TEMPORARY diagnostic (26.08.2026, per David's request) — understand why one suggestion
-      // outranks another on a real device; remove once ranking behavior is understood/tuned.
-      console.log(
-        `[home] scoreBreakdown "${suggestion.generatorId}" (score=${suggestion.score}):`,
-        suggestion.scoreBreakdown,
-      );
-      if (!cancelled) resolveHomeTier2(suggestion, context, profile);
-    }).then((ranked) => {
-      if (!cancelled) setPreWorkoutSuggestions(ranked.slice(0, 3));
+    // Fix (31.08.2026) — see the post_workout ranking effect's own comment, above, and
+    // BuildHomeUserContextInput.todayScheduleEntries's doc comment (build-home-user-
+    // context.ts): selectedDate IS today's ISO string here (guaranteed by the early return
+    // above), so this is the same real per-day override fetch, for the same reason.
+    getScheduleEntries(profile.id, selectedDate).then((todayScheduleEntries) => {
+      if (cancelled) return;
+      const context = buildHomeUserContext({
+        profile,
+        location: null,
+        surface: 'home',
+        date: new Date(selectedDate + 'T00:00:00'),
+        todayScheduleEntries,
+      });
+      return runSuggestionEngineStreaming(context, (suggestion) => {
+        // TEMPORARY diagnostic (26.08.2026, per David's request) — understand why one suggestion
+        // outranks another on a real device; remove once ranking behavior is understood/tuned.
+        console.log(
+          `[home] scoreBreakdown "${suggestion.generatorId}" (score=${suggestion.score}):`,
+          suggestion.scoreBreakdown,
+        );
+        if (!cancelled) resolveHomeTier2(suggestion, context, profile);
+      }).then((ranked) => {
+        if (!cancelled) setPreWorkoutSuggestions(ranked.slice(0, 3));
+      });
     }).catch((error) => {
       console.error('[home] runSuggestionEngine failed for home surface', error);
     });
