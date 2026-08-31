@@ -85,6 +85,7 @@ import * as zlib from 'zlib'; import * as https from 'https'; import * as admin 
 import { mapOsmSurfaceToType } from '../src/lib/route-collections/surface-type';
 import { fetchCityWayGrid, type CityWayGrid } from './lib/route-quality-osm-fetch.node';
 import { computeRouteComposition, type WayCategory } from './lib/route-composition-classify';
+import { computeRouteLighting } from './lib/route-lighting-street-segments.node';
 
 // ─────────────────────────────── CLI + region config ───────────────────────────────
 const DRY = process.argv.includes('--dry-run');
@@ -1545,7 +1546,11 @@ function outsideBoundaryReason(pts: number[][], boundaryPoly: number[][] | null)
 const B32 = '0123456789bcdefghjkmnpqrstuvwxyz';
 function geohash(lat: number, lon: number, prec = 7) { let idx = 0, bit = 0, even = true, h = ''; const la = [-90, 90], lo = [-180, 180]; while (h.length < prec) { if (even) { const m = (lo[0] + lo[1]) / 2; if (lon >= m) { idx = idx * 2 + 1; lo[0] = m; } else { idx = idx * 2; lo[1] = m; } } else { const m = (la[0] + la[1]) / 2; if (lat >= m) { idx = idx * 2 + 1; la[0] = m; } else { idx = idx * 2; la[1] = m; } } even = !even; if (++bit === 5) { h += B32[idx]; bit = 0; idx = 0; } } return h; }
 
-function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | null, authorityId: string, composition?: { sidewalkPct: number; genuinePct: number; ordinaryPct: number; otherPct: number }) {
+function buildRouteDoc(
+  c: Candidate, dem: { gainM: number; maxGrade: number } | null, authorityId: string,
+  composition?: { sidewalkPct: number; genuinePct: number; ordinaryPct: number; otherPct: number },
+  lighting?: { status: 'computed' | 'unknown'; litCoveragePct: number | null; isLit: boolean | null },
+) {
   const distance = c.lengthM; // meters (matches formatDistance + TLV pilot)
   // walking is the safe default for nature trails; paved pedestrian promenades also run well.
   // Bicycle-tagged candidates (isBicycle) get their own activityType — see Candidate.isBicycle.
@@ -1638,7 +1643,10 @@ function buildRouteDoc(c: Candidate, dem: { gainM: number; maxGrade: number } | 
     // and round-trip-only candidates never go through this path) — omitted,
     // not written with zeros, when unavailable; qualitySignals stays
     // genuinely optional rather than a false "computed" claim.
-    ...(composition ? { qualitySignals: { composition, computedAt: admin.firestore.FieldValue.serverTimestamp(), source: 'osm_overpass_v1' as const } } : {}),
+    // lighting is only ever present alongside composition (both require the
+    // !SKIP_OSM city-data path) — omitted, not zeroed, when unavailable,
+    // same discipline as composition itself.
+    ...(composition ? { qualitySignals: { composition, ...(lighting ? { lighting: { ...lighting, source: 'street_segments_lit' as const } } : {}), computedAt: admin.firestore.FieldValue.serverTimestamp(), source: 'osm_overpass_v1' as const } } : {}),
     geohash: geohash(mid[0], mid[1]),
     city: REGION.label,
     // Stage 1B: this script never set authorityId before — resolved once per
@@ -1832,6 +1840,14 @@ async function main() {
   }
   const wayCategoryCache = new Map<number, WayCategory>();
 
+  // Lighting at discovery time — Haifa only for now (matches the backfill's
+  // explicit scoping; other regions' street_segments coverage hasn't been
+  // reviewed for this yet — see the Haifa lighting-backfill task). Reads
+  // Haifa's ALREADY-INGESTED street_segments (no new fetch, no Overpass
+  // call) via the same computeRouteLighting used by scripts/backfill-route-
+  // lighting-haifa.ts, honesty fix (untagged-vs-confirmed-unlit) included.
+  const computeLightingForThisRegion = REGION.label === 'חיפה';
+
   const kept: { doc: ReturnType<typeof buildRouteDoc>; c: Candidate }[] = [];
   const dropped: { name: string; reason: string }[] = [];
   const boundaryDropped: { name: string; reason: string }[] = [];
@@ -1847,7 +1863,14 @@ async function main() {
           return { sidewalkPct: comp.sidewalkPct, genuinePct: comp.genuinePct, ordinaryPct: comp.ordinaryPct, otherPct: comp.otherPct + comp.unmatchedPct };
         })()
       : undefined;
-    const doc = buildRouteDoc(c, dem, resolvedAuthorityId, composition);
+    const lighting = computeLightingForThisRegion
+      ? await (async () => {
+          const rawPath = c.pts.map(([lat, lng]: number[]) => ({ lat, lng }));
+          const result = await computeRouteLighting(db, rawPath, [REGION.label]);
+          return { status: result.status, litCoveragePct: result.litCoveragePct, isLit: result.isLit };
+        })()
+      : undefined;
+    const doc = buildRouteDoc(c, dem, resolvedAuthorityId, composition, lighting);
     try {
       const validatedDoc = buildValidatedDoc('official_routes', doc, { mode: 'create', knownAuthorityIds }) as typeof doc;
       kept.push({ doc: validatedDoc, c });
