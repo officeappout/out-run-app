@@ -1,8 +1,6 @@
 import 'server-only';
-import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveIdentity, getAdminDb } from '@/lib/firebase-admin';
-import { SESSION_COOKIE_NAME, verifyAdminSession } from '@/lib/admin-session';
+import { requireRouteEditAccess } from '@/lib/api-auth';
 import { fetchLiveDemProfile } from '@/lib/dem-tile-cache/dem-tile-fetch-live.node';
 import { computeDifficulty, difficultyLevelToRouteDifficulty } from '@/features/parks/core/services/route-difficulty.service';
 
@@ -19,66 +17,12 @@ import { computeDifficulty, difficultyLevelToRouteDifficulty } from '@/features/
  * through InventoryService.updateRoute from route-geometry-edit.service.ts.
  */
 
-/**
- * Auth: X-Agent-Key (machine driver — the future accuracy agent, Phase 5)
- * OR a Bearer ID token / session cookie belonging to a superAdmin OR
- * authorityManager — deliberately NOT requireSection() from
- * src/lib/api-auth.ts, because that helper's Firestore role check only
- * recognizes isSuperAdmin/allowedSections/vertical-admin, never
- * isAuthorityManager. The canonical route editor
- * (admin/authority/routes/[id]/edit) itself allows superAdmin OR
- * authorityManager (its own gate: `!role.isSuperAdmin && !role.isAuthorityManager`)
- * — this route must match that exactly, or authority managers who can
- * fully edit/save a route would silently lose just this DEM fallback.
- * isAuthorityManager is mirrored here via the same `authorities.managerIds
- * array-contains uid` query getAuthoritiesByManager() (client-SDK) uses,
- * since no Admin-SDK equivalent already exists.
- */
-async function requireRouteEditAccess(request: NextRequest): Promise<NextResponse | null> {
-  const agentKey = process.env.AGENT_API_KEY;
-  if (agentKey) {
-    const presented = request.headers.get('x-agent-key') ?? '';
-    if (presented.length === agentKey.length) {
-      const a = Buffer.from(presented);
-      const b = Buffer.from(agentKey);
-      if (timingSafeEqual(a, b)) return null;
-    }
-  }
-
-  let uid: string | null = null;
-
-  const authHeader = request.headers.get('authorization') || '';
-  const bearer = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : '';
-  if (bearer) {
-    try {
-      const identity = await resolveIdentity(bearer);
-      if (identity.admin) uid = identity.uid;
-    } catch { /* fall through to cookie */ }
-  }
-
-  if (!uid) {
-    const cookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-    if (cookie) {
-      const session = await verifyAdminSession(cookie);
-      if (session?.admin === true) uid = session.uid;
-    }
-  }
-
-  if (!uid) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const db = getAdminDb();
-  const userSnap = await db.collection('users').doc(uid).get();
-  const core = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
-  if (core.isSuperAdmin === true) return null;
-
-  const managedSnap = await db.collection('authorities').where('managerIds', 'array-contains', uid).limit(1).get();
-  if (!managedSnap.empty) return null;
-
-  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-}
-
+// Auth: requireRouteEditAccess (src/lib/api-auth.ts) — agent key OR a
+// superAdmin/authorityManager Bearer token/session cookie. Extracted
+// 31.08.2026 (Stage 3) into that shared module so this route and the new
+// accuracy-queue route don't carry two independently-drifting copies of the
+// same gate logic; see that function's own doc comment for why it's NOT
+// requireSection().
 export async function POST(request: NextRequest) {
   const denied = await requireRouteEditAccess(request);
   if (denied) return denied;
