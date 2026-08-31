@@ -44,9 +44,11 @@ import {
   ChevronLeft,
   RotateCcw,
   Search,
+  Gauge,
 } from 'lucide-react';
 import dynamicImport from 'next/dynamic';
 import ApprovalDetailModal, { type ApprovalDetailItem } from '@/features/admin/components/approval/ApprovalDetailModal';
+import AccuracyQueueTab from '@/features/admin/components/routes/AccuracyQueueTab';
 import {
   CLIMB_TYPE_LABELS, CONTRIB_TYPE_LABELS, FACILITY_LABELS, AMENITY_CATEGORY_LABELS, COURT_SPORT_LABELS,
   formatDistance, climbDisplayName,
@@ -58,7 +60,13 @@ const AmenitiesQueueMap = dynamicImport(() => import('@/features/admin/component
   loading: () => <div className="h-full w-full bg-gray-100 animate-pulse rounded-3xl" />,
 });
 
-type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc' | 'amenities';
+// 'accuracy' is deliberately NOT a member of TABS below — its data shape
+// (agent verdict/confidence/reason) doesn't fit QueueItem, and its queue set
+// isn't the published==false filter every other tab shares (see
+// AccuracyQueueTab.tsx's own header). Rendered as an isolated tab + isolated
+// content block; every place `active`/`shownItems` derive from TABS.find()
+// guards against it explicitly rather than assuming a TABS entry exists.
+type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc' | 'amenities' | 'accuracy';
 
 // A row in the queue, normalised across entity types.
 interface QueueItem {
@@ -597,7 +605,11 @@ export default function ApprovalCenterPage() {
     return true;
   });
 
-  const shownItems = activeTab === 'climbs' && climbFilter !== 'all'
+  // 'accuracy' has no TABS entry (see ApprovalTab's own comment) — short-
+  // circuited first so `active.items` below is never reached for it.
+  const shownItems = activeTab === 'accuracy'
+    ? []
+    : activeTab === 'climbs' && climbFilter !== 'all'
     ? active.items.filter(i => i.climbType === climbFilter)
     : activeTab === 'amenities'
     ? (amenitySubView === 'suppressed' ? suppressedAmenities : filteredAmenities)
@@ -669,6 +681,23 @@ export default function ApprovalCenterPage() {
           </div>
         ))}
       </div>
+
+      {/* Accuracy queue — isolated 6th tab, deliberately outside TAB_GROUPS/TABS
+          (see ApprovalTab's own comment): its route set is every route with
+          persisted qualitySignals, not the published==false queue every other
+          tab shares. superAdmin-only, matching the backing API route's own gate
+          (an all-cities triage surface, not a single authority manager's scope). */}
+      {isSuperAdmin && (
+        <button
+          onClick={() => handleTabChange('accuracy')}
+          className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-bold transition-all border ${
+            activeTab === 'accuracy' ? 'bg-white text-gray-900 shadow-sm border-cyan-200' : 'bg-gray-100 text-gray-500 hover:text-gray-700 border-transparent'
+          }`}
+        >
+          <Gauge size={16} />
+          ביקורת דיוק מסלולים
+        </button>
+      )}
 
       {/* climbType sub-filter — only on the climbs tab */}
       {activeTab === 'climbs' && climbs.length > 0 && (
@@ -960,7 +989,14 @@ export default function ApprovalCenterPage() {
         </div>
       )}
 
+      {/* Accuracy queue tab content — isolated component, own fetch/state,
+          zero new write path (see AccuracyQueueTab.tsx's own header). */}
+      {activeTab === 'accuracy' && (
+        <AccuracyQueueTab isSuperAdmin={isSuperAdmin} currentUserId={currentUserId} adminName={adminName} />
+      )}
+
       {/* Active tab list */}
+      {activeTab !== 'accuracy' && (
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         {activeTab === 'amenities' && (amenitySubView === 'suppressed' ? loadingSuppressed : loadingAmenities) ? (
           <div className="py-16 flex flex-col items-center gap-3 text-center">
@@ -1098,6 +1134,7 @@ export default function ApprovalCenterPage() {
           </div>
         )}
       </div>
+      )}
 
       {totalPending > 0 && (
         <p className="text-xs text-gray-400 text-center">
