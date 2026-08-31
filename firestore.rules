@@ -896,6 +896,26 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // ROUTE DECISIONS — append-only accuracy-agent decision log (Stage 2,
+    // .claude/plans/vectorized-twirling-tiger.md). A record of every human
+    // approve/edit/drop verdict on a route, with the composition/lighting
+    // signals and what the agent would have suggested at that moment —
+    // NOT a route-like entity (unlike official_routes/curated_routes/
+    // climb_segments/street_segments/route_adjacency above), so it does
+    // NOT go through buildValidatedDoc's create/update authority-locking
+    // chokepoint (src/lib/route-collections/) — see src/lib/route-
+    // decisions/validate.ts's own header for the reasoning. Immutability
+    // enforced here, not just by convention: update/delete are hard `false`
+    // so a decision row can never be edited or removed after the fact,
+    // same pattern as audit_logs above.
+    // ============================================================
+    match /route_decisions/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ============================================================
     // CRM / AUTHORITIES — public read for city lookups, admin write
     // Pillar 7: pressureCount is incrementable by authenticated users
     // ============================================================
