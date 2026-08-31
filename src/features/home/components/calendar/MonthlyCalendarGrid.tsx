@@ -90,10 +90,28 @@ function buildMonthCells(year: number, month: number): MonthCell[] {
   const firstDay = new Date(year, month, 1);
   const startOffset = firstDay.getDay();
 
-  // Build exactly 35 cells (5 rows × 7 days). Any 6th-row overflow is cut;
-  // any rare 4-row month is padded to 35 with next-month filler cells.
+  // Fix (31.08.2026, Section I follow-up — "today's calendar card can't be tapped"):
+  // this used to hard-code exactly 35 cells (5 rows × 7 days), silently CUTTING any
+  // 6th-row overflow — a month with 31 days starting on Friday or Saturday (e.g. August
+  // 2026, which starts on Saturday) needs 6 rows to reach its last 1-2 days at all, so
+  // those days were never generated into the array in the first place, not merely marked
+  // !isCurrentMonth. Confirmed live: this made TODAY itself (Aug 31, 2026) untappable in
+  // any navigation state of this exact widget, and separately made displayCells' own
+  // todayIdx lookup below return -1 for the same dates, silently falling back to showing
+  // the WRONG week in collapsed mode (rowStart defaults to 0 — the array's first row —
+  // instead of today's real week) — a very plausible contributor to Section B's reported
+  // week-strip icon flicker, though not confirmed as the sole cause.
+  // This was never an intentional design limit — CELL_HEIGHT_EXPANDED's own comment in
+  // TrainingPlannerOverlay.tsx ("50; // 6 rows — smaller to fit within 310 px") already
+  // explicitly budgets for 6 rows; only this cell-generation loop had fallen out of sync
+  // with that. daysInMonth + startOffset rounded up to the nearest full week gives the
+  // real row count needed (35 for the common 4-5 row case, 42 for the rare 6-row case) —
+  // Math.max(35, ...) preserves the exact original padding behavior for every month that
+  // already fit.
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalCells = Math.max(35, Math.ceil((startOffset + daysInMonth) / 7) * 7);
   const cells: MonthCell[] = [];
-  for (let i = 0; i < 35; i++) {
+  for (let i = 0; i < totalCells; i++) {
     const d = new Date(year, month, 1 - startOffset + i);
     const iso = toISODate(d);
     cells.push({
