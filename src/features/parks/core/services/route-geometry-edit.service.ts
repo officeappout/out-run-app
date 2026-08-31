@@ -23,6 +23,7 @@ import { InventoryService } from './inventory.service';
 import { pathLengthMeters } from './geoUtils';
 import { computeGeneratorDifficulty } from './generator-elevation.service';
 import { auth } from '@/lib/firebase';
+import { logRouteDecision } from '@/lib/route-decisions/log-decision';
 import type { Route } from '../types/route.types';
 
 export interface GeometryEditRange {
@@ -154,6 +155,11 @@ function splicePath(path: Array<[number, number]>, ranges: GeometryEditRange[]):
   const removed = new Set<number>();
   for (const r of ranges) for (let i = r.startIdx; i <= r.endIdx; i++) removed.add(i);
   return path.filter((_, idx) => !removed.has(idx));
+}
+
+/** Length of one removed range, in meters — for editDetail.removedRanges (route_decisions logging). */
+function rangeLengthMeters(path: Array<[number, number]>, range: GeometryEditRange): number {
+  return pathLengthMeters(path.slice(range.startIdx, range.endIdx + 1));
 }
 
 /**
@@ -352,12 +358,34 @@ export async function applySafeGeometryEdit(
     }
 
     const newPath = spliceWithBridge(currentPath, range, connector);
-    return recomputeAndWrite(routeId, route, newPath, { bridged: true, connectorDistanceMeters: connector.distanceMeters });
+    const outcome = await recomputeAndWrite(routeId, route, newPath, { bridged: true, connectorDistanceMeters: connector.distanceMeters });
+    // ── Decision-log hook (Stage 2, accuracy-agent plan) ────────────────
+    // Fire-and-forget, non-fatal — logRouteDecision never throws.
+    if (outcome.ok) {
+      logRouteDecision(route, 'edit', ctx.decidedBy, {
+        editDetail: {
+          removedRanges: [{ startIdx: range.startIdx, endIdx: range.endIdx, lengthM: Math.round(rangeLengthMeters(currentPath, range)) }],
+          editKind: range.endIdx === range.startIdx ? 'delete-point' : 'delete-inset',
+        },
+      }).catch(() => {});
+    }
+    return outcome;
   }
 
   const rangeError = validateRanges(removedRanges, currentPath.length);
   if (rangeError) return { ok: false, error: rangeError };
 
   const newPath = splicePath(currentPath, removedRanges);
-  return recomputeAndWrite(routeId, route, newPath, { bridged: false });
+  const outcome = await recomputeAndWrite(routeId, route, newPath, { bridged: false });
+  if (outcome.ok) {
+    const editKind: 'trim-start' | 'trim-end' =
+      removedRanges.length === 1 && removedRanges[0].startIdx !== 0 ? 'trim-end' : 'trim-start'; // both-ends (2-range) case documented as 'trim-start' — the full removedRanges array below still captures both cuts
+    logRouteDecision(route, 'edit', ctx.decidedBy, {
+      editDetail: {
+        removedRanges: removedRanges.map((r) => ({ startIdx: r.startIdx, endIdx: r.endIdx, lengthM: Math.round(rangeLengthMeters(currentPath, r)) })),
+        editKind,
+      },
+    }).catch(() => {});
+  }
+  return outcome;
 }

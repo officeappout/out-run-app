@@ -29,6 +29,7 @@ import {
 import { IS_ROUTE_ADJACENCY_ENABLED, IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED, ROUTE_ENRICHMENT_PILOT_CITIES } from '@/config/feature-flags';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { buildValidatedDoc, stripUndefined } from '@/lib/route-collections';
+import { logRouteDecision } from '@/lib/route-decisions/log-decision';
 
 // ── Facilities client cache (stale-while-revalidate, localStorage, 6h TTL) ──
 // Mirrors parks.service.ts's fetchRealParks/_inflightParksFetch pattern —
@@ -1345,8 +1346,15 @@ export const InventoryService = {
     /**
      * Approve a pending route — sets published:true + status:'published'.
      * Also mirrors the update to curated_routes if the doc exists there too.
+     *
+     * `admin` is optional — only moderation.service.ts's approveEntity
+     * currently supplies it (the accuracy-agent's Stage 2 decision-log
+     * hook). The other 2 call sites (admin/authority/routes/page.tsx,
+     * admin/routes/page.tsx) omit it and are unaffected — no decision row
+     * is logged for those, everything else about this function is
+     * unchanged for them.
      */
-    approveRoute: async (routeId: string): Promise<void> => {
+    approveRoute: async (routeId: string, admin?: { adminId: string }): Promise<void> => {
         try {
             const payload = {
                 published: true,
@@ -1375,6 +1383,12 @@ export const InventoryService = {
                     });
                 recomputeAdjacencyForCities([route.city]);
                 recomputeEnrichmentForCities([route.city]);
+
+                // ── Decision-log hook (Stage 2, accuracy-agent plan) ────────
+                // Fire-and-forget, non-fatal — logRouteDecision never throws.
+                if (admin?.adminId) {
+                    logRouteDecision(route, 'approve', admin.adminId).catch(() => {});
+                }
             }
         } catch (error) {
             console.error('❌ Error approving route:', error);

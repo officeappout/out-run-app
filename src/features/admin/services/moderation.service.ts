@@ -29,6 +29,7 @@ import {
 } from '@/features/parks/core/services/contribution.service';
 import type { UserContribution } from '@/types/contribution.types';
 import type { AuditTargetEntity } from '@/types/audit-log.type';
+import { logRouteDecision } from '@/lib/route-decisions/log-decision';
 
 export type ModerationEntityType = 'park' | 'route' | 'climb' | 'contribution' | 'amenity';
 
@@ -57,7 +58,7 @@ export async function approveEntity(
       break;
 
     case 'route':
-      await InventoryService.approveRoute(id);
+      await InventoryService.approveRoute(id, { adminId: admin.adminId });
       break;
 
     case 'climb':
@@ -130,9 +131,32 @@ export async function rejectEntity(
       await updateDoc(doc(db, 'parks', id), { published: false, contentStatus: 'draft', ...reviewFields });
       break;
 
-    case 'route':
+    case 'route': {
       await updateDoc(doc(db, 'official_routes', id), { published: false, status: 'archived', ...reviewFields });
+      // ── Decision-log hook (Stage 2, accuracy-agent plan) ──────────────
+      // Fire-and-forget, non-fatal — a getDoc/log failure here must never
+      // fail the reject action itself, which already succeeded above.
+      getDoc(doc(db, 'official_routes', id))
+        .then((snap) => {
+          if (!snap.exists()) return;
+          const data = snap.data();
+          // getDoc returns the PERSISTED path form ({lat,lng}[]), not the
+          // [lng,lat] tuples logRouteDecision/pathLengthMeters expect (the
+          // conversion InventoryService.getRouteById normally does) —
+          // convert here since this is a raw getDoc, not a getRouteById call.
+          const path: Array<[number, number]> = Array.isArray(data.path)
+            ? data.path.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0])
+            : [];
+          logRouteDecision(
+            { id: snap.id, name: data.name, city: data.city, authorityId: data.authorityId, path, distance: data.distance, qualitySignals: data.qualitySignals },
+            'drop',
+            admin.adminId,
+            { dropDetail: { reasonNote: reason || undefined } },
+          ).catch(() => {});
+        })
+        .catch(() => {});
       break;
+    }
 
     case 'climb':
       await updateDoc(doc(db, 'climb_segments', id), { status: 'rejected', ...reviewFields });
