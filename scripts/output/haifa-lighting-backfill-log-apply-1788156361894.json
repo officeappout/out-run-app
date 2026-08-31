@@ -1,0 +1,1007 @@
+{
+  "generatedAt": "2026-08-31T06:06:01.894Z",
+  "applied": true,
+  "entries": [
+    {
+      "id": "1cdHqaFSOSHipeQWLpQN",
+      "name": "הקפת גן אופירה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1896,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "3OEIRnWxDJkU8gh1p39J",
+      "name": "טיילת חולדה גורביץ'",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1400,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "3WjhliVo9keOg1O30sEv",
+      "name": "לולאת פינת גן",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2400,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "55hGgMsLizDcxvaqQSar",
+      "name": "יער הכרמליתים",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2171,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "5HxuoT1Izdkj66Y13q4o",
+      "name": "קו הדלק הלבן",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 545,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "5cTkWWoQgtb49Qx2aF7H",
+      "name": "ואדי עמירם",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 456,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "6UiFYXMDxNo0bN5HvnxY",
+      "name": "שביל חיפה - הדר הכרמל",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3703,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "6shDNCtlTqSLfygsjC0b",
+      "name": "הקפת גן הזיכרון",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2888,
+      "samplePointCount": 19,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "6uqplv3vAEASPkpOSywn",
+      "name": "ואדי נדר",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 298,
+      "samplePointCount": 15,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "7MdKUAvDAOIlsmgqvBIP",
+      "name": "ואדי אחוזה תחתון",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 374,
+      "samplePointCount": 16,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "7WlKBvfSaWvWDGde0YpG",
+      "name": "הקפת פארק הלוחם היהודי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2879,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "8nETKrBjZAsnkbMgD0QW",
+      "name": "טיילת חוף הכרמל",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 741,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.35
+    },
+    {
+      "id": "AwLgBkCOloNzurXzEwAT",
+      "name": "יפה נוף",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1640,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "BFucH3htB76wYV9udVcx",
+      "name": "הטיילת",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 7814,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "BhkHrBS8nYp6drOmo5Lr",
+      "name": "שביל חיפה - הדר הכרמל",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2355,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "CcayTQUfVgRXOSXuMpKc",
+      "name": "שביל סביוני הכרמל",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1538,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "DnJDnFm4ey9ZyjigKkyW",
+      "name": "דרך התיכונים",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2625,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "EOs48ltcRbyUL8ET2j0O",
+      "name": "מסדרון אקולוגי גבעת העיזים",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 509,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "EwERNcl1o6CqIFQeqkHB",
+      "name": "נחל עובדיה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 777,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "FHLguhVzaHTBaZ0wZ8ND",
+      "name": "מורדות נווה שאנן",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1424,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "GDsWzgdOE3Ynxhl35749",
+      "name": "סעדיה פז",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2743,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.1
+    },
+    {
+      "id": "H0DekA3BxgwCKWqjCb2Z",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 618,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "HuFUi9I24qBMDa4lqQI1",
+      "name": "שביל חיפה - העיר התחתית",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2567,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "Hy5cnIeuCaCsAmty7tmT",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 225,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "IJriwoseO5jTXbu83b7y",
+      "name": "מורדות כרמליה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 582,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "IaU8SeGpqVH8ANn5Sxja",
+      "name": "הקפת גן לוקיי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 6702,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "JZLUIFZABZtJBnRHrVqI",
+      "name": "חורשת הבנים",
+      "before": null,
+      "after": {
+        "status": "computed",
+        "litCoveragePct": 100,
+        "isLit": true
+      },
+      "candidateSegmentsFound": 1605,
+      "samplePointCount": 15,
+      "realDataPointFraction": 1
+    },
+    {
+      "id": "K0fMO0D4d3TSnQ6XDah6",
+      "name": "טיילת איינשטיין",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1857,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "MPulUKhbvm3ccimDrCQd",
+      "name": "ואדי רמז",
+      "before": null,
+      "after": {
+        "status": "computed",
+        "litCoveragePct": 0,
+        "isLit": false
+      },
+      "candidateSegmentsFound": 1926,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.65
+    },
+    {
+      "id": "N9kmsg2VajN6UKHJnyK8",
+      "name": "דרך חיץ אש",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 439,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "OgofhEG9U5jlz51MznZC",
+      "name": "נחל זיו ונחל רמז",
+      "before": null,
+      "after": {
+        "status": "computed",
+        "litCoveragePct": 0,
+        "isLit": false
+      },
+      "candidateSegmentsFound": 2526,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.55
+    },
+    {
+      "id": "Ok1LZhsTk945jMeWp0PY",
+      "name": "שביל כרמל צרפתי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2876,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.05
+    },
+    {
+      "id": "PsQHH7nAgAnCAAdPedKr",
+      "name": "הקפת גן קיסלק",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 7340,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "QEcSKlc2hb8wLTrgg01l",
+      "name": "הקפת גן המייסדים",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 4922,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "QWbQbi6EtWSerEbZVa9e",
+      "name": "נחל נדר",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 158,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "RIyXn6F6J9xXD66QgBnS",
+      "name": "היסטורי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 7907,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "RPo8PqWCZF8ouOsGW3fX",
+      "name": "שביל חיפה - הדר הכרמל",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3081,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "Ren7UPpHRt7D4ndhcjPn",
+      "name": "נחל עמירם",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 591,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "S5w33ipRGAEaE3jn9OHG",
+      "name": "שביל הפסגה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 402,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "SetKBSkuYRkKa0gcVfYN",
+      "name": "ואדי זיו",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3359,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "U9YDRZvG5ZIqcmJL3uYl",
+      "name": "הקפת גן אלכס",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3306,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.44999999999999996
+    },
+    {
+      "id": "UOoumc9Cj3L9RvAq1aR4",
+      "name": "דרך נוף עובדיה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 468,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "UhL5ORRkm64CDhTnrl0k",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 582,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "W84oDxS7EcJ0WnndnZ07",
+      "name": "ואדי עובדיה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 764,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "ZMjVpLKo7Wxpq8G9N9xL",
+      "name": "המעונות",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 4950,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "bh83yDZiyIRkiwG0qpGq",
+      "name": "Wadi Vardiya",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1442,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "ccRfP8C8TNCZmbt6zoV2",
+      "name": "הקפת ספורטק חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2241,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "cln6BzbR9FlZPsC305sd",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 507,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "ctstXVT6uhfVHzygrqAF",
+      "name": "מורדות כבביר",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 796,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "ddDq2aP5HSDm2WtGdA0U",
+      "name": "היער",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 4160,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "dlYrNQUXrpM7KVRgDJGe",
+      "name": "שביל רמת אלון",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3967,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "eLnsY913jFgV6m5tpOtc",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 570,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "eniIrjh15Y7AdqA5BYKK",
+      "name": "דרך גבעת העיזים",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 422,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "exTA8hehPaquM9RLlLZz",
+      "name": "טיילת קרית אליעזר",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 3926,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "fVooPwPCgqTPvieNpkvq",
+      "name": "ואדי בן-דור",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1277,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "gjO5kAiTqnR16XBtT7f5",
+      "name": "נחל עמיק",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 809,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.4
+    },
+    {
+      "id": "hAHQkxYPkIJcgtQzb4hm",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1805,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "hIllntA7hZaRvSrUvCai",
+      "name": "Bahai Garden Upward tour",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2408,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "iPxq32HBzhXZDbOvy6YL",
+      "name": "נחל שיח",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 885,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "iyRiJDjelJJjsjQcnxuc",
+      "name": "שביל חיפה - הדר עליון ורמת הדר",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1875,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "jJIP2YBZWKVAWVJr3ugd",
+      "name": "ואדי שיח",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 245,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "jdTNWQWhBxCHyV3pnUOg",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1022,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "jlEKymaAZeDweol56DzT",
+      "name": "אסתר המלכה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 656,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "krzYFb0MHAdB0oFRTe4Q",
+      "name": "ואדי התשבי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1013,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "m0ZaunguD2UdFMizt9IV",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "computed",
+        "litCoveragePct": 0,
+        "isLit": false
+      },
+      "candidateSegmentsFound": 881,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.5
+    },
+    {
+      "id": "mDjtNChRBdWavQH0d9tk",
+      "name": "טיילת אריה גוראל",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2168,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.05
+    },
+    {
+      "id": "mk5mese5cVvi4a13FvFB",
+      "name": "מורדות אחוזה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 528,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "ntat2rj4cKXCGHsuzrfz",
+      "name": "טיילת ראסל ברי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 7386,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "qVd9kSwTfJfrMWdIPNuo",
+      "name": "שביל חיפה - הדר עליון ורמת הדר",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2043,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "sdeRuWtvNsIts7ZEydYu",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1857,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "sqleJoKw8BRScn69Itxj",
+      "name": "תל אהרון",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 612,
+      "samplePointCount": 16,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "v7BK3WWnQe8QiOejZVXM",
+      "name": "ואדי ראש-מיה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1724,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "w66gsTXatsdwzrDm4o2p",
+      "name": "ואדי אבן",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1930,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "w9w374yTMFfdjWtd44s0",
+      "name": "טיילת לואי",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2622,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0.1
+    },
+    {
+      "id": "x3q1hhPeg9GThwOWNvdJ",
+      "name": "שביל חיפה - הדר עליון ורמת הדר",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 2522,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "xGcKEuf655mgrbtfmXS9",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 1071,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    },
+    {
+      "id": "y3p96T3dhKgwxvOGzjXu",
+      "name": "שביל מסומן חיפה",
+      "before": null,
+      "after": {
+        "status": "unknown",
+        "litCoveragePct": null,
+        "isLit": null
+      },
+      "candidateSegmentsFound": 389,
+      "samplePointCount": 20,
+      "realDataPointFraction": 0
+    }
+  ]
+}
