@@ -127,6 +127,11 @@ const MIN_DAYS_FOR_HARD_SKILLS: Record<number, number> = {
  * We expose a separate helper for that path because at the wizard's "initial"
  * stage there are no built sessions yet.
  */
+// David, 01.09.2026: both rules below were 'ERROR' (blocking) until this
+// date — reconnected as 'WARN' (visible, non-blocking), the same ruling
+// already applied to the day-count/frequency mismatch case. Codes kept as
+// ERR_03/ERR_DAYS_MIN for continuity even though they're WARN-level now —
+// renaming them wasn't asked for and the code string isn't user-facing.
 export function validateInitial(
   skills: SkillId[],
   daysPerWeek: number,
@@ -134,12 +139,22 @@ export function validateInitial(
   const warnings: Warning[] = [];
   const hardCount = countActiveSkills(skills);
 
+  // ERR_03's real home is src/app/onboarding-new/program-path/page.tsx —
+  // that's the only screen where hardCount is actually chosen (toggleSkill,
+  // program-path/page.tsx:165, has no cap; its own continue-gate,
+  // program-path/page.tsx:217, only checks that something was selected —
+  // confirmed zero feedback there today). Deliberately NOT consumed from
+  // ScheduleStep.tsx (David, 01.09.2026) — nothing on that screen can
+  // change hardCount, so the warning would sit there unactionable forever,
+  // next to ERR_DAYS_MIN which genuinely is actionable there. Wiring it
+  // into program-path/page.tsx is separate work — that screen has no
+  // warning-display infrastructure at all today (checked, none exists).
   if (hardCount > MAX_ACTIVE_SKILLS) {
     pushWarning(
       warnings,
       'ERR_03',
-      'ERROR',
-      `יותר מ-${MAX_ACTIVE_SKILLS} סקילים קשים — בחר עד ${MAX_ACTIVE_SKILLS}.`,
+      'WARN',
+      `${hardCount} סקילים קשים — האימון מתפזר וההתקדמות בכולם תואט.`,
       [],
     );
   }
@@ -149,8 +164,8 @@ export function validateInitial(
     pushWarning(
       warnings,
       'ERR_DAYS_MIN',
-      'ERROR',
-      `${hardCount} סקילים קשים דורשים לפחות ${required} ימי אימון בשבוע.`,
+      'WARN',
+      `${daysPerWeek} ימים ל-${hardCount} סקילים קשים — מומלץ ${required} לפחות.`,
       [],
     );
   }
