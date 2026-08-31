@@ -173,40 +173,30 @@ export function validateInitial(
   return warnings;
 }
 
-/**
- * ERR_01 / ERR_02 — evaluated on a *single* SessionItem[] (one session, not a day).
- * Callers running the UPPER_CALISTHENICS builder use this to validate
- * the items they're about to push.
- */
-export function validateSingleSession(items: SessionItem[]): Warning[] {
-  const warnings: Warning[] = [];
-
-  const hasPlanche = items.some((i) => i.skillId === 'PLANCHE');
-  const hasHSPU = items.some((i) => i.skillId === 'HSPU');
-  if (hasPlanche && hasHSPU) {
-    pushWarning(
-      warnings,
-      'ERR_01',
-      'ERROR',
-      "פלאנץ' ו-HSPU באותו סשן — חלק לסשנים נפרדים.",
-      [],
-    );
-  }
-
-  const hasFL = items.some((i) => i.skillId === 'FRONT_LEVER');
-  const hasOAPU = items.some((i) => i.skillId === 'OAPU');
-  if (hasFL && hasOAPU) {
-    pushWarning(
-      warnings,
-      'ERR_02',
-      'ERROR',
-      'פרונט ו-OAPU באותו סשן — חייב לחלק.',
-      [],
-    );
-  }
-
-  return warnings;
-}
+// ERR_01 (Planche+HSPU same session) and ERR_02 (Front Lever+OAPU same
+// session) used to live here, in validateSingleSession(items: SessionItem[]).
+// Deleted 01.09.2026 (David) — not disconnected-and-kept, actually removed:
+// a validator that always returns [] is worse than no validator at all,
+// because a caller trusts an empty result instead of checking whether the
+// function even runs. Its only caller, buildUpperCalisthenicsSession, was
+// itself already dead (zero live callers) — see
+// .claude/knowledge/buildUpperCalisthenicsSession-dead-with-real-knowledge.md
+// for the volume-compensation logic worth preserving before that function
+// is ever touched.
+//
+// Live coverage today: WARN_MS_01 (two PUSH skills same day, :356-366) and
+// WARN_MS_02 (FL+OAPU same day, :368-379), both inside validateMultiSession
+// above — WARN-level, already wired into ScheduleStep.tsx.
+//
+// Granularity gap, deliberate not forgotten: WARN_MS_01/02 operate at
+// day-level (a day's sessions[] array), not session-level (one specific
+// session's items[] before it's pushed). In practice this hasn't mattered —
+// buildDefaultTemplate never auto-creates a day with two hard skills in one
+// session, so the only way to trigger either pattern today is manually
+// toggling both skills onto the same day via DayPopover, which day-level
+// WARN_MS_01/02 already catches. If a future caller genuinely needs
+// pre-push, single-session-scoped validation (not just same-day), that's a
+// ~5-minute rewrite — no scaffolding was kept for it on purpose.
 
 // ──────────────────────────────────────────────────────────────────────────
 // 2. buildDefaultTemplate — Sun/Tue/Thu lifestyle protection
