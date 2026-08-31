@@ -2841,7 +2841,21 @@ export default function HomePage() {
         selectedDate={selectedDate}
         onDaySelect={setSelectedDate}
         onStartWorkout={handleHeroPress}
-        onScheduleChanged={() => setScheduleVersion((v) => v + 1)}
+        onScheduleChanged={() => {
+          setScheduleVersion((v) => v + 1);
+          // Fix (31.08.2026, "edit schedule to strength, home still recommends recovery
+          // until leaving and re-entering the page"): scheduleVersion only re-fetches the
+          // calendar-entry batch for MonthlyCalendarGrid — it never touched the `profile`
+          // object in useUserStore, which is what buildHomeUserContext reads `lifestyle`
+          // from to compute todayGoal (7cb1cfa9's own fix). Without a fresh profile, that
+          // computation keeps using the pre-edit lifestyle snapshot, so rank-suggestions.ts
+          // keeps handing recovery-follow-up its goalMatch bonus. refreshProfile() pulls the
+          // real doc from Firestore and replaces `profile` with a new object reference,
+          // which the pre-workout ranking effect (deps: [profile, resolveHomeTier2,
+          // selectedDate]) already re-runs on — no other change needed for the ranking
+          // itself to pick up the edit immediately.
+          refreshProfile().catch((e) => console.error('[HomePage] Error refreshing profile after schedule edit:', e));
+        }}
         onCommunityTap={handleOpenGroupFromBanner}
         onPreviewEntry={setPreviewEntry}
         onEntryTap={handleCalendarEntryTap}
