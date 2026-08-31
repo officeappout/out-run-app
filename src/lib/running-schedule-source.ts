@@ -13,7 +13,7 @@
  * — the field doesn't exist yet, so nobody could have written it.
  *
  * `resolveRunningScheduleSource` is where David's product decision
- * (31.08.2026) lives: for rule-1 dispatch (`running-schedule-change.rules.ts`,
+ * (31.08.2026) lives: for rule-1 dispatch (`running-schedule-change.service.ts`,
  * Block 1b) and anything gating whether a day-change gets a warning, treat
  * a missing field as `'system-default'`, never `'user-chosen'`. Reasoning:
  * an existing runner picked their days inside a signup flow this project's
