@@ -959,16 +959,25 @@ export default function AgendaDayCard({
 
         // Reconstructed entries — plan-independent, real per-document
         // completion signal (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED).
-        // Unconditional: appended alongside whatever tiers 1-3 already
-        // produced (a real planned entry, a recurring-template entry, a
-        // scheduleDays synthetic entry, or nothing) — no attempt to match
-        // or dedupe against them. Every real workout doc for the day gets
-        // its own card, so a day with 2+ spontaneous workouts renders 2+
-        // distinct cards instead of one aggregate flag. Gated to
+        // Appended alongside whatever tiers 1-3 already produced (a real
+        // planned entry, a recurring-template entry, a scheduleDays
+        // synthetic entry, or nothing). Every real workout doc for the day
+        // gets its own card, so a day with 2+ spontaneous workouts renders
+        // 2+ distinct cards instead of one aggregate flag. Gated to
         // non-future days (a "completed" day can only be today or past —
         // mirrors isEmpty's own future-only gate).
         const actualWorkouts = actualWorkoutsMap?.[date] ?? [];
         if (AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED && baseMode !== 'future' && actualWorkouts.length > 0) {
+          // Dedup against the auto-generated recurring placeholder (28.08
+          // handoff, Section J): once a real workout exists for this date,
+          // the recurringTemplate/scheduleDays-fallback entry
+          // (source:'recurring') would otherwise sit forever next to the
+          // real completed card — no live writer ever flips a 'recurring'
+          // entry's `completed` to true, so it always reads as a second,
+          // still-pending workout. Only 'recurring' is dropped —
+          // 'manual'/'community'/'google_calendar' entries are a real,
+          // explicit plan and keep showing regardless.
+          result = result.filter((e) => !(e.type === 'training' && e.source === 'recurring' && !e.completed));
           result = [
             ...result,
             ...actualWorkouts.map((w) => ({
