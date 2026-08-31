@@ -499,7 +499,67 @@ export default function HomePage() {
       coverImage: '',
       segments: [],
     });
-  }, [tryOpenCompletedWorkout]);
+
+    // Fix (31.08.2026, Section I — "drawer shows a stale/ghost workout, 'start' gives one
+    // warmup exercise then ends"): this function used to only build the title-only stub
+    // above and stop — it never called handleWorkoutGenerated or cleared generatedWorkout,
+    // so the drawer (which renders generatedWorkout as its real content, not the stub — see
+    // its own generatedWorkout prop below) kept showing whatever content was left over from
+    // a completely unrelated previous action, or null on a fresh session (which the drawer's
+    // own "start" flow then falls back to building a plan from the empty stub's segments:[],
+    // producing exactly the one-warmup-then-done symptom).
+    //
+    // Scoped to strength (or uncategorized, same default the title fallback above already
+    // treats as a generic "אימון מתוזמן") — the same generator (full-strength) the home
+    // carousel's own hero card already uses, so a tap on TODAY's entry reuses that exact
+    // cache entry (full-strength-cheap-${profile.id}, the hero's own suggestion id) and shows
+    // byte-identical content to what home already displays, not a second independent build
+    // that could plausibly drift from it. A different date gets its own cache slot
+    // (calendar-${entry.date}) — resolveFullStrengthWorkout's cache is suggestion-id-keyed
+    // only, so reusing the hero's id for a non-today date would risk showing today's content
+    // for a different day, or overwriting the hero's own cached entry with another day's.
+    //
+    // cardio/walking/maintenance-only entries are NOT covered here (no equivalent
+    // real-build resolver audited for those categories yet) — generatedWorkout is still
+    // cleared so they at least never show a wrong/stale workout, but the drawer will show
+    // its own empty/no-content state rather than a real build. Narrower, known scope —
+    // not silently pretended to be solved.
+    if (!profile) return;
+    generatedWorkoutRef.current = null;
+    setGeneratedWorkout(null);
+    if (cats.length === 0 || cats.includes('strength')) {
+      setIsWorkoutLoading(true);
+      try {
+        const todayISO = toISODate(new Date());
+        const context = buildHomeUserContext({
+          profile,
+          location: null,
+          surface: 'home',
+          date: new Date(entry.date + 'T00:00:00'),
+        });
+        const suggestionId = entry.date === todayISO
+          ? `full-strength-cheap-${profile.id}`
+          : `calendar-${entry.date}`;
+        const workout = await resolveFullStrengthWorkout(suggestionId, profile, context);
+        // null = needs-assessment or a genuine generation failure — leave generatedWorkout
+        // null (already cleared above) so the drawer shows its own empty state rather than
+        // inventing content; same documented degrade the rest of this file already uses for
+        // "no real Tier-2 resolver yet" cases (route/safety-net).
+        if (workout) handleWorkoutGenerated(workout);
+      } catch (error) {
+        console.error('[home] resolveFullStrengthWorkout failed for calendar entry tap', error);
+      } finally {
+        setIsWorkoutLoading(false);
+      }
+    }
+    // handleWorkoutGenerated deliberately omitted below — it's defined later in this
+    // component (const), so adding it to this deps array hits a real TypeScript TDZ error
+    // ("used before declaration"), not just a lint warning. It's stable ([] deps, confirmed)
+    // so omitting it is safe; matches the same pre-existing forward-reference pattern this
+    // file already tolerates elsewhere (e.g. the post_workout ranking effect's own
+    // eslint-disable, a few lines above this function).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tryOpenCompletedWorkout, profile]);
 
   // Stage B (18.08.2026, "completion-loop" plan) — allGoalsMet drives the
   // post-workout carousel header's "finished everything" copy variant below.
