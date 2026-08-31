@@ -33,7 +33,7 @@ import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
-import { computeRouteLighting } from './lib/route-lighting-street-segments.node';
+import { computeRouteLighting, REAL_DATA_MIN_FRACTION } from './lib/route-lighting-street-segments.node';
 
 const APPLY = process.argv.includes('--apply');
 const HAIFA_CITY = 'חיפה';
@@ -54,7 +54,7 @@ interface LogEntry {
   id: string; name: string;
   before: { status: string; litCoveragePct: number | null; isLit: boolean | null } | null;
   after: { status: string; litCoveragePct: number | null; isLit: boolean | null };
-  candidateSegmentsFound: number; samplePointCount: number;
+  candidateSegmentsFound: number; samplePointCount: number; realDataPointFraction: number;
 }
 
 async function main() {
@@ -72,6 +72,7 @@ async function main() {
   const toWrite: Array<{ ref: FirebaseFirestore.DocumentReference; validated: Record<string, unknown> }> = [];
   let skippedNoComposition = 0;
   let litCount = 0, unlitCount = 0, unknownCount = 0;
+  let unknownZeroCandidates = 0, unknownLowRealData = 0;
   const coverages: number[] = [];
 
   for (const doc of routesSnap.docs) {
@@ -80,14 +81,20 @@ async function main() {
     const result = await computeRouteLighting(db, rawPath, HAIFA_CITYNAME_ALIASES);
 
     if (result.status === 'computed') coverages.push(result.litCoveragePct!);
-    if (result.status === 'unknown') unknownCount++;
+    if (result.status === 'unknown') {
+      unknownCount++;
+      if (result.candidateSegmentsFound === 0) unknownZeroCandidates++; else unknownLowRealData++;
+    }
     else if (result.isLit) litCount++;
     else unlitCount++;
 
+    const realDataPct = Math.round(result.realDataPointFraction * 1000) / 10;
     console.log(
       `[${doc.id}] "${data.name}" — ${result.status}` +
-      (result.status === 'computed' ? ` coverage=${result.litCoveragePct}% isLit=${result.isLit}` : ' (0 candidate segments found)') +
-      ` (${result.samplePointCount} samples, ${result.candidateSegmentsFound} candidates)`,
+      (result.status === 'computed'
+        ? ` coverage=${result.litCoveragePct}% isLit=${result.isLit}`
+        : result.candidateSegmentsFound === 0 ? ' (0 candidate segments found)' : ` (real-tag data only ${realDataPct}% of points — below the ${Math.round(50)}% trust floor)`) +
+      ` (${result.samplePointCount} samples, ${result.candidateSegmentsFound} candidates, realDataPct=${realDataPct}%)`,
     );
 
     const existingComposition = data.qualitySignals?.composition;
@@ -100,7 +107,7 @@ async function main() {
       ? { status: data.qualitySignals.lighting.status, litCoveragePct: data.qualitySignals.lighting.litCoveragePct, isLit: data.qualitySignals.lighting.isLit }
       : null;
     const newLighting = { status: result.status, litCoveragePct: result.litCoveragePct, isLit: result.isLit, source: 'street_segments_lit' as const };
-    logEntries.push({ id: doc.id, name: data.name, before: existingLighting, after: { status: newLighting.status, litCoveragePct: newLighting.litCoveragePct, isLit: newLighting.isLit }, candidateSegmentsFound: result.candidateSegmentsFound, samplePointCount: result.samplePointCount });
+    logEntries.push({ id: doc.id, name: data.name, before: existingLighting, after: { status: newLighting.status, litCoveragePct: newLighting.litCoveragePct, isLit: newLighting.isLit }, candidateSegmentsFound: result.candidateSegmentsFound, samplePointCount: result.samplePointCount, realDataPointFraction: result.realDataPointFraction });
 
     const payload = {
       qualitySignals: {
@@ -120,9 +127,9 @@ async function main() {
   }
 
   console.log(`\n\n=== Per-route summary ===`);
-  console.log(`lit (≥60%): ${litCount}`);
-  console.log(`unlit (computed, <60%): ${unlitCount}`);
-  console.log(`unknown (0 candidate segments): ${unknownCount}`);
+  console.log(`lit (≥60% of real-tagged points): ${litCount}`);
+  console.log(`unlit (computed, real data present, <60%): ${unlitCount}`);
+  console.log(`unknown: ${unknownCount}  (${unknownZeroCandidates} zero candidate segments, ${unknownLowRealData} real-tag data below the ${Math.round(REAL_DATA_MIN_FRACTION * 100)}% trust floor)`);
   if (coverages.length > 0) {
     const avg = Math.round((coverages.reduce((s, c) => s + c, 0) / coverages.length) * 10) / 10;
     console.log(`avg coverage among computed routes: ${avg}%  (min=${Math.min(...coverages)}%  max=${Math.max(...coverages)}%)`);
