@@ -937,6 +937,21 @@ export default function SmartWeeklySchedule({
   // explicit rest/training override over the recurring template.
   const [weekScheduleEntries, setWeekScheduleEntries] = useState<Map<string, UserScheduleEntry[]>>(new Map());
 
+  // Section B (31.08.2026): weekScheduleEntries starts empty on every mount (it's
+  // local state — a remount, not just a cold app boot, resets it), so the very
+  // first paint falls back to the recurring-template guess before this fetch
+  // resolves. On a day whose real status comes from a manual override (diverging
+  // from the recurring template), that guess is visibly wrong for the ~1-2s this
+  // fetch takes — live-measured, not assumed — then flips once real data lands.
+  // Blocking a loading gate on it was considered and rejected: it's local state,
+  // so the same gap reopens on every return-to-home navigation, not just cold
+  // boot, and the fetch is too slow to add to a blocking gate at that frequency
+  // regardless of the exact number. entriesLoaded instead drives a per-icon
+  // skeleton below (zero layout shift — same fixed-size slot either way) so the
+  // strip never shows a guess that might be wrong, only a neutral pulse until
+  // the real value is known.
+  const [entriesLoaded, setEntriesLoaded] = useState(false);
+
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
@@ -951,8 +966,13 @@ export default function SmartWeeklySchedule({
           byDate.set(entry.date, list);
         }
         setWeekScheduleEntries(byDate);
+        setEntriesLoaded(true);
       })
-      .catch(() => {/* non-critical — strip falls back to scheduleDays */});
+      .catch(() => {
+        // non-critical — strip falls back to scheduleDays, but still stop
+        // showing the skeleton so a fetch failure doesn't pulse forever.
+        if (!cancelled) setEntriesLoaded(true);
+      });
     return () => { cancelled = true; };
   }, [userId, scheduleVersion]);
 
@@ -1694,7 +1714,18 @@ export default function SmartWeeklySchedule({
                             overflow: 'visible',
                           }}
                         >
-                          {dayData && getDayIcon(day, dayData, effectiveCellSelected, index)}
+                          {!entriesLoaded && !showOverlay ? (
+                            // Section B: neutral pulse instead of the recurring-
+                            // template guess while weekScheduleEntries is still
+                            // loading — same fixed slot as the real icon below,
+                            // so swapping in the real icon causes no layout shift.
+                            <div
+                              className="rounded-full bg-gray-200 dark:bg-slate-700 animate-pulse"
+                              style={{ width: activityView ? 40 : 32, height: activityView ? 40 : 32 }}
+                            />
+                          ) : (
+                            dayData && getDayIcon(day, dayData, effectiveCellSelected, index)
+                          )}
 
                           {/* Legacy planned dot — rings view only */}
                           {!useIconView && planned && (
