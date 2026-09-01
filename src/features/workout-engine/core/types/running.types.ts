@@ -385,4 +385,69 @@ export interface RunningProfile {
   scheduleDays?: string[];
   onboardingData?: RunningOnboardingData;
   lastWorkoutDate?: string;
+  /**
+   * ⚠️ CORRECTED ROLE (01.09.2026, before merge) — diagnostic bookkeeping,
+   * NOT what drives UI visibility. An earlier draft treated this field's
+   * presence as the signal for whether to show a "rebuild your plan" retry
+   * UI — circular: the only writer was the retry button itself
+   * (`buildActiveRunningProgram`), so a user who failed at signup and never
+   * triggered a retry would never get this field, never see the button,
+   * and stay stuck exactly as before this fix. David caught this before
+   * merge.
+   *
+   * The actual detection signal is DERIVED, not stored:
+   * `running.isUnlocked === true && !running.activeProgram` — see
+   * `running-schedule-write.service.ts`'s `isRunningPlanBuildStuck`
+   * (verified atomic: `isUnlocked` and, when it succeeds,
+   * `activeProgram` are always written in the same object literal in the
+   * same single Firestore call, `onboarding-sync.service.ts:1674-1786,1940`
+   * — no transitional window where one is visible without the other having
+   * had its chance to land too).
+   *
+   * This field's actual job: bookkeeping for "since when has this user been
+   * stuck, and is this a repeated failure" — set when a build attempt fails
+   * (`getRunProgramTemplate`/`getRunWorkoutTemplates`/`generatePlan` — see
+   * `fetchAndGenerateActiveRunningProgram`), ISO string (client
+   * `new Date().toISOString()`, not `serverTimestamp()` — same reasoning as
+   * `lifestyle.personaAnsweredAt`: avoids the null-during-resolution
+   * read-back window and this codebase's stripUndefined-before-persist
+   * pattern making bare presence unreliable).
+   * - Never set for a user missing `paceProfile`/`generatedProgramTemplate`
+   *   themselves (`hasRunningRebuildInputs` false) — that's a structurally
+   *   different, non-retry-eligible gap; a retry would fail identically
+   *   forever, so recording a "stuck since" here would misrepresent it as
+   *   the same retry-eligible case.
+   * - Cleared (`deleteField()`, not just overwritten) on every successful
+   *   `activeProgram` build, from ANY writer.
+   * - On a REPEATED failure: the existing timestamp is preserved, never
+   *   refreshed to the retry's failure time — "stuck since X" beats "last
+   *   attempted at Y" (David, 01.09.2026).
+   *
+   * Always written/cleared together with `planBuildFailReason` below —
+   * never one without the other.
+   */
+  planBuildFailedAt?: string;
+  /**
+   * Which `FetchAndGenerateFailureReason` caused the failure recorded by
+   * `planBuildFailedAt` above (`'program-template-not-found' |
+   * 'no-workout-templates' | 'generation-threw'` — never
+   * `'missing-profile-data'`, which is never retry-eligible and never
+   * written here at all).
+   *
+   * Exists because `'no-workout-templates'` is deliberately overloaded:
+   * `fetchAndGenerateActiveRunningProgram`'s `.catch(() => [])` on
+   * `getRunWorkoutTemplates()` (matching `onboarding-sync.service.ts:1700`)
+   * means it fires for BOTH "the shared template pool is genuinely empty"
+   * and "the fetch itself failed" — without this field, a real production
+   * incident (the shared `runWorkoutTemplates` collection breaking) would
+   * be indistinguishable from ordinary per-user network flakiness: every
+   * new runner would silently retry and give up, with zero aggregate
+   * signal anywhere that something systemic broke (David, 01.09.2026
+   * review — added specifically to close that gap).
+   *
+   * Same write/clear/freeze semantics as `planBuildFailedAt` — set once at
+   * first retry-eligible failure, never refreshed on a later retry (even
+   * one that fails for a *different* reason), cleared together on success.
+   */
+  planBuildFailReason?: 'program-template-not-found' | 'no-workout-templates' | 'generation-threw';
 }
