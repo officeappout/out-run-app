@@ -77,7 +77,11 @@ export default function AccessCodesPage() {
           // `type`; seeds store it in `tenantType`. Read both (vertical-agnostic)
           // so company/youth_movement/school codes aren't mislabeled 'municipal'
           // — which would break the redemption affiliation + org league tab.
-          type: d.data().tenantType ?? d.data().type ?? 'municipal',
+          // A tenant doc with NEITHER field set (seen in prod: a stray tenant
+          // created without its base fields) must NOT silently default to
+          // 'municipal' — that produced a real MUN- code on a military org.
+          // Surface it as 'unclassified' instead and block code creation below.
+          type: d.data().tenantType ?? d.data().type ?? 'unclassified',
         })));
       } catch (err) {
         console.error('[AccessCodes] init error:', err);
@@ -110,6 +114,7 @@ export default function AccessCodesPage() {
 
   const handleCreate = async () => {
     if (!selectedTenantId || !selectedTenant) return; // unit optional — empty unitId = whole-org code
+    if (selectedTenant.type === 'unclassified') return; // org has no type/tenantType — refuse to guess
     setCreating(true);
     try {
       const input: CreateAccessCodeInput = {
@@ -219,6 +224,7 @@ export default function AccessCodesPage() {
     if (type === 'educational') return <GraduationCap size={14} className="text-amber-500" />;
     if (type === 'company') return <Briefcase size={14} className="text-violet-500" />;
     if (type === 'youth_movement') return <Tent size={14} className="text-emerald-500" />;
+    if (type === 'unclassified') return <X size={14} className="text-gray-400" />;
     return <Building2 size={14} className="text-cyan-500" />;
   };
 
@@ -227,6 +233,7 @@ export default function AccessCodesPage() {
     if (type === 'educational') return 'חינוכי';
     if (type === 'company') return 'חברה';
     if (type === 'youth_movement') return 'תנועת נוער';
+    if (type === 'unclassified') return 'לא מסווג — לא ניתן ליצור קוד';
     return 'עירוני';
   };
 
@@ -352,9 +359,14 @@ export default function AccessCodesPage() {
             </div>
           </div>
 
+          {selectedTenant?.type === 'unclassified' && (
+            <p className="text-xs font-bold text-red-500">
+              לא ניתן ליצור קוד — לארגון הזה אין סיווג (type/tenantType) ב-Firestore, אז אין דרך לדעת איזה prefix/onboardingPath לתת לו. תקנו את מסמך ה-tenant קודם.
+            </p>
+          )}
           <button
             onClick={handleCreate}
-            disabled={creating || !selectedTenantId}
+            disabled={creating || !selectedTenantId || selectedTenant?.type === 'unclassified'}
             className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold disabled:opacity-40 transition-colors"
           >
             {creating ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
