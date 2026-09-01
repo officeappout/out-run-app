@@ -26,7 +26,7 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimulation';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
-import { computeQualityBadges } from '@/features/parks/core/components/RouteQualityBadges';
+import { computeQualityBadges } from '@/features/parks/core/services/route-quality-badges.service';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
 import type { WorkoutActivityStatus } from '@/features/safecity/services/presence.service';
 
