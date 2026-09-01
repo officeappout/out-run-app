@@ -953,16 +953,20 @@ export default function WorkoutSettingsPage() {
     library: 'ספרייה',
   };
 
+  // Canonical PersonaId vocabulary (src/types/persona.types.ts) since the
+  // 01.09.2026 persona-model redefinition — replaced the prior mismatched
+  // label set (school_student/remote_worker/athlete/senior/reservist/
+  // active_soldier didn't match onboarding's own spelling for the same
+  // concepts) after relabeling the live 219-doc notification library onto
+  // this vocabulary (scripts/_migrate-persona-content-relabel.ts).
   const personaLabels: Record<string, string> = {
     parent: 'הורה',
     student: 'סטודנט',
-    school_student: 'תלמיד',
+    pupil: 'תלמיד',
     office_worker: 'עובד משרד',
-    remote_worker: 'עובד מהבית',
-    athlete: 'ספורטאי',
-    senior: 'גיל הזהב',
-    reservist: 'מילואימניק',
-    active_soldier: 'חייל סדיר',
+    military: 'צה"ל',
+    vatikim: 'גיל הזהב',
+    pro_athlete: 'ספורטאי קצה',
   };
 
   const timeOfDayLabels: Record<string, string> = {
@@ -1096,13 +1100,11 @@ export default function WorkoutSettingsPage() {
           <option value="__general__">כללי (ללא פרסונה)</option>
           <option value="parent">הורה</option>
           <option value="student">סטודנט</option>
-          <option value="school_student">תלמיד</option>
+          <option value="pupil">תלמיד</option>
           <option value="office_worker">עובד משרד</option>
-          <option value="remote_worker">עובד מהבית</option>
-          <option value="athlete">ספורטאי</option>
-          <option value="senior">גיל הזהב</option>
-          <option value="reservist">מילואימניק</option>
-          <option value="active_soldier">חייל סדיר</option>
+          <option value="military">צה"ל</option>
+          <option value="vatikim">גיל הזהב</option>
+          <option value="pro_athlete">ספורטאי קצה</option>
         </select>
 
         {/* Location filter */}
@@ -1214,11 +1216,11 @@ export default function WorkoutSettingsPage() {
                     <option value="">ללא (כללי)</option>
                     <option value="parent">הורה</option>
                     <option value="student">סטודנט</option>
+                    <option value="pupil">תלמיד</option>
                     <option value="office_worker">עובד משרד</option>
-                    <option value="remote_worker">עובד מהבית</option>
-                    <option value="athlete">ספורטאי</option>
-                    <option value="senior">גיל הזהב</option>
-                    <option value="reservist">מילואימניק</option>
+                    <option value="military">צה"ל</option>
+                    <option value="vatikim">גיל הזהב</option>
+                    <option value="pro_athlete">ספורטאי קצה</option>
                   </select>
                 )}
                 {bulkTagField === 'location' && (

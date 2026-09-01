@@ -482,7 +482,7 @@ export function isAdminEmailAllowed(email: string | null | undefined): boolean {
 // unconditionally (already ships a working 'company' affiliation). These three
 // gate the OTHER personas onto the same AccessCodeGate popup, one vertical at a
 // time. ALL DEFAULT FALSE: while false, PersonaStep's ACCESS_CODE_PERSONA_IDS
-// stays exactly {'office_worker'} — reservist/soldier/pupil/student pick a
+// stays exactly {'office_worker'} — military/pupil/student pick a
 // persona but never see the code popup, BYTE-IDENTICAL to today. The
 // validateAccessCode Cloud Function + admin /admin/access-codes panel already
 // support military/educational tenantTypes — flip a flag here to start
@@ -491,7 +491,7 @@ export function isAdminEmailAllowed(email: string | null | undefined): boolean {
 // tenantType:'educational', same bucket as pupil (school).
 // ============================================================================
 
-// ACCESS_CODE_MILITARY_ENABLED: adds reservist + soldier to ACCESS_CODE_PERSONA_IDS.
+// ACCESS_CODE_MILITARY_ENABLED: adds military to ACCESS_CODE_PERSONA_IDS.
 export const ACCESS_CODE_MILITARY_ENABLED = false;
 
 // ACCESS_CODE_SCHOOL_ENABLED: adds pupil to ACCESS_CODE_PERSONA_IDS.

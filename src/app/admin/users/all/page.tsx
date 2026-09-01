@@ -858,19 +858,25 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                         }
                         return null;
                       })()}
-                      {(fullProfile as any).onboardingAnswers?.persona && (
-                        <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold flex items-center gap-1">
+                      {/* Reads `personas[]` (canonical since the 01.09.2026 persona-model
+                          redefinition) -- the old `onboardingAnswers.persona` field this
+                          badge used to read was deleted outright from every user doc by
+                          that redefinition's cleanup script, so this badge would otherwise
+                          silently stop rendering for every user, forever. Renders one badge
+                          per entry -- multi-persona is real product intent, not an edge case. */}
+                      {((fullProfile as any).personas as Array<{ id: string }> | undefined)?.map((persona) => (
+                        <span key={persona.id} className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold flex items-center gap-1">
                           <User size={12} />
                           {(() => {
                             const personaLabels: Record<string, string> = {
                               parent: 'הורה', student: 'סטודנט/ית', pupil: 'תלמיד/ה',
-                              office_worker: 'עובד/ת משרד', reservist: 'מילואימניק/ית',
-                              soldier: 'חייל/ת', vatikim: 'גיל הזהב', pro_athlete: 'ספורטאי/ת קצה',
+                              office_worker: 'עובד/ת משרד', military: 'צה"ל',
+                              vatikim: 'גיל הזהב', pro_athlete: 'ספורטאי/ת קצה',
                             };
-                            return personaLabels[(fullProfile as any).onboardingAnswers.persona] || (fullProfile as any).onboardingAnswers.persona;
+                            return personaLabels[persona.id] || persona.id;
                           })()}
                         </span>
-                      )}
+                      ))}
                       {(fullProfile as any).onboardingAnswers?.primaryGoalLabel && (
                         <span className="px-2.5 py-1 bg-cyan-100 text-cyan-700 rounded-full text-xs font-bold flex items-center gap-1">
                           <TrendingUp size={12} />

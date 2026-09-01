@@ -4,14 +4,17 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 
-// Persona ID → Hebrew label map
+// Persona ID → Hebrew label map. Canonical PersonaId vocabulary since the
+// 01.09.2026 persona-model redefinition -- 'reservist'/'soldier' merged into
+// 'military' (see PersonaStep.tsx). Missing this key means every military
+// signup silently falls back to the generic 'המשתמש' label on this exact
+// screen, since selectedPersonaId is 'military' now, not the old split.
 const PERSONA_LABELS: Record<string, string> = {
   parent: 'הורה',
   student: 'סטודנט/ית',
   pupil: 'תלמיד/ה',
   office_worker: 'עובד/ת משרד',
-  reservist: 'מילואימניק/ית',
-  soldier: 'חייל/ת',
+  military: 'חייל/ת',
   vatikim: 'גיל הזהב',
   pro_athlete: 'ספורטאי/ת קצה',
 };
