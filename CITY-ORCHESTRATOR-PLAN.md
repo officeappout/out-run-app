@@ -70,6 +70,87 @@
 
 ---
 
+## Phase 1 — LOCKED DESIGN (01.09.2026 update, supersedes the sketch above)
+
+**Status: design approved, build NOT started.** Build waits on David's go, which comes after the Haifa pilot (Phase 0.4, still outstanding as of this writing — see below) resolves the adjacency step's final shape. Everything else in this section is locked and ready to build once that go is given. Written after Phase 0.1 and Phase 3 (route↔amenity tagging) were actually built and shipped to production in a separate session — this section reflects live-reverified facts, not the original sketch's assumptions, where the two differ.
+
+**What changed vs. the original sketch above, confirmed by re-reading the live code, not assumed:**
+- Phase 0.2 is done for `write-climb-segments-tlv.ts` and `backfill-route-lighting-haifa.ts` (both now take `--city=`). `extract-osm-amenities-tlv.ts` was already parameterized. **Phase 0.3 is only partly done**: the standalone lighting wrapper is generalized, but `geo-discovery-routes.ts:1849` still hardcodes lighting-at-discovery-time to Haifa (`REGION.label === 'חיפה'`) — see the Add-City section below, this is now scheduled to be fixed as part of that work.
+- **Phase 0.4 (the Haifa pilot) has NOT happened** — live-checked: Haifa is still `published=3, pending=74`, `route_adjacency` for `cityName='חיפה'` is still 0. The automatic publish→adjacency trigger remains completely unverified in production. This is the one gate on starting the build.
+- Phase 3 shipped with a different shape than this doc's own original sketch (`amenitySummary` as flat top-level field) — what actually shipped is `qualitySignals.amenities`, nested. Same intent, noted for anyone reading this doc expecting the original field name.
+- Climb_segments and parks are **excluded from the locked v1 signal set** below — climb_segments still needs a per-city terrain file prepared externally (not one-click even with the CLI now parameterized), parks already has a working city-agnostic admin-UI import flow with nothing to orchestrate.
+
+### Locked signal set (final)
+
+`OSM ingest → routes → street_segments → composition (inline, no separate step) → lighting → amenities/crossings tagging → adjacency`, shade excluded (deferred to a future municipal tree-registry import, no probe run — decided directly, not investigated further).
+
+**"OSM ingest" = a one-time, per-city MANUAL prerequisite, not a runtime step:** confirm/create the `authorities` doc, resolve the real OSM admin_level=8 relation id, register a `REGIONS`-equivalent bbox entry. This codebase's own standing rule (`extract-osm-amenities-tlv.ts:171-175`) is to never guess a name→relation match — see the Add-City screen below for how this becomes a form instead of a code edit, and exactly how much of it still doesn't.
+
+### Where it runs (confirmed, one step needs zero new server code)
+
+- `demo-seed-sderot.ts`'s `runSderotDemoSeed(progress, authorityId)` shape is the pattern: client-side, sequential named steps, `ProgressUpdate{step,status,message,count}` into React state. `maxDuration=60` is real and confirmed on 6 independent admin routes.
+- **`/admin/segments/page.tsx` already calls `runOsmImport()` directly, client-side, with a progress callback** — the street_segments step needs zero new server code, just a direct call from the new orchestrator.
+- New files: `src/features/admin/services/city-mapping-orchestrator.ts` (`runCityMapping`), `src/app/admin/city-mapping/page.tsx`.
+
+**Per-step invocation, locked:**
+
+| Step | Invocation | New server code? |
+|---|---|---|
+| 0. OSM ingest (prereq) | Manual checklist item, replaced by the Add-City screen (see below) | None (screen replaces most of it) |
+| 1. routes (discovery) | **Manual gate (LOCKED DECISION 1 below)** — UI prints the exact CLI command, operator runs it, clicks "Verify" (reads back `official_routes` count) | None for v1; full automation is a named future item |
+| 2. street_segments | Direct client call to `runOsmImport()` | None — already client-callable |
+| 3. lighting | New thin API route wrapping `backfill-route-lighting-haifa.ts`'s core | Yes, thin |
+| 4. amenities/crossings ingest | New thin API route wrapping `extract-osm-amenities-tlv.ts`'s core | Yes, thin |
+| 5. amenities/crossings tagging | New thin API route wrapping `tag-route-amenities.ts`'s core (shipped, already applied to Haifa) | Yes, thin |
+| — PAUSE — | Orchestrator stops, links into Approval Center | None |
+| 6. adjacency | **Open — final shape waits on the Haifa pilot.** Must read the real `route_adjacency` count fresh from Firestore, never treat step-success as a proxy. Verify-only vs. verify+manual-retrigger (`backfill-route-adjacency.ts`) is the one undecided piece. | TBD pending pilot |
+
+Auth for new routes: `requireSuperAdminApi` (`src/lib/api-auth.ts`) — confirmed as the accuracy-queue route's own guard (`/api/admin/routes/accuracy-queue/route.ts`), the closest precedent for an all-cities-visible super-admin operation.
+
+**LOCKED DECISION 1 — route discovery stays a manual gate in v1.** `geo-discovery-routes.ts` is 1,925 lines, top-level-executing, not an importable function (unlike the other three scripts, which already have a clean entry point). Refactoring it to save one terminal command is a bad trade for v1. Full automation is future work, not silently dropped.
+
+**LOCKED DECISION 2 (unchanged from before, restated) — adjacency reports the real count, always.** A step can report `'done'` (the API call succeeded) while the thing it was meant to cause never happened — exactly the state Haifa is in right now. The end-of-run coverage report must show the real Firestore state, not step outcomes.
+
+**Idempotency — confirmed end-to-end, no new dedup logic needed anywhere:** routes (query-by-`source.externalId` before write, moderation state explicitly preserved on re-run — `geo-discovery-routes.ts:1904-1911`), lighting (in-place update, no new docs), amenities ingest (deterministic `osmId`-derived doc id + merge), amenities tagging (wholesale array replace + merge, shipped and verified), adjacency (full delete-then-rewrite per city in one batch, deterministic edge id — `inventory.service.ts:212-247`).
+
+---
+
+## Scope addition — "Add City" admin screen (LOCKED, 01.09.2026)
+
+Registering a new city becomes a form, not a code change — **for the DATA half.** Confirmed via full-file research that no existing screen in this codebase does search→disambiguate→pick anywhere (authority creation is a bare free-text form with no coordinates field at all; `/admin/segments` is free-text + 2 static presets; the only "candidates" shape in the repo, `resolveAuthorityForPoint`'s `{status:'ambiguous'}`, is dead code with zero callers) — this is genuinely new UI/service work, not a reuse.
+
+**Flow:**
+1. Operator types a city name → `POST /api/admin/city-mapping/resolve-boundary {name}` runs a name-search Overpass query (loose regex on both `name` and `name:he`, never exact-match — this codebase already hit and documented a real bug where exact matching fails on Hebrew maqaf/en-dash spelling variants, `extract-osm-amenities-tlv.ts:192-198`), scoped to `admin_level=8` within Israel, through the same 3-mirror + retry + custom-User-Agent hardening already proven in `extract-osm-amenities-tlv.ts`/`geo-discovery-routes.ts`.
+2. Renders a **candidate list** (raw `name`/`name:he`/`name:en`, `admin_level`, `wikidata`, `ref:IL:cbs`, center pin) — never an auto-pick. Operator visually confirms.
+3. `POST /api/admin/city-mapping/register-city {name, relationId, wikidataId}` does a full-geometry fetch on the confirmed relation only (reusing `fetchCityBoundary`'s exact pattern, fail-closed if it doesn't resolve), **shows the real polygon on a map for final confirmation before save** (cheap mitigation for the one real risk here: `geo-discovery-routes.ts`'s boundary-clip fails open on a bad match, no downstream safety net), computes an accurate bbox from the real geometry, and saves.
+
+**Persistence — LOCKED DECISION 2 (this section): `city_registrations/{authorityId}`, a plain Firestore collection with its own small validation function, NOT folded into `route-collections/schemas.ts`'s `SCHEMA_REGISTRY`** (that registry's create/authority rules, axioms §23, are shaped for route/geo output collections, not authority-level config — a registration doc doesn't fit it cleanly). Holds exactly the `Region` interface's 8 fields, confirmed pure data via full-file read (no per-entry function or conditional anywhere in the 11 existing `REGIONS` entries): `key`, `label`, `areaWikidata?`, `boundaryClipWikidata` (now populated from the resolved relation), `extraBboxes?` (empty by default, hand-curated later same as today), `bbox` (now geometry-derived — more accurate than today's hand-estimated `±0.06°` entries), `roundTripAnchors?` (empty by default), `batchId` (auto-generated), plus one **new** field: `computeLighting: boolean` (see decision below).
+
+### HONESTY CHECK — answered directly, not papered over
+
+**The screen does NOT fully eliminate the code change.** It owns registration (data) completely. `geo-discovery-routes.ts` still needs one bounded, now-scheduled code change, for three separate reasons:
+
+1. **It only reads the in-file `REGIONS` object today** — must be taught to also check `city_registrations` in Firestore. **LOCKED: existing `REGIONS` entries win** (Haifa/Ashkelon-variants/Zichron unchanged), Firestore-backed entries serve every new city.
+2. **Two hardcoded per-city string branches exist outside `REGIONS` entirely — confirmed via full-file re-read, a Firestore migration alone does not touch either:**
+   - `geo-discovery-routes.ts:1849` — `const computeLightingForThisRegion = REGION.label === 'חיפה'`. **LOCKED FIX: replace with a data-driven `region.computeLighting` field, defaulting `true`** — the lighting honesty-gate (`status:'unknown'`) already handles low-OSM-coverage cities gracefully, so there's no remaining reason to gate by city identity at all.
+   - `geo-discovery-routes.ts:1727` — inside `loadParkAnchors`, `const cityMatch = /אשקלון|ashkelon/i.test(p.city)`, a previously-unflagged Ashkelon-only regex that doesn't even read the `region` argument the function was actually passed. **LOCKED FIX: read `region.label` generically, like every other per-region check in the file.**
+   
+   Without these two fixes, a city registered perfectly through the new screen would silently get no lighting enrichment and no park-anchor matching at discovery time, while its registration record looked complete — exactly the failure mode this check exists to catch.
+3. **Standing risk, explicitly OUT of this scope (LOCKED DECISION 3):** every discovery-quality threshold (`LEN_TRAIL_MIN`, the `RECREATIONAL_*` sidewalk-gate constants, the park-loop Dijkstra routing gates, `geo-discovery-routes.ts:237-334` and `1178-1184`) is a single global constant, not a `Region` field, calibrated by hand-auditing Haifa's specific OSM data and applied uniformly to every city since. **Decision: leave as-is, document as a standing caveat** — see parking-lot entry below. A newly-mapped city's discovered routes must be spot-checked by a human before being trusted at the same confidence level as Haifa's, since quality is tuned on Haifa's data, not derived generically.
+
+**Bottom line, unchanged from the design review: the screen makes registration a form. Discovery quality stays code-bound** — items 1-2 above are now scheduled alongside the Add-City build; item 3 is a documented, accepted gap, not a build item.
+
+### Effort/risk — Add-City screen
+
+| Part | Effort | Risk |
+|---|---|---|
+| Add-City screen (search → candidate list → confirm-with-map-preview → save) | M — new UI/service code, no existing pattern to build on (confirmed) | Medium — wrong pick has no downstream safety net; mitigated, not eliminated, by the map-preview-before-save step |
+| `city_registrations` collection + validation | S | Low |
+| `geo-discovery-routes.ts`: Firestore-read fallback + fix 2 hardcodes | S-M, 3 named changes | Low-Medium — touches the one script every other step depends on |
+| Haifa-calibrated global thresholds | Not scoped | **Unaddressed by design** — parking-lotted, not silently carried forward |
+
+---
+
 ## Phase 2 — City Coverage Dashboard
 
 **Scope:** a per-city read view answering "what does this city actually have" — directly reusing the inventory's own per-city query logic (§2's live matrix was built by extending `scripts/audit-city-coverage.ts`'s exported `auditRoutes`/`auditLocations` functions; the same extension should become a real, permanent, reusable module rather than a one-off script).
