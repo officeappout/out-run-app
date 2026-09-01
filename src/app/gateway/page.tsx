@@ -564,7 +564,7 @@ export default function GatewayPage() {
               <div
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
                 style={{
-                  backgroundImage: `url('https://images.unsplash.com/photo-1461897104016-0b3b00b1ea56?q=80&w=1200&auto=format&fit=crop')`,
+                  backgroundImage: `url('/images/gateway/card-running.png')`,
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent" />
