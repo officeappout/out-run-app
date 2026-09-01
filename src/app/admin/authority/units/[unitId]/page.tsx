@@ -94,15 +94,15 @@ export default function UnitDrilldownPage() {
           try {
             const orgDoc = await getAuthority(activeTenantId);
             if (orgDoc) {
-              setTenantType(authorityTypeToTenantType(orgDoc.type));
+              setTenantType(authorityTypeToTenantType(orgDoc));
             } else if (authority) {
-              setTenantType(authorityTypeToTenantType(authority.type));
+              setTenantType(authorityTypeToTenantType(authority));
             }
           } catch {
-            if (authority) setTenantType(authorityTypeToTenantType(authority.type));
+            if (authority) setTenantType(authorityTypeToTenantType(authority));
           }
         } else if (authority) {
-          setTenantType(authorityTypeToTenantType(authority.type));
+          setTenantType(authorityTypeToTenantType(authority));
         }
 
         let resolvedUnitName = decodeURIComponent(rawUnitId);
@@ -194,10 +194,19 @@ export default function UnitDrilldownPage() {
   const labels = getTenantLabels(tenantType as any);
   const isSchoolContext = tenantType === 'educational';
 
-  const resolvedTenantType = (tenantType === 'military' || tenantType === 'educational' ? tenantType : 'municipal') as 'municipal' | 'educational' | 'military';
+  // tenantType is resolved via authorityTypeToTenantType(orgDoc) above, which
+  // now checks tenantType/vertical before falling back to the type string —
+  // it correctly returns all 5 verticals, not just military/educational.
+  // Passing it straight through (previously collapsed to 'municipal' for
+  // anything else, mislabeling company/youth_movement orgs — same class of
+  // bug fixed in /admin/access-codes on 01.09.2026).
+  const KNOWN_TENANT_TYPES = ['municipal', 'educational', 'military', 'company', 'youth_movement'] as const;
+  const resolvedTenantType = KNOWN_TENANT_TYPES.includes(tenantType as any)
+    ? (tenantType as 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement')
+    : null;
 
   const handleGenerateCode = async () => {
-    if (!tenantId || !unitId) return;
+    if (!tenantId || !unitId || !resolvedTenantType) return; // unclassified org — refuse to guess
     setGeneratingCode(true);
     try {
       console.log('[UnitDrilldown] Generating code with tenantType:', resolvedTenantType, '(raw:', tenantType, ')');
@@ -221,7 +230,7 @@ export default function UnitDrilldownPage() {
   };
 
   const handleGenerateBatch = async () => {
-    if (!tenantId || !unitId || batchCount < 1) return;
+    if (!tenantId || !unitId || batchCount < 1 || !resolvedTenantType) return; // unclassified org — refuse to guess
     setGeneratingBatch(true);
     try {
       console.log('[UnitDrilldown] Generating batch with tenantType:', resolvedTenantType, '(raw:', tenantType, ')');
@@ -507,10 +516,15 @@ export default function UnitDrilldownPage() {
             </div>
           </div>
 
+          {!resolvedTenantType && (
+            <p className="text-xs font-bold text-red-500 mb-2">
+              לא ניתן להפיק קוד — לארגון הזה סיווג לא מזוהה (type/tenantType/vertical). תקנו את מסמך ה-tenant קודם.
+            </p>
+          )}
           <div className="flex items-center gap-3">
             <button
               onClick={handleGenerateCode}
-              disabled={generatingCode}
+              disabled={generatingCode || !resolvedTenantType}
               className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all disabled:opacity-50"
             >
               {generatingCode ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
@@ -528,7 +542,7 @@ export default function UnitDrilldownPage() {
               />
               <button
                 onClick={handleGenerateBatch}
-                disabled={generatingBatch}
+                disabled={generatingBatch || !resolvedTenantType}
                 className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-all disabled:opacity-50"
               >
                 {generatingBatch ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}

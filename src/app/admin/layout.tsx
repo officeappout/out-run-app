@@ -297,7 +297,7 @@ function AdminLayoutInner({
                 if (info.isVerticalAdmin && info.managedVertical && !info.isSuperAdmin) {
                     try {
                         const orgs = await getAllAuthorities();
-                        const filtered = orgs.filter(o => authorityTypeToTenantType(o.type) === info.managedVertical);
+                        const filtered = orgs.filter(o => authorityTypeToTenantType(o) === info.managedVertical);
                         setAllOrganizations(filtered);
                         orgCtx?.setAllOrgs(filtered);
                     } catch { /* non-critical */ }

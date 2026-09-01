@@ -156,12 +156,33 @@ export function getTenantLabels(tenantType?: TenantType | string | null): Tenant
 /** Alias kept for backward compatibility */
 export const getOrgLabels = getTenantLabels;
 
-export function authorityTypeToTenantType(authorityType?: string | null): TenantType {
+function classifyByTypeString(authorityType?: string | null): TenantType {
   if (!authorityType) return 'municipal';
   const t = authorityType.toLowerCase();
   if (t === 'military' || t === 'military_unit' || t.includes('military') || t.includes('army') || t.includes('צבא')) return 'military';
   if (t === 'educational' || t === 'school' || t.includes('school') || t.includes('education') || t.includes('חינוך')) return 'educational';
   return 'municipal';
+}
+
+/**
+ * Resolves an authority's real vertical. `AuthorityType` (the `type` field)
+ * has no 'company'/'youth_movement' value — those orgs are stored with
+ * type='city' and get their real vertical from `tenantType` or the legacy
+ * `vertical` field instead (see the comment on `Authority.tenantType` in
+ * admin-types.ts). Passing just `.type` as a bare string — several call
+ * sites still do this — silently collapses company/youth_movement orgs
+ * into 'municipal', the same class of bug fixed in /admin/access-codes on
+ * 01.09.2026. Prefer passing the whole authority/org object; the plain
+ * string overload is kept only for callers that truly have nothing else.
+ */
+export function authorityTypeToTenantType(
+  authority?: { type?: string | null; tenantType?: TenantType | string | null; vertical?: string | null } | string | null,
+): TenantType {
+  if (!authority) return 'municipal';
+  if (typeof authority === 'string') return classifyByTypeString(authority);
+  if (authority.tenantType && authority.tenantType in TENANT_LABELS) return authority.tenantType as TenantType;
+  if (authority.vertical && authority.vertical in TENANT_LABELS) return authority.vertical as TenantType;
+  return classifyByTypeString(authority.type);
 }
 
 export function orgTypeDisplayName(t?: TenantType | string | null): string {

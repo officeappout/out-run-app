@@ -57,7 +57,7 @@ export function OrgSelectorProvider({ children }: { children: ReactNode }) {
   );
 
   const selectedOrgType = useMemo<TenantType>(
-    () => selectedOrg ? authorityTypeToTenantType(selectedOrg.type) : 'municipal',
+    () => selectedOrg ? authorityTypeToTenantType(selectedOrg) : 'municipal',
     [selectedOrg],
   );
 

@@ -37,7 +37,7 @@ export default function OrgCommandPalette() {
     for (const org of rootOrgs) {
       const name = typeof org.name === 'string' ? org.name : (org.name as any)?.he || org.id;
       if (q && !name.toLowerCase().includes(q) && !org.id.toLowerCase().includes(q)) continue;
-      map[authorityTypeToTenantType(org.type)].push(org);
+      map[authorityTypeToTenantType(org)].push(org);
     }
     return map;
   }, [rootOrgs, searchQuery]);

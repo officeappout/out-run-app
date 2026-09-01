@@ -340,11 +340,11 @@ export default function AuthorityTeamPage() {
               <SearchableSelect
                 options={(() => {
                   const filteredOrgs = urlType
-                    ? allOrgs.filter(o => authorityTypeToTenantType(o.type) === urlType)
+                    ? allOrgs.filter(o => authorityTypeToTenantType(o) === urlType)
                     : allOrgs;
                   return filteredOrgs.map(org => {
                     const name = typeof org.name === 'string' ? org.name : (org.name as any)?.he || org.id;
-                    return { id: org.id, label: `${name} (${orgTypeDisplayName(authorityTypeToTenantType(org.type))})` };
+                    return { id: org.id, label: `${name} (${orgTypeDisplayName(authorityTypeToTenantType(org))})` };
                   });
                 })()}
                 value=""
@@ -381,7 +381,7 @@ export default function AuthorityTeamPage() {
       {/* Org Selector for Super Admins */}
       {isSuperAdmin && allOrgs.length > 1 && (() => {
         const filteredOrgs = urlType
-          ? allOrgs.filter(o => authorityTypeToTenantType(o.type) === urlType)
+          ? allOrgs.filter(o => authorityTypeToTenantType(o) === urlType)
           : allOrgs;
         if (filteredOrgs.length <= 1) return null;
         return (
@@ -392,7 +392,7 @@ export default function AuthorityTeamPage() {
               <SearchableSelect
                 options={filteredOrgs.map(org => {
                   const name = typeof org.name === 'string' ? org.name : (org.name as any)?.he || org.id;
-                  return { id: org.id, label: `${name} (${orgTypeDisplayName(authorityTypeToTenantType(org.type))})` };
+                  return { id: org.id, label: `${name} (${orgTypeDisplayName(authorityTypeToTenantType(org))})` };
                 })}
                 value={authorityId || ''}
                 onChange={async (newId) => {
@@ -628,7 +628,7 @@ export default function AuthorityTeamPage() {
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
         context={{
-          tenantType: authority ? authorityTypeToTenantType(authority.type) : undefined,
+          tenantType: authority ? authorityTypeToTenantType(authority) : undefined,
           authorityId: authorityId || undefined,
           tenantId: authorityId || undefined,
           organizationName: authorityDisplayName,
