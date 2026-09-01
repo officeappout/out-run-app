@@ -138,18 +138,29 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   const handlePersonaNext = () => {
     // PersonaStep saves to onboarding store internally.
     //
-    // Writes `personas` HERE, at the persona->schedule transition -- not
-    // only in handleFinalSubmit -- so a user who answers persona and closes
-    // before schedule/notifications still counts as answered (David,
-    // 01.09.2026: "המערכת מתאימה עצמה למשתמש, לא ההפך"). This used to be a
-    // separate lifestyle.personaAnsweredAt marker field; writing the real
-    // `personas` array early instead makes hasAnsweredPersona() true
-    // immediately with no separate signal to keep in sync, and no
-    // serverTimestamp()-resolves-to-null-locally flicker risk either --
+    // ============================================================
+    // REPLACES `lifestyle.personaAnsweredAt` -- DO NOT REINTRODUCE IT.
+    // ============================================================
+    // A concurrent session added `lifestyle.personaAnsweredAt` as a marker
+    // field earlier today (01.09.2026) for the exact same purpose this early
+    // write now serves: let a user who answers persona and closes before
+    // schedule/notifications still count as answered (David: "המערכת
+    // מתאימה עצמה למשתמש, לא ההפך"). The 01.09.2026 clean persona-model
+    // redefinition deleted `personaAnsweredAt` outright (no alias, no
+    // compat field -- see docs/research/military-persona-unified-architecture.md)
+    // and this early `personas` write below is its direct replacement:
+    // writing the real `personas` array early makes hasAnsweredPersona()
+    // true immediately, with no separate marker field to keep in sync, and
+    // no serverTimestamp()-resolves-to-null-locally flicker risk either --
     // Timestamp.now() is a real value the instant it's written, same
     // reasoning that ruled out serverTimestamp() for the old field.
     // handleFinalSubmit re-writes `personas` with the latest selection, so
     // going back and changing persona after this fires is still correct.
+    //
+    // IF YOU ARE THE OTHER SESSION REBASING/MERGING ONTO THIS: do not bring
+    // back `personaAnsweredAt` -- `hasAnsweredPersona()` (and any other
+    // check) should read `personas?.length` instead. Ask David/this branch
+    // before re-adding it; it was a real same-day collision on `main`.
     const alreadyAnswered = !!(profile as any)?.personas?.length;
     if (!personaAnsweredWrittenRef.current && !alreadyAnswered) {
       personaAnsweredWrittenRef.current = true;
