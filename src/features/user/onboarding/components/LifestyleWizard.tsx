@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight } from 'lucide-react';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
@@ -79,15 +79,21 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
       if (!uid) throw new Error('No user');
 
       // Read persona + schedule from onboarding store (saved by PersonaStep / ScheduleStep)
-      const storePersonaId = (onboardingData as any)?.selectedPersonaId || '';
+      const storePersonaIds: string[] = (onboardingData as any)?.selectedPersonaIds?.length
+        ? (onboardingData as any).selectedPersonaIds
+        : (onboardingData as any)?.selectedPersonaId
+          ? [(onboardingData as any).selectedPersonaId]
+          : [];
       const storeScheduleDays = (onboardingData as any)?.scheduleDays || [];
       const storeLifestyleTags = (onboardingData as any)?.lifestyleTags || [];
       const calendarSyncEnabled = (onboardingData as any)?.calendarSyncEnabled ?? true;
 
+      // Final/authoritative personas write — overwrites the early write from
+      // handlePersonaNext below in case the user went back and changed their
+      // selection. answers:{} — the Phase 3/4 drawer doesn't exist yet.
       await setDoc(doc(db, 'users', uid), {
-        personaId: storePersonaId || null,
+        personas: storePersonaIds.map((id) => ({ id, answers: {}, updatedAt: Timestamp.now() })),
         lifestyle: {
-          selectedPersonaId: storePersonaId || null,
           lifestyleTags: storeLifestyleTags,
           trainingHistory: (onboardingData as any)?.historyFrequency || 'none',
           scheduleDays: storeScheduleDays,
@@ -118,55 +124,48 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
     }
   }, [onComplete, onboardingData]);
 
-  // Write-once guard for personaAnsweredAt: goToPreviousStep lets a user go
-  // back to persona and forward again within the same open wizard session,
-  // which would re-fire handlePersonaNext. profile from useUserStore isn't
-  // refreshed mid-session (refreshProfile() only runs on wizard completion),
-  // so it can't detect a write that just happened in THIS session -- hence
-  // the local ref, checked alongside the already-loaded profile value (which
-  // catches the case where the field was set in a prior session before this
-  // one opened).
+  // Write-once guard for the early `personas` write: goToPreviousStep lets a
+  // user go back to persona and forward again within the same open wizard
+  // session, which would re-fire handlePersonaNext. profile from
+  // useUserStore isn't refreshed mid-session (refreshProfile() only runs on
+  // wizard completion), so it can't detect a write that just happened in
+  // THIS session -- hence the local ref, checked alongside the
+  // already-loaded profile value (which catches the case where personas was
+  // set in a prior session before this one opened).
   const personaAnsweredWrittenRef = useRef(false);
 
   // Step-specific handlers
   const handlePersonaNext = () => {
     // PersonaStep saves to onboarding store internally.
     //
-    // personaAnsweredAt (C2) is written HERE, at the persona->schedule
-    // transition -- not in handleFinalSubmit -- so a user who answers
-    // persona and closes before schedule/notifications still counts as
-    // answered (David, 01.09.2026: "המערכת מתאימה עצמה למשתמש, לא ההפך").
-    // Fire-and-forget, matching this wizard's other step transitions (no
-    // loading state shown). If the write fails, hasAnsweredPersona falls
-    // back to the personaId-truthy check -- but personaId is only written
-    // in handleFinalSubmit, so that fallback does NOT cover the exact case
-    // this field exists for (answered persona, closed before finishing);
-    // it just fails safe toward "not answered" (re-asks) rather than
-    // silently marking someone answered who wasn't.
-    const alreadyHasTimestamp = !!(profile as any)?.lifestyle?.personaAnsweredAt;
-    if (!personaAnsweredWrittenRef.current && !alreadyHasTimestamp) {
+    // Writes `personas` HERE, at the persona->schedule transition -- not
+    // only in handleFinalSubmit -- so a user who answers persona and closes
+    // before schedule/notifications still counts as answered (David,
+    // 01.09.2026: "המערכת מתאימה עצמה למשתמש, לא ההפך"). This used to be a
+    // separate lifestyle.personaAnsweredAt marker field; writing the real
+    // `personas` array early instead makes hasAnsweredPersona() true
+    // immediately with no separate signal to keep in sync, and no
+    // serverTimestamp()-resolves-to-null-locally flicker risk either --
+    // Timestamp.now() is a real value the instant it's written, same
+    // reasoning that ruled out serverTimestamp() for the old field.
+    // handleFinalSubmit re-writes `personas` with the latest selection, so
+    // going back and changing persona after this fires is still correct.
+    const alreadyAnswered = !!(profile as any)?.personas?.length;
+    if (!personaAnsweredWrittenRef.current && !alreadyAnswered) {
       personaAnsweredWrittenRef.current = true;
       const uid = auth.currentUser?.uid;
-      if (uid) {
-        // Client timestamp (new Date().toISOString()), NOT serverTimestamp()
-        // -- deliberate, do not "fix" this back (David, 01.09.2026). Two
-        // reasons: (1) serverTimestamp() resolves to `null` locally until
-        // the server round-trip completes, which would flicker
-        // hasAnsweredPersona/the commit-4 CTA false->true right after the
-        // user answers; (2) this codebase's write paths run stripUndefined
-        // before persisting, so a present-but-unresolved key isn't even a
-        // reliable presence signal here -- "does the field exist" isn't
-        // trustworthy the way it would be in a codebase without that
-        // stripping step. A client ISO string is a real truthy value the
-        // instant it's written, on every read path, no cache-behavior
-        // assumptions needed. This field is a pure yes/no gate -- not used
-        // for ordering or analytics -- so clock skew costs nothing.
+      const earlyPersonaIds: string[] = (onboardingData as any)?.selectedPersonaIds?.length
+        ? (onboardingData as any).selectedPersonaIds
+        : (onboardingData as any)?.selectedPersonaId
+          ? [(onboardingData as any).selectedPersonaId]
+          : [];
+      if (uid && earlyPersonaIds.length > 0) {
         setDoc(
           doc(db, 'users', uid),
-          { lifestyle: { personaAnsweredAt: new Date().toISOString() } },
+          { personas: earlyPersonaIds.map((id) => ({ id, answers: {}, updatedAt: Timestamp.now() })) },
           { merge: true },
         ).catch((error) => {
-          console.error('[LifestyleWizard] personaAnsweredAt write failed:', error);
+          console.error('[LifestyleWizard] early personas write failed:', error);
         });
       }
     }

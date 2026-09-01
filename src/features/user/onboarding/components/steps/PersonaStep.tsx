@@ -16,8 +16,8 @@ import {
 
 // Personas that open the access-code popup. GATED to office_worker only — it is
 // the ONE vertical whose full chain produces a league tab today: the CF writes a
-// 'company' affiliation and useArenaAccess recognizes it. student/soldier/
-// reservist/pupil are a dead-end (the CF writes no affiliation for educational/
+// 'company' affiliation and useArenaAccess recognizes it. student/military/
+// pupil are a dead-end (the CF writes no affiliation for educational/
 // military, and useArenaAccess has no 'military' branch → the code sets
 // core.tenantId but no tab), so we don't promise them a broken flow. They
 // re-join this set once the CF + useArenaAccess are generalized (§5 follow-up b);
@@ -26,7 +26,7 @@ import {
 // all false, this stays exactly {'office_worker'}, byte-identical to today.
 const ACCESS_CODE_PERSONA_IDS = new Set([
   'office_worker',
-  ...(ACCESS_CODE_MILITARY_ENABLED ? ['reservist', 'soldier'] : []),
+  ...(ACCESS_CODE_MILITARY_ENABLED ? ['military'] : []),
   ...(ACCESS_CODE_SCHOOL_ENABLED ? ['pupil'] : []),
   ...(ACCESS_CODE_UNIVERSITY_ENABLED ? ['student'] : []),
 ]);
@@ -37,8 +37,7 @@ const ACCESS_CODE_PERSONA_IDS = new Set([
 const PERSONA_TENANT_TYPE: Record<string, AccessCodeResult['tenantType']> = {
   student: 'educational',
   pupil: 'educational',
-  soldier: 'military',
-  reservist: 'military',
+  military: 'military',
   office_worker: 'company',
 };
 
@@ -99,22 +98,17 @@ const LIFESTYLE_OPTIONS: LifestyleOption[] = [
     color: '#3B82F6',
   },
   {
-    id: 'reservist',
-    labelHeMale: 'מילואימניק',
-    labelHeFemale: 'מילואימניקית',
-    labelEn: 'Reservist',
+    // 01.09.2026 redefinition: merges the old separate 'reservist'/'soldier'
+    // cards into one — status (סדיר/קבע/מילואים) is a follow-up question
+    // (Phase 4 drawer, docs/research/military-persona-unified-architecture.md),
+    // not a separate top-level persona.
+    id: 'military',
+    labelHeMale: 'צה"ל',
+    labelHeFemale: 'צה"ל',
+    labelEn: 'IDF / Military',
     emoji: '🎖️',
-    tags: ['reservist', 'military', 'busy'],
+    tags: ['military'],
     color: '#16A34A',
-  },
-  {
-    id: 'soldier',
-    labelHeMale: 'חייל סדיר',
-    labelHeFemale: 'חיילת סדיר',
-    labelEn: 'Soldier',
-    emoji: '🪖',
-    tags: ['soldier', 'military', 'active'],
-    color: '#65A30D',
   },
   {
     id: 'vatikim',

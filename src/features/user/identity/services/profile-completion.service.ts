@@ -181,7 +181,7 @@ export function calculateProfileCompletion(
     {
       id: 'persona',
       label: 'סגנון חיים',
-      completed: !!profile.personaId,
+      completed: !!profile.personas?.length,
       weight: 10,
       bucket: 'strength',
       step: 'PERSONA',

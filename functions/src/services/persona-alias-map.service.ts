@@ -1,28 +1,27 @@
 /**
- * persona-alias-map.service — canonical persona normalization (Phase 0 Item 4).
+ * persona-alias-map.service — persona TAG normalization for admin-authored
+ * content (notification library, exercise-content tagging).
  *
  * LOCAL MIRROR — Admin SDK doesn't import FE (`src/`) modules; there is no
  * cross-project `paths`/`workspaces` config connecting `functions/tsconfig.json`
- * (only includes `functions/src`) to the outer `src/` project. Same
- * convention already used by `onboardingDropoffDispatcher.ts`'s local type
- * mirrors of `user.types.ts`.
+ * (only includes `functions/src`) to the outer `src/` project.
  *
  * SOURCE OF TRUTH lives at
  * `src/features/user/onboarding/services/persona-alias-map.service.ts` —
- * keep this file in sync with it BY HAND. This copy is a Cloud-Functions-safe
- * subset (no imports of any FE-only type), otherwise byte-identical in
- * behavior.
+ * keep this file in sync with it BY HAND (its `CanonicalPersona` type is
+ * `PersonaId | 'generic'` imported from `src/types/persona.types.ts`; this
+ * mirror hand-duplicates the same 7 values as a literal union since it
+ * can't import that file).
+ *
+ * REAL CALLERS TODAY (not zero — a prior version of this comment was wrong
+ * about that): `functions/src/stepGoalNudgeScheduler.ts` and
+ * `functions/src/onPlannedActivityCreated.ts`, both flag-gated
+ * (app_config/feature_flags.stepGoalNudgeEnabled /
+ * .socialActivityNearbyPushEnabled), both flags currently `true` in
+ * production as of 01.09.2026.
  *
  * See the source-of-truth file's header comment for the full "why this
- * exists" / "two onboarding write paths" background, and
- * `.claude/knowledge/push-phase0-implementation-plan.md` §Item 4 for the
- * full per-value alias-table reasoning.
- *
- * ⚠️ Phase 0 status: this module has ZERO callers anywhere in `functions/src`
- * as of this commit — it lands as a standalone module, not wired into any
- * live push sender yet. Wiring it into an actual sender (e.g. to filter a
- * future persona-targeted push) is deliberately out of this item's scope —
- * see the Open Decisions section of the plan doc.
+ * exists" background (docs/research/military-persona-unified-architecture.md).
  */
 
 export type CanonicalPersona =
@@ -30,8 +29,7 @@ export type CanonicalPersona =
   | 'student'
   | 'pupil'
   | 'office_worker'
-  | 'reservist'
-  | 'soldier'
+  | 'military'
   | 'vatikim'
   | 'pro_athlete'
   | 'generic';
@@ -41,8 +39,7 @@ const VALID_PERSONAS: ReadonlySet<string> = new Set<CanonicalPersona>([
   'student',
   'pupil',
   'office_worker',
-  'reservist',
-  'soldier',
+  'military',
   'vatikim',
   'pro_athlete',
   'generic',
@@ -53,10 +50,8 @@ export function isCanonicalPersona(value: unknown): value is CanonicalPersona {
 }
 
 /**
- * Raw ID / tag → canonical persona. Base entries are identity mappings for
- * the 8 canonical values (+ `generic`); everything below the divider is an
- * alias from one of the other 4 vocabularies or the notification corpus.
- * MUST stay identical to the src/ source-of-truth's PERSONA_ALIAS_MAP.
+ * Raw tag → canonical persona. MUST stay identical to the src/
+ * source-of-truth's PERSONA_ALIAS_MAP.
  */
 const PERSONA_ALIAS_MAP: Record<string, CanonicalPersona> = {
   // ── Canonical identities ──────────────────────────────────────────────
@@ -64,23 +59,21 @@ const PERSONA_ALIAS_MAP: Record<string, CanonicalPersona> = {
   student: 'student',
   pupil: 'pupil',
   office_worker: 'office_worker',
-  reservist: 'reservist',
-  soldier: 'soldier',
+  military: 'military',
   vatikim: 'vatikim',
   pro_athlete: 'pro_athlete',
   generic: 'generic',
 
-  // ── Aliases / legacy IDs ──────────────────────────────────────────────
-  senior: 'vatikim', // vatikim's own onboarding tags include 'senior' (PersonaStep.tsx:125) — highest-confidence alias in this map
-  athlete: 'generic', // no "casual athlete" tier exists; pro_athlete's tags (advanced/performance) would overclaim
-  young_pro: 'generic', // no canonical counterpart; office_worker rejected — doesn't reliably imply desk/WFH work
-
-  // Notification corpus (scripts/corpus/notification-corpus.json, 201 entries)
-  high_tech: 'office_worker', // 3rd-largest populated bucket (21); office_worker's 'wfh' tag is the closest semantic parent — recommend a content-team gut-check before trusting broadly
-  army_combat: 'soldier', // "combat" reads as active-duty framing, closer to soldier (tags: military,active) than reservist (tags: military,busy)
-  army_job: 'generic', // only 2 entries, ambiguous — recommend eyeballing the actual entries before trusting
-  // Note: the corpus also has 49 blank ('') persona values — handled by
-  // normalizePersonaValue()'s empty-string check below, not a map entry.
+  // ── Legacy content tags, pending relabeling ────────────────────────────
+  senior: 'vatikim',
+  athlete: 'generic',
+  young_pro: 'generic',
+  high_tech: 'office_worker',
+  army_combat: 'military',
+  army_job: 'military',
+  reservist: 'military',
+  soldier: 'military',
+  active_soldier: 'military',
 };
 
 /**
@@ -100,28 +93,21 @@ export function normalizePersonaValue(raw: unknown): CanonicalPersona | null {
  * data as read via the Admin SDK (no FE type dependency).
  */
 export interface PersonaResolvableProfile {
-  personaId?: string | null;
+  personas?: Array<{ id?: string | null }> | null;
   lifestyle?: {
-    lifestyleTags?: string[] | null;
-  } | null;
-  onboardingAnswers?: {
-    persona?: string | null;
-    personas?: string[] | null;
     lifestyleTags?: string[] | null;
   } | null;
 }
 
 /**
- * Resolve a user's canonical persona, checking both onboarding write paths.
- * Precedence (first non-empty, recognized value wins) — see the
- * source-of-truth file's doc comment for the full reasoning:
+ * Resolve a user's canonical persona for content-personalization purposes.
+ * See the source-of-truth file's doc comment for the full reasoning
+ * (multi-persona users pick the first deterministically — not a "primary").
+ * Precedence:
  *   1. Explicit override.
- *   2. Path B `lifestyle.lifestyleTags[0]`.
- *   3. Path B top-level `personaId`.
- *   4. Path A `onboardingAnswers.persona`.
- *   5. Path A `onboardingAnswers.personas[0]`.
- *   6. Path A `onboardingAnswers.lifestyleTags[0]`.
- *   7. `'generic'` — never returns null/undefined.
+ *   2. `personas[0].id` — the real source of truth after 01.09.2026.
+ *   3. `lifestyle.lifestyleTags[0]`.
+ *   4. `'generic'` — never returns null/undefined.
  */
 export function resolveCanonicalPersona(
   profile: PersonaResolvableProfile | null | undefined,
@@ -129,11 +115,8 @@ export function resolveCanonicalPersona(
 ): CanonicalPersona {
   const candidates: Array<string | null | undefined> = [
     overrideValue,
+    profile?.personas?.[0]?.id,
     profile?.lifestyle?.lifestyleTags?.[0],
-    profile?.personaId,
-    profile?.onboardingAnswers?.persona,
-    profile?.onboardingAnswers?.personas?.[0],
-    profile?.onboardingAnswers?.lifestyleTags?.[0],
   ];
 
   for (const candidate of candidates) {
