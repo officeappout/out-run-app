@@ -26,6 +26,7 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimulation';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
+import { computeQualityBadges } from '@/features/parks/core/components/RouteQualityBadges';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
 import type { WorkoutActivityStatus } from '@/features/safecity/services/presence.service';
 
@@ -981,7 +982,14 @@ export default function RouteDetailSheet({
                       route.features.lit === true
                     );
                     const hasTags = route.featureTags && route.featureTags.length > 0;
-                    if (!hasFeatures && !hasTags) return null;
+                    // qualitySignals-derived badges are a separate data source
+                    // (OSM-computed) from route.features (manually curated) —
+                    // dedupe the lighting badge against features.lit === true
+                    // so a route with both never shows "מואר" twice.
+                    const qualityBadges = computeQualityBadges(route.qualitySignals).filter(
+                      (b) => !(b.key === 'lighting' && route.features?.lit === true),
+                    );
+                    if (!hasFeatures && !hasTags && qualityBadges.length === 0) return null;
                     return (
                       <section className="mb-6">
                         <h3 className="text-[16px] font-bold mb-3">תכונות ומתקנים</h3>
@@ -1007,6 +1015,14 @@ export default function RouteDetailSheet({
                               className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600"
                             >
                               {ROUTE_FEATURE_TAG_LABELS[tag] ?? tag}
+                            </span>
+                          ))}
+                          {qualityBadges.map((b) => (
+                            <span
+                              key={b.key}
+                              className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600"
+                            >
+                              {b.label}
                             </span>
                           ))}
                         </div>

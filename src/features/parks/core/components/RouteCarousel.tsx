@@ -106,6 +106,7 @@ import { useMapStore } from '../store/useMapStore';
 import type { ActivityType, CommuteVariant, Route } from '../types/route.types';
 import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
 import RouteCardUnified from './RouteCardUnified';
+import RouteQualityBadges from './RouteQualityBadges';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 
 const ACCENT = '#00ADEF';
@@ -1082,6 +1083,7 @@ function RouteCard({
         difficulty={route.difficulty}
         isActive={isActive}
         className="snap-center snap-always"
+        extraContent={<RouteQualityBadges qualitySignals={route.qualitySignals} />}
         onCta={onStart}
         ctaContent={
           <>
