@@ -24,13 +24,40 @@
  *   runner" or "running is their primary track" — a dual-track user (both
  *   strength assessed AND running unlocked) gets `true` from both
  *   predicates. This is deliberate, not a gap: in the 2b+2d round's gate
- *   (`!hasSchedule || !hasAnsweredPersona || (isRunningMode &&
- *   !isRunningScheduleUserConfirmed(profile))`), a dual-track user who has
+ *   (`hasRunningTrack ? !hasAnsweredPersona || !isRunningScheduleUserConfirmed(profile)
+ *   : !hasSchedule || !hasAnsweredPersona`), a dual-track user who has
  *   running unlocked but never confirmed real running days still passes
- *   through the running-specific term — correct, since the guiding rule is
+ *   through the running branch — correct, since the guiding rule is
  *   "the system adapts to the user," and a user with running access left on
  *   system-default days indefinitely isn't adapted, regardless of which
  *   track they'd call "primary."
+ *
+ * ⚠️ KNOWN GAP, not fixed here (David, 01.09.2026) — `hasStrengthTrack`
+ * conflates "took a strength assessment" with "actively has a strength
+ * program." It fires from ANY strength domain at `currentLevel > 0`,
+ * including a single one-off assessment test — there is no signal in this
+ * file (or anywhere checked) that distinguishes "assessed once" from
+ * "added a program and is training it." Product-wise these are different:
+ * a runner who did one push-up assessment is still a runner, not a
+ * dual-track user.
+ *
+ * Per David's product model (01.09.2026): a first-ever signup (single
+ * track) goes through the onboarding wizard; a user *adding a second
+ * track* is routed to the schedule-builder drawer (Block 3 — not yet
+ * built), which merges two programs without clobbering either. That
+ * drawer is exactly where this gap will bite: a curious runner who only
+ * ever took one strength assessment would satisfy `hasStrengthTrack`,
+ * get treated as dual-track, and land in a screen built to merge two real
+ * programs when they genuinely have only one.
+ *
+ * Does NOT break the current (2b+2d) round: commit 3 branches purely on
+ * `hasRunningTrack`, so a curious runner is correctly routed to
+ * `RunningScheduleStep` either way, regardless of `hasStrengthTrack`'s
+ * imprecision. Tracked in `.claude/knowledge/track-ownership-assessment-vs-program-gap.md`.
+ * Not fixed here — no product decision yet on how to distinguish
+ * "assessed" from "actively training" (e.g. a program-start timestamp,
+ * an explicit "added program" flag). Do not silently narrow
+ * `hasStrengthTrack`'s behavior without that decision.
  */
 export function hasStrengthTrack(
   profile:
