@@ -39,6 +39,7 @@
 import type { UserFullProfile } from '../../core/types/user.types';
 import type { OnboardingStepId } from '../../onboarding/types';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
+import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 
 // ============================================================================
 // TYPES
@@ -227,34 +228,22 @@ export function calculateProfileCompletion(
     },
   ];
 
-  // Track ownership — the existing source of truth already used elsewhere in
-  // this exact file/codebase for each track, not invented here:
-  //   - Strength: profile.progression.domains non-empty is the SAME check
-  //     the 'goals' item above already uses as its own completed signal —
-  //     the earliest strength-track evidence available on the profile (set
-  //     right after the assessment step, before persona/schedule/equipment
-  //     are even reachable in the live flow).
-  //   - Running: profile.running.isUnlocked is the canonical flag for this
-  //     exact purpose (RunningProfile.isUnlocked — "is running unlocked for
-  //     this user"), set by the running bridge in onboarding-sync.service.ts
-  //     alongside activeProgram/paceProfile. There is no earlier live signal
-  //     for "started but not finished" running onboarding on the profile —
-  //     an abandoned mid-flow attempt is indistinguishable from never having
-  //     started, on both tracks equally (progression.domains is the one
-  //     partial exception, since it's set slightly before the rest of the
-  //     strength items).
-  const hasStrengthTrack = !!(
-    profile.progression?.domains && Object.keys(profile.progression.domains).length > 0
-  );
-  const hasRunningTrack = !!(profile.running as any)?.isUnlocked;
+  // Track ownership — src/lib/track-ownership.ts (shared, matches
+  // home/page.tsx's hasStrengthProgram verbatim). This file previously had
+  // its own inline hasStrengthTrack (domains non-empty, no NON_STRENGTH
+  // exclusion) -- misclassified a pure runner as strength-track-having,
+  // since progression.domains.running is a real, live key. Now a consumer
+  // of the shared, correct predicate instead.
+  const userHasStrengthTrack = hasStrengthTrack(profile);
+  const userHasRunningTrack = hasRunningTrack(profile);
 
   // Filter items based on active flags AND per-user track ownership — a
   // bucket only counts (numerator or denominator) for a user who actually
   // has that track. Symmetric in both directions; weights themselves are
   // untouched, only membership in `items` changes.
   const items = allItems.filter((i) => {
-    if (i.bucket === 'running') return enableRunningPrograms && hasRunningTrack;
-    if (i.bucket === 'strength') return hasStrengthTrack;
+    if (i.bucket === 'running') return enableRunningPrograms && userHasRunningTrack;
+    if (i.bucket === 'strength') return userHasStrengthTrack;
     return true;
   });
 
