@@ -6,6 +6,7 @@ import { Route, ActivityType } from '../types/route.types';
 import { useMapStore } from '../store/useMapStore';
 import Image from 'next/image';
 import RouteCardUnified from './RouteCardUnified';
+import RouteQualityBadges from './RouteQualityBadges';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 
 function formatSessionTime(isoString: string): string {
@@ -247,6 +248,7 @@ export default function BottomJourneyContainer({
                   }}
                   className="snap-center snap-always"
                   ctaLoading={isLoading}
+                  extraContent={<RouteQualityBadges qualitySignals={route.qualitySignals} />}
                   onCta={(e) => {
                     e.stopPropagation();
                     if (onRouteFocus) onRouteFocus(route);

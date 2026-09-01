@@ -10,6 +10,7 @@ import { HOME_ANCHOR_V2_ENABLED, RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED, HOME_ST
 import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorkoutCard';
 import { useStepDeficitRoute } from '../hooks/useStepDeficitRoute';
 import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified';
+import RouteQualityBadges from '@/features/parks/core/components/RouteQualityBadges';
 import type { DifficultyValue } from '@/features/workout-engine/components/DifficultyBolts';
 import AnchorLocationChip from './AnchorLocationChip';
 import type { LocationId } from './WorkoutBuilderSheet';
@@ -1140,6 +1141,7 @@ export default function StatsOverview({
                       distanceText={`${stepDeficitRoute.distance.toFixed(1)} ק״מ`}
                       durationText={`~${stepDeficitRoute.duration} דק׳`}
                       difficulty={stepDeficitRoute.difficulty}
+                      extraContent={<RouteQualityBadges qualitySignals={stepDeficitRoute.qualitySignals} />}
                       ctaContent={<><Footprints size={14} /><span>הליכה עד היעד</span></>}
                       onCta={() => router.push(`/map?openRun=walking&targetSteps=${stepDeficitStepsRemaining}`)}
                     />

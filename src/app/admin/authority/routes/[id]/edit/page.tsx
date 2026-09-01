@@ -70,6 +70,15 @@ function normalizeDifficulty(value: string | undefined): 'easy' | 'medium' | 'ha
   return value === 'easy' || value === 'medium' || value === 'hard' ? value : 'medium';
 }
 
+// Same Timestamp|Date|string-agnostic pattern as ParkDetailDrawer.tsx's formatDate
+// (parks/ParkDetailDrawer.tsx:22-25) — replicated locally rather than imported,
+// this file doesn't otherwise depend on that component.
+function formatQualityCertDate(ts: unknown): string {
+  if (!ts) return '—';
+  const d = ts instanceof Date ? ts : typeof (ts as any)?.toDate === 'function' ? (ts as any).toDate() : new Date(ts as any);
+  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function pathCenter(path: [number, number][]): { lng: number; lat: number } {
   if (path.length === 0) return { lng: 34.78, lat: 32.08 };
@@ -992,6 +1001,39 @@ export default function EditRoutePage() {
                 </span>
               </p>
             )}
+
+            {/* Quality certificate — full transparency: every signal renders
+                its real state, including an explicit "אין מידע" for anything
+                not yet computed or too sparse to trust. Never a false '—'.
+                Composition ships on all cities; lighting is Haifa-only today
+                (qualitySignals.lighting is simply absent elsewhere) — no
+                city-specific logic here, purely driven by what data exists. */}
+            <div className="pt-2 mt-2 border-t border-gray-200 space-y-1">
+              <p className="font-bold text-gray-600">תעודת איכות</p>
+              <p>
+                הרכב שטח:{' '}
+                <span className="font-bold text-gray-700">
+                  {route.qualitySignals?.composition
+                    ? `${route.qualitySignals.composition.genuinePct}% ייעודי · ${route.qualitySignals.composition.sidewalkPct}% מדרכה · ${route.qualitySignals.composition.ordinaryPct}% רגיל · ${route.qualitySignals.composition.otherPct}% אחר`
+                    : 'אין מידע'}
+                </span>
+              </p>
+              <p>
+                תאורה:{' '}
+                <span className="font-bold text-gray-700">
+                  {!route.qualitySignals?.lighting
+                    ? 'אין מידע'
+                    : route.qualitySignals.lighting.status === 'unknown'
+                    ? 'אין מידע (כיסוי נתונים נמוך)'
+                    : `${route.qualitySignals.lighting.litCoveragePct}% כיסוי (${route.qualitySignals.lighting.isLit ? 'מואר' : 'לא מואר'})`}
+                </span>
+              </p>
+              {route.qualitySignals?.composition && (
+                <p className="text-gray-400">
+                  מקור: תעודת איכות ({route.qualitySignals.source}) · חושב ב-{formatQualityCertDate(route.qualitySignals.computedAt)}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>
