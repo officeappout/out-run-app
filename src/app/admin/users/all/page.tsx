@@ -2339,7 +2339,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-gray-50 rounded-xl p-4">
                           <p className="text-xs text-gray-500 mb-1">פרסונה</p>
-                          <p className="font-bold text-gray-900">{(fullProfile as any)?.personaId || (fullProfile as any)?.onboardingAnswers?.persona || '?'}</p>
+                          <p className="font-bold text-gray-900">{(fullProfile as any)?.personas?.[0]?.id || '?'}</p>
                         </div>
                         <div className="bg-gray-50 rounded-xl p-4">
                           <p className="text-xs text-gray-500 mb-1">Dashboard Mode</p>
@@ -2350,8 +2350,12 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                           <p className="font-bold text-gray-900">{fullProfile.lifestyle?.hasDog ? 'כן' : 'לא'}</p>
                         </div>
                         <div className="bg-gray-50 rounded-xl p-4">
-                          <p className="text-xs text-gray-500 mb-1">Active Reserve</p>
-                          <p className="font-bold text-gray-900">{fullProfile.core?.isActiveReserve ? 'כן' : 'לא'}</p>
+                          <p className="text-xs text-gray-500 mb-1">פרסונות</p>
+                          <p className="font-bold text-gray-900">
+                            {(fullProfile as any)?.personas?.length
+                              ? (fullProfile as any).personas.map((p: any) => p.id).join(', ')
+                              : 'אין'}
+                          </p>
                         </div>
                       </div>
                       {fullProfile.lifestyle?.lifestyleTags && fullProfile.lifestyle.lifestyleTags.length > 0 && (

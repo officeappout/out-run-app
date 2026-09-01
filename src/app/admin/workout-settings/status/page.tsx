@@ -46,13 +46,11 @@ const PERSONA_OPTIONS = [
   { value: '__general__', label: 'כללי (ללא פרסונה)', isGeneral: true },
   { value: 'parent', label: 'הורה' },
   { value: 'student', label: 'סטודנט' },
-  { value: 'school_student', label: 'תלמיד' },
+  { value: 'pupil', label: 'תלמיד' },
   { value: 'office_worker', label: 'עובד משרד' },
-  { value: 'remote_worker', label: 'עובד מהבית' },
-  { value: 'athlete', label: 'ספורטאי' },
-  { value: 'senior', label: 'גיל הזהב' },
-  { value: 'reservist', label: 'מילואימניק' },
-  { value: 'active_soldier', label: 'חייל סדיר' },
+  { value: 'vatikim', label: 'גיל הזהב' },
+  { value: 'military', label: 'צה"ל' },
+  { value: 'pro_athlete', label: 'ספורטאי קצה' },
 ];
 
 const LOCATION_OPTIONS = [

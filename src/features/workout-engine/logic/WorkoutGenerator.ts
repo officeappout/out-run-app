@@ -233,13 +233,11 @@ const DIFFICULTY_TITLE_PREFIX: Record<DifficultyLevel, string> = {
 const PERSONA_LABELS_HE: Record<string, string> = {
   parent: 'הורים עסוקים',
   student: 'סטודנטים',
-  school_student: 'תלמידים',
+  pupil: 'תלמידים',
   office_worker: 'עובדי משרד',
-  home_worker: 'עובדים מהבית',
-  senior: 'מבוגרים',
-  athlete: 'ספורטאים',
-  reservist: 'מילואימניקים',
-  active_soldier: 'חיילים סדירים',
+  military: 'אנשי צה"ל',
+  vatikim: 'בני גיל הזהב',
+  pro_athlete: 'ספורטאי קצה',
   default: '',
 };
 

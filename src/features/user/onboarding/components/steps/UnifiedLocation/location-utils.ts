@@ -586,8 +586,8 @@ export function getIdentityHook(
     };
   }
 
-  // Reservist / Soldier
-  if (personaId === 'reservist' || personaId === 'soldier') {
+  // Military
+  if (personaId === 'military') {
     return {
       intro: `בתור ${isFemale ? 'לוחמת' : 'לוחם'}, אנחנו יודעים כמה זה מאתגר לשמור על כושר היחידה בתוך השגרה הלחוצה בבית.`,
       value: `בדיוק בשביל זה, סימנו לך ב${city} את הנקודה האידיאלית ${verb} – בחינם, הכי קרוב לבית ובלי לבזבז זמן יקר.`,
@@ -595,7 +595,7 @@ export function getIdentityHook(
   }
 
   // Hi-Tech / Office Worker
-  if (personaId === 'office_worker' || personaId === 'pro_athlete' || personaId === 'athlete') {
+  if (personaId === 'office_worker' || personaId === 'pro_athlete') {
     return {
       intro: `בתור ${isFemale ? 'הייטקיסטית' : 'הייטקיסט'}, אחרי יום שלם של ישיבות מול המסך, הדבר האחרון שהגוף שלך צריך זה להמשיך לשבת.`,
       value: `לכן, מיפינו עבורך ב${city} את הנקודה האידיאלית ${verb} – בחינם, בדרך הביתה ובלי לבזבז זמן יקר.`,
@@ -603,7 +603,7 @@ export function getIdentityHook(
   }
 
   // Student / Pupil
-  if (personaId === 'student' || personaId === 'pupil' || personaId === 'young_pro') {
+  if (personaId === 'student' || personaId === 'pupil') {
     return {
       intro: 'בין הלימודים למבחנים, המוח שלך חייב הפסקה והתקציב בטח לא מאפשר חדר כושר יקר.',
       value: `בדיוק בשביל זה, מצאנו לך ב${city} את המקום המושלם ${verb} – בחינם, בשכונה שלך ועם החבר'ה.`,
@@ -611,7 +611,7 @@ export function getIdentityHook(
   }
 
   // Senior / Golden Age
-  if (personaId === 'senior' || personaId === 'vatikim') {
+  if (personaId === 'vatikim') {
     return {
       intro: `חשוב ${isFemale ? 'לך' : 'לך'} לשמור על הגוף פעיל וגמיש, בלי להתאמץ ולנסוע רחוק מדי מהבית.`,
       value: `לכן, מצאנו לך ב${city} את המקום הכי נוח ${verb} – בחינם, במרחק הליכה קצר ובסביבה בטוחה.`,
@@ -756,12 +756,15 @@ export function classifyActivityGroup(sportId: string | null, prefersHybrid: boo
 
 export function classifyPersonaGroup(personaId: string | null, gender: 'male' | 'female'): PersonaGroup {
   if (!personaId) return 'default';
-  if (['student', 'young_pro'].includes(personaId)) return 'single_young';
-  if (personaId === 'pupil' || personaId === 'soldier') return 'highschooler';
+  if (personaId === 'student') return 'single_young';
+  if (personaId === 'pupil') return 'highschooler';
   if (personaId === 'parent') return gender === 'female' ? 'mom' : 'dad';
-  if (['senior', 'vatikim'].includes(personaId)) return 'senior';
-  if (personaId === 'reservist') return 'reservist';
-  if (['office_worker', 'pro_athlete', 'athlete'].includes(personaId)) return 'careerist';
+  if (personaId === 'vatikim') return 'senior';
+  // 'military' merges the old reservist/soldier split (see PersonaStep.tsx) —
+  // 'reservist' bucket's tone (adult, values efficiency) fits the merged
+  // persona better than 'highschooler' (soldier's old bucket) as a default.
+  if (personaId === 'military') return 'reservist';
+  if (['office_worker', 'pro_athlete'].includes(personaId)) return 'careerist';
   return 'default';
 }
 

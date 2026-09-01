@@ -865,10 +865,10 @@ export async function getFilteredUserIds(
       if (filters.neighborhoodId !== 'all' && core.authorityId !== filters.neighborhoodId) return false;
 
       if (filters.persona !== 'all') {
-        const answers = data.onboardingAnswers as Record<string, unknown> | undefined;
-        const personas = (answers?.personas ?? []) as string[];
-        const personaId = data.personaId as string | undefined;
-        if (!personas.includes(filters.persona) && personaId !== filters.persona) return false;
+        // personas[] (canonical, 01.09.2026+) — see src/types/persona.types.ts
+        const personaEntries = (data.personas ?? []) as Array<{ id?: string }>;
+        const hasCanonical = personaEntries.some((p) => p?.id === filters.persona);
+        if (!hasCanonical) return false;
       }
 
       return true;
@@ -940,6 +940,10 @@ export async function getActivityByHour(
 export interface PersonaCount { personaId: string; label: string; count: number }
 
 const PERSONA_LABELS: Record<string, string> = {
+  // Canonical (01.09.2026+) — see src/types/persona.types.ts
+  parent: 'הורים', student: 'סטודנטים', pupil: 'תלמידים', office_worker: 'עובדי משרד',
+  military: 'צה"ל', vatikim: 'גיל הזהב', pro_athlete: 'ספורטאי קצה',
+  // Legacy labels — kept for any pre-redefinition analytics data still on screen.
   mothers: 'אמהות פעילות', seniors: 'גיל הזהב', soldiers: 'חיילים/משוחררים',
   students: 'סטודנטים', runners: 'רצים', gym_goers: 'מתאמנים בחדר כושר',
   wellness_seekers: 'מחפשי בריאות', dog_walkers: 'מטיילי כלבים', general: 'כללי',
@@ -951,15 +955,10 @@ export async function getPersonaDistribution(authorityId: string): Promise<Perso
     const tally = new Map<string, number>();
 
     docs.forEach(({ data }) => {
-      const answers = data.onboardingAnswers as Record<string, unknown> | undefined;
-      const personas = (answers?.personas ?? []) as string[];
-      const fallback = data.personaId as string | undefined;
-
-      if (personas.length > 0) {
-        personas.forEach(p => tally.set(p, (tally.get(p) ?? 0) + 1));
-      } else if (fallback) {
-        tally.set(fallback, (tally.get(fallback) ?? 0) + 1);
-      }
+      const personaEntries = (data.personas ?? []) as Array<{ id?: string }>;
+      personaEntries.forEach((p) => {
+        if (p?.id) tally.set(p.id, (tally.get(p.id) ?? 0) + 1);
+      });
     });
 
     return Array.from(tally.entries())

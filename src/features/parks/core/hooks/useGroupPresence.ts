@@ -24,20 +24,18 @@ import { IS_PERF_BATCH2_PRESENCE_ENABLED } from '@/config/feature-flags';
 import { usePresenceStore, acquirePresenceStream, PRESENCE_STREAM_MAX } from '../store/usePresenceStore';
 
 /**
- * Persona ID → public image path.
- * Uses the same IDs from DEFAULT_PERSONAS in persona.service.ts.
+ * Persona ID → public image path. Keyed by the canonical PersonaId values
+ * (src/types/persona.types.ts) since 01.09.2026 — was previously keyed by
+ * the now-deleted /admin/personas "Lemur" catalog's ids, a completely
+ * separate, unrelated concept that happened to overlap in naming.
  * Fallback to king-lemur for unknown persona IDs.
  */
 export const PERSONA_IMAGES: Record<string, string> = {
-  athlete:       '/assets/lemur/lemur-avatar.png',
   parent:        '/assets/lemur/lemur-avatar.png',
   office_worker: '/assets/lemur/king-lemur.png',
   student:       '/assets/lemur/lemur-avatar.png',
-  senior:        '/assets/lemur/lemur-avatar.png',
-  reservist:     '/assets/lemur/king-lemur.png',
-  soldier:       '/assets/lemur/king-lemur.png',
   pupil:         '/assets/lemur/lemur-avatar.png',
-  young_pro:     '/assets/lemur/lemur-avatar.png',
+  military:      '/assets/lemur/king-lemur.png',
   pro_athlete:   '/assets/lemur/lemur-avatar.png',
   vatikim:       '/assets/lemur/lemur-avatar.png',
 };

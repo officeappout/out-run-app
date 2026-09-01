@@ -936,7 +936,7 @@ export default function ExecutionMethodCard({
               <button
                 type="button"
                 onClick={() => {
-                  const allTags = ['parent', 'student', 'school_student', 'office_worker', 'remote_worker', 'athlete', 'senior', 'reservist', 'active_soldier'];
+                  const allTags = ['parent', 'student', 'pupil', 'office_worker', 'military', 'vatikim', 'pro_athlete'];
                   const currentTags = method.lifestyleTags || [];
                   // If all tags are already selected, clear them (which means "all")
                   // Otherwise, clear to "all" (empty = available to everyone)
@@ -964,13 +964,11 @@ export default function ExecutionMethodCard({
               {[
                 { id: 'parent', label: 'הורה', icon: <User size={12} /> },
                 { id: 'student', label: 'סטודנט', icon: <Building2 size={12} /> },
-                { id: 'school_student', label: 'תלמיד', icon: <Building2 size={12} /> },
+                { id: 'pupil', label: 'תלמיד', icon: <Building2 size={12} /> },
                 { id: 'office_worker', label: 'עובד משרד', icon: <Building2 size={12} /> },
-                { id: 'remote_worker', label: 'עובד מהבית', icon: <Home size={12} /> },
-                { id: 'athlete', label: 'ספורטאי', icon: <User size={12} /> },
-                { id: 'senior', label: 'גיל הזהב', icon: <User size={12} /> },
-                { id: 'reservist', label: 'מילואימניק', icon: <User size={12} /> },
-                { id: 'active_soldier', label: 'חייל סדיר', icon: <User size={12} /> },
+                { id: 'military', label: 'צה"ל', icon: <User size={12} /> },
+                { id: 'vatikim', label: 'גיל הזהב', icon: <User size={12} /> },
+                { id: 'pro_athlete', label: 'ספורטאי קצה', icon: <User size={12} /> },
               ].map((tag) => (
                 <button
                   key={tag.id}

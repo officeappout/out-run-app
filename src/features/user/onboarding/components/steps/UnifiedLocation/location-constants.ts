@@ -3,8 +3,6 @@
  * All static data arrays, sport classification sets, and training program constants.
  */
 
-import type { LifestyleOption } from './location-types';
-
 // ── Mapbox Config ────────────────────────────────────────
 
 export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -22,22 +20,6 @@ export const MAPBOX_STYLE = 'mapbox://styles/mapbox/streets-v12';
 // list, not an actual match — declining to tag one (neighborhoodId stays
 // null) is preferable to a confidently-wrong guess several km away.
 export const NEAREST_NEIGHBORHOOD_MAX_DISTANCE_METERS = 2000;
-
-// ── Lifestyle Persona Options ────────────────────────────
-
-export const LIFESTYLE_OPTIONS: LifestyleOption[] = [
-  { id: 'parent',        labelHeMale: 'אבא שרוצה לחזור לכושר',           labelHeFemale: 'אמא שרוצה לחזור לכושר',           labelEn: 'Parent' },
-  { id: 'student',       labelHeMale: 'סטודנט שצריך הפסקה',              labelHeFemale: 'סטודנטית שצריכה הפסקה',             labelEn: 'Student' },
-  { id: 'pupil',         labelHeMale: 'תלמיד שרוצה להשתפר',              labelHeFemale: 'תלמידה שרוצה להשתפר',               labelEn: 'Pupil' },
-  { id: 'office_worker', labelHeMale: 'עובד משרד שרוצה לזוז',            labelHeFemale: 'עובדת משרד שרוצה לזוז',             labelEn: 'Office Worker' },
-  { id: 'reservist',     labelHeMale: 'מילואימניק שרוצה לשמור על כושר', labelHeFemale: 'מילואימניקית שרוצה לשמור על כושר', labelEn: 'Reservist' },
-  { id: 'athlete',       labelHeMale: 'ספורטאי שרוצה להתקדם',            labelHeFemale: 'ספורטאית שרוצה להתקדם',             labelEn: 'Athlete' },
-  { id: 'senior',        labelHeMale: 'גמלאי שרוצה לשמור על בריאות',    labelHeFemale: 'גמלאית שרוצה לשמור על בריאות',     labelEn: 'Senior' },
-  { id: 'vatikim',       labelHeMale: 'גיל הזהב',                        labelHeFemale: 'גיל הזהב',                          labelEn: 'Golden Age' },
-  { id: 'pro_athlete',   labelHeMale: 'ספורטאי קצה',                     labelHeFemale: 'ספורטאית קצה',                      labelEn: 'Pro Athlete' },
-  { id: 'soldier',       labelHeMale: 'חייל שרוצה לשמור על כושר',       labelHeFemale: 'חיילת שרוצה לשמור על כושר',        labelEn: 'Soldier' },
-  { id: 'young_pro',     labelHeMale: 'צעיר שרוצה לזוז',                labelHeFemale: 'צעירה שרוצה לזוז',                  labelEn: 'Young Professional' },
-];
 
 // ── Sport Classification Sets ────────────────────────────
 

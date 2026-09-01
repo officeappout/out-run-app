@@ -19,25 +19,23 @@ import {
   NoiseLevel,
   SweatLevel,
 } from '@/features/content/exercises/core/exercise.types';
+import type { PersonaId } from '@/types/persona.types';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 /**
- * Supported lifestyle personas (up to 3 can be selected)
+ * Supported lifestyle personas (up to 3 can be selected). Redefined
+ * 01.09.2026 to reuse the canonical PersonaId directly — this used to be
+ * an independent 10-value enum (school_student/home_worker/high_tech/
+ * senior/athlete/reservist/active_soldier didn't even match the onboarding
+ * UI's own spelling for the same concepts). home_worker/high_tech/athlete
+ * dropped outright — confirmed zero real exercise content tagged with any
+ * of them (live Firestore check, 373 exercises / 1302 execution_methods,
+ * 01.09.2026). See docs/research/military-persona-unified-architecture.md.
  */
-export type LifestylePersona = 
-  | 'parent'
-  | 'student'
-  | 'school_student'
-  | 'office_worker'
-  | 'home_worker'
-  | 'high_tech'
-  | 'senior'
-  | 'athlete'
-  | 'reservist'
-  | 'active_soldier';
+export type LifestylePersona = PersonaId;
 
 /**
  * Location constraint profiles
@@ -276,12 +274,9 @@ export const LOCATION_CONSTRAINTS: Record<ExecutionLocation, LocationConstraints
 export const LIFESTYLE_LABELS: Record<LifestylePersona, string> = {
   parent: 'הורה',
   student: 'סטודנט',
-  school_student: 'תלמיד',
+  pupil: 'תלמיד',
   office_worker: 'עובד משרד',
-  home_worker: 'עובד מהבית',
-  high_tech: 'הייטקיסט',
-  senior: 'גיל הזהב',
-  athlete: 'ספורטאי',
-  reservist: 'מילואימניק',
-  active_soldier: 'חייל סדיר',
+  military: 'צה"ל',
+  vatikim: 'גיל הזהב',
+  pro_athlete: 'ספורטאי קצה',
 };

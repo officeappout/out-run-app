@@ -134,8 +134,8 @@ export function SmartGreeting({
     // Use activity streak if not explicitly provided
     streak: propContext?.streak ?? activityStreak,
     // Use profile persona if not explicitly provided (from personaId or first lifestyle tag)
-    persona: propContext?.persona ?? profile?.personaId ?? profile?.lifestyle?.lifestyleTags?.[0],
-  }), [propContext, activityStreak, profile?.personaId, profile?.lifestyle?.lifestyleTags]);
+    persona: propContext?.persona ?? profile?.personas?.[0]?.id ?? profile?.lifestyle?.lifestyleTags?.[0],
+  }), [propContext, activityStreak, profile?.personas, profile?.lifestyle?.lifestyleTags]);
   
   const { message, type, isLoading: messageLoading } = useSmartGreeting(context);
   
@@ -360,8 +360,8 @@ export function SmartGreetingText({
   const context = useMemo((): Partial<GreetingContext> => ({
     ...propContext,
     streak: propContext?.streak ?? activityStreak,
-    persona: propContext?.persona ?? profile?.personaId ?? profile?.lifestyle?.lifestyleTags?.[0],
-  }), [propContext, activityStreak, profile?.personaId, profile?.lifestyle?.lifestyleTags]);
+    persona: propContext?.persona ?? profile?.personas?.[0]?.id ?? profile?.lifestyle?.lifestyleTags?.[0],
+  }), [propContext, activityStreak, profile?.personas, profile?.lifestyle?.lifestyleTags]);
   
   const { message, isLoading: messageLoading } = useSmartGreeting(context);
   

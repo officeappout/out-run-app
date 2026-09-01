@@ -174,9 +174,8 @@ function toCandidateUser(uid: string, data: Record<string, unknown>): CandidateU
     uid,
     name: typeof core.name === 'string' ? core.name : '',
     personaProfile: {
-      personaId: typeof data.personaId === 'string' ? data.personaId : null,
+      personas: Array.isArray(data.personas) ? (data.personas as { id?: string | null }[]) : null,
       lifestyle: (data.lifestyle ?? null) as PersonaResolvableProfile['lifestyle'],
-      onboardingAnswers: (data.onboardingAnswers ?? null) as PersonaResolvableProfile['onboardingAnswers'],
     },
     dailyStepGoal:
       typeof progression.dailyStepGoal === 'number' && progression.dailyStepGoal > 0

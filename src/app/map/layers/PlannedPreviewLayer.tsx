@@ -78,7 +78,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
         await resolveRunningWorkoutMetadata({
           workout,
           paceProfile,
-          persona: (profile?.core as any)?.personaId ?? null,
+          persona: profile?.personas?.[0]?.id ?? null,
           gender: profile?.core?.gender as 'male' | 'female' | undefined,
           targetDistance: profile?.running?.generatedProgramTemplate?.targetDistance,
           weekNumber,
