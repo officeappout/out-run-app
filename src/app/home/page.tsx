@@ -526,6 +526,8 @@ export default function HomePage() {
     // not silently pretended to be solved.
     if (!profile) return;
     generatedWorkoutRef.current = null;
+    generatedWorkoutForDateRef.current = entry.date;
+    workoutGenerationRef.current += 1;
     setGeneratedWorkout(null);
     if (cats.length === 0 || cats.includes('strength')) {
       setIsWorkoutLoading(true);
@@ -1421,6 +1423,29 @@ export default function HomePage() {
   // Dynamic workout state
   const generatedWorkoutRef = useRef<GeneratedWorkout | null>(null);
   const [generatedWorkout, setGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
+  // Which date generatedWorkoutRef's current content actually belongs to (NaN-opacity/
+  // stale-drawer bug, 01.09.2026): handleHeroPress used to gate its stale-workout flush on
+  // `explicitDate !== selectedDate` — a proxy that assumes "same selected date = ref still
+  // valid," which breaks the moment a day's schedule content changes (e.g. a drag-reschedule)
+  // without selectedDate itself changing. Tracking the ref's own owning date directly fixes
+  // that at the source. Set alongside every explicit clear/target of generatedWorkoutRef;
+  // deliberately NOT touched by handleWorkoutGenerated itself or handleIntensityToggleSelect
+  // (an in-drawer intensity swap doesn't change which date is being previewed).
+  const generatedWorkoutForDateRef = useRef<string | null>(null);
+  // Generation counter, appended to uniqueWorkoutId/recoveryShortcutWorkoutId below (stale-
+  // drawer bug, second finding, 01.09.2026): those ids were purely date+profile-derived, so
+  // WorkoutPreviewDrawer's own dynamicContent-regeneration effect (keyed on workout.id) never
+  // re-fired for a genuinely new schedule situation on the SAME date -- it kept serving a
+  // stale title from an earlier, unrelated interaction even after generatedWorkoutRef itself
+  // was correctly flushed. Bumped at the exact same 2 sites as generatedWorkoutForDateRef
+  // above, so both id-building sites (openWorkoutPreview and recoveryShortcutWorkoutId) stay
+  // "provably the same value" for the same tap, exactly as recoveryShortcutWorkoutId's own
+  // comment already documents for the date component. Audited: nothing outside this file
+  // reconstructs this id format or compares it against a separately-computed identity (the
+  // home-page generation pipeline -- StatsOverview/generateHomeWorkoutTrio -- never produces
+  // or touches this id at all; GeneratedWorkout has no id field), so a new suffix here cannot
+  // desync anything else.
+  const workoutGenerationRef = useRef(0);
 
   // Trio intensity selector — mirrored out of StatsOverview (see TrioSelector's
   // own doc comment) so WorkoutPreviewDrawer can render the inline toggle row
@@ -1513,11 +1538,12 @@ export default function HomePage() {
   // discriminator-matched case. Every input mirrors what openWorkoutPreview
   // already builds for the SAME tap:
   //   - id: identical scheme to openWorkoutPreview's uniqueWorkoutId
-  //     (`workout-${date}-${uid8}`), keyed on `selectedDate` rather than the
-  //     tap-local `dateToUse` — provably the same value here: the only case
-  //     where handleHeroPress's `dateToUse` differs from `selectedDate` is an
-  //     explicitDate-driven different-date tap, which unconditionally clears
-  //     generatedWorkoutRef.current (see the block below) BEFORE this hook's
+  //     (`workout-${date}-${uid8}-g${generation}`), keyed on `selectedDate`
+  //     rather than the tap-local `dateToUse`, and reading the SAME
+  //     workoutGenerationRef counter — provably the same value here: the only
+  //     case where handleHeroPress's `dateToUse` differs from `selectedDate`
+  //     is an explicitDate-driven different-date tap, which unconditionally
+  //     clears generatedWorkoutRef.current (see the block below) BEFORE this hook's
   //     discriminator can ever match, so the shortcut never fires with a
   //     mismatched id.
   //   - workoutPlan: always null — this shortcut only ever targets the
@@ -1536,7 +1562,7 @@ export default function HomePage() {
   //     flag has nothing to gate either way.
   //   - workoutLocation: undefined — home/page.tsx does not pass this prop to
   //     <WorkoutPreviewDrawer/> today either; unchanged.
-  const recoveryShortcutWorkoutId = `workout-${selectedDate}-${profile?.id?.slice(0, 8) || 'guest'}`;
+  const recoveryShortcutWorkoutId = `workout-${selectedDate}-${profile?.id?.slice(0, 8) || 'guest'}-g${workoutGenerationRef.current}`;
   const { handleStartWorkout: handleRecoveryShortcutStart } = useWorkoutSession({
     workout: {
       id: recoveryShortcutWorkoutId,
@@ -1708,7 +1734,7 @@ export default function HomePage() {
   // clicked date rather than the stale `selectedDate` state value.
   const openWorkoutPreview = useCallback((targetDate?: string) => {
     const today = targetDate ?? new Date().toISOString().split('T')[0];
-    const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}`;
+    const uniqueWorkoutId = `workout-${today}-${profile?.id?.slice(0, 8) || 'guest'}-g${workoutGenerationRef.current}`;
     const gw = generatedWorkoutRef.current;
 
     if (gw?.exercises && typeof window !== 'undefined') {
@@ -2051,12 +2077,22 @@ export default function HomePage() {
     if (hasStrengthProgram) {
       // absent=absent (⑨): compose only when a strength domain is assessed; else fall to the
       // questionnaire route below (never an invented/generic strength workout).
-      // When a different date is tapped, flush the stale cached workout
-      // immediately — before the async generator evaluates the new date.
-      // This guarantees the drawer rises with the skeleton shimmer rather
-      // than a frame of the previous workout's exercises.
-      if (typeof explicitDate === 'string' && explicitDate !== selectedDate) {
+      // When the tapped date's content doesn't match what generatedWorkoutRef currently
+      // holds, flush the stale cached workout immediately — before the async generator
+      // evaluates the new date. This guarantees the drawer rises with the skeleton shimmer
+      // rather than a frame of the previous workout's exercises.
+      //
+      // Compares against generatedWorkoutForDateRef, NOT selectedDate (fixed 01.09.2026 —
+      // stale-drawer-after-drag bug). The old `explicitDate !== selectedDate` comparison
+      // assumed "same selected date = the ref is still valid for it," which breaks the
+      // moment a day's schedule content changes without selectedDate itself changing (e.g.
+      // dragging a card to reschedule it onto whatever day is already selected) — the ref
+      // never gets flushed, and openWorkoutPreview below builds the drawer from stale,
+      // unrelated content that happened to be sitting in the ref from an earlier interaction.
+      if (typeof explicitDate === 'string' && explicitDate !== generatedWorkoutForDateRef.current) {
         generatedWorkoutRef.current = null;
+        generatedWorkoutForDateRef.current = explicitDate;
+        workoutGenerationRef.current += 1;
         setGeneratedWorkout(null);
         setIsWorkoutLoading(true);
         if (typeof window !== 'undefined') {
