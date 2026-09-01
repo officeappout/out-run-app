@@ -1033,6 +1033,46 @@ export default function EditRoutePage() {
                   מקור: תעודת איכות ({route.qualitySignals.source}) · חושב ב-{formatQualityCertDate(route.qualitySignals.computedAt)}
                 </p>
               )}
+
+              {/* Route↔amenity tagging (Phase 3, 01.09.2026) — same full-
+                  transparency discipline as composition/lighting above:
+                  'אין מידע' only when the CITY has no osm_amenities coverage
+                  at all; once coverage exists, a real 0 renders as 0, never
+                  as 'אין מידע' (a route can genuinely have zero benches
+                  nearby — that's information, not a gap). This panel is
+                  uncapped by design — RouteQualityBadges' CARD_BADGE_CAP
+                  only applies to the app-facing card, never here. crossing
+                  renders here only — it never becomes a card badge (a high
+                  crossing count is a filter/generator negative, not a
+                  strength; route-amenity-tagging.service.ts). */}
+              <p className="pt-1 font-bold text-gray-600">מתקנים בסביבת המסלול</p>
+              {(() => {
+                const amenities = route.qualitySignals?.amenities;
+                const noCoverage = !amenities || amenities.status === 'no_coverage';
+                const row = (label: string, count: number | undefined) => (
+                  <p key={label}>
+                    {label}:{' '}
+                    <span className="font-bold text-gray-700">
+                      {noCoverage ? 'אין מידע' : count}
+                    </span>
+                  </p>
+                );
+                return (
+                  <>
+                    {row('ספסלים', amenities?.counts.bench)}
+                    {row('ברזיות מים', amenities?.counts.drinking_water)}
+                    {row('מגרשי ספורט', amenities?.counts.court)}
+                    {row('מתקני כושר', amenities?.counts.fitness_station)}
+                    {row('פארק כלבים', amenities?.counts.dog_park)}
+                    {row('מעברי חצייה', amenities?.counts.crossing)}
+                    {!noCoverage && (
+                      <p className="text-gray-400">
+                        מקור: תגי מתקנים ({amenities!.source}) · כולל: {amenities!.sourceStatuses.join('+')} · חושב ב-{formatQualityCertDate(amenities!.computedAt)}
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
