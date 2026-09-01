@@ -305,6 +305,15 @@ export default function HomePage() {
 
   // Entry context for the WorkoutPreviewDrawer pencil button
   const [previewEntry, setPreviewEntry] = useState<UserScheduleEntry | null>(null);
+  // Synchronous mirror of previewEntry (Section L+M fix, 01.09.2026): AgendaDayCard's
+  // activate() calls onPreviewEntry(entry) then onTap(entry.date) -> handleHeroPress, both
+  // in the same synchronous tick -- but setPreviewEntry's state update doesn't commit until
+  // the next render, so handleHeroPress can't read the just-tapped entry via previewEntry
+  // itself without seeing a stale value. This ref updates in lockstep (same wrapper, same
+  // tick) so handleHeroPress can synchronously identify which entry was tapped and build
+  // real generation from it, mirroring what handleCalendarEntryTap already does with its own
+  // directly-passed entry parameter.
+  const previewEntryRef = useRef<UserScheduleEntry | null>(null);
   // Entry data for the edit modal (triggered by drawer pencil or directly)
   const [editEntry, setEditEntry] = useState<UserScheduleEntry | null>(null);
 
@@ -2053,8 +2062,10 @@ export default function HomePage() {
       // wrong day's schedule entry. Cancels out the just-queued
       // setPreviewEntry(entry) in the same batch (both calls land in the
       // same synchronous tick), so this is a true no-op for the
-      // already-null case (main hero card path) too.
+      // already-null case (main hero card path) too. previewEntryRef mirrors
+      // previewEntry (Section L+M fix) — same staleness exposure, same reset here.
       setPreviewEntry(null);
+      previewEntryRef.current = null;
       return;
     }
 
@@ -2986,7 +2997,10 @@ export default function HomePage() {
           refreshProfile().catch((e) => console.error('[HomePage] Error refreshing profile after schedule edit:', e));
         }}
         onCommunityTap={handleOpenGroupFromBanner}
-        onPreviewEntry={setPreviewEntry}
+        onPreviewEntry={(entry) => {
+          previewEntryRef.current = entry;
+          setPreviewEntry(entry);
+        }}
         onEntryTap={handleCalendarEntryTap}
         onOpenBuilder={(params) => {
           setBuilderProps({ mode: params.mode, date: params.date, defaultDuration: params.defaultDuration, defaultProgramIds: params.defaultProgramIds });
@@ -3023,6 +3037,7 @@ export default function HomePage() {
         onClose={() => {
           setSelectedWorkout(null);
           setPreviewEntry(null);
+          previewEntryRef.current = null;
           setIsWorkoutLoading(false);
           // Regression fix (30.08.2026) — clear any full-strength toggle state left over
           // from this preview so the next-opened suggestion (of any type) never inherits it.
