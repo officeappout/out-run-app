@@ -2003,11 +2003,19 @@ export default function HomePage() {
 
     setSelectedWorkout({
       id: uniqueWorkoutId,
-      title: gw?.title || scheduleState.currentWorkout?.title || 'אימון כוח',
-      description: gw?.description || scheduleState.currentWorkout?.description || 'אימון מותאם אישית',
+      // Section M fix (01.09.2026): scheduleState.currentWorkout (useSmartSchedule) removed
+      // from every fallback below — it's pure mock/demo data (MockWorkout, keyed off the
+      // hardcoded CURRENT_SCENARIO constant in mock-schedule-data.ts), never real, and unaware
+      // of any actual schedule state including manual drag-and-drop entries. It was
+      // structurally guaranteed to leak into the drawer during the loading gap this exact
+      // file's Section L fix (above) can still leave open, showing a fabricated recovery
+      // workout with no connection to what was actually tapped. Falls straight to the same
+      // generic hardcoded defaults handleCalendarEntryTap's own stub already uses.
+      title: gw?.title || 'אימון כוח',
+      description: gw?.description || 'אימון מותאם אישית',
       level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
-      difficulty: gw ? String(gw.difficulty) : (scheduleState.currentWorkout?.difficulty || 'medium'),
-      duration: gw?.estimatedDuration || scheduleState.currentWorkout?.duration || 45,
+      difficulty: gw ? String(gw.difficulty) : 'medium',
+      duration: gw?.estimatedDuration || 45,
       // No park context in this (pure-strength) flow, so there is nothing for
       // resolveParkImage to resolve — leave coverImage empty and let the drawer
       // fall through to the real exercise Bunny thumbnail (heroMedia) instead of
@@ -2016,7 +2024,7 @@ export default function HomePage() {
       coverImage: '',
       segments: [],
     });
-  }, [profile, scheduleState]);
+  }, [profile]);
 
   // Hero Card Press Handler — goes through JIT equipment/health check.
   //
