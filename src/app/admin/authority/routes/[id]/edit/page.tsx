@@ -13,6 +13,7 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
 import { InventoryService } from '@/features/parks';
 import type { Route } from '@/features/parks';
 import { pathLengthMeters } from '@/features/parks/core/services/geoUtils';
+import { resolveAmenityPanelCount } from '@/features/parks/core/services/route-amenity-tagging.service';
 import {
   applySafeGeometryEdit,
   fetchBridgeConnector,
@@ -1048,26 +1049,32 @@ export default function EditRoutePage() {
               <p className="pt-1 font-bold text-gray-600">מתקנים בסביבת המסלול</p>
               {(() => {
                 const amenities = route.qualitySignals?.amenities;
-                const noCoverage = !amenities || amenities.status === 'no_coverage';
-                const row = (label: string, count: number | undefined) => (
-                  <p key={label}>
-                    {label}:{' '}
-                    <span className="font-bold text-gray-700">
-                      {noCoverage ? 'אין מידע' : count}
-                    </span>
-                  </p>
-                );
+                // resolveAmenityPanelCount (route-amenity-tagging.service.ts) is the
+                // single source of truth for the honesty rule: null -> 'אין מידע'
+                // (no city coverage at all); any other value, INCLUDING 0, is a real
+                // computed count rendered as-is. Locked by unit test, not just this JSX.
+                const row = (label: string, category: Parameters<typeof resolveAmenityPanelCount>[1]) => {
+                  const value = resolveAmenityPanelCount(amenities, category);
+                  return (
+                    <p key={label}>
+                      {label}:{' '}
+                      <span className="font-bold text-gray-700">
+                        {value === null ? 'אין מידע' : value}
+                      </span>
+                    </p>
+                  );
+                };
                 return (
                   <>
-                    {row('ספסלים', amenities?.counts.bench)}
-                    {row('ברזיות מים', amenities?.counts.drinking_water)}
-                    {row('מגרשי ספורט', amenities?.counts.court)}
-                    {row('מתקני כושר', amenities?.counts.fitness_station)}
-                    {row('פארק כלבים', amenities?.counts.dog_park)}
-                    {row('מעברי חצייה', amenities?.counts.crossing)}
-                    {!noCoverage && (
+                    {row('ספסלים', 'bench')}
+                    {row('ברזיות מים', 'drinking_water')}
+                    {row('מגרשי ספורט', 'court')}
+                    {row('מתקני כושר', 'fitness_station')}
+                    {row('פארק כלבים', 'dog_park')}
+                    {row('מעברי חצייה', 'crossing')}
+                    {amenities && amenities.status === 'computed' && (
                       <p className="text-gray-400">
-                        מקור: תגי מתקנים ({amenities!.source}) · כולל: {amenities!.sourceStatuses.join('+')} · חושב ב-{formatQualityCertDate(amenities!.computedAt)}
+                        מקור: תגי מתקנים ({amenities.source}) · כולל: {amenities.sourceStatuses.join('+')} · חושב ב-{formatQualityCertDate(amenities.computedAt)}
                       </p>
                     )}
                   </>

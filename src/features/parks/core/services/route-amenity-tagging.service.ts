@@ -155,3 +155,24 @@ export function buildAmenitiesSignal(
   const { counts, has } = summarizeAmenityMatches(matches);
   return { status: 'computed', counts, has, sourceStatuses, source: 'osm_amenities_join_v1' };
 }
+
+/**
+ * Pure panel-display logic (split out from the admin edit page's JSX, same
+ * "pure logic / render split" discipline route-quality-badges.service.ts
+ * already follows — see that file's header). Locks the panel's honesty
+ * rule as a testable function rather than inline JSX: `null` means render
+ * "אין מידע" (no city coverage at all); any other return, INCLUDING `0`, is
+ * a real computed value the caller renders as-is — a route can genuinely
+ * have zero benches nearby, and that is information, not a gap. Unlike
+ * `computeQualityBadges` (card, capped, positive-only), this has no cap and
+ * covers `crossing` too — the panel is the uncapped, full-transparency
+ * surface (admin/authority/routes/[id]/edit/page.tsx's own "תעודת איכות"
+ * discipline, 47a0a47c).
+ */
+export function resolveAmenityPanelCount(
+  amenities: { status: 'computed' | 'no_coverage'; counts: Record<AmenityCategory, number> } | undefined,
+  category: AmenityCategory,
+): number | null {
+  if (!amenities || amenities.status === 'no_coverage') return null;
+  return amenities.counts[category];
+}

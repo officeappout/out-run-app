@@ -135,6 +135,20 @@ describe('computeQualityBadges', () => {
     expect(result.find((b) => (b.key as string) === 'crossing')).toBeUndefined();
   });
 
+  it('a very high crossing COUNT never produces a card badge, at any magnitude (a negative signal, filter-only)', () => {
+    // Full real-world shape this time (counts alongside has, exactly like
+    // buildAmenitiesSignal produces) — proves computeQualityBadges ignores
+    // counts.crossing entirely, not just that `has` happens to lack the key.
+    const result = computeQualityBadges(signals({
+      amenities: {
+        status: 'computed',
+        counts: { court: 0, bench: 0, drinking_water: 0, fitness_station: 0, crossing: 2206, dog_park: 0 },
+        has: { court: false, bench: false, drinking_water: false, fitness_station: false, dog_park: false },
+      } as any,
+    }));
+    expect(result).toEqual([]);
+  });
+
   it('CARD_BADGE_CAP caps the card at the top-priority badges, dropping the rest (never padding)', () => {
     const result = computeQualityBadges(signals({
       lighting: { status: 'computed', litCoveragePct: 90, isLit: true },       // priority 1
