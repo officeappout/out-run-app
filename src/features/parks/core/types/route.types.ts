@@ -12,6 +12,7 @@ import type {
 } from '@/features/workout-engine/core/types/protocol.types';
 import type { SurfaceType } from '@/lib/route-collections/surface-type';
 import type { ClimbType } from './climb-segment.types';
+import type { AmenityCategory, CourtSport } from './osm-amenity.types';
 
 export type ActivityType = 'running' | 'walking' | 'cycling' | 'workout';
 export type SegmentType = 'run' | 'walk' | 'workout' | 'bench' | 'finish';
@@ -330,6 +331,26 @@ export interface RouteTerrainFeatureRef {
   maxGrade: number | null;
 }
 
+/**
+ * One `osm_amenities` doc's cross-reference onto a route it passes near —
+ * see `Route.nearbyAmenities`. Structural sibling of `RouteTerrainFeatureRef`
+ * (same "denormalize the joined doc's own fields, keep the id for a future
+ * detail fetch" shape), but a DIFFERENT join: distance here comes from
+ * `findNearestContactPoint` treating the amenity as a single-point path
+ * against the route's real path (route-amenity-tagging.service.ts), not the
+ * climb-to-climb geometry `RouteTerrainFeatureRef` reuses the same primitive
+ * for. `distanceFromPathMeters` is therefore the same nearest-vertex
+ * approximation `RouteTerrainFeatureRef` already documents — not a true
+ * point-to-segment distance.
+ */
+export interface RouteAmenityRef {
+  amenityId: string; // osm_amenities doc id
+  category: AmenityCategory;
+  sport?: CourtSport; // only present when category === 'court'
+  distanceFromPathMeters: number;
+  location: { lat: number; lng: number };
+}
+
 export interface Route {
   id: string;
   name: string;
@@ -390,6 +411,19 @@ export interface Route {
   terrainFeatures?: RouteTerrainFeatureRef[];
 
   /**
+   * Cross-references to `osm_amenities` docs within category-specific
+   * distance of this route's path (Phase 3, route↔amenity tagging,
+   * 01.09.2026 — see route-amenity-tagging.service.ts). Structural sibling
+   * of `terrainFeatures` (denormalized join-result array), but a wholesale-
+   * REPLACED array on every recompute, never `arrayUnion`-appended — this is
+   * derived/computed data, not a user-driven incremental list (axioms.md §5's
+   * arrayUnion rule is for the latter). A since-rejected or moved amenity
+   * must be able to disappear on the next run, which only a full replace
+   * allows. Undefined until the tagging script has run for this route's city.
+   */
+  nearbyAmenities?: RouteAmenityRef[];
+
+  /**
    * Per-route quality-certificate signals (v1: surface composition only —
    * see quality-certificate v1 Stage 1/2, 29-30.08.2026). Extensible: future
    * signals (crosswalks, shade) add sibling keys, not a new top-level field.
@@ -400,6 +434,12 @@ export interface Route {
    * scoping-spec.md §5) — same field name, one source of truth.
    * `lighting` is intentionally optional and NOT written by the composition
    * backfill/discovery wiring — it's a separate, later task.
+   * `amenities` is the sibling key this doc comment's own header anticipated
+   * ("future signals... add sibling keys") — Phase 3 route↔amenity tagging.
+   * Self-contained `status`/`source` (not reusing the outer `computedAt`/
+   * `source` above), same reason `lighting` already carries its own optional
+   * `source` — computed by a different script, at a different time, than
+   * composition.
    */
   qualitySignals?: {
     composition: {
@@ -413,6 +453,26 @@ export interface Route {
       litCoveragePct: number | null;
       isLit: boolean | null;
       source?: 'lamp_nodes' | 'street_segments_lit';
+    };
+    /**
+     * `status: 'no_coverage'` means this route's CITY has zero `osm_amenities`
+     * docs at all (the ingester was never run there) — honesty rule: never a
+     * false "no benches," see route-amenity-tagging.service.ts's header.
+     * `status: 'computed'` means the city has coverage and every count below
+     * (including a real `0`) reflects an actual check, not an absence of data.
+     * `counts` includes `crossing`; `has` deliberately does NOT (crossings are
+     * a filter/generator signal only, never a positive-badge flag).
+     * `sourceStatuses` documents which `osm_amenities.status` values were
+     * included when computing counts/has — transparency for the sourcing
+     * decision (pending+published, excluding rejected, as of Phase 3 v1).
+     */
+    amenities?: {
+      status: 'computed' | 'no_coverage';
+      counts: Record<AmenityCategory, number>;
+      has: Record<Exclude<AmenityCategory, 'crossing'>, boolean>;
+      sourceStatuses: Array<'pending' | 'published'>;
+      computedAt: unknown;
+      source: 'osm_amenities_join_v1';
     };
     computedAt: unknown; // FieldValue.serverTimestamp() at write time (climb-segment.types.ts's updatedAt convention)
     source: 'osm_overpass_v1';
