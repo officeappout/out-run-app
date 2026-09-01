@@ -2,9 +2,10 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Footprints, Zap, Timer, TrendingUp, Moon, Loader2 } from 'lucide-react';
+import { Footprints, Zap, Timer, TrendingUp, Moon, Loader2, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
+import { auth } from '@/lib/firebase';
 import RunBriefingDrawer from '@/features/workout-engine/players/running/components/RunBriefingDrawer';
 import {
   getRunWorkoutTemplate,
@@ -12,6 +13,11 @@ import {
   getRunProgramTemplate,
 } from '@/features/workout-engine/core/services/running-admin.service';
 import { materializeWorkout } from '@/features/workout-engine/core/services/running-engine.service';
+import {
+  isRunningPlanBuildStuck,
+  hasRunningRebuildInputs,
+  buildActiveRunningProgram,
+} from '@/features/workout-engine/core/services/running-schedule-write.service';
 import {
   resolveWorkoutMetadata,
   detectTimeOfDay,
@@ -97,8 +103,25 @@ const CARD_STYLE = { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0
 
 export default function NextRunWorkoutCard() {
   const router = useRouter();
-  const { profile } = useUserStore();
+  const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const running = profile?.running;
+
+  // ── Rebuild-stuck plan (A2, idempotent-booping-sunrise.md 01.09.2026) ──
+  const [isRebuilding, setIsRebuilding] = useState(false);
+  const [rebuildFailedOnce, setRebuildFailedOnce] = useState(false);
+
+  const handleRebuildClick = async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || isRebuilding) return;
+    setIsRebuilding(true);
+    const result = await buildActiveRunningProgram(uid);
+    if (result.ok) {
+      await refreshProfile();
+    } else {
+      setRebuildFailedOnce(true);
+    }
+    setIsRebuilding(false);
+  };
 
   const scheduleDays = running?.scheduleDays ?? [];
   const todayHe = DAY_TO_HE[new Date().getDay()];
@@ -278,9 +301,130 @@ export default function NextRunWorkoutCard() {
     router.push(`/map?${params.toString()}`);
   };
 
-  // No active program schedule → honest placeholder
+  // Not hydrated yet — render nothing but a neutral skeleton. Both
+  // hasActiveSchedule (false while profile is null) and
+  // isRunningPlanBuildStuck (which we gate below on _hasHydrated
+  // specifically) would otherwise make a claim about running-plan state
+  // using data that hasn't loaded yet — the exact flicker David flagged
+  // (01.09.2026 review): every valid runner would flash "we couldn't
+  // build your plan" / "no running plan" for a moment on every app open.
+  if (!_hasHydrated) {
+    return (
+      <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-gray-200 dark:bg-zinc-700 animate-pulse flex-shrink-0" />
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="h-4 w-32 rounded bg-gray-200 dark:bg-zinc-700 animate-pulse" />
+            <div className="h-3 w-24 rounded bg-gray-100 dark:bg-zinc-800 animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No active program schedule → honest placeholder / rebuild flow.
+  // isRunningPlanBuildStuck is the DERIVED signal (isUnlocked && no
+  // activeProgram) — only valid to read now that _hasHydrated is
+  // confirmed true, above.
   if (!hasActiveSchedule) {
     const hasTemplate = !!running?.generatedProgramTemplate;
+    const isStuck = isRunningPlanBuildStuck(profile);
+    const canRebuild = hasRunningRebuildInputs(profile);
+
+    // State A — stuck, but everything needed to rebuild is already there.
+    if (isStuck && canRebuild) {
+      return (
+        <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(0,186,247,0.08)' }}
+            >
+              {isRebuilding
+                ? <Loader2 size={22} style={{ color: '#00BAF7' }} className="animate-spin" />
+                : <AlertCircle size={22} style={{ color: '#00BAF7' }} />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-extrabold text-slate-900 dark:text-white">
+                {rebuildFailedOnce ? 'עדיין לא מצליח.' : 'לא הצלחנו להכין את תוכנית הריצה שלך.'}
+              </p>
+              <p className="text-sm text-slate-400 mt-0.5">
+                {rebuildFailedOnce
+                  ? 'בדוק את החיבור לאינטרנט ונסה שוב.'
+                  : 'כל מה שמילאת שמור. לחיצה אחת ונבנה אותה.'}
+              </p>
+            </div>
+          </div>
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={handleRebuildClick}
+            disabled={isRebuilding}
+            className="w-full mt-3 py-3 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-60"
+            style={{ background: '#00BAF7' }}
+          >
+            {isRebuilding ? 'בונה...' : rebuildFailedOnce ? 'נסה שוב' : 'בנה את התוכנית'}
+          </motion.button>
+        </div>
+      );
+    }
+
+    // State B — stuck, but the profile itself is missing what a rebuild
+    // needs (paceProfile/generatedProgramTemplate). NOT a variant of
+    // "try again" — a retry would fail identically forever here.
+    //
+    // ⚠️ Message-only, deliberately NO button (David, 01.09.2026 review).
+    // The natural button destination, /onboarding-new/dynamic, was
+    // investigated and found UNSAFE for this specific use (read-only
+    // audit, not applied here — see idempotent-booping-sunrise.md's A2
+    // section for full citations):
+    // - isJitEdit (the guard built for exactly this class of bug, commit
+    //   94b7b94f) never fires on this route — onboarding-sync.service.ts's
+    //   only isJitEdit:true call site is OnboardingWizard.tsx:273's
+    //   single-field JIT save, not this route.
+    // - onboarding-sync.service.ts:1781-1786 unconditionally overwrites
+    //   running.activeProgram to a fresh Week 1, and :1848-1853
+    //   unconditionally forces lifestyle.primaryTrack/dashboardMode to
+    //   'run' — neither checks whether the user already had healthy
+    //   progress worth preserving. Correct behavior for a genuinely
+    //   corrupted profile, but indistinguishable in code from clobbering
+    //   a hybrid user's real strength-primary track or in-progress
+    //   running program.
+    // - The one existing test naming this exact re-entry scenario
+    //   (onboarding-sync.service.test.ts's "closes doors not yet born")
+    //   stubs an EMPTY running-answers payload, so the overwrite path
+    //   never actually executes in that test — zero real coverage of
+    //   "user genuinely answers the whole flow again."
+    // No live code path is known to produce State B today (paceProfile/
+    // generatedProgramTemplate are written together with isUnlocked by
+    // their only writer — see running-schedule-write.service.ts's module
+    // doc) — a dead end with an honest message is safer than a button
+    // into a route with a documented overwrite history, for a state this
+    // theoretical. Revisit once/if the overwrite guard gap above is
+    // closed (mirroring the existing alreadyHasProgram/alreadyHasPrimaryTrack
+    // pattern already used elsewhere in onboarding-sync.service.ts).
+    if (isStuck && !canRebuild) {
+      return (
+        <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(0,186,247,0.08)' }}
+            >
+              <AlertCircle size={22} style={{ color: '#00BAF7' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-extrabold text-slate-900 dark:text-white">
+                משהו חסר בהגדרת הריצה שלך.
+              </p>
+              <p className="text-sm text-slate-400 mt-0.5">
+                נעבור שוב על ההגדרה — זה ייקח דקה.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
         <div className="flex items-center gap-3">
