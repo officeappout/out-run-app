@@ -399,6 +399,16 @@ export interface RunningProfile {
     'targetProfileTypes' | 'maxIntensityRank' | 'excludeCategories'>;
   weeklyFrequency?: number;
   scheduleDays?: string[];
+  /**
+   * Was `scheduleDays` set by the system (a smart default the user never
+   * touched) or by the user (a real choice)? See `src/lib/running-schedule-source.ts`
+   * for the full reasoning — `RunningScheduleSource` there is the canonical
+   * type, re-exported here to avoid a duplicate union. Missing on every
+   * runner who predates this field (2b+2d round, idempotent-booping-sunrise.md)
+   * — `resolveRunningScheduleSource` treats that as `'system-default'`, not
+   * an error.
+   */
+  scheduleDaysSource?: import('@/lib/running-schedule-source').RunningScheduleSource;
   onboardingData?: RunningOnboardingData;
   lastWorkoutDate?: string;
   /**

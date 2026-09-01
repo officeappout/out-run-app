@@ -65,6 +65,7 @@ vi.mock('../running-engine.service', async (importOriginal) => {
 import {
   fetchAndGenerateActiveRunningProgram,
   buildActiveRunningProgram,
+  completeRunningScheduleFirstChoice,
   isRunningPlanBuildStuck,
   hasRunningRebuildInputs,
 } from '../running-schedule-write.service';
@@ -332,5 +333,157 @@ describe('hasRunningRebuildInputs', () => {
     expect(hasRunningRebuildInputs({})).toBe(false);
     expect(hasRunningRebuildInputs(null)).toBe(false);
     expect(hasRunningRebuildInputs(undefined)).toBe(false);
+  });
+});
+
+describe('completeRunningScheduleFirstChoice', () => {
+  const OLD_SCHEDULE = [
+    { week: 1, day: 1, workoutId: 'old_w1', status: 'completed' as const, actualPerformance: { avgPace: 300, completionRate: 1 } },
+    { week: 6, day: 1, workoutId: 'old_w6', status: 'pending' as const },
+  ];
+
+  it('missing-profile-data short-circuits before any write, when paceProfile/generatedProgramTemplate are absent', async () => {
+    state.USER_DOC = { running: { isUnlocked: true } };
+    const result = await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה'], frequency: 3, time: '07:00' });
+    expect(result).toEqual({ ok: false, requiresExplanation: false, reason: 'missing-profile-data' });
+    expect(updateDocMock).not.toHaveBeenCalled();
+  });
+
+  it('a true first-time choice (no scheduleDaysSource yet -- resolves to system-default) reports requiresExplanation:false', async () => {
+    state.USER_DOC = { running: RUNNING_BASE, lifestyle: {} };
+    const result = await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה'], frequency: 3, time: '07:00' });
+    expect(result).toMatchObject({ ok: true, requiresExplanation: false });
+  });
+
+  it('a day-COUNT change from an already user-chosen schedule is a "rebuild" -- requiresExplanation:true', async () => {
+    state.USER_DOC = {
+      running: { ...RUNNING_BASE, scheduleDays: ['א', 'ג'], scheduleDaysSource: 'user-chosen' },
+      lifestyle: {},
+    };
+    // 2 days -> 3 days: a real count change, not just different days at the same count.
+    const result = await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה'], frequency: 3, time: '07:00' });
+    expect(result).toMatchObject({ ok: true, requiresExplanation: true });
+  });
+
+  it('a same-day-COUNT remap from an already user-chosen schedule is NOT a rebuild -- requiresExplanation:false', async () => {
+    state.USER_DOC = {
+      running: { ...RUNNING_BASE, scheduleDays: ['א', 'ג', 'ה'], scheduleDaysSource: 'user-chosen' },
+      lifestyle: {},
+    };
+    const result = await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['ב', 'ד', 'ו'], frequency: 3, time: '07:00' });
+    expect(result).toMatchObject({ ok: true, requiresExplanation: false });
+  });
+
+  it('on success, writes scheduleDays/scheduleDaysSource/time/activeProgram atomically and clears the failure fields', async () => {
+    state.USER_DOC = { running: RUNNING_BASE, lifestyle: {} };
+    await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה'], frequency: 3, time: '08:30' });
+    expect(updateDocMock).toHaveBeenCalledTimes(1);
+    const [, payload] = updateDocMock.mock.calls[0];
+    expect(payload['running.scheduleDays']).toEqual(['א', 'ג', 'ה']);
+    expect(payload['running.scheduleDaysSource']).toBe('user-chosen');
+    expect(payload['lifestyle.reminders.runningTime']).toBe('08:30');
+    expect(typeof (payload['running.activeProgram'] as any).programId).toBe('string');
+    expect(payload['running.planBuildFailedAt']).toBe('__DELETE_FIELD__');
+    expect(payload['running.planBuildFailReason']).toBe('__DELETE_FIELD__');
+  });
+
+  it('writes lifestyle.reminders.runningTime via a DOTTED PATH, never a nested lifestyle/reminders object -- a sibling field must never be at risk', async () => {
+    state.USER_DOC = { running: RUNNING_BASE, lifestyle: {} };
+    await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה'], frequency: 3, time: '08:30' });
+    const [, payload] = updateDocMock.mock.calls[0];
+    expect(Object.keys(payload)).toContain('lifestyle.reminders.runningTime');
+    expect(payload['lifestyle']).toBeUndefined();
+    expect(payload['lifestyle.reminders']).toBeUndefined();
+  });
+
+  it('preserves week 6 (does not reset to week 1) when the existing activeProgram is already on week 6', async () => {
+    state.USER_DOC = {
+      running: {
+        ...RUNNING_BASE,
+        scheduleDays: ['א', 'ג'],
+        scheduleDaysSource: 'user-chosen',
+        activeProgram: { programId: 'p1', startDate: '2026-07-01T00:00:00.000Z', currentWeek: 6, schedule: OLD_SCHEDULE },
+      },
+      lifestyle: {},
+    };
+    await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה'], frequency: 3, time: '07:00' });
+    const [, payload] = updateDocMock.mock.calls[0];
+    expect((payload['running.activeProgram'] as any).currentWeek).toBe(6);
+  });
+
+  it('merges preserved history into the written activeProgram.schedule -- old completed week 1 entry survives byte-for-byte', async () => {
+    state.USER_DOC = {
+      running: {
+        ...RUNNING_BASE,
+        scheduleDays: ['א', 'ג'],
+        scheduleDaysSource: 'user-chosen',
+        activeProgram: { programId: 'p1', startDate: '2026-07-01T00:00:00.000Z', currentWeek: 6, schedule: OLD_SCHEDULE },
+      },
+      lifestyle: {},
+    };
+    await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה'], frequency: 3, time: '07:00' });
+    const [, payload] = updateDocMock.mock.calls[0];
+    const schedule = (payload['running.activeProgram'] as any).schedule;
+    expect(schedule).toContainEqual(OLD_SCHEDULE[0]);
+  });
+
+  it('on build failure (no workout templates), still writes scheduleDays/scheduleDaysSource/time, writes the failure marker, and does NOT write activeProgram', async () => {
+    state.USER_DOC = { running: RUNNING_BASE, lifestyle: {} };
+    getRunWorkoutTemplatesMock.mockResolvedValue([]);
+    const result = await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה'], frequency: 3, time: '07:00' });
+    expect(result).toMatchObject({ ok: false, buildFailReason: 'no-workout-templates' });
+    expect(updateDocMock).toHaveBeenCalledTimes(1);
+    const [, payload] = updateDocMock.mock.calls[0];
+    expect(payload['running.scheduleDays']).toEqual(['א', 'ג', 'ה']);
+    expect(payload['running.scheduleDaysSource']).toBe('user-chosen');
+    expect(payload['lifestyle.reminders.runningTime']).toBe('07:00');
+    expect(payload['running.activeProgram']).toBeUndefined();
+    expect(typeof payload['running.planBuildFailedAt']).toBe('string');
+    expect(payload['running.planBuildFailReason']).toBe('no-workout-templates');
+  });
+
+  it('on a REPEATED build failure, still writes the day/time choice (unlike buildActiveRunningProgram, which writes nothing on repeat) -- only the failure marker itself is frozen', async () => {
+    state.USER_DOC = {
+      running: {
+        ...RUNNING_BASE,
+        planBuildFailedAt: '2026-08-30T00:00:00.000Z',
+        planBuildFailReason: 'no-workout-templates',
+      },
+      lifestyle: {},
+    };
+    getRunWorkoutTemplatesMock.mockResolvedValue([]);
+    const result = await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['ב', 'ד', 'ו'], frequency: 3, time: '07:00' });
+    expect(result.ok).toBe(false);
+    expect(updateDocMock).toHaveBeenCalledTimes(1);
+    const [, payload] = updateDocMock.mock.calls[0];
+    expect(payload['running.scheduleDays']).toEqual(['ב', 'ד', 'ו']);
+    // The marker itself is NOT refreshed -- absent from this payload entirely,
+    // preserving the original '2026-08-30...' already in Firestore.
+    expect(payload['running.planBuildFailedAt']).toBeUndefined();
+    expect(payload['running.planBuildFailReason']).toBeUndefined();
+  });
+
+  it('totalWeeks is preserved from the existing generatedProgramTemplate.canonicalWeeks, never recomputed from the new frequency -- and the new frequency IS passed through, not the old one', async () => {
+    state.USER_DOC = { running: { ...RUNNING_BASE, generatedProgramTemplate: { ...GENERATED_PROGRAM_TEMPLATE, canonicalWeeks: 12 } }, lifestyle: {} };
+    await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה', 'ו'], frequency: 4, time: '07:00' });
+    // Inspect what actually reached generatePlan -- the mocked function's own
+    // first argument is the freshly-generated template, carrying whatever
+    // canonicalWeeks/canonicalFrequency completeRunningScheduleFirstChoice
+    // passed to buildRunningPlan.
+    const [template] = generatePlanMock.mock.calls[0];
+    expect(template.canonicalWeeks).toBe(12);
+    expect(template.canonicalFrequency).toBe(4);
+  });
+
+  it('clamps frequency=1 up to 2 before generation (defense-in-depth via the shared clampRunningFrequency -- the picker itself no longer offers 1 as of 01.09.2026, but this writer must not trust every caller to enforce that)', async () => {
+    state.USER_DOC = { running: RUNNING_BASE, lifestyle: {} };
+    await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א'], frequency: 1, time: '07:00' });
+    const [template] = generatePlanMock.mock.calls[0];
+    expect(template.canonicalFrequency).toBe(2);
+    // scheduleDays itself stays exactly what the user picked (1 day) --
+    // only the generated program's structure is clamped, matching signup's
+    // own precedented behavior.
+    const [, payload] = updateDocMock.mock.calls[0];
+    expect(payload['running.scheduleDays']).toEqual(['א']);
   });
 });

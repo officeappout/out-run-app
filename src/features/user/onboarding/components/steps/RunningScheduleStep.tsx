@@ -22,11 +22,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Footprints, Clock, Check, RefreshCw, Bell, Timer } from 'lucide-react';
+import { Footprints, Clock, Check, RefreshCw, Bell, Timer, AlertCircle } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import StickyActionButton from '@/components/ui/StickyActionButton';
+import { auth } from '@/lib/firebase';
+import { completeRunningScheduleFirstChoice } from '@/features/workout-engine/core/services/running-schedule-write.service';
 import { MIN_RUNNING_FREQUENCY, MAX_RUNNING_FREQUENCY, clampRunningFrequency } from '@/lib/running-frequency-bounds';
 import { getSmartDefaultDays } from '@/lib/running-schedule-smart-defaults';
 
@@ -63,6 +65,15 @@ const MAX_FREQUENCY = MAX_RUNNING_FREQUENCY;
 export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: RunningScheduleStepProps) {
   const { updateData, data } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
+  const refreshProfile = useUserStore((s) => s.refreshProfile);
+
+  // Single branch point (David, 01.09.2026): in JIT mode this component must
+  // never touch useOnboardingStore's debounced sync at all -- zero calls,
+  // not "unified" ones -- the JIT write path goes entirely through
+  // completeRunningScheduleFirstChoice's own atomic Firestore write instead.
+  // One decision here, used everywhere updateData would otherwise be
+  // called directly, instead of a flag checked inside five handlers.
+  const persistOnboardingData = isJIT ? (() => {}) : updateData;
 
   // Existing strength schedule days — for hybrid awareness display
   const strengthDays: string[] = profile?.lifestyle?.scheduleDays ?? [];
@@ -70,6 +81,13 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
     .map((letter) => DAYS_HEBREW.indexOf(letter))
     .filter((i) => i >= 0);
   const hasStrengthDays = strengthDays.length > 0;
+
+  // The user's CURRENT running frequency (JIT only — a fresh
+  // Firestore-backed value from useUserStore, not onboarding-store data
+  // which is empty/irrelevant for a JIT entry). Used only to decide
+  // whether the load-increase notice below applies; the writer itself
+  // recomputes this independently server-side via resolveRunningScheduleChange.
+  const oldRunningScheduleDays: string[] = profile?.running?.scheduleDays ?? [];
 
   // ── State ──────────────────────────────────────────────────────────────────
 
@@ -155,7 +173,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
     if (showTimeSection && selectedDays.length !== value) {
       setShowTimeSection(false);
     }
-    updateData({ runningWeeklyFrequency: value } as any);
+    persistOnboardingData({ runningWeeklyFrequency: value } as any);
   };
 
   const handleDayToggle = (dayIndex: number) => {
@@ -177,10 +195,42 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
 
     const runningScheduleDays = selectedDays.map((i) => DAYS_HEBREW[i]).sort();
 
-    // Merge running days with existing strength days for global scheduleDays
+    if (isJIT) {
+      // JIT path — single branch point (see persistOnboardingData above):
+      // no useOnboardingStore writes at all, everything goes through the
+      // dedicated atomic writer. Build failure is not shown here — the
+      // days/time are saved regardless (completeRunningScheduleFirstChoice's
+      // own contract), and if activeProgram couldn't be built,
+      // NextRunWorkoutCard's existing State A (A1/A2, already merged and
+      // device-verified) already handles recovery on the home screen. No
+      // second failure-UI duplicated here.
+      // StickyActionButton's own onPress/loading/success state machine
+      // already prevents a second submit while this await is in flight —
+      // no separate isSubmitting state needed here.
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      await completeRunningScheduleFirstChoice({
+        uid,
+        scheduleDays: runningScheduleDays,
+        frequency,
+        time,
+      });
+      // refreshProfile() regardless of ok/false — either way Firestore now
+      // has a different running.* shape than what useUserStore is holding
+      // (the days/time always land; activeProgram only on success), and
+      // the home screen must reflect the real current state, not a stale
+      // pre-save snapshot (same lesson as A2: profile is getDoc()-based,
+      // not a live listener).
+      await refreshProfile();
+      onNext();
+      return;
+    }
+
+    // Signup path — unchanged behavior, only updateData -> persistOnboardingData
+    // (persistOnboardingData === updateData here, since isJIT is false).
     const mergedDays = Array.from(new Set([...strengthDays, ...runningScheduleDays]));
 
-    updateData({
+    persistOnboardingData({
       runningWeeklyFrequency: frequency,
       runningScheduleDays,
       runningScheduleDayIndices: selectedDays,
@@ -198,10 +248,15 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
   const canContinue = frequency > 0 && selectedDays.length === frequency;
 
   // ── Notification permission helper (mirrors ScheduleStep) ──────────────────
+  // Not reachable in JIT — this toggle doesn't render there at all (see
+  // render, below): the wizard already has its own separate notifications
+  // step (LifestyleWizard.tsx, 'notifications', after 'schedule'), so this
+  // one would duplicate it. persistOnboardingData used anyway, for the same
+  // single-branch-point consistency as everywhere else in this file.
   const handleNotificationToggle = async () => {
     if (notificationsEnabled) {
       setNotificationsEnabled(false);
-      updateData({ runningNotificationsEnabled: false } as any);
+      persistOnboardingData({ runningNotificationsEnabled: false } as any);
       return;
     }
     if ('Notification' in window) {
@@ -211,10 +266,10 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
       }
       const granted = permission === 'granted' || permission !== 'denied';
       setNotificationsEnabled(granted);
-      updateData({ runningNotificationsEnabled: granted } as any);
+      persistOnboardingData({ runningNotificationsEnabled: granted } as any);
     } else {
       setNotificationsEnabled(true);
-      updateData({ runningNotificationsEnabled: true } as any);
+      persistOnboardingData({ runningNotificationsEnabled: true } as any);
     }
   };
 
@@ -252,6 +307,36 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             <p className="text-xs text-blue-700 font-medium text-right leading-relaxed">
               ימי הכוח שלך ({strengthDays.join(', ')}) מסומנים בכחול.
               אפשר לבחור בהם גם ריצה — שני האימונים יופיעו באותו יום בלוז.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Load-increase notice (JIT only, frequency going UP from the
+          user's current running days) — "warns, doesn't block" (David,
+          01.09.2026). Shown BEFORE the user saves, not as a fleeting
+          post-save success-label, since StickyActionButton's onPress
+          calls onNext() at the very end of handleContinue — by the time
+          its own internal success-checkmark state would render, this
+          screen may already be transitioning away, making a post-save
+          message unreliable to actually be seen. Wording DECIDED (David,
+          01.09.2026, second round) — the banner shows BEFORE the save
+          happens, so past-tense phrasing was wrong; replaced with
+          before-the-fact framing that also reassures on the thing that
+          actually worries the user (progress isn't lost). */}
+      <AnimatePresence>
+        {isJIT && frequency > oldRunningScheduleDays.length && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-4 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2"
+          >
+            <AlertCircle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 font-medium text-right leading-relaxed">
+              בחרת יותר ימים מהתוכנית הנוכחית שלך.
+              <br />
+              נעדכן אותה בהתאם — ההתקדמות שלך תישמר.
             </p>
           </motion.div>
         )}
@@ -330,34 +415,41 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-base font-bold text-slate-900">באילו ימים?</h3>
 
-              {/* Calendar Sync toggle — mirrors ScheduleStep */}
-              <button
-                onClick={() => {
-                  const next = !calendarSyncEnabled;
-                  setCalendarSyncEnabled(next);
-                  updateData({ calendarSyncEnabled: next } as any);
-                }}
-                className="flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200"
-                style={calendarSyncEnabled
-                  ? { background: 'rgba(0,186,247,0.1)', color: '#00BAF7' }
-                  : { background: '#f8fafc', color: '#64748b' }
-                }
-              >
-                <RefreshCw
-                  size={10}
-                  strokeWidth={1.5}
-                  style={{ color: calendarSyncEnabled ? '#00BAF7' : '#94a3b8' }}
-                />
-                <span className="text-[11px] font-medium">סנכרון ליומן</span>
-                <div
-                  className="w-3 h-3 rounded-full flex items-center justify-center transition-all"
-                  style={{ background: calendarSyncEnabled ? '#00BAF7' : '#e2e8f0' }}
+              {/* Calendar Sync toggle — mirrors ScheduleStep. Hidden in JIT
+                  (David, 01.09.2026): a global, once-per-user preference
+                  that already has a home in the main signup flow — on a
+                  screen titled "מתי נרוץ?" it would read as if it were
+                  about running specifically, and it isn't. This screen's
+                  job here is days only. */}
+              {!isJIT && (
+                <button
+                  onClick={() => {
+                    const next = !calendarSyncEnabled;
+                    setCalendarSyncEnabled(next);
+                    persistOnboardingData({ calendarSyncEnabled: next } as any);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200"
+                  style={calendarSyncEnabled
+                    ? { background: 'rgba(0,186,247,0.1)', color: '#00BAF7' }
+                    : { background: '#f8fafc', color: '#64748b' }
+                  }
                 >
-                  {calendarSyncEnabled && (
-                    <Check size={7} className="text-white" strokeWidth={2.5} />
-                  )}
-                </div>
-              </button>
+                  <RefreshCw
+                    size={10}
+                    strokeWidth={1.5}
+                    style={{ color: calendarSyncEnabled ? '#00BAF7' : '#94a3b8' }}
+                  />
+                  <span className="text-[11px] font-medium">סנכרון ליומן</span>
+                  <div
+                    className="w-3 h-3 rounded-full flex items-center justify-center transition-all"
+                    style={{ background: calendarSyncEnabled ? '#00BAF7' : '#e2e8f0' }}
+                  >
+                    {calendarSyncEnabled && (
+                      <Check size={7} className="text-white" strokeWidth={2.5} />
+                    )}
+                  </div>
+                </button>
+              )}
             </div>
 
             <p
@@ -445,32 +537,36 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                 <h3 className="text-base font-bold text-slate-900">באיזו שעה תרוץ?</h3>
               </div>
 
-              {/* Reminders toggle */}
-              <button
-                ref={notificationBtnRef}
-                onClick={handleNotificationToggle}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 ${
-                  notificationsEnabled
-                    ? 'bg-amber-50 text-amber-700'
-                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-                }`}
-              >
-                <Bell
-                  size={10}
-                  strokeWidth={1.5}
-                  className={notificationsEnabled ? 'text-amber-600' : 'text-slate-400'}
-                />
-                <span className="text-[11px] font-medium">תזכורת</span>
-                <div
-                  className={`w-3 h-3 rounded-full flex items-center justify-center transition-all ${
-                    notificationsEnabled ? 'bg-amber-500' : 'bg-slate-200'
+              {/* Reminders toggle — hidden in JIT (David, 01.09.2026):
+                  duplicates LifestyleWizard's own separate 'notifications'
+                  step (LifestyleWizard.tsx, comes right after 'schedule'). */}
+              {!isJIT && (
+                <button
+                  ref={notificationBtnRef}
+                  onClick={handleNotificationToggle}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 ${
+                    notificationsEnabled
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
                   }`}
                 >
-                  {notificationsEnabled && (
-                    <Check size={7} className="text-white" strokeWidth={2.5} />
-                  )}
-                </div>
-              </button>
+                  <Bell
+                    size={10}
+                    strokeWidth={1.5}
+                    className={notificationsEnabled ? 'text-amber-600' : 'text-slate-400'}
+                  />
+                  <span className="text-[11px] font-medium">תזכורת</span>
+                  <div
+                    className={`w-3 h-3 rounded-full flex items-center justify-center transition-all ${
+                      notificationsEnabled ? 'bg-amber-500' : 'bg-slate-200'
+                    }`}
+                  >
+                    {notificationsEnabled && (
+                      <Check size={7} className="text-white" strokeWidth={2.5} />
+                    )}
+                  </div>
+                </button>
+              )}
             </div>
 
             {/* Hour : Minute scroll picker — identical mechanics to ScheduleStep */}

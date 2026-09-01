@@ -19,6 +19,8 @@ import { saveNotificationPrefs } from '@/features/notifications/services/notific
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import PersonaStep from './steps/PersonaStep';
 import ScheduleStep from './steps/ScheduleStep';
+import RunningScheduleStep from './steps/RunningScheduleStep';
+import { hasRunningTrack } from '@/lib/track-ownership';
 
 interface LifestyleWizardProps {
   onComplete: () => void;
@@ -40,6 +42,17 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
 
   const { profile } = useUserStore();
   const { data: onboardingData } = useOnboardingStore();
+
+  // Which schedule step to render — from track-ownership.ts's hasRunningTrack
+  // (running.isUnlocked), NOT primaryTrack/dashboardMode (already documented
+  // elsewhere as unreliable under JIT editing, §0a). A dual-track user
+  // (both strength assessed and running unlocked) gets the running step —
+  // deliberate, matches the same reasoning already in track-ownership.ts's
+  // own JSDoc for the commit-4 gate: a user with running access left on
+  // system-default days indefinitely isn't adapted, regardless of which
+  // track they'd call "primary."
+  const isRunningTrack = hasRunningTrack(profile);
+
   const [currentStep, setCurrentStep] = useState<WizardStep>('persona');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
@@ -308,7 +321,10 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
               exit={{ opacity: 0, x: -20 }}
               className="h-full"
             >
-              <ScheduleStep onNext={handleScheduleNext} />            </motion.div>
+              {isRunningTrack
+                ? <RunningScheduleStep onNext={handleScheduleNext} isJIT />
+                : <ScheduleStep onNext={handleScheduleNext} />}
+            </motion.div>
           )}
 
           {currentStep === 'notifications' && (

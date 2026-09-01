@@ -3,6 +3,9 @@ import { db } from '@/lib/firebase';
 import { getPaceMapConfig, getRunWorkoutTemplates } from './running-admin.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '../config/pace-map-config';
 import { buildRunningPlan } from './plan-generator.service';
+import { resolveRunningScheduleChange, mergePreservedHistory } from './running-schedule-change.service';
+import { resolveRunningScheduleSource } from '@/lib/running-schedule-source';
+import { clampRunningFrequency } from '@/lib/running-frequency-bounds';
 import type { ActiveRunningProgram, PaceProfile } from '../types/running.types';
 
 /**
@@ -309,4 +312,219 @@ export async function buildActiveRunningProgram(
   }
 
   return { ok: false, reason: result.reason };
+}
+
+export interface CompleteRunningScheduleChoiceInput {
+  uid: string;
+  /** Day letters, e.g. ['א','ג','ה'] — the user's new running-day selection. */
+  scheduleDays: string[];
+  /**
+   * The raw UI selection. `RunningScheduleStep`'s picker is bounded to
+   * `MIN_RUNNING_FREQUENCY`..`MAX_RUNNING_FREQUENCY` (2-4) as of 01.09.2026
+   * — before that fix it allowed 1, silently producing a plan built for 2
+   * runs/week with only 1 weekday to hang the second run on (found during
+   * this writer's own review; see `src/lib/running-frequency-bounds.ts`'s
+   * module doc for the full mechanism and why the minimum is a
+   * training-design decision, not a numeric floor). Still clamped here via
+   * `clampRunningFrequency` regardless — kept as defense-in-depth for any
+   * caller other than today's picker (a stale stored value, a future 3f/
+   * general-remap caller), not because the picker itself can produce an
+   * out-of-range value anymore. `scheduleDays` itself is stored as
+   * whatever the user actually picked — only the generated program's
+   * structure is clamped, matching signup's existing precedent.
+   */
+  frequency: number;
+  /** HH:MM. */
+  time: string;
+}
+
+export type CompleteRunningScheduleChoiceResult =
+  | { ok: true; requiresExplanation: boolean }
+  | { ok: false; requiresExplanation: boolean; buildFailReason: RetryEligibleFailureReason }
+  | { ok: false; requiresExplanation: false; reason: 'missing-profile-data' };
+
+/**
+ * Commit 3 (2d) of the 2b+2d round, idempotent-booping-sunrise.md — the
+ * wizard schedule-step's writer for a running-track user. Handles BOTH a
+ * true first-time day choice AND a repeat JIT change through the wizard —
+ * `resolveRunningScheduleChange` (1b) classifies which one this is, this
+ * function doesn't need to know in advance.
+ *
+ * Pipeline, exactly as specified (David, 01.09.2026):
+ * `resolveRunningScheduleChange` (1b) → `preservedWeek` →
+ * `buildRunningPlan` (new frequency, `preservedWeek`, the existing
+ * `startDate`) → `mergePreservedHistory` → one atomic write.
+ *
+ * Deliberately does NOT reuse `fetchAndGenerateActiveRunningProgram`
+ * above — that function is scoped to first-time-only (no
+ * `preservedWeek`/`existingStartDate`), while this one is a rebuild by
+ * construction. The small "read paceProfile/generatedProgramTemplate off
+ * the profile" shape is duplicated between the two rather than extracted
+ * into a shared helper — a deliberate choice, not an oversight: that
+ * function is already merged and device-verified (01.09.2026); refactoring
+ * it to share code with a brand-new, not-yet-reviewed writer risks
+ * regressing something that was hard-won (the previous "looks right,
+ * passes tests, doesn't work on a device" lesson from A1). Flagged here as
+ * a real, small duplication a future pass could clean up — not silently
+ * left unmentioned.
+ *
+ * ⚠️ `lifestyle.scheduleDays` merge is a PLAIN UNION with the new running
+ * days, never a subtraction of the old ones (David, 01.09.2026 review of
+ * a related file: "המערכת מתאימה עצמה למשתמש" — but this specific choice
+ * is a judgment call, not something David has reviewed yet). A day the
+ * user REMOVES from their running schedule stays in `lifestyle.scheduleDays`
+ * indefinitely unless it's cleaned up some other way — matches the exact
+ * behavior `RunningScheduleStep.tsx`'s original signup-time merge already
+ * has (`:154-166`), not a new gap. The alternative (subtract the user's
+ * OLD running days before unioning in the new ones) was considered and
+ * rejected: `lifestyle.scheduleDays` is a flat array with no per-day
+ * ownership tracking, so a day that's BOTH a strength day and an old
+ * running day would be wrongly stripped the moment running drops it —
+ * exactly the same class of bug already documented and deferred to the
+ * future drawer's id-ownership merge (gap-map finding #9, §5 of this same
+ * plan file). Staying with the existing, safer (if imprecise) precedent
+ * rather than introducing a new data-loss risk to close a smaller,
+ * cosmetic staleness gap.
+ *
+ * `lifestyle.reminders.runningTime` is written via a DOTTED PATH, not a
+ * nested-object replace (David, 01.09.2026 review, explicit requirement)
+ * — `lifestyle.reminders` also declares a sibling `strengthTime` field
+ * (`user.types.ts:377-380`; not currently written by any live code,
+ * confirmed by grep, but declared as real future intent) that a
+ * `{lifestyle:{reminders:{runningTime}}}`-shaped write would silently
+ * wipe the moment it exists. The dotted key touches only this one leaf.
+ *
+ * On a build failure: `scheduleDays`/`scheduleDaysSource`/the time are
+ * STILL written — "the user's choice is always saved" (David, 01.09.2026)
+ * — only `activeProgram` is skipped, alongside the SAME
+ * `planBuildFailedAt`/`planBuildFailReason` freeze-on-repeat-failure
+ * semantics A1 already established (never overwrite an existing failure
+ * timestamp/reason with a later one).
+ *
+ * ⛔ MUST NEVER touch `lifestyle.primaryTrack` or `lifestyle.dashboardMode`
+ * — directly, via a helper, or via any other service (David, 01.09.2026,
+ * explicit hard requirement). This writer runs for a user who is by
+ * definition ALREADY in the wizard's running branch (`hasRunningTrack`
+ * gate, `LifestyleWizard.tsx`) — it is a day/time edit, not a track
+ * assignment, and has no business deciding which track is "primary" for
+ * a dual-track user. (Contrast with `onboarding-sync.service.ts:1848-1853`,
+ * which DOES force `primaryTrack`/`dashboardMode` unconditionally — that's
+ * the exact behavior flagged as a separate, unfixed bug in this same plan
+ * file's "`/onboarding-new/dynamic` כופה החלפת-מסלול" queue item. Do not
+ * import anything from that code path here, and do not replicate its
+ * unconditional-override pattern in this file either.)
+ */
+export async function completeRunningScheduleFirstChoice(
+  input: CompleteRunningScheduleChoiceInput,
+): Promise<CompleteRunningScheduleChoiceResult> {
+  const { uid, scheduleDays, frequency: rawFrequency, time } = input;
+  // Shared clamp — src/lib/running-frequency-bounds.ts. Same bound the
+  // picker itself now enforces (01.09.2026) and running-onboarding-bridge
+  // .service.ts's two clamp sites use; kept here too as defense-in-depth
+  // for any caller other than today's picker.
+  const frequency = clampRunningFrequency(rawFrequency);
+  const userRef = doc(db, 'users', uid);
+  const snap = await getDoc(userRef);
+  const docData = snap.exists() ? (snap.data() as Record<string, any>) : undefined;
+  const running = docData?.running;
+  const lifestyle = docData?.lifestyle;
+
+  const paceProfile: PaceProfile | undefined = running?.paceProfile;
+  const generatedProgramTemplate = running?.generatedProgramTemplate;
+  if (!paceProfile || !generatedProgramTemplate?.id) {
+    return { ok: false, requiresExplanation: false, reason: 'missing-profile-data' };
+  }
+
+  const oldScheduleDays: string[] = Array.isArray(running?.scheduleDays) ? running.scheduleDays : [];
+  const oldSource = resolveRunningScheduleSource(docData);
+  const activeProgram = running?.activeProgram;
+  const currentWeek = typeof activeProgram?.currentWeek === 'number' ? activeProgram.currentWeek : 1;
+
+  const change = resolveRunningScheduleChange({
+    oldSource,
+    oldScheduleDays,
+    newScheduleDays: scheduleDays,
+    currentWeek,
+  });
+
+  const currentLifestyleScheduleDays: string[] = Array.isArray(lifestyle?.scheduleDays) ? lifestyle.scheduleDays : [];
+  const mergedLifestyleScheduleDays = Array.from(new Set([...currentLifestyleScheduleDays, ...scheduleDays]));
+
+  let buildFailReason: RetryEligibleFailureReason | null = null;
+  let builtActiveProgram: (Omit<ActiveRunningProgram, 'startDate'> & { startDate: string }) | null = null;
+
+  try {
+    const [workoutTemplates, paceMapConfig] = await Promise.all([
+      getRunWorkoutTemplates().catch(() => []),
+      getPaceMapConfig().catch(() => DEFAULT_PACE_MAP_CONFIG),
+    ]);
+    if (workoutTemplates.length === 0) {
+      buildFailReason = 'no-workout-templates';
+    } else {
+      const built = buildRunningPlan({
+        goal: running.currentGoal,
+        basePace: paceProfile.basePace,
+        targetDistance: generatedProgramTemplate.targetDistance,
+        frequency,
+        totalWeeks: generatedProgramTemplate.canonicalWeeks,
+        runningHistoryMonths: running?.onboardingData?.runningHistoryMonths,
+        hasInjuries: running?.onboardingData?.hasInjuries,
+        workoutTemplates,
+        paceMapConfig,
+        preservedWeek: change.preservedWeek,
+        existingStartDate: activeProgram?.startDate,
+      });
+      const oldSchedule = Array.isArray(activeProgram?.schedule) ? activeProgram.schedule : [];
+      builtActiveProgram = {
+        ...built.activeProgram,
+        schedule: mergePreservedHistory(oldSchedule, built.activeProgram.schedule, change.preservedWeek),
+      };
+    }
+  } catch (err) {
+    console.error('[RunningScheduleWrite] completeRunningScheduleFirstChoice build failed:', err);
+    buildFailReason = 'generation-threw';
+  }
+
+  const baseFields: Record<string, unknown> = {
+    'running.scheduleDays': scheduleDays,
+    'running.scheduleDaysSource': 'user-chosen',
+    'lifestyle.reminders.runningTime': time,
+    'lifestyle.scheduleDays': mergedLifestyleScheduleDays,
+  };
+
+  if (builtActiveProgram) {
+    try {
+      await updateDoc(userRef, {
+        ...baseFields,
+        'running.activeProgram': builtActiveProgram,
+        'running.planBuildFailedAt': deleteField(),
+        'running.planBuildFailReason': deleteField(),
+      });
+      return { ok: true, requiresExplanation: change.requiresExplanation };
+    } catch (err) {
+      console.error('[RunningScheduleWrite] completeRunningScheduleFirstChoice write failed:', err);
+      buildFailReason = 'generation-threw';
+    }
+  }
+
+  // Build (or the success write itself) failed — the user's day/time
+  // choice is still saved (David, 01.09.2026: "הבחירה של המשתמש נשמרת
+  // תמיד"), only activeProgram is skipped. Same freeze-on-repeat-failure
+  // semantics as buildActiveRunningProgram above.
+  const existingPlanBuildFailedAt: string | undefined = running?.planBuildFailedAt;
+  const failFields: Record<string, unknown> = { ...baseFields };
+  if (!existingPlanBuildFailedAt) {
+    failFields['running.planBuildFailedAt'] = new Date().toISOString();
+    failFields['running.planBuildFailReason'] = buildFailReason ?? 'generation-threw';
+  }
+  try {
+    await updateDoc(userRef, failFields);
+  } catch (err) {
+    console.error('[RunningScheduleWrite] completeRunningScheduleFirstChoice failure-path write failed:', err);
+  }
+  return {
+    ok: false,
+    requiresExplanation: change.requiresExplanation,
+    buildFailReason: buildFailReason ?? 'generation-threw',
+  };
 }
