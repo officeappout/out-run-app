@@ -17,6 +17,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import {
   buildDefaultTemplate,
   validateSchedule,
+  validateInitial,
   partitionWarnings,
 } from '@/features/schedule/engine/scheduleRules';
 import {
@@ -169,19 +170,21 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
     { id: 'crossfit', label: isHebrew ? 'קרוספיט' : 'CrossFit',  icon: Flame },
   ];
 
+  // Local-only until handleContinue's single consolidated updateData() call —
+  // these used to also call updateData() per-click, but every value they
+  // touch is already local state that handleContinue re-sends in full, so
+  // that was a pure redundant write, not a resume/checkpoint mechanism
+  // (David, 31.08.2026: write on step-completion, not on field-touch).
   const handleHistoryFreq = (id: string) => {
     setHistoryFreq(id);
-    updateData({ historyFrequency: id });
   };
   const toggleHistoryLoc = (id: string) => {
     const next = historyLocs.includes(id) ? historyLocs.filter(l => l !== id) : [...historyLocs, id];
     setHistoryLocs(next);
-    updateData({ historyLocations: next });
   };
   const toggleHistorySport = (id: string) => {
     const next = historySpts.includes(id) ? historySpts.filter(s => s !== id) : [...historySpts, id];
     setHistorySpts(next);
-    updateData({ historySports: next });
   };
 
   // Recommended frequency (default 3, can be based on goal)
@@ -189,6 +192,32 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
 
   // State - Default to recommended frequency
   const [frequency, setFrequency] = useState<number>(data.trainingDays || RECOMMENDED_FREQUENCY);
+
+  // ── [Smart Schedule v1.3] Pre-template gating (§2.3) — ERR_DAYS_MIN only ──
+  // Runs before the grid exists — skill-count/frequency feasibility, not
+  // grid content. WARN-level (reconnected 01.09.2026). Merged into the
+  // same liveErrors/liveWarns stream below, not a second display.
+  //
+  // validateInitial() also returns ERR_03 (>4 hard skills) — deliberately
+  // not consumed here. David, 01.09.2026: ERR_03 has nothing this screen
+  // can do about it (hardCount comes from seedSkills, fixed at mount —
+  // nothing here changes it), while ERR_DAYS_MIN is genuinely actionable
+  // here (frequency is adjustable right on this screen). Showing one
+  // non-actionable warning next to one actionable one burns trust in both
+  // — the user learns a warning can be decorative and stops reading
+  // either. ERR_03's real home is program-path/page.tsx, where hardCount
+  // is actually chosen — see scheduleRules.ts for that pointer.
+  //
+  // Allow-list, not deny-list, on purpose: a future rule added to
+  // validateInitial() must not appear here until someone explicitly adds
+  // its code below — otherwise it lands on this screen by default, with
+  // no one deciding or reviewing that it belongs here. That silent-
+  // appearance failure mode is exactly what today's whole validation
+  // round was about.
+  const initialWarnings = useMemo(
+    () => validateInitial(seedSkills.map((s) => s.id), frequency).filter((w) => w.code === 'ERR_DAYS_MIN'),
+    [seedSkills, frequency],
+  );
 
   // ── [Smart Schedule v1.3] Schedule grid state ───────────────────────────
   // Source of truth for the per-day plan. Replaces the legacy `selectedDays`
@@ -212,11 +241,15 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
     [scheduleGrid],
   );
 
-  // Live validation — re-runs whenever the grid mutates.
+  // Live validation — re-runs whenever the grid mutates. `liveWarnings`
+  // stays grid-only (it also feeds ScheduleDayBand's per-day highlighting,
+  // which initialWarnings has no affectedDays for and shouldn't touch);
+  // initialWarnings is merged in only for the errors/warns partition below,
+  // so ScheduleWarningsPanel sees both sources through the one stream.
   const liveWarnings = useMemo(() => validateSchedule(scheduleGrid), [scheduleGrid]);
   const { errors: liveErrors, warns: liveWarns } = useMemo(
-    () => partitionWarnings(liveWarnings),
-    [liveWarnings],
+    () => partitionWarnings([...initialWarnings, ...liveWarnings]),
+    [initialWarnings, liveWarnings],
   );
 
   // Popover state — which day card has its bubble open (-1 = closed).
@@ -710,10 +743,9 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
           {/* Left side: Calendar Sync Toggle (inline) - Delicate styling */}
           <button
             onClick={() => {
-              const newValue = !calendarSyncEnabled;
-              setCalendarSyncEnabled(newValue);
-              // Sync to store immediately
-              updateData({ calendarSyncEnabled: newValue } as any);
+              // Local-only until handleContinue's consolidated write — see
+              // the note above handleHistoryFreq.
+              setCalendarSyncEnabled(!calendarSyncEnabled);
             }}
             className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 ${
               calendarSyncEnabled 

@@ -378,6 +378,19 @@ export interface UserFullProfile {
       runningTime?: string;   // preferred running workout time
       strengthTime?: string;  // preferred strength workout time
     };
+    /**
+     * C2 — set the moment LifestyleWizard's persona step completes
+     * (handlePersonaNext), not at final wizard submit. A user who answers
+     * persona and closes before schedule/notifications still counts as
+     * answered. Read via src/lib/persona-declaration.ts's
+     * hasAnsweredPersona, which falls back to personaId-truthy for users
+     * who predate this field.
+     *
+     * A client ISO string (new Date().toISOString()), deliberately NOT a
+     * Firebase serverTimestamp() -- see the write site's comment
+     * (LifestyleWizard.tsx) for why. Do not "fix" this to serverTimestamp().
+     */
+    personaAnsweredAt?: string;
   };
   
   // Persona (Lemur) selection

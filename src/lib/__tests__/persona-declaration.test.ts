@@ -43,4 +43,34 @@ describe('hasAnsweredPersona', () => {
   it('treats a falsy-but-present personaAnsweredAt (0) as not answered', () => {
     expect(hasAnsweredPersona({ lifestyle: { personaAnsweredAt: 0 } })).toBe(false);
   });
+
+  it('returns true when onboardingAnswers.persona is set (OnboardingWizard/Path A, default strength flow)', () => {
+    expect(hasAnsweredPersona({ onboardingAnswers: { persona: 'the-strategist' } })).toBe(true);
+  });
+
+  it('returns true when all three forms are set', () => {
+    expect(
+      hasAnsweredPersona({
+        personaId: 'the-strategist',
+        lifestyle: { personaAnsweredAt: '2026-08-31T00:00:00Z' },
+        onboardingAnswers: { persona: 'the-strategist' },
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false for an empty-string onboardingAnswers.persona', () => {
+    expect(hasAnsweredPersona({ onboardingAnswers: { persona: '' } })).toBe(false);
+  });
+
+  it('returns false when onboardingAnswers itself is missing entirely', () => {
+    expect(hasAnsweredPersona({ personaId: undefined, onboardingAnswers: undefined })).toBe(false);
+  });
+
+  it('returns false when onboardingAnswers exists with unrelated keys but no persona/personas -- guards against checking parent-object presence instead of the specific key (this is exactly the shape a runner\'s profile has: onboardingAnswers populated by the dynamic-questionnaire engine, but never .persona)', () => {
+    expect(
+      hasAnsweredPersona({
+        onboardingAnswers: { trainingHistory: '3+', sportsPreferences: ['running'], outdoorGymExperience: true } as any,
+      }),
+    ).toBe(false);
+  });
 });
