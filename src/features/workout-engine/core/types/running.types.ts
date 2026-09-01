@@ -429,10 +429,40 @@ export interface RunningProfile {
   planBuildFailedAt?: string;
   /**
    * Which `FetchAndGenerateFailureReason` caused the failure recorded by
-   * `planBuildFailedAt` above (`'program-template-not-found' |
-   * 'no-workout-templates' | 'generation-threw'` — never
-   * `'missing-profile-data'`, which is never retry-eligible and never
-   * written here at all).
+   * `planBuildFailedAt` above (`'no-workout-templates' |
+   * 'generation-threw'` — never `'missing-profile-data'`, which is never
+   * retry-eligible and never written here at all).
+   *
+   * ⚠️ `'program-template-not-found'` REMOVED FROM THE TYPE (01.09.2026,
+   * before commit-3 planning) — a real, now-fixed bug used to make this
+   * the near-universal outcome: `fetchAndGenerateActiveRunningProgram`'s
+   * first draft fetched a `RunProgramTemplate` from Firestore by id, but
+   * the live onboarding path never writes a template there at all (see
+   * `running-schedule-write.service.ts`'s module doc for the full
+   * evidence) — so this reason fired for essentially every real user. The
+   * fix regenerates the template instead of fetching it, and nothing left
+   * in that pipeline can produce a "not found" outcome. Do not
+   * reintroduce this value without a real code path that can produce it.
+   *
+   * Verified before removing it (David, 01.09.2026 review, explicit ask —
+   * "a value written to user documents can already be sitting there,
+   * deleting it from the type doesn't delete it from Firestore"): grepped
+   * every reader of `running.planBuildFailReason` in the repo — **zero
+   * exist**. Only writers (`buildActiveRunningProgram`,
+   * `running-schedule-write.service.ts`) and this declaration itself.
+   * Removing the value from the TypeScript union is therefore safe today
+   * — there is no switch/if-chain anywhere that could hit an
+   * unhandled-default gap. But this is a code-level guarantee, not a
+   * data-level one: if A1/A2's broken retry button (live on `main`
+   * between this field's introduction and this fix) was ever actually
+   * clicked — on a real account or a demo/test one — the literal string
+   * `'program-template-not-found'` could already be sitting in that
+   * user's Firestore document, outside what this narrowed type now
+   * describes. **Whenever a reader of this field is eventually built, it
+   * must treat an unrecognized string value defensively** (fall back to a
+   * generic "build failed" message, don't assume the TS union is
+   * runtime-exhaustive) rather than trusting this type as a complete
+   * description of what could be in the database.
    *
    * Exists because `'no-workout-templates'` is deliberately overloaded:
    * `fetchAndGenerateActiveRunningProgram`'s `.catch(() => [])` on
@@ -449,5 +479,5 @@ export interface RunningProfile {
    * first retry-eligible failure, never refreshed on a later retry (even
    * one that fails for a *different* reason), cleared together on success.
    */
-  planBuildFailReason?: 'program-template-not-found' | 'no-workout-templates' | 'generation-threw';
+  planBuildFailReason?: 'no-workout-templates' | 'generation-threw';
 }
