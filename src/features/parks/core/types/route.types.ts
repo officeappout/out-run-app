@@ -358,6 +358,11 @@ export interface Route {
   descriptionKey?: string;
 
   // Numeric data
+  /** In km — confirmed canonical unit (inventory.service.ts's saveRoutes writer comment;
+   *  the 30.08.2026 distance-unit-normalization migration converted every non-canonical
+   *  official_routes/curated_routes doc to this unit). Previously undocumented here, which
+   *  let a stale meters-assuming reader (approval-labels.ts's formatDistance) drift out of
+   *  sync with the writers — see that file's own doc comment for the concrete symptom. */
   distance: number;
   duration: number;
   score: number;

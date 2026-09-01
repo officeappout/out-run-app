@@ -48,10 +48,10 @@ export const COURT_SPORT_LABELS: Record<string, string> = {
   unknown: 'לא ידוע',
 };
 
-/** meters → "1.2 ק״מ" / "450מ׳" */
+/** km → "1.2 ק״מ" / "450מ׳" */
 export function formatDistance(distance: unknown): string {
   if (typeof distance !== 'number' || !isFinite(distance)) return '';
-  return distance >= 1000 ? `${(distance / 1000).toFixed(1)} ק״מ` : `${Math.round(distance)}מ׳`;
+  return distance >= 1 ? `${distance.toFixed(1)} ק״מ` : `${Math.round(distance * 1000)}מ׳`;
 }
 
 /** A real place label: not a raw "way/160415171" ref and not a bare house number. */
