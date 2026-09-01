@@ -48,6 +48,8 @@ const AMENITY_EMOJI: Record<AmenityCategory, string> = {
   bench: '🪑',
   drinking_water: '🚰',
   fitness_station: '💪',
+  crossing: '🚸',
+  dog_park: '🐕',
 };
 
 const COURT_SPORT_EMOJI: Record<CourtSport, string> = {

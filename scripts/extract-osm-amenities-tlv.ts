@@ -90,6 +90,35 @@
  * feature itself exists to prevent. Look up the target city's real
  * admin_level=8 relation id once (Overpass/Nominatim) and pass it explicitly.
  *
+ * ── CROSSWALK/DOG_PARK REPRODUCTION (01.09.2026) ────────────────────────
+ * Live `osm_amenities` holds ~2,206 category:'crossing' + ~18
+ * category:'dog_park' docs, Haifa-only, importBatchId
+ * `tlv-amenities-2026-08-19` — written by a lost/uncommitted run that
+ * BYPASSED buildValidatedDoc entirely (neither category was a member of
+ * AmenityCategory nor the mirrored zod enum until this same task's schema-
+ * widening commit). This build makes that data legitimate and
+ * reproducible going forward:
+ *   - crossing: `highway=crossing`, node only (matches every live sample —
+ *     a crossing is inherently a point on a way, never itself a way/area).
+ *   - dog_park: `leisure=dog_park`, node AND way (a fenced dog park is
+ *     commonly mapped as a small area; `out center tags;` below already
+ *     gives every way a centroid point, same mechanism fitness_station's
+ *     way candidates already use — no new geometry handling needed).
+ *   - Dedup scope: BOTH skip the garden-dedup gate entirely, per the
+ *     existing fitness_station-only rule above (David's product decision,
+ *     19.08.2026) — a crosswalk or dog park near a curated park is not a
+ *     duplicate of that park, the same reasoning already covers bench/
+ *     court/drinking_water. No new code needed here: the classify-loop's
+ *     `classified.category === 'fitness_station'` gate already excludes
+ *     every other category, crossing/dog_park included, by construction.
+ *   - The live orphaned batch's `rejected` docs (12 crossing + 2 dog_park)
+ *     predate the 19.08.2026 fitness_station-only narrowing — they were
+ *     written when EVERY category was gated. This build does not
+ *     reproduce that since-fixed behavior: a correct dry-run against
+ *     Haifa today should show 0 suppressed for both categories. The
+ *     dry-run reproduction report (below) surfaces this as an expected,
+ *     explained delta — not a rebuild defect.
+ *
  * Usage:
  *   DRY RUN (default — runs Overpass + the dedup gate for real, prints
  *   every candidate + its outcome, writes NOTHING to osm_amenities):
@@ -266,6 +295,9 @@ async function fetchAmenityElements(bbox: { latMin: number; lonMin: number; latM
   node["amenity"="drinking_water"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
   node["leisure"="fitness_station"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
   way["leisure"="fitness_station"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
+  node["highway"="crossing"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
+  node["leisure"="dog_park"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
+  way["leisure"="dog_park"](${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.lonMax});
 );
 out center tags;
 `.trim();
@@ -318,6 +350,8 @@ function classifyElement(el: OverpassElement): { category: AmenityCategory; spor
   if (tags.amenity === 'bench') return { category: 'bench' };
   if (tags.amenity === 'drinking_water') return { category: 'drinking_water' };
   if (tags.leisure === 'fitness_station') return { category: 'fitness_station' };
+  if (tags.highway === 'crossing') return { category: 'crossing' };
+  if (tags.leisure === 'dog_park') return { category: 'dog_park' };
   return null;
 }
 
@@ -347,12 +381,62 @@ interface CandidateOutcome {
   suppressed: { parkId: string; distanceMeters: number } | null;
 }
 
+/**
+ * REPRODUCTION CHECK (01.09.2026, crosswalk/dog_park build) — read-only,
+ * runs in every mode. Diffs this run's dry-run candidates against whatever
+ * already lives in `osm_amenities` for the same city, per category: not
+ * just a count comparison but an osmId-level overlap, since two runs could
+ * coincidentally produce the same COUNT while finding different elements
+ * (stale Overpass data, a since-edited OSM tag, etc.) — overlap is the
+ * real reproduction signal, count alone is not. Generic over CITY/category
+ * on purpose (no Haifa/crossing hardcoding) — this is the general-purpose
+ * "does a re-run reproduce what's already live" check, Haifa+crossing/
+ * dog_park is just this task's first real use of it.
+ */
+async function reportReproductionAgainstLive(outcomes: CandidateOutcome[], byCategory: Record<AmenityCategory, number>): Promise<void> {
+  const liveSnap = await db.collection('osm_amenities').where('city', '==', CITY).get();
+  const liveByCategory: Partial<Record<string, number>> = {};
+  const liveOsmIdsByCategory: Partial<Record<string, Set<string>>> = {};
+  for (const d of liveSnap.docs) {
+    const data = d.data();
+    const cat = data.category as string;
+    liveByCategory[cat] = (liveByCategory[cat] ?? 0) + 1;
+    (liveOsmIdsByCategory[cat] ??= new Set()).add(data.osmId as string);
+  }
+  const producedOsmIdsByCategory: Partial<Record<string, Set<string>>> = {};
+  for (const o of outcomes) {
+    (producedOsmIdsByCategory[o.category] ??= new Set()).add(o.osmId);
+  }
+  const allCategories = Array.from(new Set<string>([...Object.keys(byCategory), ...Object.keys(liveByCategory)]));
+
+  console.log('\n╔══════════════════════════════════════════════════════════╗');
+  console.log(`║  REPRODUCTION CHECK — dry-run vs LIVE osm_amenities (${CITY.padEnd(10)}) ║`);
+  console.log('╚══════════════════════════════════════════════════════════╝');
+  console.log('  category          produced   live   osmId-overlap   live-only(missed)   produced-only(new)');
+  for (const cat of allCategories) {
+    const produced = byCategory[cat as AmenityCategory] ?? 0;
+    const live = liveByCategory[cat] ?? 0;
+    if (produced === 0 && live === 0) continue;
+    const producedIds = producedOsmIdsByCategory[cat] ?? new Set<string>();
+    const liveIds = liveOsmIdsByCategory[cat] ?? new Set<string>();
+    // Array.from, not for...of a Set — this tsconfig target needs
+    // --downlevelIteration to iterate Sets directly (same pre-existing
+    // constraint every other Set/Map iteration in this codebase works
+    // around, e.g. trio-modifiers.service.ts, warmup.service.ts).
+    const overlap = Array.from(liveIds).filter((id) => producedIds.has(id)).length;
+    const liveOnly = liveIds.size - overlap;
+    const producedOnly = producedIds.size - overlap;
+    console.log(`  ${cat.padEnd(16)}  ${String(produced).padEnd(9)}${String(live).padEnd(7)}${String(overlap).padEnd(17)}${String(liveOnly).padEnd(20)}${producedOnly}`);
+  }
+  console.log('  ("live-only" = a live doc this dry-run did not produce; "produced-only" = a fresh candidate not yet live.)');
+}
+
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log(`║  OSM Amenity Extraction — ${CITY.padEnd(12)} [${mode.padEnd(8)}]         ║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
-  console.log('  Categories: court (basketball/football/tennis/padel), bench, drinking_water, fitness_station');
-  console.log('  Scope OUT this run (deferred, per instruction): pedestrian crossings, polygon/lawn geometry, consumer-facing cycleway layer.\n');
+  console.log('  Categories: court (basketball/football/tennis/padel), bench, drinking_water, fitness_station, crossing, dog_park');
+  console.log('  Scope OUT this run (still deferred): polygon/lawn geometry, consumer-facing cycleway layer.\n');
 
   if (!isApply) {
     console.log('⚠️  DRY-RUN mode — osm_amenities will NOT be written.');
@@ -425,7 +509,7 @@ async function main() {
   // point outside the real city isn't a real amenity for this city at all,
   // so it never reaches the dedup gate and is never written in any status. ──
   const outcomes: CandidateOutcome[] = [];
-  const spilloverByCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0 };
+  const spilloverByCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0, crossing: 0, dog_park: 0 };
   let spilloverCount = 0;
   for (const el of elements) {
     const classified = classifyElement(el);
@@ -453,7 +537,7 @@ async function main() {
     });
   }
 
-  const byCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0 };
+  const byCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0, crossing: 0, dog_park: 0 };
   let suppressedCount = 0;
   for (const o of outcomes) {
     byCategory[o.category]++;
@@ -467,7 +551,9 @@ async function main() {
   console.log(`  bench:            ${spilloverByCategory.bench}`);
   console.log(`  drinking_water:   ${spilloverByCategory.drinking_water}`);
   console.log(`  fitness_station:  ${spilloverByCategory.fitness_station}`);
-  console.log(`  TOTAL spillover (outside real TLV boundary, dropped): ${spilloverCount}`);
+  console.log(`  crossing:         ${spilloverByCategory.crossing}`);
+  console.log(`  dog_park:         ${spilloverByCategory.dog_park}`);
+  console.log(`  TOTAL spillover (outside real boundary, dropped): ${spilloverCount}`);
   console.log(`  Remaining candidates inside the real boundary: ${outcomes.length}`);
 
   console.log('\n╔══════════════════════════════════════════════════════════╗');
@@ -477,9 +563,13 @@ async function main() {
   console.log(`  bench:            ${byCategory.bench}`);
   console.log(`  drinking_water:   ${byCategory.drinking_water}`);
   console.log(`  fitness_station:  ${byCategory.fitness_station}`);
+  console.log(`  crossing:         ${byCategory.crossing}`);
+  console.log(`  dog_park:         ${byCategory.dog_park}`);
   console.log(`  TOTAL candidates: ${outcomes.length}`);
   console.log(`  Suppressed by garden-dedup gate: ${suppressedCount}`);
   console.log(`  Will be written as fresh 'pending': ${outcomes.length - suppressedCount}`);
+
+  await reportReproductionAgainstLive(outcomes, byCategory);
 
   if (suppressedCount > 0) {
     console.log('\n╔══════════════════════════════════════════════════════════╗');
