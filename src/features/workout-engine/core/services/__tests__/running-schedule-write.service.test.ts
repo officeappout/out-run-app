@@ -50,11 +50,11 @@ vi.mock('../running-engine.service', () => ({
 
 import {
   fetchAndGenerateActiveRunningProgram,
-  flattenPlanToSchedule,
   buildActiveRunningProgram,
   isRunningPlanBuildStuck,
   hasRunningRebuildInputs,
 } from '../running-schedule-write.service';
+import { flattenPlanToSchedule } from '../plan-generator.service';
 
 const FULL_TEMPLATE = {
   id: 'tpl_program_1',

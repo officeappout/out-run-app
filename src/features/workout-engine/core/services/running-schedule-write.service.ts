@@ -1,10 +1,10 @@
 import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { generatePlan } from './running-engine.service';
-import type { GeneratePlanResult } from './running-engine.service';
 import { getPaceMapConfig, getRunWorkoutTemplates, getRunProgramTemplate } from './running-admin.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '../config/pace-map-config';
-import type { ActiveRunningProgram, PaceProfile, RunWorkoutTemplate, WorkoutCategory } from '../types/running.types';
+import { flattenPlanToSchedule } from './plan-generator.service';
+import type { ActiveRunningProgram, PaceProfile } from '../types/running.types';
 
 /**
  * A1 of the "spinner: false promise, no recovery" fix
@@ -183,41 +183,6 @@ export async function fetchAndGenerateActiveRunningProgram(
     // same as "none known," writing a fresh timestamp.
     return { ok: false, reason: 'generation-threw' };
   }
-}
-
-/**
- * Flattens a generated plan's week/workout structure into
- * `ActiveRunningProgram.schedule` — verbatim port of the inline logic at
- * `onboarding-sync.service.ts:1748-1786`, extracted so it's unit-testable
- * without mocking Firestore. `workout.id` encodes its source template id as
- * `${templateId}_w${weekNumber}` (set by `generatePlan`) — stripped via
- * regex to look up category/name from the workout-template pool.
- */
-export function flattenPlanToSchedule(
-  planResult: GeneratePlanResult,
-  workoutTemplates: RunWorkoutTemplate[],
-): ActiveRunningProgram['schedule'] {
-  const templateCategoryMap = new Map<string, { category?: WorkoutCategory; name: string }>();
-  for (const tpl of workoutTemplates) {
-    templateCategoryMap.set(tpl.id, { category: tpl.category, name: tpl.name });
-  }
-
-  const schedule: ActiveRunningProgram['schedule'] = [];
-  for (const planWeek of planResult.plan.weeks) {
-    planWeek.workouts.forEach((workout, dayIdx) => {
-      const templateId = workout.id.replace(/_w\d+$/, '');
-      const tplMeta = templateCategoryMap.get(templateId);
-      schedule.push({
-        week: planWeek.weekNumber,
-        day: dayIdx + 1,
-        workoutId: workout.id,
-        status: 'pending',
-        category: tplMeta?.category,
-        workoutName: tplMeta?.name ?? workout.title,
-      });
-    });
-  }
-  return schedule;
 }
 
 /**

@@ -1,8 +1,22 @@
 import type { RunningScheduleSource } from '@/lib/running-schedule-source';
+import type { ActiveRunningProgram } from '../types/running.types';
 
 /**
- * The three day-change rules (David, locked, idempotent-booping-sunrise.md
- * Round 3 §2): (1) system-default → user's first real choice = completely
+ * Day-count-change decision + history-preserving merge for running
+ * schedules — two functions, both pure (no Firestore), no actual
+ * `schedule[]` REBUILD (that's `buildRunningPlan`'s job,
+ * `plan-generator.service.ts`). Updated 01.09.2026 when
+ * `mergePreservedHistory` joined this file: the line below claiming "no
+ * actual schedule[] rebuild" described `resolveRunningScheduleChange`
+ * alone and was accurate for it — but by the time `mergePreservedHistory`
+ * (bottom of this file) was added alongside it, the file AS A WHOLE did
+ * start touching `schedule[]` (merging two arrays, not rebuilding one),
+ * making the blanket claim stale. Fixed here rather than left for someone
+ * to trust literally.
+ *
+ * `resolveRunningScheduleChange`: the three day-change rules (David,
+ * locked, idempotent-booping-sunrise.md Round 3 §2): (1) system-default →
+ * user's first real choice = completely
  * smooth, no warning. (2) same day-count, different days = silent remap,
  * week preserved. (3) day-count changes = rebuild, week still preserved,
  * with an explanatory sentence owed to the user. Always: never block,
@@ -26,9 +40,12 @@ import type { RunningScheduleSource } from '@/lib/running-schedule-source';
  * once, before `kind` is even decided, and never reads `kind`. An
  * 8-week-veteran's `first-time` change still carries week 8 forward.
  *
- * Pure decision only — no Firestore, no actual `schedule[]` rebuild. This
- * only decides what kind of change happened and what week number to carry
- * forward; the caller applies whatever wording/rebuild logic go with it.
+ * Pure decision only — no Firestore, no `schedule[]` REBUILD (that stays
+ * `buildRunningPlan`'s job). This function only decides what kind of
+ * change happened and what week number to carry forward; the caller
+ * applies whatever wording/rebuild logic go with it — including calling
+ * `mergePreservedHistory` below with this function's own `preservedWeek`
+ * output.
  * `explanationHe` copy itself is a UI-layer decision (deliberately not
  * hardcoded here), following the plan's own §6 pattern of proposing user-
  * facing copy separately rather than baking it into infrastructure.
@@ -79,4 +96,39 @@ export function resolveRunningScheduleChange(
     preservedWeek,
     requiresExplanation: kind === 'rebuild',
   };
+}
+
+/**
+ * Companion to `resolveRunningScheduleChange` above, deliberately a
+ * SEPARATE function, not folded into `buildRunningPlan`
+ * (`plan-generator.service.ts`) (David, 01.09.2026 review): each function
+ * does one thing, both stay pure and independently testable — the same
+ * split already used elsewhere in this repo (`mergeDayItems`,
+ * `flattenPlanToSchedule`). The planned "adaptive running plan / smart
+ * coach" feature (documented, not built) will want this exact merge on
+ * its own, without a full rebuild — e.g. stamping real completion data
+ * onto an existing schedule — so keeping it standalone makes it usable
+ * there immediately instead of needing to be extracted out of a
+ * rebuild-specific function later.
+ *
+ * Rule: entries whose `week < preservedWeek` are carried forward from
+ * `oldSchedule` byte-for-byte (including `status`/`actualPerformance` —
+ * this is what actually protects a user's completed-run history from a
+ * rebuild's fresh `schedule[]`, which `buildRunningPlan` has no way to
+ * know about on its own). Entries whose `week >= preservedWeek` come from
+ * `newSchedule`. No week is invented for either side — if `oldSchedule`
+ * has no entries below `preservedWeek` (e.g. `preservedWeek === 1`,
+ * first-time choice — nothing to preserve) or `newSchedule` has none at
+ * or above it, the result simply reflects whatever each side actually
+ * has.
+ */
+export function mergePreservedHistory(
+  oldSchedule: ActiveRunningProgram['schedule'],
+  newSchedule: ActiveRunningProgram['schedule'],
+  preservedWeek: number,
+): ActiveRunningProgram['schedule'] {
+  return [
+    ...oldSchedule.filter((entry) => entry.week < preservedWeek),
+    ...newSchedule.filter((entry) => entry.week >= preservedWeek),
+  ];
 }

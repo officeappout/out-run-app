@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveRunningScheduleChange } from '../running-schedule-change.service';
+import { resolveRunningScheduleChange, mergePreservedHistory } from '../running-schedule-change.service';
 
 describe('resolveRunningScheduleChange — rule 1 (first-time)', () => {
   it('is "first-time" when oldSource is system-default, same day-count as new', () => {
@@ -204,5 +204,86 @@ describe('resolveRunningScheduleChange — never blocks', () => {
       currentWeek: 1,
     });
     expect(['first-time', 'remap', 'rebuild']).toContain(result.kind);
+  });
+});
+
+describe('mergePreservedHistory', () => {
+  const COMPLETED_ENTRY = {
+    week: 3,
+    day: 1,
+    workoutId: 'tpl_easy_1_w3',
+    status: 'completed' as const,
+    category: 'easy_run' as const,
+    workoutName: 'Easy Run',
+    actualPerformance: { avgPace: 320, completionRate: 0.95 },
+  };
+
+  it('a completed entry with actualPerformance survives byte-for-byte when its week is before preservedWeek', () => {
+    const oldSchedule = [COMPLETED_ENTRY];
+    const newSchedule = [{ week: 3, day: 1, workoutId: 'tpl_easy_2_w3', status: 'pending' as const }];
+    const merged = mergePreservedHistory(oldSchedule, newSchedule, 6);
+    expect(merged).toContainEqual(COMPLETED_ENTRY);
+    expect(merged.find((e) => e.week === 3)).toEqual(COMPLETED_ENTRY);
+  });
+
+  it('preservedWeek=1 (first-time choice) preserves nothing -- the entire result comes from newSchedule', () => {
+    const oldSchedule = [COMPLETED_ENTRY, { ...COMPLETED_ENTRY, week: 1, workoutId: 'tpl_easy_1_w1' }];
+    const newSchedule = [
+      { week: 1, day: 1, workoutId: 'tpl_new_w1', status: 'pending' as const },
+      { week: 2, day: 1, workoutId: 'tpl_new_w2', status: 'pending' as const },
+    ];
+    const merged = mergePreservedHistory(oldSchedule, newSchedule, 1);
+    expect(merged).toEqual(newSchedule);
+  });
+
+  it('a week below preservedWeek that never existed in oldSchedule does not crash or invent entries', () => {
+    const oldSchedule = [{ week: 5, day: 1, workoutId: 'tpl_x_w5', status: 'completed' as const }];
+    const newSchedule = [{ week: 6, day: 1, workoutId: 'tpl_y_w6', status: 'pending' as const }];
+    // preservedWeek=6, but oldSchedule has nothing for week < 6 except week 5 -- that one entry
+    // is preserved; no phantom entry for e.g. week 1-4 is invented.
+    const merged = mergePreservedHistory(oldSchedule, newSchedule, 6);
+    expect(merged).toEqual([
+      { week: 5, day: 1, workoutId: 'tpl_x_w5', status: 'completed' },
+      { week: 6, day: 1, workoutId: 'tpl_y_w6', status: 'pending' },
+    ]);
+  });
+
+  it('entries at exactly preservedWeek come from newSchedule, not oldSchedule (boundary is >=, not >)', () => {
+    const oldSchedule = [{ week: 6, day: 1, workoutId: 'old_w6', status: 'completed' as const }];
+    const newSchedule = [{ week: 6, day: 1, workoutId: 'new_w6', status: 'pending' as const }];
+    const merged = mergePreservedHistory(oldSchedule, newSchedule, 6);
+    expect(merged).toEqual([{ week: 6, day: 1, workoutId: 'new_w6', status: 'pending' }]);
+  });
+
+  it('returns an empty array when both inputs are empty', () => {
+    expect(mergePreservedHistory([], [], 3)).toEqual([]);
+  });
+
+  it('old weeks at/above preservedWeek that no longer exist in a shorter newSchedule are dropped, not carried over as orphans -- generic function, not guaranteed a same-length input by its own contract', () => {
+    // Today totalWeeks is always preserved by buildRunningPlan (David,
+    // 01.09.2026), so oldSchedule/newSchedule are same-length in practice --
+    // but mergePreservedHistory is pure and general, callable with any
+    // input, so its own behavior for a shortened program must still be
+    // predictable and documented, not just "whatever happens to fall out."
+    const oldSchedule = [
+      { week: 5, day: 1, workoutId: 'old_w5', status: 'completed' as const },
+      { week: 9, day: 1, workoutId: 'old_w9', status: 'pending' as const },
+      { week: 12, day: 1, workoutId: 'old_w12', status: 'pending' as const },
+    ];
+    // newSchedule only goes up to week 8 -- shorter than the old 12-week program.
+    const newSchedule = [
+      { week: 6, day: 1, workoutId: 'new_w6', status: 'pending' as const },
+      { week: 8, day: 1, workoutId: 'new_w8', status: 'pending' as const },
+    ];
+    const merged = mergePreservedHistory(oldSchedule, newSchedule, 6);
+    // Week 5 (< preservedWeek) is preserved from old. Weeks 9 and 12 (>=
+    // preservedWeek) existed only in the old, longer program -- they are
+    // NOT invented in the result just because old had them; only what
+    // newSchedule actually contains at/above preservedWeek appears.
+    expect(merged).toEqual([
+      { week: 5, day: 1, workoutId: 'old_w5', status: 'completed' },
+      { week: 6, day: 1, workoutId: 'new_w6', status: 'pending' },
+      { week: 8, day: 1, workoutId: 'new_w8', status: 'pending' },
+    ]);
   });
 });

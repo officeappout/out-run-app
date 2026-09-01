@@ -22,9 +22,13 @@ import {
   type VolumeCap,
   type PaceProfile,
   type TaperRule,
+  type ActiveRunningProgram,
+  type RunWorkoutTemplate,
+  type PaceMapConfig,
 } from '../types/running.types';
 
-import { calibrateBasePace, determineProfileType } from './running-engine.service';
+import { calibrateBasePace, determineProfileType, generatePlan, type GeneratePlanResult } from './running-engine.service';
+import { calculateCurrentWeek } from './workout-completion.service';
 
 // ══════════════════════════════════════════════════════════════════════
 // Public types
@@ -529,3 +533,208 @@ export const DEFAULT_PLAN_WEEKS: Record<GeneratorTargetDistance, number> = {
   '10k':        12,
   'maintenance': 8,
 };
+
+// ══════════════════════════════════════════════════════════════════════
+// Chapter 5: buildRunningPlan — parameterized rebuild, one core for many callers
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Relocated here from `running-schedule-write.service.ts` (01.09.2026,
+ * idempotent-booping-sunrise.md's `buildRunningPlan` commit) — purely a
+ * move, byte-identical logic, re-exported from its old location so no
+ * existing caller/test needs to change its import path. Moved to avoid a
+ * circular import: `buildRunningPlan` below needs this, and
+ * `running-schedule-write.service.ts` will (a later commit) call
+ * `buildRunningPlan` — importing it the other way around would create a
+ * cycle.
+ *
+ * Flattens a generated plan's week/workout structure into
+ * `ActiveRunningProgram.schedule` — verbatim port of the inline logic at
+ * `onboarding-sync.service.ts:1748-1786`. `workout.id` encodes its source
+ * template id as `${templateId}_w${weekNumber}` (set by `generatePlan`) —
+ * stripped via regex to look up category/name from the workout-template
+ * pool.
+ */
+export function flattenPlanToSchedule(
+  planResult: GeneratePlanResult,
+  workoutTemplates: RunWorkoutTemplate[],
+): ActiveRunningProgram['schedule'] {
+  const templateCategoryMap = new Map<string, { category?: WorkoutCategory; name: string }>();
+  for (const tpl of workoutTemplates) {
+    templateCategoryMap.set(tpl.id, { category: tpl.category, name: tpl.name });
+  }
+
+  const schedule: ActiveRunningProgram['schedule'] = [];
+  for (const planWeek of planResult.plan.weeks) {
+    planWeek.workouts.forEach((workout, dayIdx) => {
+      const templateId = workout.id.replace(/_w\d+$/, '');
+      const tplMeta = templateCategoryMap.get(templateId);
+      schedule.push({
+        week: planWeek.weekNumber,
+        day: dayIdx + 1,
+        workoutId: workout.id,
+        status: 'pending',
+        category: tplMeta?.category,
+        workoutName: tplMeta?.name ?? workout.title,
+      });
+    });
+  }
+  return schedule;
+}
+
+/**
+ * `startDate` resolution for `buildRunningPlan` (David, 01.09.2026 review,
+ * second round — the first draft's "always recompute via formula" was
+ * wrong; simplified further after a self-authored round-trip test caught
+ * a gap in the original three-case version below).
+ *
+ * Two cases:
+ * 1. `existingStartDate` is present AND it already computes to
+ *    `preservedWeek` via the REAL `calculateCurrentWeek` (the normal
+ *    rebuild case — 1b's `preservedWeek` is almost always just "whatever
+ *    week the user is already on") → return `existingStartDate`
+ *    UNCHANGED. No formula, no shift, no history fragmenting.
+ * 2. Otherwise — no `existingStartDate` at all (first-time build), OR one
+ *    is present but diverges from `preservedWeek` (1b explicitly moved the
+ *    number, not just carried it forward) — compute:
+ *    `asOfDate − (preservedWeek−1)×7 days`.
+ *
+ * A first draft treated "no existingStartDate" as its own unconditional
+ * case, always returning `asOfDate` regardless of `preservedWeek` — which
+ * silently ignored `preservedWeek` whenever no existing date was supplied,
+ * a latent inconsistency a round-trip test caught immediately (a
+ * first-time build with an explicit non-1 `preservedWeek` produced week 1,
+ * not the requested week). Folding it into case 2 fixes that for free:
+ * with the default `preservedWeek=1`, the formula reduces to exactly
+ * `asOfDate − 0×7 = asOfDate`, so every real caller's actual behavior
+ * (A1's first-time build, commit 3's normal rebuild) is unchanged —
+ * this only changes the answer for an input combination no real caller
+ * constructs today (an explicit `preservedWeek > 1` with no
+ * `existingStartDate`), making it correct instead of silently wrong.
+ *
+ * Case 2's formula is applied narrowly, not as a general default: when it
+ * DOES fire for an actual rebuild (existingStartDate present but
+ * diverging), it places `asOfDate` at the FIRST day of `preservedWeek`,
+ * which can be up to 6 days LATER than a user's true original `startDate`
+ * if they're mid-week. Runs logged earlier in that same real-calendar
+ * week would still be preserved in `schedule[]` (via
+ * `mergePreservedHistory`, `running-schedule-change.service.ts`) but would
+ * fall outside the `[startDate, today]` range any calendar-date-deriving
+ * reader (`resolveRunningEntry` et al.) uses — silently orphaned by date
+ * even though the schedule row survives. Case 1 (the default, keep-as-is
+ * path for a normal rebuild) has no such risk, since nothing about the
+ * date itself changes.
+ */
+export function resolveBuildStartDate(
+  existingStartDate: string | undefined,
+  preservedWeek: number,
+  asOfDate: Date,
+): string {
+  if (existingStartDate && calculateCurrentWeek(existingStartDate, asOfDate) === preservedWeek) {
+    return existingStartDate;
+  }
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return new Date(asOfDate.getTime() - (preservedWeek - 1) * 7 * msPerDay).toISOString();
+}
+
+export interface BuildRunningPlanInput {
+  goal: RunnerGoal;
+  basePace: number;
+  targetDistance: GeneratorTargetDistance;
+  frequency: 2 | 3 | 4;
+  totalWeeks: number;
+  runningHistoryMonths?: number;
+  hasInjuries?: boolean;
+  workoutTemplates: RunWorkoutTemplate[];
+  paceMapConfig: PaceMapConfig;
+  /** From `resolveRunningScheduleChange` (1b) for a rebuild; omit for a first-time build (defaults to 1). */
+  preservedWeek?: number;
+  /** The profile's CURRENT `activeProgram.startDate`, if this is a rebuild. Omit for a first-time build. */
+  existingStartDate?: string;
+  /** Defaults to `new Date()`. Exposed as a parameter so this stays testable with a fixed date. */
+  asOfDate?: Date;
+}
+
+export interface BuildRunningPlanResult {
+  template: RunProgramTemplate;
+  activeProgram: Omit<ActiveRunningProgram, 'startDate'> & { startDate: string };
+  /** `generatePlan()`'s own generation-diagnostic warnings only (e.g. no matching
+   *  workout template for a given week/slot) — NOT product-facing messaging like
+   *  "your weekly load is increasing." That comparison needs the OLD frequency,
+   *  which this function is never given (see JSDoc above `buildRunningPlan`) —
+   *  it's the caller's responsibility, since the caller is the one who already
+   *  holds both the old and new frequency values. */
+  warnings: string[];
+}
+
+/**
+ * One core, parameterized, for every "build/rebuild a running plan" caller
+ * — not `rebuildOnDayChange()` or any other single-use-case name (David,
+ * 01.09.2026 review). Takes every build input explicitly as a parameter;
+ * deliberately does NOT read anything from a user profile or Firestore
+ * itself. This is a hard requirement, not a style preference: the planned
+ * "adaptive running plan / smart coach" feature (idempotent-booping-
+ * sunrise.md, documented not built) will be a THIRD caller, adding a
+ * training-load input of its own. If this function read its inputs from
+ * the profile internally, adding that caller would mean rewriting this
+ * function's internals. Because every input is an explicit parameter,
+ * adding that caller only ever means adding a parameter — never a rewrite.
+ *
+ * Two callers today: (1) `running-schedule-write.service.ts`'s
+ * `fetchAndGenerateActiveRunningProgram` (fixing its previously-broken
+ * `getRunProgramTemplate(id)` call — that id was never a real Firestore
+ * document, see that file's own module doc), first-time build only,
+ * `preservedWeek`/`existingStartDate` omitted. (2) commit 3/3f's
+ * day-count-change writer (not yet built): `resolveRunningScheduleChange`
+ * (1b) → `preservedWeek` → this function → `mergePreservedHistory`
+ * (`running-schedule-change.service.ts`) → the actual Firestore write.
+ *
+ * Purely in-memory — `generateProgramTemplate()` (this file) →
+ * `generatePlan()` (`running-engine.service.ts`) →
+ * `flattenPlanToSchedule()` (above). Zero Firestore reads/writes; callers
+ * own all I/O.
+ *
+ * Plan LENGTH (`totalWeeks`) is always exactly what the caller passes —
+ * this function never recomputes it. (David, 01.09.2026: for a day-count
+ * change, the user asked for different days, not a different-length
+ * program — `totalWeeks` must be carried forward unchanged by the caller,
+ * not re-derived here or anywhere else. This also eliminates
+ * `currentWeek > totalWeeks` as a possible outcome of a rebuild.)
+ */
+export function buildRunningPlan(input: BuildRunningPlanInput): BuildRunningPlanResult {
+  const template = generateProgramTemplate({
+    goal: input.goal,
+    basePace: input.basePace,
+    targetDistance: input.targetDistance,
+    frequency: input.frequency,
+    totalWeeks: input.totalWeeks,
+    runningHistoryMonths: input.runningHistoryMonths,
+    hasInjuries: input.hasInjuries,
+  });
+
+  const paceProfileForGeneration: PaceProfile = {
+    basePace: input.basePace,
+    profileType: template.targetProfileTypes[0] ?? 2,
+    qualityWorkoutsHistory: [],
+    qualityWorkoutCount: 0,
+    lastSelfCorrectionDate: null,
+  };
+
+  const planResult = generatePlan(template, paceProfileForGeneration, input.paceMapConfig, input.workoutTemplates);
+  const schedule = flattenPlanToSchedule(planResult, input.workoutTemplates);
+
+  const preservedWeek = input.preservedWeek ?? 1;
+  const asOfDate = input.asOfDate ?? new Date();
+  const startDate = resolveBuildStartDate(input.existingStartDate, preservedWeek, asOfDate);
+
+  return {
+    template,
+    activeProgram: {
+      programId: template.id,
+      startDate,
+      currentWeek: preservedWeek,
+      schedule,
+    },
+    warnings: planResult.warnings,
+  };
+}
