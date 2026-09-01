@@ -5,7 +5,11 @@
  *
  * Running-specific schedule step for the dual-track onboarding flow.
  * Key differences from ScheduleStep:
- *   - Frequency capped at 1–4 (running recovery requires rest days)
+ *   - Frequency bounded 2–4 (MIN_RUNNING_FREQUENCY..MAX_RUNNING_FREQUENCY,
+ *     `src/lib/running-frequency-bounds.ts`) — 1 was removed 01.09.2026;
+ *     see that file's module doc for why (a single run/week silently
+ *     produced a plan built for 2 runs/week with one of them never able
+ *     to land on any calendar day). Max stays 4 for recovery/rest-day reasons.
  *   - Recommended badge on 3 days
  *   - Smart defaults: 2→Mon/Thu, 3→Sun/Tue/Thu, 4→Mon/Tue/Thu/Fri
  *   - Default time 07:00 (morning runs are more common)
@@ -23,6 +27,8 @@ import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import StickyActionButton from '@/components/ui/StickyActionButton';
+import { MIN_RUNNING_FREQUENCY, MAX_RUNNING_FREQUENCY, clampRunningFrequency } from '@/lib/running-frequency-bounds';
+import { getSmartDefaultDays } from '@/lib/running-schedule-smart-defaults';
 
 // ============================================================================
 // CONSTANTS
@@ -38,18 +44,17 @@ const DAYS_HEBREW = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 const DAY_NAMES_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 const RECOMMENDED_FREQUENCY = 3;
-const MAX_FREQUENCY = 4;
+// MIN_FREQUENCY/MAX_FREQUENCY mirror the shared bound (David, 01.09.2026:
+// "MAX_FREQUENCY נשאר 4. תוסיף MIN_FREQUENCY = 2 באותו מקום") -- declared
+// here, next to each other, so the button range below reads as one pair,
+// but both trace back to src/lib/running-frequency-bounds.ts rather than
+// being a second, disconnected copy of the same numbers.
+const MIN_FREQUENCY = MIN_RUNNING_FREQUENCY;
+const MAX_FREQUENCY = MAX_RUNNING_FREQUENCY;
 
-/** Smart default day indices per frequency (Sun=0 … Sat=6) */
-const getSmartDefaultDays = (freq: number): number[] => {
-  switch (freq) {
-    case 1: return [0];          // Sun
-    case 2: return [1, 4];       // Mon, Thu
-    case 3: return [0, 2, 4];    // Sun, Tue, Thu
-    case 4: return [1, 2, 4, 5]; // Mon, Tue, Thu, Fri
-    default: return [0];
-  }
-};
+// getSmartDefaultDays lives in src/lib/running-schedule-smart-defaults.ts
+// (extracted 01.09.2026, David's review -- this file has no jsdom coverage,
+// the pure helper does) -- imported above, not redeclared here.
 
 // ============================================================================
 // COMPONENT
@@ -68,14 +73,35 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
 
   // ── State ──────────────────────────────────────────────────────────────────
 
-  const [frequency, setFrequency] = useState<number>(
-    (data as any).runningWeeklyFrequency || RECOMMENDED_FREQUENCY
+  // clampRunningFrequency (not a bare Math.max) guards a legacy stored value
+  // of 1 -- real in production pre-01.09.2026, see running-frequency-bounds.ts
+  // -- without this, a returning user with an old runningWeeklyFrequency=1
+  // would land on a frequency the button row below can no longer even render
+  // as selected (buttons only go 2-4), leaving nothing highlighted. Computed
+  // once, outside useState, so selectedDays' own initializer below can be
+  // reconciled against the SAME clamped value (David, 01.09.2026 review: a
+  // first version clamped frequency but left a legacy stored day-count of 1
+  // untouched, so the two could disagree -- 1 day selected, "2" highlighted,
+  // canContinue = selectedDays.length===frequency permanently false, a dead
+  // Continue button with no explanation).
+  const initialFrequency = clampRunningFrequency(
+    (data as any).runningWeeklyFrequency || RECOMMENDED_FREQUENCY,
   );
 
+  const [frequency, setFrequency] = useState<number>(initialFrequency);
+
   const [selectedDays, setSelectedDays] = useState<number[]>(() => {
+    // Same reconciliation rule handleFrequencySelect already applies on
+    // every live frequency change below (`if (selectedDays.length !== value)
+    // setSelectedDays(getSmartDefaultDays(value))`) -- applied here too, to
+    // the initial mount, not just to a later click. A stored day-count that
+    // doesn't match the (possibly-clamped) initial frequency is exactly the
+    // stale-data case that rule exists to fix; trusting `stored` whenever it
+    // was merely non-empty (the old check) is what left frequency and days
+    // out of sync for a clamped legacy user.
     const stored = (data as any).runningScheduleDayIndices;
-    if (Array.isArray(stored) && stored.length > 0) return stored;
-    return getSmartDefaultDays(RECOMMENDED_FREQUENCY);
+    if (Array.isArray(stored) && stored.length === initialFrequency) return stored;
+    return getSmartDefaultDays(initialFrequency);
   });
 
   // Default to morning time for running
@@ -238,7 +264,10 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
         </h3>
 
         <div className="flex gap-3 justify-center">
-          {Array.from({ length: MAX_FREQUENCY }, (_, i) => i + 1).map((num) => {
+          {Array.from(
+            { length: MAX_FREQUENCY - MIN_FREQUENCY + 1 },
+            (_, i) => i + MIN_FREQUENCY,
+          ).map((num) => {
             const isRecommended = num === RECOMMENDED_FREQUENCY;
             const isSelected = frequency === num;
             return (

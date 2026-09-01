@@ -27,6 +27,7 @@ import {
 } from '@/features/workout-engine/core/services/plan-generator.service';
 import { calibrateBasePace } from '@/features/workout-engine/core/services/running-engine.service';
 import { WEEKS_LOOKUP } from '../data/running-improvement-branch.draft';
+import { clampRunningFrequency } from '@/lib/running-frequency-bounds';
 
 // ══════════════════════════════════════════════════════════════════════
 // Types — flat metadata collected from answer nodes
@@ -45,7 +46,8 @@ interface AggregatedRunningAnswers {
   paceInputSeconds?: number;
   hasInjuries: boolean;
   runningHistoryMonths: number;
-  weeklyFrequency: 1 | 2 | 3 | 4;
+  /** 2 | 3 | 4 — see `src/lib/running-frequency-bounds.ts`, the canonical bound this mirrors. */
+  weeklyFrequency: 2 | 3 | 4;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -78,7 +80,16 @@ function parseAnswers(raw: Record<string, unknown>): AggregatedRunningAnswers {
   const hasInjuries = raw.hasInjuries === true;
   const runningHistoryMonths = typeof raw.runningHistoryMonths === 'number' ? raw.runningHistoryMonths : 0;
   const freq = typeof raw.weeklyFrequency === 'number' ? raw.weeklyFrequency : 3;
-  const weeklyFrequency = (Math.min(Math.max(freq, 1), 4)) as 1 | 2 | 3 | 4;
+  // Same clamp as the generation-time one below (`clampRunningFrequency`,
+  // `src/lib/running-frequency-bounds.ts`) — unified 01.09.2026 after this
+  // clamp and the one at the bottom of `bridgeRunningOnboarding` were found
+  // to independently allow different minimums (1 here, 2 there), the exact
+  // "one concept, two definitions" pattern this whole fix exists to close.
+  // Clamping here too (not just at generation) matters on its own: this
+  // value also feeds `resolveWeeks`'s WEEKS_LOOKUP key below, so an
+  // unclamped `1` here would have looked up a plan LENGTH tuned for a
+  // frequency the plan is never actually generated at.
+  const weeklyFrequency = clampRunningFrequency(freq);
 
   return {
     goalPath,
@@ -197,7 +208,11 @@ export function bridgeRunningOnboarding(rawAnswers: Record<string, unknown>) {
   }
 
   const genDist = a.targetDistance as GeneratorTargetDistance;
-  const freq = Math.min(Math.max(a.weeklyFrequency, 2), 4) as 2 | 3 | 4;
+  // `a.weeklyFrequency` is already clamped by `parseAnswers` above via the
+  // same `clampRunningFrequency` — this second call is a no-op in practice,
+  // kept so the value fed into `generateProgramTemplate` is never trusted
+  // to have stayed in range across the two functions without saying so.
+  const freq = clampRunningFrequency(a.weeklyFrequency);
 
   const input: PlanGeneratorInput = {
     goal,

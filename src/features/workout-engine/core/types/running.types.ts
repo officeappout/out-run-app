@@ -25,7 +25,23 @@ export interface RunningOnboardingData {
     abilityTier?: 'none' | '5_15' | '15_30' | '30_45' | '45_plus';
   };
   targetDistance: '2k' | '3k' | '5k' | '10k' | 'maintenance';
-  weeklyFrequency: 1 | 2 | 3 | 4;
+  /**
+   * 2 | 3 | 4, not 1 — see `src/lib/running-frequency-bounds.ts`'s module
+   * doc (01.09.2026) for why a single run/week is a different training
+   * model, not a low value of this one. `MIN_RUNNING_FREQUENCY` there is
+   * the canonical bound; this type mirrors it so a `1` can never even
+   * type-check into this field again.
+   *
+   * Narrowing forward only, same distinction already made for
+   * `planBuildFailReason` below (David, 01.09.2026 review): TypeScript
+   * doesn't delete data. A document written before this fix can still hold
+   * a literal `1` here in Firestore — narrowing the type stops any NEW
+   * write from producing one, it does not retroactively fix documents
+   * already sitting in the database. Any reader that trusts this union as
+   * runtime-exhaustive (rather than defending against an unrecognized
+   * value) is making the same mistake this comment exists to prevent.
+   */
+  weeklyFrequency: 2 | 3 | 4;
   /** How many months the runner has been training consistently. */
   runningHistoryMonths: number;
   /** Whether the runner has current injuries that require safety restrictions. */
