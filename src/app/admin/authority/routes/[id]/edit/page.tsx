@@ -13,6 +13,7 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
 import { InventoryService } from '@/features/parks';
 import type { Route } from '@/features/parks';
 import { pathLengthMeters } from '@/features/parks/core/services/geoUtils';
+import { resolveAmenityPanelCount } from '@/features/parks/core/services/route-amenity-tagging.service';
 import {
   applySafeGeometryEdit,
   fetchBridgeConnector,
@@ -1033,6 +1034,52 @@ export default function EditRoutePage() {
                   מקור: תעודת איכות ({route.qualitySignals.source}) · חושב ב-{formatQualityCertDate(route.qualitySignals.computedAt)}
                 </p>
               )}
+
+              {/* Route↔amenity tagging (Phase 3, 01.09.2026) — same full-
+                  transparency discipline as composition/lighting above:
+                  'אין מידע' only when the CITY has no osm_amenities coverage
+                  at all; once coverage exists, a real 0 renders as 0, never
+                  as 'אין מידע' (a route can genuinely have zero benches
+                  nearby — that's information, not a gap). This panel is
+                  uncapped by design — RouteQualityBadges' CARD_BADGE_CAP
+                  only applies to the app-facing card, never here. crossing
+                  renders here only — it never becomes a card badge (a high
+                  crossing count is a filter/generator negative, not a
+                  strength; route-amenity-tagging.service.ts). */}
+              <p className="pt-1 font-bold text-gray-600">מתקנים בסביבת המסלול</p>
+              {(() => {
+                const amenities = route.qualitySignals?.amenities;
+                // resolveAmenityPanelCount (route-amenity-tagging.service.ts) is the
+                // single source of truth for the honesty rule: null -> 'אין מידע'
+                // (no city coverage at all); any other value, INCLUDING 0, is a real
+                // computed count rendered as-is. Locked by unit test, not just this JSX.
+                const row = (label: string, category: Parameters<typeof resolveAmenityPanelCount>[1]) => {
+                  const value = resolveAmenityPanelCount(amenities, category);
+                  return (
+                    <p key={label}>
+                      {label}:{' '}
+                      <span className="font-bold text-gray-700">
+                        {value === null ? 'אין מידע' : value}
+                      </span>
+                    </p>
+                  );
+                };
+                return (
+                  <>
+                    {row('ספסלים', 'bench')}
+                    {row('ברזיות מים', 'drinking_water')}
+                    {row('מגרשי ספורט', 'court')}
+                    {row('מתקני כושר', 'fitness_station')}
+                    {row('פארק כלבים', 'dog_park')}
+                    {row('מעברי חצייה', 'crossing')}
+                    {amenities && amenities.status === 'computed' && (
+                      <p className="text-gray-400">
+                        מקור: תגי מתקנים ({amenities.source}) · כולל: {amenities.sourceStatuses.join('+')} · חושב ב-{formatQualityCertDate(amenities.computedAt)}
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}

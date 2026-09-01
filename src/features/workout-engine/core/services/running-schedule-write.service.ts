@@ -1,9 +1,8 @@
 import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { generatePlan } from './running-engine.service';
-import { getPaceMapConfig, getRunWorkoutTemplates, getRunProgramTemplate } from './running-admin.service';
+import { getPaceMapConfig, getRunWorkoutTemplates } from './running-admin.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '../config/pace-map-config';
-import { flattenPlanToSchedule } from './plan-generator.service';
+import { buildRunningPlan } from './plan-generator.service';
 import type { ActiveRunningProgram, PaceProfile } from '../types/running.types';
 
 /**
@@ -34,12 +33,32 @@ import type { ActiveRunningProgram, PaceProfile } from '../types/running.types';
  * templates, regenerate) a valid fix, instead of needing to re-run the
  * entire running-onboarding bridge from scratch.
  *
- * `generatedProgramTemplate` on the user profile is a `Pick<...>` subset
- * (`running.types.ts`'s `RunningProfile.generatedProgramTemplate`) — it
- * does NOT carry `weekTemplates`/`phases`/`progressionRules`/`volumeCaps`,
- * which `generatePlan()` needs. The full `RunProgramTemplate` is re-fetched
- * by id via `getRunProgramTemplate` (`running-admin.service.ts`, public
- * read — confirmed in `firestore.rules:572-575`).
+ * ⚠️ CORRECTED (01.09.2026, before commit-3 planning) — a real bug in this
+ * file's first version, found while verifying frequency→template selection
+ * for commit 3. `generatedProgramTemplate` on the user profile is a
+ * `Pick<...>` subset (`running.types.ts`'s
+ * `RunningProfile.generatedProgramTemplate`) — it does NOT carry
+ * `weekTemplates`/`phases`/`progressionRules`/`volumeCaps`, which
+ * `generatePlan()` needs. The first draft "fixed" this by re-fetching the
+ * full `RunProgramTemplate` by id via `getRunProgramTemplate`
+ * (`running-admin.service.ts`) — **wrong**: the live onboarding path never
+ * selects a template from that Firestore collection at all.
+ * `bridgeRunningOnboarding` calls `generateProgramTemplate()`
+ * (`plan-generator.service.ts:473`) — a PURE, in-memory function that
+ * builds a brand-new `RunProgramTemplate` on every call, with an id
+ * (`gen_${targetDistance}_${totalWeeks}w_${frequency}x_${Date.now()}`)
+ * that is NEVER written to Firestore. `runProgramTemplates` (what
+ * `getRunProgramTemplate` reads) is populated only by admin-authored
+ * templates (`createRunProgramTemplate`, called only from
+ * `/admin/running/programs/new` and `/admin/running/import/*` — grep
+ * confirmed, no other writer exists). So `getRunProgramTemplate(id)`
+ * returned `null` for essentially every real user, and this function
+ * always failed with `program-template-not-found` — the retry mechanism
+ * never actually worked. Fixed: this file now calls `buildRunningPlan`
+ * (`plan-generator.service.ts`), which regenerates an equivalent template
+ * from inputs already on the profile — see that function's own JSDoc.
+ * `program-template-not-found` no longer exists as a failure reason —
+ * nothing left in this file can produce it.
  *
  * ── Detection is DERIVED, not stored (corrected 01.09.2026, before merge) ──
  * An earlier draft of this file gated the retry UI on
@@ -72,7 +91,6 @@ import type { ActiveRunningProgram, PaceProfile } from '../types/running.types';
 
 export type FetchAndGenerateFailureReason =
   | 'missing-profile-data'
-  | 'program-template-not-found'
   | 'no-workout-templates'
   | 'generation-threw';
 
@@ -81,28 +99,24 @@ export type FetchAndGenerateResult =
   | { ok: false; reason: FetchAndGenerateFailureReason; existingPlanBuildFailedAt?: string };
 
 /**
- * Pure read + compute — does NOT write anything to Firestore. Fetches
+ * Pure read + compute — does NOT write anything to Firestore. Reads
  * whatever this user's profile already has (`paceProfile`,
- * `generatedProgramTemplate`), fetches a fresh full program template +
- * workout-template pool + pace-map config, and runs the exact same
- * `generatePlan()` + flatten pipeline the original running-onboarding
- * bridge uses (`onboarding-sync.service.ts:1740-1786`) — same output
- * shape, so a caller merging this into its own write is indistinguishable
- * from a normal onboarding-time build.
+ * `generatedProgramTemplate`, `currentGoal`, `onboardingData`), fetches a
+ * fresh workout-template pool + pace-map config, and calls
+ * `buildRunningPlan` (`plan-generator.service.ts`) to regenerate an
+ * equivalent `RunProgramTemplate` + schedule — NOT a Firestore lookup by
+ * id (see this file's module doc for the bug that used to do that and why
+ * it never worked). First-time build only here: `preservedWeek`/
+ * `existingStartDate` are both omitted, since there is by definition no
+ * existing `activeProgram` for this function to be called at all
+ * (`isRunningPlanBuildStuck` — no `activeProgram` is the trigger).
  *
  * Callers decide how to persist the result: `buildActiveRunningProgram`
  * below does its own standalone write (the retry-button case, A2).
- * Commit 3's writer (2b+2d round, not yet built) will call this directly
- * and merge the result into its own atomic write alongside
- * `scheduleDays`/`scheduleDaysSource`, instead of going through
- * `buildActiveRunningProgram`'s separate write.
- *
- * `activeProgram.startDate` is returned as an ISO string, not a `Date`
- * (contradicting `ActiveRunningProgram.startDate: Date`'s declared type —
- * a pre-existing mismatch, not introduced here: `onboarding-sync.service.ts`
- * has always written a string at this exact field, `useUserStore.ts`'s
- * `reviveDates`/`normalizeDateField` converts it back to a `Date` on client
- * hydration. Matching existing behavior, not fixing the type here.
+ * Commit 3's writer (2b+2d round, not yet built) will call `buildRunningPlan`
+ * directly instead (with a real `preservedWeek`/`existingStartDate`, since
+ * that IS a rebuild of an existing program), not this function — this one
+ * is specifically the first-time-build path.
  *
  * `existingPlanBuildFailedAt` is surfaced on every failure branch (where a
  * user-doc read succeeded) so `buildActiveRunningProgram` can decide
@@ -130,32 +144,19 @@ export async function fetchAndGenerateActiveRunningProgram(
       return { ok: false, reason: 'missing-profile-data', existingPlanBuildFailedAt };
     }
 
-    // Two independent network points, two independent failure reasons —
-    // the second must never fold into the first (David, 01.09.2026 review):
-    // getRunProgramTemplate's REJECTION is left uncaught, propagating to
-    // the outer catch as 'generation-threw' — deliberately NOT mapped to
-    // 'program-template-not-found', which is reserved for a clean,
-    // successful resolve-to-null (the id genuinely doesn't reference a
-    // live doc). Collapsing "couldn't check" into "checked, not there"
-    // would reintroduce this exact fix's own bug class in a new place.
     // getRunWorkoutTemplates gets `.catch(() => [])`, matching
-    // onboarding-sync.service.ts:1700's own defensive pattern exactly —
-    // here, unlike the template lookup, a network failure IS meant to
-    // read the same as "no workout templates," since that's the literal
-    // original "deferred to first run" trigger this whole fix targets.
-    // getPaceMapConfig gets the same `.catch()` fallback
-    // onboarding-sync.service.ts:1699 uses, for the same reason (a
-    // sensible default already exists — no need to fail the whole build
-    // over a config-doc read blip).
-    const [fullTemplate, workoutTemplates, paceMapConfig] = await Promise.all([
-      getRunProgramTemplate(generatedProgramTemplate.id),
+    // onboarding-sync.service.ts:1700's own defensive pattern exactly — a
+    // network failure IS meant to read the same as "no workout templates,"
+    // since that's the literal original "deferred to first run" trigger
+    // this whole fix targets. getPaceMapConfig gets the same `.catch()`
+    // fallback onboarding-sync.service.ts:1699 uses, for the same reason
+    // (a sensible default already exists — no need to fail the whole
+    // build over a config-doc read blip).
+    const [workoutTemplates, paceMapConfig] = await Promise.all([
       getRunWorkoutTemplates().catch(() => []),
       getPaceMapConfig().catch(() => DEFAULT_PACE_MAP_CONFIG),
     ]);
 
-    if (!fullTemplate) {
-      return { ok: false, reason: 'program-template-not-found', existingPlanBuildFailedAt };
-    }
     // The original "activeProgram deferred to first run" trigger
     // (onboarding-sync.service.ts:1828) — an empty pool, real or (via the
     // .catch(() => []) above) from a swallowed network failure during the
@@ -164,18 +165,19 @@ export async function fetchAndGenerateActiveRunningProgram(
       return { ok: false, reason: 'no-workout-templates', existingPlanBuildFailedAt };
     }
 
-    const planResult = generatePlan(fullTemplate, paceProfile, paceMapConfig, workoutTemplates);
-    const schedule = flattenPlanToSchedule(planResult, workoutTemplates);
+    const result = buildRunningPlan({
+      goal: running.currentGoal,
+      basePace: paceProfile.basePace,
+      targetDistance: generatedProgramTemplate.targetDistance,
+      frequency: generatedProgramTemplate.canonicalFrequency,
+      totalWeeks: generatedProgramTemplate.canonicalWeeks,
+      runningHistoryMonths: running?.onboardingData?.runningHistoryMonths,
+      hasInjuries: running?.onboardingData?.hasInjuries,
+      workoutTemplates,
+      paceMapConfig,
+    });
 
-    return {
-      ok: true,
-      activeProgram: {
-        programId: fullTemplate.id,
-        startDate: new Date().toISOString(),
-        currentWeek: 1,
-        schedule,
-      },
-    };
+    return { ok: true, activeProgram: result.activeProgram };
   } catch (err) {
     console.error('[RunningScheduleWrite] fetchAndGenerateActiveRunningProgram failed:', err);
     // existingPlanBuildFailedAt unavailable here — the read itself may be

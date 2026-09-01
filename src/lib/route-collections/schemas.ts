@@ -68,6 +68,18 @@ const RouteFieldsSchema = z.object({
     avgGrade: z.number().nullable(),
     maxGrade: z.number().nullable(),
   })).optional(),
+  /** Cross-refs to nearby osm_amenities docs, written by Phase 3's route↔
+   *  amenity tagging (route-amenity-tagging.service.ts / scripts/tag-route-
+   *  amenities.ts). See Route.nearbyAmenities's doc comment (route.types.ts)
+   *  — mirrors RouteAmenityRef verbatim. Wholesale-replaced on every run,
+   *  never arrayUnion'd (see that doc comment for why). */
+  nearbyAmenities: z.array(z.object({
+    amenityId: z.string().min(1),
+    category: z.enum(['court', 'bench', 'drinking_water', 'fitness_station', 'crossing', 'dog_park']),
+    sport: z.enum(['basketball', 'football', 'tennis', 'padel', 'multi', 'unknown']).optional(),
+    distanceFromPathMeters: z.number(),
+    location: LatLngObjectSchema,
+  })).optional(),
   /** Quality-certificate v1 (composition only — lighting is a later task,
    *  hence optional here even though `Route.qualitySignals.composition` is
    *  required once `qualitySignals` itself is present). Mirrors
@@ -84,6 +96,32 @@ const RouteFieldsSchema = z.object({
       litCoveragePct: z.number().nullable(),
       isLit: z.boolean().nullable(),
       source: z.enum(['lamp_nodes', 'street_segments_lit']).optional(),
+    }).optional(),
+    /** Phase 3 route↔amenity tagging — see Route.qualitySignals.amenities'
+     *  doc comment (route.types.ts) for the honesty rule (no_coverage vs.
+     *  computed) and why counts/has are both stored (Firestore's single-
+     *  inequality-per-query limit needs `has.*` as independent booleans,
+     *  not derived client-side from `counts`). */
+    amenities: z.object({
+      status: z.enum(['computed', 'no_coverage']),
+      counts: z.object({
+        court: z.number(),
+        bench: z.number(),
+        drinking_water: z.number(),
+        fitness_station: z.number(),
+        crossing: z.number(),
+        dog_park: z.number(),
+      }),
+      has: z.object({
+        court: z.boolean(),
+        bench: z.boolean(),
+        drinking_water: z.boolean(),
+        fitness_station: z.boolean(),
+        dog_park: z.boolean(),
+      }),
+      sourceStatuses: z.array(z.enum(['pending', 'published'])),
+      computedAt: z.unknown(),
+      source: z.literal('osm_amenities_join_v1'),
     }).optional(),
     computedAt: z.unknown(),
     source: z.literal('osm_overpass_v1'),

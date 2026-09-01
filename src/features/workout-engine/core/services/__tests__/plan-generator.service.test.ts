@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildRunningPlan, resolveBuildStartDate } from '../plan-generator.service';
+import { buildRunningPlan, resolveBuildStartDate, flattenPlanToSchedule } from '../plan-generator.service';
 import { calculateCurrentWeek } from '../workout-completion.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '../../config/pace-map-config';
 import type { RunWorkoutTemplate } from '../../types/running.types';
@@ -122,5 +122,69 @@ describe('buildRunningPlan -- other invariants', () => {
   it('programId on activeProgram matches the generated template id', () => {
     const result = buildRunningPlan(BASE_INPUT);
     expect(result.activeProgram.programId).toBe(result.template.id);
+  });
+});
+
+// Moved here from running-schedule-write.service.test.ts (01.09.2026, fix
+// commit) alongside flattenPlanToSchedule's own relocation to this file --
+// co-locating the function's tests with its actual definition instead of
+// leaving them at its old address.
+const FLATTEN_BASE_PLAN_RESULT = {
+  plan: {
+    id: 'plan_1',
+    name: 'Couch to 5K',
+    targetDistance: '5k' as const,
+    durationWeeks: 1,
+    weeks: [{ weekNumber: 1, workouts: [{ id: 'tpl_easy_1_w1', title: 'Easy Run', isQualityWorkout: false, blocks: [] }] }],
+  },
+  warnings: [],
+  intensityBreakdown: [],
+};
+
+describe('flattenPlanToSchedule', () => {
+  it('flattens a single week/single workout into one schedule entry, day 1-indexed', () => {
+    const schedule = flattenPlanToSchedule(FLATTEN_BASE_PLAN_RESULT as any, WORKOUT_TEMPLATES as any);
+    expect(schedule).toEqual([
+      { week: 1, day: 1, workoutId: 'tpl_easy_1_w1', status: 'pending', category: 'easy_run', workoutName: 'Easy Run' },
+    ]);
+  });
+
+  it('flattens multiple weeks and multiple workouts per week, day index resets each week', () => {
+    const planResult = {
+      ...FLATTEN_BASE_PLAN_RESULT,
+      plan: {
+        ...FLATTEN_BASE_PLAN_RESULT.plan,
+        weeks: [
+          { weekNumber: 1, workouts: [{ id: 'tpl_easy_1_w1', title: 'Easy Run', isQualityWorkout: false, blocks: [] }, { id: 'tpl_easy_1_w1', title: 'Easy Run 2', isQualityWorkout: false, blocks: [] }] },
+          { weekNumber: 2, workouts: [{ id: 'tpl_easy_1_w2', title: 'Easy Run', isQualityWorkout: false, blocks: [] }] },
+        ],
+      },
+    };
+    const schedule = flattenPlanToSchedule(planResult as any, WORKOUT_TEMPLATES as any);
+    expect(schedule.map((s) => [s.week, s.day])).toEqual([[1, 1], [1, 2], [2, 1]]);
+  });
+
+  it('strips the _w{N} suffix to look up template metadata', () => {
+    const schedule = flattenPlanToSchedule(FLATTEN_BASE_PLAN_RESULT as any, WORKOUT_TEMPLATES as any);
+    expect(schedule[0].category).toBe('easy_run');
+    expect(schedule[0].workoutName).toBe('Easy Run');
+  });
+
+  it('falls back to the workout.title when the template id is not in the pool', () => {
+    const planResult = {
+      ...FLATTEN_BASE_PLAN_RESULT,
+      plan: {
+        ...FLATTEN_BASE_PLAN_RESULT.plan,
+        weeks: [{ weekNumber: 1, workouts: [{ id: 'tpl_unknown_w1', title: 'Fallback Title', isQualityWorkout: false, blocks: [] }] }],
+      },
+    };
+    const schedule = flattenPlanToSchedule(planResult as any, WORKOUT_TEMPLATES as any);
+    expect(schedule[0].workoutName).toBe('Fallback Title');
+    expect(schedule[0].category).toBeUndefined();
+  });
+
+  it('returns an empty schedule for a plan with no weeks', () => {
+    const planResult = { ...FLATTEN_BASE_PLAN_RESULT, plan: { ...FLATTEN_BASE_PLAN_RESULT.plan, weeks: [] } };
+    expect(flattenPlanToSchedule(planResult as any, WORKOUT_TEMPLATES as any)).toEqual([]);
   });
 });
