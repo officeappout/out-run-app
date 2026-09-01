@@ -62,8 +62,8 @@
  * admin_level=8 boundary (OSM relation 1382494 — confirmed via Overpass:
  * boundary=administrative, ref:IL:cbs=5000, wikidata=Q33935; matched by
  * relation id, NOT by name — OSM's name:he uses maqaf/en-dash characters
- * ("תל־אביב–יפו") that don't equal the plain-hyphen TLV_CITY string used
- * elsewhere in this file). Fetched once per run (`(._;>;) out geom;`,
+ * ("תל־אביב–יפו") that don't equal the plain-hyphen TLV_CITY_DEFAULT string
+ * used elsewhere in this file). Fetched once per run (`(._;>;) out geom;`,
  * assembled to GeoJSON via `osmtogeojson`), then every candidate point is
  * tested with `@turf/boolean-point-in-polygon` BEFORE the garden-dedup
  * gate — a point outside the real boundary isn't a TLV amenity at all, so
@@ -73,13 +73,35 @@
  * landmarks + neighboring city centers + Jerusalem control) before this
  * was wired in — see the task's dry-run report for those results.
  *
+ * ── CITY-PARAMETERIZED (Phase 0.2, 01.09.2026) ───────────────────────────
+ * --city= and --relationId= both default to TLV's hardcoded values above,
+ * so a bare invocation is byte-for-byte identical to before. The bbox
+ * itself needs no separate parameter — it's already derived live from that
+ * city's own official_routes geometry (see below), not a hardcoded constant.
+ *
+ * --relationId is NOT auto-resolved from --city by name, on purpose — this
+ * mirrors the exact reason TLV's own relation id is hardcoded rather than
+ * name-matched (the maqaf/en-dash mismatch explained above): OSM admin-
+ * boundary name matching is unreliable in general, not just for TLV. If
+ * --city is passed without a matching --relationId (and it isn't the TLV
+ * default), this script hard-fails BEFORE any Overpass/Firestore call —
+ * silently reusing TLV's relation id to boundary-clip a different city
+ * would corrupt that city's data, the same class of bug the boundary-clip
+ * feature itself exists to prevent. Look up the target city's real
+ * admin_level=8 relation id once (Overpass/Nominatim) and pass it explicitly.
+ *
  * Usage:
  *   DRY RUN (default — runs Overpass + the dedup gate for real, prints
  *   every candidate + its outcome, writes NOTHING to osm_amenities):
- *     npx tsx scripts/extract-osm-amenities-tlv.ts
+ *     npx tsx scripts/extract-osm-amenities-tlv.ts                          # TLV (default)
  *
  *   LIVE RUN (commits to osm_amenities — requires explicit --apply):
  *     npx tsx scripts/extract-osm-amenities-tlv.ts --apply
+ *
+ *   ANOTHER CITY (relation id required — look up the real admin_level=8
+ *   relation id for the target city first; <RELATION_ID> below is a
+ *   placeholder, not a real value):
+ *     npx tsx scripts/extract-osm-amenities-tlv.ts --city="רמת גן" --relationId=<RELATION_ID>
  *
  * Prerequisites:
  *   - FIREBASE_SERVICE_ACCOUNT_KEY set in .env.local
@@ -103,23 +125,48 @@ import type { AmenityCategory, CourtSport, OsmAmenity } from '../src/features/pa
 const isApply = process.argv.includes('--apply');
 const mode = isApply ? 'APPLY' : 'DRY-RUN';
 
-const TLV_CITY = 'תל אביב-יפו';
+function argValue(flag: string): string | undefined {
+  const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
+  return arg ? arg.slice(flag.length + 3) : undefined;
+}
+
+const TLV_CITY_DEFAULT = 'תל אביב-יפו';
+const TLV_ADMIN_RELATION_ID_DEFAULT = 1382494;
+// City parameterization — defaults preserve today's exact TLV behavior.
+const CITY = argValue('city') ?? TLV_CITY_DEFAULT;
+const relationIdArg = argValue('relationId');
+// Never silently reuse TLV's relation id for a different city — see the
+// CITY-PARAMETERIZED header note above for why this must hard-fail, not
+// fall back. Only the exact TLV default is allowed to skip an explicit
+// --relationId.
+if (CITY !== TLV_CITY_DEFAULT && !relationIdArg) {
+  console.error(
+    `❌  --city="${CITY}" was passed without a matching --relationId. This script never guesses an OSM admin-boundary ` +
+    `relation id for a city (same reasoning as TLV's own hardcoded relation id — OSM name matching for admin ` +
+    `boundaries is unreliable). Look up the real admin_level=8 relation id for "${CITY}" and pass --relationId=<id>.`,
+  );
+  process.exit(1);
+}
+const ADMIN_RELATION_ID = relationIdArg ? Number(relationIdArg) : TLV_ADMIN_RELATION_ID_DEFAULT;
+// importBatchId prefix — defaults to 'tlv' so the default run's batch id is
+// byte-identical to before ('tlv-amenities-<date>').
+const BATCH_PREFIX = argValue('batch-prefix') ?? 'tlv';
 // Broader than Phase B's route-elevation bbox on purpose — amenities can be
 // anywhere in the city, not just tight to existing route paths. Still
 // derived from the same 27 real TLV routes' geometry (no hardcoded
 // municipal boundary — geo-discovery-routes.ts has no TLV REGION entry at
 // all, confirmed by inspection in Phase B), just with a much larger margin.
 // This bbox is intentionally a SUPERSET of the real city (see
-// fetchTlvBoundary below) — the boundary clip is what enforces accuracy,
+// fetchCityBoundary below) — the boundary clip is what enforces accuracy,
 // not this margin.
 const AMENITY_BBOX_MARGIN_METERS = 2500;
-// OSM relation id for Tel Aviv-Yafo's admin_level=8 boundary — resolved via
-// Overpass (boundary=administrative, ref:IL:cbs=5000, wikidata=Q33935).
-// Hardcoded (matching TLV_CITY's own hardcoding — this is a single-city
-// script by design) rather than name-matched: OSM's name:he for this
-// relation is "תל־אביב–יפו" (maqaf + en-dash), which does NOT string-equal
-// TLV_CITY's plain-hyphen "תל אביב-יפו" used elsewhere in this file/Firestore.
-const TLV_ADMIN_RELATION_ID = 1382494;
+// TLV's own relation id (1382494) is resolved via Overpass (boundary=
+// administrative, ref:IL:cbs=5000, wikidata=Q33935) — the reason it's
+// hardcoded rather than name-matched (OSM's name:he for this relation is
+// "תל־אביב–יפו", maqaf + en-dash, which does NOT string-equal the plain-
+// hyphen "תל אביב-יפו" used elsewhere in this file/Firestore) is the same
+// reasoning ADMIN_RELATION_ID above requires an explicit --relationId for
+// any other city, rather than attempting name-based resolution generally.
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -227,32 +274,32 @@ out center tags;
 }
 
 /**
- * THE CITY-ACCURACY FIX. Fetches Tel Aviv-Yafo's real admin_level=8 boundary
- * (OSM relation 1382494) and assembles it into a GeoJSON Polygon via
- * osmtogeojson (`(._;>;) out geom;` pulls the relation + every member way's
- * full geometry, which osmtogeojson needs to stitch the ring correctly —
- * `out geom;` alone on just the relation is NOT enough). Throws if the
- * relation can't be resolved to a Polygon/MultiPolygon — a missing/broken
- * boundary must hard-fail the run, not silently fall back to bbox-only
- * (which is the exact bug this fixes).
+ * THE CITY-ACCURACY FIX. Fetches the target city's real admin_level=8
+ * boundary (OSM relation ADMIN_RELATION_ID — TLV's 1382494 by default) and
+ * assembles it into a GeoJSON Polygon via osmtogeojson (`(._;>;) out geom;`
+ * pulls the relation + every member way's full geometry, which osmtogeojson
+ * needs to stitch the ring correctly — `out geom;` alone on just the
+ * relation is NOT enough). Throws if the relation can't be resolved to a
+ * Polygon/MultiPolygon — a missing/broken boundary must hard-fail the run,
+ * not silently fall back to bbox-only (which is the exact bug this fixes).
  */
-async function fetchTlvBoundary(): Promise<GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>> {
-  const query = `[out:json][timeout:90];relation(${TLV_ADMIN_RELATION_ID});(._;>;);out geom;`;
+async function fetchCityBoundary(): Promise<GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>> {
+  const query = `[out:json][timeout:90];relation(${ADMIN_RELATION_ID});(._;>;);out geom;`;
   const json = await fetchOverpassRaw(query);
   const geojson = osmtogeojson(json as any) as any;
   const feature = geojson.features.find(
-    (f: any) => f.id === `relation/${TLV_ADMIN_RELATION_ID}` && (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon'),
+    (f: any) => f.id === `relation/${ADMIN_RELATION_ID}` && (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon'),
   );
   if (!feature) {
     throw new Error(
-      `Could not assemble a Polygon/MultiPolygon for TLV admin boundary (relation/${TLV_ADMIN_RELATION_ID}) — ` +
+      `Could not assemble a Polygon/MultiPolygon for ${CITY} admin boundary (relation/${ADMIN_RELATION_ID}) — ` +
       `osmtogeojson returned ${geojson.features?.length ?? 0} feature(s). Aborting rather than silently falling back to bbox-only clipping.`,
     );
   }
   return feature;
 }
 
-function isInsideTlvBoundary(point: { lat: number; lng: number }, boundary: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): boolean {
+function isInsideCityBoundary(point: { lat: number; lng: number }, boundary: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>): boolean {
   return booleanPointInPolygon(turfPoint([point.lng, point.lat]), boundary as any);
 }
 
@@ -302,7 +349,7 @@ interface CandidateOutcome {
 
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════╗');
-  console.log(`║  OSM Amenity Extraction — TLV only   [${mode.padEnd(8)}]         ║`);
+  console.log(`║  OSM Amenity Extraction — ${CITY.padEnd(12)} [${mode.padEnd(8)}]         ║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
   console.log('  Categories: court (basketball/football/tennis/padel), bench, drinking_water, fitness_station');
   console.log('  Scope OUT this run (deferred, per instruction): pedestrian crossings, polygon/lawn geometry, consumer-facing cycleway layer.\n');
@@ -312,21 +359,21 @@ async function main() {
     console.log('   Run with --apply to write.\n');
   }
 
-  // ── Resolve TLV's authorityId (never hardcoded — resolved live, same
+  // ── Resolve the city's authorityId (never hardcoded — resolved live, same
   // pattern geo-discovery-routes.ts / Stage 2.4's climb backfill use) ──
   const authoritySnap = await db.collection('authorities').get();
   const authorities = authoritySnap.docs.map((d) => ({ id: d.id, name: (d.data().label as string) ?? (d.data().name as string) ?? '' }));
   const knownAuthorityIds = new Set(authorities.map((a) => a.id));
-  const tlvAuthorityId = findAuthorityByCityName(TLV_CITY, authorities);
-  if (!tlvAuthorityId) {
-    console.error(`❌  Could not resolve an authority for "${TLV_CITY}" — aborting (never guessing an authorityId).`);
+  const cityAuthorityId = findAuthorityByCityName(CITY, authorities);
+  if (!cityAuthorityId) {
+    console.error(`❌  Could not resolve an authority for "${CITY}" — aborting (never guessing an authorityId).`);
     process.exit(1);
   }
-  console.log(`📍 Resolved TLV authorityId: ${tlvAuthorityId}`);
+  console.log(`📍 Resolved ${CITY} authorityId: ${cityAuthorityId}`);
 
-  // ── Derive extraction bbox from the 27 real TLV routes (same technique
-  // as Phase B, wider margin — see header comment) ──
-  const routesSnap = await db.collection('official_routes').where('city', '==', TLV_CITY).get();
+  // ── Derive extraction bbox from the city's own real route geometry (same
+  // technique as Phase B, wider margin — see header comment) ──
+  const routesSnap = await db.collection('official_routes').where('city', '==', CITY).get();
   const routePoints: Array<{ lat: number; lng: number }> = [];
   for (const d of routesSnap.docs) {
     const rawPath = d.data().path;
@@ -335,23 +382,23 @@ async function main() {
     }
   }
   if (routePoints.length === 0) {
-    console.error('❌  No TLV route geometry found to derive a bbox from — aborting.');
+    console.error(`❌  No ${CITY} route geometry found to derive a bbox from — aborting.`);
     process.exit(1);
   }
   const bbox = boundingBoxWithMargin(routePoints, AMENITY_BBOX_MARGIN_METERS);
-  console.log(`📍 Extraction bbox (+${AMENITY_BBOX_MARGIN_METERS}m margin around real TLV route geometry):`);
+  console.log(`📍 Extraction bbox (+${AMENITY_BBOX_MARGIN_METERS}m margin around real ${CITY} route geometry):`);
   console.log(`   lat [${bbox.latMin.toFixed(4)}, ${bbox.latMax.toFixed(4)}]  lon [${bbox.lonMin.toFixed(4)}, ${bbox.lonMax.toFixed(4)}]`);
   console.log('   ⚠️  This bbox is a superset of the real city — spillover is expected and clipped below.');
 
-  // ── Fetch the REAL TLV admin boundary and confirm it resolved — THE
+  // ── Fetch the REAL city admin boundary and confirm it resolved — THE
   // city-accuracy fix. Hard-fails the run if the boundary can't be
   // assembled, rather than silently degrading to bbox-only. ──
-  console.log(`\n🗺️  Fetching TLV admin boundary (OSM relation ${TLV_ADMIN_RELATION_ID})...`);
-  const tlvBoundary = await fetchTlvBoundary();
-  const ringCount = tlvBoundary.geometry.type === 'Polygon'
-    ? tlvBoundary.geometry.coordinates.length
-    : tlvBoundary.geometry.coordinates.reduce((n, poly) => n + poly.length, 0);
-  console.log(`   ✔ Boundary resolved: ${tlvBoundary.geometry.type}, ${ringCount} ring(s).`);
+  console.log(`\n🗺️  Fetching ${CITY} admin boundary (OSM relation ${ADMIN_RELATION_ID})...`);
+  const cityBoundary = await fetchCityBoundary();
+  const ringCount = cityBoundary.geometry.type === 'Polygon'
+    ? cityBoundary.geometry.coordinates.length
+    : cityBoundary.geometry.coordinates.reduce((n, poly) => n + poly.length, 0);
+  console.log(`   ✔ Boundary resolved: ${cityBoundary.geometry.type}, ${ringCount} ring(s).`);
 
   // ── Load ALL parks for the dedup gate (brute-force at this scale — see
   // header comment for why a geohash-bounded query isn't needed today) ──
@@ -375,8 +422,8 @@ async function main() {
 
   // ── Boundary-clip, then classify + dedup-gate every candidate. The
   // boundary check runs FIRST and unconditionally drops spillover — a
-  // point outside the real city isn't a TLV amenity at all, so it never
-  // reaches the dedup gate and is never written in any status. ──
+  // point outside the real city isn't a real amenity for this city at all,
+  // so it never reaches the dedup gate and is never written in any status. ──
   const outcomes: CandidateOutcome[] = [];
   const spilloverByCategory: Record<AmenityCategory, number> = { court: 0, bench: 0, drinking_water: 0, fitness_station: 0 };
   let spilloverCount = 0;
@@ -385,7 +432,7 @@ async function main() {
     if (!classified) continue;
     const point = elementPoint(el);
     if (!point) continue;
-    if (!isInsideTlvBoundary(point, tlvBoundary)) {
+    if (!isInsideCityBoundary(point, cityBoundary)) {
       spilloverByCategory[classified.category]++;
       spilloverCount++;
       continue;
@@ -462,9 +509,9 @@ async function main() {
           name: o.name,
           status: o.suppressed ? 'rejected' : 'pending',
           origin: 'osm_import',
-          authorityId: tlvAuthorityId,
-          city: TLV_CITY,
-          importBatchId: `tlv-amenities-${new Date().toISOString().slice(0, 10)}`,
+          authorityId: cityAuthorityId,
+          city: CITY,
+          importBatchId: `${BATCH_PREFIX}-amenities-${new Date().toISOString().slice(0, 10)}`,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           ...(o.suppressed
             ? { suppressedDuplicateOfParkId: o.suppressed.parkId, rejectionReason: `Duplicate of existing park ${o.suppressed.parkId} (${o.suppressed.distanceMeters.toFixed(1)}m)` }

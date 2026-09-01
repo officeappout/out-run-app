@@ -1,6 +1,6 @@
 /**
  * scripts/backfill-route-lighting-haifa.ts — persists qualitySignals.lighting
- * for Haifa's official_routes, computed from street_segments.tags.lit (the
+ * for a city's official_routes, computed from street_segments.tags.lit (the
  * denser, already-live source — see the consumer-pollution investigation:
  * Haifa's street network was already ingested weeks ago, no new ingestion
  * needed). Reuses route-comfort-tags.service.ts's computeLitCoverage/
@@ -25,9 +25,21 @@
  * Dry-run default, explicit --apply, batched, before/after log — same
  * pattern as scripts/backfill-route-quality-signals.ts (composition).
  *
+ * CITY-PARAMETERIZED (Phase 0.3, 01.09.2026): the underlying classifier was
+ * already city-agnostic — only this wrapper was Haifa-locked. --city=
+ * defaults to 'חיפה', preserving today's exact behavior byte-for-byte when
+ * run with no flags. File kept at its historical "-haifa" name (zero
+ * external references, but not renamed here to hold invocation-path
+ * compatibility maximally strict — a natural rename once Phase 1's
+ * orchestrator calls this by path anyway).
+ *
  * Usage:
- *   npx tsx scripts/backfill-route-lighting-haifa.ts             # dry-run (default)
- *   npx tsx scripts/backfill-route-lighting-haifa.ts --apply     # real write
+ *   npx tsx scripts/backfill-route-lighting-haifa.ts                       # Haifa, dry-run (default)
+ *   npx tsx scripts/backfill-route-lighting-haifa.ts --apply               # Haifa, real write
+ *   npx tsx scripts/backfill-route-lighting-haifa.ts --city="רמת גן"        # another city, dry-run
+ *   npx tsx scripts/backfill-route-lighting-haifa.ts --city="תל אביב,תל אביב-יפו" --apply
+ *                                                                          # comma-separated aliases
+ *                                                                          # (the two-spelling case)
  */
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.config();
 import * as admin from 'firebase-admin';
@@ -36,13 +48,21 @@ import * as path from 'path';
 import { computeRouteLighting, REAL_DATA_MIN_FRACTION } from './lib/route-lighting-street-segments.node';
 
 const APPLY = process.argv.includes('--apply');
-const HAIFA_CITY = 'חיפה';
-// Haifa has only ever been ingested under one spelling (confirmed live,
-// 30.08.2026 cityName breakdown) — unlike Tel Aviv's two-spelling debt
-// (logged separately, not this task's concern). Still passed as an array —
-// computeRouteLighting's signature is alias-list-shaped so a future TLV
-// call passes ['תל אביב', 'תל אביב-יפו'] without a signature change.
-const HAIFA_CITYNAME_ALIASES = ['חיפה'];
+
+function argValue(flag: string): string | undefined {
+  const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
+  return arg ? arg.slice(flag.length + 3) : undefined;
+}
+
+// City parameterization — defaults preserve today's exact Haifa behavior.
+// Comma-separated so a future two-spelling city (e.g. Tel Aviv's own debt)
+// can pass multiple aliases without a signature change — computeRouteLighting
+// already expects an alias list for exactly this reason (see below).
+const CITY_ALIASES = (argValue('city') ?? 'חיפה').split(',').map((s) => s.trim()).filter(Boolean);
+// Filename tag for the reversible log (kept literally 'haifa' by default so
+// the output path is byte-identical to today's; pass --label= to tag another
+// city's log file distinctly).
+const CITY_LABEL = argValue('label') ?? 'haifa';
 
 function initFb() {
   const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
@@ -60,13 +80,13 @@ interface LogEntry {
 async function main() {
   const db = initFb();
   const { buildValidatedDoc } = await import('../src/lib/route-collections');
-  console.log(`=== Haifa lighting backfill — ${APPLY ? '🔴 APPLY (real write)' : '🟢 DRY-RUN (no writes)'} ===\n`);
+  console.log(`=== ${CITY_ALIASES.join('/')} lighting backfill — ${APPLY ? '🔴 APPLY (real write)' : '🟢 DRY-RUN (no writes)'} ===\n`);
 
   const authoritySnap = await db.collection('authorities').get();
   const knownAuthorityIds = new Set(authoritySnap.docs.map((d) => d.id));
 
-  const routesSnap = await db.collection('official_routes').where('city', '==', HAIFA_CITY).get();
-  console.log(`Loaded ${routesSnap.size} Haifa official_routes.\n`);
+  const routesSnap = await db.collection('official_routes').where('city', 'in', CITY_ALIASES).get();
+  console.log(`Loaded ${routesSnap.size} ${CITY_ALIASES.join('/')} official_routes.\n`);
 
   const logEntries: LogEntry[] = [];
   const toWrite: Array<{ ref: FirebaseFirestore.DocumentReference; validated: Record<string, unknown> }> = [];
@@ -78,7 +98,7 @@ async function main() {
   for (const doc of routesSnap.docs) {
     const data = doc.data();
     const rawPath = Array.isArray(data.path) ? data.path : [];
-    const result = await computeRouteLighting(db, rawPath, HAIFA_CITYNAME_ALIASES);
+    const result = await computeRouteLighting(db, rawPath, CITY_ALIASES);
 
     if (result.status === 'computed') coverages.push(result.litCoveragePct!);
     if (result.status === 'unknown') {
@@ -140,7 +160,7 @@ async function main() {
 
   const outDir = path.join(__dirname, 'output');
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-  const logPath = path.join(outDir, `haifa-lighting-backfill-log-${APPLY ? 'apply' : 'dryrun'}-${Date.now()}.json`);
+  const logPath = path.join(outDir, `${CITY_LABEL}-lighting-backfill-log-${APPLY ? 'apply' : 'dryrun'}-${Date.now()}.json`);
   fs.writeFileSync(logPath, JSON.stringify({ generatedAt: new Date().toISOString(), applied: APPLY, entries: logEntries }, null, 2));
   console.log(`Reversible before/after log written to: ${logPath}`);
 

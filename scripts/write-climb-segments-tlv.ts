@@ -17,7 +17,10 @@
  * synced with this OSM-derived detection.
  *
  * Sources:
- *   terrain   — 23 isolated DEM climbs w/ climbType (/tmp/tlv_climb_segments.json)
+ *   terrain   — DEM-detected climbs w/ climbType, from a pre-built local JSON
+ *               file (TLV's own: 23 climbs, /tmp/tlv_climb_segments.json —
+ *               see CITY-PARAMETERIZED note below, this source is genuinely
+ *               TLV-only, not just a hardcoded path)
  *   structure — OSM foot ways with incline=* or ramp=yes (man-made ramps)
  *   stairs    — OSM highway=steps (separate category, type='stairs')
  *
@@ -25,9 +28,23 @@
  *           dir, geohash (precision 7), source, city, importBatchId.
  * Idempotent: deterministic doc id per source+way → re-run updates, never dupes.
  *
- *   npx tsx scripts/write-climb-segments-tlv.ts --dry-run
+ * CITY-PARAMETERIZED (Phase 0.2, 01.09.2026): --city=/--bbox=/--batch=/
+ * --terrain-file= all default to today's exact hardcoded TLV values, so a
+ * bare invocation is byte-for-byte identical to before. The structure+stairs
+ * sources (live OSM Overpass queries) genuinely generalize to any city's
+ * bbox. The terrain source does NOT — it's a one-off DEM-detected-climb JSON
+ * with no equivalent for any other city today. Passing --terrain-file to a
+ * path that doesn't exist (the default for every city but TLV) SKIPS terrain
+ * climbs gracefully — structure/stairs still run from OSM — rather than
+ * crashing; a real generic DEM-slope-scanning pipeline is future work, not
+ * built here (see CITY-ORCHESTRATOR-PLAN.md Phase 0.2).
+ *
+ *   npx tsx scripts/write-climb-segments-tlv.ts --dry-run                  # TLV (default)
  *   npx tsx scripts/write-climb-segments-tlv.ts
  *   npx tsx scripts/write-climb-segments-tlv.ts --delete
+ *   npx tsx scripts/write-climb-segments-tlv.ts --city="רמת גן" --bbox=32.05,34.79,32.10,34.84 --batch=ramat-gan-climbs-2026-09-01 --dry-run
+ *                                                                          # another city — terrain climbs
+ *                                                                          # skipped (no source file), structure+stairs run for real
  */
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' });
 import * as https from 'https'; import * as fs from 'fs'; import * as admin from 'firebase-admin';
@@ -35,11 +52,28 @@ import * as https from 'https'; import * as fs from 'fs'; import * as admin from
 const DRY = process.argv.includes('--dry-run');
 const DEL = process.argv.includes('--delete');
 const PRUNE = process.argv.includes('--prune-stairs');
+
+function argValue(flag: string): string | undefined {
+  const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
+  return arg ? arg.slice(flag.length + 3) : undefined;
+}
+
 // a staircase is training-relevant only if it's a real flight, not a 3-step hop
 const STAIR_MIN_STEPS = 15, STAIR_MIN_LEN = 15;
 const stairSignificant = (stepCount: number | null, lengthM: number) => (stepCount != null && stepCount >= STAIR_MIN_STEPS) || (stepCount == null && lengthM >= STAIR_MIN_LEN);
-const BBOX = { latMin: 32.040, latMax: 32.118, lonMin: 34.740, lonMax: 34.800 };
-const BATCH = 'tlv-climbs-2026-07-08';
+
+// City parameterization — every default below is copied verbatim from the
+// previously-hardcoded constants, so a bare invocation is unchanged.
+const CITY = argValue('city') ?? 'תל אביב-יפו';
+const bboxArg = argValue('bbox');
+const BBOX = bboxArg
+  ? (() => {
+      const [latMin, lonMin, latMax, lonMax] = bboxArg.split(',').map(Number);
+      return { latMin, lonMin, latMax, lonMax };
+    })()
+  : { latMin: 32.040, latMax: 32.118, lonMin: 34.740, lonMax: 34.800 };
+const BATCH = argValue('batch') ?? 'tlv-climbs-2026-07-08';
+const TERRAIN_FILE = argValue('terrain-file') ?? '/tmp/tlv_climb_segments.json';
 const COL = 'climb_segments';
 
 const Rd = 6371000;
@@ -163,7 +197,12 @@ async function build() {
     return best;
   };
 
-  const terr = JSON.parse(fs.readFileSync('/tmp/tlv_climb_segments.json', 'utf8'));
+  let terr: any[] = [];
+  if (fs.existsSync(TERRAIN_FILE)) {
+    terr = JSON.parse(fs.readFileSync(TERRAIN_FILE, 'utf8'));
+  } else {
+    console.log(`  (terrain-climb source file not found at ${TERRAIN_FILE} — skipping terrain climbs; structure/stairs still run from OSM Overpass data)`);
+  }
   let curved = 0;
   for (const c of terr) {
     const center = { lat: c.center[0], lng: c.center[1] };
@@ -279,7 +318,7 @@ async function main() {
     const prev = snap.exists ? snap.data() : null;
     const status = prev?.status ?? 'pending';
     const origin = prev?.origin ?? 'osm_import';
-    b.set(col.doc(_id), { ...rest, status, origin, city: 'תל אביב-יפו', importBatchId: BATCH, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    b.set(col.doc(_id), { ...rest, status, origin, city: CITY, importBatchId: BATCH, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     if (++n % 450 === 0) { await b.commit(); b = db.batch(); }
     written++;
   }
