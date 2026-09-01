@@ -169,7 +169,10 @@ export const RouteAdjacencyUpdateSchema = RouteAdjacencyFieldsSchema.partial().p
 // unmoved) anticipated — Stage 5 Phase C, autonomous build run 18.08.2026.
 
 const OsmAmenityFieldsSchema = z.object({
-  category: z.enum(['court', 'bench', 'drinking_water', 'fitness_station']),
+  // 'crossing' + 'dog_park' added 01.09.2026 — see AmenityCategory's own doc
+  // comment (osm-amenity.types.ts) for why: legitimizes ~2,224 live Haifa
+  // docs written by a run that bypassed this chokepoint entirely.
+  category: z.enum(['court', 'bench', 'drinking_water', 'fitness_station', 'crossing', 'dog_park']),
   sport: z.enum(['basketball', 'football', 'tennis', 'padel', 'multi', 'unknown']).optional(),
   location: LatLngObjectSchema,
   geohash: z.string().min(1),

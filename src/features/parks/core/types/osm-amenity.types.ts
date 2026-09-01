@@ -19,13 +19,21 @@
  * layer), autonomous build run 18.08.2026.
  */
 
-/** The 4 amenity categories this build extracts. Deliberately NOT
+/** The amenity categories this collection holds. Deliberately NOT
  *  extensible-by-string — a closed enum, same "no invented values" rule
- *  every other typed field in this plan follows. Benches/toilets/
- *  playgrounds/dog-parks (named in Stage 5's own discovery table but not
- *  part of THIS build) would each be a new enum member when built, not a
- *  free-text category. */
-export type AmenityCategory = 'court' | 'bench' | 'drinking_water' | 'fitness_station';
+ *  every other typed field in this plan follows. New categories are added
+ *  as new enum members when built, never as free text.
+ *
+ *  'crossing' + 'dog_park' added 01.09.2026 (crosswalk/dog_park
+ *  reproduction build) to legitimize ~2,206 crossing + ~18 dog_park docs
+ *  already live in `osm_amenities` (Haifa-only, importBatchId
+ *  `tlv-amenities-2026-08-19`) — written by a lost/uncommitted run that
+ *  bypassed buildValidatedDoc, since neither category was a member of this
+ *  type nor of the mirrored zod enum (schemas.ts) at write time. Pure
+ *  schema widening, no migration: the live docs already carry these exact
+ *  string values, so adding the members is what makes them valid, not a
+ *  data change. */
+export type AmenityCategory = 'court' | 'bench' | 'drinking_water' | 'fitness_station' | 'crossing' | 'dog_park';
 
 /** Only meaningful when category === 'court' — which sport(s) the OSM
  *  `sport=*` tag indicates. 'multi' when OSM lists more than one sport on
