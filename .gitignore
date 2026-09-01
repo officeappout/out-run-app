@@ -61,6 +61,7 @@ secrets/
 
 # ── Data backups — contain real user/authority data, never commit ─────────────
 data/backups/
+scripts/_backups/
 
 # ── Signing keys — NEVER commit private keys or keystores ─────────────────────
 my-release-key.keystore
