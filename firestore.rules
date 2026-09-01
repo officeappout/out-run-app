@@ -110,23 +110,46 @@ service cloud.firestore {
     // Group B — tenant/unit assignment. Owned by `validateAccessCode`
     // Cloud Function and admin tooling. Owners cannot self-assign.
     //
-    // INITIAL-WRITE ALLOWANCE: when a field is at its default value ('' / [])
-    // in the stored doc, the client may write any value — this covers the
-    // onboarding path where a shell doc exists but has no core/tenant data yet
-    // (e.g. guest who joined via session-token before completing onboarding).
-    // Once a non-default value is stored, only Admin SDK can change it.
+    // FIXED 01.09.2026 (found while building military-persona self-declared
+    // affiliation, see docs/research/military-persona-unified-architecture.md):
+    // the old "initial-write allowance" (client may write any value into
+    // tenantId/unitId/unitPath/tenantType while the field is still at its
+    // default) applied to EVERY client, not just admins — a regular user
+    // could self-assign an arbitrary tenantId/unitId with a raw client write,
+    // and functions/src/leaderboard.ts trusts core.tenantId/unitId with zero
+    // verification when bucketing real competitive leaderboards. That let
+    // anyone place themselves in any unit's leaderboard without ever
+    // redeeming a real access code.
     //
-    // Note: authorityId follows the same pattern. The deeper protection is that
-    // onboarding-sync does NOT include authorityId in its payload — that field
-    // always routes through /api/user/update-authority (Admin SDK). This rule
-    // is a belt-and-suspenders guard, not the primary lock on authorityId.
+    // Now: the initial-write allowance for tenantId/tenantType/unitId/unitPath
+    // requires isAdmin() — this is exactly what invitation.service.ts's
+    // admin-invitation-acceptance flow already needs (client-side updateDoc,
+    // called by an admin) and exactly what a regular self-assigning user
+    // lacks. validateAccessCode (Admin SDK, Cloud Function) is unaffected —
+    // Admin SDK bypasses these rules entirely regardless of this change.
+    // Once a non-default value is stored, a NON-admin can never change it via
+    // a client write — unchanged from before. (Admins retain their existing
+    // blanket override via the `match /{document=**} { allow write: if
+    // isAdmin(); }` fallback at the bottom of this file, same as every other
+    // protected field group here — that's pre-existing architecture, not
+    // something this fix touches.)
+    //
+    // Note: authorityId keeps its original (pre-fix) behavior — its primary
+    // lock is that onboarding-sync does NOT include it in its payload; writes
+    // always route through /api/user/update-authority (Admin SDK). That's a
+    // different field with a different risk profile (city self-declaration,
+    // not real-unit-leaderboard placement) — not in scope for this fix.
     function noTenantFieldsChanged() {
       let cur = resource.data.get('core', {});
       let nxt = request.resource.data.get('core', {});
-      return (cur.get('tenantId', '') == ''      || cur.get('tenantId', '')      == nxt.get('tenantId', ''))
-          && (cur.get('tenantType', '') == ''     || cur.get('tenantType', '')     == nxt.get('tenantType', ''))
-          && (cur.get('unitId', '') == ''         || cur.get('unitId', '')         == nxt.get('unitId', ''))
-          && (cur.get('unitPath', []).size() == 0 || cur.get('unitPath', [])       == nxt.get('unitPath', []))
+      return (cur.get('tenantId', '') == nxt.get('tenantId', '')
+              || (cur.get('tenantId', '') == '' && isAdmin()))
+          && (cur.get('tenantType', '') == nxt.get('tenantType', '')
+              || (cur.get('tenantType', '') == '' && isAdmin()))
+          && (cur.get('unitId', '') == nxt.get('unitId', '')
+              || (cur.get('unitId', '') == '' && isAdmin()))
+          && (cur.get('unitPath', []) == nxt.get('unitPath', [])
+              || (cur.get('unitPath', []).size() == 0 && isAdmin()))
           && (cur.get('authorityId', '') == ''    || cur.get('authorityId', '')    == nxt.get('authorityId', ''));
     }
 
@@ -253,7 +276,14 @@ service cloud.firestore {
                     && request.resource.data.get('core', {}).get('isTenantOwner', false) == false
                     && request.resource.data.get('core', {}).get('isApproved', false) == false
                     && request.resource.data.get('core', {}).get('role', '') == ''
-                    && request.resource.data.get('core', {}).get('managedVertical', '') == '';
+                    && request.resource.data.get('core', {}).get('managedVertical', '') == ''
+                    // Same fix as noTenantFieldsChanged() (Group B, below) —
+                    // the create path had NO guard on these fields at all
+                    // before this fix, not even an "initial-write allowance".
+                    && (isAdmin() || request.resource.data.get('core', {}).get('tenantId', '') == '')
+                    && (isAdmin() || request.resource.data.get('core', {}).get('tenantType', '') == '')
+                    && (isAdmin() || request.resource.data.get('core', {}).get('unitId', '') == '')
+                    && (isAdmin() || request.resource.data.get('core', {}).get('unitPath', []).size() == 0);
 
       // UPDATE — owner may write everything EXCEPT the four protected
       // groups (admin/role, tenant, game-integrity, social-group-ids). The
