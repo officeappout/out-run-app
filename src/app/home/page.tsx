@@ -2109,6 +2109,64 @@ export default function HomePage() {
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem('active_workout_data');
         }
+
+        // Agenda-card-tap real generation (Section L+M fix, 01.09.2026): the flush above
+        // only clears stale state — nothing else repopulates generatedWorkoutRef for this
+        // path (StatsOverview, the only thing that otherwise fills it, isn't even mounted
+        // for "today" once the pre-workout carousel has real content). Mirrors
+        // handleCalendarEntryTap's own Section I fix exactly (same resolver, same cache-id
+        // scheme) — scoped to the SPECIFIC entry that was tapped (previewEntryRef, set
+        // synchronously by AgendaDayCard's onPreviewEntry just before onTap reaches this
+        // function), not to scheduleState.currentWorkout (mock/demo data, unaware of manual
+        // drag-and-drop scheduling — see Section M's own fix in openWorkoutPreview below).
+        // Guarded by entry.date === explicitDate so a stale previewEntryRef left over from
+        // an unrelated earlier tap (e.g. the plain hero-card button or week-strip tap,
+        // neither of which populate this ref) can never leak into this generation. Fire-
+        // and-forget (not awaited) — interceptWorkoutStart/openWorkoutPreview below must
+        // still run immediately so the drawer rises with its loading skeleton right away,
+        // exactly as the comment above already establishes; this fills generatedWorkout in
+        // reactively once resolved, same as handleWorkoutGenerated always does.
+        const entryForThisTap = previewEntryRef.current;
+        if (entryForThisTap && entryForThisTap.date === explicitDate && profile) {
+          const cats = entryForThisTap.scheduledCategories ?? [];
+          // cardio/walking-only entries are NOT covered here (no equivalent real-build
+          // resolver audited for those categories yet, matching Section I's own documented
+          // scope) — generatedWorkout is already cleared above, so they at least never show
+          // wrong/mock content, but the drawer won't show real content either. Known,
+          // narrower scope, not silently pretended to be solved.
+          if (cats.length === 0 || cats.includes('strength')) {
+            const requestedGeneration = workoutGenerationRef.current;
+            (async () => {
+              try {
+                const todayISO = toISODate(new Date());
+                const context = buildHomeUserContext({
+                  profile,
+                  location: null,
+                  surface: 'home',
+                  date: new Date(entryForThisTap.date + 'T00:00:00'),
+                });
+                const suggestionId = entryForThisTap.date === todayISO
+                  ? `full-strength-cheap-${profile.id}`
+                  : `calendar-${entryForThisTap.date}`;
+                const workout = await resolveFullStrengthWorkout(suggestionId, profile, context);
+                // Stale-guard: if a newer tap already bumped workoutGenerationRef past what
+                // this request started with, this result is for a superseded tap — drop it
+                // rather than overwriting content that already belongs to a later request.
+                if (workout && workoutGenerationRef.current === requestedGeneration) {
+                  handleWorkoutGenerated(workout);
+                }
+              } catch (error) {
+                console.error('[home] resolveFullStrengthWorkout failed for agenda card tap', error);
+              } finally {
+                if (workoutGenerationRef.current === requestedGeneration) {
+                  setIsWorkoutLoading(false);
+                }
+              }
+            })();
+          } else {
+            setIsWorkoutLoading(false);
+          }
+        }
       }
 
       // Health declaration hard-block (first start only). Passes through
@@ -2191,7 +2249,7 @@ export default function HomePage() {
       }
       router.push('/onboarding-new/assessment-visual');
     }
-  }, [hasStrengthProgram, isMapOnlyUser, openWorkoutPreview, profile, router, selectedDate, tryOpenCompletedWorkout]);
+  }, [hasStrengthProgram, handleWorkoutGenerated, isMapOnlyUser, openWorkoutPreview, profile, router, selectedDate, tryOpenCompletedWorkout]);
 
   const handleBuildCustom = useCallback((ctx?: BuilderContext) => {
     const props: Omit<WorkoutBuilderSheetProps, 'onClose'> = {};
