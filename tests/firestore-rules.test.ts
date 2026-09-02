@@ -161,6 +161,17 @@ async function setup() {
     await setDoc(doc(db, 'streaks', 'broadcaster1'), {
       currentStreak: 3, longestStreak: 5, lastActivityDate: '2026-07-26',
     });
+
+    // Tenant/unit lockdown fixtures (01.09.2026 fix).
+    await setDoc(doc(db, 'users', 'no_tenant_user'), {
+      core: { name: 'NoTenant', discoverable: true, tenantId: '', tenantType: '', unitId: '', unitPath: [] },
+    });
+    await setDoc(doc(db, 'users', 'has_tenant_user'), {
+      core: { name: 'HasTenant', discoverable: true, tenantId: 'brigade_real', tenantType: 'military', unitId: 'unit_real', unitPath: ['unit_real'] },
+    });
+    await setDoc(doc(db, 'users', 'tenant_admin_user'), {
+      core: { name: 'AdminOps', discoverable: true, isSuperAdmin: true },
+    });
   });
 }
 
@@ -396,6 +407,66 @@ async function testActivityRules() {
   });
 }
 
+async function testTenantUnitLockdown() {
+  console.log('\ntenant-unit-lockdown — core.tenantId/unitId/unitPath self-assignment fix (01.09.2026)');
+
+  // T1 — regular user self-writes core.tenantId while still at default → DENY.
+  // This is the exact exploit found: before the fix this succeeded, letting
+  // anyone place themselves in any unit's real leaderboard.
+  await it('T1 — non-admin self-assigns core.tenantId on update (was ALLOW, now DENY)', async () => {
+    const ctx = env.authenticatedContext('no_tenant_user');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'users', 'no_tenant_user'), {
+      'core.tenantId': 'fake_brigade',
+      'core.unitId': 'fake_unit',
+    }));
+  });
+
+  // T2 — admin (invitation-acceptance flow shape) assigns tenantId/unitId on
+  // someone else's doc while still at default → ALLOW. Must keep working —
+  // this is invitation.service.ts's real, live write path.
+  await it('T2 — admin assigns core.tenantId/unitId on a default doc → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'users', 'no_tenant_user'), {
+      'core.tenantId': 'real_brigade',
+      'core.unitId': 'real_unit',
+    }));
+  });
+
+  // T3 — a regular (non-admin) user cannot change their OWN already-set
+  // tenantId via client write (unchanged pre-existing behavior for
+  // non-admins — once non-default, only Admin SDK / validateAccessCode can
+  // change it). NOTE: this codebase has a blanket admin fallback
+  // (`match /{document=**} { allow read, write: if isAdmin(); }`,
+  // firestore.rules:1837-1839) that bypasses every field-level guard in the
+  // file for admins — including this one, and every other protected group
+  // (game-integrity, social-groupIds, etc). That's pre-existing, deliberate
+  // architecture, not something this fix changes or should try to close.
+  await it('T3 — non-admin cannot change their own already-non-default core.tenantId → DENY', async () => {
+    const ctx = env.authenticatedContext('has_tenant_user');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'users', 'has_tenant_user'), {
+      'core.tenantId': 'a_different_brigade',
+    }));
+  });
+
+  // T4 — regular user self-assigns tenantId at DOCUMENT CREATE time → DENY.
+  // The create rule had NO guard on these fields at all before the fix.
+  await it('T4 — non-admin self-assigns core.tenantId at doc creation → DENY', async () => {
+    const ctx = env.authenticatedContext('new_self_assigning_user');
+    await assertFails(setDoc(doc(ctx.firestore(), 'users', 'new_self_assigning_user'), {
+      core: { name: 'Sneaky', tenantId: 'fake_brigade_at_create' },
+    }));
+  });
+
+  // T5 — normal onboarding shell-doc creation (fields absent/default) → ALLOW,
+  // unaffected by the fix.
+  await it('T5 — normal shell-doc creation with no tenant fields → ALLOW', async () => {
+    const ctx = env.authenticatedContext('new_normal_user');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'users', 'new_normal_user'), {
+      core: { name: 'Normal' },
+    }));
+  });
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -407,6 +478,7 @@ async function main() {
   await testH2Roles();
   await testSessions();
   await testActivityRules();
+  await testTenantUnitLockdown();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Results: ${pass} passed, ${fail} failed`);
