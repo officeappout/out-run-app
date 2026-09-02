@@ -214,10 +214,18 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
                     unitPathIds: answers.unitPathIds as string[] | undefined,
                   }}
                   onChange={(v: HierarchySearchValue) => setAnswers((prev) => ({ ...prev, ...v }))}
+                  onDone={() => goToNextOrFinish(answers)}
                 />
               )}
 
-              {currentQuestion?.skippable && (
+              {/* The production bug this fixes: hierarchy_search has its own
+                  prominent "סיום" button once a selection exists (rendered
+                  inside HierarchySearchStep) -- showing this generic "דלג"
+                  underneath it too would be two competing ways to move on.
+                  Only shown here before any selection is made (a true skip:
+                  "I don't want to answer this at all") or for any other
+                  question type, which has no equivalent built-in button. */}
+              {currentQuestion?.skippable && !(currentQuestion.type === 'hierarchy_search' && answers.orgId) && (
                 <div className="px-5 pb-5 mt-auto">
                   <button
                     type="button"
