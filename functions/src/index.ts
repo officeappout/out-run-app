@@ -3,6 +3,7 @@ export { validateAccessCode } from './validateAccessCode';
 export { onFeedPostCreate, onWorkoutCreate, rollupLeaderboard } from './leaderboard';
 export { runDataMigration } from './runDataMigration';
 export { onUnitWrite } from './onUnitWrite';
+export { onAuthorityWrite } from './onAuthorityWrite';
 export { awardWorkoutXP } from './awardWorkoutXP';
 export { reverseWorkoutXP } from './reverseWorkoutXP';
 export { ingestHealthSamples } from './ingestHealthSamples';

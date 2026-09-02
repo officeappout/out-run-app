@@ -1723,6 +1723,75 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // UNIT DIRECTORY — read-only public index for military-unit search
+    // (Phase 3a, military-persona self-declaration). Contains ONLY
+    // name/level/parentId/orgId/armType/statusCategory — zero people,
+    // zero membership data, ever. Always a derived copy, written
+    // exclusively by the onUnitWrite/onAuthorityWrite Cloud Functions
+    // (Admin SDK) from tenants/{orgId}/units and authorities/{id}. If
+    // in doubt, those are canonical, this is not.
+    //
+    // allow read: if true (not isAuthenticated()) is a DELIBERATE,
+    // discussed-with-David choice (02.09.2026) — unit names carry no
+    // people-data and brigade names are already semi-public, so the
+    // simplicity of an open read outweighs the friction of gating it.
+    // This is explicitly flagged as open for discussion with the
+    // reserve-duty fitness officer this feature was built for, and can
+    // be tightened to isAuthenticated() (or narrower) at any time
+    // without breaking anything else — see docs/research/
+    // military-persona-unified-architecture.md §9 risk #9.
+    // ============================================================
+    match /unitDirectory/{directoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // MILITARY_DECLARATIONS — self-declared, unverified military
+    // persona answers (Phase 3a). Deliberately NOT a field on
+    // users/{uid} — that doc's read rule (line ~260) is a whole-
+    // document grant gated only by core.discoverable, so any field
+    // placed there becomes readable by every discoverable-profile-
+    // reading authenticated user (confirmed live via
+    // src/features/social/services/user-search.service.ts's raw
+    // getDocs, plus 4 other existing other-user-profile read paths —
+    // see the research doc's §9 risk #10 for the full audit).
+    //
+    // Named "declarations", not "affiliations", to avoid confusion
+    // with the pre-existing, unrelated core.affiliations mechanism
+    // (city/school/company) and to keep the declared-vs-verified
+    // distinction unmissable in the schema itself. The existing
+    // VERIFIED core.tenantId/unitId/unitPath mechanism (written only
+    // by validateAccessCode CF or admin invitation) is untouched by
+    // this and must never be conflated with it.
+    //
+    // Owner-writable directly (unlike user_memberships, which is
+    // Admin-SDK-only) because nothing else in these rules trusts this
+    // document as an authorization boundary — it is self-declared by
+    // definition, with no verified/elevated state to protect. The
+    // sensitivity is entirely on the READ side. isValidMilitaryDeclaration()
+    // closes the arbitrary-payload gap a bare isOwner() write would
+    // otherwise leave open: closed key list, enum on status, type+length
+    // bounds on orgId/unitId, a size cap on unitPathIds.
+    // ============================================================
+    match /military_declarations/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if (isOwner(uid) || isAdmin())
+                             && isValidMilitaryDeclaration(request.resource.data);
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    function isValidMilitaryDeclaration(data) {
+      return data.keys().hasOnly(['status', 'orgId', 'unitId', 'unitPathIds', 'updatedAt'])
+        && (!('status' in data) || data.status in ['regular', 'career', 'reserve'])
+        && (!('orgId' in data) || (data.orgId is string && data.orgId.size() <= 100))
+        && (!('unitId' in data) || (data.unitId is string && data.unitId.size() <= 100))
+        && (!('unitPathIds' in data)
+            || (data.unitPathIds is list && data.unitPathIds.size() <= 10))
+        && data.updatedAt is timestamp;
+    }
+
+    // ============================================================
     // VISUAL ASSESSMENT SYSTEM — תוכן, חוקים, סף תוכניות
     // ============================================================
     match /visual_assessment_content/{docId} {
