@@ -8,6 +8,9 @@ import { type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import type { AccessCodeResult } from '../../services/access-code.service';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import PersonaQuestionsDrawer from '../PersonaQuestionsDrawer';
+import { PERSONA_QUESTIONS } from '@/types/persona-question.types';
+import type { PersonaId } from '@/types/persona.types';
 import {
   ACCESS_CODE_MILITARY_ENABLED,
   ACCESS_CODE_SCHOOL_ENABLED,
@@ -218,6 +221,15 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [pendingPersona, setPendingPersona] = useState<LifestyleOption | null>(null);
 
+  // Persona follow-up-questions drawer (Phase 3b) — opens immediately when a
+  // persona with configured questions (PERSONA_QUESTIONS) is newly selected.
+  // Lives here, not in either host wizard (OnboardingWizard/LifestyleWizard),
+  // because PersonaStep is the one component both hosts already render
+  // identically — see the entry-point map in docs/research/
+  // military-persona-unified-architecture.md §10. Zero changes needed to
+  // either host.
+  const [drawerPersonaId, setDrawerPersonaId] = useState<PersonaId | null>(null);
+
   // Local state - multi-select for personas, multi-select (max 2) for goals
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>(() => {
     const storedIds = (data as any).selectedPersonaIds;
@@ -284,6 +296,13 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
       newSelectedIds = [...selectedPersonaIds, option.id];
     }
     setSelectedPersonaIds(newSelectedIds);
+    // Newly-added persona with configured follow-up questions -> open the
+    // drawer immediately (per the approved UX scenario). Deselecting never
+    // opens it. A persona with no PERSONA_QUESTIONS entry (the common case)
+    // is a no-op here — nothing to open.
+    if (isAdding && PERSONA_QUESTIONS[option.id as PersonaId]) {
+      setDrawerPersonaId(option.id as PersonaId);
+    }
     const allTags = collectAllTags(newSelectedIds, selectedGoalIds);
     updateData({
       selectedPersonaId: newSelectedIds[0] || null,
@@ -695,6 +714,14 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {drawerPersonaId && (
+        <PersonaQuestionsDrawer
+          personaId={drawerPersonaId}
+          isOpen={drawerPersonaId !== null}
+          onComplete={() => setDrawerPersonaId(null)}
+        />
+      )}
     </div>
   );
 }
