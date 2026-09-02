@@ -478,3 +478,97 @@ describe('syncOnboardingToFirestore — JIT edit: COMPLETED-only side effects mu
     expect(written.progression.activePrograms[0]).toMatchObject({ id: 'planche' });
   });
 });
+
+describe('syncOnboardingToFirestore — primaryTrack/dashboardMode not overwritten when the running bridge completes for an already-tracked user (re-entry, not first-time signup)', () => {
+  // 02.09.2026 fix. The existing "closes doors not yet born" test above
+  // (line ~462) does NOT cover this: its runningAnswers is null, so the
+  // running bridge block never runs, and its fixture's primaryTrack is
+  // already 'run' — the exact value the overwrite would have produced
+  // anyway, so that assertion couldn't fail even with the bug present.
+  // Two real locks, both need to be open: a real (non-'run') existing
+  // track, AND real runningAnswers that make the bridge block actually run.
+
+  it('real strength user (primaryTrack derived from derivePrimaryTrack([\'skills\']) = \'strength\', verified not invented) whose running branch completes: primaryTrack/dashboardMode unchanged, proven the bridge block genuinely ran', async () => {
+    state.EXISTING_DOC = {
+      createdAt: 'X',
+      core: { name: 'A', gender: 'other', initialFitnessTier: 2 },
+      progression: {
+        globalLevel: 4, globalXP: 500, coins: 10,
+        domains: { planche: { currentLevel: 7, maxLevel: 25, isUnlocked: true } },
+        tracks: { planche: { currentLevel: 7, percent: 0 } },
+        activePrograms: [
+          { id: 'planche', templateId: 'planche', name: 'planche', startDate: 'X', durationWeeks: 52, currentWeek: 1, focusDomains: ['planche'] },
+        ],
+      },
+      currentProgramId: 'planche',
+      onboardingStatus: 'COMPLETED',
+      onboardingCompletedAt: 'ORIGINAL_COMPLETION_TIMESTAMP',
+      lifestyle: {
+        scheduleDays: ['ב', 'ד'], hasDog: false, commute: { method: 'walk', enableChallenges: false },
+        // derivePrimaryTrack(['skills']) -> 'strength' -> trackToDashboardMode('strength') -> 'PERFORMANCE'
+        // (track-mapper.service.ts) -- a real strength/skills user's actual value, not invented.
+        primaryTrack: 'strength', dashboardMode: 'PERFORMANCE',
+      },
+      equipment: { home: [], office: [], outdoor: [] },
+      health: { injuries: [], connectedWatch: 'none' },
+      // Internally consistent (unlike existingOnboardedUser() above, logged
+      // to parking-lot.md, not fixed here): a real strength user genuinely
+      // has running not yet unlocked.
+      running: { isUnlocked: false, currentGoal: 'couch_to_5k', activeProgram: null, paceProfile: { basePace: 0, profileType: 3, qualityWorkoutsHistory: [], qualityWorkoutCount: 0, lastSelfCorrectionDate: null } },
+    };
+    // Real runningAnswers, matching health/page.tsx's actual call shape --
+    // this is what makes the running bridge block actually execute, not
+    // just have the opportunity to.
+    stubBrowserStorage({
+      onboarding_running_answers: JSON.stringify({ goalPath: 'start_running', targetDistance: '5k' }),
+    });
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      runningWeeklyFrequency: 3,
+      runningScheduleDays: ['א', 'ה'],
+      runningScheduleTime: '07:00',
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    // Proof the bridge block genuinely ran -- not a no-op skip.
+    expect(written.running.isUnlocked).toBe(true);
+    expect(written.running.activeProgram).toBeTruthy();
+
+    // The fix: primaryTrack/dashboardMode stay exactly what they were.
+    expect(written.lifestyle.primaryTrack).toBe('strength');
+    expect(written.lifestyle.dashboardMode).toBe('PERFORMANCE');
+
+    // Existing strength progression untouched too.
+    expect(written.progression.activePrograms).toHaveLength(1);
+    expect(written.progression.activePrograms[0]).toMatchObject({ id: 'planche' });
+  });
+
+  it('brand-new user, same-session dual signal (real assignedResults AND running answers together): running still wins primaryTrack/dashboardMode -- the existing policy this fix must not break', async () => {
+    // No state.EXISTING_DOC set -- beforeEach defaults it to null (CREATE
+    // path, brand-new user, no existing primaryTrack in existingRaw).
+    stubBrowserStorage({
+      onboarding_running_answers: JSON.stringify({ goalPath: 'start_running', targetDistance: '5k' }),
+    });
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [{ programId: 'full_body', levelId: 'full_body_level_3' }],
+      runningWeeklyFrequency: 4,
+      runningScheduleDays: ['ב'],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.running.isUnlocked).toBe(true);
+    expect(written.running.activeProgram).toBeTruthy();
+    expect(written.progression.activePrograms[0]).toMatchObject({ id: 'full_body' });
+
+    // Unchanged behavior: a same-session dual-track NEW user still gets
+    // routed to the running view, exactly as the block's own long-standing
+    // comment describes.
+    expect(written.lifestyle.primaryTrack).toBe('run');
+    expect(written.lifestyle.dashboardMode).toBe('RUNNING');
+  });
+});

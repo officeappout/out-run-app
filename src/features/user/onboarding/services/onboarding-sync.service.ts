@@ -1859,11 +1859,34 @@ export async function syncOnboardingToFirestore(
           //   - StrengthVolumeWidget.tsx (gates cardio- vs strength-widget content)
           //   - dashboardMode derivation (track-mapper.service.ts) → indirectly the
           //     WHO activity rings ('health' track → DEFAULT mode → WHO rings)
-          if (updateData.lifestyle) {
-            updateData.lifestyle.primaryTrack = 'run';
-            updateData.lifestyle.dashboardMode = 'RUNNING';
+          //
+          // The paragraph above describes ONE case correctly — a brand-new user who
+          // gets both a strength assignment and a completed running branch in the
+          // SAME call — and simply didn't know about the other one yet (David,
+          // 02.09.2026 review): an already-onboarded user re-entering this same
+          // questionnaire later (RunForecastWidget.tsx's "start your running
+          // journey" link, StatsOverview's realign/rebuild popups) reaches this
+          // exact block too, and got silently switched from their real track to
+          // 'run' with no signal anyone chose that. `alreadyHasPrimaryTrack` below
+          // is what tells the two apart — same guard pattern (and reads the same
+          // `existingRaw`, the pre-write document) already proven correct twice
+          // elsewhere in this function: Persona Engine (~:900) and the Program &
+          // Level Assignment fallback (~:1560), both of which already call out
+          // dynamic/page.tsx re-entry by name. A same-session new user has no
+          // primaryTrack in `existingRaw` yet, so the guard passes and the policy
+          // above still applies untouched; a returning user does, so it doesn't.
+          const alreadyHasPrimaryTrack = !!(existingRaw as any)?.lifestyle?.primaryTrack;
+          if (!alreadyHasPrimaryTrack) {
+            if (updateData.lifestyle) {
+              updateData.lifestyle.primaryTrack = 'run';
+              updateData.lifestyle.dashboardMode = 'RUNNING';
+            } else {
+              updateData.lifestyle = { primaryTrack: 'run', dashboardMode: 'RUNNING' } as any;
+            }
           } else {
-            updateData.lifestyle = { primaryTrack: 'run', dashboardMode: 'RUNNING' } as any;
+            console.log(
+              '[OnboardingSync] Running bridge completed but user already has a primaryTrack — leaving it and dashboardMode untouched (re-entry, not a first-time dual-track signup).',
+            );
           }
 
           console.log('[OnboardingSync] Running bridge completed:', bridge.programTemplate.name);

@@ -314,6 +314,13 @@ Inspiration cited: Runna app's handling of this (not verified against Runna itse
 
 ---
 
+## `onboarding-sync.service.test.ts`'s `existingOnboardedUser()` fixture is internally contradictory — not fixed, logged only
+**Opened:** 02.09.2026 · **Source:** David, reviewing the primaryTrack-overwrite-on-re-entry fix (`onboarding-sync.service.ts:1849` area, idempotent-booping-sunrise.md's post-2b work).
+
+`existingOnboardedUser()` (`onboarding-sync.service.test.ts:388-411`) sets `lifestyle: { primaryTrack: 'run', dashboardMode: 'RUNNING' }` on a profile whose `progression` is entirely strength (planche domain/tracks/activePrograms) and whose `running: { isUnlocked: false, ... }` — a real user can never actually be in this exact combination (primaryTrack='run' implies running is the active identity, but isUnlocked=false means running was never actually completed/unlocked). The fixture works for what it's used for (proving a value is *preserved* untouched, regardless of what that value is) but the specific value chosen doesn't describe a real user. David: don't fix it as part of this round — just log it so a future pass doesn't accidentally treat the fixture's shape as a real reference case. Whoever touches this fixture next should pick an internally-consistent value (e.g. `primaryTrack: 'strength'` + `running.isUnlocked: false`, or `primaryTrack: 'run'` + `running.isUnlocked: true`) and re-verify every test that depends on the current exact value doesn't silently break.
+
+---
+
 ## Future idea — smart-coach chat reinforcement instead of a screen element
 **Opened:** 2026-08-19 · **Source:** David, while confirming the Stage D/E completion-card decision (`adaptive-snacking-valiant.md` plan) — explicitly documentation-only, not connected to that plan, not investigated or scoped.
 
