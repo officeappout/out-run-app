@@ -241,18 +241,21 @@ export function resolveNotificationText(
     resolved = resolved.replace(/@שעת_הגעה_שותף/g, () => context.partnerArrivalTime || 'בקרוב');
   }
 
-  // Persona tags
+  // Persona tags. Canonical PersonaId vocabulary since the 01.09.2026
+  // persona-model redefinition -- context.persona is now `personas[0]?.id`
+  // (see StrengthOverviewCard.tsx), one of these 7 values. The old
+  // school_student/remote_worker/high_tech/athlete/senior/reservist/
+  // active_soldier keys never match a live value anymore, so every
+  // military/vatikim/pro_athlete user silently got the 'משתמש' fallback
+  // instead of a real label until this was caught.
   const personaLabels: Record<string, string> = {
     parent: 'הורה',
     student: 'סטודנט',
-    school_student: 'תלמיד',
+    pupil: 'תלמיד',
     office_worker: 'עובד משרד',
-    remote_worker: 'עובד מהבית',
-    high_tech: 'הייטקיסט',
-    athlete: 'ספורטאי',
-    senior: 'גיל הזהב',
-    reservist: 'מילואימניק',
-    active_soldier: 'חייל סדיר',
+    military: 'חייל',
+    vatikim: 'גיל הזהב',
+    pro_athlete: 'ספורטאי',
   };
   
   resolved = resolved.replace(/@פרסונה/g, () => {

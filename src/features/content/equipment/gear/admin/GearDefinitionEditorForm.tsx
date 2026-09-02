@@ -68,14 +68,18 @@ const LOCATION_LABELS: Record<GearLocation, { label: string; icon: React.ReactNo
   gym: { label: 'מכון כושר', icon: <Building size={18} /> },
 };
 
-// Lifestyle tags (matching ExecutionMethodCard style)
+// Lifestyle tags (matching ExecutionMethodCard style). Canonical PersonaId
+// vocabulary — no live gear_definitions doc has ever set this field
+// (verified 01.09.2026), but it's a live admin-editable widget going
+// forward, so it stays on the 7-value vocabulary, not the retired one.
 const LIFESTYLE_TAGS = [
   { id: 'parent', label: 'הורה', icon: <User size={14} /> },
   { id: 'student', label: 'סטודנט', icon: <Building2 size={14} /> },
+  { id: 'pupil', label: 'תלמיד', icon: <Building2 size={14} /> },
   { id: 'office_worker', label: 'עובד משרד', icon: <Building2 size={14} /> },
-  { id: 'remote_worker', label: 'עובד מהבית', icon: <Home size={14} /> },
-  { id: 'athlete', label: 'ספורטאי', icon: <User size={14} /> },
-  { id: 'senior', label: 'גיל הזהב', icon: <User size={14} /> },
+  { id: 'military', label: 'צה"ל', icon: <User size={14} /> },
+  { id: 'vatikim', label: 'גיל הזהב', icon: <User size={14} /> },
+  { id: 'pro_athlete', label: 'ספורטאי קצה', icon: <User size={14} /> },
 ];
 
 export default function GearDefinitionEditorForm({

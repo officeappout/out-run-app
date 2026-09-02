@@ -276,13 +276,17 @@ const SCORABLE_FIELDS: Array<{
  * Persona values that target a specific demographic.
  * When the user has NO persona, content rows tagged with any of these
  * are hard-excluded so generic users never see "Young Mom" or "Senior" titles.
+ * Direct 1:1 relabel of the old set onto the canonical PersonaId vocabulary
+ * (senior->vatikim, reservist->military, high_tech->office_worker — office_worker
+ * added here since high_tech, which WAS demographic-restricted, now merges into
+ * it) after scripts/_migrate-persona-content-relabel.ts relabeled every live row
+ * across all 4 workoutMetadata content collections (01.09.2026). `mom`/`army`
+ * dropped outright — dead literals with no canonical counterpart and zero live
+ * usage (confirmed via the same full-collection read). pupil/pro_athlete were
+ * never in this set before the redefinition either — not added speculatively.
  */
 const DEMOGRAPHIC_PERSONA_TAGS = new Set([
-  'parent', 'mom', 'senior', 'high_tech', 'army', 'reservist', 'student',
-  // New canonical values (01.09.2026 redefinition) — kept alongside the
-  // legacy tags above until the content-relabel script (branch 3) runs;
-  // both must be recognized in the meantime.
-  'vatikim', 'military',
+  'parent', 'student', 'vatikim', 'military', 'office_worker',
 ]);
 
 /**
