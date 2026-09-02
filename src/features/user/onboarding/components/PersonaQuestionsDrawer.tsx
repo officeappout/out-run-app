@@ -7,6 +7,7 @@ import { auth } from '@/lib/firebase';
 import type { PersonaId } from '@/types/persona.types';
 import { PERSONA_QUESTIONS } from '@/types/persona-question.types';
 import { savePersonaAnswers } from '@/features/user/identity/services/persona-answers.service';
+import { useResolvedMilitaryDeclaration } from '@/features/user/identity/hooks/useResolvedMilitaryDeclaration';
 import ChoiceStep from './persona-questions-drawer/ChoiceStep';
 import HierarchySearchStep, { type HierarchySearchValue } from './persona-questions-drawer/HierarchySearchStep';
 
@@ -51,6 +52,42 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
   const [direction, setDirection] = useState(1);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const savedRef = useRef(false);
+
+  // Re-opening the drawer for a persona already declared (deselect+reselect,
+  // or a future re-edit entry point) should show what was already answered,
+  // not start blank. Only military has a resolvable declaration today
+  // (military_declarations/{uid}) — the hook itself is a no-op when uid is
+  // undefined. `orgId`/`unitId` are resolved LIVE against unitDirectory
+  // (never cached at write time) so a deleted/restructured unit surfaces as
+  // "no longer exists" instead of silently pre-selecting a dead reference.
+  const uid = auth.currentUser?.uid;
+  const resolvedDeclaration = useResolvedMilitaryDeclaration(personaId === 'military' ? uid : undefined);
+  const prefilledRef = useRef(false);
+  if (isOpen && !prefilledRef.current && !resolvedDeclaration.loading) {
+    prefilledRef.current = true;
+    if (resolvedDeclaration.raw) {
+      setAnswers((prev) => ({
+        ...prev,
+        ...(resolvedDeclaration.raw!.status ? { status: resolvedDeclaration.raw!.status } : {}),
+        // Only carry the unit/org selection forward if it still resolves —
+        // pre-filling a stale orgId/unitId would silently point the next
+        // save at a unit that no longer exists.
+        ...(resolvedDeclaration.resolved
+          ? {
+              orgId: resolvedDeclaration.raw!.orgId,
+              unitId: resolvedDeclaration.raw!.unitId,
+              unitPathIds: resolvedDeclaration.raw!.unitPathIds,
+            }
+          : {}),
+      }));
+    }
+  }
+  if (!isOpen && prefilledRef.current) {
+    prefilledRef.current = false;
+  }
+  const showStaleUnitNotice = !resolvedDeclaration.loading
+    && !!resolvedDeclaration.raw?.orgId
+    && !resolvedDeclaration.resolved;
 
   const currentQuestion = questions[step];
 
@@ -141,6 +178,12 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
             </div>
           ))}
         </div>
+
+        {showStaleUnitNotice && (
+          <div className="mx-5 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200" dir="rtl">
+            <p className="text-xs font-semibold text-amber-700">היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש</p>
+          </div>
+        )}
 
         <div className="flex-1 overflow-hidden relative min-h-[420px]">
           <AnimatePresence mode="wait" custom={direction}>
