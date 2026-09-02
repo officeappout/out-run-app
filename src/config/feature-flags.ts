@@ -1420,6 +1420,57 @@ export const AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED = true;
 // without a revert if needed.
 export const AGENDA_HYBRID_DAY_DISPLAY_ENABLED = true;
 
+// RUNNING_ONBOARDING_GATE_ENABLED (2b, idempotent-booping-sunrise.md) —
+// the fix for a real, live bug: RunningScheduleStep writes SOME
+// running.scheduleDays during signup (default or chosen), so
+// home/page.tsx's `hasSchedule` (userScheduleDays.length>0) is almost
+// always already true for a runner — the ONLY existing trigger for
+// LifestyleWizard (`!hasSchedule`, home/page.tsx:2351/SmartWeeklySchedule
+// .tsx's showOverlay) never fires for them. A runner never sees the
+// wizard that would let them answer persona or confirm real running
+// days — stuck on system-default forever, with no UI path back.
+//
+// While FALSE (default): the value fed into SmartWeeklySchedule's
+// `hasSchedule` prop is BYTE-IDENTICAL to today (the existing
+// userScheduleDays.length>0 check, untouched) — same card, same
+// overlay/no-overlay decision, same CTA, for every user, running or not.
+//
+// While TRUE: that value is replaced by a combined check —
+//   running track (hasRunningTrack, track-ownership.ts — NOT primaryTrack/
+//   dashboardMode, both already documented elsewhere as unreliable under
+//   JIT editing):  hasAnsweredPersona(profile) && isRunningScheduleUserConfirmed(profile)
+//   otherwise:     hasSchedule && hasAnsweredPersona(profile)
+// (De Morgan's dual of the plan's own "gate is open" formula,
+// `!hasAnsweredPersona || !isRunningScheduleUserConfirmed` / `!hasSchedule
+// || !hasAnsweredPersona` — this constant is fed as the POSITIVE
+// `hasSchedule` prop, not the gate-open condition itself.)
+// A runner who never confirmed real days now sees the same
+// frosted-overlay-plus-CTA card a brand-new strength user without a
+// schedule already sees today — tapping it opens LifestyleWizard, same
+// as it always has for that population. A runner who DID confirm real
+// days sees the normal card, unchanged. The "אחרת" branch also adds a
+// persona-answered requirement to STRENGTH users for the first time
+// (today it's `hasSchedule` alone) — verified this is a no-op for every
+// completed strength signup path (both write some persona signal by the
+// time schedule is also set), but flagged as unverified for the
+// theoretical case of hasSchedule=true with persona genuinely unanswered.
+//
+// hasAnsweredPersona(profile) — NOT a specific Firestore field. The gate
+// depends on that function's return value only; which forms it recognizes
+// underneath is deliberately out of this flag's concern, and deliberately
+// not restated here — see persona-declaration.ts, owned by a different,
+// separately-in-flight branch of work. Naming a specific field in this
+// comment is exactly how the old version went stale the moment that file
+// was redefined (01.09.2026, military-persona merge) — don't reintroduce
+// that.
+//
+// Kill-switch: flip back to false, byte-identical instantly, no code
+// change needed. Runtime A/B override (no rebuild, same pattern as
+// AGENDA_HYBRID_DAY_DISPLAY_ENABLED/isPlsCacheEnabled above):
+// localStorage['OUT_RUNNING_GATE'] = '1' | '0' — lets David test on a
+// single device/demo account without flipping this for anyone else.
+export const RUNNING_ONBOARDING_GATE_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

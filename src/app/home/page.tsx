@@ -39,9 +39,10 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED } from '@/config/feature-flags';
+import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, RUNNING_ONBOARDING_GATE_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
+import { resolveCardHasScheduleAndPersona } from '@/lib/running-onboarding-gate';
 import StatsOverview, { type BuilderContext, type TrioSelector } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
@@ -283,6 +284,21 @@ function ActivityCard() {
       </div>
     </div>
   );
+}
+
+/** Compile-time flag with an optional runtime A/B override (device-friendly).
+ *  Same pattern as isAgendaHybridDayDisplayEnabled/isPlsCacheEnabled. */
+function isRunningOnboardingGateEnabled(): boolean {
+  if (typeof window !== 'undefined') {
+    try {
+      const ls = window.localStorage?.getItem('OUT_RUNNING_GATE');
+      if (ls === '0' || ls === 'false') return false;
+      if (ls === '1' || ls === 'true') return true;
+    } catch {
+      /* private mode — ignore */
+    }
+  }
+  return RUNNING_ONBOARDING_GATE_ENABLED;
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -2357,6 +2373,20 @@ export default function HomePage() {
     ? runningScheduleDays
     : lifestyleScheduleDays;
   const hasSchedule = userScheduleDays.length > 0;
+  // 2b (idempotent-booping-sunrise.md) — the value actually fed to
+  // SmartWeeklySchedule's `hasSchedule` prop (below), not `hasSchedule`
+  // itself. Decision logic lives in resolveCardHasScheduleAndPersona
+  // (running-onboarding-gate.ts, pure + unit-tested — this file has no
+  // jsdom coverage). Uses hasRunningTrack internally, NOT `isRunningMode`
+  // above: needs "does this user have running unlocked at all," not "is
+  // running the active dashboard mode right now" — a dual-track user
+  // stuck on system-default running days must still see the overlay even
+  // while their dashboard is showing strength.
+  const cardHasScheduleAndPersona = resolveCardHasScheduleAndPersona(
+    profile,
+    hasSchedule,
+    isRunningOnboardingGateEnabled(),
+  );
   const WEEK_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
   const todayIndex = new Date().getDay();
   const realSchedule: DaySchedule[] = WEEK_DAYS.map((day, i) => {
@@ -2500,7 +2530,7 @@ export default function HomePage() {
               onSwipeDown={() => setShowPlanner(true)}
               onOpenPlanner={() => setShowPlanner(true)}
               hasCompletedAssessment={hasCompletedAssessment}
-              hasSchedule={hasSchedule}
+              hasSchedule={cardHasScheduleAndPersona}
               onStartAssessment={handleHeroPress}
               onSetSchedule={() => setShowLifestyleWizard(true)}
               runningSchedule={profile?.running?.activeProgram?.schedule as any}
