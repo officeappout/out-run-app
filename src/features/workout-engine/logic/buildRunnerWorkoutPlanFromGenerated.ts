@@ -302,6 +302,14 @@ export function buildRunnerWorkoutPlanFromGenerated(
     // Recovery flag — kept in parity with the home inline flatten so the
     // custom-builder hand-off carries it too (see src/app/home/page.tsx).
     isRecovery: gw.isRecovery ?? false,
+    // Fix (02.09.2026): without this, useActivitySync's `totalPlannedSets ?? actualSetsCompleted`
+    // fallback collapses plannedSets to exactly actualSetsCompleted for every normal "press Start"
+    // session (this function, not openWorkoutPreview's own inline workoutPlan, is what
+    // useWorkoutSession.handleStartWorkout actually uses whenever a real generatedWorkout exists —
+    // see openWorkoutPreview's own workoutPlan.totalPlannedSets for the sibling fix this mirrors),
+    // making setsCompleted === setsPlanned always true and partial-completion.generator.ts's
+    // eligible() structurally unable to ever fire, regardless of what the user actually completes.
+    totalPlannedSets: gw.totalPlannedSets,
   };
 
   return workoutPlan as unknown as WorkoutPlan;
