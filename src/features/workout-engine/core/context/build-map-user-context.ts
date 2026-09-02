@@ -33,14 +33,23 @@ export interface BuildMapUserContextInput {
   profile: UserFullProfile;
   userLocation: { lat: number; lng: number };
   slotActivity: AerobicKind;
+  /**
+   * Real-steps-connect plan (02.09.2026, Part 1): kept in sync with
+   * `BuildHomeUserContextInput`'s own field (this file's header: "keep this builder in sync
+   * with buildHomeUserContext's shape/defaults") — see that file's doc comment. No real map
+   * caller passes this yet (out of scope for this plan's 3 parts, all home/post_workout);
+   * optional, so every existing caller keeps today's exact stepsRemaining behavior.
+   */
+  healthConnected?: boolean | null;
 }
 
 export function buildMapUserContext({
   profile,
   userLocation,
   slotActivity,
+  healthConnected,
 }: BuildMapUserContextInput): UserContext {
-  const stepContext = buildStepContext(useActivityStore.getState().today);
+  const stepContext = buildStepContext(useActivityStore.getState().today, healthConnected);
 
   return {
     userId: profile.id,

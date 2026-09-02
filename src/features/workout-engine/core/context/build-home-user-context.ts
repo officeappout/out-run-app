@@ -132,6 +132,14 @@ export interface BuildHomeUserContextInput {
    * instead of being invisible to the ranking engine entirely.
    */
   todayScheduleEntries?: UserScheduleEntry[];
+  /**
+   * Real-steps-connect plan (02.09.2026, Part 1): ground-truth health-connection state, from
+   * `useHealthConnected()` at the calling component (this builder stays a pure function per
+   * this file's own LAW-0 constraint — no hook call inside). Threaded straight through to
+   * `buildStepContext`'s own `healthConnected` param — see that file's doc comment. Optional;
+   * every existing caller that doesn't pass this keeps today's exact stepsRemaining behavior.
+   */
+  healthConnected?: boolean | null;
 }
 
 export function buildHomeUserContext({
@@ -140,8 +148,9 @@ export function buildHomeUserContext({
   surface = 'home',
   date,
   todayScheduleEntries,
+  healthConnected,
 }: BuildHomeUserContextInput): UserContext {
-  const stepContext = buildStepContext(useActivityStore.getState().today);
+  const stepContext = buildStepContext(useActivityStore.getState().today, healthConnected);
 
   // Fix (30.08.2026, "new user gets recovery priority before filling in a schedule"):
   // isTodayTrainingDay (dailyStrengthTarget.ts) returns false both for "today is an

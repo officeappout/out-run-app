@@ -2918,6 +2918,8 @@ export default function HomePage() {
                     generateSingleOption={isWorkoutLoading}
                     isViewingFutureDate={selectedDate > toISODate(new Date())}
                     onTrioSelectorChange={setTrioSelector}
+                    healthConnected={healthConnected}
+                    onConnectSteps={triggerHealthPermission}
                   />
                 );
                 return HOME_ANCHOR_V2_ENABLED

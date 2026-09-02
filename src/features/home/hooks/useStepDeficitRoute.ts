@@ -34,6 +34,17 @@
  * GPS is requested softly (requestPermissionIfAllowed — the same courtesy pattern
  * WorkoutLocationSuggestions.tsx already uses): denied/unsupported/no-fix simply resolves
  * to no route, never a hard prompt.
+ *
+ * `healthConnected` (real-steps-connect plan, 02.09.2026, Part 1): without this, a user who
+ * never connected HealthKit/Health Connect gets `stepsGoal:8000, steps:0` from
+ * `createEmptyDailyActivity`'s unconditional default (build-step-context.ts's own doc
+ * comment) — indistinguishable from a real 8000-step gap, producing a real generated route
+ * sized off a fabricated number. `healthConnected===false` short-circuits BEFORE the GPS
+ * soft-ask (a not-connected user gains nothing from also being asked for location) and
+ * surfaces `needsConnection: true` instead, so the caller (StatsOverview.tsx) can render a
+ * "connect your steps" CTA in the exact same card slot. `null` (ground truth still loading,
+ * native) is treated the same as `true` — byte-identical to today's behavior, matching
+ * useHealthConnected's own doc comment ("don't know yet", not "not connected").
  */
 
 import { useEffect, useState } from 'react';
@@ -51,23 +62,38 @@ interface UseStepDeficitRouteResult {
   isLoading: boolean;
   /** Real, live count -- feed straight into the /map?targetSteps= deep-link on tap. */
   stepsRemaining: number;
+  /** True when the card slot should show a "connect your steps" CTA instead of a route
+   *  (healthConnected===false, still a rest day, flag on) — see this file's own header. */
+  needsConnection: boolean;
 }
 
 export function useStepDeficitRoute(
   profile: UserFullProfile | null,
   isRestDay: boolean,
+  healthConnected: boolean | null,
 ): UseStepDeficitRouteResult {
   const [route, setRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [stepsRemaining, setStepsRemaining] = useState(0);
+  const [needsConnection, setNeedsConnection] = useState(false);
 
   useEffect(() => {
     if (!HOME_STEP_DEFICIT_CARD_ENABLED || !isRestDay || !profile) {
       setRoute(null);
       setIsLoading(false);
       setStepsRemaining(0);
+      setNeedsConnection(false);
       return;
     }
+
+    if (healthConnected === false) {
+      setRoute(null);
+      setIsLoading(false);
+      setStepsRemaining(0);
+      setNeedsConnection(true);
+      return;
+    }
+    setNeedsConnection(false);
 
     let cancelled = false;
     setIsLoading(true);
@@ -80,7 +106,7 @@ export function useStepDeficitRoute(
         return;
       }
 
-      const context = buildHomeUserContext({ profile, location: coords });
+      const context = buildHomeUserContext({ profile, location: coords, healthConnected });
       setStepsRemaining(context.stepsRemaining);
 
       // Goal already met today -- nothing to suggest.
@@ -125,7 +151,7 @@ export function useStepDeficitRoute(
     return () => {
       cancelled = true;
     };
-  }, [profile, isRestDay]);
+  }, [profile, isRestDay, healthConnected]);
 
-  return { route, isLoading, stepsRemaining };
+  return { route, isLoading, stepsRemaining, needsConnection };
 }

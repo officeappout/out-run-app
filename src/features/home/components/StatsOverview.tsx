@@ -11,6 +11,7 @@ import HeroWorkoutCard, { pickHeroExercise, resolveHeroMedia } from './HeroWorko
 import { useStepDeficitRoute } from '../hooks/useStepDeficitRoute';
 import RouteCardUnified from '@/features/parks/core/components/RouteCardUnified';
 import RouteQualityBadges from '@/features/parks/core/components/RouteQualityBadges';
+import { ConnectStepsCard } from './ConnectStepsCard';
 import type { DifficultyValue } from '@/features/workout-engine/components/DifficultyBolts';
 import AnchorLocationChip from './AnchorLocationChip';
 import type { LocationId } from './WorkoutBuilderSheet';
@@ -288,6 +289,17 @@ interface StatsOverviewProps {
    * WorkoutPreviewDrawer's own inline toggle row. See `TrioSelector`.
    */
   onTrioSelectorChange?: (selector: TrioSelector | null) => void;
+  /**
+   * Real-steps-connect plan (02.09.2026, Part 1): ground-truth health-connection state,
+   * from home/page.tsx's single `useHealthConnected()` call (see that file's own comment —
+   * one hook/modal at the page root, not a duplicate subscription here). Threaded into
+   * `useStepDeficitRoute` so the rest-day card can tell "genuinely 0 steps so far" apart
+   * from "never connected, stepsGoal is a fabricated default".
+   */
+  healthConnected?: boolean | null;
+  /** Opens the shared health-permission disclosure flow — from home/page.tsx's
+   *  `useHealthWithDisclosure()`. Passed to ConnectStepsCard's onConnect. */
+  onConnectSteps?: () => void;
 }
 
 /** Context forwarded to the workout builder when the custom card is tapped. */
@@ -335,6 +347,8 @@ export default function StatsOverview({
   generateSingleOption,
   isViewingFutureDate = false,
   onTrioSelectorChange,
+  healthConnected = null,
+  onConnectSteps,
 }: StatsOverviewProps) {
   const { profile } = useUserStore();
   const router = useRouter();
@@ -524,8 +538,8 @@ export default function StatsOverview({
   // C3 (15.08.2026): rest-day step-deficit walking route, alongside the hero/recovery
   // cards below -- never replacing them. No-op while HOME_STEP_DEFICIT_CARD_ENABLED is
   // false or trioResult hasn't resolved isRestDay yet.
-  const { route: stepDeficitRoute, stepsRemaining: stepDeficitStepsRemaining } =
-    useStepDeficitRoute(profile, trioResult?.isRestDay ?? false);
+  const { route: stepDeficitRoute, stepsRemaining: stepDeficitStepsRemaining, needsConnection: stepDeficitNeedsConnection } =
+    useStepDeficitRoute(profile, trioResult?.isRestDay ?? false, healthConnected);
   // Stores the program IDs used to generate the current trio so they can be
   // forwarded to the builder when the custom card is tapped.
   const scheduledProgramIdsRef = useRef<string[]>([]);
@@ -1145,6 +1159,17 @@ export default function StatsOverview({
                       ctaContent={<><Footprints size={14} /><span>הליכה עד היעד</span></>}
                       onCta={() => router.push(`/map?openRun=walking&targetSteps=${stepDeficitStepsRemaining}`)}
                     />
+                  </div>
+                )}
+                {/* Real-steps-connect plan (02.09.2026, Part 1) — same slot, same gating,
+                    replacing the route card with a "connect your steps" CTA instead of
+                    silently showing nothing when the user has never connected HealthKit/
+                    Health Connect. Never both at once: stepDeficitRoute is null whenever
+                    needsConnection is true (useStepDeficitRoute short-circuits before the
+                    GPS/route fetch on healthConnected===false). */}
+                {HOME_STEP_DEFICIT_CARD_ENABLED && trioResult.isRestDay && stepDeficitNeedsConnection && onConnectSteps && (
+                  <div className="w-full max-w-[358px] mx-auto">
+                    <ConnectStepsCard onConnect={onConnectSteps} />
                   </div>
                 )}
               </div>
