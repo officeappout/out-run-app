@@ -151,35 +151,8 @@ import { findNearestGardenMatch, GARDEN_DEDUP_RADIUS_METERS, type GardenCandidat
 import { boundingBoxWithMargin } from '../src/lib/dem-tile-cache/tile-math';
 import type { AmenityCategory, CourtSport, OsmAmenity } from '../src/features/parks/core/types/osm-amenity.types';
 
-const isApply = process.argv.includes('--apply');
-const mode = isApply ? 'APPLY' : 'DRY-RUN';
-
-function argValue(flag: string): string | undefined {
-  const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
-  return arg ? arg.slice(flag.length + 3) : undefined;
-}
-
-const TLV_CITY_DEFAULT = 'תל אביב-יפו';
-const TLV_ADMIN_RELATION_ID_DEFAULT = 1382494;
-// City parameterization — defaults preserve today's exact TLV behavior.
-const CITY = argValue('city') ?? TLV_CITY_DEFAULT;
-const relationIdArg = argValue('relationId');
-// Never silently reuse TLV's relation id for a different city — see the
-// CITY-PARAMETERIZED header note above for why this must hard-fail, not
-// fall back. Only the exact TLV default is allowed to skip an explicit
-// --relationId.
-if (CITY !== TLV_CITY_DEFAULT && !relationIdArg) {
-  console.error(
-    `❌  --city="${CITY}" was passed without a matching --relationId. This script never guesses an OSM admin-boundary ` +
-    `relation id for a city (same reasoning as TLV's own hardcoded relation id — OSM name matching for admin ` +
-    `boundaries is unreliable). Look up the real admin_level=8 relation id for "${CITY}" and pass --relationId=<id>.`,
-  );
-  process.exit(1);
-}
-const ADMIN_RELATION_ID = relationIdArg ? Number(relationIdArg) : TLV_ADMIN_RELATION_ID_DEFAULT;
-// importBatchId prefix — defaults to 'tlv' so the default run's batch id is
-// byte-identical to before ('tlv-amenities-<date>').
-const BATCH_PREFIX = argValue('batch-prefix') ?? 'tlv';
+export const TLV_CITY_DEFAULT = 'תל אביב-יפו';
+export const TLV_ADMIN_RELATION_ID_DEFAULT = 1382494;
 // Broader than Phase B's route-elevation bbox on purpose — amenities can be
 // anywhere in the city, not just tight to existing route paths. Still
 // derived from the same 27 real TLV routes' geometry (no hardcoded
@@ -315,16 +288,16 @@ out center tags;
  * Polygon/MultiPolygon — a missing/broken boundary must hard-fail the run,
  * not silently fall back to bbox-only (which is the exact bug this fixes).
  */
-async function fetchCityBoundary(): Promise<GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>> {
-  const query = `[out:json][timeout:90];relation(${ADMIN_RELATION_ID});(._;>;);out geom;`;
+async function fetchCityBoundary(adminRelationId: number, city: string): Promise<GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>> {
+  const query = `[out:json][timeout:90];relation(${adminRelationId});(._;>;);out geom;`;
   const json = await fetchOverpassRaw(query);
   const geojson = osmtogeojson(json as any) as any;
   const feature = geojson.features.find(
-    (f: any) => f.id === `relation/${ADMIN_RELATION_ID}` && (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon'),
+    (f: any) => f.id === `relation/${adminRelationId}` && (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon'),
   );
   if (!feature) {
     throw new Error(
-      `Could not assemble a Polygon/MultiPolygon for ${CITY} admin boundary (relation/${ADMIN_RELATION_ID}) — ` +
+      `Could not assemble a Polygon/MultiPolygon for ${city} admin boundary (relation/${adminRelationId}) — ` +
       `osmtogeojson returned ${geojson.features?.length ?? 0} feature(s). Aborting rather than silently falling back to bbox-only clipping.`,
     );
   }
@@ -361,17 +334,6 @@ function elementPoint(el: OverpassElement): { lat: number; lng: number } | null 
   return null;
 }
 
-const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-if (!rawKey) {
-  console.error('❌  FIREBASE_SERVICE_ACCOUNT_KEY not set (expected in .env.local)');
-  process.exit(1);
-}
-const cred = JSON.parse(rawKey);
-if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: cred.project_id });
-}
-const db = admin.firestore();
-
 interface CandidateOutcome {
   category: AmenityCategory;
   sport?: CourtSport;
@@ -393,8 +355,8 @@ interface CandidateOutcome {
  * "does a re-run reproduce what's already live" check, Haifa+crossing/
  * dog_park is just this task's first real use of it.
  */
-async function reportReproductionAgainstLive(outcomes: CandidateOutcome[], byCategory: Record<AmenityCategory, number>): Promise<void> {
-  const liveSnap = await db.collection('osm_amenities').where('city', '==', CITY).get();
+async function reportReproductionAgainstLive(db: admin.firestore.Firestore, city: string, outcomes: CandidateOutcome[], byCategory: Record<AmenityCategory, number>): Promise<void> {
+  const liveSnap = await db.collection('osm_amenities').where('city', '==', city).get();
   const liveByCategory: Partial<Record<string, number>> = {};
   const liveOsmIdsByCategory: Partial<Record<string, Set<string>>> = {};
   for (const d of liveSnap.docs) {
@@ -410,7 +372,7 @@ async function reportReproductionAgainstLive(outcomes: CandidateOutcome[], byCat
   const allCategories = Array.from(new Set<string>([...Object.keys(byCategory), ...Object.keys(liveByCategory)]));
 
   console.log('\n╔══════════════════════════════════════════════════════════╗');
-  console.log(`║  REPRODUCTION CHECK — dry-run vs LIVE osm_amenities (${CITY.padEnd(10)}) ║`);
+  console.log(`║  REPRODUCTION CHECK — dry-run vs LIVE osm_amenities (${city.padEnd(10)}) ║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
   console.log('  category          produced   live   osmId-overlap   live-only(missed)   produced-only(new)');
   for (const cat of allCategories) {
@@ -431,7 +393,30 @@ async function reportReproductionAgainstLive(outcomes: CandidateOutcome[], byCat
   console.log('  ("live-only" = a live doc this dry-run did not produce; "produced-only" = a fresh candidate not yet live.)');
 }
 
-async function main() {
+export interface ExtractOsmAmenitiesOptions {
+  city: string;
+  adminRelationId: number;
+  batchPrefix?: string;
+  apply: boolean;
+  db: admin.firestore.Firestore;
+}
+
+export interface ExtractOsmAmenitiesResult {
+  rawElementCount: number;
+  spilloverCount: number;
+  candidateCount: number;
+  suppressedCount: number;
+  byCategory: Record<AmenityCategory, number>;
+  writesApplied: number;
+}
+
+export async function runExtractOsmAmenities(opts: ExtractOsmAmenitiesOptions): Promise<ExtractOsmAmenitiesResult> {
+  const { db } = opts;
+  const CITY = opts.city;
+  const ADMIN_RELATION_ID = opts.adminRelationId;
+  const BATCH_PREFIX = opts.batchPrefix ?? 'tlv';
+  const isApply = opts.apply;
+  const mode = isApply ? 'APPLY' : 'DRY-RUN';
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log(`║  OSM Amenity Extraction — ${CITY.padEnd(12)} [${mode.padEnd(8)}]         ║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
@@ -450,8 +435,7 @@ async function main() {
   const knownAuthorityIds = new Set(authorities.map((a) => a.id));
   const cityAuthorityId = findAuthorityByCityName(CITY, authorities);
   if (!cityAuthorityId) {
-    console.error(`❌  Could not resolve an authority for "${CITY}" — aborting (never guessing an authorityId).`);
-    process.exit(1);
+    throw new Error(`Could not resolve an authority for "${CITY}" — aborting (never guessing an authorityId).`);
   }
   console.log(`📍 Resolved ${CITY} authorityId: ${cityAuthorityId}`);
 
@@ -466,8 +450,7 @@ async function main() {
     }
   }
   if (routePoints.length === 0) {
-    console.error(`❌  No ${CITY} route geometry found to derive a bbox from — aborting.`);
-    process.exit(1);
+    throw new Error(`No ${CITY} route geometry found to derive a bbox from — aborting.`);
   }
   const bbox = boundingBoxWithMargin(routePoints, AMENITY_BBOX_MARGIN_METERS);
   console.log(`📍 Extraction bbox (+${AMENITY_BBOX_MARGIN_METERS}m margin around real ${CITY} route geometry):`);
@@ -478,7 +461,7 @@ async function main() {
   // city-accuracy fix. Hard-fails the run if the boundary can't be
   // assembled, rather than silently degrading to bbox-only. ──
   console.log(`\n🗺️  Fetching ${CITY} admin boundary (OSM relation ${ADMIN_RELATION_ID})...`);
-  const cityBoundary = await fetchCityBoundary();
+  const cityBoundary = await fetchCityBoundary(ADMIN_RELATION_ID, CITY);
   const ringCount = cityBoundary.geometry.type === 'Polygon'
     ? cityBoundary.geometry.coordinates.length
     : cityBoundary.geometry.coordinates.reduce((n, poly) => n + poly.length, 0);
@@ -569,7 +552,7 @@ async function main() {
   console.log(`  Suppressed by garden-dedup gate: ${suppressedCount}`);
   console.log(`  Will be written as fresh 'pending': ${outcomes.length - suppressedCount}`);
 
-  await reportReproductionAgainstLive(outcomes, byCategory);
+  await reportReproductionAgainstLive(db, CITY, outcomes, byCategory);
 
   if (suppressedCount > 0) {
     console.log('\n╔══════════════════════════════════════════════════════════╗');
@@ -627,6 +610,45 @@ async function main() {
   console.log(`║  Suppressed (dedup gate): ${String(suppressedCount).padEnd(31)}║`);
   console.log(`║  Would be 'pending':      ${String(outcomes.length - suppressedCount).padEnd(31)}║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
+
+  return {
+    rawElementCount: elements.length,
+    spilloverCount,
+    candidateCount: outcomes.length,
+    suppressedCount,
+    byCategory,
+    writesApplied: isApply ? outcomes.length : 0,
+  };
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+// ── CLI entry point — thin wrapper, zero behavior change ──────────────────
+if (require.main === module) {
+  const isApply = process.argv.includes('--apply');
+  const argValue = (flag: string): string | undefined => {
+    const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
+    return arg ? arg.slice(flag.length + 3) : undefined;
+  };
+  const CITY = argValue('city') ?? TLV_CITY_DEFAULT;
+  const relationIdArg = argValue('relationId');
+  // Hard-fail BEFORE any Overpass/Firestore call if a non-default city is
+  // passed without an explicit --relationId — silently reusing TLV's
+  // relation id to boundary-clip a different city would corrupt that city's
+  // data (see the header comment's ── CITY-PARAMETERIZED section).
+  if (CITY !== TLV_CITY_DEFAULT && !relationIdArg) {
+    console.error(`❌  --city="${CITY}" was passed without --relationId=<id> — refusing to reuse TLV's relation id (${TLV_ADMIN_RELATION_ID_DEFAULT}) to boundary-clip a different city.`);
+    console.error('   Look up the target city\'s real admin_level=8 OSM relation id and pass it explicitly.');
+    process.exit(1);
+  }
+  const ADMIN_RELATION_ID = relationIdArg ? Number(relationIdArg) : TLV_ADMIN_RELATION_ID_DEFAULT;
+  const BATCH_PREFIX = argValue('batchPrefix') ?? (CITY === TLV_CITY_DEFAULT ? 'tlv' : CITY.replace(/\W/g, '-'));
+
+  const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!rawKey) { console.error('❌  FIREBASE_SERVICE_ACCOUNT_KEY not set in .env.local.'); process.exit(1); }
+  const cred = JSON.parse(rawKey);
+  if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(cred), projectId: cred.project_id });
+  const db = admin.firestore();
+
+  runExtractOsmAmenities({ city: CITY, adminRelationId: ADMIN_RELATION_ID, batchPrefix: BATCH_PREFIX, apply: isApply, db })
+    .then(() => process.exit(0))
+    .catch((e) => { console.error(e); process.exit(1); });
+}

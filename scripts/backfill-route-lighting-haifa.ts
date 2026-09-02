@@ -40,35 +40,20 @@
  *   npx tsx scripts/backfill-route-lighting-haifa.ts --city="תל אביב,תל אביב-יפו" --apply
  *                                                                          # comma-separated aliases
  *                                                                          # (the two-spelling case)
+ *
+ * CALLABLE (Phase 1 Stage B, 02.09.2026): the core logic below is exported
+ * as `runBackfillRouteLighting()` — same "CLI + importable function" split
+ * established for osm-segment-importer.ts's runOsmImport, applied here so
+ * the city-mapping orchestrator's thin API route can call this directly.
+ * The CLI entry point at the bottom is now a thin argv-parsing wrapper
+ * around the same function, zero behavior change — verified via a dry-run
+ * before/after.
  */
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.config();
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
 import { computeRouteLighting, REAL_DATA_MIN_FRACTION } from './lib/route-lighting-street-segments.node';
-
-const APPLY = process.argv.includes('--apply');
-
-function argValue(flag: string): string | undefined {
-  const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
-  return arg ? arg.slice(flag.length + 3) : undefined;
-}
-
-// City parameterization — defaults preserve today's exact Haifa behavior.
-// Comma-separated so a future two-spelling city (e.g. Tel Aviv's own debt)
-// can pass multiple aliases without a signature change — computeRouteLighting
-// already expects an alias list for exactly this reason (see below).
-const CITY_ALIASES = (argValue('city') ?? 'חיפה').split(',').map((s) => s.trim()).filter(Boolean);
-// Filename tag for the reversible log (kept literally 'haifa' by default so
-// the output path is byte-identical to today's; pass --label= to tag another
-// city's log file distinctly).
-const CITY_LABEL = argValue('label') ?? 'haifa';
-
-function initFb() {
-  const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
-  if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id });
-  return admin.firestore();
-}
 
 interface LogEntry {
   id: string; name: string;
@@ -77,8 +62,31 @@ interface LogEntry {
   candidateSegmentsFound: number; samplePointCount: number; realDataPointFraction: number;
 }
 
-async function main() {
-  const db = initFb();
+export interface BackfillRouteLightingOptions {
+  /** Comma-separated in the CLI; pass an array of aliases directly here
+   *  (e.g. the two-spelling case) — see the header note above. */
+  cityAliases: string[];
+  /** Filename tag for the reversible log, defaults to the first alias. */
+  cityLabel?: string;
+  apply: boolean;
+  db: admin.firestore.Firestore;
+}
+
+export interface BackfillRouteLightingResult {
+  routesProcessed: number;
+  litCount: number;
+  unlitCount: number;
+  unknownCount: number;
+  skippedNoComposition: number;
+  writesApplied: number;
+  logPath: string;
+}
+
+export async function runBackfillRouteLighting(opts: BackfillRouteLightingOptions): Promise<BackfillRouteLightingResult> {
+  const { db } = opts;
+  const CITY_ALIASES = opts.cityAliases;
+  const CITY_LABEL = opts.cityLabel ?? CITY_ALIASES[0] ?? 'city';
+  const APPLY = opts.apply;
   const { buildValidatedDoc } = await import('../src/lib/route-collections');
   console.log(`=== ${CITY_ALIASES.join('/')} lighting backfill — ${APPLY ? '🔴 APPLY (real write)' : '🟢 DRY-RUN (no writes)'} ===\n`);
 
@@ -164,9 +172,16 @@ async function main() {
   fs.writeFileSync(logPath, JSON.stringify({ generatedAt: new Date().toISOString(), applied: APPLY, entries: logEntries }, null, 2));
   console.log(`Reversible before/after log written to: ${logPath}`);
 
+  const baseResult = {
+    routesProcessed: routesSnap.size,
+    litCount, unlitCount, unknownCount,
+    skippedNoComposition,
+    logPath,
+  };
+
   if (!APPLY) {
     console.log('\n🟢 DRY-RUN complete — no writes made. Re-run with --apply to write for real.');
-    return;
+    return { ...baseResult, writesApplied: 0 };
   }
 
   console.log('\n🔴 Applying writes...');
@@ -178,6 +193,25 @@ async function main() {
     console.log(`  committed ${Math.min(i + 500, toWrite.length)}/${toWrite.length}`);
   }
   console.log(`\n✅ Applied qualitySignals.lighting to ${toWrite.length} Haifa route(s).`);
+  return { ...baseResult, writesApplied: toWrite.length };
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error('FATAL:', e); process.exit(1); });
+// ── CLI entry point — thin wrapper, zero behavior change ──────────────────
+if (require.main === module) {
+  const APPLY = process.argv.includes('--apply');
+  const argValue = (flag: string): string | undefined => {
+    const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
+    return arg ? arg.slice(flag.length + 3) : undefined;
+  };
+  // City parameterization — defaults preserve today's exact Haifa behavior.
+  const CITY_ALIASES = (argValue('city') ?? 'חיפה').split(',').map((s) => s.trim()).filter(Boolean);
+  const CITY_LABEL = argValue('label') ?? 'haifa';
+
+  const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
+  if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id });
+  const db = admin.firestore();
+
+  runBackfillRouteLighting({ cityAliases: CITY_ALIASES, cityLabel: CITY_LABEL, apply: APPLY, db })
+    .then(() => process.exit(0))
+    .catch((e) => { console.error('FATAL:', e); process.exit(1); });
+}

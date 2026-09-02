@@ -43,6 +43,15 @@
  * Prerequisites:
  *   - FIREBASE_SERVICE_ACCOUNT_KEY set in .env.local
  *   - Run from the repo root so dotenv/.env.local + relative imports resolve.
+ *
+ * CALLABLE (Phase 1 Stage B, 02.09.2026): the core logic below is exported as
+ * `runTagRouteAmenities()` — same "CLI + importable function" split already
+ * established for osm-segment-importer.ts's runOsmImport, applied here so
+ * the city-mapping orchestrator's thin API route can call this directly
+ * instead of shelling out to the script (not viable in a Vercel serverless
+ * function — scripts/ isn't part of the deployed bundle). The CLI entry
+ * point at the bottom is now a thin argv-parsing wrapper around the same
+ * function, zero behavior change — verified via a dry-run before/after.
  */
 
 import * as dotenv from 'dotenv';
@@ -61,32 +70,7 @@ import { computeQualityBadges, CARD_BADGE_CAP } from '../src/features/parks/core
 import type { AmenityCategory, CourtSport } from '../src/features/parks/core/types/osm-amenity.types';
 import type { RouteAmenityRef } from '../src/features/parks/core/types/route.types';
 
-const isApply = process.argv.includes('--apply');
-const mode = isApply ? 'APPLY' : 'DRY-RUN';
-
-function argValue(flag: string): string | undefined {
-  const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
-  return arg ? arg.slice(flag.length + 3) : undefined;
-}
-
-const CITY = argValue('city');
-if (!CITY) {
-  console.error('❌  --city="<name>" is required (e.g. --city="חיפה"). This script is per-city by design, no default.');
-  process.exit(1);
-}
-
 const SOURCE_STATUSES: Array<'pending' | 'published'> = ['pending', 'published'];
-
-const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-if (!rawKey) {
-  console.error('❌  FIREBASE_SERVICE_ACCOUNT_KEY not set (expected in .env.local)');
-  process.exit(1);
-}
-const cred = JSON.parse(rawKey);
-if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.cert(cred), projectId: cred.project_id });
-}
-const db = admin.firestore();
 
 interface RouteJoinResult {
   id: string;
@@ -97,9 +81,28 @@ interface RouteJoinResult {
   hadExistingQualitySignals: boolean;
 }
 
-async function main() {
+export interface TagRouteAmenitiesOptions {
+  city: string;
+  apply: boolean;
+  db: admin.firestore.Firestore;
+}
+
+export interface TagRouteAmenitiesResult {
+  routesProcessed: number;
+  totalMatches: number;
+  routesWithZeroMatches: number;
+  categoryTotals: Record<AmenityCategory, number>;
+  skippedNoQualitySignals: number;
+  writesApplied: number;
+}
+
+export async function runTagRouteAmenities(opts: TagRouteAmenitiesOptions): Promise<TagRouteAmenitiesResult> {
+  const { db } = opts;
+  const CITY = opts.city;
+  const isApply = opts.apply;
+  const mode = isApply ? 'APPLY' : 'DRY-RUN';
   console.log('╔══════════════════════════════════════════════════════════╗');
-  console.log(`║  Route↔Amenity Tagging — ${CITY!.padEnd(14)} [${mode.padEnd(8)}]      ║`);
+  console.log(`║  Route↔Amenity Tagging — ${CITY.padEnd(14)} [${mode.padEnd(8)}]      ║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
   console.log(`  Sourcing: osm_amenities status IN ${JSON.stringify(SOURCE_STATUSES)} (rejected excluded)`);
   console.log(`  Thresholds (m): ${JSON.stringify(ROUTE_AMENITY_THRESHOLDS_METERS)}\n`);
@@ -112,10 +115,9 @@ async function main() {
   const authoritySnap = await db.collection('authorities').get();
   const authorities = authoritySnap.docs.map((d) => ({ id: d.id, name: (d.data().label as string) ?? (d.data().name as string) ?? '' }));
   const knownAuthorityIds = new Set(authorities.map((a) => a.id));
-  const cityAuthorityId = findAuthorityByCityName(CITY!, authorities);
+  const cityAuthorityId = findAuthorityByCityName(CITY, authorities);
   if (!cityAuthorityId) {
-    console.error(`❌  Could not resolve an authority for "${CITY}" — aborting (never guessing an authorityId).`);
-    process.exit(1);
+    throw new Error(`Could not resolve an authority for "${CITY}" — aborting (never guessing an authorityId).`);
   }
   console.log(`📍 Resolved ${CITY} authorityId: ${cityAuthorityId}`);
 
@@ -286,6 +288,41 @@ async function main() {
   console.log(`║  Routes with 0 matches:   ${String(buckets['0']).padEnd(31)}║`);
   console.log(`║  Total amenity matches:   ${String(results.reduce((s, r) => s + r.matches.length, 0)).padEnd(31)}║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
+
+  return {
+    routesProcessed: results.length,
+    totalMatches: results.reduce((s, r) => s + r.matches.length, 0),
+    routesWithZeroMatches: buckets['0'],
+    categoryTotals,
+    skippedNoQualitySignals,
+    writesApplied: writes.length,
+  };
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+// ── CLI entry point — thin wrapper, zero behavior change ──────────────────
+if (require.main === module) {
+  const isApply = process.argv.includes('--apply');
+  const argValue = (flag: string): string | undefined => {
+    const arg = process.argv.find((a) => a.startsWith(`--${flag}=`));
+    return arg ? arg.slice(flag.length + 3) : undefined;
+  };
+  const CITY = argValue('city');
+  if (!CITY) {
+    console.error('❌  --city="<name>" is required (e.g. --city="חיפה"). This script is per-city by design, no default.');
+    process.exit(1);
+  }
+  const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!rawKey) {
+    console.error('❌  FIREBASE_SERVICE_ACCOUNT_KEY not set (expected in .env.local)');
+    process.exit(1);
+  }
+  const cred = JSON.parse(rawKey);
+  if (!admin.apps.length) {
+    admin.initializeApp({ credential: admin.credential.cert(cred), projectId: cred.project_id });
+  }
+  const db = admin.firestore();
+
+  runTagRouteAmenities({ city: CITY, apply: isApply, db })
+    .then(() => process.exit(0))
+    .catch((e) => { console.error(e); process.exit(1); });
+}
