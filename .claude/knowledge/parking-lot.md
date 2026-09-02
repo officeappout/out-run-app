@@ -340,6 +340,37 @@ Not touched as part of commit 5 (David, 02.09.2026: stay in scope, don't open th
 
 ---
 
+## Running-track device verification (02.09.2026, gate rollout) — seven findings, none fixed yet
+
+**Opened:** 02.09.2026 · **Source:** David, on-device verification of `RUNNING_ONBOARDING_GATE_ENABLED` after the full rollout — the gate itself works (blurred card → tap → LifestyleWizard → confirms → opens correctly, all four points verified). These seven are separate findings surfaced during that same pass, none of them about the gate itself. Grouped by root, not by the order they were reported.
+
+### [A] Program anchor date — one root, two symptoms
+Registration happened 02.09; the running plan's own week-1 anchors to 30.08 (`Sunday` of that week) — week 1 starts before the account existed.
+
+- **A1 — phantom past workouts.** Sun 30.08 and Tue 01.09 render as *missed* workouts, on days that precede the account's own existence.
+- **A2 — "today's workout" card shows the wrong day's session.** The "האימון שלך היום" home card displays Sunday 30.08's fartlek workout tagged "היום" (today), while the actual today (Wed 02.09) is empty in the plan.
+
+**David's product decision:** the plan should start from the moment of registration. No days precede it. (Root cause + consumers + two fix approaches: separate READ-ONLY investigation, same date, not yet reported back as of this entry.)
+
+### [B] Week label frozen — three different calendar ranges, all labeled "week 1"
+In the planner UI, three actually-different date ranges (23-29 Aug, 30 Aug-5 Sep, 6-12 Sep) all display as "שבוע 1". Possibly the same root as [A] (the calendar-week-vs-plan-week reconciliation), possibly not — flagged explicitly as unconfirmed, not to be assumed.
+
+### [C] Wrong icon in the planner for a running day
+A day with a running workout shows a strength/muscle icon in the large planner view, but correctly shows an orange running icon on the home-page card for the same day. Two separate icon-resolvers; one of them doesn't know about running at all.
+
+### [D] Missing widgets in the "Weekly Progress" scroll for a runner
+`RunForecastWidget` and `StrengthVolumeWidget` don't appear under "התקדמות שבועית" for a runner — only "מדדי בריאות" shows. (Note: `RunForecastWidget` is independently confirmed, in the running-progress-card scoping seed written the same day, to be built but rendered nowhere at all today — consistent with this finding, not necessarily the same fix.)
+
+### [E] First-workout card position
+The first-workout card renders above the carousel; it should render inside it.
+
+### [F] Card tap opens the map instead of the workout drawer
+Tapping the workout card (on the home page, or in the planner) navigates to the map. It should open the workout drawer instead. Explicit clarification from David: this is the *workout* drawer — a different thing entirely from the schedule-builder drawer currently being scoped (Block 3).
+
+None of the seven investigated for root cause or fixed as part of this entry — pure on-device findings capture, per David's explicit request to document all seven including the ones not getting fixed soon.
+
+---
+
 ## Future idea — smart-coach chat reinforcement instead of a screen element
 **Opened:** 2026-08-19 · **Source:** David, while confirming the Stage D/E completion-card decision (`adaptive-snacking-valiant.md` plan) — explicitly documentation-only, not connected to that plan, not investigated or scoped.
 
