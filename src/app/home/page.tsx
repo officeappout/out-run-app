@@ -91,6 +91,9 @@ import { SuggestionCarousel } from '@/features/workout-engine/core/components/Su
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
 import { PreWorkoutCardRenderer, resolveHeroWorkout, hasHeroCardTreatment } from '@/features/home/components/PreWorkoutCardRenderer';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
+import { useHealthConnected } from '@/hooks/useHealthConnected';
+import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
+import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -350,6 +353,21 @@ export default function HomePage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [plusDrawerOpen, setPlusDrawerOpen] = useState(false);
   const gpsCoords = useGPSStore((s) => s.coords);
+  // Real-steps-connect plan (02.09.2026, Part 4): ground-truth health-connection state,
+  // shared across all 3 real-steps surfaces (rest-day card, post_workout route suggestion,
+  // pre-workout safety-net slot) — one hook + one modal at the page root, not 3 independent
+  // useHealthConnected() subscriptions. `null` (still loading, native) is treated as
+  // connected-until-proven-otherwise by every consumer, same as useHealthConnected's own
+  // doc comment: "don't know yet", not "not connected".
+  const healthConnected = useHealthConnected();
+  const { triggerHealthPermission, disclosureProps } = useHealthWithDisclosure({
+    // useHealthConnected only reads native Preferences once, on mount (see its own doc
+    // comment) — it has no re-check trigger, so a bare grant here would leave every
+    // ConnectStepsCard consumer stuck showing the stale "not connected" state until the
+    // next real navigation/remount. A full reload is the simplest correct fix for this
+    // rare, one-off action (matches this file's existing preference for boring/simple).
+    onGranted: () => window.location.reload(),
+  });
 
   // Handle "pencil" tap from WorkoutPreviewDrawer — close drawer and open edit modal
   const handleEditFromDrawer = useCallback(() => {
@@ -3118,6 +3136,8 @@ export default function HomePage() {
       </AnimatePresence>
 
       {/* ── Modals & Drawers ── */}
+
+      <HealthConnectDisclosureModal {...disclosureProps} />
 
       {showAlert && (
         <AlertModal
