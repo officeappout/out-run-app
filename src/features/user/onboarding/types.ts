@@ -157,6 +157,7 @@ export interface OnboardingData {
   runningScheduleTime?: string;            // HH:MM — stored in lifestyle.reminders.runningTime
   runningNotificationsEnabled?: boolean;   // running reminder preference
   runningPlanWeeks?: number;               // user-selected plan length (4–52), overrides resolveWeeks()
+  runningScheduleDaysSource?: string;      // 'system-default' | 'user-chosen' — stored as running.scheduleDaysSource
   
   // Account Security (Backup & Security)
   accountSecured?: boolean; // True if user linked Google/Email/Phone

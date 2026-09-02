@@ -657,7 +657,17 @@ export async function syncOnboardingToFirestore(
       if (!updateData.running) updateData.running = {} as any;
       updateData.running.scheduleDays = (data as any).runningScheduleDays;
     }
-    
+    // 2a (idempotent-booping-sunrise.md) -- 'system-default' when
+    // RunningScheduleStep's signup pass-through wrote a silent default,
+    // 'user-chosen' from any real choice (JIT's completeRunningScheduleFirstChoice
+    // writes this directly to Firestore, not through this store/sync path, but
+    // shares the same field/value contract). Same merge-into-updateData.running
+    // pattern as scheduleDays directly above, for the same reason.
+    if ((data as any).runningScheduleDaysSource !== undefined) {
+      if (!updateData.running) updateData.running = {} as any;
+      updateData.running.scheduleDaysSource = (data as any).runningScheduleDaysSource;
+    }
+
     // Update name if we have it from sessionStorage
     if (userName && updateData.core) {
       updateData.core.name = userName;

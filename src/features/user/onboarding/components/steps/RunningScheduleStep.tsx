@@ -31,6 +31,7 @@ import { auth } from '@/lib/firebase';
 import { completeRunningScheduleFirstChoice } from '@/features/workout-engine/core/services/running-schedule-write.service';
 import { MIN_RUNNING_FREQUENCY, MAX_RUNNING_FREQUENCY, clampRunningFrequency } from '@/lib/running-frequency-bounds';
 import { getSmartDefaultDays } from '@/lib/running-schedule-smart-defaults';
+import { resolveSignupDefaultWrite } from '@/lib/running-schedule-signup-default';
 
 // ============================================================================
 // CONSTANTS
@@ -66,6 +67,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
   const { updateData, data } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
   const refreshProfile = useUserStore((s) => s.refreshProfile);
+  const hasHydrated = useUserStore((s) => s._hasHydrated);
 
   // Single branch point (David, 01.09.2026): in JIT mode this component must
   // never touch useOnboardingStore's debounced sync at all -- zero calls,
@@ -142,6 +144,54 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
   const [hours, minutes] = time.split(':').map(Number);
 
   // ── Effects ────────────────────────────────────────────────────────────────
+
+  // 2a signup pass-through (David, 02.09.2026): the interactive picker below
+  // is JIT-only now -- the day question moved out of signup entirely (real
+  // first choice happens later, in LifestyleWizard, via commit 3's
+  // completeRunningScheduleFirstChoice). A first-time signup gets a silent
+  // system default instead: write it through the same
+  // persistOnboardingData/updateData path signup always used, then advance
+  // immediately. `runningScheduleDaysSource:'system-default'` is what lets
+  // the home-card gate (commit 4) and LifestyleWizard's own trigger tell
+  // this apart from a real confirmed choice later.
+  //
+  // The route's own onNext (running-schedule/page.tsx's handleNext) was
+  // changed to router.replace in this same commit -- without that, this
+  // effect firing again on a "back" navigation back to this now-invisible
+  // screen would just write the same default and advance again, making the
+  // back button silently do nothing. That fix belongs to the route, this
+  // effect only needs to not assume it's the route's job to guard re-entry.
+  //
+  // Gated on hasHydrated (David, 02.09.2026 review), same pattern already
+  // used by NextRunWorkoutCard/home/page.tsx: `profile` is
+  // useUserStore-async and can still be null on this component's first
+  // mount, which would compute `strengthDays` (below) as `[]` and merge a
+  // default missing the user's real strength days into `scheduleDays`.
+  // Harmless today only because onboarding-sync.service.ts:570's gate
+  // currently drops the whole scheduleDays write anyway (tracked
+  // separately, parking-lot.md) -- the moment that gate is fixed, this
+  // effect would start silently erasing a real user's strength days on
+  // every run whose profile hadn't hydrated yet. hasWrittenDefaultRef
+  // guards against a double write now that hasHydrated is a second effect
+  // dependency (mount could already have hasHydrated=true, then this only
+  // runs once; or it flips false->true, which must fire the write exactly
+  // once, not on every subsequent render).
+  //
+  // The actual write-or-not decision (and exactly what to write) is pulled
+  // out into resolveSignupDefaultWrite (running-schedule-signup-default.ts)
+  // -- this component has no jsdom coverage, that pure function does, and
+  // it's what a real test proving this hydration bug needs to exist at all.
+  const hasWrittenDefaultRef = useRef(false);
+  useEffect(() => {
+    if (hasWrittenDefaultRef.current) return;
+    const payload = resolveSignupDefaultWrite({ isJIT, hasHydrated, strengthDays, profile });
+    if (!payload) return;
+    hasWrittenDefaultRef.current = true;
+
+    persistOnboardingData(payload as any);
+    onNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJIT, hasHydrated]);
 
   // Auto-reveal days section after 800 ms (matches ScheduleStep behaviour)
   useEffect(() => {
@@ -274,6 +324,19 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  // Signup pass-through (see the isJIT-gated effect above) — nothing to show,
+  // the effect above writes the default and calls onNext() on mount. A
+  // minimal loading state instead of null, matching health/page.tsx's own
+  // auto-skip precedent (:141-147), so there's no blank-white flash on a
+  // slower device between mount and the navigation this effect triggers.
+  if (!isJIT) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center">
+        <p className="text-slate-400 text-sm">טוען...</p>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative">

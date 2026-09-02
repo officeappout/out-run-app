@@ -15,8 +15,20 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
  *
  * Reached after the dynamic running tree terminates (at q_run_beginner_ability,
  * q_run_pace_input, or q_run_maintain_distance depending on path).
- * Collects frequency (1-4), specific days, and preferred time, then
- * routes to the Plan Length selection page.
+ *
+ * 2a (idempotent-booping-sunrise.md, 02.09.2026): RunningScheduleStep no
+ * longer collects anything here in signup mode — it silently writes a
+ * system default and advances (real day-picking now happens later, in
+ * LifestyleWizard). handleNext below uses router.replace, not .push
+ * (changed as part of this same commit, not incidental): a pass-through
+ * screen that writes-and-advances on mount would otherwise still leave
+ * itself as a distinct back-history entry, so pressing "back" from
+ * running-plan-length would land here, immediately re-fire the same
+ * write-and-advance, and bounce right back to running-plan-length --
+ * a back button that visibly does nothing. .replace() removes this route
+ * from the back-stack instead, matching health/page.tsx's own
+ * already-accepted auto-skip precedent (:129), so "back" from
+ * running-plan-length correctly lands on dynamic's own last real question.
  *
  * Route guard: when enable_running_programs is false, immediately redirects to /home.
  */
@@ -34,7 +46,7 @@ export default function RunningSchedulePage() {
 
   const handleNext = () => {
     firePhaseConfetti();
-    router.push('/onboarding-new/running-plan-length');
+    router.replace('/onboarding-new/running-plan-length');
   };
 
   return (
