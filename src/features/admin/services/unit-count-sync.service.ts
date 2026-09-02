@@ -48,10 +48,13 @@ export async function syncAllUnitCounts(): Promise<Map<string, number>> {
   const counts = await Promise.all(
     authorities.map(async (a) => {
       try {
-        const snap = await getDocs(collection(db, 'tenants', a.id, 'units'));
-        return { id: a.id, count: snap.size };
+        const [unitsSnap, tenantSnap] = await Promise.all([
+          getDocs(collection(db, 'tenants', a.id, 'units')),
+          getDoc(doc(db, 'tenants', a.id)),
+        ]);
+        return { id: a.id, count: unitsSnap.size, tenantExists: tenantSnap.exists() };
       } catch {
-        return { id: a.id, count: 0 };
+        return { id: a.id, count: 0, tenantExists: false };
       }
     })
   );
@@ -60,16 +63,26 @@ export async function syncAllUnitCounts(): Promise<Map<string, number>> {
   let batch = writeBatch(db);
   let batchCount = 0;
 
-  for (const { id, count } of counts) {
+  for (const { id, count, tenantExists } of counts) {
     countMap.set(id, count);
 
     const authRef = doc(db, 'authorities', id);
     batch.update(authRef, { unitCount: count, updatedAt: serverTimestamp() });
     batchCount++;
 
+    // Only merge into an EXISTING tenant doc. A missing tenant doc means the
+    // org was never fully created (its authority/tenant pair is incomplete —
+    // see docs/research/military-persona-unified-architecture.md §ג.1, the
+    // tenants/TUOYvWWA9b8XetYfT6OA orphan) — silently backfilling a bare
+    // {unitCount, updatedAt} doc here just papers over that, and produces a
+    // nameless/unclassified tenant that /admin/access-codes can't safely use.
     const tenantRef = doc(db, 'tenants', id);
-    batch.set(tenantRef, { unitCount: count, updatedAt: serverTimestamp() }, { merge: true });
-    batchCount++;
+    if (tenantExists) {
+      batch.set(tenantRef, { unitCount: count, updatedAt: serverTimestamp() }, { merge: true });
+      batchCount++;
+    } else {
+      console.warn(`[syncAllUnitCounts] skipping tenants/${id} — no matching tenant doc exists (authority "${id}" has no paired tenant). Not backfilling a bare doc.`);
+    }
 
     if (batchCount >= BATCH_SIZE) {
       await batch.commit();

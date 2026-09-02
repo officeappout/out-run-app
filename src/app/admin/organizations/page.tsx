@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getUserFromFirestore } from '@/lib/firestore.service';
@@ -25,6 +25,14 @@ import SearchableSelect from '@/features/admin/components/SearchableSelect';
 const PAGE_SIZE = 20;
 
 const ROOT_TYPES = new Set(['city', 'regional_council', 'local_council', 'settlement', 'school', 'military_unit']);
+
+// Normalizes a name for duplicate detection — this is what let "חטיבה 810"
+// get created twice (see docs/research/military-persona-unified-architecture.md
+// §ג.1): neither create path checked for an existing org with the same name
+// before writing. Whitespace/case-insensitive so trivial variants still match.
+function normalizeOrgName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
 
 interface OrgRow extends Authority {
   tenantType: TenantType;
@@ -63,6 +71,7 @@ export default function OrganizationsPage() {
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<TenantType>('municipal');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   // Invite owner
   const [inviteOrgId, setInviteOrgId] = useState<string | null>(null);
@@ -171,6 +180,13 @@ export default function OrganizationsPage() {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
+    const normalized = normalizeOrgName(newName);
+    const existing = orgs.find(o => normalizeOrgName(o.name) === normalized);
+    if (existing) {
+      setCreateError(`ארגון בשם "${newName.trim()}" כבר קיים (${existing.id}) — לא נוצר כפול.`);
+      return;
+    }
+    setCreateError('');
     setCreating(true);
     try {
       const slug = newName.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
@@ -178,7 +194,8 @@ export default function OrganizationsPage() {
       const id = slug ? `${slug}_${suffix}` : `org_${suffix}`;
       const authorityType = newType === 'military' ? 'military_unit' : newType === 'educational' ? 'school' : 'city';
 
-      await setDoc(doc(db, 'authorities', id), {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'authorities', id), {
         name: newName.trim(),
         type: authorityType,
         tenantType: newType, // denormalized so company/youth_movement don't collapse to 'municipal'
@@ -190,13 +207,13 @@ export default function OrganizationsPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-
-      await setDoc(doc(db, 'tenants', id), {
+      batch.set(doc(db, 'tenants', id), {
         name: newName.trim(),
         type: newType,
         authorityId: id,
         createdAt: serverTimestamp(),
       });
+      await batch.commit();
 
       setOrgs(prev => [...prev, {
         id,
@@ -214,6 +231,7 @@ export default function OrganizationsPage() {
       setSuccess(`ארגון "${newName.trim()}" נוצר בהצלחה`);
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
+      setCreateError('שגיאה ביצירת הארגון — נסה שוב.');
       console.error('Error creating org:', err);
     } finally {
       setCreating(false);
@@ -429,9 +447,20 @@ export default function OrganizationsPage() {
                   const result = { created: 0, errors: [] as string[] };
 
                   try {
+                    // Track names created within this same import batch too, not just
+                    // the pre-existing `orgs` state — a JSON list with a repeated name
+                    // must be caught even though nothing in `orgs` has it yet.
+                    const namesInThisImport = new Set(orgs.map(o => normalizeOrgName(o.name)));
+
                     for (const org of parsed.organizations) {
                       const name = org.name?.trim();
                       if (!name) { result.errors.push('ארגון ללא שם — דילוג'); continue; }
+
+                      const normalized = normalizeOrgName(name);
+                      if (namesInThisImport.has(normalized)) {
+                        result.errors.push(`${name}: ארגון בשם הזה כבר קיים — דילוג`);
+                        continue;
+                      }
 
                       const tenantType: TenantType = (['military', 'educational', 'municipal'].includes(org.type)) ? org.type : 'municipal';
                       const slug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
@@ -440,7 +469,8 @@ export default function OrganizationsPage() {
                       const authorityType = tenantType === 'military' ? 'military_unit' : tenantType === 'educational' ? 'school' : 'city';
 
                       try {
-                        await setDoc(doc(db, 'authorities', orgId), {
+                        const batch = writeBatch(db);
+                        batch.set(doc(db, 'authorities', orgId), {
                           name,
                           type: authorityType,
                           managerIds: [],
@@ -451,12 +481,14 @@ export default function OrganizationsPage() {
                           createdAt: serverTimestamp(),
                           updatedAt: serverTimestamp(),
                         });
-                        await setDoc(doc(db, 'tenants', orgId), {
+                        batch.set(doc(db, 'tenants', orgId), {
                           name,
                           type: tenantType,
                           authorityId: orgId,
                           createdAt: serverTimestamp(),
                         });
+                        await batch.commit();
+                        namesInThisImport.add(normalized);
 
                         setOrgs(prev => [...prev, {
                           id: orgId,
@@ -506,7 +538,7 @@ export default function OrganizationsPage() {
             <input
               type="text"
               value={newName}
-              onChange={e => setNewName(e.target.value)}
+              onChange={e => { setNewName(e.target.value); setCreateError(''); }}
               placeholder="שם הארגון"
               className="px-4 py-3 rounded-xl border-2 border-gray-200 text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none"
             />
@@ -526,13 +558,19 @@ export default function OrganizationsPage() {
                 צור ארגון
               </button>
               <button
-                onClick={() => setShowCreate(false)}
+                onClick={() => { setShowCreate(false); setCreateError(''); }}
                 className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-bold transition-all"
               >
                 ביטול
               </button>
             </div>
           </div>
+          {createError && (
+            <p className="mt-3 text-sm font-bold text-red-500 flex items-center gap-2">
+              <AlertTriangle size={14} />
+              {createError}
+            </p>
+          )}
         </div>
       )}
 
