@@ -16,6 +16,10 @@
  *   styling (the "🧘 התאוששות פעילה" metadata label) is already entirely data-driven off
  *   `workout.isRecovery`, not a special component mode (isRestDay is dead on this component).
  * - `complementary-short` / `safety-net` → unchanged, the generic SuggestionCard.
+ * - `route` → the generic SuggestionCard, UNLESS `healthConnected===false`, in which case
+ *   ConnectStepsCard replaces it (real-steps-connect plan, 02.09.2026, Part 2) — a route
+ *   suggestion built off a never-connected user's fabricated 8000-step default would show a
+ *   fake distance as if it were real.
  *
  * Sizing note: HeroWorkoutCard's `active` variant renders at a fixed 300x330 (CARD_VARIANTS,
  * HeroWorkoutCard.tsx) — wider than the carousel shell's own card-width ceiling
@@ -31,6 +35,7 @@ import HeroWorkoutCard from './HeroWorkoutCard';
 import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 import { SuggestionCard } from '@/features/workout-engine/core/components/SuggestionCard';
 import { getCachedRecoveryWorkout } from '@/features/workout-engine/core/generators/recovery-follow-up.generator';
+import { ConnectStepsCard } from './ConnectStepsCard';
 import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
 
 const HERO_CARD_NATURAL_WIDTH = 300;
@@ -41,6 +46,11 @@ interface PostWorkoutCardRendererProps {
   onStart: () => void;
   isStarting?: boolean;
   userGender?: 'male' | 'female' | 'other' | null;
+  /** Real-steps-connect plan (02.09.2026, Part 2) — see this file's own header. */
+  healthConnected?: boolean | null;
+  /** Opens the shared health-permission disclosure flow. Required together with
+   *  `healthConnected` for the 'route' + not-connected branch to render ConnectStepsCard. */
+  onConnectSteps?: () => void;
 }
 
 function ScaledHeroRecoveryCard({
@@ -89,6 +99,8 @@ export function PostWorkoutCardRenderer({
   onStart,
   isStarting,
   userGender,
+  healthConnected,
+  onConnectSteps,
 }: PostWorkoutCardRendererProps) {
   if (suggestion.generatorId === 'recovery-follow-up') {
     const workout = getCachedRecoveryWorkout(suggestion.id);
@@ -97,6 +109,10 @@ export function PostWorkoutCardRenderer({
     }
     // Defensive: cache miss (cap eviction, or a suggestion surviving a reload) — degrade
     // to the generic card rather than render nothing.
+  }
+
+  if (suggestion.generatorId === 'route' && healthConnected === false && onConnectSteps) {
+    return <ConnectStepsCard onConnect={onConnectSteps} />;
   }
 
   return <SuggestionCard suggestion={suggestion} onStart={onStart} isStarting={isStarting} />;

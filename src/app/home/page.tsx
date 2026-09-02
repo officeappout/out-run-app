@@ -1067,7 +1067,7 @@ export default function HomePage() {
     // context.ts) for why this builder doesn't fetch it internally.
     getScheduleEntries(profile.id, toISODate(new Date())).then((todayScheduleEntries) => {
       if (cancelled) return;
-      const context = buildHomeUserContext({ profile, location: gpsCoords, surface: 'post_workout', todayScheduleEntries });
+      const context = buildHomeUserContext({ profile, location: gpsCoords, surface: 'post_workout', todayScheduleEntries, healthConnected });
       return runSuggestionEngine(context).then((ranked) => {
         if (!cancelled) setPostWorkoutSuggestions(ranked);
       });
@@ -1332,14 +1332,26 @@ export default function HomePage() {
       // above, for why this is now a silent gpsCoords read instead of hardcoded null: a
       // tapped route suggestion needs the real location to resolve its actual route, not
       // just to rank it.
-      const context = buildHomeUserContext({ profile, location: gpsCoords, surface: 'post_workout' });
+      const context = buildHomeUserContext({ profile, location: gpsCoords, surface: 'post_workout', healthConnected });
+      // Real-steps-connect plan (02.09.2026, Part 2, Option A): route.generator.ts's own
+      // header says it "leads to a map/run flow, not a home workout" — pick-post-workout-
+      // suggestion.ts's suggestionToGeneratedWorkout confirms this by never having a
+      // 'route' case (falls to its default: return null), so this tap was a silent no-op
+      // even after the 31.08.2026 location fix above. Same deep-link StatsOverview.tsx's
+      // rest-day card already uses (David-approved 16.08.2026) — not a new hand-off
+      // mechanism, and reuses this same context's real stepsRemaining (already
+      // healthConnected-aware per build-step-context.ts) instead of re-deriving it.
+      if (suggestion.generatorId === 'route') {
+        router.push(`/map?openRun=walking&targetSteps=${context.stepsRemaining}`);
+        return;
+      }
       const workout = await suggestionToGeneratedWorkout(context, suggestion);
       if (!workout) return;
       handlePostWorkoutStart(workout);
     } finally {
       setStartingSuggestionId(null);
     }
-  }, [profile, handlePostWorkoutStart, gpsCoords]);
+  }, [profile, handlePostWorkoutStart, gpsCoords, healthConnected, router]);
 
   // Check for query params from post-workout CTA, JIT return, or join landing
   useEffect(() => {
@@ -2995,6 +3007,8 @@ export default function HomePage() {
                     onStart={() => handlePostWorkoutSuggestionStart(s)}
                     isStarting={startingSuggestionId === s.id}
                     userGender={profile?.core?.gender}
+                    healthConnected={healthConnected}
+                    onConnectSteps={triggerHealthPermission}
                   />
                 )}
               />
