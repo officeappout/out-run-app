@@ -197,7 +197,7 @@ export function usePresenceLayer(
     : (!profileLoaded || ageGroup === 'minor' || !userId || privacyMode === 'ghost');
   const isReady = hasBypass ? (!!userId && enabled) : (enabled && !isBlocked);
 
-  const personaId = profile?.personaId ?? undefined;
+  const personaId = profile?.personas?.[0]?.id ?? undefined;
   const lemurStage = profile?.progression?.lemurStage ?? undefined;
   const photoURL = profile?.core?.photoURL ?? undefined;
   const runningLevel = profile?.running?.level ?? undefined;

@@ -782,15 +782,29 @@ export async function syncOnboardingToFirestore(
     const onboardingAnswers: any = {};
     let hasOnboardingAnswers = false;
 
-    // Persona(s)
-    if ((data as any).selectedPersonaIds && (data as any).selectedPersonaIds.length > 0) {
-      onboardingAnswers.persona = (data as any).selectedPersonaId || (data as any).selectedPersonaIds[0];
-      onboardingAnswers.personas = (data as any).selectedPersonaIds;
-      hasOnboardingAnswers = true;
-    } else if ((data as any).selectedPersonaId) {
-      onboardingAnswers.persona = (data as any).selectedPersonaId;
-      onboardingAnswers.personas = [(data as any).selectedPersonaId];
-      hasOnboardingAnswers = true;
+    // Persona(s) — writes the canonical `personas` array directly onto
+    // updateData (NOT onboardingAnswers, which is BI/analytics aggregation,
+    // not the identity source of truth since the 01.09.2026 redefinition —
+    // see docs/research/military-persona-unified-architecture.md). Each
+    // entry's `answers` starts empty — real follow-up-question answers are
+    // written later by the Phase 3/4 persona drawer, not here. Timestamp.now()
+    // per axioms.md §5 — serverTimestamp() is invalid inside array elements.
+    const selectedPersonaIdsList: string[] | undefined = (data as any).selectedPersonaIds?.length
+      ? (data as any).selectedPersonaIds
+      : (data as any).selectedPersonaId
+        ? [(data as any).selectedPersonaId]
+        : undefined;
+    if (selectedPersonaIdsList) {
+      // answers:{} always — the Phase 3/4 follow-up-questions drawer doesn't
+      // exist yet. Once it does, this must read real per-persona answers
+      // from `data` (however the drawer stores them locally) instead of
+      // hardcoding {}, or a re-sync mid-onboarding would silently wipe
+      // already-answered follow-up questions.
+      updateData.personas = selectedPersonaIdsList.map((id: string) => ({
+        id,
+        answers: {},
+        updatedAt: Timestamp.now(),
+      }));
     }
 
     // Goals

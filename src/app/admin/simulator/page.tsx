@@ -63,13 +63,11 @@ const WORKOUT_METADATA_COLLECTION = 'workoutMetadata';
 const PERSONA_OPTIONS: { value: LifestylePersona; label: string; icon: string }[] = [
   { value: 'parent', label: 'הורה', icon: '👨‍👧' },
   { value: 'student', label: 'סטודנט', icon: '📚' },
-  { value: 'school_student', label: 'תלמיד', icon: '🎒' },
+  { value: 'pupil', label: 'תלמיד', icon: '🎒' },
   { value: 'office_worker', label: 'עובד משרד', icon: '💼' },
-  { value: 'home_worker', label: 'עובד מהבית', icon: '🏠' },
-  { value: 'senior', label: 'גיל הזהב', icon: '🧓' },
-  { value: 'athlete', label: 'ספורטאי', icon: '🏆' },
-  { value: 'reservist', label: 'מילואימניק', icon: '🎖️' },
-  { value: 'active_soldier', label: 'חייל סדיר', icon: '🪖' },
+  { value: 'vatikim', label: 'גיל הזהב', icon: '🧓' },
+  { value: 'military', label: 'צה"ל', icon: '🎖️' },
+  { value: 'pro_athlete', label: 'ספורטאי קצה', icon: '🏆' },
 ];
 
 /**

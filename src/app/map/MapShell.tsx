@@ -604,7 +604,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
           partnerPositions={effectivePartners}
           partnerActivityFilter={partnerActivityFilter}
           liveUsersVisible={isDemoMode ? true : liveUsersVisible}
-          userPersonaId={profile?.personaId}
+          userPersonaId={profile?.personas?.[0]?.id}
           onPartnerClick={(p) => setMapProfileUser({ uid: p.uid, name: p.name, personaId: undefined, lemurStage: p.lemurStage })}
           mapMode={mode}
           activityType={contextActivity}

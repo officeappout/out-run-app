@@ -106,7 +106,7 @@ export default function StrengthOverviewCard({
     if (!mounted || typeof window === 'undefined') return '';
     
     const context: TagResolverContext = {
-      persona: userProfile?.core?.personaId || 'parent',
+      persona: userProfile?.personas?.[0]?.id || 'parent',
       location: 'park', // Could be dynamic based on workout location
       userProfile: userProfile,
       userName: userProfile?.core?.name?.split(' ')[0] || 'משתמש',

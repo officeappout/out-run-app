@@ -2469,7 +2469,6 @@ async function _buildSharedPipeline(
     targetLevel: userProfile.progression?.targetLevel,
     isStudying: _rawLocation === 'library',
     dayPeriod: detectDayPeriod(),
-    isActiveReserve: userProfile.core?.isActiveReserve ?? false,
     activeProgramId: activeChildProgramId,
     programLevel: childTrackLevel,
     ancestorProgramIds,

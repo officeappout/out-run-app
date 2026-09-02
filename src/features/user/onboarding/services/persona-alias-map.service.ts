@@ -1,80 +1,52 @@
 /**
- * persona-alias-map.service — canonical persona normalization (Phase 0 Item 4).
+ * persona-alias-map.service — persona TAG normalization for admin-authored
+ * content (notification library, exercise-content tagging).
  *
  * SOURCE OF TRUTH for this module. A manually-synced mirror lives at
  * `functions/src/services/persona-alias-map.service.ts` (Cloud Functions
- * cannot import from `src/` — separate TypeScript project, no shared
- * `paths`/`workspaces` config connects them). Keep both in sync by hand;
- * see that file's header comment.
+ * cannot import from `src/` — separate TypeScript project). Keep both in
+ * sync by hand; see that file's header comment. It has real callers today:
+ * `functions/src/stepGoalNudgeScheduler.ts` and
+ * `functions/src/onPlannedActivityCreated.ts` (both flag-gated, both flags
+ * currently `true` in production per app_config/feature_flags).
  *
  * ═══════════════════════════════════════════════════════════════════════
- * WHY THIS EXISTS
+ * REDEFINED 01.09.2026 — see docs/research/military-persona-unified-architecture.md
  * ═══════════════════════════════════════════════════════════════════════
- * Five different, overlapping persona/lifestyle vocabularies exist across
- * the codebase (onboarding UI, UnifiedLocation flow, workout-content
- * tagging, the workout-engine's own normalization, and the notification
- * corpus). This module is an ADDITIVE mapping layer onto ONE canonical
- * enum — it does not rename or replace any of the five source
- * vocabularies. Full per-value reasoning table:
- * `.claude/knowledge/push-phase0-implementation-plan.md` §Item 4.
+ * Previously this module reconciled FIVE overlapping identity vocabularies
+ * (onboarding UI, a dead UnifiedLocation flow, workout-content tagging, the
+ * workout-engine's own normalization, and the notification corpus) because
+ * each had its own independent enum. That's gone: `src/types/persona.types.ts`
+ * (`PersonaId`) is now the ONE canonical identity type, used directly by
+ * onboarding, workout-content scoring, and admin tagging alike — there is
+ * nothing left to reconcile between those.
  *
- * Canonical source: the live onboarding persona picker,
- * `src/features/user/onboarding/components/steps/PersonaStep.tsx`
- * (`LIFESTYLE_OPTIONS`, 8 values) + `generic` as an explicit fallback for
- * "no persona set."
+ * What's LEFT for this module: the admin-authored **content** (the
+ * notification library, `workoutMetadata/notifications/notifications`, 219
+ * real docs) still has legacy tag values on it (`senior`, `high_tech`,
+ * `army_combat`, `army_job`, etc.) from before the redefinition. Those get
+ * relabeled to the new 7 canonical PersonaId values in a follow-up content
+ * migration — until that lands, this map's alias entries let content
+ * lookups still find a persona-appropriate match. Once the content is
+ * relabeled, this whole module can be retired (its only remaining purpose
+ * is content-tag normalization, not identity reconciliation).
  *
- * ⚠️ Do NOT reuse `src/features/workout-engine/services/user-profile.utils.ts`'s
- * `PERSONA_ID_MAP`/`LifestylePersona` here — that module targets a DIFFERENT
- * value space (workout-CONTENT scoring, e.g. `school_student`/`home_worker`/
- * `high_tech`/`active_soldier`), not this canonical push/onboarding persona
- * list. Only its Record+aliases+Set-guard+resolver PATTERN was borrowed.
- *
- * ═══════════════════════════════════════════════════════════════════════
- * TWO ONBOARDING WRITE PATHS — the resolver checks BOTH
- * ═══════════════════════════════════════════════════════════════════════
- * `personaId` / `lifestyle.lifestyleTags` (the fields one might assume are
- * canonical) are written by only ONE of two divergent onboarding
- * completion flows:
- *
- *   Path B — `LifestyleWizard.tsx` (`handleFinalSubmit`), the post-
- *   MAP_ONLY "bridge" flow. The ONLY path that writes top-level
- *   `personaId` and `lifestyle.lifestyleTags`.
- *
- *   Path A — the main `OnboardingWizard.tsx` flow, via
- *   `onboarding-sync.service.ts`'s `syncOnboardingToFirestore()`. Writes
- *   `onboardingAnswers.persona` / `onboardingAnswers.personas` /
- *   `onboardingAnswers.lifestyleTags` instead. NEVER writes top-level
- *   `personaId`.
- *
- * A resolver that only checks `personaId` is blind to Path-A-only users.
- * `resolveCanonicalPersona()` below checks both, in the precedence order
- * documented on that function.
- *
- * ⚠️ Precedence assumption, not yet empirically verified: Path B is
- * checked before Path A on the theory that it's chronologically later in
- * the flow. This has not been validated against real data (e.g. how often
- * a single user doc has both shapes populated). Recommend a one-time
- * Firestore sample query before treating this ordering as final.
+ * User-doc-side identity resolution now checks `users/{uid}.personas[]`
+ * FIRST (see resolveCanonicalPersona below) — the old personaId /
+ * onboardingAnswers.persona,.personas / lifestyle.selectedPersonaId fields
+ * this resolver used to check no longer exist on any user doc.
  */
 
-export type CanonicalPersona =
-  | 'parent'
-  | 'student'
-  | 'pupil'
-  | 'office_worker'
-  | 'reservist'
-  | 'soldier'
-  | 'vatikim'
-  | 'pro_athlete'
-  | 'generic';
+import type { PersonaId } from '@/types/persona.types';
+
+export type CanonicalPersona = PersonaId | 'generic';
 
 const VALID_PERSONAS: ReadonlySet<string> = new Set<CanonicalPersona>([
   'parent',
   'student',
   'pupil',
   'office_worker',
-  'reservist',
-  'soldier',
+  'military',
   'vatikim',
   'pro_athlete',
   'generic',
@@ -85,11 +57,12 @@ export function isCanonicalPersona(value: unknown): value is CanonicalPersona {
 }
 
 /**
- * Raw ID / tag → canonical persona. Base entries are identity mappings for
- * the 8 canonical values (+ `generic`); everything below the divider is an
- * alias from one of the other 4 vocabularies or the notification corpus.
- * Confidence + justification for each aliased entry — see
- * `.claude/knowledge/push-phase0-implementation-plan.md` §Item 4 table.
+ * Raw tag → canonical persona. Base entries are identity mappings for the 7
+ * canonical values (+ `generic`); everything below the divider is a legacy
+ * tag still present on admin-authored content
+ * (`workoutMetadata/notifications/notifications`) pending relabeling —
+ * see the file header. NOT for user-identity resolution — that's the
+ * `personas[]` array now, checked directly, no aliasing needed.
  */
 const PERSONA_ALIAS_MAP: Record<string, CanonicalPersona> = {
   // ── Canonical identities ──────────────────────────────────────────────
@@ -97,24 +70,21 @@ const PERSONA_ALIAS_MAP: Record<string, CanonicalPersona> = {
   student: 'student',
   pupil: 'pupil',
   office_worker: 'office_worker',
-  reservist: 'reservist',
-  soldier: 'soldier',
+  military: 'military',
   vatikim: 'vatikim',
   pro_athlete: 'pro_athlete',
   generic: 'generic',
 
-  // ── Aliases / legacy IDs ──────────────────────────────────────────────
-  // location-constants.ts (UnifiedLocation flow — confirmed dead code this
-  // session, grep found zero real importers of its LIFESTYLE_OPTIONS
-  // export; kept here anyway since it's cheap and the file could resurface).
-  senior: 'vatikim', // vatikim's own onboarding tags include 'senior' (PersonaStep.tsx:125) — highest-confidence alias in this map
+  // ── Legacy content tags, pending relabeling (see file header) ─────────
+  senior: 'vatikim',
   athlete: 'generic', // no "casual athlete" tier exists; pro_athlete's tags (advanced/performance) would overclaim
-  young_pro: 'generic', // no canonical counterpart; office_worker rejected — doesn't reliably imply desk/WFH work
-
-  // Notification corpus (scripts/corpus/notification-corpus.json, 201 entries)
-  high_tech: 'office_worker', // 3rd-largest populated bucket (21); office_worker's 'wfh' tag is the closest semantic parent — recommend a content-team gut-check before trusting broadly
-  army_combat: 'soldier', // "combat" reads as active-duty framing, closer to soldier (tags: military,active) than reservist (tags: military,busy)
-  army_job: 'generic', // only 2 entries, ambiguous — could be non-combat military role; office_worker rejected to avoid injecting civilian-workplace copy into a military context. Recommend eyeballing the actual 2 entries before trusting.
+  young_pro: 'generic', // no canonical counterpart
+  high_tech: 'office_worker', // office_worker's 'wfh' tag is the closest semantic parent
+  army_combat: 'military',
+  army_job: 'military',
+  reservist: 'military', // pre-redefinition onboarding value
+  soldier: 'military', // pre-redefinition onboarding value
+  active_soldier: 'military', // pre-redefinition workout-content-scoring value
   // Note: the corpus also has 49 blank ('') persona values — handled by
   // normalizePersonaValue()'s empty-string check below, not a map entry.
 };
@@ -141,31 +111,24 @@ export function normalizePersonaValue(raw: unknown): CanonicalPersona | null {
  * Firestore doc data, not the FE type).
  */
 export interface PersonaResolvableProfile {
-  personaId?: string | null;
+  personas?: Array<{ id?: string | null }> | null;
   lifestyle?: {
-    lifestyleTags?: string[] | null;
-  } | null;
-  onboardingAnswers?: {
-    persona?: string | null;
-    personas?: string[] | null;
     lifestyleTags?: string[] | null;
   } | null;
 }
 
 /**
- * Resolve a user's canonical persona, checking both onboarding write paths.
+ * Resolve a user's canonical persona for content-personalization purposes
+ * (e.g. picking which notification copy to send). A user can hold multiple
+ * personas simultaneously — this picks the first one deterministically,
+ * which is all a single piece of push copy needs; it is NOT a "primary
+ * persona" designation (that concept was deliberately dropped, see the
+ * research doc).
  * Precedence (first non-empty, recognized value wins):
  *   1. Explicit override (for future admin-preview/testing tooling).
- *   2. Path B `lifestyle.lifestyleTags[0]`.
- *   3. Path B top-level `personaId`.
- *   4. Path A `onboardingAnswers.persona`.
- *   5. Path A `onboardingAnswers.personas[0]` (fallback for malformed docs).
- *   6. Path A `onboardingAnswers.lifestyleTags[0]` (lowest priority — these
- *      are "persona + goal" tags combined per the write-site's own
- *      comment, so index 0 isn't reliably a persona value).
- *   7. `'generic'` — never returns null/undefined, unlike the
- *      workout-engine's `mapPersonaIdToLifestylePersona()`, which this
- *      canonical enum's first-class `generic` member makes unnecessary.
+ *   2. `personas[0].id` — the real source of truth after 01.09.2026.
+ *   3. `lifestyle.lifestyleTags[0]` — still written, independent tag array.
+ *   4. `'generic'` — never returns null/undefined.
  */
 export function resolveCanonicalPersona(
   profile: PersonaResolvableProfile | null | undefined,
@@ -173,11 +136,8 @@ export function resolveCanonicalPersona(
 ): CanonicalPersona {
   const candidates: Array<string | null | undefined> = [
     overrideValue,
+    profile?.personas?.[0]?.id,
     profile?.lifestyle?.lifestyleTags?.[0],
-    profile?.personaId,
-    profile?.onboardingAnswers?.persona,
-    profile?.onboardingAnswers?.personas?.[0],
-    profile?.onboardingAnswers?.lifestyleTags?.[0],
   ];
 
   for (const candidate of candidates) {

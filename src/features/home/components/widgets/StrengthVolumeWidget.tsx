@@ -95,7 +95,7 @@ export function StrengthVolumeWidget({
 
   // ── Upsell: user finished running but NOT strength → show blurred card ──
   const dashboardMode = profile?.lifestyle?.dashboardMode;
-  const strengthIncomplete = !profile?.personaId && !profile?.progression?.domains;
+  const strengthIncomplete = !profile?.personas?.length && !profile?.progression?.domains;
   const showStrengthUpsell = dashboardMode === 'RUNNING' && strengthIncomplete;
 
   if (showStrengthUpsell) {

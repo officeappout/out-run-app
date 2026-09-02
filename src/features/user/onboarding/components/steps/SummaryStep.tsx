@@ -49,8 +49,7 @@ const LIFESTYLE_OPTIONS: LifestyleOption[] = [
   { id: 'student', labelHeMale: 'סטודנט', labelHeFemale: 'סטודנטית', labelEn: 'Student', emoji: '🎓' },
   { id: 'pupil', labelHeMale: 'תלמיד', labelHeFemale: 'תלמידה', labelEn: 'Pupil', emoji: '📚' },
   { id: 'office_worker', labelHeMale: 'עובד משרד', labelHeFemale: 'עובדת משרד', labelEn: 'Office Worker', emoji: '💼' },
-  { id: 'reservist', labelHeMale: 'מילואימניק', labelHeFemale: 'מילואימניקית', labelEn: 'Reservist', emoji: '🎖️' },
-  { id: 'soldier', labelHeMale: 'חייל סדיר', labelHeFemale: 'חיילת סדיר', labelEn: 'Soldier', emoji: '🪖' },
+  { id: 'military', labelHeMale: 'צה"ל', labelHeFemale: 'צה"ל', labelEn: 'IDF / Military', emoji: '🎖️' },
 ];
 
 // Goal options

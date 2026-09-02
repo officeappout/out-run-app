@@ -66,7 +66,7 @@ export const LOCATION_OPTIONS: {
   // gym-tagged content stays valid; it is simply not offerable.
   { id: 'park',    label: 'בחוץ',     sub: 'פארק / מגרש', Icon: Trees },
   { id: 'home',    label: 'בבית',     sub: 'אימון ביתי',   Icon: Home },
-  // 'service' (צבא/שירות) is a SWAP-only variant, gated to military personas in
+  // 'service' (צבא/שירות) is a SWAP-only variant, gated to the military persona in
   // AnchorLocationChip. It is intentionally filtered out of the builder-sheet GENERATION
   // picker below (generation PARK-FORCEs, so generating "at service" would be a no-op).
   { id: 'service', label: 'צבא/שירות', sub: 'מוצב / בסיס',  Icon: Shield },

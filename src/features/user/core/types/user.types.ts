@@ -1,6 +1,7 @@
 import { RunningProfile } from '../../../workout-engine/core/types/running.types';
 import { DomainTrackProgress, ReadyForSplitStatus, PendingProgramSuggestion } from './progression.types';
 import type { RecurringTemplate } from '../../scheduling/types/schedule.types';
+import type { AnyPersonaEntry, MilitaryPersonaAnswers } from '@/types/persona.types';
 
 // ==========================================
 // Level Goal Progress Tracking
@@ -265,14 +266,29 @@ export interface UserFullProfile {
     photoURL?: string;
     authorityId?: string; // Link to authority (city/region) for manager access control
     neighborhoodId?: string; // Link to a neighborhood-level authorities/{id} doc, scoped under authorityId (see location-utils.ts findNeighborhoodIdByCity)
-    // Closed-community (tenant) binding — written server-side by the
-    // validateAccessCode CF (functions/src/validateAccessCode.ts). Companies
-    // (Wix), schools and military units bind via tenantId/unitId; municipalities
-    // use authorityId above. tenantId ≡ the authorities/{id} doc id (twin).
+    // Closed-community (tenant) binding — VERIFIED, written ONLY server-side
+    // by the validateAccessCode CF (functions/src/validateAccessCode.ts) or
+    // admin invitation acceptance (see firestore.rules noTenantFieldsChanged
+    // — client self-assignment is blocked). Companies (Wix), schools and
+    // military units bind via tenantId/unitId; municipalities use
+    // authorityId above. tenantId ≡ the authorities/{id} doc id (twin). Read
+    // unconditionally by functions/src/leaderboard.ts for real competitive
+    // leaderboards — never write here from a self-declared/unverified source.
+    // unitPath here is ancestor NAMES (["9307","פלוגה א"]), not ids.
     tenantId?: string;
     unitId?: string;
     unitPath?: string[];
     tenantType?: 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement';
+    // SELF-DECLARED (unverified) military status/unit — written by the
+    // persona follow-up-questions drawer, no access code required. A
+    // completely separate concept from tenantId/unitId above — do not
+    // conflate or merge them. Same shape as personas[] entry with
+    // id:'military' (denormalized here, flat, for query parity with
+    // authorityId/neighborhoodId — see ranking.service.ts scopeToField()).
+    // If ACCESS_CODE_MILITARY_ENABLED ships, a real code redemption
+    // populates tenantId/unitId/unitPath above through the EXISTING
+    // validateAccessCode path, not this field.
+    declaredMilitary?: MilitaryPersonaAnswers;
     /** Neighborhood-level anchor coordinates saved when the user first confirms their location */
     anchorLat?: number;
     anchorLng?: number;
@@ -280,9 +296,6 @@ export interface UserFullProfile {
     /** Explicit role classification. USER = regular app user, ADMIN = platform staff, COACH = Kelly / human coach. */
     role?: 'USER' | 'ADMIN' | 'COACH';
     isApproved?: boolean; // Approval status for admin access (defaults to false for new sign-ups)
-
-    // Active Reserve Status — gives +20 scoring boost to reservist-targeted content
-    isActiveReserve?: boolean;
 
     // --- Access Control (Modular Onboarding) ---
     /** Computed effective access level: Math.max() across all affiliations. Default: 1 */
@@ -362,7 +375,7 @@ export interface UserFullProfile {
     trainingHistory?: 'none' | '1-2' | '3+'; // Training frequency from lifestyle wizard
     dashboardMode?: DashboardMode; // Explicit dashboard mode override (DEFAULT/RUNNING/PERFORMANCE)
     primaryTrack?: PrimaryTrack; // Persona-derived track: drives dashboard mode, ring priority, WHO compliance
-    lifestyleTags?: string[]; // Lifestyle tags from selected persona (e.g., ['office_worker', 'student'])
+    lifestyleTags?: string[]; // Lifestyle tags from selected persona(s) (e.g., ['office_worker', 'student']) — content-tag matching, independent of the `personas` identity array below
     /**
      * UTS Phase 1 — per-day program assignment template.
      * Keys = Hebrew day letters (Sun='א'…Sat='ש').
@@ -378,23 +391,14 @@ export interface UserFullProfile {
       runningTime?: string;   // preferred running workout time
       strengthTime?: string;  // preferred strength workout time
     };
-    /**
-     * C2 — set the moment LifestyleWizard's persona step completes
-     * (handlePersonaNext), not at final wizard submit. A user who answers
-     * persona and closes before schedule/notifications still counts as
-     * answered. Read via src/lib/persona-declaration.ts's
-     * hasAnsweredPersona, which falls back to personaId-truthy for users
-     * who predate this field.
-     *
-     * A client ISO string (new Date().toISOString()), deliberately NOT a
-     * Firebase serverTimestamp() -- see the write site's comment
-     * (LifestyleWizard.tsx) for why. Do not "fix" this to serverTimestamp().
-     */
-    personaAnsweredAt?: string;
   };
-  
-  // Persona (Lemur) selection
-  personaId?: string; // ID of selected persona
+
+  // Persona identity — see src/types/persona.types.ts. A user can hold
+  // multiple personas simultaneously (confirmed product intent). Replaces
+  // the old personaId / onboardingAnswers.persona,.personas /
+  // lifestyle.selectedPersonaId,.personaAnsweredAt fields outright — no
+  // alias, no compat layer (see docs/research/military-persona-unified-architecture.md).
+  personas?: AnyPersonaEntry[];
   profileCompleted?: boolean; // Whether deep dive refinement questionnaire was completed
 
   // --- Onboarding & Completion Tracking ---

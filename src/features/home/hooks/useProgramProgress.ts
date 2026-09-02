@@ -71,7 +71,7 @@ export interface ProgramProgressData {
 /** True if the user has completed the strength survey. */
 export function hasStrengthSurvey(profile: ReturnType<typeof useUserStore>['profile']): boolean {
   if (!profile) return false;
-  const hasPersona = !!profile.personaId;
+  const hasPersona = !!profile.personas?.length;
   const hasDomains = !!(profile.progression?.domains && Object.keys(profile.progression.domains).length > 0);
   const hasTracks = !!(profile.progression?.tracks && Object.keys(profile.progression.tracks).length > 0);
   return hasPersona || hasDomains || hasTracks;

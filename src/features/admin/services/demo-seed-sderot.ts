@@ -415,13 +415,17 @@ function buildAssignments(): PlannedAssignment[] {
     ...Array<'MAP_ONLY'>(2).fill('MAP_ONLY'),
   ];
 
-  // Personas — all 5 types represented for dashboard metric variety.
+  // Personas — 5 of the 7 canonical PersonaId values, for dashboard metric
+  // variety (01.09.2026: was a bespoke demo-only vocabulary — mothers/
+  // wellness_seekers/runners/gym_goers/seniors — that doesn't exist in any
+  // real code anymore; these seeded users would show "no persona" in the
+  // actual app. See docs/research/military-persona-unified-architecture.md).
   const personas: string[] = [
-    'mothers', 'mothers', 'mothers',
-    'wellness_seekers', 'wellness_seekers',
-    'runners', 'runners',
-    'gym_goers',
-    'seniors', 'seniors',
+    'parent', 'parent', 'parent',
+    'vatikim', 'vatikim',
+    'student', 'student',
+    'office_worker',
+    'military', 'military',
   ];
 
   // Training times — 60% morning / 40% evening.
@@ -534,11 +538,7 @@ async function step2_createUsers(progress: ProgressFn, currentAuthorityId: strin
         ageGroup: ageGroupBucket(birthDate),
       },
       onboardingPath: a.onboardingPath,
-      personaId: a.personaId,
-      onboardingAnswers: {
-        persona: a.personaId,
-        personas: [a.personaId],
-      },
+      personas: [{ id: a.personaId, answers: {}, updatedAt: Timestamp.now() }],
       lifestyle: {
         trainingTime: a.trainingTime,
         scheduleDays: [0, 2, 4],

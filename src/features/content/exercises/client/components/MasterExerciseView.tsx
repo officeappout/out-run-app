@@ -88,7 +88,7 @@ function methodHasVideo(m: ExecutionMethod): boolean {
 
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 import { useUserStore } from '@/features/user';
-import { mapPersonaIdToLifestylePersona } from '@/features/workout-engine/services/user-profile.utils';
+import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
 
 // ── Difficulty trend icons (identical to ExerciseReplacementModal) ─────────
 const LEVEL_ICONS: Record<'lower' | 'same' | 'higher', { src: string; color: string }> = {
@@ -391,8 +391,7 @@ export default function MasterExerciseView({
   }
 
   const mevProfile = useUserStore((s) => s.profile);
-  const mevPersona = mevProfile ? mapPersonaIdToLifestylePersona(mevProfile) : null;
-  const isMilitaryPersona = mevPersona === 'reservist' || mevPersona === 'active_soldier';
+  const isMilitaryPersona = mevProfile ? hasPersona(mevProfile, 'military') : false;
 
   const methodOptions = useMemo<MethodOption[]>(() => {
     const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];

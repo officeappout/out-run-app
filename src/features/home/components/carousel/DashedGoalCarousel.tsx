@@ -241,7 +241,7 @@ export default function DashedGoalCarousel({
   const { summary: weeklySummary, daysWithActivity } = useWeeklyProgress();
   const { userProgram } = useDailyActivity();
   
-  const userPersona = profile?.personaId || profile?.lifestyle?.lifestyleTags?.[0] || 'general';
+  const userPersona = profile?.personas?.[0]?.id || profile?.lifestyle?.lifestyleTags?.[0] || 'general';
 
   // activePath: the program assigned from the management panel (activePrograms[0])
   const activePath = useMemo(() => {

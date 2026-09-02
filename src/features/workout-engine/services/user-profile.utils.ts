@@ -11,49 +11,42 @@
 import { InjuryShieldArea, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { UserFullProfile } from '@/features/user/core/types/user.types';
 import type { LifestylePersona } from '../logic/ContextualEngine';
+import { normalizePersonaValue } from '@/features/user/onboarding/services/persona-alias-map.service';
 
 // ============================================================================
 // PERSONA MAPPING
 // ============================================================================
+//
+// Redefined 01.09.2026: reads users/{uid}.personas[] (the canonical identity
+// array, see src/types/persona.types.ts) directly instead of the deleted
+// personaId/lifestyle.selectedPersonaId fields. A user can hold multiple
+// personas — mapPersonaIdToLifestylePersona still resolves ONE (for callers
+// that only need a single representative value, e.g. a display label);
+// hasPersona() below is the preferred check for gating logic, since it
+// naturally supports "does the user hold ANY of their personas equal to X"
+// without needing a "primary" concept (deliberately not reintroduced — see
+// docs/research/military-persona-unified-architecture.md).
 
 /**
- * Known persona IDs that map directly to LifestylePersona values.
- * This mapping handles the transition from Firestore personaId strings
- * to the engine's LifestylePersona type.
+ * True if the user holds the given persona — checks the WHOLE personas[]
+ * array, not just "the first"/"primary" one. Prefer this over
+ * mapPersonaIdToLifestylePersona() for simple gating checks
+ * (`isMilitary = hasPersona(profile, 'military')` instead of an
+ * equality/OR-chain against a single resolved value).
  */
-const PERSONA_ID_MAP: Record<string, LifestylePersona> = {
-  parent: 'parent',
-  student: 'student',
-  school_student: 'school_student',
-  office_worker: 'office_worker',
-  home_worker: 'home_worker',
-  high_tech: 'high_tech',
-  senior: 'senior',
-  athlete: 'athlete',
-  reservist: 'reservist',
-  active_soldier: 'active_soldier',
-  // Aliases / legacy IDs
-  busy_parent: 'parent',
-  work_from_home: 'home_worker',
-  soldier: 'active_soldier',
-  'high-tech': 'high_tech',
-};
-
-const VALID_PERSONAS: Set<string> = new Set([
-  'parent', 'student', 'school_student', 'office_worker', 'home_worker', 'high_tech', 'senior', 'athlete', 'reservist', 'active_soldier',
-]);
-
-function isLifestylePersona(value: string): boolean {
-  return VALID_PERSONAS.has(value);
+export function hasPersona(userProfile: UserFullProfile, personaId: LifestylePersona): boolean {
+  return !!userProfile.personas?.some((p) => p.id === personaId);
 }
 
 /**
- * Map a user profile's persona/lifestyle data to a LifestylePersona.
+ * Resolve a user profile's persona/lifestyle data to ONE representative
+ * LifestylePersona — for callers that need a single value (e.g. a display
+ * label), not a boolean gate. Prefer hasPersona() for gating.
  *
  * Resolution order:
  *   1. Explicit override (from modal)
- *   2. lifestyle.lifestyleTags[0] (most specific)
- *   3. personaId field
+ *   2. personas[0].id — the canonical source of truth
+ *   3. lifestyle.lifestyleTags[0] (legacy fallback, still written)
  *   4. null (no persona)
  */
 export function mapPersonaIdToLifestylePersona(
@@ -62,20 +55,13 @@ export function mapPersonaIdToLifestylePersona(
 ): LifestylePersona | null {
   if (overridePersona) return overridePersona;
 
-  // Try lifestyleTags first (set during onboarding from persona selection)
+  const fromPersonas = normalizePersonaValue(userProfile.personas?.[0]?.id);
+  if (fromPersonas && fromPersonas !== 'generic') return fromPersonas;
+
   const lifestyleTags = userProfile.lifestyle?.lifestyleTags;
   if (lifestyleTags?.length) {
-    const mapped = PERSONA_ID_MAP[lifestyleTags[0]];
-    if (mapped) return mapped;
-    // If the tag itself IS a valid LifestylePersona, use it directly
-    if (isLifestylePersona(lifestyleTags[0])) return lifestyleTags[0] as LifestylePersona;
-  }
-
-  // Fallback to personaId
-  if (userProfile.personaId) {
-    const mapped = PERSONA_ID_MAP[userProfile.personaId];
-    if (mapped) return mapped;
-    if (isLifestylePersona(userProfile.personaId)) return userProfile.personaId as LifestylePersona;
+    const fromTags = normalizePersonaValue(lifestyleTags[0]);
+    if (fromTags && fromTags !== 'generic') return fromTags;
   }
 
   return null;
@@ -179,11 +165,16 @@ export function collectLifestyles(
 
   if (primaryPersona) lifestyles.add(primaryPersona);
 
+  // All held personas — a user can hold multiple simultaneously.
+  for (const entry of userProfile.personas ?? []) {
+    const normalized = normalizePersonaValue(entry.id);
+    if (normalized && normalized !== 'generic') lifestyles.add(normalized);
+  }
+
   const tags = userProfile.lifestyle?.lifestyleTags ?? [];
   for (const tag of tags) {
-    if (isLifestylePersona(tag)) {
-      lifestyles.add(tag as LifestylePersona);
-    }
+    const normalized = normalizePersonaValue(tag);
+    if (normalized && normalized !== 'generic') lifestyles.add(normalized);
   }
 
   return Array.from(lifestyles).slice(0, 3); // Max 3

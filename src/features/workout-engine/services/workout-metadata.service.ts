@@ -93,8 +93,6 @@ export interface WorkoutMetadataContext {
   totalWeeks?: number;
 
   // === Program Hierarchy Context ===
-  /** Active Reserve flag — gives +2 to reservist-targeted content */
-  isActiveReserve?: boolean;
   /** The user's currently active (child) program ID (e.g., 'push', 'pull') */
   activeProgramId?: string;
   /** The user's level within the active child program (from tracks) */
@@ -281,6 +279,10 @@ const SCORABLE_FIELDS: Array<{
  */
 const DEMOGRAPHIC_PERSONA_TAGS = new Set([
   'parent', 'mom', 'senior', 'high_tech', 'army', 'reservist', 'student',
+  // New canonical values (01.09.2026 redefinition) — kept alongside the
+  // legacy tags above until the content-relabel script (branch 3) runs;
+  // both must be recognized in the meantime.
+  'vatikim', 'military',
 ]);
 
 /**
@@ -497,17 +499,6 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   }
 
   // ============================================================================
-  // RESERVIST BOOST (+2)
-  // ============================================================================
-  // If the user has isActiveReserve=true and the row targets persona='reservist',
-  // give a +2 boost (aligned with other contextual bonuses). This ensures
-  // reservists see military-themed content without monopolizing the pool —
-  // they'll also see relevant time-of-day, location, and progress content.
-  if (ctx.isActiveReserve && row.persona === 'reservist') {
-    score += 2;
-  }
-
-  // ============================================================================
   // YOUNG MOM SUB-PERSONA (+15 keyword boost)
   // ============================================================================
   // Female + parent persona + age <= 35 → "Young Mom" sub-persona.
@@ -557,7 +548,7 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   // DESK RESET BOOST (+30) — High-Tech & Students, 12:00-14:00
   // ============================================================================
   // During lunch hours, boost desk-friendly content for sedentary personas.
-  if (ctx.persona === 'high_tech' || ctx.persona === 'student') {
+  if (ctx.persona === 'office_worker' || ctx.persona === 'student') {
     const deskNow = new Date();
     const deskH = deskNow.getHours();
     const isDeskWindow = deskH >= 12 && deskH < 14;
@@ -607,7 +598,7 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   // ============================================================================
   // SENIOR SUB-PERSONA (+25) — Age 65+ or senior persona
   // ============================================================================
-  if (ctx.persona === 'senior' || (age !== undefined && age >= 65)) {
+  if (ctx.persona === 'vatikim' || (age !== undefined && age >= 65)) {
     const srText = (
       (row.text || '') + ' ' + (row.phrase || '') + ' ' +
       (row.description || '') + ' ' + (row.cue || '')
@@ -890,8 +881,6 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   if (row.minLevel != null || row.maxLevel != null) {
     if (ctx.programLevel != null) reasons.push(`levelRange=${row.minLevel ?? '?'}-${row.maxLevel ?? '?'}`);
   }
-  if (ctx.isActiveReserve && row.persona === 'reservist') reasons.push('reservist(+2)');
-
   // Young Mom sub-persona
   const isYoungMomDebug = ctx.gender === 'female' && ctx.persona === 'parent' && ctx.userAge !== undefined && ctx.userAge <= 35;
   if (isYoungMomDebug) {
@@ -910,7 +899,7 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   }
 
   // Desk Reset
-  if (ctx.persona === 'high_tech' || ctx.persona === 'student') {
+  if (ctx.persona === 'office_worker' || ctx.persona === 'student') {
     const deskDbgH = new Date().getHours();
     if (deskDbgH >= 12 && deskDbgH < 14) {
       const deskDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
@@ -934,7 +923,7 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
         reasons.push('armyPrep_boost(+20)');
       }
     }
-    if (ctx.persona === 'senior' || dbgAge >= 65) {
+    if (ctx.persona === 'vatikim' || dbgAge >= 65) {
       if (['מפרקים', 'נכדים', 'עצמאות', 'יציבות', 'בריאות', 'נחת'].some(kw => ageText.includes(kw))) {
         reasons.push('senior_boost(+25)');
       }

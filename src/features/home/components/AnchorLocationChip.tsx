@@ -17,7 +17,7 @@ import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { LOCATION_OPTIONS, type LocationId } from './WorkoutBuilderSheet';
 import { useUserStore } from '@/features/user';
-import { mapPersonaIdToLifestylePersona } from '@/features/workout-engine/services/user-profile.utils';
+import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
 
 export interface AnchorLocationChipProps {
   value: LocationId;
@@ -26,10 +26,9 @@ export interface AnchorLocationChipProps {
 
 export default function AnchorLocationChip({ value, onSelect }: AnchorLocationChipProps) {
   const [open, setOpen] = useState(false);
-  // Persona gate: the 'service' (military) location is offered only to reservist / soldier.
+  // Persona gate: the 'service' (military) location is offered only to the military persona.
   const profile = useUserStore((s) => s.profile);
-  const persona = profile ? mapPersonaIdToLifestylePersona(profile) : null;
-  const isMilitary = persona === 'reservist' || persona === 'active_soldier';
+  const isMilitary = profile ? hasPersona(profile, 'military') : false;
   const options = LOCATION_OPTIONS.filter((o) => o.id !== 'service' || isMilitary);
   const current = options.find((o) => o.id === value) ?? options[0];
   const CurrentIcon = current.Icon;
