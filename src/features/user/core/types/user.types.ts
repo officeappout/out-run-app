@@ -279,15 +279,20 @@ export interface UserFullProfile {
     unitId?: string;
     unitPath?: string[];
     tenantType?: 'municipal' | 'educational' | 'military' | 'company' | 'youth_movement';
-    // SELF-DECLARED (unverified) military status/unit — written by the
-    // persona follow-up-questions drawer, no access code required. A
-    // completely separate concept from tenantId/unitId above — do not
-    // conflate or merge them. Same shape as personas[] entry with
-    // id:'military' (denormalized here, flat, for query parity with
-    // authorityId/neighborhoodId — see ranking.service.ts scopeToField()).
-    // If ACCESS_CODE_MILITARY_ENABLED ships, a real code redemption
-    // populates tenantId/unitId/unitPath above through the EXISTING
-    // validateAccessCode path, not this field.
+    // ⚠️ SUPERSEDED (Phase 3a, 02.09.2026) — DO NOT WRITE TO THIS FIELD.
+    // Kept only as a type-level historical marker (zero code reads/writes
+    // it — verified). The self-declared military answers this field was
+    // meant to hold now live in a SEPARATE document, `military_declarations/
+    // {uid}` (see firestore.rules + docs/research/
+    // military-persona-unified-architecture.md §3a part ב׳), because a
+    // plain field here would be automatically exposed to any authenticated
+    // user for any users/{uid} doc with core.discoverable == true — that
+    // whole-document read rule has no field-level granularity, and 5 live
+    // call sites (user-search.service.ts among them) already read other
+    // users' full documents through it. If ACCESS_CODE_MILITARY_ENABLED
+    // ships, a real code redemption still populates tenantId/unitId/
+    // unitPath above through the EXISTING validateAccessCode path, not
+    // this field or military_declarations either.
     declaredMilitary?: MilitaryPersonaAnswers;
     /** Neighborhood-level anchor coordinates saved when the user first confirms their location */
     anchorLat?: number;

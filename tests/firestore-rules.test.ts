@@ -1,11 +1,14 @@
 /**
  * Firestore Rules — Cumulative Integration Test Suite
  *
- * Covers four workstreams deployed together:
+ * Covers workstreams deployed together:
  *   presence-group  — Block 1 presence rules (group scope + audienceGroupIds validation)
  *   Phase G         — community_groups/members create with inviteCode + admin-remove
  *   H2              — member role-change guards (promote/demote/remove)
  *   sessions        — scheduleSlots/meetingLocation hasOnly guard
+ *   tenant-unit     — core.tenantId/unitId/unitPath admin-only initial write (01.09.2026)
+ *   military-decl   — military_declarations/{uid} lockdown + unitDirectory read-only
+ *                      public index + users/{uid} no-leak tripwire (Phase 3a, 02.09.2026)
  *
  * Run:  npx firebase emulators:exec --only firestore "npx tsx tests/firestore-rules.test.ts"
  */
@@ -467,6 +470,159 @@ async function testTenantUnitLockdown() {
   });
 }
 
+// Phase 3a — military_declarations/{uid} lockdown (02.09.2026).
+// Flagship requirement: a user's military affiliation must never be
+// readable by another user, at the rules level, even when their profile
+// is discoverable — closing the exact leak core.declaredMilitary (a plain
+// field on users/{uid}) would have had via the existing discoverable +
+// user-search.service.ts path.
+async function testMilitaryDeclarationLockdown() {
+  const VALID_DECLARATION = {
+    status: 'reserve',
+    orgId: 'brigade_real',
+    unitId: 'unit_real',
+    unitPathIds: ['unit_real'],
+    updatedAt: new Date(),
+  };
+
+  // U1 — owner reads their own declaration → ALLOW.
+  await it('U1 — owner reads own military_declarations doc → ALLOW', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster1'), VALID_DECLARATION);
+    });
+    const ctx = env.authenticatedContext('broadcaster1');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster1')));
+  });
+
+  // U2 — flagship test: another user cannot read it, even though
+  // broadcaster1 has core.discoverable == true (fixture default).
+  await it('U2 — another user CANNOT read it, even when owner is discoverable → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(getDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster1')));
+  });
+
+  // U3 — owner writes a valid declaration directly (no Cloud Function) → ALLOW.
+  await it('U3 — owner writes a valid declaration directly → ALLOW', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), VALID_DECLARATION));
+  });
+
+  // U3b — schema enforcement: an unexpected key, or an oversized field,
+  // must be rejected — proves isValidMilitaryDeclaration() actually
+  // enforces the closed shape, not just documents it in a comment.
+  await it('U3b — unexpected key rejected → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), {
+      ...VALID_DECLARATION,
+      notes: 'arbitrary extra field',
+    }));
+  });
+  await it('U3b — oversized orgId rejected → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), {
+      ...VALID_DECLARATION,
+      orgId: 'x'.repeat(500),
+    }));
+  });
+  await it('U3b — invalid status enum value rejected → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), {
+      ...VALID_DECLARATION,
+      status: 'made_up_value',
+    }));
+  });
+
+  // U4 — another user cannot write to it → DENY.
+  await it('U4 — another user cannot write to broadcaster1\'s declaration → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster1'), VALID_DECLARATION));
+  });
+
+  // U5 — admin can read and write any user's declaration → ALLOW.
+  await it('U5 — admin reads any declaration → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster1')));
+  });
+  await it('U5 — admin writes any declaration → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster1'), VALID_DECLARATION));
+  });
+
+  // U6 — unauthenticated read → DENY.
+  await it('U6 — unauthenticated read of any declaration → DENY', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(getDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster1')));
+  });
+}
+
+// Phase 3a — unitDirectory/{directoryId} (02.09.2026). The whole point of
+// this collection is to be searchable by a user with NO existing tenant
+// relationship — that's what U7 proves.
+async function testUnitDirectory() {
+  const DIRECTORY_ENTRY = {
+    name: 'חטיבה 11',
+    parentId: null,
+    level: 'brigade',
+    orgId: 'brigade_real',
+    unitId: null,
+    armType: 'חי"ר',
+    statusCategory: 'מילואים',
+    updatedAt: new Date(),
+  };
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'unitDirectory', 'brigade_real'), DIRECTORY_ENTRY);
+  });
+
+  // U7 — a user with zero tenant relationship (no_tenant_user fixture,
+  // core.tenantId == '') can still read the directory. This is the entire
+  // reason unitDirectory exists instead of reusing tenants/{orgId}/units,
+  // which requires hasTenant(tenantId).
+  await it('U7 — user with no tenant relationship reads unitDirectory → ALLOW', async () => {
+    const ctx = env.authenticatedContext('no_tenant_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'unitDirectory', 'brigade_real')));
+  });
+
+  // U8 — a non-admin authenticated user cannot write → DENY.
+  await it('U8 — non-admin cannot write unitDirectory → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster1');
+    await assertFails(setDoc(doc(ctx.firestore(), 'unitDirectory', 'brigade_real'), DIRECTORY_ENTRY));
+  });
+
+  // U9 — admin can write directly (manual-repair path if sync ever breaks).
+  await it('U9 — admin can write unitDirectory directly → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'unitDirectory', 'brigade_real'), DIRECTORY_ENTRY));
+  });
+
+  // U10 — unauthenticated read → ALLOW. This is `allow read: if true` by
+  // deliberate product decision (David, 02.09.2026) — locked in as a test
+  // so a future edit doesn't silently narrow it to isAuthenticated().
+  await it('U10 — unauthenticated read of unitDirectory → ALLOW', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'unitDirectory', 'brigade_real')));
+  });
+}
+
+// Phase 3a — structural regression tripwire, not a rules-engine security
+// proof (Firestore rules can't do field-level redaction, so this only
+// proves "if nobody writes the field there, it isn't there" — a fact
+// about the fixture, not the rule). Its value is catching the day someone
+// reintroduces a military field directly onto users/{uid} (a future PR, a
+// copy-paste from the old Phase-2 design, or a seed script writing stale
+// fields directly to production, as already documented elsewhere).
+async function testNoUsersDocLeak() {
+  await it('U11 — a discoverable user doc has no military-declaration key on it', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    const snap = await assertSucceeds(getDoc(doc(ctx.firestore(), 'users', 'broadcaster1')));
+    const data = snap.data() as Record<string, unknown> | undefined;
+    const core = (data?.core ?? {}) as Record<string, unknown>;
+    if ('declaredMilitary' in core || 'militaryDeclaration' in core || 'declaredMilitary' in (data ?? {})) {
+      throw new Error('users/{uid} doc has a military-declaration field — it must live in military_declarations/{uid} instead');
+    }
+  });
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -479,6 +635,9 @@ async function main() {
   await testSessions();
   await testActivityRules();
   await testTenantUnitLockdown();
+  await testMilitaryDeclarationLockdown();
+  await testUnitDirectory();
+  await testNoUsersDocLeak();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Results: ${pass} passed, ${fail} failed`);
