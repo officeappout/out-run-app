@@ -86,6 +86,7 @@ import { mapOsmSurfaceToType } from '../src/lib/route-collections/surface-type';
 import { fetchCityWayGrid, type CityWayGrid } from './lib/route-quality-osm-fetch.node';
 import { computeRouteComposition, type WayCategory } from './lib/route-composition-classify';
 import { computeRouteLighting } from './lib/route-lighting-street-segments.node';
+import { validateCityRegistration } from '../src/lib/city-registrations';
 
 // ─────────────────────────────── CLI + region config ───────────────────────────────
 const DRY = process.argv.includes('--dry-run');
@@ -116,6 +117,13 @@ interface Region {
    *  generated around every `parks` gym whose coords fall inside this region's bbox. */
   roundTripAnchors?: Array<{ key: string; label: string; lat: number; lng: number }>;
   batchId: string;
+  /** Additive (Stage A, city-orchestrator plan, 02.09.2026) — replaces the old
+   *  `REGION.label === 'חיפה'` literal check at the discovery-time lighting gate
+   *  below. Undefined on every existing in-file REGIONS entry (none sets it),
+   *  so the call site's `?? (REGION.label === 'חיפה')` fallback preserves
+   *  today's exact behavior for all of them — this field only takes effect for
+   *  a region resolved from `city_registrations` (src/lib/city-registrations.ts). */
+  computeLighting?: boolean;
 }
 
 const REGIONS: Record<string, Region> = {
@@ -221,8 +229,44 @@ const REGIONS: Record<string, Region> = {
   },
 };
 
-const REGION = REGIONS[regionArg];
-if (!REGION) { console.error(`Unknown region "${regionArg}". Known: ${Object.keys(REGIONS).join(', ')}`); process.exit(1); }
+// Declared (not initialized) here, at module scope, so every function below
+// that closes over REGION keeps compiling against a plain `Region` type —
+// exactly as before this stage — rather than `Region | undefined`, which
+// would force a defensive `!` or null-check onto every one of the ~30 call
+// sites throughout this file for no behavioral reason. Actually assigned by
+// resolveRegion() below, called as the very first line of main() — nothing
+// that reads REGION is ever invoked before main() starts (confirmed: every
+// other function in this file is a declaration, not top-level executed
+// code). This is a real, load-bearing assumption, not just a convenience —
+// don't add any top-level (module-scope, outside a function body) code that
+// reads REGION above main()'s own resolution call.
+let REGION: Region;
+
+// In-file REGIONS always wins on any key collision (checked first) — zero
+// behavior change for any of the 11 hand-tuned entries, since this fallback
+// branch is structurally unreachable for them. Only a regionArg that ISN'T
+// an in-file key ever reaches the city_registrations lookup (Stage A, city-
+// orchestrator plan, 02.09.2026). A real async function (not top-level
+// await, which this project's tsconfig doesn't enable — see main()'s own
+// call site) so this compiles cleanly without any tsconfig change.
+async function resolveRegion(): Promise<Region> {
+  const found = REGIONS[regionArg];
+  if (found) return found;
+  const db = initFb();
+  const doc = await db.collection('city_registrations').doc(regionArg).get();
+  if (doc.exists) {
+    try {
+      const resolved = validateCityRegistration({ ...doc.data(), key: regionArg });
+      console.log(`📍 Loaded region "${regionArg}" from city_registrations (not in-file REGIONS).`);
+      return resolved;
+    } catch (err) {
+      console.error(`❌ city_registrations/${regionArg} failed validation: ${(err as Error).message}`);
+      process.exit(1);
+    }
+  }
+  console.error(`Unknown region "${regionArg}". Known in-file: ${Object.keys(REGIONS).join(', ')}. Also checked city_registrations/${regionArg} — not found.`);
+  process.exit(1);
+}
 
 // Length windows (meters) per source.
 // LEN_TRAIL_MIN raised 400 -> 600 (23.08.2026, Haifa drop-audit): every trail-relation
@@ -1715,8 +1759,16 @@ async function buildLoop(a: Anchor, targetM: number, seed: number): Promise<Cand
   return null;
 }
 
-// Anchors = region.roundTripAnchors + every `parks` gym in the region (city == אשקלון OR coords
-// inside the region bbox). Coordinates at location.lat/lng (Explore-verified). Read-only.
+// Anchors = region.roundTripAnchors + every `parks` gym in the region (city == region.label OR
+// coords inside the region bbox). Coordinates at location.lat/lng (Explore-verified). Read-only.
+// cityMatch was previously a hardcoded /אשקלון|ashkelon/i regex, region-agnostic in name only
+// (it never read the `region` argument this function already receives) — fixed Stage A,
+// city-orchestrator plan, 02.09.2026. Verified behavior-preserving by a live read-only query
+// (not assumed): all 31 parks docs the old regex matched carry city === 'אשקלון' exactly, no
+// English spelling, no neighborhood-qualified variant, no whitespace difference — so
+// `p.city === region.label` matches the identical 31-doc set for every one of the 9 Ashkelon-
+// family REGIONS entries (all of which set label: 'אשקלון'), with zero risk of silently
+// dropping a doc the old regex would have caught.
 async function loadParkAnchors(db: admin.firestore.Firestore, region: Region): Promise<Anchor[]> {
   const snap = await db.collection('parks').get();
   const b = region.bbox; const out: Anchor[] = [];
@@ -1724,7 +1776,7 @@ async function loadParkAnchors(db: admin.firestore.Firestore, region: Region): P
     const p: any = doc.data();
     const lat = p.location?.lat ?? p.lat, lng = p.location?.lng ?? p.lng;
     if (typeof lat !== 'number' || typeof lng !== 'number') continue;
-    const cityMatch = typeof p.city === 'string' && /אשקלון|ashkelon/i.test(p.city);
+    const cityMatch = typeof p.city === 'string' && p.city === region.label;
     const inBox = lat >= b.latMin && lat <= b.latMax && lng >= b.lonMin && lng <= b.lonMax;
     if (!cityMatch && !inBox) continue;
     out.push({ key: `park-${doc.id}`, label: (p.name && String(p.name).trim()) || 'גינת כושר', lat, lng });
@@ -1760,6 +1812,7 @@ async function discoverRoundTrips(db: admin.firestore.Firestore, region: Region)
 function initFb() { const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id }); return admin.firestore(); }
 
 async function main() {
+  REGION = await resolveRegion();
   console.log(`\n=== GEO-DISCOVERY — region: ${REGION.label} (${REGION.key}) ===`);
   const db = initFb();
   const col = db.collection('official_routes');
@@ -1840,13 +1893,24 @@ async function main() {
   }
   const wayCategoryCache = new Map<number, WayCategory>();
 
-  // Lighting at discovery time — Haifa only for now (matches the backfill's
-  // explicit scoping; other regions' street_segments coverage hasn't been
-  // reviewed for this yet — see the Haifa lighting-backfill task). Reads
-  // Haifa's ALREADY-INGESTED street_segments (no new fetch, no Overpass
-  // call) via the same computeRouteLighting used by scripts/backfill-route-
-  // lighting-haifa.ts, honesty fix (untagged-vs-confirmed-unlit) included.
-  const computeLightingForThisRegion = REGION.label === 'חיפה';
+  // Lighting at discovery time. Reads the region's ALREADY-INGESTED
+  // street_segments (no new fetch, no Overpass call) via the same
+  // computeRouteLighting used by scripts/backfill-route-lighting-haifa.ts,
+  // honesty fix (untagged-vs-confirmed-unlit) included.
+  //
+  // REGION.computeLighting ?? fallback (Stage A, city-orchestrator plan,
+  // 02.09.2026) replaces the old unconditional `REGION.label === 'חיפה'`
+  // literal check — additive, not a replacement of the old behavior: none
+  // of the 11 in-file REGIONS entries sets `computeLighting`, so every one
+  // of them still falls through to the exact same `label === 'חיפה'` test
+  // as before (Haifa true, everyone else false — byte-identical). The field
+  // only takes effect for a region resolved from `city_registrations`
+  // (src/lib/city-registrations.ts), where it defaults `true` at the
+  // ingester script's own call site (not schema-defaulted) — the lighting
+  // honesty-gate (`status:'unknown'`) already handles low-OSM-coverage
+  // cities gracefully, so there's no remaining reason to default a new
+  // city to `false` just for not being Haifa.
+  const computeLightingForThisRegion = REGION.computeLighting ?? (REGION.label === 'חיפה');
 
   const kept: { doc: ReturnType<typeof buildRouteDoc>; c: Candidate }[] = [];
   const dropped: { name: string; reason: string }[] = [];
