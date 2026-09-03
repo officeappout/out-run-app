@@ -22,8 +22,20 @@
  *   defensive fallback (cap eviction / a suggestion surviving a reload), not the normal path.
  *   Fixed 26.08.2026 — this generator previously fell through to the generic SuggestionCard
  *   below by omission, losing its real video/equipment/title.
- * - Every other generatorId (route/safety-net, etc.) → the generic SuggestionCard, unchanged —
- *   no richer surface exists for them yet.
+ * - `safety-net` → the generic SuggestionCard, UNLESS a real walking route has been resolved
+ *   for it (real-steps-connect plan, 02.09.2026, Part 3): `resolveHomeTier2` (home/page.tsx)
+ *   opportunistically calls route.generator.ts's own `resolveRouteWorkout` for the safety-net
+ *   slot when GPS is available, keyed by the safety-net suggestion's OWN id (a separate cache
+ *   entry from route.generator's own suggestions — no collision). A cache hit swaps in a
+ *   SuggestionCard built from the real Route's name/distance/duration instead of the generic
+ *   "הליכה קלה" placeholder — same generic card component, real content. `healthConnected
+ *   ===false` shows ConnectStepsCard instead (never both). No GPS / no cache hit yet / still
+ *   loading → today's exact generic card, unchanged. safety-net.generator.ts's own
+ *   eligible()/generate() are untouched — this is a render-layer + resolve-layer addition
+ *   only, same "Tier-2 resolves in the background, renderer reads the cache" pattern
+ *   full-strength/route already use.
+ * - Every other generatorId (route, etc.) → the generic SuggestionCard, unchanged — no richer
+ *   surface exists for them yet.
  *
  * Sizing: HeroWorkoutCard's `active` variant is a fixed 300x330 — wider than the carousel
  * shell's own card-width ceiling (SuggestionCarousel's CARD_MAX_W=260), same mismatch
@@ -39,8 +51,11 @@ import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 import { SuggestionCard } from '@/features/workout-engine/core/components/SuggestionCard';
 import { getCachedFullStrengthWorkout } from '@/features/workout-engine/core/generators/full-strength.generator';
 import { getCachedRecoveryWorkout } from '@/features/workout-engine/core/generators/recovery-follow-up.generator';
+import { getCachedRoute } from '@/features/workout-engine/core/generators/route.generator';
+import { ConnectStepsCard } from './ConnectStepsCard';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
+import type { Route } from '@/features/parks/core/types/route.types';
 
 const HERO_CARD_NATURAL_WIDTH = 300;
 const HERO_CARD_NATURAL_HEIGHT = 330;
@@ -64,6 +79,28 @@ interface PreWorkoutCardRendererProps {
    *  (swappedWorkoutById), kept outside this generator's cache. Takes priority over the
    *  cache when present; see resolveHeroWorkout's own doc comment for why. */
   overrideWorkout?: GeneratedWorkout | null;
+  /** Real-steps-connect plan (02.09.2026, Part 3) — see this file's own header, safety-net
+   *  bullet. */
+  healthConnected?: boolean | null;
+  /** Opens the shared health-permission disclosure flow. Required together with
+   *  `healthConnected` for the safety-net + not-connected branch to render ConnectStepsCard. */
+  onConnectSteps?: () => void;
+}
+
+const ROUTE_DIFFICULTY_MAP: Record<Route['difficulty'], 1 | 2 | 3> = { easy: 1, medium: 2, hard: 3 };
+
+/** Overlays a resolved real Route's display fields onto a copy of the original safety-net
+ *  Suggestion — same generic SuggestionCard, real content instead of the static placeholder.
+ *  Ranking-relevant fields (id/generatorId/score/scoreBreakdown/goalTags/etc.) are left
+ *  untouched: this is a display-layer swap only, not a new ranked candidate. */
+function buildRouteSuggestionFromRoute(route: Route, base: Suggestion): Suggestion {
+  return {
+    ...base,
+    title: route.name,
+    subtitle: `${route.distance.toFixed(1)} ק״מ · ~${route.duration} דק׳`,
+    difficulty: ROUTE_DIFFICULTY_MAP[route.difficulty],
+    structure: { ...base.structure, durationMin: route.duration },
+  };
 }
 
 /** Measures its own slot and scales its (fixed-size, 300x330-natural) child to fit — same idiom
@@ -136,6 +173,8 @@ export function PreWorkoutCardRenderer({
   workoutLocation,
   programIconKey,
   overrideWorkout,
+  healthConnected,
+  onConnectSteps,
 }: PreWorkoutCardRendererProps) {
   if (hasHeroCardTreatment(suggestion.generatorId)) {
     const workout = resolveHeroWorkout(suggestion, overrideWorkout);
@@ -156,6 +195,24 @@ export function PreWorkoutCardRenderer({
         )}
       </ScaledHeroSlot>
     );
+  }
+
+  if (suggestion.generatorId === 'safety-net') {
+    if (healthConnected === false && onConnectSteps) {
+      return <ConnectStepsCard onConnect={onConnectSteps} />;
+    }
+    const route = getCachedRoute(suggestion.id);
+    if (route) {
+      return (
+        <SuggestionCard
+          suggestion={buildRouteSuggestionFromRoute(route, suggestion)}
+          onStart={onStart}
+          isStarting={isStarting}
+        />
+      );
+    }
+    // No GPS yet / Tier-2 hasn't resolved / healthConnected still loading — today's exact
+    // generic card, unchanged. Falls through to the same return below.
   }
 
   return <SuggestionCard suggestion={suggestion} onStart={onStart} isStarting={isStarting} />;

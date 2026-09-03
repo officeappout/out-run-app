@@ -86,7 +86,7 @@ import { buildHomeUserContext } from '@/features/workout-engine/core/context/bui
 import { suggestionToGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-post-workout-suggestion';
 import { suggestionToHomeGeneratedWorkout } from '@/features/workout-engine/core/engine/pick-home-suggestion';
 import { resolveFullStrengthWorkout, resolveFullStrengthWorkoutAtIndex } from '@/features/workout-engine/core/generators/full-strength.generator';
-import { resolveRouteWorkout } from '@/features/workout-engine/core/generators/route.generator';
+import { resolveRouteWorkout, getCachedRoute } from '@/features/workout-engine/core/generators/route.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
 import { PreWorkoutCardRenderer, resolveHeroWorkout, hasHeroCardTreatment } from '@/features/home/components/PreWorkoutCardRenderer';
@@ -1143,8 +1143,29 @@ export default function HomePage() {
       resolveRouteWorkout(suggestion.id, context)
         .then(() => setTier2ResolvedTick((t) => t + 1))
         .catch((error) => console.error('[home] resolveRouteWorkout failed', error));
+      return;
     }
-  }, []);
+    // Real-steps-connect plan (02.09.2026, Part 3): opportunistic upgrade for the safety-net
+    // slot — reuses route.generator.ts's own resolveRouteWorkout/getCachedRoute unchanged
+    // (safety-net.generator.ts itself is never touched), keyed by the SAFETY-NET suggestion's
+    // own id (a separate cache entry from route.generator's own suggestions, no collision).
+    // `context` here always has location:null (the 'home' ranking effect's own deliberate
+    // choice — see that effect's comment) — resolveRouteWorkout's own `!context.location`
+    // guard would reject it immediately, so this patches in a fresh, silently-read GPS fix
+    // just for this call, without touching the shared ranking context. Read via
+    // useGPSStore.getState() (not the reactive `gpsCoords` closure variable) so this callback's
+    // identity doesn't change on every GPS position tick — same "silent read, not a dependency"
+    // reasoning the post_workout ranking effect's own comment already documents for gpsCoords.
+    // healthConnected!==false mirrors buildStepContext's own gate: no point resolving against
+    // a fabricated step count.
+    if (suggestion.generatorId === 'safety-net' && healthConnected !== false) {
+      const freshCoords = useGPSStore.getState().coords;
+      if (!freshCoords) return;
+      resolveRouteWorkout(suggestion.id, { ...context, location: freshCoords })
+        .then(() => setTier2ResolvedTick((t) => t + 1))
+        .catch((error) => console.error('[home] resolveRouteWorkout (safety-net slot) failed', error));
+    }
+  }, [healthConnected]);
 
   useEffect(() => {
     if (!HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED) return;
@@ -1678,7 +1699,18 @@ export default function HomePage() {
         location: null,
         surface: 'home',
         date: new Date(selectedDate + 'T00:00:00'),
+        healthConnected,
       });
+      // Real-steps-connect plan (02.09.2026, Part 3): the upgraded safety-net slot
+      // (PreWorkoutCardRenderer.tsx) shows a real walking route once resolveHomeTier2 caches
+      // one under this suggestion's own id — same deep-link Part 2/StatsOverview's rest-day
+      // card already use, not a new hand-off. `location:null` above doesn't affect
+      // stepsRemaining (buildStepContext ignores location entirely) so this is still the real
+      // number, healthConnected-aware.
+      if (suggestion.generatorId === 'safety-net' && getCachedRoute(suggestion.id)) {
+        router.push(`/map?openRun=walking&targetSteps=${context.stepsRemaining}`);
+        return;
+      }
       const workout = await suggestionToHomeGeneratedWorkout(context, suggestion);
       // No real GeneratedWorkout to preview (e.g. safety-net/route, which have no Tier-2
       // resolver yet) — same documented degrade pick-post-workout-suggestion.ts already
@@ -1753,7 +1785,7 @@ export default function HomePage() {
     } finally {
       setStartingPreWorkoutSuggestionId(null);
     }
-  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate]);
+  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate, healthConnected, router]);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)
@@ -2846,6 +2878,8 @@ export default function HomePage() {
                           workoutLocation={swappedWorkoutById[s.id]?.executionLocation ?? carouselSeedLocation}
                           programIconKey={carouselProgramIconKey}
                           overrideWorkout={swappedWorkoutById[s.id]}
+                          healthConnected={healthConnected}
+                          onConnectSteps={triggerHealthPermission}
                         />
                       )}
                     />
