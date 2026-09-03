@@ -31,6 +31,7 @@ import {
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { useUserStore } from '@/features/user';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
+import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -488,7 +489,13 @@ export default function RollingAgenda({
         // this badge has never actually rendered). Once true, computes the
         // real week via the canonical calculateCurrentWeek(startDate, asOfDate)
         // for real, using `sunday` (this week-group's Sunday) as asOfDate.
-        const weekNumber = resolveRunningCurrentWeek(programStart, null, sunday) ?? null;
+        //
+        // isDateWithinRunningPlan checked FIRST (02.09.2026 fix) — same clamp
+        // issue as AgendaDayCard/TrainingPlannerOverlay: a week-group entirely
+        // before the program's real start would otherwise still label "שבוע 1".
+        const weekNumber = (programStart && !isDateWithinRunningPlan(programStart, sunday))
+          ? null
+          : (resolveRunningCurrentWeek(programStart, null, sunday) ?? null);
 
         map.set(sundayISO, {
           weekSunday:    sundayISO,

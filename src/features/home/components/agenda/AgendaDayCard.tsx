@@ -22,6 +22,7 @@ import { WalkingIcon, RunIcon, getProgramIcon, resolveIconKey } from '@/features
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
 import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
+import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
 import { hapticLight } from '@/lib/haptics';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED, AGENDA_HYBRID_DAY_DISPLAY_ENABLED } from '@/config/feature-flags';
@@ -341,6 +342,13 @@ function resolveRunningEntry(
   // whenever programStartDate is present (falling back to the stored
   // `currentWeek` only in the same rare case as before — startDate itself
   // missing), so this is a pure de-duplication refactor with no behavior change.
+  //
+  // isDateWithinRunningPlan checked FIRST (02.09.2026 fix) — calculateCurrentWeek's
+  // own Math.max(1,...) clamp would otherwise report week 1 for a rendered
+  // day BEFORE the program started, identical to the real week 1, showing
+  // phantom pre-registration workouts. `d` (the rendered day) is what gets
+  // checked, not "today" — this site renders arbitrary past/future days.
+  if (programStartDate && !isDateWithinRunningPlan(programStartDate, d)) return null;
   const weekNum = programStartDate
     ? calculateCurrentWeek(programStartDate, d)
     : currentWeek;

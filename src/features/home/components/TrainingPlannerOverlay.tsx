@@ -22,6 +22,7 @@ import AddWorkoutModal from './AddWorkoutModal';
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { useUserStore } from '@/features/user';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
+import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -147,8 +148,14 @@ export default function TrainingPlannerOverlay({
   // has never actually rendered). Once true, computes the real week via the
   // canonical calculateCurrentWeek(startDate, asOfDate), asOfDate being the
   // navigated week's Sunday (`weekStart`), not necessarily today.
+  //
+  // isDateWithinRunningPlan checked FIRST (02.09.2026 fix) — a navigated
+  // week entirely before the program's real start would otherwise still
+  // label as "שבוע 1" via calculateCurrentWeek's clamp, same as every other
+  // pre-start week — three different calendar ranges all reading "week 1".
   const weekNumber = useMemo((): number | null => {
     const sunday = new Date(weekStart + 'T00:00:00');
+    if (programStartDate && !isDateWithinRunningPlan(programStartDate, sunday)) return null;
     return resolveRunningCurrentWeek(programStartDate, null, sunday) ?? null;
   }, [weekStart, programStartDate]);
 

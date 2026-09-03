@@ -39,6 +39,25 @@ export type AlignmentAction =
  * date to ask "what week does THIS calendar day fall in" instead of "what
  * week is it right now" — e.g. resolving the week for an arbitrary rendered
  * agenda day rather than for today.
+ *
+ * ⚠️ This function actually answers two different questions with one
+ * number: "which week" AND "is asOfDate even inside the plan at all."
+ * `Math.max(1, ...)` below folds them together — any asOfDate before
+ * `startDate` reports week 1, indistinguishable from the real week 1
+ * (found 02.09.2026: a user registering mid-week saw days from BEFORE
+ * registration rendered as real, missed week-1 workouts, because the
+ * calendar view trusted this return value alone). Deliberately NOT fixed
+ * here — every write-site (markSessionComplete/rollBackOneWeek below) and
+ * resolveBuildStartDate (plan-generator.service.ts, the schedule-builder
+ * drawer's own foundation) rely on this never returning below 1. Any
+ * caller that can be asked about a date that might precede `startDate`
+ * (i.e. passes an explicit `asOfDate`, not "today") must check
+ * `isDateWithinRunningPlan` (src/lib/running-plan-date-range.ts) FIRST and
+ * skip calling this at all when it's false — see AgendaDayCard.tsx,
+ * TrainingPlannerOverlay.tsx, RollingAgenda.tsx for the pattern. A caller
+ * that only ever asks about "today" (no explicit asOfDate) is safe as-is:
+ * today is never before startDate in any real scenario, so the clamp
+ * never actually fires for it.
  */
 export function calculateCurrentWeek(startDate: Date | string | number, asOfDate?: Date): number {
   const start = new Date(startDate);
