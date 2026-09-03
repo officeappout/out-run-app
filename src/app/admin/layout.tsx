@@ -47,6 +47,7 @@ import {
     Lightbulb,
     LineChart,
     Wallet,
+    SearchX,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -91,7 +92,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
     const sectionPaths: Record<SectionId, string[]> = {
         strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap'],
         crm: ['/admin/authorities', '/admin/organizations', '/admin/admin-directory'],
-        marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
+        marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
         product: ['/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all'],
         dev: [
             '/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs',
@@ -505,7 +506,7 @@ function AdminLayoutInner({
                     // ── New 5-centre IDs ──────────────────────────────────
                     strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap'],
                     crm:      ['/admin/authorities', '/admin/organizations', '/admin/admin-directory'],
-                    marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
+                    marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
                     product:  ['/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all'],
                     dev:      ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed', '/admin/schools', '/admin/running', '/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/access-codes'],
                     finance: ['/admin/finance'],
@@ -517,7 +518,7 @@ function AdminLayoutInner({
                     platform:  ['/admin/organizations', '/admin/admin-directory', '/admin/access-codes'],
                     appCore:   ['/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs', '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/questionnaire', '/admin/visual-assessment', '/admin/assessment-rules', '/admin/program-thresholds', '/admin/demo-seed'],
                     running:   ['/admin/running'],
-                    production: ['/admin/content-matrix', '/admin/content-status', '/admin/media-library'],
+                    production: ['/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library'],
                     brandComm: ['/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links'],
                     system:    ['/admin/admins-management', '/admin/users', '/admin/audit-logs', '/admin/system-settings', '/admin/analytics', '/admin/users/all', '/admin/statistics', '/admin/insights'],
                 };
@@ -814,6 +815,7 @@ function AdminLayoutInner({
                                             <SidebarLink href="/admin/marketing-hub" icon={LayoutGrid} label="תור תוכן" />
                                             <SidebarLink href="/admin/links" icon={Link2} label="מרכז קישורים שיווקיים" />
                                             <SidebarLink href="/admin/content-matrix" icon={Video} label="ניהול ימי צילום" />
+                                            <SidebarLink href="/admin/unreachable-exercises" icon={SearchX} label="תרגילים לא נשלפים" />
                                             <SidebarLink href="/admin/media-library" icon={LayoutGrid} label="מאגר מדיה" />
                                             <SidebarLink href="/admin/messages" icon={MessageCircle} label="תקשורת חכמה" />
                                             <SidebarLink href="/admin/workout-settings" icon={FileText} label="שפה ותיאורי אימונים" />
