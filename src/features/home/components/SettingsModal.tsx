@@ -1136,7 +1136,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+            // z-[101], not z-50: BottomNavbar is also z-50 (fixed, mounted
+            // globally in ClientLayout) and — since equal z-index ties
+            // resolve by DOM order — was painting on top of this entire
+            // modal, covering the bottom of every nested screen including
+            // PersonaQuestionsDrawer's finish button (David, production
+            // test 03.09.2026). z-[101] matches the table's own precedent
+            // for full-screen sheets that also need to clear OfflineBanner
+            // (z-[100], fixed bottom-0, same ClientLayout).
+            className="fixed inset-0 z-[101] flex items-end justify-center bg-black/50 backdrop-blur-sm"
           >
             <motion.div
               key="settings-sheet"

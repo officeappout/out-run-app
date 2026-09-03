@@ -49,7 +49,7 @@ interface PersonaStepProps {
 }
 
 // Lifestyle persona options with gender-specific labels
-interface LifestyleOption {
+export interface LifestyleOption {
   id: string;
   labelHeMale: string;
   labelHeFemale: string;
@@ -61,7 +61,13 @@ interface LifestyleOption {
   color: string;
 }
 
-const LIFESTYLE_OPTIONS: LifestyleOption[] = [
+/**
+ * The single source of the persona emoji + brand color shown on these
+ * onboarding cards. Exported so any other surface showing the same
+ * personas (e.g. SettingsModal's "הפרסונות שלי" add-picker) uses the exact
+ * same assets via this array, not a re-typed copy that can drift.
+ */
+export const LIFESTYLE_OPTIONS: LifestyleOption[] = [
   {
     id: 'parent',
     labelHeMale: 'אבא',
@@ -132,6 +138,18 @@ const LIFESTYLE_OPTIONS: LifestyleOption[] = [
     color: '#DC2626',
   },
 ];
+
+/** Same emoji-selection rule as this screen's own gender toggle — exported
+ *  so other surfaces picking an emoji from LIFESTYLE_OPTIONS resolve it
+ *  identically instead of re-implementing the male/female fallback. */
+export function resolvePersonaEmoji(
+  option: LifestyleOption,
+  gender?: 'male' | 'female' | 'other',
+): string {
+  if (gender === 'female' && option.emojiFemale) return option.emojiFemale;
+  if (gender === 'male' && option.emojiMale) return option.emojiMale;
+  return option.emoji;
+}
 
 // Goal options - Short Title (for chips) and Long Description (for Mad-libs)
 interface GoalOption {
@@ -267,11 +285,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   };
   
   // Get emoji based on gender
-  const getPersonaEmoji = (option: LifestyleOption): string => {
-    if (userGender === 'female' && option.emojiFemale) return option.emojiFemale;
-    if (userGender === 'male' && option.emojiMale) return option.emojiMale;
-    return option.emoji;
-  };
+  const getPersonaEmoji = (option: LifestyleOption): string => resolvePersonaEmoji(option, userGender);
 
   // Collect all lifestyle tags
   const collectAllTags = (personaIds: string[], goalIds: string[]): string[] => {
