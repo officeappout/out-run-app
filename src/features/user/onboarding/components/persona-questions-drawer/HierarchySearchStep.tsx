@@ -146,6 +146,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
   return (
     <div className="px-5 py-4 flex flex-col h-full" dir="rtl">
       <h3 className="text-base font-bold text-slate-900 mb-1">{config.label}</h3>
+      {config.helperText && <p className="text-xs text-slate-400 mb-3">{config.helperText}</p>}
       {breadcrumb.length > 0 && (
         <button
           type="button"
