@@ -288,7 +288,16 @@ async function fetchOverpassOnce(
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      // Overpass (at least overpass-api.de) returns 406 Not Acceptable for
+      // requests with no identifiable User-Agent — confirmed by direct
+      // reproduction, not assumed (a request identical in every other way
+      // succeeds once this header is present). Same convention already used
+      // by geo-discovery-routes.ts / climb-segments-tlv.ts / climb-layer-
+      // tlv.ts / write-climb-segments-tlv.ts's own Overpass calls.
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'OUT/1.0 (office@appout.co.il)',
+      },
       body,
       signal: controller.signal,
     });
