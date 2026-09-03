@@ -9,6 +9,7 @@ import type { PersonaId } from '@/types/persona.types';
 import { PERSONA_QUESTIONS } from '@/types/persona-question.types';
 import { savePersonaAnswers } from '@/features/user/identity/services/persona-answers.service';
 import { useResolvedPersonaSummary } from '@/features/user/identity/hooks/useResolvedPersonaSummary';
+import { useVisualViewportBounds } from '@/hooks/useVisualViewportBounds';
 import ChoiceStep from './persona-questions-drawer/ChoiceStep';
 import HierarchySearchStep, { type HierarchySearchValue } from './persona-questions-drawer/HierarchySearchStep';
 
@@ -67,6 +68,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
   const { profile } = useUserStore();
   const personaEntry = profile?.personas?.find((p) => p.id === personaId);
   const resolvedSummary = useResolvedPersonaSummary(uid, personaEntry);
+  const viewportBounds = useVisualViewportBounds();
 
   const [step, setStep] = useState(0);
   const prefilledRef = useRef(false);
@@ -134,7 +136,17 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
   if (!isOpen || questions.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+    <div
+      className="fixed left-0 right-0 z-[100] flex flex-col justify-end"
+      // Positioned to the VISIBLE viewport, not inset-0's full layout
+      // viewport: on iOS, the keyboard covers the bottom of the screen
+      // without shrinking window.innerHeight/vh, so a plain inset-0 sheet
+      // stays anchored behind it — the search input and results in
+      // HierarchySearchStep were unreachable while typing (David,
+      // production test 03.09.2026). Falls back to the full viewport
+      // before the first visualViewport reading arrives.
+      style={{ top: viewportBounds?.top ?? 0, height: viewportBounds?.height ?? '100dvh' }}
+    >
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -148,7 +160,10 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="relative bg-white rounded-t-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden"
+        // max-h-[92%] of the (possibly keyboard-shrunk) parent, not
+        // max-h-[92vh] — vh always resolves against the full layout
+        // viewport, ignoring the parent's own repositioned/shrunk height.
+        className="relative bg-white rounded-t-3xl shadow-2xl max-h-[92%] flex flex-col overflow-hidden"
         dir="rtl"
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3">

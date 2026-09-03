@@ -7,11 +7,14 @@ import { useUserStore } from '@/features/user';
 import type { PersonaId, AnyPersonaEntry } from '@/types/persona.types';
 import { PERSONA_QUESTIONS } from '@/types/persona-question.types';
 import { LIFESTYLE_LABELS } from '@/features/workout-engine/logic/contextual-engine.types';
+import { LIFESTYLE_OPTIONS, resolvePersonaEmoji } from '@/features/user/onboarding/components/steps/PersonaStep';
 import { addPersona, removePersona } from '@/features/user/identity/services/persona-answers.service';
 import { useResolvedPersonaSummary } from '@/features/user/identity/hooks/useResolvedPersonaSummary';
 import PersonaQuestionsDrawer from '@/features/user/onboarding/components/PersonaQuestionsDrawer';
+import { useToast } from '@/components/ui/Toast';
 
 const ALL_PERSONA_IDS = Object.keys(LIFESTYLE_LABELS) as PersonaId[];
+const LIFESTYLE_OPTION_BY_ID = new Map(LIFESTYLE_OPTIONS.map((o) => [o.id, o]));
 
 function PersonaRow({
   entry,
@@ -86,6 +89,7 @@ function PersonaRow({
  */
 export default function MyPersonasSection() {
   const { profile, refreshProfile } = useUserStore();
+  const { showToast } = useToast();
   const [editingPersonaId, setEditingPersonaId] = useState<PersonaId | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<PersonaId | null>(null);
   const [showAddPicker, setShowAddPicker] = useState(false);
@@ -106,6 +110,12 @@ export default function MyPersonasSection() {
       await addPersona(uid, personaId);
       await refreshProfile();
       setShowAddPicker(false);
+      // David's production test (03.09.2026): picking a persona gave no
+      // signal it was received — the picker just closed, and the new row
+      // silently appeared behind it. A toast always fires here so the
+      // add is confirmed even when there's no follow-up drawer to make it
+      // obvious (e.g. "אבא", no configured questions).
+      showToast('success', `${LIFESTYLE_LABELS[personaId]} נוספה`);
       // Same UX as onboarding's PersonaStep: a newly-added persona with
       // configured questions opens its drawer immediately, not a second,
       // separate flow.
@@ -184,17 +194,24 @@ export default function MyPersonasSection() {
           >
             <h3 className="text-base font-bold text-gray-900 mb-4">הוסף פרסונה</h3>
             <div className="flex flex-col gap-2">
-              {addableIds.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => handleAdd(id)}
-                  className="px-4 py-3 rounded-xl border-2 border-gray-200 text-right text-sm font-semibold text-gray-900 active:scale-[0.98] transition-transform disabled:opacity-50"
-                >
-                  {LIFESTYLE_LABELS[id]}
-                </button>
-              ))}
+              {addableIds.map((id) => {
+                const option = LIFESTYLE_OPTION_BY_ID.get(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => handleAdd(id)}
+                    className="flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 border-gray-200 text-right text-sm font-semibold text-gray-900 active:scale-[0.98] transition-transform disabled:opacity-50"
+                  >
+                    {/* Same emoji assets as the onboarding persona cards
+                        (PersonaStep.tsx's LIFESTYLE_OPTIONS) — not a new
+                        icon set, per David's 03.09.2026 note. */}
+                    {option && <span className="text-xl flex-shrink-0">{resolvePersonaEmoji(option, profile?.core?.gender)}</span>}
+                    <span>{LIFESTYLE_LABELS[id]}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
