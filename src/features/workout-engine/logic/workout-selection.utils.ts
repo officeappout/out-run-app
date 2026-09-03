@@ -259,8 +259,10 @@ export function applyDifficultyFilter(
   exercises: ScoredExercise[],
   context: WorkoutGenerationContext,
   _difficulty: DifficultyLevel,
-): (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[] {
+  pipelineLog?: string[],
+): (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number; domainLevelAssumed?: boolean })[] {
   const globalLevel = context.userLevel;
+  let unassessedFallbackCount = 0;
 
   const domainLevelMap = new Map<string, number>();
   if (context.domainBudgets?.length) {
@@ -285,20 +287,33 @@ export function applyDifficultyFilter(
     ?? (context.requiredDomains as string[] | undefined)
     ?? [];
 
-  return exercises.map((ex) => {
+  const result = exercises.map((ex) => {
     // Domain-aware: resolve exercise level from the targetPrograms entry
     // matching the active workout domains, not blindly from [0].
     // `context.activeProgramId` is forwarded as the primary-program tiebreaker
     // so multi-assigned exercises (e.g. {push, L5} + {planche, L7}) resolve
     // to the skill-level entry when the user is training that skill.
-    const exerciseLevel =
-      (ex.programLevel
-        ?? resolveExerciseLevelForDomains(
-          ex.exercise,
-          activeDomainIds,
-          context.activeProgramId,
-        ).level)
-      || globalLevel;
+    // absent=absent (a0a2ab6f family — see rawDomainLevel below for the main
+    // instance of this bug; this is the sibling occurrence for the EXERCISE's
+    // own level rather than the user's domain level). resolveExerciseLevelForDomains
+    // already floors at `recommendedLevel || 1`, so `resolvedExerciseLevel` is
+    // falsy only for a genuinely degenerate exercise doc — not a signal to
+    // borrow the user's UNRELATED global XP level (scale G, closed 1-10) as a
+    // stand-in for this exercise's own domain-scale level (scale A, open-ended,
+    // reaches L22+). Same-scale L1 floor instead, tracked for the pipeline log.
+    const resolvedExerciseLevel =
+      ex.programLevel
+      ?? resolveExerciseLevelForDomains(
+        ex.exercise,
+        activeDomainIds,
+        context.activeProgramId,
+      ).level;
+    let exerciseLevelWasAssumed = false;
+    if (!resolvedExerciseLevel) {
+      exerciseLevelWasAssumed = true;
+      unassessedFallbackCount++;
+    }
+    const exerciseLevel = resolvedExerciseLevel || 1;
 
     let rawDomainLevel: number | null = null;
     const tps = ex.exercise.targetPrograms;
@@ -373,27 +388,39 @@ export function applyDifficultyFilter(
       }
     }
 
-    // Final fallback to globalLevel only if no domain-specific level was found
-    if (rawDomainLevel === null) rawDomainLevel = globalLevel;
-
-    // absent=absent follow-up (09.08.2026, same bug class as a0a2ab6f — that commit already
-    // fixed this file's selectExercisesWithDomainQuotas but missed this sibling function):
-    // REMOVED the "Safety fallback" that overrode any domainLevel<=1 with globalLevel, on the
-    // assumption 1 was a Firestore/`|| 1` default. That assumption no longer holds — since
-    // a0a2ab6f, domainLevelMap's two sources (context.domainBudgets via buildAssessedDomainBudgets,
-    // context.userProgramLevels via buildUserProgramLevels) both leave an unassessed domain
-    // ABSENT (no map key) instead of inventing L1. By this point rawDomainLevel is either a real
-    // map hit (a genuine assessed level, possibly a real 1) or globalLevel itself (line 377, when
-    // no domain-specific level existed at all — and then rawDomainLevel<=1 would require
-    // globalLevel<=1 too, so the old override never actually fired in that branch anyway). A real
-    // domain-specific L1 (e.g. a genuine legs/core beginner inside an otherwise elite profile) was
-    // being silently promoted to the user's GLOBAL level for difficulty filtering — the exact
-    // "Tier Paradox" this fallback was meant to prevent, now happening in the opposite direction.
+    // absent=absent (03.09.2026, same bug class as a0a2ab6f — that commit fixed this file's
+    // selectExercisesWithDomainQuotas but explicitly missed this sibling function; a1acb366
+    // (09.08.2026) removed a related "Safety fallback" further down but left THIS line —
+    // `rawDomainLevel = globalLevel` — in place, and its own comment even names it as the
+    // one remaining gap: 01-MAP.md §8 confirms scale A (per-domain level, open-ended, real
+    // seed data to L22) and scale G (progression.globalLevel, closed 1-10, derived purely
+    // from lifetime XP) have NO mapping between them anywhere in the codebase — a user with
+    // globalLevel 9 who never assessed `legs` was being treated as a legs-L9 athlete here.
+    // Fix: when no domain-specific level exists, use the SAME same-scale L1 floor
+    // resolveExerciseLevelForDomains already uses for an unlevel exercise (`recommendedLevel
+    // || 1`) — never the cross-scale globalLevel substitution. Tracked, not silent.
+    let domainLevelWasAssumed = false;
+    if (rawDomainLevel === null) {
+      rawDomainLevel = 1;
+      domainLevelWasAssumed = true;
+      unassessedFallbackCount++;
+    }
     const domainUserLevel = rawDomainLevel;
+    const domainLevelAssumed = exerciseLevelWasAssumed || domainLevelWasAssumed;
 
     const levelDiff = exerciseLevel - domainUserLevel;
-    return { ...ex, isOverLevel: levelDiff > 0, levelDiff };
+    return { ...ex, isOverLevel: levelDiff > 0, levelDiff, domainLevelAssumed };
   });
+
+  if (unassessedFallbackCount > 0) {
+    const note =
+      `applyDifficultyFilter: ${unassessedFallbackCount} exercise-level resolution(s) had no ` +
+      `assessed domain level — used explicit L1 floor, NOT globalLevel(L${globalLevel})`;
+    console.warn(`[LevelSync] ${note}`);
+    pipelineLog?.push(note);
+  }
+
+  return result;
 }
 
 /**
