@@ -529,7 +529,7 @@ export class WorkoutGenerator {
     const synergyExercises = this.applySynergyBonuses(jitteredExercises, context);
 
     // Step 2: Difficulty filter
-    const annotatedExercises = applyDifficultyFilter(synergyExercises, context, difficulty);
+    const annotatedExercises = applyDifficultyFilter(synergyExercises, context, difficulty, pipelineLog);
     pipelineLog.push(`after_difficulty_filter: ${annotatedExercises.length}`);
 
     // ── Bolt-2 Narrow Level Ceiling ───────────────────────────────────────
