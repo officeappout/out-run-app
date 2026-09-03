@@ -1,6 +1,6 @@
 /**
  * Persona follow-up-question taxonomy (Phase 3b — the generic drawer).
- * See docs/research/military-persona-unified-architecture.md §3ב.
+ * See docs/research/military-persona-unified-architecture.md §3ב, §5.
  *
  * The reason a shared mechanism matters at all isn't the mechanism itself —
  * it's the promise that a future persona needing a follow-up question can
@@ -34,6 +34,9 @@ export interface ChoiceQuestionConfig {
   /** Which key in the persona's answers object this question populates. */
   key: string;
   label: string;
+  /** "Why we ask" copy shown under the question — see §5 of the research
+   *  doc's approved wording. Optional so a future question can omit it. */
+  helperText?: string;
   options: { value: string; label: string }[];
   skippable: boolean;
 }
@@ -48,6 +51,11 @@ export interface HierarchySearchQuestionConfig {
    */
   key: string;
   label: string;
+  /** "Why we ask" copy — see §5 of the research doc's approved wording.
+   *  For military's unit question this is load-bearing, not decorative:
+   *  it must state PLAINLY that unit leagues (Phase 6) will show this to
+   *  fellow unit members, so nothing said today is contradicted later. */
+  helperText?: string;
   /** Fixed today; kept as a field so a future persona can point at a
    *  differently-shaped directory collection without a new question type. */
   directoryCollection: 'unitDirectory';
@@ -76,6 +84,7 @@ export const PERSONA_QUESTIONS: Partial<Record<
       type: 'choice',
       key: 'status',
       label: 'מה הסטטוס שלך?',
+      helperText: 'עוזר לנו להתאים לך אימונים ותוכן שמתאימים לשירות שלך.',
       skippable: true,
       options: [
         { value: 'regular', label: 'סדיר' },
@@ -87,9 +96,35 @@ export const PERSONA_QUESTIONS: Partial<Record<
       type: 'hierarchy_search',
       key: 'unit',
       label: 'באיזו יחידה?',
+      helperText: 'היחידה לא מוצגת בפרופיל שלך ולא גלויה למשתמשים אחרים באפליקציה. בהמשך תוכל להצטרף לקבוצות וללִיגות של היחידה — ושם חברי היחידה יראו אותך.',
       directoryCollection: 'unitDirectory',
       softFilterFromKey: 'status',
       skippable: true,
     },
   ],
+};
+
+/**
+ * Persona → sensitive-storage-collection map (Phase 5, 03.09.2026 review —
+ * see docs/research/military-persona-unified-architecture.md §5 part א).
+ *
+ * Sensitivity is a property of the PERSONA as a whole, not of one arbitrary
+ * question inside it — office_worker's officeLocation (a `location`-type
+ * question, still out of scope) would carry the same exposure risk, and a
+ * future `choice` question could too. Putting this on ONE question's config
+ * (the first design here) would mislead a reader into thinking only that
+ * question's answer lives there, when in fact the WHOLE persona's answers
+ * route through this collection instead of `personas[].answers`.
+ *
+ * undefined (the common case) = safe to store the persona's answers
+ * directly in `personas[].answers` — that field is exposed to any
+ * authenticated user for any `core.discoverable` profile (see
+ * firestore.rules' `military_declarations` comment for the full audit), so
+ * only list a persona here when that exposure is unacceptable for it.
+ */
+export const PERSONA_SENSITIVE_STORAGE: Partial<Record<
+  import('./persona.types').PersonaId,
+  string
+>> = {
+  military: 'military_declarations',
 };

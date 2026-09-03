@@ -4,10 +4,11 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { auth } from '@/lib/firebase';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import type { PersonaId } from '@/types/persona.types';
 import { PERSONA_QUESTIONS } from '@/types/persona-question.types';
 import { savePersonaAnswers } from '@/features/user/identity/services/persona-answers.service';
-import { useResolvedMilitaryDeclaration } from '@/features/user/identity/hooks/useResolvedMilitaryDeclaration';
+import { useResolvedPersonaSummary } from '@/features/user/identity/hooks/useResolvedPersonaSummary';
 import ChoiceStep from './persona-questions-drawer/ChoiceStep';
 import HierarchySearchStep, { type HierarchySearchValue } from './persona-questions-drawer/HierarchySearchStep';
 
@@ -16,7 +17,10 @@ interface PersonaQuestionsDrawerProps {
   isOpen: boolean;
   /** Fires after the answers (partial or complete) are saved — on finishing
    *  the last question, on skip-to-end, or on closing mid-sequence. The
-   *  drawer owns the write; hosts never need the answers payload itself. */
+   *  drawer owns the write; hosts never need the answers payload itself.
+   *  Callers displaying a summary elsewhere (Phase 5's "הפרסונות שלי") must
+   *  bump their OWN refresh trigger here — this drawer resolves once per
+   *  open, it doesn't push updates back out. */
   onComplete: () => void;
 }
 
@@ -48,56 +52,45 @@ const slideVariants = {
  */
 export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }: PersonaQuestionsDrawerProps) {
   const questions = useMemo(() => PERSONA_QUESTIONS[personaId] ?? [], [personaId]);
-  const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const savedRef = useRef(false);
 
-  // Re-opening the drawer for a persona already declared (deselect+reselect,
-  // or a future re-edit entry point) should show what was already answered,
-  // not start blank. Only military has a resolvable declaration today
-  // (military_declarations/{uid}) — the hook itself is a no-op when uid is
-  // undefined. `orgId`/`unitId` are resolved LIVE against unitDirectory
-  // (never cached at write time) so a deleted/restructured unit surfaces as
-  // "no longer exists" instead of silently pre-selecting a dead reference.
+  // Re-opening the drawer for a persona already answered (deselect+
+  // reselect, or Phase 5's "הפרסונות שלי" edit action) should show what
+  // was already answered and jump straight to the first gap — not restart
+  // from question 0 (Phase 5 review, 03.09.2026: this is what makes the
+  // "config only" promise hold when a persona's question LIST grows later
+  // too, not just when it's first added). Generic across every persona and
+  // question type — see useResolvedPersonaSummary's own header comment.
   const uid = auth.currentUser?.uid;
-  const resolvedDeclaration = useResolvedMilitaryDeclaration(personaId === 'military' ? uid : undefined);
+  const { profile } = useUserStore();
+  const personaEntry = profile?.personas?.find((p) => p.id === personaId);
+  const resolvedSummary = useResolvedPersonaSummary(uid, personaEntry);
+
+  const [step, setStep] = useState(0);
   const prefilledRef = useRef(false);
-  if (isOpen && !prefilledRef.current && !resolvedDeclaration.loading) {
+  if (isOpen && !prefilledRef.current && !resolvedSummary.loading) {
     prefilledRef.current = true;
-    if (resolvedDeclaration.raw) {
-      setAnswers((prev) => ({
-        ...prev,
-        ...(resolvedDeclaration.raw!.status ? { status: resolvedDeclaration.raw!.status } : {}),
-        // Only carry the unit/org selection forward if it still resolves —
-        // pre-filling a stale orgId/unitId would silently point the next
-        // save at a unit that no longer exists.
-        ...(resolvedDeclaration.resolved
-          ? {
-              orgId: resolvedDeclaration.raw!.orgId,
-              unitId: resolvedDeclaration.raw!.unitId,
-              unitPathIds: resolvedDeclaration.raw!.unitPathIds,
-            }
-          : {}),
-      }));
-    }
+    setAnswers((prev) => ({ ...prev, ...resolvedSummary.rawAnswers }));
+    setStep(Math.max(0, resolvedSummary.firstUnansweredIndex));
   }
   if (!isOpen && prefilledRef.current) {
     prefilledRef.current = false;
   }
-  const showStaleUnitNotice = !resolvedDeclaration.loading
-    && !!resolvedDeclaration.raw?.orgId
-    && !resolvedDeclaration.resolved;
+  // resolved starts true and only flips false when a real prior org/unit
+  // reference existed but no longer resolves — distinct from "never answered".
+  const showStaleUnitNotice = !resolvedSummary.loading && !resolvedSummary.resolved;
 
   const currentQuestion = questions[step];
 
   const finishAndSave = useCallback(async (finalAnswers: Record<string, unknown>) => {
     if (savedRef.current) return; // closing (X/backdrop) after an explicit finish must not double-save
     savedRef.current = true;
-    const uid = auth.currentUser?.uid;
-    if (uid) {
+    const currentUid = auth.currentUser?.uid;
+    if (currentUid) {
       try {
-        await savePersonaAnswers(uid, personaId, finalAnswers as never);
+        await savePersonaAnswers(currentUid, personaId, finalAnswers as never);
       } catch (error) {
         console.error('[PersonaQuestionsDrawer] savePersonaAnswers failed:', error);
       }
@@ -167,6 +160,8 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
             <X size={18} />
           </button>
         </div>
+
+        <p className="px-5 pb-3 text-xs text-slate-400" dir="rtl">הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.</p>
 
         <div className="flex items-center justify-center gap-2 pb-4">
           {questions.map((q, i) => (

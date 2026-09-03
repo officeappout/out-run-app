@@ -19,8 +19,9 @@ interface ChoiceStepProps {
 export default function ChoiceStep({ config, value, onSelect }: ChoiceStepProps) {
   return (
     <div className="px-5 py-4" dir="rtl">
-      <h3 className="text-base font-bold text-slate-900 mb-4">{config.label}</h3>
-      <div className="flex flex-col gap-2">
+      <h3 className="text-base font-bold text-slate-900 mb-1">{config.label}</h3>
+      {config.helperText && <p className="text-xs text-slate-400 mb-3">{config.helperText}</p>}
+      <div className="flex flex-col gap-2 mt-3">
         {config.options.map((option) => {
           const selected = value === option.value;
           return (

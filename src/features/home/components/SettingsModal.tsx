@@ -39,6 +39,7 @@ import {
 } from '@/features/notifications/services/notification-prefs.service';
 import { initPushNotifications } from '@/lib/native/push';
 import { hapticSelection } from '@/lib/haptics';
+import MyPersonasSection from './settings/MyPersonasSection';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES & CONSTANTS
@@ -1349,6 +1350,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     sublabel="שם, תאריך לידה, משקל"
                     onClick={openPersonalEdit}
                   />
+                  <MyPersonasSection />
                   <SettingsRow
                     icon={<Lock size={18} className="text-purple-600" />}
                     iconBg="bg-purple-50"

@@ -24,6 +24,7 @@ const state = vi.hoisted(() => ({
 
 const userUpdateMock = vi.hoisted(() => vi.fn());
 const militarySetMock = vi.hoisted(() => vi.fn());
+const deleteDocMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/firebase', () => ({
   db: {},
@@ -32,6 +33,10 @@ vi.mock('@/lib/firebase', () => ({
 vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, col: string, id: string) => ({ col, id }),
   Timestamp: { now: () => 'NOW_TS' },
+  deleteDoc: async (ref: { col: string; id: string }) => {
+    deleteDocMock(ref);
+    if (ref.col === 'military_declarations') state.MILITARY_DOC = null;
+  },
   runTransaction: async (_db: unknown, callback: (tx: unknown) => unknown) => {
     const tx = {
       get: async (ref: { col: string; id: string }) => {
@@ -55,13 +60,14 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-import { savePersonaAnswers } from '../persona-answers.service';
+import { savePersonaAnswers, addPersona, removePersona } from '../persona-answers.service';
 
 beforeEach(() => {
   state.USER_DOC = { personas: [] };
   state.MILITARY_DOC = null;
   userUpdateMock.mockClear();
   militarySetMock.mockClear();
+  deleteDocMock.mockClear();
 });
 
 describe('savePersonaAnswers — military routes to military_declarations, never personas[].answers', () => {
@@ -117,5 +123,43 @@ describe('savePersonaAnswers — military routes to military_declarations, never
 
     expect((state.USER_DOC?.personas as Array<{ id: string }>).map((p) => p.id).sort())
       .toEqual(['military', 'parent']);
+  });
+});
+
+describe('addPersona / removePersona — Phase 5 "הפרסונות שלי" writers, same file, no new write path', () => {
+  it('addPersona: adds a new persona with empty answers', async () => {
+    await addPersona('uid1', 'parent');
+    const [, userData] = userUpdateMock.mock.calls[0] as [unknown, { personas: Array<{ id: string; answers: unknown }> }];
+    expect(userData.personas).toEqual([{ id: 'parent', answers: {}, updatedAt: 'NOW_TS' }]);
+  });
+
+  it('addPersona: no-op if the persona already exists (never duplicates)', async () => {
+    state.USER_DOC = { personas: [{ id: 'parent', answers: {}, updatedAt: 'OLD' }] };
+    await addPersona('uid1', 'parent');
+    expect(userUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it('removePersona: removes the persona from personas[] and keeps others', async () => {
+    state.USER_DOC = { personas: [{ id: 'parent', answers: {} }, { id: 'military', answers: {} }] };
+    await removePersona('uid1', 'parent');
+    const [, userData] = userUpdateMock.mock.calls[0] as [unknown, { personas: Array<{ id: string }> }];
+    expect(userData.personas.map((p) => p.id)).toEqual(['military']);
+  });
+
+  it('removePersona: for a persona in PERSONA_SENSITIVE_STORAGE (military), also deletes its sensitive doc', async () => {
+    state.USER_DOC = { personas: [{ id: 'military', answers: {} }] };
+    state.MILITARY_DOC = { status: 'reserve', orgId: 'brigade_1' };
+
+    await removePersona('uid1', 'military');
+
+    expect(deleteDocMock).toHaveBeenCalledTimes(1);
+    expect(deleteDocMock.mock.calls[0][0]).toMatchObject({ col: 'military_declarations', id: 'uid1' });
+    expect(state.MILITARY_DOC).toBeNull();
+  });
+
+  it('removePersona: for a non-sensitive persona, does not attempt any delete', async () => {
+    state.USER_DOC = { personas: [{ id: 'parent', answers: {} }] };
+    await removePersona('uid1', 'parent');
+    expect(deleteDocMock).not.toHaveBeenCalled();
   });
 });
