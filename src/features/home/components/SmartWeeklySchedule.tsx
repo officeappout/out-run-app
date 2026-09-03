@@ -14,7 +14,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
-import { Bed, Check, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain, Moon } from 'lucide-react';
+import { Bed, Check, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain } from 'lucide-react';
 import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
@@ -27,6 +27,7 @@ import { getWeekEntries } from '@/features/user/scheduling/services/userSchedule
 import { getSundayWeekStart, toISODate } from '@/features/user/scheduling/utils/dateUtils';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
+import { resolveTodayRunningWorkout } from '@/lib/running-today-workout';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 import { 
   ACTIVITY_COLORS, 
@@ -527,24 +528,38 @@ function RunningWorkoutCards({
 }) {
   if (entries.length === 0) return null;
 
-  // Split entries: today's workout vs the rest
-  const todayEntry = todayScheduleDay != null
-    ? entries.find((e) => e.day === todayScheduleDay && (e.status === 'pending' || !e.status))
-    : entries.find((e) => e.status === 'pending' || !e.status);
-
-  const nextUpEntry = todayEntry
-    ? null
-    : entries.find((e) => e.status === 'pending' || !e.status);
+  // Split entries: today's workout vs the rest. Decision logic lives in
+  // resolveTodayRunningWorkout (src/lib/running-today-workout.ts, pure +
+  // unit-tested — this component has no jsdom coverage) — 02.09.2026 fix:
+  // the removed else-branch here used to fall back to "first pending entry
+  // in the week" whenever todayScheduleDay was nullish, which is exactly
+  // what a real rest day looks like — so isRestDay could never become true.
+  //
+  // 02.09.2026, revised same day: on a rest day this area shows NOTHING
+  // about "today" — no title, no workout card, and (deliberately) no rest
+  // card either, even though one was briefly built here. adaptive-schedule-
+  // map.md §5 documents six already-competing missed/rest/return message
+  // systems and warns explicitly against adding a seventh; a second rest
+  // card at the top of the screen would be exactly that. The only rest-day
+  // messaging lives in the carousel below (recovery workout + videos). What
+  // stays visible here on a rest day is data, not messaging: the week/count
+  // line and the completed-workouts list. `nextUpEntry` is intentionally
+  // not consumed here anymore — see the pure function's own doc comment for
+  // why it's still returned (other callers may want it).
+  const { todayEntry, isRestDay } = resolveTodayRunningWorkout(entries, todayScheduleDay);
 
   const completedEntries = entries.filter((e) => e.status === 'completed');
   const completedCount = completedEntries.length;
-  const isRestDay = !todayEntry;
 
   return (
     <div className="mt-4 space-y-2.5" dir="rtl">
       <div className="flex items-center justify-between px-1 mb-1">
+        {/* h3 always renders (empty on a rest day) so this row always has
+            two flex children — otherwise `justify-between` collapses to a
+            single child and the counter jumps from the end edge to the
+            start edge between rest/training days. */}
         <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">
-          {isRestDay ? 'יום מנוחה' : 'האימון שלך היום'}
+          {!isRestDay && 'האימון שלך היום'}
         </h3>
         <span className="text-[11px] font-medium text-gray-400">
           שבוע {currentWeek} · {completedCount}/{entries.length}
@@ -557,33 +572,6 @@ function RunningWorkoutCards({
           entry={todayEntry}
           onCardClick={onCardClick}
         />
-      )}
-
-      {/* ── Rest Day state ── */}
-      {isRestDay && (
-        <div
-          className="rounded-2xl overflow-hidden text-right"
-          style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', background: 'white' }}
-        >
-          <div className="flex items-center gap-3 py-4 px-4">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(0,186,247,0.08)' }}
-            >
-              <Moon size={20} style={{ color: '#00BAF7' }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-900 dark:text-white">
-                היום זה להתאושש 🧘
-              </p>
-              {nextUpEntry && (
-                <p className="text-xs text-slate-400 mt-0.5">
-                  הבא: {nextUpEntry.workoutName || getCategoryLabel(nextUpEntry.category)}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
       )}
 
       {/* ── Completed this week (compact) ── */}

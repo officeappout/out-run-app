@@ -340,20 +340,38 @@ Not touched as part of commit 5 (David, 02.09.2026: stay in scope, don't open th
 
 ---
 
+## "Which workout is today" is implemented three times, independently — same bug class in all three
+
+**Opened:** 02.09.2026 · **Source:** David, during the A2 fix (finding [A2] below) — traced the same class of defect to two more components while identifying the real one.
+
+Three separate, independent implementations of "resolve today's running workout from this week's schedule entries," none aware of the other two:
+
+1. **`RunningWorkoutCards`** (`SmartWeeklySchedule.tsx`) — the one actually shown in David's screenshot. Fixed this same day: extracted to `resolveTodayRunningWorkout` (`src/lib/running-today-workout.ts`), a real fallback bug removed (see [A2] below).
+2. **`NextRunWorkoutCard.tsx:175-187`** — a *different* component with the *same* bug shape (`todayEntry ?? weekEntries.find(pending) ?? weekEntries[0]`), investigated earlier the same day, not yet fixed (David: hold until Firestore data would confirm which component was actually seen — turned out to be #1 instead, so this one is still open on its own).
+3. **`resolveRunningEntry`** (`AgendaDayCard.tsx`) — the per-calendar-day resolver used by the agenda/calendar view. Not yet audited for this specific fallback-shape bug, only for the separate `calculateCurrentWeek` clamp issue (fixed the same day, `isDateWithinRunningPlan`).
+
+**The extracted pure function (`resolveTodayRunningWorkout`, #1's fix) is the natural candidate to unify all three around** — it already answers exactly the question `NextRunWorkoutCard` and `resolveRunningEntry` each re-derive their own way. The schedule-builder drawer (Block 3) will also need this same "what's today's entry" question and should reuse it rather than writing a fourth version.
+
+**Not unified in this round** — #1 was fixed alone, scoped narrowly (David: don't touch design, don't build anything new). #2 and #3 are open, separate follow-ups.
+
+---
+
 ## Running-track device verification (02.09.2026, gate rollout) — seven findings, none fixed yet
 
 **Opened:** 02.09.2026 · **Source:** David, on-device verification of `RUNNING_ONBOARDING_GATE_ENABLED` after the full rollout — the gate itself works (blurred card → tap → LifestyleWizard → confirms → opens correctly, all four points verified). These seven are separate findings surfaced during that same pass, none of them about the gate itself. Grouped by root, not by the order they were reported.
 
-### [A] Program anchor date — one root, two symptoms
+### [A] Program anchor date — one root, two symptoms — ✅ A1 fixed, A2 turned out to be a different bug entirely
+
 Registration happened 02.09; the running plan's own week-1 anchors to 30.08 (`Sunday` of that week) — week 1 starts before the account existed.
 
-- **A1 — phantom past workouts.** Sun 30.08 and Tue 01.09 render as *missed* workouts, on days that precede the account's own existence.
-- **A2 — "today's workout" card shows the wrong day's session.** The "האימון שלך היום" home card displays Sunday 30.08's fartlek workout tagged "היום" (today), while the actual today (Wed 02.09) is empty in the plan.
+- **A1 — phantom past workouts.** Sun 30.08 and Tue 01.09 render as *missed* workouts, on days that precede the account's own existence. **✅ Fixed the same day** — root cause was `calculateCurrentWeek`'s `Math.max(1,...)` clamp (also [B]'s root); fixed via `isDateWithinRunningPlan` (`src/lib/running-plan-date-range.ts`) guarding the 3 display sites that can ask about a date other than "today" (`AgendaDayCard.tsx`, `TrainingPlannerOverlay.tsx`, `RollingAgenda.tsx`).
+- **A2 — "today's workout" card shows the wrong day's session.** Originally assumed to be `NextRunWorkoutCard.tsx` and the same root as A1 — **both wrong**, caught by David identifying the actual component from the screenshot's own strings (`grep`, not Firestore access). The real component is `RunningWorkoutCards` inside `SmartWeeklySchedule.tsx` — a completely independent implementation (see the "implemented three times" entry above) with its own, unrelated fallback bug, nothing to do with `calculateCurrentWeek`. **✅ Fixed the same day** — see that entry for the fix.
 
-**David's product decision:** the plan should start from the moment of registration. No days precede it. (Root cause + consumers + two fix approaches: separate READ-ONLY investigation, same date, not yet reported back as of this entry.)
+**David's product decision (still open, not yet acted on):** the plan should start from the moment of registration — no days should precede it. A1's fix (hiding pre-start dates from the calendar/week-label views) satisfies the *symptom*; whether the underlying `activeProgram.startDate`/week-1 anchoring itself should also change is a separate, unaddressed product question.
 
-### [B] Week label frozen — three different calendar ranges, all labeled "week 1"
-In the planner UI, three actually-different date ranges (23-29 Aug, 30 Aug-5 Sep, 6-12 Sep) all display as "שבוע 1". Possibly the same root as [A] (the calendar-week-vs-plan-week reconciliation), possibly not — flagged explicitly as unconfirmed, not to be assumed.
+### [B] Week label frozen — three different calendar ranges, all labeled "week 1" — ✅ fixed, confirmed same root as A1
+
+In the planner UI, three actually-different date ranges (23-29 Aug, 30 Aug-5 Sep, 6-12 Sep) all display as "שבוע 1". Confirmed (not assumed) same root as A1, by hand-computing `calculateCurrentWeek`'s formula against the three real Sundays — all three clamp to week 1. Fixed by the same commit as A1 (`TrainingPlannerOverlay.tsx`'s `weekNumber` now checks `isDateWithinRunningPlan` first).
 
 ### [C] Wrong icon in the planner for a running day
 A day with a running workout shows a strength/muscle icon in the large planner view, but correctly shows an orange running icon on the home-page card for the same day. Two separate icon-resolvers; one of them doesn't know about running at all.
