@@ -546,6 +546,61 @@ export function applySABASelectionBias(
 // DOMAIN QUOTA SELECTION
 // ============================================================================
 
+/**
+ * Core-slot gate (00-PLAN.md §12.3, decided after 03-LEVEL-TRIAGE.md's
+ * report). `movementGroup: 'core'` alone is not enough to fill the CORE
+ * domain slot specifically. Several exercises (the 9 human_flag "flag"
+ * exercises — דגל אנושי etc. — and "כפיפת ירך על הגבהה") carry
+ * `movementGroup: 'core'` as a secondary/anatomical descriptor but have NO
+ * `targetPrograms` entry resolving to `'core'` — their real, assessed
+ * levels live on `pull`/`push`/`human_flag`/`legs`. Without this gate,
+ * `resolveExerciseLevelForDomains` falls through to one of those OTHER
+ * entries and compares a number from an unrelated program scale against the
+ * user's core level (01-MAP.md §8 — no mapping exists between those scales).
+ *
+ * `movementGroup` itself is intentionally left untouched — it also drives
+ * Smart Swap movement-family matching and `applyPhysiologicalSort`'s
+ * ordering tier, and changing it to "fix" classification would break both.
+ * `exerciseMatchesProgram` (the canonical classifier) is likewise
+ * UNCHANGED — still used as-is for sorting/classification everywhere else.
+ * This gate is additive, scoped to `domain === 'core'` only, and applies
+ * ONLY at the point an exercise is chosen to fill the core domain slot.
+ *
+ * Dependency: this gate only works for exercises that DO have a real core
+ * level. See docs/workout-engine/03-LEVEL-TRIAGE.md Part 1b1/1b2 — the
+ * migration in scripts/audit/apply-level-triage.ts must land first, or this
+ * gate also excludes the plank family / אופניים / עליות נגיעה בבהונות
+ * בשכיבה (see docs/workout-engine/03-CHANGES.md for the dependency note).
+ */
+export function hasExplicitCoreLevel(ex: Exercise): boolean {
+  return ex.targetPrograms?.some(
+    (tp) => tp.programId === 'core' || resolveToSlug(tp.programId) === 'core',
+  ) ?? false;
+}
+
+/** Domain-match check used for CORE SLOT ENTRY specifically (not classification —
+ *  see hasExplicitCoreLevel's doc comment above for why 'core' gets extra scrutiny
+ *  here and nowhere else).
+ *
+ *  Scope note: this gates the DEDICATED per-domain pick (the guaranteed
+ *  representative for a required domain) and its rescue tiers — not the
+ *  later general backfill pass (takeFromPool / the final "any" fallback
+ *  further down this function), which was never domain-restricted for ANY
+ *  domain by design (it fills remaining session slots from the best-scoring
+ *  remaining exercises regardless of domain match, capped only by
+ *  isDomainFull's overflow check). A core-tagged-but-unleveled exercise
+ *  could in principle still appear as a backfill "bonus" pick in a very
+ *  thin pool — see core-slot-gate.test.ts's documented edge-case test. It
+ *  would not recreate the cross-scale level bug this gate exists to close,
+ *  since applyDifficultyFilter resolves such an exercise's OWN level via
+ *  its real targetPrograms entries (push/pull/human_flag) before ever
+ *  falling back to a movementGroup-based domain guess. */
+export function matchesDomainForSlot(ex: Exercise, domain: string): boolean {
+  if (!exerciseMatchesProgram(ex, domain)) return false;
+  if (domain === 'core') return hasExplicitCoreLevel(ex);
+  return true;
+}
+
 export function selectExercisesWithDomainQuotas(
   scoredExercises: (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[],
   count: number,
@@ -567,13 +622,13 @@ export function selectExercisesWithDomainQuotas(
     const userLevelsMap = context.userProgramLevels;
     if (!userLevelsMap || !userLevelsMap.has(domain)) continue;
     let domainPool = shuffled.filter(
-      (s) => !selectedIds.has(s.exercise.id) && exerciseMatchesProgram(s.exercise, domain),
+      (s) => !selectedIds.has(s.exercise.id) && matchesDomainForSlot(s.exercise, domain),
     );
 
     if (domainPool.length === 0) {
       domainPool = scoredExercises.filter(
         (s) => !selectedIds.has(s.exercise.id)
-          && exerciseMatchesProgram(s.exercise, domain)
+          && matchesDomainForSlot(s.exercise, domain)
           && Math.abs((s as any).levelDiff ?? 0) <= 3,
       );
       if (domainPool.length > 0) {
@@ -668,7 +723,7 @@ export function selectExercisesWithDomainQuotas(
       // Step 1: Strict — exact domain + exact user level
       const step1 = pool.filter((ex) => {
         if (selectedIds.has(ex.id)) return false;
-        if (!belongsToDomain(ex) || !exerciseMatchesProgram(ex, domain)) return false;
+        if (!belongsToDomain(ex) || !matchesDomainForSlot(ex, domain)) return false;
         if (getLevelForDomain(ex) !== userLevel) return false;
         return hasMethod(ex) && isLocationCompatible(ex);
       });
@@ -691,7 +746,7 @@ export function selectExercisesWithDomainQuotas(
             if (targetLevel < 1) continue;
             const matched = pool.filter((ex) => {
               if (selectedIds.has(ex.id)) return false;
-              if (!belongsToDomain(ex) || !exerciseMatchesProgram(ex, domain)) return false;
+              if (!belongsToDomain(ex) || !matchesDomainForSlot(ex, domain)) return false;
               if (getLevelForDomain(ex) !== targetLevel) return false;
               return hasMethod(ex) && isLocationCompatible(ex);
             });
@@ -710,7 +765,7 @@ export function selectExercisesWithDomainQuotas(
         const levelCap = userLevel + 3;
         const muscleFallback = pool.filter((ex) => {
           if (selectedIds.has(ex.id)) return false;
-          if (!exerciseMatchesProgram(ex, domain)) return false;
+          if (!matchesDomainForSlot(ex, domain)) return false;
           const lvl = getLevelForDomain(ex);
           if (typeof lvl !== 'number' || lvl < levelFloor || lvl > levelCap) return false;
           return hasMethod(ex) && isLocationCompatible(ex);
