@@ -1550,15 +1550,22 @@ async function _buildSharedPipeline(
   }
 
   // ── 1c. Resolve candidate exercise pool ──────────────────────────────
-  // Tier 1 middleware applies the ±3 level tolerance + per-domain rescue
-  // and falls back to allExercises when fewer than 4 candidates survive.
-  const exercises: Exercise[] = resolveExercisePool(
+  // Tier 1 middleware applies the ±3 level tolerance + per-domain rescue,
+  // then a graduated, logged fallback (±5 retry → parent-domain fallback →
+  // return-as-is) if the pool is still thin — see resolveExercisePool's doc
+  // comment. `relaxedConstraints`/`diagnostics` are threaded onto
+  // baseGeneratorContext below so a relaxed session is visible on the
+  // generated workout's own pipelineLog, not just in a console log.
+  const poolResult = resolveExercisePool(
     allExercises,
     userProgramLevels,
     resolvedChildDomains,
     idToSlug,
     baseUserLevel,
   );
+  const exercises: Exercise[] = poolResult.exercises;
+  const exercisePoolRelaxedConstraints = poolResult.relaxedConstraints;
+  const exercisePoolDiagnostics = poolResult.diagnostics;
 
   // ── 2. Derive contextual values ──────────────────────────────────────
   const daysInactive = daysInactiveOverride ?? calculateDaysInactive(userProfile);
@@ -2302,6 +2309,8 @@ async function _buildSharedPipeline(
   const baseGeneratorContext: WorkoutGenerationContext = {
     availableTime,
     userLevel: baseUserLevel,
+    relaxedConstraints: exercisePoolRelaxedConstraints,
+    earlyPipelineNotes: exercisePoolDiagnostics,
     daysInactive,
     intentMode,
     persona,

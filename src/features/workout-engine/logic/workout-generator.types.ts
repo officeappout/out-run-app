@@ -340,6 +340,15 @@ export interface MechanicalBalanceSummary {
 export interface WorkoutGenerationContext {
   availableTime: number;
   userLevel: number;
+  /** Set by InputSanitizerMiddleware.resolveExercisePool when its level-tolerance
+   *  fallback fired (±5 widen and/or parent-domain fallback) — e.g. ['level'] or
+   *  ['level', 'domain_parent_fallback']. Observability only, not consumed by
+   *  any downstream selection logic. */
+  relaxedConstraints?: string[];
+  /** Diagnostic lines from resolveExercisePool's fallback, seeded into
+   *  GeneratedWorkout.pipelineLog by WorkoutGenerator so a relaxed pool is
+   *  visible on the workout itself. */
+  earlyPipelineNotes?: string[];
   daysInactive: number;
   intentMode: IntentMode;
   persona: LifestylePersona | null;

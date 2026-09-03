@@ -455,7 +455,10 @@ export class WorkoutGenerator {
     scoredExercises: ScoredExercise[],
     context: WorkoutGenerationContext,
   ): GeneratedWorkout {
-    const pipelineLog: string[] = [];
+    const pipelineLog: string[] = [...(context.earlyPipelineNotes ?? [])];
+    if (context.relaxedConstraints?.length) {
+      pipelineLog.push(`relaxed_constraints: [${context.relaxedConstraints.join(', ')}]`);
+    }
     const fc = context.filterCounts;
     if (fc) {
       pipelineLog.push(`pool_start: ${fc.pool_start} exercises`);

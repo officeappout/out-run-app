@@ -186,6 +186,39 @@ export interface ActiveProgramFiltersResult {
  *                          `skillFocusIds` is read from the real
  *                          user state, not the schedule override).
  */
+// ── Skill-track ↔ baseline-domain maps (module scope — single source of
+// truth shared by buildActiveProgramFilters below AND resolveExercisePool's
+// CLIFF fallback further down this file; see 01-MAP.md §8 / §7 on the
+// pre-existing risk of these maps diverging when declared more than once). ──
+const SKILL_SIBLINGS: Record<string, string[]> = {
+  pull: ['muscle_up', 'front_lever', 'back_lever', 'one_arm_pullup'],
+  push: ['planche', 'handstand', 'handstand_pushup'],
+};
+
+// Derive the inverse map once from SKILL_SIBLINGS so there is a single
+// source of truth for which skill belongs to which parent.
+const SKILL_PARENT: Record<string, string> = {};
+for (const [parent, children] of Object.entries(SKILL_SIBLINGS)) {
+  for (const child of children) {
+    SKILL_PARENT[child] = parent;
+  }
+}
+
+// Multi-parent variant of SKILL_PARENT, for resolveExercisePool's Step-B
+// fallback below — mechanically derived from the SAME SKILL_SIBLINGS above,
+// so it can never drift from it. `human_flag` is NOT a SKILL_SIBLINGS entry
+// (that map only covers `pull`/`push`; human_flag is absent from it
+// entirely — a pre-existing gap, not introduced here) so it's added
+// explicitly: a human_flag exercise legitimately carries both push and pull
+// levels in the live catalog (e.g. "דגל אנושי" has pull=L21, push=L21).
+const SKILL_TO_BASELINE_PARENTS: Record<string, string[]> = {};
+for (const [parent, children] of Object.entries(SKILL_SIBLINGS)) {
+  for (const child of children) {
+    (SKILL_TO_BASELINE_PARENTS[child] ??= []).push(parent);
+  }
+}
+SKILL_TO_BASELINE_PARENTS.human_flag = ['push', 'pull'];
+
 export function buildActiveProgramFilters(
   effectiveProfile: UserFullProfile,
   originalProfile: UserFullProfile,
@@ -261,19 +294,8 @@ export function buildActiveProgramFilters(
   // 'pull') are hard-excluded because neither slug appears in the filter list.
   // Fix: when any skill-track slug is present in the filter, also add its
   // parent baseline domain so foundational exercises remain visible.
-  const SKILL_SIBLINGS: Record<string, string[]> = {
-    pull: ['muscle_up', 'front_lever', 'back_lever', 'one_arm_pullup'],
-    push: ['planche', 'handstand', 'handstand_pushup'],
-  };
-
-  // Derive the inverse map once from SKILL_SIBLINGS so there is a single
-  // source of truth for which skill belongs to which parent.
-  const SKILL_PARENT: Record<string, string> = {};
-  for (const [parent, children] of Object.entries(SKILL_SIBLINGS)) {
-    for (const child of children) {
-      SKILL_PARENT[child] = parent;
-    }
-  }
+  // SKILL_SIBLINGS / SKILL_PARENT are declared at module scope above (shared
+  // with resolveExercisePool's CLIFF fallback).
 
   // baseDomainCount is captured BEFORE either expansion so downstream
   // callers can still determine the user's original intended domain count.
@@ -348,19 +370,38 @@ const SLUG_ALIAS: Record<string, string[]> = {
  *   3. If `resolvedChildDomains` is non-empty AND any domain has 0
  *      exercises after step 2, inject the missing-domain exercises
  *      from the full pool ("domain rescue").
- *   4. If fewer than 4 exercises survive, abandon the level filter
- *      and return the full pool — better an over-broad pool than an
- *      empty workout.
+ *   4. If fewer than 4 exercises survive at ±3, a graduated, LOGGED fallback
+ *      runs (never a silent return of the full catalog — see 02-CATALOG-AUDIT.md,
+ *      which found 146 such CLIFF cells, every one of them inside a skill-track
+ *      program; zero in push/pull/legs/full_body/upper_body):
+ *        a. Widen tolerance to ±5 and retry.
+ *        b. Still <4, and the domain is a skill track (human_flag, handstand,
+ *           handstand_pushup, planche, front_lever, muscle_up, one_arm_pullup)?
+ *           Fall back to its baseline parent domain(s) (push/pull/legs), whose
+ *           catalog is healthy (SKILL_TO_BASELINE_PARENTS above).
+ *        c. Still <4 — return what exists as-is. Mark `relaxedConstraints`
+ *           on the result and log a diagnostic; never widen to `allExercises`.
  */
+export interface ExercisePoolResult {
+  exercises: Exercise[];
+  /** Set when any fallback tier above fired — surfaced on the generation
+   *  context for observability (QA tooling, simulator, future analytics). */
+  relaxedConstraints?: string[];
+  /** Human-readable log lines, prepended into GeneratedWorkout.pipelineLog
+   *  by WorkoutGenerator (via context.earlyPipelineNotes) so a relaxed pool
+   *  is visible on the workout itself, not just in a console log. */
+  diagnostics?: string[];
+}
+
 export function resolveExercisePool(
   allExercises: Exercise[],
   userProgramLevels: Map<string, number>,
   resolvedChildDomains: string[],
   idToSlug: Map<string, string>,
   baseUserLevel: number,
-): Exercise[] {
+): ExercisePoolResult {
   if (userProgramLevels.size === 0 && resolvedChildDomains.length === 0) {
-    return allExercises;
+    return { exercises: allExercises };
   }
 
   const validProgramIds = new Set([
@@ -454,7 +495,82 @@ export function resolveExercisePool(
     }
   }
 
-  return levelMatched.length >= 4 ? levelMatched : allExercises;
+  if (levelMatched.length >= 4) {
+    return { exercises: levelMatched };
+  }
+
+  // ── Graduated fallback (never silently return the full catalog) ──────────
+  // 02-CATALOG-AUDIT.md found 146 CLIFF cells (< 4 exercises within ±3 levels)
+  // — every one of them inside a skill-track program (human_flag, handstand,
+  // handstand_pushup, core@L18 edge). Zero CLIFF cells in push/pull/legs/
+  // full_body/upper_body. Silently returning `allExercises` here used to make
+  // EVERY exercise in the entire catalog a candidate the moment a skill
+  // session's pool got thin — the mechanism behind "user gets a random
+  // advanced exercise they're nowhere near ready for."
+
+  // Step A — widen tolerance to ±5 and retry.
+  const widened = filterByTolerance(5);
+  if (widened.length >= 4) {
+    console.warn(
+      `[InputSanitizer] Level filter widened ±3→±5 (had ${levelMatched.length}, ` +
+      `now ${widened.length}) for domains [${resolvedChildDomains.join(', ')}]`,
+    );
+    return {
+      exercises: widened,
+      relaxedConstraints: ['level'],
+      diagnostics: [`level_tolerance_widened: ±3→±5 (${levelMatched.length}→${widened.length} exercises)`],
+    };
+  }
+
+  // Step B — still thin at ±5. If any active domain is a skill track, fall
+  // back to its healthy baseline parent domain(s) instead of the whole catalog.
+  const parentDomains = new Set<string>();
+  for (const domain of resolvedChildDomains) {
+    for (const parent of SKILL_TO_BASELINE_PARENTS[domain] ?? []) {
+      parentDomains.add(parent);
+    }
+  }
+  if (parentDomains.size > 0) {
+    const parentDomainsArr = Array.from(parentDomains);
+    const parentPool = allExercises.filter(ex =>
+      parentDomainsArr.some(domain =>
+        ex.targetPrograms?.some(tp => tp.programId === domain || resolveToSlug(tp.programId) === domain) ||
+        ex.programIds?.some(pid => pid === domain || resolveToSlug(pid) === domain),
+      ),
+    );
+    if (parentPool.length >= 4) {
+      console.warn(
+        `[InputSanitizer] Skill catalog too thin for [${resolvedChildDomains.join(', ')}] ` +
+        `(${widened.length} at ±5) — falling back to parent domain(s) ` +
+        `[${parentDomainsArr.join(', ')}] (${parentPool.length} exercises)`,
+      );
+      return {
+        exercises: parentPool,
+        relaxedConstraints: ['level', 'domain_parent_fallback'],
+        diagnostics: [
+          `level_tolerance_widened: ±3→±5 (${levelMatched.length}→${widened.length} exercises)`,
+          `skill_catalog_thin: [${resolvedChildDomains.join(', ')}] → parent fallback [${parentDomainsArr.join(', ')}] (${parentPool.length} exercises)`,
+        ],
+      };
+    }
+  }
+
+  // Step C — still <4 even after every rescue. Return what exists (never the
+  // full catalog) and mark the result so downstream code / QA tooling can see
+  // this session ran on a genuinely starved pool.
+  console.warn(
+    `[InputSanitizer] Level filter exhausted all rescues for [${resolvedChildDomains.join(', ')}] ` +
+    `— returning ${widened.length} exercise(s) as-is. This session's pool is genuinely thin; ` +
+    `it is NOT being padded with the full unrelated catalog.`,
+  );
+  return {
+    exercises: widened,
+    relaxedConstraints: ['level'],
+    diagnostics: [
+      `level_tolerance_widened: ±3→±5 (${levelMatched.length}→${widened.length} exercises)`,
+      `level_filter_exhausted: [${resolvedChildDomains.join(', ')}] — returning ${widened.length} exercise(s), no further rescue available`,
+    ],
+  };
 }
 
 // ============================================================================
