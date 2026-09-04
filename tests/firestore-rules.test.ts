@@ -619,6 +619,45 @@ async function testUnitDirectory() {
   });
 }
 
+// Phase 6b — unit_league_aggregates. Same openness as unitDirectory,
+// deliberately (see docs/research/military-persona-unified-architecture.md
+// §12): the document never carries a uid or a name, so there's no roster
+// to lock down here the way community_groups/members needed. This suite
+// exists to lock the READ-open / WRITE-admin-only shape in, not to prove a
+// roster is protected (there isn't one on this collection).
+async function testUnitLeagueAggregates() {
+  console.log('\nunit-league-aggregates — public read, admin-only write');
+
+  await setup2UnitLeagueAggregate();
+
+  await it('UL1 — unauthenticated read of a unit aggregate → ALLOW', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'unit_league_aggregates', 'brigade_real')));
+  });
+
+  await it('UL2 — regular authenticated user cannot write a unit aggregate directly → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(setDoc(doc(ctx.firestore(), 'unit_league_aggregates', 'brigade_real'), {
+      activeParticipantCount: 999, avgSteps: 99999,
+    }));
+  });
+
+  await it('UL3 — admin can write a unit aggregate directly (manual-repair path) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'unit_league_aggregates', 'brigade_real'), {
+      activeParticipantCount: 5, avgSteps: 8000,
+    }));
+  });
+}
+
+async function setup2UnitLeagueAggregate() {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'unit_league_aggregates', 'brigade_real'), {
+      activeParticipantCount: 4, avgSteps: 7000, updatedAt: new Date(),
+    });
+  });
+}
+
 // Phase 6a — reservist league group lockdown. David's flagship test: a
 // non-member must not be able to read the roster of a military-type group,
 // while a real member (and admin) still can — this is what closes the
@@ -702,6 +741,7 @@ async function main() {
   await testTenantUnitLockdown();
   await testMilitaryDeclarationLockdown();
   await testUnitDirectory();
+  await testUnitLeagueAggregates();
   await testReserveLeagueLockdown();
   await testNoUsersDocLeak();
 
