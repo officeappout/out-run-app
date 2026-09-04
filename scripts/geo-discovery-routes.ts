@@ -69,7 +69,10 @@
  *     being dropped.
  *
  * Enrichment: elevationGain + maxGrade via Mapbox Terrain-RGB DEM, routeShape ('loop' when geometrically closed, omitted otherwise).
- * Idempotent: keyed on source.externalId — re-runs UPDATE, never duplicate.
+ * Idempotent: keyed on source.externalId — re-runs UPDATE, never duplicate. Relation-based ids
+ * (trail relations and relation-sourced park boundaries) are suffixed `@<REGION.key>` (see the
+ * externalId-collision note below) — way-based and stitched ids are per-city by construction
+ * and stay unsuffixed.
  * Does NOT broadcast to street_segments (pending routes stay out of the generator).
  *
  * Usage:
@@ -86,6 +89,17 @@
  * actually wrote, the second one creating 34 Herzliya routes and
  * overwriting Zichron's pre-existing clip of a shared OSM relation. Both
  * --apply-gated below now, matching every other script's convention.
+ *
+ * externalId city-scoping (04.09.2026, post-incident, Fix B): the overwrite above happened
+ * because `osm:rel/282071` (Israel National Trail) has no city dimension in its externalId —
+ * two different regions independently clipping the SAME OSM relation collide on the same
+ * upsert key. Relation-based candidates (trail relations, line ~758; relation-sourced park
+ * boundaries, line ~1537) are now suffixed `@<REGION.key>`, so each region's clip of a shared
+ * relation gets its own doc. Way-based (`osm:way/<id>`) and stitched (`osm:stitched/<ids>`) ids
+ * are untouched — a way is never independently re-discovered by two different cities the way a
+ * long cross-region relation can be (verified: zero historical collisions on either, vs. exactly
+ * one on relation-based ids). Pre-existing relation-based docs need a one-time backfill to the
+ * new format — see scripts/backfill-relation-externalid-city-key.ts.
  *
  * Adding a region = one entry in REGIONS below (boundary as a parameter). That is
  * the whole point of this step: nothing here is hardcoded to a single city.
@@ -755,7 +769,7 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
       const trailMajorityFrac = trailTotalLen > 0 ? trailGenuineLen / trailTotalLen : 0;
       if (trailMajorityFrac < RECREATIONAL_MAJORITY_MIN_FRAC) { stats.recreationalGateDropped = (stats.recreationalGateDropped || 0) + 1; continue; }
       const isLoop = hav(line.pts[0], line.pts[line.pts.length - 1]) < LOOP_CLOSE_M && L > LEN_LOOP_MIN;
-      candidates.push({ externalId: `osm:rel/${relId}${lines.length > 1 ? `#${part}` : ''}`, osmName: tags.name || null, kind: 'trail', pts: line.pts, lengthM: Math.round(L), isLoop, surface: 'trail', relRef: `rel/${relId}` });
+      candidates.push({ externalId: `osm:rel/${relId}${lines.length > 1 ? `#${part}` : ''}@${REGION.key}`, osmName: tags.name || null, kind: 'trail', pts: line.pts, lengthM: Math.round(L), isLoop, surface: 'trail', relRef: `rel/${relId}` });
       for (const wid of line.ids) keptTrailWayIds.add(wid);
       part++; stats.relLines++;
     }
@@ -1533,8 +1547,12 @@ function buildParkLoopCandidate(ref: string, name: string, ring: number[][], gra
   const longestRunPct = edgeWayIds.length ? Math.round((longestRun / edgeWayIds.length) * 1000) / 10 : 100;
   if (distinctWays > anchors.length * 4) return drop(`assembled from ${distinctWays} distinct ways across only ${anchors.length} anchors — too fragmented to be a real perimeter path`, oldPerimeterM, Math.round(newLengthM), Math.round(maxDistM));
 
+  // Relation-sourced park boundaries collide across cities the same way trail relations do
+  // (a shared/duplicated OSM relation clipped independently per city) — city-scoped like the
+  // trail-candidate externalId above. Way-sourced park boundaries are per-city by construction
+  // (a `way/<id>` is never reused as a different park in a different city query), so left as-is.
   const candidate: Candidate = {
-    externalId: `osm:${ref}`,
+    externalId: ref.startsWith('rel/') ? `osm:${ref}@${REGION.key}` : `osm:${ref}`,
     osmName: name,
     kind: 'park',
     pts,
@@ -1543,7 +1561,8 @@ function buildParkLoopCandidate(ref: string, name: string, ring: number[][], gra
     surface: 'trail',
     ...(ref.startsWith('rel/') ? { relRef: ref } : {}),
     // Real provenance of the assembled perimeter — distinct from externalId (which stays
-    // `osm:${ref}`, the PARK's own way/relation id, so re-runs still upsert the same doc).
+    // `osm:${ref}` / `osm:${ref}@${REGION.key}`, the PARK's own way/relation id, so re-runs
+    // still upsert the same doc).
     sourceWayIds: Array.from(new Set(edgeWayIds)).map(id => `way/${id}`),
   };
   return { candidate, report: { name, oldPerimeterM: Math.round(oldPerimeterM), newLengthM: Math.round(newLengthM), verdict: 'KEPT', coveragePct: 100, longestRunPct, distinctWays, runs, maxDistFromPolygonM: Math.round(maxDistM) } };
