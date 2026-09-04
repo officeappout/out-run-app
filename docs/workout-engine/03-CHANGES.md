@@ -279,3 +279,58 @@ all individual tests pass (10 new: 7 in `core-set-lock.test.ts`, 3 in
 `trio-modifiers-core-set-lock.test.ts`); the only failing test *files* are the same
 2 pre-existing hybrid `process.exit()` artifacts present since before this branch
 existed.
+
+---
+
+## Addendum 2 — reps-vs-time flag bug (docs/workout-engine/06-TIME-VS-REPS.md)
+
+> Same relationship to the level-integrity fix as Addendum 1 above: a separate
+> deliverable, same branch. Triggered by a task built directly on top of
+> Addendum 1's `05-BENCHMARK.md` §5 methodology (same snapshot.sqlite pipeline).
+
+**The bug:** `isTimeBasedExercise` (`workout-budgeting.utils.ts:348`) is a pure,
+deterministic function of the exercise object alone — the same exercise MUST get
+the same answer everywhere. Live snapshot data proved it didn't: the same
+`exercise_id` ("שכיבות סמיכה ברכיים") showed `is_time_based=0` (55 occurrences) AND
+`=1` (38 occurrences), both `exerciseRole='main'`. The function itself was never
+wrong — six OTHER places reimplemented, hardcoded, or forgot to re-derive the flag.
+
+| # | Commit | What | Firestore impact | Reversible how |
+|---|---|---|---|---|
+| 24 | `74de3ecd` | **Fix**: `warmup.service.ts` + `cooldown.service.ts` — both reimplemented a subset of `isTimeBasedExercise` inline (cooldown's was the narrowest — only `type==='time'`, no straight_arm, no name heuristic) | None (code only) | `git revert 74de3ecd` |
+| 25 | `e0d9bde6` | **Fix**: `home-workout.service.ts`'s `generateRecoveryWorkout` — hardcoded `reps:15` for every exercise in the weekly-budget-exhausted "יום מנוחה" pool regardless of hold-vs-reps nature, plus the same reimplementation gap. This is the exact path that produced the task's own worked example. | None (code only) | `git revert e0d9bde6` |
+| 26 | `12a1d264` | **Fix**: `trio-modifiers.service.ts`, two independent bugs — `applyEssentialGearFilter`'s naked-backfill (hardcoded `isTimeBased:false, reps:10` for every raw-pool candidate) and `applyFlowRegression`'s exercise-swap (reassigns `.exercise` on a level-regression but never recomputed `isTimeBased`/`mechanicalType` at all — the more severe of the two, and the ACTUAL root cause of the task's worked example, not #25 as first assumed) | None (code only) | `git revert 12a1d264` |
+| 27 | `a7db6b72` | **Fix**: the canonical function itself — `getLocalizedText` defaults to `'he'` and this catalog is Hebrew-only in practice, so the `hold`/`plank`/`hang` (Latin) name-heuristic keywords could never fire on real data; added `'פלאנק'` as an explicit Hebrew keyword after a new test caught it returning `false` for an obvious plank fixture | None (code only) | `git revert a7db6b72` |
+| 28 | `905d63c4` | **Fix**: `tabata.block.ts`'s pool-injection — hardcoded `isTimeBased:false` one line below `reps: TABATA_CLASSIC.workSec` (a SECONDS value), directly self-contradicting. Now `true` — the ONE declared, intentional exception (a tabata interval is always time-boxed). The OTHER tabata path (stamping an already-selected exercise, not rebuilding it) correctly does NOT touch `isTimeBased` — verified that's real, valid behavior (a rep-based exercise legitimately does "max reps in the interval"), left alone | None (code only) | `git revert 905d63c4` |
+| 29 | `49929e7a` | `docs/workout-engine/06-TIME-VS-REPS.md` Parts 2+3 — CMS `type`-field cross-reference audit (372 exercises, raw Firestore reads) + severity-ranked 40-row manual review list (structural signals only: tier-vs-reps, level-vs-reps, level-vs-hold, >=2x corpus deviation on the 189 bridged exercises) | None (docs + read-only scripts) | `git revert 49929e7a` |
+| 30 | `42110de6` | `snapshot.sqlite` refresh reflecting all 6 fixes | None (local data file) | `git revert 42110de6` |
+| 31 | *(this commit)* | This addendum | None (docs only) | `git revert <this SHA>` |
+
+**A real self-correction, kept in the record rather than quietly fixed:** this
+session's own `build-time-vs-reps.ts` first shipped an explanation for the
+"`type='time'` + dynamic `movementGroup`" pattern (55 exercises) claiming
+`isTimeBasedExercise` overrides an explicit `type='time'` back to `false` — plausible
+by analogy to how the function overrides a MISSING type, but never actually verified
+against the function's real control flow (`type==='time'` is checked first and
+returns immediately — the override never fires). Caught by testing the exact fixture
+shape before publishing the report, not by a later reviewer. Corrected in place, both
+in the script and the committed doc — see `06-TIME-VS-REPS.md` §3's own note.
+
+**A wrong first hypothesis, also kept in the record:** the task's own worked example
+("שכיבות סמיכה ברכיים" showing `reps=15`/`is_time_based=1`) was initially attributed
+to `generateRecoveryWorkout` (#25) purely because both share `reps=15` and a
+`method_location='park'` signature — a coincidence, not a match. A live trace (custom
+Firebase Admin token + direct `generateHomeWorkoutTrio` calls, not guessing from
+static reads) proved `generateRecoveryWorkout`'s fixed logic could not produce that
+exact combination, and traced the real source to `applyFlowRegression` (#26) instead.
+
+**Verification:** `npx tsc --noEmit` — 489/489 baseline maintained, zero new errors.
+`npx vitest run src/features/workout-engine` — 465/465 individual tests pass (12 new:
+7 in `isTimeBasedExercise-consistency.test.ts`, 3 in the tabata pool-injection test,
+1 combined naked-backfill/flow-regression addition to
+`trio-modifiers-core-set-lock.test.ts`, plus its pre-existing 3); same 2 pre-existing
+hybrid `process.exit()` test-file failures, unrelated. Live re-verification: re-ran
+the full snapshot matrix after all 6 fixes — the contradictory-flag count went from
+20 exercise_ids to 0 real contradictions (5 remaining exercise_ids are 100% explained
+by the declared tabata exception, confirmed by checking `protocol_block` on every
+occurrence, not asserted).
