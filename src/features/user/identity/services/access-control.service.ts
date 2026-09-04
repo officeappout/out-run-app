@@ -121,34 +121,25 @@ export function isUserVerified(user: UserFullProfile | null): boolean {
 }
 
 /**
- * Map path vs Assessment path: tracks/domains with a level above 1 = the strength/skill
- * self-assessment is done. The single source of truth for "has this user completed their
- * assessment" — reused by the home hero-gate (StatsOverview nudge) and the route_stops
- * grass-station gate (no assessment + no equipped park nearby → nudge instead of a stop).
- */
-export function hasCompletedAssessment(user: UserFullProfile | null): boolean {
-  const tracks = user?.progression?.tracks ?? {};
-  const domains = user?.progression?.domains ?? {};
-  const hasLevelAbove1 = (obj: Record<string, { currentLevel?: number } | undefined>) =>
-    Object.values(obj).some((v) => (v?.currentLevel ?? 1) > 1);
-  return (
-    hasLevelAbove1(tracks) ||
-    hasLevelAbove1(domains) ||
-    user?.onboardingStatus === 'COMPLETED'
-  );
-}
-
-/**
  * True STRENGTH-assessment axis — independent of onboarding/lifestyle completion.
- * `onboardingStatus === 'COMPLETED'` (see hasCompletedAssessment above) is set by the
- * LIFESTYLE wizard (persona/schedule/notifications, LifestyleWizard.tsx) and carries NO
- * information about whether the user ever did a strength self-assessment — a user can
- * finish onboarding/lifestyle without ever touching progression.domains/tracks. This
+ * `onboardingStatus === 'COMPLETED'` is set by the LIFESTYLE wizard (persona/schedule/
+ * notifications, LifestyleWizard.tsx) and carries NO information about whether the user
+ * ever did a strength self-assessment — a user can finish onboarding/lifestyle without
+ * ever touching progression.domains/tracks (confirmed live, 04.09.2026: a MAP_ONLY user's
+ * short wizard — HEALTH_DECLARATION → ACCOUNT_SECURE → PROCESSING → COMPLETED → SUMMARY,
+ * no assessment step — sets onboardingStatus:'COMPLETED' unconditionally on finish). This
  * function checks ONLY the assessed-domain axis: does the user have any REAL assessed
  * strength domain (level > 0), excluding non-strength domains (running/flexibility)?
  * Ported verbatim from home/page.tsx's `hasStrengthProgram` (the existing, correct,
  * already-live strength hero-gate — routes to /onboarding-new/assessment-visual when
  * false) — single source of truth for "may we guess a strength level for this user".
+ *
+ * A sibling function, `hasCompletedAssessment`, used to live here — deleted 04.09.2026: it
+ * also treated `onboardingStatus === 'COMPLETED'` as sufficient (the exact bug above), had
+ * zero real importers anywhere in the codebase (confirmed via grep — its own doc comment
+ * claimed it was "reused by the home hero-gate and the route_stops grass-station gate," but
+ * both of those actually already used THIS function), and its mere presence risked a future
+ * dev trusting that stale comment and reintroducing the same bug.
  */
 export function hasAssessedStrengthDomain(user: UserFullProfile | null): boolean {
   const NON_STRENGTH = new Set(['running', 'flexibility']);
