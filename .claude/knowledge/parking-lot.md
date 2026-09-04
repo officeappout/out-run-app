@@ -393,3 +393,26 @@ None of the seven investigated for root cause or fixed as part of this entry —
 **Opened:** 2026-08-19 · **Source:** David, while confirming the Stage D/E completion-card decision (`adaptive-snacking-valiant.md` plan) — explicitly documentation-only, not connected to that plan, not investigated or scoped.
 
 Idea for a future direction: post-workout encouragement/congratulations could come from the in-chat smart coach as a text message, instead of (or alongside) a dedicated screen element (e.g. the home completion card / multi-activity strip this plan builds). No scoping, no feasibility check, no code investigation — pure idea capture for a later round.
+
+---
+
+## `getUpperBodyDominance` + `buildUpperCalisthenicsSession` — written, spec-matching, zero callers
+**Opened:** 04.09.2026 · **Source:** David, read-only mapping of the strength schedule's rule engine before scoping the schedule-builder drawer's rules module.
+
+`src/features/schedule/engine/scheduleRules.ts`'s `getUpperBodyDominance()` (`:575-582`, §5.3/5.4's "an UPPER_BODY day next to a push/pull skill shifts to 70/30 dominance") and `buildUpperCalisthenicsSession()` (`:607-644`, §5.5's dynamic push/pull-aware session builder) both exist, match `out-run-schedule-logic-v1.3.md`'s spec exactly, and have **zero live callers anywhere** (confirmed by grep — nothing outside their own definitions and tests). `buildDefaultTemplate` — the function that actually builds what a user sees — never calls either.
+
+**The fourth instance today of "code exists and doesn't run."** Not investigated further, not fixed — logged so a future reader doesn't assume §5.3-5.5 of the spec is live just because the functions implementing it are fully written and tested.
+
+---
+
+## Lower-body onboarding pick never reaches the schedule questionnaire — structural, not a fix-in-place bug
+**Opened:** 04.09.2026 · **Source:** David, on-device — picked "פלג גוף תחתון" during onboarding, the schedule questionnaire (`ScheduleStep.tsx`) still showed upper body.
+
+Traced and confirmed structural, three independent layers all missing the same concept:
+1. `ProgramId = 'FULL_BODY' | 'UPPER_BODY' | 'UPPER_CALISTHENICS'` (`smartSchedule.types.ts:23`) — **no lower-body value exists in the type at all.**
+2. `program-path/page.tsx` writes a "legs" pick to `sessionStorage['onboarding_muscle_focus']` (`:84`) — a real, separately-consumed key (read by the assessment-domain-selection code, `assessment-path-config.service.ts:57`). `resolveScheduleSeed()` (`scheduleSeed.service.ts`, the schedule questionnaire's seed resolver) **never reads this key at all** — only `onboarding_skill_focus`/`onboarding_program_path`.
+3. Even the coarse `programPath==='body_focus'` fallback (`resolveScheduleSeed:157-158`) maps every body-focus pick to a flat `UPPER_BODY`, with no branch reading which muscle was actually chosen — and `resolveScheduleId`'s substring matcher (`:82-90`) has no legs/lower-body case even for an existing user's stored program name.
+
+Net effect: picking lower-body silently and permanently resolves to `UPPER_BODY`, every time, at every layer.
+
+**Resolved by the ownership principle (`hybrid-display-decisions.md`'s "הכרעה סופית," 04.09.2026), not a point-fix.** The schedule/drawer only offers programs the user has actually opened (filled in, assessed, unlocked) — a program that doesn't exist yet is simply never offered, no `UPPER_BODY` substitution needed. If/when a lower-body program is built, it appears to its owner on its own. Not fixed here as a standalone patch to `ProgramId`/`resolveScheduleSeed` — logged as the concrete bug the ownership principle exists to close.
