@@ -11,7 +11,7 @@
  * Triggers on create/update/delete of military_declarations/{uid} — a
  * single onDocumentWritten handler covers all three via before/after
  * diffing, including the delete case (removePersona() deletes this doc
- * entirely, so after.exists() === false naturally resolves isReserve to
+ * entirely, so after.exists === false naturally resolves isReserve to
  * false, no special-cased branch needed).
  *
  *   !wasReserve && isReserve  → join
@@ -105,8 +105,8 @@ export const onMilitaryDeclarationWritten = onDocumentWritten(
   'military_declarations/{uid}',
   async (event) => {
     const { uid } = event.params;
-    const before = event.data?.before?.exists() ? event.data.before.data() : null;
-    const after = event.data?.after?.exists() ? event.data.after.data() : null;
+    const before = event.data?.before?.exists ? event.data.before.data() : null;
+    const after = event.data?.after?.exists ? event.data.after.data() : null;
 
     const wasReserve = before?.status === 'reserve';
     const isReserve = after?.status === 'reserve';
