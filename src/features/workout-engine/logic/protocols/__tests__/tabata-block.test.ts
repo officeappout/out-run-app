@@ -255,6 +255,24 @@ describe('buildTabataBlock — pool-injection (David 25.07)', () => {
       .toEqual(['strength1', 'strength2']);
   });
 
+  it('isTimeBased: injected members are ALWAYS true, and reps carries the seconds value — the one declared exception to isTimeBasedExercise(exercise) being the single source of truth (docs/workout-engine/06-TIME-VS-REPS.md)', () => {
+    // poolEx fixtures carry no type='time', no straight_arm mechanicalType, and
+    // no hold/plank/hang name — isTimeBasedExercise(these) would return false.
+    // The tabata interval itself is time-boxed regardless, so isTimeBased must
+    // still be true — this was hardcoded `false` before the fix, directly
+    // contradicting reps holding TABATA_CLASSIC.workSec (a seconds value).
+    const target: WorkoutExercise[] = [];
+    const pool = [poolEx('burpee', 2), poolEx('squat-jump', 3), poolEx('crawl', 1), poolEx('bicycle', 1)];
+    buildTabataBlock('tabata', target, { tabataPool: pool, userLevel: 4 });
+
+    const injected = target.filter((e) => e.protocolBlock === 'tabata');
+    expect(injected.length).toBeGreaterThan(0);
+    for (const member of injected) {
+      expect(member.isTimeBased).toBe(true);
+      expect(member.reps).toBe(TABATA_CLASSIC.workSec);
+    }
+  });
+
   it('LEVEL: over-level pool members excluded; level-less gems default IN', () => {
     // one level-less gem (→1, IN) + one over-level (L9 > 4, OUT) ⇒ <2 eligible ⇒ revert
     const t1: WorkoutExercise[] = [];

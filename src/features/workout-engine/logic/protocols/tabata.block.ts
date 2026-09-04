@@ -253,7 +253,17 @@ function buildTabataFromPool(
       mechanicalType: ex.mechanicalType ?? 'none',
       sets: 1,
       reps: TABATA_CLASSIC.workSec,
-      isTimeBased: false,
+      // Intentional protocol-level override (docs/workout-engine/06-TIME-VS-REPS.md):
+      // a tabata interval is ALWAYS time-boxed (TABATA_CLASSIC.workSec, seconds) —
+      // `reps` above stores that seconds value for every member regardless of
+      // whether the underlying exercise is normally rep-based (e.g. burpees).
+      // isTimeBased must be true so downstream readers (runner, this field's own
+      // consumers) display "20 שניות", not "20 חזרות". Was hardcoded `false` here,
+      // directly contradicting the seconds value one line above — a real bug, not
+      // a deliberate false-but-harmless flag. This is the ONE declared exception
+      // to "isTimeBased always comes from isTimeBasedExercise(exercise)": the
+      // protocol overrides the exercise's own nature for the duration of the block.
+      isTimeBased: true,
       restSeconds: TABATA_CLASSIC.restSec,
       priority: 'compound',
       score: 0,
