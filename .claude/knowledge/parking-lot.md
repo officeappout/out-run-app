@@ -429,3 +429,18 @@ Net effect: picking lower-body silently and permanently resolves to `UPPER_BODY`
 **Live consequence for the exact profile shape this whole fix chain is about** (empty `running.scheduleDays`, real `activeProgram.schedule`): running days are **not draggable** in `RollingAgenda` and **not marked** in `MonthlyCalendarGrid`'s month view — even after the drawer/agenda fixes already shipped (`AgendaDayCard`'s day-cards now correctly show the workout; these two checks are separate call sites that don't consume `AgendaDayCard`'s resolution).
 
 **Fix direction, not built:** compose, don't connect directly — `hasStrengthTemplateForDay(...) || resolveRunningDayState(...).isRunDay`, once the shared resolver is mature (post-`AgendaDayCard` device verification). A union check at the call site, not a new capability inside `resolveRunningDayState` itself — that function should stay answering exactly "is this a running day," not grow a strength-awareness branch of its own.
+
+---
+
+## Finished running plan — no upper bound, generic "workout" for a plan that's over
+**Opened:** 05.09.2026 · **Source:** David, read-only verification after the date-scoping fix (`resolveRunningDayState`) — checking whether `isDateWithinRunningPlan` could also catch a *finished* plan, not just a not-yet-started one.
+
+`isDateWithinRunningPlan` checks only "on or after start" — **no upper bound at all.** `calculateCurrentWeek`'s own `Math.max(1, ...)` also has no cap — an 8-week plan reports "week 20" after 20 real weeks have passed, forever, with nothing to stop it.
+
+**Consequence, traced end to end, for a user who finished their plan and still has `scheduleDays` populated:** `isRunDay` in `resolveRunningDayState`'s `scheduleDays` branch is pure weekday-membership (`scheduleDays.includes(todayHe)`) — it has never depended on whether a real schedule entry exists for the resolved week. So `isRunDay` stays `true` on any scheduleDays-matching weekday, `weekEntries` for the (real, but far-past-the-plan) resolved week is empty, and `NextRunWorkoutCard`'s own `useMemo` (untouched by this session's fixes) falls through to its existing generic default: `workout:'easy'`, `workoutLabel: undefined`, `pendingWorkoutId: undefined`. The user sees "האימון שלך היום" and a generic **"ריצה קלה — [distance]"** card with a **"התחל ריצה"** button that opens the briefing drawer without ever loading a real workout (`pendingWorkoutId` is `undefined`, so the load effect's own guard never fires). No copy anywhere indicates the plan has ended.
+
+**Pre-existing, not created by this session's fix chain.** Both the `isRunDay` weekday-check and the `useMemo`'s generic fallback are lines carried over unchanged from before Commits 1-4 — confirmed identical before/after by direct trace, not assumed. Touches every user who ever finishes a running plan while `scheduleDays` stays populated — not an edge case.
+
+**Fix direction, not built:** give the plan a real upper bound (total weeks, already known via `canonicalWeeks`/the schedule's own max week) and a dedicated "plan finished" state with its own copy (e.g. offering a follow-up plan) — not a silent fall-through to the generic-easy-run default.
+
+**Not investigated:** `RunBriefingDrawer`'s own empty/loading state when opened with `workout: null` and `pendingWorkoutId: undefined` — unread, not asserted.
