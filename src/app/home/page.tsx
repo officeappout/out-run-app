@@ -90,12 +90,13 @@ import { resolveFullStrengthWorkout, resolveFullStrengthWorkoutAtIndex } from '@
 import { resolveRouteWorkout, getCachedRoute } from '@/features/workout-engine/core/generators/route.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
-import { PreWorkoutCardRenderer, resolveHeroWorkout, hasHeroCardTreatment, buildSafetyNetRouteCacheKey, STEPS_CACHE_BUCKET_SIZE } from '@/features/home/components/PreWorkoutCardRenderer';
+import { PreWorkoutCardRenderer, resolveHeroWorkout, hasHeroCardTreatment, buildSafetyNetRouteCacheKey } from '@/features/home/components/PreWorkoutCardRenderer';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
+import { useToast } from '@/components/ui/Toast';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -370,6 +371,10 @@ export default function HomePage() {
     // rare, one-off action (matches this file's existing preference for boring/simple).
     onGranted: () => window.location.reload(),
   });
+  // Real-steps-connect follow-up (04.09.2026, Fix 2): the app-wide toast (ToastProvider,
+  // mounted in ClientLayout.tsx) — used to surface a clear message when the safety-net slot's
+  // tap-time GPS soft-ask or route resolve comes back empty, instead of a silent no-op.
+  const { showToast } = useToast();
 
   // Handle "pencil" tap from WorkoutPreviewDrawer — close drawer and open edit modal
   const handleEditFromDrawer = useCallback(() => {
@@ -1166,36 +1171,14 @@ export default function HomePage() {
         .catch((error) => console.error('[home] resolveRouteWorkout failed', error));
       return;
     }
-    // Real-steps-connect plan (02.09.2026, Part 3): opportunistic upgrade for the safety-net
-    // slot — reuses route.generator.ts's own resolveRouteWorkout/getCachedRoute unchanged
-    // (safety-net.generator.ts itself is never touched), keyed by the SAFETY-NET suggestion's
-    // own id (a separate cache entry from route.generator's own suggestions, no collision).
-    // `context` here always has location:null (the 'home' ranking effect's own deliberate
-    // choice — see that effect's comment) — resolveRouteWorkout's own `!context.location`
-    // guard would reject it immediately, so this patches in a fresh, silently-read GPS fix
-    // just for this call, without touching the shared ranking context. Read via
-    // useGPSStore.getState() (not the reactive `gpsCoords` closure variable) so this callback's
-    // identity doesn't change on every GPS position tick — same "silent read, not a dependency"
-    // reasoning the post_workout ranking effect's own comment already documents for gpsCoords.
-    // healthConnected!==false mirrors buildStepContext's own gate: no point resolving against
-    // a fabricated step count.
-    //
-    // Staleness fix (04.09.2026): route.generator.ts's routeCache has no TTL/invalidation of
-    // its own (LRU-cap only) — a bare suggestion.id key would resolve ONCE and then serve that
-    // same route forever (confirmed live: 14,176 real steps still showed a route sized for the
-    // original 8,000-step gap). buildSafetyNetRouteCacheKey folds context.stepsRemaining into
-    // the key itself, entirely on this (caller) side — a materially-changed real step count
-    // produces a different key, and therefore a natural cache miss / fresh resolve, without
-    // any change to route.generator.ts.
-    if (suggestion.generatorId === 'safety-net' && healthConnected !== false) {
-      const freshCoords = useGPSStore.getState().coords;
-      if (!freshCoords) return;
-      const cacheKey = buildSafetyNetRouteCacheKey(suggestion.id, context.stepsRemaining);
-      resolveRouteWorkout(cacheKey, { ...context, location: freshCoords })
-        .then(() => setTier2ResolvedTick((t) => t + 1))
-        .catch((error) => console.error('[home] resolveRouteWorkout (safety-net slot) failed', error));
-    }
-  }, [healthConnected]);
+    // Real-steps-connect follow-up (04.09.2026, Fix 2): the safety-net slot's own Tier-2
+    // resolve used to live here too (Part 3, 02.09.2026), reading useGPSStore.getState().coords
+    // on render — confirmed live to be silently empty on any non-rest day, since nothing on
+    // this surface proactively requests GPS before this point (useStepDeficitRoute.ts's own
+    // soft-ask is rest-day-gated only). Moved entirely to tap-time
+    // (handlePreWorkoutCardTap below), the only place a real GPS soft-ask now happens for this
+    // slot — see that function's own comment for the full resolve chain.
+  }, []);
 
   useEffect(() => {
     if (!HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED) return;
@@ -1364,23 +1347,6 @@ export default function HomePage() {
     });
     resolveHomeTier2(suggestion, context, profile);
   }, [profile, resolveHomeTier2, selectedDate, healthConnected]);
-
-  // Staleness fix (04.09.2026): nothing else re-triggers the safety-net slot's Tier-2 resolve
-  // when the REAL step count changes in the background (HealthBridge -> outbox ->
-  // ingestHealthSamples -> Firestore onSnapshot -> useActivityStore, all already live — see
-  // build-step-context.ts's own doc comment) — the ranking effect only fires on
-  // [profile, resolveHomeTier2, selectedDate], and ranking itself only needs to happen once
-  // per day/date, not on every step update. liveStepsRemaining is reactive (see its own
-  // declaration above); re-running handlePreWorkoutSettle on a bucket change reuses that
-  // function's own cache-key logic verbatim rather than a second resolve call site. Scoped
-  // deliberately narrow — only the currently-FOCUSED suggestion (activePreWorkoutSuggestion),
-  // same as handlePreWorkoutSettle's own "defensive backstop" scope, not every background/
-  // unfocused candidate.
-  useEffect(() => {
-    if (!activePreWorkoutSuggestion || activePreWorkoutSuggestion.generatorId !== 'safety-net') return;
-    handlePreWorkoutSettle(activePreWorkoutSuggestion);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Math.floor(liveStepsRemaining / STEPS_CACHE_BUCKET_SIZE)]);
 
   // handlePreWorkoutCardTap (the pre-workout carousel's onStart handler) is declared further
   // below, right after handleWorkoutGenerated — it depends on that setter, which itself depends
@@ -1754,22 +1720,51 @@ export default function HomePage() {
         date: new Date(selectedDate + 'T00:00:00'),
         healthConnected,
       });
-      // Real-steps-connect plan (02.09.2026, Part 3; revised 04.09.2026, Bug 1 fix): the
+      // Real-steps-connect plan (02.09.2026, Part 3; revised 04.09.2026, Bug 1 + Fix 2): the
       // upgraded safety-net slot (PreWorkoutCardRenderer.tsx) shows a real walking route once
-      // resolveHomeTier2 caches one under this suggestion's own bucketed id. Tapping it now
-      // opens that EXACT resolved Route in the global route-detail sheet
-      // (useMapStore.openGlobalRouteSheet — GlobalDetailOverlay.tsx, works from Home, no
-      // navigation needed) instead of the old `/map?openRun=walking&targetSteps=` deep-link,
-      // which recomputed an unrelated, differently-shaped route from targetSteps alone (the
-      // desync bug this fix closes — confirmed live, 04.09.2026). `location:null` above
-      // doesn't affect stepsRemaining (buildStepContext ignores location entirely) so this is
-      // still the real number, healthConnected-aware.
+      // resolved, cached under this suggestion's own bucketed id. Tapping it opens that EXACT
+      // Route in the global route-detail sheet (useMapStore.openGlobalRouteSheet —
+      // GlobalDetailOverlay.tsx, works from Home, no navigation needed) instead of the old
+      // `/map?openRun=walking&targetSteps=` deep-link, which recomputed an unrelated,
+      // differently-shaped route from targetSteps alone (the desync bug Bug 1's fix closed —
+      // confirmed live, 04.09.2026). `location:null` above doesn't affect stepsRemaining
+      // (buildStepContext ignores location entirely) so this is still the real number,
+      // healthConnected-aware.
+      //
+      // Fix 2 (04.09.2026): GPS now lives ENTIRELY here, at tap-time — resolveHomeTier2's old
+      // render-time useGPSStore.getState().coords read (Part 3) was silently empty on any
+      // non-rest day, since nothing on this surface proactively requests GPS before that point
+      // (useStepDeficitRoute.ts's own soft-ask is rest-day-gated only; confirmed live via a
+      // temporary diagnostic, 04.09.2026: freshCoords was null on a real device with GPS on and
+      // health connected). A real user gesture (this tap) is exactly when a soft permission
+      // ask belongs anyway. Loading state is the existing isStarting mechanism
+      // (startingPreWorkoutSuggestionId) — no new state needed, this whole chain runs inside
+      // the same try/finally that already clears it.
       if (suggestion.generatorId === 'safety-net') {
-        const cachedRoute = getCachedRoute(buildSafetyNetRouteCacheKey(suggestion.id, context.stepsRemaining));
+        const cacheKey = buildSafetyNetRouteCacheKey(suggestion.id, context.stepsRemaining);
+        const cachedRoute = getCachedRoute(cacheKey);
         if (cachedRoute) {
           useMapStore.getState().openGlobalRouteSheet(cachedRoute);
           return;
         }
+        if (context.stepsRemaining > 0) {
+          // Same soft-ask useStepDeficitRoute.ts already uses on rest days — never a hard
+          // prompt; denied/unsupported/no-fix simply resolves to null.
+          const coords = await useGPSStore.getState().requestPermissionIfAllowed();
+          if (!coords) {
+            showToast('error', 'לא הצלחנו לאתר את המיקום שלך. אפשר לנסות שוב מאוחר יותר.');
+            return;
+          }
+          const route = await resolveRouteWorkout(cacheKey, { ...context, location: coords });
+          if (!route) {
+            showToast('error', 'לא מצאנו מסלול מתאים כרגע. אפשר לנסות שוב מאוחר יותר.');
+            return;
+          }
+          useMapStore.getState().openGlobalRouteSheet(route);
+          return;
+        }
+        // stepsRemaining<=0 (goal already met, or no data at all) — falls through to the
+        // generic behavior below, unchanged.
       }
       const workout = await suggestionToHomeGeneratedWorkout(context, suggestion);
       // No real GeneratedWorkout to preview (e.g. safety-net/route, which have no Tier-2
@@ -1845,7 +1840,7 @@ export default function HomePage() {
     } finally {
       setStartingPreWorkoutSuggestionId(null);
     }
-  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate, healthConnected]);
+  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate, healthConnected, showToast]);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)

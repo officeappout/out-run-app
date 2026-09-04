@@ -22,18 +22,23 @@
  *   defensive fallback (cap eviction / a suggestion surviving a reload), not the normal path.
  *   Fixed 26.08.2026 — this generator previously fell through to the generic SuggestionCard
  *   below by omission, losing its real video/equipment/title.
- * - `safety-net` → the generic SuggestionCard, UNLESS a real walking route has been resolved
- *   for it (real-steps-connect plan, 02.09.2026, Part 3): `resolveHomeTier2` (home/page.tsx)
- *   opportunistically calls route.generator.ts's own `resolveRouteWorkout` for the safety-net
- *   slot when GPS is available, keyed by the safety-net suggestion's OWN id (a separate cache
- *   entry from route.generator's own suggestions — no collision). A cache hit swaps in a
- *   SuggestionCard built from the real Route's name/distance/duration instead of the generic
- *   "הליכה קלה" placeholder — same generic card component, real content. `healthConnected
- *   ===false` shows ConnectStepsCard instead (never both). No GPS / no cache hit yet / still
- *   loading → today's exact generic card, unchanged. safety-net.generator.ts's own
- *   eligible()/generate() are untouched — this is a render-layer + resolve-layer addition
- *   only, same "Tier-2 resolves in the background, renderer reads the cache" pattern
- *   full-strength/route already use.
+ * - `safety-net` → 3-way branch depending on real-steps state (real-steps-connect plan,
+ *   02.09.2026 Part 3, revised 04.09.2026 Fix 2):
+ *     1. `healthConnected===false` → ConnectStepsCard (never connected — no fabricated number).
+ *     2. A route already resolved and cached (route.generator.ts's own resolveRouteWorkout/
+ *        getCachedRoute, unchanged — keyed by the safety-net suggestion's OWN id, a separate
+ *        cache entry from route.generator's own suggestions, no collision) → the generic
+ *        SuggestionCard with real name/distance/duration, ctaLabel="צפה במסלול" (tapping opens
+ *        that exact Route via a sheet, not a workout — see home/page.tsx).
+ *     3. Otherwise, `stepsRemaining>0` → the generic SuggestionCard with the REAL live
+ *        steps-remaining number instead of the static "הליכה קלה" placeholder,
+ *        ctaLabel="מצא לי מסלול" — tapping is what actually triggers the GPS soft-ask + resolve
+ *        (home/page.tsx's handlePreWorkoutCardTap). This is the NORMAL state before a tap, not
+ *        a rare timing gap: GPS lives entirely at tap-time now (Fix 2) — the old render-time
+ *        useGPSStore.getState().coords read in resolveHomeTier2 was silently empty on any
+ *        non-rest day, confirmed live.
+ *   safety-net.generator.ts's own eligible()/generate() are untouched throughout — this is a
+ *   render-layer + tap-time-resolve addition only.
  * - Every other generatorId (route, etc.) → the generic SuggestionCard, unchanged — no richer
  *   surface exists for them yet.
  *
@@ -129,6 +134,21 @@ function buildRouteSuggestionFromRoute(route: Route, base: Suggestion): Suggesti
     subtitle: `${route.distance.toFixed(1)} ק״מ · ~${route.duration} דק׳`,
     difficulty: ROUTE_DIFFICULTY_MAP[route.difficulty],
     structure: { ...base.structure, durationMin: route.duration },
+  };
+}
+
+/**
+ * Real-steps-connect follow-up (04.09.2026, Fix 2) — the intermediate state, before a route
+ * has been resolved yet: shows the REAL live steps-remaining number instead of the fully
+ * generic "הליכה קלה" placeholder. Tapping it is what actually triggers the GPS soft-ask +
+ * resolve (home/page.tsx's handlePreWorkoutCardTap) — this is display-only, same overlay
+ * pattern as buildRouteSuggestionFromRoute above.
+ */
+function buildStepsRemainingSuggestion(base: Suggestion, stepsRemaining: number): Suggestion {
+  return {
+    ...base,
+    title: 'עוד קצת ותשלימו את יעד הצעדים',
+    subtitle: `${stepsRemaining.toLocaleString('he-IL')} צעדים נותרו היום`,
   };
 }
 
@@ -245,8 +265,22 @@ export function PreWorkoutCardRenderer({
         />
       );
     }
-    // No GPS yet / Tier-2 hasn't resolved / healthConnected still loading — today's exact
-    // generic card, unchanged. Falls through to the same return below.
+    // Fix 2 (04.09.2026): no route resolved yet — GPS now lives entirely at tap-time (see
+    // home/page.tsx's handlePreWorkoutCardTap), so this is the normal/expected state on
+    // every render before the user has tapped, not just a rare timing gap. Show the real
+    // live steps-remaining number instead of the fully generic placeholder whenever there's
+    // an actual gap to close; stepsRemaining<=0 (goal met, or no data) falls through to
+    // today's exact generic card, unchanged.
+    if ((stepsRemaining ?? 0) > 0) {
+      return (
+        <SuggestionCard
+          suggestion={buildStepsRemainingSuggestion(suggestion, stepsRemaining ?? 0)}
+          onStart={onStart}
+          isStarting={isStarting}
+          ctaLabel="מצא לי מסלול"
+        />
+      );
+    }
   }
 
   return <SuggestionCard suggestion={suggestion} onStart={onStart} isStarting={isStarting} />;
