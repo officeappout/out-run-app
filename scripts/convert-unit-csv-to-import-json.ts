@@ -180,15 +180,18 @@ async function main() {
     return;
   }
 
-  for (const [orgId, { battalions }] of byBrigade) {
-    const authorityName = [...byName.values()].find((a) => a.id === orgId)?.name ?? orgId;
-    const units: ImportUnitNode[] = [...battalions.values()].map((b) => ({
+  // Array.from(), not [...map] / for...of a Map — this project's tsconfig
+  // doesn't have downlevelIteration on, and spreading/for-of over a
+  // Map/MapIterator needs it (tsc TS2802); Array.from() doesn't.
+  Array.from(byBrigade.entries()).forEach(([orgId, { battalions }]) => {
+    const authorityName = Array.from(byName.values()).find((a) => a.id === orgId)?.name ?? orgId;
+    const units: ImportUnitNode[] = Array.from(battalions.values()).map((b) => ({
       ...b,
       subUnits: b.subUnits && b.subUnits.length > 0 ? b.subUnits : undefined,
     }));
     console.log(`\n=== ${authorityName} (orgId: ${orgId}) — paste into /admin/authority/units, this brigade selected ===`);
     console.log(JSON.stringify({ units }, null, 2));
-  }
+  });
 }
 
 main().catch((e) => {
