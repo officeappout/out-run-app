@@ -56,6 +56,7 @@ import {
 } from '../logic/WorkoutGenerator';
 import { createPipelineOrchestrator } from '../core/pipeline/PipelineOrchestrator';
 import { createPoolFactory } from '../core/pipeline/PoolFactory';
+import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
 
 // -- Sibling service imports --
 import {
@@ -251,9 +252,17 @@ async function generateRecoveryWorkout(
       method: method as any,
       mechanicalType: (ex.mechanicalType || 'none') as any,
       sets: Math.min(3, Math.max(2, Math.floor(Math.random() * 2) + 2)),
-      reps: 15,
-      repsRange: { min: 10, max: 20 },
-      isTimeBased: ex.type === 'time' || ex.mechanicalType === 'straight_arm',
+      // Single source of truth (docs/workout-engine/06-TIME-VS-REPS.md): this
+      // used to hardcode reps=15/repsRange=10-20 for every exercise in the
+      // recovery pool regardless of whether it's a hold, and compute
+      // isTimeBased via a reimplementation missing the name-heuristic fallback
+      // (hold/plank/hang/החזק) — real snapshot data showed one exercise
+      // ("שכיבות סמיכה ברכיים") reachable through this path with reps=15
+      // stamped as if it were a 15-second hold, contradicting its 1-6 rep
+      // range from the normal domain-quota path.
+      reps: isTimeBasedExercise(ex) ? 20 : 15,
+      repsRange: isTimeBasedExercise(ex) ? { min: 15, max: 25 } : { min: 10, max: 20 },
+      isTimeBased: isTimeBasedExercise(ex),
       restSeconds: 45,
       priority: 'isolation' as const,
       score: 0,
