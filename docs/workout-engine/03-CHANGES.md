@@ -234,3 +234,48 @@ shapes across the catalog (§5.2) — both flagged for David's attention, neithe
    reachability. No `DRAFT_UNPUBLISHED` reason was needed on `/admin/unreachable-exercises`.
 
 None of these require code changes — they're data/content decisions for David.
+
+---
+
+## Addendum — Generator-vs-David benchmark work (separate deliverable, same branch)
+
+> **This is a different body of work from everything above.** The level-integrity
+> fix (Parts 1-4, rows 1-12 in the summary table) is about exercise-level data
+> integrity. What follows — `docs/workout-engine/05-BENCHMARK.md` and its supporting
+> scripts — is a macro/micro comparison of the generator's output against David's
+> hand-built corpus, plus two real bugs found and fixed along the way. It landed on
+> the same branch because that's where the session continued, not because the two
+> are related. Consider it for a separate PR/merge decision if that's cleaner.
+
+| # | Commit | What | Firestore impact | Reversible how |
+|---|---|---|---|---|
+| 13 | `de4f245a` | Extract `buildMockProfile` to a shared module (needed for a headless script to call `generateHomeWorkoutTrio` the way the admin simulator does) + add `better-sqlite3` devDependency | None (code + package.json) | `git revert de4f245a` |
+| 14 | `51057066` | Add `legacy-workouts.sqlite` (David's 614-workout corpus) + `exercise-inventory.csv` as input data | None (data files, not Firestore) | `git revert 51057066` |
+| 15 | `17c66800` | `build-exercise-bridge.ts` — maps 366 new-catalog exercises to the legacy catalog by normalized-name similarity (189/366 bridged) | None (read-only, writes only to `snapshot.sqlite`) | `git revert 17c66800` |
+| 16 | `1e527b86` | `build-snapshot.ts` v1 — runs the real `generateHomeWorkoutTrio` across a level×duration×location×domain×daysInactive matrix (1,260 calls) | None (read-only Firestore, `skipCycleRestart:true` on every call) | `git revert 1e527b86` |
+| 17 | `f60b6df6` | `05-BENCHMARK.md` v1 + `analyze-benchmark.ts` — first macro/micro comparison report | None (docs + read-only script) | `git revert f60b6df6` |
+| 18 | `e862ae9f` | **Fix**: lock core main exercises to exactly 2 sets in `BudgetDistributor.ts` (David's corpus convention — was inheriting a generic 3-5 set range) | None (code only) | `git revert e862ae9f` |
+| 19 | `516a90df` | **Fix**: same lock for a second, independent path — `trio-modifiers.service.ts`'s naked-backfill (bolt 1 / Flow-Regression), found by tracing a live "אופניים sets=3" case | None (code only) | `git revert 516a90df` |
+| 20 | `66d9a9c2` | **Fix**: authenticate `build-snapshot.ts` via a Firebase Admin custom token — `programLevelSettings` requires `isAuthenticated()`, unlike the public-read catalog collections; the first benchmark run measured "0% paired work" as a methodology gap, not a real finding | None (still read-only + `skipCycleRestart:true`) | `git revert 66d9a9c2` |
+| 21 | `67009080` | `build-session-volume.ts` — adds `session_volume`/`legacy_session_volume` tables (working sets per muscle group — the metric the cited research says actually matters, not exercise count) | None (read-only, writes only to `snapshot.sqlite`) | `git revert 67009080` |
+| 22 | `fad33b60` | `05-BENCHMARK.md` v2 — refreshed with authenticated protocol data, post-fix core conformance (46.7%→90.7%), and the new session-volume section | None (docs + regenerated audit artifacts) | `git revert fad33b60` |
+| 23 | *(this commit)* | This addendum | None (docs only) | `git revert <this SHA>` |
+
+**Dependency note:** #18/#19 (the two core-lock fixes) needed to land *before* the
+final `build-snapshot.ts` re-run in #22, so the refreshed report reflects fixed
+behavior rather than a stale mid-fix snapshot — confirmed by re-running the full
+matrix after each fix (three total re-runs this session, all 0 errors).
+
+**Known residual, not chased further (documented, not hidden):** core-block
+conformance is 90.7%, not 100%. Two small, distinct injection paths still bypass
+both locks — full detail in `BudgetDistributor.ts` next to `CORE_FIXED_SETS` and in
+`05-BENCHMARK.md` §3.3. Would need tracing `WorkoutGenerator.ts`'s post-`distribute()`
+protocol-injection step (Step 5b onward) the same way this session traced the
+naked-backfill path.
+
+**Verification:** `npx tsc --noEmit` — 489/489 baseline maintained, zero new errors
+in any file this addendum touches. `npx vitest run src/features/workout-engine` —
+all individual tests pass (10 new: 7 in `core-set-lock.test.ts`, 3 in
+`trio-modifiers-core-set-lock.test.ts`); the only failing test *files* are the same
+2 pre-existing hybrid `process.exit()` artifacts present since before this branch
+existed.
