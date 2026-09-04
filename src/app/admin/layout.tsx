@@ -27,6 +27,7 @@ import {
     FileText,
     LayoutGrid,
     Map,
+    MapPinned,
     Signal,
     Flag,
     GraduationCap,
@@ -372,6 +373,11 @@ function AdminLayoutInner({
     const showFullSidebar = !isLocalManager;
     const showSimplifiedSidebar = isLocalManager;
     const showAuthorityManagerLink = isAuthorityManager || isTenantOwnerOnly;
+    // superAdmin/systemAdmin only — /admin/city-mapping keeps its own explicit
+    // guard regardless, but the sidebar link itself must not be offered to
+    // authority-manager/vertical-admin/platform_member, who would only be
+    // redirected away by that guard.
+    const showCityMappingLink = isSuperAdmin || isSystemAdmin;
     const tenantLabels = getTenantLabels(authorityTypeToTenantType(authorityType));
     const verticalAdminVertical = roleInfo?.managedVertical;
     const sectionAllowList: string[] = roleInfo?.allowedSections ?? [];
@@ -745,6 +751,9 @@ function AdminLayoutInner({
                                                 <SidebarLink href="/admin/authority-manager" icon={BarChart3} label="דשבורד אנליטיקה" />
                                             )}
                                             <SidebarLink href="/admin/approval-center" icon={ShieldCheck} label="מרכז אישורים" />
+                                            {showCityMappingLink && (
+                                                <SidebarLink href="/admin/city-mapping" icon={MapPinned} label="מיפוי עיר" />
+                                            )}
                                             <SidebarLink href="/admin/pressure-messages" icon={Megaphone} label="מסרי לחץ" />
                                             <SidebarLink href="/admin/authority/reports" icon={Flag} label="דיווחי תחזוקה" />
                                             <SidebarLink href="/admin/heatmap" icon={Activity} label="מפת חום חיה" />
