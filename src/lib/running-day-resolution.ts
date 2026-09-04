@@ -1,3 +1,6 @@
+import { isDateWithinRunningPlan } from './running-plan-date-range';
+import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
+
 // Minimal structural type, not an import of NextRunWorkoutCard's own
 // `ActiveRunningProgram.schedule` entry shape — src/lib/ shouldn't depend on
 // a component file's type (same reasoning as running-onboarding-gate.ts's
@@ -12,7 +15,17 @@ export interface RunningScheduleEntry {
   category?: string;
 }
 
-export type RunningDayStateSource = 'scheduleDays' | 'program' | 'none';
+/**
+ * `'out-of-range'` — the requested date is provably before the plan even
+ * started (`isDateWithinRunningPlan` failed). Distinct from `'none'`
+ * (no schedule data for the date's resolved week — e.g. past the plan's
+ * last week) — both mean "no program applies," but `'out-of-range'` is an
+ * explicit boundary check, not just an absence of data. Neither is a rest
+ * day: `isRunDay` is `false` for both, same as a genuine `'program'` rest
+ * day, but callers that want to say "your plan hasn't started yet" instead
+ * of "rest day" need `source` to tell the two apart.
+ */
+export type RunningDayStateSource = 'scheduleDays' | 'program' | 'none' | 'out-of-range';
 
 export interface RunningDayState<T extends RunningScheduleEntry> {
   isRunDay: boolean;
@@ -42,25 +55,48 @@ function isPendingEntry(entry: RunningScheduleEntry): boolean {
  *
  * Decision rule, in order:
  * 1. `scheduleDays` non-empty → it is the source of truth, byte-identical to
- *    the pre-existing weekday-lookup behavior. Never touched by the fix.
- * 2. `scheduleDays` empty but `schedule` has entries for `currentWeek` → the
- *    program is the source of truth. There is no weekday mapping to fall
- *    back on (schedule entries are positional slots, not calendar days), so
- *    "today" becomes "the first pending entry this week" — and a week whose
- *    entries are all `completed`/`skipped` (nothing pending) is a genuine
- *    rest day per the program, not a permanent one.
+ *    the pre-existing weekday-lookup behavior (still keyed by `currentWeek`,
+ *    the caller's own "which week" answer — this branch only ever gets
+ *    asked about "today" by its 3 live callers, so it does not need its own
+ *    date-derived week). Never touched by the 05.09.2026 date-scoping fix.
+ * 2. `scheduleDays` empty but `schedule` has entries for the week `date`
+ *    itself resolves to → the program is the source of truth. There is no
+ *    weekday mapping to fall back on (schedule entries are positional
+ *    slots, not calendar days), so "today" becomes "the first pending entry
+ *    in that week" — and a week whose entries are all `completed`/
+ *    `skipped` (nothing pending) is a genuine rest day per the program, not
+ *    a permanent one.
+ *    ⚠️ 05.09.2026 fix: this branch used to trust the caller's `currentWeek`
+ *    directly, with no check that `date` actually falls within the plan's
+ *    real range. `calculateCurrentWeek`'s own `Math.max(1,...)` clamp maps
+ *    any date before `startDate` to week 1 — a REAL week, with genuinely
+ *    `pending` entries (nothing has happened yet) — so a date before the
+ *    plan even began would have silently returned week 1's workout as
+ *    "today's." Now: `isDateWithinRunningPlan(startDate, date)` is checked
+ *    FIRST (source `'out-of-range'` if it fails), and the week used to
+ *    filter `schedule` is derived from `date` itself via
+ *    `calculateCurrentWeek(startDate, date)` — not from `currentWeek` — so
+ *    this branch answers correctly for any date a caller asks about, past,
+ *    present, or future (a date past the plan's last real week naturally
+ *    resolves to a week with no schedule entries, source `'none'`).
  * 3. Both empty → no plan exists at all; the pre-existing "no schedule"
  *    fallback state is preserved untouched.
+ *
+ * `currentWeek` is kept as a parameter for the `scheduleDays` branch and as
+ * the fallback when `startDate` is unavailable in the `'program'` branch —
+ * but the `'program'` branch never trusts it as the *only* source once
+ * `startDate` is present.
  */
 export function resolveRunningDayState<T extends RunningScheduleEntry>(
   scheduleDays: string[],
   schedule: T[] | undefined,
   currentWeek: number,
   date: Date,
+  startDate: Date | string | number | undefined,
 ): RunningDayState<T> {
-  const weekEntries = (schedule ?? []).filter((e) => e.week === currentWeek);
-
   if (scheduleDays.length > 0) {
+    const weekEntries = (schedule ?? []).filter((e) => e.week === currentWeek);
+
     const trainingDayIndices = scheduleDays
       .map((letter) => DAY_TO_HE.indexOf(letter as (typeof DAY_TO_HE)[number]))
       .filter((i) => i >= 0)
@@ -96,6 +132,19 @@ export function resolveRunningDayState<T extends RunningScheduleEntry>(
 
     return { isRunDay, todayEntry, nextEntry, nextEntryDaysAway, source: 'scheduleDays' };
   }
+
+  if (startDate && !isDateWithinRunningPlan(startDate, date)) {
+    return {
+      isRunDay: false,
+      todayEntry: undefined,
+      nextEntry: undefined,
+      nextEntryDaysAway: undefined,
+      source: 'out-of-range',
+    };
+  }
+
+  const weekForDate = startDate ? calculateCurrentWeek(startDate, date) : currentWeek;
+  const weekEntries = (schedule ?? []).filter((e) => e.week === weekForDate);
 
   if (weekEntries.length > 0) {
     const pending = weekEntries.filter(isPendingEntry).sort((a, b) => a.day - b.day);

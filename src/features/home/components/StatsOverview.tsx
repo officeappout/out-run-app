@@ -1345,6 +1345,7 @@ export default function StatsOverview({
       profile?.running?.activeProgram?.schedule as any[] | undefined,
       runCurrentWeek,
       new Date(),
+      runStartDate,
     ).isRunDay;
 
     return (

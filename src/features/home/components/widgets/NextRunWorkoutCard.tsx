@@ -112,6 +112,7 @@ export default function NextRunWorkoutCard() {
     running?.activeProgram?.schedule as any[] | undefined,
     effectiveCurrentWeek ?? 1,
     new Date(),
+    running?.activeProgram?.startDate,
   );
   const isRunDay = dayState.isRunDay;
 
