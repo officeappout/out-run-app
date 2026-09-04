@@ -569,7 +569,19 @@ export default function NeighborhoodLeaderboard({
   const rest  = entries.slice(3);
 
   // ── Derived filter UI values ─────────────────────────────────────────────
-  const activeCatOpt      = CATEGORY_OPTIONS.find((o) => o.value === localMode) ?? CATEGORY_OPTIONS[0];
+  // Phase 6a: 'distance' ranks feed_posts.distanceKm (getDistanceLeaderboard),
+  // and feed_posts docs carry no reserveScope field at all (only
+  // streaks/dailyActivity do — see useActivityStore.syncToServer) — every
+  // reservist would show an always-empty table, not "nobody's active yet".
+  // Hidden outright for this scope (not disabled/"בקרוב" like running/
+  // strength) — an option that doesn't exist reads better than one that
+  // silently never has data. school/park scopes don't have this problem
+  // (feed_posts already carries schoolId/parkId), so this stays scoped to
+  // 'reserve' specifically, not a generic capability check.
+  const visibleCategoryOptions = scope === 'reserve'
+    ? CATEGORY_OPTIONS.filter((o) => o.value !== 'distance')
+    : CATEGORY_OPTIONS;
+  const activeCatOpt      = visibleCategoryOptions.find((o) => o.value === localMode) ?? visibleCategoryOptions[0];
   const activeStrengthProg = programs.find((p) => p.id === strengthProgramId) ?? null;
   // Stage A (leagues design pass): nav consolidated to exactly two dropdowns
   // (metric + time), per the mockups — the running-segment/strength-program
@@ -646,7 +658,7 @@ export default function NeighborhoodLeaderboard({
               isOpen={openDropdown === 'cat'}
               onToggle={() => setOpenDropdown(openDropdown === 'cat' ? null : 'cat')}
             >
-              {CATEGORY_OPTIONS.map((opt) => (
+              {visibleCategoryOptions.map((opt) => (
                 <DropdownItem
                   key={opt.value}
                   isSelected={localMode === opt.value}
