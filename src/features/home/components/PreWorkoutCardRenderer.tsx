@@ -85,9 +85,38 @@ interface PreWorkoutCardRendererProps {
   /** Opens the shared health-permission disclosure flow. Required together with
    *  `healthConnected` for the safety-net + not-connected branch to render ConnectStepsCard. */
   onConnectSteps?: () => void;
+  /**
+   * Live (reactive, not a resolve-time snapshot) stepsRemaining — real-steps-connect plan,
+   * staleness fix, 04.09.2026. Used ONLY to compute the safety-net slot's own Tier-2 cache
+   * key (buildSafetyNetRouteCacheKey below) so this renderer reads the SAME bucketed key
+   * home/page.tsx's resolveHomeTier2 resolved into. Undefined/omitted falls into bucket 0,
+   * same as today's cache-miss ("not resolved yet") behavior — never a crash.
+   */
+  stepsRemaining?: number;
 }
 
 const ROUTE_DIFFICULTY_MAP: Record<Route['difficulty'], 1 | 2 | 3> = { easy: 1, medium: 2, hard: 3 };
+
+/**
+ * Bucket width for the safety-net slot's own Tier-2 route cache key (real-steps-connect plan,
+ * staleness fix, 04.09.2026). route.generator.ts's routeCache is keyed by whatever string it's
+ * given and has no staleness/TTL logic of its own (LRU-cap only, see its own doc comment) —
+ * folding a coarse steps-bucket into the key here, entirely on the caller side, makes a
+ * materially-changed REAL step count (e.g. background HealthKit sync) produce a natural cache
+ * miss — and therefore a fresh resolve — without touching route.generator.ts at all.
+ */
+export const STEPS_CACHE_BUCKET_SIZE = 500;
+
+/**
+ * The safety-net slot's own Tier-2 cache key: the suggestion's own id (unchanged from Part 3 —
+ * still a separate cache entry from route.generator's own suggestions) plus a steps-bucket
+ * suffix. MUST be computed identically on both sides — the resolve side (home/page.tsx's
+ * resolveHomeTier2) and the read side (this file's own getCachedRoute call below) — hence one
+ * canonical exported function instead of the bucket math duplicated in two places.
+ */
+export function buildSafetyNetRouteCacheKey(suggestionId: string, stepsRemaining: number): string {
+  return `${suggestionId}:${Math.floor(stepsRemaining / STEPS_CACHE_BUCKET_SIZE)}`;
+}
 
 /** Overlays a resolved real Route's display fields onto a copy of the original safety-net
  *  Suggestion — same generic SuggestionCard, real content instead of the static placeholder.
@@ -175,6 +204,7 @@ export function PreWorkoutCardRenderer({
   overrideWorkout,
   healthConnected,
   onConnectSteps,
+  stepsRemaining,
 }: PreWorkoutCardRendererProps) {
   if (hasHeroCardTreatment(suggestion.generatorId)) {
     const workout = resolveHeroWorkout(suggestion, overrideWorkout);
@@ -201,7 +231,7 @@ export function PreWorkoutCardRenderer({
     if (healthConnected === false && onConnectSteps) {
       return <ConnectStepsCard onConnect={onConnectSteps} />;
     }
-    const route = getCachedRoute(suggestion.id);
+    const route = getCachedRoute(buildSafetyNetRouteCacheKey(suggestion.id, stepsRemaining ?? 0));
     if (route) {
       return (
         <SuggestionCard

@@ -89,7 +89,8 @@ import { resolveFullStrengthWorkout, resolveFullStrengthWorkoutAtIndex } from '@
 import { resolveRouteWorkout, getCachedRoute } from '@/features/workout-engine/core/generators/route.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
 import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
-import { PreWorkoutCardRenderer, resolveHeroWorkout, hasHeroCardTreatment } from '@/features/home/components/PreWorkoutCardRenderer';
+import { PreWorkoutCardRenderer, resolveHeroWorkout, hasHeroCardTreatment, buildSafetyNetRouteCacheKey, STEPS_CACHE_BUCKET_SIZE } from '@/features/home/components/PreWorkoutCardRenderer';
+import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
@@ -620,7 +621,15 @@ export default function HomePage() {
   // StatsOverview already call it), each mounting its own onSnapshot pair.
   // Consistent with this page's existing convention (not a new pattern this
   // diff introduces), but a real modest listener cost, not a free read.
-  const { allGoalsMet } = useDailyActivity();
+  const { allGoalsMet, todayActivity } = useDailyActivity();
+  // Real-steps-connect plan (04.09.2026, staleness fix): reactive stepsRemaining, computed
+  // via the SAME buildStepContext gate (healthConnected===false -> 0) the resolve side uses —
+  // NOT a second, independently-invented computation. Reuses this file's own existing
+  // useDailyActivity() call above (todayActivity already carries the live subscription; see
+  // that call's own adversarial-review comment) rather than adding a 5th useActivityStore
+  // listener. Drives both the safety-net slot's Tier-2 cache-key bucket (below) and
+  // PreWorkoutCardRenderer's own read-side lookup (passed down as the stepsRemaining prop).
+  const liveStepsRemaining = buildStepContext(todayActivity, healthConnected).stepsRemaining;
   // Daily Strength Ring (Layer A). The target hook is gated by the flag so no
   // Firestore read fires while STRENGTH_RING_ENABLED is off (byte-identical).
   const todayStrengthVolume = useTodayStrengthVolume();
@@ -1158,10 +1167,19 @@ export default function HomePage() {
     // reasoning the post_workout ranking effect's own comment already documents for gpsCoords.
     // healthConnected!==false mirrors buildStepContext's own gate: no point resolving against
     // a fabricated step count.
+    //
+    // Staleness fix (04.09.2026): route.generator.ts's routeCache has no TTL/invalidation of
+    // its own (LRU-cap only) — a bare suggestion.id key would resolve ONCE and then serve that
+    // same route forever (confirmed live: 14,176 real steps still showed a route sized for the
+    // original 8,000-step gap). buildSafetyNetRouteCacheKey folds context.stepsRemaining into
+    // the key itself, entirely on this (caller) side — a materially-changed real step count
+    // produces a different key, and therefore a natural cache miss / fresh resolve, without
+    // any change to route.generator.ts.
     if (suggestion.generatorId === 'safety-net' && healthConnected !== false) {
       const freshCoords = useGPSStore.getState().coords;
       if (!freshCoords) return;
-      resolveRouteWorkout(suggestion.id, { ...context, location: freshCoords })
+      const cacheKey = buildSafetyNetRouteCacheKey(suggestion.id, context.stepsRemaining);
+      resolveRouteWorkout(cacheKey, { ...context, location: freshCoords })
         .then(() => setTier2ResolvedTick((t) => t + 1))
         .catch((error) => console.error('[home] resolveRouteWorkout (safety-net slot) failed', error));
     }
@@ -1326,9 +1344,32 @@ export default function HomePage() {
       location: null,
       surface: 'home',
       date: new Date(selectedDate + 'T00:00:00'),
+      // Staleness fix (04.09.2026) — missing from this call site until now (Part 3 only added
+      // it to the ranking effect and handlePreWorkoutCardTap); without it, context.stepsRemaining
+      // here would ignore a not-connected user, feeding an unbucketed/wrong cache key into the
+      // resolve this function's own comment above describes triggering.
+      healthConnected,
     });
     resolveHomeTier2(suggestion, context, profile);
-  }, [profile, resolveHomeTier2, selectedDate]);
+  }, [profile, resolveHomeTier2, selectedDate, healthConnected]);
+
+  // Staleness fix (04.09.2026): nothing else re-triggers the safety-net slot's Tier-2 resolve
+  // when the REAL step count changes in the background (HealthBridge -> outbox ->
+  // ingestHealthSamples -> Firestore onSnapshot -> useActivityStore, all already live — see
+  // build-step-context.ts's own doc comment) — the ranking effect only fires on
+  // [profile, resolveHomeTier2, selectedDate], and ranking itself only needs to happen once
+  // per day/date, not on every step update. liveStepsRemaining is reactive (see its own
+  // declaration above); re-running handlePreWorkoutSettle on a bucket change reuses that
+  // function's own cache-key logic verbatim rather than a second resolve call site. Scoped
+  // deliberately narrow — only the currently-FOCUSED suggestion (activePreWorkoutSuggestion),
+  // same as handlePreWorkoutSettle's own "defensive backstop" scope, not every background/
+  // unfocused candidate.
+  useEffect(() => {
+    if (!activePreWorkoutSuggestion || activePreWorkoutSuggestion.generatorId !== 'safety-net') return;
+    handlePreWorkoutSettle(activePreWorkoutSuggestion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Math.floor(liveStepsRemaining / STEPS_CACHE_BUCKET_SIZE)]);
+
   // handlePreWorkoutCardTap (the pre-workout carousel's onStart handler) is declared further
   // below, right after handleWorkoutGenerated — it depends on that setter, which itself depends
   // on state declared later in this file.
@@ -1707,7 +1748,10 @@ export default function HomePage() {
       // card already use, not a new hand-off. `location:null` above doesn't affect
       // stepsRemaining (buildStepContext ignores location entirely) so this is still the real
       // number, healthConnected-aware.
-      if (suggestion.generatorId === 'safety-net' && getCachedRoute(suggestion.id)) {
+      if (
+        suggestion.generatorId === 'safety-net' &&
+        getCachedRoute(buildSafetyNetRouteCacheKey(suggestion.id, context.stepsRemaining))
+      ) {
         router.push(`/map?openRun=walking&targetSteps=${context.stepsRemaining}`);
         return;
       }
@@ -2880,6 +2924,7 @@ export default function HomePage() {
                           overrideWorkout={swappedWorkoutById[s.id]}
                           healthConnected={healthConnected}
                           onConnectSteps={triggerHealthPermission}
+                          stepsRemaining={liveStepsRemaining}
                         />
                       )}
                     />
