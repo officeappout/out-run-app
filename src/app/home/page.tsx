@@ -1216,6 +1216,7 @@ export default function HomePage() {
         surface: 'home',
         date: new Date(selectedDate + 'T00:00:00'),
         todayScheduleEntries,
+        healthConnected,
       });
       return runSuggestionEngineStreaming(context, (suggestion) => {
         // TEMPORARY diagnostic (26.08.2026, per David's request) — understand why one suggestion
@@ -1226,13 +1227,23 @@ export default function HomePage() {
         );
         if (!cancelled) resolveHomeTier2(suggestion, context, profile);
       }).then((ranked) => {
-        if (!cancelled) setPreWorkoutSuggestions(ranked.slice(0, 3));
+        if (cancelled) return;
+        const top3 = ranked.slice(0, 3);
+        // Fix 3 (real-steps-connect follow-up, 04.09.2026): once today's real step goal is
+        // met, the generic safety-net card no longer has anything useful to say — but
+        // safety-net.generator.ts's own contract (eligible: () => true, its own doc header:
+        // "the registry's guaranteed non-null member") must never be starved to an EMPTY
+        // carousel. Filtered here, at this call site only — eligible()/generate() untouched.
+        const finalSuggestions = context.stepsRemaining <= 0 && healthConnected !== false && top3.length > 1
+          ? top3.filter((s) => s.generatorId !== 'safety-net')
+          : top3;
+        setPreWorkoutSuggestions(finalSuggestions);
       });
     }).catch((error) => {
       console.error('[home] runSuggestionEngine failed for home surface', error);
     });
     return () => { cancelled = true; };
-  }, [profile, resolveHomeTier2, selectedDate]);
+  }, [profile, resolveHomeTier2, selectedDate, healthConnected]);
 
   // Parity fix (27.08.2026) — location/program-icon context for the new carousel's header and
   // HeroWorkoutCard props (workoutLocation/programIconKey), copied verbatim from
