@@ -518,13 +518,22 @@ export function applyFlowRegression(
       });
 
       if (replacement) {
-        const oldReps = ex.reps;
         usedIds.delete(ex.exercise.id);
         usedIds.add(replacement.id);
         ex.exercise = replacement;
         const nakedMethod = (replacement.execution_methods ?? replacement.executionMethods ?? [])
           .find(m => isGearFree(collectMethodGear(m as any), true));
         ex.method = (nakedMethod ?? replacement.executionMethods?.[0] ?? ex.method) as any;
+        // isTimeBased / mechanicalType consistency (docs/workout-engine/06-TIME-VS-REPS.md):
+        // swapping `ex.exercise` to a different exercise without re-deriving these
+        // left them describing the OLD (pre-swap) exercise's nature. Real snapshot
+        // data showed a hold exercise ("החזקת מקבילים...", isTimeBased=true,
+        // reps=15 meaning 15 SECONDS) getting swapped to a rep-based replacement
+        // ("שכיבות סמיכה ברכיים") while keeping isTimeBased=true — displaying
+        // "15 שניות" for an exercise that should show "15 חזרות". Single source
+        // of truth, same as every other exercise-identity change in this file.
+        ex.isTimeBased = isTimeBasedExercise(replacement);
+        ex.mechanicalType = (replacement.mechanicalType || 'none') as any;
         // Reps are deliberately NOT multiplied: the regression swap to a lower-level
         // exercise already reduces difficulty.  Stacking a ×1.2 rep bonus on top of
         // bolt 1's 10–12 base would push volume above normal (bolt 2) levels.
@@ -653,14 +662,24 @@ export function applyEssentialGearFilter(
       // lock has to be re-applied here too. Found by tracing a real
       // "אופניים sets=3" case in a live snapshot back to this exact line.
       const isCoreBackfill = !!raw.movementGroup && MG_TO_DOMAIN[raw.movementGroup] === 'core';
+      // isTimeBased lock (docs/workout-engine/06-TIME-VS-REPS.md): this backfill
+      // used to hardcode `isTimeBased: false, reps: 10` for every candidate,
+      // regardless of whether the raw exercise is actually a hold (e.g. a plank
+      // pulled in here would show "10 חזרות" instead of a hold duration). Derive
+      // it from the single canonical source (isTimeBasedExercise) like every
+      // other exercise in the pipeline, and use a hold-duration default instead
+      // of a rep count when it fires — no difficulty context reaches this
+      // function, so this mirrors DIFFICULTY_VOLUME's D2/normal-tier
+      // holdSeconds midpoint (15-25s) rather than inventing a new range.
+      const naked_isTimeBased = isTimeBasedExercise(raw);
       nakedMain.push({
         exercise: raw,
         score: 0,
         reasoning: ['naked_backfill:bodyweight_global_pool'],
         sets: isCoreBackfill ? 2 : 3,
-        reps: 10,
+        reps: naked_isTimeBased ? 20 : 10,
         restSeconds: 60,
-        isTimeBased: false,
+        isTimeBased: naked_isTimeBased,
         exerciseRole: 'main',
         method: (nakedMethod ?? {}) as any,
       } as any);
