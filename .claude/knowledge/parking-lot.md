@@ -444,3 +444,21 @@ Net effect: picking lower-body silently and permanently resolves to `UPPER_BODY`
 **Fix direction, not built:** give the plan a real upper bound (total weeks, already known via `canonicalWeeks`/the schedule's own max week) and a dedicated "plan finished" state with its own copy (e.g. offering a follow-up plan) — not a silent fall-through to the generic-easy-run default.
 
 **Not investigated:** `RunBriefingDrawer`'s own empty/loading state when opened with `workout: null` and `pendingWorkoutId: undefined` — unread, not asserted.
+
+---
+
+## `HILL_CATEGORIES` missing `hill_long` — 2/3, scoring only, not a safety filter
+**Opened:** 04.09.2026 · **Source:** David, read-only investigation into `HILL_CATEGORIES` vs `INJURY_EXCLUDED_CATEGORIES` before the running rule family doc.
+
+`running-engine.service.ts:1632` defines `HILL_CATEGORIES` as 2 values (`hill_sprints`, `hill_short`), while the `WorkoutCategory` type contains 3 `hill_*` members. Used for a scoring penalty on weekly hill-volume (`:1577`) and to update `lastHillWorkUnits` (`:1852`) — scoring only, not safety. Result: `hill_long` workouts are never counted toward the volume penalty.
+
+`INJURY_EXCLUDED_CATEGORIES` (`plan-generator.service.ts:475`) and the separate `HILL_CATEGORIES` in the admin tool (`rank-hills/page.tsx:27`) both contain all 3 — so the omission here looks like drift, not intent. Not fixed.
+
+---
+
+## Injury-exclusion filter is dormant — correct code, unreachable input
+**Opened:** 04.09.2026 · **Source:** David, same investigation as above.
+
+The `excludeCategories` mechanism is complete and correct, but `hasInjuries` stays `false` forever: the `q_run_injuries` question has been marked REMOVED since the commit that created it (`87a2099d`), and the admin sync tool deletes it from Firestore on every run. There is no way for a user to report an injury in the running flow today.
+
+Open product decision — not a blind fix.
