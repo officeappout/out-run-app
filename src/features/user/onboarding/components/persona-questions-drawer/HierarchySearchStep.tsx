@@ -5,6 +5,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { ChevronRight, MapPin, Search, Check } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import type { HierarchySearchQuestionConfig } from '@/types/persona-question.types';
+import { effectiveServiceType, effectiveUserStatus } from './service-type-rank';
 
 interface DirectoryEntry {
   directoryId: string;
@@ -13,7 +14,12 @@ interface DirectoryEntry {
   orgId: string;
   unitId: string | null;
   statusCategory: string | null;
+  serviceType: string | null;
 }
+
+// serviceType/statusCategory ranking logic lives in service-type-rank.ts
+// (kept out of this component file so it can be unit-tested without pulling
+// in JSX) — see that file for the fixed no-op-match bug this replaces.
 
 export interface HierarchySearchValue {
   orgId?: string;
@@ -50,6 +56,7 @@ async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
       orgId: data.orgId as string,
       unitId: (data.unitId as string | null) ?? null,
       statusCategory: (data.statusCategory as string | null) ?? null,
+      serviceType: (data.serviceType as string | null) ?? null,
     };
   });
 }
@@ -96,12 +103,15 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
     setSearchQuery(''); // fresh level, fresh search box
     fetchLevel(currentParentId).then((result) => {
       if (cancelled) return;
-      // Soft filter: matching statusCategory entries first — never excludes
-      // a non-matching one (see persona-question.types.ts's softFilterFromKey doc).
+      // Soft filter: matching-serviceType entries first — never excludes a
+      // non-matching one (see persona-question.types.ts's softFilterFromKey
+      // doc). serviceType is per-unit and English; statusCategory is the
+      // older brigade-only Hebrew fallback (effectiveServiceType above).
       const sorted = softFilterValue
         ? [...result].sort((a, b) => {
-            const aMatch = a.statusCategory === softFilterValue ? 0 : 1;
-            const bMatch = b.statusCategory === softFilterValue ? 0 : 1;
+            const wanted = effectiveUserStatus(softFilterValue);
+            const aMatch = effectiveServiceType(a) === wanted ? 0 : 1;
+            const bMatch = effectiveServiceType(b) === wanted ? 0 : 1;
             return aMatch - bMatch;
           })
         : result;

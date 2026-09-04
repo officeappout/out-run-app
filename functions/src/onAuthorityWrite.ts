@@ -142,6 +142,12 @@ export const onAuthorityWrite = onDocumentWritten(
       logger.info(`[onAuthorityWrite] Updated armType/statusCategory for ${authorityId}: ${armType} / ${statusCategory}`);
     }
 
+    // serviceType (regular/reserve/mixed) is a SEPARATE field from the
+    // name-derived armType/statusCategory above — it's set explicitly at
+    // creation (unit-import, Phase 6c) and never derived/overwritten here,
+    // so it survives every future onAuthorityWrite retrigger untouched.
+    const serviceType = typeof data.serviceType === 'string' ? data.serviceType : null;
+
     await db.collection('unitDirectory').doc(authorityId).set({
       name,
       parentId: null,
@@ -150,6 +156,7 @@ export const onAuthorityWrite = onDocumentWritten(
       unitId: null,
       armType,
       statusCategory,
+      serviceType,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     logger.info(`[onAuthorityWrite] Synced unitDirectory entry ${authorityId}`);
