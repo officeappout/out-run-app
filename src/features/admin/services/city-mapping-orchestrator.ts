@@ -78,6 +78,18 @@ export interface CityMappingProgressUpdate {
 
 export type CityMappingProgressFn = (update: CityMappingProgressUpdate) => void;
 
+interface LightingChunkApiResponse {
+  done: boolean;
+  cursor: string | null;
+  chunkSize: number;
+  routesProcessedThisChunk: number;
+  totalRoutesInCity: number;
+  litCount: number;
+  unlitCount: number;
+  unknownCount: number;
+  writesApplied: number;
+}
+
 export interface CityMappingResult {
   success: boolean;
   authorityId: string | null;
@@ -197,20 +209,51 @@ export async function runCityMapping(
     return { success: false, authorityId, counts, errors: [msg] };
   }
 
-  // ── Step 4: lighting — thin API route wrapping runBackfillRouteLighting() ──
+  // ── Step 4: lighting — thin API route wrapping runBackfillRouteLightingChunk() ──
+  // CHUNKED (04.09.2026, lighting-step 504 fix): a dense city (Haifa) measured
+  // well over the API route's 60s maxDuration even with concurrency-capped
+  // queries, so the route now processes one bounded slice of official_routes
+  // per call. This loop drives it to completion client-side, passing the
+  // cursor back on each call until the response reports done:true — the same
+  // shape backfill-route-lighting-haifa.ts's own CLI wrapper uses internally.
   progress({ step: 'lighting', status: 'running', message: 'Backfilling route lighting...' });
   try {
-    const result = await callCityMappingApi<{ litCount: number; unlitCount: number; unknownCount: number; writesApplied: number }>(
-      'lighting',
-      { city: CITY, apply: opts.apply },
-      opts,
-    );
-    counts.lighting = result.writesApplied;
+    let cursor: string | null = null;
+    let done = false;
+    let chunkNum = 0;
+    let routesDone = 0;
+    let totalRoutesInCity = 0;
+    let totalChunks: number | null = null;
+    let litCount = 0, unlitCount = 0, unknownCount = 0, writesApplied = 0;
+
+    while (!done) {
+      chunkNum++;
+      const result: LightingChunkApiResponse = await callCityMappingApi<LightingChunkApiResponse>('lighting', { city: CITY, apply: opts.apply, cursor }, opts);
+
+      totalRoutesInCity = result.totalRoutesInCity;
+      totalChunks = totalRoutesInCity > 0 ? Math.max(1, Math.ceil(totalRoutesInCity / result.chunkSize)) : null;
+      routesDone += result.routesProcessedThisChunk;
+      litCount += result.litCount;
+      unlitCount += result.unlitCount;
+      unknownCount += result.unknownCount;
+      writesApplied += result.writesApplied;
+      done = result.done;
+      cursor = result.cursor;
+
+      progress({
+        step: 'lighting',
+        status: 'running',
+        message: `chunk ${chunkNum}${totalChunks ? `/${totalChunks}` : ''}, ${routesDone}${totalRoutesInCity ? `/${totalRoutesInCity}` : ''} route(s) done.`,
+        count: routesDone,
+      });
+    }
+
+    counts.lighting = writesApplied;
     progress({
       step: 'lighting',
       status: 'done',
-      message: `lit=${result.litCount} unlit=${result.unlitCount} unknown=${result.unknownCount}.`,
-      count: result.writesApplied,
+      message: `lit=${litCount} unlit=${unlitCount} unknown=${unknownCount}.`,
+      count: writesApplied,
     });
   } catch (err) {
     const msg = (err as Error).message ?? 'lighting step failed.';
