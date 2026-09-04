@@ -579,6 +579,13 @@ export function assignVolume(
 
     const tierName = resolveTier(delta);
     const tier = TIER_TABLE[tierName];
+    // Hard/Elite (delta >= 1, above-level work): reps must come from TIER_TABLE
+    // (1-3), never from the bolt-indexed DIFFICULTY_VOLUME table — see the
+    // DAVID STAIRCASE comment above getStaircaseRange, which already promises
+    // this but wasn't wired for the reps range (only getStaircaseRange's
+    // match/easy/flow branches were). getStaircaseRange returns null for these
+    // two tiers specifically so the fallback below can apply TIER_TABLE's range.
+    const isAboveLevelTier = tierName === 'hard' || tierName === 'elite';
 
     // Merge: sets/reps/hold from DIFFICULTY_VOLUME; rest unchanged from TIER_TABLE
     const volumeTier: TierConfig = {
@@ -656,7 +663,7 @@ export function assignVolume(
       // low-rep tier values since the user is in over-level territory.
       const staircaseRange = getStaircaseRange(tierName, isHorizontalMatch, context.levelProgressPercent);
       const repRange = staircaseRange
-        ?? (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps);
+        ?? (isAboveLevelTier ? tier.reps : (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps));
 
       const mg = exercise.movementGroup ?? '';
       const isPushPull = PUSH_PULL_MG.has(mg);
@@ -724,7 +731,7 @@ export function assignVolume(
     // tier range for hard/elite tiers (where staircase returns null).
     const staircaseDisplayRange = getStaircaseRange(tierName, isHorizontalMatch, context.levelProgressPercent);
     const effectiveRepRange = staircaseDisplayRange
-      ?? (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps);
+      ?? (isAboveLevelTier ? tier.reps : (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps));
     // Phase 3.6 — Smart Range Compression.
     // For time-based exercises, build the initial range from the difficulty
     // table then compress it when the table overshoots the physiological cap.
