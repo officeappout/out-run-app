@@ -281,6 +281,18 @@ interface MapStore {
   ) => void;
   consumePendingCommute: () => { coords: [number, number]; label?: string } | null;
   /**
+   * One-shot "start this exact route now" request (real-steps-connect plan, Bug 1 fix,
+   * 04.09.2026) — same pattern as `pendingCommute` immediately above, for the sibling case:
+   * `RouteDetailSheet`'s "התחל אימון" button, tapped from a screen with no `logic` object of
+   * its own (e.g. GlobalDetailOverlay.tsx, mounted globally so it works on Home/Map/any page —
+   * see that file's own header comment). `DiscoverLayer` subscribes and consumes in a
+   * useEffect, then drives its own `logic.setFocusedRoute`/`logic.startActiveWorkout` exactly
+   * like its ROUTE_CARD screen state's own onStartWorkout already does inline.
+   */
+  pendingRouteStart: Route | null;
+  setPendingRouteStart: (route: Route | null) => void;
+  consumePendingRouteStart: () => Route | null;
+  /**
    * Monotonic counter that AppMap bumps whenever a click on the Mapbox
    * canvas falls through every interactive layer (no park / route /
    * pin / facility hit). Acts as a one-shot signal for "the user
@@ -454,6 +466,13 @@ export const useMapStore = create<MapStore>((set, get) => ({
   consumePendingCommute: () => {
     const current = get().pendingCommute;
     if (current) set({ pendingCommute: null });
+    return current;
+  },
+  pendingRouteStart: null,
+  setPendingRouteStart: (route) => set({ pendingRouteStart: route }),
+  consumePendingRouteStart: () => {
+    const current = get().pendingRouteStart;
+    if (current) set({ pendingRouteStart: null });
     return current;
   },
   mapEmptyTapTick: 0,

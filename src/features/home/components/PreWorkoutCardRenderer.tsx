@@ -238,6 +238,10 @@ export function PreWorkoutCardRenderer({
           suggestion={buildRouteSuggestionFromRoute(route, suggestion)}
           onStart={onStart}
           isStarting={isStarting}
+          // Bug 1 fix (04.09.2026): tapping this card opens a route-preview sheet
+          // (useMapStore.openGlobalRouteSheet, home/page.tsx's handlePreWorkoutCardTap), not a
+          // workout — 'התחל' would misleadingly imply the workout starts immediately.
+          ctaLabel="צפה במסלול"
         />
       );
     }

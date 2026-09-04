@@ -620,6 +620,24 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingCommute]);
 
+  // Pending-route-start consumer (real-steps-connect plan, Bug 1 fix, 04.09.2026) — same
+  // pattern as the pending-commute consumer immediately above, for RouteDetailSheet's "start
+  // workout now" affordance instead of "navigate to". Mirrors the ROUTE_CARD screen state's
+  // own inline onStartWorkout handler further below (logic.setFocusedRoute + startActiveWorkout)
+  // verbatim — this is the same action, just reachable from a sheet opened with no `logic`
+  // object of its own (GlobalDetailOverlay.tsx, mounted outside /map).
+  const pendingRouteStart = useMapStore((s) => s.pendingRouteStart);
+  useEffect(() => {
+    if (!pendingRouteStart) return;
+    const route = useMapStore.getState().consumePendingRouteStart();
+    if (!route) return;
+    useMapStore.getState().setSelectedPark(null);
+    logic.setSelectedRoute(null);
+    logic.setFocusedRoute(route);
+    logic.startActiveWorkout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRouteStart]);
+
   // ── Partner Finder state machine ──────────────────────────────────────────
   // Three exclusive screens once mapMode === 'partners':
   //   bubbles → radar (transient) → overlay

@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import AlertModal from '@/features/home/components/AlertModal';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
 import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
@@ -1742,18 +1743,22 @@ export default function HomePage() {
         date: new Date(selectedDate + 'T00:00:00'),
         healthConnected,
       });
-      // Real-steps-connect plan (02.09.2026, Part 3): the upgraded safety-net slot
-      // (PreWorkoutCardRenderer.tsx) shows a real walking route once resolveHomeTier2 caches
-      // one under this suggestion's own id — same deep-link Part 2/StatsOverview's rest-day
-      // card already use, not a new hand-off. `location:null` above doesn't affect
-      // stepsRemaining (buildStepContext ignores location entirely) so this is still the real
-      // number, healthConnected-aware.
-      if (
-        suggestion.generatorId === 'safety-net' &&
-        getCachedRoute(buildSafetyNetRouteCacheKey(suggestion.id, context.stepsRemaining))
-      ) {
-        router.push(`/map?openRun=walking&targetSteps=${context.stepsRemaining}`);
-        return;
+      // Real-steps-connect plan (02.09.2026, Part 3; revised 04.09.2026, Bug 1 fix): the
+      // upgraded safety-net slot (PreWorkoutCardRenderer.tsx) shows a real walking route once
+      // resolveHomeTier2 caches one under this suggestion's own bucketed id. Tapping it now
+      // opens that EXACT resolved Route in the global route-detail sheet
+      // (useMapStore.openGlobalRouteSheet — GlobalDetailOverlay.tsx, works from Home, no
+      // navigation needed) instead of the old `/map?openRun=walking&targetSteps=` deep-link,
+      // which recomputed an unrelated, differently-shaped route from targetSteps alone (the
+      // desync bug this fix closes — confirmed live, 04.09.2026). `location:null` above
+      // doesn't affect stepsRemaining (buildStepContext ignores location entirely) so this is
+      // still the real number, healthConnected-aware.
+      if (suggestion.generatorId === 'safety-net') {
+        const cachedRoute = getCachedRoute(buildSafetyNetRouteCacheKey(suggestion.id, context.stepsRemaining));
+        if (cachedRoute) {
+          useMapStore.getState().openGlobalRouteSheet(cachedRoute);
+          return;
+        }
       }
       const workout = await suggestionToHomeGeneratedWorkout(context, suggestion);
       // No real GeneratedWorkout to preview (e.g. safety-net/route, which have no Tier-2
@@ -1829,7 +1834,7 @@ export default function HomePage() {
     } finally {
       setStartingPreWorkoutSuggestionId(null);
     }
-  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate, healthConnected, router]);
+  }, [profile, handleWorkoutGenerated, handleIntensityToggleSelect, interceptWorkoutStart, selectedDate, healthConnected]);
 
   // Active program icon key — derived dynamically from today's recurring
   // template entry first so that a `calisthenics_upper` (UPPER_CALISTHENICS)

@@ -30,9 +30,16 @@ interface SuggestionCardProps {
   suggestion: Suggestion;
   onStart: () => void;
   isStarting?: boolean;
+  /**
+   * CTA button text, defaults to 'התחל' (real-steps-connect plan, Bug 1 fix, 04.09.2026) — every
+   * existing caller jumps straight into a workout on tap, so 'התחל' stays byte-identical for
+   * them. PreWorkoutCardRenderer's upgraded safety-net slot passes 'צפה במסלול' instead, since
+   * that tap opens a route-preview sheet, not a workout.
+   */
+  ctaLabel?: string;
 }
 
-export function SuggestionCard({ suggestion, onStart, isStarting }: SuggestionCardProps) {
+export function SuggestionCard({ suggestion, onStart, isStarting, ctaLabel = 'התחל' }: SuggestionCardProps) {
   return (
     <div className="h-full w-full flex items-center justify-center">
       <div
@@ -61,7 +68,7 @@ export function SuggestionCard({ suggestion, onStart, isStarting }: SuggestionCa
           className="mt-4 w-full rounded-full py-2.5 text-[14px] font-black text-white transition-opacity disabled:opacity-60"
           style={{ background: BRAND }}
         >
-          {isStarting ? 'טוען…' : 'התחל'}
+          {isStarting ? 'טוען…' : ctaLabel}
         </button>
       </div>
     </div>
