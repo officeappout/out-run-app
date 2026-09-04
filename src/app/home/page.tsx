@@ -97,6 +97,7 @@ import { useHealthConnected } from '@/hooks/useHealthConnected';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { useToast } from '@/components/ui/Toast';
+import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -1485,26 +1486,13 @@ export default function HomePage() {
   // absent=absent (⑨): the strength hero-gate needs an ASSESSED strength domain (level > 0), not
   // merely "any domain key". A user with no filled strength domain is routed to the questionnaire
   // instead of composing an invented/generic workout. Non-strength (running/flexibility) excluded.
-  const hasStrengthProgram = (() => {
-    const NON_STRENGTH = new Set(['running', 'flexibility']);
-    const readLvl = (v: any) => (v == null ? 0 : (v.currentLevel ?? v.level ?? 0));
-    const anyAssessed = (obj: Record<string, any> = {}) =>
-      Object.entries(obj).some(([k, v]) => !NON_STRENGTH.has(k) && readLvl(v) > 0);
-    return anyAssessed(profile?.progression?.domains as any) || anyAssessed(profile?.progression?.tracks as any);
-  })();
+  // MAP_ONLY fix (04.09.2026): now calls the single-source-of-truth hasAssessedStrengthDomain
+  // (access-control.service.ts) instead of inlining a verbatim copy of its logic — DiscoverLayer.tsx
+  // already does this (its own hasStrengthProgram, line ~690). Reduces the exact class of drift
+  // that let a SECOND, buggy local computation (hasCompletedAssessment, removed here) exist
+  // right next to this one for months.
+  const hasStrengthProgram = hasAssessedStrengthDomain(profile as any);
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
-  // Map path vs Assessment path: tracks/domains with level > 1 = assessment done
-  const hasCompletedAssessment = (() => {
-    const tracks = profile?.progression?.tracks ?? {};
-    const domains = profile?.progression?.domains ?? {};
-    const hasLevelAbove1 = (obj: Record<string, { currentLevel?: number } | undefined>) =>
-      Object.values(obj).some((v) => (v?.currentLevel ?? 1) > 1);
-    return (
-      hasLevelAbove1(tracks) ||
-      hasLevelAbove1(domains) ||
-      profile?.onboardingStatus === 'COMPLETED'
-    );
-  })();
   // Health declaration check
   const isHealthMissing = (() => {
     if (!profile) return false;
@@ -2637,7 +2625,7 @@ export default function HomePage() {
         )}
 
         {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program) */}
-        {hasCompletedAssessment && (
+        {hasStrengthProgram && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2657,7 +2645,7 @@ export default function HomePage() {
               hideMonthToggle
               onSwipeDown={() => setShowPlanner(true)}
               onOpenPlanner={() => setShowPlanner(true)}
-              hasCompletedAssessment={hasCompletedAssessment}
+              hasCompletedAssessment={hasStrengthProgram}
               hasSchedule={cardHasScheduleAndPersona}
               onStartAssessment={handleHeroPress}
               onSetSchedule={() => setShowLifestyleWizard(true)}
@@ -3023,7 +3011,7 @@ export default function HomePage() {
                     onDirectStart={handleDirectStart}
                     onWorkoutGenerated={handleWorkoutGenerated}
                     selectedDate={selectedDate}
-                    hasCompletedAssessment={hasCompletedAssessment}
+                    hasCompletedAssessment={hasStrengthProgram}
                     hideWorkoutSection={!!postWorkoutData || todayWorkoutDone}
                     enableRunningPrograms={featureFlags.enableRunningPrograms}
                     scheduleVersion={scheduleVersion}
@@ -3039,7 +3027,7 @@ export default function HomePage() {
                   ? (
                     <motion.div
                       className="order-first"
-                      onPanEnd={!readyPreWorkoutSuggestions && !isViewingPastDate && hasCompletedAssessment ? handleAnchorDayPan : undefined}
+                      onPanEnd={!readyPreWorkoutSuggestions && !isViewingPastDate && hasStrengthProgram ? handleAnchorDayPan : undefined}
                     >
                       {content}
                     </motion.div>
