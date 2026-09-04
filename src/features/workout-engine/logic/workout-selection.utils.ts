@@ -574,7 +574,13 @@ export function applySABASelectionBias(
  */
 export function hasExplicitCoreLevel(ex: Exercise): boolean {
   return ex.targetPrograms?.some(
-    (tp) => tp.programId === 'core' || resolveToSlug(tp.programId) === 'core',
+    (tp) =>
+      (tp.programId === 'core' || resolveToSlug(tp.programId) === 'core')
+      // A malformed entry — {programId:'core'} with no `level`, or level 0/negative
+      // (verified live: 0 occurrences in the current catalog, but the check must
+      // still hold for the next manual edit) — must NOT pass the gate. A missing/
+      // non-positive level is exactly as "no core level" as no entry at all.
+      && typeof tp.level === 'number' && tp.level > 0,
   ) ?? false;
 }
 

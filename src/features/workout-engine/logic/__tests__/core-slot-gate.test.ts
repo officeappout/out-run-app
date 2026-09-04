@@ -80,6 +80,32 @@ describe('hasExplicitCoreLevel / matchesDomainForSlot — the gate itself (00-PL
     expect(hasExplicitCoreLevel(REAL_CORE_EXERCISE)).toBe(true);
   });
 
+  // 04-VERIFY.md §4: hasExplicitCoreLevel originally checked only for the
+  // presence of a {programId:'core'} entry, not that it carried a valid
+  // `level`. A malformed entry — missing level, or level 0/negative — would
+  // have passed the gate exactly like a real one. Zero such entries exist in
+  // the live catalog today (verified), but the check must hold for the next
+  // manual edit, not just today's data.
+  it('a {programId:"core"} entry with NO level does NOT count as an explicit core level', () => {
+    const malformed = makeExercise('malformed-1', 'תרגיל פגום', [{ programId: 'core' } as any]);
+    expect(hasExplicitCoreLevel(malformed)).toBe(false);
+  });
+
+  it('a core entry with level 0 does NOT count', () => {
+    const zero = makeExercise('malformed-2', 'תרגיל פגום', [{ programId: 'core', level: 0 }]);
+    expect(hasExplicitCoreLevel(zero)).toBe(false);
+  });
+
+  it('a core entry with a negative level does NOT count', () => {
+    const negative = makeExercise('malformed-3', 'תרגיל פגום', [{ programId: 'core', level: -3 }]);
+    expect(hasExplicitCoreLevel(negative)).toBe(false);
+  });
+
+  it('a core entry with a non-numeric level does NOT count', () => {
+    const nonNumeric = makeExercise('malformed-4', 'תרגיל פגום', [{ programId: 'core', level: '2' as any }]);
+    expect(hasExplicitCoreLevel(nonNumeric)).toBe(false);
+  });
+
   it('matchesDomainForSlot rejects the flag exercise for domain=core, but exerciseMatchesProgram (unchanged) still classifies it as core', () => {
     expect(exerciseMatchesProgram(FLAG_EXERCISE, 'core')).toBe(true); // classification: unchanged
     expect(matchesDomainForSlot(FLAG_EXERCISE, 'core')).toBe(false); // slot entry: gated

@@ -48,19 +48,19 @@
 
 ## 1. Totals
 
-**Total exercises: 373**
+**Total exercises: 372**
 
 ### By `lang`
 
 | lang | count | % |
 |---|---|---|
-| (missing — defaults to he) | 373 | 100.0% |
+| (missing — defaults to he) | 372 | 100.0% |
 
 ### By `supportedLangs`
 
 | supportedLangs | count | % |
 |---|---|---|
-| (empty — he-only) | 373 | 100.0% |
+| (empty — he-only) | 372 | 100.0% |
 
 ---
 
@@ -68,18 +68,18 @@
 
 | Field | Missing count | % of catalog | Note |
 |---|---|---|---|
-| `targetPrograms` | 70 | 18.8% | ⚠️ empty ⇒ falls back to `recommendedLevel || 1` at read time (`workout-selection.utils.ts:95-97`), NOT a flat 1 — see the breakdown below |
-| `movementGroup` | 72 | 19.3% | used for Smart Swap family + core/legs detection |
-| `primaryMuscle` | 79 | 21.2% | used for core/legs detection, hold-time tier |
+| `targetPrograms` | 61 | 16.4% | ⚠️ empty ⇒ falls back to `recommendedLevel || 1` at read time (`workout-selection.utils.ts:95-97`), NOT a flat 1 — see the breakdown below |
+| `movementGroup` | 63 | 16.9% | used for Smart Swap family + core/legs detection |
+| `primaryMuscle` | 78 | 21.0% | used for core/legs detection, hold-time tier |
 | `execution_methods` | 1 | 0.3% | 🔴 completely empty ⇒ this exercise can NEVER be selected (no viable method exists) |
-| `mechanicalType` | 175 | 46.9% | used for SA/BA balance scoring |
-| `injuryShield` | 166 | 44.5% | used for injury-shield hard exclusion — empty may be a legitimate "no risk" state, not necessarily a gap |
-| `noiseLevel` | 102 | 27.3% | used for noise-limit hard exclusion |
-| `sweatLevel` | 102 | 27.3% | used for sweat-limit hard exclusion |
-| `symmetry` | 94 | 25.2% | unilateral doubles duration estimate — missing skews time budgeting |
-| `secondsPerRep` | 96 | 25.7% | defaults to 3 at generation time via a DIFFERENT code path (`normalizeExercise`) — this row shows the raw-data gap, not the runtime behavior |
+| `mechanicalType` | 174 | 46.8% | used for SA/BA balance scoring |
+| `injuryShield` | 165 | 44.4% | used for injury-shield hard exclusion — empty may be a legitimate "no risk" state, not necessarily a gap |
+| `noiseLevel` | 101 | 27.2% | used for noise-limit hard exclusion |
+| `sweatLevel` | 101 | 27.2% | used for sweat-limit hard exclusion |
+| `symmetry` | 85 | 22.8% | unilateral doubles duration estimate — missing skews time budgeting |
+| `secondsPerRep` | 94 | 25.3% | defaults to 3 at generation time via a DIFFERENT code path (`normalizeExercise`) — this row shows the raw-data gap, not the runtime behavior |
 
-**Exercises with NEITHER `targetPrograms` NOR legacy `programIds`: 70 (18.8%)** — these are invisible to the entire
+**Exercises with NEITHER `targetPrograms` NOR legacy `programIds`: 61 (16.4%)** — these are invisible to the entire
 program-level system: they contribute to no cell in the §3 coverage matrix and can only
 ever be selected via non-program-based paths (warmup/cooldown role, recovery pool, tag-only
 pools like `hiit_friendly` for Tabata — see `01-MAP.md` §7.9).
@@ -350,80 +350,80 @@ selector, baseline gear per the methodology note above).
 
 | location | movementGroup | total exercises | viable at location | % viable |
 |---|---|---|---|---|
-| airport | (none) | 72 | 71 | 98.6% |
-| airport | core | 54 | 45 | 83.3% |
+| airport | (none) | 63 | 62 | 98.4% |
+| airport | core | 56 | 47 | 83.9% |
 | airport | flexibility | 2 | 2 | 100.0% |
 | airport | hinge | 19 | 19 | 100.0% |
 | airport | horizontal_pull | 43 | 40 | 93.0% |
-| airport | horizontal_push | 38 | 38 | 100.0% |
+| airport | horizontal_push | 39 | 39 | 100.0% |
 | airport | isolation | 6 | 6 | 100.0% |
-| airport | squat | 52 | 52 | 100.0% |
+| airport | squat | 57 | 57 | 100.0% |
 | airport | vertical_pull | 51 | 49 | 96.1% |
 | airport | vertical_push | 36 | 36 | 100.0% |
-| gym | (none) | 72 | 71 | 98.6% |
-| gym | core | 54 | 51 | 94.4% |
+| gym | (none) | 63 | 62 | 98.4% |
+| gym | core | 56 | 53 | 94.6% |
 | gym | flexibility | 2 | 2 | 100.0% |
 | gym | hinge | 19 | 19 | 100.0% |
 | gym | horizontal_pull | 43 | 40 | 93.0% |
-| gym | horizontal_push | 38 | 38 | 100.0% |
+| gym | horizontal_push | 39 | 39 | 100.0% |
 | gym | isolation | 6 | 6 | 100.0% |
-| gym | squat | 52 | 52 | 100.0% |
+| gym | squat | 57 | 57 | 100.0% |
 | gym | vertical_pull | 51 | 49 | 96.1% |
 | gym | vertical_push | 36 | 36 | 100.0% |
-| home | (none) | 72 | 71 | 98.6% |
-| home | core | 54 | 45 | 83.3% |
+| home | (none) | 63 | 62 | 98.4% |
+| home | core | 56 | 47 | 83.9% |
 | home | flexibility | 2 | 2 | 100.0% |
 | home | hinge | 19 | 19 | 100.0% |
 | home | horizontal_pull | 43 | 40 | 93.0% |
-| home | horizontal_push | 38 | 38 | 100.0% |
+| home | horizontal_push | 39 | 39 | 100.0% |
 | home | isolation | 6 | 6 | 100.0% |
-| home | squat | 52 | 52 | 100.0% |
+| home | squat | 57 | 57 | 100.0% |
 | home | vertical_pull | 51 | 49 | 96.1% |
 | home | vertical_push | 36 | 36 | 100.0% |
-| office | (none) | 72 | 71 | 98.6% |
-| office | core | 54 | 45 | 83.3% |
+| office | (none) | 63 | 62 | 98.4% |
+| office | core | 56 | 47 | 83.9% |
 | office | flexibility | 2 | 2 | 100.0% |
 | office | hinge | 19 | 19 | 100.0% |
 | office | horizontal_pull | 43 | 40 | 93.0% |
-| office | horizontal_push | 38 | 38 | 100.0% |
+| office | horizontal_push | 39 | 39 | 100.0% |
 | office | isolation | 6 | 6 | 100.0% |
-| office | squat | 52 | 52 | 100.0% |
+| office | squat | 57 | 57 | 100.0% |
 | office | vertical_pull | 51 | 49 | 96.1% |
 | office | vertical_push | 36 | 36 | 100.0% |
-| park | (none) | 72 | 70 | 97.2% |
-| park | core | 54 | 46 | 85.2% |
+| park | (none) | 63 | 61 | 96.8% |
+| park | core | 56 | 48 | 85.7% |
 | park | flexibility | 2 | 2 | 100.0% |
 | park | hinge | 19 | 12 | 63.2% |
 | park | horizontal_pull | 43 | 38 | 88.4% |
-| park | horizontal_push | 38 | 30 | 78.9% |
+| park | horizontal_push | 39 | 31 | 79.5% |
 | park | isolation | 6 | 5 | 83.3% |
-| park | squat | 52 | 41 | 78.8% |
+| park | squat | 57 | 47 | 82.5% |
 | park | vertical_pull | 51 | 44 | 86.3% |
 | park | vertical_push | 36 | 26 | 72.2% |
-| service | (none) | 72 | 71 | 98.6% |
-| service | core | 54 | 45 | 83.3% |
+| service | (none) | 63 | 62 | 98.4% |
+| service | core | 56 | 47 | 83.9% |
 | service | flexibility | 2 | 2 | 100.0% |
 | service | hinge | 19 | 19 | 100.0% |
 | service | horizontal_pull | 43 | 40 | 93.0% |
-| service | horizontal_push | 38 | 38 | 100.0% |
+| service | horizontal_push | 39 | 39 | 100.0% |
 | service | isolation | 6 | 6 | 100.0% |
-| service | squat | 52 | 52 | 100.0% |
+| service | squat | 57 | 57 | 100.0% |
 | service | vertical_pull | 51 | 49 | 96.1% |
 | service | vertical_push | 36 | 36 | 100.0% |
-| street | (none) | 72 | 71 | 98.6% |
-| street | core | 54 | 45 | 83.3% |
+| street | (none) | 63 | 62 | 98.4% |
+| street | core | 56 | 47 | 83.9% |
 | street | flexibility | 2 | 2 | 100.0% |
 | street | hinge | 19 | 19 | 100.0% |
 | street | horizontal_pull | 43 | 40 | 93.0% |
-| street | horizontal_push | 38 | 38 | 100.0% |
+| street | horizontal_push | 39 | 39 | 100.0% |
 | street | isolation | 6 | 6 | 100.0% |
-| street | squat | 52 | 52 | 100.0% |
+| street | squat | 57 | 57 | 100.0% |
 | street | vertical_pull | 51 | 49 | 96.1% |
 | street | vertical_push | 36 | 36 | 100.0% |
 
 ### Park-specific hard rejections (method-selection.utils.ts:154-166)
 
-**57 exercise(s)** are tagged `location='park'` (or `locationMapping`
+**56 exercise(s)** are tagged `location='park'` (or `locationMapping`
 includes `park`) but their park-tagged method(s) all fail equipment gating against
 `ESSENTIAL_PARK_GEAR`, AND no bodyweight/surface method exists either — these are hard-
 rejected (`selectMethodForContext` returns `null`) and dropped from the pool entirely at a
@@ -436,7 +436,6 @@ baseline park, regardless of the exercise's content otherwise being ready.
 | 3sR44gVtDlzdot9Yq7MQ | גליל בטן אקצנטרי |
 | 3zffAO0k2ZaHs0WkkQuT | פרונט לבר רגל אחת בעזרת גומייה |
 | 4YCuuEsNVwUcxNxp3m9H | החזקת מקבילים ב-120° עם גומייה |
-| 4rDvdGHq9KAxewpBe4Mg | דרגון סקוואט מוגבה |
 | 7ocGV3FbYbue9nXC8aXh | החזקת מקבילים ב-90° עם גומייה |
 | 862hyZowOu16yxls8MWf | שכיבות סמיכה פייק עמוקות גובה אגן |
 | 8vGnuoSH3MMkYKnxjg1P | סקוואט כנגד גומייה |
@@ -493,7 +492,7 @@ baseline park, regardless of the exercise's content otherwise being ready.
 
 ## 5. Core Exercises
 
-**55 exercises** identified as core by the canonical detector
+**57 exercises** identified as core by the canonical detector
 (`exerciseMatchesProgram(ex, 'core')`, `shadow-level.utils.ts:213-227`).
 
 | exercise_id | name | has targetPrograms[core] level? | movementGroup | primaryMuscle | matched via |
@@ -507,10 +506,12 @@ baseline park, regardless of the exercise's content otherwise being ready.
 | 8YpK2KnydcB6Oz1zTMSh | פלאנק רגל ויד נגדית | 5 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core", name/tags string match ("פלאנק") |
 | Ao3amXO9YEBEOSE48RRi | ישיבת L ברכיים כפופות | 7 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core" |
 | BLbgAyNJSZCc4YsoOxtP | החזקת הולו באדי | 6 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core" |
-| BWbscvj0m3hvxghEMtKV | פלאנק עליות ונגיעות בכתפיים | **missing** | core | shoulders | movementGroup=core, name/tags string match ("פלאנק") |
+| BWbscvj0m3hvxghEMtKV | פלאנק עליות ונגיעות בכתפיים | 3 | core | shoulders | movementGroup=core, targetPrograms resolves to "core", name/tags string match ("פלאנק") |
+| BcsFnuiLx1fZY2SIVhoC | אופניים | 3 | core | — | movementGroup=core, targetPrograms resolves to "core" |
 | CVMlbYHJTiJKSPYkZ9Lk | רגליים למתח | 14 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core" |
+| DU3SwZWr6uy75WI7T4jB | עליות נגיעה בבהונות בשכיבה | 5 | core | — | movementGroup=core, targetPrograms resolves to "core" |
 | DWiXoX8UHKQiAS1ye40c | דגל ב-45° | **missing** | core | shoulders | movementGroup=core |
-| FHh3m3suMMtoLk1PrxYv | פלאנק | **missing** | core | abs | movementGroup=core, primaryMuscle=abs, name/tags string match ("פלאנק") |
+| FHh3m3suMMtoLk1PrxYv | פלאנק | 2 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core", name/tags string match ("פלאנק") |
 | FSbQ2OfFSDzWxGOSRljt | דגל אקצנטרי בטאק | **missing** | core | shoulders | movementGroup=core |
 | FU3FAudvpYTZqYU0m8GV | דגל בעזרת גומייה | **missing** | core | shoulders | movementGroup=core |
 | IEoGYRVKRxjaA0fQZNDw | ישיבת L רגל אחת | 10 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core" |
@@ -531,7 +532,7 @@ baseline park, regardless of the exercise's content otherwise being ready.
 | bRUKaSg9p9Tl1rCzEiV4 | עליות ברכיים כפופות בתלייה | 8 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core" |
 | fg0NDJmRtK2RPXU7gHqr | דגל נמוך | **missing** | core | shoulders | movementGroup=core |
 | ggzAxOz0vT3SOObT3Y7q | קופנהגן פלאנק | 7 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core", name/tags string match ("פלאנק") |
-| iEZGhtBNV7Tv5iNuT70E | פלאנק על הברכיים | **missing** | core | abs | movementGroup=core, primaryMuscle=abs, name/tags string match ("פלאנק") |
+| iEZGhtBNV7Tv5iNuT70E | פלאנק על הברכיים | 1 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core", name/tags string match ("פלאנק") |
 | iuwmGaZnuvhZ1mZFXJyt | גליל בטן עם תמיכת הברכיים | 7 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core", name/tags string match ("בטן") |
 | jbwq5lw6oIF0G6vDJ1D9 | טבטה מאתגר + | 16 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core" |
 | kbxV76kyWw1nL3i8Mewi | דגל אנושי | **missing** | core | shoulders | movementGroup=core |
@@ -554,7 +555,7 @@ baseline park, regardless of the exercise's content otherwise being ready.
 | ycvdr08dAy8xr1p5COyy | דגל בטאק | **missing** | core | shoulders | movementGroup=core |
 | zOl1jxCkmI36QwSzMDKF | עליות מספרים בשכיבה | 5 | core | abs | movementGroup=core, primaryMuscle=abs, targetPrograms resolves to "core" |
 
-**13 of 55 canonical-core exercises have no
+**10 of 57 canonical-core exercises have no
 `targetPrograms` entry with `programId='core'`** — i.e. they are recognized as core by
 `movementGroup`/`primaryMuscle`/name-string only, with no explicit core level, so they fall
 back to `recommendedLevel || 1` wherever a core level is needed (see §2).
@@ -591,8 +592,8 @@ EN doc for the same movement) is expected.
 
 | base_movement_id | count | exercise names |
 |---|---|---|
-| pistol_squat | 44 | הליכות היפ טראסט; סקוואט; עליית מדרגה גובה ברך; סקוואט טווח חלקי (להגבהה); קפיצה על רגל אחת גובה ברך; גוד מורנינג בישיבה; סקוואט כנגד גומייה; לאנג׳ בולגרי; עליות תאומים; לאנג׳ בהצלבה; סקוואט כנגד קיר רגל אחת; סקוואט בעזרת רצועות; היפ טראסט; סקוואט עמוק; פיסטול סקוואט; פיסטול סקוואט מוגבה; קפיצה גובה ברך; הרמות תאומים טווח מלא רגל אחת; היפ טראסט מוגבה; עליית מדרגה גובה אגן; פיסטול סקוואט טווח חלקי (להגבהה); לאנג׳ אחורי; קפיצה גובה שוק; קפיצה גובה אגן; סקוואט קשתים טווח חלקי; היפ טראסט ארוך; לאנג׳ בולגרי טווח חלקי; גמישות קרסול לעמוד; היפ טראסט רגל אחת; לחיצת רגליים כנגד עמוד; סקוואט בהונות; לאנג׳ עמוק; סקוואט קשתים; לאנג׳ קדמי; היפ טראסט מוגבה רגל אחת; פיסטול סקוואט מוגבה טווח חלקי; סקוואט קפיצה; החזקת פיסטול סקוואט; כפיפת ירך על הגבהה; סומו סקוואט; סקוואט טווח חלקי; סקוואט קשתים מוגבה; עליית מדרגה גובה קרסול; הרמות תאומים טווח מלא |
-| unspecified_movement | 35 | דרגון פלאג בטאק; סיבובי רגליים בשכיבה; כפיפת נורדיק בירך; סיסי סקוואט אקצנטרי; דדליפט רומני; החזקת הולו באדי; כפיפת נורדיק טווח חלקי; רגליים למתח; מתיחות פלג גוף עליון לבדיקה; דרגון פלאג בפישוק; סיסי סקוואט בעזרת קיר; כפיפת נורדיק אקצנטרי; כפיפת מרפקים במשקל גוף 45°; עליות ספר רגליים ישרות; עליות ברכיים כפופות בתלייה; כפיפת מרפקים במשקל גוף 30°; פשיטת מרפקים על ספסל; ספר ברכיים כפופת; כפיפות ברכים בפלאנק על trx; פשיטת ירך אחורית; מספרים בשכיבה; פינגווינים; מספריים אופקיים בשכיבה; דרגון פלאג בטאק מתקדם; סשן התאוששות #1; כפיפת נורדיק; כפיפת נורדיק בעזרת גומייה; מטפס הרים; עליות רגליים בשכיבה; קראנץ; עליות l בתלייה; כפיפות ברכיים בתלייה אלכסונים; תלייה מספרים; פשיטת מרפקים על הרצפה; עליות מספרים בשכיבה |
+| pistol_squat | 45 | הליכות היפ טראסט; סקוואט; עליית מדרגה גובה ברך; סקוואט טווח חלקי (להגבהה); קפיצה על רגל אחת גובה ברך; גוד מורנינג בישיבה; סקוואט כנגד גומייה; לאנג׳ בולגרי; עליות תאומים; לאנג׳ בהצלבה; סקוואט כנגד קיר רגל אחת; סקוואט בעזרת רצועות; היפ טראסט; סקוואט עמוק; פיסטול סקוואט; פיסטול סקוואט מוגבה; קפיצה גובה ברך; הרמות תאומים טווח מלא רגל אחת; היפ טראסט מוגבה; עליית מדרגה גובה אגן; פיסטול סקוואט טווח חלקי (להגבהה); לאנג׳ אחורי; קפיצה גובה שוק; קפיצה גובה אגן; סקוואט קשתים טווח חלקי; היפ טראסט ארוך; פיסטול סקוואט שלילי ימין; לאנג׳ בולגרי טווח חלקי; גמישות קרסול לעמוד; היפ טראסט רגל אחת; לחיצת רגליים כנגד עמוד; סקוואט בהונות; לאנג׳ עמוק; סקוואט קשתים; לאנג׳ קדמי; היפ טראסט מוגבה רגל אחת; פיסטול סקוואט מוגבה טווח חלקי; סקוואט קפיצה; החזקת פיסטול סקוואט; כפיפת ירך על הגבהה; סומו סקוואט; סקוואט טווח חלקי; סקוואט קשתים מוגבה; עליית מדרגה גובה קרסול; הרמות תאומים טווח מלא |
+| unspecified_movement | 43 | דרגון סקוואט מוגבה; דרגון פלאג בטאק; סיבובי רגליים בשכיבה; סקוואט בולגרי עם קפיצה על ספה; כפיפת נורדיק בירך; סיסי סקוואט אקצנטרי; דדליפט רומני; החזקת הולו באדי; כפיפת נורדיק טווח חלקי; אופניים; רגליים למתח; עליות נגיעה בבהונות בשכיבה; מתיחות פלג גוף עליון לבדיקה; שכיבות סמיכה לשכמות; דרגון פלאג בפישוק; סיסי סקוואט בעזרת קיר; כפיפת נורדיק אקצנטרי; סקוואט כנגד קיר; כפיפת מרפקים במשקל גוף 45°; עליות ספר רגליים ישרות; עליות ברכיים כפופות בתלייה; כפיפת מרפקים במשקל גוף 30°; פשיטת מרפקים על ספסל; ספר ברכיים כפופת; כפיפות ברכים בפלאנק על trx; פשיטת ירך אחורית; מספרים בשכיבה; פינגווינים; מספריים אופקיים בשכיבה; דרגון פלאג בטאק מתקדם; סשן התאוששות #1; כפיפת נורדיק; כפיפת נורדיק בעזרת גומייה; מטפס הרים; עליות רגליים בשכיבה; קראנץ; עליות l בתלייה; כפיפות ברכיים בתלייה אלכסונים; עליות תאומים על מדרגה; תלייה מספרים; פשיטת מרפקים על הרצפה; עליות מספרים בשכיבה; סקוואט סטטי כנגד קיר |
 | pull_up | 32 | תלייה באחיזה עמוקה; החזקת מתח ב-15°; מתח אקצנטרי; מתח צר; מתח טווח תחתון; מתח עם גומייה עבה; מתח קומנדו; תלייה פסיבית בתמיכת הרגליים; מתח לא שוויוני עם טבעות; החזקת מתח ב-15° עם תמיכה; מתח סופינציה; מתח שכמות (תלייה אקטיבית פסיבית); בננה סופרמן על המתח; החזקת מתח ב-90°; מתח עם גומייה בינונית; תלייה פסיבית; מתח עם גומייה דקה; החזקת מתח ב-90° עם תמיכה; מתח שכמות קשתים; מתח שכמות יד אחת; מתח סופינציה מתפרץ; מתח אקצנטרי עם החזקות; מתח טווח עליון; מתח באחיזה מעורבת; מתח קשתים; מתח עם החזקות; מתח שכמות יד אחת עם תמיכה; מתח אקצנטרי עם תמיכה; מתח; החזקת מתח ב-120° עם תמיכה; מתח רחב; החזקת מתח ב-120° |
 | push_up | 25 | שכיבות סמיכה ברכיים; שכיבות סמיכה סופינציה; שכיבות סמיכה טווח תחתון; שכיבות סמיכה שיפוע שלילי; שכיבות סמיכה יהלום; שכיבות סמיכה ב-30°; שכיבות סמיכה מתפרץ; שכיבות סמיכה טווח עליון; שכיבות סמיכה ב-15°; פשיטת מרפקים למתקדמים; שכיבות סמיכה בפישוק; שכיבות סמיכה קשתים בפישוק; החזקת שכיבת סמיכה ב-90° במרפק; שכיבות סמיכה קשתים עם רצועות; שכיבות סמיכה ב-45°; שכיבות סמיכה; שכיבות סמיכה מרפקים צמודים; שכיבות סמיכה ספינקס; שכיבות סמיכה אקצנרטי; שכיבות סמיכה קשתים; פרפר רצועות ב-45°; שכיבות סמיכה ב-75°; שכיבות סמיכה רצועות ב-45°; שכיבות סמיכה ב-60°; שכיבות סמיכה רחבות |
 | dip | 21 | מקבילים אקצנטרי; החזקת מקבילים ב-120° עם גומייה; החזקת מקבילים ב-90° עם גומייה; החזקת מקבילים ב-15°; מקבילים עם גומייה דקה; מקבילים טווח עליון; החזקת תמיכה על טבעות עם עזרה; מקבילים עם גומייה עבה; החזקת מקבילים ב-15° עם גומייה; החזקת מקבילים ב-90°; מקבילים עם גומייה בינונית; מקבילים; החזקות מקבילים אקצנטרי; החזקת מקבילים ב-120°; מקבילים טווח תחתון; מקבילים בולגריים; מקבילים על מוט; מקבילים על טבעות; החזקת תמיכה על טבעות; מקבילים על טבעות בעזרת גומיה דקה; החזקת מקבילים |
