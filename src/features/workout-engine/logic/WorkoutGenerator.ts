@@ -70,8 +70,8 @@ import {
   calculateVolumeAdjustment,
   calculateEstimatedDuration,
   calculateWorkoutStats,
-  isTimeBasedExercise,
   applySmartSetCap,
+  rederiveVolumeForSwappedExercise,
 } from './workout-budgeting.utils';
 
 // Sorting utils
@@ -374,25 +374,25 @@ export function substituteExercise(
   target: WorkoutExercise,
   newEx: Exercise,
   newMethod: any,
-): Pick<WorkoutExercise, 'exercise' | 'method' | 'mechanicalType' | 'isTimeBased' | 'reps' | 'repsRange'> {
-  const newIsTimeBased = isTimeBasedExercise(newEx);
-  let reps = target.reps;
-  let repsRange: { min: number; max: number } = target.repsRange ?? { min: 6, max: 12 };
-
-  if (newIsTimeBased !== target.isTimeBased) {
-    // Type changed — reset to sensible defaults for the new type
-    if (newIsTimeBased) {
-      reps = 30;
-      repsRange = { min: 20, max: 45 };
-    } else {
-      reps = Math.min(reps, 12);
-      repsRange = { min: 6, max: 12 };
-    }
-  }
+  levelDelta: number,
+  difficulty: DifficultyLevel,
+  levelProgressPercent?: number,
+  intentMode?: WorkoutGenerationContext['intentMode'],
+): Pick<WorkoutExercise, 'exercise' | 'method' | 'mechanicalType' | 'isTimeBased' | 'reps' | 'repsRange' | 'restSeconds' | 'tier'> {
+  // Re-derive isTimeBased/mechanicalType/tier/reps/repsRange/restSeconds for
+  // newEx exactly as assignVolume would (docs/workout-engine/03-CHANGES.md,
+  // Addendum 3) — replaces the old logic that only reset reps when
+  // isTimeBased flipped and otherwise inherited `target`'s reps regardless
+  // of the new exercise's tier. `tier` flows through so callers can keep it
+  // (and their own levelDelta/programLevel/isOverLevel fields) in sync with
+  // the swap instead of describing the pre-swap exercise.
+  let { isTimeBased: newIsTimeBased, mechanicalType, reps, repsRange, restSeconds, tier } =
+    rederiveVolumeForSwappedExercise(newEx, levelDelta, difficulty, levelProgressPercent, intentMode);
 
   // Skill-Rep Guard: unilateral high-skill exercises (One-Arm Pull-up, Pistol Squat,
-  // etc.) must NEVER inherit the replaced exercise's rep count.  Discard it entirely
-  // and apply the level-appropriate unilateral range regardless of type change.
+  // etc.) must NEVER inherit a tier-computed rep count.  Discard it entirely
+  // and apply the level-appropriate unilateral range regardless of tier.
+  // Pre-existing behavior, unchanged — layered on top of the re-derived value.
   if (!newIsTimeBased && newEx.symmetry === 'unilateral') {
     const mg = newEx.movementGroup ?? '';
     if (SUBST_PUSH_PULL.has(mg)) {
@@ -407,10 +407,12 @@ export function substituteExercise(
   return {
     exercise: newEx,
     method: (newMethod ?? target.method) as any,
-    mechanicalType: (newEx.mechanicalType || 'none') as any,
+    mechanicalType,
     isTimeBased: newIsTimeBased,
     reps,
     repsRange,
+    restSeconds,
+    tier,
   };
 }
 
@@ -943,7 +945,10 @@ export class WorkoutGenerator {
 
             workoutExercises[idx] = {
               ...workoutExercises[idx],
-              ...substituteExercise(workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context)),
+              ...substituteExercise(
+                workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
+                sub.level - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+              ),
               programLevel: sub.level,
               isOverLevel: sub.level > domainLevel,
               levelDelta: sub.level - domainLevel,

@@ -17,11 +17,14 @@ import type { Exercise, ExecutionLocation } from '@/features/content/exercises/c
 import type { GeneratedWorkout, WorkoutExercise } from '../logic/WorkoutGenerator';
 import type { WorkoutTrioOption } from './home-workout.types';
 import { resolveToSlug } from './program-hierarchy.utils';
+import type { DifficultyLevel, WorkoutGenerationContext } from '../logic/workout-generator.types';
 import {
   isTimeBasedExercise,
   getIsometricTimeCap,
   calculateEstimatedDuration,
+  rederiveVolumeForSwappedExercise,
 } from '../logic/workout-budgeting.utils';
+import { resolveExerciseLevelForDomains } from '../logic/workout-selection.utils';
 import { normalizeGearId, ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
 import {
   MG_TO_DOMAIN,
@@ -463,8 +466,11 @@ export function applyFlowRegression(
   _blacklistedIds: Set<string>,
   location?: ExecutionLocation,
   activeProgramId?: string,
+  levelProgressPercent?: number,
+  intentMode?: WorkoutGenerationContext['intentMode'],
 ): void {
   workout.difficulty = 1 as any;
+  const FLOW_DIFFICULTY: DifficultyLevel = 1;
 
   const main = workout.exercises.filter(
     ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown',
@@ -524,19 +530,41 @@ export function applyFlowRegression(
         const nakedMethod = (replacement.execution_methods ?? replacement.executionMethods ?? [])
           .find(m => isGearFree(collectMethodGear(m as any), true));
         ex.method = (nakedMethod ?? replacement.executionMethods?.[0] ?? ex.method) as any;
-        // isTimeBased / mechanicalType consistency (docs/workout-engine/06-TIME-VS-REPS.md):
-        // swapping `ex.exercise` to a different exercise without re-deriving these
-        // left them describing the OLD (pre-swap) exercise's nature. Real snapshot
-        // data showed a hold exercise ("החזקת מקבילים...", isTimeBased=true,
-        // reps=15 meaning 15 SECONDS) getting swapped to a rep-based replacement
-        // ("שכיבות סמיכה ברכיים") while keeping isTimeBased=true — displaying
-        // "15 שניות" for an exercise that should show "15 חזרות". Single source
-        // of truth, same as every other exercise-identity change in this file.
-        ex.isTimeBased = isTimeBasedExercise(replacement);
-        ex.mechanicalType = (replacement.mechanicalType || 'none') as any;
-        // Reps are deliberately NOT multiplied: the regression swap to a lower-level
-        // exercise already reduces difficulty.  Stacking a ×1.2 rep bonus on top of
-        // bolt 1's 10–12 base would push volume above normal (bolt 2) levels.
+        // isTimeBased / mechanicalType / reps / repsRange / restSeconds
+        // consistency (docs/workout-engine/03-CHANGES.md, Addendum 3):
+        // swapping `ex.exercise` to a different exercise without re-deriving
+        // these left them describing the OLD (pre-swap) exercise — e.g. a
+        // hold exercise's assigned duration in seconds (isTimeBased=true,
+        // reps=15 meaning 15 SECONDS) surviving unchanged as "15 חזרות" once
+        // swapped to a rep-based replacement. rederiveVolumeForSwappedExercise
+        // is the single source of truth for all of these, same as every
+        // other exercise-identity change in this file.
+        const matchedTp = replacement.targetPrograms?.find(t =>
+          levelsHasProgram(userProgramLevels, t.programId) && t.level === targetLevel,
+        );
+        const replacementDomainLevel = matchedTp
+          ? (getLevelForProgram(userProgramLevels, matchedTp.programId) ?? maxUserLevel)
+          : maxUserLevel;
+        const replacementLevelDelta = targetLevel - replacementDomainLevel;
+        const derived = rederiveVolumeForSwappedExercise(
+          replacement, replacementLevelDelta, FLOW_DIFFICULTY, levelProgressPercent, intentMode,
+        );
+        ex.isTimeBased = derived.isTimeBased;
+        ex.mechanicalType = derived.mechanicalType;
+        ex.reps = derived.reps;
+        ex.repsRange = derived.repsRange;
+        ex.restSeconds = derived.restSeconds;
+        // Keep tier/levelDelta/programLevel/isOverLevel in sync with the
+        // swap too — leaving these stale (still describing the pre-swap
+        // exercise) let a verification query filtering on `levelDelta`
+        // silently miss/misclassify swapped exercises, and let
+        // enforceVolumeCap's Phase B trim-priority sort (keyed on `tier`)
+        // treat an actually-easy replacement as elite-priority (trimmed
+        // last) instead of flow/easy-priority (trimmed first).
+        ex.tier = derived.tier;
+        ex.levelDelta = replacementLevelDelta;
+        ex.programLevel = targetLevel;
+        ex.isOverLevel = replacementLevelDelta > 0;
         ex.reasoning.push(`flow_regression:L${exLevel}→L${targetLevel}(floor=L${levelFloor})`);
         swapped++;
         found = true;
@@ -545,9 +573,8 @@ export function applyFlowRegression(
     }
 
     if (!found && exLevel > 1) {
-      // No lower-level swap was possible; reps remain at the bolt 1 base
-      // (DIFFICULTY_VOLUME[1]: 10–12).  A ×1.2 in-place bump is omitted for
-      // the same reason: the bolt table already encodes the Easy volume intent.
+      // No lower-level swap was possible; reps remain at whatever
+      // assignVolume originally computed for this exercise's own tier.
       ex.reasoning.push(`flow_no_swap:exLevel=${exLevel}(floor=L${levelFloor})`);
     }
   }
@@ -557,7 +584,10 @@ export function applyFlowRegression(
     `(regression -1/-2/-3, floor=L${levelFloor}, reps unchanged)`,
   );
 
-  applyEssentialGearFilter(workout, _blacklistedIds, allExercises, location);
+  applyEssentialGearFilter(
+    workout, _blacklistedIds, allExercises, location,
+    userProgramLevels, activeProgramId, levelProgressPercent, intentMode,
+  );
 
   // Belt-and-suspenders warmup floor enforcement.
   // applyEssentialGearFilter preserves all warmup exercises unchanged (it only
@@ -586,7 +616,27 @@ export function applyEssentialGearFilter(
   _blacklistedIds: Set<string>,
   allExercises: Exercise[],
   location?: ExecutionLocation,
+  userProgramLevels?: Map<string, number>,
+  activeProgramId?: string,
+  levelProgressPercent?: number,
+  intentMode?: WorkoutGenerationContext['intentMode'],
 ): void {
+  const GEAR_FILTER_DIFFICULTY: DifficultyLevel = (workout.difficulty as DifficultyLevel) ?? 2;
+
+  // Shared by both the naked-backfill and violation-replacement passes below:
+  // level info for a raw candidate exercise against the user's own level for
+  // its resolved domain/program, falling back to the highest known program
+  // level (same fallback style as applyFlowRegression's maxUserLevel) when no
+  // program-level context is available at all.
+  const levelInfoFor = (raw: Exercise): { programLevel: number; levelDelta: number } => {
+    const { level: rawLevel, resolvedDomain } = resolveExerciseLevelForDomains(raw, undefined, activeProgramId);
+    const domain = raw.movementGroup ? MG_TO_DOMAIN[raw.movementGroup] : undefined;
+    const domainLevel =
+      (resolvedDomain ? userProgramLevels?.get(resolvedDomain) : undefined) ??
+      (domain ? userProgramLevels?.get(domain) : undefined) ??
+      (userProgramLevels && userProgramLevels.size > 0 ? Math.max(...Array.from(userProgramLevels.values())) : rawLevel);
+    return { programLevel: rawLevel, levelDelta: rawLevel - domainLevel };
+  };
   // Park workouts always have essential calisthenics fixtures (pull-up bars,
   // dip bars) available.  Applying the naked filter in a park would wrongly
   // strip Pull-up and Dip exercises, so we skip the filter entirely.
@@ -662,24 +712,32 @@ export function applyEssentialGearFilter(
       // lock has to be re-applied here too. Found by tracing a real
       // "אופניים sets=3" case in a live snapshot back to this exact line.
       const isCoreBackfill = !!raw.movementGroup && MG_TO_DOMAIN[raw.movementGroup] === 'core';
-      // isTimeBased lock (docs/workout-engine/06-TIME-VS-REPS.md): this backfill
-      // used to hardcode `isTimeBased: false, reps: 10` for every candidate,
-      // regardless of whether the raw exercise is actually a hold (e.g. a plank
-      // pulled in here would show "10 חזרות" instead of a hold duration). Derive
-      // it from the single canonical source (isTimeBasedExercise) like every
-      // other exercise in the pipeline, and use a hold-duration default instead
-      // of a rep count when it fires — no difficulty context reaches this
-      // function, so this mirrors DIFFICULTY_VOLUME's D2/normal-tier
-      // holdSeconds midpoint (15-25s) rather than inventing a new range.
-      const naked_isTimeBased = isTimeBasedExercise(raw);
+      // isTimeBased / reps / restSeconds (docs/workout-engine/03-CHANGES.md,
+      // Addendum 3): this backfill used to hardcode `isTimeBased: false,
+      // reps: 10, restSeconds: 60` for every candidate regardless of whether
+      // it's actually a hold, and regardless of how its own level compares
+      // to the user's — a raw global-pool pull could land well above the
+      // user's level and still get a flat 10 reps. rederiveVolumeForSwappedExercise
+      // is the single source of truth for all of these, same as every other
+      // exercise-identity change in this file.
+      const rawLevelInfo = levelInfoFor(raw);
+      const derived = rederiveVolumeForSwappedExercise(
+        raw, rawLevelInfo.levelDelta, GEAR_FILTER_DIFFICULTY, levelProgressPercent, intentMode,
+      );
       nakedMain.push({
         exercise: raw,
         score: 0,
         reasoning: ['naked_backfill:bodyweight_global_pool'],
         sets: isCoreBackfill ? 2 : 3,
-        reps: naked_isTimeBased ? 20 : 10,
-        restSeconds: 60,
-        isTimeBased: naked_isTimeBased,
+        reps: derived.reps,
+        repsRange: derived.repsRange,
+        restSeconds: derived.restSeconds,
+        isTimeBased: derived.isTimeBased,
+        mechanicalType: derived.mechanicalType,
+        tier: derived.tier,
+        programLevel: rawLevelInfo.programLevel,
+        levelDelta: rawLevelInfo.levelDelta,
+        isOverLevel: rawLevelInfo.levelDelta > 0,
         exerciseRole: 'main',
         method: (nakedMethod ?? {}) as any,
       } as any);
@@ -717,14 +775,30 @@ export function applyEssentialGearFilter(
         // Same core set-count lock as the backfill loop above — the
         // replacement's domain can differ from the violator's, so `sets`
         // must be re-derived for the NEW exercise, not inherited via the
-        // `...violator` spread.
+        // `...violator` spread. Same reasoning for isTimeBased/reps/
+        // repsRange/restSeconds (docs/workout-engine/03-CHANGES.md,
+        // Addendum 3) — the `...violator` spread below previously left all
+        // of these inherited unchanged from the exercise being replaced.
         const replacementIsCore = !!replacement.movementGroup && MG_TO_DOMAIN[replacement.movementGroup] === 'core';
         const violatorWasCore = !!violator.exercise.movementGroup && MG_TO_DOMAIN[violator.exercise.movementGroup] === 'core';
+        const replacementLevelInfo = levelInfoFor(replacement);
+        const derived = rederiveVolumeForSwappedExercise(
+          replacement, replacementLevelInfo.levelDelta, GEAR_FILTER_DIFFICULTY, levelProgressPercent, intentMode,
+        );
         clean.push({
           ...violator,
           exercise: replacement,
           method: (nakedMethod ?? {}) as any,
           sets: replacementIsCore ? 2 : (violatorWasCore ? 3 : violator.sets),
+          reps: derived.reps,
+          repsRange: derived.repsRange,
+          restSeconds: derived.restSeconds,
+          isTimeBased: derived.isTimeBased,
+          mechanicalType: derived.mechanicalType,
+          tier: derived.tier,
+          programLevel: replacementLevelInfo.programLevel,
+          levelDelta: replacementLevelInfo.levelDelta,
+          isOverLevel: replacementLevelInfo.levelDelta > 0,
           reasoning: [...violator.reasoning, 'naked_violation_replaced'],
         });
         usedIds.add(replacement.id);

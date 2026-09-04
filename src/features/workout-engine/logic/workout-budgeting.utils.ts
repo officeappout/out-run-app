@@ -855,6 +855,113 @@ export function assignVolume(
 }
 
 // ============================================================================
+// RE-DERIVE VOLUME FOR A SWAPPED EXERCISE
+// ============================================================================
+
+/**
+ * Re-derive `isTimeBased` / `mechanicalType` / `tier` / `reps` / `repsRange` /
+ * `restSeconds` for a NEW exercise replacing an existing WorkoutExercise
+ * slot, AFTER assignVolume has already run once for the original workout.
+ * `tier` is returned so callers can also keep `levelDelta` / `programLevel` /
+ * `isOverLevel` in sync with the swap — leaving those stale (still
+ * describing the pre-swap exercise) was a second-order version of the same
+ * bug: reps could be correctly re-derived for the new exercise's TRUE tier
+ * while `tier`/`levelDelta` kept reporting the OLD one, both misleading
+ * anything reading those fields downstream and defeating verification
+ * queries that filter by `levelDelta`.
+ *
+ * Every exercise-swap path in the pipeline (level regression, guarantee/
+ * rescue substitution, naked-gear backfill/replacement) independently
+ * carried the REPLACED exercise's reps/hold value forward regardless of
+ * the new exercise's type or tier — the same mistake fixed three times in
+ * three different shapes (isTimeBased consistency, naked-backfill reps,
+ * and this one): a hold exercise's assigned duration in seconds (e.g. 15s,
+ * the elite/hard tier's `calculateHoldTimeTier` cap) surviving numerically
+ * unchanged and getting displayed/stored as a REP COUNT once swapped to an
+ * unrelated rep-based exercise. Confirmed via live trace: repeated
+ * `reps=15` output across many different swapped exercises, 15 being
+ * exactly the hold-cap value, not a coincidence (docs/workout-engine/
+ * 03-CHANGES.md, Addendum 3, "Not fixed" section).
+ *
+ * Mirrors exactly what `assignVolume` computes for these fields — same
+ * `TIER_TABLE` / `getStaircaseRange` / `calculateHoldTimeTier` /
+ * `DIFFICULTY_VOLUME` sources, same ABSOLUTE SKILL CEILING guard — no new
+ * formulas. Deliberately excludes:
+ *   - `sets` — every call site already owns its own sets logic (e.g. the
+ *     core set-count lock), which differs per site and isn't part of this
+ *     bug.
+ *   - domain-budget sets derivation, history floor, goal ramp — these need
+ *     full pipeline context that isn't available at a swap site, and they
+ *     only refine volume WITHIN a tier; they don't correct the tier
+ *     mismatch this function fixes.
+ *   - the unilateral skill Rule A/B/C special case (assignVolume ~666-698)
+ *     — callers that already have their own equivalent guard (e.g.
+ *     `substituteExercise`'s Skill-Rep Guard) keep applying it themselves,
+ *     as a deliberate override layered on top of this function's result.
+ *
+ * `levelDelta` (exerciseLevel − userDomainLevel for the NEW exercise) is a
+ * caller-supplied input, not re-derived here — each call site already
+ * resolves the new exercise's level against the correct domain/program
+ * using its own existing logic, which this function must not duplicate or
+ * risk diverging from.
+ */
+export function rederiveVolumeForSwappedExercise(
+  newExercise: Exercise,
+  levelDelta: number,
+  difficulty: DifficultyLevel,
+  levelProgressPercent?: number,
+  intentMode?: WorkoutGenerationContext['intentMode'],
+): Pick<WorkoutExercise, 'isTimeBased' | 'mechanicalType' | 'reps' | 'repsRange' | 'restSeconds' | 'tier'> {
+  const isTimeBased = isTimeBasedExercise(newExercise);
+  const mechanicalType = (newExercise.mechanicalType || 'none') as MechanicalType;
+
+  const tierName = resolveTier(levelDelta);
+  const tier = TIER_TABLE[tierName];
+  const diffVol = DIFFICULTY_VOLUME[difficulty];
+  const volumeTier: TierConfig = { sets: diffVol.sets, reps: diffVol.reps, hold: diffVol.holdSeconds, rest: tier.rest };
+  const isAboveLevelTier = tierName === 'hard' || tierName === 'elite';
+
+  let reps: number;
+  let repsRange: { min: number; max: number };
+
+  if (isTimeBased) {
+    const holdCap = getIsometricTimeCap(newExercise);
+    reps = Math.min(calculateHoldTimeTier(newExercise, volumeTier, tierName), holdCap);
+    repsRange = volumeTier.hold.max > holdCap
+      ? { min: Math.max(5, holdCap - 5), max: holdCap }
+      : { min: volumeTier.hold.min, max: volumeTier.hold.max };
+  } else {
+    const movementGroup = newExercise.movementGroup;
+    const isHorizontalMatch = tierName === 'match' && movementGroup != null && HORIZONTAL_MOVEMENT_GROUPS.has(movementGroup);
+    const staircaseRange = getStaircaseRange(tierName, isHorizontalMatch, levelProgressPercent);
+    const repRange = staircaseRange
+      ?? (isAboveLevelTier ? tier.reps : (isHorizontalMatch ? MATCH_HORIZONTAL_REPS : volumeTier.reps));
+    reps = repRange.min + Math.floor(Math.random() * (repRange.max - repRange.min + 1));
+    repsRange = { min: repRange.min, max: repRange.max };
+
+    // ABSOLUTE SKILL CEILING mirror (assignVolume ~768-801): hard/elite and
+    // skill-priority exercises never exceed 5 reps.
+    const isSkillPriority = classifyPriority(newExercise) === 'skill';
+    if (isSkillPriority || isAboveLevelTier) {
+      const SKILL_REP_CEILING = 5;
+      if (reps > SKILL_REP_CEILING) reps = SKILL_REP_CEILING;
+      if (repsRange.max > SKILL_REP_CEILING) {
+        repsRange = { min: Math.min(repsRange.min, SKILL_REP_CEILING), max: SKILL_REP_CEILING };
+      }
+    }
+  }
+
+  let restSeconds = tier.rest.min + Math.floor(Math.random() * (tier.rest.max - tier.rest.min + 1));
+  const blastRestMultiplier = intentMode === 'blast' ? 0.5 : 1;
+  if (tierName !== 'elite') {
+    restSeconds = Math.round(restSeconds * blastRestMultiplier);
+  }
+  restSeconds = Math.max(restSeconds, restSafetyFloor(tier));
+
+  return { isTimeBased, mechanicalType, reps, repsRange, restSeconds, tier: tierName };
+}
+
+// ============================================================================
 // SMART SET CAP
 // ============================================================================
 
