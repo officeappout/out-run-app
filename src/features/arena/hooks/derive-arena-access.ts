@@ -9,7 +9,7 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type ArenaTabKey = 'city' | 'org' | 'park' | 'global' | 'reserve';
+export type ArenaTabKey = 'city' | 'org' | 'park' | 'global' | 'reserve' | 'unit_league';
 
 export interface ArenaTab {
   key: ArenaTabKey;
@@ -53,6 +53,14 @@ export interface ArenaAccess {
    * useHasDeclaredReserveStatus.ts.
    */
   hasReserveAccess: boolean;
+  /**
+   * Declared military_declarations.orgId (Phase 6b) — unit-vs-unit
+   * competition needs at least a brigade to scope any range to; unrelated
+   * to hasReserveAccess (a career/regular soldier with a declared brigade
+   * still sees the unit tab, a reservist who only answered "status" and
+   * skipped the unit question does not).
+   */
+  hasUnitLeagueAccess: boolean;
   /** Ordered list of tabs the user has access to (always includes 'ארצי') */
   activeTabs: ArenaTab[];
 }
@@ -71,6 +79,7 @@ export function deriveArenaAccess(
   core: UserFullProfile['core'] | undefined,
   hasHydrated: boolean,
   hasReserveAccess = false,
+  hasUnitLeagueAccess = false,
 ): ArenaAccess {
   const affiliations = core?.affiliations ?? [];
 
@@ -116,6 +125,7 @@ export function deriveArenaAccess(
   // (useArenaAccess/community's page) for why it's sourced from a live
   // military_declarations listener rather than community_groups membership.
   if (hasReserveAccess) activeTabs.push({ key: 'reserve', label: 'מילואים' });
+  if (hasUnitLeagueAccess) activeTabs.push({ key: 'unit_league', label: 'יחידות' });
 
   return {
     cityAuthorityId,
@@ -136,6 +146,7 @@ export function deriveArenaAccess(
     preferredParkId,
     preferredParkName,
     hasReserveAccess,
+    hasUnitLeagueAccess,
     activeTabs,
   };
 }

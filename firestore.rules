@@ -1771,6 +1771,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Phase 6b — unit-vs-unit league aggregates (company/battalion/brigade).
+    // Same openness as unitDirectory, deliberately: this collection never
+    // contains a uid, a name, or any personal identifier — only
+    // {activeParticipantCount, avgSteps, updatedAt} per unit, written by
+    // unitLeagueRollup (scheduled CF, Admin SDK). See docs/research/
+    // military-persona-unified-architecture.md §12 for why this design
+    // needs no client-visible roster at all, unlike community_groups/
+    // members (which does, and is locked down accordingly).
+    match /unit_league_aggregates/{directoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ============================================================
     // MILITARY_DECLARATIONS — self-declared, unverified military
     // persona answers (Phase 3a). Deliberately NOT a field on

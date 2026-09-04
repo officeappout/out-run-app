@@ -9,20 +9,21 @@ export type { ArenaTabKey, ArenaTab, ArenaAccess } from './derive-arena-access';
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * hasReserveAccess is an explicit param, not derived internally, because its
- * only correct source (a live military_declarations listener — see
- * useHasDeclaredReserveStatus.ts) would be wasteful to mount for every one
- * of this hook's many consumers (active workout screen, running player
- * store, onboarding's PersonaStep, etc.) — most of which have no use for it.
- * Callers that need the reserve tab (currently just /community) mount that
- * listener themselves and pass the result in; everyone else defaults to
- * false, exactly as before this existed.
+ * hasReserveAccess/hasUnitLeagueAccess are explicit params, not derived
+ * internally, because their only correct source (a live
+ * military_declarations listener — see useHasDeclaredReserveStatus.ts)
+ * would be wasteful to mount for every one of this hook's many consumers
+ * (active workout screen, running player store, onboarding's PersonaStep,
+ * etc.) — most of which have no use for either. Callers that need these
+ * tabs (currently just /community) mount that listener themselves and pass
+ * the results in; everyone else defaults to false, exactly as before
+ * either existed.
  */
-export function useArenaAccess(hasReserveAccess = false) {
+export function useArenaAccess(hasReserveAccess = false, hasUnitLeagueAccess = false) {
   const { profile, _hasHydrated } = useUserStore();
 
   return useMemo(
-    () => deriveArenaAccess(profile?.core, _hasHydrated, hasReserveAccess),
+    () => deriveArenaAccess(profile?.core, _hasHydrated, hasReserveAccess, hasUnitLeagueAccess),
     [
       profile?.core?.affiliations,
       profile?.core?.ageGroup,
@@ -31,6 +32,7 @@ export function useArenaAccess(hasReserveAccess = false) {
       profile?.core?.neighborhoodId,
       profile?.core,
       hasReserveAccess,
+      hasUnitLeagueAccess,
       _hasHydrated,
     ],
   );
