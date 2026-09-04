@@ -374,9 +374,17 @@ export function isTimeBasedExercise(exercise: Exercise): boolean {
   if (DYNAMIC_MOVEMENT_GROUPS.has(exercise.movementGroup ?? '')) return false;
 
   // ── FALLBACK 2: name heuristics ────────────────────────────────────────────
-  // 'החזק' matches the absolute form (החזקה) AND the construct/smichut form (החזקת).
+  // getLocalizedText defaults to 'he', and this catalog is Hebrew-only (no
+  // exercise carries an 'en' name in practice) — so 'hold'/'plank'/'hang'
+  // (Latin) NEVER actually match against real data; 'החזק' (matching both
+  // the absolute form החזקה and the construct/smichut form החזקת) was doing
+  // all the real work. 'פלאנק' (plank, transliterated) is added explicitly —
+  // found via direct testing (docs/workout-engine/06-TIME-VS-REPS.md): it's
+  // one of the most common real hold-exercise names in this catalog and was
+  // NOT caught by any existing keyword. The Latin keywords are kept for any
+  // future 'en'-named content, not removed.
   const name = getLocalizedText(exercise.name).toLowerCase();
-  if (name.includes('hold') || name.includes('plank') || name.includes('hang') || name.includes('החזק')) {
+  if (name.includes('hold') || name.includes('plank') || name.includes('hang') || name.includes('החזק') || name.includes('פלאנק')) {
     console.warn(
       `[isTimeBasedExercise] "${name}" detected as time-based via name heuristic. `+
       `Fix in CMS → set type to "זמן" so this warning disappears.`,
