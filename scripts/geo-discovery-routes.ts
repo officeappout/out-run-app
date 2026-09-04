@@ -73,9 +73,19 @@
  * Does NOT broadcast to street_segments (pending routes stay out of the generator).
  *
  * Usage:
- *   npx tsx scripts/geo-discovery-routes.ts --region=zichron --dry-run   # discover + print, no write
- *   npx tsx scripts/geo-discovery-routes.ts --region=zichron             # write pending docs
- *   npx tsx scripts/geo-discovery-routes.ts --region=zichron --delete    # remove this region's batch
+ *   npx tsx scripts/geo-discovery-routes.ts --region=zichron                  # discover + print, no write (default)
+ *   npx tsx scripts/geo-discovery-routes.ts --region=zichron --apply          # write pending docs
+ *   npx tsx scripts/geo-discovery-routes.ts --region=zichron --delete         # preview what --delete would remove, no write
+ *   npx tsx scripts/geo-discovery-routes.ts --region=zichron --delete --apply # actually remove this region's batch
+ *
+ * Safety gate (04.09.2026, post-incident): this script used to write/delete
+ * by DEFAULT unless --dry-run was explicitly passed — the opposite
+ * convention from every other script in this repo (which default to
+ * dry-run and require an explicit --apply). That mismatch caused a real
+ * incident: two "dry-run" discovery runs (no flags beyond --region) both
+ * actually wrote, the second one creating 34 Herzliya routes and
+ * overwriting Zichron's pre-existing clip of a shared OSM relation. Both
+ * --apply-gated below now, matching every other script's convention.
  *
  * Adding a region = one entry in REGIONS below (boundary as a parameter). That is
  * the whole point of this step: nothing here is hardcoded to a single city.
@@ -89,7 +99,7 @@ import { computeRouteLighting } from './lib/route-lighting-street-segments.node'
 import { validateCityRegistration } from '../src/lib/city-registrations';
 
 // ─────────────────────────────── CLI + region config ───────────────────────────────
-const DRY = process.argv.includes('--dry-run');
+const APPLY = process.argv.includes('--apply');
 const DELETE = process.argv.includes('--delete');
 const ROUNDTRIPS = process.argv.includes('--roundtrips'); // add Mapbox foot round-trip loops
 const SKIP_OSM = process.argv.includes('--skip-osm');      // skip Overpass discovery (round-trips only)
@@ -1837,6 +1847,11 @@ async function main() {
 
   if (DELETE) {
     const snap = await col.where('importBatchId', '==', REGION.batchId).get();
+    if (!APPLY) {
+      console.log(`[dry-run] --delete would remove ${snap.size} route(s) from batch ${REGION.batchId}. Run with --delete --apply to actually delete.`);
+      for (const d of snap.docs) console.log(`  would delete [${d.id}] "${d.data().name}"`);
+      return;
+    }
     console.log(`deleting ${snap.size} routes from batch ${REGION.batchId} …`);
     let b = db.batch(), n = 0; for (const d of snap.docs) { b.delete(d.ref); if (++n % 450 === 0) { await b.commit(); b = db.batch(); } } await b.commit();
     console.log('✅ deleted'); return;
@@ -1983,7 +1998,7 @@ async function main() {
     console.log(`  ${icon} ${String(d.distance).padStart(5)}m  gain ${String(d.elevationGain).padStart(4)}m  ${d.difficulty.padEnd(8)} ${d.activityType.padEnd(8)} ${d.name}  [${k.c.externalId}]${stitchNote}`);
   }
 
-  if (DRY) { console.log(`\n[dry-run] no writes. ${kept.length} pending routes would be written to official_routes (batch ${REGION.batchId}).`); return; }
+  if (!APPLY) { console.log(`\n[dry-run] no writes. ${kept.length} pending routes would be written to official_routes (batch ${REGION.batchId}). Run with --apply to write.`); return; }
 
   // idempotent upsert by source.externalId; preserve moderation state on re-run.
   let created = 0, updated = 0;
