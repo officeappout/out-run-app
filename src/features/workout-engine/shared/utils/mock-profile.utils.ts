@@ -46,7 +46,14 @@ export function buildMockProfile(params: {
   if (!coldStart && domainLevels) {
     for (const [domain, lvl] of Object.entries(domainLevels)) {
       const slug = DOMAIN_PROGRAM_IDS[domain] ?? domain;
-      const entry = { level: lvl, progressPercent: 50, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      // Field names match the real DomainTrackProgress type (progression.types.ts:71-73)
+      // — currentLevel/percent, NOT level/progressPercent. The mismatch here (before
+      // this fix) meant home-workout.service.ts:2289's `track.percent` was always
+      // undefined, so context.levelProgressPercent was always 0 — every match-tier
+      // exercise in every simulator/snapshot run got the <50%-progress staircase
+      // range regardless of the level being simulated. See docs/workout-engine/
+      // 03-CHANGES.md for the trace that found this.
+      const entry = { currentLevel: lvl, percent: 50, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
       domainTracks[slug] = entry;
       domainTracks[domain] = entry;
     }
@@ -56,7 +63,7 @@ export function buildMockProfile(params: {
   const programTracks: Record<string, any> = {};
   const activeProgramEntries = coldStart ? [] : activePrograms;
   for (const prog of activeProgramEntries) {
-    programTracks[prog.id] = { level: prog.level, progressPercent: 50, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    programTracks[prog.id] = { currentLevel: prog.level, percent: 50, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
   }
 
   // Fall back to full_body if no specific programs
@@ -106,7 +113,7 @@ export function buildMockProfile(params: {
         : [{ id: primaryId, templateId: primaryId, name: primaryId, startDate: new Date(), durationWeeks: 52, currentWeek: 4, focusDomains: [] }],
       unlockedBonusExercises: [],
       tracks: {
-        [primaryId]: { level: effectiveLevel, progressPercent: 50, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        [primaryId]: { currentLevel: effectiveLevel, percent: 50, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
         ...domainTracks,
         ...programTracks,   // Program Builder tracks override domain tracks
       },
