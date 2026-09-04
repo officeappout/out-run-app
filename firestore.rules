@@ -62,6 +62,22 @@ service cloud.firestore {
         get(/databases/$(database)/documents/community_groups/$(groupId)).data.get('createdBy', '') == request.auth.uid;
     }
 
+    // Phase 6a — reservist league. Deliberately compares the PATH SEGMENT
+    // (groupId), never resource.data — a resource.data-based check was
+    // proven (emulator test, military-persona research) to NOT fail closed
+    // on an unfiltered list query; a path-based check does, and this is the
+    // ONLY military-type group today so a fixed-id comparison is exact.
+    // Phase 6b (per-unit groups): switch to a denormalized groupType field
+    // on the members doc itself, not a get() on the parent — see the
+    // military-persona-unified-architecture.md research doc.
+    function isMilitaryGroup(groupId) {
+      return groupId == 'military_reserve_general';
+    }
+    function isGroupMember(groupId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid));
+    }
+
     // Tenant isolation — checks Custom Claim `tenantId` on the auth token.
     // Set via Admin SDK when assigning a user to a tenant.
     // Root/DB admins bypass tenant checks.
@@ -1226,7 +1242,13 @@ service cloud.firestore {
     // COMMUNITY & ENGAGEMENT — Pillar 1/3
     // ============================================================
     match /community_groups/{docId} {
-      allow read: if isAuthenticated();
+      // Members-only (or admin) for the reservist league — real names mapped
+      // to a military-adjacent affiliation is exactly the exposure phase 3a's
+      // military_declarations lockdown was built to prevent (see
+      // docs/research/military-persona-unified-architecture.md §11). Every
+      // other group type is unaffected — isMilitaryGroup(docId) is false for
+      // them, so this reduces to the original allow-all.
+      allow read: if isAuthenticated() && (!isMilitaryGroup(docId) || isGroupMember(docId) || isAdmin());
       // Admins have full write access (authority-manager dashboard)
       allow write: if isAdmin();
 
@@ -1271,7 +1293,10 @@ service cloud.firestore {
       // update:  field-level guards — role changes are restricted by caller rank.
       // delete:  self-remove always allowed; admin removes members only; owner removes anyone.
       match /members/{uid} {
-        allow read: if isAuthenticated();
+        // Same members-only-or-admin gate as the parent group doc above —
+        // this is the actual roster (real names), the primary thing being
+        // protected. See the comment on community_groups/{docId}'s read rule.
+        allow read: if isAuthenticated() && (!isMilitaryGroup(docId) || isGroupMember(docId) || isAdmin());
 
         allow update: if isAuthenticated() && (
           // OUT app admins bypass all group-level restrictions

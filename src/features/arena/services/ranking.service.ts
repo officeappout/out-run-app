@@ -17,10 +17,11 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { RESERVE_SCOPE_FIELD } from '@/lib/military-reserve-league';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
-export type LeaderboardScope = 'city' | 'school' | 'park' | 'neighborhood' | 'global' | 'league' | 'tenant';
+export type LeaderboardScope = 'city' | 'school' | 'park' | 'neighborhood' | 'global' | 'league' | 'tenant' | 'reserve';
 export type LeaderboardCategory = 'overall' | 'cardio' | 'strength';
 export type LeaderboardTimeWindow = 'daily' | 'weekly' | 'monthly';
 export type LeaderboardGenderFilter = 'all' | 'male' | 'female';
@@ -60,6 +61,11 @@ export function scopeToField(scope: LeaderboardScope): string | null {
     case 'school': return 'schoolId';
     case 'park': return 'parkId';
     case 'neighborhood': return 'neighborhoodId';
+    // Phase 6a reservist league — status-only ('reserve'), not org/unit
+    // scoped. Stamped on streaks/dailyActivity by useActivityStore.syncToServer
+    // the same way authorityId/neighborhoodId already are; not sensitive
+    // (David, 6a scope decision) so no rules change accompanies this.
+    case 'reserve': return RESERVE_SCOPE_FIELD;
     case 'global':
     case 'league':
     case 'tenant':

@@ -9,6 +9,8 @@
  *   tenant-unit     — core.tenantId/unitId/unitPath admin-only initial write (01.09.2026)
  *   military-decl   — military_declarations/{uid} lockdown + unitDirectory read-only
  *                      public index + users/{uid} no-leak tripwire (Phase 3a, 02.09.2026)
+ *   reserve-league  — community_groups/military_reserve_general members-only read lockdown
+ *                      (Phase 6a, 04.09.2026)
  *
  * Run:  npx firebase emulators:exec --only firestore "npx tsx tests/firestore-rules.test.ts"
  */
@@ -23,6 +25,8 @@ import { readFileSync } from 'node:fs';
 import {
   doc,
   getDoc,
+  getDocs,
+  collection,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -153,6 +157,17 @@ async function setup() {
     });
     await setDoc(doc(db, 'community_groups', 'grp_test', 'members', 'regular_member2'), {
       uid: 'regular_member2', role: 'member', joinedAt: new Date(),
+    });
+
+    // Phase 6a — reservist league fixture. isPublic:false, isLocked:false —
+    // seeded, not createGroup()'d (see scripts/seed-military-reserve-league.ts).
+    await setDoc(doc(db, 'community_groups', 'military_reserve_general'), {
+      name: 'ליגת המילואים', groupType: 'military',
+      isPublic: false, isOfficial: true, isLocked: false,
+      source: 'authority', createdBy: 'system',
+    });
+    await setDoc(doc(db, 'community_groups', 'military_reserve_general', 'members', 'reservist_member'), {
+      uid: 'reservist_member', role: 'member', joinedAt: new Date(),
     });
 
     // Activity — dailyActivity ({userId}_{date}) + streaks ({uid}) for the
@@ -604,6 +619,56 @@ async function testUnitDirectory() {
   });
 }
 
+// Phase 6a — reservist league group lockdown. David's flagship test: a
+// non-member must not be able to read the roster of a military-type group,
+// while a real member (and admin) still can — this is what closes the
+// "real names mapped to a military-adjacent group" exposure that community_
+// groups/members were previously wide open to for ANY authenticated user.
+async function testReserveLeagueLockdown() {
+  console.log('\nreserve-league — community_groups/military_reserve_general lockdown');
+
+  await it('R1 — non-member reads the reserve group members list → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general', 'members', 'reservist_member')));
+  });
+
+  await it('R2 — non-member reads the reserve group doc itself → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general')));
+  });
+
+  await it('R3 — a real member reads the members list → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reservist_member');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general', 'members', 'reservist_member')));
+  });
+
+  await it('R4 — a real member reads the group doc → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reservist_member');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general')));
+  });
+
+  await it('R5 — admin reads the members list of a group they are not a member of → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general', 'members', 'reservist_member')));
+  });
+
+  await it('R6 — non-military groups are unaffected: outsider still reads grp_public members list → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'grp_test', 'members', 'regular_member')));
+  });
+
+  // The regression this specifically guards against: an unfiltered LIST
+  // query (not a single get()) must also fail closed for a non-member —
+  // this is the exact shape that was proven, empirically, to leak through
+  // a resource.data-based rule (see the feed_posts finding this round);
+  // the path-based isMilitaryGroup(docId)/isGroupMember(docId) check here
+  // must not have the same failure mode.
+  await it('R7 — non-member LISTS the members subcollection (no where clause) → DENY, not a silent empty-but-allowed result', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDocs(collection(ctx.firestore(), 'community_groups', 'military_reserve_general', 'members')));
+  });
+}
+
 // Phase 3a — structural regression tripwire, not a rules-engine security
 // proof (Firestore rules can't do field-level redaction, so this only
 // proves "if nobody writes the field there, it isn't there" — a fact
@@ -637,6 +702,7 @@ async function main() {
   await testTenantUnitLockdown();
   await testMilitaryDeclarationLockdown();
   await testUnitDirectory();
+  await testReserveLeagueLockdown();
   await testNoUsersDocLeak();
 
   console.log(`\n${'─'.repeat(50)}`);

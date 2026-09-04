@@ -9,7 +9,7 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type ArenaTabKey = 'city' | 'org' | 'park' | 'global';
+export type ArenaTabKey = 'city' | 'org' | 'park' | 'global' | 'reserve';
 
 export interface ArenaTab {
   key: ArenaTabKey;
@@ -45,6 +45,14 @@ export interface ArenaAccess {
   ageGroup: 'minor' | 'adult';
   preferredParkId: string | null;
   preferredParkName: string | null;
+  /**
+   * Declared military_declarations.status === 'reserve' (Phase 6a). Sourced
+   * from a live listener on the declaration itself, NOT from community_groups
+   * membership — that membership is server-CF-driven and can lag behind (or
+   * fail outright) without this tab's visibility depending on it. See
+   * useHasDeclaredReserveStatus.ts.
+   */
+  hasReserveAccess: boolean;
   /** Ordered list of tabs the user has access to (always includes 'ארצי') */
   activeTabs: ArenaTab[];
 }
@@ -59,7 +67,11 @@ function deriveAgeGroup(birthDate: Date | undefined): 'minor' | 'adult' {
 
 // ─── Pure derivation ────────────────────────────────────────────────────────
 
-export function deriveArenaAccess(core: UserFullProfile['core'] | undefined, hasHydrated: boolean): ArenaAccess {
+export function deriveArenaAccess(
+  core: UserFullProfile['core'] | undefined,
+  hasHydrated: boolean,
+  hasReserveAccess = false,
+): ArenaAccess {
   const affiliations = core?.affiliations ?? [];
 
   const cityAff = affiliations.find((a) => a.type === 'city');
@@ -100,6 +112,10 @@ export function deriveArenaAccess(core: UserFullProfile['core'] | undefined, has
   if (hasCityAccess) activeTabs.push({ key: 'city', label: 'עיר' });
   if (orgType) activeTabs.push({ key: 'org', label: orgLabel });
   if (preferredParkId) activeTabs.push({ key: 'park', label: 'פארק' });
+  // hasReserveAccess is passed in, not derived here — see the caller
+  // (useArenaAccess/community's page) for why it's sourced from a live
+  // military_declarations listener rather than community_groups membership.
+  if (hasReserveAccess) activeTabs.push({ key: 'reserve', label: 'מילואים' });
 
   return {
     cityAuthorityId,
@@ -119,6 +135,7 @@ export function deriveArenaAccess(core: UserFullProfile['core'] | undefined, has
     ageGroup,
     preferredParkId,
     preferredParkName,
+    hasReserveAccess,
     activeTabs,
   };
 }

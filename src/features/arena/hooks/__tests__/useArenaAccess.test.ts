@@ -46,3 +46,31 @@ describe('deriveArenaAccess — neighborhood resolution, analogous to city', () 
     expect(access.activeTabs.some((t) => (t.key as string) === 'neighborhood')).toBe(false);
   });
 });
+
+describe('deriveArenaAccess — reserve league tab (Phase 6a)', () => {
+  // hasReserveAccess is an explicit boolean param here, not derived from
+  // core/profile data — its real source is a live military_declarations
+  // listener (useHasDeclaredReserveStatus.ts), computed by the caller so
+  // that listener isn't mounted for every one of this hook's many other
+  // consumers. See that hook's own comment for why (immediacy after
+  // declaring, independent of the join CF's completion).
+  it('no reserve tab when hasReserveAccess is false (default)', () => {
+    expect(deriveArenaAccess(undefined, true).activeTabs.some((t) => t.key === 'reserve')).toBe(false);
+    expect(deriveArenaAccess(undefined, true, false).activeTabs.some((t) => t.key === 'reserve')).toBe(false);
+  });
+
+  it('reserve tab and hasReserveAccess appear when the param is true', () => {
+    const access = deriveArenaAccess(undefined, true, true);
+    expect(access.activeTabs.some((t) => t.key === 'reserve')).toBe(true);
+    expect(access.hasReserveAccess).toBe(true);
+  });
+
+  it('reserve tab coexists with city/org/park tabs — independent of geo/org affiliation', () => {
+    const access = deriveArenaAccess(
+      { authorityId: 'city-1' } as never,
+      true,
+      true,
+    );
+    expect(access.activeTabs.map((t) => t.key)).toEqual(expect.arrayContaining(['global', 'city', 'reserve']));
+  });
+});
