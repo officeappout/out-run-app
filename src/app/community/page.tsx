@@ -66,6 +66,7 @@ import { joinGroup, leaveGroup, getMyGroups } from '@/features/arena/services/gr
 import { joinEvent } from '@/features/admin/services/community.service';
 import { addCommunitySessionsToPlanner } from '@/features/user/scheduling/services/communitySchedule.service';
 import type { CommunityGroup, CommunityEvent, CommunityGroupType } from '@/types/community.types';
+import { RESERVE_SCOPE_VALUE } from '@/lib/military-reserve-league';
 import AppHeader from '@/components/ui/AppHeader';
 
 // Types that have a dedicated institutional scope card (city/org) — excluded from
@@ -895,6 +896,7 @@ export default function CommunityPage() {
             {selectedLeague === 'city' && renderCitySegment()}
             {selectedLeague === 'org' && renderOrgSegment()}
             {selectedLeague === 'park' && renderParkSegment()}
+            {selectedLeague === 'reserve' && renderReserveSegment()}
             {selectedLeague.startsWith('league_') && renderLeagueSegment(selectedLeague.slice(7))}
           </motion.div>
         </AnimatePresence>
@@ -1072,6 +1074,24 @@ export default function CommunityPage() {
         emoji: '🌳',
         memberCount: null,
         rank: selectedLeague === 'park' ? activeMyEntry?.rank ?? null : null,
+      });
+    }
+
+    // Phase 6a — reservist league. Gated on access.hasReserveAccess (actual
+    // community_groups membership, auto-joined server-side) — never shown to
+    // a user who hasn't declared reserve status. Deliberately NOT part of the
+    // per-group loop below: that loop is feed_posts-backed (getLeagueLeaderboard)
+    // and excludes groupType:'military' anyway (INSTITUTIONAL_GROUP_TYPES,
+    // see socialGroups filter above) — this card uses the reserve scope's
+    // own streaks/dailyActivity-backed leaderboard instead.
+    if (access.hasReserveAccess) {
+      cards.push({
+        key: 'reserve',
+        name: 'ליגת המילואים',
+        subtitle: undefined,
+        emoji: '🎖️',
+        memberCount: null,
+        rank: selectedLeague === 'reserve' ? activeMyEntry?.rank ?? null : null,
       });
     }
 
@@ -1390,6 +1410,39 @@ export default function CommunityPage() {
             )}
           </>
         )}
+      </div>
+    );
+  }
+
+  /**
+   * Phase 6a — reservist league. Status-only scope ('reserve' →
+   * streaks/dailyActivity.reserveScope, see ranking.service.ts's
+   * scopeToField), individual ranking only — no group-vs-group toggle here
+   * yet, since a coherent "group" concept for this scope (unit leagues)
+   * is explicitly out of scope for 6a. Modeled on renderGlobalSegment's
+   * individual-mode branch: national in shape (bypassSocialGate/isGlobal),
+   * scopeLabel is the only thing distinguishing it visually.
+   */
+  function renderReserveSegment() {
+    return (
+      <div className="space-y-4" dir="rtl">
+        <NeighborhoodLeaderboard
+          scope="reserve"
+          scopeId={RESERVE_SCOPE_VALUE}
+          scopeLabel="ליגת המילואים"
+          isLeagueActive={true}
+          isGlobal={true}
+          bypassSocialGate={true}
+          ageGroup={access.ageGroup}
+          category={leaderboardCategory}
+          setCategory={setLeaderboardCategory}
+          timeWindow={leaderboardTimeWindow}
+          setTimeWindow={setLeaderboardTimeWindow}
+          genderFilter={leaderboardGender}
+          setGenderFilter={setLeaderboardGender}
+          onMyEntryChange={setActiveMyEntry}
+          onMyModeChange={handleMyModeChange}
+        />
       </div>
     );
   }

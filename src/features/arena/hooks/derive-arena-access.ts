@@ -6,10 +6,11 @@
  * useMemo; deriveArenaAccess itself is unit-testable directly.
  */
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
+import { RESERVE_LEAGUE_GROUP_ID } from '@/lib/military-reserve-league';
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type ArenaTabKey = 'city' | 'org' | 'park' | 'global';
+export type ArenaTabKey = 'city' | 'org' | 'park' | 'global' | 'reserve';
 
 export interface ArenaTab {
   key: ArenaTabKey;
@@ -45,6 +46,8 @@ export interface ArenaAccess {
   ageGroup: 'minor' | 'adult';
   preferredParkId: string | null;
   preferredParkName: string | null;
+  /** Member of community_groups/{RESERVE_LEAGUE_GROUP_ID} (Phase 6a) — auto-joined server-side, never self-declared client-side. */
+  hasReserveAccess: boolean;
   /** Ordered list of tabs the user has access to (always includes 'ארצי') */
   activeTabs: ArenaTab[];
 }
@@ -59,7 +62,11 @@ function deriveAgeGroup(birthDate: Date | undefined): 'minor' | 'adult' {
 
 // ─── Pure derivation ────────────────────────────────────────────────────────
 
-export function deriveArenaAccess(core: UserFullProfile['core'] | undefined, hasHydrated: boolean): ArenaAccess {
+export function deriveArenaAccess(
+  core: UserFullProfile['core'] | undefined,
+  hasHydrated: boolean,
+  socialGroupIds?: string[],
+): ArenaAccess {
   const affiliations = core?.affiliations ?? [];
 
   const cityAff = affiliations.find((a) => a.type === 'city');
@@ -100,6 +107,12 @@ export function deriveArenaAccess(core: UserFullProfile['core'] | undefined, has
   if (hasCityAccess) activeTabs.push({ key: 'city', label: 'עיר' });
   if (orgType) activeTabs.push({ key: 'org', label: orgLabel });
   if (preferredParkId) activeTabs.push({ key: 'park', label: 'פארק' });
+  // Gated on actual group membership (social.groupIds, already loaded on the
+  // profile — no extra fetch), not on reading military_declarations directly:
+  // the tab should reflect "you're in the league" (post-CF-join), and reusing
+  // already-loaded data avoids a second async source for this pure function.
+  const hasReserveAccess = !!socialGroupIds?.includes(RESERVE_LEAGUE_GROUP_ID);
+  if (hasReserveAccess) activeTabs.push({ key: 'reserve', label: 'מילואים' });
 
   return {
     cityAuthorityId,
@@ -119,6 +132,7 @@ export function deriveArenaAccess(core: UserFullProfile['core'] | undefined, has
     ageGroup,
     preferredParkId,
     preferredParkName,
+    hasReserveAccess,
     activeTabs,
   };
 }

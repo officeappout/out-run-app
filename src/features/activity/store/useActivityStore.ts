@@ -31,6 +31,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { RESERVE_LEAGUE_GROUP_ID, RESERVE_SCOPE_FIELD, RESERVE_SCOPE_VALUE } from '@/lib/military-reserve-league';
 import {
   ActivityCategory,
   DailyActivity,
@@ -810,6 +811,13 @@ export const useActivityStore = create<ActivityStore>()(
           if (userProfile?.core?.authorityId) activityScopeExtra.authorityId = userProfile.core.authorityId;
           if (userProfile?.core?.neighborhoodId) activityScopeExtra.neighborhoodId = userProfile.core.neighborhoodId;
           if (userProfile?.core?.name) activityScopeExtra.displayName = userProfile.core.name;
+          // Phase 6a reservist league — status-only, no rules change (David,
+          // 6a scope decision: not sensitive, same openness as authorityId
+          // above). Sourced from social.groupIds (set by the join CF), not a
+          // fresh military_declarations read.
+          if (userProfile?.social?.groupIds?.includes(RESERVE_LEAGUE_GROUP_ID)) {
+            activityScopeExtra[RESERVE_SCOPE_FIELD] = RESERVE_SCOPE_VALUE;
+          }
 
           // Read the current server baseline so a store write (triggered by a
           // minutes / workout change) never clobbers the higher passive step /
@@ -848,16 +856,16 @@ export const useActivityStore = create<ActivityStore>()(
             { merge: true },
           );
           
-          // Update streak document — include scope fields for leaderboard queries
+          // Update streak document — same scope fields as dailyActivity above
+          // (activityScopeExtra), so a new scope (like reserveScope) only
+          // needs to be added once.
           const streakRef = doc(db, COLLECTION_STREAK, state.today.userId);
           await setDoc(streakRef, {
             userId: state.today.userId,
             currentStreak: state.currentStreak,
             longestStreak: state.longestStreak,
             lastActivityDate: state.today.date,
-            ...(userProfile?.core?.authorityId ? { authorityId: userProfile.core.authorityId } : {}),
-            ...(userProfile?.core?.neighborhoodId ? { neighborhoodId: userProfile.core.neighborhoodId } : {}),
-            ...(userProfile?.core?.name ? { displayName: userProfile.core.name } : {}),
+            ...activityScopeExtra,
             updatedAt: serverTimestamp(),
           }, { merge: true });
 
