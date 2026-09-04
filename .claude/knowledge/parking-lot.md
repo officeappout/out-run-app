@@ -461,4 +461,8 @@ Net effect: picking lower-body silently and permanently resolves to `UPPER_BODY`
 
 The `excludeCategories` mechanism is complete and correct, but `hasInjuries` stays `false` forever: the `q_run_injuries` question has been marked REMOVED since the commit that created it (`87a2099d`), and the admin sync tool deletes it from Firestore on every run. There is no way for a user to report an injury in the running flow today.
 
-Open product decision — not a blind fix.
+הוכרע (דוד): לא נשאלת שאלת פציעות ולא נבנה מענה לפציעות.
+המוצר אינו לוקח אחריות בתחום הזה. הסינון נשאר רדום בכוונה.
+אין לפתוח אותו בלי החלטה מפורשת חדשה.
+נובע מכך: RUN-08 ומגבלות הימים הרצופים ב-RUN-04 הם המנגנונים
+היחידים שמגבילים עומס, ולכן אין להחליש אותם.
