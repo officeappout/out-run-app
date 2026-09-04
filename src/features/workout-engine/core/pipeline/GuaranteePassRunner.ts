@@ -169,7 +169,10 @@ export function runHorizontalGuarantee(
 
           workoutExercises[idx] = {
             ...workoutExercises[idx],
-            ...substituteExercise(workoutExercises[idx], substitute.exercise, resolveSubstituteMethod(substitute.exercise, context)),
+            ...substituteExercise(
+              workoutExercises[idx], substitute.exercise, resolveSubstituteMethod(substitute.exercise, context),
+              repLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+            ),
             programLevel: repLevel,
             isOverLevel: repLevel > domainLevel,
             levelDelta: repLevel - domainLevel,
@@ -214,7 +217,10 @@ export function runHorizontalGuarantee(
 
     workoutExercises[idx] = {
       ...workoutExercises[idx],
-      ...substituteExercise(workoutExercises[idx], substitute.exercise, resolveSubstituteMethod(substitute.exercise, context)),
+      ...substituteExercise(
+        workoutExercises[idx], substitute.exercise, resolveSubstituteMethod(substitute.exercise, context),
+        repLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+      ),
       programLevel: repLevel,
       isOverLevel: repLevel > domainLevel,
       levelDelta: repLevel - domainLevel,
@@ -373,7 +379,10 @@ export function runVerticalFoundationGuarantee(
 
     workoutExercises[idx] = {
       ...workoutExercises[idx],
-      ...substituteExercise(workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context)),
+      ...substituteExercise(
+        workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
+        repLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+      ),
       programLevel: repLevel,
       isOverLevel: repLevel > domainLevel,
       levelDelta: repLevel - domainLevel,
@@ -489,7 +498,10 @@ export function runFullBodyDomainGuarantee(
 
       workoutExercises[idx] = {
         ...workoutExercises[idx],
-        ...substituteExercise(workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context)),
+        ...substituteExercise(
+          workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
+          injectedLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+        ),
         programLevel:  injectedLevel,
         isOverLevel:   injectedLevel > domainLevel,
         levelDelta:    injectedLevel - domainLevel,

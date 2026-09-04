@@ -974,6 +974,8 @@ export async function generateHomeWorkoutTrio(
         sessionBlacklist,
         pipeline.effectiveFilterLocation,
         pipeline.baseGeneratorContext.activeProgramId,
+        pipeline.baseGeneratorContext.levelProgressPercent,
+        pipeline.baseGeneratorContext.intentMode,
       );
     } else if (cfg.postProcess === 'mobility_tag') {
       applyTagPreference(workout, 'mobility', sessionBlacklist);
