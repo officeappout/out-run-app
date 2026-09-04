@@ -19,10 +19,25 @@
  * ── Why the client Firestore SDK works headless here ────────────────────
  * home-workout.service.ts imports `db` from src/lib/firebase.ts, which has
  * an explicit `typeof window === 'undefined'` SSR branch (getFirestore(app),
- * no persistence, no App Check) — exactly what a tsx/Node process is. Since
- * every collection this pipeline reads is `allow read: if true`, no auth is
- * needed. Confirmed empirically (2026-09-04): a single real call completed
- * in ~4.4s cold / ~1.9s warm-cache / ~340ms amortized at concurrency=8.
+ * no persistence, no App Check) — exactly what a tsx/Node process is.
+ * Confirmed empirically (2026-09-04): a single real call completed in ~4.4s
+ * cold / ~1.9s warm-cache / ~340ms amortized at concurrency=8.
+ *
+ * ── Authentication (added 2026-09-04, second pass) ──────────────────────
+ * `exercises`/`programs`/`gear_definitions`/`gym_equipment`/`levels` are all
+ * `allow read: if true` — the first pass ran fully unauthenticated against
+ * those. But `programLevelSettings` (`firestore.rules:651`) is `allow read:
+ * if isAuthenticated()` — the source of `preferredProtocols`/
+ * `protocolProbability`, i.e. superset/antagonist_pair/tabata/emom. The
+ * first pass's unauthenticated calls failed there with permission-denied
+ * (caught non-fatally inside home-workout.service.ts:2259, "Non-critical
+ * error" — protocolProbability silently defaults to 0), so 0 paired blocks
+ * were ever observed — a measurement gap, not a real 0%. Fixed by minting a
+ * Firebase Admin custom token for an arbitrary uid (no real `users/{uid}`
+ * doc needed — `isAuthenticated()` only checks `request.auth != null`) and
+ * signing the client SDK in with it once, before the matrix runs. Confirmed
+ * this unblocks real data: 97 programLevelSettings docs across 8 programs,
+ * most with preferredProtocols populated.
  *
  * ── "בולטים" (bolts) are free ────────────────────────────────────────────
  * One generateHomeWorkoutTrio call returns all 3 bolt options (difficulty
@@ -56,9 +71,34 @@ dotenv.config({ path: '.env.local' });
 
 import Database from 'better-sqlite3';
 import * as path from 'path';
+import * as admin from 'firebase-admin';
 import { buildMockProfile } from '../../src/features/workout-engine/shared/utils/mock-profile.utils';
 import { generateHomeWorkoutTrio } from '../../src/features/workout-engine/services/home-workout.service';
 import { getLocalizedText } from '../../src/features/content/exercises/core/exercise.types';
+
+/**
+ * Signs the client SDK's `auth` in via a Firebase Admin custom token, so
+ * requests carry `request.auth != null` for rules like `programLevelSettings`
+ * that require it. Read-only purpose — this script never writes to
+ * Firestore (see file header). The uid is arbitrary and has no `users/{uid}`
+ * document; nothing here reads one.
+ */
+async function authenticateHeadlessClient(): Promise<void> {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!raw) {
+    throw new Error(
+      'FIREBASE_SERVICE_ACCOUNT_KEY not set in .env.local — required to mint a ' +
+      'custom token for programLevelSettings reads (allow read: if isAuthenticated()).',
+    );
+  }
+  const cred = JSON.parse(raw);
+  admin.initializeApp({ credential: admin.credential.cert(cred as any), projectId: cred.project_id });
+
+  const customToken = await admin.auth().createCustomToken('benchmark_snapshot_script');
+  const { signInWithCustomToken } = await import('firebase/auth');
+  const { auth } = await import('../../src/lib/firebase');
+  await signInWithCustomToken(auth, customToken);
+}
 
 // Suppress the pipeline's own verbose console output (hundreds of lines per
 // call) — this script's own progress lines go through the captured
@@ -287,6 +327,10 @@ function copyLegacyTables(db: Database.Database) {
 // ============================================================================
 
 async function main() {
+  report('Authenticating headless client (custom token) so programLevelSettings reads succeed...');
+  await authenticateHeadlessClient();
+  report('Authenticated.');
+
   const combos = buildCombos();
   report(`Matrix: ${LEVELS.length} levels × ${DURATIONS.length} durations × ${LOCATIONS.length} locations × ${DOMAIN_SUBSETS.length} domain-subsets × ${DAYS_INACTIVE.length} daysInactive = ${combos.length} calls (×3 bolts each, free per call)`);
   report(`Concurrency: ${CONCURRENCY}`);
