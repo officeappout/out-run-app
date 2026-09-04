@@ -58,10 +58,25 @@ describe('resolveRunningDayState', () => {
       expect(result.source).toBe('scheduleDays');
     });
 
-    it('full scheduleDays: passing a startDate (now required for the program-fallback path) does not change the scheduleDays branch at all — same result with or without it', () => {
+    it('full scheduleDays, "today" (regression guarantee for the 3 originally-wired callers): a startDate whose derived week matches the caller\'s own currentWeek produces the identical result as omitting startDate entirely', () => {
+      // startDate = SUNDAY itself -> calculateCurrentWeek(startDate, SUNDAY) = 1,
+      // matching currentWeek=1 below exactly, the same way the 3 real "today"-only
+      // callers' own startDate/currentWeek are always in sync in real usage
+      // (both derived from "now" via the same calculateCurrentWeek call).
+      const todayAsStartDate = SUNDAY;
       const withoutStartDate = resolveRunningDayState(['א', 'ג'], [PENDING_1, PENDING_2, OTHER_WEEK], 1, SUNDAY, undefined);
-      const withStartDate = resolveRunningDayState(['א', 'ג'], [PENDING_1, PENDING_2, OTHER_WEEK], 1, SUNDAY, PROGRAM_START);
+      const withStartDate = resolveRunningDayState(['א', 'ג'], [PENDING_1, PENDING_2, OTHER_WEEK], 1, SUNDAY, todayAsStartDate);
       expect(withStartDate).toEqual(withoutStartDate);
+    });
+
+    it('full scheduleDays, an ARBITRARY (non-"today") date: resolves week 3 from the date itself, not from a stale currentWeek — the exact capability AgendaDayCard needs for its multi-day rendering', () => {
+      const weekThreeDate = new Date('2026-08-16T09:00:00'); // verified Sunday, 14 days after PROGRAM_START -> week 3
+      // currentWeek is deliberately wrong (1) — proves the scheduleDays
+      // branch no longer trusts it once startDate is supplied.
+      const result = resolveRunningDayState(['א'], EIGHT_WEEK_PLAN, 1, weekThreeDate, PROGRAM_START);
+      expect(result.source).toBe('scheduleDays');
+      expect(result.isRunDay).toBe(true);
+      expect(result.todayEntry).toEqual({ week: 3, day: 1, status: 'pending', workoutName: 'שבוע 3' });
     });
   });
 

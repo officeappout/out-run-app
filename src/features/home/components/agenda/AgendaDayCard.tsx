@@ -21,8 +21,7 @@ import { COMMUNITY_CATEGORY_COLORS } from '@/features/home/utils/day-display.uti
 import { WalkingIcon, RunIcon, getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
-import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
-import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
+import { resolveRunningDayState } from '@/lib/running-day-resolution';
 import { hapticLight } from '@/lib/haptics';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED, AGENDA_HYBRID_DAY_DISPLAY_ENABLED } from '@/config/feature-flags';
@@ -240,8 +239,6 @@ interface ResolvedRunningWorkout {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-
 const HEBREW_DAY_SHORT: Record<string, string> = {
   'א': 'א׳', 'ב': 'ב׳', 'ג': 'ג׳', 'ד': 'ד׳',
   'ה': 'ה׳', 'ו': 'ו׳', 'ש': 'ש׳',
@@ -318,7 +315,15 @@ function formatTime(hhmm: string | undefined): string | null {
 }
 
 /**
- * Map an ISO date to a running schedule entry using scheduleDays + program start.
+ * Map an ISO date to a running schedule entry — delegates to the shared
+ * resolveRunningDayState (05.09.2026), which now owns both the date-range
+ * guard this function used to carry alone (isDateWithinRunningPlan,
+ * originally added here 02.09.2026 — that check didn't disappear, it moved
+ * into the shared resolver, checked once instead of duplicated per caller)
+ * and the scheduleDays-empty program fallback (a runner whose plan was
+ * built but who never reached the day-picker step used to always resolve
+ * to `null` here — same permanent-"no workout" bug NextRunWorkoutCard had,
+ * just for the planner's day-cards instead of the home-page card).
  */
 function resolveRunningEntry(
   iso: string,
@@ -327,50 +332,17 @@ function resolveRunningEntry(
   programStartDate: Date | string | number | undefined,
   currentWeek: number,
 ): ResolvedRunningWorkout | null {
-  if (!schedule?.length || !scheduleDays?.length) return null;
+  if (!schedule?.length) return null;
 
   const d = new Date(iso + 'T00:00:00');
-  const dayIdx = d.getDay(); // 0=Sun
-  const letter = DAY_LETTERS[dayIdx];
-  if (!scheduleDays.includes(letter)) return null;
-
-  // Calculate which week this date falls in relative to program start — via
-  // the canonical calculateCurrentWeek(startDate, asOfDate), asOfDate being
-  // the rendered day `d` (not "today"). Same formula this used to hand-
-  // duplicate inline; NOT gated by RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED —
-  // this call site already unconditionally recomputed per rendered day
-  // whenever programStartDate is present (falling back to the stored
-  // `currentWeek` only in the same rare case as before — startDate itself
-  // missing), so this is a pure de-duplication refactor with no behavior change.
-  //
-  // isDateWithinRunningPlan checked FIRST (02.09.2026 fix) — calculateCurrentWeek's
-  // own Math.max(1,...) clamp would otherwise report week 1 for a rendered
-  // day BEFORE the program started, identical to the real week 1, showing
-  // phantom pre-registration workouts. `d` (the rendered day) is what gets
-  // checked, not "today" — this site renders arbitrary past/future days.
-  if (programStartDate && !isDateWithinRunningPlan(programStartDate, d)) return null;
-  const weekNum = programStartDate
-    ? calculateCurrentWeek(programStartDate, d)
-    : currentWeek;
-
-  // Find the slot index (1-based "day" in the schedule)
-  const trainingDayIndices = scheduleDays
-    .map((l) => DAY_LETTERS.indexOf(l))
-    .filter((i) => i >= 0)
-    .sort((a, b) => a - b);
-  const slotIndex = trainingDayIndices.indexOf(dayIdx);
-  if (slotIndex < 0) return null;
-  const daySlot = slotIndex + 1;
-
-  const entry = schedule.find(
-    (e: any) => e.week === weekNum && e.day === daySlot,
-  );
+  const dayState = resolveRunningDayState(scheduleDays ?? [], schedule, currentWeek, d, programStartDate);
+  const entry = dayState.todayEntry;
   if (!entry) return null;
 
   return {
-    name: entry.workoutName || CATEGORY_LABELS_HE[entry.category] || 'אימון ריצה',
-    category: entry.category,
-    status: entry.status ?? 'pending',
+    name: (entry as any).workoutName || CATEGORY_LABELS_HE[(entry as any).category] || 'אימון ריצה',
+    category: (entry as any).category,
+    status: (entry as any).status ?? 'pending',
   };
 }
 
