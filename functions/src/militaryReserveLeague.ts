@@ -75,9 +75,21 @@ async function leaveReserveLeague(uid: string): Promise<void> {
   await batch.commit();
 
   // Clean the (non-sensitive, status-only) reserveScope stamp off streaks +
-  // the last ~10 days of dailyActivity — matches getStepsLeaderboard's own
-  // 7-day rolling window with margin. Not batched with the write above:
-  // this is a query-then-update, and a fixed doc count isn't known upfront.
+  // recent dailyActivity — verified against the actual query shape, not
+  // guessed:
+  //   - streaks/{uid} is a SINGLE doc per user (currentStreak, no date
+  //     range at all) — getStreakLeaderboard (ranking.service.ts) just
+  //     orders by that one field. One update() fully cleans it, no window
+  //     to reason about.
+  //   - dailyActivity is per-day; getStepsLeaderboard (ranking.service.ts)
+  //     hardcodes a 7-day rolling window (`weekAgo.setDate(today.getDate()
+  //     - 6)`) regardless of the page's own daily/weekly/monthly selector —
+  //     that selector isn't even a param of the function. 10 days here is
+  //     that 7-day window plus a 3-day margin, not an arbitrary round
+  //     number — if getStepsLeaderboard's window ever changes, this must
+  //     move with it.
+  // Not batched with the group-membership write above: this is a
+  // query-then-update, and the doc count isn't known upfront.
   await db.doc(`streaks/${uid}`).update({ reserveScope: admin.firestore.FieldValue.delete() }).catch(() => {
     // No streak doc yet — fine, nothing to clean.
   });

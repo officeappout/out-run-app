@@ -33,6 +33,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import { getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
+import { useHasDeclaredReserveStatus } from '@/features/arena/hooks/useHasDeclaredReserveStatus';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
 import FeedPostCard from '@/features/social/components/FeedPostCard';
 import GroupCard from '@/features/arena/components/GroupCard';
@@ -106,7 +107,8 @@ export default function CommunityPage() {
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { following, isLoaded: socialLoaded, loadConnections, isPartner } = useSocialStore();
-  const access = useArenaAccess();
+  const hasReserveAccess = useHasDeclaredReserveStatus();
+  const access = useArenaAccess(hasReserveAccess);
   const cityData = useArenaData(access.cityAuthorityId);
   const { events, groups, authority, isLeagueActive, isLoading: arenaLoading } = cityData;
   const searchParams = useSearchParams();

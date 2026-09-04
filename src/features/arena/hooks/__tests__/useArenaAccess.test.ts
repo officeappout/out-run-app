@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { deriveArenaAccess } from '../derive-arena-access';
-import { RESERVE_LEAGUE_GROUP_ID } from '@/lib/military-reserve-league';
 
 // deriveArenaAccess is the pure derivation extracted from useArenaAccess so it
 // can be unit tested without React/jsdom (this repo's vitest config is
@@ -49,21 +48,19 @@ describe('deriveArenaAccess — neighborhood resolution, analogous to city', () 
 });
 
 describe('deriveArenaAccess — reserve league tab (Phase 6a)', () => {
-  // Gated on actual community_groups membership (social.groupIds), not on a
-  // fresh military_declarations read — the tab means "you're in the league"
-  // (post-CF-join), and reuses data already on the loaded profile.
-  it('no reserve tab when social.groupIds is absent/empty', () => {
+  // hasReserveAccess is an explicit boolean param here, not derived from
+  // core/profile data — its real source is a live military_declarations
+  // listener (useHasDeclaredReserveStatus.ts), computed by the caller so
+  // that listener isn't mounted for every one of this hook's many other
+  // consumers. See that hook's own comment for why (immediacy after
+  // declaring, independent of the join CF's completion).
+  it('no reserve tab when hasReserveAccess is false (default)', () => {
     expect(deriveArenaAccess(undefined, true).activeTabs.some((t) => t.key === 'reserve')).toBe(false);
-    expect(deriveArenaAccess(undefined, true, []).activeTabs.some((t) => t.key === 'reserve')).toBe(false);
+    expect(deriveArenaAccess(undefined, true, false).activeTabs.some((t) => t.key === 'reserve')).toBe(false);
   });
 
-  it('no reserve tab for an unrelated group id', () => {
-    const access = deriveArenaAccess(undefined, true, ['some_other_group']);
-    expect(access.activeTabs.some((t) => t.key === 'reserve')).toBe(false);
-  });
-
-  it('reserve tab and hasReserveAccess appear once social.groupIds includes the fixed reserve league group id', () => {
-    const access = deriveArenaAccess(undefined, true, [RESERVE_LEAGUE_GROUP_ID]);
+  it('reserve tab and hasReserveAccess appear when the param is true', () => {
+    const access = deriveArenaAccess(undefined, true, true);
     expect(access.activeTabs.some((t) => t.key === 'reserve')).toBe(true);
     expect(access.hasReserveAccess).toBe(true);
   });
@@ -72,7 +69,7 @@ describe('deriveArenaAccess — reserve league tab (Phase 6a)', () => {
     const access = deriveArenaAccess(
       { authorityId: 'city-1' } as never,
       true,
-      [RESERVE_LEAGUE_GROUP_ID],
+      true,
     );
     expect(access.activeTabs.map((t) => t.key)).toEqual(expect.arrayContaining(['global', 'city', 'reserve']));
   });
