@@ -101,6 +101,20 @@ export default function ProgramPathPage() {
       router.replace('/onboarding-new/dynamic');
       return;
     }
+    // A running-questionnaire attempt earlier in this same tab (abandoned,
+    // or a track switch) can leave real answers in
+    // onboarding_running_answers — that key is never cleared anywhere else
+    // (confirmed 04.09.2026 investigation) and only needs goalPath +
+    // targetDistance to read as "completed" (isRunningBranchCompleted).
+    // Left alone, a later strength completion in this tab would silently
+    // also run the running bridge and flip primaryTrack/dashboardMode to
+    // 'run'. This is the one place every strength-track visitor passes
+    // through before any strength content renders — clear it here so a
+    // stale attempt can't leak into an unrelated completion.
+    if (sessionStorage.getItem('onboarding_running_answers')) {
+      sessionStorage.removeItem('onboarding_running_answers');
+      console.log('[ProgramPath] Cleared stale onboarding_running_answers — entering the strength path.');
+    }
     const g = sessionStorage.getItem('onboarding_personal_gender') as 'male' | 'female' | 'other' | null;
     setGender(g);
     setIsReady(true);
