@@ -22,11 +22,10 @@ exercise_id,name,lang,missing_fields,suspicious_values,is_core_by_canonical,is_c
 50zThi9jcQWm6wbWDM4I,סקוואט טווח חלקי (להגבהה),he,mechanicalType,,false,false
 515aM5b8UHyAova7I6Lv,קפיצה על רגל אחת גובה ברך,he,mechanicalType,,false,false
 5LGfy2EB72CeLhQDcnY6,דרגון פלאג בטאק,he,injuryShield,,true,true
-5LhNqpOowBF268tFTDz7,פיסטול סקוואט שלילי שמאל,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
 5cdQOV3Kl5EpnyUt1JuG,כפיפות בטן חצי טווח,he,mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry,,true,true
 6OPvBxXMTy0mHYNra4Wc,סיבובי רגליים בשכיבה,he,mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,true,true
 6kRZiBHmQI34xaUcysBi,גוד מורנינג בישיבה,he,mechanicalType,,false,false
-7mRRX85Hfx5sQ6oCl7YE,סקוואט בולגרי עם קפיצה על ספה,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
+7mRRX85Hfx5sQ6oCl7YE,סקוואט בולגרי עם קפיצה על ספה,he,primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel,,false,false
 7ocGV3FbYbue9nXC8aXh,החזקת מקבילים ב-90° עם גומייה,he,injuryShield,,false,false
 7spjueGo4OFPIrHHu3Jl,מתיחת דוגמנית,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
 8Fn68O2jggNncaAgMoYG,מתח אוסטרלי ב-30° מעלות,he,injuryShield,,false,false
@@ -43,21 +42,21 @@ B0pnjy0oT9jTizikeLSb,עליות תאומים,he,mechanicalType,,false,false
 BLbgAyNJSZCc4YsoOxtP,החזקת הולו באדי,he,mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,true,true
 BNZ77eaNvZJnt9iwS57O,כפיפת נורדיק טווח חלקי,he,mechanicalType,,false,false
 BWbscvj0m3hvxghEMtKV,פלאנק עליות ונגיעות בכתפיים,he,mechanicalType,,true,true
-BcsFnuiLx1fZY2SIVhoC,אופניים,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
+BcsFnuiLx1fZY2SIVhoC,אופניים,he,primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; secondsPerRep,,true,true
 Bkb5i5YfYocKrQILfbY3,החזקת מקבילים ב-15°,he,injuryShield,,false,false
 CHnLZy3KK4iQ1MAe4kRs,לאנג׳ בהצלבה,he,mechanicalType,,false,false
 CQtZDiAEvfNB8khudfsG,פשיטת מרפקים יד מאחורי הראש בהתנגדות גומיה,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
 CVMlbYHJTiJKSPYkZ9Lk,רגליים למתח,he,mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,true,true
 CYEuO2uRt1QBCr5e2khC,כפיפת ברך כנגד גומייה,he,movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; secondsPerRep,,false,false
 DCnxDF0lbfzXLloH8gYp,הרחקת כתף שמאל,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
-DU3SwZWr6uy75WI7T4jB,עליות נגיעה בבהונות בשכיבה,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
+DU3SwZWr6uy75WI7T4jB,עליות נגיעה בבהונות בשכיבה,he,primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; secondsPerRep,,true,true
 DWiXoX8UHKQiAS1ye40c,דגל ב-45°,he,injuryShield,,true,true
 DYbteakuCXCRkiFoGP8K,דרגון סקוואט ברך כפופה,he,mechanicalType,,false,false
 DsKs15sWsVm33GaQI9Ty,דדליפט רומני בהתנגדות גומייה,he,mechanicalType,,false,false
 Du2quNOcewafWMcpxGjq,סקוואט כנגד קיר רגל אחת,he,mechanicalType; injuryShield,,false,false
 E2O0vrcD8KuY0kvaYZhn,שכיבות סמיכה ב-30°,he,primaryMuscle,,false,false
 ETMVVSpt0lIpeF3mkEn6,מתיחות פלג גוף עליון לבדיקה,he,primaryMuscle; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
-EnS9ade12iVKtUEDuiGW,שכיבות סמיכה לשכמות,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
+EnS9ade12iVKtUEDuiGW,שכיבות סמיכה לשכמות,he,primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; secondsPerRep,,false,false
 ErRjOw4bfgMpMOGox75p,משיכות Y,he,injuryShield,,false,false
 FHh3m3suMMtoLk1PrxYv,פלאנק,he,mechanicalType; injuryShield,,true,true
 FSbQ2OfFSDzWxGOSRljt,דגל אקצנטרי בטאק,he,injuryShield,,true,true
@@ -93,7 +92,7 @@ OKWZS86a0QZcsdVgtapI,כפיפת ברכיים כנגד טבעות,he,mechanicalTy
 OSXBFYoP1sWt4P05isJw,כפיפות בטן אלכוסונים,he,mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry,,true,true
 Ox23f2tVbvGoly8Syr3o,פיסטול סקוואט מוגבה,he,mechanicalType,,false,false
 PMZewv23o1W4ZP01jo95,הרמות רגל אחת בישיבת L,he,mechanicalType,,true,true
-PUIZw7xWhCCzSDK8LecV,סקוואט כנגד קיר,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
+PUIZw7xWhCCzSDK8LecV,סקוואט כנגד קיר,he,primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; secondsPerRep,,false,false
 RAbscOoGqbAN8CbGEYhe,חימום הנפות,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
 Rrdk6Knl26ESlG1Ok0Pm,קפיצה גובה ברך,he,mechanicalType,,false,false
 SI8PrjIAPoALx97w2aI1,מקבילים עם גומייה עבה,he,injuryShield,,false,false
@@ -152,7 +151,7 @@ hECufw1PU0a0lcUEadY9,עמידת כלב רגל ויד נגדית,he,targetProgram
 hSVTgimudJNF5uVF7DfM,מקבילים,he,injuryShield,,false,false
 hvCIfyHrdXajHrZtEJ9m,היפ טראסט ארוך,he,mechanicalType; injuryShield,,false,false
 i5IBSF7eXfN640A6isyM,החזקות מקבילים אקצנטרי,he,injuryShield,,false,false
-i5JiWYzTrmtMbpwN207A,פיסטול סקוואט שלילי ימין,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
+i5JiWYzTrmtMbpwN207A,פיסטול סקוואט שלילי ימין,he,primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; secondsPerRep,,false,false
 iEZGhtBNV7Tv5iNuT70E,פלאנק על הברכיים,he,mechanicalType; injuryShield,,true,true
 iH5gqfgf5ggghCVOGbTc,לאנג׳ בולגרי טווח חלקי,he,mechanicalType,,false,false
 iq5FQ7UX4utmSCVSpPec,גמישות קרסול לעמוד,he,mechanicalType,,false,false
@@ -224,7 +223,7 @@ vVTTFbDP1LffViDAQfHn,כפיפת ירך על הגבהה,he,mechanicalType; injury
 wBv3BWfJD0S9sSUnI1Ay,עליות l בתלייה,he,mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,true,true
 wDUc5pDs5ufm3B5a0MqY,כפיפות ברכיים בתלייה אלכסונים,he,mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,true,true
 wIr3N5DkO5epyd52sO2v,סומו סקוואט,he,mechanicalType,,false,false
-wfgHCel9MyopaIXRQS8D,עליות תאומים על מדרגה,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
+wfgHCel9MyopaIXRQS8D,עליות תאומים על מדרגה,he,primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; secondsPerRep,,false,false
 wjYoZK3nvf3volQSdkdD,סקוואט טווח חלקי,he,mechanicalType,,false,false
 wv8E2f5tcgx3A5nHaUbg,תלייה מספרים,he,mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,true,true
 wwF4gZrprMN6mcfJWKT9,סקוואט קשתים מוגבה,he,mechanicalType,,false,false
@@ -236,4 +235,4 @@ ycvdr08dAy8xr1p5COyy,דגל בטאק,he,injuryShield,,true,true
 ydKO9Yw0MaV10p2bz003,הרמות תאומים טווח מלא,he,mechanicalType,,false,false
 yt4SZR62igNtPJqo1Tah,מתח אוסטרלי ב-60° מעלות,he,injuryShield,,false,false
 zOl1jxCkmI36QwSzMDKF,עליות מספרים בשכיבה,he,mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,true,true
-zXXMkiGHRGQH66J09OYs,סקוואט סטטי כנגד קיר,he,targetPrograms; movementGroup; primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; symmetry; secondsPerRep,,false,false
+zXXMkiGHRGQH66J09OYs,סקוואט סטטי כנגד קיר,he,primaryMuscle; mechanicalType; injuryShield; noiseLevel; sweatLevel; secondsPerRep,,false,false

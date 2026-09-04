@@ -1,4 +1,21 @@
 /**
+ * ⚠️ NOT EXECUTED — kept as documentation only, do not run.
+ *
+ * David reviewed the catalog manually and assigned levels himself to all 12
+ * approved exercises, by hand, directly in Firestore — different values in
+ * several cases from what this script proposes below. This script's
+ * `--apply` was never run against production. It is retained in the repo
+ * purely as a historical record of the reasoning/comparables that went into
+ * the original proposal (docs/workout-engine/03-LEVEL-TRIAGE.md Part 1),
+ * not as something to execute. See docs/workout-engine/04-VERIFY.md for what
+ * David's actual hand-entered values turned out to be, verified against the
+ * live catalog, and docs/workout-engine/03-CHANGES.md for the full story.
+ *
+ * If you're tempted to run this: don't. Re-check 04-VERIFY.md first — the
+ * live data has already diverged from the GROUP_B array below by design.
+ *
+ * ────────────────────────────────────────────────────────────────────────
+ *
  * scripts/audit/apply-level-triage.ts
  *
  * Applies David's approved subset of the "Group B" level fixes from
