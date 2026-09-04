@@ -644,11 +644,20 @@ export function applyEssentialGearFilter(
     for (const raw of backfill) {
       const nakedMethod = (raw.execution_methods ?? raw.executionMethods ?? [])
         .find(m => isGearFree(collectMethodGear(m as any), true));
+      // Core set-count lock (docs/workout-engine/05-BENCHMARK.md §3.3): a
+      // core/abs main exercise is always exactly 2 sets, never the generic
+      // 3 this backfill otherwise stamps. This path is entirely outside
+      // BudgetDistributor (which owns the same lock for domain-quota-
+      // selected exercises — BudgetDistributor.ts CORE_FIXED_SETS) — it
+      // injects straight into an already-generated GeneratedWorkout, so the
+      // lock has to be re-applied here too. Found by tracing a real
+      // "אופניים sets=3" case in a live snapshot back to this exact line.
+      const isCoreBackfill = !!raw.movementGroup && MG_TO_DOMAIN[raw.movementGroup] === 'core';
       nakedMain.push({
         exercise: raw,
         score: 0,
         reasoning: ['naked_backfill:bodyweight_global_pool'],
-        sets: 3,
+        sets: isCoreBackfill ? 2 : 3,
         reps: 10,
         restSeconds: 60,
         isTimeBased: false,
@@ -686,10 +695,17 @@ export function applyEssentialGearFilter(
       if (replacement) {
         const nakedMethod = (replacement.execution_methods ?? replacement.executionMethods ?? [])
           .find(m => isGearFree(collectMethodGear(m as any), true));
+        // Same core set-count lock as the backfill loop above — the
+        // replacement's domain can differ from the violator's, so `sets`
+        // must be re-derived for the NEW exercise, not inherited via the
+        // `...violator` spread.
+        const replacementIsCore = !!replacement.movementGroup && MG_TO_DOMAIN[replacement.movementGroup] === 'core';
+        const violatorWasCore = !!violator.exercise.movementGroup && MG_TO_DOMAIN[violator.exercise.movementGroup] === 'core';
         clean.push({
           ...violator,
           exercise: replacement,
           method: (nakedMethod ?? {}) as any,
+          sets: replacementIsCore ? 2 : (violatorWasCore ? 3 : violator.sets),
           reasoning: [...violator.reasoning, 'naked_violation_replaced'],
         });
         usedIds.add(replacement.id);
