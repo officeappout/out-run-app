@@ -24,6 +24,7 @@ import {
   detectDayPeriod,
 } from '@/features/workout-engine/services/workout-metadata.service';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
+import { resolveRunningDayState } from '@/lib/running-day-resolution';
 import type RunWorkout from '@/features/workout-engine/players/running/types/run-workout.type';
 
 const DAY_TO_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -62,43 +63,6 @@ function formatDate(): string {
   return `יום ${day}׳, ${d.getDate()}/${d.getMonth() + 1}`;
 }
 
-interface NextRunInfo {
-  timeLabel: string;
-  workoutName: string | null;
-}
-
-function findNextRun(
-  scheduleDays: string[],
-  schedule?: any[],
-  currentWeek?: number,
-): NextRunInfo | null {
-  const todayIdx = new Date().getDay();
-  const trainingDayIndices = scheduleDays
-    .map((letter) => DAY_TO_HE.indexOf(letter))
-    .filter((i) => i >= 0)
-    .sort((a, b) => a - b);
-
-  for (let offset = 1; offset <= 7; offset++) {
-    const checkIdx = (todayIdx + offset) % 7;
-    if (scheduleDays.includes(DAY_TO_HE[checkIdx])) {
-      const timeLabel = offset === 1 ? 'מחר' : `בעוד ${offset} ימים`;
-
-      let workoutName: string | null = null;
-      if (schedule?.length && currentWeek) {
-        const weekEntries = schedule.filter((e: any) => e.week === currentWeek);
-        const slotIndex = trainingDayIndices.indexOf(checkIdx);
-        if (slotIndex >= 0) {
-          const entry = weekEntries.find((e: any) => e.day === slotIndex + 1);
-          workoutName = entry?.workoutName ?? null;
-        }
-      }
-
-      return { timeLabel, workoutName };
-    }
-  }
-  return null;
-}
-
 const CARD_STYLE = { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' };
 
 export default function NextRunWorkoutCard() {
@@ -124,8 +88,6 @@ export default function NextRunWorkoutCard() {
   };
 
   const scheduleDays = running?.scheduleDays ?? [];
-  const todayHe = DAY_TO_HE[new Date().getDay()];
-  const isRunDay = scheduleDays.includes(todayHe);
   const hasActiveSchedule = !!(running?.activeProgram?.schedule as any[])?.length;
 
   const targetDist = running?.generatedProgramTemplate?.targetDistance ?? '5k';
@@ -139,6 +101,19 @@ export default function NextRunWorkoutCard() {
     running?.activeProgram?.startDate,
     running?.activeProgram?.currentWeek,
   );
+
+  // "Is today a run day" — scheduleDays governs when set (unchanged
+  // behavior). When it's empty but a real program exists for this week,
+  // the program is the source of truth instead of a permanent "rest day"
+  // (04.09.2026 fix — see src/lib/running-day-resolution.ts's own doc
+  // comment for the bug this closes).
+  const dayState = resolveRunningDayState(
+    scheduleDays,
+    running?.activeProgram?.schedule as any[] | undefined,
+    effectiveCurrentWeek ?? 1,
+    new Date(),
+  );
+  const isRunDay = dayState.isRunDay;
 
   // ── Skip today / rest toggle ──
   const [skippedToday, setSkippedToday] = useState(false);
@@ -467,11 +442,13 @@ export default function NextRunWorkoutCard() {
   const effectiveRestDay = !isRunDay || skippedToday;
 
   if (effectiveRestDay) {
-    const nextRun = findNextRun(
-      scheduleDays,
-      running?.activeProgram?.schedule as any[],
-      effectiveCurrentWeek ?? 1,
-    );
+    // "Next run" preview — dayState.nextEntry/.nextEntryDaysAway already
+    // account for both sources (scheduleDays weekday lookup, or the
+    // program-fallback "next pending entry this week" when scheduleDays is
+    // empty). daysAway is only known in the scheduleDays case; the fallback
+    // has no weekday to count toward, so it gets a day-agnostic label.
+    const nextRun = dayState.nextEntry;
+    const nextWorkoutDisplayName = nextRun?.workoutName ?? null;
 
     const CATEGORY_LABELS_HE: Record<string, string> = {
       easy_run: 'ריצה קלה', long_run: 'ריצה ארוכה',
@@ -481,9 +458,6 @@ export default function NextRunWorkoutCard() {
       hill_short: 'עליות קצרות', hill_sprints: 'ספרינט עליות',
       strides: 'סטריידים', recovery: 'התאוששות',
     };
-
-    const nextWorkoutDisplayName = nextRun?.workoutName
-      ?? (nextRun ? null : null);
 
     return (
       <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
@@ -500,9 +474,11 @@ export default function NextRunWorkoutCard() {
             </p>
             {nextRun && (
               <p className="text-sm text-slate-400 mt-0.5">
-                {nextRun.timeLabel === 'מחר'
+                {dayState.nextEntryDaysAway === 1
                   ? `מחר מחכה לך: ${nextWorkoutDisplayName || 'אימון ריצה'}`
-                  : `הבא ${nextRun.timeLabel}: ${nextWorkoutDisplayName || 'אימון ריצה'}`}
+                  : dayState.nextEntryDaysAway != null
+                  ? `בעוד ${dayState.nextEntryDaysAway} ימים: ${nextWorkoutDisplayName || 'אימון ריצה'}`
+                  : `הבא בתור: ${nextWorkoutDisplayName || 'אימון ריצה'}`}
               </p>
             )}
           </div>

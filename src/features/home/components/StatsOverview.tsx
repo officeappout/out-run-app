@@ -58,6 +58,7 @@ import { resolveActiveProgramBudget } from '@/features/workout-engine/services/l
 import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { resolveScheduledProgram } from '../utils/resolveScheduledProgram';
+import { resolveRunningDayState } from '@/lib/running-day-resolution';
 import { toISODate, isLateNightPivot, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
 import UserWorkoutAdjuster from './UserWorkoutAdjuster';
 import ProcessingOverlay from './ProcessingOverlay';
@@ -1329,10 +1330,22 @@ export default function StatsOverview({
   //   - Run + Strength session bars → ConsistencyWidget (Row 2 left)
   // What remains here is the action zone: NextRunWorkoutCard for today.
   if (mode === 'RUNNING') {
-    const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-    const todayHebrewLetter = DAY_LETTERS[new Date().getDay()];
     const runScheduleDays = profile?.running?.scheduleDays ?? [];
-    const isRunDayToday = runScheduleDays.includes(todayHebrewLetter);
+    // Same fallback as NextRunWorkoutCard (04.09.2026 fix,
+    // src/lib/running-day-resolution.ts): scheduleDays governs when set;
+    // when it's empty but a real program exists for this week, the program
+    // is the source of truth instead of a permanent "rest day."
+    const runStoredWeek = profile?.running?.activeProgram?.currentWeek ?? 1;
+    const runStartDate = profile?.running?.activeProgram?.startDate;
+    const runCurrentWeek = RUNNING_CURRENT_WEEK_RECOMPUTE_ENABLED && runStartDate
+      ? calculateCurrentWeek(runStartDate)
+      : runStoredWeek;
+    const isRunDayToday = resolveRunningDayState(
+      runScheduleDays,
+      profile?.running?.activeProgram?.schedule as any[] | undefined,
+      runCurrentWeek,
+      new Date(),
+    ).isRunDay;
 
     return (
       <div className="space-y-5">
