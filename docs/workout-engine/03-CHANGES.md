@@ -527,3 +527,170 @@ including the 2 touched files. `npx vitest run src/features/workout-engine`
 — 472/472 individual tests pass (7 new, in
 `above-level-reps-tier-table.test.ts`); same 2 pre-existing hybrid
 `process.exit()` test-file failures, unrelated.
+
+## Addendum 4 — Exercise-swap volume re-derivation (the "Not fixed" bug from Addendum 3)
+
+David's follow-up task: fix the second bug found while verifying Addendum 3
+(bolt 1 stuck at 7.9 avg reps / 45.2% at 8+ despite the TIER_TABLE fix), as
+**one shared function**, not three separate patches — the same mistake had
+already been fixed three times in three shapes (isTimeBased consistency
+#26, naked-backfill hardcoded reps #26, and now reps-on-swap).
+
+| # | Commit | What | Firestore impact | Reversible how |
+|---|---|---|---|---|
+| 36 | `8f15c09e` | **Fix**: `rederiveVolumeForSwappedExercise` (workout-budgeting.utils.ts) + wired into `applyFlowRegression`, `substituteExercise` (5 call sites), `applyEssentialGearFilter`'s naked-backfill + violation-replacement; also syncs `tier`/`levelDelta`/`programLevel`/`isOverLevel` on every swap | None (code only) | `git revert 8f15c09e` |
+| 37 | `51f48cbf` | Regression tests: shared function directly, `substituteExercise` directly, extended existing `applyFlowRegression`/`applyEssentialGearFilter` tests | None (tests only) | `git revert 51f48cbf` |
+| 38 | `ab3750dd` | `snapshot.sqlite` refresh reflecting the fix | None (local data file) | `git revert ab3750dd` |
+| 39 | *(this commit)* | This addendum | None (docs only) | `git revert <this SHA>` |
+
+### The shared function
+
+`rederiveVolumeForSwappedExercise(newExercise, levelDelta, difficulty, levelProgressPercent?, intentMode?)`,
+next to `assignVolume` in `workout-budgeting.utils.ts`. Mirrors exactly what
+`assignVolume` computes for `isTimeBased`/`mechanicalType`/`tier`/`reps`/
+`repsRange`/`restSeconds` — same `TIER_TABLE`/`getStaircaseRange`/
+`calculateHoldTimeTier`/`DIFFICULTY_VOLUME` sources, same ABSOLUTE SKILL
+CEILING guard, no new formulas. `levelDelta` is a caller-supplied input
+(each call site already resolves the new exercise's level against the
+correct domain/program using its own existing logic — this function must
+not duplicate or risk diverging from that). Deliberately excludes:
+- `sets` — every call site owns its own sets logic (e.g. the core
+  set-count lock), which differs per site.
+- domain-budget sets derivation, history floor, goal ramp — need full
+  pipeline context unavailable at a swap site, and only refine volume
+  *within* a tier — they don't correct the tier mismatch this fixes.
+- the unilateral skill Rule A/B/C special case — callers with their own
+  equivalent guard (`substituteExercise`'s Skill-Rep Guard) keep applying
+  it as a deliberate override layered on top of this function's result.
+
+### Every path that changes `.exercise` after assignVolume
+
+Found by grepping the whole codebase for `.exercise =` and `exercise:`
+reconstruction sites touching an already-scored `WorkoutExercise`:
+
+1. **`applyFlowRegression`** (`trio-modifiers.service.ts`) — runs
+   unconditionally for bolt 1 (`home-workout.service.ts:669` maps
+   `difficulty:1` → `postProcess:'flow_regression'`). The dominant source
+   of the bug: a hold exercise's assigned duration (e.g. 15s, the
+   elite/hard `calculateHoldTimeTier` cap) survived as a REP COUNT once
+   swapped to a rep-based replacement. Confirmed via repeated live-trace
+   output — `reps=15` across many different swapped exercises, 15 being
+   exactly the hold-cap value.
+2. **`substituteExercise`** (`WorkoutGenerator.ts`) — used by 5 call sites:
+   `GuaranteePassRunner`'s 4 guarantee/rescue passes (`runHorizontalGuarantee`
+   ×2, `runVerticalFoundationGuarantee`, `runFullBodyDomainGuarantee`) +
+   `WorkoutGenerator`'s own David Rule rescue swap. All 5 already had
+   `context: WorkoutGenerationContext` and `difficulty: DifficultyLevel` in
+   scope, so no new plumbing was needed beyond passing them through. Old
+   logic only reset reps to a generic default when `isTimeBased` flipped
+   and otherwise inherited `target`'s reps regardless of the new exercise's
+   tier.
+3. **`applyEssentialGearFilter`'s naked-backfill AND its "violation
+   replacement" pass** (`trio-modifiers.service.ts`) — two independent gaps
+   in the same function. The backfill hardcoded `reps: naked_isTimeBased ?
+   20 : 10` regardless of how the candidate's own level compared to the
+   user's. The violation-replacement pass — found while fixing the first,
+   not named in the task — replaces a gear-violating exercise via a
+   `...violator` spread that inherited ALL of reps/isTimeBased/restSeconds
+   (and, before this fix, `levelDelta`/`tier`/`programLevel`/`isOverLevel`
+   too) unchanged from the exercise it replaced.
+4. **`applyIntenseOption`'s David Rule injection** (bolt 3) — inspected,
+   deliberately **not** touched. It already actively re-derives
+   reps/repsRange for the injected candidate via its own tuned isometric-
+   safety-cap logic (a documented prior fix, "Phase 3d — Same-Type
+   Isometric Leak"). It doesn't exhibit the stale-carryover pattern; routing
+   it through the shared function would replace working, deliberately-tuned
+   logic with none of this task's actual bug present — out of scope per the
+   task's own "keep the change minimal, don't change the regression
+   behavior itself" instruction.
+
+### Second bug, found while verifying the first fix: stale tier/levelDelta
+
+After wiring `reps`/`isTimeBased`/`restSeconds` re-derivation everywhere,
+re-verification showed real improvement but not the full target: bolt 1
+went from 9.9→7.9 (Addendum 3) to **avg 3.6, 11.0% at 8+** — close, but
+short of the `<10%` target. Live-traced the residual offenders and found
+`assignVolume`'s own reasoning tag correctly showed `reps:1(1-3)` at swap
+time, yet the FINAL exported `reps` was 8-12. Root cause: `applyFlowRegression`
+(and the other two swap sites) never updated `ex.tier`/`ex.levelDelta`/
+`ex.programLevel`/`ex.isOverLevel` — only `isTimeBased`/`mechanicalType`/
+`reps`/`repsRange`/`restSeconds`. These fields kept describing the
+**pre-swap** exercise. Two real consequences, not just a display nit:
+
+1. **The verification query itself undercounted the bug.** Filtering
+   `level_diff>=1` (= `ex.levelDelta`) missed swapped exercises whose stale
+   `levelDelta` still read as match/easy/flow even though their TRUE
+   post-swap tier was hard/elite (or vice versa) — meaning some of the
+   "still broken" population was actually **worse than measured**, not
+   fixed exercises hiding as broken ones.
+2. **`enforceVolumeCap`'s Phase B trim-priority sort is keyed on `ex.tier`.**
+   A stale `tier:'elite'` on an actually-easy replacement made it
+   trimmed LAST (elite/hard trim last, per the sort) instead of FIRST
+   (flow/easy trim first) — an unrelated bug in its own right, now also
+   fixed as a side effect.
+
+Fixed by having `rederiveVolumeForSwappedExercise` also return `tier`
+(threaded through `substituteExercise`'s return type), and setting
+`tier`/`levelDelta`/`programLevel`/`isOverLevel` directly at the other two
+sites (`applyFlowRegression`, `applyEssentialGearFilter`'s two passes) —
+`substituteExercise`'s 5 callers already set `programLevel`/`isOverLevel`/
+`levelDelta` in their outer object-literal spread (pre-existing, correct),
+so only `tier` needed to flow through there.
+
+### Verification
+
+**level_diff>=1 reps by bolt** (target: avg 1-3 in all three, bolt 1 <10% at 8+):
+
+| Bolt | Addendum 3 (before this fix) | reps-only fix | **+ tier/levelDelta sync** |
+|---|---|---|---|
+| 1 avg (n) | 7.9 (126) | 3.6 (164) | **1.99 (314)** |
+| 1 % ≥8 reps | 45.2% | 11.0% | **0.0%** |
+| 2 avg / max / %≥8 | 2.66 / 12 / 3.1% | 2.12 / 5 / 0.0% | **2.13 / 5 / 0.0%** |
+| 3 avg / max / %≥8 | 2.16 / 12 / 0.1% | 2.08 / 5 / 0.0% | **2.1 / 5 / 0.0%** |
+
+Bolt 1's `n` grew 126→314 across the three measurements — not new bugs
+appearing, but the levelDelta-sync fix correctly re-classifying exercises
+that were previously mislabeled into the wrong tier bucket by a stale
+field, so the query itself became more accurate at finding the true
+population. All three bolts now meet the target.
+
+**match/easy/flow — redistributed, not reformulated.** Their `getStaircaseRange`
+computation logic is untouched (verified in Addendum 3 by construction —
+unchanged again here, this fix touches none of it). But their *populations*
+shifted, because the SAME `levelDelta`-staleness bug that hid hard/elite
+exercises under a stale match/easy/flow label also, symmetrically, mislabeled
+some TRUE match/easy/flow exercises as something else pre-swap:
+
+| Tier | Addendum 3 avg (n) | This fix avg (n) | max reps |
+|---|---|---|---|
+| match | 5.99 (3067) | 6.1 (3074) | 12 (was 28 — the 1-outlier contamination from Addendum 3 is gone) |
+| easy | 7.55 (1442) | 6.03 (1044) | 12 (was 30) |
+| flow | 7.93 (2797) | 8.63 (3380) | 12 (was 30) |
+
+The `n` shifts across match/easy/flow (and the outlier max values
+disappearing) are the expected, correct consequence of exercises finally
+landing in their TRUE tier bucket instead of whatever their pre-swap
+`levelDelta` happened to say. This is reclassification, not a change to how
+any tier computes its reps.
+
+**Overall under-8-reps rate** (blended across all tiers — a weak signal on
+its own since match `<50%`/hard/elite are *supposed* to be low; the
+per-tier breakdown above is the real evidence): 68.7% → 68.8%, essentially
+flat — expected, since the fix moves exercises *between* tiers whose own
+under-8 rates are similar magnitude, rather than changing the overall mix's
+central tendency. Addendum 3's before/after (82.6% → 76.2%) plus this
+round's flat 68.7/68.8% together show the full arc: Part 1 (mock-profile
+fix) and Part 2 (TIER_TABLE fix) drove the big blended-rate improvement;
+this round's fix is concentrated entirely in making the hard/elite
+population's *ceiling* (max reps, % ≥8) correct rather than moving the
+blended average further.
+
+**Verification:** `npx tsc --noEmit` — same pre-existing baseline errors
+only (confirmed via `git stash` diff), zero new errors, including all 5
+touched files. `npx vitest run src/features/workout-engine` — 483/483
+individual tests pass (11 new: 5 in `rederive-volume-for-swapped-exercise
+.test.ts`, 5 in `substitute-exercise-volume-rederive.test.ts`, 1 net new in
+`trio-modifiers-core-set-lock.test.ts` plus 3 new assertions on 2 existing
+tests); same 2 pre-existing hybrid `process.exit()` test-file failures,
+unrelated. Live re-verification: full snapshot matrix rebuilt twice more
+(once per fix layer), 1260 calls, 0 errors both times.
