@@ -378,6 +378,28 @@ export interface ActiveRunningProgram {
     status: 'pending' | 'completed' | 'skipped' | 'swapped';
     category?: WorkoutCategory;
     workoutName?: string;
+    /**
+     * Carried over from RunWorkoutTemplate.isQualityWorkout /
+     * RunWorkoutTemplate.priority (05.09.2026) — both already existed on
+     * the template and survived into the in-memory generated RunWorkout
+     * (materializeWorkout, running-engine.service.ts) but were dropped at
+     * the flattenPlanToSchedule step before ever reaching this persisted,
+     * per-user document. A future running rules engine reading a user's
+     * *saved* schedule (not the template, not the in-memory plan) needs
+     * these to know which entries matter more — today it would only see
+     * `category`.
+     *
+     * Both optional and both undefined for every schedule entry written
+     * before this change — no migration, no backfill. Any reader of this
+     * field MUST treat undefined as "unknown," not as a false/low value —
+     * an old document's real quality-workout entries are indistinguishable
+     * from its easy ones by this field alone until they're rebuilt.
+     */
+    isQualityWorkout?: boolean;
+    /** See isQualityWorkout's doc comment — same provenance, same
+     *  optional/no-migration contract. Lower = more important (mirrors
+     *  RunWorkoutTemplate.priority's own convention). */
+    priority?: number;
     actualPerformance?: {
       avgPace: number;
       completionRate: number;

@@ -559,9 +559,9 @@ export function flattenPlanToSchedule(
   planResult: GeneratePlanResult,
   workoutTemplates: RunWorkoutTemplate[],
 ): ActiveRunningProgram['schedule'] {
-  const templateCategoryMap = new Map<string, { category?: WorkoutCategory; name: string }>();
+  const templateCategoryMap = new Map<string, { category?: WorkoutCategory; name: string; priority?: number }>();
   for (const tpl of workoutTemplates) {
-    templateCategoryMap.set(tpl.id, { category: tpl.category, name: tpl.name });
+    templateCategoryMap.set(tpl.id, { category: tpl.category, name: tpl.name, priority: tpl.priority });
   }
 
   const schedule: ActiveRunningProgram['schedule'] = [];
@@ -576,6 +576,18 @@ export function flattenPlanToSchedule(
         status: 'pending',
         category: tplMeta?.category,
         workoutName: tplMeta?.name ?? workout.title,
+        // 05.09.2026 — carried into the persisted schedule for the first
+        // time (running.types.ts's own doc comment on these two fields has
+        // the full reasoning + the "undefined means unknown, not false"
+        // contract). isQualityWorkout comes straight off the in-memory
+        // generated workout (materializeWorkout already copies it from the
+        // template) rather than the template re-lookup above, since it's a
+        // required field there — more robust than re-deriving it from a
+        // template that could since have been edited/deleted in Firestore.
+        // priority has no equivalent on the generated RunWorkout, so it
+        // still comes from the template lookup, same as category/name.
+        isQualityWorkout: workout.isQualityWorkout,
+        priority: tplMeta?.priority,
       });
     });
   }

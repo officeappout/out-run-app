@@ -145,7 +145,12 @@ describe('flattenPlanToSchedule', () => {
   it('flattens a single week/single workout into one schedule entry, day 1-indexed', () => {
     const schedule = flattenPlanToSchedule(FLATTEN_BASE_PLAN_RESULT as any, WORKOUT_TEMPLATES as any);
     expect(schedule).toEqual([
-      { week: 1, day: 1, workoutId: 'tpl_easy_1_w1', status: 'pending', category: 'easy_run', workoutName: 'Easy Run' },
+      {
+        week: 1, day: 1, workoutId: 'tpl_easy_1_w1', status: 'pending', category: 'easy_run', workoutName: 'Easy Run',
+        // 05.09.2026 — carried through for the first time, see this test
+        // file's own dedicated 'importance fields' describe block below.
+        isQualityWorkout: false, priority: undefined,
+      },
     ]);
   });
 
@@ -186,5 +191,57 @@ describe('flattenPlanToSchedule', () => {
   it('returns an empty schedule for a plan with no weeks', () => {
     const planResult = { ...FLATTEN_BASE_PLAN_RESULT, plan: { ...FLATTEN_BASE_PLAN_RESULT.plan, weeks: [] } };
     expect(flattenPlanToSchedule(planResult as any, WORKOUT_TEMPLATES as any)).toEqual([]);
+  });
+
+  // 05.09.2026 — RunWorkoutTemplate.isQualityWorkout/.priority carried into
+  // the persisted ActiveRunningProgram.schedule for the first time (they
+  // already survived into the in-memory generated plan, but were dropped
+  // right here, at the flatten step, before this fix). See running.types.ts's
+  // own doc comment on these two fields for the full "undefined means
+  // unknown, no migration" contract this respects.
+  describe('importance fields (isQualityWorkout, priority)', () => {
+    const QUALITY_TEMPLATES: RunWorkoutTemplate[] = [
+      { id: 'tpl_quality_1', name: 'Interval Session', category: 'short_intervals', isQualityWorkout: true, priority: 1, targetProfileTypes: [3], blocks: [] },
+    ];
+
+    it('isQualityWorkout comes from the in-memory generated workout, not re-derived from the template', () => {
+      const planResult = {
+        ...FLATTEN_BASE_PLAN_RESULT,
+        plan: {
+          ...FLATTEN_BASE_PLAN_RESULT.plan,
+          weeks: [{ weekNumber: 1, workouts: [{ id: 'tpl_quality_1_w1', title: 'Interval Session', isQualityWorkout: true, blocks: [] }] }],
+        },
+      };
+      const schedule = flattenPlanToSchedule(planResult as any, QUALITY_TEMPLATES as any);
+      expect(schedule[0].isQualityWorkout).toBe(true);
+    });
+
+    it('priority comes from the template lookup, undefined when the template has none', () => {
+      const scheduleWithPriority = flattenPlanToSchedule(
+        {
+          ...FLATTEN_BASE_PLAN_RESULT,
+          plan: { ...FLATTEN_BASE_PLAN_RESULT.plan, weeks: [{ weekNumber: 1, workouts: [{ id: 'tpl_quality_1_w1', title: 'Interval Session', isQualityWorkout: true, blocks: [] }] }] },
+        } as any,
+        QUALITY_TEMPLATES as any,
+      );
+      expect(scheduleWithPriority[0].priority).toBe(1);
+
+      // WORKOUT_TEMPLATES's tpl_easy_1 has no priority field at all.
+      const scheduleWithoutPriority = flattenPlanToSchedule(FLATTEN_BASE_PLAN_RESULT as any, WORKOUT_TEMPLATES as any);
+      expect(scheduleWithoutPriority[0].priority).toBeUndefined();
+    });
+
+    it('an old-shaped schedule entry (no isQualityWorkout/priority keys at all, simulating a document written before this fix) reads without error — undefined, not a crash', () => {
+      // Deliberately NOT run through flattenPlanToSchedule -- this simulates
+      // a real pre-existing Firestore document, built by the pre-fix code,
+      // which never wrote these keys at all (not even as `undefined`).
+      const oldEntry = {
+        week: 1, day: 1, workoutId: 'tpl_easy_1_w1', status: 'pending' as const,
+        category: 'easy_run' as const, workoutName: 'Easy Run',
+      };
+      expect(() => oldEntry).not.toThrow();
+      expect((oldEntry as any).isQualityWorkout).toBeUndefined();
+      expect((oldEntry as any).priority).toBeUndefined();
+    });
   });
 });
