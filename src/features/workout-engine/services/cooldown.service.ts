@@ -13,6 +13,7 @@ import type { ContextualFilterContext } from '../logic/ContextualEngine';
 import type { GeneratedWorkout } from '../logic/WorkoutGenerator';
 import { isWarmupEquipmentAllowed } from './warmup.service';
 import { cooldownCountBudget } from '../logic/session-frame.utils';
+import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 
@@ -149,8 +150,14 @@ export function appendCooldownExercises(
       }.method,
       mechanicalType: (item.exercise.mechanicalType || 'none') as any,
       sets: 1,
-      reps: item.exercise.type === 'time' ? 30 : 10,
-      isTimeBased: item.exercise.type === 'time',
+      // Single source of truth (docs/workout-engine/06-TIME-VS-REPS.md): this
+      // used to check only `exercise.type === 'time'`, missing BOTH the
+      // straight_arm mechanical-type check AND the name-heuristic fallback
+      // (hold/plank/hang/החזק) that isTimeBasedExercise applies — the narrowest
+      // of the three reimplementations found, and the same exercise could show
+      // "10 חזרות" here while showing correctly as a hold everywhere else.
+      reps: isTimeBasedExercise(item.exercise) ? 30 : 10,
+      isTimeBased: isTimeBasedExercise(item.exercise),
       restSeconds: 0,
       priority: 'isolation' as const,
       score: item.score,

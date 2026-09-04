@@ -16,6 +16,7 @@ import {
 } from '../logic/WorkoutGenerator';
 import { type DifficultyLevel, resolveTier, type TierName } from '../logic/workout-generator.types';
 import { resolveExerciseLevelForDomains } from '../logic/workout-selection.utils';
+import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
 import { resolveToSlug } from './program-hierarchy.utils';
 import {
   isEssentialGear,
@@ -508,7 +509,13 @@ export function prependWarmupExercises(
       ? selectMethodForContext(ex, location, availableEquipment ?? [])
       : (methods.find((m) => m.location === location || m.location === 'home' || m.locationMapping?.includes(location)) ?? methods[0]);
     if (!method) return;
-    const isTimeBased = ex.type === 'time' || ex.mechanicalType === 'straight_arm';
+    // Single source of truth (docs/workout-engine/06-TIME-VS-REPS.md): this used
+    // to reimplement a subset of isTimeBasedExercise's logic inline, missing its
+    // name-heuristic fallback (hold/plank/hang/החזק) — an exercise that only
+    // qualifies via that fallback would warmup-select as reps-based here but
+    // main-select as time-based, showing "6 חזרות" in one slot and "15 שניות"
+    // in another for the identical exercise.
+    const isTimeBased = isTimeBasedExercise(ex);
     const range = isTimeBased ? WARMUP_HOLD_SECONDS : (repRange ?? { min: WARMUP_REPS, max: WARMUP_REPS });
     const reps = range.min + Math.floor(Math.random() * (range.max - range.min + 1));
     const warmupExercise = { ...ex, exerciseRole: 'warmup' as const };
