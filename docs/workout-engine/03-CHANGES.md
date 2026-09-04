@@ -334,3 +334,196 @@ the full snapshot matrix after all 6 fixes — the contradictory-flag count went
 20 exercise_ids to 0 real contradictions (5 remaining exercise_ids are 100% explained
 by the declared tabata exception, confirmed by checking `protocol_block` on every
 occurrence, not asserted).
+
+## Addendum 3 — Above-level reps bug (hard/elite tier) + level-sanity report
+
+David's task, 4 parts. Parts 1-3 are code fixes + verification; Part 4 is a
+read-only report only (no code change, no migration).
+
+| # | Commit | What | Firestore impact | Reversible how |
+|---|---|---|---|---|
+| 32 | `a356b27c` | **Fix**: `mock-profile.utils.ts` — `progression.tracks` entries used `{level, progressPercent}` instead of `DomainTrackProgress`'s real `{currentLevel, percent}` (`progression.types.ts:71-73`); `progression.domains` in the same file already used `currentLevel` correctly | None (code only) | `git revert a356b27c` |
+| 33 | `b649043a` | **Fix**: `workout-budgeting.utils.ts` — hard/elite (delta>=1) reps now come from `TIER_TABLE` (1-3), not `DIFFICULTY_VOLUME[difficulty]` (bolt-indexed); +7 tests | None (code only) | `git revert b649043a` |
+| 34 | `a7cfa22a` | `snapshot.sqlite` refresh reflecting both fixes | None (local data file) | `git revert a7cfa22a` |
+| 35 | *(this commit)* | This addendum | None (docs only) | `git revert <this SHA>` |
+
+### Part 1 — mock-profile.utils.ts field-name bug
+
+Fixed as specified: 3 field-name corrections (`domainTracks` entry,
+`programTracks` entry, primary `tracks` entry), all `{level, progressPercent}`
+→ `{currentLevel, percent}`. Re-ran `build-snapshot.ts` (1260 calls, 0
+errors). Effect confirmed real: `context.levelProgressPercent` is no longer
+pinned at 0 — match-tier (delta=0) horizontal exercises now actually reach
+the `>=50%`-progress staircase branch (`{6,12}`), which was structurally
+unreachable before. Overall under-8-reps rate improved 82.6% → 75.9% from
+this fix alone (measured before Part 2's fix was applied), confirming the
+bias was real and the fix's effect matches its diagnosis.
+
+### Part 2 — hard/elite reps sourced from TIER_TABLE, not the bolt
+
+Fixed exactly as specified — see commit `b649043a` message for the full
+diagnosis (comment-vs-code contradiction at `workout-budgeting.utils.ts`
+:145/584-588/659). Changed only the fallback used when `getStaircaseRange`
+returns `null`, which is structurally only ever true for hard/elite —
+verified by reading `getStaircaseRange` itself: match/easy/flow all have
+explicit `return` statements before the `null` fallthrough, so the changed
+branch is unreachable for those three tiers regardless of any runtime
+input. match/easy/flow are therefore untouched by construction, not just by
+testing intent. Sets/hold/rest computation for hard/elite is also
+untouched — only the reps *range* changed, at both its computation site and
+its display-range mirror (`repsRange` shown in the UI now matches what was
+actually used to pick `reps`, instead of showing the old bolt-based window).
+
+Added `above-level-reps-tier-table.test.ts`: calls `assignVolume` directly
+with delta=1/delta=2 across all 3 bolts, 20 trials each, asserts reps never
+exceeds 3.
+
+### Part 3 — Verification
+
+**level_diff>=1 reps by bolt** (target: avg 1-3 in all three):
+
+| Bolt | n | avg reps (before either fix) | avg reps (after both fixes) | max reps (after) | % ≥8 reps (after) |
+|---|---|---|---|---|---|
+| 1 | 126 | 9.9 (David's own measurement) | **7.9** | 15 | 45.2% |
+| 2 | 128 | 4.3 | **2.66** | 12 | 3.1% |
+| 3 | 984 | 3.3 | **2.16** | 12 | 0.1% |
+
+Bolt 2 and 3 now meet the target. **Bolt 1 does not** — average dropped from
+9.9 to 7.9 but is still well above the 1-3 target, and 45.2% of its
+level_diff>=1 exercises still land at 8+ reps. Root cause: a **second,
+independent bug**, out of Part 2's scope — see "Not fixed" below.
+
+**match/easy/flow distribution:** verified unaffected by Part 2's code
+change (proven above, by construction). Numerically:
+
+| Tier | avg before | avg after | Explanation |
+|---|---|---|---|
+| easy (delta=-1) | 7.58 | 7.55 | Unchanged (flat range, doesn't depend on levelProgressPercent) |
+| flow (delta<=-2) | 7.95 | 7.93 | Unchanged (flat range, doesn't depend on levelProgressPercent) |
+| match (delta=0) | 3.82 | 5.99 | **Expected shift from Part 1**, not Part 2 — previously every match-tier exercise was forced into the `<50%`-progress branch (levelProgressPercent always 0); now the `>=50%` branch is reachable, as designed. Histogram shows the increase landing exactly on the staircase's own defined values (7-12, the horizontal `>=50%` range `{6,12}`), not scattered noise. |
+
+One single outlier (1 of 3067 match-tier occurrences, reps=28) exceeds the
+staircase's theoretical max of 12 — pre-existing (a smaller version of the
+same anomaly, reps=12 at n=69/3124, was already present in the before-fix
+data too) and traced to the same second bug noted below, not something
+either fix introduced or worsened.
+
+**% of rep-based exercises under 8 reps, before vs after both fixes**
+(main-role, non-time-based, all tiers blended):
+
+| | total | under 8 | % |
+|---|---|---|---|
+| Before (neither fix, git baseline) | 9055 | 7478 | **82.6%** |
+| After Part 1 only | 8967 | 6807 | 75.9% |
+| After both fixes | 8958 | 6825 | **76.2%** |
+
+This blended metric mixes tiers that are *supposed* to have low reps
+(match `<50%` = 2-4, hard/elite = 1-3) with the bug population, so it's a
+weak signal on its own — the per-tier breakdown above is the real evidence.
+Part 2 barely moves it (75.9% → 76.2%, i.e. bolt 2/3's improvement is
+real but bolt 1's residual keeps the blended number roughly flat) —
+consistent with bolt 1 remaining broken.
+
+### Part 4 — Level-sanity report (read-only, no code change)
+
+Method (matches the task's own worked example): for every exercise whose
+assigned reps ever dropped below 4, extracted a "base name" by splitting on
+the first difficulty-qualifier word found (בעזרת/כנגד/בתמיכת/עם/ללא/מול/
+לכיוון/טווח/עמוק/קפיצה/קשתים/בהונות/מוגבה/שלילי/אקצנטרי), grouped by
+`(movementGroup, base name)`, took each exercise's own modal `resolved_level`
+across all runs, compared it to the family's median level, flagged |deviation|
+>= 3 (families of size 1 excluded — no comparison signal). Deliberately does
+NOT split on a *leading* modifier ("דרגון סקוואט", "פיסטול סקוואט") — those
+name a structurally harder movement, not a difficulty qualifier on the same
+movement, matching the task's own example (which only splits on a trailing
+qualifier).
+
+164 distinct exercises seen with reps<4 at least once → 119 after the
+symmetry filter → **15 flagged** at |deviation|>=3:
+
+| Exercise | movementGroup | current level | family median | deviation | suggested level | family size |
+|---|---|---|---|---|---|---|
+| מתח עם החזקות | vertical_pull | 14 | 8 | +6 | 8 | 10 |
+| סקוואט קשתים מוגבה | squat | 10 | 4 | +6 | 4 | 12 |
+| שכיבות סמיכה טווח עליון | horizontal_push | 4 | 9.5 | -5.5 | 10 | 6 |
+| שכיבות סמיכה טווח תחתון | horizontal_push | 4 | 9.5 | -5.5 | 10 | 6 |
+| שכיבות סמיכה קשתים עם רצועות | horizontal_push | 15 | 9.5 | +5.5 | 10 | 6 |
+| היפ טראסט | hinge | 1 | 6 | -5 | 6 | 3 |
+| שכיבות סמיכה קשתים | horizontal_push | 14 | 9.5 | +4.5 | 10 | 6 |
+| דרגון סקוואט טווח חלקי | squat | 6 | 10 | -4 | 10 | 5 |
+| סקוואט קשתים | squat | 8 | 4 | +4 | 4 | 12 |
+| שכיבות סמיכה | horizontal_push | 6 | 9.5 | -3.5 | 10 | 6 |
+| שרימפ סקוואט | squat | 10 | 6.5 | +3.5 | 7 | 4 |
+| שכיבות סמיכה קשתים בפישוק | horizontal_push | 13 | 9.5 | +3.5 | 10 | 6 |
+| סקוואט טווח חלקי (להגבהה) | squat | 1 | 4 | -3 | 4 | 12 |
+| סקוואט בהונות | squat | 7 | 4 | +3 | 4 | 12 |
+| סיסי סקוואט טווח חלקי | squat | 7 | 10 | -3 | 10 | 4 |
+
+Reading this table: **positive deviation** (current level higher than the
+family) is David's specific concern — an easy-seeming variant tagged too
+high, causing exactly the artificially-low reps pattern this whole task is
+about (e.g. `סקוואט קשתים` at L8 vs its own family's median L4). **Negative
+deviation** (current level lower than the family) is a different signal —
+worth a look for catalog consistency, but not directly tied to the reps bug
+(e.g. plain `שכיבות סמיכה` at L6 sitting below a family whose median is
+pulled up by harder arch/band variants — plausibly correct on its own
+merits, not necessarily mistagged).
+
+Two of David's 3 illustrative examples do **not** appear here: `"סקוואט"`
+(plain, L3) and `"סקוואט כנגד קיר"` (L5) share a narrow 4-member family
+(`{סקוואט, סקוואט כנגד קיר, סקוואט כנגד גומייה, סקוואט בעזרת רצועות}`,
+median 3.5) — deviation is only +1.5, under the 3-level threshold.
+`"פינגווינים"` (core, L3) has **zero** siblings under any grouping — it's a
+structurally undetectable case for a same-family-median method, not a
+method failure; it would need to be reviewed by unaided judgment instead.
+Flagging this explicitly rather than tuning the method to force those 2
+examples to appear.
+
+### Not fixed — a second, independent bug found while verifying Part 3
+
+While tracing why bolt 1 still averaged 7.9 reps (not 1-3) after Part 2's
+fix, live-traced actual pipeline output (real `generateHomeWorkoutTrio`
+calls, not guessing from static reads) and found: `applyFlowRegression`
+(`trio-modifiers.service.ts:493-544`, runs unconditionally for bolt 1 —
+`home-workout.service.ts:669` maps `difficulty:1` to
+`postProcess:'flow_regression'`) swaps `ex.exercise` to a lower-level
+replacement and correctly re-derives `isTimeBased`/`mechanicalType` for the
+new exercise (a prior fix, #26 above) — but **never re-derives `ex.reps`**.
+The comment at line 537-539 says "Reps are deliberately NOT multiplied,"
+which is correct for a same-type swap, but doesn't account for a
+time-based→rep-based type flip: a hold exercise's assigned hold *duration in
+seconds* (e.g. 15s, the elite/hard tier's `calculateHoldTimeTier` cap)
+survives numerically unchanged and gets displayed/stored as a *rep count*
+for the new, unrelated rep-based exercise. Confirmed via live trace:
+repeated `"...reps=15..."` output across many different swapped exercises,
+each carrying a `flow_regression:` reasoning tag — 15 being exactly the
+hold-cap value, not a coincidence.
+
+A structurally similar gap exists in `substituteExercise`
+(`WorkoutGenerator.ts:373-415`, used by `GuaranteePassRunner`'s
+horizontal-guarantee substitutions): it resets `reps` to a generic default
+only when `isTimeBased` flips, but never re-derives reps for the *tier* of
+the newly-substituted exercise — so a substitute exercise that lands at a
+different level_diff than the exercise it replaced can inherit reps
+computed for a different tier entirely. This is the most likely explanation
+for the residual bolt 2/3 outliers (max=12 despite averages of 2.66/2.16)
+and the single match-tier reps=28 outlier noted in Part 3 — both are small
+in prevalence (24-56 occurrences out of ~1000+ per bolt; 1 of 3067 for
+match) and **pre-existing**, not introduced or worsened by either of
+today's fixes (the before-fix match-tier histogram already shows a smaller
+version of the same anomaly, reps=12 at n=69/3124).
+
+**Not fixed in this task** — out of Part 2's explicit scope (different
+file, different mechanism: reps-carryover on exercise substitution, not the
+DIFFICULTY_VOLUME-vs-TIER_TABLE override Part 2 targeted), and touches a
+live production swap path recently modified for a related-but-distinct
+issue (#26). Needs David's decision on whether to open as a new, separate
+fix.
+
+**Verification:** `npx tsc --noEmit` — same pre-existing baseline errors
+only (2, at `workout-budgeting.utils.ts` — confirmed identical before/after
+via `git stash`, just shifted by added lines), zero new errors anywhere,
+including the 2 touched files. `npx vitest run src/features/workout-engine`
+— 472/472 individual tests pass (7 new, in
+`above-level-reps-tier-table.test.ts`); same 2 pre-existing hybrid
+`process.exit()` test-file failures, unrelated.
