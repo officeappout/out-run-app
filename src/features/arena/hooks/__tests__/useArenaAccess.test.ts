@@ -74,3 +74,24 @@ describe('deriveArenaAccess — reserve league tab (Phase 6a)', () => {
     expect(access.activeTabs.map((t) => t.key)).toEqual(expect.arrayContaining(['global', 'city', 'reserve']));
   });
 });
+
+describe('deriveArenaAccess — unit league tab (Phase 6b)', () => {
+  // Independent of hasReserveAccess: a career/regular soldier with a
+  // declared brigade should see unit-vs-unit competition even though they
+  // never qualify for the individual reserve league.
+  it('no unit_league tab when hasUnitLeagueAccess is false (default)', () => {
+    expect(deriveArenaAccess(undefined, true).activeTabs.some((t) => t.key === 'unit_league')).toBe(false);
+  });
+
+  it('unit_league tab and hasUnitLeagueAccess appear independently of hasReserveAccess', () => {
+    const access = deriveArenaAccess(undefined, true, false, true);
+    expect(access.activeTabs.some((t) => t.key === 'unit_league')).toBe(true);
+    expect(access.hasUnitLeagueAccess).toBe(true);
+    expect(access.hasReserveAccess).toBe(false);
+  });
+
+  it('both reserve and unit_league tabs can coexist', () => {
+    const access = deriveArenaAccess(undefined, true, true, true);
+    expect(access.activeTabs.map((t) => t.key)).toEqual(expect.arrayContaining(['reserve', 'unit_league']));
+  });
+});

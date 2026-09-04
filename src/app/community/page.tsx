@@ -33,7 +33,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import { getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
-import { useHasDeclaredReserveStatus } from '@/features/arena/hooks/useHasDeclaredReserveStatus';
+import { useMyMilitaryDeclaration } from '@/features/arena/hooks/useHasDeclaredReserveStatus';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
 import FeedPostCard from '@/features/social/components/FeedPostCard';
 import GroupCard from '@/features/arena/components/GroupCard';
@@ -45,6 +45,7 @@ import CommunityCircles from '@/features/arena/components/CommunityCircles';
 import CreateGroupWizard from '@/features/arena/components/CreateGroupWizard';
 import CityArenaView from '@/features/arena/components/CityArenaView';
 import NeighborhoodLeaderboard from '@/features/arena/components/NeighborhoodLeaderboard';
+import UnitLeagueTable from '@/features/arena/components/UnitLeagueTable';
 import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
 import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
@@ -107,8 +108,8 @@ export default function CommunityPage() {
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { following, isLoaded: socialLoaded, loadConnections, isPartner } = useSocialStore();
-  const hasReserveAccess = useHasDeclaredReserveStatus();
-  const access = useArenaAccess(hasReserveAccess);
+  const myDeclaration = useMyMilitaryDeclaration();
+  const access = useArenaAccess(myDeclaration.isReserve, !!myDeclaration.orgId);
   const cityData = useArenaData(access.cityAuthorityId);
   const { events, groups, authority, isLeagueActive, isLoading: arenaLoading } = cityData;
   const searchParams = useSearchParams();
@@ -899,6 +900,7 @@ export default function CommunityPage() {
             {selectedLeague === 'org' && renderOrgSegment()}
             {selectedLeague === 'park' && renderParkSegment()}
             {selectedLeague === 'reserve' && renderReserveSegment()}
+            {selectedLeague === 'unit_league' && renderUnitLeagueSegment()}
             {selectedLeague.startsWith('league_') && renderLeagueSegment(selectedLeague.slice(7))}
           </motion.div>
         </AnimatePresence>
@@ -1094,6 +1096,23 @@ export default function CommunityPage() {
         emoji: '🎖️',
         memberCount: null,
         rank: selectedLeague === 'reserve' ? activeMyEntry?.rank ?? null : null,
+      });
+    }
+
+    // Phase 6b — unit-vs-unit competition. Gated on access.hasUnitLeagueAccess
+    // (declared orgId) — independent of hasReserveAccess: a career/regular
+    // soldier with a declared brigade sees this even without qualifying for
+    // the individual reserve league above. No rank shown on the card itself
+    // (unlike scope cards) — "rank" isn't a single number here, it depends
+    // on which of the 4 ranges the viewer last looked at.
+    if (access.hasUnitLeagueAccess) {
+      cards.push({
+        key: 'unit_league',
+        name: 'תחרות יחידות',
+        subtitle: undefined,
+        emoji: '🏆',
+        memberCount: null,
+        rank: null,
       });
     }
 
@@ -1445,6 +1464,21 @@ export default function CommunityPage() {
           onMyEntryChange={setActiveMyEntry}
           onMyModeChange={handleMyModeChange}
         />
+      </div>
+    );
+  }
+
+  /**
+   * Phase 6b — unit-vs-unit competition. Deliberately separate from
+   * renderReserveSegment() above, not a toggle inside it — David,
+   * 05.09.2026: "ליגת המילואים הכללית ליחידים... נשארת בדיוק כמו שהיא, לא
+   * נוגעים" (the individual reserve league stays exactly as it is, don't
+   * touch it). UnitLeagueTable owns its own 4-range selector internally.
+   */
+  function renderUnitLeagueSegment() {
+    return (
+      <div className="space-y-4" dir="rtl">
+        <UnitLeagueTable myOrgId={myDeclaration.orgId} myUnitPathIds={myDeclaration.unitPathIds} />
       </div>
     );
   }
