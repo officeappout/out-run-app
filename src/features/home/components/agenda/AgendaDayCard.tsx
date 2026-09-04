@@ -22,6 +22,7 @@ import { WalkingIcon, RunIcon, getProgramIcon, resolveIconKey } from '@/features
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
+import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 import { hapticLight } from '@/lib/haptics';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED, AGENDA_HYBRID_DAY_DISPLAY_ENABLED } from '@/config/feature-flags';
@@ -244,15 +245,6 @@ const HEBREW_DAY_SHORT: Record<string, string> = {
   'ה': 'ה׳', 'ו': 'ו׳', 'ש': 'ש׳',
 };
 
-const CATEGORY_LABELS_HE: Record<string, string> = {
-  easy_run: 'ריצה קלה', long_run: 'ריצה ארוכה',
-  short_intervals: 'אינטרוולים קצרים', long_intervals: 'אינטרוולים ארוכים',
-  fartlek_easy: 'פארטלק קל', fartlek_structured: 'פארטלק מובנה',
-  tempo: 'ריצת טמפו', hill_long: 'עליות ארוכות',
-  hill_short: 'עליות קצרות', hill_sprints: 'ספרינט עליות',
-  strides: 'סטריידים', recovery: 'התאוששות',
-};
-
 // ── Strength card constants ─────────────────────────────────────────────────
 // Uses BRAND_CYAN (#00C9F2) — same as CATEGORY_COLORS.strength in day-display.utils.
 const CATEGORY_ACCENT: Record<ScheduleActivityCategory, string> = {
@@ -340,7 +332,7 @@ function resolveRunningEntry(
   if (!entry) return null;
 
   return {
-    name: (entry as any).workoutName || CATEGORY_LABELS_HE[(entry as any).category] || 'אימון ריצה',
+    name: (entry as any).workoutName || RUNNING_WORKOUT_CATEGORY_LABELS_HE[(entry as any).category as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] || 'אימון ריצה',
     category: (entry as any).category,
     status: (entry as any).status ?? 'pending',
   };

@@ -17,21 +17,7 @@ import {
 } from './workout-metadata.service';
 import type { LifestylePersona } from '../logic/ContextualEngine';
 import { resolveContentTags, type TagResolverContext } from '@/features/content/branding/core/branding.utils';
-
-const RUN_CATEGORY_LABELS_HE: Record<string, string> = {
-  short_intervals: 'אינטרוולים קצרים',
-  long_intervals: 'אינטרוולים ארוכים',
-  fartlek_easy: 'פארטלק קל',
-  fartlek_structured: 'פארטלק מובנה',
-  tempo: 'ריצת טמפו',
-  hill_long: 'עליות ארוכות',
-  hill_short: 'עליות קצרות',
-  hill_sprints: 'ספרינט עליות',
-  long_run: 'ריצה ארוכה',
-  easy_run: 'ריצה קלה',
-  strides: 'סטריידים',
-  recovery: 'התאוששות',
-};
+import { RUNNING_WORKOUT_CATEGORY_LABELS_HE as RUN_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 
 const TARGET_DISTANCE_LABELS: Record<string, string> = {
   '2k': '2 ק"מ',
@@ -65,7 +51,7 @@ export async function resolveRunningWorkoutMetadata(
   const { workout, paceProfile, persona, gender, targetDistance, programPhase, userAge, isAbroad, recentBundleIds, weekNumber, totalWeeks } = input;
 
   const category = workout.category;
-  const categoryLabel = category ? (RUN_CATEGORY_LABELS_HE[category] || category) : undefined;
+  const categoryLabel = category ? (RUN_CATEGORY_LABELS_HE[category as keyof typeof RUN_CATEGORY_LABELS_HE] || category) : undefined;
   const targetDistanceLabel = targetDistance ? (TARGET_DISTANCE_LABELS[targetDistance] || targetDistance) : undefined;
 
   const ctx: WorkoutMetadataContext = {
