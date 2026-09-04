@@ -444,6 +444,24 @@ function regionSelectors(): { decl: string; scopes: string[] } {
   const scopes: string[] = [];
   if (REGION.areaWikidata) scopes.push('(area.rgn)');
   for (const bb of REGION.extraBboxes || []) scopes.push(`(${bb.latMin},${bb.lonMin},${bb.latMax},${bb.lonMax})`);
+  // Fallback (04.09.2026) — a region with NEITHER areaWikidata NOR
+  // extraBboxes set would otherwise leave scopes empty, which silently
+  // turns every scopes.map(sc => ...).join('') call below (marked trails,
+  // standalone paths/loops, road bike lanes, named parks/gardens) into a
+  // no-op query that structurally matches nothing — NOT a real "no data in
+  // OSM" result. Confirmed live on Herzliya (city_registrations-sourced,
+  // both fields empty by Add-City's design): 22,137 real road segments and
+  // 9,215 real ways fetched via direct-bbox queries in the SAME run, yet 0
+  // candidates from every scopes-based query. Haifa's own REGIONS entry
+  // already works around this exact gap BY HAND — its extraBboxes is a
+  // literal copy of its own bbox — this makes that the automatic default
+  // instead of a per-city manual patch every region author has to know to
+  // apply. Only activates when scopes would otherwise be empty, so any
+  // region with a real areaWikidata/extraBboxes already set is unaffected.
+  if (scopes.length === 0) {
+    const b = REGION.bbox;
+    scopes.push(`(${b.latMin},${b.lonMin},${b.latMax},${b.lonMax})`);
+  }
   return { decl, scopes };
 }
 
