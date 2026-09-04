@@ -114,9 +114,46 @@ describe('applyEssentialGearFilter — naked backfill isTimeBased consistency (d
     const plank = mains.find((e) => e.exercise.id === 'plank_1')!;
     const pull = mains.find((e) => e.exercise.id === 'pull_1')!;
     expect(plank.isTimeBased).toBe(true);
-    expect(plank.reps).toBe(20); // hold-duration default, not the generic reps:10
     expect(pull.isTimeBased).toBe(false);
-    expect(pull.reps).toBe(10);
+    // Addendum 3 (docs/workout-engine/03-CHANGES.md): reps used to be a flat
+    // 20 (time-based) / 10 (rep-based) regardless of tier. Now derived via
+    // rederiveVolumeForSwappedExercise — these fixtures have no
+    // targetPrograms, so they resolve to delta=0 (match tier): a
+    // DIFFICULTY_VOLUME[1] hold range (20-30s) for the plank, and the DAVID
+    // STAIRCASE's <50%-progress match range (2-4) for the pull — a range
+    // assertion, not an exact value, since assignVolume-derived reps are
+    // randomized within their tier's range by design.
+    expect(plank.reps).toBeGreaterThanOrEqual(20);
+    expect(plank.reps).toBeLessThanOrEqual(30);
+    expect(pull.reps).toBeGreaterThanOrEqual(2);
+    expect(pull.reps).toBeLessThanOrEqual(4);
+  });
+
+  it('a candidate well above the user\'s level backfills with above-level (hard/elite) reps, not a flat default', () => {
+    const workout = baseWorkout([]);
+    const advanced = { ...rawExercise('adv_1', 'vertical_pull'), targetPrograms: [{ programId: 'pull', level: 15 }] } as Exercise;
+    const allExercises = [
+      advanced,
+      rawExercise('pull_2', 'vertical_pull'),
+      rawExercise('push_1', 'vertical_push'),
+    ];
+    const userProgramLevels = new Map([['pull', 5]]); // delta = 15 - 5 = +10 → elite tier
+
+    applyEssentialGearFilter(workout, new Set(), allExercises, 'home', userProgramLevels);
+
+    const mains = workout.exercises.filter((e) => e.exerciseRole === 'main');
+    const adv = mains.find((e) => e.exercise.id === 'adv_1')!;
+    expect(adv).toBeDefined();
+    // TIER_TABLE elite reps = 1-3, never the old flat 10.
+    expect(adv.reps).toBeGreaterThanOrEqual(1);
+    expect(adv.reps).toBeLessThanOrEqual(3);
+    // Backfilled entries previously never got tier/levelDelta/programLevel/
+    // isOverLevel stamped at all (always undefined) — now consistent with
+    // every other exercise-identity assignment in the pipeline.
+    expect(adv.tier).toBe('elite');
+    expect(adv.levelDelta).toBe(10);
+    expect(adv.programLevel).toBe(15);
+    expect(adv.isOverLevel).toBe(true);
   });
 });
 
@@ -159,13 +196,23 @@ describe('applyFlowRegression — exercise-swap isTimeBased consistency (docs/wo
           exerciseRole: 'main',
           score: 50,
           reasoning: [],
+          // Deliberately stale/wrong pre-swap metadata (a plausible value
+          // for a DIFFERENT tier) to prove these get overwritten, not just
+          // reps/isTimeBased. This is the second-order bug found while
+          // verifying: reps could be correctly re-derived while tier/
+          // levelDelta/programLevel/isOverLevel kept describing the
+          // pre-swap exercise.
+          tier: 'match',
+          levelDelta: 0,
+          programLevel: 8,
+          isOverLevel: false,
         } as unknown as WorkoutExercise,
       ],
     } as unknown as GeneratedWorkout;
 
     applyFlowRegression(
       workout,
-      new Map([['push', 10]]),
+      new Map([['push', 3]]), // user is push L3 — victim (L8) and replacement (L7) both stay well above the user even after regression, same as the real bolt-1 bug's dominant pattern
       [victim, replacement],
       new Set(),
       'home',
@@ -177,6 +224,18 @@ describe('applyFlowRegression — exercise-swap isTimeBased consistency (docs/wo
     expect(swapped.isTimeBased).toBe(false); // re-derived for the NEW exercise, not stale `true`
     expect(swapped.mechanicalType).toBe('bent_arm');
     expect(swapped.reasoning.some((r) => r.startsWith('flow_regression:'))).toBe(true);
+    // The exact bug: pre-swap reps was 15 (a HOLD DURATION in seconds).
+    // Replacement (L7) is delta=+4 above the user (L3) → elite tier →
+    // TIER_TABLE reps 1-3. Must NOT still be 15.
+    expect(swapped.reps).not.toBe(15);
+    expect(swapped.reps).toBeGreaterThanOrEqual(1);
+    expect(swapped.reps).toBeLessThanOrEqual(3);
+    // Metadata sync: must reflect the REPLACEMENT's true delta, not the
+    // stale pre-swap values seeded above.
+    expect(swapped.tier).toBe('elite');
+    expect(swapped.levelDelta).toBe(4);
+    expect(swapped.programLevel).toBe(7);
+    expect(swapped.isOverLevel).toBe(true);
   });
 
   it('swapping to ANOTHER time-based replacement correctly stays isTimeBased=true (not a blanket false)', () => {
