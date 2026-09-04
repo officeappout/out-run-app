@@ -120,43 +120,77 @@
     ]
   },
   "newBlocks": {
-    "totalBlocks": 18698,
+    "totalBlocks": 18447,
     "byLabel": {
       "חימום": {
-        "n": 3724,
-        "pct": 19.9,
+        "n": 3734,
+        "pct": 20.2,
         "category": "א"
       },
       "סיום": {
-        "n": 3458,
-        "pct": 18.5,
+        "n": 3453,
+        "pct": 18.7,
         "category": "א"
       },
       "יעד": {
-        "n": 9626,
-        "pct": 51.5,
-        "category": "א"
-      },
-      "ליבה": {
-        "n": 723,
-        "pct": 3.9,
+        "n": 8883,
+        "pct": 48.2,
         "category": "א"
       },
       "פירמידה (יכולת חדשה)": {
-        "n": 1167,
-        "pct": 6.2,
+        "n": 1206,
+        "pct": 6.5,
+        "category": "ב"
+      },
+      "ליבה": {
+        "n": 629,
+        "pct": 3.4,
+        "category": "א"
+      },
+      "טבאטה (יכולת חדשה)": {
+        "n": 154,
+        "pct": 0.8,
+        "category": "ב"
+      },
+      "זוג אנטגוניסטי (יכולת חדשה)": {
+        "n": 388,
+        "pct": 2.1,
         "category": "ב"
       }
     },
     "byCategoryTotals": {
-      "א": 17101,
-      "ב": 1167,
-      "ג": 430
+      "א": 16512,
+      "ב": 1748,
+      "ג": 187
     },
-    "suspiciousCount": 430,
+    "suspiciousCount": 187,
     "suspiciousSample": [
       {
-        "run_id": "r1001_b3",
+        "run_id": "r1002_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "מתח עם גומייה דקה"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r1003_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "מקבילים עם גומייה דקה"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r1004_b3",
         "kind": "core",
         "category": "ג",
         "label": "ליבה",
@@ -168,54 +202,6 @@
         "domain": "core"
       },
       {
-        "run_id": "r1002_b3",
-        "kind": "target",
-        "category": "ג",
-        "label": "יעד",
-        "n_exercises": 1,
-        "sets": 5,
-        "exerciseNames": [
-          "שרימפ סקוואט בלי ידיים"
-        ],
-        "domain": "legs"
-      },
-      {
-        "run_id": "r1002_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "פלאנק רחוק"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1003_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1005_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
         "run_id": "r1005_b3",
         "kind": "target",
         "category": "ג",
@@ -223,96 +209,12 @@
         "n_exercises": 1,
         "sets": 5,
         "exerciseNames": [
-          "שכיבות סמיכה סופינציה"
+          "שכיבות סמיכה רחבות"
         ],
         "domain": "push"
       },
       {
-        "run_id": "r1007_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
-        "exerciseNames": [
-          "עליות ספר רגליים ישרות"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1071_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1120_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1148_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1150_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1203_b3",
-        "kind": "target",
-        "category": "ג",
-        "label": "יעד",
-        "n_exercises": 1,
-        "sets": 5,
-        "exerciseNames": [
-          "שכיבות סמיכה פייק גובה שוק"
-        ],
-        "domain": "push"
-      },
-      {
-        "run_id": "r1207_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "דרגון פלאג בטאק מתקדם"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1209_b3",
+        "run_id": "r1200_b3",
         "kind": "target",
         "category": "ג",
         "label": "יעד",
@@ -324,7 +226,7 @@
         "domain": "other"
       },
       {
-        "run_id": "r1210_b3",
+        "run_id": "r1201_b3",
         "kind": "target",
         "category": "ג",
         "label": "יעד",
@@ -336,79 +238,19 @@
         "domain": "push"
       },
       {
-        "run_id": "r1212_b3",
+        "run_id": "r1203_b2",
         "kind": "target",
         "category": "ג",
         "label": "יעד",
         "n_exercises": 1,
         "sets": 5,
         "exerciseNames": [
-          "מתח עם החזקות"
+          "כפיפת נורדיק"
         ],
-        "domain": "pull"
+        "domain": "legs"
       },
       {
-        "run_id": "r1227_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
-        "exerciseNames": [
-          "רגליים למתח"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1228_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "דרגון פלאג בטאק"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1234_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "דרגון פלאג בטאק"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1239_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r1239_b3",
-        "kind": "target",
-        "category": "ג",
-        "label": "יעד",
-        "n_exercises": 1,
-        "sets": 5,
-        "exerciseNames": [
-          "פשיטת מרפקים למתקדמים"
-        ],
-        "domain": "push"
-      },
-      {
-        "run_id": "r1240_b3",
+        "run_id": "r1204_b3",
         "kind": "target",
         "category": "ג",
         "label": "יעד",
@@ -420,7 +262,139 @@
         "domain": "pull"
       },
       {
-        "run_id": "r1245_b3",
+        "run_id": "r1206_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "מתח רחב"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r1207_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "כפיפת מרפקים במשקל גוף 30°"
+        ],
+        "domain": "other"
+      },
+      {
+        "run_id": "r1210_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "מתח צר"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r1210_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "נדנוד הכנה לעליית כוח"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r1212_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "חתירות קשתים ב-30°"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r1213_b2",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "כפיפת נורדיק"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r1221_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "שכיבות סמיכה קשתים"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r1224_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "שכיבות סמיכה קשתים"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r1230_b2",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "כפיפת נורדיק"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r1230_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "שכיבות סמיכה קשתים בפישוק"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r1236_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "פשיטת מרפקים למתקדמים"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r1239_b3",
         "kind": "target",
         "category": "ג",
         "label": "יעד",
@@ -439,360 +413,72 @@
         "n_exercises": 1,
         "sets": 5,
         "exerciseNames": [
-          "מתח באחיזה מעורבת"
+          "פשיטת מרפקים למתקדמים"
         ],
-        "domain": "pull"
+        "domain": "push"
       },
       {
-        "run_id": "r126_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r127_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r128_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r129_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r129_b3",
+        "run_id": "r1248_b3",
         "kind": "target",
         "category": "ג",
         "label": "יעד",
         "n_exercises": 1,
         "sets": 5,
         "exerciseNames": [
-          "תלייה פסיבית"
+          "שכיבות סמיכה מתפרץ"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r1257_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "חתירות קשתים ב-30°"
         ],
         "domain": "pull"
       },
       {
-        "run_id": "r130_b1",
-        "kind": "core",
+        "run_id": "r1258_b3",
+        "kind": "target",
         "category": "ג",
-        "label": "ליבה",
+        "label": "יעד",
         "n_exercises": 1,
-        "sets": 3,
+        "sets": 5,
         "exerciseNames": [
-          "אופניים"
+          "שכיבות סמיכה קשתים"
         ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r131_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r132_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r133_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r134_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r137_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r138_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
-        "exerciseNames": [
-          "כפיפות בטן"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r138_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "פלאנק"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r140_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r141_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r142_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r143_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r144_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r145_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
+        "domain": "push"
       },
       {
         "run_id": "r145_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "שכיבות סמיכה ב-45°"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r155_b3",
         "kind": "core",
         "category": "ג",
         "label": "ליבה",
         "n_exercises": 1,
         "sets": 3,
-        "exerciseNames": [
-          "כפיפות בטן חצי טווח"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r146_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "אופניים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r147_b2",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
-        "exerciseNames": [
-          "שולחן הפוך"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r148_b2",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
-        "exerciseNames": [
-          "שולחן הפוך"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r149_b2",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
-        "exerciseNames": [
-          "שולחן הפוך"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r149_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
         "exerciseNames": [
           "כפיפות בטן"
         ],
         "domain": "core"
       },
       {
-        "run_id": "r154_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
-        "exerciseNames": [
-          "כפיפות בטן"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r157_b3",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
-        "exerciseNames": [
-          "פלאנק"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r161_b2",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 3,
-        "exerciseNames": [
-          "פלאנק על הברכיים"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r162_b1",
-        "kind": "core",
-        "category": "ג",
-        "label": "ליבה",
-        "n_exercises": 1,
-        "sets": 4,
-        "exerciseNames": [
-          "שולחן הפוך"
-        ],
-        "domain": "core"
-      },
-      {
-        "run_id": "r162_b3",
+        "run_id": "r160_b3",
         "kind": "target",
         "category": "ג",
         "label": "יעד",
@@ -804,105 +490,429 @@
         "domain": "pull"
       },
       {
-        "run_id": "r170_b1",
+        "run_id": "r170_b3",
         "kind": "core",
         "category": "ג",
         "label": "ליבה",
         "n_exercises": 1,
-        "sets": 3,
+        "sets": 4,
         "exerciseNames": [
-          "אופניים"
+          "כפיפות בטן"
         ],
         "domain": "core"
       },
       {
-        "run_id": "r171_b1",
+        "run_id": "r190_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "דדליפט רומני על הגבהה"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r192_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "היפ טראסט רגל אחת"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r193_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "חתירות ב-45°"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r193_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "חתירות ב-75°"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r194_b3",
         "kind": "core",
         "category": "ג",
         "label": "ליבה",
         "n_exercises": 1,
-        "sets": 3,
+        "sets": 4,
         "exerciseNames": [
-          "אופניים"
+          "כפיפות בטן"
         ],
         "domain": "core"
       },
       {
-        "run_id": "r172_b1",
+        "run_id": "r195_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "דדליפט רומני על הגבהה"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r198_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "סומו סקוואט"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r199_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "סקוואט טווח חלקי"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r201_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "פשיטת מרפקים על ספסל"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r204_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "חתירות ב-45°"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r205_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "חתירות ב-45°"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r205_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "עליות תאומים על מדרגה"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r207_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "לאנג׳ בהצלבה"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r208_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "מספרים בשכיבה"
+        ],
+        "domain": null
+      },
+      {
+        "run_id": "r211_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "שכיבות סמיכה ב-45°"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r213_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "סקוואט סטטי כנגד קיר"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r214_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "סקוואט סטטי כנגד קיר"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r215_b3",
         "kind": "core",
         "category": "ג",
         "label": "ליבה",
         "n_exercises": 1,
-        "sets": 3,
+        "sets": 4,
         "exerciseNames": [
-          "אופניים"
+          "כפיפות בטן"
         ],
         "domain": "core"
       },
       {
-        "run_id": "r173_b1",
+        "run_id": "r216_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "עליית מדרגה גובה ברך"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r218_b3",
         "kind": "core",
         "category": "ג",
         "label": "ליבה",
         "n_exercises": 1,
         "sets": 3,
         "exerciseNames": [
-          "אופניים"
+          "כפיפות בטן"
         ],
         "domain": "core"
       },
       {
-        "run_id": "r174_b1",
+        "run_id": "r219_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "סקוואט טווח חלקי"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r219_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "היפ טראסט"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r220_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "החזקת חתירה ב-90° מעלות במרפק"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r225_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "שכיבות סמיכה ב-30°"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r229_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "תלייה פסיבית בתמיכת הרגליים"
+        ],
+        "domain": "pull"
+      },
+      {
+        "run_id": "r229_b3",
         "kind": "core",
         "category": "ג",
         "label": "ליבה",
         "n_exercises": 1,
         "sets": 3,
         "exerciseNames": [
-          "אופניים"
+          "כפיפות בטן"
         ],
         "domain": "core"
       },
       {
-        "run_id": "r175_b1",
+        "run_id": "r231_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "סקוואט קפיצה"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r233_b3",
         "kind": "core",
         "category": "ג",
         "label": "ליבה",
         "n_exercises": 1,
-        "sets": 3,
+        "sets": 4,
         "exerciseNames": [
-          "אופניים"
+          "כפיפות בטן"
         ],
         "domain": "core"
+      },
+      {
+        "run_id": "r234_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "שכיבות סמיכה ב-45°"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r234_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "סקוואט טווח חלקי"
+        ],
+        "domain": "legs"
+      },
+      {
+        "run_id": "r235_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "שכיבות סמיכה ב-45°"
+        ],
+        "domain": "push"
+      },
+      {
+        "run_id": "r235_b3",
+        "kind": "target",
+        "category": "ג",
+        "label": "יעד",
+        "n_exercises": 1,
+        "sets": 5,
+        "exerciseNames": [
+          "סקוואט סטטי כנגד קיר"
+        ],
+        "domain": "legs"
       }
     ],
     "targetBlocksByDuration": [
       {
         "minutes": 15,
-        "avgTargetBlocksPerWorkout": 1.88,
+        "avgTargetBlocksPerWorkout": 1.8,
         "nWorkouts": 945
       },
       {
         "minutes": 20,
-        "avgTargetBlocksPerWorkout": 2.49,
+        "avgTargetBlocksPerWorkout": 2.3,
         "nWorkouts": 945
       },
       {
         "minutes": 30,
-        "avgTargetBlocksPerWorkout": 2.83,
+        "avgTargetBlocksPerWorkout": 2.59,
         "nWorkouts": 945
       },
       {
         "minutes": 45,
-        "avgTargetBlocksPerWorkout": 2.98,
+        "avgTargetBlocksPerWorkout": 2.72,
         "nWorkouts": 945
       }
     ],
-    "pctRunsWithPairing": 0,
+    "pctRunsWithPairing": 9.7,
     "totalRuns": 3780
   },
   "levelPlacement": {
-    "comparable": 115,
+    "comparable": 119,
     "totalBridged": 189,
     "top30": [
       {
@@ -912,7 +922,7 @@
         "newMedian": 5,
         "gap": 13,
         "oldN": 1,
-        "newN": 41
+        "newN": 42
       },
       {
         "new_name": "החזקת תמיכה על טבעות עם עזרה",
@@ -921,7 +931,16 @@
         "newMedian": 12,
         "gap": 11,
         "oldN": 2,
-        "newN": 34
+        "newN": 24
+      },
+      {
+        "new_name": "דגל פלאנק צידי",
+        "old_name": "דגל פלאנק צידי",
+        "oldMedian": 3,
+        "newMedian": 12,
+        "gap": 9,
+        "oldN": 1,
+        "newN": 2
       },
       {
         "new_name": "חתירות קשתים ב-45°",
@@ -930,7 +949,7 @@
         "newMedian": 12,
         "gap": 8,
         "oldN": 9,
-        "newN": 23
+        "newN": 19
       },
       {
         "new_name": "חתירות קשתים ב-30°",
@@ -939,7 +958,7 @@
         "newMedian": 12,
         "gap": 7,
         "oldN": 5,
-        "newN": 21
+        "newN": 24
       },
       {
         "new_name": "נורדיק אחורי",
@@ -948,7 +967,7 @@
         "newMedian": 12,
         "gap": 7,
         "oldN": 2,
-        "newN": 23
+        "newN": 20
       },
       {
         "new_name": "סיסי סקוואט בעזרת קיר",
@@ -957,7 +976,7 @@
         "newMedian": 12,
         "gap": 7,
         "oldN": 2,
-        "newN": 32
+        "newN": 42
       },
       {
         "new_name": "עמידת ידיים חזה לקיר ב-45°",
@@ -966,7 +985,7 @@
         "newMedian": 12,
         "gap": 7,
         "oldN": 14,
-        "newN": 15
+        "newN": 17
       },
       {
         "new_name": "מקבילים על טבעות בעזרת גומיה דקה",
@@ -975,16 +994,7 @@
         "newMedian": 12,
         "gap": 6.5,
         "oldN": 4,
-        "newN": 97
-      },
-      {
-        "new_name": "קפיצה על רגל אחת גובה ברך",
-        "old_name": "קפיצה על ספסל - גובה ברך",
-        "oldMedian": 6,
-        "newMedian": 12,
-        "gap": 6,
-        "oldN": 7,
-        "newN": 19
+        "newN": 113
       },
       {
         "new_name": "שכיבות סמיכה סופינציה",
@@ -993,7 +1003,7 @@
         "newMedian": 12,
         "gap": 6,
         "oldN": 11,
-        "newN": 83
+        "newN": 64
       },
       {
         "new_name": "שכיבות סמיכה ספינקס",
@@ -1002,7 +1012,7 @@
         "newMedian": 12,
         "gap": 6,
         "oldN": 11,
-        "newN": 66
+        "newN": 55
       },
       {
         "new_name": "שכיבות סמיכה פייק",
@@ -1011,7 +1021,7 @@
         "newMedian": 12,
         "gap": 6,
         "oldN": 11,
-        "newN": 186
+        "newN": 189
       },
       {
         "new_name": "שכיבות סמיכה פסודו פלאנץ׳",
@@ -1020,7 +1030,7 @@
         "newMedian": 12,
         "gap": 6,
         "oldN": 1,
-        "newN": 4
+        "newN": 2
       },
       {
         "new_name": "שכיבות סמיכה רצועות ב-45°",
@@ -1029,7 +1039,7 @@
         "newMedian": 8,
         "gap": 6,
         "oldN": 9,
-        "newN": 32
+        "newN": 28
       },
       {
         "new_name": "נורדיק אחורי בעזרת גומייה",
@@ -1038,7 +1048,7 @@
         "newMedian": 8,
         "gap": 5.5,
         "oldN": 4,
-        "newN": 2
+        "newN": 8
       },
       {
         "new_name": "כפיפת נורדיק בעזרת גומייה",
@@ -1047,7 +1057,7 @@
         "newMedian": 8,
         "gap": 5,
         "oldN": 8,
-        "newN": 4
+        "newN": 7
       },
       {
         "new_name": "עמידת פייק",
@@ -1056,7 +1066,7 @@
         "newMedian": 12,
         "gap": 5,
         "oldN": 10,
-        "newN": 254
+        "newN": 276
       },
       {
         "new_name": "פיסטול סקוואט",
@@ -1065,7 +1075,7 @@
         "newMedian": 12,
         "gap": 4.5,
         "oldN": 2,
-        "newN": 24
+        "newN": 28
       },
       {
         "new_name": "היפ טראסט ארוך",
@@ -1074,7 +1084,7 @@
         "newMedian": 8,
         "gap": 4,
         "oldN": 1,
-        "newN": 1
+        "newN": 6
       },
       {
         "new_name": "חתירות ב-30°",
@@ -1083,7 +1093,7 @@
         "newMedian": 3,
         "gap": 4,
         "oldN": 17,
-        "newN": 192
+        "newN": 209
       },
       {
         "new_name": "מתח אוסטרלי ב-30° מעלות",
@@ -1092,7 +1102,7 @@
         "newMedian": 3,
         "gap": 4,
         "oldN": 47,
-        "newN": 182
+        "newN": 183
       },
       {
         "new_name": "סקוואט בהונות",
@@ -1101,7 +1111,7 @@
         "newMedian": 8,
         "gap": 4,
         "oldN": 1,
-        "newN": 52
+        "newN": 41
       },
       {
         "new_name": "פיסטול סקוואט מוגבה",
@@ -1110,7 +1120,7 @@
         "newMedian": 12,
         "gap": 4,
         "oldN": 11,
-        "newN": 4
+        "newN": 9
       },
       {
         "new_name": "פשיטת מרפקים למתקדמים",
@@ -1119,7 +1129,7 @@
         "newMedian": 12,
         "gap": 4,
         "oldN": 13,
-        "newN": 22
+        "newN": 36
       },
       {
         "new_name": "שכיבות סמיכה מרפקים צמודים",
@@ -1128,7 +1138,7 @@
         "newMedian": 12,
         "gap": 4,
         "oldN": 11,
-        "newN": 300
+        "newN": 280
       },
       {
         "new_name": "שכיבות סמיכה פייק גובה ברך",
@@ -1137,7 +1147,7 @@
         "newMedian": 12,
         "gap": 4,
         "oldN": 7,
-        "newN": 39
+        "newN": 35
       },
       {
         "new_name": "שכיבות סמיכה קשתים בפישוק",
@@ -1146,7 +1156,7 @@
         "newMedian": 12,
         "gap": 4,
         "oldN": 31,
-        "newN": 42
+        "newN": 26
       },
       {
         "new_name": "שכיבות סמיכה רחבות",
@@ -1155,7 +1165,7 @@
         "newMedian": 12,
         "gap": 4,
         "oldN": 8,
-        "newN": 67
+        "newN": 60
       },
       {
         "new_name": "דרגון פלאג בטאק מתקדם",
@@ -1173,7 +1183,7 @@
         "newMedian": 12,
         "gap": 3.5,
         "oldN": 2,
-        "newN": 43
+        "newN": 33
       }
     ]
   },
@@ -1187,9 +1197,9 @@
         "nameA": "מקבילים",
         "nameB": "מתיחות - פלג גוף עליון",
         "oldCount": 67,
-        "newCount": 127,
+        "newCount": 131,
         "oldRate": 0.14596949891067537,
-        "newRate": 0.0335978835978836
+        "newRate": 0.034656084656084656
       },
       {
         "a": 85,
@@ -1217,9 +1227,9 @@
         "nameA": "מתיחות - פלג גוף עליון",
         "nameB": "מתח אוסטרלי ב-15°",
         "oldCount": 46,
-        "newCount": 88,
+        "newCount": 98,
         "oldRate": 0.10021786492374728,
-        "newRate": 0.02328042328042328
+        "newRate": 0.025925925925925925
       },
       {
         "a": 44,
@@ -1227,9 +1237,9 @@
         "nameA": "שכיבות סמיכה",
         "nameB": "מתיחות - פלג גוף עליון",
         "oldCount": 70,
-        "newCount": 313,
+        "newCount": 305,
         "oldRate": 0.15250544662309368,
-        "newRate": 0.08280423280423281
+        "newRate": 0.08068783068783068
       },
       {
         "a": 85,
@@ -1237,9 +1247,9 @@
         "nameA": "מתיחות - פלג גוף עליון",
         "nameB": "מתח",
         "oldCount": 33,
-        "newCount": 39,
+        "newCount": 36,
         "oldRate": 0.0718954248366013,
-        "newRate": 0.010317460317460317
+        "newRate": 0.009523809523809525
       },
       {
         "a": 64,
@@ -1247,9 +1257,9 @@
         "nameA": "מקבילים",
         "nameB": "מתח",
         "oldCount": 29,
-        "newCount": 7,
+        "newCount": 5,
         "oldRate": 0.06318082788671024,
-        "newRate": 0.001851851851851852
+        "newRate": 0.0013227513227513227
       },
       {
         "a": 44,
@@ -1257,9 +1267,9 @@
         "nameA": "שכיבות סמיכה",
         "nameB": "מקבילים",
         "oldCount": 24,
-        "newCount": 4,
+        "newCount": 3,
         "oldRate": 0.05228758169934641,
-        "newRate": 0.0010582010582010583
+        "newRate": 0.0007936507936507937
       },
       {
         "a": 85,
@@ -1267,9 +1277,9 @@
         "nameA": "מתיחות - פלג גוף עליון",
         "nameB": "מתח אוסטרלי ב-30°",
         "oldCount": 43,
-        "newCount": 182,
+        "newCount": 183,
         "oldRate": 0.09368191721132897,
-        "newRate": 0.04814814814814815
+        "newRate": 0.048412698412698414
       },
       {
         "a": 25,
@@ -1277,9 +1287,9 @@
         "nameA": "חתירות ב-60°",
         "nameB": "שכיבות סמיכה",
         "oldCount": 20,
-        "newCount": 4,
+        "newCount": 6,
         "oldRate": 0.04357298474945534,
-        "newRate": 0.0010582010582010583
+        "newRate": 0.0015873015873015873
       },
       {
         "a": 85,
@@ -1287,19 +1297,9 @@
         "nameA": "מתיחות - פלג גוף עליון",
         "nameB": "ישיבה בL - ברכיים מכופפות",
         "oldCount": 19,
-        "newCount": 0,
+        "newCount": 2,
         "oldRate": 0.04139433551198257,
-        "newRate": 0
-      },
-      {
-        "a": 85,
-        "b": 140,
-        "nameA": "מתיחות - פלג גוף עליון",
-        "nameB": "שכיבות סמיכה פייק - גובה אגן",
-        "oldCount": 19,
-        "newCount": 0,
-        "oldRate": 0.04139433551198257,
-        "newRate": 0
+        "newRate": 0.0005291005291005291
       },
       {
         "a": 85,
@@ -1312,14 +1312,34 @@
         "newRate": 0.0005291005291005291
       },
       {
+        "a": 85,
+        "b": 140,
+        "nameA": "מתיחות - פלג גוף עליון",
+        "nameB": "שכיבות סמיכה פייק - גובה אגן",
+        "oldCount": 19,
+        "newCount": 2,
+        "oldRate": 0.04139433551198257,
+        "newRate": 0.0005291005291005291
+      },
+      {
         "a": 44,
         "b": 136,
         "nameA": "שכיבות סמיכה",
         "nameB": "שכיבות סמיכה מתפרץ",
         "oldCount": 18,
-        "newCount": 5,
+        "newCount": 3,
         "oldRate": 0.0392156862745098,
-        "newRate": 0.0013227513227513227
+        "newRate": 0.0007936507936507937
+      },
+      {
+        "a": 85,
+        "b": 136,
+        "nameA": "מתיחות - פלג גוף עליון",
+        "nameB": "שכיבות סמיכה מתפרץ",
+        "oldCount": 24,
+        "newCount": 57,
+        "oldRate": 0.05228758169934641,
+        "newRate": 0.01507936507936508
       },
       {
         "a": 28,
@@ -1327,9 +1347,19 @@
         "nameA": "החזקה על המתח ב-90°",
         "nameB": "החזקה על מקבילים ב-90°",
         "oldCount": 18,
-        "newCount": 15,
+        "newCount": 11,
         "oldRate": 0.0392156862745098,
-        "newRate": 0.003968253968253968
+        "newRate": 0.00291005291005291
+      },
+      {
+        "a": 74,
+        "b": 85,
+        "nameA": "פלאנק עליות + נגיעות בכתפיים",
+        "nameB": "מתיחות - פלג גוף עליון",
+        "oldCount": 17,
+        "newCount": 7,
+        "oldRate": 0.037037037037037035,
+        "newRate": 0.001851851851851852
       },
       {
         "a": 85,
@@ -1340,16 +1370,6 @@
         "newCount": 0,
         "oldRate": 0.034858387799564274,
         "newRate": 0
-      },
-      {
-        "a": 74,
-        "b": 85,
-        "nameA": "פלאנק עליות + נגיעות בכתפיים",
-        "nameB": "מתיחות - פלג גוף עליון",
-        "oldCount": 17,
-        "newCount": 10,
-        "oldRate": 0.037037037037037035,
-        "newRate": 0.0026455026455026454
       },
       {
         "a": 85,
@@ -1370,16 +1390,6 @@
         "newCount": 0,
         "oldRate": 0.032679738562091505,
         "newRate": 0
-      },
-      {
-        "a": 85,
-        "b": 125,
-        "nameA": "מתיחות - פלג גוף עליון",
-        "nameB": "מקבילים על טבעות",
-        "oldCount": 15,
-        "newCount": 3,
-        "oldRate": 0.032679738562091505,
-        "newRate": 0.0007936507936507937
       }
     ],
     "newCommonOldNever": [
@@ -1388,7 +1398,7 @@
         "b": 364,
         "nameA": "מתיחות - פלג גוף עליון",
         "nameB": "דרגון סקוואט טווח חלקי",
-        "newCount": 176,
+        "newCount": 171,
         "oldCount": 0
       },
       {
@@ -1396,23 +1406,7 @@
         "b": 379,
         "nameA": "מתיחות - פלג גוף עליון",
         "nameB": "סיסי לאנג׳",
-        "newCount": 129,
-        "oldCount": 0
-      },
-      {
-        "a": 54,
-        "b": 71,
-        "nameA": "עמידת פייק",
-        "nameB": "שכיבות סמיכה עם מרפקים צמודים",
-        "newCount": 95,
-        "oldCount": 0
-      },
-      {
-        "a": 85,
-        "b": 381,
-        "nameA": "מתיחות - פלג גוף עליון",
-        "nameB": "ישיבת סקוואט כנגד קיר רגל אחת",
-        "newCount": 80,
+        "newCount": 138,
         "oldCount": 0
       },
       {
@@ -1420,23 +1414,15 @@
         "b": 111,
         "nameA": "שכיבות סמיכה ב-60°",
         "nameB": "פשיטת מרפקים על הרצפה",
-        "newCount": 79,
+        "newCount": 90,
         "oldCount": 0
       },
       {
-        "a": 45,
-        "b": 86,
-        "nameA": "שכיבות סמיכה על הברכיים",
-        "nameB": "החזקה בשכיבות סמיכה ב-90°",
-        "newCount": 77,
-        "oldCount": 0
-      },
-      {
-        "a": 85,
-        "b": 365,
-        "nameA": "מתיחות - פלג גוף עליון",
-        "nameB": "דרגון סקוואט - ברך כפופה",
-        "newCount": 74,
+        "a": 54,
+        "b": 71,
+        "nameA": "עמידת פייק",
+        "nameB": "שכיבות סמיכה עם מרפקים צמודים",
+        "newCount": 88,
         "oldCount": 0
       },
       {
@@ -1444,7 +1430,23 @@
         "b": 22,
         "nameA": "שכיבות סמיכה ב-75°",
         "nameB": "שכיבות סמיכה ב-60°",
-        "newCount": 73,
+        "newCount": 87,
+        "oldCount": 0
+      },
+      {
+        "a": 85,
+        "b": 381,
+        "nameA": "מתיחות - פלג גוף עליון",
+        "nameB": "ישיבת סקוואט כנגד קיר רגל אחת",
+        "newCount": 87,
+        "oldCount": 0
+      },
+      {
+        "a": 45,
+        "b": 86,
+        "nameA": "שכיבות סמיכה על הברכיים",
+        "nameB": "החזקה בשכיבות סמיכה ב-90°",
+        "newCount": 74,
         "oldCount": 0
       },
       {
@@ -1452,15 +1454,15 @@
         "b": 448,
         "nameA": "מתיחות - פלג גוף עליון",
         "nameB": "החזקה על מקבילים ב-15° עם גומיה",
-        "newCount": 72,
+        "newCount": 71,
         "oldCount": 0
       },
       {
-        "a": 85,
-        "b": 369,
-        "nameA": "מתיחות - פלג גוף עליון",
-        "nameB": "דרגון סקוואט",
-        "newCount": 68,
+        "a": 25,
+        "b": 111,
+        "nameA": "חתירות ב-60°",
+        "nameB": "פשיטת מרפקים על הרצפה",
+        "newCount": 69,
         "oldCount": 0
       },
       {
@@ -1468,55 +1470,15 @@
         "b": 255,
         "nameA": "פשיטת מרפקים על הרצפה",
         "nameB": "שכיבות סמיכה לשכמות",
-        "newCount": 60,
-        "oldCount": 0
-      },
-      {
-        "a": 25,
-        "b": 111,
-        "nameA": "חתירות ב-60°",
-        "nameB": "פשיטת מרפקים על הרצפה",
-        "newCount": 57,
-        "oldCount": 0
-      },
-      {
-        "a": 44,
-        "b": 200,
-        "nameA": "שכיבות סמיכה",
-        "nameB": "היפ טראסט - מוגבה",
-        "newCount": 57,
-        "oldCount": 0
-      },
-      {
-        "a": 86,
-        "b": 111,
-        "nameA": "החזקה בשכיבות סמיכה ב-90°",
-        "nameB": "פשיטת מרפקים על הרצפה",
-        "newCount": 54,
-        "oldCount": 0
-      },
-      {
-        "a": 25,
-        "b": 291,
-        "nameA": "חתירות ב-60°",
-        "nameB": "מתח אוסטרלי ב-60°",
-        "newCount": 53,
+        "newCount": 68,
         "oldCount": 0
       },
       {
         "a": 85,
-        "b": 385,
+        "b": 365,
         "nameA": "מתיחות - פלג גוף עליון",
-        "nameB": "סקוואט בהונות",
-        "newCount": 52,
-        "oldCount": 0
-      },
-      {
-        "a": 54,
-        "b": 116,
-        "nameA": "עמידת פייק",
-        "nameB": "שכיבות סמיכה בפייק",
-        "newCount": 50,
+        "nameB": "דרגון סקוואט - ברך כפופה",
+        "newCount": 64,
         "oldCount": 0
       },
       {
@@ -1524,15 +1486,39 @@
         "b": 178,
         "nameA": "פשיטת מרפקים על הרצפה",
         "nameB": "לאנג׳ קדמי",
-        "newCount": 49,
+        "newCount": 63,
         "oldCount": 0
       },
       {
-        "a": 71,
-        "b": 116,
-        "nameA": "שכיבות סמיכה עם מרפקים צמודים",
-        "nameB": "שכיבות סמיכה בפייק",
-        "newCount": 49,
+        "a": 85,
+        "b": 369,
+        "nameA": "מתיחות - פלג גוף עליון",
+        "nameB": "דרגון סקוואט",
+        "newCount": 60,
+        "oldCount": 0
+      },
+      {
+        "a": 86,
+        "b": 111,
+        "nameA": "החזקה בשכיבות סמיכה ב-90°",
+        "nameB": "פשיטת מרפקים על הרצפה",
+        "newCount": 59,
+        "oldCount": 0
+      },
+      {
+        "a": 44,
+        "b": 200,
+        "nameA": "שכיבות סמיכה",
+        "nameB": "היפ טראסט - מוגבה",
+        "newCount": 58,
+        "oldCount": 0
+      },
+      {
+        "a": 22,
+        "b": 255,
+        "nameA": "שכיבות סמיכה ב-60°",
+        "nameB": "שכיבות סמיכה לשכמות",
+        "newCount": 53,
         "oldCount": 0
       },
       {
@@ -1540,14 +1526,60 @@
         "b": 379,
         "nameA": "שכיבות סמיכה",
         "nameB": "סיסי לאנג׳",
-        "newCount": 47,
+        "newCount": 52,
+        "oldCount": 0
+      },
+      {
+        "a": 71,
+        "b": 116,
+        "nameA": "שכיבות סמיכה עם מרפקים צמודים",
+        "nameB": "שכיבות סמיכה בפייק",
+        "newCount": 52,
+        "oldCount": 0
+      },
+      {
+        "a": 44,
+        "b": 86,
+        "nameA": "שכיבות סמיכה",
+        "nameB": "החזקה בשכיבות סמיכה ב-90°",
+        "newCount": 51,
+        "oldCount": 0
+      },
+      {
+        "a": 19,
+        "b": 25,
+        "nameA": "שכיבות סמיכה ב-75°",
+        "nameB": "חתירות ב-60°",
+        "newCount": 49,
         "oldCount": 0
       }
     ]
   },
   "blockPosition": {
-    "comparable": 118,
+    "comparable": 122,
     "flagged": [
+      {
+        "new_name": "היפ טראסט מוגבה רגל אחת",
+        "old_name": "היפ טראסט - מוגבה רגל אחת",
+        "oldWarmupPct": 0,
+        "oldMainPct": 100,
+        "newMainPct": 0,
+        "newWarmupPct": 100,
+        "oldN": 12,
+        "newN": 1,
+        "flag": "old=main, new=warmup"
+      },
+      {
+        "new_name": "סקוואט כנגד קיר",
+        "old_name": "ישיבת סקוואט כנגד קיר",
+        "oldWarmupPct": 0,
+        "oldMainPct": 100,
+        "newMainPct": 16.3,
+        "newWarmupPct": 83.8,
+        "oldN": 3,
+        "newN": 80,
+        "flag": "old=main, new=warmup"
+      },
       {
         "new_name": "עליות רגליים בשכיבה",
         "old_name": "עליות 2 רגליים בישיבת L",
@@ -1560,14 +1592,14 @@
         "flag": "old=main, new=warmup"
       },
       {
-        "new_name": "שרימפ סקוואט בלי ידיים טווח חלקי",
-        "old_name": "שרימפ סקוואט בלי ידיים - בית",
+        "new_name": "פינגווינים",
+        "old_name": "פינגווינים",
         "oldWarmupPct": 0,
         "oldMainPct": 100,
-        "newMainPct": 19.5,
-        "newWarmupPct": 80.5,
+        "newMainPct": 20,
+        "newWarmupPct": 80,
         "oldN": 1,
-        "newN": 41,
+        "newN": 5,
         "flag": "old=main, new=warmup"
       },
       {
@@ -1584,28 +1616,48 @@
     ]
   },
   "repRanges": {
-    "comparable": 97,
-    "twoXPlusCount": 49,
+    "comparable": 99,
+    "twoXPlusCount": 52,
     "twoXPlus": [
-      {
-        "new_name": "פלאנק עליות ונגיעות בכתפיים",
-        "old_name": "פלאנק עליות + נגיעות בכתפיים",
-        "oldMin": 12.5,
-        "oldMax": 30,
-        "newMedianReps": 2.5,
-        "ratio": 8.5,
-        "oldN": 18,
-        "newN": 10
-      },
       {
         "new_name": "פינגווינים",
         "old_name": "פינגווינים",
         "oldMin": 20,
         "oldMax": 40,
-        "newMedianReps": 4,
-        "ratio": 7.5,
+        "newMedianReps": 5,
+        "ratio": 6,
         "oldN": 1,
         "newN": 5
+      },
+      {
+        "new_name": "שכיבות סמיכה קשתים",
+        "old_name": "שכיבות סמיכה קשתים",
+        "oldMin": 6,
+        "oldMax": 12,
+        "newMedianReps": 1.5,
+        "ratio": 6,
+        "oldN": 8,
+        "newN": 12
+      },
+      {
+        "new_name": "פלאנק עליות ונגיעות בכתפיים",
+        "old_name": "פלאנק עליות + נגיעות בכתפיים",
+        "oldMin": 12.5,
+        "oldMax": 30,
+        "newMedianReps": 4,
+        "ratio": 5.31,
+        "oldN": 18,
+        "newN": 7
+      },
+      {
+        "new_name": "ישיבת L בתמיכת הרגליים",
+        "old_name": "ישיבת L בעזרת תמיכה של הרגליים",
+        "oldMin": 20,
+        "oldMax": 40,
+        "newMedianReps": 6,
+        "ratio": 5,
+        "oldN": 3,
+        "newN": 17
       },
       {
         "new_name": "סקוואט כנגד קיר",
@@ -1615,27 +1667,17 @@
         "newMedianReps": 4,
         "ratio": 5,
         "oldN": 3,
-        "newN": 107
+        "newN": 80
       },
       {
-        "new_name": "היפ טראסט מוגבה",
-        "old_name": "היפ טראסט - מוגבה",
-        "oldMin": 12,
-        "oldMax": 16,
-        "newMedianReps": 3,
+        "new_name": "חתירות יד אחת ב-45°",
+        "old_name": "חתירות יד אחת ב-45°",
+        "oldMin": 6,
+        "oldMax": 8,
+        "newMedianReps": 1.5,
         "ratio": 4.67,
-        "oldN": 9,
-        "newN": 81
-      },
-      {
-        "new_name": "הרמות רגליים בישיבת פייק/L",
-        "old_name": "עליות רגליים בישיבת פייק",
-        "oldMin": 8,
-        "oldMax": 10,
-        "newMedianReps": 2,
-        "ratio": 4.5,
-        "oldN": 1,
-        "newN": 5
+        "oldN": 11,
+        "newN": 2
       },
       {
         "new_name": "חתירות קשתים ב-30°",
@@ -1645,7 +1687,7 @@
         "newMedianReps": 2,
         "ratio": 4.5,
         "oldN": 5,
-        "newN": 21
+        "newN": 24
       },
       {
         "new_name": "דדליפט רומני בהתנגדות גומייה",
@@ -1655,17 +1697,7 @@
         "newMedianReps": 2.5,
         "ratio": 4.4,
         "oldN": 3,
-        "newN": 12
-      },
-      {
-        "new_name": "ישיבת L בתמיכת הרגליים",
-        "old_name": "ישיבת L בעזרת תמיכה של הרגליים",
-        "oldMin": 20,
-        "oldMax": 40,
-        "newMedianReps": 7,
-        "ratio": 4.29,
-        "oldN": 3,
-        "newN": 13
+        "newN": 4
       },
       {
         "new_name": "חתירות קשתים ב-45°",
@@ -1675,7 +1707,7 @@
         "newMedianReps": 2,
         "ratio": 4,
         "oldN": 9,
-        "newN": 23
+        "newN": 19
       },
       {
         "new_name": "מתח רחב",
@@ -1685,17 +1717,7 @@
         "newMedianReps": 2,
         "ratio": 4,
         "oldN": 5,
-        "newN": 52
-      },
-      {
-        "new_name": "פשיטת מרפקים למתקדמים",
-        "old_name": "פשיטת מרפקים למתקדמים",
-        "oldMin": 8,
-        "oldMax": 16,
-        "newMedianReps": 3,
-        "ratio": 4,
-        "oldN": 13,
-        "newN": 22
+        "newN": 55
       },
       {
         "new_name": "מקבילים על טבעות בעזרת גומיה דקה",
@@ -1705,7 +1727,7 @@
         "newMedianReps": 2,
         "ratio": 3.75,
         "oldN": 4,
-        "newN": 97
+        "newN": 113
       },
       {
         "new_name": "עמידת פייק",
@@ -1715,7 +1737,7 @@
         "newMedianReps": 6,
         "ratio": 3.75,
         "oldN": 10,
-        "newN": 98
+        "newN": 102
       },
       {
         "new_name": "שכיבות סמיכה קשתים בפישוק",
@@ -1725,17 +1747,7 @@
         "newMedianReps": 2,
         "ratio": 3.75,
         "oldN": 31,
-        "newN": 42
-      },
-      {
-        "new_name": "גוד מורנינג בישיבה",
-        "old_name": "גוד מורנינג בישיבה - בית",
-        "oldMin": 10,
-        "oldMax": 12,
-        "newMedianReps": 3,
-        "ratio": 3.67,
-        "oldN": 7,
-        "newN": 114
+        "newN": 26
       },
       {
         "new_name": "קפיצה על רגל אחת גובה ברך",
@@ -1745,27 +1757,17 @@
         "newMedianReps": 3,
         "ratio": 3.67,
         "oldN": 7,
-        "newN": 19
+        "newN": 21
       },
       {
-        "new_name": "שכיבות סמיכה קשתים",
-        "old_name": "שכיבות סמיכה קשתים",
-        "oldMin": 6,
-        "oldMax": 12,
-        "newMedianReps": 2.5,
-        "ratio": 3.6,
-        "oldN": 8,
-        "newN": 10
-      },
-      {
-        "new_name": "לאנג׳ עמוק",
-        "old_name": "לאנג' עמוק",
-        "oldMin": 8,
-        "oldMax": 12,
-        "newMedianReps": 3,
-        "ratio": 3.33,
-        "oldN": 7,
-        "newN": 85
+        "new_name": "היפ טראסט מוגבה",
+        "old_name": "היפ טראסט - מוגבה",
+        "oldMin": 12,
+        "oldMax": 16,
+        "newMedianReps": 4,
+        "ratio": 3.5,
+        "oldN": 9,
+        "newN": 77
       },
       {
         "new_name": "סקוואט בעזרת רצועות",
@@ -1775,7 +1777,7 @@
         "newMedianReps": 3,
         "ratio": 3.33,
         "oldN": 2,
-        "newN": 42
+        "newN": 40
       },
       {
         "new_name": "דדליפט רגל אחת",
@@ -1785,7 +1787,7 @@
         "newMedianReps": 4,
         "ratio": 3.13,
         "oldN": 14,
-        "newN": 95
+        "newN": 84
       },
       {
         "new_name": "חתירות באחיזה עמוקה",
@@ -1795,7 +1797,27 @@
         "newMedianReps": 4,
         "ratio": 3.13,
         "oldN": 2,
-        "newN": 43
+        "newN": 33
+      },
+      {
+        "new_name": "עליות רגליים בשכיבה",
+        "old_name": "עליות 2 רגליים בישיבת L",
+        "oldMin": 10,
+        "oldMax": 15,
+        "newMedianReps": 4,
+        "ratio": 3.13,
+        "oldN": 19,
+        "newN": 2
+      },
+      {
+        "new_name": "הרמות רגליים בישיבת פייק/L",
+        "old_name": "עליות רגליים בישיבת פייק",
+        "oldMin": 8,
+        "oldMax": 10,
+        "newMedianReps": 3,
+        "ratio": 3,
+        "oldN": 1,
+        "newN": 8
       },
       {
         "new_name": "מתח באחיזה מעורבת",
@@ -1805,7 +1827,7 @@
         "newMedianReps": 2,
         "ratio": 3,
         "oldN": 6,
-        "newN": 27
+        "newN": 25
       },
       {
         "new_name": "שכיבות סמיכה פייק",
@@ -1815,7 +1837,7 @@
         "newMedianReps": 2,
         "ratio": 3,
         "oldN": 11,
-        "newN": 186
+        "newN": 189
       },
       {
         "new_name": "שכיבות סמיכה רחבות",
@@ -1825,7 +1847,7 @@
         "newMedianReps": 6,
         "ratio": 3,
         "oldN": 8,
-        "newN": 67
+        "newN": 60
       },
       {
         "new_name": "עליות תאומים על מדרגה",
@@ -1835,37 +1857,17 @@
         "newMedianReps": 6,
         "ratio": 2.92,
         "oldN": 5,
-        "newN": 132
+        "newN": 137
       },
       {
-        "new_name": "עליות רגליים בשכיבה",
-        "old_name": "עליות 2 רגליים בישיבת L",
+        "new_name": "גוד מורנינג בישיבה",
+        "old_name": "גוד מורנינג בישיבה - בית",
         "oldMin": 10,
-        "oldMax": 15,
-        "newMedianReps": 4.5,
-        "ratio": 2.78,
-        "oldN": 19,
-        "newN": 2
-      },
-      {
-        "new_name": "עליות תאומים",
-        "old_name": "עליות תאומים",
-        "oldMin": 12,
-        "oldMax": 15,
-        "newMedianReps": 5,
-        "ratio": 2.7,
-        "oldN": 10,
-        "newN": 33
-      },
-      {
-        "new_name": "שכיבות סמיכה קשתים עם רצועות",
-        "old_name": "שכיבות סמיכה קשתים - רצועות",
-        "oldMin": 6,
-        "oldMax": 10,
-        "newMedianReps": 3,
-        "ratio": 2.67,
-        "oldN": 3,
-        "newN": 1
+        "oldMax": 12,
+        "newMedianReps": 4,
+        "ratio": 2.75,
+        "oldN": 7,
+        "newN": 94
       },
       {
         "new_name": "לאנג׳ בולגרי",
@@ -1875,7 +1877,7 @@
         "newMedianReps": 4,
         "ratio": 2.63,
         "oldN": 14,
-        "newN": 47
+        "newN": 42
       },
       {
         "new_name": "דדליפט רומני",
@@ -1885,7 +1887,27 @@
         "newMedianReps": 4,
         "ratio": 2.5,
         "oldN": 5,
-        "newN": 180
+        "newN": 162
+      },
+      {
+        "new_name": "לאנג׳ עמוק",
+        "old_name": "לאנג' עמוק",
+        "oldMin": 8,
+        "oldMax": 12,
+        "newMedianReps": 4,
+        "ratio": 2.5,
+        "oldN": 7,
+        "newN": 70
+      },
+      {
+        "new_name": "מתח צר",
+        "old_name": "מתח צר",
+        "oldMin": 4,
+        "oldMax": 6,
+        "newMedianReps": 2,
+        "ratio": 2.5,
+        "oldN": 7,
+        "newN": 59
       },
       {
         "new_name": "סקוואט",
@@ -1895,7 +1917,7 @@
         "newMedianReps": 4,
         "ratio": 2.5,
         "oldN": 5,
-        "newN": 140
+        "newN": 111
       },
       {
         "new_name": "סקוואט בהונות",
@@ -1905,7 +1927,17 @@
         "newMedianReps": 4,
         "ratio": 2.5,
         "oldN": 1,
-        "newN": 50
+        "newN": 41
+      },
+      {
+        "new_name": "סקוואט קפיצה",
+        "old_name": "סקוואט - קפיצה",
+        "oldMin": 8,
+        "oldMax": 12,
+        "newMedianReps": 4,
+        "ratio": 2.5,
+        "oldN": 9,
+        "newN": 119
       },
       {
         "new_name": "פשיטת מרפקים על ספסל",
@@ -1915,77 +1947,77 @@
         "newMedianReps": 5,
         "ratio": 2.5,
         "oldN": 25,
-        "newN": 105
-      },
-      {
-        "new_name": "כפיפות בטן",
-        "old_name": "כפיפות בטן",
-        "oldMin": 10,
-        "oldMax": 20,
-        "newMedianReps": 7,
-        "ratio": 2.14,
-        "oldN": 4,
-        "newN": 38
-      },
-      {
-        "new_name": "שולחן הפוך",
-        "old_name": "שולחן הפוך",
-        "oldMin": 10,
-        "oldMax": 15,
-        "newMedianReps": 6,
-        "ratio": 2.08,
-        "oldN": 4,
-        "newN": 14
-      },
-      {
-        "new_name": "שכיבות סמיכה ברכיים",
-        "old_name": "שכיבות סמיכה על הברכיים",
-        "oldMin": 10,
-        "oldMax": 15,
-        "newMedianReps": 6,
-        "ratio": 2.08,
-        "oldN": 14,
-        "newN": 204
+        "newN": 114
       },
       {
         "new_name": "שכיבות סמיכה לשכמות",
         "old_name": "שכיבות סמיכה לשכמות",
         "oldMin": 10,
         "oldMax": 15,
-        "newMedianReps": 6,
-        "ratio": 2.08,
+        "newMedianReps": 5,
+        "ratio": 2.5,
         "oldN": 15,
-        "newN": 295
+        "newN": 289
       },
       {
-        "new_name": "שכיבות סמיכה מרפקים צמודים",
-        "old_name": "שכיבות סמיכה עם מרפקים צמודים",
+        "new_name": "שכיבות סמיכה פייק גובה אגן",
+        "old_name": "שכיבות סמיכה פייק - גובה אגן",
+        "oldMin": 5,
+        "oldMax": 10,
+        "newMedianReps": 3,
+        "ratio": 2.5,
+        "oldN": 19,
+        "newN": 2
+      },
+      {
+        "new_name": "היפ טראסט מוגבה רגל אחת",
+        "old_name": "היפ טראסט - מוגבה רגל אחת",
         "oldMin": 10,
+        "oldMax": 14,
+        "newMedianReps": 5,
+        "ratio": 2.4,
+        "oldN": 12,
+        "newN": 1
+      },
+      {
+        "new_name": "פשיטת מרפקים למתקדמים",
+        "old_name": "פשיטת מרפקים למתקדמים",
+        "oldMin": 8,
+        "oldMax": 16,
+        "newMedianReps": 5,
+        "ratio": 2.4,
+        "oldN": 13,
+        "newN": 36
+      },
+      {
+        "new_name": "לאנג׳ אחורי",
+        "old_name": "לאנג׳ אחורי",
+        "oldMin": 8,
+        "oldMax": 10,
+        "newMedianReps": 4,
+        "ratio": 2.25,
+        "oldN": 9,
+        "newN": 122
+      },
+      {
+        "new_name": "לאנג׳ קדמי",
+        "old_name": "לאנג׳ קדמי",
+        "oldMin": 8,
+        "oldMax": 10,
+        "newMedianReps": 4,
+        "ratio": 2.25,
+        "oldN": 13,
+        "newN": 235
+      },
+      {
+        "new_name": "עליות תאומים",
+        "old_name": "עליות תאומים",
+        "oldMin": 12,
         "oldMax": 15,
         "newMedianReps": 6,
-        "ratio": 2.08,
-        "oldN": 11,
-        "newN": 270
-      },
-      {
-        "new_name": "כפיפת ירך על הגבהה",
-        "old_name": "כפיפת ירך - רגל על הגבה",
-        "oldMin": 10,
-        "oldMax": 12,
-        "newMedianReps": 5.5,
-        "ratio": 2,
-        "oldN": 11,
-        "newN": 8
-      },
-      {
-        "new_name": "היפ טראסט רגל אחת",
-        "old_name": "היפ טראסט - רגל אחת",
-        "oldMin": 8,
-        "oldMax": 12,
-        "newMedianReps": 5,
-        "ratio": 2,
-        "oldN": 9,
-        "newN": 152
+        "ratio": 2.25,
+        "oldN": 10,
+        "newN": 29
       }
     ]
   }
