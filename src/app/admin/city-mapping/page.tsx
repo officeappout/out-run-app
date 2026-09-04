@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
@@ -18,6 +19,7 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Plus,
 } from 'lucide-react';
 import {
   runCityMapping,
@@ -138,10 +140,18 @@ export default function CityMappingPage() {
   const [lonMax, setLonMax] = useState(0);
   const [bboxTouched, setBboxTouched] = useState(false);
   const [adminRelationId, setAdminRelationId] = useState('');
+  const [adminRelationIdTouched, setAdminRelationIdTouched] = useState(false);
   const [dryRun, setDryRun] = useState(true);
 
   const bboxValid = latMin < latMax && lonMin < lonMax;
   const adminRelationIdValid = /^\d+$/.test(adminRelationId.trim());
+
+  /** Stage C2: a real registered boundary is more accurate than a
+   *  margin-padded estimate from whatever route geometry happens to exist —
+   *  prefer it when present. */
+  function bestBboxFor(s: CityMappingSummary): CityMappingSummary['suggestedBbox'] {
+    return s.registeredCity?.bbox ?? s.suggestedBbox;
+  }
 
   const refreshSummary = useCallback(async (): Promise<CityMappingSummary | null> => {
     const trimmed = city.trim();
@@ -151,11 +161,15 @@ export default function CityMappingPage() {
     try {
       const s = await loadCityMappingSummary(trimmed);
       setSummary(s);
-      if (!bboxTouched && s.suggestedBbox) {
-        setLatMin(s.suggestedBbox.latMin);
-        setLonMin(s.suggestedBbox.lonMin);
-        setLatMax(s.suggestedBbox.latMax);
-        setLonMax(s.suggestedBbox.lonMax);
+      const bbox = bestBboxFor(s);
+      if (!bboxTouched && bbox) {
+        setLatMin(bbox.latMin);
+        setLonMin(bbox.lonMin);
+        setLatMax(bbox.latMax);
+        setLonMax(bbox.lonMax);
+      }
+      if (!adminRelationIdTouched && s.registeredCity?.adminRelationId != null) {
+        setAdminRelationId(String(s.registeredCity.adminRelationId));
       }
       return s;
     } catch (err) {
@@ -164,16 +178,22 @@ export default function CityMappingPage() {
     } finally {
       setSummaryLoading(false);
     }
-  }, [city, bboxTouched]);
+  }, [city, bboxTouched, adminRelationIdTouched]);
 
   const handleDeriveBbox = useCallback(async () => {
     const s = summary?.city === city.trim() ? summary : await refreshSummary();
-    if (s?.suggestedBbox) {
-      setLatMin(s.suggestedBbox.latMin);
-      setLonMin(s.suggestedBbox.lonMin);
-      setLatMax(s.suggestedBbox.latMax);
-      setLonMax(s.suggestedBbox.lonMax);
+    if (!s) return;
+    const bbox = bestBboxFor(s);
+    if (bbox) {
+      setLatMin(bbox.latMin);
+      setLonMin(bbox.lonMin);
+      setLatMax(bbox.latMax);
+      setLonMax(bbox.lonMax);
       setBboxTouched(false);
+    }
+    if (s.registeredCity?.adminRelationId != null) {
+      setAdminRelationId(String(s.registeredCity.adminRelationId));
+      setAdminRelationIdTouched(false);
     }
   }, [summary, city, refreshSummary]);
 
@@ -256,30 +276,44 @@ export default function CityMappingPage() {
 
       {/* City picker */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-3">
-        <label className="block">
-          <span className="text-xs font-black text-gray-500 uppercase tracking-widest">עיר</span>
-          <input
-            type="text"
-            list="city-options"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            onBlur={() => { if (city.trim()) refreshSummary(); }}
-            disabled={running}
-            placeholder="הקלד או בחר עיר..."
-            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-400 disabled:bg-gray-50"
-          />
-          <datalist id="city-options">
-            {cityOptions.map((c) => <option key={c} value={c} />)}
-          </datalist>
-        </label>
+        <div className="flex items-start gap-3">
+          <label className="block flex-1">
+            <span className="text-xs font-black text-gray-500 uppercase tracking-widest">עיר</span>
+            <input
+              type="text"
+              list="city-options"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              onBlur={() => { if (city.trim()) refreshSummary(); }}
+              disabled={running}
+              placeholder="הקלד או בחר עיר..."
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-400 disabled:bg-gray-50"
+            />
+            <datalist id="city-options">
+              {cityOptions.map((c) => <option key={c} value={c} />)}
+            </datalist>
+          </label>
+          <Link
+            href="/admin/city-mapping/add"
+            className="mt-5 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-black whitespace-nowrap transition-colors"
+          >
+            <Plus size={14} />
+            הוסף עיר חדשה
+          </Link>
+        </div>
         {cityOptionsLoading && <p className="text-xs text-gray-400">טוען רשימת ערים...</p>}
         {cityOptionsError && <p className="text-xs text-red-600">{cityOptionsError}</p>}
         {!cityOptionsLoading && cityOptions.length > 0 && (
-          <p className="text-xs text-gray-400">{cityOptions.length} ערים עם מסלולים קיימים ברשימה. אפשר גם להקליד עיר חדשה.</p>
+          <p className="text-xs text-gray-400">{cityOptions.length} ערים ברשימה (עם מסלולים קיימים ו/או רשומות). אפשר גם להקליד עיר חדשה, או ללחוץ &quot;הוסף עיר חדשה&quot; אם היא לא קיימת ב-OSM עדיין ברשימה שלכם.</p>
         )}
         {summary?.authorityId && (
-          <span className="inline-block text-[11px] font-mono bg-teal-50 text-teal-800 px-2 py-1 rounded" dir="ltr">
+          <span className="inline-block text-[11px] font-mono bg-teal-50 text-teal-800 px-2 py-1 rounded me-2" dir="ltr">
             authorityId: {summary.authorityId}
+          </span>
+        )}
+        {summary && summary.city === city.trim() && summary.registeredCity && (
+          <span className="inline-block text-[11px] font-bold bg-teal-50 text-teal-800 px-2 py-1 rounded">
+            נמצאה רשומת עיר (city_registrations/{summary.registeredCity.key}) — bbox {summary.registeredCity.adminRelationId != null ? 'ו-adminRelationId ' : ''}מולאו אוטומטית למטה
           </span>
         )}
       </div>
@@ -411,7 +445,7 @@ export default function CityMappingPage() {
               type="text"
               inputMode="numeric"
               value={adminRelationId}
-              onChange={(e) => setAdminRelationId(e.target.value)}
+              onChange={(e) => { setAdminRelationIdTouched(true); setAdminRelationId(e.target.value); }}
               disabled={running}
               placeholder="לדוגמה: 1387888"
               className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-400 disabled:bg-gray-50"

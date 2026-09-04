@@ -48,6 +48,15 @@ export const CityRegistrationSchema = z.object({
   label: z.string().min(1),
   areaWikidata: z.string().min(1).optional(),
   boundaryClipWikidata: z.string().min(1).optional(),
+  /** Additive field (Stage C2, 04.09.2026) — the raw numeric OSM
+   *  admin_level=8 relation id, a DIFFERENT identifier space than
+   *  boundaryClipWikidata's Wikidata QID (see this file's own header gap
+   *  note above). This is what the amenities-ingest pipeline step and the
+   *  Add-City map-confirm screen actually need — boundaryClipWikidata alone
+   *  is not enough to run the pipeline. Optional because older/manually-
+   *  created registrations may predate this field; the Add-City screen
+   *  always populates it going forward. */
+  adminRelationId: z.number().int().positive().optional(),
   extraBboxes: z.array(BboxSchema).optional(),
   bbox: BboxSchema,
   roundTripAnchors: z.array(RoundTripAnchorSchema).optional(),

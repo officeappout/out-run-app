@@ -38,14 +38,28 @@
  * - City picker: a distinct-value aggregation of `official_routes.city`,
  *   NOT geo-discovery-routes.ts's in-file REGIONS (11 keys, only 3 real
  *   distinct city labels — 9 are Ashkelon-neighbourhood discovery-batch
- *   sub-bboxes all sharing the label "אשקלון") and NOT `city_registrations`
- *   (confirmed zero writers anywhere in the repo — the future Add-City
- *   screen, Stage C2, doesn't exist yet, so it's not a usable source today).
- *   The client SDK has no `.select()` field-projection (unlike the Admin-SDK
- *   precedent in scripts/delete-ashkelon-routes.ts), so this is a plain
- *   unfiltered full-collection read + client-side dedup — acceptable at
- *   today's scale, the same "full scan is fine here" precedent already used
- *   for `authorities`/`parks` reads elsewhere in this codebase.
+ *   sub-bboxes all sharing the label "אשקלון"). The client SDK has no
+ *   `.select()` field-projection (unlike the Admin-SDK precedent in
+ *   scripts/delete-ashkelon-routes.ts), so this is a plain unfiltered
+ *   full-collection read + client-side dedup — acceptable at today's scale,
+ *   the same "full scan is fine here" precedent already used for
+ *   `authorities`/`parks` reads elsewhere in this codebase. As of Stage C2,
+ *   ALSO merges in `city_registrations.label` values, so a city registered
+ *   via Add-City but not yet mapped (0 routes) still shows up as a
+ *   suggestion here, not just as a free-typed string.
+ * - Stage C2 registration pre-fill: `city_registrations` is looked up by
+ *   `where('label','==',city)` — NOT by document id, since this collection
+ *   is keyed by an internal `key` slug (e.g. "haifa", matching
+ *   geo-discovery-routes.ts's `--region=` CLI argument), a completely
+ *   different identifier space than the Hebrew display-name `city` string
+ *   this whole module and the orchestrator use everywhere else. When a
+ *   registration is found, its `bbox`/`adminRelationId` are surfaced as
+ *   `registeredCity` for the page to use as pre-fill defaults — preferred
+ *   over the route-derived `suggestedBbox` since a real confirmed OSM
+ *   boundary is more accurate than a margin-padded estimate from whatever
+ *   route geometry happens to exist. This is what makes Stage C2's promise
+ *   real end-to-end: the operator types a relation id neither at
+ *   registration NOR at mapping time.
  *
  * Route `path` field note: Route.path's TS type says `[number,number][]`,
  * but every real working reader of this field in production
@@ -91,6 +105,11 @@ export interface CityMappingSummary {
 
   parks: { count: number | null };
 
+  /** Set only when a city_registrations doc exists with label === city
+   *  (Stage C2). Null for a city with no registration — the page falls
+   *  back to suggestedBbox / manual adminRelationId entry in that case. */
+  registeredCity: { key: string; bbox: { latMin: number; lonMin: number; latMax: number; lonMax: number }; adminRelationId: number | null } | null;
+
   lighting: {
     totalRoutes: number;
     computedCount: number;
@@ -104,24 +123,47 @@ export interface CityMappingSummary {
   adjacency: { edgeCount: number };
 }
 
-/** Distinct `city` values across every `official_routes` doc — the picker's
- *  data source. Full unfiltered scan (no client-SDK field projection). */
+/** Distinct `city` values across every `official_routes` doc, merged with
+ *  every `city_registrations.label` (Stage C2) — the picker's data source.
+ *  Full unfiltered scans (no client-SDK field projection). */
 export async function loadDistinctRouteCities(): Promise<string[]> {
-  const snap = await getDocs(collection(db, 'official_routes'));
+  const [routesSnap, registrationsSnap] = await Promise.all([
+    getDocs(collection(db, 'official_routes')),
+    getDocs(collection(db, 'city_registrations')),
+  ]);
   const cities = new Set<string>();
-  for (const d of snap.docs) {
+  for (const d of routesSnap.docs) {
     const city = d.data().city;
     if (typeof city === 'string' && city.trim()) cities.add(city);
+  }
+  for (const d of registrationsSnap.docs) {
+    const label = d.data().label;
+    if (typeof label === 'string' && label.trim()) cities.add(label);
   }
   return Array.from(cities).sort((a, b) => a.localeCompare(b, 'he'));
 }
 
 export async function loadCityMappingSummary(city: string): Promise<CityMappingSummary> {
-  const [authoritySnap, routesSnap, amenitiesSnap] = await Promise.all([
+  const [authoritySnap, routesSnap, amenitiesSnap, registrationsSnap] = await Promise.all([
     getDocs(collection(db, 'authorities')),
     getDocs(query(collection(db, 'official_routes'), where('city', '==', city))),
     getDocs(query(collection(db, 'osm_amenities'), where('city', '==', city))),
+    getDocs(query(collection(db, 'city_registrations'), where('label', '==', city))),
   ]);
+
+  // ── Stage C2 registration lookup — by label, not doc id (see header note) ──
+  let registeredCity: CityMappingSummary['registeredCity'] = null;
+  const registrationDoc = registrationsSnap.docs[0];
+  if (registrationDoc) {
+    const data = registrationDoc.data();
+    if (data.bbox) {
+      registeredCity = {
+        key: registrationDoc.id,
+        bbox: data.bbox,
+        adminRelationId: typeof data.adminRelationId === 'number' ? data.adminRelationId : null,
+      };
+    }
+  }
 
   // ── authorityId resolution (shared by parks) ──
   const authorities = authoritySnap.docs.map((d) => ({
@@ -204,6 +246,7 @@ export async function loadCityMappingSummary(city: string): Promise<CityMappingS
     bboxSourceRouteCount: routesSnap.docs.filter((d) => Array.isArray(d.data().path) && d.data().path.length > 0).length,
     amenities: { byCategory, total: amenitiesTotal, rejectedCount },
     parks: { count: parksCount },
+    registeredCity,
     lighting: {
       totalRoutes,
       computedCount,
