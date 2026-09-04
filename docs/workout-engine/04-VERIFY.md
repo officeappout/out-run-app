@@ -185,18 +185,70 @@ its user-facing name. This reads like the wrong half of a duplicate pair got del
 Not fixed here (read-only scope) — flagged for David's own cleanup decision, exactly
 like the other Part 1c junk records.
 
-**2. The `draft` field is not what it might look like, and is worth knowing about.**
+**2. The `draft` field — investigated (2026-09-04 follow-up). Definitive answer: it
+has ZERO effect on exercise selection. Stop worrying about it.**
 
-Investigated because bird dog's raw document had `draft: true`, which stood out. Across
-the full catalog: 307 exercises have `draft` as an **object** (`{data: {...a full
-snapshot of the exercise...}, savedAt: <timestamp>}` — reads like an editor autosave
-buffer, not a publish-state flag), 51 have `draft` as a **literal `true`**, and 14 have
-no `draft` field at all. This wasn't part of any prior audit and its exact semantics
-weren't investigated further (out of scope for this check) — but it means "is this
-exercise live" may have a dimension beyond everything audited so far (level, role/tag,
-execution methods, location coverage). Surfaced here rather than silently noticed and
-dropped; not chased further since it's outside what this verification pass was asked
-to check.
+Traced every code path that reads or writes `draft` on an exercise document:
+
+- `src/features/content/exercises/core/exercise.service.ts:876-981` — the entire
+  `draft` mechanism. `saveExerciseDraft`'s own doc comment (line 877): *"This does NOT
+  affect the live exercise data."* `getExerciseDraft`, `publishExerciseDraft`,
+  `discardExerciseDraft`, `hasDraft` — all four operate on the raw Firestore doc via
+  direct `getDoc`/`updateDoc`, exclusively from the **exercise editor UI's autosave
+  feature** (draft a change → publish or discard it). Nothing here touches workout
+  generation.
+- `src/features/content/exercises/services/exercise-mapping.utils.ts:803-926` —
+  `normalizeExercise`, the single function every exercise read path funnels through
+  (`getAllExercises`, `getAllExercisesNoOrder`, single-doc fetches — `exercise.service.ts:76-159`).
+  It builds the in-memory `Exercise` object field-by-field, explicitly enumerated.
+  `draft` is not one of the fields copied over — **it's dropped at normalization**.
+  The `Exercise` object the entire workout engine operates on never carries it at all.
+- `getAllExercises()` / `getAllExercisesNoOrder()` (`exercise.service.ts:76-110`) —
+  both do an unconditional `collection(...)` read (the first with `orderBy('name')`,
+  the second without). Neither has a `where('draft', ...)` clause or any other
+  draft-based filter. Every document is read regardless of its `draft` shape.
+  Confirmed via a codebase-wide grep for `draft` in `src/` — no site anywhere checks
+  `data.draft === true`, `!ex.draft`, or any other boolean/truthy read of the field
+  outside the four editor-autosave functions above.
+
+**On the 51 docs with `draft` as a literal `true`** (vs. 307 as the autosave object,
+14 absent): even inside the editor's own autosave code, this shape is inert.
+`getExerciseDraft`'s guard is `if (!data.draft || !data.draft.data) return null` —
+for `draft: true`, `data.draft.data` evaluates to `undefined` (property access on a
+boolean, not a throw), so the guard treats it exactly like "no draft present." These
+51 don't even behave as an active draft flag within the one system that reads `draft`
+at all — most likely stale data from before the `{data, savedAt}` object shape became
+the convention, not a live signal of anything.
+
+**Conclusion: `draft` is purely an exercise-editor autosave buffer, fully decoupled
+from the workout-selection pipeline. It does not gate, hide, or affect which
+exercises reach a workout, the coverage matrix, or the `/admin/unreachable-exercises`
+screen.** No `DRAFT_UNPUBLISHED` reason was added to that screen — there is nothing
+for it to detect. bird dog's `draft: true` (§2 above) is unrelated to why it's
+unreachable; that's driven entirely by its missing `movementGroup`/level data, already
+covered by the existing reasons.
+
+---
+
+## §6 — The 2 out-of-scope test failures: confirmed pre-existing on `main`, not a regression
+
+`03-CHANGES.md`'s "Test verification" section flagged 2 full-repo `npm test` failures
+outside this branch's scope (`logMultiCategoryWorkout.smoke.test.ts`,
+`getWindowStart.test.ts`) as "strongly believed pre-existing," based on `git log
+main..HEAD` showing zero commits touching either area. Confirmed directly (2026-09-04
+follow-up): ran both files with `vitest` against a separate, clean worktree checked out
+at `main`'s exact current tip (`ae2c3f6c`, `git status` clean beforehand) — **both fail
+identically on `main` itself**, same assertions, same line numbers:
+
+- `getWindowStart.test.ts:70` — `expect(weekly).toBeGreaterThanOrEqual(monthly)` fails
+  (`1788123600000` not `>=` `1788210000000`) — confirms the date/wall-clock-boundary
+  dependency suspected earlier.
+- `logMultiCategoryWorkout.smoke.test.ts:90` — `expect(...currentStreak).toBe(1)`
+  receives `0`.
+
+**Not a regression. Pre-existing on `main`, unrelated to this branch. No action taken
+— documented and left alone**, per instruction: fail-on-main-too means "not connected
+to this branch, document and move on," not "stop and report."
 
 ---
 

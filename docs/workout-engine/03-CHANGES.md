@@ -206,11 +206,12 @@ shapes across the catalog (§5.2) — both flagged for David's attention, neithe
     monthly window-ordering assertion, using real wall-clock time, not a fixed mocked
     date — reads as calendar-boundary-dependent.
   
-  Verified neither file (nor anything under `src/features/activity/` or
-  `src/features/arena/`) appears in `git log main..HEAD` for this branch — this branch
-  contains zero commits touching either area. Not investigated further or fixed — out
-  of scope for a level-integrity verification task, flagged here so it isn't mistaken
-  for something this branch broke.
+  **Confirmed pre-existing, not a regression** (2026-09-04 follow-up, see
+  `04-VERIFY.md` §6): beyond the `git log main..HEAD` check (empty for both paths), ran
+  both files directly against a separate worktree checked out at `main`'s exact current
+  tip — both fail identically there too, same assertions, same lines. Not fixed — out
+  of scope for a level-integrity task — but definitively unrelated to this branch, not
+  merely assumed to be.
 
 ---
 
@@ -227,7 +228,9 @@ shapes across the catalog (§5.2) — both flagged for David's attention, neithe
 5. Resistance-band exercises — intentionally frozen, still showing on the admin screen.
 6. **New: the deleted/duplicate pistol-squat pair (`04-VERIFY.md` §5.1)** — worth a
    cleanup pass whenever convenient.
-7. **New: the `draft` field's two shapes (`04-VERIFY.md` §5.2)** — worth understanding
-   before it's assumed to mean any one thing; not investigated beyond noticing it.
+7. ~~The `draft` field's two shapes~~ — **resolved, 2026-09-04** (`04-VERIFY.md` §5.2):
+   traced end-to-end, confirmed to be purely an exercise-editor autosave buffer, dropped
+   during normalization, never read by workout selection. No effect on any exercise's
+   reachability. No `DRAFT_UNPUBLISHED` reason was needed on `/admin/unreachable-exercises`.
 
 None of these require code changes — they're data/content decisions for David.
