@@ -75,6 +75,44 @@ const BALANCED_CLUSTER_MAX_MAIN_DIVERSE  = 4;
 const BALANCED_CLUSTER_MAX_SETS          = 4;
 const BALANCED_DIVERSITY_THRESHOLD       = 3; // distinct domains needed to unlock the diverse cap
 
+// Core set-count lock (docs/workout-engine/05-BENCHMARK.md §3.3): David's old
+// system always gave a core/abs main exercise exactly 2 rounds — never a
+// range. No such rule existed anywhere in this pipeline; core exercises
+// silently inherited the generic difficulty-based volume table (D1=3, D2=3-4,
+// D3=4-5 sets — DIFFICULTY_VOLUME in workout-budgeting.utils.ts) same as any
+// push/pull/legs exercise, then got trimmed/inflated by the same
+// domain-blind budget caps/rebalance passes below. See isCoreMainExercise
+// and its two call sites (Step 1c, Step 5j) for the fix.
+//
+// KNOWN RESIDUAL (measured 2026-09-04, not chased further — out of scope for
+// this fix's ask): two OTHER injection paths still bypass this lock because
+// they add exercises directly to an already-generated GeneratedWorkout,
+// never passing through THIS distribute() call at all:
+//   1. applyEssentialGearFilter's naked-backfill in trio-modifiers.service.ts
+//      has its own equivalent lock now (same CORE_FIXED_SETS value, applied
+//      independently there) for location=home — but NOT yet for gym/park,
+//      where a different backfill branch inside applyFlowRegression (bolt 1
+//      / Flow-Regression) still stamps a core exercise with the generic
+//      value, unidentified beyond this cluster (measured: 16/631 core main
+//      exercises across the full benchmark matrix).
+//   2. A pyramid-protocol workout's NON-target core exercises (bolt 3,
+//      appliedProtocol='pyramid') sometimes carry 3-4 sets instead of 2 —
+//      the pyramid target itself is correctly exempt (pyramidSequence
+//      check above), but a sibling core exercise in the same workout isn't
+//      always re-locked (measured: 43/631).
+// Combined residual: 59/631 (9.3%) — conformance went from 46.7% (before
+// this fix) to 90.7% (after), not 100%. Documented rather than chased
+// further; a follow-up would need to trace protocol-injection's own
+// post-distribute exercise additions (WorkoutGenerator.ts Step 5b onward)
+// the same way this fix traced the naked-backfill path.
+const CORE_FIXED_SETS = 2;
+
+/** True for a main-slot exercise whose movementGroup resolves to the 'core' logical domain. */
+function isCoreMainExercise(ex: { exercise: { movementGroup?: string } }): boolean {
+  const mg = ex.exercise.movementGroup;
+  return !!mg && MG_TO_DOMAIN[mg] === 'core';
+}
+
 // ============================================================================
 // RESULT TYPE
 // ============================================================================
@@ -156,6 +194,25 @@ export class BudgetDistributor {
       log.push(`pyramid_pin: locked ${pyramidsPinned} pyramid exercise(s) to sequence length`);
     }
 
+    // ── Step 1c: Core set-count lock ─────────────────────────────────────────
+    // See CORE_FIXED_SETS / isCoreMainExercise above. Pyramid exercises are
+    // exempt — pyramidSequence is the stronger, structural contract (a core
+    // exercise isn't currently a pyramid target, but the check is defensive,
+    // matching Step 1b's own ordering).
+    let coreLocked = 0;
+    for (const ex of exercises) {
+      if (ex.pyramidSequence && ex.pyramidSequence.length > 0) continue;
+      if (isCoreMainExercise(ex) && ex.sets !== CORE_FIXED_SETS) {
+        const was = ex.sets;
+        ex.sets = CORE_FIXED_SETS;
+        ex.reasoning.push(`core_pin:sets_locked=${CORE_FIXED_SETS}(was=${was})`);
+        coreLocked++;
+      }
+    }
+    if (coreLocked > 0) {
+      log.push(`core_pin: locked ${coreLocked} core exercise(s) to ${CORE_FIXED_SETS} sets`);
+    }
+
     // ── Step 2: Compute safe denominator ────────────────────────────────────
     // For single-domain sessions (Push-only, Pull-only, Legs-only) the domain
     // count is 1, which would make applySmartSetCap spread the cap over 1 slot
@@ -223,6 +280,27 @@ export class BudgetDistributor {
     // Prevents the live "7 exercises × 2 sets" fragmentation bug by clustering
     // the daily set budget into 3-4-set hypertrophy blocks.
     exercises = this._balancedClusterCap(exercises, context, difficulty, constraints, log);
+
+    // ── Step 5j: Re-assert core lock ─────────────────────────────────────────
+    // Steps 3-5i (caps, rebalance, cluster passes) have no domain awareness
+    // and can trim or inflate ANY main exercise's sets, including the Step 1c
+    // core lock (_rebalanceSets in particular targets any elite/hard/match
+    // TIER exercise regardless of domain). Re-apply unconditionally here so
+    // "core = always 2 sets" holds no matter what ran in between — one
+    // guaranteed checkpoint instead of threading a core exception through
+    // every helper above (mirrors the effect of pyramid's immunity, which is
+    // instead baked directly into _pyramidAwareCap).
+    let coreRelocked = 0;
+    for (const ex of exercises) {
+      if (ex.pyramidSequence && ex.pyramidSequence.length > 0) continue;
+      if (isCoreMainExercise(ex) && ex.sets !== CORE_FIXED_SETS) {
+        ex.sets = CORE_FIXED_SETS;
+        coreRelocked++;
+      }
+    }
+    if (coreRelocked > 0) {
+      log.push(`core_pin_reassert: ${coreRelocked} core exercise(s) reset to ${CORE_FIXED_SETS} sets after caps/rebalance`);
+    }
 
     const totalSets = exercises.reduce((s, e) => s + e.sets, 0);
     log.push(`distributor_complete: totalSets=${totalSets}`);
