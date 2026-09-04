@@ -15,12 +15,13 @@ import { isRunningBranchCompleted, bridgeRunningOnboarding } from './running-onb
 import { loadAssessmentContext } from './branching-logic.service';
 import { mergeDayItems } from '@/features/schedule/services/mergeDayItems';
 import { generatePlan } from '@/features/workout-engine/core/services/running-engine.service';
+import { flattenPlanToSchedule } from '@/features/workout-engine/core/services/plan-generator.service';
 import {
   getPaceMapConfig,
   getRunWorkoutTemplates,
 } from '@/features/workout-engine/core/services/running-admin.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '@/features/workout-engine/core/config/pace-map-config';
-import type { PaceProfile, WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
+import type { PaceProfile } from '@/features/workout-engine/core/types/running.types';
 import {
   getProgramPathFromStorage,
   getMuscleFocusFromStorage,
@@ -1769,38 +1770,17 @@ export async function syncOnboardingToFirestore(
                 workoutTemplates,
               );
 
-              // Build category lookup from workout templates (templateId → category + name)
-              const templateCategoryMap = new Map<string, { category?: WorkoutCategory; name: string }>();
-              for (const tpl of workoutTemplates) {
-                templateCategoryMap.set(tpl.id, { category: tpl.category, name: tpl.name });
-              }
-
-              // Flatten plan weeks → ActiveRunningProgram.schedule entries
-              const schedule: Array<{
-                week: number;
-                day: number;
-                workoutId: string;
-                status: 'pending';
-                category?: WorkoutCategory;
-                workoutName?: string;
-              }> = [];
-
-              for (const planWeek of planResult.plan.weeks) {
-                planWeek.workouts.forEach((workout, dayIdx) => {
-                  // workout.id = `${templateId}_w${weekNumber}` — extract templateId
-                  const templateId = workout.id.replace(/_w\d+$/, '');
-                  const tplMeta = templateCategoryMap.get(templateId);
-
-                  schedule.push({
-                    week: planWeek.weekNumber,
-                    day: dayIdx + 1,
-                    workoutId: workout.id,
-                    status: 'pending',
-                    category: tplMeta?.category,
-                    workoutName: tplMeta?.name ?? workout.title,
-                  });
-                });
-              }
+              // Flatten plan weeks → ActiveRunningProgram.schedule entries.
+              // 05.09.2026: this used to be a hand-duplicated copy of
+              // flattenPlanToSchedule's own logic (predating its extraction
+              // to plan-generator.service.ts) — never redirected back to
+              // the shared function once it existed, so this call site
+              // never picked up isQualityWorkout/priority when those were
+              // added there. Verified field-by-field identical otherwise
+              // (same templateCategoryMap construction, same workoutTemplates
+              // input, same category/workoutName resolution) before
+              // replacing — not assumed.
+              const schedule = flattenPlanToSchedule(planResult, workoutTemplates);
 
               updateData.running.activeProgram = {
                 programId: bridge.programTemplate.id,

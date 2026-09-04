@@ -134,6 +134,8 @@ vi.mock('@/features/workout-engine/core/services/running-engine.service', async 
 });
 
 import { syncOnboardingToFirestore } from '../onboarding-sync.service';
+import { generatePlan } from '@/features/workout-engine/core/services/running-engine.service';
+import { getRunWorkoutTemplates } from '@/features/workout-engine/core/services/running-admin.service';
 
 function stubBrowserStorage(values: Record<string, string> = {}) {
   const store = new Map<string, string>(Object.entries(values));
@@ -570,5 +572,74 @@ describe('syncOnboardingToFirestore — primaryTrack/dashboardMode not overwritt
     // comment describes.
     expect(written.lifestyle.primaryTrack).toBe('run');
     expect(written.lifestyle.dashboardMode).toBe('RUNNING');
+  });
+});
+
+describe('syncOnboardingToFirestore — 05.09.2026: onboarding uses the shared plan flattener', () => {
+  // Commit 890c03c7 added isQualityWorkout/priority to flattenPlanToSchedule's
+  // output. onboarding-sync.service.ts had its own hand-duplicated copy of that
+  // same flattening logic (predating the function's own extraction) that was
+  // never redirected to call it — so a user who onboards through this file
+  // never received the two new fields, even though the shared function already
+  // produces them. This block proves the redirect: the two mocked deps below
+  // (getRunWorkoutTemplates, generatePlan) are overridden per-test with
+  // explicit, non-default priority/isQualityWorkout values specifically so a
+  // passing assertion means the real value flowed through — not just that an
+  // absent field read back as undefined either way.
+  it('a new running user receives isQualityWorkout/priority in the saved schedule', async () => {
+    vi.mocked(getRunWorkoutTemplates).mockResolvedValueOnce([
+      { id: 'tpl_easy_1', category: 'easy', name: 'Easy Run', targetProfileTypes: [2], priority: 1 } as any,
+    ]);
+    vi.mocked(generatePlan).mockReturnValueOnce({
+      plan: {
+        weeks: [{ weekNumber: 1, workouts: [{ id: 'tpl_easy_1_w1', title: 'Easy Run', isQualityWorkout: true } as any] }],
+      },
+      warnings: [],
+    } as any);
+    stubBrowserStorage({
+      onboarding_running_answers: JSON.stringify({ goalPath: 'start_running', targetDistance: '5k' }),
+    });
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      runningWeeklyFrequency: 3,
+      runningScheduleDays: ['א', 'ג', 'ה'],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    const entry = written.running.activeProgram.schedule[0];
+
+    expect(entry.isQualityWorkout).toBe(true);
+    expect(entry.priority).toBe(1);
+  });
+
+  it('every other schedule field the old inline flatten wrote is still written', async () => {
+    // Deliberately the default mocks (no per-test override) — proves this is a
+    // pure regression guarantee, not something the fix newly enabled.
+    stubBrowserStorage({
+      onboarding_running_answers: JSON.stringify({ goalPath: 'start_running', targetDistance: '5k' }),
+    });
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      runningWeeklyFrequency: 3,
+      runningScheduleDays: ['א', 'ג', 'ה'],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+
+    expect(written.running.activeProgram).toMatchObject({
+      programId: expect.any(String),
+      startDate: expect.any(String),
+      currentWeek: 1,
+    });
+    expect(written.running.activeProgram.schedule[0]).toMatchObject({
+      week: 1,
+      day: 1,
+      workoutId: 'tpl_easy_1_w1',
+      status: 'pending',
+      category: 'easy',
+      workoutName: 'Easy Run',
+    });
   });
 });
