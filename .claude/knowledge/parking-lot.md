@@ -416,3 +416,16 @@ Traced and confirmed structural, three independent layers all missing the same c
 Net effect: picking lower-body silently and permanently resolves to `UPPER_BODY`, every time, at every layer.
 
 **Resolved by the ownership principle (`hybrid-display-decisions.md`'s "הכרעה סופית," 04.09.2026), not a point-fix.** The schedule/drawer only offers programs the user has actually opened (filled in, assessed, unlocked) — a program that doesn't exist yet is simply never offered, no `UPPER_BODY` substitution needed. If/when a lower-body program is built, it appears to its owner on its own. Not fixed here as a standalone patch to `ProgramId`/`resolveScheduleSeed` — logged as the concrete bug the ownership principle exists to close.
+
+---
+
+## `RollingAgenda`'s `isTrainingDay` and `MonthlyCalendarGrid`'s `isTraining` answer "any training day," not "running day" — not wired to the shared resolver
+**Opened:** 05.09.2026 · **Source:** David, checked before wiring `resolveRunningDayState` (`src/lib/running-day-resolution.ts`) into the two remaining agenda consumers found the previous round.
+
+`RollingAgenda.tsx:95-101`'s `isTrainingDay(iso, template, runScheduleDays)` returns `true` if **either** `runScheduleDays?.includes(letter)` (running) **or** `template[hLetter]?.length > 0` (the strength `recurringTemplate`) — an OR across both domains, feeding `dragListener` eligibility (`:636`). `MonthlyCalendarGrid.tsx:163`'s `isTraining = scheduleDays?.includes(dayLetter)` is fed by `home/page.tsx:2488-2490`'s `userScheduleDays` — itself a mode-dependent merge (`running.scheduleDays` only when in running mode and non-empty, else `lifestyle.scheduleDays`) — same broader shape, different mechanism.
+
+**Not the same question `resolveRunningDayState` answers**, and not wired to it — connecting a broader concept to a narrower function would be worse than the existing duplication (per the standing instruction this session: "חיבור של מושג לא מתאים לפונקציה גרוע יותר מהשארת הכפילות").
+
+**Live consequence for the exact profile shape this whole fix chain is about** (empty `running.scheduleDays`, real `activeProgram.schedule`): running days are **not draggable** in `RollingAgenda` and **not marked** in `MonthlyCalendarGrid`'s month view — even after the drawer/agenda fixes already shipped (`AgendaDayCard`'s day-cards now correctly show the workout; these two checks are separate call sites that don't consume `AgendaDayCard`'s resolution).
+
+**Fix direction, not built:** compose, don't connect directly — `hasStrengthTemplateForDay(...) || resolveRunningDayState(...).isRunDay`, once the shared resolver is mature (post-`AgendaDayCard` device verification). A union check at the call site, not a new capability inside `resolveRunningDayState` itself — that function should stay answering exactly "is this a running day," not grow a strength-awareness branch of its own.
