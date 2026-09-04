@@ -859,18 +859,29 @@ export default function HomePage() {
   // only): shared by the top activity strip and the post-workout carousel gates below, both
   // of which describe real TODAY regardless of which day selectedDate points at.
   const isSelectedDateToday = selectedDate === todayISO;
-  const todayGoalEntry = useMemo(
-    () => profile?.progression?.goalHistory?.find((entry) => entry.date === todayISO) ?? null,
-    [profile?.progression?.goalHistory, todayISO],
-  );
-  const todayStepGoalMet = !!todayGoalEntry?.stepGoalMet;
+  // Real-steps-connect follow-up (04.09.2026, Fix 1): the previous source here
+  // (todayGoalEntry?.stepGoalMet, profile.progression.goalHistory) is dead in practice —
+  // that field is only ever computed by smart-goals.service.ts's recordDailyActivity, which
+  // has zero callers anywhere in the codebase (confirmed via grep). Replaced with a live
+  // computation off todayActivity (useDailyActivity()'s own live subscription, destructured
+  // above) — the same real source useStepDeficitRoute.ts/buildStepContext already trust.
+  // healthConnected!==false guards against a never-connected user's fabricated stepsGoal
+  // default reading as "goal met" (same gate build-step-context.ts's own healthConnected
+  // param uses). Deliberately does NOT touch pastDayStepGoalCard/pastDayGoalEntry below (a
+  // separate, already-accepted limitation — no live source exists for a past day) or
+  // smart-goals.service.ts/recordDailyActivity/the adaptive progression-goal subsystem —
+  // confirmed dead, deliberately left alone.
+  const todayStepGoalMet = healthConnected !== false
+    && !!todayActivity
+    && (todayActivity.stepsGoal ?? 0) > 0
+    && todayActivity.steps >= todayActivity.stepsGoal;
   const todayStepGoalCard: TodayActivityCardData | null = todayStepGoalMet
     ? {
         key: `stepgoal-${todayISO}`,
         category: 'steps',
         title: 'יעד הצעדים הושג',
         minutes: 0,
-        stepsAchieved: todayGoalEntry?.stepsAchieved,
+        stepsAchieved: todayActivity?.steps,
         streak: 1,
         workoutType: 'walking',
       }
