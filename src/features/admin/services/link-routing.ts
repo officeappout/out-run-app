@@ -62,6 +62,16 @@ export function resolveDestinationUrl(
 // ─── Android install referrer ───────────────────────────────────────────────
 
 /**
+ * Play Install Referrer has a real length limit on the decoded referrer
+ * string (what the app receives via `ReferrerDetails.getInstallReferrer()`
+ * — i.e. the RAW value below, before `appendAndroidReferrer`'s extra
+ * encoding pass for embedding it in our redirect URL). Checked against
+ * the raw value on purpose — that's the actual payload Google's API
+ * constrains, not an artifact of how we happen to transport it.
+ */
+export const MAX_ANDROID_REFERRER_LENGTH = 500;
+
+/**
  * Builds the RAW (single-encoded-per-field, not yet embedded in a URL)
  * referrer payload Google Play forwards to the app on first open via the
  * Play Install Referrer API. Deliberately returns the unencoded structure
@@ -72,20 +82,31 @@ export function resolveDestinationUrl(
  * double-encoding is the standard, expected shape for a referrer string
  * nested inside another URL's query string — do not pre-encode further
  * here, or the value doubly-escapes on the way out.
+ *
+ * Deliberately `link_id` + `click_id` ONLY — no utm_source/utm_campaign.
+ * `link_id` alone already identifies source/campaign/medium/location in
+ * our own `marketing_links` doc; re-sending them through Google adds
+ * nothing and, for non-ASCII values (e.g. a Hebrew utm_source), each
+ * character costs ~12 encoded chars against the length limit above for
+ * no benefit.
  */
 export function buildAndroidReferrerRaw(params: {
   linkId: string;
   clickId: string;
-  utmSource: string | null;
-  utmCampaign: string | null;
 }): string {
-  const parts = [
+  const raw = [
     `link_id=${encodeURIComponent(params.linkId)}`,
     `click_id=${encodeURIComponent(params.clickId)}`,
-  ];
-  if (params.utmSource) parts.push(`utm_source=${encodeURIComponent(params.utmSource)}`);
-  if (params.utmCampaign) parts.push(`utm_campaign=${encodeURIComponent(params.utmCampaign)}`);
-  return parts.join('&');
+  ].join('&');
+
+  if (raw.length > MAX_ANDROID_REFERRER_LENGTH) {
+    console.error(
+      `[link-routing] Android referrer string exceeds ${MAX_ANDROID_REFERRER_LENGTH} chars ` +
+      `(${raw.length}) for link_id=${params.linkId} — Google Play may truncate or reject it.`,
+    );
+  }
+
+  return raw;
 }
 
 /**
