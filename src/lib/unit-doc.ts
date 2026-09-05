@@ -10,7 +10,20 @@
  * different import per SDK) — callers add that field themselves.
  */
 
+// Cloud Function triggers (Eventarc) silently never fire for a document
+// whose ID contains non-ASCII characters — discovered 05.09.2026 when 5 real
+// bn_u_<hebrew-slug> battalions from Task 1's import were invisible in
+// search with zero errors anywhere, found only by an end-to-end production
+// test. buildUnitDoc is the one chokepoint both write paths (Task 1's
+// import script, Task 2's approval action) already call — this guard here
+// means neither path can ever write a bad id again, regardless of what
+// produced it. Use src/lib/unit-id.ts's computeUnitId() to generate one.
+const ASCII_UNIT_ID = /^[a-zA-Z0-9_-]+$/;
+
 export interface UnitDocInput {
+  /** The literal Firestore doc ID this data will be written under — checked
+   *  here, not stored as a field (Firestore doesn't store its own doc id). */
+  unitId: string;
   name: string;
   /** Real Firestore doc ID of the parent tenants/{orgId}/units/{parentUnitId}
    *  doc, or null when this unit sits directly under the brigade root. */
@@ -43,6 +56,12 @@ export interface UnitDocData {
  * `undefined` values throw, so omit rather than write null/undefined).
  */
 export function buildUnitDoc(input: UnitDocInput): UnitDocData {
+  if (!ASCII_UNIT_ID.test(input.unitId)) {
+    throw new Error(
+      `buildUnitDoc: unitId "${input.unitId}" contains non-ASCII characters — this document would never trigger onUnitWrite (Eventarc doesn't fire for non-ASCII doc ids, see this file's header comment). Use computeUnitId() from src/lib/unit-id.ts instead.`,
+    );
+  }
+
   const name = input.name.trim();
   if (!name) {
     throw new Error('buildUnitDoc: name is required');

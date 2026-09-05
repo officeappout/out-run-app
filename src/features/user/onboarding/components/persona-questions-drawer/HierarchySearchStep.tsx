@@ -8,7 +8,7 @@ import type { HierarchySearchQuestionConfig } from '@/types/persona-question.typ
 import { effectiveServiceType, effectiveUserStatus } from './service-type-rank';
 import { normalizeOrgName } from '@/lib/org-name';
 import { submitPendingUnit } from '@/features/user/onboarding/services/pending-unit.service';
-import type { PendingUnitLevel } from '@/lib/pending-unit-id';
+import type { UnitLevel as PendingUnitLevel } from '@/lib/unit-id';
 
 interface DirectoryEntry {
   directoryId: string;
