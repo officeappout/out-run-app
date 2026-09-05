@@ -59,7 +59,18 @@ import {
 // REASON TAXONOMY
 // ============================================================================
 
-type Reason = 'NO_LEVEL' | 'NO_ROLE_OR_TAG' | 'NO_EXECUTION_METHODS' | 'NO_LOCATION_COVERAGE' | 'CORE_NO_CORE_LEVEL';
+type Reason = 'NO_LEVEL' | 'NO_ROLE_OR_TAG' | 'NO_EXECUTION_METHODS' | 'NO_LOCATION_COVERAGE' | 'CORE_NO_CORE_LEVEL' | 'UNHANDLED_ROLE';
+
+// Roles at least one real workout-engine selection path actually consumes —
+// kept in sync by hand, not derived from the ExerciseRole type union, on
+// purpose: the whole point of UNHANDLED_ROLE below is to catch the exact
+// gap that happened once already (exerciseRole:'reinforcement' existed in
+// the type + CMS for a long time before any selection path read it — the 4
+// "טבטה" follow-along items sat completely unreachable, docs/workout-engine/
+// 09-CORE-TABATA.md §1.6). If a role is ever ADDED to the ExerciseRole type
+// without ALSO wiring a real consumer, this list staying manually curated
+// is what makes that gap show up here instead of silently repeating.
+const HANDLED_ROLES = new Set<string>(['main', 'warmup', 'cooldown', 'recovery', 'reinforcement']);
 
 const REASON_META: Record<Reason, { label: string; short: string; color: string; explain: (row: UnreachableRow) => string }> = {
   NO_EXECUTION_METHODS: {
@@ -95,9 +106,16 @@ const REASON_META: Record<Reason, { label: string; short: string; color: string;
     explain: () =>
       'אין exerciseRole ואין תג mobility/flexibility/hiit_friendly — לא עומד בתנאי הבריכה של warmup.service.ts:394 (exerciseRole==="warmup" || tags.includes("mobility")) או cooldown.service.ts:47,101 (exerciseRole==="cooldown" || tags.includes("flexibility")), ולא מגיע למאגר הטבטה (tags.includes("hiit_friendly")). הוסף exerciseRole מתאים או תג.',
   },
+  UNHANDLED_ROLE: {
+    label: 'role לא מטופל',
+    short: 'role לא מוכר',
+    color: 'bg-pink-100 text-pink-800 border-pink-300',
+    explain: (row) =>
+      `exerciseRole='${row.exerciseRole ?? '—'}' מוגדר, אבל אף מסלול בחירה חי לא קורא אותו (זה בדיוק מה שקרה ל-4 פריטי "טבטה" הפולו-אלונג לפני שחוברו — ראה docs/workout-engine/09-CORE-TABATA.md §1.6). בדוק שיש מסלול קוד שמסנן לפי הroleהזה, או תקן ל-role מוכר.`,
+  },
 };
 
-const REASON_ORDER: Reason[] = ['NO_EXECUTION_METHODS', 'NO_LOCATION_COVERAGE', 'CORE_NO_CORE_LEVEL', 'NO_LEVEL', 'NO_ROLE_OR_TAG'];
+const REASON_ORDER: Reason[] = ['NO_EXECUTION_METHODS', 'NO_LOCATION_COVERAGE', 'CORE_NO_CORE_LEVEL', 'NO_LEVEL', 'NO_ROLE_OR_TAG', 'UNHANDLED_ROLE'];
 
 interface UnreachableRow {
   id: string;
@@ -105,6 +123,7 @@ interface UnreachableRow {
   reasons: Reason[];
   movementGroup?: string;
   primaryMuscle?: string;
+  exerciseRole?: string;
 }
 
 function getName(ex: Exercise): string {
@@ -179,6 +198,8 @@ export default function UnreachableExercisesPage() {
             || tags.includes('hiit_friendly');
           if (!hasRoleOrTag) reasons.push('NO_ROLE_OR_TAG');
 
+          if (ex.exerciseRole && !HANDLED_ROLES.has(ex.exerciseRole)) reasons.push('UNHANDLED_ROLE');
+
           if (methods.length === 0) {
             reasons.push('NO_EXECUTION_METHODS');
           } else if (!hasAnyLocationCoverage(ex)) {
@@ -190,7 +211,7 @@ export default function UnreachableExercisesPage() {
           }
 
           if (reasons.length > 0) {
-            computed.push({ id: ex.id, name: getName(ex), reasons, movementGroup: ex.movementGroup, primaryMuscle: ex.primaryMuscle });
+            computed.push({ id: ex.id, name: getName(ex), reasons, movementGroup: ex.movementGroup, primaryMuscle: ex.primaryMuscle, exerciseRole: ex.exerciseRole });
           }
         }
 
@@ -222,7 +243,7 @@ export default function UnreachableExercisesPage() {
   }, [rows, reasonFilter, searchTerm]);
 
   const reasonCounts = useMemo(() => {
-    const counts: Record<Reason, number> = { NO_LEVEL: 0, NO_ROLE_OR_TAG: 0, NO_EXECUTION_METHODS: 0, NO_LOCATION_COVERAGE: 0, CORE_NO_CORE_LEVEL: 0 };
+    const counts: Record<Reason, number> = { NO_LEVEL: 0, NO_ROLE_OR_TAG: 0, NO_EXECUTION_METHODS: 0, NO_LOCATION_COVERAGE: 0, CORE_NO_CORE_LEVEL: 0, UNHANDLED_ROLE: 0 };
     for (const r of rows) for (const reason of r.reasons) counts[reason]++;
     return counts;
   }, [rows]);
