@@ -9,7 +9,7 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type ArenaTabKey = 'city' | 'org' | 'park' | 'global' | 'reserve' | 'unit_league';
+export type ArenaTabKey = 'city' | 'org' | 'park' | 'global' | 'reserve';
 
 export interface ArenaTab {
   key: ArenaTabKey;
@@ -125,7 +125,14 @@ export function deriveArenaAccess(
   // (useArenaAccess/community's page) for why it's sourced from a live
   // military_declarations listener rather than community_groups membership.
   if (hasReserveAccess) activeTabs.push({ key: 'reserve', label: 'מילואים' });
-  if (hasUnitLeagueAccess) activeTabs.push({ key: 'unit_league', label: 'יחידות' });
+  // 07.09.2026 — no standalone 'unit_league' tab anymore: unit-vs-unit
+  // competition moved into the 'reserve' tab's own "קבוצות" toggle (see
+  // community/page.tsx's renderReserveSegment()), so it no longer needs its
+  // own activeTabs entry. hasUnitLeagueAccess itself is UNCHANGED below —
+  // renderReserveSegment() still reads it directly to decide whether that
+  // toggle appears — only the now-dead tab-list entry was removed (code
+  // review, 07.09.2026: a stale key nothing could ever select, but a latent
+  // trap if selectedLeague were ever persisted across sessions later).
 
   return {
     cityAuthorityId,

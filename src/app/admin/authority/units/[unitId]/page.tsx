@@ -8,19 +8,25 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL, getStorage } from 'firebase/storage';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
 import { authorityTypeToTenantType, getTenantLabels, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
 import { createAccessCode, createBatchAccessCodes, getAccessCodesByTenant, type AccessCode as AccessCodeType } from '@/features/admin/services/access-code-admin.service';
 import { getDeclaredCounts, getDeclaredMemberUids } from '@/features/admin/services/military-declared.service';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import {
   Loader2, ArrowRight, Users, Dumbbell,
   Building2, ChevronLeft, Search,
   ChevronDown, MapPin, Clock, User,
   KeyRound, Copy, Check, Plus, X, Download, Package,
-  Shield, GraduationCap,
+  Shield, GraduationCap, Upload,
 } from 'lucide-react';
+
+// Same Storage instance pattern as src/app/admin/authorities/[id]/page.tsx's
+// city-logo upload (07.09.2026 — reused verbatim, not a second upload path).
+const storage = getStorage();
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -75,6 +81,11 @@ export default function UnitDrilldownPage() {
   const [showAddSubUnit, setShowAddSubUnit] = useState(false);
   const [newSubUnitName, setNewSubUnitName] = useState('');
   const [creatingSubUnit, setCreatingSubUnit] = useState(false);
+  // Unit icon (military only, tenants/{orgId}/units/{unitId}.iconUrl) —
+  // 07.09.2026, same field the icon-manifest import already writes.
+  const [iconUrl, setIconUrl] = useState<string | null>(null);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
     if (!unitId) return;
@@ -121,6 +132,7 @@ export default function UnitDrilldownPage() {
             const unitData = unitSnap.data();
             resolvedUnitName = unitData.name ?? decodeURIComponent(rawUnitId);
             resolvedUnitPath = unitData.unitPath ?? [];
+            setIconUrl((unitData.iconUrl as string | null) ?? null);
           }
         }
 
@@ -365,6 +377,76 @@ export default function UnitDrilldownPage() {
     }
   };
 
+  // Icon upload/replace — same Storage-upload mechanics as authorities/[id]
+  // page's handleLogoUpload (path template, uploadBytesResumable,
+  // getDownloadURL), one deliberate difference: this page has no form/save
+  // step to defer to (every other write here, e.g. handleCreateSubUnit
+  // above, persists immediately) — so the Firestore write happens right
+  // after the upload resolves, not stashed in local state pending a submit
+  // that doesn't exist on this page (07.09.2026).
+  const handleIconUpload = async (file: File) => {
+    if (!tenantId || !unitId) return;
+    try {
+      setUploadingIcon(true);
+      setUploadProgress(0);
+
+      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const path = `units/icons/${Date.now()}-${safeName}`;
+      const storageRef = ref(storage, path);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          setUploadProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
+        },
+        (error) => {
+          console.error('[UnitDrilldown] Error uploading icon:', error);
+          alert('שגיאה בהעלאת הסמל');
+          setUploadingIcon(false);
+        },
+        async () => {
+          try {
+            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+            await setDoc(doc(db, 'tenants', tenantId, 'units', unitId), {
+              iconUrl: downloadUrl,
+              updatedAt: serverTimestamp(),
+            }, { merge: true });
+            setIconUrl(downloadUrl);
+          } catch (err) {
+            console.error('[UnitDrilldown] Error saving icon:', err);
+            alert('שגיאה בשמירת הסמל');
+          } finally {
+            setUploadingIcon(false);
+            setUploadProgress(0);
+          }
+        },
+      );
+    } catch (error) {
+      console.error('[UnitDrilldown] Error uploading icon:', error);
+      alert('שגיאה בהעלאת הסמל');
+      setUploadingIcon(false);
+    }
+  };
+
+  // Revert to the automatic fallback badge, not an empty square — clearing
+  // iconUrl is enough, UnitIconBadge already falls back on null by design.
+  // Doesn't delete the old Storage object, matching handleLogoUpload's own
+  // replace/remove behavior exactly (neither cleans up orphaned objects).
+  const handleIconRemove = async () => {
+    if (!tenantId || !unitId) return;
+    try {
+      await setDoc(doc(db, 'tenants', tenantId, 'units', unitId), {
+        iconUrl: null,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setIconUrl(null);
+    } catch (err) {
+      console.error('[UnitDrilldown] Error removing icon:', err);
+      alert('שגיאה בהסרת הסמל');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -403,14 +485,54 @@ export default function UnitDrilldownPage() {
       {/* ═══ Header ═══ */}
       <div className={`flex items-center justify-between bg-white rounded-2xl shadow-sm border-l-4 border border-gray-100 p-6 ${theme.headerBorder}`}>
         <div className="flex items-center gap-4">
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${theme.accentBg}`}>
-            {tenantType === 'military'
-              ? <Shield size={28} className={theme.accentText} />
-              : tenantType === 'educational'
-              ? <GraduationCap size={28} className={theme.accentText} />
-              : <Building2 size={28} className={theme.accentText} />
-            }
-          </div>
+          {tenantType === 'military' ? (
+            // Real icon (or its hash-colored fallback) + inline
+            // upload/replace/remove — the fix for 102 battalions with no
+            // icon, and every unit created through the add-unit mechanism
+            // since (07.09.2026). Same UnitIconBadge component the units
+            // list, HierarchySearchStep, and UnitLeagueTable all already use.
+            <div className="relative flex-shrink-0">
+              <UnitIconBadge unitId={unitId} iconUrl={iconUrl} name={unitName} size={56} />
+              {iconUrl && !uploadingIcon && (
+                <button
+                  type="button"
+                  onClick={handleIconRemove}
+                  className="absolute -top-1 -left-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                  title="הסר סמל"
+                >
+                  <X size={10} />
+                </button>
+              )}
+              <label
+                className="absolute -bottom-1 -left-1 p-1.5 bg-white border border-gray-200 rounded-full cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
+                title={iconUrl ? 'החלף סמל' : 'העלה סמל'}
+              >
+                <Upload size={11} className="text-gray-600" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleIconUpload(file);
+                  }}
+                  disabled={uploadingIcon}
+                />
+              </label>
+              {uploadingIcon && (
+                <div className="absolute inset-0 rounded-full bg-white/85 flex items-center justify-center">
+                  <Loader2 size={18} className="animate-spin text-gray-500" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${theme.accentBg}`}>
+              {tenantType === 'educational'
+                ? <GraduationCap size={28} className={theme.accentText} />
+                : <Building2 size={28} className={theme.accentText} />
+              }
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black text-gray-900">{unitName}</h1>
