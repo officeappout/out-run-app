@@ -55,6 +55,16 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
   const [direction, setDirection] = useState(1);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const savedRef = useRef(false);
+  // Forces the sheet to ~80% viewport height while a text field inside a
+  // step is focused (06.09.2026, third round on this bug — real-device
+  // test: HierarchySearchStep's own content, one input + a short list, is
+  // too short to push the sheet anywhere near its max-height cap on its
+  // own, unlike a content-heavy step like a map or an equipment grid where
+  // that happens for free). The per-step wrapper below is absolutely
+  // positioned, so a taller child can't grow it or the sheet by itself —
+  // this has to be a signal FROM the step TO the sheet, not something the
+  // step can do on its own.
+  const [needsExpandedHeight, setNeedsExpandedHeight] = useState(false);
 
   // Re-opening the drawer for a persona already answered (deselect+
   // reselect, or Phase 5's "הפרסונות שלי" edit action) should show what
@@ -155,8 +165,12 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
         // Keyboard:{resize:'body'} (which shrinks the WebView body itself
         // when the keyboard opens, so vh already resolves correctly) is
         // what every OTHER working drawer in this app already does, with
-        // zero JS keyboard-handling of its own).
-        className="relative bg-white rounded-t-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden"
+        // zero JS keyboard-handling of its own). min-h-[80vh] is added ONLY
+        // while a text field inside the step is focused (needsExpandedHeight)
+        // — real-device test showed this step's own content is too short to
+        // reach anywhere near the max-height cap on its own; see that
+        // state's own comment above for why.
+        className={`relative bg-white rounded-t-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`}
         dir="rtl"
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -218,6 +232,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
                   }}
                   onChange={(v: HierarchySearchValue) => setAnswers((prev) => ({ ...prev, ...v }))}
                   onDone={() => goToNextOrFinish(answers)}
+                  onNeedsExpandedHeight={setNeedsExpandedHeight}
                 />
               )}
 
