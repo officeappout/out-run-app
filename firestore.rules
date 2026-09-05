@@ -1820,12 +1820,17 @@ service cloud.firestore {
     }
 
     function isValidMilitaryDeclaration(data) {
-      return data.keys().hasOnly(['status', 'orgId', 'unitId', 'unitPathIds', 'updatedAt'])
+      return data.keys().hasOnly(['status', 'orgId', 'unitId', 'unitPathIds', 'pendingUnitId', 'updatedAt'])
         && (!('status' in data) || data.status in ['regular', 'career', 'reserve'])
         && (!('orgId' in data) || (data.orgId is string && data.orgId.size() <= 100))
         && (!('unitId' in data) || (data.unitId is string && data.unitId.size() <= 100))
         && (!('unitPathIds' in data)
             || (data.unitPathIds is list && data.unitPathIds.size() <= 10))
+        // 07.09.2026 — points at the user's own pending_units/{pendingUnitId}
+        // doc while their "unit isn't in the list" submission is pending or
+        // just-approved (see MilitaryPersonaAnswers.pendingUnitId's own
+        // comment, persona.types.ts). Same shape guard as orgId/unitId.
+        && (!('pendingUnitId' in data) || (data.pendingUnitId is string && data.pendingUnitId.size() <= 100))
         && data.updatedAt is timestamp;
     }
 

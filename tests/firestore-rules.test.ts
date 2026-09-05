@@ -547,6 +547,35 @@ async function testMilitaryDeclarationLockdown() {
     }));
   });
 
+  // U3c — pendingUnitId (07.09.2026, "unit isn't in the list" submission
+  // display fix). A fresh top-level unit proposal has NO orgId/unitId yet
+  // (nothing real exists to reference) — pendingUnitId alone must still be
+  // a valid declaration, not rejected as "incomplete".
+  await it('U3c — pendingUnitId alone (no orgId/unitId yet) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), {
+      status: 'reserve',
+      pendingUnitId: 'bde_u_abc123',
+      updatedAt: new Date(),
+    }));
+  });
+  await it('U3c — pendingUnitId alongside a real orgId (battalion/company under a real parent) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), {
+      status: 'reserve',
+      orgId: 'brigade_real',
+      pendingUnitId: 'bn_brigade_real_abc123',
+      updatedAt: new Date(),
+    }));
+  });
+  await it('U3c — oversized pendingUnitId rejected → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), {
+      ...VALID_DECLARATION,
+      pendingUnitId: 'x'.repeat(500),
+    }));
+  });
+
   // U4 — another user cannot write to it → DENY.
   await it('U4 — another user cannot write to broadcaster1\'s declaration → DENY', async () => {
     const ctx = env.authenticatedContext('broadcaster2');
