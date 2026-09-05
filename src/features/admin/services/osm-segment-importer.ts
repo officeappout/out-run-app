@@ -3,11 +3,13 @@
  *
  * Responsibilities:
  *   1. Query the public Overpass API for highway ways inside a bounding box.
- *   2. Score each way 0–10 using a transparent rubric (highway type,
+ *   2. Drop ways that are clearly not publicly accessible (access=private/no
+ *      — see isPubliclyAccessible; introduced 05.09.2026 alongside `track`).
+ *   3. Score each way 0–10 using a transparent rubric (highway type,
  *      surface, lighting, smoothness, max-speed, sidewalk).
- *   3. Build canonical `street_segments` documents (path + midpoint +
- *      length + tags + score).
- *   4. (optional) Commit them to Firestore in 500-doc batches.
+ *   4. Build canonical `street_segments` documents (path + midpoint +
+ *      length + tags + score + name + oneway).
+ *   5. (optional) Commit them to Firestore in 500-doc batches.
  *
  * Used by:
  *   - src/scripts/import-osm-segments.ts (CLI, dry-run from anywhere; commit
@@ -51,6 +53,18 @@ export interface OsmTags {
   /** Raw OSM incline tag (e.g. "5%", "-3.2%"). Parsed into ScoredSegment.inclinePct
    *  below — same regex/convention as scripts/write-climb-segments-tlv.ts:176. */
   incline?: string;
+  /** Raw OSM `access` tag (e.g. "private", "no", "permissive", "destination",
+   *  "agricultural"). Used only to drop clearly-non-public ways — see
+   *  isPubliclyAccessible() below. Never used for scoring. */
+  access?: string;
+  /** Raw OSM `name` tag, when present. Layer 1 data-capture (05.09.2026) —
+   *  copied verbatim onto ScoredSegment.name, no consumer wired yet. */
+  name?: string;
+  /** Raw OSM `oneway` tag ('yes'|'no'|'-1'|'reversible', etc.), when present.
+   *  Layer 1 data-capture (05.09.2026) — STORAGE ONLY, copied verbatim onto
+   *  ScoredSegment.oneway. No generator/adjacency/graph logic reads this;
+   *  respecting directionality is a separate future task (cycling). */
+  oneway?: string;
   [key: string]: string | undefined;
 }
 
@@ -74,6 +88,10 @@ export interface ScoredSegment {
   osmId: string;
   cityName: string;
   authorityId: string;
+  /** Raw OSM `name` tag, when present — `null` when absent, never guessed.
+   *  Layer 1 data-capture (05.09.2026): no consumer wired yet, stored for
+   *  future route-precision/display use. */
+  name: string | null;
   path: Array<{ lat: number; lng: number }>;
   score: number;
   /**
@@ -107,6 +125,15 @@ export interface ScoredSegment {
   };
   midpoint: { lat: number; lng: number };
   lengthMeters: number;
+  /**
+   * Raw OSM `oneway` tag value ('yes'|'no'|'-1'|'reversible', etc.), when
+   * present — `null` when absent. Layer 1 data-capture (05.09.2026):
+   * STORAGE ONLY. No generator/adjacency/graph logic reads or respects this
+   * yet — that's a separate future task (cycling-directionality). This
+   * field exists purely so a future consumer doesn't require re-ingesting
+   * the whole city's street network from scratch.
+   */
+  oneway: string | null;
   /**
    * Percent grade parsed from the OSM `incline` tag, when present (same
    * regex/convention as scripts/write-climb-segments-tlv.ts:176 — absolute
@@ -168,6 +195,7 @@ export interface ImportResult {
   passedScoreFilter: number;
   skippedTooShort: number;
   skippedLowScore: number;
+  skippedNotAccessible: number;
   histogram: ScoreHistogram;
   segments: ScoredSegment[];
   committed: number;
@@ -224,6 +252,14 @@ const OVERPASS_ATTEMPTS_PER_ENDPOINT = 2;
 // route-enrichment-pipeline plan): stairs are never street/route segments.
 // OSM-derived stairs data lives exclusively in the climb_segments collection
 // (type:'stairs', see scripts/write-climb-segments-tlv.ts).
+//
+// 'track' added (Layer 1 enrichment, 05.09.2026) — many real nature/hiking
+// trails are tagged highway=track in Israel, not path/footway. Because
+// track also commonly covers private farm/agricultural roads, it is paired
+// with the access filter below (isPubliclyAccessible) and scored neutrally
+// in scoreSegment (same treatment as 'path') rather than boosted like
+// footway/pedestrian — surface/smoothness/access do the real discrimination
+// between a real trail and junk, not the highway-type bonus alone.
 const HIGHWAY_TYPES = [
   'footway',
   'cycleway',
@@ -232,6 +268,7 @@ const HIGHWAY_TYPES = [
   'residential',
   'living_street',
   'tertiary',
+  'track',
 ] as const;
 
 /**
@@ -464,9 +501,14 @@ export function scoreSegment(tags: OsmTags): number {
       s += 0;
       break;
     case 'path':
-      // Not in the original spec table — treated as neutral. `path` covers
-      // anything from a paved promenade to a hiking trail, so we leave it
-      // at the base value and let surface/smoothness adjust it.
+    case 'track':
+      // Not in the original spec table — treated as neutral, same as 'path'.
+      // Both range from a maintained nature trail to a rough farm road, so
+      // no fixed highway-type bonus here; surface/smoothness below (and the
+      // access filter in processSegments) are what actually separate a real
+      // walkable trail from junk — a paved/good-smoothness track still
+      // clears minScore, a dirt/horrible-smoothness one sits right at the
+      // floor, matching 'path's existing behavior exactly.
       s += 0;
       break;
   }
@@ -551,6 +593,23 @@ export function scoreArterialFlow(tags: OsmTags): number {
   }
 }
 
+/**
+ * True when a way should be dropped as clearly not publicly accessible
+ * (Layer 1 enrichment, 05.09.2026 — introduced alongside `track`, which
+ * commonly covers private farm/agricultural roads in OSM). Deliberately
+ * narrow: only an EXPLICIT `access=private` or `access=no` drops a segment.
+ * Every other value — `permissive`, `destination`, `agricultural`, `yes`,
+ * or (the overwhelming majority of ways) no `access` tag at all — is KEPT.
+ * An absent tag must never be treated as a drop signal; over-filtering here
+ * would silently remove real, public, unmapped trails, which is worse than
+ * keeping a handful of ambiguous ones. Applied to every fetched highway
+ * type, not just `track` — the same two values mean the same thing on a
+ * residential street or footway.
+ */
+function isPubliclyAccessible(tags: OsmTags): boolean {
+  return tags.access !== 'private' && tags.access !== 'no';
+}
+
 // ── Geometry helpers ──────────────────────────────────────────────────────────
 
 function haversineMeters(
@@ -591,6 +650,7 @@ export function processSegments(
   histogram: ScoreHistogram;
   skippedTooShort: number;
   skippedLowScore: number;
+  skippedNotAccessible: number;
 } {
   const minScore = opts.minScore ?? 3;
   const minNodes = opts.minNodes ?? 3;
@@ -601,6 +661,7 @@ export function processSegments(
   const segments: ScoredSegment[] = [];
   let skippedTooShort = 0;
   let skippedLowScore = 0;
+  let skippedNotAccessible = 0;
 
   ways.forEach((w, idx) => {
     if (!w.geometry || w.geometry.length < minNodes) {
@@ -612,6 +673,11 @@ export function processSegments(
     if (!tags.highway || !highwayTypesSet.has(tags.highway)) {
       // Overpass shouldn't return these (regex filter), but be defensive.
       skippedTooShort++;
+      return;
+    }
+
+    if (!isPubliclyAccessible(tags)) {
+      skippedNotAccessible++;
       return;
     }
 
@@ -635,6 +701,7 @@ export function processSegments(
       osmId: String(w.id),
       cityName: opts.cityName,
       authorityId: opts.authorityId,
+      name: tags.name ?? null,
       path,
       score: Math.round(rawScore * 10) / 10,
       flowScore: scoreArterialFlow(tags),
@@ -654,6 +721,7 @@ export function processSegments(
       },
       midpoint,
       lengthMeters,
+      oneway: tags.oneway ?? null,
       geohash,
       inclinePct,
       surfaceType,
@@ -679,7 +747,7 @@ export function processSegments(
     else if (s.score >= 3) histogram.bucket3to4++;
   });
 
-  return { segments, histogram, skippedTooShort, skippedLowScore };
+  return { segments, histogram, skippedTooShort, skippedLowScore, skippedNotAccessible };
 }
 
 // ── Firestore commit (browser / authenticated client SDK path) ────────────────
@@ -753,7 +821,7 @@ export async function runOsmImport(
   const ways = await fetchOsmSegments(opts.bbox, log, opts.highwayTypes);
   const fetchedFromOSM = ways.length;
 
-  const { segments, histogram, skippedTooShort, skippedLowScore } =
+  const { segments, histogram, skippedTooShort, skippedLowScore, skippedNotAccessible } =
     processSegments(ways, opts, log);
 
   log(`Score histogram:`);
@@ -763,6 +831,7 @@ export async function runOsmImport(
   log(`  9-10: ${histogram.bucket9to10}`);
   log(`  Total kept: ${segments.length}`);
   log(`  Skipped (too few nodes / unknown highway): ${skippedTooShort}`);
+  log(`  Skipped (access=private/no): ${skippedNotAccessible}`);
   log(`  Skipped (score < ${opts.minScore ?? 3}): ${skippedLowScore}`);
 
   let committed = 0;
@@ -781,6 +850,7 @@ export async function runOsmImport(
     passedScoreFilter: segments.length,
     skippedTooShort,
     skippedLowScore,
+    skippedNotAccessible,
     histogram,
     segments,
     committed,
