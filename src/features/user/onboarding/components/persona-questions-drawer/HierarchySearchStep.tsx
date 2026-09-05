@@ -2,10 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { ChevronRight, MapPin, Search, Check } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { ChevronRight, MapPin, Search, Check, Plus } from 'lucide-react';
+import { db, auth } from '@/lib/firebase';
 import type { HierarchySearchQuestionConfig } from '@/types/persona-question.types';
 import { effectiveServiceType, effectiveUserStatus } from './service-type-rank';
+import { normalizeOrgName } from '@/lib/org-name';
+import { submitPendingUnit } from '@/features/user/onboarding/services/pending-unit.service';
+import type { PendingUnitLevel } from '@/lib/pending-unit-id';
 
 interface DirectoryEntry {
   directoryId: string;
@@ -153,6 +156,64 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
 
   const hasSelection = !!value.orgId;
 
+  // ── "היחידה שלי לא ברשימה — הוסף" (04.09.2026, משימה 2) ──────────────
+  // Saved under the parent already selected/reached, never floating — the
+  // parent chain is exactly `breadcrumb` at whatever depth this fires from.
+  const [addMode, setAddMode] = useState<'closed' | 'form' | 'confirmMatch' | 'submitted'>('closed');
+  const [addName, setAddName] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
+  const [matchedSibling, setMatchedSibling] = useState<DirectoryEntry | null>(null);
+
+  const pendingLevel: PendingUnitLevel = breadcrumb.length === 0 ? 'brigade' : breadcrumb.length === 1 ? 'battalion' : 'company';
+  const pendingOrgId = breadcrumb.length > 0 ? breadcrumb[0].orgId : null;
+  const pendingParentUnitId = breadcrumb.length === 2 ? breadcrumb[1].unitId : null;
+  const pendingParentUnitPath = breadcrumb.length === 2 && breadcrumb[1].unitId ? [breadcrumb[1].name] : [];
+
+  const openAddForm = useCallback(() => {
+    setAddName('');
+    setMatchedSibling(null);
+    setAddMode('form');
+  }, []);
+
+  const attachToSibling = useCallback((entry: DirectoryEntry) => {
+    setAddMode('closed');
+    selectEntry(entry);
+  }, [selectEntry]);
+
+  const submitAsNew = useCallback(async () => {
+    const uid = auth.currentUser?.uid;
+    const name = addName.trim();
+    if (!uid || !name) return;
+    setAddBusy(true);
+    try {
+      await submitPendingUnit(uid, {
+        level: pendingLevel,
+        orgId: pendingOrgId,
+        parentUnitId: pendingParentUnitId,
+        parentUnitPath: pendingParentUnitPath,
+        name,
+      });
+      setAddMode('submitted');
+    } finally {
+      setAddBusy(false);
+    }
+  }, [addName, pendingLevel, pendingOrgId, pendingParentUnitId, pendingParentUnitPath]);
+
+  const handleAddSubmit = useCallback(() => {
+    const name = addName.trim();
+    if (!name) return;
+    // Dedup-before-submit (§4): compare against siblings ALREADY fetched for
+    // this level — no new query. A real match is attached to directly; a
+    // pending duplicate is never created for something that already exists.
+    const match = entries.find((e) => normalizeOrgName(e.name) === normalizeOrgName(name));
+    if (match) {
+      setMatchedSibling(match);
+      setAddMode('confirmMatch');
+    } else {
+      submitAsNew();
+    }
+  }, [addName, entries, submitAsNew]);
+
   return (
     <div className="px-5 py-4 flex flex-col h-full" dir="rtl">
       <h3 className="text-base font-bold text-slate-900 mb-1">{config.label}</h3>
@@ -219,6 +280,73 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
               </button>
             );
           })}
+        </div>
+      )}
+
+      {!loading && addMode === 'closed' && (
+        <button
+          type="button"
+          onClick={openAddForm}
+          className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-slate-500 flex-shrink-0"
+        >
+          <Plus size={16} />
+          <span>היחידה שלי לא ברשימה — הוסף</span>
+        </button>
+      )}
+
+      {addMode === 'form' && (
+        <div className="pt-2 pb-1 flex-shrink-0 flex flex-col gap-2">
+          <input
+            type="text"
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            placeholder="שם היחידה"
+            autoFocus
+            className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none"
+            dir="rtl"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleAddSubmit}
+              disabled={!addName.trim() || addBusy}
+              className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm disabled:opacity-40"
+            >
+              שליחה
+            </button>
+            <button type="button" onClick={() => setAddMode('closed')} className="px-4 py-2.5 text-sm text-slate-500">
+              ביטול
+            </button>
+          </div>
+        </div>
+      )}
+
+      {addMode === 'confirmMatch' && matchedSibling && (
+        <div className="pt-2 pb-1 flex-shrink-0 flex flex-col gap-2 text-center">
+          <p className="text-sm text-slate-700">מצאנו את <span className="font-bold">{matchedSibling.name}</span> — זו שלך?</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => attachToSibling(matchedSibling)}
+              className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm"
+            >
+              כן, זו היחידה שלי
+            </button>
+            <button
+              type="button"
+              onClick={submitAsNew}
+              disabled={addBusy}
+              className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 disabled:opacity-40"
+            >
+              לא, זו לא
+            </button>
+          </div>
+        </div>
+      )}
+
+      {addMode === 'submitted' && (
+        <div className="pt-2 pb-1 flex-shrink-0 text-center">
+          <p className="text-sm text-slate-500">ההצעה שלך נשלחה וממתינה לאישור. אתה כבר משויך אליה.</p>
         </div>
       )}
 
