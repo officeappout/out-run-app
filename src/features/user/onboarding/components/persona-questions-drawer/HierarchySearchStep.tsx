@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { ChevronRight, MapPin, Search, Check, Plus } from 'lucide-react';
+import { ChevronRight, Search, Check, Plus } from 'lucide-react';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { db, auth } from '@/lib/firebase';
 import type { HierarchySearchQuestionConfig } from '@/types/persona-question.types';
 import { effectiveServiceType, effectiveUserStatus } from './service-type-rank';
@@ -18,6 +19,7 @@ interface DirectoryEntry {
   unitId: string | null;
   statusCategory: string | null;
   serviceType: string | null;
+  iconUrl: string | null;
 }
 
 // serviceType/statusCategory ranking logic lives in service-type-rank.ts
@@ -60,6 +62,7 @@ async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
       unitId: (data.unitId as string | null) ?? null,
       statusCategory: (data.statusCategory as string | null) ?? null,
       serviceType: (data.serviceType as string | null) ?? null,
+      iconUrl: (data.iconUrl as string | null) ?? null,
     };
   });
 }
@@ -282,8 +285,8 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
                   selected ? 'border-[#00E5FF] bg-cyan-50' : 'border-slate-200 active:scale-[0.98]'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <MapPin size={16} className="text-slate-400 flex-shrink-0" />
+                <div className="flex items-center gap-3">
+                  <UnitIconBadge unitId={entry.unitId ?? entry.orgId} iconUrl={entry.iconUrl} name={entry.name} size={32} />
                   <span className="font-semibold text-slate-900">{entry.name}</span>
                 </div>
                 {selected ? (

@@ -33,6 +33,7 @@ async function loadUnitDirectory(): Promise<UnitDirectoryEntry[]> {
       orgId: data.orgId as string,
       unitId: (data.unitId as string | null) ?? null,
       parentId: (data.parentId as string | null) ?? null,
+      iconUrl: (data.iconUrl as string | null) ?? null,
     };
   });
 }
