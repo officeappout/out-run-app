@@ -2,175 +2,225 @@ import { describe, it, expect } from 'vitest';
 import { weaveWeek, type WeaveWeekInput } from '../scheduleWeaver';
 import { strengthRuleFamily, runningRuleFamily } from '../ruleFamily';
 import { buildDefaultTemplate } from '../scheduleRules';
-import { preferredRunningDays } from '../runningRules';
 import type { PrioritizedSkill, ProgramId } from '../../types/smartSchedule.types';
-import type { RunningWeekDay, RunningDayRole } from '../runningRules';
+import type { RunningWeekDay } from '../runningRules';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
-
-const CATEGORY_FOR_ROLE: Record<RunningDayRole, WorkoutCategory> = {
-  quality_primary: 'tempo',
-  quality_secondary: 'short_intervals',
-  long_run: 'long_run',
-  easy_run: 'easy_run',
-  recovery: 'easy_run',
-};
+import type { CrossDomainValidateContext } from '../crossDomainRules';
 
 const STRENGTH_SKILLS: PrioritizedSkill[] = [
   { id: 'PLANCHE', priority: 1, movementType: 'PUSH', isFreeSlot: false, minRestHours: 48, countsTowardCap: true },
 ];
 const STRENGTH_PROGRAMS: ProgramId[] = [];
-
-function strengthWeekFor(count: number) {
-  return buildDefaultTemplate(STRENGTH_PROGRAMS, STRENGTH_SKILLS, count);
-}
+const CROSS_CONTEXT: CrossDomainValidateContext = { minStrengthDaysPerWeek: 2 };
 
 function strengthDomain(requestedCount: number) {
   return {
     family: strengthRuleFamily,
     requestedCount,
-    existingWeek: strengthWeekFor(requestedCount),
+    existingWeek: buildDefaultTemplate(STRENGTH_PROGRAMS, STRENGTH_SKILLS, requestedCount),
     validateContext: {},
     reduceContext: { programs: STRENGTH_PROGRAMS, skills: STRENGTH_SKILLS },
   };
 }
 
-function runningWeekFor(count: number, slotType: RunningDayRole = 'easy_run'): RunningWeekDay[] {
+/** `entries` is [dayOfWeek, category][] — lets a single day carry a distinct category (e.g. a long run) from the rest. */
+function runningDomainOf(entries: Array<[number, WorkoutCategory]>, targetDistanceKm = 10) {
   const week: RunningWeekDay[] = Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, category: null }));
-  for (const d of preferredRunningDays(count)) {
-    week[d] = { dayOfWeek: d, category: CATEGORY_FOR_ROLE[slotType], slotType };
-  }
-  return week;
-}
-
-function runningDomain(requestedCount: number, targetDistanceKm = 10) {
+  for (const [d, category] of entries) week[d] = { dayOfWeek: d, category };
   return {
     family: runningRuleFamily,
-    requestedCount,
-    existingWeek: runningWeekFor(requestedCount),
+    requestedCount: entries.length,
+    existingWeek: week,
     validateContext: { level: 'intermediate' as const },
     reduceContext: { targetDistanceKm },
   };
 }
 
-describe('weaveWeek — ת1: running exists first, strength added — no forced reduction when there is room', () => {
-  it('both domains keep their full requested count when the day budget fits the sum', () => {
+function runningDomain(days: number[], category: WorkoutCategory = 'easy_run', targetDistanceKm = 10) {
+  return runningDomainOf(days.map((d): [number, WorkoutCategory] => [d, category]), targetDistanceKm);
+}
+
+function strengthOccupiedDays(week: { sessions: unknown[]; dayOfWeek: number }[]): number[] {
+  return week.filter((d) => d.sessions.length > 0).map((d) => d.dayOfWeek);
+}
+
+function runningOccupiedDays(week: RunningWeekDay[]): number[] {
+  return week.filter((d) => d.category !== null).map((d) => d.dayOfWeek);
+}
+
+describe('weaveWeek — ת1: day-set search avoids unnecessary overlap when there is room', () => {
+  it('both domains start on the identical 3 days ([0,2,4]) but 6 days are available — the weaver spreads them onto 6 distinct days, no reduction, no sharing', () => {
     const input: WeaveWeekInput = {
-      dominant: runningDomain(3),
-      secondary: strengthDomain(3),
+      focus: 30,
+      strength: strengthDomain(3), // buildDefaultTemplate(3) lands on [0,2,4] — same as running below, a real collision.
+      running: runningDomain([0, 2, 4], 'easy_run'),
       availableDayCount: 6,
+      crossDomainContext: CROSS_CONTEXT,
     };
     const result = weaveWeek(input);
 
     expect(result.reductions).toEqual([]);
-    expect(result.notes).toEqual([]);
-    expect(result.week.running).toBeDefined();
-    expect(result.week.strength).toBeDefined();
+    expect(result.sharedDays).toEqual([]);
 
-    const runningValidation = runningRuleFamily.validate(result.week.running as any, input.dominant.validateContext);
-    const strengthValidation = strengthRuleFamily.validate(result.week.strength as any, input.secondary.validateContext);
-    expect(runningValidation.valid).toBe(true);
-    expect(strengthValidation.valid).toBe(true);
+    const strengthDays = strengthOccupiedDays(result.week.strength);
+    const runningDays = runningOccupiedDays(result.week.running);
+    expect(strengthDays.length).toBe(3);
+    expect(runningDays.length).toBe(3);
+    expect(new Set([...strengthDays, ...runningDays]).size).toBe(6);
   });
 });
 
-describe('weaveWeek — ת2: strength exists first, running added — order does not change the outcome quality', () => {
-  it('mirrors ת1 with the domains swapped: both keep their full requested count', () => {
+describe('weaveWeek — ת2: tightening availability to exactly the sum minus one forces exactly one shared day', () => {
+  it('same input, 5 days available — no reduction, exactly one shared day', () => {
     const input: WeaveWeekInput = {
-      dominant: strengthDomain(3),
-      secondary: runningDomain(3),
-      availableDayCount: 6,
-    };
-    const result = weaveWeek(input);
-
-    expect(result.reductions).toEqual([]);
-    expect(result.notes).toEqual([]);
-    expect(result.week.strength).toBeDefined();
-    expect(result.week.running).toBeDefined();
-  });
-});
-
-describe('weaveWeek — ת4: the weaver builds one combined result, never a partial single-domain state', () => {
-  it('a single call returns both domains fully formed together, at the counts actually requested', () => {
-    const input: WeaveWeekInput = {
-      dominant: runningDomain(3),
-      secondary: strengthDomain(3),
-      availableDayCount: 6,
-    };
-    const result = weaveWeek(input);
-
-    // Both present in the SAME return value — no call produced only one domain's week.
-    expect(Object.keys(result.week).sort()).toEqual(['running', 'strength']);
-    // No rule forced a cut, so the actual counts match what was requested.
-    const runningTrainingDays = (result.week.running as RunningWeekDay[]).filter((d) => d.category !== null).length;
-    expect(runningTrainingDays).toBe(3);
-  });
-});
-
-describe('weaveWeek — ת10: dominance decides who gets reduced first, in both directions, plus a last resort', () => {
-  it('א: running dominant — a conflict reduces strength (secondary), not running', () => {
-    const input: WeaveWeekInput = {
-      dominant: runningDomain(4),
-      secondary: strengthDomain(4),
-      availableDayCount: 5, // sum of 4+4=8 doesn't fit; 4+1 does
-    };
-    const result = weaveWeek(input);
-
-    expect(result.reductions.length).toBe(1);
-    expect(result.reductions[0].domainId).toBe('strength');
-    const runningTrainingDays = (result.week.running as RunningWeekDay[]).filter((d) => d.category !== null).length;
-    expect(runningTrainingDays).toBe(4); // dominant untouched
-  });
-
-  it('ב: strength dominant — the same conflict reduces running (secondary) instead', () => {
-    const input: WeaveWeekInput = {
-      dominant: strengthDomain(4),
-      secondary: runningDomain(4),
+      focus: 30,
+      strength: strengthDomain(3),
+      running: runningDomain([0, 2, 4], 'easy_run'),
       availableDayCount: 5,
+      crossDomainContext: CROSS_CONTEXT,
     };
     const result = weaveWeek(input);
 
-    expect(result.reductions.length).toBe(1);
-    expect(result.reductions[0].domainId).toBe('running');
-  });
-
-  it('ג: last resort — no legal solution keeps the dominant fixed, so it moves too, with an explicit note naming it', () => {
-    const input: WeaveWeekInput = {
-      dominant: strengthDomain(4),
-      secondary: runningDomain(4),
-      availableDayCount: 3, // even secondary=0 leaves dominant alone at 4 > 3
-    };
-    const result = weaveWeek(input);
-
-    const strengthTrainingDays = (result.week.strength as any[]).filter((d) => d.sessions.length > 0).length;
-    expect(strengthTrainingDays).toBeLessThan(4); // the dominant really did move
-    expect(result.reductions.some((r) => r.domainId === 'strength')).toBe(true);
-    expect(result.notes.some((n) => n.includes('strength'))).toBe(true); // never silent about it
+    expect(result.reductions).toEqual([]);
+    const strengthDays = strengthOccupiedDays(result.week.strength);
+    const runningDays = runningOccupiedDays(result.week.running);
+    expect(strengthDays.length).toBe(3);
+    expect(runningDays.length).toBe(3);
+    expect(result.sharedDays.length).toBe(1);
+    expect(new Set([...strengthDays, ...runningDays]).size).toBe(5);
   });
 });
 
-describe('weaveWeek — ת11: shrinking the availability control produces an explained reduction', () => {
-  it('the same request produces zero notes with room to spare, and a non-empty, explained reduction once room tightens', () => {
-    const roomyInput: WeaveWeekInput = {
-      dominant: runningDomain(3),
-      secondary: strengthDomain(3),
-      availableDayCount: 6,
+describe('weaveWeek — ת3: R8 caps a candidate at one shared day, forcing a reduction with a note naming R8', () => {
+  it('2+2 requested, only 2 days available — full overlap would be needed to fit, but R8 forbids more than one shared day at this total, so running is cut to 1 instead', () => {
+    const input: WeaveWeekInput = {
+      focus: 30,
+      strength: strengthDomain(2), // canonical [0,3]
+      running: runningDomain([1, 5], 'easy_run'), // placeOn relabels by order — original days don't matter beyond ordering.
+      availableDayCount: 2,
+      crossDomainContext: CROSS_CONTEXT,
     };
-    const roomy = weaveWeek(roomyInput);
-    expect(roomy.reductions).toEqual([]);
+    const result = weaveWeek(input);
 
-    const tightInput: WeaveWeekInput = { ...roomyInput, availableDayCount: 5 };
-    const tight = weaveWeek(tightInput);
-    expect(tight.reductions.length).toBeGreaterThan(0);
-    expect(tight.notes.length).toBeGreaterThan(0);
+    // Fitting both full 2-day sets into 2 available days needs full (2-day) overlap —
+    // but R8 caps sharing at 1 day whenever total workouts <= 4 (here 2+2=4) — so that
+    // candidate is rejected and running must give up a day instead.
+    expect(result.reductions).toEqual([{ domainId: 'running', removed: expect.any(Array) }]);
+    const strengthDays = strengthOccupiedDays(result.week.strength);
+    const runningDays = runningOccupiedDays(result.week.running);
+    expect(strengthDays.length).toBe(2); // strength untouched
+    expect(runningDays.length).toBe(1); // running cut from 2 to 1
+    expect(result.sharedDays.length).toBe(1);
+    expect(result.notes.some((n) => n.includes('R8'))).toBe(true);
+  });
+});
+
+describe('weaveWeek — ת10 (revised): reduction always protects R7\'s floor, regardless of dominance', () => {
+  /**
+   * availableDayCount=1 means strength's own footprint at 3 or at the R7
+   * floor (2) both already exceed it on their own (a family's day-set size
+   * always lower-bounds the distinct-day count it contributes — see
+   * searchDaySets). The reduction sweep is bounded at `sCount >= floor`, so
+   * it never even tries sCount=1 (which WOULD have fit availableDayCount=1)
+   * — it exhausts at the floor and falls through to the total-failure
+   * fallback, which itself also stops at the floor rather than reducing
+   * further. Running-dominant (focus=80) on purpose: the floor holds
+   * regardless of which domain the focus favors.
+   */
+  it('running dominant, so little room nothing fits even at the floor — strength still never drops below 2, even though 1 would have fit', () => {
+    const input: WeaveWeekInput = {
+      focus: 80,
+      strength: strengthDomain(3), // canonical [0,2,4]
+      running: runningDomain([1, 3], 'easy_run'),
+      availableDayCount: 1,
+      crossDomainContext: CROSS_CONTEXT,
+    };
+    const result = weaveWeek(input);
+
+    const strengthDays = strengthOccupiedDays(result.week.strength);
+    expect(strengthDays.length).toBe(2); // floor reached, never below — even though dropping to 1 would have actually fit availableDayCount=1.
+    expect(result.notes.some((n) => n.includes('R7'))).toBe(true);
+  });
+});
+
+describe('weaveWeek — resolveDoubleDayOrder wiring: a shared day\'s order comes from the cross-domain family, not a weaver-local decision', () => {
+  /**
+   * R3 unconditionally blocks strength+quality on the same day (ERROR,
+   * always invalid — crossDomainRules.ts's own doc: "סדר לא ניתן לאימות").
+   * That means validateCrossDomain can never accept a candidate where a
+   * quality run shares a day with strength — so weaveWeek, which only
+   * calls resolveDoubleDayOrder on the FINAL, already-validated result's
+   * shared days, can structurally never produce a quality-run shared day
+   * to ask resolveDoubleDayOrder about at all. Its 'running-first' branch
+   * (isQualityDay → true) is correctly implemented and already covered at
+   * the unit level (crossDomainRules.test.ts's own resolveDoubleDayOrder
+   * tests) — it is unreachable specifically through weaveWeek's search,
+   * not untested. Confirmed empirically, not assumed: the original version
+   * of this test asserted sharedDays.length > 0 for a quality-run input and
+   * failed with sharedDays.length === 0 — the weaver had isolated the
+   * quality run onto its own day instead of sharing it, exactly as R3
+   * requires. This test now asserts that real, reachable behavior instead.
+   */
+  it('a quality run is never placed on a shared day — the weaver isolates it instead, per R3', () => {
+    const input: WeaveWeekInput = {
+      focus: 30,
+      strength: strengthDomain(2), // canonical [0,3]
+      running: runningDomain([1, 5], 'tempo'),
+      availableDayCount: 3,
+      crossDomainContext: CROSS_CONTEXT,
+    };
+    const result = weaveWeek(input);
+    const strengthDays = strengthOccupiedDays(result.week.strength);
+    const qualityDay = result.week.running.find((d) => d.category === 'tempo')?.dayOfWeek;
+    expect(qualityDay).toBeDefined();
+    expect(strengthDays.includes(qualityDay!)).toBe(false);
+    expect(result.sharedDays.some((d) => d.order === 'running-first')).toBe(false);
+  });
+
+  it('an easy run on the shared day recommends strength-first', () => {
+    const input: WeaveWeekInput = {
+      focus: 30,
+      strength: strengthDomain(2),
+      running: runningDomain([1, 5], 'easy_run'),
+      availableDayCount: 3,
+      crossDomainContext: CROSS_CONTEXT,
+    };
+    const result = weaveWeek(input);
+    expect(result.sharedDays.length).toBeGreaterThan(0);
+    expect(result.sharedDays.every((d) => d.order === 'strength-first')).toBe(true);
+  });
+});
+
+describe('weaveWeek — R6: the long run is never placed on a day strength also occupies', () => {
+  it('a tight-but-not-impossible availability forces one shared day — the weaver finds an arrangement where the LONG run specifically lands on a day with no strength, sharing the easy day instead, with a note naming R6', () => {
+    const input: WeaveWeekInput = {
+      focus: 30,
+      strength: strengthDomain(2), // canonical [0,3]
+      running: runningDomainOf([
+        [3, 'long_run'],
+        [5, 'easy_run'],
+      ]),
+      availableDayCount: 3,
+      crossDomainContext: CROSS_CONTEXT,
+    };
+    const result = weaveWeek(input);
+
+    const strengthDays = strengthOccupiedDays(result.week.strength);
+    const runningWeek = result.week.running;
+    const longRunDay = runningWeek.find((d) => d.category === 'long_run')!.dayOfWeek;
+    expect(strengthDays.includes(longRunDay)).toBe(false);
+    expect(result.notes.some((n) => n.includes('R6'))).toBe(true);
   });
 });
 
 describe('weaveWeek — determinism', () => {
   it('the exact same input produces the exact same output on repeated calls', () => {
     const input: WeaveWeekInput = {
-      dominant: strengthDomain(4),
-      secondary: runningDomain(4),
+      focus: 30,
+      strength: strengthDomain(3),
+      running: runningDomain([0, 2, 4], 'easy_run'),
       availableDayCount: 5,
+      crossDomainContext: CROSS_CONTEXT,
     };
     const first = weaveWeek(input);
     const second = weaveWeek(input);
