@@ -15,27 +15,27 @@ function buildWeek(roles: Array<RunningDayRole | null>): RunningWeekDay[] {
 
 describe('preferredRunningDays', () => {
   it('count=0 returns an empty set', () => {
-    expect(preferredRunningDays(0, 'beginner')).toEqual([]);
+    expect(preferredRunningDays(0)).toEqual([]);
   });
 
   it('count=7 returns every day', () => {
-    expect(preferredRunningDays(7, 'advanced')).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(preferredRunningDays(7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 
   it('count=4 spreads evenly across the whole week — not the old [1,2,4,5] two-adjacent-pairs shape', () => {
-    const days = preferredRunningDays(4, 'beginner');
+    const days = preferredRunningDays(4);
     expect(days).toEqual([0, 2, 4, 6]);
     // Explicitly the regression this function exists to fix.
     expect(days).not.toEqual([1, 2, 4, 5]);
   });
 
   it('count=5 keeps the longest run at 2, not front-loaded into a run of 3', () => {
-    expect(preferredRunningDays(5, 'intermediate')).toEqual([0, 1, 3, 4, 6]);
+    expect(preferredRunningDays(5)).toEqual([0, 1, 3, 4, 6]);
   });
 
   it('is deterministic for the same input', () => {
-    const a = preferredRunningDays(3, 'beginner');
-    const b = preferredRunningDays(3, 'beginner');
+    const a = preferredRunningDays(3);
+    const b = preferredRunningDays(3);
     expect(a).toEqual(b);
   });
 });
@@ -124,8 +124,8 @@ describe('validateRunningWeek — RUN-04 (max consecutive training days by level
 });
 
 describe('RUN-06 — a day set is not approved before validation', () => {
-  it('PASS: preferredRunningDays(4, beginner) wrapped into a week passes validateRunningWeek', () => {
-    const proposedDays = preferredRunningDays(4, 'beginner');
+  it('PASS: preferredRunningDays(4) wrapped into a week passes validateRunningWeek for a beginner', () => {
+    const proposedDays = preferredRunningDays(4);
     const roles: Array<RunningDayRole | null> = Array(7).fill(null);
     for (const d of proposedDays) roles[d] = 'easy_run';
     const result = validateRunningWeek(buildWeek(roles), { level: 'beginner' });
@@ -137,34 +137,50 @@ describe('RUN-06 — a day set is not approved before validation', () => {
     const result = validateRunningWeek(naiveWeek, { level: 'beginner' });
     expect(result.valid).toBe(false);
   });
+
+  it('preferredRunningDays is level-agnostic: a count with no valid spread for a beginner is still returned as-is — validateRunningWeek is what catches it, not the generator', () => {
+    // 6 days/week: only 1 rest day is available to split 6 training days,
+    // so the best possible spread is two 3-day runs — mathematically
+    // impossible to keep every run within a beginner's cap of 2.
+    const days = preferredRunningDays(6);
+    expect(days).toEqual([0, 1, 2, 4, 5, 6]); // still returned, not rejected or clamped
+    const roles: Array<RunningDayRole | null> = Array(7).fill(null);
+    for (const d of days) roles[d] = 'easy_run';
+    const result = validateRunningWeek(buildWeek(roles), { level: 'beginner' });
+    expect(result.valid).toBe(false);
+    expect(result.violations.some((v) => v.code === 'RUN-04')).toBe(true);
+    // The exact same days pass for an advanced runner (cap 4) — the
+    // generator's output didn't change; only the validation context did.
+    const advancedResult = validateRunningWeek(buildWeek(roles), { level: 'advanced' });
+    expect(advancedResult.valid).toBe(true);
+  });
 });
 
-describe('runningCriticalityOrder — RUN-05', () => {
-  it('≥10km uses the long-distance order (long run protected until the end)', () => {
+describe('runningCriticalityOrder — RUN-05 (boundary is 5km, not 10km)', () => {
+  it('above 5km uses the long-distance order (long run protected until the end)', () => {
+    expect(runningCriticalityOrder({ targetDistanceKm: 21 })).toEqual([
+      'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
+    ]);
     expect(runningCriticalityOrder({ targetDistanceKm: 10 })).toEqual([
       'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
     ]);
-    expect(runningCriticalityOrder({ targetDistanceKm: 21 })).toEqual([
+    // The 5-10km range used to be undefined — now explicitly long-order,
+    // same as 10km and above, not a third order of its own.
+    expect(runningCriticalityOrder({ targetDistanceKm: 8 })).toEqual([
+      'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
+    ]);
+    // Just above the boundary itself.
+    expect(runningCriticalityOrder({ targetDistanceKm: 5.1 })).toEqual([
       'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
     ]);
   });
 
-  it('≤5km uses the short-distance order (quality protected until the end)', () => {
+  it('at or below 5km uses the short-distance order (quality protected until the end)', () => {
     expect(runningCriticalityOrder({ targetDistanceKm: 5 })).toEqual([
       'easy_run', 'long_run', 'quality_secondary', 'quality_primary',
     ]);
     expect(runningCriticalityOrder({ targetDistanceKm: 3 })).toEqual([
       'easy_run', 'long_run', 'quality_secondary', 'quality_primary',
-    ]);
-  });
-
-  it('the explicitly-undefined 5–10km gap resolves to the long-distance order', () => {
-    expect(runningCriticalityOrder({ targetDistanceKm: 7 })).toEqual([
-      'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
-    ]);
-    // Just above the short-distance boundary — the split point is >5, not >=5.
-    expect(runningCriticalityOrder({ targetDistanceKm: 5.1 })).toEqual([
-      'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
     ]);
   });
 });
@@ -193,7 +209,8 @@ describe('checkSingleSessionSpike — RUN-08', () => {
     expect(checkSingleSessionSpike(10, 10)).toBe('none');
   });
 
-  it('no running history in the last 30 days (no baseline) is reported as none, not a divide-by-zero spike', () => {
-    expect(checkSingleSessionSpike(5, 0)).toBe('none');
+  it('no running history in the last 30 days is reported as no-baseline, not none — "nothing to compare against" is not the same claim as "checked, and it is safe"', () => {
+    expect(checkSingleSessionSpike(5, 0)).toBe('no-baseline');
+    expect(checkSingleSessionSpike(5, -3)).toBe('no-baseline');
   });
 });

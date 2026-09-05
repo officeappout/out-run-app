@@ -83,7 +83,7 @@ export interface RunningCriticalityContext {
   targetDistanceKm: number;
 }
 
-export type SessionSpikeLevel = 'none' | 'flagged' | 'explained' | 'blocked';
+export type SessionSpikeLevel = 'none' | 'flagged' | 'explained' | 'blocked' | 'no-baseline';
 
 // ──────────────────────────────────────────────────────────────────────────
 // 1. preferredRunningDays — RUN-01–RUN-04
@@ -100,32 +100,28 @@ const MAX_CONSECUTIVE_TRAINING_DAYS: Record<RunningExperienceLevel, number> = {
  * linear) by spreading the *rest* days as evenly as possible, using them as
  * separators that split the training days into (restCount + 1) balanced
  * segments. This minimizes the longest run of consecutive training days for
- * the given count.
+ * the given count — the best achievable spread for that count, full stop.
  *
  * Explicitly NOT a copy of getSmartDefaultDays' old table, which returned
  * [1,2,4,5] for 4 days/week — two adjacent pairs with day 3 (Wed) and days
  * 6 (Sat) left unused. This function instead produces {0,2,4,6} for the
  * same count: zero adjacent days, using the whole week.
  *
- * This is a *candidate* generator, not a guarantee — per RUN-06, its output
- * must still be checked against validateRunningWeek before being treated as
- * final ("סט ימים אינו מאושר לפני שנבדק"). For a count/level combination
- * where even the most balanced split still exceeds the level's RUN-04 cap
- * (e.g. 6 days/week for a beginner — mathematically impossible to keep
- * every run ≤2 with only 1 rest day to split 6 training days), this still
- * returns the best achievable spread; the caller is expected to catch the
- * remaining violation via validateRunningWeek, per the weaver's own
+ * Level-agnostic on purpose (no `level` parameter): for a fixed `count`,
+ * minimizing the longest run is the correct spacing strategy regardless of
+ * who it's for — a lower RUN-04 cap only changes whether the *result*
+ * happens to already satisfy it, never how the days should be arranged.
+ *
+ * This function does NOT guarantee the result is valid for every level —
+ * it has no way to know the level, and even if it did, some (count, level)
+ * combinations are mathematically infeasible (e.g. 6 days/week for a
+ * beginner — impossible to keep every run ≤2 with only 1 rest day to split
+ * 6 training days). It returns the best possible spread regardless. The
+ * caller MUST run validateRunningWeek before treating the result as final,
+ * per RUN-06 ("סט ימים אינו מאושר לפני שנבדק") and the weaver's own
  * "propose and verify" loop (schedule-weaver-spec.md).
  */
-export function preferredRunningDays(count: number, level: RunningExperienceLevel): number[] {
-  // `level` is accepted per the dictated signature but not read here: for a
-  // fixed `count`, minimizing the longest consecutive-training-day run is
-  // the correct spacing strategy at every level — a lower cap only changes
-  // whether the *result* happens to already satisfy it (validateRunningWeek's
-  // job, per RUN-06), never how the days should be arranged in the first
-  // place. Referenced only so this stays legible if a future change makes
-  // that assumption stop holding.
-  void level;
+export function preferredRunningDays(count: number): number[] {
   const total = 7;
   const c = Math.max(0, Math.min(total, Math.round(count)));
   if (c === 0) return [];
@@ -257,16 +253,11 @@ const SHORT_DISTANCE_THRESHOLD_KM = 5;
 /**
  * RUN-05 — criticality drop order, by target distance.
  *
- * ⚠️ The source doc defines two endpoints only: ≤5km ("short") and ≥10km
- * ("long"). It explicitly asked this module to define what happens in the
- * 5–10km gap rather than leave it unresolved. Resolved as: the entire open
- * interval (5,10) folds into the LONG order — reasoned directly from the
- * doc's own stated cause for the flip ("במרחקים ארוכים הריצה הארוכה היא
- * עמוד השדרה, במרחקים קצרים אימון האיכות הוא"): an 8K target already
- * leans on a real long run as its backbone the same way a 10K does, unlike
- * a 5K where speed/quality dominates. This is my interpretation of an
- * explicitly-delegated gap, not an invented threshold — flag if a
- * different split point (e.g. a midpoint at 7.5km) was intended instead.
+ * Boundary is 5km, not 10km: ≤5km ("short") uses one order, above 5km
+ * ("long") uses the other — the doc no longer leaves a 5–10km gap
+ * undefined (running-rule-family.md, updated 05.09.2026). Reason for the
+ * flip: an 8K target already leans on a real long run as its backbone the
+ * same way a 10K does, unlike a 5K where speed/quality dominates.
  */
 export function runningCriticalityOrder(context: RunningCriticalityContext): RunningDayRole[] {
   return context.targetDistanceKm <= SHORT_DISTANCE_THRESHOLD_KM
@@ -293,8 +284,11 @@ const SPIKE_BLOCKED_PERCENT = 100;
  * (per the doc: "המודול רק מדווח, לא מחליט").
  *
  * `longestInLast30DaysKm <= 0` (no running history yet, e.g. a brand-new
- * runner) → 'none'. There's nothing to compare against, so this isn't a
- * "spike" in the sense this rule addresses — it's a starting point. Not
+ * runner) → 'no-baseline', not 'none'. These are not the same claim: 'none'
+ * means "checked, no elevated risk"; 'no-baseline' means "nothing to check
+ * against." A brand-new runner is exactly the case that must never read as
+ * cleared — collapsing it into 'none' would tell a caller "this planned
+ * distance is safe" when in fact safety was never assessed at all. Not
  * stated in the source doc; this is my own resolution of an unstated edge
  * case (avoiding a divide-by-zero), not an invented threshold value.
  */
@@ -302,7 +296,7 @@ export function checkSingleSessionSpike(
   plannedDistanceKm: number,
   longestInLast30DaysKm: number,
 ): SessionSpikeLevel {
-  if (longestInLast30DaysKm <= 0) return 'none';
+  if (longestInLast30DaysKm <= 0) return 'no-baseline';
   const overshootPercent =
     ((plannedDistanceKm - longestInLast30DaysKm) / longestInLast30DaysKm) * 100;
   if (overshootPercent < SPIKE_FLAGGED_PERCENT) return 'none';
