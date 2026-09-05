@@ -131,6 +131,30 @@ function main() {
   // structural rows are still counted — a superset's two exercises each
   // carry their own `sets`, contributing independently, matching the old
   // formula's per-row semantics.
+  //
+  // ── working_sets normalization for block-shaped rows (docs/workout-engine/
+  // 09-CORE-TABATA.md §5, David's decision: sets-equivalent) ────────────────
+  // A protocol_block='tabata' member or an isFollowAlong exercise doesn't
+  // carry a meaningful literal `sets` — a tabata member is hardcoded sets:1
+  // regardless of how many of the block's 8 intervals it's actually visited
+  // (2/4/8-member composition, docs/workout-engine/09-CORE-TABATA.md §1.3);
+  // a follow-along item is one continuous clip with no set structure at all.
+  // Counting these at their literal `sets` value undercounts real effort
+  // (measured: a 2-member tabata block member is visited 4× across the 8
+  // rounds — 80s of real work — but sets:1 only ever credited 20s) and, for
+  // follow-along specifically, produces working_sets:1 vs form A's 2-3 for a
+  // COMPARABLE amount of core work (09-CORE-TABATA.md §4's own volume-
+  // accounting risk section).
+  //
+  // Chosen normalization: derive a sets-equivalent from est_time_under_
+  // tension instead of trusting the literal `sets` field for these rows.
+  // SECONDS_PER_SET_EQUIVALENT=20 is a round number close to a typical form-A
+  // set (TIER_TABLE match tier's reps range, ~3-6 reps × SECONDS_PER_REP_
+  // DEFAULT=3s ≈ 9-18s; skewed slightly up rather than down since core sets
+  // often run longer holds). Not derived from a live measurement — a
+  // documented, auditable choice, easy to recompute by hand if revisited.
+  const SECONDS_PER_SET_EQUIVALENT = 20;
+
   db.exec(`DROP TABLE IF EXISTS session_volume`);
   db.exec(`
     CREATE TABLE session_volume (
@@ -140,10 +164,10 @@ function main() {
   `);
 
   const newRows = db.prepare(`
-    SELECT run_id, domain, exercise_id, sets, reps, is_time_based
+    SELECT run_id, domain, exercise_id, sets, reps, is_time_based, protocol_block, is_follow_along
     FROM workout_exercises
     WHERE (exercise_role = 'main' OR exercise_role IS NULL) AND domain IS NOT NULL
-  `).all() as { run_id: string; domain: string; exercise_id: string; sets: number; reps: number | null; is_time_based: number }[];
+  `).all() as { run_id: string; domain: string; exercise_id: string; sets: number; reps: number | null; is_time_based: number; protocol_block: string | null; is_follow_along: number | null }[];
 
   type Agg = { exercises: Set<string>; workingSets: number; totalReps: number; tut: number };
   const newAgg = new Map<string, Agg>();
@@ -152,15 +176,21 @@ function main() {
     if (!newAgg.has(key)) newAgg.set(key, { exercises: new Set(), workingSets: 0, totalReps: 0, tut: 0 });
     const agg = newAgg.get(key)!;
     agg.exercises.add(r.exercise_id);
-    agg.workingSets += r.sets ?? 0;
+
+    const isBlockShaped = r.protocol_block === 'tabata' || r.is_follow_along === 1;
+    let rowTut = 0;
     if (r.reps != null) {
       if (r.is_time_based) {
-        agg.tut += (r.sets ?? 0) * r.reps; // reps IS the hold-seconds value
+        rowTut = (r.sets ?? 0) * r.reps; // reps IS the hold-seconds value
       } else {
         agg.totalReps += (r.sets ?? 0) * r.reps;
-        agg.tut += (r.sets ?? 0) * r.reps * SECONDS_PER_REP_DEFAULT;
+        rowTut = (r.sets ?? 0) * r.reps * SECONDS_PER_REP_DEFAULT;
       }
     }
+    agg.tut += rowTut;
+    agg.workingSets += isBlockShaped
+      ? Math.round(rowTut / SECONDS_PER_SET_EQUIVALENT)
+      : (r.sets ?? 0);
   }
 
   const insertNew = db.prepare(`

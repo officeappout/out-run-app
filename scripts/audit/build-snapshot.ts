@@ -198,6 +198,7 @@ interface ExerciseRow {
   sets: number | null; reps: number | null; is_time_based: number; rest_seconds: number | null;
   priority: string | null; score: number | null; method_location: string | null;
   paired_with: string | null; superset_type: string | null; protocol_block: string | null; pyramid_sequence: string | null;
+  is_follow_along: number;
 }
 
 async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: WorkoutRow[]; exercises: ExerciseRow[] } | null> {
@@ -274,6 +275,7 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
         paired_with: ex.pairedWith ?? null, superset_type: ex.supersetType ?? null,
         protocol_block: ex.protocolBlock ?? null,
         pyramid_sequence: ex.pyramidSequence ? JSON.stringify(ex.pyramidSequence.map((s: any) => ({ setIndex: s.setIndex, level: s.level }))) : null,
+        is_follow_along: ex.exercise?.isFollowAlong ? 1 : 0,
       });
     });
   });
@@ -302,7 +304,8 @@ function createSchema(db: Database.Database) {
       resolved_level INTEGER, user_domain_level INTEGER, level_diff REAL,
       sets INTEGER, reps INTEGER, is_time_based INTEGER, rest_seconds INTEGER,
       priority TEXT, score REAL, method_location TEXT,
-      paired_with TEXT, superset_type TEXT, protocol_block TEXT, pyramid_sequence TEXT
+      paired_with TEXT, superset_type TEXT, protocol_block TEXT, pyramid_sequence TEXT,
+      is_follow_along INTEGER
     );
     CREATE INDEX idx_we_run_id ON workout_exercises(run_id);
     CREATE INDEX idx_we_exercise_id ON workout_exercises(exercise_id);
@@ -343,8 +346,8 @@ async function main() {
     VALUES (@run_id, @seed, @bolt, @req_level, @req_duration, @req_location, @req_domains, @days_inactive, @title, @structure, @applied_protocol, @estimated_duration, @total_planned_sets, @chip_location, @relaxed_constraints)
   `);
   const insertExercise = db.prepare(`
-    INSERT INTO workout_exercises (run_id, position, exercise_id, name, exercise_role, domain, movement_group, resolved_level, user_domain_level, level_diff, sets, reps, is_time_based, rest_seconds, priority, score, method_location, paired_with, superset_type, protocol_block, pyramid_sequence)
-    VALUES (@run_id, @position, @exercise_id, @name, @exercise_role, @domain, @movement_group, @resolved_level, @user_domain_level, @level_diff, @sets, @reps, @is_time_based, @rest_seconds, @priority, @score, @method_location, @paired_with, @superset_type, @protocol_block, @pyramid_sequence)
+    INSERT INTO workout_exercises (run_id, position, exercise_id, name, exercise_role, domain, movement_group, resolved_level, user_domain_level, level_diff, sets, reps, is_time_based, rest_seconds, priority, score, method_location, paired_with, superset_type, protocol_block, pyramid_sequence, is_follow_along)
+    VALUES (@run_id, @position, @exercise_id, @name, @exercise_role, @domain, @movement_group, @resolved_level, @user_domain_level, @level_diff, @sets, @reps, @is_time_based, @rest_seconds, @priority, @score, @method_location, @paired_with, @superset_type, @protocol_block, @pyramid_sequence, @is_follow_along)
   `);
   const insertBatch = db.transaction((workouts: WorkoutRow[], exercises: ExerciseRow[]) => {
     for (const w of workouts) insertWorkout.run(w as any);

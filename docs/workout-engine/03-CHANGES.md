@@ -694,3 +694,208 @@ individual tests pass (11 new: 5 in `rederive-volume-for-swapped-exercise
 tests); same 2 pre-existing hybrid `process.exit()` test-file failures,
 unrelated. Live re-verification: full snapshot matrix rebuilt twice more
 (once per fix layer), 1260 calls, 0 errors both times.
+
+---
+
+## Addendum 5 — Core block as a 3-form repertoire (docs/workout-engine/09-CORE-TABATA.md)
+
+Implements David's 04.09.2026 decisions on top of the read-only mapping in
+`08-CORE.md`/`09-CORE-TABATA.md`: the core slot now has three interchangeable
+forms — (A) one exercise × 2-3 sets (opened from an exact 2), (B) a 4-minute
+tabata block with 2/4/8 core exercises (`TABATA_CLASSIC` itself untouched —
+only member count, never block length), (C) one of the 4 "טבטה" follow-along
+ladder items (L4/L8/L12/L16) filling the slot alone. All three pass the same
+pre-existing core gate (`hasExplicitCoreLevel`, `targetPrograms['core']` with
+a level).
+
+### Part 1 — Connected the follow-along ladder (independent fix)
+
+The 4 follow-along items (`ZHf9ELBPf9NpASCygL1n`/"טבטה" L4,
+`WLP7RzGley7svZbbIzAW`/"טבטה +" L8, `nbEECAsr8OciKBVbKkET`/"טבטה מאתגר" L12,
+`jbwq5lw6oIF0G6vDJ1D9`/"טבטה מאתגר+" L16) are all `exerciseRole:'reinforcement'`
+— the exact same unreachable pattern as the ~40 warmup videos in
+`04-VERIFY.md`: real docs, valid levels, zero live consumers. Wired via
+`resolveFollowAlongCoreExercise` (`core-block.ts`) — nearest-at-or-below the
+user's core level, falls back to the closest available level if none qualify.
+Also added `UNHANDLED_ROLE` detection to `/admin/unreachable-exercises`
+(`HANDLED_ROLES` allowlist: main/warmup/cooldown/recovery/reinforcement) so a
+future new `ExerciseRole` value with no consumer surfaces automatically
+instead of silently repeating this pattern a third time.
+
+### Part 2 — The three forms
+
+- **Form A (single, 2-3 sets):** opened the exact-2 lock from Addendum 4/
+  commits `e862ae9f`+`516a90df` in both `BudgetDistributor.ts` lock sites
+  (`CORE_MIN_SETS=2`/`CORE_MAX_SETS=3`, clamp instead of overwrite) and both
+  naked-gear-filter sites in `trio-modifiers.service.ts` (backfill +
+  violation-replacement). Non-core paths in both files verified untouched —
+  `BudgetDistributor.ts` has zero tabata/protocolBlock awareness (grep
+  confirmed), so this change is provably scoped to core only.
+- **Form B (tabata, 2/4/8 members):** `buildCoreTabataBlock` (`core-block.ts`)
+  calls the existing `buildTabataBlock('tabata', ...)` pool-injection path
+  unchanged, with a core-only pool and `minExercises=maxExercises=memberCount`
+  to force the exact chosen count. `chooseCoreTabataMemberCount(headroom)`
+  picks 2/4/8 by remaining time (`TABATA_CORE_MEMBER_COUNTS`, tiling-verified
+  to divide the fixed 8 intervals evenly). `TABATA_MIN/MAX_EXERCISES` in
+  `tabata.constants.ts` stayed the DEFAULT for the general finisher;
+  `tabata.block.ts` now accepts `minExercises`/`maxExercises` overrides plus
+  `injuryShield` on both the mains-subset and pool-injection paths (previously
+  neither checked injuries at all — David flagged this explicitly).
+- **Form C (follow-along):** `resolveFollowAlongCoreExercise` fills the slot
+  alone, spliced in as `sets:1, reps:TABATA_BLOCK_SECONDS, isTimeBased:true`
+  (matches the ~240s real clip length).
+
+All three wired into `WorkoutGenerator.ts` as a new "Step 6c" immediately
+before the existing tabata FINISHER step; the finisher is suppressed
+(`coreForm !== 'tabata' &&`) when core itself became the tabata block, so the
+session never gets two tabata blocks. Each form falls back to 'single' (or,
+for tabata, to the pre-swap single core exercise) if its own build fails —
+never a lost slot.
+
+### Part 3 — Form selection: one constant, one place
+
+`CORE_FORM_STRATEGY` (`core-block.ts`) — currently `'remaining_time'` (the
+simplest of the 4 proposed mechanisms: pick among forms whose time cost fits
+the session's remaining headroom). The other 3 (`by_bolt`, `weighted_random`,
+`goal_history`) are documented in the same file, beside the constant, with
+why each was deferred rather than chosen — every call site reads the
+strategy through `chooseCoreForm()`, so swapping mechanisms later is a
+one-line change with no scattered call-site edits.
+
+Anti-repetition (hard requirement: never 3× the same form in a row) is
+tracked via `coreFormsChosenThisTrio` — an array shared by reference across
+all 3 bolts of one `generateHomeWorkoutTrio` call. **Scoped, not the full
+guarantee**: this is *within one trio call* only, not true cross-session
+history (3 actual consecutive days). The one real precedent for "avoid
+repeating recent content" in this codebase (`recentExerciseIds`,
+`useWeeklyVolumeStore.ts:396`) is a client-side store read outside the pure
+generator — wiring real cross-session tracking needs a new Firestore read or
+an extension to that store, neither verified this pass.
+`WorkoutGenerationContext.recentCoreForms` is a real, typed extension point
+(`chooseCoreForm` already folds it into the same anti-repetition check) —
+wiring a real history source later requires zero changes to the selection
+logic itself, only supplying the array.
+
+### Part 4 — When the block enters
+
+- **Full-body (push+pull+legs) → guaranteed.** Added `core` to
+  `GuaranteePassRunner.ts`'s `DOMAIN_MG_CANDIDATES` and `PRIMARY_DOMAINS`.
+  `strictDomainMatch=true` is passed for core only (push/pull/legs keep the
+  pre-existing non-strict default) so a guarantee injection can't reopen the
+  §12.3 cross-scale bug (a `movementGroup='core'` skill move getting injected
+  via an unrelated program's level).
+- **≥20 min → unchanged** (pre-existing duration/domain rules apply as
+  before).
+- **15 min + strength goal → excluded unless time remains.** New
+  `StructureDirector._shouldExcludeCoreForShortStrengthSession` — only
+  applies when core is one of the *explicitly requested* domains (not the
+  full-body-guarantee path, which is domain-agnostic by design and unaffected
+  by this exclusion). Approximates "time remains" via a fixed 5-min/domain
+  reservation since `StructureDirector` doesn't have real per-exercise
+  durations at that stage. `mainGoal==='performance_boost'` is this pass's
+  interpretation of "strength goal" — **flagged as needing David's
+  confirmation**, not verified against a written source.
+- **Manual builder → new explicit gate.** `context.isManualOverride` is
+  checked at the top of the exclusion helper (returns `false` immediately,
+  i.e. never excludes) — previously `isManualOverride` had exactly one real
+  consumer (`SplitDecisionService`'s deficit-clamping); core rules had no
+  manual-mode awareness at all before this.
+
+### Part 5 — Measurement: sets-equivalent normalization
+
+Chosen normalization (of the two directions raised in `09-CORE-TABATA.md`):
+**sets-equivalent**, `SECONDS_PER_SET_EQUIVALENT = 20`
+(`build-session-volume.ts`) — a row's `working_sets` becomes
+`round(time_under_tension / 20)` instead of the literal `sets` field whenever
+`protocol_block='tabata'` OR `is_follow_along=1`. Chosen over the alternative
+(leaving `working_sets` as the raw form-A-shaped `sets` field, which would
+have shown follow-along as `working_sets:1` against form A's 2-3, despite 4
+minutes of continuous work — a 5x+ undercount) because sets-equivalent keeps
+the existing volume-budget math (which is set-count-based throughout
+`BudgetDistributor`/`session_volume`) comparable across all three forms
+without inventing a second volume unit. `is_follow_along` is a new column on
+`workout_exercises` in `build-snapshot.ts`, sourced from
+`ex.exercise?.isFollowAlong`.
+
+### Verification
+
+`npx tsc --noEmit` — no new errors (checked every touched file by name
+against the full error list; all pre-existing baseline patterns: `TS2802`
+Set/Map iteration target-level errors, unrelated `ExerciseTag`/
+`DomainTrackProgress` type gaps). `npx vitest run src/features/workout-engine`
+— **506/506 tests pass** (24 new: `core-block.test.ts` — form eligibility,
+anti-repetition incl. the documented no-satisfying-form edge case,
+follow-along resolution, tabata injury-shield; `structure-director-core-gate
+.test.ts` — 6 tests via the public `plan()` API covering the 15-min/strength
+exclusion, manual override, and the domain-absent case; plus updated
+assertions in `core-set-lock.test.ts` and `trio-modifiers-core-set-lock
+.test.ts` for the 2→2-3 set range). Same 2 pre-existing hybrid
+`process.exit()`-style test-file failures (`hybrid-runtime.test.ts`,
+`hybrid-orchestrator.test.ts`) — confirmed unrelated: neither imports any
+file touched this pass.
+
+**Two real bugs found and fixed during live verification, before trusting
+any snapshot numbers:**
+
+1. **`MG_TO_DOMAIN` mismatch in the guarantee's own candidate search.**
+   `DOMAIN_MG_CANDIDATES.core` initially listed only `['core']`, but
+   `MG_TO_DOMAIN` (the canonical mapping used everywhere else) also maps
+   `anti_extension`/`anti_rotation` to the `core` domain — a large share of
+   the real core catalog was invisible to `runFullBodyDomainGuarantee`'s
+   search. Fixed by widening to `['core', 'anti_extension', 'anti_rotation']`.
+   (The snapshot's `domain` column already applied `MG_TO_DOMAIN` correctly —
+   confirmed by reading `build-snapshot.ts:263` — so this bug was scoped
+   entirely to the guarantee's internal search, not to how "core presence"
+   gets measured; the 08-CORE.md baseline numbers stand unaffected.)
+2. **`enforceVolumeCap` was trimming the guarantee-injected exercise right
+   back out.** Its Phase A treats `CORE_MGS` as "most expendable" by design
+   (a normal, non-guaranteed core pick should trim first at short durations)
+   — but that rule doesn't know the difference between an ordinary core pick
+   and one the Full-Body Guarantee just fought to inject. Added
+   `WorkoutExercise.isGuaranteedCore`, set by `GuaranteePassRunner` on
+   injection, checked by `enforceVolumeCap`'s `isExpendable` (`if
+   (ex.isGuaranteedCore) return false`) ahead of the `CORE_MGS` check.
+   Live-traced with 4 temporary checkpoints (since removed) end to end —
+   confirmed the flag survives from injection through `applyFlowRegression`'s
+   gear-filter (same object reference when the exercise stays gear-free) to
+   `enforceVolumeCap`, and correctly gates the trim.
+
+**Live snapshot rebuild (3,780 workouts, 23,940 `workout_exercises`, 0
+errors), before (`08-CORE.md` baseline) vs after both fixes:**
+
+| Metric | Before | After |
+|---|---|---|
+| % workouts with core, 15/20/30/45 min | 32.9 / 36.9 / 45.7 / 56.8 | 31.0 / 38.9 / 46.3 / 57.1 |
+| Avg core/workout, 15/20/30/45 min | 0.35 / 0.41 / 0.56 / 0.81 | 0.34 / 0.44 / 0.63 / 0.88 |
+| Avg core/workout, bolt 1/2/3 | 0.61 / 0.55 / 0.43 | 0.65 / 0.58 / 0.48 |
+| **Full-body workouts without core** | **315/540 (58.3%)** | **261/540 (48.3%)** |
+| …by duration 15/20/30/45 min | 66.7 / 66.7 / 52.6 / 47.4 | 65.9 / 52.6 / 43.7 / 31.1 |
+
+Form distribution among the 2,159 core-exercise rows in this run:
+follow_along 1,148 rows (1,121 distinct workouts), single 720 rows (618
+workouts), tabata 291 rows (140 workouts, avg ~2.1 members/block — headroom
+is rarely ≥8 min in this matrix, so `chooseCoreTabataMemberCount` mostly
+lands on 2). All three forms fire in live data — form C in particular was
+previously unreachable at all (Part 1), now the single largest form.
+
+**The blended, all-workouts metrics (row 1-3) barely moved — expected, not a
+sign the fix is inert.** The Full-Body Guarantee only fires for
+`blueprint.strategy==='full_body'`, one of 7 domain-subsets in the matrix;
+its effect is real but diluted across the blended population. The row that
+actually measures the guarantee — full-body-without-core — moved 58.3% →
+48.3%, a genuine 10-point improvement, **not the 0% target.**
+
+**Residual gap, root-caused, not fixed this pass:** full-body-without-core
+by user level is monotonic — L1 44.4%, L3 39.8%, L5 47.2%, L8 50.9%, **L12
+59.3%**. This tracks catalog depth, not a code defect: `PoolFactory.ts`'s
+`findLevelAppropriateSubstitute` (the guarantee's own candidate search) has
+no `exerciseRole` filter, so the follow-along ladder is already a visible
+candidate to it — the remaining failures are cases where `globalExercisePool`
+genuinely has no core-domain exercise (of any role) within the search band
+of a high user level. Advanced core catalog is thinner than beginner core
+catalog; this is a content-coverage gap, and closing it further is either a
+catalog question or a search-band widening decision — **left for David**,
+consistent with 08-CORE.md/09-CORE-TABATA.md's own "measure and report, don't
+invent" pattern rather than a code change bundled into this pass.
+
+**Commit:** local only, no push, per task instruction.
