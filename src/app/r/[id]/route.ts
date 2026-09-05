@@ -1,10 +1,11 @@
 /**
- * GET / POST /api/links/[id]/click
+ * GET / POST /r/[id]
  *
- * Legacy path, kept working for back-compat (anything already printed or
- * shared using this URL). `/r/[id]` is the canonical, go-forward tracking
- * URL surfaced by the admin panel now — see that route and
- * `link-click-handler.ts` (shared implementation) for full behaviour.
+ * Canonical, go-forward Smart Link tracking URL — short, public-facing
+ * ("outrun.co.il/r/{id}"), meant to be what's copied into a QR code or
+ * shared. All actual logic lives in `link-click-handler.ts` (shared with
+ * the older `/api/links/[id]/click` path, kept for back-compat) — see
+ * that file's doc comment for full behaviour.
  */
 
 import { NextRequest } from 'next/server';

@@ -9,8 +9,11 @@
  *      every visit so the onboarding pipeline can populate
  *      `users/{uid}.marketingAttribution` (see
  *      `src/lib/marketingAttribution.ts`).
- *   2. Routes through `/api/links/[id]/click?...` so we can atomically
- *      bump a per-link counter via Admin SDK (no client auth required).
+ *   2. Routes through `/r/[id]` so we can atomically bump a per-link
+ *      counter via Admin SDK (no client auth required) — device/bot
+ *      filtering + (opt-in per link) direct-to-store Smart Link routing
+ *      live in `link-click-handler.ts`, shared with the legacy
+ *      `/api/links/[id]/click` path kept for back-compat.
  *   3. Surfaces in the Funnel Dashboard's `Campaign / Source / Medium`
  *      filter dropdowns once a user has been attributed to it.
  *
@@ -35,8 +38,8 @@ import {
   PowerOff,
 } from 'lucide-react';
 import {
-  buildTrackingUrl,
   createMarketingLink,
+  DEFAULT_LINK_DESTINATIONS,
   deleteMarketingLink,
   getMarketingLinks,
   LINK_TYPES,
@@ -72,8 +75,8 @@ function formatDate(d: Date | null | undefined): string {
 }
 
 function getTrackingApiUrl(id: string): string {
-  if (typeof window === 'undefined') return `/api/links/${id}/click`;
-  return `${window.location.origin}/api/links/${id}/click`;
+  if (typeof window === 'undefined') return `/r/${id}`;
+  return `${window.location.origin}/r/${id}`;
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -444,6 +447,11 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
   const [utmCampaign, setUtmCampaign] = useState('');
   const [linkType, setLinkType] = useState<LinkType>('web');
   const [physicalLocation, setPhysicalLocation] = useState('');
+  const [useSmartLink, setUseSmartLink] = useState(false);
+  const [iosUrl, setIosUrl] = useState('');
+  const [androidUrl, setAndroidUrl] = useState('');
+  const [desktopUrl, setDesktopUrl] = useState('');
+  const [fallbackUrl, setFallbackUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -462,6 +470,11 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
       setUtmCampaign(link.utmCampaign ?? '');
       setLinkType(link.linkType);
       setPhysicalLocation(link.physicalLocation ?? '');
+      setUseSmartLink(link.useSmartLink);
+      setIosUrl(link.iosUrl ?? '');
+      setAndroidUrl(link.androidUrl ?? '');
+      setDesktopUrl(link.desktopUrl ?? '');
+      setFallbackUrl(link.fallbackUrl ?? '');
       setNotes(link.notes ?? '');
       setIsActive(link.isActive);
     } else {
@@ -472,6 +485,11 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
       setUtmCampaign('');
       setLinkType('web');
       setPhysicalLocation('');
+      setUseSmartLink(false);
+      setIosUrl('');
+      setAndroidUrl('');
+      setDesktopUrl('');
+      setFallbackUrl('');
       setNotes('');
       setIsActive(true);
     }
@@ -479,16 +497,25 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
     setPreviewCopied(false);
   }, [open, link]);
 
-  const previewUrl = useMemo(
-    () =>
-      buildTrackingUrl({
-        oneLinkUrl,
-        utmSource: utmSource.trim() || null,
-        utmMedium: utmMedium.trim() || null,
-        utmCampaign: utmCampaign.trim() || null,
-      }),
-    [oneLinkUrl, utmSource, utmMedium, utmCampaign],
-  );
+  // The preview MUST show our own tracking URL (`/r/{id}` + utm), never
+  // the onelink.to/destination URL — a copy-pasted preview is exactly as
+  // leaky as an unrouted physical QR code (same bug, every channel).
+  // Only available once a real id exists (i.e. editing an already-saved
+  // link) — a brand-new, unsaved link has no id yet to build the URL
+  // with.
+  const previewUrl = useMemo(() => {
+    if (!isEdit || !link) return '';
+    const base = getTrackingApiUrl(link.id);
+    try {
+      const url = new URL(base);
+      if (utmSource.trim()) url.searchParams.set('utm_source', utmSource.trim());
+      if (utmMedium.trim()) url.searchParams.set('utm_medium', utmMedium.trim());
+      if (utmCampaign.trim()) url.searchParams.set('utm_campaign', utmCampaign.trim());
+      return url.toString();
+    } catch {
+      return base;
+    }
+  }, [isEdit, link, utmSource, utmMedium, utmCampaign]);
 
   const handleCopyPreview = useCallback(async () => {
     if (!previewUrl) return;
@@ -502,37 +529,37 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
   }, [previewUrl]);
 
   const handleSubmit = useCallback(async () => {
-    if (!friendlyName.trim() || !oneLinkUrl.trim()) {
-      setDrawerError('שם פנימי וכתובת URL הם שדות חובה');
+    if (!friendlyName.trim()) {
+      setDrawerError('שם פנימי הוא שדה חובה');
+      return;
+    }
+    if (!useSmartLink && !oneLinkUrl.trim()) {
+      setDrawerError('כתובת URL היא שדה חובה (אלא אם מסומן Smart Link)');
       return;
     }
     setSaving(true);
     setDrawerError(null);
     try {
+      const payload = {
+        friendlyName,
+        oneLinkUrl,
+        utmSource: utmSource.trim() || null,
+        utmMedium: utmMedium.trim() || null,
+        utmCampaign: utmCampaign.trim() || null,
+        linkType,
+        physicalLocation: physicalLocation.trim() || null,
+        useSmartLink,
+        iosUrl: iosUrl.trim() || null,
+        androidUrl: androidUrl.trim() || null,
+        desktopUrl: desktopUrl.trim() || null,
+        fallbackUrl: fallbackUrl.trim() || null,
+        notes,
+        isActive,
+      };
       if (isEdit && link) {
-        await updateMarketingLink(link.id, {
-          friendlyName,
-          oneLinkUrl,
-          utmSource: utmSource.trim() || null,
-          utmMedium: utmMedium.trim() || null,
-          utmCampaign: utmCampaign.trim() || null,
-          linkType,
-          physicalLocation: physicalLocation.trim() || null,
-          notes,
-          isActive,
-        });
+        await updateMarketingLink(link.id, payload);
       } else {
-        await createMarketingLink({
-          friendlyName,
-          oneLinkUrl,
-          utmSource: utmSource.trim() || null,
-          utmMedium: utmMedium.trim() || null,
-          utmCampaign: utmCampaign.trim() || null,
-          linkType,
-          physicalLocation: physicalLocation.trim() || null,
-          notes,
-          isActive,
-        });
+        await createMarketingLink(payload);
       }
       await onSaved();
     } catch (err) {
@@ -541,7 +568,11 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
     } finally {
       setSaving(false);
     }
-  }, [friendlyName, oneLinkUrl, utmSource, utmMedium, utmCampaign, linkType, physicalLocation, notes, isActive, isEdit, link, onSaved]);
+  }, [
+    friendlyName, oneLinkUrl, utmSource, utmMedium, utmCampaign, linkType,
+    physicalLocation, useSmartLink, iosUrl, androidUrl, desktopUrl, fallbackUrl,
+    notes, isActive, isEdit, link, onSaved,
+  ]);
 
   if (!open) return null;
 
@@ -584,15 +615,21 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
             />
           </Field>
 
-          <Field label="כתובת היעד (URL)" required>
+          <Field label="כתובת היעד (URL)" required={!useSmartLink}>
             <input
               type="url"
               dir="ltr"
               value={oneLinkUrl}
               onChange={(e) => setOneLinkUrl(e.target.value)}
               placeholder="https://outrun.co.il/gateway"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-left text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              disabled={useSmartLink}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-left text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100 disabled:text-slate-400"
             />
+            {useSmartLink && (
+              <span className="mt-1 block text-xs text-slate-500">
+                לא בשימוש כש-Smart Link מסומן — הניתוב נקבע לפי המכשיר למטה.
+              </span>
+            )}
           </Field>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -648,6 +685,69 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
             </Field>
           </div>
 
+          {/* Smart Link — device-based routing straight to the store,
+              bypassing onelink.to. Opt-in per link (see useSmartLink doc
+              comment in marketing-links.service.ts) — existing links are
+              never silently switched over. */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={useSmartLink}
+                onChange={(e) => setUseSmartLink(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="text-sm font-semibold text-slate-800">
+                Smart Link — ניתוב ישיר לחנות לפי מכשיר (בלי onelink.to)
+              </span>
+            </label>
+
+            {useSmartLink && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="iOS URL (ריק = ברירת מחדל)">
+                  <input
+                    type="url"
+                    dir="ltr"
+                    value={iosUrl}
+                    onChange={(e) => setIosUrl(e.target.value)}
+                    placeholder={DEFAULT_LINK_DESTINATIONS.iosUrl ?? ''}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-left text-xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                  />
+                </Field>
+                <Field label="Android URL (ריק = ברירת מחדל)">
+                  <input
+                    type="url"
+                    dir="ltr"
+                    value={androidUrl}
+                    onChange={(e) => setAndroidUrl(e.target.value)}
+                    placeholder={DEFAULT_LINK_DESTINATIONS.androidUrl ?? ''}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-left text-xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                  />
+                </Field>
+                <Field label="Desktop URL (ריק = ברירת מחדל)">
+                  <input
+                    type="url"
+                    dir="ltr"
+                    value={desktopUrl}
+                    onChange={(e) => setDesktopUrl(e.target.value)}
+                    placeholder={DEFAULT_LINK_DESTINATIONS.desktopUrl ?? ''}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-left text-xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                  />
+                </Field>
+                <Field label="Fallback URL (ריק = ברירת מחדל)">
+                  <input
+                    type="url"
+                    dir="ltr"
+                    value={fallbackUrl}
+                    onChange={(e) => setFallbackUrl(e.target.value)}
+                    placeholder={DEFAULT_LINK_DESTINATIONS.fallbackUrl ?? ''}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-left text-xs focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+
           <Field label="הערות פנים-ארגוניות (אופציונלי)">
             <textarea
               value={notes}
@@ -696,7 +796,9 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
             <div dir="ltr" className="break-all text-left font-mono text-xs text-emerald-900">
               {previewUrl || (
                 <span className="text-emerald-700/60">
-                  הזן URL כדי לראות תצוגה מקדימה
+                  {isEdit
+                    ? 'אין תצוגה מקדימה זמינה'
+                    : 'התצוגה המקדימה זמינה לאחר השמירה הראשונה (הקישור צריך מזהה)'}
                 </span>
               )}
             </div>

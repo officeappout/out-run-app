@@ -244,3 +244,31 @@ redirect → חנות) בבנייה עצמית על גבי `/api/links/[id]/clic
 4. רק אחרי שברור שזה מבודד לקישור הבודד: שנה את שדה ה-iOS/Android URL לכתובת בדיקה זמנית שלנו (endpoint שרק מחזיר 200+לוג, לא ה-redirect route האמיתי עדיין) ומדוד latency + התנהגות בדסקטופ.
 5. רק אחרי שזה עובד נקי על קישור הבדיקה המבודד — לשקול קישור אמיתי אחד (לא `nmpcb5`) כפיילוט.
 
+---
+
+## 13. Smart Link — מומש (05.09.2026), scope מצומצם
+
+David אישר scope מצומצם מתוך §12 (§1/§2/§3/§6 בלבד; §4/§5 נדחו). **מומש וקומיט מקומי, לא נדחף.**
+
+### 13.1 מה נבנה
+
+- **סכמה** (`marketing-links.service.ts`): `useSmartLink: boolean` (ברירת מחדל `false`/נעדר לכל קישור קיים — **opt-in per-link, לא global switch**, בדיוק כדי לא לשבור את 20 הקישורים הקיימים שממשיכים להצביע ל-onelink.to בדיוק כמו היום), `iosUrl`/`androidUrl`/`desktopUrl`/`fallbackUrl` (override; ריק = `DEFAULT_LINK_DESTINATIONS`).
+- **⚠️ ממצא חדש תוך כדי אימות**: `capacitor.config.ts`'s `appId` (`co.il.appout.outrun`) **אינו** ה-package המפורסם בפועל ב-Play. אומת בפועל: `il.co.oversight.outapp` ("Oversight" = בית התוכנה שבנה את האפליקציה, `finance-vendors.seed.ts`). השתמשתי בערך המפורסם-בפועל ל-`DEFAULT_LINK_DESTINATIONS`, **לא** בקוד המקומי. זה לא תוקן במקום אחר — רק דגל.
+- **לוגיקה טהורה** (`link-routing.ts`, נבדק ב-21 טסטים): `detectDeviceBucket` (iOS/iPadOS/Android/Desktop מ-UA; מגבלה ידועה ולא ניתנת לפתרון server-side: iPadOS מודרני מזדהה כ-Mac דסקטופ כברירת מחדל), `resolveDestinationUrl` (override→default→fallback), `buildAndroidReferrerRaw`+`appendAndroidReferrer` (double-encoding נכון לפורמט המדויק מהמפרט).
+- **Handler משותף** (`link-click-handler.ts`) ל-שני ה-routes: `/r/[id]` (חדש, קנוני) ו-`/api/links/[id]/click` (legacy, נשאר לתאימות). בוטים (`isbot`) לא נספרים ולא מקבלים click-record, אבל עדיין מקבלים redirect תקין. כל כתיבת Firestore (מונה + click-record) best-effort — נכשלת בשקט, אף פעם לא חוסמת את ה-redirect (**נבדק בפועל**, לא רק code review — 2 טסטים ייעודיים מדמים כשל כתיבה).
+- **רשומת קליק מורחבת**: `device`, `country` (`x-vercel-ip-country`), `referrer` (HTTP Referer — נבדל מ-`androidReferrerSent`, מחרוזת ה-Play referrer שנשלחה), `clickId`, `ipHash`, `userAgent`, `expireAt`.
+- **תיקון Live Preview**: הדרואר ב-`/admin/links` מציג עכשיו `outrun.co.il/r/{id}?utm=...` (מצב עריכה) — לא `onelink.to`. במצב יצירה (אין עדיין id) מוצגת הערה במקום URL מטעה.
+
+### 13.2 דוגמה אמיתית — ה-URL המלא לאנדרואיד (DoD: "הראה לי")
+
+קלט: `link_id=rollup_koach_haifa`, `utm_source=רולאפ_כוח`, `utm_campaign=stadium_2026`:
+
+```
+https://play.google.com/store/apps/details?id=il.co.oversight.outapp&referrer=link_id%3Drollup_koach_haifa%26click_id%3De3b0c442-98fc-4c1e-b1f5-2a1c0e1a9e10%26utm_source%3D%25D7%25A8%25D7%2595%25D7%259C%25D7%2590%25D7%25A4_%25D7%259B%25D7%2595%25D7%2597%26utm_campaign%3Dstadium_2026
+```
+
+`click_id` הוא `crypto.randomUUID()` אקראי לכל קליק. הערכים העבריים כן עוברים תקין (double-encoded UTF-8) — נבדק בפועל, לא רק ASCII.
+
+### 13.3 מה עדיין נדחה (לפי החלטת David)
+
+§4 (אנליטיקה מפורטת) ו-§5 (מחולל QR) — לא מומשו. **אבל** רשומת הקליק כבר שומרת את כל השדות (`device`/`country`/`referrer`) שיידרשו לזה מאוחר יותר, בלי מיגרציה. שימו לב: `react-qr-code` **כבר מותקן** כתלות (package.json) — QR-רנדור SVG בסיסי קיים כבר; חסר עדיין: לוגו-overlay, ייצוא PNG/SVG בהגדרות הדפוס, ו-error-correction-level H — משנה מעט את הערכת המאמץ של §5 כלפי מטה כשיגיע הזמן.
