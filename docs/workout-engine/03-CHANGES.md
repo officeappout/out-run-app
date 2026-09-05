@@ -1006,3 +1006,192 @@ trigger the same full replacement.
 **Left for David to decide the fix** — the two obvious directions (gate on `ctx.persona`/a real
 context flag instead of title text; or accept the current behavior as good-enough given it's
 tied to real persona-authored content) are a product call, not something to guess at here.
+
+**Update 05.09.2026 — recommended fix, for the future 10-minute pass:** David's own read of the
+Q2 finding is the fix — the 2 title docs already carry a legitimate `persona` field
+(`office_worker` / `student`). `isDeskWorkout` should read `optionMetaCtx.persona` (or the
+`titleResult`'s own row data, if threaded through) directly instead of substring-matching the
+resolved title text. That single change closes both risks in Q3 (mismatched-persona edge case,
+future flavor-text false positive) without touching the title content itself or its scoring.
+
+**Update 05.09.2026 — Q1 real-data check, per David's request ("שאלה זולה"):** queried
+`users` (Admin SDK, `.select('personas','lifestyle')` only, count-only intent — 617 total docs,
+full population sampled, no extrapolation needed): **`office_worker`: 11, `student`: 23** — 34
+real users (~5.5%) resolve to one of the two personas that can surface these titles via
+`resolveCanonicalPersona`'s `personas[0].id` → `lifestyle.lifestyleTags[0]` precedence. **0/3,780
+in the snapshot was "not measured," not "doesn't happen," exactly as David suspected** — this
+moves up in priority accordingly, per his own framing.
+
+---
+
+## Addendum 7 — Post-cut promise validation + duration-aware core trim order
+
+David's acceptance criteria for closing the Guarantee-silently-fails investigation
+(docs/workout-engine/09-CORE-TABATA.md's 05.09.2026 follow-up), all 6 delivered this pass.
+
+### 1-3. The post-cut promise validator (`GuaranteePassRunner.validatePromisesPostCut`)
+
+New pass, called from `home-workout.service.ts` after the Desk Workout Constraint filter and
+before `sortAndPair` — verified (not assumed) to be the true last point every per-bolt mutation
+(warmup/cooldown, intense/flow-regression + its gear-filter, `enforceVolumeCap`, desk-workout) has
+already run:
+- `sortAndPair` re-checked directly (not trusted from its own comment): `applyAntagonistPairing`
+  buckets every exercise into a bucket and concatenates all buckets back — count-preserving, no
+  `.filter`/`.slice`; `applyDomainPrioritySort` is a pure `.map().sort()`. Neither drops or adds an
+  exercise. Nothing runs on `workout.exercises` after `annotateRepRanges` either (checked the rest
+  of the per-bolt loop body) — confirmed the ABSOLUTE-last-mutation claim holds.
+- Continued the map one layer further, into `workout-plan.mapper.ts` /
+  `buildRunnerWorkoutPlanFromGenerated.ts` (both call `partitionByTabataBlock`): it does NOT drop
+  content — a degenerate tabata block (<2 members) "dissolves" back into the flat main list, so the
+  exercises survive, only the block PRESENTATION is lost. Its own comment says the trigger is
+  "<2 members after swaps" — i.e. **user-initiated swaps at workout-start/mid-workout time, a
+  structurally later and separate stage than generation**. The validator (generation-time only)
+  cannot reach or protect against this by design — see the new open item below.
+
+**Injection by REPLACEMENT only (criterion 1):** `pickLowestPriorityVictim` selects the
+lowest-priority exercise still present (isolation/accessory ranked first; foundation exercises and
+the last remaining exercise of another `PRIMARY_DOMAINS` domain are never candidates — same victim
+protection `runFullBodyDomainGuarantee` already used). No candidate to replace → gives up
+immediately and logs why (`no_safe_victim`). No addition, no retry ceiling — a single deterministic
+pass, "מאוזן בתקציב מהגדרתו" as David put it: nothing is ever added, so it structurally cannot
+create a duration-budget loop.
+
+**Every promise logs one outcome (criterion 2):** `satisfied` / `injected` / `replaced` / `failed`
++ reason, one `promise_validation:<domain>:outcome=...` line per check. `injected` vs `satisfied`
+is distinguished via `isGuaranteedCore` (was this domain present because an earlier pass had to
+fix it, or was it just always fine). Parsed into a new `workouts.core_promise_outcome` snapshot
+column (`build-snapshot.ts`'s `extractCorePromiseOutcome`) — queryable, not trace-dependent, per
+David's explicit ask.
+
+**Core is the only ENFORCED promise (criterion 3):** `validateCorePromise` will replace a victim to
+restore core; `logHorizontalAndVerticalPromises` only ever logs `satisfied`/`failed` for
+horizontal_push/horizontal_pull/vertical_pull-foundation/vertical_push-foundation — zero mutation
+capability. If the collected `core_promise_outcome`-style data later shows horizontal/vertical
+genuinely failing in practice (nothing in this investigation's traces showed that), enforcement can
+be turned on for them the same way, in a separate, reviewed pass.
+
+### 4. Duration-aware core trim order (`enforceVolumeCap`)
+
+Replaces the old unconditional "core trims first" rule with a duration split (David's decision):
+
+| Duration | Trim order among expendables |
+|---|---|
+| <20min | core(0) → isolation/accessory(1) → extra-legs(2) — **unchanged from before**, core optional |
+| ≥20min | isolation/accessory(0) → extra-legs(1) → core(2) — **core cut last**, not first |
+
+`isGuaranteedCore`'s old unconditional-protection role in `isExpendable` is removed — it was a
+narrow patch for one injection site and, per this same duration split, was actually WRONG below
+20min (a guarantee-injected core exercise should still be allowed to trim away in a genuinely short
+session, matching the "optional below 20min" policy). The field itself stays, now purely
+informational (`promise_validation` provenance/tracing).
+
+**3 real before/after examples, live-traced against the actual running pipeline (not simulated on
+both sides — "BEFORE" replays the exact old `isExpendable`+plain-score-sort logic against the real
+pre-cut exercise list this session's generator produced; "AFTER" is the real, current pipeline's
+own output for the same generated workout):**
+
+| # | Scenario | Pre-cut mains | Old logic would remove | Real pipeline (new logic) removed / kept |
+|---|---|---|---|---|
+| 1 | L1, 20min, bolt2 | חתירות ב-75°, פשיטת מרפקים על הרצפה, סקוואט טווח חלקי (accessory), פלאנק על הברכיים (core) | סקוואט **and** פלאנק (2 removals — core cut) | Only סקוואט removed — **פלאנק (core) survived** |
+| 2 | L3, 30min, bolt2 | שכיבות סמיכה ב-30°, מתח אוסטרלי ב-30°, סקוואט (accessory), פלאנק עליות ונגיעות (core) | סקוואט then פלאנק (2 removals, order unverified under old code) | Real log confirms: סקוואט removed **first**, פלאנק removed **second** — core still cut here (2 removals were genuinely necessary to converge) but never before the accessory was tried |
+| 3 | L3, 25min, bolt2 | שכיבות סמיכה ב-45°, מתח אוסטרלי ב-60°, סקוואט (accessory), שולחן הפוך (core) | סקוואט then שולחן הפוך | Real log confirms the same order: סקוואט first, שולחן הפוך second — again a genuine 2-removal case, correct order |
+
+**Reading this honestly, per David's own bar ("שלא שברנו אימון כדי להציל תרגיל בטן"):** the new
+order never removes MORE exercises than the old one did — only in a DIFFERENT, correct sequence.
+Example 1 shows a real save (only 1 removal was actually necessary, and it's no longer core).
+Examples 2-3 show the harder, equally important case: when 2 removals are genuinely required to
+hit the duration cap, core is not exempt from ever being cut — it is exempt from being cut FIRST.
+No workout was made worse to protect an ab exercise; the accessory is always tried before core, and
+core still yields when that alone isn't enough.
+
+### 5. (ו)1 fix — already committed separately (`48bb6964`)
+
+Re-verified as part of this batch, not re-done: `isPotentiationCandidate`'s role bypass removed,
+`findCandidates`' Tier 1/2 base pools gained an exerciseRole eligibility filter. The exact leak
+trace (L12/D45, "טבטה +") re-run at 0/18 — see that commit's own message for the full verification.
+
+### 6. Snapshot rebuild — true full-body-without-core, all fixes applied
+
+Full rebuild (3,780 workouts, 22,629 `workout_exercises`, 0 errors), `exercise_role='main'`
+throughout (per Addendum 5's correction and `check-core-query-safety.ts`'s guard against a repeat):
+
+| | |
+|---|---|
+| Full-body workouts | 540 |
+| With core | 151 |
+| **Without core** | **389 (72.0%)** |
+
+By duration:
+
+| Duration | Without core | `core_promise_outcome` breakdown |
+|---|---|---|
+| 15min | 91.9% (124/135) | failed 124, satisfied 11 — **by design**, core is optional below 20min, no enforcement attempted |
+| 20min | 77.8% (105/135) | failed 105, satisfied 17, replaced 8, injected 5 |
+| 30min | 70.4% (95/135) | failed 95, satisfied 26, replaced 10, injected 4 |
+| 45min | 48.1% (65/135) | failed 65, satisfied 54, replaced 9, injected 7 |
+
+**This is NOT a clean win, and needs a direct, honest flag before anyone calls this closed.**
+15min's 91.9% is expected and correct (David's own explicit "optional below 20min" rule). But at
+the 3 ENFORCED durations (20/30/45min), `replaced`+`injected` together only account for 8-12% of
+full-body sessions — the validator is barely firing successfully where it's supposed to matter
+most. **Live-traced why** (45 sampled 20min workouts, since the snapshot only stores `outcome` not
+`reason` — a `core_promise_reason` column would need a second rebuild to get exact
+population-wide numbers; this is a smaller but methodologically consistent sample):
+
+**84.4% of failures are `no_safe_victim`** — the validator finds a valid core candidate but has no
+exercise it's willing to replace. Root cause: `pickLowestPriorityVictim` copied
+`runFullBodyDomainGuarantee`'s victim-protection rule verbatim (never steal the last remaining
+exercise of another `PRIMARY_DOMAINS` domain) — correct for THAT function, which runs early, before
+duration trimming, when a session still typically carries 2+ exercises per domain. My validator
+runs LATE, after `enforceVolumeCap` has already trimmed the session down to its duration-appropriate
+minimum — at that point a lean 20-minute full-body session commonly has **exactly 1 exercise per
+push/pull/legs domain and nothing else**, so every remaining exercise IS "the sole member of its
+domain," and the same protection rule that made sense early now blocks almost every replacement
+attempt late. This is a design mismatch introduced by reusing the early guarantee's logic in a
+different pipeline position, not a copy-paste bug in the narrow sense — the logic is internally
+correct, just applied to a context where its assumption (spare per-domain capacity) usually no
+longer holds.
+
+**Not fixed this pass — flagging for a decision, not guessing at one:**
+- Option A: allow the validator to replace the sole push/pull/legs exercise when nothing else is
+  available, trusting that `enforceVolumeCap`'s own trim order almost never removes push/pull/legs
+  exercises anyway (they're rarely `isolation`/`accessory` classified) — but this trades away
+  guaranteed push/pull/legs presence to guarantee core, which is exactly the kind of tradeoff
+  David asked to see concrete evidence for before merging (his own "did we break a workout to save
+  an ab exercise" bar, from the trim-order request) — this needs the same treatment, not a
+  same-day quiet fix.
+- Option B: accept that a lean, minimal-duration full-body session sometimes can't fit a
+  replacement without sacrificing a primary domain, and leave `no_safe_victim` as a legitimate,
+  logged failure mode — core stays best-effort in that case, same as it was before this whole
+  investigation, just now with real visibility into exactly how often and why.
+- Option C: loosen victim protection specifically for `isolation`/`accessory`-priority push/pull/
+  legs exercises only (still protecting compound/foundation ones) — a middle ground, unverified
+  how much it would actually help without live-tracing it first.
+
+### New open item — swap-time core loss has no equivalent protection
+
+Raised by David directly: if a user swaps out the only core exercise in an already-generated
+full-body workout (via the standard exercise-swap flow, at workout-start or mid-workout — a
+structurally later, separate stage than generation), **nothing currently notices.** The post-cut
+validator built this pass is generation-time only, by design (verified above — it cannot reach a
+later swap). Not investigated further this pass — David asked to record it, not chase it now.
+
+### Tests
+
+`src/features/workout-engine/core/pipeline/__tests__/promise-validator.test.ts` (10 new) —
+satisfied/injected/replaced/failed for all 4 core reasons (`optional_below_20min`, `unassessed`,
+`empty_pool`, `no_candidate_within_band`, `no_safe_victim`), the replace-not-add invariant (exercise
+count preserved, victim priority respected), horizontal/vertical log-only (zero mutation), and the
+non-full-body no-op.
+
+`src/features/workout-engine/core/presentation/__tests__/enforce-volume-cap.test.ts` (4 new) —
+the <20min/≥20min trim-order split, the 2-removals-both-directions case, and confirmation that
+`isGuaranteedCore` no longer grants unconditional protection below 20min.
+
+**Verification:** `npx tsc --noEmit` — no new errors (checked every touched file: `PresentationFormatter.ts`,
+`GuaranteePassRunner.ts`, `PipelineOrchestrator.ts`, `home-workout.service.ts`,
+`workout-generator.types.ts`, `build-snapshot.ts` — all pre-existing baseline patterns only).
+`npx vitest run src/features/workout-engine` — 524/524 (same 2 pre-existing unrelated hybrid
+`process.exit()` failures).
+
+**Commit:** local only, no push.

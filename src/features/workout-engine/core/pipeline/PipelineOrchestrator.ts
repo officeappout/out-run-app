@@ -38,6 +38,7 @@ import type {
   WorkoutExercise,
   WorkoutGenerationContext,
 } from '../../logic/workout-generator.types';
+import type { WorkoutBlueprint } from './pipeline.types';
 import { createWorkoutGenerator } from '../../logic/WorkoutGenerator';
 import { createBudgetDistributor } from './BudgetDistributor';
 import { createStructureDirector } from './StructureDirector';
@@ -94,6 +95,15 @@ export interface OrchestratorResult {
   profileStale: boolean;
   /** Diagnostic log entries merged into workout.pipelineLog */
   log: string[];
+  /**
+   * The session blueprint from Step 2 (StructureDirector) — undefined only
+   * on the empty-pool/rest-day fallback path, which never reaches blueprint
+   * planning. Exposed so callers (home-workout.service.ts's post-cut promise
+   * validator, docs/workout-engine/09-CORE-TABATA.md's follow-up work) can
+   * check `blueprint.strategy` without re-deriving `_detectStrategy`'s rule
+   * a second time from `context.requiredDomains`.
+   */
+  blueprint?: WorkoutBlueprint;
 }
 
 // ============================================================================
@@ -341,7 +351,7 @@ export class PipelineOrchestrator {
     const mergedLog = [...(workout.pipelineLog ?? []), ...log];
     workout.pipelineLog = mergedLog;
 
-    return { workout, usedEmptyPoolFallback: false, profileStale, log };
+    return { workout, usedEmptyPoolFallback: false, profileStale, log, blueprint };
   }
 }
 

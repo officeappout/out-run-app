@@ -138,16 +138,22 @@ export interface WorkoutExercise {
    */
   protocolBlock?: 'tabata';
   /**
-   * Set by GuaranteePassRunner.runFullBodyDomainGuarantee when it injects
-   * this exercise to satisfy the core domain specifically (docs/workout-
-   * engine/09-CORE-TABATA.md §3/§4, David's decision: full-body → core
-   * guaranteed). PresentationFormatter.enforceVolumeCap's Phase A excludes
-   * it from removal — core's existing "most expendable, trims first"
-   * behavior (CORE_MGS) would otherwise undo the guarantee for any
-   * duration-constrained session, which is exactly what a live measurement
-   * caught: injection succeeded but the exercise was gone from the final
-   * output. Scoped narrowly to guarantee-injected core only — an ordinary,
-   * normally-selected core exercise still trims first as before.
+   * Set by GuaranteePassRunner.runFullBodyDomainGuarantee (early, inside the
+   * generator) or GuaranteePassRunner.validateCorePromise (late, the post-
+   * cut validator — see `validatePromisesPostCut`) when either injects this
+   * exercise to satisfy the core domain for a full-body session (docs/
+   * workout-engine/09-CORE-TABATA.md §3/§4 and its 05.09.2026 follow-up).
+   *
+   * Corrected 05.09.2026: this used to also gate `enforceVolumeCap`'s Phase
+   * A removal directly (`if (ex.isGuaranteedCore) return false`) — replaced
+   * by a duration-aware trim-order rank (core trims last at ≥20min, first
+   * below it, David's explicit decision) that protects EVERY core exercise
+   * at ≥20min, not just guarantee-injected ones, and correctly leaves core
+   * trimmable below 20min even if it WAS guarantee-injected (short sessions
+   * keep core optional by design). This field is now informational/tracing
+   * only — it marks provenance for `promise_validation` logging and for the
+   * post-cut validator to tell "satisfied" from "injected" — it no longer
+   * changes trim behavior by itself.
    */
   isGuaranteedCore?: boolean;
   wasSwapped?: boolean;

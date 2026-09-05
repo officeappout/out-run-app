@@ -451,18 +451,29 @@ export function enforceVolumeCap(
   // ── Phase A: remove whole exercises ─────────────────────────────────────
   // Each iteration removes the SINGLE most-expendable main exercise, then
   // re-estimates.  Stops as soon as we are within cap.
+  //
+  // Duration-dependent core trim order (David's decision, 05.09.2026 —
+  // docs/workout-engine/09-CORE-TABATA.md's follow-up investigation):
+  //   <20min  — core is OPTIONAL, trims FIRST (today's original behavior,
+  //             unchanged) — a short, focused session may legitimately ship
+  //             without core.
+  //   ≥20min  — core is PROTECTED, cut only after isolation/accessory (and
+  //             extra legs) are exhausted. Supersedes `isGuaranteedCore`'s
+  //             old blanket protection: that flag was a narrow patch for
+  //             one injection site; this makes the same intent explicit and
+  //             duration-aware for EVERY core exercise, guarantee-injected
+  //             or not — the post-cut promise validator
+  //             (GuaranteePassRunner.validatePromisesPostCut) is the actual
+  //             backstop for the enforced ≥20min case now, not this flag.
+  const coreProtected = config.durationCap >= 20;
+
   const isExpendable = (ex: WorkoutExercise): boolean => {
     if (ex.exerciseRole !== 'main') return false;
     // Tabata block members (Stage 3.1) are priced as one fixed 4-min
     // constant — removing one saves no time and mutilates the block.
     if (ex.protocolBlock) return false;
-    // Full-Body Guarantee-injected core (docs/workout-engine/09-CORE-TABATA.md
-    // §3/§4) — the whole point of "guaranteed" is that it survives duration
-    // trimming; the CORE_MGS "trims first" rule below is for an ordinary,
-    // normally-selected core exercise, not this one.
-    if (ex.isGuaranteedCore) return false;
     const mg = ex.exercise.movementGroup ?? '';
-    if (CORE_MGS.has(mg)) return true;       // core removed first
+    if (CORE_MGS.has(mg)) return true;
     if (ex.priority === 'isolation' || ex.priority === 'accessory') return true;
     // Extra legs (not the sole legs exercise in the plan)
     const legsCount = workout.exercises.filter(
@@ -472,10 +483,31 @@ export function enforceVolumeCap(
     return false;
   };
 
+  // Trim-order rank among expendable exercises (lower = removed first).
+  // <20min: core(0) → isolation/accessory(1) → extra-legs(2) — original order.
+  // ≥20min: isolation/accessory(0) → extra-legs(1) → core(2) — core last.
+  const expendabilityRank = (ex: WorkoutExercise): number => {
+    const mg = ex.exercise.movementGroup ?? '';
+    const isCore = CORE_MGS.has(mg);
+    const isIsolationOrAccessory = ex.priority === 'isolation' || ex.priority === 'accessory';
+    if (coreProtected) {
+      if (isIsolationOrAccessory) return 0;
+      if (!isCore) return 1; // extra legs (the only other isExpendable category)
+      return 2; // core, trims last
+    }
+    if (isCore) return 0;
+    if (isIsolationOrAccessory) return 1;
+    return 2; // extra legs
+  };
+
   while (estimatedMin > config.durationCap && guardIterations < maxIterations) {
     const removeCandidate = workout.exercises
       .filter(isExpendable)
-      .sort((a, b) => a.score - b.score)[0]; // lowest-scored first
+      .sort((a, b) => {
+        const rankDiff = expendabilityRank(a) - expendabilityRank(b);
+        if (rankDiff !== 0) return rankDiff;
+        return a.score - b.score; // lowest-scored first within the same rank
+      })[0];
 
     if (!removeCandidate) break;
 

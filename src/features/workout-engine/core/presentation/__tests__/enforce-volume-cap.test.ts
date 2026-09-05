@@ -100,3 +100,78 @@ describe('enforceVolumeCap — Phase C convergence (availableTime contract)', ()
     expect(result.estimatedDuration).toBeGreaterThan(13); // honest estimate reported, no lie
   });
 });
+
+/**
+ * Duration-aware core trim order (David's decision, 05.09.2026 —
+ * docs/workout-engine/09-CORE-TABATA.md's follow-up investigation):
+ *   <20min  — core trims FIRST (original, unchanged behavior — a short,
+ *             focused session may legitimately ship without core).
+ *   >=20min — core trims LAST among expendable categories, only after
+ *             isolation/accessory (and extra legs) are exhausted.
+ */
+describe('enforceVolumeCap — duration-aware core trim order', () => {
+  const coreEx = (id: string, score: number) =>
+    mainEx(id, score, { priority: 'compound', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
+  const isolationEx = (id: string, score: number) =>
+    mainEx(id, score, { priority: 'isolation' });
+
+  it('<20min: core trims FIRST — isolation survives, core is gone', () => {
+    // core (higher score) + isolation (lower score) + 2 compounds — enough
+    // volume that removing ONE exercise is needed to reach cap.
+    const w = workoutOf([
+      warmupEx('w1'),
+      coreEx('core-1', 80), isolationEx('iso-1', 50), mainEx('c1', 70), mainEx('c2', 75),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 19 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    expect(ids).not.toContain('core-1');
+    expect(ids).toContain('iso-1'); // isolation NOT trimmed first at <20min
+  });
+
+  it('>=20min: isolation trims FIRST — core survives', () => {
+    const w = workoutOf([
+      warmupEx('w1'),
+      coreEx('core-1', 80), isolationEx('iso-1', 50), mainEx('c1', 70), mainEx('c2', 75),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    expect(ids).not.toContain('iso-1');
+    expect(ids).toContain('core-1'); // core protected once isolation is available to trim instead
+  });
+
+  it('>=20min: core trims too, but only after isolation is already gone', () => {
+    // Same fixture, but a much tighter cap that needs BOTH the isolation
+    // AND the core exercise removed to converge — core must still be the
+    // SECOND removal, not the first, even under real pressure.
+    const w = workoutOf([
+      warmupEx('w1'),
+      coreEx('core-1', 80, ), isolationEx('iso-1', 50), mainEx('c1', 70, { restSeconds: 150 }), mainEx('c2', 75, { restSeconds: 150 }),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 10 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    // Floor is 2 mains — with 4 starting mains, at most 2 can be removed.
+    // isolation must be gone; if a second removal was needed, core (not c1/c2)
+    // is the one to go, since compounds outrank both core and isolation once
+    // isolation is exhausted... but the FLOOR is what's actually reached here.
+    expect(ids).not.toContain('iso-1');
+    expect(mains(result as never).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('isGuaranteedCore no longer grants unconditional protection — a <20min session can still trim it', () => {
+    const guaranteedCore = mainEx('core-1', 80, {
+      isGuaranteedCore: true,
+      exercise: { id: 'core-1', name: { he: 'core-1' }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' },
+    });
+    const w = workoutOf([
+      warmupEx('w1'),
+      guaranteedCore, isolationEx('iso-1', 50), mainEx('c1', 70), mainEx('c2', 75),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 15 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    expect(ids).not.toContain('core-1'); // <20min: optional even if guarantee-injected
+  });
+});

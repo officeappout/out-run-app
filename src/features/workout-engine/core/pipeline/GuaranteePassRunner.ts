@@ -558,6 +558,258 @@ export function runFullBodyDomainGuarantee(
 }
 
 // ============================================================================
+// PASS 4 — POST-CUT PROMISE VALIDATION
+// ============================================================================
+
+/**
+ * One outcome per checked promise. Logged to `pipelineLog` as
+ * `promise_validation:<domain>:outcome=<...>:mechanism=<...>:reason=<...>`
+ * (parsed by `scripts/audit/build-snapshot.ts` into the `workouts.
+ * core_promise_outcome` column — David, 05.09.2026: "אני רוצה שנמדוד את
+ * זה בשאילתה במקום לרדוף אחרי traces").
+ *
+ *   satisfied — the domain was present, and not because this pass or the
+ *               early guarantees had to do anything (ordinary selection).
+ *   injected  — present because an EARLIER pass (runFullBodyDomainGuarantee,
+ *               inside the generator) injected it and it survived every cut
+ *               since. Distinguished from 'satisfied' via `isGuaranteedCore`.
+ *   replaced  — THIS pass had to inject it (by replacement) because
+ *               whatever was there before this point in the pipeline is
+ *               gone now — the exact "guarantee ran, injected successfully,
+ *               then enforceVolumeCap/gear-filter/Desk-Workout silently
+ *               undid it" failure mode this whole investigation started
+ *               from (docs/workout-engine/09-CORE-TABATA.md's follow-up).
+ *   failed    — still missing after this pass tried (or couldn't try —
+ *               unassessed domain, no candidate, no safe victim).
+ */
+export interface PromiseCheckResult {
+  domain: string;
+  mechanism: 'full_body_core' | 'horizontal' | 'vertical_foundation';
+  outcome: 'satisfied' | 'injected' | 'replaced' | 'failed';
+  reason?: string;
+}
+
+/**
+ * Duration threshold for the core promise's protection level (David's
+ * decision, 05.09.2026): a full-body session ≥20min treats core as
+ * PROTECTED — cut only after isolation/accessory exercises are exhausted
+ * (see PresentationFormatter.ts's `enforceVolumeCap` duration-aware trim
+ * order), and this pass will REPLACE a lower-priority exercise to restore
+ * core if it's still missing here. Below 20min, core stays OPTIONAL — it
+ * may legitimately trim away for a short, focused session, and this pass
+ * only logs the gap rather than forcing a replacement.
+ */
+const CORE_PROTECTED_DURATION_MIN = 20;
+
+/**
+ * Pick the exercise this pass is allowed to replace to make room for a
+ * missing promise: the LOWEST-PRIORITY exercise still in the session — not
+ * "add a slot" (David: "מאוזן בתקציב מהגדרתו — לא יכול ליצור לולאה",
+ * balanced by construction, since nothing is added, only swapped).
+ * Isolation/accessory exercises rank first (most replaceable); foundation
+ * exercises are never candidates (matches runFullBodyDomainGuarantee's own
+ * victim filter); the last remaining exercise of another PRIMARY_DOMAINS
+ * domain is protected so fixing core can never silently break push/pull/
+ * legs presence.
+ */
+function pickLowestPriorityVictim(
+  mainExercises: WorkoutExercise[],
+): WorkoutExercise | undefined {
+  const domainCounts = new Map<string, number>();
+  for (const e of mainExercises) {
+    const d = MG_TO_DOMAIN[e.exercise.movementGroup ?? ''];
+    if (d) domainCounts.set(d, (domainCounts.get(d) ?? 0) + 1);
+  }
+
+  const priorityRank = (e: WorkoutExercise): number => {
+    if (e.priority === 'isolation' || e.priority === 'accessory') return 0;
+    return 1;
+  };
+
+  return mainExercises
+    .filter(e => {
+      if (classifyPriority(e.exercise) === 'foundation') return false;
+      const eDomain = MG_TO_DOMAIN[e.exercise.movementGroup ?? ''];
+      if (PRIMARY_DOMAINS.has(eDomain ?? '') && (domainCounts.get(eDomain!) ?? 0) <= 1) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const rankDiff = priorityRank(a) - priorityRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      return a.score - b.score; // lowest score within the same rank first
+    })[0];
+}
+
+/**
+ * The one ENFORCED promise this pass: full-body sessions have a core
+ * exercise. Runs AFTER every other mutation in the per-bolt pipeline
+ * (home-workout.service.ts — after the Desk Workout filter, before
+ * `sortAndPair`), catching whatever slipped through `enforceVolumeCap`,
+ * `applyFlowRegression`'s gear-filter, or the early guarantee's own
+ * one-time `hasDomain` check silently being satisfied by an exercise that
+ * didn't survive.
+ */
+function validateCorePromise(
+  exercises: WorkoutExercise[],
+  context: WorkoutGenerationContext,
+  difficulty: DifficultyLevel,
+  pipelineLog: string[],
+  results: PromiseCheckResult[],
+): WorkoutExercise[] {
+  const mechanism = 'full_body_core' as const;
+  const mainEx = exercises.filter(e => e.exerciseRole === 'main');
+  const satisfying = mainEx.find(
+    e => MG_TO_DOMAIN[e.exercise.movementGroup ?? ''] === 'core',
+  );
+
+  if (satisfying) {
+    const outcome = satisfying.isGuaranteedCore ? 'injected' : 'satisfied';
+    results.push({ domain: 'core', mechanism, outcome });
+    pipelineLog.push(`promise_validation:core:outcome=${outcome}:mechanism=${mechanism}`);
+    return exercises;
+  }
+
+  const availableTime = context.availableTime ?? 0;
+  if (availableTime < CORE_PROTECTED_DURATION_MIN) {
+    // Optional at short durations (David's decision) — log the gap, don't force it.
+    results.push({ domain: 'core', mechanism, outcome: 'failed', reason: 'optional_below_20min' });
+    pipelineLog.push(`promise_validation:core:outcome=failed:mechanism=${mechanism}:reason=optional_below_20min`);
+    return exercises;
+  }
+
+  const userLevelsMap = context.userProgramLevels;
+  if (!userLevelsMap || !userLevelsMap.has('core')) {
+    results.push({ domain: 'core', mechanism, outcome: 'failed', reason: 'unassessed' });
+    pipelineLog.push(`promise_validation:core:outcome=failed:mechanism=${mechanism}:reason=unassessed`);
+    return exercises;
+  }
+
+  const pool = context.globalExercisePool ?? [];
+  if (!pool.length) {
+    results.push({ domain: 'core', mechanism, outcome: 'failed', reason: 'empty_pool' });
+    pipelineLog.push(`promise_validation:core:outcome=failed:mechanism=${mechanism}:reason=empty_pool`);
+    return exercises;
+  }
+
+  const domainLevel = userLevelsMap.get('core')!;
+  const usedIds = new Set(exercises.map(e => e.exercise.id));
+
+  let sub: ReturnType<typeof findLevelAppropriateSubstitute> = null;
+  let mgUsed = '';
+  for (const mg of DOMAIN_MG_CANDIDATES.core) {
+    sub = findLevelAppropriateSubstitute(pool, mg, domainLevel, usedIds, userLevelsMap, 'core', difficulty, true);
+    if (sub) { mgUsed = mg; break; }
+  }
+
+  if (!sub) {
+    results.push({ domain: 'core', mechanism, outcome: 'failed', reason: 'no_candidate_within_band' });
+    pipelineLog.push(`promise_validation:core:outcome=failed:mechanism=${mechanism}:reason=no_candidate_within_band`);
+    console.warn(`[PromiseValidation] ⚠️ core still missing post-cut, no candidate within ±6 of L${domainLevel}`);
+    return exercises;
+  }
+
+  const victim = pickLowestPriorityVictim(mainEx);
+  if (!victim) {
+    results.push({ domain: 'core', mechanism, outcome: 'failed', reason: 'no_safe_victim' });
+    pipelineLog.push(`promise_validation:core:outcome=failed:mechanism=${mechanism}:reason=no_safe_victim`);
+    console.warn('[PromiseValidation] ⚠️ core still missing post-cut, found a candidate but no safe exercise to replace');
+    return exercises;
+  }
+
+  const idx = exercises.findIndex(e => e.exercise.id === victim.exercise.id);
+  if (idx < 0) {
+    results.push({ domain: 'core', mechanism, outcome: 'failed', reason: 'victim_not_found' });
+    pipelineLog.push(`promise_validation:core:outcome=failed:mechanism=${mechanism}:reason=victim_not_found`);
+    return exercises;
+  }
+
+  const repName = getLocalizedText(sub.exercise.name);
+  const victimName = getLocalizedText(victim.exercise.name);
+  const injectedLevel = Math.min(resolveInjectedLevel(sub.exercise, mgUsed, domainLevel), domainLevel + 6);
+
+  const next = [...exercises];
+  next[idx] = {
+    ...next[idx],
+    ...substituteExercise(
+      next[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
+      injectedLevel - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+    ),
+    programLevel: injectedLevel,
+    isOverLevel: injectedLevel > domainLevel,
+    levelDelta: injectedLevel - domainLevel,
+    isGuaranteedCore: true,
+    reasoning: [
+      ...next[idx].reasoning,
+      `promise_validation:core:replaced_post_cut(L${injectedLevel},gap=${sub.gap},mg=${mgUsed},replaced=${victim.exercise.movementGroup ?? '?'})`,
+    ],
+  };
+
+  results.push({ domain: 'core', mechanism, outcome: 'replaced', reason: `replaced "${victimName}"` });
+  pipelineLog.push(`promise_validation:core:outcome=replaced:mechanism=${mechanism}:replaced="${victimName}"→"${repName}"`);
+  console.log(`[PromiseValidation] ✅ core restored post-cut: "${repName}"(L${injectedLevel}) replacing "${victimName}"`);
+  return next;
+}
+
+/**
+ * Horizontal push/pull and Vertical Foundation checks — LOG ONLY this pass
+ * (David's explicit scope decision, 05.09.2026): the traced failure data
+ * only showed core actually failing in practice; changing horizontal/
+ * vertical's established behavior here risks altering real pull-up/dip
+ * sessions for a promise that isn't measured to be breaking. If the log
+ * data collected this way later shows real failures, enforcement can be
+ * turned on for them the same way core's is, in a separate pass.
+ */
+function logHorizontalAndVerticalPromises(
+  exercises: WorkoutExercise[],
+  pipelineLog: string[],
+  results: PromiseCheckResult[],
+): void {
+  const mainEx = exercises.filter(e => e.exerciseRole === 'main');
+
+  for (const mg of ['horizontal_push', 'horizontal_pull'] as const) {
+    const satisfying = mainEx.find(e => e.exercise.movementGroup === mg);
+    const outcome = satisfying ? 'satisfied' : 'failed';
+    results.push({ domain: mg, mechanism: 'horizontal', outcome });
+    pipelineLog.push(`promise_validation:${mg}:outcome=${outcome}:mechanism=horizontal:enforced=false`);
+  }
+
+  for (const mg of VERTICAL_FOUNDATION_GROUPS) {
+    const satisfying = mainEx.some(
+      e => e.exercise.movementGroup === mg && classifyPriority(e.exercise) === 'foundation',
+    );
+    const outcome = satisfying ? 'satisfied' : 'failed';
+    results.push({ domain: mg, mechanism: 'vertical_foundation', outcome });
+    pipelineLog.push(`promise_validation:${mg}:outcome=${outcome}:mechanism=vertical_foundation:enforced=false`);
+  }
+}
+
+/**
+ * Entry point for the post-cut validation pass. Placement (David-approved,
+ * verified via the full mutation-sequence map): home-workout.service.ts,
+ * after the Desk Workout Constraint filter, before `sortAndPair` — the
+ * true last point every per-bolt mutation (warmup/cooldown, intense/flow-
+ * regression + its gear-filter, enforceVolumeCap, desk-workout) has already
+ * run, and before the final sort locks exercise order.
+ */
+export function validatePromisesPostCut(
+  exercises: WorkoutExercise[],
+  context: WorkoutGenerationContext,
+  blueprint: WorkoutBlueprint,
+  difficulty: DifficultyLevel,
+  pipelineLog: string[],
+): { exercises: WorkoutExercise[]; results: PromiseCheckResult[] } {
+  const results: PromiseCheckResult[] = [];
+  if (blueprint.strategy !== 'full_body') {
+    return { exercises, results };
+  }
+
+  const afterCore = validateCorePromise(exercises, context, difficulty, pipelineLog, results);
+  logHorizontalAndVerticalPromises(afterCore, pipelineLog, results);
+
+  return { exercises: afterCore, results };
+}
+
+// ============================================================================
 // UNIFIED ENTRY POINT
 // ============================================================================
 

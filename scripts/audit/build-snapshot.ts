@@ -181,6 +181,22 @@ function extractRelaxedConstraints(pipelineLog: string[] | undefined): string | 
 }
 
 // ============================================================================
+// Extract the core promise-validation outcome from pipelineLog
+// (GuaranteePassRunner.validateCorePromise pushes exactly one
+// `promise_validation:core:outcome=<satisfied|injected|replaced|failed>:...`
+// line per workout — David, 05.09.2026: "אני רוצה שנמדוד את זה בשאילתה
+// במקום לרדוף אחרי traces").
+// ============================================================================
+
+function extractCorePromiseOutcome(pipelineLog: string[] | undefined): string | null {
+  if (!pipelineLog) return null;
+  const line = pipelineLog.find(l => l.startsWith('promise_validation:core:'));
+  if (!line) return null;
+  const m = line.match(/outcome=([a-z_]+)/);
+  return m ? m[1] : null;
+}
+
+// ============================================================================
 // Run one combo → up to 3 workout rows + their exercises
 // ============================================================================
 
@@ -190,6 +206,7 @@ interface WorkoutRow {
   days_inactive: number; title: string; structure: string | null; applied_protocol: string | null;
   estimated_duration: number | null; total_planned_sets: number | null;
   chip_location: string; relaxed_constraints: string | null;
+  core_promise_outcome: string | null;
 }
 interface ExerciseRow {
   run_id: string; position: number; exercise_id: string; name: string;
@@ -256,6 +273,7 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
       total_planned_sets: w.totalPlannedSets ?? null,
       chip_location: location, // see script header — pipeline logs confirm requested location is "honored"
       relaxed_constraints: extractRelaxedConstraints(w.pipelineLog),
+      core_promise_outcome: extractCorePromiseOutcome(w.pipelineLog),
     });
 
     (w.exercises ?? []).forEach((ex: any, pos: number) => {
@@ -296,7 +314,7 @@ function createSchema(db: Database.Database) {
       req_level INTEGER, req_duration INTEGER, req_location TEXT, req_domains TEXT,
       days_inactive INTEGER, title TEXT, structure TEXT, applied_protocol TEXT,
       estimated_duration INTEGER, total_planned_sets INTEGER,
-      chip_location TEXT, relaxed_constraints TEXT
+      chip_location TEXT, relaxed_constraints TEXT, core_promise_outcome TEXT
     );
     CREATE TABLE workout_exercises (
       run_id TEXT, position INTEGER, exercise_id TEXT, name TEXT,
@@ -342,8 +360,8 @@ async function main() {
   createSchema(db);
 
   const insertWorkout = db.prepare(`
-    INSERT INTO workouts (run_id, seed, bolt, req_level, req_duration, req_location, req_domains, days_inactive, title, structure, applied_protocol, estimated_duration, total_planned_sets, chip_location, relaxed_constraints)
-    VALUES (@run_id, @seed, @bolt, @req_level, @req_duration, @req_location, @req_domains, @days_inactive, @title, @structure, @applied_protocol, @estimated_duration, @total_planned_sets, @chip_location, @relaxed_constraints)
+    INSERT INTO workouts (run_id, seed, bolt, req_level, req_duration, req_location, req_domains, days_inactive, title, structure, applied_protocol, estimated_duration, total_planned_sets, chip_location, relaxed_constraints, core_promise_outcome)
+    VALUES (@run_id, @seed, @bolt, @req_level, @req_duration, @req_location, @req_domains, @days_inactive, @title, @structure, @applied_protocol, @estimated_duration, @total_planned_sets, @chip_location, @relaxed_constraints, @core_promise_outcome)
   `);
   const insertExercise = db.prepare(`
     INSERT INTO workout_exercises (run_id, position, exercise_id, name, exercise_role, domain, movement_group, resolved_level, user_domain_level, level_diff, sets, reps, is_time_based, rest_seconds, priority, score, method_location, paired_with, superset_type, protocol_block, pyramid_sequence, is_follow_along)

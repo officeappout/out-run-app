@@ -115,6 +115,7 @@ import {
   enforceVolumeCap,
   sortAndPair,
 } from '../core/presentation/PresentationFormatter';
+import { validatePromisesPostCut } from '../core/pipeline/GuaranteePassRunner';
 import {
   derivePeriodizationWeek,
   resolveSessionPolicy,
@@ -1128,6 +1129,29 @@ export async function generateHomeWorkoutTrio(
       workout.title = `${workout.title} ${suffix}`;
     }
     if (workout.title) usedTitles.add(workout.title);
+
+    // ── Post-cut promise validation ───────────────────────────────────────
+    // Runs after every mutation above (warmup/cooldown, intense/flow-
+    // regression + its gear-filter, enforceVolumeCap, desk-workout) and
+    // before the final sort — the position verified against the full
+    // per-bolt mutation sequence (docs/workout-engine/09-CORE-TABATA.md's
+    // 05.09.2026 follow-up). Re-checks the domain promises the early
+    // guarantees (GuaranteePassRunner.runAllGuarantees, inside the
+    // generator) made ONCE and never re-verified — the exact gap that let
+    // core silently disappear after a successful early injection. Core is
+    // the only ENFORCED promise this pass (David's explicit scope); skipped
+    // entirely for non-full-body sessions (checked internally).
+    if (orchResult.blueprint) {
+      workout.pipelineLog = workout.pipelineLog ?? [];
+      const { exercises: validatedExercises } = validatePromisesPostCut(
+        workout.exercises,
+        optionContext,
+        orchResult.blueprint,
+        optionDifficulty,
+        workout.pipelineLog,
+      );
+      workout.exercises = validatedExercises;
+    }
 
     // ── Locked Final Ordering: antagonist re-pair → domain-priority sort ──
     //
