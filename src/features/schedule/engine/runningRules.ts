@@ -13,21 +13,30 @@
  *
  * ── Shape unification (06.09.2026) ──
  * RunningWeekDay used to carry only `role` — a WeekSlot.slotType-derived
- * abstraction invented for this file's own use. That `role` never survived
+ * abstraction invented for this file's own use. That field never survived
  * into the real persisted schedule (ActiveRunningProgram.schedule[] only
- * had category/isQualityWorkout until commit 9b5cf7c7 added slotType) —
- * meaning this whole file was written against a shape the system never
- * actually remembered. crossDomainRules.ts was built directly against the
- * real persisted fields (category/isQualityWorkout) instead, which created
- * two incompatible running-day shapes. This file now imports WorkoutCategory
- * from running.types.ts (a deliberate departure from "stands alone" — the
- * same departure crossDomainRules.ts already made, for the same reason:
- * you can't validate real data through a shape the real data doesn't have)
- * and RunningWeekDay carries category/isQualityWorkout/role together, one
- * shape, read by both this file and crossDomainRules.ts. `role`, now
- * commit 9b5cf7c7's slotType field, is optional and authoritative when
- * present; category/isQualityWorkout are the fallback when it's absent
- * (every schedule entry written before 06.09.2026 has no role at all).
+ * had category/isQualityWorkout until commit 9b5cf7c7 added the real
+ * slotType field) — meaning this whole file was written against a shape the
+ * system never actually remembered. crossDomainRules.ts was built directly
+ * against the real persisted fields (category/isQualityWorkout) instead,
+ * which created two incompatible running-day shapes. This file now imports
+ * WorkoutCategory from running.types.ts (a deliberate departure from
+ * "stands alone" — the same departure crossDomainRules.ts already made, for
+ * the same reason: you can't validate real data through a shape the real
+ * data doesn't have) and RunningWeekDay carries
+ * category/isQualityWorkout/slotType together, one shape, read by both this
+ * file and crossDomainRules.ts.
+ *
+ * ── Naming unification (05.09.2026) ──
+ * The field itself was also renamed, from `role` to `slotType` — matching
+ * commit 9b5cf7c7's persisted field name exactly, so the concept has one
+ * name end to end (Firestore field → this type → this file's functions),
+ * not two. Pure rename, no behavior change: `matchesRoleForDrop` became
+ * `matchesSlotTypeForDrop`, `RoleMatchResult`/`roleWasUnknown` became
+ * `SlotTypeMatchResult`/`slotTypeWasUnknown`. `slotType` is optional and
+ * authoritative when present; category/isQualityWorkout are the fallback
+ * when it's absent (every schedule entry written before 06.09.2026 has no
+ * slotType at all).
  *
  * Implements:
  *   - preferredRunningDays    (candidate day-set generator, RUN-01–RUN-04)
@@ -43,6 +52,19 @@
  *     preferredRunningDays → validateRunningWeek — not a third function.
  *   - RUN-07 (80/20 intensity split) explicitly preserves the existing
  *     mechanism ("אין לשנות") — no new code, nothing to test here.
+ *
+ * ── Not wired to production, on purpose ──
+ * This module is intentionally not connected to a production consumer.
+ * ActiveRunningProgram.schedule[]'s real `slotType` field (commit 9b5cf7c7)
+ * and this file's `RunningWeekDay.slotType` are the same name now, but
+ * nothing today reads the former and constructs the latter — confirmed by
+ * repo-wide search: RunningWeekDay is referenced only inside
+ * src/features/schedule/engine/ itself and its own tests. That bridge is
+ * the drawer layer's job (the schedule-builder-drawer plan), which is the
+ * intended caller of this whole rule-family module. Do not delete this file
+ * (or ruleFamily.ts / crossDomainRules.ts / scheduleWeaver.ts) in an
+ * unused-code cleanup pass on the strength of "zero production callers" —
+ * that absence is the current, expected state, not evidence of dead code.
  */
 
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
@@ -72,17 +94,17 @@ export type RunningDayRole =
  *
  * `category` is the source of truth for whether the day trains at all
  * (null = rest day) and is reliably present for every user, old and new.
- * `isQualityWorkout` and `role` are both optional and both undefined for
- * every schedule entry written before their respective fixes (890c03c7,
- * 06.09.2026) — undefined must never be read as false/absent-of-meaning,
- * only as "not recorded."
+ * `isQualityWorkout` and `slotType` are both optional and both undefined
+ * for every schedule entry written before their respective fixes
+ * (890c03c7, 9b5cf7c7) — undefined must never be read as
+ * false/absent-of-meaning, only as "not recorded."
  *
- * Precedence when they disagree: `role`, when present, is authoritative —
- * it carries the real WeekSlot the workout was generated for, including
+ * Precedence when they disagree: `slotType`, when present, is authoritative
+ * — it carries the real WeekSlot the workout was generated for, including
  * the quality_primary/quality_secondary distinction that category +
  * isQualityWorkout cannot express (that split was never carried into
  * category — see running.types.ts's own doc comment on slotType). When
- * `role` is absent, `isQualityWorkout` (if present) decides quality;
+ * `slotType` is absent, `isQualityWorkout` (if present) decides quality;
  * failing that, category's own CATEGORY_IS_QUALITY mapping decides.
  */
 export interface RunningWeekDay {
@@ -93,8 +115,10 @@ export interface RunningWeekDay {
   category: WorkoutCategory | null;
   /** Present only for schedule entries written after commit 890c03c7. */
   isQualityWorkout?: boolean;
-  /** Present only for schedule entries written after commit 9b5cf7c7 (slotType). Authoritative when present. */
-  role?: RunningDayRole;
+  /** Present only for schedule entries written after commit 9b5cf7c7. Same
+   *  field, same name, as ActiveRunningProgram.schedule[].slotType —
+   *  authoritative over category/isQualityWorkout when present. */
+  slotType?: RunningDayRole;
 }
 
 export interface RunningWeekContext {
@@ -184,14 +208,15 @@ export function preferredRunningDays(count: number): number[] {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Shape-aware derivation — role authoritative when present, category/
+// Shape-aware derivation — slotType authoritative when present, category/
 // isQualityWorkout the fallback when it's not.
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
- * Category → quality mapping, the fallback used whenever `role` is absent
- * (every schedule entry written before commit 9b5cf7c7). Typed as a full
- * Record so the compiler forces coverage of exactly the 11 real categories.
+ * Category → quality mapping, the fallback used whenever `slotType` is
+ * absent (every schedule entry written before commit 9b5cf7c7). Typed as a
+ * full Record so the compiler forces coverage of exactly the 11 real
+ * categories.
  */
 const CATEGORY_IS_QUALITY: Record<WorkoutCategory, boolean> = {
   short_intervals: true,
@@ -207,28 +232,28 @@ const CATEGORY_IS_QUALITY: Record<WorkoutCategory, boolean> = {
   strides: false,
 };
 
-/** true = day trains at all (category !== null). This is the ONLY correct way to check "is this a training day" — role is optional and may be absent even for a real training day. */
+/** true = day trains at all (category !== null). This is the ONLY correct way to check "is this a training day" — slotType is optional and may be absent even for a real training day. */
 export function isTrainingDay(day: RunningWeekDay): boolean {
   return day.category !== null;
 }
 
 /**
- * role, when present, is authoritative (it's the only field that can
+ * slotType, when present, is authoritative (it's the only field that can
  * express quality_primary vs quality_secondary). When absent: isQualityWorkout
  * if present, else category's CATEGORY_IS_QUALITY mapping. undefined is
  * never read as false at any step.
  */
 export function isQualityDay(day: RunningWeekDay): boolean {
   if (day.category === null) return false;
-  if (day.role !== undefined) return day.role === 'quality_primary' || day.role === 'quality_secondary';
+  if (day.slotType !== undefined) return day.slotType === 'quality_primary' || day.slotType === 'quality_secondary';
   if (day.isQualityWorkout !== undefined) return day.isQualityWorkout;
   return CATEGORY_IS_QUALITY[day.category];
 }
 
-/** role, when present, is authoritative; otherwise category === 'long_run' — unambiguous either way, no fallback ambiguity here (unlike quality_primary/secondary). */
+/** slotType, when present, is authoritative; otherwise category === 'long_run' — unambiguous either way, no fallback ambiguity here (unlike quality_primary/secondary). */
 export function isLongRunDay(day: RunningWeekDay): boolean {
   if (day.category === null) return false;
-  if (day.role !== undefined) return day.role === 'long_run';
+  if (day.slotType !== undefined) return day.slotType === 'long_run';
   return day.category === 'long_run';
 }
 
@@ -354,12 +379,13 @@ export function runningCriticalityOrder(context: RunningCriticalityContext): Run
     : [...LONG_DISTANCE_DROP_ORDER];
 }
 
-export interface RoleMatchResult {
+export interface SlotTypeMatchResult {
   matches: boolean;
   /** true when this determination required the fallback below because
-   *  role was absent — a stand-in for the real distinction, not the real
-   *  thing. Always false when role was present (exact match, authoritative). */
-  roleWasUnknown: boolean;
+   *  slotType was absent — a stand-in for the real distinction, not the
+   *  real thing. Always false when slotType was present (exact match,
+   *  authoritative). */
+  slotTypeWasUnknown: boolean;
 }
 
 /**
@@ -368,30 +394,30 @@ export interface RoleMatchResult {
  * actually gets consumed (RUN-05's real use, inside ruleFamily.ts's
  * runningReduceTo).
  *
- * When `day.role` is present, this is an exact match — authoritative,
- * roleWasUnknown always false.
+ * When `day.slotType` is present, this is an exact match — authoritative,
+ * slotTypeWasUnknown always false.
  *
  * When absent, this is a FALLBACK, not a rule: long_run and easy_run are
  * unambiguously derivable from category (isLongRunDay / !isQualityDay),
  * but quality_primary vs quality_secondary is NOT — that split was never
- * carried into category+isQualityWorkout, only into role. So an
- * unknown-role quality day is treated as matching EITHER quality tier
+ * carried into category+isQualityWorkout, only into slotType. So an
+ * unknown-slotType quality day is treated as matching EITHER quality tier
  * (deterministically resolved by whichever tier the caller's drop-order
- * iteration reaches first — see runningReduceTo), and roleWasUnknown is
+ * iteration reaches first — see runningReduceTo), and slotTypeWasUnknown is
  * set so the caller can say so explicitly rather than silently pretending
  * the distinction was real.
  */
-export function matchesRoleForDrop(day: RunningWeekDay, targetRole: RunningDayRole): RoleMatchResult {
-  if (day.role !== undefined) {
-    return { matches: day.role === targetRole, roleWasUnknown: false };
+export function matchesSlotTypeForDrop(day: RunningWeekDay, targetSlotType: RunningDayRole): SlotTypeMatchResult {
+  if (day.slotType !== undefined) {
+    return { matches: day.slotType === targetSlotType, slotTypeWasUnknown: false };
   }
-  if (day.category === null) return { matches: false, roleWasUnknown: false };
-  if (isLongRunDay(day)) return { matches: targetRole === 'long_run', roleWasUnknown: false };
+  if (day.category === null) return { matches: false, slotTypeWasUnknown: false };
+  if (isLongRunDay(day)) return { matches: targetSlotType === 'long_run', slotTypeWasUnknown: false };
   if (isQualityDay(day)) {
-    const matches = targetRole === 'quality_primary' || targetRole === 'quality_secondary';
-    return { matches, roleWasUnknown: matches };
+    const matches = targetSlotType === 'quality_primary' || targetSlotType === 'quality_secondary';
+    return { matches, slotTypeWasUnknown: matches };
   }
-  return { matches: targetRole === 'easy_run', roleWasUnknown: false };
+  return { matches: targetSlotType === 'easy_run', slotTypeWasUnknown: false };
 }
 
 // ──────────────────────────────────────────────────────────────────────────

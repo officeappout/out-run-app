@@ -22,11 +22,11 @@ const CATEGORY_FOR_ROLE: Record<RunningDayRole, WorkoutCategory> = {
   recovery: 'easy_run',
 };
 
-function buildRunningWeek(roles: Array<RunningDayRole | null>): RunningWeekDay[] {
-  if (roles.length !== 7) throw new Error('buildRunningWeek requires exactly 7 entries');
-  return roles.map((role, dayOfWeek): RunningWeekDay => {
-    if (role === null) return { dayOfWeek, category: null };
-    return { dayOfWeek, category: CATEGORY_FOR_ROLE[role], role };
+function buildRunningWeek(slotTypes: Array<RunningDayRole | null>): RunningWeekDay[] {
+  if (slotTypes.length !== 7) throw new Error('buildRunningWeek requires exactly 7 entries');
+  return slotTypes.map((slotType, dayOfWeek): RunningWeekDay => {
+    if (slotType === null) return { dayOfWeek, category: null };
+    return { dayOfWeek, category: CATEGORY_FOR_ROLE[slotType], slotType };
   });
 }
 
@@ -120,7 +120,7 @@ describe('reduceTo — running drops the least critical role, not the last day i
     const day1 = result.week.find((d) => d.dayOfWeek === 1)!;
     const day5 = result.week.find((d) => d.dayOfWeek === 5)!;
     expect(day1.category).toBeNull(); // the easy run — least critical — is the one removed
-    expect(day5.role).toBe('long_run'); // the long run survives despite being later in the week
+    expect(day5.slotType).toBe('long_run'); // the long run survives despite being later in the week
     expect(result.removed.length).toBe(1);
     expect(result.notes[0]).toMatch(/קילומטראז/);
   });
@@ -132,7 +132,7 @@ describe('reduceTo — running drops the least critical role, not the last day i
     const day0 = result.week.find((d) => d.dayOfWeek === 0)!;
     const day4 = result.week.find((d) => d.dayOfWeek === 4)!;
     expect(day0.category).toBeNull();
-    expect(day4.role).toBe('long_run');
+    expect(day4.slotType).toBe('long_run');
   });
 });
 
@@ -142,11 +142,11 @@ describe('placeOn — running: pure relabeling, order preserved', () => {
     const placed = runningRuleFamily.placeOn(week, [1, 3, 6], { targetDistanceKm: 10 });
 
     expect(placed).not.toBeNull();
-    const byDay = Object.fromEntries(placed!.map((d) => [d.dayOfWeek, d.role]));
+    const byDay = Object.fromEntries(placed!.map((d) => [d.dayOfWeek, d.slotType]));
     expect(byDay[1]).toBe('long_run'); // 1st training in day-order → 1st new day
     expect(byDay[3]).toBe('easy_run'); // 2nd → 2nd
     expect(byDay[6]).toBe('quality_primary'); // 3rd → 3rd
-    expect(byDay[0]).toBeUndefined(); // rest day — no role field at all, not null
+    expect(byDay[0]).toBeUndefined(); // rest day — no slotType field at all, not null
     expect(byDay[2]).toBeUndefined();
     expect(byDay[4]).toBeUndefined();
     const byCategory = Object.fromEntries(placed!.map((d) => [d.dayOfWeek, d.category]));

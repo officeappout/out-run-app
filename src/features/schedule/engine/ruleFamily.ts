@@ -41,7 +41,7 @@ import {
   preferredRunningDays,
   validateRunningWeek,
   runningCriticalityOrder,
-  matchesRoleForDrop,
+  matchesSlotTypeForDrop,
   isTrainingDay,
   type RunningWeekDay,
   type RunningWeekContext,
@@ -246,14 +246,14 @@ function runningValidate(week: RunningWeekDay[], context: RunningWeekContext): R
 }
 
 /**
- * Drops the least-critical role first (runningCriticalityOrder), one day at
- * a time, until targetDayCount is reached. Never touches the remaining
- * days' content — no compensating a dropped day by extending another,
- * which would trigger RUN-08 (the single-session distance jump guard) on
- * the remaining sessions. The note says explicitly that weekly mileage
- * drops, plus a second note when the quality_primary/secondary distinction
- * had to be resolved by matchesRoleForDrop's documented fallback (see
- * runningRules.ts) rather than a real per-day role.
+ * Drops the least-critical slotType first (runningCriticalityOrder), one
+ * day at a time, until targetDayCount is reached. Never touches the
+ * remaining days' content — no compensating a dropped day by extending
+ * another, which would trigger RUN-08 (the single-session distance jump
+ * guard) on the remaining sessions. The note says explicitly that weekly
+ * mileage drops, plus a second note when the quality_primary/secondary
+ * distinction had to be resolved by matchesSlotTypeForDrop's documented
+ * fallback (see runningRules.ts) rather than a real per-day slotType.
  */
 function runningReduceTo(
   week: RunningWeekDay[],
@@ -270,19 +270,19 @@ function runningReduceTo(
 
   const dropOrder = runningCriticalityOrder(context);
   const removed: string[] = [];
-  let anyRoleUnknown = false;
+  let anySlotTypeUnknown = false;
 
-  for (const role of dropOrder) {
+  for (const slotType of dropOrder) {
     if (remaining <= 0) break;
     for (const day of result) {
       if (remaining <= 0) break;
       if (!isTrainingDay(day)) continue;
-      const match = matchesRoleForDrop(day, role);
+      const match = matchesSlotTypeForDrop(day, slotType);
       if (match.matches) {
-        if (match.roleWasUnknown) anyRoleUnknown = true;
-        removed.push(`יום ${DAY_NAMES_HE[day.dayOfWeek]}: ${role} הוסר`);
+        if (match.slotTypeWasUnknown) anySlotTypeUnknown = true;
+        removed.push(`יום ${DAY_NAMES_HE[day.dayOfWeek]}: ${slotType} הוסר`);
         day.category = null;
-        day.role = undefined;
+        day.slotType = undefined;
         day.isQualityWorkout = undefined;
         remaining--;
       }
@@ -292,7 +292,7 @@ function runningReduceTo(
   const notes: string[] = [];
   if (removed.length > 0) {
     notes.push('הקילומטראז׳ השבועי יורד — האימונים שנשארו לא מתארכים כפיצוי.');
-    if (anyRoleUnknown) {
+    if (anySlotTypeUnknown) {
       notes.push('התפקיד המדויק (איכות ראשית/משנית) לא היה ידוע לפחות ליום אחד שהוסר — ההסרה בוצעה לפי נפילה דטרמיניסטית, לא לפי הבחנה מדויקת.');
     }
   }
@@ -303,11 +303,11 @@ function runningReduceTo(
 /**
  * Running's trainings carry no fixed day identity of their own, so
  * relocating them is pure relabeling: take the existing training-day
- * entries in day-order (full entries — category/isQualityWorkout/role
- * together, not just role) and lay them onto the new day-set in the same
- * order. Fails (null) only on a malformed request — duplicate/out-of-range
- * indices, or a day count that doesn't match how many trainings currently
- * exist to relocate.
+ * entries in day-order (full entries — category/isQualityWorkout/slotType
+ * together, not just slotType) and lay them onto the new day-set in the
+ * same order. Fails (null) only on a malformed request — duplicate/
+ * out-of-range indices, or a day count that doesn't match how many
+ * trainings currently exist to relocate.
  */
 function runningPlaceOn(
   week: RunningWeekDay[],

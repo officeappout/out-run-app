@@ -34,10 +34,10 @@ function strengthDomain(requestedCount: number) {
   };
 }
 
-function runningWeekFor(count: number, role: RunningDayRole = 'easy_run'): RunningWeekDay[] {
+function runningWeekFor(count: number, slotType: RunningDayRole = 'easy_run'): RunningWeekDay[] {
   const week: RunningWeekDay[] = Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, category: null }));
   for (const d of preferredRunningDays(count)) {
-    week[d] = { dayOfWeek: d, category: CATEGORY_FOR_ROLE[role], role };
+    week[d] = { dayOfWeek: d, category: CATEGORY_FOR_ROLE[slotType], slotType };
   }
   return week;
 }

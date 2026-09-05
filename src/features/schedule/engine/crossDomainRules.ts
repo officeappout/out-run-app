@@ -26,8 +26,18 @@
  * redefined here (shape unification, 06.09.2026 — this file used to define
  * its own parallel CrossDomainRunningDay type; that's gone, one shape now,
  * read by both files). See runningRules.ts's own header for the full
- * "role authoritative when present, category/isQualityWorkout the
- * fallback" contract.
+ * "slotType authoritative when present, category/isQualityWorkout the
+ * fallback" contract (the field was originally named `role`; renamed to
+ * `slotType` 05.09.2026 to match ActiveRunningProgram.schedule[]'s real
+ * persisted field name — one name for the concept, not two).
+ *
+ * ── Not wired to production, on purpose ──
+ * Like runningRules.ts, this module is intentionally not connected to a
+ * production consumer yet. The bridge between ActiveRunningProgram.schedule[]
+ * and CrossDomainWeek/RunningWeekDay will be built in the drawer layer (the
+ * schedule-builder-drawer plan), which is the intended caller. Do not delete
+ * this file in an unused-code cleanup pass on the strength of "zero
+ * production callers" — that's the current, expected state, not dead code.
  */
 
 import type {
