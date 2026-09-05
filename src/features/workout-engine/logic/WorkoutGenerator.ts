@@ -62,7 +62,14 @@ import {
   selectExercisesWithDomainQuotas,
   selectExercisesWithDominance,
   applySABASelectionBias,
+  hasExplicitCoreLevel,
 } from './workout-selection.utils';
+import {
+  chooseCoreForm,
+  chooseCoreTabataMemberCount,
+  buildCoreTabataBlock,
+  resolveFollowAlongCoreExercise,
+} from './protocols/core-block';
 
 // Budgeting utils
 import {
@@ -83,6 +90,7 @@ import {
 // Protocol registry — dispatcher replaces hard-coded protocol if-tree
 import { findProcessor } from './protocols/protocol-processor.registry';
 import { buildTabataBlock } from './protocols/tabata.block';
+import { TABATA_BLOCK_SECONDS } from './protocols/tabata.constants';
 
 // StructureDirector — declarative session topology + strategy detection
 import { createStructureDirector } from '../core/pipeline/StructureDirector';
@@ -1114,6 +1122,89 @@ export class WorkoutGenerator {
     const description = this.generateDescription(context, difficulty);
     const aiCue = this.generateAICue(context, workoutExercises.length, difficulty);
 
+    // Step 6c: Core block form (docs/workout-engine/09-CORE-TABATA.md) —
+    // decided BEFORE Step 6b so a core exercise that becomes a tabata block
+    // (form B) can suppress the separate general finisher below; two
+    // independent tabata segments in one workout is not a shape the mapper/
+    // player support (both would need to share ONE gw.tabataBlock).
+    //
+    // Runs only when a core exercise actually won its slot this session
+    // (hasExplicitCoreLevel — the SAME §12.3 gate every form passes) — forms
+    // B/C are an alternate SHAPE for that slot, never an independent trigger.
+    // If no core exercise is present, this step is a no-op — core's normal
+    // entry rules (assessment gate, Full-Body Guarantee, duration/goal/
+    // manual-builder gates) are unchanged by this feature.
+    const coreIdx = workoutExercises.findIndex(
+      (ex) => (ex.exerciseRole ?? 'main') === 'main' && hasExplicitCoreLevel(ex.exercise),
+    );
+    let coreForm: 'single' | 'tabata' | 'follow_along' = 'single';
+    let coreTabataBlock: ReturnType<typeof buildCoreTabataBlock> | undefined;
+    if (coreIdx !== -1) {
+      const coreExercise = workoutExercises[coreIdx];
+      const userCoreLevel = context.userProgramLevels?.get('core') ?? coreExercise.programLevel ?? context.userLevel;
+      const estimatedDurationSoFar = calculateEstimatedDuration(workoutExercises);
+      const formsChosenThisTrio = context.coreFormsChosenThisTrio ?? [];
+
+      coreForm = chooseCoreForm({
+        formsChosenThisTrio,
+        recentCoreForms: context.recentCoreForms,
+        availableTime: context.availableTime,
+        estimatedDurationSoFar,
+        difficulty,
+      });
+
+      if (coreForm === 'tabata') {
+        const corePool = (context.tabataPool ?? []).filter((ex) => hasExplicitCoreLevel(ex));
+        const memberCount = chooseCoreTabataMemberCount(context.availableTime - estimatedDurationSoFar);
+        coreTabataBlock = buildCoreTabataBlock(workoutExercises, {
+          memberCount,
+          corePool,
+          userLevel: userCoreLevel,
+          location: context.location,
+          availableEquipment: context.availableEquipment,
+          injuryShield: context.injuryShield,
+        });
+        if (coreTabataBlock) {
+          workoutExercises.splice(coreIdx, 1); // now safe — the new members already landed
+        } else {
+          console.log('[CoreBlock] tabata composition failed — core stays form A (single)');
+          coreForm = 'single';
+        }
+      } else if (coreForm === 'follow_along') {
+        const followAlong = resolveFollowAlongCoreExercise(
+          context.reinforcementPool ?? [],
+          userCoreLevel,
+          context.activeProgramId,
+        );
+        if (followAlong) {
+          workoutExercises.splice(coreIdx, 1, {
+            exercise: followAlong,
+            method: (followAlong.execution_methods?.[0] ?? followAlong.executionMethods?.[0] ?? {}) as any,
+            mechanicalType: (followAlong.mechanicalType || 'none') as any,
+            sets: 1,
+            // The 4-item ladder's clips all run ~240s (docs/workout-engine/
+            // 09-CORE-TABATA.md §1.6) — using the fixed constant rather than
+            // reading a nested media field keeps this robust to whichever
+            // exact field carries clip length on a given method.
+            reps: TABATA_BLOCK_SECONDS,
+            isTimeBased: true,
+            restSeconds: 0, // isFollowAlong — the video controls pacing, RestCalculator's follow_along convention
+            priority: 'compound',
+            score: coreExercise.score,
+            reasoning: [...coreExercise.reasoning, 'core_block:follow_along'],
+            exerciseRole: 'main',
+            tier: coreExercise.tier,
+          } as WorkoutExercise);
+        } else {
+          console.log('[CoreBlock] no eligible follow-along item — core stays form A (single)');
+          coreForm = 'single';
+        }
+      }
+
+      formsChosenThisTrio.push(coreForm);
+      console.log(`[CoreBlock] form=${coreForm}`);
+    }
+
     // Step 6b: Tabata FINISHER — resolved on a SEPARATE union track
     // (context.tabataProbability, already periodization-scaled) and rolled
     // independently of the main protocol. Fires as an ADDED conditioning finisher
@@ -1121,15 +1212,18 @@ export class WorkoutGenerator {
     // regression), general userLevel≥4, and the roll lands. buildTabataBlock then
     // pool-injects the members (protocolBlock='tabata' + gw.tabataBlock). It rides
     // ALONGSIDE the main protocol — never competes for the winner-takes-all slot.
+    // Suppressed when Step 6c already turned the core slot itself into a tabata
+    // block (coreForm==='tabata') — see that step's comment for why.
     const tabataP = context.tabataProbability ?? 0;
     const fireTabata =
+      coreForm !== 'tabata' &&
       tabataP > 0 &&
       difficulty >= 2 &&
       (context.userLevel ?? 0) >= MIN_TABATA_USER_LEVEL &&
       Math.random() <= tabataP;
     const tabataBlock = fireTabata
       ? buildTabataBlock('tabata', workoutExercises, context)
-      : undefined;
+      : coreTabataBlock;
 
     // Step 7: Duration
     const estimatedDuration = calculateEstimatedDuration(workoutExercises);

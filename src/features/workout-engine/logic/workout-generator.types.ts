@@ -7,7 +7,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
  */
 
-import { Exercise, MechanicalType, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
+import { Exercise, MechanicalType, ExecutionLocation, InjuryShieldArea } from '@/features/content/exercises/core/exercise.types';
 import { ScoredExercise, IntentMode, LifestylePersona, FilterStageCounts } from './ContextualEngine';
 import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
 
@@ -137,6 +137,19 @@ export interface WorkoutExercise {
    * comparison on appliedProtocol (BudgetDistributor convention).
    */
   protocolBlock?: 'tabata';
+  /**
+   * Set by GuaranteePassRunner.runFullBodyDomainGuarantee when it injects
+   * this exercise to satisfy the core domain specifically (docs/workout-
+   * engine/09-CORE-TABATA.md §3/§4, David's decision: full-body → core
+   * guaranteed). PresentationFormatter.enforceVolumeCap's Phase A excludes
+   * it from removal — core's existing "most expendable, trims first"
+   * behavior (CORE_MGS) would otherwise undo the guarantee for any
+   * duration-constrained session, which is exactly what a live measurement
+   * caught: injection succeeded but the exercise was gone from the final
+   * output. Scoped narrowly to guarantee-injected core only — an ordinary,
+   * normally-selected core exercise still trims first as before.
+   */
+  isGuaranteedCore?: boolean;
   wasSwapped?: boolean;
   /**
    * swap-all "keep + mark": set when a bulk/single dimension swap (e.g. location
@@ -374,11 +387,64 @@ export interface WorkoutGenerationContext {
    *  scored strength pool). Passed as data so the generator stays pure; buildTabataBlock
    *  selects the finisher members from here (≤level, level-less defaults IN). */
   tabataPool?: Exercise[];
+  /**
+   * exerciseRole==='reinforcement' catalog items (the "טבטה" follow-along
+   * ladder, core L4/L8/L12/L16) — a separate pool from tabataPool above,
+   * since these are not hiit_friendly-tagged. Used by the core block's form C
+   * (docs/workout-engine/09-CORE-TABATA.md §1.6/§2).
+   */
+  reinforcementPool?: Exercise[];
   /** Tabata finisher probability, resolved on a SEPARATE union track (any enrolled
    *  program that enables tabata) and already scaled by the periodization multiplier.
    *  Independent of `protocolProbability` (the main winner-takes-all lottery). The
    *  generator rolls it separately: fire ⇔ p>0 ∧ difficulty≥2 ∧ userLevel≥4 ∧ rand≤p. */
   tabataProbability?: number;
+  /**
+   * User's active injury exclusions — same values ContextualEngine's
+   * injuryShield filter already checks (logic/ContextualEngine.ts:442-451),
+   * threaded this far downstream so the core block (docs/workout-engine/
+   * 09-CORE-TABATA.md §2) can gate its tabata/follow-along paths the same
+   * way. Previously absent from this context entirely — tabataPool is drawn
+   * from allExercises directly (home-workout.service.ts), bypassing
+   * ContextualEngine, so neither tabata path could check injuries before.
+   */
+  injuryShield?: InjuryShieldArea[];
+  /**
+   * Core-block form history for the anti-repetition rule (never the same
+   * form 3 times in a row) — see core-block.ts's ANTI-REPETITION SCOPE NOTE.
+   * This pass has no real cross-session source for it (documented scoping
+   * decision); an in-trio-only tracker is used instead and this field stays
+   * an unpopulated extension point for whenever one exists.
+   */
+  recentCoreForms?: ('single' | 'tabata' | 'follow_along')[];
+  /**
+   * SAME array reference passed into each of the 3 sequential generateWorkout()
+   * calls in one generateHomeWorkoutTrio trio loop (home-workout.service.ts) —
+   * each bolt's core-block Step 6c appends its chosen form here, so the NEXT
+   * bolt's anti-repetition check sees what earlier bolts in this SAME trio
+   * chose. This is the in-trio half of anti-repetition; recentCoreForms above
+   * is the (currently unpopulated) cross-session half.
+   */
+  coreFormsChosenThisTrio?: ('single' | 'tabata' | 'follow_along')[];
+  /**
+   * True for a Custom-Builder-generated workout (home-workout.types.ts's
+   * isManualOverride, previously consumed only by SplitDecisionService's
+   * deficit-clamping — verified zero other consumers, docs/workout-engine/
+   * 09-CORE-TABATA.md §3/§4). The explicit gate David asked for: core's
+   * duration/goal-based entry rules (StructureDirector.ts) skip entirely
+   * when true — a manual build's explicit domain chips are respected as-is,
+   * never second-guessed by an auto-inclusion/exclusion rule.
+   */
+  isManualOverride?: boolean;
+  /**
+   * User's stated main goal (user.types.ts's UserFullProfile.core.mainGoal).
+   * Used by the "15min + strength goal → core doesn't enter unless time
+   * remains" rule. No enum value literally says "strength" — this pass
+   * treats 'performance_boost' as the closest match (documented
+   * interpretation, docs/workout-engine/09-CORE-TABATA.md §3 — flagged
+   * there as needing David's confirmation).
+   */
+  mainGoal?: 'healthy_lifestyle' | 'performance_boost' | 'weight_loss' | 'skill_mastery';
   straightArmRatio?: number;
   weeklySASets?: number;
   weeklySACap?: number;

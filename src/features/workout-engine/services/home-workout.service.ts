@@ -818,6 +818,11 @@ export async function generateHomeWorkoutTrio(
   const results: WorkoutTrioOption[] = [];
   const sessionBlacklist = new Set<string>();
   const usedTitles = new Set<string>();
+  // Core-block anti-repetition (docs/workout-engine/09-CORE-TABATA.md §3):
+  // ONE array, SAME reference passed into all 3 bolts' context below, so
+  // Step 6c (WorkoutGenerator.ts) can see what earlier bolts in this trio
+  // already chose and never let all 3 land on the identical form.
+  const coreFormsChosenThisTrio: ('single' | 'tabata' | 'follow_along')[] = [];
 
   // PipelineOrchestrator replaces the raw WorkoutGenerator call.
   // A fresh orchestrator instance is created once per trio — it is stateless
@@ -905,6 +910,7 @@ export async function generateHomeWorkoutTrio(
             ...Array.from(sessionBlacklist),
           ])
         : pipeline.baseGeneratorContext.recentExerciseIds,
+      coreFormsChosenThisTrio,
     };
 
     // RULE 3 — Guaranteed Pyramid for Bolt-3 (Option 3 — עצים ומהיר)
@@ -2327,6 +2333,9 @@ async function _buildSharedPipeline(
     persona,
     location,
     injuryCount: injuries.length,
+    injuryShield: injuries,
+    isManualOverride: !!isManualOverride,
+    mainGoal: effectiveProfile.core?.mainGoal,
     energyLevel: 'medium',
     difficulty: requestedDifficulty,
     userWeight: effectiveProfile.core?.weight ?? 70,
@@ -2380,6 +2389,12 @@ async function _buildSharedPipeline(
     // program-less gems that never enter the scored strength pool). Filtered
     // from the already-loaded allExercises, so no extra Firestore read.
     tabataPool: allExercises.filter((ex) => ex.tags?.includes('hiit_friendly')),
+    // Form C's follow-along ladder ("טבטה"/"טבטה +"/"טבטה מאתגר"/"טבטה מאתגר +")
+    // is exerciseRole:'reinforcement', NOT hiit_friendly-tagged — a separate
+    // pool from tabataPool above (docs/workout-engine/09-CORE-TABATA.md §1.6:
+    // these 4 items were previously unreachable by any selection path because
+    // nothing read this role at all).
+    reinforcementPool: allExercises.filter((ex) => ex.exerciseRole === 'reinforcement'),
     // Apply straight-arm cap on Deload weeks for tendon protection.
     straightArmRatio: (() => {
       if (sessionPolicy.straightArmCap == null) return straightArmRatio;

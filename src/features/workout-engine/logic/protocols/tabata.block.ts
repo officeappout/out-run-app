@@ -16,6 +16,7 @@ import type {
   Exercise,
   ExecutionLocation,
   ExecutionMethod,
+  InjuryShieldArea,
 } from '@/features/content/exercises/core/exercise.types';
 import { getIsometricTimeCap } from '../workout-budgeting.utils';
 import { selectMethodForContext } from '../../shared/utils/method-selection.utils';
@@ -25,6 +26,16 @@ import {
   TABATA_MAX_EXERCISES,
   tabataIntervalCost,
 } from './tabata.constants';
+
+/** Same predicate as ContextualEngine.passesInjuryShield (logic/
+ *  ContextualEngine.ts:442-451) — duplicated rather than imported because
+ *  that method is private to the class; kept behaviorally identical
+ *  (no-injuries or no-tagged-exercise always passes; overlap excludes). */
+function passesInjuryShield(exercise: Exercise, userInjuries: InjuryShieldArea[] | undefined): boolean {
+  if (!userInjuries?.length) return true;
+  if (!exercise.injuryShield?.length) return true;
+  return !exercise.injuryShield.some((area) => userInjuries.includes(area));
+}
 
 /**
  * Assemble the tabata block from the FINAL exercise list (call after every
@@ -49,6 +60,17 @@ export function buildTabataBlock(
      *  legacy no-resolution path (unit tests). See buildTabataFromPool. */
     location?: string;
     availableEquipment?: string[];
+    /** User's active injury exclusions. Absent/empty ⇒ no restriction — same
+     *  contract as ContextualEngine.passesInjuryShield. Neither tabata path
+     *  checked this before (docs/workout-engine/09-CORE-TABATA.md §1.2); now
+     *  both do, so a tabata/core block never contradicts the same injury
+     *  shield every other exercise in the session already respects. */
+    injuryShield?: InjuryShieldArea[];
+    /** Override TABATA_MIN/MAX_EXERCISES for this call only — the general
+     *  finisher's defaults (2-4) are untouched for callers that omit these.
+     *  The core block (form B) passes both equal to force an exact count. */
+    minExercises?: number;
+    maxExercises?: number;
   },
 ): TabataBlockSpec | undefined {
   if (setType !== 'tabata') return undefined;
@@ -57,6 +79,9 @@ export function buildTabataBlock(
     console.log('[TabataBlock] intentMode=blast takes precedence — tabata not assembled');
     return undefined;
   }
+
+  const minExercises = context.minExercises ?? TABATA_MIN_EXERCISES;
+  const maxExercises = context.maxExercises ?? TABATA_MAX_EXERCISES;
 
   // ── Pool-injection (David 25.07): when the dedicated conditioning pool is
   // provided, build the finisher FROM it and inject the members (added-finisher
@@ -70,6 +95,9 @@ export function buildTabataBlock(
       context.userLevel ?? 1,
       context.location as ExecutionLocation | undefined,
       context.availableEquipment ?? [],
+      context.injuryShield,
+      minExercises,
+      maxExercises,
     );
   }
 
@@ -102,7 +130,8 @@ export function buildTabataBlock(
         !Array.isArray(ex.pyramidSequence) &&
         ex.tier !== 'elite' &&
         getIsometricTimeCap(ex.exercise) >= TABATA_CLASSIC.workSec &&
-        !(ex.isTimeBased && ex.tier === 'hard'),
+        !(ex.isTimeBased && ex.tier === 'hard') &&
+        passesInjuryShield(ex.exercise, context.injuryShield),
     )
     .sort((a, b) => b.score - a.score);
 
@@ -115,7 +144,7 @@ export function buildTabataBlock(
   let bestScore = -1;
   for (let mask = 1; mask < 1 << pool.length; mask++) {
     const subset = pool.filter((_, i) => mask & (1 << i));
-    if (subset.length < TABATA_MIN_EXERCISES || subset.length > TABATA_MAX_EXERCISES) continue;
+    if (subset.length < minExercises || subset.length > maxExercises) continue;
     const cycleCost = subset.reduce((s, e) => s + tabataIntervalCost(e.exercise.symmetry), 0);
     if (cycleCost > TABATA_CLASSIC.rounds || TABATA_CLASSIC.rounds % cycleCost !== 0) continue;
     const score = subset.reduce((s, e) => s + e.score, 0);
@@ -128,7 +157,7 @@ export function buildTabataBlock(
   if (!best) {
     console.log(
       `[TabataBlock] No valid composition from ${eligible.length} eligible candidate(s) ` +
-      `(need ${TABATA_MIN_EXERCISES}-${TABATA_MAX_EXERCISES} members whose interval costs tile ` +
+      `(need ${minExercises}-${maxExercises} members whose interval costs tile ` +
       `${TABATA_CLASSIC.rounds}) — reverting to straight sets`,
     );
     return undefined;
@@ -169,12 +198,19 @@ interface PoolCandidate {
   method: ExecutionMethod | undefined;
 }
 
-/** Largest valid 2-4 subset whose interval costs (unilateral=2) tile 8 exactly. */
-function pickTilingSubset(cands: PoolCandidate[]): PoolCandidate[] | null {
+/** Largest valid subset (within [minExercises, maxExercises]) whose interval
+ *  costs (unilateral=2) tile 8 exactly. When min===max (the core block,
+ *  which forces an exact member count) the search only accepts that exact
+ *  size — no "close enough" fallback. */
+function pickTilingSubset(
+  cands: PoolCandidate[],
+  minExercises: number,
+  maxExercises: number,
+): PoolCandidate[] | null {
   let best: PoolCandidate[] | null = null;
   for (let mask = 1; mask < 1 << cands.length; mask++) {
     const subset = cands.filter((_, i) => (mask & (1 << i)) !== 0);
-    if (subset.length < TABATA_MIN_EXERCISES || subset.length > TABATA_MAX_EXERCISES) continue;
+    if (subset.length < minExercises || subset.length > maxExercises) continue;
     const cost = subset.reduce((s, c) => s + tabataIntervalCost(c.exercise.symmetry), 0);
     if (cost > TABATA_CLASSIC.rounds || TABATA_CLASSIC.rounds % cost !== 0) continue;
     if (!best || subset.length > best.length) best = subset; // prefer more members (variety)
@@ -205,9 +241,15 @@ function buildTabataFromPool(
   userLevel: number,
   location: ExecutionLocation | undefined,
   availableGear: string[],
+  injuryShield: InjuryShieldArea[] | undefined,
+  minExercises: number,
+  maxExercises: number,
 ): TabataBlockSpec | undefined {
   const atLevel = pool.filter(
-    (ex) => getIsometricTimeCap(ex) >= TABATA_CLASSIC.workSec && poolLevelOf(ex) <= userLevel,
+    (ex) =>
+      getIsometricTimeCap(ex) >= TABATA_CLASSIC.workSec &&
+      poolLevelOf(ex) <= userLevel &&
+      passesInjuryShield(ex, injuryShield),
   );
 
   // Resolve the session-valid method per candidate; drop the location-gated ones.
@@ -226,21 +268,24 @@ function buildTabataFromPool(
     );
   }
 
-  if (eligible.length < TABATA_MIN_EXERCISES) {
+  if (eligible.length < minExercises) {
     console.log(`[TabataBlock] pool: only ${eligible.length} eligible ≤L${userLevel} — reverting to straight`);
     return undefined;
   }
 
   // Easy-biased candidate window, shuffled for cross-session variety.
-  const window = eligible.slice(0, Math.max(8, Math.ceil(eligible.length * 0.5)));
+  // Widened to fit maxExercises (the general finisher's default window of 8
+  // already covers its own max of 4 with slack; the core block can ask for
+  // up to 8 members, which needs the full window available to be searchable).
+  const window = eligible.slice(0, Math.max(maxExercises * 2, Math.ceil(eligible.length * 0.5)));
   for (let i = window.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [window[i], window[j]] = [window[j], window[i]];
   }
 
-  const members = pickTilingSubset(window.slice(0, 8));
+  const members = pickTilingSubset(window.slice(0, Math.max(8, maxExercises)), minExercises, maxExercises);
   if (!members) {
-    console.log('[TabataBlock] pool: no cost-tiling 2-4 subset — reverting to straight');
+    console.log(`[TabataBlock] pool: no cost-tiling ${minExercises}-${maxExercises} subset — reverting to straight`);
     return undefined;
   }
 

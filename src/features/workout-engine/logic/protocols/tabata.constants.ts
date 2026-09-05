@@ -23,9 +23,19 @@ export const TABATA_CLASSIC: TabataProtocolConfig = Object.freeze({
 export const TABATA_BLOCK_SECONDS =
   (TABATA_CLASSIC.workSec + TABATA_CLASSIC.restSec) * TABATA_CLASSIC.rounds;
 
-/** Block size limits — how many exercises rotate inside the block. */
+/** Block size limits — how many exercises rotate inside the block.
+ *  Default bounds for the general (non-core) finisher — UNCHANGED. Callers
+ *  that need a different bound (e.g. the core block, docs/workout-engine/
+ *  09-CORE-TABATA.md) pass an explicit override into buildTabataBlock rather
+ *  than this constant changing meaning for every caller. */
 export const TABATA_MIN_EXERCISES = 2;
 export const TABATA_MAX_EXERCISES = 4;
+
+/** Valid core-block (form B) member counts — the only bilateral-member
+ *  counts that tile TABATA_CLASSIC.rounds (8) exactly: 2×4 rounds each,
+ *  4×2 rounds each, 8×1 round each. Source of truth for
+ *  chooseCoreTabataMemberCount (core-block.ts). */
+export const TABATA_CORE_MEMBER_COUNTS = [2, 4, 8] as const;
 
 /**
  * Interval cost of one exercise visit inside the block (David's rule,
