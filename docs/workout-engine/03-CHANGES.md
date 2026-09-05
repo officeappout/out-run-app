@@ -1195,3 +1195,103 @@ the <20min/≥20min trim-order split, the 2-removals-both-directions case, and c
 `process.exit()` failures).
 
 **Commit:** local only, no push.
+
+---
+
+## Addendum 8 — build-snapshot.ts realism fix + Time-Volume Feedback Loop is one-directional
+
+David found a real gap: this script's call to `generateHomeWorkoutTrio` never matched either real
+production call site (StatsOverview.tsx's home carousel, UserWorkoutAdjuster's slider — confirmed
+both ultimately call this same function, no parallel engine exists). Full investigation and fix.
+
+### The 3 fixes to `build-snapshot.ts`
+
+1. **`strictDomains: true` removed entirely.** No real caller ever sets it. Per its own doc comment
+   it disables VerticalFoundation + HorizontalGuarantee + the domain-overflow fill path. Paired
+   15-sample trace (with vs without, same other params): full-body-without-core at 45min moved from
+   66.7% to 46.7% — a real ~20-point effect, not dominant but not negligible. Every % reported
+   before this fix should be treated as **needing re-verification**, not discarded — it was measured
+   in a mode no real user ever exercises.
+2. **`requiredDomains` now `undefined` by default** (was always `['push','pull','legs']`-shaped).
+   Neither real call site sets this unless the user explicitly picks muscle-group chips — `undefined`
+   (auto domain selection) is the common real case. The old 7-subset sweep survives as an opt-in
+   (`SNAPSHOT_FORCE_DOMAINS=1`) for deliberately testing a specific chip-picked combination.
+3. **`remainingWeeklyBudget` / `domainSetsCompletedThisWeek` / `remainingScheduleDays` added**
+   (simulated: 20 / `{push:6,pull:6,legs:6,core:2}` / 3 — plausible mid-week values, not real
+   per-combo data, deliberately giving core less completed volume than push/pull/legs so Deficit
+   Redistribution has real signal). These were absent from **every** measurement this project has
+   ever made — Budget Floor and Phase 4 Deficit Redistribution have never been exercised, in either
+   direction, until this fix.
+
+Full header comment in `build-snapshot.ts` documents all three with the reasoning inline.
+
+### Rebuilt snapshot (540 workouts, 3,245 `workout_exercises`, 0 errors) — auto-selected domains
+
+With `requiredDomains` no longer forced, most sessions no longer cover push+pull+legs together —
+**only 75/540 are "full-body" by actual exercise composition** (>=1 push + >=1 pull + >=1 legs main
+exercise; `req_domains` itself is now always `'auto'`, so this is inferred from output, not request).
+
+| Duration | % workouts with core (all, n=135 each) | Full-body-without-core (of the full-body subset) |
+|---|---|---|
+| 15min | 3.0% | 100.0% (n=4) |
+| 20min | 23.7% | 100.0% (n=18) |
+| 30min | 37.8% | 87.0% (n=23) |
+| 45min | 48.9% | 36.7% (n=30) |
+
+Full-body total: 75/540 workouts; without core: 70.7% (53 failed / 16 satisfied / 4 replaced / 2
+injected). By level: 1→68.1%, 3→100%(n=1), 5→70.0%, 8→80.0%, 12→75.0% — **noisy, small per-level
+full-body samples (n=1 to 47) now that domain selection is auto rather than forced; this axis needs
+a larger run before drawing a level-trend conclusion, unlike the duration axis above which has
+consistent n=135.**
+
+**These numbers are NOT directly comparable to any earlier addendum's percentages** — different
+population (auto-selected domains, only a fraction of which are full-body, vs every combo forced
+full-body before), different budget context (Deficit Redistribution now active). Both real,
+production-representative changes, not a regression in the fix.
+
+### Time-Volume Feedback Loop — confirmed one-directional, not assumed
+
+David asked to verify, not assume, that nothing adds volume when a workout runs short.
+
+**(a) Searched, did not find, any upward-correction mechanism.** `WorkoutGenerator.ts`'s
+"Time-Volume Feedback Loop" (the only named feedback loop) triggers exclusively on
+`currentDuration > context.availableTime + TIME_TOLERANCE_MINUTES` — no symmetric check exists for
+the under-duration case anywhere in `workout-budgeting.utils.ts`, `BudgetDistributor.ts`, or
+`WorkoutGenerator.ts` (grepped broadly for "pad/expand/add more" patterns — none found).
+`availableTime` is structurally a ceiling the pipeline trims toward, never a target it grows toward.
+
+**(b) The real gap, measured on the corrected snapshot** (avg `estimated_duration` vs requested, by
+level × duration — full table in the rebuilt snapshot, `workouts` table):
+
+| Duration | Avg gap (all levels) | Avg main exercises |
+|---|---|---|
+| 15min | -0.5 to +1.5 (on target) | 2.22 |
+| 20min | -0.3 to -1.7 (small) | 2.88 |
+| 30min | -2.3 to -4.4 (moderate) | 3.61 |
+| **45min** | **-8.5 to -10.7 (severe, ~20-25% short)** | **3.87** |
+
+**(c) Where the worst gap is — and David's own guess was wrong, stated plainly since he asked not to
+be told what he wants to hear:** the 10 worst level×duration×location combinations are **all 45min**,
+and span every level tested (1, 3, 5, 8, 12 all appear, with gaps clustering tightly between -9.2
+and -11.7 regardless of level). **This is a duration-specific problem, not a low-level-specific
+one.** Level 1 is marginally the worst (-11.7 at gym) but level 8 (-10.4) and level 5 (-10.2) are
+barely different — there is no clean level trend, only a sharp cliff at 45 minutes across the board.
+
+**A real, separate bug found while chasing this (not the root cause of the 45min cliff, but real
+and worth its own fix):** `getExerciseCountForDuration` (`workout-budgeting.utils.ts:122-134`) has a
+dead bucket — `DURATION_SCALING['30']` (5-6 exercises) is defined but its branch condition
+(`availableTime <= 30`) is unreachable before the `<=10` and the same `<=30` check that actually
+routes there returns `DURATION_SCALING['15']` (4-5 exercises) instead, because the branches are
+`<=10 → '5'`, `<=30 → '15'`, `<=45 → '45'`, `else → '60'` — meaning **every request from 11 to 30
+minutes is sized like a 15-minute session.** This does not explain the 45min cliff (45min correctly
+routes to the `'45'` bucket, 6-8 exercises) — but the ACTUAL avg main-exercise count at 45min
+(3.87) is far below even that correct bucket's floor, meaning something else downstream (domain-quota
+limits, a guarantee/pruning step, or the initial candidate count itself) caps the real output well
+below what `getExerciseCountForDuration` sizes for. **Root cause of the 45min-specific shortfall is
+still open — not investigated further this pass, per David's "report, don't implement" instruction.**
+
+**Nothing implemented beyond the 3 build-snapshot.ts fixes above** — the duration-gap and
+exercise-count-bucket findings are reported, not fixed; this is a product decision ("עד 45 דקות" vs
+"בערך 45 דקות") David is still weighing.
+
+**Commit:** local only, no push.
