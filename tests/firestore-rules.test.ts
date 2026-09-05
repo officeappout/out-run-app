@@ -790,6 +790,26 @@ async function testPendingUnits() {
     const ctx = env.authenticatedContext('reader_outsider');
     await assertFails(getDocs(collection(ctx.firestore(), 'pending_units')));
   });
+
+  // Real production incident, 06.09.2026: submitPendingUnit()'s own
+  // idempotency check (getDoc before create, so a resubmission doesn't
+  // reset an already-approved/rejected doc back to pending) calls getDoc
+  // on a NOT-YET-EXISTING doc on every first-time submission — the normal
+  // path, not an edge case. PU1-PU8 above only ever tested reads on a doc
+  // pre-created via a rules bypass; none of them exercised this exact
+  // sequence, so this slipped through both the emulator suite AND an
+  // admin-SDK end-to-end test (which bypasses rules entirely) before a real
+  // logged-in user hit it in production and the CTA silently did nothing.
+  await it('PU9 — getDoc on a NOT-YET-EXISTING doc, by the user who would own it → ALLOW (no data exists to leak; this is the exact call submitPendingUnit() makes on every first submission)', async () => {
+    const ctx = env.authenticatedContext('future_submitter');
+    const snap = await assertSucceeds(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9999_pu9')));
+    if (snap.exists()) throw new Error('test setup error: doc should not exist');
+  });
+
+  await it('PU10 — getDoc on a NOT-YET-EXISTING doc, by a DIFFERENT user → ALLOW too (still nothing to leak — the security boundary is only on an EXISTING doc, verified by PU2)', async () => {
+    const ctx = env.authenticatedContext('someone_else_entirely');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9999_pu9')));
+  });
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────

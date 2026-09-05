@@ -162,6 +162,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
   const [addMode, setAddMode] = useState<'closed' | 'form' | 'confirmMatch' | 'submitted'>('closed');
   const [addName, setAddName] = useState('');
   const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [matchedSibling, setMatchedSibling] = useState<DirectoryEntry | null>(null);
 
   const pendingLevel: PendingUnitLevel = breadcrumb.length === 0 ? 'brigade' : breadcrumb.length === 1 ? 'battalion' : 'company';
@@ -171,6 +172,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
 
   const openAddForm = useCallback(() => {
     setAddName('');
+    setAddError(null);
     setMatchedSibling(null);
     setAddMode('form');
   }, []);
@@ -180,11 +182,19 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
     selectEntry(entry);
   }, [selectEntry]);
 
+  // A save that fails must SAY it failed — a soldier who sees nothing
+  // happen assumes they're registered when they're not (David, production
+  // test 06.09.2026 — the CTA silently did nothing on a real device, real
+  // login, against the real deployed rule; the underlying permission-denied
+  // bug is fixed separately, but a silent failure is its own bug regardless
+  // of cause, so this catch stays even though today's specific cause won't
+  // recur).
   const submitAsNew = useCallback(async () => {
     const uid = auth.currentUser?.uid;
     const name = addName.trim();
     if (!uid || !name) return;
     setAddBusy(true);
+    setAddError(null);
     try {
       await submitPendingUnit(uid, {
         level: pendingLevel,
@@ -194,6 +204,9 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
         name,
       });
       setAddMode('submitted');
+    } catch (err) {
+      console.error('[HierarchySearchStep] submitPendingUnit failed:', err);
+      setAddError('השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.');
     } finally {
       setAddBusy(false);
     }
@@ -202,6 +215,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
   const handleAddSubmit = useCallback(() => {
     const name = addName.trim();
     if (!name) return;
+    setAddError(null);
     // Dedup-before-submit (§4): compare against siblings ALREADY fetched for
     // this level — no new query. A real match is attached to directly; a
     // pending duplicate is never created for something that already exists.
@@ -305,6 +319,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none"
             dir="rtl"
           />
+          {addError && <p className="text-xs text-red-600 text-center">{addError}</p>}
           <div className="flex gap-2">
             <button
               type="button"
@@ -312,7 +327,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
               disabled={!addName.trim() || addBusy}
               className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm disabled:opacity-40"
             >
-              שליחה
+              {addBusy ? 'שולח...' : 'שליחה'}
             </button>
             <button type="button" onClick={() => setAddMode('closed')} className="px-4 py-2.5 text-sm text-slate-500">
               ביטול
@@ -324,6 +339,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
       {addMode === 'confirmMatch' && matchedSibling && (
         <div className="pt-2 pb-1 flex-shrink-0 flex flex-col gap-2 text-center">
           <p className="text-sm text-slate-700">מצאנו את <span className="font-bold">{matchedSibling.name}</span> — זו שלך?</p>
+          {addError && <p className="text-xs text-red-600">{addError}</p>}
           <div className="flex gap-2">
             <button
               type="button"
@@ -338,7 +354,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
               disabled={addBusy}
               className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 disabled:opacity-40"
             >
-              לא, זו לא
+              {addBusy ? 'שולח...' : 'לא, זו לא'}
             </button>
           </div>
         </div>

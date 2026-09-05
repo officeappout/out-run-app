@@ -1863,8 +1863,19 @@ service cloud.firestore {
       allow create: if isAuthenticated()
         && request.resource.data.submittedBy == request.auth.uid;
 
+      // A read on a document that doesn't exist yet leaks nothing (there is
+      // no data) — allowing it unconditionally for any authenticated user
+      // is safe, and is REQUIRED: submitPendingUnit()'s own idempotency
+      // check (getDoc before create, so a resubmission doesn't reset an
+      // already-approved/rejected doc back to pending) calls getDoc on a
+      // not-yet-existing doc on every first-time submission — the normal
+      // path. Found 05.09.2026: request.auth.uid == resource.data.submittedBy
+      // alone errors out (resource is null pre-existence), which Firestore
+      // treats as a hard permission-denied — the "add my unit" CTA's most
+      // common real-world case failed silently in production because of it.
       allow read: if isAuthenticated()
-        && request.auth.uid == resource.data.submittedBy;
+        && (!exists(/databases/$(database)/documents/pending_units/$(docId))
+            || request.auth.uid == resource.data.submittedBy);
 
       allow read, update, delete: if isRootAdmin() || isAdmin();
     }
