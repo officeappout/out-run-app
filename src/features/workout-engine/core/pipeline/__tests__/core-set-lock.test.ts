@@ -14,10 +14,18 @@ import type { BudgetConstraints } from '../pipeline.types';
  * push/pull/legs exercise. Measured before the fix: only 46.7% of generated
  * core blocks landed on 2 sets.
  *
+ * Opened from an exact 2 to a 2-3 RANGE (docs/workout-engine/09-CORE-TABATA.md
+ * §2, David's decision — form A only; forms B/C never reach BudgetDistributor).
+ * Tests below assert the range, not a fixed value.
+ *
  * These tests run the REAL BudgetDistributor.distribute() pipeline
  * (assignVolume → caps → rebalance → cluster cap → core lock) end-to-end —
  * no fabricated set counts.
  */
+const expectCoreSetsInRange = (sets: number) => {
+  expect(sets).toBeGreaterThanOrEqual(2);
+  expect(sets).toBeLessThanOrEqual(3);
+};
 
 const mainExerciseMg = (id: string, score: number, movementGroup: string) => ({
   exercise: {
@@ -63,28 +71,28 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('BudgetDistributor — core set-count lock', () => {
-  it('D1 (fixed 3 sets in DIFFICULTY_VOLUME): core exercises are still locked to 2, not 3', () => {
+  it('D1 (fixed 3 sets in DIFFICULTY_VOLUME): core exercises are clamped to [2,3], not 3+', () => {
     const distributor = createBudgetDistributor();
     const constraints: BudgetConstraints = { dailySetBudget: 20, isSingleDomain: true, exerciseSlotCount: 3 };
     const result = distributor.distribute(corePool(3), baseContext({ availableTime: 30 }), 1, constraints);
-    for (const ex of mainsOf(result.exercises)) expect(ex.sets).toBe(2);
+    for (const ex of mainsOf(result.exercises)) expectCoreSetsInRange(ex.sets);
   });
 
-  it('D2 (range 3-4 in DIFFICULTY_VOLUME): core exercises are still locked to 2', () => {
+  it('D2 (range 3-4 in DIFFICULTY_VOLUME): core exercises are clamped to [2,3]', () => {
     const distributor = createBudgetDistributor();
     const constraints: BudgetConstraints = { dailySetBudget: 20, isSingleDomain: true, exerciseSlotCount: 3 };
     const result = distributor.distribute(corePool(3), baseContext({ availableTime: 30 }), 2, constraints);
-    for (const ex of mainsOf(result.exercises)) expect(ex.sets).toBe(2);
+    for (const ex of mainsOf(result.exercises)) expectCoreSetsInRange(ex.sets);
   });
 
-  it('D3 (range 4-5 in DIFFICULTY_VOLUME, the exact source of the measured "core gets 4-5 sets" bug): core exercises are still locked to 2', () => {
+  it('D3 (range 4-5 in DIFFICULTY_VOLUME, the exact source of the measured "core gets 4-5 sets" bug): core exercises are clamped to [2,3]', () => {
     const distributor = createBudgetDistributor();
     const constraints: BudgetConstraints = { dailySetBudget: 20, isSingleDomain: true, exerciseSlotCount: 3 };
     const result = distributor.distribute(corePool(3), baseContext({ availableTime: 30 }), 3, constraints);
-    for (const ex of mainsOf(result.exercises)) expect(ex.sets).toBe(2);
+    for (const ex of mainsOf(result.exercises)) expectCoreSetsInRange(ex.sets);
   });
 
-  it('rebalance immunity: a generous leftover daily budget that would normally stack extra sets onto elite/hard/match-tier exercises does NOT inflate a core exercise past 2', () => {
+  it('rebalance immunity: a generous leftover daily budget that would normally stack extra sets onto elite/hard/match-tier exercises does NOT inflate a core exercise past 3', () => {
     const distributor = createBudgetDistributor();
     // A single core exercise against a large budget — _rebalanceSets would
     // normally try to fill (dailySetBudget - currentPlanned) onto it if it
@@ -97,7 +105,7 @@ describe('BudgetDistributor — core set-count lock', () => {
       constraints,
     );
     expect(mainsOf(result.exercises)).toHaveLength(1);
-    expect(mainsOf(result.exercises)[0].sets).toBe(2);
+    expectCoreSetsInRange(mainsOf(result.exercises)[0].sets);
   });
 
   it('non-core exercises are unaffected — a same-shaped pull pool still gets the generic (non-fixed-2) volume behavior', () => {
@@ -125,7 +133,7 @@ describe('BudgetDistributor — core set-count lock', () => {
     expect(result.log.some((l) => l.startsWith('core_pin:'))).toBe(true);
   });
 
-  it('mixed pool: core exercises lock to 2, non-core siblings in the same call are untouched by the core lock', () => {
+  it('mixed pool: core exercises clamp to [2,3], non-core siblings in the same call are untouched by the core lock', () => {
     const distributor = createBudgetDistributor();
     const pool = [...corePool(2, 95), ...pullPool(2, 93)] as never;
     const constraints: BudgetConstraints = { dailySetBudget: 40, isSingleDomain: false, exerciseSlotCount: 4 };
@@ -133,7 +141,7 @@ describe('BudgetDistributor — core set-count lock', () => {
     const core = mainsOf(result.exercises).filter((e: any) => e.exercise.movementGroup === 'core');
     const pull = mainsOf(result.exercises).filter((e: any) => e.exercise.movementGroup === 'vertical_pull');
     expect(core.length).toBeGreaterThan(0);
-    for (const ex of core) expect((ex as any).sets).toBe(2);
+    for (const ex of core) expectCoreSetsInRange((ex as any).sets);
     // Not asserting a specific pull value — only that the suite exercised a
     // mixed pool without the core lock touching the pull exercises' shape
     // (implicitly covered by the D2/D3 pull-only regression tests above).

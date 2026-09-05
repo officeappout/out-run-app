@@ -128,14 +128,49 @@ export class StructureDirector {
    *   FullBodyDomainGuarantee (Step 5e, guarded by length >= 3)
    *   LegsCap               (Step 5e-bis, isFullBodySession = length >= 3)
    */
-  private _fullBodyBlocks(domains: string[], _context: WorkoutGenerationContext): BlockToken[] {
+  /**
+   * "15 min + strength goal → core doesn't enter unless time remains"
+   * (docs/workout-engine/09-CORE-TABATA.md §3/§4, David's decision).
+   *
+   * Manual builder exemption (David's explicit gate, §3/§4): a Custom-
+   * Builder session's domain chips are respected as-is — this rule (and
+   * only this rule; the Full-Body Guarantee and the ≥20min "as today" rule
+   * needed no code change) never fires for isManualOverride sessions.
+   *
+   * "Strength goal": no schema value literally says "strength" —
+   * 'performance_boost' is used as the closest match (documented
+   * interpretation, needs David's confirmation — 09-CORE-TABATA.md §3).
+   *
+   * "Unless time remains": StructureDirector only knows domain COUNTS at
+   * this point, not real per-exercise durations (those resolve much later,
+   * after exercise selection/volume assignment) — a true remaining-budget
+   * check isn't structurally possible here. Approximated via a fixed
+   * reserved-minutes-per-domain floor; documented and tunable, not a real
+   * duration estimate.
+   */
+  private _shouldExcludeCoreForShortStrengthSession(
+    domains: string[],
+    context: WorkoutGenerationContext,
+  ): boolean {
+    if (context.isManualOverride) return false;
+    if (context.mainGoal !== 'performance_boost') return false;
+    const availableTime = context.availableTime ?? Infinity;
+    if (availableTime > 15) return false;
+
+    const RESERVED_MINUTES_PER_NON_CORE_DOMAIN = 5;
+    const nonCoreDomainCount = domains.filter((d) => d !== 'core').length;
+    const projectedNonCoreMinutes = nonCoreDomainCount * RESERVED_MINUTES_PER_NON_CORE_DOMAIN;
+    return projectedNonCoreMinutes >= availableTime;
+  }
+
+  private _fullBodyBlocks(domains: string[], context: WorkoutGenerationContext): BlockToken[] {
     const blocks: BlockToken[] = [];
     let idx = 0;
 
     const activePush = domains.length === 0 || domains.includes('push');
     const activePull = domains.length === 0 || domains.includes('pull');
     const activeLegs = domains.length === 0 || domains.includes('legs');
-    const activeCore = domains.includes('core');
+    const activeCore = domains.includes('core') && !this._shouldExcludeCoreForShortStrengthSession(domains, context);
 
     if (activePull) {
       blocks.push({

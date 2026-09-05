@@ -53,7 +53,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('applyEssentialGearFilter — naked backfill core set-count lock', () => {
-  it('backfills a core-domain candidate at 2 sets, not the generic 3', () => {
+  it('backfills a core-domain candidate at 2-3 sets (opened from an exact 2, docs/workout-engine/09-CORE-TABATA.md §2), not the generic 3', () => {
     const workout = baseWorkout([]); // 0 main exercises → needs 3 backfilled
     const allExercises = [
       rawExercise('core_1', 'core'),
@@ -67,7 +67,8 @@ describe('applyEssentialGearFilter — naked backfill core set-count lock', () =
     const core = mains.find((e) => e.exercise.movementGroup === 'core')!;
     const pull = mains.find((e) => e.exercise.movementGroup === 'vertical_pull')!;
     const push = mains.find((e) => e.exercise.movementGroup === 'vertical_push')!;
-    expect(core.sets).toBe(2);
+    expect(core.sets).toBeGreaterThanOrEqual(2);
+    expect(core.sets).toBeLessThanOrEqual(3);
     expect(pull.sets).toBe(3);
     expect(push.sets).toBe(3);
   });

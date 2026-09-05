@@ -456,6 +456,11 @@ export function enforceVolumeCap(
     // Tabata block members (Stage 3.1) are priced as one fixed 4-min
     // constant — removing one saves no time and mutilates the block.
     if (ex.protocolBlock) return false;
+    // Full-Body Guarantee-injected core (docs/workout-engine/09-CORE-TABATA.md
+    // §3/§4) — the whole point of "guaranteed" is that it survives duration
+    // trimming; the CORE_MGS "trims first" rule below is for an ordinary,
+    // normally-selected core exercise, not this one.
+    if (ex.isGuaranteedCore) return false;
     const mg = ex.exercise.movementGroup ?? '';
     if (CORE_MGS.has(mg)) return true;       // core removed first
     if (ex.priority === 'isolation' || ex.priority === 'accessory') return true;

@@ -89,8 +89,9 @@ const BALANCED_DIVERSITY_THRESHOLD       = 3; // distinct domains needed to unlo
 // they add exercises directly to an already-generated GeneratedWorkout,
 // never passing through THIS distribute() call at all:
 //   1. applyEssentialGearFilter's naked-backfill in trio-modifiers.service.ts
-//      has its own equivalent lock now (same CORE_FIXED_SETS value, applied
-//      independently there) for location=home — but NOT yet for gym/park,
+//      has its own equivalent lock now (same [CORE_MIN_SETS,CORE_MAX_SETS]
+//      range, applied independently there) for location=home — but NOT yet
+//      for gym/park,
 //      where a different backfill branch inside applyFlowRegression (bolt 1
 //      / Flow-Regression) still stamps a core exercise with the generic
 //      value, unidentified beyond this cluster (measured: 16/631 core main
@@ -105,7 +106,15 @@ const BALANCED_DIVERSITY_THRESHOLD       = 3; // distinct domains needed to unlo
 // further; a follow-up would need to trace protocol-injection's own
 // post-distribute exercise additions (WorkoutGenerator.ts Step 5b onward)
 // the same way this fix traced the naked-backfill path.
-const CORE_FIXED_SETS = 2;
+// Opened from an exact 2 to a 2-3 range (docs/workout-engine/09-CORE-TABATA.md
+// §2, David's decision) — form A (a single core exercise) only; forms B/C
+// (tabata block / follow-along) never reach this file at all, since they're
+// resolved later in WorkoutGenerator.ts's Step 6c, after BudgetDistributor
+// has already run (verified: this file has zero protocolBlock/tabata
+// awareness). Clamps rather than forces a fixed value — an exercise already
+// inside [2,3] is left exactly as assignVolume computed it.
+const CORE_MIN_SETS = 2;
+const CORE_MAX_SETS = 3;
 
 /** True for a main-slot exercise whose movementGroup resolves to the 'core' logical domain. */
 function isCoreMainExercise(ex: { exercise: { movementGroup?: string } }): boolean {
@@ -202,15 +211,15 @@ export class BudgetDistributor {
     let coreLocked = 0;
     for (const ex of exercises) {
       if (ex.pyramidSequence && ex.pyramidSequence.length > 0) continue;
-      if (isCoreMainExercise(ex) && ex.sets !== CORE_FIXED_SETS) {
+      if (isCoreMainExercise(ex) && (ex.sets < CORE_MIN_SETS || ex.sets > CORE_MAX_SETS)) {
         const was = ex.sets;
-        ex.sets = CORE_FIXED_SETS;
-        ex.reasoning.push(`core_pin:sets_locked=${CORE_FIXED_SETS}(was=${was})`);
+        ex.sets = Math.min(CORE_MAX_SETS, Math.max(CORE_MIN_SETS, ex.sets));
+        ex.reasoning.push(`core_pin:sets_clamped=${ex.sets}(was=${was})`);
         coreLocked++;
       }
     }
     if (coreLocked > 0) {
-      log.push(`core_pin: locked ${coreLocked} core exercise(s) to ${CORE_FIXED_SETS} sets`);
+      log.push(`core_pin: clamped ${coreLocked} core exercise(s) to [${CORE_MIN_SETS},${CORE_MAX_SETS}] sets`);
     }
 
     // ── Step 2: Compute safe denominator ────────────────────────────────────
@@ -293,13 +302,13 @@ export class BudgetDistributor {
     let coreRelocked = 0;
     for (const ex of exercises) {
       if (ex.pyramidSequence && ex.pyramidSequence.length > 0) continue;
-      if (isCoreMainExercise(ex) && ex.sets !== CORE_FIXED_SETS) {
-        ex.sets = CORE_FIXED_SETS;
+      if (isCoreMainExercise(ex) && (ex.sets < CORE_MIN_SETS || ex.sets > CORE_MAX_SETS)) {
+        ex.sets = Math.min(CORE_MAX_SETS, Math.max(CORE_MIN_SETS, ex.sets));
         coreRelocked++;
       }
     }
     if (coreRelocked > 0) {
-      log.push(`core_pin_reassert: ${coreRelocked} core exercise(s) reset to ${CORE_FIXED_SETS} sets after caps/rebalance`);
+      log.push(`core_pin_reassert: ${coreRelocked} core exercise(s) clamped to [${CORE_MIN_SETS},${CORE_MAX_SETS}] sets after caps/rebalance`);
     }
 
     const totalSets = exercises.reduce((s, e) => s + e.sets, 0);

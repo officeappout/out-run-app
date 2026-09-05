@@ -704,12 +704,13 @@ export function applyEssentialGearFilter(
       const nakedMethod = (raw.execution_methods ?? raw.executionMethods ?? [])
         .find(m => isGearFree(collectMethodGear(m as any), true));
       // Core set-count lock (docs/workout-engine/05-BENCHMARK.md §3.3): a
-      // core/abs main exercise is always exactly 2 sets, never the generic
-      // 3 this backfill otherwise stamps. This path is entirely outside
-      // BudgetDistributor (which owns the same lock for domain-quota-
-      // selected exercises — BudgetDistributor.ts CORE_FIXED_SETS) — it
-      // injects straight into an already-generated GeneratedWorkout, so the
-      // lock has to be re-applied here too. Found by tracing a real
+      // core/abs main exercise is 2-3 sets (opened from an exact 2, docs/
+      // workout-engine/09-CORE-TABATA.md §2 — form A only), never the
+      // generic 3 this backfill otherwise stamps. This path is entirely
+      // outside BudgetDistributor (which owns the same range for domain-
+      // quota-selected exercises — BudgetDistributor.ts CORE_MIN/MAX_SETS)
+      // — it injects straight into an already-generated GeneratedWorkout, so
+      // the lock has to be re-applied here too. Found by tracing a real
       // "אופניים sets=3" case in a live snapshot back to this exact line.
       const isCoreBackfill = !!raw.movementGroup && MG_TO_DOMAIN[raw.movementGroup] === 'core';
       // isTimeBased / reps / restSeconds (docs/workout-engine/03-CHANGES.md,
@@ -728,7 +729,7 @@ export function applyEssentialGearFilter(
         exercise: raw,
         score: 0,
         reasoning: ['naked_backfill:bodyweight_global_pool'],
-        sets: isCoreBackfill ? 2 : 3,
+        sets: isCoreBackfill ? (2 + Math.floor(Math.random() * 2)) : 3, // 2-3 for core, matching BudgetDistributor's CORE_MIN/MAX_SETS
         reps: derived.reps,
         repsRange: derived.repsRange,
         restSeconds: derived.restSeconds,
@@ -789,7 +790,7 @@ export function applyEssentialGearFilter(
           ...violator,
           exercise: replacement,
           method: (nakedMethod ?? {}) as any,
-          sets: replacementIsCore ? 2 : (violatorWasCore ? 3 : violator.sets),
+          sets: replacementIsCore ? (2 + Math.floor(Math.random() * 2)) : (violatorWasCore ? 3 : violator.sets),
           reps: derived.reps,
           repsRange: derived.repsRange,
           restSeconds: derived.restSeconds,

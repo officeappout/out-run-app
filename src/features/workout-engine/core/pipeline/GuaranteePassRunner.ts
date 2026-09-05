@@ -55,14 +55,23 @@ import type { WorkoutBlueprint } from './pipeline.types';
  * `priority: foundation` exercise present. */
 const VERTICAL_FOUNDATION_GROUPS = ['vertical_pull', 'vertical_push'] as const;
 
-/** Per-domain candidate movement groups for the Full-Body domain guarantee. */
+/** Per-domain candidate movement groups for the Full-Body domain guarantee.
+ *  'core' added docs/workout-engine/09-CORE-TABATA.md §3/§4 (David's
+ *  decision) — a full-body session now guarantees core exactly like push/
+ *  pull/legs, closing the 58.3%-zero-core gap measured in 08-CORE.md §3 Q3. */
 const DOMAIN_MG_CANDIDATES: Record<string, string[]> = {
   push: ['vertical_push', 'horizontal_push'],
   pull: ['vertical_pull', 'horizontal_pull'],
   legs: ['squat', 'hinge', 'lunge'],
+  // Matches MG_TO_DOMAIN's 'core' domain exactly (shared/constants/domain-
+  // mapping.constants.ts:49) — 'core' alone missed a large share of the real
+  // catalog (anti_extension/anti_rotation-tagged core exercises), which is
+  // why the first pass of this fix measured almost no improvement in the
+  // full-body zero-core rate (live-traced, not guessed).
+  core: ['core', 'anti_extension', 'anti_rotation'],
 };
 
-const PRIMARY_DOMAINS = new Set(['push', 'pull', 'legs']);
+const PRIMARY_DOMAINS = new Set(['push', 'pull', 'legs', 'core']);
 
 // ============================================================================
 // PASS 1 — HORIZONTAL GUARANTEE
@@ -454,7 +463,19 @@ export function runFullBodyDomainGuarantee(
       : domainLevel;
 
     for (const mg of mgList) {
-      const sub = findLevelAppropriateSubstitute(poolFB, mg, effectiveDomainLevelFB, usedIdsFB, userLevelsMapFB, domain, difficulty);
+      // strictDomainMatch=true for core ONLY: findLevelAppropriateSubstitute's
+      // domain-match filtering (PoolFactory.ts:234-258) already IS the
+      // equivalent of hasExplicitCoreLevel/the §12.3 core-slot gate when
+      // strict — a candidate without a real targetPrograms['core'] entry is
+      // excluded outright rather than falling through to evaluate some OTHER
+      // program entry (which would reopen the exact cross-scale bug §12.3
+      // closed: a movementGroup='core' exercise like a human_flag skill move
+      // getting guarantee-injected via its unrelated flag-program level).
+      // push/pull/legs keep the pre-existing non-strict default — unchanged.
+      const sub = findLevelAppropriateSubstitute(
+        poolFB, mg, effectiveDomainLevelFB, usedIdsFB, userLevelsMapFB, domain, difficulty,
+        domain === 'core',
+      );
       if (!sub) continue;
 
       // Replace the lowest-scored exercise that is not the sole member of another primary domain
@@ -505,6 +526,12 @@ export function runFullBodyDomainGuarantee(
         programLevel:  injectedLevel,
         isOverLevel:   injectedLevel > domainLevel,
         levelDelta:    injectedLevel - domainLevel,
+        // Protects this exercise from enforceVolumeCap's "core trims first"
+        // Phase A removal — see the field's own doc comment
+        // (workout-generator.types.ts) for why this is necessary, not
+        // cosmetic: a live measurement caught injection succeeding here and
+        // the exercise still missing from the final duration-trimmed output.
+        isGuaranteedCore: domain === 'core' ? true : workoutExercises[idx].isGuaranteedCore,
         reasoning: [
           ...workoutExercises[idx].reasoning,
           `full_body_guarantee:${domain}(L${injectedLevel},gap=${sub.gap},mg=${mg},replaced=${victim.exercise.movementGroup ?? '?'})`,
