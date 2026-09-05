@@ -152,10 +152,10 @@ export default function UnitsListPage() {
         rows = rows.map(r => ({ ...r, memberCount: byUnitId[r.id] ?? 0 }));
         setUnits(rows);
         setTotalUsers(brigadeTotal);
-        // No activity-tracking field exists on a declaration — updatedAt is
-        // the closest honest proxy (when the declaration itself last
-        // changed), not real usage. Labeled accordingly in the render below,
-        // not as "active" (avoid implying tracking that doesn't exist).
+        // No activity-tracking field exists on a declaration — but updatedAt
+        // on a NEW declaration IS its registration moment, so this is
+        // honestly "registered or updated this week" (David, 05.09.2026),
+        // not a real-usage proxy. Labeled that way in the render below.
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         const declSnap = await getDocs(query(collection(db, 'military_declarations'), where('orgId', '==', authId)));
@@ -509,7 +509,7 @@ export default function UnitsListPage() {
           </div>
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
-              {tenantType === 'military' ? 'עודכנו ב-7 ימים' : 'פעילים ב-7 ימים'}
+              {tenantType === 'military' ? 'נרשמו או עדכנו השבוע' : 'פעילים ב-7 ימים'}
             </p>
             <p className="text-3xl font-black text-slate-800">{activeUsersLast7d}</p>
             {totalUsers > 0 && (
