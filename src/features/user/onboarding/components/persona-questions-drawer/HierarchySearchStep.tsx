@@ -44,6 +44,17 @@ interface HierarchySearchStepProps {
    *  level has nothing more to offer. Advances/finishes the outer drawer;
    *  never clears `value`. */
   onDone: () => void;
+  /** Fires true on focusing EITHER text input here (search box, add-unit
+   *  name box), false on blur — lets the outer drawer force itself taller
+   *  while typing. Needed because this step's own content (one input, a
+   *  short list, maybe a button) is naturally too short to push the sheet
+   *  anywhere near its max-height cap on its own — unlike content-heavy
+   *  steps (a map, an equipment grid) where that happens automatically.
+   *  See PersonaQuestionsDrawer's own comment for why this has to be a
+   *  signal to the OUTER sheet, not something this step can do internally
+   *  (the per-step wrapper between them is absolutely positioned and
+   *  can't be grown by a child's own content). */
+  onNeedsExpandedHeight?: (needed: boolean) => void;
 }
 
 async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
@@ -93,7 +104,7 @@ async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
  * An empty level (no sub-units — most brigades today) shows that plainly
  * and points at the same finish button, instead of a dead-end "no results."
  */
-export default function HierarchySearchStep({ config, softFilterValue, value, onChange, onDone }: HierarchySearchStepProps) {
+export default function HierarchySearchStep({ config, softFilterValue, value, onChange, onDone, onNeedsExpandedHeight }: HierarchySearchStepProps) {
   // breadcrumb[0] = top level (brigades); each entry is the directoryId
   // drilled into to reach the NEXT level's entries.
   const [breadcrumb, setBreadcrumb] = useState<DirectoryEntry[]>([]);
@@ -253,6 +264,8 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => onNeedsExpandedHeight?.(true)}
+            onBlur={() => onNeedsExpandedHeight?.(false)}
             placeholder="חיפוש לפי שם או מספר..."
             className="w-full pr-9 pl-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none"
             dir="rtl"
@@ -317,6 +330,8 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             type="text"
             value={addName}
             onChange={(e) => setAddName(e.target.value)}
+            onFocus={() => onNeedsExpandedHeight?.(true)}
+            onBlur={() => onNeedsExpandedHeight?.(false)}
             placeholder="שם היחידה"
             autoFocus
             className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none"
