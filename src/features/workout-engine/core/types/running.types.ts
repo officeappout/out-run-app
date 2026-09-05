@@ -400,6 +400,31 @@ export interface ActiveRunningProgram {
      *  optional/no-migration contract. Lower = more important (mirrors
      *  RunWorkoutTemplate.priority's own convention). */
     priority?: number;
+    /**
+     * The WeekSlot this workout filled at generation time (06.09.2026) —
+     * 'quality_primary'/'quality_secondary'/'long_run'/'easy_run'/
+     * 'recovery'. Unlike isQualityWorkout/priority, this did NOT already
+     * survive into the in-memory RunWorkout before this change — it was
+     * discarded inside generatePlan's own selection loop
+     * (running-engine.service.ts), before materializeWorkout ever ran.
+     * Fixed at the source (generatePlan now attaches slot.slotType to the
+     * selected workout) as well as here at the flatten step — the
+     * isQualityWorkout fix only needed the flatten-step half of this.
+     *
+     * Optional and undefined for every schedule entry written before this
+     * change — no migration, no backfill. Same contract as
+     * isQualityWorkout: undefined means "unknown," never "easy_run."
+     * Also undefined for any entry generated via generatePlan's non-phases
+     * weekTemplates branch, which has no WeekSlot concept at all (confirmed
+     * dead for anything generateProgramTemplate produces — not a gap to
+     * fix, that branch structurally can't have a slot to report).
+     *
+     * The quality_primary vs quality_secondary distinction is real
+     * information, not reconstructible from category+isQualityWorkout
+     * alone (both read as "quality") — this is the field that actually
+     * carries it, where category/isQualityWorkout cannot.
+     */
+    slotType?: WeekSlot['slotType'];
     actualPerformance?: {
       avgPace: number;
       completionRate: number;

@@ -244,4 +244,63 @@ describe('flattenPlanToSchedule', () => {
       expect((oldEntry as any).priority).toBeUndefined();
     });
   });
+
+  // 06.09.2026 — slotType carried into the persisted schedule. Unlike
+  // isQualityWorkout/priority, this field did NOT already survive into the
+  // in-memory generated workout before this fix -- generatePlan itself had
+  // to be fixed first (running-engine.service.ts, attaching slot.slotType
+  // right after selectWorkoutFromPool/materializeWorkout), since it was
+  // discarded inside generatePlan's own selection loop, never even reaching
+  // the RunWorkout object flattenPlanToSchedule reads from. See
+  // running.types.ts's own doc comment for the full "undefined means
+  // unknown, no migration" contract this respects, same as isQualityWorkout.
+  describe('slotType', () => {
+    it('a new user (real buildRunningPlan pipeline, not a flatten-level mock) receives a real slotType value in the saved schedule', () => {
+      const VALID_SLOT_TYPES = ['quality_primary', 'quality_secondary', 'long_run', 'easy_run', 'recovery'];
+      const result = buildRunningPlan(BASE_INPUT);
+      expect(result.activeProgram.schedule.length).toBeGreaterThan(0);
+      // Entries selected through the normal WeekSlot loop (identifiable by
+      // having a category — confirmed via generatePlan directly) get a real
+      // slotType. The one exception, buildRaceDayWorkout's special
+      // last-week injection, bypasses the WeekSlot loop entirely and has
+      // never carried `category` either (pre-existing, not a regression
+      // from this change) -- excluded from this assertion on that basis,
+      // not slotType-specific special-casing.
+      const normalEntries = result.activeProgram.schedule.filter((e) => e.category !== undefined);
+      expect(normalEntries.length).toBeGreaterThan(0);
+      for (const entry of normalEntries) {
+        expect(entry.slotType).toBeDefined();
+        expect(VALID_SLOT_TYPES).toContain(entry.slotType);
+      }
+    });
+
+    it('flattenPlanToSchedule carries slotType through from the in-memory workout, same mechanism as isQualityWorkout', () => {
+      const planResult = {
+        ...FLATTEN_BASE_PLAN_RESULT,
+        plan: {
+          ...FLATTEN_BASE_PLAN_RESULT.plan,
+          weeks: [{ weekNumber: 1, workouts: [{ id: 'tpl_easy_1_w1', title: 'Easy Run', isQualityWorkout: false, slotType: 'long_run', blocks: [] }] }],
+        },
+      };
+      const schedule = flattenPlanToSchedule(planResult as any, WORKOUT_TEMPLATES as any);
+      expect(schedule[0].slotType).toBe('long_run');
+    });
+
+    it('an old-shaped schedule entry (no slotType key at all) reads without error — undefined, not a crash, and not "easy_run" by default', () => {
+      const oldEntry = {
+        week: 1, day: 1, workoutId: 'tpl_easy_1_w1', status: 'pending' as const,
+        category: 'easy_run' as const, workoutName: 'Easy Run',
+      };
+      expect(() => oldEntry).not.toThrow();
+      expect((oldEntry as any).slotType).toBeUndefined();
+    });
+
+    it('other previously-written fields are unaffected by this change', () => {
+      const schedule = flattenPlanToSchedule(FLATTEN_BASE_PLAN_RESULT as any, WORKOUT_TEMPLATES as any);
+      expect(schedule[0]).toMatchObject({
+        week: 1, day: 1, workoutId: 'tpl_easy_1_w1', status: 'pending',
+        category: 'easy_run', workoutName: 'Easy Run', isQualityWorkout: false,
+      });
+    });
+  });
 });

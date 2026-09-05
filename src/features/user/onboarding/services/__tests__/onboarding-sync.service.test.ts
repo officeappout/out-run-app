@@ -613,6 +613,36 @@ describe('syncOnboardingToFirestore — 05.09.2026: onboarding uses the shared p
     expect(entry.priority).toBe(1);
   });
 
+  // 06.09.2026 — verifies the claim, doesn't assume it: onboarding-sync.ts
+  // calls the same flattenPlanToSchedule (since d15c5af2) that slotType was
+  // just added to, so this SHOULD be automatic — but the routing itself
+  // (does this call site's own updateData assembly silently drop the field
+  // anywhere between flattenPlanToSchedule's return and the final setDoc)
+  // was never actually exercised until this test.
+  it('a new running user receives slotType in the saved schedule (same routing as isQualityWorkout/priority)', async () => {
+    vi.mocked(getRunWorkoutTemplates).mockResolvedValueOnce([
+      { id: 'tpl_long_1', category: 'long_run', name: 'Long Run', targetProfileTypes: [2] } as any,
+    ]);
+    vi.mocked(generatePlan).mockReturnValueOnce({
+      plan: {
+        weeks: [{ weekNumber: 1, workouts: [{ id: 'tpl_long_1_w1', title: 'Long Run', isQualityWorkout: false, slotType: 'long_run' } as any] }],
+      },
+      warnings: [],
+    } as any);
+    stubBrowserStorage({
+      onboarding_running_answers: JSON.stringify({ goalPath: 'start_running', targetDistance: '5k' }),
+    });
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      runningWeeklyFrequency: 3,
+      runningScheduleDays: ['א', 'ג', 'ה'],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.running.activeProgram.schedule[0].slotType).toBe('long_run');
+  });
+
   it('every other schedule field the old inline flatten wrote is still written', async () => {
     // Deliberately the default mocks (no per-test override) — proves this is a
     // pure regression guarantee, not something the fix newly enabled.

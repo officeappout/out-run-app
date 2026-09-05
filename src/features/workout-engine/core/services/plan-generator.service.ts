@@ -588,6 +588,14 @@ export function flattenPlanToSchedule(
         // still comes from the template lookup, same as category/name.
         isQualityWorkout: workout.isQualityWorkout,
         priority: tplMeta?.priority,
+        // 06.09.2026 — unlike isQualityWorkout, this did NOT already reach
+        // the in-memory workout before this change; generatePlan itself had
+        // to be fixed first to attach it (running-engine.service.ts, right
+        // after selectWorkoutFromPool/materializeWorkout). Comes straight
+        // off the in-memory workout, same reasoning as isQualityWorkout —
+        // absent for the non-phases weekTemplates branch, which has no
+        // WeekSlot to report (see running.types.ts's doc comment).
+        slotType: workout.slotType,
       });
     });
   }

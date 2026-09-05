@@ -1866,7 +1866,11 @@ export function generatePlan(
 
         const combinedRules = [...(template.progressionRules ?? []), ...phaseRules];
         const workout = materializeWorkout(selected, w, combinedRules, userProfile, config);
-        weekWorkouts.push(workout);
+        // slot.slotType is only known here, at selection time — materializeWorkout
+        // has no slot parameter and never receives it. Attached directly onto the
+        // returned object (not inside materializeWorkout) so this stays scoped to
+        // the one branch that actually has a WeekSlot to attach.
+        weekWorkouts.push({ ...workout, slotType: slot.slotType });
       }
 
       if (weekMul !== 1) {
