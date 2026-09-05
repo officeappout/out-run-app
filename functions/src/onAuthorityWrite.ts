@@ -148,6 +148,13 @@ export const onAuthorityWrite = onDocumentWritten(
     // so it survives every future onAuthorityWrite retrigger untouched.
     const serviceType = typeof data.serviceType === 'string' ? data.serviceType : null;
 
+    // Unit icons (05.09.2026, officer-approved insignia) — brigades reuse
+    // the EXISTING logoUrl field (same one city logos already use), synced
+    // into unitDirectory as the unified `iconUrl` name every display
+    // surface reads, regardless of whether the source was a brigade's
+    // logoUrl or a unit's own iconUrl (see onUnitWrite.ts's own copy).
+    const iconUrl = typeof data.logoUrl === 'string' ? data.logoUrl : null;
+
     await db.collection('unitDirectory').doc(authorityId).set({
       name,
       parentId: null,
@@ -157,6 +164,7 @@ export const onAuthorityWrite = onDocumentWritten(
       armType,
       statusCategory,
       serviceType,
+      iconUrl,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     logger.info(`[onAuthorityWrite] Synced unitDirectory entry ${authorityId}`);

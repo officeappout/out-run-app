@@ -113,6 +113,11 @@ export const onUnitWrite = onDocumentWritten(
           ? authorityData.serviceType
           : null;
 
+    // Unit icons (05.09.2026) — the unit's own iconUrl field, synced as the
+    // same unified `iconUrl` name onAuthorityWrite.ts uses for a brigade's
+    // logoUrl, so every display surface reads one field regardless of level.
+    const iconUrl = typeof unitData.iconUrl === 'string' ? unitData.iconUrl : null;
+
     await db.collection('unitDirectory').doc(directoryId).set({
       name,
       parentId: parentUnitId ? directoryIdForUnit(tenantId, parentUnitId) : tenantId,
@@ -122,6 +127,7 @@ export const onUnitWrite = onDocumentWritten(
       armType: typeof authorityData.armType === 'string' ? authorityData.armType : null,
       statusCategory: typeof authorityData.statusCategory === 'string' ? authorityData.statusCategory : null,
       serviceType,
+      iconUrl,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     logger.info(`[onUnitWrite] Synced unitDirectory entry ${directoryId}`);
