@@ -13,6 +13,7 @@ import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services
 import { authorityTypeToTenantType, getTenantLabels, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
 import { createAccessCode, createBatchAccessCodes, getAccessCodesByTenant, type AccessCode as AccessCodeType } from '@/features/admin/services/access-code-admin.service';
+import { getDeclaredCounts, getDeclaredMemberUids } from '@/features/admin/services/military-declared.service';
 import {
   Loader2, ArrowRight, Users, Dumbbell,
   Building2, ChevronLeft, Search,
@@ -90,20 +91,25 @@ export default function UnitDrilldownPage() {
 
         const activeTenantId = urlOrgId || authority?.id;
 
+        // Local variable, not just the tenantType state — this same async
+        // function needs the resolved value below (member-loading branch)
+        // before React re-renders with the state update.
+        let resolvedTenantType = 'municipal';
         if (activeTenantId) {
           try {
             const orgDoc = await getAuthority(activeTenantId);
             if (orgDoc) {
-              setTenantType(authorityTypeToTenantType(orgDoc));
+              resolvedTenantType = authorityTypeToTenantType(orgDoc);
             } else if (authority) {
-              setTenantType(authorityTypeToTenantType(authority));
+              resolvedTenantType = authorityTypeToTenantType(authority);
             }
           } catch {
-            if (authority) setTenantType(authorityTypeToTenantType(authority));
+            if (authority) resolvedTenantType = authorityTypeToTenantType(authority);
           }
         } else if (authority) {
-          setTenantType(authorityTypeToTenantType(authority));
+          resolvedTenantType = authorityTypeToTenantType(authority);
         }
+        setTenantType(resolvedTenantType);
 
         let resolvedUnitName = decodeURIComponent(rawUnitId);
         let resolvedUnitPath: string[] = [];
@@ -121,6 +127,15 @@ export default function UnitDrilldownPage() {
         setUnitName(resolvedUnitName);
         setUnitPath(resolvedUnitPath);
 
+        // Military: sub-unit memberCount + the member roster below are
+        // driven by military_declarations (self-declared, "מוצהרים"), not
+        // core.unitId (verified — requires a real access code nothing issues
+        // today, same root cause as the units list page's #18 fix,
+        // 05.09.2026). Municipal/educational are unaffected — untouched.
+        const declaredCountsByUnit = resolvedTenantType === 'military' && activeTenantId
+          ? (await getDeclaredCounts(activeTenantId)).byUnitId
+          : {};
+
         if (activeTenantId) {
           const subSnap = await getDocs(query(
             collection(db, 'tenants', activeTenantId, 'units'),
@@ -131,27 +146,31 @@ export default function UnitDrilldownPage() {
             return {
               id: d.id,
               name: data.name ?? d.id,
-              memberCount: data.memberCount ?? 0,
+              memberCount: resolvedTenantType === 'military' ? (declaredCountsByUnit[d.id] ?? 0) : (data.memberCount ?? 0),
               unitPath: data.unitPath ?? [],
             };
           }));
         }
 
-        // Load members in this unit
-        const usersSnap = await getDocs(query(
-          collection(db, 'users'),
-          where('core.unitId', '==', unitId),
-        ));
+        // Load members in this unit — military_declarations/{uid}'s own doc
+        // id IS the uid (getDeclaredMemberUids), not a query over users by
+        // core.unitId. Workout history/XP below still reads real users/
+        // workouts docs per resolved uid — that part was never broken, only
+        // discovering WHICH uids belong here was.
+        const memberUids = resolvedTenantType === 'military'
+          ? await getDeclaredMemberUids(unitId)
+          : (await getDocs(query(collection(db, 'users'), where('core.unitId', '==', unitId)))).docs.map(d => d.id);
 
         const membersList: UnitMember[] = [];
-        for (const userDoc of usersSnap.docs) {
-          const userData = userDoc.data();
+        for (const uid of memberUids) {
+          const userSnap = await getDoc(doc(db, 'users', uid));
+          const userData = userSnap.data() ?? {};
           const core = (userData.core ?? {}) as Record<string, any>;
           const progression = (userData.progression ?? {}) as Record<string, any>;
 
           const wSnap = await getDocs(query(
             collection(db, 'workouts'),
-            where('userId', '==', userDoc.id),
+            where('userId', '==', uid),
             orderBy('completedAt', 'desc'),
             limit(5),
           ));
@@ -164,7 +183,7 @@ export default function UnitDrilldownPage() {
           }
 
           membersList.push({
-            uid: userDoc.id,
+            uid,
             name: core.name ?? 'ללא שם',
             unitPath: core.unitPath ?? [],
             lastWorkoutDate: lastDate,
@@ -193,6 +212,12 @@ export default function UnitDrilldownPage() {
 
   const labels = getTenantLabels(tenantType as any);
   const isSchoolContext = tenantType === 'educational';
+  // "מוצהרים", not labels.membersTitle ("חיילים") — this roster is
+  // self-declared (military_declarations), not verified (David, 05.09.2026,
+  // same fix as the units list page's #18). Access-code copy elsewhere on
+  // this page correctly keeps "חיילים" — a code produces a verified member,
+  // not a declarant, so that wording is accurate as-is.
+  const membersLabel = tenantType === 'military' ? 'מוצהרים' : labels.membersTitle;
 
   // tenantType is resolved via authorityTypeToTenantType(orgDoc) above, which
   // now checks tenantType/vertical before falling back to the type string —
@@ -394,7 +419,7 @@ export default function UnitDrilldownPage() {
               </span>
             </div>
             <p className="text-sm text-gray-500">
-              {members.length} {labels.membersTitle} · {subUnits.length} {labels.subUnitsTitle}
+              {members.length} {membersLabel} · {subUnits.length} {labels.subUnitsTitle}
             </p>
           </div>
         </div>
@@ -646,7 +671,7 @@ export default function UnitDrilldownPage() {
               <Users size={18} className="text-cyan-600" />
             </div>
             <h2 className="text-base font-black text-gray-900">
-              {labels.membersTitle} ({members.length})
+              {membersLabel} ({members.length})
             </h2>
           </div>
         </div>
@@ -665,7 +690,7 @@ export default function UnitDrilldownPage() {
         {filteredMembers.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
             <Users className="w-8 h-8 mx-auto mb-2 text-slate-200" />
-            <p className="text-sm font-bold">{searchTerm ? 'לא נמצאו תוצאות' : `אין ${labels.membersTitle}`}</p>
+            <p className="text-sm font-bold">{searchTerm ? 'לא נמצאו תוצאות' : `אין ${membersLabel}`}</p>
           </div>
         ) : (
           <>
@@ -716,7 +741,7 @@ export default function UnitDrilldownPage() {
                 className="mt-3 text-xs font-bold text-cyan-600 hover:text-cyan-800 flex items-center gap-1"
               >
                 <ChevronDown size={12} />
-                הצג את כל {members.length} ה{labels.membersTitle}
+                הצג את כל {members.length} ה{membersLabel}
               </button>
             )}
           </>

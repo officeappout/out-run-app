@@ -14,6 +14,7 @@ import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICA
 import type { Authority, TenantType } from '@/types/admin-types';
 import { Loader2, Users, ChevronLeft, Building2, Globe, Plus, X, Shield, GraduationCap, Upload, AlertTriangle, CheckCircle, Trash2 } from 'lucide-react';
 import { importHierarchyFromJSON, type HierarchyImportResult } from '@/features/admin/services/unit-import.service';
+import { getDeclaredCounts } from '@/features/admin/services/military-declared.service';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
 import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
@@ -37,25 +38,6 @@ function displayUnitName(unit: Pick<UnitRow, 'name' | 'unitPath'>): string {
     return `גדוד ${unit.name.trim()}`;
   }
   return unit.name;
-}
-
-// "מוצהרים", not "חיילים" (David, 05.09.2026): military_declarations is a
-// self-declared, unverified relationship — deliberately kept separate from
-// core.unitId/core.tenantId, which require a real access-code-verified
-// tenant relationship (axioms.md §20) that nothing in this flow grants
-// today. Counting by core.unitId/tenantId here always reads zero, because
-// nothing writes those fields for a self-declared military persona — this
-// is that exact bug, not a new one. Register-in-§8 per David: once codes
-// start being distributed, split back into verified vs declared counts.
-async function loadDeclaredCounts(orgId: string): Promise<{ brigadeTotal: number; byUnitId: Record<string, number> }> {
-  const snap = await getDocs(query(collection(db, 'military_declarations'), where('orgId', '==', orgId)));
-  const byUnitId: Record<string, number> = {};
-  snap.forEach((d) => {
-    const data = d.data();
-    const unitPathIds: string[] = Array.isArray(data.unitPathIds) ? data.unitPathIds : [];
-    unitPathIds.forEach((uid) => { byUnitId[uid] = (byUnitId[uid] ?? 0) + 1; });
-  });
-  return { brigadeTotal: snap.size, byUnitId };
 }
 
 export default function UnitsListPage() {
@@ -143,12 +125,13 @@ export default function UnitsListPage() {
     }
 
     // Military: memberCount per row + the summary stats below are computed
-    // from military_declarations (self-declared), not core.unitId/tenantId
-    // (verified — requires a real access code, which nothing issues today,
-    // so that query always reads zero here). See loadDeclaredCounts' comment.
+    // from military_declarations (self-declared, "מוצהרים" — David,
+    // 05.09.2026), not core.unitId/tenantId (verified — requires a real
+    // access code, which nothing issues today, so that query always reads
+    // zero here). See military-declared.service.ts's own doc comment.
     if (derived === 'military') {
       try {
-        const { brigadeTotal, byUnitId } = await loadDeclaredCounts(authId);
+        const { brigadeTotal, byUnitId } = await getDeclaredCounts(authId);
         rows = rows.map(r => ({ ...r, memberCount: byUnitId[r.id] ?? 0 }));
         setUnits(rows);
         setTotalUsers(brigadeTotal);
