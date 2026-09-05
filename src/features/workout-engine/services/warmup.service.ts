@@ -392,37 +392,42 @@ const DEFAULT_MAX_POTENTIATION_WARMUPS = 2;
 
 /**
  * Check if an exercise qualifies as a general warmup / mobility candidate
- * for Part A (the single "general mobility" slot).
+ * for Part A (the single "general mobility" slot) — and as Part B's Tier-2
+ * fallback (`findCandidates`, below), when Tier-1's strict zone match finds
+ * nothing.
  *
  * An absolute ceiling of `userLevel` is enforced regardless of tag:
  * a warmup-tagged explosive exercise must not exceed the user's own level,
  * preventing CNS-overload priming.
  *
- * ALSO used as Part B's Tier-2 fallback (`findCandidates`, below), when
- * Tier-1's strict zone match finds nothing. Note the early-return bypass
- * for `exerciseRole === 'warmup'` / `mobility`-tagged exercises (below) is
- * live there too — it skips the zone check, not just the equipment/location
- * one, so an at-or-below-level warmup/mobility exercise that's a poor
- * intensity match for priming can still be selected once Tier-1 comes up
- * empty. Corrected 05.09.2026: this doc comment previously (wrongly) said
- * "NOTE: This function is intentionally NOT used for Part B potentiation
- * picks. Part B uses isSpecificPotentiationCandidate" — that function was
- * dead code (zero call sites) and has been removed; THIS function is what
- * Part B actually falls back to.
+ * Fixed 05.09.2026 (docs/workout-engine/09-CORE-TABATA.md's follow-up
+ * investigation): this used to early-return true for any at-or-below-level
+ * `exerciseRole==='warmup'`/`mobility`-tagged exercise, skipping the
+ * intensity zone entirely — not just the equipment/location check. Once the
+ * core-tabata follow-along ladder (movementGroup:'core', real levels 4-16)
+ * gets tagged with real movementGroups, that bypass would let them straight
+ * into Part B's priming ladder for a 'core' family regardless of whether
+ * they're a genuinely low-intensity choice — live-traced and confirmed
+ * (a "core" family CAN form here: `analyzeMainExercises` derives `familyId`
+ * from `targetPrograms[0]`'s resolved slug, not just the push/pull/legs
+ * broad-pattern map). There WAS already a bypass-free replacement written
+ * for exactly this reason — `isSpecificPotentiationCandidate` — but it was
+ * never wired in (zero call sites, confirmed by grep) and got removed as
+ * dead code the same day; its logic (no bypass, a domainLevel−4 ceiling —
+ * tighter than `getWarmupZone`'s domainLevel−2, since Part B priming must
+ * stay further below working-set intensity than general Part-A mobility)
+ * is inlined below instead of resurrecting a second near-identical function.
  */
 function isPotentiationCandidate(ex: Exercise, userLevel: number): boolean {
   const level = ex.recommendedLevel ?? ex.targetPrograms?.[0]?.level ?? 0;
   const numLevel = typeof level === 'number' ? level : 0;
 
-  // Absolute ceiling: never prime with an exercise above the user's own level,
-  // regardless of exerciseRole or mobility tag.
+  // Absolute ceiling: never prime with an exercise above the user's own level.
   if (numLevel > userLevel) return false;
 
-  if (ex.exerciseRole === 'warmup') return true;
-  if ((ex.tags as string[] ?? []).includes('mobility')) return true;
-
-  const zone = getWarmupZone(userLevel);
-  return numLevel >= zone.min && numLevel <= zone.max;
+  // No role/tag bypass — every candidate must clear the same intensity zone.
+  const zoneMax = Math.max(1, userLevel - 4);
+  return numLevel >= 1 && numLevel <= zoneMax;
 }
 
 /**
@@ -753,6 +758,21 @@ export function prependWarmupExercises(
       return chosen ? { chosen, tier } : null;
     };
 
+    // Part B is a priming ladder of REAL progression exercises for the main
+    // workout's own movement patterns — not a place for follow-along video
+    // guides (`reinforcement`, e.g. the core-tabata ladder), full rest-day
+    // sessions (`recovery`), or end-of-workout stretches (`cooldown`). Tier 3
+    // already correctly requires `exerciseRole==='warmup'`; Tiers 1-2 had NO
+    // role check at all until this fix (05.09.2026) — live-traced and
+    // confirmed a follow-along ladder item ("טבטה +") reaching Tier 1 via a
+    // 'core' family (docs/workout-engine/09-CORE-TABATA.md's follow-up
+    // investigation). 'main' and undefined (legacy, unroled) content stays
+    // eligible — this excludes only the roles that are never appropriate
+    // here, not everything except an explicit 'main' tag.
+    const INELIGIBLE_POTENTIATION_ROLES = new Set(['reinforcement', 'recovery', 'cooldown']);
+    const isPotentiationRoleEligible = (ex: Exercise): boolean =>
+      !ex.exerciseRole || !INELIGIBLE_POTENTIATION_ROLES.has(ex.exerciseRole);
+
     // Candidate search: three-tier fallback for a given zone
     const findCandidates = (
       basePool: Exercise[],
@@ -805,7 +825,7 @@ export function prependWarmupExercises(
         // Attempt 1 — Strict Pattern: match the exact movementGroups seen in
         // the main workout for this family (e.g. only 'hinge' exercises).
         const strictBasePool = allExercises.filter(ex =>
-          !workoutIds.has(ex.id) && mgs.has(ex.movementGroup ?? ''),
+          !workoutIds.has(ex.id) && mgs.has(ex.movementGroup ?? '') && isPotentiationRoleEligible(ex),
         );
 
         let candidates = findCandidates(strictBasePool, zone, family.domainLevel);
@@ -819,6 +839,7 @@ export function prependWarmupExercises(
           // This prevents the slot from collapsing entirely.
           const broadBasePool = allExercises.filter(ex => {
             if (workoutIds.has(ex.id)) return false;
+            if (!isPotentiationRoleEligible(ex)) return false;
             // Broad-pattern match (push / pull / legs)
             if (family.broadPattern !== 'other') {
               const exPattern = MG_TO_BROAD_PATTERN[ex.movementGroup ?? ''];
