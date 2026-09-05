@@ -18,6 +18,7 @@ import { getDeclaredCounts } from '@/features/admin/services/military-declared.s
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
 import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 
 interface UnitRow {
   id: string;
@@ -25,6 +26,10 @@ interface UnitRow {
   memberCount: number;
   unitPath: string[];
   parentUnitId: string | null;
+  /** Military units only (tenants/{orgId}/units/{id}.iconUrl) — municipal
+   *  children and educational units never set this. null = no real icon,
+   *  UnitIconBadge falls back to its hash-derived colored badge (07.09.2026). */
+  iconUrl: string | null;
 }
 
 // Display-only normalization (05.09.2026) — a handful of units created
@@ -95,6 +100,7 @@ export default function UnitsListPage() {
           memberCount: child.userCount ?? 0,
           unitPath: [],
           parentUnitId: null,
+          iconUrl: null,
         }));
       } catch { /* ignore */ }
     } else {
@@ -108,6 +114,7 @@ export default function UnitsListPage() {
           memberCount: data.memberCount ?? 0,
           unitPath: data.unitPath ?? [],
           parentUnitId: (data.parentUnitId as string | null) ?? null,
+          iconUrl: (data.iconUrl as string | null) ?? null,
         };
       });
     }
@@ -126,6 +133,7 @@ export default function UnitsListPage() {
             memberCount: usersSnap.size,
             unitPath: [],
             parentUnitId: null,
+            iconUrl: null,
           });
         }
       } catch { /* ignore */ }
@@ -319,7 +327,7 @@ export default function UnitsListPage() {
         syncTenantUnitCount(selectedOrgId).catch(() => {});
       }
 
-      setUnits(prev => [...prev, { id: unitId, name: trimmed, memberCount: 0, unitPath: [], parentUnitId: null }]);
+      setUnits(prev => [...prev, { id: unitId, name: trimmed, memberCount: 0, unitPath: [], parentUnitId: null, iconUrl: null }]);
       setNewUnitName('');
       setShowAddUnit(false);
     } catch (err) {
@@ -762,16 +770,25 @@ export default function UnitsListPage() {
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  tenantType === 'military' ? 'bg-lime-50' : tenantType === 'educational' ? 'bg-orange-50' : 'bg-slate-100'
-                }`}>
-                  {tenantType === 'military'
-                    ? <Shield size={18} className="text-lime-700" />
-                    : tenantType === 'educational'
-                    ? <GraduationCap size={18} className="text-orange-600" />
-                    : <Users size={18} className="text-slate-600" />
-                  }
-                </div>
+                {tenantType === 'military' ? (
+                  // Real icon (or the hash-colored fallback badge) instead of
+                  // the same generic Shield for every row — reuses
+                  // UnitIconBadge as-is, the same component HierarchySearchStep
+                  // and UnitLeagueTable already use (07.09.2026, don't build a
+                  // second one). Upload/edit lives on the unit's own detail
+                  // page, not here — this row is wrapped in a Link, so an
+                  // interactive upload control can't live inside it.
+                  <UnitIconBadge unitId={unit.id} iconUrl={unit.iconUrl} name={displayUnitName(unit)} size={40} />
+                ) : (
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    tenantType === 'educational' ? 'bg-orange-50' : 'bg-slate-100'
+                  }`}>
+                    {tenantType === 'educational'
+                      ? <GraduationCap size={18} className="text-orange-600" />
+                      : <Users size={18} className="text-slate-600" />
+                    }
+                  </div>
+                )}
                 <div>
                   <p className="font-bold text-slate-800">{displayUnitName(unit)}</p>
                   {unit.unitPath.length > 0 && (

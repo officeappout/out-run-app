@@ -902,7 +902,6 @@ export default function CommunityPage() {
             {selectedLeague === 'org' && renderOrgSegment()}
             {selectedLeague === 'park' && renderParkSegment()}
             {selectedLeague === 'reserve' && renderReserveSegment()}
-            {selectedLeague === 'unit_league' && renderUnitLeagueSegment()}
             {selectedLeague.startsWith('league_') && renderLeagueSegment(selectedLeague.slice(7))}
           </motion.div>
         </AnimatePresence>
@@ -1090,6 +1089,20 @@ export default function CommunityPage() {
     // and excludes groupType:'military' anyway (INSTITUTIONAL_GROUP_TYPES,
     // see socialGroups filter above) — this card uses the reserve scope's
     // own streaks/dailyActivity-backed leaderboard instead.
+    //
+    // 07.09.2026 — David: the league selector had grown a 4th, structurally
+    // wrong card ("תחרות יחידות") sitting alongside this one instead of
+    // living inside it. Removed that card outright; renderReserveSegment()
+    // now folds unit-vs-unit competition into a "קבוצות" tab here, exactly
+    // mirroring how the national league's own יחידים/קבוצות toggle works
+    // (renderCompetitionToggle(), reused verbatim, not a second copy). This
+    // card's OWN gate stays hasReserveAccess-only, unchanged — a
+    // career/regular soldier who has hasUnitLeagueAccess but not
+    // hasReserveAccess no longer gets a standalone card for it (previously
+    // did, see the old unit_league card this replaced). Deliberate, per
+    // David's explicit "three cards, no exceptions" — flagged, not silently
+    // dropped; trivial to restore as a 4th visibility condition here if that
+    // population turns out to matter.
     if (access.hasReserveAccess) {
       cards.push({
         key: 'reserve',
@@ -1098,23 +1111,6 @@ export default function CommunityPage() {
         emoji: '🎖️',
         memberCount: null,
         rank: selectedLeague === 'reserve' ? activeMyEntry?.rank ?? null : null,
-      });
-    }
-
-    // Phase 6b — unit-vs-unit competition. Gated on access.hasUnitLeagueAccess
-    // (declared orgId) — independent of hasReserveAccess: a career/regular
-    // soldier with a declared brigade sees this even without qualifying for
-    // the individual reserve league above. No rank shown on the card itself
-    // (unlike scope cards) — "rank" isn't a single number here, it depends
-    // on which of the 4 ranges the viewer last looked at.
-    if (access.hasUnitLeagueAccess) {
-      cards.push({
-        key: 'unit_league',
-        name: 'תחרות יחידות',
-        subtitle: undefined,
-        emoji: '🏆',
-        memberCount: null,
-        rank: null,
       });
     }
 
@@ -1438,49 +1434,69 @@ export default function CommunityPage() {
   }
 
   /**
-   * Phase 6a — reservist league. Status-only scope ('reserve' →
-   * streaks/dailyActivity.reserveScope, see ranking.service.ts's
-   * scopeToField), individual ranking only — no group-vs-group toggle here
-   * yet, since a coherent "group" concept for this scope (unit leagues)
-   * is explicitly out of scope for 6a. Modeled on renderGlobalSegment's
-   * individual-mode branch: national in shape (bypassSocialGate/isGlobal),
-   * scopeLabel is the only thing distinguishing it visually.
+   * Phase 6a — reservist league (individual, "יחידים" tab) + Phase 6b —
+   * unit-vs-unit competition (group, "קבוצות" tab), merged into one segment
+   * 07.09.2026 per David: the two were wrongly split across separate league
+   * cards; "תחרות יחידות" wasn't a league of its own, it was this league's
+   * groups view. Reuses renderCompetitionToggle() verbatim — the exact same
+   * function renderGlobalSegment/renderCitySegment/renderOrgSegment already
+   * use — rather than a second copy (that duplication is exactly what
+   * created the 4-cards problem in the first place).
+   *
+   * The groups tab does NOT route through renderGroupAxisChooser()/GroupAxis
+   * — that mechanism (and every content component it currently drives —
+   * GroupLeaderboard, ScopeBattleCard, ScopeCompetitionLeaderboard) is
+   * hardwired to feed_posts/authorities-collection queries with no
+   * unit/brigade concept at all (confirmed by reading each one — see
+   * UnitLeagueTable's own header comment on why it's a purpose-built
+   * component, not an extension of those). Forcing a 'unit' value through
+   * it would also surface the מדד/טווח chips and פילטרים button
+   * renderGroupAxisChooser always renders alongside every axis — controls
+   * that reflect leaderboardCategory/leaderboardTimeWindow/leaderboardGender
+   * state getUnitLeagueLeaderboard never reads, i.e. visible filters with
+   * zero effect on what's below them. <UnitLeagueTable> already owns its
+   * own internal chooser (RANGE_OPTIONS: my_battalion_companies /
+   * my_brigade_battalions / all_companies / all_brigades) — this IS the
+   * "בורר ציר: חטיבות/גדודים/פלוגות" David asked for; per his own words
+   * ("הטבלה, הצבירה, הצירים... נשאר, רק המיקום משתנה") it moves location
+   * unchanged, it isn't rebuilt through a different, incompatible chooser.
+   *
+   * Individual tab unchanged byte-for-byte from the pre-merge
+   * renderReserveSegment() (still models renderGlobalSegment's
+   * individual-mode branch: national in shape, scopeLabel is the only
+   * visual distinguisher). Groups tab only appears when the viewer also has
+   * access.hasUnitLeagueAccess (declared orgId) — a reservist who hasn't
+   * declared a specific unit sees just "יחידים", no toggle, identical to
+   * pre-merge behavior; see buildLeagueCards' own comment on the population
+   * that no longer gets a standalone entry point for this at all.
    */
   function renderReserveSegment() {
+    const showGroupTab = access.hasUnitLeagueAccess;
     return (
       <div className="space-y-4" dir="rtl">
-        <NeighborhoodLeaderboard
-          scope="reserve"
-          scopeId={RESERVE_SCOPE_VALUE}
-          scopeLabel="ליגת המילואים"
-          isLeagueActive={true}
-          isGlobal={true}
-          bypassSocialGate={true}
-          ageGroup={access.ageGroup}
-          category={leaderboardCategory}
-          setCategory={setLeaderboardCategory}
-          timeWindow={leaderboardTimeWindow}
-          setTimeWindow={setLeaderboardTimeWindow}
-          genderFilter={leaderboardGender}
-          setGenderFilter={setLeaderboardGender}
-          onMyEntryChange={setActiveMyEntry}
-          onMyModeChange={handleMyModeChange}
-        />
-      </div>
-    );
-  }
-
-  /**
-   * Phase 6b — unit-vs-unit competition. Deliberately separate from
-   * renderReserveSegment() above, not a toggle inside it — David,
-   * 05.09.2026: "ליגת המילואים הכללית ליחידים... נשארת בדיוק כמו שהיא, לא
-   * נוגעים" (the individual reserve league stays exactly as it is, don't
-   * touch it). UnitLeagueTable owns its own 4-range selector internally.
-   */
-  function renderUnitLeagueSegment() {
-    return (
-      <div className="space-y-4" dir="rtl">
-        <UnitLeagueTable myOrgId={myDeclaration.orgId} myUnitPathIds={myDeclaration.unitPathIds} />
+        {showGroupTab && renderCompetitionToggle()}
+        {(competitionMode === 'individual' || !showGroupTab) && (
+          <NeighborhoodLeaderboard
+            scope="reserve"
+            scopeId={RESERVE_SCOPE_VALUE}
+            scopeLabel="ליגת המילואים"
+            isLeagueActive={true}
+            isGlobal={true}
+            bypassSocialGate={true}
+            ageGroup={access.ageGroup}
+            category={leaderboardCategory}
+            setCategory={setLeaderboardCategory}
+            timeWindow={leaderboardTimeWindow}
+            setTimeWindow={setLeaderboardTimeWindow}
+            genderFilter={leaderboardGender}
+            setGenderFilter={setLeaderboardGender}
+            onMyEntryChange={setActiveMyEntry}
+            onMyModeChange={handleMyModeChange}
+          />
+        )}
+        {competitionMode === 'group' && showGroupTab && (
+          <UnitLeagueTable myOrgId={myDeclaration.orgId} myUnitPathIds={myDeclaration.unitPathIds} />
+        )}
       </div>
     );
   }
