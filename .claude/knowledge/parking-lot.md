@@ -490,3 +490,14 @@ The `excludeCategories` mechanism is complete and correct, but `hasInjuries` sta
 החלטת מוצר פתוחה: האם צמצום ימים אמור לפצות בנפח. היום — לא. `reduceTo` של הכוח מדווח על כך במפורש.
 
 א-סימטריה מול ריצה: בריצה פיצוי אסור מלכתחילה, כי הארכת ריצה שנשארה מפעילה את RUN-08.
+
+---
+
+## useSheetDrag ו-useSheetScrollChain אינם מתחברים זה לזה
+**Opened:** 2026-09-10 · **Source:** דוד, בניית ScheduleBuilderDrawer (שלב 1)
+
+useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') — מניע `<motion.div animate={controls}>` דרך `AnimationControls` אימפרטיבי. useSheetScrollChain מיועד לשרשור-גלילה (swipe-to-dismiss מתוך תוכן גלילה) — דורש `MotionValue<number>` ממשי שהוא קורא/כותב ישירות בזמן מחווה. אין ביניהם ממשק משותף — `AnimationControls` אינו `MotionValue`.
+
+אפס רכיבים קיימים משלבים את שניהם. `HybridOverviewScreen.tsx` מזכיר את שני השמות, אבל ההערה שלו-עצמו אומרת במפורש שהוא **לא** קורא ל-useSheetScrollChain — הוא "משכפל את ההתנהגות שלו מקומית" כי הטיפוסים לא מסתדרים. מגירה חד-מצבית (פתוח/סגור בלבד, בלי רמות-ביניים) נאלצת להוסיף `useMotionValue(0)` + `drag="y"` ידני על הידית במקום useSheetDrag — הדפוס הזה כבר קיים ב-`GroupDetailsDrawer.tsx` (וגם ב-`WorkoutPreviewDrawer`, `ExerciseDetailDrawer`, `ParkDetailSheet` — 4 צרכנים, כולם עם אותו דפוס בדיוק).
+
+ההפרדה הזאת היא חלק מהסיבה ל-35 מימושי bottom sheet עצמאיים בריפו — שני משפחות-hook שאינן מתחברות, כל צרכן בוחר אחת ובונה סביבה. איחוד שתי המשפחות (או בניית שכבת-תאימות ביניהן) הוא משימת תשתית נפרדת, לא חלק מקומיט פיצ'ר. לא מטופל כאן.
