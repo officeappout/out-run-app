@@ -41,6 +41,8 @@ import {
   preferredRunningDays,
   validateRunningWeek,
   runningCriticalityOrder,
+  matchesRoleForDrop,
+  isTrainingDay,
   type RunningWeekDay,
   type RunningWeekContext,
   type RunningCriticalityContext,
@@ -76,6 +78,15 @@ export interface RuleFamily<TWeek, TValidateContext, TReduceContext> {
   preferredDays(count: number): number[];
   validate(week: TWeek, context: TValidateContext): RuleFamilyValidation;
   reduceTo(week: TWeek, targetDayCount: number, context: TReduceContext): RuleFamilyReduction<TWeek>;
+  /**
+   * Places the same trainings from `week` onto `dayIndices` instead,
+   * preserving order. Returns null if this domain cannot be placed on that
+   * exact day set. Each family implements this itself — the weaver never
+   * places days on a domain's behalf, since placement can require content
+   * knowledge (which day-sets a domain's own construction logic can even
+   * produce).
+   */
+  placeOn(week: TWeek, dayIndices: number[], context: TReduceContext): TWeek | null;
 }
 
 const DAY_NAMES_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -171,11 +182,41 @@ function strengthReduceTo(
   return { week: rebuilt, removed, notes };
 }
 
+function occupiedDays(week: ScheduleDay[]): number[] {
+  return week.reduce<number[]>((acc, day, i) => {
+    if (day.sessions.length > 0) acc.push(i);
+    return acc;
+  }, []);
+}
+
+/**
+ * Strength has no free day-placement — buildDefaultTemplate always derives
+ * its own day-set from daysPerWeek via SCHEDULE_POLICY.PREFERRED_DAYS, it
+ * cannot be told "use exactly these days." So placeOn can only ever succeed
+ * when the requested dayIndices happen to equal what buildDefaultTemplate
+ * would have picked anyway for that count — a real, narrow constraint, not
+ * a placeholder: most arbitrary day-sets return null here.
+ */
+function strengthPlaceOn(
+  week: ScheduleDay[],
+  dayIndices: number[],
+  context: StrengthReduceContext,
+): ScheduleDay[] | null {
+  const requested = Array.from(new Set(dayIndices)).sort((a, b) => a - b);
+  if (requested.length !== dayIndices.length || requested.some((d) => d < 0 || d > 6)) return null;
+
+  const rebuilt = buildDefaultTemplate(context.programs, context.skills, requested.length);
+  const actual = occupiedDays(rebuilt);
+  const matches = actual.length === requested.length && actual.every((d, i) => d === requested[i]);
+  return matches ? rebuilt : null;
+}
+
 export const strengthRuleFamily: RuleFamily<ScheduleDay[], StrengthValidateContext, StrengthReduceContext> = {
   id: 'strength',
   preferredDays: strengthPreferredDays,
   validate: strengthValidate,
   reduceTo: strengthReduceTo,
+  placeOn: strengthPlaceOn,
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -207,9 +248,12 @@ function runningValidate(week: RunningWeekDay[], context: RunningWeekContext): R
 /**
  * Drops the least-critical role first (runningCriticalityOrder), one day at
  * a time, until targetDayCount is reached. Never touches the remaining
- * days' roles — no compensating a dropped day by extending another, which
- * would trigger RUN-08 (the single-session distance jump guard) on the
- * remaining sessions. The note says explicitly that weekly mileage drops.
+ * days' content — no compensating a dropped day by extending another,
+ * which would trigger RUN-08 (the single-session distance jump guard) on
+ * the remaining sessions. The note says explicitly that weekly mileage
+ * drops, plus a second note when the quality_primary/secondary distinction
+ * had to be resolved by matchesRoleForDrop's documented fallback (see
+ * runningRules.ts) rather than a real per-day role.
  */
 function runningReduceTo(
   week: RunningWeekDay[],
@@ -217,7 +261,7 @@ function runningReduceTo(
   context: RunningReduceContext,
 ): RuleFamilyReduction<RunningWeekDay[]> {
   const result = week.map((d) => ({ ...d }));
-  const currentCount = result.filter((d) => d.role !== null).length;
+  const currentCount = result.filter((d) => isTrainingDay(d)).length;
   let remaining = currentCount - targetDayCount;
 
   if (remaining <= 0) {
@@ -226,25 +270,63 @@ function runningReduceTo(
 
   const dropOrder = runningCriticalityOrder(context);
   const removed: string[] = [];
+  let anyRoleUnknown = false;
 
   for (const role of dropOrder) {
     if (remaining <= 0) break;
     for (const day of result) {
       if (remaining <= 0) break;
-      if (day.role === role) {
+      if (!isTrainingDay(day)) continue;
+      const match = matchesRoleForDrop(day, role);
+      if (match.matches) {
+        if (match.roleWasUnknown) anyRoleUnknown = true;
         removed.push(`יום ${DAY_NAMES_HE[day.dayOfWeek]}: ${role} הוסר`);
-        day.role = null;
+        day.category = null;
+        day.role = undefined;
+        day.isQualityWorkout = undefined;
         remaining--;
       }
     }
   }
 
-  const notes: string[] =
-    removed.length > 0
-      ? ['הקילומטראז׳ השבועי יורד — האימונים שנשארו לא מתארכים כפיצוי.']
-      : [];
+  const notes: string[] = [];
+  if (removed.length > 0) {
+    notes.push('הקילומטראז׳ השבועי יורד — האימונים שנשארו לא מתארכים כפיצוי.');
+    if (anyRoleUnknown) {
+      notes.push('התפקיד המדויק (איכות ראשית/משנית) לא היה ידוע לפחות ליום אחד שהוסר — ההסרה בוצעה לפי נפילה דטרמיניסטית, לא לפי הבחנה מדויקת.');
+    }
+  }
 
   return { week: result, removed, notes };
+}
+
+/**
+ * Running's trainings carry no fixed day identity of their own, so
+ * relocating them is pure relabeling: take the existing training-day
+ * entries in day-order (full entries — category/isQualityWorkout/role
+ * together, not just role) and lay them onto the new day-set in the same
+ * order. Fails (null) only on a malformed request — duplicate/out-of-range
+ * indices, or a day count that doesn't match how many trainings currently
+ * exist to relocate.
+ */
+function runningPlaceOn(
+  week: RunningWeekDay[],
+  dayIndices: number[],
+  _context: RunningReduceContext,
+): RunningWeekDay[] | null {
+  const requested = Array.from(new Set(dayIndices)).sort((a, b) => a - b);
+  if (requested.length !== dayIndices.length || requested.some((d) => d < 0 || d > 6)) return null;
+
+  const trainingEntries = [...week]
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+    .filter((d) => isTrainingDay(d));
+  if (trainingEntries.length !== requested.length) return null;
+
+  const result: RunningWeekDay[] = Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, category: null }));
+  requested.forEach((dayOfWeek, idx) => {
+    result[dayOfWeek] = { ...trainingEntries[idx], dayOfWeek };
+  });
+  return result;
 }
 
 export const runningRuleFamily: RuleFamily<RunningWeekDay[], RunningWeekContext, RunningReduceContext> = {
@@ -252,4 +334,5 @@ export const runningRuleFamily: RuleFamily<RunningWeekDay[], RunningWeekContext,
   preferredDays: preferredRunningDays,
   validate: runningValidate,
   reduceTo: runningReduceTo,
+  placeOn: runningPlaceOn,
 };

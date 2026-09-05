@@ -21,13 +21,13 @@
  *     intensity/hardness concept exists on the strength side at all
  *     (grepped smartSchedule.types.ts: no intensity/hardness/load field).
  *
- * "Quality running workout" is derived from `category`, NOT
- * `isQualityWorkout`. `isQualityWorkout` is undefined for every schedule
- * entry written before commit 890c03c7 and has zero live readers today
- * (verified) — `category` predates that change and is reliably present
- * for every user, old and new. When isQualityWorkout IS present, it wins
- * (it's the more precise, per-workout signal); undefined is never read as
- * false, per running.types.ts's own contract on that field.
+ * "Quality running workout" / "long run" derivation, and the running-day
+ * shape itself (RunningWeekDay), are imported from runningRules.ts, not
+ * redefined here (shape unification, 06.09.2026 — this file used to define
+ * its own parallel CrossDomainRunningDay type; that's gone, one shape now,
+ * read by both files). See runningRules.ts's own header for the full
+ * "role authoritative when present, category/isQualityWorkout the
+ * fallback" contract.
  */
 
 import type {
@@ -36,23 +36,20 @@ import type {
   RuleFamilyViolation,
 } from './ruleFamily';
 import type { ScheduleDay } from '../types/smartSchedule.types';
-import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
+import {
+  isQualityDay,
+  isLongRunDay,
+  isTrainingDay,
+  type RunningWeekDay,
+} from './runningRules';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────────────────
 
-export interface CrossDomainRunningDay {
-  dayOfWeek: number;
-  /** null = no running workout scheduled that day. */
-  category: WorkoutCategory | null;
-  /** Present only for schedule entries written after 890c03c7. Wins over the category-derived guess when present. */
-  isQualityWorkout?: boolean;
-}
-
 export interface CrossDomainWeek {
   strength: ScheduleDay[];
-  running: CrossDomainRunningDay[];
+  running: RunningWeekDay[];
 }
 
 export interface CrossDomainValidateContext {
@@ -67,32 +64,8 @@ export interface CrossDomainValidateContext {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Quality-workout derivation
+// Helpers (quality/long-run derivation itself lives in runningRules.ts)
 // ──────────────────────────────────────────────────────────────────────────
-
-const CATEGORY_IS_QUALITY: Record<WorkoutCategory, boolean> = {
-  short_intervals: true,
-  long_intervals: true,
-  tempo: true,
-  hill_long: true,
-  hill_short: true,
-  hill_sprints: true,
-  fartlek_structured: true,
-  easy_run: false,
-  long_run: false,
-  fartlek_easy: false,
-  strides: false,
-};
-
-function isQualityRunningDay(day: CrossDomainRunningDay): boolean {
-  if (day.category === null) return false;
-  if (day.isQualityWorkout !== undefined) return day.isQualityWorkout;
-  return CATEGORY_IS_QUALITY[day.category];
-}
-
-function isLongRunDay(day: CrossDomainRunningDay): boolean {
-  return day.category === 'long_run';
-}
 
 function strengthHasSession(week: ScheduleDay[], dayOfWeek: number): boolean {
   return (week[dayOfWeek]?.sessions.length ?? 0) > 0;
@@ -102,8 +75,8 @@ function countStrengthDays(week: ScheduleDay[]): number {
   return week.reduce((acc, d) => acc + (d.sessions.length > 0 ? 1 : 0), 0);
 }
 
-function countRunningDays(week: CrossDomainRunningDay[]): number {
-  return week.reduce((acc, d) => acc + (d.category !== null ? 1 : 0), 0);
+function countRunningDays(week: RunningWeekDay[]): number {
+  return week.reduce((acc, d) => acc + (isTrainingDay(d) ? 1 : 0), 0);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -114,7 +87,7 @@ export type DoubleDayOrder = 'strength-first' | 'running-first';
 
 export interface DoubleDayEntries {
   strength: ScheduleDay;
-  running: CrossDomainRunningDay;
+  running: RunningWeekDay;
 }
 
 /**
@@ -139,7 +112,7 @@ export function resolveDoubleDayOrder(
   dayEntries: DoubleDayEntries,
   _context: CrossDomainValidateContext,
 ): DoubleDayOrder {
-  return isQualityRunningDay(dayEntries.running) ? 'running-first' : 'strength-first';
+  return isQualityDay(dayEntries.running) ? 'running-first' : 'strength-first';
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -186,7 +159,7 @@ export function validateCrossDomain(
     const hasRunning = !!runningDay && runningDay.category !== null;
     if (!hasStrength || !hasRunning) continue;
 
-    const quality = isQualityRunningDay(runningDay!);
+    const quality = isQualityDay(runningDay!);
     const long = isLongRunDay(runningDay!);
 
     // R3 — hard: never strength + a quality run, same day.

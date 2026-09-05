@@ -3,6 +3,7 @@ import { strengthRuleFamily, runningRuleFamily, type RuleFamily } from '../ruleF
 import { buildDefaultTemplate } from '../scheduleRules';
 import type { ScheduleDay, PrioritizedSkill, ProgramId, DayOfWeek } from '../../types/smartSchedule.types';
 import type { RunningWeekDay, RunningDayRole } from '../runningRules';
+import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 
 function emptyStrengthWeek(): ScheduleDay[] {
   return Array.from({ length: 7 }, (_, i) => ({
@@ -13,9 +14,20 @@ function emptyStrengthWeek(): ScheduleDay[] {
   }));
 }
 
+const CATEGORY_FOR_ROLE: Record<RunningDayRole, WorkoutCategory> = {
+  quality_primary: 'tempo',
+  quality_secondary: 'short_intervals',
+  long_run: 'long_run',
+  easy_run: 'easy_run',
+  recovery: 'easy_run',
+};
+
 function buildRunningWeek(roles: Array<RunningDayRole | null>): RunningWeekDay[] {
   if (roles.length !== 7) throw new Error('buildRunningWeek requires exactly 7 entries');
-  return roles.map((role, dayOfWeek) => ({ dayOfWeek, role }));
+  return roles.map((role, dayOfWeek): RunningWeekDay => {
+    if (role === null) return { dayOfWeek, category: null };
+    return { dayOfWeek, category: CATEGORY_FOR_ROLE[role], role };
+  });
 }
 
 const STRENGTH_SKILLS: PrioritizedSkill[] = [
@@ -107,7 +119,7 @@ describe('reduceTo — running drops the least critical role, not the last day i
 
     const day1 = result.week.find((d) => d.dayOfWeek === 1)!;
     const day5 = result.week.find((d) => d.dayOfWeek === 5)!;
-    expect(day1.role).toBeNull(); // the easy run — least critical — is the one removed
+    expect(day1.category).toBeNull(); // the easy run — least critical — is the one removed
     expect(day5.role).toBe('long_run'); // the long run survives despite being later in the week
     expect(result.removed.length).toBe(1);
     expect(result.notes[0]).toMatch(/קילומטראז/);
@@ -119,7 +131,56 @@ describe('reduceTo — running drops the least critical role, not the last day i
 
     const day0 = result.week.find((d) => d.dayOfWeek === 0)!;
     const day4 = result.week.find((d) => d.dayOfWeek === 4)!;
-    expect(day0.role).toBeNull();
+    expect(day0.category).toBeNull();
     expect(day4.role).toBe('long_run');
   });
 });
+
+describe('placeOn — running: pure relabeling, order preserved', () => {
+  it('relocates existing roles onto a new day-set, in the same order they occurred', () => {
+    const week = buildRunningWeek(['long_run', null, 'easy_run', null, 'quality_primary', null, null]);
+    const placed = runningRuleFamily.placeOn(week, [1, 3, 6], { targetDistanceKm: 10 });
+
+    expect(placed).not.toBeNull();
+    const byDay = Object.fromEntries(placed!.map((d) => [d.dayOfWeek, d.role]));
+    expect(byDay[1]).toBe('long_run'); // 1st training in day-order → 1st new day
+    expect(byDay[3]).toBe('easy_run'); // 2nd → 2nd
+    expect(byDay[6]).toBe('quality_primary'); // 3rd → 3rd
+    expect(byDay[0]).toBeUndefined(); // rest day — no role field at all, not null
+    expect(byDay[2]).toBeUndefined();
+    expect(byDay[4]).toBeUndefined();
+    const byCategory = Object.fromEntries(placed!.map((d) => [d.dayOfWeek, d.category]));
+    expect(byCategory[0]).toBeNull();
+    expect(byCategory[2]).toBeNull();
+    expect(byCategory[4]).toBeNull();
+  });
+
+  it('returns null when the requested day count does not match how many trainings exist', () => {
+    const week = buildRunningWeek(['easy_run', null, 'long_run', null, null, null, null]); // 2 trainings
+    expect(runningRuleFamily.placeOn(week, [1, 2, 3], { targetDistanceKm: 10 })).toBeNull();
+  });
+
+  it('returns null on duplicate or out-of-range day indices', () => {
+    const week = buildRunningWeek(['easy_run', null, null, null, null, null, null]);
+    expect(runningRuleFamily.placeOn(week, [1, 1], { targetDistanceKm: 10 })).toBeNull();
+    expect(runningRuleFamily.placeOn(week, [7], { targetDistanceKm: 10 })).toBeNull();
+  });
+});
+
+describe('placeOn — strength: only succeeds when the requested days match buildDefaultTemplate\'s own choice', () => {
+  it('succeeds when the requested day-set is exactly what SCHEDULE_POLICY.PREFERRED_DAYS[3] would pick', () => {
+    const week = strengthWeekOf(3);
+    const placed = strengthRuleFamily.placeOn(week, [0, 2, 4], { programs: STRENGTH_PROGRAMS, skills: STRENGTH_SKILLS });
+    expect(placed).not.toBeNull();
+  });
+
+  it('fails when the requested day-set is a real 3-day set that buildDefaultTemplate would not have picked itself', () => {
+    const week = strengthWeekOf(3);
+    const placed = strengthRuleFamily.placeOn(week, [1, 3, 5], { programs: STRENGTH_PROGRAMS, skills: STRENGTH_SKILLS });
+    expect(placed).toBeNull();
+  });
+});
+
+function strengthWeekOf(count: number): ScheduleDay[] {
+  return buildDefaultTemplate(STRENGTH_PROGRAMS, STRENGTH_SKILLS, count);
+}

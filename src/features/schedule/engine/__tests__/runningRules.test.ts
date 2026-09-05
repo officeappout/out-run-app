@@ -4,13 +4,36 @@ import {
   validateRunningWeek,
   runningCriticalityOrder,
   checkSingleSessionSpike,
+  matchesRoleForDrop,
   type RunningDayRole,
   type RunningWeekDay,
 } from '../runningRules';
+import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 
+const CATEGORY_FOR_ROLE: Record<RunningDayRole, WorkoutCategory> = {
+  quality_primary: 'tempo',
+  quality_secondary: 'short_intervals',
+  long_run: 'long_run',
+  easy_run: 'easy_run',
+  recovery: 'easy_run', // 'recovery' isn't a WorkoutCategory value — role is what's authoritative here anyway.
+};
+
+/** Builds a week with an explicit role on every training day (role wins over the derived category). */
 function buildWeek(roles: Array<RunningDayRole | null>): RunningWeekDay[] {
   if (roles.length !== 7) throw new Error('buildWeek requires exactly 7 entries');
-  return roles.map((role, dayOfWeek) => ({ dayOfWeek, role }));
+  return roles.map((role, dayOfWeek): RunningWeekDay => {
+    if (role === null) return { dayOfWeek, category: null };
+    return { dayOfWeek, category: CATEGORY_FOR_ROLE[role], role };
+  });
+}
+
+/** Builds a week with NO role at all — category/isQualityWorkout only, exactly what every schedule entry written before 06.09.2026 looks like. */
+function buildWeekWithoutRole(roles: Array<RunningDayRole | null>): RunningWeekDay[] {
+  if (roles.length !== 7) throw new Error('buildWeekWithoutRole requires exactly 7 entries');
+  return roles.map((role, dayOfWeek): RunningWeekDay => {
+    if (role === null) return { dayOfWeek, category: null };
+    return { dayOfWeek, category: CATEGORY_FOR_ROLE[role] };
+  });
 }
 
 describe('preferredRunningDays', () => {
@@ -182,6 +205,55 @@ describe('runningCriticalityOrder — RUN-05 (boundary is 5km, not 10km)', () =>
     expect(runningCriticalityOrder({ targetDistanceKm: 3 })).toEqual([
       'easy_run', 'long_run', 'quality_secondary', 'quality_primary',
     ]);
+  });
+});
+
+describe('shape unification (06.09.2026) — role present vs absent', () => {
+  it('the same week validates identically with explicit roles or category-only (no role at all) — RUN-01/02/04 never distinguish quality_primary from quality_secondary', () => {
+    const roles: Array<RunningDayRole | null> = ['quality_primary', null, 'quality_secondary', null, 'long_run', null, null];
+    const withRole = validateRunningWeek(buildWeek(roles), { level: 'intermediate' });
+    const withoutRole = validateRunningWeek(buildWeekWithoutRole(roles), { level: 'intermediate' });
+    expect(withoutRole).toEqual(withRole);
+  });
+
+  it('a violating week (RUN-04) also matches with or without role', () => {
+    const roles: Array<RunningDayRole | null> = ['easy_run', 'easy_run', 'easy_run', null, null, null, null];
+    const withRole = validateRunningWeek(buildWeek(roles), { level: 'beginner' });
+    const withoutRole = validateRunningWeek(buildWeekWithoutRole(roles), { level: 'beginner' });
+    expect(withoutRole).toEqual(withRole);
+  });
+
+  describe('matchesRoleForDrop — RUN-05\'s actual consumer of the primary/secondary distinction', () => {
+    it('WITH role: exact match, roleWasUnknown is always false', () => {
+      const day: RunningWeekDay = { dayOfWeek: 0, category: 'tempo', role: 'quality_secondary' };
+      expect(matchesRoleForDrop(day, 'quality_secondary')).toEqual({ matches: true, roleWasUnknown: false });
+      expect(matchesRoleForDrop(day, 'quality_primary')).toEqual({ matches: false, roleWasUnknown: false });
+    });
+
+    it('WITHOUT role: long_run and easy_run are unambiguous, still roleWasUnknown=false', () => {
+      const longDay: RunningWeekDay = { dayOfWeek: 0, category: 'long_run' };
+      expect(matchesRoleForDrop(longDay, 'long_run')).toEqual({ matches: true, roleWasUnknown: false });
+      expect(matchesRoleForDrop(longDay, 'easy_run')).toEqual({ matches: false, roleWasUnknown: false });
+
+      const easyDay: RunningWeekDay = { dayOfWeek: 0, category: 'easy_run' };
+      expect(matchesRoleForDrop(easyDay, 'easy_run')).toEqual({ matches: true, roleWasUnknown: false });
+    });
+
+    it('WITHOUT role: a documented fallback, not a rule — a quality day matches EITHER quality tier, and roleWasUnknown is true exactly then', () => {
+      const qualityDay: RunningWeekDay = { dayOfWeek: 0, category: 'tempo' };
+      expect(matchesRoleForDrop(qualityDay, 'quality_primary')).toEqual({ matches: true, roleWasUnknown: true });
+      expect(matchesRoleForDrop(qualityDay, 'quality_secondary')).toEqual({ matches: true, roleWasUnknown: true });
+      // Never matches the unrelated tiers, and never flags roleWasUnknown for those checks.
+      expect(matchesRoleForDrop(qualityDay, 'long_run')).toEqual({ matches: false, roleWasUnknown: false });
+      expect(matchesRoleForDrop(qualityDay, 'easy_run')).toEqual({ matches: false, roleWasUnknown: false });
+    });
+
+    it('a rest day (category null) never matches anything, with or without role', () => {
+      const rest: RunningWeekDay = { dayOfWeek: 0, category: null };
+      for (const role of ['quality_primary', 'quality_secondary', 'long_run', 'easy_run', 'recovery'] as RunningDayRole[]) {
+        expect(matchesRoleForDrop(rest, role)).toEqual({ matches: false, roleWasUnknown: false });
+      }
+    });
   });
 });
 

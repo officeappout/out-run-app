@@ -3,8 +3,8 @@ import {
   validateCrossDomain,
   resolveDoubleDayOrder,
   type CrossDomainWeek,
-  type CrossDomainRunningDay,
 } from '../crossDomainRules';
+import type { RunningWeekDay } from '../runningRules';
 import type { ScheduleDay, DayOfWeek } from '../../types/smartSchedule.types';
 
 function emptyStrengthWeek(): ScheduleDay[] {
@@ -26,16 +26,16 @@ function withStrengthSession(week: ScheduleDay[], dayOfWeek: number): ScheduleDa
   return copy;
 }
 
-function emptyRunningWeek(): CrossDomainRunningDay[] {
+function emptyRunningWeek(): RunningWeekDay[] {
   return Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, category: null }));
 }
 
 function withRunningDay(
-  week: CrossDomainRunningDay[],
+  week: RunningWeekDay[],
   dayOfWeek: number,
-  category: CrossDomainRunningDay['category'],
+  category: RunningWeekDay['category'],
   isQualityWorkout?: boolean,
-): CrossDomainRunningDay[] {
+): RunningWeekDay[] {
   return week.map((d) => (d.dayOfWeek === dayOfWeek ? { ...d, category, isQualityWorkout } : d));
 }
 

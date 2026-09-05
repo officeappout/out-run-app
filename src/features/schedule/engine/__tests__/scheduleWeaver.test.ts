@@ -5,6 +5,15 @@ import { buildDefaultTemplate } from '../scheduleRules';
 import { preferredRunningDays } from '../runningRules';
 import type { PrioritizedSkill, ProgramId } from '../../types/smartSchedule.types';
 import type { RunningWeekDay, RunningDayRole } from '../runningRules';
+import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
+
+const CATEGORY_FOR_ROLE: Record<RunningDayRole, WorkoutCategory> = {
+  quality_primary: 'tempo',
+  quality_secondary: 'short_intervals',
+  long_run: 'long_run',
+  easy_run: 'easy_run',
+  recovery: 'easy_run',
+};
 
 const STRENGTH_SKILLS: PrioritizedSkill[] = [
   { id: 'PLANCHE', priority: 1, movementType: 'PUSH', isFreeSlot: false, minRestHours: 48, countsTowardCap: true },
@@ -26,8 +35,10 @@ function strengthDomain(requestedCount: number) {
 }
 
 function runningWeekFor(count: number, role: RunningDayRole = 'easy_run'): RunningWeekDay[] {
-  const week: RunningWeekDay[] = Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, role: null }));
-  for (const d of preferredRunningDays(count)) week[d].role = role;
+  const week: RunningWeekDay[] = Array.from({ length: 7 }, (_, i) => ({ dayOfWeek: i, category: null }));
+  for (const d of preferredRunningDays(count)) {
+    week[d] = { dayOfWeek: d, category: CATEGORY_FOR_ROLE[role], role };
+  }
   return week;
 }
 
@@ -90,7 +101,7 @@ describe('weaveWeek — ת4: the weaver builds one combined result, never a part
     // Both present in the SAME return value — no call produced only one domain's week.
     expect(Object.keys(result.week).sort()).toEqual(['running', 'strength']);
     // No rule forced a cut, so the actual counts match what was requested.
-    const runningTrainingDays = (result.week.running as RunningWeekDay[]).filter((d) => d.role !== null).length;
+    const runningTrainingDays = (result.week.running as RunningWeekDay[]).filter((d) => d.category !== null).length;
     expect(runningTrainingDays).toBe(3);
   });
 });
@@ -106,7 +117,7 @@ describe('weaveWeek — ת10: dominance decides who gets reduced first, in both 
 
     expect(result.reductions.length).toBe(1);
     expect(result.reductions[0].domainId).toBe('strength');
-    const runningTrainingDays = (result.week.running as RunningWeekDay[]).filter((d) => d.role !== null).length;
+    const runningTrainingDays = (result.week.running as RunningWeekDay[]).filter((d) => d.category !== null).length;
     expect(runningTrainingDays).toBe(4); // dominant untouched
   });
 

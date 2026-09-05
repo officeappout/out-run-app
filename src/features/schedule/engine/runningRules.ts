@@ -1,17 +1,33 @@
 /**
  * Running Rule Family — Rule Engine (run-to-run)
  *
- * Pure functions, zero React imports, zero engine imports. Standalone —
- * not wired to any consumer yet (that's a separate step). Mirrors
- * scheduleRules.ts's shape (function-per-rule, Warning-style violation
- * objects, plain string rule codes) so the future weaver
- * (.claude/knowledge/schedule-weaver-spec.md) can consume both families
- * through a uniform interface.
+ * Pure functions, zero React imports, zero engine imports. Wired to the
+ * weaver via ruleFamily.ts and consumed by crossDomainRules.ts too.
+ * Mirrors scheduleRules.ts's shape (function-per-rule, Warning-style
+ * violation objects, plain string rule codes).
  *
  * Source of truth: .claude/knowledge/running-rule-family.md
  * Scope: rules between running workouts and themselves. Run-vs-strength
  * rules (R1-R8) live in running-strength-weekly-research.md — not
  * duplicated here.
+ *
+ * ── Shape unification (06.09.2026) ──
+ * RunningWeekDay used to carry only `role` — a WeekSlot.slotType-derived
+ * abstraction invented for this file's own use. That `role` never survived
+ * into the real persisted schedule (ActiveRunningProgram.schedule[] only
+ * had category/isQualityWorkout until commit 9b5cf7c7 added slotType) —
+ * meaning this whole file was written against a shape the system never
+ * actually remembered. crossDomainRules.ts was built directly against the
+ * real persisted fields (category/isQualityWorkout) instead, which created
+ * two incompatible running-day shapes. This file now imports WorkoutCategory
+ * from running.types.ts (a deliberate departure from "stands alone" — the
+ * same departure crossDomainRules.ts already made, for the same reason:
+ * you can't validate real data through a shape the real data doesn't have)
+ * and RunningWeekDay carries category/isQualityWorkout/role together, one
+ * shape, read by both this file and crossDomainRules.ts. `role`, now
+ * commit 9b5cf7c7's slotType field, is optional and authoritative when
+ * present; category/isQualityWorkout are the fallback when it's absent
+ * (every schedule entry written before 06.09.2026 has no role at all).
  *
  * Implements:
  *   - preferredRunningDays    (candidate day-set generator, RUN-01–RUN-04)
@@ -29,6 +45,8 @@
  *     mechanism ("אין לשנות") — no new code, nothing to test here.
  */
 
+import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
+
 // ──────────────────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────────────────
@@ -37,12 +55,9 @@ export type RunningExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
 
 /**
  * Mirrors running.types.ts's WeekSlot.slotType vocabulary (quality_primary /
- * quality_secondary / long_run / easy_run / recovery) by value, not by
- * import — this module stands alone, per its brief. Reusing the exact same
- * literal strings (rather than inventing near-duplicate names) is
- * deliberate: this codebase has already hit the "two vocabularies for the
- * same concept" bug more than once (running category labels, hill-category
- * constants) and this avoids adding a new instance of it.
+ * quality_secondary / long_run / easy_run / recovery) by value — this is
+ * now literally the persisted schedule's own `slotType` field (commit
+ * 9b5cf7c7), not an invented parallel name.
  */
 export type RunningDayRole =
   | 'quality_primary'
@@ -51,12 +66,35 @@ export type RunningDayRole =
   | 'easy_run'
   | 'recovery';
 
+/**
+ * The unified running-day shape (06.09.2026) — read by this file AND
+ * crossDomainRules.ts, one object, no conversion between them.
+ *
+ * `category` is the source of truth for whether the day trains at all
+ * (null = rest day) and is reliably present for every user, old and new.
+ * `isQualityWorkout` and `role` are both optional and both undefined for
+ * every schedule entry written before their respective fixes (890c03c7,
+ * 06.09.2026) — undefined must never be read as false/absent-of-meaning,
+ * only as "not recorded."
+ *
+ * Precedence when they disagree: `role`, when present, is authoritative —
+ * it carries the real WeekSlot the workout was generated for, including
+ * the quality_primary/quality_secondary distinction that category +
+ * isQualityWorkout cannot express (that split was never carried into
+ * category — see running.types.ts's own doc comment on slotType). When
+ * `role` is absent, `isQualityWorkout` (if present) decides quality;
+ * failing that, category's own CATEGORY_IS_QUALITY mapping decides.
+ */
 export interface RunningWeekDay {
   /** 0 = Sunday .. 6 = Saturday. Linear, no Saturday→Sunday wraparound —
    *  matches scheduleRules.ts's own WARN_01/WARN_02 convention. */
   dayOfWeek: number;
-  /** null = rest day. */
-  role: RunningDayRole | null;
+  /** null = rest day (no running workout scheduled). Source of truth for "does this day train." */
+  category: WorkoutCategory | null;
+  /** Present only for schedule entries written after commit 890c03c7. */
+  isQualityWorkout?: boolean;
+  /** Present only for schedule entries written after commit 9b5cf7c7 (slotType). Authoritative when present. */
+  role?: RunningDayRole;
 }
 
 export interface RunningWeekContext {
@@ -146,12 +184,57 @@ export function preferredRunningDays(count: number): number[] {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// 2. validateRunningWeek — RUN-01, RUN-02, RUN-04
+// Shape-aware derivation — role authoritative when present, category/
+// isQualityWorkout the fallback when it's not.
 // ──────────────────────────────────────────────────────────────────────────
 
-function isQualityRole(role: RunningDayRole | null): boolean {
-  return role === 'quality_primary' || role === 'quality_secondary';
+/**
+ * Category → quality mapping, the fallback used whenever `role` is absent
+ * (every schedule entry written before commit 9b5cf7c7). Typed as a full
+ * Record so the compiler forces coverage of exactly the 11 real categories.
+ */
+const CATEGORY_IS_QUALITY: Record<WorkoutCategory, boolean> = {
+  short_intervals: true,
+  long_intervals: true,
+  tempo: true,
+  hill_long: true,
+  hill_short: true,
+  hill_sprints: true,
+  fartlek_structured: true,
+  easy_run: false,
+  long_run: false,
+  fartlek_easy: false,
+  strides: false,
+};
+
+/** true = day trains at all (category !== null). This is the ONLY correct way to check "is this a training day" — role is optional and may be absent even for a real training day. */
+export function isTrainingDay(day: RunningWeekDay): boolean {
+  return day.category !== null;
 }
+
+/**
+ * role, when present, is authoritative (it's the only field that can
+ * express quality_primary vs quality_secondary). When absent: isQualityWorkout
+ * if present, else category's CATEGORY_IS_QUALITY mapping. undefined is
+ * never read as false at any step.
+ */
+export function isQualityDay(day: RunningWeekDay): boolean {
+  if (day.category === null) return false;
+  if (day.role !== undefined) return day.role === 'quality_primary' || day.role === 'quality_secondary';
+  if (day.isQualityWorkout !== undefined) return day.isQualityWorkout;
+  return CATEGORY_IS_QUALITY[day.category];
+}
+
+/** role, when present, is authoritative; otherwise category === 'long_run' — unambiguous either way, no fallback ambiguity here (unlike quality_primary/secondary). */
+export function isLongRunDay(day: RunningWeekDay): boolean {
+  if (day.category === null) return false;
+  if (day.role !== undefined) return day.role === 'long_run';
+  return day.category === 'long_run';
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 2. validateRunningWeek — RUN-01, RUN-02, RUN-04
+// ──────────────────────────────────────────────────────────────────────────
 
 /**
  * Full-week validator for the running family. Checks:
@@ -162,8 +245,14 @@ function isQualityRole(role: RunningDayRole | null): boolean {
  *   RUN-04 (ERROR) — a run of consecutive training days exceeding the
  *                    level's cap (beginner 2 / intermediate 3 / advanced 4).
  * RUN-03 (easy is a buffer) has no dedicated check — it's the absence of a
- * RUN-01 hit when the neighboring role is 'easy_run', already covered by
+ * RUN-01 hit when the neighboring day isn't quality, already covered by
  * RUN-01's own logic (only quality-vs-quality adjacency is flagged).
+ *
+ * None of these three checks ever needs the quality_primary/secondary
+ * distinction — isQualityDay treats both identically, same as before this
+ * shape unification. Only RUN-05 (runningCriticalityOrder / the reduceTo
+ * consumer in ruleFamily.ts) actually needs that split, and only when
+ * dropping a day.
  *
  * `valid` is false only when at least one ERROR-level violation exists —
  * WARN-level (RUN-02) never flips it.
@@ -189,7 +278,7 @@ export function validateRunningWeek(
 
   // RUN-01 — minimum 48h between quality workouts (hard).
   for (let i = 0; i < 6; i++) {
-    if (isQualityRole(sorted[i].role) && isQualityRole(sorted[i + 1].role)) {
+    if (isQualityDay(sorted[i]) && isQualityDay(sorted[i + 1])) {
       violations.push({
         code: 'RUN-01',
         severity: 'ERROR',
@@ -201,7 +290,7 @@ export function validateRunningWeek(
 
   // RUN-02 — avoid the long run right after a quality workout (soft).
   for (let i = 0; i < 6; i++) {
-    if (isQualityRole(sorted[i].role) && sorted[i + 1].role === 'long_run') {
+    if (isQualityDay(sorted[i]) && isLongRunDay(sorted[i + 1])) {
       violations.push({
         code: 'RUN-02',
         severity: 'WARN',
@@ -226,7 +315,7 @@ export function validateRunningWeek(
     streak = [];
   };
   for (let i = 0; i < 7; i++) {
-    if (sorted[i].role !== null) {
+    if (isTrainingDay(sorted[i])) {
       streak.push(sorted[i].dayOfWeek);
     } else {
       flushStreak();
@@ -263,6 +352,46 @@ export function runningCriticalityOrder(context: RunningCriticalityContext): Run
   return context.targetDistanceKm <= SHORT_DISTANCE_THRESHOLD_KM
     ? [...SHORT_DISTANCE_DROP_ORDER]
     : [...LONG_DISTANCE_DROP_ORDER];
+}
+
+export interface RoleMatchResult {
+  matches: boolean;
+  /** true when this determination required the fallback below because
+   *  role was absent — a stand-in for the real distinction, not the real
+   *  thing. Always false when role was present (exact match, authoritative). */
+  roleWasUnknown: boolean;
+}
+
+/**
+ * Matches a day against one entry of runningCriticalityOrder's drop
+ * sequence — the only place the quality_primary/quality_secondary split
+ * actually gets consumed (RUN-05's real use, inside ruleFamily.ts's
+ * runningReduceTo).
+ *
+ * When `day.role` is present, this is an exact match — authoritative,
+ * roleWasUnknown always false.
+ *
+ * When absent, this is a FALLBACK, not a rule: long_run and easy_run are
+ * unambiguously derivable from category (isLongRunDay / !isQualityDay),
+ * but quality_primary vs quality_secondary is NOT — that split was never
+ * carried into category+isQualityWorkout, only into role. So an
+ * unknown-role quality day is treated as matching EITHER quality tier
+ * (deterministically resolved by whichever tier the caller's drop-order
+ * iteration reaches first — see runningReduceTo), and roleWasUnknown is
+ * set so the caller can say so explicitly rather than silently pretending
+ * the distinction was real.
+ */
+export function matchesRoleForDrop(day: RunningWeekDay, targetRole: RunningDayRole): RoleMatchResult {
+  if (day.role !== undefined) {
+    return { matches: day.role === targetRole, roleWasUnknown: false };
+  }
+  if (day.category === null) return { matches: false, roleWasUnknown: false };
+  if (isLongRunDay(day)) return { matches: targetRole === 'long_run', roleWasUnknown: false };
+  if (isQualityDay(day)) {
+    const matches = targetRole === 'quality_primary' || targetRole === 'quality_secondary';
+    return { matches, roleWasUnknown: matches };
+  }
+  return { matches: targetRole === 'easy_run', roleWasUnknown: false };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
