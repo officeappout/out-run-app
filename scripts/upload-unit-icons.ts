@@ -372,17 +372,11 @@ async function main() {
     await unitRef.update({ iconUrl: url, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     console.log(`Uploaded + wrote iconUrl: ${r.realOrgId}/units/${r.realUnitId} (${r.row.filename})`);
     uploaded++;
-
-    // Defensive mirror for a real unit whose id is non-ASCII (05.09.2026
-    // incident) — onUnitWrite's Eventarc trigger is already proven not to
-    // fire reliably for such an id, so this write can't rely on it to
-    // propagate. ASCII-id units are unaffected and rely on the (working)
-    // trigger normally, matching every other field.
-    if (!/^[a-zA-Z0-9_-]+$/.test(r.realUnitId)) {
-      const directoryId = `${r.realOrgId}__${r.realUnitId}`;
-      await db.collection('unitDirectory').doc(directoryId).set({ iconUrl: url, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      console.log(`  (non-ASCII unit id — mirrored iconUrl into unitDirectory/${directoryId} directly, not relying on onUnitWrite)`);
-    }
+    // No non-ASCII defensive mirror needed here (06.09.2026) — the 5 real
+    // units that predated the ASCII-id fix were recreated under new ids by
+    // scripts/_migrate-nonascii-unit-ids.ts, and buildUnitDoc's own guard
+    // (src/lib/unit-doc.ts) means no future write through this script can
+    // produce one again. onUnitWrite's trigger is trusted unconditionally.
   }
 
   console.log(`\nDone. ${uploaded} icons uploaded and written.`);
