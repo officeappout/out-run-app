@@ -272,3 +272,57 @@ https://play.google.com/store/apps/details?id=il.co.oversight.outapp&referrer=li
 ### 13.3 מה עדיין נדחה (לפי החלטת David)
 
 §4 (אנליטיקה מפורטת) ו-§5 (מחולל QR) — לא מומשו. **אבל** רשומת הקליק כבר שומרת את כל השדות (`device`/`country`/`referrer`) שיידרשו לזה מאוחר יותר, בלי מיגרציה. שימו לב: `react-qr-code` **כבר מותקן** כתלות (package.json) — QR-רנדור SVG בסיסי קיים כבר; חסר עדיין: לוגו-overlay, ייצוא PNG/SVG בהגדרות הדפוס, ו-error-correction-level H — משנה מעט את הערכת המאמץ של §5 כלפי מטה כשיגיע הזמן.
+
+---
+
+## 14. מעבר דומיין מתוכנן — `outrun.co.il` → `appout.co.il` (בעוד ~שבוע, 05.09.2026)
+
+David הודיע על מעבר דומיין מלא-מערכת מתוכנן. ארבע תת-שאלות, בהתאם ל-PR #37.
+
+### 14.1 §1 — דומיין כמשתנה סביבה (מומש ב-PR #37, לפני מיזוג)
+
+נמצאו **שני** מקומות שהרכיבו את הדומיין באופן שהיה נשבר במעבר:
+1. `getTrackingApiUrl()` ב-`admin/links/page.tsx` — היה `window.location.origin` (לא hardcoded, אבל גם לא env-var — התלות במקרה שהאדמין תמיד נצפה מאותו דומיין).
+2. `DEFAULT_LINK_DESTINATIONS.desktopUrl`/`fallbackUrl` ב-`marketing-links.service.ts` — היה string קבוע `'https://outrun.co.il'`.
+
+**התיקון**: `SHORT_LINK_DOMAIN` — קבוע חדש ב-`marketing-links.service.ts`, קורא `process.env.NEXT_PUBLIC_SHORT_LINK_DOMAIN` עם נפילה ל-`'https://outrun.co.il'` (כדי שכלום לא נשבר אם המשתנה עוד לא מוגדר). שני המקומות למעלה עודכנו להשתמש בו. `NEXT_PUBLIC_*` (לא סתם `SHORT_LINK_DOMAIN`) — כי הערך נחוץ גם בצד לקוח (הפאנל) וגם בצד שרת (ה-handler), ורק קידומת `NEXT_PUBLIC_` נכנסת לשני העולמות ב-Next.js.
+
+**⚠️ פעולה נדרשת ממך, לא ניתן לבצע מקוד**: הוסף `NEXT_PUBLIC_SHORT_LINK_DOMAIN=https://outrun.co.il` ל-Vercel env vars **עכשיו** (לפני המעבר) — אחרת "לשנות ערך אחד ביום המעבר" לא נכון, כי המשתנה בכלל לא קיים שם עדיין והנפילה ל-hardcoded תמשיך לפעול.
+
+### 14.2 §2 — 301 מהדומיין הישן לחדש (תוכנן, לא מומש — לפי הנחייתך)
+
+**עיצוב מדויק, לביצוע ב-~5 שורות כשמגיע הזמן**, בתחילת `handleLinkClick` (`link-click-handler.ts`), לפני כל קריאת Firestore:
+
+```ts
+const requestHost = new URL(request.url).host;
+const canonicalHost = new URL(SHORT_LINK_DOMAIN).host;
+if (requestHost !== canonicalHost) {
+  const canonicalUrl = new URL(request.url);
+  canonicalUrl.protocol = new URL(SHORT_LINK_DOMAIN).protocol;
+  canonicalUrl.host = canonicalHost;
+  return NextResponse.redirect(canonicalUrl.toString(), { status: 301, headers: NO_STORE_HEADERS });
+}
+```
+
+**למה זה בטוח לספירה ("לא נופל בין הכיסאות")**: ה-301 קורה **לפני** כל ספירה/כתיבה — הבקשה בדומיין הישן אף פעם לא נספרת. הדפדפן/סורק עוקב אחרי ה-301 ומגיע לאותו `path`+`query` (כולל `id`) בדיוק בדומיין החדש — **שם** קורית הספירה הרגילה, בדיוק פעם אחת. אין מצב של ספירה כפולה (הדומיין הישן לא סופר בכלל) ואין מצב של אובדן (ה-301 קורה תמיד, לא מותנה).
+
+**לא מומש עכשיו** כי אין עדיין `appout.co.il` חי לבדוק מולו — ברגע שהדומיין קיים ו-`NEXT_PUBLIC_SHORT_LINK_DOMAIN` מוחלף, זו הוספה של הבלוק למעלה + טסט אחד שמוודא שהוא יורה. **הדומיין הישן לעולם לא יורד** — `outrun.co.il` חייב להישאר מחובר לאותו Vercel project (או ל-project שממשיך להריץ את אותו קוד) לצמיתות, אחרת ה-301 עצמו לא יכול לרוץ.
+
+### 14.3 §3 — Deep Links, checklist (לא מומש, לתיאום עם המעבר)
+
+**שום קוד לא נכתב לסעיף הזה.** סדר פעולות מומלץ:
+
+1. **קודם DNS/Vercel**: לחבר את `appout.co.il` לאותו Vercel project (או deployment מקביל שמריץ את אותו קוד) — בלי זה שום דבר אחר לא ניתן לאימות.
+2. **לוודא ששני קבצי ה-well-known מוגשים משני הדומיינים**: `public/.well-known/apple-app-site-association` ו-`assetlinks.json` — אם `appout.co.il` מצביע לאותה deployment, זה קורה אוטומטית (Next.js מגיש `public/` ללא תלות בדומיין הנכנס). אם זה project נפרד ב-Vercel — צריך פריסה נפרדת.
+3. **⚠️ תלוי-החלטה נפרדת**: `assetlinks.json` היום מכריז `package_name: co.il.appout.outrun` — לפי `docs/android-package-id-discrepancy.md`, זה כנראה **לא** תואם את האפליקציה שבאמת חיה ב-Play (`il.co.oversight.outapp`). זו לא תוצאה של מעבר הדומיין — זו בעיה קיימת שתחסום את App Links בכל מקרה, בכל דומיין. שווה לפתור אותה (או להחליט במודע לא לפתור) **לפני** שמשקיעים בצעדים 4-5 למטה, אחרת הם לא יעזרו.
+4. **iOS**: להוסיף `applinks:appout.co.il` לצד `applinks:outrun.co.il` הקיים ב-`App.entitlements` (**לא להסיר** את הישן) → בילד חדש → TestFlight/App Store. **זמן ביקורת Apple לא מיידי** — אם המעבר באמת בעוד שבוע, להתחיל את זה **השבוע**, לא לחכות.
+5. **Android**: להוסיף `<data android:host="appout.co.il" .../>` לכל אחד מ-5 ה-`<data>` הקיימים ב-`AndroidManifest.xml` (לצד `outrun.co.il`, לא במקומו) → בילד חדש → Play Console. זמן ביקורת קצר יותר מ-iOS בד"כ, אבל גם לא מיידי.
+6. **רק אחרי** שהבילד החדש (עם שני הדומיינים ב-entitlements/manifest) כבר בשטח אצל רוב המשתמשים (אימוץ, לא רק "פורסם") — המעבר בפועל של קישורים חדשים לדומיין החדש בטוח מבחינת deep-linking.
+
+### 14.4 §4 — אובדן אחסון אטריביושן במעבר דומיין
+
+**האבחנה נכונה**: `localStorage`/`@capacitor/preferences` דרך `onboardingPrefs.ts` הם per-origin (למעשה per-app-bundle ב-Preferences, אבל per-origin ב-localStorage על ה-web/WebView). משתמש שנמצא באמצע onboarding על הדומיין הישן ברגע המעבר — הרשומה שלו לא "נעלמת מהעולם", היא פשוט לא נגישה מה-origin החדש.
+
+**המלצה: לקבל את זה, לא לגשר** — הסיבה: האוכלוסייה הנפגעת חסומה בזמן (רק מי שבאמצע onboarding *בדיוק* ברגע החלפת המשתנה ב-Vercel, לא כל בסיס המשתמשים), והנזק הוא רק תיוג שיווקי (`organic` במקום המקור האמיתי) — לא אובדן משתמש או נתון קריטי. עלות גישור מול תועלת לא מצדיקה את זה לאוכלוסייה כל כך מצומצמת וחולפת.
+
+**אם בכל זאת רוצים לגשר** (זול אבל לא בחינם): עמוד גשר חד-פעמי בדומיין הישן (`outrun.co.il/migrate-storage` או דומה) שקורא את ה-localStorage המקומי, מקודד אותו כפרמטר ב-URL, ומפנה לדומיין החדש; bootstrap בדומיין החדש קורא את הפרמטר וכותב אותו מחדש דרך `onboardingPrefs.ts` לפני שממשיך ניווט רגיל. הערכה: כמה שעות (עמוד אחד + קריאה ב-bootstrap) — **לא מומש, רק אם תחליט שזה שווה את זה**.

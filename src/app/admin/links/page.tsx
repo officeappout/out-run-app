@@ -43,6 +43,7 @@ import {
   deleteMarketingLink,
   getMarketingLinks,
   LINK_TYPES,
+  SHORT_LINK_DOMAIN,
   type LinkType,
   type MarketingLink,
   updateMarketingLink,
@@ -74,9 +75,14 @@ function formatDate(d: Date | null | undefined): string {
   }
 }
 
+// Read from SHORT_LINK_DOMAIN (env var, never window.location.origin) so a
+// planned domain cutover (outrun.co.il → appout.co.il) is a single Vercel
+// env var change — the admin panel could in principle be viewed from a
+// different host (a Vercel preview URL, a future staging domain) than the
+// canonical short-link domain, and window.location.origin would silently
+// bake that in.
 function getTrackingApiUrl(id: string): string {
-  if (typeof window === 'undefined') return `/r/${id}`;
-  return `${window.location.origin}/r/${id}`;
+  return `${SHORT_LINK_DOMAIN}/r/${id}`;
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────

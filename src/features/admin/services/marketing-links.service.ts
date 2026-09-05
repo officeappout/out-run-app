@@ -50,6 +50,20 @@ export const LINK_TYPES = ['qr_physical', 'web', 'paid_ads', 'email', 'partner',
 export type LinkType = (typeof LINK_TYPES)[number];
 
 /**
+ * Canonical short-link/web domain — reads from an env var, NEVER
+ * hardcoded, so a domain cutover (planned: outrun.co.il → appout.co.il)
+ * is a single Vercel env var change, not a code change. Works in both
+ * server code (link-click-handler.ts) and client code (admin/links
+ * live preview) because `NEXT_PUBLIC_*` vars are inlined at build time
+ * for both. The literal fallback matches today's live domain so nothing
+ * breaks if the var isn't set yet (e.g. local dev) — but it MUST be set
+ * explicitly in Vercel (to today's value) before cutover day, or the
+ * "change one value" plan doesn't hold.
+ */
+export const SHORT_LINK_DOMAIN =
+  process.env.NEXT_PUBLIC_SHORT_LINK_DOMAIN || 'https://outrun.co.il';
+
+/**
  * Global default destination URLs, used by any link with `useSmartLink:
  * true` that doesn't override a given slot. Real, verified live listings
  * (checked 05.09.2026) — NOT what's in `capacitor.config.ts`'s `appId`
@@ -62,8 +76,8 @@ export type LinkType = (typeof LINK_TYPES)[number];
 export const DEFAULT_LINK_DESTINATIONS: LinkDestinations = {
   iosUrl: 'https://apps.apple.com/il/app/out/id6502558672',
   androidUrl: 'https://play.google.com/store/apps/details?id=il.co.oversight.outapp',
-  desktopUrl: 'https://outrun.co.il',
-  fallbackUrl: 'https://outrun.co.il',
+  desktopUrl: SHORT_LINK_DOMAIN,
+  fallbackUrl: SHORT_LINK_DOMAIN,
 };
 
 /**
@@ -74,7 +88,7 @@ export const DEFAULT_LINK_DESTINATIONS: LinkDestinations = {
  *   • `id`                  Firestore doc id, exposed to API routes.
  *   • `friendlyName`        Internal label visible only in the registry UI.
  *   • `oneLinkUrl`          The bare share URL (before UTM concatenation),
- *                           e.g. 'https://outrun.co.il/gateway'.
+ *                           e.g. `${SHORT_LINK_DOMAIN}/gateway`.
  *   • `utmSource/Medium/Campaign`
  *                           UTM tokens — when present, the public click
  *                           handler synthesises the final tracking URL by
