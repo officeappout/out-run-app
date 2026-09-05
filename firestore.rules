@@ -1627,6 +1627,14 @@ service cloud.firestore {
     // ============================================================
     match /marketing_links/{docId} {
       allow read, write: if isRootAdmin() || isAdmin();
+
+      // Per-click detail records (link_id ↔ install/user matching prep).
+      // Written EXCLUSIVELY by the Admin SDK from `/api/links/[id]/click` —
+      // same rationale as the parent doc: no client write surface at all,
+      // not even for admins (there is no admin UI for this subcollection).
+      match /clicks/{clickId} {
+        allow read, write: if isRootAdmin();
+      }
     }
 
     // ============================================================

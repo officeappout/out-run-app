@@ -21,10 +21,14 @@
  *     error logged to console.
  *
  * Index prerequisite: composite indexes on `users` for combinations of
- * (createdAt, marketingAttribution.{source|campaign|medium}, core.gender,
- * onboardingStatus, onboardingCompletedAt, progression.workoutCount).
- * Firestore auto-suggests these on first failed query — click the
- * console link to provision.
+ * (createdAt, marketingAttribution.{source|campaign|medium|linkId},
+ * core.gender, onboardingStatus, onboardingCompletedAt,
+ * progression.workoutCount). `firestore.indexes.json` pre-provisions the
+ * single most common one (linkId + createdAt — "show me one QR code's
+ * funnel"); every other filter combination auto-suggests its own index on
+ * first failed query — click the console link to provision. A failed
+ * stage returns 0 (see `countStage`), so a missing index degrades a
+ * dashboard card, it never breaks the page.
  */
 
 import {
@@ -51,6 +55,12 @@ export interface FunnelFilters {
   campaign: string | null;
   source: string | null;
   medium: string | null;
+  /**
+   * `marketing_links/{id}` doc id — filters the funnel down to one specific
+   * link (e.g. one physical QR code), independent of whether that link's
+   * utm_* fields were filled in. See `marketingAttribution.linkId`.
+   */
+  linkId: string | null;
   /** Inclusive lower bound on the date field for the stage. */
   dateFrom: Date | null;
   /** Inclusive upper bound on the date field for the stage. */
@@ -88,6 +98,7 @@ export const DEFAULT_FUNNEL_FILTERS: FunnelFilters = {
   campaign: null,
   source: null,
   medium: null,
+  linkId: null,
   dateFrom: null,
   dateTo: null,
   gender: null,
@@ -153,6 +164,9 @@ function buildBaseConstraints(
   }
   if (filters.medium) {
     constraints.push(where('marketingAttribution.medium', '==', filters.medium));
+  }
+  if (filters.linkId) {
+    constraints.push(where('marketingAttribution.linkId', '==', filters.linkId));
   }
   if (filters.gender) {
     constraints.push(where('core.gender', '==', filters.gender));

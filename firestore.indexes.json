@@ -620,6 +620,23 @@
       ]
     },
 
+    // ── Growth Hub: Funnel Dashboard, filter by one link/QR code ──────────
+    // Used by `funnel-analytics.service.ts` stages 1/4/5 when an admin
+    // picks a single marketing_links doc (e.g. one physical QR) with the
+    // default "all time" date range collapsed to a >= bound. Pre-provisioned
+    // because filtering one QR code's funnel is the primary use case this
+    // whole feature exists for — every OTHER filter combination (source ×
+    // gender, campaign × medium, etc.) is left to Firestore's own
+    // auto-suggest-on-first-failure flow, same as before this index existed.
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "marketingAttribution.linkId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",                   "order": "ASCENDING" }
+      ]
+    },
+
     // ── Growth Hub: Onboarding Drop-off Dispatcher ────────────────────────
     // Required by the scheduled Cloud Function `onboardingDropoffDispatcher`
     // which queries:

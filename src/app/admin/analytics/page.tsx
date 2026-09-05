@@ -55,6 +55,10 @@ import {
   type FunnelFilters,
   type FunnelStage,
 } from '@/features/admin/services/funnel-analytics.service';
+import {
+  getMarketingLinks,
+  type MarketingLink,
+} from '@/features/admin/services/marketing-links.service';
 
 // ──────────────────────────────────────────────────────────────────────
 // Module constants — static UI vocabulary kept outside the component so
@@ -176,6 +180,7 @@ export default function AnalyticsDashboardPage() {
     sources: [],
     mediums: [],
   });
+  const [links, setLinks] = useState<MarketingLink[]>([]);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   // Load distinct attribution values once on mount. Cheap (200-doc cap)
@@ -183,6 +188,14 @@ export default function AnalyticsDashboardPage() {
   // list if a new campaign was just launched.
   useEffect(() => {
     loadDistinctAttributionValues().then(setDistinct);
+  }, []);
+
+  // Load the full link registry (not just linkIds seen on users so far) —
+  // this is what lets an admin pick a brand-new QR code before it has any
+  // conversions yet, and it's the same cheap, small-registry query the
+  // /admin/links table already relies on.
+  useEffect(() => {
+    getMarketingLinks().then(setLinks).catch(() => setLinks([]));
   }, []);
 
   // Debounced funnel fetch — every filter mutation schedules a 300ms
@@ -249,6 +262,7 @@ export default function AnalyticsDashboardPage() {
       filters.campaign != null ||
       filters.source != null ||
       filters.medium != null ||
+      filters.linkId != null ||
       filters.gender != null ||
       filters.dateFrom != null ||
       filters.dateTo != null
@@ -313,6 +327,14 @@ export default function AnalyticsDashboardPage() {
             value={filters.medium}
             options={distinct.mediums}
             onChange={(v) => updateFilter({ medium: v })}
+          />
+
+          {/* Link filter — one specific marketing_links doc (e.g. one QR code) */}
+          <LinkFilterSelect
+            label="קישור / QR"
+            value={filters.linkId}
+            options={links}
+            onChange={(v) => updateFilter({ linkId: v })}
           />
 
           {/* Gender filter (static enum) */}
@@ -522,6 +544,34 @@ const FilterSelect: React.FC<FilterSelectProps> = ({ label, value, options, onCh
       <option value="">הכל</option>
       {options.map((opt) => (
         <option key={opt} value={opt}>{opt}</option>
+      ))}
+    </select>
+  </div>
+);
+
+/**
+ * Filter dropdown for a specific `marketing_links` doc — unlike
+ * `FilterSelect`, id (the query value) and label (friendlyName, shown to
+ * the admin) are different strings, so this can't reuse that component.
+ */
+interface LinkFilterSelectProps {
+  label: string;
+  value: string | null;
+  options: MarketingLink[];
+  onChange: (next: string | null) => void;
+}
+
+const LinkFilterSelect: React.FC<LinkFilterSelectProps> = ({ label, value, options, onChange }) => (
+  <div className="flex flex-col gap-1">
+    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{label}</label>
+    <select
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value || null)}
+      className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-w-[160px]"
+    >
+      <option value="">הכל</option>
+      {options.map((opt) => (
+        <option key={opt.id} value={opt.id}>{opt.friendlyName}</option>
       ))}
     </select>
   </div>

@@ -40,6 +40,15 @@ const COLLECTION = 'marketing_links' as const;
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /**
+ * Channel classification for a marketing link. Distinguishes a physical QR
+ * (rollup banner, flyer) from a link posted online or sent via email — the
+ * two look identical as a raw `clicksCount` but mean very different things
+ * to a growth report.
+ */
+export const LINK_TYPES = ['qr_physical', 'web', 'paid_ads', 'email', 'partner', 'other'] as const;
+export type LinkType = (typeof LINK_TYPES)[number];
+
+/**
  * A single trackable marketing link as persisted in Firestore.
  *
  * Field rationale
@@ -65,6 +74,10 @@ export interface MarketingLink {
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
+  /** Channel classification — see `LINK_TYPES`. Defaults to 'web' when unset. */
+  linkType: LinkType;
+  /** Free-text physical location, e.g. "גן העירוני, רעננה" — only meaningful for `qr_physical`. */
+  physicalLocation: string | null;
   clicksCount: number;
   isActive: boolean;
   notes?: string;
@@ -81,6 +94,8 @@ export interface CreateMarketingLinkInput {
   utmSource?: string | null;
   utmMedium?: string | null;
   utmCampaign?: string | null;
+  linkType?: LinkType;
+  physicalLocation?: string | null;
   isActive?: boolean;
   notes?: string;
   createdBy?: string;
@@ -93,6 +108,8 @@ export interface UpdateMarketingLinkInput {
   utmSource?: string | null;
   utmMedium?: string | null;
   utmCampaign?: string | null;
+  linkType?: LinkType;
+  physicalLocation?: string | null;
   isActive?: boolean;
   notes?: string;
   updatedBy?: string;
@@ -112,6 +129,11 @@ function nullishString(v: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/** Falls back to 'web' for missing/legacy docs and any unrecognised value. */
+function toLinkType(v: unknown): LinkType {
+  return (LINK_TYPES as readonly string[]).includes(v as string) ? (v as LinkType) : 'web';
+}
+
 function rowToLink(id: string, data: Record<string, unknown>): MarketingLink {
   return {
     id,
@@ -122,6 +144,8 @@ function rowToLink(id: string, data: Record<string, unknown>): MarketingLink {
     utmSource: nullishString(data.utmSource),
     utmMedium: nullishString(data.utmMedium),
     utmCampaign: nullishString(data.utmCampaign),
+    linkType: toLinkType(data.linkType),
+    physicalLocation: nullishString(data.physicalLocation),
     clicksCount:
       typeof data.clicksCount === 'number' && Number.isFinite(data.clicksCount)
         ? data.clicksCount
@@ -187,6 +211,8 @@ export async function createMarketingLink(
     utmSource: nullishString(input.utmSource ?? null),
     utmMedium: nullishString(input.utmMedium ?? null),
     utmCampaign: nullishString(input.utmCampaign ?? null),
+    linkType: toLinkType(input.linkType),
+    physicalLocation: nullishString(input.physicalLocation ?? null),
     clicksCount: 0,
     isActive: input.isActive !== false,
     notes: typeof input.notes === 'string' ? input.notes : '',
@@ -236,6 +262,8 @@ export async function updateMarketingLink(
   if (input.utmSource !== undefined) patch.utmSource = nullishString(input.utmSource);
   if (input.utmMedium !== undefined) patch.utmMedium = nullishString(input.utmMedium);
   if (input.utmCampaign !== undefined) patch.utmCampaign = nullishString(input.utmCampaign);
+  if (input.linkType !== undefined) patch.linkType = toLinkType(input.linkType);
+  if (input.physicalLocation !== undefined) patch.physicalLocation = nullishString(input.physicalLocation);
   if (input.isActive !== undefined) patch.isActive = !!input.isActive;
   if (input.notes !== undefined) patch.notes = input.notes;
   if (input.updatedBy !== undefined) patch.updatedBy = input.updatedBy;
