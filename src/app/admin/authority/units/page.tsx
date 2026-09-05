@@ -57,6 +57,13 @@ export default function UnitsListPage() {
   // Summary stats
   const [totalUsers, setTotalUsers] = useState(0);
   const [activeUsersLast7d, setActiveUsersLast7d] = useState(0);
+  // Sync-gap check (§8 recommendation B, 06.09.2026 — the cheapest check
+  // that would have caught the invisible-battalion incident in minutes
+  // instead of requiring a deliberate end-to-end production test): real
+  // count in tenants/{orgId}/units vs. how many of those actually made it
+  // into unitDirectory (the ONLY thing any search surface reads). null =
+  // not applicable (municipal) or not loaded yet.
+  const [syncedUnitCount, setSyncedUnitCount] = useState<number | null>(null);
 
   // Add Unit form
   const [showAddUnit, setShowAddUnit] = useState(false);
@@ -122,6 +129,21 @@ export default function UnitsListPage() {
           });
         }
       } catch { /* ignore */ }
+    }
+
+    // Sync-gap check (§8 recommendation B) — real sub-unit count vs. how
+    // many actually reached unitDirectory (the public search index). Not
+    // municipal (neighborhoods aren't unitDirectory-synced units at all).
+    if (derived !== 'municipal') {
+      try {
+        const dirSnap = await getDocs(query(collection(db, 'unitDirectory'), where('orgId', '==', authId)));
+        const subUnitEntries = dirSnap.docs.filter((d) => d.data().level !== 'brigade');
+        setSyncedUnitCount(subUnitEntries.length);
+      } catch {
+        setSyncedUnitCount(null);
+      }
+    } else {
+      setSyncedUnitCount(null);
     }
 
     // Military: memberCount per row + the summary stats below are computed
@@ -489,6 +511,12 @@ export default function UnitsListPage() {
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'שכונות / יישובים' : labels.subUnitsTitle}</p>
             <p className="text-3xl font-black text-slate-800">{units.length}</p>
+            {syncedUnitCount !== null && (
+              <p className={`text-[10px] mt-0.5 flex items-center gap-1 ${syncedUnitCount < units.length ? 'text-amber-600 font-bold' : 'text-slate-400'}`}>
+                {syncedUnitCount < units.length && <AlertTriangle size={11} />}
+                {syncedUnitCount}/{units.length} מוצגות בחיפוש
+              </p>
+            )}
           </div>
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
