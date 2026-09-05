@@ -501,6 +501,31 @@ async function main() {
   }
 
   console.log(`\nDone. ${created} new battalion docs written. ${newOrgIdByCsvId.size} new brigades created.`);
+
+  // Sync-gap check (§8 recommendation A, 06.09.2026) — nearly free here:
+  // every orgId this run touched is already in memory. Waits for
+  // onUnitWrite/onAuthorityWrite to catch up before comparing, then reports
+  // any brigade where the real sub-unit count doesn't match what actually
+  // reached unitDirectory — exactly the class of gap that went unnoticed
+  // for 5 real battalions after the previous run, found only by a manual
+  // end-to-end test days later.
+  console.log('\n── SYNC-GAP CHECK ───────────────────────────────────────');
+  await new Promise((r) => setTimeout(r, 15000));
+  const touchedOrgIds = new Set<string>();
+  brigadeRes.forEach((r) => { if (r.status === 'existing') touchedOrgIds.add(r.realOrgId); });
+  newOrgIdByCsvId.forEach((orgId) => touchedOrgIds.add(orgId));
+
+  let anyGap = false;
+  for (const orgId of Array.from(touchedOrgIds)) {
+    const realSnap = await db.collection('tenants').doc(orgId).collection('units').get();
+    const dirSnap = await db.collection('unitDirectory').where('orgId', '==', orgId).get();
+    const syncedCount = dirSnap.docs.filter((d) => d.data().level !== 'brigade').length;
+    if (syncedCount !== realSnap.size) {
+      anyGap = true;
+      console.log(`  ⚠️  ${orgId}: ${realSnap.size} real units, only ${syncedCount} synced to unitDirectory`);
+    }
+  }
+  console.log(anyGap ? '\n🛑 Sync gap found — check above before trusting search results for these brigades.' : `\n✅ All ${touchedOrgIds.size} touched brigades fully synced.`);
 }
 
 main().catch((e) => {
