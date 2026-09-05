@@ -178,8 +178,29 @@ interface ComboAttempt {
   ok: boolean;
   strengthWeek?: ScheduleDay[];
   runningWeek?: RunningWeekDay[];
+  /** Populated whenever ok — the order decided for each shared day, so the caller never has to recompute it. */
+  sharedDayOrder?: Partial<Record<number, DoubleDayOrder>>;
   /** ERROR-level violation codes from any of the three families, whether this attempt succeeded or not — used to explain a later compromise even though THIS specific candidate wasn't the one chosen. */
   errorCodes: string[];
+}
+
+/** order (R2) must be decided BEFORE the candidate is validated, not after — R3 needs to know it (see crossDomainRules.ts's own doc). Never computed inside validateCrossDomain itself; only ever consumed there. */
+function computeSharedDayOrder(
+  strengthWeek: ScheduleDay[],
+  runningWeek: RunningWeekDay[],
+  crossDomainContext: CrossDomainValidateContext,
+): Partial<Record<number, DoubleDayOrder>> {
+  const sharedDayOrder: Partial<Record<number, DoubleDayOrder>> = {};
+  for (const strengthDay of strengthWeek) {
+    if (strengthDay.sessions.length === 0) continue;
+    const runningDay = runningWeek.find((d) => d.dayOfWeek === strengthDay.dayOfWeek);
+    if (!runningDay || runningDay.category === null) continue;
+    sharedDayOrder[strengthDay.dayOfWeek] = resolveDoubleDayOrder(
+      { strength: strengthDay, running: runningDay },
+      crossDomainContext,
+    );
+  }
+  return sharedDayOrder;
 }
 
 function attemptCombo(
@@ -195,14 +216,15 @@ function attemptCombo(
 
   const strengthValidation = strengthCtx.family.validate(strengthWeek, strengthCtx.validateContext);
   const runningValidation = runningCtx.family.validate(runningWeek, runningCtx.validateContext);
-  const crossValidation = validateCrossDomain({ strength: strengthWeek, running: runningWeek }, crossDomainContext);
+  const sharedDayOrder = computeSharedDayOrder(strengthWeek, runningWeek, crossDomainContext);
+  const crossValidation = validateCrossDomain({ strength: strengthWeek, running: runningWeek, sharedDayOrder }, crossDomainContext);
 
   const errorCodes = [...strengthValidation.violations, ...runningValidation.violations, ...crossValidation.violations]
     .filter((v) => v.severity === 'ERROR')
     .map((v) => v.code);
 
   const ok = strengthValidation.valid && runningValidation.valid && crossValidation.valid;
-  return ok ? { ok: true, strengthWeek, runningWeek, errorCodes } : { ok: false, errorCodes };
+  return ok ? { ok: true, strengthWeek, runningWeek, sharedDayOrder, errorCodes } : { ok: false, errorCodes };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -237,7 +259,13 @@ function searchDaySets(
   dominantId: 'strength' | 'running',
   moveDominant: boolean,
   budget: SearchBudget,
-): { strengthWeek: ScheduleDay[]; runningWeek: RunningWeekDay[]; strengthDays: number[]; runningDays: number[] } | null {
+): {
+  strengthWeek: ScheduleDay[];
+  runningWeek: RunningWeekDay[];
+  strengthDays: number[];
+  runningDays: number[];
+  sharedDayOrder: Partial<Record<number, DoubleDayOrder>>;
+} | null {
   const dominantIsStrength = dominantId === 'strength';
   const dominantCount = dominantIsStrength ? strengthCount : runningCount;
   const secondaryCount = dominantIsStrength ? runningCount : strengthCount;
@@ -262,7 +290,13 @@ function searchDaySets(
       attempt.errorCodes.forEach((code) => budget.encounteredCodes.add(code));
 
       if (attempt.ok) {
-        return { strengthWeek: attempt.strengthWeek!, runningWeek: attempt.runningWeek!, strengthDays, runningDays };
+        return {
+          strengthWeek: attempt.strengthWeek!,
+          runningWeek: attempt.runningWeek!,
+          strengthDays,
+          runningDays,
+          sharedDayOrder: attempt.sharedDayOrder!,
+        };
       }
     }
   }
@@ -274,7 +308,7 @@ function searchDaySets(
 // ──────────────────────────────────────────────────────────────────────────
 
 const RULE_NOTE_HE: Record<string, string> = {
-  R3: 'R3: כוח וריצת איכות לא יכולים באותו יום — סדר לא ניתן לאימות, לכן נמנע שיתוף כזה.',
+  R3: 'R3: כוח לא יכול לקדום ריצת איכות באותו יום — נמנע סידור שבו הכוח מגיע קודם.',
   R6: 'R6: כוח לא יכול ביום עם ריצה ארוכה — הריצה הארוכה מוגנת.',
   R8: 'R8: עם 4 אימונים או פחות בסך הכל, מותר לכל היותר יום משותף אחד.',
 };
@@ -397,15 +431,15 @@ export function weaveWeek(input: WeaveWeekInput): WeaveWeekResult {
     if (note) notes.push(note);
   }
 
+  // Reuses the order already decided (and already fed into R3's own check)
+  // inside attemptCombo — never recomputed here. Same order, same source.
   const strengthDaysFinal = found.strengthDays;
   const runningDaysFinal = found.runningDays;
   const sharedDayNums = strengthDaysFinal.filter((d) => runningDaysFinal.includes(d)).sort((a, b) => a - b);
-  const sharedDays = sharedDayNums.map((dayOfWeek) => {
-    const strengthDay = found!.strengthWeek.find((d) => d.dayOfWeek === dayOfWeek)!;
-    const runningDay = found!.runningWeek.find((d) => d.dayOfWeek === dayOfWeek)!;
-    const order = resolveDoubleDayOrder({ strength: strengthDay, running: runningDay }, input.crossDomainContext);
-    return { dayOfWeek, order };
-  });
+  const sharedDays = sharedDayNums.map((dayOfWeek) => ({
+    dayOfWeek,
+    order: found!.sharedDayOrder[dayOfWeek]!,
+  }));
 
   return {
     week: { strength: found.strengthWeek, running: found.runningWeek },

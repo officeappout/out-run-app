@@ -89,7 +89,7 @@ describe('resolveDoubleDayOrder — R2 is a decision, not a validation (never ap
   });
 });
 
-describe('validateCrossDomain — R3 (never strength + a quality run, same day — hard)', () => {
+describe('validateCrossDomain — R3 (never strength BEFORE a quality run — an order ban, not a sharing ban)', () => {
   it('PASS: strength and an easy run on the same day is valid', () => {
     const week: CrossDomainWeek = {
       strength: withStrengthSession(withStrengthSession(emptyStrengthWeek(), 0), 2),
@@ -99,7 +99,7 @@ describe('validateCrossDomain — R3 (never strength + a quality run, same day �
     expect(result.violations.some((v) => v.code === 'R3')).toBe(false);
   });
 
-  it('FAIL: strength and a quality run (tempo) on the same day is invalid', () => {
+  it('FAIL: strength and a quality run (tempo), order unspecified (defaults to strength-first, the conservative assumption), is invalid', () => {
     const week: CrossDomainWeek = {
       strength: withStrengthSession(withStrengthSession(emptyStrengthWeek(), 0), 2),
       running: withRunningDay(emptyRunningWeek(), 0, 'tempo'),
@@ -110,6 +110,31 @@ describe('validateCrossDomain — R3 (never strength + a quality run, same day �
     expect(r3?.severity).toBe('ERROR');
     expect(r3?.affectedDays).toEqual([0]);
     expect(result.valid).toBe(false);
+  });
+
+  it('FAIL: the same day, with order explicitly set to strength-first, is still invalid — the ban is real, not just a default artifact', () => {
+    const week: CrossDomainWeek = {
+      strength: withStrengthSession(withStrengthSession(emptyStrengthWeek(), 0), 2),
+      running: withRunningDay(emptyRunningWeek(), 0, 'tempo'),
+      sharedDayOrder: { 0: 'strength-first' },
+    };
+    const result = validateCrossDomain(week, DEFAULT_CONTEXT);
+    expect(result.violations.some((v) => v.code === 'R3')).toBe(true);
+    expect(result.valid).toBe(false);
+  });
+
+  it('PASS: a quality run (tempo) shared with strength, ordered running-first, is legal — R3 bans the order, not the day. Proof this is a real, reachable state and not just R3 gone silent: R2 (resolveDoubleDayOrder) exists in the source doc specifically to choose an order for this exact case — if R3 banned the day outright, R2 would have nothing to decide.', () => {
+    const week: CrossDomainWeek = {
+      strength: withStrengthSession(withStrengthSession(emptyStrengthWeek(), 0), 2),
+      running: withRunningDay(emptyRunningWeek(), 0, 'tempo'),
+      sharedDayOrder: { 0: 'running-first' },
+    };
+    const result = validateCrossDomain(week, DEFAULT_CONTEXT);
+    expect(result.violations.some((v) => v.code === 'R3')).toBe(false);
+    // Not just "R3 absent" — the whole candidate must be valid: confirms no
+    // other rule (R6/R7/R8) independently blocks this same day, which is
+    // exactly the check David asked to stop and report on if it ever fails.
+    expect(result.valid).toBe(true);
   });
 
   it('category-derived quality: short_intervals (no isQualityWorkout field at all) still triggers R3', () => {

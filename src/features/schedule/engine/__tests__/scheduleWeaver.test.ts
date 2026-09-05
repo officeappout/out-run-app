@@ -145,23 +145,16 @@ describe('weaveWeek — ת10 (revised): reduction always protects R7\'s floor, r
 
 describe('weaveWeek — resolveDoubleDayOrder wiring: a shared day\'s order comes from the cross-domain family, not a weaver-local decision', () => {
   /**
-   * R3 unconditionally blocks strength+quality on the same day (ERROR,
-   * always invalid — crossDomainRules.ts's own doc: "סדר לא ניתן לאימות").
-   * That means validateCrossDomain can never accept a candidate where a
-   * quality run shares a day with strength — so weaveWeek, which only
-   * calls resolveDoubleDayOrder on the FINAL, already-validated result's
-   * shared days, can structurally never produce a quality-run shared day
-   * to ask resolveDoubleDayOrder about at all. Its 'running-first' branch
-   * (isQualityDay → true) is correctly implemented and already covered at
-   * the unit level (crossDomainRules.test.ts's own resolveDoubleDayOrder
-   * tests) — it is unreachable specifically through weaveWeek's search,
-   * not untested. Confirmed empirically, not assumed: the original version
-   * of this test asserted sharedDays.length > 0 for a quality-run input and
-   * failed with sharedDays.length === 0 — the weaver had isolated the
-   * quality run onto its own day instead of sharing it, exactly as R3
-   * requires. This test now asserts that real, reachable behavior instead.
+   * R3 bans strength-BEFORE-quality, not sharing the day at all (fixed —
+   * see crossDomainRules.ts's own doc for the earlier, too-strong version
+   * and the proof it was wrong: R2/resolveDoubleDayOrder exists in the
+   * source doc precisely to choose an order for a shared quality day,
+   * which would be pointless if R3 banned the day outright). A quality run
+   * CAN legally share a day with strength, ordered running-first — this is
+   * a real, reachable state through weaveWeek's own search, not just at
+   * the crossDomainRules.ts unit level.
    */
-  it('a quality run is never placed on a shared day — the weaver isolates it instead, per R3', () => {
+  it('a quality run shares a day with strength when the days are tight, ordered running-first — R2 exists precisely to make this legal', () => {
     const input: WeaveWeekInput = {
       focus: 30,
       strength: strengthDomain(2), // canonical [0,3]
@@ -170,11 +163,8 @@ describe('weaveWeek — resolveDoubleDayOrder wiring: a shared day\'s order come
       crossDomainContext: CROSS_CONTEXT,
     };
     const result = weaveWeek(input);
-    const strengthDays = strengthOccupiedDays(result.week.strength);
-    const qualityDay = result.week.running.find((d) => d.category === 'tempo')?.dayOfWeek;
-    expect(qualityDay).toBeDefined();
-    expect(strengthDays.includes(qualityDay!)).toBe(false);
-    expect(result.sharedDays.some((d) => d.order === 'running-first')).toBe(false);
+    expect(result.sharedDays.length).toBeGreaterThan(0);
+    expect(result.sharedDays.every((d) => d.order === 'running-first')).toBe(true);
   });
 
   it('an easy run on the shared day recommends strength-first', () => {
@@ -188,6 +178,23 @@ describe('weaveWeek — resolveDoubleDayOrder wiring: a shared day\'s order come
     const result = weaveWeek(input);
     expect(result.sharedDays.length).toBeGreaterThan(0);
     expect(result.sharedDays.every((d) => d.order === 'strength-first')).toBe(true);
+  });
+
+  it('a runner with quality workouts and few available days gets a running-first shared day, not a lost strength workout — the R3 fix is what makes this the found solution instead of a forced reduction', () => {
+    const input: WeaveWeekInput = {
+      focus: 80, // running dominant, so the day-set search fixes running's days first — the harder direction to prove strength survives.
+      strength: strengthDomain(2), // canonical [0,3]
+      running: runningDomain([1, 5], 'tempo'),
+      availableDayCount: 3,
+      crossDomainContext: CROSS_CONTEXT,
+    };
+    const result = weaveWeek(input);
+
+    expect(result.reductions).toEqual([]); // strength keeps its full 2 days — nothing was cut to make room.
+    const strengthDays = strengthOccupiedDays(result.week.strength);
+    expect(strengthDays.length).toBe(2);
+    expect(result.sharedDays.length).toBeGreaterThan(0);
+    expect(result.sharedDays.every((d) => d.order === 'running-first')).toBe(true);
   });
 });
 

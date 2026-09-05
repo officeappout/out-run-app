@@ -60,6 +60,19 @@ import {
 export interface CrossDomainWeek {
   strength: ScheduleDay[];
   running: RunningWeekDay[];
+  /**
+   * dayOfWeek → order, for every day this candidate shares between the two
+   * domains — decided via resolveDoubleDayOrder (R2), BEFORE this candidate
+   * is validated (see R3's doc below). validateCrossDomain reads this; it
+   * never computes order itself — R2 is a decision, not a validation (see
+   * resolveDoubleDayOrder's own doc). A shared day missing from this map
+   * defaults to 'strength-first' — the conservative assumption, since an
+   * order that was never actually decided cannot be assumed safe. The
+   * weaver always populates this for every shared day before calling
+   * validate; a caller that skips it (e.g. an older test) gets the
+   * pre-fix (unconditional-ban) behavior for that day by default.
+   */
+  sharedDayOrder?: Partial<Record<number, DoubleDayOrder>>;
 }
 
 export interface CrossDomainValidateContext {
@@ -135,10 +148,22 @@ export function resolveDoubleDayOrder(
  * domains, same day" for a problem by default. Tested by asserting a clean
  * shared day (nothing else wrong) produces zero violations.
  *
- * R3 — hard: since order can't be verified (see resolveDoubleDayOrder), a shared
- * day where the run is quality is not allowed at all, not just "risky if
- * misordered." ERROR, blocks valid.
+ * R3 — a ban on ORDER, not on sharing the day. Source doc §2: "לעולם לא
+ * כוח לפני ריצת איכות" ("never strength before a quality run") — the ban is
+ * on strength going FIRST, not on the two ever landing on the same day.
+ * Fixed (this file previously banned any quality-day sharing unconditionally
+ * — proven wrong: if R3 forbade the day outright, R2/resolveDoubleDayOrder
+ * would have nothing to decide, yet R2 exists in the source doc precisely
+ * to choose an order for this exact case). ERROR only when the day's order
+ * (from `week.sharedDayOrder`, decided before this function runs — see
+ * that field's own doc) is 'strength-first'; a quality day ordered
+ * 'running-first' is legal. Since resolveDoubleDayOrder's own logic always
+ * recommends running-first for a quality day, a caller that follows the
+ * recommendation (the weaver does) will never actually trigger R3 here —
+ * this check exists to catch a candidate constructed with the WRONG order,
+ * not to fire in the weaver's own correct-by-construction path.
  *
+
  * R6 (first half only) — hard, same reasoning: no strength session is
  * allowed on a day with the long run. ERROR, blocks valid. The doc calls R3
  * "the only hard rule" in its own §2 (order) discussion; R6 comes from a
@@ -172,14 +197,17 @@ export function validateCrossDomain(
     const quality = isQualityDay(runningDay!);
     const long = isLongRunDay(runningDay!);
 
-    // R3 — hard: never strength + a quality run, same day.
+    // R3 — a ban on order, not on sharing. See the doc above.
     if (quality) {
-      violations.push({
-        code: 'R3',
-        severity: 'ERROR',
-        message: 'כוח וריצת איכות באותו יום — אסור, סדר לא ניתן לאימות.',
-        affectedDays: [dow],
-      });
+      const order = week.sharedDayOrder?.[dow] ?? 'strength-first';
+      if (order === 'strength-first') {
+        violations.push({
+          code: 'R3',
+          severity: 'ERROR',
+          message: 'כוח לפני ריצת איכות באותו יום — אסור. הריצה חייבת לקדום.',
+          affectedDays: [dow],
+        });
+      }
     }
 
     // R6 (first half) — hard: never strength + the long run, same day.
