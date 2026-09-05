@@ -962,3 +962,47 @@ warmup follow-along regression tests from the earlier fix (unaffected by the dea
 the blocklist addition, since neither touches the exerciseRole gate itself).
 
 **Commit:** local only, no push.
+
+---
+
+## OPEN, NOT HANDLED — Desk Workout Constraint can replace an entire workout by title text
+
+Found 05.09.2026 while mapping the post-generation exercise-mutation sequence for the Guarantee
+post-cut-validation work (Addendum 7). **Not fixed. Not scoped for this pass. Documented so it
+isn't silently rediscovered later.**
+
+`home-workout.service.ts`'s "DESK WORKOUT CONSTRAINT" (`isDeskWorkout`/`DESK_TITLE_KEYWORDS`, runs
+right after the title is resolved from Firestore, before the final sort) checks whether the
+resolved `workout.title` string contains `'כיסא'` or `'שולחן'` — and if so, **replaces
+`workout.exercises` entirely** with a `DESK_FRIENDLY_CATEGORIES`-tagged subset (falls back to the
+original list only if fewer than 2 desk-friendly exercises exist).
+
+**Q1 — how often does this fire?** 0/3,780 in the current snapshot — but that reflects the
+snapshot's own mock-profile matrix never setting `persona`/context fields that would surface a
+desk-context title, not that it's rare in real traffic. Not measured against real user data (out
+of scope — would need a production query, not a snapshot one).
+
+**Q2 — is the title AI-generated or from a closed list?** **Closed list.** `fetchWorkoutTitle` →
+`scoredFetch('workoutTitles', 'titles', ...)` reads `workoutMetadata/workoutTitles/titles` (162
+Firestore docs, confirmed live) and scores them against session context — no LLM call anywhere in
+this path. Found exactly 2 real title docs containing these keywords, both legitimately
+`persona`-tagged at the source: `LlINu0miB5JAvDO6fnAs` ("שחרור בכיסא לפני הישיבה",
+`persona:'office_worker'`) and `enyt2XiryA7xAug5mtES` ("ריסטרט על הכיסא בספרייה",
+`persona:'student'`).
+
+**Q3 — is there a real "desk workout" flag, or is the title the only mechanism?** **The title
+text is the only mechanism actually checked.** The 2 title docs above DO carry a legitimate
+`persona` field that plausibly drives the SCORING that selects them in the common case — but
+`isDeskWorkout`'s check never reads `ctx.persona`, `location`, or any dedicated flag; it only
+re-derives intent by substring-matching whatever title text won the score. Two concrete risks
+this creates, neither confirmed to have happened in production, both structurally possible: (1) a
+scoring tie or thin-candidate-pool situation could hand this title to a NON-office_worker/student
+user (nothing in `scoreContentRow`'s "David Clause" persona guard blocks a *mismatched* persona —
+it only hard-excludes when the user has NO persona at all against a `DEMOGRAPHIC_PERSONA_TAGS`
+row), silently swapping their whole workout to desk-only content; (2) any future title-template
+author writing flavor text that happens to mention a chair/desk for an unrelated reason would
+trigger the same full replacement.
+
+**Left for David to decide the fix** — the two obvious directions (gate on `ctx.persona`/a real
+context flag instead of title text; or accept the current behavior as good-enough given it's
+tied to real persona-authored content) are a product call, not something to guess at here.
