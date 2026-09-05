@@ -113,11 +113,16 @@ import { computeRouteLighting } from './lib/route-lighting-street-segments.node'
 import { validateCityRegistration } from '../src/lib/city-registrations';
 
 // ─────────────────────────────── CLI + region config ───────────────────────────────
-const APPLY = process.argv.includes('--apply');
-const DELETE = process.argv.includes('--delete');
-const ROUNDTRIPS = process.argv.includes('--roundtrips'); // add Mapbox foot round-trip loops
-const SKIP_OSM = process.argv.includes('--skip-osm');      // skip Overpass discovery (round-trips only)
-const regionArg = (process.argv.find(a => a.startsWith('--region=')) || '--region=zichron').split('=')[1];
+// Options carried by runGeoDiscovery — the CLI entry block at the bottom of this
+// file builds one of these from process.argv; a server-side caller (e.g. the
+// one-click panel button, future work) builds one directly instead.
+export interface GeoDiscoveryOptions {
+  region: string;
+  apply: boolean;      // --apply  (write/delete gate — false previews only)
+  delete: boolean;     // --delete (preview or, with apply, perform a batch delete)
+  roundtrips: boolean; // --roundtrips (add Mapbox foot round-trip loops)
+  skipOsm: boolean;    // --skip-osm (skip Overpass discovery; round-trips only)
+}
 
 interface Region {
   key: string;
@@ -269,25 +274,31 @@ const REGIONS: Record<string, Region> = {
 // exactly as before this stage — rather than `Region | undefined`, which
 // would force a defensive `!` or null-check onto every one of the ~30 call
 // sites throughout this file for no behavioral reason. Actually assigned by
-// resolveRegion() below, called as the very first line of main() — nothing
-// that reads REGION is ever invoked before main() starts (confirmed: every
-// other function in this file is a declaration, not top-level executed
-// code). This is a real, load-bearing assumption, not just a convenience —
-// don't add any top-level (module-scope, outside a function body) code that
-// reads REGION above main()'s own resolution call.
+// resolveRegion() below, called as the very first line of runGeoDiscovery()
+// — nothing that reads REGION is ever invoked before that resolution call
+// (confirmed: every other function in this file is a declaration, not
+// top-level executed code). This is a real, load-bearing assumption, not
+// just a convenience — don't add any top-level (module-scope, outside a
+// function body) code that reads REGION above that resolution call.
+//
+// Stage 1 (importable-function refactor, 05.09.2026): kept module-level
+// rather than threaded as an explicit parameter through this file's ~51
+// REGION call sites — the doc comment above already states the exact reason
+// (avoiding Region | undefined everywhere) and that reasoning is unchanged
+// by making the outer function importable. runGeoDiscovery() is not
+// reentrant/concurrent-safe as a result (a second overlapping call would
+// clobber this module's REGION mid-run) — a real constraint, not a
+// behavior change, since the CLI itself never ran concurrently either.
 let REGION: Region;
 
 // In-file REGIONS always wins on any key collision (checked first) — zero
 // behavior change for any of the 11 hand-tuned entries, since this fallback
 // branch is structurally unreachable for them. Only a regionArg that ISN'T
 // an in-file key ever reaches the city_registrations lookup (Stage A, city-
-// orchestrator plan, 02.09.2026). A real async function (not top-level
-// await, which this project's tsconfig doesn't enable — see main()'s own
-// call site) so this compiles cleanly without any tsconfig change.
-async function resolveRegion(): Promise<Region> {
+// orchestrator plan, 02.09.2026).
+async function resolveRegion(regionArg: string, db: admin.firestore.Firestore): Promise<Region> {
   const found = REGIONS[regionArg];
   if (found) return found;
-  const db = initFb();
   const doc = await db.collection('city_registrations').doc(regionArg).get();
   if (doc.exists) {
     try {
@@ -295,12 +306,10 @@ async function resolveRegion(): Promise<Region> {
       console.log(`📍 Loaded region "${regionArg}" from city_registrations (not in-file REGIONS).`);
       return resolved;
     } catch (err) {
-      console.error(`❌ city_registrations/${regionArg} failed validation: ${(err as Error).message}`);
-      process.exit(1);
+      throw new Error(`city_registrations/${regionArg} failed validation: ${(err as Error).message}`);
     }
   }
-  console.error(`Unknown region "${regionArg}". Known in-file: ${Object.keys(REGIONS).join(', ')}. Also checked city_registrations/${regionArg} — not found.`);
-  process.exit(1);
+  throw new Error(`Unknown region "${regionArg}". Known in-file: ${Object.keys(REGIONS).join(', ')}. Also checked city_registrations/${regionArg} — not found.`);
 }
 
 // Length windows (meters) per source.
@@ -334,24 +343,19 @@ const SAME_NAME_GAP_M = 100;
 const CROSS_NAME_GAP_M = 35;
 // Quality-over-quantity refinement (21.08.2026, per instruction): a short
 // named way (below the OLD LEN_SEG_MIN=500 floor — the new territory item C
-// opened up) is only kept if it's near a genuine special feature — a park/
-// garden polygon (already fetched for item A) or the coastline. Without
-// this, the low floor surfaces both real short promenades (Louis, 292m,
-// beside the Bahai Gardens) AND ~80 ordinary named walkways between
-// buildings (a real Israeli OSM addressing convention) at the same length
-// scale — no length threshold alone separates them. Starting number, not
-// derived — flagged for review, same as every other threshold in this file.
-const SPECIALNESS_RADIUS_M = 150;
-// Second refinement (21.08.2026): "within radius of ANY named park/garden"
-// was still too loose, verified live — Haifa has many small pocket gardens
-// between apartment blocks, so ordinary residential walkways (כורש 181m,
-// אוליפנט 209m, בן זכאי 116m, פרישמן 65m) sat near one without being a real
-// promenade. Fix: only a park/garden ring whose OWN area clears this
-// threshold counts as a specialness signal — a genuinely significant park
-// (the Bahai Gardens, beside Louis Promenade) vs. a tiny pocket garden.
-// Starting number, not derived — flagged for review, same discipline as
-// every other threshold in this file. Coastline proximity is unaffected
-// (a line has no area to threshold).
+// opened up) was only meant to survive if it's near a genuine special
+// feature — a significant park/garden ring, specifically (see below), not
+// just any named one: Haifa has many small pocket gardens between
+// apartment blocks, so ordinary residential walkways (כורש 181m, אוליפנט
+// 209m, בן זכאי 116m, פרישמן 65m) sat near one without being a real
+// promenade. Only a park/garden ring whose OWN area clears this threshold
+// counts as significant — a genuinely significant park (the Bahai Gardens,
+// beside Louis Promenade) vs. a tiny pocket garden. Starting number, not
+// derived — flagged for review, same discipline as every other threshold
+// in this file. Currently drives only the parkRingsSignificant stat/log
+// below (05.09.2026: the specialness gate that used to consume this
+// significance split — isNearSpecialFeature, and its coastline-points
+// feed — had zero live callers and was removed as confirmed dead code).
 const MIN_PARK_AREA_M2 = 5000; // ~0.5 hectare
 
 // ─── Recreational-quality gate (23.08.2026, Haifa drop-audit) ───────────────────────
@@ -787,13 +791,11 @@ async function discover(): Promise<{ candidates: Candidate[]; blockPolys: { poly
   }
 
   // 1.5) NEW, moved earlier (21.08.2026, quality-over-quantity refinement) —
-  // park/garden rings + coastline points, fetched now instead of at the end,
-  // because the short-named-way specialness gate below (step 2's final
-  // classification) needs them as input. buildParkLoopCandidates(parkRings)
-  // is still called at the very end (step 3), reusing these same rings — no
-  // second fetch.
+  // park/garden rings, fetched now instead of at the end, because the
+  // short-named-way specialness gate below (step 2's final classification)
+  // needs them as input. buildParkLoopCandidates(parkRings) is still called
+  // at the very end (step 3), reusing these same rings — no second fetch.
   const parkRings = await fetchParkGardenRings(decl, scopes);
-  const coastlinePts = await fetchCoastlinePoints(REGION.bbox);
   // Second refinement: only a SIGNIFICANT park/garden (area ≥ MIN_PARK_AREA_M2)
   // counts as a specialness signal — see that constant's own comment. Logged
   // so the real computed areas (not just the pass/fail outcome) are visible
@@ -1160,29 +1162,13 @@ async function fetchParkGardenRings(decl: string, scopes: string[]): Promise<Arr
 // walkable-graph rebuild machinery they depend on (22.08.2026 rewrite — see that block's own
 // header comment for why the polygon-ring approach was replaced).
 
-// Coastline (natural=coastline ways) — the second specialness signal for the
-// short-named-way gate (a real promenade along the shore, e.g. Bat Galim/Hof
-// HaCarmel-style, should survive even if a specific short fragment isn't
-// itself beside a park). Lines, not polygons — collected as raw vertices for
-// a coarse point-proximity check, matching this file's existing precision
-// level (inPoly/artifactReason are also point-based, not true segment-
-// distance tests).
-async function fetchCoastlinePoints(b: Region['bbox']): Promise<number[][]> {
-  console.log('fetching coastline (natural=coastline) for the short-way specialness signal …');
-  const bb = `${b.latMin},${b.lonMin},${b.latMax},${b.lonMax}`;
-  const data = await overpass(`[out:json][timeout:90];way["natural"="coastline"](${bb});out geom;`);
-  const pts: number[][] = [];
-  for (const e of data.elements) if (e.type === 'way' && e.geometry) for (const p of e.geometry) pts.push([p.lat, p.lon]);
-  return pts;
-}
-
 // ─── Sidewalk-hole fix: road reference network ───────────────────────────────────────
 // Flat road segments (geometry only, no routing graph needed) used purely as the
 // "is this footway running alongside a road" reference for the sidewalk detector below.
-// A simple bbox query, same precision level as fetchCoastlinePoints above — the
-// prototype detector this was validated against (city-mapping investigation) used the
-// same bbox-wide fetch and confirmed correct both directions (flags a known-tagged
-// sidewalk, does not flag known-genuine standalone promenade legs).
+// A simple bbox query — the prototype detector this was validated against
+// (city-mapping investigation) used the same bbox-wide fetch and confirmed
+// correct both directions (flags a known-tagged sidewalk, does not flag
+// known-genuine standalone promenade legs).
 type RoadSeg = { a: number[]; b: number[] };
 async function fetchRoadReferenceSegments(b: Region['bbox']): Promise<RoadSeg[]> {
   console.log('fetching road network (sidewalk-adjacency reference) …');
@@ -1233,20 +1219,6 @@ function ringAreaM2(ring: number[][]): number {
   let area = 0;
   for (let i = 0; i < xy.length; i++) { const [x1, y1] = xy[i], [x2, y2] = xy[(i + 1) % xy.length]; area += x1 * y2 - x2 * y1; }
   return Math.abs(area) / 2;
-}
-
-// The specialness gate itself: true if ANY point of a candidate's path sits
-// within SPECIALNESS_RADIUS_M of a SIGNIFICANT park/garden ring (area ≥
-// MIN_PARK_AREA_M2 — pre-filtered by the caller, not every named park/
-// garden) or a coastline vertex. Applied ONLY to named non-loop candidates
-// below the OLD LEN_SEG_MIN floor (see the final classification loop) —
-// named ways above that floor, and all loops, are unaffected.
-function isNearSpecialFeature(pts: number[][], significantParkRings: Array<{ ring: number[][] }>, coastlinePts: number[][]): boolean {
-  for (const p of pts) {
-    for (const pr of significantParkRings) for (const rp of pr.ring) if (hav(p, rp) < SPECIALNESS_RADIUS_M) return true;
-    for (const cp of coastlinePts) if (hav(p, cp) < SPECIALNESS_RADIUS_M) return true;
-  }
-  return false;
 }
 
 // ─────────────── park loop rebuild — real walkable-graph routing (22.08.2026) ───────────────
@@ -1903,10 +1875,20 @@ async function discoverRoundTrips(db: admin.firestore.Firestore, region: Region)
 // ─────────────────────────────── firebase ───────────────────────────────
 function initFb() { const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!); if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id }); return admin.firestore(); }
 
-async function main() {
-  REGION = await resolveRegion();
+// The importable entry point (Stage 1, 05.09.2026 — prep for the one-click
+// panel button). Same body as the old main(), parameterized: opts replaces
+// the process.argv-derived module-level flags, db replaces main()'s own
+// initFb() call so a caller (CLI entry block below, or a future server
+// process) supplies the Firestore handle. No process.exit() in here — an
+// unhandled failure throws, same as any other async function, so importing
+// this file never has a side effect of killing the caller's process.
+export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.firestore.Firestore): Promise<void> {
+  const APPLY = opts.apply;
+  const DELETE = opts.delete;
+  const ROUNDTRIPS = opts.roundtrips;
+  const SKIP_OSM = opts.skipOsm;
+  REGION = await resolveRegion(opts.region, db);
   console.log(`\n=== GEO-DISCOVERY — region: ${REGION.label} (${REGION.key}) ===`);
-  const db = initFb();
   const col = db.collection('official_routes');
 
   if (DELETE) {
@@ -1934,8 +1916,7 @@ async function main() {
   const knownAuthorityIds = new Set(authorityList.map(a => a.id));
   const resolvedAuthorityId = findAuthorityByCityName(REGION.label, authorityList);
   if (!resolvedAuthorityId) {
-    console.error(`❌ Could not resolve an authority for REGION.label="${REGION.label}" — checked against ${authorityList.length} known authorities. Aborting (no candidate in this run could pass the chokepoint without it).`);
-    process.exit(1);
+    throw new Error(`Could not resolve an authority for REGION.label="${REGION.label}" — checked against ${authorityList.length} known authorities. Aborting (no candidate in this run could pass the chokepoint without it).`);
   }
   console.log(`resolved authority: ${REGION.label} → ${resolvedAuthorityId}`);
 
@@ -2093,4 +2074,18 @@ async function main() {
   console.log(`\n✅ official_routes: ${created} created, ${updated} updated — all status:'pending', published:false (batch ${REGION.batchId}). NO street_segments broadcast, NO merge.`);
 }
 
-main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
+// ─────────────────────────────── CLI entry ───────────────────────────────
+// Only runs when this file is executed directly (npx tsx scripts/geo-discovery-routes.ts …),
+// never on import — so a caller (e.g. the one-click panel button, future work) can
+// `import { runGeoDiscovery } from './geo-discovery-routes'` without triggering argv
+// parsing, a Firestore init, or a process.exit() as a side effect of the import itself.
+if (require.main === module) {
+  const opts: GeoDiscoveryOptions = {
+    region: (process.argv.find(a => a.startsWith('--region=')) || '--region=zichron').split('=')[1],
+    apply: process.argv.includes('--apply'),
+    delete: process.argv.includes('--delete'),
+    roundtrips: process.argv.includes('--roundtrips'),
+    skipOsm: process.argv.includes('--skip-osm'),
+  };
+  runGeoDiscovery(opts, initFb()).then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
+}
