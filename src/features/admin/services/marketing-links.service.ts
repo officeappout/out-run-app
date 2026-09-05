@@ -34,6 +34,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { LinkDestinations } from './link-routing';
 
 const COLLECTION = 'marketing_links' as const;
 
@@ -47,6 +48,23 @@ const COLLECTION = 'marketing_links' as const;
  */
 export const LINK_TYPES = ['qr_physical', 'web', 'paid_ads', 'email', 'partner', 'other'] as const;
 export type LinkType = (typeof LINK_TYPES)[number];
+
+/**
+ * Global default destination URLs, used by any link with `useSmartLink:
+ * true` that doesn't override a given slot. Real, verified live listings
+ * (checked 05.09.2026) — NOT what's in `capacitor.config.ts`'s `appId`
+ * (`co.il.appout.outrun`), which does not match the actually-published
+ * Play Store package. The app is published under the dev shop's own
+ * developer account (`il.co.oversight.outapp` — "Oversight" is OUT's
+ * outsourced dev shop, see `finance-vendors.seed.ts`). Flagging this
+ * discrepancy explicitly — it is NOT something this change fixes.
+ */
+export const DEFAULT_LINK_DESTINATIONS: LinkDestinations = {
+  iosUrl: 'https://apps.apple.com/il/app/out/id6502558672',
+  androidUrl: 'https://play.google.com/store/apps/details?id=il.co.oversight.outapp',
+  desktopUrl: 'https://outrun.co.il',
+  fallbackUrl: 'https://outrun.co.il',
+};
 
 /**
  * A single trackable marketing link as persisted in Firestore.
@@ -78,6 +96,20 @@ export interface MarketingLink {
   linkType: LinkType;
   /** Free-text physical location, e.g. "גן העירוני, רעננה" — only meaningful for `qr_physical`. */
   physicalLocation: string | null;
+  /**
+   * Opt-in per link. `false`/absent (all pre-existing links) = untouched
+   * legacy behaviour — redirect to `oneLinkUrl`+utm (today's onelink.to
+   * flow). `true` = device-based routing straight to the store using
+   * `iosUrl`/`androidUrl`/`desktopUrl`/`fallbackUrl` (falling back to
+   * `DEFAULT_LINK_DESTINATIONS` per empty slot), skipping onelink.to
+   * entirely. Deliberately per-link, not a global switch — "no big-bang
+   * migration" per the agreed rollout plan.
+   */
+  useSmartLink: boolean;
+  iosUrl: string | null;
+  androidUrl: string | null;
+  desktopUrl: string | null;
+  fallbackUrl: string | null;
   clicksCount: number;
   isActive: boolean;
   notes?: string;
@@ -90,12 +122,19 @@ export interface MarketingLink {
 /** Payload accepted by `createMarketingLink`. */
 export interface CreateMarketingLinkInput {
   friendlyName: string;
-  oneLinkUrl: string;
+  /** Required unless `useSmartLink: true` — Smart Link mode routes via
+   * `iosUrl`/`androidUrl`/`desktopUrl`/`fallbackUrl` instead. */
+  oneLinkUrl?: string;
   utmSource?: string | null;
   utmMedium?: string | null;
   utmCampaign?: string | null;
   linkType?: LinkType;
   physicalLocation?: string | null;
+  useSmartLink?: boolean;
+  iosUrl?: string | null;
+  androidUrl?: string | null;
+  desktopUrl?: string | null;
+  fallbackUrl?: string | null;
   isActive?: boolean;
   notes?: string;
   createdBy?: string;
@@ -110,6 +149,11 @@ export interface UpdateMarketingLinkInput {
   utmCampaign?: string | null;
   linkType?: LinkType;
   physicalLocation?: string | null;
+  useSmartLink?: boolean;
+  iosUrl?: string | null;
+  androidUrl?: string | null;
+  desktopUrl?: string | null;
+  fallbackUrl?: string | null;
   isActive?: boolean;
   notes?: string;
   updatedBy?: string;
@@ -146,6 +190,11 @@ function rowToLink(id: string, data: Record<string, unknown>): MarketingLink {
     utmCampaign: nullishString(data.utmCampaign),
     linkType: toLinkType(data.linkType),
     physicalLocation: nullishString(data.physicalLocation),
+    useSmartLink: data.useSmartLink === true,
+    iosUrl: nullishString(data.iosUrl),
+    androidUrl: nullishString(data.androidUrl),
+    desktopUrl: nullishString(data.desktopUrl),
+    fallbackUrl: nullishString(data.fallbackUrl),
     clicksCount:
       typeof data.clicksCount === 'number' && Number.isFinite(data.clicksCount)
         ? data.clicksCount
@@ -201,18 +250,23 @@ export async function createMarketingLink(
   if (!input.friendlyName?.trim()) {
     throw new Error('friendlyName is required');
   }
-  if (!input.oneLinkUrl?.trim()) {
-    throw new Error('oneLinkUrl is required');
+  if (!input.useSmartLink && !input.oneLinkUrl?.trim()) {
+    throw new Error('oneLinkUrl is required unless useSmartLink is true');
   }
 
   const ref = await addDoc(collection(db, COLLECTION), {
     friendlyName: input.friendlyName.trim(),
-    oneLinkUrl: input.oneLinkUrl.trim(),
+    oneLinkUrl: input.oneLinkUrl?.trim() ?? '',
     utmSource: nullishString(input.utmSource ?? null),
     utmMedium: nullishString(input.utmMedium ?? null),
     utmCampaign: nullishString(input.utmCampaign ?? null),
     linkType: toLinkType(input.linkType),
     physicalLocation: nullishString(input.physicalLocation ?? null),
+    useSmartLink: input.useSmartLink === true,
+    iosUrl: nullishString(input.iosUrl ?? null),
+    androidUrl: nullishString(input.androidUrl ?? null),
+    desktopUrl: nullishString(input.desktopUrl ?? null),
+    fallbackUrl: nullishString(input.fallbackUrl ?? null),
     clicksCount: 0,
     isActive: input.isActive !== false,
     notes: typeof input.notes === 'string' ? input.notes : '',
@@ -264,6 +318,11 @@ export async function updateMarketingLink(
   if (input.utmCampaign !== undefined) patch.utmCampaign = nullishString(input.utmCampaign);
   if (input.linkType !== undefined) patch.linkType = toLinkType(input.linkType);
   if (input.physicalLocation !== undefined) patch.physicalLocation = nullishString(input.physicalLocation);
+  if (input.useSmartLink !== undefined) patch.useSmartLink = !!input.useSmartLink;
+  if (input.iosUrl !== undefined) patch.iosUrl = nullishString(input.iosUrl);
+  if (input.androidUrl !== undefined) patch.androidUrl = nullishString(input.androidUrl);
+  if (input.desktopUrl !== undefined) patch.desktopUrl = nullishString(input.desktopUrl);
+  if (input.fallbackUrl !== undefined) patch.fallbackUrl = nullishString(input.fallbackUrl);
   if (input.isActive !== undefined) patch.isActive = !!input.isActive;
   if (input.notes !== undefined) patch.notes = input.notes;
   if (input.updatedBy !== undefined) patch.updatedBy = input.updatedBy;
