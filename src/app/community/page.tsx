@@ -1495,7 +1495,32 @@ export default function CommunityPage() {
           />
         )}
         {competitionMode === 'group' && showGroupTab && (
-          <UnitLeagueTable myOrgId={myDeclaration.orgId} myUnitPathIds={myDeclaration.unitPathIds} />
+          <>
+            {/* Static, not a picker (David, 07.09.2026) — the underlying
+                rollup (unitLeagueRollup, functions/src/unitLeagueRollup.ts)
+                only ever computes ONE metric (avg daily steps); a real
+                picker here would offer switches that do nothing. Same visual
+                treatment as renderGroupAxisChooser's own read-only מדד/טווח
+                chips above (copied styling, not the same JSX call — that
+                function's actual chooser doesn't apply here, see
+                renderReserveSegment's own header comment on why). Exists
+                specifically so "יחידים" defaulting to streak and "קבוצות"
+                showing steps doesn't look like the same screen silently
+                ranking by two different things with no explanation.
+                Revisit → renderGroupAxisChooser/GroupAxis extension once the
+                rollup itself computes more than one metric — see §8 debt
+                item for the exact revisit trigger (5 units past the
+                3-participant floor). */}
+            <div className="flex items-center gap-2 mb-3" dir="rtl">
+              <span
+                className="whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-gray-500"
+                style={{ background: '#f1f4f8', border: '1px solid #e3e8ef' }}
+              >
+                מדד: <b className="text-gray-900">ממוצע צעדים יומי</b>
+              </span>
+            </div>
+            <UnitLeagueTable myOrgId={myDeclaration.orgId} myUnitPathIds={myDeclaration.unitPathIds} />
+          </>
         )}
       </div>
     );

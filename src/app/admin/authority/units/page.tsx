@@ -12,7 +12,7 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities, getAuthority, getChildrenByParent } from '@/features/admin/services/authority.service';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority, TenantType } from '@/types/admin-types';
-import { Loader2, Users, ChevronLeft, Building2, Globe, Plus, X, Shield, GraduationCap, Upload, AlertTriangle, CheckCircle, Trash2 } from 'lucide-react';
+import { Loader2, Users, ChevronLeft, Building2, Globe, Plus, X, Shield, GraduationCap, Upload, AlertTriangle, CheckCircle, Trash2, ArrowRight } from 'lucide-react';
 import { importHierarchyFromJSON, type HierarchyImportResult } from '@/features/admin/services/unit-import.service';
 import { getDeclaredCounts } from '@/features/admin/services/military-declared.service';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
@@ -474,6 +474,21 @@ export default function UnitsListPage() {
         </div>
         {selectedOrgId && (
           <div className="flex items-center gap-2">
+            {isSuperAdmin && (
+              // 07.09.2026 — the unit-detail page (units/[unitId]/page.tsx)
+              // has a "חזור" button in this exact spot; this page (viewing a
+              // specific org's unit list) was missing its own. Only shown for
+              // a superadmin — a regular authority manager (!isSuperAdmin)
+              // never had an org picker to go back TO in the first place
+              // (same gate as the org picker itself, line 400).
+              <button
+                onClick={() => setSelectedOrgId('')}
+                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm transition-all"
+              >
+                <ArrowRight size={14} />
+                חזור
+              </button>
+            )}
             <button
               onClick={() => setShowAddUnit(true)}
               className={`flex items-center gap-2 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg ${
