@@ -1484,6 +1484,19 @@ export const AGENDA_HYBRID_DAY_DISPLAY_ENABLED = true;
 // AGENDA_HYBRID_DAY_DISPLAY_ENABLED/isPlsCacheEnabled above.
 export const RUNNING_ONBOARDING_GATE_ENABLED = true;
 
+// SCHEDULE_BUILDER_DRAWER_ENABLED (schedule-drawer-screen-spec.md, stage 1:
+// screen + engine, no drag, no save) — default OFF. Hard requirement: off
+// means zero change to existing behavior — the drawer's only mount point
+// (a temporary entry button in TrainingPlannerOverlay) is itself gated by
+// this flag, so a false value means the button, the drawer, and the
+// weaverInput bridge are never rendered/called at all, not just hidden.
+// localStorage override, same pattern as RUNNING_ONBOARDING_GATE_ENABLED/
+// AGENDA_HYBRID_DAY_DISPLAY_ENABLED/isPlsCacheEnabled — helper function
+// lives in the consumer file (TrainingPlannerOverlay.tsx), not here, same
+// as isRunningOnboardingGateEnabled living in home/page.tsx rather than
+// this file: localStorage['OUT_SCHEDULE_DRAWER'] = '1' | '0'.
+export const SCHEDULE_BUILDER_DRAWER_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
