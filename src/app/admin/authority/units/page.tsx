@@ -430,9 +430,19 @@ export default function UnitsListPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${orgTheme.accentBg}`}>
-                        {orgVertical === 'military' ? <Shield size={18} className={orgTheme.accentText} /> : orgVertical === 'educational' ? <GraduationCap size={18} className={orgTheme.accentText} /> : <Building2 size={18} className={orgTheme.accentText} />}
-                      </div>
+                      {orgVertical === 'military' ? (
+                        // 07.09.2026 — brigade icons already exist (same
+                        // logoUrl field city logos use) and already show
+                        // elsewhere (unit rows, the drawer, the leaderboard);
+                        // this card grid was the one place still hardcoding
+                        // a generic Shield for every brigade. Same
+                        // UnitIconBadge component, not a new one.
+                        <UnitIconBadge unitId={org.id} iconUrl={org.logoUrl ?? null} name={name} size={40} />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${orgTheme.accentBg}`}>
+                          {orgVertical === 'educational' ? <GraduationCap size={18} className={orgTheme.accentText} /> : <Building2 size={18} className={orgTheme.accentText} />}
+                        </div>
+                      )}
                       <div>
                         <p className="font-black text-gray-900 group-hover:text-cyan-700 transition-colors">{name}</p>
                         <p className="text-xs text-slate-400">{count} יחידות</p>
