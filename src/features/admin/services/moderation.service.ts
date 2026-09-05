@@ -150,8 +150,12 @@ export async function approveEntity(
       } else {
         // battalion/company: p.computedUnitId IS the real, literal doc id —
         // same scheme Task 1's import uses for its own bn_/co_ ids.
+        // buildUnitDoc's own ASCII guard is real protection here too, not
+        // just belt-and-suspenders — a pending doc submitted before the
+        // computeUnitId() fix would still have an old-format Hebrew id.
         if (!p.orgId) throw new Error('Pending unit missing orgId for non-brigade level');
         const data = buildUnitDoc({
+          unitId: p.computedUnitId,
           name: p.proposedName,
           parentUnitId: p.parentUnitId,
           parentUnitPath: p.parentUnitPath,

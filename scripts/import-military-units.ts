@@ -51,6 +51,7 @@ dotenv.config({ path: '/Users/calisthenicsltd/Development/appout-1/.env.local' }
 import * as admin from 'firebase-admin';
 import { normalizeOrgName } from '../src/lib/org-name';
 import { buildUnitDoc } from '../src/lib/unit-doc';
+import { computeUnitId } from '../src/lib/unit-id';
 
 // Real existing brigade names carry the full "חטיבה 810 (ההרים - מרחבית)"
 // parenthetical (onAuthorityWrite.ts's extractArmAndStatus source text);
@@ -470,7 +471,17 @@ async function main() {
       console.log(`Skipping ${b.csvRow.unitId} — could not resolve parent brigade's real orgId.`);
       continue;
     }
+    // Numbered battalions keep the CSV's own unitId verbatim (bn_9307 —
+    // already ASCII, already the real designator). A nameless one
+    // (bn_u_<hebrew-slug> in the CSV) is NEVER used as the literal doc id —
+    // this is the exact incident found 05.09.2026: that convention silently
+    // never triggers onUnitWrite (Eventarc doesn't fire for non-ASCII doc
+    // ids). computeUnitId() replaces the raw-name segment with a hash.
+    const realUnitId = b.csvRow.displayNumber != null
+      ? computeUnitId({ level: 'battalion', displayNumber: b.csvRow.displayNumber })
+      : computeUnitId({ level: 'battalion', parentScope: orgId, name: b.csvRow.name });
     const data = buildUnitDoc({
+      unitId: realUnitId,
       name: b.csvRow.name,
       parentUnitId: null,
       parentUnitPath: [],
@@ -484,7 +495,7 @@ async function main() {
       .collection('tenants')
       .doc(orgId)
       .collection('units')
-      .doc(b.csvRow.unitId)
+      .doc(realUnitId)
       .set({ ...data, createdAt: admin.firestore.FieldValue.serverTimestamp() });
     created++;
   }

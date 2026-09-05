@@ -2,7 +2,9 @@
 
 import { collection, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc, where, type Unsubscribe } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { computePendingUnitId, type PendingUnitLevel } from '@/lib/pending-unit-id';
+import { computeUnitId, type UnitLevel } from '@/lib/unit-id';
+
+type PendingUnitLevel = UnitLevel;
 
 export interface PendingUnitDoc {
   id: string;
@@ -37,10 +39,14 @@ export async function submitPendingUnit(uid: string, input: SubmitPendingUnitInp
   const name = input.name.trim();
   if (!name) throw new Error('submitPendingUnit: name is required');
 
-  const computedUnitId = computePendingUnitId({
+  // A Task 2 submission never has a real military designator number — a
+  // soldier only ever types a name — so this always takes computeUnitId's
+  // hash branch, ASCII-safe by construction (05.09.2026 fix: the previous
+  // co_<parent>_<raw-hebrew-slug> convention silently never triggered
+  // onUnitWrite — same root cause as Task 1's bn_u_<hebrew-slug> incident).
+  const computedUnitId = computeUnitId({
     level: input.level,
-    orgId: input.orgId,
-    parentUnitId: input.parentUnitId,
+    parentScope: input.level === 'company' ? input.parentUnitId : input.orgId,
     name,
   });
 
