@@ -41,8 +41,13 @@ export interface MilitaryPersonaAnswers {
    * points at `pending_units/{pendingUnitId}` (07.09.2026: previously
    * nothing was ever written here, so a brand-new-unit submission left the
    * declaration completely unchanged — see useResolvedPersonaSummary.ts's
-   * own comment on why this exists). Cleared implicitly once orgId/unitId
-   * resolve to the real approved unit — never actively deleted.
+   * own comment on why this exists). NEVER deleted once set — once
+   * orgId/unitId resolve to the real approved unit, this field just stops
+   * mattering for display (useResolvedPersonaSummary only shows the
+   * "ממתין לאישור" label while the pending doc's own status is still
+   * 'pending'), but it stays on the document and costs one extra getDoc on
+   * every future resolution. Acceptable for now — see the review note on
+   * this same commit — not something to build active cleanup for yet.
    */
   pendingUnitId?: string;
 }

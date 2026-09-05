@@ -613,9 +613,14 @@ export default function HomePage() {
   // 07.09.2026: previously mounted only in community/page.tsx — a user who
   // never opens Community after their pending unit gets approved never
   // self-heals. Home is the screen almost everyone actually lands on after
-  // login, so mounting it here too closes that gap. Safe to double-mount:
-  // selfHeal()'s own early-continue checks (usePendingUnitSelfHeal.ts:45,54)
-  // make a second run on an already-healed declaration a no-op.
+  // login, so mounting it here too closes that gap. Double-mounting is
+  // idempotent in outcome, not race-free in execution: if Home and
+  // Community are BOTH mounted at once and auth state fires on both,
+  // selfHeal()'s early-continue checks (usePendingUnitSelfHeal.ts:45,54)
+  // compare against a snapshot read at the start of each call, so two
+  // concurrent calls can both miss each other's in-flight write and both
+  // still fire the same updateDoc — harmless (same end state, an extra
+  // updatedAt bump), but not a true no-op guard (code review, 07.09.2026).
   usePendingUnitSelfHeal();
   const [showMotivationBanner, setShowMotivationBanner] = useState(false);
   const { sessions: communitySessions, dismiss: dismissSession } = useCommunitySessionBanner();

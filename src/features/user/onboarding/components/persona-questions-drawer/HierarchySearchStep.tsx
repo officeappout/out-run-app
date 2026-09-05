@@ -237,7 +237,17 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
         parentUnitPath: pendingParentUnitPath,
         name,
       });
-      onChange({ ...value, pendingUnitId: created.id });
+      // A brigade-level submission (breadcrumb empty) must NOT spread the
+      // existing `value` — the user can reach "add new" at this level after
+      // already tapping a real, childless brigade via selectEntry() (its
+      // finish button appears, but they realize it's the wrong one and hit
+      // "not in list" instead of finishing). That leaves value.orgId set to
+      // the ABANDONED brigade; spreading it here would silently declare the
+      // user affiliated with it alongside the new pending submission (code
+      // review, 07.09.2026). Battalion/company submissions correctly keep
+      // the real parent chain — only the top-level case has nothing real to
+      // preserve.
+      onChange(pendingLevel === 'brigade' ? { pendingUnitId: created.id } : { ...value, pendingUnitId: created.id });
       setAddMode('submitted');
     } catch (err) {
       console.error('[HierarchySearchStep] submitPendingUnit failed:', err);
