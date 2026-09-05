@@ -184,8 +184,14 @@ export const strengthRuleFamily: RuleFamily<ScheduleDay[], StrengthValidateConte
 
 export type RunningReduceContext = RunningCriticalityContext;
 
+// No invalid-week guard here — validateRunningWeek already returns its own
+// RUN-INVALID-WEEK violation for a non-7-day week (confirmed by test: the
+// adapter-level guard was temporarily disabled and the malformed-week tests
+// still passed on the running side, unlike the strength side). The
+// contract relies on each family's own validator when it already provides
+// one; the adapter only adds the guard where the wrapped function is
+// missing it (strength's validateSchedule returns [] silently instead).
 function runningValidate(week: RunningWeekDay[], context: RunningWeekContext): RuleFamilyValidation {
-  if (week.length !== 7) return invalidWeekViolation('RUN-INVALID-WEEK', week.length);
   const result = validateRunningWeek(week, context);
   return {
     valid: result.valid,
