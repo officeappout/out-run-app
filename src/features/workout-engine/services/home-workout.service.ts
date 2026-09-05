@@ -944,7 +944,7 @@ export async function generateHomeWorkoutTrio(
     // scoredExercises is filtered by ContextualEngine for the *main* workout and
     // intentionally excludes warmup-role exercises; allExercises retains them.
     // warmup.service.ts has its own independent filter stack (passesEquipmentAndLocation,
-    // isSpecificPotentiationCandidate, etc.) so passing the full pool is safe.
+    // isPotentiationCandidate, etc.) so passing the full pool is safe.
     const mainExercises = workout.exercises.filter(
       ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown',
     );

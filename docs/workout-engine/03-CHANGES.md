@@ -923,3 +923,42 @@ the full failure-mode breakdown; **left for David** to decide the fix, per this 
 "measure and report, don't invent" pattern.
 
 **Commit:** local only, no push, per task instruction.
+
+---
+
+## Addendum 6 — Cleanup batch (dead code, temporary placeholder blocklist)
+
+Three small, independently-approved fixes from the 05.09.2026 follow-up investigation, landed
+ahead of the bigger Guarantee/tabata-sort fixes still pending David's review:
+
+1. **Removed `isSpecificPotentiationCandidate`** (`warmup.service.ts`) — confirmed dead code, zero
+   call sites anywhere in the codebase (only its own definition + 2 stale comments claiming Part B
+   used it). Part B's actual Tier-2 fallback is `isPotentiationCandidate` — a same-named-but-
+   different, live function a few lines above it, which is why the dead one was so easy to mistake
+   for live code. Its doc comment (now on `isPotentiationCandidate` instead, where it's actually
+   true) describes a real, narrow, **still-open** gap: `isPotentiationCandidate`'s early-return
+   bypass for `exerciseRole==='warmup'`/`mobility`-tagged exercises skips the zone/intensity check,
+   not just the equipment/location one — reached only as Part B's Tier-2 fallback (when Tier-1's
+   strict zone match finds nothing). Not fixed this pass — flagged for David.
+
+2. **TODO — `k10Af7WEV0qDqx8PY7xQ` temporary blocklist** (`warmup.service.ts`,
+   `KNOWN_PLACEHOLDER_EXERCISE_IDS`), added 05.09.2026: this exercise doc ("חימום פלג גוף עליון
+   לבדיקה") is real, uploaded video content but its description/goal copy is still placeholder
+   text ("סרטון חימום בדיקה" with typos, empty description/instructions) — see this same
+   addendum's parent investigation. After the exerciseRole gate fix (commit `71483317`), it became
+   the ONLY exercise in the whole catalog passing Track A1's `isFollowAlong && exerciseRole==='warmup'`
+   filter, so without this blocklist it would ship to every park general-mobility slot that falls
+   through to the video-guide track. **Remove this blocklist once David finishes real
+   description/goal copy for this doc — not before, and not left in "just in case" once it is.**
+
+3. **`ETMVVSpt0lIpeF3mkEn6`** ("מתיחות פלג גוף עליון לבדיקה" — the copy that never finished
+   uploading, `workflow.uploaded:false`) — David is deleting this one directly in the admin panel;
+   no code change needed (it already fails `NO_EXECUTION_METHODS`-adjacent checks / was never
+   reachable with a real video).
+
+**Verification:** `npx tsc --noEmit` — no new errors in either touched file (same pre-existing
+baseline). `npx vitest run src/features/workout-engine/services` — 86/86 pass, including the 4
+warmup follow-along regression tests from the earlier fix (unaffected by the dead-code removal or
+the blocklist addition, since neither touches the exerciseRole gate itself).
+
+**Commit:** local only, no push.

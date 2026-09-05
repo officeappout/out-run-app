@@ -56,6 +56,23 @@ const WARMUP_REST_SECONDS = 15;
 /** Gear IDs to exclude from warmup (bands, TRX, personal gear) */
 const BANNED_WARMUP_GEAR_IDS = new Set(['I1K30JehaxSx8dlBOZyd', '7gLOFEfgSvInu7lfLHxV']);
 
+/**
+ * TEMPORARY blocklist — TODO(David, added 05.09.2026): remove once the
+ * catalog doc's metadata is fixed, not before. `k10Af7WEV0qDqx8PY7xQ`
+ * ("חימום פלג גוף עליון לבדיקה") is real, uploaded video content (Bunny
+ * CDN, workflow.uploaded=true) but its description/goal fields are still
+ * draft/placeholder text ("סרטון חימום בדיקה" with typos, empty
+ * description/instructions) — see docs/workout-engine/03-CHANGES.md's
+ * 05.09.2026 entry for the full investigation. It is currently the ONLY
+ * exercise in the whole catalog that passes Track A1's exerciseRole==='warmup'
+ * + isFollowAlong gate (commit 71483317), so without this blocklist every
+ * park general-mobility slot that falls through to the video-guide track
+ * ships this placeholder to real users. Once David finishes real
+ * description/goal copy for this doc, delete this constant and its one
+ * call site below — do NOT leave it hardcoded "just in case."
+ */
+const KNOWN_PLACEHOLDER_EXERCISE_IDS = new Set(['k10Af7WEV0qDqx8PY7xQ']);
+
 // ============================================================================
 // WARMUP LADDER — David Scale constants & types
 // ============================================================================
@@ -381,8 +398,17 @@ const DEFAULT_MAX_POTENTIATION_WARMUPS = 2;
  * a warmup-tagged explosive exercise must not exceed the user's own level,
  * preventing CNS-overload priming.
  *
- * NOTE: This function is intentionally NOT used for Part B potentiation picks.
- * Part B uses isSpecificPotentiationCandidate which enforces stricter zone rules.
+ * ALSO used as Part B's Tier-2 fallback (`findCandidates`, below), when
+ * Tier-1's strict zone match finds nothing. Note the early-return bypass
+ * for `exerciseRole === 'warmup'` / `mobility`-tagged exercises (below) is
+ * live there too — it skips the zone check, not just the equipment/location
+ * one, so an at-or-below-level warmup/mobility exercise that's a poor
+ * intensity match for priming can still be selected once Tier-1 comes up
+ * empty. Corrected 05.09.2026: this doc comment previously (wrongly) said
+ * "NOTE: This function is intentionally NOT used for Part B potentiation
+ * picks. Part B uses isSpecificPotentiationCandidate" — that function was
+ * dead code (zero call sites) and has been removed; THIS function is what
+ * Part B actually falls back to.
  */
 function isPotentiationCandidate(ex: Exercise, userLevel: number): boolean {
   const level = ex.recommendedLevel ?? ex.targetPrograms?.[0]?.level ?? 0;
@@ -397,46 +423,6 @@ function isPotentiationCandidate(ex: Exercise, userLevel: number): boolean {
 
   const zone = getWarmupZone(userLevel);
   return numLevel >= zone.min && numLevel <= zone.max;
-}
-
-/**
- * Candidate checker specifically for Part B (specific potentiation warmups).
- *
- * Two key differences from isPotentiationCandidate:
- *
- *   1. NO early-return bypass for `exerciseRole === 'warmup'` or `'mobility'` tags.
- *      Warmup-tagged exercises must obey the zone just like any other exercise.
- *      Without this guard, skill-intensive prep drills (e.g. a muscle-up swing
- *      tagged as `exerciseRole: 'warmup'`) slip into the candidate pool for a
- *      different-domain session (e.g. a L9-Pull workout) simply because their
- *      level passes the loose ceiling check.
- *
- *   2. Tighter zone ceiling: max = domainSpecificUserLevel − 4 (vs. − 2 in
- *      getWarmupZone).  This guarantees genuinely low-intensity priming and
- *      prevents any exercise from encroaching on working-set intensity:
- *        L5  → zone [1, 1]    L9  → zone [1, 5]
- *        L12 → zone [1, 8]    L18 → zone [1, 14]
- *
- * @param ex                     Exercise to evaluate.
- * @param domainSpecificUserLevel User's actual level in the program this exercise
- *                               belongs to — NOT the global maxUserLevel.
- *                               Passed per-exercise by the Part B filter.
- */
-function isSpecificPotentiationCandidate(
-  ex: Exercise,
-  domainSpecificUserLevel: number,
-): boolean {
-  const raw = ex.recommendedLevel ?? ex.targetPrograms?.[0]?.level ?? 0;
-  const numLevel = typeof raw === 'number' ? raw : 0;
-
-  // Hard ceiling: exercise must not exceed the user's level in this domain.
-  if (numLevel > domainSpecificUserLevel) return false;
-
-  // Tighter potentiation zone: max = domainLevel − 4 (min 1).
-  // Deliberately more conservative than getWarmupZone (−2) to keep warmup
-  // intensity safely below working-set load.
-  const zoneMax = Math.max(1, domainSpecificUserLevel - 4);
-  return numLevel >= 1 && numLevel <= zoneMax;
 }
 
 /**
@@ -612,6 +598,7 @@ export function prependWarmupExercises(
   //   imperfect (non-location-matched) guide beats no warmup at all.
   const generalCandidates = allExercises.filter((ex) => {
     if (workoutIds.has(ex.id)) return false;
+    if (KNOWN_PLACEHOLDER_EXERCISE_IDS.has(ex.id)) return false; // see TODO at the constant's definition
     // Track A1 — follow-along video guides: need NO equipment, but MUST match the
     // location AND be tagged for this slot (exerciseRole === 'warmup') — only real
     // warmup video guides get the no-equipment treatment, and they are location-routed
@@ -642,6 +629,7 @@ export function prependWarmupExercises(
     // must not widen back out to core-tabata / recovery-session follow-along items.
     const emergencyCandidates = allExercises.filter(ex =>
       !workoutIds.has(ex.id) &&
+      !KNOWN_PLACEHOLDER_EXERCISE_IDS.has(ex.id) && // see TODO at the constant's definition
       ex.isFollowAlong === true &&
       ex.exerciseRole === 'warmup' &&
       (ex.execution_methods ?? ex.executionMethods ?? []).length > 0,
