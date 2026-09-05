@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import ClientLayout from "./ClientLayout";
 import NativeBootstrap from "@/components/system/NativeBootstrap";
+import MarketingAttributionBootstrap from "@/components/system/MarketingAttributionBootstrap";
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -51,6 +52,7 @@ export default function RootLayout({
       
       <body className="antialiased bg-[#F8FAFC]">
         <NativeBootstrap />
+        <MarketingAttributionBootstrap />
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

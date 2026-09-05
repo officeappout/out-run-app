@@ -39,9 +39,20 @@ import {
   createMarketingLink,
   deleteMarketingLink,
   getMarketingLinks,
+  LINK_TYPES,
+  type LinkType,
   type MarketingLink,
   updateMarketingLink,
 } from '@/features/admin/services/marketing-links.service';
+
+const LINK_TYPE_LABELS: Record<LinkType, string> = {
+  qr_physical: 'QR פיזי (רולאפ/שילוט)',
+  web: 'קישור אתר',
+  paid_ads: 'פרסום ממומן',
+  email: 'מייל',
+  partner: 'שותף',
+  other: 'אחר',
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -241,6 +252,7 @@ export default function AdminMarketingLinksPage() {
             <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">שם פנימי</th>
+                <th className="px-4 py-3">ערוץ</th>
                 <th className="px-4 py-3">מקור</th>
                 <th className="px-4 py-3">קמפיין</th>
                 <th className="px-4 py-3">מדיה</th>
@@ -253,7 +265,7 @@ export default function AdminMarketingLinksPage() {
             <tbody className="divide-y divide-slate-100">
               {loading && links.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
                     <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" aria-hidden />
                     טוען קישורים…
                   </td>
@@ -261,7 +273,7 @@ export default function AdminMarketingLinksPage() {
               )}
               {!loading && links.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
                     אין עדיין קישורים. לחץ "קישור חדש" כדי להתחיל.
                   </td>
                 </tr>
@@ -277,6 +289,14 @@ export default function AdminMarketingLinksPage() {
                       <div className="mt-0.5 max-w-xs truncate text-xs text-slate-500" title={link.oneLinkUrl}>
                         {link.oneLinkUrl}
                       </div>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="text-slate-700">{LINK_TYPE_LABELS[link.linkType]}</div>
+                      {link.physicalLocation && (
+                        <div className="mt-0.5 max-w-xs truncate text-xs text-slate-500" title={link.physicalLocation}>
+                          {link.physicalLocation}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">
                       {link.utmSource || <span className="text-slate-400">—</span>}
@@ -422,6 +442,8 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
   const [utmSource, setUtmSource] = useState('');
   const [utmMedium, setUtmMedium] = useState('');
   const [utmCampaign, setUtmCampaign] = useState('');
+  const [linkType, setLinkType] = useState<LinkType>('web');
+  const [physicalLocation, setPhysicalLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -438,6 +460,8 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
       setUtmSource(link.utmSource ?? '');
       setUtmMedium(link.utmMedium ?? '');
       setUtmCampaign(link.utmCampaign ?? '');
+      setLinkType(link.linkType);
+      setPhysicalLocation(link.physicalLocation ?? '');
       setNotes(link.notes ?? '');
       setIsActive(link.isActive);
     } else {
@@ -446,6 +470,8 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
       setUtmSource('');
       setUtmMedium('');
       setUtmCampaign('');
+      setLinkType('web');
+      setPhysicalLocation('');
       setNotes('');
       setIsActive(true);
     }
@@ -490,6 +516,8 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
           utmSource: utmSource.trim() || null,
           utmMedium: utmMedium.trim() || null,
           utmCampaign: utmCampaign.trim() || null,
+          linkType,
+          physicalLocation: physicalLocation.trim() || null,
           notes,
           isActive,
         });
@@ -500,6 +528,8 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
           utmSource: utmSource.trim() || null,
           utmMedium: utmMedium.trim() || null,
           utmCampaign: utmCampaign.trim() || null,
+          linkType,
+          physicalLocation: physicalLocation.trim() || null,
           notes,
           isActive,
         });
@@ -511,7 +541,7 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
     } finally {
       setSaving(false);
     }
-  }, [friendlyName, oneLinkUrl, utmSource, utmMedium, utmCampaign, notes, isActive, isEdit, link, onSaved]);
+  }, [friendlyName, oneLinkUrl, utmSource, utmMedium, utmCampaign, linkType, physicalLocation, notes, isActive, isEdit, link, onSaved]);
 
   if (!open) return null;
 
@@ -590,6 +620,29 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
                 value={utmCampaign}
                 onChange={(e) => setUtmCampaign(e.target.value)}
                 placeholder="spring_2026"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="ערוץ">
+              <select
+                value={linkType}
+                onChange={(e) => setLinkType(e.target.value as LinkType)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              >
+                {LINK_TYPES.map((t) => (
+                  <option key={t} value={t}>{LINK_TYPE_LABELS[t]}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="מיקום פיזי (ל-QR פיזי בלבד)">
+              <input
+                type="text"
+                value={physicalLocation}
+                onChange={(e) => setPhysicalLocation(e.target.value)}
+                placeholder="גן העירוני, רעננה"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
               />
             </Field>

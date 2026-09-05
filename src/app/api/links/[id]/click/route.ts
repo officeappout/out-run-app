@@ -31,7 +31,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { FieldValue } from 'firebase-admin/firestore';
+import { createHash } from 'crypto';
+import { FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { buildTrackingUrl } from '@/features/admin/services/marketing-links.service';
 
@@ -40,6 +41,56 @@ export const runtime = 'nodejs';
 
 const COLLECTION = 'marketing_links' as const;
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, max-age=0' } as const;
+
+/** Per-click records are analytics detail, not a permanent record — auto-expire. */
+const CLICK_RECORD_TTL_DAYS = 30;
+
+/**
+ * One-way, salted hash — never persist a raw IP. The salt lives in
+ * `LINK_CLICK_IP_SALT`; the literal fallback only degrades the hash's
+ * resistance to rainbow-table reversal, it never blocks the write.
+ */
+function hashIp(ip: string): string {
+  const salt = process.env.LINK_CLICK_IP_SALT || 'out-run-unsalted-fallback-do-not-rely-on-this';
+  return createHash('sha256').update(`${salt}:${ip}`).digest('hex');
+}
+
+function derivePlatform(userAgent: string | null): 'ios' | 'android' | 'web' {
+  if (!userAgent) return 'web';
+  const ua = userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'web';
+}
+
+/**
+ * Best-effort per-click record for future install/user matching (link_id ↔
+ * user_id join work). Written to `marketing_links/{id}/clicks/{autoId}` —
+ * never blocks the redirect; caller wraps this in its own try/catch.
+ */
+async function recordClickEvent(
+  linkRef: DocumentReference,
+  request: NextRequest,
+): Promise<void> {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const ip = (forwarded ? forwarded.split(',')[0] : null)?.trim() || 'unknown';
+  const userAgent = request.headers.get('user-agent');
+
+  const expireAt = new Date();
+  expireAt.setDate(expireAt.getDate() + CLICK_RECORD_TTL_DAYS);
+
+  await linkRef.collection('clicks').add({
+    linkId: linkRef.id,
+    timestamp: FieldValue.serverTimestamp(),
+    userAgent: userAgent ? userAgent.slice(0, 300) : null,
+    ipHash: hashIp(ip),
+    platform: derivePlatform(userAgent),
+    // Requires a Firestore TTL policy on `clicks.expireAt` (collection
+    // group) enabled in the Firebase console/CLI — this field alone does
+    // not auto-delete anything; see docs/marketing-attribution.md.
+    expireAt: Timestamp.fromDate(expireAt),
+  });
+}
 
 interface MarketingLinkRow {
   friendlyName?: string;
@@ -84,6 +135,11 @@ async function handleClick(
         lastClickAt: FieldValue.serverTimestamp(),
         inactiveClicksCount: FieldValue.increment(1),
       });
+      try {
+        await recordClickEvent(ref, request);
+      } catch (clickErr) {
+        console.error('[api/links/click] click-record write failed:', clickErr);
+      }
       return NextResponse.json(
         { error: 'link disabled', id },
         { status: 410, headers: NO_STORE_HEADERS },
@@ -94,6 +150,11 @@ async function handleClick(
       clicksCount: FieldValue.increment(1),
       lastClickAt: FieldValue.serverTimestamp(),
     });
+    try {
+      await recordClickEvent(ref, request);
+    } catch (clickErr) {
+      console.error('[api/links/click] click-record write failed:', clickErr);
+    }
   } catch (err) {
     console.error('[api/links/click] increment failed:', err);
     // Fall through — we still want to redirect the user even if the
@@ -117,19 +178,30 @@ async function handleClick(
     utmCampaign: row?.utmCampaign ?? null,
   });
 
-  // Forward any extra UTM-like params the caller appended onto our URL
-  // (other than our own `redirect` / `append` flags) so an A/B variant
-  // or sub-source attribution can ride through to the landing page.
+  // Always carry our own `link_id` onto the target URL (independent of
+  // `append`) so `captureMarketingAttribution` can record it even when a
+  // link has no utm_* fields filled in — the common case for a physical
+  // QR code where only `friendlyName` + a city/location note are set.
+  //
+  // Also forward any extra UTM-like params the caller appended onto our
+  // URL (other than our own `redirect` / `append` flags, and only when
+  // `append=1`) so an A/B variant or sub-source attribution can ride
+  // through to the landing page.
   let target = baseTrackingUrl;
-  if (target && shouldAppend) {
+  if (target) {
     try {
       const targetUrl = new URL(target);
-      url.searchParams.forEach((value, key) => {
-        if (key === 'redirect' || key === 'append') return;
-        if (!targetUrl.searchParams.has(key)) {
-          targetUrl.searchParams.set(key, value);
-        }
-      });
+      if (!targetUrl.searchParams.has('link_id')) {
+        targetUrl.searchParams.set('link_id', id);
+      }
+      if (shouldAppend) {
+        url.searchParams.forEach((value, key) => {
+          if (key === 'redirect' || key === 'append') return;
+          if (!targetUrl.searchParams.has(key)) {
+            targetUrl.searchParams.set(key, value);
+          }
+        });
+      }
       target = targetUrl.toString();
     } catch {
       // Non-absolute URL — best-effort, leave as-is.

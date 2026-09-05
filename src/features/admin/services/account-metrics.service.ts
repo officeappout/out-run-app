@@ -162,9 +162,15 @@ export async function addAccountMetric(
 }
 
 /**
- * Count of app users attributed to a marketing campaign (UTM).
- * A user qualifies when marketingAttribution.campaign is set
- * (i.e. they arrived via a link carrying utm_campaign).
+ * Count of app users attributed to any non-organic marketing touchpoint —
+ * a link click, a paid ad, a QR scan, anything that isn't a direct/typed
+ * visit. Qualifies on `marketingAttribution.source != 'organic'` rather
+ * than "campaign is set": a physical-QR link commonly has utm_source (or
+ * just a `linkId`) filled in but no utm_campaign at all, so filtering on
+ * campaign specifically would silently undercount exactly the rollup/QR
+ * use case this metric exists to track. `source` is never left null —
+ * `buildAttributionPayload()` always writes either a real value or the
+ * literal string 'organic' — so this is a safe, always-populated field.
  *
  * Uses getCountFromServer — O(1) read cost, no document payloads.
  * Returns 0 on any error so the KPI card degrades gracefully.
@@ -173,7 +179,7 @@ export async function getMarketingAttributedCount(): Promise<number> {
   try {
     const q = query(
       collection(db, 'users'),
-      where('marketingAttribution.campaign', '!=', null),
+      where('marketingAttribution.source', '!=', 'organic'),
     );
     const snap = await getCountFromServer(q);
     return snap.data().count;
