@@ -133,6 +133,17 @@ interface Region {
    *  without this field simply gets no boundary clip (fail-open, same as every
    *  region before this field existed). */
   boundaryClipWikidata?: string;
+  /** Raw numeric OSM admin_level=8 relation id — a DIFFERENT identifier space
+   *  than boundaryClipWikidata's Wikidata QID (see city-registrations.ts's own
+   *  header gap note). Used as a fallback boundary-clip source (see the clip
+   *  activation site below) when boundaryClipWikidata isn't set — which is
+   *  every city_registrations-sourced region today, since the Add-City screen
+   *  captures this field but not a Wikidata id. Flows through automatically
+   *  from city_registrations via validateCityRegistration's passthrough
+   *  schema; declared here so TypeScript (not just runtime data) knows about
+   *  it. Optional — a region with neither field gets no boundary clip,
+   *  unchanged from today. */
+  adminRelationId?: number;
   /** Extra bounding boxes to also sweep (e.g. an adjacent nature park not in the admin area). */
   extraBboxes?: Array<{ latMin: number; lonMin: number; latMax: number; lonMax: number }>;
   /** Overall bbox that encloses the whole region — used for DEM tiles + blocking-polygon fetch. */
@@ -1604,6 +1615,17 @@ function artifactReason(pts: number[][], blockPolys: { poly: number[][]; label: 
 }
 
 // ─────────────────── municipal-boundary clip (standing capability) ───────────────────
+// Shape of the one relation element + its member refs, as returned by the two
+// boundary-fetch queries below (out geom on a single administrative relation
+// plus its member ways) — just enough to type the `.find`/`.members` access
+// without a bare `any`. `overpass()` itself stays untyped (its own return
+// shape varies per caller across this file), so this is a local cast target,
+// not a claim about Overpass's full response shape.
+interface OverpassRelationElement {
+  type: 'relation';
+  id: number;
+  members?: Array<{ type: string; ref: number; role: string }>;
+}
 // Fetches the real admin boundary polygon for a region's `boundaryClipWikidata` (when
 // set), used ONLY as a post-discovery clipping filter — see the Region interface's
 // doc comment for why this is deliberately never used as discovery scope. Any region
@@ -1613,7 +1635,30 @@ function artifactReason(pts: number[][], blockPolys: { poly: number[][]; label: 
 async function fetchAdminBoundaryPoly(wikidataId: string): Promise<number[][] | null> {
   const q = `[out:json][timeout:120];rel["wikidata"="${wikidataId}"]["boundary"="administrative"];out geom;(._;>;);out geom;`;
   const data = await overpass(q);
-  const rel = data.elements.find((e: any) => e.type === 'relation');
+  const elements: OverpassRelationElement[] = data.elements;
+  const rel = elements.find((e) => e.type === 'relation');
+  if (!rel) return null;
+  const wayById = new Map<number, number[][]>();
+  for (const e of data.elements) if (e.type === 'way' && e.geometry) wayById.set(e.id, wayGeom(e));
+  const outerWays: number[][][] = [];
+  for (const m of rel.members || []) if (m.type === 'way' && m.role !== 'inner' && wayById.has(m.ref)) outerWays.push(wayById.get(m.ref)!);
+  const rings = stitch(outerWays, 200);
+  if (!rings.length) return null;
+  return rings.reduce((a, b) => b.length > a.length ? b : a);
+}
+// Sibling of fetchAdminBoundaryPoly, above — same assembly logic (outer ways →
+// stitch → largest ring), just keyed by the raw OSM relation id directly
+// instead of a wikidata tag lookup. Added (05.09.2026, cross-city-bleed fix)
+// so a city_registrations-sourced region (which stores adminRelationId, never
+// boundaryClipWikidata — see the Region interface's own field doc comment)
+// can still get a real boundary clip. Query shape proved live against
+// Herzliya's relation/1382820 during the investigation this fix responds to
+// (221-point ring, correctly assembled).
+async function fetchAdminBoundaryPolyByRelationId(relationId: number): Promise<number[][] | null> {
+  const q = `[out:json][timeout:120];relation(${relationId});out geom;(._;>;);out geom;`;
+  const data = await overpass(q);
+  const elements: OverpassRelationElement[] = data.elements;
+  const rel = elements.find((e) => e.type === 'relation');
   if (!rel) return null;
   const wayById = new Map<number, number[][]>();
   for (const e of data.elements) if (e.type === 'way' && e.geometry) wayById.set(e.id, wayGeom(e));
@@ -1896,9 +1941,19 @@ async function main() {
 
   console.log('loading Terrain-RGB DEM tiles …'); await loadTiles(); console.log(`  decoded ${tiles.size} tiles`);
   let boundaryPoly: number[][] | null = null;
+  // Prefer boundaryClipWikidata (hand-curated in-file regions); fall back to
+  // adminRelationId (05.09.2026, cross-city-bleed fix) for a city_registrations-
+  // sourced region, which has the OSM relation id but no Wikidata QID — see
+  // each field's own doc comment on the Region interface. outsideBoundaryReason
+  // and the per-candidate filtering loop below are unchanged either way — they
+  // only ever see a resolved polygon or null, never which source it came from.
   if (REGION.boundaryClipWikidata) {
     console.log(`fetching admin boundary polygon (wikidata=${REGION.boundaryClipWikidata}, clip-filter only — not used as discovery scope) …`);
     boundaryPoly = await fetchAdminBoundaryPoly(REGION.boundaryClipWikidata);
+    console.log(boundaryPoly ? `  boundary polygon loaded: ${boundaryPoly.length} vertices` : '  ⚠ boundary polygon not found — clip filter skipped');
+  } else if (REGION.adminRelationId) {
+    console.log(`fetching admin boundary polygon (relation/${REGION.adminRelationId}, clip-filter only — not used as discovery scope) …`);
+    boundaryPoly = await fetchAdminBoundaryPolyByRelationId(REGION.adminRelationId);
     console.log(boundaryPoly ? `  boundary polygon loaded: ${boundaryPoly.length} vertices` : '  ⚠ boundary polygon not found — clip filter skipped');
   }
   let candidates: Candidate[] = [];
