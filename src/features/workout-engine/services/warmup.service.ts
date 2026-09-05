@@ -594,8 +594,12 @@ export function prependWarmupExercises(
   //   on LOCATION ONLY (followAlongMatchesLocation): a park rotation video must not
   //   surface at home, and vice versa. `locationMapping` lets one guide cover several
   //   locations (e.g. a home guide → office / school). The distinguisher is
-  //   `isFollowAlong`, NOT `exerciseRole` — only real video guides skip the equipment
-  //   gate; anything else takes the normal path.
+  //   `isFollowAlong` AND `exerciseRole === 'warmup'` — real video guides skip the
+  //   equipment gate, but only the ones actually meant for this slot; anything else
+  //   takes the normal path. (Corrected 05.09.2026 — `isFollowAlong` alone let the 4
+  //   core-tabata follow-along items and the 7 full recovery-session videos leak into
+  //   this 1-2 minute slot in ~28% of a 3,780-workout snapshot sample. See
+  //   docs/workout-engine/09-CORE-TABATA.md's follow-up investigation.)
   //
   //   Exercises that carry only the `mobility` tag (but are not follow-along) still
   //   pass through passesEquipmentAndLocation because they may have real equipment
@@ -609,10 +613,10 @@ export function prependWarmupExercises(
   const generalCandidates = allExercises.filter((ex) => {
     if (workoutIds.has(ex.id)) return false;
     // Track A1 — follow-along video guides: need NO equipment, but MUST match the
-    // location. The distinguisher is `isFollowAlong`, NOT `exerciseRole`: only real
-    // video guides get the no-equipment treatment, and they are location-routed so a
-    // park rotation video never surfaces at home (and vice versa).
-    if (ex.isFollowAlong === true) return followAlongMatchesLocation(ex);
+    // location AND be tagged for this slot (exerciseRole === 'warmup') — only real
+    // warmup video guides get the no-equipment treatment, and they are location-routed
+    // so a park rotation video never surfaces at home (and vice versa).
+    if (ex.isFollowAlong === true && ex.exerciseRole === 'warmup') return followAlongMatchesLocation(ex);
     // Track A2 — mobility-tagged exercises: still must pass location/equipment.
     if ((ex.tags as string[] ?? []).includes('mobility')) {
       return passesEquipmentAndLocation(ex);
@@ -634,9 +638,12 @@ export function prependWarmupExercises(
     // we have no footage there). Rather than silently drop the general-mobility slot,
     // fall back to ANY follow-along guide with the location ignored. Joint rotations
     // are location-agnostic, so an imperfect (non-location-matched) guide beats none.
+    // Same exerciseRole==='warmup' scope as the primary filter above — the fallback
+    // must not widen back out to core-tabata / recovery-session follow-along items.
     const emergencyCandidates = allExercises.filter(ex =>
       !workoutIds.has(ex.id) &&
       ex.isFollowAlong === true &&
+      ex.exerciseRole === 'warmup' &&
       (ex.execution_methods ?? ex.executionMethods ?? []).length > 0,
     );
     const fallback = pickWithVariety(emergencyCandidates);
