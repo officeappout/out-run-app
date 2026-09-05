@@ -230,9 +230,24 @@ interface AgendaDayCardProps {
    */
   actualWorkoutsMap?: Record<string, WorkoutHistoryEntry[]>;
   rowRef?: (el: HTMLDivElement | null) => void;
+  /**
+   * Overrides the running side for this date, bypassing the internal
+   * `profile.running.activeProgram` (global store) read entirely. Strength
+   * already has this escape hatch via `scheduleMap` (a parent-supplied,
+   * date-keyed batch); running had none — this closes that gap. `undefined`
+   * (the default, every existing caller) preserves current behavior
+   * byte-for-byte — the override is only consulted when explicitly passed,
+   * even as `null` (meaning "show no running workout this date," distinct
+   * from "not provided, use the real store"). Added for
+   * ScheduleBuilderDrawer (schedule-drawer-screen-spec.md) to preview an
+   * unsaved `weaveWeek` proposal, which has no calendar dates or Firestore
+   * record yet — the global store can't answer for a week that was never
+   * saved.
+   */
+  runningOverride?: ResolvedRunningWorkout | null;
 }
 
-interface ResolvedRunningWorkout {
+export interface ResolvedRunningWorkout {
   name: string;
   category?: string;
   status: string;
@@ -840,6 +855,7 @@ export default function AgendaDayCard({
   scheduleMap,
   actualWorkoutsMap,
   rowRef,
+  runningOverride,
 }: AgendaDayCardProps) {
   const { profile } = useUserStore();
   /**
@@ -857,8 +873,11 @@ export default function AgendaDayCard({
   const dayShort = HEBREW_DAY_SHORT[dayLetter] ?? dayLetter;
   const dayNum = d.getDate();
 
-  // Resolve running workout for this date
+  // Resolve running workout for this date — `runningOverride`, when passed
+  // (even `null`), bypasses the global-store read entirely. See its own doc
+  // on AgendaDayCardProps.
   const runningWorkout = useMemo(() => {
+    if (runningOverride !== undefined) return runningOverride;
     const running = profile?.running;
     if (!running?.activeProgram?.schedule) return null;
     return resolveRunningEntry(
@@ -868,7 +887,7 @@ export default function AgendaDayCard({
       running.activeProgram.startDate,
       running.activeProgram.currentWeek ?? 1,
     );
-  }, [date, profile?.running]);
+  }, [date, profile?.running, runningOverride]);
 
   const hasRunning = !!runningWorkout;
   const runCompleted = runningWorkout?.status === 'completed';
