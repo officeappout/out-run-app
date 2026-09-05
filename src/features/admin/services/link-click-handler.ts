@@ -206,12 +206,7 @@ export async function handleLinkClick(
     target = resolved ?? '';
 
     if (target && device === 'android') {
-      const referrerRaw = buildAndroidReferrerRaw({
-        linkId: id,
-        clickId,
-        utmSource: row.utmSource ?? null,
-        utmCampaign: row.utmCampaign ?? null,
-      });
+      const referrerRaw = buildAndroidReferrerRaw({ linkId: id, clickId });
       target = appendAndroidReferrer(target, referrerRaw);
       androidReferrerSent = referrerRaw;
     }

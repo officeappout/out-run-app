@@ -126,12 +126,17 @@ describe('handleLinkClick — bot filtering', () => {
 });
 
 describe('handleLinkClick — Smart Link (useSmartLink: true)', () => {
-  it('routes an Android user straight to Play with a well-formed referrer, skipping onelink.to', async () => {
+  it('routes an Android user straight to Play with a link_id+click_id-only referrer, skipping onelink.to', async () => {
     const { db } = makeFakeDb({
       linkData: {
         isActive: true,
         useSmartLink: true,
         androidUrl: 'https://play.google.com/store/apps/details?id=il.co.oversight.outapp',
+        // Deliberately present on the link doc but must NOT ride the
+        // referrer — link_id alone already identifies source/campaign in
+        // our own marketing_links doc (David's Smart Link feedback,
+        // trimmed 05.09.2026: utm_* in the referrer was redundant and,
+        // for non-ASCII values, wasteful against Play's length limit).
         utmSource: 'facebook',
         utmCampaign: 'spring_2026',
       },
@@ -144,10 +149,19 @@ describe('handleLinkClick — Smart Link (useSmartLink: true)', () => {
 
     expect(res.status).toBe(302);
     const location = res.headers.get('location')!;
-    expect(location).toContain('play.google.com/store/apps/details?id=il.co.oversight.outapp');
-    expect(location).toContain('referrer=link_id%3Dabc123%26click_id%3D');
-    expect(location).toContain('utm_source%3Dfacebook');
-    expect(location).toContain('utm_campaign%3Dspring_2026');
+    const parsed = new URL(location);
+    expect(parsed.origin + parsed.pathname).toBe('https://play.google.com/store/apps/details');
+    expect(parsed.searchParams.get('id')).toBe('il.co.oversight.outapp');
+
+    // Decode the referrer param back to the raw payload the app-side
+    // Install Referrer API will actually receive, and assert its exact
+    // shape — link_id + click_id, nothing else.
+    const referrer = parsed.searchParams.get('referrer')!;
+    const referrerParams = new URLSearchParams(referrer);
+    expect(referrerParams.get('link_id')).toBe('abc123');
+    expect(referrerParams.get('click_id')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(Array.from(referrerParams.keys()).sort()).toEqual(['click_id', 'link_id']);
+
     expect(location).not.toContain('onelink.to');
   });
 

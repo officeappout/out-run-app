@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   appendAndroidReferrer,
   buildAndroidReferrerRaw,
   detectDeviceBucket,
+  MAX_ANDROID_REFERRER_LENGTH,
   resolveDestinationUrl,
   type LinkDestinations,
 } from '../link-routing';
@@ -63,14 +64,9 @@ describe('resolveDestinationUrl', () => {
 });
 
 describe('buildAndroidReferrerRaw + appendAndroidReferrer', () => {
-  it('builds the exact referrer shape from the spec and embeds it correctly', () => {
-    const raw = buildAndroidReferrerRaw({
-      linkId: 'abc123',
-      clickId: 'uuid-1',
-      utmSource: 'facebook',
-      utmCampaign: 'spring_2026',
-    });
-    expect(raw).toBe('link_id=abc123&click_id=uuid-1&utm_source=facebook&utm_campaign=spring_2026');
+  it('builds link_id + click_id ONLY — no utm_source/utm_campaign', () => {
+    const raw = buildAndroidReferrerRaw({ linkId: 'abc123', clickId: 'uuid-1' });
+    expect(raw).toBe('link_id=abc123&click_id=uuid-1');
 
     const finalUrl = appendAndroidReferrer(
       'https://play.google.com/store/apps/details?id=il.co.oversight.outapp',
@@ -82,30 +78,36 @@ describe('buildAndroidReferrerRaw + appendAndroidReferrer', () => {
     expect(parsed.searchParams.get('referrer')).toBe(raw);
     // And the serialized URL carries the double-encoded form Google Play expects
     // (inner `&`/`=` show up as %26/%3D in the literal query string).
-    expect(finalUrl).toContain('referrer=link_id%3Dabc123%26click_id%3Duuid-1');
+    expect(finalUrl).toBe(
+      'https://play.google.com/store/apps/details?id=il.co.oversight.outapp&referrer=link_id%3Dabc123%26click_id%3Duuid-1',
+    );
   });
 
-  it('omits utm_source/utm_campaign entirely when not present, rather than emitting empty values', () => {
-    const raw = buildAndroidReferrerRaw({
-      linkId: 'abc123',
-      clickId: 'uuid-1',
-      utmSource: null,
-      utmCampaign: null,
-    });
-    expect(raw).toBe('link_id=abc123&click_id=uuid-1');
-  });
-
-  it('encodeURIComponent-escapes a value that itself contains & or =', () => {
-    const raw = buildAndroidReferrerRaw({
-      linkId: 'abc123',
-      clickId: 'uuid-1',
-      utmSource: null,
-      utmCampaign: 'a&b=c',
-    });
-    expect(raw).toBe('link_id=abc123&click_id=uuid-1&utm_campaign=a%26b%3Dc');
+  it('encodeURIComponent-escapes a linkId/clickId that itself contains & or =', () => {
+    const raw = buildAndroidReferrerRaw({ linkId: 'a&b=c', clickId: 'uuid-1' });
+    expect(raw).toBe('link_id=a%26b%3Dc&click_id=uuid-1');
   });
 
   it('falls back to the raw androidUrl (no throw) when given a non-absolute URL', () => {
     expect(appendAndroidReferrer('not-a-url', 'link_id=x')).toBe('not-a-url');
+  });
+
+  it('logs clearly (but still returns the string) when the raw referrer exceeds the length limit', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const hugeLinkId = 'x'.repeat(MAX_ANDROID_REFERRER_LENGTH + 50);
+
+    const raw = buildAndroidReferrerRaw({ linkId: hugeLinkId, clickId: 'uuid-1' });
+
+    expect(raw.length).toBeGreaterThan(MAX_ANDROID_REFERRER_LENGTH);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0][0]).toContain('exceeds');
+    errorSpy.mockRestore();
+  });
+
+  it('does not log when the raw referrer is within the length limit', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    buildAndroidReferrerRaw({ linkId: 'abc123', clickId: 'uuid-1' });
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });
