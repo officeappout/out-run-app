@@ -30,6 +30,11 @@ export interface HierarchySearchValue {
   orgId?: string;
   unitId?: string;
   unitPathIds?: string[];
+  /** See MilitaryPersonaAnswers.pendingUnitId's own comment (persona.types.ts)
+   *  — set by submitAsNew() below on a successful "unit isn't in the list"
+   *  submission, so the drawer records SOMETHING immediately instead of
+   *  silently discarding the submission's outcome. */
+  pendingUnitId?: string;
 }
 
 interface HierarchySearchStepProps {
@@ -168,7 +173,12 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
     setBreadcrumb((b) => b.slice(0, -1));
   }, []);
 
-  const hasSelection = !!value.orgId;
+  // A pending submission counts as a selection too — otherwise a brand-new
+  // TOP-LEVEL unit (nothing real selected first, so value.orgId is still
+  // unset) leaves hasSelection false forever and the finish button below
+  // never renders at all (the exact dead-end submitAsNew's own comment
+  // above describes).
+  const hasSelection = !!value.orgId || !!value.pendingUnitId;
 
   // ── "היחידה שלי לא ברשימה — הוסף" (04.09.2026, משימה 2) ──────────────
   // Saved under the parent already selected/reached, never floating — the
@@ -203,6 +213,16 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
   // bug is fixed separately, but a silent failure is its own bug regardless
   // of cause, so this catch stays even though today's specific cause won't
   // recur).
+  //
+  // 07.09.2026 — deeper bug found in the SAME flow: this never called
+  // onChange() on success, so "the UI says you're associated" was fiction —
+  // the drawer's actual answer stayed untouched. For a fresh top-level unit
+  // (no real parent selected first) that also meant hasSelection stayed
+  // false, so the finish button never appeared at all — a true dead end,
+  // not just a display gap. Recording pendingUnitId here fixes both: the
+  // step can always finish once something (real or pending) is chosen, and
+  // useResolvedPersonaSummary can show "<name> (ממתין לאישור)" instead of
+  // nothing.
   const submitAsNew = useCallback(async () => {
     const uid = auth.currentUser?.uid;
     const name = addName.trim();
@@ -210,13 +230,14 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
     setAddBusy(true);
     setAddError(null);
     try {
-      await submitPendingUnit(uid, {
+      const created = await submitPendingUnit(uid, {
         level: pendingLevel,
         orgId: pendingOrgId,
         parentUnitId: pendingParentUnitId,
         parentUnitPath: pendingParentUnitPath,
         name,
       });
+      onChange({ ...value, pendingUnitId: created.id });
       setAddMode('submitted');
     } catch (err) {
       console.error('[HierarchySearchStep] submitPendingUnit failed:', err);
@@ -224,7 +245,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
     } finally {
       setAddBusy(false);
     }
-  }, [addName, pendingLevel, pendingOrgId, pendingParentUnitId, pendingParentUnitPath]);
+  }, [addName, pendingLevel, pendingOrgId, pendingParentUnitId, pendingParentUnitPath, onChange, value]);
 
   const handleAddSubmit = useCallback(() => {
     const name = addName.trim();

@@ -35,6 +35,16 @@ export interface MilitaryPersonaAnswers {
    * never confused). Enables array-contains queries at any hierarchy depth.
    */
   unitPathIds?: string[];
+  /**
+   * Set when the user's own "unit isn't in the list" submission is still
+   * pending (or was just approved and self-heal hasn't caught up yet) —
+   * points at `pending_units/{pendingUnitId}` (07.09.2026: previously
+   * nothing was ever written here, so a brand-new-unit submission left the
+   * declaration completely unchanged — see useResolvedPersonaSummary.ts's
+   * own comment on why this exists). Cleared implicitly once orgId/unitId
+   * resolve to the real approved unit — never actively deleted.
+   */
+  pendingUnitId?: string;
 }
 
 export interface OfficeWorkerPersonaAnswers {

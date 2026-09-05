@@ -17,6 +17,7 @@ import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
+import { usePendingUnitSelfHeal } from '@/features/arena/hooks/usePendingUnitSelfHeal';
 import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
 import { useTodayStrengthVolume } from '@/features/home/hooks/useTodayStrengthVolume';
 import { useDailyStrengthTarget } from '@/features/home/hooks/useDailyStrengthTarget';
@@ -609,6 +610,13 @@ export default function HomePage() {
   const dailyStrengthTarget = useDailyStrengthTarget(STRENGTH_RING_ENABLED);
   const postWorkoutMsg = useSmartMessage('post_workout');
   const { celebrate } = useGoalCelebration();
+  // 07.09.2026: previously mounted only in community/page.tsx — a user who
+  // never opens Community after their pending unit gets approved never
+  // self-heals. Home is the screen almost everyone actually lands on after
+  // login, so mounting it here too closes that gap. Safe to double-mount:
+  // selfHeal()'s own early-continue checks (usePendingUnitSelfHeal.ts:45,54)
+  // make a second run on an already-healed declaration a no-op.
+  usePendingUnitSelfHeal();
   const [showMotivationBanner, setShowMotivationBanner] = useState(false);
   const { sessions: communitySessions, dismiss: dismissSession } = useCommunitySessionBanner();
   const [bannerGroup, setBannerGroup] = useState<CommunityGroup | null>(null);
