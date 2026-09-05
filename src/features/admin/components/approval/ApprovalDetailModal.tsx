@@ -41,6 +41,7 @@ const COLLECTION: Record<ModerationEntityType, string> = {
   climb: 'climb_segments',
   contribution: 'user_contributions',
   amenity: 'osm_amenities',
+  pending_unit: 'pending_units',
 };
 
 const ENTITY_META: Record<ModerationEntityType, { label: string; icon: typeof MapPin; color: string; bg: string }> = {
@@ -49,6 +50,7 @@ const ENTITY_META: Record<ModerationEntityType, { label: string; icon: typeof Ma
   climb: { label: 'עלייה', icon: Mountain, color: 'text-orange-600', bg: 'bg-orange-50' },
   contribution: { label: 'תרומת משתמש', icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
   amenity: { label: 'נקודת עניין', icon: Landmark, color: 'text-teal-600', bg: 'bg-teal-50' },
+  pending_unit: { label: 'יחידה ממתינה', icon: Building2, color: 'text-indigo-600', bg: 'bg-indigo-50' },
 };
 
 export interface ApprovalDetailItem {
@@ -128,6 +130,9 @@ function buildGeometry(entityType: ModerationEntityType, id: string, x: any): Ge
       const line = normalizeStoredRoutePath(x.geometry);
       return { status: 'ok', geometry: { kind: 'climb', center: c, bbox: b, line: line.length >= 2 ? line : undefined } };
     }
+    case 'pending_unit':
+      // No map geometry — a unit submission is a name + parent chain, nothing spatial.
+      return { status: 'none' };
   }
 }
 
@@ -186,6 +191,16 @@ function infoRows(entityType: ModerationEntityType, x: any): Array<[string, stri
         ['הוסתר אוטומטית', x.suppressedDuplicateOfParkId ? `כפילות אפשרית של פארק ${x.suppressedDuplicateOfParkId}` : undefined],
       );
       break;
+    case 'pending_unit': {
+      const levelLabel: Record<string, string> = { brigade: 'חטיבה', battalion: 'גדוד', company: 'פלוגה' };
+      rows.push(
+        ['רמה', levelLabel[x.level] || x.level],
+        ['תחת', Array.isArray(x.parentUnitPath) && x.parentUnitPath.length > 0 ? x.parentUnitPath.join(' / ') : (x.orgId ? undefined : 'חטיבה חדשה')],
+        ['מזהה מחושב', x.computedUnitId],
+        ['הוגש ע״י', x.submittedBy],
+      );
+      break;
+    }
   }
   return rows.filter((r): r is [string, string] => typeof r[1] === 'string' && r[1].trim().length > 0);
 }

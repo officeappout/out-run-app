@@ -66,7 +66,7 @@ const AmenitiesQueueMap = dynamicImport(() => import('@/features/admin/component
 // AccuracyQueueTab.tsx's own header). Rendered as an isolated tab + isolated
 // content block; every place `active`/`shownItems` derive from TABS.find()
 // guards against it explicitly rather than assuming a TABS entry exists.
-type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc' | 'amenities' | 'accuracy';
+type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc' | 'amenities' | 'accuracy' | 'pending_units';
 
 // A row in the queue, normalised across entity types.
 interface QueueItem {
@@ -96,6 +96,7 @@ export default function ApprovalCenterPage() {
   const [routes, setRoutes] = useState<QueueItem[]>([]);
   const [climbs, setClimbs] = useState<QueueItem[]>([]);
   const [ugc, setUgc] = useState<QueueItem[]>([]);
+  const [pendingUnits, setPendingUnits] = useState<QueueItem[]>([]);
   const [amenities, setAmenities] = useState<QueueItem[]>([]);
   // Amenities are lazy-loaded (only when the tab is first opened this session)
   // — TLV alone is ~1,556 pending docs, an order of magnitude above every
@@ -184,13 +185,14 @@ export default function ApprovalCenterPage() {
     const uid = userId ?? currentUserId;
     setLoading(true);
     try {
-      const [p, r, c, u] = await Promise.all([
+      const [p, r, c, u, pu] = await Promise.all([
         loadPendingParks(sa, aids, uid),
         loadPendingRoutes(sa, aids, uid),
         loadPendingClimbs(sa),
         loadPendingContributions(sa, aids),
+        loadPendingUnits(sa),
       ]);
-      setParks(p); setRoutes(r); setClimbs(c); setUgc(u);
+      setParks(p); setRoutes(r); setClimbs(c); setUgc(u); setPendingUnits(pu);
       // Amenities are lazy — only refetch on refresh if the tab was already
       // opened once this session; never on the initial page load.
       if (amenitiesLoaded) {
@@ -275,6 +277,28 @@ export default function ApprovalCenterPage() {
     } catch { return []; }
   };
 
+  // pending_units' Firestore rule is admin-only (isAdmin()/isRootAdmin()) —
+  // no authority-manager carve-out, unlike parks/routes' broader rules — so,
+  // same as climbs, this is superadmin-only for now, not per-authority scoped.
+  const PENDING_UNIT_LEVEL_LABELS: Record<string, string> = { brigade: 'חטיבה', battalion: 'גדוד', company: 'פלוגה' };
+  const loadPendingUnits = async (sa: boolean): Promise<QueueItem[]> => {
+    if (!sa) return [];
+    try {
+      const snap = await getDocs(query(collection(db, 'pending_units'), where('status', '==', 'pending')));
+      return snap.docs.map(d => {
+        const x: any = d.data();
+        return {
+          entityType: 'pending_unit' as const,
+          id: d.id,
+          title: x.proposedName || '(ללא שם)',
+          subtitle: [PENDING_UNIT_LEVEL_LABELS[x.level] || x.level, x.parentUnitPath?.length ? `תחת ${x.parentUnitPath.join(' / ')}` : x.orgId ? 'תחת חטיבה קיימת' : ''].filter(Boolean).join(' · '),
+          authorityId: x.orgId ?? undefined,
+          createdByUser: x.submittedBy,
+        };
+      });
+    } catch { return []; }
+  };
+
   const loadPendingContributions = async (sa: boolean, aids: string[]): Promise<QueueItem[]> => {
     try {
       const list = sa
@@ -345,7 +369,7 @@ export default function ApprovalCenterPage() {
   };
 
   const removeFromState = (entityType: ModerationEntityType, id: string) => {
-    const setter = { park: setParks, route: setRoutes, climb: setClimbs, contribution: setUgc, amenity: setAmenities }[entityType];
+    const setter = { park: setParks, route: setRoutes, climb: setClimbs, contribution: setUgc, amenity: setAmenities, pending_unit: setPendingUnits }[entityType];
     setter(prev => prev.filter(i => i.id !== id));
   };
 
@@ -565,6 +589,7 @@ export default function ApprovalCenterPage() {
     { id: 'climbs' as const, group: 'agent' as const, label: 'עליות', icon: Mountain, items: climbs, iconBg: 'bg-orange-50', iconColor: 'text-orange-600', rowIcon: Mountain },
     { id: 'amenities' as const, group: 'agent' as const, label: 'מתקנים', icon: Landmark, items: amenities, iconBg: 'bg-teal-50', iconColor: 'text-teal-600', rowIcon: Landmark },
     { id: 'ugc' as const, group: 'user' as const, label: 'תרומות משתמשים', icon: Users, items: ugc, iconBg: 'bg-purple-50', iconColor: 'text-purple-600', rowIcon: Users },
+    { id: 'pending_units' as const, group: 'user' as const, label: 'יחידות ממתינות', icon: Building2, items: pendingUnits, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600', rowIcon: Building2 },
   ];
   const TAB_GROUPS = [
     { key: 'agent' as const, icon: '🤖', label: 'סוכן חכם', hint: 'נוצר אוטומטית — ביקורת איכות' },

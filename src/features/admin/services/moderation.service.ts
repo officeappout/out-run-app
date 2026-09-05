@@ -18,7 +18,7 @@
  *   contribution  user_contributions.status: pending → approved | rejected(+rejectionReason)
  *   amenity       osm_amenities.status: pending → published | rejected(+rejectionReason)
  */
-import { doc, getDoc, updateDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { logAction } from './audit.service';
 import { approvePark } from './parks.service';
@@ -30,8 +30,9 @@ import {
 import type { UserContribution } from '@/types/contribution.types';
 import type { AuditTargetEntity } from '@/types/audit-log.type';
 import { logRouteDecision } from '@/lib/route-decisions/log-decision';
+import { buildUnitDoc } from '@/lib/unit-doc';
 
-export type ModerationEntityType = 'park' | 'route' | 'climb' | 'contribution' | 'amenity';
+export type ModerationEntityType = 'park' | 'route' | 'climb' | 'contribution' | 'amenity' | 'pending_unit';
 
 export interface ModeratorInfo {
   adminId: string;
@@ -44,7 +45,17 @@ const AUDIT_ENTITY: Record<ModerationEntityType, AuditTargetEntity> = {
   climb: 'ClimbSegment',
   contribution: 'Contribution',
   amenity: 'Amenity',
+  pending_unit: 'PendingUnit',
 };
+
+interface PendingUnitData {
+  level: 'brigade' | 'battalion' | 'company';
+  orgId: string | null;
+  parentUnitId: string | null;
+  parentUnitPath: string[];
+  proposedName: string;
+  computedUnitId: string;
+}
 
 /** Approve a pending item — dispatches the entity-specific publish side-effect + audits. */
 export async function approveEntity(
@@ -97,6 +108,69 @@ export async function approveEntity(
           updatedAt: serverTimestamp(),
         });
       }
+      break;
+    }
+
+    case 'pending_unit': {
+      const snap = await getDoc(doc(db, 'pending_units', id));
+      if (!snap.exists()) throw new Error('Pending unit not found');
+      const p = snap.data() as PendingUnitData;
+      let resolvedTo: string;
+
+      if (p.level === 'brigade') {
+        // Mirrors organizations/page.tsx's exact new-military-org shape
+        // (handleCreate) — same random-suffix id scheme as every other
+        // brigade, NOT p.computedUnitId (that's a file-internal-style key,
+        // never a real brigade doc id — see import-military-units.ts's note
+        // on why bde_/bde_u_ ids are never used as literal brigade ids).
+        const slug = p.proposedName.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+        const suffix = Math.random().toString(36).substring(2, 6);
+        const newOrgId = slug ? `${slug}_${suffix}` : `mil_${suffix}`;
+        const batch = writeBatch(db);
+        batch.set(doc(db, 'authorities', newOrgId), {
+          name: p.proposedName,
+          type: 'military_unit',
+          tenantType: 'military',
+          managerIds: [],
+          userCount: 0,
+          status: 'active',
+          isActiveClient: false,
+          pipelineStatus: 'lead',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        batch.set(doc(db, 'tenants', newOrgId), {
+          name: p.proposedName,
+          type: 'military',
+          authorityId: newOrgId,
+          createdAt: serverTimestamp(),
+        });
+        await batch.commit();
+        resolvedTo = newOrgId;
+      } else {
+        // battalion/company: p.computedUnitId IS the real, literal doc id —
+        // same scheme Task 1's import uses for its own bn_/co_ ids.
+        if (!p.orgId) throw new Error('Pending unit missing orgId for non-brigade level');
+        const data = buildUnitDoc({
+          name: p.proposedName,
+          parentUnitId: p.parentUnitId,
+          parentUnitPath: p.parentUnitPath,
+          unitType: p.level as 'battalion' | 'company',
+        });
+        await setDoc(doc(db, 'tenants', p.orgId, 'units', p.computedUnitId), {
+          ...data,
+          createdAt: serverTimestamp(),
+        });
+        resolvedTo = p.computedUnitId;
+      }
+
+      await updateDoc(doc(db, 'pending_units', id), {
+        status: 'approved',
+        resolvedTo,
+        reviewedBy: admin.adminId,
+        reviewedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
       break;
     }
   }
@@ -171,6 +245,15 @@ export async function rejectEntity(
       // only sets status, so we inline the equivalent write to avoid a partial-failure
       // window where a rejected contribution has no rejectionReason/reviewer).
       await updateDoc(doc(db, 'user_contributions', id), { status: 'rejected', ...reviewFields });
+      break;
+
+    case 'pending_unit':
+      // Stage A: reject only, no redirect (that's Stage B — resolvedTo stays
+      // null, so usePendingUnitSelfHeal's `status==='approved' && resolvedTo`
+      // filter correctly ignores this; the user's real declaration was never
+      // touched while pending, so they're already back at the parent level
+      // they had — no write needed there at all).
+      await updateDoc(doc(db, 'pending_units', id), { status: 'rejected', ...reviewFields });
       break;
   }
 
