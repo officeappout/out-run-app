@@ -863,39 +863,63 @@ any snapshot numbers:**
 **Live snapshot rebuild (3,780 workouts, 23,940 `workout_exercises`, 0
 errors), before (`08-CORE.md` baseline) vs after both fixes:**
 
-| Metric | Before | After |
+> ⚠️ **Correction (05.09.2026)** — every number in this table (and the form-distribution
+> paragraph below it) was originally measured with `domain='core'` alone, no
+> `exercise_role='main'` filter — the exact same contamination corrected in `08-CORE.md` §3 and
+> `09-CORE-TABATA.md` §5 (see those files for the root cause: a real bug in `warmup.service.ts`
+> that let core-tagged exercises get selected into the WARMUP slot, fixed 05.09.2026, plus a
+> smaller distinct contamination of the form-distribution row specifically — see below). Corrected
+> numbers below; strikethrough = originally reported. `check-core-query-safety.ts` (new this
+> session) now fails any future committed query with this gap.
+
+| Metric | Before (corrected) | After (corrected) |
 |---|---|---|
-| % workouts with core, 15/20/30/45 min | 32.9 / 36.9 / 45.7 / 56.8 | 31.0 / 38.9 / 46.3 / 57.1 |
-| Avg core/workout, 15/20/30/45 min | 0.35 / 0.41 / 0.56 / 0.81 | 0.34 / 0.44 / 0.63 / 0.88 |
-| Avg core/workout, bolt 1/2/3 | 0.61 / 0.55 / 0.43 | 0.65 / 0.58 / 0.48 |
-| **Full-body workouts without core** | **315/540 (58.3%)** | **261/540 (48.3%)** |
-| …by duration 15/20/30/45 min | 66.7 / 66.7 / 52.6 / 47.4 | 65.9 / 52.6 / 43.7 / 31.1 |
+| % workouts with core, 15/20/30/45 min | 5.1 / 10.2 / 21.2 / 34.2 (was ~~32.9/36.9/45.7/56.8~~) | 4.9 / 11.6 / 24.1 / 36.5 (was ~~31.0/38.9/46.3/57.1~~) |
+| Avg core/workout, 15/20/30/45 min | 0.07 / 0.12 / 0.26 / 0.40 (was ~~0.35/0.41/0.56/0.81~~) | 0.07 / 0.14 / 0.33 / 0.48 (was ~~0.34/0.44/0.63/0.88~~) |
+| **Full-body workouts without core** | **83.0% (was ~~58.3%~~)** | **68.5% (was ~~48.3%~~)** |
+| …by duration 15/20/30/45 min | 92.6 / 90.4 / 77.0 / 71.9 (was ~~66.7/66.7/52.6/47.4~~) | 89.6 / 78.5 / 61.5 / 44.4 (was ~~65.9/52.6/43.7/31.1~~) |
 
-Form distribution among the 2,159 core-exercise rows in this run:
-follow_along 1,148 rows (1,121 distinct workouts), single 720 rows (618
-workouts), tabata 291 rows (140 workouts, avg ~2.1 members/block — headroom
-is rarely ≥8 min in this matrix, so `chooseCoreTabataMemberCount` mostly
-lands on 2). All three forms fire in live data — form C in particular was
-previously unreachable at all (Part 1), now the single largest form.
+**Form distribution — a second, separate contamination**, found and corrected the same day: the
+original 2,159-row count also included every follow-along-ladder ID regardless of
+`exercise_role`, so a "טבטה"/"טבטה +" item selected into the WARMUP slot (the same
+`warmup.service.ts` bug) got counted as a genuine form-C core-slot selection just because its
+`movement_group='core'` matched. Restricting to `exercise_role='main'` (the exercises that
+actually occupy the core slot) gives the true distribution:
 
-**The blended, all-workouts metrics (row 1-3) barely moved — expected, not a
+| Form | Rows (corrected, `exercise_role='main'`) | Distinct workouts | Originally reported (contaminated) |
+|---|---|---|---|
+| single | 594 | 534 | was folded into a since-corrected 720/618 |
+| tabata | 291 | 140 | 291/140 — **unaffected**, tabata-block rows are never `is_follow_along` |
+| follow_along | ~73–76 | ~69–72 | was ~~1,148 rows / 1,121 workouts~~ |
+
+**follow_along was reported as the dominant form (1,121 workouts) — it is actually the smallest
+of the three (~70 workouts).** `single` is the true majority form, consistent with it having the
+lowest time cost (3 min vs. 4 for the other two) in `chooseCoreForm`'s eligibility check — it
+qualifies most often, so it wins the random draw most often.
+
+**The blended, all-workouts metrics (row 1-2) barely moved — expected, not a
 sign the fix is inert.** The Full-Body Guarantee only fires for
 `blueprint.strategy==='full_body'`, one of 7 domain-subsets in the matrix;
 its effect is real but diluted across the blended population. The row that
-actually measures the guarantee — full-body-without-core — moved 58.3% →
-48.3%, a genuine 10-point improvement, **not the 0% target.**
+actually measures the guarantee — full-body-without-core — moved 83.0% →
+68.5%, a genuine ~14.5-point improvement, **not the 0% target.**
 
-**Residual gap, root-caused, not fixed this pass:** full-body-without-core
-by user level is monotonic — L1 44.4%, L3 39.8%, L5 47.2%, L8 50.9%, **L12
-59.3%**. This tracks catalog depth, not a code defect: `PoolFactory.ts`'s
-`findLevelAppropriateSubstitute` (the guarantee's own candidate search) has
-no `exerciseRole` filter, so the follow-along ladder is already a visible
-candidate to it — the remaining failures are cases where `globalExercisePool`
-genuinely has no core-domain exercise (of any role) within the search band
-of a high user level. Advanced core catalog is thinner than beginner core
-catalog; this is a content-coverage gap, and closing it further is either a
-catalog question or a search-band widening decision — **left for David**,
-consistent with 08-CORE.md/09-CORE-TABATA.md's own "measure and report, don't
-invent" pattern rather than a code change bundled into this pass.
+**Residual gap — root cause under active re-investigation, see the 05.09.2026 follow-up
+report (David task ה).** The "catalog depth at high core levels" theory below was built on the
+contaminated 58.3%/48.3% numbers and a monotonic-by-level trend that the correction weakens
+(corrected by-level figures: L1 63.0%, L3 58.3%, L5 73.1%, L8 72.2%, L12 75.9% — directionally
+similar but no longer clean). ~~This tracks catalog depth, not a code defect:
+`PoolFactory.ts`'s `findLevelAppropriateSubstitute` (the guarantee's own candidate search) has no
+`exerciseRole` filter, so the follow-along ladder is already a visible candidate to it — the
+remaining failures are cases where `globalExercisePool` genuinely has no core-domain exercise (of
+any role) within the search band of a high user level.~~ A live pipeline trace (60 sampled
+full-body workouts across 5 levels × 4 durations) found the dominant failure mode is NOT a missing
+candidate: in the large majority of failures, `runFullBodyDomainGuarantee` silently skips core
+because `hasDomain` is already satisfied by an ordinary (non-guaranteed) core exercise from normal
+selection — which `enforceVolumeCap`'s pre-existing "core trims first" rule then removes
+downstream, after the guarantee has already finished and moved on. `isGuaranteedCore` protects
+only exercises the guarantee itself injects, not this far more common case. See the ה report for
+the full failure-mode breakdown; **left for David** to decide the fix, per this project's
+"measure and report, don't invent" pattern.
 
 **Commit:** local only, no push, per task instruction.

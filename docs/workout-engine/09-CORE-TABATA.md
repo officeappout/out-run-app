@@ -308,13 +308,19 @@ on which §2 mechanism to use.**
 This changes how workouts look for paying users. After implementation (next pass, on approval),
 re-run `build-snapshot.ts` and compare against `08-CORE.md`'s baseline:
 
-| Metric | Today (baseline, `08-CORE.md` §3) |
+> ⚠️ **Correction (05.09.2026)** — the row below originally restated `08-CORE.md`'s baseline
+> numbers verbatim; those numbers were contaminated (see `08-CORE.md` §3's own correction note —
+> `domain='core'` counted without `exercise_role='main'`, silently including core exercises that
+> had leaked into the warmup slot). Corrected values below; strikethrough = the original,
+> contaminated figures this document shipped with.
+
+| Metric | Today (baseline, `08-CORE.md` §3, corrected) |
 |---|---|
-| % workouts with ≥1 core exercise, by duration (15/20/30/45min) | 32.9% / 36.9% / 45.7% / 56.8% |
-| Avg core exercises per workout, by duration | 0.35 / 0.41 / 0.56 / 0.81 |
-| Avg core exercises per workout, by bolt (1/2/3) | 0.61 / 0.55 / 0.43 |
-| % full-body workouts with zero core | 58.3% (66.7% at 15-20min) |
-| Core "always last" in practice | 96.9% (21 exceptions, fully explained) |
+| % workouts with ≥1 core exercise, by duration (15/20/30/45min) | **5.1% / 10.2% / 21.2% / 34.2%** (was ~~32.9/36.9/45.7/56.8%~~) |
+| Avg core exercises per workout, by duration | **0.07 / 0.12 / 0.26 / 0.40** (was ~~0.35/0.41/0.56/0.81~~) |
+| Avg core exercises per workout, by bolt (1/2/3) | **0.32 / 0.19 / 0.12** (was ~~0.61/0.55/0.43~~) |
+| % full-body workouts with zero core | **83.0%** (92.6% at 15min) (was ~~58.3% (66.7% at 15-20min)~~) |
+| Core "always last" in practice | 96.9% (21 exceptions, fully explained) — **already role-filtered correctly, unaffected** |
 
 Expected directional change from §3 rule 1 alone (full-body guarantee): the 58.3%/66.7%
 zero-core figures should drop sharply for full-body sessions specifically — worth measuring as

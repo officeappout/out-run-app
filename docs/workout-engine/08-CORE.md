@@ -178,61 +178,73 @@ assessment-gated full-body domain expansion (§2's `program-hierarchy.utils` row
 profile sets `domainLevels = {pull, push, legs, core: level}` for every run (`build-snapshot.ts:
 215`), i.e. core is always "assessed."
 
+> ⚠️ **Correction (05.09.2026)** — every number in Q1–Q3 below was originally measured with
+> `domain='core'` alone, with no `exercise_role='main'` filter. That silently counted rows where a
+> core-tagged exercise had been selected into the WARMUP slot (a real, then-undiscovered bug in
+> `warmup.service.ts` — see `09-CORE-TABATA.md`'s follow-up investigation, fixed 05.09.2026) as
+> "this workout has core." The corrected numbers below re-run the exact same queries against the
+> exact same snapshot (commit `40bb8b80`) with `exercise_role='main'` added — same data, same
+> matrix, just not double-counting warmup-slot leakage as real core presence. Q4 was already
+> correctly role-filtered in the original pass (its own phrasing already said "core `main`-role
+> exercise") and needed no correction. **`scripts/audit/check-core-query-safety.ts` now fails any
+> future committed query with this same gap — see 03-CHANGES.md.**
+
 ### Q1 — % of workouts containing ≥1 core exercise, by duration
 
-| Duration | Total workouts | With core | % |
-|---|---|---|---|
-| 15 min | 945 | 311 | 32.9% |
-| 20 min | 945 | 349 | 36.9% |
-| 30 min | 945 | 432 | 45.7% |
-| 45 min | 945 | 537 | 56.8% |
+| Duration | Total workouts | With core (corrected) | % (corrected) | % (originally reported, contaminated) |
+|---|---|---|---|---|
+| 15 min | 945 | 48 | **5.1%** | ~~32.9%~~ |
+| 20 min | 945 | 96 | **10.2%** | ~~36.9%~~ |
+| 30 min | 945 | 200 | **21.2%** | ~~45.7%~~ |
+| 45 min | 945 | 323 | **34.2%** | ~~56.8%~~ |
 
 ### Q2 — avg core exercises per workout
 
 By duration:
 
-| Duration | Avg core / workout |
-|---|---|
-| 15 min | 0.35 |
-| 20 min | 0.41 |
-| 30 min | 0.56 |
-| 45 min | 0.81 |
+| Duration | Avg core / workout (corrected) | Originally reported |
+|---|---|---|
+| 15 min | **0.07** | ~~0.35~~ |
+| 20 min | **0.12** | ~~0.41~~ |
+| 30 min | **0.26** | ~~0.56~~ |
+| 45 min | **0.40** | ~~0.81~~ |
 
 By bolt:
 
-| Bolt | Avg core / workout | Workouts with core | Total |
-|---|---|---|---|
-| 1 (Flow/Easy) | 0.61 | 638 | 1,260 |
-| 2 (Balanced) | 0.55 | 511 | 1,260 |
-| 3 (Intense) | 0.43 | 480 | 1,260 |
+| Bolt | Avg core / workout (corrected) | Originally reported |
+|---|---|---|
+| 1 (Flow/Easy) | **0.32** | ~~0.61~~ |
+| 2 (Balanced) | **0.19** | ~~0.55~~ |
+| 3 (Intense) | **0.12** | ~~0.43~~ |
 
-Bolt 3's lower core rate is consistent with §2's "Intense caps core at 1 and excludes it from the
-push/pull/legs quota" rule — core competes for a smaller, capped share of that bolt's slots.
+Bolt 3's lower core rate is still consistent with §2's "Intense caps core at 1 and excludes it from
+the push/pull/legs quota" rule — core competes for a smaller, capped share of that bolt's slots.
 
 ### Q3 — full-body workouts (`req_domains='push,pull,legs'`) ending with zero core
 
-| | |
-|---|---|
-| Full-body workouts | 540 |
-| With ≥1 core exercise | 225 |
-| **Without any core exercise** | **315 (58.3%)** |
+| | Corrected | Originally reported |
+|---|---|---|
+| Full-body workouts | 540 | 540 |
+| With ≥1 core `main`-role exercise | 92 | 225 |
+| **Without any core exercise** | **448 (83.0%)** | ~~315 (58.3%)~~ |
 
 By duration — the same duration correlation as Q1, sharper at the low end:
 
-| Duration | Full-body workouts | Without core | % |
-|---|---|---|---|
-| 15 min | 135 | 90 | 66.7% |
-| 20 min | 135 | 90 | 66.7% |
-| 30 min | 135 | 71 | 52.6% |
-| 45 min | 135 | 64 | 47.4% |
+| Duration | Full-body workouts | Without core (corrected) | % (corrected) | % (originally reported) |
+|---|---|---|---|---|
+| 15 min | 135 | 125 | **92.6%** | ~~66.7%~~ |
+| 20 min | 135 | 122 | **90.4%** | ~~66.7%~~ |
+| 30 min | 135 | 104 | **77.0%** | ~~52.6%~~ |
+| 45 min | 135 | 97 | **71.9%** | ~~47.4%~~ |
 
 Since core is "assessed" in every single run (mock profile always sets a core domain level), this
-315/540 gap is **not** the assessment gate (§2 row 5) filtering core out — it is core's own status
-as an accessory, non-guaranteed slot (§2 rows 1, 3) losing out during selection/trimming, most
-severely at short durations. **This is the single clearest piece of evidence that "core is
+448/540 gap is **not** the assessment gate (§2 row 5) filtering core out — it is core's own status
+as an accessory, non-guaranteed slot (§2 rows 1, 3) losing out during selection/trimming, and this
+correction shows it losing out **far more severely** than originally measured, across every
+duration — not just at the short end. **This is the single clearest piece of evidence that "core is
 optional, not guaranteed" is a real, everyday user-facing outcome, not a theoretical edge case** —
-even a session that explicitly targets all three primary domains together has better-than-even
-odds of shipping with zero core work at 15-20 minutes.
+even a session that explicitly targets all three primary domains together ships with zero core work
+more often than not, at every duration measured here.
 
 ### Q4 — is core really always last, in practice?
 
