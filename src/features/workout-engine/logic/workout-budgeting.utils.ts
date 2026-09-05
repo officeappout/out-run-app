@@ -122,10 +122,18 @@ const BASE_WORKOUT_CALORIES = 50;
 export function getExerciseCountForDuration(
   availableTime: number,
 ): { exerciseCount: number; includeAccessories: boolean } {
+  // Fixed 05.09.2026 (David): DURATION_SCALING['30'] (5-6 exercises) was
+  // defined but structurally unreachable — the old `<=30 -> '15'` branch
+  // caught every value from 11 to 30, so a 20 or 30-minute request (most
+  // of David's users' actual picks) was sized like a 15-minute one. Cutoff
+  // moved to `<=20` for the '15' tier so the boundary aligns with the real
+  // tested duration values (15/20/30/45) — 15 and 20 keep today's exercise
+  // count, 30 finally reaches its own already-defined, wider tier.
   let config = DURATION_SCALING['30'];
 
   if (availableTime <= 10) config = DURATION_SCALING['5'];
-  else if (availableTime <= 30) config = DURATION_SCALING['15'];
+  else if (availableTime <= 20) config = DURATION_SCALING['15'];
+  else if (availableTime <= 30) config = DURATION_SCALING['30'];
   else if (availableTime <= 45) config = DURATION_SCALING['45'];
   else config = DURATION_SCALING['60'];
 
