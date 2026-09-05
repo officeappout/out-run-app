@@ -52,7 +52,13 @@ import { normalizeOrgName } from '../src/lib/org-name';
 function init() {
   if (admin.apps.length) return;
   const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
-  admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id, storageBucket: `${c.project_id}.appspot.com` });
+  // NOT {project_id}.appspot.com (the legacy convention) — this project's
+  // real bucket, confirmed from src/lib/firebase.ts's own working config
+  // (already used successfully for authorities.logoUrl uploads today), is
+  // the newer .firebasestorage.app naming. Found this out the hard way:
+  // the first --confirm attempt (05.09.2026) crashed on bucket-not-found
+  // before any upload succeeded — verified zero partial writes before fixing.
+  admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id, storageBucket: `${c.project_id}.firebasestorage.app` });
 }
 
 const DATA_DIR = path.join(__dirname, 'data', 'unit-icons');
@@ -366,17 +372,11 @@ async function main() {
     await unitRef.update({ iconUrl: url, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     console.log(`Uploaded + wrote iconUrl: ${r.realOrgId}/units/${r.realUnitId} (${r.row.filename})`);
     uploaded++;
-
-    // Defensive mirror for a real unit whose id is non-ASCII (05.09.2026
-    // incident) — onUnitWrite's Eventarc trigger is already proven not to
-    // fire reliably for such an id, so this write can't rely on it to
-    // propagate. ASCII-id units are unaffected and rely on the (working)
-    // trigger normally, matching every other field.
-    if (!/^[a-zA-Z0-9_-]+$/.test(r.realUnitId)) {
-      const directoryId = `${r.realOrgId}__${r.realUnitId}`;
-      await db.collection('unitDirectory').doc(directoryId).set({ iconUrl: url, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      console.log(`  (non-ASCII unit id — mirrored iconUrl into unitDirectory/${directoryId} directly, not relying on onUnitWrite)`);
-    }
+    // No non-ASCII defensive mirror needed here (06.09.2026) — the 5 real
+    // units that predated the ASCII-id fix were recreated under new ids by
+    // scripts/_migrate-nonascii-unit-ids.ts, and buildUnitDoc's own guard
+    // (src/lib/unit-doc.ts) means no future write through this script can
+    // produce one again. onUnitWrite's trigger is trusted unconditionally.
   }
 
   console.log(`\nDone. ${uploaded} icons uploaded and written.`);
