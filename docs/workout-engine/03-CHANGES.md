@@ -1295,3 +1295,151 @@ exercise-count-bucket findings are reported, not fixed; this is a product decisi
 "בערך 45 דקות") David is still weighing.
 
 **Commit:** local only, no push.
+
+---
+
+## Addendum 9 — HorizontalGuarantee/VerticalFoundationGuarantee domain-cannibalization fix +
+## the dead 30-min bucket fix + the real headline metric
+
+David's own trace (full-body request → came out push+pull only, legs AND core both gone) proved
+this was never a core-specific bug. Core was a symptom. **Order mattered: the guard was fixed
+first, the bucket second** — fixing the bucket first would have handed the cannibalization path
+more exercises to destroy.
+
+### Fix 1 — guarantee passes may never sacrifice a domain's sole representative
+
+**(a) Audit of all 3 guarantee passes, as requested before touching anything:**
+
+| Pass | Had protection before this fix? |
+|---|---|
+| `runFullBodyDomainGuarantee` | Yes — already had equivalent inline logic (refactored onto the shared helper below for consistency, behavior unchanged) |
+| `runHorizontalGuarantee` | **No** — 2 unprotected sites: the "rich-budget ADD" path (adds a redundant same-domain exercise by replacing the lowest-scored *other*-domain exercise) and the standard-path fallback |
+| `runVerticalFoundationGuarantee` | **No** — the `lowestNonFoundation` fallback victim picker had no domain-count check |
+
+Same bug class in 2 of 3 passes — confirms this was systemic, not a one-off. Fixed onto one shared
+rule instead of two separate patches: `computeDomainCounts(mainExercises)` /
+`isSafeDomainVictim(exercise, domainCounts)` / `pickVictimProtectingDomains(candidates, all)` in
+`GuaranteePassRunner.ts`. A candidate is unsafe to sacrifice iff it's in `PRIMARY_DOMAINS`
+(push/pull/legs/core) **and** it's the only main exercise left in that domain. No safe candidate →
+the pass skips the add/replace entirely and logs why; it never force-adds instead. The post-cut
+promise validator's own `pickLowestPriorityVictim` was refactored onto the same predicate (was a
+separate inline duplicate before).
+
+**(b) Real before/after** — see `guarantee-domain-protection.test.ts` (3 tests, all confirmed
+failing on pre-fix code via `git stash`):
+1. HorizontalGuarantee rich-budget ADD path: push domain has 2 exercises (rich budget) + a lone
+   legs exercise elsewhere. Before: legs gets replaced by a 3rd push exercise. After: skipped,
+   logged `SKIPPED add-path for horizontal_push — would empty another primary domain`, legs intact.
+2. HorizontalGuarantee standard-path fallback: only candidate to replace is the sole legs exercise.
+   Before: replaced anyway. After: `no safe victim to replace ... horizontal_pull`, legs intact.
+3. VerticalFoundationGuarantee: only candidate to replace (to inject a foundation vertical_pull) is
+   the sole legs exercise. Before: replaced anyway. After: `no safe victim to replace`, legs intact.
+
+**(c) What happens to the ~22% that previously "worked" via this path:** they now either fall
+through to a legal victim elsewhere, or skip the guarantee's add/replace entirely (logged, not
+silent). No case was found where skipping caused a *worse* outcome than the sacrifice it replaced —
+the domain that used to get cannibalized now simply keeps its one exercise instead of losing it.
+
+### Fix 2 — the dead 30-minute bucket (implemented only after Fix 1 was verified)
+
+`getExerciseCountForDuration` (`workout-budgeting.utils.ts`): `DURATION_SCALING['30']` (min:5,
+max:6) was unreachable — `<=30 → '15'` (min:4, max:5) caught every value from 11 to 30 minutes
+before the identical `<=30` check meant to route there was ever reached. Fixed the branch order so
+`<=20 → '15'`, `<=21..30 → '30'`. 6 regression tests in `get-exercise-count-for-duration.test.ts`,
+including one that specifically fails pre-fix by asserting the 30-tier's max (6) is actually
+reachable at `availableTime=30` (it wasn't — every value capped at 5, the 15-tier's max).
+
+**Honest caveat, exactly what David asked to check ("או שמשהו אחר בלע את התוספת"):** the fix moved
+the *initial* exercise-count target up, but the realized average barely moved (`avg_main_exercises`
+20min: 2.88→2.98, 30min: 3.61→3.90) — nowhere near the 5-6 the '30' bucket now allows. **Something
+downstream (the time-budget trim, not this bucket) is still the dominant constraint** — this bucket
+fix is real and correctly targeted, but the 45-min duration cliff documented in Addendum 8 is a
+separate, still-open problem this fix does not touch or explain.
+
+### Rebuilt snapshot (540 workouts, 3,317 `workout_exercises`, 0 errors) — full comparison vs Addendum 8's baseline
+
+| Duration | avg main exercises (before → after) | avg duration gap (before → after) | % with core (before → after) |
+|---|---|---|---|
+| 15min | 2.22 → 2.33 | -0.5 to +1.5 → -0.19 to +1.26 | (not tracked before) → 6.7% |
+| 20min | 2.88 → 2.98 | -0.3 to -1.7 → -0.56 to -0.96 | → 28.9% |
+| 30min | 3.61 → 3.90 | -2.3 to -4.4 → -1.74 to -3.78 | → 36.3% |
+| 45min | 3.87 → 3.98 | -8.5 to -10.7 → -8.11 to -10.37 | → 57.0% |
+
+The 45min cliff is essentially unchanged (still -8 to -10 across every level, still no clean level
+trend, still all 10 worst combos at 45min) — **confirms Addendum 8's finding that this is a separate
+bug from everything fixed this pass.** The 30min gap improved somewhat (fewer levels below -3),
+consistent with the dead-bucket fix's small real effect.
+
+`core_promise_outcome` across all 540 (every workout is `blueprint.strategy==='full_body'` under
+auto domain selection — see next section): 366 failed / 153 satisfied / 20 replaced / 1 injected.
+Reason breakdown of the 366 failures: **240 `no_safe_victim`, 126 `optional_below_20min`, 0
+`no_candidate_within_band`.**
+
+**Open item, quantified per David's instruction — not fixed:** `no_candidate_within_band` (pool has
+no matching candidate at all) occurred **0 times** in this 540-workout sample. The dominant failure
+mode is now `no_safe_victim` (Fix 1 correctly refusing to sacrifice a domain to make room for core) —
+this is a *side effect* of Fix 1 worth naming plainly: protecting domains from cannibalization also
+makes it harder for the core-promise mechanism to find a legal victim to inject core into. Coverage
+did not get worse (workouts that already had core keep it), but it did not dramatically improve
+either — the ceiling on core coverage is now "is there a legal victim," not "is there a candidate."
+
+### The new headline metric — % of full-body-intent workouts missing any of push/pull/legs/core
+
+David asked to replace the old core-only metric with this one going forward. Discovered while
+building it: **`core_promise_outcome` is non-null on all 540 rows** — `validatePromisesPostCut`
+no-ops for non-full-body blueprints (see its own test, "no-op for non-full-body strategy"), so its
+presence on every row means **every workout in this matrix is `blueprint.strategy==='full_body'`**
+under auto domain selection. The true population for "full-body intent" is not an output-inferred
+subset (Addendum 8's own `>=1 each of push/pull/legs` proxy, which undercounts by construction —
+a workout that lost a domain entirely to cannibalization would fail that filter and be invisible to
+it) — it is simply **all 540 workouts**.
+
+| Duration | n | avg domains present (of 4) | % missing ≥1 domain |
+|---|---|---|---|
+| 15min | 135 | 1.88 | 100.0% |
+| 20min | 135 | 2.66 | 99.3% |
+| 30min | 135 | 2.82 | 93.3% |
+| 45min | 135 | 3.05 | **76.3%** |
+| **All** | **540** | **2.61** | **92.2%** |
+
+Domain-count distribution overall: 0 domains=1 (0.2%), 1=28 (5.2%), 2=197 (36.5%), **3=272 (50.4%,
+the modal case)**, all 4=42 (7.8%).
+
+**Read this honestly, not as a single alarming number.** At 15-20min the exercise budget (2-3 main
+exercises total) makes covering 4 domains structurally near-impossible — "missing a domain" there
+is expected, not a bug. **45min is the meaningful number**: enough time budget that all 4 domains
+plausibly fit, and still only 7.8%-of-540's-share reach it — most 45min sessions land at exactly 3
+of 4 (missing one domain), consistent with the 3.05 average.
+
+Of the 272 "missing exactly one domain" sessions, which domain is missing:
+
+| Domain | Count | % of the 272 |
+|---|---|---|
+| core | 178 | 65.4% |
+| pull | 70 | 25.7% |
+| legs | 16 | 5.9% |
+| push | 8 | 2.9% |
+
+Core is still the dominant missing domain (expected — it's the only one with an explicit, if
+imperfect, protection mechanism; the other three rely entirely on Fix 1's cannibalization guard).
+**Pull is a distant second at 25.7%, worth a note for a future pass but out of scope for this one**
+— not investigated further, per the closed scope of this task.
+
+**This is the number David asked to track going forward: 92.2% of all full-body-intent workouts are
+missing at least one of push/pull/legs/core; 76.3% at 45min specifically, where it's most
+meaningful.** Not fixed this pass — Fix 1 stops guarantees from actively destroying a domain, but
+does nothing to *add* a missing one back when none was ever selected in the first place. That gap
+(no mechanism proactively fills a domain the initial exercise selection simply never picked) is a
+distinct, larger problem than anything touched in this addendum.
+
+**Commit:** local only, no push.
+
+**Cross-session note:** mid-fix, the shared working directory (this repo's convention is
+work-directly-on-main, no worktree-per-session) was switched away from `main` by a concurrent
+session partway through this task, twice — once during Fix 1's implementation (see `fb310e87`'s
+commit message) and again immediately after the final snapshot rebuild completed, which silently
+reverted `scripts/audit/snapshot.sqlite` to a stale pre-fix commit before it could be queried. Caught
+by checking `req_domains` (showed the old 7-subset sweep instead of `'auto'`) and by
+`git merge-base --is-ancestor <commit> HEAD` returning false against the branch left checked out.
+No work was lost in either case (`main` — verified via ancestry check — always had this session's
+commits); the rebuild was simply re-run after switching back to `main`.
