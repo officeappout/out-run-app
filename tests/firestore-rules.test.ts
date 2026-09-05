@@ -727,6 +727,71 @@ async function testNoUsersDocLeak() {
   });
 }
 
+// "היחידה שלי לא ברשימה" (04.09.2026) — exact mirror of user_contributions'
+// owner+admin shape, deliberately: a pending unit must be invisible to
+// everyone but its submitter and admins until approved, or the app fills up
+// with duplicate not-yet-real battalions the moment two soldiers search the
+// same missing unit. unitDirectory itself is never touched by any of this.
+async function testPendingUnits() {
+  console.log('\npending_units — owner+admin only, mirrors user_contributions');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test'), {
+      submittedBy: 'reservist_member',
+      level: 'company',
+      proposedName: 'פלוגה בדיקה',
+      status: 'pending',
+      resolvedTo: null,
+    });
+  });
+
+  await it('PU1 — the submitter reads their own pending unit → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reservist_member');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test')));
+  });
+
+  await it('PU2 — a different authenticated user reads someone elses pending unit → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test')));
+  });
+
+  await it('PU3 — admin reads any pending unit → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test')));
+  });
+
+  await it('PU4 — an authenticated user creates their own pending unit → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reservist_member');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_own'), {
+      submittedBy: 'reservist_member', level: 'company', proposedName: 'פלוגה שלי', status: 'pending', resolvedTo: null,
+    }));
+  });
+
+  await it('PU5 — a user cannot create a pending unit claiming a different submittedBy → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(setDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_spoof'), {
+      submittedBy: 'reservist_member', level: 'company', proposedName: 'זיוף', status: 'pending', resolvedTo: null,
+    }));
+  });
+
+  await it('PU6 — a non-admin submitter cannot approve/update their own pending unit → DENY', async () => {
+    const ctx = env.authenticatedContext('reservist_member');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test'), { status: 'approved' }));
+  });
+
+  await it('PU7 — admin can update (approve/reject) a pending unit → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test'), { status: 'rejected' }));
+  });
+
+  // Same regression class as R7 above — an unfiltered LIST by a non-owner,
+  // non-admin user must fail closed, not silently return an empty allowed set.
+  await it('PU8 — non-owner LISTS pending_units with no filter → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDocs(collection(ctx.firestore(), 'pending_units')));
+  });
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -744,6 +809,7 @@ async function main() {
   await testUnitLeagueAggregates();
   await testReserveLeagueLockdown();
   await testNoUsersDocLeak();
+  await testPendingUnits();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Results: ${pass} passed, ${fail} failed`);

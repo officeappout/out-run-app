@@ -101,6 +101,18 @@ export const onUnitWrite = onDocumentWritten(
     const authorityData = authDoc.exists ? (authDoc.data() as Record<string, unknown>) : {};
     const parentUnitId = typeof unitData.parentUnitId === 'string' ? unitData.parentUnitId : null;
 
+    // serviceType: the unit's OWN value takes precedence (set explicitly at
+    // creation, Phase 6c — a reserve battalion under a regular brigade, e.g.
+    // Golani/Givati/188/7, must rank as reserve, not inherit the brigade's).
+    // Falls back to the brigade's serviceType only when the unit doesn't
+    // specify one (old units imported before this field existed).
+    const serviceType =
+      typeof unitData.serviceType === 'string'
+        ? unitData.serviceType
+        : typeof authorityData.serviceType === 'string'
+          ? authorityData.serviceType
+          : null;
+
     await db.collection('unitDirectory').doc(directoryId).set({
       name,
       parentId: parentUnitId ? directoryIdForUnit(tenantId, parentUnitId) : tenantId,
@@ -109,6 +121,7 @@ export const onUnitWrite = onDocumentWritten(
       unitId,
       armType: typeof authorityData.armType === 'string' ? authorityData.armType : null,
       statusCategory: typeof authorityData.statusCategory === 'string' ? authorityData.statusCategory : null,
+      serviceType,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     logger.info(`[onUnitWrite] Synced unitDirectory entry ${directoryId}`);

@@ -34,6 +34,7 @@ import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import { getFeedPosts, type FeedPost } from '@/features/social/services/feed.service';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { useMyMilitaryDeclaration } from '@/features/arena/hooks/useHasDeclaredReserveStatus';
+import { usePendingUnitSelfHeal } from '@/features/arena/hooks/usePendingUnitSelfHeal';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
 import FeedPostCard from '@/features/social/components/FeedPostCard';
 import GroupCard from '@/features/arena/components/GroupCard';
@@ -109,6 +110,7 @@ export default function CommunityPage() {
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { following, isLoaded: socialLoaded, loadConnections, isPartner } = useSocialStore();
   const myDeclaration = useMyMilitaryDeclaration();
+  usePendingUnitSelfHeal();
   const access = useArenaAccess(myDeclaration.isReserve, !!myDeclaration.orgId);
   const cityData = useArenaData(access.cityAuthorityId);
   const { events, groups, authority, isLeagueActive, isLoading: arenaLoading } = cityData;

@@ -34,6 +34,8 @@ export type AuditTargetEntity =
   | 'Contribution'
   // POI/amenities moderation (osm_amenities)
   | 'Amenity'
+  // "היחידה שלי לא ברשימה" pending-unit approval (pending_units)
+  | 'PendingUnit'
   | 'System';
 
 export interface AuditLog {

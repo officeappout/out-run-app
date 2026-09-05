@@ -11,6 +11,7 @@ import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { ORG_TYPE_OPTIONS, authorityTypeToTenantType, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import { syncAllUnitCounts } from '@/features/admin/services/unit-count-sync.service';
+import { normalizeOrgName } from '@/lib/org-name';
 import type { Authority, TenantType } from '@/types/admin-types';
 import {
   Loader2, Plus, Search, Building2, ShieldCheck, GraduationCap,
@@ -25,14 +26,6 @@ import SearchableSelect from '@/features/admin/components/SearchableSelect';
 const PAGE_SIZE = 20;
 
 const ROOT_TYPES = new Set(['city', 'regional_council', 'local_council', 'settlement', 'school', 'military_unit']);
-
-// Normalizes a name for duplicate detection — this is what let "חטיבה 810"
-// get created twice (see docs/research/military-persona-unified-architecture.md
-// §ג.1): neither create path checked for an existing org with the same name
-// before writing. Whitespace/case-insensitive so trivial variants still match.
-function normalizeOrgName(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ');
-}
 
 interface OrgRow extends Authority {
   tenantType: TenantType;

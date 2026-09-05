@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -23,6 +23,39 @@ interface UnitRow {
   name: string;
   memberCount: number;
   unitPath: string[];
+  parentUnitId: string | null;
+}
+
+// Display-only normalization (05.09.2026) — a handful of units created
+// before the bde_/bn_ import convention are named just the bare number
+// ("9307") instead of "גדוד 9307" (e.g. 9307_nhcj under חטיבה 810 — has a
+// real live user, so the DOCUMENT is deliberately left untouched; this only
+// changes what's rendered). Only applies to a direct-under-brigade unit
+// (unitPath.length === 1) whose name is purely digits.
+function displayUnitName(unit: Pick<UnitRow, 'name' | 'unitPath'>): string {
+  if (unit.unitPath.length === 1 && /^\d+$/.test(unit.name.trim())) {
+    return `גדוד ${unit.name.trim()}`;
+  }
+  return unit.name;
+}
+
+// "מוצהרים", not "חיילים" (David, 05.09.2026): military_declarations is a
+// self-declared, unverified relationship — deliberately kept separate from
+// core.unitId/core.tenantId, which require a real access-code-verified
+// tenant relationship (axioms.md §20) that nothing in this flow grants
+// today. Counting by core.unitId/tenantId here always reads zero, because
+// nothing writes those fields for a self-declared military persona — this
+// is that exact bug, not a new one. Register-in-§8 per David: once codes
+// start being distributed, split back into verified vs declared counts.
+async function loadDeclaredCounts(orgId: string): Promise<{ brigadeTotal: number; byUnitId: Record<string, number> }> {
+  const snap = await getDocs(query(collection(db, 'military_declarations'), where('orgId', '==', orgId)));
+  const byUnitId: Record<string, number> = {};
+  snap.forEach((d) => {
+    const data = d.data();
+    const unitPathIds: string[] = Array.isArray(data.unitPathIds) ? data.unitPathIds : [];
+    unitPathIds.forEach((uid) => { byUnitId[uid] = (byUnitId[uid] ?? 0) + 1; });
+  });
+  return { brigadeTotal: snap.size, byUnitId };
 }
 
 export default function UnitsListPage() {
@@ -63,6 +96,8 @@ export default function UnitsListPage() {
 
     if (derived === 'municipal') {
       // Municipal: children are stored as child authorities (neighborhoods / settlements)
+      // Unaffected by the military declared-vs-verified split below — real
+      // access codes ARE issued here, so core.tenantId genuinely means something.
       try {
         const children = await getChildrenByParent(authId);
         rows = children.map(child => ({
@@ -70,6 +105,7 @@ export default function UnitsListPage() {
           name: typeof child.name === 'string' ? child.name : child.id,
           memberCount: child.userCount ?? 0,
           unitPath: [],
+          parentUnitId: null,
         }));
       } catch { /* ignore */ }
     } else {
@@ -82,6 +118,7 @@ export default function UnitsListPage() {
           name: data.name ?? d.id,
           memberCount: data.memberCount ?? 0,
           unitPath: data.unitPath ?? [],
+          parentUnitId: (data.parentUnitId as string | null) ?? null,
         };
       });
     }
@@ -99,9 +136,41 @@ export default function UnitsListPage() {
             name: typeof a.name === 'string' ? a.name : authId,
             memberCount: usersSnap.size,
             unitPath: [],
+            parentUnitId: null,
           });
         }
       } catch { /* ignore */ }
+    }
+
+    // Military: memberCount per row + the summary stats below are computed
+    // from military_declarations (self-declared), not core.unitId/tenantId
+    // (verified — requires a real access code, which nothing issues today,
+    // so that query always reads zero here). See loadDeclaredCounts' comment.
+    if (derived === 'military') {
+      try {
+        const { brigadeTotal, byUnitId } = await loadDeclaredCounts(authId);
+        rows = rows.map(r => ({ ...r, memberCount: byUnitId[r.id] ?? 0 }));
+        setUnits(rows);
+        setTotalUsers(brigadeTotal);
+        // No activity-tracking field exists on a declaration — but updatedAt
+        // on a NEW declaration IS its registration moment, so this is
+        // honestly "registered or updated this week" (David, 05.09.2026),
+        // not a real-usage proxy. Labeled that way in the render below.
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const declSnap = await getDocs(query(collection(db, 'military_declarations'), where('orgId', '==', authId)));
+        let recentlyUpdated = 0;
+        declSnap.forEach(d => {
+          const updatedAt = d.data()?.updatedAt?.toDate?.();
+          if (updatedAt && updatedAt >= sevenDaysAgo) recentlyUpdated++;
+        });
+        setActiveUsersLast7d(recentlyUpdated);
+      } catch {
+        setUnits(rows);
+        setTotalUsers(0);
+        setActiveUsersLast7d(0);
+      }
+      return;
     }
 
     setUnits(rows);
@@ -172,6 +241,32 @@ export default function UnitsListPage() {
     return () => unsub();
   }, [typeFilter]);
 
+  // Nesting (05.09.2026, David — a flat list of battalions+companies mixed
+  // together is unreadable past a handful of items): companies grouped
+  // under their real parent battalion via parentUnitId, which the doc
+  // already carries but the row list previously discarded. Only ever 2
+  // levels deep in this page's own dataset (battalion, then company under
+  // it) — brigade itself is a separate page/breadcrumb, so a flat
+  // top-level-then-children pass covers every real case, no recursion needed.
+  const orderedUnits = useMemo(() => {
+    const childrenByParent = new Map<string, UnitRow[]>();
+    const topLevel: UnitRow[] = [];
+    units.forEach((u) => {
+      if (u.parentUnitId) {
+        if (!childrenByParent.has(u.parentUnitId)) childrenByParent.set(u.parentUnitId, []);
+        childrenByParent.get(u.parentUnitId)!.push(u);
+      } else {
+        topLevel.push(u);
+      }
+    });
+    const result: Array<UnitRow & { depth: number }> = [];
+    topLevel.forEach((u) => {
+      result.push({ ...u, depth: 0 });
+      (childrenByParent.get(u.id) ?? []).forEach((c) => result.push({ ...c, depth: 1 }));
+    });
+    return result;
+  }, [units]);
+
   const labels = getTenantLabels(tenantType as any);
   const theme = VERTICAL_THEMES[tenantType as TenantType] ?? VERTICAL_THEMES.municipal;
   const isMunicipal = tenantType === 'municipal';
@@ -219,7 +314,7 @@ export default function UnitsListPage() {
         syncTenantUnitCount(selectedOrgId).catch(() => {});
       }
 
-      setUnits(prev => [...prev, { id: unitId, name: trimmed, memberCount: 0, unitPath: [] }]);
+      setUnits(prev => [...prev, { id: unitId, name: trimmed, memberCount: 0, unitPath: [], parentUnitId: null }]);
       setNewUnitName('');
       setShowAddUnit(false);
     } catch (err) {
@@ -403,7 +498,9 @@ export default function UnitsListPage() {
       {selectedOrgId && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">משתמשים רשומים</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+              {tenantType === 'military' ? 'רשומים (הצהרה עצמית)' : 'משתמשים רשומים'}
+            </p>
             <p className="text-3xl font-black text-slate-800">{totalUsers}</p>
           </div>
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
@@ -411,7 +508,9 @@ export default function UnitsListPage() {
             <p className="text-3xl font-black text-slate-800">{units.length}</p>
           </div>
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">פעילים ב-7 ימים</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+              {tenantType === 'military' ? 'נרשמו או עדכנו השבוע' : 'פעילים ב-7 ימים'}
+            </p>
             <p className="text-3xl font-black text-slate-800">{activeUsersLast7d}</p>
             {totalUsers > 0 && (
               <p className="text-[10px] text-slate-400 mt-0.5">{Math.round((activeUsersLast7d / totalUsers) * 100)}% מהרשומים</p>
@@ -643,11 +742,13 @@ export default function UnitsListPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {units.map(unit => (
+          {orderedUnits.map(unit => (
             <Link
               key={unit.id}
               href={`/admin/authority/units/${unit.id}?type=${tenantType}&org=${selectedOrgId}`}
-              className="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:bg-slate-50 transition-colors"
+              className={`flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:bg-slate-50 transition-colors ${
+                unit.depth > 0 ? 'mr-8 border-r-2 border-r-slate-200' : ''
+              }`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
@@ -661,7 +762,7 @@ export default function UnitsListPage() {
                   }
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800">{unit.name}</p>
+                  <p className="font-bold text-slate-800">{displayUnitName(unit)}</p>
                   {unit.unitPath.length > 0 && (
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       {unit.unitPath.join(' › ')}
@@ -671,7 +772,7 @@ export default function UnitsListPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm font-bold text-cyan-600">
-                  {unit.memberCount} {labels.membersTitle}
+                  {unit.memberCount} {tenantType === 'military' ? 'מוצהרים' : labels.membersTitle}
                 </span>
                 <ChevronLeft size={16} className="text-slate-300" />
               </div>

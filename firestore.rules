@@ -1850,6 +1850,25 @@ service cloud.firestore {
     // ============================================================
     // USER CONTRIBUTIONS — Community Intelligence reports & edits
     // ============================================================
+    // "היחידה שלי לא ברשימה" — a user-submitted unit awaiting admin review.
+    // Exact mirror of user_contributions' owner+admin shape, deliberately —
+    // unitDirectory itself is NEVER touched by this (no status field, no
+    // flag): a resource.data-based rule on unitDirectory would fail exactly
+    // like the feed_posts finding (Phase 6a) — an unfiltered list query
+    // doesn't fail safely per-document. Keeping pending entries in their own
+    // collection means the public, unconditional unitDirectory read stays
+    // exactly as safe as it is today; a pending unit is real to nobody but
+    // its submitter (and admins) until approved.
+    match /pending_units/{docId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.submittedBy == request.auth.uid;
+
+      allow read: if isAuthenticated()
+        && request.auth.uid == resource.data.submittedBy;
+
+      allow read, update, delete: if isRootAdmin() || isAdmin();
+    }
+
     match /user_contributions/{docId} {
       // Create: only for own contributions
       allow create: if isAuthenticated()
