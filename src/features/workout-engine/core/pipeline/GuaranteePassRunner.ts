@@ -74,6 +74,68 @@ const DOMAIN_MG_CANDIDATES: Record<string, string[]> = {
 const PRIMARY_DOMAINS = new Set(['push', 'pull', 'legs', 'core']);
 
 // ============================================================================
+// SHARED VICTIM-PROTECTION RULE
+// ============================================================================
+//
+// David's decision, 05.09.2026 — found via a live trace where a full-body
+// workout came out push+pull ONLY: HorizontalGuarantee's "domain has rich
+// budget → ADD an extra horizontal exercise by replacing the lowest-scored
+// exercise from ANY other domain" path sacrificed the session's ONLY legs
+// exercise to add a redundant second push exercise. Confirmed firing in
+// 22.2% of a live sample. This was never "a core bug" — core was the
+// symptom; any primary domain (push/pull/legs/core) could be — and was —
+// the victim.
+//
+// The rule, applied everywhere a guarantee pass chooses what to replace:
+// NEVER remove the sole remaining representative of a PRIMARY_DOMAINS
+// domain. `runFullBodyDomainGuarantee` already had an equivalent inline
+// check (it's the reason core-domain protection worked at all this
+// session); `runHorizontalGuarantee` and `runVerticalFoundationGuarantee`
+// did not — both are fixed onto this same shared predicate below instead
+// of three independent, divergence-prone copies. `pickLowestPriorityVictim`
+// (the post-cut promise validator's own victim picker, further below) also
+// builds on the same predicate.
+//
+// When no safe victim exists, per David's explicit rule: DO NOT inject —
+// log why and move on. A missing domain is a known, visible gap; a broken
+// OTHER domain sacrificed to fix it is a worse, silent one.
+
+function computeDomainCounts(mainExercises: WorkoutExercise[]): Map<string, number> {
+  const domainCounts = new Map<string, number>();
+  for (const e of mainExercises) {
+    const d = MG_TO_DOMAIN[e.exercise.movementGroup ?? ''];
+    if (d) domainCounts.set(d, (domainCounts.get(d) ?? 0) + 1);
+  }
+  return domainCounts;
+}
+
+/** True if replacing `exercise` would NOT leave any PRIMARY_DOMAINS domain empty. */
+function isSafeDomainVictim(
+  exercise: WorkoutExercise,
+  domainCounts: Map<string, number>,
+): boolean {
+  const eDomain = MG_TO_DOMAIN[exercise.exercise.movementGroup ?? ''];
+  if (PRIMARY_DOMAINS.has(eDomain ?? '') && (domainCounts.get(eDomain!) ?? 0) <= 1) return false;
+  return true;
+}
+
+/**
+ * Pick the lowest-scored exercise from `candidates` that is safe to remove
+ * (see `isSafeDomainVictim`). `allMainExercises` — NOT `candidates` — is
+ * used to compute domain counts, since a candidate list pre-filtered to
+ * "other domain only" would undercount the very domain being protected.
+ */
+function pickVictimProtectingDomains(
+  candidates: WorkoutExercise[],
+  allMainExercises: WorkoutExercise[],
+): WorkoutExercise | undefined {
+  const domainCounts = computeDomainCounts(allMainExercises);
+  return candidates
+    .filter(e => isSafeDomainVictim(e, domainCounts))
+    .sort((a, b) => a.score - b.score)[0];
+}
+
+// ============================================================================
 // PASS 1 — HORIZONTAL GUARANTEE
 // ============================================================================
 
@@ -161,15 +223,21 @@ export function runHorizontalGuarantee(
     if (domainSets > 3 && hasVertical) {
       // Domain has rich budget AND a vertical exercise → ADD the horizontal
       // by replacing the lowest-scoring NON-domain exercise (accessory/core/legs)
-      const otherDomainEx = mainEx
-        .filter(e => {
-          const eMg = e.exercise.movementGroup ?? '';
-          const eDomain = MG_TO_DOMAIN[eMg];
-          return eDomain !== domain && !HORIZONTAL_MOVEMENT_GROUPS.has(eMg);
-        })
-        .sort((a, b) => a.score - b.score);
+      // — but NEVER the sole remaining representative of another primary
+      // domain (see the shared victim-protection rule above; this is the
+      // exact path a live trace caught sacrificing a session's only legs
+      // exercise to add a redundant second push exercise).
+      const otherDomainEx = mainEx.filter(e => {
+        const eMg = e.exercise.movementGroup ?? '';
+        const eDomain = MG_TO_DOMAIN[eMg];
+        return eDomain !== domain && !HORIZONTAL_MOVEMENT_GROUPS.has(eMg);
+      });
 
-      const victim = otherDomainEx[0];
+      const victim = pickVictimProtectingDomains(otherDomainEx, mainEx);
+      if (!victim) {
+        pipelineLog.push(`horizontal_guarantee: SKIPPED add-path for ${targetGroup} — no safe victim outside domain=${domain} (would empty another primary domain)`);
+        console.log(`[HorizontalGuarantee] ⏭️  Skipped rich-budget ADD for ${targetGroup} — every other-domain candidate is a sole representative`);
+      }
       if (victim) {
         const idx = workoutExercises.findIndex(e => e.exercise.id === victim.exercise.id);
         if (idx >= 0) {
@@ -212,12 +280,17 @@ export function runHorizontalGuarantee(
       })
       .sort((a, b) => a.score - b.score);
 
-    const anyNonHorizontal = mainEx
-      .filter(e => !HORIZONTAL_MOVEMENT_GROUPS.has(e.exercise.movementGroup ?? ''))
-      .sort((a, b) => a.score - b.score);
+    // sameDomainVertical/sameDomainAny stay unprotected — they replace WITHIN
+    // the same domain being enriched, so the domain's own count never drops.
+    // Only the final fallback reaches into OTHER domains and needs protection.
+    const anyNonHorizontal = mainEx.filter(e => !HORIZONTAL_MOVEMENT_GROUPS.has(e.exercise.movementGroup ?? ''));
 
-    const victim = sameDomainVertical[0] ?? sameDomainAny[0] ?? anyNonHorizontal[0];
-    if (!victim) return;
+    const victim = sameDomainVertical[0] ?? sameDomainAny[0] ?? pickVictimProtectingDomains(anyNonHorizontal, mainEx);
+    if (!victim) {
+      pipelineLog.push(`horizontal_guarantee: SKIPPED ${targetGroup} — no safe victim to replace (would empty another primary domain)`);
+      console.log(`[HorizontalGuarantee] ⚠️ Could not guarantee ${targetGroup} — no safe victim`);
+      return;
+    }
     const idx = workoutExercises.findIndex(e => e.exercise.id === victim.exercise.id);
     if (idx < 0) return;
 
@@ -365,16 +438,20 @@ export function runVerticalFoundationGuarantee(
           .sort((a, b) => a.score - b.score)[0]
       : undefined;
 
-    const lowestNonFoundation = workoutExercises
-      .filter(e => {
-        if (e.exerciseRole !== 'main') return false;
-        if (classifyPriority(e.exercise) === 'foundation') return false;
-        return true;
-      })
-      .sort((a, b) => a.score - b.score)[0];
+    // Protected: unlike skillInSlot/anySkill (skill moves aren't primary-
+    // domain exercises to begin with), this fallback can reach any main
+    // exercise — including the sole remaining member of another domain.
+    const lowestNonFoundation = pickVictimProtectingDomains(
+      workoutExercises.filter(e => e.exerciseRole === 'main' && classifyPriority(e.exercise) !== 'foundation'),
+      mainVFG,
+    );
 
     const victim = skillInSlot ?? anySkill ?? lowestNonFoundation;
-    if (!victim) continue;
+    if (!victim) {
+      pipelineLog.push(`vertical_foundation: SKIPPED ${targetMg} — no safe victim to replace (would empty another primary domain)`);
+      console.log(`[VerticalFoundation] ⚠️ Could not guarantee ${targetMg} foundation — no safe victim`);
+      continue;
+    }
 
     const idx = workoutExercises.findIndex(e => e.exercise.id === victim.exercise.id);
     if (idx < 0) continue;
@@ -478,25 +555,12 @@ export function runFullBodyDomainGuarantee(
       );
       if (!sub) continue;
 
-      // Replace the lowest-scored exercise that is not the sole member of another primary domain
-      const domainCounts = new Map<string, number>();
-      for (const e of mainExFB) {
-        const d = MG_TO_DOMAIN[e.exercise.movementGroup ?? ''];
-        if (d) domainCounts.set(d, (domainCounts.get(d) ?? 0) + 1);
-      }
-
-      const victim = workoutExercises
-        .filter(e => {
-          if (e.exerciseRole !== 'main') return false;
-          // Never replace a foundation exercise (Pull-ups, Dips, etc.)
-          if (classifyPriority(e.exercise) === 'foundation') return false;
-          const eMg   = e.exercise.movementGroup ?? '';
-          const eDomain = MG_TO_DOMAIN[eMg];
-          // Never steal the last exercise of another required domain
-          if (PRIMARY_DOMAINS.has(eDomain ?? '') && (domainCounts.get(eDomain!) ?? 0) <= 1) return false;
-          return true;
-        })
-        .sort((a, b) => a.score - b.score)[0];
+      // Replace the lowest-scored exercise that is not the sole member of
+      // another primary domain — shared rule, see pickVictimProtectingDomains.
+      const victim = pickVictimProtectingDomains(
+        workoutExercises.filter(e => e.exerciseRole === 'main' && classifyPriority(e.exercise) !== 'foundation'),
+        mainExFB,
+      );
 
       if (!victim) {
         pipelineLog.push(`full_body_guarantee: ${domain} missing but no safe victim to replace`);
@@ -615,11 +679,7 @@ const CORE_PROTECTED_DURATION_MIN = 20;
 function pickLowestPriorityVictim(
   mainExercises: WorkoutExercise[],
 ): WorkoutExercise | undefined {
-  const domainCounts = new Map<string, number>();
-  for (const e of mainExercises) {
-    const d = MG_TO_DOMAIN[e.exercise.movementGroup ?? ''];
-    if (d) domainCounts.set(d, (domainCounts.get(d) ?? 0) + 1);
-  }
+  const domainCounts = computeDomainCounts(mainExercises);
 
   const priorityRank = (e: WorkoutExercise): number => {
     if (e.priority === 'isolation' || e.priority === 'accessory') return 0;
@@ -627,12 +687,7 @@ function pickLowestPriorityVictim(
   };
 
   return mainExercises
-    .filter(e => {
-      if (classifyPriority(e.exercise) === 'foundation') return false;
-      const eDomain = MG_TO_DOMAIN[e.exercise.movementGroup ?? ''];
-      if (PRIMARY_DOMAINS.has(eDomain ?? '') && (domainCounts.get(eDomain!) ?? 0) <= 1) return false;
-      return true;
-    })
+    .filter(e => classifyPriority(e.exercise) !== 'foundation' && isSafeDomainVictim(e, domainCounts))
     .sort((a, b) => {
       const rankDiff = priorityRank(a) - priorityRank(b);
       if (rankDiff !== 0) return rankDiff;
