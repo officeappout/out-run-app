@@ -5,7 +5,9 @@
  * (ruleFamily.ts), but its scope is the PAIR, not one domain. Source:
  * R1-R8 in .claude/knowledge/running-strength-weekly-research.md.
  *
- * Implements: R1, R2, R3, R6 (first half), R7, R8.
+ * Implements: R1, R3, R6 (first half), R7, R8 in validate(); R2 as a
+ * separate decision function, resolveDoubleDayOrder (see below — R2 is a
+ * decision the weaver needs, not a finding to fail a candidate on).
  * Deliberately NOT implemented (documented, not silently skipped):
  *   - R4 (no heavy-legs-day-before-quality/long-run) — there is no leg
  *     identifier anywhere in the strength type system (SkillId is all
@@ -105,6 +107,42 @@ function countRunningDays(week: CrossDomainRunningDay[]): number {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// resolveDoubleDayOrder — R2, a decision, not a validation
+// ──────────────────────────────────────────────────────────────────────────
+
+export type DoubleDayOrder = 'strength-first' | 'running-first';
+
+export interface DoubleDayEntries {
+  strength: ScheduleDay;
+  running: CrossDomainRunningDay;
+}
+
+/**
+ * R2 is a DECISION the weaver needs when it places a double day (what order
+ * to recommend), not a finding to fail a candidate on — it never
+ * contributes a violation to validateCrossDomain. Strength goes first by
+ * default; a quality running day flips it to running-first.
+ *
+ * `dayEntries.strength` is accepted for shape-symmetry with the pair this
+ * decision is about, and to leave room for a future version of this
+ * decision that reads strength content too — today only the running side
+ * actually drives it.
+ *
+ * There is no time-of-day field on either domain's schedule to check
+ * against (strengthTime is declared but never written by any live code;
+ * runningTime is a single global preference, not per-day) — so this
+ * function can never verify actual chronological order, only recommend
+ * one. That caveat lives here, in the doc comment, not as a warning
+ * surfaced to the user — the recommendation itself is what's shown.
+ */
+export function resolveDoubleDayOrder(
+  dayEntries: DoubleDayEntries,
+  _context: CrossDomainValidateContext,
+): DoubleDayOrder {
+  return isQualityRunningDay(dayEntries.running) ? 'running-first' : 'strength-first';
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // validate
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -114,15 +152,7 @@ function countRunningDays(week: CrossDomainRunningDay[]): number {
  * domains, same day" for a problem by default. Tested by asserting a clean
  * shared day (nothing else wrong) produces zero violations.
  *
- * R2 — advisory only (WARN, never blocks): there is no time-of-day field on
- * either domain's schedule (confirmed — strengthTime is declared but never
- * written by any live code, runningTime is a single global preference, not
- * per-day), so actual chronological order can't be checked. The best this
- * function can honestly do is attach the recommended order as a note on
- * every shared day — quality running day → running first; otherwise →
- * strength first.
- *
- * R3 — hard: since order can't be verified (same reason as R2), a shared
+ * R3 — hard: since order can't be verified (see resolveDoubleDayOrder), a shared
  * day where the run is quality is not allowed at all, not just "risky if
  * misordered." ERROR, blocks valid.
  *
@@ -158,16 +188,6 @@ export function validateCrossDomain(
 
     const quality = isQualityRunningDay(runningDay!);
     const long = isLongRunDay(runningDay!);
-
-    // R2 — advisory, never blocks.
-    violations.push({
-      code: 'R2',
-      severity: 'WARN',
-      message: quality
-        ? 'יום משותף — הריצה היא אימון איכות, לכן הריצה קודמת והכוח אחריה.'
-        : 'יום משותף — כברירת מחדל הכוח קודם, הריצה אחריו.',
-      affectedDays: [dow],
-    });
 
     // R3 — hard: never strength + a quality run, same day.
     if (quality) {

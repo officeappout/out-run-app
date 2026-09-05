@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { validateCrossDomain, type CrossDomainWeek, type CrossDomainRunningDay } from '../crossDomainRules';
+import {
+  validateCrossDomain,
+  resolveDoubleDayOrder,
+  type CrossDomainWeek,
+  type CrossDomainRunningDay,
+} from '../crossDomainRules';
 import type { ScheduleDay, DayOfWeek } from '../../types/smartSchedule.types';
 
 function emptyStrengthWeek(): ScheduleDay[] {
@@ -45,30 +50,42 @@ describe('validateCrossDomain — R1 (a shared day is permitted on its own)', ()
     // 3rd strength day elsewhere so R7's floor (2) isn't what's being tested here.
     const withThirdDay: CrossDomainWeek = { ...week, strength: withStrengthSession(week.strength, 2) };
     const result = validateCrossDomain(withThirdDay, DEFAULT_CONTEXT);
-    expect(result.violations.filter((v) => v.affectedDays.includes(0) && v.code !== 'R2')).toEqual([]);
+    expect(result.violations.filter((v) => v.affectedDays.includes(0))).toEqual([]);
   });
 });
 
-describe('validateCrossDomain — R2 (advisory order, never blocks)', () => {
-  it('PASS: a shared non-quality day recommends strength-first, and does not affect validity', () => {
-    const week: CrossDomainWeek = {
-      strength: withStrengthSession(withStrengthSession(emptyStrengthWeek(), 0), 2),
-      running: withRunningDay(emptyRunningWeek(), 0, 'easy_run'),
-    };
-    const result = validateCrossDomain(week, DEFAULT_CONTEXT);
-    const r2 = result.violations.find((v) => v.code === 'R2' && v.affectedDays.includes(0));
-    expect(r2?.severity).toBe('WARN');
-    expect(r2?.message).toMatch(/כוח קודם/);
+describe('resolveDoubleDayOrder — R2 is a decision, not a validation (never appears in validateCrossDomain)', () => {
+  it('PASS: a non-quality run recommends strength-first', () => {
+    const order = resolveDoubleDayOrder(
+      { strength: withStrengthSession(emptyStrengthWeek(), 0)[0], running: { dayOfWeek: 0, category: 'easy_run' } },
+      DEFAULT_CONTEXT,
+    );
+    expect(order).toBe('strength-first');
   });
 
-  it('FAIL-catching: a shared quality day recommends running-first, not strength-first', () => {
-    const week: CrossDomainWeek = {
-      strength: withStrengthSession(withStrengthSession(emptyStrengthWeek(), 0), 2),
-      running: withRunningDay(emptyRunningWeek(), 0, 'tempo'),
-    };
-    const result = validateCrossDomain(week, DEFAULT_CONTEXT);
-    const r2 = result.violations.find((v) => v.code === 'R2' && v.affectedDays.includes(0));
-    expect(r2?.message).toMatch(/הריצה קודמת/);
+  it('FAIL-catching: a quality run recommends running-first, not strength-first', () => {
+    const order = resolveDoubleDayOrder(
+      { strength: withStrengthSession(emptyStrengthWeek(), 0)[0], running: { dayOfWeek: 0, category: 'tempo' } },
+      DEFAULT_CONTEXT,
+    );
+    expect(order).toBe('running-first');
+  });
+
+  it('never contributes a violation to validateCrossDomain — R2 is absent from every result', () => {
+    const weeks: CrossDomainWeek[] = [
+      {
+        strength: withStrengthSession(withStrengthSession(emptyStrengthWeek(), 0), 2),
+        running: withRunningDay(emptyRunningWeek(), 0, 'easy_run'),
+      },
+      {
+        strength: withStrengthSession(withStrengthSession(emptyStrengthWeek(), 0), 2),
+        running: withRunningDay(emptyRunningWeek(), 0, 'tempo'),
+      },
+    ];
+    for (const week of weeks) {
+      const result = validateCrossDomain(week, DEFAULT_CONTEXT);
+      expect(result.violations.some((v) => v.code === 'R2')).toBe(false);
+    }
   });
 });
 
