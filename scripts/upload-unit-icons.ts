@@ -52,7 +52,13 @@ import { normalizeOrgName } from '../src/lib/org-name';
 function init() {
   if (admin.apps.length) return;
   const c = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
-  admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id, storageBucket: `${c.project_id}.appspot.com` });
+  // NOT {project_id}.appspot.com (the legacy convention) — this project's
+  // real bucket, confirmed from src/lib/firebase.ts's own working config
+  // (already used successfully for authorities.logoUrl uploads today), is
+  // the newer .firebasestorage.app naming. Found this out the hard way:
+  // the first --confirm attempt (05.09.2026) crashed on bucket-not-found
+  // before any upload succeeded — verified zero partial writes before fixing.
+  admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id, storageBucket: `${c.project_id}.firebasestorage.app` });
 }
 
 const DATA_DIR = path.join(__dirname, 'data', 'unit-icons');
