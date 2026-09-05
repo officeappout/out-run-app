@@ -1,0 +1,75 @@
+﻿displayNumber,level,name,nickname,parentId,filename
+,battalion,סיירת גולני,,bde_1,bde_1__sayeret_golani.png
+51,battalion,גדוד 51,הבוקעים הראשון,bde_1,bde_1__51.png
+79,battalion,גדוד 79,,bde_14,bde_14__79.png
+7107,battalion,גדוד 7107,,bde_179,bde_179__7107.png
+53,battalion,גדוד 53,סופה,bde_188,bde_188__53.png
+605,battalion,גדוד 605,הנדסה,bde_188,bde_188__605.png
+71,battalion,גדוד 71,רשף,bde_188,bde_188__71.png
+405,battalion,גדוד 405,,bde_282,bde_282__405.png
+411,battalion,גדוד 411,,bde_282,bde_282__411.png
+46,battalion,גדוד 46,שלח,bde_401,bde_401__46.png
+601,battalion,גדוד 601,הנדסה,bde_401,bde_401__601.png
+195,battalion,גדוד 195,,bde_460,bde_460__195.png
+196,battalion,גדוד 196,,bde_460,bde_460__196.png
+198,battalion,גדוד 198,,bde_460,bde_460__198.png
+532,battalion,גדוד 532,,bde_460,bde_460__532.png
+614,battalion,גדוד 614,,bde_460,bde_460__614.png
+131,battalion,גדוד 131,,bde_5,bde_5__131.png
+8110,battalion,גדוד 8110,,bde_5,bde_5__8110.png
+33,battalion,גדוד 33,קרקל,bde_512,bde_512__33.png
+697,battalion,גדוד 697,,bde_55,bde_55__697.png
+8103,battalion,גדוד 8103,,bde_6,bde_6__8103.png
+466,battalion,גדוד 466,,bde_646,bde_646__466.png
+8112,battalion,גדוד 8112,,bde_679,bde_679__8112.png
+603,battalion,גדוד 603,הנדסה,bde_7,bde_7__603.png
+77,battalion,גדוד 77,עוז,bde_7,bde_7__77.png
+129,battalion,גדוד 129,,bde_8,bde_8__129.png
+8170,battalion,גדוד 8170,,bde_8,bde_8__8170.png
+435,battalion,גדוד 435,רותם,bde_84,bde_84__435.png
+90,battalion,גדוד 90,נחשון,bde_900,bde_900__90.png
+92,battalion,גדוד 92,שמשון,bde_900,bde_900__92.png
+97,battalion,גדוד 97,נצח יהודה,bde_900,bde_900__97.png
+50,battalion,גדוד 50,בזלת,bde_933,bde_933__50.png
+932,battalion,גדוד 932,גרניט,bde_933,bde_933__932.png
+,brigade,"חטמ""ר אפרים",,,bde_u_hatmar_efraim.png
+,brigade,"חטמ""ר מנשה",,,bde_u_hatmar_menashe.png
+,brigade,"חטמ""ר עציון",,,bde_u_hatmar_etzion.png
+,brigade,"חטמ""ר יהודה",,,bde_u_hatmar_yehuda.png
+,brigade,"חטמ""ר בנימין",,,bde_u_hatmar_binyamin.png
+,brigade,"חטמ""ר שומרון",,,bde_u_hatmar_shomron.png
+1,brigade,חטיבה 1,גולני,,bde_1.png
+11,brigade,חטיבה 11,יפתח,,bde_11.png
+12,brigade,חטיבה 12,נגב,,bde_12.png
+14,brigade,חטיבה 14,מחץ,,bde_14.png
+16,brigade,חטיבה 16,ירושלים,,bde_16.png
+179,brigade,חטיבה 179,ראם,,bde_179.png
+188,brigade,חטיבה 188,ברק,,bde_188.png
+2,brigade,חטיבה 2,כרמלי,,bde_2.png
+214,brigade,חטיבה 214,קלע דוד,,bde_214.png
+215,brigade,חטיבה 215,עמוד האש,,bde_215.png
+226,brigade,חטיבה 226,נשר,,bde_226.png
+228,brigade,חטיבה 228,אלון,,bde_228.png
+282,brigade,חטיבה 282,עוצבת גולן,,bde_282.png
+300,brigade,חטיבה 300,ברעם,,bde_300.png
+35,brigade,חטיבה 35,צנחנים,,bde_35.png
+401,brigade,חטיבה 401,עקבות הברזל,,bde_401.png
+406,brigade,חטיבה 406,ערבה,,bde_406.png
+417,brigade,חטיבה 417,בקעה והעמקים,,bde_417.png
+460,brigade,חטיבה 460,בני אור,,bde_460.png
+474,brigade,חטיבה 474,גולן,,bde_474.png
+5,brigade,חטיבה 5,השרון,,bde_5.png
+512,brigade,חטיבה 512,פארן,,bde_512.png
+55,brigade,חטיבה 55,חוד החנית,,bde_55.png
+551,brigade,חטיבה 551,חיצי האש,,bde_551.png
+6,brigade,חטיבה 6,עציוני,,bde_6.png
+646,brigade,חטיבה 646,שועלי מרום,,bde_646.png
+679,brigade,חטיבה 679,יפתח,,bde_679.png
+7,brigade,חטיבה 7,,,bde_7.png
+769,brigade,חטיבה 769,חירם,,bde_769.png
+8,brigade,חטיבה 8,הזקן,,bde_8.png
+810,brigade,חטיבה 810,ההרים,,bde_810.png
+84,brigade,חטיבה 84,גבעתי,,bde_84.png
+9,brigade,חטיבה 9,עודד,,bde_9.png
+900,brigade,חטיבה 900,כפיר,,bde_900.png
+933,brigade,חטיבה 933,"נח""ל",,bde_933.png
