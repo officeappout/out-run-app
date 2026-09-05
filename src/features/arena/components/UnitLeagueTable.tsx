@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Trophy, RefreshCw, ChevronDown } from 'lucide-react';
 import { getUnitLeagueLeaderboard, type UnitLeagueRange, type UnitLeagueResult } from '../services/unit-league.service';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { getRelativeTime } from '@/lib/utils/date-formatter';
 
 const RANGE_OPTIONS: { value: UnitLeagueRange; label: string }[] = [
@@ -123,6 +124,7 @@ export default function UnitLeagueTable({ myOrgId, myUnitPathIds }: UnitLeagueTa
                 style={{ backgroundColor: entry.isMyUnit ? '#F0FBF6' : 'transparent' }}
               >
                 <span className="w-7 text-center text-sm font-black text-gray-400 tabular-nums">{idx + 1}</span>
+                <UnitIconBadge unitId={entry.unitId} iconUrl={entry.iconUrl} name={entry.name} size={36} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-gray-900 truncate">
                     {entry.name}
