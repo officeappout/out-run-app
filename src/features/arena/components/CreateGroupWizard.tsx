@@ -1211,7 +1211,12 @@ function StepPrivacy({
   form: WizardForm;
   updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
 }) {
-  const isPrivateByDefault = ALWAYS_PRIVATE_TYPES.has(form.groupType);
+  // DEFAULT_PRIVATE_TYPES (not ALWAYS_PRIVATE_TYPES) — code review, 07.09.2026:
+  // this badge stayed silent for military when editing an existing military
+  // group here, even though it did start isPublic=false. Cosmetic-only —
+  // the toggle's actual value was always correct — but worth matching the
+  // same set the type-picker step already uses for consistency.
+  const isPrivateByDefault = DEFAULT_PRIVATE_TYPES.has(form.groupType);
 
   return (
     <div className="space-y-5 pt-4">
