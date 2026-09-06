@@ -30,7 +30,7 @@ import {
   MG_TO_DOMAIN,
   collectMethodGear,
 } from '../shared/constants/domain-mapping.constants';
-import { computeDomainCounts, isSafeDomainVictim } from '../core/pipeline/GuaranteePassRunner';
+import { computeDomainCounts, isSafeDomainVictim, isDomainRegistered } from '../core/pipeline/GuaranteePassRunner';
 
 /**
  * Check if userProgramLevels contains a key that matches `programId`
@@ -711,7 +711,8 @@ export function applyEssentialGearFilter(
       !usedIds.has(ex.id)
       && isRawExNaked(ex)
       && ex.exerciseRole !== 'cooldown'
-      && ex.exerciseRole !== 'warmup',
+      && ex.exerciseRole !== 'warmup'
+      && isDomainRegistered(ex, userProgramLevels),
     );
     const needed = MIN_EXERCISES - nakedMain.length;
     const backfill = candidates.slice(0, needed);
@@ -787,7 +788,8 @@ export function applyEssentialGearFilter(
         !usedIds.has(raw.id)
         && isRawExNaked(raw)
         && raw.exerciseRole !== 'cooldown'
-        && raw.exerciseRole !== 'warmup',
+        && raw.exerciseRole !== 'warmup'
+        && isDomainRegistered(raw, userProgramLevels),
       );
       if (replacement) {
         const nakedMethod = (replacement.execution_methods ?? replacement.executionMethods ?? [])

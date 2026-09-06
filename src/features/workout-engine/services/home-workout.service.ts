@@ -113,6 +113,7 @@ import { resolveEffectiveBoltTime } from '../logic/bolt-time.utils';
 import {
   annotateRepRanges,
   enforceVolumeCap,
+  roundRestSeconds,
   sortAndPair,
 } from '../core/presentation/PresentationFormatter';
 import { validatePromisesPostCut } from '../core/pipeline/GuaranteePassRunner';
@@ -1178,6 +1179,15 @@ export async function generateHomeWorkoutTrio(
     // can read a pre-computed Hebrew string instead of re-formatting on
     // every render.  Idempotent — safe to re-run later if needed.
     annotateRepRanges(workout.exercises);
+
+    // ── Round displayed rest to the nearest 15s (03-CHANGES.md Addendum 26) ──
+    // Presentation-only: snaps the countdown target to a countable number
+    // (60/75/90/…) after every other rest-affecting mutation has settled.
+    // Must run last among rest-touching passes — enforceVolumeCap explicitly
+    // never touches restSeconds, so ordering relative to it doesn't matter,
+    // but this still belongs at the very end of the pipeline like
+    // annotateRepRanges.
+    roundRestSeconds(workout.exercises);
 
     // Collect main exercise IDs into blacklist for next iteration
     workout.exercises

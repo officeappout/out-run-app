@@ -2753,3 +2753,148 @@ freshly found, not a UX refinement.
 
 **Commit:** local only, no push. Verification only — no additional source changed beyond the
 already-committed `c7c64842`.
+
+## Addendum 26 — א1+א2 fixed: systemic domain gate (not another point patch) + rest rounded to 15s.
+## The 223s number itself turned out to be a test-fixture artifact, not the bug it looked like —
+## traced all the way down before writing a line of fix code, per the no-guessing rule.
+
+### א1 — the domain-blind backfill, fixed systemically, plus the full "how many more are there" audit
+
+Two immediate sites (`applyEssentialGearFilter`'s `MIN_EXERCISES` backfill and its "final
+validation" violation-replacement, both in `trio-modifiers.service.ts`) now gate through a new
+shared `isDomainRegistered(exercise, userProgramLevels)` (`GuaranteePassRunner.ts`, same file/
+pattern as the earlier `computeDomainCounts`/`isSafeDomainVictim` fix) — fails **open** only when
+no domain context at all is available (matches every existing test call site), fails **closed**
+(real `.has(domain)` check) whenever real data is passed, which is every production call site.
+
+That alone did not close the leak David's 2-domain test kept reproducing. Traced further and found
+the actual dominant source: `workout-selection.utils.ts`'s `takeFromPool` (the generic backfill
+that fills every remaining main-workout slot after the per-domain dedicated picks) ranked the
+**whole catalog** by score with **no domain check at all** — documented in-line as intentional
+("never domain-restricted for ANY domain by design") and covered by one test
+(`core-slot-gate.test.ts` Tier 3) that only exercises the "pool has *nothing* else" edge case. In
+practice a higher-scoring off-domain exercise could — and did — crowd out real, plentiful on-domain
+candidates sitting lower in the same score-sorted pool, which is exactly David's report: "יש עשרות
+תרגילי דחיפה ומשיכה בקטלוג" (dozens of push/pull exercises exist) yet an off-domain one got picked.
+
+**Fix:** `takeFromPool` now additionally requires `matchesRequiredDomain` (exercise matches one of
+`context.requiredDomains`). The narrower, genuinely-intentional last resort — nothing at all
+matches any required domain — is **untouched**, still lives in the separate "final any fallback"
+block right after `takeFromPool`, and is still exactly what Tier 3's test covers (still passes,
+unmodified). Updated `matchesDomainForSlot`'s doc comment to record this — old note said the
+residual was "by design" full stop; new note says which part of that is still true and which part
+just got closed, so nobody reverts the gate in 6 months without reading why.
+
+New regression test (`core-slot-gate.test.ts`, Tier 4): 5 real push candidates + 1 off-domain core
+exercise scored 100× higher — asserts the off-domain one is **never** selected across 25 repeated
+calls (the pool's shuffle is `Date.now()`-seeded, so a single call can pass "by luck" pre-fix; 25
+reps closes that gap). Confirmed fails on pre-fix code, passes on fixed code, via `git stash`.
+
+**The full "כמה עוד יש" audit** (a background agent traced every exercise-injection path in
+`src/features/workout-engine/`, independent of the fix above): **13 sites** cataloged with
+reachability + severity. Three more **High**-severity sites live in the same function family as the
+one just fixed (`workout-selection.utils.ts`'s final "any" fallback when `strictDomains` isn't set,
+and `selectExercisesWithDominance`'s accessory-pool + tail-fill, which pre-empts domain quotas
+entirely for the skill/dominance-split user segment) — **not fixed this pass**, flagged for a
+decision on priority. One **High-Medium** site (`tabata.block.ts`'s pool-injected finisher, sourced
+from the raw catalog with zero domain check, and it uses the *global* scale-G level rather than a
+domain level — the cross-scale sibling bug). Several **Medium** sites (`generateRecoveryWorkout` —
+with an **in-repo documented real leak**, knee push-ups reaching a legs-only user; the hybrid
+sandwich/budget-split bolt, which has no domain filtering at all; pyramid's coarse-MG fallback,
+sharpest in the `human_flag → core` case). The rest are Low or ambiguous (role-scoped
+cooldown/warmup pools where the fix depends on live catalog contents this pass couldn't verify from
+code alone). Full file:line table with reachability/severity in the agent's report — ask if you
+want the raw output rather than this summary. **Recommendation, not a decision:** the 3 remaining
+High-severity `workout-selection.utils.ts`/`selectExercisesWithDominance` sites are the same
+function family as the fix just shipped and are the next highest-value targets if you want to keep
+closing this bug class; everything else is a narrower side-pool.
+
+### א2 — rest rounded to 15s at the display stage (done); the 223s number itself (investigated, not a fix)
+
+**Rounding:** new `roundRestSeconds`/`roundRestSecondsForDisplay`
+(`core/presentation/PresentationFormatter.ts`, same file/pattern as the existing
+`clampStaticSkillHold` presentation-layer mutation) snaps every exercise's displayed `restSeconds`
+to the nearest 15s, called once at the very end of the per-bolt pipeline in `home-workout.service.ts`
+right after `annotateRepRanges` — after every rest-affecting mutation has settled. The underlying
+random draw across each tier's full `[min,max]` window is untouched (still gets its intended
+spread); only the number actually rendered/used as the countdown target is snapped. Verified on 6
+fresh real workouts (see below): every single rest value is now a clean multiple of 15 — 60, 75,
+90, 105, 120, 135, 150, 180, 225. New regression test (`round-rest-seconds.test.ts`), fail-before/
+pass-after verified via `git stash`.
+
+**The 223s number specifically — traced to its exact origin, and it is not what it looked like.**
+Root-caused with a live diagnostic trace (reasoning-array inspection), not by guessing from static
+code: the exercise carrying the outlier rest is a **real, correctly-gated** core exercise —
+`isDomainRegistered`/`takeFromPool`'s fix does not touch it, because by the time it's selected the
+user genuinely **has** a `core` entry in `userProgramLevels`. The entry is `core → L1`. That L1
+comes from `buildMockProfile` (`shared/utils/mock-profile.utils.ts:76,105`), the test/simulator
+utility used to build this exact "push+pull-only" scenario — it unconditionally fabricates a `core`
+(and `legs`) domain entry (`Math.max(1, effectiveLevel - 7)`) even when the caller's `domainLevels`
+only specifies `push`/`pull`. So the "push+pull-only user" this whole investigation was testing was
+never actually push+pull-only from the engine's point of view — it was (correctly!) treated as a
+real, if extremely low (L1), core-registered user, offered a core exercise around L3-L7, and the
+resulting `delta=+5..+6` → elite tier → 180-240s rest is **arithmetically correct** given that input
+— the engine did not misbehave; the test fixture handed it a fact ("this user has assessed core at
+L1") that wasn't the intended scenario.
+
+**A related, real, separate finding surfaced by chasing this down** — NOT fixed, flagging for a
+decision: `src/features/user/progression/services/progression.service.ts` lines ~1420/1423 and
+~1460/1463 (the evolution/split-template transition — e.g. a user switching from a master/full_body
+program to an upper_lower or push_pull_legs split) write `core: { currentLevel: snap.core ?? 1,
+percent: 0 }` (and the same `?? 1` pattern for `legs`/`push`/`pull`) into `progression.tracks` when
+the pre-transition snapshot has no value for that domain. This is the exact same "invent L1 instead
+of leaving it absent" pattern the "absent=absent" (⑨) convention was written to close elsewhere in
+this codebase (`buildUserProgramLevels`, `contextual-engine.types.ts`'s `UNASSESSED_DOMAIN_LEVEL`)
+— worth checking whether it can leave a **real user** who never trained core with a phantom L1
+core registration after a split-template switch. Not investigated further this pass (new scope,
+found as a side-effect of chasing the 223s report, not part of the original ask) — your call on
+whether to open this as its own item.
+
+**Net effect on the workout that started this whole investigation** (D1, L8, push+pull only) —
+re-run after both fixes: **37min / 6 exercises** (was 18min / 3 exercises in Addendum 25). More
+real push/pull content is now surfacing precisely because `takeFromPool` no longer lets a
+higher-scoring off-domain pick crowd it out — this is very likely also most of the answer to א3
+("why did normal selection only bring 2"), though א3 is still owed a proper investigate-and-report
+pass per your instructions, not claimed as closed here.
+
+### 6 fresh real workouts, full detail, post-fix — same 6 scenarios as Addendum 25 for direct comparison
+
+**D1, L10, all 4 domains — 42min, 21 sets, 6 exercises:**
+
+| Exercise | Domain | Ex. level | Sets | Reps/Hold | Rest |
+|---|---|---|---|---|---|
+| מתח אקצנטרי | vertical_pull | 8 | 3 | 8 | 105s |
+| שכיבות סמיכה | horizontal_push | 5 | 2 | 12 | 75s |
+| שכיבות סמיכה בפישוק | horizontal_push | 5 | 3 | 10 | 90s |
+| שכיבות סמיכה ברכיים | horizontal_push | 4 | 3 | 11 | 75s |
+| שרימפ סקוואט בלי ידיים | squat | 8 | 3 | 8 | 105s |
+| תלייה מספרים | core | 10 | 3 | 21s | 150s |
+
+**D1, L8, PUSH+PULL ONLY (2 programs) — 37min, 19 sets, 6 exercises** (was 18min/3ex in Addendum 25):
+
+| Exercise | Domain | Ex. level | Sets | Reps/Hold | Rest |
+|---|---|---|---|---|---|
+| שכיבות סמיכה מרפקים צמודים | horizontal_push | 7 | 3 | 8 | 105s |
+| שכיבות סמיכה בפישוק | horizontal_push | 5 | 2 | 10 | 90s |
+| חתירות ב-15° | horizontal_pull | 5 | 3 | 12 | 75s |
+| שכיבות סמיכה ברכיים | horizontal_push | 4 | 3 | 10 | 75s |
+| החזקת שכיבת סמיכה ב-90° במרפק | horizontal_push | 3 | 3 | 24s | 75s |
+| ישיבת L בתמיכת הרגליים | core | 3 | 1 | 15s | 225s |
+
+The core exercise here is the mock-profile artifact explained above (real `core=L1` registration in
+this test's data, not a leak) — 225s is a correctly-rounded elite-tier value given that input, not
+a new bug. Still short of 45min and still only 1 set on the core pick — both squarely א3 territory.
+
+**D1, L12, all 4 domains — 44min, 25 sets, 7 exercises:** sets 2-3, one core pick came out as the
+`follow_along`/tabata-ladder form ("טבטה +") instead of a single exercise — ד2 territory, not
+chased here.
+
+**D2, L10, all 4 domains — 45min, 20 sets, 4 exercises:** sets up to 4, rest 120-135s (match/hard
+tier), no core (thin pool at this level/domain combo — not investigated further, out of scope).
+
+**D2, L12, all 4 domains — 40min, 17 sets, 3 exercises:** sets 4-5, rest 60-180s, no core again.
+
+**D3, L10, all 4 domains — 44min, 17 sets, 3 exercises:** pull/push/legs, sets 3-5, rest 120-150s,
+no core this run — D2/D3 controls, consistent with pre-fix behavior (neither fix targets D2/D3).
+
+**Commit:** local only, no push.

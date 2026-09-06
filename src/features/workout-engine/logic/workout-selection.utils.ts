@@ -589,18 +589,29 @@ export function hasExplicitCoreLevel(ex: Exercise): boolean {
  *  here and nowhere else).
  *
  *  Scope note: this gates the DEDICATED per-domain pick (the guaranteed
- *  representative for a required domain) and its rescue tiers — not the
- *  later general backfill pass (takeFromPool / the final "any" fallback
- *  further down this function), which was never domain-restricted for ANY
- *  domain by design (it fills remaining session slots from the best-scoring
- *  remaining exercises regardless of domain match, capped only by
- *  isDomainFull's overflow check). A core-tagged-but-unleveled exercise
- *  could in principle still appear as a backfill "bonus" pick in a very
- *  thin pool — see core-slot-gate.test.ts's documented edge-case test. It
- *  would not recreate the cross-scale level bug this gate exists to close,
- *  since applyDifficultyFilter resolves such an exercise's OWN level via
- *  its real targetPrograms entries (push/pull/human_flag) before ever
- *  falling back to a movementGroup-based domain guess. */
+ *  representative for a required domain) and its rescue tiers.
+ *
+ *  UPDATED 06.09.2026 (03-CHANGES.md Addendum 26): the general backfill pass
+ *  (takeFromPool, further down this function) used to be undocumented as
+ *  "never domain-restricted for ANY domain by design" here — that was true
+ *  of the code but turned out not to be a safe design in practice: a
+ *  higher-scoring off-domain exercise could crowd out real, plentiful
+ *  on-domain candidates (not just fill a genuinely-empty pool), which is
+ *  exactly the "domain-blind selection" bug class flagged repeatedly this
+ *  session (see GuaranteePassRunner.ts's isDomainRegistered / this file's
+ *  applyEssentialGearFilter fixes for the same class in other pipeline
+ *  stages). takeFromPool now requires matchesRequiredDomain (see its own
+ *  comment) — ONLY the final "any" fallback below it (fired when nothing at
+ *  all matches any required domain) is still intentionally domain-blind, by
+ *  design, as the true last resort. That narrower residual is what
+ *  core-slot-gate.test.ts's Tier 3 test actually documents and still
+ *  covers — don't revert takeFromPool's gate without re-reading that test
+ *  and this note first. A core-tagged-but-unleveled exercise reaching the
+ *  workout via that last-resort path would not recreate the cross-scale
+ *  level bug this gate exists to close, since applyDifficultyFilter resolves
+ *  such an exercise's OWN level via its real targetPrograms entries (push/
+ *  pull/human_flag) before ever falling back to a movementGroup-based
+ *  domain guess. */
 export function matchesDomainForSlot(ex: Exercise, domain: string): boolean {
   if (!exerciseMatchesProgram(ex, domain)) return false;
   if (domain === 'core') return hasExplicitCoreLevel(ex);
@@ -855,14 +866,32 @@ export function selectExercisesWithDomainQuotas(
   const primaryPool = [...byPriority.foundation, ...byPriority.compound, ...byPriority.skill].sort((a, b) => b.score - a.score);
   const secondaryPool = [...byPriority.accessory, ...byPriority.isolation].sort((a, b) => b.score - a.score);
 
+  // Domain-blind-backfill fix (03-CHANGES.md Addendum 26, 06.09.2026): this
+  // pass used to rank the WHOLE catalog by score with no domain check at
+  // all — a "by design" residual documented in matchesDomainForSlot's doc
+  // comment and core-slot-gate.test.ts's Tier 3. In practice it was not
+  // limited to the pathologically-thin-pool case that test documents: a
+  // higher-scoring off-domain exercise (e.g. a core "skill" pick) could
+  // crowd out on-domain candidates that were sitting further down the same
+  // score-sorted pool, even with dozens of real on-domain candidates
+  // available (David's exact report — push+pull-only user, off-domain core
+  // exercise selected here instead of readily-available push/pull content).
+  // `matchesRequiredDomain` restores the same domain boundary the dedicated
+  // per-domain pick already enforces. The TRUE last-resort, domain-blind
+  // fallback (nothing at all matches any required domain) still exists
+  // unchanged below at the "final any fallback" block — that is what
+  // core-slot-gate.test.ts's Tier 3 actually exercises, and it still passes.
+  const matchesRequiredDomain = (ex: Exercise): boolean =>
+    context.requiredDomains!.some((d) => exerciseMatchesProgram(ex, d));
+
   const takeFromPool = (pool: typeof primaryPool, n: number) => {
     const top = pool
-      .filter((s) => !selectedIds.has(s.exercise.id) && !isDomainFull(s.exercise))
+      .filter((s) => !selectedIds.has(s.exercise.id) && !isDomainFull(s.exercise) && matchesRequiredDomain(s.exercise))
       .slice(0, Math.min(n * 2, pool.length));
     const shuffledTop = seededShuffle(top, seed + selected.length);
     for (const s of shuffledTop) {
       if (selected.length >= count) break;
-      if (!selectedIds.has(s.exercise.id) && !isDomainFull(s.exercise)) {
+      if (!selectedIds.has(s.exercise.id) && !isDomainFull(s.exercise) && matchesRequiredDomain(s.exercise)) {
         selected.push(s);
         selectedIds.add(s.exercise.id);
         for (const d of context.requiredDomains!) {

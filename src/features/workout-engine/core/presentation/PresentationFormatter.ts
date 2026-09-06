@@ -290,6 +290,45 @@ export function annotateRepRanges(
 }
 
 // ============================================================================
+// REST-SECONDS ROUNDING — Presentation-layer countability
+// ============================================================================
+//
+// 03-CHANGES.md Addendum 26 (06.09.2026, David's report): the engine's raw
+// `restSeconds` (a random draw inside TIER_TABLE's per-tier [min,max] window
+// — see rederiveVolumeForSwappedExercise / assignVolume) produces values like
+// 66, 67, 80, 82, 84, 87 — technically correct physiologically, but not
+// numbers a person can count/anticipate mid-set ("המשתמש סופר את הזמן הזה
+// בראש"). This is a DISPLAY-layer fix only: the underlying random draw across
+// the full tier window is preserved (still gives every tier's rest budget its
+// intended spread), only the value actually rendered/used as the countdown
+// target is snapped to the nearest 15s. Mirrors clampStaticSkillHold's
+// pattern (a presentation-layer safety/readability mutation applied once,
+// here, rather than threaded through every volume-assignment call site).
+
+const REST_DISPLAY_GRANULARITY_SECONDS = 15;
+
+/** Round `seconds` to the nearest multiple of 15 (minimum 15s). */
+export function roundRestSecondsForDisplay(seconds: number): number {
+  const rounded = Math.round(seconds / REST_DISPLAY_GRANULARITY_SECONDS) * REST_DISPLAY_GRANULARITY_SECONDS;
+  return Math.max(REST_DISPLAY_GRANULARITY_SECONDS, rounded);
+}
+
+/**
+ * In-place: snap every main/accessory exercise's `restSeconds` to the
+ * nearest 15s. Skips exercises with no meaningful rest value (isFollowAlong
+ * clips carry `restSeconds: 0` — the video controls pacing, not a countdown).
+ */
+export function roundRestSeconds(
+  exercises: WorkoutExercise[],
+): WorkoutExercise[] {
+  for (const ex of exercises) {
+    if (!ex.restSeconds) continue;
+    ex.restSeconds = roundRestSecondsForDisplay(ex.restSeconds);
+  }
+  return exercises;
+}
+
+// ============================================================================
 // SORT-AND-PAIR — Locked Final Ordering Chain
 // ============================================================================
 

@@ -127,6 +127,38 @@ export function isSafeDomainVictim(
 }
 
 /**
+ * True if `exercise`'s domain is one the user has an assessed level for —
+ * the SAME `has()`-guarded absent=absent contract used everywhere else this
+ * session (`workout-selection.utils.ts`'s domain-quota selection,
+ * `buildUserProgramLevels`). Exported (06.09.2026, David — docs/workout-
+ * engine/03-CHANGES.md Addendum 26) so every domain-BLIND candidate search
+ * (backfills, replacement passes — anything that reaches into the raw
+ * catalog instead of the already-gated domain-quota pool) can share one
+ * predicate instead of re-discovering this gap independently. This is the
+ * 5th site this exact bug class was found in (609/637, Part B Tier 1, the
+ * 3 guarantee passes, applyEssentialGearFilter's naked-filter, and now its
+ * own backfill/replacement passes) — a shared, exported gate instead of
+ * another local patch.
+ *
+ * Exercises with no resolvable domain at all (movementGroup missing from
+ * MG_TO_DOMAIN — no known program) pass through unchanged; this predicate
+ * only gates exercises whose domain IS known but the user has no level in.
+ * When `userProgramLevels` is undefined or empty — no domain context at
+ * all, not "the user has zero domains" — the gate is a no-op (pass), the
+ * same fallback semantics `levelInfoFor` in trio-modifiers.service.ts
+ * already uses when no program-level context is available.
+ */
+export function isDomainRegistered(
+  exercise: { movementGroup?: string },
+  userProgramLevels: Map<string, number> | undefined,
+): boolean {
+  if (!userProgramLevels || userProgramLevels.size === 0) return true;
+  const domain = MG_TO_DOMAIN[exercise.movementGroup ?? ''];
+  if (!domain) return true;
+  return userProgramLevels.has(domain);
+}
+
+/**
  * Pick the lowest-scored exercise from `candidates` that is safe to remove
  * (see `isSafeDomainVictim`). `allMainExercises` — NOT `candidates` — is
  * used to compute domain counts, since a candidate list pre-filtered to

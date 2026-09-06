@@ -188,3 +188,45 @@ describe('known residual: generic backfill is not domain-gated (pre-existing, no
     expect(selected.find((s) => s.exercise.id === 'flag-1')).toBeDefined();
   });
 });
+
+// ============================================================================
+// Tier 4 — takeFromPool domain gate (03-CHANGES.md Addendum 26, 06.09.2026)
+// ============================================================================
+//
+// David's real report: a push+pull-only user got an off-domain core exercise
+// injected by the generic backfill pass EVEN THOUGH dozens of real push/pull
+// candidates existed in the pool — not the "pool has nothing else" scenario
+// Tier 3 above documents. Root cause: takeFromPool ranked the WHOLE catalog
+// by score with no domain check, so a higher-scoring off-domain exercise
+// could crowd out lower-scoring on-domain candidates sitting further down
+// the same score-sorted pool. Fixed by requiring matchesRequiredDomain in
+// takeFromPool specifically — the true last-resort fallback (Tier 3) is
+// untouched and still fires when nothing on-domain exists at all.
+describe('takeFromPool domain gate — a real, plentiful on-domain pool is not crowded out by a higher-scoring off-domain exercise', () => {
+  it('fills backfill slots from real on-domain (push) candidates instead of a higher-scored off-domain (core) one', () => {
+    const offDomainCoreExercise = scored(
+      makeExercise('off-domain-core-1', 'תרגיל ליבה לא רשום', [{ programId: 'core', level: 5 }]),
+      1000, // deliberately far higher score than every push candidate below
+    );
+    const pushCandidates = Array.from({ length: 5 }, (_, i) =>
+      scored(
+        makeExercise(`push-${i}`, `דחיפה ${i}`, [{ programId: 'push', level: 5 }], { movementGroup: 'horizontal_push', primaryMuscle: 'chest' }),
+        10 - i, // real, plentiful, but lower-scored than the off-domain exercise
+      ),
+    );
+    const pool = [offDomainCoreExercise, ...pushCandidates];
+    // requiredDomains is push-only — this user is not registered for core.
+    const context = makeContext(['push'], new Map([['push', 8]]));
+
+    // selectExercisesWithDomainQuotas shuffles its candidate pool with a
+    // live-refresh (Date.now()-seeded) shuffle — repeat the call so this
+    // test can't pass "by luck" on the pre-fix code (which only sometimes
+    // rolls the off-domain exercise into the selected slots).
+    for (let i = 0; i < 25; i++) {
+      const selected = selectExercisesWithDomainQuotas(pool as any, 3, false, context, 2 as any);
+      expect(selected.find((s) => s.exercise.id === 'off-domain-core-1')).toBeUndefined();
+      expect(selected.every((s) => s.exercise.id.startsWith('push-'))).toBe(true);
+      expect(selected).toHaveLength(3);
+    }
+  });
+});
