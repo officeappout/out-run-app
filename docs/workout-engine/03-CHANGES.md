@@ -2065,3 +2065,90 @@ Nothing in F1-F20 was fixed — this is a scan, not a patch list. `00-PLAN.md` �
 itself for future work to be checked against.
 
 **Commit:** local only, no push. Docs only.
+
+---
+
+## Addendum 16 — Addendum 13's numbers are stale (pre-fix profiles); a real post-fix profile
+## checked directly — core IS present, matching, and correctly selected
+
+David added core back to the questionnaire and registered once with it since Addendum 13 was
+written. Addendum 13's 101/204 figure is from **before** that change and should not be relied on
+going forward — this addendum checks the actual current behavior on a real post-fix profile
+instead.
+
+### The profile checked
+
+Auth `uid=PF1537oDy3bIsjHrVdJADCaxAqo2`, anonymous auth, created **2026-09-03** — the most recent
+real (non-diagnostic-script) signup with `onboardingStatus: COMPLETED` at the time of this check.
+(Finding it required filtering out: (a) `createdAt` on the Firestore doc, which stores the literal
+unresolved `FieldValue.serverTimestamp()` sentinel rather than a real value — unrelated pre-existing
+oddity, not chased further; (b) ~600 diagnostic-script auth accounts created by this and other
+sessions' throwaway `createCustomToken()` calls this week, filtered by uid shape.)
+
+### (2) What's actually saved — core vs. push/pull/legs, same profile
+
+```
+progression.domains.core = { maxLevel: 20, isUnlocked: true, currentLevel: 11 }
+progression.tracks.core  = { percent: 0, currentLevel: 11 }
+```
+**Both present, both = 11.** Compare push/pull on the *same* document:
+```
+progression.domains.push = { maxLevel: 25, isUnlocked: true, currentLevel: 0 }
+progression.tracks.push  = { currentLevel: 9, percent: 0 }
+progression.domains.pull = { maxLevel: 25, isUnlocked: true, currentLevel: 0 }
+progression.tracks.pull  = { currentLevel: 6, percent: 0 }
+```
+push/pull show `domains=0` but `tracks=9`/`6` — a real mismatch, but on this profile it does **not**
+look like a core-specific problem: `activePrograms` shows push added 2026-09-03 (onboarding),
+pull added 2026-09-05 08:55 and core added 2026-09-05 17:16 — three separate add-a-domain actions
+days apart, not one onboarding session. `progression.service.ts:210-226` already mirrors
+`tracks.currentLevel` into `domains.currentLevel` on every progression update
+(`domainMirror['progression.domains.${programId}.currentLevel'] = track.currentLevel`) — so
+push/pull's mismatch, on paper, shouldn't exist either. **I did not fully trace why it does** —
+flagging as a real, separate, unexplained oddity rather than guessing; core simply hasn't had time
+to diverge (added same-day as this check), so it isn't evidence either way for core specifically.
+
+### (3) What the questionnaire writes — no core-specific code path found
+
+`onboarding-sync.service.ts:1296-1354` (`quizTracks` construction) treats core identically to
+push/pull/legs — same generic loop (`if (childLevel > 0) quizTracks[childId] = {currentLevel,
+percent:0}`), no core-specific branch. The domains/tracks mirror at `:1449-1461` ("Mirror quiz
+currentLevels into the seeded `initialDomains` so the two paths agree from day 1") also applies
+uniformly to whatever is in `quizTracks`, core included. **No code-level difference found between
+how core and push/pull/legs get written** — Addendum 13's Path B/C zeroing (`assessment-visual/
+page.tsx:709-713`) still exists in the code, but did not fire for this profile (core was assessed,
+not skipped).
+
+### (4) Real full-body generation, this exact profile's real data
+
+Ran `generateHomeWorkoutTrio` with a profile scaffolded from `buildMockProfile` but with
+`progression.domains`/`.tracks`/`.activePrograms` overwritten with this user's actual fetched
+Firestore data (not synthetic) — `availableTime:45, requiredDomains: undefined`.
+
+**Bolt 2 (the "balanced" option) selected 3 core exercises outright** — `hasCore: true`, main
+`movementGroups = [vertical_push, ?, vertical_push, horizontal_push, vertical_push, core, core,
+core]`. Bolts 1 and 3 showed `hasCore: false`, but their main blocks were 100% push movement groups
+— consistent with a single-domain(push) blueprint for those two bolts, where core correctly isn't
+expected, not a core-specific failure.
+
+**Secondary, unrequested observation:** none of the 3 bolts showed a genuine push+pull+legs+core
+full-body blueprint for this profile — 2 of 3 were push-only, 1 mixed push+core. Given this user
+has 3 separate active single-domain programs (push/pull/core, no combined "full_body" program),
+this smells like `StructureDirector`'s domain-resolution logic not merging multiple separate
+single-domain `activePrograms` into a full-body blueprint the way one might expect — genuinely
+interesting, but tangential to the core question asked here and **not investigated further this
+pass**.
+
+### Bottom line — direct answer to the question asked
+
+**`progression.tracks` is where the engine reads from (`buildUserProgramLevels`), and core lands
+there correctly for this profile, matching `domains`.** The engine sees `core` present at level 11
+and selects real core exercises when the blueprint calls for it (confirmed live, bolt 2). Addendum
+13's "101/204 broken profiles" describes the **pre-fix** state — David's own fix (adding core back
+to the questionnaire) appears to be working on this one real post-fix data point. This is not a
+re-measurement of the full user base (that would need a fresh Addendum-13-style query filtered to
+post-fix signups only, not done here per "quick check" scope) — it is confirmation that the
+mechanism works end-to-end on a real profile, not a claim about how many users are now fixed.
+
+**Commit:** local only, no push. Docs only — read-only Firestore queries + one synthetic-profile
+generation run, no writes, no temp scripts left behind.
