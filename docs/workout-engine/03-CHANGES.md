@@ -2223,3 +2223,71 @@ The other 12 items from F1-F20 remain untouched, awaiting instruction, as does t
 15's scope (Tasks 2/3 for core, item ז).
 
 **Commit:** local only, no push. Docs only (the code fix itself already committed as `08e12ac4`).
+
+---
+
+## Addendum 18 — push/pull domains-vs-tracks mismatch investigated. The engine reads the correct
+## value; the write-path root cause was not fully pinned despite tracing 3 candidate mechanisms.
+
+David's item 2, investigated before any fix, per instruction.
+
+### Which value the engine actually uses — confirmed, and this is the reassuring part
+
+`buildUserProgramLevels` (`level-resolution.utils.ts:119`):
+```ts
+const effectiveLevel = (trackLevel > 1) ? trackLevel : (domainLevel > 0 ? domainLevel : trackLevel);
+```
+**Tracks wins whenever `trackLevel > 1`, unconditionally.** On David's own profile, push (`domains=0,
+tracks=9`) and pull (`domains=0, tracks=6`) both resolve to their **tracks** value — 9 and 6
+respectively, confirmed by the `[LevelSync] Domain 'push' resolved to L8 (Source: Tracks)`-style log
+line seen live in Addendum 17's proof run. **The engine has been using the correct, real-assessed
+level this whole time for these two profiles' push/pull selection — the stale `domains` value is
+never what exercise selection reads.** This directly answers the original worry (wrong-level
+exercises from a bad level read) — that specific failure mode is not what's happening here.
+
+### The mismatch itself — real, quantified, one-directional
+
+Queried all 617 user docs / 204 real profiles for `tracks.{domain} > 1` disagreeing with
+`domains.{domain}`:
+
+| Domain | Profiles mismatched | % of 204 |
+|---|---|---|
+| push | 13 | 6.4% |
+| pull | 18 | 8.8% |
+| legs | 14 | 6.9% |
+| core | 10 | 4.9% |
+| **Any of the 4** | **25** | **12.3%** |
+
+Every single example checked (`domains.push=0, tracks.push=6/14/20/4...`) is the **same direction**:
+`domains` low/zero, `tracks` the real higher value — never the reverse. Spans a wide range of
+`activePrograms.startDate` (April through August 2026, not clustered around one date), including one
+profile with a level-13 core track and a 0-level core domain from what looks like its very first
+assessment (not gradual gameplay drift) — pointing at a systemic write-path gap present across
+months, not a single dated incident.
+
+### Root cause — traced 3 candidate mirror mechanisms, all individually look correct; not fully pinned
+
+1. `onboarding-sync.service.ts:1449-1461` — mirrors every `quizTracks` entry into `seededDomains`
+   at onboarding-sync time. Introduced in commit `a5490d3a` (**2026-04-23**) — predates every
+   mismatched example found, so its absence-before-a-date is not the explanation.
+2. `single-domain-assessment.service.ts` (the "add one more domain" top-up flow) — reuses the same
+   `onboarding-sync.service.ts` writer, same mirror applies.
+3. `progression.service.ts:213-234` (`updateProgressionTracks`, private, 4 call sites, all
+   gameplay/goal-driven level-ups) — also mirrors unconditionally, every `programId` in its `tracks`
+   argument gets `progression.domains.{id}.currentLevel` written via a dot-path `updateDoc`.
+
+**All 3 read as correct in isolation.** I did not find the actual gap — either a 4th write path
+exists that I didn't locate, or one of these 3 has a conditional branch that skips the mirror under
+a specific state I didn't reproduce. Checked and ruled out: no Cloud Function (`functions/src/`)
+writes to either field. **Not fixed, not further chased — reporting the boundary of what I could
+confirm rather than guessing past it, per instruction.**
+
+### Not done this round
+
+No source touched. If this becomes a priority fix later, the next step would be adding temporary
+instrumentation to all 3 write sites and reproducing a fresh mismatch live (the way Addendum 15/17's
+investigations did for the engine side), rather than continuing to read code in isolation — the
+static reads exhausted what's findable that way.
+
+**Commit:** local only, no push. Docs only — read-only Firestore queries, no writes, no temp
+scripts left behind.
