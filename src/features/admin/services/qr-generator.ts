@@ -1,19 +1,28 @@
 /**
- * QR Generator — local-only (the `qrcode` npm package, no network calls,
- * no external QR service ever sees a marketing link). Two output paths:
+ * QR Generator — local-only (the `qr-code-styling` npm package, no network
+ * calls, no external QR service ever sees a marketing link). Verified: the
+ * package's compiled bundle has zero `require()` calls — `canvas`/`jsdom`
+ * are only referenced as *optional*, caller-injected constructor options
+ * for server-side rendering, never pulled in automatically — so this is
+ * safe to use from a `'use client'` component without leaking a Node-only
+ * dependency into the browser bundle (the exact class of bug that broke
+ * production in the previous round).
  *
- *   • `generateQrSvgString()` — pure string generation (works in Node or
- *     browser, no DOM). This is what's unit-tested.
- *   • `generateQrPngDataUrl()` — browser-only, uses `<canvas>`/`Image` to
- *     rasterize the SVG output and composite the logo on top at print
- *     resolution. Not unit-testable without a real browser — verified by
- *     manual QA + the mandatory "scan before print" step in the UI.
+ * This file stays pure/unit-testable wherever the underlying operation
+ * doesn't require real rendering:
+ *   • `buildQrCodeStylingOptions()` — maps app-level style params to the
+ *     library's `Options` object. No DOM, no canvas — just an object.
+ *   • `computeContrastRatio` / `isContrastSafe` — WCAG-style contrast math.
+ *   • `computeScanRiskLevel()` — heuristic risk scoring.
+ *   • `computeMinPrintWidthCm()` — print-size rule of thumb.
+ *   • `sanitizeFilename()` / `clampLogoSizeRatio()`.
  *
- * Both take the SAME color/logo/error-correction inputs so the PNG and
- * SVG exports of one link are always visually identical.
+ * Actual rendering (`new QRCodeStyling(options)`, `.append()`, `.getRawData()`)
+ * happens only in `QrCodeGenerator.tsx`, browser-only, not unit-tested —
+ * verified by manual QA and the mandatory "scan before print" UI warning.
  */
 
-import QRCode from 'qrcode';
+import type { CornerSquareType, DotType, Options } from 'qr-code-styling';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -22,19 +31,24 @@ import QRCode from 'qrcode';
  * lower; a smaller logo is fine, a lower EC level is not. */
 export const QR_ERROR_CORRECTION_LEVEL = 'H' as const;
 
-/** Modules of white space around the code — below ~4 risks scanners
- * (especially older phone cameras) failing to lock onto the finder
- * patterns, particularly on textured print backgrounds like a rollup. */
-export const QUIET_ZONE_MODULES = 4;
+/** Outer margin as a fraction of the rendered width — `qr-code-styling`'s
+ * `margin` option is in pixels around the whole code (not a per-module
+ * quiet zone like the old `qrcode` package), so this approximates the same
+ * "don't crowd the finder patterns" effect proportionally at any size. */
+export const QUIET_ZONE_WIDTH_RATIO = 0.04;
 
-/** Logo width as a fraction of the QR's total width. Center logo, level H:
- * safe up to ~25-30% per external guidance — capped well under that. */
-export const LOGO_MAX_WIDTH_RATIO = 0.2;
+/** Logo width as a fraction of the QR's total width — user-adjustable
+ * range. Below 12% a logo reads as a stray artifact rather than a mark;
+ * above 22% starts eating into the error-correction headroom level H
+ * buys us. Never allow anything outside this range to reach the renderer. */
+export const LOGO_SIZE_MIN_RATIO = 0.12;
+export const LOGO_SIZE_MAX_RATIO = 0.22;
+export const LOGO_SIZE_DEFAULT_RATIO = 0.18;
 
-/** Small light-color backing square behind the logo, as extra fraction of
- * logoSize, so a logo with transparent corners doesn't show QR pattern
- * bleeding through at the edges. */
-export const LOGO_BACKING_PADDING_RATIO = 0.08;
+/** Extra `imageOptions.margin` (px) applied when the white backing behind
+ * the logo is enabled — pushes surrounding modules away from the logo so a
+ * logo with transparent/textured edges doesn't read as broken modules. */
+export const LOGO_PADDING_WIDTH_RATIO = 0.02;
 
 /** Print-resolution floor for the PNG export. */
 export const MIN_PRINT_PNG_WIDTH = 2000;
@@ -44,11 +58,14 @@ export const MIN_PRINT_PNG_WIDTH = 2000;
  * WCAG AA text-contrast (4.5:1) is a stricter bar than a QR code needs —
  * scanners work on far coarser dark/light separation than human reading
  * does — but a real "usable" floor still catches the actual failure mode
- * ("light QR on a light background", the exact case flagged in the spec):
- * anything below ~3:1 is visually close enough to unicolor that some
- * cameras/lighting conditions will fail to lock on.
+ * ("light QR on a light background"): anything below ~3:1 is visually
+ * close enough to unicolor that some cameras/lighting conditions will
+ * fail to lock on.
  */
 export const MIN_CONTRAST_RATIO = 3;
+
+/** "Scan distance ≈ 10× QR width" rule of thumb for the print-size calculator. */
+export const SCAN_DISTANCE_TO_WIDTH_RATIO = 10;
 
 // ─── Colors + contrast ──────────────────────────────────────────────────────
 
@@ -91,6 +108,21 @@ export function isContrastSafe(colors: QrColors): boolean {
   return computeContrastRatio(colors.dark, colors.light) >= MIN_CONTRAST_RATIO;
 }
 
+/**
+ * Contrast against a possibly-gradient dark color: checks BOTH gradient
+ * stops against the light color and returns the worse (lower) ratio, so a
+ * gradient can't hide a bad pairing behind its better-contrasting stop.
+ */
+export function computeEffectiveContrastRatio(
+  colors: QrColors,
+  gradientEndColor?: string | null,
+): number {
+  const base = computeContrastRatio(colors.dark, colors.light);
+  if (!gradientEndColor) return base;
+  const end = computeContrastRatio(gradientEndColor, colors.light);
+  return Math.min(base, end);
+}
+
 // ─── Filenames ───────────────────────────────────────────────────────────────
 
 /**
@@ -110,87 +142,168 @@ export function sanitizeFilename(name: string, extension: string): string {
   return `${base}.${extension}`;
 }
 
-// ─── SVG generation (pure, unit-tested) ─────────────────────────────────────
+// ─── Logo size ───────────────────────────────────────────────────────────────
 
-export interface GenerateQrOptions {
+/** Clamps a UI-supplied logo-size ratio into the allowed [12%, 22%] range.
+ * Called both by the slider's `onChange` and defensively inside
+ * `buildQrCodeStylingOptions` — the 22% ceiling must never be bypassable
+ * from any call site, including a future one that forgets to clamp first. */
+export function clampLogoSizeRatio(ratio: number): number {
+  if (!Number.isFinite(ratio)) return LOGO_SIZE_DEFAULT_RATIO;
+  return Math.min(LOGO_SIZE_MAX_RATIO, Math.max(LOGO_SIZE_MIN_RATIO, ratio));
+}
+
+// ─── Options builder (pure, unit-tested) ────────────────────────────────────
+
+export interface QrStyleParams {
   value: string;
   colors: QrColors;
-  /** Base64 data URI of the logo image, e.g. 'data:image/png;base64,...'.
-   * Omit to render a plain QR code with no center logo. */
+  sizePx: number;
+  dotType: DotType;
+  cornerSquareType: CornerSquareType;
   logoDataUrl?: string | null;
+  logoSizeRatio: number;
+  logoPadding: boolean;
+  /** When set, renders a linear gradient from `colors.dark` to this color
+   * instead of a flat dark fill. */
+  gradientEndColor?: string | null;
 }
 
 /**
- * Renders the QR code as an SVG string, with the logo (if provided)
- * injected as a centered `<image>` on a small light-color backing square.
- * Pure string generation — the `qrcode` package's SVG renderer runs
- * identically in Node and the browser, no canvas/DOM involved, so this
- * is fully unit-testable.
+ * Maps our app-level style params to `qr-code-styling`'s `Options` object.
+ * Pure — no rendering, just object construction — so this stays fully
+ * unit-testable even though the library itself is canvas/DOM-based.
  */
-export async function generateQrSvgString(options: GenerateQrOptions): Promise<string> {
-  const svg = await QRCode.toString(options.value, {
-    type: 'svg',
-    errorCorrectionLevel: QR_ERROR_CORRECTION_LEVEL,
-    margin: QUIET_ZONE_MODULES,
-    color: { dark: options.colors.dark, light: options.colors.light },
-  });
+export function buildQrCodeStylingOptions(
+  params: QrStyleParams,
+  outputType: 'canvas' | 'svg',
+): Options {
+  const logoSizeRatio = clampLogoSizeRatio(params.logoSizeRatio);
 
-  if (!options.logoDataUrl) return svg;
+  const dotsColor = params.gradientEndColor
+    ? {
+        gradient: {
+          type: 'linear' as const,
+          rotation: Math.PI / 4,
+          colorStops: [
+            { offset: 0, color: params.colors.dark },
+            { offset: 1, color: params.gradientEndColor },
+          ],
+        },
+      }
+    : { color: params.colors.dark };
 
-  const viewBoxMatch = svg.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
-  if (!viewBoxMatch) return svg; // Unexpected renderer output — degrade to no-logo rather than throw.
-
-  const totalWidth = parseFloat(viewBoxMatch[1]);
-  const logoSize = totalWidth * LOGO_MAX_WIDTH_RATIO;
-  const backingSize = logoSize * (1 + LOGO_BACKING_PADDING_RATIO);
-  const logoPos = (totalWidth - logoSize) / 2;
-  const backingPos = (totalWidth - backingSize) / 2;
-
-  const overlay =
-    `<rect x="${backingPos}" y="${backingPos}" width="${backingSize}" height="${backingSize}" ` +
-    `fill="${options.colors.light}" />` +
-    `<image href="${options.logoDataUrl}" x="${logoPos}" y="${logoPos}" ` +
-    `width="${logoSize}" height="${logoSize}" />`;
-
-  return svg.replace('</svg>', `${overlay}</svg>`);
+  return {
+    type: outputType,
+    width: params.sizePx,
+    height: params.sizePx,
+    margin: Math.round(params.sizePx * QUIET_ZONE_WIDTH_RATIO),
+    data: params.value,
+    image: params.logoDataUrl ?? undefined,
+    qrOptions: {
+      errorCorrectionLevel: QR_ERROR_CORRECTION_LEVEL,
+    },
+    imageOptions: params.logoDataUrl
+      ? {
+          imageSize: logoSizeRatio,
+          hideBackgroundDots: true,
+          margin: params.logoPadding
+            ? Math.round(params.sizePx * LOGO_PADDING_WIDTH_RATIO)
+            : 0,
+        }
+      : undefined,
+    dotsOptions: {
+      type: params.dotType,
+      ...dotsColor,
+    },
+    cornersSquareOptions: {
+      type: params.cornerSquareType,
+      color: params.colors.dark,
+    },
+    backgroundOptions: {
+      color: params.colors.light,
+    },
+  };
 }
 
-// ─── PNG generation (browser-only) ──────────────────────────────────────────
+// ─── Scan-reliability risk heuristic (pure, unit-tested) ───────────────────
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Failed to rasterize QR SVG'));
-    img.src = src;
-  });
+export type ScanRiskLevel = 'low' | 'medium' | 'high';
+
+export interface ScanRiskInput {
+  logoSizeRatio: number;
+  dotType: DotType;
+  /** Pass `computeEffectiveContrastRatio(...)` when a gradient is active. */
+  contrastRatio: number;
 }
+
+export interface ScanRiskResult {
+  level: ScanRiskLevel;
+  /** Human-readable (Hebrew) reasons for any factor above 'low'. Empty when 'low'. */
+  reasons: string[];
+}
+
+const RISK_RANK: Record<ScanRiskLevel, number> = { low: 0, medium: 1, high: 2 };
+
+const DECORATIVE_DOT_TYPES = new Set<DotType>(['classy', 'classy-rounded', 'extra-rounded']);
 
 /**
- * Renders the QR code (logo included, since it reuses the same SVG the
- * logo is already baked into) as a print-resolution PNG data URL.
- * Browser-only — rasterizes via `<canvas>`, which doesn't exist in Node.
- * Not unit-tested for that reason; verified by manual QA and the
- * mandatory "scan before print" UI warning.
+ * NOT a scientific scan test — a heuristic to catch an expensive print
+ * mistake before it happens. Worst-of-three-factors wins (a single risky
+ * factor is enough to flag the whole code), each threshold documented here:
+ *
+ *  • Logo size: ≤18% (the recommended default) → low. 18–20% → medium.
+ *    Above 20% (up to the hard 22% cap) → high — eating further into the
+ *    30% error-correction headroom level H buys us.
+ *  • Dot style: 'square' (the QR-standard look) → low. 'rounded'/'dots'
+ *    → medium (mild decorative deviation, still broadly scanner-tested).
+ *    'classy'/'classy-rounded'/'extra-rounded' → high (most decorative,
+ *    least battle-tested across scanner apps).
+ *  • Contrast: ≥7:1 → low. 4–7:1 → medium. Below 4:1 (down to the hard
+ *    3:1 floor that blocks download entirely) → high.
  */
-export async function generateQrPngDataUrl(
-  options: GenerateQrOptions & { widthPx?: number },
-): Promise<string> {
-  const svgString = await generateQrSvgString(options);
-  const width = options.widthPx ?? MIN_PRINT_PNG_WIDTH;
+export function computeScanRiskLevel(input: ScanRiskInput): ScanRiskResult {
+  const reasons: string[] = [];
+  let level: ScanRiskLevel = 'low';
+  const escalate = (next: ScanRiskLevel) => {
+    if (RISK_RANK[next] > RISK_RANK[level]) level = next;
+  };
 
-  const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
-  const svgUrl = URL.createObjectURL(svgBlob);
-  try {
-    const img = await loadImage(svgUrl);
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = width; // QR codes are always square
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 2D context unavailable');
-    ctx.drawImage(img, 0, 0, width, width);
-    return canvas.toDataURL('image/png');
-  } finally {
-    URL.revokeObjectURL(svgUrl);
+  if (input.logoSizeRatio > 0.2) {
+    escalate('high');
+    reasons.push('לוגו גדול (מעל 20%)');
+  } else if (input.logoSizeRatio > 0.18) {
+    escalate('medium');
+    reasons.push('לוגו מעט גדול מהמומלץ (מעל 18%)');
   }
+
+  if (DECORATIVE_DOT_TYPES.has(input.dotType)) {
+    escalate('high');
+    reasons.push('סגנון נקודות דקורטיבי מאוד');
+  } else if (input.dotType === 'rounded' || input.dotType === 'dots') {
+    escalate('medium');
+    reasons.push('סגנון נקודות לא-סטנדרטי');
+  }
+
+  if (input.contrastRatio < 4) {
+    escalate('high');
+    reasons.push('ניגודיות נמוכה');
+  } else if (input.contrastRatio < 7) {
+    escalate('medium');
+    reasons.push('ניגודיות בינונית');
+  }
+
+  return { level, reasons };
+}
+
+// ─── Print-size calculator (pure, unit-tested) ──────────────────────────────
+
+/**
+ * Minimum recommended print width (cm) for a given expected scan distance
+ * (meters), using the rule of thumb "scan distance ≈ 10× QR width". Not a
+ * hard physics law — a widely-used field heuristic for print sizing.
+ */
+export function computeMinPrintWidthCm(scanDistanceMeters: number): number {
+  if (!Number.isFinite(scanDistanceMeters) || scanDistanceMeters <= 0) return 0;
+  return (scanDistanceMeters * 100) / SCAN_DISTANCE_TO_WIDTH_RATIO;
 }
