@@ -9,30 +9,36 @@ const CHROME_DESKTOP_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Apple
 /**
  * Minimal fake Firestore doc/collection chain covering exactly the calls
  * `handleLinkClick` makes: `db.collection(x).doc(id).get()`, `.update()`,
- * and `.doc(id).collection('clicks').add()`. `updateImpl`/`addImpl` are
- * injectable so individual tests can make either one throw.
+ * and (via `linkRef.firestore.batch()`) the batched click-record +
+ * daily-stats writes. `updateImpl`/`batchCommitImpl` are injectable so
+ * individual tests can make either one throw.
  */
 function makeFakeDb(opts: {
   linkData: Record<string, unknown>;
   updateImpl?: () => Promise<unknown>;
-  addImpl?: () => Promise<unknown>;
+  batchCommitImpl?: () => Promise<unknown>;
 }) {
   const update = vi.fn(opts.updateImpl ?? (() => Promise.resolve()));
-  const add = vi.fn(opts.addImpl ?? (() => Promise.resolve({ id: 'fake-click-doc' })));
+  const batchSet = vi.fn();
+  const batchCommit = vi.fn(opts.batchCommitImpl ?? (() => Promise.resolve()));
+  const batch = { set: batchSet, commit: batchCommit };
 
   const docRef = {
     get: vi.fn(() =>
       Promise.resolve({ exists: true, data: () => opts.linkData }),
     ),
     update,
-    collection: vi.fn(() => ({ add })),
+    collection: vi.fn((name: string) => ({
+      doc: vi.fn((id?: string) => ({ id: id ?? 'fake-auto-id', __collection: name })),
+    })),
+    firestore: { batch: vi.fn(() => batch) },
   };
 
   const db = {
     collection: vi.fn(() => ({ doc: vi.fn(() => docRef) })),
   };
 
-  return { db, update, add };
+  return { db, update, batchSet, batchCommit };
 }
 
 vi.mock('@/lib/firebase-admin', () => ({
@@ -62,10 +68,10 @@ async function callHandler(
 }
 
 describe('handleLinkClick — resilience (best-effort logging must never block the redirect)', () => {
-  it('still redirects when the per-click record write fails', async () => {
-    const { db, update, add } = makeFakeDb({
+  it('still redirects when the per-click record + daily-stats batch write fails', async () => {
+    const { db, update, batchCommit } = makeFakeDb({
       linkData: { isActive: true, useSmartLink: false, oneLinkUrl: 'https://onelink.to/nmpcb5' },
-      addImpl: () => Promise.reject(new Error('simulated Firestore write failure')),
+      batchCommitImpl: () => Promise.reject(new Error('simulated Firestore write failure')),
     });
 
     const res = await callHandler(db, {
@@ -75,8 +81,8 @@ describe('handleLinkClick — resilience (best-effort logging must never block t
 
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('onelink.to/nmpcb5');
-    expect(update).toHaveBeenCalled(); // counter increment still attempted
-    expect(add).toHaveBeenCalled();    // click-record write was attempted (and rejected) — not blocking
+    expect(update).toHaveBeenCalled();       // counter increment still attempted
+    expect(batchCommit).toHaveBeenCalled();  // click-record + daily-stats batch was attempted (and rejected) — not blocking
   });
 
   it('still redirects when the counter increment itself fails', async () => {
@@ -97,7 +103,7 @@ describe('handleLinkClick — resilience (best-effort logging must never block t
 
 describe('handleLinkClick — bot filtering', () => {
   it('redirects a bot/preview crawler but never counts it', async () => {
-    const { db, update, add } = makeFakeDb({
+    const { db, update, batchCommit } = makeFakeDb({
       linkData: { isActive: true, useSmartLink: false, oneLinkUrl: 'https://onelink.to/nmpcb5' },
     });
 
@@ -108,7 +114,7 @@ describe('handleLinkClick — bot filtering', () => {
 
     expect(res.status).toBe(302);
     expect(update).not.toHaveBeenCalled();
-    expect(add).not.toHaveBeenCalled();
+    expect(batchCommit).not.toHaveBeenCalled();
   });
 
   it('counts a real Android user (not a bot)', async () => {
@@ -216,6 +222,56 @@ describe('handleLinkClick — Smart Link (useSmartLink: true)', () => {
     });
 
     expect(res.headers.get('location')).toBe('https://apps.apple.com/il/app/out/id6502558672');
+  });
+});
+
+describe('handleLinkClick — click record + daily-stats rollup are batched together', () => {
+  it('writes both the click record and the daily-stats doc in one batch, capturing country/city', async () => {
+    const { db, batchSet, batchCommit } = makeFakeDb({
+      linkData: { isActive: true, useSmartLink: false, oneLinkUrl: 'https://onelink.to/nmpcb5' },
+    });
+
+    const headers = new Headers();
+    headers.set('user-agent', CHROME_ANDROID_UA);
+    headers.set('x-vercel-ip-country', 'IL');
+    headers.set('x-vercel-ip-city', 'Haifa');
+
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    vi.mocked(getAdminDb).mockReturnValue(db as never);
+    const { handleLinkClick } = await import('../link-click-handler');
+    await handleLinkClick(new NextRequest('https://outrun.co.il/r/abc123', { headers }), 'abc123');
+
+    expect(batchSet).toHaveBeenCalledTimes(2);
+    expect(batchCommit).toHaveBeenCalledTimes(1);
+
+    const clickRecordCall = batchSet.mock.calls.find((c) => c[0].__collection === 'clicks');
+    expect(clickRecordCall?.[1]).toMatchObject({ device: 'android', country: 'IL', city: 'Haifa' });
+
+    const dailyStatsCall = batchSet.mock.calls.find((c) => c[0].__collection === 'daily_stats');
+    expect(dailyStatsCall?.[2]).toEqual({ merge: true });
+    expect(dailyStatsCall?.[1]).toMatchObject({
+      byDevice: { android: expect.anything() },
+      byCountry: { IL: expect.anything() },
+      byCity: { Haifa: expect.anything() },
+    });
+  });
+
+  it('URL-decodes the Vercel geo headers (city names can contain non-ASCII characters)', async () => {
+    const { db, batchSet } = makeFakeDb({
+      linkData: { isActive: true, useSmartLink: false, oneLinkUrl: 'https://onelink.to/nmpcb5' },
+    });
+
+    const headers = new Headers();
+    headers.set('user-agent', CHROME_ANDROID_UA);
+    headers.set('x-vercel-ip-city', encodeURIComponent('Tel Aviv-Yafo'));
+
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    vi.mocked(getAdminDb).mockReturnValue(db as never);
+    const { handleLinkClick } = await import('../link-click-handler');
+    await handleLinkClick(new NextRequest('https://outrun.co.il/r/abc123', { headers }), 'abc123');
+
+    const clickRecordCall = batchSet.mock.calls.find((c) => c[0].__collection === 'clicks');
+    expect(clickRecordCall?.[1]).toMatchObject({ city: 'Tel Aviv-Yafo' });
   });
 });
 
