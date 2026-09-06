@@ -66,9 +66,18 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   render() {
     if (this.state.hasError) {
-      // If custom fallback is provided, use it
-      if (this.props.fallback) {
-        return this.props.fallback;
+      // Whether a fallback was REQUESTED (the prop was passed at all) is a
+      // different question from whether its value is truthy. `fallback={null}`
+      // is a deliberate "render nothing" request from the caller — a
+      // truthiness check treats it identically to the caller never passing
+      // `fallback` at all, silently falling through to the default red
+      // screen. Checking `'fallback' in this.props` distinguishes the two.
+      // `?? null` covers the (currently unused) edge case of an explicit
+      // `fallback={undefined}`, so this never returns `undefined` from
+      // render (React throws on that) — it renders nothing instead, which
+      // is the closer intent anyway.
+      if ('fallback' in this.props) {
+        return this.props.fallback ?? null;
       }
 
       // Default fallback UI
