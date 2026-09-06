@@ -668,6 +668,12 @@ const BOLT_DURATION_CAPS: Record<DifficultyLevel, number> = {
   3: 60,
 };
 
+// Shared between the desk-workout filter's trigger check and
+// reconcileDeskThemeMismatch's defensive re-check (a reconciled title should
+// never itself signal a desk workout — there's no second filter pass to
+// react to it).
+const DESK_TITLE_KEYWORDS = ['כיסא', 'שולחן'];
+
 const TRAINING_DAY_CONFIGS: TrioOptionConfig[] = [
   { key: 'option3Label', difficulty: 1, postProcess: 'flow_regression' },
   { key: 'option1Label', difficulty: 2 },
@@ -746,6 +752,25 @@ export function applyTitleDedupSuffix(title: string, usedTitles: Set<string>, op
   return `${title} ${suffix}`;
 }
 
+/**
+ * Swaps a title's registration in `usedTitles`: drops `staleTitle` (if any)
+ * BEFORE dedup-checking `newTitle` against what's left, then registers the
+ * result. Order matters — checking before deleting means a reconciled title
+ * always "collides" with the workout's own prior entry. Mutates `usedTitles`
+ * and returns the (possibly suffixed) title the caller should assign.
+ */
+export function replaceReconciledTitle(
+  usedTitles: Set<string>,
+  staleTitle: string | undefined,
+  newTitle: string,
+  optionIndex: number,
+): string {
+  if (staleTitle) usedTitles.delete(staleTitle);
+  const finalTitle = applyTitleDedupSuffix(newTitle, usedTitles, optionIndex);
+  usedTitles.add(finalTitle);
+  return finalTitle;
+}
+
 /** The light scalar snapshot swap-all reads back to re-resolve metadata for a new location (§19). */
 function toMetadataSnapshot(ctx: WorkoutMetadataContext): WorkoutMetadataSnapshot {
   return {
@@ -800,11 +825,22 @@ export async function reconcileDeskThemeMismatch(
   };
 
   const metadata = await resolveWorkoutMetadata(neutralizedCtx, variant, logicTagOverrides);
-  if (!metadata.title) return { reconciled: false };
+  // Require BOTH title and description — the two-pass bundle-sync design
+  // (resolveWorkoutMetadata fetches description with the winning title's
+  // bundleId) means a title-only hit almost never happens for a real bundle,
+  // but if it did, a fresh title over the stale desk-themed description
+  // would be its own incoherence — the exact class of bug this exists to
+  // fix. No-op instead, keeping the stale (but internally consistent) pair.
+  if (!metadata.title || !metadata.description) return { reconciled: false };
+  // A reconciled title should never itself read as desk-themed — there's no
+  // second filter pass left to react to it. Guards against a future content
+  // row authored with a desk keyword but no persona tag (which would
+  // survive the neutral-persona hard-exclusion above).
+  if (DESK_TITLE_KEYWORDS.some(kw => metadata.title!.includes(kw))) return { reconciled: false };
 
   const staleTitle = workout.title;
   workout.title = metadata.title;
-  if (metadata.description) workout.description = metadata.description;
+  workout.description = metadata.description;
   if (metadata.aiCue) workout.aiCue = metadata.aiCue;
   if (metadata.logicCue) workout.logicCue = metadata.logicCue;
 
@@ -1199,7 +1235,6 @@ export async function generateHomeWorkoutTrio(
     // ── DESK WORKOUT CONSTRAINT ───────────────────────────────────────────
     // If the resolved title signals a desk workout, filter the exercise list
     // to keep only desk-friendly categories (flexibility, mobility, stretching).
-    const DESK_TITLE_KEYWORDS = ['כיסא', 'שולחן'];
     const isDeskWorkout = workout.title
       ? DESK_TITLE_KEYWORDS.some(kw => workout.title.includes(kw))
       : false;
@@ -1323,14 +1358,12 @@ export async function generateHomeWorkoutTrio(
             workout.metadataCtx = toMetadataSnapshot(newMetadataCtx);
           }
 
-          // The stale (desk-themed) title was already registered in
-          // usedTitles by the dedup check above — drop it before
-          // re-checking the NEW title, otherwise a workout always collides
-          // with its own prior entry and gets a spurious suffix.
-          if (staleTitle) usedTitles.delete(staleTitle);
+          // replaceReconciledTitle drops the stale (desk-themed) title —
+          // already registered in usedTitles by the dedup check above —
+          // before re-checking the new one, otherwise a workout always
+          // collides with its own prior entry and gets a spurious suffix.
           if (workout.title) {
-            workout.title = applyTitleDedupSuffix(workout.title, usedTitles, i);
-            usedTitles.add(workout.title);
+            workout.title = replaceReconciledTitle(usedTitles, staleTitle, workout.title, i);
           }
 
           if (i === singleOptionWantIndex && bundleId) {

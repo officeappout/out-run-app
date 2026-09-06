@@ -27,8 +27,22 @@ import type { WorkoutMetadataContext, ResolvedWorkoutMetadata } from '../workout
  * are already subject to, scoreContentRow's userHasNoPersona branch) key
  * off.
  *
- * These tests exercise reconcileDeskThemeMismatch and applyTitleDedupSuffix,
- * the exact functions generateHomeWorkoutTrio calls — not re-implementations.
+ * A second review pass additionally required: (a) requiring BOTH title AND
+ * description on the re-resolve (not title alone) — the two-pass bundle-
+ * sync design means a title-only hit would otherwise pair a fresh title
+ * with the stale desk-themed description, the same incoherence class this
+ * fix targets; (b) a defensive re-check that a reconciled title never
+ * itself reads as desk-themed, since there's no second filter pass left to
+ * react to it; (c) extracting replaceReconciledTitle (the delete-before-
+ * recheck ORDER, not just the pure dedup-suffix function) as its own
+ * testable unit — a test that only calls applyTitleDedupSuffix with a
+ * manually pre-deleted Set proves the pure function works but not that the
+ * caller's ordering is correct; deleting the real delete-then-check
+ * sequence from the service left such a test green.
+ *
+ * These tests exercise reconcileDeskThemeMismatch, applyTitleDedupSuffix,
+ * and replaceReconciledTitle — the exact functions generateHomeWorkoutTrio
+ * calls, not re-implementations.
  */
 
 vi.mock('../workout-metadata.service', async () => {
@@ -42,6 +56,7 @@ import { resolveWorkoutMetadata } from '../workout-metadata.service';
 import {
   reconcileDeskThemeMismatch,
   applyTitleDedupSuffix,
+  replaceReconciledTitle,
 } from '../home-workout.service';
 
 const mockResolveWorkoutMetadata = vi.mocked(resolveWorkoutMetadata);
@@ -150,6 +165,35 @@ describe('reconcileDeskThemeMismatch — the demonstrated desk-theme-abandoned b
       {},
     );
   });
+
+  it('bundle-sync guard: a title-only hit (description came back null) is treated as NOT ' +
+     'reconciled — pairing a fresh title with the stale desk-themed description would be its ' +
+     'own incoherent-copy bug, the same class this fix exists to prevent', async () => {
+    mockResolveWorkoutMetadata.mockResolvedValue({
+      ...genericMetadata, description: null,
+    });
+
+    const workout = baseWorkout();
+    const result = await reconcileDeskThemeMismatch(workout, priorDeskCtx, 'balanced', {});
+
+    expect(result.reconciled).toBe(false);
+    expect(workout.title).toBe('אימון כיסא קליל');
+    expect(workout.description).toBe('כמה דקות של מתיחות ליד השולחן');
+  });
+
+  it('defensive re-check: a reconciled title that ITSELF contains a desk keyword is rejected — ' +
+     'there is no second filter pass left to react to it, so shipping it would silently ' +
+     'reintroduce the exact mismatch being fixed', async () => {
+    mockResolveWorkoutMetadata.mockResolvedValue({
+      ...genericMetadata, title: 'מתיחות קלות ליד השולחן',
+    });
+
+    const workout = baseWorkout();
+    const result = await reconcileDeskThemeMismatch(workout, priorDeskCtx, 'balanced', {});
+
+    expect(result.reconciled).toBe(false);
+    expect(workout.title).toBe('אימון כיסא קליל'); // stale title kept, not the still-desk-themed one
+  });
 });
 
 describe('applyTitleDedupSuffix — usedTitles interaction (the self-collision the review caught)', () => {
@@ -163,16 +207,37 @@ describe('applyTitleDedupSuffix — usedTitles interaction (the self-collision t
     expect(applyTitleDedupSuffix('אימון כוח מלא', usedTitles, 1)).toBe('אימון כוח מלא (משלים)');
   });
 
-  it('self-collision fix: deleting the stale (pre-reconciliation) title from usedTitles before ' +
-     'checking the reconciled title prevents it from colliding with its own prior entry', () => {
-    const usedTitles = new Set<string>();
-    const staleTitle = 'אימון כיסא קליל';
-    usedTitles.add(staleTitle); // registered by the original resolve's own dedup step
+});
 
-    // Reconciliation's own cleanup: drop the stale entry before re-checking.
-    usedTitles.delete(staleTitle);
+describe('replaceReconciledTitle — the actual self-collision fix (ordering, not just the pure function)', () => {
+  it('a reconciled title equal to a SIBLING option\'s title still collides and gets a suffix — ' +
+     'proves the delete only removes the workout\'s OWN stale entry, not real collisions', () => {
+    const usedTitles = new Set<string>(['אימון כוח מלא', 'אימון כיסא קליל']);
+    const result = replaceReconciledTitle(usedTitles, 'אימון כיסא קליל', 'אימון כוח מלא', 2);
+    expect(result).toBe('אימון כוח מלא (גמיש)');
+  });
 
-    const reconciledTitle = 'אימון כוח מלא';
-    expect(applyTitleDedupSuffix(reconciledTitle, usedTitles, 1)).toBe(reconciledTitle); // no spurious suffix
+  it('self-collision fix: a reconciled title that HAPPENS TO equal its own stale (already-' +
+     'registered) title is NOT treated as a collision — this is the exact regression the delete-' +
+     'before-recheck order prevents; deleting that ordering from the service (checking usedTitles ' +
+     'before removing the stale entry) would make this fail with a spurious suffix', () => {
+    const usedTitles = new Set<string>(['אימון כיסא קליל']); // this workout's own stale entry
+    const result = replaceReconciledTitle(usedTitles, 'אימון כיסא קליל', 'אימון כיסא קליל', 1);
+    expect(result).toBe('אימון כיסא קליל'); // no suffix — it's the same slot, not a real collision
+  });
+
+  it('no staleTitle (first-time registration, mirroring the original resolve\'s call shape) — ' +
+     'behaves exactly like applyTitleDedupSuffix followed by add', () => {
+    const usedTitles = new Set<string>(['אימון אחר']);
+    const result = replaceReconciledTitle(usedTitles, undefined, 'אימון כוח מלא', 1);
+    expect(result).toBe('אימון כוח מלא');
+    expect(usedTitles.has('אימון כוח מלא')).toBe(true);
+  });
+
+  it('registers the final (possibly suffixed) title, not the pre-suffix candidate — a later ' +
+     'option checking against usedTitles must see the string that was actually shipped', () => {
+    const usedTitles = new Set<string>(['אימון כוח מלא']);
+    replaceReconciledTitle(usedTitles, undefined, 'אימון כוח מלא', 1);
+    expect(usedTitles.has('אימון כוח מלא (משלים)')).toBe(true);
   });
 });
