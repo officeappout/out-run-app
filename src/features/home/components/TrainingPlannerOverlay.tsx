@@ -23,6 +23,7 @@ import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/sched
 import { useUserStore } from '@/features/user';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
+import ScheduleBuilderDrawer, { isScheduleBuilderDrawerEnabled } from '@/features/schedule/components/ScheduleBuilderDrawer';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -114,6 +115,10 @@ export default function TrainingPlannerOverlay({
   onOpenBuilder,
 }: TrainingPlannerOverlayProps) {
   const [showAddModal, setShowAddModal]           = useState(false);
+  // Temporary entry point (schedule-drawer-screen-spec.md, ת6's real entry
+  // point comes in stage 3) — gated by the flag, default off, zero change
+  // to existing behavior when off.
+  const [showScheduleBuilder, setShowScheduleBuilder] = useState(false);
   const [addModalDate, setAddModalDate]           = useState<string | undefined>(undefined);
   const [editEntry, setEditEntry]                 = useState<UserScheduleEntry | null>(null);
   const [refreshKey, setRefreshKey]               = useState(0);
@@ -275,6 +280,16 @@ export default function TrainingPlannerOverlay({
                   <h2 className="text-base font-black text-gray-900">תכנון אימונים</h2>
                 </div>
                 <div className="flex items-center gap-2">
+                  {isScheduleBuilderDrawerEnabled() && (
+                    <button
+                      type="button"
+                      onClick={() => setShowScheduleBuilder(true)}
+                      className="w-9 h-9 rounded-full bg-white flex items-center justify-center border border-slate-200 text-gray-900 active:scale-90 transition-all shadow-sm"
+                      aria-label="בנה לוז אימונים"
+                    >
+                      <CalendarDays className="w-4 h-4 stroke-[2.5] text-[#00C9F2]" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={onClose}
@@ -471,6 +486,9 @@ export default function TrainingPlannerOverlay({
         );
       })()}
 
+      {isScheduleBuilderDrawerEnabled() && (
+        <ScheduleBuilderDrawer isOpen={showScheduleBuilder} onClose={() => setShowScheduleBuilder(false)} />
+      )}
     </>
   );
 }
