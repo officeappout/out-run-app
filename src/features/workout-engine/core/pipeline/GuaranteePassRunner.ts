@@ -100,7 +100,14 @@ const PRIMARY_DOMAINS = new Set(['push', 'pull', 'legs', 'core']);
 // log why and move on. A missing domain is a known, visible gap; a broken
 // OTHER domain sacrificed to fix it is a worse, silent one.
 
-function computeDomainCounts(mainExercises: WorkoutExercise[]): Map<string, number> {
+/**
+ * Exported (06.09.2026) — trio-modifiers.service.ts's `applyEssentialGearFilter`
+ * is a 4th site with the exact same bug class (found live-tracing pull loss
+ * through `applyFlowRegression`): a domain-blind filter that can drop the sole
+ * remaining representative of a primary domain with no protection at all.
+ * Shared here instead of a copy, per David's explicit instruction.
+ */
+export function computeDomainCounts(mainExercises: WorkoutExercise[]): Map<string, number> {
   const domainCounts = new Map<string, number>();
   for (const e of mainExercises) {
     const d = MG_TO_DOMAIN[e.exercise.movementGroup ?? ''];
@@ -110,7 +117,7 @@ function computeDomainCounts(mainExercises: WorkoutExercise[]): Map<string, numb
 }
 
 /** True if replacing `exercise` would NOT leave any PRIMARY_DOMAINS domain empty. */
-function isSafeDomainVictim(
+export function isSafeDomainVictim(
   exercise: WorkoutExercise,
   domainCounts: Map<string, number>,
 ): boolean {

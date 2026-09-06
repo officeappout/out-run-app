@@ -30,6 +30,7 @@ import {
   MG_TO_DOMAIN,
   collectMethodGear,
 } from '../shared/constants/domain-mapping.constants';
+import { computeDomainCounts, isSafeDomainVictim } from '../core/pipeline/GuaranteePassRunner';
 
 /**
  * Check if userProgramLevels contains a key that matches `programId`
@@ -666,6 +667,16 @@ export function applyEssentialGearFilter(
     ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown',
   );
 
+  // Domain counts computed ONCE over ALL of `main` (before any removal) — same
+  // contract as GuaranteePassRunner's shared rule: never drop the sole
+  // remaining representative of a PRIMARY_DOMAINS domain (push/pull/legs/
+  // core), even when it fails the naked check. Found live-tracing a workout
+  // where applyFlowRegression's call into this filter was the exact point
+  // pull went from present to zero — this filter had no domain awareness at
+  // all, so a gear-requiring pull exercise (e.g. a pull-up needing a bar) was
+  // simply dropped, and the backfill below (domain-blind, picks any naked
+  // exercise from the global pool) never put it back.
+  const domainCounts = computeDomainCounts(main);
   let nakedMain: typeof main = [];
   let gearRemoved = 0;
   for (const ex of main) {
@@ -676,10 +687,14 @@ export function applyEssentialGearFilter(
     const exName = typeof ex.exercise.name === 'string'
       ? ex.exercise.name
       : ((ex.exercise.name as any)?.he ?? ex.exercise.id);
+    const isSafeToRemove = isSafeDomainVictim(ex, domainCounts);
     console.log(
-      `[NakedAudit] "${exName}" → gear:[${gearIds.join(',')}] gearFree=${gearFree} keywordHit=${keywordHit} → ${pass ? 'PASS ✓' : 'FAIL ✗'}`,
+      `[NakedAudit] "${exName}" → gear:[${gearIds.join(',')}] gearFree=${gearFree} keywordHit=${keywordHit} → ${pass ? 'PASS ✓' : isSafeToRemove ? 'FAIL ✗' : 'FAIL but KEPT (sole domain representative)'}`,
     );
     if (pass) {
+      nakedMain.push(ex);
+    } else if (!isSafeToRemove) {
+      ex.reasoning.push('naked_filter:kept_sole_domain_representative_despite_gear');
       nakedMain.push(ex);
     } else {
       gearRemoved++;
@@ -748,11 +763,15 @@ export function applyEssentialGearFilter(
     );
   }
 
-  // Final validation: catch any exercises that slipped through
+  // Final validation: catch any exercises that slipped through. Same
+  // sole-domain-representative protection as the first pass above — a
+  // gear-requiring exercise deliberately kept there must not be swapped out
+  // here by this domain-blind violation-replacement path.
+  const nakedMainDomainCounts = computeDomainCounts(nakedMain);
   const violations: typeof nakedMain = [];
   const clean: typeof nakedMain = [];
   for (const ex of nakedMain) {
-    if (isNaked(ex)) {
+    if (isNaked(ex) || !isSafeDomainVictim(ex, nakedMainDomainCounts)) {
       clean.push(ex);
     } else {
       violations.push(ex);
