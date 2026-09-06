@@ -886,18 +886,22 @@ export async function generateHomeWorkoutTrio(
     // has already chosen Intense.
     const optionDifficulty: DifficultyLevel = cfg.difficulty;
 
-    // ── Bolt-specific availableTime CEILING (not override) ────────────────
-    // Each bolt has a duration ceiling so WorkoutGenerator's
-    // getExerciseCountForDuration never over-sizes the pool:
-    //   Bolt 1 → ≤30 min · Bolt 2 → ≤45 min · Bolt 3 → ≤60 min
-    // The user's requested time is HONOURED below the ceiling — previously
-    // the cap silently REPLACED the request (builder asked 20 min, engine
-    // generated 45), which was the "duration ignored" bug in the custom
-    // builder. min(requested, cap) keeps both guarantees.
+    // ── Bolt-specific availableTime CEILING — AUTOMATIC suggestions only ───
+    // F4 (docs/workout-engine/03-CHANGES.md Addendum 15/19; 00-PLAN.md §16):
+    // BOLT_DURATION_CAPS {30/45/60} exist so the automatic 3-option carousel
+    // never over-sizes a pool for a bolt nobody explicitly asked for at that
+    // exact length. `targetDifficulty != null` is exactly the signal that
+    // this IS an explicit single-bolt request (the slider and Custom
+    // Builder both set it — see F1 fix) — for those, the cap does not apply
+    // at all; the requested duration is delivered in full, at every
+    // difficulty. "קל" (easy) must mean fewer/easier sets, not a shorter
+    // session — a user asking for 45 min got silently delivered ~14 min
+    // before this fix (Addendum 17's own proof run caught it).
     const boltDurationCap = BOLT_DURATION_CAPS[optionDifficulty];
-    const effectiveTime = resolveEffectiveBoltTime(options.availableTime, boltDurationCap);
+    const isExplicitChoice = options.targetDifficulty != null;
+    const effectiveTime = resolveEffectiveBoltTime(options.availableTime, boltDurationCap, isExplicitChoice);
     if (effectiveTime !== boltDurationCap) {
-      console.log(`[WorkoutTrio] Bolt${optionDifficulty}: honouring requested ${effectiveTime}min (ceiling ${boltDurationCap}min)`);
+      console.log(`[WorkoutTrio] Bolt${optionDifficulty}: honouring requested ${effectiveTime}min (ceiling ${boltDurationCap}min, explicit=${isExplicitChoice})`);
     }
 
     // Build per-option generator context (inherits all Sprint 3 context)
