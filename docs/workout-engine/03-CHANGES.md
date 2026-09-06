@@ -2291,3 +2291,47 @@ static reads exhausted what's findable that way.
 
 **Commit:** local only, no push. Docs only — read-only Firestore queries, no writes, no temp
 scripts left behind.
+
+---
+
+## Addendum 19 — F4 fixed (BOLT_DURATION_CAPS bypassed for explicit choice); D1 still short,
+## for a separate, already-documented reason
+
+David's item 1. Fix committed as `b2727151`.
+
+### The fix
+
+`resolveEffectiveBoltTime` gained an `isExplicitChoice` parameter that bypasses
+`BOLT_DURATION_CAPS` {30/45/60} entirely when true. The call site passes `options.targetDifficulty
+!= null` — already the exact signal distinguishing an explicit single-bolt request (slider, Custom
+Builder — both set it) from the automatic 3-option carousel (never sets it). 9 tests, the 2
+behavior-changing ones confirmed failing pre-fix via `git stash`.
+
+### Proof — same profile, 45min requested, 3 explicit difficulty picks
+
+| Pick | Before (Addendum 17) | After |
+|---|---|---|
+| D2 — בינוני | 44 min | **44 min** — unaffected, already correct |
+| D3 — עצים | 43-44 min | **44 min** — unaffected, already correct |
+| D1 — קל | **14 min** | **23 min** — improved, but still short of 43-45 |
+
+### D1 still doesn't reach 43-45min — not a gap in this fix, a separate known one
+
+Confirmed the 30-min cap is genuinely gone (`resolveEffectiveBoltTime`'s own test suite proves it,
+and `mainExerciseCount` for D1 in the live run was 5 — more than D2's 3 or D3's 4, meaning the pool
+*was* sized for the full 45min). The shortfall traces to a mechanism this session already
+documented and left open: **Addendum 8 — the Time-Volume Feedback Loop is confirmed
+one-directional; nothing anywhere in the pipeline adds volume when a workout comes in *under* the
+target duration**, only trims when over. D1's exercises are inherently lighter per set
+(`regressionFloor`'s downgrade, fewer/shorter sets at the easier tier) — with 5 exercises correctly
+selected but each one short, and no upward-correction mechanism to fill the remaining ~20 minutes,
+the session lands at 23min regardless of the cap being gone.
+
+**Reported honestly rather than declared fixed** — this fix does exactly what it was scoped to do
+(remove the artificial ceiling) and D2/D3 now prove that works. D1 needs a second, different
+mechanism (something that adds sets/rest/exercises when under-duration) that doesn't exist yet
+anywhere in the pipeline — out of scope for F4 specifically, flagging for a future decision rather
+than silently declaring the acceptance criterion ("all three ~43-45min") met when it measurably
+isn't for D1.
+
+**Commit:** local only, no push (code already committed as `b2727151`).
