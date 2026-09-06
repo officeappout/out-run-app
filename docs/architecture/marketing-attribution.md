@@ -337,7 +337,7 @@ David אישר בדיקת שטח בפרודקשן (Smart Link עובד קצה-ל
 
 - **ספרייה חדשה**: `qrcode` (npm, MIT, בלי קריאות רשת) — לא `react-qr-code` הקיים, שהוא רנדור SVG-בלבד בלי תמיכה ב-margin/quiet-zone או logo overlay.
 - **`src/features/admin/services/qr-generator.ts`** (טהור, נבדק ב-12 טסטים): `computeContrastRatio`/`isContrastSafe` (נוסחת WCAG סטנדרטית, סף `MIN_CONTRAST_RATIO=3`), `sanitizeFilename`, `generateQrSvgString` (level H, margin=4 מודולים, לוגו כ-`<image>`+backing `<rect>` מוזרק ל-SVG string — טהור, לא צריך DOM). `generateQrPngDataUrl` (canvas, browser-only — לא נבדק ביחידה, אימות ב-QA ידני).
-- **הלוגו**: `public/assets/logo/logo (1).png` (512×512, ריבועי — כבר קיים בפרויקט, לא הועלה חדש), נטען פעם אחת ל-`<img>` data URL.
+- **הלוגו**: `public/assets/logo/logo-mark.png` (512×512, ריבועי — כבר קיים בפרויקט וכבר בשימוש ב-`WorkoutPreviewClient.tsx`, לא הועלה חדש; שונה שם מ-`logo (1).png` ל-`logo-mark.png` ב-06.09.2026 לבקשת David — השם המקורי היה מתויג גם ב-iOS asset catalog, כנראה מקור-אספקה אחד שהועתק כמו-שהוא למספר מקומות, לא הורדה כפולה בדפדפן), נטען פעם אחת ל-`<img>` data URL.
 - **אכיפת ניגודיות אמיתית**: כפתורי ההורדה (PNG+SVG) **חסומים** (`disabled`) כשהניגודיות מתחת לסף — לא רק אזהרה, כמו שביקשת ("אכיפה", לא "אזהרה").
 - **UI**: `QrCodeGenerator.tsx` בתוך דרואר `/admin/links`, מוצג רק כש-`useSmartLink && isEdit` (יש URL אמיתי לקודד). Live preview, בוררי צבע, אזהרת "סרוק בדיקה לפני שליחה לדפוס" קבועה.
 

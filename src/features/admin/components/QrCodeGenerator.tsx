@@ -6,7 +6,7 @@
  *
  * Local-only: uses the `qrcode` npm package (no network calls, no
  * external QR service ever sees the link). Logo is loaded once from a
- * fixed project asset (`/assets/logo/logo (1).png`) — never uploaded.
+ * fixed project asset (`/assets/logo/logo-mark.png`) — never uploaded.
  *
  * See `src/features/admin/services/qr-generator.ts` for the actual
  * generation logic (color contrast, quiet zone, logo overlay sizing) —
@@ -24,7 +24,7 @@ import {
   sanitizeFilename,
 } from '@/features/admin/services/qr-generator';
 
-const LOGO_PATH = '/assets/logo/logo (1).png';
+const LOGO_PATH = '/assets/logo/logo-mark.png';
 const DEFAULT_DARK = '#0F172A';
 const DEFAULT_LIGHT = '#FFFFFF';
 

@@ -231,7 +231,7 @@ Durations: `duration-100`, `duration-200`, `duration-300`
 | נכס | נתיב | פורמט |
 |---|---|---|
 | Logotype ראשי | `public/assets/logo/Kind=logotype.svg` | SVG |
-| PNG variant | `public/assets/logo/logo (1).png` | PNG |
+| PNG variant | `public/assets/logo/logo-mark.png` | PNG |
 
 ### מסקוט — Lemur
 | נכס | נתיב |
