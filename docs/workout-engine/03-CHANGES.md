@@ -1664,3 +1664,121 @@ expect that big a cut)? Flagging for David's judgment — this session did not c
 falls outside this round's 3 assigned items.
 
 **Commit:** `report-by-bolt.ts` (new) + refreshed `snapshot.sqlite`, local only, no push.
+
+---
+
+## Addendum 12 — the cluster cap: what it was built to prevent, real values, a real simulation, and
+## 3 full before/after workouts. Report only — nothing implemented, awaiting David's decision.
+
+### (א) What the cap was built to do — found in the code's own comment, not guessed
+
+`BudgetDistributor.ts:56-72` (unchanged since the file's creation — `git log -S"11 sets"` dead-ends
+at the same opaque bulk-migration commit `7301dbbb` that created this file from
+`WorkoutGenerator.ts`'s Step 5h/5g; no earlier, more detailed commit exists to cite):
+
+```
+// Skill / Strength Cluster — when difficulty=3 collapses a thin-spread plan
+// onto a small set of high-quality exercises, we cap the unique main count
+// and stack remaining sets onto each survivor up to this ceiling.
+...
+// Balanced Cluster — when difficulty=2 produces too many shallow exercises
+// (the "11 sets ÷ 7 exercises = 2-set fragments" bug), cull the unique main
+// count to a tight focused block and stack remaining sets onto the survivors
+// up to a hypertrophy-appropriate ceiling.
+```
+
+**Not a bug, and not a per-movement-cluster limit despite the name** — "cluster" refers to a
+*cluster of sets* concentrated onto fewer exercises, not a cap on any one movement-pattern group.
+It is a deliberate, previously-diagnosed fix for the opposite failure mode: a session that spreads
+its total set-budget across too many exercises, leaving each one with only 1-2 sets — not enough
+sets to constitute a real working stimulus by ordinary strength/hypertrophy standards. The cap
+trades exercise *count* for exercise *quality* (`BALANCED_CLUSTER_MAX_SETS = 4` /
+`SKILL_CLUSTER_MAX_SETS = 5` redistributes the freed budget onto the survivors).
+
+**This was also reviewed and approved by David before** — commit `44d6fd04` ("D2 balanced-cluster
+cap unlocks 4th main exercise for long sessions (#25)", co-authored with David) added the
+`availableTime >= 45` release condition on top of the pre-existing 3/4 ceiling, citing "Option 1
+from the approved investigation." The ceiling itself predates that commit; only the duration-release
+condition was new there.
+
+**The real conflict, precisely stated:** this cap and the `getExerciseCountForDuration` dead-bucket
+fix (Addendum 9) were never designed against each other. The bucket fix correctly raised Step 3's
+*target* to 6-8 for 45min. This cap, several steps later in the same pipeline, independently caps
+the *result* at 3-4 regardless of what Step 3 asked for — not because anyone intended Step 4 to
+override Step 3, but because Step 4's ceiling was never revisited when Step 3's bucket was fixed.
+Neither is wrong on its own; they now disagree.
+
+### (ב) The exact values
+
+| Constant | Value | Applies to |
+|---|---|---|
+| `BALANCED_CLUSTER_MAX_MAIN_BASELINE` | 3 | D2 (bolt 2), narrow-focus session |
+| `BALANCED_CLUSTER_MAX_MAIN_DIVERSE` | 4 | D2, when ≥3 distinct domains present OR `availableTime >= 45` |
+| `BALANCED_CLUSTER_MAX_SETS` | 4 | Max sets/exercise D2 redistributes onto a survivor |
+| `SKILL_CLUSTER_MAX_MAIN` | 4 | D3 (bolt 3), fixed — no diversity/duration release exists for D3 |
+| `SKILL_CLUSTER_MAX_SETS` | 5 | Max sets/exercise D3 redistributes onto a survivor |
+| `BALANCED_DIVERSITY_THRESHOLD` | 3 | Distinct domains needed to unlock the diverse (4) cap |
+
+D3's cap has no duration-release condition at all (`_skillClusterCap` only checks
+`isSkillOrStrengthSession`) — if this were ever changed for D2, D3 would need its own equivalent
+decision, not an automatic mirror.
+
+### (ג) Simulation: cap derived from the duration bucket instead of fixed
+
+Temporarily replaced `_balancedClusterCap`'s fixed 3/4 with `getExerciseCountForDuration
+(context.availableTime).exerciseCount` (env-flag gated, reverted before this addendum was written —
+`git diff` against `HEAD` confirmed empty), 5 real combos, bolt 2 only:
+
+| Combo | Real (fixed cap) | Simulated (duration-derived cap) |
+|---|---|---|
+| L5 30min home | 4 ex, 9 sets, **2.3 sets/ex**, dur=29min | 4 ex, 8 sets, **2.0 sets/ex**, dur=28min |
+| L5 45min home | 4 ex, 12 sets, **3.0 sets/ex**, dur=43min | 7 ex, 14 sets, **2.0 sets/ex**, dur=41min |
+| L5 60min home | 4 ex, 15 sets, **3.8 sets/ex**, dur=44min | 6 ex, 12 sets, **2.0 sets/ex**, dur=41min |
+| L8 45min gym | 3 ex, 12 sets, **4.0 sets/ex**, dur=41min | 5 ex, 13 sets, **2.6 sets/ex**, dur=45min |
+| L1 45min home | 4 ex, 14 sets, **3.5 sets/ex**, dur=42min | 6 ex, 11 sets, **1.8 sets/ex**, dur=35min |
+
+**The duration gap does not reliably improve** — it got closer in 1 of 5 (L8/gym: 41→45), got
+*worse* in 2 of 5 (L5/45: 43→41 away from target; L1/45: 42→35, notably worse), and moved
+negligibly in the rest. Raising the exercise-count ceiling alone, with no coordinated change to the
+total set-budget or rest-time math, is not a reliable fix for the duration gap on its own.
+
+### (ד) The physiological risk — confirmed, not theoretical
+
+**Every single simulated combo dropped to ~2.0 sets per exercise** (vs. 2.3-4.0 in the real
+version) — this is **exactly** the "11 sets ÷ 7 exercises = 2-set fragments" failure mode the cap
+was built to prevent, reproduced live by loosening it. 2 sets on a compound calisthenics movement is
+below what most strength/hypertrophy programming treats as a working set for that exercise — the
+session would trade "too short" for "technically longer, but every exercise under-dosed." **Naively
+swapping the fixed cap for a duration-derived one, with everything else unchanged, recreates the
+original bug rather than fixing the new one.** Any real fix would need to also address total
+set-budget scaling (`dailySetBudget`) alongside the exercise-count ceiling, not the ceiling alone —
+out of scope for this report, flagged for the decision this raises.
+
+### (ה) 3 full before/after examples — real generated workouts, not synthetic fixtures
+
+**L5, 45min, home:**
+- Real (4 ex, 12 sets): החזקת מתח ב-15° עם תמיכה (2 sets), שכיבות סמיכה (4 sets), החזקת מקבילים
+  ב-90° עם גומייה (2 sets), שרימפ סקוואט בלי ידיים טווח חלקי (4 sets)
+- Simulated (7 ex, 14 sets): החזקת מקבילים (2), החזקת מתח ב-120° עם תמיכה (2), שכיבות סמיכה טווח
+  תחתון (2), החזקת שכיבת סמיכה ב-90° במרפק (2), שכיבות סמיכה ב-45° (2), חתירות ב-45° (2), שרימפ
+  סקוואט בלי ידיים טווח חלקי (2)
+
+**L8, 45min, gym:**
+- Real (3 ex, 12 sets): מתח אקצנטרי (4), מקבילים אקצנטרי (4), שכיבות סמיכה יהלום (4)
+- Simulated (5 ex, 13 sets): משיכות Y (3), מתח אקצנטרי (2), מקבילים עם גומייה עבה (2), שכיבות סמיכה
+  בפישוק (3), פיסטול סקוואט מוגבה טווח חלקי (3)
+
+**L1, 45min, home:**
+- Real (4 ex, 14 sets): חתירות ב-75° (4), פשיטת מרפקים על הרצפה (3), היפ טראסט (4), פלאנק על
+  הברכיים (3)
+- Simulated (6 ex, 11 sets): תלייה פסיבית (2), פשיטת מרפקים על הרצפה (2), חתירות ב-75° (2), עליות
+  תאומים על מדרגה (2), סקוואט בעזרת רצועות (2), טבטה (1)
+
+### Not implemented, per instruction
+
+No source file changed by this investigation — the `getExerciseCountForDuration`-derived cap and
+the env-flag gate in `_balancedClusterCap` were temporary, reverted (`git diff` against `HEAD`
+confirmed empty) before this addendum was written. Awaiting David's decision on whether/how to
+reconcile the cap with the duration bucket — not a fix to apply unilaterally.
+
+**Commit:** local only, no push. Docs only.
