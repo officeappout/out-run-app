@@ -269,6 +269,13 @@ export interface GeneratedWorkout {
   estimatedDuration: number;
   structure: WorkoutStructure;
   difficulty: DifficultyLevel;
+  /** User-facing note explaining a SAFETY-motivated difficulty override
+   *  (first session / returning-after-a-break / deload week) — set only
+   *  when resolveEffectiveDifficulty actually overrode the requested
+   *  difficulty. Undefined otherwise. See docs/workout-engine/03-CHANGES.md
+   *  Addendum 17/20, F2 — an explicit user choice that gets overridden must
+   *  never look like a silent bug. */
+  difficultyOverrideNote?: string;
   volumeAdjustment?: VolumeAdjustment;
   blastMode?: BlastModeDetails;
   mechanicalBalance: MechanicalBalanceSummary;

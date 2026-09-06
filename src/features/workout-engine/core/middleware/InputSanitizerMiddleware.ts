@@ -577,9 +577,29 @@ export function resolveExercisePool(
 // FUNCTION D — Effective Difficulty Resolution
 // ============================================================================
 
+/** User-facing explanation for a safety-motivated difficulty override — shown
+ *  as a note on the workout so an explicit-choice override never looks like
+ *  a silent bug (docs/workout-engine/03-CHANGES.md Addendum 17/20, F2). */
+export interface EffectiveDifficultyResult {
+  difficulty: DifficultyLevel;
+  /** Set only when an override actually fired — undefined otherwise. */
+  overrideNote?: string;
+}
+
 /**
  * Resolve the **effective** difficulty that the deterministic pipeline
- * consumes, applying the three sequential overrides:
+ * consumes.
+ *
+ * Updated 06.09.2026 (David's F2 decision, docs/workout-engine/03-CHANGES.md
+ * Addendum 17/20; 00-PLAN.md §16): the 3 SAFETY-motivated overrides below
+ * stay — they protect the user from themselves, which the meta-rule's own
+ * text allows for ("מותר להוסיף הערה או אזהרה") — but each now returns a
+ * user-facing `overrideNote` explaining why, so an explicit pick that got
+ * overridden never looks like a silent bug. The 4th, OPTIMIZATION-motivated
+ * override (peak week floor: D1→D2, "don't waste a high-readiness week on a
+ * low-stimulus session") was REMOVED — it wasn't protecting the user from
+ * anything, it was the engine second-guessing an explicit "easy" pick with a
+ * training-optimization opinion. If the user picked easy, they get easy.
  *
  *   1. First-session guard:  isFirstSession=true → D1 (Easy).  The
  *      user has no baseline data yet, so we never start them on
@@ -589,13 +609,9 @@ export function resolveExercisePool(
  *      A user returning after a 4–7 day gap should not jump straight
  *      back into the Intense bolt — protect them from CNS overshoot.
  *
- *   3. Periodization overrides:
- *        - Deload week (W5) + D3 → D1 (Easy).  Recovery week is
- *          incompatible with Intense; force it down regardless of
- *          UI selection.
- *        - Peak week (W4) + D1 (and no detraining lock) → D2.  Peak
- *          week is the wrong moment for a low-stimulus workout, so
- *          floor it at Normal.
+ *   3. Deload week (W5) + D3 → D1 (Easy).  Recovery week is
+ *      incompatible with Intense; force it down regardless of
+ *      UI selection.
  *
  * After this returns, `generateWorkout()` never re-derives difficulty;
  * the value is treated as final.
@@ -609,15 +625,18 @@ export function resolveEffectiveDifficulty(
   requestedDifficulty: DifficultyLevel | undefined,
   sessionPolicy: Pick<SessionPolicy, 'detrainingLock' | 'periodizationWeek'>,
   isFirstSession: boolean | undefined,
-): DifficultyLevel {
+): EffectiveDifficultyResult {
   let difficulty: DifficultyLevel = (requestedDifficulty ?? 2) as DifficultyLevel;
+  let overrideNote: string | undefined;
 
   if (isFirstSession) {
     difficulty = 1;
+    overrideNote = 'זה האימון הראשון שלך — התחלנו בקלות כדי להכיר את הגוף.';
   }
 
   if (sessionPolicy.detrainingLock && difficulty === 3) {
     difficulty = 2;
+    overrideNote = 'חזרת אחרי הפסקה — התחלנו בעדינות.';
     console.log(
       '[InputSanitizer] Detraining lock active — Intense downgraded to Challenging',
     );
@@ -625,18 +644,8 @@ export function resolveEffectiveDifficulty(
 
   if (sessionPolicy.periodizationWeek === 5 && difficulty === 3) {
     difficulty = 1;
+    overrideNote = 'השבוע שבוע התאוששות — הורדנו עצימות כדי לאפשר להתאושש כמו שצריך.';
     console.log('[InputSanitizer:Periodization] Deload week (W5): Intense → Easy (forced)');
-  }
-
-  if (
-    sessionPolicy.periodizationWeek === 4 &&
-    difficulty === 1 &&
-    !sessionPolicy.detrainingLock
-  ) {
-    difficulty = 2;
-    console.log(
-      '[InputSanitizer:Periodization] Peak week (W4): Easy → Normal (minimum threshold)',
-    );
   }
 
   if (sessionPolicy.periodizationWeek != null) {
@@ -651,5 +660,5 @@ export function resolveEffectiveDifficulty(
     );
   }
 
-  return difficulty;
+  return { difficulty, overrideNote };
 }

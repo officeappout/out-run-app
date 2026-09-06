@@ -485,7 +485,7 @@ export class WorkoutGenerator {
     // Tier 1 middleware applies the periodization clock + detraining lock +
     // first-session guard.  After this returns, `difficulty` is final and
     // must not be re-derived anywhere downstream in this method.
-    const difficulty: DifficultyLevel = resolveEffectiveDifficulty(
+    const { difficulty, overrideNote: difficultyOverrideNote }: { difficulty: DifficultyLevel; overrideNote?: string } = resolveEffectiveDifficulty(
       context.difficulty,
       {
         detrainingLock: context.detrainingLock ?? false,
@@ -1340,6 +1340,7 @@ export class WorkoutGenerator {
       estimatedDuration: finalEstimatedDuration,
       structure,
       difficulty,
+      difficultyOverrideNote,
       volumeAdjustment: volumeAdjustment.reductionPercent > 0 ? volumeAdjustment : undefined,
       blastMode,
       mechanicalBalance,
