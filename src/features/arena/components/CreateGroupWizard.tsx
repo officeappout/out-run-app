@@ -58,6 +58,19 @@ const STEPS = ['סוג קבוצה', 'בסיסים', 'סוג אימון', 'מתי
 // Types that default to private — toggle still shown, but isPublic initialises to false for these
 const ALWAYS_PRIVATE_TYPES = new Set<CommunityGroupType>(['friends', 'family', 'work', 'school', 'university']);
 
+// 07.09.2026 — 'military' is NOT in GROUP_TYPES below (not a selectable
+// card in this wizard's own type-picker today, confirmed by reading it),
+// so this is currently unreachable via new-group creation through this
+// UI. Kept anyway, deliberately separate from ALWAYS_PRIVATE_TYPES (not
+// merged into it): David approved a DEFAULT of isPublic=false for
+// military specifically, still user-changeable — ALWAYS_PRIVATE_TYPES has
+// stronger, non-negotiable semantics elsewhere in this file (hard-forced
+// at submit regardless of the toggle, and skips the location/schedule
+// step entirely) that were not asked for here. Defensive: reachable today
+// only via editing an existing military-type group's data in this wizard
+// (e.g. the one real production doc, military_reserve_general).
+const DEFAULT_PRIVATE_TYPES = new Set<CommunityGroupType>([...Array.from(ALWAYS_PRIVATE_TYPES), 'military']);
+
 // B2B/B2E types: after type selection, show an outreach nudge before StepBasics.
 // User can still create a group by clicking "המשך ממילא".
 const OUTREACH_TYPES = new Set<CommunityGroupType>(['work', 'university']);
@@ -820,8 +833,8 @@ function StepType({
 }) {
   const handleTypeChange = (value: CommunityGroupType) => {
     updateForm('groupType', value);
-    // Always-private types force isPublic=false immediately
-    updateForm('isPublic', ALWAYS_PRIVATE_TYPES.has(value) ? false : true);
+    // Always-private types (+ military, default-only — see DEFAULT_PRIVATE_TYPES's own comment) start isPublic=false
+    updateForm('isPublic', DEFAULT_PRIVATE_TYPES.has(value) ? false : true);
   };
 
   return (
@@ -845,7 +858,7 @@ function StepType({
           </button>
         ))}
       </div>
-      {ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
+      {DEFAULT_PRIVATE_TYPES.has(form.groupType) && (
         <p className="text-[11px] text-cyan-600 font-semibold text-right flex items-center gap-1 justify-end">
           🔒 ברירת-מחדל פרטי — ניתן לשנות בשלב הפרטיות
         </p>
@@ -1198,7 +1211,12 @@ function StepPrivacy({
   form: WizardForm;
   updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
 }) {
-  const isPrivateByDefault = ALWAYS_PRIVATE_TYPES.has(form.groupType);
+  // DEFAULT_PRIVATE_TYPES (not ALWAYS_PRIVATE_TYPES) — code review, 07.09.2026:
+  // this badge stayed silent for military when editing an existing military
+  // group here, even though it did start isPublic=false. Cosmetic-only —
+  // the toggle's actual value was always correct — but worth matching the
+  // same set the type-picker step already uses for consistency.
+  const isPrivateByDefault = DEFAULT_PRIVATE_TYPES.has(form.groupType);
 
   return (
     <div className="space-y-5 pt-4">
