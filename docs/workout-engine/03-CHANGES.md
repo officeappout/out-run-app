@@ -2546,3 +2546,128 @@ blindness now (tying back to Addendum 14's still-open question) or keep it parke
 
 **Commit:** local only, no push. Docs only — no source touched this entire turn (Items 1-3 were all
 report-only).
+
+---
+
+## Addendum 24 — "אימון קל" redefined (00-PLAN.md §17), and where the 5 questions land in real code.
+## Report only — awaiting approval before implementation.
+
+David's research corrected this session's own earlier framing: `TIER_TABLE`'s 60-90s rest for
+flow-tier work is **physiologically correct**, not a bug — 45-90s is right for volume/conditioning
+work, and the earlier addenda's "rest goes backwards" framing is retracted. The real definition —
+same volume, lower intensity via level + rep/time ratio + reps-in-reserve, never fewer sets, never
+inflated rest — is now written as a standing rule at `00-PLAN.md` §17.
+
+### Question 1 — sets drop to 2 despite a 3-set floor: found the exact line
+
+Sets do **not** come from `TIER_TABLE` at all — `workout-budgeting.utils.ts:599-604` pulls sets
+from a *separate* table, `DIFFICULTY_VOLUME[difficulty]` (`:86-94`), where `DIFFICULTY_VOLUME[1] =
+{sets: {min:3, max:3}, ...}` — **3 is already the correct D1 baseline**, exactly matching the new
+rule.
+
+The cut happens after that, at `calculateVolumeAdjustment` (`:249-262`):
+```ts
+if (difficulty === 1) {
+  adjustedSets = Math.max(2, baseSets - 1);
+  reductionPercent = ((baseSets - adjustedSets) / baseSets) * 100;
+}
+```
+This is a **dedicated, standalone "D1 = one fewer set" rule**, independent of and redundant with
+`DIFFICULTY_VOLUME[1]`'s already-correct 3. For a typical level-8-12 user, `getBaseSets()` (`:52-56`)
+returns 3, so `reductionPercent` computes to **33.3%**. That percentage then gets applied
+*multiplicatively* back onto the already-correct 3, inside `assignVolume` (`:636-638`):
+```ts
+if (volumeAdjustment.reductionPercent > 0) {
+  sets = Math.max(2, Math.round(sets * (1 - volumeAdjustment.reductionPercent / 100)));
+}
+```
+`3 × (1 − 0.333) = 2.0 → round → 2`. **Two separate reductions stacking on the same idea** — one
+computes "D1 should have fewer sets" as a percentage, the other applies that percentage to a value
+that was already D1-appropriate.
+
+**How much this alone closes:** 7 exercises × 2 sets = 14 sets → 7 × 3 = 21 sets, a 50% volume
+increase. Duration scales with total sets roughly linearly for the main block (not perfectly — fixed
+warmup/cooldown overhead doesn't scale) — applying that ratio to the two real D1 runs measured so
+far: 23min → ~30-32min, or the cleaner 34min run → ~46-48min. **This single fix likely closes most
+or all of the remaining gap on its own** — real verification only after implementation, per your
+own instruction (the 5-6 sample workouts below).
+
+### Question 2 — the −4.14 average is two mechanisms stacking, not one
+
+**Two separate, uncoordinated mechanisms both push toward lower levels, applied one after another:**
+
+1. **Step 3 pool filter** (`domain-mapping.constants.ts:106-129`) — `BOLT1_WINDOW_LOWER_OFFSET=-3`,
+   `BOLT1_WINDOW_UPPER_OFFSET=-1`: for bolt 1, the *candidate pool itself* is restricted to
+   `referenceLevel-3` .. `referenceLevel-1` before any exercise is even selected.
+2. **`applyFlowRegression`'s own swap search** (`trio-modifiers.service.ts:508`,
+   `for (let delta = 1; delta <= 3; delta++)`) — runs *afterward*, searching a **further** 1-3
+   levels below whatever Step 3 already selected (`exLevel` is read from the *already-regressed*
+   exercise, not the user's real level).
+
+Both loops apply to **every exercise in `main` uniformly** — `for (const ex of main)` at
+`:499`, no branch anywhere on exercise priority/role. There is currently **no way to tell a
+"primary" exercise from a "supplementary" one** at this stage — that classification (`priority`:
+compound/isolation/accessory, set by `classifyPriority` upstream) exists on the object but neither
+mechanism reads it.
+
+**What separating them requires:** thread `exercise.priority` (or an explicit main/supplementary
+flag decided at Step 3) into both loops, and give each a *different* delta range —
+e.g. window `[-2,-1]` + search `delta∈{1,2}` for primary, vs. window `[-4,-3]` + search
+`delta∈{1,2,3,4}` for supplementary — instead of the single shared `[-3,-1]` window and `1..3`
+search both use today. This is a real code change in 2 files, not a config tweak.
+
+### Question 3 — reps today, and the existing (but D1-excluded) scaling rule
+
+**Bilateral exercises** (the majority): reps come from `getStaircaseRange` (`workout-budgeting.
+utils.ts:165-184`) — a **coarse 2-bucket lookup**, not continuous: `flow` (any delta ≤ −3) → 10-12
+reps, `easy` (delta −1/−2) → 6-8 reps. A delta of −3 and a delta of −8 get the *identical* range —
+no scaling within a bucket.
+
+**Unilateral push/pull/legs exercises**: a real, already-built "more reps the further below level"
+rule exists — Rule B, `:688-695` — **but it's explicitly excluded for D1**:
+```ts
+} else if (levelDiff >= 2 && difficulty !== 1) {
+  // Rule B — Moderate Intensity: exercise is ≥2 levels below user.
+  // Skipped for bolt 1 (Easy) — the lower exercise level is an intentional
+  // difficulty selection, not a gap to compensate for with extra reps.
+```
+That comment is the *exact opposite* of the new rule. This is the closest existing building block —
+extending it to bilateral exercises and removing its `difficulty !== 1` exclusion is the natural
+path, but it needs to become a genuinely **continuous ratio of the actual delta**, not a bigger
+fixed bucket, to satisfy "no hard upper cap" (AMRAP compatibility) — the current Rule B is itself
+still a small fixed `{min,max}` range, just a different one than the default; a real fix computes
+reps as a function of delta rather than picking from a lookup table indexed by tier name.
+
+### Question 4 — exercise count: nothing structural is limiting it today
+
+`getExerciseCountForDuration` (`workout-budgeting.utils.ts:36-42`, `DURATION_SCALING['45']`) targets
+**6-8 exercises for a 45min request — the same range for every difficulty**, no D1-specific
+narrowing found anywhere. The 7 observed in the real trace is already inside this range (random
+pick: `min + Math.floor(Math.random()*(max-min+1))`). Content is not a constraint either (Addendum
+23's count: 17-65 low-level candidates per domain at levels 8-12). **No code change is structurally
+required to reach 7-8** — it's already the target; whether it's reliably *achieved* for a 1-2-domain
+user specifically is exactly what the post-approval 5-6 sample workouts (including your requested
+2-domain example) will show empirically rather than by further static reading.
+
+### Question 5 — filler exercises are already domain-gated, confirmed at the exact lines
+
+Whatever mechanism ends up adding exercises to fill time draws from the same domain-quota selection
+system already audited extensively this session — gated by the `has()`-guarded absent=absent rule:
+`selectExercisesWithDomainQuotas` (`workout-selection.utils.ts:624-629`,
+`if (!userLevelsMap.has(domain)) continue`) and the equivalent guards in `GuaranteePassRunner.ts`
+(`:182,388,533`). A domain the user has no level in is **structurally excluded from candidacy** —
+confirmed real in Addendum 13's production trace (a Path-B push+pull-only user's workouts never
+contained core, precisely because of this same guard). Any exercise-count increase that routes
+through this existing selection path inherits this guarantee automatically — it does not need to be
+re-implemented, only relied upon by whatever adds the 1-2 extra exercises.
+
+### Not implemented — stopping here for approval, per instruction
+
+Nothing changed in source this pass beyond the `00-PLAN.md` §17 rule itself (documentation, not
+code). Waiting for your go-ahead on: (1) removing/adjusting `calculateVolumeAdjustment`'s D1 sets
+rule, (2) separating primary vs. supplementary delta ranges across the 2 stacking level-selection
+mechanisms, (3) extending Rule B–style delta-proportional reps to bilateral exercises and removing
+its D1 exclusion, (4) whatever's needed to reliably land at 7-8 exercises.
+
+**Commit:** local only, no push. Docs only (`00-PLAN.md` §17 + this addendum) — no engine code
+touched.
