@@ -2152,3 +2152,74 @@ mechanism works end-to-end on a real profile, not a claim about how many users a
 
 **Commit:** local only, no push. Docs only — read-only Firestore queries + one synthetic-profile
 generation run, no writes, no temp scripts left behind.
+
+---
+
+## Addendum 17 — F1 fixed (slider difficulty pick reaches the workout); F2 rationale reported,
+## not touched
+
+David's part 2. Fix committed as `08e12ac4`; this addendum carries the required proof + F2 report.
+
+### F1 fix
+
+`generateHomeWorkout` (`home-workout.service.ts:212-220`) always returns the D2 balanced bolt
+unless `targetDifficulty` is set — by its own doc comment. `UserWorkoutAdjuster.tsx` passed
+`difficulty` but never `targetDifficulty`, so every slider request was silently delivered as D2
+regardless of what the user tapped. Fixed by adding `targetDifficulty: difficulty`, mirroring what
+`WorkoutBuilderSheet.tsx` (Custom Builder) already correctly does.
+
+The options-building logic was extracted into `user-workout-adjuster-options.utils.ts` (a pure,
+non-JSX file) so the fix has a real test — this repo has no `@testing-library/react`, and importing
+anything from the `.tsx` component directly fails vitest's parser (confirmed: attempting it throws
+mid-parse on the component's JSX). 4 tests in
+`user-workout-adjuster-target-difficulty.test.ts`, all confirmed failing on pre-fix code (temporarily
+re-commenting `targetDifficulty`, not via `git stash` since the file was new/untracked) and passing
+after restore.
+
+### Proof — same profile, same 45min/home request, 3 explicit difficulty picks
+
+Called `generateHomeWorkout` with the exact `{difficulty, targetDifficulty}` shape the fixed
+component now sends:
+
+| Pick | Duration | Total sets | Main exercises |
+|---|---|---|---|
+| 1 — קל | **14 min** | 9 | שכיבות סמיכה בפישוק (2×10), שכיבות סמיכה ברכיים (2×11), החזקת הולו באדי (1×29s) |
+| 2 — בינוני | **44 min** | 17 | משיכות Y (4×2), שכיבות סמיכה יהלום (2×11), מקבילים אקצנטרי (2×5), דרגון סקוואט בתמיכת יד (3×3) |
+| 3 — עצים | **43-44 min** | 16 | שכיבות סמיכה יהלום (2×12), משיכות Y (5×2), סקוואט קשתים (5×6), + 1 more |
+
+Genuinely different durations, exercise selections, and set/rep schemes — not the same workout
+three times. (Difficulty 1's 14min against a 45min request matches this session's already-documented
+`flow_regression`/D1 pattern — expected, not new, per Addendum 15's bolt-1 finding; not re-litigated
+here.)
+
+### F2 — reported, not touched. Your call.
+
+`resolveEffectiveDifficulty` (`InputSanitizerMiddleware.ts:608-655`) applies 3 sequential overrides,
+each with its own stated rationale in the code's own doc comment:
+
+| Override | Condition | Rationale (verbatim from the code) |
+|---|---|---|
+| First-session guard | No baseline data at all | "the user has no baseline data yet, so we never start them on Intense" |
+| Detraining lock | Returning after a 4-7 day gap, requested D3 | "protect them from CNS overshoot" (central-nervous-system overload risk of jumping straight into high intensity after a break) |
+| Deload week (W5) | Requested D3 | "Recovery week is incompatible with Intense; **force it down regardless of UI selection**" (the code's own words) |
+| Peak week (W4) | Requested D1, no detraining lock | "Peak week is the wrong moment for a low-stimulus workout, so floor it at Normal" |
+
+**Worth separating two different kinds of claim here, since they may deserve different answers under
+the new rule:**
+- **Safety-motivated** (first-session, detraining-lock, deload): the stated reasoning is physiological
+  protection — CNS overshoot, recovery-week incompatibility. These read like genuine "the system
+  protects the user from themselves" cases, the kind of exception the meta-rule's own text already
+  anticipates ("מותר להוסיף הערה או אזהרה").
+- **Optimization-motivated** (peak-week floor): the reasoning is about not "wasting" a
+  high-readiness week on a low-stimulus session — a coaching nudge, not a safety concern. Weaker
+  case for silently overriding an explicit pick.
+
+Not disabled, not touched — David's call per-case whether explicit choice should override any or
+all of these, or whether they should become a warning instead of a silent downgrade.
+
+### Not done this round
+
+The other 12 items from F1-F20 remain untouched, awaiting instruction, as does the rest of Addendum
+15's scope (Tasks 2/3 for core, item ז).
+
+**Commit:** local only, no push. Docs only (the code fix itself already committed as `08e12ac4`).
