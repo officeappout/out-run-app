@@ -1635,6 +1635,17 @@ service cloud.firestore {
       match /clicks/{clickId} {
         allow read, write: if isRootAdmin();
       }
+
+      // Permanent daily rollup (device/hour/day-of-week/country/city
+      // counters) — powers the read-only analytics screen at
+      // /admin/links/[id]. Written EXCLUSIVELY by the Admin SDK, batched
+      // alongside the per-click record above — but READ is open to any
+      // admin (not just root), matching the parent doc's own read policy,
+      // since this is exactly what that screen displays.
+      match /daily_stats/{dateKey} {
+        allow read: if isRootAdmin() || isAdmin();
+        allow write: if isRootAdmin();
+      }
     }
 
     // ============================================================

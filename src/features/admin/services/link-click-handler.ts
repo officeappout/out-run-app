@@ -5,6 +5,12 @@
  *   • `/api/links/[id]/click` — kept working for back-compat (whatever
  *     may already be printed/shared using this older path).
  *
+ * Every non-bot click writes TWO documents in one batch: a per-click
+ * record (`clicks/{autoId}`, 30-day TTL, for future install/user
+ * matching) and a permanent daily rollup (`daily_stats/{YYYY-MM-DD}`, no
+ * TTL, for the per-link analytics screen at `/admin/links/[id]`) — see
+ * `link-stats-write.ts` / `link-stats.ts`.
+ *
  * Behaviour
  * ─────────
  *   • Reads `marketing_links/{id}` via the Admin SDK (bypasses client
@@ -39,6 +45,7 @@ import {
   detectDeviceBucket,
   resolveDestinationUrl,
 } from '@/features/admin/services/link-routing';
+import { buildDailyStatsIncrement } from '@/features/admin/services/link-stats-write';
 
 const COLLECTION = 'marketing_links' as const;
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, max-age=0' } as const;
@@ -79,10 +86,23 @@ interface ClickRecordInput {
   androidReferrerSent?: string;
 }
 
+/** Vercel URL-encodes both headers (city names can contain non-ASCII chars). */
+function getRequestGeo(request: NextRequest): { country: string | null; city: string | null } {
+  const rawCountry = request.headers.get('x-vercel-ip-country');
+  const rawCity = request.headers.get('x-vercel-ip-city');
+  return {
+    country: rawCountry ? decodeURIComponent(rawCountry) : null,
+    city: rawCity ? decodeURIComponent(rawCity) : null,
+  };
+}
+
 /**
- * Best-effort per-click record for future install/user matching (link_id ↔
- * user_id join work). Written to `marketing_links/{id}/clicks/{autoId}` —
- * never blocks the redirect; caller wraps this in its own try/catch.
+ * Best-effort per-click record (for future install/user matching) PLUS
+ * the permanent daily rollup increment (see `link-stats-write.ts`),
+ * written together in one batch — one Firestore round-trip, and the two
+ * documents can never disagree with each other about whether "this
+ * click" happened. Never blocks the redirect; caller wraps this in its
+ * own try/catch.
  */
 async function recordClickEvent(input: ClickRecordInput): Promise<void> {
   const { linkRef, request, clickId, device, androidReferrerSent } = input;
@@ -90,12 +110,15 @@ async function recordClickEvent(input: ClickRecordInput): Promise<void> {
   const ip = (forwarded ? forwarded.split(',')[0] : null)?.trim() || 'unknown';
   const userAgent = request.headers.get('user-agent');
   const referrer = request.headers.get('referer'); // HTTP Referer — where the visitor came from, NOT the Android Play referrer param
-  const country = request.headers.get('x-vercel-ip-country');
+  const { country, city } = getRequestGeo(request);
+  const clickedAt = new Date();
 
-  const expireAt = new Date();
+  const expireAt = new Date(clickedAt);
   expireAt.setDate(expireAt.getDate() + CLICK_RECORD_TTL_DAYS);
 
-  await linkRef.collection('clicks').add({
+  const batch = linkRef.firestore.batch();
+
+  batch.set(linkRef.collection('clicks').doc(), {
     linkId: linkRef.id,
     clickId,
     timestamp: FieldValue.serverTimestamp(),
@@ -103,7 +126,8 @@ async function recordClickEvent(input: ClickRecordInput): Promise<void> {
     ipHash: hashIp(ip),
     platform: device, // kept for back-compat with the Stage-1 field name
     device,
-    country: country ?? null,
+    country,
+    city,
     referrer: referrer ? referrer.slice(0, 500) : null,
     androidReferrerSent: androidReferrerSent ?? null,
     // Requires a Firestore TTL policy on `clicks.expireAt` (collection
@@ -111,6 +135,11 @@ async function recordClickEvent(input: ClickRecordInput): Promise<void> {
     // not auto-delete anything; see docs/architecture/marketing-attribution.md.
     expireAt: Timestamp.fromDate(expireAt),
   });
+
+  const { docId, data } = buildDailyStatsIncrement({ clickedAt, device, country, city });
+  batch.set(linkRef.collection('daily_stats').doc(docId), data, { merge: true });
+
+  await batch.commit();
 }
 
 export async function handleLinkClick(
