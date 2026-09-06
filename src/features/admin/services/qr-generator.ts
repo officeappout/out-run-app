@@ -193,6 +193,18 @@ export function buildQrCodeStylingOptions(
       }
     : { color: params.colors.dark };
 
+  // `qr-code-styling` merges caller options over its own defaults with a
+  // shallow Object.assign — an explicit `imageOptions: undefined` key
+  // OVERWRITES (not skips) the library's default `imageOptions` object, and
+  // its own constructor then reads `imageOptions.hideBackgroundDots` with no
+  // optional-chaining guard, throwing "Cannot read properties of undefined
+  // (reading 'hideBackgroundDots')". Confirmed against the real installed
+  // package (not assumed): passing `imageOptions: undefined` reproduces the
+  // exact production crash; OMITTING the key entirely (via conditional
+  // spread, not a ternary-to-undefined) lets the library's own default
+  // populate and does not throw. The `imageOptions` key must never be
+  // present-but-undefined in the returned object — only present (with a
+  // real object) or fully absent.
   return {
     type: outputType,
     width: params.sizePx,
@@ -203,15 +215,17 @@ export function buildQrCodeStylingOptions(
     qrOptions: {
       errorCorrectionLevel: QR_ERROR_CORRECTION_LEVEL,
     },
-    imageOptions: params.logoDataUrl
+    ...(params.logoDataUrl
       ? {
-          imageSize: logoSizeRatio,
-          hideBackgroundDots: true,
-          margin: params.logoPadding
-            ? Math.round(params.sizePx * LOGO_PADDING_WIDTH_RATIO)
-            : 0,
+          imageOptions: {
+            imageSize: logoSizeRatio,
+            hideBackgroundDots: true,
+            margin: params.logoPadding
+              ? Math.round(params.sizePx * LOGO_PADDING_WIDTH_RATIO)
+              : 0,
+          },
         }
-      : undefined,
+      : {}),
     dotsOptions: {
       type: params.dotType,
       ...dotsColor,

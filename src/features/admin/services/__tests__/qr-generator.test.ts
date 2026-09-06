@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { JSDOM } from 'jsdom';
+import QRCodeStyling from 'qr-code-styling';
 import {
   buildQrCodeStylingOptions,
   clampLogoSizeRatio,
@@ -119,9 +121,16 @@ describe('buildQrCodeStylingOptions', () => {
     expect(options.data).toBe(BASE_PARAMS.value);
   });
 
-  it('omits imageOptions entirely when there is no logo', () => {
+  it('omits the imageOptions KEY entirely when there is no logo — not just an undefined value', () => {
+    // Regression: `imageOptions: undefined` (key present, value undefined) passed
+    // `toBeUndefined()` just as well as an absent key would, so this exact
+    // assertion previously let a real production crash through — the library's
+    // internal merge overwrites its own default `imageOptions` object when the
+    // caller's object has an `imageOptions` key at all, even set to `undefined`,
+    // and then dereferences `imageOptions.hideBackgroundDots` unguarded. See the
+    // `buildQrCodeStylingOptions` construction test below for the real repro.
     const options = buildQrCodeStylingOptions(BASE_PARAMS, 'canvas');
-    expect(options.imageOptions).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(options, 'imageOptions')).toBe(false);
     expect(options.image).toBeUndefined();
   });
 
@@ -252,5 +261,62 @@ describe('computeMinPrintWidthCm', () => {
     expect(computeMinPrintWidthCm(0)).toBe(0);
     expect(computeMinPrintWidthCm(-3)).toBe(0);
     expect(computeMinPrintWidthCm(NaN)).toBe(0);
+  });
+});
+
+describe('buildQrCodeStylingOptions — real QRCodeStyling construction (regression)', () => {
+  // Production incident (06.09.2026): `new QRCodeStyling(options)` threw
+  // "Cannot read properties of undefined (reading 'hideBackgroundDots')"
+  // the instant the edit drawer opened. Root cause, confirmed against the
+  // real installed package (not assumed): the previous version of
+  // `buildQrCodeStylingOptions` set `imageOptions: undefined` when there was
+  // no logo yet (the drawer's live-preview effect fires before the async
+  // logo fetch resolves). `qr-code-styling`'s internal option merge is a
+  // shallow Object.assign of caller options over its own defaults — a
+  // present-but-undefined `imageOptions` key OVERWRITES the library's
+  // default `imageOptions` object instead of being skipped, and its
+  // constructor then reads `imageOptions.hideBackgroundDots` with no
+  // optional-chaining guard.
+  //
+  // These tests build options with the real `buildQrCodeStylingOptions`
+  // (never a hand-written full object) and feed them into the REAL
+  // `qr-code-styling` package — not a mock — so a future change that
+  // reintroduces a present-but-undefined top-level key fails here, not in
+  // production. `type: 'svg'` avoids requiring the native `canvas` package;
+  // `jsdom` is injected via the library's own documented Node-testing
+  // constructor option (`Options.jsdom`) rather than switching the whole
+  // suite's vitest environment away from `node`.
+  const REAL_PARAMS = {
+    value: 'https://outrun.co.il/r/rollup_koach_haifa',
+    colors: { dark: '#0F172A', light: '#FFFFFF' },
+    sizePx: 220,
+    dotType: 'square' as const,
+    cornerSquareType: 'square' as const,
+    logoSizeRatio: LOGO_SIZE_DEFAULT_RATIO,
+    logoPadding: true,
+  };
+
+  it('does not throw when constructed with no logo — the exact "drawer just opened" shape', () => {
+    const options = buildQrCodeStylingOptions({ ...REAL_PARAMS, logoDataUrl: null }, 'svg');
+    expect(() => new QRCodeStyling({ ...options, jsdom: JSDOM } as never)).not.toThrow();
+  });
+
+  it('does not throw when constructed with a logo already present', () => {
+    const options = buildQrCodeStylingOptions(
+      { ...REAL_PARAMS, logoDataUrl: 'data:image/png;base64,AAAA' },
+      'svg',
+    );
+    expect(() => new QRCodeStyling({ ...options, jsdom: JSDOM } as never)).not.toThrow();
+  });
+
+  it('does not throw across the real component lifecycle — construct without a logo, then update() once it loads', () => {
+    const withoutLogo = buildQrCodeStylingOptions({ ...REAL_PARAMS, logoDataUrl: null }, 'svg');
+    const instance = new QRCodeStyling({ ...withoutLogo, jsdom: JSDOM } as never);
+
+    const withLogo = buildQrCodeStylingOptions(
+      { ...REAL_PARAMS, logoDataUrl: 'data:image/png;base64,AAAA' },
+      'svg',
+    );
+    expect(() => instance.update(withLogo)).not.toThrow();
   });
 });
