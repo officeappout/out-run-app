@@ -2671,3 +2671,85 @@ its D1 exclusion, (4) whatever's needed to reliably land at 7-8 exercises.
 
 **Commit:** local only, no push. Docs only (`00-PLAN.md` §17 + this addendum) — no engine code
 touched.
+
+---
+
+## Addendum 25 — Stage 1 fixed (removed the redundant D1 sets reduction), measured on 6 real
+## workouts. One new, real bug found by exactly the 2-domain test David asked for.
+
+Fix committed as `c7c64842`. Removed `calculateVolumeAdjustment`'s standalone `difficulty===1 →
+baseSets-1` block (`workout-budgeting.utils.ts`) — confirmed before touching it that this block
+served *only* D1; inactivity/weekly-budget/periodization/`volumeReductionOverride` are separate,
+independently-returning branches in the same function, confirmed unaffected by 4 dedicated
+regression tests. `DIFFICULTY_VOLUME[1].sets` (`{min:3,max:3}`) is now the single source of truth
+for D1's set count.
+
+### 6 real workouts, full detail, as requested — read as a coach, not averages
+
+**D1, L10, all 4 domains registered — estimatedDuration=45min, 24 sets, 8 exercises:**
+
+| Exercise | Domain | Ex. level | User level | Sets | Reps/Hold | Rest |
+|---|---|---|---|---|---|---|
+| מתח אקצנטרי | pull | 8 | 10 | 2 | 8 | 90s |
+| שכיבות סמיכה יהלום | push | 8 | 10 | 3 | 8 | 105s |
+| עמידת פייק | push | 7 | 10 | 2 | 15s | 67s |
+| שכיבות סמיכה מרפקים צמודים | push | 7 | 10 | 2 | 10 | 66s |
+| שכיבות סמיכה | push | 5 | 10 | 3 | 11 | 80s |
+| שכיבות סמיכה בפישוק | push | 5 | 10 | 3 | 11 | 82s |
+| שכיבות סמיכה ברכיים | push | 4 | 10 | 3 | 10 | 87s |
+| החזקת הולו באדי | core | 6 | 10 | 2 | 28s | 84s |
+
+**Hit the 45min target exactly.** Sets are 2-3 (not the old uniform 2) — Stage 1 alone is doing
+what it was supposed to. Separate, pre-existing observation (not a Stage-1 regression, not chased
+this pass): 6 of 8 exercises are push, 0 legs, 1 pull, 1 core — a domain-balance issue that already
+existed before this fix and is outside Stage 1's scope.
+
+**D1, L12, all 4 domains — estimatedDuration=43min, 23 sets, 6 exercises:** all sets are 3. Within
+the 43-46 target band.
+
+**D2 (L10=40min/17sets/3ex, L12=45min/17sets/4ex) and D3 (L10=44min/18sets/4ex)** — controls,
+unaffected by this change as expected, all close to target (already true before Stage 1, per
+Addendum 19).
+
+### D1, L8, PUSH+PULL ONLY (2 programs) — short AND a real bug, found by exactly this test
+
+```
+estimatedDuration=18min totalPlannedSets=10 exerciseCount=3
+  - שכיבות סמיכה [push]: L5, user L8 | 2 sets x 11 | rest=77s
+  - שכיבות סמיכה בפישוק [push]: L5, user L8 | 3 sets x 12 | rest=89s
+  - ישיבת L בתמיכת הרגליים [core]: L3, user core=(NOT REGISTERED) | 1 sets x 15s | rest=223s
+```
+
+**Two problems, not one:**
+1. **Short** — 18min against 45 requested, only 3 exercises (target 6-8).
+2. **A core exercise was selected for a user with no core program at all** — exactly the leak
+   Question 5 was supposed to rule out. Traced it: this did **not** come through the domain-quota
+   selection system (still correctly gated, per Addendum 24's Question 5 answer) — it came through
+   `applyEssentialGearFilter`'s `MIN_EXERCISES=3` backfill (`trio-modifiers.service.ts:704`,
+   reachable only from D1 via `applyFlowRegression`), which is **domain-blind by construction**:
+   `allExercises.filter(ex => !usedIds.has(ex.id) && isRawExNaked(ex) && ...)` — no domain check
+   anywhere in that filter. When the thin, push+pull-only pool for this profile came up short of 3
+   naked exercises, this backfill reached into the *entire* catalog, including core, to hit the
+   floor.
+
+**This is a real, newly-found bug, caught by exactly the 2-domain test you asked for — a full-4-
+domain sample would never have surfaced it.** It's a correctness issue (Question 5's guarantee has
+a real gap, just not where the earlier static-code audit looked), not something Stage 2's rest/reps
+work would touch. Flagging for your decision — not fixed this pass, since it's outside the scope
+you approved for Stage 1.
+
+### Verdict against your 3 buckets
+
+| Case | Result | Bucket |
+|---|---|---|
+| D1, 4 domains, L10/L12 | 45min / 43min | **43-46 — done, no further duration work needed for this case** |
+| D1, 2 domains only | 18min + domain leak | **Short, but for a reason Stage 2 doesn't address** — a different, real bug |
+
+**Recommendation, not a decision:** Stage 1 appears to have closed the duration gap for the common
+(4-domain) case on its own, consistent with the estimate. Whether to proceed to Stage 2 (priority-
+based level separation + reps scaling) is your call regardless — but the 2-domain leak is a
+separate, likely higher-priority item than Stage 2's polish, since it's a real data-correctness bug
+freshly found, not a UX refinement.
+
+**Commit:** local only, no push. Verification only — no additional source changed beyond the
+already-committed `c7c64842`.
