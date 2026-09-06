@@ -2384,3 +2384,165 @@ the data layer rather than guess-placing a banner in an unfamiliar drawer. Needs
 pointer to the right spot, or a visual pass together once David can check it renders correctly.
 
 **Commit:** local only, no push (code already committed as `5b5310f0`).
+
+---
+
+## Addendum 21 — Item 3: is `progression.domains` shown anywhere? Short answer, as requested.
+
+Searched every `.tsx` file referencing `progression.domains` (`grep`, 8 files). Only two are
+outside `admin/`:
+- `DashboardTab.tsx:57` — `console.log` only, never rendered.
+- `StrengthVolumeWidget.tsx:98` — existence check (`!profile?.progression?.domains`), a boolean,
+  never displays a level number.
+
+**No non-admin screen displays a `domains.{x}.currentLevel` value anywhere.**
+
+Bonus finding relevant to your question: `admin/users/all/page.tsx` **already has** an
+`autoSyncDomainsFromTracks` function (`:182-221`) that runs automatically every time an admin opens
+a user's detail view — it detects exactly this mismatch (`domainLevel < trackLevel`) and writes the
+corrected value to **both** `domains` and `tracks` on the spot. The admin list view's own level
+column also already takes `Math.max(tracks, domains, globalLevel)` (`:3016-3027`), so it's correct
+regardless. **Net effect: nobody — user or admin — ever actually sees the stale number.** Closed as
+documented, not touched, per instruction.
+
+---
+
+## Addendum 22 — Item 2: mapping + options for where to display `difficultyOverrideNote`. No UI
+## changed.
+
+### (א) Existing user-facing explanation text — full list
+
+| Field | Set at | Rendered at |
+|---|---|---|
+| `logicCue` | `home-workout.service.ts:1072-1076` (from Firestore metadata, or `computeLevelAwareLogicCue` as fallback) | `GeneratedWorkoutExerciseList.tsx:163,267-272` — `displayText = logicCue \|\| description`, shown as a paragraph right under the title/difficulty/duration pill row |
+| `aiCue` | `home-workout.service.ts:943-944,1053` | Referenced in `WorkoutPreviewClient.tsx`, `RunBriefingDrawer.tsx`, `PlannedRun/WorkoutPreviewScreen.tsx` (running-player equivalents) — not the same screen as the strength preview drawer |
+| `title` / `description` | Firestore-resolved metadata | Standard header fields, same drawer |
+
+### (ב) 3 options for `difficultyOverrideNote`, with tradeoffs
+
+**Option 1 — fold into `logicCue`** (e.g. `workout.logicCue = overrideNote + ' ' + computedLogicCue`
+at `home-workout.service.ts:1072-1076`, right where `logicCue` is already assigned, since
+`workout.difficultyOverrideNote` is set earlier in `WorkoutGenerator.ts` and available on the same
+object by then).
+- **Pro:** Zero new UI code — reuses the exact skeleton at `GeneratedWorkoutExerciseList.tsx:
+  267-272` that's already proven to render safely. Tonally close to David's own proposed wording
+  (conversational, coach-voice) — fits `logicCue`'s existing character.
+- **Con:** Mixes two different kinds of message (routine coaching color vs. a specific "we changed
+  something you picked" explanation) into one paragraph — less visually distinct as an important
+  notice, and if a real `logicCue` also exists that day, one has to be dropped or awkwardly
+  concatenated.
+
+**Option 2 — a new small banner near the Difficulty/Duration pills**
+(`GeneratedWorkoutExerciseList.tsx:170-204`, the header row where `DifficultyBolts` + the duration
+pill already render).
+- **Pro:** Most semantically correct placement — directly next to the difficulty indicator it
+  explains, high visibility, a user looking at "⚡ קל" sees why right there.
+- **Con:** New UI element — needs to fit responsively alongside the existing share/heart/download
+  icon row on the other side of the same flex row; real layout risk on narrow screens without a
+  visual check, which is exactly the axiom-flagged risk from Addendum 20.
+
+**Option 3 — a one-time toast/snackbar when the drawer opens**
+(would need new wiring, likely triggered from `UserWorkoutAdjuster.tsx`'s `onApplyAndStart` or its
+parent).
+- **Pro:** Doesn't touch the drawer's existing static layout at all — lowest layout risk.
+- **Con:** Transient — easy to miss if the user isn't looking right when it fires; needs an
+  entirely new toast-triggering mechanism (none of the 3 relevant components currently show one for
+  anything workout-related), more net-new code than either option above.
+
+### (ג) Is there an existing "skeleton" ready for this text?
+
+**Yes — Option 1's skeleton.** `{displayText && (<p>...</p>)}` at `GeneratedWorkoutExerciseList.tsx:
+267-272` already conditionally renders whatever text ends up in `logicCue` (or falls back to
+`description`) with zero additional markup needed. It is a real, already-proven, general-purpose
+"coach explanation" slot — not purpose-built for override notes specifically, which is Option 1's
+one real drawback (mixing concerns) against its otherwise-lowest-risk profile.
+
+No UI changed this pass, per instruction. Awaiting your choice of option (or a different one).
+
+---
+
+## Addendum 23 — Item 1: what "קל" actually does today, in real numbers. Nothing implemented.
+
+Real trace, D1 vs D2, same profile (level 10, all 4 domains), same 45min request, home. (No fixed
+seed exists in this codebase — see `build-snapshot.ts`'s own header comment — so these are one real
+run each, not an average; the qualitative pattern is what matters, not the exact minute count.)
+
+### (א) Breakdown, by category, with real per-exercise data
+
+| | D1 (קל) | D2 (בינוני) |
+|---|---|---|
+| Exercise count | 7 | 7 |
+| Avg `levelDelta` (resolved level − user's actual level) | **−4.14** | −0.33 |
+| Avg sets/exercise | 2.00 | 2.29 (D2 sample includes some tabata-adjacent 1-set entries — noisy) |
+| Avg `restSeconds` | 81s | 59s |
+| `estimatedDuration` | 34min | 43min |
+
+**Levels ARE the dominant, already-correctly-prioritized factor** — D1's exercises sit 2-6 levels
+below the user's actual level (avg −4.14), confirmed real, not estimated: `applyFlowRegression`'s
+regression search (`regressionFloor` + the level-delta swap loop, `trio-modifiers.service.ts:
+499-580`) is doing exactly what you want as priority #1. **Exercise count is not being cut either**
+— D1 selected the same 7 exercises as D2 in this run.
+
+**What IS working against you: rest goes the WRONG direction, and sets get diluted by an
+already-known, separate mechanism.**
+
+- **Rest is tier-driven, and tier is a direct function of `levelDelta`** — `TIER_TABLE`
+  (`workout-generator.types.ts:51-57`, the "Rest Staircase"): `flow` (Δ≤−3) gets **60-90s** rest,
+  `easy` (Δ−1/−2) gets **90-120s**, `match` (Δ=0) gets **120-150s**. The design's own comment says
+  it plainly: *"flow: active recovery pace, **minimal** rest."* **This is backwards from what you
+  asked for** — the lower the difficulty, the LESS rest the current architecture assigns, not more.
+  Rest is not an independent dial today; it's baked into the same shared tier system every
+  difficulty and every exercise everywhere in the pipeline uses.
+- **Sets: `TIER_TABLE`'s own baseline for flow/easy is 3** (`sets: {min:3,max:3}`) — not 2. The
+  observed 2.00 average is **below the tier's own floor**, meaning something downstream trims
+  further. The math lines up with **`dailySetBudget`** (Addendum 14's already-documented,
+  duration-blind weekly ceiling): a fixed total-sets budget, divided across however many exercises
+  got selected. D1 selecting exercises that are individually faster (flow tier = less per-exercise
+  time) doesn't increase the budget, so the same total gets spread thinner. This is the *same*
+  mechanism Addendum 14 already flagged for the cluster-cap question — not a new bug, a second
+  symptom of the same one.
+
+### (ב) What would need to change to shift the source of "easy" toward levels, away from quantity
+
+Levels are *already* the dominant lever (see above) — the accurate framing isn't "shift toward
+levels", it's **"stop volume from being cut on top of the level-based easing."** Two separate
+changes, different risk profiles:
+1. **Rest:** `TIER_TABLE`'s rest values are shared/global — used by every tier resolution anywhere
+   in the pipeline, not just D1. Changing flow/easy's rest range directly would ripple to any
+   exercise that resolves to those tiers regardless of difficulty (e.g. a D2/D3 session that happens
+   to pick a low-relative-level exercise). A D1-*specific* rest boost (applied after tier
+   resolution, only when `difficulty===1`) would be narrower and safer than editing the shared
+   table, but is a new, not-yet-existing mechanism.
+2. **Sets:** needs `dailySetBudget` to stop being duration-blind — the exact same open item Addendum
+   14 already surfaced and explicitly did not chase further pending your call.
+
+### (ג) Rest math — is the fix "4-5 minutes between sets"? No.
+
+Closing the observed 11-minute gap (34→45min) via rest alone, spread across this run's 14 total
+sets: **+47s per set** (81s→~128s, ~2.1min) — not close to the 4-5 minute danger zone you flagged.
+If leaned on as the *only* lever (not fixing the sets-dilution too), the ask would be larger but
+still nowhere near multi-minute rests — the math doesn't force an ugly answer either way.
+
+### (ד) Content availability at levels 8-12 — not a bottleneck
+
+Counted real Firestore content (372 total exercises) by `movementGroup`→domain, flow-tier
+(`levelDelta≤−3`) candidates specifically:
+
+| Domain | L8 user | L10 user | L12 user |
+|---|---|---|---|
+| push | 19 | 28 | 33 |
+| pull | 17 | 23 | 27 |
+| legs | 34 | 53 | 65 |
+| core | 21 | 28 | 35 |
+
+**17-65 real candidates per domain at every level checked — plenty of content.** Not a content gap;
+whatever gets built doesn't need new exercises first.
+
+### Not implemented — stopping here, per instruction
+
+Nothing changed. Waiting for your decision on: whether to touch the shared `TIER_TABLE` rest values
+vs. build a D1-specific rest adjustment, and whether/how to address `dailySetBudget`'s duration-
+blindness now (tying back to Addendum 14's still-open question) or keep it parked.
+
+**Commit:** local only, no push. Docs only — no source touched this entire turn (Items 1-3 were all
+report-only).
