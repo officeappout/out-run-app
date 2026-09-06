@@ -2335,3 +2335,52 @@ than silently declaring the acceptance criterion ("all three ~43-45min") met whe
 isn't for D1.
 
 **Commit:** local only, no push (code already committed as `b2727151`).
+
+---
+
+## Addendum 20 — F2 implemented: safety overrides kept with a note, peak-week override removed
+
+David's decision on Addendum 17's F2 report, implemented as instructed. Code committed as
+`5b5310f0`.
+
+### What changed
+
+`resolveEffectiveDifficulty` now returns `{difficulty, overrideNote}`:
+- **Kept, now with a note**: first-session guard, detraining-lock (CNS-overshoot protection),
+  deload-week incompatibility. Each sets `overrideNote` to a proposed Hebrew string (below) when it
+  fires; `undefined` otherwise.
+- **Removed entirely**: the peak-week floor (D1→D2). Not a safety concern — the engine
+  second-guessing an explicit "easy" pick. An explicit D1 request in a peak week now stays D1,
+  confirmed by a dedicated regression test.
+
+`GeneratedWorkout.difficultyOverrideNote?: string` carries the note to the final workout object.
+
+### Proposed copy (David's own wording used verbatim where he supplied it)
+
+| Trigger | Note |
+|---|---|
+| First session | "זה האימון הראשון שלך — התחלנו בקלות כדי להכיר את הגוף." |
+| Detraining lock | "חזרת אחרי הפסקה — התחלנו בעדינות." *(David's own wording, Addendum 17)* |
+| Deload week | "השבוע שבוע התאוששות — הורדנו עצימות כדי לאפשר להתאושש כמו שצריך." |
+
+Open for adjustment — proposed, not final.
+
+### Tests
+
+7 tests (`resolve-effective-difficulty.test.ts`), all confirmed failing on pre-fix code via
+`git stash` (the return shape itself changed from a bare number to `{difficulty, overrideNote}`, so
+every assertion fails pre-fix) and passing after restore. Full workout-engine suite: 548/548 real
+assertions pass (same 2 pre-existing unrelated hybrid `process.exit()` failures as every commit this
+session).
+
+### Not done — UI wiring
+
+`difficultyOverrideNote` is fully plumbed on the backend but **not yet displayed anywhere**. The
+real `WorkoutPreviewDrawer` reachable from `UserWorkoutAdjuster`'s `onApplyAndStart` resolves (via a
+re-export shim) to a multi-file component tree
+(`src/features/workouts/components/workout-preview-drawer/`) I have not worked in before and cannot
+visually verify in this environment. Per this repo's own pixel-by-pixel UI-safety rule, I stopped at
+the data layer rather than guess-placing a banner in an unfamiliar drawer. Needs either a quick
+pointer to the right spot, or a visual pass together once David can check it renders correctly.
+
+**Commit:** local only, no push (code already committed as `5b5310f0`).
