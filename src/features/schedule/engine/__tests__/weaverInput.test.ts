@@ -101,4 +101,32 @@ describe('buildWeaverInput', () => {
     expect(buildWeaverInput(null, 50, 5, ASOF)).toBeNull();
     expect(buildWeaverInput(undefined, 50, 5, ASOF)).toBeNull();
   });
+
+  it('asOfDate before the running program\'s startDate does not report a false week 1 with real workouts — the 2647b7f0 bug, previously reproduced here by a local copy of calculateCurrentWeek missing the isDateWithinRunningPlan guard', () => {
+    const laterStart = new Date('2026-10-01T00:00:00Z'); // program starts AFTER the preview's asOfDate
+    const previewAsOf = new Date('2026-09-10T00:00:00Z'); // before laterStart
+    const profile: WeaverInputProfile = {
+      ...strengthOwningProfile({ א: ['PLANCHE'] }),
+      running: {
+        isUnlocked: true,
+        scheduleDays: ['א', 'ג'],
+        activeProgram: {
+          startDate: laterStart,
+          // Week 1 entries exist — the bug would make buildWeaverInput
+          // treat previewAsOf as week 1 (Math.max(1,...) clamp) and surface
+          // these as the "current" running days, even though previewAsOf
+          // is before the program even started.
+          schedule: [
+            { week: 1, day: 1, category: 'tempo', isQualityWorkout: true, slotType: 'quality_primary' },
+            { week: 1, day: 2, category: 'easy_run' },
+          ],
+        },
+      },
+    };
+
+    const result = buildWeaverInput(profile, 50, 5, previewAsOf);
+    expect(result).not.toBeNull();
+    expect(result!.running.requestedCount).toBe(0);
+    expect(result!.running.existingWeek.every((d) => d.category === null)).toBe(true);
+  });
 });

@@ -24,10 +24,14 @@ import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { WorkoutHistoryEntry, SessionSegmentRecord } from '@/features/workout-engine/core/services/storage.service';
 import { useWeeklyVolumeStore, getCurrentWeekStart } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
+import { WHO_STRENGTH_TARGET_DAYS } from '@/lib/who-strength-target';
 
 // WHO weekly targets — hard anchors for the weekly_smart resolver.
 export const WHO_AEROBIC_TARGET_MIN = 150;
-export const WHO_STRENGTH_TARGET_DAYS = 2;
+// WHO_STRENGTH_TARGET_DAYS now lives in src/lib/who-strength-target.ts (pure,
+// no Firebase) — imported above, re-exported here for existing importers of
+// this constant from this file. Pure relocation, zero behavior change.
+export { WHO_STRENGTH_TARGET_DAYS };
 /** 1 vigorous (running) minute ≡ 2 moderate minutes (WHO equivalence, approved). */
 export const RUNNING_MODERATE_EQUIV_FACTOR = 2;
 

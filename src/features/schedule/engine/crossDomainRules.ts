@@ -77,11 +77,14 @@ export interface CrossDomainWeek {
 
 export interface CrossDomainValidateContext {
   /**
-   * R7's floor (WHO 2020: 2). Passed in by the caller rather than imported
-   * from weekly-load.service.ts's WHO_STRENGTH_TARGET_DAYS — that file does
-   * live Firestore reads (getDocs), and this module must stay pure. The
-   * caller decides the number; this file only checks the candidate week
-   * against whatever floor it's given.
+   * R7's floor (WHO 2020: 2, `src/lib/who-strength-target.ts`'s
+   * `WHO_STRENGTH_TARGET_DAYS` — a pure constant now, safe to import
+   * directly; not the case when this comment was first written, when the
+   * only copy lived in `weekly-load.service.ts`, a file with a top-level
+   * `firebase/firestore` import). Still passed in by the caller rather than
+   * imported here — this file decides nothing about WHO targets on its
+   * own; the caller supplies whatever floor applies, and this file only
+   * checks the candidate week against it.
    */
   minStrengthDaysPerWeek: number;
 }

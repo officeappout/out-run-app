@@ -27,34 +27,8 @@ import {
 } from '../services/scheduleSeed.service';
 import { isSkillId, isProgramId, DAY_LETTERS } from '../types/smartSchedule.types';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
-
-/**
- * Same formula as `workout-completion.service.ts`'s `calculateCurrentWeek`
- * — not imported from there, since that file imports `firebase/firestore`
- * and `@/lib/firebase` at the top level (for its OTHER exports, which do
- * live writes); importing anything from it here would pull the Firebase
- * client SDK into this module's import graph, the exact purity violation
- * `crossDomainRules.ts` already avoids for `WHO_STRENGTH_TARGET_DAYS`
- * (same reasoning, different file). Six-line formula, not worth a shared
- * module split for this alone.
- */
-function calculateCurrentWeek(startDate: Date | string | number, asOfDate: Date): number {
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  const now = new Date(asOfDate);
-  now.setHours(0, 0, 0, 0);
-  const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-  return Math.max(1, Math.floor(diffDays / 7) + 1);
-}
-
-/**
- * R7's floor (WHO 2020: 2 strength days/week). Hardcoded here, not imported
- * from `weekly-load.service.ts`'s `WHO_STRENGTH_TARGET_DAYS` — that file
- * does live Firestore reads (`getDocs`) at import time, and this module
- * must stay pure. Same reasoning, same value, as `crossDomainRules.ts`'s
- * own `CrossDomainValidateContext.minStrengthDaysPerWeek` doc comment.
- */
-const R7_FLOOR = 2;
+import { resolveWeekForDate } from '@/lib/running-current-week';
+import { WHO_STRENGTH_TARGET_DAYS } from '@/lib/who-strength-target';
 
 export interface WeaverInputProfile {
   progression?: ScheduleSeedProfileInput['progression'] & {
@@ -186,6 +160,18 @@ function parseTargetDistanceKm(targetDistance: string | undefined): number {
  * (runningRules.ts) already implement the slotType → isQualityWorkout →
  * category fallback chain; this function's job is only to get the three
  * raw fields onto the right `RunningWeekDay`, not to interpret them.
+ *
+ * Week resolution goes through `resolveWeekForDate`
+ * (`src/lib/running-current-week.ts`), not `calculateCurrentWeek` directly
+ * — `asOfDate` here is caller-supplied and arbitrary, not "today," so it
+ * can legitimately precede `activeProgram.startDate` (previewing a date
+ * before the running program existed). `resolveWeekForDate` returns `null`
+ * in that case instead of clamping to a false week 1 — treated the same as
+ * "no active week data," not "week 1."  A local reimplementation of
+ * `calculateCurrentWeek`'s raw formula previously lived here and silently
+ * reproduced exactly the phantom-week-1 bug fixed in `2647b7f0`, because it
+ * copied the formula without the `isDateWithinRunningPlan` guard that
+ * formula depends on when given an arbitrary date.
  */
 function buildRunningSide(
   profile: WeaverInputProfile,
@@ -198,12 +184,16 @@ function buildRunningSide(
     return { existingWeek: allRestRunningWeek(), requestedCount: 0 };
   }
 
+  const currentWeek = resolveWeekForDate(activeProgram.startDate, asOfDate);
+  if (currentWeek === null) {
+    return { existingWeek: allRestRunningWeek(), requestedCount: 0 };
+  }
+
   const trainingDayIndices = scheduleDays
     .map((letter) => DAY_LETTERS.indexOf(letter as (typeof DAY_LETTERS)[number]))
     .filter((i) => i >= 0)
     .sort((a, b) => a - b);
 
-  const currentWeek = calculateCurrentWeek(activeProgram.startDate, asOfDate);
   const weekEntries = activeProgram.schedule.filter((e) => e.week === currentWeek);
 
   const existingWeek = allRestRunningWeek();
@@ -248,7 +238,7 @@ export function buildWeaverInput(
   return {
     focus,
     availableDayCount,
-    crossDomainContext: { minStrengthDaysPerWeek: R7_FLOOR },
+    crossDomainContext: { minStrengthDaysPerWeek: WHO_STRENGTH_TARGET_DAYS },
     strength: {
       family: strengthRuleFamily,
       requestedCount: strength.requestedCount,
