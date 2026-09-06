@@ -33,6 +33,31 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        // src/app/onboarding-dynamic/ (distinct from src/app/onboarding-new/dynamic/)
+        // was removed — it rendered HealthDeclarationStep with no gate against
+        // an already-accepted declaration, and had zero in-app navigators
+        // (router.push/<Link>/redirect) pointing to it, only a bare,
+        // unauthenticated URL, reachable e.g. from browser history.
+        //
+        // Destination is /gateway, not /onboarding-new/profile — a static
+        // redirect can't condition on who's actually landing here, but
+        // /gateway can and does: its own onAuthStateChange listener
+        // (src/app/gateway/page.tsx:117-178) reads onboardingStatus/Step and
+        // routes a completed user straight to /home, an in-progress user to
+        // their exact next step, and leaves a signed-out/doc-less visitor on
+        // the picker UI — verified for all four cases before choosing this.
+        // /onboarding-new/profile would have thrown an already-onboarded
+        // user (the actual case that surfaced this route) back into
+        // onboarding from scratch — trading one bug for another.
+        source: '/onboarding-dynamic',
+        destination: '/gateway',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
