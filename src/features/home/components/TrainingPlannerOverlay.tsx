@@ -24,6 +24,7 @@ import { useUserStore } from '@/features/user';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
 import ScheduleBuilderDrawer, { isScheduleBuilderDrawerEnabled } from '@/features/schedule/components/ScheduleBuilderDrawer';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -281,14 +282,20 @@ export default function TrainingPlannerOverlay({
                 </div>
                 <div className="flex items-center gap-2">
                   {isScheduleBuilderDrawerEnabled() && (
-                    <button
-                      type="button"
-                      onClick={() => setShowScheduleBuilder(true)}
-                      className="w-9 h-9 rounded-full bg-white flex items-center justify-center border border-slate-200 text-gray-900 active:scale-90 transition-all shadow-sm"
-                      aria-label="בנה לוז אימונים"
-                    >
-                      <CalendarDays className="w-4 h-4 stroke-[2.5] text-[#00C9F2]" />
-                    </button>
+                    // Silent on crash, on purpose — see the drawer's own
+                    // ErrorBoundary below for the full reasoning. A broken
+                    // entry button must never take the whole planner down
+                    // with it; fallback={null}, not the default red screen.
+                    <ErrorBoundary fallback={null}>
+                      <button
+                        type="button"
+                        onClick={() => setShowScheduleBuilder(true)}
+                        className="w-9 h-9 rounded-full bg-white flex items-center justify-center border border-slate-200 text-gray-900 active:scale-90 transition-all shadow-sm"
+                        aria-label="בנה לוז אימונים"
+                      >
+                        <CalendarDays className="w-4 h-4 stroke-[2.5] text-[#00C9F2]" />
+                      </button>
+                    </ErrorBoundary>
                   )}
                   <button
                     type="button"
@@ -487,7 +494,18 @@ export default function TrainingPlannerOverlay({
       })()}
 
       {isScheduleBuilderDrawerEnabled() && (
-        <ScheduleBuilderDrawer isOpen={showScheduleBuilder} onClose={() => setShowScheduleBuilder(false)} />
+        // ErrorBoundary here, not just around the entry button — a crash
+        // DURING the drawer's own open render (not just at the button) must
+        // still leave the rest of TrainingPlannerOverlay (agenda, editing,
+        // everything) fully working. fallback={null}: no red error screen,
+        // no user-facing message — the drawer just silently isn't there.
+        // This is stage-1's own crash-safety net, separate from (and in
+        // addition to) ScheduleBuilderDrawer's internal try/catch around
+        // buildWeaverInput/weaveWeek, which fails soft at the data layer
+        // before a throw could ever reach this render boundary.
+        <ErrorBoundary fallback={null}>
+          <ScheduleBuilderDrawer isOpen={showScheduleBuilder} onClose={() => setShowScheduleBuilder(false)} />
+        </ErrorBoundary>
       )}
     </>
   );

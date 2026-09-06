@@ -50,8 +50,8 @@ import { useUserStore } from '@/features/user';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import AgendaDayCard, { type ResolvedRunningWorkout } from '@/features/home/components/agenda/AgendaDayCard';
 import AerobicStrengthSlider from '@/features/parks/core/components/hybrid/AerobicStrengthSlider';
-import { buildWeaverInput, type WeaverInputProfile } from '../engine/weaverInput';
-import { weaveWeek, type WeaveWeekResult } from '../engine/scheduleWeaver';
+import type { WeaveWeekResult } from '../engine/scheduleWeaver';
+import { computeWeaveResultSafely } from '../engine/computeWeaveResultSafely';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { DAY_LETTERS } from '../types/smartSchedule.types';
 import { SCHEDULE_BUILDER_DRAWER_ENABLED } from '@/config/feature-flags';
@@ -122,11 +122,10 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
 
   const asOfDate = useMemo(() => new Date(), []); // one fixed anchor per mount, not re-read on every render
 
-  const result: WeaveWeekResult | null = useMemo(() => {
-    const input = buildWeaverInput(profile as WeaverInputProfile | null | undefined, focus, availableDayCount, asOfDate);
-    if (!input) return null;
-    return weaveWeek(input);
-  }, [profile, focus, availableDayCount, asOfDate]);
+  const result: WeaveWeekResult | null = useMemo(
+    () => computeWeaveResultSafely(profile, focus, availableDayCount, asOfDate),
+    [profile, focus, availableDayCount, asOfDate],
+  );
 
   if (!isOpen) return null;
 
