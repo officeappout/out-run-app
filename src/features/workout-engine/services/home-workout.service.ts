@@ -54,6 +54,7 @@ import {
   DifficultyLevel,
   WorkoutExercise,
 } from '../logic/WorkoutGenerator';
+import type { WorkoutMetadataSnapshot } from '../logic/workout-generator.types';
 import { createPipelineOrchestrator } from '../core/pipeline/PipelineOrchestrator';
 import { createPoolFactory } from '../core/pipeline/PoolFactory';
 import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
@@ -726,48 +727,88 @@ function rememberBundleId(bundleId: string): void {
   } catch { /* ignore storage errors */ }
 }
 
+function resolveTrioVariant(cfg: Pick<TrioOptionConfig, 'postProcess'>): TrioVariant {
+  return cfg.postProcess === 'intense' ? 'intense'
+    : cfg.postProcess === 'flow_regression' ? 'easy'
+    : 'balanced';
+}
+
 /**
- * Re-derives category/dominantMuscle from `workout.exercises` as it stands
- * AFTER every mutation (desk-workout filter, post-cut promise validation,
- * sortAndPair) and compares it against `priorCtx` — the context the title/
- * description were originally picked against, taken BEFORE those mutations
- * ran. When they diverged (the demonstrated case: a desk-themed title
- * survives a silent revert to the original non-desk exercise pool),
- * re-resolves title/description/aiCue/logicCue for the corrected category
- * and applies them directly onto `workout`, mutating it in place.
- *
- * No-ops (returns `{ reconciled: false }`) when the category didn't change —
- * the common case, so this never adds a second Firestore round-trip when the
- * original pick already matches what shipped.
+ * Appends a dedup suffix when `title` already claimed by a sibling trio
+ * option (tracked in `usedTitles`) — a shared workoutMetadata copy library
+ * can hand two options the same row. Pure — caller owns adding the result
+ * to `usedTitles`.
  */
-export async function reconcileWorkoutTitleWithFinalExercises(
+export function applyTitleDedupSuffix(title: string, usedTitles: Set<string>, optionIndex: number): string {
+  if (!usedTitles.has(title)) return title;
+  const DEDUP_SUFFIXES = ['(משלים)', '(גמיש)'];
+  const suffix = DEDUP_SUFFIXES[Math.min(optionIndex - 1, DEDUP_SUFFIXES.length - 1)] ?? `(${optionIndex + 1})`;
+  return `${title} ${suffix}`;
+}
+
+/** The light scalar snapshot swap-all reads back to re-resolve metadata for a new location (§19). */
+function toMetadataSnapshot(ctx: WorkoutMetadataContext): WorkoutMetadataSnapshot {
+  return {
+    persona: ctx.persona,
+    timeOfDay: ctx.timeOfDay,
+    gender: ctx.gender,
+    category: ctx.category,
+    categoryLabel: ctx.categoryLabel,
+    difficulty: ctx.difficulty,
+    dominantMuscle: ctx.dominantMuscle,
+    experienceLevel: ctx.experienceLevel,
+    sportType: ctx.sportType,
+    motivationStyle: ctx.motivationStyle,
+    currentProgram: ctx.currentProgram,
+  };
+}
+
+/**
+ * Re-resolves title/description/aiCue/logicCue for a workout whose desk
+ * theme was abandoned: isDeskWorkout was true when the title was picked
+ * (workout-metadata.service.ts's persona+time-window "Desk Reset Boost", +30
+ * for office_worker/student, 12:00-14:00), but the desk-workout filter found
+ * fewer than 2 desk-friendly exercises and silently kept the original
+ * (non-desk) pool — leaving copy that promises a chair/desk session over a
+ * plan that isn't one.
+ *
+ * category/dominantMuscle are NOT scoring inputs anywhere in
+ * scoreContentRow — re-deriving them from the final exercise list cannot
+ * steer the re-pick. The only lever that actually disables the boost (and
+ * the "David Clause" demographic hard-exclusion office_worker/student rows
+ * are already subject to) is `persona` itself, so this clears it for the
+ * re-resolve — everything else (location, timeOfDay, gender, …) is carried
+ * over unchanged, since only the desk theme was wrong, not the rest of the
+ * user's context.
+ *
+ * Applies the result onto `workout` in place. No-ops when the re-resolve
+ * returns no title (Firestore error, or no surviving candidate row) —
+ * leaves the stale desk-themed copy rather than clobber it with a
+ * description-less partial bundle.
+ */
+export async function reconcileDeskThemeMismatch(
   workout: GeneratedWorkout,
   priorCtx: WorkoutMetadataContext,
   variant: TrioVariant,
   logicTagOverrides: ReturnType<typeof computeLogicTagOverrides>,
-): Promise<{ reconciled: boolean; newMetadataCtx?: WorkoutMetadataContext; bundleId?: string }> {
-  const finalCategoryMeta = resolveCategoryFromExercises(workout.exercises, workout.structure);
-  const categoryDiverged =
-    finalCategoryMeta.category !== priorCtx.category ||
-    finalCategoryMeta.dominantMuscle !== priorCtx.dominantMuscle;
-
-  if (!categoryDiverged) return { reconciled: false };
-
-  const reconciledCtx: WorkoutMetadataContext = {
+): Promise<{ reconciled: boolean; newMetadataCtx?: WorkoutMetadataContext; bundleId?: string; staleTitle?: string }> {
+  const neutralizedCtx: WorkoutMetadataContext = {
     ...priorCtx,
-    category: finalCategoryMeta.category,
-    dominantMuscle: finalCategoryMeta.dominantMuscle,
-    categoryLabel: finalCategoryMeta.categoryLabel,
+    persona: null,
+    durationMinutes: workout.estimatedDuration,
+    difficulty: workout.difficulty,
   };
 
-  const metadata = await resolveWorkoutMetadata(reconciledCtx, variant, logicTagOverrides);
+  const metadata = await resolveWorkoutMetadata(neutralizedCtx, variant, logicTagOverrides);
+  if (!metadata.title) return { reconciled: false };
 
-  if (metadata.title) workout.title = metadata.title;
+  const staleTitle = workout.title;
+  workout.title = metadata.title;
   if (metadata.description) workout.description = metadata.description;
   if (metadata.aiCue) workout.aiCue = metadata.aiCue;
   if (metadata.logicCue) workout.logicCue = metadata.logicCue;
 
-  return { reconciled: true, newMetadataCtx: reconciledCtx, bundleId: metadata.bundleId };
+  return { reconciled: true, newMetadataCtx: neutralizedCtx, bundleId: metadata.bundleId, staleTitle };
 }
 
 /**
@@ -1121,9 +1162,7 @@ export async function generateHomeWorkoutTrio(
         categoryLabel: initialCategoryMeta.categoryLabel,
       };
 
-      const variant: TrioVariant = cfg.postProcess === 'intense' ? 'intense'
-        : cfg.postProcess === 'flow_regression' ? 'easy'
-        : 'balanced';
+      const variant: TrioVariant = resolveTrioVariant(cfg);
 
       const logicTagOverrides = computeLogicTagOverrides(variant, workout, cfg);
 
@@ -1135,19 +1174,7 @@ export async function generateHomeWorkoutTrio(
       // Stash a LIGHT scalar snapshot (§19 eviction-safe) so swap-all can re-run
       // resolveWorkoutMetadata for a NEW location without rebuilding the pipeline
       // context. location + durationMinutes are re-injected at swap time, not stored.
-      workout.metadataCtx = {
-        persona: optionMetaCtx.persona,
-        timeOfDay: optionMetaCtx.timeOfDay,
-        gender: optionMetaCtx.gender,
-        category: optionMetaCtx.category,
-        categoryLabel: optionMetaCtx.categoryLabel,
-        difficulty: optionMetaCtx.difficulty,
-        dominantMuscle: optionMetaCtx.dominantMuscle,
-        experienceLevel: optionMetaCtx.experienceLevel,
-        sportType: optionMetaCtx.sportType,
-        motivationStyle: optionMetaCtx.motivationStyle,
-        currentProgram: optionMetaCtx.currentProgram,
-      };
+      workout.metadataCtx = toMetadataSnapshot(optionMetaCtx);
 
       if (metadata.logicCue) {
         workout.logicCue = metadata.logicCue;
@@ -1177,6 +1204,14 @@ export async function generateHomeWorkoutTrio(
       ? DESK_TITLE_KEYWORDS.some(kw => workout.title.includes(kw))
       : false;
 
+    // Set below (else branch) when isDeskWorkout is true but too few
+    // desk-friendly exercises exist — the title still promises a desk/chair
+    // session while the exercise list reverts to the original pool. Read
+    // after sortAndPair (see "Desk-Theme Reconciliation" further down) to
+    // re-resolve title/description without the persona that drove the
+    // desk-themed pick in the first place.
+    let deskThemeAbandoned = false;
+
     if (isDeskWorkout) {
       console.log(`[WorkoutTrio] 🪑 isDeskWorkout=true — filtering exercises to desk-friendly pool (title: "${workout.title}")`);
 
@@ -1199,16 +1234,15 @@ export async function generateHomeWorkoutTrio(
         console.log(`[WorkoutTrio] isDeskWorkout: kept ${deskFiltered.length} desk-friendly exercises`);
       } else {
         console.warn(`[WorkoutTrio] isDeskWorkout: insufficient desk exercises (${deskFiltered.length}), keeping original pool`);
+        deskThemeAbandoned = true;
       }
     }
 
     // Dedup titles: if another option already claimed this title, append a suffix
-    if (workout.title && usedTitles.has(workout.title)) {
-      const DEDUP_SUFFIXES = ['(משלים)', '(גמיש)'];
-      const suffix = DEDUP_SUFFIXES[Math.min(i - 1, DEDUP_SUFFIXES.length - 1)] ?? `(${i + 1})`;
-      workout.title = `${workout.title} ${suffix}`;
+    if (workout.title) {
+      workout.title = applyTitleDedupSuffix(workout.title, usedTitles, i);
+      usedTitles.add(workout.title);
     }
-    if (workout.title) usedTitles.add(workout.title);
 
     // ── Post-cut promise validation ───────────────────────────────────────
     // Runs after every mutation above (warmup/cooldown, intense/flow-
@@ -1248,28 +1282,31 @@ export async function generateHomeWorkoutTrio(
       diagnosticLabel: label,
     });
 
-    // ── Title/Description Reconciliation ──────────────────────────────────
-    // resolveWorkoutMetadata (above) picked title/description from a
-    // SNAPSHOT of workout.exercises taken before the desk-workout filter,
-    // post-cut promise validation, and this sortAndPair all ran. Those
-    // passes can change what the workout actually ended up being — the
-    // demonstrated case is a desk-themed title surviving a silent revert to
-    // the original non-desk pool when fewer than 2 desk-friendly exercises
-    // exist (line ~1140 above). reconcileWorkoutTitleWithFinalExercises
-    // re-derives category/dominantMuscle from the now-final exercise list
-    // and only re-resolves when it actually diverged from what the title
-    // was picked against.
+    // ── Desk-Theme Reconciliation ──────────────────────────────────────────
+    // deskThemeAbandoned (set above) means the title/description were picked
+    // while isDeskWorkout was true, but too few desk-friendly exercises
+    // existed to actually deliver a desk/chair session — workout.exercises
+    // is back to the original (non-desk) pool. The desk theme itself comes
+    // from workout-metadata.service.ts's persona+time-window "Desk Reset
+    // Boost" (+30 for office_worker/student, 12:00-14:00) — category and
+    // dominantMuscle are NEVER read by that scoring function, so re-deriving
+    // them from the final exercise list cannot steer the re-pick away from
+    // desk-themed copy. The only lever that actually works is the persona
+    // field the boost (and the "David Clause" demographic hard-exclusion
+    // both office_worker and student are already subject to,
+    // scoreContentRow's userHasNoPersona branch) key off — clearing it for
+    // this one re-resolve disables the boost AND hard-excludes
+    // office_worker/student-tagged rows, falling back to generic copy that
+    // actually matches a generic exercise list.
     //
-    // This intentionally does NOT move the original resolve later instead —
-    // the desk-filter's own trigger reads workout.title text (line ~1140),
-    // so a title has to exist before that filter runs. Reconciling after the
-    // fact, rather than re-ordering, keeps that dependency intact.
-    if (optionMetaCtx) {
+    // Scoped deliberately to this one demonstrated case: post-cut promise
+    // validation and sortAndPair don't feed any comparable persona/time-
+    // gated content bonus, so there's nothing analogous to reconcile there
+    // without a similarly demonstrated mismatch.
+    if (deskThemeAbandoned && optionMetaCtx) {
       try {
-        const reconVariant: TrioVariant = cfg.postProcess === 'intense' ? 'intense'
-          : cfg.postProcess === 'flow_regression' ? 'easy'
-          : 'balanced';
-        const { reconciled, newMetadataCtx, bundleId } = await reconcileWorkoutTitleWithFinalExercises(
+        const reconVariant = resolveTrioVariant(cfg);
+        const { reconciled, newMetadataCtx, bundleId, staleTitle } = await reconcileDeskThemeMismatch(
           workout,
           optionMetaCtx,
           reconVariant,
@@ -1278,40 +1315,31 @@ export async function generateHomeWorkoutTrio(
 
         if (reconciled) {
           console.warn(
-            `[WorkoutTrio] title/description reconciled for option ${i} — ` +
-            `exercises settled into a different category than the title was picked for`,
+            `[WorkoutTrio] desk theme abandoned for option ${i} — re-resolved title/description ` +
+            `without persona to avoid shipping desk-themed copy over a non-desk exercise list`,
           );
 
           if (newMetadataCtx) {
-            workout.metadataCtx = {
-              persona: newMetadataCtx.persona,
-              timeOfDay: newMetadataCtx.timeOfDay,
-              gender: newMetadataCtx.gender,
-              category: newMetadataCtx.category,
-              categoryLabel: newMetadataCtx.categoryLabel,
-              difficulty: newMetadataCtx.difficulty,
-              dominantMuscle: newMetadataCtx.dominantMuscle,
-              experienceLevel: newMetadataCtx.experienceLevel,
-              sportType: newMetadataCtx.sportType,
-              motivationStyle: newMetadataCtx.motivationStyle,
-              currentProgram: newMetadataCtx.currentProgram,
-            };
+            workout.metadataCtx = toMetadataSnapshot(newMetadataCtx);
           }
 
-          // Re-run the same dedup-suffix check the original resolve went
-          // through (line ~1155 above) — a reconciled title is a fresh
-          // string that could newly collide with a sibling option's title.
-          if (workout.title && usedTitles.has(workout.title)) {
-            const DEDUP_SUFFIXES = ['(משלים)', '(גמיש)'];
-            const suffix = DEDUP_SUFFIXES[Math.min(i - 1, DEDUP_SUFFIXES.length - 1)] ?? `(${i + 1})`;
-            workout.title = `${workout.title} ${suffix}`;
+          // The stale (desk-themed) title was already registered in
+          // usedTitles by the dedup check above — drop it before
+          // re-checking the NEW title, otherwise a workout always collides
+          // with its own prior entry and gets a spurious suffix.
+          if (staleTitle) usedTitles.delete(staleTitle);
+          if (workout.title) {
+            workout.title = applyTitleDedupSuffix(workout.title, usedTitles, i);
+            usedTitles.add(workout.title);
           }
-          if (workout.title) usedTitles.add(workout.title);
 
           if (i === singleOptionWantIndex && bundleId) {
             rememberBundleId(bundleId);
           }
         }
+        // Not reconciled (Firestore error, or no surviving candidate row) —
+        // leave the stale desk-themed copy in place rather than clobber it
+        // with a description-less partial bundle.
       } catch {
         // Non-critical — keep the pre-reconciliation title/description
         // rather than risk showing nothing.
