@@ -231,6 +231,17 @@ interface AgendaDayCardProps {
   actualWorkoutsMap?: Record<string, WorkoutHistoryEntry[]>;
   rowRef?: (el: HTMLDivElement | null) => void;
   /**
+   * `runningOverride` and `suppressScheduleDaysFallback` are a PAIR — both
+   * say the same thing about a different code path: "in this context, the
+   * card shows only what it was given, and never goes looking for real
+   * profile data on its own." Kept as two separate params because each
+   * guards a genuinely different internal branch (the running-side store
+   * read vs. the strength scheduleDays/activePrograms fallback), not
+   * because they're unrelated. If a THIRD such param is ever needed, that's
+   * the signal to stop accumulating flags and unify these into one
+   * display-state object instead — written here so whoever adds the third
+   * one sees this before doing it, not after.
+   *
    * Overrides the running side for this date, bypassing the internal
    * `profile.running.activeProgram` (global store) read entirely. Strength
    * already has this escape hatch via `scheduleMap` (a parent-supplied,
@@ -245,6 +256,19 @@ interface AgendaDayCardProps {
    * saved.
    */
   runningOverride?: ResolvedRunningWorkout | null;
+  /**
+   * See `runningOverride`'s doc above — same pairing, strength side. When
+   * true, skips the "scheduleDays fallback" (real `profile?.lifestyle?.
+   * scheduleDays`/`profile?.progression?.activePrograms` read) that
+   * otherwise fires whenever `scheduleMap[date]` resolves empty. Without
+   * this, a rest day in an unsaved proposal (`scheduleMap[date] = []`)
+   * could silently render the user's REAL, unrelated strength habit for
+   * that weekday — actively misleading in a preview whose entire point is
+   * to show something potentially different from what's real today.
+   * Default `false` (or omitted) — every existing caller (`RollingAgenda`)
+   * keeps its current fallback behavior unchanged; this is opt-in.
+   */
+  suppressScheduleDaysFallback?: boolean;
 }
 
 export interface ResolvedRunningWorkout {
@@ -856,6 +880,7 @@ export default function AgendaDayCard({
   actualWorkoutsMap,
   rowRef,
   runningOverride,
+  suppressScheduleDaysFallback,
 }: AgendaDayCardProps) {
   const { profile } = useUserStore();
   /**
@@ -930,8 +955,9 @@ export default function AgendaDayCard({
         // scheduleDays fallback — synthesize a recurring strength entry without
         // writing to Firestore.  Makes strength users' scheduled days visible
         // without requiring a recurringTemplate (which is only written for
-        // running users).
-        if (result.length === 0) {
+        // running users). Suppressed by `suppressScheduleDaysFallback` — see
+        // its doc on AgendaDayCardProps (paired with `runningOverride`).
+        if (result.length === 0 && !suppressScheduleDaysFallback) {
           const letter = getHebrewDayLetter(new Date(date + 'T00:00:00'));
           const scheduleDays = profile?.lifestyle?.scheduleDays as string[] | undefined;
           if (scheduleDays?.includes(letter)) {
@@ -1003,7 +1029,7 @@ export default function AgendaDayCard({
     }
     load();
     return () => { cancelled = true; };
-  }, [userId, date, recurringTemplate, refreshKey, runningReplacesDay, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, profile?.running?.activeProgram?.programId, scheduleMap, actualWorkoutsMap, baseMode]);
+  }, [userId, date, recurringTemplate, refreshKey, runningReplacesDay, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, profile?.running?.activeProgram?.programId, scheduleMap, actualWorkoutsMap, baseMode, suppressScheduleDaysFallback]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
