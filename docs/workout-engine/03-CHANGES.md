@@ -1782,3 +1782,286 @@ confirmed empty) before this addendum was written. Awaiting David's decision on 
 reconcile the cap with the duration bucket — not a fix to apply unilaterally.
 
 **Commit:** local only, no push. Docs only.
+
+---
+
+## Addendum 13 — core is missing from onboarding for ~half of real users. This may be the actual
+## root cause of the core-absence problem — bigger than anything found in the engine itself.
+
+David's item 3, investigated first per his explicit instruction ("זה עשוי לייתר עבודה אחרת").
+Report only — no source file touched, no onboarding code changed.
+
+### (א) Full map — every onboarding path and core's fate
+
+Paths are `'health' | 'body_focus' | 'skills' | null`
+(`assessment-path-config.service.ts:17`, read from `sessionStorage['onboarding_program_path']`).
+Code comments call them Path A/B/C. The legacy `/onboarding` route is dead (redirects to
+`/gateway`, `src/app/onboarding/page.tsx:16-21`) — the only live assessment is
+`src/app/onboarding-new/assessment-visual/page.tsx`. David's cited line numbers (414-430, 686-713)
+are accurate.
+
+| Path | Core assessed? | Core zeroed? |
+|---|---|---|
+| **`health`** (A) — all 4 categories | YES — full slider | NO — default branch, `page.tsx:713` |
+| **`body_focus`** (B) — chip-derived categories | Conditional — only if `core` chip/`full_body` picked | **YES when not picked** — `page.tsx:709-713` |
+| **`skills`** (C) — skill IDs only | NEVER | **YES, unconditionally** — `page.tsx:425-430` + `:709-710` |
+| `null` (legacy/no path) | YES — all 4 | NO |
+| Mini top-up (existing user, 1 new domain) | Only the requested domain | YES for all others — `single-domain-assessment.service.ts:56-58` |
+
+Zeroing code, Path C (`page.tsx:425-430`, comment at `:418`: *"'legs' and 'core' must remain 0 so
+the purge can vaporise them"*):
+```ts
+const masterSubLevels = { push: 0, pull: 0, legs: 0, core: 0 };
+```
+Zeroing code, Paths B+C (`page.tsx:709-713`):
+```ts
+core: isSkillsPath ? 0
+  : pathConfig?.path === 'body_focus'
+    ? (pathConfig.categories?.includes('core') ? (result.levels.core ?? 0) : 0)
+    : (result.levels.core ?? 0),
+```
+For Path B this line is actually *protective*, not destructive — `toFullAssessmentLevels`
+(`:367-379`) fabricates `level = pathConfig.minLevel` (1) for every unassessed category before the
+rule engine runs, so this line replaces a **fabricated** 1 with an honest 0.
+
+### (ב) What "the purge" actually does — deletes, does not pin at 0
+
+`onboarding-sync.service.ts:1471-1508`, gated on `isPathCSkills` (`:1490`) — **runs only for Path
+C**:
+```ts
+if (isPathCSkills) {
+  for (const ghostDomain of ['legs', 'core'] as const) {
+    if (seeded && seeded.currentLevel === 0) delete seededDomains[ghostDomain];
+    if (merged && (merged.currentLevel ?? 0) === 0) delete mergedTracks[ghostDomain];
+  }
+```
+Persisted via `setDoc(users/{uid}, ..., {merge:true})` (`:1987`). **Path B's zero survives** — the
+purge never runs for it, so `progression.domains.core = {currentLevel:0, maxLevel:N,
+isUnlocked:true}` is written and stays. Result: Path C → `domains.core` deleted, `tracks.core`
+absent. Path B → `domains.core` present at 0, `tracks.core` absent (the `childLevel > 0` filter at
+`:1349-1354` never writes a 0 into tracks in the first place).
+
+### (ג) Engine-side consequence — both states collapse to the same silent skip
+
+`buildUserProgramLevels` (`level-resolution.utils.ts:106-121`) — `resolveDataLevel` returns 0 for
+*both* a missing object and `{currentLevel:0}` — so **present-at-0 and missing-entirely are
+identical** on the engine side: `userProgramLevels.has('core') === false` either way, never
+`.get('core') === 0`. Every core-selection site is `has()`-guarded — `selectExercisesWithDomainQuotas`
+(`workout-selection.utils.ts:624-629`), `GuaranteePassRunner.ts` (`:182,:388,:533`) — so **core is
+silently skipped every time**, not "level-0 content gets selected." No level-0 core exercise is
+ever a candidate.
+
+**These users never see "needs assessment" either.** That short-circuit
+(`home-workout.service.ts:719-738`) fires only when the user has *zero* assessed domains at all
+(`activeProgramFilters.length === 0`). A Path B push+pull user has non-empty filters — a normal
+full-body workout composes and simply never contains core, with the only trace being one
+`pipelineLog` line.
+
+### (ד) Production numbers — read-only Admin SDK query, no writes, no files created
+
+**204 real profiles** (users with any `progression.domains`/`.tracks` entry, out of 617 total docs
+— 413 are empty onboarding-incomplete shells, excluded):
+
+| State | Count | % of 204 |
+|---|---|---|
+| MISSING (track deleted) | 34 | 16.7% |
+| ZERO (`currentLevel:0` placeholder survives) | 67 | 32.8% |
+| POSITIVE (core actually assessed) | 103 | 50.5% |
+
+**101 of 204 real profiles (49.5%) have a functionally unusable core — 81 of them with
+`onboardingStatus === 'COMPLETED'`.** Holds across every cohort cut checked (COMPLETED-only: 188
+users, 92 unusable = 48.9%; ≥1 primary domain assessed: 173 users, 85 unusable = 49.1%).
+
+The two failure states cleanly separate by mechanism: all 67 ZERO users have `domains.core`
+present with **zero** having a `tracks.core` key (the exact signature of the Path-B placeholder
+surviving); the 34 MISSING users' `activePrograms` skew heavily skill-track
+(`calisthenics_upper`, `front_lever`, `planche`) — the Path-C purge firing as designed.
+
+No onboarding-path field exists on the user doc — the path column above is inferred from
+`skillFocusIds` + assessed-domain count, a strong but heuristic signal, not a recorded fact
+(flagged, not asserted).
+
+### Bottom line
+
+**~half of real, onboarded users can never receive a core exercise, with zero user-facing
+indication anything is missing.** This is very plausibly the dominant driver of the ~65%/92%
+missing-core numbers measured in Addenda 9-11 — no guarantee-pass fix, cluster-cap change, or
+trio-modifier fix can put core into a workout for a user whose core level is architecturally
+invisible to the engine. Not fixed this pass, per instruction — this touches new-user onboarding
+and needs David's decision on (a) what content gap remains (Path C/B skip core assessment
+entirely — is there a visual-assessment flow for core at all, or does restoring it require new
+questions/images first?) before any code changes.
+
+**Commit:** local only, no push. Docs only — no onboarding code touched.
+
+---
+
+## Addendum 14 — cluster cap re-simulated correctly (set budget scaled with exercise count),
+## compared against the real legacy workout library. Report only.
+
+David's item 2 correction: the first simulation (Addendum 12 §ג/ד) raised exercise count without
+raising the total set budget, so the same ~11-14 sets simply spread thinner — that only proves you
+can't add exercises for free, not that the cap itself is right. Re-run as instructed.
+
+### Structural finding: `dailySetBudget` has no duration-awareness at all
+
+`SplitDecisionService.ts:432-501` computes `dailySetBudget` purely from **user level + weekly
+schedule frequency + weekly deficit** (`domainSetsCompletedThisWeek` / `remainingWeeklyBudget`) —
+`availableTime` (session duration) never enters this formula. A 20-min and a 60-min request for the
+same user on the same day currently get the **same** `dailySetBudget`; duration only affects
+downstream trimming (the exercise-count bucket, cluster caps, Time-Volume loop), never the total
+volume target itself.
+
+**This means "raise the set budget with duration" is not a BudgetDistributor-local change** — it
+requires a new dependency in `SplitDecisionService.ts`, a file that has never had duration as an
+input. And it **structurally conflicts with the weekly Deficit-Aware system**: today, a session's
+sets are drawn from "your fair share of this week's total," not sized per-session. Inflating one
+45-min session's budget beyond its computed daily share means that session consumes more than its
+allotted portion of the week — the `domainSetsCompletedThisWeek` tracker would then show it as
+having "used" more of the week's quota than the level-based math intended, front-loading later
+sessions into deficit. Confirmed structurally by reading the formula; not chased into a full
+simulation of multi-week effects — out of scope for this report.
+
+### Real benchmark — David's own legacy workout library, not the code comment
+
+`docs/workout-engine/legacy-workouts.sqlite` (`legacy_workout_sets.required=1` = main slots,
+`repeats` = sets per slot; `required=0` = warmup/cooldown, verified by reading actual exercise
+names in a sample workout).
+
+**All 45-minute workouts, any target (n=11):**
+
+| minutes | n | avg main slots | min–max | avg total sets |
+|---|---|---|---|---|
+| 45 | 11 | **3.0** | 3–3 | 9.27 |
+
+Every single one of David's own real 45-minute workouts has **exactly 3 main exercises** — this
+already closely matches (or is *below*) what the current engine produces (avg 3.7-4.6 per
+Addendum 11's bolt-2/bolt-3 numbers).
+
+**Full-body-tagged workouts only** (`targetid=15`, "כל הגוף" — the category most relevant to
+"vertical+horizontal together"):
+
+| minutes | n | avg main slots | range | avg total sets |
+|---|---|---|---|---|
+| 20 | 26 | 4.2 | 2–6 | 10.2 |
+| 25 | 19 | 4.4 | 2–6 | 11.1 |
+| 30 | 16 | 4.9 | 3–6 | 13.1 |
+| 35 | 5 | 5.6 | 4–6 | 12.8 |
+| **40** | **1** | **7** | — | **14** |
+| **45** | **0** | — | — | — |
+
+**There is no 45-minute full-body workout anywhere in the legacy library.** The one 7-exercise
+example (id 611, "אימון ארוך בית לפני המקלחת") is at 40min, and even there sets-per-exercise = 2.0
+— the exact "thin fragment" pattern the current cluster cap's own comment names as the bug it
+prevents. The full-body category's real historical pattern at 30-40min is **5-6 exercises,
+12-14 total sets (~2.2-2.8 sets/exercise)** — more exercises than the general 45min pattern, but
+*thinner* per exercise than David's own stated "3-4 sets is right" preference, not richer.
+
+### Duration math — does 6×3-4 physically fit in 45 minutes?
+
+`calculateEstimatedDuration` (pure function, called directly with synthetic data, ~75s rest / 8
+reps / 3s-per-rep — a middling real assumption, not a proven live-average):
+
+| Config | Total sets | Main-block duration (before warmup/cooldown) |
+|---|---|---|
+| Current typical (4 ex) | 14 | 25 min |
+| Target 6×3 | 18 | **33 min** |
+| Target 6×3-4 | 22 | **39 min** |
+
+Real observed full workouts (warmup+cooldown included) land near 42-45min off a ~25min main block
+— implying warmup/cooldown adds roughly 17-20min in practice. Adding that back: 6×3 (33min main)
+→ **~50-53min total**; 6×3-4 (39min main) → **~56-59min total**. **Both overshoot a true 45-minute
+session** under realistic rest assumptions — this is a real physical/time constraint, not an
+implementation gap. Fitting 6 exercises × 3-4 sets into an actual 45 minutes requires either
+shorter rest periods (a legitimate but different training-style choice, not free), fewer total
+sets (contradicting "3-4 sets is right"), or accepting the session runs longer than 45 minutes
+(which the new meta-rule, Addendum 15, would then require honoring explicitly, not silently).
+
+### Bottom line
+
+The cluster cap is not simply "wrong" — David's own legacy library never produced a 45-minute,
+6-exercise, 3-4-sets-each workout, and the duration math shows why: it doesn't fit without changing
+rest periods or accepting a longer session. The closest real precedent (35-40min full-body,
+5-6 exercises) already trades toward *fewer* sets per exercise than desired. Not implemented, per
+instruction — this is a genuine design tradeoff for David to resolve, not a bug to patch.
+
+**Commit:** local only, no push. Docs only — the temporary `BudgetDistributor.ts` simulation edit
+was reverted (`git diff` against `HEAD` confirmed empty) before this addendum was written.
+
+---
+
+## Addendum 15 — new meta-rule (explicit choice beats engine heuristics), full override scan
+## (F1-F20), and a correction: bolt 1's shortening IS reachable from an explicit user choice
+
+David's item 1. The new standing rule itself is written into `00-PLAN.md` §16 (not here — that
+doc is the one meant to be checked before future engine work, per David's instruction that this
+be a checked-against law, not a changelog entry). This addendum carries the scan results and the
+narrative.
+
+### The 3 real entry points into the trio pipeline
+
+| Path | Call site | Nature |
+|---|---|---|
+| A | `StatsOverview.tsx:867` → `generateHomeWorkoutTrio` | **Automatic** (home carousel) — hardcoded `availableTime`, no difficulty/domain/strict flags |
+| B | `UserWorkoutAdjuster.tsx:127` → `generateHomeWorkout` | **Explicit** (slider) — duration, difficulty, domain chips |
+| C | `WorkoutBuilderSheet.tsx:635` → `generateHomeWorkout` | **Explicit** (Custom Builder) — duration, difficulty + `targetDifficulty`, domains + `strictDomains: true`, `isManualOverride: true` |
+
+**The single most consequential structural fact:** `generateHomeWorkout` (`home-workout.service.ts:
+211-219`) returns `trio.options[1]` (the D2 "balanced" bolt) **unless** `targetDifficulty` is set —
+and **Path B (the slider) never sets it.** Every slider request, regardless of the difficulty the
+user tapped, is generated as if they'd picked "balanced."
+
+### (ג) Bolt 1 verification — David's specific ask, answered definitively
+
+**Bolt 1's `flow_regression` shortening IS reachable from an explicit user choice — a bug per the
+new rule.** Traced end to end: Custom Builder → explicit bolt-1 tap sets `targetDifficulty: 1` →
+`generateHomeWorkout` returns `options[0]` → the config gate selects `TRAINING_DAY_CONFIGS[0] =
+{difficulty:1, postProcess:'flow_regression'}` — **byte-for-byte the same config object the
+automatic carousel's bolt 1 uses** → `resolveEffectiveBoltTime` caps at 30min regardless of what
+the user explicitly picked (45/60/90) → the same `applyFlowRegression`/`applyEssentialGearFilter`
+chain fires. An explicit "45 min, easy" Custom Builder request is delivered as ~24min, from a
+fully deliberate user action. **This corrects Addendum 10/11's framing, which treated bolt 1's
+shortness as automatic-only** — it is not; the Custom Builder reaches the identical code path.
+Separately, and on the *same* screen: the slider path (B) never reaches `flow_regression` at all,
+because tapping "קל" there doesn't set `targetDifficulty` — it silently delivers the D2 balanced
+bolt instead (see F1 below), a *different* violation of the same rule.
+
+### (ב) Full override scan — list only, not fixes, per instruction
+
+Every mechanism found capable of overriding, substituting, shortening, blocking, or ignoring an
+explicit user choice. "Explicit-reachable" = confirmed reachable from path B and/or C, not just A.
+
+| # | Mechanism | File:line | Explicit-reachable |
+|---|---|---|---|
+| F1 | **Slider difficulty pick 100% discarded** — always resolves to bolt-2/D2 regardless of tap | `home-workout.service.ts:881,219` | **YES (B)** |
+| F2 | `resolveEffectiveDifficulty` forces D-level down for deload/detraining, "regardless of UI selection" per its own comment; `isManualOverride` does not bypass it | `InputSanitizerMiddleware.ts:608-655` | **YES (C)** |
+| F3 | `targetDifficulty` slot-gating | `home-workout.service.ts:842,217` | Verified correct — no override |
+| F4 | **`BOLT_DURATION_CAPS`** — `min(requested, cap)`, cap=30/45/60 by bolt; silent above the cap (log line only fires when it's NOT shortened) | `home-workout.service.ts:662-666,892`; `bolt-time.utils.ts:12-18` | **YES (B+C)** |
+| F5 | `enforceVolumeCap` — materializes F4's shortened value into the delivered plan | `PresentationFormatter.ts:430` | Delivery arm of F4, not independent |
+| F6 | Time-Volume Feedback Loop — ceiling with 3min tolerance | `WorkoutGenerator.ts:1137-1186` | Not a violation (ceiling only) |
+| F7 | `getExerciseCountForDuration` duration buckets | `workout-budgeting.utils.ts:122-142` | Not a violation (sizing, not substitution) |
+| F8 | **`_balancedClusterCap`/`_skillClusterCap`** — gated on difficulty only, no path/caller check | `BudgetDistributor.ts:493,619` | **YES (B+C)** — runs on every slider request too, not carousel-only |
+| F9 | **Budget Floor → recovery-mode swap** — remaining budget 1-5 replaces ALL 3 bolts with a random stretch card; not gated on `isManualOverride` | `home-workout.service.ts:782-806` | **YES (B+C)** — flagged as the cleanest, highest-severity violation |
+| F10 | 2-domain chip picks collapse to `domains[0]` — the 2nd picked domain is silently dropped for any pair other than push+pull | `StructureDirector.ts:87-98,217-218` | **YES (B+C)** |
+| F11 | `runFullBodyDomainGuarantee` does not check `strictDomains` (its 2 siblings do) — can inject an unrequested domain | `GuaranteePassRunner.ts:419` | **YES (B+C)**, 3+ chips |
+| F12 | Path B never sets `strictDomains` at all — all 3 guarantee passes unlocked for every slider chip-pick | `UserWorkoutAdjuster.tsx:127-139` | **YES (B)** |
+| F13 | `absent=absent` on an explicitly-picked but unassessed domain — bare `continue`, zero log, zero user signal, never redirects to "needs assessment" | `workout-selection.utils.ts:624-629` | **YES (B+C)** |
+| F14 | Domain fill-cap (`maxPerDomain`) | `workout-selection.utils.ts:826-842` | Not a violation — proportional allocation |
+| F15 | Legs Cap for full-body (max 2 leg exercises) | `WorkoutGenerator.ts:1056-1099` | **YES (B+C)**, 3+ chips spanning legs |
+| F16 | Dominance path bypasses `requiredDomains` entirely (zero references to it) | `WorkoutGenerator.ts:1523-1534` | **YES, user-state-dependent** — not verified how often it fires |
+| F17 | 48h muscle shield hard-blocks an explicitly re-picked muscle group — not gated on `isManualOverride` | `SplitDecisionService.ts:508-525`; `ContextualEngine.ts:254` | **YES (B+C)** |
+| F18 | Smart Merging / weekly deficit | `SplitDecisionService.ts:344-384`, gate `:415` | **NO** — automatic-only, confirmed |
+| F19 | Desk Workout Constraint — triggered by a Firestore **title substring match**, not any user field; no guard at all | `home-workout.service.ts:1085-1116` | **YES (B+C)** — trigger is admin-authored title text |
+| F20 | `applyEssentialGearFilter` naked-filter — reachable only via `applyFlowRegression` | `trio-modifiers.service.ts:614`, called `:587` | **YES (C only)**, bolt-1 exclusively |
+
+**Highest-severity, in order:** F9 (recovery swap ignores duration+difficulty+domain simultaneously)
+> F1 (difficulty pick discarded 100% of the time on the slider) > F12/F11 (slider has zero domain
+protection at all) > F4 (silent duration cap above 30/45/60) > F19 (content-authored title can
+override anything, no user field involved at all).
+
+### Not implemented, per instruction
+
+Nothing in F1-F20 was fixed — this is a scan, not a patch list. `00-PLAN.md` §16 carries the rule
+itself for future work to be checked against.
+
+**Commit:** local only, no push. Docs only.
