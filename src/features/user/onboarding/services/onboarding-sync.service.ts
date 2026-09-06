@@ -320,7 +320,7 @@ export async function syncOnboardingToFirestore(
     // a JIT single-field save must not overwrite it or re-flush attribution.
     if (step === 'COMPLETED' && !isJitEdit) {
       try {
-        updateData.marketingAttribution = buildAttributionPayload();
+        updateData.marketingAttribution = await buildAttributionPayload();
         updateData.onboardingCompletedAt = serverTimestamp();
       } catch (attrError) {
         // Never let attribution capture block onboarding completion —
