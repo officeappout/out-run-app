@@ -32,6 +32,15 @@ export interface ResolvedPersonaSummary {
    *  none (isComplete === true). Drives the drawer's reopen behavior:
    *  jump straight to the first gap, don't replay already-answered steps. */
   firstUnansweredIndex: number;
+  /** Badge for the deepest resolved hierarchy_search level (the unit if one
+   *  resolved, else the org) — null when nothing resolved yet, resolution
+   *  failed, or the persona has no hierarchy_search question. `unitId` here
+   *  is the id to use as UnitIconBadge's hash seed (its own real orgId/unitId,
+   *  never a display name); `iconUrl` may be null (unit has no icon yet —
+   *  the caller passes it straight through, UnitIconBadge's own fallback
+   *  handles that). 07.09.2026 — "הפרסונות שלי" was the one place a user's
+   *  own declared unit was shown back to them with no icon at all. */
+  icon: { unitId: string; iconUrl: string | null; name: string } | null;
 }
 
 const EMPTY: ResolvedPersonaSummary = {
@@ -41,6 +50,7 @@ const EMPTY: ResolvedPersonaSummary = {
   isComplete: true,
   resolved: true,
   firstUnansweredIndex: -1,
+  icon: null,
 };
 
 export function hasAnswer(question: PersonaQuestionConfig, answers: Record<string, unknown>): boolean {
@@ -125,6 +135,7 @@ export function useResolvedPersonaSummary(
       const parts: string[] = [];
       const rawAnswers: Record<string, unknown> = {};
       let resolved = true;
+      let icon: ResolvedPersonaSummary['icon'] = null;
 
       for (const question of questions) {
         if (!hasAnswer(question, answers)) continue;
@@ -186,7 +197,10 @@ export function useResolvedPersonaSummary(
           const orgSnap = await getDoc(doc(db, question.directoryCollection, orgId));
           if (cancelled) return;
           if (orgSnap.exists()) {
-            parts.push(orgSnap.data().name as string);
+            const orgData = orgSnap.data();
+            parts.push(orgData.name as string);
+            // Deepest-so-far — overwritten below if a unit also resolves.
+            icon = { unitId: orgId, iconUrl: (orgData.iconUrl as string | null) ?? null, name: orgData.name as string };
           } else {
             resolved = false;
             orgResolved = false;
@@ -198,7 +212,9 @@ export function useResolvedPersonaSummary(
           const unitSnap = await getDoc(doc(db, question.directoryCollection, `${orgId}__${unitId}`));
           if (cancelled) return;
           if (unitSnap.exists()) {
-            parts.push(unitSnap.data().name as string);
+            const unitData = unitSnap.data();
+            parts.push(unitData.name as string);
+            icon = { unitId, iconUrl: (unitData.iconUrl as string | null) ?? null, name: unitData.name as string };
           } else {
             resolved = false;
             unitResolved = false;
@@ -230,6 +246,7 @@ export function useResolvedPersonaSummary(
         isComplete,
         resolved,
         firstUnansweredIndex,
+        icon,
       });
     })();
 

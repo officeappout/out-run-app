@@ -19,7 +19,8 @@ import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { usePrivacyStore, type PrivacyMode } from '@/features/safecity/store/usePrivacyStore';
 import { computeAgeGroup } from '@/lib/age';
-import { validateAccessCode } from '@/features/user/onboarding/services/access-code.service';
+import { validateAccessCode, type AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
+import UnitJoinSuccessBanner from '@/components/ui/UnitJoinSuccessBanner';
 import { disconnectHealth } from '@/lib/healthBridge/init';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
@@ -373,7 +374,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError]   = useState<string | null>(null);
-  const [couponSuccess, setCouponSuccess] = useState(false);
+  // 07.09.2026 — was a bare boolean ("הקוד אומת בהצלחה ✓") with no way to
+  // know which unit the code resolved to; holding the full result lets the
+  // shared UnitJoinSuccessBanner show the name (mandatory) + icon (bonus).
+  const [couponSuccessResult, setCouponSuccessResult] = useState<AccessCodeResult | null>(null);
 
   // Password reset
   const [pwResetSent, setPwResetSent] = useState(false);
@@ -555,7 +559,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     // Reset transient UI state
     setCouponCode('');
     setCouponError(null);
-    setCouponSuccess(false);
+    setCouponSuccessResult(null);
     setPwResetSent(false);
     setEditPersonalOpen(false);
 
@@ -728,7 +732,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }, { merge: true });
       const fresh = await getUserFromFirestore(uid);
       if (fresh) useUserStore.setState({ profile: fresh });
-      setCouponSuccess(true);
+      setCouponSuccessResult(result);
       setCouponCode('');
       showToast('success', 'הקוד אומת בהצלחה!');
     } catch (err: unknown) {
@@ -1415,8 +1419,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       </div>
                       <div className="flex-1 min-w-0 text-right">
                         <p className="text-sm font-semibold text-gray-900 font-simpler">הזנת קוד קופון</p>
-                        {couponSuccess && (
-                          <p className="text-xs text-emerald-600 font-simpler mt-0.5">הקוד אומת בהצלחה ✓</p>
+                        {couponSuccessResult && (
+                          <div className="mt-1">
+                            <UnitJoinSuccessBanner result={couponSuccessResult} />
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1425,7 +1431,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         type="text"
                         dir="ltr"
                         value={couponCode}
-                        onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(null); setCouponSuccess(false); }}
+                        onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(null); setCouponSuccessResult(null); }}
                         onKeyDown={(e) => { if (e.key === 'Enter') void handleCouponSubmit(); }}
                         placeholder="UNIT-X79"
                         className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-mono tracking-widest text-center focus:ring-2 focus:ring-amber-400 focus:border-transparent outline-none"

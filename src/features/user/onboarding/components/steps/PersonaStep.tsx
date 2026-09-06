@@ -6,6 +6,7 @@ import { Check } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
+import UnitJoinSuccessBanner from '@/components/ui/UnitJoinSuccessBanner';
 import type { AccessCodeResult } from '../../services/access-code.service';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import PersonaQuestionsDrawer from '../PersonaQuestionsDrawer';
@@ -346,6 +347,12 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     applyPersonaToggle(option);
   };
 
+  // 07.09.2026 — used to close the modal immediately on success with zero
+  // confirmation of WHICH unit the code resolved to. Now stays open one
+  // extra beat to show it (name mandatory, icon bonus) — codeSuccessResult
+  // gates that view; the actual close is deferred to handleCodeSuccessContinue.
+  const [codeSuccessResult, setCodeSuccessResult] = useState<AccessCodeResult | null>(null);
+
   const handleCodeSuccess = useCallback((result: AccessCodeResult) => {
     if (pendingPersona) applyPersonaToggle(pendingPersona);
     updateData({
@@ -357,9 +364,14 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     // onboarding_path uses onboardingPrefs so MAP_ONLY / FULL_PROGRAM /
     // MILITARY_JOIN selection survives a hard close.
     setOnboardingPref('onboarding_path', result.onboardingPath);
+    setCodeSuccessResult(result);
+  }, [pendingPersona, applyPersonaToggle, updateData]);
+
+  const handleCodeSuccessContinue = useCallback(() => {
     setShowCodeModal(false);
     setPendingPersona(null);
-  }, [pendingPersona, applyPersonaToggle, updateData]);
+    setCodeSuccessResult(null);
+  }, []);
 
   const handleCodeSkip = useCallback(() => {
     if (pendingPersona) applyPersonaToggle(pendingPersona);
@@ -701,7 +713,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[90] flex items-center justify-center p-5"
             style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.45)' }}
-            onClick={() => handleCodeSkip()}
+            onClick={() => (codeSuccessResult ? handleCodeSuccessContinue() : handleCodeSkip())}
           >
             <motion.div
               initial={{ scale: 0.92, opacity: 0 }}
@@ -711,19 +723,36 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm"
             >
-              <div className="text-center mb-4">
-                <span className="text-4xl">{getPersonaEmoji(pendingPersona)}</span>
-                <h3 className="text-lg font-black text-white mt-2" dir="rtl">
-                  {isHebrew ? 'יש לך קוד גישה מהארגון?' : 'Got an access code?'}
-                </h3>
-              </div>
-              <AccessCodeGate
-                orgName={isHebrew ? getPersonaLabel(pendingPersona) : pendingPersona.labelEn}
-                personaLabel={getPersonaLabel(pendingPersona)}
-                tenantType={PERSONA_TENANT_TYPE[pendingPersona.id] ?? 'educational'}
-                onSuccess={handleCodeSuccess}
-                onSkip={handleCodeSkip}
-              />
+              {codeSuccessResult ? (
+                <div className="bg-white rounded-2xl p-6 text-center" dir="rtl">
+                  <h3 className="text-lg font-black text-gray-900 mb-4">הקוד אומת!</h3>
+                  <div className="flex justify-center mb-4">
+                    <UnitJoinSuccessBanner result={codeSuccessResult} />
+                  </div>
+                  <button
+                    onClick={handleCodeSuccessContinue}
+                    className="w-full py-3 rounded-xl font-semibold text-white bg-primary"
+                  >
+                    המשך
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="text-center mb-4">
+                    <span className="text-4xl">{getPersonaEmoji(pendingPersona)}</span>
+                    <h3 className="text-lg font-black text-white mt-2" dir="rtl">
+                      {isHebrew ? 'יש לך קוד גישה מהארגון?' : 'Got an access code?'}
+                    </h3>
+                  </div>
+                  <AccessCodeGate
+                    orgName={isHebrew ? getPersonaLabel(pendingPersona) : pendingPersona.labelEn}
+                    personaLabel={getPersonaLabel(pendingPersona)}
+                    tenantType={PERSONA_TENANT_TYPE[pendingPersona.id] ?? 'educational'}
+                    onSuccess={handleCodeSuccess}
+                    onSkip={handleCodeSkip}
+                  />
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
