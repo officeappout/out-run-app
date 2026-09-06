@@ -680,6 +680,97 @@ const REST_DAY_CONFIGS: TrioOptionConfig[] = [
 ];
 
 /**
+ * Derives the {category, dominantMuscle, categoryLabel} triple that drives
+ * title/description selection from an exercise list. Pulled out so it can be
+ * run twice: once against the pre-mutation snapshot (to pick the title) and
+ * once against the final settled list (reconciliation — see the "Title/
+ * Description Reconciliation" block in generateHomeWorkoutTrio).
+ */
+export function resolveCategoryFromExercises(
+  exercises: WorkoutExercise[],
+  structure: GeneratedWorkout['structure'],
+): { dominantMuscle: string | undefined; category: string; categoryLabel: string } {
+  const CATEGORY_LABELS: Record<string, string> = {
+    strength: 'כוח', volume: 'נפח', endurance: 'סיבולת',
+    skills: 'סקילס', mobility: 'ניידות', hiit: 'HIIT',
+    general: 'כללי', maintenance: 'תחזוקת גוף',
+  };
+
+  const muscleCounts: Record<string, number> = {};
+  exercises.forEach(ex => {
+    const muscle = ex.exercise.primaryMuscle;
+    if (muscle) muscleCounts[muscle] = (muscleCounts[muscle] || 0) + 1;
+  });
+  const totalEx = exercises.length || 1;
+  const dominantMuscle = Object.entries(muscleCounts)
+    .filter(([, count]) => count / totalEx > 0.5)
+    .sort((a, b) => b[1] - a[1])[0]?.[0];
+
+  const hasMobility = exercises.some(ex => ex.exercise.tags?.includes('mobility'));
+  const hasSkills = exercises.some(ex => ex.exercise.tags?.includes('skill'));
+  let category = 'general';
+  if (hasMobility && exercises.filter(ex => ex.exercise.tags?.includes('mobility')).length > totalEx / 2) category = 'mobility';
+  else if (hasSkills) category = 'skills';
+  else if (structure === 'circuit' || structure === 'emom') category = 'hiit';
+
+  return { dominantMuscle, category, categoryLabel: CATEGORY_LABELS[category] || 'אימון' };
+}
+
+/** Anti-repetition bookkeeping for the winning (recommended-slot) content bundle. */
+function rememberBundleId(bundleId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const stored = JSON.parse(localStorage.getItem('recentBundleIds') || '[]') as string[];
+    const updated = [bundleId, ...stored.filter(id => id !== bundleId)].slice(0, 5);
+    localStorage.setItem('recentBundleIds', JSON.stringify(updated));
+  } catch { /* ignore storage errors */ }
+}
+
+/**
+ * Re-derives category/dominantMuscle from `workout.exercises` as it stands
+ * AFTER every mutation (desk-workout filter, post-cut promise validation,
+ * sortAndPair) and compares it against `priorCtx` — the context the title/
+ * description were originally picked against, taken BEFORE those mutations
+ * ran. When they diverged (the demonstrated case: a desk-themed title
+ * survives a silent revert to the original non-desk exercise pool),
+ * re-resolves title/description/aiCue/logicCue for the corrected category
+ * and applies them directly onto `workout`, mutating it in place.
+ *
+ * No-ops (returns `{ reconciled: false }`) when the category didn't change —
+ * the common case, so this never adds a second Firestore round-trip when the
+ * original pick already matches what shipped.
+ */
+export async function reconcileWorkoutTitleWithFinalExercises(
+  workout: GeneratedWorkout,
+  priorCtx: WorkoutMetadataContext,
+  variant: TrioVariant,
+  logicTagOverrides: ReturnType<typeof computeLogicTagOverrides>,
+): Promise<{ reconciled: boolean; newMetadataCtx?: WorkoutMetadataContext; bundleId?: string }> {
+  const finalCategoryMeta = resolveCategoryFromExercises(workout.exercises, workout.structure);
+  const categoryDiverged =
+    finalCategoryMeta.category !== priorCtx.category ||
+    finalCategoryMeta.dominantMuscle !== priorCtx.dominantMuscle;
+
+  if (!categoryDiverged) return { reconciled: false };
+
+  const reconciledCtx: WorkoutMetadataContext = {
+    ...priorCtx,
+    category: finalCategoryMeta.category,
+    dominantMuscle: finalCategoryMeta.dominantMuscle,
+    categoryLabel: finalCategoryMeta.categoryLabel,
+  };
+
+  const metadata = await resolveWorkoutMetadata(reconciledCtx, variant, logicTagOverrides);
+
+  if (metadata.title) workout.title = metadata.title;
+  if (metadata.description) workout.description = metadata.description;
+  if (metadata.aiCue) workout.aiCue = metadata.aiCue;
+  if (metadata.logicCue) workout.logicCue = metadata.logicCue;
+
+  return { reconciled: true, newMetadataCtx: reconciledCtx, bundleId: metadata.bundleId };
+}
+
+/**
  * Generate 3 unique workout options in a SINGLE PASS.
  *
  * Architecture:
@@ -1009,37 +1100,25 @@ export async function generateHomeWorkoutTrio(
       diagnosticLabel: `Bolt${optionDifficulty}`,
     });
 
-    // Resolve dynamic title/description/logicCue from Firestore metadata
+    // Resolve dynamic title/description/logicCue from Firestore metadata.
+    // Declared here (assigned inside the try below) so the reconciliation
+    // pass after all exercise-list mutations settle (see "Title/Description
+    // Reconciliation" further down) can rebuild an equivalent context with a
+    // corrected category/dominantMuscle instead of reconstructing one from
+    // the pruned workout.metadataCtx snapshot, which is missing fields
+    // (location, daysInactive, weeklyGapDomain, …) that only
+    // pipeline.metadataCtxBase carries.
+    let optionMetaCtx: WorkoutMetadataContext | undefined;
     try {
-      const muscleCounts: Record<string, number> = {};
-      workout.exercises.forEach(ex => {
-        const muscle = ex.exercise.primaryMuscle;
-        if (muscle) muscleCounts[muscle] = (muscleCounts[muscle] || 0) + 1;
-      });
-      const totalEx = workout.exercises.length || 1;
-      const dominantMuscle = Object.entries(muscleCounts)
-        .filter(([, count]) => count / totalEx > 0.5)
-        .sort((a, b) => b[1] - a[1])[0]?.[0];
+      const initialCategoryMeta = resolveCategoryFromExercises(workout.exercises, workout.structure);
 
-      const categoryLabelsMap: Record<string, string> = {
-        strength: 'כוח', volume: 'נפח', endurance: 'סיבולת',
-        skills: 'סקילס', mobility: 'ניידות', hiit: 'HIIT',
-        general: 'כללי', maintenance: 'תחזוקת גוף',
-      };
-      const hasMobility = workout.exercises.some(ex => ex.exercise.tags?.includes('mobility'));
-      const hasSkills = workout.exercises.some(ex => ex.exercise.tags?.includes('skill'));
-      let cat = 'general';
-      if (hasMobility && workout.exercises.filter(ex => ex.exercise.tags?.includes('mobility')).length > totalEx / 2) cat = 'mobility';
-      else if (hasSkills) cat = 'skills';
-      else if (workout.structure === 'circuit' || workout.structure === 'emom') cat = 'hiit';
-
-      const optionMetaCtx: WorkoutMetadataContext = {
+      optionMetaCtx = {
         ...pipeline.metadataCtxBase,
-        category: cat,
+        category: initialCategoryMeta.category,
         durationMinutes: workout.estimatedDuration,
         difficulty: workout.difficulty,
-        dominantMuscle,
-        categoryLabel: categoryLabelsMap[cat] || 'אימון',
+        dominantMuscle: initialCategoryMeta.dominantMuscle,
+        categoryLabel: initialCategoryMeta.categoryLabel,
       };
 
       const variant: TrioVariant = cfg.postProcess === 'intense' ? 'intense'
@@ -1083,12 +1162,8 @@ export async function generateHomeWorkoutTrio(
       // Persist winning bundleId for anti-repetition (recommended slot only —
       // center/D2 card in the full-trio path, or whichever index
       // generateSingleOption actually computed in the fast path).
-      if (i === singleOptionWantIndex && metadata.bundleId && typeof window !== 'undefined') {
-        try {
-          const stored = JSON.parse(localStorage.getItem('recentBundleIds') || '[]') as string[];
-          const updated = [metadata.bundleId, ...stored.filter(id => id !== metadata.bundleId)].slice(0, 5);
-          localStorage.setItem('recentBundleIds', JSON.stringify(updated));
-        } catch { /* ignore storage errors */ }
+      if (i === singleOptionWantIndex && metadata.bundleId) {
+        rememberBundleId(metadata.bundleId);
       }
     } catch {
       // Non-critical — generator fallback strings are already in place
@@ -1172,6 +1247,76 @@ export async function generateHomeWorkoutTrio(
       adminPreferredProtocols: pipeline.adminPreferredProtocols,
       diagnosticLabel: label,
     });
+
+    // ── Title/Description Reconciliation ──────────────────────────────────
+    // resolveWorkoutMetadata (above) picked title/description from a
+    // SNAPSHOT of workout.exercises taken before the desk-workout filter,
+    // post-cut promise validation, and this sortAndPair all ran. Those
+    // passes can change what the workout actually ended up being — the
+    // demonstrated case is a desk-themed title surviving a silent revert to
+    // the original non-desk pool when fewer than 2 desk-friendly exercises
+    // exist (line ~1140 above). reconcileWorkoutTitleWithFinalExercises
+    // re-derives category/dominantMuscle from the now-final exercise list
+    // and only re-resolves when it actually diverged from what the title
+    // was picked against.
+    //
+    // This intentionally does NOT move the original resolve later instead —
+    // the desk-filter's own trigger reads workout.title text (line ~1140),
+    // so a title has to exist before that filter runs. Reconciling after the
+    // fact, rather than re-ordering, keeps that dependency intact.
+    if (optionMetaCtx) {
+      try {
+        const reconVariant: TrioVariant = cfg.postProcess === 'intense' ? 'intense'
+          : cfg.postProcess === 'flow_regression' ? 'easy'
+          : 'balanced';
+        const { reconciled, newMetadataCtx, bundleId } = await reconcileWorkoutTitleWithFinalExercises(
+          workout,
+          optionMetaCtx,
+          reconVariant,
+          computeLogicTagOverrides(reconVariant, workout, cfg),
+        );
+
+        if (reconciled) {
+          console.warn(
+            `[WorkoutTrio] title/description reconciled for option ${i} — ` +
+            `exercises settled into a different category than the title was picked for`,
+          );
+
+          if (newMetadataCtx) {
+            workout.metadataCtx = {
+              persona: newMetadataCtx.persona,
+              timeOfDay: newMetadataCtx.timeOfDay,
+              gender: newMetadataCtx.gender,
+              category: newMetadataCtx.category,
+              categoryLabel: newMetadataCtx.categoryLabel,
+              difficulty: newMetadataCtx.difficulty,
+              dominantMuscle: newMetadataCtx.dominantMuscle,
+              experienceLevel: newMetadataCtx.experienceLevel,
+              sportType: newMetadataCtx.sportType,
+              motivationStyle: newMetadataCtx.motivationStyle,
+              currentProgram: newMetadataCtx.currentProgram,
+            };
+          }
+
+          // Re-run the same dedup-suffix check the original resolve went
+          // through (line ~1155 above) — a reconciled title is a fresh
+          // string that could newly collide with a sibling option's title.
+          if (workout.title && usedTitles.has(workout.title)) {
+            const DEDUP_SUFFIXES = ['(משלים)', '(גמיש)'];
+            const suffix = DEDUP_SUFFIXES[Math.min(i - 1, DEDUP_SUFFIXES.length - 1)] ?? `(${i + 1})`;
+            workout.title = `${workout.title} ${suffix}`;
+          }
+          if (workout.title) usedTitles.add(workout.title);
+
+          if (i === singleOptionWantIndex && bundleId) {
+            rememberBundleId(bundleId);
+          }
+        }
+      } catch {
+        // Non-critical — keep the pre-reconciliation title/description
+        // rather than risk showing nothing.
+      }
+    }
 
     // ── Pre-compute UI-ready rep range strings ───────────────────────────
     // After every mutation has settled, stamp `formattedRepRange` on every
