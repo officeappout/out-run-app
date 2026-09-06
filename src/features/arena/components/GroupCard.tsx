@@ -154,9 +154,13 @@ export default function GroupCard({
         </div>
         <div className="px-2.5 py-2 space-y-0.5">
           <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">
-            {group.name || `${catConfig.label}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
+            {/* 07.09.2026 — David: a reserve-duty group's meeting address+time
+                is sensitive; never render it for a military-type group,
+                regardless of isPublic (that flag only ever gated the join
+                button, never this text). */}
+            {group.name || `${catConfig.label}${!isMilitaryGroup && group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
           </p>
-          {scheduleLabel && (
+          {scheduleLabel && !isMilitaryGroup && (
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{scheduleLabel}</p>
           )}
           {distanceKm != null && (
@@ -236,8 +240,8 @@ export default function GroupCard({
           <span>{catConfig.label}</span>
         </div>
 
-        {/* Schedule chip — bottom right over scrim */}
-        {scheduleLabel && (
+        {/* Schedule chip — bottom right over scrim. Never for military (see compact variant's own comment above). */}
+        {scheduleLabel && !isMilitaryGroup && (
           <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full">
             <Clock className="w-3 h-3 opacity-80" />
             <span>{scheduleLabel}</span>
@@ -268,7 +272,7 @@ export default function GroupCard({
       {/* ── Card body ─────────────────────────────────────── */}
       <div className="relative p-4">
         <h4 className="text-[15px] font-black text-gray-900 dark:text-gray-50 leading-snug mb-1 line-clamp-1">
-          {group.name || `${catConfig.label}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
+          {group.name || `${catConfig.label}${!isMilitaryGroup && group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
         </h4>
 
         {group.description && (
@@ -277,8 +281,8 @@ export default function GroupCard({
           </p>
         )}
 
-        {/* Today's session row */}
-        {todaySlot && (
+        {/* Today's session row — never for military (reveals the exact meeting time). */}
+        {todaySlot && !isMilitaryGroup && (
           <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-700 dark:text-cyan-400 mb-2.5">
             <CalendarCheck className="w-3.5 h-3.5 flex-shrink-0" />
             <span>מפגש היום · {todaySlot.time}</span>
@@ -292,10 +296,12 @@ export default function GroupCard({
           </div>
         )}
 
-        {/* Address + distance row */}
-        {(group.meetingLocation?.address || distanceKm != null) && (
+        {/* Address + distance row — address suppressed for military (the
+            relative distance chip stays: it doesn't reveal the actual
+            place, only "how far from you", which David's ask didn't cover). */}
+        {((!isMilitaryGroup && group.meetingLocation?.address) || distanceKm != null) && (
           <div className="flex items-center justify-between gap-2 mb-3">
-            {group.meetingLocation?.address ? (
+            {!isMilitaryGroup && group.meetingLocation?.address ? (
               <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 min-w-0">
                 <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                 <span className="truncate font-medium">{group.meetingLocation.address}</span>
