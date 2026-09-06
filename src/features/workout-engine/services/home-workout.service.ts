@@ -688,10 +688,14 @@ const REST_DAY_CONFIGS: TrioOptionConfig[] = [
 
 /**
  * Derives the {category, dominantMuscle, categoryLabel} triple that drives
- * title/description selection from an exercise list. Pulled out so it can be
- * run twice: once against the pre-mutation snapshot (to pick the title) and
- * once against the final settled list (reconciliation — see the "Title/
- * Description Reconciliation" block in generateHomeWorkoutTrio).
+ * title/description selection from an exercise list. Pulled out of the
+ * original inline resolve logic as a pure, named step.
+ *
+ * Deliberately NOT reused for reconciliation: category/dominantMuscle are
+ * not scoring inputs anywhere in workout-metadata.service.ts's
+ * scoreContentRow, so re-deriving them from a mutated exercise list cannot
+ * steer which content row wins (see reconcileDeskThemeMismatch, which fixes
+ * the actual scoring input — persona — instead).
  */
 export function resolveCategoryFromExercises(
   exercises: WorkoutExercise[],
