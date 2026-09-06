@@ -32,7 +32,16 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { DAILY_STATS_SUBCOLLECTION } from '@/features/admin/services/link-stats-write';
+
+// Deliberately NOT imported from link-stats-write.ts — that file pulls in
+// `firebase-admin/firestore`, which drags Node-only built-ins (`fs`, `net`
+// via google-auth-library/gaxios) into any bundle that imports it. This
+// file is read by a 'use client' page (admin/links/[id]/page.tsx); even
+// importing a single unrelated string constant from the admin-SDK file
+// pulls its entire module graph into the browser bundle and fails the
+// webpack build. Duplicated as a literal instead — it's one unchanging
+// string, not worth a cross-SDK-boundary import.
+const DAILY_STATS_SUBCOLLECTION = 'daily_stats' as const;
 
 export const DAY_NAMES_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 

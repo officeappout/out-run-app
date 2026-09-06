@@ -12,8 +12,6 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { getIsraelDateKey, getIsraelDayOfWeek, getIsraelHour } from '@/lib/israelTime';
 
-export const DAILY_STATS_SUBCOLLECTION = 'daily_stats' as const;
-
 /**
  * Builds the `set(..., {merge:true})` payload for one click event. Callers
  * pass real nested objects (not dotted-string keys) — Firestore's
