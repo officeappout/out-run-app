@@ -1,7 +1,12 @@
 # Parking Lot — deferred follow-ups
 
 > Items intentionally deferred, with enough context to pick up later.
-> Not committed to git (`.claude/knowledge/` is local state).
+> Committed to git as its own `docs:` commit, separate from whatever work
+> surfaced the finding — verified via `git log -- .claude/knowledge/parking-lot.md`
+> (dozens of real commits) and `.gitignore` (no `.claude/` entry at all;
+> 70 files under `.claude/knowledge/` are tracked). The previous claim here
+> ("Not committed to git") was false — corrected 2026-09-06 after it was
+> caught contradicting the file's own history.
 
 ---
 
@@ -508,3 +513,25 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 **Opened:** 2026-09-06 · **Source:** נצפה במדידת tsc/vitest של טקס-מיזוג (merge-ritual.md)
 
 `hybrid-orchestrator.test.ts` ו-`hybrid-runtime.test.ts` נכשלים בכל הרצת `vitest run` (נספרים תחת "Test Files ... failed"), אבל שניהם קבצי-סקריפט בסגנון `console.log`+`process.exit(1)` פנימי — לא מבוססי `it()`/`describe()` — כך שהם תורמים **אפס** טסטים בודדים לספירה (`Tests ... passed`). נראים כמו כיסוי-בדיקות שנכשל; בפועל אינם בודקים כלום ולא היו בודקים כלום גם אם היו "עוברים". לא חוסם כלום היום — שני הקבצים כבר ידועים כ-2 מתוך 4 הכשלים הקבועים בכל מדידת בייסליין בסבב הזה. לא טופל, לא נגעו בהם.
+
+---
+
+## `src/app/settings/refine-levels/page.tsx` — לא "נתיב מת", אלא פיצ'ר גמור שלא חובר. השאלה היא לחבר או להסיר, לא למחוק.
+**Opened:** 2026-09-06 · **Source:** דוד, בעקבות הסרת `onboarding-dynamic` — חיפוש-מכוון לנתיבים דומים, agent נפרד, קריאה-בלבד.
+
+**⚠️ ההבדל המהותי מ-`onboarding-dynamic` (שהוסר, `6a94f582`) — לקרוא לפני שמניחים "עוד נתיב מת למחיקה":** ל-`onboarding-dynamic` לא היה יורש — `/onboarding-new/health` תפס את מקומו במלואו, כתיבה זהה, שער חדש. **כאן אין יורש.** המנגנון שקובע *מתי* לשלוח משתמש למסך הזה כבר קיים, גמור, בשם `shouldPromptRefineLevels()` (`workout-completion.service.ts`) — כולל `dismissRefinementPrompt()`/`resetRefinementPrompt()` הסמוכות — אבל שלושתן **אף פעם לא נקראות משום מקום אחר בריפו**. זה לא "נבנה עמוד ונשכח ניווט אליו" — זה "נבנתה גם הלוגיקה שמחליטה מתי להציע, וגם היעד שמקבל אותה, ואף אחד לא חיבר ביניהם." מי שקורא את הרשומה הזו בעוד חודש צריך לצאת עם השאלה **"לחבר את `shouldPromptRefineLevels` לטריגר אמיתי, או להסיר את שניהם"** — לא עם המסקנה "נתיב מת, למחוק כמו `onboarding-dynamic`". זו החלטה מוצרית של דוד, לא שלנו — לא הוכרעה כאן.
+
+עמוד אמיתי, מקומפל, `RefineLevelsPage` — סליידר לעדכון-מחדש של רמות-הערכה (push/pull/legs/core), כותב `assessmentResults.levels`/`average`/`refinedAt` ל-Firestore (`setDoc(...,{merge:true})`). ההגנה היחידה: `onAuthStateChanged` (מפנה ל-`/` אם לא מחובר) — **אין** בדיקת "כבר השלים הערכה", אין בדיקת-כשירות, אין דה-דופ. כל משתמש מחובר יכול להגיע ישירות ולדרוס בשקט את `assessmentResults.levels` שלו.
+
+**אפס ניווט-פנימי, מאומת ממצה:** המחרוזת `refine-levels` מופיעה רק בקובץ עצמו + כ-data-בלבד (שדה `route:`) בתוך `RefinementPrompt` שמוחזר מ-`shouldPromptRefineLevels()`. `PRODUCT_TECHNICAL_REPORT.md` מסמן אותו "✅ פעיל" — תיעוד מיושן, לא ראיה.
+
+**לא נגעתי בו** — לא נמחק, לא תוקן, לא הוכרע. שני מסלולים אפשריים, שניהם ממתינים להחלטת דוד: (א) לחבר את `shouldPromptRefineLevels` לטריגר אמיתי (למשל, אחרי N אימונים, כמו שהשם מרמז) ולתת לעמוד שער נגד-כשירות; (ב) להסיר את שניהם יחד (העמוד + שלוש הפונקציות המתות) — ורק אז, ורק אז, הדפוס של `onboarding-dynamic` (מחיקה+redirect) הופך רלוונטי.
+
+---
+
+## `qr-generator.test.ts` מרעיל את בסיס-ההשוואה של כל מיזוג עתידי
+**Opened:** 2026-09-06 · **Source:** התגלה תוך כדי מדידה יחסית (merge-ritual.md) למיזוג הסרת `onboarding-dynamic`.
+
+`src/features/admin/services/__tests__/qr-generator.test.ts` מייבא `jsdom` (`import { JSDOM } from 'jsdom'`) — חבילה שלא מותקנת בריפו (מאומת: `vitest` נכשל עם `Cannot find package 'jsdom'`). הקובץ נכנס ל-`origin/main` עם עבודת ה-QR-code-styling (`c8b6be0d`/`fc175e87`, לא הסבב הזה). הקובץ **לא יכול לעבור אף פעם**, בשום מצב, עד שהתלות תותקן.
+
+**לא שלנו, לא תוקן.** אבל: טסט שלא יכול לעבור מרעיל את בסיס-ההשוואה של כל מיזוג עתידי — כל מדידה יחסית לפי `merge-ritual.md` מעכשיו תראה אותו כקובץ-כושל קבוע, ותצטרך להסביר אותו בנפרד מכל כשל-אמיתי חדש. או שמתקנים את התלות (`npm install jsdom` + ודאי ש-`vitest.config.ts`'s `environment` לא צריך להשתנות איתה — הריפו כרגע `environment:'node'` בכוונה, `jsdom` כחבילה בלבד לא דורש לשנות את זה), או שמסירים את הקובץ. ההחלטה של דוד, לא שלנו.
