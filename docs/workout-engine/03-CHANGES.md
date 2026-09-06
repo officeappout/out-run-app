@@ -1443,3 +1443,152 @@ by checking `req_domains` (showed the old 7-subset sweep instead of `'auto'`) an
 `git merge-base --is-ancestor <commit> HEAD` returning false against the branch left checked out.
 No work was lost in either case (`main` — verified via ancestry check — always had this session's
 commits); the rebuild was simply re-run after switching back to `main`.
+
+---
+
+## Addendum 10 — Fix 1 was real and complete; the domain-cannibalization bug has a 4th,
+## unprotected site; the "4-exercise ceiling" has a name and a file:line
+
+David's follow-up after Addendum 9: "the fixes barely moved the numbers — they're correct and
+staying, but they weren't the cause, and we need to keep going." Three investigations, report only,
+nothing implemented this pass. Methodology: temporary `STAGE_TRACE:*` lines pushed into the real
+`pipelineLog` at 10 pipeline checkpoints (Step 3 raw select → MG diversity → BudgetDistributor →
+guarantees → Time-Volume loop → trio-modifier → enforceVolumeCap → Desk constraint → promise
+validation), read back from real `generateHomeWorkoutTrio` calls, then fully reverted (`git diff`
+against HEAD confirmed empty before any commit).
+
+### 1. Fix 1 effectiveness — real measurement, not the same 22.2% baseline
+
+Sample: 5 levels × 3 locations, duration=45 (15 calls × 3 bolts = 45 workouts) — the original
+pre-compaction 22.2%-measurement script no longer exists (deleted per this repo's throwaway-
+diagnostic convention) so this is a methodologically-equivalent re-measurement, not a byte-identical
+replay; disclosed rather than presented as the same number.
+
+Instrumented `pickVictimProtectingDomains` (the single shared chokepoint all 3 guarantees and the
+promise validator call) to compute, on every invocation, what the **pre-fix, unprotected pick**
+would have been alongside the actual protected pick:
+
+| | Count |
+|---|---|
+| Calls (of 15) with ≥1 would-have-destroyed event | **13 (86.7%)** |
+| Total victim-pick attempts across all 45 workouts | 95 |
+| Of those, would have destroyed a domain pre-fix | **65 (68.4%)** |
+| Of the 65: fully blocked (no injection at all) | 49 |
+| Of the 65: redirected to a different, safe victim | 16 |
+| Of the 65: actually destroyed a domain (post-fix) | **0** |
+
+**Direct answer to "which of the two": neither.** Not "still high, fix isn't taking hold" — actual
+destruction is 0/65, not "still high." Not "dropped to zero and therefore this mechanism was never
+the primary cause" either — the mechanism is real and fires on the *dangerous situation* far more
+than the original 22.2% suggested (86.7% of calls, not 22%). The correct third reading: **Fix 1 is
+completely effective at what it targets (0% domain destruction, was ~100% before by construction —
+there was no check), and it was never going to move `avg_main_exercises` or the duration gap**,
+because a guarantee pass is a **swap-or-skip** operation (1-for-1 replacement, or nothing) — it can
+change *which* domains survive, never the *total count*. Those two metrics are governed by an
+entirely separate mechanism — see finding 3 below. Confusing "did the fix work" with "did the count/
+gap numbers move" was the wrong test for this specific fix; domain-completeness (Addendum 9's 92.2%/
+76.3% metric) is the right one, and indirect evidence there (75/540 → 220/540 workouts retaining
+push+pull+legs together, pre-fix vs. post-fix-and-Fix-2 snapshots) is consistent with Fix 1 working,
+though the two snapshots differ in more than just Fix 1 so this isn't presented as an isolated proof.
+
+### 2. The new, more serious finding — pull disappears via a 4th, unprotected site: `trio-modifiers.service.ts`
+
+Re-ran the 5 real combos from Addendum 9's `pull`-missing sample (same level/duration/location/
+daysInactive; bolt index not perfectly reproducible — no fixed seed exists in this codebase, see
+`build-snapshot.ts`'s own header comment — so this traces the mechanism, not a byte-identical replay
+of the exact recorded workout).
+
+**Answer to "was pull selected then removed, or never selected": selected, every single time.**
+Pull was present at `step3_raw_select` (the very first selection) in **15/15** traced bolts. This
+was never a pool-emptiness or initial-filtering problem.
+
+**Answer to "if removed, by whom": two distinct mechanisms, not one — and the dominant one is a
+site Fix 1 never touched.**
+
+- **`applyFlowRegression` (`src/features/workout-engine/services/trio-modifiers.service.ts`,
+  called from `home-workout.service.ts` for the `flow_regression`-tagged bolt only — the "easy"
+  option, always bolt-difficulty 1) strips an entire domain outright.** Traced 4 separate instances
+  (r100, r105, r136, r141's flow_regression bolt) where pull was confirmed present immediately
+  before this call (`pre_trio_modifier`: pull:1 or pull:2) and **completely absent** immediately
+  after (`post_trio_modifier`: no pull entries at all) — in every one of the 4, this is the exact
+  and only point of loss; every earlier checkpoint (guarantees, Time-Volume loop) still shows pull.
+  This is the **same class of bug** Fix 1 fixed in the 3 guarantee passes — "remove a domain's sole
+  representative" — but `trio-modifiers.service.ts` is a completely different file, never audited
+  or protected by Fix 1's `isSafeDomainVictim` rule. **This directly explains "זה בדיוק מה שתיקון
+  ההגנה היה אמור למנוע, וזה עדיין קורה אחריו"** — the protection rule exists, but only in 3 of what
+  are now known to be at least 4 places capable of this failure mode. (One traced flow_regression
+  bolt, r103, did *not* lose pull — the behavior is conditional/non-deterministic on session content,
+  not a guaranteed failure every time, but real and repeatable.)
+- **`BudgetDistributor`'s Step 4 cluster caps** (see finding 3) can *also* reduce pull's count
+  (observed 2→1) as part of their general hardcoded-ceiling behavior — but in every traced case this
+  step left at least 1 pull exercise standing; it was never observed to be the sole cause of pull
+  reaching zero. `applyFlowRegression` is the mechanism that actually zeroes it out.
+
+Not fixed this pass, per instruction — `trio-modifiers.service.ts`'s victim/filter selection inside
+`applyFlowRegression` needs the same `isSafeDomainVictim`-style audit finding 1's 3 sites already
+got, but that is a code change for a future round.
+
+### 3. Where exercises 5–8 actually go: a hardcoded ceiling in `BudgetDistributor`, blind to the duration bucket
+
+Stage-by-stage trace, 3 bolts of one real 45min combo (own log lines captured, not inferred):
+
+| Stage | Bolt1 (flow_regression) | Bolt2 (standard) | Bolt3 (intense) |
+|---|---|---|---|
+| Step3 raw select | 5 | 6 | 8 |
+| Step3b MG diversity | 5 | 6 | 8 |
+| **Step4 BudgetDistributor** | 5 (unaffected) | **6 → 4** | **8 → 4** |
+| Step5 guarantees | 5 | 4 | 4 |
+| Step7 post-Time-Volume | 5 | 4 | 8 (Step 6c/6b core-form added exercises here, this run) |
+| post trio-modifier | **5 → 3** | 4 | 8 → 6 |
+| enforceVolumeCap | 3 (no-op) | 4 (no-op) | 6 (no-op) |
+| **FINAL** | **3** | **4** | **6** |
+
+`BudgetDistributor.ts`'s own log lines name the exact mechanism:
+
+```
+bolt2: balanced_cluster_cap: culled 2 excess main exercises → 4
+       (diverse=true, domains=4, longSession=true, availableTime=45)
+bolt3: skill_cluster_cap: culled 4 excess main exercises → 4 clustered
+```
+
+`BudgetDistributor.ts:73-76`:
+```
+const BALANCED_CLUSTER_MAX_MAIN_BASELINE = 3;
+const BALANCED_CLUSTER_MAX_MAIN_DIVERSE  = 4;   // ≥3 distinct domains OR availableTime≥45
+const SKILL_CLUSTER_MAX_MAIN             = 4;
+```
+
+`_balancedClusterCap` (`:628-729`, gated `difficulty === 2` only — the standard bolt) and
+`_skillClusterCap` (`:502-580`ish, gated `difficulty === 3` AND skill/single-domain session — the
+intense bolt) each independently cap main exercises at a **hardcoded 3 or 4**, computed from domain
+diversity / `availableTime >= 45`, with **zero awareness of `getExerciseCountForDuration`'s
+duration-bucket target** (5-8 for 45min, correct since the Addendum-9 fix). Bolt1 (flow_regression,
+difficulty 1) is gated out of *both* caps — its low count instead comes from a smaller Step-3 budget
+for difficulty 1 plus `applyFlowRegression`'s own cuts (finding 2).
+
+**Direct answer: not the guarantees (Fix 1), not `enforceVolumeCap`, not the Time-Volume Feedback
+Loop (confirmed again here — it only ever changed `sets`, never removed an exercise, across all 3
+bolts) removes exercises 5-8. `BudgetDistributor`'s cluster caps do, before guarantees even run.**
+This is also why Fix 2 (the dead 30-min bucket) barely moved `avg_main_exercises`: it corrected
+Step 3's target, but Step 4 was already independently overriding that target with its own
+hardcoded ceiling — the fix landed on the wrong layer to move the average, even though the bucket
+itself is still correctly fixed and worth keeping.
+
+### Bonus, unrequested but load-bearing for reading any bolt-pooled average correctly
+
+Bolt1 is not a shorter/failed attempt at the requested duration — it is *designed* to be shorter
+(`flow_regression`/"easy" option; observed `estimatedDuration` 17-25min against a 45min request in
+this trace, consistent every time). Every average in Addenda 8/9 pools all 3 bolts together. This
+does not invalidate the domain-completeness finding — bolt2 and bolt3, which DO target the full
+duration, independently confirmed missing domains in this same trace (bolt2 missing core in one
+run, bolt3 missing legs+core in another) — but a per-bolt breakdown would be a more honest lens than
+a pooled average for any future duration-gap or domain-completeness measurement.
+
+### Open item carried forward, not addressed
+
+`trio-modifiers.service.ts`'s `applyFlowRegression` needs the same victim-protection audit Fix 1
+gave the 3 guarantee passes. Not in scope this pass — report only, per instruction.
+
+**Commit:** local only, no push. No source files changed — all `STAGE_TRACE`/measurement
+instrumentation was temporary, reverted (`git diff` against `HEAD` confirmed empty) before this
+addendum was written.
