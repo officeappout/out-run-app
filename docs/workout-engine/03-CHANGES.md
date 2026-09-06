@@ -1592,3 +1592,75 @@ gave the 3 guarantee passes. Not in scope this pass — report only, per instruc
 **Commit:** local only, no push. No source files changed — all `STAGE_TRACE`/measurement
 instrumentation was temporary, reverted (`git diff` against `HEAD` confirmed empty) before this
 addendum was written.
+
+---
+
+## Addendum 11 — `applyEssentialGearFilter` fixed (4th site), by-bolt reporting replaces pooled
+## averages, and a major correction to every earlier "45min cliff" framing
+
+### 1. Fix — `applyEssentialGearFilter` never strips a domain's sole representative
+
+Same rule as the 3 guarantee passes (Addendum 9's Fix 1), applied to a 4th site, **sharing** the
+existing predicate rather than copying it. `GuaranteePassRunner.ts`'s `computeDomainCounts` /
+`isSafeDomainVictim` are now exported and imported directly into `trio-modifiers.service.ts`.
+
+The mechanism (Addendum 10 traced it to the call site; this pass read the actual filter code):
+`applyEssentialGearFilter`'s naked/gear-free check has two removal points, neither domain-aware:
+1. The main gear-pass loop — drops any exercise that isn't naked (bodyweight-or-essential-gear-free).
+2. A "final validation" pass afterward that re-checks the *same* naked condition and would silently
+   **undo** a fix applied only to point 1 — both needed the guard, not just the first one found.
+
+Fix: compute domain counts once over `main` before either pass; an exercise that fails the naked
+check but is the sole remaining representative of a `PRIMARY_DOMAINS` domain is now kept (tagged
+`naked_filter:kept_sole_domain_representative_despite_gear`) instead of dropped, at **both** points.
+
+4 regression tests (`naked-filter-domain-protection.test.ts`), 3 confirmed failing on pre-fix code
+via `git stash` (the 4th is a deliberate control: a gear-requiring exercise with another
+same-domain representative still gets removed exactly as before — the fix does not become "never
+remove gear"). Commit `274a850d`.
+
+### 2. New standing tool — `scripts/audit/report-by-bolt.ts`
+
+Per David's instruction: every numeric report from now on splits by `bolt` (1/2/3), never pools
+them into one average. `workouts.bolt` was already in the schema from the first version of
+`build-snapshot.ts` — the gap was in every *query* since, including every prior addendum's, which
+grouped across bolts. This script is the fix, committed as the standing tool rather than another
+one-off `sqlite3` session: exercise count, duration gap, % with core, and domain-completeness, each
+broken out by `bolt × req_duration`.
+
+### 3. What splitting by bolt actually reveals — a correction, not a new bug
+
+Rebuilt snapshot (540 workouts) before and after the Fix 1 (§1 above), bolt-1 vs bolt-2 vs bolt-3 at
+45min:
+
+| Metric (45min) | Bolt 1 (flow_regression) — before → after | Bolt 2 (standard) — before → after | Bolt 3 (intense) — before → after |
+|---|---|---|---|
+| avg main exercises | 4.00 → 4.56 | 4.18 → 4.60 | 3.76 → 3.69 |
+| avg duration gap | **-21.27 → -19.20** | -2.78 → -2.69 | -3.22 → -3.69 |
+| % with core | 86.7% → 73.3% | 42.2% → 48.9% | 42.2% → 40.0% |
+| % missing ≥1 domain | 91.1% → **80.0%** | 68.9% → 53.3%\* | 68.9% → 68.9% |
+
+\* Bolt 2 (`postProcess: 'none'`) never calls `applyEssentialGearFilter` or `applyFlowRegression` —
+confirmed by reading the dispatch switch in `home-workout.service.ts`. Its improvement here is
+re-sampling noise (no fixed seed exists in this codebase — `build-snapshot.ts`'s own header
+comment), not an effect of this fix. **Only bolt 1's domain-completeness improvement (91.1% →
+80.0%) is attributable to the fix** — it is the only bolt whose code path reaches the fixed filter.
+
+**The load-bearing discovery is in the "before" column, and it was true before this fix too — every
+earlier addendum's pooled "45min duration cliff" (Addenda 8/9/10: "-8.5 to -10.7min", "-9.09min",
+uniform across levels) was overwhelmingly bolt 1 dragging the average down.** Bolt 1 delivers
+roughly **half** the requested duration at 45min (-19 to -21min gap, i.e. ~24-26min actual) — bolt 2
+and bolt 3, the two bolts that actually target the full duration, are only off by **-2.7 to
+-3.7min**, a much smaller and arguably unremarkable gap. Pooling averaged a 20-point outlier
+together with two 3-point ones and reported the blend as if it applied uniformly. **This is a
+correction to the prior framing, not a new bug** — the domain-completeness problem (Addendum 9's
+headline metric) is confirmed real independent of this, since bolt 2/bolt 3 alone still show 53-69%
+missing a domain at 45min.
+
+**Open question, not investigated further this pass:** is bolt 1 delivering ~half the requested
+time by design (an intentionally short "easy" option, independent of the slider) or is this itself
+an unrecognized bug (a user who asks for 45 minutes and gets a 24-26 minute "easy" option may not
+expect that big a cut)? Flagging for David's judgment — this session did not chase it, since it
+falls outside this round's 3 assigned items.
+
+**Commit:** `report-by-bolt.ts` (new) + refreshed `snapshot.sqlite`, local only, no push.
