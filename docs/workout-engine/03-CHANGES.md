@@ -2898,3 +2898,61 @@ tier), no core (thin pool at this level/domain combo — not investigated furthe
 no core this run — D2/D3 controls, consistent with pre-fix behavior (neither fix targets D2/D3).
 
 **Commit:** local only, no push.
+
+## Addendum 27 — the duplicate-exercise bug: found and fixed, live-traced start to finish, not guessed
+## at any point. David's hunch (follow_along-related) was half right — it's downstream of Step 6c,
+## not inside it.
+
+David's report: the same exercise, same id, byte-identical reasoning, twice in one workout — 100%
+reproducible on D1/L12 full-body from the Addendum 26 re-run. His hypothesis was that Step 6c's
+`follow_along` core form ("form C replaces the slot, and something injects it again") was the cause.
+
+**Traced it with a bisecting instrumentation pass** (temporary `console.error` checkpoints at 6
+points along the per-bolt pipeline: after `runAllGuarantees`, entry/exit of
+`applyEssentialGearFilter`, before/after `validatePromisesPostCut`, after `sortAndPair`), re-run
+repeatedly until a reproduction landed, then read the array state at each checkpoint:
+
+- The follow-along exercise IS involved (confirmed `[CoreBlock] form=follow_along` on one repro),
+  but it enters the array as a single, correctly-swapped item and **stays single** through
+  `applyEssentialGearFilter`, `validatePromisesPostCut`, and every other earlier stage — confirmed
+  present exactly once at every checkpoint up to and including "after validatePromisesPostCut".
+- The duplicate appears **only** between "after validatePromisesPostCut" and "after sortAndPair" —
+  i.e. inside `sortAndPair` itself. `applyDomainPrioritySort` (a pure `.map().sort()`, structurally
+  incapable of changing array length) was ruled out by reading it. That leaves
+  `applyAntagonistPairing` (`workout-sorting.utils.ts`).
+- Added one more checkpoint inside `applyAntagonistPairing` itself (bucket sizes + the
+  `pushPullPairs`/`fallbackPairs` contents right before the final result assembly) and caught it:
+  `push=2 pull=1 legs=1 other=1 pairCount=1 unparedPush=1` → `pushPullPairs` already contained the
+  `other` item (`WLP7RzGley7svZbbIzAW`), and the final assembly line spread `...other` again on top
+  of it.
+
+**Root cause**, precisely: when at least one real push↔pull pair forms (`pairCount > 0`) but a
+leftover unpaired exercise *and* a non-empty `other` (core/isolation) bucket both still exist, the
+"route remaining exercises so they're never silently dropped" fallback (lines ~469-488, pre-fix)
+merged `other` into the `remaining` array pushed into `pushPullPairs`. The function's own final
+result assembly (`singleDomain ? [...fallbackPairs...] : [...pushPullPairs, ...other, ...]`) then
+unconditionally re-spreads `...other` in the non-`singleDomain` branch — the exact branch this case
+takes, since `singleDomain` is forced `null` whenever `pairCount > 0` regardless of leftovers. Every
+item in `other` rendered twice. Not a selection bug (two independent picks landing on the same
+exercise by coincidence) — literal double-inclusion of the same array reference, which is why the
+two printed copies were byte-identical (same jitter roll, same everything).
+
+Confirmed this is unrelated to the `takeFromPool`/`isDomainRegistered` fixes from Addendum 26 — this
+bug lives entirely downstream, in the antagonist-pairing/sort stage, after selection is long done.
+
+**Fix:** split the "route remaining, never drop" fallback into its two real cases instead of one
+`if/else` that shared a `remaining` array across both. The `singleDomain` branch (real "nothing
+paired at all" case) still includes `other` — that's its only inclusion point. The non-`singleDomain`
+branch (this bug's case) now pushes only `unparedPull`/`unparedPush` into `pushPullPairs`, relying on
+the unconditional `...other` spread in the final assembly as `other`'s single source of inclusion.
+
+New regression test (`antagonist-pairing-no-dup.test.ts`) constructs the exact bucket shape that
+reproduces it (1 pair + 1 leftover push + 1 core) directly against `applyAntagonistPairing`, no live
+DB/network dependency — fails on pre-fix code (both copies present, confirmed via `git stash`),
+passes on fixed code. A second test checks the fix doesn't silently drop anything across a larger
+multi-domain mix (8 exercises in, 8 unique out).
+
+**Verified against the original repro:** 15/15 clean runs of the exact D1/L12/all-4-domains scenario
+via a live trace script, zero duplicates (was reproducing on roughly 1 in 3-5 runs pre-fix).
+
+**Commit:** local only, no push.

@@ -462,26 +462,35 @@ export function applyAntagonistPairing(exercises: WorkoutExercise[]): WorkoutExe
       `[WorkoutGenerator] Antagonist fallback: ${fallbackCount} ${domainLabel}+core pairs ` +
       `(no opposing domain — used core/isolation as antagonist)`,
     );
-  } else {
-    // No opposing domain AND no core/isolation exercises available for pairing.
-    // Route remaining exercises to the correct result accumulator so they are
-    // never silently dropped:
-    //   singleDomain active → use fallbackPairs (picked up by the singleDomain
-    //                          result branch below — pushPullPairs is ignored
-    //                          in that branch, so anything added there is lost)
-    //   multi-domain        → use pushPullPairs (standard straight-set path)
+  } else if (singleDomain) {
+    // No push↔pull pairs AND no core to pair with (e.g. Path-C skill-only
+    // user with only planche exercises). Treat everything as straight sets.
+    // `other` IS included here — the singleDomain result branch below uses
+    // `fallbackPairs` only and never spreads `...other` separately, so this
+    // is the one and only place these items get added.
     const remaining = [...unparedPull, ...unparedPush, ...other];
-    if (singleDomain) {
-      // No push↔pull pairs AND no core to pair with (e.g. Path-C skill-only
-      // user with only planche exercises). Treat everything as straight sets.
-      for (const ex of remaining) fallbackPairs.push(ex);
-      console.log(
-        `[WorkoutGenerator] Antagonist pairing: singleDomain with 0 core exercises — ` +
-        `${remaining.length} exercise(s) passed through as straight sets.`,
-      );
-    } else {
-      for (const ex of remaining) pushPullPairs.push(ex);
-    }
+    for (const ex of remaining) fallbackPairs.push(ex);
+    console.log(
+      `[WorkoutGenerator] Antagonist pairing: singleDomain with 0 core exercises — ` +
+      `${remaining.length} exercise(s) passed through as straight sets.`,
+    );
+  } else {
+    // Multi-domain, straight-set path (03-CHANGES.md Addendum 27,
+    // 06.09.2026 fix — David's report: the same exercise rendered twice in
+    // one workout, 100% reproducible on a specific D1/L12 case).
+    //
+    // `other` (core/isolation) must NOT be pushed into `pushPullPairs` here —
+    // the multi-domain result branch below (`singleDomain` falsy) already
+    // spreads `...other` unconditionally. This branch fires whenever
+    // pairCount > 0 (at least one real push+pull pair formed) with leftover
+    // unpaired exercises still present — a case the "singleDomain" naming
+    // above didn't anticipate, since `other` isn't just for the zero-pairs
+    // case. Root-caused live (reasoning arrays for both copies were
+    // byte-identical, meaning literal double-inclusion, not two independent
+    // selections) — previously `remaining` included `...other`, which then
+    // rendered a second time via the unconditional `...other` spread below.
+    const remaining = [...unparedPull, ...unparedPush];
+    for (const ex of remaining) pushPullPairs.push(ex);
   }
 
   const totalPairs = pairCount + legPairCount + fallbackCount;
