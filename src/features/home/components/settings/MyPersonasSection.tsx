@@ -12,6 +12,7 @@ import { addPersona, removePersona } from '@/features/user/identity/services/per
 import { useResolvedPersonaSummary } from '@/features/user/identity/hooks/useResolvedPersonaSummary';
 import PersonaQuestionsDrawer from '@/features/user/onboarding/components/PersonaQuestionsDrawer';
 import { useToast } from '@/components/ui/Toast';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 
 const ALL_PERSONA_IDS = Object.keys(LIFESTYLE_LABELS) as PersonaId[];
 const LIFESTYLE_OPTION_BY_ID = new Map(LIFESTYLE_OPTIONS.map((o) => [o.id, o]));
@@ -49,13 +50,23 @@ function PersonaRow({
           onClick={onEdit}
           className="flex-1 flex items-center justify-between px-4 py-3 bg-white rounded-xl border border-gray-100 active:scale-[0.98] transition-transform text-start"
         >
-          <div className="text-right">
-            <p className="text-sm font-semibold text-gray-900">{LIFESTYLE_LABELS[entry.id]}</p>
-            {sublabel && (
-              <p className={`text-xs mt-0.5 ${!summary.resolved || !summary.isComplete ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
-                {sublabel}
-              </p>
+          <div className="flex items-center gap-3 min-w-0">
+            {/* 07.09.2026 — the one place a user's OWN declared unit shows
+                back to them, and the one place UnitIconBadge was missing
+                entirely (not even the hash fallback). Only shown once
+                something real resolved — no badge during loading/pending/
+                stale states, matching sublabel's own guards below. */}
+            {summary.icon && (
+              <UnitIconBadge unitId={summary.icon.unitId} iconUrl={summary.icon.iconUrl} name={summary.icon.name} size={36} />
             )}
+            <div className="text-right min-w-0">
+              <p className="text-sm font-semibold text-gray-900">{LIFESTYLE_LABELS[entry.id]}</p>
+              {sublabel && (
+                <p className={`text-xs mt-0.5 truncate ${!summary.resolved || !summary.isComplete ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
+                  {sublabel}
+                </p>
+              )}
+            </div>
           </div>
         </button>
       ) : (

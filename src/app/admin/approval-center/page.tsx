@@ -25,7 +25,8 @@ import {
 } from '@/features/admin/services/osm-amenity-admin.service';
 import type { AmenityCategory, CourtSport } from '@/features/parks/core/types/osm-amenity.types';
 import { InventoryService } from '@/features/parks';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import {
   CheckCircle2,
   Clock,
@@ -84,6 +85,16 @@ interface QueueItem {
   activityType?: string;
   location?: { lat: number; lng: number };
   suppressedDuplicateOfParkId?: string | null;
+  /** pending_unit only (07.09.2026) — every pending brigade/battalion/
+   *  company was rendering with the SAME generic Building2 icon regardless
+   *  of which org it's under. computedUnitId is the pending doc's own id
+   *  (becomes the real unit's id verbatim on approval, for battalion/
+   *  company — see src/lib/unit-id.ts) — used as UnitIconBadge's hash seed
+   *  for the requested unit's own badge (it has no real icon yet). parentIconUrl
+   *  is the real brigade's icon (authorityId's unitDirectory entry), fetched
+   *  once per unique authorityId across the whole loaded batch, not per row. */
+  computedUnitId?: string;
+  parentIconUrl?: string | null;
 }
 
 export default function ApprovalCenterPage() {
@@ -285,7 +296,7 @@ export default function ApprovalCenterPage() {
     if (!sa) return [];
     try {
       const snap = await getDocs(query(collection(db, 'pending_units'), where('status', '==', 'pending')));
-      return snap.docs.map(d => {
+      const rows = snap.docs.map(d => {
         const x: any = d.data();
         return {
           entityType: 'pending_unit' as const,
@@ -294,8 +305,24 @@ export default function ApprovalCenterPage() {
           subtitle: [PENDING_UNIT_LEVEL_LABELS[x.level] || x.level, x.parentUnitPath?.length ? `תחת ${x.parentUnitPath.join(' / ')}` : x.orgId ? 'תחת חטיבה קיימת' : ''].filter(Boolean).join(' · '),
           authorityId: x.orgId ?? undefined,
           createdByUser: x.submittedBy,
+          computedUnitId: x.computedUnitId as string | undefined,
         };
       });
+
+      // One unitDirectory read per UNIQUE parent org across this whole
+      // batch, not per row — the parent's real icon is what actually makes
+      // this queue scannable (a pending unit has no icon of its own yet;
+      // the brigade it's under does).
+      const uniqueOrgIds = Array.from(new Set(rows.map(r => r.authorityId).filter((id): id is string => !!id)));
+      const iconByOrgId = new Map<string, string | null>();
+      await Promise.all(uniqueOrgIds.map(async (orgId) => {
+        try {
+          const orgSnap = await getDoc(doc(db, 'unitDirectory', orgId));
+          iconByOrgId.set(orgId, orgSnap.exists() ? ((orgSnap.data().iconUrl as string | null) ?? null) : null);
+        } catch { iconByOrgId.set(orgId, null); }
+      }));
+
+      return rows.map(r => ({ ...r, parentIconUrl: r.authorityId ? (iconByOrgId.get(r.authorityId) ?? null) : null }));
     } catch { return []; }
   };
 
@@ -1085,11 +1112,28 @@ export default function ApprovalCenterPage() {
                   onClick={() => setSelectedItem({ entityType: item.entityType, id: item.id, title: item.title })}
                   className="flex items-center gap-4 flex-1 min-w-0 text-right group"
                 >
-                  <div className={`w-10 h-10 rounded-xl ${active.iconBg} flex items-center justify-center ${active.iconColor} flex-shrink-0`}>
-                    {activeTab === 'amenities' && item.category
-                      ? <span className="text-lg leading-none">{amenityEmoji(item.category, item.sport)}</span>
-                      : <active.rowIcon size={18} />}
-                  </div>
+                  {activeTab === 'pending_units' ? (
+                    // 07.09.2026 — every pending unit used to render with the
+                    // same generic Building2 regardless of which brigade it's
+                    // under, making the queue impossible to scan at a glance.
+                    // The requested unit has no icon of its own yet (not
+                    // approved), so it gets its own hash badge like any other
+                    // icon-less unit; the parent brigade's REAL icon (when
+                    // one exists — a brand-new top-level brigade proposal has
+                    // none) sits beside it for immediate context.
+                    <div className="flex items-center flex-shrink-0" style={{ gap: item.authorityId ? 2 : 0 }}>
+                      {item.authorityId && (
+                        <UnitIconBadge unitId={item.authorityId} iconUrl={item.parentIconUrl ?? null} name={item.subtitle || 'חטיבה'} size={30} />
+                      )}
+                      <UnitIconBadge unitId={item.computedUnitId ?? item.id} iconUrl={null} name={item.title} size={30} />
+                    </div>
+                  ) : (
+                    <div className={`w-10 h-10 rounded-xl ${active.iconBg} flex items-center justify-center ${active.iconColor} flex-shrink-0`}>
+                      {activeTab === 'amenities' && item.category
+                        ? <span className="text-lg leading-none">{amenityEmoji(item.category, item.sport)}</span>
+                        : <active.rowIcon size={18} />}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-900 text-sm truncate group-hover:text-cyan-700 transition-colors">{item.title}</p>
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500 flex-wrap">

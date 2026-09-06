@@ -44,6 +44,11 @@ interface SubUnit {
   name: string;
   memberCount: number;
   unitPath: string[];
+  /** 07.09.2026 — was never fetched, so every sub-unit row rendered with a
+   *  hardcoded generic icon even though this same page's own header already
+   *  shows the current unit's real one (tenants/{orgId}/units/{id}.iconUrl,
+   *  same field the header reads). */
+  iconUrl: string | null;
 }
 
 // ── Page ─────────────────────────────────────────────────────────────
@@ -160,6 +165,7 @@ export default function UnitDrilldownPage() {
               name: data.name ?? d.id,
               memberCount: resolvedTenantType === 'military' ? (declaredCountsByUnit[d.id] ?? 0) : (data.memberCount ?? 0),
               unitPath: data.unitPath ?? [],
+              iconUrl: (data.iconUrl as string | null) ?? null,
             };
           }));
         }
@@ -366,7 +372,7 @@ export default function UnitDrilldownPage() {
         memberCount: 0,
         createdAt: serverTimestamp(),
       });
-      setSubUnits(prev => [...prev, { id: subId, name: trimmedName, memberCount: 0, unitPath: childPath }]);
+      setSubUnits(prev => [...prev, { id: subId, name: trimmedName, memberCount: 0, unitPath: childPath, iconUrl: null }]);
       setNewSubUnitName('');
       setShowAddSubUnit(false);
       if (tenantId) syncTenantUnitCount(tenantId).catch(() => {});
@@ -764,16 +770,23 @@ export default function UnitDrilldownPage() {
               className="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:bg-slate-50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                  tenantType === 'military' ? 'bg-lime-50' : tenantType === 'educational' ? 'bg-orange-50' : 'bg-slate-100'
-                }`}>
-                  {tenantType === 'military'
-                    ? <Shield size={16} className="text-lime-700" />
-                    : tenantType === 'educational'
-                    ? <GraduationCap size={16} className="text-orange-600" />
-                    : <Building2 size={16} className="text-slate-600" />
-                  }
-                </div>
+                {tenantType === 'military' ? (
+                  // 07.09.2026 — this page's own header already shows the
+                  // CURRENT unit's real icon; its sub-units below rendered
+                  // with a hardcoded generic Shield instead of their own
+                  // iconUrl — same inconsistency already fixed on the
+                  // parent units list page, now fixed here too.
+                  <UnitIconBadge unitId={sub.id} iconUrl={sub.iconUrl} name={sub.name} size={36} />
+                ) : (
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                    tenantType === 'educational' ? 'bg-orange-50' : 'bg-slate-100'
+                  }`}>
+                    {tenantType === 'educational'
+                      ? <GraduationCap size={16} className="text-orange-600" />
+                      : <Building2 size={16} className="text-slate-600" />
+                    }
+                  </div>
+                )}
                 <p className="font-bold text-slate-800">{sub.name}</p>
               </div>
               <div className="flex items-center gap-3">

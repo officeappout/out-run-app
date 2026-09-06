@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarCheck, Clock, MapPin, UserPlus, MessageCircle, Navigation, Users, Lock, X } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { CommunityGroup, CommunityGroupCategory, EventRegistration } from '@/types/community.types';
 import AttendeesPreview from './AttendeesPreview';
 import { distanceLabel } from '@/features/arena/utils/distance';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 
 const CATEGORY_CONFIG: Record<CommunityGroupCategory, { label: string; icon: string; gradient: string }> = {
   walking:     { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
@@ -62,6 +65,27 @@ export default function GroupCard({
   const catConfig = CATEGORY_CONFIG[group.category];
   const coverImage = group.images?.[0];
 
+  // 07.09.2026 — a groupType:'military' group's cover used to render
+  // whatever sport emoji its category happened to be (🏃 for a running
+  // group, etc.), the same as any social group — not wrong because
+  // something was missing, wrong because a sport icon was standing in for
+  // a unit identity. When the cover has no uploaded image, this group's
+  // own authorityId (the real brigade, per the access-code join flow) gets
+  // looked up in unitDirectory for its real icon; UnitIconBadge's own
+  // hash-fallback covers the case where that lookup finds nothing, same as
+  // every other "unit with no icon yet" surface in this app.
+  const isMilitaryGroup = group.groupType === 'military';
+  const [militaryIconUrl, setMilitaryIconUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setMilitaryIconUrl(null);
+    if (!isMilitaryGroup || !group.authorityId) return;
+    let cancelled = false;
+    getDoc(doc(db, 'unitDirectory', group.authorityId))
+      .then((snap) => { if (!cancelled) setMilitaryIconUrl(snap.exists() ? ((snap.data().iconUrl as string | null) ?? null) : null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isMilitaryGroup, group.authorityId]);
+
   const [codeMode, setCodeMode] = useState(false);
   const [codeValue, setCodeValue] = useState('');
   const [codeError, setCodeError] = useState(false);
@@ -96,6 +120,10 @@ export default function GroupCard({
           {coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={coverImage} alt={group.name} className="w-full h-full object-cover" />
+          ) : isMilitaryGroup ? (
+            <div className="w-full h-full bg-gradient-to-br from-lime-700 to-green-900 flex items-center justify-center">
+              <UnitIconBadge unitId={group.authorityId || group.id} iconUrl={militaryIconUrl} name={group.name} size={44} />
+            </div>
           ) : (
             <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
               <span className="text-3xl drop-shadow-md select-none">{catConfig.icon}</span>
@@ -187,6 +215,10 @@ export default function GroupCard({
             alt={group.name}
             className="w-full h-full object-cover"
           />
+        ) : isMilitaryGroup ? (
+          <div className="w-full h-full bg-gradient-to-br from-lime-700 to-green-900 flex items-center justify-center">
+            <UnitIconBadge unitId={group.authorityId || group.id} iconUrl={militaryIconUrl} name={group.name} size={72} />
+          </div>
         ) : (
           <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
             <span className="text-5xl drop-shadow-md select-none">{catConfig.icon}</span>
