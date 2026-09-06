@@ -1,26 +1,34 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { GeneratedWorkout } from '../../logic/WorkoutGenerator';
-import type { WorkoutExercise } from '../../logic/WorkoutGenerator';
-import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import type { WorkoutMetadataContext, ResolvedWorkoutMetadata } from '../workout-metadata.service';
 
 /**
  * Snapshot-seam bug (discovered tracing the desk-workout constraint,
- * home-workout.service.ts:~1140): resolveWorkoutMetadata picks title/
- * description from a SNAPSHOT of workout.exercises taken before the
- * desk-workout filter, post-cut promise validation, and sortAndPair run.
- * Demonstrated failure: an office_worker/student persona in the 12:00-14:00
- * lunch window gets desk/chair-themed title+description (workout-
- * metadata.service.ts's +30 desk-reset boost for that persona/window); the
- * desk-workout filter then tries to keep only desk-friendly exercises, but
- * when fewer than 2 survive it silently reverts to the ORIGINAL non-desk
- * pool (home-workout.service.ts:~1160) — leaving a title/description that
- * promises a chair workout over an exercise list that is a full-body plan.
+ * home-workout.service.ts:~1180): title/description are picked while
+ * isDeskWorkout is true (workout-metadata.service.ts's persona+time-window
+ * "Desk Reset Boost", +30 for office_worker/student, 12:00-14:00), but if
+ * the desk-workout filter finds fewer than 2 desk-friendly exercises it
+ * silently keeps the ORIGINAL (non-desk) exercise pool — leaving copy that
+ * promises a chair/desk session over a plan that isn't one.
  *
- * These tests exercise reconcileWorkoutTitleWithFinalExercises, the exact
- * function generateHomeWorkoutTrio calls after every exercise-list mutation
- * settles (sortAndPair is the "ABSOLUTE last mutation" per its own comment).
- * Not a re-implementation — the production loop calls this same export.
+ * First attempt at this fix re-derived category/dominantMuscle from the
+ * final exercise list and re-resolved when that diverged from the pre-
+ * mutation snapshot — an independent review caught that this was backwards
+ * (the fallback branch leaves exercises UNCHANGED, so category never
+ * diverges in the bug case; the desk-filter SUCCEEDING is what changes
+ * category, which is the already-correct case) and additionally that
+ * category/dominantMuscle are not scoring inputs anywhere in
+ * scoreContentRow, so even a correctly-firing re-resolve using them
+ * couldn't change the outcome. The corrected mechanism: the desk-filter's
+ * own fallback branch sets `deskThemeAbandoned = true` directly (the exact
+ * point of the mismatch, not an inferred proxy), and reconciliation clears
+ * `persona` for the re-resolve — the one field the Desk Reset Boost (and
+ * the "David Clause" demographic hard-exclusion office_worker/student rows
+ * are already subject to, scoreContentRow's userHasNoPersona branch) key
+ * off.
+ *
+ * These tests exercise reconcileDeskThemeMismatch and applyTitleDedupSuffix,
+ * the exact functions generateHomeWorkoutTrio calls — not re-implementations.
  */
 
 vi.mock('../workout-metadata.service', async () => {
@@ -32,49 +40,17 @@ vi.mock('../workout-metadata.service', async () => {
 
 import { resolveWorkoutMetadata } from '../workout-metadata.service';
 import {
-  resolveCategoryFromExercises,
-  reconcileWorkoutTitleWithFinalExercises,
+  reconcileDeskThemeMismatch,
+  applyTitleDedupSuffix,
 } from '../home-workout.service';
 
 const mockResolveWorkoutMetadata = vi.mocked(resolveWorkoutMetadata);
 
-const rawExercise = (id: string, tags: string[], primaryMuscle = 'core'): Exercise =>
-  ({ id, name: { he: id, en: id }, primaryMuscle, tags } as unknown as Exercise);
-
-const workoutExercise = (id: string, tags: string[], primaryMuscle = 'core'): WorkoutExercise =>
-  ({
-    exercise: rawExercise(id, tags, primaryMuscle),
-    method: {},
-    sets: 3,
-    reps: 10,
-    restSeconds: 60,
-    isTimeBased: false,
-    exerciseRole: 'main',
-    score: 50,
-    reasoning: [],
-  } as unknown as WorkoutExercise);
-
-// Mirrors home-workout.service.ts's own desk-friendly pool: majority
-// mobility-tagged → resolveCategoryFromExercises computes category='mobility'.
-const deskFriendlyExercises: WorkoutExercise[] = [
-  workoutExercise('stretch-1', ['mobility', 'chair_stretch']),
-  workoutExercise('stretch-2', ['mobility', 'desk_mobility']),
-  workoutExercise('stretch-3', ['mobility']),
-];
-
-// A typical full-body/strength pool — no mobility majority → category='general'.
-const fullBodyExercises: WorkoutExercise[] = [
-  workoutExercise('pushup', ['strength'], 'chest'),
-  workoutExercise('pullup', ['strength'], 'back'),
-  workoutExercise('squat', ['strength'], 'legs'),
-  workoutExercise('plank', ['core'], 'core'),
-];
-
-const baseWorkout = (exercises: WorkoutExercise[]): GeneratedWorkout =>
+const baseWorkout = (): GeneratedWorkout =>
   ({
     title: 'אימון כיסא קליל',
     description: 'כמה דקות של מתיחות ליד השולחן',
-    exercises,
+    exercises: [],
     estimatedDuration: 15,
     structure: 'standard',
     difficulty: 2,
@@ -84,29 +60,27 @@ const baseWorkout = (exercises: WorkoutExercise[]): GeneratedWorkout =>
     totalPlannedSets: 0,
   } as unknown as GeneratedWorkout);
 
-// The context the (desk-themed) title/description were originally picked
-// against — i.e. optionMetaCtx as resolved from the PRE-mutation snapshot,
-// which for an office_worker/student in the lunch window resolved to the
-// desk-friendly pool's category.
+// The context the desk-themed title/description were originally picked
+// against — a real office_worker in the lunch window (the exact condition
+// that drives workout-metadata.service.ts's Desk Reset Boost).
 const priorDeskCtx: WorkoutMetadataContext = {
   persona: 'office_worker',
+  location: 'home',
   timeOfDay: 'afternoon',
-  category: 'mobility',
-  // All 3 deskFriendlyExercises default to primaryMuscle='core' (100% share)
-  // — matches what resolveCategoryFromExercises actually computes for them.
-  dominantMuscle: 'core',
-  categoryLabel: 'ניידות',
+  category: 'general',
+  dominantMuscle: undefined,
+  categoryLabel: 'כללי',
   durationMinutes: 15,
   difficulty: 2,
 } as WorkoutMetadataContext;
 
-const fullBodyMetadata: ResolvedWorkoutMetadata = {
+const genericMetadata: ResolvedWorkoutMetadata = {
   title: 'אימון כוח מלא',
   description: 'סבב תרגילי כוח לכל הגוף',
   aiCue: 'קדימה!',
   logicCue: null,
   source: 'firestore',
-  bundleId: 'bundle-full-body',
+  bundleId: 'bundle-generic',
 };
 
 beforeEach(() => {
@@ -115,90 +89,90 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe('resolveCategoryFromExercises', () => {
-  it('a majority-mobility exercise pool resolves to category="mobility" (the desk-friendly case)', () => {
-    const meta = resolveCategoryFromExercises(deskFriendlyExercises, 'standard');
-    expect(meta.category).toBe('mobility');
+describe('reconcileDeskThemeMismatch — the demonstrated desk-theme-abandoned bug', () => {
+  it('BUG scenario: desk theme abandoned — re-resolves WITHOUT persona (the lever that actually ' +
+     'disables the Desk Reset Boost and the demographic hard-exclusion) and applies the result', async () => {
+    mockResolveWorkoutMetadata.mockResolvedValue(genericMetadata);
+
+    const workout = baseWorkout();
+    expect(workout.title).toBe('אימון כיסא קליל'); // stale desk-themed title, pre-reconciliation
+
+    const result = await reconcileDeskThemeMismatch(workout, priorDeskCtx, 'balanced', {});
+
+    expect(result.reconciled).toBe(true);
+    expect(result.staleTitle).toBe('אימון כיסא קליל');
+    // The title now matches the delivered (non-desk) exercises, not the
+    // desk-themed copy the exercise list no longer represents.
+    expect(workout.title).toBe(genericMetadata.title);
+    expect(workout.description).toBe(genericMetadata.description);
+    expect(result.bundleId).toBe('bundle-generic');
+
+    // The critical assertion: persona must be cleared on the re-resolve call.
+    // category/dominantMuscle are NOT scoring inputs in workout-metadata.
+    // service.ts — only clearing persona actually prevents the same
+    // desk-themed row (or another office_worker/student-tagged row) from
+    // winning again.
+    expect(mockResolveWorkoutMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ persona: null, location: 'home', timeOfDay: 'afternoon' }),
+      'balanced',
+      {},
+    );
   });
 
-  it('a strength/full-body pool resolves to a DIFFERENT category than the desk-friendly pool', () => {
-    const deskMeta = resolveCategoryFromExercises(deskFriendlyExercises, 'standard');
-    const fullBodyMeta = resolveCategoryFromExercises(fullBodyExercises, 'standard');
-    expect(fullBodyMeta.category).not.toBe(deskMeta.category);
-    expect(fullBodyMeta.category).toBe('general');
+  it('re-resolve returns no candidate row (Firestore error, or nothing survives the persona-' +
+     'neutral guard) — leaves the stale desk-themed title/description in place rather than ' +
+     'clobber them with a description-less null bundle', async () => {
+    mockResolveWorkoutMetadata.mockResolvedValue({
+      title: null, description: null, aiCue: null, logicCue: null, source: 'fallback',
+    });
+
+    const workout = baseWorkout();
+    const result = await reconcileDeskThemeMismatch(workout, priorDeskCtx, 'balanced', {});
+
+    expect(result.reconciled).toBe(false);
+    expect(workout.title).toBe('אימון כיסא קליל');
+    expect(workout.description).toBe('כמה דקות של מתיחות ליד השולחן');
+  });
+
+  it('carries forward the WORKOUT\'s current estimatedDuration/difficulty at reconciliation ' +
+     'time, not the (potentially stale) values captured in priorCtx', async () => {
+    mockResolveWorkoutMetadata.mockResolvedValue(genericMetadata);
+
+    const workout = baseWorkout();
+    workout.estimatedDuration = 22; // diverged from priorCtx.durationMinutes (15) since the pick
+    workout.difficulty = 3;         // — simulates enforceVolumeCap/promise-revalidation having run
+
+    await reconcileDeskThemeMismatch(workout, priorDeskCtx, 'balanced', {});
+
+    expect(mockResolveWorkoutMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ durationMinutes: 22, difficulty: 3 }),
+      'balanced',
+      {},
+    );
   });
 });
 
-describe('reconcileWorkoutTitleWithFinalExercises — the demonstrated desk-revert bug', () => {
-  it('BUG scenario: desk-filter silently reverted to the non-desk pool (<2 desk-friendly ' +
-     'exercises survived) — title/description are re-resolved to match what actually shipped', async () => {
-    mockResolveWorkoutMetadata.mockResolvedValue(fullBodyMetadata);
-
-    // workout.exercises is the FINAL, post-desk-filter-fallback list — the
-    // original non-desk pool, kept because fewer than 2 desk exercises
-    // survived (home-workout.service.ts:~1160's else branch).
-    const workout = baseWorkout(fullBodyExercises);
-    expect(workout.title).toBe('אימון כיסא קליל'); // still the stale desk-themed title, pre-fix
-
-    const result = await reconcileWorkoutTitleWithFinalExercises(
-      workout,
-      priorDeskCtx,
-      'balanced',
-      {},
-    );
-
-    expect(result.reconciled).toBe(true);
-    // The title now matches the delivered (full-body) exercises, not the
-    // desk-themed copy the exercise list no longer represents.
-    expect(workout.title).toBe(fullBodyMetadata.title);
-    expect(workout.description).toBe(fullBodyMetadata.description);
-    expect(result.newMetadataCtx?.category).toBe('general');
-    expect(result.bundleId).toBe('bundle-full-body');
-
-    // resolveWorkoutMetadata must be called with the CORRECTED category —
-    // proves the reconciliation used the final exercises, not the stale ctx.
-    expect(mockResolveWorkoutMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({ category: 'general' }),
-      'balanced',
-      {},
-    );
+describe('applyTitleDedupSuffix — usedTitles interaction (the self-collision the review caught)', () => {
+  it('leaves a title untouched when nothing else has claimed it', () => {
+    const usedTitles = new Set<string>(['אימון אחר']);
+    expect(applyTitleDedupSuffix('אימון כוח מלא', usedTitles, 1)).toBe('אימון כוח מלא');
   });
 
-  it('WORKING scenario: desk-filter succeeded (≥2 desk-friendly exercises survived) — ' +
-     'final exercises match the category the title was picked for, no re-resolve happens', async () => {
-    const workout = baseWorkout(deskFriendlyExercises);
-
-    const result = await reconcileWorkoutTitleWithFinalExercises(
-      workout,
-      priorDeskCtx,
-      'balanced',
-      {},
-    );
-
-    expect(result.reconciled).toBe(false);
-    expect(workout.title).toBe('אימון כיסא קליל'); // untouched — it was already correct
-    expect(mockResolveWorkoutMetadata).not.toHaveBeenCalled();
+  it('appends a dedup suffix when a sibling option already claimed the exact same title', () => {
+    const usedTitles = new Set<string>(['אימון כוח מלא']);
+    expect(applyTitleDedupSuffix('אימון כוח מלא', usedTitles, 1)).toBe('אימון כוח מלא (משלים)');
   });
 
-  it('an ordinary (non-desk) workout whose exercises never changed category is also a no-op — ' +
-     'reconciliation does not add a spurious Firestore round-trip to the common path', async () => {
-    const priorStrengthCtx: WorkoutMetadataContext = {
-      ...priorDeskCtx,
-      persona: null,
-      category: 'general',
-      dominantMuscle: undefined,
-    };
-    const workout = baseWorkout(fullBodyExercises);
-    workout.title = 'אימון כוח מלא';
+  it('self-collision fix: deleting the stale (pre-reconciliation) title from usedTitles before ' +
+     'checking the reconciled title prevents it from colliding with its own prior entry', () => {
+    const usedTitles = new Set<string>();
+    const staleTitle = 'אימון כיסא קליל';
+    usedTitles.add(staleTitle); // registered by the original resolve's own dedup step
 
-    const result = await reconcileWorkoutTitleWithFinalExercises(
-      workout,
-      priorStrengthCtx,
-      'balanced',
-      {},
-    );
+    // Reconciliation's own cleanup: drop the stale entry before re-checking.
+    usedTitles.delete(staleTitle);
 
-    expect(result.reconciled).toBe(false);
-    expect(mockResolveWorkoutMetadata).not.toHaveBeenCalled();
+    const reconciledTitle = 'אימון כוח מלא';
+    expect(applyTitleDedupSuffix(reconciledTitle, usedTitles, 1)).toBe(reconciledTitle); // no spurious suffix
   });
 });
