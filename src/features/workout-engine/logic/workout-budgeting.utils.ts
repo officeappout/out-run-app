@@ -256,10 +256,32 @@ export function calculateVolumeAdjustment(
   let badge = '';
   let reason: VolumeAdjustment['reason'] = 'inactivity';
 
-  if (difficulty === 1) {
-    adjustedSets = Math.max(2, baseSets - 1);
-    reductionPercent = ((baseSets - adjustedSets) / baseSets) * 100;
-  }
+  // REMOVED 06.09.2026 (David's decision, docs/workout-engine/03-CHANGES.md
+  // Addendum 25; 00-PLAN.md §17 — "אימון קל" redefined). Previously:
+  //   if (difficulty === 1) {
+  //     adjustedSets = Math.max(2, baseSets - 1);
+  //     reductionPercent = ((baseSets - adjustedSets) / baseSets) * 100;
+  //   }
+  // This was a SECOND, redundant "D1 = fewer sets" reduction, stacked on top
+  // of DIFFICULTY_VOLUME[1].sets (workout-budgeting.utils.ts:91), which
+  // ALREADY correctly encodes D1's set count ({min:3,max:3}). This block
+  // computed an extra ~33% reductionPercent (for a typical baseSets=3 user)
+  // that assignVolume (below, `if (volumeAdjustment.reductionPercent > 0)`)
+  // then applied MULTIPLICATIVELY on top of that already-correct 3, landing
+  // at 2 — silently cutting D1 sessions to 14 sets instead of 21 for a
+  // 7-exercise workout, which was the dominant cause of "קל" (45min request)
+  // measuring 23min instead of ~43-45min. Confirmed via this function's own
+  // control flow that this block served ONLY difficulty===1 — inactivity
+  // (`daysInactive > INACTIVITY_THRESHOLD_DAYS`, below), weekly-budget
+  // (`weeklyBudgetUsagePercent > 75`), periodization (peak/deload weeks),
+  // and `volumeReductionOverride` are all separate, independently-returning
+  // branches further down in this same function and are UNCHANGED by this
+  // removal — they still apply normally regardless of difficulty. The new
+  // rule (00-PLAN.md §17): D1 gets the same set count as every other
+  // difficulty; intensity is lowered via exercise level + rep ratio only.
+  // If a future case needs D1 to have genuinely fewer sets again, that
+  // decision belongs here, explicit and commented — not silently
+  // rediscovered by re-adding this block without reading this comment.
 
   // ── Periodization Volume Multiplier ──────────────────────────────────
   // Peak (week 4): +20% sets for a max-stimulus overload session.
