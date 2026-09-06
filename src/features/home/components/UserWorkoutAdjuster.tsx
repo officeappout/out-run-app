@@ -11,6 +11,7 @@ import { resolveWorkoutContext } from '@/features/workout-engine/services/workou
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { MUSCLE_CHIPS } from '@/features/home/constants/muscle-chips';
 import type { MuscleChip } from '@/features/home/constants/muscle-chips';
+import { buildAdjusterWorkoutOptions } from './user-workout-adjuster-options.utils';
 
 // Known calisthenics skill program IDs → Hebrew labels
 const SKILL_LABELS: Record<string, { label: string; emoji: string }> = {
@@ -124,19 +125,18 @@ export default function UserWorkoutAdjuster({
         ? (await resolveWorkoutContext(userProfile, location as ExecutionLocation, { allowHomeOverride: false })).availableGear
         : undefined;
 
-      const result = await generateHomeWorkout({
+      const result = await generateHomeWorkout(buildAdjusterWorkoutOptions({
         userProfile,
-        testLocation: location as ExecutionLocation,
+        location: location as ExecutionLocation,
         availableTime,
         difficulty,
-        requiredDomains: derivedRequiredDomains,
-        equipmentOverride: isEquipped ? undefined : [],
-        remainingWeeklyBudget:    remaining > 0 ? remaining : undefined,
-        weeklyBudgetUsagePercent: usagePct  > 0 ? usagePct  : undefined,
-        // Skill focus: override scheduled programs to focus on the selected skill
-        scheduledProgramIds: selectedSkillId ? [selectedSkillId] : undefined,
-        parkEquipmentIds: parkEquipmentIds?.length ? parkEquipmentIds : undefined,
-      });
+        derivedRequiredDomains,
+        isEquipped,
+        remainingWeeklyBudget: remaining,
+        weeklyBudgetUsagePercent: usagePct,
+        selectedSkillId,
+        parkEquipmentIds,
+      }));
 
       onApplyAndStart(result.workout);
       onClose();
