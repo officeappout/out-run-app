@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildQrCodeStylingOptions,
+  clampLogoSizeRatio,
   computeContrastRatio,
-  generateQrSvgString,
+  computeEffectiveContrastRatio,
+  computeMinPrintWidthCm,
+  computeScanRiskLevel,
   isContrastSafe,
-  LOGO_MAX_WIDTH_RATIO,
+  LOGO_SIZE_DEFAULT_RATIO,
+  LOGO_SIZE_MAX_RATIO,
+  LOGO_SIZE_MIN_RATIO,
   MIN_CONTRAST_RATIO,
-  QUIET_ZONE_MODULES,
   sanitizeFilename,
 } from '../qr-generator';
 
@@ -40,6 +45,25 @@ describe('computeContrastRatio + isContrastSafe', () => {
   });
 });
 
+describe('computeEffectiveContrastRatio', () => {
+  const colors = { dark: '#0F172A', light: '#FFFFFF' };
+
+  it('matches the plain contrast ratio when there is no gradient', () => {
+    expect(computeEffectiveContrastRatio(colors, null)).toBeCloseTo(
+      computeContrastRatio(colors.dark, colors.light),
+      10,
+    );
+  });
+
+  it('returns the worse of the two gradient stops, not the better one', () => {
+    // A near-white gradient end stop would tank contrast against a white background.
+    const result = computeEffectiveContrastRatio(colors, '#F8F8F8');
+    const endRatio = computeContrastRatio('#F8F8F8', colors.light);
+    expect(result).toBeCloseTo(endRatio, 10);
+    expect(result).toBeLessThan(computeContrastRatio(colors.dark, colors.light));
+  });
+});
+
 describe('sanitizeFilename', () => {
   it('replaces filesystem-unsafe characters and collapses whitespace', () => {
     expect(sanitizeFilename('קמפיין: רולאפ / כוח?', 'png')).toBe('קמפיין_רולאפ_כוח.png');
@@ -54,44 +78,179 @@ describe('sanitizeFilename', () => {
   });
 });
 
-describe('generateQrSvgString', () => {
-  const TEST_URL = 'https://outrun.co.il/r/rollup_koach_haifa';
-  const COLORS = { dark: '#0F172A', light: '#FFFFFF' };
-
-  it('renders a valid SVG with the requested colors and a 4-module quiet zone', async () => {
-    const svg = await generateQrSvgString({ value: TEST_URL, colors: COLORS });
-    expect(svg).toContain('<svg');
-    expect(svg).toContain('</svg>');
-    expect(svg).toContain('fill="#FFFFFF"');
-    expect(svg).toContain('stroke="#0F172A"');
-    // qrcode's `margin` option IS the quiet zone, in modules, on each side.
-    expect(QUIET_ZONE_MODULES).toBe(4);
+describe('clampLogoSizeRatio', () => {
+  it('leaves an in-range value untouched', () => {
+    expect(clampLogoSizeRatio(0.18)).toBe(0.18);
   });
 
-  it('injects no logo when logoDataUrl is omitted', async () => {
-    const svg = await generateQrSvgString({ value: TEST_URL, colors: COLORS });
-    expect(svg).not.toContain('<image');
+  it('clamps below the 12% floor', () => {
+    expect(clampLogoSizeRatio(0.05)).toBe(LOGO_SIZE_MIN_RATIO);
   });
 
-  it('injects a centered logo sized to LOGO_MAX_WIDTH_RATIO of the total width when provided', async () => {
-    const fakeLogo = 'data:image/png;base64,AAAA';
-    const svg = await generateQrSvgString({ value: TEST_URL, colors: COLORS, logoDataUrl: fakeLogo });
+  it('clamps above the 22% ceiling — never bypassable', () => {
+    expect(clampLogoSizeRatio(0.5)).toBe(LOGO_SIZE_MAX_RATIO);
+    expect(clampLogoSizeRatio(0.22)).toBe(LOGO_SIZE_MAX_RATIO);
+    expect(clampLogoSizeRatio(0.2200001)).toBe(LOGO_SIZE_MAX_RATIO);
+  });
 
-    expect(svg).toContain(`<image href="${fakeLogo}"`);
+  it('falls back to the documented default for non-finite input', () => {
+    expect(clampLogoSizeRatio(NaN)).toBe(LOGO_SIZE_DEFAULT_RATIO);
+    expect(clampLogoSizeRatio(Infinity)).toBe(LOGO_SIZE_DEFAULT_RATIO);
+  });
+});
 
-    const viewBoxMatch = svg.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/)!;
-    const totalWidth = parseFloat(viewBoxMatch[1]);
-    const expectedLogoSize = totalWidth * LOGO_MAX_WIDTH_RATIO;
+describe('buildQrCodeStylingOptions', () => {
+  const BASE_PARAMS = {
+    value: 'https://outrun.co.il/r/rollup_koach_haifa',
+    colors: { dark: '#0F172A', light: '#FFFFFF' },
+    sizePx: 2000,
+    dotType: 'square' as const,
+    cornerSquareType: 'square' as const,
+    logoSizeRatio: LOGO_SIZE_DEFAULT_RATIO,
+    logoPadding: false,
+  };
 
-    const widthMatch = svg.match(/<image[^>]*width="([\d.]+)"/)!;
-    expect(parseFloat(widthMatch[1])).toBeCloseTo(expectedLogoSize, 5);
+  it('sets the requested dot style, corner style, and error correction level', () => {
+    const options = buildQrCodeStylingOptions({ ...BASE_PARAMS, dotType: 'dots' }, 'canvas');
+    expect(options.dotsOptions?.type).toBe('dots');
+    expect(options.cornersSquareOptions?.type).toBe('square');
+    expect(options.qrOptions?.errorCorrectionLevel).toBe('H');
+    expect(options.type).toBe('canvas');
+    expect(options.data).toBe(BASE_PARAMS.value);
+  });
 
-    // Centered: x position + half the logo size should land on the midpoint.
-    const xMatch = svg.match(/<image[^>]*x="([\d.]+)"/)!;
-    expect(parseFloat(xMatch[1]) + expectedLogoSize / 2).toBeCloseTo(totalWidth / 2, 5);
+  it('omits imageOptions entirely when there is no logo', () => {
+    const options = buildQrCodeStylingOptions(BASE_PARAMS, 'canvas');
+    expect(options.imageOptions).toBeUndefined();
+    expect(options.image).toBeUndefined();
+  });
 
-    // A backing rect (same light color) is drawn behind the logo.
-    expect(svg).toContain(`fill="${COLORS.light}"`);
-    expect(svg.indexOf('<rect') < svg.indexOf('<image')).toBe(true);
+  it('sets imageSize from the (clamped) logo size ratio when a logo is provided', () => {
+    const options = buildQrCodeStylingOptions(
+      { ...BASE_PARAMS, logoDataUrl: 'data:image/png;base64,AAAA', logoSizeRatio: 0.9 },
+      'canvas',
+    );
+    expect(options.image).toBe('data:image/png;base64,AAAA');
+    expect(options.imageOptions?.imageSize).toBe(LOGO_SIZE_MAX_RATIO);
+    expect(options.imageOptions?.hideBackgroundDots).toBe(true);
+  });
+
+  it('gives the logo backing margin only when logoPadding is enabled', () => {
+    const withoutPadding = buildQrCodeStylingOptions(
+      { ...BASE_PARAMS, logoDataUrl: 'data:image/png;base64,AAAA', logoPadding: false },
+      'canvas',
+    );
+    const withPadding = buildQrCodeStylingOptions(
+      { ...BASE_PARAMS, logoDataUrl: 'data:image/png;base64,AAAA', logoPadding: true },
+      'canvas',
+    );
+    expect(withoutPadding.imageOptions?.margin).toBe(0);
+    expect(withPadding.imageOptions?.margin).toBeGreaterThan(0);
+  });
+
+  it('uses a flat dark color when no gradient end color is given', () => {
+    const options = buildQrCodeStylingOptions(BASE_PARAMS, 'canvas');
+    expect(options.dotsOptions?.color).toBe(BASE_PARAMS.colors.dark);
+    expect(options.dotsOptions?.gradient).toBeUndefined();
+  });
+
+  it('builds a linear gradient from dark to the gradient end color when provided', () => {
+    const options = buildQrCodeStylingOptions(
+      { ...BASE_PARAMS, gradientEndColor: '#7C3AED' },
+      'canvas',
+    );
+    expect(options.dotsOptions?.color).toBeUndefined();
+    expect(options.dotsOptions?.gradient?.type).toBe('linear');
+    expect(options.dotsOptions?.gradient?.colorStops).toEqual([
+      { offset: 0, color: BASE_PARAMS.colors.dark },
+      { offset: 1, color: '#7C3AED' },
+    ]);
+  });
+
+  it('passes through the requested output type (svg vs canvas)', () => {
+    expect(buildQrCodeStylingOptions(BASE_PARAMS, 'svg').type).toBe('svg');
+    expect(buildQrCodeStylingOptions(BASE_PARAMS, 'canvas').type).toBe('canvas');
+  });
+});
+
+describe('computeScanRiskLevel', () => {
+  it('is low risk for the recommended defaults', () => {
+    const result = computeScanRiskLevel({
+      logoSizeRatio: LOGO_SIZE_DEFAULT_RATIO,
+      dotType: 'square',
+      contrastRatio: 21,
+    });
+    expect(result.level).toBe('low');
+    expect(result.reasons).toEqual([]);
+  });
+
+  it('escalates to medium for a slightly-large logo alone', () => {
+    const result = computeScanRiskLevel({
+      logoSizeRatio: 0.19,
+      dotType: 'square',
+      contrastRatio: 21,
+    });
+    expect(result.level).toBe('medium');
+    expect(result.reasons.length).toBe(1);
+  });
+
+  it('escalates to high once the logo passes 20%', () => {
+    const result = computeScanRiskLevel({
+      logoSizeRatio: 0.21,
+      dotType: 'square',
+      contrastRatio: 21,
+    });
+    expect(result.level).toBe('high');
+  });
+
+  it('escalates to high for a decorative dot style regardless of other factors', () => {
+    const result = computeScanRiskLevel({
+      logoSizeRatio: LOGO_SIZE_DEFAULT_RATIO,
+      dotType: 'classy',
+      contrastRatio: 21,
+    });
+    expect(result.level).toBe('high');
+  });
+
+  it('escalates to medium for a mildly non-standard dot style', () => {
+    const result = computeScanRiskLevel({
+      logoSizeRatio: LOGO_SIZE_DEFAULT_RATIO,
+      dotType: 'rounded',
+      contrastRatio: 21,
+    });
+    expect(result.level).toBe('medium');
+  });
+
+  it('escalates on low contrast alone', () => {
+    const result = computeScanRiskLevel({
+      logoSizeRatio: LOGO_SIZE_DEFAULT_RATIO,
+      dotType: 'square',
+      contrastRatio: 3.2,
+    });
+    expect(result.level).toBe('high');
+  });
+
+  it('takes the worst of multiple factors, not the first or last', () => {
+    const result = computeScanRiskLevel({
+      logoSizeRatio: 0.19, // medium
+      dotType: 'classy', // high
+      contrastRatio: 21, // low
+    });
+    expect(result.level).toBe('high');
+    expect(result.reasons.length).toBe(2);
+  });
+});
+
+describe('computeMinPrintWidthCm', () => {
+  it('applies the "distance ≈ 10× width" rule of thumb', () => {
+    expect(computeMinPrintWidthCm(1)).toBeCloseTo(10, 5);
+    expect(computeMinPrintWidthCm(2)).toBeCloseTo(20, 5);
+    expect(computeMinPrintWidthCm(0.5)).toBeCloseTo(5, 5);
+  });
+
+  it('returns 0 for zero, negative, or non-finite input rather than a nonsense size', () => {
+    expect(computeMinPrintWidthCm(0)).toBe(0);
+    expect(computeMinPrintWidthCm(-3)).toBe(0);
+    expect(computeMinPrintWidthCm(NaN)).toBe(0);
   });
 });
