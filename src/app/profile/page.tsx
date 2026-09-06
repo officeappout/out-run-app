@@ -28,6 +28,7 @@ import { getAllGearDefinitions, type GearDefinition } from '@/features/content/e
 import { doc as firestoreDoc, updateDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { getUserFromFirestore } from '@/lib/firestore.service';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- see hasTenant/handleOrgCodeSuccess's own comment below, intentionally kept unwired
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { useToast } from '@/components/ui/Toast';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
@@ -137,8 +138,25 @@ export default function ProfilePage() {
     }
   }, [feedbackText, feedbackSending, showToast]);
 
+  // 07.09.2026 — hasTenant, handleOrgCodeSuccess, and the AccessCodeGate
+  // import above are NOT rendered anywhere in this file today (confirmed:
+  // no <AccessCodeGate> in the JSX, introduced already-unwired in commit
+  // a5490d3a, never a regression — verified via full git history). NOT
+  // dead scaffolding to delete: the handler itself is complete and correct
+  // (funnels into the exact same validateAccessCode/AccessCodeGate flow
+  // arena/create/page.tsx already uses live), it's simply missing its
+  // trigger — the other half of the SAME gap as
+  // derive-arena-access.ts:87-89's orgAff excluding 'military' (no
+  // persistent org-tab exists for a user who joins this way either). Left
+  // in place deliberately, per David, 07.09.2026 — so whoever eventually
+  // builds the org-join entry point for /profile finds a working handler
+  // already here instead of rebuilding it from scratch. See §8 debt item
+  // (docs/research/military-persona-unified-architecture.md) for the
+  // combined write-up and the revisit trigger.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see comment above, intentionally kept unwired
   const hasTenant = !!(profile as any)?.core?.tenantId;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see comment above, intentionally kept unwired
   const handleOrgCodeSuccess = useCallback(async (result: AccessCodeResult) => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
