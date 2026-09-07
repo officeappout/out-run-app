@@ -41,6 +41,18 @@ import { getLocalizedText } from '@/features/content/exercises/core/exercise.typ
 import type { LifestylePersona } from '@/features/workout-engine/logic/ContextualEngine';
 import type { DifficultyLevel, WorkoutExercise, GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { buildMockProfile, type ActiveProgramItem } from '@/features/workout-engine/shared/utils/mock-profile.utils';
+import {
+  resolveWorkoutMetadataWithCandidates,
+  detectDayPeriod,
+  type WorkoutMetadataContext,
+  type WorkoutMetadataCandidate,
+  type TimeOfDay,
+} from '@/features/workout-engine/services/workout-metadata.service';
+import {
+  previewNotificationContent,
+  type NotificationCandidate,
+  type PreviewNotificationResult,
+} from '@/lib/previewNotificationContent';
 
 // ============================================================================
 // CONSTANTS
@@ -68,6 +80,39 @@ const LOCATION_OPTIONS: { value: ExecutionLocation; label: string; icon: string 
   { value: 'airport', label: 'שדה תעופה', icon: '✈️' },
 ];
 
+// ── Time preview presets ────────────────────────────────────────────────────
+// Each preset drives BOTH a precise hour (for workout-metadata.service.ts's
+// time-gated scoring bonuses — Parent Time-Window Boost 08:00-09:00/16:00-
+// 17:30, Desk Reset Boost 12:00-14:00 — which read the exact hour, not the
+// coarse bucket below) and the coarse TimeOfDay bucket (for the Evening/
+// Night bonus + any @שעה-style template tag). 'now' means no override at
+// all — real wall-clock behavior, byte-identical to production.
+type PreviewPreset = 'now' | 'parent_dropoff' | 'parent_park' | 'desk_reset' | 'evening';
+
+const PREVIEW_PRESETS: { value: PreviewPreset; label: string; hour: number | null; timeOfDay: TimeOfDay | null }[] = [
+  { value: 'now',            label: 'עכשיו (שעון אמיתי)',           hour: null, timeOfDay: null },
+  { value: 'parent_dropoff', label: 'בוקר — אחרי הורדה (08:30)',    hour: 8,    timeOfDay: 'morning' },
+  { value: 'desk_reset',     label: 'צהריים — איפוס בכיסא (13:00)', hour: 13,   timeOfDay: 'afternoon' },
+  { value: 'parent_park',    label: 'אחה״צ — פארק (16:30)',         hour: 16,   timeOfDay: 'afternoon' },
+  { value: 'evening',        label: 'ערב (20:00)',                  hour: 20,   timeOfDay: 'evening' },
+];
+
+function resolvePreviewTime(preset: PreviewPreset): { previewNow?: Date; timeOfDay?: TimeOfDay } {
+  const def = PREVIEW_PRESETS.find(p => p.value === preset);
+  if (!def || def.hour === null || def.timeOfDay === null) return {};
+  const d = new Date();
+  d.setHours(def.hour, def.value === 'parent_park' ? 30 : 0, 0, 0);
+  return { previewNow: d, timeOfDay: def.timeOfDay };
+}
+
+// ── Push preview trigger types (workoutMetadata/notifications/notifications) ─
+const PUSH_TRIGGER_OPTIONS: { value: string; label: string }[] = [
+  { value: 'Daily_Goal',         label: 'יעד יומי (Daily_Goal)' },
+  { value: 'Inactivity',         label: 'חוסר פעילות (Inactivity)' },
+  { value: 'Location_Based',     label: 'מבוסס-מיקום (Location_Based)' },
+  { value: 'Habit_Maintenance',  label: 'שימור הרגל (Habit_Maintenance)' },
+];
+
 const INJURY_AREAS: { value: InjuryShieldArea; label: string }[] = [
   { value: 'wrist',      label: 'שורש כף יד' },
   { value: 'elbow',      label: 'מרפק' },
@@ -93,15 +138,6 @@ const DOMAIN_COLORS: Record<string, string> = {
   core:  'bg-yellow-500',
   other: 'bg-gray-400',
 };
-
-// ── Variable substitution (simulate @variable injection) ──────────────────
-function injectVariables(text: string, vars: Record<string, string>): string {
-  let out = text;
-  for (const [key, val] of Object.entries(vars)) {
-    out = out.replace(new RegExp(`@${key}`, 'g'), val);
-  }
-  return out;
-}
 
 // ── Extract metadata bundle rejections from console logs ──────────────────
 function extractMetadataAudit(logs: string[]): { rejected: string[]; selected: string[] } {
@@ -138,6 +174,18 @@ export default function WorkoutSimulatorPage() {
   const [injuries, setInjuries] = useState<InjuryShieldArea[]>([]);
   const [selectedGear, setSelectedGear] = useState<string[]>([]);
   const [daysInactive, setDaysInactive] = useState(0);
+  const [previewPreset, setPreviewPreset] = useState<PreviewPreset>('now');
+
+  // ── Score Transparency (real candidates for title/description) ──
+  const [titleCandidates, setTitleCandidates] = useState<WorkoutMetadataCandidate[]>([]);
+  const [descriptionCandidates, setDescriptionCandidates] = useState<WorkoutMetadataCandidate[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [candidatesError, setCandidatesError] = useState<string | null>(null);
+
+  // ── Real Push Preview (dry-run callable — never a fabricated mockup) ──
+  const [pushTriggerType, setPushTriggerType] = useState(PUSH_TRIGGER_OPTIONS[0].value);
+  const [pushResult, setPushResult] = useState<PreviewNotificationResult | null>(null);
+  const [pushLoading, setPushLoading] = useState(false);
 
   // ── Program Builder ──
   const [activePrograms, setActivePrograms] = useState<ActiveProgramItem[]>([]);
@@ -286,6 +334,8 @@ export default function WorkoutSimulatorPage() {
         activePrograms,
       });
 
+      const { previewNow, timeOfDay: previewTimeOfDay } = resolvePreviewTime(previewPreset);
+
       const options: HomeWorkoutOptions = {
         userProfile: profile,
         location,
@@ -296,6 +346,8 @@ export default function WorkoutSimulatorPage() {
         daysInactiveOverride: daysInactive,
         personaOverride: persona ? (persona as LifestylePersona) : undefined,
         testLocation: parkForce ? undefined : location,
+        timeOfDay: previewTimeOfDay,
+        previewNow,
       };
 
       const result = await generateHomeWorkoutTrio(options);
@@ -312,11 +364,86 @@ export default function WorkoutSimulatorPage() {
       setConsoleLogs(logs);
       setLoading(false);
     }
-  }, [availableTime, effectiveUserLevel, difficulty, persona, location, parkForce, injuries, selectedGear, daysInactive, domainLevels, coldStart, activePrograms]);
+  }, [availableTime, effectiveUserLevel, difficulty, persona, location, parkForce, injuries, selectedGear, daysInactive, domainLevels, coldStart, activePrograms, previewPreset]);
 
   // ── Helpers ──
   const activeWorkout: GeneratedWorkout | null =
     trioResult ? trioResult.options[activeTab]?.result?.workout ?? null : null;
+
+  // ── Score Transparency: real candidates for the active workout's title/
+  // description, via the exact same resolveWorkoutMetadata* scoring
+  // production uses (workout-metadata.service.ts). Rebuilds the context
+  // resolveWorkoutMetadata used for THIS workout: persona/gender/category/
+  // dominantMuscle/etc. come straight from the workout's own real
+  // metadataCtx snapshot (stamped by generateHomeWorkoutTrio itself);
+  // location/daysInactive/isStudying/dayPeriod are added from this page's
+  // own real inputs, since the pruned snapshot doesn't carry them (see
+  // WorkoutMetadataSnapshot's doc comment) — these are exactly what
+  // generateHomeWorkoutTrio's own metadataCtxBase derives them from too.
+  useEffect(() => {
+    if (!activeWorkout) {
+      setTitleCandidates([]);
+      setDescriptionCandidates([]);
+      setCandidatesError(null);
+      return;
+    }
+    let cancelled = false;
+    setCandidatesLoading(true);
+    setCandidatesError(null);
+
+    (async () => {
+      try {
+        const { previewNow, timeOfDay: previewTimeOfDay } = resolvePreviewTime(previewPreset);
+        const snapshot = activeWorkout.metadataCtx;
+
+        const ctx: WorkoutMetadataContext = {
+          persona: (snapshot?.persona as WorkoutMetadataContext['persona']) ?? null,
+          timeOfDay: previewTimeOfDay ?? (snapshot?.timeOfDay as TimeOfDay) ?? 'morning',
+          gender: snapshot?.gender,
+          category: snapshot?.category,
+          categoryLabel: snapshot?.categoryLabel,
+          difficulty: snapshot?.difficulty,
+          dominantMuscle: snapshot?.dominantMuscle,
+          experienceLevel: snapshot?.experienceLevel,
+          sportType: snapshot?.sportType,
+          motivationStyle: snapshot?.motivationStyle,
+          currentProgram: snapshot?.currentProgram,
+          location,
+          daysInactive,
+          isStudying: location === 'library',
+          dayPeriod: detectDayPeriod(),
+          previewNow,
+        };
+
+        const result = await resolveWorkoutMetadataWithCandidates(ctx);
+        if (cancelled) return;
+        setTitleCandidates(result.titleCandidates);
+        setDescriptionCandidates(result.descriptionCandidates);
+      } catch (err: any) {
+        if (!cancelled) setCandidatesError(err?.message || 'Failed to load candidates');
+      } finally {
+        if (!cancelled) setCandidatesLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [activeWorkout, location, daysInactive, previewPreset]);
+
+  // ── Real Push Preview: dry-run the actual production push selector via
+  // the previewNotificationContent Cloud Function. NEVER falls back to
+  // fabricated content on failure — an honest error state is the point.
+  const runPushPreview = useCallback(async () => {
+    setPushLoading(true);
+    setPushResult(null);
+    const res = await previewNotificationContent({
+      triggerType: pushTriggerType,
+      persona: persona || null,
+      previewUid: 'admin-simulator-preview',
+      vars: { name: 'דוד', walkMinutes: 12, stepsLeft: 1500 },
+    });
+    setPushResult(res);
+    setPushLoading(false);
+  }, [pushTriggerType, persona]);
 
   const exercisesByDomain = (exercises: WorkoutExercise[]) => {
     const grouped: Record<string, WorkoutExercise[]> = {};
@@ -423,7 +550,18 @@ export default function WorkoutSimulatorPage() {
               <div className="flex items-center justify-between mb-3 p-2.5 rounded-lg bg-gray-100 border border-gray-200">
                 <span className="text-xs text-gray-700 font-medium">Auto Park Force</span>
                 <button
-                  onClick={() => setParkForce(!parkForce)}
+                  onClick={() => {
+                    // Bug fix: re-toggling ON used to just lock the location
+                    // buttons without resetting `location` itself, so a
+                    // stale non-park value (set while OFF) would silently
+                    // survive under the "Park Force ON" badge and still
+                    // reach generateHomeWorkoutTrio unchanged. Force `location`
+                    // back to 'park' the moment the toggle turns ON so the
+                    // badge and the actual generated location always agree.
+                    const next = !parkForce;
+                    setParkForce(next);
+                    if (next) setLocation('park');
+                  }}
                   className={`relative w-11 h-6 rounded-full transition-colors ${
                     parkForce ? 'bg-emerald-500' : 'bg-gray-300'
                   }`}
@@ -454,6 +592,33 @@ export default function WorkoutSimulatorPage() {
                   Park Force: location locked to &apos;park&apos;. Toggle off to test other locations via testLocation bypass.
                 </p>
               )}
+            </ControlCard>
+
+            {/* Time Preview — real override, not wall-clock */}
+            <ControlCard
+              icon={<Clock size={16} />}
+              title="שעה לתצוגה מקדימה"
+              badge={PREVIEW_PRESETS.find(p => p.value === previewPreset)?.label ?? ''}
+            >
+              <div className="grid grid-cols-1 gap-1.5">
+                {PREVIEW_PRESETS.map(p => (
+                  <button
+                    key={p.value}
+                    onClick={() => setPreviewPreset(p.value)}
+                    className={`text-right px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      previewPreset === p.value
+                        ? 'bg-[#2b6cb0] border-[#2b6cb0] text-white'
+                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2">
+                נכנס גם לאימון עצמו (generateHomeWorkoutTrio) וגם לטבלת השקיפות למטה — לא רק תצוגה נפרדת.
+                בררת מחדל (&quot;עכשיו&quot;) = שעון אמיתי, זהה לפרודקשן.
+              </p>
             </ControlCard>
 
             {/* Equipment (live from DB) */}
@@ -897,10 +1062,17 @@ export default function WorkoutSimulatorPage() {
                       <MetadataPanel
                         workout={activeWorkout}
                         optionLabel={trioResult!.options[activeTab]?.label ?? ''}
-                        availableTime={availableTime}
-                        userLevel={effectiveUserLevel}
                         persona={persona}
                         location={location}
+                        titleCandidates={titleCandidates}
+                        descriptionCandidates={descriptionCandidates}
+                        candidatesLoading={candidatesLoading}
+                        candidatesError={candidatesError}
+                        pushTriggerType={pushTriggerType}
+                        setPushTriggerType={setPushTriggerType}
+                        pushResult={pushResult}
+                        pushLoading={pushLoading}
+                        runPushPreview={runPushPreview}
                       />
                     </SectionToggle>
 
@@ -1151,46 +1323,123 @@ function SectionToggle({
   );
 }
 
+// ── CandidateTable — real scoreContentRow scores for home title/description ──
+function CandidateTable({ label, candidates }: { label: string; candidates: WorkoutMetadataCandidate[] }) {
+  if (candidates.length === 0) {
+    return (
+      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">{label}</p>
+        <p className="text-xs text-gray-400 italic">0 שורות תואמות ב-Firestore לקונטקסט הנוכחי.</p>
+      </div>
+    );
+  }
+  const sorted = [...candidates].sort((a, b) => b.score - a.score);
+  return (
+    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 overflow-x-auto">
+      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">
+        {label} — {sorted.length} מועמדים (ציון אמיתי מ-scoreContentRow)
+      </p>
+      <table className="w-full text-[11px]">
+        <thead>
+          <tr className="text-gray-400 text-[10px] uppercase">
+            <th className="text-right py-1 px-1">טקסט</th>
+            <th className="text-center py-1 px-1 whitespace-nowrap">ציון</th>
+            <th className="text-right py-1 px-1">סיבות</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((c, i) => (
+            <tr
+              key={i}
+              className={`border-t border-gray-200 align-top ${
+                c.isPicked ? 'bg-emerald-50' : c.tiedForFirst ? 'bg-amber-50' : ''
+              }`}
+            >
+              <td className="py-1.5 px-1" dir="rtl">
+                {c.isPicked && <span className="text-emerald-600 font-bold ml-1">🏆</span>}
+                {c.text}
+              </td>
+              <td className="py-1.5 px-1 text-center font-mono font-bold text-gray-700 whitespace-nowrap">{c.score}</td>
+              <td className="py-1.5 px-1 text-gray-500" dir="rtl">{c.reasons.length ? c.reasons.join(' · ') : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {sorted.some(c => c.tiedForFirst) && sorted.filter(c => c.tiedForFirst).length > 1 && (
+        <p className="text-[10px] text-amber-600 mt-2">
+          🎲 {sorted.filter(c => c.tiedForFirst).length} מועמדים בתיקו על הציון הגבוה — הבחירה ביניהם אקראית בכל הרצה.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── PushCandidateTable — real filtered candidates, no fabricated score ───────
+function PushCandidateTable({ candidates }: { candidates: NotificationCandidate[] }) {
+  return (
+    <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 overflow-x-auto">
+      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">
+        מועמדים שעברו סינון — {candidates.length} (בחירה: hash(uid) % {candidates.length}, אין ניקוד במערכת הפוש)
+      </p>
+      <table className="w-full text-[11px]">
+        <thead>
+          <tr className="text-gray-400 text-[10px] uppercase">
+            <th className="text-right py-1 px-1">טקסט</th>
+            <th className="text-right py-1 px-1 whitespace-nowrap">פרסונה</th>
+          </tr>
+        </thead>
+        <tbody>
+          {candidates.map((c) => (
+            <tr key={c.docId} className={`border-t border-gray-200 align-top ${c.isPicked ? 'bg-emerald-50' : ''}`}>
+              <td className="py-1.5 px-1" dir="rtl">
+                {c.isPicked && <span className="text-emerald-600 font-bold ml-1">🎲</span>}
+                {c.text}
+              </td>
+              <td className="py-1.5 px-1 text-gray-500 whitespace-nowrap">{c.persona || 'generic'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── MetadataPanel ─────────────────────────────────────────────────────────────
 function MetadataPanel({
   workout,
   optionLabel,
-  availableTime,
-  userLevel,
   persona,
-  location,
+  titleCandidates,
+  descriptionCandidates,
+  candidatesLoading,
+  candidatesError,
+  pushTriggerType,
+  setPushTriggerType,
+  pushResult,
+  pushLoading,
+  runPushPreview,
 }: {
   workout: GeneratedWorkout;
   optionLabel: string;
-  availableTime: number;
-  userLevel: number;
   persona: string;
   location: string;
+  titleCandidates: WorkoutMetadataCandidate[];
+  descriptionCandidates: WorkoutMetadataCandidate[];
+  candidatesLoading: boolean;
+  candidatesError: string | null;
+  pushTriggerType: string;
+  setPushTriggerType: (v: string) => void;
+  pushResult: PreviewNotificationResult | null;
+  pushLoading: boolean;
+  runPushPreview: () => void;
 }) {
-  const vars: Record<string, string> = {
-    שם: 'Simulator',
-    name: 'Simulator',
-    זמן_אימון: `${availableTime}`,
-    duration: `${availableTime}`,
-    רמה_הבאה: `${userLevel + 1}`,
-    level: `${userLevel}`,
-
-    שם_תוכנית: workout.title || 'Full Body',
-    program: workout.title || 'Full Body',
-    קטגוריה: 'כוח',
-    מיקוד: workout.exercises[0] ? getLocalizedText((workout.exercises[0] as any).exercise?.name) : '',
-    מיקום: location,
-  };
-
-  const resolvedTitle    = injectVariables(workout.title || '', vars);
-  const resolvedDesc     = injectVariables(workout.description || '', vars);
-  const resolvedLogicCue = injectVariables(workout.logicCue || '', vars);
-
-  // Push notification simulation
-  const notifTitle = resolvedTitle || 'האימון היומי שלך מוכן!';
-  const notifBody  = resolvedDesc
-    ? resolvedDesc.slice(0, 80) + (resolvedDesc.length > 80 ? '…' : '')
-    : `${availableTime} דקות • ${workout.exercises.length} תרגילים • רמה ${userLevel}`;
+  // Title/description/logicCue below are rendered AS-IS — they are already
+  // the real, fully-interpolated output of generateHomeWorkoutTrio (which
+  // internally calls resolveWorkoutMetadata's real resolveContentTags).
+  // No second, simulator-local variable-injection pass — that was the bug:
+  // a fake @word→value map presented as if it were live substitution
+  // mechanics, when resolution had already happened for real before this
+  // component ever saw the workout.
 
   // Coach tips — top 3 exercises' goals/descriptions
   const coachTips = workout.exercises
@@ -1205,65 +1454,113 @@ function MetadataPanel({
 
   return (
     <div className="space-y-4">
-      {/* Title / Description / LogicCue */}
+      {/* Title / Description / LogicCue — real output, no re-injection */}
       <div className="grid grid-cols-1 gap-3">
         <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
           <p className="text-[10px] font-bold text-[#2b6cb0] uppercase tracking-wide mb-1 flex items-center gap-1.5">
             <BookOpen size={11} /> כותרת אימון
           </p>
-          <p className="text-sm font-bold text-gray-900">{resolvedTitle || '(ריק)'}</p>
-          {optionLabel && optionLabel !== resolvedTitle && (
+          <p className="text-sm font-bold text-gray-900">{workout.title || '(ריק)'}</p>
+          {optionLabel && optionLabel !== workout.title && (
             <p className="text-[10px] text-gray-400 mt-1">Option Label: {optionLabel}</p>
           )}
         </div>
 
         <div className="bg-purple-50 rounded-xl p-3 border border-purple-200">
           <p className="text-[10px] font-bold text-purple-700 uppercase tracking-wide mb-1">תיאור</p>
-          <p className="text-xs text-gray-700 leading-relaxed">{resolvedDesc || '(ריק)'}</p>
+          <p className="text-xs text-gray-700 leading-relaxed">{workout.description || '(ריק)'}</p>
         </div>
 
         <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-200">
           <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-1 flex items-center gap-1.5">
             <Zap size={11} /> Coach Cue (LogicCue)
           </p>
-          <p className="text-xs text-emerald-800 leading-relaxed">{resolvedLogicCue || '(לא הוגדר)'}</p>
+          <p className="text-xs text-emerald-800 leading-relaxed">{workout.logicCue || '(לא הוגדר)'}</p>
         </div>
       </div>
 
-      {/* @Variable injection reference */}
-      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Variable Injection Map</p>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[10px]">
-          {Object.entries(vars).map(([key, val]) => (
-            <div key={key} className="flex items-center gap-2">
-              <span className="text-amber-600 font-bold">@{key}</span>
-              <span className="text-gray-400">→</span>
-              <span className="text-gray-700 truncate">{val}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Push Notification Preview */}
+      {/* Score Transparency — real scoreContentRow candidates + winner */}
       <div>
         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-          <Bell size={11} /> Push Notification Preview
+          <BarChart3 size={11} /> שקיפות ניקוד — למה נבחר התוכן הזה
         </p>
-        <div className="bg-gray-100 rounded-2xl p-4 border border-gray-200 shadow-sm max-w-sm mx-auto">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#2b6cb0] to-blue-400 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
-              <Zap size={18} className="text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">OUT-RUN</span>
-                <span className="text-[10px] text-gray-400">עכשיו</span>
-              </div>
-              <p className="text-sm font-bold text-gray-900 mt-0.5 leading-snug" dir="rtl">{notifTitle}</p>
-              <p className="text-xs text-gray-600 mt-0.5 leading-relaxed" dir="rtl">{notifBody}</p>
-            </div>
+        {candidatesLoading ? (
+          <div className="flex items-center gap-2 py-2 text-xs text-gray-400">
+            <RotateCcw size={12} className="animate-spin" /> מריץ resolveWorkoutMetadataWithCandidates...
           </div>
+        ) : candidatesError ? (
+          <p className="text-xs text-red-500">שגיאה בטעינת מועמדים: {candidatesError}</p>
+        ) : (
+          <div className="space-y-2">
+            <CandidateTable label="כותרת (workoutTitles)" candidates={titleCandidates} />
+            <CandidateTable label="תיאור (smartDescriptions)" candidates={descriptionCandidates} />
+          </div>
+        )}
+      </div>
+
+      {/* Real Push Preview — dry-run of the actual production selector */}
+      <div>
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          <Bell size={11} /> Push אמיתי (dry-run — previewNotificationContent, אין שליחה)
+        </p>
+        <div className="flex items-center gap-2 mb-2">
+          <select
+            value={pushTriggerType}
+            onChange={e => setPushTriggerType(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
+          >
+            {PUSH_TRIGGER_OPTIONS.map(t => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={runPushPreview}
+            disabled={pushLoading}
+            className="text-xs px-3 py-1.5 bg-[#2b6cb0] hover:bg-blue-700 text-white rounded-lg font-bold disabled:opacity-50 transition-colors"
+          >
+            {pushLoading ? 'טוען...' : 'הצג פוש אמיתי'}
+          </button>
         </div>
+
+        {pushResult === null ? (
+          <p className="text-xs text-gray-400 italic">
+            לחץ &quot;הצג פוש אמיתי&quot; כדי להריץ את הבחירה האמיתית (persona נוכחי: {persona || 'ללא'}).
+          </p>
+        ) : !pushResult.ok ? (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-xs font-bold text-red-700">לא נגיש / לא פרוס</p>
+            <p className="text-[10px] text-red-600 mt-1 break-all" dir="ltr">{pushResult.error}</p>
+            <p className="text-[10px] text-gray-500 mt-1.5" dir="rtl">
+              previewNotificationContent טרם נפרס ל-production — יש להריץ Functions emulator מקומי,
+              או לבקש מדוד לפרוס (firebase deploy --only functions:previewNotificationContent).
+              לעולם לא נופל חזרה לתוכן מזויף.
+            </p>
+          </div>
+        ) : !pushResult.data.matched ? (
+          <p className="text-xs text-gray-500 italic">
+            0 מועמדים תואמים ב-workoutMetadata/notifications עבור {pushTriggerType} · persona מומר: {pushResult.data.resolvedPersona}.
+          </p>
+        ) : (
+          <>
+            <div className="bg-gray-100 rounded-2xl p-4 border border-gray-200 shadow-sm max-w-sm mx-auto mb-2">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#2b6cb0] to-blue-400 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <Zap size={18} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">OUT-RUN</span>
+                    <span className="text-[10px] text-gray-400">עכשיו</span>
+                  </div>
+                  <p className="text-sm font-bold text-gray-900 mt-0.5 leading-snug" dir="rtl">
+                    {pushResult.data.interpolatedText}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <PushCandidateTable candidates={pushResult.data.candidates} />
+          </>
+        )}
       </div>
 
       {/* Coach Tips */}

@@ -35,3 +35,9 @@ export { pushOutcomeSweeper } from './pushOutcomeSweeper';
 // exported here so it's ready to ship once David re-authenticates the
 // Firebase CLI (same blocker as logAuditAction).
 export { onPlannedActivityCreated } from './onPlannedActivityCreated';
+// ── Admin Simulator — real-selection dry-run preview (read-only, no sends) ────
+// NOT deployed yet — exported here so it's ready to ship once David
+// re-authenticates the Firebase CLI (same blocker as logAuditAction /
+// onPlannedActivityCreated above). Verify locally via the Functions emulator
+// (`firebase emulators:start --only functions,firestore`) before deploying.
+export { previewNotificationContent } from './previewNotificationContent';

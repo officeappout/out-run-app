@@ -57,6 +57,15 @@ export interface HomeWorkoutOptions {
   /** Time of day override (default: auto-detected from clock) */
   timeOfDay?: TimeOfDay;
 
+  /**
+   * Admin-simulator-only: precise "now" override for metadata scoring's
+   * time-gated bonuses (Parent Time-Window Boost, Desk Reset Boost), which
+   * key off the exact hour rather than the coarse `timeOfDay` bucket above.
+   * Undefined at every real call site — production always uses the real
+   * clock (see workout-metadata.service.ts's WorkoutMetadataContext.previewNow).
+   */
+  previewNow?: Date;
+
   /** Whether this is the user's first session in the program */
   isFirstSessionInProgram?: boolean;
 

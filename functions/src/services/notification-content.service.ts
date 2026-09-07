@@ -122,11 +122,28 @@ export interface SelectNotificationOpts {
   uid: string;
 }
 
+/** One row that survived filtering — admin-simulator transparency only; real senders ignore it. */
+export interface NotificationCandidate {
+  docId: string;
+  text: string;
+  bundleId?: string;
+  persona?: string;
+  isPicked: boolean;
+}
+
 export interface SelectedNotification {
   text: string;
   bundleId: string;
   docId: string;
   psychologicalTrigger?: string;
+  /**
+   * Every row that survived filtering (real production callers —
+   * stepGoalNudgeScheduler.ts, onPlannedActivityCreated.ts — never read this
+   * field). Exposed so the admin simulator can show "filtered candidates +
+   * hash-picked winner" using this exact function's own real filtering and
+   * selection, not a re-implementation.
+   */
+  candidates: NotificationCandidate[];
 }
 
 /**
@@ -165,6 +182,13 @@ export async function selectNotificationContent(
     bundleId: chosen.bundleId ?? '',
     docId: chosen.id,
     psychologicalTrigger: chosen.psychologicalTrigger,
+    candidates: candidates.map((doc) => ({
+      docId: doc.id,
+      text: doc.text as string,
+      bundleId: doc.bundleId,
+      persona: doc.persona,
+      isPicked: doc.id === chosen.id,
+    })),
   };
 }
 
