@@ -3227,3 +3227,75 @@ attributable to code changes, not RNG variance (verified determinism above), so 
 noise" is no longer an available explanation for what Task 4 finds.
 
 **Commit:** local only, no push.
+
+## Addendum 32 — Task 3 (ה2) investigation: the equipment pipeline, full trace. Report only, per
+## instruction — NO fix applied.
+
+**Where the user's declared equipment lives**: `UserFullProfile.equipment: EquipmentProfile`
+(`user.types.ts:212-216`) — `{ home: string[], office: string[], outdoor: string[] }`, arrays of
+`gear_definition` doc IDs.
+
+**Who reads it today**: exactly one function in the entire workout-engine codebase —
+`resolveEquipment` (`services/user-profile.utils.ts:120-155`), which switches on `location` to pick
+`equipment.home`/`.office`/`.outdoor` (falling back to `['bodyweight']` if empty). It has exactly one
+caller: `normalizeEquipmentArray` (`core/middleware/InputSanitizerMiddleware.ts:87-138`, line 95),
+which composes it with gym-catalog injection and park fixtures into the final `availableEquipment`
+array. That function has exactly one caller: `home-workout.service.ts:1635`
+(`normalizeEquipmentArray(userProfile, location, parkEquipmentIds, gymEquipmentList,
+equipmentOverride)`), which stores the result as `context.availableEquipment` — the value
+`ContextualEngine`, `selectMethodForContext`, and the main Step 1-5 selection pipeline all correctly
+consult.
+
+**The full pipeline, and exactly where it's cut**:
+```
+profile.equipment.{home|outdoor|office}
+  → resolveEquipment()                              [user-profile.utils.ts:127]
+  → normalizeEquipmentArray()                        [InputSanitizerMiddleware.ts:95]
+  → context.availableEquipment                       [home-workout.service.ts:1635]
+  → ContextualEngine / selectMethodForContext         ✅ reaches here correctly — main
+                                                          selection (Step 1-5) DOES respect
+                                                          what the user declared
+  ✂── CUT HERE ──✂
+  → applyFlowRegression() / applyEssentialGearFilter() ❌ never receives it — signatures
+                                                           checked directly, neither function
+                                                           has an availableEquipment parameter
+                                                           or anything equivalent
+  → isGearFree(allIds, allowEssential)                ❌ structurally cannot see it — its
+                                                           signature is (candidate method gear
+                                                           list, boolean), no user-context
+                                                           parameter exists at all
+```
+
+**Confirmed directly from the signatures**, not inferred: `applyFlowRegression`
+(`trio-modifiers.service.ts:463-472`) and `applyEssentialGearFilter` (`:626-635`) both take
+`location`, `userProgramLevels`, `activeProgramId`, `levelProgressPercent`, `intentMode` — neither
+takes `availableEquipment` or anything carrying it. The one call site,
+`home-workout.service.ts:982-991`, passes `pipeline.baseGeneratorContext.activeProgramId` etc. but
+never `.availableEquipment` — even though that exact field, on that exact object
+(`pipeline.baseGeneratorContext.availableEquipment`), is used **17 lines above**, at line 965, for
+the warmup-exercise call (`prependWarmupExercises`) right next to it. The data is sitting right there
+in scope; the wiring to pass it into the D1-specific naked/backfill pass was simply never built —
+same shape of gap as every other "domain-blind" finding this session, just for equipment instead of
+domain.
+
+**What happens to a user who declared "I have resistance bands"**: it matters for the **main**
+selection pipeline (Step 1-5) — more pull-exercise *methods* become genuinely eligible there, exactly
+as intended. It does **not** matter at all for `applyFlowRegression`'s naked/backfill pass
+(D1/flow-regression sessions specifically) — `isGearFree`'s `allowEssential` check only ever
+recognizes `ESSENTIAL_PARK_GEAR` (pullup_bar/dip_station/bench/low_bar/high_bar/step, a fixed,
+hardcoded set — `gear-mapping.utils.ts:694-701`), never the user's own declared inventory. A
+resistance-band pull exercise is treated as "not naked" by this specific pass regardless of whether
+the user owns bands, doesn't own bands, or the app has never asked them — the declaration is
+invisible to this one decision point, structurally, not due to a stale value or a wrong lookup.
+
+**One more thing worth flagging before anyone reaches for a fix**: passing `availableEquipment` into
+`applyEssentialGearFilter` would not, by itself, make `isGearFree` start respecting it — the
+function's current signature (`isGearFree(allIds: string[], allowEssential = false)`) has no
+parameter slot for "does the user own this gear" at all; its whole design checks "is this gear
+*structurally* free (bodyweight/none/essential-park)," a different question from "can *this specific
+user* do this." A real fix needs to reconcile which of those two questions the D1 naked/backfill pass
+is actually supposed to be asking — not just thread a missing parameter through. Not decided here —
+flagging the design fork, not picking a side.
+
+**Commit:** local only, no push. Documentation only — no source file changed this task, per
+instruction ("עצור ודווח. אל תתקן").
