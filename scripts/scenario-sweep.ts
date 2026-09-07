@@ -99,7 +99,7 @@ const PERSONAS: PersonaId[] = ['parent', 'student', 'pupil', 'office_worker', 'm
 // separately covered — the user asked for exactly 4 buckets, and 13:00
 // already exercises the "time-gated bonus" mechanism once; a 5th bucket
 // would double the grid for marginal additional signal.
-const TIME_PRESETS: { key: string; hour: number; timeOfDay: TimeOfDay }[] = [
+export const TIME_PRESETS: { key: string; hour: number; timeOfDay: TimeOfDay }[] = [
   { key: 'morning', hour: 8, timeOfDay: 'morning' },
   { key: 'lunch', hour: 13, timeOfDay: 'afternoon' },
   { key: 'evening', hour: 19, timeOfDay: 'evening' },
@@ -135,7 +135,7 @@ const HOME_ONLY_KEYWORDS = ['living room', 'bedroom', 'ביתי', 'בבית', '�
 const PARK_ONLY_KEYWORDS = ['בפארק', 'מגרש'];
 const UNRESOLVED_TOKEN_RE = /@[֐-׿_A-Za-z]+/;
 
-interface Row {
+export interface Row {
   personaId: PersonaId;
   timeKey: string;
   location: ExecutionLocation;
@@ -149,7 +149,7 @@ interface Row {
   flags: string[];
 }
 
-function checkCoherence(row: Omit<Row, 'flags'>): string[] {
+export function checkCoherence(row: Omit<Row, 'flags'>): string[] {
   const flags: string[] = [];
   const homeText = `${row.homeTitle} ${row.homeDescription}`;
   const allText = `${homeText} ${row.pushText}`;
@@ -199,7 +199,7 @@ function buildProfile() {
   });
 }
 
-async function runHomeCell(personaId: PersonaId, time: typeof TIME_PRESETS[number], location: ExecutionLocation) {
+export async function runHomeCell(personaId: PersonaId, time: typeof TIME_PRESETS[number], location: ExecutionLocation) {
   const previewNow = new Date();
   previewNow.setHours(time.hour, 0, 0, 0);
 
@@ -218,10 +218,14 @@ async function runHomeCell(personaId: PersonaId, time: typeof TIME_PRESETS[numbe
 
   const result = await generateHomeWorkoutTrio(options);
   const workout = result.options[1]?.result?.workout ?? result.options.find(o => o?.result?.workout)?.result.workout;
+  const mainExercises = (workout?.exercises ?? []).filter(e => e.exerciseRole !== 'warmup' && e.exerciseRole !== 'cooldown');
   return {
     homeTitle: workout?.title ?? '',
     homeDescription: workout?.description ?? '',
     category: workout?.metadataCtx?.categoryLabel || workout?.structure || '(unknown)',
+    // Additive — only consumed by scenario-sweep-sample.ts's curated pull;
+    // the main sweep's Row/report shape ignores it (unused, harmless).
+    exerciseNames: mainExercises.map(e => (e.exercise?.name as any)?.he || (e.exercise?.name as any) || '?'),
   };
 }
 
@@ -238,7 +242,12 @@ async function runHomeCell(personaId: PersonaId, time: typeof TIME_PRESETS[numbe
 // this file audits the real production module, it doesn't patch it.
 let notificationContentApi: typeof import('../functions/src/services/notification-content.service');
 
-async function runPushCell(personaId: PersonaId, timeKey: string, location: ExecutionLocation, triggerType: string) {
+/** Call once before runPushCell — importers (e.g. scenario-sweep-sample.ts) must call this themselves too. */
+export async function initNotificationApi() {
+  notificationContentApi = await import('../functions/src/services/notification-content.service');
+}
+
+export async function runPushCell(personaId: PersonaId, timeKey: string, location: ExecutionLocation, triggerType: string) {
   const { selectNotificationContent, personaliseNotificationText, resolveCanonicalPersona } = notificationContentApi;
 
   const resolvedPersona = resolveCanonicalPersona(null, personaId);
@@ -297,7 +306,7 @@ function truncate(s: string, n: number): string {
 
 async function main() {
   const t0 = Date.now();
-  notificationContentApi = await import('../functions/src/services/notification-content.service');
+  await initNotificationApi();
   interface CellSpec { personaId: PersonaId; time: typeof TIME_PRESETS[number]; location: ExecutionLocation; triggerType: string }
   const cells: CellSpec[] = [];
   for (const personaId of PERSONAS) {
@@ -445,4 +454,11 @@ async function main() {
   process.exit(0);
 }
 
-main().catch(e => { console.error('[sweep] CRASHED:', (e as Error)?.stack || e); process.exit(1); });
+// Only auto-run the full 560-cell sweep when this file is executed directly
+// (`tsx scripts/scenario-sweep.ts`) — NOT when imported as a module for its
+// exported pieces (e.g. scripts/scenario-sweep-sample.ts reusing runHomeCell/
+// runPushCell/checkCoherence for a smaller, curated pull).
+const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+if (isMain) {
+  main().catch(e => { console.error('[sweep] CRASHED:', (e as Error)?.stack || e); process.exit(1); });
+}
