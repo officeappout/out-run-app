@@ -111,7 +111,16 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   const y = useMotionValue(0);
   const opacity = useTransform(y, [0, 220], [1, 0]);
   const dragControls = useDragControls();
-  const { scrollRef } = useSheetScrollChain({ isOpen, y, onClose });
+  // `y` is a MotionValue, not React state — it survives across close/reopen
+  // because this component never unmounts (the parent renders it
+  // unconditionally; `isOpen` only gates this component's own early return
+  // below). Every close path must reset it, or the NEXT open starts from
+  // whatever offset the drag/swipe left it at instead of fully expanded.
+  const handleClose = () => {
+    y.set(0);
+    onClose();
+  };
+  const { scrollRef } = useSheetScrollChain({ isOpen, y, onClose: handleClose });
 
   // Local-only for this stage — no persisted default yet (schedule-drawer-
   // screen-spec.md's "שמירת הפקדים" section is a later stage, not this one;
@@ -153,7 +162,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[101] bg-black/40"
             style={{ backdropFilter: 'blur(4px)' }}
-            onClick={onClose}
+            onClick={handleClose}
           />
           <motion.div
             initial={{ y: '100%' }}
@@ -169,7 +178,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
             onDragEnd={(_, info) => {
               const offset = info.offset.y;
               if (offset > CLOSE_THRESHOLD || info.velocity.y > 500) {
-                onClose();
+                handleClose();
               } else {
                 animate(y, 0, SPRING);
               }
@@ -187,7 +196,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
               <div className="w-10 h-1 bg-slate-300 rounded-full" />
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 onPointerDown={(e) => e.stopPropagation()}
                 aria-label="סגור"
                 className="absolute left-3 top-2 w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm active:scale-90 transition-all"
