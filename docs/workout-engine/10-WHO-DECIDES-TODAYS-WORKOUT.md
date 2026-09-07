@@ -4,6 +4,10 @@
 schedule/domain-mechanism chat, per David's explicit request — before either side fixes anything,
 both need the same picture of what exists today.
 
+**Update, same day:** the schedule-track chat confirmed §3's open question directly in code —
+see "RESOLVED" note in §3 and the new §8 below. Recorded here rather than silently edited away, per
+this file's own convention of stating findings, not erasing the trail that led to them.
+
 **Trigger:** confirmed (`03-CHANGES.md` Addenda 26-28) that `InputSanitizerMiddleware` reads only
 `activePrograms[0]`, so a push+pull+legs-split user gets exactly one domain forever. Before fixing
 that, David asked: is there already a schedule-driven mechanism meant to solve this, and would a
@@ -11,9 +15,8 @@ locally-invented "rotation" inside the workout engine collide with it?
 
 **Short answer: yes, there is real machinery for this, spread across at least 6 independent
 systems, and none of them imports from any other.** One of them (`scheduledProgramIds`) is
-structurally the right answer and already reaches the engine — but whether it's actually populated
-with real day-by-day push/pull/legs variation for a split user is unclear from code alone (§3), and
-is the single most important open question for the schedule side to confirm.
+structurally the right answer and already reaches the engine — confirmed, its upstream population
+is where the actual gap lives (§3/§8).
 
 ---
 
@@ -122,10 +125,14 @@ pull" regardless of what day it is. Neither is authoritative over the other toda
   `rotationItems = programs.length > 0 ? [primaryItem] : ['UPPER_BODY']` — a **single item**,
   assigned to every training day via `idx < rotationItems.length ? rotationItems[idx] : ...`
   (effectively always index 0 for a 1-length array). **This means the default template for a plain
-  push/pull/legs split does not vary by day out of the box.** Whether an actual push_pull_legs-split
-  user ends up with a *different* recurringTemplate (e.g., because they built their schedule before
-  switching splits, or edited days manually) is not something this document can confirm from static
-  code — it depends on data, not just logic. **Open question for the schedule chat.**
+  push/pull/legs split does not vary by day out of the box.**
+
+  **RESOLVED (07.09.2026, schedule-track chat, confirmed in code):** yes, same value every day.
+  `scheduleRules.ts:283-293` — `pickPrimary` selects `programs[0]` when no skills are set, so
+  `rotationItems = [primaryItem]` for a plain push/pull/legs split; `rotationItems[idx %
+  rotationItems.length]` collapses to the same single item on every training day. Same shape of bug
+  as `InputSanitizerMiddleware:237`, independently, in a different file — both read index 0 and
+  never look further. See §8 for the joint conclusion.
 - **`recurringTemplate` is NOT re-read on return to onboarding** — `scheduleRehydration.ts:27-33`
   explicitly notes it's "write-only, built fresh in handleContinue," deliberately not a rehydration
   source. Not directly relevant to the engine-read path, but relevant to understanding how stale a
@@ -262,16 +269,42 @@ ends up owning rotation.
 
 ---
 
-## Open questions for the schedule/domain chat
+## 8. Joint conclusion (07.09.2026, both tracks)
 
-1. **The load-bearing one**: for a real push_pull_legs-split user, does `UserScheduleEntry.programIds`
-   (or the `recurringTemplate` it hydrates from) actually vary by day today, or is it the same value
-   every training day (matching what §3's code trace of `buildDefaultTemplate` suggests)?
-2. If it doesn't vary today — is building that rotation your side's responsibility, or does it belong
-   with `SplitDecisionService`'s already-built (but disconnected) PPL logic (system #3)?
-3. Should `SplitDecisionService.getWorkoutContext`'s rotation output and the schedule's per-day
-   answer be reconciled into one authority, or should the schedule always win when both exist (per
-   §2's stated contradiction)?
+The schedule-track chat independently confirmed §3's open question in `scheduleRules.ts:283-293`:
+`pickPrimary` picks `programs[0]` when no skills are configured, so a plain push/pull/legs split gets
+`rotationItems = [primaryItem]` — **the exact same "read index 0, never look further" bug as
+`InputSanitizerMiddleware:237`, independently, in a different file.** Two systems, same failure
+shape, no shared code between them — consistent with §2's "6 disconnected systems" finding rather
+than a coincidence.
+
+**Confirmed from the schedule side, no code change needed on the engine side for the interface
+itself**: `home-workout.service.ts:1490-1544` already correctly consumes a multi-value
+`scheduledProgramIds` and narrows `activePrograms[0]` per day whenever it's populated with a real
+answer. The fix the schedule side owns is at the *write* side (`scheduleRules.ts`'s
+`rotationItems`/`pickPrimary` needs push/pull/legs rotation added, mirroring the skill-rotation
+logic already sitting right next to it in the same file) — not a new engine-facing contract.
+
+**Joint recommendation, adopted**: the schedule is the source of truth for *which domain* is
+trained today; `SplitDecisionService`'s `lastSessionFocus`-driven PPL rotation (system #3) stays
+scoped to volume/dominance weighting only and is never wired into `activeDomains`. This resolves
+§2's stated contradiction by picking an explicit winner rather than leaving both live.
+
+**Still open, on the engine side specifically**: §7's "no schedule answer at all → merge across all
+active programs instead of freezing on `activePrograms[0]`" fallback is not yet implemented. That's
+the one piece of §7 that remains a real engine-side change, independent of whatever the schedule
+side ships — it covers the "brand-new user, no schedule configured yet" case that no amount of
+schedule-side rotation fixes on its own.
+
+---
+
+## Open questions — status
+
+1. ~~Does the schedule vary by day?~~ **RESOLVED** — no, confirmed same value every day (§3, §8).
+2. ~~Whose responsibility is building that rotation?~~ **RESOLVED** — schedule side's; not
+   `SplitDecisionService`'s (§8).
+3. ~~Should schedule or `lastSessionFocus` win when both exist?~~ **RESOLVED** — schedule wins;
+   `lastSessionFocus` stays volume-only (§8, joint recommendation, adopted).
 4. Does "push+pull+legs ⇒ also full_body" (§4) need to become a real, written rule, or is it
    sufficient that `isFullBodyMaster` already derives the same effect at runtime *if* `resolvedChildDomains`
    ever legitimately covers all 4 domains (which, per Addendum 28, it currently doesn't for a
