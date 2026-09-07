@@ -1399,6 +1399,7 @@ async function _buildSharedPipeline(
     daysInactiveOverride,
     personaOverride,
     timeOfDay: timeOfDayOverride,
+    previewNow,
     isFirstSessionInProgram,
     remainingWeeklyBudget,
     weeklyBudgetUsagePercent,
@@ -2530,6 +2531,7 @@ async function _buildSharedPipeline(
     userLevel: baseUserLevel,
     isAbroad,
     recentBundleIds,
+    previewNow,
   };
 
   return {

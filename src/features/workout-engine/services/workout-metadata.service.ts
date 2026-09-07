@@ -127,6 +127,15 @@ export interface WorkoutMetadataContext {
   weeklyCompletedSets?: number;
   /** Defined weekly set quota (target) */
   weeklySetQuota?: number;
+
+  /**
+   * Simulator-only override for "now" — when set, time-gated scoring bonuses
+   * (Parent Time-Window Boost, Desk Reset Boost) read this instead of the
+   * real wall clock, so they're previewable outside their real-world window.
+   * Undefined in every production call site; production behavior is
+   * unchanged (falls through to `new Date()`).
+   */
+  previewNow?: Date;
 }
 
 export interface ResolvedWorkoutMetadata {
@@ -531,7 +540,7 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   // 08:00-09:00 = post-dropoff window → boost morning content
   // 16:00-17:30 = park/pickup window → boost afternoon content
   if (ctx.persona === 'parent') {
-    const now = new Date();
+    const now = ctx.previewNow ?? new Date();
     const h = now.getHours();
     const m = now.getMinutes();
     const minuteOfDay = h * 60 + m;
@@ -553,7 +562,7 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   // ============================================================================
   // During lunch hours, boost desk-friendly content for sedentary personas.
   if (ctx.persona === 'office_worker' || ctx.persona === 'student') {
-    const deskNow = new Date();
+    const deskNow = ctx.previewNow ?? new Date();
     const deskH = deskNow.getHours();
     const isDeskWindow = deskH >= 12 && deskH < 14;
 
@@ -896,7 +905,7 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
 
   // Parent time-window
   if (ctx.persona === 'parent') {
-    const nowDbg = new Date();
+    const nowDbg = ctx.previewNow ?? new Date();
     const mod = nowDbg.getHours() * 60 + nowDbg.getMinutes();
     if (mod >= 480 && mod < 540 && row.timeOfDay === 'morning') reasons.push('parentDropoff(+20)');
     if (mod >= 960 && mod < 1050 && row.timeOfDay === 'afternoon') reasons.push('parentPark(+20)');
@@ -904,7 +913,7 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
 
   // Desk Reset
   if (ctx.persona === 'office_worker' || ctx.persona === 'student') {
-    const deskDbgH = new Date().getHours();
+    const deskDbgH = (ctx.previewNow ?? new Date()).getHours();
     if (deskDbgH >= 12 && deskDbgH < 14) {
       const deskDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
       if (['כיסא', 'שולחן', 'משרד', 'ספרייה', 'מתיחות', 'עיניים'].some(kw => deskDbgText.includes(kw))) {
@@ -1035,6 +1044,25 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
 interface ScoredFetchResult {
   text: string | null;
   bundleId?: string;
+  /** Only populated when scoredFetch is called with includeCandidates=true (preview/simulator use). */
+  candidates?: WorkoutMetadataCandidate[];
+}
+
+/**
+ * Full transparency record for one scored content row — used by the admin
+ * simulator's "why was this chosen" panel. Never computed in the production
+ * resolve path (includeCandidates defaults to false, so this costs nothing
+ * there).
+ */
+export interface WorkoutMetadataCandidate {
+  text: string;
+  score: number;
+  reasons: string[];
+  bundleId?: string;
+  /** True for every row tied for the top score — the real system shuffles among these at random. */
+  tiedForFirst: boolean;
+  /** True for the one row this specific call actually returned. */
+  isPicked: boolean;
 }
 
 /**
@@ -1046,6 +1074,7 @@ interface ScoredFetchResult {
  * @param textField      The field that contains the user-facing string
  * @param ctx            The user's metadata context
  * @param activeBundleId If set, rows sharing this bundleId get +BUNDLE_SYNC_BOOST
+ * @param includeCandidates Simulator-only: also return every scored candidate (not just the winner)
  */
 async function scoredFetch(
   parentDoc: string,
@@ -1053,6 +1082,7 @@ async function scoredFetch(
   textField: string,
   ctx: WorkoutMetadataContext,
   activeBundleId?: string,
+  includeCandidates = false,
 ): Promise<ScoredFetchResult> {
   try {
     const ref = collection(db, METADATA_BASE, parentDoc, subCol);
@@ -1064,6 +1094,9 @@ async function scoredFetch(
 
     let bestScore = -1;
     let bestRows: any[] = [];
+    // Only populated when includeCandidates is true — every row scoring >= 0
+    // (i.e. not hard-excluded), for the admin simulator's transparency table.
+    const scoredRows: Array<{ row: any; score: number }> = [];
 
     for (const row of allRows) {
       let score = scoreContentRow(row, ctx);
@@ -1072,6 +1105,8 @@ async function scoredFetch(
       if (activeBundleId && row.bundleId && row.bundleId === activeBundleId) {
         score += BUNDLE_SYNC_BOOST;
       }
+
+      if (includeCandidates) scoredRows.push({ row, score });
 
       if (score > bestScore) {
         bestScore = score;
@@ -1099,7 +1134,27 @@ async function scoredFetch(
       console.groupEnd();
     }
 
-    return { text: result, bundleId: picked.bundleId };
+    let candidates: WorkoutMetadataCandidate[] | undefined;
+    if (includeCandidates) {
+      candidates = scoredRows
+        .map(({ row, score }) => {
+          const reasons = getMatchReasons(row, ctx);
+          if (activeBundleId && row.bundleId === activeBundleId) {
+            reasons.push(`bundleSync=${activeBundleId}(+${BUNDLE_SYNC_BOOST})`);
+          }
+          return {
+            text: row[textField] || '(ריק)',
+            score,
+            reasons,
+            bundleId: row.bundleId,
+            tiedForFirst: score === bestScore,
+            isPicked: row === picked,
+          };
+        })
+        .sort((a, b) => b.score - a.score);
+    }
+
+    return { text: result, bundleId: picked.bundleId, candidates };
   } catch (error) {
     console.warn(`[WorkoutMetadata] Error in scoredFetch(${parentDoc}/${subCol}):`, error);
     return { text: null };
@@ -1110,12 +1165,12 @@ async function scoredFetch(
 // FETCH WRAPPERS (delegate to Scoring Engine)
 // ============================================================================
 
-async function fetchWorkoutTitle(ctx: WorkoutMetadataContext): Promise<ScoredFetchResult> {
-  return scoredFetch('workoutTitles', TITLES_SUBCOLLECTION, 'text', ctx);
+async function fetchWorkoutTitle(ctx: WorkoutMetadataContext, includeCandidates = false): Promise<ScoredFetchResult> {
+  return scoredFetch('workoutTitles', TITLES_SUBCOLLECTION, 'text', ctx, undefined, includeCandidates);
 }
 
-async function fetchSmartDescription(ctx: WorkoutMetadataContext, activeBundleId?: string): Promise<ScoredFetchResult> {
-  return scoredFetch('smartDescriptions', DESCRIPTIONS_SUBCOLLECTION, 'description', ctx, activeBundleId);
+async function fetchSmartDescription(ctx: WorkoutMetadataContext, activeBundleId?: string, includeCandidates = false): Promise<ScoredFetchResult> {
+  return scoredFetch('smartDescriptions', DESCRIPTIONS_SUBCOLLECTION, 'description', ctx, activeBundleId, includeCandidates);
 }
 
 async function fetchMotivationalPhrase(ctx: WorkoutMetadataContext, activeBundleId?: string): Promise<ScoredFetchResult> {
@@ -1193,14 +1248,21 @@ async function fetchLogicCue(
  * content exists in Firestore, while gracefully degrading to independent
  * scoring when no bundleId is present.
  */
-export async function resolveWorkoutMetadata(
+/**
+ * Shared implementation for resolveWorkoutMetadata / resolveWorkoutMetadataWithCandidates
+ * — identical resolution logic either way; includeCandidates only adds the
+ * (otherwise-skipped) full scored-candidate lists for title/description, for
+ * the admin simulator's transparency panel.
+ */
+async function resolveWorkoutMetadataCore(
   ctx: WorkoutMetadataContext,
-  variant?: TrioVariant,
-  logicTagOverrides?: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'>,
-): Promise<ResolvedWorkoutMetadata> {
+  variant: TrioVariant | undefined,
+  logicTagOverrides: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'> | undefined,
+  includeCandidates: boolean,
+): Promise<ResolvedWorkoutMetadata & { titleCandidates?: WorkoutMetadataCandidate[]; descriptionCandidates?: WorkoutMetadataCandidate[] }> {
   try {
     // ── Pass 1: Title (anchor for bundle sync) ──
-    const titleResult = await fetchWorkoutTitle(ctx);
+    const titleResult = await fetchWorkoutTitle(ctx, includeCandidates);
     const activeBundleId = titleResult.bundleId;
 
     if (DEBUG_METADATA_RESOLUTION && activeBundleId) {
@@ -1209,7 +1271,7 @@ export async function resolveWorkoutMetadata(
 
     // ── Pass 2: Remaining content with bundle boost ──
     const [descriptionResult, phraseResult, logicCue] = await Promise.all([
-      fetchSmartDescription(ctx, activeBundleId),
+      fetchSmartDescription(ctx, activeBundleId, includeCandidates),
       fetchMotivationalPhrase(ctx, activeBundleId),
       variant ? fetchLogicCue(ctx, variant, activeBundleId) : Promise.resolve(null),
     ]);
@@ -1222,7 +1284,7 @@ export async function resolveWorkoutMetadata(
     const tagCtx: TagResolverContext = {
       persona: ctx.persona || undefined,
       location: ctx.location,
-      currentTime: new Date(),
+      currentTime: ctx.previewNow ?? new Date(),
       timeOfDay: ctx.timeOfDay === 'night' ? 'evening' : ctx.timeOfDay,
       userGender: ctx.gender,
       daysInactive: ctx.daysInactive,
@@ -1281,9 +1343,38 @@ export async function resolveWorkoutMetadata(
       logicCue:    isStrengthSession ? stripUnresolved(resolvedLogicCue)    : resolvedLogicCue,
       source: hasAnyFirestoreData ? 'firestore' : 'fallback',
       bundleId: activeBundleId,
+      titleCandidates: titleResult.candidates,
+      descriptionCandidates: descriptionResult.candidates,
     };
   } catch (error) {
     console.warn('[WorkoutMetadata] Resolve failed, using fallback:', error);
     return { title: null, description: null, aiCue: null, logicCue: null, source: 'fallback' };
   }
+}
+
+export async function resolveWorkoutMetadata(
+  ctx: WorkoutMetadataContext,
+  variant?: TrioVariant,
+  logicTagOverrides?: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'>,
+): Promise<ResolvedWorkoutMetadata> {
+  return resolveWorkoutMetadataCore(ctx, variant, logicTagOverrides, false);
+}
+
+/**
+ * Simulator-only: identical resolution to resolveWorkoutMetadata, but also
+ * returns every scored title/description candidate (not just the winner) so
+ * the admin panel can show why a given row won — real scores from the exact
+ * same scoreContentRow production code, never a fabricated table.
+ */
+export async function resolveWorkoutMetadataWithCandidates(
+  ctx: WorkoutMetadataContext,
+  variant?: TrioVariant,
+  logicTagOverrides?: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'>,
+): Promise<ResolvedWorkoutMetadata & { titleCandidates: WorkoutMetadataCandidate[]; descriptionCandidates: WorkoutMetadataCandidate[] }> {
+  const result = await resolveWorkoutMetadataCore(ctx, variant, logicTagOverrides, true);
+  return {
+    ...result,
+    titleCandidates: result.titleCandidates ?? [],
+    descriptionCandidates: result.descriptionCandidates ?? [],
+  };
 }
