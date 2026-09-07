@@ -3684,3 +3684,127 @@ does not — **9b2e7642 is not dead code, protects 2 confirmed live paths this h
 must not be reverted or removed.**
 
 **Commit:** local only, no push.
+
+## Addendum 36 — core-in-competition fix, full round: verification, 3 fixes (in order), tests, measurement.
+
+### Stage 1 — verification (read-only), 3 findings, all confirmed by David independently
+
+1. **`enforceVolumeCap` had no sole-representative floor for core** — `isExpendable`
+   (`PresentationFormatter.ts:515`, pre-fix) marked ANY core exercise expendable via
+   `CORE_MGS.has(mg)` unconditionally, with no "is this the last one" guard — unlike legs
+   (`legsCount > 1`, line 521). Neither Fix 1 nor the rank-reorder (Fix 2) alone would have closed
+   this: a core exercise stays inside `isExpendable`'s candidate set regardless of priority or rank,
+   so once everything else is exhausted, core's sole exercise is still the only candidate left and
+   still gets removed — one step later, not prevented. **Blocking — fixed first.**
+2. **Tabata core is already exempt from `enforceVolumeCap`**, for an unrelated reason —
+   `ex.protocolBlock` (line 513) is priced as a fixed 4-min constant and excluded from both Phase A
+   and Phase B. Not core-protection intent, just a coincidental shield. Nothing to fix; documented as
+   out of this bug's blast radius.
+3. **Only `_fullBodyBlocks` plans a dedicated core block, and even the 2-domain non-push-pull case is
+   broken worse than the bug being fixed** — `_singleDomainBlocks` (`StructureDirector.ts:253`) reads
+   only `domains[0]`; for `requiredDomains=['pull','core']` it builds 4 pull-only blocks and never
+   references `'core'` at all — core isn't deprioritized, it's **never planned**. Same root pattern as
+   `activePrograms[0]`, `scheduleRules`'s pickPrimary, and `rotationItems` — read index [0], ignore the
+   rest. **Decision (David): out of this round.** A function named "single domain" serving two domains
+   is an architecture problem, not a point fix — logged as a high-priority open item, not rushed.
+
+### Stage 1 → Stage 2 handoff — 2 more corrections, both from re-reading the code against my own literal
+### wording, both caught by David before I wrote a line of fix code
+
+- **Fix 1's original wording** ("`isAccessorySlot` true only when core is NOT in `requiredDomains`")
+  is unimplementable: `activeCore` (`StructureDirector.ts:173`) already requires
+  `domains.includes('core')` to even reach the block-creation code — there's no reachable state
+  inside it where core isn't in `requiredDomains`. The real signal is `context.strictDomains` — set by
+  real explicit-pick callers (`WorkoutBuilderSheet.tsx:644`), unset when `requiredDomains` is
+  schedule/program-derived. `isAccessorySlot: !context.strictDomains`. 3 other callers
+  (`strength-block.service.ts:120`, `complementary-short.generator.ts:33`,
+  `partial-completion.generator.ts:159`) also pass `strictDomains:true` unconditionally — they now
+  get core as main-tier too. **Intentional**, per David: each already targets a specific domain set on
+  the user's behalf, so Rule A's "explicit focus = full standing" applies the same way it does to a
+  manual chip-pick.
+- **Fix 0's original wording** ("duplicate legs's guard for core exactly") would have broken the
+  existing, deliberately-designed `<20min` test (`enforce-volume-cap.test.ts:118-130`, "a short,
+  focused session may legitimately ship without core"). Legs has no below-threshold exception because
+  it's always structurally required; core does, and it's a separate, pre-existing, already-approved
+  product decision (`GuaranteePassRunner`'s `optional_below_20min`). Resolution: the sole-representative
+  guard is scoped to `coreProtected` (≥20min) only — below 20min, core stays exactly as unconditionally
+  expendable as before.
+
+### Stage 2 — the 3 fixes, in order, each its own commit
+
+1. **`4267dd7e` — Fix 0**: `isExpendable` gains a sole-representative guard for core, scoped to
+   `coreProtected`, gated before the generic isolation/accessory check (a sole core exercise is
+   near-always priority `accessory` — falling through to that check would have silently defeated the
+   guard).
+2. **`175594ef` — Fix 1**: `StructureDirector.ts`'s core block — `isAccessorySlot: !context.strictDomains`.
+3. **`9527ff83` — Fix 2**: `expendabilityRank`'s `coreProtected` branch checks `isCore` before
+   `isIsolationOrAccessory` — the prior order let a real (accessory-priority) core exercise hit rank 0
+   and be removed first, exactly defeating the branch's own "core trims last" comment.
+
+### Stage 3 — tests: 6 new, all fail-before/pass-after verified (git stash / targeted revert), no
+### regressions
+
+`structure-director-core-gate.test.ts` (+3): `strictDomains:true` → main-tier; `strictDomains`
+unset/`false` → stays accessory-tier (both unchanged-behavior checks pass both ways, as expected).
+`enforce-volume-cap.test.ts` (+3): sole core survives a cut even scored lower than a competing
+accessory item; with 2 core exercises, one is still removable (guard doesn't over-protect); with 2 core
+exercises + 1 non-core accessory item, the non-core item goes first regardless of score (isolates Fix 2
+specifically — verified it fails when only Fix 2's reorder is reverted, independent of Fix 0). Full
+suite: 587/587 (581 baseline + 6 new), same 2 pre-existing unrelated failures. `tsc`: no errors
+attributable to either changed file.
+
+### Stage 4 — measurement (`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, 300 calls, 0 errors, 324 workouts,
+### 1898 exercises)
+
+**`core_promise_outcome`, segmented — the clearest, cleanest signal:**
+
+| req_domains | satisfied (pre→post) | failed (pre→post) | injected (pre→post) |
+|---|---|---|---|
+| `push,pull,legs,core` | 16 → **43** | 50 → **27** | 1 → 2 |
+| `program:full_body` | 4 → **11** | 6 → **0** | — |
+| `push,pull,legs` (core not requested) | 16 → 26 | 46 → 31 | 4 → 12 |
+| `auto` | 13 → 24 | 51 → 37 | 3 → 8 |
+| `no_core_assessment` | 0 → 0 | 12 → 12 (all `unassessed`) | — |
+| `core`-only | blank → blank (unchanged — guarantee pass still doesn't run) | | |
+
+`push,pull,legs,core` satisfaction roughly **tripled** (22%→60%); `program:full_body` went from 50%
+failure to **zero** failures. The improvement also reaches `push,pull,legs` and `auto` (core not
+explicitly requested) — Fix 0/2 protect an auto-injected core exercise the same way once it's placed,
+regardless of `strictDomains`, which is Rule B's own spirit (protect the bonus once it's there).
+`no_core_assessment` and the `core`-only bucket are byte-for-byte unchanged — regression guards hold.
+
+**Against David's 4 criteria:**
+
+1. **`push,pull,legs,core` rises above `push,pull,legs`** — ✅ MET, ratio inverted. Avg core/workout:
+   `push,pull,legs,core` 0.458→**0.847**; `push,pull,legs` 0.792 (was 0.556, `push,pull,legs` itself
+   also gained core via the Rule-B injection path above). 0.847 > 0.792.
+2. **`no_core_assessment` stays exactly 0.00`** — ✅ MET, unchanged.
+3. **push/pull/legs don't drop** — ⚠️ **not unconditionally true — see below, reporting precisely
+   rather than rounding to pass or fail.**
+4. **`core`-only bucket (2.68) unaffected** — ✅ MET (2.667, noise-level).
+
+**Criterion 3, in full — a real confound found and separated from a real (small) effect:**
+
+The aggregate `push,pull,legs` bucket (which never requests core, so none of the 3 fixes can causally
+touch it) ALSO shows small drops post-fix (pull 1.556→1.458, legs 1.194→1.181) — impossible via any of
+the 3 fixes' own logic. Root cause: `SNAPSHOT_CONCURRENCY=1`'s ONE shared, stateful, sequential PRNG
+(Addendum 31) — a combo whose execution path changes (core surviving longer) shifts the RNG position
+for every LATER call in the 300-call sequence, including combos that never touch core. This is
+measurement noise, not a fix effect, and it also contaminates part of `push,pull,legs,core`'s own
+pull/legs deltas (1.611→1.542, 1.208→1.167) in the same run.
+
+To separate real effect from cascade noise, ran a cascade-free targeted sweep (8 points, fresh process
++ seed reset per call, no sequence to cascade through) comparing `push,pull,legs` vs
+`push,pull,legs,core` directly: **6 of 8 points show zero push/pull/legs displacement (core purely
+adds), 1 point is a pure gain (L12/30min/home/D2: push+1, core+1, nothing lost), and 2 points show a
+genuine, real, non-cascade tradeoff**: L5/20min/home/D2 (push-1, core+1 — a direct swap) and
+L5/30min/park/D2 (push+1, pull+1, core**-2** — a more complex effect, mechanism not traced further this
+round). Net: **criterion 3 is not universally true at the per-scenario level** — a real, if
+small and infrequent (2/8 sampled points), push/domain tradeoff exists alongside the dominant "pure
+gain" pattern. The full-matrix aggregate (72-workout average) for push in `push,pull,legs,core` stayed
+flat (1.569→1.569) — the local trades and gains net out across the sample — but "the aggregate average
+didn't move" is not the same claim as "no individual scenario ever trades," and this addendum is not
+rounding the two together.
+
+**Commit:** 3 code commits (`4267dd7e`, `175594ef`, `9527ff83`) + this documentation commit, local
+only, no push.
