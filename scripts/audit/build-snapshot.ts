@@ -206,7 +206,10 @@ const LEGACY_DB_PATH = path.join(REPO_ROOT, 'docs', 'workout-engine', 'legacy-wo
 // a local verification aid only.
 const SMOKE = process.env.SNAPSHOT_SMOKE === '1';
 
-const LEVELS = SMOKE ? [1, 8] : [1, 3, 5, 8, 12];
+// Reduced from [1,3,5,8,12] to [1,5,12] (Addendum 34, 07.09.2026) — per
+// David's explicit trade-off: DOMAIN_SUBSETS doubled below (2→4) to add the
+// two core-focused subsets he asked for; cut this axis, not the new ones.
+const LEVELS = SMOKE ? [1, 8] : [1, 5, 12];
 const DURATIONS = SMOKE ? [20] : [15, 20, 30, 45];
 // David, 07.09.2026: reduced from 3 to 2 (dropped 'gym') to make room for the
 // two new real axes below (domain-subsets×strictDomains, targetDifficulty) —
@@ -241,7 +244,19 @@ const DOMAIN_SUBSETS: (string[] | undefined)[] = FORCE_DOMAINS
           ['push', 'pull'], ['push', 'legs'], ['pull', 'legs'],
           ['push', 'pull', 'legs'],
         ])
-  : [undefined, ['push', 'pull', 'legs']];
+  : [undefined, ['push', 'pull', 'legs'], ['push', 'pull', 'legs', 'core'], ['core']];
+// Addendum 34 (07.09.2026, David's catch): the strictDomains fix above still
+// never put `core` in a requiredDomains selection — every chip-picked combo
+// was push/pull/legs only, and activePrograms was always []. So the
+// pre-Addendum-34 `core_promise_outcome` numbers (Addendum 33: failed=170)
+// answered "did the engine push core the user never asked for," not "did a
+// user who explicitly asked for core actually get it" — two different
+// questions. Added `['push','pull','legs','core']` (explicit request
+// including core, strictDomains:true) and `['core']` (core ONLY,
+// strictDomains:true — the sharpest test of whether core gets satisfied when
+// it's the one thing requested) so `core_promise_outcome` can finally be
+// segmented by "was core actually requested" instead of reported as one
+// aggregate number that conflates both scenarios (see report query below).
 // Reduced from [0,3,10] to [0] — same reasoning as LOCATIONS above.
 const DAYS_INACTIVE = [0];
 // David, 07.09.2026: `difficulty` (below, kept only because
@@ -323,8 +338,18 @@ interface Combo {
    * scheduleRules.ts/scheduledProgramIds — those are the frozen
    * schedule↔engine boundary — this only feeds them a different, equally
    * real INPUT shape and observes the (unmodified) pipeline's output.
+   *
+   * David, 07.09.2026 (Addendum 34), 2 more modes, same "small deliberate
+   * tripwire, not a full sweep" treatment as push_pull_legs_split:
+   * 'full_body' — a REAL activePrograms:[{id:'full_body',...}] input (a user
+   * who picked a Full Body program, as opposed to no program or a
+   * per-domain split), with domainLevels covering all 4 domains explicitly.
+   * 'no_core_assessment' — domainLevels genuinely OMITS the `core` key (not
+   * set to any value — the key itself is absent, matching buildMockProfile's
+   * "absent=absent" convention), activePrograms:[] — verifies a user who
+   * never completed a core assessment doesn't get core fabricated for them.
    */
-  activeProgramsMode: 'auto' | 'push_pull_legs_split';
+  activeProgramsMode: 'auto' | 'push_pull_legs_split' | 'full_body' | 'no_core_assessment';
   /**
    * David, 07.09.2026 (Addendum 33): only meaningful for
    * activeProgramsMode:'auto' — see TARGET_DIFFICULTIES above. Ignored by
@@ -341,6 +366,14 @@ interface Combo {
 // long session) without multiplying the whole matrix by activeProgramsMode.
 const PUSH_PULL_LEGS_SPLIT_LEVELS = SMOKE ? [8] : [8, 12];
 const PUSH_PULL_LEGS_SPLIT_DURATIONS = SMOKE ? [30] : [30, 45];
+
+// David, 07.09.2026 (Addendum 34): same small-tripwire sizing as
+// push_pull_legs_split above, for the same reason — this is a regression
+// check for one specific real activePrograms shape, not a full sweep.
+const FULL_BODY_LEVELS = SMOKE ? [8] : [8, 12];
+const FULL_BODY_DURATIONS = SMOKE ? [30] : [30, 45];
+const NO_CORE_ASSESSMENT_LEVELS = SMOKE ? [8] : [8, 12];
+const NO_CORE_ASSESSMENT_DURATIONS = SMOKE ? [30] : [30, 45];
 
 function buildCombos(): Combo[] {
   const combos: Combo[] = [];
@@ -359,6 +392,22 @@ function buildCombos(): Combo[] {
         activeProgramsMode: 'push_pull_legs_split',
         // Placeholder — ignored by runCombo for this mode (free-trio shape, no targetDifficulty passed).
         targetDifficulty: 2,
+      });
+
+  for (const level of FULL_BODY_LEVELS)
+    for (const duration of FULL_BODY_DURATIONS)
+      combos.push({
+        level, duration, location: 'home', domains: undefined, daysInactive: 0,
+        activeProgramsMode: 'full_body',
+        targetDifficulty: 2, // placeholder — ignored, see above
+      });
+
+  for (const level of NO_CORE_ASSESSMENT_LEVELS)
+    for (const duration of NO_CORE_ASSESSMENT_DURATIONS)
+      combos.push({
+        level, duration, location: 'home', domains: undefined, daysInactive: 0,
+        activeProgramsMode: 'no_core_assessment',
+        targetDifficulty: 2, // placeholder — ignored, see above
       });
 
   return combos;
@@ -439,24 +488,30 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
   const callId = `r${runIndex}`;
   const callSeed = Date.now();
 
-  const domainLevels = { pull: level, push: level, legs: level, core: level };
-  const profile = activeProgramsMode === 'push_pull_legs_split'
-    ? buildMockProfile({
-        level, persona: '', injuries: [],
-        domainLevels, coldStart: false,
-        gear: ['pullup_bar', 'dip_bar', 'parallel_bars'],
-        activePrograms: [
+  // Addendum 34 (07.09.2026): 'no_core_assessment' is the one mode where
+  // domainLevels genuinely OMITS the `core` key — not core:undefined, the
+  // key itself absent, matching buildMockProfile's own "absent=absent"
+  // handling (`if (domainLevels.core != null)`). Every other mode keeps the
+  // original all-4-domains shape.
+  const domainLevels: Record<string, number> = activeProgramsMode === 'no_core_assessment'
+    ? { pull: level, push: level, legs: level }
+    : { pull: level, push: level, legs: level, core: level };
+  const activeProgramEntries =
+    activeProgramsMode === 'push_pull_legs_split'
+      ? [
           { id: 'push', name: 'Push', level },
           { id: 'pull', name: 'Pull', level },
           { id: 'legs', name: 'Legs', level },
-        ],
-      })
-    : buildMockProfile({
-        level, persona: '', injuries: [],
-        domainLevels, coldStart: false,
-        gear: ['pullup_bar', 'dip_bar', 'parallel_bars'],
-        activePrograms: [],
-      });
+        ]
+      : activeProgramsMode === 'full_body'
+      ? [{ id: 'full_body', name: 'Full Body', level }]
+      : []; // 'auto' and 'no_core_assessment' — no active program
+  const profile = buildMockProfile({
+    level, persona: '', injuries: [],
+    domainLevels, coldStart: false,
+    gear: ['pullup_bar', 'dip_bar', 'parallel_bars'],
+    activePrograms: activeProgramEntries,
+  });
 
   // Addendum 33 (07.09.2026): strictDomains/targetDifficulty only apply to
   // 'auto' mode combos — see the Combo interface + TARGET_DIFFICULTIES /
@@ -511,7 +566,10 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
     workouts.push({
       run_id: runId, seed: callSeed, bolt,
       req_level: level, req_duration: duration, req_location: location,
-      req_domains: activeProgramsMode === 'push_pull_legs_split' ? 'split:push_pull_legs' : (domains?.join(',') || 'auto'),
+      req_domains: activeProgramsMode === 'push_pull_legs_split' ? 'split:push_pull_legs'
+        : activeProgramsMode === 'full_body' ? 'program:full_body'
+        : activeProgramsMode === 'no_core_assessment' ? 'no_core_assessment'
+        : (domains?.join(',') || 'auto'),
       days_inactive: daysInactive,
       title: w.title ?? '', structure: w.structure ?? null,
       applied_protocol: w.appliedProtocol ?? null,
@@ -602,7 +660,9 @@ async function main() {
   const combos = buildCombos();
   const autoCombosCount = LEVELS.length * DURATIONS.length * LOCATIONS.length * DOMAIN_SUBSETS.length * DAYS_INACTIVE.length * TARGET_DIFFICULTIES.length;
   const splitCombosCount = PUSH_PULL_LEGS_SPLIT_LEVELS.length * PUSH_PULL_LEGS_SPLIT_DURATIONS.length;
-  report(`Matrix: ${LEVELS.length} levels × ${DURATIONS.length} durations × ${LOCATIONS.length} locations × ${DOMAIN_SUBSETS.length} domain-subsets × ${DAYS_INACTIVE.length} daysInactive × ${TARGET_DIFFICULTIES.length} targetDifficulty = ${autoCombosCount} 'auto' calls (1 workout row each, targetDifficulty-scoped — not free trio) + ${splitCombosCount} 'push_pull_legs_split' calls (×3 bolts each, free per call) = ${combos.length} total calls`);
+  const fullBodyCombosCount = FULL_BODY_LEVELS.length * FULL_BODY_DURATIONS.length;
+  const noCoreCombosCount = NO_CORE_ASSESSMENT_LEVELS.length * NO_CORE_ASSESSMENT_DURATIONS.length;
+  report(`Matrix: ${LEVELS.length} levels × ${DURATIONS.length} durations × ${LOCATIONS.length} locations × ${DOMAIN_SUBSETS.length} domain-subsets × ${DAYS_INACTIVE.length} daysInactive × ${TARGET_DIFFICULTIES.length} targetDifficulty = ${autoCombosCount} 'auto' calls (1 workout row each, targetDifficulty-scoped — not free trio) + ${splitCombosCount} 'push_pull_legs_split' + ${fullBodyCombosCount} 'full_body' + ${noCoreCombosCount} 'no_core_assessment' calls (×3 bolts each, free per call) = ${combos.length} total calls`);
   report(`Concurrency: ${CONCURRENCY}`);
 
   const db = new Database(SNAPSHOT_DB_PATH);
