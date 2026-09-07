@@ -3089,6 +3089,15 @@ instruction — the shared main working directory hit a stuck `index.lock` twice
 ## Report only, per instruction — NO fix applied. Turns out to be inert in production today, for a
 ## reason worth knowing before deciding whether to fix it at all.
 
+**מוקפא לפי §2 — שייך למסלול הלוז** (`.claude/knowledge/schedule-vs-smart-coach-contract.md`):
+`evaluateProgramEvolution`/`pendingProgramEvolution` changes which program the user is switched into
+by level — that changes what appears in the schedule, so it's frozen under the schedule↔smart-coach
+contract, same as the other boundary files. This addendum stays as documentation only — do not
+delete, fix, or complete this mechanism until that contract resolves it. Do not confuse with the
+separate, live `assessment_rules`/`program_thresholds` mechanism in the admin panel (different
+thresholds/program names, read only from the registration screen) — that one is real, out of scope
+for this addendum, and will be handled separately.
+
 David's flagged lines (`buildEvolvedPrograms`, ~1420-1423/1460-1463) belong to a "Program Evolution
 Engine" with two halves:
 
