@@ -308,6 +308,49 @@ const PERSONA_ID_PREFIXES = [
   'parent_', 'senior_', 'student_',
 ];
 
+/**
+ * Soft penalty (not a hard exclusion) applied when a row is tagged for a
+ * SPECIFIC demographic persona different from the requesting user's own
+ * SPECIFIC persona — e.g. a 'parent'-tagged row competing for a 'student'
+ * request. The David Clause above only protects NO-persona users from
+ * demographic content; it has no counterpart for a user who already HAS a
+ * specific persona seeing a DIFFERENT demographic's content — the confirmed
+ * root cause of the cross-persona "parent-bleed" pattern (parent-flavored
+ * titles winning for student/office_worker/military/pupil/pro_athlete in the
+ * scenario-sweep audit, docs/research/notification-content-scenario-sweep.md,
+ * 06.09.2026). A soft penalty — not the David Clause's hard -1 — lets a
+ * mismatched row still win when it's the only option (the safety net thin-
+ * inventory personas like pupil/pro_athlete rely on today), but lose to a
+ * correctly-tagged row whenever one is even roughly competitive.
+ */
+const SOFT_PERSONA_MISMATCH_PENALTY = -3;
+
+/**
+ * Whole-word keyword match. JS's `\b` is defined via ASCII `\w`
+ * ([A-Za-z0-9_]), which does NOT include Hebrew letters — so a plain `\b`
+ * never fires around Hebrew text and can't be used to guard against a
+ * keyword substring-matching inside a longer word. This uses `\p{L}`
+ * ("Unicode letter") lookaround instead, so a keyword like 'ים' matches the
+ * standalone word "ים" (sea) but not the plural suffix inside "ילדים"
+ * (children) or "לימודים" (studies) — the false-positive that made the
+ * Seasonal Summer Boost fire on nearly every row regardless of season.
+ *
+ * One Hebrew-specific allowance: the language attaches single-letter
+ * prepositions/conjunctions (ה/ב/ל/ו/מ/כ/ש — "the/in/to/and/from/like/that")
+ * directly onto the following word with no space — "בקיץ" (in [the] summer),
+ * "הים" (the sea) are completely ordinary spellings, not a different word.
+ * A strict boundary on both sides would wrongly reject those too. So exactly
+ * ONE such prefix letter is allowed immediately before the keyword, but a
+ * hard boundary is still required before *that* — which is what correctly
+ * keeps rejecting a real 2+ letter stem like "יל-דים" or "עו-לים" (immigrants)
+ * that merely happens to end in the same letters.
+ */
+function includesWholeWord(haystack: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(?<![\\p{L}])[הבלוכמש]?${escaped}(?![\\p{L}])`, 'u');
+  return re.test(haystack);
+}
+
 function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   let score = 0;
 
@@ -625,7 +668,7 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   // ============================================================================
   // SEASONAL SCORING (+20) — Winter / Summer keyword boosts
   // ============================================================================
-  const currentMonth = new Date().getMonth(); // 0-11
+  const currentMonth = (ctx.previewNow ?? new Date()).getMonth(); // 0-11
   const isWinter = currentMonth >= 10 || currentMonth <= 2;  // Nov–Mar
   const isSummer = currentMonth >= 5 && currentMonth <= 8;   // Jun–Sep
 
@@ -637,11 +680,11 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
 
     if (isWinter) {
       const WINTER_KW = ['חורף', 'גשם', 'בית', 'סלון', 'קר'];
-      if (WINTER_KW.some(kw => seasonText.includes(kw))) score += 20;
+      if (WINTER_KW.some(kw => includesWholeWord(seasonText, kw))) score += 20;
     }
     if (isSummer) {
       const SUMMER_KW = ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'];
-      if (SUMMER_KW.some(kw => seasonText.includes(kw))) score += 20;
+      if (SUMMER_KW.some(kw => includesWholeWord(seasonText, kw))) score += 20;
     }
   }
 
@@ -670,6 +713,32 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
     ).toLowerCase();
     const ABROAD_KW = ['חו"ל', 'חופשה', 'טיול', 'בלי ציוד', 'רצף'];
     if (ABROAD_KW.some(kw => abroadText.includes(kw))) score += 25;
+  }
+
+  // ── SOFT PERSONA MISMATCH GUARD ──
+  // Symmetric counterpart to the David Clause above: that guard only ever
+  // protects a NO-persona user from demographic content. A user who DOES
+  // have a specific persona had no protection at all from a DIFFERENT
+  // demographic persona's content — the confirmed root cause of the
+  // cross-persona "parent-bleed" pattern (see SOFT_PERSONA_MISMATCH_PENALTY's
+  // doc comment above). Applied HERE — after every positive-scoring bonus
+  // above has accumulated, but BEFORE the diversity penalty below — so it can
+  // meaningfully outweigh a one-field lucky match (the real tie-break pattern
+  // found in the audit), while `Math.max(0, ...)` floors ITS OWN effect at 0
+  // so it can never by itself cause exclusion (a mismatched row must still be
+  // able to win when it's the only option — the safety net thin-inventory
+  // personas like pupil/pro_athlete rely on today). The diversity penalty
+  // immediately below is untouched and keeps its own, separate, unfloored
+  // negative-score exclusion behavior.
+  if (
+    !userHasNoPersona &&
+    rowPersona &&
+    rowPersona !== '' &&
+    rowPersona !== 'any' &&
+    rowPersona !== ctx.persona &&
+    DEMOGRAPHIC_PERSONA_TAGS.has(rowPersona)
+  ) {
+    score = Math.max(0, score + SOFT_PERSONA_MISMATCH_PENALTY);
   }
 
   // ============================================================================
@@ -860,6 +929,9 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   if (userHasNoPersona && bid && PERSONA_ID_PREFIXES.some(p => bid.startsWith(p))) {
     reasons.push(`prefix_EXCLUDED(id=${bid})`);
   }
+  if (!userHasNoPersona && rp && rp !== '' && rp !== 'any' && rp !== ctx.persona && DEMOGRAPHIC_PERSONA_TAGS.has(rp)) {
+    reasons.push(`personaMismatch_penalty(${SOFT_PERSONA_MISMATCH_PENALTY})`);
+  }
 
   for (const field of SCORABLE_FIELDS) {
     const rowVal = row[field.rowField];
@@ -944,15 +1016,15 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   }
 
   // Seasonal, Airport, Abroad, Diversity
-  const dbgMonth = new Date().getMonth();
+  const dbgMonth = (ctx.previewNow ?? new Date()).getMonth();
   const dbgIsWinter = dbgMonth >= 10 || dbgMonth <= 2;
   const dbgIsSummer = dbgMonth >= 5 && dbgMonth <= 8;
   if (dbgIsWinter || dbgIsSummer) {
     const seasonDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
-    if (dbgIsWinter && ['חורף', 'גשם', 'בית', 'סלון', 'קר'].some(kw => seasonDbgText.includes(kw))) {
+    if (dbgIsWinter && ['חורף', 'גשם', 'בית', 'סלון', 'קר'].some(kw => includesWholeWord(seasonDbgText, kw))) {
       reasons.push('winter_boost(+20)');
     }
-    if (dbgIsSummer && ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'].some(kw => seasonDbgText.includes(kw))) {
+    if (dbgIsSummer && ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'].some(kw => includesWholeWord(seasonDbgText, kw))) {
       reasons.push('summer_boost(+20)');
     }
   }
