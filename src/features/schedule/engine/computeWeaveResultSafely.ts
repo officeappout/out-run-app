@@ -17,23 +17,32 @@
  */
 import { buildWeaverInput, type WeaverInputProfile, type WeaveMode } from './weaverInput';
 import { weaveWeek, type WeaveWeekResult } from './scheduleWeaver';
-import { hasStrengthTrack } from '@/lib/track-ownership';
+import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 
 /**
- * `mode='running'` forces the strength side to zero (weaverInput.ts's own
- * doc) — silent to a user who actually owns a strength track, since
+ * A single-domain mode forces the OTHER side to zero (weaverInput.ts's own
+ * doc) — silent to a user who actually owns that other track, since
  * "nothing built" and "nothing requested" look identical in the result
  * otherwise. Only fires when the exclusion is a real choice, not the
- * user's baseline: a user with no strength track at all was never going
- * to see strength content regardless of tab, so no note is added for them
- * — it would be explaining an absence that has nothing to do with what
- * they picked. No symmetric note for mode='strength': there's no floor
- * conflict on that side (see weaverInput.ts), so nothing to explain beyond
- * what picking the tab already makes obvious.
+ * user's baseline: a user who never owned the excluded track was never
+ * going to see that content regardless of tab, so no note is added for
+ * them — it would be explaining an absence that has nothing to do with
+ * what they picked.
+ *
+ * Symmetric on purpose (corrected 07.09.2026 — the original version only
+ * had the running branch; the earlier "no floor conflict on the strength
+ * side" justification for omitting the mirror branch was about R7's
+ * search mechanics, not about this note's actual purpose, which is
+ * explaining a choice-driven absence to a user who could otherwise wonder
+ * why a track they own produced nothing this week. That confusion is
+ * exactly as real in either direction).
  */
 function coachNoteForMode(mode: WeaveMode, profile: WeaverInputProfile): string | null {
   if (mode === 'running' && hasStrengthTrack(profile)) {
     return 'לא נבנו אימוני כוח השבוע — כי זה מה שבחרת (טאב ריצה).';
+  }
+  if (mode === 'strength' && hasRunningTrack(profile)) {
+    return 'לא נבנו אימוני ריצה השבוע — כי זה מה שבחרת (טאב כוח).';
   }
   return null;
 }

@@ -52,7 +52,7 @@
 
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, Lock } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import AgendaDayCard, { type ResolvedRunningWorkout } from '@/features/home/components/agenda/AgendaDayCard';
@@ -63,6 +63,7 @@ import type { WeaveMode } from '../engine/weaverInput';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { DAY_LETTERS } from '../types/smartSchedule.types';
 import { SCHEDULE_BUILDER_DRAWER_ENABLED } from '@/config/feature-flags';
+import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 
 const DAY_SHORT_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 const CLOSE_THRESHOLD = 220;
@@ -108,6 +109,16 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? '';
 
+  // Same ownership predicates the engine itself gates on (weaverInput.ts) —
+  // a tab is locked when the user doesn't own that track at all, not when
+  // the engine merely produced nothing for it this week. "משולב" needs
+  // both; a single missing track locks it same as its own tab.
+  const ownsStrength = hasStrengthTrack(profile);
+  const ownsRunning = hasRunningTrack(profile);
+  const strengthLocked = !ownsStrength;
+  const runningLocked = !ownsRunning;
+  const mixedLocked = !ownsStrength || !ownsRunning;
+
   const y = useMotionValue(0);
   const opacity = useTransform(y, [0, 220], [1, 0]);
   const dragControls = useDragControls();
@@ -139,6 +150,14 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   // both domains, and the excluded side's existingWeek is all-rest either
   // way, so nothing about the search depends on which side focus happens
   // to call dominant when one side's count is forced to 0).
+  // ⚠️ Flagging, not deciding: the default stays 'mixed' even for a
+  // single-track user, for whom 'mixed' is locked. That user would see the
+  // locked tab rendered as the active one on first open. Not addressed here
+  // — out of this commit's stated scope (lock visuals + no-op click only) —
+  // and functionally harmless (computeWeaveResultSafely already returns a
+  // correct, single-domain-only result for 'mixed' when the other track
+  // isn't owned), but worth David's call on whether the initial mode should
+  // instead be derived from ownership.
   const [mode, setMode] = useState<WeaveMode>('mixed');
   const [focus, setFocus] = useState(50);
   const [availableDayCount, setAvailableDayCount] = useState(3);
@@ -208,11 +227,19 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
             <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
               <h2 className="text-base font-black text-gray-900 mb-3">בואו נבנה לוז</h2>
 
-              {/* ── Area A — what's in the schedule ── */}
+              {/* ── Area A — what's in the schedule ──
+                  Locked = visual only, this stage. Click is a no-op — mode
+                  never moves, computeWeaveResultSafely never runs for a
+                  locked pick. Navigation to the domain's own onboarding
+                  entry (and the confirmation drawer it opens through) is
+                  deliberately deferred: WorkoutBuilderSheet.tsx, home to the
+                  only reusable version of that confirmation UI, is being
+                  edited by a concurrent session right now — see
+                  parking-lot.md. */}
               <div className="flex gap-2 mb-4">
-                <ChipButton label="כוח" active={mode === 'strength'} onClick={() => setMode('strength')} />
-                <ChipButton label="ריצה" active={mode === 'running'} onClick={() => setMode('running')} />
-                <ChipButton label="משולב" active={mode === 'mixed'} onClick={() => setMode('mixed')} />
+                <ChipButton label="כוח" active={mode === 'strength'} locked={strengthLocked} onClick={() => setMode('strength')} />
+                <ChipButton label="ריצה" active={mode === 'running'} locked={runningLocked} onClick={() => setMode('running')} />
+                <ChipButton label="משולב" active={mode === 'mixed'} locked={mixedLocked} onClick={() => setMode('mixed')} />
               </div>
 
               {mode === 'strength' && <OwnedProgramsList result={result} />}
@@ -268,15 +295,38 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   );
 }
 
-function ChipButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+/**
+ * Locked visual matches WorkoutBuilderSheet.tsx's `isLocked` ProgramPill
+ * state verbatim (opacity-40 + gray-400 Lock icon, corner-positioned,
+ * non-clickable) — same meaning David wants here: "you can't reach this
+ * yet." The click-through behavior that pattern's `isUnenrolled` state has
+ * (opens a confirmation drawer to the domain's questionnaire) is NOT wired
+ * yet — deferred, see the call site's comment and parking-lot.md.
+ */
+function ChipButton({
+  label,
+  active,
+  locked,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  locked?: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`flex-1 py-2 rounded-xl text-sm font-black transition-all ${
-        active ? 'bg-[#00C9F2] text-white' : 'bg-white text-gray-600 border border-slate-200'
+      onClick={locked ? undefined : onClick}
+      className={`relative flex-1 py-2 rounded-xl text-sm font-black transition-all ${
+        locked
+          ? 'opacity-40 cursor-not-allowed bg-white text-gray-400 border border-slate-200'
+          : active
+            ? 'bg-[#00C9F2] text-white'
+            : 'bg-white text-gray-600 border border-slate-200'
       }`}
     >
+      {locked && <Lock size={10} className="absolute top-1.5 right-1.5 text-gray-400" />}
       {label}
     </button>
   );
