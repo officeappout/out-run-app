@@ -43,6 +43,8 @@ export default function HealthDeclarationPage() {
   // already used by NextRunWorkoutCard.tsx / home/page.tsx for this exact
   // class of race.
   const alreadyAccepted = !!profile && hasAcceptedHealthDeclaration(profile as any);
+  // eslint-disable-next-line no-console
+  console.log('[DIAG] health/page.tsx render — _hasHydrated:', _hasHydrated, '| profile.healthDeclarationAccepted:', (profile as any)?.healthDeclarationAccepted, '| profile.health?.healthDeclarationAccepted:', (profile as any)?.health?.healthDeclarationAccepted, '| alreadyAccepted:', alreadyAccepted);
 
   useEffect(() => {
     setMounted(true);

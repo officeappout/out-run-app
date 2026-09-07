@@ -431,8 +431,10 @@ export default function DynamicOnboardingPage() {
       }
 
       // Save profile locally
+      // eslint-disable-next-line no-console
+      console.log('[DIAG] initializeProfile — locally-built profile.healthDeclarationAccepted:', (profile as any).healthDeclarationAccepted, '| keys:', Object.keys(profile));
       await initializeProfile(profile);
-      
+
       console.log('✅ Profile initialized with Level:', effectiveLevel, 'LevelId:', effectiveLevelId, 'Program:', effectiveProgramId, 'SubLevels:', effectiveSubLevels);
 
       // Detect running track once — used for sync step and first-workout guard.
