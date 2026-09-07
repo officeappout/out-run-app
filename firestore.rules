@@ -1254,13 +1254,22 @@ service cloud.firestore {
     // COMMUNITY & ENGAGEMENT — Pillar 1/3
     // ============================================================
     match /community_groups/{docId} {
-      // Members-only (or admin) for the reservist league — real names mapped
-      // to a military-adjacent affiliation is exactly the exposure phase 3a's
-      // military_declarations lockdown was built to prevent (see
-      // docs/research/military-persona-unified-architecture.md §11). Every
-      // other group type is unaffected — isReserveLeagueGroup(docId) is false for
-      // them, so this reduces to the original allow-all.
-      allow read: if isAuthenticated() && (!isReserveLeagueGroup(docId) || isGroupMember(docId) || isAdmin());
+      // Unconditional read — same as every other group type. The reserve-
+      // league group's own doc carries no real names (see isReserveLeagueGroup's
+      // comment above: "their own doc... [is] intentionally as public as any
+      // other community group"); only its members/{uid} roster (below) needs
+      // the members-only gate. A gate here was tried 04.09.2026 and reverted
+      // 07.09.2026 — a docId-dependent condition on the TOP-LEVEL collection's
+      // own read rule breaks every `list` query with no docId filter (e.g.
+      // NearbyGroupsRow's isPublic+isActive query), because docId varies
+      // across every potential result document and Firestore can't bound it
+      // from the query's own where-clauses. Emulator-confirmed: "Null value
+      // error ... for 'list'" at this exact line, for every non-admin caller,
+      // regardless of which group they were actually trying to read. This is
+      // NOT the same as the members/{uid} gate directly below, where docId is
+      // fixed to one already-known group for the whole subcollection query —
+      // see tests/firestore-rules.test.ts R7 vs R8.
+      allow read: if isAuthenticated();
       // Admins have full write access (authority-manager dashboard)
       allow write: if isAdmin();
 
@@ -1305,9 +1314,16 @@ service cloud.firestore {
       // update:  field-level guards — role changes are restricted by caller rank.
       // delete:  self-remove always allowed; admin removes members only; owner removes anyone.
       match /members/{uid} {
-        // Same members-only-or-admin gate as the parent group doc above —
-        // this is the actual roster (real names), the primary thing being
-        // protected. See the comment on community_groups/{docId}'s read rule.
+        // Members-only (or admin) for the reservist league — real names
+        // mapped to a military-adjacent affiliation is exactly the exposure
+        // phase 3a's military_declarations lockdown was built to prevent
+        // (see docs/research/military-persona-unified-architecture.md §11).
+        // This is the actual roster (real names), the primary thing being
+        // protected — the parent group doc (above) no longer carries this
+        // gate; see its comment for why. Safe for `list` here specifically
+        // because docId is fixed to one already-known group for the whole
+        // subcollection query, never varying across potential results the
+        // way it does on the top-level community_groups collection itself.
         allow read: if isAuthenticated() && (!isReserveLeagueGroup(docId) || isGroupMember(docId) || isAdmin());
 
         allow update: if isAuthenticated() && (
