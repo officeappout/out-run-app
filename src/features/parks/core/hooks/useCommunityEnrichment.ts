@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   collection,
+  doc,
+  getDoc,
   query,
   where,
   onSnapshot,
@@ -15,6 +17,7 @@ import {
 import { db } from '@/lib/firebase';
 import { haversineKm } from '../services/geoUtils';
 import type { Route } from '../types/route.types';
+import { getMyPersonaKeys, personaCollectionName } from '@/features/arena/services/group.service';
 
 export interface SessionEnrichment {
   eventId: string;
@@ -205,10 +208,10 @@ const GROUP_PROXIMITY_KM = 0.5; // 500m radius for proximity matching
  * 2. Proximity matching (group meeting point within 500m of a route start)
  */
 function groupDocToEnrichments(
-  docSnap: import('firebase/firestore').QueryDocumentSnapshot,
+  groupId: string,
+  data: Record<string, any>,
   routeStartMap?: Map<string, { lat: number; lng: number }>,
 ): { routeId: string | null; parkId: string | null; enrichments: SessionEnrichment[] }[] | null {
-  const data = docSnap.data();
   if (!data.isActive) return null;
 
   const groupRouteId: string | null = data.meetingLocation?.routeId ?? null;
@@ -217,7 +220,7 @@ function groupDocToEnrichments(
 
   const slots = extractSlots(data);
   if (!slots.length) {
-    console.log('[groupDocToEnrichments] Group has no slots:', docSnap.id, data.name);
+    console.log('[groupDocToEnrichments] Group has no slots:', groupId, data.name);
     return null;
   }
 
@@ -257,7 +260,7 @@ function groupDocToEnrichments(
     if (daysFromNow > 7) continue;
 
     const enrichment: SessionEnrichment = {
-      eventId: `group_${docSnap.id}_${next.date}_${next.time.replace(':', '')}_s${slotIdx}`,
+      eventId: `group_${groupId}_${next.date}_${next.time.replace(':', '')}_s${slotIdx}`,
       eventLabel: slot.label ?? data.name ?? 'מפגש קבוצתי',
       nextStartTime: `${next.date}T${next.time}`,
       currentRegistrations: currentParticipants,
@@ -266,7 +269,7 @@ function groupDocToEnrichments(
       plannedCount: currentParticipants,
       avatars: [],
       isRecurring: true,
-      groupId: docSnap.id,
+      groupId: groupId,
     };
 
     const key = `${slotRouteId ?? ''}_${slotParkId ?? ''}`;
@@ -409,7 +412,7 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
         if (seenGroupIds.has(docSnap.id)) continue;
         seenGroupIds.add(docSnap.id);
 
-        const results = groupDocToEnrichments(docSnap, startMap);
+        const results = groupDocToEnrichments(docSnap.id, docSnap.data(), startMap);
         if (!results) continue;
 
         for (const res of results) {
@@ -622,6 +625,22 @@ export function useParkEvents(parkId: string | null | undefined) {
     );
 
     // ── Recurring groups ──
+    // Two independent sources feed groupSessions: the normal public query
+    // (municipal groups — meetingLocation lives on this doc) and, for a
+    // viewer who has declared a matching persona, the persona-gated
+    // collection(s) where a "צו כושר" group's meetingLocation actually
+    // lives (see community.service.ts / group.service.ts's block
+    // comments). A persona-gated group's OWN public doc has no
+    // meetingLocation at all, so it can never appear via the first query —
+    // that split is the entire point, not a bug to merge around here.
+    let publicResults: SessionEnrichment[] = [];
+    let audienceResults: SessionEnrichment[] = [];
+    const publishGroupSessions = () => {
+      const merged = [...publicResults, ...audienceResults];
+      merged.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
+      setGroupSessions(merged);
+    };
+
     const grpQ = query(
       collection(db, 'community_groups'),
       where('meetingLocation.parkId', '==', parkId),
@@ -631,21 +650,54 @@ export function useParkEvents(parkId: string | null | undefined) {
       grpQ,
       (snapshot) => {
         const results: SessionEnrichment[] = [];
-
         for (const docSnap of snapshot.docs) {
-          const parsedArr = groupDocToEnrichments(docSnap);
+          const parsedArr = groupDocToEnrichments(docSnap.id, docSnap.data());
           if (!parsedArr) continue;
-          for (const parsed of parsedArr) {
-            results.push(...parsed.enrichments);
-          }
+          for (const parsed of parsedArr) results.push(...parsed.enrichments);
         }
-
-        results.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
+        publicResults = results;
         console.log('[useParkEvents] Groups resolved:', results.length, 'recurring sessions for park', parkId);
-        setGroupSessions(results);
+        publishGroupSessions();
       },
       (err) => console.warn('[useParkEvents] groups error:', err),
     );
+
+    // Persona-gated groups for this park — only set up for personas the
+    // viewer actually declared, so a non-reservist never even issues a
+    // query the rule would deny (no permission-denied, no log noise —
+    // David's explicit condition: an undeclared/mismatched viewer sees a
+    // normal park page, not a suppressed error).
+    const audienceUnsubs: Unsubscribe[] = [];
+    let cancelled = false;
+    getMyPersonaKeys().then((personas) => {
+      if (cancelled || !personas.length) return;
+      for (const persona of personas) {
+        const audQ = query(
+          collection(db, personaCollectionName(persona)),
+          where('parkId', '==', parkId),
+        );
+        const unsub = onSnapshot(
+          audQ,
+          async (snapshot) => {
+            const results: SessionEnrichment[] = [];
+            for (const audienceSnap of snapshot.docs) {
+              const parentSnap = await getDoc(doc(db, 'community_groups', audienceSnap.id));
+              if (!parentSnap.exists()) continue;
+              const merged = { ...parentSnap.data(), ...audienceSnap.data() };
+              const parsedArr = groupDocToEnrichments(audienceSnap.id, merged);
+              if (!parsedArr) continue;
+              for (const parsed of parsedArr) results.push(...parsed.enrichments);
+            }
+            audienceResults = results;
+            publishGroupSessions();
+          },
+          // Denied is expected the moment declared status stops matching
+          // mid-session (e.g. persona changed elsewhere) — not an error.
+          () => { audienceResults = []; publishGroupSessions(); },
+        );
+        audienceUnsubs.push(unsub);
+      }
+    });
 
     // ── Personal arrivals (planned_sessions for this park) ──
     // This is the read counterpart of `createPlannedSession({ parkId })`
@@ -696,9 +748,11 @@ export function useParkEvents(parkId: string | null | undefined) {
     unsubArrRef.current = unsubArr;
 
     return () => {
+      cancelled = true;
       unsubEv();
       unsubGrp();
       unsubArr();
+      audienceUnsubs.forEach((u) => u());
       unsubEvRef.current = null;
       unsubGrpRef.current = null;
       unsubArrRef.current = null;

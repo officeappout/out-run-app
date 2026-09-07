@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import {
+  getGroup,
   getGroupsByAuthority,
   createGroup,
   updateGroup,
@@ -16,7 +17,7 @@ import {
 } from '@/features/admin/services/community.service';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { getParksByAuthority } from '@/features/parks';
-import { CommunityGroup, CommunityGroupCategory, CommunityEvent, ScheduleSlot, TargetGender } from '@/types/community.types';
+import { CommunityGroup, CommunityGroupCategory, CommunityEvent, ScheduleSlot, TargetGender, PersonaKey, PERSONA_KEYS } from '@/types/community.types';
 import { WorkoutGoalEditor } from '@/features/arena/components/WorkoutGoalEditor';
 import { Park } from '@/types/admin-types';
 import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff, Route as RouteIcon, HeartPulse, Link2, Check, Crown } from 'lucide-react';
@@ -61,6 +62,14 @@ const CATEGORY_LABELS: Record<CommunityGroupCategory, string> = {
 
 const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
+// Adding a value here alone does NOT open a new audience — a matching
+// community_groups_{persona} match block must be deployed to firestore.rules
+// in the SAME round (David's explicit gate, "מסמך מרכז" §8) before a group
+// tagged with it actually hides from anyone. See community.service.ts.
+const PERSONA_LABELS: Record<PersonaKey, string> = {
+  reserve: 'מילואים',
+};
+
 const MUSCLE_OPTIONS = ['חזה', 'גב', 'כתפיים', 'זרועות', 'בטן', 'רגליים', 'ירכיים', 'גוף מלא'];
 const EQUIPMENT_OPTIONS = ['מתח', 'מקבילים', 'טבעות', 'TRX', 'גומיות', 'משקולות', 'ללא ציוד'];
 const TAG_OPTIONS = ['ריצה', 'הליכה', 'יוגה', 'קליסטניקס', 'כדורגל', 'כדורסל', 'טניס', 'אופניים', 'שחייה', 'פילאטיס', 'אגרוף', 'כושר כללי', 'אחר'];
@@ -77,6 +86,11 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
   const [sessionGroupId, setSessionGroupId] = useState<string | null>(null);
   const sessionFormRef = useRef<HTMLDivElement>(null);
   const [locationMode, setLocationMode] = useState<'park' | 'route' | 'manual'>('park');
+  // Which persona-gated audiences this group's sensitive details are visible
+  // to — NOT a field on formData/CommunityGroup (there is deliberately no
+  // field for this on any document; see community.types.ts). Hydrated from
+  // getGroup()'s audiencePersonas when opening an existing group for edit.
+  const [targetPersonas, setTargetPersonas] = useState<PersonaKey[]>([]);
   const [formData, setFormData] = useState<Partial<CommunityGroup>>({
     name: '',
     description: '',
@@ -134,9 +148,17 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
     if (inspectGroupId && groups.length > 0 && !editingGroup) {
       const target = groups.find((g) => g.id === inspectGroupId);
       if (target) {
-        setEditingGroup(target);
-        setFormData(target);
-        setShowForm(true);
+        // Re-fetch (not the list-cached `target`): the authority list query
+        // never merges persona-collection copies (that would be N extra
+        // reads per row) — only getGroup(id) does, for exactly this
+        // single-group edit-form case.
+        getGroup(target.id).then((fresh) => {
+          if (!fresh) return;
+          setEditingGroup(fresh);
+          setFormData(fresh);
+          setTargetPersonas(fresh.audiencePersonas ?? []);
+          setShowForm(true);
+        });
       }
     }
   }, [inspectGroupId, groups]);
@@ -281,17 +303,22 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
     try {
       if (editingGroup) {
         // Always stamp source on update so legacy docs get repaired in place.
+        // targetPersonas drives updateGroup's own atomic public+persona-doc
+        // batch — see community.service.ts, do not also write leader/phone/
+        // location fields through any other call.
         await updateGroup(editingGroup.id, {
           ...formData,
           source: 'authority',
           isOfficial: formData.isOfficial ?? true,
-        });
-        // Sync leader assignment when leaderUserId changed
+        }, targetPersonas);
+        // Sync leader→admin promotion in the members sub-collection when
+        // leaderUserId changed. leaderUserId/leaderName themselves were
+        // already written correctly (public or persona-gated) by the
+        // updateGroup call above — assignGroupLeader no longer touches them.
         const prevLeader = editingGroup.leaderUserId ?? null;
         const newLeader  = formData.leaderUserId ?? null;
         if (newLeader !== prevLeader) {
-          const leaderName = leaderPickerMembers.find((m) => m.uid === newLeader)?.name ?? (formData.leaderName ?? '');
-          await assignGroupLeader(editingGroup.id, newLeader, leaderName);
+          await assignGroupLeader(editingGroup.id, newLeader);
         }
       } else {
         if (!currentUserId) {
@@ -304,7 +331,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
           createdBy: currentUserId,
           source: 'authority',
           isOfficial: formData.isOfficial ?? true,
-        } as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>);
+        } as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>, targetPersonas);
       }
       await loadGroups();
       setShowForm(false);
@@ -330,6 +357,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
 
   const resetForm = () => {
     setLocationMode('park');
+    setTargetPersonas([]);
     setFormData({
       name: '',
       description: '',
@@ -1392,6 +1420,67 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
               </div>
             </div>
 
+            {/* ── Persona-gated audience ─────────────────────
+                 Checking a persona here does not just hide a chip in the
+                 UI — it moves this group's location/schedule/coach/phone/
+                 registration-link into community_groups_{persona}, readable
+                 ONLY by users who declared that persona (Firestore rule,
+                 not a client-side filter). Unchecking a persona that was
+                 previously checked deletes that copy on save — see
+                 updateGroup/createGroup's atomic batch. A brand-new persona
+                 value can only be added here after its own firestore.rules
+                 match block is deployed — see PERSONA_LABELS above. */}
+            <div className="p-4 bg-indigo-50 border-2 border-indigo-100 rounded-xl space-y-3">
+              <label className="text-sm font-bold text-gray-700 flex items-center gap-1.5">
+                <ShieldCheck size={14} className="text-indigo-500" />
+                קהל יעד לפי הרשאה (אופציונלי)
+              </label>
+              <p className="text-xs text-gray-500">
+                כשמסומן — המיקום, הלו״ז, המאמן והטלפון גלויים רק למי שהצהיר על הפרסונה המתאימה. בלי סימון — הקבוצה גלויה לכולם, כמו היום.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {PERSONA_KEYS.map((persona) => (
+                  <label key={persona} className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-indigo-200">
+                    <input
+                      type="checkbox"
+                      checked={targetPersonas.includes(persona)}
+                      onChange={(e) =>
+                        setTargetPersonas((prev) =>
+                          e.target.checked ? [...prev, persona] : prev.filter((p) => p !== persona)
+                        )
+                      }
+                      className="rounded"
+                    />
+                    <span className="text-sm font-bold text-gray-700">{PERSONA_LABELS[persona]}</span>
+                  </label>
+                ))}
+              </div>
+              {targetPersonas.length > 0 && (
+                <div className="grid grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label className="text-sm font-bold text-gray-700 mb-1 block">טלפון ליצירת קשר</label>
+                    <input
+                      type="tel"
+                      value={formData.phone ?? ''}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value || undefined })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 text-sm"
+                      placeholder="05X-XXXXXXX"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-gray-700 mb-1 block">קישור הרשמה</label>
+                    <input
+                      type="url"
+                      value={formData.registrationLink ?? ''}
+                      onChange={(e) => setFormData({ ...formData, registrationLink: e.target.value || undefined })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 text-sm"
+                      placeholder="https://wa.me/... או טופס הרשמה"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-4">
               <button
                 type="submit"
@@ -1614,9 +1703,15 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                     <span className="hidden md:inline">מפגש בודד</span>
                   </button>
                   <button
-                    onClick={() => {
-                      setEditingGroup(group);
-                      setFormData(group);
+                    onClick={async () => {
+                      // Same re-fetch as the inspectGroupId effect above —
+                      // `group` here came from the cheap list query and never
+                      // carries persona-collection copies of sensitive fields.
+                      const fresh = await getGroup(group.id);
+                      if (!fresh) return;
+                      setEditingGroup(fresh);
+                      setFormData(fresh);
+                      setTargetPersonas(fresh.audiencePersonas ?? []);
                       setShowForm(true);
                     }}
                     className="p-1.5 text-cyan-600 hover:bg-cyan-50 rounded-lg"

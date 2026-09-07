@@ -62,15 +62,27 @@ service cloud.firestore {
         get(/databases/$(database)/documents/community_groups/$(groupId)).data.get('createdBy', '') == request.auth.uid;
     }
 
-    // Phase 6a — reservist league. Deliberately compares the PATH SEGMENT
+    // Phase 6a — reservist LEAGUE roster (the leaderboard/competition group,
+    // NOT the "צו כושר" fitness-meetup groups added 07.09.2026 — those are
+    // a different feature; their sensitive fields are protected by the
+    // community_groups_{persona} split below, and their own doc + roster
+    // are intentionally as public as any other community group).
+    //
+    // Renamed from isMilitaryGroup — that name claimed to detect "is this a
+    // military-type group" but only ever checked one hardcoded doc ID, which
+    // is exactly the gap that let this feature's initial design almost ship
+    // a leak (any OTHER doc with groupType:'military' as a mere field was
+    // fully world-readable). Deliberately compares the PATH SEGMENT
     // (groupId), never resource.data — a resource.data-based check was
     // proven (emulator test, military-persona research) to NOT fail closed
     // on an unfiltered list query; a path-based check does, and this is the
-    // ONLY military-type group today so a fixed-id comparison is exact.
-    // Phase 6b (per-unit groups): switch to a denormalized groupType field
-    // on the members doc itself, not a get() on the parent — see the
-    // military-persona-unified-architecture.md research doc.
-    function isMilitaryGroup(groupId) {
+    // ONLY reserve-league group today so a fixed-id comparison is exact.
+    // Phase 6b (per-unit league groups, if built): switch to a denormalized
+    // field on the members doc itself, not a get() on the parent — see the
+    // military-persona-unified-architecture.md research doc. Do NOT extend
+    // this function to cover community_groups_{persona}-gated groups; ask
+    // before assuming their rosters need the same treatment.
+    function isReserveLeagueGroup(groupId) {
       return groupId == 'military_reserve_general';
     }
     function isGroupMember(groupId) {
@@ -1246,9 +1258,9 @@ service cloud.firestore {
       // to a military-adjacent affiliation is exactly the exposure phase 3a's
       // military_declarations lockdown was built to prevent (see
       // docs/research/military-persona-unified-architecture.md §11). Every
-      // other group type is unaffected — isMilitaryGroup(docId) is false for
+      // other group type is unaffected — isReserveLeagueGroup(docId) is false for
       // them, so this reduces to the original allow-all.
-      allow read: if isAuthenticated() && (!isMilitaryGroup(docId) || isGroupMember(docId) || isAdmin());
+      allow read: if isAuthenticated() && (!isReserveLeagueGroup(docId) || isGroupMember(docId) || isAdmin());
       // Admins have full write access (authority-manager dashboard)
       allow write: if isAdmin();
 
@@ -1296,7 +1308,7 @@ service cloud.firestore {
         // Same members-only-or-admin gate as the parent group doc above —
         // this is the actual roster (real names), the primary thing being
         // protected. See the comment on community_groups/{docId}'s read rule.
-        allow read: if isAuthenticated() && (!isMilitaryGroup(docId) || isGroupMember(docId) || isAdmin());
+        allow read: if isAuthenticated() && (!isReserveLeagueGroup(docId) || isGroupMember(docId) || isAdmin());
 
         allow update: if isAuthenticated() && (
           // OUT app admins bypass all group-level restrictions
@@ -1851,6 +1863,49 @@ service cloud.firestore {
         // comment, persona.types.ts). Same shape guard as orgId/unitId.
         && (!('pendingUnitId' in data) || (data.pendingUnitId is string && data.pendingUnitId.size() <= 100))
         && data.updatedAt is timestamp;
+    }
+
+    // ============================================================
+    // PERSONA-GATED GROUP AUDIENCE — "צו כושר" fitness-meetup groups
+    // (military-persona-unified-architecture.md, §"צו כושר", built
+    // 07.09.2026). One top-level collection PER persona — never a field on
+    // community_groups/{groupId}, never a wildcard path segment. Both were
+    // tried and proven broken against the real emulator while designing
+    // this feature: a resource.data-based condition doesn't fail closed on
+    // an unfiltered list query (same class of bug as feed_posts, above),
+    // and a nested community_groups/{groupId}/audience/{personaKey}
+    // subcollection + collectionGroup query errors for EVERY caller (not
+    // just a mismatched persona) because a wildcard segment that varies
+    // across the listed result set cannot be evaluated for `list` at all —
+    // it is not a security gap, the query itself does not function.
+    //
+    // A whole collection gated by nothing but a get() on the REQUESTER's
+    // own military_declarations doc has neither problem: the condition is
+    // constant for the entire request (request.auth.uid doesn't vary
+    // across a query's results), so it costs exactly one cached document
+    // read regardless of how many groups are in the result set, and
+    // Firestore never needs to inspect a listed document's own content to
+    // decide whether it belongs in the response.
+    //
+    // Write is admin-only (client SDK, authority-manager panel — this app
+    // has no Admin-SDK-backed API route for community groups). The ONLY
+    // writer in the codebase is community.service.ts's createGroup /
+    // updateGroup / deleteGroup, which write this collection and the
+    // public community_groups/{groupId} doc together in one atomic batch —
+    // see that file's block comment for why a batch, not a transaction or
+    // a Cloud Function relay. Enforced by scripts/safety-check.sh.
+    //
+    // Adding a new persona means adding a new match block here — this is
+    // deliberate, not an oversight: opening a group's sensitive details to
+    // a new audience must require a rules deploy, i.e. explicit sign-off,
+    // every time. See community.types.ts's PERSONA_KEYS comment.
+    // ============================================================
+    match /community_groups_reserve/{groupId} {
+      allow read: if isAdmin() || (
+        isAuthenticated() &&
+        get(/databases/$(database)/documents/military_declarations/$(request.auth.uid)).data.get('status', null) == 'reserve'
+      );
+      allow write: if isAdmin();
     }
 
     // ============================================================
