@@ -126,6 +126,10 @@ export interface StrengthReduceContext {
 function strengthPreferredDays(count: number): number[] {
   const lookup = SCHEDULE_POLICY.PREFERRED_DAYS as Record<number, number[]>;
   if (lookup[count]) return [...lookup[count]];
+  // Same zero-is-real-not-"a-little" fix as scheduleRules.ts's own
+  // preferredDays — kept in sync there, see commit B for why these two
+  // don't stay two hand-copied bodies going forward.
+  if (count === 0) return [];
   if (count <= 1) return [0];
   return Array.from({ length: Math.min(count, 6) }, (_, i) => i);
 }

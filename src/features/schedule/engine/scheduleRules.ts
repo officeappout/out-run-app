@@ -202,9 +202,15 @@ export function validateInitial(
 // 2. buildDefaultTemplate — Sun/Tue/Thu lifestyle protection
 // ──────────────────────────────────────────────────────────────────────────
 
-function preferredDays(daysPerWeek: number): number[] {
+export function preferredDays(daysPerWeek: number): number[] {
   const lookup = SCHEDULE_POLICY.PREFERRED_DAYS as Record<number, number[]>;
   if (lookup[daysPerWeek]) return [...lookup[daysPerWeek]];
+  // Zero days is a real state ("no training days requested"), not "a
+  // little" — it must not fall into the <=1 branch below and come back as
+  // one day. Was unreachable before mode='running' could ask for it
+  // (R7's floor always blocked strengthCount=0 from ever being tried), so
+  // nothing ever exercised this gap until now.
+  if (daysPerWeek === 0) return [];
   // Fallback for 1 or 7 — still skip Saturday by default.
   if (daysPerWeek <= 1) return [0];
   return Array.from({ length: Math.min(daysPerWeek, 6) }, (_, i) => i);

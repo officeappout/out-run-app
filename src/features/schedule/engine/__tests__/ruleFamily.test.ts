@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { strengthRuleFamily, runningRuleFamily, type RuleFamily } from '../ruleFamily';
-import { buildDefaultTemplate } from '../scheduleRules';
+import { buildDefaultTemplate, preferredDays } from '../scheduleRules';
 import type { ScheduleDay, PrioritizedSkill, ProgramId, DayOfWeek } from '../../types/smartSchedule.types';
 import type { RunningWeekDay, RunningDayRole } from '../runningRules';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
@@ -74,6 +74,41 @@ describe('RuleFamily contract parity — strength and running satisfy the exact 
       expect(Array.isArray(result.removed)).toBe(true);
       expect(Array.isArray(result.notes)).toBe(true);
     }
+  });
+});
+
+describe('preferredDays(0) — zero days is a real state, not "a little" (both copies, in sync)', () => {
+  /**
+   * Was previously unreachable in production: weaveWeek's R7 floor always
+   * blocked strengthCount=0 from ever being tried, so the <=1 branch below
+   * quietly stood in for it, untested, until mode='running' needed a
+   * genuine zero. Direct test of the bare function, not just its effect
+   * through buildDefaultTemplate — this exact boundary is what broke.
+   */
+  it('scheduleRules.ts\'s preferredDays(0) returns [], not [0]', () => {
+    expect(preferredDays(0)).toEqual([]);
+  });
+
+  it('scheduleRules.ts\'s preferredDays(1) is unchanged — still [0]', () => {
+    expect(preferredDays(1)).toEqual([0]);
+  });
+
+  it('ruleFamily.ts\'s strengthRuleFamily.preferredDays(0) returns [], not [0] — same fix, the other copy', () => {
+    expect(strengthRuleFamily.preferredDays(0)).toEqual([]);
+  });
+
+  it('ruleFamily.ts\'s strengthRuleFamily.preferredDays(1) is unchanged — still [0]', () => {
+    expect(strengthRuleFamily.preferredDays(1)).toEqual([0]);
+  });
+
+  it('buildDefaultTemplate(programs, skills, 0) now returns a genuine all-rest week — the observable end-to-end effect of the fix', () => {
+    const week = buildDefaultTemplate(STRENGTH_PROGRAMS, STRENGTH_SKILLS, 0);
+    expect(week).toEqual(emptyStrengthWeek());
+  });
+
+  it('strengthRuleFamily.placeOn(week, [], context) now succeeds (empty result), instead of always failing — this is what made mode=\'running\' fall through to the fallback', () => {
+    const placed = strengthRuleFamily.placeOn(emptyStrengthWeek(), [], { programs: STRENGTH_PROGRAMS, skills: STRENGTH_SKILLS });
+    expect(placed).toEqual(emptyStrengthWeek());
   });
 });
 

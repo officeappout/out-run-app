@@ -220,6 +220,44 @@ describe('weaveWeek — R6: the long run is never placed on a day strength also 
   });
 });
 
+describe('weaveWeek — a zero-strength request (what mode=\'running\' will configure) succeeds via the normal search, not the total-failure fallback', () => {
+  /**
+   * This simulates what buildWeaverInput will pass once mode='running' is
+   * wired (a later commit): strength.requestedCount=0 AND
+   * crossDomainContext.minStrengthDaysPerWeek=0 together — R7's floor only
+   * applies in mixed mode; a single-domain selection has no floor to
+   * protect, per David's own framing ("when there's one domain, there's no
+   * competition, so there's nothing for the floor to protect").
+   *
+   * Before the preferredDays(0) fix, this was structurally impossible to
+   * satisfy through the normal search: strengthPlaceOn([], ...) always
+   * returned null (buildDefaultTemplate(..., 0) built one day, not zero),
+   * so every candidate at strengthCount=0 failed regardless of the floor —
+   * the weaver always fell through to the total-failure fallback, which
+   * itself then rebuilt ONE forced strength day and zeroed running, the
+   * opposite of what was requested. Asserting the fallback's own telltale
+   * note text is absent is what actually proves "took the normal path,"
+   * not just "the numbers came out right by some other means."
+   */
+  it('strength requested at 0, floor at 0, running requested normally — running gets its full count, strength stays empty, and the result does not carry the fallback\'s "no combination found" note', () => {
+    const input: WeaveWeekInput = {
+      focus: 100,
+      strength: { ...strengthDomain(0) },
+      running: runningDomain([0, 2, 4], 'easy_run'),
+      availableDayCount: 3,
+      crossDomainContext: { minStrengthDaysPerWeek: 0 },
+    };
+    const result = weaveWeek(input);
+
+    const strengthDays = strengthOccupiedDays(result.week.strength);
+    const runningDays = runningOccupiedDays(result.week.running);
+    expect(strengthDays.length).toBe(0);
+    expect(runningDays.length).toBe(3);
+    expect(result.reductions).toEqual([]);
+    expect(result.notes.some((n) => n.includes('לא נמצא שילוב חוקי'))).toBe(false);
+  });
+});
+
 describe('weaveWeek — determinism', () => {
   it('the exact same input produces the exact same output on repeated calls', () => {
     const input: WeaveWeekInput = {
