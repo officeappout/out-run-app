@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Dumbbell, ChevronsUp, Footprints, Activity } from 'lucide-react';
-import { getProgramByTemplateId, getLevel } from '@/features/content/programs';
-import type { Program, Level } from '@/features/content/programs';
+import { Sparkles, Dumbbell, ChevronsUp, Footprints, Activity, AlertTriangle } from 'lucide-react';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import OnboardingStoryBar from './OnboardingStoryBar';
@@ -59,27 +57,29 @@ const SKILL_META: Record<string, { he: string; emoji: string; color: string }> =
   calisthenics_upper: { he: 'קליסטניקס עליון',               emoji: '⭐',   color: '#6366f1' },
 };
 
-// ── Static skill max-levels — zero-latency fallback ─────────────────
-// Used as the gauge denominator while the Firestore program doc loads
-// (or if the fetch fails). Mirrors the maxLevels configured in Firestore
-// for each canonical skill program. Update this map when a program's
-// maxLevels changes in the admin panel.
-const SKILL_MAX_LEVELS: Record<string, number> = {
-  front_lever:        15,
-  muscle_up:          15,
-  planche:            15,
-  handstand:          15,
-  hspu:               15,
-  one_arm_pullup:     15,
-  calisthenics_upper: 25,
-};
-
 // ── Reveal phase state machine ─────────────────────────────────────
 type RevealPhase = 'calculating' | 'cards' | 'gauge' | 'insights';
 
 // ── Props ──────────────────────────────────────────────────────────
 interface ProgramResultProps {
   levelNumber: number;
+  /**
+   * The gauge denominator. Callers on the push/pull/legs/core assessment
+   * path (assessment-visual/page.tsx) MUST pass the result of
+   * getMaxLevelForCategory(pathConfig, category) — the one real source of
+   * truth (assessment-path-config.service.ts), already used by this same
+   * onboarding flow's sliders. This component used to fetch its own
+   * program/level docs and fall back to a static per-skill table when that
+   * fetch was slow — the table went stale relative to real Firestore data
+   * (front_lever/muscle_up/etc hardcoded to 15 while the actual ceiling is
+   * ~25) and the fetch itself could hang with no timeout, leaving the
+   * gauge spinning forever. Neither problem exists if this value is just
+   * passed in — see 08.09.2026 fix. Optional only for the running-track
+   * caller (onboarding-new/dynamic/page.tsx), which has no per-category
+   * config to resolve from — defaults to 25, the same value that caller's
+   * programId would have fallen through to before this fix anyway.
+   */
+  maxLevel?: number;
   levelId?: string;
   programId?: string;
   userName: string;
@@ -95,6 +95,15 @@ interface ProgramResultProps {
    * body_focus path) are suppressed entirely.
    */
   assessedCategories?: string[];
+  /** Set when the last onContinue attempt failed to save — shown as an inline banner, never a native alert. */
+  saveError?: string | null;
+  /**
+   * Present once a save has failed at least once — renders a secondary
+   * "continue anyway" escape so a persistent failure never traps the user
+   * here. Safe by construction: the caller already wrote a sessionStorage
+   * backup before the failing write, and the next screen re-syncs from it.
+   */
+  onSkip?: () => void;
 }
 
 // ── Confetti particle ──────────────────────────────────────────────
@@ -293,6 +302,7 @@ const SummaryCard = ({
 // ── Main Component ─────────────────────────────────────────────────
 export default function ProgramResult({
   levelNumber,
+  maxLevel = 25,
   levelId,
   programId,
   userName,
@@ -301,12 +311,11 @@ export default function ProgramResult({
   assessmentLevels,
   skillLevels,
   assessedCategories,
+  saveError,
+  onSkip,
 }: ProgramResultProps) {
   void getOnboardingLocale(language); // keep import used
 
-  const [program,       setProgram]       = useState<Program | null>(null);
-  const [level,         setLevel]         = useState<Level | null>(null);
-  const [programLoading, setProgramLoading] = useState(true);
   const [revealPhase,   setRevealPhase]   = useState<RevealPhase>('calculating');
   const [showConfetti,  setShowConfetti]  = useState(true);
   const [showSparkles,  setShowSparkles]  = useState(false);
@@ -330,30 +339,6 @@ export default function ProgramResult({
     try { setProgramPath(sessionStorage.getItem('onboarding_program_path')); } catch { /* ssr */ }
   }, []);
 
-  // ── Fetch program & level names ────────────────────────────────
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setProgramLoading(true);
-        const [p, l] = await Promise.all([
-          // getProgramByTemplateId resolves slugs (front_lever, planche …) to
-          // their Firestore hash IDs via movementPattern + slug + name queries,
-          // so maxLevels is always populated even for skill programs.
-          programId ? getProgramByTemplateId(programId) : Promise.resolve(null),
-          levelId   ? getLevel(levelId)                 : Promise.resolve(null),
-        ]);
-        setProgram(p);
-        setLevel(l);
-      } catch (err) {
-        console.error('[ProgramResult] fetch:', err);
-      } finally {
-        setProgramLoading(false);
-      }
-    };
-    fetchData();
-  }, [programId, levelId]);
-
-
   // ── Window height ───────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -369,25 +354,13 @@ export default function ProgramResult({
   }, []);
 
   // ── Derived values ─────────────────────────────────────────────
-  const levelName: string | null = programLoading ? null : ((level?.name as string | undefined) ?? null);
-
-  /**
-   * Dynamic max level for the gauge denominator.
-   * Priority: Firestore program.maxLevels → SKILL_MAX_LEVELS static map
-   * → generic fallback 25.
-   * SKILL_MAX_LEVELS is used immediately (zero-latency) so the gauge never
-   * shows the wrong denominator while the program doc is loading.
-   */
-  const skillMaxFallback = SKILL_MAX_LEVELS[programId ?? ''];
-  const maxLevel: number = program?.maxLevels
-    ?? skillMaxFallback
-    ?? 25;
+  // No Firestore-sourced level name — see maxLevel prop's doc comment for
+  // why this component no longer fetches its own program/level docs.
+  const levelName: string | null = null;
 
   const getProgramName = () => {
-    // Skills path: Firestore name takes precedence
+    // Skills path
     if (isSkillsPath) {
-      if (program?.name) return program.name;
-      if (level?.name)   return language === 'he' ? `תוכנית ${level.name}` : `${level.name} Program`;
       return language === 'he' ? 'תוכנית מיומנויות מותאמת' : 'Custom Skills Program';
     }
 
@@ -416,9 +389,6 @@ export default function ProgramResult({
       return `תוכנית ${rest.join(', ')} ו${last}`;
     }
 
-    // Firestore fallback
-    if (program?.name) return program.name;
-    if (level?.name)   return language === 'he' ? `תוכנית ${level.name}` : `${level.name} Program`;
     return language === 'he' ? 'תוכנית אימונים מותאמת אישית' : 'Personalized Training Program';
   };
 
@@ -651,23 +621,17 @@ export default function ProgramResult({
                   {getProgramName()}
                 </h2>
 
-                {/* Gauge */}
+                {/* Gauge — levelNumber/maxLevel are caller-supplied props now,
+                    no fetch of our own, so there's nothing to wait on here
+                    (see maxLevel's doc comment: this used to gate on a
+                    program-doc fetch that could hang with no timeout). */}
                 <div className="flex justify-center mb-5">
-                  {programLoading ? (
-                    <div
-                      className="w-[200px] h-[200px] rounded-full bg-slate-100 animate-pulse
-                                 flex items-center justify-center"
-                    >
-                      <div className="w-10 h-10 border-2 border-slate-300 border-t-cyan-400 rounded-full animate-spin" />
-                    </div>
-                  ) : (
-                    <CircularGauge
-                      levelNumber={levelNumber}
-                      maxLevel={maxLevel}
-                      levelName={levelName}
-                      onCountComplete={handleCountComplete}
-                    />
-                  )}
+                  <CircularGauge
+                    levelNumber={levelNumber}
+                    maxLevel={maxLevel}
+                    levelName={levelName}
+                    onCountComplete={handleCountComplete}
+                  />
                 </div>
 
                 {/* Achievement / social-proof text */}
@@ -698,6 +662,18 @@ export default function ProgramResult({
                   : 'המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע לרמה הבאה. 🚀'}
               </p>
 
+              {/* Save-failure banner — inline, specific, never a native alert. */}
+              {saveError && (
+                <div
+                  className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-3 text-sm text-amber-800"
+                  dir="rtl"
+                  role="alert"
+                >
+                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" />
+                  <span className="font-medium">{saveError}</span>
+                </div>
+              )}
+
               <button
                 onClick={handleContinueClick}
                 className="w-full text-white font-black text-lg py-4 rounded-2xl
@@ -705,8 +681,20 @@ export default function ProgramResult({
                 style={{ background: BRAND_GRADIENT, boxShadow: '0 8px 24px rgba(0,186,247,0.35)' }}
                 dir="rtl"
               >
-                {continueLabel}
+                {saveError ? 'נסה שוב' : continueLabel}
               </button>
+
+              {/* Escape hatch — only appears after a real failure, never on
+                  the happy path. See onSkip's doc comment on ProgramResultProps. */}
+              {saveError && onSkip && (
+                <button
+                  onClick={onSkip}
+                  className="w-full text-slate-500 font-bold text-sm py-2 underline underline-offset-2 active:opacity-60 transition-opacity"
+                  dir="rtl"
+                >
+                  המשך בלי לשמור עכשיו
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

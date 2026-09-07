@@ -185,6 +185,13 @@ export default function VisualAssessmentPage() {
   const [result, setResult] = useState<ResultData | null>(null);
   const [selectedTier, setSelectedTier] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
 
+  // Save-failure recovery (David, 08.09.2026 — logout/relogin dead-end fix).
+  // saveAttempts counts consecutive handleAcceptResult failures; once >0 we
+  // show a specific error + a skip escape, so a persistent failure never
+  // traps the user on this screen with only a native alert + the same retry.
+  const [saveAttempts, setSaveAttempts] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   // ── In-memory back navigation ────────────────────────────────
   // Rolls the FlowStep state machine back one sub-step. Returns true when the
   // back action was consumed (so the Android hardware back / in-app back button
@@ -622,8 +629,34 @@ export default function VisualAssessmentPage() {
 
   // ── Accept & persist ─────────────────────────────────────────
 
+  // Specific-enough message per failure class, never a bare "try again" —
+  // David, 08.09.2026: "מה נכשל ומה לעשות", not a generic alert.
+  function describeSaveError(err: any): string {
+    const code: string = err?.code ?? '';
+    if (code === 'unavailable' || code === 'deadline-exceeded' || code.includes('network')) {
+      return 'החיבור לאינטרנט נראה לא יציב כרגע. אפשר לנסות שוב, או להמשיך — נשלים את השמירה בשלב הבא.';
+    }
+    if (code === 'permission-denied' || code === 'unauthenticated') {
+      return 'החשבון שלך לא מזוהה כרגע. נסה שוב, ואם זה חוזר — המשך בכל זאת, נשלים את השמירה בשלב הבא.';
+    }
+    return 'לא הצלחנו לשמור את התוצאות כרגע. אפשר לנסות שוב, או להמשיך — נשלים את השמירה בשלב הבא.';
+  }
+
+  // Alternate path after a persistent save failure — NOT the same loop.
+  // Safe to just navigate forward: handleAcceptResult already wrote
+  // 'onboarding_assigned_results'/'onboarding_assessment_levels' to
+  // sessionStorage BEFORE the Firestore calls that can fail (below), and
+  // /onboarding-new/health's own sync effect already reads that exact
+  // sessionStorage backup (falling back to Firestore's assignedResults if
+  // even that's missing) and re-runs syncOnboardingToFirestore itself —
+  // this is pre-existing, tested recovery machinery, not new plumbing.
+  const handleSkipSave = useCallback(() => {
+    router.push('/onboarding-new/health');
+  }, [router]);
+
   const handleAcceptResult = useCallback(async () => {
     if (!result) return;
+    setSaveError(null);
     setStep('saving');
 
     // ── Mini-domain-assessment short-circuit ──────────────────────────────
@@ -796,7 +829,8 @@ export default function VisualAssessmentPage() {
       router.push('/onboarding-new/health');
     } catch (err) {
       console.error('[Assessment] Save error:', err);
-      alert('שגיאה בשמירה — נסו שנית');
+      setSaveAttempts((prev) => prev + 1);
+      setSaveError(describeSaveError(err));
       setStep('result');
     }
   }, [result, authUser, matchedRule, router, selectedTier, pathConfig, categories]);
@@ -832,6 +866,21 @@ export default function VisualAssessmentPage() {
       </div>
     );
   }
+
+  // The ProgramResult gauge's denominator — resolved the SAME way the
+  // sliders already do (line ~946's getMaxLevelForCategory call), never
+  // from ProgramResult's own removed SKILL_MAX_LEVELS table. Skills path:
+  // key by the matched skill id (skillMaxLevels applies there). Everything
+  // else: key by the actual assessed category, not result.programId — a
+  // matched program_thresholds doc's programId can be an unrelated skill
+  // slug (see 08.09.2026 investigation), which is exactly the wrong thing
+  // to look up a per-domain ceiling by.
+  const resolvedMaxLevel = pathConfig
+    ? getMaxLevelForCategory(
+        pathConfig,
+        pathConfig.path === 'skills' ? (result?.programId ?? '') : (categories[0] ?? 'pull'),
+      )
+    : 25;
 
   return (
     <div
@@ -1016,6 +1065,7 @@ export default function VisualAssessmentPage() {
             >
               <ProgramResult
                 levelNumber={result.average}
+                maxLevel={resolvedMaxLevel}
                 levelId={result.levelId || undefined}
                 programId={result.programId}
                 userName={userName}
@@ -1033,6 +1083,8 @@ export default function VisualAssessmentPage() {
                     : undefined
                 }
                 assessedCategories={categories}
+                saveError={saveError}
+                onSkip={saveAttempts > 0 ? handleSkipSave : undefined}
               />
             </motion.div>
           )}
