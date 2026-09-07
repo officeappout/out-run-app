@@ -512,7 +512,35 @@ export function enforceVolumeCap(
     // constant — removing one saves no time and mutilates the block.
     if (ex.protocolBlock) return false;
     const mg = ex.exercise.movementGroup ?? '';
-    if (CORE_MGS.has(mg)) return true;
+    // Sole-representative guard for core (David, 07.09.2026 — Addendum 36
+    // Stage-1 verification): CORE_MGS.has(mg) alone used to make ANY core
+    // exercise expendable unconditionally, with no "is this the last one"
+    // check — unlike legs below, which has always had exactly this guard
+    // (legsCount > 1). Without it, core's sole exercise was still the only
+    // expendable candidate left once isolation/accessory and extra-legs were
+    // exhausted, and still got removed regardless of expendabilityRank order
+    // — the ranking fix alone (below) cannot protect a domain this function
+    // never treats as protectable in the first place.
+    //
+    // Scoped to coreProtected (>=20min) ONLY — legs has no below-threshold
+    // exception because it's always structurally required, but core has its
+    // own pre-existing, separately-approved "ships without core below 20min"
+    // rule (GuaranteePassRunner's optional_below_20min); duplicating legs's
+    // guard unconditionally would silently override that rule. Below 20min,
+    // core stays exactly as unconditionally expendable as before.
+    //
+    // Gated FIRST (returns early either way) rather than added as one more
+    // independent `if` — a sole core exercise is near-always priority
+    // 'accessory' (the whole reason it kept getting removed), so falling
+    // through to the generic isolation/accessory check below would have
+    // marked it expendable anyway, silently defeating this guard.
+    if (CORE_MGS.has(mg)) {
+      if (!coreProtected) return true;
+      const coreCount = workout.exercises.filter(
+        e => e.exerciseRole === 'main' && CORE_MGS.has(e.exercise.movementGroup ?? ''),
+      ).length;
+      return coreCount > 1;
+    }
     if (ex.priority === 'isolation' || ex.priority === 'accessory') return true;
     // Extra legs (not the sole legs exercise in the plan)
     const legsCount = workout.exercises.filter(
@@ -530,9 +558,17 @@ export function enforceVolumeCap(
     const isCore = CORE_MGS.has(mg);
     const isIsolationOrAccessory = ex.priority === 'isolation' || ex.priority === 'accessory';
     if (coreProtected) {
+      // David, 07.09.2026 (Addendum 36): isCore checked FIRST — the prior
+      // order checked isIsolationOrAccessory first, so a core exercise
+      // (near-always priority 'accessory' in practice) hit rank 0 and was
+      // removed first despite this branch's own intent. Real protection now
+      // requires isExpendable's sole-representative guard (Fix 0) too — this
+      // reorder alone only controls WHICH expendable candidate goes first
+      // among several, not whether core can be the last one removed when
+      // nothing else is left (that's Fix 0's job).
+      if (isCore) return 2; // core, trims last
       if (isIsolationOrAccessory) return 0;
-      if (!isCore) return 1; // extra legs (the only other isExpendable category)
-      return 2; // core, trims last
+      return 1; // extra legs (the only other isExpendable category)
     }
     if (isCore) return 0;
     if (isIsolationOrAccessory) return 1;

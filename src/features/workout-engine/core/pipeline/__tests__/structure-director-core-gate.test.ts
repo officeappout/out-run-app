@@ -59,3 +59,39 @@ describe('StructureDirector — core duration/goal gate', () => {
     expect(hasCoreBlock(context)).toBe(false);
   });
 });
+
+/**
+ * Rule A vs Rule B (David, 07.09.2026 — Addendum 36): core the user explicitly
+ * requested stands equal to push/pull/legs (main-tier, isAccessorySlot false);
+ * core that's here only because the auto-derived full-body domain set happens
+ * to include it stays a bonus (accessory-tier). `domains.includes('core')`
+ * can't distinguish the two — activeCore already requires it either way — so
+ * the real signal is `context.strictDomains`, which is exactly what real
+ * explicit-pick callers set (WorkoutBuilderSheet.tsx:644 and others).
+ */
+describe('StructureDirector — core block main-tier vs accessory-tier (Rule A / Rule B)', () => {
+  const coreBlock = (context: WorkoutGenerationContext, difficulty: DifficultyLevel = 2) => {
+    const blueprint = createStructureDirector().plan(context, difficulty);
+    return blueprint.blocks.find((b) => b.domain === 'core');
+  };
+
+  it('strictDomains:true (explicit chip-pick) → core gets a main-tier slot, isAccessorySlot falsy', () => {
+    const context = baseContext({ strictDomains: true });
+    const block = coreBlock(context);
+    expect(block).toBeDefined();
+    expect(block?.isAccessorySlot).toBeFalsy();
+  });
+
+  it('strictDomains unset (schedule/program-derived requiredDomains) → core stays accessory-tier', () => {
+    const context = baseContext({});
+    const block = coreBlock(context);
+    expect(block).toBeDefined();
+    expect(block?.isAccessorySlot).toBe(true);
+  });
+
+  it('strictDomains:false explicitly → same as unset, core stays accessory-tier', () => {
+    const context = baseContext({ strictDomains: false });
+    const block = coreBlock(context);
+    expect(block?.isAccessorySlot).toBe(true);
+  });
+});

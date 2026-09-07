@@ -607,7 +607,7 @@ export default function WorkoutSimulatorPage() {
 
             {/* ── Program Builder ── */}
             <ControlCard icon={<ListChecks size={16} />} title="בונה תוכניות (Program Builder)"
-              badge={activePrograms.length > 0 ? `${activePrograms.length} תוכניות` : 'ריק → full_body'}
+              badge={activePrograms.length > 0 ? `${activePrograms.length} תוכניות` : 'ריק → Domain Matrix'}
             >
               {programsLoading ? (
                 <div className="flex items-center gap-2 py-2 text-xs text-gray-400">
@@ -652,7 +652,7 @@ export default function WorkoutSimulatorPage() {
                   {/* Active Programs List */}
                   {activePrograms.length === 0 ? (
                     <p className="text-[10px] text-gray-400 italic text-center py-2 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                      אין תוכניות — הסימולטור ישתמש ב-full_body כברירת מחדל
+                      אין תוכניות — הסימולטור ישתמש ב-Domain Matrix בלבד (ללא תוכנית פעילה)
                     </p>
                   ) : (
                     <div className="space-y-1.5">

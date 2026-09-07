@@ -2982,3 +2982,829 @@ session) concludes, since it may turn out to dominate ה1/ה2 entirely and chang
 means for the original symptom.
 
 **Commit:** local only, no push.
+
+## Addendum 29 — Task 1: buildMockProfile hardened, all 3 fabrications fixed. The test matrix now
+## reproduces the activePrograms[0]-only bug directly — 0 pull, 0 legs, every single run.
+
+David's exact framing: the mock profile utility "lied" 3 ways, and every measurement this whole
+session used it, so none of the prior numbers describe a real affected user.
+
+**(א) Field names** — already fixed in an earlier turn (`currentLevel`/`percent`, not `level`/
+`progressPercent`) — confirmed still correct, verified by a passing test even on pre-fix code for
+this specific check (the new test suite's other tests correctly failed pre-fix; this one didn't,
+proving it wasn't reintroduced from scratch).
+
+**(ב) Fabricated domain levels** — `pullLevel`/`pushLevel`/`legsLevel`/`coreLevel` used to default to
+`Math.max(1, effectiveLevel - N)` whenever `domainLevels` omitted that key — core's version was the
+exact artifact behind the 223s rest-outlier (Addendum 26). Fixed for **all four** domains uniformly,
+not just core — leaving push/pull/legs with the same anti-pattern would have just relocated the same
+bug class. A domain now only appears in `progression.domains`/`tracks` when `domainLevels` explicitly
+names it. `domains.full_body` is the one deliberate exception — `level` is a required, always-explicit
+parameter (not a derived guess), so passing it through is not a fabrication, same treatment as
+`progression.globalLevel`.
+
+**(ג) `activePrograms: []` → synthetic `full_body` fallback** — removed. A real user with no chosen
+program has `activePrograms: []`; that's what the function now returns. This was the single biggest
+finding: `resolveChildDomainsForParent('full_body', ...)` is the ONE case that happens to expand
+correctly to all 4 assessed children — meaning every mock profile this entire session built (all of
+which called with `activePrograms: []`) accidentally took the one code path that masks the
+`activePrograms[0]`-only read bug (docs 10/11). Also removed the now-dead `tracks[primaryId]` entry
+it depended on — redundant even when real `activePrograms` are supplied (`programTracks` already
+covers each program's own track and was spread last, silently shadowing it).
+
+Updated the two stale UI strings in `src/app/admin/workout-simulator/page.tsx` that documented the
+old "empty → full_body" behavior as intentional ("ריק → full_body" badge, "הסימולטור ישתמש ב-full_body
+כברירת מחדל" helper text) — both now describe the actual new behavior (falls through to the Domain
+Matrix, no synthetic program).
+
+**New test suite** (`mock-profile.utils.test.ts`, 8 tests) — covers all three fixes plus a cold-start
+case. Fail-before/pass-after verified via `git stash`: 4 of 8 failed on pre-fix code exactly as
+predicted (the (ב)/(ג) fixes); the other 4 (field-name checks) already passed pre-fix, confirming (א)
+wasn't silently broken by this pass.
+
+### Test matrix extended — `scripts/audit/build-snapshot.ts` now has a `push_pull_legs_split` mode
+
+Added `activeProgramsMode: 'auto' | 'push_pull_legs_split'` to the combo model. The new mode builds a
+REAL 3-entry `activePrograms` input (`push`/`pull`/`legs`, matching `progression.service.ts`'s actual
+split-write shape) across 2 levels × 2 durations × home-only (4 combos × 3 bolts = 12 workouts) — small
+and deliberate, a regression tripwire rather than a full sweep. Tagged `req_domains =
+'split:push_pull_legs'` in the snapshot for easy filtering. **Does not touch any frozen
+schedule↔engine boundary file** (InputSanitizerMiddleware, SplitDecisionService, scheduleRules.ts,
+scheduledProgramIds) — it only feeds the unmodified pipeline a different, equally real input shape.
+
+**Result — the bug reproduces, every single time:**
+
+```
+req_domains='split:push_pull_legs', all 12 workouts (4 combos × 3 bolts, levels 8/12, durations 30/45):
+  domain distribution across all 12: push=70, other=12, (blank)=6, core=1
+  pull=0, legs=0 — zero, not reduced, in every one of the 12 workouts.
+```
+
+Several workouts also came in well under their requested duration (e.g. L8/45min → 18min actual) —
+consistent with a domain-starved pool, matching doc 11's C1 finding.
+
+### Delta vs. the pre-existing snapshot baseline (`auto` mode, 540 workouts, unchanged combo count)
+
+| Metric | Before (pre-fix) | After (post-fix) |
+|---|---|---|
+| core_promise_outcome: failed | 386 | 357 |
+| core_promise_outcome: satisfied | 130 | 145 |
+| core_promise_outcome: replaced | 23 | 25 |
+| core_promise_outcome: injected | 1 | 13 |
+| domain: push | 999 | 1128 |
+| domain: pull | 864 | 822 |
+| domain: legs | 656 | **403** |
+| domain: core | 261 | 280 |
+| domain: other | 550 | 568 |
+
+**Honest caveat, not glossed over**: `getShuffleSeed` is hardcoded `Date.now()`-seeded (documented in
+this script's own header) — "which specific exercise wins among near-tied candidates" is NOT
+reproducible run-to-run even with zero code changes, so some of this delta is re-run noise, not
+purely attributable to the fix. That said, the legs swing (656→403, -39%) is large enough to be
+worth flagging rather than dismissing as noise alone. Investigated one candidate mechanism —
+`derivePeriodizationWeek(activeProgramForCycle)` reading `userProfile.progression.activePrograms[0]`
+directly (now genuinely `undefined` instead of a fake `full_body` entry) — and ruled it out: both the
+old fake entry (`startDate: new Date()`, i.e. "now") and the new `undefined` input resolve to the
+same Week 1/Build phase (`periodization.service.ts:78-81`), so this isn't the mechanism. Most likely
+explanation not yet confirmed: `activeProgramId` changing from `'full_body'` to `undefined` shifts
+which branch of `InputSanitizerMiddleware.buildActiveProgramFilters` computes the domain list (the
+'full_body' special-case vs. the assessedDomainKeys fallback) — same domain SET, but possibly a
+different array ORDER, which could cascade into different tie-breaks in `takeFromPool`'s per-domain
+capping (Addendum 26). **Not fully root-caused this pass — flagging as an open item, not asserting a
+cause.** If tighter confidence is wanted, a repeated same-code re-run (to establish a noise floor)
+before drawing conclusions from this specific delta is the natural next step — not done here to keep
+this task's scope bounded.
+
+**Every "auto"-mode number from any prior addendum in this file is now describing a different code
+path** (activeProgramId was always `'full_body'`; is now always `undefined` for these combos) — not
+necessarily wrong, but no longer a byte-identical re-derivation. Addendum 25's 6-workout sample and
+Addendum 26-28's traces should be treated as historically accurate for what they measured, not as a
+frozen baseline to diff future runs against without accounting for this.
+
+**Commit:** local only, no push. Branch `fix/mock-profile-and-domain-gates`, worktree
+`.claude/worktrees/mock-profile-and-domain-gates` (set up per David's explicit operational
+instruction — the shared main working directory hit a stuck `index.lock` twice this session).
+
+## Addendum 30 — Task 2 investigation: progression.service.ts's `core: snap.core ?? 1`.
+## Report only, per instruction — NO fix applied. Turns out to be inert in production today, for a
+## reason worth knowing before deciding whether to fix it at all.
+
+**מוקפא לפי §2 — שייך למסלול הלוז** (`.claude/knowledge/schedule-vs-smart-coach-contract.md`):
+`evaluateProgramEvolution`/`pendingProgramEvolution` changes which program the user is switched into
+by level — that changes what appears in the schedule, so it's frozen under the schedule↔smart-coach
+contract, same as the other boundary files. This addendum stays as documentation only — do not
+delete, fix, or complete this mechanism until that contract resolves it. Do not confuse with the
+separate, live `assessment_rules`/`program_thresholds` mechanism in the admin panel (different
+thresholds/program names, read only from the registration screen) — that one is real, out of scope
+for this addendum, and will be handled separately.
+
+David's flagged lines (`buildEvolvedPrograms`, ~1420-1423/1460-1463) belong to a "Program Evolution
+Engine" with two halves:
+
+**Half 1 — detection, real and live.** `evaluateProgramEvolution` (`:1328-1359`) runs inside the
+normal XP-award/level-up flow — confirmed via its one real caller at `:1879`, which is itself inside
+a function that also writes `progression.readyForSplit` (`:1872`) a few lines above, i.e. genuinely
+executes on every level-up, not a dead branch. When a user's `full_body` hits L13 or `upper_body`
+hits L18, it builds `subLevelsSnapshot` (`:1333-1336`):
+```js
+for (const childId of ['push', 'pull', 'legs', 'core']) {
+  subLevels[childId] = tracks[childId]?.currentLevel ?? 0;
+}
+```
+**This is the actual, currently-executing fabrication** — not the `?? 1` David pointed at. Any
+domain the user never assessed gets `0` written directly into `progression.pendingProgramEvolution`
+on the real user document (`:1882-1883`, a real `updateDoc` call, not a dry-run).
+
+**Half 2 — execution, confirmed dead code.** `buildEvolvedPrograms` (containing the exact `snap.core
+?? 1` / `snap.legs ?? 1` lines David flagged) **has zero callers anywhere in the codebase** —
+verified by grepping the entire `src/` tree, not just this file. `pendingProgramEvolution` (the field
+Half 1 writes) has exactly one other reference in the whole codebase: its own type declaration
+(`user.types.ts`). No UI component reads it, nothing calls `buildEvolvedPrograms` to act on it. The
+flag gets written to real user documents and then sits there, permanently inert.
+
+**Direct answers to David's 4 questions:**
+
+1. **מי קורא לפונקציות האלו** — `evaluateProgramEvolution`: one real caller, inside the live XP
+   level-up path. `buildEvolvedPrograms`: no callers at all, anywhere.
+2. **מה קורה בפועל אצל משתמש שאין לו רמת ליבה** — nothing. The flag is set on their Firestore
+   document (with a fabricated `core: 0` inside `subLevelsSnapshot`, if core was never assessed), but
+   since nothing ever calls `buildEvolvedPrograms` to act on that flag, **no user has ever actually
+   been evolved into a new split through this path, correctly leveled or not.** No core workout at
+   any level gets triggered by this specific mechanism, because the mechanism that would trigger it
+   was never finished.
+3. **A subtlety worth flagging even though it's currently moot**: because of JS nullish-coalescing
+   semantics, `buildEvolvedPrograms`'s `?? 1` would almost never actually produce `1` for a domain
+   that came from `evaluateProgramEvolution` — `0` is not nullish, so `0 ?? 1` evaluates to `0`, not
+   `1`. If this code path is ever wired up as-is, the realistic failure mode is closer to "writes
+   `currentLevel: 0`" than "writes `currentLevel: 1`" — different from how the bug was originally
+   described, worth knowing before anyone reaches for the `?? 1` line specifically as "the" fix site.
+   (`0` may or may not be handled correctly by other consumers — not audited this pass, since the
+   path is dead; would need re-checking before ever wiring this up for real.)
+4. **A separate, live mechanism exists and should not be confused with this one**: `readyForSplit`
+   (`checkReadyForSplit`, `:1868-1876`) is a different flag, with real consumers
+   (`src/app/admin/users/all/page.tsx`, `useProgressionSync.ts`). Whether `pendingProgramEvolution`/
+   `buildEvolvedPrograms` is an abandoned, superseded-by-`readyForSplit` approach, or an unfinished
+   newer one meant to replace it, isn't determinable from code alone — flagging as a genuine
+   ambiguity, not guessing.
+
+**Proposed fix, not applied** (per instruction — report first): David's suggested direction — leave
+the value `undefined` and let the caller decide, rather than inventing `0` or `1` — applies most
+directly to `evaluateProgramEvolution`'s `?? 0` (the line that actually executes). Whether
+`buildEvolvedPrograms` is worth fixing at all depends on the answer to point 4 above: fixing dead
+code costs nothing risky, but if this whole mechanism is meant to be retired in favor of
+`readyForSplit`, the more valuable fix might be deleting `pendingProgramEvolution`'s write (Half 1)
+and `buildEvolvedPrograms` (Half 2) entirely instead of patching either.
+
+**Commit:** local only, no push. Documentation only — no source file changed this task, per
+instruction ("דווח לפני שאתה מתקן").
+
+## Addendum 31 — Task 0: the test matrix is now genuinely reproducible. The legs -39% delta from
+## Addendum 29 is confirmed REAL, not noise — survives across two independent post-fix runs under
+## different RNG conditions.
+
+Two independent non-determinism sources found and fixed, both scoped entirely to the measurement
+script — zero behavior change for any real app user:
+
+1. **`getShuffleSeed`** (`workout-selection.utils.ts:164`) — `DEBUG_SHUFFLE_ON_REFRESH` hardcoded
+   `true`, always returning `Date.now()` regardless of context. Added a narrow env-var override
+   (`WORKOUT_ENGINE_FIXED_SHUFFLE_SEED`) checked *before* that flag — inert unless this exact env var
+   is set, which only `build-snapshot.ts` (or an explicit manual override) ever does.
+2. **Every other `Math.random()` call** in the pipeline (reps/sets/rest-seconds within their tier
+   range, protocol rolls, AMRAP/EMOM coin flips, warmup jitter — dozens of sites across
+   `WorkoutGenerator.ts`/`workout-budgeting.utils.ts`/`warmup.service.ts`/`ProtocolInjector.ts`, none
+   routed through `getShuffleSeed`) — confirmed by grepping every `Math.random()`/`Date.now()` call
+   in the engine's logic/services/core directories before assuming #1 alone would be sufficient. Fixed
+   by replacing global `Math.random` with a seeded PRNG (mulberry32) for this standalone script's own
+   process only, before any engine code runs — no engine source file's own `Math.random` usage was
+   touched.
+3. **Concurrency + a shared stateful PRNG under real network I/O timing is its own reproducibility
+   risk**, not fixed by #1+#2 alone: with `CONCURRENCY=8`, multiple combos' async generation calls can
+   genuinely interleave their random draws depending on real Firestore-read timing, so the exact draw
+   order — and therefore result — isn't guaranteed identical run-to-run even with a fixed seed. Added
+   `SNAPSHOT_CONCURRENCY` (default 8, unchanged for normal fast runs) — reproducibility runs use
+   `SNAPSHOT_CONCURRENCY=1` (fully sequential, no interleaving possible).
+
+`SNAPSHOT_SEED` env var overrides the default fixed seed (42).
+
+**Verified, not assumed**: ran the SMOKE matrix twice with `SNAPSHOT_CONCURRENCY=1
+SNAPSHOT_SEED=42`, diffed every meaningful column (workouts + workout_exercises, excluding the
+`seed` provenance column which is deliberately still `Date.now()`-stamped for row tracking only) —
+**byte-identical, both tables, both runs.**
+
+### Full baseline re-run with the fixed seed — this replaces Addendum 29's numbers
+
+`SNAPSHOT_CONCURRENCY=1 SNAPSHOT_SEED=42`, full matrix (540 auto-mode workouts, 214s):
+
+| Metric | Before Task 1 (unseeded) | After Task 1, unseeded (Addendum 29) | After Task 1, SEEDED (this run) |
+|---|---|---|---|
+| core_promise: failed | 386 | 357 | 377 |
+| core_promise: satisfied | 130 | 145 | 116 |
+| core_promise: replaced | 23 | 25 | 30 |
+| core_promise: injected | 1 | 13 | 17 |
+| domain: push | 999 | 1128 | 1139 |
+| domain: pull | 864 | 822 | 848 |
+| domain: legs | 656 | **403** | **407** |
+| domain: core | 261 | 280 | 240 |
+| domain: other | 550 | 568 | 562 |
+
+**The legs delta survives — it was real, not noise.** 656 (pre-fix) → 403 (post-fix, unseeded) → 407
+(post-fix, seeded) — the two POST-fix numbers land within 1% of each other despite completely
+different RNG conditions (unseeded/Date.now() vs. fixed-seed/concurrency=1), while both sit ~38-39%
+below the pre-fix number. That consistency across two independently-randomized post-fix runs is what
+rules out chance — a noise-driven number would not land in the same place twice under different RNG
+regimes. **Mechanism not yet root-caused** — the leading candidate from Addendum 29 (removing the
+`activePrograms:[]→full_body` fallback changes `activeProgramId` from `'full_body'` to `undefined`,
+which changes which branch of `InputSanitizerMiddleware.buildActiveProgramFilters` computes the
+domain list) would require reading/tracing a frozen boundary file to confirm — flagging as open,
+deferred given the freeze, not chased further this task. Every other metric in the table (core
+promise outcomes, push/pull/core/other counts) moved by comparable or smaller amounts between the two
+post-fix runs as between pre/post-fix — i.e., **within the now-measured noise floor**, not confirmed
+real effects the way legs is.
+
+**This seeded run is the new baseline.** Task 4's re-run should diff against these numbers, not
+Addendum 29's unseeded ones — with `SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, any delta is now
+attributable to code changes, not RNG variance (verified determinism above), so "it might just be
+noise" is no longer an available explanation for what Task 4 finds.
+
+**Commit:** local only, no push.
+
+## Addendum 32 — Task 3 (ה2) investigation: the equipment pipeline, full trace. Report only, per
+## instruction — NO fix applied.
+
+**Where the user's declared equipment lives**: `UserFullProfile.equipment: EquipmentProfile`
+(`user.types.ts:212-216`) — `{ home: string[], office: string[], outdoor: string[] }`, arrays of
+`gear_definition` doc IDs.
+
+**Who reads it today**: exactly one function in the entire workout-engine codebase —
+`resolveEquipment` (`services/user-profile.utils.ts:120-155`), which switches on `location` to pick
+`equipment.home`/`.office`/`.outdoor` (falling back to `['bodyweight']` if empty). It has exactly one
+caller: `normalizeEquipmentArray` (`core/middleware/InputSanitizerMiddleware.ts:87-138`, line 95),
+which composes it with gym-catalog injection and park fixtures into the final `availableEquipment`
+array. That function has exactly one caller: `home-workout.service.ts:1635`
+(`normalizeEquipmentArray(userProfile, location, parkEquipmentIds, gymEquipmentList,
+equipmentOverride)`), which stores the result as `context.availableEquipment` — the value
+`ContextualEngine`, `selectMethodForContext`, and the main Step 1-5 selection pipeline all correctly
+consult.
+
+**The full pipeline, and exactly where it's cut**:
+```
+profile.equipment.{home|outdoor|office}
+  → resolveEquipment()                              [user-profile.utils.ts:127]
+  → normalizeEquipmentArray()                        [InputSanitizerMiddleware.ts:95]
+  → context.availableEquipment                       [home-workout.service.ts:1635]
+  → ContextualEngine / selectMethodForContext         ✅ reaches here correctly — main
+                                                          selection (Step 1-5) DOES respect
+                                                          what the user declared
+  ✂── CUT HERE ──✂
+  → applyFlowRegression() / applyEssentialGearFilter() ❌ never receives it — signatures
+                                                           checked directly, neither function
+                                                           has an availableEquipment parameter
+                                                           or anything equivalent
+  → isGearFree(allIds, allowEssential)                ❌ structurally cannot see it — its
+                                                           signature is (candidate method gear
+                                                           list, boolean), no user-context
+                                                           parameter exists at all
+```
+
+**Confirmed directly from the signatures**, not inferred: `applyFlowRegression`
+(`trio-modifiers.service.ts:463-472`) and `applyEssentialGearFilter` (`:626-635`) both take
+`location`, `userProgramLevels`, `activeProgramId`, `levelProgressPercent`, `intentMode` — neither
+takes `availableEquipment` or anything carrying it. The one call site,
+`home-workout.service.ts:982-991`, passes `pipeline.baseGeneratorContext.activeProgramId` etc. but
+never `.availableEquipment` — even though that exact field, on that exact object
+(`pipeline.baseGeneratorContext.availableEquipment`), is used **17 lines above**, at line 965, for
+the warmup-exercise call (`prependWarmupExercises`) right next to it. The data is sitting right there
+in scope; the wiring to pass it into the D1-specific naked/backfill pass was simply never built —
+same shape of gap as every other "domain-blind" finding this session, just for equipment instead of
+domain.
+
+**What happens to a user who declared "I have resistance bands"**: it matters for the **main**
+selection pipeline (Step 1-5) — more pull-exercise *methods* become genuinely eligible there, exactly
+as intended. It does **not** matter at all for `applyFlowRegression`'s naked/backfill pass
+(D1/flow-regression sessions specifically) — `isGearFree`'s `allowEssential` check only ever
+recognizes `ESSENTIAL_PARK_GEAR` (pullup_bar/dip_station/bench/low_bar/high_bar/step, a fixed,
+hardcoded set — `gear-mapping.utils.ts:694-701`), never the user's own declared inventory. A
+resistance-band pull exercise is treated as "not naked" by this specific pass regardless of whether
+the user owns bands, doesn't own bands, or the app has never asked them — the declaration is
+invisible to this one decision point, structurally, not due to a stale value or a wrong lookup.
+
+**One more thing worth flagging before anyone reaches for a fix**: passing `availableEquipment` into
+`applyEssentialGearFilter` would not, by itself, make `isGearFree` start respecting it — the
+function's current signature (`isGearFree(allIds: string[], allowEssential = false)`) has no
+parameter slot for "does the user own this gear" at all; its whole design checks "is this gear
+*structurally* free (bodyweight/none/essential-park)," a different question from "can *this specific
+user* do this." A real fix needs to reconcile which of those two questions the D1 naked/backfill pass
+is actually supposed to be asking — not just thread a missing parameter through. Not decided here —
+flagging the design fork, not picking a side.
+
+**Commit:** local only, no push. Documentation only — no source file changed this task, per
+instruction ("עצור ודווח. אל תתקן").
+
+## Addendum 33 — measurement-fidelity fix (David's catch, before Task 4): strictDomains axis +
+## the real difficulty mechanism (targetDifficulty). New seeded baseline — supersedes Addendum 31's
+## 407 number, which Task 4 must NOT diff against.
+
+David stopped the session before Task 4 with two specific corrections to `build-snapshot.ts` itself
+— not to the engine — because an inaccurate measurement tool would make Task 4's before/after diff
+meaningless.
+
+**1. strictDomains — the Addendum-31-era comment was wrong.** It claimed "no real caller ever sets
+`strictDomains: true`." David pointed to `WorkoutBuilderSheet.tsx:644`:
+`strictDomains: (derivedRequiredDomains?.length ?? 0) > 0` — true on every real Custom-Builder
+session where the user picked muscle-group chips. Grepping turned up 3 more unconditional real
+callers: `strength-block.service.ts:120`, `complementary-short.generator.ts:33`,
+`partial-completion.generator.ts:159`. `strictDomains` disables VerticalFoundation +
+HorizontalGuarantee + the domain-overflow fill path (per `home-workout.types.ts`'s own doc comment),
+and the 05.09.2026 paired trace found it moves the full-body-without-core rate at 45min by ~20 points
+(66.7% with vs 46.7% without). Every prior snapshot silently never exercised this real, common path.
+**Fix:** `DOMAIN_SUBSETS` default is now `[undefined, ['push','pull','legs']]` — the chip-picked combo
+is paired with `strictDomains:true` in `runCombo`, exactly matching production's conditional.
+
+**2. difficulty was fixed at 2 — but it's dead code.** `grep -n "options\.difficulty\b"` across
+`home-workout.service.ts` returns zero matches: the field is accepted by the options type but never
+read. The value that actually controls anything is `targetDifficulty`, and its effect is not "pick
+which of the 3 bolts to report" — it makes the trio-loop `continue` past the other 2 slots entirely
+(`home-workout.service.ts:849`), so only 1 bolt is genuinely generated, from a **fresh, unpenalized
+pool** — not cross-penalized by `sessionBlacklist` the way D2/D3 within one free-trio call are
+(`:874-881`). This is the real Custom-Builder call shape (`difficulty, targetDifficulty: difficulty`)
+and it had never been exercised by this script — every prior baseline's "3 free bolts per call" only
+ever measured the auto-multi-bolt shape, never the single-difficulty shape a real chip-picked or
+Custom-Builder session actually gets.
+**Fix:** every `'auto'`-mode combo now cycles through `targetDifficulty: 1|2|3`, replacing the old
+free-trio call for those combos (not adding alongside it — 3x the call cost, no longer free).
+`push_pull_legs_split` combos are unaffected (unrelated scenario, matches its real caller
+StatsOverview, which never sets `targetDifficulty`) and keep the original free-trio shape.
+
+**A gotcha found while implementing #2**: `home-workout.service.ts:1215-1219` pads `results[1]` and
+`results[2]` with the **same object reference** as `results[0]` when `targetDifficulty` caused only 1
+bolt to be generated — a naive `result.options.forEach` would have silently inserted 3 duplicate
+workout rows per combo, tripling the 'auto' bucket's weight with no new information. `runCombo` now
+special-cases `isAuto`: processes only `result.options[0]`, stamped with `bolt: targetDifficulty`
+(not a fabricated `boltIdx+1`).
+
+**Matrix trade-off (per David's explicit instruction — shrink other axes, not the new ones):**
+`LOCATIONS` 3→2 (dropped `gym`), `DAYS_INACTIVE` 3→1 (kept only `0`). `LEVELS` (5) and `DURATIONS` (4)
+untouched, as instructed ("הליבה של מה שהמשתמש באמת עושה").
+
+**Verification before trusting the run:**
+- `npx tsc --noEmit -p .` — zero errors attributable to `build-snapshot.ts` (all remaining errors are
+  the same pre-existing baseline noise in unrelated files, confirmed via `grep -i build-snapshot` on
+  the output — no matches).
+- `npx vitest run src/features/workout-engine` — 574/574 passing, same 2 pre-existing unrelated
+  `process.exit`-based failures (`hybrid-orchestrator.test.ts`, `hybrid-runtime.test.ts`).
+- Determinism re-verified with the new axes: two independent `SNAPSHOT_SMOKE=1 SNAPSHOT_SEED=42
+  SNAPSHOT_CONCURRENCY=1` runs, diffed on every `workouts` and `workout_exercises` column —
+  byte-identical both tables.
+
+**The new baseline** (`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, full matrix, 148s):
+
+244 calls, **0 errors**, 252 workouts, 1610 exercises (240 `'auto'` combos × 1 workout row +
+4 `push_pull_legs_split` combos × 3 bolts = 252).
+
+| domain (exercise rows, all 252 workouts) | count |
+|---|---|
+| push | 532 |
+| pull | 430 |
+| other | 267 |
+| legs | 226 |
+| core | 115 |
+| *(null — no movementGroup)* | 40 |
+
+| core_promise_outcome (252 workouts) | count |
+|---|---|
+| failed | 170 |
+| satisfied | 45 |
+| replaced | 15 |
+| *(null — no promise_validation line)* | 12 |
+| injected | 10 |
+
+| core_promise_reason, where outcome=failed (170) | count |
+|---|---|
+| no_safe_victim | 111 |
+| optional_below_20min | 59 |
+
+**Split by `req_domains` bucket — the strictDomains axis is visible in the numbers**, not just present
+in the code:
+
+| req_domains bucket | workouts | avg push/workout | avg pull/workout | avg legs/workout | avg core/workout |
+|---|---|---|---|---|---|
+| `auto` (strictDomains not passed) | 120 | 2.34 | 2.31 | 1.60 (68% of push) | 1.24 |
+| `push,pull,legs` (strictDomains:true) | 120 | 1.86 | 1.84 | 1.49 (80% of push) | 1.46 |
+
+Legs is underrepresented relative to push in **both** buckets, but `strictDomains:true` measurably
+narrows the gap (68%→80% of push) — consistent with the 05.09.2026 finding that `strictDomains`
+changes real behavior, not just a cosmetic label. This is exactly the shape of gap Task 4 is meant to
+close further; it is not closed by this measurement fix, which only makes the gap visible/comparable,
+per David's framing ("אין יותר תירוץ של רעש").
+
+**Confirms, does not newly discover, a separate already-tracked bug**: the `split:push_pull_legs`
+bucket (12 real generated workouts, the Addendum-29 regression tripwire for the
+`activePrograms[0]`-only read) shows **zero** `pull` or `legs` exercise rows across all 12 workouts —
+only `push` and `core` appear. This is the same open finding from doc 10/11 (Addendum 26-28), still
+reproducing under the new seeded matrix. Not investigated further here — it's a frozen-boundary issue
+(§2 of the schedule↔engine contract per David's Task-2 decision), out of scope for this measurement
+fix and for Task 4 (which is scoped to exercise-selection/level/equipment domain-blindness, not
+active-program read shape).
+
+**This is the baseline Task 4 measures against — not Addendum 31's 407.** The two are not comparable
+row-for-row: the matrix shape itself changed (`LOCATIONS`/`DAYS_INACTIVE` trimmed, `DOMAIN_SUBSETS`
+and `TARGET_DIFFICULTIES` added as real axes, 'auto' combos moved from free-trio to
+single-difficulty-per-call). Any further delta Task 4 produces should be diffed against the numbers
+in this addendum, with `SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1` held fixed so the diff is
+attributable to code, not RNG or matrix-shape drift.
+
+**Commit:** local only, no push.
+
+## Addendum 34 — second measurement-fidelity fix (David's catch, before Task 4): core-focused axes.
+## Answers "is there really a core problem?" — new seeded baseline. Supersedes Addendum 33.
+
+David stopped again before Task 4, same category of problem: Addendum 33's `DOMAIN_SUBSETS` fix
+(`[undefined, ['push','pull','legs']]`) still never put `core` in a requiredDomains selection, and
+`activePrograms` was always `[]`. So Addendum 33's `core_promise_outcome=failed` (170) measured "did
+the engine push core the user never asked for" — not "did a user who explicitly asked for core
+actually get it." Two different questions, and the number conflated them.
+
+**Three additions:**
+1. `DOMAIN_SUBSETS` +`['push','pull','legs','core']` (explicit request including core) and +`['core']`
+   (core-only, the sharpest test — nothing else competing for slots). Both get `strictDomains:true`
+   via the existing Addendum-33 wiring (unchanged logic, just a bigger `DOMAIN_SUBSETS` array feeding
+   it).
+2. `activeProgramsMode: 'full_body'` — a real `activePrograms:[{id:'full_body',...}]` input with all
+   4 domains explicitly leveled (David's exact spec), same "small deliberate tripwire" sizing as
+   `push_pull_legs_split` (`FULL_BODY_LEVELS=[8,12]`, `FULL_BODY_DURATIONS=[30,45]`, home only).
+3. `activeProgramsMode: 'no_core_assessment'` — `domainLevels` genuinely omits the `core` key (not
+   `core: undefined` — the key itself absent, `buildMockProfile`'s own "absent=absent" handling),
+   `activePrograms: []`. Same small sizing as #2.
+
+`LEVELS` reduced `[1,3,5,8,12]` → `[1,5,12]` to offset `DOMAIN_SUBSETS` doubling (2→4), per David's
+explicit instruction — cut this axis, not the new ones. `DURATIONS`/`LOCATIONS` untouched.
+
+**Verification:** `tsc --noEmit` — zero errors attributable to `build-snapshot.ts`. `vitest run
+src/features/workout-engine` — 574/574, same 2 pre-existing unrelated failures. Determinism
+re-verified with the new modes: two independent `SNAPSHOT_SMOKE=1 SNAPSHOT_SEED=42
+SNAPSHOT_CONCURRENCY=1` runs, byte-identical on every `workouts`/`workout_exercises` column. A smoke
+spot-check confirmed the wiring before committing to the full run: `no_core_assessment` → zero
+core-domain exercises; `full_body` → core present.
+
+**The new baseline** (`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, full matrix, 175s):
+
+300 calls, **0 errors**, 324 workouts, 1845 exercises (288 `'auto'` × 1 row + 4 `push_pull_legs_split`
++ 4 `full_body` + 4 `no_core_assessment`, each × 3 bolts = 36 rows).
+
+**`core_promise_outcome`, segmented by `req_domains` — the number David asked for, not one aggregate:**
+
+| req_domains | n | satisfied | failed | replaced | injected | *(null — no promise_validation line)* |
+|---|---|---|---|---|---|---|
+| `auto` (no explicit domains) | 72 | 13 | 51 | 5 | 3 | 0 |
+| `push,pull,legs` (core NOT requested) | 72 | 16 | 46 | 6 | 4 | 0 |
+| `push,pull,legs,core` (core requested, with others) | 72 | 16 | 50 | 5 | 1 | 0 |
+| `core` (core requested ALONE) | 72 | 0 | 0 | 0 | 0 | **72** |
+| `program:full_body` | 12 | 4 | 6 | 2 | 0 | 0 |
+| `no_core_assessment` | 12 | 0 | **12** | 0 | 0 | 0 |
+| `split:push_pull_legs` | 12 | 0 | 0 | 0 | 0 | 12 |
+
+**`core_promise_reason`, where outcome=failed:**
+
+| req_domains | no_safe_victim | optional_below_20min | unassessed |
+|---|---|---|---|
+| `auto` | 34 | 17 | — |
+| `push,pull,legs` | 30 | 16 | — |
+| `push,pull,legs,core` | 32 | 18 | — |
+| `program:full_body` | 6 | — | — |
+| `no_core_assessment` | — | — | **12 (100%)** |
+
+**Actual core-domain exercise volume per workout (not just the promise-pass outcome), same buckets:**
+
+| req_domains | n workouts | core exercise rows | avg core / workout |
+|---|---|---|---|
+| `auto` | 72 | 32 | 0.44 |
+| `push,pull,legs` (core NOT requested) | 72 | 40 | 0.56 |
+| `push,pull,legs,core` (core requested) | 72 | 33 | 0.46 |
+| `core` (core requested ALONE) | 72 | 193 | **2.68** |
+| `program:full_body` | 12 | 8 | 0.67 |
+| `no_core_assessment` | 12 | **0** | **0.00** |
+| `split:push_pull_legs` | 12 | 12 | 1.00 |
+
+**So: is there really a core problem? Yes — but not the one the raw aggregate suggested, and one part
+of the system is working exactly as intended:**
+
+- **`no_core_assessment` is clean.** All 12 workouts: 0 core exercises, `core_promise_outcome=failed`
+  reason=`unassessed`, 100% consistent. A user who never completed a core assessment genuinely never
+  gets core fabricated for them — "absent=absent" holds all the way through to the generated workout,
+  not just through `buildMockProfile`. This is the correct, desired behavior confirmed working, not a
+  bug — worth stating explicitly since it's the one place this addendum found nothing wrong.
+- **Requesting core alongside other domains does not reliably deliver it.** `push,pull,legs,core`
+  (0.46 core/workout, satisfied 16/72 = 22%) is barely different from `push,pull,legs` — i.e. a user
+  who did NOT ask for core (0.56 core/workout) — and is actually slightly *lower*. Compare against
+  push/pull's own representation in the same-shape buckets (Addendum 33: ~1.5-2.3/workout) — core is
+  4-5x less represented than push/pull even when the user explicitly asked for it, with
+  `strictDomains:true` active (the mode meant to make requested domains authoritative). The
+  `core_promise` guarantee pass *does* run for these combos (unlike the core-only bucket below) and
+  *does* attempt to inject core, but fails 64-69% of the time — `no_safe_victim` and
+  `optional_below_20min` are still the dominant reasons, same open items flagged (not chased) in
+  Addendum 26/31.
+- **The only way to reliably get core is to request NOTHING else.** The `core`-only bucket is the
+  outlier in the opposite direction — 2.68 core exercises/workout, ~5x every other bucket — but its
+  `core_promise_outcome` is blank for all 72 workouts, meaning the guarantee-pass code path that logs
+  `promise_validation:core:...` never runs at all in this scenario. Mechanically consistent with a
+  pass whose job is "ensure core sneaks in when it ISN'T the main focus" — when core already **is**
+  the sole explicit focus, the main Step 1-5 selection satisfies it directly and the safety-net pass
+  has nothing to do. Not a measurement bug (re-checked against the `push,pull,legs,core` bucket, which
+  DOES log the line) — a genuine behavioral fork depending on whether core is the sole vs. a
+  co-requested domain.
+- **`split:push_pull_legs` also logs no promise-validation line** (blank for all 12) despite having
+  some core exercises (avg 1.00/workout) — this is the same already-tracked `activePrograms[0]`-only
+  bug reproducing (Addendum 33), not new scope. Flagged for continuity, not investigated further —
+  frozen boundary per David's Task-2 decision.
+
+**Net read for Task 4**: the domain-blind gap on core is real and specifically visible in the
+"co-requested, not sole-requested" case — exactly the realistic shape (a user wanting *some* core
+alongside push/pull/legs, not core exclusively). Task 4's fix should be judged against whether it
+moves the `push,pull,legs,core` and `auto` buckets' core representation closer to push/pull's, not
+just against the `core`-only bucket (already strong) or the `no_core_assessment` bucket (already
+correct).
+
+**This is the baseline Task 4 measures against — not Addendum 33's numbers**, for the same reason
+Addendum 33 superseded 31: the matrix shape changed again (`LEVELS` trimmed, `DOMAIN_SUBSETS` and 2
+new `activeProgramsMode` values added). Diff against the tables in this addendum, with
+`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1` held fixed.
+
+**Commit:** local only, no push.
+
+## Addendum 35 — Task 4: shared domain gate for the 3 High-severity sites. Fix verified correct via
+## targeted unit tests. Measured effect on the seeded baseline: ZERO. Full root-cause below — per
+## David's explicit instruction, stopping here rather than chasing further sites on my own judgment.
+
+### The fix
+
+Closed the 3 remaining High-severity domain-blind sites from Addendum 26's audit table
+(`src/features/workout-engine/logic/workout-selection.utils.ts`), with ONE shared gate
+(`matchesAnyRequiredDomain(ex, context)`) instead of 3 point-fixes — matching the exact pattern
+`takeFromPool` already established:
+
+1. **`selectExercisesWithDomainQuotas`'s final "any" fallback** — used to skip the domain check
+   entirely whenever `context.strictDomains` wasn't set (`!context.strictDomains || ...`). Now
+   two-tiered like `takeFromPool` itself: tier 1 prefers domain-matching candidates
+   **unconditionally** (no `strictDomains` dependency); tier 2 is the true last resort (nothing at
+   all matches any required domain), behaviorally unchanged — `core-slot-gate.test.ts`'s Tier 3
+   still passes untouched.
+2/3. **`selectExercisesWithDominance`'s `accessoryPool` + tail-fill** — this function (the P1/P2/P3
+   skill-dominance selection path) never consulted `context.requiredDomains` at all. Now both are
+   gated the same way: `accessoryPool` filters by `matchesAnyRequiredDomain` directly; the tail-fill
+   got the same two-tier treatment as fix #1.
+
+`matchesAnyRequiredDomain` fails **open** (no gate) when `requiredDomains` is empty/absent — a call
+with no domain context (a plain full-body request, or a pure skill/dominance request that never
+derived domains) is unaffected.
+
+**New test file** (`domain-blind-backfill-gate.test.ts`, 7 tests) isolates each site with hand-built
+pools/contexts precise enough to force the exact code path (per-domain caps creating "excess"
+same-domain candidates for fix #1; empty P1/P2 skill pools forcing everything through
+accessoryPool+tail-fill for fixes #2/#3). Fail-before/pass-after verified via `git stash`: 6/7 fail on
+pre-fix code, the 7th (a no-regression check — behavior when `requiredDomains` isn't set) correctly
+passes both ways. Full suite: 581/581 (574 baseline + 7 new), same 2 pre-existing unrelated
+`process.exit` failures. `tsc`: same 2 pre-existing errors, nothing new.
+
+### The measurement: re-ran the seeded matrix — every number is unchanged
+
+`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, same matrix as Addendum 34: 300 calls, 0 errors, 324
+workouts, 1845 exercises — **identical totals**, at every 50-call checkpoint, to the pre-fix run.
+
+| req_domains | avg push | avg pull | avg legs | avg core | Addendum 34 avg core |
+|---|---|---|---|---|---|
+| `auto` | 1.875 | 1.458 | 0.694 | 0.444 | 0.44 |
+| `push,pull,legs` | 1.611 | 1.556 | 1.194 | 0.556 | 0.56 |
+| `push,pull,legs,core` | 1.569 | 1.611 | 1.208 | 0.458 | 0.46 |
+| `core` | 0.0 | 0.0 | 0.028 | 2.681 | 2.68 |
+| `program:full_body` | 2.25 | 2.167 | 0.833 | 0.667 | 0.67 |
+| `no_core_assessment` | 3.0 | 2.417 | 1.0 | **0.0** | 0.00 |
+| `split:push_pull_legs` | 5.25 | 0.0 | 0.0 | 1.0 | 1.00 |
+
+`core_promise_outcome`, re-segmented by `req_domains`: **identical row-for-row** to Addendum 34's
+table (same counts, every bucket).
+
+### Against David's 3 success criteria
+
+1. **`push,pull,legs,core` rises significantly above `push,pull,legs`** — ❌ NOT MET. 0.458 vs 0.556,
+   same as before (David's exact numbers, 0.46 vs 0.56, reproduced almost to the decimal). The ratio
+   did not invert.
+2. **`no_core_assessment` stays exactly 0.00`** — ✅ MET. Still 0.0/12 workouts, unchanged — the
+   regression guard holds (this was never at risk from this fix; confirms nothing broke it either).
+3. **push/pull/legs don't drop** — ✅ trivially MET, since nothing moved at all in either direction.
+
+### Root cause of zero movement — verified, not guessed
+
+Read the actual gating logic (frozen files, read-only — `SplitDecisionService.ts` and
+`split-decision.types.ts`, per the standing freeze; no changes made to either) to confirm exactly why,
+rather than speculating:
+
+**Sites 2/3 (`selectExercisesWithDominance`) are structurally unreachable by this snapshot's user
+population.** `selectExercisesWithDominance` only runs when `context.dominanceRatio` is set (among 3
+other conditions). `dominanceRatio` is set (`split-decision.types.ts:151`, `resolveSplitLogic`) ONLY
+for `sessionType` ∈ `{push_pull_mixed, skill_dominance, hyper_skill_blocks}`. Per `SPLIT_MATRIX`
+(`split-decision.types.ts:88-105`), **every one of those 3 session types requires the `advanced` level
+tier (`userLevel > 13`)** — there is no frequency/schedule combination that reaches a dominance session
+type below level 14. This script's `LEVELS = [1, 5, 12]` (reduced from `[1,3,5,8,12]` in Addendum 34,
+per David's own trade-off instruction to make room for the core-focused axes) never reaches level 14 —
+the highest tested level, 12, is `intermediate`. So `selectExercisesWithDominance` was never invoked
+once across all 300 calls in this run, in either the pre-fix or post-fix code — the fix is real and
+correct (proven by the unit tests, which construct the function's inputs directly, bypassing
+`SplitDecisionService` entirely) but has zero surface in a snapshot that only tests levels ≤ 12.
+
+**Site 1 (`selectExercisesWithDomainQuotas`'s final fallback) has a different, narrower gap: this
+script's own wiring always couples `requiredDomains` with `strictDomains`.** The bug this site fixes
+only mattered when `requiredDomains` was set WITHOUT `strictDomains` (`!context.strictDomains ||
+...`). But `runCombo` (Addendum 33) sets `strictDomains: true` exactly when `domains !== undefined` —
+so every combo in this matrix with `requiredDomains` set (`push,pull,legs` / `push,pull,legs,core` /
+`core`) already had `strictDomains: true`, meaning the OLD final-fallback code's domain check was
+*already* being applied there (its `!context.strictDomains` branch never triggered). The only bucket
+where `strictDomains` is unset is `auto` — but that bucket's `requiredDomains` is also
+`undefined`/empty, so `matchesAnyRequiredDomain` fails open there regardless (nothing to gate on). The
+one real production shape this fix targets — `requiredDomains` populated by the normal
+scheduling/carousel path WITHOUT `strictDomains` (plausible for callers that never explicitly set it,
+unlike `WorkoutBuilderSheet`'s chip-picker) — isn't a combo this snapshot script constructs at all.
+
+**Neither gap is a flaw in the code fix.** Both are confirmed real, correct fixes for real production
+code paths (advanced-tier dominance users; any real caller that sets `requiredDomains` without
+`strictDomains`) — verified independent of this measurement harness via the targeted unit tests. The
+gap is specifically in what THIS snapshot script's combo matrix happens to construct, at its CURRENT
+`LEVELS`/wiring choices.
+
+### Stopping here, per instruction
+
+Per "אם אחרי התיקון הפער לא נסגר: עצור ודווח מה כן השתנה ומה לא. אל תמשיך לחפש אתרים נוספים על דעת
+עצמך" — reporting exactly this: the code fix is correct and shipped (committed `9b2e7642`), the
+measured baseline is unchanged for the reasons traced above, and no further domain-blind sites were
+searched for beyond the 3 named in the audit table. Whether to extend the matrix (e.g. an advanced-tier
+`LEVELS` value, or a `requiredDomains`-without-`strictDomains` combo) to actually exercise sites 1-3 is
+David's call, not made here.
+
+**Commit:** local only, no push.
+
+### CORRECTION (David, 07.09.2026): "the fix has zero measured effect" is true only of THIS snapshot
+### script. Both gaps above are real, live production paths — 9b2e7642 stays, is not dead code.
+
+David caught that my root-cause section, while accurate about the harness, was **incomplete** about
+production — I'd only traced one of two ways `dominanceRatio` gets set, and hadn't checked the OTHER
+live caller of site 1 at all. Verified both corrections by reading the actual code (not re-asserted on
+trust):
+
+**Site 1 IS live and unguarded in production.** `start-hybrid-session.ts` (~line 903-917,
+`buildForBolt`'s `generationContext`) sets `...(targetDomains.length > 0 ? { requiredDomains:
+targetDomains } : {})` — **no `strictDomains` anywhere in that object literal.** This is the hybrid
+route-stops generator (`composeHybridSession`'s per-stop plans), a real, live call path — confirmed
+distinct from the two callers that DO couple `strictDomains: true`
+(`complementary-short.generator.ts:33`, `partial-completion.generator.ts:159`). So the exact
+precondition site 1 fixes (`requiredDomains` set, `strictDomains` not) is real in production; this
+snapshot script just never constructs that combination itself (Addendum 33's `runCombo` always
+couples them).
+
+**Sites 2/3 are reachable at ANY level, not just advanced tier — my original trace only found HALF the
+mechanism.** `getWorkoutContext` (`SplitDecisionService.ts:386-564`) sets `effectiveSplitLogic.
+dominanceRatio` in TWO independent places, not one:
+1. `resolveSplitLogic(sessionType)` (line 430) → `dominanceRatio={p1:0.65,p2:0.35}` only when
+   `sessionType` is one of the 3 `SPLIT_MATRIX`-derived advanced-tier types — this is the ONLY path I
+   traced in the section above.
+2. **Missed the first time**: lines 540-551, `effectiveSplitLogic` OVERRIDES `dominanceRatio` to
+   `{p1:0.5,p2:0.3,p3:0.2}` whenever `priority3SkillIds.length>0`, or to `{p1:0.5,p2:0.5}` whenever
+   `pendulumFocus==='hybrid_blend'` — and BOTH of those come from `resolvePrioritySkillIds`'s "Path C:
+   Universal Skill Distribution" branch (line ~74), which triggers on `hasCalisthenicsUpper &&
+   skillFocusIds.length >= 2` — **with no level-tier condition at all.** A real user with the
+   `calisthenics_upper` program and 2+ real `skillFocusIds` reaches `selectExercisesWithDominance` at
+   ANY level, including beginner — my "requires level > 13" claim was only true of the
+   `resolveSplitLogic`-only path, not of Path C's independent override.
+
+**Why this snapshot still shows zero movement despite both paths being real**: neither `buildMockProfile`
+nor any `runCombo` mode sets `progression.skillFocusIds` or includes `calisthenics_upper` in
+`activePrograms` — so Path C never triggers for these simulated profiles regardless of level — and
+`start-hybrid-session.ts` is a different entry point (`composeHybridSession`) this snapshot script
+never calls at all (it only calls `generateHomeWorkoutTrio`). The "zero movement" finding stands
+exactly as measured; the conclusion drawn from it (implying the fix has limited real-world relevance)
+does not — **9b2e7642 is not dead code, protects 2 confirmed live paths this harness doesn't reach, and
+must not be reverted or removed.**
+
+**Commit:** local only, no push.
+
+## Addendum 36 — core-in-competition fix, full round: verification, 3 fixes (in order), tests, measurement.
+
+### Stage 1 — verification (read-only), 3 findings, all confirmed by David independently
+
+1. **`enforceVolumeCap` had no sole-representative floor for core** — `isExpendable`
+   (`PresentationFormatter.ts:515`, pre-fix) marked ANY core exercise expendable via
+   `CORE_MGS.has(mg)` unconditionally, with no "is this the last one" guard — unlike legs
+   (`legsCount > 1`, line 521). Neither Fix 1 nor the rank-reorder (Fix 2) alone would have closed
+   this: a core exercise stays inside `isExpendable`'s candidate set regardless of priority or rank,
+   so once everything else is exhausted, core's sole exercise is still the only candidate left and
+   still gets removed — one step later, not prevented. **Blocking — fixed first.**
+2. **Tabata core is already exempt from `enforceVolumeCap`**, for an unrelated reason —
+   `ex.protocolBlock` (line 513) is priced as a fixed 4-min constant and excluded from both Phase A
+   and Phase B. Not core-protection intent, just a coincidental shield. Nothing to fix; documented as
+   out of this bug's blast radius.
+3. **Only `_fullBodyBlocks` plans a dedicated core block, and even the 2-domain non-push-pull case is
+   broken worse than the bug being fixed** — `_singleDomainBlocks` (`StructureDirector.ts:253`) reads
+   only `domains[0]`; for `requiredDomains=['pull','core']` it builds 4 pull-only blocks and never
+   references `'core'` at all — core isn't deprioritized, it's **never planned**. Same root pattern as
+   `activePrograms[0]`, `scheduleRules`'s pickPrimary, and `rotationItems` — read index [0], ignore the
+   rest. **Decision (David): out of this round.** A function named "single domain" serving two domains
+   is an architecture problem, not a point fix — logged as a high-priority open item, not rushed.
+
+### Stage 1 → Stage 2 handoff — 2 more corrections, both from re-reading the code against my own literal
+### wording, both caught by David before I wrote a line of fix code
+
+- **Fix 1's original wording** ("`isAccessorySlot` true only when core is NOT in `requiredDomains`")
+  is unimplementable: `activeCore` (`StructureDirector.ts:173`) already requires
+  `domains.includes('core')` to even reach the block-creation code — there's no reachable state
+  inside it where core isn't in `requiredDomains`. The real signal is `context.strictDomains` — set by
+  real explicit-pick callers (`WorkoutBuilderSheet.tsx:644`), unset when `requiredDomains` is
+  schedule/program-derived. `isAccessorySlot: !context.strictDomains`. 3 other callers
+  (`strength-block.service.ts:120`, `complementary-short.generator.ts:33`,
+  `partial-completion.generator.ts:159`) also pass `strictDomains:true` unconditionally — they now
+  get core as main-tier too. **Intentional**, per David: each already targets a specific domain set on
+  the user's behalf, so Rule A's "explicit focus = full standing" applies the same way it does to a
+  manual chip-pick.
+- **Fix 0's original wording** ("duplicate legs's guard for core exactly") would have broken the
+  existing, deliberately-designed `<20min` test (`enforce-volume-cap.test.ts:118-130`, "a short,
+  focused session may legitimately ship without core"). Legs has no below-threshold exception because
+  it's always structurally required; core does, and it's a separate, pre-existing, already-approved
+  product decision (`GuaranteePassRunner`'s `optional_below_20min`). Resolution: the sole-representative
+  guard is scoped to `coreProtected` (≥20min) only — below 20min, core stays exactly as unconditionally
+  expendable as before.
+
+### Stage 2 — the 3 fixes, in order, each its own commit
+
+1. **`4267dd7e` — Fix 0**: `isExpendable` gains a sole-representative guard for core, scoped to
+   `coreProtected`, gated before the generic isolation/accessory check (a sole core exercise is
+   near-always priority `accessory` — falling through to that check would have silently defeated the
+   guard).
+2. **`175594ef` — Fix 1**: `StructureDirector.ts`'s core block — `isAccessorySlot: !context.strictDomains`.
+3. **`9527ff83` — Fix 2**: `expendabilityRank`'s `coreProtected` branch checks `isCore` before
+   `isIsolationOrAccessory` — the prior order let a real (accessory-priority) core exercise hit rank 0
+   and be removed first, exactly defeating the branch's own "core trims last" comment.
+
+### Stage 3 — tests: 6 new, all fail-before/pass-after verified (git stash / targeted revert), no
+### regressions
+
+`structure-director-core-gate.test.ts` (+3): `strictDomains:true` → main-tier; `strictDomains`
+unset/`false` → stays accessory-tier (both unchanged-behavior checks pass both ways, as expected).
+`enforce-volume-cap.test.ts` (+3): sole core survives a cut even scored lower than a competing
+accessory item; with 2 core exercises, one is still removable (guard doesn't over-protect); with 2 core
+exercises + 1 non-core accessory item, the non-core item goes first regardless of score (isolates Fix 2
+specifically — verified it fails when only Fix 2's reorder is reverted, independent of Fix 0). Full
+suite: 587/587 (581 baseline + 6 new), same 2 pre-existing unrelated failures. `tsc`: no errors
+attributable to either changed file.
+
+### Stage 4 — measurement (`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, 300 calls, 0 errors, 324 workouts,
+### 1898 exercises)
+
+**`core_promise_outcome`, segmented — the clearest, cleanest signal:**
+
+| req_domains | satisfied (pre→post) | failed (pre→post) | injected (pre→post) |
+|---|---|---|---|
+| `push,pull,legs,core` | 16 → **43** | 50 → **27** | 1 → 2 |
+| `program:full_body` | 4 → **11** | 6 → **0** | — |
+| `push,pull,legs` (core not requested) | 16 → 26 | 46 → 31 | 4 → 12 |
+| `auto` | 13 → 24 | 51 → 37 | 3 → 8 |
+| `no_core_assessment` | 0 → 0 | 12 → 12 (all `unassessed`) | — |
+| `core`-only | blank → blank (unchanged — guarantee pass still doesn't run) | | |
+
+`push,pull,legs,core` satisfaction roughly **tripled** (22%→60%); `program:full_body` went from 50%
+failure to **zero** failures. The improvement also reaches `push,pull,legs` and `auto` (core not
+explicitly requested) — Fix 0/2 protect an auto-injected core exercise the same way once it's placed,
+regardless of `strictDomains`, which is Rule B's own spirit (protect the bonus once it's there).
+`no_core_assessment` and the `core`-only bucket are byte-for-byte unchanged — regression guards hold.
+
+**Against David's 4 criteria:**
+
+1. **`push,pull,legs,core` rises above `push,pull,legs`** — ✅ MET, ratio inverted. Avg core/workout:
+   `push,pull,legs,core` 0.458→**0.847**; `push,pull,legs` 0.792 (was 0.556, `push,pull,legs` itself
+   also gained core via the Rule-B injection path above). 0.847 > 0.792.
+2. **`no_core_assessment` stays exactly 0.00`** — ✅ MET, unchanged.
+3. **push/pull/legs don't drop** — ⚠️ **not unconditionally true — see below, reporting precisely
+   rather than rounding to pass or fail.**
+4. **`core`-only bucket (2.68) unaffected** — ✅ MET (2.667, noise-level).
+
+**Criterion 3, in full — a real confound found and separated from a real (small) effect:**
+
+The aggregate `push,pull,legs` bucket (which never requests core, so none of the 3 fixes can causally
+touch it) ALSO shows small drops post-fix (pull 1.556→1.458, legs 1.194→1.181) — impossible via any of
+the 3 fixes' own logic. Root cause: `SNAPSHOT_CONCURRENCY=1`'s ONE shared, stateful, sequential PRNG
+(Addendum 31) — a combo whose execution path changes (core surviving longer) shifts the RNG position
+for every LATER call in the 300-call sequence, including combos that never touch core. This is
+measurement noise, not a fix effect, and it also contaminates part of `push,pull,legs,core`'s own
+pull/legs deltas (1.611→1.542, 1.208→1.167) in the same run.
+
+To separate real effect from cascade noise, ran a cascade-free targeted sweep (8 points, fresh process
++ seed reset per call, no sequence to cascade through) comparing `push,pull,legs` vs
+`push,pull,legs,core` directly: **6 of 8 points show zero push/pull/legs displacement (core purely
+adds), 1 point is a pure gain (L12/30min/home/D2: push+1, core+1, nothing lost), and 2 points show a
+genuine, real, non-cascade tradeoff**: L5/20min/home/D2 (push-1, core+1 — a direct swap) and
+L5/30min/park/D2 (push+1, pull+1, core**-2** — a more complex effect, mechanism not traced further this
+round). Net: **criterion 3 is not universally true at the per-scenario level** — a real, if
+small and infrequent (2/8 sampled points), push/domain tradeoff exists alongside the dominant "pure
+gain" pattern. The full-matrix aggregate (72-workout average) for push in `push,pull,legs,core` stayed
+flat (1.569→1.569) — the local trades and gains net out across the sample — but "the aggregate average
+didn't move" is not the same claim as "no individual scenario ever trades," and this addendum is not
+rounding the two together.
+
+**Commit:** 3 code commits (`4267dd7e`, `175594ef`, `9527ff83`) + this documentation commit, local
+only, no push.

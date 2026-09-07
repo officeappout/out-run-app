@@ -162,6 +162,18 @@ export function seededShuffle<T>(arr: T[], seed: number): T[] {
 }
 
 export function getShuffleSeed(context: { userId?: string; selectedDate?: string }): number {
+  // Measurement-infrastructure override (03-CHANGES.md Addendum 31,
+  // 07.09.2026) — scripts/audit/build-snapshot.ts sets this env var so
+  // repeated matrix runs are reproducible instead of Date.now()-seeded.
+  // Inert everywhere else: this env var is never set in the deployed app
+  // (browser or server-rendered request), so DEBUG_SHUFFLE_ON_REFRESH's
+  // live-refresh-variety behavior below is completely unaffected for every
+  // real user. Checked BEFORE DEBUG_SHUFFLE_ON_REFRESH so it can force
+  // determinism even while that flag stays true.
+  const fixedSeedOverride = typeof process !== 'undefined' ? process.env.WORKOUT_ENGINE_FIXED_SHUFFLE_SEED : undefined;
+  if (fixedSeedOverride) {
+    return Number(fixedSeedOverride);
+  }
   if (DEBUG_SHUFFLE_ON_REFRESH) {
     return Date.now();
   }
@@ -618,6 +630,27 @@ export function matchesDomainForSlot(ex: Exercise, domain: string): boolean {
   return true;
 }
 
+/** Shared domain gate (03-CHANGES.md Task 4, Addendum 35, 07.09.2026) — the
+ *  same classification `takeFromPool`'s local `matchesRequiredDomain` closure
+ *  already used (Addendum 26), extracted so every "backfill past the
+ *  dedicated per-domain pick" site in this function family shares ONE gate
+ *  instead of 3 separate point-fixes. Fails OPEN (returns true — no gate)
+ *  when `requiredDomains` is empty/absent: a caller with no domain context at
+ *  all (a plain non-domain-quota request, or the pure skill/dominance-only
+ *  path where domains were never independently derived) is not what this
+ *  gate exists to constrain — only a caller that DOES have requiredDomains
+ *  set is meant to have backfill respect it.
+ *
+ *  Uses `exerciseMatchesProgram` classification (not the stricter
+ *  `matchesDomainForSlot`) — matches `takeFromPool`'s existing behavior
+ *  exactly, so `core-slot-gate.test.ts`'s Tier 3 residual (a
+ *  correctly-classified-but-unleveled core exercise can still fill a
+ *  genuinely-empty pool via generic backfill) is unchanged. */
+export function matchesAnyRequiredDomain(ex: Exercise, context: WorkoutGenerationContext): boolean {
+  if (!context.requiredDomains?.length) return true;
+  return context.requiredDomains.some((d) => exerciseMatchesProgram(ex, d));
+}
+
 export function selectExercisesWithDomainQuotas(
   scoredExercises: (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[],
   count: number,
@@ -876,22 +909,19 @@ export function selectExercisesWithDomainQuotas(
   // score-sorted pool, even with dozens of real on-domain candidates
   // available (David's exact report — push+pull-only user, off-domain core
   // exercise selected here instead of readily-available push/pull content).
-  // `matchesRequiredDomain` restores the same domain boundary the dedicated
-  // per-domain pick already enforces. The TRUE last-resort, domain-blind
-  // fallback (nothing at all matches any required domain) still exists
-  // unchanged below at the "final any fallback" block — that is what
+  // `matchesAnyRequiredDomain` (shared gate, see its own doc comment above)
+  // restores the same domain boundary the dedicated per-domain pick already
+  // enforces. The TRUE last-resort, domain-blind fallback (nothing at all
+  // matches any required domain) still exists below — that is what
   // core-slot-gate.test.ts's Tier 3 actually exercises, and it still passes.
-  const matchesRequiredDomain = (ex: Exercise): boolean =>
-    context.requiredDomains!.some((d) => exerciseMatchesProgram(ex, d));
-
   const takeFromPool = (pool: typeof primaryPool, n: number) => {
     const top = pool
-      .filter((s) => !selectedIds.has(s.exercise.id) && !isDomainFull(s.exercise) && matchesRequiredDomain(s.exercise))
+      .filter((s) => !selectedIds.has(s.exercise.id) && !isDomainFull(s.exercise) && matchesAnyRequiredDomain(s.exercise, context))
       .slice(0, Math.min(n * 2, pool.length));
     const shuffledTop = seededShuffle(top, seed + selected.length);
     for (const s of shuffledTop) {
       if (selected.length >= count) break;
-      if (!selectedIds.has(s.exercise.id) && !isDomainFull(s.exercise) && matchesRequiredDomain(s.exercise)) {
+      if (!selectedIds.has(s.exercise.id) && !isDomainFull(s.exercise) && matchesAnyRequiredDomain(s.exercise, context)) {
         selected.push(s);
         selectedIds.add(s.exercise.id);
         for (const d of context.requiredDomains!) {
@@ -908,15 +938,39 @@ export function selectExercisesWithDomainQuotas(
   takeFromPool(primaryPool, primaryCount);
   takeFromPool(secondaryPool, count - selected.length);
 
+  // Task 4 fix (03-CHANGES.md Addendum 35, 07.09.2026, David's catch): this
+  // used to skip the domain check ENTIRELY whenever `context.strictDomains`
+  // wasn't set — meaning for every 'auto'/non-chip-picked request (the
+  // common case), this fallback ranked the WHOLE catalog by score with no
+  // domain preference at all, the exact same domain-blind pattern
+  // `takeFromPool` had before Addendum 26 (`takeFromPool` itself never
+  // gated on `strictDomains` — only this sibling block did, which is why the
+  // audit flagged it as its own site). Tier 1 now prefers domain-matching
+  // candidates UNCONDITIONALLY, matching `takeFromPool`. Tier 2 is the
+  // genuine last resort (nothing at all matches any required domain) —
+  // behaviorally unchanged, still exactly what core-slot-gate.test.ts's
+  // Tier 3 documents and covers (that test never reaches this block at all —
+  // takeFromPool already fills its 1-slot count via the classification
+  // residual `matchesAnyRequiredDomain` shares with it).
+  if (selected.length < count) {
+    const domainMatched = shuffled
+      .filter((s) => !selectedIds.has(s.exercise.id) && matchesAnyRequiredDomain(s.exercise, context))
+      .sort((a, b) => b.score - a.score);
+    const shuffledDomainMatched = seededShuffle(domainMatched.slice(0, (count - selected.length) * 2), seed + 999);
+    for (const s of shuffledDomainMatched) {
+      if (selected.length >= count) break;
+      if (!selectedIds.has(s.exercise.id)) {
+        selected.push(s);
+        selectedIds.add(s.exercise.id);
+      }
+    }
+  }
+
   if (selected.length < count) {
     const any = shuffled
-      .filter((s) =>
-        !selectedIds.has(s.exercise.id) &&
-        (!context.strictDomains ||
-          context.requiredDomains!.some(d => exerciseMatchesProgram(s.exercise, d)))
-      )
+      .filter((s) => !selectedIds.has(s.exercise.id))
       .sort((a, b) => b.score - a.score);
-    const shuffledAny = seededShuffle(any.slice(0, (count - selected.length) * 2), seed + 999);
+    const shuffledAny = seededShuffle(any.slice(0, (count - selected.length) * 2), seed + 1999);
     for (const s of shuffledAny) {
       if (selected.length >= count) break;
       if (!selectedIds.has(s.exercise.id)) {
@@ -1007,7 +1061,17 @@ export function selectExercisesWithDominance(
     ...p2Pool.map((s) => s.exercise.id),
     ...p3Pool.map((s) => s.exercise.id),
   ]);
-  const accessoryPool = scoredExercises.filter((s) => !p1P2P3Ids.has(s.exercise.id));
+  // Task 4 fix (03-CHANGES.md Addendum 35, 07.09.2026): this pool used to be
+  // built with NO domain check at all — P1/P2/P3 above are skill-focus pools
+  // (priority1SkillIds etc.), not domain-based, so a call that ALSO has
+  // context.requiredDomains set (a user on the dominance/skill-split path who
+  // additionally requested specific domains) had those domains completely
+  // ignored once the accessory pool took over the remaining slots. Gated with
+  // the same shared `matchesAnyRequiredDomain` used in
+  // selectExercisesWithDomainQuotas — fails open (no-op) for the common case
+  // where this call has no requiredDomains at all, so pure skill/dominance
+  // requests are unaffected.
+  const accessoryPool = scoredExercises.filter((s) => !p1P2P3Ids.has(s.exercise.id) && matchesAnyRequiredDomain(s.exercise, context));
 
   p1Pool.sort((a, b) => b.score - a.score);
   p2Pool.sort((a, b) => b.score - a.score);
@@ -1042,13 +1106,34 @@ export function selectExercisesWithDominance(
   if (hasP3) addUnique(p3Pool.slice(0, p3Count * 2), selected.length + p3Count);
   addUnique(accessoryPool.slice(0, Math.max(0, accessoryCount) * 2), selected.length + Math.max(0, accessoryCount));
 
+  // Task 4 fix (03-CHANGES.md Addendum 35, 07.09.2026): same shared-gate
+  // treatment as selectExercisesWithDomainQuotas's final fallback — tier 1
+  // prefers domain-matching candidates unconditionally (falls open when this
+  // call has no requiredDomains, the common pure skill/dominance case); tier
+  // 2 is the genuine last resort, unchanged domain-blind behavior.
+  if (selected.length < count) {
+    const rem = count - selected.length;
+    const domainMatched = scoredExercises
+      .filter((s) => !selectedIds.has(s.exercise.id) && matchesAnyRequiredDomain(s.exercise, context))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, rem * 2);
+    const shuffledDomainMatched = seededShuffle(domainMatched, seed + 99);
+    for (const s of shuffledDomainMatched) {
+      if (selected.length >= count) break;
+      if (!selectedIds.has(s.exercise.id)) {
+        selected.push(s);
+        selectedIds.add(s.exercise.id);
+      }
+    }
+  }
+
   if (selected.length < count) {
     const rem = count - selected.length;
     const additional = scoredExercises
       .filter((s) => !selectedIds.has(s.exercise.id))
       .sort((a, b) => b.score - a.score)
       .slice(0, rem * 2);
-    const shuffledRem = seededShuffle(additional, seed + 99);
+    const shuffledRem = seededShuffle(additional, seed + 999);
     for (const s of shuffledRem) {
       if (selected.length >= count) break;
       if (!selectedIds.has(s.exercise.id)) {

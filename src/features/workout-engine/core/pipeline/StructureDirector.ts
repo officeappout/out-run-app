@@ -225,11 +225,33 @@ export class StructureDirector {
     }
 
     if (activeCore) {
+      // Rule A vs Rule B (David, 07.09.2026 — Addendum 36): core the user
+      // explicitly requested stands equal to push/pull/legs (Rule A, 00-PLAN.md
+      // §16 — explicit choice beats heuristics); core that's here only because
+      // the auto-derived full-body domain set happens to include it is a
+      // bonus, accessory-tier by design (Rule B).
+      //
+      // `domains.includes('core')` can't distinguish the two — activeCore
+      // above already REQUIRES it, so it's true in both cases; there's no
+      // reachable state inside this block where core isn't in requiredDomains
+      // at all. `context.strictDomains` is the real signal: WorkoutBuilderSheet
+      // sets it true exactly when the user picked domain chips;
+      // schedule/program-derived requiredDomains (the auto full-body case)
+      // leaves it unset.
+      //
+      // 3 other callers also pass strictDomains:true unconditionally —
+      // strength-block.service.ts:120, complementary-short.generator.ts:33,
+      // partial-completion.generator.ts:159 — so they get core as a main-tier
+      // slot too whenever core is among their domains. INTENTIONAL, not a
+      // side effect: each of those already targets a specific domain set on
+      // the user's behalf (not an auto full-body default), so Rule A's
+      // "explicit focus = full standing" applies to them the same way it
+      // does to a manual chip-pick.
       blocks.push({
         id: `main_${idx++}_core`,
         role: 'main',
         domain: 'core',
-        isAccessorySlot: true,
+        isAccessorySlot: !context.strictDomains,
       });
     }
 

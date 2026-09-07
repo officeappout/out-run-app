@@ -175,3 +175,81 @@ describe('enforceVolumeCap — duration-aware core trim order', () => {
     expect(ids).not.toContain('core-1'); // <20min: optional even if guarantee-injected
   });
 });
+
+/**
+ * Sole-representative guard for core (David, 07.09.2026 — Addendum 36): the
+ * >=20min "core trims last" intent (above) was silently defeated because a
+ * real core exercise is near-always priority 'accessory' — the OLD
+ * expendabilityRank checked isIsolationOrAccessory BEFORE isCore, so core hit
+ * rank 0 exactly like any other accessory item and could still be removed
+ * first on a score tie-break. This exercises the real production shape
+ * (priority: 'accessory', not the 'compound' fixture above) and the new
+ * isExpendable guard that keeps a SOLE core exercise out of the expendable
+ * set entirely at >=20min — scoped to coreProtected only; the existing
+ * <20min tests above are untouched and still pass.
+ */
+describe('enforceVolumeCap — sole-core-exercise guard (>=20min only)', () => {
+  const coreAccessoryEx = (id: string, score: number) =>
+    mainEx(id, score, { priority: 'accessory', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
+  const isolationEx = (id: string, score: number) => mainEx(id, score, { priority: 'isolation' });
+
+  it('>=20min: a sole core exercise survives even when it scores LOWER than the other accessory candidate (the real bug shape)', () => {
+    const w = workoutOf([
+      warmupEx('w1'),
+      coreAccessoryEx('core-1', 50), isolationEx('iso-1', 80), mainEx('c1', 70), mainEx('c2', 75),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    expect(ids).toContain('core-1'); // survives — sole core exercise, protected regardless of score
+    expect(ids).not.toContain('iso-1'); // the other accessory candidate is removed instead
+  });
+
+  it('>=20min: with TWO core exercises, one is still removable — the guard protects the sole survivor, not core as a category', () => {
+    const w = workoutOf([
+      warmupEx('w1'),
+      coreAccessoryEx('core-1', 50), coreAccessoryEx('core-2', 55), mainEx('c1', 70), mainEx('c2', 75),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    const coreIdsRemaining = ids.filter((id) => id.startsWith('core-'));
+    expect(coreIdsRemaining.length).toBe(1); // exactly one removed — not both, not zero
+  });
+});
+
+/**
+ * expendabilityRank's isCore-first ordering (David, 07.09.2026 — Addendum
+ * 36, Fix 2): distinct from the sole-representative guard above (Fix 0) —
+ * this covers the case where core is NOT the sole one (Fix 0's guard
+ * doesn't apply), so ranking order is the only thing deciding whether core
+ * or another accessory item goes first. With 2 core exercises present, the
+ * OLD rank order (isIsolationOrAccessory checked before isCore) still let a
+ * lower-scored core exercise be removed ahead of a higher-scored,
+ * non-core accessory exercise on the score tie-break — this test isolates
+ * that ordering specifically, independent of the sole-representative guard
+ * (verified by temporarily reverting just this reorder: fails, Fix 0's
+ * other tests still pass).
+ */
+describe('enforceVolumeCap — expendabilityRank deprioritizes core even when it is not the sole one (>=20min)', () => {
+  const coreAccessoryEx = (id: string, score: number) =>
+    mainEx(id, score, { priority: 'accessory', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
+  const isolationEx = (id: string, score: number) => mainEx(id, score, { priority: 'isolation' });
+
+  it('>=20min: with 2 core exercises AND a non-core accessory item, the non-core item is removed first regardless of score', () => {
+    const w = workoutOf([
+      warmupEx('w1'),
+      coreAccessoryEx('core-1', 30), coreAccessoryEx('core-2', 35), isolationEx('iso-1', 90),
+      mainEx('c1', 70),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    // iso-1 scores far higher than either core exercise — under the OLD
+    // rank order (score tie-break within the same rank 0), a core exercise
+    // would have been removed instead. Both cores must survive; iso-1 goes.
+    expect(ids).not.toContain('iso-1');
+    expect(ids).toContain('core-1');
+    expect(ids).toContain('core-2');
+  });
+});
