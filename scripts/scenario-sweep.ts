@@ -226,6 +226,11 @@ export async function runHomeCell(personaId: PersonaId, time: typeof TIME_PRESET
     // Additive — only consumed by scenario-sweep-sample.ts's curated pull;
     // the main sweep's Row/report shape ignores it (unused, harmless).
     exerciseNames: mainExercises.map(e => (e.exercise?.name as any)?.he || (e.exercise?.name as any) || '?'),
+    // Additive — the REAL context this exact resolve used (persona/gender/
+    // category/etc, stamped by generateHomeWorkoutTrio itself), for
+    // scripts/parent-bleed-audit.ts's post-hoc candidate-transparency
+    // re-query. Not consumed by the main sweep's Row/report.
+    metadataCtx: workout?.metadataCtx,
   };
 }
 
