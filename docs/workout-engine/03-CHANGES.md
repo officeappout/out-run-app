@@ -2956,3 +2956,29 @@ multi-domain mix (8 exercises in, 8 unique out).
 via a live trace script, zero duplicates (was reproducing on roughly 1 in 3-5 runs pre-fix).
 
 **Commit:** local only, no push.
+
+## Addendum 28 — ה1 fixed in parallel (David's explicit "do this regardless of §1's outcome"):
+## applyFlowRegression's swap search now matches by movementGroup, not primaryMuscle alone.
+
+`applyFlowRegression`'s regression-swap search (`trio-modifiers.service.ts`) matched replacement
+candidates by `raw.primaryMuscle !== ex.exercise.primaryMuscle` — no movementGroup/domain check at
+all. Live-traced (§1's ה1 investigation, this same session): 5 of 6 D1/L10 repro runs showed
+"משיכות Y" (horizontal_pull) silently regress into "עמידת פייק" (vertical_push) — the two share a
+primaryMuscle tag (shoulders), which is all the old predicate checked.
+
+**Fix:** `raw.movementGroup !== ex.exercise.movementGroup` replaces the primaryMuscle check entirely
+— a pull exercise's regression search can now only ever find another pull exercise (same
+movementGroup), regardless of shared primaryMuscle. New regression test reproduces the exact pair
+(pull-Y / push-pike sharing primaryMuscle='shoulders', a same-movementGroup pull-easy candidate at
+a different primaryMuscle) — asserts the fixed code picks pull-easy, never push-pike; a second test
+asserts the fallback (`flow_no_swap`, original exercise kept) fires instead of crossing domains when
+no same-movementGroup candidate exists at all. Fails on pre-fix code (git stash verified), passes
+fixed. No regressions in the 2 existing test files that exercise `applyFlowRegression`
+(`naked-filter-domain-protection.test.ts`, `trio-modifiers-core-set-lock.test.ts`).
+
+**Explicitly NOT yet re-measured against the original pull-disappearance report** — David's
+instruction: that measurement waits until the `activePrograms[0]` investigation (§1, this same
+session) concludes, since it may turn out to dominate ה1/ה2 entirely and change what "fixed" even
+means for the original symptom.
+
+**Commit:** local only, no push.

@@ -512,7 +512,18 @@ export function applyFlowRegression(
       const replacement = allExercises.find(raw => {
         if (usedIds.has(raw.id)) return false;
         if (raw.exerciseRole === 'cooldown' || raw.exerciseRole === 'warmup') return false;
-        if (raw.primaryMuscle !== ex.exercise.primaryMuscle) return false;
+        // 03-CHANGES.md Addendum 28 (07.09.2026, David's fix): this used to
+        // match by `primaryMuscle` alone — a pull exercise (e.g. a horizontal
+        // row hitting rear delts) and a push exercise (e.g. a pike hold
+        // hitting the same shoulder head) can share a primaryMuscle tag
+        // despite being opposite movement patterns, so the "easier variant"
+        // search could silently regress a pull slot into a push exercise.
+        // Live-traced in 5/6 D1/L10 repro runs: "משיכות Y" (horizontal_pull)
+        // → "עמידת פייק" (vertical_push), same array position, mid-loop.
+        // `movementGroup` is the correct anatomical/domain constraint for a
+        // regression substitute — a pull exercise must only ever be replaced
+        // by another pull exercise.
+        if (raw.movementGroup !== ex.exercise.movementGroup) return false;
         if (!raw.targetPrograms?.some(t =>
           levelsHasProgram(userProgramLevels, t.programId) && t.level === targetLevel,
         )) return false;
