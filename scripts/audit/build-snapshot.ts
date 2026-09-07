@@ -225,7 +225,28 @@ const MG_TO_DOMAIN: Record<string, string> = {
 interface Combo {
   level: number; duration: number; location: 'home' | 'park' | 'gym';
   domains: string[] | undefined; daysInactive: number;
+  /**
+   * David, 07.09.2026 (03-CHANGES.md Addendum 29): 'auto' (default) matches
+   * every prior combo — buildMockProfile's activePrograms:[] input, which
+   * (post-Addendum-29 fix) means a genuinely empty activePrograms array, no
+   * synthetic full_body entry. 'push_pull_legs_split' builds a REAL 3-entry
+   * activePrograms input (push/pull/legs, matching progression.service.ts's
+   * real split-write shape) — the exact profile shape doc 10/11's
+   * "activePrograms[0]-only read" finding needs to catch a regression on.
+   * This does NOT touch InputSanitizerMiddleware/SplitDecisionService/
+   * scheduleRules.ts/scheduledProgramIds — those are the frozen
+   * schedule↔engine boundary — this only feeds them a different, equally
+   * real INPUT shape and observes the (unmodified) pipeline's output.
+   */
+  activeProgramsMode: 'auto' | 'push_pull_legs_split';
 }
+
+// David, 07.09.2026: deliberately small — this is a regression tripwire for
+// "reads only activePrograms[0]" bugs, not a full sweep. levels/durations
+// chosen to be representative (a low-mid and a high level, a short and a
+// long session) without multiplying the whole matrix by activeProgramsMode.
+const PUSH_PULL_LEGS_SPLIT_LEVELS = SMOKE ? [8] : [8, 12];
+const PUSH_PULL_LEGS_SPLIT_DURATIONS = SMOKE ? [30] : [30, 45];
 
 function buildCombos(): Combo[] {
   const combos: Combo[] = [];
@@ -234,7 +255,15 @@ function buildCombos(): Combo[] {
       for (const location of LOCATIONS)
         for (const domains of DOMAIN_SUBSETS)
           for (const daysInactive of DAYS_INACTIVE)
-            combos.push({ level, duration, location, domains, daysInactive });
+            combos.push({ level, duration, location, domains, daysInactive, activeProgramsMode: 'auto' });
+
+  for (const level of PUSH_PULL_LEGS_SPLIT_LEVELS)
+    for (const duration of PUSH_PULL_LEGS_SPLIT_DURATIONS)
+      combos.push({
+        level, duration, location: 'home', domains: undefined, daysInactive: 0,
+        activeProgramsMode: 'push_pull_legs_split',
+      });
+
   return combos;
 }
 
@@ -302,7 +331,7 @@ interface ExerciseRow {
 }
 
 async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: WorkoutRow[]; exercises: ExerciseRow[] } | null> {
-  const { level, duration, location, domains, daysInactive } = combo;
+  const { level, duration, location, domains, daysInactive, activeProgramsMode } = combo;
   // callId identifies the ONE generateHomeWorkoutTrio call (shared context/seed
   // across its 3 bolt options). workout_exercises has no `bolt` column, so
   // `run_id` must be unique PER GENERATED WORKOUT (call + bolt), not per call —
@@ -314,12 +343,23 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
   const callSeed = Date.now();
 
   const domainLevels = { pull: level, push: level, legs: level, core: level };
-  const profile = buildMockProfile({
-    level, persona: '', injuries: [],
-    domainLevels, coldStart: false,
-    gear: ['pullup_bar', 'dip_bar', 'parallel_bars'],
-    activePrograms: [],
-  });
+  const profile = activeProgramsMode === 'push_pull_legs_split'
+    ? buildMockProfile({
+        level, persona: '', injuries: [],
+        domainLevels, coldStart: false,
+        gear: ['pullup_bar', 'dip_bar', 'parallel_bars'],
+        activePrograms: [
+          { id: 'push', name: 'Push', level },
+          { id: 'pull', name: 'Pull', level },
+          { id: 'legs', name: 'Legs', level },
+        ],
+      })
+    : buildMockProfile({
+        level, persona: '', injuries: [],
+        domainLevels, coldStart: false,
+        gear: ['pullup_bar', 'dip_bar', 'parallel_bars'],
+        activePrograms: [],
+      });
 
   let result;
   try {
@@ -352,7 +392,8 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
     workouts.push({
       run_id: runId, seed: callSeed, bolt: boltIdx + 1,
       req_level: level, req_duration: duration, req_location: location,
-      req_domains: domains?.join(',') || 'auto', days_inactive: daysInactive,
+      req_domains: activeProgramsMode === 'push_pull_legs_split' ? 'split:push_pull_legs' : (domains?.join(',') || 'auto'),
+      days_inactive: daysInactive,
       title: w.title ?? '', structure: w.structure ?? null,
       applied_protocol: w.appliedProtocol ?? null,
       estimated_duration: w.estimatedDuration ?? null,
@@ -440,7 +481,9 @@ async function main() {
   report('Authenticated.');
 
   const combos = buildCombos();
-  report(`Matrix: ${LEVELS.length} levels × ${DURATIONS.length} durations × ${LOCATIONS.length} locations × ${DOMAIN_SUBSETS.length} domain-subsets × ${DAYS_INACTIVE.length} daysInactive = ${combos.length} calls (×3 bolts each, free per call)`);
+  const autoCombosCount = LEVELS.length * DURATIONS.length * LOCATIONS.length * DOMAIN_SUBSETS.length * DAYS_INACTIVE.length;
+  const splitCombosCount = PUSH_PULL_LEGS_SPLIT_LEVELS.length * PUSH_PULL_LEGS_SPLIT_DURATIONS.length;
+  report(`Matrix: ${LEVELS.length} levels × ${DURATIONS.length} durations × ${LOCATIONS.length} locations × ${DOMAIN_SUBSETS.length} domain-subsets × ${DAYS_INACTIVE.length} daysInactive = ${autoCombosCount} 'auto' calls + ${splitCombosCount} 'push_pull_legs_split' calls = ${combos.length} total calls (×3 bolts each, free per call)`);
   report(`Concurrency: ${CONCURRENCY}`);
 
   const db = new Database(SNAPSHOT_DB_PATH);

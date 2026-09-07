@@ -2982,3 +2982,105 @@ session) concludes, since it may turn out to dominate ה1/ה2 entirely and chang
 means for the original symptom.
 
 **Commit:** local only, no push.
+
+## Addendum 29 — Task 1: buildMockProfile hardened, all 3 fabrications fixed. The test matrix now
+## reproduces the activePrograms[0]-only bug directly — 0 pull, 0 legs, every single run.
+
+David's exact framing: the mock profile utility "lied" 3 ways, and every measurement this whole
+session used it, so none of the prior numbers describe a real affected user.
+
+**(א) Field names** — already fixed in an earlier turn (`currentLevel`/`percent`, not `level`/
+`progressPercent`) — confirmed still correct, verified by a passing test even on pre-fix code for
+this specific check (the new test suite's other tests correctly failed pre-fix; this one didn't,
+proving it wasn't reintroduced from scratch).
+
+**(ב) Fabricated domain levels** — `pullLevel`/`pushLevel`/`legsLevel`/`coreLevel` used to default to
+`Math.max(1, effectiveLevel - N)` whenever `domainLevels` omitted that key — core's version was the
+exact artifact behind the 223s rest-outlier (Addendum 26). Fixed for **all four** domains uniformly,
+not just core — leaving push/pull/legs with the same anti-pattern would have just relocated the same
+bug class. A domain now only appears in `progression.domains`/`tracks` when `domainLevels` explicitly
+names it. `domains.full_body` is the one deliberate exception — `level` is a required, always-explicit
+parameter (not a derived guess), so passing it through is not a fabrication, same treatment as
+`progression.globalLevel`.
+
+**(ג) `activePrograms: []` → synthetic `full_body` fallback** — removed. A real user with no chosen
+program has `activePrograms: []`; that's what the function now returns. This was the single biggest
+finding: `resolveChildDomainsForParent('full_body', ...)` is the ONE case that happens to expand
+correctly to all 4 assessed children — meaning every mock profile this entire session built (all of
+which called with `activePrograms: []`) accidentally took the one code path that masks the
+`activePrograms[0]`-only read bug (docs 10/11). Also removed the now-dead `tracks[primaryId]` entry
+it depended on — redundant even when real `activePrograms` are supplied (`programTracks` already
+covers each program's own track and was spread last, silently shadowing it).
+
+Updated the two stale UI strings in `src/app/admin/workout-simulator/page.tsx` that documented the
+old "empty → full_body" behavior as intentional ("ריק → full_body" badge, "הסימולטור ישתמש ב-full_body
+כברירת מחדל" helper text) — both now describe the actual new behavior (falls through to the Domain
+Matrix, no synthetic program).
+
+**New test suite** (`mock-profile.utils.test.ts`, 8 tests) — covers all three fixes plus a cold-start
+case. Fail-before/pass-after verified via `git stash`: 4 of 8 failed on pre-fix code exactly as
+predicted (the (ב)/(ג) fixes); the other 4 (field-name checks) already passed pre-fix, confirming (א)
+wasn't silently broken by this pass.
+
+### Test matrix extended — `scripts/audit/build-snapshot.ts` now has a `push_pull_legs_split` mode
+
+Added `activeProgramsMode: 'auto' | 'push_pull_legs_split'` to the combo model. The new mode builds a
+REAL 3-entry `activePrograms` input (`push`/`pull`/`legs`, matching `progression.service.ts`'s actual
+split-write shape) across 2 levels × 2 durations × home-only (4 combos × 3 bolts = 12 workouts) — small
+and deliberate, a regression tripwire rather than a full sweep. Tagged `req_domains =
+'split:push_pull_legs'` in the snapshot for easy filtering. **Does not touch any frozen
+schedule↔engine boundary file** (InputSanitizerMiddleware, SplitDecisionService, scheduleRules.ts,
+scheduledProgramIds) — it only feeds the unmodified pipeline a different, equally real input shape.
+
+**Result — the bug reproduces, every single time:**
+
+```
+req_domains='split:push_pull_legs', all 12 workouts (4 combos × 3 bolts, levels 8/12, durations 30/45):
+  domain distribution across all 12: push=70, other=12, (blank)=6, core=1
+  pull=0, legs=0 — zero, not reduced, in every one of the 12 workouts.
+```
+
+Several workouts also came in well under their requested duration (e.g. L8/45min → 18min actual) —
+consistent with a domain-starved pool, matching doc 11's C1 finding.
+
+### Delta vs. the pre-existing snapshot baseline (`auto` mode, 540 workouts, unchanged combo count)
+
+| Metric | Before (pre-fix) | After (post-fix) |
+|---|---|---|
+| core_promise_outcome: failed | 386 | 357 |
+| core_promise_outcome: satisfied | 130 | 145 |
+| core_promise_outcome: replaced | 23 | 25 |
+| core_promise_outcome: injected | 1 | 13 |
+| domain: push | 999 | 1128 |
+| domain: pull | 864 | 822 |
+| domain: legs | 656 | **403** |
+| domain: core | 261 | 280 |
+| domain: other | 550 | 568 |
+
+**Honest caveat, not glossed over**: `getShuffleSeed` is hardcoded `Date.now()`-seeded (documented in
+this script's own header) — "which specific exercise wins among near-tied candidates" is NOT
+reproducible run-to-run even with zero code changes, so some of this delta is re-run noise, not
+purely attributable to the fix. That said, the legs swing (656→403, -39%) is large enough to be
+worth flagging rather than dismissing as noise alone. Investigated one candidate mechanism —
+`derivePeriodizationWeek(activeProgramForCycle)` reading `userProfile.progression.activePrograms[0]`
+directly (now genuinely `undefined` instead of a fake `full_body` entry) — and ruled it out: both the
+old fake entry (`startDate: new Date()`, i.e. "now") and the new `undefined` input resolve to the
+same Week 1/Build phase (`periodization.service.ts:78-81`), so this isn't the mechanism. Most likely
+explanation not yet confirmed: `activeProgramId` changing from `'full_body'` to `undefined` shifts
+which branch of `InputSanitizerMiddleware.buildActiveProgramFilters` computes the domain list (the
+'full_body' special-case vs. the assessedDomainKeys fallback) — same domain SET, but possibly a
+different array ORDER, which could cascade into different tie-breaks in `takeFromPool`'s per-domain
+capping (Addendum 26). **Not fully root-caused this pass — flagging as an open item, not asserting a
+cause.** If tighter confidence is wanted, a repeated same-code re-run (to establish a noise floor)
+before drawing conclusions from this specific delta is the natural next step — not done here to keep
+this task's scope bounded.
+
+**Every "auto"-mode number from any prior addendum in this file is now describing a different code
+path** (activeProgramId was always `'full_body'`; is now always `undefined` for these combos) — not
+necessarily wrong, but no longer a byte-identical re-derivation. Addendum 25's 6-workout sample and
+Addendum 26-28's traces should be treated as historically accurate for what they measured, not as a
+frozen baseline to diff future runs against without accounting for this.
+
+**Commit:** local only, no push. Branch `fix/mock-profile-and-domain-gates`, worktree
+`.claude/worktrees/mock-profile-and-domain-gates` (set up per David's explicit operational
+instruction — the shared main working directory hit a stuck `index.lock` twice this session).

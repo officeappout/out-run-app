@@ -41,39 +41,61 @@ export function buildMockProfile(params: {
   const effectiveGear    = coldStart ? [] : (gear ?? ['pullup_bar', 'dip_bar', 'parallel_bars']);
 
   // ── Build tracks ──
-  // 1. Domain fallback tracks (dual-keyed by slug and domain name)
+  // Domain fallback tracks (dual-keyed by slug and domain name), ONLY for
+  // domains the caller actually specified. Field names match the real
+  // DomainTrackProgress type (progression.types.ts:71-73) — currentLevel/
+  // percent, NOT level/progressPercent.
   const domainTracks: Record<string, any> = {};
   if (!coldStart && domainLevels) {
     for (const [domain, lvl] of Object.entries(domainLevels)) {
       const slug = DOMAIN_PROGRAM_IDS[domain] ?? domain;
-      // Field names match the real DomainTrackProgress type (progression.types.ts:71-73)
-      // — currentLevel/percent, NOT level/progressPercent. The mismatch here (before
-      // this fix) meant home-workout.service.ts:2289's `track.percent` was always
-      // undefined, so context.levelProgressPercent was always 0 — every match-tier
-      // exercise in every simulator/snapshot run got the <50%-progress staircase
-      // range regardless of the level being simulated. See docs/workout-engine/
-      // 03-CHANGES.md for the trace that found this.
       const entry = { currentLevel: lvl, percent: 50, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
       domainTracks[slug] = entry;
       domainTracks[domain] = entry;
     }
   }
 
-  // 2. Active programs from the Program Builder (take precedence, keyed by program ID)
+  // Active programs from the Program Builder (take precedence, keyed by program ID)
   const programTracks: Record<string, any> = {};
   const activeProgramEntries = coldStart ? [] : activePrograms;
   for (const prog of activeProgramEntries) {
     programTracks[prog.id] = { currentLevel: prog.level, percent: 50, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
   }
 
-  // Fall back to full_body if no specific programs
-  const fallbackId = 'full_body';
-  const primaryId = activeProgramEntries[0]?.id ?? fallbackId;
-
-  const pullLevel = coldStart ? 1 : (domainLevels?.pull ?? effectiveLevel);
-  const pushLevel = coldStart ? 1 : (domainLevels?.push ?? Math.max(1, effectiveLevel - 3));
-  const legsLevel = coldStart ? 1 : (domainLevels?.legs ?? Math.max(1, effectiveLevel - 5));
-  const coreLevel = coldStart ? 1 : (domainLevels?.core ?? Math.max(1, effectiveLevel - 7));
+  // absent=absent (⑨), 07.09.2026 (David's fix — 03-CHANGES.md Addendum 26/29):
+  // this function used to fabricate a level for every domain the caller
+  // DIDN'T specify — Math.max(1, effectiveLevel - N) per domain — instead of
+  // leaving it genuinely absent like an unassessed domain on a real Firestore
+  // profile. `core`'s version of this fabrication was the exact artifact that
+  // produced the 223s rest-outlier investigated in Addendum 26: a "push+pull
+  // only" test profile silently carried a fake core:L1 registration, so the
+  // engine correctly (from ITS perspective) treated core as assessed and
+  // real. The same pattern existed for push/pull/legs too — fixed uniformly,
+  // not just for core, since leaving the other three would just relocate the
+  // same bug class. A domain now ends up in `domains`/`tracks` ONLY when
+  // `domainLevels` explicitly names it — no formula-derived default.
+  const domains: Record<string, any> = {
+    // `full_body` is the one exception: `level` is a required, always-explicit
+    // parameter (not a derived guess like the old push/pull/legs/core
+    // formulas were), so mirroring it here is a passthrough of real input,
+    // not a fabrication — same treatment as `progression.globalLevel` below.
+    full_body: { currentLevel: effectiveLevel, maxLevel: 25, isUnlocked: true },
+  };
+  if (!coldStart && domainLevels) {
+    if (domainLevels.push != null || domainLevels.pull != null) {
+      domains.upper_body = {
+        currentLevel: Math.max(domainLevels.push ?? 0, domainLevels.pull ?? 0),
+        maxLevel: 25,
+        isUnlocked: true,
+      };
+    }
+    if (domainLevels.legs != null) {
+      domains.lower_body = { currentLevel: domainLevels.legs, maxLevel: 25, isUnlocked: true };
+    }
+    if (domainLevels.core != null) {
+      domains.core = { currentLevel: domainLevels.core, maxLevel: 25, isUnlocked: true };
+    }
+  }
 
   return {
     id: 'simulator_user',
@@ -99,21 +121,22 @@ export function buildMockProfile(params: {
       dailyFloorGoal: 5,
       currentStreak: 10,
       goalHistory: [],
-      domains: {
-        upper_body: { currentLevel: Math.max(pullLevel, pushLevel), maxLevel: 25, isUnlocked: true },
-        lower_body: { currentLevel: legsLevel, maxLevel: 25, isUnlocked: true },
-        core:       { currentLevel: coreLevel, maxLevel: 25, isUnlocked: true },
-        full_body:  { currentLevel: effectiveLevel, maxLevel: 25, isUnlocked: true },
-      },
-      activePrograms: activeProgramEntries.length > 0
-        ? activeProgramEntries.map(p => ({
-            id: p.id, templateId: p.id, name: p.name,
-            startDate: new Date(), durationWeeks: 52, currentWeek: 4, focusDomains: [],
-          }))
-        : [{ id: primaryId, templateId: primaryId, name: primaryId, startDate: new Date(), durationWeeks: 52, currentWeek: 4, focusDomains: [] }],
+      domains,
+      // absent=absent (⑨): no `activePrograms.length === 0 → synthetic
+      // full_body entry` fallback. That fallback was the ONE case that
+      // happened to expand correctly (resolveChildDomainsForParent special-
+      // cases 'full_body' to its assessed children) — which meant every test
+      // profile built this way masked the activePrograms[0]-only read bug
+      // (03-CHANGES.md Addendum 26-28 / docs/workout-engine/10) for the
+      // entire session, instead of exercising the real push_pull_legs-split
+      // shape a genuinely affected production user has. A real user with no
+      // chosen program has activePrograms: [] — that's what this now returns.
+      activePrograms: activeProgramEntries.map(p => ({
+        id: p.id, templateId: p.id, name: p.name,
+        startDate: new Date(), durationWeeks: 52, currentWeek: 4, focusDomains: [],
+      })),
       unlockedBonusExercises: [],
       tracks: {
-        [primaryId]: { currentLevel: effectiveLevel, percent: 50, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
         ...domainTracks,
         ...programTracks,   // Program Builder tracks override domain tracks
       },
