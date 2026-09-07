@@ -535,3 +535,14 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 `src/features/admin/services/__tests__/qr-generator.test.ts` מייבא `jsdom` (`import { JSDOM } from 'jsdom'`) — חבילה שלא מותקנת בריפו (מאומת: `vitest` נכשל עם `Cannot find package 'jsdom'`). הקובץ נכנס ל-`origin/main` עם עבודת ה-QR-code-styling (`c8b6be0d`/`fc175e87`, לא הסבב הזה). הקובץ **לא יכול לעבור אף פעם**, בשום מצב, עד שהתלות תותקן.
 
 **לא שלנו, לא תוקן.** אבל: טסט שלא יכול לעבור מרעיל את בסיס-ההשוואה של כל מיזוג עתידי — כל מדידה יחסית לפי `merge-ritual.md` מעכשיו תראה אותו כקובץ-כושל קבוע, ותצטרך להסביר אותו בנפרד מכל כשל-אמיתי חדש. או שמתקנים את התלות (`npm install jsdom` + ודאי ש-`vitest.config.ts`'s `environment` לא צריך להשתנות איתה — הריפו כרגע `environment:'node'` בכוונה, `jsdom` כחבילה בלבד לא דורש לשנות את זה), או שמסירים את הקובץ. ההחלטה של דוד, לא שלנו.
+
+---
+
+## `getWindowStart.test.ts` תלוי בתאריך-ההרצה — לא נכשל, זז
+**Opened:** 2026-09-07 · **Source:** נצפה תוך כדי מדידה יחסית (merge-ritual.md) לקומיט A (`preferredDays(0)`) — נכשל ב-06.09.2026, עבר ב-07.09.2026, בלי שום שינוי בקוד שלו בין המדידות.
+
+`src/features/arena/services/__tests__/getWindowStart.test.ts:65-71` (`'daily is strictly more recent than (or equal to) weekly and monthly starts'`) קורא ל-`getWindowStart('daily'/'weekly'/'monthly')` על התאריך-האמיתי-של-רגע-ההרצה, בלי `vi.setSystemTime`. בגבול-חודש (כמו 06.09) `weekly`/`monthly` יכולים להתהפך; ביום רגיל (כמו 07.09) הבדיקה עוברת סתם כי הגבול לא נבדק.
+
+**⚠️ טסט שתלוי בתאריך ההרצה הופך את בסיס-ההשוואה של כל מיזוג ללא-יציב — צריך לקבע לו תאריך, לא לחכות שהלוח יזוז.** הדפוס-הבטוח כבר קיים **באותו קובץ**, שתי בדיקות למטה (`:78`, `describe('getLeaderboard — daily time window actually reaches the query')`): `vi.useFakeTimers()` + `vi.setSystemTime(new Date(2026,7,19,12,0,0))`, עם הערה מפורשת בקוד שמסבירה בדיוק את אותה בעיה ("real 'now' flakes on Mondays... and the 1st of the month"). הבדיקה ב-`:65-71` פשוט לא אימצה את אותו דפוס.
+
+**החלטה של דוד, לא שלנו. לא תוקן עכשיו.** אם/כשמתקנים: להעביר את `:65-71` לתוך אותו `beforeEach`/`vi.setSystemTime` שכבר קיים ב-`:78`, לא להמציא נוסח חדש.

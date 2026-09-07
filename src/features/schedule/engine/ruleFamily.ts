@@ -36,7 +36,7 @@
  */
 
 import type { ProgramId, PrioritizedSkill, ScheduleDay } from '../types/smartSchedule.types';
-import { buildDefaultTemplate, validateSchedule, SCHEDULE_POLICY } from './scheduleRules';
+import { buildDefaultTemplate, validateSchedule, preferredDays } from './scheduleRules';
 import {
   preferredRunningDays,
   validateRunningWeek,
@@ -115,24 +115,11 @@ export interface StrengthReduceContext {
   skills: PrioritizedSkill[];
 }
 
-/**
- * scheduleRules.ts's own day-preference table (SCHEDULE_POLICY.PREFERRED_DAYS)
- * is exported; the small fallback wrapper around it (for counts not in the
- * table) is NOT exported, so it's reproduced here rather than exported from
- * the source file — same fallback shape (count<=1 → [0]; otherwise
- * 0..min(count,6)), reading from the same shared policy data, not a
- * separate hardcoded table.
- */
-function strengthPreferredDays(count: number): number[] {
-  const lookup = SCHEDULE_POLICY.PREFERRED_DAYS as Record<number, number[]>;
-  if (lookup[count]) return [...lookup[count]];
-  // Same zero-is-real-not-"a-little" fix as scheduleRules.ts's own
-  // preferredDays — kept in sync there, see commit B for why these two
-  // don't stay two hand-copied bodies going forward.
-  if (count === 0) return [];
-  if (count <= 1) return [0];
-  return Array.from({ length: Math.min(count, 6) }, (_, i) => i);
-}
+// scheduleRules.ts's `preferredDays` used to be reproduced here by hand (it
+// wasn't exported from the source file). That's exactly the shape of bug
+// that let the zero-days fallback (`daysPerWeek<=1 -> [0]`) get fixed in one
+// copy and left broken in the other — now exported and imported directly
+// instead, so there's only one body to ever be wrong.
 
 function strengthValidate(week: ScheduleDay[]): RuleFamilyValidation {
   if (week.length !== 7) return invalidWeekViolation('STRENGTH-INVALID-WEEK', week.length);
@@ -217,7 +204,7 @@ function strengthPlaceOn(
 
 export const strengthRuleFamily: RuleFamily<ScheduleDay[], StrengthValidateContext, StrengthReduceContext> = {
   id: 'strength',
-  preferredDays: strengthPreferredDays,
+  preferredDays,
   validate: strengthValidate,
   reduceTo: strengthReduceTo,
   placeOn: strengthPlaceOn,
