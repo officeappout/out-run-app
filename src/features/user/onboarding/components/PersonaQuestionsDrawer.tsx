@@ -9,8 +9,26 @@ import type { PersonaId } from '@/types/persona.types';
 import { PERSONA_QUESTIONS } from '@/types/persona-question.types';
 import { savePersonaAnswers } from '@/features/user/identity/services/persona-answers.service';
 import { useResolvedPersonaSummary } from '@/features/user/identity/hooks/useResolvedPersonaSummary';
+import { Analytics } from '@/features/analytics/AnalyticsService';
 import ChoiceStep from './persona-questions-drawer/ChoiceStep';
 import HierarchySearchStep, { type HierarchySearchValue } from './persona-questions-drawer/HierarchySearchStep';
+
+// 08.09.2026 — real incident: a full military-persona declaration (status +
+// brigade/battalion/company, several screens) silently failed to save.
+// Root cause was twofold, not one bug:
+//   1. finishAndSave's catch only console.error'd, then called onComplete()
+//      unconditionally — the user saw zero indication anything went wrong.
+//   2. Every answer across every screen lived ONLY in this component's
+//      React state until the single save at the very end — so when that
+//      save failed, there was nothing left to retry FROM; the entire
+//      multi-screen input was gone.
+// The fix mirrors assessment-visual/page.tsx's handleAcceptResult fix from
+// earlier today: persist to sessionStorage BEFORE the risky write, so a
+// retry (this session, or a later reopen of the same persona) resumes from
+// the preserved answers instead of restarting the whole flow.
+function pendingSaveKey(personaId: PersonaId): string {
+  return `persona_pending_save_${personaId}`;
+}
 
 interface PersonaQuestionsDrawerProps {
   personaId: PersonaId;
@@ -79,14 +97,31 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
   const resolvedSummary = useResolvedPersonaSummary(uid, personaEntry);
 
   const [step, setStep] = useState(0);
+  const [saveFailed, setSaveFailed] = useState(false);
   const prefilledRef = useRef(false);
   if (isOpen && !prefilledRef.current && !resolvedSummary.loading) {
     prefilledRef.current = true;
-    setAnswers((prev) => ({ ...prev, ...resolvedSummary.rawAnswers }));
+    // A pending local save (this persona's last attempt never reached the
+    // server — see finishAndSave below) is MORE current than the server's
+    // rawAnswers, precisely because the server write is what failed. Prefer
+    // it when present; otherwise fall back to the normal resolved summary.
+    let pending: Record<string, unknown> | null = null;
+    try {
+      const raw = sessionStorage.getItem(pendingSaveKey(personaId));
+      if (raw) pending = JSON.parse(raw);
+    } catch { /* sessionStorage unavailable or corrupt entry — ignore, fall through */ }
+    setAnswers((prev) => ({ ...prev, ...resolvedSummary.rawAnswers, ...(pending ?? {}) }));
     setStep(Math.max(0, resolvedSummary.firstUnansweredIndex));
   }
   if (!isOpen && prefilledRef.current) {
     prefilledRef.current = false;
+  }
+  // Closing after a failure must not carry saveFailed into the NEXT open —
+  // a fresh open should re-attempt via the normal flow (which itself
+  // re-prefills from the sessionStorage backup above), not immediately
+  // show yesterday's error screen again.
+  if (!isOpen && saveFailed) {
+    setSaveFailed(false);
   }
   // resolved starts true and only flips false when a real prior org/unit
   // reference existed but no longer resolves — distinct from "never answered".
@@ -97,16 +132,66 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
   const finishAndSave = useCallback(async (finalAnswers: Record<string, unknown>) => {
     if (savedRef.current) return; // closing (X/backdrop) after an explicit finish must not double-save
     savedRef.current = true;
+    setSaveFailed(false);
     const currentUid = auth.currentUser?.uid;
-    if (currentUid) {
+    if (!currentUid) {
+      // No signed-in uid at all — nothing to save to, nothing to retry.
+      // Unchanged from the prior behavior; the auth-timing case this was
+      // guarding against surfaces as a savePersonaAnswers() throw below,
+      // not as a missing uid here (auth.currentUser is a separate, earlier
+      // check that has never itself been the observed failure point).
+      onComplete();
+      return;
+    }
+
+    // Persist BEFORE the risky write — see this file's top-of-file comment.
+    try {
+      sessionStorage.setItem(pendingSaveKey(personaId), JSON.stringify(finalAnswers));
+    } catch { /* sessionStorage unavailable — proceed anyway; no worse than before this fix */ }
+
+    const attemptSave = async (): Promise<string | null> => {
       try {
         await savePersonaAnswers(currentUid, personaId, finalAnswers as never);
+        return null;
       } catch (error) {
-        console.error('[PersonaQuestionsDrawer] savePersonaAnswers failed:', error);
+        return String((error as any)?.message ?? error ?? 'unknown error');
       }
+    };
+
+    let failureMessage = await attemptSave();
+    if (failureMessage) {
+      // One silent automatic retry — a transient network blip or an
+      // auth-not-ready-yet race (this app's own documented recurring
+      // pattern elsewhere) usually resolves within a second. Only bother
+      // the user if it fails TWICE.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      failureMessage = await attemptSave();
     }
+
+    if (failureMessage) {
+      console.error('[PersonaQuestionsDrawer] savePersonaAnswers failed twice:', failureMessage);
+      // Queryable later, not just console — this is the whole point: next
+      // time this happens to someone, there's a record of why.
+      Analytics.logError('persona_save_failed', 'PersonaQuestionsDrawer', `${personaId}: ${failureMessage}`);
+      savedRef.current = false; // allow the user's own "try again" tap to re-enter this function
+      setSaveFailed(true);
+      return; // do NOT call onComplete() — the answers are safe in sessionStorage either way
+    }
+
+    try { sessionStorage.removeItem(pendingSaveKey(personaId)); } catch { /* best-effort cleanup */ }
     onComplete();
   }, [personaId, onComplete]);
+
+  const handleRetryAfterFailure = useCallback(() => {
+    finishAndSave(answers);
+  }, [answers, finishAndSave]);
+
+  // Closing after a failed save must not silently retry on the user's
+  // behalf — sessionStorage already preserves the answers for next time;
+  // forcing another network attempt on a plain close would risk a loop.
+  const handleCloseAfterFailure = useCallback(() => {
+    onComplete();
+  }, [onComplete]);
 
   // Closing mid-sequence (X, backdrop tap) is deliberately the SAME outcome
   // as "skip" on every remaining question: save whatever was answered so
@@ -141,7 +226,12 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
     savedRef.current = false;
   }
 
-  if (!isOpen || questions.length === 0) return null;
+  // saveFailed can only become true after finishAndSave ran (which requires
+  // questions.length > 0 OR the no-questions auto-finish path) — don't let
+  // the questions.length===0 early-return hide a real failure on that path.
+  if (!isOpen || (questions.length === 0 && !saveFailed)) return null;
+
+  const handleDismiss = saveFailed ? handleCloseAfterFailure : handleCloseOrSkipToEnd;
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end">
@@ -150,7 +240,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        onClick={handleCloseOrSkipToEnd}
+        onClick={handleDismiss}
       />
 
       <motion.div
@@ -176,31 +266,48 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="text-lg font-bold text-slate-900">עוד קצת עלייך</h2>
           <button
-            onClick={handleCloseOrSkipToEnd}
+            onClick={handleDismiss}
             className="p-2 rounded-full bg-slate-100 text-slate-500 active:scale-90 transition-transform"
           >
             <X size={18} />
           </button>
         </div>
 
-        <p className="px-5 pb-3 text-xs text-slate-400" dir="rtl">הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.</p>
-
-        <div className="flex items-center justify-center gap-2 pb-4">
-          {questions.map((q, i) => (
-            <div key={q.key} className="flex items-center gap-1.5">
-              <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                i === step ? 'bg-[#00E5FF] scale-125' : i < step ? 'bg-emerald-400' : 'bg-slate-200'
-              }`} />
-              {i < questions.length - 1 && <div className="w-6 h-px bg-slate-200" />}
-            </div>
-          ))}
-        </div>
-
-        {showStaleUnitNotice && (
-          <div className="mx-5 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200" dir="rtl">
-            <p className="text-xs font-semibold text-amber-700">היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש</p>
+        {saveFailed ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 pb-8 text-center" dir="rtl">
+            <p className="text-sm font-bold text-slate-800">
+              לא הצלחנו לשמור את התשובות שלך כרגע.
+            </p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              מה שכבר מילאת נשמר אצלך — אפשר לנסות שוב, או לסגור ולנסות מאוחר יותר; שום דבר לא הולך לאיבוד.
+            </p>
+            <button
+              onClick={handleRetryAfterFailure}
+              className="w-full max-w-xs text-white font-black text-base py-3.5 rounded-2xl bg-[#00BAF7] shadow-lg active:scale-[0.97] transition-transform"
+            >
+              נסה שוב
+            </button>
           </div>
-        )}
+        ) : (
+          <>
+            <p className="px-5 pb-3 text-xs text-slate-400" dir="rtl">הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.</p>
+
+            <div className="flex items-center justify-center gap-2 pb-4">
+              {questions.map((q, i) => (
+                <div key={q.key} className="flex items-center gap-1.5">
+                  <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                    i === step ? 'bg-[#00E5FF] scale-125' : i < step ? 'bg-emerald-400' : 'bg-slate-200'
+                  }`} />
+                  {i < questions.length - 1 && <div className="w-6 h-px bg-slate-200" />}
+                </div>
+              ))}
+            </div>
+
+            {showStaleUnitNotice && (
+              <div className="mx-5 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200" dir="rtl">
+                <p className="text-xs font-semibold text-amber-700">היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש</p>
+              </div>
+            )}
 
         <div className="flex-1 overflow-hidden relative min-h-[420px]">
           <AnimatePresence mode="wait" custom={direction}>
@@ -257,6 +364,8 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
             </motion.div>
           </AnimatePresence>
         </div>
+          </>
+        )}
       </motion.div>
     </div>
   );
