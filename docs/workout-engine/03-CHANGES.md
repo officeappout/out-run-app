@@ -3530,3 +3530,113 @@ new `activeProgramsMode` values added). Diff against the tables in this addendum
 `SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1` held fixed.
 
 **Commit:** local only, no push.
+
+## Addendum 35 — Task 4: shared domain gate for the 3 High-severity sites. Fix verified correct via
+## targeted unit tests. Measured effect on the seeded baseline: ZERO. Full root-cause below — per
+## David's explicit instruction, stopping here rather than chasing further sites on my own judgment.
+
+### The fix
+
+Closed the 3 remaining High-severity domain-blind sites from Addendum 26's audit table
+(`src/features/workout-engine/logic/workout-selection.utils.ts`), with ONE shared gate
+(`matchesAnyRequiredDomain(ex, context)`) instead of 3 point-fixes — matching the exact pattern
+`takeFromPool` already established:
+
+1. **`selectExercisesWithDomainQuotas`'s final "any" fallback** — used to skip the domain check
+   entirely whenever `context.strictDomains` wasn't set (`!context.strictDomains || ...`). Now
+   two-tiered like `takeFromPool` itself: tier 1 prefers domain-matching candidates
+   **unconditionally** (no `strictDomains` dependency); tier 2 is the true last resort (nothing at
+   all matches any required domain), behaviorally unchanged — `core-slot-gate.test.ts`'s Tier 3
+   still passes untouched.
+2/3. **`selectExercisesWithDominance`'s `accessoryPool` + tail-fill** — this function (the P1/P2/P3
+   skill-dominance selection path) never consulted `context.requiredDomains` at all. Now both are
+   gated the same way: `accessoryPool` filters by `matchesAnyRequiredDomain` directly; the tail-fill
+   got the same two-tier treatment as fix #1.
+
+`matchesAnyRequiredDomain` fails **open** (no gate) when `requiredDomains` is empty/absent — a call
+with no domain context (a plain full-body request, or a pure skill/dominance request that never
+derived domains) is unaffected.
+
+**New test file** (`domain-blind-backfill-gate.test.ts`, 7 tests) isolates each site with hand-built
+pools/contexts precise enough to force the exact code path (per-domain caps creating "excess"
+same-domain candidates for fix #1; empty P1/P2 skill pools forcing everything through
+accessoryPool+tail-fill for fixes #2/#3). Fail-before/pass-after verified via `git stash`: 6/7 fail on
+pre-fix code, the 7th (a no-regression check — behavior when `requiredDomains` isn't set) correctly
+passes both ways. Full suite: 581/581 (574 baseline + 7 new), same 2 pre-existing unrelated
+`process.exit` failures. `tsc`: same 2 pre-existing errors, nothing new.
+
+### The measurement: re-ran the seeded matrix — every number is unchanged
+
+`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, same matrix as Addendum 34: 300 calls, 0 errors, 324
+workouts, 1845 exercises — **identical totals**, at every 50-call checkpoint, to the pre-fix run.
+
+| req_domains | avg push | avg pull | avg legs | avg core | Addendum 34 avg core |
+|---|---|---|---|---|---|
+| `auto` | 1.875 | 1.458 | 0.694 | 0.444 | 0.44 |
+| `push,pull,legs` | 1.611 | 1.556 | 1.194 | 0.556 | 0.56 |
+| `push,pull,legs,core` | 1.569 | 1.611 | 1.208 | 0.458 | 0.46 |
+| `core` | 0.0 | 0.0 | 0.028 | 2.681 | 2.68 |
+| `program:full_body` | 2.25 | 2.167 | 0.833 | 0.667 | 0.67 |
+| `no_core_assessment` | 3.0 | 2.417 | 1.0 | **0.0** | 0.00 |
+| `split:push_pull_legs` | 5.25 | 0.0 | 0.0 | 1.0 | 1.00 |
+
+`core_promise_outcome`, re-segmented by `req_domains`: **identical row-for-row** to Addendum 34's
+table (same counts, every bucket).
+
+### Against David's 3 success criteria
+
+1. **`push,pull,legs,core` rises significantly above `push,pull,legs`** — ❌ NOT MET. 0.458 vs 0.556,
+   same as before (David's exact numbers, 0.46 vs 0.56, reproduced almost to the decimal). The ratio
+   did not invert.
+2. **`no_core_assessment` stays exactly 0.00`** — ✅ MET. Still 0.0/12 workouts, unchanged — the
+   regression guard holds (this was never at risk from this fix; confirms nothing broke it either).
+3. **push/pull/legs don't drop** — ✅ trivially MET, since nothing moved at all in either direction.
+
+### Root cause of zero movement — verified, not guessed
+
+Read the actual gating logic (frozen files, read-only — `SplitDecisionService.ts` and
+`split-decision.types.ts`, per the standing freeze; no changes made to either) to confirm exactly why,
+rather than speculating:
+
+**Sites 2/3 (`selectExercisesWithDominance`) are structurally unreachable by this snapshot's user
+population.** `selectExercisesWithDominance` only runs when `context.dominanceRatio` is set (among 3
+other conditions). `dominanceRatio` is set (`split-decision.types.ts:151`, `resolveSplitLogic`) ONLY
+for `sessionType` ∈ `{push_pull_mixed, skill_dominance, hyper_skill_blocks}`. Per `SPLIT_MATRIX`
+(`split-decision.types.ts:88-105`), **every one of those 3 session types requires the `advanced` level
+tier (`userLevel > 13`)** — there is no frequency/schedule combination that reaches a dominance session
+type below level 14. This script's `LEVELS = [1, 5, 12]` (reduced from `[1,3,5,8,12]` in Addendum 34,
+per David's own trade-off instruction to make room for the core-focused axes) never reaches level 14 —
+the highest tested level, 12, is `intermediate`. So `selectExercisesWithDominance` was never invoked
+once across all 300 calls in this run, in either the pre-fix or post-fix code — the fix is real and
+correct (proven by the unit tests, which construct the function's inputs directly, bypassing
+`SplitDecisionService` entirely) but has zero surface in a snapshot that only tests levels ≤ 12.
+
+**Site 1 (`selectExercisesWithDomainQuotas`'s final fallback) has a different, narrower gap: this
+script's own wiring always couples `requiredDomains` with `strictDomains`.** The bug this site fixes
+only mattered when `requiredDomains` was set WITHOUT `strictDomains` (`!context.strictDomains ||
+...`). But `runCombo` (Addendum 33) sets `strictDomains: true` exactly when `domains !== undefined` —
+so every combo in this matrix with `requiredDomains` set (`push,pull,legs` / `push,pull,legs,core` /
+`core`) already had `strictDomains: true`, meaning the OLD final-fallback code's domain check was
+*already* being applied there (its `!context.strictDomains` branch never triggered). The only bucket
+where `strictDomains` is unset is `auto` — but that bucket's `requiredDomains` is also
+`undefined`/empty, so `matchesAnyRequiredDomain` fails open there regardless (nothing to gate on). The
+one real production shape this fix targets — `requiredDomains` populated by the normal
+scheduling/carousel path WITHOUT `strictDomains` (plausible for callers that never explicitly set it,
+unlike `WorkoutBuilderSheet`'s chip-picker) — isn't a combo this snapshot script constructs at all.
+
+**Neither gap is a flaw in the code fix.** Both are confirmed real, correct fixes for real production
+code paths (advanced-tier dominance users; any real caller that sets `requiredDomains` without
+`strictDomains`) — verified independent of this measurement harness via the targeted unit tests. The
+gap is specifically in what THIS snapshot script's combo matrix happens to construct, at its CURRENT
+`LEVELS`/wiring choices.
+
+### Stopping here, per instruction
+
+Per "אם אחרי התיקון הפער לא נסגר: עצור ודווח מה כן השתנה ומה לא. אל תמשיך לחפש אתרים נוספים על דעת
+עצמך" — reporting exactly this: the code fix is correct and shipped (committed `9b2e7642`), the
+measured baseline is unchanged for the reasons traced above, and no further domain-blind sites were
+searched for beyond the 3 named in the audit table. Whether to extend the matrix (e.g. an advanced-tier
+`LEVELS` value, or a `requiredDomains`-without-`strictDomains` combo) to actually exercise sites 1-3 is
+David's call, not made here.
+
+**Commit:** local only, no push.
