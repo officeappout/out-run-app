@@ -1,24 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**
- * Covers the two scoring-frame fixes proposed after the parent-bleed root-
- * cause investigation (docs/research/notification-content-scenario-sweep.md,
- * parent-bleed-audit.ts, 06.09.2026):
+ * Covers the scoring-frame fixes from the parent-bleed root-cause
+ * investigation (docs/research/notification-content-scenario-sweep.md,
+ * parent-bleed-audit.ts, 06.09.2026) and the 07.09.2026 seasonal-weight
+ * rebalance:
  *
- * 1. Seasonal Summer Boost — 'ים' substring-matched the plural suffix inside
- *    ordinary words ("ילדים", "לימודים"), firing +20 on nearly every row
+ * 1. Seasonal Boost — 'ים' substring-matched the plural suffix inside
+ *    ordinary words ("ילדים", "לימודים"), firing on nearly every row
  *    regardless of season. Fixed via includesWholeWord() (Unicode \p{L}
  *    lookaround — plain \b doesn't work for Hebrew, since JS defines \b via
  *    ASCII \w only). Also routed the month check through ctx.previewNow,
  *    matching the earlier Desk Reset / Parent Time-Window fix.
+ *
+ *    Rebalanced 07.09.2026: was a flat +20 (SEASONAL_BOOST), which outweighed
+ *    a full persona+location+timeOfDay match (max +3) — confirmed concretely
+ *    when newly-authored pro_athlete/pupil content (score 3) lost outright to
+ *    a generic seasonal row (score 20) in-season. Now +2: a full 3-field
+ *    match (3) reliably beats seasonal-alone (2), which still edges out a
+ *    single-field match (1) and still breaks a tie between two otherwise-
+ *    equally-targeted rows.
  *
  * 2. Soft Persona Mismatch Guard — the David Clause only ever protected
  *    NO-persona users from demographic content. A user WITH a specific
  *    persona had no protection from a DIFFERENT demographic persona's
  *    content winning by tie or near-tie. Fixed via a soft penalty (not a
  *    hard exclusion, so mismatched content can still win when it's the only
- *    option — the safety net thin-inventory personas like pupil/pro_athlete
- *    depend on).
+ *    option — the safety net thin-inventory personas depend on).
+ *
+ *    Extended 07.09.2026: pupil/pro_athlete added to DEMOGRAPHIC_PERSONA_TAGS
+ *    now that dedicated content for both is about to ship — both the
+ *    no-persona-user exclusion and the cross-persona soft penalty now cover
+ *    them too.
  */
 
 const state = vi.hoisted(() => ({
@@ -94,7 +107,7 @@ describe('Seasonal Summer Boost — word-boundary fix', () => {
 
     const row = result.titleCandidates[0];
     expect(row.reasons.join(' ')).toContain('summer_boost');
-    expect(row.score).toBeGreaterThanOrEqual(20);
+    expect(row.score).toBe(2); // SEASONAL_BOOST — rebalanced from 20 to 2 on 07.09.2026
   });
 
   it('previewNow — not the real wall clock — decides the season: winter-tagged text scores higher under a December previewNow than under a July previewNow', async () => {
@@ -109,6 +122,54 @@ describe('Seasonal Summer Boost — word-boundary fix', () => {
     expect(decScore).toBeGreaterThan(julScore);
     expect(decemberResult.titleCandidates[0].reasons.join(' ')).toContain('winter_boost');
     expect(julyResult.titleCandidates[0].reasons.join(' ')).not.toContain('winter_boost');
+  });
+});
+
+describe('Seasonal weight rebalance (SEASONAL_BOOST: 20 -> 2)', () => {
+  it('a full persona+location+timeOfDay match (3) beats a generic seasonal-only row (2)', async () => {
+    setTitles([
+      { text: 'לפתוח את היום בעוצמה', persona: 'pro_athlete', location: 'park', timeOfDay: 'morning' },
+      { text: 'לנצל את השמש: אימון בפארק', persona: 'generic' }, // 'שמש' — clean summer keyword
+    ]);
+    setDescriptions([]);
+
+    const result = await resolveWorkoutMetadataWithCandidates({
+      persona: 'pro_athlete', location: 'park', timeOfDay: 'morning', previewNow: dateFor(6),
+    });
+
+    expect(result.title).toBe('לפתוח את היום בעוצמה');
+    const targeted = result.titleCandidates.find(c => c.persona === 'pro_athlete')!;
+    const generic = result.titleCandidates.find(c => c.persona === 'generic')!;
+    expect(targeted.score).toBe(3);
+    expect(generic.score).toBe(2);
+  });
+
+  it('seasonal-alone (2) still edges out a single-field match (1) — the thin-inventory / "any"-tagged case', async () => {
+    setTitles([
+      { text: 'אימון חידוד ממוקד', persona: 'pro_athlete', location: 'any', timeOfDay: 'any' }, // persona-only match
+      { text: 'לנצל את השמש: אימון בפארק', persona: 'generic' },
+    ]);
+    setDescriptions([]);
+
+    const result = await resolveWorkoutMetadataWithCandidates({
+      persona: 'pro_athlete', location: 'park', timeOfDay: 'morning', previewNow: dateFor(6),
+    });
+
+    expect(result.title).toBe('לנצל את השמש: אימון בפארק');
+  });
+
+  it('seasonal still breaks a tie between two otherwise-equally-targeted rows', async () => {
+    setTitles([
+      { text: 'אימון קיץ בפארק', persona: 'pro_athlete', location: 'park', timeOfDay: 'morning' }, // 'קיץ' keyword
+      { text: 'אימון רגיל בפארק', persona: 'pro_athlete', location: 'park', timeOfDay: 'morning' }, // no keyword
+    ]);
+    setDescriptions([]);
+
+    const result = await resolveWorkoutMetadataWithCandidates({
+      persona: 'pro_athlete', location: 'park', timeOfDay: 'morning', previewNow: dateFor(6),
+    });
+
+    expect(result.title).toBe('אימון קיץ בפארק');
   });
 });
 
@@ -188,7 +249,7 @@ describe('Soft Persona Mismatch Guard', () => {
     expect(row.score).toBeGreaterThanOrEqual(0);
   });
 
-  it('does NOT penalize a row tagged for a non-demographic persona (pupil/pro_athlete are not in DEMOGRAPHIC_PERSONA_TAGS)', async () => {
+  it('pro_athlete/pupil are now DEMOGRAPHIC_PERSONA_TAGS members (added 07.09.2026) — a mismatched request gets the same penalty', async () => {
     setTitles([
       { text: 'אימון אתגרי לספורטאי', persona: 'pro_athlete', location: 'home' },
     ]);
@@ -199,13 +260,28 @@ describe('Soft Persona Mismatch Guard', () => {
     });
 
     const row = result.titleCandidates[0];
-    expect(row.reasons.join(' ')).not.toContain('personaMismatch_penalty');
-    expect(row.score).toBe(1); // location match only — no persona bonus, no penalty either
+    expect(row.reasons.join(' ')).toContain('personaMismatch_penalty');
+    expect(row.score).toBe(0); // location(+1) - penalty(3), floored at 0
   });
 
   it('still hard-excludes demographic content for a NO-persona user — the pre-existing David Clause is untouched', async () => {
     setTitles([
       { text: 'אימון שקט לפני שהילדים קמים', persona: 'parent', location: 'home' },
+      { text: 'אימון כללי', persona: 'any', location: 'home' },
+    ]);
+    setDescriptions([]);
+
+    const result = await resolveWorkoutMetadataWithCandidates({
+      persona: null, location: 'home', timeOfDay: 'morning',
+    });
+
+    expect(result.title).toBe('אימון כללי');
+  });
+
+  it('the David Clause now also hard-excludes pro_athlete/pupil content for a NO-persona user', async () => {
+    setTitles([
+      { text: 'אימון אתגרי לספורטאי', persona: 'pro_athlete', location: 'home' },
+      { text: 'להתעורר לפני הלימודים', persona: 'pupil', location: 'home' },
       { text: 'אימון כללי', persona: 'any', location: 'home' },
     ]);
     setDescriptions([]);
