@@ -146,6 +146,7 @@ async function setup() {
       name: 'Public Group',
       createdBy: 'group_owner',
       isPublic: true,
+      isActive: true,
       isOfficial: false,
       isLocked: false,
       source: 'user',
@@ -706,9 +707,13 @@ async function testReserveLeagueLockdown() {
     await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general', 'members', 'reservist_member')));
   });
 
-  await it('R2 — non-member reads the reserve group doc itself → DENY', async () => {
+  // Changed 07.09.2026: the parent group doc carries no real names — only
+  // its members/{uid} roster does (see R1/R7) — so it's unconditionally
+  // readable like any other group, same as R6 below. See R8's comment for
+  // why gating this doc broke list queries for every non-admin.
+  await it('R2 — non-member reads the reserve group doc itself → ALLOW (no real names on this doc — only members/{uid} is gated, see R1)', async () => {
     const ctx = env.authenticatedContext('reader_outsider');
-    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general')));
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general')));
   });
 
   await it('R3 — a real member reads the members list → ALLOW', async () => {
@@ -740,6 +745,29 @@ async function testReserveLeagueLockdown() {
   await it('R7 — non-member LISTS the members subcollection (no where clause) → DENY, not a silent empty-but-allowed result', async () => {
     const ctx = env.authenticatedContext('reader_outsider');
     await assertFails(getDocs(collection(ctx.firestore(), 'community_groups', 'military_reserve_general', 'members')));
+  });
+
+  // Found 07.09.2026 verifying "צו כושר ב'" in production: R1-R7 only ever
+  // exercise getDoc() or a list scoped to ONE already-known docId's own
+  // subcollection — in both cases the wildcard segment is fixed for the
+  // whole request. NearbyGroupsRow's actual query is a LIST against the
+  // TOP-LEVEL community_groups collection with no docId filter at all, so
+  // docId varies across every potential result document. Firestore can't
+  // prove isReserveLeagueGroup(docId) from the query's own where-clauses
+  // (isPublic/isActive say nothing about docId), so it can't bound the
+  // OR-chain for ANY non-admin caller and rejects the whole query — even
+  // though every real matching document except one would evaluate true.
+  // This is the same class of bug as the nested collectionGroup design
+  // this session already ruled out — but it hit community_groups' own
+  // pre-existing top-level rule instead, LIVE in production since Phase 6a.
+  await it('R8 — non-admin LISTS community_groups the way NearbyGroupsRow actually does (isPublic+isActive, no docId filter) → ALLOW, must include grp_test', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    const snap = await assertSucceeds(
+      getDocs(query(collection(ctx.firestore(), 'community_groups'), where('isPublic', '==', true), where('isActive', '==', true)))
+    );
+    if (!snap.docs.some((d) => d.id === 'grp_public')) {
+      throw new Error('grp_public missing from list result — the fix must not exclude ordinary public groups');
+    }
   });
 }
 
