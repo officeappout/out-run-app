@@ -29,14 +29,14 @@ vi.mock('../scheduleWeaver', () => ({
 describe('computeWeaveResultSafely', () => {
   it('RED (proven first): buildWeaverInput throwing directly, unhandled, would propagate', async () => {
     const { buildWeaverInput } = await import('../weaverInput');
-    expect(() => buildWeaverInput({}, 50, 3, new Date())).toThrow('ARTIFICIAL CRASH');
+    expect(() => buildWeaverInput({}, 'mixed', 50, 3, new Date())).toThrow('ARTIFICIAL CRASH');
   });
 
   it('GREEN: computeWeaveResultSafely catches the same throw and returns null instead of propagating', async () => {
     const { computeWeaveResultSafely } = await import('../computeWeaveResultSafely');
     let result: unknown = 'not called yet';
     expect(() => {
-      result = computeWeaveResultSafely({}, 50, 3, new Date());
+      result = computeWeaveResultSafely({}, 'mixed', 50, 3, new Date());
     }).not.toThrow();
     expect(result).toBeNull();
   });

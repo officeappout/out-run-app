@@ -212,6 +212,9 @@ function buildRunningSide(
   return { existingWeek, requestedCount };
 }
 
+/** Which domain(s) the drawer's tab has selected. Input to the engine, not a display filter — see buildWeaverInput's own doc. */
+export type WeaveMode = 'strength' | 'running' | 'mixed';
+
 /**
  * The bridge itself. Returns null only when there is genuinely nothing to
  * build from — neither track owned at all (see `hasStrengthTrack`'s own
@@ -219,9 +222,36 @@ function buildRunningSide(
  * necessarily an active program — inherited here, not fixed). A user
  * owning only one track still gets a full WeaveWeekInput, with the
  * unowned side at `requestedCount: 0` — never a partial/undefined field.
+ *
+ * `mode` is a domain SELECTION, not a display filter (schedule-drawer-
+ * screen-spec.md's tab redesign): "strength" means "build me a strength
+ * week," not "hide the running rows." A domain excluded by mode is forced
+ * to `requestedCount: 0` AND `existingWeek` reset to the all-rest week —
+ * requestedCount alone isn't enough, because both `strengthPlaceOn` and
+ * `runningPlaceOn` (ruleFamily.ts) refuse to relabel a base week that
+ * still holds real trainings onto a shorter day-set (confirmed before
+ * writing this: `runningPlaceOn` rejects whenever `trainingEntries.length
+ * !== requested.length`, and `strengthPlaceOn` rebuilds via
+ * `buildDefaultTemplate(programs, skills, requested.length)` regardless of
+ * the base it's handed — neither cares what `existingWeek` already
+ * contains, only whether the COUNT matches what's requested).
+ *
+ * R7's floor (`minStrengthDaysPerWeek`) exists to protect strength from
+ * losing a competition against running when the week is tight — see
+ * crossDomainRules.ts's own doc and `.claude/knowledge/schedule-weaver-
+ * spec.md`'s R7 scope note. With a single domain selected there is no
+ * competition, so mode='running' passes 0 instead. Checked before writing
+ * this, not assumed: there is no symmetric running-side floor to zero in
+ * the mirror case — scheduleWeaver.ts's own file header states outright
+ * "running has no equivalent floor." mode='strength' leaves the floor at
+ * its normal value; strength is the selected domain in that mode, and the
+ * floor's role there (never cut a real strength request below the
+ * WHO minimum even when days are scarce) still applies on its own terms,
+ * independent of any competition with running.
  */
 export function buildWeaverInput(
   profile: WeaverInputProfile | null | undefined,
+  mode: WeaveMode,
   focus: number,
   availableDayCount: number,
   asOfDate: Date,
@@ -235,21 +265,24 @@ export function buildWeaverInput(
   const strength = buildStrengthSide(profile, ownsStrength);
   const running = buildRunningSide(profile, ownsRunning, asOfDate);
 
+  const strengthExcluded = mode === 'running';
+  const runningExcluded = mode === 'strength';
+
   return {
     focus,
     availableDayCount,
-    crossDomainContext: { minStrengthDaysPerWeek: WHO_STRENGTH_TARGET_DAYS },
+    crossDomainContext: { minStrengthDaysPerWeek: mode === 'running' ? 0 : WHO_STRENGTH_TARGET_DAYS },
     strength: {
       family: strengthRuleFamily,
-      requestedCount: strength.requestedCount,
-      existingWeek: strength.existingWeek,
+      requestedCount: strengthExcluded ? 0 : strength.requestedCount,
+      existingWeek: strengthExcluded ? allRestStrengthWeek() : strength.existingWeek,
       validateContext: {},
       reduceContext: { programs: strength.programs, skills: strength.skills },
     },
     running: {
       family: runningRuleFamily,
-      requestedCount: running.requestedCount,
-      existingWeek: running.existingWeek,
+      requestedCount: runningExcluded ? 0 : running.requestedCount,
+      existingWeek: runningExcluded ? allRestRunningWeek() : running.existingWeek,
       // ⚠️ KNOWN GAP: hardcoded 'intermediate'. There is no existing
       // mapping from RunnerProfileType (1-4, running.paceProfile) to
       // RunningExperienceLevel anywhere in the codebase — confirmed by

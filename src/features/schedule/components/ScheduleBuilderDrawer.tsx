@@ -37,10 +37,17 @@
  *    component already uses to turn drag off for other non-draggable
  *    contexts, not a new "disable" flag.
  *
- * Data flow: `buildWeaverInput(profile, focus, availableDayCount, asOfDate)`
+ * Data flow: `buildWeaverInput(profile, mode, focus, availableDayCount, asOfDate)`
  * → `weaveWeek(input)`. This component never decides anything the engine
  * should — `sharedDays[].order`, every reduction, every note, come from
- * `weaveWeek`'s own return value.
+ * `weaveWeek`'s own return value. This extends to the tabs themselves: the
+ * "כוח"/"ריצה"/"משולב" chips set `mode`, which becomes engine INPUT (a
+ * domain selection), never a display filter. DayRow/AgendaDayCard below
+ * are not, and must not become, mode-aware — they render whatever
+ * `result.week` contains, unconditionally; if the engine didn't build
+ * running sessions this render, there are none in `result.week.running`
+ * to show, full stop. A `mode`-conditional in DayRow would mean the input
+ * didn't actually reach the engine correctly.
  */
 
 import { useMemo, useState } from 'react';
@@ -52,6 +59,7 @@ import AgendaDayCard, { type ResolvedRunningWorkout } from '@/features/home/comp
 import AerobicStrengthSlider from '@/features/parks/core/components/hybrid/AerobicStrengthSlider';
 import type { WeaveWeekResult } from '../engine/scheduleWeaver';
 import { computeWeaveResultSafely } from '../engine/computeWeaveResultSafely';
+import type { WeaveMode } from '../engine/weaverInput';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { DAY_LETTERS } from '../types/smartSchedule.types';
 import { SCHEDULE_BUILDER_DRAWER_ENABLED } from '@/config/feature-flags';
@@ -59,14 +67,6 @@ import { SCHEDULE_BUILDER_DRAWER_ENABLED } from '@/config/feature-flags';
 const DAY_SHORT_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 const CLOSE_THRESHOLD = 220;
 const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;
-
-type ChipMode = 'strength' | 'running' | 'combined';
-
-function chipModeForFocus(focus: number): ChipMode {
-  if (focus <= 0) return 'strength';
-  if (focus >= 100) return 'running';
-  return 'combined';
-}
 
 /** Local YYYY-MM-DD — not `toISOString()`, which converts to UTC and can shift the calendar date near midnight in this user's timezone. */
 function formatLocalISODate(d: Date): string {
@@ -116,15 +116,29 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   // Local-only for this stage — no persisted default yet (schedule-drawer-
   // screen-spec.md's "שמירת הפקדים" section is a later stage, not this one;
   // "no save" here covers these controls too, not just the final approval).
+  //
+  // `mode` is the tab's own explicit state — it no longer derives from
+  // `focus`. The tab is a domain SELECTION fed into the engine ("build me a
+  // strength week"), not a display filter ("hide the running rows") — see
+  // weaverInput.ts's own doc for why requestedCount alone isn't enough and
+  // existingWeek has to be reset too. `focus` keeps its existing, unrelated
+  // role (the Area B dosage dial, mixed-mode dominance) — the two are
+  // orthogonal on purpose; clicking a tab does not touch `focus`, and a
+  // stale `focus` value left over from mixed mode has no effect on a
+  // single-domain mode's result (confirmed before writing this: the
+  // "dominant" side's own preferredDays(0) already returns [] correctly on
+  // both domains, and the excluded side's existingWeek is all-rest either
+  // way, so nothing about the search depends on which side focus happens
+  // to call dominant when one side's count is forced to 0).
+  const [mode, setMode] = useState<WeaveMode>('mixed');
   const [focus, setFocus] = useState(50);
   const [availableDayCount, setAvailableDayCount] = useState(3);
-  const chipMode = chipModeForFocus(focus);
 
   const asOfDate = useMemo(() => new Date(), []); // one fixed anchor per mount, not re-read on every render
 
   const result: WeaveWeekResult | null = useMemo(
-    () => computeWeaveResultSafely(profile, focus, availableDayCount, asOfDate),
-    [profile, focus, availableDayCount, asOfDate],
+    () => computeWeaveResultSafely(profile, mode, focus, availableDayCount, asOfDate),
+    [profile, mode, focus, availableDayCount, asOfDate],
   );
 
   if (!isOpen) return null;
@@ -187,15 +201,15 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
 
               {/* ── Area A — what's in the schedule ── */}
               <div className="flex gap-2 mb-4">
-                <ChipButton label="כוח" active={chipMode === 'strength'} onClick={() => setFocus(0)} />
-                <ChipButton label="ריצה" active={chipMode === 'running'} onClick={() => setFocus(100)} />
-                <ChipButton label="משולב" active={chipMode === 'combined'} onClick={() => setFocus((f) => (f <= 0 || f >= 100 ? 50 : f))} />
+                <ChipButton label="כוח" active={mode === 'strength'} onClick={() => setMode('strength')} />
+                <ChipButton label="ריצה" active={mode === 'running'} onClick={() => setMode('running')} />
+                <ChipButton label="משולב" active={mode === 'mixed'} onClick={() => setMode('mixed')} />
               </div>
 
-              {chipMode === 'strength' && <OwnedProgramsList result={result} />}
+              {mode === 'strength' && <OwnedProgramsList result={result} />}
 
               {/* ── Area B — dosage + availability ── */}
-              {chipMode === 'combined' && (
+              {mode === 'mixed' && (
                 <AerobicStrengthSlider
                   aerobicShare={Math.min(0.7, Math.max(0.3, focus / 100))}
                   onChange={(share) => setFocus(Math.round(share * 100))}

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildWeaverInput, type WeaverInputProfile } from '../weaverInput';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import type { RunningDayRole } from '../runningRules';
+import { WHO_STRENGTH_TARGET_DAYS } from '@/lib/who-strength-target';
 
 const ASOF = new Date('2026-09-10T00:00:00Z'); // a Thursday — irrelevant to the math, just a fixed, deterministic anchor.
 const START_DATE = new Date('2026-09-06T00:00:00Z'); // Sunday, 4 days before ASOF — week 1.
@@ -48,7 +49,7 @@ describe('buildWeaverInput', () => {
       ),
     };
 
-    const result = buildWeaverInput(profile, 50, 5, ASOF);
+    const result = buildWeaverInput(profile, 'mixed', 50, 5, ASOF);
     expect(result).not.toBeNull();
 
     const runningDays = result!.running.existingWeek;
@@ -74,7 +75,7 @@ describe('buildWeaverInput', () => {
       ),
     };
 
-    const result = buildWeaverInput(profile, 50, 5, ASOF);
+    const result = buildWeaverInput(profile, 'mixed', 50, 5, ASOF);
     expect(result).not.toBeNull();
 
     const qualityDay = result!.running.existingWeek.find((d) => d.category === 'tempo');
@@ -88,7 +89,7 @@ describe('buildWeaverInput', () => {
       ...strengthOwningProfile({ א: ['PLANCHE'], ג: ['PLANCHE'], ה: ['PLANCHE'] }),
     };
 
-    const result = buildWeaverInput(profile, 0, 5, ASOF);
+    const result = buildWeaverInput(profile, 'mixed', 0, 5, ASOF);
     expect(result).not.toBeNull();
     expect(result!.running.requestedCount).toBe(0);
     expect(result!.running.existingWeek.every((d) => d.category === null)).toBe(true);
@@ -97,9 +98,9 @@ describe('buildWeaverInput', () => {
 
   it('an empty profile (neither track owned at all) returns null, not a partial object', () => {
     const profile: WeaverInputProfile = {};
-    expect(buildWeaverInput(profile, 50, 5, ASOF)).toBeNull();
-    expect(buildWeaverInput(null, 50, 5, ASOF)).toBeNull();
-    expect(buildWeaverInput(undefined, 50, 5, ASOF)).toBeNull();
+    expect(buildWeaverInput(profile, 'mixed', 50, 5, ASOF)).toBeNull();
+    expect(buildWeaverInput(null, 'mixed', 50, 5, ASOF)).toBeNull();
+    expect(buildWeaverInput(undefined, 'mixed', 50, 5, ASOF)).toBeNull();
   });
 
   it('asOfDate before the running program\'s startDate does not report a false week 1 with real workouts — the 2647b7f0 bug, previously reproduced here by a local copy of calculateCurrentWeek missing the isDateWithinRunningPlan guard', () => {
@@ -124,9 +125,59 @@ describe('buildWeaverInput', () => {
       },
     };
 
-    const result = buildWeaverInput(profile, 50, 5, previewAsOf);
+    const result = buildWeaverInput(profile, 'mixed', 50, 5, previewAsOf);
     expect(result).not.toBeNull();
     expect(result!.running.requestedCount).toBe(0);
     expect(result!.running.existingWeek.every((d) => d.category === null)).toBe(true);
+  });
+
+  describe('mode — a domain selection fed into the engine, not a display filter', () => {
+    function dualOwningProfile(): WeaverInputProfile {
+      return {
+        ...strengthOwningProfile({ א: ['PLANCHE'], ג: ['PLANCHE'], ה: ['PLANCHE'] }),
+        ...runningOwningProfile(
+          ['ב', 'ד'],
+          [
+            { week: 1, day: 1, category: 'tempo', isQualityWorkout: true, slotType: 'quality_primary' },
+            { week: 1, day: 2, category: 'easy_run' },
+          ],
+        ),
+      };
+    }
+
+    it('mode="running" forces strength to zero — requestedCount 0 AND a genuinely empty existingWeek, not just the count', () => {
+      const result = buildWeaverInput(dualOwningProfile(), 'running', 50, 5, ASOF);
+      expect(result).not.toBeNull();
+      expect(result!.strength.requestedCount).toBe(0);
+      expect(result!.strength.existingWeek.every((d) => d.sessions.length === 0 && d.isRestDay)).toBe(true);
+      // running untouched by the exclusion — still the real, owned data.
+      expect(result!.running.requestedCount).toBe(2);
+    });
+
+    it('mode="running" drops the R7 floor to 0 — no competition, nothing for the floor to protect', () => {
+      const result = buildWeaverInput(dualOwningProfile(), 'running', 50, 5, ASOF);
+      expect(result!.crossDomainContext.minStrengthDaysPerWeek).toBe(0);
+    });
+
+    it('mode="strength" forces running to zero — requestedCount 0 AND a genuinely empty existingWeek', () => {
+      const result = buildWeaverInput(dualOwningProfile(), 'strength', 50, 5, ASOF);
+      expect(result).not.toBeNull();
+      expect(result!.running.requestedCount).toBe(0);
+      expect(result!.running.existingWeek.every((d) => d.category === null)).toBe(true);
+      // strength untouched by the exclusion — still the real, owned data.
+      expect(result!.strength.requestedCount).toBe(3);
+    });
+
+    it('mode="strength" leaves the R7 floor at its normal value — no symmetric running floor exists to zero in the mirror case', () => {
+      const result = buildWeaverInput(dualOwningProfile(), 'strength', 50, 5, ASOF);
+      expect(result!.crossDomainContext.minStrengthDaysPerWeek).toBe(WHO_STRENGTH_TARGET_DAYS);
+    });
+
+    it('mode="mixed" leaves both domains exactly as they were before mode existed — regression guard', () => {
+      const result = buildWeaverInput(dualOwningProfile(), 'mixed', 50, 5, ASOF);
+      expect(result!.strength.requestedCount).toBe(3);
+      expect(result!.running.requestedCount).toBe(2);
+      expect(result!.crossDomainContext.minStrengthDaysPerWeek).toBe(WHO_STRENGTH_TARGET_DAYS);
+    });
   });
 });
