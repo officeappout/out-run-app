@@ -39,46 +39,40 @@
  * this unblocks real data: 97 programLevelSettings docs across 8 programs,
  * most with preferredProtocols populated.
  *
- * ── "בולטים" (bolts) are free ────────────────────────────────────────────
+ * ── "בולטים" (bolts) are free — TRUE ONLY for combos that don't force a
+ * ── targetDifficulty (Addendum 33, 07.09.2026 — see below) ──────────────
  * One generateHomeWorkoutTrio call returns all 3 bolt options (difficulty
- * 1/2/3) simultaneously — bolt is NOT an independent axis requiring separate
- * calls. The matrix below is level×duration×location×domains×daysInactive
- * (5×4×3×7×3 = 1260 calls), each producing 3 `workouts` rows (one per bolt).
+ * 1/2/3) simultaneously when `targetDifficulty` is NOT passed — bolt is not
+ * an independent axis for those calls. `push_pull_legs_split` combos still
+ * use this shape. 'auto'-mode combos (as of Addendum 33) DO pass
+ * targetDifficulty — see TARGET_DIFFICULTIES below for why, and note that
+ * for those combos a bolt now costs a full separate call, not a free extra
+ * row.
  *
- * ── "seed קבוע" — NOT ACTUALLY ACHIEVABLE, documented not hidden ────────
- * getShuffleSeed (workout-selection.utils.ts:164-167) has
- * `DEBUG_SHUFFLE_ON_REFRESH = true` hardcoded, which makes it ALWAYS return
- * `Date.now()` regardless of any `selectedDate`/`userId` context passed in —
- * this is pre-existing production behavior, out of scope to change here (the
- * task's own instruction: no production code changes beyond extracting
- * buildMockProfile). A literal fixed seed is therefore not obtainable from
- * the outside. The `seed` column below stores THIS SCRIPT's own call-time
- * `Date.now()` (for row provenance/ordering only — it is close to but not
- * identical to whatever internal seed(s) getShuffleSeed produced during that
- * call, since it's invoked separately, sometimes twice, inside the pipeline).
- * Practical implication for 05-BENCHMARK.md: BLOCK SHAPES, applied protocols,
- * and resolved levels should be stable across a re-run (nothing else is
- * randomized); WHICH SPECIFIC exercise wins among near-tied score candidates
- * can differ between runs. Do not present a re-run as byte-reproducible.
+ * ── Determinism ───────────────────────────────────────────────────────
+ * Addendum 31 (07.09.2026) replaced the old "not achievable" state — see the
+ * "Determinism" block right after the imports below for the full mechanism
+ * (getShuffleSeed override + seeded global Math.random + SNAPSHOT_CONCURRENCY).
+ * SNAPSHOT_SEED/SNAPSHOT_CONCURRENCY=1 now gives byte-identical re-runs,
+ * verified by diffing two independent runs.
  *
- * ── Real-call-site gap audit (David, 05.09.2026) — what changed and why ──
- * Compared this script's call against the 2 real production call sites
- * (StatsOverview.tsx's home carousel, UserWorkoutAdjuster's slider — both
- * ultimately call this same generateHomeWorkoutTrio, confirmed no parallel
- * engine exists) and the admin Workout Simulator. Found and fixed:
- *   1. `strictDomains: true` — REMOVED. No real caller ever sets it. It
- *      silently disables VerticalFoundation + HorizontalGuarantee + the
- *      domain-overflow fill path (home-workout.types.ts's own doc comment).
- *      Empirically moved full-body-without-core at 45min by ~20 points in a
- *      15-sample paired trace (66.7% with vs 46.7% without) — not dominant,
- *      but not negligible either.
- *   2. `requiredDomains` — now `undefined` by default (was always
- *      `['push','pull','legs']`-style). Neither the carousel nor the slider
- *      (unless the user explicitly picks muscle-group chips) ever sets this
- *      — `undefined` is the common real case, letting the engine
- *      auto-select domains. The old exhaustive 7-subset sweep survives as
- *      an opt-in (`SNAPSHOT_FORCE_DOMAINS=1`) for deliberately testing a
- *      specific chip-picked combination.
+ * ── Real-call-site gap audit (David, 05.09.2026, corrected 07.09.2026) ──
+ * Compared this script's call against the real production call sites
+ * (StatsOverview.tsx's home carousel, UserWorkoutAdjuster's slider, the
+ * Custom Builder (WorkoutBuilderSheet.tsx), and 3 hybrid-adjacent generators)
+ * and the admin Workout Simulator. Found and fixed:
+ *   1. `strictDomains` — CORRECTED 07.09.2026: the original claim here ("no
+ *      real caller ever sets it") was wrong — WorkoutBuilderSheet.tsx:644
+ *      sets it true on every chip-picked Custom Builder session, and 3 more
+ *      real callers set it unconditionally (strength-block.service.ts:120,
+ *      complementary-short.generator.ts:33, partial-completion.generator.ts:159).
+ *      See the DOMAIN_SUBSETS comment below for the fix (Addendum 33).
+ *   2. `requiredDomains` — `undefined` by default (was always
+ *      `['push','pull','legs']`-style) — the common auto-select case
+ *      (carousel/slider). A real chip-picked scenario now also gets its own
+ *      combo (paired with strictDomains:true, per fix #1) instead of being
+ *      silently absent. The old exhaustive 7-subset sweep survives as an
+ *      opt-in (`SNAPSHOT_FORCE_DOMAINS=1`).
  *   3. `remainingWeeklyBudget` / `domainSetsCompletedThisWeek` /
  *      `remainingScheduleDays` — were absent from EVERY call this script
  *      (and the Simulator) has ever made. Budget Floor (recovery-mode
@@ -88,15 +82,19 @@
  *      Now simulated with plausible mid-week values (see
  *      SIMULATED_REMAINING_WEEKLY_BUDGET etc. below) — not real per-combo
  *      data (there is none to use here), just no longer silently absent.
+ *   4. `difficulty` (Addendum 33) — was fixed at 2 and, per a direct read of
+ *      home-workout.service.ts, is NEVER READ by the function at all
+ *      (zero matches for `options.difficulty`). Only `targetDifficulty` has
+ *      any effect. See TARGET_DIFFICULTIES below.
  * NOT changed: `availableTime` still equals the requested duration exactly
  * (unlike the real carousel, which hardcodes 60 regardless of user choice —
  * see `isLateNightPivot`/StatsOverview.tsx:730-734 — because the engine's
  * own per-bolt caps + Volume Guard do the real trimming downstream; testing
  * `duration` directly here is closer to the SLIDER path, which does pass
  * the user's real chosen value). Every % reported from a snapshot built
- * BEFORE this fix should be treated as needing re-verification, not
- * discarded — the mechanical bugs found via those snapshots (warmup-role
- * leak, Part B leak, no_safe_victim) are independent of this gap.
+ * BEFORE a given fix above should be treated as needing re-verification
+ * against the addendum that fixed it, not discarded outright — see
+ * 03-CHANGES.md Addenda 29/31/33 for what each changed and why.
  *
  * Run:  npx tsx scripts/audit/build-snapshot.ts
  * (Runs build-exercise-bridge.ts's output must already exist in
@@ -210,23 +208,30 @@ const SMOKE = process.env.SNAPSHOT_SMOKE === '1';
 
 const LEVELS = SMOKE ? [1, 8] : [1, 3, 5, 8, 12];
 const DURATIONS = SMOKE ? [20] : [15, 20, 30, 45];
-const LOCATIONS: ('home' | 'park' | 'gym')[] = SMOKE ? ['park'] : ['home', 'park', 'gym'];
-// David, 05.09.2026 (real-call-site gap investigation): NEITHER production
-// (StatsOverview.tsx's home carousel) NOR the slider path (UserWorkoutAdjuster
-// → generateHomeWorkout) ever passes requiredDomains unless the user
-// explicitly picked muscle-group chips — the common case is `undefined`,
-// letting the engine auto-select domains from the schedule. `undefined` is
-// therefore the default matrix value now. `strictDomains:true` is REMOVED
-// entirely (see the call below) — no real caller ever sets it; it silently
-// disabled VerticalFoundation + HorizontalGuarantee + the domain-overflow
-// fill path, and empirically moved the full-body-without-core rate at 45min
-// by ~20 points (66.7% with strictDomains vs 46.7% without, 15-sample paired
-// trace) — real numbers reported before this fix used the wrong mode.
+// David, 07.09.2026: reduced from 3 to 2 (dropped 'gym') to make room for the
+// two new real axes below (domain-subsets×strictDomains, targetDifficulty) —
+// per instruction: shrink other axes before touching either new one.
+const LOCATIONS: ('home' | 'park' | 'gym')[] = SMOKE ? ['park'] : ['home', 'park'];
+// CORRECTED 07.09.2026 — the prior version of this comment claimed "no real
+// caller ever sets strictDomains: true." That was wrong, found and pointed
+// out by David: WorkoutBuilderSheet.tsx:644 sets
+// `strictDomains: (derivedRequiredDomains?.length ?? 0) > 0` — i.e. true
+// every time the user picks muscle-group chips in the real Custom Builder UI
+// — and 3 more real callers do the same unconditionally:
+// strength-block.service.ts:120, complementary-short.generator.ts:33,
+// partial-completion.generator.ts:159. Per the (still-accurate) 05.09.2026
+// finding immediately below, the difference is not cosmetic — ~20 points on
+// full-body-without-core at 45min (66.7% with strictDomains vs 46.7%
+// without, 15-sample paired trace). Un-set requiredDomains (`undefined`) is
+// still the common auto-select case (StatsOverview's home carousel, the
+// slider) and stays the default combo — but a real chip-picked scenario now
+// gets its own combo, coupled with strictDomains:true exactly as production
+// does (see runCombo below), instead of being silently absent from every
+// baseline measurement.
 // The old exhaustive 7-subset sweep (for deliberately testing a SPECIFIC
 // domain combination, e.g. a user who picked "push" + "legs" chips) is kept
 // as an explicit opt-in via SNAPSHOT_FORCE_DOMAINS=1 — not deleted, since
-// that scenario IS real (the slider path when chips ARE picked), just not
-// the default/common one.
+// that scenario IS real, just not the default/common one.
 const FORCE_DOMAINS = process.env.SNAPSHOT_FORCE_DOMAINS === '1';
 const DOMAIN_SUBSETS: (string[] | undefined)[] = FORCE_DOMAINS
   ? (SMOKE
@@ -236,8 +241,33 @@ const DOMAIN_SUBSETS: (string[] | undefined)[] = FORCE_DOMAINS
           ['push', 'pull'], ['push', 'legs'], ['pull', 'legs'],
           ['push', 'pull', 'legs'],
         ])
-  : [undefined];
-const DAYS_INACTIVE = SMOKE ? [0] : [0, 3, 10];
+  : [undefined, ['push', 'pull', 'legs']];
+// Reduced from [0,3,10] to [0] — same reasoning as LOCATIONS above.
+const DAYS_INACTIVE = [0];
+// David, 07.09.2026: `difficulty` (below, kept only because
+// generateHomeWorkoutTrio's options type still accepts it) was fixed at 2
+// and, per a direct read of home-workout.service.ts, is NEVER ACTUALLY READ
+// by the function — grepped for `options.difficulty` specifically: zero
+// matches. Only `options.targetDifficulty` has any effect, and its effect is
+// not "pick which of 3 bolts to report" — it makes the trio-loop `continue`
+// past the other 2 slots entirely (home-workout.service.ts:849), i.e. skips
+// generating them. So the prior default matrix's "difficulty fixed at 2" was
+// actually a no-op either way — ALL 3 bolts (D1/D2/D3) were always generated
+// and recorded (the file's own "bolts are free" framing, still true for
+// combos that don't force a target). What was genuinely never exercised is
+// the real single-difficulty CALL SHAPE (WorkoutBuilderSheet's Custom
+// Builder: `difficulty, targetDifficulty: difficulty`) — which generates
+// ONLY that one bolt, with a FRESH pool, not cross-penalized by
+// sessionBlacklist from sibling bolts the way D2/D3 within one free trio
+// call are (home-workout.service.ts:874-881). Every 'auto'-mode combo below
+// now uses targetDifficulty, cycling through all 3 — replacing the old
+// "1 call → free trio" shape with the real Custom-Builder shape, at 3x the
+// call cost per combo (no longer free — this is exactly why LOCATIONS/
+// DAYS_INACTIVE were trimmed above). `push_pull_legs_split` combos are
+// unaffected — that scenario is about domain coverage, not difficulty, and
+// keeps the free-trio shape (matches its own real caller, StatsOverview,
+// which never sets targetDifficulty either).
+const TARGET_DIFFICULTIES: (1 | 2 | 3)[] = SMOKE ? [2] : [1, 2, 3];
 
 // David, 05.09.2026: remainingWeeklyBudget/domainSetsCompletedThisWeek/
 // remainingScheduleDays were absent from every call this script has ever
@@ -295,6 +325,14 @@ interface Combo {
    * real INPUT shape and observes the (unmodified) pipeline's output.
    */
   activeProgramsMode: 'auto' | 'push_pull_legs_split';
+  /**
+   * David, 07.09.2026 (Addendum 33): only meaningful for
+   * activeProgramsMode:'auto' — see TARGET_DIFFICULTIES above. Ignored by
+   * runCombo for 'push_pull_legs_split' combos (which keep the free-trio,
+   * no-targetDifficulty call shape); those combos carry a placeholder value
+   * here purely to satisfy the type.
+   */
+  targetDifficulty: 1 | 2 | 3;
 }
 
 // David, 07.09.2026: deliberately small — this is a regression tripwire for
@@ -311,13 +349,16 @@ function buildCombos(): Combo[] {
       for (const location of LOCATIONS)
         for (const domains of DOMAIN_SUBSETS)
           for (const daysInactive of DAYS_INACTIVE)
-            combos.push({ level, duration, location, domains, daysInactive, activeProgramsMode: 'auto' });
+            for (const targetDifficulty of TARGET_DIFFICULTIES)
+              combos.push({ level, duration, location, domains, daysInactive, activeProgramsMode: 'auto', targetDifficulty });
 
   for (const level of PUSH_PULL_LEGS_SPLIT_LEVELS)
     for (const duration of PUSH_PULL_LEGS_SPLIT_DURATIONS)
       combos.push({
         level, duration, location: 'home', domains: undefined, daysInactive: 0,
         activeProgramsMode: 'push_pull_legs_split',
+        // Placeholder — ignored by runCombo for this mode (free-trio shape, no targetDifficulty passed).
+        targetDifficulty: 2,
       });
 
   return combos;
@@ -387,7 +428,7 @@ interface ExerciseRow {
 }
 
 async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: WorkoutRow[]; exercises: ExerciseRow[] } | null> {
-  const { level, duration, location, domains, daysInactive, activeProgramsMode } = combo;
+  const { level, duration, location, domains, daysInactive, activeProgramsMode, targetDifficulty } = combo;
   // callId identifies the ONE generateHomeWorkoutTrio call (shared context/seed
   // across its 3 bolt options). workout_exercises has no `bolt` column, so
   // `run_id` must be unique PER GENERATED WORKOUT (call + bolt), not per call —
@@ -417,6 +458,12 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
         activePrograms: [],
       });
 
+  // Addendum 33 (07.09.2026): strictDomains/targetDifficulty only apply to
+  // 'auto' mode combos — see the Combo interface + TARGET_DIFFICULTIES /
+  // DOMAIN_SUBSETS comments above for why. 'push_pull_legs_split' keeps its
+  // original free-trio, no-strictDomains call shape unchanged (that scenario
+  // is about activePrograms[0]-only, orthogonal to this fix).
+  const isAuto = activeProgramsMode === 'auto';
   let result;
   try {
     result = await generateHomeWorkoutTrio({
@@ -424,29 +471,45 @@ async function runCombo(combo: Combo, runIndex: number): Promise<{ workouts: Wor
       location,
       testLocation: location,
       availableTime: duration,
-      difficulty: 2,
+      // difficulty is dead code in generateHomeWorkoutTrio (see header comment)
+      // — kept at 2 for split-mode purely for shape-continuity, harmless either way.
+      difficulty: isAuto ? targetDifficulty : 2,
+      ...(isAuto ? { targetDifficulty } : {}),
       daysInactiveOverride: daysInactive,
       requiredDomains: domains, // undefined by default — see DOMAIN_SUBSETS comment above
-      // strictDomains: NOT passed — no real caller ever sets this (see above).
+      // strictDomains: true exactly when a real caller would set it — a
+      // chip-picked requiredDomains combo (WorkoutBuilderSheet.tsx:644).
+      // Omitted (not `false`) when there's no requiredDomains, per David.
+      ...(isAuto && domains !== undefined ? { strictDomains: true } : {}),
       remainingWeeklyBudget: SIMULATED_REMAINING_WEEKLY_BUDGET,
       domainSetsCompletedThisWeek: SIMULATED_DOMAIN_SETS_COMPLETED_THIS_WEEK,
       remainingScheduleDays: SIMULATED_REMAINING_SCHEDULE_DAYS,
       skipCycleRestart: true,
     } as any);
   } catch (err: any) {
-    report(`  ERROR ${callId} (L${level} d${duration} ${location} [${domains?.join(',') ?? 'auto'}] inactive${daysInactive}): ${err?.message ?? err}`);
+    report(`  ERROR ${callId} (L${level} d${duration} ${location} [${domains?.join(',') ?? 'auto'}] inactive${daysInactive}${isAuto ? ` diff${targetDifficulty}` : ''}): ${err?.message ?? err}`);
     return null;
   }
 
   const workouts: WorkoutRow[] = [];
   const exercises: ExerciseRow[] = [];
 
-  result.options.forEach((opt: any, boltIdx: number) => {
+  // Addendum 33: when targetDifficulty is set, home-workout.service.ts
+  // (1215-1219) pads results[1]/[2] with the SAME object reference as
+  // results[0] — the trio-loop only actually generated 1 bolt. Naively
+  // iterating all 3 slots here would insert 3 duplicate workout rows tagged
+  // as bolt 1/2/3. Process only the single real slot, stamped with the
+  // REQUESTED difficulty (not a fabricated boltIdx+1).
+  const slotsToProcess: { opt: any; bolt: number }[] = isAuto
+    ? [{ opt: result.options[0], bolt: targetDifficulty }]
+    : result.options.map((opt: any, boltIdx: number) => ({ opt, bolt: boltIdx + 1 }));
+
+  slotsToProcess.forEach(({ opt, bolt }) => {
     if (!opt?.result?.workout) return; // needsAssessment / null slot
     const w = opt.result.workout;
-    const runId = `${callId}_b${boltIdx + 1}`; // unique per generated workout — see comment above
+    const runId = `${callId}_b${bolt}`; // unique per generated workout — see comment above
     workouts.push({
-      run_id: runId, seed: callSeed, bolt: boltIdx + 1,
+      run_id: runId, seed: callSeed, bolt,
       req_level: level, req_duration: duration, req_location: location,
       req_domains: activeProgramsMode === 'push_pull_legs_split' ? 'split:push_pull_legs' : (domains?.join(',') || 'auto'),
       days_inactive: daysInactive,
@@ -537,9 +600,9 @@ async function main() {
   report('Authenticated.');
 
   const combos = buildCombos();
-  const autoCombosCount = LEVELS.length * DURATIONS.length * LOCATIONS.length * DOMAIN_SUBSETS.length * DAYS_INACTIVE.length;
+  const autoCombosCount = LEVELS.length * DURATIONS.length * LOCATIONS.length * DOMAIN_SUBSETS.length * DAYS_INACTIVE.length * TARGET_DIFFICULTIES.length;
   const splitCombosCount = PUSH_PULL_LEGS_SPLIT_LEVELS.length * PUSH_PULL_LEGS_SPLIT_DURATIONS.length;
-  report(`Matrix: ${LEVELS.length} levels × ${DURATIONS.length} durations × ${LOCATIONS.length} locations × ${DOMAIN_SUBSETS.length} domain-subsets × ${DAYS_INACTIVE.length} daysInactive = ${autoCombosCount} 'auto' calls + ${splitCombosCount} 'push_pull_legs_split' calls = ${combos.length} total calls (×3 bolts each, free per call)`);
+  report(`Matrix: ${LEVELS.length} levels × ${DURATIONS.length} durations × ${LOCATIONS.length} locations × ${DOMAIN_SUBSETS.length} domain-subsets × ${DAYS_INACTIVE.length} daysInactive × ${TARGET_DIFFICULTIES.length} targetDifficulty = ${autoCombosCount} 'auto' calls (1 workout row each, targetDifficulty-scoped — not free trio) + ${splitCombosCount} 'push_pull_legs_split' calls (×3 bolts each, free per call) = ${combos.length} total calls`);
   report(`Concurrency: ${CONCURRENCY}`);
 
   const db = new Database(SNAPSHOT_DB_PATH);
