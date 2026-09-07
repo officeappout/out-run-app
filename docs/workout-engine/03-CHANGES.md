@@ -3084,3 +3084,67 @@ frozen baseline to diff future runs against without accounting for this.
 **Commit:** local only, no push. Branch `fix/mock-profile-and-domain-gates`, worktree
 `.claude/worktrees/mock-profile-and-domain-gates` (set up per David's explicit operational
 instruction — the shared main working directory hit a stuck `index.lock` twice this session).
+
+## Addendum 30 — Task 2 investigation: progression.service.ts's `core: snap.core ?? 1`.
+## Report only, per instruction — NO fix applied. Turns out to be inert in production today, for a
+## reason worth knowing before deciding whether to fix it at all.
+
+David's flagged lines (`buildEvolvedPrograms`, ~1420-1423/1460-1463) belong to a "Program Evolution
+Engine" with two halves:
+
+**Half 1 — detection, real and live.** `evaluateProgramEvolution` (`:1328-1359`) runs inside the
+normal XP-award/level-up flow — confirmed via its one real caller at `:1879`, which is itself inside
+a function that also writes `progression.readyForSplit` (`:1872`) a few lines above, i.e. genuinely
+executes on every level-up, not a dead branch. When a user's `full_body` hits L13 or `upper_body`
+hits L18, it builds `subLevelsSnapshot` (`:1333-1336`):
+```js
+for (const childId of ['push', 'pull', 'legs', 'core']) {
+  subLevels[childId] = tracks[childId]?.currentLevel ?? 0;
+}
+```
+**This is the actual, currently-executing fabrication** — not the `?? 1` David pointed at. Any
+domain the user never assessed gets `0` written directly into `progression.pendingProgramEvolution`
+on the real user document (`:1882-1883`, a real `updateDoc` call, not a dry-run).
+
+**Half 2 — execution, confirmed dead code.** `buildEvolvedPrograms` (containing the exact `snap.core
+?? 1` / `snap.legs ?? 1` lines David flagged) **has zero callers anywhere in the codebase** —
+verified by grepping the entire `src/` tree, not just this file. `pendingProgramEvolution` (the field
+Half 1 writes) has exactly one other reference in the whole codebase: its own type declaration
+(`user.types.ts`). No UI component reads it, nothing calls `buildEvolvedPrograms` to act on it. The
+flag gets written to real user documents and then sits there, permanently inert.
+
+**Direct answers to David's 4 questions:**
+
+1. **מי קורא לפונקציות האלו** — `evaluateProgramEvolution`: one real caller, inside the live XP
+   level-up path. `buildEvolvedPrograms`: no callers at all, anywhere.
+2. **מה קורה בפועל אצל משתמש שאין לו רמת ליבה** — nothing. The flag is set on their Firestore
+   document (with a fabricated `core: 0` inside `subLevelsSnapshot`, if core was never assessed), but
+   since nothing ever calls `buildEvolvedPrograms` to act on that flag, **no user has ever actually
+   been evolved into a new split through this path, correctly leveled or not.** No core workout at
+   any level gets triggered by this specific mechanism, because the mechanism that would trigger it
+   was never finished.
+3. **A subtlety worth flagging even though it's currently moot**: because of JS nullish-coalescing
+   semantics, `buildEvolvedPrograms`'s `?? 1` would almost never actually produce `1` for a domain
+   that came from `evaluateProgramEvolution` — `0` is not nullish, so `0 ?? 1` evaluates to `0`, not
+   `1`. If this code path is ever wired up as-is, the realistic failure mode is closer to "writes
+   `currentLevel: 0`" than "writes `currentLevel: 1`" — different from how the bug was originally
+   described, worth knowing before anyone reaches for the `?? 1` line specifically as "the" fix site.
+   (`0` may or may not be handled correctly by other consumers — not audited this pass, since the
+   path is dead; would need re-checking before ever wiring this up for real.)
+4. **A separate, live mechanism exists and should not be confused with this one**: `readyForSplit`
+   (`checkReadyForSplit`, `:1868-1876`) is a different flag, with real consumers
+   (`src/app/admin/users/all/page.tsx`, `useProgressionSync.ts`). Whether `pendingProgramEvolution`/
+   `buildEvolvedPrograms` is an abandoned, superseded-by-`readyForSplit` approach, or an unfinished
+   newer one meant to replace it, isn't determinable from code alone — flagging as a genuine
+   ambiguity, not guessing.
+
+**Proposed fix, not applied** (per instruction — report first): David's suggested direction — leave
+the value `undefined` and let the caller decide, rather than inventing `0` or `1` — applies most
+directly to `evaluateProgramEvolution`'s `?? 0` (the line that actually executes). Whether
+`buildEvolvedPrograms` is worth fixing at all depends on the answer to point 4 above: fixing dead
+code costs nothing risky, but if this whole mechanism is meant to be retired in favor of
+`readyForSplit`, the more valuable fix might be deleting `pendingProgramEvolution`'s write (Half 1)
+and `buildEvolvedPrograms` (Half 2) entirely instead of patching either.
+
+**Commit:** local only, no push. Documentation only — no source file changed this task, per
+instruction ("דווח לפני שאתה מתקן").
