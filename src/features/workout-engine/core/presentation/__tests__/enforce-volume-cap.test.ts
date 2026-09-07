@@ -175,3 +175,45 @@ describe('enforceVolumeCap — duration-aware core trim order', () => {
     expect(ids).not.toContain('core-1'); // <20min: optional even if guarantee-injected
   });
 });
+
+/**
+ * Sole-representative guard for core (David, 07.09.2026 — Addendum 36): the
+ * >=20min "core trims last" intent (above) was silently defeated because a
+ * real core exercise is near-always priority 'accessory' — the OLD
+ * expendabilityRank checked isIsolationOrAccessory BEFORE isCore, so core hit
+ * rank 0 exactly like any other accessory item and could still be removed
+ * first on a score tie-break. This exercises the real production shape
+ * (priority: 'accessory', not the 'compound' fixture above) and the new
+ * isExpendable guard that keeps a SOLE core exercise out of the expendable
+ * set entirely at >=20min — scoped to coreProtected only; the existing
+ * <20min tests above are untouched and still pass.
+ */
+describe('enforceVolumeCap — sole-core-exercise guard (>=20min only)', () => {
+  const coreAccessoryEx = (id: string, score: number) =>
+    mainEx(id, score, { priority: 'accessory', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
+  const isolationEx = (id: string, score: number) => mainEx(id, score, { priority: 'isolation' });
+
+  it('>=20min: a sole core exercise survives even when it scores LOWER than the other accessory candidate (the real bug shape)', () => {
+    const w = workoutOf([
+      warmupEx('w1'),
+      coreAccessoryEx('core-1', 50), isolationEx('iso-1', 80), mainEx('c1', 70), mainEx('c2', 75),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    expect(ids).toContain('core-1'); // survives — sole core exercise, protected regardless of score
+    expect(ids).not.toContain('iso-1'); // the other accessory candidate is removed instead
+  });
+
+  it('>=20min: with TWO core exercises, one is still removable — the guard protects the sole survivor, not core as a category', () => {
+    const w = workoutOf([
+      warmupEx('w1'),
+      coreAccessoryEx('core-1', 50), coreAccessoryEx('core-2', 55), mainEx('c1', 70), mainEx('c2', 75),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    const coreIdsRemaining = ids.filter((id) => id.startsWith('core-'));
+    expect(coreIdsRemaining.length).toBe(1); // exactly one removed — not both, not zero
+  });
+});
