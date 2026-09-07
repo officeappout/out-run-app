@@ -63,7 +63,7 @@ import type { WeaveMode } from '../engine/weaverInput';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { DAY_LETTERS } from '../types/smartSchedule.types';
 import { SCHEDULE_BUILDER_DRAWER_ENABLED } from '@/config/feature-flags';
-import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
+import { resolveTabLocks } from '@/lib/resolveTabLocks';
 
 const DAY_SHORT_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 const CLOSE_THRESHOLD = 220;
@@ -109,15 +109,10 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? '';
 
-  // Same ownership predicates the engine itself gates on (weaverInput.ts) —
-  // a tab is locked when the user doesn't own that track at all, not when
-  // the engine merely produced nothing for it this week. "משולב" needs
-  // both; a single missing track locks it same as its own tab.
-  const ownsStrength = hasStrengthTrack(profile);
-  const ownsRunning = hasRunningTrack(profile);
-  const strengthLocked = !ownsStrength;
-  const runningLocked = !ownsRunning;
-  const mixedLocked = !ownsStrength || !ownsRunning;
+  // Pure decision, unit-tested on its own (src/lib/resolveTabLocks.ts) —
+  // this component has no jsdom coverage, so the lock logic itself has to
+  // live somewhere testable, not inline here.
+  const { strength: strengthLocked, running: runningLocked, mixed: mixedLocked } = resolveTabLocks(profile);
 
   const y = useMotionValue(0);
   const opacity = useTransform(y, [0, 220], [1, 0]);
