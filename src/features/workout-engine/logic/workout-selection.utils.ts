@@ -162,6 +162,18 @@ export function seededShuffle<T>(arr: T[], seed: number): T[] {
 }
 
 export function getShuffleSeed(context: { userId?: string; selectedDate?: string }): number {
+  // Measurement-infrastructure override (03-CHANGES.md Addendum 31,
+  // 07.09.2026) — scripts/audit/build-snapshot.ts sets this env var so
+  // repeated matrix runs are reproducible instead of Date.now()-seeded.
+  // Inert everywhere else: this env var is never set in the deployed app
+  // (browser or server-rendered request), so DEBUG_SHUFFLE_ON_REFRESH's
+  // live-refresh-variety behavior below is completely unaffected for every
+  // real user. Checked BEFORE DEBUG_SHUFFLE_ON_REFRESH so it can force
+  // determinism even while that flag stays true.
+  const fixedSeedOverride = typeof process !== 'undefined' ? process.env.WORKOUT_ENGINE_FIXED_SHUFFLE_SEED : undefined;
+  if (fixedSeedOverride) {
+    return Number(fixedSeedOverride);
+  }
   if (DEBUG_SHUFFLE_ON_REFRESH) {
     return Date.now();
   }

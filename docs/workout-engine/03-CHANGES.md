@@ -3157,3 +3157,73 @@ and `buildEvolvedPrograms` (Half 2) entirely instead of patching either.
 
 **Commit:** local only, no push. Documentation only — no source file changed this task, per
 instruction ("דווח לפני שאתה מתקן").
+
+## Addendum 31 — Task 0: the test matrix is now genuinely reproducible. The legs -39% delta from
+## Addendum 29 is confirmed REAL, not noise — survives across two independent post-fix runs under
+## different RNG conditions.
+
+Two independent non-determinism sources found and fixed, both scoped entirely to the measurement
+script — zero behavior change for any real app user:
+
+1. **`getShuffleSeed`** (`workout-selection.utils.ts:164`) — `DEBUG_SHUFFLE_ON_REFRESH` hardcoded
+   `true`, always returning `Date.now()` regardless of context. Added a narrow env-var override
+   (`WORKOUT_ENGINE_FIXED_SHUFFLE_SEED`) checked *before* that flag — inert unless this exact env var
+   is set, which only `build-snapshot.ts` (or an explicit manual override) ever does.
+2. **Every other `Math.random()` call** in the pipeline (reps/sets/rest-seconds within their tier
+   range, protocol rolls, AMRAP/EMOM coin flips, warmup jitter — dozens of sites across
+   `WorkoutGenerator.ts`/`workout-budgeting.utils.ts`/`warmup.service.ts`/`ProtocolInjector.ts`, none
+   routed through `getShuffleSeed`) — confirmed by grepping every `Math.random()`/`Date.now()` call
+   in the engine's logic/services/core directories before assuming #1 alone would be sufficient. Fixed
+   by replacing global `Math.random` with a seeded PRNG (mulberry32) for this standalone script's own
+   process only, before any engine code runs — no engine source file's own `Math.random` usage was
+   touched.
+3. **Concurrency + a shared stateful PRNG under real network I/O timing is its own reproducibility
+   risk**, not fixed by #1+#2 alone: with `CONCURRENCY=8`, multiple combos' async generation calls can
+   genuinely interleave their random draws depending on real Firestore-read timing, so the exact draw
+   order — and therefore result — isn't guaranteed identical run-to-run even with a fixed seed. Added
+   `SNAPSHOT_CONCURRENCY` (default 8, unchanged for normal fast runs) — reproducibility runs use
+   `SNAPSHOT_CONCURRENCY=1` (fully sequential, no interleaving possible).
+
+`SNAPSHOT_SEED` env var overrides the default fixed seed (42).
+
+**Verified, not assumed**: ran the SMOKE matrix twice with `SNAPSHOT_CONCURRENCY=1
+SNAPSHOT_SEED=42`, diffed every meaningful column (workouts + workout_exercises, excluding the
+`seed` provenance column which is deliberately still `Date.now()`-stamped for row tracking only) —
+**byte-identical, both tables, both runs.**
+
+### Full baseline re-run with the fixed seed — this replaces Addendum 29's numbers
+
+`SNAPSHOT_CONCURRENCY=1 SNAPSHOT_SEED=42`, full matrix (540 auto-mode workouts, 214s):
+
+| Metric | Before Task 1 (unseeded) | After Task 1, unseeded (Addendum 29) | After Task 1, SEEDED (this run) |
+|---|---|---|---|
+| core_promise: failed | 386 | 357 | 377 |
+| core_promise: satisfied | 130 | 145 | 116 |
+| core_promise: replaced | 23 | 25 | 30 |
+| core_promise: injected | 1 | 13 | 17 |
+| domain: push | 999 | 1128 | 1139 |
+| domain: pull | 864 | 822 | 848 |
+| domain: legs | 656 | **403** | **407** |
+| domain: core | 261 | 280 | 240 |
+| domain: other | 550 | 568 | 562 |
+
+**The legs delta survives — it was real, not noise.** 656 (pre-fix) → 403 (post-fix, unseeded) → 407
+(post-fix, seeded) — the two POST-fix numbers land within 1% of each other despite completely
+different RNG conditions (unseeded/Date.now() vs. fixed-seed/concurrency=1), while both sit ~38-39%
+below the pre-fix number. That consistency across two independently-randomized post-fix runs is what
+rules out chance — a noise-driven number would not land in the same place twice under different RNG
+regimes. **Mechanism not yet root-caused** — the leading candidate from Addendum 29 (removing the
+`activePrograms:[]→full_body` fallback changes `activeProgramId` from `'full_body'` to `undefined`,
+which changes which branch of `InputSanitizerMiddleware.buildActiveProgramFilters` computes the
+domain list) would require reading/tracing a frozen boundary file to confirm — flagging as open,
+deferred given the freeze, not chased further this task. Every other metric in the table (core
+promise outcomes, push/pull/core/other counts) moved by comparable or smaller amounts between the two
+post-fix runs as between pre/post-fix — i.e., **within the now-measured noise floor**, not confirmed
+real effects the way legs is.
+
+**This seeded run is the new baseline.** Task 4's re-run should diff against these numbers, not
+Addendum 29's unseeded ones — with `SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, any delta is now
+attributable to code changes, not RNG variance (verified determinism above), so "it might just be
+noise" is no longer an available explanation for what Task 4 finds.
+
+**Commit:** local only, no push.

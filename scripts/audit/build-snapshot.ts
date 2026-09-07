@@ -113,6 +113,52 @@ import { buildMockProfile } from '../../src/features/workout-engine/shared/utils
 import { generateHomeWorkoutTrio } from '../../src/features/workout-engine/services/home-workout.service';
 import { getLocalizedText } from '../../src/features/content/exercises/core/exercise.types';
 
+// ============================================================================
+// Determinism (David, 07.09.2026 — 03-CHANGES.md Addendum 31)
+// ============================================================================
+//
+// Two independent randomness sources in the generator, both now controlled
+// ONLY within this script's own process — zero engine behavior change for
+// any real user:
+//
+//   1. Exercise-selection tie-breaking (seededShuffle, fed by
+//      getShuffleSeed) — previously always Date.now()-seeded regardless of
+//      any context passed in (workout-selection.utils.ts's
+//      DEBUG_SHUFFLE_ON_REFRESH). Fixed via a narrow, env-var-gated override
+//      added to getShuffleSeed itself — inert unless
+//      WORKOUT_ENGINE_FIXED_SHUFFLE_SEED is explicitly set, which only this
+//      script (or an explicit manual override) ever does.
+//   2. Every OTHER random draw in the pipeline (reps/sets/rest-seconds
+//      within their tier range, protocol rolls, AMRAP/EMOM coin flips,
+//      warmup jitter, etc.) — dozens of raw Math.random() call sites spread
+//      across WorkoutGenerator.ts/workout-budgeting.utils.ts/
+//      warmup.service.ts/ProtocolInjector.ts and others, NONE routed through
+//      getShuffleSeed. Fixing #1 alone would NOT make a re-run byte-
+//      identical — confirmed by reading the call sites, not assumed.
+//      Controlled here by replacing global Math.random with a seeded PRNG
+//      for this process's entire lifetime, BEFORE any engine code runs.
+//      This is a monkey-patch scoped to this standalone Node script's own
+//      process only — no engine source file uses Math.random differently
+//      because of this; the app's real Math.random is never touched.
+//
+// SNAPSHOT_SEED env var overrides the default fixed seed (42) — e.g.
+// `SNAPSHOT_SEED=123 npx tsx scripts/audit/build-snapshot.ts`.
+const FIXED_SEED = Number(process.env.SNAPSHOT_SEED ?? 42);
+process.env.WORKOUT_ENGINE_FIXED_SHUFFLE_SEED = String(FIXED_SEED);
+
+/** mulberry32 — small, fast, good-enough-for-testing seeded PRNG. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const seededRandom = mulberry32(FIXED_SEED);
+Math.random = seededRandom;
+
 /**
  * Signs the client SDK's `auth` in via a Firebase Admin custom token, so
  * requests carry `request.auth != null` for rules like `programLevelSettings`
@@ -209,7 +255,17 @@ const SIMULATED_REMAINING_WEEKLY_BUDGET = 20;
 const SIMULATED_DOMAIN_SETS_COMPLETED_THIS_WEEK = { push: 6, pull: 6, legs: 6, core: 2 };
 const SIMULATED_REMAINING_SCHEDULE_DAYS = 3;
 
-const CONCURRENCY = 8;
+// David, 07.09.2026: the seeded Math.random override above is ONE shared,
+// stateful global generator. Under concurrency > 1, multiple combos' async
+// generation calls can genuinely interleave their random draws (the
+// pipeline has real internal awaits — Firestore reads mid-generation), so
+// the exact draw ORDER — and therefore the exact result — can depend on
+// real network-timing-driven interleaving, not just the seed. That's fine
+// for a normal fast run (determinism isn't the point there), but it means
+// concurrency=8 does NOT guarantee two runs are byte-identical. For a
+// reproducibility check specifically, use SNAPSHOT_CONCURRENCY=1 (fully
+// sequential — no interleaving possible, genuinely deterministic).
+const CONCURRENCY = Number(process.env.SNAPSHOT_CONCURRENCY ?? 8);
 
 // Same movementGroup→domain map the workout-simulator page uses for its own
 // on-screen domain column (page.tsx MG_TO_DOMAIN) — reused verbatim so the
