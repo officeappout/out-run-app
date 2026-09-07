@@ -3640,3 +3640,47 @@ searched for beyond the 3 named in the audit table. Whether to extend the matrix
 David's call, not made here.
 
 **Commit:** local only, no push.
+
+### CORRECTION (David, 07.09.2026): "the fix has zero measured effect" is true only of THIS snapshot
+### script. Both gaps above are real, live production paths — 9b2e7642 stays, is not dead code.
+
+David caught that my root-cause section, while accurate about the harness, was **incomplete** about
+production — I'd only traced one of two ways `dominanceRatio` gets set, and hadn't checked the OTHER
+live caller of site 1 at all. Verified both corrections by reading the actual code (not re-asserted on
+trust):
+
+**Site 1 IS live and unguarded in production.** `start-hybrid-session.ts` (~line 903-917,
+`buildForBolt`'s `generationContext`) sets `...(targetDomains.length > 0 ? { requiredDomains:
+targetDomains } : {})` — **no `strictDomains` anywhere in that object literal.** This is the hybrid
+route-stops generator (`composeHybridSession`'s per-stop plans), a real, live call path — confirmed
+distinct from the two callers that DO couple `strictDomains: true`
+(`complementary-short.generator.ts:33`, `partial-completion.generator.ts:159`). So the exact
+precondition site 1 fixes (`requiredDomains` set, `strictDomains` not) is real in production; this
+snapshot script just never constructs that combination itself (Addendum 33's `runCombo` always
+couples them).
+
+**Sites 2/3 are reachable at ANY level, not just advanced tier — my original trace only found HALF the
+mechanism.** `getWorkoutContext` (`SplitDecisionService.ts:386-564`) sets `effectiveSplitLogic.
+dominanceRatio` in TWO independent places, not one:
+1. `resolveSplitLogic(sessionType)` (line 430) → `dominanceRatio={p1:0.65,p2:0.35}` only when
+   `sessionType` is one of the 3 `SPLIT_MATRIX`-derived advanced-tier types — this is the ONLY path I
+   traced in the section above.
+2. **Missed the first time**: lines 540-551, `effectiveSplitLogic` OVERRIDES `dominanceRatio` to
+   `{p1:0.5,p2:0.3,p3:0.2}` whenever `priority3SkillIds.length>0`, or to `{p1:0.5,p2:0.5}` whenever
+   `pendulumFocus==='hybrid_blend'` — and BOTH of those come from `resolvePrioritySkillIds`'s "Path C:
+   Universal Skill Distribution" branch (line ~74), which triggers on `hasCalisthenicsUpper &&
+   skillFocusIds.length >= 2` — **with no level-tier condition at all.** A real user with the
+   `calisthenics_upper` program and 2+ real `skillFocusIds` reaches `selectExercisesWithDominance` at
+   ANY level, including beginner — my "requires level > 13" claim was only true of the
+   `resolveSplitLogic`-only path, not of Path C's independent override.
+
+**Why this snapshot still shows zero movement despite both paths being real**: neither `buildMockProfile`
+nor any `runCombo` mode sets `progression.skillFocusIds` or includes `calisthenics_upper` in
+`activePrograms` — so Path C never triggers for these simulated profiles regardless of level — and
+`start-hybrid-session.ts` is a different entry point (`composeHybridSession`) this snapshot script
+never calls at all (it only calls `generateHomeWorkoutTrio`). The "zero movement" finding stands
+exactly as measured; the conclusion drawn from it (implying the fix has limited real-world relevance)
+does not — **9b2e7642 is not dead code, protects 2 confirmed live paths this harness doesn't reach, and
+must not be reverted or removed.**
+
+**Commit:** local only, no push.
