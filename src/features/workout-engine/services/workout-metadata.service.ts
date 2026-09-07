@@ -179,6 +179,24 @@ const DEBUG_METADATA_RESOLUTION = isGenVerboseEnabled();
  */
 const BUNDLE_SYNC_BOOST = 50;
 
+/**
+ * SEASONAL BOOST — was a flat +20, rebalanced to +2 on 07.09.2026.
+ * At +20 it outweighed a full persona+location+timeOfDay match (max +3),
+ * so any row with a seasonal keyword — including untargeted `persona:
+ * 'generic'` content — beat correctly-tagged persona content outright, not
+ * just in ties. Confirmed concretely: pro_athlete/pupil content newly
+ * authored for the empty-inventory gap (docs/research/notification-content-
+ * scenario-sweep.md) scored 3 against a real generic seasonal row's 20 and
+ * lost every time in-season.
+ * At +2: a full 3-field match (3) reliably beats seasonal-alone (2), a
+ * seasonal-alone row still edges out a single-field match (1) — the "modest
+ * edge where no [fully-tagged] persona content exists" case — and seasonal
+ * still breaks a tie between two otherwise-equally-targeted rows (adds +2 to
+ * whichever side has it). See workout-metadata.scoring-guardrails.test.ts
+ * for the before/after sweep numbers this value was chosen against.
+ */
+const SEASONAL_BOOST = 2;
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -285,17 +303,22 @@ const SCORABLE_FIELDS: Array<{
  * Persona values that target a specific demographic.
  * When the user has NO persona, content rows tagged with any of these
  * are hard-excluded so generic users never see "Young Mom" or "Senior" titles.
+ * Also the set the Soft Persona Mismatch Guard (below) uses to penalize a
+ * row tagged for a DIFFERENT specific persona than the requesting user's own.
  * Direct 1:1 relabel of the old set onto the canonical PersonaId vocabulary
  * (senior->vatikim, reservist->military, high_tech->office_worker — office_worker
  * added here since high_tech, which WAS demographic-restricted, now merges into
  * it) after scripts/_migrate-persona-content-relabel.ts relabeled every live row
  * across all 4 workoutMetadata content collections (01.09.2026). `mom`/`army`
  * dropped outright — dead literals with no canonical counterpart and zero live
- * usage (confirmed via the same full-collection read). pupil/pro_athlete were
- * never in this set before the redefinition either — not added speculatively.
+ * usage (confirmed via the same full-collection read).
+ * `pupil`/`pro_athlete` added 07.09.2026 — deliberately excluded at first
+ * since both had zero live content (nothing to protect); added now that
+ * dedicated content for both is about to ship, so the same no-persona-user
+ * exclusion and cross-persona soft penalty apply to them too.
  */
 const DEMOGRAPHIC_PERSONA_TAGS = new Set([
-  'parent', 'student', 'vatikim', 'military', 'office_worker',
+  'parent', 'student', 'vatikim', 'military', 'office_worker', 'pupil', 'pro_athlete',
 ]);
 
 /**
@@ -680,11 +703,11 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
 
     if (isWinter) {
       const WINTER_KW = ['חורף', 'גשם', 'בית', 'סלון', 'קר'];
-      if (WINTER_KW.some(kw => includesWholeWord(seasonText, kw))) score += 20;
+      if (WINTER_KW.some(kw => includesWholeWord(seasonText, kw))) score += SEASONAL_BOOST;
     }
     if (isSummer) {
       const SUMMER_KW = ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'];
-      if (SUMMER_KW.some(kw => includesWholeWord(seasonText, kw))) score += 20;
+      if (SUMMER_KW.some(kw => includesWholeWord(seasonText, kw))) score += SEASONAL_BOOST;
     }
   }
 
@@ -1022,10 +1045,10 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   if (dbgIsWinter || dbgIsSummer) {
     const seasonDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
     if (dbgIsWinter && ['חורף', 'גשם', 'בית', 'סלון', 'קר'].some(kw => includesWholeWord(seasonDbgText, kw))) {
-      reasons.push('winter_boost(+20)');
+      reasons.push(`winter_boost(+${SEASONAL_BOOST})`);
     }
     if (dbgIsSummer && ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'].some(kw => includesWholeWord(seasonDbgText, kw))) {
-      reasons.push('summer_boost(+20)');
+      reasons.push(`summer_boost(+${SEASONAL_BOOST})`);
     }
   }
   if (ctx.location === 'airport') {
