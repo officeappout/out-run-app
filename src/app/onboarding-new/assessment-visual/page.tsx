@@ -21,6 +21,7 @@ import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
 import { evaluateRules } from '@/features/user/onboarding/services/assessment-rule-engine.service';
 import {
   mapLevelsToProgram,
+  computeAssessedAverage,
   type ProgramMappingResult,
 } from '@/features/user/onboarding/services/program-threshold-mapper.service';
 import {
@@ -398,7 +399,7 @@ export default function VisualAssessmentPage() {
           buildSkillResult(newLevels as Record<string, number>);
         } else {
           setStep('evaluating');
-          runRuleEngine(toFullAssessmentLevels(newLevels));
+          runRuleEngine(toFullAssessmentLevels(newLevels), categories);
         }
       }
     },
@@ -508,7 +509,7 @@ export default function VisualAssessmentPage() {
 
   // ── Rule engine ──────────────────────────────────────────────
 
-  const runRuleEngine = async (currentLevels: AssessmentLevels) => {
+  const runRuleEngine = async (currentLevels: AssessmentLevels, assessedCats: readonly string[]) => {
     try {
       const rule = await evaluateRules(currentLevels);
 
@@ -532,19 +533,20 @@ export default function VisualAssessmentPage() {
         ) {
           await buildSkipResult(
             currentLevels,
+            assessedCats,
             rule.action.forceProgramId,
             rule.action.forceLevelMode ?? 'manual',
             rule.action.forceLevelId,
           );
         } else {
-          await buildThresholdResult(currentLevels);
+          await buildThresholdResult(currentLevels, assessedCats);
         }
       } else {
-        await buildThresholdResult(currentLevels);
+        await buildThresholdResult(currentLevels, assessedCats);
       }
     } catch (err) {
       console.error('[Assessment] Rule evaluation error:', err);
-      await buildThresholdResult(currentLevels);
+      await buildThresholdResult(currentLevels, assessedCats);
     }
   };
 
@@ -560,22 +562,36 @@ export default function VisualAssessmentPage() {
         setFollowUpIndex(prev => prev + 1);
       } else {
         setStep('evaluating');
-        buildThresholdResult(toFullAssessmentLevels(newLevels));
+        // Total genuinely-assessed set = the original path categories PLUS
+        // whatever this follow-up round actually asked — not just one or
+        // the other (see computeAssessedAverage's doc comment).
+        const totalAssessedCats = Array.from(new Set([...categories, ...followUpCategories]));
+        buildThresholdResult(toFullAssessmentLevels(newLevels), totalAssessedCats);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [followUpIndex, followUpCategories, levels, toFullAssessmentLevels],
+    [followUpIndex, followUpCategories, levels, categories, toFullAssessmentLevels],
   );
 
   // ── Result builders ──────────────────────────────────────────
+  // assessedCategories: the categories genuinely walked through by the user
+  // (pathConfig.categories, plus any BRANCH_TO_FOLLOW_UP additions) — NEVER
+  // derived from `levels` itself, since that state starts pre-filled with
+  // {push:5,pull:5,legs:5,core:5} for the tier slider, so every key is
+  // always "present" whether or not the user ever touched it. See
+  // runRuleEngine/handleSliderConfirm/handleFollowUpConfirm for how this is
+  // assembled at each call site.
 
-  const computeAverage = (l: AssessmentLevels) =>
-    Math.round((l.push + l.pull + l.legs) / 3);
+  const computeAverage = (l: AssessmentLevels, assessedCats: readonly string[]) =>
+    computeAssessedAverage(l, assessedCats);
 
-  const buildThresholdResult = async (currentLevels: AssessmentLevels) => {
+  const buildThresholdResult = async (
+    currentLevels: AssessmentLevels,
+    assessedCats: readonly string[],
+  ) => {
     try {
-      const mapping: ProgramMappingResult = await mapLevelsToProgram(currentLevels);
-      const avg = computeAverage(currentLevels);
+      const mapping: ProgramMappingResult = await mapLevelsToProgram(currentLevels, assessedCats);
+      const avg = computeAverage(currentLevels, assessedCats);
       const name =
         resolveText(mapping.displayName, 'he') ||
         resolveText(mapping.displayName, 'en') ||
@@ -592,7 +608,7 @@ export default function VisualAssessmentPage() {
       setStep('resultLoading');
     } catch (err) {
       console.error('[Assessment] Threshold mapping error:', err);
-      const avg = computeAverage(currentLevels);
+      const avg = computeAverage(currentLevels, assessedCats);
       setResult({
         programId: 'full_body',
         levelMode: 'auto',
@@ -607,11 +623,12 @@ export default function VisualAssessmentPage() {
 
   const buildSkipResult = async (
     currentLevels: AssessmentLevels,
+    assessedCats: readonly string[],
     forceProgramId: string,
     forceLevelMode: LevelMode = 'manual',
     forceLevelId?: string,
   ) => {
-    const avg = computeAverage(currentLevels);
+    const avg = computeAverage(currentLevels, assessedCats);
     const resolvedLevelId =
       forceLevelMode === 'manual' && forceLevelId
         ? forceLevelId
