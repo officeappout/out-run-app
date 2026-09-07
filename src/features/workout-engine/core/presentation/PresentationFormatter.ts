@@ -558,9 +558,17 @@ export function enforceVolumeCap(
     const isCore = CORE_MGS.has(mg);
     const isIsolationOrAccessory = ex.priority === 'isolation' || ex.priority === 'accessory';
     if (coreProtected) {
+      // David, 07.09.2026 (Addendum 36): isCore checked FIRST — the prior
+      // order checked isIsolationOrAccessory first, so a core exercise
+      // (near-always priority 'accessory' in practice) hit rank 0 and was
+      // removed first despite this branch's own intent. Real protection now
+      // requires isExpendable's sole-representative guard (Fix 0) too — this
+      // reorder alone only controls WHICH expendable candidate goes first
+      // among several, not whether core can be the last one removed when
+      // nothing else is left (that's Fix 0's job).
+      if (isCore) return 2; // core, trims last
       if (isIsolationOrAccessory) return 0;
-      if (!isCore) return 1; // extra legs (the only other isExpendable category)
-      return 2; // core, trims last
+      return 1; // extra legs (the only other isExpendable category)
     }
     if (isCore) return 0;
     if (isIsolationOrAccessory) return 1;

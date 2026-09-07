@@ -217,3 +217,39 @@ describe('enforceVolumeCap — sole-core-exercise guard (>=20min only)', () => {
     expect(coreIdsRemaining.length).toBe(1); // exactly one removed — not both, not zero
   });
 });
+
+/**
+ * expendabilityRank's isCore-first ordering (David, 07.09.2026 — Addendum
+ * 36, Fix 2): distinct from the sole-representative guard above (Fix 0) —
+ * this covers the case where core is NOT the sole one (Fix 0's guard
+ * doesn't apply), so ranking order is the only thing deciding whether core
+ * or another accessory item goes first. With 2 core exercises present, the
+ * OLD rank order (isIsolationOrAccessory checked before isCore) still let a
+ * lower-scored core exercise be removed ahead of a higher-scored,
+ * non-core accessory exercise on the score tie-break — this test isolates
+ * that ordering specifically, independent of the sole-representative guard
+ * (verified by temporarily reverting just this reorder: fails, Fix 0's
+ * other tests still pass).
+ */
+describe('enforceVolumeCap — expendabilityRank deprioritizes core even when it is not the sole one (>=20min)', () => {
+  const coreAccessoryEx = (id: string, score: number) =>
+    mainEx(id, score, { priority: 'accessory', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
+  const isolationEx = (id: string, score: number) => mainEx(id, score, { priority: 'isolation' });
+
+  it('>=20min: with 2 core exercises AND a non-core accessory item, the non-core item is removed first regardless of score', () => {
+    const w = workoutOf([
+      warmupEx('w1'),
+      coreAccessoryEx('core-1', 30), coreAccessoryEx('core-2', 35), isolationEx('iso-1', 90),
+      mainEx('c1', 70),
+      cooldownEx('s'),
+    ]);
+    const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
+    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
+    // iso-1 scores far higher than either core exercise — under the OLD
+    // rank order (score tie-break within the same rank 0), a core exercise
+    // would have been removed instead. Both cores must survive; iso-1 goes.
+    expect(ids).not.toContain('iso-1');
+    expect(ids).toContain('core-1');
+    expect(ids).toContain('core-2');
+  });
+});
