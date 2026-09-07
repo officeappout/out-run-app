@@ -166,6 +166,24 @@ const LOGIC_CUES_PARENT = 'logicCues';
 
 export type TrioVariant = 'balanced' | 'intense' | 'naked' | 'easy';
 
+/**
+ * Local content overlay — simulator/sweep-only, additive. When set, rows
+ * here are merged into the live Firestore result before scoring, keyed by
+ * the same `parentDoc` names scoredFetch/fetchLogicCue already use
+ * ('workoutTitles', 'smartDescriptions', 'logicCues'). Lets a harness like
+ * scripts/scenario-sweep.ts test draft content (e.g. an unshipped batch)
+ * against the REAL scoring engine and REAL live competing content, with zero
+ * Firestore writes. `null` in every production call site — this is never
+ * set outside a script that explicitly calls setLocalContentOverlay().
+ */
+let localContentOverlay: Partial<Record<'workoutTitles' | 'smartDescriptions' | 'logicCues', any[]>> | null = null;
+
+export function setLocalContentOverlay(
+  overlay: Partial<Record<'workoutTitles' | 'smartDescriptions' | 'logicCues', any[]>> | null,
+): void {
+  localContentOverlay = overlay;
+}
+
 /** Enable detailed console logs for Title/Description resolution (debugging). */
 // #6: was hardcoded `true` (always-on string-building logs). Now derives from
 // the shared GEN_VERBOSE gate → default OFF. Evaluated once at module load, so a
@@ -1185,9 +1203,13 @@ async function scoredFetch(
     const ref = collection(db, METADATA_BASE, parentDoc, subCol);
     const snap = await getDocs(ref);
     genPerfRead(`workoutMetadata:${parentDoc}`); // #0: 3-4 full-subcollection scans per resolveWorkoutMetadata, ×3 options
-    if (snap.empty) return { text: null };
 
-    const allRows = snap.docs.map(d => d.data());
+    const overlayRows = (parentDoc === 'workoutTitles' || parentDoc === 'smartDescriptions')
+      ? (localContentOverlay?.[parentDoc] ?? [])
+      : [];
+    if (snap.empty && overlayRows.length === 0) return { text: null };
+
+    const allRows = [...snap.docs.map(d => d.data()), ...overlayRows];
 
     let bestScore = -1;
     let bestRows: any[] = [];
@@ -1290,12 +1312,12 @@ async function fetchLogicCue(
     const snap = await getDocs(ref);
     genPerfRead('workoutMetadata:logicCues'); // #0: logic-cue subcollection scan, ×3 options
 
-    if (!snap.empty) {
+    const overlayRows = localContentOverlay?.logicCues ?? [];
+    if (!snap.empty || overlayRows.length > 0) {
       let bestScore = -1;
       let bestRows: any[] = [];
 
-      for (const doc of snap.docs) {
-        const row = doc.data();
+      for (const row of [...snap.docs.map(d => d.data()), ...overlayRows]) {
         const rowVariant = row.variant;
         if (rowVariant && rowVariant !== variant && rowVariant !== 'all') continue;
         let score = scoreContentRow(row, ctx) + (rowVariant === variant ? 2 : 0);

@@ -22,7 +22,7 @@
  * not a re-implementation.
  */
 import { writeFileSync } from 'node:fs';
-import { runHomeCell, TIME_PRESETS } from './scenario-sweep';
+import { runHomeCell, TIME_PRESETS, loadAndApplyContentOverlay } from './scenario-sweep';
 import { resolveWorkoutMetadataWithCandidates, detectDayPeriod, type WorkoutMetadataContext } from '@/features/workout-engine/services/workout-metadata.service';
 import type { PersonaId } from '@/types/persona.types';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
@@ -35,6 +35,8 @@ interface AuditRow {
   timeKey: string;
   location: ExecutionLocation;
   title: string;
+  description: string;
+  logicCue: string;
   winningCandidatePersona: string; // row.persona of the candidate that actually won
   winningScore: number;
   classification: 'exact-match' | 'parent-bleed' | 'other-persona-bleed' | 'generic-or-untagged';
@@ -91,7 +93,7 @@ async function main() {
         let classification: AuditRow['classification'];
         if (winningPersona === requestedPersonaStr) classification = 'exact-match';
         else if (winningPersona === 'parent' && requestedPersonaStr !== 'parent') classification = 'parent-bleed';
-        else if (winningPersona === '(untagged/generic)' || winningPersona === 'any' || winningPersona === 'none') classification = 'generic-or-untagged';
+        else if (winningPersona === '(untagged/generic)' || winningPersona === 'any' || winningPersona === 'none' || winningPersona === 'generic') classification = 'generic-or-untagged';
         else classification = 'other-persona-bleed';
 
         const sameRequestedPersonaCandidates = candidates.filter(c => c.persona === requestedPersonaStr);
@@ -104,6 +106,8 @@ async function main() {
           timeKey: time.key,
           location,
           title: picked.text,
+          description: home.homeDescription,
+          logicCue: (home as any).logicCue ?? '',
           winningCandidatePersona: winningPersona,
           winningScore: picked.score,
           classification,
@@ -149,8 +153,28 @@ async function main() {
     }
   }
 
+  // ── Example winning rows for personas of interest (e.g. when verifying an overlay) ──
+  const EXAMPLE_PERSONAS: PersonaId[] = ['pupil', 'pro_athlete'];
+  for (const personaId of EXAMPLE_PERSONAS) {
+    const exact = rows.filter(r => r.personaId === personaId && r.classification === 'exact-match');
+    console.log(`\n  ── ${personaId}: ${exact.length}/${rows.filter(r => r.personaId === personaId).length} exact-match — example winning bundles ──`);
+    for (const r of exact.slice(0, 3)) {
+      console.log(`    [${r.timeKey}/${r.location}] score=${r.winningScore}`);
+      console.log(`      title:       "${r.title}"`);
+      console.log(`      description: "${r.description}"`);
+      console.log(`      logicCue:    "${r.logicCue}"`);
+    }
+  }
+
   console.log(`\nWrote full data -> /tmp/parent-bleed-audit.json`);
   process.exit(0);
 }
+
+// CONTENT_OVERLAY_FILE (optional env var): same mechanism as scenario-sweep.ts
+// — path to a draft-content JSON to inject in-memory before running, so this
+// audit's exact-match classification reflects the draft content too. Zero
+// Firestore writes; unset by default, so normal runs are unaffected.
+const overlayFile = process.env.CONTENT_OVERLAY_FILE;
+if (overlayFile) loadAndApplyContentOverlay(overlayFile);
 
 main().catch(e => { console.error('CRASHED:', e?.stack || e); process.exit(1); });
