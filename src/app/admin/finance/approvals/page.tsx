@@ -17,6 +17,7 @@ import {
   listTransactions, patchTransaction, runScan, getLastScan, fmtMoney,
   EXPENSE_CATEGORIES, PAYMENT_METHODS, PAYMENT_STATUSES, CURRENCIES, SOURCE_LABEL,
 } from '@/features/admin/services/finance/transaction.client';
+import { TruncationWarning } from '@/features/admin/components/finance/TruncationWarning';
 
 export default function FinanceApprovalsPage() {
   const router = useRouter();
@@ -253,6 +254,9 @@ function ScanPanel({ onClose, onDone }: { onClose: () => void; onDone: () => voi
             </div>
             <p className="text-xs text-slate-400">דה-דופ לפי Message-ID מבטיח שאין כפילות גם בחפיפה. חשבוניות חדשות ננחתות בתור.</p>
 
+            {result && !result.error && result.stats?.truncated && (
+              <TruncationWarning mailboxCoverage={result.mailboxCoverage} />
+            )}
             {result && (
               <div className="rounded-xl bg-gray-50 border border-gray-200 p-3 text-sm space-y-1">
                 {result.error ? <div className="text-red-600 font-bold">שגיאה: {result.error}</div> : (
