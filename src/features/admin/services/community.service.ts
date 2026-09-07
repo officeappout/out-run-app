@@ -11,6 +11,8 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
+  deleteField,
   query,
   where,
   orderBy,
@@ -21,11 +23,186 @@ import {
 } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { CommunityGroup, CommunityEvent, EventRegistration } from '@/types/community.types';
+import { CommunityGroup, CommunityEvent, EventRegistration, PersonaKey, PERSONA_KEYS, AUDIENCE_SENSITIVE_FIELDS } from '@/types/community.types';
 import { addMemberToGroupChat, createGroupChat } from '@/features/social/services/chat.service';
 
 const GROUPS_COLLECTION = 'community_groups';
 const EVENTS_COLLECTION = 'community_events';
+
+// ── Persona-gated audience (military-persona-unified-architecture.md, §"צו כושר") ──
+//
+// A persona-gated group's sensitive fields (AUDIENCE_SENSITIVE_FIELDS) live
+// ONLY in community_groups_{persona}/{groupId} — one document per targeted
+// persona — never as a field on the public community_groups/{groupId} doc.
+// Firestore rules cannot gate a single field within a document for a `list`
+// query (proven empirically against the emulator, twice now in this
+// project — first feed_posts, then a nested audience-subcollection +
+// collectionGroup design that failed identically for a completely
+// different reason: a wildcard path segment cannot be compared against
+// anything inside an `allow list` rule at all — it errors for every
+// caller, matching persona or not). A whole separate top-level collection
+// per persona, gated by nothing but a get() on the REQUESTER's own
+// military_declarations doc, is the only shape that is both correct
+// (denies existence, not just fields) and functional (proven working for
+// both `list` and `get`) — see firestore.rules' community_groups_reserve
+// match block for the deployed rule.
+//
+// This is a SINGLE, atomic multi-document write for exactly the reason
+// CLAUDE.md's "All-or-nothing writes" law states: a group whose sensitive
+// details live in N+1 documents must never end up with some written and
+// others not — that's not a partial save, it's a group with a location
+// nobody can find, or a stale copy nobody deleted. A writeBatch (not a
+// transaction) is correct here specifically because every write in it is
+// unconditional given the caller's own input — it never needs to read
+// existing state first to decide what to do (every known persona slot is
+// either set-to-the-new-value or deleted, full stop) — so there is no
+// concurrent-read-then-write race for a transaction to protect against.
+// batch.commit() is all-or-nothing: on any failure NOTHING in the batch is
+// applied, so a thrown error here can never leave an orphaned persona copy
+// or a stale one behind — the caller must surface that error to the admin,
+// never swallow it.
+//
+// createGroup/updateGroup/deleteGroup are the ONLY functions in this
+// codebase permitted to write to a community_groups_{persona} collection —
+// enforced by scripts/safety-check.sh (see AUTHORIZED_ROUTE_WRITERS-style
+// check for 'community_groups_' prefixed collections). Do not add a second
+// write path, even for a "quick fix" — that is exactly the shape of bug
+// axioms.md §17 was written to prevent for social.groupIds.
+
+function personaCollectionName(persona: PersonaKey): string {
+  return `community_groups_${persona}`;
+}
+
+/**
+ * Splits raw group form data into {public, sensitive} per AUDIENCE_SENSITIVE_FIELDS.
+ * Pure plain-data split ONLY — no FieldValue sentinels here. cleanForFirestore
+ * (below) recurses with Object.entries/spread and does not special-case
+ * FieldValue instances, so a serverTimestamp()/deleteField() passed through
+ * it comes out the other side as a mangled plain object ({_methodName: ...}),
+ * not a real sentinel — verified empirically (deleteField().constructor
+ * !== cleaned.constructor after a round-trip). Callers must clean first,
+ * THEN add createdAt/updatedAt/deleteField() markers on the clean result —
+ * see createGroup/updateGroup below. This matters more here than it would
+ * elsewhere in this file: a mis-cleaned deleteField() on a sensitive field
+ * doesn't just fail to update a timestamp, it silently leaves the OLD
+ * address/schedule sitting on the public doc forever.
+ *
+ * targetPersonas.length === 0 (the default — every existing municipal
+ * group): sensitive keys stay on publicFields completely untouched, exactly
+ * today's behavior — this is NOT a no-op path to skip, it's the path every
+ * existing group's save goes through, and it must not regress.
+ *
+ * targetPersonas.length > 0: sensitive keys are moved into sensitiveFields
+ * for the persona-collection write and removed from publicFields — the
+ * caller is responsible for stamping deleteField() onto the cleaned public
+ * payload for each key in AUDIENCE_SENSITIVE_FIELDS afterward, so a group
+ * that was ever public before being tagged doesn't keep a stale copy of
+ * its own sensitive fields on the doc every reader can already see.
+ */
+function splitAudienceFields(
+  data: Partial<CommunityGroup>,
+  targetPersonas: PersonaKey[]
+): { publicFields: Record<string, unknown>; sensitiveFields: Record<string, unknown> } {
+  const publicFields: Record<string, unknown> = { ...data };
+  const sensitiveFields: Record<string, unknown> = {};
+  const gated = targetPersonas.length > 0;
+
+  for (const key of AUDIENCE_SENSITIVE_FIELDS) {
+    if (!gated) continue;
+    if (key in publicFields) sensitiveFields[key] = publicFields[key];
+    delete publicFields[key];
+  }
+  return { publicFields, sensitiveFields };
+}
+
+/**
+ * Which personas currently have a copy of this group's sensitive details.
+ * There is no field to read this from (deliberately — see the block comment
+ * above) — existence of community_groups_{persona}/{groupId} IS the tag.
+ * Bounded by PERSONA_KEYS.length reads; fine for an admin edit-form load,
+ * never call this from a list screen.
+ *
+ * getGroup() (below) — and therefore this function — is called from BOTH
+ * the admin panel AND app-facing pages (src/app/community/[id]/page.tsx).
+ * For every caller who is neither an admin nor declared for a given
+ * persona, that persona's getDoc is DENIED by the rule regardless of
+ * whether the document exists (the rule never depends on resource.data —
+ * see firestore.rules' community_groups_reserve comment), so each read
+ * must be caught INDIVIDUALLY, not as one Promise.all that would reject
+ * the whole call the moment any single persona doesn't match. A regular
+ * user viewing an ordinary, non-gated municipal group must never see this
+ * throw — permission-denied here just means "not tagged with this
+ * persona", not an error.
+ */
+export async function getGroupAudienceTags(groupId: string): Promise<PersonaKey[]> {
+  const exists = await Promise.all(
+    PERSONA_KEYS.map(async (persona) => {
+      try {
+        const snap = await getDoc(doc(db, personaCollectionName(persona), groupId));
+        return snap.exists();
+      } catch {
+        return false;
+      }
+    })
+  );
+  return PERSONA_KEYS.filter((_, i) => exists[i]);
+}
+
+/**
+ * Fetches a group's sensitive fields for the admin edit form. Admins bypass
+ * persona rules (isAdmin()), so this can read any targeted persona's copy —
+ * all targeted personas are expected to hold identical sensitive content
+ * (a group with two audiences is two duplicate copies, not two different
+ * schedules — see the "מסמך מרכז" spec), so the first one found is enough.
+ */
+async function getGroupAudienceSensitiveFields(
+  groupId: string,
+  tags: PersonaKey[]
+): Promise<Partial<CommunityGroup>> {
+  for (const persona of tags) {
+    try {
+      const snap = await getDoc(doc(db, personaCollectionName(persona), groupId));
+      if (snap.exists()) return snap.data() as Partial<CommunityGroup>;
+    } catch {
+      // Access changed between getGroupAudienceTags() confirming this tag
+      // and this read (e.g. persona declaration just changed) — try the
+      // next targeted persona rather than failing the whole group fetch.
+    }
+  }
+  return {};
+}
+
+/**
+ * The single atomic write primitive for a group's public doc + every
+ * persona-collection copy of its sensitive fields. Used by create, update,
+ * AND delete below — never call writeBatch against a community_groups_*
+ * collection anywhere else.
+ */
+function applyGroupAudienceBatch(
+  batch: ReturnType<typeof writeBatch>,
+  groupRef: ReturnType<typeof doc>,
+  publicData: Record<string, unknown> | null,
+  targetPersonas: PersonaKey[],
+  sensitiveData: Record<string, unknown>
+): void {
+  if (publicData) {
+    batch.set(groupRef, publicData, { merge: true });
+  } else {
+    batch.delete(groupRef);
+  }
+
+  const groupId = groupRef.id;
+  for (const persona of PERSONA_KEYS) {
+    const ref = doc(db, personaCollectionName(persona), groupId);
+    if (publicData && targetPersonas.includes(persona)) {
+      batch.set(ref, { ...sensitiveData, updatedAt: serverTimestamp() }, { merge: true });
+    } else {
+      // Idempotent no-op when it never existed — covers both "never targeted"
+      // and "targeted before, un-targeted now" in one unconditional delete.
+      batch.delete(ref);
+    }
+  }
+}
 
 /**
  * Safely convert any timestamp-like value to a JS Date.
@@ -200,7 +377,9 @@ export async function getGroup(groupId: string): Promise<CommunityGroup | null> 
     const docRef = doc(db, GROUPS_COLLECTION, groupId);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) return null;
-    return normalizeGroup(docSnap.id, docSnap.data());
+    const tags = await getGroupAudienceTags(groupId);
+    const sensitive = tags.length ? await getGroupAudienceSensitiveFields(groupId, tags) : {};
+    return { ...normalizeGroup(docSnap.id, docSnap.data()), ...sensitive, audiencePersonas: tags };
   } catch (error) {
     console.error('Error fetching group:', error);
     throw error;
@@ -208,22 +387,44 @@ export async function getGroup(groupId: string): Promise<CommunityGroup | null> 
 }
 
 export async function createGroup(
-  data: Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>
+  data: Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>,
+  targetPersonas: PersonaKey[] = []
 ): Promise<string> {
   try {
-    const cleaned = cleanForFirestore({
-      ...data,
+    const { audiencePersonas: _ignored, ...rest } = data as CommunityGroup;
+    const { publicFields, sensitiveFields } = splitAudienceFields(rest, targetPersonas);
+    const cleanedPublic = cleanForFirestore({
+      ...publicFields,
       // Ensure every group has an inviteCode so share links always work.
       inviteCode: data.inviteCode ?? generateInviteCode(),
       // Admin panel always creates authority-managed groups.
       // Enforcing here prevents any missing-source issue at the service level.
       source: 'authority',
       isOfficial: data.isOfficial ?? true,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      // The panel form has no isPublic toggle, so this field was previously
+      // just absent on every admin-created group — harmless for the admin's
+      // OWN dashboard (getGroupsByAuthority has no isPublic filter) but
+      // fatal for app-facing discovery, which filters isPublic==true
+      // (arena/services/group.service.ts's getPublicGroups/getGroupsByScopeId
+      // — exactly the queries NearbyGroupsRow and the park page use). Default
+      // applied on CREATE only — an existing doc's isPublic is never
+      // silently flipped by an unrelated edit.
+      isPublic: data.isPublic ?? true,
     });
-    const docRef = await addDoc(collection(db, GROUPS_COLLECTION), cleaned);
-    return docRef.id;
+    // FieldValue sentinels added AFTER cleanForFirestore — see splitAudienceFields'
+    // comment on why cleanForFirestore must never see a serverTimestamp()/deleteField().
+    cleanedPublic.createdAt = serverTimestamp();
+    cleanedPublic.updatedAt = serverTimestamp();
+    if (targetPersonas.length > 0) {
+      for (const key of AUDIENCE_SENSITIVE_FIELDS) cleanedPublic[key] = deleteField();
+    }
+    const cleanedSensitive = cleanForFirestore(sensitiveFields);
+
+    const groupRef = doc(collection(db, GROUPS_COLLECTION));
+    const batch = writeBatch(db);
+    applyGroupAudienceBatch(batch, groupRef, cleanedPublic, targetPersonas, cleanedSensitive);
+    await batch.commit();
+    return groupRef.id;
   } catch (error) {
     console.error('Error creating group:', error);
     throw error;
@@ -232,18 +433,30 @@ export async function createGroup(
 
 export async function updateGroup(
   groupId: string,
-  data: Partial<Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>>
+  data: Partial<Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>>,
+  targetPersonas: PersonaKey[] = []
 ): Promise<void> {
   try {
-    const cleaned = cleanForFirestore({
-      ...data,
+    const { audiencePersonas: _ignored, ...rest } = data as CommunityGroup;
+    const { publicFields, sensitiveFields } = splitAudienceFields(rest, targetPersonas);
+    const cleanedPublic = cleanForFirestore({
+      ...publicFields,
       // Re-stamp source on every admin save to repair any legacy document
       // that was missing this field.
       source: data.source ?? 'authority',
-      updatedAt: serverTimestamp(),
     });
-    const docRef = doc(db, GROUPS_COLLECTION, groupId);
-    await updateDoc(docRef, cleaned);
+    // FieldValue sentinels added AFTER cleanForFirestore — see splitAudienceFields'
+    // comment on why cleanForFirestore must never see a serverTimestamp()/deleteField().
+    cleanedPublic.updatedAt = serverTimestamp();
+    if (targetPersonas.length > 0) {
+      for (const key of AUDIENCE_SENSITIVE_FIELDS) cleanedPublic[key] = deleteField();
+    }
+    const cleanedSensitive = cleanForFirestore(sensitiveFields);
+
+    const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+    const batch = writeBatch(db);
+    applyGroupAudienceBatch(batch, groupRef, cleanedPublic, targetPersonas, cleanedSensitive);
+    await batch.commit();
   } catch (error) {
     console.error('[updateGroup] FAILED for', groupId, ':', error);
     throw error;
@@ -252,8 +465,15 @@ export async function updateGroup(
 
 export async function deleteGroup(groupId: string): Promise<void> {
   try {
-    const docRef = doc(db, GROUPS_COLLECTION, groupId);
-    await deleteDoc(docRef);
+    const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+    const batch = writeBatch(db);
+    // publicData=null → applyGroupAudienceBatch deletes the group doc AND
+    // unconditionally deletes every persona-collection copy (idempotent
+    // no-op for personas that never had one) — this is exactly what
+    // prevents the orphan case: a location/hours doc surviving under a
+    // groupId whose public doc no longer exists.
+    applyGroupAudienceBatch(batch, groupRef, null, [], {});
+    await batch.commit();
   } catch (error) {
     console.error('Error deleting group:', error);
     throw error;
@@ -327,28 +547,21 @@ export async function getGroupMembers(
  * Writes leaderUserId + leaderName on the group doc and promotes the member to role='admin'.
  * Passing uid=null clears the leader fields without changing any member role.
  */
+/**
+ * Promotes the assigned leader to admin in the members sub-collection.
+ * Does NOT write leaderUserId/leaderName to the group doc — the caller's
+ * updateGroup() call already includes those fields in its own payload (they
+ * come from the same form state) and is the only place permitted to decide
+ * whether they land on the public doc or a persona-collection copy. This
+ * function writing them directly here would silently bypass that split for
+ * any audience-gated group — see updateGroup's AUDIENCE_SENSITIVE_FIELDS
+ * handling in this file.
+ */
 export async function assignGroupLeader(
   groupId: string,
   uid: string | null,
-  name: string,
 ): Promise<void> {
-  const groupRef = doc(db, GROUPS_COLLECTION, groupId);
-
-  if (!uid) {
-    await updateDoc(groupRef, {
-      leaderUserId: null,
-      leaderName: null,
-      updatedAt: serverTimestamp(),
-    });
-    return;
-  }
-
-  await updateDoc(groupRef, {
-    leaderUserId: uid,
-    leaderName: name,
-    updatedAt: serverTimestamp(),
-  });
-
+  if (!uid) return;
   // Promote to admin in members sub-collection (fire-and-forget; member may not exist yet)
   try {
     await updateDoc(doc(db, GROUPS_COLLECTION, groupId, 'members', uid), { role: 'admin' });
@@ -713,7 +926,11 @@ export async function purgeAuthorityData(authorityId: string): Promise<{ groups:
     query(collection(db, GROUPS_COLLECTION), where('authorityId', '==', authorityId)),
   );
   for (const d of groupSnap.docs) {
-    await deleteDoc(doc(db, GROUPS_COLLECTION, d.id));
+    // deleteGroup() (not a raw deleteDoc) — atomically clears any
+    // community_groups_{persona} copies too, same as a single-group delete
+    // from the panel. A bulk purge is exactly where a raw deleteDoc would
+    // orphan persona-collection docs silently.
+    await deleteGroup(d.id);
     groupCount++;
   }
 
@@ -739,7 +956,8 @@ export async function purgeAllCommunityData(): Promise<{ groups: number; events:
 
   const groupSnap = await getDocs(collection(db, GROUPS_COLLECTION));
   for (const d of groupSnap.docs) {
-    await deleteDoc(doc(db, GROUPS_COLLECTION, d.id));
+    // deleteGroup() (not a raw deleteDoc) — see purgeAuthorityData's comment.
+    await deleteGroup(d.id);
     groupCount++;
   }
 

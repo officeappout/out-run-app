@@ -10,7 +10,11 @@
  *   military-decl   — military_declarations/{uid} lockdown + unitDirectory read-only
  *                      public index + users/{uid} no-leak tripwire (Phase 3a, 02.09.2026)
  *   reserve-league  — community_groups/military_reserve_general members-only read lockdown
- *                      (Phase 6a, 04.09.2026)
+ *                      (Phase 6a, 04.09.2026) — isMilitaryGroup() renamed to
+ *                      isReserveLeagueGroup() (07.09.2026), same fixed-id check
+ *   persona-audience — community_groups_reserve top-level collection, gated by
+ *                      get() on the requester's own military_declarations doc
+ *                      ("צו כושר" fitness-meetup groups, Phase 07.09.2026)
  *
  * Run:  npx firebase emulators:exec --only firestore "npx tsx tests/firestore-rules.test.ts"
  */
@@ -27,6 +31,8 @@ import {
   getDoc,
   getDocs,
   collection,
+  query,
+  where,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -841,6 +847,66 @@ async function testPendingUnits() {
   });
 }
 
+async function testPersonaAudienceCollection() {
+  console.log('\npersona-audience — community_groups_reserve (Phase "צו כושר", 07.09.2026)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'military_declarations', 'pa_reservist'), { status: 'reserve', updatedAt: new Date() });
+    await setDoc(doc(db, 'military_declarations', 'pa_regular'), { status: 'regular', updatedAt: new Date() });
+    // pa_no_declaration deliberately has NO military_declarations doc at all.
+    await setDoc(doc(db, 'community_groups_reserve', 'pa_group_1'), { parkId: 'PARK_TEST', hours: '18:00' });
+  });
+
+  await it('PA1 — declared reservist gets the doc directly → ALLOW', async () => {
+    const ctx = env.authenticatedContext('pa_reservist');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA2 — declared reservist LISTS filtered by parkId (the real park-page query shape) → ALLOW, exactly 1 result', async () => {
+    const ctx = env.authenticatedContext('pa_reservist');
+    const snap = await assertSucceeds(
+      getDocs(query(collection(ctx.firestore(), 'community_groups_reserve'), where('parkId', '==', 'PARK_TEST')))
+    );
+    if (snap.size !== 1) throw new Error(`expected 1 result, got ${snap.size}`);
+  });
+
+  await it('PA3 — declared "regular" (not reserve) gets the SAME doc → DENY (persona value must match exactly, not just "any declaration")', async () => {
+    const ctx = env.authenticatedContext('pa_regular');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA4 — no declaration at all gets the doc → DENY, not a thrown 500/crash the client can\'t handle (still surfaces as permission-denied)', async () => {
+    const ctx = env.authenticatedContext('pa_no_declaration');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA5 — no declaration at all LISTS filtered by parkId → ALLOW the call to resolve with zero rows OR reject; either way must not return the doc', async () => {
+    const ctx = env.authenticatedContext('pa_no_declaration');
+    try {
+      const snap = await getDocs(query(collection(ctx.firestore(), 'community_groups_reserve'), where('parkId', '==', 'PARK_TEST')));
+      if (snap.size !== 0) throw new Error(`expected 0 results for an undeclared user, got ${snap.size}`);
+    } catch (e: any) {
+      if (e?.code !== 'permission-denied') throw e;
+    }
+  });
+
+  await it('PA6 — unauthenticated gets the doc → DENY', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA7 — admin gets the doc despite no persona declared → ALLOW (panel edit-form access)', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA8 — a declared reservist (non-admin) tries to WRITE directly → DENY (write is admin-only; the app writes only via community.service.ts\'s atomic batch, never from a user session)', async () => {
+    const ctx = env.authenticatedContext('pa_reservist');
+    await assertFails(setDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1'), { parkId: 'HACK', hours: '00:00' }));
+  });
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -859,6 +925,7 @@ async function main() {
   await testReserveLeagueLockdown();
   await testNoUsersDocLeak();
   await testPendingUnits();
+  await testPersonaAudienceCollection();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Results: ${pass} passed, ${fail} failed`);
