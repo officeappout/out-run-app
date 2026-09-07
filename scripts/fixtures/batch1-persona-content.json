@@ -1,0 +1,117 @@
+{
+  "_note": "Batch 1 persona content for the scenario-sweep local overlay (NO Firestore write). Each bundle = one title + description + logicCue sharing a bundleId, tagged persona/gender/timeOfDay/location/variant. Given to CC by David 07.09.2026 for in-memory verification only.",
+  "bundles": [
+    {
+      "bundleId": "athlete_any_01",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "any", "location": "any", "variant": "balanced",
+      "title": "אימון חידוד ממוקד",
+      "description": "@זמן_אימון דקות בלי בזבוז תנועה — כל חזרה נספרת לכיוון השיא הבא.",
+      "logicCue": "הדגש היום על @מיקוד_פיזיולוגי. ברמה שלך, הדיוק הוא מה שמזיז את המחט."
+    },
+    {
+      "bundleId": "athlete_any_02",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "any", "location": "any", "variant": "intense",
+      "title": "מפגש עצימות מלא",
+      "description": "הרמה שלך גבוהה — עכשיו דוחפים אותה. @זמן_אימון דקות שידרשו ממך הכל.",
+      "logicCue": "בניתי עומס גבוה על @מיקוד_פיזיולוגי כדי לפרוץ את הרף הנוכחי."
+    },
+    {
+      "bundleId": "athlete_any_03",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "any", "location": "any", "variant": "easy",
+      "title": "יום התאוששות פעילה",
+      "description": "גם ההתאוששות היא חלק מהאימון. @זמן_אימון דקות של תנועה נקייה לשמור על המנוע חם.",
+      "logicCue": "היום קל בכוונה — נותנים למערכת להתאושש בלי לאבד ריתמוס."
+    },
+    {
+      "bundleId": "athlete_morning_park_01",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "morning", "location": "park", "variant": "balanced",
+      "title": "לפתוח את היום בעוצמה",
+      "description": "בוקר בפארק, אוויר פתוח, ראש צלול. @זמן_אימון דקות שיכניסו אותך להילוך גבוה לכל היום.",
+      "logicCue": "אימון בוקר בונה בסיס — מיקדתי אותו ב@מיקוד_פיזיולוגי."
+    },
+    {
+      "bundleId": "athlete_evening_home_01",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "evening", "location": "home", "variant": "intense",
+      "title": "סשן ערב חד",
+      "description": "יום ארוך לא סותר עצימות. @זמן_אימון דקות ממוקדות בבית — עקביות מפרידה אותך מהשאר.",
+      "logicCue": "בחרתי דגש על @מיקוד_פיזיולוגי כדי לסגור את היום ברווח מדיד."
+    },
+    {
+      "bundleId": "athlete_afternoon_street_01",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "afternoon", "location": "street", "variant": "balanced",
+      "title": "אימון אמצע יום",
+      "description": "הפוגה מהשגרה. @זמן_אימון דקות של @מיקוד לרענן את הגוף ולחזור חד.",
+      "logicCue": "עומס בינוני שמדייק את @מיקוד_פיזיולוגי בלי לפגוע בהמשך היום."
+    },
+    {
+      "bundleId": "athlete_evening_park_01",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "evening", "location": "park", "variant": "balanced",
+      "title": "לסגור את היום בפארק",
+      "description": "אור אחרון, אוויר קריר. @זמן_אימון דקות של @מיקוד שמסיימות את היום ברמה שלך.",
+      "logicCue": "דגש על @מיקוד_פיזיולוגי — שומר על רצף ההתקדמות שלך."
+    },
+    {
+      "bundleId": "athlete_home_01",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "any", "location": "home", "variant": "balanced",
+      "title": "אימון ביתי ללא פשרות",
+      "description": "אין חדר כושר? לא צריך. @זמן_אימון דקות ממוקדות שמפיקות מקסימום מכל תנועה.",
+      "logicCue": "תכננתי סביב @מיקוד_פיזיולוגי כדי שגם בבית הפלט יישאר גבוה."
+    },
+    {
+      "bundleId": "pupil_any_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "any", "location": "any", "variant": "balanced",
+      "title": "אימון שנותן אנרגיה",
+      "description": "@זמן_אימון דקות שיכניסו אותך להילוך — כוח שמרגישים ורואים.",
+      "logicCue": "התמקדתי ב@מיקוד_פיזיולוגי — ככה בונים כוח אמיתי, צעד־צעד."
+    },
+    {
+      "bundleId": "pupil_any_02",
+      "persona": "pupil", "gender": "both", "timeOfDay": "any", "location": "any", "variant": "intense",
+      "title": "אתגר לכל הגוף",
+      "description": "בא לך להוכיח לעצמך? @זמן_אימון דקות אינטנסיביות שידחפו אותך קדימה.",
+      "logicCue": "העליתי את העצימות על @מיקוד_פיזיולוגי — אתגר שאפשר לעמוד בו."
+    },
+    {
+      "bundleId": "pupil_morning_home_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "morning", "location": "home", "variant": "easy",
+      "title": "לפתוח את היום לפני בית הספר",
+      "description": "לפני שיוצאים ליום — @זמן_אימון דקות קצרות שמעירות את הגוף ונותנות ראש צלול.",
+      "logicCue": "התחלה עדינה שמכינה אותך ליום בלי לשרוף אנרגיה."
+    },
+    {
+      "bundleId": "pupil_morning_park_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "morning", "location": "park", "variant": "balanced",
+      "title": "לצאת את היום בתנועה",
+      "description": "בוקר בפארק לפני הכל. @זמן_אימון דקות שממלאות אותך אנרגיה ליום.",
+      "logicCue": "אימון בוקר קליל שמדליק את הגוף ומחזק את @מיקוד_פיזיולוגי."
+    },
+    {
+      "bundleId": "pupil_afternoon_park_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "afternoon", "location": "park", "variant": "balanced",
+      "title": "לפרוק אחרי יום לימודים",
+      "description": "יום ארוך של שיעורים? @זמן_אימון דקות בפארק לשחרר את הראש ולהטעין מחדש.",
+      "logicCue": "מיזגתי תנועה שמשחררת לחץ עם עבודה על @מיקוד_פיזיולוגי."
+    },
+    {
+      "bundleId": "pupil_evening_home_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "evening", "location": "home", "variant": "balanced",
+      "title": "כוח שרואים",
+      "description": "רוצה תוצאות שמרגישים? @זמן_אימון דקות ממוקדות שבונות אותך חזק ובטוח.",
+      "logicCue": "הדגש על @מיקוד_פיזיולוגי — הבסיס לכוח שמתפתח לאורך זמן."
+    },
+    {
+      "bundleId": "pupil_evening_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "evening", "location": "any", "variant": "intense",
+      "title": "לסיים את היום חזק",
+      "description": "@זמן_אימון דקות שיוציאו ממך את המקסימום — ותלך/י לישון עם הרגשה של ניצחון.",
+      "logicCue": "עצימות גבוהה על @מיקוד_פיזיולוגי לסגירה חזקה של היום."
+    },
+    {
+      "bundleId": "pupil_home_easy_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "any", "location": "home", "variant": "easy",
+      "title": "התחלה קלה בבית",
+      "description": "חדש בעניין? @זמן_אימון דקות פשוטות בבית — כל אחד יכול, וזה מרגיש מעולה.",
+      "logicCue": "התחלנו רגוע כדי לבנות הרגל וביטחון לפני שמעלים הילוך."
+    }
+  ]
+}

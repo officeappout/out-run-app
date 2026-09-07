@@ -57,17 +57,49 @@ function mulberry32(seed: number) {
 }
 Math.random = mulberry32(0xc0ffee);
 
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 
 import { generateHomeWorkoutTrio } from '@/features/workout-engine/services/home-workout.service';
 import type { HomeWorkoutOptions } from '@/features/workout-engine/services/home-workout.types';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
-import type { TimeOfDay } from '@/features/workout-engine/services/workout-metadata.service';
+import { setLocalContentOverlay, type TimeOfDay } from '@/features/workout-engine/services/workout-metadata.service';
 import type { LifestylePersona } from '@/features/workout-engine/logic/ContextualEngine';
 import { buildMockProfile } from '@/features/workout-engine/shared/utils/mock-profile.utils';
 import type { PersonaId } from '@/types/persona.types';
+
+/**
+ * Load a draft content batch (David's authoring-reference JSON shape — see
+ * scripts/fixtures/batch1-persona-content.json) and inject it into
+ * workout-metadata.service.ts's in-memory local overlay (setLocalContentOverlay),
+ * so it scores alongside the REAL live workoutTitles/smartDescriptions/logicCues
+ * data for every subsequent resolveWorkoutMetadata call in this process.
+ * Maps each bundle's authoring field names (title/description/logicCue) to
+ * the real Firestore row shape each collection actually uses (text/description/
+ * text respectively) — pure in-memory, zero Firestore writes, zero effect on
+ * any other process. Exported so other scripts (e.g. parent-bleed-audit.ts)
+ * can apply the same overlay before reusing this file's runHomeCell.
+ */
+export function loadAndApplyContentOverlay(filePath: string): void {
+  const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as {
+    bundles: Array<{
+      bundleId: string; persona: string; gender?: string; timeOfDay?: string;
+      location?: string; variant?: string; title: string; description: string; logicCue: string;
+    }>;
+  };
+  const workoutTitles = parsed.bundles.map(b => ({
+    text: b.title, persona: b.persona, gender: b.gender, timeOfDay: b.timeOfDay, location: b.location, bundleId: b.bundleId,
+  }));
+  const smartDescriptions = parsed.bundles.map(b => ({
+    description: b.description, persona: b.persona, gender: b.gender, timeOfDay: b.timeOfDay, location: b.location, bundleId: b.bundleId,
+  }));
+  const logicCues = parsed.bundles.map(b => ({
+    text: b.logicCue, persona: b.persona, gender: b.gender, timeOfDay: b.timeOfDay, location: b.location, variant: b.variant, bundleId: b.bundleId,
+  }));
+  setLocalContentOverlay({ workoutTitles, smartDescriptions, logicCues });
+  console.log(`[overlay] loaded ${parsed.bundles.length} bundles from ${filePath} (${workoutTitles.length} titles, ${smartDescriptions.length} descriptions, ${logicCues.length} logicCues) — in-memory only, no Firestore write`);
+}
 
 // ── Admin SDK init (before importing functions/src — see file header) ──────
 function initAdmin() {
@@ -231,6 +263,9 @@ export async function runHomeCell(personaId: PersonaId, time: typeof TIME_PRESET
     // scripts/parent-bleed-audit.ts's post-hoc candidate-transparency
     // re-query. Not consumed by the main sweep's Row/report.
     metadataCtx: workout?.metadataCtx,
+    // Additive — for scripts/parent-bleed-audit.ts's overlay-verification
+    // report (shows the full winning bundle, not just the title).
+    logicCue: workout?.logicCue ?? '',
   };
 }
 
@@ -309,7 +344,7 @@ function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
-async function main() {
+export async function main(outFileName = 'notification-content-scenario-sweep.md') {
   const t0 = Date.now();
   await initNotificationApi();
   interface CellSpec { personaId: PersonaId; time: typeof TIME_PRESETS[number]; location: ExecutionLocation; triggerType: string }
@@ -451,19 +486,33 @@ async function main() {
     lines.push('');
   }
 
-  const outPath = join(process.cwd(), 'docs/research/notification-content-scenario-sweep.md');
+  const outPath = join(process.cwd(), 'docs/research', outFileName);
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, lines.join('\n'));
   console.log(`[sweep] report written → ${outPath}`);
   console.log(`[sweep] ${flagged.length}/${rows.length} scenarios flagged (${((flagged.length / rows.length) * 100).toFixed(0)}%)`);
-  process.exit(0);
+  return { flagged: flagged.length, total: rows.length };
 }
 
 // Only auto-run the full 560-cell sweep when this file is executed directly
 // (`tsx scripts/scenario-sweep.ts`) — NOT when imported as a module for its
 // exported pieces (e.g. scripts/scenario-sweep-sample.ts reusing runHomeCell/
 // runPushCell/checkCoherence for a smaller, curated pull).
+//
+// CONTENT_OVERLAY_FILE (optional env var): path to a draft-content JSON
+// (scripts/fixtures/batch1-persona-content.json shape) to inject via
+// loadAndApplyContentOverlay before running — e.g. to verify an unshipped
+// batch against real live data with zero Firestore writes. When set, the
+// report is written to a `-content-overlay` suffixed file instead of the
+// production path, so a verification run never overwrites the real report.
 const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
-  main().catch(e => { console.error('[sweep] CRASHED:', (e as Error)?.stack || e); process.exit(1); });
+  const overlayFile = process.env.CONTENT_OVERLAY_FILE;
+  if (overlayFile) loadAndApplyContentOverlay(overlayFile);
+  const outFileName = overlayFile
+    ? 'notification-content-scenario-sweep-content-overlay.md'
+    : 'notification-content-scenario-sweep.md';
+  main(outFileName)
+    .then(() => process.exit(0))
+    .catch(e => { console.error('[sweep] CRASHED:', (e as Error)?.stack || e); process.exit(1); });
 }
