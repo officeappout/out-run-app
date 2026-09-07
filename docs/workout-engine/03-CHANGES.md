@@ -3414,3 +3414,119 @@ in this addendum, with `SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1` held fixed so t
 attributable to code, not RNG or matrix-shape drift.
 
 **Commit:** local only, no push.
+
+## Addendum 34 — second measurement-fidelity fix (David's catch, before Task 4): core-focused axes.
+## Answers "is there really a core problem?" — new seeded baseline. Supersedes Addendum 33.
+
+David stopped again before Task 4, same category of problem: Addendum 33's `DOMAIN_SUBSETS` fix
+(`[undefined, ['push','pull','legs']]`) still never put `core` in a requiredDomains selection, and
+`activePrograms` was always `[]`. So Addendum 33's `core_promise_outcome=failed` (170) measured "did
+the engine push core the user never asked for" — not "did a user who explicitly asked for core
+actually get it." Two different questions, and the number conflated them.
+
+**Three additions:**
+1. `DOMAIN_SUBSETS` +`['push','pull','legs','core']` (explicit request including core) and +`['core']`
+   (core-only, the sharpest test — nothing else competing for slots). Both get `strictDomains:true`
+   via the existing Addendum-33 wiring (unchanged logic, just a bigger `DOMAIN_SUBSETS` array feeding
+   it).
+2. `activeProgramsMode: 'full_body'` — a real `activePrograms:[{id:'full_body',...}]` input with all
+   4 domains explicitly leveled (David's exact spec), same "small deliberate tripwire" sizing as
+   `push_pull_legs_split` (`FULL_BODY_LEVELS=[8,12]`, `FULL_BODY_DURATIONS=[30,45]`, home only).
+3. `activeProgramsMode: 'no_core_assessment'` — `domainLevels` genuinely omits the `core` key (not
+   `core: undefined` — the key itself absent, `buildMockProfile`'s own "absent=absent" handling),
+   `activePrograms: []`. Same small sizing as #2.
+
+`LEVELS` reduced `[1,3,5,8,12]` → `[1,5,12]` to offset `DOMAIN_SUBSETS` doubling (2→4), per David's
+explicit instruction — cut this axis, not the new ones. `DURATIONS`/`LOCATIONS` untouched.
+
+**Verification:** `tsc --noEmit` — zero errors attributable to `build-snapshot.ts`. `vitest run
+src/features/workout-engine` — 574/574, same 2 pre-existing unrelated failures. Determinism
+re-verified with the new modes: two independent `SNAPSHOT_SMOKE=1 SNAPSHOT_SEED=42
+SNAPSHOT_CONCURRENCY=1` runs, byte-identical on every `workouts`/`workout_exercises` column. A smoke
+spot-check confirmed the wiring before committing to the full run: `no_core_assessment` → zero
+core-domain exercises; `full_body` → core present.
+
+**The new baseline** (`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, full matrix, 175s):
+
+300 calls, **0 errors**, 324 workouts, 1845 exercises (288 `'auto'` × 1 row + 4 `push_pull_legs_split`
++ 4 `full_body` + 4 `no_core_assessment`, each × 3 bolts = 36 rows).
+
+**`core_promise_outcome`, segmented by `req_domains` — the number David asked for, not one aggregate:**
+
+| req_domains | n | satisfied | failed | replaced | injected | *(null — no promise_validation line)* |
+|---|---|---|---|---|---|---|
+| `auto` (no explicit domains) | 72 | 13 | 51 | 5 | 3 | 0 |
+| `push,pull,legs` (core NOT requested) | 72 | 16 | 46 | 6 | 4 | 0 |
+| `push,pull,legs,core` (core requested, with others) | 72 | 16 | 50 | 5 | 1 | 0 |
+| `core` (core requested ALONE) | 72 | 0 | 0 | 0 | 0 | **72** |
+| `program:full_body` | 12 | 4 | 6 | 2 | 0 | 0 |
+| `no_core_assessment` | 12 | 0 | **12** | 0 | 0 | 0 |
+| `split:push_pull_legs` | 12 | 0 | 0 | 0 | 0 | 12 |
+
+**`core_promise_reason`, where outcome=failed:**
+
+| req_domains | no_safe_victim | optional_below_20min | unassessed |
+|---|---|---|---|
+| `auto` | 34 | 17 | — |
+| `push,pull,legs` | 30 | 16 | — |
+| `push,pull,legs,core` | 32 | 18 | — |
+| `program:full_body` | 6 | — | — |
+| `no_core_assessment` | — | — | **12 (100%)** |
+
+**Actual core-domain exercise volume per workout (not just the promise-pass outcome), same buckets:**
+
+| req_domains | n workouts | core exercise rows | avg core / workout |
+|---|---|---|---|
+| `auto` | 72 | 32 | 0.44 |
+| `push,pull,legs` (core NOT requested) | 72 | 40 | 0.56 |
+| `push,pull,legs,core` (core requested) | 72 | 33 | 0.46 |
+| `core` (core requested ALONE) | 72 | 193 | **2.68** |
+| `program:full_body` | 12 | 8 | 0.67 |
+| `no_core_assessment` | 12 | **0** | **0.00** |
+| `split:push_pull_legs` | 12 | 12 | 1.00 |
+
+**So: is there really a core problem? Yes — but not the one the raw aggregate suggested, and one part
+of the system is working exactly as intended:**
+
+- **`no_core_assessment` is clean.** All 12 workouts: 0 core exercises, `core_promise_outcome=failed`
+  reason=`unassessed`, 100% consistent. A user who never completed a core assessment genuinely never
+  gets core fabricated for them — "absent=absent" holds all the way through to the generated workout,
+  not just through `buildMockProfile`. This is the correct, desired behavior confirmed working, not a
+  bug — worth stating explicitly since it's the one place this addendum found nothing wrong.
+- **Requesting core alongside other domains does not reliably deliver it.** `push,pull,legs,core`
+  (0.46 core/workout, satisfied 16/72 = 22%) is barely different from `push,pull,legs` — i.e. a user
+  who did NOT ask for core (0.56 core/workout) — and is actually slightly *lower*. Compare against
+  push/pull's own representation in the same-shape buckets (Addendum 33: ~1.5-2.3/workout) — core is
+  4-5x less represented than push/pull even when the user explicitly asked for it, with
+  `strictDomains:true` active (the mode meant to make requested domains authoritative). The
+  `core_promise` guarantee pass *does* run for these combos (unlike the core-only bucket below) and
+  *does* attempt to inject core, but fails 64-69% of the time — `no_safe_victim` and
+  `optional_below_20min` are still the dominant reasons, same open items flagged (not chased) in
+  Addendum 26/31.
+- **The only way to reliably get core is to request NOTHING else.** The `core`-only bucket is the
+  outlier in the opposite direction — 2.68 core exercises/workout, ~5x every other bucket — but its
+  `core_promise_outcome` is blank for all 72 workouts, meaning the guarantee-pass code path that logs
+  `promise_validation:core:...` never runs at all in this scenario. Mechanically consistent with a
+  pass whose job is "ensure core sneaks in when it ISN'T the main focus" — when core already **is**
+  the sole explicit focus, the main Step 1-5 selection satisfies it directly and the safety-net pass
+  has nothing to do. Not a measurement bug (re-checked against the `push,pull,legs,core` bucket, which
+  DOES log the line) — a genuine behavioral fork depending on whether core is the sole vs. a
+  co-requested domain.
+- **`split:push_pull_legs` also logs no promise-validation line** (blank for all 12) despite having
+  some core exercises (avg 1.00/workout) — this is the same already-tracked `activePrograms[0]`-only
+  bug reproducing (Addendum 33), not new scope. Flagged for continuity, not investigated further —
+  frozen boundary per David's Task-2 decision.
+
+**Net read for Task 4**: the domain-blind gap on core is real and specifically visible in the
+"co-requested, not sole-requested" case — exactly the realistic shape (a user wanting *some* core
+alongside push/pull/legs, not core exclusively). Task 4's fix should be judged against whether it
+moves the `push,pull,legs,core` and `auto` buckets' core representation closer to push/pull's, not
+just against the `core`-only bucket (already strong) or the `no_core_assessment` bucket (already
+correct).
+
+**This is the baseline Task 4 measures against — not Addendum 33's numbers**, for the same reason
+Addendum 33 superseded 31: the matrix shape changed again (`LEVELS` trimmed, `DOMAIN_SUBSETS` and 2
+new `activeProgramsMode` values added). Diff against the tables in this addendum, with
+`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1` held fixed.
+
+**Commit:** local only, no push.
