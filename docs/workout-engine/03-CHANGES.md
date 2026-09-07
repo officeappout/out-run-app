@@ -3299,3 +3299,118 @@ flagging the design fork, not picking a side.
 
 **Commit:** local only, no push. Documentation only — no source file changed this task, per
 instruction ("עצור ודווח. אל תתקן").
+
+## Addendum 33 — measurement-fidelity fix (David's catch, before Task 4): strictDomains axis +
+## the real difficulty mechanism (targetDifficulty). New seeded baseline — supersedes Addendum 31's
+## 407 number, which Task 4 must NOT diff against.
+
+David stopped the session before Task 4 with two specific corrections to `build-snapshot.ts` itself
+— not to the engine — because an inaccurate measurement tool would make Task 4's before/after diff
+meaningless.
+
+**1. strictDomains — the Addendum-31-era comment was wrong.** It claimed "no real caller ever sets
+`strictDomains: true`." David pointed to `WorkoutBuilderSheet.tsx:644`:
+`strictDomains: (derivedRequiredDomains?.length ?? 0) > 0` — true on every real Custom-Builder
+session where the user picked muscle-group chips. Grepping turned up 3 more unconditional real
+callers: `strength-block.service.ts:120`, `complementary-short.generator.ts:33`,
+`partial-completion.generator.ts:159`. `strictDomains` disables VerticalFoundation +
+HorizontalGuarantee + the domain-overflow fill path (per `home-workout.types.ts`'s own doc comment),
+and the 05.09.2026 paired trace found it moves the full-body-without-core rate at 45min by ~20 points
+(66.7% with vs 46.7% without). Every prior snapshot silently never exercised this real, common path.
+**Fix:** `DOMAIN_SUBSETS` default is now `[undefined, ['push','pull','legs']]` — the chip-picked combo
+is paired with `strictDomains:true` in `runCombo`, exactly matching production's conditional.
+
+**2. difficulty was fixed at 2 — but it's dead code.** `grep -n "options\.difficulty\b"` across
+`home-workout.service.ts` returns zero matches: the field is accepted by the options type but never
+read. The value that actually controls anything is `targetDifficulty`, and its effect is not "pick
+which of the 3 bolts to report" — it makes the trio-loop `continue` past the other 2 slots entirely
+(`home-workout.service.ts:849`), so only 1 bolt is genuinely generated, from a **fresh, unpenalized
+pool** — not cross-penalized by `sessionBlacklist` the way D2/D3 within one free-trio call are
+(`:874-881`). This is the real Custom-Builder call shape (`difficulty, targetDifficulty: difficulty`)
+and it had never been exercised by this script — every prior baseline's "3 free bolts per call" only
+ever measured the auto-multi-bolt shape, never the single-difficulty shape a real chip-picked or
+Custom-Builder session actually gets.
+**Fix:** every `'auto'`-mode combo now cycles through `targetDifficulty: 1|2|3`, replacing the old
+free-trio call for those combos (not adding alongside it — 3x the call cost, no longer free).
+`push_pull_legs_split` combos are unaffected (unrelated scenario, matches its real caller
+StatsOverview, which never sets `targetDifficulty`) and keep the original free-trio shape.
+
+**A gotcha found while implementing #2**: `home-workout.service.ts:1215-1219` pads `results[1]` and
+`results[2]` with the **same object reference** as `results[0]` when `targetDifficulty` caused only 1
+bolt to be generated — a naive `result.options.forEach` would have silently inserted 3 duplicate
+workout rows per combo, tripling the 'auto' bucket's weight with no new information. `runCombo` now
+special-cases `isAuto`: processes only `result.options[0]`, stamped with `bolt: targetDifficulty`
+(not a fabricated `boltIdx+1`).
+
+**Matrix trade-off (per David's explicit instruction — shrink other axes, not the new ones):**
+`LOCATIONS` 3→2 (dropped `gym`), `DAYS_INACTIVE` 3→1 (kept only `0`). `LEVELS` (5) and `DURATIONS` (4)
+untouched, as instructed ("הליבה של מה שהמשתמש באמת עושה").
+
+**Verification before trusting the run:**
+- `npx tsc --noEmit -p .` — zero errors attributable to `build-snapshot.ts` (all remaining errors are
+  the same pre-existing baseline noise in unrelated files, confirmed via `grep -i build-snapshot` on
+  the output — no matches).
+- `npx vitest run src/features/workout-engine` — 574/574 passing, same 2 pre-existing unrelated
+  `process.exit`-based failures (`hybrid-orchestrator.test.ts`, `hybrid-runtime.test.ts`).
+- Determinism re-verified with the new axes: two independent `SNAPSHOT_SMOKE=1 SNAPSHOT_SEED=42
+  SNAPSHOT_CONCURRENCY=1` runs, diffed on every `workouts` and `workout_exercises` column —
+  byte-identical both tables.
+
+**The new baseline** (`SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`, full matrix, 148s):
+
+244 calls, **0 errors**, 252 workouts, 1610 exercises (240 `'auto'` combos × 1 workout row +
+4 `push_pull_legs_split` combos × 3 bolts = 252).
+
+| domain (exercise rows, all 252 workouts) | count |
+|---|---|
+| push | 532 |
+| pull | 430 |
+| other | 267 |
+| legs | 226 |
+| core | 115 |
+| *(null — no movementGroup)* | 40 |
+
+| core_promise_outcome (252 workouts) | count |
+|---|---|
+| failed | 170 |
+| satisfied | 45 |
+| replaced | 15 |
+| *(null — no promise_validation line)* | 12 |
+| injected | 10 |
+
+| core_promise_reason, where outcome=failed (170) | count |
+|---|---|
+| no_safe_victim | 111 |
+| optional_below_20min | 59 |
+
+**Split by `req_domains` bucket — the strictDomains axis is visible in the numbers**, not just present
+in the code:
+
+| req_domains bucket | workouts | avg push/workout | avg pull/workout | avg legs/workout | avg core/workout |
+|---|---|---|---|---|---|
+| `auto` (strictDomains not passed) | 120 | 2.34 | 2.31 | 1.60 (68% of push) | 1.24 |
+| `push,pull,legs` (strictDomains:true) | 120 | 1.86 | 1.84 | 1.49 (80% of push) | 1.46 |
+
+Legs is underrepresented relative to push in **both** buckets, but `strictDomains:true` measurably
+narrows the gap (68%→80% of push) — consistent with the 05.09.2026 finding that `strictDomains`
+changes real behavior, not just a cosmetic label. This is exactly the shape of gap Task 4 is meant to
+close further; it is not closed by this measurement fix, which only makes the gap visible/comparable,
+per David's framing ("אין יותר תירוץ של רעש").
+
+**Confirms, does not newly discover, a separate already-tracked bug**: the `split:push_pull_legs`
+bucket (12 real generated workouts, the Addendum-29 regression tripwire for the
+`activePrograms[0]`-only read) shows **zero** `pull` or `legs` exercise rows across all 12 workouts —
+only `push` and `core` appear. This is the same open finding from doc 10/11 (Addendum 26-28), still
+reproducing under the new seeded matrix. Not investigated further here — it's a frozen-boundary issue
+(§2 of the schedule↔engine contract per David's Task-2 decision), out of scope for this measurement
+fix and for Task 4 (which is scoped to exercise-selection/level/equipment domain-blindness, not
+active-program read shape).
+
+**This is the baseline Task 4 measures against — not Addendum 31's 407.** The two are not comparable
+row-for-row: the matrix shape itself changed (`LOCATIONS`/`DAYS_INACTIVE` trimmed, `DOMAIN_SUBSETS`
+and `TARGET_DIFFICULTIES` added as real axes, 'auto' combos moved from free-trio to
+single-difficulty-per-call). Any further delta Task 4 produces should be diffed against the numbers
+in this addendum, with `SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1` held fixed so the diff is
+attributable to code, not RNG or matrix-shape drift.
+
+**Commit:** local only, no push.
