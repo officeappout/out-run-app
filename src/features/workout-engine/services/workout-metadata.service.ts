@@ -1059,6 +1059,8 @@ export interface WorkoutMetadataCandidate {
   score: number;
   reasons: string[];
   bundleId?: string;
+  /** The content row's own persona tag (row.persona) — may differ from ctx.persona; that's the whole point of exposing it. */
+  persona?: string;
   /** True for every row tied for the top score — the real system shuffles among these at random. */
   tiedForFirst: boolean;
   /** True for the one row this specific call actually returned. */
@@ -1147,6 +1149,7 @@ async function scoredFetch(
             score,
             reasons,
             bundleId: row.bundleId,
+            persona: row.persona,
             tiedForFirst: score === bestScore,
             isPicked: row === picked,
           };
