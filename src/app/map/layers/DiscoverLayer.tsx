@@ -727,10 +727,12 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
       enableHybridSlots: mapFeatureFlags.enableHybridSlots,
       enableFullParkWorkout: mapFeatureFlags.enableFullParkWorkout,
       enableRouteStops: mapFeatureFlags.enableRouteStops,
+      enableRecommendedHybrid: mapFeatureFlags.enableRecommendedHybrid,
     }),
     [
       userLocation, slotActivity, hasEquippedPark, hasStrengthProgram,
       mapFeatureFlags.enableHybridSlots, mapFeatureFlags.enableFullParkWorkout, mapFeatureFlags.enableRouteStops,
+      mapFeatureFlags.enableRecommendedHybrid,
     ],
   );
 
