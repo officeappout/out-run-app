@@ -303,16 +303,14 @@ export async function createGroup(
     memberCount: 1,
     minimumMembers,
     isActive: minimumMembers <= 1,
-    inviteCode,
 
     createdBy: creatorUid,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 
-  // SPEC-01 task 2: the group doc (still carrying the legacy top-level
-  // inviteCode field for the backward-compat overlap period) and its new
-  // locked-down private/invite copy are written atomically — a group that
+  // SPEC-02 Wave 0.1: private/invite only — no legacy field on the group
+  // doc anymore. Written atomically with the group doc — a group that
   // exists without its private/invite doc can never be joined with a code
   // again (groupInviteCode() in firestore.rules would find nothing there).
   const groupRef = doc(collection(db, 'community_groups'));

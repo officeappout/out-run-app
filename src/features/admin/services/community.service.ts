@@ -457,10 +457,11 @@ export async function createGroup(
   try {
     const { audiencePersonas: _ignored, ...rest } = data as CommunityGroup;
     const { publicFields, sensitiveFields } = splitAudienceFields(rest, targetPersonas);
+    // SPEC-02 Wave 0.1: the code lives ONLY in private/invite now (see the
+    // batch.set below) — no longer written onto the group doc itself.
+    const inviteCode = data.inviteCode ?? generateInviteCode();
     const cleanedPublic = cleanForFirestore({
       ...publicFields,
-      // Ensure every group has an inviteCode so share links always work.
-      inviteCode: data.inviteCode ?? generateInviteCode(),
       // Admin panel always creates authority-managed groups.
       // Enforcing here prevents any missing-source issue at the service level.
       source: 'authority',
@@ -491,7 +492,7 @@ export async function createGroup(
     // without its private/invite doc can never be joined with a code again
     // (groupInviteCode() in firestore.rules would find nothing there).
     batch.set(doc(db, GROUPS_COLLECTION, groupRef.id, 'private', 'invite'), {
-      code: cleanedPublic.inviteCode,
+      code: inviteCode,
     });
     await batch.commit();
     return groupRef.id;
@@ -658,16 +659,11 @@ export async function getGroupInviteCode(groupId: string): Promise<string | null
 /**
  * Write a fresh inviteCode to an existing group that is missing one.
  * Called lazily when the admin copies a join link for the first time.
- * Writes both the legacy top-level field (backward-compat overlap period —
- * printed codes/signage still resolve against it) and the new private/invite
- * doc, atomically. Returns the newly written code.
+ * SPEC-02 Wave 0.1: private/invite only — no legacy field anymore.
  */
 export async function generateGroupInviteCode(groupId: string): Promise<string> {
   const code = generateInviteCode();
-  const batch = writeBatch(db);
-  batch.update(doc(db, GROUPS_COLLECTION, groupId), { inviteCode: code });
-  batch.set(doc(db, GROUPS_COLLECTION, groupId, 'private', 'invite'), { code });
-  await batch.commit();
+  await setDoc(doc(db, GROUPS_COLLECTION, groupId, 'private', 'invite'), { code });
   return code;
 }
 
