@@ -264,6 +264,7 @@ export default function CommunityGroupsOverviewPage() {
           <thead>
             <tr className="text-[11px] text-slate-400 font-bold border-b border-slate-200">
               <th className="text-right py-3 px-4">שם</th>
+              <th className="text-right py-3 px-4">מזהה</th>
               <th className="text-right py-3 px-4">רשות/עיר</th>
               <th className="text-right py-3 px-4">מקור</th>
               <th className="text-right py-3 px-4">סטטוס</th>
@@ -282,6 +283,7 @@ export default function CommunityGroupsOverviewPage() {
               return (
                 <tr key={g.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70 transition-colors">
                   <td className="py-3 px-4 font-bold text-slate-800 max-w-[220px] truncate">{g.name}</td>
+                  <td className="py-3 px-4 text-slate-400 font-mono text-[11px]" title={g.id}>{g.id.slice(0, 8)}</td>
                   <td className="py-3 px-4 text-slate-500">{authorityName}</td>
                   <td className="py-3 px-4">
                     <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-full ${
@@ -347,7 +349,7 @@ export default function CommunityGroupsOverviewPage() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center py-16 text-slate-400 text-sm font-bold">
+                <td colSpan={9} className="text-center py-16 text-slate-400 text-sm font-bold">
                   אין קבוצות התואמות את הסינון
                 </td>
               </tr>
