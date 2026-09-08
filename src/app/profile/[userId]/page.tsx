@@ -4,12 +4,13 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowRight, UserPlus, UserMinus, Flag } from 'lucide-react';
+import { ArrowRight, UserPlus, UserMinus, Flag, MessageCircle, Lock } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { motion } from 'framer-motion';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
+import { useChatStore } from '@/features/social/store/useChatStore';
 import { getUserPosts, type FeedPost } from '@/features/social/services/feed.service';
 import FeedPostCard from '@/features/social/components/FeedPostCard';
 import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
@@ -20,6 +21,8 @@ interface PublicProfile {
   currentLevel?: string;
   initialFitnessTier?: number;
   mainGoal?: string;
+  /** Set from users/{uid}.core.ageGroup — used by the DM gate, same as UserProfileSheet.tsx. */
+  ageGroup?: 'minor' | 'adult';
 }
 
 const GOAL_LABELS: Record<string, string> = {
@@ -46,6 +49,24 @@ export default function PublicProfilePage() {
 
   const isSelf = myUid === targetUid;
   const followed = isFollowing(targetUid);
+
+  // Compliance Phase 2.2 — DM is blocked when EITHER party is a minor, same
+  // gate as UserProfileSheet.tsx (the source of truth is the server-side
+  // Firestore rule on /chats DM create; this only avoids showing a button
+  // that would fail on click).
+  const currentIsMinor = myProfile?.core?.ageGroup === 'minor';
+  const targetIsMinor = publicProfile?.ageGroup === 'minor';
+  const canDirectMessage = !isSelf && !!myUid && !currentIsMinor && !targetIsMinor;
+
+  const handleSendMessage = useCallback(() => {
+    if (!myUid || !publicProfile) return;
+    void useChatStore.getState().openDM(
+      myUid,
+      myProfile?.core?.name ?? 'אווטיר',
+      targetUid,
+      publicProfile.name,
+    );
+  }, [myUid, myProfile, targetUid, publicProfile]);
 
   // Load connections if not yet loaded
   useEffect(() => {
@@ -77,6 +98,7 @@ export default function PublicProfilePage() {
             currentLevel: data.progression?.currentLevel ?? undefined,
             initialFitnessTier: data.core?.initialFitnessTier ?? undefined,
             mainGoal: data.core?.mainGoal ?? undefined,
+            ageGroup: data.core?.ageGroup === 'minor' || data.core?.ageGroup === 'adult' ? data.core.ageGroup : undefined,
           });
         }
         setPosts(userPosts);
@@ -236,6 +258,26 @@ export default function PublicProfilePage() {
               )}
             </button>
           )}
+
+          {/* Send-message button — same Minor DM Block gate as UserProfileSheet.tsx:
+              hidden for self, disabled-with-explanation when either party is a minor. */}
+          {canDirectMessage ? (
+            <button
+              onClick={handleSendMessage}
+              className="mt-2 w-full py-2.5 rounded-xl text-sm font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200"
+            >
+              <MessageCircle className="w-4 h-4" />
+              שלח הודעה
+            </button>
+          ) : (!isSelf && myUid && (currentIsMinor || targetIsMinor)) ? (
+            <div
+              className="mt-2 w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-gray-50 text-gray-400 border border-gray-100"
+              aria-disabled="true"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              הודעות ישירות זמינות רק לבני 18+
+            </div>
+          ) : null}
         </motion.div>
 
         {/* Activity feed */}
