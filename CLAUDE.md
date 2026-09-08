@@ -24,6 +24,7 @@ and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@a
 | CRM agent playbook | `.claude/agents/crm-agent.md` |
 | Live session state | `.claude/knowledge/project-state.md` |
 | Immutable ground truths | `.claude/rules/axioms.md` |
+| Exercise editor field-clearing convention | `.claude/rules/exercise-editor-conventions.md` |
 
 ---
 
