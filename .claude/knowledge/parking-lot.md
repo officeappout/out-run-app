@@ -576,6 +576,7 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 3. **`alreadyAccepted`** (`/onboarding-new/health/page.tsx`, תוקן 07.09.2026) — `profile` שעדיין לא נטען (`null`, לפני `_hasHydrated`) ו-`profile` שנטען ומראה "לא הצהיר" חישבו לאותה תוצאה (`false`), כי הבדיקה הייתה `!!profile && hasAccepted(...)` בלי לבדוק את דגל-הטעינה בנפרד.
 
 **הצורה המשותפת, לזיהוי-עתידי:** בדוק כל בדיקה מהצורה `if (someBooleanDerivedFromPossiblyUnloadedData)` — האם היא באמת מבחינה בין "נבדק, והתשובה שלילית" לבין "עדיין לא ידוע"? אם לא, זה מועמד לאותה מחלקת-באג. התיקון בשלושת המקרים היה זהה במהות: להוסיף מצב-שלישי מפורש (בדיקת-אפס-נפרדת, guard-נפרד-מפורש, דגל-hydration-נפרד) במקום לתת לשני-הערכים-הקיימים לבלוע אותו.
+
 ---
 
 ## `isAdmin()` has no `authorityId` scoping — every authority-manager has de-facto super-admin Firestore access
