@@ -91,7 +91,7 @@ async function main() {
 
   const plan: {
     id: string; name: string; ok: boolean; reason?: string; data?: any;
-    memberCount: number; chatExists: boolean; messageCount: number; opCount: number;
+    memberCount: number; memberUids: string[]; chatExists: boolean; messageCount: number; opCount: number;
   }[] = [];
 
   for (const t of TARGETS) {
@@ -99,6 +99,7 @@ async function main() {
 
     const membersSnap = await adb.collection('community_groups').doc(t.id).collection('members').get();
     const memberCount = membersSnap.size;
+    const memberUids = membersSnap.docs.map((d) => d.id);
     const chatSnap = await adb.collection('chats').doc(`group_${t.id}`).get();
     const chatExists = chatSnap.exists;
     const messagesSnap = chatExists ? await adb.collection('chats').doc(`group_${t.id}`).collection('messages').get() : null;
@@ -106,7 +107,7 @@ async function main() {
     const opCount = 2 + memberCount + memberCount * 2 + (chatExists ? 1 : 0) + messageCount;
 
     if (!snap.exists && !t.alreadyDeleted) {
-      plan.push({ id: t.id, name: t.name, ok: false, reason: 'unexpectedly already gone', memberCount, chatExists, messageCount, opCount });
+      plan.push({ id: t.id, name: t.name, ok: false, reason: 'unexpectedly already gone', memberCount, memberUids, chatExists, messageCount, opCount });
       continue;
     }
     if (snap.exists) {
@@ -114,23 +115,23 @@ async function main() {
       const liveName = data.name ?? '';
       const liveMembers = data.memberCount ?? data.currentParticipants ?? 0;
       if (liveName !== t.name) {
-        plan.push({ id: t.id, name: t.name, ok: false, reason: `name mismatch: expected "${t.name}", found "${liveName}"`, data, memberCount, chatExists, messageCount, opCount });
+        plan.push({ id: t.id, name: t.name, ok: false, reason: `name mismatch: expected "${t.name}", found "${liveName}"`, data, memberCount, memberUids, chatExists, messageCount, opCount });
         continue;
       }
       if (liveMembers > t.expectedMaxMembers) {
-        plan.push({ id: t.id, name: t.name, ok: false, reason: `memberCount drifted: expected <=${t.expectedMaxMembers}, found ${liveMembers}`, data, memberCount, chatExists, messageCount, opCount });
+        plan.push({ id: t.id, name: t.name, ok: false, reason: `memberCount drifted: expected <=${t.expectedMaxMembers}, found ${liveMembers}`, data, memberCount, memberUids, chatExists, messageCount, opCount });
         continue;
       }
       if (data.authorityId) {
-        plan.push({ id: t.id, name: t.name, ok: false, reason: `now HAS an authorityId (${data.authorityId}) — no longer an orphan, re-check before deleting`, data, memberCount, chatExists, messageCount, opCount });
+        plan.push({ id: t.id, name: t.name, ok: false, reason: `now HAS an authorityId (${data.authorityId}) — no longer an orphan, re-check before deleting`, data, memberCount, memberUids, chatExists, messageCount, opCount });
         continue;
       }
     }
     if (opCount > DELETE_BATCH_OP_LIMIT) {
-      plan.push({ id: t.id, name: t.name, ok: false, reason: `needs ${opCount} write ops (limit ${DELETE_BATCH_OP_LIMIT}) — refusing`, data: snap.data(), memberCount, chatExists, messageCount, opCount });
+      plan.push({ id: t.id, name: t.name, ok: false, reason: `needs ${opCount} write ops (limit ${DELETE_BATCH_OP_LIMIT}) — refusing`, data: snap.data(), memberCount, memberUids, chatExists, messageCount, opCount });
       continue;
     }
-    plan.push({ id: t.id, name: t.name, ok: true, data: snap.data(), memberCount, chatExists, messageCount, opCount });
+    plan.push({ id: t.id, name: t.name, ok: true, data: snap.data(), memberCount, memberUids, chatExists, messageCount, opCount });
   }
 
   console.log('=== Per-row check (member count / chat exists / message count) ===');
@@ -184,6 +185,13 @@ async function main() {
   console.log('Signed in as admin:', auth.currentUser?.uid);
 
   let deleted = 0;
+  let groupsDeleted = 0;
+  let groupsCleanedUp = 0;
+  let memberDocsDeleted = 0;
+  let chatsDeleted = 0;
+  let messagesDeleted = 0;
+  const allTouchedUids = new Set<string>();
+
   for (const p of okRows) {
     const t = TARGETS.find((x) => x.id === p.id)!;
     const fresh = await adb.collection('community_groups').doc(p.id).get();
@@ -200,12 +208,23 @@ async function main() {
     await deleteGroup(p.id);
     console.log(`  ✅ ${t.alreadyDeleted ? 'finished cleanup for' : 'deleted'} ${p.id} "${p.name}"`);
     deleted++;
+    if (t.alreadyDeleted) groupsCleanedUp++; else groupsDeleted++;
+    memberDocsDeleted += p.memberCount;
+    if (p.chatExists) chatsDeleted++;
+    messagesDeleted += p.messageCount;
+    p.memberUids.forEach((uid) => allTouchedUids.add(uid));
   }
   await auth.signOut();
 
   const afterCountSnap = await adb.collection('community_groups').get();
-  console.log(`\nDone. ${deleted}/${okRows.length} processed.`);
-  console.log(`Total community_groups after: ${afterCountSnap.size} (before: ${beforeCountSnap.size})`);
+  console.log(`\n=== Full breakdown ===`);
+  console.log(`Groups actually deleted: ${groupsDeleted}`);
+  console.log(`Already-deleted groups whose orphan cleanup was finished: ${groupsCleanedUp}`);
+  console.log(`Member docs deleted: ${memberDocsDeleted}`);
+  console.log(`Chat threads deleted: ${chatsDeleted}`);
+  console.log(`Chat messages deleted: ${messagesDeleted}`);
+  console.log(`Unique users updated (social.groupIds + user_memberships): ${allTouchedUids.size} — ${[...allTouchedUids].join(', ')}`);
+  console.log(`\nTotal community_groups: ${afterCountSnap.size} (before: ${beforeCountSnap.size})`);
 }
 
 main().catch((e) => {
