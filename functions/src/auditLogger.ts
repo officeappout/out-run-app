@@ -12,7 +12,13 @@
  *
  * Field-level enforcement
  * ───────────────────────
- *   • adminId / adminName  — taken from request.auth (cannot be forged)
+ *   • adminId / adminName  — taken from request.auth (cannot be forged).
+ *     SPEC-02 F-06: adminName used to accept an optional client-supplied
+ *     override (`data.adminName`) — an admin's real action was correctly
+ *     tied to their own uid, but the human-readable name attached to it
+ *     was whatever string they put in the payload, including someone
+ *     else's real name. Now always resolved server-side from the
+ *     caller's own users/{uid}.core.name (see resolveAdminDisplayName.ts).
  *   • sourceIp             — taken from rawRequest headers (cannot be forged)
  *   • timestamp            — server-set serverTimestamp()
  *   • everything else       — accepted from client payload after validation
@@ -26,6 +32,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { resolveAdminDisplayName } from './lib/resolveAdminDisplayName';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -99,8 +106,6 @@ interface LogPayload {
   oldValue?: unknown;
   /** JSON-serialisable new state (after the change). */
   newValue?: unknown;
-  /** Optional admin display name (falls back to token email/uid). */
-  adminName?: string;
 }
 
 interface LogResult {
@@ -156,7 +161,14 @@ export const logAuditAction = onCall<LogPayload, Promise<LogResult>>(
     region: 'us-central1',
     timeoutSeconds: 15,
     memory: '256MiB',
-    enforceAppCheck: false,
+    // SPEC-02 F-06: was `false` — the only callable in this project without
+    // App Check enforced (every other one sets `true`; see awardWorkoutXP,
+    // ingestHealthSamples, onUserDelete, previewNotificationContent,
+    // runDataMigration, reverseWorkoutXP, validateAccessCode). The admin UI
+    // already initializes App Check globally before touching any Firebase
+    // service (src/lib/firebase.ts), so every legitimate caller already
+    // sends a valid token — this closes the gap with no client change.
+    enforceAppCheck: true,
   },
   async (request) => {
     await requireAdmin(request.auth as { uid: string; token?: Record<string, unknown> } | undefined);
@@ -188,10 +200,13 @@ export const logAuditAction = onCall<LogPayload, Promise<LogResult>>(
 
     const uid = request.auth!.uid;
     const tokenEmail = (request.auth!.token as any)?.email;
-    const adminName =
-      (typeof data.adminName === 'string' && data.adminName.trim().length > 0
-        ? data.adminName.trim().slice(0, 200)
-        : tokenEmail || uid);
+    // SPEC-02 F-06: used to trust an optional data.adminName straight off
+    // the client payload — adminId (uid) was already unforgeable, but a
+    // malicious admin could still write an arbitrary display name (e.g.
+    // someone else's real name) onto their own, real, correctly-attributed
+    // action. Always resolved server-side now, from the caller's own
+    // protected profile.
+    const adminName = await resolveAdminDisplayName(db, uid, tokenEmail);
 
     const sourceIp = extractSourceIp(request.rawRequest);
 
