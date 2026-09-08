@@ -1,9 +1,38 @@
 /**
- * ONE-OFF, real Firestore round-trip verification for Round 2 (the panel
- * undefined-vs-null bug, docs/workout-engine/03-CHANGES.md). Exercises the
- * REAL production save path — client-SDK createExercise/updateExercise/
- * getExercise from exercise.service.ts, not a raw Admin-SDK write — against
- * ONE throwaway test exercise doc, created and deleted by this script.
+ * REGRESSION SCRIPT — kept in git, not a one-off (docs/workout-engine/
+ * 03-CHANGES.md, 08-09.09.2026: "admin panel can't clear a field" bug).
+ *
+ * THE PATTERN: in the exercise editor, clearing a field must send `null`,
+ * never `undefined`. `undefined` means "the user didn't touch this field"
+ * to the save pipeline — sending it to mean "cleared" silently keeps the
+ * OLD stored value instead:
+ *   - Fields covered by exercise.service.ts's `preserveField`
+ *     (exercise.service.ts:352-364, the full list is right there) —
+ *     `undefined` explicitly falls through to "preserve existing value".
+ *   - Fields NOT covered by preserveField (e.g. targetPrograms) — `undefined`
+ *     just drops the key from the updateDoc payload, so Firestore's partial
+ *     update never touches the field. Same silent-preserve outcome,
+ *     different mechanism.
+ * For array fields the equivalent "cleared" value is a real `[]`, not
+ * `null` — matches how every other array field in this codebase is already
+ * handled (sanitizeExerciseData, exercise-mapping.utils.ts).
+ *
+ * FOUR instances of this were found and fixed in one pass: movementGroup /
+ * primaryMuscle / base_movement_id (single-value → null) and targetPrograms
+ * (array → []). The trigger shape was always the same: a "click again to
+ * deselect" chip/toggle, a dropdown's blank option, or an explicit "clear"
+ * button — `field: selected ? undefined : value` or `field || undefined`.
+ *
+ * WHEN ADDING A NEW FIELD/CONTROL TO THE EXERCISE EDITOR: grep for that
+ * exact shape (`? undefined :`, `|| undefined`, `?? undefined`) in whatever
+ * sets the field. If the control has a "clear"/"deselect" affordance, its
+ * clear branch must produce `null` (single value) or `[]` (array) — never
+ * `undefined`. Then add a case to this script covering it and re-run.
+ *
+ * Exercises the REAL production save path — client-SDK
+ * createExercise/updateExercise/getExercise from exercise.service.ts, not a
+ * raw Admin-SDK write — against ONE throwaway test exercise doc, created and
+ * deleted by this script. Run: `npx tsx scripts/verify-exercise-editor-clear-fields.ts`
  *
  * Signs in via a minted custom token carrying office@appout.co.il's email
  * claim (isRootAdmin() in firestore.rules), same headless-client pattern as
@@ -18,7 +47,7 @@ async function authenticateHeadlessAdminClient() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY!;
   const cred = JSON.parse(raw);
   admin.initializeApp({ credential: admin.credential.cert(cred), projectId: cred.project_id });
-  const customToken = await admin.auth().createCustomToken('round2_verify_script', {
+  const customToken = await admin.auth().createCustomToken('exercise_editor_clear_fields_verify', {
     email: 'office@appout.co.il',
   });
   const { signInWithCustomToken } = await import('firebase/auth');
@@ -45,7 +74,7 @@ async function main() {
 
   console.log('Creating test exercise...');
   const exerciseId = await createExercise({
-    name: { he: '__ROUND2_TEST__ תרגיל בדיקה', en: '__ROUND2_TEST__', es: '__ROUND2_TEST__' },
+    name: { he: '__EDITOR_CLEAR_FIELDS_TEST__ תרגיל בדיקה', en: '__EDITOR_CLEAR_FIELDS_TEST__', es: '__EDITOR_CLEAR_FIELDS_TEST__' },
     type: 'reps',
     loggingMode: 'reps',
     equipment: [],
@@ -76,8 +105,8 @@ async function main() {
     // value) against the UNMODIFIED service layer must silently NOT clear.
     // This isolates the exact causal mechanism (undefined vs null) rather
     // than relying on a git-stash diff, since exercise.service.ts/
-    // sanitizeExerciseData were never touched by this round's fix — they
-    // already handled null correctly; only the UI's produced value changed.
+    // sanitizeExerciseData were never touched by the fix — they already
+    // handled null correctly; only the UI's produced value changed.
     await updateExercise(exerciseId, { movementGroup: undefined });
     ex = await getExercise(exerciseId);
     console.log('\n[Test 0 — movementGroup: undefined (reproduces the pre-fix bug)]');
@@ -101,14 +130,14 @@ async function main() {
     // :884-886, comment: "Testing bypass: allow Level 6/7 exercises; Smart
     // Swap broken for these") — a falsy base_movement_id normalizes to the
     // literal string 'unspecified_movement' on every read, unrelated to
-    // Round 2. So the real proof point is the RAW Firestore value, not what
-    // getExercise() returns.
+    // this fix. So the real proof point is the RAW Firestore value, not
+    // what getExercise() returns.
     await updateExercise(exerciseId, { base_movement_id: null });
     const rawDoc = await admin.firestore().collection('exercises').doc(exerciseId).get();
     ex = await getExercise(exerciseId);
     console.log('\n[Test 3 — base_movement_id: null]');
     check('raw Firestore value is null (the real write-path proof)', rawDoc.data()?.base_movement_id === null, JSON.stringify(rawDoc.data()?.base_movement_id));
-    check('getExercise() shows the pre-existing unspecified_movement default (expected, unrelated to Round 2)', ex?.base_movement_id === 'unspecified_movement', String(ex?.base_movement_id));
+    check('getExercise() shows the pre-existing unspecified_movement default (expected, unrelated to this fix)', ex?.base_movement_id === 'unspecified_movement', String(ex?.base_movement_id));
 
     // ── Test 4: clear targetPrograms ([]) → saved empty ─────────────────────
     // Not covered by preserveField — ExerciseEditorForm.tsx used to send
