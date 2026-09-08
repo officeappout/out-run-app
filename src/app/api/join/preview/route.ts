@@ -7,9 +7,11 @@
  * Security constraints:
  *  1. Whitelist — only non-sensitive display fields are returned. Member
  *     identities, createdBy uid, and any minor-related data are never exposed.
- *  2. Rate limit — 15 requests / 60 s per IP to prevent code enumeration
- *     (6-char alphanumeric space = 2.2B combinations; basic throttle raises
- *     the floor without blocking legitimate share links).
+ *  2. Rate limit — SPEC-02 SEC-15: shared Firestore-backed limiter
+ *     (rateLimit.ts), replacing the per-instance in-memory Map this used
+ *     to have — that reset on every serverless cold start (Vercel
+ *     recycles instances routinely), so it never actually bounded a
+ *     determined enumeration attempt in production.
  *  3. Read-only — this endpoint never writes. Joining (member write) happens
  *     via a separate authenticated endpoint after sign-in.
  */
@@ -17,33 +19,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { resolveGroupIdByInviteCode } from '@/lib/joinEngine';
+import { isRateLimited } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// ── Rate limit ────────────────────────────────────────────────────────────────
-// Per-instance in-memory sliding window. Serverless instances are recycled
-// frequently so this is best-effort, not a hard guarantee — good enough to
-// deter casual enumeration without requiring external infrastructure.
-
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 60;
-const ipWindows = new Map<string, number[]>();
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const prev = (ipWindows.get(ip) ?? []).filter((t: number) => now - t < WINDOW_MS);
-  if (prev.length >= MAX_REQUESTS_PER_WINDOW) return true;
-  prev.push(now);
-  ipWindows.set(ip, prev);
-  // Evict stale IPs every ~500 calls to prevent unbounded growth.
-  if (ipWindows.size > 500) {
-    ipWindows.forEach((ts, k) => {
-      if (ts.every((t: number) => now - t >= WINDOW_MS)) ipWindows.delete(k);
-    });
-  }
-  return false;
-}
 
 // ── Field whitelist ───────────────────────────────────────────────────────────
 // Explicit opt-in — adding a new sensitive field to community_groups will NOT
@@ -72,7 +54,8 @@ export async function GET(request: NextRequest) {
   // 1. Rate limit by client IP.
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = (forwarded ? forwarded.split(',')[0] : null)?.trim() ?? 'unknown';
-  if (isRateLimited(ip)) {
+  const db = getAdminDb();
+  if (await isRateLimited(db, `join-preview:${ip}`, { windowMs: WINDOW_MS, maxRequests: MAX_REQUESTS_PER_WINDOW })) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
@@ -83,10 +66,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const db = getAdminDb();
     // SPEC-01 task 2b: same resolution helper as joinEngine — the code
-    // lives in community_groups/{id}/private/invite now, with a fallback
-    // to the legacy top-level field during the migration window.
+    // lives in community_groups/{id}/private/invite (migration complete,
+    // no legacy-field fallback — SPEC-02 Wave 0).
     const groupId = await resolveGroupIdByInviteCode(db, code);
     if (!groupId) {
       // Generic message — don't reveal whether the code format was valid.

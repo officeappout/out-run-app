@@ -22,37 +22,27 @@
  *  1. Response never includes the invitation token, id, or any field beyond
  *     `role` — otherwise typing in a known admin's email would hand back
  *     their live invitation token.
- *  2. Rate limit — per-IP sliding window, matching /api/join/preview.
+ *  2. Rate limit — SPEC-02 SEC-15: shared Firestore-backed limiter
+ *     (rateLimit.ts), not a per-instance in-memory Map — that reset on
+ *     every serverless cold start, which Vercel does routinely, so it
+ *     never actually bounded anything in production.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { isRateLimited } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 30;
-const ipWindows = new Map<string, number[]>();
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const prev = (ipWindows.get(ip) ?? []).filter((t: number) => now - t < WINDOW_MS);
-  if (prev.length >= MAX_REQUESTS_PER_WINDOW) return true;
-  prev.push(now);
-  ipWindows.set(ip, prev);
-  if (ipWindows.size > 500) {
-    ipWindows.forEach((ts, k) => {
-      if (ts.every((t: number) => now - t >= WINDOW_MS)) ipWindows.delete(k);
-    });
-  }
-  return false;
-}
 
 export async function GET(request: NextRequest) {
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = (forwarded ? forwarded.split(',')[0] : null)?.trim() ?? 'unknown';
-  if (isRateLimited(ip)) {
+  const db = getAdminDb();
+  if (await isRateLimited(db, `check-email:${ip}`, { windowMs: WINDOW_MS, maxRequests: MAX_REQUESTS_PER_WINDOW })) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
@@ -62,7 +52,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const db = getAdminDb();
     const snap = await db
       .collection('admin_invitations')
       .where('email', '==', email)

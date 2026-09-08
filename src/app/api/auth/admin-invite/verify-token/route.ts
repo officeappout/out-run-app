@@ -18,32 +18,21 @@
  * (64-char random hex, supplied by the caller) remains the authorization —
  * this endpoint just moves *where* it's checked, not the trust model.
  *
- * Rate limit — per-IP sliding window, matching /api/join/preview.
+ * Rate limit — SPEC-02 SEC-15: shared Firestore-backed limiter
+ * (rateLimit.ts). Not one of the two routes SEC-15 named explicitly, but
+ * the identical in-memory-Map issue (I wrote this file in SPEC-01 with
+ * the same pattern) — fixed here too rather than left as a known-twin bug.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { isRateLimited } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 30;
-const ipWindows = new Map<string, number[]>();
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const prev = (ipWindows.get(ip) ?? []).filter((t: number) => now - t < WINDOW_MS);
-  if (prev.length >= MAX_REQUESTS_PER_WINDOW) return true;
-  prev.push(now);
-  ipWindows.set(ip, prev);
-  if (ipWindows.size > 500) {
-    ipWindows.forEach((ts, k) => {
-      if (ts.every((t: number) => now - t >= WINDOW_MS)) ipWindows.delete(k);
-    });
-  }
-  return false;
-}
 
 function toIso(v: any): string | null {
   if (!v) return null;
@@ -55,7 +44,8 @@ function toIso(v: any): string | null {
 export async function GET(request: NextRequest) {
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = (forwarded ? forwarded.split(',')[0] : null)?.trim() ?? 'unknown';
-  if (isRateLimited(ip)) {
+  const db = getAdminDb();
+  if (await isRateLimited(db, `verify-token:${ip}`, { windowMs: WINDOW_MS, maxRequests: MAX_REQUESTS_PER_WINDOW })) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
@@ -65,7 +55,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const db = getAdminDb();
     const snap = await db
       .collection('admin_invitations')
       .where('token', '==', token)
