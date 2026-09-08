@@ -331,14 +331,22 @@ function normalizeEvent(docId: string, data: any): CommunityEvent {
 /**
  * Upload a community image to Firebase Storage and return its download URL.
  */
-export async function uploadCommunityImage(file: File): Promise<string> {
+/**
+ * SPEC-02 F-14: storage.rules' /communities/{allPaths=**} write rule used
+ * to have no ownership segment at all — any authenticated user could
+ * overwrite or flood ANY path under it. uid is now the first path
+ * segment so the rule can scope writes to their own subtree; the
+ * returned download URL works exactly the same regardless of path shape,
+ * so this doesn't change anything the caller (or a viewer) sees.
+ */
+export async function uploadCommunityImage(file: File, uid: string): Promise<string> {
   if (!file.type.startsWith('image/')) throw new Error('רק קבצי תמונה נתמכים');
   const MAX = 10 * 1024 * 1024; // 10 MB
   if (file.size > MAX) throw new Error('גודל הקובץ חורג מ-10MB');
 
   const ts = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-  const storagePath = `communities/${ts}-${safeName}`;
+  const storagePath = `communities/${uid}/${ts}-${safeName}`;
   const storageRef = ref(storage, storagePath);
 
   // Convert to ArrayBuffer before upload: Capacitor Android's WebView bridges

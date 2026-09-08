@@ -300,7 +300,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
       // Resolve image: upload new file, or keep existing preview URL, or clear
       let resolvedImages: string[] | undefined;
       if (form.imageFile) {
-        const uploaded = await uploadCommunityImage(form.imageFile);
+        const uploaded = await uploadCommunityImage(form.imageFile, profile.id);
         resolvedImages = [uploaded];
       } else if (form.imagePreviewUrl) {
         resolvedImages = [form.imagePreviewUrl];

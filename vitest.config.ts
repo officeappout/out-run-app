@@ -6,11 +6,19 @@ import path from 'path';
 //
 // tests/firestore-rules.test.ts is the one exception: it's an emulator
 // integration suite, not a pure-logic unit test. It requires
-// `firebase emulators:start --only firestore,auth` running separately
+// `firebase emulators:start --only firestore` running separately
 // (127.0.0.1:8080) — every case in it fails immediately if the emulator
-// isn't up. testTimeout/hookTimeout are raised project-wide so its ~100
+// isn't up. testTimeout/hookTimeout are raised project-wide so its
 // emulator round-trips (and one 25-document stress suite) don't trip the
 // default 5s/10s vitest limits; that's harmless for the fast unit tests too.
+//
+// storage.rules changes (SPEC-02 F-14) are NOT covered by an equivalent
+// automated suite here — the Firebase Storage emulator proved unreliable
+// in this environment (repeated timeouts/crashes across two attempts via
+// @firebase/rules-unit-testing's storage client) and a hanging test file
+// would violate this project's own "npm test must stay green" rule worse
+// than having no automated coverage. See SPEC-02's final report for the
+// manual verification this fix relies on instead.
 export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') },

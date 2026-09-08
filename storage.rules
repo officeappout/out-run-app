@@ -156,12 +156,16 @@ service firebase.storage {
       allow write: if isAdmin() && isImage() && isImageSize();
     }
 
-    match /communities/{allPaths=**} {
+    // SPEC-02 F-14: `(isAdmin() || isAuthenticated())` with NO ownership
+    // segment let any authenticated user overwrite or flood ANY path
+    // under /communities — including other users' already-uploaded
+    // images. uploadCommunityImage (CreateGroupWizard's UGC path) now
+    // writes to /communities/{uid}/..., matching the {userId}-scoped
+    // convention already used by contribution-photos and
+    // health-declarations above.
+    match /communities/{userId}/{allPaths=**} {
       allow read: if true;
-      // Admins can write anything; authenticated users can upload group cover images
-      // (UGC path used by CreateGroupWizard → uploadCommunityImage).
-      allow write: if isImage() && isImageSize()
-                   && (isAdmin() || isAuthenticated());
+      allow write: if isAdmin() || (isOwner(userId) && isImage() && isImageSize());
     }
 
     // ── 2. Admin Avatars (Admin Write, Public Read) ──────────────────────
