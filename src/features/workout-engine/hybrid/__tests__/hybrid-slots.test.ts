@@ -1,19 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Togglable flag mock — live getters so each resolveSlots() call reads the CURRENT
-// values, letting us cover both flag states in one file. mapOverview/routeStops default
-// false so the full-park gate tests below exercise the equipped-park/strength-program
-// signals (not the prod-surface short-circuit).
-const flag = vi.hoisted(() => ({ enabled: true, mapOverview: false, routeStops: false, assessmentPrompt: false }));
+// values. Only the flags that STAY compile-time imports (MAP_OVERVIEW_CHROME_V1,
+// STRENGTH_ASSESSMENT_PROMPT_CARD_V1) are mocked here. enableHybridSlots/
+// enableFullParkWorkout/enableRouteStops are now SlotEnv fields (wave 1, 08.09.2026,
+// replacing HYBRID_SLOTS_ENABLED/HYBRID_FULL_PARK_WORKOUT_ENABLED/MAP_ROUTE_STOPS_V1) —
+// passed directly via env() below, never mocked.
+const flag = vi.hoisted(() => ({ mapOverview: false, assessmentPrompt: false }));
 vi.mock('@/config/feature-flags', () => ({
-  get HYBRID_FULL_PARK_WORKOUT_ENABLED() {
-    return flag.enabled;
-  },
   get MAP_OVERVIEW_CHROME_V1() {
     return flag.mapOverview;
-  },
-  get MAP_ROUTE_STOPS_V1() {
-    return flag.routeStops;
   },
   get STRENGTH_ASSESSMENT_PROMPT_CARD_V1() {
     return flag.assessmentPrompt;
@@ -22,19 +18,62 @@ vi.mock('@/config/feature-flags', () => ({
 
 import { resolveSlots, presetToIntent, HYBRID_PRESETS, type SlotEnv } from '../hybrid-slots';
 
+// Defaults ON for all 3 hybrid-slot flags — matches today's production state (all `true`)
+// so every pre-existing test in this file keeps its original meaning unchanged; tests that
+// specifically exercise an OFF state override explicitly.
 const env = (over: Partial<SlotEnv> = {}): SlotEnv => ({
   hasGps: true,
   nearbyParkCount: 1,
   aerobicKind: 'walking',
+  enableHybridSlots: true,
+  enableFullParkWorkout: true,
+  enableRouteStops: true,
   ...over,
 });
 const ids = (slots: ReturnType<typeof resolveSlots>) => slots.map((s) => s.id);
 
-describe('resolveSlots — full-park gate', () => {
-  beforeEach(() => {
-    flag.enabled = true;
+describe('resolveSlots — master switch (enableHybridSlots)', () => {
+  it('returns [] when off, regardless of every other flag/gate', () => {
+    const slots = resolveSlots(env({
+      enableHybridSlots: false,
+      enableFullParkWorkout: true,
+      enableRouteStops: true,
+      hasEquippedPark: true,
+      hasStrengthProgram: true,
+    }));
+    expect(slots).toEqual([]);
   });
 
+  it('returns the normal slot set when on (baseline)', () => {
+    const slots = resolveSlots(env());
+    expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
+  });
+
+  // Full combination coverage of the 3 flags (2^3 = 8), per the wave-1 verification plan.
+  const combos = [
+    [true, true, true], [true, true, false], [true, false, true], [true, false, false],
+    [false, true, true], [false, true, false], [false, false, true], [false, false, false],
+  ] as const;
+
+  it.each(combos)(
+    'enableHybridSlots=%s enableFullParkWorkout=%s enableRouteStops=%s → hierarchy holds',
+    (enableHybridSlots, enableFullParkWorkout, enableRouteStops) => {
+      const slots = resolveSlots(env({
+        enableHybridSlots, enableFullParkWorkout, enableRouteStops,
+        hasEquippedPark: true, hasStrengthProgram: true,
+      }));
+      if (!enableHybridSlots) {
+        expect(slots).toEqual([]);
+        return;
+      }
+      expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
+      expect(ids(slots).includes('full_park')).toBe(enableFullParkWorkout);
+      expect(ids(slots).includes('route_stops')).toBe(enableRouteStops);
+    },
+  );
+});
+
+describe('resolveSlots — full-park gate', () => {
   it('adds the full_park card when flag ON + equipped park + strength program', () => {
     const slots = resolveSlots(env({ hasEquippedPark: true, hasStrengthProgram: true }));
     expect(ids(slots)).toContain('full_park');
@@ -66,9 +105,8 @@ describe('resolveSlots — full-park gate', () => {
     expect(ids(resolveSlots(env()))).not.toContain('full_park');
   });
 
-  it('is absent when the flag is OFF, even with the gate open', () => {
-    flag.enabled = false;
-    expect(ids(resolveSlots(env({ hasEquippedPark: true, hasStrengthProgram: true })))).not.toContain('full_park');
+  it('is absent when enableFullParkWorkout is OFF, even with the gate open', () => {
+    expect(ids(resolveSlots(env({ enableFullParkWorkout: false, hasEquippedPark: true, hasStrengthProgram: true })))).not.toContain('full_park');
   });
 
   it('never disturbs the existing recommended + aerobic_quick slots', () => {
@@ -77,19 +115,13 @@ describe('resolveSlots — full-park gate', () => {
   });
 });
 
-describe('resolveSlots — route_stops (MAP_ROUTE_STOPS_V1)', () => {
-  beforeEach(() => {
-    flag.enabled = true;
-    flag.routeStops = false;
-  });
-
+describe('resolveSlots — route_stops (enableRouteStops)', () => {
   it('is absent when the flag is OFF (slot layer byte-identical)', () => {
-    expect(ids(resolveSlots(env()))).not.toContain('route_stops');
+    expect(ids(resolveSlots(env({ enableRouteStops: false })))).not.toContain('route_stops');
   });
 
   it('adds the route_stops card when flag ON + GPS', () => {
-    flag.routeStops = true;
-    const slots = resolveSlots(env({ hasGps: true }));
+    const slots = resolveSlots(env({ enableRouteStops: true, hasGps: true }));
     expect(ids(slots)).toContain('route_stops');
     const rs = slots.find((s) => s.id === 'route_stops')!;
     expect(rs.kind).toBe('hybrid');
@@ -101,20 +133,17 @@ describe('resolveSlots — route_stops (MAP_ROUTE_STOPS_V1)', () => {
   });
 
   it('is absent without GPS even when the flag is ON', () => {
-    flag.routeStops = true;
-    expect(ids(resolveSlots(env({ hasGps: false })))).not.toContain('route_stops');
+    expect(ids(resolveSlots(env({ enableRouteStops: true, hasGps: false })))).not.toContain('route_stops');
   });
 
   it('never disturbs the existing recommended + aerobic_quick slots', () => {
-    flag.routeStops = true;
-    const slots = resolveSlots(env({ hasGps: true }));
+    const slots = resolveSlots(env({ enableRouteStops: true, hasGps: true }));
     expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
   });
 });
 
 describe('resolveSlots — assessment-prompt substitution (STRENGTH_ASSESSMENT_PROMPT_CARD_V1)', () => {
   beforeEach(() => {
-    flag.enabled = true;
     // MAP_OVERVIEW_CHROME_V1 = true is the exact scenario that defeats the
     // hasStrengthProgram check — the substitution is only reachable there.
     flag.mapOverview = true;

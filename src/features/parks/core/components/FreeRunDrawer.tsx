@@ -7,7 +7,6 @@ import { X, Play, Loader2, Trash2, GripVertical } from 'lucide-react';
 import { ActivityType } from '../types/route.types';
 import StrengthStationsToggle from './hybrid/StrengthStationsToggle';
 import AerobicStrengthSlider from './hybrid/AerobicStrengthSlider';
-import { HYBRID_SLOTS_ENABLED } from '@/config/feature-flags';
 import {
   shareToEmphasis,
   RECOMMENDED_AEROBIC_SHARE,
@@ -84,6 +83,14 @@ interface FreeRunDrawerProps {
    * When absent, hybrid gracefully degrades to a normal free start.
    */
   onStartHybrid?: (intent: HybridStartIntent) => void;
+  /**
+   * system_config/feature_flags.enable_hybrid_slots (wave 1, 08.09.2026) — replaces the old
+   * HYBRID_SLOTS_ENABLED compile constant. Passed down from DiscoverLayer's useFeatureFlags
+   * call rather than read here directly, so this component stays a single Firestore listener
+   * per map screen instead of mounting its own. Defaults to false (existing callers that don't
+   * pass it keep today's exact "toggle hidden" behavior).
+   */
+  enableHybridSlots?: boolean;
   /**
    * Address-destination request (08.08 decision) — additive option below the
    * existing time/distance/calories goal tabs, NOT a replacement. Hands off
@@ -1015,6 +1022,7 @@ export default function FreeRunDrawer({
   userPosition,
   cityName,
   onStartHybrid,
+  enableHybridSlots = false,
   onRequestAddressDestination,
   onConfirmAddressDestination,
   onRequestAddLeg,
@@ -1290,10 +1298,10 @@ export default function FreeRunDrawer({
             />
 
             {/* ── Block 2c: Hybrid toggle + ratio slider (design §4.1/§4.2) ──
-                Flag-gated: while HYBRID_SLOTS_ENABLED is false the toggle is not
+                Flag-gated: while enableHybridSlots is false the toggle is not
                 rendered, so hybridEnabled stays false → the free-run drawer is
                 byte-identical to pre-hybrid and no compose path is reachable. */}
-            {HYBRID_SLOTS_ENABLED && (
+            {enableHybridSlots && (
               <>
                 <StrengthStationsToggle enabled={hybridEnabled} onToggle={setHybridEnabled} accent={ACCENT} />
                 {hybridEnabled && (

@@ -8,33 +8,65 @@
  * The document is publicly readable (no auth required) so the listener
  * can start immediately on mount — no auth timing race, zero permission errors.
  *
- * Super Admins always get all flags set to true regardless of Firestore values.
+ * Super Admins always get all flags set to true regardless of Firestore values
+ * (maintenanceMode is the one deliberate exception — see FLAG_DEFS below).
+ *
+ * Adding a flag: add ONE entry to FLAG_DEFS. Nothing else in this file changes.
  *
  * Usage:
  *   const { flags, loading } = useFeatureFlags(profile?.core?.isSuperAdmin);
  */
 
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // ============================================================================
-// TYPES
+// SINGLE SOURCE OF TRUTH — one row per flag
 // ============================================================================
 
-export interface FeatureFlags {
-  enableRunningPrograms: boolean;
-  enableCommunityFeed: boolean;
-  enableLeagues: boolean;
-  maintenanceMode: boolean;
-}
+/**
+ * defaultValue: used both as the SAFE_DEFAULTS fallback AND as the fallback when
+ * a Firestore document exists but doesn't yet have this specific key (e.g. right
+ * after a new flag ships, before the doc is re-seeded). Existing flags fail
+ * CLOSED (false) — new features must be explicitly turned on. The 3 hybrid-slot
+ * flags below fail OPEN (true) because they're replacing compile-time constants
+ * that are already `true` in production; failing closed on them would instantly
+ * hide 3 live features for every real user the moment this code deploys, ahead
+ * of the one-time seed script (scripts/seed-hybrid-slot-flags.ts) that writes
+ * the explicit values. Once the doc has the key (seeded, or an admin toggled it),
+ * that explicit value always wins — this default only covers the missing-key gap.
+ */
+const FLAG_DEFS = [
+  { key: 'enableRunningPrograms', firestoreKey: 'enable_running_programs', defaultValue: false, superAdminValue: true },
+  { key: 'enableCommunityFeed', firestoreKey: 'enable_community_feed', defaultValue: false, superAdminValue: true },
+  { key: 'enableLeagues', firestoreKey: 'enable_leagues', defaultValue: false, superAdminValue: true },
+  { key: 'maintenanceMode', firestoreKey: 'maintenance_mode', defaultValue: false, superAdminValue: false },
+  // Hybrid-slot map flags (wave 1) — see the defaultValue note above.
+  { key: 'enableHybridSlots', firestoreKey: 'enable_hybrid_slots', defaultValue: true, superAdminValue: true },
+  { key: 'enableFullParkWorkout', firestoreKey: 'enable_full_park_workout', defaultValue: true, superAdminValue: true },
+  { key: 'enableRouteStops', firestoreKey: 'enable_route_stops', defaultValue: true, superAdminValue: true },
+] as const;
 
-const SAFE_DEFAULTS: FeatureFlags = {
-  enableRunningPrograms: false,
-  enableCommunityFeed: false,
-  enableLeagues: false,
-  maintenanceMode: false,
-};
+// ============================================================================
+// TYPES (derived from FLAG_DEFS — no separate list to keep in sync)
+// ============================================================================
+
+export type FeatureFlags = { [D in (typeof FLAG_DEFS)[number] as D['key']]: boolean };
+
+const SAFE_DEFAULTS: FeatureFlags = Object.fromEntries(
+  FLAG_DEFS.map((d) => [d.key, d.defaultValue]),
+) as FeatureFlags;
+
+const SUPER_ADMIN_FLAGS: FeatureFlags = Object.fromEntries(
+  FLAG_DEFS.map((d) => [d.key, d.superAdminValue]),
+) as FeatureFlags;
+
+function flagsFromFirestoreData(data: DocumentData): FeatureFlags {
+  return Object.fromEntries(
+    FLAG_DEFS.map((d) => [d.key, data[d.firestoreKey] ?? d.defaultValue]),
+  ) as FeatureFlags;
+}
 
 // ============================================================================
 // HOOK
@@ -52,18 +84,7 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
     const unsubscribe = onSnapshot(
       doc(db, 'system_config', 'feature_flags'),
       (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          setFlags({
-            enableRunningPrograms: data.enable_running_programs ?? false,
-            enableCommunityFeed: data.enable_community_feed ?? false,
-            enableLeagues: data.enable_leagues ?? false,
-            maintenanceMode: data.maintenance_mode ?? false,
-          });
-        } else {
-          // Document not yet seeded — keep safe defaults (all features hidden)
-          setFlags(SAFE_DEFAULTS);
-        }
+        setFlags(snap.exists() ? flagsFromFirestoreData(snap.data()) : SAFE_DEFAULTS);
         setLoading(false);
       },
       () => {
@@ -78,16 +99,9 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
   }, []);
 
   // Super Admins bypass all flags — they always see every feature enabled
+  // (maintenanceMode is the one exception, per SUPER_ADMIN_FLAGS above).
   if (isSuperAdmin) {
-    return {
-      flags: {
-        enableRunningPrograms: true,
-        enableCommunityFeed: true,
-        enableLeagues: true,
-        maintenanceMode: false,
-      },
-      loading: false,
-    };
+    return { flags: SUPER_ADMIN_FLAGS, loading: false };
   }
 
   return { flags, loading };
