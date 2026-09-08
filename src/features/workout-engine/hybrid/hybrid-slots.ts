@@ -145,9 +145,19 @@ export interface SlotEnv {
   /**
    * system_config/feature_flags.enable_recommended_hybrid — sub-flag of enableHybridSlots
    * (wave 1 addition, 08.09.2026). Gates ONLY the 'recommended' card (id 'recommended',
-   * the sole slot with recommended:true) — the carousel's other cards, and the SAME
-   * budget-split compose path reachable via FreeRunDrawer's "תחנות כוח" toggle
-   * (gated only by enableHybridSlots), are unaffected.
+   * the sole slot with recommended:true) — the carousel's other cards are unaffected.
+   *
+   * Deliberately scoped to the card, not the underlying capability (David, 08.09.2026):
+   * FreeRunDrawer's "תחנות כוח" toggle reaches the exact same default budget-split compose
+   * path (no `mode` set, same as the 'recommended' preset) — investigated and confirmed
+   * before this flag shipped. Left OUT of this flag on purpose: the toggle is a
+   * user-initiated action with user-set parameters (duration from the drawer's own goal,
+   * an adjustable aerobic/strength slider — see build-hybrid-input.ts's
+   * RECOMMENDED_AEROBIC_SHARE), not the app auto-surfacing a choice, which was the actual
+   * concern this flag exists to address. It is covered only by the enableHybridSlots
+   * master switch, same as every other FreeRunDrawer hybrid control. This is NOT an
+   * oversight — do not "fix" it by threading enableRecommendedHybrid into FreeRunDrawer
+   * without re-raising it as its own decision.
    */
   enableRecommendedHybrid: boolean;
 }

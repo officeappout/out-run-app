@@ -29,7 +29,14 @@ export const FLAG_DEFS = [
   { key: 'enableFullParkWorkout', firestoreKey: 'enable_full_park_workout', defaultValue: true, superAdminValue: true },
   { key: 'enableRouteStops', firestoreKey: 'enable_route_stops', defaultValue: true, superAdminValue: true },
   // Wave-1 addition (08.09.2026) — sub-flag of enableHybridSlots, same defaultValue
-  // reasoning: the "recommended" card is live in prod today.
+  // reasoning: the "recommended" card is live in prod today. Gates ONLY the
+  // auto-surfaced card in the map carousel (hybrid-slots.ts's resolveSlots) — NOT
+  // FreeRunDrawer's "תחנות כוח" toggle, which reaches the identical compose path but
+  // is a deliberate, user-parameterized second entry left uncovered on purpose (David,
+  // 08.09.2026: the concern was the app auto-surfacing this, not the capability
+  // existing). See the full reasoning in hybrid-slots.ts's SlotEnv.enableRecommendedHybrid
+  // doc comment — this is not an oversight, don't extend this flag to the drawer without
+  // re-raising it as its own decision.
   { key: 'enableRecommendedHybrid', firestoreKey: 'enable_recommended_hybrid', defaultValue: true, superAdminValue: true },
 ] as const;
 
