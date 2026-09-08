@@ -422,6 +422,8 @@ Net effect: picking lower-body silently and permanently resolves to `UPPER_BODY`
 
 **Resolved by the ownership principle (`hybrid-display-decisions.md`'s "הכרעה סופית," 04.09.2026), not a point-fix.** The schedule/drawer only offers programs the user has actually opened (filled in, assessed, unlocked) — a program that doesn't exist yet is simply never offered, no `UPPER_BODY` substitution needed. If/when a lower-body program is built, it appears to its owner on its own. Not fixed here as a standalone patch to `ProgramId`/`resolveScheduleSeed` — logged as the concrete bug the ownership principle exists to close.
 
+**⚠️ Severity update, 08.09.2026 — David, on-device log from the diagnostic branch.** This is not display-layer-only. `userSchedule.service.ts:295`'s `hydrateFromTemplate` writes `programIds: [pid]` straight from `lifestyle.recurringTemplate[day]` entries into real `UserScheduleEntry` Firestore documents — for a body_focus/legs user, `pid` is the wrong flat `'UPPER_BODY'` from this exact bug, and it lands verbatim in the schedule document itself, not just in what a screen chooses to render. **The ownership-principle fix (a future drawer's offer-time filter) does not retroactively correct documents already written this way** — it only prevents the *drawer* from re-offering `UPPER_BODY` to a user who never opened it. Any account whose onboarding already ran through this path has real `userSchedule` entries carrying `programIds:['UPPER_BODY']` today, independent of whether the drawer is ever built. This changes where a real fix belongs: not only `resolveScheduleSeed`'s offer-time logic, but potentially a backfill/migration over already-written `userSchedule` documents. Not investigated further, not fixed — logged so the severity isn't understated a second time.
+
 ---
 
 ## `RollingAgenda`'s `isTrainingDay` and `MonthlyCalendarGrid`'s `isTraining` answer "any training day," not "running day" — not wired to the shared resolver
@@ -568,3 +570,22 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 3. **`alreadyAccepted`** (`/onboarding-new/health/page.tsx`, תוקן 07.09.2026) — `profile` שעדיין לא נטען (`null`, לפני `_hasHydrated`) ו-`profile` שנטען ומראה "לא הצהיר" חישבו לאותה תוצאה (`false`), כי הבדיקה הייתה `!!profile && hasAccepted(...)` בלי לבדוק את דגל-הטעינה בנפרד.
 
 **הצורה המשותפת, לזיהוי-עתידי:** בדוק כל בדיקה מהצורה `if (someBooleanDerivedFromPossiblyUnloadedData)` — האם היא באמת מבחינה בין "נבדק, והתשובה שלילית" לבין "עדיין לא ידוע"? אם לא, זה מועמד לאותה מחלקת-באג. התיקון בשלושת המקרים היה זהה במהות: להוסיף מצב-שלישי מפורש (בדיקת-אפס-נפרדת, guard-נפרד-מפורש, דגל-hydration-נפרד) במקום לתת לשני-הערכים-הקיימים לבלוע אותו.
+
+**✅ דוגמה חיובית לאותה מחלקה, נצפתה 08.09.2026 באותו לוג-אבחון — ראשונה מסוגה, לתעד לצד השלושה כי אין עדיין אף מקרה כזה:** בזמן ריצת-האבחון, המערכת נתקלה בדיוק באותה נקודת-הכרעה (יש/אין/לא-ידוע) — ונשארה ב"לא ידוע" בכוונה, בלי להמציא:
+```
+[Progression] calisthenics_upper averaging: Tier 3 (foundational exclusion only — skillFocusIds absent)
+[Progression] getMasterProgramProgress: empty filter ... Aborting recalculation to prevent level wipeout
+[HomeContext] Domain 'calisthenics_upper' — no assessed level, left ABSENT (no invention)
+```
+כשלמנוע אין מספיק מידע (`skillFocusIds` נעדר, כי המשתמש הזה בחר push+legs דרך body_focus, לא סקילים) — הוא **לא** נופל לברירת-מחדל שקטה ("0 אימונים", "רמה 1", תוכנית-דמה). הוא עוצר את החישוב במפורש, מתעד למה, ומשאיר את השדה חסר. זו בדיוק ההתנהגות שהחלטת-⑨ ("absent=absent", מתועדת בכמה מקומות בקוד הזה) נועדה להבטיח — ומצאנו אותה עובדת בפועל, לא רק כתובה בהערה.
+
+---
+
+## הלוז נזרע פעמיים במקביל — שני קוראים כותבים את אותם תאריכים בו-זמנית
+**Opened:** 08.09.2026 · **Source:** דוד, על-המכשיר, מתוך לוג-האבחון של ענף `diag/health-declaration-store-staleness` — לא נבדק לעומק, לא מיוחס לתיאוריית הצהרת-הבריאות.
+
+באותה ריצת-אבחון: כ-14 שגיאות `already-exists` על כתיבות ל-`userSchedule`, לצד שורת-לוג `"HYDRATE SKIPPED (already hydrated, racing caller)"`. משמעות-פני-השטח: שני קוראים נפרדים מנסים לזרוע (hydrate) את אותם תאריכים בדיוק, בו-זמנית — האחד מגיע ראשון וכותב, השני מקבל `already-exists` ונדחה.
+
+**לא אובדן-נתונים** (הכתיבה השנייה נדחית, לא דורסת) — אבל שתי בעיות אמיתיות בפני עצמן: (1) רעש בלוגים שמסתיר שגיאות-אמיתיות מאחורי עשרות שורות "צפויות", (2) ריצה-כפולה בפועל של אותה עבודה (שני קוראים שעשו את אותו חישוב, אחד מהם התבזבז). לא ידוע אילו שני קוראים בדיוק, ולא ידוע אם זה תמיד קורה או ספציפי לתנאי-המרוץ של ריצת-האבחון הזו (health/page.tsx ו-dynamic/page.tsx שניהם רצים קרוב בזמן, בזרימת-ריצה).
+
+**לא נחקר, לא תוקן.** דורש זיהוי שני-הקוראים לפני שאפשר להציע כיוון.
