@@ -1249,9 +1249,61 @@ service cloud.firestore {
     match /connections/{userId} {
       allow read: if isAuthenticated();
       allow write: if isOwner(userId);
-      allow update: if isAuthenticated() &&
+
+      // SPEC-02 SEC-01 — PARTIAL, see stop-C report (not fully closed
+      // here; the remaining piece is a product decision, not implemented
+      // without one). What the old rule actually allowed: ANY
+      // authenticated user could overwrite followers/following/counts on
+      // ANY OTHER user's doc to ANYTHING, as long as they touched only
+      // these field names — arbitrary array replacement, injecting a
+      // THIRD PARTY's uid as a fake follower/followee of someone who
+      // never interacted with them, count manipulation. That part IS
+      // fully closed below: a non-owner may now only toggle their OWN uid
+      // in `followers`, verified as an exact set-equality diff, never
+      // touch `following`/`followingCount`, never touch anyone else's
+      // entry.
+      //
+      // NOT closed: self-insertion (attacker adds their OWN uid to
+      // anyone's followers) is still allowed here, unchanged, because
+      // it's how the live useSocialStore.followUser feature works today —
+      // instant, one-sided, no approval. But per the spec's own framing,
+      // THAT is the actual named exploit (self-follow -> passes
+      // presence's mode='squad' followers-list check at ~line 1094 ->
+      // live GPS + real name of anyone, with zero interaction from them).
+      // Closing it for real means either converting follow to
+      // request+approval (changes the follow feature's UX) or decoupling
+      // squad-mode presence trust from one-sided `followers` entirely
+      // (changes who can currently see whose live location) — both are
+      // product decisions, not a rule tweak, so this is reported
+      // separately rather than silently narrowed on my own judgment.
+      allow update: if isOwner(userId) &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['followers', 'following', 'followerCount', 'followingCount', 'updatedAt']);
+
+      // followerCount/followingCount deliberately excluded from what a
+      // non-owner may touch — verified via grep that useSocialStore.ts's
+      // real followUser/unfollowUser never write them at all (only the
+      // followers/following arrays), so requiring any specific count
+      // delta here would just break the real flow for a field it never
+      // sets.
+      allow update: if isAuthenticated() && request.auth.uid != userId &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['followers', 'updatedAt']) &&
+        (
+          // Follow: add exactly my own uid to followers, nothing else.
+          (
+            !resource.data.get('followers', []).hasAny([request.auth.uid]) &&
+            request.resource.data.followers.hasOnly(resource.data.get('followers', []).concat([request.auth.uid])) &&
+            request.resource.data.followers.hasAll(resource.data.get('followers', []).concat([request.auth.uid]))
+          )
+          ||
+          // Unfollow: remove exactly my own uid from followers, nothing else.
+          (
+            resource.data.get('followers', []).hasAny([request.auth.uid]) &&
+            request.resource.data.followers.hasOnly(resource.data.get('followers', []).removeAll([request.auth.uid])) &&
+            request.resource.data.followers.hasAll(resource.data.get('followers', []).removeAll([request.auth.uid]))
+          )
+        );
     }
 
     // ============================================================

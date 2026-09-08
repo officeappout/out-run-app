@@ -1403,6 +1403,76 @@ async function testPrivateInviteSubcollection() {
 // each has a real, currently-working feature (steps/streak leaderboards,
 // partner-finder) that a naive owner-only lockdown would break; reported
 // separately as stop-C items, not silently skipped.
+// SPEC-02 Wave B / SEC-01 — connections/{userId}. PARTIAL fix, see the
+// rule's own comment: self-insertion into someone's followers (the
+// spec's actually-named exploit, since it feeds straight into presence's
+// squad-mode trust check) is UNCHANGED here — closing that is a product
+// decision (reported as a stop-C item), not implemented. What these
+// tests prove is narrower and unambiguous: a non-owner can no longer
+// forge a THIRD PARTY's entry, wipe someone else's real followers, touch
+// `following`/`followingCount` on a doc they don't own, or otherwise
+// abuse the old "any of these field names changed" check that had no
+// ownership guard on it at all.
+async function testConnectionsSec01() {
+  console.log('\nconnections SEC-01 — non-owner update restricted to self-toggle on followers only (partial fix)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'connections', 'conn_victim'), {
+      followers: ['conn_real_follower'], following: [], followerCount: 1, followingCount: 0,
+    });
+  });
+
+  await it('CN1 — a non-owner adds their OWN uid to someone else\'s followers → ALLOW (unchanged — the live one-sided follow feature; NOT a fix, a preserved regression)', async () => {
+    const ctx = env.authenticatedContext('conn_attacker');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'connections', 'conn_victim'), {
+      followers: ['conn_real_follower', 'conn_attacker'],
+    }));
+  });
+
+  await it('CN2 — a non-owner injects a THIRD PARTY uid (not their own) as a fake follower → DENY (was ALLOW under the old rule — this is the actual fix)', async () => {
+    const ctx = env.authenticatedContext('conn_attacker');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'connections', 'conn_victim'), {
+      followers: ['conn_real_follower', 'conn_framed_third_party'],
+    }));
+  });
+
+  await it('CN3 — a non-owner wipes someone else\'s real followers list down to just themselves → DENY (removes conn_real_follower, not just adding self)', async () => {
+    const ctx = env.authenticatedContext('conn_attacker');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'connections', 'conn_victim'), {
+      followers: ['conn_attacker'],
+    }));
+  });
+
+  await it('CN4 — a non-owner touches `following` on someone else\'s doc → DENY (only the owner manages who they follow)', async () => {
+    const ctx = env.authenticatedContext('conn_attacker');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'connections', 'conn_victim'), {
+      following: ['conn_attacker'],
+    }));
+  });
+
+  await it('CN5 — a non-owner sets followerCount to an arbitrary number → DENY', async () => {
+    const ctx = env.authenticatedContext('conn_attacker');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'connections', 'conn_victim'), {
+      followerCount: 99999,
+    }));
+  });
+
+  await it('CN6 — a non-owner removes someone ELSE\'s uid from the followers list (not their own) → DENY', async () => {
+    const ctx = env.authenticatedContext('conn_attacker');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'connections', 'conn_victim'), {
+      followers: [],
+    }));
+  });
+
+  await it('CN7 — the owner freely manages their own doc\'s following/counts → ALLOW (regression, unaffected)', async () => {
+    const ctx = env.authenticatedContext('conn_victim');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'connections', 'conn_victim'), {
+      following: ['someone_they_follow'], followingCount: 1,
+    }));
+  });
+}
+
 async function testWaveASpec02() {
   console.log('\nWave A (SPEC-02) — sessions, attendance, group_invitations, leaderboard shards/snapshots, private/legal');
 
@@ -1623,4 +1693,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('admin-invitations lockdown (SPEC-01 task 1)', wrapSuite(testAdminInvitationsLockdown));
   vitestIt('private-invite subcollection (SPEC-01 task 2)', wrapSuite(testPrivateInviteSubcollection));
   vitestIt('Wave A (SPEC-02)', wrapSuite(testWaveASpec02));
+  vitestIt('connections SEC-01 (SPEC-02, partial)', wrapSuite(testConnectionsSec01));
 });
