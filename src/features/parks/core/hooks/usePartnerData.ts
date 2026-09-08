@@ -268,7 +268,15 @@ export function usePartnerData(
         setRawScheduled(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setIsLoading(false);
       },
-      () => setIsLoading(false),
+      (err) => {
+        // SPEC-02 PERF-00: this used to swallow the error completely (not
+        // even a console line) — a missing composite index on this exact
+        // query shape (status in [...] + expiresAt >=) silently meant the
+        // Partner Finder's scheduled tab always showed empty, forever,
+        // with zero signal anywhere that anything was wrong.
+        console.error('[usePartnerData] scheduled sessions listener error:', err);
+        setIsLoading(false);
+      },
     );
 
     return () => unsubScheduled.current?.();

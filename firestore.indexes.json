@@ -735,6 +735,71 @@
         { "fieldPath": "gender", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+
+    // ── SPEC-02 PERF-00: planned_sessions / community_events / community_groups ──
+    // A live Firestore Admin SDK probe (one query per shape, run directly
+    // against production — the emulator doesn't enforce missing composite
+    // indexes) found this file had drifted from actual deployed state in
+    // BOTH directions:
+    //   - 3 of the 7 originally-suspected query shapes genuinely had no
+    //     matching index and threw failed-precondition — those are added
+    //     below as new indexes.
+    //   - 3 more already had a LIVE index in production (`firebase
+    //     firestore:indexes`) that was simply never recorded in this file —
+    //     added below too, purely to correct the drift and stop this file
+    //     from lying about what's actually deployed.
+    //   - 1 (community_events: isActive == + location.routeId in [...])
+    //     turned out to need NO composite index at all — Firestore's
+    //     automatic single-field indexes cover an equality + `in` filter
+    //     pair via zigzag merge; that optimization does not extend to a
+    //     range filter (`>=`) paired with anything else, which is why the
+    //     other range-filter query shapes below genuinely did need one.
+    //     Not added — would have been a needless, misleading entry.
+    // New indexes (confirmed failed-precondition before, confirmed
+    // succeeding with status ENABLED after `firebase deploy --only
+    // firestore:indexes`):
+    { "collectionGroup": "planned_sessions", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "community_events", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "groupId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "community_groups", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tenantId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    // Drift correction — these 3 already exist live in production
+    // (confirmed via `firebase firestore:indexes --project appout-1`) but
+    // were never recorded here. No new deploy needed for these; recorded
+    // so this file stops understating what's actually protecting these
+    // queries.
+    { "collectionGroup": "planned_sessions", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parkId", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "community_events", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    { "collectionGroup": "community_events", "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

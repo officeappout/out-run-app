@@ -700,8 +700,22 @@ export async function getEventsByGroup(groupId: string): Promise<CommunityEvent[
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map((d) => normalizeEvent(d.id, d.data()));
-  } catch (error) {
-    console.error('Error fetching events by group:', error);
+  } catch (error: any) {
+    // SPEC-02 PERF-00: this query genuinely lacked a composite index
+    // (groupId== + orderBy date) until this same fix — every call quietly
+    // returned [] forever, which looks identical to "this group has no
+    // events" on the public community/[id] page. Still returning [] here
+    // (not rethrowing) — the caller Promise.all's this alongside getGroup/
+    // getGroupMembers, so throwing would take down the whole page instead
+    // of just the events section, on a PUBLIC citizen-facing page. But a
+    // missing-index regression must not go quiet again: escalate that one
+    // specific error code loudly instead of blending it into the same
+    // console.error every other error already got.
+    if (error?.code === 'failed-precondition') {
+      console.error('[getEventsByGroup] MISSING FIRESTORE INDEX — query requires a composite index that does not exist:', error);
+    } else {
+      console.error('Error fetching events by group:', error);
+    }
     return [];
   }
 }
