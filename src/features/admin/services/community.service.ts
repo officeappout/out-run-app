@@ -249,7 +249,11 @@ function normalizeGroup(docId: string, data: any): CommunityGroup {
     memberCount: data?.memberCount ?? undefined,
     minimumMembers: data?.minimumMembers ?? undefined,
     isPublic: data?.isPublic ?? undefined,
-    inviteCode: data?.inviteCode ?? undefined,
+    // inviteCode intentionally NOT read here (SPEC-01 task 2) — it moved to
+    // the locked-down community_groups/{id}/private/invite doc. Callers that
+    // need it fetch on demand via getGroupInviteCode(), not off this bulk
+    // list normalizer (avoids an N-reads-on-page-load pattern for the
+    // authority dashboard's group list).
     targetMuscles: data?.targetMuscles ?? undefined,
     equipment: data?.equipment ?? undefined,
     price: data?.price ?? undefined,
@@ -483,6 +487,12 @@ export async function createGroup(
     const groupRef = doc(collection(db, GROUPS_COLLECTION));
     const batch = writeBatch(db);
     applyGroupAudienceBatch(batch, groupRef, cleanedPublic, targetPersonas, cleanedSensitive);
+    // SPEC-01 task 2: same batch as the group doc — a group that exists
+    // without its private/invite doc can never be joined with a code again
+    // (groupInviteCode() in firestore.rules would find nothing there).
+    batch.set(doc(db, GROUPS_COLLECTION, groupRef.id, 'private', 'invite'), {
+      code: cleanedPublic.inviteCode,
+    });
     await batch.commit();
     return groupRef.id;
   } catch (error) {
@@ -635,13 +645,29 @@ function generateInviteCode(): string {
 }
 
 /**
+ * Reads a group's invite code from its locked-down private/invite doc
+ * (SPEC-01 task 2). Returns null if it doesn't exist yet (legacy group
+ * created before this migration, or the admin field-check race — see
+ * generateGroupInviteCode below).
+ */
+export async function getGroupInviteCode(groupId: string): Promise<string | null> {
+  const snap = await getDoc(doc(db, GROUPS_COLLECTION, groupId, 'private', 'invite'));
+  return snap.exists() ? ((snap.data().code as string | undefined) ?? null) : null;
+}
+
+/**
  * Write a fresh inviteCode to an existing group that is missing one.
  * Called lazily when the admin copies a join link for the first time.
- * Returns the newly written code.
+ * Writes both the legacy top-level field (backward-compat overlap period —
+ * printed codes/signage still resolve against it) and the new private/invite
+ * doc, atomically. Returns the newly written code.
  */
 export async function generateGroupInviteCode(groupId: string): Promise<string> {
   const code = generateInviteCode();
-  await updateDoc(doc(db, GROUPS_COLLECTION, groupId), { inviteCode: code });
+  const batch = writeBatch(db);
+  batch.update(doc(db, GROUPS_COLLECTION, groupId), { inviteCode: code });
+  batch.set(doc(db, GROUPS_COLLECTION, groupId, 'private', 'invite'), { code });
+  await batch.commit();
   return code;
 }
 

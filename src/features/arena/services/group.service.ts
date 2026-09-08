@@ -13,12 +13,12 @@
 import {
   doc,
   collection,
-  addDoc,
   getDoc,
   getDocs,
   setDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   arrayUnion,
   increment,
   serverTimestamp,
@@ -272,8 +272,6 @@ export async function createGroup(
   creatorName: string,
   input: CreateGroupInput,
 ): Promise<{ groupId: string; inviteCode: string }> {
-  const groupsRef = collection(db, 'community_groups');
-
   const minimumMembers = 1;
   // Generate code locally so we can return it without an extra Firestore read.
   const inviteCode = generateInviteCode();
@@ -312,7 +310,17 @@ export async function createGroup(
     updatedAt: serverTimestamp(),
   };
 
-  const groupRef = await addDoc(groupsRef, stripUndefined(newGroup));
+  // SPEC-01 task 2: the group doc (still carrying the legacy top-level
+  // inviteCode field for the backward-compat overlap period) and its new
+  // locked-down private/invite copy are written atomically — a group that
+  // exists without its private/invite doc can never be joined with a code
+  // again (groupInviteCode() in firestore.rules would find nothing there).
+  const groupRef = doc(collection(db, 'community_groups'));
+  const inviteRef = doc(db, 'community_groups', groupRef.id, 'private', 'invite');
+  const batch = writeBatch(db);
+  batch.set(groupRef, stripUndefined(newGroup));
+  batch.set(inviteRef, { code: inviteCode });
+  await batch.commit();
   const groupId = groupRef.id;
 
   // Write creator as admin member in sub-collection
@@ -710,23 +718,12 @@ export async function getPublicGroups(): Promise<CommunityGroup[]> {
 }
 
 /**
- * Looks up a community group by its invite code.
- * Used by the /join/[inviteCode] deep-link landing page.
- * Returns null if the code is invalid or the group no longer exists.
+ * Reads a group's invite code from its locked-down private/invite doc
+ * (SPEC-01 task 2). Returns null if the caller can't read it (not a member,
+ * or the group is isLocked/reserve-league and the caller isn't owner/admin —
+ * see firestore.rules) or the doc doesn't exist yet.
  */
-export async function getGroupByInviteCode(inviteCode: string): Promise<CommunityGroup | null> {
-  const q = query(
-    collection(db, 'community_groups'),
-    where('inviteCode', '==', inviteCode),
-    limit(1),
-  );
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  const d = snap.docs[0];
-  return {
-    id: d.id,
-    ...(d.data() as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),
-    createdAt: tsToDate(d.data().createdAt),
-    updatedAt: tsToDate(d.data().updatedAt),
-  };
+export async function getGroupInviteCode(groupId: string): Promise<string | null> {
+  const snap = await getDoc(doc(db, 'community_groups', groupId, 'private', 'invite'));
+  return snap.exists() ? ((snap.data().code as string | undefined) ?? null) : null;
 }

@@ -52,7 +52,7 @@ import {
   getSessionAttendance,
   computeNextSession as computeNextSessionBooking,
 } from '@/features/arena/services/booking.service';
-import { getGroupMembers, joinGroup, leaveGroup, makeGroupAdmin, removeGroupAdmin, removeGroupMember, updateGroup } from '@/features/arena/services/group.service';
+import { getGroupMembers, getGroupInviteCode, joinGroup, leaveGroup, makeGroupAdmin, removeGroupAdmin, removeGroupMember, updateGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { useToast } from '@/components/ui/Toast';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
@@ -246,6 +246,33 @@ export default function GroupDetailsDrawer({
   const userId = profile?.id ?? '';
   const userName = profile?.core?.name || 'משתמש';
   const userPhoto = profile?.core?.photoURL ?? null;
+
+  // SPEC-01 task 2: the invite code moved off the group doc into a
+  // locked-down private/invite doc (see firestore.rules). Fetched on
+  // demand when the drawer opens for a private group the viewer has
+  // joined or created — not bundled into the list-level group fetch that
+  // feeds this component (useArenaData), which would mean reading every
+  // visible group's code just to render a list. A read that fails (not a
+  // member, or the group is isLocked/reserve-league and the viewer isn't
+  // owner/admin — see the rule's comment) is treated the same as "no code
+  // yet": the share panel below just doesn't render.
+  const [fetchedInviteCode, setFetchedInviteCode] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isOpen || !group || group.isPublic !== false) {
+      setFetchedInviteCode(null);
+      return;
+    }
+    const viewerIsMemberOrCreator = Boolean(isJoined) || group.createdBy === userId;
+    if (!viewerIsMemberOrCreator) {
+      setFetchedInviteCode(null);
+      return;
+    }
+    let cancelled = false;
+    getGroupInviteCode(group.id)
+      .then((code) => { if (!cancelled) setFetchedInviteCode(code); })
+      .catch(() => { if (!cancelled) setFetchedInviteCode(null); });
+    return () => { cancelled = true; };
+  }, [isOpen, group, isJoined, userId]);
 
   const [bookingLoading, setBookingLoading] = useState(false);
   const [attendance, setAttendance] = useState<SessionAttendance | null>(null);
@@ -1225,8 +1252,8 @@ export default function GroupDetailsDrawer({
                 <div className="flex gap-2">
                   {(() => {
                     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
-                    const deepLink = group.inviteCode
-                      ? `${origin}/join/${group.inviteCode}`
+                    const deepLink = fetchedInviteCode
+                      ? `${origin}/join/${fetchedInviteCode}`
                       : `${origin}/community?groupId=${group.id}`;
                     const shareText = `מצאתי קבוצת ${catConfig.label} מעולה: \'${group.name}\'! בואו להצטרף אלינו.`;
                     const handleShare = () => {
@@ -1261,8 +1288,13 @@ export default function GroupDetailsDrawer({
                   )}
                 </div>
 
-                {/* ── Invite code panel — private group members / creator ── */}
-                {!group.isPublic && (isJoined || isCreator) && group.inviteCode && (
+                {/* ── Invite code panel — private group members / creator ──
+                    Code fetched on demand into fetchedInviteCode (SPEC-01
+                    task 2) — a null here means either not-yet-loaded, or
+                    the rule denied the read (isLocked/reserve-league group
+                    and this viewer isn't owner/admin), so the panel just
+                    doesn't render either way. */}
+                {!group.isPublic && (isJoined || isCreator) && fetchedInviteCode && (
                   <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/40 space-y-3" dir="rtl">
                     <div className="flex items-center gap-1.5">
                       <Lock className="w-3.5 h-3.5 text-gray-400" />
@@ -1270,11 +1302,11 @@ export default function GroupDetailsDrawer({
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 text-center font-mono text-2xl font-black tracking-[0.25em] text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-xl py-3 border border-gray-200 dark:border-gray-600 select-all">
-                        {group.inviteCode}
+                        {fetchedInviteCode}
                       </div>
                       <button
                         onClick={() => {
-                          navigator.clipboard?.writeText(group.inviteCode ?? '').catch(() => {});
+                          navigator.clipboard?.writeText(fetchedInviteCode ?? '').catch(() => {});
                           setInviteCopied(true);
                           setTimeout(() => setInviteCopied(false), 2000);
                         }}
@@ -1290,8 +1322,8 @@ export default function GroupDetailsDrawer({
                     <button
                       onClick={() => {
                         const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
-                        const link = `${origin}/join/${group.inviteCode}`;
-                        const text = `הוזמנת להצטרף לקהילה "${group.name}"! השתמש בקוד: ${group.inviteCode}\nאו לחץ על הקישור: ${link}`;
+                        const link = `${origin}/join/${fetchedInviteCode}`;
+                        const text = `הוזמנת להצטרף לקהילה "${group.name}"! השתמש בקוד: ${fetchedInviteCode}\nאו לחץ על הקישור: ${link}`;
                         if (typeof navigator !== 'undefined' && navigator.share) {
                           navigator.share({ title: group.name, text, url: link }).catch(() => {});
                         } else {

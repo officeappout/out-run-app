@@ -90,6 +90,17 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid));
     }
 
+    // SPEC-01 (docs/audit-2026-09/SPEC-01-close-guest-leaks.md) task 2: the
+    // static invite code used to live as a plain field on the (world-
+    // readable) community_groups/{groupId} doc. It now lives here instead —
+    // null-safe get(), same defensive shape as memberGroupIds()/
+    // getUserAgeGroup() above, since a brand-new group's private/invite doc
+    // may not exist yet at the instant this is evaluated.
+    function groupInviteCode(groupId) {
+      let d = get(/databases/$(database)/documents/community_groups/$(groupId)/private/invite).data;
+      return d != null ? d.get('code', '') : '';
+    }
+
     // 08.09.2026 — closes the gap isReserveLeagueGroup's comment above
     // explicitly deferred: a community_groups_{persona}-gated group's
     // SENSITIVE FIELDS were gated (AUDIENCE_SENSITIVE_FIELDS split), but
@@ -1383,11 +1394,34 @@ service cloud.firestore {
           && !blockedByGroupPersonaGate(docId)
           && (
             get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isPublic', false) == true
-            || get(/databases/$(database)/documents/community_groups/$(docId)).data.get('inviteCode', '')
-                 == request.resource.data.get('inviteCode', 'NONE_SUPPLIED')
+            || groupInviteCode(docId) == request.resource.data.get('inviteCode', 'NONE_SUPPLIED')
             || get(/databases/$(database)/documents/community_groups/$(docId)).data.get('createdBy', '')
                  == request.auth.uid
           );
+      }
+
+      // private/invite — SPEC-01 task 2. Moved off the parent doc's plain
+      // `inviteCode` field (readable by any signed-in guest, since
+      // signInAnonymously is open) into this locked-down subcollection.
+      //
+      // Read: member-or-above for an ORDINARY private group — membership
+      // there is itself proof of already knowing the code (it's what the
+      // create rule above enforces via groupInviteCode()), so a member
+      // reading it back to invite a friend hands them nothing they didn't
+      // already have. Tightening to owner/admin-only would cost the
+      // reshare feature for zero security gain (David, 08.09.2026).
+      // isLocked and the reserve league are the deliberate exception:
+      // there, membership comes through a DIFFERENT channel entirely (an
+      // access code, or a verified persona declaration) — not knowledge of
+      // THIS code — so a member reading it back would hand out access the
+      // lock/roster gate exists specifically to withhold.
+      match /private/invite {
+        allow read: if isGroupOwner(docId) || isGroupAdmin(docId) || (
+          isGroupMember(docId)
+          && get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isLocked', false) == false
+          && !isReserveLeagueGroup(docId)
+        );
+        allow write: if isAdmin();
       }
 
       // attendance sub-collection — session booking / RSVP.

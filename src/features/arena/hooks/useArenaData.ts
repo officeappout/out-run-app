@@ -63,7 +63,11 @@ function normalizeGroup(id: string, data: any): CommunityGroup {
     ageRestriction: data?.ageRestriction ?? undefined,
     memberCount: data?.memberCount ?? undefined,
     isPublic: data?.isPublic ?? undefined,
-    inviteCode: data?.inviteCode ?? undefined,
+    // inviteCode intentionally NOT read here (SPEC-01 task 2) — it moved to
+    // the locked-down community_groups/{id}/private/invite doc. Consumers
+    // that legitimately need it (GroupDetailsDrawer's member-share panel)
+    // fetch it on demand via getGroupInviteCode(), not off this bulk
+    // list normalizer.
     targetMuscles: data?.targetMuscles ?? undefined,
     equipment: data?.equipment ?? undefined,
     price: data?.price ?? undefined,

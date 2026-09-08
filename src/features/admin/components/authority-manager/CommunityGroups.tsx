@@ -12,6 +12,7 @@ import {
   getGroupMembers,
   assignGroupLeader,
   setMemberRole,
+  getGroupInviteCode,
   generateGroupInviteCode,
   cleanupStaleMaterializedEvents,
 } from '@/features/admin/services/community.service';
@@ -246,16 +247,20 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
   };
 
   const handleCopyJoinLink = async (group: CommunityGroup) => {
-    let code = group.inviteCode;
-    if (!code) {
-      try {
+    // SPEC-01 task 2: the code no longer rides along on the group list's
+    // bulk fetch (that would mean an N-reads-on-page-load pattern for
+    // every group in this dashboard) — fetched on demand, right here,
+    // only when the admin actually clicks this button.
+    let code: string | null;
+    try {
+      code = await getGroupInviteCode(group.id);
+      if (!code) {
         code = await generateGroupInviteCode(group.id);
-        setGroups((prev) => prev.map((g) => g.id === group.id ? { ...g, inviteCode: code } : g));
-      } catch (err) {
-        console.error('Error generating invite code:', err);
-        alert('שגיאה ביצירת קישור');
-        return;
       }
+    } catch (err) {
+      console.error('Error loading invite code:', err);
+      alert('שגיאה בטעינת קוד ההזמנה');
+      return;
     }
     const link = `${APP_CONFIG_LINKS.WEB_BASE_URL}/join/${code}`;
     navigator.clipboard.writeText(link);
@@ -1699,7 +1704,7 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                         ? 'text-green-700 bg-green-50'
                         : 'text-blue-700 bg-blue-50 hover:bg-blue-100'
                     }`}
-                    title={`העתק קישור הצטרפות${group.inviteCode ? ` — /join/${group.inviteCode}` : ''}`}
+                    title="העתק קישור הצטרפות"
                   >
                     {copiedGroupId === group.id ? <Check size={13} /> : <Link2 size={13} />}
                     <span className="hidden md:inline">{copiedGroupId === group.id ? 'הועתק!' : 'קישור'}</span>

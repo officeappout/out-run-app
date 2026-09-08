@@ -150,7 +150,13 @@ async function setup() {
       isOfficial: false,
       isLocked: false,
       source: 'user',
-      inviteCode: 'SECRET42',
+      inviteCode: 'SECRET42', // legacy field — still written for the backward-compat overlap period
+    });
+    // SPEC-01 task 2 — the private/invite copy every real writer now creates
+    // alongside the group doc; the members/{uid} create rule (Phase G below)
+    // validates against THIS, not the legacy field above.
+    await setDoc(doc(db, 'community_groups', 'grp_test', 'private', 'invite'), {
+      code: 'SECRET42',
     });
     await setDoc(doc(db, 'community_groups', 'grp_public'), {
       name: 'Public Group',
@@ -1241,6 +1247,154 @@ async function testAdminInvitationsLockdown() {
   });
 }
 
+// SPEC-01 task 2: the invite code moved off community_groups/{id}'s plain
+// (world-readable-to-any-signed-in-guest) `inviteCode` field into a
+// locked-down community_groups/{id}/private/invite doc. Two things must
+// hold at once, proven together here because David flagged the interaction
+// as a real blocker (08.09.2026): the members/{uid} create rule (Phase G)
+// must actually validate against the NEW location — not silently keep
+// working off the legacy field — or private-group joins would break
+// silently the moment a real writer stops keeping the legacy field
+// authoritative; and the new subcollection's OWN read rule must match
+// David's exact ruling: member-readable for an ordinary private group
+// (knowing the code is already how they got in — see groupInviteCode() in
+// firestore.rules), but owner/admin-only for isLocked and the reserve
+// league, where membership comes through a different channel entirely.
+async function testPrivateInviteSubcollection() {
+  console.log('\nprivate-invite-subcollection — SPEC-01 task 2');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+
+    // Deliberately DIVERGENT legacy field vs. new location — the only way
+    // to prove the rule reads the new doc specifically, not the old field
+    // (a fixture where both hold the same value, like grp_test's, can't
+    // distinguish "reads the new location" from "still reads the old one").
+    await setDoc(doc(db, 'community_groups', 'pi_group_divergent'), {
+      name: 'Divergent', createdBy: 'group_owner', isPublic: false,
+      isLocked: false, source: 'user', inviteCode: 'OLDWRONG',
+    });
+    await setDoc(doc(db, 'community_groups', 'pi_group_divergent', 'private', 'invite'), {
+      code: 'NEWCODE1',
+    });
+
+    await setDoc(doc(db, 'community_groups', 'pi_group_locked'), {
+      name: 'Locked Institutional', createdBy: 'pi_locked_owner', isPublic: false,
+      isLocked: true, source: 'authority',
+    });
+    await setDoc(doc(db, 'community_groups', 'pi_group_locked', 'private', 'invite'), {
+      code: 'LOCKEDCODE',
+    });
+    await setDoc(doc(db, 'community_groups', 'pi_group_locked', 'members', 'pi_locked_owner'), {
+      uid: 'pi_locked_owner', role: 'admin', joinedAt: new Date(),
+    });
+    await setDoc(doc(db, 'community_groups', 'pi_group_locked', 'members', 'pi_locked_member'), {
+      uid: 'pi_locked_member', role: 'member', joinedAt: new Date(),
+    });
+
+    // Reserve league already has military_reserve_general + reservist_member
+    // from the global setup() — just add the private/invite doc it would
+    // realistically get from a real writer.
+    await setDoc(doc(db, 'community_groups', 'military_reserve_general', 'private', 'invite'), {
+      code: 'RESERVECODE',
+    });
+  });
+
+  // ── The actual bug David described: does the JOIN itself use the new location? ──
+
+  await it('PI1 — join with the code from the NEW location (private/invite) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertSucceeds(setDoc(
+      doc(ctx.firestore(), 'community_groups', 'pi_group_divergent', 'members', 'reader_outsider'),
+      { uid: 'reader_outsider', role: 'member', inviteCode: 'NEWCODE1', joinedAt: new Date() },
+    ));
+  });
+
+  await it('PI2 — join with the STALE legacy-field value → DENY (proves the rule no longer consults the old field at all)', async () => {
+    const ctx = env.authenticatedContext('reader_member');
+    await assertFails(setDoc(
+      doc(ctx.firestore(), 'community_groups', 'pi_group_divergent', 'members', 'reader_member'),
+      { uid: 'reader_member', role: 'member', inviteCode: 'OLDWRONG', joinedAt: new Date() },
+    ));
+  });
+
+  await it('PI3 — join with no code at all → DENY (regression: still fails closed)', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(setDoc(
+      doc(ctx.firestore(), 'community_groups', 'pi_group_divergent', 'members', 'broadcaster2'),
+      { uid: 'broadcaster2', role: 'member', joinedAt: new Date() },
+    ));
+  });
+
+  // ── private/invite read rule: ordinary private group → member-readable ──
+
+  await it('PI4 — a genuine (non-owner, non-admin) member of an ordinary private group reads private/invite → ALLOW', async () => {
+    const ctx = env.authenticatedContext('regular_member');
+    const snap = await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'grp_test', 'private', 'invite')));
+    if (snap.data()?.code !== 'SECRET42') throw new Error('member read the wrong code');
+  });
+
+  await it('PI5 — a non-member reads the same doc → DENY', async () => {
+    // NOT reader_outsider — Phase G's G2 test joins them to grp_test earlier
+    // in this same run, so by now they'd be a genuine (if incidental)
+    // member. A dedicated, never-joined uid is the only way to test
+    // "non-member" here without depending on suite run order.
+    const ctx = env.authenticatedContext('pi_never_member');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'grp_test', 'private', 'invite')));
+  });
+
+  await it('PI6 — the group owner reads it → ALLOW', async () => {
+    const ctx = env.authenticatedContext('group_owner');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'grp_test', 'private', 'invite')));
+  });
+
+  await it('PI7 — an OUT admin reads it despite not being a member → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'grp_test', 'private', 'invite')));
+  });
+
+  // ── isLocked exception: member is NOT enough, owner/admin only ──
+
+  await it('PI8 — a plain member of an isLocked group reads private/invite → DENY (membership came via an access code, not this code — reading it back would hand out what the lock exists to withhold)', async () => {
+    const ctx = env.authenticatedContext('pi_locked_member');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'pi_group_locked', 'private', 'invite')));
+  });
+
+  await it('PI9 — the owner of that same isLocked group reads it → ALLOW', async () => {
+    const ctx = env.authenticatedContext('pi_locked_owner');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'pi_group_locked', 'private', 'invite')));
+  });
+
+  await it('PI10 — an OUT admin reads the isLocked group\'s code → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'pi_group_locked', 'private', 'invite')));
+  });
+
+  // ── reserve-league exception: same shape as isLocked, keyed on the fixed docId ──
+
+  await it('PI11 — a genuine reserve-league roster member reads its private/invite → DENY (persona-declaration membership, not code knowledge)', async () => {
+    const ctx = env.authenticatedContext('reservist_member');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general', 'private', 'invite')));
+  });
+
+  await it('PI12 — an OUT admin reads the reserve league\'s code → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general', 'private', 'invite')));
+  });
+
+  // ── write: admin-only, regression check ──
+
+  await it('PI13 — the group owner (non-admin) tries to WRITE private/invite directly → DENY', async () => {
+    const ctx = env.authenticatedContext('group_owner');
+    await assertFails(setDoc(doc(ctx.firestore(), 'community_groups', 'grp_test', 'private', 'invite'), { code: 'HACKED' }));
+  });
+
+  await it('PI14 — an OUT admin writes private/invite directly → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'community_groups', 'pi_group_divergent', 'private', 'invite'), { code: 'NEWCODE1' }));
+  });
+}
+
 // ─── Vitest wiring ──────────────────────────────────────────────────────────
 //
 // The harness's own `it()` (above) never throws — it catches each case's
@@ -1294,4 +1448,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('chat leak closed', wrapSuite(testChatLeakClosed));
   vitestIt('chat list scale', wrapSuite(testChatListScale));
   vitestIt('admin-invitations lockdown (SPEC-01 task 1)', wrapSuite(testAdminInvitationsLockdown));
+  vitestIt('private-invite subcollection (SPEC-01 task 2)', wrapSuite(testPrivateInviteSubcollection));
 });
