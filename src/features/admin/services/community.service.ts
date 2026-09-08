@@ -426,10 +426,19 @@ export async function getAllGroupsForAdmin(): Promise<CommunityGroup[]> {
     });
   });
 
-  const groups = groupsSnap.docs.map((d) => ({
-    ...normalizeGroup(d.id, d.data()),
-    audiencePersonas: personaByGroupId.get(d.id) ?? [],
-  }));
+  const groups = groupsSnap.docs
+    // 08.09.2026 — the one deliberate exception to this screen's own
+    // "no filtering, that's the whole point" design: type:'ephemeral'
+    // run-invite groups (/api/invite/run-session) aren't community groups
+    // in any sense this screen is for — they're single-session artifacts,
+    // 21+ of which were found cluttering this exact list. Excluded by
+    // explicit request, not a silent re-introduction of the
+    // invisible-groups failure mode this screen exists to catch.
+    .filter((d) => d.data()?.type !== 'ephemeral')
+    .map((d) => ({
+      ...normalizeGroup(d.id, d.data()),
+      audiencePersonas: personaByGroupId.get(d.id) ?? [],
+    }));
   return groups.sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));
 }
 

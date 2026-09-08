@@ -547,7 +547,14 @@ export async function getMyGroups(groupIds: string[]): Promise<CommunityGroup[]>
     // per-id getDoc, not a where('isActive','==',true) query like
     // getPublicGroups/getGroupsByScopeId, so a deactivated group a user
     // already joined would otherwise still render on their home screen.
-    .filter((snap) => snap.exists() && snap.data()?.isActive !== false)
+    // 08.09.2026 — ephemeral run-invite groups (community_groups/{id}.type
+    // === 'ephemeral', created by /api/invite/run-session) were leaking
+    // into "my groups" UI (CommunityCircles, search "שלי") because this
+    // was the only isActive-style filter in the whole read path and it
+    // never checked type. The only other place in the codebase that
+    // honored type:'ephemeral' was one leaderboard filter — see
+    // ranking.service.ts's eligibleGroupIds comment.
+    .filter((snap) => snap.exists() && snap.data()?.isActive !== false && snap.data()?.type !== 'ephemeral')
     .map((snap) => ({
       id: snap.id,
       ...(snap.data() as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),
