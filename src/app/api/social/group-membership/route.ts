@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { joinEngine, JoinEngineError } from '@/lib/joinEngine';
+import { validateDirectGroupJoin } from '@/lib/validateGroupJoinAccess';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { groupId, action } = body as { groupId?: string; action?: string };
+    const { groupId, action, code } = body as { groupId?: string; action?: string; code?: string };
 
     if (!groupId || typeof groupId !== 'string' || groupId.length === 0) {
       return NextResponse.json({ error: 'groupId required' }, { status: 400 });
@@ -55,6 +56,43 @@ export async function POST(request: NextRequest) {
     const db = getAdminDb();
 
     if (action === 'join') {
+      // SPEC-02 (SEC-13 / SPEC-1 t3): this used to call joinEngine's
+      // 'direct' target with NO validation at all — any authenticated
+      // caller could join ANY group by id, bypassing the invite code,
+      // the isLocked gate, and the reserve-persona gate entirely (Admin
+      // SDK, so it also bypasses firestore.rules' own groupInviteCode()/
+      // blockedByGroupPersonaGate() checks that a real client-SDK join
+      // goes through).
+      //
+      // But this route ALSO has a legitimate caller with no code to give:
+      // useWorkoutPresence.ts's session-start guard, which repairs a
+      // drifted users/{uid}.social.groupIds mirror for a user who is
+      // ALREADY a real member (joinEngine.ts's own comment on the
+      // 'direct' case: "caller is responsible for validating the groupId
+      // is legitimate — e.g. guard repair path where the user is already
+      // a member but social.groupIds is stale"). Requiring a code there
+      // would break that repair path for every locked/persona-gated
+      // group, for users who already joined it correctly.
+      //
+      // Resolution: skip validation ONLY when a real members/{uid} doc
+      // already exists (proof they were validated once, by some other
+      // path, already) — apply full validation for anyone who is not
+      // already a member, which is exactly the case that was open before.
+      const memberSnap = await db.doc(`community_groups/${groupId}/members/${uid}`).get();
+      if (!memberSnap.exists) {
+        // Validation logic lives in validateGroupJoinAccess.ts (pure,
+        // unit-tested independently of firebase-admin's server-only
+        // guard) — mirrors firestore.rules' groupInviteCode() /
+        // blockedByGroupPersonaGate(), not duplicated from scratch.
+        const validation = await validateDirectGroupJoin(db, groupId, uid, code);
+        if (!validation.ok) {
+          const status = validation.error === 'group-not-found' ? 404
+            : validation.error === 'group-inactive' ? 400
+            : 403; // invalid-code | persona-mismatch
+          return NextResponse.json({ error: validation.error }, { status });
+        }
+      }
+
       // ── Join: delegate to engine (resolves, seeds, writes atomically) ────────
       try {
         await joinEngine({

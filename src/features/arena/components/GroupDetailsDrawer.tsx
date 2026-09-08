@@ -233,6 +233,7 @@ export default function GroupDetailsDrawer({
   const [inviteInput, setInviteInput] = useState('');
   const [inviteError, setInviteError] = useState(false);
   const [inviteCodeMode, setInviteCodeMode] = useState(false);
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
 
   // Sheet gesture state
@@ -440,6 +441,28 @@ export default function GroupDetailsDrawer({
       console.error('[GroupDetailsDrawer] handleJoinFromPrompt:', err);
     } finally {
       setJoiningGroup(false);
+    }
+  };
+
+  // SPEC-02 SEC-13: this used to compare inviteInput against
+  // group.inviteCode client-side, then call onJoin — which wrote the
+  // member doc WITHOUT the code, so firestore.rules always denied it.
+  // Joining a locked group now goes through joinGroup's providedCode
+  // path, which validates the real code server-side
+  // (/api/social/group-membership) before writing anything.
+  const handleInviteCodeSubmit = async () => {
+    if (!userId || !group || inviteSubmitting || !inviteInput.trim()) return;
+    setInviteSubmitting(true);
+    setInviteError(false);
+    try {
+      await joinGroup(group.id, userId, userName, { providedCode: inviteInput });
+      setInviteCodeMode(false);
+      setInviteInput('');
+      onJoin?.(group.id);
+    } catch {
+      setInviteError(true);
+    } finally {
+      setInviteSubmitting(false);
     }
   };
 
@@ -1469,15 +1492,7 @@ export default function GroupDetailsDrawer({
                               value={inviteInput}
                               onChange={(e) => { setInviteInput(e.target.value.toUpperCase()); setInviteError(false); }}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !joining && inviteInput.trim()) {
-                                  const expected = (group.inviteCode ?? '').toUpperCase();
-                                  if (inviteInput.toUpperCase() === expected) {
-                                    setInviteError(false);
-                                    onJoin(group.id);
-                                  } else {
-                                    setInviteError(true);
-                                  }
-                                }
+                                if (e.key === 'Enter') void handleInviteCodeSubmit();
                               }}
                               maxLength={6}
                               placeholder="XXXXXX"
@@ -1490,19 +1505,11 @@ export default function GroupDetailsDrawer({
                               }`}
                             />
                             <button
-                              disabled={joining || !inviteInput.trim()}
-                              onClick={() => {
-                                const expected = (group.inviteCode ?? '').toUpperCase();
-                                if (inviteInput.toUpperCase() === expected) {
-                                  setInviteError(false);
-                                  onJoin(group.id);
-                                } else {
-                                  setInviteError(true);
-                                }
-                              }}
+                              disabled={inviteSubmitting || !inviteInput.trim()}
+                              onClick={() => void handleInviteCodeSubmit()}
                               className="px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-black disabled:opacity-40 transition-all active:scale-95 flex-shrink-0"
                             >
-                              {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : 'אישור'}
+                              {inviteSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'אישור'}
                             </button>
                           </div>
                           {inviteError && (

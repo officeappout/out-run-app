@@ -8,6 +8,8 @@ import type { CommunityGroup, CommunityGroupCategory, EventRegistration } from '
 import AttendeesPreview from './AttendeesPreview';
 import { distanceLabel } from '@/features/arena/utils/distance';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
+import { joinGroup } from '@/features/arena/services/group.service';
+import { useUserStore } from '@/features/user';
 
 const CATEGORY_CONFIG: Record<CommunityGroupCategory, { label: string; icon: string; gradient: string }> = {
   walking:     { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
@@ -101,6 +103,8 @@ export default function GroupCard({
   const [codeMode, setCodeMode] = useState(false);
   const [codeValue, setCodeValue] = useState('');
   const [codeError, setCodeError] = useState(false);
+  const [codeSubmitting, setCodeSubmitting] = useState(false);
+  const profile = useUserStore((s) => s.profile);
 
   const todayDow = new Date().getDay();
   const todaySlot = (() => {
@@ -215,15 +219,25 @@ export default function GroupCard({
     onJoin?.(group.id);
   }
 
-  function handleCodeSubmit() {
-    const expected = (group.inviteCode ?? '').toUpperCase();
-    if (codeValue.toUpperCase() === expected) {
+  async function handleCodeSubmit() {
+    // SPEC-02 SEC-13: this used to compare codeValue against
+    // group.inviteCode client-side, then call onJoin — which wrote the
+    // member doc WITHOUT the code, so firestore.rules always denied it.
+    // Joining a locked group now goes through joinGroup's providedCode
+    // path, which validates the real code server-side
+    // (/api/social/group-membership) before writing anything.
+    if (!profile?.id || codeSubmitting) return;
+    setCodeSubmitting(true);
+    setCodeError(false);
+    try {
+      await joinGroup(group.id, profile.id, profile.core?.name ?? 'משתמש', { providedCode: codeValue });
       onJoin?.(group.id);
       setCodeMode(false);
       setCodeValue('');
-      setCodeError(false);
-    } else {
+    } catch {
       setCodeError(true);
+    } finally {
+      setCodeSubmitting(false);
     }
   }
 
@@ -393,7 +407,7 @@ export default function GroupCard({
                 }`}
               />
               <button
-                disabled={joining || !codeValue.trim()}
+                disabled={joining || codeSubmitting || !codeValue.trim()}
                 onClick={handleCodeSubmit}
                 className="px-3 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-black flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all"
               >

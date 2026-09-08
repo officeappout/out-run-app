@@ -54,7 +54,18 @@ import { auth } from '@/lib/firebase';
  * arbitrary group IDs could spoof membership and read group members' locations.
  * The Admin SDK in the API route is the only authorized writer.
  */
-export async function updateSocialGroupIds(uid: string, groupId: string, action: 'join' | 'leave'): Promise<void> {
+export async function updateSocialGroupIds(
+  uid: string,
+  groupId: string,
+  action: 'join' | 'leave',
+  /**
+   * SPEC-02 (SEC-13 / SPEC-1 t3): join code for a locked/private group.
+   * The route validates it server-side (and the reserve-persona gate, if
+   * applicable) before writing anything via joinEngine — see
+   * /api/social/group-membership's own comment.
+   */
+  code?: string,
+): Promise<void> {
   const token = await auth.currentUser?.getIdToken();
   if (!token) throw new Error('[group.service] No auth token for group-membership update');
 
@@ -64,7 +75,7 @@ export async function updateSocialGroupIds(uid: string, groupId: string, action:
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ groupId, action }),
+    body: JSON.stringify({ groupId, action, ...(code ? { code } : {}) }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -364,10 +375,16 @@ export async function createGroup(
 export interface JoinGroupOptions {
   addToPlanner?: boolean;
   /**
-   * Invite code entered by the user.  When provided and the target group is
-   * private (`isPublic === false`), the service validates the code before
-   * writing the membership document.  Throws `Error('invalid-invite-code')`
-   * on mismatch.
+   * Invite code entered by the user, for a locked/private group.
+   *
+   * SPEC-02 (SEC-13 / SPEC-1 t3): this used to be validated client-side
+   * against the group doc, then (supposedly) written alongside the
+   * member doc for firestore.rules' groupInviteCode() to re-check — but
+   * the write never actually included it, so the rule always saw the
+   * 'NONE_SUPPLIED' sentinel and denied it. Joining with a code now goes
+   * entirely through /api/social/group-membership, which validates the
+   * real code (and the persona gate, if applicable) server-side before
+   * writing anything via joinEngine — see that route's own comment.
    */
   providedCode?: string;
 }
@@ -378,37 +395,28 @@ export async function joinGroup(
   name: string,
   options?: JoinGroupOptions,
 ): Promise<void> {
-  // Validate invite code when the caller supplies one (private-group gate).
-  // If the group is private and validation passes, store the uppercased code so
-  // the Firestore rule (members/{uid} create) can verify it server-side.
-  let validatedInviteCode: string | undefined;
-
   if (options?.providedCode !== undefined) {
-    const groupSnap = await getDoc(doc(db, 'community_groups', groupId));
-    if (!groupSnap.exists()) throw new Error('group-not-found');
-    const data = groupSnap.data();
-    if (data.isPublic === false) {
-      const expected = ((data.inviteCode as string | undefined) ?? '').toUpperCase();
-      const provided = options.providedCode.toUpperCase();
-      if (provided !== expected) throw new Error('invalid-invite-code');
-      validatedInviteCode = provided;
-    }
+    // Steps 1+2 (critical): the validated server route performs the full
+    // atomic triple-write (member doc + user_memberships + social.groupIds)
+    // via joinEngine — no separate client-SDK member-doc write needed or
+    // wanted here (that path never had the code, so it never would have
+    // passed the rule anyway).
+    await updateSocialGroupIds(uid, groupId, 'join', options.providedCode);
+  } else {
+    // Step 1 (critical): write member document directly — client SDK,
+    // gated by firestore.rules' isPublic==true clause. Only reached for
+    // groups that don't need a code at all.
+    await setDoc(doc(db, 'community_groups', groupId, 'members', uid), {
+      uid,
+      name,
+      joinedAt: serverTimestamp(),
+      role: 'member',
+    });
+
+    // Step 2 (critical): mirror groupId in user's social.groupIds via server API
+    // (field is locked from client self-write — see Group E in firestore.rules).
+    await updateSocialGroupIds(uid, groupId, 'join');
   }
-
-  // Step 1 (critical): write member document.
-  // inviteCode is included for private groups so the Firestore rule can
-  // validate it server-side (closes the self-add-without-code gap).
-  await setDoc(doc(db, 'community_groups', groupId, 'members', uid), {
-    uid,
-    name,
-    joinedAt: serverTimestamp(),
-    role: 'member',
-    ...(validatedInviteCode !== undefined ? { inviteCode: validatedInviteCode } : {}),
-  });
-
-  // Step 2 (critical): mirror groupId in user's social.groupIds via server API
-  // (field is locked from client self-write — see Group E in firestore.rules).
-  await updateSocialGroupIds(uid, groupId, 'join');
   useUserStore.getState().refreshProfile().catch(() => {});
 
   // Step 3 (non-fatal): increment member counters on the group document
