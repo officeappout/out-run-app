@@ -618,16 +618,33 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 
 ---
 
-## שלושה מבנים, קובץ אחד, אותו מושג — מי הסקילים ומי ההורים שלהם
-**Opened:** 08.09.2026 · **Source:** דוד, מתוך תיקון ה-`oap`/`SKILL_SLUGS` — "בדיווח הקודם היה רק אחד. אז יש שם לפחות שלושה מבנים."
+## ⚠️ חמישה מבנים, אותה שאלה, תשובות שונות — חוב ארכיטקטוני מזוהה
+**Opened:** 08.09.2026 · **Source:** דוד, מתוך תיקון ה-`oap`/`SKILL_SLUGS` — "בדיווח הקודם היה רק אחד. אז יש שם לפחות שלושה מבנים." **שודרג באותו יום, אחרי סבב-תיקונים שני**, מ"שלושה מבנים" ל"חמישה מבנים... זו הסיבה השורשית שכל הבאגים האלה נובעים ממנה, ושממנה ינבעו הבאים."
 
-**שלושה מבנים, קובץ אחד, אותו מושג. הבאג של `oap` נולד מזה.** `src/features/workout-engine/services/home-workout.service.ts` מחזיק שלושה מבנים-נתונים נפרדים, שכולם עונים על אותה שאלה — "מי הסקילים של calisthenics_upper, ומי ההורה-הביומכני של כל אחד" — בלי אף אחד מהם לדעת על השניים האחרים:
+**חמישה מבנים נפרדים, שני קבצים, אותה שאלה — "מי הסקיל, ומי ההורה-הביומכני שלו" — בלי אף אחד מהם לדעת על השאר:**
 
-1. **`SKILL_SLUGS`** (`:1522-1524`, לפני התיקון של 08.09.2026) — `Set` של 6 שמות-סקילים מוכרים, לשימוש בסינון (`filterKnownSkills`). זה שם שהחזיק את הבאג — `'oap'` במקום `'one_arm_pullup'`.
-2. **`_SKILL_PARENT_MAP`** (`:1844-1847`) — `Record<string,string>`, סקיל→הורה-ביומכני (`planche→push`, `front_lever→pull`, וכו'), 7 ערכים כולל `back_lever`/`handstand_pushup`.
-3. **`_CU_SKILL_PARENT`** (`:1685-1688`) — **עותק מוצהר** של #2, עם הערת-קוד מפורשת: *"mirrors `_SKILL_PARENT_MAP` defined later in this file; duplicated here to avoid a forward-reference dependency"*. זהה-בתוכן ל-#2 נכון-להיום — אבל שני מקומות נפרדים שצריך לזכור לעדכן ביחד, בדיוק הדפוס שכבר תיעדנו כמה פעמים היום (`preferredDays`, `calculateCurrentWeek`).
+1. **`SKILL_SLUGS`** (`home-workout.service.ts:1522-1524`, לפני התיקון של 08.09.2026) — `Set` של 6 שמות-סקילים מוכרים, לשימוש בסינון (`filterKnownSkills`). זה שם שהחזיק את הבאג — `'oap'` במקום `'one_arm_pullup'`. **מכיל `one_arm_pullup` נכון, אחרי התיקון.**
+2. **`_SKILL_PARENT_MAP`** (`home-workout.service.ts:1844-1847`) — `Record<string,string>`, סקיל→הורה-ביומכני (`planche→push`, `front_lever→pull`, וכו'), 7 ערכים כולל `back_lever`/`handstand_pushup`. **מכיל `one_arm_pullup: 'pull'` — נכון ומלא.**
+3. **`_CU_SKILL_PARENT`** (`home-workout.service.ts:1685-1688`) — **עותק מוצהר** של #2, עם הערת-קוד מפורשת: *"mirrors `_SKILL_PARENT_MAP` defined later in this file; duplicated here to avoid a forward-reference dependency"*. זהה-בתוכן ל-#2 נכון-להיום, **כולל `one_arm_pullup: 'pull'`** — אבל שני מקומות נפרדים שצריך לזכור לעדכן ביחד.
+4. **`DOMAIN_ALIAS_MAP`** (`workout-selection.utils.ts:28-45`) — `Record<string,string[]>`, הורה→[ילדים] (`push: ['planche','handstand']`, `pull: ['muscle_up','front_lever','back_lever']`). **חסר `one_arm_pullup` לגמרי** — לא כילד של `pull`, לא בשום מקום.
+5. **`DOMAIN_PARENT_MAP`** (`workout-selection.utils.ts:47-54`) — נגזר-בטעינה מ-#4 (`export`-קבוע נפרד, לא רק ערך-ביניים), ילד→[הורים]. יורש את אותו חוסר: `DOMAIN_PARENT_MAP['one_arm_pullup']` הוא `undefined`.
 
-**לא מאוחד עכשיו — כפי שהתבקש.** שלושת המבנים ממשיכים להתקיים בנפרד. אם/כשמאחדים: `_CU_SKILL_PARENT`/`_SKILL_PARENT_MAP` מועמדים טבעיים לאיחוד (זהים כבר), `SKILL_SLUGS` שונה במהותו (Set של שמות, לא מיפוי) אבל יכול להיגזר מהמפתחות של אחד השניים במקום להישמר ביד.
+**ההבדל בין #2/#3 (מכילים `one_arm_pullup`) ל-#4/#5 (לא) הוא בדיוק מה שיצר שני באגים שונים, לא אחד — לא צירוף-מקרים:**
+
+- `getLevelForDomain` (workout-selection.utils.ts, לפני-התיקון-של-היום) קרא מ-#5 (`DOMAIN_PARENT_MAP`). ל-`planche` יש שם רשומה (`['push']`) — ולכן דווקא `planche` נפגע מבאג-סדר-המערך (רשומת-ה-push התפרשה בטעות כהתאמה, לפני שהלולאה הגיעה לרשומת ה-planche האמיתית). ל-`one_arm_pullup` **אין** רשומה ב-#5 (`parentAliases=[]`) — ולכן אותו באג-סדר-מערך בדיוק **לא** יכול היה לפגוע בו (אין עם מה להתבלבל). זה בדיוק ה"אי-עקביות בתוך אותו לוג" שתועדה למעלה כ"לא נחקרה" — עכשיו נחקרה וסגורה: `aliases:[push]` מול `aliases:[]` הוא תוצאה ישירה של #4/#5 חסרים את `one_arm_pullup`, לא תעלומה.
+- `getUserLevelForExercise`'s Pass 2 (`home-workout.service.ts`) לא קרא מ-#4/#5 בכלל — סרק ישירות את `resolvedDomainBudgets`, בלי מושג-הורה כלשהו. **הבאג שלו לא תלוי בחוסר של #4/#5** — הוא באג עצמאי לגמרי, שקרה לתקוף דווקא את `one_arm_pullup` (כי ל-`pull` וגם ל-`one_arm_pullup` היו תקציבים קיימים בו-זמנית, ו-`pull` הופיע ראשון במערך).
+
+**מסקנה: לא "אותו באג פעמיים" — שני באגים אמיתיים, ששניהם נובעים מ**מבנה-העל** של "חמישה מקומות נפרדים מחזיקים חלק מהאמת, בלי שיתוף."** אילו היה מקור-אמת יחיד, שני הבאגים היו בלתי-אפשריים מבנית, לא רק מתוקנים.
+
+**⚠️ ממצא-נוסף, מ-08.09.2026, לא-אחד-מהחמישה — אלגוריתם שישי, עצמאי, עם אותו באג בדיוק, לא תוקן:** `hybrid-context.util.ts:59-79`'s `resolveUserLevelForExercise` — מיושם עבור זרימת ה-hybrid-session (`start-hybrid-session.ts:871,1223`, לא `home-workout.service.ts`). לא "מבנה שישי" (אינו מפה סטטית) — **מימוש שלישי, עצמאי, של אותה שאלה בדיוק** ש-`getUserLevelForExercise` שואל: "מה הרמה האפקטיבית של המשתמש לתרגיל הזה." קוד זהה-במהות (שורות 70-74): `for (const tp of targetPrograms) { if (userProgramLevels.has(slug)) return ...; break-equivalent }` — אותו "ראשון-עם-תקציב-קיים-מנצח," בלי מושג-ספציפיות. **תרגיל `[{pull,X},{one_arm_pullup,Y}]` עם `pull` ראשון יחזיר את תקציב-ה-`pull`, גם כאן, מאותה סיבה בדיוק.** לא תוקן בסבב-התיקונים של 08.09.2026 — התיקון שאושר היה מוגבל במפורש ל-`home-workout.service.ts`. פריט-תור נפרד, לא נסגר.
+
+**שלושה תיקוני-קוד שכבר נבעו מזה, ורביעי שנשאר פתוח:**
+1. ✅ `SKILL_SLUGS`'s `'oap'`→`'one_arm_pullup'` (תוקן, 08.09.2026).
+2. ✅ `getLevelForDomain` — סדר-מערך, workout-selection.utils.ts (תוקן, 08.09.2026, ענף `fix/domain-tag-priority-order`).
+3. ✅ `getUserLevelForExercise`'s Pass 2 — סדר-מערך, home-workout.service.ts (תוקן, 08.09.2026, אותו ענף).
+4. ⚠️ `hybrid-context.util.ts`'s `resolveUserLevelForExercise` — **לא תוקן**, אותה מחלקת-באג בדיוק, אלגוריתם עצמאי שלישי.
+
+**לא מאוחד עכשיו — כפי שהתבקש.** חמשת המבנים (ואלגוריתם-הרזולוציה השישי) ממשיכים להתקיים בנפרד. איחוד באמצע תיקון מזיז את הקרקע — זה הבא שיטופל אחרי המגירה (Block 3), לא כאן.
 
 ---
 
