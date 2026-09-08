@@ -24,14 +24,20 @@
  *    Fails OPEN on a read error (deliberately the opposite bias from the global switch
  *    above — see admin per-channel kill-switch section for why).
  * 7. Daily engagement cap (Stage 2, additive) — max DAILY_ENGAGEMENT_CAP pushes per
- *    user per calendar day, counted ONLY across ENGAGEMENT_CHANNELS (automated
- *    re-engagement/marketing-style nudges). Independent of feature 3's per-channel
- *    cap — a uid can be well under its per-channel cooldown on every individual
- *    channel and still get capped here once the cross-channel daily total is hit.
- *    `chat` (transactional — a real human sent a real message) and `system`
- *    (operational) are exempt by design, same as everywhere else in this file.
- *    `encouragement`/`progression` are deliberately NOT in ENGAGEMENT_CHANNELS
- *    yet — open question, see the Stage 2 report this shipped with.
+ *    user per calendar day, counted by notification SEMANTICS, not raw channel
+ *    label: a send only counts when its channel is in ENGAGEMENT_CHANNELS
+ *    (automated nudges/aggregate content) AND it isn't marked
+ *    `isPersonalInteraction: true` (someone/something did X to/for this user —
+ *    kudos, a group-join alert, the user's own achievement validation — the
+ *    highest-value, lowest-annoyance category, per the Stage 2 refinement).
+ *    Independent of feature 3's per-channel cap — a uid can be well under its
+ *    per-channel cooldown on every individual channel and still get capped
+ *    here once the cross-channel daily total is hit. `chat` (transactional)
+ *    and `system` (operational) are exempt structurally, same as everywhere
+ *    else in this file. `encouragement` (manual admin broadcasts) is still an
+ *    open question; `progression` (level-up/streak/PR) is excluded at the
+ *    channel level as pure validation — see ENGAGEMENT_CHANNELS's own doc
+ *    comment for the full per-channel mapping and reasoning.
  *
  * RATE CAP STORAGE
  * ────────────────
@@ -76,14 +82,32 @@ const TZ = 'Asia/Jerusalem';
 const DAILY_ENGAGEMENT_CAP = 3;
 
 /**
- * Channels counted toward DAILY_ENGAGEMENT_CAP — automated re-engagement/
- * marketing-style nudges, as opposed to `chat` (transactional — a real human
- * sent a real message and must never be silenced by a quota) and `system`
- * (operational/security, already force-on everywhere else in this file).
- * `encouragement` (manual admin broadcasts) and `progression` (level-up/
- * streak/PR) are DELIBERATELY left out of this set for now — flagged to
- * David as an open question rather than guessed either way; see the report
- * this shipped with.
+ * Channels that CAN carry a NUDGE/AGGREGATE event and so participate in the
+ * daily cap check — refined 08.09.2026 to cap by notification SEMANTICS, not
+ * raw channel label, after finding that `social` mixes personal interactions
+ * (kudos, a group-join admin alert) with a same-channel confirmation event.
+ * Membership here is necessary but NOT sufficient: the actual per-send
+ * decision is `ENGAGEMENT_CHANNELS.has(channel) && !opts.isPersonalInteraction`
+ * (see isPersonalInteraction's doc comment on SendPushOpts) — a call on one
+ * of these channels still bypasses the cap entirely when the caller marks it
+ * as a personal interaction.
+ *
+ * `chat` (transactional) and `system` (operational) are exempt structurally,
+ * same as everywhere else in this file — no flag needed since neither
+ * channel ever carries a nudge event to begin with.
+ *
+ * `encouragement` (manual admin broadcasts) is deliberately left OUT of this
+ * set — a human admin actively choosing to send one is a different kind of
+ * event than an automated nudge, and this is still an open question for
+ * David rather than guessed either way.
+ *
+ * `progression` (level-up/streak/PR) is deliberately left OUT — read as pure
+ * VALIDATION of the user's own achievement (onLevelUp.ts's copy, e.g. "עלית
+ * לרמה 2! אתה בדרך הנכונה"), not an app-initiated ask to do something. The
+ * task's own framing groups "validation" with personal-interaction as the
+ * highest-value, lowest-annoyance category — so it's excluded at the channel
+ * level rather than needing a per-send flag, since NOTHING sent on this
+ * channel is ever a nudge.
  */
 const ENGAGEMENT_CHANNELS: ReadonlySet<PushChannel> = new Set([
   'health_milestone',
@@ -235,6 +259,22 @@ export interface SendPushOpts {
   skipQuietHours?: boolean;
   /** See SendPushMeasurement's doc comment. Opt-in, absent = no-op. */
   measurement?: SendPushMeasurement;
+  /**
+   * Stage 2 refinement — set true for a PERSONAL interaction: another
+   * person (or the user's own completed achievement) is the direct subject
+   * of this push, as opposed to an app-initiated NUDGE or an aggregate/
+   * discovery message. Exempts this specific send from the daily
+   * engagement cap (DAILY_ENGAGEMENT_CAP) — the check AND the counter
+   * increment are both skipped, same treatment as `chat`. Channel
+   * membership in ENGAGEMENT_CHANNELS is necessary but not sufficient: a
+   * channel can carry a MIX of personal and nudge events (e.g. `social`
+   * carries kudos AND a group-join welcome, both personal, but a future
+   * generic-community-digest send on the same channel would NOT be) — this
+   * flag is the per-send override for exactly that case. Absent/false =
+   * previous behavior (channel membership alone decides). See the Stage 2
+   * report (07.09.2026) mapping every real caller to PERSONAL vs NUDGE.
+   */
+  isPersonalInteraction?: boolean;
 }
 
 export interface SendPushResult {
@@ -321,7 +361,10 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   const tokenOwners = new Map<string, string>(); // token → uid
 
   const db = getDb();
-  const isEngagementChannel = ENGAGEMENT_CHANNELS.has(channel);
+  // Subject to the daily engagement cap: on a capped channel AND not marked
+  // as a personal interaction for THIS specific send (see isPersonalInteraction's
+  // doc comment — a channel can carry a mix of personal and nudge events).
+  const isEngagementChannel = ENGAGEMENT_CHANNELS.has(channel) && !opts.isPersonalInteraction;
   const todayKey = isEngagementChannel ? getJerusalemDateKey() : '';
 
   // Fetch user docs in batches of 100 (Firestore getAll limit)

@@ -34,6 +34,8 @@
  *
  * CHANNEL: 'social' — respects users' `notificationPrefs.social` setting.
  * RATE CAP: RATE_CAP_MINUTES (see constant below); configurable for testing.
+ * Sends isPersonalInteraction: true (Stage 2, 08.09.2026) — exempt from
+ * push.service.ts's daily engagement cap, same treatment as chat.
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
@@ -150,6 +152,10 @@ export const onKudosCreated = onDocumentCreated(
           senderName,
         },
         rateCapHours: RATE_CAP_HOURS,
+        // Stage 2 — a kudos is someone else reacting to this user's workout,
+        // the canonical PERSONAL-interaction event. Exempt from the daily
+        // engagement cap (its own per-channel rate cap above is untouched).
+        isPersonalInteraction: true,
       });
 
       logger.info(

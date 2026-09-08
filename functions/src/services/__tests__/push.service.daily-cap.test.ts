@@ -1,10 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /**
- * Stage 2 — proves the additive daily engagement cap in push.service.ts:
+ * Stage 2 — proves the additive daily engagement cap in push.service.ts, and
+ * its 08.09.2026 refinement (cap by notification SEMANTICS, not raw channel
+ * label):
  *   (a) engagement-channel pushes stop once DAILY_ENGAGEMENT_CAP is hit
  *   (b) chat (transactional) still delivers regardless of the engagement count
  *   (c) the daily counter resets when the stored date != today
+ *   (d) a PERSONAL interaction (isPersonalInteraction: true) on an
+ *       ENGAGEMENT_CHANNELS channel — e.g. kudos on 'social' — still
+ *       delivers above the cap AND never touches the counter, proving the
+ *       exemption is per-send, not per-channel (the same channel also
+ *       carries real nudge events that DO get capped)
  *
  * Mocks 'firebase-admin' with a minimal in-memory Firestore + a
  * FCM-always-succeeds messaging stub — push.service.ts only ever calls
@@ -243,5 +250,50 @@ describe('push.service — Stage 2 daily engagement cap', () => {
     expect(result.delivered).toBe(0);
     const rateDoc = await getRateDoc(UID);
     expect(rateDoc.dailyEngagementCount).toBe(1); // unchanged — nothing was actually sent
+  });
+
+  it('(d) a PERSONAL interaction on a capped channel (kudos-style, "social") delivers above the cap and never touches the counter', async () => {
+    seedUser(UID);
+    seedRate(UID, { dailyEngagementDate: '2026-01-15', dailyEngagementCount: 5 }); // already over the cap
+
+    const result = await sendPush({
+      toUids: [UID],
+      channel: 'social', // the same real channel onKudosCreated/onGroupMemberJoin use
+      title: 't', body: 'b',
+      rateCapHours: 0,
+      isPersonalInteraction: true,
+    });
+
+    expect(result.delivered).toBe(1);
+    expect(result.skippedDailyCap).toBe(0);
+
+    const rateDoc = await getRateDoc(UID);
+    expect(rateDoc.dailyEngagementCount).toBe(5); // untouched, not incremented to 6
+  });
+
+  it('(d cont.) the SAME channel without the flag is still capped — proves the exemption is per-send, not per-channel', async () => {
+    seedUser(UID);
+    seedRate(UID, { dailyEngagementDate: '2026-01-15', dailyEngagementCount: 3 }); // at the cap
+
+    const nudgeOnSocial = await sendPush({
+      toUids: [UID],
+      channel: 'social',
+      title: 't', body: 'b',
+      rateCapHours: 0,
+      // no isPersonalInteraction — e.g. a hypothetical future generic
+      // community-digest send sharing the 'social' channel.
+    });
+    expect(nudgeOnSocial.delivered).toBe(0);
+    expect(nudgeOnSocial.skippedDailyCap).toBe(1);
+
+    const personalOnSocial = await sendPush({
+      toUids: [UID],
+      channel: 'social',
+      title: 't', body: 'b',
+      rateCapHours: 0,
+      isPersonalInteraction: true,
+    });
+    expect(personalOnSocial.delivered).toBe(1);
+    expect(personalOnSocial.skippedDailyCap).toBe(0);
   });
 });

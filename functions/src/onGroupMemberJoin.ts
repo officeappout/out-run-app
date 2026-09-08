@@ -26,6 +26,9 @@
  *   - Joiner welcome: rateCapHours=0 (intentional action, always notify)
  *   - Admin alert:    rateCapHours=1 (batches concurrent joins into max 1/h)
  *
+ * Both sends pass isPersonalInteraction: true (Stage 2, 08.09.2026) — exempt
+ * from push.service.ts's daily engagement cap, same treatment as chat.
+ *
  * The trigger intentionally co-exists with onGroupMemberWrite (v1) which
  * handles memberCount sync — no overlap in responsibility.
  */
@@ -116,6 +119,10 @@ export const onGroupMemberJoin = onDocumentCreated(
         deepLink: `/community/${groupId}`,
         data: { triggerType: 'GroupJoin_Welcome', groupId },
         rateCapHours: 0, // intentional action — always deliver
+        // Stage 2 — a direct confirmation of the user's OWN intentional
+        // action, already designed to "always deliver" (rateCapHours: 0
+        // above). Exempt from the daily engagement cap for the same reason.
+        isPersonalInteraction: true,
       });
       logger.info(
         `[onGroupMemberJoin] welcome uid=${joinerUid} group=${groupId} ` +
@@ -137,6 +144,10 @@ export const onGroupMemberJoin = onDocumentCreated(
         deepLink: `/community/${groupId}`,
         data: { triggerType: 'GroupJoin_AdminAlert', groupId, joinerUid },
         rateCapHours: 1, // deduplicate concurrent joins: max 1 alert / hour
+        // Stage 2 — a specific person (the joiner) just joined a group this
+        // recipient leads, the canonical PERSONAL-interaction event. Exempt
+        // from the daily engagement cap.
+        isPersonalInteraction: true,
       });
       logger.info(
         `[onGroupMemberJoin] admin-alert adminUid=${adminUid} group=${groupId} ` +
