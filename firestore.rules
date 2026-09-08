@@ -613,7 +613,14 @@ service cloud.firestore {
     // ============================================================
     match /analytics_events/{docId} {
       allow read: if isAdmin();
-      allow create: if isAuthenticated();
+      // SPEC-02 F-18: was `if isAuthenticated()` — no ownership check at
+      // all, so a caller could forge `userId` to attribute an event to
+      // any other user. AnalyticsService.ts's userId field is optional
+      // (some events are written before a real uid is known), so this
+      // only constrains the field WHEN present — never rejects the
+      // no-userId shape the real writer already uses.
+      allow create: if isAuthenticated()
+        && (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid);
     }
 
     // ============================================================
@@ -1617,7 +1624,12 @@ service cloud.firestore {
     // ============================================================
     match /kudos/{recipientUid}/inbox/{kudoId} {
       allow read: if isOwner(recipientUid);
-      allow create: if isAuthenticated();
+      // SPEC-02 F-18: was `if isAuthenticated()` — no check that the
+      // sender is who they claim. kudos.service.ts's sendKudo() always
+      // writes fromUid as the caller's own uid (verified both call
+      // sites: KudoSheet.tsx, ActivityPanel.tsx) — a caller can no
+      // longer forge a kudo that appears to come from someone else.
+      allow create: if isAuthenticated() && request.resource.data.fromUid == request.auth.uid;
       allow update: if isOwner(recipientUid);
     }
 
@@ -1762,7 +1774,17 @@ service cloud.firestore {
     // ============================================================
     match /referrals/{docId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      // SPEC-02 F-18: was `if isAuthenticated()` — no ownership check.
+      // referral.service.ts's processReferral() is always called with
+      // the CALLER's own uid as inviteeUid (gateway/page.tsx: `user.uid`)
+      // — verified via grep, both call sites. Anyone can claim any
+      // referrerUid (that's the whole point of a referral program), but
+      // only for THEMSELVES as the invitee — a caller can no longer
+      // fabricate a referral record naming some OTHER uid as the invitee
+      // (inflating a referrer's count for people who never actually
+      // joined, or planting fake join records).
+      allow create: if isAuthenticated()
+        && request.resource.data.inviteeUid == request.auth.uid;
     }
 
     // ============================================================

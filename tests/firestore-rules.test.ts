@@ -1473,6 +1473,59 @@ async function testConnectionsSec01() {
   });
 }
 
+// SPEC-02 Wave B / F-18 — analytics_events, referrals, kudos: all had
+// `allow create: if isAuthenticated()` with no check that the acting
+// user is who the document claims. Verified the real owner field per
+// collection via grep before writing each rule.
+async function testF18Forgery() {
+  console.log('\nF-18 forgery — analytics_events, referrals, kudos ownership on create');
+
+  await it('F18_1 — analytics_events: create with userId == caller → ALLOW', async () => {
+    const ctx = env.authenticatedContext('f18_user_a');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'analytics_events', 'ev1'), {
+      eventType: 'test', userId: 'f18_user_a', timestamp: new Date(),
+    }));
+  });
+  await it('F18_2 — analytics_events: create with NO userId field at all → ALLOW (the real writer\'s pre-login shape)', async () => {
+    const ctx = env.authenticatedContext('f18_user_a');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'analytics_events', 'ev2'), {
+      eventType: 'test', timestamp: new Date(),
+    }));
+  });
+  await it('F18_3 — analytics_events: create with userId forged to someone else → DENY (was ALLOW under the old rule)', async () => {
+    const ctx = env.authenticatedContext('f18_user_a');
+    await assertFails(setDoc(doc(ctx.firestore(), 'analytics_events', 'ev3'), {
+      eventType: 'test', userId: 'f18_victim', timestamp: new Date(),
+    }));
+  });
+
+  await it('F18_4 — referrals: create with inviteeUid == caller → ALLOW (any referrerUid — that\'s the whole point)', async () => {
+    const ctx = env.authenticatedContext('f18_invitee');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'referrals', 'f18_referrer_f18_invitee'), {
+      referrerUid: 'f18_referrer', inviteeUid: 'f18_invitee', inviteeName: 'X',
+    }));
+  });
+  await it('F18_5 — referrals: create with inviteeUid forged to someone else → DENY (was ALLOW under the old rule)', async () => {
+    const ctx = env.authenticatedContext('f18_invitee');
+    await assertFails(setDoc(doc(ctx.firestore(), 'referrals', 'f18_referrer_f18_victim'), {
+      referrerUid: 'f18_referrer', inviteeUid: 'f18_victim', inviteeName: 'X',
+    }));
+  });
+
+  await it('F18_6 — kudos: create with fromUid == caller → ALLOW', async () => {
+    const ctx = env.authenticatedContext('f18_sender');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'kudos', 'f18_recipient', 'inbox', 'k1'), {
+      fromUid: 'f18_sender', fromName: 'Sender', type: 'high_five',
+    }));
+  });
+  await it('F18_7 — kudos: create with fromUid forged to someone else → DENY (was ALLOW under the old rule)', async () => {
+    const ctx = env.authenticatedContext('f18_sender');
+    await assertFails(setDoc(doc(ctx.firestore(), 'kudos', 'f18_recipient', 'inbox', 'k2'), {
+      fromUid: 'f18_someone_else', fromName: 'Sender', type: 'high_five',
+    }));
+  });
+}
+
 async function testWaveASpec02() {
   console.log('\nWave A (SPEC-02) — sessions, attendance, group_invitations, leaderboard shards/snapshots, private/legal');
 
@@ -1694,4 +1747,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('private-invite subcollection (SPEC-01 task 2)', wrapSuite(testPrivateInviteSubcollection));
   vitestIt('Wave A (SPEC-02)', wrapSuite(testWaveASpec02));
   vitestIt('connections SEC-01 (SPEC-02, partial)', wrapSuite(testConnectionsSec01));
+  vitestIt('F-18 forgery (SPEC-02)', wrapSuite(testF18Forgery));
 });
