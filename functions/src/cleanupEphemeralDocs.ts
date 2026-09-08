@@ -126,18 +126,30 @@ async function sweepCollection(
  * EVERY invitation pointing at it has expired, not just the first found.
  *
  * This duplicates (does not call) community.service.ts's deleteGroup()
- * contract: Cloud Functions run on the Admin SDK and cannot import the
- * Next.js app's client-SDK service code. The same steps are replicated
- * here by hand — main doc, members, chats/group_{id} + its messages,
- * attendance + its member_statuses, and arrayRemove(groupId) from every
- * member's users/{uid}.social.groupIds + user_memberships/{uid}. Logged
- * to parking-lot.md as a real, ongoing risk: two implementations of one
- * contract, in two SDKs, that must be kept in sync by hand. A single
- * shared HTTP endpoint (src/app/api/admin/delete-group/route.ts) exists
- * as the one-true-contract alternative, but calling it from here needs a
- * Cloud Functions secret (AGENT_API_KEY) this deployment has never
- * actually wired up — David's call whether that's worth doing before
- * this deploys, or whether the hand-mirrored version below stands.
+ * contract — three options were weighed 08.09.2026, in order:
+ *   1. HTTP call to a shared API route — rejected: a secret to manage, a
+ *      network hop that can fail mid-delete, and a data operation that
+ *      shouldn't need two services to complete one write.
+ *   2. Import a shared TypeScript module directly — tested empirically:
+ *      functions/tsconfig.json's include can be widened to reach a
+ *      sibling directory outside functions/, and it compiles, but
+ *      TypeScript's rootDir inference then restructures ALL of
+ *      functions/lib's output (index.js moves from lib/index.js to
+ *      lib/functions/src/index.js), silently breaking package.json's
+ *      main entry point for every deployed function, not just this one.
+ *      A non-disruptive version exists (a real local npm package with
+ *      TypeScript project references, built independently) but is new
+ *      infrastructure, not a same-day change — logged in parking-lot.md
+ *      as a future improvement, not built today.
+ *   3. Accept two hand-written implementations, made safe with a
+ *      contract-parity test instead of shared code — this is what's
+ *      shipped: deleteGroupContractAdminSdk (below) is exported
+ *      specifically so tests/group-delete-contract-parity.ts can run it
+ *      against an identical synthetic fixture as community.service.ts's
+ *      deleteGroup() and assert the two resulting states match exactly.
+ *      Divergence between the two implementations now fails a test
+ *      instead of silently drifting — logged as a conscious, tested
+ *      debt in parking-lot.md, not an unenforced risk.
  *
  * Guarded by app_config/feature_flags.ephemeralGroupSweepDeleteEnabled
  * (David, 08.09.2026: first pass must be report-only). Default
@@ -149,6 +161,107 @@ async function sweepCollection(
  * any kind happens — not even the real delete's read-side calls beyond
  * what's needed to log accurately.
  */
+export type GroupDeleteOutcome =
+  | { status: 'deleted'; groupId: string; members: number; chat: boolean; messages: number; attendance: number; memberStatuses: number; opCount: number }
+  | { status: 'report-only'; groupId: string; members: number; chat: boolean; messages: number; attendance: number; memberStatuses: number; opCount: number; memberUids: string[] }
+  | { status: 'refused-op-limit'; groupId: string; opCount: number }
+  | { status: 'already-gone'; groupId: string };
+
+/**
+ * The Admin-SDK half of the delete contract — extracted as its own
+ * exported function (not inlined in the sweep loop) specifically so a
+ * contract-parity test can call it directly and compare its resulting
+ * state against community.service.ts's client-SDK deleteGroup() on an
+ * identical synthetic fixture (David, 08.09.2026: cross-package code
+ * sharing between functions/ and src/ was tested and found to silently
+ * restructure functions/lib's output layout — see the comment above —
+ * so this stays a hand-mirrored implementation, made safe by the parity
+ * test in tests/group-delete-contract-parity.ts instead of by shared
+ * code). Assumes the caller has already decided this groupId should be
+ * deleted (type/expiry checks happen in the sweep loop, not here) —
+ * this function's only job is the deletion contract itself.
+ *
+ * dryRun=true performs every read and the op-count guard but no write —
+ * used both by the sweep's report-only mode and by nothing else.
+ */
+export async function deleteGroupContractAdminSdk(
+  db: admin.firestore.Firestore,
+  groupId: string,
+  opts: { dryRun: boolean },
+): Promise<GroupDeleteOutcome> {
+  const groupRef = db.doc(`community_groups/${groupId}`);
+  const groupSnap = await groupRef.get();
+
+  const membersSnap = await groupRef.collection('members').get();
+  const memberUids = membersSnap.docs.map((d) => d.id);
+
+  const chatId = `group_${groupId}`;
+  const chatRef = db.doc(`chats/${chatId}`);
+  const chatSnap = await chatRef.get();
+  const messagesSnap = chatSnap.exists ? await chatRef.collection('messages').get() : null;
+
+  const attendanceSnap = await groupRef.collection('attendance').get();
+  const memberStatusesSnaps = await Promise.all(
+    attendanceSnap.docs.map((a) => a.ref.collection('member_statuses').get()),
+  );
+  const memberStatusesCount = memberStatusesSnaps.reduce((sum, s) => sum + s.size, 0);
+
+  if (!groupSnap.exists && membersSnap.empty && attendanceSnap.empty && !chatSnap.exists) {
+    return { status: 'already-gone', groupId };
+  }
+
+  const opCount =
+    1 +
+    membersSnap.size +
+    memberUids.length * 2 +
+    (chatSnap.exists ? 1 : 0) +
+    (messagesSnap?.size ?? 0) +
+    attendanceSnap.size +
+    memberStatusesCount;
+
+  if (opCount > 500) {
+    return { status: 'refused-op-limit', groupId, opCount };
+  }
+
+  if (opts.dryRun) {
+    return {
+      status: 'report-only', groupId, opCount, memberUids,
+      members: memberUids.length, chat: chatSnap.exists,
+      messages: messagesSnap?.size ?? 0, attendance: attendanceSnap.size, memberStatuses: memberStatusesCount,
+    };
+  }
+
+  const batch = db.batch();
+  batch.delete(groupRef);
+  membersSnap.docs.forEach((d) => batch.delete(d.ref));
+  for (const uid of memberUids) {
+    batch.set(
+      db.doc(`user_memberships/${uid}`),
+      { groupIds: admin.firestore.FieldValue.arrayRemove(groupId), updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+    // update(), not set(merge:true) — verified 08.09.2026 that set()
+    // treats a dotted key as a literal field name, not a nested path,
+    // and silently no-ops on the real nested field.
+    batch.update(db.doc(`users/${uid}`), {
+      'social.groupIds': admin.firestore.FieldValue.arrayRemove(groupId),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+  if (messagesSnap) messagesSnap.docs.forEach((d) => batch.delete(d.ref));
+  if (chatSnap.exists) batch.delete(chatRef);
+  memberStatusesSnaps.forEach((s) => s.docs.forEach((d) => batch.delete(d.ref)));
+  attendanceSnap.docs.forEach((d) => batch.delete(d.ref));
+
+  await batch.commit();
+
+  return {
+    status: 'deleted', groupId, opCount,
+    members: memberUids.length, chat: chatSnap.exists,
+    messages: messagesSnap?.size ?? 0, attendance: attendanceSnap.size, memberStatuses: memberStatusesCount,
+  };
+}
+
 async function sweepEphemeralRunGroups(now: admin.firestore.Timestamp): Promise<number> {
   const flagsSnap = await db.doc('app_config/feature_flags').get();
   const deleteEnabled = flagsSnap.data()?.ephemeralGroupSweepDeleteEnabled === true;
@@ -195,71 +308,30 @@ async function sweepEphemeralRunGroups(now: admin.firestore.Timestamp): Promise<
         continue;
       }
 
-      const membersSnap = await groupRef.collection('members').get();
-      const memberUids = membersSnap.docs.map((d) => d.id);
+      const outcome = await deleteGroupContractAdminSdk(db, groupId, { dryRun: !deleteEnabled });
 
-      const chatId = `group_${groupId}`;
-      const chatRef = db.doc(`chats/${chatId}`);
-      const chatSnap = await chatRef.get();
-      const messagesSnap = chatSnap.exists ? await chatRef.collection('messages').get() : null;
-
-      const attendanceSnap = await groupRef.collection('attendance').get();
-      const memberStatusesSnaps = await Promise.all(
-        attendanceSnap.docs.map((a) => a.ref.collection('member_statuses').get()),
-      );
-
-      const opCount =
-        1 +
-        membersSnap.size +
-        memberUids.length * 2 +
-        (chatSnap.exists ? 1 : 0) +
-        (messagesSnap?.size ?? 0) +
-        attendanceSnap.size +
-        memberStatusesSnaps.reduce((sum, s) => sum + s.size, 0);
-
-      if (opCount > 500) {
+      if (outcome.status === 'refused-op-limit') {
         logger.error(
-          `[cleanupEphemeralDocs] ephemeral group ${groupId} needs ${opCount} write ops — ` +
+          `[cleanupEphemeralDocs] ephemeral group ${groupId} needs ${outcome.opCount} write ops — ` +
           `refusing to split into non-atomic batches, skipping (manual cleanup needed).`,
         );
         continue;
       }
+      if (outcome.status === 'already-gone') continue;
 
-      if (!deleteEnabled) {
+      if (outcome.status === 'report-only') {
         logger.info(
           `[cleanupEphemeralDocs] REPORT-ONLY — would delete ${groupId} ("${groupSnap.data()?.name}"): ` +
-          `members=${memberUids.length} [${memberUids.join(',')}], chat=${chatSnap.exists}, ` +
-          `messages=${messagesSnap?.size ?? 0}, attendance=${attendanceSnap.size}, ` +
-          `memberStatuses=${memberStatusesSnaps.reduce((sum, s) => sum + s.size, 0)}, opCount=${opCount}. ` +
+          `members=${outcome.members} [${outcome.memberUids.join(',')}], chat=${outcome.chat}, ` +
+          `messages=${outcome.messages}, attendance=${outcome.attendance}, ` +
+          `memberStatuses=${outcome.memberStatuses}, opCount=${outcome.opCount}. ` +
           `Set app_config/feature_flags.ephemeralGroupSweepDeleteEnabled=true to actually delete.`,
         );
         deleted++; // counts as "identified" in report-only mode, for the summary log below
         continue;
       }
 
-      const batch = db.batch();
-      batch.delete(groupRef);
-      membersSnap.docs.forEach((d) => batch.delete(d.ref));
-      for (const uid of memberUids) {
-        batch.set(
-          db.doc(`user_memberships/${uid}`),
-          { groupIds: admin.firestore.FieldValue.arrayRemove(groupId), updatedAt: admin.firestore.FieldValue.serverTimestamp() },
-          { merge: true },
-        );
-        // update(), not set(merge:true) — verified 08.09.2026 that set()
-        // treats a dotted key as a literal field name, not a nested path,
-        // and silently no-ops on the real nested field.
-        batch.update(db.doc(`users/${uid}`), {
-          'social.groupIds': admin.firestore.FieldValue.arrayRemove(groupId),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
-      if (messagesSnap) messagesSnap.docs.forEach((d) => batch.delete(d.ref));
-      if (chatSnap.exists) batch.delete(chatRef);
-      memberStatusesSnaps.forEach((s) => s.docs.forEach((d) => batch.delete(d.ref)));
-      attendanceSnap.docs.forEach((d) => batch.delete(d.ref));
-
-      await batch.commit();
+      // outcome.status === 'deleted'
       deleted++;
     } catch (err: any) {
       logger.error(`[cleanupEphemeralDocs] failed to sweep ephemeral group ${groupId}:`, err?.message, err?.stack);
