@@ -199,7 +199,12 @@ export async function createLegalHold(
       resolvedName =
         resolvedName ?? (u.displayName ?? u.healthUserName ?? u.core?.displayName ?? null);
       resolvedEmail = resolvedEmail ?? (u.email ?? u.core?.email ?? null);
-      pdfUrl = u.healthDeclarationPdfUrl ?? null;
+    }
+    // SPEC-02 SEC-06: healthDeclarationPdfUrl moved to
+    // users/{uid}/private/legal — no longer a field on the user doc itself.
+    const legalSnap = await db.collection('users').doc(uid).collection('private').doc('legal').get();
+    if (legalSnap.exists) {
+      pdfUrl = legalSnap.data()?.healthDeclarationPdfUrl ?? null;
     }
   } catch (e) {
     logger.warn(`[createLegalHold] could not read users/${uid} for identity`, e);

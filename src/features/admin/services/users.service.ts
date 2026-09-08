@@ -217,6 +217,16 @@ export async function getAllUsers(): Promise<AdminUserListItem[]> {
 }
 
 /**
+ * SPEC-02 SEC-06: healthDeclarationPdfUrl moved off the user doc itself
+ * into users/{userId}/private/legal (owner/admin-only) — this admin panel
+ * is the one legitimate non-owner reader, so it fetches it separately.
+ */
+export async function getUserHealthDeclarationPdfUrl(userId: string): Promise<string | undefined> {
+  const snap = await getDoc(doc(db, USERS_COLLECTION, userId, 'private', 'legal'));
+  return snap.exists() ? (snap.data().healthDeclarationPdfUrl as string | undefined) : undefined;
+}
+
+/**
  * Get detailed user profile by ID
  */
 export async function getUserDetails(userId: string): Promise<UserFullProfile | null> {

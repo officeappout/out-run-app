@@ -8,12 +8,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
-import { 
-  getAllUsers, 
-  getUserDetails, 
+import {
+  getAllUsers,
+  getUserDetails,
+  getUserHealthDeclarationPdfUrl,
   getUserWorkoutHistory,
   deleteUser,
-  AdminUserListItem 
+  AdminUserListItem
 } from '@/features/admin/services/users.service';
 import { UserFullProfile } from '@/types/user-profile';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
@@ -119,6 +120,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
   const [cleaningLegacy, setCleaningLegacy] = useState(false);
   const [showProgramPicker, setShowProgramPicker] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [healthDeclarationPdfUrl, setHealthDeclarationPdfUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (user) {
@@ -134,6 +136,9 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
       // Load full profile
       const profile = await getUserDetails(user.id);
       setFullProfile(profile);
+
+      // SPEC-02 SEC-06: separate fetch — no longer a field on the profile doc itself.
+      setHealthDeclarationPdfUrl(await getUserHealthDeclarationPdfUrl(user.id));
 
       // Load workout history
       const history = await getUserWorkoutHistory(user.id, 50);
@@ -1562,7 +1567,7 @@ function UserDetailModal({ user, onClose }: UserDetailModalProps) {
                         {/* Health Declaration Status */}
                         {(() => {
                           const healthAccepted = (fullProfile as any).healthDeclarationAccepted === true;
-                          const pdfUrl = (fullProfile as any).healthDeclarationPdfUrl as string | undefined;
+                          const pdfUrl = healthDeclarationPdfUrl;
                           const hasInjuries = fullProfile.health?.injuries && fullProfile.health.injuries.length > 0;
                           return (
                             <div className={`rounded-xl p-5 border-2 ${

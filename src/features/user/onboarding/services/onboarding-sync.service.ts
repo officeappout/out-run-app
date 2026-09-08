@@ -743,9 +743,11 @@ export async function syncOnboardingToFirestore(
     if ((data as any).termsVersion) {
       updateData.termsVersion = (data as any).termsVersion;
     }
-    if ((data as any).healthDeclarationPdfUrl) {
-      updateData.healthDeclarationPdfUrl = (data as any).healthDeclarationPdfUrl;
-    }
+    // SPEC-02 SEC-06: healthDeclarationPdfUrl no longer goes on the user
+    // doc itself (world-readable to any signed-in guest whenever the
+    // profile is discoverable — see firestore.rules' private/legal
+    // comment) — written separately below, after the main doc write.
+    const healthDeclarationPdfUrl: string | undefined = (data as any).healthDeclarationPdfUrl || undefined;
 
     // ================================================================
     // ACCOUNT SECURITY: Backup & Security authentication method
@@ -1965,6 +1967,15 @@ export async function syncOnboardingToFirestore(
     // Save to Firestore (merge with existing data)
     // Use sanitized data to ensure no undefined values
     await setDoc(userDocRef, sanitizedUpdateData, { merge: true });
+
+    // SPEC-02 SEC-06 — separate write, separate (owner/admin-only) location.
+    if (healthDeclarationPdfUrl) {
+      await setDoc(
+        doc(db, USERS_COLLECTION, user.uid, 'private', 'legal'),
+        { healthDeclarationPdfUrl, updatedAt: new Date() },
+        { merge: true },
+      );
+    }
 
     // core.authorityId is locked from direct client writes (noTenantFieldsChanged).
     // Written after the main setDoc via the Admin SDK endpoint, bundled with

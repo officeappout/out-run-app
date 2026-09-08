@@ -10,7 +10,7 @@ import { useOnboardingStore } from '../store/useOnboardingStore';
 // bundled into this page's initial JS chunk, eliminating the main-thread freeze
 // that occurred when the browser first evaluated the chunk during navigation.
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { storage, db, auth } from '@/lib/firebase';
 import LegalDocModal from '@/features/legal/components/LegalDocModal';
 import { LEGAL_VERSION } from '@/features/legal/legal-content';
@@ -263,12 +263,14 @@ export default function HealthDeclarationStep({
           });
           pdfDownloadUrl = await getDownloadURL(snapshot.ref);
 
-          // ── 3. Save download URL to Firestore user document ──
-          const userDocRef = doc(db, 'users', userId);
-          await updateDoc(userDocRef, {
-            healthDeclarationPdfUrl: pdfDownloadUrl,
-            updatedAt: new Date(),
-          });
+          // ── 3. Save download URL — SPEC-02 SEC-06: private/legal, not
+          // the user doc itself (world-readable to any signed-in guest
+          // whenever the profile is discoverable) ──
+          await setDoc(
+            doc(db, 'users', userId, 'private', 'legal'),
+            { healthDeclarationPdfUrl: pdfDownloadUrl, updatedAt: new Date() },
+            { merge: true },
+          );
         }
       } catch (pdfError) {
         // PDF generation/upload failure should NOT block onboarding flow.
