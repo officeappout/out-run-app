@@ -1027,10 +1027,14 @@ service cloud.firestore {
     // ADMIN — הזמנות, מדיה, עריכות, תחזוקה, ביקורת
     // ============================================================
     match /admin_invitations/{docId} {
-      // Authenticated users can read invitations (needed for token validation
-      // during the sign-up flow, before the user has the 'admin' role).
-      // Tokens are 64-char random hex — knowledge of the token IS authorization.
-      allow read: if isAuthenticated();
+      // SPEC-01 (docs/audit-2026-09/SPEC-01-close-guest-leaks.md) task 1:
+      // this used to be `if isAuthenticated()`. Since anonymous sign-in is
+      // open, that meant any guest could `list` this collection and dump
+      // every invitation — emails, roles, and live tokens. Token/email
+      // lookups needed during the pre-admin sign-up flow now go through
+      // /api/admin/invitations/{check-email,verify-token} (Admin SDK,
+      // server-side), so the client no longer needs any access here.
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 

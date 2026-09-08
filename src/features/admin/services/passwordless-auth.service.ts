@@ -2,15 +2,11 @@
  * Passwordless Authentication Service for Admin Portal
  * Checks admin permissions before sending magic links
  */
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { sendMagicLink } from '@/lib/auth.service';
 import { getAuthoritiesByManager } from './authority.service';
 import { getUserByEmail } from './admin-management.service';
 import { checkUserRole } from './auth.service';
 import { isRootAdmin, isAdminEmailAllowed } from '@/config/feature-flags';
-
-const INVITATIONS_COLLECTION = 'admin_invitations';
 
 export type AdminRole = 'super_admin' | 'system_admin' | 'authority_manager';
 
@@ -65,33 +61,19 @@ export async function checkAdminEmail(email: string): Promise<AdminCheckResult> 
       console.warn('[checkAdminEmail] getUserByEmail failed (user may be unauthenticated):', userLookupError);
     }
     
-    // If user doesn't exist, check admin_invitations collection
+    // If user doesn't exist, check admin_invitations via the server
+    // (SPEC-01 task 1 — admin_invitations no longer allows client `list`,
+    // so this can't be a direct Firestore query anymore).
     if (!userDoc) {
       try {
-        const invitationsQuery = query(
-          collection(db, INVITATIONS_COLLECTION),
-          where('email', '==', normalizedEmail),
-          where('isUsed', '==', false)
-        );
-        const invitationsSnapshot = await getDocs(invitationsQuery);
-        
-        if (!invitationsSnapshot.empty) {
-          const invitationData = invitationsSnapshot.docs[0].data();
-          const role = invitationData?.role as AdminRole;
-          
-          // Check if invitation is expired
-          const expiresAt = invitationData?.expiresAt;
-          let isExpired = false;
-          if (expiresAt) {
-            const expiryDate = expiresAt.toDate ? expiresAt.toDate() : new Date(expiresAt);
-            isExpired = expiryDate < new Date();
-          }
-          
-          if (!isExpired && role) {
+        const res = await fetch(`/api/admin/invitations/check-email?email=${encodeURIComponent(normalizedEmail)}`);
+        if (res.ok) {
+          const { role } = (await res.json()) as { role: AdminRole | null };
+          if (role) {
             // Invitation exists and is valid
             return {
               exists: true,
-              role: role === 'authority_manager' ? 'authority_manager' : null,
+              role,
               isApproved: true, // Invitations are considered "approved" if valid
             };
           }
@@ -177,22 +159,43 @@ export async function sendAdminMagicLink(
   email: string,
   requiredRole: AdminRole,
   continueUrl?: string,
-  options?: { hasInvitationToken?: boolean }
+  options?: { invitationToken?: string }
 ): Promise<{ sent: boolean; error: string | null }> {
   try {
-    // If a valid invitation token is present, skip the full admin-email
-    // verification. The user may be brand new — the invitation will be
-    // redeemed after they click the magic link (in auth/callback).
-    if (options?.hasInvitationToken) {
-      console.log('[sendAdminMagicLink] Invitation token present — bypassing email check, sending magic link directly.');
-      const result = await sendMagicLink(email, continueUrl);
-      if (result.error) {
-        return {
-          sent: false,
-          error: 'שגיאה בשליחת הקישור. נסה שוב.',
-        };
+    // If the caller has an invitation token AND it resolves (server-side)
+    // to an unused, unexpired invitation for THIS exact email, skip the
+    // full admin-email verification — the user may be brand new. The
+    // invitation itself is redeemed after they click the magic link (in
+    // auth/callback).
+    //
+    // SPEC-01 (docs/audit-2026-09/SPEC-01-close-guest-leaks.md) task 1
+    // bonus: this used to bypass on the mere PRESENCE of a token-shaped
+    // string in the URL, with no validation at all — anyone could get a
+    // magic link sent to an arbitrary email by adding `?token=x` to the
+    // login URL. It now requires the token to actually match this email.
+    if (options?.invitationToken) {
+      try {
+        const res = await fetch(
+          `/api/admin/invitations/verify-token?token=${encodeURIComponent(options.invitationToken)}`
+        );
+        const data = res.ok ? await res.json() : { invitation: null };
+        const invitation = data?.invitation as { email?: string } | null;
+        if (invitation?.email && invitation.email.toLowerCase() === email.toLowerCase().trim()) {
+          console.log('[sendAdminMagicLink] Invitation token verified for this email — bypassing role check, sending magic link directly.');
+          const result = await sendMagicLink(email, continueUrl);
+          if (result.error) {
+            return {
+              sent: false,
+              error: 'שגיאה בשליחת הקישור. נסה שוב.',
+            };
+          }
+          return { sent: true, error: null };
+        }
+        console.warn('[sendAdminMagicLink] Invitation token present but does not match this email — falling through to role check.');
+      } catch (err) {
+        console.error('[sendAdminMagicLink] Error verifying invitation token:', err);
+        // Fall through to the normal role check below.
       }
-      return { sent: true, error: null };
     }
 
     // Localhost dev bypass — Firestore security rules block unauthenticated

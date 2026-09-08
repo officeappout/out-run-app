@@ -1161,6 +1161,86 @@ async function testChatListScale() {
   });
 }
 
+// SPEC-01 (docs/audit-2026-09/SPEC-01-close-guest-leaks.md) task 1: this used
+// to be `allow read: if isAuthenticated()`. Since anonymous sign-in is open,
+// that meant any guest — signed in or not — could dump every admin invitation
+// (emails, roles, live 64-char tokens) via a plain unfiltered `list`, or the
+// exact `where('email', ...)`/`where('token', ...)` query shapes the client
+// used to run directly. AI1-AI3 reproduce those; AI4-AI6 prove a real admin
+// (client SDK, not just the new Admin-SDK routes) is unaffected.
+async function testAdminInvitationsLockdown() {
+  console.log('\nadmin-invitations-lockdown — SPEC-01 task 1 (admin_invitations no longer world-readable)');
+
+  const FIXTURE = {
+    email: 'invited-city@example.gov.il',
+    role: 'authority_manager',
+    authorityId: 'authority_test',
+    token: 'a'.repeat(64),
+    isUsed: false,
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    createdAt: new Date(),
+    createdBy: 'tenant_admin_user',
+  };
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'admin_invitations', 'ai_test_1'), FIXTURE);
+  });
+
+  // AI1/AI2 model the real exploit: `signInAnonymously` is open (see spec
+  // background), so "guest" in production means a signed-in-anonymous user —
+  // request.auth != null, no email/provider. authenticatedContext(uid) here
+  // stands in for that; a truly unauthenticatedContext() was ALREADY denied
+  // under the old `isAuthenticated()` rule too, so it wouldn't prove anything.
+  await it('AI1 — a signed-in guest (anonymous-sign-in equivalent) LISTS admin_invitations with no filter → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDocs(collection(ctx.firestore(), 'admin_invitations')));
+  });
+
+  await it('AI2 — a signed-in guest GETs a known admin_invitations doc by id → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'admin_invitations', 'ai_test_1')));
+  });
+
+  await it('AI3 — a signed-in NON-admin user runs the exact old where(email==) query shape → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDocs(query(
+      collection(ctx.firestore(), 'admin_invitations'),
+      where('email', '==', FIXTURE.email),
+      where('isUsed', '==', false),
+    )));
+  });
+
+  await it('AI4 — a signed-in NON-admin user runs the exact old where(token==) query shape → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDocs(query(
+      collection(ctx.firestore(), 'admin_invitations'),
+      where('token', '==', FIXTURE.token),
+      where('isUsed', '==', false),
+    )));
+  });
+
+  await it('AI5 — an admin GETs the same doc by id → ALLOW (real admins are unaffected)', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'admin_invitations', 'ai_test_1')));
+  });
+
+  await it('AI6 — an admin LISTS admin_invitations with no filter → ALLOW (admin panel management pages)', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    const snap = await assertSucceeds(getDocs(collection(ctx.firestore(), 'admin_invitations')));
+    if (!snap.docs.some((d) => d.id === 'ai_test_1')) {
+      throw new Error('admin list is missing the fixture doc — admin read must still see real invitations');
+    }
+  });
+
+  await it('AI7 — anonymous tries to WRITE (create) an admin_invitations doc → DENY (write was already isAdmin()-gated, unchanged by this fix — regression check)', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(setDoc(doc(ctx.firestore(), 'admin_invitations', 'ai_spoofed'), {
+      ...FIXTURE,
+      email: 'attacker@example.com',
+    }));
+  });
+}
+
 // ─── Vitest wiring ──────────────────────────────────────────────────────────
 //
 // The harness's own `it()` (above) never throws — it catches each case's
@@ -1213,4 +1293,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('persona-gated membership block', wrapSuite(testPersonaGatedMembershipBlock));
   vitestIt('chat leak closed', wrapSuite(testChatLeakClosed));
   vitestIt('chat list scale', wrapSuite(testChatListScale));
+  vitestIt('admin-invitations lockdown (SPEC-01 task 1)', wrapSuite(testAdminInvitationsLockdown));
 });

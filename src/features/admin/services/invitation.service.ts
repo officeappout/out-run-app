@@ -210,42 +210,33 @@ export async function createInvitation(
 }
 
 /**
- * Validate an invitation token
+ * Validate an invitation token.
+ *
+ * SPEC-01 task 1: admin_invitations no longer allows client `list`, so this
+ * can't be a direct Firestore `where('token', ...)` query anymore — it
+ * resolves via a server route backed by the Admin SDK instead. The token
+ * itself remains the authorization; only the enforcement point moved.
  */
 export async function validateInvitation(token: string): Promise<AdminInvitation | null> {
   try {
-    const q = query(
-      collection(db, INVITATIONS_COLLECTION),
-      where('token', '==', token),
-      where('isUsed', '==', false)
-    );
-    const snapshot = await getDocs(q);
+    const res = await fetch(`/api/admin/invitations/verify-token?token=${encodeURIComponent(token)}`);
+    if (!res.ok) return null;
 
-    if (snapshot.empty) {
-      return null; // Token not found or already used
-    }
-
-    const doc = snapshot.docs[0];
-    const data = doc.data();
-
-    // Check expiration
-    const expiresAt = toDate(data?.expiresAt);
-    if (expiresAt && expiresAt < new Date()) {
-      return null; // Token expired
-    }
+    const { invitation } = (await res.json()) as { invitation: Record<string, any> | null };
+    if (!invitation) return null; // Token not found, used, or expired
 
     return {
-      id: doc.id,
-      email: data?.email ?? '',
-      role: data?.role ?? 'authority_manager',
-      authorityId: data?.authorityId ?? undefined,
-      token: data?.token ?? '',
-      isUsed: data?.isUsed ?? false,
-      expiresAt: expiresAt ?? new Date(),
-      createdAt: toDate(data?.createdAt) ?? new Date(),
-      createdBy: data?.createdBy ?? '',
-      usedAt: toDate(data?.usedAt),
-      usedBy: data?.usedBy ?? undefined,
+      id: invitation.id,
+      email: invitation.email ?? '',
+      role: invitation.role ?? 'authority_manager',
+      authorityId: invitation.authorityId ?? undefined,
+      token: invitation.token ?? '',
+      isUsed: invitation.isUsed ?? false,
+      expiresAt: toDate(invitation.expiresAt) ?? new Date(),
+      createdAt: toDate(invitation.createdAt) ?? new Date(),
+      createdBy: invitation.createdBy ?? '',
+      usedAt: toDate(invitation.usedAt),
+      usedBy: invitation.usedBy ?? undefined,
     };
   } catch (error) {
     console.error('Error validating invitation:', error);

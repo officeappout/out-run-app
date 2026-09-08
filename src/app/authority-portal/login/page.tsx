@@ -112,16 +112,15 @@ function AuthorityPortalLoginContent() {
         } catch {}
       }
 
-      const hasInvitationToken = !!(
+      const invitationToken =
         searchParams.get('token') ||
-        (typeof window !== 'undefined' && window.localStorage.getItem('pendingInvitationToken'))
-      );
+        (typeof window !== 'undefined' ? window.localStorage.getItem('pendingInvitationToken') : null);
 
       const result = await sendAdminMagicLink(
         email,
         'authority_manager',
         `${typeof window !== 'undefined' ? window.location.origin : ''}/admin/auth/callback?email=${encodeURIComponent(email)}`,
-        { hasInvitationToken }
+        { invitationToken: invitationToken || undefined }
       );
 
       if (result.error) {
