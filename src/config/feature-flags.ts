@@ -1503,6 +1503,38 @@ export const RUNNING_ONBOARDING_GATE_ENABLED = true;
 // localStorage['OUT_SCHEDULE_DRAWER'] = '1' | '0'.
 export const SCHEDULE_BUILDER_DRAWER_ENABLED = true;
 
+// GENERAL_FINISHER_TABATA_ENABLED: gates Step 6b, the general/conditioning
+// tabata finisher (WorkoutGenerator.ts:1208-1226) — a SEPARATE mechanism from
+// the core-form tabata block (Step 6c, core-block.ts's buildCoreTabataBlock).
+// Both call the same buildTabataBlock/buildTabataFromPool (tabata.block.ts),
+// but Step 6c passes a core-filtered pool (hasExplicitCoreLevel-only) while
+// Step 6b passes the RAW, unfiltered context.tabataPool (every hiit_friendly
+// exercise — conditioning moves like bear crawls/burpees/crab walk included,
+// zero core awareness by design). Root cause of the 22/39 "mixed" tabata
+// blocks measured 07.09.2026 (docs/workout-engine/03-CHANGES.md — Round 1):
+// Step 6b fires independently of Step 6c's core-form roll whenever core
+// didn't win a 'tabata' form this session (never chosen, or chosen and its
+// composition failed), on its own probability roll, and mixes core +
+// conditioning exercises from the unfiltered pool with no way to tell them
+// apart after the fact (TabataBlockSpec had no origin marker before this
+// change — see the new `kind` field below).
+//
+// David's decision (08.09.2026): FREEZE, don't delete. Step 6b's code stays
+// exactly as-is for a future repurposing as a "hot warmup" block at the
+// START of a workout — this flag only stops it from firing as an END-of-
+// workout finisher. DEFAULT FALSE.
+//
+// While FALSE: Step 6b never fires — `fireTabata` is forced false regardless
+// of tabataProbability/difficulty/userLevel/the RNG roll, so
+// `buildTabataBlock('tabata', workoutExercises, context)` (the unfiltered-
+// pool call) is never reached. A workout's tabata-shaped finish comes ONLY
+// from Step 6c's three core forms (single/tabata/follow_along) — never from
+// the general conditioning pool. Step 6c (core-block.ts, buildCoreTabataBlock,
+// corePool filtering) is completely untouched by this flag.
+// While TRUE: byte-identical to pre-flag behavior — Step 6b fires under
+// exactly the same conditions as before this flag existed.
+export const GENERAL_FINISHER_TABATA_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

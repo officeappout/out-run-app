@@ -21,7 +21,7 @@ import {
 } from '../shared/constants/domain-mapping.constants';
 import { resolveEffectiveDifficulty } from '../core/middleware/InputSanitizerMiddleware';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
-import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
+import { CONTEXT_AWARE_SELECTION_ENABLED, GENERAL_FINISHER_TABATA_ENABLED } from '@/config/feature-flags';
 
 // Re-export all types so external consumers keep importing from this file
 export type {
@@ -202,6 +202,34 @@ const INACTIVITY_THRESHOLD_DAYS = 3;
 // Tabata finisher is offered only from general user level 4+ (hard enforcement of
 // intent, independent of the admin toggle). Gates the separate tabata roll below.
 const MIN_TABATA_USER_LEVEL = 4;
+
+/**
+ * Step 6b's fire gate, extracted as a pure function so it's unit-testable
+ * without instantiating the full generator (docs/workout-engine/
+ * 03-CHANGES.md, Round 1 — no existing test suite calls `new
+ * WorkoutGenerator().generate()` directly). Frozen behind
+ * GENERAL_FINISHER_TABATA_ENABLED (08.09.2026, default false) — see that
+ * flag's comment in feature-flags.ts for the full why. The flag is checked
+ * FIRST so Math.random() is never drawn while it's off (no roll consumed;
+ * matches this codebase's existing short-circuit convention for flags gating
+ * a randomized roll).
+ */
+export function shouldFireGeneralFinisherTabata(
+  coreForm: 'single' | 'tabata' | 'follow_along',
+  tabataProbability: number | undefined,
+  difficulty: DifficultyLevel,
+  userLevel: number | undefined,
+): boolean {
+  const tabataP = tabataProbability ?? 0;
+  return (
+    GENERAL_FINISHER_TABATA_ENABLED &&
+    coreForm !== 'tabata' &&
+    tabataP > 0 &&
+    difficulty >= 2 &&
+    (userLevel ?? 0) >= MIN_TABATA_USER_LEVEL &&
+    Math.random() <= tabataP
+  );
+}
 
 const TITLE_TEMPLATES: Record<IntentMode, Record<string, string>> = {
   normal: {
@@ -1214,13 +1242,26 @@ export class WorkoutGenerator {
     // ALONGSIDE the main protocol — never competes for the winner-takes-all slot.
     // Suppressed when Step 6c already turned the core slot itself into a tabata
     // block (coreForm==='tabata') — see that step's comment for why.
-    const tabataP = context.tabataProbability ?? 0;
-    const fireTabata =
-      coreForm !== 'tabata' &&
-      tabataP > 0 &&
-      difficulty >= 2 &&
-      (context.userLevel ?? 0) >= MIN_TABATA_USER_LEVEL &&
-      Math.random() <= tabataP;
+    //
+    // FROZEN (David, 08.09.2026, docs/workout-engine/03-CHANGES.md Round 1):
+    // this finisher pulls from context.tabataPool UNFILTERED — every
+    // hiit_friendly exercise, core-eligible or not (bear crawls/burpees/crab
+    // walk included) — because it's a general conditioning block, not a core
+    // one. That's exactly why it produced "mixed" tabata blocks (core +
+    // conditioning in the same block, measured 22/39 on 07.09.2026): it fires
+    // independently of Step 6c's core-form roll and has zero core awareness
+    // by design. GENERAL_FINISHER_TABATA_ENABLED (default false) stops it
+    // from firing as an end-of-workout finisher WITHOUT deleting the code —
+    // it is slated for reuse as a "hot warmup" block at the START of a
+    // workout in a future pass. Do not remove this block; Step 6c (core-form,
+    // core-block.ts) is untouched by this flag and keeps working exactly as
+    // before.
+    const fireTabata = shouldFireGeneralFinisherTabata(
+      coreForm,
+      context.tabataProbability,
+      difficulty,
+      context.userLevel,
+    );
     const tabataBlock = fireTabata
       ? buildTabataBlock('tabata', workoutExercises, context)
       : coreTabataBlock;
