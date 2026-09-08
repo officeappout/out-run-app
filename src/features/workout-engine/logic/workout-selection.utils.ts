@@ -21,6 +21,12 @@ import type {
   WorkoutGenerationContext,
 } from './workout-generator.types';
 
+// [DIAG] temporary, David 08.09.2026 — see the pool-dump diagnostic inside
+// selectExercisesWithDomainQuotas's DOMAIN QUOTA FAILED branch. Caps the raw
+// full-pool dump to once per run (across all failed domains in that run),
+// not once per failed domain — remove this flag together with the diagnostic.
+let __poolDumped = false;
+
 // ============================================================================
 // DOMAIN ALIAS MAPS
 // ============================================================================
@@ -854,6 +860,31 @@ export function selectExercisesWithDomainQuotas(
           `${isVertical ? ', VERTICAL ✓' : ''})`,
         );
       } else {
+        // [DIAG] temporary, David 08.09.2026 — proves/refutes whether a
+        // planche/one_arm_pullup-tagged exercise was ever IN globalExercisePool
+        // at the moment the quota asked, before assuming the bug is in
+        // whichever function reads the tag. Substring match on the raw
+        // JSON — no resolveToSlug, no alias interpretation, text vs text.
+        // Remove after David's run confirms/refutes.
+        const raw = pool.map((ex) => ({ id: ex.id, tp: JSON.stringify(ex.targetPrograms ?? null) }));
+        const hits = raw.filter((r) => r.tp.includes(`"${domain}"`));
+        console.log(
+          `[DIAG] pool for failed domain "${domain}": ${pool.length} exercise(s) total, ${hits.length} contain the literal string "${domain}" in targetPrograms`,
+        );
+        for (const r of hits) console.log(`[DIAG]   HIT id=${r.id} targetPrograms=${r.tp}`);
+
+        if (!__poolDumped) {
+          __poolDumped = true;
+          const shown = Math.min(pool.length, 50);
+          console.log(`[DIAG] full pool dump (once per run) — first ${shown} of ${pool.length}:`);
+          for (const ex of pool.slice(0, 50)) {
+            console.log(`[DIAG]   id=${ex.id} targetPrograms=${JSON.stringify(ex.targetPrograms ?? null)}`);
+          }
+          if (pool.length > 50) {
+            console.log(`[DIAG]   ... ${pool.length - 50} more exercise(s) omitted`);
+          }
+        }
+
         console.warn(
           `[WorkoutGenerator] DOMAIN QUOTA FAILED: No exercise for "${domain}" in global pool (aliases: [${parentAliases.join(',')}]).`,
         );
