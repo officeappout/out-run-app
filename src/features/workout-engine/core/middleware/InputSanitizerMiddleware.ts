@@ -400,7 +400,24 @@ export function resolveExercisePool(
   idToSlug: Map<string, string>,
   baseUserLevel: number,
 ): ExercisePoolResult {
+  // [DIAG-L0] temporary, David 08.09.2026 — counts by real programId (not
+  // slug) at every discrete stage inside this function, so the 371→54
+  // narrowing (or wherever it actually happens) is measured directly
+  // instead of assumed. Removed after David's run.
+  const __diagIds: Record<string, string> = {
+    planche: 'pCI5NHXpowu2ySucqDn8',
+    one_arm_pullup: 'cC0BOmm6KIqYAyQynEIo',
+    pull: 'UPDBtTdCvX748dtBlWYj',
+    push: 'J0fLpmJhG0KDN2tQouxh',
+  };
+  const __diagTally = (arr: Exercise[]): string =>
+    Object.entries(__diagIds)
+      .map(([k, id]) => `${k}=${arr.filter((e) => (e.targetPrograms ?? []).some((tp) => tp.programId === id)).length}`)
+      .join(', ');
+  console.log(`[DIAG-L0] resolveExercisePool IN: ${allExercises.length} — ${__diagTally(allExercises)}`);
+
   if (userProgramLevels.size === 0 && resolvedChildDomains.length === 0) {
+    console.log(`[DIAG-L0] resolveExercisePool OUT (early-return, no levels/domains): ${allExercises.length} — ${__diagTally(allExercises)}`);
     return { exercises: allExercises };
   }
 
@@ -471,6 +488,7 @@ export function resolveExercisePool(
   // ContextualEngine and DifficultyFilter — they handle per-difficulty
   // selection from within that range.
   let levelMatched = filterByTolerance(3);
+  console.log(`[DIAG-L0] resolveExercisePool after ±3 tolerance: ${levelMatched.length} — ${__diagTally(levelMatched)}`);
 
   // If some domains still have 0 exercises at ±3, merge in the full pool
   // for the missing domains while keeping the level-matched pool for the rest.
@@ -494,8 +512,10 @@ export function resolveExercisePool(
       levelMatched = [...levelMatched, ...domainRescue];
     }
   }
+  console.log(`[DIAG-L0] resolveExercisePool after domain-rescue merge: ${levelMatched.length} — ${__diagTally(levelMatched)}`);
 
   if (levelMatched.length >= 4) {
+    console.log(`[DIAG-L0] resolveExercisePool OUT (±3 path): ${levelMatched.length} — ${__diagTally(levelMatched)}`);
     return { exercises: levelMatched };
   }
 
@@ -510,11 +530,13 @@ export function resolveExercisePool(
 
   // Step A — widen tolerance to ±5 and retry.
   const widened = filterByTolerance(5);
+  console.log(`[DIAG-L0] resolveExercisePool after ±5 widen: ${widened.length} — ${__diagTally(widened)}`);
   if (widened.length >= 4) {
     console.warn(
       `[InputSanitizer] Level filter widened ±3→±5 (had ${levelMatched.length}, ` +
       `now ${widened.length}) for domains [${resolvedChildDomains.join(', ')}]`,
     );
+    console.log(`[DIAG-L0] resolveExercisePool OUT (±5 path): ${widened.length} — ${__diagTally(widened)}`);
     return {
       exercises: widened,
       relaxedConstraints: ['level'],
@@ -544,6 +566,7 @@ export function resolveExercisePool(
         `(${widened.length} at ±5) — falling back to parent domain(s) ` +
         `[${parentDomainsArr.join(', ')}] (${parentPool.length} exercises)`,
       );
+      console.log(`[DIAG-L0] resolveExercisePool OUT (parent-fallback path): ${parentPool.length} — ${__diagTally(parentPool)}`);
       return {
         exercises: parentPool,
         relaxedConstraints: ['level', 'domain_parent_fallback'],
@@ -563,6 +586,7 @@ export function resolveExercisePool(
     `— returning ${widened.length} exercise(s) as-is. This session's pool is genuinely thin; ` +
     `it is NOT being padded with the full unrelated catalog.`,
   );
+  console.log(`[DIAG-L0] resolveExercisePool OUT (exhausted path): ${widened.length} — ${__diagTally(widened)}`);
   return {
     exercises: widened,
     relaxedConstraints: ['level'],
