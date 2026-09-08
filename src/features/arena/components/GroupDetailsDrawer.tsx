@@ -502,7 +502,14 @@ export default function GroupDetailsDrawer({
   // Per-slot location override → group fallback
   const slotLoc = nextSlot?.location;
   const hasSlotCoords = slotLoc && slotLoc.lat != null && slotLoc.lng != null && (slotLoc.lat !== 0 || slotLoc.lng !== 0);
+  // 08.09.2026 — city-precision groups carry a real coordinate internally
+  // (city-center, for NearbyGroupsRow's sort/filter only — see
+  // community.types.ts's meetingLocation.precision comment) but must never
+  // show a map pin or "navigate" — that would claim a meeting POINT we
+  // don't have. Forcing hasGroupCoords false here routes rendering to the
+  // plain-text destAddress branch below instead (the city name).
   const hasGroupCoords =
+    group.meetingLocation?.precision !== 'city' &&
     group.meetingLocation?.location &&
     (group.meetingLocation.location.lat !== 0 || group.meetingLocation.location.lng !== 0);
   const hasCoords = hasSlotCoords || hasGroupCoords;

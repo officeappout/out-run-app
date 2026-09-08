@@ -149,6 +149,19 @@ export interface CommunityGroup {
     routeId?: string;
     address?: string;
     location?: { lat: number; lng: number };
+    /**
+     * 'exact' (default when absent — every group created before this field
+     * existed has always meant a real point) = `location`/`address` are a
+     * genuine meeting point: show distance, travel time, map pin,
+     * navigation. 'city' = we only know the city; `location` holds a
+     * CITY-CENTER coordinate used ONLY so the group still sorts/filters
+     * sanely into "nearby groups" — it must never reach the user as a
+     * distance or travel-time claim (see GroupCard's travelTimeLabel/
+     * distanceLabel call sites and GroupDetailsDrawer's hasGroupCoords).
+     * `address` should hold the city name itself in this mode, shown as
+     * plain text — no pin, no navigate.
+     */
+    precision?: 'exact' | 'city';
   };
   /** @deprecated Use `scheduleSlots` for multi-slot support */
   schedule?: ScheduleSlot;

@@ -178,10 +178,24 @@ export default function GroupCard({
           {scheduleLabel && (
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{scheduleLabel}</p>
           )}
-          {distanceKm != null && travelTimeLabel(distanceKm) != null && (
-            <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
-              {travelTimeLabel(distanceKm)}
-            </p>
+          {/* 08.09.2026 — city-precision groups (no real meeting-point
+              coordinate, e.g. an external branch list with only a city
+              name) never show a distance or travel time — that number
+              would claim precision we don't have, the same problem class
+              as the 9999 sentinel. City name instead: the user learns
+              exactly what we know ("Modi'in") and what we don't (how far). */}
+          {group.meetingLocation?.precision === 'city' ? (
+            group.meetingLocation?.address && (
+              <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 truncate">
+                {group.meetingLocation.address}
+              </p>
+            )
+          ) : (
+            distanceKm != null && travelTimeLabel(distanceKm) != null && (
+              <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
+                {travelTimeLabel(distanceKm)}
+              </p>
+            )
           )}
         </div>
       </div>
@@ -317,7 +331,11 @@ export default function GroupCard({
             is computed once so a rejected (absurd/unsane) value doesn't
             leave an empty row when there's also no address to show. */}
         {(() => {
-          const distLabel = distanceKm != null ? distanceLabel(distanceKm) : null;
+          // City-precision: no distance/travel-time claim, ever — see the
+          // compact variant's comment above for why.
+          const distLabel = (distanceKm != null && group.meetingLocation?.precision !== 'city')
+            ? distanceLabel(distanceKm)
+            : null;
           if (!group.meetingLocation?.address && distLabel == null) return null;
           return (
             <div className="flex items-center justify-between gap-2 mb-3">
