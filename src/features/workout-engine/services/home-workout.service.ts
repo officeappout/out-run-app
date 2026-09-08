@@ -1519,14 +1519,45 @@ async function _buildSharedPipeline(
   // programLevelSettings docs with hash-ID keys that don't exist, producing
   // an empty exercise pool.
   if (activeProgramId === 'calisthenics_upper') {
+    // 'one_arm_pullup' — not 'oap' — matches the catalog (program-path
+    // /page.tsx's SKILL_PROGRAMS) and every other skill-slug consumer in
+    // this file (_CU_SKILL_PARENT/_SKILL_PARENT_MAP). 'oap' was this set's
+    // own invention — confirmed 08.09.2026 by checking the real catalog,
+    // not assumed. 'human_flag'/'back_lever' are real, recognized skill
+    // domains elsewhere (MG_TO_DOMAIN, domain-mapping.constants.ts) but
+    // aren't offered by today's onboarding catalog at all — deliberately
+    // NOT added here; if a real account needs one, filterKnownSkills below
+    // will now warn instead of silently dropping it, which is the signal
+    // to add it, not a guess made in advance.
     const SKILL_SLUGS = new Set([
-      'planche', 'front_lever', 'muscle_up', 'handstand', 'hspu', 'oap',
+      'planche', 'front_lever', 'muscle_up', 'handstand', 'hspu', 'one_arm_pullup',
     ]);
 
+    // A slug rejected here used to vanish with no trace — the reason this
+    // exact bug (one_arm_pullup silently dropped, wrong exercises served)
+    // stayed live long enough to need a diagnostic branch to find. Warn
+    // loudly instead of dropping silently — never throw, a naming gap must
+    // not fail a paying user's workout generation.
+    const filterKnownSkills = (candidates: string[], source: string): string[] => {
+      const known: string[] = [];
+      for (const s of candidates) {
+        if (SKILL_SLUGS.has(s)) {
+          known.push(s);
+        } else {
+          console.warn(
+            `[HomeWorkout] calisthenics_upper (${source}): unrecognized skill slug "${s}" rejected — ` +
+            `not in SKILL_SLUGS [${Array.from(SKILL_SLUGS).join(', ')}]. If this is a real skill, add it to SKILL_SLUGS.`,
+          );
+        }
+      }
+      return known;
+    };
+
     // Pass A: try to resolve every child ID through the now-built idToSlug map.
-    const sluggedFromMap = resolvedChildDomains
-      .map((id) => idToSlug.get(id) ?? id)
-      .filter((s) => SKILL_SLUGS.has(s));
+    const sluggedFromMap = filterKnownSkills(
+      resolvedChildDomains.map((id) => idToSlug.get(id) ?? id),
+      'idToSlug',
+    );
 
     if (sluggedFromMap.length > 0) {
       resolvedChildDomains = sluggedFromMap;
@@ -1535,12 +1566,15 @@ async function _buildSharedPipeline(
       );
     } else {
       // Pass B: extract recognised skill slugs from the user's progression data.
-      const trackSkills = Object.keys(userProfile.progression?.tracks ?? {}).filter(
-        (k) => SKILL_SLUGS.has(k),
+      const trackSkills = filterKnownSkills(
+        Object.keys(userProfile.progression?.tracks ?? {}),
+        'tracks',
       );
-      const programSkills = (userProfile.progression?.activePrograms ?? [])
-        .map((ap) => normalizeProgramId(ap.templateId ?? ap.id ?? ''))
-        .filter((s) => SKILL_SLUGS.has(s));
+      const programSkills = filterKnownSkills(
+        (userProfile.progression?.activePrograms ?? [])
+          .map((ap) => normalizeProgramId(ap.templateId ?? ap.id ?? '')),
+        'activePrograms',
+      );
       const derivedSet = new Set([...trackSkills, ...programSkills]);
       const derived = Array.from(derivedSet);
 
