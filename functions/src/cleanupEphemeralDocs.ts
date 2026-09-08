@@ -132,9 +132,27 @@ async function sweepCollection(
  * attendance + its member_statuses, and arrayRemove(groupId) from every
  * member's users/{uid}.social.groupIds + user_memberships/{uid}. Logged
  * to parking-lot.md as a real, ongoing risk: two implementations of one
- * contract, in two SDKs, that must be kept in sync by hand.
+ * contract, in two SDKs, that must be kept in sync by hand. A single
+ * shared HTTP endpoint (src/app/api/admin/delete-group/route.ts) exists
+ * as the one-true-contract alternative, but calling it from here needs a
+ * Cloud Functions secret (AGENT_API_KEY) this deployment has never
+ * actually wired up — David's call whether that's worth doing before
+ * this deploys, or whether the hand-mirrored version below stands.
+ *
+ * Guarded by app_config/feature_flags.ephemeralGroupSweepDeleteEnabled
+ * (David, 08.09.2026: first pass must be report-only). Default
+ * false/absent — the same "logs and returns, does nothing until flipped"
+ * pattern as every other flag-gated scheduler in this file
+ * (stepGoalNudgeScheduler.ts's own master-flag convention). In
+ * report-only mode every candidate is fully identified and logged
+ * (groupId, name, member count, why it's a candidate) but NO write of
+ * any kind happens — not even the real delete's read-side calls beyond
+ * what's needed to log accurately.
  */
 async function sweepEphemeralRunGroups(now: admin.firestore.Timestamp): Promise<number> {
+  const flagsSnap = await db.doc('app_config/feature_flags').get();
+  const deleteEnabled = flagsSnap.data()?.ephemeralGroupSweepDeleteEnabled === true;
+
   const expiredInvitesSnap = await db
     .collection('group_invitations')
     .where('source', '==', 'run-invite')
@@ -164,7 +182,18 @@ async function sweepEphemeralRunGroups(now: admin.firestore.Timestamp): Promise<
       const groupRef = db.doc(`community_groups/${groupId}`);
       const groupSnap = await groupRef.get();
       if (!groupSnap.exists) continue; // already gone
-      if (groupSnap.data()?.type !== 'ephemeral') continue; // never touch a real group here
+
+      // Explicit condition, not reliance on the query above (which only
+      // filtered group_invitations, never read the group doc's own
+      // type) — checked and logged every time, never silently skipped.
+      if (groupSnap.data()?.type !== 'ephemeral') {
+        logger.warn(
+          `[cleanupEphemeralDocs] candidate ${groupId} ("${groupSnap.data()?.name}") ` +
+          `has an expired run-invite but type is "${groupSnap.data()?.type}", not "ephemeral" — ` +
+          `skipping, never touching a non-ephemeral group here.`,
+        );
+        continue;
+      }
 
       const membersSnap = await groupRef.collection('members').get();
       const memberUids = membersSnap.docs.map((d) => d.id);
@@ -193,6 +222,18 @@ async function sweepEphemeralRunGroups(now: admin.firestore.Timestamp): Promise<
           `[cleanupEphemeralDocs] ephemeral group ${groupId} needs ${opCount} write ops — ` +
           `refusing to split into non-atomic batches, skipping (manual cleanup needed).`,
         );
+        continue;
+      }
+
+      if (!deleteEnabled) {
+        logger.info(
+          `[cleanupEphemeralDocs] REPORT-ONLY — would delete ${groupId} ("${groupSnap.data()?.name}"): ` +
+          `members=${memberUids.length} [${memberUids.join(',')}], chat=${chatSnap.exists}, ` +
+          `messages=${messagesSnap?.size ?? 0}, attendance=${attendanceSnap.size}, ` +
+          `memberStatuses=${memberStatusesSnaps.reduce((sum, s) => sum + s.size, 0)}, opCount=${opCount}. ` +
+          `Set app_config/feature_flags.ephemeralGroupSweepDeleteEnabled=true to actually delete.`,
+        );
+        deleted++; // counts as "identified" in report-only mode, for the summary log below
         continue;
       }
 
@@ -303,10 +344,13 @@ export const cleanupEphemeralDocs = onSchedule(
       );
     }
 
+    const flagsSnap = await db.doc('app_config/feature_flags').get();
+    const ephemeralSweepMode = flagsSnap.data()?.ephemeralGroupSweepDeleteEnabled === true ? 'DELETE' : 'REPORT-ONLY';
+
     logger.info(
       `[cleanupEphemeralDocs] Sweep complete — presence=${presenceDeleted}, ` +
         `active_workouts=${activeWorkoutDeleted}, planned_sessions=${plannedSessionDeleted}, ` +
-        `ephemeral_run_groups=${ephemeralGroupsDeleted}`,
+        `ephemeral_run_groups=${ephemeralGroupsDeleted} (mode=${ephemeralSweepMode})`,
     );
   },
 );
