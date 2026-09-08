@@ -562,7 +562,11 @@ export default function ExerciseEditorForm({
       
       // === EXECUTION METHODS ===
       execution_methods: cleanedMethods.length > 0 ? cleanedMethods : undefined,
-      targetPrograms: targetPrograms.length > 0 ? targetPrograms : undefined,
+      // [] (not undefined) — targetPrograms isn't covered by exercise.service.ts's
+      // preserveField; sending undefined here means the key is dropped from the
+      // updateDoc payload entirely, so Firestore's partial update never touches
+      // it and clearing all assignments in the UI silently doesn't persist.
+      targetPrograms,
       
       // === TAGS & ROLE ===
       tags: formData.tags,

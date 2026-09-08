@@ -110,6 +110,28 @@ async function main() {
     check('raw Firestore value is null (the real write-path proof)', rawDoc.data()?.base_movement_id === null, JSON.stringify(rawDoc.data()?.base_movement_id));
     check('getExercise() shows the pre-existing unspecified_movement default (expected, unrelated to Round 2)', ex?.base_movement_id === 'unspecified_movement', String(ex?.base_movement_id));
 
+    // ── Test 4: clear targetPrograms ([]) → saved empty ─────────────────────
+    // Not covered by preserveField — ExerciseEditorForm.tsx used to send
+    // `targetPrograms.length > 0 ? targetPrograms : undefined`, which drops
+    // the key from the updateDoc payload entirely on clear (Firestore's
+    // partial update then never touches the field, silently preserving the
+    // old assignments). Fixed to always send the real array. Re-set a real
+    // value first (Test 3's updates left targetPrograms untouched at its
+    // original [{core, level:1}], but be explicit rather than rely on that).
+    await updateExercise(exerciseId, { targetPrograms: [{ programId: 'core', level: 1 }] });
+    // Reproduce the OLD ExerciseEditorForm.tsx ternary's output directly
+    // against the (unmodified) service layer — the same undefined-drops-the-
+    // key mechanism Test 0 demonstrated for movementGroup.
+    await updateExercise(exerciseId, { targetPrograms: undefined });
+    ex = await getExercise(exerciseId);
+    console.log('\n[Test 4a — targetPrograms: undefined (reproduces the pre-fix ternary output)]');
+    check('BUG REPRODUCED: undefined silently preserves the old targetPrograms', (ex?.targetPrograms?.length ?? 0) === 1, JSON.stringify(ex?.targetPrograms));
+
+    await updateExercise(exerciseId, { targetPrograms: [] });
+    ex = await getExercise(exerciseId);
+    console.log('\n[Test 4b — targetPrograms: [] (the fix)]');
+    check('targetPrograms cleared to empty', (ex?.targetPrograms?.length ?? 0) === 0, JSON.stringify(ex?.targetPrograms));
+
     // ── Test 5: value switch still works (chip-to-chip) ─────────────────────
     await updateExercise(exerciseId, { movementGroup: 'hinge', primaryMuscle: 'hamstrings' });
     ex = await getExercise(exerciseId);
