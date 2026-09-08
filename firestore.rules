@@ -90,6 +90,22 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/community_groups/$(groupId)/members/$(request.auth.uid));
     }
 
+    // 08.09.2026 — closes the gap isReserveLeagueGroup's comment above
+    // explicitly deferred: a community_groups_{persona}-gated group's
+    // SENSITIVE FIELDS were gated (AUDIENCE_SENSITIVE_FIELDS split), but
+    // membership itself was not — any authenticated user could join a
+    // public, persona-gated group via members/{uid}'s create rule (isPublic
+    // was the only check) and then read the group's chat, which carries the
+    // same location/schedule info in plain text. True when this group HAS a
+    // persona gate the requester does NOT match — used to BLOCK create, not
+    // just to hide fields. Only 'reserve' exists today (PERSONA_KEYS,
+    // community.types.ts) — add one more clause per future persona.
+    function blockedByGroupPersonaGate(groupId) {
+      return exists(/databases/$(database)/documents/community_groups_reserve/$(groupId))
+        && !(isAuthenticated() &&
+             get(/databases/$(database)/documents/military_declarations/$(request.auth.uid)).data.get('status', null) == 'reserve');
+    }
+
     // Tenant isolation — checks Custom Claim `tenantId` on the auth token.
     // Set via Admin SDK when assigning a user to a tenant.
     // Root/DB admins bypass tenant checks.
@@ -1354,7 +1370,13 @@ service cloud.firestore {
           || (isGroupOwner(docId) && request.auth.uid != uid)
         );
 
+        // 08.09.2026 — !blockedByGroupPersonaGate(docId) added first: a
+        // matching-or-ungated join proceeds exactly as before; a
+        // non-matching persona is denied here, before ever becoming a
+        // member — closing the join-bypasses-persona gap (see that
+        // function's comment).
         allow create: if isAuthenticated() && request.auth.uid == uid
+          && !blockedByGroupPersonaGate(docId)
           && (
             get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isPublic', false) == true
             || get(/databases/$(database)/documents/community_groups/$(docId)).data.get('inviteCode', '')
@@ -1480,10 +1502,28 @@ service cloud.firestore {
       // Existing participants can read their thread (DM + group)
       allow read: if isAuthenticated()
                   && request.auth.uid in resource.data.participants;
-      // Any authenticated user can read a group-type chat
-      // (needed to check existence before joining and for inbox listing)
+      // 08.09.2026 — REPLACES a former "any authenticated user can read a
+      // group-type chat" rule. That rule leaked lastMessage/participants/
+      // participantNames for EVERY group chat in the app to any logged-in
+      // (even freshly anonymous) user, participant or not — verified live
+      // in production against a real, uninvolved group. chatId is
+      // deterministic ("group_" + groupId, chat.service.ts's
+      // makeGroupChatId), so it never even required guessing.
+      // The actual legitimate case (getGroupChatThread, called only from
+      // the drawer's post-join "כנס לצ'אט" button, i.e. only after
+      // members/{uid} already exists) needs a real member to read the
+      // thread even before their own uid lands in participants (the join
+      // flow's chat-sync step is separately non-fatal). Routes through
+      // community_groups/{groupId}/members/{uid} — the SAME authoritative,
+      // already-persona-gated source blockedByGroupPersonaGate protects —
+      // so a persona-gated group's chat inherits that protection for free,
+      // with no separate persona check needed here.
+      // isAdmin()/isRootAdmin() still reach every chat via the global
+      // catch-all match block below — no admin-specific clause needed here
+      // (subscribeToAllChats' platform-wide inbox is unaffected).
       allow read: if isAuthenticated()
-                  && resource.data.type == 'group';
+                  && resource.data.type == 'group'
+                  && exists(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid));
 
       // Existence check on a non-existent chat doc.
       //
