@@ -6,15 +6,32 @@
  * the exact same defaults instead of maintaining their own copies that can drift apart.
  *
  * defaultValue: used as the fallback whenever a Firestore document exists but doesn't
- * yet have this specific key (e.g. right after a new flag ships, before the doc is
- * re-seeded), and as the initial in-memory value before any read completes. Existing
- * flags fail CLOSED (false) — new features must be explicitly turned on. The 3
- * hybrid-slot flags below fail OPEN (true) because they're replacing compile-time
- * constants that are already `true` in production; failing closed on them would
- * instantly hide 3 live features for every real user the moment this code deploys,
- * ahead of the one-time seed script (scripts/seed-hybrid-slot-flags.ts) that writes
- * the explicit values. Once the doc has the key (seeded, or an admin toggled it), that
- * explicit value always wins — this default only covers the missing-key gap.
+ * yet have this specific key, and as the initial in-memory value before any read
+ * completes. Existing flags fail CLOSED (false) — new features must be explicitly
+ * turned on.
+ *
+ * The 4 hybrid-slot flags below (enableHybridSlots/enableFullParkWorkout/
+ * enableRouteStops/enableRecommendedHybrid) fail OPEN (true) instead — a deliberate,
+ * one-time exception to that pattern, not a template to copy for future flags. They
+ * replaced compile-time constants that were already `true` in production, so failing
+ * closed on them would have instantly hidden live features for every real user the
+ * moment this code first deployed, ahead of the document being seeded with explicit
+ * values. That seeding happened once (08.09.2026) — the document now holds explicit
+ * `true` values for all 4 keys — so today this default's ONLY remaining job is the
+ * genuinely-missing-key gap (e.g. someone manually deletes a field); once a key is
+ * present, its stored value always wins, fail-open or not.
+ *
+ * ⚠️ Do NOT read this as "these flags are meant to be true" or reseed them to true
+ * "just in case": a one-time bootstrap script that unconditionally wrote `true` to all
+ * 4 keys (regardless of the document's current state) was used for the initial
+ * migration, then re-run later to add enableRecommendedHybrid as a 4th key — and on
+ * that second run it silently reverted enableRouteStops, which David had deliberately
+ * switched OFF in the admin panel in between. Fixed by hand immediately; the script
+ * itself was deleted afterward (see CLAUDE.md's debt log for the incident) because a
+ * "just re-run it" tool for these specific keys is now pure risk with no legitimate use
+ * left. Any future script that bootstraps a missing key on a Firestore-backed admin
+ * flag must read the document first and only fill keys that are genuinely absent —
+ * never assume a value that was correct when first written is still correct.
  *
  * Adding a flag: add ONE entry here. useFeatureFlags.ts and the system-settings page
  * both derive everything they need from this array.
