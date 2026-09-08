@@ -1,9 +1,14 @@
 /**
- * GET /api/admin/invitations/verify-token?token=<token>
+ * GET /api/auth/admin-invite/verify-token?token=<token>
  *
  * Public (no auth required) — resolves an admin_invitations doc by its
  * token via Admin SDK. Runs when a brand-new admin clicks their invitation
  * link, before they have any admin role at all.
+ *
+ * Deliberately lives under /api/auth/*, NOT /api/admin/* — SEC-12's planned
+ * fix extends the admin-gate middleware to block /api/admin/* on every
+ * domain, not just the admin.outrun.co.il cookie check it does today. This
+ * route must stay reachable pre-auth, so it can't sit under that prefix.
  *
  * SPEC-01 (docs/audit-2026-09/SPEC-01-close-guest-leaks.md), task 1: the
  * client used to run this as a direct `where('token', ...)` query against

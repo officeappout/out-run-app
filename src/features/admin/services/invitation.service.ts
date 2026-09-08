@@ -219,7 +219,7 @@ export async function createInvitation(
  */
 export async function validateInvitation(token: string): Promise<AdminInvitation | null> {
   try {
-    const res = await fetch(`/api/admin/invitations/verify-token?token=${encodeURIComponent(token)}`);
+    const res = await fetch(`/api/auth/admin-invite/verify-token?token=${encodeURIComponent(token)}`);
     if (!res.ok) return null;
 
     const { invitation } = (await res.json()) as { invitation: Record<string, any> | null };

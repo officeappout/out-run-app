@@ -66,7 +66,7 @@ export async function checkAdminEmail(email: string): Promise<AdminCheckResult> 
     // so this can't be a direct Firestore query anymore).
     if (!userDoc) {
       try {
-        const res = await fetch(`/api/admin/invitations/check-email?email=${encodeURIComponent(normalizedEmail)}`);
+        const res = await fetch(`/api/auth/admin-invite/check-email?email=${encodeURIComponent(normalizedEmail)}`);
         if (res.ok) {
           const { role } = (await res.json()) as { role: AdminRole | null };
           if (role) {
@@ -176,7 +176,7 @@ export async function sendAdminMagicLink(
     if (options?.invitationToken) {
       try {
         const res = await fetch(
-          `/api/admin/invitations/verify-token?token=${encodeURIComponent(options.invitationToken)}`
+          `/api/auth/admin-invite/verify-token?token=${encodeURIComponent(options.invitationToken)}`
         );
         const data = res.ok ? await res.json() : { invitation: null };
         const invitation = data?.invitation as { email?: string } | null;

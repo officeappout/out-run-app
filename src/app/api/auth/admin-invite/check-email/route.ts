@@ -1,9 +1,14 @@
 /**
- * GET /api/admin/invitations/check-email?email=<email>
+ * GET /api/auth/admin-invite/check-email?email=<email>
  *
  * Public (no auth required) — resolves whether a pending admin_invitations
  * doc exists for the given email, via Admin SDK. Runs during the admin
  * passwordless-login flow, before the caller has any session at all.
+ *
+ * Deliberately lives under /api/auth/*, NOT /api/admin/* — SEC-12's planned
+ * fix extends the admin-gate middleware to block /api/admin/* on every
+ * domain, not just the admin.outrun.co.il cookie check it does today. This
+ * route must stay reachable pre-auth, so it can't sit under that prefix.
  *
  * SPEC-01 (docs/audit-2026-09/SPEC-01-close-guest-leaks.md), task 1: the
  * client used to run this as a direct `where('email', ...)` query against
