@@ -29,7 +29,7 @@ export default function MuscleSelectionSection({
   const handlePrimaryMuscleChange = (muscle: MuscleGroup | '') => {
     setFormData((prev: ExerciseFormData) => ({
       ...prev,
-      primaryMuscle: muscle || undefined,
+      primaryMuscle: muscle || null,
       // If the selected primary was in secondary, remove it
       secondaryMuscles: muscle 
         ? (prev.secondaryMuscles || []).filter((m) => m !== muscle)

@@ -117,7 +117,7 @@ const CORE_MIN_SETS = 2;
 const CORE_MAX_SETS = 3;
 
 /** True for a main-slot exercise whose movementGroup resolves to the 'core' logical domain. */
-function isCoreMainExercise(ex: { exercise: { movementGroup?: string } }): boolean {
+function isCoreMainExercise(ex: { exercise: { movementGroup?: string | null } }): boolean {
   const mg = ex.exercise.movementGroup;
   return !!mg && MG_TO_DOMAIN[mg] === 'core';
 }

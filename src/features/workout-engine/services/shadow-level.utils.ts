@@ -540,7 +540,7 @@ function mapMovementGroupToDomainLevel(
  * now — kept as params for signature stability, not removed.
  */
 function mapIsolationMuscleToDomainLevel(
-  primaryMuscle: MuscleGroup | undefined,
+  primaryMuscle: MuscleGroup | undefined | null,
   domains: UserFullProfile['progression']['domains'],
   tracks?: UserFullProfile['progression']['tracks'],
   baseUserLevel?: number,

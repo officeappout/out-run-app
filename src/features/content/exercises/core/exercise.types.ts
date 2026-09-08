@@ -630,9 +630,13 @@ export interface Exercise {
   equipment: EquipmentType[]; // Legacy - kept for backward compatibility
   muscleGroups: MuscleGroup[]; // Legacy - kept for backward compatibility
   /**
-   * Primary muscle targeted by this exercise (single selection)
+   * Primary muscle targeted by this exercise (single selection).
+   * `null` is the explicit "cleared" signal (distinct from `undefined`,
+   * which the admin-panel save path treats as "field untouched" —
+   * `exercise.service.ts`'s `preserveField`). Sending `undefined` here to
+   * mean "cleared" silently preserves the old stored value.
    */
-  primaryMuscle?: MuscleGroup;
+  primaryMuscle?: MuscleGroup | null;
   /**
    * Secondary muscles engaged during this exercise (multi-selection)
    */
@@ -646,8 +650,10 @@ export interface Exercise {
   /**
    * Optional movement group classification (e.g. squat, horizontal_push)
    * Used to keep Smart Swap replacements within the same pattern family.
+   * `null` is the explicit "cleared" signal — see `primaryMuscle`'s comment
+   * above for why `undefined` cannot mean the same thing on this save path.
    */
-  movementGroup?: MovementGroup;
+  movementGroup?: MovementGroup | null;
   /**
    * Optional tagging of exercises to specific programs and levels
    * Used by admin for "Suitable Programs" linking
@@ -659,8 +665,9 @@ export interface Exercise {
   requiredUserGear?: string[];
   // New alternative requirements system
   alternativeEquipmentRequirements?: AlternativeEquipmentRequirement[];
-  // Base movement ID for grouping exercise variations (e.g., all pull-up variations)
-  base_movement_id?: string;
+  // Base movement ID for grouping exercise variations (e.g., all pull-up variations).
+  // `null` is the explicit "cleared" signal — see `primaryMuscle`'s comment above.
+  base_movement_id?: string | null;
   /**
    * Exercise tags for classification (skill, compound, isolation, explosive, hiit_friendly)
    */

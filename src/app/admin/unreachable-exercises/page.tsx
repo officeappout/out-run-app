@@ -121,8 +121,8 @@ interface UnreachableRow {
   id: string;
   name: string;
   reasons: Reason[];
-  movementGroup?: string;
-  primaryMuscle?: string;
+  movementGroup?: string | null;
+  primaryMuscle?: string | null;
   exerciseRole?: string;
 }
 

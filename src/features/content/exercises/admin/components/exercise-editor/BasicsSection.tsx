@@ -692,7 +692,7 @@ export default function BasicsSection({
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      setFormData({ ...formData, base_movement_id: undefined });
+                      setFormData({ ...formData, base_movement_id: null });
                       setBaseMovementQuery('');
                       setShowBaseMovementSuggestions(false);
                     }}
@@ -786,7 +786,7 @@ export default function BasicsSection({
                   onClick={() =>
                     setFormData({
                       ...formData,
-                      movementGroup: selected ? undefined : group,
+                      movementGroup: selected ? null : group,
                     })
                   }
                   className={`text-right p-3 rounded-xl border-2 transition-all ${

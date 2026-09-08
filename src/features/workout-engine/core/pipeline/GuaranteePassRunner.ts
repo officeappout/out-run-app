@@ -149,7 +149,7 @@ export function isSafeDomainVictim(
  * already uses when no program-level context is available.
  */
 export function isDomainRegistered(
-  exercise: { movementGroup?: string },
+  exercise: { movementGroup?: string | null },
   userProgramLevels: Map<string, number> | undefined,
 ): boolean {
   if (!userProgramLevels || userProgramLevels.size === 0) return true;
