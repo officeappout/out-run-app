@@ -666,6 +666,22 @@
       ]
     },
 
+    // ── Invite-code resolution — SPEC-01 task 2b ────────────────────────────
+    // joinEngine.ts's 'group' target resolves community_groups/{groupId}/
+    // private/invite.code -> groupId via a COLLECTION_GROUP query across
+    // every group's private subcollection. The emulator doesn't enforce
+    // index requirements (this query "works" there with or without this
+    // entry) — deploy this BEFORE removing joinEngine's legacy-field
+    // fallback (step 5), or every code-based join breaks in production the
+    // moment the fallback is gone and this index isn't live yet.
+    {
+      "collectionGroup": "private",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "code", "order": "ASCENDING" }
+      ]
+    },
+
     // ── Leagues: getScopeCompetitionLeaderboard / getGroupCompetitionLeaderboard ──
     // (17.08.2026) These two ranking.service.ts functions query feed_posts
     // via collection(db, 'feed_posts') — a top-level COLLECTION query, not

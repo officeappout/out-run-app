@@ -18,7 +18,42 @@
  */
 
 import { getAdminDb } from '@/lib/firebase-admin';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, Firestore } from 'firebase-admin/firestore';
+
+// SPEC-01 task 2b: resolves a static invite code to its groupId from the
+// locked-down private/invite doc (collectionGroup query — the code lives
+// one level below the group doc now, not as a field on it), falling back to
+// the legacy top-level field during the migration window. Requires the
+// COLLECTION_GROUP index on private.code (firestore.indexes.json) to be
+// deployed. Shared by joinEngine's own 'group' target below AND
+// /api/join/preview (same category of lookup, same breakage risk once the
+// legacy field is deleted in step 4 — not just joinEngine).
+//
+// TODO(SPEC-01 task 2b step 5): remove the legacy-field fallback branch
+// once the verification script (step 2) confirms every group's
+// private/invite doc matches its legacy field, dual-writing stops
+// (step 3), and the legacy field is deleted from every group doc (step 4).
+export async function resolveGroupIdByInviteCode(
+  db: Firestore,
+  code: string,
+): Promise<string | null> {
+  const newLocSnap = await db
+    .collectionGroup('private')
+    .where('code', '==', code)
+    .limit(1)
+    .get();
+  if (!newLocSnap.empty) {
+    const resolvedFromNewLocation = newLocSnap.docs[0].ref.parent.parent?.id;
+    if (resolvedFromNewLocation) return resolvedFromNewLocation;
+  }
+
+  const legacySnap = await db
+    .collection('community_groups')
+    .where('inviteCode', '==', code)
+    .limit(1)
+    .get();
+  return legacySnap.empty ? null : legacySnap.docs[0].id;
+}
 
 // ── Error ──────────────────────────────────────────────────────────────────────
 
@@ -100,18 +135,14 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
   switch (input.target.type) {
     case 'group': {
       const code = input.target.inviteCode.trim().toUpperCase();
-      const snap = await db
-        .collection('community_groups')
-        .where('inviteCode', '==', code)
-        .limit(1)
-        .get();
-      if (snap.empty) {
+      const resolvedGroupId = await resolveGroupIdByInviteCode(db, code);
+      if (!resolvedGroupId) {
         throw new JoinEngineError(
           'target-not-found',
           `[joinEngine] invite-code "${input.target.inviteCode}" not found`,
         );
       }
-      groupId = snap.docs[0].id;
+      groupId = resolvedGroupId;
       resolvedInviteCode = code;
       break;
     }

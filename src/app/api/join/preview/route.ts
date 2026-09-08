@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { resolveGroupIdByInviteCode } from '@/lib/joinEngine';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -83,19 +84,20 @@ export async function GET(request: NextRequest) {
 
   try {
     const db = getAdminDb();
-    const snap = await db
-      .collection('community_groups')
-      .where('inviteCode', '==', code)
-      .limit(1)
-      .get();
-
-    if (snap.empty) {
+    // SPEC-01 task 2b: same resolution helper as joinEngine — the code
+    // lives in community_groups/{id}/private/invite now, with a fallback
+    // to the legacy top-level field during the migration window.
+    const groupId = await resolveGroupIdByInviteCode(db, code);
+    if (!groupId) {
       // Generic message — don't reveal whether the code format was valid.
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    const doc = snap.docs[0];
-    const raw = doc.data();
+    const doc = await db.collection('community_groups').doc(groupId).get();
+    if (!doc.exists) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+    const raw = doc.data() ?? {};
 
     // 3. Apply whitelist — copy only allowed fields.
     const preview: Partial<Record<SafeField, unknown>> & { id: string } = {
