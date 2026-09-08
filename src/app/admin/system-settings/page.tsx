@@ -12,6 +12,8 @@ import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2,
   Map as MapIcon, Dumbbell, Route as RouteIcon, type LucideIcon,
 } from 'lucide-react';
+import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
+import { resolveLoadedFlags, type LoadResult } from './resolve-loaded-flags';
 
 // ============================================================================
 // TYPES
@@ -25,15 +27,6 @@ interface FlagState {
   enable_full_park_workout: boolean;
   enable_route_stops: boolean;
 }
-
-const INITIAL_FLAGS: FlagState = {
-  enable_running_programs: false,
-  enable_community_feed: false,
-  enable_leagues: false,
-  enable_hybrid_slots: false,
-  enable_full_park_workout: false,
-  enable_route_stops: false,
-};
 
 // ============================================================================
 // CARD REGISTRY — add a card here only; the render loop below never changes.
@@ -104,6 +97,18 @@ const FLAG_CARDS: FlagCardConfig[] = [
     parentKey: 'enable_hybrid_slots',
   },
 ];
+
+const FLAG_KEYS = FLAG_CARDS.map((c) => c.key);
+
+/**
+ * Same source as useFeatureFlags.ts's SAFE_DEFAULTS (FIRESTORE_FLAG_DEFAULTS,
+ * feature-flag-defs.ts) — not a separately hardcoded copy. Used both as the initial
+ * form state (before any read completes) and, via resolveLoadedFlags, as the
+ * per-field fallback when the document is missing a key.
+ */
+const INITIAL_FLAGS: FlagState = Object.fromEntries(
+  FLAG_KEYS.map((k) => [k, FIRESTORE_FLAG_DEFAULTS[k]]),
+) as unknown as FlagState;
 
 // ============================================================================
 // TOGGLE COMPONENT
@@ -203,6 +208,9 @@ export default function SystemSettingsPage() {
 
   const [flags, setFlags] = useState<FlagState>(INITIAL_FLAGS);
   const [flagsLoading, setFlagsLoading] = useState(true);
+  // True when the initial getDoc failed — `flags` is then defaults-only, NOT a real
+  // read, so Save must be blocked until a successful reload (see resolveLoadedFlags).
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -237,25 +245,26 @@ export default function SystemSettingsPage() {
     if (!isSuperAdmin) return;
     getDoc(doc(db, 'system_config', 'feature_flags'))
       .then((snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          setFlags({
-            enable_running_programs: data.enable_running_programs ?? false,
-            enable_community_feed: data.enable_community_feed ?? false,
-            enable_leagues: data.enable_leagues ?? false,
-            enable_hybrid_slots: data.enable_hybrid_slots ?? false,
-            enable_full_park_workout: data.enable_full_park_workout ?? false,
-            enable_route_stops: data.enable_route_stops ?? false,
-          });
-        }
+        const result: LoadResult = { status: 'ok', data: snap.exists() ? snap.data() : undefined };
+        const { flags: loaded, loadFailed: failed } = resolveLoadedFlags(result, FLAG_KEYS, FIRESTORE_FLAG_DEFAULTS);
+        setFlags(loaded as FlagState);
+        setLoadFailed(failed);
       })
-      .catch((e) => console.error('[SystemSettings] Failed to load flags:', e))
+      .catch((e) => {
+        console.error('[SystemSettings] Failed to load flags:', e);
+        const { flags: loaded, loadFailed: failed } = resolveLoadedFlags({ status: 'error' }, FLAG_KEYS, FIRESTORE_FLAG_DEFAULTS);
+        setFlags(loaded as FlagState);
+        setLoadFailed(failed);
+        setError('טעינת ההגדרות נכשלה — לא ניתן לשמור עד לרענון מוצלח של הדף.');
+      })
       .finally(() => setFlagsLoading(false));
   }, [isSuperAdmin]);
 
   // ── Save ────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!currentUid) return;
+    // loadFailed: the current `flags` state came from defaults, not a real read —
+    // writing it would silently clobber whatever is actually in Firestore.
+    if (!currentUid || loadFailed) return;
     setSaving(true);
     setError(null);
     try {
@@ -343,7 +352,7 @@ export default function SystemSettingsPage() {
           <div className="flex items-center gap-3 pt-2">
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || loadFailed}
               className="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 disabled:opacity-60 text-white font-bold px-6 py-2.5 rounded-xl transition-colors text-sm"
             >
               {saving ? (
