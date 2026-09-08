@@ -13,6 +13,7 @@
 
 import { UserFullProfile } from '@/features/user/core/types/user.types';
 import { resolveToSlug } from './program-hierarchy.utils';
+import { resolveExerciseDomain } from '../logic/workout-selection.utils';
 
 // ============================================================================
 // CONSTANTS
@@ -274,29 +275,40 @@ export function buildUserProgramLevels(
  * reproduce the exact bug this function exists to close. When those five
  * structures are ever unified into one source of truth — come back here and
  * repoint `skillParentMap` at whatever replaces `_SKILL_PARENT_MAP`.
+ *
+ * MIGRATED 2026-09-08 (David, "one question, eight answers" consolidation)
+ * to delegate to the unified `resolveExerciseDomain`
+ * (workout-selection.utils.ts) instead of its own independent two-pass scan.
+ * Verified behavior-equivalent by manual trace against the old
+ * `isGenericRelativeToSiblings` scan for every case that mattered — direct
+ * skill-vs-co-tagged-parent, a skill with no budget vs. its co-tagged parent
+ * that does have one (and the reverse), and two co-matched skills tied on
+ * `skillPriority` (falls back to stable targetPrograms order, matching the
+ * old pass-1 first-match exactly) — not merely assumed identical from
+ * having "the same idea." `skillPriority` is optional here for the same
+ * reason as `resolveExerciseLevelForDomains`: existing callers don't carry
+ * `progression.skillFocusIds` at this call site yet; omitting it reproduces
+ * the old behavior exactly, and future callers can opt in without a
+ * breaking signature change.
  */
 export function resolveMostSpecificDomainBudget<T extends { domain: string }>(
   targetPrograms: Array<{ programId: string; level: number }> | undefined,
   resolvedDomainBudgets: T[],
   skillParentMap: Record<string, string>,
   resolveSlug: (programId: string) => string,
+  skillPriority?: Map<string, number>,
 ): T | undefined {
   if (!targetPrograms?.length) return undefined;
 
-  const slugs = targetPrograms.map((tp) => resolveSlug(tp.programId));
-  const isGenericRelativeToSiblings = (slug: string): boolean =>
-    slugs.some((sibling) => sibling !== slug && skillParentMap[sibling] === slug);
-
-  for (const tp of targetPrograms) {
-    const slug = resolveSlug(tp.programId);
-    if (isGenericRelativeToSiblings(slug)) continue;
-    const match = resolvedDomainBudgets.find((d) => d.domain === slug || d.domain === tp.programId);
-    if (match) return match;
-  }
-  for (const tp of targetPrograms) {
-    const slug = resolveSlug(tp.programId);
-    const match = resolvedDomainBudgets.find((d) => d.domain === slug || d.domain === tp.programId);
-    if (match) return match;
-  }
-  return undefined;
+  const resolvedDomain = resolveExerciseDomain(
+    { targetPrograms } as Parameters<typeof resolveExerciseDomain>[0],
+    {
+      activeDomains: resolvedDomainBudgets.map((d) => d.domain),
+      skillPriority,
+      skillParentMap,
+      resolveSlug,
+    },
+  );
+  if (!resolvedDomain) return undefined;
+  return resolvedDomainBudgets.find((d) => d.domain === resolvedDomain);
 }

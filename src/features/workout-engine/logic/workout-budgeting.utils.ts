@@ -11,7 +11,7 @@
 import { Exercise, MechanicalType, getLocalizedText, ExerciseTag } from '@/features/content/exercises/core/exercise.types';
 import type { ScoredExercise } from './contextual-engine.types';
 import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constants';
-import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains } from './workout-selection.utils';
+import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, _TEMP_SKILL_PARENT_MAP } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import {
   DifficultyLevel,
@@ -472,17 +472,42 @@ const MUSCLE_TO_DOMAIN: Record<string, string> = {
   core: 'core', abs: 'core', obliques: 'core',
 };
 
-function resolveExerciseDomain(
+/**
+ * Volume-assignment domain resolver — MIGRATED 2026-09-08 (David, "one
+ * question, eight answers" consolidation) to delegate its direct-match tier
+ * to the unified `resolveExerciseDomain` (workout-selection.utils.ts). The
+ * old direct-match tier was a plain first-match scan over `targetPrograms`
+ * with zero priority logic — the direct, confirmed cause of a selected skill
+ * (e.g. planche, one_arm_pullup) receiving a set-budget but 0 exercises,
+ * because its rescued exercise got counted under its PARENT domain instead
+ * (the parent tag happened to appear first in `targetPrograms` order). No
+ * skillPriority is threaded here (WorkoutGenerationContext doesn't carry
+ * `progression.skillFocusIds` at this call site) — ties among MULTIPLE
+ * skill-tag matches fall back to stable targetPrograms order, identical to
+ * this function's old behavior; the fix that matters here is skill-vs-parent
+ * (unconditional), not skill-vs-skill (rare, tie-break only).
+ *
+ * The old REVERSE-match tier (an exercise tagged only with a PARENT, e.g.
+ * generic 'push', filling a more specific active budget-domain, e.g.
+ * 'planche', via DOMAIN_ALIAS_MAP's parent→children lookup) is a genuinely
+ * DIFFERENT question from what resolveExerciseDomain answers — "can this
+ * broadly-tagged exercise fill a narrower open budget slot," not "which of
+ * this exercise's OWN tags wins." Preserved verbatim as its own wrapping
+ * fallback tier, run only when the unified resolver finds no match, so this
+ * migration doesn't silently drop it.
+ */
+export function resolveVolumeExerciseDomain(
   exercise: Exercise,
   budgetDomains: Set<string>,
 ): string | undefined {
+  const resolved = resolveUnifiedExerciseDomain(exercise, {
+    activeDomains: Array.from(budgetDomains),
+    skillParentMap: _TEMP_SKILL_PARENT_MAP,
+    resolveSlug: resolveToSlug,
+  });
+  if (resolved) return resolved;
+
   const tps = exercise.targetPrograms ?? [];
-
-  for (const tp of tps) {
-    const slug = resolveToSlug(tp.programId);
-    if (budgetDomains.has(slug)) return slug;
-  }
-
   for (const tp of tps) {
     const aliases = DOMAIN_ALIAS_MAP[tp.programId];
     if (aliases) {
@@ -527,7 +552,7 @@ export function assignVolume(
       domainBudgetMap.set(db.domain, db.daily);
     }
     for (const scored of exercises) {
-      const domain = resolveExerciseDomain(scored.exercise, budgetDomains);
+      const domain = resolveVolumeExerciseDomain(scored.exercise, budgetDomains);
       if (domain) {
         exerciseDomainMap.set(scored.exercise.id, domain);
         exercisesPerDomain.set(domain, (exercisesPerDomain.get(domain) ?? 0) + 1);
