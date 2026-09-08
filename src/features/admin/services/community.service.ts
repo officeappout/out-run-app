@@ -13,6 +13,7 @@ import {
   deleteDoc,
   writeBatch,
   deleteField,
+  arrayRemove,
   query,
   where,
   orderBy,
@@ -425,10 +426,19 @@ export async function getAllGroupsForAdmin(): Promise<CommunityGroup[]> {
     });
   });
 
-  const groups = groupsSnap.docs.map((d) => ({
-    ...normalizeGroup(d.id, d.data()),
-    audiencePersonas: personaByGroupId.get(d.id) ?? [],
-  }));
+  const groups = groupsSnap.docs
+    // 08.09.2026 — the one deliberate exception to this screen's own
+    // "no filtering, that's the whole point" design: type:'ephemeral'
+    // run-invite groups (/api/invite/run-session) aren't community groups
+    // in any sense this screen is for — they're single-session artifacts,
+    // 21+ of which were found cluttering this exact list. Excluded by
+    // explicit request, not a silent re-introduction of the
+    // invisible-groups failure mode this screen exists to catch.
+    .filter((d) => d.data()?.type !== 'ephemeral')
+    .map((d) => ({
+      ...normalizeGroup(d.id, d.data()),
+      audiencePersonas: personaByGroupId.get(d.id) ?? [],
+    }));
   return groups.sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));
 }
 
@@ -523,16 +533,123 @@ export async function updateGroup(
   }
 }
 
+const DELETE_BATCH_OP_LIMIT = 500;
+
+/**
+ * Full delete contract (agreed with David, 08.09.2026, after two group
+ * deletions were found to orphan member data): a group's document,
+ * persona-collection copies, `members` subcollection, its
+ * `chats/group_{groupId}` thread (chat.service.ts's makeGroupChatId) and
+ * that thread's `messages`, its `attendance` subcollection (only
+ * ephemeral run-invite groups from /api/invite/run-session have one — a
+ * harmless no-op for every other group), and — for every member — the
+ * deleted-groupId reference in `users/{uid}.social.groupIds` and
+ * `user_memberships/{uid}`. The two user-doc writes mirror
+ * joinEngine.ts's exact 4b/4c write shape in reverse (arrayRemove instead
+ * of arrayUnion), including its precise mergeFields scoping, so a delete
+ * undoes exactly what a join wrote.
+ *
+ * Reads members/chat/messages/attendance BEFORE building the batch, which
+ * makes this idempotent: calling it again on an already-deleted group
+ * (main doc gone) still finds and cleans up any dangling
+ * members/chat/messages/attendance/user references from an earlier
+ * incomplete delete — no separate repair path needed.
+ *
+ * Firestore batches cap at 500 operations. A group needing more than that
+ * (many members and/or a long chat history) is refused outright rather
+ * than silently split into multiple non-atomic batches — a partial
+ * multi-batch delete is exactly the "partial success = silent corruption"
+ * failure mode the write rules forbid elsewhere (axioms.md §4).
+ */
 export async function deleteGroup(groupId: string): Promise<void> {
   try {
     const groupRef = doc(db, GROUPS_COLLECTION, groupId);
+
+    const membersSnap = await getDocs(collection(db, GROUPS_COLLECTION, groupId, 'members'));
+    const memberUids = membersSnap.docs.map((d) => d.id);
+
+    const chatId = `group_${groupId}`;
+    const chatRef = doc(db, 'chats', chatId);
+    const chatSnap = await getDoc(chatRef);
+    const messagesSnap = chatSnap.exists()
+      ? await getDocs(collection(db, 'chats', chatId, 'messages'))
+      : null;
+    const messageCount = messagesSnap?.size ?? 0;
+
+    const attendanceSnap = await getDocs(collection(db, GROUPS_COLLECTION, groupId, 'attendance'));
+    // member_statuses is a third-level subcollection under each attendance
+    // doc (session-phase.service.ts) — read all of them up front so their
+    // count is known before the op-count/size-guard check below.
+    const memberStatusesSnaps = await Promise.all(
+      attendanceSnap.docs.map((a) => getDocs(collection(a.ref, 'member_statuses'))),
+    );
+    const memberStatusesCount = memberStatusesSnaps.reduce((sum, s) => sum + s.size, 0);
+
+    const opCount =
+      2 /* group doc + its one persona-collection copy, via applyGroupAudienceBatch */ +
+      membersSnap.size /* member doc deletes */ +
+      memberUids.length * 2 /* user_memberships set + users set, per member */ +
+      (chatSnap.exists() ? 1 : 0) /* chat doc delete */ +
+      messageCount /* message doc deletes */ +
+      attendanceSnap.size /* attendance doc deletes */ +
+      memberStatusesCount; /* member_statuses doc deletes */
+
+    if (opCount > DELETE_BATCH_OP_LIMIT) {
+      throw new Error(
+        `[deleteGroup] ${groupId} needs ${opCount} write ops (limit ${DELETE_BATCH_OP_LIMIT}) — ` +
+        `refusing to split into multiple non-atomic batches. ` +
+        `members=${memberUids.length}, messages=${messageCount}, attendance=${attendanceSnap.size}, memberStatuses=${memberStatusesCount}.`
+      );
+    }
+
     const batch = writeBatch(db);
     // publicData=null → applyGroupAudienceBatch deletes the group doc AND
     // unconditionally deletes every persona-collection copy (idempotent
-    // no-op for personas that never had one) — this is exactly what
-    // prevents the orphan case: a location/hours doc surviving under a
-    // groupId whose public doc no longer exists.
+    // no-op for personas that never had one).
     applyGroupAudienceBatch(batch, groupRef, null, [], {});
+
+    for (const memberDoc of membersSnap.docs) {
+      batch.delete(memberDoc.ref);
+    }
+    for (const uid of memberUids) {
+      // Mirrors joinEngine.ts's 4b/4c write shape exactly, reversed.
+      batch.set(
+        doc(db, 'user_memberships', uid),
+        { groupIds: arrayRemove(groupId), updatedAt: serverTimestamp() },
+        { merge: true },
+      );
+      // batch.update(), not batch.set(..., {merge:true}) — verified by an
+      // isolated synthetic-doc test (08.09.2026): setDoc/batch.set treats a
+      // dotted string key like 'social.groupIds' as a LITERAL top-level
+      // field name (creating a decoy field with a dot in its name) rather
+      // than a nested path, so the real nested field was silently left
+      // untouched. Only update()/batch.update() parses dotted keys as
+      // nested paths. The nested-object + mergeFields form joinEngine.ts
+      // uses for the reverse (arrayUnion) write was tried first and found
+      // to wipe the entire array instead of removing one element — a real
+      // user's social.groupIds was corrupted by it before this was caught.
+      batch.update(doc(db, 'users', uid), {
+        'social.groupIds': arrayRemove(groupId),
+        updatedAt: serverTimestamp(),
+      });
+    }
+    if (messagesSnap) {
+      for (const msgDoc of messagesSnap.docs) {
+        batch.delete(msgDoc.ref);
+      }
+    }
+    if (chatSnap.exists()) {
+      batch.delete(chatRef);
+    }
+    for (const statusesSnap of memberStatusesSnaps) {
+      for (const statusDoc of statusesSnap.docs) {
+        batch.delete(statusDoc.ref);
+      }
+    }
+    for (const attendanceDoc of attendanceSnap.docs) {
+      batch.delete(attendanceDoc.ref);
+    }
+
     await batch.commit();
   } catch (error) {
     console.error('Error deleting group:', error);
