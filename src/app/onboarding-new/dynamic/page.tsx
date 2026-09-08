@@ -457,8 +457,6 @@ export default function DynamicOnboardingPage() {
       // handles both a real profile and a null one correctly via
       // resolveSignupDefaultWrite's hasHydrated gate.
       if (!isRunningTrack) {
-        // eslint-disable-next-line no-console
-        console.log('[DIAG] initializeProfile — locally-built profile.healthDeclarationAccepted:', (profile as any).healthDeclarationAccepted, '| keys:', Object.keys(profile));
         await initializeProfile(profile);
       }
 

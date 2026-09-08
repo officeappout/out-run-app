@@ -289,8 +289,6 @@ export const useUserStore = create<UserState>()(
           }
           const freshProfile = await getUserFromFirestore(currentUser.uid);
           if (freshProfile) {
-            // eslint-disable-next-line no-console
-            console.log('[DIAG] refreshProfile — REAL profile.healthDeclarationAccepted:', (freshProfile as any).healthDeclarationAccepted, '| timestamp:', Date.now());
             set({ profile: freshProfile });
           }
         } catch (error) {
