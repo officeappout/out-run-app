@@ -641,7 +641,7 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 **שלושה תיקוני-קוד שכבר נבעו מזה, ורביעי שנשאר פתוח:**
 1. ✅ `SKILL_SLUGS`'s `'oap'`→`'one_arm_pullup'` (תוקן, 08.09.2026).
 2. ✅ `getLevelForDomain` — סדר-מערך, workout-selection.utils.ts (תוקן, 08.09.2026, ענף `fix/domain-tag-priority-order`).
-3. ✅ `getUserLevelForExercise`'s Pass 2 — סדר-מערך, home-workout.service.ts (תוקן, 08.09.2026, אותו ענף).
+3. ✅ `getUserLevelForExercise`'s Pass 2 — סדר-מערך, home-workout.service.ts (תוקן, 08.09.2026, אותו ענף) — **צרכן חדש של #2/#3 (`_SKILL_PARENT_MAP`), לא של #4/#5.** `resolveMostSpecificDomainBudget` (level-resolution.utils.ts) נשען במפורש על `_SKILL_PARENT_MAP` ולא על `DOMAIN_ALIAS_MAP` — בדיוק כי האחרון חסר את `one_arm_pullup` ואיחוד-עתידי שיבחר בטעות ב-#4/#5 כמקור-האמד היחיד ישבור את התיקון הזה בשקט. מתועד גם בהערת-הפונקציה עצמה.
 4. ⚠️ `hybrid-context.util.ts`'s `resolveUserLevelForExercise` — **לא תוקן**, אותה מחלקת-באג בדיוק, אלגוריתם עצמאי שלישי.
 
 **לא מאוחד עכשיו — כפי שהתבקש.** חמשת המבנים (ואלגוריתם-הרזולוציה השישי) ממשיכים להתקיים בנפרד. איחוד באמצע תיקון מזיז את הקרקע — זה הבא שיטופל אחרי המגירה (Block 3), לא כאן.
