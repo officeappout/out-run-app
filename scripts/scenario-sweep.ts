@@ -81,24 +81,40 @@ import type { PersonaId } from '@/types/persona.types';
  * any other process. Exported so other scripts (e.g. parent-bleed-audit.ts)
  * can apply the same overlay before reusing this file's runHomeCell.
  */
-export function loadAndApplyContentOverlay(filePath: string): void {
-  const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as {
-    bundles: Array<{
-      bundleId: string; persona: string; gender?: string; timeOfDay?: string;
-      location?: string; variant?: string; title: string; description: string; logicCue: string;
-    }>;
-  };
-  const workoutTitles = parsed.bundles.map(b => ({
-    text: b.title, persona: b.persona, gender: b.gender, timeOfDay: b.timeOfDay, location: b.location, bundleId: b.bundleId,
-  }));
-  const smartDescriptions = parsed.bundles.map(b => ({
-    description: b.description, persona: b.persona, gender: b.gender, timeOfDay: b.timeOfDay, location: b.location, bundleId: b.bundleId,
-  }));
-  const logicCues = parsed.bundles.map(b => ({
-    text: b.logicCue, persona: b.persona, gender: b.gender, timeOfDay: b.timeOfDay, location: b.location, variant: b.variant, bundleId: b.bundleId,
-  }));
+export function loadAndApplyContentOverlay(filePathOrPaths: string | string[]): void {
+  const filePaths = Array.isArray(filePathOrPaths) ? filePathOrPaths : [filePathOrPaths];
+
+  const workoutTitles: any[] = [];
+  const smartDescriptions: any[] = [];
+  const logicCues: any[] = [];
+  let bundleCount = 0;
+
+  for (const filePath of filePaths) {
+    const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as {
+      bundles: Array<{
+        bundleId: string; persona: string; gender?: string; timeOfDay?: string;
+        location?: string; variant?: string; title: string; description: string; logicCue?: string;
+      }>;
+    };
+    bundleCount += parsed.bundles.length;
+    for (const b of parsed.bundles) {
+      workoutTitles.push({ text: b.title, persona: b.persona, gender: b.gender, timeOfDay: b.timeOfDay, location: b.location, bundleId: b.bundleId });
+      smartDescriptions.push({ description: b.description, persona: b.persona, gender: b.gender, timeOfDay: b.timeOfDay, location: b.location, bundleId: b.bundleId });
+      // logicCue is OPTIONAL per bundle (e.g. Batch 2 — "rides the dynamic
+      // level-aware fallback"). Do NOT push a row with an empty/undefined
+      // text for these — an empty-but-high-scoring row could still WIN the
+      // bestRows tie-break and make fetchLogicCue return null in place of a
+      // real, lower-scoring Firestore logicCue that would otherwise have
+      // been picked, which is a different (wrong) outcome than "no override,
+      // fall through to whatever already exists."
+      if (b.logicCue) {
+        logicCues.push({ text: b.logicCue, persona: b.persona, gender: b.gender, timeOfDay: b.timeOfDay, location: b.location, variant: b.variant, bundleId: b.bundleId });
+      }
+    }
+  }
+
   setLocalContentOverlay({ workoutTitles, smartDescriptions, logicCues });
-  console.log(`[overlay] loaded ${parsed.bundles.length} bundles from ${filePath} (${workoutTitles.length} titles, ${smartDescriptions.length} descriptions, ${logicCues.length} logicCues) — in-memory only, no Firestore write`);
+  console.log(`[overlay] loaded ${bundleCount} bundles from ${filePaths.length} file(s) [${filePaths.join(', ')}] (${workoutTitles.length} titles, ${smartDescriptions.length} descriptions, ${logicCues.length} logicCues) — in-memory only, no Firestore write`);
 }
 
 // ── Admin SDK init (before importing functions/src — see file header) ──────
@@ -499,16 +515,17 @@ export async function main(outFileName = 'notification-content-scenario-sweep.md
 // exported pieces (e.g. scripts/scenario-sweep-sample.ts reusing runHomeCell/
 // runPushCell/checkCoherence for a smaller, curated pull).
 //
-// CONTENT_OVERLAY_FILE (optional env var): path to a draft-content JSON
-// (scripts/fixtures/batch1-persona-content.json shape) to inject via
-// loadAndApplyContentOverlay before running — e.g. to verify an unshipped
-// batch against real live data with zero Firestore writes. When set, the
-// report is written to a `-content-overlay` suffixed file instead of the
-// production path, so a verification run never overwrites the real report.
+// CONTENT_OVERLAY_FILE (optional env var): comma-separated path(s) to a
+// draft-content JSON (scripts/fixtures/batch1-persona-content.json shape) to
+// inject via loadAndApplyContentOverlay before running — e.g. to verify one
+// or more unshipped batches together against real live data with zero
+// Firestore writes. When set, the report is written to a `-content-overlay`
+// suffixed file instead of the production path, so a verification run never
+// overwrites the real report.
 const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
   const overlayFile = process.env.CONTENT_OVERLAY_FILE;
-  if (overlayFile) loadAndApplyContentOverlay(overlayFile);
+  if (overlayFile) loadAndApplyContentOverlay(overlayFile.split(',').map(p => p.trim()));
   const outFileName = overlayFile
     ? 'notification-content-scenario-sweep-content-overlay.md'
     : 'notification-content-scenario-sweep.md';
