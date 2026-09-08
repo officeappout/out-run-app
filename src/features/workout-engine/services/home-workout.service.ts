@@ -98,7 +98,7 @@ import {
   buildActiveProgramFilters,
   resolveExercisePool,
 } from '../core/middleware/InputSanitizerMiddleware';
-import { getBaseUserLevel, buildUserProgramLevels } from './level-resolution.utils';
+import { getBaseUserLevel, buildUserProgramLevels, resolveMostSpecificDomainBudget } from './level-resolution.utils';
 import { getHistoryMapForExercises } from './exercise-history.service';
 import {
   getCachedPrograms,
@@ -2209,12 +2209,18 @@ async function _buildSharedPipeline(
         // SCORING level and the TIER level are always computed from the same
         // domain — preventing the "HSPU appears near-match at L18 but resolves
         // to flow against push-L22" discrepancy.
+        //
+        // Most-specific-wins, not first-in-array-wins (2026-09-08, David) —
+        // see resolveMostSpecificDomainBudget's own doc comment
+        // (level-resolution.utils.ts) for the full principle and the real
+        // one_arm_pullup regression this closes.
         if (!db && exercise.targetPrograms?.length) {
-          for (const tp of exercise.targetPrograms) {
-            const slug = resolveToSlug(tp.programId);
-            db = resolvedDomainBudgets.find(d => d.domain === slug || d.domain === tp.programId);
-            if (db) break;
-          }
+          db = resolveMostSpecificDomainBudget(
+            exercise.targetPrograms,
+            resolvedDomainBudgets,
+            _SKILL_PARENT_MAP,
+            resolveToSlug,
+          );
         }
 
         if (db) return db.level;
