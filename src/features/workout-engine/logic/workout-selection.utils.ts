@@ -651,6 +651,47 @@ export function matchesAnyRequiredDomain(ex: Exercise, context: WorkoutGeneratio
   return context.requiredDomains.some((d) => exerciseMatchesProgram(ex, d));
 }
 
+/**
+ * When an exercise carries multiple tags, the specific one always wins over
+ * the parent — always, independent of array order. `targetPrograms`'s order
+ * reflects nothing about priority; it's just the order the tags happened to
+ * be recorded in the admin panel. A scan that returns on the first EITHER-
+ * direct-OR-parent-alias match silently lets an earlier-indexed parent entry
+ * (e.g. push) shadow a later-indexed, more specific skill entry (e.g.
+ * planche) for the exact same exercise — the bug this function closes
+ * (2026-09-08, David — real run: a planche L7 exercise resolved to its push
+ * L16 entry instead, because push happened to be recorded first).
+ *
+ * Fixed with two full passes instead of one interleaved pass: the whole
+ * array is scanned for an exact match to `domain` first — if found, that's
+ * the answer, no matter where it sits in the array. Only if NO exact match
+ * exists anywhere is the array scanned a second time for a parent-alias
+ * match. Order can never change which tier wins, only (harmlessly) which
+ * entry wins within the same tier.
+ *
+ * Extracted to a standalone, explicitly-parameterized function (no closure-
+ * captured `domain`/`parentAliases`) so it's directly unit-testable —
+ * `selectExercisesWithDomainQuotas`'s closures below just forward their
+ * captured values into it.
+ */
+export function resolveDomainLevelForExercise(
+  targetPrograms: Array<{ programId: string; level: number }> | undefined,
+  domain: string,
+  parentAliases: string[],
+  resolveSlug: (programId: string) => string,
+): number | null {
+  if (!targetPrograms) return null;
+  for (const tp of targetPrograms) {
+    const slug = resolveSlug(tp.programId);
+    if (slug === domain || tp.programId === domain) return tp.level;
+  }
+  for (const tp of targetPrograms) {
+    const slug = resolveSlug(tp.programId);
+    if (parentAliases.includes(slug)) return tp.level;
+  }
+  return null;
+}
+
 export function selectExercisesWithDomainQuotas(
   scoredExercises: (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[],
   count: number,
@@ -738,17 +779,9 @@ export function selectExercisesWithDomainQuotas(
           return satisfiesGearRequirement(norm, normalizedAvail);
         });
       };
-      const getLevelForDomain = (ex: Exercise): number => {
-        if (ex.targetPrograms) {
-          for (const tp of ex.targetPrograms) {
-            const slug = resolveToSlug(tp.programId);
-            if (slug === domain) return tp.level;
-            if (parentAliases.includes(slug)) return tp.level;
-            if (tp.programId === domain) return tp.level;
-          }
-        }
-        return ex.recommendedLevel ?? userLevel;
-      };
+      const getLevelForDomain = (ex: Exercise): number =>
+        resolveDomainLevelForExercise(ex.targetPrograms, domain, parentAliases, resolveToSlug)
+        ?? (ex.recommendedLevel ?? userLevel);
       const belongsToDomain = (ex: Exercise): boolean => {
         if (ex.targetPrograms?.some((tp) => {
           const slug = resolveToSlug(tp.programId);
