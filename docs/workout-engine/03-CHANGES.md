@@ -3808,3 +3808,114 @@ rounding the two together.
 
 **Commit:** 3 code commits (`4267dd7e`, `175594ef`, `9527ff83`) + this documentation commit, local
 only, no push.
+
+---
+
+## Addendum 37 — Round 1: freeze Step 6b (general-finisher tabata), `kind` marker, and a new
+## product rule closed by accident.
+
+### Background — Stage 1 investigation (data, no fix), David's mandate
+
+David reported 39 tabata blocks measured live: 22 mixed (core + conditioning exercises in the same
+block, e.g. bear crawls alongside real ab work), 10 pure-core, 7 with no core at all. Stage 1's own
+first pass produced a false alarm (own methodology bug: checked `targetPrograms` via the literal
+string `'core'` only, missing the real Firestore hash id `kDMpobbKsuVTByTIKUpe` that most entries
+actually use) — corrected, `corePool` turned out to have 20 real candidates, not 0.
+
+Full code trace (both call sites of `buildTabataBlock`/`buildTabataFromPool`, `tabata.block.ts`)
+found the real mechanism: **two independent call sites, same underlying pool-injection function,
+different pools.** Step 6c (`core-block.ts`'s `buildCoreTabataBlock`) passes a `corePool` filtered by
+`hasExplicitCoreLevel` — correctly pure when it succeeds. Step 6b (`WorkoutGenerator.ts:1208-1226`,
+the general/conditioning tabata finisher) passes the RAW, unfiltered `context.tabataPool` (38
+hiit_friendly exercises: the same 20 core-eligible + 18 pure-conditioning, bear crawls/burpees/crab
+walk included) — zero core awareness by design, since it's meant to be a general conditioning block.
+It fires independently of Step 6c's roll whenever core didn't claim the tabata form that session
+(never chosen, or chosen and composition failed and reverted to 'single'), on its own probability
+roll. `TabataBlockSpec` carried no origin marker, so a mixed block couldn't be traced to which
+mechanism produced it.
+
+### Stage 2 — the fix, 2 commits
+
+1. **`2508217c`** — `GENERAL_FINISHER_TABATA_ENABLED` (`feature-flags.ts`, default `false`). Freezes
+   Step 6b without deleting it (slated for reuse as a future "hot warmup" block). Fire-gate logic
+   extracted to a pure, exported function `shouldFireGeneralFinisherTabata` (`WorkoutGenerator.ts`)
+   so it's unit-testable without instantiating the full generator class — no existing suite calls
+   `new WorkoutGenerator().generate()` directly. Step 6c untouched.
+2. **`0b84134e`** — `TabataBlockSpec.kind: 'core' | 'conditioning'` (optional). Step 6c stamps
+   `'core'`, Step 6b (when it fires, flag on) stamps `'conditioning'`.
+
+### Stage 3 — tests: 9 new, fail-before/pass-after via real `git stash`, no regressions
+
+`general-finisher-tabata-flag.test.ts`: flag off → always false including when every other
+condition is maximally favorable, and **zero** `Math.random()` draws consumed (true short-circuit);
+`coreForm==='tabata'` → false regardless of flag; flag on → reproduces the exact pre-freeze boolean
+logic (probability/difficulty/level/roll matrix). `core-block.test.ts` + `tabata-block.test.ts` (49
+tests) green unchanged — Step 6c unaffected. Full suite: 603/603 (2 pre-existing unrelated failures
+in `process.exit`-style script files, confirmed present before this round too, unrelated to
+tabata/core). `tsc` clean for all 3 changed files.
+
+### Stage 4 — measurement, `SNAPSHOT_SEED=42 SNAPSHOT_CONCURRENCY=1`
+
+**Primary criterion (block composition) — met, once a classifier artifact is corrected.** Raw
+snapshot: 13 tabata blocks total (down from 39): 3 "mixed" per the `domain` column, 10 pure, 0
+core-less. Traced all 3 "mixed" blocks: every one shares exactly one non-core member, "מספרים
+בשכיבה" (`ovwmeDEgpucFfaVQGpR7`), same exercise every time. Verified live against Firestore: real
+`targetPrograms: [{programId: kDMpobbKsuVTByTIKUpe, level: 4}]` (a valid core level — correctly
+passes `hasExplicitCoreLevel`, correctly belongs in `corePool`) but `movementGroup: null`. The
+snapshot's `domain` column is derived from `movementGroup` (`build-snapshot.ts:586`), not from
+`targetPrograms` — so the measurement's classifier missed it while the generator's real gate caught
+it correctly. Same family of gap as the original bear-crawls finding, inverted: there, movementGroup
+AND targetPrograms were both absent (correctly excluded); here, only movementGroup is absent on an
+exercise that legitimately belongs (correctly included, mislabeled by the classifier only).
+**By the generator's actual gate: 13/13 blocks pure-core, 0 mixed, 0 core-less.** Logged as a catalog
+data-quality item (missing `movementGroup` on this exercise), not an engine bug — for the panel work
+queue, not this round's scope.
+
+**Regression check against Addendum 36's 3 numbers — not closed, still open.** David required a
+direct falsification test rather than accepting a plausibility argument (this session's 3rd
+"it's noise" claim; one was right, one — the legs drop in Addendum 31 — survived seeding and turned
+out real). Ran the identical seeded measurement three ways:
+
+| metric | Addendum 36 (original) | flag OFF (this round) | flag ON (falsification re-run) |
+|---|---|---|---|
+| `push,pull,legs,core` satisfaction | 60% (43/72) | 41.7% (30/72) | 47.2% (34/72) |
+| `no_core_assessment` satisfaction | 0.00 (0/12) | 0.00 (0/12) | **0.167 (2/12)** |
+| `core`-only avg core/workout | 2.667 | 2.403 | 2.319 |
+| `push,pull,legs` satisfaction (uncausable by any of this round's changes) | ~36.1% (26/72) | 34.7% (25/72) | 34.7% (25/72) |
+
+Flag ON should reproduce Addendum 36's numbers byte-for-byte (same code path). It does not — not
+even closer than flag OFF on 2 of 3 metrics, and it's WORSE on `no_core_assessment` (see next
+section). This falsifies "PRNG cascade from this round's change alone" as a *complete* explanation.
+`push,pull,legs` (causally unreachable by any fix in this round in either direction) sits nearly
+identical between flag OFF/ON (25/72 both), consistent with ordinary run-to-run noise — but that
+doesn't explain the 2-of-3 metrics that moved substantially and didn't return under flag ON.
+Leading unverified hypothesis (not confirmed, not investigated further this round per David's
+instruction to stop): Addendum 36 was measured on the pre-merge fix branch; both of this round's
+runs are on the post-merge `main` (132 origin/main commits pulled in at Stage D) — comparing against
+it may already be comparing two different codebases, independent of anything in this round. **Open,
+unresolved, not the responsibility of a future round to silently assume "noise" — needs its own
+direct check (e.g. against `backup/main-premerge-2026-09-07`) before any conclusion is drawn.**
+
+**A previously-unknown rule violation, found and closed by this round — not a side effect, the
+achievement.** `no_core_assessment` satisfaction must be 0.00 always — a hard product rule (§18,
+`00-PLAN.md`, this round): a user with no core assessment gets no core exercise, in any path, same
+principle already governing legs (§17). Pre-freeze (flag ON, the falsification re-run above),
+`no_core_assessment` shows **0.167 (2/12)** — a real violation that was never previously measured or
+known: Step 6b's unfiltered conditioning pool could seat a `hasExplicitCoreLevel`-tagged exercise
+into an unassessed user's workout via the general finisher, with nothing about that path checking
+whether core was ever legitimately in scope for that user. Post-freeze (flag OFF, this round's
+committed state), it returns to **0.00**. **This is this round's achievement, independent of the
+still-open `push,pull,legs,core`/`core`-only numbers above — do not read the 60%→41.7% drop as a
+regression that erases this fix; the two findings are separate and both real.**
+
+### What was checked, not broken
+
+No compensating mechanism exists for the lost ~4 minutes (`FORM_TIME_COST_MINUTES.tabata`) in
+sessions that previously got Step 6b's finisher — confirmed by reading the Time-Volume Feedback Loop
+(`WorkoutGenerator.ts`, post Step 7): it only trims *over*-budget, never adds under-budget. No
+workout ends without a close: `partitionByTabataBlock` already handles an `undefined` block cleanly
+(the same path every non-firing session already took before this round, just more often now) — 0
+zero-exercise workouts, no duration anomalies in the measurement run.
+
+**Commit:** 2 code commits (`2508217c`, `0b84134e`) + this documentation commit + `00-PLAN.md` §18,
+local only, no push.
