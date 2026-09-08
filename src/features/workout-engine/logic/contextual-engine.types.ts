@@ -163,6 +163,28 @@ export interface ContextualFilterContext {
    * it indexed first in `targetPrograms` or `activeDomains`.
    */
   activeProgramId?: string;
+
+  /**
+   * Per-domain user levels (e.g. `planche`→10, `pull`→16), the same map fed
+   * to `resolveExercisePool`'s ±3/±5 tolerance filter. Optional — when
+   * provided, the level_tolerance gate in `filterAndScore` measures the
+   * exercise's level AND the user's level from the SAME domain (via
+   * `resolveConsistentComparisonLevels`, workout-selection.utils.ts) instead
+   * of the domain-blind `getUserLevelForExercise`. Closes the 2026-09-08
+   * cross-domain comparison bug (David) — see that function's own doc
+   * comment. Callers that don't provide this (admin simulator, hybrid
+   * pipeline) keep the pre-existing `getUserLevelForExercise`-only behavior,
+   * unchanged.
+   */
+  userProgramLevels?: Map<string, number>;
+
+  /**
+   * Fallback user level for `resolveUserLevelForProgram` when a domain has
+   * no entry in `userProgramLevels` — the same `baseUserLevel` already
+   * threaded into `resolveExercisePool`. Only meaningful alongside
+   * `userProgramLevels`.
+   */
+  baseUserLevel?: number;
 }
 
 /**
