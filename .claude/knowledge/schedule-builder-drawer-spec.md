@@ -36,10 +36,20 @@ Plus: a button in the schedule editor, always available, opens the same drawer.
 **Does not open on a user's very first-ever registration** — there's nothing to coordinate yet.
 That path stays what it already is: a blurred card + wizard, already built and live.
 
-**⚠️ Dependency:** the home-page gate (`RUNNING_ONBOARDING_GATE_ENABLED`,
-`src/lib/running-onboarding-gate.ts`) doesn't currently distinguish first-registration from
-adding-a-second-track. A strength user adding running gets today's blurred card instead of the
-drawer. The drawer overrides it — that's part of this work, not a separate fix.
+**⚠️ Dependency — confirmed again 07.09.2026 by David, still open, next up:** the home-page gate
+(`RUNNING_ONBOARDING_GATE_ENABLED`, `src/lib/running-onboarding-gate.ts`) doesn't currently
+distinguish first-registration from adding-a-second-track. A strength user adding running gets
+today's blurred card + wizard instead of the drawer — asked again about days they already
+answered once. David's principle behind this, dictated 07.09.2026: **"מה שכבר עניתי עליו פעם
+אחת — לא שואלים אותי שוב"** — the same principle already decided for the health declaration
+(never re-ask what's already been answered), now extended to days. The drawer overrides it —
+that's part of this work, not a separate fix.
+
+See ת6 for the exact reachability boundary this dependency sits inside (single domain → no
+drawer, stays blurred; two domains via two separate events → drawer opens). See ת1/ת2 for what
+the drawer itself produces once it opens for this exact scenario.
+
+**Open question, not decided:** מסך הלוז המשותף בהרשמה — האם המגירה מייתרת אותו? לא נבדק, לא הוכרע.
 
 ## 3 · What happens when it opens
 

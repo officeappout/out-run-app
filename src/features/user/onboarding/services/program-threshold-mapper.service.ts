@@ -155,14 +155,40 @@ export interface ProgramMappingResult {
 }
 
 /**
+ * The one place this average is computed — David, 08.09.2026: a body_focus
+ * user who only assessed 'pull' had push/legs/core silently backfilled to
+ * minLevel (1) by toFullAssessmentLevels() before reaching here, so
+ * averaging over all 3/4 keys unconditionally (the old behavior) blended a
+ * real level with fake filler and produced a number that was neither the
+ * real level nor a meaningful "average" of anything. Average ONLY over the
+ * categories the caller confirms were genuinely assessed (assessedCategories
+ * — from pathConfig.categories plus any BRANCH_TO_FOLLOW_UP categories, see
+ * assessment-visual/page.tsx's call sites). Falls back to push+pull+legs
+ * (the historical shape) only if the caller passes an empty list, which
+ * should not happen in practice — a defensive floor, not the normal path.
+ */
+export function computeAssessedAverage(
+  levels: AssessmentLevels,
+  assessedCategories: readonly string[],
+): number {
+  const keys = (['push', 'pull', 'legs', 'core'] as const).filter((k) =>
+    assessedCategories.includes(k),
+  );
+  const relevant = keys.length > 0 ? keys : (['push', 'pull', 'legs'] as const);
+  const sum = relevant.reduce((acc, k) => acc + (levels[k] ?? 0), 0);
+  return Math.round(sum / relevant.length);
+}
+
+/**
  * Map assessment levels to a program using active thresholds.
  * Returns the first match by priority, or a fallback.
  */
 export async function mapLevelsToProgram(
   levels: AssessmentLevels,
+  assessedCategories: readonly string[],
 ): Promise<ProgramMappingResult> {
   const thresholds = await getActiveThresholds();
-  return mapLevelsToProgramSync(thresholds, levels);
+  return mapLevelsToProgramSync(thresholds, levels, assessedCategories);
 }
 
 /**
@@ -171,10 +197,9 @@ export async function mapLevelsToProgram(
 export function mapLevelsToProgramSync(
   thresholds: ProgramThreshold[],
   levels: AssessmentLevels,
+  assessedCategories: readonly string[],
 ): ProgramMappingResult {
-  const average = Math.round(
-    (levels.push + levels.pull + levels.legs) / 3,
-  );
+  const average = computeAssessedAverage(levels, assessedCategories);
 
   const active = thresholds
     .filter(t => t.isActive)

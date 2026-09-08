@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Trophy, RefreshCw, ChevronDown } from 'lucide-react';
 import { getUnitLeagueLeaderboard, type UnitLeagueRange, type UnitLeagueResult } from '../services/unit-league.service';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { getRelativeTime } from '@/lib/utils/date-formatter';
 
 const RANGE_OPTIONS: { value: UnitLeagueRange; label: string }[] = [
@@ -66,8 +67,13 @@ export default function UnitLeagueTable({ myOrgId, myUnitPathIds }: UnitLeagueTa
               <div>
                 <h4 className="text-sm font-black text-gray-900">תחרות בין יחידות</h4>
                 <p className="text-[10px] text-gray-500 font-medium">
-                  {/* Mandatory, not decoration (David, 05.09.2026) — every row's data is from a scheduled hourly rollup, must be legible how fresh it is. */}
-                  {result?.updatedAt ? `עודכן ${getRelativeTime(result.updatedAt)}` : 'טעינה...'}
+                  {/* Mandatory, not decoration (David, 05.09.2026) — every row's data is from a scheduled hourly rollup, must be legible how fresh it is.
+                      07.09.2026 fix: this used to key off result?.updatedAt alone, so it silently kept
+                      showing "טעינה..." forever once the fetch resolved with updatedAt still null —
+                      a legitimate state (unitLeagueRollup skips any unit with zero declared members,
+                      unit-league-aggregation.ts's own early-continue), not a stuck fetch. Now keyed off
+                      isLoading like the body below it already correctly is. */}
+                  {isLoading ? 'טוען...' : result?.updatedAt ? `עודכן ${getRelativeTime(result.updatedAt)}` : 'אין נתונים עדיין'}
                 </p>
               </div>
             </div>
@@ -123,6 +129,7 @@ export default function UnitLeagueTable({ myOrgId, myUnitPathIds }: UnitLeagueTa
                 style={{ backgroundColor: entry.isMyUnit ? '#F0FBF6' : 'transparent' }}
               >
                 <span className="w-7 text-center text-sm font-black text-gray-400 tabular-nums">{idx + 1}</span>
+                <UnitIconBadge unitId={entry.unitId} iconUrl={entry.iconUrl} name={entry.name} size={36} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-gray-900 truncate">
                     {entry.name}

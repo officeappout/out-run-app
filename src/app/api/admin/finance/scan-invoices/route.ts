@@ -41,7 +41,6 @@ import {
   extractBodyText,
   extractInvoiceFields,
   collectInvoiceAttachments,
-  dedupSignature,
   candidateConfidence,
   CANDIDATE_CONFIDENCE_THRESHOLD,
   type InvoiceCandidate,
@@ -112,6 +111,22 @@ interface FinanceScanResult {
   /** Invoice-like but low confidence — need a human to complete (spec §4 step 7). */
   pendingReview: InvoiceCandidate[];
   skipped: Array<{ threadId: string; subject: string; reason: string; mailbox: string }>;
+  /**
+   * Per-mailbox coverage — surfaces a truncated scan explicitly rather than
+   * silently under-reporting. A truncated scan on financial data is more
+   * dangerous than one that errors out: it has no symptom, and a month can
+   * get closed on the assumption everything was captured.
+   */
+  mailboxCoverage: Array<{
+    mailbox: string;
+    threadsScanned: number;
+    truncated: boolean;
+    /** Date (YYYY-MM-DD) of the oldest thread actually reached before the
+     *  page cap, when truncated — mail older than this was NOT scanned in
+     *  this mailbox. null when not truncated, or when it couldn't be
+     *  determined (e.g. the boundary thread had no parseable Date header). */
+    oldestCoveredDate: string | null;
+  }>;
   stats: {
     threadsScanned: number;
     invoiceLike: number;
@@ -325,6 +340,7 @@ export async function POST(request: NextRequest) {
     candidates: [],
     pendingReview: [],
     skipped: [],
+    mailboxCoverage: [],
     stats: { threadsScanned: 0, invoiceLike: 0, vendorMatched: 0, wouldCreate: 0, apiCalls: 0, deduped: 0, needsOCR: 0, linkedInvoice: 0, truncated: false },
     runLog,
   };
@@ -390,7 +406,29 @@ export async function POST(request: NextRequest) {
             return { threadId: t.id as string, detail };
           }),
         );
-        return { mailbox, gmail, threads: threads.length, metas, truncated };
+
+        // Gmail returns threads newest-first, so the LAST one fetched is the
+        // oldest actually reached before the cap — that boundary is what makes
+        // a truncated scan's gap concrete instead of just a boolean.
+        let oldestCoveredDate: string | null = null;
+        if (truncated && metas.length > 0) {
+          const boundaryMsgs: any[] = metas[metas.length - 1].detail.data.messages ?? [];
+          const lastMsg = boundaryMsgs[boundaryMsgs.length - 1];
+          const dateHdr = (lastMsg?.payload?.headers ?? []).find(
+            (h: any) => h.name?.toLowerCase() === 'date',
+          )?.value;
+          if (dateHdr) {
+            const d = new Date(dateHdr);
+            if (!Number.isNaN(d.getTime())) oldestCoveredDate = d.toISOString().slice(0, 10);
+          }
+          log(
+            `   ⚠️ [${mailbox}] truncated at ${threads.length} threads` +
+              (oldestCoveredDate
+                ? ` — covered back to ${oldestCoveredDate}, mail older than that was NOT scanned in this mailbox`
+                : ' — coverage boundary could not be determined'),
+          );
+        }
+        return { mailbox, gmail, threads: threads.length, metas, truncated, oldestCoveredDate };
       }),
     );
 
@@ -401,9 +439,10 @@ export async function POST(request: NextRequest) {
     const seen = new Set<string>();
     // PDF bytes kept for the capture phase (reused, not re-downloaded).
     const captureBufs = new Map<string, { buf: Buffer; mimeType: string }>();
-    for (const { mailbox, gmail, threads, metas, truncated } of scans) {
+    for (const { mailbox, gmail, threads, metas, truncated, oldestCoveredDate } of scans) {
       if (truncated) result.stats.truncated = true;
       result.stats.threadsScanned += threads;
+      result.mailboxCoverage.push({ mailbox, threadsScanned: threads, truncated, oldestCoveredDate });
       for (const { threadId, detail } of metas) {
         const messages: any[] = detail.data.messages ?? [];
         if (!messages.length) continue;
@@ -561,7 +600,6 @@ export async function POST(request: NextRequest) {
           needsOCR,
           linkedInvoice,
           attachments,
-          dedupSignature: dedupSignature(match.vendor?.id ?? null, fields.amountGross, fields.dateISO),
           preview: {
             category: match.vendor?.category ?? null,
             paymentMethod: match.vendor?.paymentMethod ?? null,
@@ -724,7 +762,9 @@ export async function POST(request: NextRequest) {
 
     log(
       `${result.stats.truncated ? '⚠️ scan TRUNCATED' : '✅ scan complete'} — ${result.candidates.length} candidate(s), ${result.pendingReview.length} pending review, ${result.skipped.length} skipped` +
-        (result.stats.truncated ? ' — raise MAX_PAGES_PER_MAILBOX or narrow the window' : ''),
+        (result.stats.truncated
+          ? ' — NOT the full requested range was covered; narrow the range and re-run for the remaining period (see mailboxCoverage for exact boundaries)'
+          : ''),
     );
     return NextResponse.json(result);
   } catch (err: any) {

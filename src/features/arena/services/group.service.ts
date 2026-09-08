@@ -29,7 +29,8 @@ import {
   limit,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { CommunityGroup, CommunityGroupType, GroupMember } from '@/types/community.types';
+import type { CommunityGroup, CommunityGroupType, GroupMember, PersonaKey } from '@/types/community.types';
+import { PERSONA_KEYS } from '@/types/community.types';
 import {
   createGroupChat,
   addMemberToGroupChat,
@@ -121,6 +122,114 @@ function tsToDate(ts: unknown): Date {
   if (ts instanceof Timestamp) return ts.toDate();
   if (ts instanceof Date) return ts;
   return new Date();
+}
+
+// ─── Persona-gated audience ("צו כושר" groups) ────────────────────────────────
+//
+// A group tagged with one or more personas keeps its sensitive fields
+// (meetingLocation/scheduleSlots/leaderUserId/leaderName/phone/
+// registrationLink) OFF the public community_groups/{groupId} doc entirely —
+// they live only in community_groups_{persona}/{groupId}, readable only by a
+// user who declared that persona (firestore.rules — get() on the
+// requester's own military_declarations doc, never a field on the group
+// doc). See src/features/admin/services/community.service.ts for the write
+// side and its block comment for why this shape (proven against the
+// emulator; a nested subcollection + collectionGroup query does not work
+// for `list` at all, and a field-based rule doesn't fail closed).
+//
+// getPublicGroups/getGroupById below merge these back in client-side, ONLY
+// for a viewer who actually has read access — a mismatched or undeclared
+// viewer's getDoc/getDocs call against community_groups_{persona} is denied
+// by the rule itself, so this merge can never leak a persona's data to the
+// wrong viewer; it only ever adds data the viewer was already allowed to
+// read directly.
+
+export function personaCollectionName(persona: PersonaKey): string {
+  return `community_groups_${persona}`;
+}
+
+/** The current signed-in user's own declared personas (empty if none/anonymous). */
+export async function getMyPersonaKeys(): Promise<PersonaKey[]> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return [];
+  try {
+    const snap = await getDoc(doc(db, 'military_declarations', uid));
+    const status = snap.data()?.status;
+    return status === 'reserve' ? ['reserve'] : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * All groups visible to the current viewer via persona-gated collections —
+ * i.e. groups that do NOT necessarily have isPublic/scopeId matching the
+ * caller's normal query, because their location/schedule aren't even on
+ * the public doc for the normal query to filter by. Every getDocs/getDoc
+ * call here is already permission-checked by the rule itself (see block
+ * comment above); a permission-denied here is expected for a mismatched or
+ * undeclared viewer and is swallowed as "nothing to show", never surfaced
+ * as an app error — see AUDIENCE_SENSITIVE_FIELDS' rules comment on why
+ * this is a normal, not exceptional, outcome.
+ */
+async function getPersonaGatedGroups(personas: PersonaKey[]): Promise<CommunityGroup[]> {
+  if (!personas.length) return [];
+
+  const audienceDocs = (
+    await Promise.all(
+      personas.map(async (persona) => {
+        try {
+          const snap = await getDocs(collection(db, personaCollectionName(persona)));
+          return snap.docs;
+        } catch {
+          return [];
+        }
+      }),
+    )
+  ).flat();
+
+  const merged = await Promise.all(
+    audienceDocs.map(async (audienceSnap) => {
+      try {
+        const parentSnap = await getDoc(doc(db, 'community_groups', audienceSnap.id));
+        if (!parentSnap.exists()) return null;
+        const parentData = parentSnap.data();
+        return {
+          id: parentSnap.id,
+          ...(parentData as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),
+          ...(audienceSnap.data() as Partial<CommunityGroup>),
+          createdAt: tsToDate(parentData?.createdAt),
+          updatedAt: tsToDate(parentData?.updatedAt),
+        } as CommunityGroup;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return merged.filter((g): g is CommunityGroup => g !== null);
+}
+
+/**
+ * Merges a matching persona's sensitive fields onto an already-fetched
+ * public group object, if the current viewer's own declared persona
+ * matches one this group is tagged with. No-op (returns `group` unchanged)
+ * for a group with no persona-gated data, or when the viewer's read is
+ * denied — both are the normal case, not an error.
+ */
+async function hydrateAudienceFields(group: CommunityGroup): Promise<CommunityGroup> {
+  const myPersonas = await getMyPersonaKeys();
+  for (const persona of myPersonas) {
+    try {
+      const snap = await getDoc(doc(db, personaCollectionName(persona), group.id));
+      if (snap.exists()) {
+        return { ...group, ...(snap.data() as Partial<CommunityGroup>) };
+      }
+    } catch {
+      // Denied or missing — this persona isn't the match; try the next one.
+    }
+  }
+  return group;
 }
 
 /**
@@ -466,12 +575,15 @@ export async function getGroupMembers(groupId: string): Promise<GroupMember[]> {
 export async function getGroupById(groupId: string): Promise<CommunityGroup | null> {
   const snap = await getDoc(doc(db, 'community_groups', groupId));
   if (!snap.exists()) return null;
-  return {
+  const group: CommunityGroup = {
     id: snap.id,
     ...(snap.data() as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),
     createdAt: tsToDate(snap.data()?.createdAt),
     updatedAt: tsToDate(snap.data()?.updatedAt),
   };
+  // No-op for a group with no persona-gated data, or when the viewer
+  // doesn't match any of its targeted personas — see hydrateAudienceFields.
+  return hydrateAudienceFields(group);
 }
 
 // ─── updateGroup ──────────────────────────────────────────────────────────────
@@ -552,13 +664,26 @@ export async function getPublicGroups(): Promise<CommunityGroup[]> {
     where('isActive', '==', true),
     orderBy('createdAt', 'desc'),
   );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({
+  const [snap, myPersonas] = await Promise.all([getDocs(q), getMyPersonaKeys()]);
+  const publicGroups = snap.docs.map((d) => ({
     id: d.id,
     ...(d.data() as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),
     createdAt: tsToDate(d.data().createdAt),
     updatedAt: tsToDate(d.data().updatedAt),
   }));
+
+  // A persona-gated group's public doc is ALSO isPublic:true (it's
+  // discoverable — only its sensitive fields are gated), so it's already
+  // in publicGroups above, just without meetingLocation/scheduleSlots/etc.
+  // getPersonaGatedGroups only ever returns groups the viewer is actually
+  // allowed to see the sensitive side of — merge by id, preferring the
+  // hydrated (audience) copy over the bare public one.
+  const audienceGroups = await getPersonaGatedGroups(myPersonas);
+  if (!audienceGroups.length) return publicGroups;
+
+  const byId = new Map(publicGroups.map((g) => [g.id, g]));
+  for (const g of audienceGroups) byId.set(g.id, g);
+  return Array.from(byId.values());
 }
 
 /**

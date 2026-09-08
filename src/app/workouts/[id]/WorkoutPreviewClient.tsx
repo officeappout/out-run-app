@@ -352,7 +352,7 @@ function SmartAppBanner({ onDismiss }: SmartAppBannerProps) {
       <div className="flex-shrink-0 w-11 h-11 rounded-[12px] overflow-hidden shadow border border-gray-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/assets/logo/logo (1).png"
+          src="/assets/logo/logo-mark.png"
           alt="Out"
           width={44}
           height={44}

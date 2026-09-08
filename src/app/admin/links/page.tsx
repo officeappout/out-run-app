@@ -23,6 +23,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
   Link2,
   Plus,
@@ -36,6 +37,7 @@ import {
   Loader2,
   TrendingUp,
   PowerOff,
+  BarChart2,
 } from 'lucide-react';
 import {
   createMarketingLink,
@@ -43,10 +45,12 @@ import {
   deleteMarketingLink,
   getMarketingLinks,
   LINK_TYPES,
+  SHORT_LINK_DOMAIN,
   type LinkType,
   type MarketingLink,
   updateMarketingLink,
 } from '@/features/admin/services/marketing-links.service';
+import QrCodeGenerator from '@/features/admin/components/QrCodeGenerator';
 
 const LINK_TYPE_LABELS: Record<LinkType, string> = {
   qr_physical: 'QR פיזי (רולאפ/שילוט)',
@@ -74,9 +78,14 @@ function formatDate(d: Date | null | undefined): string {
   }
 }
 
+// Read from SHORT_LINK_DOMAIN (env var, never window.location.origin) so a
+// planned domain cutover (outrun.co.il → appout.co.il) is a single Vercel
+// env var change — the admin panel could in principle be viewed from a
+// different host (a Vercel preview URL, a future staging domain) than the
+// canonical short-link domain, and window.location.origin would silently
+// bake that in.
 function getTrackingApiUrl(id: string): string {
-  if (typeof window === 'undefined') return `/r/${id}`;
-  return `${window.location.origin}/r/${id}`;
+  return `${SHORT_LINK_DOMAIN}/r/${id}`;
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -353,6 +362,13 @@ export default function AdminMarketingLinksPage() {
                         >
                           <ExternalLink className="h-4 w-4" aria-hidden />
                         </a>
+                        <Link
+                          href={`/admin/links/${link.id}`}
+                          className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                          title="אנליטיקה"
+                        >
+                          <BarChart2 className="h-4 w-4" aria-hidden />
+                        </Link>
                         <button
                           type="button"
                           onClick={() => {
@@ -803,6 +819,10 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
               )}
             </div>
           </div>
+
+          {useSmartLink && previewUrl && (
+            <QrCodeGenerator value={previewUrl} friendlyName={friendlyName} />
+          )}
 
           {drawerError && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">

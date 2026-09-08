@@ -1,7 +1,12 @@
 # Parking Lot — deferred follow-ups
 
 > Items intentionally deferred, with enough context to pick up later.
-> Not committed to git (`.claude/knowledge/` is local state).
+> Committed to git as its own `docs:` commit, separate from whatever work
+> surfaced the finding — verified via `git log -- .claude/knowledge/parking-lot.md`
+> (dozens of real commits) and `.gitignore` (no `.claude/` entry at all;
+> 70 files under `.claude/knowledge/` are tracked). The previous claim here
+> ("Not committed to git") was false — corrected 2026-09-06 after it was
+> caught contradicting the file's own history.
 
 ---
 
@@ -444,3 +449,122 @@ Net effect: picking lower-body silently and permanently resolves to `UPPER_BODY`
 **Fix direction, not built:** give the plan a real upper bound (total weeks, already known via `canonicalWeeks`/the schedule's own max week) and a dedicated "plan finished" state with its own copy (e.g. offering a follow-up plan) — not a silent fall-through to the generic-easy-run default.
 
 **Not investigated:** `RunBriefingDrawer`'s own empty/loading state when opened with `workout: null` and `pendingWorkoutId: undefined` — unread, not asserted.
+
+---
+
+## `HILL_CATEGORIES` missing `hill_long` — 2/3, scoring only, not a safety filter
+**Opened:** 04.09.2026 · **Source:** David, read-only investigation into `HILL_CATEGORIES` vs `INJURY_EXCLUDED_CATEGORIES` before the running rule family doc.
+
+`running-engine.service.ts:1632` defines `HILL_CATEGORIES` as 2 values (`hill_sprints`, `hill_short`), while the `WorkoutCategory` type contains 3 `hill_*` members. Used for a scoring penalty on weekly hill-volume (`:1577`) and to update `lastHillWorkUnits` (`:1852`) — scoring only, not safety. Result: `hill_long` workouts are never counted toward the volume penalty.
+
+`INJURY_EXCLUDED_CATEGORIES` (`plan-generator.service.ts:475`) and the separate `HILL_CATEGORIES` in the admin tool (`rank-hills/page.tsx:27`) both contain all 3 — so the omission here looks like drift, not intent. Not fixed.
+
+---
+
+## Injury-exclusion filter is dormant — correct code, unreachable input
+**Opened:** 04.09.2026 · **Source:** David, same investigation as above.
+
+The `excludeCategories` mechanism is complete and correct, but `hasInjuries` stays `false` forever: the `q_run_injuries` question has been marked REMOVED since the commit that created it (`87a2099d`), and the admin sync tool deletes it from Firestore on every run. There is no way for a user to report an injury in the running flow today.
+
+הוכרע (דוד): לא נשאלת שאלת פציעות ולא נבנה מענה לפציעות.
+המוצר אינו לוקח אחריות בתחום הזה. הסינון נשאר רדום בכוונה.
+אין לפתוח אותו בלי החלטה מפורשת חדשה.
+נובע מכך: RUN-08 ומגבלות הימים הרצופים ב-RUN-04 הם המנגנונים
+היחידים שמגבילים עומס, ולכן אין להחליש אותם.
+
+---
+
+## שלושה יעדי נפח שאינם מחוברים
+**Opened:** 05.09.2026 · **Source:** דוד, חקירת READ-ONLY לפני בניית ruleFamily.ts.
+
+(א) `weeklyVolumeTarget` — Firestore, ניתן לעריכה באדמין, מזין את `useWeeklyVolumeStore` ואת בניית ההצעות ב-`home-workout.service.ts` ו-`start-hybrid-session.ts`.
+(ב) `StrengthVolumeWidget` — target קשיח בתוך הרכיב (3 כוח, 2 קרדיו), אינו מגיע מ-(א) ואינו מגיע מהלוז. המשתמש רואה "2/3" מול מספר שהוקלד, לא מול תוכניתו.
+(ג) `src/features/schedule/**` — אין יעד נפח כלל. `SessionItem.volumePercent` קבוע ל-100 בכל מקום חי.
+
+שלושתם אינם מדברים זה עם זה.
+
+---
+
+## הנפח אינו נשמר בצמצום ימים
+**Opened:** 05.09.2026 · **Source:** דוד, אותה חקירה.
+
+`buildDefaultTemplate` קורא `makeSession(item, 100, 'FULL')` — הליטרל 100 קבוע ואינו תלוי ב-`daysPerWeek`. המקרה המיוחד PULL+PULL משתמש בליטרלים 100/100/50.
+
+מכאן: ירידה מ-4 ימים ל-3 מפחיתה נפח שבועי, ואינה מאריכה את האימונים שנותרו.
+
+החלטת מוצר פתוחה: האם צמצום ימים אמור לפצות בנפח. היום — לא. `reduceTo` של הכוח מדווח על כך במפורש.
+
+א-סימטריה מול ריצה: בריצה פיצוי אסור מלכתחילה, כי הארכת ריצה שנשארה מפעילה את RUN-08.
+
+---
+
+## useSheetDrag ו-useSheetScrollChain אינם מתחברים זה לזה
+**Opened:** 2026-09-10 · **Source:** דוד, בניית ScheduleBuilderDrawer (שלב 1)
+
+useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') — מניע `<motion.div animate={controls}>` דרך `AnimationControls` אימפרטיבי. useSheetScrollChain מיועד לשרשור-גלילה (swipe-to-dismiss מתוך תוכן גלילה) — דורש `MotionValue<number>` ממשי שהוא קורא/כותב ישירות בזמן מחווה. אין ביניהם ממשק משותף — `AnimationControls` אינו `MotionValue`.
+
+אפס רכיבים קיימים משלבים את שניהם. `HybridOverviewScreen.tsx` מזכיר את שני השמות, אבל ההערה שלו-עצמו אומרת במפורש שהוא **לא** קורא ל-useSheetScrollChain — הוא "משכפל את ההתנהגות שלו מקומית" כי הטיפוסים לא מסתדרים. מגירה חד-מצבית (פתוח/סגור בלבד, בלי רמות-ביניים) נאלצת להוסיף `useMotionValue(0)` + `drag="y"` ידני על הידית במקום useSheetDrag — הדפוס הזה כבר קיים ב-`GroupDetailsDrawer.tsx` (וגם ב-`WorkoutPreviewDrawer`, `ExerciseDetailDrawer`, `ParkDetailSheet` — 4 צרכנים, כולם עם אותו דפוס בדיוק).
+
+ההפרדה הזאת היא חלק מהסיבה ל-35 מימושי bottom sheet עצמאיים בריפו — שני משפחות-hook שאינן מתחברות, כל צרכן בוחר אחת ובונה סביבה. איחוד שתי המשפחות (או בניית שכבת-תאימות ביניהן) הוא משימת תשתית נפרדת, לא חלק מקומיט פיצ'ר. לא מטופל כאן.
+
+---
+
+## שני קבצי-טסט תורמים אפס טסטים בפועל
+**Opened:** 2026-09-06 · **Source:** נצפה במדידת tsc/vitest של טקס-מיזוג (merge-ritual.md)
+
+`hybrid-orchestrator.test.ts` ו-`hybrid-runtime.test.ts` נכשלים בכל הרצת `vitest run` (נספרים תחת "Test Files ... failed"), אבל שניהם קבצי-סקריפט בסגנון `console.log`+`process.exit(1)` פנימי — לא מבוססי `it()`/`describe()` — כך שהם תורמים **אפס** טסטים בודדים לספירה (`Tests ... passed`). נראים כמו כיסוי-בדיקות שנכשל; בפועל אינם בודקים כלום ולא היו בודקים כלום גם אם היו "עוברים". לא חוסם כלום היום — שני הקבצים כבר ידועים כ-2 מתוך 4 הכשלים הקבועים בכל מדידת בייסליין בסבב הזה. לא טופל, לא נגעו בהם.
+
+---
+
+## `src/app/settings/refine-levels/page.tsx` — לא "נתיב מת", אלא פיצ'ר גמור שלא חובר. השאלה היא לחבר או להסיר, לא למחוק.
+**Opened:** 2026-09-06 · **Source:** דוד, בעקבות הסרת `onboarding-dynamic` — חיפוש-מכוון לנתיבים דומים, agent נפרד, קריאה-בלבד.
+
+**⚠️ ההבדל המהותי מ-`onboarding-dynamic` (שהוסר, `6a94f582`) — לקרוא לפני שמניחים "עוד נתיב מת למחיקה":** ל-`onboarding-dynamic` לא היה יורש — `/onboarding-new/health` תפס את מקומו במלואו, כתיבה זהה, שער חדש. **כאן אין יורש.** המנגנון שקובע *מתי* לשלוח משתמש למסך הזה כבר קיים, גמור, בשם `shouldPromptRefineLevels()` (`workout-completion.service.ts`) — כולל `dismissRefinementPrompt()`/`resetRefinementPrompt()` הסמוכות — אבל שלושתן **אף פעם לא נקראות משום מקום אחר בריפו**. זה לא "נבנה עמוד ונשכח ניווט אליו" — זה "נבנתה גם הלוגיקה שמחליטה מתי להציע, וגם היעד שמקבל אותה, ואף אחד לא חיבר ביניהם." מי שקורא את הרשומה הזו בעוד חודש צריך לצאת עם השאלה **"לחבר את `shouldPromptRefineLevels` לטריגר אמיתי, או להסיר את שניהם"** — לא עם המסקנה "נתיב מת, למחוק כמו `onboarding-dynamic`". זו החלטה מוצרית של דוד, לא שלנו — לא הוכרעה כאן.
+
+עמוד אמיתי, מקומפל, `RefineLevelsPage` — סליידר לעדכון-מחדש של רמות-הערכה (push/pull/legs/core), כותב `assessmentResults.levels`/`average`/`refinedAt` ל-Firestore (`setDoc(...,{merge:true})`). ההגנה היחידה: `onAuthStateChanged` (מפנה ל-`/` אם לא מחובר) — **אין** בדיקת "כבר השלים הערכה", אין בדיקת-כשירות, אין דה-דופ. כל משתמש מחובר יכול להגיע ישירות ולדרוס בשקט את `assessmentResults.levels` שלו.
+
+**אפס ניווט-פנימי, מאומת ממצה:** המחרוזת `refine-levels` מופיעה רק בקובץ עצמו + כ-data-בלבד (שדה `route:`) בתוך `RefinementPrompt` שמוחזר מ-`shouldPromptRefineLevels()`. `PRODUCT_TECHNICAL_REPORT.md` מסמן אותו "✅ פעיל" — תיעוד מיושן, לא ראיה.
+
+**לא נגעתי בו** — לא נמחק, לא תוקן, לא הוכרע. שני מסלולים אפשריים, שניהם ממתינים להחלטת דוד: (א) לחבר את `shouldPromptRefineLevels` לטריגר אמיתי (למשל, אחרי N אימונים, כמו שהשם מרמז) ולתת לעמוד שער נגד-כשירות; (ב) להסיר את שניהם יחד (העמוד + שלוש הפונקציות המתות) — ורק אז, ורק אז, הדפוס של `onboarding-dynamic` (מחיקה+redirect) הופך רלוונטי.
+
+---
+
+## `qr-generator.test.ts` מרעיל את בסיס-ההשוואה של כל מיזוג עתידי
+**Opened:** 2026-09-06 · **Source:** התגלה תוך כדי מדידה יחסית (merge-ritual.md) למיזוג הסרת `onboarding-dynamic`.
+
+`src/features/admin/services/__tests__/qr-generator.test.ts` מייבא `jsdom` (`import { JSDOM } from 'jsdom'`) — חבילה שלא מותקנת בריפו (מאומת: `vitest` נכשל עם `Cannot find package 'jsdom'`). הקובץ נכנס ל-`origin/main` עם עבודת ה-QR-code-styling (`c8b6be0d`/`fc175e87`, לא הסבב הזה). הקובץ **לא יכול לעבור אף פעם**, בשום מצב, עד שהתלות תותקן.
+
+**לא שלנו, לא תוקן.** אבל: טסט שלא יכול לעבור מרעיל את בסיס-ההשוואה של כל מיזוג עתידי — כל מדידה יחסית לפי `merge-ritual.md` מעכשיו תראה אותו כקובץ-כושל קבוע, ותצטרך להסביר אותו בנפרד מכל כשל-אמיתי חדש. או שמתקנים את התלות (`npm install jsdom` + ודאי ש-`vitest.config.ts`'s `environment` לא צריך להשתנות איתה — הריפו כרגע `environment:'node'` בכוונה, `jsdom` כחבילה בלבד לא דורש לשנות את זה), או שמסירים את הקובץ. ההחלטה של דוד, לא שלנו.
+
+---
+
+## `getWindowStart.test.ts` תלוי בתאריך-ההרצה — לא נכשל, זז
+**Opened:** 2026-09-07 · **Source:** נצפה תוך כדי מדידה יחסית (merge-ritual.md) לקומיט A (`preferredDays(0)`) — נכשל ב-06.09.2026, עבר ב-07.09.2026, בלי שום שינוי בקוד שלו בין המדידות.
+
+`src/features/arena/services/__tests__/getWindowStart.test.ts:65-71` (`'daily is strictly more recent than (or equal to) weekly and monthly starts'`) קורא ל-`getWindowStart('daily'/'weekly'/'monthly')` על התאריך-האמיתי-של-רגע-ההרצה, בלי `vi.setSystemTime`. בגבול-חודש (כמו 06.09) `weekly`/`monthly` יכולים להתהפך; ביום רגיל (כמו 07.09) הבדיקה עוברת סתם כי הגבול לא נבדק.
+
+**⚠️ טסט שתלוי בתאריך ההרצה הופך את בסיס-ההשוואה של כל מיזוג ללא-יציב — צריך לקבע לו תאריך, לא לחכות שהלוח יזוז.** הדפוס-הבטוח כבר קיים **באותו קובץ**, שתי בדיקות למטה (`:78`, `describe('getLeaderboard — daily time window actually reaches the query')`): `vi.useFakeTimers()` + `vi.setSystemTime(new Date(2026,7,19,12,0,0))`, עם הערה מפורשת בקוד שמסבירה בדיוק את אותה בעיה ("real 'now' flakes on Mondays... and the 1st of the month"). הבדיקה ב-`:65-71` פשוט לא אימצה את אותו דפוס.
+
+**החלטה של דוד, לא שלנו. לא תוקן עכשיו.** אם/כשמתקנים: להעביר את `:65-71` לתוך אותו `beforeEach`/`vi.setSystemTime` שכבר קיים ב-`:78`, לא להמציא נוסח חדש.
+
+---
+
+## מנעול הטאבים ללא ניווט — זמני. הקליק מחובר כשהחילוץ של UnlockDomainModal אפשרי.
+**Opened:** 2026-09-07 · **Source:** דוד, `ScheduleBuilderDrawer.tsx`'s תוכן-מגירה — הכרעת "מנעול נראה + קליק פעיל" קיימת, אבל דחויה בפועל.
+
+הטאבים "כוח"/"ריצה"/"משולב" ננעלים ויזואלית (מנעול + אפור, בדיוק הוויזואל של `isLocked` ב-`WorkoutBuilderSheet.tsx`'s `ProgramPill`) כשהמשתמש לא מחזיק את התחום — אבל **הקליק על טאב נעול לא עושה כלום** בשלב הזה. זה לא שכחה — זה מכוון: היעד הנכון לכל תחום כבר נחקר וסוכם (ריצה → `resolveOnboardingEntryHref`-הדגם, אחרי זריעת `gateway_track`; כוח → `/onboarding-new/program-path`), והחלונית-אישור המשותפת (`UnlockDomainModal`, שם-עבודה) גם היא כבר תוכננה — אבל **לא ניתנת לחילוץ עכשיו**: התוכן שלה יושב inline בתוך `WorkoutBuilderSheet.tsx`, וצ'אט מקביל עובד על הקובץ הזה כרגע. שכפול-JSX כדי לעקוף נדחה במפורש (אותה מחלקת-כפילות שכבר תועדה כמה פעמים בשיחה הזו).
+
+**כשהקובץ יתפנה:** לחלץ את המודל לקומפוננטה משותפת (מקבלת טקסט+יעד מבחוץ, לא מחליטה בעצמה — הצרכן הקיים ב-`WorkoutBuilderSheet.tsx` נשאר זהה-בית), לחווט את הקליק (ריצה→dynamic אחרי זריעה, כוח→program-path), ולהוסיף טסט שנועל את כתיבת `gateway_track` לפני הניווט (בלעדיו, מישהו ימחק את השורה בעוד חודש ולא יבין למה משתמשים חוזרים בשקט לדף הבית).
+
+---
+
+## מחלקת-באג: "לא יודע" הופך ל"לא" — נמצאה שלוש פעמים באותו יום
+**Opened:** 2026-09-07 · **Source:** דוד, אחרי סבב-חקירה על הצהרת-בריאות-נשאלת-שוב + מנעול-לא-מרונדר — "נסח את זה כמחלקת באג, לא כשלושה באגים."
+
+שלושה מקומות, שלושה תחומי-קוד שונים, אותה צורה בדיוק: קוד שצריך לייצג שלושה מצבים (כן / לא / עדיין-לא-ידוע) מקבל רק שני ערכים אפשריים — ו"עדיין לא ידוע" נבלע לתוך אחד הקצוות, כמעט תמיד "לא"/"ברירת-המחדל-הבטוחה-כביכול". התוצאה בכל שלוש הפעמים: לא קריסה, לא שגיאה גלויה — התנהגות *שקטה* ושגויה שנראית תקינה עד שבודקים אותה נגד המצב האמיתי.
+
+1. **`preferredDays(0)`** (`scheduleRules.ts`/`ruleFamily.ts`, תוקן 07.09.2026) — "אפס ימים" (מצב אמיתי, "המשתמש לא ביקש את התחום הזה בכלל") נפל לאותו ענף כמו "יום אחד" (`daysPerWeek<=1`), כי לא הייתה הבחנה מפורשת בין "0" ל"פחות-מהמינימום-הרגיל".
+2. **`fallback={null}`** (ErrorBoundary, `onboarding-dynamic` שהוסר) — "בלי fallback בכלל" (ברירת-המחדל האמיתית של React) ↔ "fallback שהוא `null`" (מסך-ריק-מכוון) לא ניתנים להבחנה ב-props, אז React מתייחס לשניהם כ"הצג null" — משתמש שפגע בשגיאה ראה מסך-ריק-שקט במקום ה-fallback שהמפתח חשב שהוא כתב.
+3. **`alreadyAccepted`** (`/onboarding-new/health/page.tsx`, תוקן 07.09.2026) — `profile` שעדיין לא נטען (`null`, לפני `_hasHydrated`) ו-`profile` שנטען ומראה "לא הצהיר" חישבו לאותה תוצאה (`false`), כי הבדיקה הייתה `!!profile && hasAccepted(...)` בלי לבדוק את דגל-הטעינה בנפרד.
+
+**הצורה המשותפת, לזיהוי-עתידי:** בדוק כל בדיקה מהצורה `if (someBooleanDerivedFromPossiblyUnloadedData)` — האם היא באמת מבחינה בין "נבדק, והתשובה שלילית" לבין "עדיין לא ידוע"? אם לא, זה מועמד לאותה מחלקת-באג. התיקון בשלושת המקרים היה זהה במהות: להוסיף מצב-שלישי מפורש (בדיקת-אפס-נפרדת, guard-נפרד-מפורש, דגל-hydration-נפרד) במקום לתת לשני-הערכים-הקיימים לבלוע אותו.

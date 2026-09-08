@@ -49,6 +49,15 @@ describe('hasAnswer', () => {
     expect(hasAnswer(UNIT_QUESTION, { orgId: 'brigade_1' })).toBe(true);
     expect(hasAnswer(UNIT_QUESTION, { orgId: 'brigade_1', unitId: 'battalion_1' })).toBe(true);
   });
+
+  // 07.09.2026 — a fresh top-level unit proposal ("unit isn't in the list")
+  // has NO orgId at all while pending (nothing real exists yet to
+  // reference). Without this, that question stayed permanently
+  // "unanswered" even though the user did submit something.
+  it('hierarchy_search: true when only pendingUnitId is set (a fresh top-level pending submission)', () => {
+    expect(hasAnswer(UNIT_QUESTION, { pendingUnitId: 'bde_u_abc123' })).toBe(true);
+    expect(hasAnswer(UNIT_QUESTION, { pendingUnitId: null })).toBe(false);
+  });
 });
 
 describe('computeCompleteness — the live-computation guarantee', () => {

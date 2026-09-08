@@ -57,7 +57,6 @@ export interface InvoiceCandidate {
    *  never auto-fetched. */
   linkedInvoice: boolean;
   attachments: Array<Pick<InvoiceAttachment, 'filename' | 'mimeType' | 'size'>>;
-  dedupSignature: string;
   /** Human-readable preview of what a live run would write. */
   preview: {
     category: string | null;
@@ -380,18 +379,6 @@ function extractDate(text: string): string | null {
     return `${y}-${mo}-${d}`;
   }
   return null;
-}
-
-// ─── Dedup ────────────────────────────────────────────────────────────────────
-
-/** Cross-run signature (spec §4 step 3). messageId is the primary key; this is
- *  the secondary "same vendor+amount+date" guard for recurring monthly charges. */
-export function dedupSignature(
-  vendorId: string | null,
-  amountGross: number | null,
-  dateISO: string | null,
-): string {
-  return `${vendorId ?? 'unknown'}::${amountGross ?? '?'}::${dateISO ?? '?'}`;
 }
 
 // ─── Confidence ───────────────────────────────────────────────────────────────

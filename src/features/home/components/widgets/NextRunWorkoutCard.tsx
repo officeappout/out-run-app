@@ -25,6 +25,7 @@ import {
 } from '@/features/workout-engine/services/workout-metadata.service';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
+import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import type RunWorkout from '@/features/workout-engine/players/running/types/run-workout.type';
 
 const DAY_TO_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -39,14 +40,40 @@ const DIST_LABEL: Record<string, string> = {
 
 type WorkoutType = 'easy' | 'interval' | 'tempo' | 'long';
 
-const CATEGORY_TO_TYPE: Record<string, WorkoutType> = {
+/**
+ * Which of the 4 icon-family buckets each real WorkoutCategory falls into.
+ * Fixed 05.09.2026 — the old version was `Record<string, WorkoutType>`
+ * (uncompiled-checked, so nothing forced it to cover every real category),
+ * only mapped 5 of the 11 real WorkoutCategory values, included 2 keys that
+ * never existed anywhere else in the codebase ('fartlek', 'time_trial'),
+ * and silently fell every uncovered real category (fartlek_easy,
+ * fartlek_structured, hill_long, hill_short, hill_sprints, strides) to
+ * 'easy' via `?? 'easy'` at the one call site — a runner on a hill workout
+ * saw the easy-run icon with no indication anything was wrong.
+ *
+ * `Record<WorkoutCategory, WorkoutType>` forces compiler-checked coverage
+ * of exactly the 11 real categories. Deliberately stays within the
+ * existing 4-icon vocabulary (Footprints/Zap/Timer/TrendingUp) rather than
+ * adding new icons for each of the 11 — that would be a real UI/design
+ * decision, not a bug fix. Buckets chosen by effort shape, not by name:
+ * fartlek_easy → easy (explicitly the easy variant); fartlek_structured →
+ * interval (alternating hard/easy, same shape as short/long intervals);
+ * hill_long → tempo (sustained hard effort, not short bursts); hill_short/
+ * hill_sprints → interval (repeat-based, same shape as short_intervals);
+ * strides → easy (a light addition tacked onto an easy run, not a workout
+ * in its own right).
+ */
+const CATEGORY_TO_TYPE: Record<WorkoutCategory, WorkoutType> = {
   easy_run: 'easy',
-  recovery: 'easy',
+  strides: 'easy',
+  fartlek_easy: 'easy',
   short_intervals: 'interval',
   long_intervals: 'interval',
-  fartlek: 'interval',
+  fartlek_structured: 'interval',
+  hill_short: 'interval',
+  hill_sprints: 'interval',
   tempo: 'tempo',
-  time_trial: 'tempo',
+  hill_long: 'tempo',
   long_run: 'long',
 };
 
@@ -164,7 +191,7 @@ export default function NextRunWorkoutCard() {
 
       if (targetEntry) {
         const resolved: WorkoutType = targetEntry.category
-          ? CATEGORY_TO_TYPE[targetEntry.category] ?? 'easy'
+          ? CATEGORY_TO_TYPE[targetEntry.category as keyof typeof CATEGORY_TO_TYPE] ?? 'easy'
           : 'easy';
         return {
           workout: resolved,
@@ -450,15 +477,6 @@ export default function NextRunWorkoutCard() {
     // has no weekday to count toward, so it gets a day-agnostic label.
     const nextRun = dayState.nextEntry;
     const nextWorkoutDisplayName = nextRun?.workoutName ?? null;
-
-    const CATEGORY_LABELS_HE: Record<string, string> = {
-      easy_run: 'ריצה קלה', long_run: 'ריצה ארוכה',
-      short_intervals: 'אינטרוולים קצרים', long_intervals: 'אינטרוולים ארוכים',
-      fartlek_easy: 'פארטלק קל', fartlek_structured: 'פארטלק מובנה',
-      tempo: 'ריצת טמפו', hill_long: 'עליות ארוכות',
-      hill_short: 'עליות קצרות', hill_sprints: 'ספרינט עליות',
-      strides: 'סטריידים', recovery: 'התאוששות',
-    };
 
     return (
       <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">

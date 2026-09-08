@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { validateAccessCode, type AccessCodeResult } from '../../services/access-code.service';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
+import UnitJoinSuccessBanner from '@/components/ui/UnitJoinSuccessBanner';
 
 interface AccessCodeStepProps {
   onNext: () => void;
@@ -14,6 +15,12 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // 07.09.2026 — a code that validated successfully used to advance
+  // straight to the next step with zero confirmation of WHICH unit the
+  // code resolved to; a soldier who mistyped a digit had no way to notice.
+  // Pausing here on success (instead of calling onNext() immediately) is
+  // the fix — name is shown unconditionally, the icon is a bonus.
+  const [successResult, setSuccessResult] = useState<AccessCodeResult | null>(null);
   const { updateData } = useOnboardingStore();
 
   const handleSubmit = async () => {
@@ -39,7 +46,7 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
       // access codes survive a hard close mid-onboarding.
       setOnboardingPref('onboarding_path', result.onboardingPath);
 
-      onNext();
+      setSuccessResult(result);
     } catch (err: any) {
       const msg = err?.message || err?.code || '';
       if (msg.includes('not-found') || msg.includes('not found')) {
@@ -57,6 +64,29 @@ export default function AccessCodeStep({ onNext }: AccessCodeStepProps) {
       setLoading(false);
     }
   };
+
+  if (successResult) {
+    return (
+      <motion.div
+        dir="rtl"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex flex-col items-center justify-center gap-6 px-6 py-10"
+      >
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">הקוד אומת!</h2>
+          <UnitJoinSuccessBanner result={successResult} />
+        </div>
+        <button
+          onClick={onNext}
+          className="w-full max-w-xs py-3.5 rounded-xl font-semibold text-white bg-primary transition-opacity"
+        >
+          המשך
+        </button>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

@@ -247,7 +247,50 @@ export interface CommunityGroup {
   leaderUserId?: string;
   /** Display name of the assigned coach / leader (denormalised for reads). */
   leaderName?: string;
+  /** Contact phone for the group's coach/leader. Sensitive when audiencePersonas is non-empty — see AUDIENCE_SENSITIVE_FIELDS. */
+  phone?: string;
+  /** External registration link (WhatsApp / Google Form / etc). Sensitive when audiencePersonas is non-empty — see AUDIENCE_SENSITIVE_FIELDS. */
+  registrationLink?: string;
+
+  // ── Persona-gated audience (military-persona-unified-architecture.md, §"צו כושר") ──
+  /**
+   * Read-only, computed client-side — NEVER a Firestore field on this document.
+   * Populated by community.service.ts's getGroupAudienceTags()/normalizeGroup()
+   * by checking which community_groups_{persona} collections hold a copy of
+   * this groupId — never trust/write this as if it were persisted data.
+   * Empty array = fully public group (today's default; AUDIENCE_SENSITIVE_FIELDS
+   * stay on this document exactly as before, untouched for every non-gated group).
+   */
+  audiencePersonas?: PersonaKey[];
 }
+
+/**
+ * Known persona keys a group's sensitive details can be gated behind.
+ * ASCII only (axioms.md §4/military-persona convention — persona is now part
+ * of a Firestore collection *name*, subject to the same guard as unit IDs).
+ * Adding a new value here requires a matching community_groups_{persona}
+ * match block in firestore.rules in the SAME deploy — see that file's comment
+ * on community_groups_reserve for why this is a deliberate, not-generic, gate.
+ */
+export const PERSONA_KEYS = ['reserve'] as const;
+export type PersonaKey = typeof PERSONA_KEYS[number];
+
+/**
+ * Fields that move OFF the public community_groups/{id} document and into
+ * each targeted community_groups_{persona}/{id} document when a group has
+ * one or more audiencePersonas. For a fully-public group (audiencePersonas
+ * empty) these fields stay on the public document exactly as always — this
+ * list only changes behavior for persona-gated groups.
+ */
+export const AUDIENCE_SENSITIVE_FIELDS = [
+  'meetingLocation',
+  'schedule',
+  'scheduleSlots',
+  'leaderUserId',
+  'leaderName',
+  'phone',
+  'registrationLink',
+] as const satisfies readonly (keyof CommunityGroup)[];
 
 export type CommunityGroupCategory = 
   | 'walking' 

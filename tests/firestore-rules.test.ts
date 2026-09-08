@@ -10,7 +10,11 @@
  *   military-decl   — military_declarations/{uid} lockdown + unitDirectory read-only
  *                      public index + users/{uid} no-leak tripwire (Phase 3a, 02.09.2026)
  *   reserve-league  — community_groups/military_reserve_general members-only read lockdown
- *                      (Phase 6a, 04.09.2026)
+ *                      (Phase 6a, 04.09.2026) — isMilitaryGroup() renamed to
+ *                      isReserveLeagueGroup() (07.09.2026), same fixed-id check
+ *   persona-audience — community_groups_reserve top-level collection, gated by
+ *                      get() on the requester's own military_declarations doc
+ *                      ("צו כושר" fitness-meetup groups, Phase 07.09.2026)
  *
  * Run:  npx firebase emulators:exec --only firestore "npx tsx tests/firestore-rules.test.ts"
  */
@@ -27,6 +31,8 @@ import {
   getDoc,
   getDocs,
   collection,
+  query,
+  where,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -140,6 +146,7 @@ async function setup() {
       name: 'Public Group',
       createdBy: 'group_owner',
       isPublic: true,
+      isActive: true,
       isOfficial: false,
       isLocked: false,
       source: 'user',
@@ -547,6 +554,35 @@ async function testMilitaryDeclarationLockdown() {
     }));
   });
 
+  // U3c — pendingUnitId (07.09.2026, "unit isn't in the list" submission
+  // display fix). A fresh top-level unit proposal has NO orgId/unitId yet
+  // (nothing real exists to reference) — pendingUnitId alone must still be
+  // a valid declaration, not rejected as "incomplete".
+  await it('U3c — pendingUnitId alone (no orgId/unitId yet) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), {
+      status: 'reserve',
+      pendingUnitId: 'bde_u_abc123',
+      updatedAt: new Date(),
+    }));
+  });
+  await it('U3c — pendingUnitId alongside a real orgId (battalion/company under a real parent) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), {
+      status: 'reserve',
+      orgId: 'brigade_real',
+      pendingUnitId: 'bn_brigade_real_abc123',
+      updatedAt: new Date(),
+    }));
+  });
+  await it('U3c — oversized pendingUnitId rejected → DENY', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertFails(setDoc(doc(ctx.firestore(), 'military_declarations', 'broadcaster2'), {
+      ...VALID_DECLARATION,
+      pendingUnitId: 'x'.repeat(500),
+    }));
+  });
+
   // U4 — another user cannot write to it → DENY.
   await it('U4 — another user cannot write to broadcaster1\'s declaration → DENY', async () => {
     const ctx = env.authenticatedContext('broadcaster2');
@@ -671,9 +707,13 @@ async function testReserveLeagueLockdown() {
     await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general', 'members', 'reservist_member')));
   });
 
-  await it('R2 — non-member reads the reserve group doc itself → DENY', async () => {
+  // Changed 07.09.2026: the parent group doc carries no real names — only
+  // its members/{uid} roster does (see R1/R7) — so it's unconditionally
+  // readable like any other group, same as R6 below. See R8's comment for
+  // why gating this doc broke list queries for every non-admin.
+  await it('R2 — non-member reads the reserve group doc itself → ALLOW (no real names on this doc — only members/{uid} is gated, see R1)', async () => {
     const ctx = env.authenticatedContext('reader_outsider');
-    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general')));
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'military_reserve_general')));
   });
 
   await it('R3 — a real member reads the members list → ALLOW', async () => {
@@ -706,6 +746,29 @@ async function testReserveLeagueLockdown() {
     const ctx = env.authenticatedContext('reader_outsider');
     await assertFails(getDocs(collection(ctx.firestore(), 'community_groups', 'military_reserve_general', 'members')));
   });
+
+  // Found 07.09.2026 verifying "צו כושר ב'" in production: R1-R7 only ever
+  // exercise getDoc() or a list scoped to ONE already-known docId's own
+  // subcollection — in both cases the wildcard segment is fixed for the
+  // whole request. NearbyGroupsRow's actual query is a LIST against the
+  // TOP-LEVEL community_groups collection with no docId filter at all, so
+  // docId varies across every potential result document. Firestore can't
+  // prove isReserveLeagueGroup(docId) from the query's own where-clauses
+  // (isPublic/isActive say nothing about docId), so it can't bound the
+  // OR-chain for ANY non-admin caller and rejects the whole query — even
+  // though every real matching document except one would evaluate true.
+  // This is the same class of bug as the nested collectionGroup design
+  // this session already ruled out — but it hit community_groups' own
+  // pre-existing top-level rule instead, LIVE in production since Phase 6a.
+  await it('R8 — non-admin LISTS community_groups the way NearbyGroupsRow actually does (isPublic+isActive, no docId filter) → ALLOW, must include grp_test', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    const snap = await assertSucceeds(
+      getDocs(query(collection(ctx.firestore(), 'community_groups'), where('isPublic', '==', true), where('isActive', '==', true)))
+    );
+    if (!snap.docs.some((d) => d.id === 'grp_public')) {
+      throw new Error('grp_public missing from list result — the fix must not exclude ordinary public groups');
+    }
+  });
 }
 
 // Phase 3a — structural regression tripwire, not a rules-engine security
@@ -727,6 +790,151 @@ async function testNoUsersDocLeak() {
   });
 }
 
+// "היחידה שלי לא ברשימה" (04.09.2026) — exact mirror of user_contributions'
+// owner+admin shape, deliberately: a pending unit must be invisible to
+// everyone but its submitter and admins until approved, or the app fills up
+// with duplicate not-yet-real battalions the moment two soldiers search the
+// same missing unit. unitDirectory itself is never touched by any of this.
+async function testPendingUnits() {
+  console.log('\npending_units — owner+admin only, mirrors user_contributions');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test'), {
+      submittedBy: 'reservist_member',
+      level: 'company',
+      proposedName: 'פלוגה בדיקה',
+      status: 'pending',
+      resolvedTo: null,
+    });
+  });
+
+  await it('PU1 — the submitter reads their own pending unit → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reservist_member');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test')));
+  });
+
+  await it('PU2 — a different authenticated user reads someone elses pending unit → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test')));
+  });
+
+  await it('PU3 — admin reads any pending unit → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test')));
+  });
+
+  await it('PU4 — an authenticated user creates their own pending unit → ALLOW', async () => {
+    const ctx = env.authenticatedContext('reservist_member');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_own'), {
+      submittedBy: 'reservist_member', level: 'company', proposedName: 'פלוגה שלי', status: 'pending', resolvedTo: null,
+    }));
+  });
+
+  await it('PU5 — a user cannot create a pending unit claiming a different submittedBy → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(setDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_spoof'), {
+      submittedBy: 'reservist_member', level: 'company', proposedName: 'זיוף', status: 'pending', resolvedTo: null,
+    }));
+  });
+
+  await it('PU6 — a non-admin submitter cannot approve/update their own pending unit → DENY', async () => {
+    const ctx = env.authenticatedContext('reservist_member');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test'), { status: 'approved' }));
+  });
+
+  await it('PU7 — admin can update (approve/reject) a pending unit → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9307_test'), { status: 'rejected' }));
+  });
+
+  // Same regression class as R7 above — an unfiltered LIST by a non-owner,
+  // non-admin user must fail closed, not silently return an empty allowed set.
+  await it('PU8 — non-owner LISTS pending_units with no filter → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDocs(collection(ctx.firestore(), 'pending_units')));
+  });
+
+  // Real production incident, 06.09.2026: submitPendingUnit()'s own
+  // idempotency check (getDoc before create, so a resubmission doesn't
+  // reset an already-approved/rejected doc back to pending) calls getDoc
+  // on a NOT-YET-EXISTING doc on every first-time submission — the normal
+  // path, not an edge case. PU1-PU8 above only ever tested reads on a doc
+  // pre-created via a rules bypass; none of them exercised this exact
+  // sequence, so this slipped through both the emulator suite AND an
+  // admin-SDK end-to-end test (which bypasses rules entirely) before a real
+  // logged-in user hit it in production and the CTA silently did nothing.
+  await it('PU9 — getDoc on a NOT-YET-EXISTING doc, by the user who would own it → ALLOW (no data exists to leak; this is the exact call submitPendingUnit() makes on every first submission)', async () => {
+    const ctx = env.authenticatedContext('future_submitter');
+    const snap = await assertSucceeds(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9999_pu9')));
+    if (snap.exists()) throw new Error('test setup error: doc should not exist');
+  });
+
+  await it('PU10 — getDoc on a NOT-YET-EXISTING doc, by a DIFFERENT user → ALLOW too (still nothing to leak — the security boundary is only on an EXISTING doc, verified by PU2)', async () => {
+    const ctx = env.authenticatedContext('someone_else_entirely');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'pending_units', 'co_bn_9999_pu9')));
+  });
+}
+
+async function testPersonaAudienceCollection() {
+  console.log('\npersona-audience — community_groups_reserve (Phase "צו כושר", 07.09.2026)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'military_declarations', 'pa_reservist'), { status: 'reserve', updatedAt: new Date() });
+    await setDoc(doc(db, 'military_declarations', 'pa_regular'), { status: 'regular', updatedAt: new Date() });
+    // pa_no_declaration deliberately has NO military_declarations doc at all.
+    await setDoc(doc(db, 'community_groups_reserve', 'pa_group_1'), { parkId: 'PARK_TEST', hours: '18:00' });
+  });
+
+  await it('PA1 — declared reservist gets the doc directly → ALLOW', async () => {
+    const ctx = env.authenticatedContext('pa_reservist');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA2 — declared reservist LISTS filtered by parkId (the real park-page query shape) → ALLOW, exactly 1 result', async () => {
+    const ctx = env.authenticatedContext('pa_reservist');
+    const snap = await assertSucceeds(
+      getDocs(query(collection(ctx.firestore(), 'community_groups_reserve'), where('parkId', '==', 'PARK_TEST')))
+    );
+    if (snap.size !== 1) throw new Error(`expected 1 result, got ${snap.size}`);
+  });
+
+  await it('PA3 — declared "regular" (not reserve) gets the SAME doc → DENY (persona value must match exactly, not just "any declaration")', async () => {
+    const ctx = env.authenticatedContext('pa_regular');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA4 — no declaration at all gets the doc → DENY, not a thrown 500/crash the client can\'t handle (still surfaces as permission-denied)', async () => {
+    const ctx = env.authenticatedContext('pa_no_declaration');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA5 — no declaration at all LISTS filtered by parkId → ALLOW the call to resolve with zero rows OR reject; either way must not return the doc', async () => {
+    const ctx = env.authenticatedContext('pa_no_declaration');
+    try {
+      const snap = await getDocs(query(collection(ctx.firestore(), 'community_groups_reserve'), where('parkId', '==', 'PARK_TEST')));
+      if (snap.size !== 0) throw new Error(`expected 0 results for an undeclared user, got ${snap.size}`);
+    } catch (e: any) {
+      if (e?.code !== 'permission-denied') throw e;
+    }
+  });
+
+  await it('PA6 — unauthenticated gets the doc → DENY', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA7 — admin gets the doc despite no persona declared → ALLOW (panel edit-form access)', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1')));
+  });
+
+  await it('PA8 — a declared reservist (non-admin) tries to WRITE directly → DENY (write is admin-only; the app writes only via community.service.ts\'s atomic batch, never from a user session)', async () => {
+    const ctx = env.authenticatedContext('pa_reservist');
+    await assertFails(setDoc(doc(ctx.firestore(), 'community_groups_reserve', 'pa_group_1'), { parkId: 'HACK', hours: '00:00' }));
+  });
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -744,6 +952,8 @@ async function main() {
   await testUnitLeagueAggregates();
   await testReserveLeagueLockdown();
   await testNoUsersDocLeak();
+  await testPendingUnits();
+  await testPersonaAudienceCollection();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Results: ${pass} passed, ${fail} failed`);

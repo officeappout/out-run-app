@@ -20,8 +20,6 @@ interface HealthDeclarationStepProps {
     description?: string;
   /** New onboarding flow callback */
   onContinue?: (value: boolean) => void;
-  /** Legacy onboarding-dynamic callback (backward compat) */
-  onComplete?: () => void;
 }
 
 // Module-level cache so the preloaded `generateHealthDeclarationPdf` function
@@ -34,7 +32,6 @@ export default function HealthDeclarationStep({
     title,
     description,
   onContinue,
-  onComplete,
 }: HealthDeclarationStepProps) {
   // ── User data from sessionStorage ──
   const userName = typeof window !== 'undefined'
@@ -297,15 +294,12 @@ export default function HealthDeclarationStep({
       if (onContinue) {
         onContinue(true);
       }
-      if (onComplete) {
-        onComplete();
-      }
     } catch (error) {
       console.error('[HealthDeclaration] Submission error:', error);
       // Allow retry
       setIsSubmitting(false);
     }
-  }, [canSubmit, signatureData, isSubmitting, updateData, answers, termsAccepted, usedFastTrack, userName, gender, onContinue, onComplete]);
+  }, [canSubmit, signatureData, isSubmitting, updateData, answers, termsAccepted, usedFastTrack, userName, gender, onContinue]);
 
   // ── Native canvas drawing helpers ──────────────────────────────────────────
   function getMousePos(e: React.MouseEvent<HTMLCanvasElement>) {

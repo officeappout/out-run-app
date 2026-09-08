@@ -75,23 +75,28 @@ describe('deriveArenaAccess — reserve league tab (Phase 6a)', () => {
   });
 });
 
-describe('deriveArenaAccess — unit league tab (Phase 6b)', () => {
-  // Independent of hasReserveAccess: a career/regular soldier with a
-  // declared brigade should see unit-vs-unit competition even though they
-  // never qualify for the individual reserve league.
-  it('no unit_league tab when hasUnitLeagueAccess is false (default)', () => {
-    expect(deriveArenaAccess(undefined, true).activeTabs.some((t) => t.key === 'unit_league')).toBe(false);
-  });
-
-  it('unit_league tab and hasUnitLeagueAccess appear independently of hasReserveAccess', () => {
+describe('deriveArenaAccess — hasUnitLeagueAccess (Phase 6b)', () => {
+  // 07.09.2026 — unit-vs-unit competition no longer has its own activeTabs
+  // entry (moved into the 'reserve' tab's own "קבוצות" toggle, read directly
+  // via access.hasUnitLeagueAccess by community/page.tsx's
+  // renderReserveSegment() — not via activeTabs). hasUnitLeagueAccess itself
+  // is still independent of hasReserveAccess: a career/regular soldier with
+  // a declared brigade still has hasUnitLeagueAccess=true even without ever
+  // qualifying for the individual reserve league.
+  it('hasUnitLeagueAccess is independent of hasReserveAccess', () => {
     const access = deriveArenaAccess(undefined, true, false, true);
-    expect(access.activeTabs.some((t) => t.key === 'unit_league')).toBe(true);
     expect(access.hasUnitLeagueAccess).toBe(true);
     expect(access.hasReserveAccess).toBe(false);
+    // No 'unit_league' key exists in ArenaTabKey at all anymore — a
+    // .some(t => t.key === 'unit_league') check would now be a type error
+    // (the literal has no overlap with the union), which is itself the
+    // guarantee: it's not just absent at runtime, it's unrepresentable.
   });
 
-  it('both reserve and unit_league tabs can coexist', () => {
+  it('hasUnitLeagueAccess and hasReserveAccess can both be true independently', () => {
     const access = deriveArenaAccess(undefined, true, true, true);
-    expect(access.activeTabs.map((t) => t.key)).toEqual(expect.arrayContaining(['reserve', 'unit_league']));
+    expect(access.hasUnitLeagueAccess).toBe(true);
+    expect(access.hasReserveAccess).toBe(true);
+    expect(access.activeTabs.map((t) => t.key)).toEqual(expect.arrayContaining(['reserve']));
   });
 });

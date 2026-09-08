@@ -195,17 +195,47 @@ export default function OnboardingWizard() {
   }, [majorRoadmapStep, resumeStep, isJIT]);
 
   // Auto-skip HEALTH_DECLARATION if already accepted (e.g. during running onboarding)
+  //
+  // This check is a real async network round-trip (getUserFromFirestore),
+  // not a read of an already-hydrated store value — so unlike
+  // /onboarding-new/health/page.tsx's equivalent fix (07.09.2026), there's
+  // no `_hasHydrated` flag to gate on here. The render below must instead
+  // await this promise directly before ever showing the real form:
+  // `checkingHealthDeclaration` starts true the moment this step is
+  // entered and only flips to false once the fetch resolves either way.
+  // "Not answered yet" must never render as "not accepted" — same
+  // principle as the health/page.tsx fix, adapted to this step's own
+  // fetch-then-decide mechanism instead of borrowing one that doesn't
+  // apply here.
+  const [checkingHealthDeclaration, setCheckingHealthDeclaration] = useState(true);
+
   useEffect(() => {
-    if (currentStep !== 'HEALTH_DECLARATION') return;
+    if (currentStep !== 'HEALTH_DECLARATION') {
+      setCheckingHealthDeclaration(false);
+      return;
+    }
+    setCheckingHealthDeclaration(true);
     const uid = auth.currentUser?.uid;
-    if (!uid) return;
+    if (!uid) {
+      setCheckingHealthDeclaration(false);
+      return;
+    }
     getUserFromFirestore(uid).then((p) => {
       const accepted = hasAcceptedHealthDeclaration(p as any);
       if (accepted) {
         updateData({ healthDeclarationAccepted: true } as any);
         setStep('ACCOUNT_SECURE');
+        // Stays "checking" — currentStep is about to change away from
+        // HEALTH_DECLARATION, so the form is never shown for this step.
+      } else {
+        setCheckingHealthDeclaration(false);
       }
-    }).catch(() => {});
+    }).catch(() => {
+      // Fetch failed — fail open to the real form rather than stranding
+      // the user on a loading screen with no retry affordance (mirrors
+      // this effect's own pre-existing .catch(() => {})).
+      setCheckingHealthDeclaration(false);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep]);
 
@@ -351,6 +381,16 @@ export default function OnboardingWizard() {
         }} />;
 
       case 'HEALTH_DECLARATION':
+        // Don't render the real form until it's known whether this user
+        // already accepted elsewhere — "not checked yet" is not "not
+        // accepted." See the checkingHealthDeclaration effect above.
+        if (checkingHealthDeclaration) {
+          return (
+            <div className="flex items-center justify-center py-24">
+              <div className="text-slate-500">טוען...</div>
+            </div>
+          );
+        }
         return (
           <HealthDeclarationStep
             title="הצהרת בריאות"

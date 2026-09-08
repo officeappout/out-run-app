@@ -14,6 +14,7 @@ import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import { pickTemplate } from '@/features/arena/services/message-templates.service';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
+import UnitJoinSuccessBanner from '@/components/ui/UnitJoinSuccessBanner';
 import type { CommunityGroup, CommunityGroupType } from '@/types/community.types';
 import type { CreateGroupInput } from '@/features/arena/services/group.service';
 
@@ -87,7 +88,11 @@ export default function CreateGroupPage() {
   const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outreachSent, setOutreachSent] = useState(false);
-  const [codeSuccessMsg, setCodeSuccessMsg] = useState<string | null>(null);
+  // 07.09.2026 — was a pre-formatted string built from result.unitId (a raw
+  // Firestore doc id, e.g. "co_9307_nhcj_mh7v7n" for a hash-based unit —
+  // not a display name). Holding the full result fixes that (unitPath has
+  // the real name) and lets the shared UnitJoinSuccessBanner add the icon.
+  const [codeSuccessResult, setCodeSuccessResult] = useState<AccessCodeResult | null>(null);
   const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
   // Invite code returned by createGroup — used to build the canonical
   // /join/<inviteCode> deep link (the old /join-group?id= route never existed).
@@ -237,7 +242,7 @@ export default function CreateGroupPage() {
               if (OUTREACH_TYPES.has(card.type)) {
                 setStep('outreach');
               } else if (CODE_ENTRY_TYPES.has(card.type)) {
-                setCodeSuccessMsg(null);
+                setCodeSuccessResult(null);
                 setStep('code_entry');
               } else {
                 setStep('info');
@@ -618,24 +623,26 @@ export default function CreateGroupPage() {
         ];
 
     function handleCodeSuccess(result: AccessCodeResult) {
-      const unitLabel = result.unitId ?? (isMilitary ? 'היחידה' : 'בית הספר');
-      setCodeSuccessMsg(`ברוך הבא לליגת ${unitLabel}! 🎉`);
+      setCodeSuccessResult(result);
       setTimeout(() => router.push('/community?tab=leagues'), 1800);
     }
 
     function handleBack() {
       update('groupType', null);
-      setCodeSuccessMsg(null);
+      setCodeSuccessResult(null);
       setDynamicNoCodeMessage(null);
       setStep('type');
     }
 
     // Success overlay
-    if (codeSuccessMsg) {
+    if (codeSuccessResult) {
       return (
         <div className="space-y-5 text-center py-8" dir="rtl">
           <div className="text-5xl mb-2">{icon}</div>
-          <h3 className="text-xl font-black text-gray-900">{codeSuccessMsg}</h3>
+          <h3 className="text-xl font-black text-gray-900 mb-3">ברוך הבא לליגת:</h3>
+          <div className="flex justify-center">
+            <UnitJoinSuccessBanner result={codeSuccessResult} />
+          </div>
           <p className="text-sm text-gray-500">מעביר אותך לליגה...</p>
         </div>
       );
@@ -811,7 +818,7 @@ export default function CreateGroupPage() {
                 setOutreachSent(false);
               } else if (step === 'code_entry') {
                 update('groupType', null);
-                setCodeSuccessMsg(null);
+                setCodeSuccessResult(null);
                 setStep('type');
               } else {
                 const prev = STEPS[currentIdx - 1];

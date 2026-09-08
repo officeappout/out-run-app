@@ -2,7 +2,7 @@
 # scripts/safety-check.sh
 # ── Static Pre-Commit Safety Check ─────────────────────────────────────────
 #
-# Catches 2 hard-block patterns on staged diffs (new lines only).
+# Catches 4 hard-block patterns on staged diffs (new lines only).
 # Runs via Claude Code PreToolUse hook on Bash(git commit*).
 #
 # ⚠️  SCOPE LIMITATION: PreToolUse only intercepts agent-issued git commits
@@ -10,12 +10,14 @@
 #     TODO: replicate as .githooks/pre-commit + `git config core.hooksPath .githooks`
 #     for full coverage.
 #
-# What this checks (3 patterns only — everything else is AI-layer):
+# What this checks (4 patterns only — everything else is AI-layer):
 #   1. 'social.groupIds': as Firestore field key outside authorized routes
 #   2. New get(/databases/.../documents/users/) in .rules files (1MiB read risk)
 #   3. New route-collection writes outside authorized files; and for the
 #      subset of those files already migrated to the Stage 1B chokepoint,
 #      a new write-verb line without a matching buildValidatedDoc( call
+#   4. community_groups_{persona} writes outside the one atomic primitive
+#      (createGroup/updateGroup/deleteGroup in community.service.ts)
 #
 # What this does NOT check (AI reviewer's job):
 #   - arrayRemove usage (legitimate uses exist)
@@ -227,6 +229,65 @@ ${MATCHED}
   done <<< "$STAGED_ALL"
 fi
 
+# ── Check 4: community_groups_{persona} writes must go through the one
+# atomic primitive ── "צו כושר" persona-gated groups, 07.09.2026
+#
+# Source: src/features/admin/services/community.service.ts (block comment
+#         above personaCollectionName()); firestore.rules'
+#         community_groups_reserve match block
+#
+# A group's sensitive fields (location/schedule/coach/phone/registration
+# link) live ONLY in community_groups_{persona}/{groupId} — a stray direct
+# write from anywhere else is exactly the shape of bug that leaves an
+# orphaned or stale copy behind (§17's social.groupIds precedent). Reads
+# from community_groups_{persona} are fine anywhere (arena/services/
+# group.service.ts reads it to hydrate a matching viewer's own group data)
+# — this check only flags WRITE verbs, and only a literal collection-name
+# string (a caller reaching for personaCollectionName() from its one
+# legitimate definition site is, by construction, not a new bypass).
+AUTHORIZED_PERSONA_AUDIENCE_WRITERS=(
+  "src/features/admin/services/community.service.ts"
+  # Test fixture seeding via withSecurityRulesDisabled() — bypasses rules
+  # entirely, not a real app write path. Not a second production writer.
+  "tests/firestore-rules.test.ts"
+)
+
+STAGED_ALL_TS=$(git diff --cached --name-only 2>/dev/null | grep -E '\.(ts|tsx)$' || true)
+# Deliberately NOT a bare .set(/.delete(/.update( — those collide with plain
+# Map/Set methods (e.g. byId.set(id, group) in group.service.ts's own
+# READ-side merge helper). Scoped to actual Firestore write calls only.
+WRITE_VERB_PATTERN_PA='\b(setDoc|updateDoc|deleteDoc|addDoc)\(|batch\.(set|delete|update)\('
+
+if [ -n "$STAGED_ALL_TS" ]; then
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+
+    SKIP=false
+    for auth in "${AUTHORIZED_PERSONA_AUDIENCE_WRITERS[@]}"; do
+      [ "$file" = "$auth" ] && SKIP=true && break
+    done
+    $SKIP && continue
+
+    DIFF_LINES=$(git diff --cached -- "$file" 2>/dev/null \
+      | grep '^+[^+]' \
+      | grep -vE '^\+\s*(//|\*|#)' \
+      || true)
+
+    if echo "$DIFF_LINES" | grep -qE "['\"]community_groups_[a-zA-Z_]+['\"]" \
+       && echo "$DIFF_LINES" | grep -qE "$WRITE_VERB_PATTERN_PA"; then
+      MATCHED=$(echo "$DIFF_LINES" | grep -E "['\"]community_groups_[a-zA-Z_]+['\"]" | head -3 | sed 's/^/   /')
+      VIOLATIONS="${VIOLATIONS}
+❌ BLOCKED — community_groups_{persona} write outside the authorized primitive
+   file: $file
+${MATCHED}
+   Allowed only in: src/features/admin/services/community.service.ts
+   (createGroup/updateGroup/deleteGroup's atomic writeBatch). Route through
+   that, or add this file here after confirming with David it's a genuine
+   second legitimate writer — not a shortcut around the atomic batch."
+    fi
+  done <<< "$STAGED_ALL_TS"
+fi
+
 # ── Result ────────────────────────────────────────────────────────────────────
 if [ -n "$VIOLATIONS" ]; then
   printf "\n🚫 safety-check FAILED — commit blocked%s\n" "$VIOLATIONS"
@@ -234,5 +295,5 @@ if [ -n "$VIOLATIONS" ]; then
   exit 1
 fi
 
-printf "✅ safety-check passed (3 static checks)\n"
+printf "✅ safety-check passed (4 static checks)\n"
 exit 0

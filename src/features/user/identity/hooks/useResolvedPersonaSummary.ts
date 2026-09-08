@@ -32,6 +32,15 @@ export interface ResolvedPersonaSummary {
    *  none (isComplete === true). Drives the drawer's reopen behavior:
    *  jump straight to the first gap, don't replay already-answered steps. */
   firstUnansweredIndex: number;
+  /** Badge for the deepest resolved hierarchy_search level (the unit if one
+   *  resolved, else the org) — null when nothing resolved yet, resolution
+   *  failed, or the persona has no hierarchy_search question. `unitId` here
+   *  is the id to use as UnitIconBadge's hash seed (its own real orgId/unitId,
+   *  never a display name); `iconUrl` may be null (unit has no icon yet —
+   *  the caller passes it straight through, UnitIconBadge's own fallback
+   *  handles that). 07.09.2026 — "הפרסונות שלי" was the one place a user's
+   *  own declared unit was shown back to them with no icon at all. */
+  icon: { unitId: string; iconUrl: string | null; name: string } | null;
 }
 
 const EMPTY: ResolvedPersonaSummary = {
@@ -41,14 +50,20 @@ const EMPTY: ResolvedPersonaSummary = {
   isComplete: true,
   resolved: true,
   firstUnansweredIndex: -1,
+  icon: null,
 };
 
 export function hasAnswer(question: PersonaQuestionConfig, answers: Record<string, unknown>): boolean {
   if (question.type === 'choice') {
     return answers[question.key] !== undefined && answers[question.key] !== null;
   }
-  // hierarchy_search: any selection at any depth is a real answer.
-  return answers.orgId !== undefined && answers.orgId !== null;
+  // hierarchy_search: any selection at any depth is a real answer — a
+  // pending "unit isn't in the list" submission counts too (07.09.2026: a
+  // brand-new TOP-LEVEL unit has no orgId at all while pending, so without
+  // this the question stayed permanently "unanswered" even though the user
+  // did submit something).
+  return (answers.orgId !== undefined && answers.orgId !== null)
+    || (answers.pendingUnitId !== undefined && answers.pendingUnitId !== null);
 }
 
 /**
@@ -120,6 +135,7 @@ export function useResolvedPersonaSummary(
       const parts: string[] = [];
       const rawAnswers: Record<string, unknown> = {};
       let resolved = true;
+      let icon: ResolvedPersonaSummary['icon'] = null;
 
       for (const question of questions) {
         if (!hasAnswer(question, answers)) continue;
@@ -137,16 +153,58 @@ export function useResolvedPersonaSummary(
         // hierarchy_search — resolve live names from the directory
         // collection named in config, never hardcoded to 'unitDirectory'
         // by string literal here (config already carries that name).
-        const orgId = answers.orgId as string | undefined;
-        const unitId = answers.unitId as string | undefined;
-        if (!orgId) continue;
+        let orgId = answers.orgId as string | undefined;
+        let unitId = answers.unitId as string | undefined;
+        const pendingUnitId = answers.pendingUnitId as string | undefined;
 
-        const orgSnap = await getDoc(doc(db, question.directoryCollection, orgId));
-        if (cancelled) return;
-        if (orgSnap.exists()) {
-          parts.push(orgSnap.data().name as string);
-        } else {
-          resolved = false;
+        // A pending "unit isn't in the list" submission (07.09.2026).
+        // Resolved here BEFORE the normal orgId/unitId lookup below so an
+        // already-approved submission displays the real unit immediately —
+        // usePendingUnitSelfHeal (src/features/arena/hooks/
+        // usePendingUnitSelfHeal.ts) is what durably fixes orgId/unitId in
+        // Firestore, but it only runs on Home/Community mount, so this is a
+        // read-time safety net for the gap between approval and that next
+        // mount, not a replacement for it. Still pending: nothing real to
+        // look up yet, so show a distinct label instead.
+        let pendingLabel: string | null = null;
+        if (pendingUnitId) {
+          const pendingSnap = await getDoc(doc(db, 'pending_units', pendingUnitId));
+          if (cancelled) return;
+          if (pendingSnap.exists()) {
+            const p = pendingSnap.data();
+            if (p.status === 'approved' && p.resolvedTo) {
+              if (p.level === 'brigade') {
+                orgId = p.resolvedTo as string;
+              } else {
+                unitId = p.resolvedTo as string;
+              }
+            } else if (p.status === 'pending') {
+              pendingLabel = `${p.proposedName as string} (ממתין לאישור)`;
+            }
+            // status === 'rejected' with no resolvedTo (reject-with-redirect
+            // is unbuilt — see moderation.service.ts's own Stage A/B split)
+            // falls through with pendingLabel staying null: nothing to show.
+          } else {
+            resolved = false; // pointed at a pending doc that no longer exists
+          }
+          rawAnswers.pendingUnitId = pendingUnitId;
+        }
+
+        if (!orgId && !pendingLabel) continue;
+
+        let orgResolved = true;
+        if (orgId) {
+          const orgSnap = await getDoc(doc(db, question.directoryCollection, orgId));
+          if (cancelled) return;
+          if (orgSnap.exists()) {
+            const orgData = orgSnap.data();
+            parts.push(orgData.name as string);
+            // Deepest-so-far — overwritten below if a unit also resolves.
+            icon = { unitId: orgId, iconUrl: (orgData.iconUrl as string | null) ?? null, name: orgData.name as string };
+          } else {
+            resolved = false;
+            orgResolved = false;
+          }
         }
 
         let unitResolved = true;
@@ -154,19 +212,23 @@ export function useResolvedPersonaSummary(
           const unitSnap = await getDoc(doc(db, question.directoryCollection, `${orgId}__${unitId}`));
           if (cancelled) return;
           if (unitSnap.exists()) {
-            parts.push(unitSnap.data().name as string);
+            const unitData = unitSnap.data();
+            parts.push(unitData.name as string);
+            icon = { unitId, iconUrl: (unitData.iconUrl as string | null) ?? null, name: unitData.name as string };
           } else {
             resolved = false;
             unitResolved = false;
           }
         }
 
+        if (pendingLabel) parts.push(pendingLabel);
+
         // Only carry the org/unit selection forward into rawAnswers if it
         // still resolves — pre-filling the drawer with a stale orgId/unitId
         // would silently point the next save at a unit that no longer
         // exists (this is the same rule the old useResolvedMilitaryDeclaration
         // enforced, generalized here).
-        if (orgSnap.exists() && (!unitId || unitResolved)) {
+        if (orgId && orgResolved && (!unitId || unitResolved)) {
           rawAnswers.orgId = orgId;
           if (unitId) {
             rawAnswers.unitId = unitId;
@@ -184,6 +246,7 @@ export function useResolvedPersonaSummary(
         isComplete,
         resolved,
         firstUnansweredIndex,
+        icon,
       });
     })();
 

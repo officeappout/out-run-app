@@ -17,6 +17,7 @@ import { db } from '@/lib/firebase';
 import {
   X, Loader2, MapPin, Route as RouteIcon, Mountain, Users, ShieldCheck, Building2, AlertTriangle, Landmark, Edit,
 } from 'lucide-react';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import type { ModerationEntityType } from '@/features/admin/services/moderation.service';
 import dynamicImport from 'next/dynamic';
 import type { PreviewGeometry } from './ApprovalPreviewMap';
@@ -41,6 +42,7 @@ const COLLECTION: Record<ModerationEntityType, string> = {
   climb: 'climb_segments',
   contribution: 'user_contributions',
   amenity: 'osm_amenities',
+  pending_unit: 'pending_units',
 };
 
 const ENTITY_META: Record<ModerationEntityType, { label: string; icon: typeof MapPin; color: string; bg: string }> = {
@@ -49,6 +51,7 @@ const ENTITY_META: Record<ModerationEntityType, { label: string; icon: typeof Ma
   climb: { label: 'עלייה', icon: Mountain, color: 'text-orange-600', bg: 'bg-orange-50' },
   contribution: { label: 'תרומת משתמש', icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
   amenity: { label: 'נקודת עניין', icon: Landmark, color: 'text-teal-600', bg: 'bg-teal-50' },
+  pending_unit: { label: 'יחידה ממתינה', icon: Building2, color: 'text-indigo-600', bg: 'bg-indigo-50' },
 };
 
 export interface ApprovalDetailItem {
@@ -128,6 +131,9 @@ function buildGeometry(entityType: ModerationEntityType, id: string, x: any): Ge
       const line = normalizeStoredRoutePath(x.geometry);
       return { status: 'ok', geometry: { kind: 'climb', center: c, bbox: b, line: line.length >= 2 ? line : undefined } };
     }
+    case 'pending_unit':
+      // No map geometry — a unit submission is a name + parent chain, nothing spatial.
+      return { status: 'none' };
   }
 }
 
@@ -186,6 +192,16 @@ function infoRows(entityType: ModerationEntityType, x: any): Array<[string, stri
         ['הוסתר אוטומטית', x.suppressedDuplicateOfParkId ? `כפילות אפשרית של פארק ${x.suppressedDuplicateOfParkId}` : undefined],
       );
       break;
+    case 'pending_unit': {
+      const levelLabel: Record<string, string> = { brigade: 'חטיבה', battalion: 'גדוד', company: 'פלוגה' };
+      rows.push(
+        ['רמה', levelLabel[x.level] || x.level],
+        ['תחת', Array.isArray(x.parentUnitPath) && x.parentUnitPath.length > 0 ? x.parentUnitPath.join(' / ') : (x.orgId ? undefined : 'חטיבה חדשה')],
+        ['מזהה מחושב', x.computedUnitId],
+        ['הוגש ע״י', x.submittedBy],
+      );
+      break;
+    }
   }
   return rows.filter((r): r is [string, string] => typeof r[1] === 'string' && r[1].trim().length > 0);
 }
@@ -214,6 +230,21 @@ export default function ApprovalDetailModal({
     })();
     return () => { cancelled = true; };
   }, [item]);
+
+  // pending_unit only (07.09.2026) — same reasoning as the queue list's own
+  // fix: the requested unit has no icon yet, but its parent brigade's real
+  // icon (when there is one) gives immediate context. One extra doc read,
+  // only for this entity type, only once data.orgId is known.
+  const [parentIconUrl, setParentIconUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setParentIconUrl(null);
+    if (item?.entityType !== 'pending_unit' || !data?.orgId) return;
+    let cancelled = false;
+    getDoc(doc(db, 'unitDirectory', data.orgId))
+      .then((snap) => { if (!cancelled) setParentIconUrl(snap.exists() ? ((snap.data().iconUrl as string | null) ?? null) : null); })
+      .catch(() => { if (!cancelled) setParentIconUrl(null); });
+    return () => { cancelled = true; };
+  }, [item?.entityType, data?.orgId]);
 
   // G4: resolve the user-proposed equipment (contribution only) into full docs
   // for a read-only preview, so the reviewer sees what was suggested.
@@ -249,9 +280,18 @@ export default function ApprovalDetailModal({
       <div className="fixed top-0 bottom-0 right-0 z-[81] w-full max-w-md bg-white shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300" dir="rtl">
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 flex-shrink-0">
-          <div className={`w-10 h-10 rounded-xl ${meta.bg} flex items-center justify-center ${meta.color} flex-shrink-0`}>
-            <meta.icon size={18} />
-          </div>
+          {item.entityType === 'pending_unit' ? (
+            <div className="flex items-center flex-shrink-0" style={{ gap: data?.orgId ? 2 : 0 }}>
+              {data?.orgId && (
+                <UnitIconBadge unitId={data.orgId} iconUrl={parentIconUrl} name={Array.isArray(data.parentUnitPath) ? data.parentUnitPath[data.parentUnitPath.length - 1] : 'חטיבה'} size={36} />
+              )}
+              <UnitIconBadge unitId={data?.computedUnitId ?? item.id} iconUrl={null} name={item.title} size={36} />
+            </div>
+          ) : (
+            <div className={`w-10 h-10 rounded-xl ${meta.bg} flex items-center justify-center ${meta.color} flex-shrink-0`}>
+              <meta.icon size={18} />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="font-black text-gray-900 text-base truncate">{item.title}</p>
             <p className="text-xs text-gray-400">{meta.label} · ממתין לאישור</p>

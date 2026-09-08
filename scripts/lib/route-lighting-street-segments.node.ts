@@ -95,6 +95,61 @@ function sampleEvenly<T>(arr: T[], max: number): T[] {
 interface TaggedCandidate { id: string; path: [number, number][]; tag: 'yes' | 'no' | null }
 
 /**
+ * Concurrency cap for the per-route geohash-bound queries below (04.09.2026,
+ * lighting-step 504 fix). The original code awaited each (sample point ×
+ * geohash bound) query sequentially — for a real route this is commonly
+ * 40-100+ independent reads, and for a whole city's worth of routes in one
+ * API-route invocation (maxDuration=60) that measured at ~2,745 sequential
+ * queries / ~118ms avg ≈ ~325s for Herzliya (35 routes) — 5.4x over budget.
+ * These queries are independent reads (different geohash ranges), so they
+ * parallelize safely with no ordering/correctness dependency between them —
+ * batched via Promise.all in fixed-size chunks (not a sliding-window
+ * limiter) so results map back to their originating sample point by index,
+ * deterministically, matching the original per-point dedup semantics below.
+ */
+const LIGHTING_QUERY_CONCURRENCY = 25;
+
+interface BoundQueryTask { pointIndex: number; start: string; end: string }
+interface BoundQueryResult { pointIndex: number; docs: FirebaseFirestore.QueryDocumentSnapshot[] }
+
+async function runBoundQueriesConcurrently(
+  db: FirebaseFirestore.Firestore,
+  tasks: BoundQueryTask[],
+): Promise<BoundQueryResult[]> {
+  const results: BoundQueryResult[] = new Array(tasks.length);
+  for (let i = 0; i < tasks.length; i += LIGHTING_QUERY_CONCURRENCY) {
+    const chunk = tasks.slice(i, i + LIGHTING_QUERY_CONCURRENCY);
+    const chunkResults = await Promise.all(
+      chunk.map(async (t): Promise<BoundQueryResult> => {
+        const snap = await db.collection('street_segments').orderBy('geohash').startAt(t.start).endAt(t.end).get();
+        return { pointIndex: t.pointIndex, docs: snap.docs };
+      }),
+    );
+    chunkResults.forEach((r, j) => { results[i + j] = r; });
+  }
+  return results;
+}
+
+/**
+ * Cheap per-city short-circuit (04.09.2026, lighting-step 504 fix): a virgin
+ * city with zero street_segments can never produce lighting data — every
+ * sample-point query would return empty regardless (measured live against
+ * Herzliya: 0 street_segments, queries still cost their full ~118ms/query
+ * network round-trip each). One `limit(1)` existence check replaces the
+ * entire per-route query loop for such a city. Callers doing a city-wide
+ * backfill (many routes) should call this ONCE before their route loop and
+ * skip calling computeRouteLighting per-route when it's false — see
+ * backfill-route-lighting-haifa.ts's use of this.
+ */
+export async function cityHasAnySegments(
+  db: FirebaseFirestore.Firestore,
+  cityNameAliases: string[],
+): Promise<boolean> {
+  const snap = await db.collection('street_segments').where('cityName', 'in', cityNameAliases).limit(1).get();
+  return !snap.empty;
+}
+
+/**
  * Pure Firestore fetch + pure compute for ONE route. `rawPath` is the
  * route's stored path in its persisted {lat,lng} form (matches
  * official_routes.path exactly — caller doesn't need to know the
@@ -120,34 +175,42 @@ export async function computeRouteLighting(
   const fullPath: [number, number][] = rawPath.map((p) => [Number(p.lng) || 0, Number(p.lat) || 0]);
   const samplePath = sampleEvenly(fullPath, MAX_SAMPLES_PER_ROUTE);
 
-  const candidatesPerPoint: TaggedCandidate[][] = [];
-  let totalCandidates = 0;
-  for (const [lng, lat] of samplePath) {
+  const tasks: BoundQueryTask[] = [];
+  samplePath.forEach(([lng, lat], pointIndex) => {
     const bounds = geohashQueryBounds([lat, lng], SEGMENT_QUERY_RADIUS_METERS);
-    const seen = new Set<string>();
-    const candidates: TaggedCandidate[] = [];
-    for (const [start, end] of bounds) {
-      const segSnap = await db.collection('street_segments').orderBy('geohash').startAt(start).endAt(end).get();
-      for (const s of segSnap.docs) {
-        if (seen.has(s.id)) continue;
-        seen.add(s.id);
-        const seg = s.data();
-        if (!cityNameAliases.includes(seg.cityName)) continue; // in-memory alias filter — see module header
-        const rawSegPath = Array.isArray(seg.path) ? seg.path : null;
-        const path: [number, number][] = rawSegPath
-          ? rawSegPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0])
-          : seg.midpoint ? [[Number(seg.midpoint.lng) || 0, Number(seg.midpoint.lat) || 0]] : [];
-        if (path.length === 0) continue;
-        // Preserve the REAL 3-state tag — 'no lit tag at all' and 'lit=no'
-        // must not collapse into the same value here (see module header).
-        const rawLit = seg.tags?.lit;
-        const tag: 'yes' | 'no' | null = rawLit === 'yes' ? 'yes' : rawLit === 'no' ? 'no' : null;
-        candidates.push({ id: s.id, path, tag });
-      }
+    for (const [start, end] of bounds) tasks.push({ pointIndex, start, end });
+  });
+
+  const queryResults = await runBoundQueriesConcurrently(db, tasks);
+
+  // Dedup is PER-POINT (matches the original sequential loop's semantics
+  // exactly) — a segment found via two overlapping geohash bounds for the
+  // SAME point is deduped, but the same segment showing up near two
+  // DIFFERENT sample points is intentionally counted at each.
+  const candidatesPerPoint: TaggedCandidate[][] = samplePath.map(() => []);
+  const seenPerPoint: Set<string>[] = samplePath.map(() => new Set<string>());
+  for (const { pointIndex, docs } of queryResults) {
+    const seen = seenPerPoint[pointIndex];
+    const candidates = candidatesPerPoint[pointIndex];
+    for (const s of docs) {
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      const seg = s.data();
+      if (!cityNameAliases.includes(seg.cityName)) continue; // in-memory alias filter — see module header
+      const rawSegPath = Array.isArray(seg.path) ? seg.path : null;
+      const path: [number, number][] = rawSegPath
+        ? rawSegPath.map((p: any) => [Number(p.lng) || 0, Number(p.lat) || 0])
+        : seg.midpoint ? [[Number(seg.midpoint.lng) || 0, Number(seg.midpoint.lat) || 0]] : [];
+      if (path.length === 0) continue;
+      // Preserve the REAL 3-state tag — 'no lit tag at all' and 'lit=no'
+      // must not collapse into the same value here (see module header).
+      const rawLit = seg.tags?.lit;
+      const tag: 'yes' | 'no' | null = rawLit === 'yes' ? 'yes' : rawLit === 'no' ? 'no' : null;
+      candidates.push({ id: s.id, path, tag });
     }
-    totalCandidates += candidates.length;
-    candidatesPerPoint.push(candidates);
   }
+  let totalCandidates = 0;
+  candidatesPerPoint.forEach((c) => { totalCandidates += c.length; });
 
   if (totalCandidates === 0) {
     return { status: 'unknown', litCoveragePct: null, isLit: null, candidateSegmentsFound: 0, samplePointCount: samplePath.length, realDataPointFraction: 0 };

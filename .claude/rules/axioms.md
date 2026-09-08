@@ -232,3 +232,18 @@ Two hard rules for the 5 route/geo Firestore collections (`official_routes`, `cu
 - `firestore.rules` (Stage 2 Phase 2.5, not yet deployed as of Stage 1B) — client-SDK/admin-UI-only defense-in-depth; cannot stop Admin-SDK script writes (those bypass rules by design), which is why the chokepoint above is the primary enforcement for scripts.
 
 As of Stage 1B, only 4 write paths were migrated to the chokepoint: `InventoryService.saveRoutes`/`saveCuratedRoutes`/`updateRoute`, and `scripts/geo-discovery-routes.ts`. The surface-type phase (17.08.2026) added a 5th: `osm-segment-importer.ts`'s `commitSegmentsToFirestore`. Stage 3 (spatial join, 17.08.2026) added a 6th, chokepoint-migrated from birth: `InventoryService.recomputeRouteEnrichmentForCity` (climb_segments/official_routes/street_segments cross-ref writes). Its pure geometry lives in a separate, deliberately I/O-free sibling file (`route-enrichment.service.ts`) that never touches Firestore directly and is therefore NOT itself in `AUTHORIZED_ROUTE_WRITERS` — same reasoning `route-adjacency.service.ts` (its structural precedent) is also absent from that list. The rest of the ~14 originally-known writers are authorized (in the safety-check allowlist) but not yet chokepoint-enforced — migrated as each is generalized for multi-city use, which is how the count keeps climbing one phase at a time rather than in one big-bang pass.
+
+---
+
+## 24. Third-Party Library Options — a Key Present-with-`undefined` Is Not the Same as an Absent Key
+**Source:** production incident 06.09.2026 — `qr-code-styling` constructor crash on `/admin/links` drawer open; full writeup `docs/architecture/marketing-attribution.md` §16.7
+
+When building an options object for a third-party library that merges caller options over its own defaults — a shallow `Object.assign`/spread, which is the overwhelmingly common implementation — a key that is PRESENT with value `undefined` is NOT equivalent to an ABSENT key:
+- Absent key → the library's own default for that key survives the merge, untouched.
+- Present-with-`undefined` key → the merge OVERWRITES the library's default with `undefined`. If any internal code then dereferences a nested field on that value without an optional-chaining guard (`options.someKey.nestedField`), it throws — exactly what happened here (`imageOptions.hideBackgroundDots`).
+
+Concretely: `someKey: condition ? {...} : undefined` is the wrong shape whenever `someKey` has a real, non-empty library default. Use a conditional spread instead — `...(condition ? { someKey: {...} } : {})` — so the key is fully absent, not present-with-`undefined`, when the condition is false.
+
+**Test-writing corollary**: `expect(options.someKey).toBeUndefined()` passes identically whether the key is absent or present-with-`undefined` — it cannot distinguish the two, and 31 passing tests failed to catch this exact bug for precisely that reason. When the intent is "key must be absent," assert `Object.prototype.hasOwnProperty.call(options, 'someKey') === false`, not just that the value reads as `undefined`.
+
+This will recur with any future dependency that does default-merging (most do) — check this pattern whenever writing an options-builder for a newly-adopted library, not only for `qr-code-styling`.

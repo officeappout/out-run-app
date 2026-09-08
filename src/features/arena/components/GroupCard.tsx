@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarCheck, Clock, MapPin, UserPlus, MessageCircle, Navigation, Users, Lock, X } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { CommunityGroup, CommunityGroupCategory, EventRegistration } from '@/types/community.types';
 import AttendeesPreview from './AttendeesPreview';
 import { distanceLabel } from '@/features/arena/utils/distance';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 
 const CATEGORY_CONFIG: Record<CommunityGroupCategory, { label: string; icon: string; gradient: string }> = {
   walking:     { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
@@ -62,6 +65,27 @@ export default function GroupCard({
   const catConfig = CATEGORY_CONFIG[group.category];
   const coverImage = group.images?.[0];
 
+  // 07.09.2026 — a groupType:'military' group's cover used to render
+  // whatever sport emoji its category happened to be (🏃 for a running
+  // group, etc.), the same as any social group — not wrong because
+  // something was missing, wrong because a sport icon was standing in for
+  // a unit identity. When the cover has no uploaded image, this group's
+  // own authorityId (the real brigade, per the access-code join flow) gets
+  // looked up in unitDirectory for its real icon; UnitIconBadge's own
+  // hash-fallback covers the case where that lookup finds nothing, same as
+  // every other "unit with no icon yet" surface in this app.
+  const isMilitaryGroup = group.groupType === 'military';
+  const [militaryIconUrl, setMilitaryIconUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setMilitaryIconUrl(null);
+    if (!isMilitaryGroup || !group.authorityId) return;
+    let cancelled = false;
+    getDoc(doc(db, 'unitDirectory', group.authorityId))
+      .then((snap) => { if (!cancelled) setMilitaryIconUrl(snap.exists() ? ((snap.data().iconUrl as string | null) ?? null) : null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isMilitaryGroup, group.authorityId]);
+
   const [codeMode, setCodeMode] = useState(false);
   const [codeValue, setCodeValue] = useState('');
   const [codeError, setCodeError] = useState(false);
@@ -96,6 +120,10 @@ export default function GroupCard({
           {coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={coverImage} alt={group.name} className="w-full h-full object-cover" />
+          ) : isMilitaryGroup ? (
+            <div className="w-full h-full bg-gradient-to-br from-lime-700 to-green-900 flex items-center justify-center">
+              <UnitIconBadge unitId={group.authorityId || group.id} iconUrl={militaryIconUrl} name={group.name} size={44} />
+            </div>
           ) : (
             <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
               <span className="text-3xl drop-shadow-md select-none">{catConfig.icon}</span>
@@ -126,6 +154,13 @@ export default function GroupCard({
         </div>
         <div className="px-2.5 py-2 space-y-0.5">
           <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">
+            {/* 07.09.2026 — a persona-gated group's meetingLocation/scheduleSlots
+                simply aren't present on `group` unless the current viewer's
+                own declared persona matches (group.service.ts's
+                getPublicGroups/getGroupById only hydrate them for a
+                matching, rules-permitted read) — no component-level
+                isMilitaryGroup check needed or wanted here: that would ALSO
+                hide a reservist's own entitled details from them. */}
             {group.name || `${catConfig.label}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
           </p>
           {scheduleLabel && (
@@ -187,6 +222,10 @@ export default function GroupCard({
             alt={group.name}
             className="w-full h-full object-cover"
           />
+        ) : isMilitaryGroup ? (
+          <div className="w-full h-full bg-gradient-to-br from-lime-700 to-green-900 flex items-center justify-center">
+            <UnitIconBadge unitId={group.authorityId || group.id} iconUrl={militaryIconUrl} name={group.name} size={72} />
+          </div>
         ) : (
           <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
             <span className="text-5xl drop-shadow-md select-none">{catConfig.icon}</span>
@@ -204,7 +243,7 @@ export default function GroupCard({
           <span>{catConfig.label}</span>
         </div>
 
-        {/* Schedule chip — bottom right over scrim */}
+        {/* Schedule chip — bottom right over scrim. Data-layer gated, see compact variant's comment above. */}
         {scheduleLabel && (
           <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full">
             <Clock className="w-3 h-3 opacity-80" />
@@ -245,7 +284,7 @@ export default function GroupCard({
           </p>
         )}
 
-        {/* Today's session row */}
+        {/* Today's session row — data-layer gated, see comment near the top of the compact variant. */}
         {todaySlot && (
           <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-700 dark:text-cyan-400 mb-2.5">
             <CalendarCheck className="w-3.5 h-3.5 flex-shrink-0" />
@@ -260,7 +299,9 @@ export default function GroupCard({
           </div>
         )}
 
-        {/* Address + distance row */}
+        {/* Address + distance row — address is data-layer gated (see comment
+            near the top of the compact variant); the relative distance chip
+            is unconditional, it never reveals the actual place. */}
         {(group.meetingLocation?.address || distanceKm != null) && (
           <div className="flex items-center justify-between gap-2 mb-3">
             {group.meetingLocation?.address ? (

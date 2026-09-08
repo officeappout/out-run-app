@@ -6,6 +6,7 @@
 import { NotificationTriggerType } from './branding.types';
 import { UserFullProfile } from '@/features/user';
 import { getUserFirstName, getUserGoalHebrew } from './branding.service';
+import { RUNNING_WORKOUT_CATEGORY_LABELS_HE as RUN_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 
 export interface TagResolverContext {
   // Persona & Location
@@ -958,24 +959,9 @@ export function resolveDescription(
     return context.programPhase || '';
   });
 
-  const RUN_CATEGORY_LABELS_HE: Record<string, string> = {
-    short_intervals: 'אינטרוולים קצרים',
-    long_intervals: 'אינטרוולים ארוכים',
-    fartlek_easy: 'פארטלק קל',
-    fartlek_structured: 'פארטלק מובנה',
-    tempo: 'ריצת טמפו',
-    hill_long: 'עליות ארוכות',
-    hill_short: 'עליות קצרות',
-    hill_sprints: 'ספרינט עליות',
-    long_run: 'ריצה ארוכה',
-    easy_run: 'ריצה קלה',
-    strides: 'סטריידים',
-    recovery: 'התאוששות',
-  };
-
   resolved = resolved.replace(/@סוג_ריצה/g, () => {
     if (context.runningCategory) {
-      return RUN_CATEGORY_LABELS_HE[context.runningCategory] || context.runningCategory;
+      return RUN_CATEGORY_LABELS_HE[context.runningCategory as keyof typeof RUN_CATEGORY_LABELS_HE] || context.runningCategory;
     }
     return '';
   });
@@ -1017,7 +1003,7 @@ export function resolveDescription(
 
   resolved = resolved.replace(/@runningCategory/g, () => {
     if (context.runningCategory) {
-      return RUN_CATEGORY_LABELS_HE[context.runningCategory] || context.runningCategory;
+      return RUN_CATEGORY_LABELS_HE[context.runningCategory as keyof typeof RUN_CATEGORY_LABELS_HE] || context.runningCategory;
     }
     return '';
   });

@@ -28,6 +28,7 @@ import { getSundayWeekStart, toISODate } from '@/features/user/scheduling/utils/
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveTodayRunningWorkout } from '@/lib/running-today-workout';
+import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 import { 
   ACTIVITY_COLORS, 
@@ -217,21 +218,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   recovery:             '#B0BEC5',
 };
 
-const CATEGORY_LABELS_HE: Record<string, string> = {
-  easy_run:             'ריצה קלה',
-  long_run:             'ריצה ארוכה',
-  short_intervals:      'אינטרוולים קצרים',
-  long_intervals:       'אינטרוולים ארוכים',
-  fartlek_easy:         'פארטלק קל',
-  fartlek_structured:   'פארטלק מובנה',
-  tempo:                'ריצת טמפו',
-  hill_long:            'עליות ארוכות',
-  hill_short:           'עליות קצרות',
-  hill_sprints:         'ספרינט עליות',
-  strides:              'סטריידים',
-  recovery:             'התאוששות',
-};
-
 function getCategoryColor(category: string | undefined): string {
   if (!category) return '#00BAF7';
   return CATEGORY_COLORS[category] ?? '#00BAF7';
@@ -239,7 +225,7 @@ function getCategoryColor(category: string | undefined): string {
 
 function getCategoryLabel(category: string | undefined): string {
   if (!category) return 'אימון ריצה';
-  return CATEGORY_LABELS_HE[category] ?? category;
+  return RUNNING_WORKOUT_CATEGORY_LABELS_HE[category as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] ?? category;
 }
 
 /** ScheduleActivityCategory (includes 'walking') → the 3-way ActivityCategory bucket. */
@@ -843,7 +829,7 @@ export default function SmartWeeklySchedule({
     return entries.map((entry) => ({
       ...entry,
       category: entry.category || 'easy_run',
-      workoutName: entry.workoutName || (CATEGORY_LABELS_HE[entry.category ?? ''] ?? 'אימון ריצה'),
+      workoutName: entry.workoutName || (RUNNING_WORKOUT_CATEGORY_LABELS_HE[(entry.category ?? '') as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] ?? 'אימון ריצה'),
     }));
   }, [isRunningMode, runningSchedule, effectiveCurrentWeek]);
 

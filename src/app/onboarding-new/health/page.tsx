@@ -16,7 +16,7 @@ import { createSkipAttemptGuard } from '@/features/user/onboarding/utils/skip-at
 
 export default function HealthDeclarationPage() {
   const router = useRouter();
-  const { profile, refreshProfile } = useUserStore();
+  const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const { data: onboardingData } = useOnboardingStore();
   const [mounted, setMounted] = useState(false);
   const [skipFailed, setSkipFailed] = useState(false);
@@ -30,6 +30,18 @@ export default function HealthDeclarationPage() {
   // useRequiredSetup.ts's hard-block check, and profile-completion.service.ts's
   // "health" completion item — none of those show a confirmation screen
   // either, they just treat it as already satisfied.
+  //
+  // `!!profile` alone can't tell "not accepted" apart from "not loaded yet"
+  // — useUserStore's `profile` starts null on every fresh mount and loads
+  // asynchronously (`_hasHydrated` is the separate flag for that). Without
+  // gating on `_hasHydrated` too (see the render gate below), an
+  // already-accepted user reaching this page before their profile finishes
+  // loading would see this compute `false` and fall through to the real
+  // form — exactly the bug this fix closes (07.09.2026, David — reported
+  // live on device: health declaration re-asked after running onboarding,
+  // for a user who'd already accepted it via strength). Same pattern
+  // already used by NextRunWorkoutCard.tsx / home/page.tsx for this exact
+  // class of race.
   const alreadyAccepted = !!profile && hasAcceptedHealthDeclaration(profile as any);
 
   useEffect(() => {
@@ -138,7 +150,16 @@ export default function HealthDeclarationPage() {
   // effect only starts the async handleContinue, it doesn't run
   // synchronously with this render, so without this check the real form
   // would still flash for a frame before the skip takes over.
-  if (!mounted || (alreadyAccepted && !skipFailed)) {
+  //
+  // `!_hasHydrated` is checked separately from `alreadyAccepted` — not
+  // folded into it — because "don't know yet" and "checked, not accepted"
+  // must stay distinguishable. Collapsing them (e.g. defaulting
+  // `alreadyAccepted` to true while unknown) would swap which state is
+  // unsafe: a genuinely new user would then sit on this loading screen
+  // forever instead of ever reaching the form. Show loading until hydration
+  // is known, full stop — resolve to whichever branch is actually true only
+  // once it's known, not before.
+  if (!mounted || !_hasHydrated || (alreadyAccepted && !skipFailed)) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center">
         <div className="text-slate-500">טוען...</div>

@@ -25,7 +25,8 @@ import {
 } from '@/features/admin/services/osm-amenity-admin.service';
 import type { AmenityCategory, CourtSport } from '@/features/parks/core/types/osm-amenity.types';
 import { InventoryService } from '@/features/parks';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import {
   CheckCircle2,
   Clock,
@@ -66,7 +67,7 @@ const AmenitiesQueueMap = dynamicImport(() => import('@/features/admin/component
 // AccuracyQueueTab.tsx's own header). Rendered as an isolated tab + isolated
 // content block; every place `active`/`shownItems` derive from TABS.find()
 // guards against it explicitly rather than assuming a TABS entry exists.
-type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc' | 'amenities' | 'accuracy';
+type ApprovalTab = 'locations' | 'routes' | 'climbs' | 'ugc' | 'amenities' | 'accuracy' | 'pending_units';
 
 // A row in the queue, normalised across entity types.
 interface QueueItem {
@@ -84,6 +85,16 @@ interface QueueItem {
   activityType?: string;
   location?: { lat: number; lng: number };
   suppressedDuplicateOfParkId?: string | null;
+  /** pending_unit only (07.09.2026) — every pending brigade/battalion/
+   *  company was rendering with the SAME generic Building2 icon regardless
+   *  of which org it's under. computedUnitId is the pending doc's own id
+   *  (becomes the real unit's id verbatim on approval, for battalion/
+   *  company — see src/lib/unit-id.ts) — used as UnitIconBadge's hash seed
+   *  for the requested unit's own badge (it has no real icon yet). parentIconUrl
+   *  is the real brigade's icon (authorityId's unitDirectory entry), fetched
+   *  once per unique authorityId across the whole loaded batch, not per row. */
+  computedUnitId?: string;
+  parentIconUrl?: string | null;
 }
 
 export default function ApprovalCenterPage() {
@@ -96,6 +107,7 @@ export default function ApprovalCenterPage() {
   const [routes, setRoutes] = useState<QueueItem[]>([]);
   const [climbs, setClimbs] = useState<QueueItem[]>([]);
   const [ugc, setUgc] = useState<QueueItem[]>([]);
+  const [pendingUnits, setPendingUnits] = useState<QueueItem[]>([]);
   const [amenities, setAmenities] = useState<QueueItem[]>([]);
   // Amenities are lazy-loaded (only when the tab is first opened this session)
   // — TLV alone is ~1,556 pending docs, an order of magnitude above every
@@ -184,13 +196,14 @@ export default function ApprovalCenterPage() {
     const uid = userId ?? currentUserId;
     setLoading(true);
     try {
-      const [p, r, c, u] = await Promise.all([
+      const [p, r, c, u, pu] = await Promise.all([
         loadPendingParks(sa, aids, uid),
         loadPendingRoutes(sa, aids, uid),
         loadPendingClimbs(sa),
         loadPendingContributions(sa, aids),
+        loadPendingUnits(sa),
       ]);
-      setParks(p); setRoutes(r); setClimbs(c); setUgc(u);
+      setParks(p); setRoutes(r); setClimbs(c); setUgc(u); setPendingUnits(pu);
       // Amenities are lazy — only refetch on refresh if the tab was already
       // opened once this session; never on the initial page load.
       if (amenitiesLoaded) {
@@ -275,6 +288,44 @@ export default function ApprovalCenterPage() {
     } catch { return []; }
   };
 
+  // pending_units' Firestore rule is admin-only (isAdmin()/isRootAdmin()) —
+  // no authority-manager carve-out, unlike parks/routes' broader rules — so,
+  // same as climbs, this is superadmin-only for now, not per-authority scoped.
+  const PENDING_UNIT_LEVEL_LABELS: Record<string, string> = { brigade: 'חטיבה', battalion: 'גדוד', company: 'פלוגה' };
+  const loadPendingUnits = async (sa: boolean): Promise<QueueItem[]> => {
+    if (!sa) return [];
+    try {
+      const snap = await getDocs(query(collection(db, 'pending_units'), where('status', '==', 'pending')));
+      const rows = snap.docs.map(d => {
+        const x: any = d.data();
+        return {
+          entityType: 'pending_unit' as const,
+          id: d.id,
+          title: x.proposedName || '(ללא שם)',
+          subtitle: [PENDING_UNIT_LEVEL_LABELS[x.level] || x.level, x.parentUnitPath?.length ? `תחת ${x.parentUnitPath.join(' / ')}` : x.orgId ? 'תחת חטיבה קיימת' : ''].filter(Boolean).join(' · '),
+          authorityId: x.orgId ?? undefined,
+          createdByUser: x.submittedBy,
+          computedUnitId: x.computedUnitId as string | undefined,
+        };
+      });
+
+      // One unitDirectory read per UNIQUE parent org across this whole
+      // batch, not per row — the parent's real icon is what actually makes
+      // this queue scannable (a pending unit has no icon of its own yet;
+      // the brigade it's under does).
+      const uniqueOrgIds = Array.from(new Set(rows.map(r => r.authorityId).filter((id): id is string => !!id)));
+      const iconByOrgId = new Map<string, string | null>();
+      await Promise.all(uniqueOrgIds.map(async (orgId) => {
+        try {
+          const orgSnap = await getDoc(doc(db, 'unitDirectory', orgId));
+          iconByOrgId.set(orgId, orgSnap.exists() ? ((orgSnap.data().iconUrl as string | null) ?? null) : null);
+        } catch { iconByOrgId.set(orgId, null); }
+      }));
+
+      return rows.map(r => ({ ...r, parentIconUrl: r.authorityId ? (iconByOrgId.get(r.authorityId) ?? null) : null }));
+    } catch { return []; }
+  };
+
   const loadPendingContributions = async (sa: boolean, aids: string[]): Promise<QueueItem[]> => {
     try {
       const list = sa
@@ -345,7 +396,7 @@ export default function ApprovalCenterPage() {
   };
 
   const removeFromState = (entityType: ModerationEntityType, id: string) => {
-    const setter = { park: setParks, route: setRoutes, climb: setClimbs, contribution: setUgc, amenity: setAmenities }[entityType];
+    const setter = { park: setParks, route: setRoutes, climb: setClimbs, contribution: setUgc, amenity: setAmenities, pending_unit: setPendingUnits }[entityType];
     setter(prev => prev.filter(i => i.id !== id));
   };
 
@@ -565,6 +616,7 @@ export default function ApprovalCenterPage() {
     { id: 'climbs' as const, group: 'agent' as const, label: 'עליות', icon: Mountain, items: climbs, iconBg: 'bg-orange-50', iconColor: 'text-orange-600', rowIcon: Mountain },
     { id: 'amenities' as const, group: 'agent' as const, label: 'מתקנים', icon: Landmark, items: amenities, iconBg: 'bg-teal-50', iconColor: 'text-teal-600', rowIcon: Landmark },
     { id: 'ugc' as const, group: 'user' as const, label: 'תרומות משתמשים', icon: Users, items: ugc, iconBg: 'bg-purple-50', iconColor: 'text-purple-600', rowIcon: Users },
+    { id: 'pending_units' as const, group: 'user' as const, label: 'יחידות ממתינות', icon: Building2, items: pendingUnits, iconBg: 'bg-indigo-50', iconColor: 'text-indigo-600', rowIcon: Building2 },
   ];
   const TAB_GROUPS = [
     { key: 'agent' as const, icon: '🤖', label: 'סוכן חכם', hint: 'נוצר אוטומטית — ביקורת איכות' },
@@ -1060,11 +1112,28 @@ export default function ApprovalCenterPage() {
                   onClick={() => setSelectedItem({ entityType: item.entityType, id: item.id, title: item.title })}
                   className="flex items-center gap-4 flex-1 min-w-0 text-right group"
                 >
-                  <div className={`w-10 h-10 rounded-xl ${active.iconBg} flex items-center justify-center ${active.iconColor} flex-shrink-0`}>
-                    {activeTab === 'amenities' && item.category
-                      ? <span className="text-lg leading-none">{amenityEmoji(item.category, item.sport)}</span>
-                      : <active.rowIcon size={18} />}
-                  </div>
+                  {activeTab === 'pending_units' ? (
+                    // 07.09.2026 — every pending unit used to render with the
+                    // same generic Building2 regardless of which brigade it's
+                    // under, making the queue impossible to scan at a glance.
+                    // The requested unit has no icon of its own yet (not
+                    // approved), so it gets its own hash badge like any other
+                    // icon-less unit; the parent brigade's REAL icon (when
+                    // one exists — a brand-new top-level brigade proposal has
+                    // none) sits beside it for immediate context.
+                    <div className="flex items-center flex-shrink-0" style={{ gap: item.authorityId ? 2 : 0 }}>
+                      {item.authorityId && (
+                        <UnitIconBadge unitId={item.authorityId} iconUrl={item.parentIconUrl ?? null} name={item.subtitle || 'חטיבה'} size={30} />
+                      )}
+                      <UnitIconBadge unitId={item.computedUnitId ?? item.id} iconUrl={null} name={item.title} size={30} />
+                    </div>
+                  ) : (
+                    <div className={`w-10 h-10 rounded-xl ${active.iconBg} flex items-center justify-center ${active.iconColor} flex-shrink-0`}>
+                      {activeTab === 'amenities' && item.category
+                        ? <span className="text-lg leading-none">{amenityEmoji(item.category, item.sport)}</span>
+                        : <active.rowIcon size={18} />}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-900 text-sm truncate group-hover:text-cyan-700 transition-colors">{item.title}</p>
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500 flex-wrap">

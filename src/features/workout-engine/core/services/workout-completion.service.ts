@@ -11,6 +11,16 @@
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { ActiveRunningProgram } from '../types/running.types';
+import { calculateCurrentWeek } from '@/lib/running-current-week';
+
+// Re-exported for existing importers (9 call sites across the app) — the
+// function itself now lives in src/lib/running-current-week.ts, a pure
+// module with no Firebase import (see that file's own doc for why: this
+// file imports firebase/firestore at the top level for its write-side
+// exports, markSessionComplete/rollBackOneWeek below, and a caller that
+// must stay import-graph-pure — e.g. weaverInput.ts — can't import
+// anything from here). Pure relocation, zero behavior change.
+export { calculateCurrentWeek };
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -28,46 +38,10 @@ export type AlignmentAction =
   | { type: 'rebuild'; daysSinceLastWorkout: number };
 
 // ── Calendar Logic ───────────────────────────────────────────────────
-
-/**
- * Calculate the current program week from the start date.
- * Week 1 = days 0-6, Week 2 = days 7-13, etc.
- *
- * `asOfDate` — optional. Defaults to today (`new Date()`), preserving exact
- * existing behavior for callers that omit it (markSessionComplete,
- * rollBackOneWeek — both unchanged by this parameter). Pass an explicit
- * date to ask "what week does THIS calendar day fall in" instead of "what
- * week is it right now" — e.g. resolving the week for an arbitrary rendered
- * agenda day rather than for today.
- *
- * ⚠️ This function actually answers two different questions with one
- * number: "which week" AND "is asOfDate even inside the plan at all."
- * `Math.max(1, ...)` below folds them together — any asOfDate before
- * `startDate` reports week 1, indistinguishable from the real week 1
- * (found 02.09.2026: a user registering mid-week saw days from BEFORE
- * registration rendered as real, missed week-1 workouts, because the
- * calendar view trusted this return value alone). Deliberately NOT fixed
- * here — every write-site (markSessionComplete/rollBackOneWeek below) and
- * resolveBuildStartDate (plan-generator.service.ts, the schedule-builder
- * drawer's own foundation) rely on this never returning below 1. Any
- * caller that can be asked about a date that might precede `startDate`
- * (i.e. passes an explicit `asOfDate`, not "today") must check
- * `isDateWithinRunningPlan` (src/lib/running-plan-date-range.ts) FIRST and
- * skip calling this at all when it's false — see AgendaDayCard.tsx,
- * TrainingPlannerOverlay.tsx, RollingAgenda.tsx for the pattern. A caller
- * that only ever asks about "today" (no explicit asOfDate) is safe as-is:
- * today is never before startDate in any real scenario, so the clamp
- * never actually fires for it.
- */
-export function calculateCurrentWeek(startDate: Date | string | number, asOfDate?: Date): number {
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  const now = asOfDate ? new Date(asOfDate) : new Date();
-  now.setHours(0, 0, 0, 0);
-  const diffMs = now.getTime() - start.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  return Math.max(1, Math.floor(diffDays / 7) + 1);
-}
+// calculateCurrentWeek itself now lives in src/lib/running-current-week.ts
+// — imported above, re-exported for existing callers. See that file for
+// the full doc (unchanged) on the Math.max(1,...) clamp and why any caller
+// with an arbitrary asOfDate must use resolveWeekForDate instead.
 
 /**
  * Returns the number of days since a given date.

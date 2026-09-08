@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -12,17 +12,37 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities, getAuthority, getChildrenByParent } from '@/features/admin/services/authority.service';
 import { authorityTypeToTenantType, getTenantLabels, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import type { Authority, TenantType } from '@/types/admin-types';
-import { Loader2, Users, ChevronLeft, Building2, Globe, Plus, X, Shield, GraduationCap, Upload, AlertTriangle, CheckCircle, Trash2 } from 'lucide-react';
+import { Loader2, Users, ChevronLeft, Building2, Globe, Plus, X, Shield, GraduationCap, Upload, AlertTriangle, CheckCircle, Trash2, ArrowRight } from 'lucide-react';
 import { importHierarchyFromJSON, type HierarchyImportResult } from '@/features/admin/services/unit-import.service';
+import { getDeclaredCounts } from '@/features/admin/services/military-declared.service';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
 import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 
 interface UnitRow {
   id: string;
   name: string;
   memberCount: number;
   unitPath: string[];
+  parentUnitId: string | null;
+  /** Military units only (tenants/{orgId}/units/{id}.iconUrl) — municipal
+   *  children and educational units never set this. null = no real icon,
+   *  UnitIconBadge falls back to its hash-derived colored badge (07.09.2026). */
+  iconUrl: string | null;
+}
+
+// Display-only normalization (05.09.2026) — a handful of units created
+// before the bde_/bn_ import convention are named just the bare number
+// ("9307") instead of "גדוד 9307" (e.g. 9307_nhcj under חטיבה 810 — has a
+// real live user, so the DOCUMENT is deliberately left untouched; this only
+// changes what's rendered). Only applies to a direct-under-brigade unit
+// (unitPath.length === 1) whose name is purely digits.
+function displayUnitName(unit: Pick<UnitRow, 'name' | 'unitPath'>): string {
+  if (unit.unitPath.length === 1 && /^\d+$/.test(unit.name.trim())) {
+    return `גדוד ${unit.name.trim()}`;
+  }
+  return unit.name;
 }
 
 export default function UnitsListPage() {
@@ -42,6 +62,13 @@ export default function UnitsListPage() {
   // Summary stats
   const [totalUsers, setTotalUsers] = useState(0);
   const [activeUsersLast7d, setActiveUsersLast7d] = useState(0);
+  // Sync-gap check (§8 recommendation B, 06.09.2026 — the cheapest check
+  // that would have caught the invisible-battalion incident in minutes
+  // instead of requiring a deliberate end-to-end production test): real
+  // count in tenants/{orgId}/units vs. how many of those actually made it
+  // into unitDirectory (the ONLY thing any search surface reads). null =
+  // not applicable (municipal) or not loaded yet.
+  const [syncedUnitCount, setSyncedUnitCount] = useState<number | null>(null);
 
   // Add Unit form
   const [showAddUnit, setShowAddUnit] = useState(false);
@@ -63,6 +90,8 @@ export default function UnitsListPage() {
 
     if (derived === 'municipal') {
       // Municipal: children are stored as child authorities (neighborhoods / settlements)
+      // Unaffected by the military declared-vs-verified split below — real
+      // access codes ARE issued here, so core.tenantId genuinely means something.
       try {
         const children = await getChildrenByParent(authId);
         rows = children.map(child => ({
@@ -70,6 +99,8 @@ export default function UnitsListPage() {
           name: typeof child.name === 'string' ? child.name : child.id,
           memberCount: child.userCount ?? 0,
           unitPath: [],
+          parentUnitId: null,
+          iconUrl: null,
         }));
       } catch { /* ignore */ }
     } else {
@@ -82,6 +113,8 @@ export default function UnitsListPage() {
           name: data.name ?? d.id,
           memberCount: data.memberCount ?? 0,
           unitPath: data.unitPath ?? [],
+          parentUnitId: (data.parentUnitId as string | null) ?? null,
+          iconUrl: (data.iconUrl as string | null) ?? null,
         };
       });
     }
@@ -99,9 +132,58 @@ export default function UnitsListPage() {
             name: typeof a.name === 'string' ? a.name : authId,
             memberCount: usersSnap.size,
             unitPath: [],
+            parentUnitId: null,
+            iconUrl: null,
           });
         }
       } catch { /* ignore */ }
+    }
+
+    // Sync-gap check (§8 recommendation B) — real sub-unit count vs. how
+    // many actually reached unitDirectory (the public search index). Not
+    // municipal (neighborhoods aren't unitDirectory-synced units at all).
+    if (derived !== 'municipal') {
+      try {
+        const dirSnap = await getDocs(query(collection(db, 'unitDirectory'), where('orgId', '==', authId)));
+        const subUnitEntries = dirSnap.docs.filter((d) => d.data().level !== 'brigade');
+        setSyncedUnitCount(subUnitEntries.length);
+      } catch {
+        setSyncedUnitCount(null);
+      }
+    } else {
+      setSyncedUnitCount(null);
+    }
+
+    // Military: memberCount per row + the summary stats below are computed
+    // from military_declarations (self-declared, "מוצהרים" — David,
+    // 05.09.2026), not core.unitId/tenantId (verified — requires a real
+    // access code, which nothing issues today, so that query always reads
+    // zero here). See military-declared.service.ts's own doc comment.
+    if (derived === 'military') {
+      try {
+        const { brigadeTotal, byUnitId } = await getDeclaredCounts(authId);
+        rows = rows.map(r => ({ ...r, memberCount: byUnitId[r.id] ?? 0 }));
+        setUnits(rows);
+        setTotalUsers(brigadeTotal);
+        // No activity-tracking field exists on a declaration — but updatedAt
+        // on a NEW declaration IS its registration moment, so this is
+        // honestly "registered or updated this week" (David, 05.09.2026),
+        // not a real-usage proxy. Labeled that way in the render below.
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const declSnap = await getDocs(query(collection(db, 'military_declarations'), where('orgId', '==', authId)));
+        let recentlyUpdated = 0;
+        declSnap.forEach(d => {
+          const updatedAt = d.data()?.updatedAt?.toDate?.();
+          if (updatedAt && updatedAt >= sevenDaysAgo) recentlyUpdated++;
+        });
+        setActiveUsersLast7d(recentlyUpdated);
+      } catch {
+        setUnits(rows);
+        setTotalUsers(0);
+        setActiveUsersLast7d(0);
+      }
+      return;
     }
 
     setUnits(rows);
@@ -172,6 +254,32 @@ export default function UnitsListPage() {
     return () => unsub();
   }, [typeFilter]);
 
+  // Nesting (05.09.2026, David — a flat list of battalions+companies mixed
+  // together is unreadable past a handful of items): companies grouped
+  // under their real parent battalion via parentUnitId, which the doc
+  // already carries but the row list previously discarded. Only ever 2
+  // levels deep in this page's own dataset (battalion, then company under
+  // it) — brigade itself is a separate page/breadcrumb, so a flat
+  // top-level-then-children pass covers every real case, no recursion needed.
+  const orderedUnits = useMemo(() => {
+    const childrenByParent = new Map<string, UnitRow[]>();
+    const topLevel: UnitRow[] = [];
+    units.forEach((u) => {
+      if (u.parentUnitId) {
+        if (!childrenByParent.has(u.parentUnitId)) childrenByParent.set(u.parentUnitId, []);
+        childrenByParent.get(u.parentUnitId)!.push(u);
+      } else {
+        topLevel.push(u);
+      }
+    });
+    const result: Array<UnitRow & { depth: number }> = [];
+    topLevel.forEach((u) => {
+      result.push({ ...u, depth: 0 });
+      (childrenByParent.get(u.id) ?? []).forEach((c) => result.push({ ...c, depth: 1 }));
+    });
+    return result;
+  }, [units]);
+
   const labels = getTenantLabels(tenantType as any);
   const theme = VERTICAL_THEMES[tenantType as TenantType] ?? VERTICAL_THEMES.municipal;
   const isMunicipal = tenantType === 'municipal';
@@ -219,7 +327,7 @@ export default function UnitsListPage() {
         syncTenantUnitCount(selectedOrgId).catch(() => {});
       }
 
-      setUnits(prev => [...prev, { id: unitId, name: trimmed, memberCount: 0, unitPath: [] }]);
+      setUnits(prev => [...prev, { id: unitId, name: trimmed, memberCount: 0, unitPath: [], parentUnitId: null, iconUrl: null }]);
       setNewUnitName('');
       setShowAddUnit(false);
     } catch (err) {
@@ -322,9 +430,19 @@ export default function UnitsListPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${orgTheme.accentBg}`}>
-                        {orgVertical === 'military' ? <Shield size={18} className={orgTheme.accentText} /> : orgVertical === 'educational' ? <GraduationCap size={18} className={orgTheme.accentText} /> : <Building2 size={18} className={orgTheme.accentText} />}
-                      </div>
+                      {orgVertical === 'military' ? (
+                        // 07.09.2026 — brigade icons already exist (same
+                        // logoUrl field city logos use) and already show
+                        // elsewhere (unit rows, the drawer, the leaderboard);
+                        // this card grid was the one place still hardcoding
+                        // a generic Shield for every brigade. Same
+                        // UnitIconBadge component, not a new one.
+                        <UnitIconBadge unitId={org.id} iconUrl={org.logoUrl ?? null} name={name} size={40} />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${orgTheme.accentBg}`}>
+                          {orgVertical === 'educational' ? <GraduationCap size={18} className={orgTheme.accentText} /> : <Building2 size={18} className={orgTheme.accentText} />}
+                        </div>
+                      )}
                       <div>
                         <p className="font-black text-gray-900 group-hover:text-cyan-700 transition-colors">{name}</p>
                         <p className="text-xs text-slate-400">{count} יחידות</p>
@@ -366,6 +484,21 @@ export default function UnitsListPage() {
         </div>
         {selectedOrgId && (
           <div className="flex items-center gap-2">
+            {isSuperAdmin && (
+              // 07.09.2026 — the unit-detail page (units/[unitId]/page.tsx)
+              // has a "חזור" button in this exact spot; this page (viewing a
+              // specific org's unit list) was missing its own. Only shown for
+              // a superadmin — a regular authority manager (!isSuperAdmin)
+              // never had an org picker to go back TO in the first place
+              // (same gate as the org picker itself, line 400).
+              <button
+                onClick={() => setSelectedOrgId('')}
+                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm transition-all"
+              >
+                <ArrowRight size={14} />
+                חזור
+              </button>
+            )}
             <button
               onClick={() => setShowAddUnit(true)}
               className={`flex items-center gap-2 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg ${
@@ -403,15 +536,25 @@ export default function UnitsListPage() {
       {selectedOrgId && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">משתמשים רשומים</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+              {tenantType === 'military' ? 'רשומים (הצהרה עצמית)' : 'משתמשים רשומים'}
+            </p>
             <p className="text-3xl font-black text-slate-800">{totalUsers}</p>
           </div>
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">{isMunicipal ? 'שכונות / יישובים' : labels.subUnitsTitle}</p>
             <p className="text-3xl font-black text-slate-800">{units.length}</p>
+            {syncedUnitCount !== null && (
+              <p className={`text-[10px] mt-0.5 flex items-center gap-1 ${syncedUnitCount < units.length ? 'text-amber-600 font-bold' : 'text-slate-400'}`}>
+                {syncedUnitCount < units.length && <AlertTriangle size={11} />}
+                {syncedUnitCount}/{units.length} מוצגות בחיפוש
+              </p>
+            )}
           </div>
           <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${theme.headerBorder} border-r-4`}>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">פעילים ב-7 ימים</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+              {tenantType === 'military' ? 'נרשמו או עדכנו השבוע' : 'פעילים ב-7 ימים'}
+            </p>
             <p className="text-3xl font-black text-slate-800">{activeUsersLast7d}</p>
             {totalUsers > 0 && (
               <p className="text-[10px] text-slate-400 mt-0.5">{Math.round((activeUsersLast7d / totalUsers) * 100)}% מהרשומים</p>
@@ -643,25 +786,36 @@ export default function UnitsListPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {units.map(unit => (
+          {orderedUnits.map(unit => (
             <Link
               key={unit.id}
               href={`/admin/authority/units/${unit.id}?type=${tenantType}&org=${selectedOrgId}`}
-              className="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:bg-slate-50 transition-colors"
+              className={`flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:bg-slate-50 transition-colors ${
+                unit.depth > 0 ? 'mr-8 border-r-2 border-r-slate-200' : ''
+              }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  tenantType === 'military' ? 'bg-lime-50' : tenantType === 'educational' ? 'bg-orange-50' : 'bg-slate-100'
-                }`}>
-                  {tenantType === 'military'
-                    ? <Shield size={18} className="text-lime-700" />
-                    : tenantType === 'educational'
-                    ? <GraduationCap size={18} className="text-orange-600" />
-                    : <Users size={18} className="text-slate-600" />
-                  }
-                </div>
+                {tenantType === 'military' ? (
+                  // Real icon (or the hash-colored fallback badge) instead of
+                  // the same generic Shield for every row — reuses
+                  // UnitIconBadge as-is, the same component HierarchySearchStep
+                  // and UnitLeagueTable already use (07.09.2026, don't build a
+                  // second one). Upload/edit lives on the unit's own detail
+                  // page, not here — this row is wrapped in a Link, so an
+                  // interactive upload control can't live inside it.
+                  <UnitIconBadge unitId={unit.id} iconUrl={unit.iconUrl} name={displayUnitName(unit)} size={40} />
+                ) : (
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    tenantType === 'educational' ? 'bg-orange-50' : 'bg-slate-100'
+                  }`}>
+                    {tenantType === 'educational'
+                      ? <GraduationCap size={18} className="text-orange-600" />
+                      : <Users size={18} className="text-slate-600" />
+                    }
+                  </div>
+                )}
                 <div>
-                  <p className="font-bold text-slate-800">{unit.name}</p>
+                  <p className="font-bold text-slate-800">{displayUnitName(unit)}</p>
                   {unit.unitPath.length > 0 && (
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       {unit.unitPath.join(' › ')}
@@ -671,7 +825,7 @@ export default function UnitsListPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm font-bold text-cyan-600">
-                  {unit.memberCount} {labels.membersTitle}
+                  {unit.memberCount} {tenantType === 'military' ? 'מוצהרים' : labels.membersTitle}
                 </span>
                 <ChevronLeft size={16} className="text-slate-300" />
               </div>

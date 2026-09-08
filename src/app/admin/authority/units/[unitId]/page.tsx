@@ -8,18 +8,25 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL, getStorage } from 'firebase/storage';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAuthority } from '@/features/admin/services/authority.service';
 import { authorityTypeToTenantType, getTenantLabels, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import { syncTenantUnitCount } from '@/features/admin/services/unit-count-sync.service';
 import { createAccessCode, createBatchAccessCodes, getAccessCodesByTenant, type AccessCode as AccessCodeType } from '@/features/admin/services/access-code-admin.service';
+import { getDeclaredCounts, getDeclaredMemberUids } from '@/features/admin/services/military-declared.service';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import {
   Loader2, ArrowRight, Users, Dumbbell,
   Building2, ChevronLeft, Search,
   ChevronDown, MapPin, Clock, User,
   KeyRound, Copy, Check, Plus, X, Download, Package,
-  Shield, GraduationCap,
+  Shield, GraduationCap, Upload,
 } from 'lucide-react';
+
+// Same Storage instance pattern as src/app/admin/authorities/[id]/page.tsx's
+// city-logo upload (07.09.2026 — reused verbatim, not a second upload path).
+const storage = getStorage();
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -37,6 +44,11 @@ interface SubUnit {
   name: string;
   memberCount: number;
   unitPath: string[];
+  /** 07.09.2026 — was never fetched, so every sub-unit row rendered with a
+   *  hardcoded generic icon even though this same page's own header already
+   *  shows the current unit's real one (tenants/{orgId}/units/{id}.iconUrl,
+   *  same field the header reads). */
+  iconUrl: string | null;
 }
 
 // ── Page ─────────────────────────────────────────────────────────────
@@ -74,6 +86,11 @@ export default function UnitDrilldownPage() {
   const [showAddSubUnit, setShowAddSubUnit] = useState(false);
   const [newSubUnitName, setNewSubUnitName] = useState('');
   const [creatingSubUnit, setCreatingSubUnit] = useState(false);
+  // Unit icon (military only, tenants/{orgId}/units/{unitId}.iconUrl) —
+  // 07.09.2026, same field the icon-manifest import already writes.
+  const [iconUrl, setIconUrl] = useState<string | null>(null);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
     if (!unitId) return;
@@ -90,20 +107,25 @@ export default function UnitDrilldownPage() {
 
         const activeTenantId = urlOrgId || authority?.id;
 
+        // Local variable, not just the tenantType state — this same async
+        // function needs the resolved value below (member-loading branch)
+        // before React re-renders with the state update.
+        let resolvedTenantType = 'municipal';
         if (activeTenantId) {
           try {
             const orgDoc = await getAuthority(activeTenantId);
             if (orgDoc) {
-              setTenantType(authorityTypeToTenantType(orgDoc));
+              resolvedTenantType = authorityTypeToTenantType(orgDoc);
             } else if (authority) {
-              setTenantType(authorityTypeToTenantType(authority));
+              resolvedTenantType = authorityTypeToTenantType(authority);
             }
           } catch {
-            if (authority) setTenantType(authorityTypeToTenantType(authority));
+            if (authority) resolvedTenantType = authorityTypeToTenantType(authority);
           }
         } else if (authority) {
-          setTenantType(authorityTypeToTenantType(authority));
+          resolvedTenantType = authorityTypeToTenantType(authority);
         }
+        setTenantType(resolvedTenantType);
 
         let resolvedUnitName = decodeURIComponent(rawUnitId);
         let resolvedUnitPath: string[] = [];
@@ -115,11 +137,21 @@ export default function UnitDrilldownPage() {
             const unitData = unitSnap.data();
             resolvedUnitName = unitData.name ?? decodeURIComponent(rawUnitId);
             resolvedUnitPath = unitData.unitPath ?? [];
+            setIconUrl((unitData.iconUrl as string | null) ?? null);
           }
         }
 
         setUnitName(resolvedUnitName);
         setUnitPath(resolvedUnitPath);
+
+        // Military: sub-unit memberCount + the member roster below are
+        // driven by military_declarations (self-declared, "מוצהרים"), not
+        // core.unitId (verified — requires a real access code nothing issues
+        // today, same root cause as the units list page's #18 fix,
+        // 05.09.2026). Municipal/educational are unaffected — untouched.
+        const declaredCountsByUnit = resolvedTenantType === 'military' && activeTenantId
+          ? (await getDeclaredCounts(activeTenantId)).byUnitId
+          : {};
 
         if (activeTenantId) {
           const subSnap = await getDocs(query(
@@ -131,27 +163,32 @@ export default function UnitDrilldownPage() {
             return {
               id: d.id,
               name: data.name ?? d.id,
-              memberCount: data.memberCount ?? 0,
+              memberCount: resolvedTenantType === 'military' ? (declaredCountsByUnit[d.id] ?? 0) : (data.memberCount ?? 0),
               unitPath: data.unitPath ?? [],
+              iconUrl: (data.iconUrl as string | null) ?? null,
             };
           }));
         }
 
-        // Load members in this unit
-        const usersSnap = await getDocs(query(
-          collection(db, 'users'),
-          where('core.unitId', '==', unitId),
-        ));
+        // Load members in this unit — military_declarations/{uid}'s own doc
+        // id IS the uid (getDeclaredMemberUids), not a query over users by
+        // core.unitId. Workout history/XP below still reads real users/
+        // workouts docs per resolved uid — that part was never broken, only
+        // discovering WHICH uids belong here was.
+        const memberUids = resolvedTenantType === 'military'
+          ? await getDeclaredMemberUids(unitId)
+          : (await getDocs(query(collection(db, 'users'), where('core.unitId', '==', unitId)))).docs.map(d => d.id);
 
         const membersList: UnitMember[] = [];
-        for (const userDoc of usersSnap.docs) {
-          const userData = userDoc.data();
+        for (const uid of memberUids) {
+          const userSnap = await getDoc(doc(db, 'users', uid));
+          const userData = userSnap.data() ?? {};
           const core = (userData.core ?? {}) as Record<string, any>;
           const progression = (userData.progression ?? {}) as Record<string, any>;
 
           const wSnap = await getDocs(query(
             collection(db, 'workouts'),
-            where('userId', '==', userDoc.id),
+            where('userId', '==', uid),
             orderBy('completedAt', 'desc'),
             limit(5),
           ));
@@ -164,7 +201,7 @@ export default function UnitDrilldownPage() {
           }
 
           membersList.push({
-            uid: userDoc.id,
+            uid,
             name: core.name ?? 'ללא שם',
             unitPath: core.unitPath ?? [],
             lastWorkoutDate: lastDate,
@@ -193,6 +230,12 @@ export default function UnitDrilldownPage() {
 
   const labels = getTenantLabels(tenantType as any);
   const isSchoolContext = tenantType === 'educational';
+  // "מוצהרים", not labels.membersTitle ("חיילים") — this roster is
+  // self-declared (military_declarations), not verified (David, 05.09.2026,
+  // same fix as the units list page's #18). Access-code copy elsewhere on
+  // this page correctly keeps "חיילים" — a code produces a verified member,
+  // not a declarant, so that wording is accurate as-is.
+  const membersLabel = tenantType === 'military' ? 'מוצהרים' : labels.membersTitle;
 
   // tenantType is resolved via authorityTypeToTenantType(orgDoc) above, which
   // now checks tenantType/vertical before falling back to the type string —
@@ -329,7 +372,7 @@ export default function UnitDrilldownPage() {
         memberCount: 0,
         createdAt: serverTimestamp(),
       });
-      setSubUnits(prev => [...prev, { id: subId, name: trimmedName, memberCount: 0, unitPath: childPath }]);
+      setSubUnits(prev => [...prev, { id: subId, name: trimmedName, memberCount: 0, unitPath: childPath, iconUrl: null }]);
       setNewSubUnitName('');
       setShowAddSubUnit(false);
       if (tenantId) syncTenantUnitCount(tenantId).catch(() => {});
@@ -337,6 +380,76 @@ export default function UnitDrilldownPage() {
       console.error('[UnitDrilldown] Error creating sub-unit:', err);
     } finally {
       setCreatingSubUnit(false);
+    }
+  };
+
+  // Icon upload/replace — same Storage-upload mechanics as authorities/[id]
+  // page's handleLogoUpload (path template, uploadBytesResumable,
+  // getDownloadURL), one deliberate difference: this page has no form/save
+  // step to defer to (every other write here, e.g. handleCreateSubUnit
+  // above, persists immediately) — so the Firestore write happens right
+  // after the upload resolves, not stashed in local state pending a submit
+  // that doesn't exist on this page (07.09.2026).
+  const handleIconUpload = async (file: File) => {
+    if (!tenantId || !unitId) return;
+    try {
+      setUploadingIcon(true);
+      setUploadProgress(0);
+
+      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const path = `units/icons/${Date.now()}-${safeName}`;
+      const storageRef = ref(storage, path);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          setUploadProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
+        },
+        (error) => {
+          console.error('[UnitDrilldown] Error uploading icon:', error);
+          alert('שגיאה בהעלאת הסמל');
+          setUploadingIcon(false);
+        },
+        async () => {
+          try {
+            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+            await setDoc(doc(db, 'tenants', tenantId, 'units', unitId), {
+              iconUrl: downloadUrl,
+              updatedAt: serverTimestamp(),
+            }, { merge: true });
+            setIconUrl(downloadUrl);
+          } catch (err) {
+            console.error('[UnitDrilldown] Error saving icon:', err);
+            alert('שגיאה בשמירת הסמל');
+          } finally {
+            setUploadingIcon(false);
+            setUploadProgress(0);
+          }
+        },
+      );
+    } catch (error) {
+      console.error('[UnitDrilldown] Error uploading icon:', error);
+      alert('שגיאה בהעלאת הסמל');
+      setUploadingIcon(false);
+    }
+  };
+
+  // Revert to the automatic fallback badge, not an empty square — clearing
+  // iconUrl is enough, UnitIconBadge already falls back on null by design.
+  // Doesn't delete the old Storage object, matching handleLogoUpload's own
+  // replace/remove behavior exactly (neither cleans up orphaned objects).
+  const handleIconRemove = async () => {
+    if (!tenantId || !unitId) return;
+    try {
+      await setDoc(doc(db, 'tenants', tenantId, 'units', unitId), {
+        iconUrl: null,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setIconUrl(null);
+    } catch (err) {
+      console.error('[UnitDrilldown] Error removing icon:', err);
+      alert('שגיאה בהסרת הסמל');
     }
   };
 
@@ -378,14 +491,54 @@ export default function UnitDrilldownPage() {
       {/* ═══ Header ═══ */}
       <div className={`flex items-center justify-between bg-white rounded-2xl shadow-sm border-l-4 border border-gray-100 p-6 ${theme.headerBorder}`}>
         <div className="flex items-center gap-4">
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${theme.accentBg}`}>
-            {tenantType === 'military'
-              ? <Shield size={28} className={theme.accentText} />
-              : tenantType === 'educational'
-              ? <GraduationCap size={28} className={theme.accentText} />
-              : <Building2 size={28} className={theme.accentText} />
-            }
-          </div>
+          {tenantType === 'military' ? (
+            // Real icon (or its hash-colored fallback) + inline
+            // upload/replace/remove — the fix for 102 battalions with no
+            // icon, and every unit created through the add-unit mechanism
+            // since (07.09.2026). Same UnitIconBadge component the units
+            // list, HierarchySearchStep, and UnitLeagueTable all already use.
+            <div className="relative flex-shrink-0">
+              <UnitIconBadge unitId={unitId} iconUrl={iconUrl} name={unitName} size={56} />
+              {iconUrl && !uploadingIcon && (
+                <button
+                  type="button"
+                  onClick={handleIconRemove}
+                  className="absolute -top-1 -left-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                  title="הסר סמל"
+                >
+                  <X size={10} />
+                </button>
+              )}
+              <label
+                className="absolute -bottom-1 -left-1 p-1.5 bg-white border border-gray-200 rounded-full cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
+                title={iconUrl ? 'החלף סמל' : 'העלה סמל'}
+              >
+                <Upload size={11} className="text-gray-600" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleIconUpload(file);
+                  }}
+                  disabled={uploadingIcon}
+                />
+              </label>
+              {uploadingIcon && (
+                <div className="absolute inset-0 rounded-full bg-white/85 flex items-center justify-center">
+                  <Loader2 size={18} className="animate-spin text-gray-500" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${theme.accentBg}`}>
+              {tenantType === 'educational'
+                ? <GraduationCap size={28} className={theme.accentText} />
+                : <Building2 size={28} className={theme.accentText} />
+              }
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black text-gray-900">{unitName}</h1>
@@ -394,7 +547,7 @@ export default function UnitDrilldownPage() {
               </span>
             </div>
             <p className="text-sm text-gray-500">
-              {members.length} {labels.membersTitle} · {subUnits.length} {labels.subUnitsTitle}
+              {members.length} {membersLabel} · {subUnits.length} {labels.subUnitsTitle}
             </p>
           </div>
         </div>
@@ -617,16 +770,23 @@ export default function UnitDrilldownPage() {
               className="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:bg-slate-50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                  tenantType === 'military' ? 'bg-lime-50' : tenantType === 'educational' ? 'bg-orange-50' : 'bg-slate-100'
-                }`}>
-                  {tenantType === 'military'
-                    ? <Shield size={16} className="text-lime-700" />
-                    : tenantType === 'educational'
-                    ? <GraduationCap size={16} className="text-orange-600" />
-                    : <Building2 size={16} className="text-slate-600" />
-                  }
-                </div>
+                {tenantType === 'military' ? (
+                  // 07.09.2026 — this page's own header already shows the
+                  // CURRENT unit's real icon; its sub-units below rendered
+                  // with a hardcoded generic Shield instead of their own
+                  // iconUrl — same inconsistency already fixed on the
+                  // parent units list page, now fixed here too.
+                  <UnitIconBadge unitId={sub.id} iconUrl={sub.iconUrl} name={sub.name} size={36} />
+                ) : (
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                    tenantType === 'educational' ? 'bg-orange-50' : 'bg-slate-100'
+                  }`}>
+                    {tenantType === 'educational'
+                      ? <GraduationCap size={16} className="text-orange-600" />
+                      : <Building2 size={16} className="text-slate-600" />
+                    }
+                  </div>
+                )}
                 <p className="font-bold text-slate-800">{sub.name}</p>
               </div>
               <div className="flex items-center gap-3">
@@ -646,7 +806,7 @@ export default function UnitDrilldownPage() {
               <Users size={18} className="text-cyan-600" />
             </div>
             <h2 className="text-base font-black text-gray-900">
-              {labels.membersTitle} ({members.length})
+              {membersLabel} ({members.length})
             </h2>
           </div>
         </div>
@@ -665,7 +825,7 @@ export default function UnitDrilldownPage() {
         {filteredMembers.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
             <Users className="w-8 h-8 mx-auto mb-2 text-slate-200" />
-            <p className="text-sm font-bold">{searchTerm ? 'לא נמצאו תוצאות' : `אין ${labels.membersTitle}`}</p>
+            <p className="text-sm font-bold">{searchTerm ? 'לא נמצאו תוצאות' : `אין ${membersLabel}`}</p>
           </div>
         ) : (
           <>
@@ -716,7 +876,7 @@ export default function UnitDrilldownPage() {
                 className="mt-3 text-xs font-bold text-cyan-600 hover:text-cyan-800 flex items-center gap-1"
               >
                 <ChevronDown size={12} />
-                הצג את כל {members.length} ה{labels.membersTitle}
+                הצג את כל {members.length} ה{membersLabel}
               </button>
             )}
           </>

@@ -23,6 +23,7 @@ rules_version = '2';
 //   /category_branding/*             — admin-only (image)
 //   /locations/*                     — admin-only (image)
 //   /authorities/logos/*             — admin-only (image)
+//   /units/icons/*                   — admin-only (image)
 //   /parks/*                         — admin-only (image)
 //   /communities/*                   — admin-only (image)
 //   /contribution-photos/{uid}/*     — owner-only (image)         [user UGC]
@@ -136,6 +137,16 @@ service firebase.storage {
     }
 
     match /authorities/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && isImageSize();
+    }
+
+    // Military unit icons (07.09.2026) — units/[unitId]/page.tsx's
+    // handleIconUpload writes to units/icons/{timestamp}-{filename}. Missing
+    // entirely until now, so every write fell through to the catch-all
+    // deny-all below (storage/unauthorized) — same pattern as authorities/
+    // above, not a new one.
+    match /units/{allPaths=**} {
       allow read: if true;
       allow write: if isAdmin() && isImage() && isImageSize();
     }

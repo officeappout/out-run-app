@@ -186,6 +186,13 @@ const StreetSegmentFieldsSchema = z.object({
    *  spatial join — see StreetSegment.nearbyClimbSegmentIds's doc comment
    *  (route-generator.service.ts). */
   nearbyClimbSegmentIds: z.array(z.string().min(1)).optional(),
+  /** Raw OSM `name` tag, when present (Layer 1 enrichment, 05.09.2026) —
+   *  no consumer wired yet, see ScoredSegment.name in osm-segment-importer.ts. */
+  name: z.string().nullable().optional(),
+  /** Raw OSM `oneway` tag, when present (Layer 1 enrichment, 05.09.2026) —
+   *  STORAGE ONLY, no generator/adjacency logic reads this yet. See
+   *  ScoredSegment.oneway in osm-segment-importer.ts. */
+  oneway: z.string().nullable().optional(),
 });
 
 export const StreetSegmentCreateSchema = StreetSegmentFieldsSchema.passthrough();

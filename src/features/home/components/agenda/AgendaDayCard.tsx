@@ -22,6 +22,7 @@ import { WalkingIcon, RunIcon, getProgramIcon, resolveIconKey } from '@/features
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
+import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 import { hapticLight } from '@/lib/haptics';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED, AGENDA_HYBRID_DAY_DISPLAY_ENABLED } from '@/config/feature-flags';
@@ -229,9 +230,48 @@ interface AgendaDayCardProps {
    */
   actualWorkoutsMap?: Record<string, WorkoutHistoryEntry[]>;
   rowRef?: (el: HTMLDivElement | null) => void;
+  /**
+   * `runningOverride` and `suppressScheduleDaysFallback` are a PAIR — both
+   * say the same thing about a different code path: "in this context, the
+   * card shows only what it was given, and never goes looking for real
+   * profile data on its own." Kept as two separate params because each
+   * guards a genuinely different internal branch (the running-side store
+   * read vs. the strength scheduleDays/activePrograms fallback), not
+   * because they're unrelated. If a THIRD such param is ever needed, that's
+   * the signal to stop accumulating flags and unify these into one
+   * display-state object instead — written here so whoever adds the third
+   * one sees this before doing it, not after.
+   *
+   * Overrides the running side for this date, bypassing the internal
+   * `profile.running.activeProgram` (global store) read entirely. Strength
+   * already has this escape hatch via `scheduleMap` (a parent-supplied,
+   * date-keyed batch); running had none — this closes that gap. `undefined`
+   * (the default, every existing caller) preserves current behavior
+   * byte-for-byte — the override is only consulted when explicitly passed,
+   * even as `null` (meaning "show no running workout this date," distinct
+   * from "not provided, use the real store"). Added for
+   * ScheduleBuilderDrawer (schedule-drawer-screen-spec.md) to preview an
+   * unsaved `weaveWeek` proposal, which has no calendar dates or Firestore
+   * record yet — the global store can't answer for a week that was never
+   * saved.
+   */
+  runningOverride?: ResolvedRunningWorkout | null;
+  /**
+   * See `runningOverride`'s doc above — same pairing, strength side. When
+   * true, skips the "scheduleDays fallback" (real `profile?.lifestyle?.
+   * scheduleDays`/`profile?.progression?.activePrograms` read) that
+   * otherwise fires whenever `scheduleMap[date]` resolves empty. Without
+   * this, a rest day in an unsaved proposal (`scheduleMap[date] = []`)
+   * could silently render the user's REAL, unrelated strength habit for
+   * that weekday — actively misleading in a preview whose entire point is
+   * to show something potentially different from what's real today.
+   * Default `false` (or omitted) — every existing caller (`RollingAgenda`)
+   * keeps its current fallback behavior unchanged; this is opt-in.
+   */
+  suppressScheduleDaysFallback?: boolean;
 }
 
-interface ResolvedRunningWorkout {
+export interface ResolvedRunningWorkout {
   name: string;
   category?: string;
   status: string;
@@ -242,15 +282,6 @@ interface ResolvedRunningWorkout {
 const HEBREW_DAY_SHORT: Record<string, string> = {
   'א': 'א׳', 'ב': 'ב׳', 'ג': 'ג׳', 'ד': 'ד׳',
   'ה': 'ה׳', 'ו': 'ו׳', 'ש': 'ש׳',
-};
-
-const CATEGORY_LABELS_HE: Record<string, string> = {
-  easy_run: 'ריצה קלה', long_run: 'ריצה ארוכה',
-  short_intervals: 'אינטרוולים קצרים', long_intervals: 'אינטרוולים ארוכים',
-  fartlek_easy: 'פארטלק קל', fartlek_structured: 'פארטלק מובנה',
-  tempo: 'ריצת טמפו', hill_long: 'עליות ארוכות',
-  hill_short: 'עליות קצרות', hill_sprints: 'ספרינט עליות',
-  strides: 'סטריידים', recovery: 'התאוששות',
 };
 
 // ── Strength card constants ─────────────────────────────────────────────────
@@ -340,7 +371,7 @@ function resolveRunningEntry(
   if (!entry) return null;
 
   return {
-    name: (entry as any).workoutName || CATEGORY_LABELS_HE[(entry as any).category] || 'אימון ריצה',
+    name: (entry as any).workoutName || RUNNING_WORKOUT_CATEGORY_LABELS_HE[(entry as any).category as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] || 'אימון ריצה',
     category: (entry as any).category,
     status: (entry as any).status ?? 'pending',
   };
@@ -848,6 +879,8 @@ export default function AgendaDayCard({
   scheduleMap,
   actualWorkoutsMap,
   rowRef,
+  runningOverride,
+  suppressScheduleDaysFallback,
 }: AgendaDayCardProps) {
   const { profile } = useUserStore();
   /**
@@ -865,8 +898,11 @@ export default function AgendaDayCard({
   const dayShort = HEBREW_DAY_SHORT[dayLetter] ?? dayLetter;
   const dayNum = d.getDate();
 
-  // Resolve running workout for this date
+  // Resolve running workout for this date — `runningOverride`, when passed
+  // (even `null`), bypasses the global-store read entirely. See its own doc
+  // on AgendaDayCardProps.
   const runningWorkout = useMemo(() => {
+    if (runningOverride !== undefined) return runningOverride;
     const running = profile?.running;
     if (!running?.activeProgram?.schedule) return null;
     return resolveRunningEntry(
@@ -876,7 +912,7 @@ export default function AgendaDayCard({
       running.activeProgram.startDate,
       running.activeProgram.currentWeek ?? 1,
     );
-  }, [date, profile?.running]);
+  }, [date, profile?.running, runningOverride]);
 
   const hasRunning = !!runningWorkout;
   const runCompleted = runningWorkout?.status === 'completed';
@@ -919,8 +955,9 @@ export default function AgendaDayCard({
         // scheduleDays fallback — synthesize a recurring strength entry without
         // writing to Firestore.  Makes strength users' scheduled days visible
         // without requiring a recurringTemplate (which is only written for
-        // running users).
-        if (result.length === 0) {
+        // running users). Suppressed by `suppressScheduleDaysFallback` — see
+        // its doc on AgendaDayCardProps (paired with `runningOverride`).
+        if (result.length === 0 && !suppressScheduleDaysFallback) {
           const letter = getHebrewDayLetter(new Date(date + 'T00:00:00'));
           const scheduleDays = profile?.lifestyle?.scheduleDays as string[] | undefined;
           if (scheduleDays?.includes(letter)) {
@@ -992,7 +1029,7 @@ export default function AgendaDayCard({
     }
     load();
     return () => { cancelled = true; };
-  }, [userId, date, recurringTemplate, refreshKey, runningReplacesDay, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, profile?.running?.activeProgram?.programId, scheduleMap, actualWorkoutsMap, baseMode]);
+  }, [userId, date, recurringTemplate, refreshKey, runningReplacesDay, profile?.lifestyle?.scheduleDays, profile?.progression?.activePrograms, profile?.running?.activeProgram?.programId, scheduleMap, actualWorkoutsMap, baseMode, suppressScheduleDaysFallback]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

@@ -21,6 +21,8 @@ export interface UnitDirectoryEntry {
   orgId: string;
   unitId: string | null;
   parentId: string | null;
+  /** Optional — additive display field, doesn't affect ranking/selection logic. */
+  iconUrl?: string | null;
 }
 
 export interface UnitAggregateDoc {
@@ -38,6 +40,11 @@ export interface UnitLeagueEntry {
   avgSteps: number;
   activeParticipantCount: number;
   isMyUnit: boolean;
+  /** Hash seed for UnitIconBadge's fallback color when iconUrl is absent — the
+   *  unit's own raw unitId (battalion/company) or orgId (brigade, unitId is
+   *  null there), never the directoryId (a composite key, not a stable seed). */
+  unitId: string;
+  iconUrl: string | null;
 }
 
 export interface UnitLeagueResult {
@@ -143,6 +150,8 @@ export function selectUnitLeagueEntries(
         avgSteps: agg.avgSteps,
         activeParticipantCount: agg.activeParticipantCount,
         isMyUnit: unit.directoryId === myScopedUnitId,
+        unitId: unit.unitId ?? unit.orgId,
+        iconUrl: unit.iconUrl ?? null,
       });
     } else if (unit.directoryId === myScopedUnitId) {
       // Below-floor units are otherwise omitted entirely (§ research doc —

@@ -2,9 +2,14 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { ChevronRight, MapPin, Search, Check } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { ChevronRight, Search, Check, Plus } from 'lucide-react';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
+import { db, auth } from '@/lib/firebase';
 import type { HierarchySearchQuestionConfig } from '@/types/persona-question.types';
+import { effectiveServiceType, effectiveUserStatus } from './service-type-rank';
+import { normalizeOrgName } from '@/lib/org-name';
+import { submitPendingUnit } from '@/features/user/onboarding/services/pending-unit.service';
+import type { UnitLevel as PendingUnitLevel } from '@/lib/unit-id';
 
 interface DirectoryEntry {
   directoryId: string;
@@ -13,12 +18,23 @@ interface DirectoryEntry {
   orgId: string;
   unitId: string | null;
   statusCategory: string | null;
+  serviceType: string | null;
+  iconUrl: string | null;
 }
+
+// serviceType/statusCategory ranking logic lives in service-type-rank.ts
+// (kept out of this component file so it can be unit-tested without pulling
+// in JSX) — see that file for the fixed no-op-match bug this replaces.
 
 export interface HierarchySearchValue {
   orgId?: string;
   unitId?: string;
   unitPathIds?: string[];
+  /** See MilitaryPersonaAnswers.pendingUnitId's own comment (persona.types.ts)
+   *  — set by submitAsNew() below on a successful "unit isn't in the list"
+   *  submission, so the drawer records SOMETHING immediately instead of
+   *  silently discarding the submission's outcome. */
+  pendingUnitId?: string;
 }
 
 interface HierarchySearchStepProps {
@@ -33,6 +49,17 @@ interface HierarchySearchStepProps {
    *  level has nothing more to offer. Advances/finishes the outer drawer;
    *  never clears `value`. */
   onDone: () => void;
+  /** Fires true on focusing EITHER text input here (search box, add-unit
+   *  name box), false on blur — lets the outer drawer force itself taller
+   *  while typing. Needed because this step's own content (one input, a
+   *  short list, maybe a button) is naturally too short to push the sheet
+   *  anywhere near its max-height cap on its own — unlike content-heavy
+   *  steps (a map, an equipment grid) where that happens automatically.
+   *  See PersonaQuestionsDrawer's own comment for why this has to be a
+   *  signal to the OUTER sheet, not something this step can do internally
+   *  (the per-step wrapper between them is absolutely positioned and
+   *  can't be grown by a child's own content). */
+  onNeedsExpandedHeight?: (needed: boolean) => void;
 }
 
 async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
@@ -50,6 +77,8 @@ async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
       orgId: data.orgId as string,
       unitId: (data.unitId as string | null) ?? null,
       statusCategory: (data.statusCategory as string | null) ?? null,
+      serviceType: (data.serviceType as string | null) ?? null,
+      iconUrl: (data.iconUrl as string | null) ?? null,
     };
   });
 }
@@ -80,7 +109,7 @@ async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
  * An empty level (no sub-units — most brigades today) shows that plainly
  * and points at the same finish button, instead of a dead-end "no results."
  */
-export default function HierarchySearchStep({ config, softFilterValue, value, onChange, onDone }: HierarchySearchStepProps) {
+export default function HierarchySearchStep({ config, softFilterValue, value, onChange, onDone, onNeedsExpandedHeight }: HierarchySearchStepProps) {
   // breadcrumb[0] = top level (brigades); each entry is the directoryId
   // drilled into to reach the NEXT level's entries.
   const [breadcrumb, setBreadcrumb] = useState<DirectoryEntry[]>([]);
@@ -96,12 +125,15 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
     setSearchQuery(''); // fresh level, fresh search box
     fetchLevel(currentParentId).then((result) => {
       if (cancelled) return;
-      // Soft filter: matching statusCategory entries first — never excludes
-      // a non-matching one (see persona-question.types.ts's softFilterFromKey doc).
+      // Soft filter: matching-serviceType entries first — never excludes a
+      // non-matching one (see persona-question.types.ts's softFilterFromKey
+      // doc). serviceType is per-unit and English; statusCategory is the
+      // older brigade-only Hebrew fallback (effectiveServiceType above).
       const sorted = softFilterValue
         ? [...result].sort((a, b) => {
-            const aMatch = a.statusCategory === softFilterValue ? 0 : 1;
-            const bMatch = b.statusCategory === softFilterValue ? 0 : 1;
+            const wanted = effectiveUserStatus(softFilterValue);
+            const aMatch = effectiveServiceType(a) === wanted ? 0 : 1;
+            const bMatch = effectiveServiceType(b) === wanted ? 0 : 1;
             return aMatch - bMatch;
           })
         : result;
@@ -141,7 +173,105 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
     setBreadcrumb((b) => b.slice(0, -1));
   }, []);
 
-  const hasSelection = !!value.orgId;
+  // A pending submission counts as a selection too — otherwise a brand-new
+  // TOP-LEVEL unit (nothing real selected first, so value.orgId is still
+  // unset) leaves hasSelection false forever and the finish button below
+  // never renders at all (the exact dead-end submitAsNew's own comment
+  // above describes).
+  const hasSelection = !!value.orgId || !!value.pendingUnitId;
+
+  // ── "היחידה שלי לא ברשימה — הוסף" (04.09.2026, משימה 2) ──────────────
+  // Saved under the parent already selected/reached, never floating — the
+  // parent chain is exactly `breadcrumb` at whatever depth this fires from.
+  const [addMode, setAddMode] = useState<'closed' | 'form' | 'confirmMatch' | 'submitted'>('closed');
+  const [addName, setAddName] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [matchedSibling, setMatchedSibling] = useState<DirectoryEntry | null>(null);
+
+  const pendingLevel: PendingUnitLevel = breadcrumb.length === 0 ? 'brigade' : breadcrumb.length === 1 ? 'battalion' : 'company';
+  const pendingOrgId = breadcrumb.length > 0 ? breadcrumb[0].orgId : null;
+  const pendingParentUnitId = breadcrumb.length === 2 ? breadcrumb[1].unitId : null;
+  const pendingParentUnitPath = breadcrumb.length === 2 && breadcrumb[1].unitId ? [breadcrumb[1].name] : [];
+
+  const openAddForm = useCallback(() => {
+    setAddName('');
+    setAddError(null);
+    setMatchedSibling(null);
+    setAddMode('form');
+  }, []);
+
+  const attachToSibling = useCallback((entry: DirectoryEntry) => {
+    setAddMode('closed');
+    selectEntry(entry);
+  }, [selectEntry]);
+
+  // A save that fails must SAY it failed — a soldier who sees nothing
+  // happen assumes they're registered when they're not (David, production
+  // test 06.09.2026 — the CTA silently did nothing on a real device, real
+  // login, against the real deployed rule; the underlying permission-denied
+  // bug is fixed separately, but a silent failure is its own bug regardless
+  // of cause, so this catch stays even though today's specific cause won't
+  // recur).
+  //
+  // 07.09.2026 — deeper bug found in the SAME flow: this never called
+  // onChange() on success, so "the UI says you're associated" was fiction —
+  // the drawer's actual answer stayed untouched. For a fresh top-level unit
+  // (no real parent selected first) that also meant hasSelection stayed
+  // false, so the finish button never appeared at all — a true dead end,
+  // not just a display gap. Recording pendingUnitId here fixes both: the
+  // step can always finish once something (real or pending) is chosen, and
+  // useResolvedPersonaSummary can show "<name> (ממתין לאישור)" instead of
+  // nothing.
+  const submitAsNew = useCallback(async () => {
+    const uid = auth.currentUser?.uid;
+    const name = addName.trim();
+    if (!uid || !name) return;
+    setAddBusy(true);
+    setAddError(null);
+    try {
+      const created = await submitPendingUnit(uid, {
+        level: pendingLevel,
+        orgId: pendingOrgId,
+        parentUnitId: pendingParentUnitId,
+        parentUnitPath: pendingParentUnitPath,
+        name,
+      });
+      // A brigade-level submission (breadcrumb empty) must NOT spread the
+      // existing `value` — the user can reach "add new" at this level after
+      // already tapping a real, childless brigade via selectEntry() (its
+      // finish button appears, but they realize it's the wrong one and hit
+      // "not in list" instead of finishing). That leaves value.orgId set to
+      // the ABANDONED brigade; spreading it here would silently declare the
+      // user affiliated with it alongside the new pending submission (code
+      // review, 07.09.2026). Battalion/company submissions correctly keep
+      // the real parent chain — only the top-level case has nothing real to
+      // preserve.
+      onChange(pendingLevel === 'brigade' ? { pendingUnitId: created.id } : { ...value, pendingUnitId: created.id });
+      setAddMode('submitted');
+    } catch (err) {
+      console.error('[HierarchySearchStep] submitPendingUnit failed:', err);
+      setAddError('השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.');
+    } finally {
+      setAddBusy(false);
+    }
+  }, [addName, pendingLevel, pendingOrgId, pendingParentUnitId, pendingParentUnitPath, onChange, value]);
+
+  const handleAddSubmit = useCallback(() => {
+    const name = addName.trim();
+    if (!name) return;
+    setAddError(null);
+    // Dedup-before-submit (§4): compare against siblings ALREADY fetched for
+    // this level — no new query. A real match is attached to directly; a
+    // pending duplicate is never created for something that already exists.
+    const match = entries.find((e) => normalizeOrgName(e.name) === normalizeOrgName(name));
+    if (match) {
+      setMatchedSibling(match);
+      setAddMode('confirmMatch');
+    } else {
+      submitAsNew();
+    }
+  }, [addName, entries, submitAsNew]);
 
   return (
     <div className="px-5 py-4 flex flex-col h-full" dir="rtl">
@@ -165,6 +295,8 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => onNeedsExpandedHeight?.(true)}
+            onBlur={() => onNeedsExpandedHeight?.(false)}
             placeholder="חיפוש לפי שם או מספר..."
             className="w-full pr-9 pl-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none"
             dir="rtl"
@@ -197,8 +329,8 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
                   selected ? 'border-[#00E5FF] bg-cyan-50' : 'border-slate-200 active:scale-[0.98]'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <MapPin size={16} className="text-slate-400 flex-shrink-0" />
+                <div className="flex items-center gap-3">
+                  <UnitIconBadge unitId={entry.unitId ?? entry.orgId} iconUrl={entry.iconUrl} name={entry.name} size={32} />
                   <span className="font-semibold text-slate-900">{entry.name}</span>
                 </div>
                 {selected ? (
@@ -209,6 +341,77 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
               </button>
             );
           })}
+        </div>
+      )}
+
+      {!loading && addMode === 'closed' && (
+        <button
+          type="button"
+          onClick={openAddForm}
+          className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-slate-500 flex-shrink-0"
+        >
+          <Plus size={16} />
+          <span>היחידה שלי לא ברשימה — הוסף</span>
+        </button>
+      )}
+
+      {addMode === 'form' && (
+        <div className="pt-2 pb-1 flex-shrink-0 flex flex-col gap-2">
+          <input
+            type="text"
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            onFocus={() => onNeedsExpandedHeight?.(true)}
+            onBlur={() => onNeedsExpandedHeight?.(false)}
+            placeholder="שם היחידה"
+            autoFocus
+            className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none"
+            dir="rtl"
+          />
+          {addError && <p className="text-xs text-red-600 text-center">{addError}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleAddSubmit}
+              disabled={!addName.trim() || addBusy}
+              className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm disabled:opacity-40"
+            >
+              {addBusy ? 'שולח...' : 'שליחה'}
+            </button>
+            <button type="button" onClick={() => setAddMode('closed')} className="px-4 py-2.5 text-sm text-slate-500">
+              ביטול
+            </button>
+          </div>
+        </div>
+      )}
+
+      {addMode === 'confirmMatch' && matchedSibling && (
+        <div className="pt-2 pb-1 flex-shrink-0 flex flex-col gap-2 text-center">
+          <p className="text-sm text-slate-700">מצאנו את <span className="font-bold">{matchedSibling.name}</span> — זו שלך?</p>
+          {addError && <p className="text-xs text-red-600">{addError}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => attachToSibling(matchedSibling)}
+              className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm"
+            >
+              כן, זו היחידה שלי
+            </button>
+            <button
+              type="button"
+              onClick={submitAsNew}
+              disabled={addBusy}
+              className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 disabled:opacity-40"
+            >
+              {addBusy ? 'שולח...' : 'לא, זו לא'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {addMode === 'submitted' && (
+        <div className="pt-2 pb-1 flex-shrink-0 text-center">
+          <p className="text-sm text-slate-500">ההצעה שלך נשלחה וממתינה לאישור. אתה כבר משויך אליה.</p>
         </div>
       )}
 

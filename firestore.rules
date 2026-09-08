@@ -62,15 +62,27 @@ service cloud.firestore {
         get(/databases/$(database)/documents/community_groups/$(groupId)).data.get('createdBy', '') == request.auth.uid;
     }
 
-    // Phase 6a — reservist league. Deliberately compares the PATH SEGMENT
+    // Phase 6a — reservist LEAGUE roster (the leaderboard/competition group,
+    // NOT the "צו כושר" fitness-meetup groups added 07.09.2026 — those are
+    // a different feature; their sensitive fields are protected by the
+    // community_groups_{persona} split below, and their own doc + roster
+    // are intentionally as public as any other community group).
+    //
+    // Renamed from isMilitaryGroup — that name claimed to detect "is this a
+    // military-type group" but only ever checked one hardcoded doc ID, which
+    // is exactly the gap that let this feature's initial design almost ship
+    // a leak (any OTHER doc with groupType:'military' as a mere field was
+    // fully world-readable). Deliberately compares the PATH SEGMENT
     // (groupId), never resource.data — a resource.data-based check was
     // proven (emulator test, military-persona research) to NOT fail closed
     // on an unfiltered list query; a path-based check does, and this is the
-    // ONLY military-type group today so a fixed-id comparison is exact.
-    // Phase 6b (per-unit groups): switch to a denormalized groupType field
-    // on the members doc itself, not a get() on the parent — see the
-    // military-persona-unified-architecture.md research doc.
-    function isMilitaryGroup(groupId) {
+    // ONLY reserve-league group today so a fixed-id comparison is exact.
+    // Phase 6b (per-unit league groups, if built): switch to a denormalized
+    // field on the members doc itself, not a get() on the parent — see the
+    // military-persona-unified-architecture.md research doc. Do NOT extend
+    // this function to cover community_groups_{persona}-gated groups; ask
+    // before assuming their rosters need the same treatment.
+    function isReserveLeagueGroup(groupId) {
       return groupId == 'military_reserve_general';
     }
     function isGroupMember(groupId) {
@@ -1242,13 +1254,22 @@ service cloud.firestore {
     // COMMUNITY & ENGAGEMENT — Pillar 1/3
     // ============================================================
     match /community_groups/{docId} {
-      // Members-only (or admin) for the reservist league — real names mapped
-      // to a military-adjacent affiliation is exactly the exposure phase 3a's
-      // military_declarations lockdown was built to prevent (see
-      // docs/research/military-persona-unified-architecture.md §11). Every
-      // other group type is unaffected — isMilitaryGroup(docId) is false for
-      // them, so this reduces to the original allow-all.
-      allow read: if isAuthenticated() && (!isMilitaryGroup(docId) || isGroupMember(docId) || isAdmin());
+      // Unconditional read — same as every other group type. The reserve-
+      // league group's own doc carries no real names (see isReserveLeagueGroup's
+      // comment above: "their own doc... [is] intentionally as public as any
+      // other community group"); only its members/{uid} roster (below) needs
+      // the members-only gate. A gate here was tried 04.09.2026 and reverted
+      // 07.09.2026 — a docId-dependent condition on the TOP-LEVEL collection's
+      // own read rule breaks every `list` query with no docId filter (e.g.
+      // NearbyGroupsRow's isPublic+isActive query), because docId varies
+      // across every potential result document and Firestore can't bound it
+      // from the query's own where-clauses. Emulator-confirmed: "Null value
+      // error ... for 'list'" at this exact line, for every non-admin caller,
+      // regardless of which group they were actually trying to read. This is
+      // NOT the same as the members/{uid} gate directly below, where docId is
+      // fixed to one already-known group for the whole subcollection query —
+      // see tests/firestore-rules.test.ts R7 vs R8.
+      allow read: if isAuthenticated();
       // Admins have full write access (authority-manager dashboard)
       allow write: if isAdmin();
 
@@ -1293,10 +1314,17 @@ service cloud.firestore {
       // update:  field-level guards — role changes are restricted by caller rank.
       // delete:  self-remove always allowed; admin removes members only; owner removes anyone.
       match /members/{uid} {
-        // Same members-only-or-admin gate as the parent group doc above —
-        // this is the actual roster (real names), the primary thing being
-        // protected. See the comment on community_groups/{docId}'s read rule.
-        allow read: if isAuthenticated() && (!isMilitaryGroup(docId) || isGroupMember(docId) || isAdmin());
+        // Members-only (or admin) for the reservist league — real names
+        // mapped to a military-adjacent affiliation is exactly the exposure
+        // phase 3a's military_declarations lockdown was built to prevent
+        // (see docs/research/military-persona-unified-architecture.md §11).
+        // This is the actual roster (real names), the primary thing being
+        // protected — the parent group doc (above) no longer carries this
+        // gate; see its comment for why. Safe for `list` here specifically
+        // because docId is fixed to one already-known group for the whole
+        // subcollection query, never varying across potential results the
+        // way it does on the top-level community_groups collection itself.
+        allow read: if isAuthenticated() && (!isReserveLeagueGroup(docId) || isGroupMember(docId) || isAdmin());
 
         allow update: if isAuthenticated() && (
           // OUT app admins bypass all group-level restrictions
@@ -1635,6 +1663,17 @@ service cloud.firestore {
       match /clicks/{clickId} {
         allow read, write: if isRootAdmin();
       }
+
+      // Permanent daily rollup (device/hour/day-of-week/country/city
+      // counters) — powers the read-only analytics screen at
+      // /admin/links/[id]. Written EXCLUSIVELY by the Admin SDK, batched
+      // alongside the per-click record above — but READ is open to any
+      // admin (not just root), matching the parent doc's own read policy,
+      // since this is exactly what that screen displays.
+      match /daily_stats/{dateKey} {
+        allow read: if isRootAdmin() || isAdmin();
+        allow write: if isRootAdmin();
+      }
     }
 
     // ============================================================
@@ -1828,13 +1867,61 @@ service cloud.firestore {
     }
 
     function isValidMilitaryDeclaration(data) {
-      return data.keys().hasOnly(['status', 'orgId', 'unitId', 'unitPathIds', 'updatedAt'])
+      return data.keys().hasOnly(['status', 'orgId', 'unitId', 'unitPathIds', 'pendingUnitId', 'updatedAt'])
         && (!('status' in data) || data.status in ['regular', 'career', 'reserve'])
         && (!('orgId' in data) || (data.orgId is string && data.orgId.size() <= 100))
         && (!('unitId' in data) || (data.unitId is string && data.unitId.size() <= 100))
         && (!('unitPathIds' in data)
             || (data.unitPathIds is list && data.unitPathIds.size() <= 10))
+        // 07.09.2026 — points at the user's own pending_units/{pendingUnitId}
+        // doc while their "unit isn't in the list" submission is pending or
+        // just-approved (see MilitaryPersonaAnswers.pendingUnitId's own
+        // comment, persona.types.ts). Same shape guard as orgId/unitId.
+        && (!('pendingUnitId' in data) || (data.pendingUnitId is string && data.pendingUnitId.size() <= 100))
         && data.updatedAt is timestamp;
+    }
+
+    // ============================================================
+    // PERSONA-GATED GROUP AUDIENCE — "צו כושר" fitness-meetup groups
+    // (military-persona-unified-architecture.md, §"צו כושר", built
+    // 07.09.2026). One top-level collection PER persona — never a field on
+    // community_groups/{groupId}, never a wildcard path segment. Both were
+    // tried and proven broken against the real emulator while designing
+    // this feature: a resource.data-based condition doesn't fail closed on
+    // an unfiltered list query (same class of bug as feed_posts, above),
+    // and a nested community_groups/{groupId}/audience/{personaKey}
+    // subcollection + collectionGroup query errors for EVERY caller (not
+    // just a mismatched persona) because a wildcard segment that varies
+    // across the listed result set cannot be evaluated for `list` at all —
+    // it is not a security gap, the query itself does not function.
+    //
+    // A whole collection gated by nothing but a get() on the REQUESTER's
+    // own military_declarations doc has neither problem: the condition is
+    // constant for the entire request (request.auth.uid doesn't vary
+    // across a query's results), so it costs exactly one cached document
+    // read regardless of how many groups are in the result set, and
+    // Firestore never needs to inspect a listed document's own content to
+    // decide whether it belongs in the response.
+    //
+    // Write is admin-only (client SDK, authority-manager panel — this app
+    // has no Admin-SDK-backed API route for community groups). The ONLY
+    // writer in the codebase is community.service.ts's createGroup /
+    // updateGroup / deleteGroup, which write this collection and the
+    // public community_groups/{groupId} doc together in one atomic batch —
+    // see that file's block comment for why a batch, not a transaction or
+    // a Cloud Function relay. Enforced by scripts/safety-check.sh.
+    //
+    // Adding a new persona means adding a new match block here — this is
+    // deliberate, not an oversight: opening a group's sensitive details to
+    // a new audience must require a rules deploy, i.e. explicit sign-off,
+    // every time. See community.types.ts's PERSONA_KEYS comment.
+    // ============================================================
+    match /community_groups_reserve/{groupId} {
+      allow read: if isAdmin() || (
+        isAuthenticated() &&
+        get(/databases/$(database)/documents/military_declarations/$(request.auth.uid)).data.get('status', null) == 'reserve'
+      );
+      allow write: if isAdmin();
     }
 
     // ============================================================
@@ -1858,6 +1945,36 @@ service cloud.firestore {
     // ============================================================
     // USER CONTRIBUTIONS — Community Intelligence reports & edits
     // ============================================================
+    // "היחידה שלי לא ברשימה" — a user-submitted unit awaiting admin review.
+    // Exact mirror of user_contributions' owner+admin shape, deliberately —
+    // unitDirectory itself is NEVER touched by this (no status field, no
+    // flag): a resource.data-based rule on unitDirectory would fail exactly
+    // like the feed_posts finding (Phase 6a) — an unfiltered list query
+    // doesn't fail safely per-document. Keeping pending entries in their own
+    // collection means the public, unconditional unitDirectory read stays
+    // exactly as safe as it is today; a pending unit is real to nobody but
+    // its submitter (and admins) until approved.
+    match /pending_units/{docId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.submittedBy == request.auth.uid;
+
+      // A read on a document that doesn't exist yet leaks nothing (there is
+      // no data) — allowing it unconditionally for any authenticated user
+      // is safe, and is REQUIRED: submitPendingUnit()'s own idempotency
+      // check (getDoc before create, so a resubmission doesn't reset an
+      // already-approved/rejected doc back to pending) calls getDoc on a
+      // not-yet-existing doc on every first-time submission — the normal
+      // path. Found 05.09.2026: request.auth.uid == resource.data.submittedBy
+      // alone errors out (resource is null pre-existence), which Firestore
+      // treats as a hard permission-denied — the "add my unit" CTA's most
+      // common real-world case failed silently in production because of it.
+      allow read: if isAuthenticated()
+        && (!exists(/databases/$(database)/documents/pending_units/$(docId))
+            || request.auth.uid == resource.data.submittedBy);
+
+      allow read, update, delete: if isRootAdmin() || isAdmin();
+    }
+
     match /user_contributions/{docId} {
       // Create: only for own contributions
       allow create: if isAuthenticated()

@@ -144,6 +144,35 @@ const CITY_NAME_MAP: Record<string, string[]> = {
   'הרצליה': ['הרצליה', 'herzliya', 'herzliyya'],
   'כפר סבא': ['כפר סבא', 'כפר-סבא', 'kfar saba', 'kfar-saba'],
   'בית שמש': ['בית שמש', 'בית-שמש', 'beit shemesh', 'beit-shemesh'],
+
+  // קרית/קריית sweep (06.09.2026) — same bug class as the entries above, for
+  // a different variant: "קרית X" (short, no extra י) vs "קריית X" (long).
+  // normalizeCityName strips spaces/hyphens but has no reason to also
+  // collapse this — it's a real, separate character, not whitespace/maqaf.
+  // Root-caused via the Kiryat Ono orchestrator failure (city_registrations
+  // label "קריית אונו" vs the real, already-engaged authority "קרית אונו")
+  // then swept across all 83 type:'city' authorities for the same gap.
+  // Every key below is verified to be the EXACT stored authorities.name
+  // (checked by Unicode code point, not eyeballed) — the map's own lookup
+  // requires an exact normalized match on the key, so a wrong key silently
+  // resolves nothing. Only added where a real authority already exists to
+  // resolve to (siottOZAY5CkpvauSJwp for Ono, four more below) — never
+  // invented for a city with no authority record.
+  //
+  // Checked and NOT added: hyphenated multi-word city names (יהוד-מונוסון,
+  // מעלות-תרשיחא, אום אל-פחם, באקה אל-גרביה, מודיעין-מכבים-רעות,
+  // תל אביב-יפו) — every hyphen in the live data is a plain ASCII '-'
+  // (verified by code point, not a real maqaf/en-dash), and
+  // normalizeCityName's own `.replace(/-/g, '')` already collapses
+  // hyphen-vs-space input variance for all of them — no gap exists there.
+  'קרית אונו': ['קרית אונו', 'קריית אונו', 'kiryat ono', 'kiryat-ono'],
+  'קרית אתא': ['קרית אתא', 'קריית אתא', 'kiryat ata', 'kiryat-ata'],
+  'קרית ים': ['קרית ים', 'קריית ים', 'kiryat yam', 'kiryat-yam'],
+  'קרית גת': ['קרית גת', 'קריית גת', 'kiryat gat', 'kiryat-gat'],
+  'קריית שמונה': ['קריית שמונה', 'קרית שמונה', 'kiryat shmona', 'kiryat-shmona'],
+  'קריית ביאליק': ['קריית ביאליק', 'קרית ביאליק', 'kiryat bialik', 'kiryat-bialik'],
+  'קריית מוצקין': ['קריית מוצקין', 'קרית מוצקין', 'kiryat motzkin', 'kiryat-motzkin'],
+  'קריית מלאכי': ['קריית מלאכי', 'קרית מלאכי', 'kiryat malachi', 'kiryat-malachi'],
 };
 
 export function normalizeCityName(cityName: string): string {

@@ -11,6 +11,7 @@ import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { ORG_TYPE_OPTIONS, authorityTypeToTenantType, orgTypeDisplayName, VERTICAL_THEMES } from '@/features/admin/config/tenantLabels';
 import { syncAllUnitCounts } from '@/features/admin/services/unit-count-sync.service';
+import { normalizeOrgName } from '@/lib/org-name';
 import type { Authority, TenantType } from '@/types/admin-types';
 import {
   Loader2, Plus, Search, Building2, ShieldCheck, GraduationCap,
@@ -21,18 +22,11 @@ import { useRouter } from 'next/navigation';
 import { useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import InviteMemberModal from '@/features/admin/components/InviteMemberModal';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';
+import UnitIconBadge from '@/components/ui/UnitIconBadge';
 
 const PAGE_SIZE = 20;
 
 const ROOT_TYPES = new Set(['city', 'regional_council', 'local_council', 'settlement', 'school', 'military_unit']);
-
-// Normalizes a name for duplicate detection — this is what let "חטיבה 810"
-// get created twice (see docs/research/military-persona-unified-architecture.md
-// §ג.1): neither create path checked for an existing org with the same name
-// before writing. Whitespace/case-insensitive so trivial variants still match.
-function normalizeOrgName(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ');
-}
 
 interface OrgRow extends Authority {
   tenantType: TenantType;
@@ -615,9 +609,17 @@ export default function OrganizationsPage() {
             <div key={org.id} className={`bg-white rounded-2xl shadow-sm border-l-4 border border-gray-100 p-5 hover:bg-slate-50/50 transition-colors ${VERTICAL_THEMES[org.tenantType].headerBorder}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${VERTICAL_THEMES[org.tenantType].accentBg}`}>
-                    <Icon size={22} className={VERTICAL_THEMES[org.tenantType].accentText} />
-                  </div>
+                  {org.tenantType === 'military' ? (
+                    // 07.09.2026 — same field (logoUrl) already sitting on
+                    // this exact row's data, unread. Same fix already
+                    // shipped on the units/page.tsx org-picker; this is a
+                    // separate screen with the same gap.
+                    <UnitIconBadge unitId={org.id} iconUrl={org.logoUrl ?? null} name={orgName} size={48} />
+                  ) : (
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${VERTICAL_THEMES[org.tenantType].accentBg}`}>
+                      <Icon size={22} className={VERTICAL_THEMES[org.tenantType].accentText} />
+                    </div>
+                  )}
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-base font-black text-gray-900">{orgName}</h3>

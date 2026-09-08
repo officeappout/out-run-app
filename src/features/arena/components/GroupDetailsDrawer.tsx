@@ -513,6 +513,15 @@ export default function GroupDetailsDrawer({
     ? slotLoc.address
     : group.meetingLocation?.address;
 
+  // 07.09.2026 — a persona-gated group (see community.service.ts's
+  // AUDIENCE_SENSITIVE_FIELDS) has NO meetingLocation/scheduleSlots at all
+  // for a viewer whose declared persona doesn't match — hasCoords/destAddress
+  // are correctly falsy, and the location card below renders nothing, which
+  // is fine, but silent. This one line replaces "nothing" with a reason, so
+  // it doesn't read as the app glitching. Full login/auth-gate UX is a
+  // separate, later round — this is only the text.
+  const isMilitaryGroup = group.groupType === 'military';
+
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
   const staticMapUrl = mapboxToken && hasCoords
     ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-l+F97316(${destLng},${destLat})/${destLng},${destLat},14,0/600x240@2x?access_token=${mapboxToken}&language=he`
@@ -1115,6 +1124,11 @@ export default function GroupDetailsDrawer({
                   <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
                     <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                     <span className="font-medium">{destAddress}</span>
+                  </div>
+                ) : isMilitaryGroup ? (
+                  <div className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span className="font-medium">הפרטים מיועדים למילואימניקים.</span>
                   </div>
                 ) : null}
 
