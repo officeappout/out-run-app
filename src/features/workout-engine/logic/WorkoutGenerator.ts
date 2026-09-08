@@ -1193,6 +1193,7 @@ export class WorkoutGenerator {
           injuryShield: context.injuryShield,
         });
         if (coreTabataBlock) {
+          coreTabataBlock.kind = 'core';
           workoutExercises.splice(coreIdx, 1); // now safe — the new members already landed
         } else {
           console.log('[CoreBlock] tabata composition failed — core stays form A (single)');
@@ -1265,6 +1266,9 @@ export class WorkoutGenerator {
     const tabataBlock = fireTabata
       ? buildTabataBlock('tabata', workoutExercises, context)
       : coreTabataBlock;
+    if (fireTabata && tabataBlock) {
+      tabataBlock.kind = 'conditioning';
+    }
 
     // Step 7: Duration
     const estimatedDuration = calculateEstimatedDuration(workoutExercises);

@@ -333,6 +333,17 @@ export interface TabataBlockSpec {
   config: TabataProtocolConfig;
   /** exercise.id of each block member — the mapper partitions by these. */
   exerciseIds: string[];
+  /** Which mechanism produced this block — 'core' = Step 6c's core-form
+   *  tabata (core-block.ts, corePool-filtered, hasExplicitCoreLevel-only
+   *  members); 'conditioning' = Step 6b's general finisher
+   *  (WorkoutGenerator.ts, unfiltered context.tabataPool — currently frozen
+   *  behind GENERAL_FINISHER_TABATA_ENABLED). Added 08.09.2026 — before this,
+   *  a TabataBlockSpec carried no origin marker, so a "mixed" block (core +
+   *  conditioning exercises) couldn't be traced back to which path produced
+   *  it (docs/workout-engine/03-CHANGES.md, Round 1). Optional: legacy/
+   *  Firestore-restored specs and unit tests that construct one directly
+   *  won't have it. */
+  kind?: 'core' | 'conditioning';
 }
 
 export interface VolumeAdjustment {
