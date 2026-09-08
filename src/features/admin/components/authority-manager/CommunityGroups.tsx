@@ -20,7 +20,7 @@ import { getParksByAuthority } from '@/features/parks';
 import { CommunityGroup, CommunityGroupCategory, CommunityEvent, ScheduleSlot, TargetGender, PersonaKey, PERSONA_KEYS } from '@/types/community.types';
 import { WorkoutGoalEditor } from '@/features/arena/components/WorkoutGoalEditor';
 import { Park } from '@/types/admin-types';
-import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff, Route as RouteIcon, HeartPulse, Link2, Check, Crown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Calendar, MapPin, ShieldCheck, Dumbbell, Target, DollarSign, Clock, CalendarPlus, ImagePlus, X, Building2, MapPinned, Search, ChevronDown, ImageOff, Route as RouteIcon, HeartPulse, Link2, Check, Crown, Power } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { MediaAsset } from '@/features/admin/services/media-assets.service';
@@ -1246,6 +1246,28 @@ export default function CommunityGroups({ authorityId, authorityCoordinates, nei
                         <span className="text-sm font-bold text-gray-700 flex items-center gap-1.5">
                           <ShieldCheck size={14} className="text-cyan-500" />
                           אירוע רשמי
+                        </span>
+                      </label>
+                    </div>
+                    {/* 08.09.2026 — isActive had no editable control anywhere in
+                        this form (only a read-only badge on the card list) —
+                        found while a group needed hiding until a later
+                        reactivation date and there was no way to do it short
+                        of a one-off script. handleSubmit already spreads
+                        formData through unmodified (unlike isOfficial's
+                        explicit ?? true stamp), so this checkbox is the
+                        entire fix — no other wiring needed. */}
+                    <div className="flex items-end pb-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.isActive ?? true}
+                          onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm font-bold text-gray-700 flex items-center gap-1.5">
+                          <Power size={14} className="text-cyan-500" />
+                          פעילה (מוצגת למשתמשים)
                         </span>
                       </label>
                     </div>
