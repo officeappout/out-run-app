@@ -40,6 +40,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  arrayUnion,
 } from 'firebase/firestore';
 
 // ─── Harness ──────────────────────────────────────────────────────────────────
@@ -1121,6 +1122,92 @@ async function testChatLeakClosed() {
   });
 }
 
+// SPEC-02 SEC-03 (part 2): the read-side fix above (testChatLeakClosed)
+// closed "any authenticated user reads any group chat." It left a second,
+// still-open half of the same finding: the UPDATE rule that lets a user
+// self-add to a group chat's `participants` via arrayUnion(uid) only
+// checked `type == 'group'` — no real-membership check at all. Since
+// chatId is deterministic ("group_" + groupId), an outsider who merely
+// knew a groupId could write themselves into `participants`, then pass
+// the plain `uid in resource.data.participants` read rule — bypassing the
+// real-membership read gate entirely without ever joining
+// community_groups/{groupId}/members. This suite proves both the closure
+// and that it doesn't break the two legitimate flows that reach this rule
+// (group.service.ts's joinGroup, and community.service.ts's joinEvent
+// fallback for a standalone event with no linked group).
+async function testChatSelfJoinLocked() {
+  console.log('\nchat-self-join-locked — group chat participants update requires real membership (SPEC-02 SEC-03 part 2)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    // A group-linked chat: cj_member is a real community_groups member,
+    // cj_outsider is not.
+    await setDoc(doc(db, 'community_groups', 'cj_group'), { name: 'Chat Join Test Group', isPublic: true, isLocked: false, createdBy: 'cj_owner' });
+    await setDoc(doc(db, 'community_groups', 'cj_group', 'members', 'cj_member'), { uid: 'cj_member', role: 'member', joinedAt: new Date() });
+    await setDoc(doc(db, 'chats', 'group_cj_group'), {
+      type: 'group', groupId: 'cj_group', participants: [], participantNames: {},
+      lastMessage: 'welcome', lastMessageAt: new Date(),
+    });
+
+    // A standalone-event chat (joinEvent's `chatGroupId = groupId ?? eventId`
+    // fallback — this doc's groupId field actually holds a community_events
+    // id, not a community_groups id). cj_registrant registered for the
+    // event; cj_outsider did not.
+    await setDoc(doc(db, 'community_events', 'cj_event'), { name: 'Standalone Event', isActive: true, createdBy: 'cj_owner' });
+    await setDoc(doc(db, 'community_events', 'cj_event', 'registrations', 'cj_registrant'), { uid: 'cj_registrant', name: 'Registrant', joinedAt: new Date() });
+    await setDoc(doc(db, 'chats', 'group_cj_event'), {
+      type: 'group', groupId: 'cj_event', participants: [], participantNames: {},
+      lastMessage: 'event created', lastMessageAt: new Date(),
+    });
+  });
+
+  await it('CJ1 — an outsider (not a real community_groups member) self-adds to the group chat via arrayUnion → DENY', async () => {
+    const ctx = env.authenticatedContext('cj_outsider');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'chats', 'group_cj_group'), {
+      participants: arrayUnion('cj_outsider'),
+      'participantNames.cj_outsider': 'Outsider',
+    }));
+  });
+
+  await it('CJ2 — after CJ1 is denied, the outsider still cannot read the chat (the write-gate and read-gate close together)', async () => {
+    const ctx = env.authenticatedContext('cj_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'chats', 'group_cj_group')));
+  });
+
+  await it('CJ3 — a real community_groups member self-adds to the group chat via arrayUnion → ALLOW (the legitimate joinGroup Step 4 flow)', async () => {
+    const ctx = env.authenticatedContext('cj_member');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'chats', 'group_cj_group'), {
+      participants: arrayUnion('cj_member'),
+      'participantNames.cj_member': 'Member',
+    }));
+  });
+
+  await it('CJ4 — a real community_events registrant self-adds to a standalone-event chat via arrayUnion → ALLOW (joinEvent\'s groupId-less fallback)', async () => {
+    const ctx = env.authenticatedContext('cj_registrant');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'chats', 'group_cj_event'), {
+      participants: arrayUnion('cj_registrant'),
+      'participantNames.cj_registrant': 'Registrant',
+    }));
+  });
+
+  await it('CJ5 — an outsider to the standalone event (no registration) self-adds → DENY', async () => {
+    const ctx = env.authenticatedContext('cj_outsider');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'chats', 'group_cj_event'), {
+      participants: arrayUnion('cj_outsider'),
+      'participantNames.cj_outsider': 'Outsider',
+    }));
+  });
+
+  await it('CJ6 — regression: an existing real participant can still update other chat fields (e.g. lastMessage) via the unrelated "existing participants can update" rule', async () => {
+    // cj_member just joined via CJ3, so they're now in participants[].
+    const ctx = env.authenticatedContext('cj_member');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'chats', 'group_cj_group'), {
+      lastMessage: 'hey everyone',
+      lastMessageAt: new Date(),
+    }));
+  });
+}
+
 // David's proof #2: chats/{chatId}'s new clause does a get() on
 // community_groups/{groupId}/members/{uid} — Firestore rules cap
 // get()/exists() calls at 10 for a single-doc request, 20 for a
@@ -1742,6 +1829,7 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('persona-audience collection', wrapSuite(testPersonaAudienceCollection));
   vitestIt('persona-gated membership block', wrapSuite(testPersonaGatedMembershipBlock));
   vitestIt('chat leak closed', wrapSuite(testChatLeakClosed));
+  vitestIt('chat self-join locked (SPEC-02 SEC-03 part 2)', wrapSuite(testChatSelfJoinLocked));
   vitestIt('chat list scale', wrapSuite(testChatListScale));
   vitestIt('admin-invitations lockdown (SPEC-01 task 1)', wrapSuite(testAdminInvitationsLockdown));
   vitestIt('private-invite subcollection (SPEC-01 task 2)', wrapSuite(testPrivateInviteSubcollection));

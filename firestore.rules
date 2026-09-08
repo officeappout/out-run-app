@@ -1732,11 +1732,35 @@ service cloud.firestore {
       // Existing participants can update (send message metadata, mark read, etc.)
       allow update: if isAuthenticated()
                     && request.auth.uid in resource.data.participants;
-      // Group chat JOIN: any authenticated user can add themselves to a group chat.
-      // After arrayUnion(uid), request.resource.data.participants will contain uid.
+      // Group chat JOIN: SPEC-02 SEC-03 (part 2) — this used to let ANY
+      // authenticated user self-add to a group chat's `participants` via
+      // arrayUnion(uid), with only `type == 'group'` checked. chatId is
+      // deterministic (`"group_" + groupId`), so an outsider who merely
+      // knew a groupId could write themselves in here, then satisfy the
+      // plain `uid in resource.data.participants` read rule above —
+      // bypassing the real-membership read gate a few lines up entirely,
+      // without ever joining community_groups/{groupId}/members.
+      // Joining a chat is not its own client action — it's derived from
+      // already being a real group member. Two legitimate ways to already
+      // be one, both checked via OR (community.service.ts's joinEvent()
+      // falls back to `chatGroupId = groupId ?? eventId` for a standalone
+      // event with no linked group, so this doc's `groupId` field can hold
+      // either a real community_groups id or a community_events id):
+      //   1. group.service.ts's joinGroup — calls addMemberToGroupChat only
+      //      in Step 4, strictly after Steps 1-2 already created the real
+      //      community_groups/{groupId}/members/{uid} doc.
+      //   2. community.service.ts's joinEvent — calls addMemberToGroupChat
+      //      in Step 4, strictly after Step 1 already created the real
+      //      community_events/{eventId}/registrations/{uid} doc.
+      // Either way, this check never blocks the legitimate flow, only an
+      // attacker who skipped both.
       allow update: if isAuthenticated()
                     && resource.data.type == 'group'
-                    && request.auth.uid in request.resource.data.participants;
+                    && request.auth.uid in request.resource.data.participants
+                    && (
+                      exists(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid)) ||
+                      exists(/databases/$(database)/documents/community_events/$(resource.data.groupId)/registrations/$(request.auth.uid))
+                    );
 
       match /messages/{messageId} {
         // Read: participant of the parent chat
