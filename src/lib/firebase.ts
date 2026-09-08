@@ -28,6 +28,7 @@ import type {
   AppCheckFailureReason,
   AppCheckFailureEvent,
 } from './native-auth-validation';
+import { isAppCheckDebugAllowed } from './appCheckDebugGate';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -112,12 +113,24 @@ if (typeof window !== "undefined") {
     hostname.endsWith('.localhost');
   const isLocalDev = isLocalHost || process.env.NODE_ENV === 'development';
 
-  if (debugToken) {
+  if (debugToken && isAppCheckDebugAllowed(process.env.NODE_ENV)) {
     // The Firebase JS SDK reads this global before initializeAppCheck
     // and uses it instead of the provider — see Firebase App Check
     // docs ("Getting started with App Check in JavaScript"). MUST be
     // assigned before initializeAppCheck() runs.
     (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+  } else if (debugToken) {
+    // SPEC-02 SEC-10: NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN is set but this is
+    // a production build — refuse to honor it. Without this check, a
+    // debug token accidentally left in the Vercel Production environment
+    // (or baked into a TestFlight build) would put App Check into debug
+    // mode for every real user, and anyone who obtained that token could
+    // mint their own App Check tokens, defeating attestation entirely.
+    console.error(
+      '[firebase] NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN is set in a production ' +
+      'build — ignoring it. Remove this variable from the Vercel ' +
+      'Production environment.',
+    );
   } else if (isLocalDev) {
     // No explicit token supplied — set to `true` so Firebase auto-generates
     // a local debug token and prints it to the console. Copy that token into
@@ -271,7 +284,14 @@ if (typeof window !== "undefined") {
             nativeAppCheckInitPromise = (async () => {
               try {
                 const { FirebaseAppCheck: FAC } = await import('@capacitor-firebase/app-check');
-                const isDebug = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG === 'true';
+                // SPEC-02 SEC-10: gated on isAppCheckDebugAllowed too — a
+                // production native build (NODE_ENV inlined at `next
+                // build` time, same as the web bundle) must never select
+                // the debug provider even if NEXT_PUBLIC_APP_CHECK_DEBUG
+                // was accidentally left `true` for the build.
+                const isDebug =
+                  process.env.NEXT_PUBLIC_APP_CHECK_DEBUG === 'true' &&
+                  isAppCheckDebugAllowed(process.env.NODE_ENV);
                 await FAC.initialize({ debug: isDebug, isTokenAutoRefreshEnabled: true });
                 console.info(`[firebase] Native App Check initialized — provider: ${isDebug ? 'debug' : 'deviceCheck/appAttest'}`);
               } catch (initErr) {
