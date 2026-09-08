@@ -37,6 +37,7 @@ interface AuditRow {
   title: string;
   description: string;
   logicCue: string;
+  winningBundleId: string | undefined;
   winningCandidatePersona: string; // row.persona of the candidate that actually won
   winningScore: number;
   classification: 'exact-match' | 'parent-bleed' | 'other-persona-bleed' | 'generic-or-untagged';
@@ -108,6 +109,7 @@ async function main() {
           title: picked.text,
           description: home.homeDescription,
           logicCue: (home as any).logicCue ?? '',
+          winningBundleId: picked.bundleId,
           winningCandidatePersona: winningPersona,
           winningScore: picked.score,
           classification,
@@ -154,12 +156,12 @@ async function main() {
   }
 
   // ── Example winning rows for personas of interest (e.g. when verifying an overlay) ──
-  const EXAMPLE_PERSONAS: PersonaId[] = ['pupil', 'pro_athlete'];
+  const EXAMPLE_PERSONAS: PersonaId[] = ['student', 'pupil', 'pro_athlete'];
   for (const personaId of EXAMPLE_PERSONAS) {
     const exact = rows.filter(r => r.personaId === personaId && r.classification === 'exact-match');
     console.log(`\n  ── ${personaId}: ${exact.length}/${rows.filter(r => r.personaId === personaId).length} exact-match — example winning bundles ──`);
     for (const r of exact.slice(0, 3)) {
-      console.log(`    [${r.timeKey}/${r.location}] score=${r.winningScore}`);
+      console.log(`    [${r.timeKey}/${r.location}] score=${r.winningScore} bundleId=${r.winningBundleId ?? '(none)'}`);
       console.log(`      title:       "${r.title}"`);
       console.log(`      description: "${r.description}"`);
       console.log(`      logicCue:    "${r.logicCue}"`);
@@ -171,10 +173,11 @@ async function main() {
 }
 
 // CONTENT_OVERLAY_FILE (optional env var): same mechanism as scenario-sweep.ts
-// — path to a draft-content JSON to inject in-memory before running, so this
-// audit's exact-match classification reflects the draft content too. Zero
-// Firestore writes; unset by default, so normal runs are unaffected.
+// — comma-separated path(s) to draft-content JSON to inject in-memory before
+// running, so this audit's exact-match classification reflects the draft
+// content too. Zero Firestore writes; unset by default, so normal runs are
+// unaffected.
 const overlayFile = process.env.CONTENT_OVERLAY_FILE;
-if (overlayFile) loadAndApplyContentOverlay(overlayFile);
+if (overlayFile) loadAndApplyContentOverlay(overlayFile.split(',').map(p => p.trim()));
 
 main().catch(e => { console.error('CRASHED:', e?.stack || e); process.exit(1); });

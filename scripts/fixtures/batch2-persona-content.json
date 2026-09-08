@@ -1,0 +1,91 @@
+{
+  "_note": "Batch 2 — Stage 1 content expansion. Student (new persona) + pupil/pro_athlete coverage fills. Title + description only (logicCue omitted on purpose — rides the dynamic level-aware fallback; the 'coach reason' engine is Stage 2/B5). Same overlay/load format as Batch 1. Given to CC by David 08.09.2026 for in-memory verification only.",
+  "bundles": [
+    {
+      "bundleId": "student_any_01",
+      "persona": "student", "gender": "both", "timeOfDay": "any", "location": "any", "variant": "balanced",
+      "title": "אימון שנכנס בין הכל",
+      "description": "@זמן_אימון דקות שמשתלבות בלו\"ז העמוס — אנרגיה בלי לגזול לך את היום."
+    },
+    {
+      "bundleId": "student_any_02",
+      "persona": "student", "gender": "both", "timeOfDay": "any", "location": "any", "variant": "intense",
+      "title": "לפוצץ את היום",
+      "description": "בא לך להתפרק? @זמן_אימון דקות אינטנסיביות שינקו לך את הראש מהלימודים."
+    },
+    {
+      "bundleId": "student_morning_home_01",
+      "persona": "student", "gender": "both", "timeOfDay": "morning", "location": "home", "variant": "balanced",
+      "title": "להתחיל לפני ההרצאות",
+      "description": "לפני שהיום נחטף — @זמן_אימון דקות שמעירות אותך ומכניסות פוקוס."
+    },
+    {
+      "bundleId": "student_morning_park_01",
+      "persona": "student", "gender": "both", "timeOfDay": "morning", "location": "park", "variant": "balanced",
+      "title": "לפתוח את היום באוויר",
+      "description": "בוקר בפארק לפני הקמפוס — @זמן_אימון דקות שממלאות אותך אנרגיה."
+    },
+    {
+      "bundleId": "student_afternoon_park_01",
+      "persona": "student", "gender": "both", "timeOfDay": "afternoon", "location": "park", "variant": "balanced",
+      "title": "הפסקה מהמסכים",
+      "description": "יותר מדי שעות מול המחשב? @זמן_אימון דקות בפארק להזיז את הגוף ולחזור מרוכז."
+    },
+    {
+      "bundleId": "student_evening_home_01",
+      "persona": "student", "gender": "both", "timeOfDay": "evening", "location": "home", "variant": "balanced",
+      "title": "לסגור יום עמוס",
+      "description": "אחרי יום של לימודים ומטלות — @זמן_אימון דקות שמשחררות את הלחץ."
+    },
+    {
+      "bundleId": "student_evening_02",
+      "persona": "student", "gender": "both", "timeOfDay": "evening", "location": "any", "variant": "intense",
+      "title": "לשרוף את הסטרס",
+      "description": "@זמן_אימון דקות חזקות שממירות את הלחץ של הסמסטר לאנרגיה."
+    },
+    {
+      "bundleId": "student_home_easy_01",
+      "persona": "student", "gender": "both", "timeOfDay": "any", "location": "home", "variant": "easy",
+      "title": "אימון קליל בחדר",
+      "description": "אין זמן לחדר כושר? @זמן_אימון דקות פשוטות איפה שאתה, בלי ציוד."
+    },
+
+    {
+      "bundleId": "pupil_afternoon_home_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "afternoon", "location": "home", "variant": "balanced",
+      "title": "הפסקה מהשיעורים",
+      "description": "סיימת יום לימודים? @זמן_אימון דקות בבית להזיז את הגוף ולהרגיש טוב."
+    },
+    {
+      "bundleId": "pupil_evening_park_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "evening", "location": "park", "variant": "balanced",
+      "title": "לפרוק בערב בחוץ",
+      "description": "ערב בפארק, לבד או עם חברים — @זמן_אימון דקות של תנועה שמשחררות."
+    },
+    {
+      "bundleId": "pupil_afternoon_street_01",
+      "persona": "pupil", "gender": "both", "timeOfDay": "afternoon", "location": "street", "variant": "balanced",
+      "title": "תנועה בדרך",
+      "description": "@זמן_אימון דקות מהירות בחוץ — כוח ואנרגיה בלי ללכת רחוק."
+    },
+
+    {
+      "bundleId": "athlete_morning_home_01",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "morning", "location": "home", "variant": "balanced",
+      "title": "לפתוח את היום חזק",
+      "description": "@זמן_אימון דקות ממוקדות מוקדם בבוקר — הבסיס ליום ברמה שלך."
+    },
+    {
+      "bundleId": "athlete_afternoon_home_01",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "afternoon", "location": "home", "variant": "balanced",
+      "title": "אימון אמצע יום בבית",
+      "description": "@זמן_אימון דקות חדות בין המשימות — לשמור על המנוע דולק."
+    },
+    {
+      "bundleId": "athlete_night_home_01",
+      "persona": "pro_athlete", "gender": "both", "timeOfDay": "night", "location": "home", "variant": "easy",
+      "title": "סשן לילה שקט",
+      "description": "מאוחר אבל בראש של אימון? @זמן_אימון דקות ממוקדות בבית, בלי רעש ובלי קפיצות."
+    }
+  ]
+}
