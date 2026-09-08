@@ -8,6 +8,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { isBlocked, recordFailure, recordSuccess } from './lib/accessCodeRateLimit';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -48,6 +49,28 @@ export const validateAccessCode = onCall(
       const uid = request.auth.uid;
       logger.info('[validateAccessCode] Authenticated uid:', uid);
 
+      // ── SPEC-01 task 4 / SPEC-02: attempt rate limiting ──
+      // 10 failures in 15 min -> blocked for 1h, tracked by BOTH uid and
+      // IP (either one triggers a block for that key) — a 6-char code
+      // (Math.random(), a separate tracked issue — code rotation, not
+      // this spec) is brute-forceable in a loop otherwise.
+      const ip = (
+        typeof request.rawRequest?.headers?.['x-forwarded-for'] === 'string'
+          ? request.rawRequest.headers['x-forwarded-for']
+          : Array.isArray(request.rawRequest?.headers?.['x-forwarded-for'])
+            ? request.rawRequest.headers['x-forwarded-for'][0]
+            : undefined
+      )?.split(',')[0]?.trim() ?? 'unknown';
+      const attemptKeys = [`uid:${uid}`, `ip:${ip}`];
+      const now = Date.now();
+
+      for (const key of attemptKeys) {
+        if (await isBlocked(db, key, now)) {
+          logger.warn('[validateAccessCode] Blocked — too many recent failures for key type:', key.split(':')[0]);
+          throw new HttpsError('resource-exhausted', 'Too many failed attempts. Try again later.');
+        }
+      }
+
       // ── Step 2: Input validation ──
       // PII / credential hygiene: never dump request.data — it contains
       // the access code itself, which is a bearer credential. We log
@@ -64,6 +87,31 @@ export const validateAccessCode = onCall(
 
       const normalizedCode = rawCode.trim().toUpperCase();
 
+      // Steps 3-4 (lookup + transaction) are wrapped separately so a
+      // real validation failure (code not found / inactive / expired /
+      // max-uses) can be recorded as a rate-limit strike, distinct from
+      // the block-check throw above (also resource-exhausted, but must
+      // NOT itself count as a new strike — that would extend the
+      // lockout indefinitely) and from unrelated internal errors (which
+      // shouldn't count against the caller at all).
+      let result: {
+        tenantId: string; unitId: string; unitPath: string[];
+        tenantType: string; onboardingPath: string;
+      };
+      try {
+        result = await validateAndRedeem();
+      } catch (err) {
+        if (
+          err instanceof HttpsError &&
+          (err.code === 'not-found' || err.code === 'failed-precondition' || err.code === 'resource-exhausted')
+        ) {
+          await Promise.all(attemptKeys.map((key) => recordFailure(db, key, now)));
+        }
+        throw err;
+      }
+      await Promise.all(attemptKeys.map((key) => recordSuccess(db, key)));
+
+      async function validateAndRedeem() {
       // ── Step 3: Lookup — doc-ID first, then field query ──
       let codeRef = db.collection('access_codes').doc(normalizedCode);
       let snap = await codeRef.get();
@@ -165,6 +213,9 @@ export const validateAccessCode = onCall(
           onboardingPath: codeDoc.onboardingPath || 'MUNICIPAL_JOIN',
         };
       });
+
+      return result;
+      } // end validateAndRedeem
 
       // ── Step 5: Company co-membership affiliation (post-transaction) ──
       // For company tenants (Wix pilot), also stamp a `core.affiliations`

@@ -24,7 +24,14 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, 'src') },
   },
   test: {
-    include: ['src/**/__tests__/**/*.test.ts', 'tests/firestore-rules.test.ts'],
+    include: [
+      'src/**/__tests__/**/*.test.ts',
+      'tests/firestore-rules.test.ts',
+      // functions/ is a separate package (own tsconfig, not installed in
+      // this root's node_modules) — only files with zero external
+      // imports (pure logic, like accessCodeRateLimit.ts) can run here.
+      'functions/src/**/__tests__/**/*.test.ts',
+    ],
     environment: 'node',
     testTimeout: 60_000,
     hookTimeout: 60_000,
