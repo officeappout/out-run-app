@@ -26,6 +26,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { resolveAuthorTenantUnit } from './lib/resolveAuthorTenantUnit';
 
 if (!admin.apps.length) { admin.initializeApp(); }
 const db = admin.firestore();
@@ -49,15 +50,38 @@ export const onFeedPostCreate = onDocumentCreated(
     const snap = event.data;
     if (!snap) return;
     const data = snap.data();
-    const uid: string = data.userId ?? data.uid ?? '';
-    const tenantId: string = data.tenantId ?? '_global';
-    const unitId: string = data.unitId ?? '_all';
-    const xp: number = typeof data.xpAwarded === 'number' ? data.xpAwarded : 1;
+
+    // SPEC-02 SEC-09: this used to trust data.userId/data.uid,
+    // data.tenantId/data.unitId, and data.xpAwarded straight off the
+    // just-created document — every one of them forgeable, since
+    // firestore.rules' feed_posts create rule only constrains
+    // `authorUid` (`request.auth.uid == request.resource.data.authorUid`).
+    // A client could set a real authorUid (satisfying the rule) alongside
+    // an arbitrary userId/tenantId/unitId/xpAwarded on the SAME document —
+    // none of those are examined by the rule at all — and this trigger
+    // would credit a forged leaderboard shard for a different user/tenant
+    // with an arbitrary XP amount.
+    //
+    // Fix: read the ONE field the rule actually protects (authorUid), and
+    // resolve tenant/unit from the author's OWN protected profile
+    // (users/{uid}.core) instead of trusting fields on the post itself —
+    // same pattern onWorkoutCreate below already uses. xp is no longer
+    // taken from the client at all: no real writer (feed.service.ts) ever
+    // sets xpAwarded today (it writes `activityCredit` instead), so this
+    // was already dead weight for the one legitimate caller and pure
+    // upside for an attacker — a fixed amount per post closes that
+    // without changing real behavior (every real post always fell back
+    // to the same default the constant now uses).
+    const FIXED_XP_PER_POST = 1;
+    const uid: string = data.authorUid ?? '';
 
     if (!uid) {
-      logger.warn('onFeedPostCreate: no userId, skipping');
+      logger.warn('onFeedPostCreate: no authorUid, skipping');
       return;
     }
+
+    const { tenantId, unitId } = await resolveAuthorTenantUnit(db, uid);
+    const xp = FIXED_XP_PER_POST;
 
     const period = getCurrentPeriod();
     const shard = Math.floor(Math.random() * NUM_SHARDS);
