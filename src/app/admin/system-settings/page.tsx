@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, type LucideIcon,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
 import { resolveLoadedFlags, type LoadResult } from './resolve-loaded-flags';
@@ -26,6 +26,7 @@ interface FlagState {
   enable_hybrid_slots: boolean;
   enable_full_park_workout: boolean;
   enable_route_stops: boolean;
+  enable_recommended_hybrid: boolean;
 }
 
 // ============================================================================
@@ -94,6 +95,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-500',
     title: 'מסלול + עצירות',
     description: 'מסלול מבוסס-מיקום עם עצירות אימון לאורך הדרך — ללא כיסוי בדיקות קצה-לקצה',
+    parentKey: 'enable_hybrid_slots',
+  },
+  {
+    key: 'enable_recommended_hybrid',
+    icon: Star,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-500',
+    title: 'משולב מומלץ',
+    description: 'הכרטיס הראשון בקרוסלה — "ריצה + כוח" / "הליכה + כוח" — כולל תג ה׳מומלץ׳ והמסלול המחושב מראש',
     parentKey: 'enable_hybrid_slots',
   },
 ];

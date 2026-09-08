@@ -4,11 +4,13 @@
  *
  * Runtime control (wave 1, 08.09.2026): enableHybridSlots/enableFullParkWorkout/
  * enableRouteStops used to be the compile-time constants HYBRID_SLOTS_ENABLED/
- * HYBRID_FULL_PARK_WORKOUT_ENABLED/MAP_ROUTE_STOPS_V1. They are now admin-panel
- * toggles (system_config/feature_flags, read via useFeatureFlags) — so they MUST
- * reach this pure function as SlotEnv fields, never as an import (the whole point
- * of a runtime toggle is that it can change without a deploy; importing a live
- * value here would break LAW 0 either way). MAP_OVERVIEW_CHROME_V1 and
+ * HYBRID_FULL_PARK_WORKOUT_ENABLED/MAP_ROUTE_STOPS_V1. enableRecommendedHybrid
+ * (added same wave, 08.09.2026) is a new sub-flag with no prior compile-time
+ * equivalent — the 'recommended' card was previously unconditional. All four are
+ * admin-panel toggles (system_config/feature_flags, read via useFeatureFlags) — so
+ * they MUST reach this pure function as SlotEnv fields, never as an import (the
+ * whole point of a runtime toggle is that it can change without a deploy; importing
+ * a live value here would break LAW 0 either way). MAP_OVERVIEW_CHROME_V1 and
  * STRENGTH_ASSESSMENT_PROMPT_CARD_V1 stay compile-time imports — out of scope for
  * this wave.
  *
@@ -140,6 +142,24 @@ export interface SlotEnv {
   enableFullParkWorkout: boolean;
   /** system_config/feature_flags.enable_route_stops — sub-flag of enableHybridSlots. */
   enableRouteStops: boolean;
+  /**
+   * system_config/feature_flags.enable_recommended_hybrid — sub-flag of enableHybridSlots
+   * (wave 1 addition, 08.09.2026). Gates ONLY the 'recommended' card (id 'recommended',
+   * the sole slot with recommended:true) — the carousel's other cards are unaffected.
+   *
+   * Deliberately scoped to the card, not the underlying capability (David, 08.09.2026):
+   * FreeRunDrawer's "תחנות כוח" toggle reaches the exact same default budget-split compose
+   * path (no `mode` set, same as the 'recommended' preset) — investigated and confirmed
+   * before this flag shipped. Left OUT of this flag on purpose: the toggle is a
+   * user-initiated action with user-set parameters (duration from the drawer's own goal,
+   * an adjustable aerobic/strength slider — see build-hybrid-input.ts's
+   * RECOMMENDED_AEROBIC_SHARE), not the app auto-surfacing a choice, which was the actual
+   * concern this flag exists to address. It is covered only by the enableHybridSlots
+   * master switch, same as every other FreeRunDrawer hybrid control. This is NOT an
+   * oversight — do not "fix" it by threading enableRecommendedHybrid into FreeRunDrawer
+   * without re-raising it as its own decision.
+   */
+  enableRecommendedHybrid: boolean;
 }
 
 /** Placeholder for the Phase-3 "brain" (last session / weekly gap). */
@@ -196,8 +216,11 @@ export function presetToIntent(preset: HybridPreset, timeBudgetMin: number): Hyb
 
 /**
  * The ONE place that decides which slots are offered + their order, given the
- * environment. Phase 1 emits exactly TWO real slots. A3 is never a silent empty:
- * the hybrid slot stays even with no known park nearby — the composer synthesises
+ * environment. `aerobic_quick` is the only slot with no gate of its own — every other
+ * slot can be individually switched off (enableRecommendedHybrid/enableFullParkWorkout/
+ * enableRouteStops, each a sub-flag of the enableHybridSlots master switch above), down
+ * to a single-item carousel. A3 is never a silent empty when the recommended slot IS
+ * on: the hybrid slot stays even with no known park nearby — the composer synthesises
  * a bodyweight station mid-route (compose-hybrid-session.service field fallback).
  */
 export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[] {
@@ -209,24 +232,30 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
   const slots: HybridSlot[] = [];
 
   // ── Slot 1 — "מומלץ לך" (adaptive; Phase 1 = balanced sandwich per activity) ──
-  const presetId = env.aerobicKind === 'running' ? 'run_balanced' : 'walk_balanced';
-  const preset = HYBRID_PRESETS[presetId] ?? HYBRID_PRESETS.walk_balanced;
-  const a3 = env.nearbyParkCount === 0; // no known station → bodyweight fallback
-  slots.push({
-    kind: 'hybrid',
-    id: 'recommended',
-    preset,
-    timeBudgetMin: preset.defaultTimeBudgetMin,
-    // Title = workout description; the "מומלץ" badge (recommended) carries the
-    // recommendation — no duplicate "מומלץ לך" title.
-    title: env.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח',
-    subtitle: a3
-      ? 'משולב מאוזן · תחנת משקל-גוף בדרך'
-      : 'משולב מאוזן · תחנת כוח בדרך',
-    bolts: preset.bolts,
-    recommended: true,
-    accent: BRAND,
-  });
+  // enableRecommendedHybrid (wave 1, 08.09.2026): gates ONLY this card's presence in
+  // the carousel. Does NOT touch the underlying budget-split compose path — that stays
+  // reachable via FreeRunDrawer's "תחנות כוח" toggle (gated only by enableHybridSlots
+  // above), a separate, pre-existing entry point this flag was never meant to close.
+  if (env.enableRecommendedHybrid) {
+    const presetId = env.aerobicKind === 'running' ? 'run_balanced' : 'walk_balanced';
+    const preset = HYBRID_PRESETS[presetId] ?? HYBRID_PRESETS.walk_balanced;
+    const a3 = env.nearbyParkCount === 0; // no known station → bodyweight fallback
+    slots.push({
+      kind: 'hybrid',
+      id: 'recommended',
+      preset,
+      timeBudgetMin: preset.defaultTimeBudgetMin,
+      // Title = workout description; the "מומלץ" badge (recommended) carries the
+      // recommendation — no duplicate "מומלץ לך" title.
+      title: env.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח',
+      subtitle: a3
+        ? 'משולב מאוזן · תחנת משקל-גוף בדרך'
+        : 'משולב מאוזן · תחנת כוח בדרך',
+      bolts: preset.bolts,
+      recommended: true,
+      accent: BRAND,
+    });
+  }
 
   // ── Full-park workout — flag + gate (equipped park AND a strength program) ──
   // ADDITIVE + dark: the flag defaults false → never surfaced. composeFullParkWorkout

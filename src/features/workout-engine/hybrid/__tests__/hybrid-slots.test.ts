@@ -3,8 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Togglable flag mock — live getters so each resolveSlots() call reads the CURRENT
 // values. Only the flags that STAY compile-time imports (MAP_OVERVIEW_CHROME_V1,
 // STRENGTH_ASSESSMENT_PROMPT_CARD_V1) are mocked here. enableHybridSlots/
-// enableFullParkWorkout/enableRouteStops are now SlotEnv fields (wave 1, 08.09.2026,
-// replacing HYBRID_SLOTS_ENABLED/HYBRID_FULL_PARK_WORKOUT_ENABLED/MAP_ROUTE_STOPS_V1) —
+// enableFullParkWorkout/enableRouteStops/enableRecommendedHybrid are all SlotEnv
+// fields (wave 1, 08.09.2026 + 08.09.2026 follow-up, replacing
+// HYBRID_SLOTS_ENABLED/HYBRID_FULL_PARK_WORKOUT_ENABLED/MAP_ROUTE_STOPS_V1, plus the
+// new enableRecommendedHybrid sub-flag with no prior compile-time equivalent) —
 // passed directly via env() below, never mocked.
 const flag = vi.hoisted(() => ({ mapOverview: false, assessmentPrompt: false }));
 vi.mock('@/config/feature-flags', () => ({
@@ -18,7 +20,7 @@ vi.mock('@/config/feature-flags', () => ({
 
 import { resolveSlots, presetToIntent, HYBRID_PRESETS, type SlotEnv } from '../hybrid-slots';
 
-// Defaults ON for all 3 hybrid-slot flags — matches today's production state (all `true`)
+// Defaults ON for all 4 hybrid-slot flags — matches today's production state (all `true`)
 // so every pre-existing test in this file keeps its original meaning unchanged; tests that
 // specifically exercise an OFF state override explicitly.
 const env = (over: Partial<SlotEnv> = {}): SlotEnv => ({
@@ -28,6 +30,7 @@ const env = (over: Partial<SlotEnv> = {}): SlotEnv => ({
   enableHybridSlots: true,
   enableFullParkWorkout: true,
   enableRouteStops: true,
+  enableRecommendedHybrid: true,
   ...over,
 });
 const ids = (slots: ReturnType<typeof resolveSlots>) => slots.map((s) => s.id);
@@ -38,6 +41,7 @@ describe('resolveSlots — master switch (enableHybridSlots)', () => {
       enableHybridSlots: false,
       enableFullParkWorkout: true,
       enableRouteStops: true,
+      enableRecommendedHybrid: true,
       hasEquippedPark: true,
       hasStrengthProgram: true,
     }));
@@ -49,28 +53,42 @@ describe('resolveSlots — master switch (enableHybridSlots)', () => {
     expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
   });
 
-  // Full combination coverage of the 3 flags (2^3 = 8), per the wave-1 verification plan.
-  const combos = [
-    [true, true, true], [true, true, false], [true, false, true], [true, false, false],
-    [false, true, true], [false, true, false], [false, false, true], [false, false, false],
-  ] as const;
+  // Full combination coverage of the 4 flags (2^4 = 16), per the wave-1(+follow-up)
+  // verification plan.
+  const bools = [true, false] as const;
+  const combos = bools.flatMap((a) => bools.flatMap((b) => bools.flatMap((c) => bools.map((d) => [a, b, c, d] as const))));
 
   it.each(combos)(
-    'enableHybridSlots=%s enableFullParkWorkout=%s enableRouteStops=%s → hierarchy holds',
-    (enableHybridSlots, enableFullParkWorkout, enableRouteStops) => {
+    'enableHybridSlots=%s enableFullParkWorkout=%s enableRouteStops=%s enableRecommendedHybrid=%s → hierarchy holds',
+    (enableHybridSlots, enableFullParkWorkout, enableRouteStops, enableRecommendedHybrid) => {
       const slots = resolveSlots(env({
-        enableHybridSlots, enableFullParkWorkout, enableRouteStops,
+        enableHybridSlots, enableFullParkWorkout, enableRouteStops, enableRecommendedHybrid,
         hasEquippedPark: true, hasStrengthProgram: true,
       }));
       if (!enableHybridSlots) {
         expect(slots).toEqual([]);
         return;
       }
-      expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
+      // aerobic_quick has no gate of its own — always present whenever the master switch is on.
+      expect(ids(slots)).toContain('aerobic_quick');
+      expect(ids(slots).includes('recommended')).toBe(enableRecommendedHybrid);
       expect(ids(slots).includes('full_park')).toBe(enableFullParkWorkout);
       expect(ids(slots).includes('route_stops')).toBe(enableRouteStops);
     },
   );
+
+  it('with every sub-flag off, only aerobic_quick remains — a valid single-item result, not empty', () => {
+    const slots = resolveSlots(env({
+      enableHybridSlots: true,
+      enableRecommendedHybrid: false,
+      enableFullParkWorkout: false,
+      enableRouteStops: false,
+      hasEquippedPark: true,
+      hasStrengthProgram: true,
+    }));
+    expect(ids(slots)).toEqual(['aerobic_quick']);
+    expect(slots[0].recommended).toBe(false);
+  });
 });
 
 describe('resolveSlots — full-park gate', () => {
@@ -112,6 +130,40 @@ describe('resolveSlots — full-park gate', () => {
   it('never disturbs the existing recommended + aerobic_quick slots', () => {
     const slots = resolveSlots(env({ hasEquippedPark: true, hasStrengthProgram: true }));
     expect(ids(slots)).toEqual(expect.arrayContaining(['recommended', 'aerobic_quick']));
+  });
+});
+
+describe('resolveSlots — recommended hybrid (enableRecommendedHybrid)', () => {
+  it('adds the recommended card when the flag is ON (default)', () => {
+    const slots = resolveSlots(env());
+    expect(ids(slots)).toContain('recommended');
+    const rec = slots.find((s) => s.id === 'recommended')!;
+    expect(rec.kind).toBe('hybrid');
+    expect(rec.recommended).toBe(true);
+    expect(rec.title).toBe('הליכה + כוח');
+  });
+
+  it('follows the active activity (running)', () => {
+    const slots = resolveSlots(env({ aerobicKind: 'running' }));
+    const rec = slots.find((s) => s.id === 'recommended');
+    expect(rec?.title).toBe('ריצה + כוח');
+  });
+
+  it('is absent when the flag is OFF', () => {
+    expect(ids(resolveSlots(env({ enableRecommendedHybrid: false })))).not.toContain('recommended');
+  });
+
+  it('removing it leaves no slot flagged recommended:true (no other slot silently inherits the badge)', () => {
+    const slots = resolveSlots(env({ enableRecommendedHybrid: false }));
+    expect(slots.some((s) => s.recommended)).toBe(false);
+  });
+
+  it('does not disturb full_park/route_stops/aerobic_quick when off', () => {
+    const slots = resolveSlots(env({
+      enableRecommendedHybrid: false,
+      hasEquippedPark: true, hasStrengthProgram: true,
+    }));
+    expect(ids(slots)).toEqual(expect.arrayContaining(['full_park', 'route_stops', 'aerobic_quick']));
   });
 });
 

@@ -2,17 +2,21 @@
 /**
  * seed-hybrid-slot-flags.ts
  *
- * One-time seed for the 3 new hybrid-slot map flags on system_config/feature_flags
- * (wave 1, 08.09.2026) — enable_hybrid_slots / enable_full_park_workout /
- * enable_route_stops. These replace the compile-time constants HYBRID_SLOTS_ENABLED /
- * HYBRID_FULL_PARK_WORKOUT_ENABLED / MAP_ROUTE_STOPS_V1, all `true` in production today.
+ * One-time seed for the hybrid-slot map flags on system_config/feature_flags (wave 1,
+ * 08.09.2026 + 08.09.2026 follow-up) — enable_hybrid_slots / enable_full_park_workout /
+ * enable_route_stops / enable_recommended_hybrid. The first 3 replace the compile-time
+ * constants HYBRID_SLOTS_ENABLED / HYBRID_FULL_PARK_WORKOUT_ENABLED / MAP_ROUTE_STOPS_V1;
+ * enable_recommended_hybrid is a new sub-flag with no prior compile-time equivalent (the
+ * 'recommended' card was previously unconditional). All `true` in production today.
  *
  * MUST run BEFORE the code that reads these flags at runtime (useFeatureFlags.ts) is
- * deployed. useFeatureFlags already fails OPEN (defaults to `true`) for these 3 specific
+ * deployed. useFeatureFlags already fails OPEN (defaults to `true`) for these specific
  * keys when they're missing from the document, so a missed/late run does NOT hide the
  * features — but this script is what makes the document's state match reality explicitly,
  * so the admin panel (system-settings) shows the real, intentional value instead of a
- * fallback the panel can't distinguish from "not yet decided".
+ * fallback the panel can't distinguish from "not yet decided". Idempotent (merge:true) —
+ * safe to re-run even though enable_hybrid_slots/enable_full_park_workout/enable_route_stops
+ * were already seeded in the first run; it only adds the new key.
  *
  * Uses the Firebase Web SDK (same SDK the app uses) — no service account required.
  * Firestore rules grant `system_config/{docId}` write to isRootAdmin()/isAdmin().
@@ -66,6 +70,7 @@ const PAYLOAD = {
   enable_hybrid_slots: true,
   enable_full_park_workout: true,
   enable_route_stops: true,
+  enable_recommended_hybrid: true,
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
