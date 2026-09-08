@@ -16,9 +16,13 @@
  *                      get() on the requester's own military_declarations doc
  *                      ("צו כושר" fitness-meetup groups, Phase 07.09.2026)
  *
- * Run:  npx firebase emulators:exec --only firestore "npx tsx tests/firestore-rules.test.ts"
+ * Run: `firebase emulators:start --only firestore,auth` in one terminal,
+ * `npm test` in another. Every case below fails immediately if the emulator
+ * isn't reachable at 127.0.0.1:8080 — this is an emulator integration
+ * suite, not a pure-logic unit test (see vitest.config.ts).
  */
 
+import { describe, beforeAll, afterAll, it as vitestIt } from 'vitest';
 import {
   initializeTestEnvironment,
   assertSucceeds,
@@ -39,6 +43,12 @@ import {
 } from 'firebase/firestore';
 
 // ─── Harness ──────────────────────────────────────────────────────────────────
+//
+// Each case below is registered through this hand-rolled `it()`, not
+// vitest's — it runs its case immediately and swallows the failure so the
+// suite can report every case in one pass, matching how this file ran
+// before it was wired into vitest (see wrapSuite() near the bottom, which
+// re-throws for vitest if any case a suite ran did fail).
 
 let pass = 0;
 let fail = 0;
@@ -1151,42 +1161,56 @@ async function testChatListScale() {
   });
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Vitest wiring ──────────────────────────────────────────────────────────
+//
+// The harness's own `it()` (above) never throws — it catches each case's
+// failure so the suite can keep going and report all of them, not just the
+// first. That means a suite function like testPresenceGroup() always
+// RETURNS normally even when cases inside it failed, so wrapSuite() diffs
+// `failures` before/after and throws for vitest if the count grew — that's
+// what makes a vitest `it()` actually go red when a rule regresses.
 
-async function main() {
-  console.log('Setting up test environment...');
-  await setup();
-
-  await testPresenceGroup();
-  await testPhaseG();
-  await testH2Roles();
-  await testSessions();
-  await testActivityRules();
-  await testTenantUnitLockdown();
-  await testMilitaryDeclarationLockdown();
-  await testUnitDirectory();
-  await testUnitLeagueAggregates();
-  await testReserveLeagueLockdown();
-  await testNoUsersDocLeak();
-  await testPendingUnits();
-  await testPersonaAudienceCollection();
-  await testPersonaGatedMembershipBlock();
-  await testChatLeakClosed();
-  await testChatListScale();
-
-  console.log(`\n${'─'.repeat(50)}`);
-  console.log(`Results: ${pass} passed, ${fail} failed`);
-  if (failures.length > 0) {
-    console.log('\nFailed tests:');
-    failures.forEach((f) => console.log(`  ✗ ${f}`));
-  }
-
-  await env.cleanup();
-
-  if (fail > 0) process.exit(1);
+function wrapSuite(fn: () => Promise<void>) {
+  return async () => {
+    const before = failures.length;
+    await fn();
+    const newFailures = failures.slice(before);
+    if (newFailures.length > 0) {
+      throw new Error(`${newFailures.length} case(s) failed:\n  - ${newFailures.join('\n  - ')}`);
+    }
+  };
 }
 
-main().catch((e) => {
-  console.error('Test harness error:', e);
-  process.exit(1);
+describe('Firestore Rules — Cumulative Integration Test Suite', () => {
+  beforeAll(async () => {
+    console.log('Setting up test environment...');
+    await setup();
+  });
+
+  afterAll(async () => {
+    console.log(`\n${'─'.repeat(50)}`);
+    console.log(`Results: ${pass} passed, ${fail} failed`);
+    if (failures.length > 0) {
+      console.log('\nFailed tests:');
+      failures.forEach((f) => console.log(`  ✗ ${f}`));
+    }
+    await env.cleanup();
+  });
+
+  vitestIt('presence-group', wrapSuite(testPresenceGroup));
+  vitestIt('Phase G — inviteCode + admin-remove', wrapSuite(testPhaseG));
+  vitestIt('H2 — role-change guards', wrapSuite(testH2Roles));
+  vitestIt('sessions — scheduleSlots/meetingLocation hasOnly guard', wrapSuite(testSessions));
+  vitestIt('activity — dailyActivity + streaks (auth-timing invariant)', wrapSuite(testActivityRules));
+  vitestIt('tenant-unit-lockdown', wrapSuite(testTenantUnitLockdown));
+  vitestIt('military-declarations lockdown', wrapSuite(testMilitaryDeclarationLockdown));
+  vitestIt('unitDirectory', wrapSuite(testUnitDirectory));
+  vitestIt('unit-league-aggregates', wrapSuite(testUnitLeagueAggregates));
+  vitestIt('reserve-league lockdown', wrapSuite(testReserveLeagueLockdown));
+  vitestIt('no-users-doc-leak', wrapSuite(testNoUsersDocLeak));
+  vitestIt('pending_units', wrapSuite(testPendingUnits));
+  vitestIt('persona-audience collection', wrapSuite(testPersonaAudienceCollection));
+  vitestIt('persona-gated membership block', wrapSuite(testPersonaGatedMembershipBlock));
+  vitestIt('chat leak closed', wrapSuite(testChatLeakClosed));
+  vitestIt('chat list scale', wrapSuite(testChatListScale));
 });
