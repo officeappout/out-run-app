@@ -540,17 +540,20 @@ const DELETE_BATCH_OP_LIMIT = 500;
  * deletions were found to orphan member data): a group's document,
  * persona-collection copies, `members` subcollection, its
  * `chats/group_{groupId}` thread (chat.service.ts's makeGroupChatId) and
- * that thread's `messages`, and — for every member — the deleted-groupId
- * reference in `users/{uid}.social.groupIds` and `user_memberships/{uid}`.
- * The two user-doc writes mirror joinEngine.ts's exact 4b/4c write shape
- * in reverse (arrayRemove instead of arrayUnion), including its precise
- * mergeFields scoping, so a delete undoes exactly what a join wrote.
+ * that thread's `messages`, its `attendance` subcollection (only
+ * ephemeral run-invite groups from /api/invite/run-session have one — a
+ * harmless no-op for every other group), and — for every member — the
+ * deleted-groupId reference in `users/{uid}.social.groupIds` and
+ * `user_memberships/{uid}`. The two user-doc writes mirror
+ * joinEngine.ts's exact 4b/4c write shape in reverse (arrayRemove instead
+ * of arrayUnion), including its precise mergeFields scoping, so a delete
+ * undoes exactly what a join wrote.
  *
- * Reads members/chat/messages BEFORE building the batch, which makes this
- * idempotent: calling it again on an already-deleted group (main doc
- * gone) still finds and cleans up any dangling members/chat/messages/user
- * references from an earlier incomplete delete — no separate repair path
- * needed.
+ * Reads members/chat/messages/attendance BEFORE building the batch, which
+ * makes this idempotent: calling it again on an already-deleted group
+ * (main doc gone) still finds and cleans up any dangling
+ * members/chat/messages/attendance/user references from an earlier
+ * incomplete delete — no separate repair path needed.
  *
  * Firestore batches cap at 500 operations. A group needing more than that
  * (many members and/or a long chat history) is refused outright rather
@@ -573,18 +576,29 @@ export async function deleteGroup(groupId: string): Promise<void> {
       : null;
     const messageCount = messagesSnap?.size ?? 0;
 
+    const attendanceSnap = await getDocs(collection(db, GROUPS_COLLECTION, groupId, 'attendance'));
+    // member_statuses is a third-level subcollection under each attendance
+    // doc (session-phase.service.ts) — read all of them up front so their
+    // count is known before the op-count/size-guard check below.
+    const memberStatusesSnaps = await Promise.all(
+      attendanceSnap.docs.map((a) => getDocs(collection(a.ref, 'member_statuses'))),
+    );
+    const memberStatusesCount = memberStatusesSnaps.reduce((sum, s) => sum + s.size, 0);
+
     const opCount =
       2 /* group doc + its one persona-collection copy, via applyGroupAudienceBatch */ +
       membersSnap.size /* member doc deletes */ +
       memberUids.length * 2 /* user_memberships set + users set, per member */ +
       (chatSnap.exists() ? 1 : 0) /* chat doc delete */ +
-      messageCount; /* message doc deletes */
+      messageCount /* message doc deletes */ +
+      attendanceSnap.size /* attendance doc deletes */ +
+      memberStatusesCount; /* member_statuses doc deletes */
 
     if (opCount > DELETE_BATCH_OP_LIMIT) {
       throw new Error(
         `[deleteGroup] ${groupId} needs ${opCount} write ops (limit ${DELETE_BATCH_OP_LIMIT}) — ` +
         `refusing to split into multiple non-atomic batches. ` +
-        `members=${memberUids.length}, messages=${messageCount}.`
+        `members=${memberUids.length}, messages=${messageCount}, attendance=${attendanceSnap.size}, memberStatuses=${memberStatusesCount}.`
       );
     }
 
@@ -626,6 +640,14 @@ export async function deleteGroup(groupId: string): Promise<void> {
     }
     if (chatSnap.exists()) {
       batch.delete(chatRef);
+    }
+    for (const statusesSnap of memberStatusesSnaps) {
+      for (const statusDoc of statusesSnap.docs) {
+        batch.delete(statusDoc.ref);
+      }
+    }
+    for (const attendanceDoc of attendanceSnap.docs) {
+      batch.delete(attendanceDoc.ref);
     }
 
     await batch.commit();
