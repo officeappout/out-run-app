@@ -344,3 +344,23 @@ Not touched as part of commit 5 (David, 02.09.2026: stay in scope, don't open th
 **Opened:** 2026-08-19 · **Source:** David, while confirming the Stage D/E completion-card decision (`adaptive-snacking-valiant.md` plan) — explicitly documentation-only, not connected to that plan, not investigated or scoped.
 
 Idea for a future direction: post-workout encouragement/congratulations could come from the in-chat smart coach as a text message, instead of (or alongside) a dedicated screen element (e.g. the home completion card / multi-activity strip this plan builds). No scoping, no feasibility check, no code investigation — pure idea capture for a later round.
+
+---
+
+## `isAdmin()` has no `authorityId` scoping — every authority-manager has de-facto super-admin Firestore access
+**Opened:** 2026-09-08 (persisted here for the first time — previously only discussed in-conversation, never written down) · **Source:** community-groups-overview screen build, David's own follow-up question about direct-URL access
+
+`applyInvitationToUser` (`src/features/admin/services/invitation.service.ts:312`) stamps `role: 'admin'` unconditionally for every invited role type (`super_admin`, `authority_manager`, `vertical_admin`, `platform_member` alike) — the finer distinction lives only in `core.*` sub-fields (`core.isSuperAdmin`, `core.authorityId`, etc.), which Firestore rules' `isAdmin()` never reads. Result: at the raw Firestore-rules level, every authority-manager has identical unrestricted read/write access to the entire system, same as a super-admin — confirmed to affect a real, currently-active production account (`gila.joseph@gmail.com`, genuine manager for the real paying city of Sderot).
+
+Separately, `checkUserRole()` (`src/features/admin/services/auth.service.ts:50`) is a **client-side only** UI gate (reads `core.isSuperAdmin`/`core.isSystemAdmin` + a small hardcoded email allowlist in `src/config/feature-flags.ts`) — it restricts which screens render, but does nothing to the underlying Firestore rules' `isAdmin()`. A route being absent from `admin/layout.tsx`'s `allowedPaths`/`vaAllowedPaths` (UI routing guard) blocks navigation but not direct Firestore access — the fourth confirmed instance this session of "a flag/hiding mechanism presented as protection that isn't" (after `isPublic:false`, UI-only persona gating, and unchecked `isActive`).
+
+Not fixing today — David has repeatedly deferred this (larger, cross-cutting change: needs either narrower per-collection rules keyed on `core.authorityId`, custom claims, or a scoped `get()` check). Related: [[firestore-rules-admin-fallback-inert]] memory note (same root cause, found independently in an earlier session).
+
+---
+
+## `deleteUser()` deletes the Firestore doc but not the Firebase Auth account
+**Opened:** 2026-09-08 · **Source:** independent-agent sweep of every delete-labeled admin action, triggered by the community-groups-overview delete investigation
+
+`src/features/admin/services/users.service.ts:302-321` (called from `src/app/admin/users/all/page.tsx:3090` and `src/app/admin/admins-management/page.tsx:238`) shows a confirm dialog promising *"פעולה זו תמחק את המשתמש מ-Firestore ואת חשבון המשתמש מ-Firebase Auth"* but only calls `deleteDoc(userDocRef)` — the code has its own comment admitting the Auth deletion was never implemented (`// For now, we'll only delete from Firestore... In production, create a server action that uses Firebase Admin SDK's deleteUser() method`).
+
+**Practical effect, per David's question (08.09.2026):** a "deleted" user's Firebase Auth credential still exists and can still authenticate after their Firestore profile is gone. Not investigated yet: what actually happens when such a user logs in — does `onAuthStateChanged` + the app's profile-fetch logic crash, silently treat them as a fresh/new user (re-onboarding into a stale UID), or something else? Needs a real repro (create a user, delete via this path, sign back in as that UID) before it's understood, not guessed at. Not touching the fix today — logged alongside the `isAdmin()` scoping gap above as a known, deferred admin-panel debt.
