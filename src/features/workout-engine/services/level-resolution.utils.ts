@@ -265,6 +265,15 @@ export function buildUserProgramLevels(
  * that's the answer, no matter where it sits in the array. Only if nothing
  * specific matches is the array scanned a second time, this time accepting
  * a generic/parent tag's budget. Order can never change which tier wins.
+ *
+ * This function leans on `_SKILL_PARENT_MAP` (home-workout.service.ts), not
+ * `DOMAIN_ALIAS_MAP` (workout-selection.utils.ts) — the caller passes
+ * `_SKILL_PARENT_MAP` in as `skillParentMap`. That choice is deliberate:
+ * `DOMAIN_ALIAS_MAP` is missing `one_arm_pullup` entirely (see parking-lot.md's
+ * "five structures, same question, different answers"), which would silently
+ * reproduce the exact bug this function exists to close. When those five
+ * structures are ever unified into one source of truth — come back here and
+ * repoint `skillParentMap` at whatever replaces `_SKILL_PARENT_MAP`.
  */
 export function resolveMostSpecificDomainBudget<T extends { domain: string }>(
   targetPrograms: Array<{ programId: string; level: number }> | undefined,
