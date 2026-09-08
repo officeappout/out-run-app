@@ -25,7 +25,7 @@ import {
 } from '@/features/content/exercises/core/exercise.types';
 
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
-import { resolveExerciseLevelForDomains } from './workout-selection.utils';
+import { resolveExerciseLevelForDomains, resolveConsistentComparisonLevels } from './workout-selection.utils';
 
 // ============================================================================
 // TYPES & CONSTANTS — Extracted to ./contextual-engine.types.ts (Phase 4)
@@ -172,15 +172,29 @@ export class ContextualEngine {
       // The primary active program (e.g. `planche`) is forwarded so that
       // multi-assigned exercises resolve to the skill-level entry instead
       // of being hijacked by a baseline foundational entry indexed earlier.
-      const resolved = resolveExerciseLevelForDomains(
+      //
+      // Level tolerance filter — both sides measured from the SAME domain
+      // (2026-09-08, David). Previously `programLevel` came from
+      // resolveExerciseLevelForDomains (correctly domain-aware) while the
+      // user's comparison level came from the separate, domain-blind
+      // getUserLevelForExercise — a multi-tagged exercise's skill-domain
+      // level could get compared against the user's FOUNDATIONAL-domain
+      // level. resolveConsistentComparisonLevels resolves the domain once
+      // and measures both sides against it; falls back to the old
+      // getUserLevelForExercise-only behavior when userProgramLevels isn't
+      // provided or the exercise resolved to no domain at all. See that
+      // function's own doc comment (workout-selection.utils.ts).
+      const consistent = resolveConsistentComparisonLevels(
         exercise,
         activeDomains,
         context.activeProgramId,
+        context.userProgramLevels,
+        context.baseUserLevel ?? 1,
+        context.getUserLevelForExercise(exercise),
       );
-      programLevel = resolved.level;
+      programLevel = consistent.exerciseLevel;
 
-      // Level tolerance filter: exercise must be within ±tolerance of user's domain level
-      const effectiveLevelForTolerance = context.getUserLevelForExercise(exercise);
+      const effectiveLevelForTolerance = consistent.userLevel;
       const minLevel = Math.max(1, effectiveLevelForTolerance - levelTolerance);
       const maxLevel = effectiveLevelForTolerance + levelTolerance;
       if (programLevel < minLevel || programLevel > maxLevel) {
