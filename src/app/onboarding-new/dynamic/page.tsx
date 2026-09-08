@@ -430,15 +430,39 @@ export default function DynamicOnboardingPage() {
         sessionStorage.removeItem('onboarding_claim_calories');
       }
 
-      // Save profile locally
-      // eslint-disable-next-line no-console
-      console.log('[DIAG] initializeProfile — locally-built profile.healthDeclarationAccepted:', (profile as any).healthDeclarationAccepted, '| keys:', Object.keys(profile));
-      await initializeProfile(profile);
+      // Detect running track once — used for sync step, first-workout guard,
+      // and (below) whether the local store gets touched at all.
+      const isRunningTrack = getOnboardingPref('gateway_track') === 'RUNNING';
+
+      // Save profile locally — strength path only. mapAnswersToProfile builds
+      // this object from THIS questionnaire's own answers alone, defaulting
+      // every field it wasn't asked about this time (name, weight,
+      // progression.globalXP/globalLevel, lifestyle, equipment, running) —
+      // see .claude/knowledge/parking-lot.md's "unknown becomes no" bug
+      // class, instance #4. For a running user this silently replaces the
+      // real in-memory profile for the entire running-flow window (this
+      // page → running-schedule → plan-length → summary → health, before
+      // health/page.tsx's own refreshProfile() eventually corrects it) —
+      // confirmed as the root cause of both the health-declaration re-ask
+      // and the blurred home-page schedule (08.09.2026, diagnostic branch).
+      //
+      // The call's own original justification — "so ProgramResult can read
+      // them" — does not hold for running users: they never render
+      // ProgramResult. A few lines below, isRunningTrack routes them
+      // straight to /onboarding-new/running-schedule before
+      // showProgramResult can ever become true. Skipping this call for
+      // running users removes a real, currently-live risk rather than
+      // adding one — verified against RunningScheduleStep.tsx (the one
+      // confirmed reader of `profile` during this window), which already
+      // handles both a real profile and a null one correctly via
+      // resolveSignupDefaultWrite's hasHydrated gate.
+      if (!isRunningTrack) {
+        // eslint-disable-next-line no-console
+        console.log('[DIAG] initializeProfile — locally-built profile.healthDeclarationAccepted:', (profile as any).healthDeclarationAccepted, '| keys:', Object.keys(profile));
+        await initializeProfile(profile);
+      }
 
       console.log('✅ Profile initialized with Level:', effectiveLevel, 'LevelId:', effectiveLevelId, 'Program:', effectiveProgramId, 'SubLevels:', effectiveSubLevels);
-
-      // Detect running track once — used for sync step and first-workout guard.
-      const isRunningTrack = getOnboardingPref('gateway_track') === 'RUNNING';
 
       // ✅ PERSISTENCE FIX: Sync assignedResults to Firestore immediately
       // This ensures quiz results are saved even if user drops off before Phase 2
