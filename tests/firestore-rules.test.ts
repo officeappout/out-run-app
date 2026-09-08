@@ -1063,6 +1063,92 @@ async function testChatLeakClosed() {
       throw new Error(`expected exactly the cl_dm thread, got ${snap.size} docs: ${snap.docs.map((d) => d.id).join(',')}`);
     }
   });
+
+  // David's proof #1: does an UNFILTERED list (no where clause at all — the
+  // exact shape subscribeToAllChats uses for the admin master inbox) still
+  // work? This is the query shape that actually stresses whether Firestore
+  // can prove the rule from query metadata alone — CL6 above has a `where`
+  // filter that already satisfies clause A, so it doesn't test this.
+  await it('CL7 — a NON-ADMIN attempts an unfiltered list() on chats (no where clause) → DENY (neither clause is provable with no query filter, no catch-all applies)', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDocs(collection(ctx.firestore(), 'chats')));
+  });
+
+  await it('CL8 — an ADMIN attempts the SAME unfiltered list() (the real subscribeToAllChats shape) → ALLOW, returns every chat including ones they are not a participant of', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    const snap = await assertSucceeds(getDocs(collection(ctx.firestore(), 'chats')));
+    if (!snap.docs.some((d) => d.id === 'cl_dm') || !snap.docs.some((d) => d.id === 'group_cl_group')) {
+      throw new Error(`admin unfiltered list missing expected docs, got: ${snap.docs.map((d) => d.id).join(',')}`);
+    }
+  });
+
+  // David's proof #3: production audit found 5 real users in a group chat's
+  // participants[] but NOT in that group's community_groups/{id}/members/{uid}
+  // (legacy drift — chat.service.ts writes participants independently of the
+  // members subcollection in a few code paths). This is the FIRST clause
+  // (request.auth.uid in resource.data.participants) — pre-existing,
+  // untouched by today's fix — not the new members-based clause. The two
+  // `allow read` statements on this match block are OR'd, so a mismatched
+  // user should still pass via the first one alone.
+  await it('CL9 — a user in participants[] but NOT in community_groups/{groupId}/members/{uid} (the exact real-world mismatch shape) reads their chat → ALLOW (via the untouched participants clause)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'community_groups', 'cl_mismatch_group'), { name: 'Mismatch Group', isPublic: true, isLocked: false, createdBy: 'someone_else' });
+      // Deliberately NO members/{uid} doc for cl_mismatch_member.
+      await setDoc(doc(db, 'chats', 'group_cl_mismatch_group'), {
+        type: 'group', groupId: 'cl_mismatch_group', participants: ['cl_mismatch_member'], participantNames: {},
+        lastMessage: 'legacy chat', lastMessageAt: new Date(),
+      });
+    });
+    const ctx = env.authenticatedContext('cl_mismatch_member');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'group_cl_mismatch_group')));
+  });
+}
+
+// David's proof #2: chats/{chatId}'s new clause does a get() on
+// community_groups/{groupId}/members/{uid} — Firestore rules cap
+// get()/exists() calls at 10 for a single-doc request, 20 for a
+// query/list. If that clause were actually EVALUATED per matched document
+// (not short-circuited away by clause A already being provable from the
+// query's own `where` filter), a user with more chats than the cap would
+// see their entire inbox query rejected outright, not slowly — a total,
+// silent failure for exactly the users who use the app most. Seeds 25
+// group chats a single user is a genuine participant AND community_groups
+// member of, then runs the EXACT useChatInbox query shape against all 25.
+async function testChatListScale() {
+  console.log('\nchat-list-scale — useChatInbox\'s real query shape at 25 chats (proof #2)');
+
+  const STRESS_UID = 'stress_user';
+  const N = 25;
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (let i = 0; i < N; i++) {
+      const groupId = `stress_group_${i}`;
+      const chatId = `group_${groupId}`;
+      await setDoc(doc(db, 'community_groups', groupId), { name: `Stress ${i}`, isPublic: true, isLocked: false, createdBy: STRESS_UID });
+      await setDoc(doc(db, 'community_groups', groupId, 'members', STRESS_UID), { uid: STRESS_UID, role: 'member', joinedAt: new Date() });
+      await setDoc(doc(db, 'chats', chatId), {
+        type: 'group', groupId, participants: [STRESS_UID], participantNames: {},
+        lastMessage: `msg ${i}`, lastMessageAt: new Date(),
+      });
+    }
+  });
+
+  await it(`CSCALE1 — a user in ${N} group chats LISTS their inbox via array-contains (the real useChatInbox shape) → ALLOW, all ${N} returned`, async () => {
+    const ctx = env.authenticatedContext(STRESS_UID);
+    const snap = await assertSucceeds(
+      getDocs(query(collection(ctx.firestore(), 'chats'), where('participants', 'array-contains', STRESS_UID)))
+    );
+    if (snap.size !== N) {
+      throw new Error(`expected ${N} chats, got ${snap.size} — if this is LESS than ${N} or the call threw, the get()-budget concern is real`);
+    }
+  });
+
+  await it(`CSCALE2 — a real member reads ONE of those ${N} group chats directly via getDoc → ALLOW (confirms the get()-based clause itself still works at this scale, not just the array-contains path)`, async () => {
+    const ctx = env.authenticatedContext(STRESS_UID);
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'group_stress_group_0')));
+  });
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -1086,6 +1172,7 @@ async function main() {
   await testPersonaAudienceCollection();
   await testPersonaGatedMembershipBlock();
   await testChatLeakClosed();
+  await testChatListScale();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Results: ${pass} passed, ${fail} failed`);
