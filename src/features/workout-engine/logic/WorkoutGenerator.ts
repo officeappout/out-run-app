@@ -63,6 +63,8 @@ import {
   selectExercisesWithDominance,
   applySABASelectionBias,
   hasExplicitCoreLevel,
+  resolveExerciseDomain,
+  _TEMP_SKILL_PARENT_MAP,
 } from './workout-selection.utils';
 import {
   chooseCoreForm,
@@ -891,15 +893,39 @@ export class WorkoutGenerator {
       const rescueIndices: number[] = [];
       const userLevels = context.userProgramLevels;
 
+      // 2026-09-08 (David, "one question, eight answers" consolidation) —
+      // David Rule previously compared an exercise's level against its
+      // FOUNDATIONAL parent's level via movementGroup→MG_TO_DOMAIN alone,
+      // never consulting the exercise's own `targetPrograms` tags. For a
+      // skill exercise whose movementGroup is a generic one (e.g. a planche
+      // exercise tagged movementGroup 'horizontal_push'), this compared it
+      // against the user's PUSH level (often much higher than their planche
+      // level) instead of their planche level — wrongly flagging a
+      // correct-level skill exercise as "under-level" and swapping it away.
+      // Tries the tag-based unified resolver first (skill tags always beat
+      // parent movementGroup); falls back to the old MG_TO_DOMAIN mapping
+      // when no tag match exists (pure-foundational exercises, or when
+      // userLevels/activeDomains is unavailable) — behavior-identical for
+      // every exercise that was never mistagged in the first place.
+      const resolveDavidRuleDomain = (exercise: Exercise, mg: string | null | undefined): { targetDomain: string | undefined; domainLevel: number } => {
+        const tagDomain = resolveExerciseDomain(exercise, {
+          activeDomains: userLevels ? Array.from(userLevels.keys()) : [],
+          skillParentMap: _TEMP_SKILL_PARENT_MAP,
+          resolveSlug: resolveToSlug,
+        });
+        const targetDomain = tagDomain ?? (mg ? MG_TO_DOMAIN[mg] : undefined);
+        const domainLevel = targetDomain
+          ? (userLevels?.get(targetDomain) ?? context.userLevel)
+          : context.userLevel;
+        return { targetDomain, domainLevel };
+      };
+
       for (let i = 0; i < workoutExercises.length; i++) {
         const we = workoutExercises[i];
         if (we.exerciseRole !== 'main') continue;
         const exLevel = we.programLevel ?? 1;
         const mg = we.exercise.movementGroup;
-        const targetDomain = mg ? MG_TO_DOMAIN[mg] : undefined;
-        const domainLevel = targetDomain
-          ? (userLevels?.get(targetDomain) ?? context.userLevel)
-          : context.userLevel;
+        const { targetDomain, domainLevel } = resolveDavidRuleDomain(we.exercise, mg);
 
         if (exLevel <= 1) {
           rescueIndices.push(i);
@@ -946,10 +972,10 @@ export class WorkoutGenerator {
             if (id) currentWorkoutIds.add(id);
           }
 
-          const targetDomain = MG_TO_DOMAIN[mg];
-          const domainLevel = targetDomain
-            ? (userLevels?.get(targetDomain) ?? context.userLevel)
-            : context.userLevel;
+          // Same-domain-both-sides: must resolve identically to the
+          // detection loop above, or the rescue decision and the rescue's
+          // own target level would be judged against different domains.
+          const { targetDomain, domainLevel } = resolveDavidRuleDomain(victim.exercise, mg);
 
           const targetOffset = difficulty === 1 ? -2 : difficulty === 2 ? -1 : 1;
           const targetLevel = Math.max(1, domainLevel + targetOffset);
