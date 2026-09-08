@@ -2193,6 +2193,14 @@ async function _buildSharedPipeline(
     injuryShield: injuries,
     intentMode,
     availableEquipment,
+    // Domain-consistent level_tolerance comparison (2026-09-08, David) — see
+    // ContextualFilterContext's own doc comment and
+    // resolveConsistentComparisonLevels (workout-selection.utils.ts). Same
+    // userProgramLevels/baseUserLevel already threaded into
+    // resolveExercisePool above (InputSanitizerMiddleware.ts) — not a new
+    // source of truth, the same one, made available to filterAndScore too.
+    userProgramLevels,
+    baseUserLevel,
     getUserLevelForExercise: (exercise: Exercise) => {
       if (resolvedDomainBudgets?.length) {
         // ── Pass 1: movementGroup → domain ──────────────────────────────────

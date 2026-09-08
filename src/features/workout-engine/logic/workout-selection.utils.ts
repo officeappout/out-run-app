@@ -12,6 +12,7 @@ import { Exercise, MechanicalType, ExerciseTag, ExecutionLocation } from '@/feat
 import type { ScoredExercise } from './contextual-engine.types';
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
+import { resolveUserLevelForProgram } from '../core/middleware/InputSanitizerMiddleware';
 import { normalizeGearId, ESSENTIAL_PARK_GEAR, satisfiesGearRequirement } from '../shared/utils/gear-mapping.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
@@ -139,6 +140,50 @@ export function resolveExerciseLevelForDomains(
 
   // Fallback: first targetPrograms entry
   return { level: tps[0].level, resolvedDomain: null };
+}
+
+/**
+ * Both sides of a level-tolerance comparison must be measured against the
+ * SAME domain — otherwise a multi-tagged exercise's skill-domain level (e.g.
+ * planche L8) gets compared against the user's level in a completely
+ * different, unrelated domain (e.g. pull L16), purely because that OTHER
+ * domain happened to be scanned first somewhere. Closes the 2026-09-08
+ * level_tolerance bug (David, real run — 22/22 exercises excluded here
+ * carried a planche/one_arm_pullup tag; 0/15 that survived did): the exact
+ * root cause was `ContextualEngine.filterAndScore` computing `programLevel`
+ * via `resolveExerciseLevelForDomains` (which correctly picks the SKILL
+ * domain when active) while computing the user's comparison level via a
+ * completely separate, domain-blind function that could land on a
+ * different domain (the exercise's own FOUNDATIONAL tag) entirely.
+ *
+ * Fix: resolve the domain ONCE via `resolveExerciseLevelForDomains` (already
+ * correct — not touched), then measure the user's level for THAT SAME
+ * domain via `resolveUserLevelForProgram` — the exact resolver
+ * `resolveExercisePool`'s own ±3/±5 tolerance filter already uses
+ * correctly (InputSanitizerMiddleware.ts). Not a new implementation; this
+ * is the shared core, called from both places.
+ *
+ * When `userProgramLevels` isn't available (older/other callers of
+ * `ContextualFilterContext` that don't provide it — e.g. the admin
+ * simulator, the hybrid pipeline) or the exercise resolved to no domain at
+ * all (`resolvedDomain === null`, the `tps[0]` fallback), falls back to
+ * `fallbackUserLevel` — the caller's existing `getUserLevelForExercise`
+ * result — so behavior is unchanged for callers that don't opt in.
+ */
+export function resolveConsistentComparisonLevels(
+  exercise: Exercise,
+  activeDomains: string[] | undefined,
+  primaryProgramId: string | undefined,
+  userProgramLevels: Map<string, number> | undefined,
+  baseUserLevel: number,
+  fallbackUserLevel: number,
+): { exerciseLevel: number; userLevel: number; resolvedDomain: string | null } {
+  const resolved = resolveExerciseLevelForDomains(exercise, activeDomains, primaryProgramId);
+  if (!userProgramLevels || !resolved.resolvedDomain) {
+    return { exerciseLevel: resolved.level, userLevel: fallbackUserLevel, resolvedDomain: resolved.resolvedDomain };
+  }
+  const userLevel = resolveUserLevelForProgram(resolved.resolvedDomain, userProgramLevels, resolveToSlug, baseUserLevel);
+  return { exerciseLevel: resolved.level, userLevel, resolvedDomain: resolved.resolvedDomain };
 }
 
 // ============================================================================

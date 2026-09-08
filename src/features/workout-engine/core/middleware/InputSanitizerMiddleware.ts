@@ -393,6 +393,55 @@ export interface ExercisePoolResult {
   diagnostics?: string[];
 }
 
+/**
+ * Resolve the user's level for one specific program (by Firestore id or
+ * slug) — the exact per-domain lookup `resolveExercisePool`'s ±3/±5
+ * tolerance filter already uses, correctly, to measure an exercise's own
+ * level against the user's level FOR THAT SAME PROGRAM. Extracted here
+ * (2026-09-08, David) so `ContextualEngine.filterAndScore`'s
+ * level_tolerance gate can call the exact same resolver instead of a
+ * seventh reimplementation — see that gate's own comment for the bug this
+ * closes (comparing an exercise's skill-domain level against the user's
+ * FOUNDATIONAL-domain level, two different domains in one comparison).
+ *
+ * `resolveExercisePool` keeps its own bound wrapper
+ * (`resolveUserLevelForProgramBound`) so its behavior is byte-identical —
+ * this function is the shared core both callers now delegate to.
+ */
+export function resolveUserLevelForProgram(
+  programId: string,
+  userProgramLevels: Map<string, number>,
+  resolveSlug: (programId: string) => string | undefined,
+  baseUserLevel: number,
+): number {
+  // 1. Direct slug match
+  const direct = userProgramLevels.get(programId);
+  if (direct !== undefined) return direct;
+  // 2. Firestore ID → slug
+  const slug = resolveSlug(programId);
+  if (slug) {
+    const slugLevel = userProgramLevels.get(slug);
+    if (slugLevel !== undefined) return slugLevel;
+    // 2b. The slug itself might be an alias (e.g. 'pulling')
+    const slugAliases = SLUG_ALIAS[slug];
+    if (slugAliases) {
+      const aliasLevels = slugAliases
+        .map(a => userProgramLevels.get(a))
+        .filter((l): l is number => l !== undefined);
+      if (aliasLevels.length > 0) return Math.max(...aliasLevels);
+    }
+  }
+  // 3. Direct slug alias (programId itself is an alias like 'pulling')
+  const directAliases = SLUG_ALIAS[programId];
+  if (directAliases) {
+    const aliasLevels = directAliases
+      .map(a => userProgramLevels.get(a))
+      .filter((l): l is number => l !== undefined);
+    if (aliasLevels.length > 0) return Math.max(...aliasLevels);
+  }
+  return baseUserLevel;
+}
+
 export function resolveExercisePool(
   allExercises: Exercise[],
   userProgramLevels: Map<string, number>,
@@ -426,40 +475,14 @@ export function resolveExercisePool(
     ...resolvedChildDomains,
   ]);
 
-  const resolveUserLevelForProgram = (programId: string): number => {
-    // 1. Direct slug match
-    const direct = userProgramLevels.get(programId);
-    if (direct !== undefined) return direct;
-    // 2. Firestore ID → slug
-    const slug = idToSlug.get(programId);
-    if (slug) {
-      const slugLevel = userProgramLevels.get(slug);
-      if (slugLevel !== undefined) return slugLevel;
-      // 2b. The slug itself might be an alias (e.g. 'pulling')
-      const aliases = SLUG_ALIAS[slug];
-      if (aliases) {
-        const aliasLevels = aliases
-          .map(a => userProgramLevels.get(a))
-          .filter((l): l is number => l !== undefined);
-        if (aliasLevels.length > 0) return Math.max(...aliasLevels);
-      }
-    }
-    // 3. Direct slug alias (programId itself is an alias like 'pulling')
-    const aliases = SLUG_ALIAS[programId];
-    if (aliases) {
-      const aliasLevels = aliases
-        .map(a => userProgramLevels.get(a))
-        .filter((l): l is number => l !== undefined);
-      if (aliasLevels.length > 0) return Math.max(...aliasLevels);
-    }
-    return baseUserLevel;
-  };
+  const resolveUserLevelForProgramBound = (programId: string): number =>
+    resolveUserLevelForProgram(programId, userProgramLevels, (id) => idToSlug.get(id), baseUserLevel);
 
   const filterByTolerance = (tolerance: number) =>
     allExercises.filter(ex => {
       if (ex.targetPrograms?.length) {
         return ex.targetPrograms.some(tp => {
-          const userLevel = resolveUserLevelForProgram(tp.programId);
+          const userLevel = resolveUserLevelForProgramBound(tp.programId);
           return Math.abs(tp.level - userLevel) <= tolerance;
         });
       }
