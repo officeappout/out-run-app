@@ -595,11 +595,20 @@ export async function deleteGroup(groupId: string): Promise<void> {
         { groupIds: arrayRemove(groupId), updatedAt: serverTimestamp() },
         { merge: true },
       );
-      batch.set(
-        doc(db, 'users', uid),
-        { social: { groupIds: arrayRemove(groupId) }, updatedAt: serverTimestamp() },
-        { mergeFields: ['social.groupIds', 'updatedAt'] },
-      );
+      // batch.update(), not batch.set(..., {merge:true}) — verified by an
+      // isolated synthetic-doc test (08.09.2026): setDoc/batch.set treats a
+      // dotted string key like 'social.groupIds' as a LITERAL top-level
+      // field name (creating a decoy field with a dot in its name) rather
+      // than a nested path, so the real nested field was silently left
+      // untouched. Only update()/batch.update() parses dotted keys as
+      // nested paths. The nested-object + mergeFields form joinEngine.ts
+      // uses for the reverse (arrayUnion) write was tried first and found
+      // to wipe the entire array instead of removing one element — a real
+      // user's social.groupIds was corrupted by it before this was caught.
+      batch.update(doc(db, 'users', uid), {
+        'social.groupIds': arrayRemove(groupId),
+        updatedAt: serverTimestamp(),
+      });
     }
     if (messagesSnap) {
       for (const msgDoc of messagesSnap.docs) {
