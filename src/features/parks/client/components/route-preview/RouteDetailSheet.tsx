@@ -212,7 +212,7 @@ export default function RouteDetailSheet({
         level: 'beginner',
         startTime,
         endTime,
-        privacyMode: 'squad',
+        privacyMode: 'verified_global',
         lat: startPoint != null ? startPoint[1] : null,
         lng: startPoint != null ? startPoint[0] : null,
       });
@@ -227,10 +227,12 @@ export default function RouteDetailSheet({
       const syntheticSession: SessionEnrichment = {
         eventId: `local-${user.uid}-${Date.now()}`,
         eventLabel: user.displayName ?? 'אני',
-        nextStartTime: today.toISOString(),
+        nextStartTime: startTime.toISOString(),
         currentRegistrations: 1,
         plannedCount: 1,
         avatars: [{ uid: user.uid, name: user.displayName ?? 'אני', photoURL: user.photoURL ?? undefined }],
+        isPersonalArrival: true,
+        privacyMode: 'verified_global',
       };
       setLocalSessions((prev) => [...prev, syntheticSession]);
     } catch (err) {
@@ -268,7 +270,18 @@ export default function RouteDetailSheet({
   }, [route, allSessionsMap, localSessions]);
 
   const filteredSessions = useMemo(
-    () => allSessions.filter((s) => matchesDayFilter(s.nextStartTime, dayFilter)),
+    () => allSessions.filter((s) => {
+      if (!matchesDayFilter(s.nextStartTime, dayFilter)) return false;
+      // Squad-only arrivals don't belong on a public route page — but the
+      // publisher must still see their own, or a publish would look like
+      // it silently vanished. Organized events/groups have no privacy
+      // concept and are unaffected (isPersonalArrival is unset for them).
+      if (s.isPersonalArrival) {
+        const isOwn = s.avatars?.[0]?.uid === auth.currentUser?.uid;
+        return s.privacyMode === 'verified_global' || isOwn;
+      }
+      return true;
+    }),
     [allSessions, dayFilter],
   );
 

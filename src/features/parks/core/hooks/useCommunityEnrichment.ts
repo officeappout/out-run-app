@@ -18,6 +18,7 @@ import { db } from '@/lib/firebase';
 import { haversineKm } from '../services/geoUtils';
 import type { Route } from '../types/route.types';
 import { getMyPersonaKeys, personaCollectionName } from '@/features/arena/services/group.service';
+import type { PrivacyMode } from '@/types/community.types';
 
 export interface SessionEnrichment {
   eventId: string;
@@ -39,6 +40,13 @@ export interface SessionEnrichment {
    * announcements, not group sessions.
    */
   isPersonalArrival?: boolean;
+  /**
+   * Set only on personal arrivals (`isPersonalArrival: true`) — carries the
+   * source `planned_sessions` doc's privacyMode so display layers can hide
+   * a squad-only arrival from viewers who aren't its publisher. Organized
+   * events/groups have no privacy concept and never set this field.
+   */
+  privacyMode?: PrivacyMode;
 }
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -308,9 +316,11 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
   const [eventMap, setEventMap] = useState<Map<string, SessionEnrichment>>(new Map());
   const [eventAllMap, setEventAllMap] = useState<Map<string, SessionEnrichment[]>>(new Map());
   const [groupAllMap, setGroupAllMap] = useState<Map<string, SessionEnrichment[]>>(new Map());
+  const [arrivalAllMap, setArrivalAllMap] = useState<Map<string, SessionEnrichment[]>>(new Map());
 
   const unsubEventsRef = useRef<Unsubscribe | null>(null);
   const unsubGroupsRef = useRef<Unsubscribe | null>(null);
+  const unsubArrivalsRef = useRef<Unsubscribe | null>(null);
   const prevIdsRef = useRef<string>('');
 
   // Build route start-point map for proximity matching
@@ -333,17 +343,69 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
 
     if (unsubEventsRef.current) { unsubEventsRef.current(); unsubEventsRef.current = null; }
     if (unsubGroupsRef.current) { unsubGroupsRef.current(); unsubGroupsRef.current = null; }
+    if (unsubArrivalsRef.current) { unsubArrivalsRef.current(); unsubArrivalsRef.current = null; }
 
     if (routeIds.length === 0) {
       setEventMap(new Map());
       setEventAllMap(new Map());
       setGroupAllMap(new Map());
+      setArrivalAllMap(new Map());
       return;
     }
 
     const capped = routeIds.slice(0, 30);
 
     console.log('[useCommunityEnrichment] Subscribing for route IDs:', capped);
+
+    // ── Personal arrivals (planned_sessions for these routes) ──
+    // Read counterpart of `createPlannedSession({ routeId })` invoked from
+    // RouteDetailSheet's "אני מגיע ב..." button. Mirrors useParkEvents'
+    // arrivals listener below — without this, a published route arrival
+    // never re-surfaces after the optimistic local entry is gone (e.g. on
+    // remount), the same bug the park listener was added to fix.
+    const arrQ = query(
+      collection(db, 'planned_sessions'),
+      where('routeId', 'in', capped),
+      where('expiresAt', '>=', Timestamp.now()),
+    );
+
+    const unsubArr = onSnapshot(
+      arrQ,
+      (snapshot) => {
+        const all = new Map<string, SessionEnrichment[]>();
+
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+          if (data.status === 'cancelled') continue;
+          const routeId = data.routeId as string | undefined;
+          if (!routeId) continue;
+          const start = safeDate(data.startTime);
+          if (!start) continue;
+
+          const displayName = data.displayName ?? 'משתמש';
+          const list = all.get(routeId) ?? [];
+          list.push({
+            eventId: `arrival_${docSnap.id}`,
+            eventLabel: displayName,
+            nextStartTime: start.toISOString(),
+            currentRegistrations: 1,
+            plannedCount: 1,
+            avatars: [{
+              uid: data.userId ?? '',
+              name: displayName,
+              photoURL: data.photoURL ?? undefined,
+            }],
+            isPersonalArrival: true,
+            privacyMode: data.privacyMode as PrivacyMode | undefined,
+          });
+          all.set(routeId, list);
+        }
+
+        console.log('[useCommunityEnrichment] Arrivals resolved:', all.size, 'routes with personal arrivals');
+        setArrivalAllMap(all);
+      },
+      (err) => console.warn('[useCommunityEnrichment] arrivals error:', err),
+    );
 
     // ── Real events subscription ──
     const evQ = query(
@@ -480,13 +542,16 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
       unsubGrpBroad();
       unsubGrpSpecific?.();
     };
+    unsubArrivalsRef.current = unsubArr;
 
     return () => {
       unsubEv();
       unsubGrpBroad();
       unsubGrpSpecific?.();
+      unsubArr();
       unsubEventsRef.current = null;
       unsubGroupsRef.current = null;
+      unsubArrivalsRef.current = null;
     };
   }, [routeIds, routeStartMap]);
 
@@ -547,12 +612,19 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[]) {
       }
     }
 
+    // Personal arrivals are *individual* announcements, never deduped
+    // against organized sessions — appended after, same as useParkEvents.
+    for (const [key, val] of arrivalAllMap) {
+      const existing = merged.get(key) ?? [];
+      merged.set(key, [...existing, ...val]);
+    }
+
     for (const [, list] of merged) {
       list.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));
     }
 
     return merged;
-  }, [eventAllMap, groupAllMap]);
+  }, [eventAllMap, groupAllMap, arrivalAllMap]);
 
   const enrichRoutes = useCallback(
     (routeList: Route[]): Route[] => {
@@ -734,6 +806,7 @@ export function useParkEvents(parkId: string | null | undefined) {
               photoURL: data.photoURL ?? undefined,
             }],
             isPersonalArrival: true,
+            privacyMode: data.privacyMode as PrivacyMode | undefined,
           });
         }
         results.sort((a, b) => a.nextStartTime.localeCompare(b.nextStartTime));

@@ -327,7 +327,18 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
   }, [parkEvents, localArrivals]);
 
   const filteredParkEvents = useMemo(
-    () => mergedParkEvents.filter((ev) => matchesDayFilter(ev.nextStartTime, dayFilter)),
+    () => mergedParkEvents.filter((ev) => {
+      if (!matchesDayFilter(ev.nextStartTime, dayFilter)) return false;
+      // Squad-only arrivals don't belong on a public park page — but the
+      // publisher must still see their own, or a publish would look like
+      // it silently vanished. Organized events/groups have no privacy
+      // concept and are unaffected (isPersonalArrival is unset for them).
+      if (ev.isPersonalArrival) {
+        const isOwn = ev.avatars?.[0]?.uid === auth.currentUser?.uid;
+        return ev.privacyMode === 'verified_global' || isOwn;
+      }
+      return true;
+    }),
     [mergedParkEvents, dayFilter],
   );
 
