@@ -25,7 +25,6 @@ import 'server-only';
 import { cert, getApps, initializeApp, applicationDefault, App } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { decodeJwt } from 'jose';
 
 let _adminApp: App | null = null;
 
@@ -159,32 +158,20 @@ export async function resolveIdentity(idToken: string): Promise<ResolvedIdentity
     try {
       decoded = await auth.verifyIdToken(idToken, /* checkRevoked */ false);
     } catch (secondErr: any) {
-      // In local development, FIREBASE_SERVICE_ACCOUNT_KEY is typically not set
-      // and Application Default Credentials are not configured, so verifyIdToken
-      // always fails. Rather than letting the session route return 401 (which
-      // causes a middleware redirect loop), decode the JWT without signature
-      // verification and check the email against the root-admin allowlist.
-      // NEVER run this path in production — verifyIdToken must succeed there.
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn(
-          '[firebase-admin] DEV MODE: Admin SDK credentials not configured — ' +
-          'falling back to unverified JWT decode. DO NOT use this in production.',
-        );
-        try {
-          const claims = decodeJwt(idToken);
-          const devEmail = (claims['email'] as string | null) ?? null;
-          const devUid = (claims['sub'] as string) ?? '';
-          const devAdmin =
-            !!(devEmail && ROOT_ADMIN_EMAIL_REGEX.test(devEmail)) ||
-            !!(devEmail && (
-              devEmail === 'gal@appout.co.il' ||
-              devEmail === 'matan.danan@appout.co.il'
-            ));
-          return { uid: devUid, email: devEmail, admin: devAdmin };
-        } catch {
-          // JWT is malformed — fall through to throw the original error
-        }
-      }
+      // SPEC-02 SEC-11: this used to fall back to decodeJwt() (parses the
+      // token WITHOUT checking its cryptographic signature at all) when
+      // NODE_ENV !== 'production', trusting whatever email claim the
+      // token claimed. Since decodeJwt never verifies anything, ANYONE
+      // could construct a fake token claiming `email:
+      // 'david@appout.co.il'` — no real signing key needed — and become
+      // admin, in any non-production environment (any preview/staging
+      // deploy that doesn't happen to have NODE_ENV exactly ==
+      // 'production' set). Deleted outright, per the spec's own
+      // instruction: always verify, no exceptions. Local dev already has
+      // FIREBASE_SERVICE_ACCOUNT_KEY configured (.env.local), so
+      // verifyIdToken succeeds on the very first attempt above in
+      // practice — this fallback was very likely already dead code, not
+      // a working convenience being removed.
       throw secondErr;
     }
   }
