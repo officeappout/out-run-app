@@ -568,3 +568,19 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 3. **`alreadyAccepted`** (`/onboarding-new/health/page.tsx`, תוקן 07.09.2026) — `profile` שעדיין לא נטען (`null`, לפני `_hasHydrated`) ו-`profile` שנטען ומראה "לא הצהיר" חישבו לאותה תוצאה (`false`), כי הבדיקה הייתה `!!profile && hasAccepted(...)` בלי לבדוק את דגל-הטעינה בנפרד.
 
 **הצורה המשותפת, לזיהוי-עתידי:** בדוק כל בדיקה מהצורה `if (someBooleanDerivedFromPossiblyUnloadedData)` — האם היא באמת מבחינה בין "נבדק, והתשובה שלילית" לבין "עדיין לא ידוע"? אם לא, זה מועמד לאותה מחלקת-באג. התיקון בשלושת המקרים היה זהה במהות: להוסיף מצב-שלישי מפורש (בדיקת-אפס-נפרדת, guard-נפרד-מפורש, דגל-hydration-נפרד) במקום לתת לשני-הערכים-הקיימים לבלוע אותו.
+
+---
+
+## ⚠️ מאומת: `program-path/page.tsx` (מסלול-הסקילים) לא מתקין `EquipmentStep` בכלל — אסור לתקן לפני שהמדידה הושלמה — 08.09.2026
+
+**Opened:** 08.09.2026 · **Source:** דוד, שאלה נפרדת תוך-כדי חקירת DOMAIN QUOTA FAILED — "האם חשבון חדש אמור להיווצר עם פרופיל ציוד ריק, או שיש ברירת מחדל שלא נכתבה?"
+
+**לא ברירת-מחדל חסרה — שלב שלם חסר בנתיב הזה.** `createDefaultEquipmentProfile()` (`src/features/user/identity/services/profile.service.ts:76-83`) מחזיר `{home:[],office:[],outdoor:[]}` ריק בכוונה, בכל הנתיבים — זו לא נקודת-הכשל. `updateEquipmentProfile()` (`:100-130`) ממלא רק `home`, ורק אם `answers.equipment` קיים בתשובות-השאלון.
+
+**`EquipmentStep.tsx` (רכיב-השלב עצמו) מותקן רק בשני מקומות בכל הריפו** (grep מלא, לא הסקה): `OnboardingWizard.tsx` (מסלול-הכוח הרגיל) ו-`EquipmentEditorSheet.tsx` (עריכה ידנית מאוחר יותר, דף-בית/הגדרות). **`program-path/page.tsx` (מסלול-הסקילים, calisthenics_upper) לא מתקין את השלב הזה בשום מקום.** משתמש שנרשם דרך בחירת-סקילים בלבד לעולם לא נשאל על ציוד — לא בחירה-ריקה מכוונת, "אף פעם לא נשאל."
+
+**מתחבר ישירות ל-`[User Service] User <id> has missing or empty equipment profile`** (`src/lib/firestore.service.ts:79-94`) — לוג-אינפו קיים, שכבר מזהיר בדיוק על המצב הזה ("This may affect Smart Swap functionality"), אבל לא נבנה מסך שמונע אותו למסלול-הסקילים. בהמשך: `ESSENTIAL_PARK_GEAR` הפאלבק-הקטסטרופלי (`gear-mapping.utils.ts:694`, מוזרק דרך `InputSanitizerMiddleware.ts`'s `normalizeEquipmentArray`, `:117-127`) — פרופיל-ריק בפארק נופל לסט-הבסיסי-בלבד, בלי גומייה/טבעות.
+
+**⚠️ קשר סביר לחקירת DOMAIN QUOTA FAILED, לא מוכח — בדיוק לכן אסור לגעת:** אם ה-gear-fallback הזה משפיע על שכבה כלשהי במשפך 371→54→15 (המדידה שנבנתה באותה שיחה, `resolveExercisePool`/`ContextualEngine.filterAndScore`), נגיעה בציוד **עכשיו** תזהם את המדידה — לא נדע יותר אם שינוי בתוצאה נובע מהתיקון-הזה או מהמשתנה שדוד רצה למדוד. **אסור לתקן לפני שהמדידה הושלמה — 08.09.2026.**
+
+לא תוקן. לא נגעתי — לא בברירת-מחדל, לא ב-`EquipmentStep`, לא ב-`ESSENTIAL_PARK_GEAR`.
