@@ -101,6 +101,20 @@ service cloud.firestore {
       return d != null ? d.get('code', '') : '';
     }
 
+    // SPEC-02 F-04 (temporary, pending SEC-08): true when docId starts
+    // with "<the reader's own core.authorityId>_" — an exact-length
+    // prefix + underscore-boundary check, NOT docId.split('_')[0], which
+    // silently truncates at the FIRST underscore and breaks the instant
+    // authorityId itself contains one (e.g. authorityId "city_a" against
+    // docId "city_a_unit1_2026-09" — split gives "city", not "city_a").
+    function docIdHasAuthorityPrefix(docId) {
+      let authorityId = getUserDoc().get('core', {}).get('authorityId', '');
+      return authorityId != ''
+        && docId.size() > authorityId.size()
+        && docId[0:authorityId.size()] == authorityId
+        && docId[authorityId.size():authorityId.size()+1] == '_';
+    }
+
     // 08.09.2026 — closes the gap isReserveLeagueGroup's comment above
     // explicitly deferred: a community_groups_{persona}-gated group's
     // SENSITIVE FIELDS were gated (AUDIENCE_SENSITIVE_FIELDS split), but
@@ -359,6 +373,35 @@ service cloud.firestore {
       // including all protected groups — this is how admins are
       // promoted/demoted and how tenants are assigned in tooling.
       allow write: if isRootAdmin() || isAdmin();
+
+      // ──────────────────────────────────────────────────────────────
+      // private/legal — SPEC-02 SEC-06 (partial fix — see the spec's own
+      // priority framing: "same pattern as inviteCode in spec 1, a secret
+      // on a public doc"). healthDeclarationPdfUrl used to be a plain
+      // field on users/{userId} — a Storage download URL, readable by any
+      // signed-in guest whenever the profile is `discoverable`, bypassing
+      // storage.rules' own restrictions on that file entirely. Verified
+      // contained before moving: only 2 writers (owner, during onboarding)
+      // and 2 readers (admin panel, legalHold CF — both already bypass
+      // this rule via isAdmin()/Admin SDK regardless of location), so
+      // moving it doesn't touch any non-owner client read path.
+      //
+      // NOT done here (deferred, documented, not silently dropped): the
+      // discoverable-profile grant above still exposes email, birthDate,
+      // home coordinates, and tenantId on the SAME doc. Those don't share
+      // healthDeclarationPdfUrl's contained blast radius — tenantId alone
+      // is read throughout this rules file and app code for legitimate
+      // owner-only purposes, and untangling "the owner reading their own
+      // tenantId" from "a stranger reading it via discoverable" needs a
+      // real profile-split (denormalized public-fields mirror, kept in
+      // sync some way that doesn't depend on catching every writer) —
+      // that's a data-model change, not a rule tweak, and tenantId
+      // exposure specifically overlaps SEC-08 (tenant isolation, mandatory
+      // stop A) in ways that shouldn't be half-solved ad hoc here.
+      match /private/legal {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
 
       // ──────────────────────────────────────────────────────────────
       // notification_clicks — push CTR analytics sub-collection.
@@ -1431,7 +1474,14 @@ service cloud.firestore {
       //   RSVP fields  → any authenticated user (booking.service.ts)
       //   Phase fields → group admin only (session-phase.service.ts)
       match /attendance/{sessionId} {
-        allow read: if isAuthenticated();
+        // SPEC-02 F-11: was `if isAuthenticated()` — any signed-in guest
+        // could read every group's session attendance. docId is fixed to
+        // one already-known group for the whole subcollection query (same
+        // shape as members/{uid} above — safe per the R7/R8 pattern, not
+        // the top-level-collection trap) — verified every real caller
+        // (booking.service.ts) always scopes to a known groupId, never a
+        // cross-group collectionGroup query.
+        allow read: if isGroupMember(docId) || isGroupAdmin(docId) || isAdmin();
 
         // RSVP: create initial doc (booking.service.ts first RSVP)
         allow create: if isAuthenticated()
@@ -1671,7 +1721,16 @@ service cloud.firestore {
     // Tokens are cryptographic random — unguessable ID is the primary security layer.
     // ============================================================
     match /group_invitations/{token} {
-      allow read: if isAuthenticated();
+      // SPEC-02 F-13: was `allow read` (get+list) — any signed-in guest
+      // could `list` this collection and dump every open invitation,
+      // despite the comment right above already stating the intended
+      // model ("tokens are cryptographic random — unguessable ID is the
+      // primary security layer", i.e. get-by-known-token is meant to be
+      // the only access path). Verified every real caller (joinEngine.ts,
+      // group-invitation.service.ts, join/session-token route) only ever
+      // does .doc(token).get() — never a query — so narrowing to `get`
+      // costs nothing. Same fix shape as admin_invitations in SPEC-01.
+      allow get: if isAuthenticated();
       allow create: if isAuthenticated()
         && request.auth.uid == request.resource.data.hostUid;
       allow delete: if isAuthenticated()
@@ -1777,10 +1836,14 @@ service cloud.firestore {
       // Admins retain full access (heatmap / analytics tooling).
       allow read, write: if isRootAdmin() || isAdmin();
 
-      // Reads stay open to authenticated users: the admin heatmap
-      // (route-overlay.service) and analytics aggregate across users via
-      // authorityId queries. (Tightening reads is a separate follow-up.)
-      allow read: if isAuthenticated();
+      // SPEC-02 F-07: was `if isAuthenticated()` — every park check-in of
+      // every user, world-readable to any signed-in guest. The comment
+      // this replaced claimed the admin heatmap (route-overlay.service)
+      // needed this, but that component only mounts under /admin/heatmap
+      // (PopularParksCard/PopularRoutesCard/LiveHeatMap, all admin-only)
+      // and is already covered by the isAdmin() grant above — verified via
+      // grep, no non-admin client code queries this collection at all.
+      allow read: if isOwner(resource.data.userId);
 
       // Writes are owner-scoped. Client check-ins are addDoc() with
       // userId == current uid (useRunningPlayer). Server purges/seeds use
@@ -1845,7 +1908,24 @@ service cloud.firestore {
     // Clients should not write directly; reads are tenant-scoped.
     // ============================================================
     match /leaderboard_shards/{shardId} {
-      allow read: if isAuthenticated();
+      // SPEC-02 F-04: the comment above already claimed "tenant-scoped" —
+      // the rule never enforced it; `if isAuthenticated()` let any
+      // signed-in guest read every tenant's {uid, tenantId, unitId} rows
+      // (a full user→authority→military-unit map). getTenantLeaderboard
+      // (ranking.service.ts) always queries with
+      // where('tenantId','==',tenantId) — this condition is provable from
+      // that filter (same shape as the R8 community_groups precedent),
+      // so `list` still works for legitimate same-tenant reads.
+      //
+      // TEMPORARY, documented per the spec: scoped against the reader's
+      // OWN core.authorityId, not a real tenant/custom-claim boundary —
+      // SEC-08 (tenant isolation via custom claims, mandatory design-only
+      // stop in this spec) is the real fix. authorityId is spoofable by
+      // any admin-panel write path today in ways a verified custom claim
+      // wouldn't be; this only stops the CURRENT unauthenticated-scope
+      // leak, not a determined same-app cross-tenant reader.
+      allow read: if isAuthenticated()
+                  && resource.data.tenantId == getUserDoc().get('core', {}).get('authorityId', '');
       allow write: if isRootAdmin() || isAdmin();
     }
 
@@ -1854,7 +1934,22 @@ service cloud.firestore {
     // Read-only for authenticated users; tenant-scoped.
     // ============================================================
     match /leaderboard_snapshots/{snapshotId} {
-      allow read: if isAuthenticated();
+      // SPEC-02 F-04: same issue as leaderboard_shards above, different
+      // shape — snapshotId IS `{tenantId}_{unitId}_{period}` (no tenantId
+      // FIELD exists on this doc to filter by; see functions/src/
+      // leaderboard.ts's rollup). Read is always a single getDoc() by
+      // known bucketKey (leaderboard.service.ts) — never a list — so a
+      // docId-prefix check is safe here (unlike the top-level
+      // community_groups trap: fixed docId per request, not varying
+      // across a query's potential results).
+      //
+      // TEMPORARY — same SEC-08 caveat as leaderboard_shards above.
+      // docIdHasAuthorityPrefix() does an exact-length prefix +
+      // underscore-boundary check (same shape as dailyActivity's docId
+      // scoping above) — NOT split('_')[0], which breaks the instant
+      // authorityId itself contains an underscore (caught by this rule's
+      // own test: 'city_a' truncates to 'city').
+      allow read: if isAuthenticated() && docIdHasAuthorityPrefix(snapshotId);
       allow write: if isRootAdmin() || isAdmin();
     }
 

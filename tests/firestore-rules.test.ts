@@ -1395,6 +1395,179 @@ async function testPrivateInviteSubcollection() {
   });
 }
 
+// SPEC-02 Wave A — closing the "allow read: if isAuthenticated() on a
+// collection holding PII" pattern for the items that don't have a live
+// cross-user feature dependency (sessions, attendance, group_invitations,
+// leaderboard_shards/snapshots). SEC-02 (dailyActivity)/F-09 (streaks)/
+// F-10 (planned_sessions)/F-12 (registrations) are deliberately NOT here —
+// each has a real, currently-working feature (steps/streak leaderboards,
+// partner-finder) that a naive owner-only lockdown would break; reported
+// separately as stop-C items, not silently skipped.
+async function testWaveASpec02() {
+  console.log('\nWave A (SPEC-02) — sessions, attendance, group_invitations, leaderboard shards/snapshots, private/legal');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+
+    // F-07 sessions (park check-ins)
+    await setDoc(doc(db, 'sessions', 'sess_1'), { userId: 'broadcaster1', parkId: 'park_x', authorityId: 'city_a' });
+
+    // F-11 attendance (community_groups/grp_test/attendance/{sessionId})
+    await setDoc(doc(db, 'community_groups', 'grp_test', 'attendance', '2026-09-10_08-00'), {
+      attendees: ['group_owner'], waitlist: [],
+    });
+
+    // F-13 group_invitations
+    await setDoc(doc(db, 'group_invitations', 'tok_abc123'), {
+      hostUid: 'group_owner', groupId: 'grp_test', useCount: 0, expiresAt: new Date(Date.now() + 86400000),
+    });
+
+    // F-04 leaderboard_shards / leaderboard_snapshots + the two authority-scoped users
+    await setDoc(doc(db, 'users', 'authority_a_user'), { core: { name: 'A-User', discoverable: true, authorityId: 'city_a' } });
+    await setDoc(doc(db, 'users', 'authority_b_user'), { core: { name: 'B-User', discoverable: true, authorityId: 'city_b' } });
+    await setDoc(doc(db, 'leaderboard_shards', 'city_a_unit1_2026-09_u1_0'), {
+      tenantId: 'city_a', unitId: 'unit1', period: '2026-09', uid: 'u1', shard: 0, xp: 10,
+    });
+    await setDoc(doc(db, 'leaderboard_snapshots', 'city_a_unit1_2026-09'), {
+      period: '2026-09', rankings: [{ uid: 'u1', rank: 1, xp: 10 }], totalParticipants: 1,
+    });
+
+    // SEC-06 private/legal
+    await setDoc(doc(db, 'users', 'broadcaster1', 'private', 'legal'), {
+      healthDeclarationPdfUrl: 'https://storage.example/health/broadcaster1.pdf',
+    });
+  });
+
+  // ── F-07 sessions ──
+  await it('WA1 — the check-in\'s owner reads their own session → ALLOW', async () => {
+    const ctx = env.authenticatedContext('broadcaster1');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'sessions', 'sess_1')));
+  });
+  await it('WA2 — a different authenticated user reads someone else\'s session → DENY (was ALLOW under the old `isAuthenticated()` rule)', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'sessions', 'sess_1')));
+  });
+  await it('WA3 — an OUT admin reads any session → ALLOW (heatmap tooling, unaffected)', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'sessions', 'sess_1')));
+  });
+
+  // ── F-11 attendance ──
+  await it('WA4 — a genuine member of the group reads its attendance doc → ALLOW', async () => {
+    const ctx = env.authenticatedContext('regular_member');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'community_groups', 'grp_test', 'attendance', '2026-09-10_08-00')));
+  });
+  await it('WA5 — a non-member reads it → DENY', async () => {
+    const ctx = env.authenticatedContext('pi_never_member');
+    await assertFails(getDoc(doc(ctx.firestore(), 'community_groups', 'grp_test', 'attendance', '2026-09-10_08-00')));
+  });
+
+  // ── F-13 group_invitations ──
+  await it('WA6 — get by known token → ALLOW (knowledge of the token remains the authorization)', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'group_invitations', 'tok_abc123')));
+  });
+  await it('WA7 — LIST with no filter → DENY (the actual leak: dumping every open invitation without knowing any token)', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDocs(collection(ctx.firestore(), 'group_invitations')));
+  });
+
+  // ── F-04 leaderboard_shards ──
+  await it('WA8 — same-authority reader LISTS shards filtered by tenantId (the real getTenantLeaderboard query shape) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('authority_a_user');
+    const snap = await assertSucceeds(
+      getDocs(query(collection(ctx.firestore(), 'leaderboard_shards'), where('tenantId', '==', 'city_a')))
+    );
+    if (snap.empty) throw new Error('expected the shard to be visible to a same-authority reader');
+  });
+  await it('WA9 — different-authority reader gets the SAME shard doc directly → DENY', async () => {
+    const ctx = env.authenticatedContext('authority_b_user');
+    await assertFails(getDoc(doc(ctx.firestore(), 'leaderboard_shards', 'city_a_unit1_2026-09_u1_0')));
+  });
+  await it('WA10 — an OUT admin reads the shard despite a different/no authorityId → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'leaderboard_shards', 'city_a_unit1_2026-09_u1_0')));
+  });
+
+  // ── F-04 leaderboard_snapshots ──
+  await it('WA11 — same-authority reader gets the snapshot (docId-prefix match) → ALLOW', async () => {
+    const ctx = env.authenticatedContext('authority_a_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'leaderboard_snapshots', 'city_a_unit1_2026-09')));
+  });
+  await it('WA12 — different-authority reader gets the same snapshot → DENY', async () => {
+    const ctx = env.authenticatedContext('authority_b_user');
+    await assertFails(getDoc(doc(ctx.firestore(), 'leaderboard_snapshots', 'city_a_unit1_2026-09')));
+  });
+
+  // ── SEC-06 private/legal ──
+  //
+  // Important honesty note (found empirically while writing WA13-17):
+  // origin/main ALREADY has a recursive wildcard on users/{userId} —
+  // `match /{subCollection}/{subPaths=**} { allow read, write: if
+  // request.auth.uid == userId || isAdmin(); }` (see its own comment:
+  // covers exerciseHistory/dailyStats/etc). That wildcard ALONE already
+  // locks down owner/admin-only access to ANY subcollection under a
+  // user's doc, including private/legal, with or without the explicit
+  // `match /private/legal` block this fix adds. WA13/WA15/WA16 below
+  // therefore pass identically on origin/main's rules — they are NOT
+  // discriminating tests for THIS fix, just regression coverage that the
+  // new location is (and was always going to be) properly locked down.
+  // The explicit block is kept anyway, matching this file's own
+  // established convention for notification_clicks ("declare explicitly
+  // even though the wildcard also matches... makes intent clear").
+  //
+  // The ACTUAL SEC-06 leak was never a rules gap on users/{userId} itself
+  // (that rule is UNCHANGED — discoverable profiles are still fully
+  // readable) — it was a DATA-PLACEMENT bug: healthDeclarationPdfUrl used
+  // to be a field ON that fully-readable document. Firestore rules can't
+  // redact individual fields on a read, so there is no rules-only
+  // "fails on old, passes on new" expression of this specific fix — WA18
+  // below is the closest thing: it demonstrates the actual mechanism
+  // (if this field were EVER put back on the main doc, it leaks
+  // instantly to anyone) and passes identically on both old and new
+  // rules, since it's exercising a rule this fix deliberately did NOT
+  // touch. The real fix is verified at the code level (see the SPEC-02
+  // Wave 0 commit — 2 writers, 2 readers, all repointed to private/legal).
+  await it('WA13 — the owner reads their own private/legal doc → ALLOW', async () => {
+    const ctx = env.authenticatedContext('broadcaster1');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'users', 'broadcaster1', 'private', 'legal')));
+  });
+  await it('WA14 — a different authenticated user reads it, even though broadcaster1 is discoverable → DENY (the actual SEC-06 leak: this used to be a plain field on the discoverable-readable user doc)', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'users', 'broadcaster1', 'private', 'legal')));
+  });
+  await it('WA15 — an OUT admin reads it → ALLOW', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'users', 'broadcaster1', 'private', 'legal')));
+  });
+  await it('WA16 — the owner writes their own private/legal doc → ALLOW (real onboarding write path)', async () => {
+    const ctx = env.authenticatedContext('broadcaster2');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'users', 'broadcaster2', 'private', 'legal'), {
+      healthDeclarationPdfUrl: 'https://storage.example/health/broadcaster2.pdf',
+    }));
+  });
+  await it('WA17 — a different authenticated user writes to someone else\'s private/legal → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(setDoc(doc(ctx.firestore(), 'users', 'broadcaster1', 'private', 'legal'), {
+      healthDeclarationPdfUrl: 'https://evil.example/hacked.pdf',
+    }));
+  });
+
+  await it('WA18 — regression tripwire, NOT a fix-proof (see comment above): if healthDeclarationPdfUrl were ever put back on the discoverable users/{uid} doc itself, a total stranger reads it in full → this MUST stay true (the rule is deliberately unchanged) — it is exactly why the field had to move, not a bug in this test', async () => {
+    await env.withSecurityRulesDisabled(async (dbCtx) => {
+      await setDoc(doc(dbCtx.firestore(), 'users', 'wa18_regressed_user'), {
+        core: { name: 'Regressed', discoverable: true },
+        healthDeclarationPdfUrl: 'https://storage.example/should-not-be-here.pdf',
+      });
+    });
+    const ctx = env.authenticatedContext('reader_outsider');
+    const snap = await assertSucceeds(getDoc(doc(ctx.firestore(), 'users', 'wa18_regressed_user')));
+    if (snap.data()?.healthDeclarationPdfUrl !== 'https://storage.example/should-not-be-here.pdf') {
+      throw new Error('expected the mechanism to still be live — if this ever fails, someone tightened the discoverable grant, which is good news worth updating this comment for');
+    }
+  });
+}
+
 // ─── Vitest wiring ──────────────────────────────────────────────────────────
 //
 // The harness's own `it()` (above) never throws — it catches each case's
@@ -1449,4 +1622,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('chat list scale', wrapSuite(testChatListScale));
   vitestIt('admin-invitations lockdown (SPEC-01 task 1)', wrapSuite(testAdminInvitationsLockdown));
   vitestIt('private-invite subcollection (SPEC-01 task 2)', wrapSuite(testPrivateInviteSubcollection));
+  vitestIt('Wave A (SPEC-02)', wrapSuite(testWaveASpec02));
 });
