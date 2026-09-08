@@ -107,6 +107,128 @@ async function sweepCollection(
   return totalDeleted;
 }
 
+/**
+ * Sweep type:'ephemeral' community_groups docs created by
+ * /api/invite/run-session (src/app/api/invite/run-session/route.ts) once
+ * they're no longer relevant. Added 08.09.2026 as item ג of the
+ * workout-sharing decision — closes the tap on the 21+ docs already
+ * found cluttering "my groups" UIs and the admin overview screen,
+ * without touching the share mechanism itself (that migration is
+ * deliberately deferred to after app-store launch — see parking-lot.md).
+ *
+ * Expiry signal: NOT the group doc's own createdAt/updatedAt — a run can
+ * be scheduled arbitrarily far in the future, so age-since-creation would
+ * delete a group before its scheduled run even happens. Instead uses
+ * group_invitations.expiresAt, which route.ts already computes correctly
+ * for both "now" (creation + 2h) and "later" (scheduledFor + 2h) cases.
+ * A single group can have MULTIPLE invitations (a re-invite reuses the
+ * same groupId with a fresh token/expiresAt) — a group is only swept once
+ * EVERY invitation pointing at it has expired, not just the first found.
+ *
+ * This duplicates (does not call) community.service.ts's deleteGroup()
+ * contract: Cloud Functions run on the Admin SDK and cannot import the
+ * Next.js app's client-SDK service code. The same steps are replicated
+ * here by hand — main doc, members, chats/group_{id} + its messages,
+ * attendance + its member_statuses, and arrayRemove(groupId) from every
+ * member's users/{uid}.social.groupIds + user_memberships/{uid}. Logged
+ * to parking-lot.md as a real, ongoing risk: two implementations of one
+ * contract, in two SDKs, that must be kept in sync by hand.
+ */
+async function sweepEphemeralRunGroups(now: admin.firestore.Timestamp): Promise<number> {
+  const expiredInvitesSnap = await db
+    .collection('group_invitations')
+    .where('source', '==', 'run-invite')
+    .where('expiresAt', '<', now)
+    .limit(BATCH_SIZE)
+    .get();
+
+  if (expiredInvitesSnap.empty) return 0;
+
+  const candidateGroupIds = new Set<string>(
+    expiredInvitesSnap.docs.map((d) => d.data().groupId).filter(Boolean),
+  );
+
+  let deleted = 0;
+  for (const groupId of candidateGroupIds) {
+    try {
+      // Skip if ANY invitation for this group (expired or not, including
+      // ones outside this page) is still valid — a re-invite extended it.
+      const stillValidSnap = await db
+        .collection('group_invitations')
+        .where('groupId', '==', groupId)
+        .where('expiresAt', '>=', now)
+        .limit(1)
+        .get();
+      if (!stillValidSnap.empty) continue;
+
+      const groupRef = db.doc(`community_groups/${groupId}`);
+      const groupSnap = await groupRef.get();
+      if (!groupSnap.exists) continue; // already gone
+      if (groupSnap.data()?.type !== 'ephemeral') continue; // never touch a real group here
+
+      const membersSnap = await groupRef.collection('members').get();
+      const memberUids = membersSnap.docs.map((d) => d.id);
+
+      const chatId = `group_${groupId}`;
+      const chatRef = db.doc(`chats/${chatId}`);
+      const chatSnap = await chatRef.get();
+      const messagesSnap = chatSnap.exists ? await chatRef.collection('messages').get() : null;
+
+      const attendanceSnap = await groupRef.collection('attendance').get();
+      const memberStatusesSnaps = await Promise.all(
+        attendanceSnap.docs.map((a) => a.ref.collection('member_statuses').get()),
+      );
+
+      const opCount =
+        1 +
+        membersSnap.size +
+        memberUids.length * 2 +
+        (chatSnap.exists ? 1 : 0) +
+        (messagesSnap?.size ?? 0) +
+        attendanceSnap.size +
+        memberStatusesSnaps.reduce((sum, s) => sum + s.size, 0);
+
+      if (opCount > 500) {
+        logger.error(
+          `[cleanupEphemeralDocs] ephemeral group ${groupId} needs ${opCount} write ops — ` +
+          `refusing to split into non-atomic batches, skipping (manual cleanup needed).`,
+        );
+        continue;
+      }
+
+      const batch = db.batch();
+      batch.delete(groupRef);
+      membersSnap.docs.forEach((d) => batch.delete(d.ref));
+      for (const uid of memberUids) {
+        batch.set(
+          db.doc(`user_memberships/${uid}`),
+          { groupIds: admin.firestore.FieldValue.arrayRemove(groupId), updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+          { merge: true },
+        );
+        // update(), not set(merge:true) — verified 08.09.2026 that set()
+        // treats a dotted key as a literal field name, not a nested path,
+        // and silently no-ops on the real nested field.
+        batch.update(db.doc(`users/${uid}`), {
+          'social.groupIds': admin.firestore.FieldValue.arrayRemove(groupId),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      if (messagesSnap) messagesSnap.docs.forEach((d) => batch.delete(d.ref));
+      if (chatSnap.exists) batch.delete(chatRef);
+      memberStatusesSnaps.forEach((s) => s.docs.forEach((d) => batch.delete(d.ref)));
+      attendanceSnap.docs.forEach((d) => batch.delete(d.ref));
+
+      await batch.commit();
+      deleted++;
+    } catch (err: any) {
+      logger.error(`[cleanupEphemeralDocs] failed to sweep ephemeral group ${groupId}:`, err?.message, err?.stack);
+      // Continue to the next candidate — one bad group must not block the rest.
+    }
+  }
+
+  return deleted;
+}
+
 export const cleanupEphemeralDocs = onSchedule(
   {
     // Hourly at minute 7 — offset from common :00 bursts so we don't
@@ -170,9 +292,21 @@ export const cleanupEphemeralDocs = onSchedule(
       );
     }
 
+    let ephemeralGroupsDeleted = 0;
+    try {
+      ephemeralGroupsDeleted = await sweepEphemeralRunGroups(admin.firestore.Timestamp.now());
+    } catch (err: any) {
+      logger.error(
+        '[cleanupEphemeralDocs] ephemeral run-invite groups sweep failed:',
+        err?.message,
+        err?.stack,
+      );
+    }
+
     logger.info(
       `[cleanupEphemeralDocs] Sweep complete — presence=${presenceDeleted}, ` +
-        `active_workouts=${activeWorkoutDeleted}, planned_sessions=${plannedSessionDeleted}`,
+        `active_workouts=${activeWorkoutDeleted}, planned_sessions=${plannedSessionDeleted}, ` +
+        `ephemeral_run_groups=${ephemeralGroupsDeleted}`,
     );
   },
 );
