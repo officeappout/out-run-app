@@ -70,6 +70,21 @@ function isAdminPublic(pathname: string): boolean {
   return ADMIN_PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
+function isLocalDevDomain(domain: string): boolean {
+  return domain === 'localhost' || domain.includes('127.0.0.1') || domain.includes('192.168');
+}
+
+/**
+ * SPEC-02 SEC-12: decides whether a /admin/* PAGE request needs the
+ * signed-session cookie check. Extracted as a pure function (domain +
+ * pathname in, boolean out) so the fix — gate on `!isLocalDev` instead
+ * of `isAdminDomain` — is unit-testable without constructing a real
+ * NextRequest/Edge-runtime context.
+ */
+export function shouldGateAdminRequest(pathname: string, domain: string): boolean {
+  return pathname.startsWith('/admin') && !isAdminPublic(pathname) && !isLocalDevDomain(domain);
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // Public guest-accessible routes.
 //
@@ -136,8 +151,6 @@ export async function middleware(request: NextRequest) {
 
   const isAdminDomain = domain === 'admin.outrun.co.il' || domain === 'admin.outrun.local';
   const isAuthorityDomain = domain === 'portal.outrun.co.il' || domain === 'portal.outrun.local';
-  const isLocalDev =
-    domain === 'localhost' || domain.includes('127.0.0.1') || domain.includes('192.168');
 
   // ──────────────────────────────────────────────────────────────
   // 1. Domain-based routing (unchanged from previous middleware).
@@ -196,22 +209,36 @@ export async function middleware(request: NextRequest) {
 
   // ──────────────────────────────────────────────────────────────
   // 2. Server-side admin gating — runs on EVERY /admin/* request
-  //    on the admin domain (and on localhost for dev parity).
+  //    on every domain except local dev.
   //
   //    The authority-portal domain is intentionally exempted here
   //    because authority managers are gated by their own portal
   //    layout + Firestore rules; introducing the admin cookie
   //    requirement there would break their flow.
   // ──────────────────────────────────────────────────────────────
-  // Admin gating applies only on the dedicated admin domain.
+  // SPEC-02 SEC-12: this used to be `isAdminDomain` — the gate only ever
+  // fired on admin.outrun.co.il/admin.outrun.local. /admin/* served on
+  // ANY OTHER domain (the Vercel domain the native app actually loads
+  // via server.url, or any preview/staging deploy) shipped its full
+  // HTML/JS bundle to anyone with zero server-side check — this
+  // middleware's whole stated purpose (its own docstring above) was to
+  // prevent exactly that. Now gates on `!isLocalDev` instead: every real
+  // domain gets the cookie check, only local dev is exempted (Admin SDK
+  // credentials aren't configured there — see the comment below).
+  //
+  // Verified safe for the public, pre-auth API routes this same spec
+  // moved out from under /api/admin/* (commit a254426a): this check only
+  // ever applies to `/admin/*` PAGE paths. Every /api/* request —
+  // including /api/admin/* and /api/auth/admin-invite/* — returns early
+  // at the Capacitor-CORS block above (line ~124, `return
+  // NextResponse.next()`), long before this code runs, regardless of
+  // domain. Widening this condition cannot affect them.
+  //
   // On localhost the Firebase Admin SDK is typically not configured (no
   // FIREBASE_SERVICE_ACCOUNT_KEY), so /api/auth/session returns 401 and the
   // session cookie is never minted — causing a middleware redirect loop.
   // Client-side auth in the layout is sufficient for local development.
-  const shouldGateAdmin =
-    pathname.startsWith('/admin') &&
-    !isAdminPublic(pathname) &&
-    isAdminDomain; // intentionally excludes isLocalDev
+  const shouldGateAdmin = shouldGateAdminRequest(pathname, domain);
 
   if (shouldGateAdmin) {
     const cookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
