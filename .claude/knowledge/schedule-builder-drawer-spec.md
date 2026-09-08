@@ -36,16 +36,33 @@ Plus: a button in the schedule editor, always available, opens the same drawer.
 **Does not open on a user's very first-ever registration** — there's nothing to coordinate yet.
 That path stays what it already is: a blurred card + wizard, already built and live.
 
-**⚠️ Dependency — confirmed again 07.09.2026 by David, still open, next up:** the home-page gate
-(`RUNNING_ONBOARDING_GATE_ENABLED`, `src/lib/running-onboarding-gate.ts`) doesn't currently
-distinguish first-registration from adding-a-second-track. A strength user adding running gets
-today's blurred card + wizard instead of the drawer — asked again about days they already
-answered once. David's principle behind this, dictated 07.09.2026: **"מה שכבר עניתי עליו פעם
-אחת — לא שואלים אותי שוב"** — the same principle already decided for the health declaration
-(never re-ask what's already been answered), now extended to days. The drawer overrides it —
-that's part of this work, not a separate fix.
+**✅ Decided (David, 08.09.2026) — the gate isn't removed, it stops applying to a user who's
+already confirmed a schedule once.**
 
-See ת6 for the exact reachability boundary this dependency sits inside (single domain → no
+| User | Behavior |
+|---|---|
+| Already has a confirmed schedule (finished strength, answered the days question) | Finishes running signup → goes straight to the home page. Schedule shown, not blurred — no gate, no "set schedule" button. |
+| Genuinely new, no prior schedule at all | Gate stays. A one-time confirmation is legitimate. |
+
+Same principle as the 07.09.2026 note this replaces, now made precise: **"מה שכבר עניתי עליו
+פעם אחת — לא שואלים אותי שוב"** — the same rule already applied to the health declaration
+(never re-ask what's already been answered) and to dropping the days question from signup. Not a
+new, disconnected decision — the same standing rule applied a third time.
+
+Implementation deliberately waits for the drawer — the card's button target depends on it. A
+user who still needs the gate belongs on the wizard; a user exempt from it needs somewhere to go
+instead, and that's the drawer, not a dead click.
+
+Pointers for whoever builds this, so it isn't re-researched:
+- `resolveCardHasScheduleAndPersona` (`src/lib/running-onboarding-gate.ts`) — the pure decision
+  behind the gate.
+- `isRunningScheduleUserConfirmed` (`src/lib/running-schedule-source.ts`) — reads
+  `running.scheduleDaysSource === 'user-chosen'`.
+- `completeRunningScheduleFirstChoice` (`running-schedule-write.service.ts`) — the **sole**
+  writer of `'user-chosen'` in the repo; reachable only via `RunningScheduleStep` in JIT mode,
+  inside the wizard the blurred card's own CTA opens.
+
+See ת6 for the exact reachability boundary this decision sits inside (single domain → no
 drawer, stays blurred; two domains via two separate events → drawer opens). See ת1/ת2 for what
 the drawer itself produces once it opens for this exact scenario.
 
