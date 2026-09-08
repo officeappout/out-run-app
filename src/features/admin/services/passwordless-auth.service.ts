@@ -7,6 +7,7 @@ import { getAuthoritiesByManager } from './authority.service';
 import { getUserByEmail } from './admin-management.service';
 import { checkUserRole } from './auth.service';
 import { isRootAdmin, isAdminEmailAllowed } from '@/config/feature-flags';
+import { resolveInviteLookupOutcome } from '@/lib/adminInviteLookupOutcome';
 
 export type AdminRole = 'super_admin' | 'system_admin' | 'authority_manager';
 
@@ -16,6 +17,15 @@ export interface AdminCheckResult {
   isApproved: boolean;
   userId?: string;
   authorityIds?: string[];
+  /**
+   * SPEC-02 SEC-16: true when the admin_invitations lookup itself failed
+   * (check-email returned non-2xx, or the fetch threw) — as opposed to a
+   * clean response that legitimately found no invitation. Without this
+   * distinction, a transient server error looked identical to "no
+   * invitation exists," and a real admin whose lookup merely failed once
+   * would be told "email not found in the system" instead of "try again."
+   */
+  checkFailed?: boolean;
 }
 
 /**
@@ -65,28 +75,37 @@ export async function checkAdminEmail(email: string): Promise<AdminCheckResult> 
     // (SPEC-01 task 1 — admin_invitations no longer allows client `list`,
     // so this can't be a direct Firestore query anymore).
     if (!userDoc) {
+      // SPEC-02 SEC-16: distinguish "the lookup ran and found nothing" from
+      // "the lookup itself failed" — check-email/route.ts returns HTTP 500
+      // on an unexpected server error (its own catch block), which used to
+      // be indistinguishable here from a clean "no invitation" response.
+      // A real admin hitting a transient failure was told "email not found
+      // in the system" — wrong diagnosis, wrong remedy.
+      let checkFailed = false;
       try {
         const res = await fetch(`/api/auth/admin-invite/check-email?email=${encodeURIComponent(normalizedEmail)}`);
-        if (res.ok) {
-          const { role } = (await res.json()) as { role: AdminRole | null };
-          if (role) {
-            // Invitation exists and is valid
-            return {
-              exists: true,
-              role,
-              isApproved: true, // Invitations are considered "approved" if valid
-            };
-          }
+        const body = res.ok ? ((await res.json()) as { role: AdminRole | null }) : { role: null };
+        const outcome = resolveInviteLookupOutcome(res.ok, body.role);
+        if (outcome.role) {
+          // Invitation exists and is valid
+          return {
+            exists: true,
+            role: outcome.role,
+            isApproved: true, // Invitations are considered "approved" if valid
+          };
         }
+        checkFailed = outcome.checkFailed;
       } catch (error) {
         console.error('Error checking admin invitations:', error);
+        checkFailed = true;
       }
-      
-      // No user and no valid invitation
+
+      // No user and no valid invitation — or the check itself couldn't run.
       return {
         exists: false,
         role: null,
         isApproved: false,
+        checkFailed,
       };
     }
 
@@ -216,7 +235,17 @@ export async function sendAdminMagicLink(
 
     // First, verify the email exists and has the required role
     const adminCheck = await checkAdminEmail(email);
-    
+
+    // SPEC-02 SEC-16: a failed lookup is not the same as a confirmed
+    // "no invitation" — tell the user to retry, not that they have no
+    // permission.
+    if (adminCheck.checkFailed) {
+      return {
+        sent: false,
+        error: 'שגיאה בבדיקת ההרשאות. נסה שוב.',
+      };
+    }
+
     if (!adminCheck.exists) {
       return {
         sent: false,
