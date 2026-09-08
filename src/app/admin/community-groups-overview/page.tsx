@@ -40,6 +40,7 @@ import {
   Trash2,
   Pencil,
   ShieldCheck,
+  Search,
 } from 'lucide-react';
 
 type SourceFilter = 'all' | 'authority' | 'professional' | 'user';
@@ -71,6 +72,7 @@ export default function CommunityGroupsOverviewPage() {
   const [authorityFilter, setAuthorityFilter] = useState<string>('all');
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
   const [personaFilter, setPersonaFilter] = useState<PersonaFilter>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -113,6 +115,7 @@ export default function CommunityGroupsOverviewPage() {
   }
 
   const filtered = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
     return groups.filter((g) => {
       const src = g.source ?? 'authority';
       if (sourceFilter !== 'all' && src !== sourceFilter) return false;
@@ -125,9 +128,10 @@ export default function CommunityGroupsOverviewPage() {
       const hasPersona = (g.audiencePersonas?.length ?? 0) > 0;
       if (personaFilter === 'reserve' && !g.audiencePersonas?.includes('reserve')) return false;
       if (personaFilter === 'none' && hasPersona) return false;
+      if (term && !g.name?.toLowerCase().includes(term)) return false;
       return true;
     });
-  }, [groups, sourceFilter, authorityFilter, activeFilter, personaFilter]);
+  }, [groups, sourceFilter, authorityFilter, activeFilter, personaFilter, searchTerm]);
 
   const authorityOptions = useMemo(() => {
     const ids = new Set(groups.map((g) => g.authorityId).filter(Boolean));
@@ -215,6 +219,19 @@ export default function CommunityGroupsOverviewPage() {
 
       {/* ═══ Filters ═══ */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
+          חיפוש
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="שם קבוצה..."
+              className="border border-slate-200 rounded-lg pr-8 pl-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300 w-40"
+            />
+          </div>
+        </label>
         <FilterSelect
           label="מקור"
           value={sourceFilter}
