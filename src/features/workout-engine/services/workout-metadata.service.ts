@@ -127,6 +127,15 @@ export interface WorkoutMetadataContext {
   weeklyCompletedSets?: number;
   /** Defined weekly set quota (target) */
   weeklySetQuota?: number;
+
+  /**
+   * Simulator-only override for "now" — when set, time-gated scoring bonuses
+   * (Parent Time-Window Boost, Desk Reset Boost) read this instead of the
+   * real wall clock, so they're previewable outside their real-world window.
+   * Undefined in every production call site; production behavior is
+   * unchanged (falls through to `new Date()`).
+   */
+  previewNow?: Date;
 }
 
 export interface ResolvedWorkoutMetadata {
@@ -157,6 +166,24 @@ const LOGIC_CUES_PARENT = 'logicCues';
 
 export type TrioVariant = 'balanced' | 'intense' | 'naked' | 'easy';
 
+/**
+ * Local content overlay — simulator/sweep-only, additive. When set, rows
+ * here are merged into the live Firestore result before scoring, keyed by
+ * the same `parentDoc` names scoredFetch/fetchLogicCue already use
+ * ('workoutTitles', 'smartDescriptions', 'logicCues'). Lets a harness like
+ * scripts/scenario-sweep.ts test draft content (e.g. an unshipped batch)
+ * against the REAL scoring engine and REAL live competing content, with zero
+ * Firestore writes. `null` in every production call site — this is never
+ * set outside a script that explicitly calls setLocalContentOverlay().
+ */
+let localContentOverlay: Partial<Record<'workoutTitles' | 'smartDescriptions' | 'logicCues', any[]>> | null = null;
+
+export function setLocalContentOverlay(
+  overlay: Partial<Record<'workoutTitles' | 'smartDescriptions' | 'logicCues', any[]>> | null,
+): void {
+  localContentOverlay = overlay;
+}
+
 /** Enable detailed console logs for Title/Description resolution (debugging). */
 // #6: was hardcoded `true` (always-on string-building logs). Now derives from
 // the shared GEN_VERBOSE gate → default OFF. Evaluated once at module load, so a
@@ -169,6 +196,24 @@ const DEBUG_METADATA_RESOLUTION = isGenVerboseEnabled();
  * same bundleId. This ensures all content pieces tell a coherent "story".
  */
 const BUNDLE_SYNC_BOOST = 50;
+
+/**
+ * SEASONAL BOOST — was a flat +20, rebalanced to +2 on 07.09.2026.
+ * At +20 it outweighed a full persona+location+timeOfDay match (max +3),
+ * so any row with a seasonal keyword — including untargeted `persona:
+ * 'generic'` content — beat correctly-tagged persona content outright, not
+ * just in ties. Confirmed concretely: pro_athlete/pupil content newly
+ * authored for the empty-inventory gap (docs/research/notification-content-
+ * scenario-sweep.md) scored 3 against a real generic seasonal row's 20 and
+ * lost every time in-season.
+ * At +2: a full 3-field match (3) reliably beats seasonal-alone (2), a
+ * seasonal-alone row still edges out a single-field match (1) — the "modest
+ * edge where no [fully-tagged] persona content exists" case — and seasonal
+ * still breaks a tie between two otherwise-equally-targeted rows (adds +2 to
+ * whichever side has it). See workout-metadata.scoring-guardrails.test.ts
+ * for the before/after sweep numbers this value was chosen against.
+ */
+const SEASONAL_BOOST = 2;
 
 // ============================================================================
 // HELPERS
@@ -276,17 +321,22 @@ const SCORABLE_FIELDS: Array<{
  * Persona values that target a specific demographic.
  * When the user has NO persona, content rows tagged with any of these
  * are hard-excluded so generic users never see "Young Mom" or "Senior" titles.
+ * Also the set the Soft Persona Mismatch Guard (below) uses to penalize a
+ * row tagged for a DIFFERENT specific persona than the requesting user's own.
  * Direct 1:1 relabel of the old set onto the canonical PersonaId vocabulary
  * (senior->vatikim, reservist->military, high_tech->office_worker — office_worker
  * added here since high_tech, which WAS demographic-restricted, now merges into
  * it) after scripts/_migrate-persona-content-relabel.ts relabeled every live row
  * across all 4 workoutMetadata content collections (01.09.2026). `mom`/`army`
  * dropped outright — dead literals with no canonical counterpart and zero live
- * usage (confirmed via the same full-collection read). pupil/pro_athlete were
- * never in this set before the redefinition either — not added speculatively.
+ * usage (confirmed via the same full-collection read).
+ * `pupil`/`pro_athlete` added 07.09.2026 — deliberately excluded at first
+ * since both had zero live content (nothing to protect); added now that
+ * dedicated content for both is about to ship, so the same no-persona-user
+ * exclusion and cross-persona soft penalty apply to them too.
  */
 const DEMOGRAPHIC_PERSONA_TAGS = new Set([
-  'parent', 'student', 'vatikim', 'military', 'office_worker',
+  'parent', 'student', 'vatikim', 'military', 'office_worker', 'pupil', 'pro_athlete',
 ]);
 
 /**
@@ -298,6 +348,49 @@ const PERSONA_ID_PREFIXES = [
   'mom_', 'snr_', 'pup_', 'tech_', 'high_tech_', 'dad_',
   'parent_', 'senior_', 'student_',
 ];
+
+/**
+ * Soft penalty (not a hard exclusion) applied when a row is tagged for a
+ * SPECIFIC demographic persona different from the requesting user's own
+ * SPECIFIC persona — e.g. a 'parent'-tagged row competing for a 'student'
+ * request. The David Clause above only protects NO-persona users from
+ * demographic content; it has no counterpart for a user who already HAS a
+ * specific persona seeing a DIFFERENT demographic's content — the confirmed
+ * root cause of the cross-persona "parent-bleed" pattern (parent-flavored
+ * titles winning for student/office_worker/military/pupil/pro_athlete in the
+ * scenario-sweep audit, docs/research/notification-content-scenario-sweep.md,
+ * 06.09.2026). A soft penalty — not the David Clause's hard -1 — lets a
+ * mismatched row still win when it's the only option (the safety net thin-
+ * inventory personas like pupil/pro_athlete rely on today), but lose to a
+ * correctly-tagged row whenever one is even roughly competitive.
+ */
+const SOFT_PERSONA_MISMATCH_PENALTY = -3;
+
+/**
+ * Whole-word keyword match. JS's `\b` is defined via ASCII `\w`
+ * ([A-Za-z0-9_]), which does NOT include Hebrew letters — so a plain `\b`
+ * never fires around Hebrew text and can't be used to guard against a
+ * keyword substring-matching inside a longer word. This uses `\p{L}`
+ * ("Unicode letter") lookaround instead, so a keyword like 'ים' matches the
+ * standalone word "ים" (sea) but not the plural suffix inside "ילדים"
+ * (children) or "לימודים" (studies) — the false-positive that made the
+ * Seasonal Summer Boost fire on nearly every row regardless of season.
+ *
+ * One Hebrew-specific allowance: the language attaches single-letter
+ * prepositions/conjunctions (ה/ב/ל/ו/מ/כ/ש — "the/in/to/and/from/like/that")
+ * directly onto the following word with no space — "בקיץ" (in [the] summer),
+ * "הים" (the sea) are completely ordinary spellings, not a different word.
+ * A strict boundary on both sides would wrongly reject those too. So exactly
+ * ONE such prefix letter is allowed immediately before the keyword, but a
+ * hard boundary is still required before *that* — which is what correctly
+ * keeps rejecting a real 2+ letter stem like "יל-דים" or "עו-לים" (immigrants)
+ * that merely happens to end in the same letters.
+ */
+function includesWholeWord(haystack: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(?<![\\p{L}])[הבלוכמש]?${escaped}(?![\\p{L}])`, 'u');
+  return re.test(haystack);
+}
 
 function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   let score = 0;
@@ -531,7 +624,7 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   // 08:00-09:00 = post-dropoff window → boost morning content
   // 16:00-17:30 = park/pickup window → boost afternoon content
   if (ctx.persona === 'parent') {
-    const now = new Date();
+    const now = ctx.previewNow ?? new Date();
     const h = now.getHours();
     const m = now.getMinutes();
     const minuteOfDay = h * 60 + m;
@@ -553,7 +646,7 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   // ============================================================================
   // During lunch hours, boost desk-friendly content for sedentary personas.
   if (ctx.persona === 'office_worker' || ctx.persona === 'student') {
-    const deskNow = new Date();
+    const deskNow = ctx.previewNow ?? new Date();
     const deskH = deskNow.getHours();
     const isDeskWindow = deskH >= 12 && deskH < 14;
 
@@ -616,7 +709,7 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   // ============================================================================
   // SEASONAL SCORING (+20) — Winter / Summer keyword boosts
   // ============================================================================
-  const currentMonth = new Date().getMonth(); // 0-11
+  const currentMonth = (ctx.previewNow ?? new Date()).getMonth(); // 0-11
   const isWinter = currentMonth >= 10 || currentMonth <= 2;  // Nov–Mar
   const isSummer = currentMonth >= 5 && currentMonth <= 8;   // Jun–Sep
 
@@ -628,11 +721,11 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
 
     if (isWinter) {
       const WINTER_KW = ['חורף', 'גשם', 'בית', 'סלון', 'קר'];
-      if (WINTER_KW.some(kw => seasonText.includes(kw))) score += 20;
+      if (WINTER_KW.some(kw => includesWholeWord(seasonText, kw))) score += SEASONAL_BOOST;
     }
     if (isSummer) {
       const SUMMER_KW = ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'];
-      if (SUMMER_KW.some(kw => seasonText.includes(kw))) score += 20;
+      if (SUMMER_KW.some(kw => includesWholeWord(seasonText, kw))) score += SEASONAL_BOOST;
     }
   }
 
@@ -661,6 +754,32 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
     ).toLowerCase();
     const ABROAD_KW = ['חו"ל', 'חופשה', 'טיול', 'בלי ציוד', 'רצף'];
     if (ABROAD_KW.some(kw => abroadText.includes(kw))) score += 25;
+  }
+
+  // ── SOFT PERSONA MISMATCH GUARD ──
+  // Symmetric counterpart to the David Clause above: that guard only ever
+  // protects a NO-persona user from demographic content. A user who DOES
+  // have a specific persona had no protection at all from a DIFFERENT
+  // demographic persona's content — the confirmed root cause of the
+  // cross-persona "parent-bleed" pattern (see SOFT_PERSONA_MISMATCH_PENALTY's
+  // doc comment above). Applied HERE — after every positive-scoring bonus
+  // above has accumulated, but BEFORE the diversity penalty below — so it can
+  // meaningfully outweigh a one-field lucky match (the real tie-break pattern
+  // found in the audit), while `Math.max(0, ...)` floors ITS OWN effect at 0
+  // so it can never by itself cause exclusion (a mismatched row must still be
+  // able to win when it's the only option — the safety net thin-inventory
+  // personas like pupil/pro_athlete rely on today). The diversity penalty
+  // immediately below is untouched and keeps its own, separate, unfloored
+  // negative-score exclusion behavior.
+  if (
+    !userHasNoPersona &&
+    rowPersona &&
+    rowPersona !== '' &&
+    rowPersona !== 'any' &&
+    rowPersona !== ctx.persona &&
+    DEMOGRAPHIC_PERSONA_TAGS.has(rowPersona)
+  ) {
+    score = Math.max(0, score + SOFT_PERSONA_MISMATCH_PENALTY);
   }
 
   // ============================================================================
@@ -851,6 +970,9 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   if (userHasNoPersona && bid && PERSONA_ID_PREFIXES.some(p => bid.startsWith(p))) {
     reasons.push(`prefix_EXCLUDED(id=${bid})`);
   }
+  if (!userHasNoPersona && rp && rp !== '' && rp !== 'any' && rp !== ctx.persona && DEMOGRAPHIC_PERSONA_TAGS.has(rp)) {
+    reasons.push(`personaMismatch_penalty(${SOFT_PERSONA_MISMATCH_PENALTY})`);
+  }
 
   for (const field of SCORABLE_FIELDS) {
     const rowVal = row[field.rowField];
@@ -896,7 +1018,7 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
 
   // Parent time-window
   if (ctx.persona === 'parent') {
-    const nowDbg = new Date();
+    const nowDbg = ctx.previewNow ?? new Date();
     const mod = nowDbg.getHours() * 60 + nowDbg.getMinutes();
     if (mod >= 480 && mod < 540 && row.timeOfDay === 'morning') reasons.push('parentDropoff(+20)');
     if (mod >= 960 && mod < 1050 && row.timeOfDay === 'afternoon') reasons.push('parentPark(+20)');
@@ -904,7 +1026,7 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
 
   // Desk Reset
   if (ctx.persona === 'office_worker' || ctx.persona === 'student') {
-    const deskDbgH = new Date().getHours();
+    const deskDbgH = (ctx.previewNow ?? new Date()).getHours();
     if (deskDbgH >= 12 && deskDbgH < 14) {
       const deskDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
       if (['כיסא', 'שולחן', 'משרד', 'ספרייה', 'מתיחות', 'עיניים'].some(kw => deskDbgText.includes(kw))) {
@@ -935,16 +1057,16 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   }
 
   // Seasonal, Airport, Abroad, Diversity
-  const dbgMonth = new Date().getMonth();
+  const dbgMonth = (ctx.previewNow ?? new Date()).getMonth();
   const dbgIsWinter = dbgMonth >= 10 || dbgMonth <= 2;
   const dbgIsSummer = dbgMonth >= 5 && dbgMonth <= 8;
   if (dbgIsWinter || dbgIsSummer) {
     const seasonDbgText = ((row.text || '') + ' ' + (row.phrase || '') + ' ' + (row.description || '') + ' ' + (row.cue || '')).toLowerCase();
-    if (dbgIsWinter && ['חורף', 'גשם', 'בית', 'סלון', 'קר'].some(kw => seasonDbgText.includes(kw))) {
-      reasons.push('winter_boost(+20)');
+    if (dbgIsWinter && ['חורף', 'גשם', 'בית', 'סלון', 'קר'].some(kw => includesWholeWord(seasonDbgText, kw))) {
+      reasons.push(`winter_boost(+${SEASONAL_BOOST})`);
     }
-    if (dbgIsSummer && ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'].some(kw => seasonDbgText.includes(kw))) {
-      reasons.push('summer_boost(+20)');
+    if (dbgIsSummer && ['קיץ', 'ים', 'שמש', 'חיטוב', 'חם'].some(kw => includesWholeWord(seasonDbgText, kw))) {
+      reasons.push(`summer_boost(+${SEASONAL_BOOST})`);
     }
   }
   if (ctx.location === 'airport') {
@@ -1035,6 +1157,27 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
 interface ScoredFetchResult {
   text: string | null;
   bundleId?: string;
+  /** Only populated when scoredFetch is called with includeCandidates=true (preview/simulator use). */
+  candidates?: WorkoutMetadataCandidate[];
+}
+
+/**
+ * Full transparency record for one scored content row — used by the admin
+ * simulator's "why was this chosen" panel. Never computed in the production
+ * resolve path (includeCandidates defaults to false, so this costs nothing
+ * there).
+ */
+export interface WorkoutMetadataCandidate {
+  text: string;
+  score: number;
+  reasons: string[];
+  bundleId?: string;
+  /** The content row's own persona tag (row.persona) — may differ from ctx.persona; that's the whole point of exposing it. */
+  persona?: string;
+  /** True for every row tied for the top score — the real system shuffles among these at random. */
+  tiedForFirst: boolean;
+  /** True for the one row this specific call actually returned. */
+  isPicked: boolean;
 }
 
 /**
@@ -1046,6 +1189,7 @@ interface ScoredFetchResult {
  * @param textField      The field that contains the user-facing string
  * @param ctx            The user's metadata context
  * @param activeBundleId If set, rows sharing this bundleId get +BUNDLE_SYNC_BOOST
+ * @param includeCandidates Simulator-only: also return every scored candidate (not just the winner)
  */
 async function scoredFetch(
   parentDoc: string,
@@ -1053,17 +1197,25 @@ async function scoredFetch(
   textField: string,
   ctx: WorkoutMetadataContext,
   activeBundleId?: string,
+  includeCandidates = false,
 ): Promise<ScoredFetchResult> {
   try {
     const ref = collection(db, METADATA_BASE, parentDoc, subCol);
     const snap = await getDocs(ref);
     genPerfRead(`workoutMetadata:${parentDoc}`); // #0: 3-4 full-subcollection scans per resolveWorkoutMetadata, ×3 options
-    if (snap.empty) return { text: null };
 
-    const allRows = snap.docs.map(d => d.data());
+    const overlayRows = (parentDoc === 'workoutTitles' || parentDoc === 'smartDescriptions')
+      ? (localContentOverlay?.[parentDoc] ?? [])
+      : [];
+    if (snap.empty && overlayRows.length === 0) return { text: null };
+
+    const allRows = [...snap.docs.map(d => d.data()), ...overlayRows];
 
     let bestScore = -1;
     let bestRows: any[] = [];
+    // Only populated when includeCandidates is true — every row scoring >= 0
+    // (i.e. not hard-excluded), for the admin simulator's transparency table.
+    const scoredRows: Array<{ row: any; score: number }> = [];
 
     for (const row of allRows) {
       let score = scoreContentRow(row, ctx);
@@ -1072,6 +1224,8 @@ async function scoredFetch(
       if (activeBundleId && row.bundleId && row.bundleId === activeBundleId) {
         score += BUNDLE_SYNC_BOOST;
       }
+
+      if (includeCandidates) scoredRows.push({ row, score });
 
       if (score > bestScore) {
         bestScore = score;
@@ -1099,7 +1253,28 @@ async function scoredFetch(
       console.groupEnd();
     }
 
-    return { text: result, bundleId: picked.bundleId };
+    let candidates: WorkoutMetadataCandidate[] | undefined;
+    if (includeCandidates) {
+      candidates = scoredRows
+        .map(({ row, score }) => {
+          const reasons = getMatchReasons(row, ctx);
+          if (activeBundleId && row.bundleId === activeBundleId) {
+            reasons.push(`bundleSync=${activeBundleId}(+${BUNDLE_SYNC_BOOST})`);
+          }
+          return {
+            text: row[textField] || '(ריק)',
+            score,
+            reasons,
+            bundleId: row.bundleId,
+            persona: row.persona,
+            tiedForFirst: score === bestScore,
+            isPicked: row === picked,
+          };
+        })
+        .sort((a, b) => b.score - a.score);
+    }
+
+    return { text: result, bundleId: picked.bundleId, candidates };
   } catch (error) {
     console.warn(`[WorkoutMetadata] Error in scoredFetch(${parentDoc}/${subCol}):`, error);
     return { text: null };
@@ -1110,12 +1285,12 @@ async function scoredFetch(
 // FETCH WRAPPERS (delegate to Scoring Engine)
 // ============================================================================
 
-async function fetchWorkoutTitle(ctx: WorkoutMetadataContext): Promise<ScoredFetchResult> {
-  return scoredFetch('workoutTitles', TITLES_SUBCOLLECTION, 'text', ctx);
+async function fetchWorkoutTitle(ctx: WorkoutMetadataContext, includeCandidates = false): Promise<ScoredFetchResult> {
+  return scoredFetch('workoutTitles', TITLES_SUBCOLLECTION, 'text', ctx, undefined, includeCandidates);
 }
 
-async function fetchSmartDescription(ctx: WorkoutMetadataContext, activeBundleId?: string): Promise<ScoredFetchResult> {
-  return scoredFetch('smartDescriptions', DESCRIPTIONS_SUBCOLLECTION, 'description', ctx, activeBundleId);
+async function fetchSmartDescription(ctx: WorkoutMetadataContext, activeBundleId?: string, includeCandidates = false): Promise<ScoredFetchResult> {
+  return scoredFetch('smartDescriptions', DESCRIPTIONS_SUBCOLLECTION, 'description', ctx, activeBundleId, includeCandidates);
 }
 
 async function fetchMotivationalPhrase(ctx: WorkoutMetadataContext, activeBundleId?: string): Promise<ScoredFetchResult> {
@@ -1137,12 +1312,12 @@ async function fetchLogicCue(
     const snap = await getDocs(ref);
     genPerfRead('workoutMetadata:logicCues'); // #0: logic-cue subcollection scan, ×3 options
 
-    if (!snap.empty) {
+    const overlayRows = localContentOverlay?.logicCues ?? [];
+    if (!snap.empty || overlayRows.length > 0) {
       let bestScore = -1;
       let bestRows: any[] = [];
 
-      for (const doc of snap.docs) {
-        const row = doc.data();
+      for (const row of [...snap.docs.map(d => d.data()), ...overlayRows]) {
         const rowVariant = row.variant;
         if (rowVariant && rowVariant !== variant && rowVariant !== 'all') continue;
         let score = scoreContentRow(row, ctx) + (rowVariant === variant ? 2 : 0);
@@ -1193,14 +1368,21 @@ async function fetchLogicCue(
  * content exists in Firestore, while gracefully degrading to independent
  * scoring when no bundleId is present.
  */
-export async function resolveWorkoutMetadata(
+/**
+ * Shared implementation for resolveWorkoutMetadata / resolveWorkoutMetadataWithCandidates
+ * — identical resolution logic either way; includeCandidates only adds the
+ * (otherwise-skipped) full scored-candidate lists for title/description, for
+ * the admin simulator's transparency panel.
+ */
+async function resolveWorkoutMetadataCore(
   ctx: WorkoutMetadataContext,
-  variant?: TrioVariant,
-  logicTagOverrides?: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'>,
-): Promise<ResolvedWorkoutMetadata> {
+  variant: TrioVariant | undefined,
+  logicTagOverrides: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'> | undefined,
+  includeCandidates: boolean,
+): Promise<ResolvedWorkoutMetadata & { titleCandidates?: WorkoutMetadataCandidate[]; descriptionCandidates?: WorkoutMetadataCandidate[] }> {
   try {
     // ── Pass 1: Title (anchor for bundle sync) ──
-    const titleResult = await fetchWorkoutTitle(ctx);
+    const titleResult = await fetchWorkoutTitle(ctx, includeCandidates);
     const activeBundleId = titleResult.bundleId;
 
     if (DEBUG_METADATA_RESOLUTION && activeBundleId) {
@@ -1209,7 +1391,7 @@ export async function resolveWorkoutMetadata(
 
     // ── Pass 2: Remaining content with bundle boost ──
     const [descriptionResult, phraseResult, logicCue] = await Promise.all([
-      fetchSmartDescription(ctx, activeBundleId),
+      fetchSmartDescription(ctx, activeBundleId, includeCandidates),
       fetchMotivationalPhrase(ctx, activeBundleId),
       variant ? fetchLogicCue(ctx, variant, activeBundleId) : Promise.resolve(null),
     ]);
@@ -1222,7 +1404,7 @@ export async function resolveWorkoutMetadata(
     const tagCtx: TagResolverContext = {
       persona: ctx.persona || undefined,
       location: ctx.location,
-      currentTime: new Date(),
+      currentTime: ctx.previewNow ?? new Date(),
       timeOfDay: ctx.timeOfDay === 'night' ? 'evening' : ctx.timeOfDay,
       userGender: ctx.gender,
       daysInactive: ctx.daysInactive,
@@ -1281,9 +1463,38 @@ export async function resolveWorkoutMetadata(
       logicCue:    isStrengthSession ? stripUnresolved(resolvedLogicCue)    : resolvedLogicCue,
       source: hasAnyFirestoreData ? 'firestore' : 'fallback',
       bundleId: activeBundleId,
+      titleCandidates: titleResult.candidates,
+      descriptionCandidates: descriptionResult.candidates,
     };
   } catch (error) {
     console.warn('[WorkoutMetadata] Resolve failed, using fallback:', error);
     return { title: null, description: null, aiCue: null, logicCue: null, source: 'fallback' };
   }
+}
+
+export async function resolveWorkoutMetadata(
+  ctx: WorkoutMetadataContext,
+  variant?: TrioVariant,
+  logicTagOverrides?: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'>,
+): Promise<ResolvedWorkoutMetadata> {
+  return resolveWorkoutMetadataCore(ctx, variant, logicTagOverrides, false);
+}
+
+/**
+ * Simulator-only: identical resolution to resolveWorkoutMetadata, but also
+ * returns every scored title/description candidate (not just the winner) so
+ * the admin panel can show why a given row won — real scores from the exact
+ * same scoreContentRow production code, never a fabricated table.
+ */
+export async function resolveWorkoutMetadataWithCandidates(
+  ctx: WorkoutMetadataContext,
+  variant?: TrioVariant,
+  logicTagOverrides?: Pick<TagResolverContext, 'intensityReason' | 'challengeType' | 'equipmentAdaptation'>,
+): Promise<ResolvedWorkoutMetadata & { titleCandidates: WorkoutMetadataCandidate[]; descriptionCandidates: WorkoutMetadataCandidate[] }> {
+  const result = await resolveWorkoutMetadataCore(ctx, variant, logicTagOverrides, true);
+  return {
+    ...result,
+    titleCandidates: result.titleCandidates ?? [],
+    descriptionCandidates: result.descriptionCandidates ?? [],
+  };
 }

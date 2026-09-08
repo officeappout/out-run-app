@@ -43,14 +43,21 @@ const CHIPS: { key: CategoryFilter; label: string }[] = [
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
-interface Nearby { group: CommunityGroup; km: number }
+// km is `null`, never a placeholder number, when a group has no
+// coordinates at all — an unknown distance is not a large distance
+// (08.09.2026, see GroupCard's travelTimeLabel for the render-side half).
+interface Nearby { group: CommunityGroup; km: number | null }
 
 function computeNearby(
   groups: CommunityGroup[],
   userPos: { lat: number; lng: number },
   userAuthorityId: string | null,
 ): Nearby[] {
-  const withDist: Nearby[] = groups
+  // Always a real number here — the filter above already dropped every
+  // group with no coordinates, unlike the wider Nearby type this function
+  // returns (which also covers the joined-but-far/private-joined branches
+  // in the caller, where a missing coordinate is a real, valid outcome).
+  const withDist: { group: CommunityGroup; km: number }[] = groups
     .filter((g) => {
       const loc = g.meetingLocation?.location;
       if (!loc?.lat || !loc?.lng) return false;
@@ -176,14 +183,18 @@ export default function NearbyGroupsRow() {
     const nearbyList = computeNearby(allGroups, userPos, userAuthorityId);
     const nearbyIds = new Set(nearbyList.map((n) => n.group.id));
 
-    // Public joined groups outside the discovery radius
+    // Public joined groups outside the discovery radius. No coordinates →
+    // km stays null (see the Nearby type comment) — never a fabricated
+    // distance. A location-less joined group (e.g. a national league doc
+    // with no meetingLocation) still needs to render on the home screen,
+    // just without a travel-time claim it can't back up.
     const joinedFarAway = allGroups
       .filter((g) => joinedGroupIds.has(g.id) && !nearbyIds.has(g.id))
       .map((g) => {
         const loc = g.meetingLocation?.location;
         const km = (loc?.lat && loc?.lng)
           ? haversineKm(userPos.lat, userPos.lng, loc.lat, loc.lng)
-          : 9999;
+          : null;
         return { group: g, km };
       });
 
@@ -194,7 +205,7 @@ export default function NearbyGroupsRow() {
         const loc = g.meetingLocation?.location;
         const km = (loc?.lat && loc?.lng)
           ? haversineKm(userPos.lat, userPos.lng, loc.lat, loc.lng)
-          : 9999;
+          : null;
         return { group: g, km };
       });
 
@@ -216,7 +227,13 @@ export default function NearbyGroupsRow() {
       if (aJoined !== bJoined) return aJoined - bJoined;
       const pa = phaseOrder[livePhaseMap[a.group.id] ?? ''] ?? 3;
       const pb = phaseOrder[livePhaseMap[b.group.id] ?? ''] ?? 3;
-      return pa !== pb ? pa - pb : a.km - b.km;
+      if (pa !== pb) return pa - pb;
+      // A known distance always outranks an unknown one — a real km isn't
+      // comparable to "we don't know", so it can't just subtract.
+      if (a.km == null && b.km == null) return 0;
+      if (a.km == null) return 1;
+      if (b.km == null) return -1;
+      return a.km - b.km;
     });
   }, [filtered, livePhaseMap, joinedGroupIds]);
 

@@ -533,7 +533,7 @@ export async function getMyGroups(groupIds: string[]): Promise<CommunityGroup[]>
     groupIds.map((id) => getDoc(doc(db, 'community_groups', id))),
   );
 
-  return results
+  const groups = results
     .filter((snap) => snap.exists())
     .map((snap) => ({
       id: snap.id,
@@ -541,6 +541,16 @@ export async function getMyGroups(groupIds: string[]): Promise<CommunityGroup[]>
       createdAt: tsToDate(snap.data()?.createdAt),
       updatedAt: tsToDate(snap.data()?.updatedAt),
     }));
+
+  // 08.09.2026 — this raw getDoc() never merged persona-gated sensitive
+  // fields (unlike getGroupById/getPublicGroups, which both call
+  // hydrateAudienceFields/getPersonaGatedGroups). Not a security gap — the
+  // public doc already has sensitive fields correctly stripped for anyone,
+  // matching-persona or not — but it meant a legitimate matching-persona
+  // member's OWN "my groups" card was missing its own registrationLink/
+  // meetingLocation/phone. Same no-op-when-not-gated-or-not-matching
+  // guarantee as every other hydrateAudienceFields call site.
+  return Promise.all(groups.map((g) => hydrateAudienceFields(g)));
 }
 
 // ─── getGroupsByScopeId ───────────────────────────────────────────────────────

@@ -28,7 +28,8 @@ import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybri
 import { useSuggestionEngineStore } from '@/features/workout-engine/core/store/useSuggestionEngineStore';
 import { buildMapUserContext } from '@/features/workout-engine/core/context/build-map-user-context';
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
-import { HYBRID_SLOTS_ENABLED, HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED, IS_STEP_GOAL_SHORT_ROUTE_ENABLED } from '@/config/feature-flags';
+import { HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED, IS_STEP_GOAL_SHORT_ROUTE_ENABLED } from '@/config/feature-flags';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { stepsToTargetKm } from '@/features/parks/core/services/route-request.utils';
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
@@ -675,6 +676,13 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
   const { profile } = useUserStore();
   const myGroupIds = profile?.social?.groupIds ?? [];
 
+  // ── Hybrid-slot map flags (wave 1, 08.09.2026) — admin-panel controlled, replacing the
+  // old HYBRID_SLOTS_ENABLED/HYBRID_FULL_PARK_WORKOUT_ENABLED/MAP_ROUTE_STOPS_V1 compile
+  // constants. Super admins (this hook's own bypass) always see every card, matching the
+  // pre-existing compile-time behaviour of always being `true`.
+  const isSuperAdmin = profile?.core?.isSuperAdmin === true;
+  const { flags: mapFeatureFlags } = useFeatureFlags(isSuperAdmin);
+
   // ── Full-park gate signals (Phase 3.1c) ────────────────────────────────────
   // hasStrengthProgram (fixed 09.08.2026): was `activePrograms.length > 0` — the
   // ENROLLED axis, not the ASSESSED one. A user with a program assigned but no
@@ -716,8 +724,14 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
     () => resolveSlots({
       hasGps: !!userLocation, nearbyParkCount: 1, aerobicKind: slotActivity,
       hasEquippedPark, hasStrengthProgram,
+      enableHybridSlots: mapFeatureFlags.enableHybridSlots,
+      enableFullParkWorkout: mapFeatureFlags.enableFullParkWorkout,
+      enableRouteStops: mapFeatureFlags.enableRouteStops,
     }),
-    [userLocation, slotActivity, hasEquippedPark, hasStrengthProgram],
+    [
+      userLocation, slotActivity, hasEquippedPark, hasStrengthProgram,
+      mapFeatureFlags.enableHybridSlots, mapFeatureFlags.enableFullParkWorkout, mapFeatureFlags.enableRouteStops,
+    ],
   );
 
   // ── Rec-engine ranking (additive, plan §"סבב 9") ────────────────────────────
@@ -1601,7 +1615,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
 
             {/* ── On-map hybrid entry ("מה עושים היום?") — idle only, flag-gated.
                 Opens the slot layer (resetHybridFlow('slots') — passive, no compose). */}
-            {HYBRID_SLOTS_ENABLED && mapMode === 'idle' && isMapVisuallyReady && (
+            {mapFeatureFlags.enableHybridSlots && mapMode === 'idle' && isMapVisuallyReady && (
               <div
                 className="absolute left-0 right-0 z-[100] pointer-events-none"
                 style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
@@ -1645,6 +1659,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                 }}
                 userPosition={userLocation}
                 cityName={userCityName}
+                enableHybridSlots={mapFeatureFlags.enableHybridSlots}
                 onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
                   // Phase "1.5" — manual free-run generator, David-only testing
                   // convenience toward Phase 2 (see IS_SHORT_ROUTE_MANUAL_TEST_EMAIL
@@ -1659,7 +1674,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
                   setRouteCarouselConfig({ targetKm, includeStrength, surface, shortRouteMode });
                   setFreeRunStep('route');
                 }}
-                onStartHybrid={HYBRID_SLOTS_ENABLED ? (intent) => {
+                onStartHybrid={mapFeatureFlags.enableHybridSlots ? (intent) => {
                   // Route-preview title bar (MAP_OVERVIEW_CHROME_V1): the drawer has no
                   // slot title, so derive an aerobic+כוח label. No-op when flag is off.
                   setOverviewTitle(intent.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח');
@@ -1737,7 +1752,7 @@ export default function DiscoverLayer({ logic, flyoverComplete, devSim, initialO
             {/* ── Hybrid slot layer (Phase 1) — "מה עושים היום?" floating carousel.
                 Shares the z-[100] free-run overlay tier with HybridOverviewScreen
                 (mutually exclusive freeRunStep). Flag-gated → byte-identical when off. */}
-            {HYBRID_SLOTS_ENABLED && mapMode === 'freeRun' && freeRunStep === 'slots' && (
+            {mapFeatureFlags.enableHybridSlots && mapMode === 'freeRun' && freeRunStep === 'slots' && (
               <HybridSlotCarousel
                 slots={slots}
                 loading={hybridComposing}

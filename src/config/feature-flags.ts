@@ -16,62 +16,55 @@ export const AEROBIC_SOLO_ENABLED = true;
 // Set to true to re-enable automatic post creation on workout completion.
 export const IS_COMMUNITY_FEED_ENABLED = false;
 
-// HYBRID_SLOTS: Adaptive "מה עושים היום?" slot entry on the map (Phase 1).
-// A prominent on-map button opens a floating carousel of resolver-driven slots
-// (recommended hybrid + aerobic quick-start). While false, the free-run flow is
-// BYTE-IDENTICAL — no entry button, no 'slots' step; the existing FreeRunDrawer
-// toggle+slider hybrid path is untouched.
-// Live before single-save (Phase 2): hybrid is display-only (0 XP credit) and has no active users.
-// ⚠️ Do NOT wire real XP until single-save closes — else double-count.
-export const HYBRID_SLOTS_ENABLED = true;
+// HYBRID_SLOTS_ENABLED / HYBRID_FULL_PARK_WORKOUT_ENABLED — REMOVED (wave 1, 08.09.2026).
+// Both compile-time constants were replaced by admin-panel toggles: system_config/
+// feature_flags.enable_hybrid_slots / .enable_full_park_workout (system-settings/page.tsx),
+// read via useFeatureFlags and threaded into hybrid-slots.ts's resolveSlots as SlotEnv fields
+// (enableHybridSlots / enableFullParkWorkout) — never imported there, per LAW 0. Every real
+// consumer (DiscoverLayer.tsx's 3 render sites, FreeRunDrawer.tsx's hybrid toggle,
+// hybrid-slots.ts's resolveSlots gates) was migrated; neither constant has a remaining
+// import anywhere in the codebase, so both were deleted rather than kept as a dead export.
 
 // HYBRID_SLOT_PREVIEW: Draw a slot's route on the map the moment the carousel
 // settles on its card (compose-on-settle), matching discover cards — instead of
 // only on the "צא לדרך" CTA. READ-ONLY: composes + draws (setFocusedRoute) only;
 // never saves, never touches runHybridPlan/finishHybrid (single-save invariant
 // intact). While false, the slot layer is BYTE-IDENTICAL — the route appears
-// only on the CTA (current behaviour). Sub-flag of HYBRID_SLOTS_ENABLED.
+// only on the CTA (current behaviour). Sub-flag of the "מה עושים היום?" layer
+// (system_config/feature_flags.enable_hybrid_slots) — moot while that's off, since
+// the carousel it draws from isn't rendered at all.
 export const HYBRID_SLOT_PREVIEW_ENABLED = true;
 
-// HYBRID_FULL_PARK_WORKOUT: the "אימון מלא בפארק" slot — walk to the nearest EQUIPPED
-// park, do the FULL home-recommended strength workout there, walk back (reuses the home
-// recommendation instead of the budget-split station). DEFAULT FALSE. Sub-flag of
-// HYBRID_SLOTS_ENABLED; additionally gated at runtime on (equipped park nearby AND the
-// user has a strength program). While false, the slot layer is BYTE-IDENTICAL — the card
-// is never surfaced and the new compose branch (composeFullParkWorkout) is never entered.
-// ⚠️ Still display-only XP (0 credit) — do NOT wire real XP until single-save closes.
-export const HYBRID_FULL_PARK_WORKOUT_ENABLED = true;
-
-// MAP_ROUTE_STOPS_V1: the general "מסלול + עצירות" slot — a loop GENERATED from the
-// user's own location (same generateDynamicRoutes machinery + maxRoutes:3/pick-closest fix
-// as the other 2 hybrid cards — resolveRouteStopsBackbone's 'generated_loop' mode), with
-// every real park/POI within 180m of that loop becoming a generic stop (strength/stretch/
-// core), produced by the EXISTING budget-split engine (composeHybridSession). full_park is
-// the special case (one stop = one park); this is its generalization. DEFAULT FALSE =
-// kill-switch. Sub-flag of HYBRID_SLOTS_ENABLED; gated at runtime on GPS + at least one real
-// stop resolving from the parks collection along the generated loop.
-// ⚠️ Comment corrected (08.08.2026): this used to say the backbone is "a REAL official_route"
-// / "the published route nearest the user" — that was the ORIGINAL pilot design (the
-// `existing_route` backbone mode still exists in resolveRouteStopsBackbone for a possible
-// future decision) but is NOT what's wired today. The real data dependency is the `parks`
-// collection's per-POI fields (category/facilityType, natureType, urbanType, gymEquipment —
-// read by mapParkToStop), not a curated official_routes document.
-// While false, the slot layer is BYTE-IDENTICAL — the card is never surfaced, the new compose
-// branch (mode:'route_stops' → composeRouteStopsWorkout) is never entered, and full_park + the
-// budget-split path are untouched.
-// ⚠️ Display-only XP (0 credit) like all hybrid — do NOT wire real XP until single-save closes.
-// TRUE (08.08.2026, David-approved after a readiness summary): composeRouteStopsWorkout has
-// NO end-to-end automated coverage (only its pure sub-pieces — resolveRouteStops's dedupe,
-// planFromPoint's ordering — are unit-tested); this flip is this code path's first-ever
-// execution, live or in test. Accepted given 0 real users today (store build is David-only,
-// replacing the old app in 1-2 weeks — see project memory), an instant kill-switch, and all
-// 4 previously-silent gates now degrading to a real fallbackHint instead of a silent bounce.
-// David device-tests immediately after this ships, same pattern as MAP_REC_ENGINE_RANKING_V1.
+// MAP_ROUTE_STOPS_V1 — the LIVE map-entry kill-switch for "מסלול + עצירות" moved to
+// system_config/feature_flags.enable_route_stops (wave 1, 08.09.2026) — that's what an admin
+// actually toggles now, and it's threaded into hybrid-slots.ts's resolveSlots as
+// SlotEnv.enableRouteStops (never imported, per LAW 0).
+//
+// This constant is KEPT (not deleted) and frozen `true` because it still has one real
+// consumer: start-hybrid-session.ts's composeHybridPlan (~line 1016) checks it as a second,
+// redundant gate for the map-suggestion-engine's route-stops branch
+// (route-stops.generator.ts). That branch is provably unreachable today —
+// route-stops.generator.ts's generate() always returns a cheap placeholder while
+// IS_CHEAP_SUGGESTION_RANKING_ENABLED (below) is true, before ever reaching its
+// composeHybridPlan call — so flipping this constant would currently have ZERO observable
+// effect either way. Do NOT rely on this constant to hide the "מסלול + עצירות" card; use the
+// admin panel. If IS_CHEAP_SUGGESTION_RANKING_ENABLED is ever turned off, this gate must be
+// re-threaded to the runtime flag — see start-hybrid-session.ts's comment at that line and
+// route-stops.generator.test.ts's tripwire test (fails the day that branch becomes reachable).
+//
+// Original context (pre-wave-1, kept for history): the general "מסלול + עצירות" slot — a loop
+// GENERATED from the user's own location (same generateDynamicRoutes machinery + maxRoutes:3/
+// pick-closest fix as the other 2 hybrid cards — resolveRouteStopsBackbone's 'generated_loop'
+// mode), with every real park/POI within 180m of that loop becoming a generic stop (strength/
+// stretch/core), produced by the EXISTING budget-split engine (composeHybridSession). full_park
+// is the special case (one stop = one park); this is its generalization. TRUE (08.08.2026,
+// David-approved after a readiness summary) — see git history for the full original comment.
 export const MAP_ROUTE_STOPS_V1 = true;
 
 // STRENGTH_ASSESSMENT_PROMPT_CARD_V1: the "אימון מלא בפארק" slot's own gate
-// (HYBRID_FULL_PARK_WORKOUT_ENABLED && (MAP_OVERVIEW_CHROME_V1 || (hasEquippedPark &&
-// hasStrengthProgram)), hybrid-slots.ts resolveSlots) is effectively defeated today —
+// (env.enableFullParkWorkout && (MAP_OVERVIEW_CHROME_V1 || (hasEquippedPark &&
+// hasStrengthProgram)), hybrid-slots.ts resolveSlots — enableFullParkWorkout was the
+// HYBRID_FULL_PARK_WORKOUT_ENABLED compile constant pre-wave-1) is effectively defeated today —
 // MAP_OVERVIEW_CHROME_V1 is already true in prod, so the OR short-circuits and the card
 // shows to EVERY user, including one with zero active strength programs (bug found
 // 08.08.2026: composeFullParkWorkout still gates safely underneath via

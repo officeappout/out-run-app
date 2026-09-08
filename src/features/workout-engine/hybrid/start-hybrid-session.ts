@@ -1012,6 +1012,17 @@ export async function composeHybridPlan(
   // stops placed on it. Self-contained like full_park; the budget-split body below stays
   // byte-identical. The flag is the kill-switch — false → never entered (and no slot
   // produces this intent anyway until Part 5).
+  //
+  // ⚠️ WAVE-1 KNOWN GAP (08.09.2026): the LIVE map-entry kill-switch for route_stops is
+  // now system_config/feature_flags.enable_route_stops (resolveSlots' SlotEnv.enableRouteStops,
+  // hybrid-slots.ts) — that's what an admin actually toggles in the panel now. MAP_ROUTE_STOPS_V1
+  // here is intentionally left frozen `true` and NOT wired to that runtime flag, because this
+  // branch is provably unreachable today: route-stops.generator.ts's generate() always early-
+  // returns a cheap placeholder while IS_CHEAP_SUGGESTION_RANKING_ENABLED is true (feature-flags.ts)
+  // and never reaches its own composeHybridPlan call, so this line never executes in production.
+  // If IS_CHEAP_SUGGESTION_RANKING_ENABLED is ever flipped false, this gate must be re-threaded
+  // to read the runtime flag (e.g. via HybridSessionContext) instead of this frozen constant —
+  // see route-stops.generator.test.ts's tripwire test, which fails the day that happens.
   if (intent.mode === 'route_stops') {
     if (!MAP_ROUTE_STOPS_V1) return null;
     return composeRouteStopsWorkout(intent, ctx);

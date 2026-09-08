@@ -2,6 +2,16 @@
  * hybrid-slots — the adaptive slot layer (Phase 1). PURE per LAW 0: no hooks,
  * no Firebase, no I/O. Unit-testable with plain inputs.
  *
+ * Runtime control (wave 1, 08.09.2026): enableHybridSlots/enableFullParkWorkout/
+ * enableRouteStops used to be the compile-time constants HYBRID_SLOTS_ENABLED/
+ * HYBRID_FULL_PARK_WORKOUT_ENABLED/MAP_ROUTE_STOPS_V1. They are now admin-panel
+ * toggles (system_config/feature_flags, read via useFeatureFlags) — so they MUST
+ * reach this pure function as SlotEnv fields, never as an import (the whole point
+ * of a runtime toggle is that it can change without a deploy; importing a live
+ * value here would break LAW 0 either way). MAP_OVERVIEW_CHROME_V1 and
+ * STRENGTH_ASSESSMENT_PROMPT_CARD_V1 stay compile-time imports — out of scope for
+ * this wave.
+ *
  * A "slot" is a resolver-produced choice card on the map's "מה עושים היום?"
  * layer. Slots are HETEROGENEOUS: each slot names an EXISTING entry path it
  * drives — there is NO new session pipeline:
@@ -23,9 +33,7 @@ import type { HybridStartIntent } from './build-hybrid-input';
 import type { HybridEmphasis, AerobicKind } from './compose-hybrid-session.service';
 import type { HybridShapeName } from './hybrid-shape';
 import {
-  HYBRID_FULL_PARK_WORKOUT_ENABLED,
   MAP_OVERVIEW_CHROME_V1,
-  MAP_ROUTE_STOPS_V1,
   STRENGTH_ASSESSMENT_PROMPT_CARD_V1,
 } from '@/config/feature-flags';
 
@@ -120,6 +128,18 @@ export interface SlotEnv {
   hasEquippedPark?: boolean;
   /** Full-park gate: the user has ≥1 active strength program (DiscoverLayer). */
   hasStrengthProgram?: boolean;
+  /**
+   * Master switch (system_config/feature_flags.enable_hybrid_slots) for the
+   * WHOLE "מה עושים היום?" layer. False ⇒ resolveSlots returns [] before any
+   * other slot/gate is evaluated — enableFullParkWorkout/enableRouteStops are
+   * meaningless while this is off (the hierarchy is enforced here, not just by
+   * the caller not rendering the carousel).
+   */
+  enableHybridSlots: boolean;
+  /** system_config/feature_flags.enable_full_park_workout — sub-flag of enableHybridSlots. */
+  enableFullParkWorkout: boolean;
+  /** system_config/feature_flags.enable_route_stops — sub-flag of enableHybridSlots. */
+  enableRouteStops: boolean;
 }
 
 /** Placeholder for the Phase-3 "brain" (last session / weekly gap). */
@@ -181,6 +201,11 @@ export function presetToIntent(preset: HybridPreset, timeBudgetMin: number): Hyb
  * a bodyweight station mid-route (compose-hybrid-session.service field fallback).
  */
 export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[] {
+  // Master switch — off means the WHOLE layer is gone, not just hidden by the
+  // caller. Kept here (not just at the DiscoverLayer render sites) so the
+  // hierarchy is testable directly against this pure function.
+  if (!env.enableHybridSlots) return [];
+
   const slots: HybridSlot[] = [];
 
   // ── Slot 1 — "מומלץ לך" (adaptive; Phase 1 = balanced sandwich per activity) ──
@@ -219,7 +244,7 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
   // routes through composeHybridPlan's composeNoGpsFallback) — closing the gap here, matching
   // route_stops's existing env.hasGps gate below, is simpler than special-casing the preview
   // function itself.
-  const fullParkWouldShow = HYBRID_FULL_PARK_WORKOUT_ENABLED && env.hasGps
+  const fullParkWouldShow = env.enableFullParkWorkout && env.hasGps
     && (MAP_OVERVIEW_CHROME_V1 || (env.hasEquippedPark && env.hasStrengthProgram));
   if (fullParkWouldShow) {
     // Assessment-prompt substitution (STRENGTH_ASSESSMENT_PROMPT_CARD_V1, 08.08.2026):
@@ -258,16 +283,15 @@ export function resolveSlots(env: SlotEnv, _history?: SlotHistory): HybridSlot[]
     }
   }
 
-  // ── Route + stops (MAP_ROUTE_STOPS_V1) — a GENERATED loop + generic stops on it ──
-  // ADDITIVE + dark: the flag defaults false → never surfaced (byte-identical). Needs GPS
-  // (the backbone is a loop generated from the user's own position, same as the other 2
-  // hybrid cards — NOT a published official_route; comment corrected 08.08.2026, see
-  // feature-flags.ts). composeRouteStopsWorkout returns a real fallback session (not a
-  // silent null) when the loop resolves zero usable stops or the pool is too thin, so the
-  // CTA always shows a message instead of bouncing back to the carousel. Flows through the
-  // SAME hybrid machinery (composeHybridPlan → overview drawer) as every other 'hybrid'
-  // slot — no new UI.
-  if (MAP_ROUTE_STOPS_V1 && env.hasGps) {
+  // ── Route + stops (enableRouteStops) — a GENERATED loop + generic stops on it ──
+  // ADDITIVE: needs GPS (the backbone is a loop generated from the user's own position,
+  // same as the other 2 hybrid cards — NOT a published official_route; comment corrected
+  // 08.08.2026, see feature-flags.ts). composeRouteStopsWorkout returns a real fallback
+  // session (not a silent null) when the loop resolves zero usable stops or the pool is
+  // too thin, so the CTA always shows a message instead of bouncing back to the carousel.
+  // Flows through the SAME hybrid machinery (composeHybridPlan → overview drawer) as every
+  // other 'hybrid' slot — no new UI.
+  if (env.enableRouteStops && env.hasGps) {
     const rsPreset: HybridPreset = { ...HYBRID_PRESETS.route_stops, aerobicKind: env.aerobicKind };
     slots.push({
       kind: 'hybrid',

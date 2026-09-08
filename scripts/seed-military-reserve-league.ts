@@ -1,4 +1,14 @@
 /**
+ * ⚠️ OBSOLETE — DO NOT RUN. Retired 08.09.2026, see
+ * scripts/delete-reserve-league-group-doc.ts's header for why: the
+ * community_groups/military_reserve_general document this script creates
+ * has no legitimate reader (confirmed by full-codebase audit) and was the
+ * root cause of a nearby-groups distance bug — members/{uid} (written by
+ * functions/src/militaryReserveLeague.ts, never this script) and
+ * social.groupIds work correctly without the parent doc existing at all.
+ * Kept in the repo as historical record of what was seeded and why, per
+ * this project's migration-script convention — main() below refuses to run.
+ *
  * scripts/seed-military-reserve-league.ts — one-time seed, committed (writes
  * real production data, per the project convention that data-mutating
  * migration scripts stay committed — see backfill-unit-directory.ts).
@@ -39,6 +49,9 @@ function init() {
 }
 
 async function main() {
+  console.error('OBSOLETE — this script is retired and must not run. See the file header (08.09.2026).');
+  process.exit(1);
+
   init();
   const db = admin.firestore();
   const confirm = process.argv.includes('--confirm');

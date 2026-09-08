@@ -15,8 +15,26 @@ export function haversineKm(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Hebrew-formatted distance string: '350 מטר ממך' or '2.4 ק"מ ממך' */
-export function distanceLabel(km: number): string {
+// A "nearby"/"your group" distance chip claims local knowledge — beyond
+// this, showing a specific number reads as precise when it isn't
+// meaningful for this UI. 08.09.2026: the reserve-league bug rendered
+// "~25998 דק׳ נסיעה" from a fabricated 9999km sentinel; removing that
+// sentinel (km is now `null`, never invented) closes that specific case,
+// but a genuinely-computed but absurd value deserves the same treatment —
+// fail loud, not silently displayed as if it were normal.
+const MAX_SANE_KM = 300;
+
+/**
+ * Hebrew-formatted distance string: '350 מטר ממך' or '2.4 ק"מ ממך'.
+ * Returns `null` (render nothing) for a value beyond MAX_SANE_KM — logged,
+ * not displayed, since a number here implies "we know exactly where this
+ * is relative to you."
+ */
+export function distanceLabel(km: number): string | null {
+  if (km > MAX_SANE_KM) {
+    console.error(`[distanceLabel] refusing to render an absurd distance: ${km}km`);
+    return null;
+  }
   if (km < 1) {
     const meters = Math.round(km * 1000 / 50) * 50; // round to nearest 50 m
     return `${Math.max(meters, 50)} מטר ממך`;

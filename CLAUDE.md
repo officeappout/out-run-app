@@ -11,6 +11,9 @@ and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@a
 - Commit כל צעד קטן מקומית בתוך ה-worktree. אל תדחפו על כל צעד — צוברים commits, ודוחפים באצווה **רק** כשדוד אומר במפורש "push".
 - עצור אחרי כל commit (הצג diff, המשך לצעד הבא) ואחרי כל שינוי side-effect (push / מיזוג / מחיקה) — לאישור דוד.
 - Flags: כרגע כולם `true`; **אל תחווט XP אמיתי ל-hybrid עד ש-single-save נסגר (Phase 2)** — אחרת double-count.
+- **חובות פתוחים ממעבר דגלי המפה לפאנל (wave 1, 08.09.2026):**
+  1. `enable_hybrid_slots`/`enable_full_park_workout`/`enable_route_stops` (`src/hooks/feature-flag-defs.ts`) הם `defaultValue: true` — רשת ביטחון **זמנית** לחלון הזריעה (`scripts/seed-hybrid-slot-flags.ts`), חריגה מדויקת מדפוס ה-fail-closed הרגיל. אחרי שבוע-שבועיים של יציבות במסמך `system_config/feature_flags` — להחזיר את שלושתם ל-`false` בניקוי נפרד. עד אז, כשל קריאה אמיתי מ-Firestore ידליק בטעות פיצ'ר שכובה בכוונה.
+  2. פער דחוי מתועד ב-`start-hybrid-session.ts` (`composeHybridPlan`, ליד `MAP_ROUTE_STOPS_V1`): מנוע ההצעות המאוחד (`route-stops.generator.ts`) עוקף את `resolveSlots` ובודק שם קבוע קומפילציה קפוא, לא את הדגל החדש ב-Firestore. לא-נגיש כיום כי `IS_CHEAP_SUGGESTION_RANKING_ENABLED=true` — טריפוויר ב-`route-stops.generator.test.ts` יכשל ברגע שזה משתנה. לסגור את הפער אז, לא לפני.
 
 ## Reference Files (load on demand — do NOT duplicate here)
 | Domain | File |

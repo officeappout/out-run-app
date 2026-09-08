@@ -935,6 +935,222 @@ async function testPersonaAudienceCollection() {
   });
 }
 
+// Found 08.09.2026 while verifying the card fix: a persona-gated group's
+// SENSITIVE FIELDS were rules-protected, but membership itself was not —
+// members/{uid}'s create rule only ever checked isPublic/inviteCode/
+// createdBy, never whether the joiner's own declared persona matched the
+// group's gate. A non-matching user could join a public, persona-gated
+// group and then read its chat (see testChatLeakClosed below), which
+// carries the exact info the field-split was built to hide, in plain text.
+async function testPersonaGatedMembershipBlock() {
+  console.log('\npersona-gated-membership — members/{uid} create now checks the gate too (08.09.2026)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    // A real "צו כושר"-shaped group: public (so isPublic alone would have
+    // let anyone join before this fix), persona-gated via a
+    // community_groups_reserve copy — mirrors the real production shape
+    // (community_groups/HZBAz5d3UKEcs20R6EIC + its reserve copy).
+    await setDoc(doc(db, 'community_groups', 'pg_group_public'), {
+      name: 'Test Gated Group', isPublic: true, isLocked: false, createdBy: 'system',
+    });
+    await setDoc(doc(db, 'community_groups_reserve', 'pg_group_public'), {
+      meetingLocation: { address: 'Secret Address' }, phone: '050-0000000',
+    });
+    // An ordinary, ungated public group — must be completely unaffected.
+    await setDoc(doc(db, 'community_groups', 'pg_group_ungated'), {
+      name: 'Ordinary Group', isPublic: true, isLocked: false, createdBy: 'system',
+    });
+  });
+
+  await it('PG1 — a user with NO reserve declaration tries to join the gated group → DENY', async () => {
+    const ctx = env.authenticatedContext('pa_no_declaration');
+    await assertFails(setDoc(doc(ctx.firestore(), 'community_groups', 'pg_group_public', 'members', 'pa_no_declaration'), {
+      uid: 'pa_no_declaration', role: 'member', joinedAt: new Date(),
+    }));
+  });
+
+  await it('PG2 — a user declared "regular" (not reserve) tries to join the gated group → DENY', async () => {
+    const ctx = env.authenticatedContext('pa_regular');
+    await assertFails(setDoc(doc(ctx.firestore(), 'community_groups', 'pg_group_public', 'members', 'pa_regular'), {
+      uid: 'pa_regular', role: 'member', joinedAt: new Date(),
+    }));
+  });
+
+  await it('PG3 — a genuinely declared reservist joins the gated group → ALLOW', async () => {
+    const ctx = env.authenticatedContext('pa_reservist');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'community_groups', 'pg_group_public', 'members', 'pa_reservist'), {
+      uid: 'pa_reservist', role: 'member', joinedAt: new Date(),
+    }));
+  });
+
+  await it('PG4 — the SAME non-declared user joins the UNGATED ordinary group → ALLOW (unaffected)', async () => {
+    const ctx = env.authenticatedContext('pa_no_declaration');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'community_groups', 'pg_group_ungated', 'members', 'pa_no_declaration'), {
+      uid: 'pa_no_declaration', role: 'member', joinedAt: new Date(),
+    }));
+  });
+
+  await it('PG5 — admin joins/adds a member to the gated group despite no persona declared → ALLOW (panel/moderation access, via isAdmin())', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'community_groups', 'pg_group_public', 'members', 'some_other_uid'), {
+      uid: 'some_other_uid', role: 'member', joinedAt: new Date(),
+    }));
+  });
+}
+
+// Found 08.09.2026, confirmed live in production against a real,
+// completely uninvolved native anonymous account: "any authenticated user
+// can read a group-type chat" leaked lastMessage/participants/
+// participantNames for EVERY group chat, to anyone, whether or not they
+// were ever a member. chatId is deterministic ("group_" + groupId), so no
+// guessing was even required.
+async function testChatLeakClosed() {
+  console.log('\nchat-leak-closed — chats/{chatId} group-read now requires real membership (08.09.2026)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'community_groups', 'cl_group'), { name: 'Chat Test Group', isPublic: true, isLocked: false, createdBy: 'cl_member' });
+    await setDoc(doc(db, 'community_groups', 'cl_group', 'members', 'cl_member'), { uid: 'cl_member', role: 'member', joinedAt: new Date() });
+    // Chat participants deliberately does NOT yet include cl_member — the
+    // realistic "just joined, chat-sync step hasn't landed yet" case
+    // (joinGroup's addMemberToGroupChat/createGroupChat step is non-fatal).
+    await setDoc(doc(db, 'chats', 'group_cl_group'), {
+      type: 'group', groupId: 'cl_group', participants: [], participantNames: {},
+      lastMessage: 'מחר ב-20:00 בספורטק', lastMessageAt: new Date(),
+    });
+    // A DM, for the regression check that participant-based reads still work.
+    await setDoc(doc(db, 'chats', 'cl_dm'), {
+      type: 'dm', participants: ['cl_dm_a', 'cl_dm_b'], participantNames: {},
+      lastMessage: 'hey', lastMessageAt: new Date(),
+    });
+  });
+
+  await it('CL1 — a completely uninvolved, non-member authenticated user reads the group chat → DENY', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'chats', 'group_cl_group')));
+  });
+
+  await it('CL2 — a genuine community_groups member (not yet in participants[]) reads the group chat → ALLOW', async () => {
+    const ctx = env.authenticatedContext('cl_member');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'group_cl_group')));
+  });
+
+  await it('CL3 — admin reads the group chat despite not being a member → ALLOW (global isAdmin() catch-all, unaffected by this change)', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'group_cl_group')));
+  });
+
+  await it('CL4 — DM participant still reads their own thread → ALLOW (unrelated path, regression check)', async () => {
+    const ctx = env.authenticatedContext('cl_dm_a');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'cl_dm')));
+  });
+
+  await it('CL5 — a non-participant reads someone else\'s DM → DENY (regression check, unaffected)', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDoc(doc(ctx.firestore(), 'chats', 'cl_dm')));
+  });
+
+  await it('CL6 — a real participant LISTS their own inbox (participants array-contains, the actual useChatInbox query shape) → ALLOW, finds their group chat', async () => {
+    const ctx = env.authenticatedContext('cl_dm_a');
+    // cl_dm_a is only in the DM's participants, not the group chat's — this
+    // just proves the list query itself still works post-fix (the
+    // second OR-clause didn't break the array-contains list-safety proof).
+    const snap = await assertSucceeds(
+      getDocs(query(collection(ctx.firestore(), 'chats'), where('participants', 'array-contains', 'cl_dm_a')))
+    );
+    if (snap.size !== 1 || snap.docs[0].id !== 'cl_dm') {
+      throw new Error(`expected exactly the cl_dm thread, got ${snap.size} docs: ${snap.docs.map((d) => d.id).join(',')}`);
+    }
+  });
+
+  // David's proof #1: does an UNFILTERED list (no where clause at all — the
+  // exact shape subscribeToAllChats uses for the admin master inbox) still
+  // work? This is the query shape that actually stresses whether Firestore
+  // can prove the rule from query metadata alone — CL6 above has a `where`
+  // filter that already satisfies clause A, so it doesn't test this.
+  await it('CL7 — a NON-ADMIN attempts an unfiltered list() on chats (no where clause) → DENY (neither clause is provable with no query filter, no catch-all applies)', async () => {
+    const ctx = env.authenticatedContext('reader_outsider');
+    await assertFails(getDocs(collection(ctx.firestore(), 'chats')));
+  });
+
+  await it('CL8 — an ADMIN attempts the SAME unfiltered list() (the real subscribeToAllChats shape) → ALLOW, returns every chat including ones they are not a participant of', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    const snap = await assertSucceeds(getDocs(collection(ctx.firestore(), 'chats')));
+    if (!snap.docs.some((d) => d.id === 'cl_dm') || !snap.docs.some((d) => d.id === 'group_cl_group')) {
+      throw new Error(`admin unfiltered list missing expected docs, got: ${snap.docs.map((d) => d.id).join(',')}`);
+    }
+  });
+
+  // David's proof #3: production audit found 5 real users in a group chat's
+  // participants[] but NOT in that group's community_groups/{id}/members/{uid}
+  // (legacy drift — chat.service.ts writes participants independently of the
+  // members subcollection in a few code paths). This is the FIRST clause
+  // (request.auth.uid in resource.data.participants) — pre-existing,
+  // untouched by today's fix — not the new members-based clause. The two
+  // `allow read` statements on this match block are OR'd, so a mismatched
+  // user should still pass via the first one alone.
+  await it('CL9 — a user in participants[] but NOT in community_groups/{groupId}/members/{uid} (the exact real-world mismatch shape) reads their chat → ALLOW (via the untouched participants clause)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'community_groups', 'cl_mismatch_group'), { name: 'Mismatch Group', isPublic: true, isLocked: false, createdBy: 'someone_else' });
+      // Deliberately NO members/{uid} doc for cl_mismatch_member.
+      await setDoc(doc(db, 'chats', 'group_cl_mismatch_group'), {
+        type: 'group', groupId: 'cl_mismatch_group', participants: ['cl_mismatch_member'], participantNames: {},
+        lastMessage: 'legacy chat', lastMessageAt: new Date(),
+      });
+    });
+    const ctx = env.authenticatedContext('cl_mismatch_member');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'group_cl_mismatch_group')));
+  });
+}
+
+// David's proof #2: chats/{chatId}'s new clause does a get() on
+// community_groups/{groupId}/members/{uid} — Firestore rules cap
+// get()/exists() calls at 10 for a single-doc request, 20 for a
+// query/list. If that clause were actually EVALUATED per matched document
+// (not short-circuited away by clause A already being provable from the
+// query's own `where` filter), a user with more chats than the cap would
+// see their entire inbox query rejected outright, not slowly — a total,
+// silent failure for exactly the users who use the app most. Seeds 25
+// group chats a single user is a genuine participant AND community_groups
+// member of, then runs the EXACT useChatInbox query shape against all 25.
+async function testChatListScale() {
+  console.log('\nchat-list-scale — useChatInbox\'s real query shape at 25 chats (proof #2)');
+
+  const STRESS_UID = 'stress_user';
+  const N = 25;
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (let i = 0; i < N; i++) {
+      const groupId = `stress_group_${i}`;
+      const chatId = `group_${groupId}`;
+      await setDoc(doc(db, 'community_groups', groupId), { name: `Stress ${i}`, isPublic: true, isLocked: false, createdBy: STRESS_UID });
+      await setDoc(doc(db, 'community_groups', groupId, 'members', STRESS_UID), { uid: STRESS_UID, role: 'member', joinedAt: new Date() });
+      await setDoc(doc(db, 'chats', chatId), {
+        type: 'group', groupId, participants: [STRESS_UID], participantNames: {},
+        lastMessage: `msg ${i}`, lastMessageAt: new Date(),
+      });
+    }
+  });
+
+  await it(`CSCALE1 — a user in ${N} group chats LISTS their inbox via array-contains (the real useChatInbox shape) → ALLOW, all ${N} returned`, async () => {
+    const ctx = env.authenticatedContext(STRESS_UID);
+    const snap = await assertSucceeds(
+      getDocs(query(collection(ctx.firestore(), 'chats'), where('participants', 'array-contains', STRESS_UID)))
+    );
+    if (snap.size !== N) {
+      throw new Error(`expected ${N} chats, got ${snap.size} — if this is LESS than ${N} or the call threw, the get()-budget concern is real`);
+    }
+  });
+
+  await it(`CSCALE2 — a real member reads ONE of those ${N} group chats directly via getDoc → ALLOW (confirms the get()-based clause itself still works at this scale, not just the array-contains path)`, async () => {
+    const ctx = env.authenticatedContext(STRESS_UID);
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'chats', 'group_stress_group_0')));
+  });
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -954,6 +1170,9 @@ async function main() {
   await testNoUsersDocLeak();
   await testPendingUnits();
   await testPersonaAudienceCollection();
+  await testPersonaGatedMembershipBlock();
+  await testChatLeakClosed();
+  await testChatListScale();
 
   console.log(`\n${'─'.repeat(50)}`);
   console.log(`Results: ${pass} passed, ${fail} failed`);

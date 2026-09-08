@@ -8,33 +8,41 @@
  * The document is publicly readable (no auth required) so the listener
  * can start immediately on mount — no auth timing race, zero permission errors.
  *
- * Super Admins always get all flags set to true regardless of Firestore values.
+ * Super Admins always get all flags set to true regardless of Firestore values
+ * (maintenanceMode is the one deliberate exception — see FLAG_DEFS below).
+ *
+ * Adding a flag: add ONE entry to FLAG_DEFS (./feature-flag-defs.ts — shared with the
+ * system-settings admin page so both sides use the exact same defaults). Nothing else
+ * in this file changes.
  *
  * Usage:
  *   const { flags, loading } = useFeatureFlags(profile?.core?.isSuperAdmin);
  */
 
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { FLAG_DEFS } from './feature-flag-defs';
 
 // ============================================================================
-// TYPES
+// TYPES (derived from FLAG_DEFS — no separate list to keep in sync)
 // ============================================================================
 
-export interface FeatureFlags {
-  enableRunningPrograms: boolean;
-  enableCommunityFeed: boolean;
-  enableLeagues: boolean;
-  maintenanceMode: boolean;
+export type FeatureFlags = { [D in (typeof FLAG_DEFS)[number] as D['key']]: boolean };
+
+const SAFE_DEFAULTS: FeatureFlags = Object.fromEntries(
+  FLAG_DEFS.map((d) => [d.key, d.defaultValue]),
+) as FeatureFlags;
+
+const SUPER_ADMIN_FLAGS: FeatureFlags = Object.fromEntries(
+  FLAG_DEFS.map((d) => [d.key, d.superAdminValue]),
+) as FeatureFlags;
+
+function flagsFromFirestoreData(data: DocumentData): FeatureFlags {
+  return Object.fromEntries(
+    FLAG_DEFS.map((d) => [d.key, data[d.firestoreKey] ?? d.defaultValue]),
+  ) as FeatureFlags;
 }
-
-const SAFE_DEFAULTS: FeatureFlags = {
-  enableRunningPrograms: false,
-  enableCommunityFeed: false,
-  enableLeagues: false,
-  maintenanceMode: false,
-};
 
 // ============================================================================
 // HOOK
@@ -52,18 +60,7 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
     const unsubscribe = onSnapshot(
       doc(db, 'system_config', 'feature_flags'),
       (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          setFlags({
-            enableRunningPrograms: data.enable_running_programs ?? false,
-            enableCommunityFeed: data.enable_community_feed ?? false,
-            enableLeagues: data.enable_leagues ?? false,
-            maintenanceMode: data.maintenance_mode ?? false,
-          });
-        } else {
-          // Document not yet seeded — keep safe defaults (all features hidden)
-          setFlags(SAFE_DEFAULTS);
-        }
+        setFlags(snap.exists() ? flagsFromFirestoreData(snap.data()) : SAFE_DEFAULTS);
         setLoading(false);
       },
       () => {
@@ -78,16 +75,9 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
   }, []);
 
   // Super Admins bypass all flags — they always see every feature enabled
+  // (maintenanceMode is the one exception, per SUPER_ADMIN_FLAGS above).
   if (isSuperAdmin) {
-    return {
-      flags: {
-        enableRunningPrograms: true,
-        enableCommunityFeed: true,
-        enableLeagues: true,
-        maintenanceMode: false,
-      },
-      loading: false,
-    };
+    return { flags: SUPER_ADMIN_FLAGS, loading: false };
   }
 
   return { flags, loading };

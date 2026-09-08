@@ -13,7 +13,7 @@ import {
   Dumbbell,
   Target,
   DollarSign,
-  Navigation,
+  ExternalLink,
   Flag,
   LogOut,
   ChevronDown,
@@ -502,7 +502,14 @@ export default function GroupDetailsDrawer({
   // Per-slot location override → group fallback
   const slotLoc = nextSlot?.location;
   const hasSlotCoords = slotLoc && slotLoc.lat != null && slotLoc.lng != null && (slotLoc.lat !== 0 || slotLoc.lng !== 0);
+  // 08.09.2026 — city-precision groups carry a real coordinate internally
+  // (city-center, for NearbyGroupsRow's sort/filter only — see
+  // community.types.ts's meetingLocation.precision comment) but must never
+  // show a map pin or "navigate" — that would claim a meeting POINT we
+  // don't have. Forcing hasGroupCoords false here routes rendering to the
+  // plain-text destAddress branch below instead (the city name).
   const hasGroupCoords =
+    group.meetingLocation?.precision !== 'city' &&
     group.meetingLocation?.location &&
     (group.meetingLocation.location.lat !== 0 || group.meetingLocation.location.lng !== 0);
   const hasCoords = hasSlotCoords || hasGroupCoords;
@@ -1084,42 +1091,34 @@ export default function GroupDetailsDrawer({
                   </div>
                 )}
 
-                {/* Location — map thumbnail + prominent nav CTA */}
+                {/* Location — map thumbnail only. Tapping it already opens
+                    NavigationSheet whenever the user is far enough away to
+                    need turn-by-turn (handleLocationClick, >2km), or jumps
+                    straight to the in-app map when close — a dedicated
+                    "נווט למיקום" button duplicated that exact behavior
+                    unconditionally and was removed 07.09.2026. */}
                 {hasCoords ? (
-                  <div className="space-y-2">
-                    {/* Map thumbnail — tap to preview on in-app map */}
-                    <button
-                      type="button"
-                      onClick={() => handleLocationClick(destLat, destLng)}
-                      aria-label={`פתח מפה ל-${destAddress || 'מיקום הקבוצה'}`}
-                      className="group relative w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-transform"
-                    >
-                      {staticMapUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={staticMapUrl} alt={destAddress || 'מפה'} className="w-full h-[110px] object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-[110px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
-                          <MapPin className="w-8 h-8 text-gray-400" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-3" dir="rtl">
-                        <span className="text-xs font-bold text-white truncate block max-w-[80%]">
-                          {destAddress || `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`}
-                        </span>
+                  <button
+                    type="button"
+                    onClick={() => handleLocationClick(destLat, destLng)}
+                    aria-label={`פתח מפה ל-${destAddress || 'מיקום הקבוצה'}`}
+                    className="group relative w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-transform"
+                  >
+                    {staticMapUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={staticMapUrl} alt={destAddress || 'מפה'} className="w-full h-[110px] object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-[110px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
+                        <MapPin className="w-8 h-8 text-gray-400" />
                       </div>
-                    </button>
-                    {/* Prominent navigate CTA */}
-                    <button
-                      type="button"
-                      onClick={() => setNavOpen(true)}
-                      aria-label="נווט למיקום הקבוצה"
-                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-[#00ADEF] text-white shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.97]"
-                    >
-                      <Navigation className="w-4 h-4" />
-                      נווט למיקום
-                    </button>
-                  </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3" dir="rtl">
+                      <span className="text-xs font-bold text-white truncate block max-w-[80%]">
+                        {destAddress || `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`}
+                      </span>
+                    </div>
+                  </button>
                 ) : destAddress ? (
                   <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
                     <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -1219,44 +1218,48 @@ export default function GroupDetailsDrawer({
                   />
                 )}
 
-                {/* ── Share button — always visible ───────────────── */}
-                {(() => {
-                  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
-                  const deepLink = group.inviteCode
-                    ? `${origin}/join/${group.inviteCode}`
-                    : `${origin}/community?groupId=${group.id}`;
-                  const shareText = `מצאתי קבוצת ${catConfig.label} מעולה: \'${group.name}\'! בואו להצטרף אלינו.`;
-                  const handleShare = () => {
-                    if (typeof navigator !== 'undefined' && navigator.share) {
-                      navigator.share({ title: group.name, text: shareText, url: deepLink }).catch(() => {});
-                    } else {
-                      window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${deepLink}`)}`, '_blank');
-                    }
-                  };
-                  return (
-                    <button
-                      onClick={handleShare}
-                      aria-label="שתף קבוצה"
-                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-emerald-500 text-white shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.97]"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      שתף קבוצה
-                    </button>
-                  );
-                })()}
+                {/* ── Secondary actions row — icon + word, not full-width
+                    stacked buttons (07.09.2026: the old stack of full-width
+                    CTAs ate half the screen). Share is always visible;
+                    add-to-calendar only when a next session exists. ── */}
+                <div className="flex gap-2">
+                  {(() => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
+                    const deepLink = group.inviteCode
+                      ? `${origin}/join/${group.inviteCode}`
+                      : `${origin}/community?groupId=${group.id}`;
+                    const shareText = `מצאתי קבוצת ${catConfig.label} מעולה: \'${group.name}\'! בואו להצטרף אלינו.`;
+                    const handleShare = () => {
+                      if (typeof navigator !== 'undefined' && navigator.share) {
+                        navigator.share({ title: group.name, text: shareText, url: deepLink }).catch(() => {});
+                      } else {
+                        window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${deepLink}`)}`, '_blank');
+                      }
+                    };
+                    return (
+                      <button
+                        onClick={handleShare}
+                        aria-label="שתף קבוצה"
+                        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        שתף
+                      </button>
+                    );
+                  })()}
 
-                {/* ── הוסף ליומן — Google Calendar deep-link for next session ── */}
-                {calendarUrl && (
-                  <a
-                    href={calendarUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
-                  >
-                    <CalendarPlus className="w-4 h-4" />
-                    הוסף ליומן
-                  </a>
-                )}
+                  {calendarUrl && (
+                    <a
+                      href={calendarUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
+                    >
+                      <CalendarPlus className="w-4 h-4" />
+                      ליומן
+                    </a>
+                  )}
+                </div>
 
                 {/* ── Invite code panel — private group members / creator ── */}
                 {!group.isPublic && (isJoined || isCreator) && group.inviteCode && (
@@ -1362,6 +1365,26 @@ export default function GroupDetailsDrawer({
                   </div>
                 )}
 
+                {/* ── External registration — the actual enrollment action
+                    when the group has one (e.g. "צו כושר" branches), always
+                    shown regardless of in-app join state: registering
+                    externally and joining the in-app chat/roster are two
+                    independent actions. This is the PRIMARY CTA whenever it
+                    exists — in-app join (below) is demoted to secondary.
+                    07.09.2026: previously entered in the panel but never
+                    rendered anywhere on the card/drawer. ── */}
+                {group.registrationLink && (
+                  <a
+                    href={group.registrationLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg transition-all active:scale-[0.97]"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    הרשמה
+                  </a>
+                )}
+
                 {/* Join button (pre-join) — three cases: tenant-locked / private / public */}
                 {!isJoined && onJoin && (
                   group.isLocked && !codeUnlocked ? (
@@ -1465,11 +1488,18 @@ export default function GroupDetailsDrawer({
                       )}
                     </div>
                   ) : (
-                    /* Case 3: public group — join directly */
+                    /* Case 3: public group — join directly. Demoted to a
+                       secondary/outline style when registrationLink exists
+                       above (07.09.2026) — that's the real enrollment now;
+                       this just adds the user to the in-app chat/roster. */
                     <button
                       disabled={joining}
                       onClick={() => { if (!joining) onJoin(group.id); }}
-                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black transition-all active:scale-[0.97] bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg disabled:opacity-50"
+                      className={`w-full flex items-center justify-center gap-2 rounded-2xl transition-all active:scale-[0.97] disabled:opacity-50 ${
+                        group.registrationLink
+                          ? 'py-2.5 text-xs font-bold border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+                          : 'py-3.5 text-sm font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg'
+                      }`}
                     >
                       {joining ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
