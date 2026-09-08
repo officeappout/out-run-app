@@ -20,39 +20,25 @@
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp, Firestore } from 'firebase-admin/firestore';
 
-// SPEC-01 task 2b: resolves a static invite code to its groupId from the
-// locked-down private/invite doc (collectionGroup query — the code lives
-// one level below the group doc now, not as a field on it), falling back to
-// the legacy top-level field during the migration window. Requires the
-// COLLECTION_GROUP index on private.code (firestore.indexes.json) to be
-// deployed. Shared by joinEngine's own 'group' target below AND
-// /api/join/preview (same category of lookup, same breakage risk once the
-// legacy field is deleted in step 4 — not just joinEngine).
-//
-// TODO(SPEC-01 task 2b step 5): remove the legacy-field fallback branch
-// once the verification script (step 2) confirms every group's
-// private/invite doc matches its legacy field, dual-writing stops
-// (step 3), and the legacy field is deleted from every group doc (step 4).
+// SPEC-02 Wave 0.3: resolves a static invite code to its groupId from the
+// locked-down private/invite doc via a collectionGroup query — the code
+// lives one level below the group doc now, not as a field on it. The
+// legacy-field fallback (SPEC-01 task 2b step 1) is gone: the migration is
+// complete (backfill + verification + dual-write stopped + legacy field
+// deleted from every doc — SPEC-02 Wave 0.1/0.2), and the required
+// COLLECTION_GROUP field override on private.code is deployed. Shared by
+// joinEngine's own 'group' target below AND /api/join/preview.
 export async function resolveGroupIdByInviteCode(
   db: Firestore,
   code: string,
 ): Promise<string | null> {
-  const newLocSnap = await db
+  const snap = await db
     .collectionGroup('private')
     .where('code', '==', code)
     .limit(1)
     .get();
-  if (!newLocSnap.empty) {
-    const resolvedFromNewLocation = newLocSnap.docs[0].ref.parent.parent?.id;
-    if (resolvedFromNewLocation) return resolvedFromNewLocation;
-  }
-
-  const legacySnap = await db
-    .collection('community_groups')
-    .where('inviteCode', '==', code)
-    .limit(1)
-    .get();
-  return legacySnap.empty ? null : legacySnap.docs[0].id;
+  if (snap.empty) return null;
+  return snap.docs[0].ref.parent.parent?.id ?? null;
 }
 
 // ── Error ──────────────────────────────────────────────────────────────────────
