@@ -194,6 +194,15 @@ async function getPersonaGatedGroups(personas: PersonaKey[]): Promise<CommunityG
         const parentSnap = await getDoc(doc(db, 'community_groups', audienceSnap.id));
         if (!parentSnap.exists()) return null;
         const parentData = parentSnap.data();
+        // 08.09.2026 — found while verifying isActive's toggle actually
+        // hides a group, not just relabels it: getPublicGroups()'s own
+        // query already filters isActive==true, but persona-gated groups
+        // never go through that filter at all — they're fetched directly
+        // from community_groups_{persona}, unconditionally, then merged
+        // with their parent doc's data. A deactivated persona-gated group
+        // (e.g. paused until a later date) would still show up here even
+        // though the app's OWN ordinary groups correctly disappear.
+        if (parentData?.isActive === false) return null;
         return {
           id: parentSnap.id,
           ...(parentData as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),
@@ -534,7 +543,11 @@ export async function getMyGroups(groupIds: string[]): Promise<CommunityGroup[]>
   );
 
   const groups = results
-    .filter((snap) => snap.exists())
+    // 08.09.2026 — same isActive gap as getPersonaGatedGroups: this is a
+    // per-id getDoc, not a where('isActive','==',true) query like
+    // getPublicGroups/getGroupsByScopeId, so a deactivated group a user
+    // already joined would otherwise still render on their home screen.
+    .filter((snap) => snap.exists() && snap.data()?.isActive !== false)
     .map((snap) => ({
       id: snap.id,
       ...(snap.data() as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),
