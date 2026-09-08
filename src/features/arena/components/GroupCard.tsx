@@ -25,7 +25,7 @@ interface GroupCardProps {
   members?: EventRegistration[];
   isJoined?: boolean;
   joining?: boolean;
-  distanceKm?: number;
+  distanceKm?: number | null;
   /** Compact horizontal discovery card for home-screen carousels */
   compact?: boolean;
   /** Live session indicator shown on the card image */
@@ -38,13 +38,25 @@ interface GroupCardProps {
   onOpenChat?: () => void;
 }
 
-function travelTimeLabel(km: number): string {
+// A number above 2 hours on a "nearby" card is a bug by definition — fail
+// loud (console.error), don't render it, same treatment as an unknown
+// distance. 08.09.2026: this is exactly the shape of bug that produced
+// "~25998 דק׳ נסיעה" from a fabricated 9999km sentinel — the sentinel
+// itself is gone (km is `null`, never invented, see NearbyGroupsRow), but
+// this cap also catches any future miscomputation the same way.
+const MAX_SANE_TRAVEL_MINUTES = 120;
+
+function travelTimeLabel(km: number): string | null {
   const roadKm = km * 1.3;
   if (roadKm < 1.5) {
     const mins = Math.ceil((roadKm / 5) * 60);
     return `~${mins} דק׳ הליכה`;
   }
   const mins = Math.ceil((roadKm / 30) * 60);
+  if (mins > MAX_SANE_TRAVEL_MINUTES) {
+    console.error(`[travelTimeLabel] refusing to render an absurd travel time: ${mins}min (from ${km}km)`);
+    return null;
+  }
   return `~${mins} דק׳ נסיעה`;
 }
 
@@ -166,7 +178,7 @@ export default function GroupCard({
           {scheduleLabel && (
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{scheduleLabel}</p>
           )}
-          {distanceKm != null && (
+          {distanceKm != null && travelTimeLabel(distanceKm) != null && (
             <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
               {travelTimeLabel(distanceKm)}
             </p>
@@ -301,25 +313,31 @@ export default function GroupCard({
 
         {/* Address + distance row — address is data-layer gated (see comment
             near the top of the compact variant); the relative distance chip
-            is unconditional, it never reveals the actual place. */}
-        {(group.meetingLocation?.address || distanceKm != null) && (
-          <div className="flex items-center justify-between gap-2 mb-3">
-            {group.meetingLocation?.address ? (
-              <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 min-w-0">
-                <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                <span className="truncate font-medium">{group.meetingLocation.address}</span>
-              </div>
-            ) : (
-              <span />
-            )}
-            {distanceKm != null && (
-              <div className="flex items-center gap-1 text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-shrink-0">
-                <Navigation className="w-3 h-3" />
-                <span>{distanceLabel(distanceKm)}</span>
-              </div>
-            )}
-          </div>
-        )}
+            is unconditional, it never reveals the actual place. distLabel
+            is computed once so a rejected (absurd/unsane) value doesn't
+            leave an empty row when there's also no address to show. */}
+        {(() => {
+          const distLabel = distanceKm != null ? distanceLabel(distanceKm) : null;
+          if (!group.meetingLocation?.address && distLabel == null) return null;
+          return (
+            <div className="flex items-center justify-between gap-2 mb-3">
+              {group.meetingLocation?.address ? (
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 min-w-0">
+                  <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                  <span className="truncate font-medium">{group.meetingLocation.address}</span>
+                </div>
+              ) : (
+                <span />
+              )}
+              {distLabel != null && (
+                <div className="flex items-center gap-1 text-xs text-cyan-600 dark:text-cyan-400 font-semibold flex-shrink-0">
+                  <Navigation className="w-3 h-3" />
+                  <span>{distLabel}</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Creator location fix — only shown when onUpdateLocation is provided */}
         {onUpdateLocation && (

@@ -247,6 +247,7 @@ function normalizeGroup(docId: string, data: any): CommunityGroup {
     scopeId: data?.scopeId ?? undefined,
     ageRestriction: data?.ageRestriction ?? undefined,
     memberCount: data?.memberCount ?? undefined,
+    minimumMembers: data?.minimumMembers ?? undefined,
     isPublic: data?.isPublic ?? undefined,
     inviteCode: data?.inviteCode ?? undefined,
     targetMuscles: data?.targetMuscles ?? undefined,
@@ -259,8 +260,27 @@ function normalizeGroup(docId: string, data: any): CommunityGroup {
     targetAgeRange: data?.targetAgeRange ?? undefined,
     images: data?.images ?? undefined,
     rules: data?.rules ?? undefined,
+    allowJoinRequests: data?.allowJoinRequests ?? undefined,
+    isLocked: data?.isLocked ?? undefined,
+    organizationId: data?.organizationId ?? undefined,
+    requiredAccessCodeType: data?.requiredAccessCodeType ?? undefined,
     isCityOnly: data?.isCityOnly ?? false,
     restrictedNeighborhoodId: data?.restrictedNeighborhoodId ?? undefined,
+    hasMeetups: data?.hasMeetups ?? undefined,
+    groupSubtype: data?.groupSubtype ?? undefined,
+    challengeMetric: data?.challengeMetric ?? undefined,
+    startsAt: data?.startsAt ?? undefined,
+    endsAt: data?.endsAt ?? undefined,
+    creatorReferralCount: data?.creatorReferralCount ?? undefined,
+    // 07.09.2026: these 4 were missing from this allowlist, so re-opening an
+    // EXISTING, non-persona-gated group for edit silently dropped them from
+    // the form on reload (found while wiring registrationLink onto the app-
+    // facing card — getGroup()'s persona-gated path already re-merges these
+    // from the sensitive-fields fetch, which is why this went unnoticed).
+    leaderUserId: data?.leaderUserId ?? undefined,
+    leaderName: data?.leaderName ?? undefined,
+    phone: data?.phone ?? undefined,
+    registrationLink: data?.registrationLink ?? undefined,
   };
 }
 
