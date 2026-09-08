@@ -392,6 +392,46 @@ export async function getGroupsByAuthority(authorityId: string, tenantId?: strin
   }
 }
 
+/**
+ * Every group in the system, regardless of authority — the "what exists
+ * at all" screen David asked for (08.09.2026) after tzav-cosher's 12
+ * branches turned out invisible in the per-authority list. Deliberately a
+ * plain, unfiltered getDocs() at today's scale (~65 docs) — no pagination
+ * infrastructure until the count actually demands it.
+ *
+ * audiencePersonas is populated cheaply: ONE extra read per known persona
+ * collection (not per-group — community.types.ts's own getGroupAudienceTags
+ * comment explicitly warns against that for a list screen), building an
+ * id-set to test membership against.
+ */
+export async function getAllGroupsForAdmin(): Promise<CommunityGroup[]> {
+  // No orderBy('updatedAt') here on purpose — Firestore's orderBy silently
+  // EXCLUDES any doc missing the sorted-on field, which is exactly the
+  // invisible-groups failure mode this screen exists to eliminate (found by
+  // review before shipping). Every known writer stamps updatedAt today, but
+  // a plain fetch + client-side sort costs nothing and doesn't depend on
+  // that staying true forever.
+  const [groupsSnap, personaSnapsByKey] = await Promise.all([
+    getDocs(collection(db, GROUPS_COLLECTION)),
+    Promise.all(PERSONA_KEYS.map((p) => getDocs(collection(db, `community_groups_${p}`)))),
+  ]);
+
+  const personaByGroupId = new Map<string, PersonaKey[]>();
+  PERSONA_KEYS.forEach((persona, i) => {
+    personaSnapsByKey[i].docs.forEach((d) => {
+      const existing = personaByGroupId.get(d.id) ?? [];
+      existing.push(persona);
+      personaByGroupId.set(d.id, existing);
+    });
+  });
+
+  const groups = groupsSnap.docs.map((d) => ({
+    ...normalizeGroup(d.id, d.data()),
+    audiencePersonas: personaByGroupId.get(d.id) ?? [],
+  }));
+  return groups.sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));
+}
+
 export async function getGroup(groupId: string): Promise<CommunityGroup | null> {
   try {
     const docRef = doc(db, GROUPS_COLLECTION, groupId);

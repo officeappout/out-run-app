@@ -180,6 +180,13 @@ export default function AdminDashboardPage() {
           description="דיווחי תשתית וקהילה, מעקב סטטוסים"
           color="amber"
         />
+        <QuickLink
+          href="/admin/community-groups-overview"
+          icon={UsersIcon}
+          title="כל הקבוצות במערכת"
+          description="חוצה-רשויות — רשמי מול משתמשים, סינון וסטטוס, בלי כניסה לכל עירייה בנפרד"
+          color="emerald"
+        />
       </div>
 
       {/* ═══ Today's Sessions — Compact Summary ═══ */}
@@ -256,9 +263,10 @@ function QuickLink({
   color: string;
 }) {
   const colorMap: Record<string, { iconBg: string; iconText: string; hoverBorder: string }> = {
-    violet: { iconBg: 'bg-violet-50', iconText: 'text-violet-600', hoverBorder: 'hover:border-violet-300' },
-    cyan:   { iconBg: 'bg-cyan-50',   iconText: 'text-cyan-600',   hoverBorder: 'hover:border-cyan-300' },
-    amber:  { iconBg: 'bg-amber-50',  iconText: 'text-amber-600',  hoverBorder: 'hover:border-amber-300' },
+    violet:  { iconBg: 'bg-violet-50',  iconText: 'text-violet-600',  hoverBorder: 'hover:border-violet-300' },
+    cyan:    { iconBg: 'bg-cyan-50',    iconText: 'text-cyan-600',    hoverBorder: 'hover:border-cyan-300' },
+    amber:   { iconBg: 'bg-amber-50',   iconText: 'text-amber-600',   hoverBorder: 'hover:border-amber-300' },
+    emerald: { iconBg: 'bg-emerald-50', iconText: 'text-emerald-600', hoverBorder: 'hover:border-emerald-300' },
   };
   const c = colorMap[color] ?? colorMap.cyan;
 
