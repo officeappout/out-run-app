@@ -1,0 +1,37 @@
+PUSH-SCENARIO SWEEP — SUMMARY
+Generated 2026-09-09 — 3168 scenarios in 1ms.
+Read-only simulation. No Firestore writes, no FCM sends, no deploy, no changes to production logic.
+
+TOTAL: 3168   FIRED: 1245 (39.3%)   SUPPRESSED: 1923 (60.7%)
+
+SUPPRESSION BREAKDOWN (all triggers):
+  no_recipients: 1440
+  daily_cap: 267
+  quiet_hours: 216
+  channel_cap: 0 — NOT EXERCISED (see KNOWN GAP below)
+
+BREAKDOWN BY PUSH TYPE:
+  friend-published-nearby: 1152 rows, 225 fire (19.5%)
+  kudos-received: 24 rows, 15 fire (62.5%)
+  group-join: 48 rows, 30 fire (62.5%)
+  level-up: 24 rows, 15 fire (62.5%)
+  scheduled-training-reminder: 192 rows, 72 fire (37.5%)
+  step-goal: 192 rows, 72 fire (37.5%)
+  onboarding-dropoff: 288 rows, 72 fire (25.0%)
+  inactivity-retention: 480 rows, 72 fire (15.0%)
+  admin-broadcast: 768 rows, 672 fire (87.5%)
+
+INTERESTING / SURPRISING PATTERNS:
+  - friend-published-nearby: quiet hours alone kill 180/1152 rows (15.6%) — every one of these is a SUPPRESSED-FOREVER push (no defer/retry exists anywhere in push.service.ts).
+  - kudos-received: quiet hours alone kill 9/24 rows (37.5%) — every one of these is a SUPPRESSED-FOREVER push (no defer/retry exists anywhere in push.service.ts).
+  - group-join: quiet hours alone kill 18/48 rows (37.5%) — every one of these is a SUPPRESSED-FOREVER push (no defer/retry exists anywhere in push.service.ts).
+  - level-up: quiet hours alone kill 9/24 rows (37.5%) — every one of these is a SUPPRESSED-FOREVER push (no defer/retry exists anywhere in push.service.ts).
+  - Daily engagement cap (3/day) suppresses 267 rows across community/training_reminder/health_milestone/onboarding_dropoff/retention/admin-broadcast(community) — the only cross-cutting cap that fires regardless of which specific push type it is.
+  - 73 (event, state) combinations are suppressed at EVERY hour of the day (0-23) — these are states where no hour would ever have gotten the user this push, not just an unlucky quiet-hours draw. Mostly the "not eligible at all" states (no_recipients holds regardless of hour): ghost-privacy nearby shares, non-below-goal step checks, fresh/completed onboarding, <7-day inactivity.
+  - 3 push types deep-link to bare '/' (generic home), not to the thing the push is actually about: level-up, scheduled-training-reminder, inactivity-retention. A tap on any of these lands the user on the home screen with no indication of what to look at.
+  - admin-broadcast (768 rows) has no fixed deep-link at all — it's admin-typed per send and silently does nothing on tap if left blank. Not "broken" exactly, but there's no guardrail requiring one.
+
+KNOWN GAP (flagged, not silently absorbed):
+  The approved scenario design has no "recently sent on this channel" axis, so the per-channel RATE_CAP_HOURS gate (e.g. kudos 30min, community 2h, retention 48h) is never exercised in this run — every row assumes the recipient is not currently rate-capped. suppressed_reason=channel_cap never appears above. Real production behavior includes this gate; this sweep does not. Adding a recently_sent_on_channel:{true,false} axis to the reachable triggers would close this gap.
+
+  persona is fixed to 'parent' throughout (not swept) — confirmed causally irrelevant to fire/suppress/deep-link outcomes; only content selection (out of scope here) reads persona.
