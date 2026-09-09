@@ -462,6 +462,18 @@
         { "fieldPath": "date", "order": "ASCENDING" }
       ]
     },
+    // SPEC-03 Wave A (SEC-02): dailyActivityPublic mirrors dailyActivity's
+    // own authorityId+date index exactly — getStepsLeaderboard's 'city'
+    // scope query (the only scope field actually stamped on any doc
+    // today, same caveat as the raw collection) needs the same shape.
+    {
+      "collectionGroup": "dailyActivityPublic",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
     {
       "collectionGroup": "workouts",
       "queryScope": "COLLECTION",

@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const state = vi.hoisted(() => ({
   STREAKS: [] as { id: string; currentStreak: number; authorityId?: string; parkId?: string; neighborhoodId?: string; displayName?: string }[],
-  DAILY: [] as { id: string; userId: string; steps: number; date: string; authorityId?: string; parkId?: string; neighborhoodId?: string; displayName?: string }[],
+  DAILY: [] as { id: string; uid: string; steps: number; date: string; authorityId?: string; parkId?: string; neighborhoodId?: string; displayName?: string }[],
   whereClauses: [] as { field: string; op: string; value: unknown }[],
 }));
 
@@ -48,7 +48,7 @@ vi.mock('firebase/firestore', () => {
         const matched = state.STREAKS.filter((s) => matches(s as unknown as Record<string, unknown>));
         return { forEach: (fn: (d: { id: string; data: () => unknown }) => void) => matched.forEach((s) => fn({ id: s.id, data: () => s } as { id: string; data: () => unknown })) };
       }
-      if (q.__col === 'dailyActivity') {
+      if (q.__col === 'dailyActivityPublic') {
         const matched = state.DAILY.filter((s) => matches(s as unknown as Record<string, unknown>));
         return { forEach: (fn: (d: { id: string; data: () => unknown }) => void) => matched.forEach((s) => fn({ id: s.id, data: () => s } as { id: string; data: () => unknown })) };
       }
@@ -128,8 +128,8 @@ describe('getStepsLeaderboard — scoped by the correct field, not always author
 
   it('park scope filters by parkId, not authorityId (the original bug)', async () => {
     state.DAILY = [
-      { id: 'd1', userId: 'u1', steps: 5000, date: today, parkId: 'park-1', displayName: 'A' },
-      { id: 'd2', userId: 'u2', steps: 9000, date: today, authorityId: 'city-1', displayName: 'B' },
+      { id: 'd1', uid: 'u1', steps: 5000, date: today, parkId: 'park-1', displayName: 'A' },
+      { id: 'd2', uid: 'u2', steps: 9000, date: today, authorityId: 'city-1', displayName: 'B' },
     ];
 
     const result = await getStepsLeaderboard({ scope: 'park', scopeId: 'park-1', currentUid: 'x' });
@@ -140,8 +140,8 @@ describe('getStepsLeaderboard — scoped by the correct field, not always author
 
   it('neighborhood scope filters by neighborhoodId', async () => {
     state.DAILY = [
-      { id: 'd1', userId: 'u1', steps: 4000, date: today, neighborhoodId: 'nb-1', displayName: 'A' },
-      { id: 'd2', userId: 'u2', steps: 9000, date: today, authorityId: 'city-1', displayName: 'B' },
+      { id: 'd1', uid: 'u1', steps: 4000, date: today, neighborhoodId: 'nb-1', displayName: 'A' },
+      { id: 'd2', uid: 'u2', steps: 9000, date: today, authorityId: 'city-1', displayName: 'B' },
     ];
 
     const result = await getStepsLeaderboard({ scope: 'neighborhood', scopeId: 'nb-1', currentUid: 'x' });

@@ -468,11 +468,25 @@ service cloud.firestore {
     match /dailyActivity/{docId} {
       allow read, write: if isRootAdmin() || isAdmin();
 
-      // Leaderboard queries (steps mode: WHERE authorityId == scopeId, orderBy steps)
-      // must read across multiple users' dailyActivity docs. The owner-only rules
-      // below still apply for all other client reads; this line only widens the
-      // read gate — writes remain strictly owner-scoped and passive-field-protected.
-      allow read: if isAuthenticated();
+      // SPEC-03 Wave A (SEC-02): the blanket `allow read: if isAuthenticated()`
+      // that used to sit here let ANY signed-in user — including an
+      // anonymous guest — read EVERY user's real health data for EVERY
+      // day: steps, calories, active minutes, distance, passive sensor
+      // fields. It existed only because getStepsLeaderboard
+      // (ranking.service.ts) needed cross-user reads for the steps
+      // leaderboard, and a Firestore rule can't narrow WHICH FIELDS of a
+      // readable doc are exposed — only which docs are readable at all.
+      // Fixed the same way inviteCode (SPEC-01) and
+      // healthDeclarationPdfUrl (SPEC-02) were: the narrow public subset
+      // the leaderboard actually needs ({uid, displayName, steps,
+      // authorityId, date} — nothing else) now lives in its own
+      // dailyActivityPublic collection (see below), synced by a scheduled
+      // Cloud Function (dailyActivityPublicSync.ts) rather than a
+      // write-triggered mirror — a passive step sync writes to this doc
+      // many times a day, and mirroring on every one of those writes
+      // would roughly double this collection's write volume for a screen
+      // nobody expects to be real-time. getStepsLeaderboard now reads
+      // dailyActivityPublic instead of this collection.
 
       // Read: field check (enables collection queries) OR docId prefix
       allow read: if isAuthenticated() && (
@@ -518,6 +532,37 @@ service cloud.firestore {
            docId[0:request.auth.uid.size()] == request.auth.uid &&
            docId[request.auth.uid.size():request.auth.uid.size()+1] == '_')
         );
+    }
+
+    // ============================================================
+    // DAILY ACTIVITY PUBLIC — SPEC-03 Wave A (SEC-02)
+    // Lean mirror of dailyActivity: ONLY {uid, displayName, steps,
+    // authorityId, date}. No calories, active minutes, distance, or
+    // passive sensor fields — those stay owner-only on dailyActivity.
+    // Written exclusively by the dailyActivityPublicSync scheduled
+    // Cloud Function (Admin SDK, bypasses these rules) — client writes
+    // are never legitimate, matching unitDirectory/unit_league_aggregates'
+    // own pattern for a low-sensitivity derived-aggregate collection.
+    //
+    // Read is open to any authenticated user — NOT narrowed to the
+    // reader's own authorityId. Two reasons, not one: (1) the fields
+    // themselves are the privacy boundary now, same reasoning as
+    // unitDirectory/unit_league_aggregates being openly readable because
+    // they hold no PII beyond what a public leaderboard is explicitly
+    // designed to show; (2) a same-authorityId restriction would have
+    // broken a REAL, live feature — verified via grep, not assumed:
+    // community/page.tsx renders <NeighborhoodLeaderboard scope="global"
+    // scopeId={null} .../> (line ~1381), and its dataMode toggle
+    // (localMode === 'steps') lets a signed-in user pick the steps metric
+    // WITHIN that global-scope view — a genuine cross-authority steps
+    // leaderboard already exists and works today. isAuthenticated() also
+    // matches SPEC-03 Wave C's explicit guest policy: viewing the
+    // leaderboard is allowed for anonymous guests too, same as the raw
+    // collection's own pre-fix behavior for reads.
+    // ============================================================
+    match /dailyActivityPublic/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isRootAdmin() || isAdmin();
     }
 
     // dailyProgress — same docId format: {userId}_{date}

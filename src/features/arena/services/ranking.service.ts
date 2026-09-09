@@ -530,20 +530,32 @@ export async function getStreakLeaderboard(params: {
 // ── Steps leaderboard ──────────────────────────────────────────────────────
 
 /**
- * Leaderboard built from the `dailyActivity` collection.
+ * Leaderboard built from the `dailyActivityPublic` collection.
+ *
+ * SPEC-03 Wave A (SEC-02): this used to read `dailyActivity` directly —
+ * real health data (calories, active minutes, distance, passive sensor
+ * fields), readable cross-user by any authenticated caller including an
+ * anonymous guest, purely because this query needed it. `dailyActivity`
+ * is owner-only now; this reads dailyActivityPublic instead, a lean
+ * mirror synced by the dailyActivityPublicSync scheduled Cloud Function
+ * holding ONLY {uid, displayName, steps, authorityId, date} — exactly
+ * the fields this aggregation uses below. Field name is `uid` here (not
+ * `userId` as on the raw collection) — dailyActivityPublic's own schema,
+ * see dailyActivityPublicSync.ts.
+ *
  * Aggregates daily `steps` for the last 7 days, then computes a per-user
  * weekly average (total ÷ 7), using that as `totalCredit`.
  *
- * `dailyActivity` docs acquire `authorityId` / `displayName` the first time
- * a user completes a workout sync after the scope-stamp was added to
- * useActivityStore.syncToServer. Until then they appear in global queries
- * but are invisible in city-scoped ones.
+ * `dailyActivityPublic` docs acquire `authorityId` / `displayName` the
+ * first time a user completes a workout sync after the scope-stamp was
+ * added to useActivityStore.syncToServer (dailyActivityPublicSync skips
+ * mirroring a doc with no authorityId yet). Until then they appear in
+ * global queries but are invisible in city-scoped ones.
  *
  * Scoped via scopeToField like every other query here — same caveat as
  * getStreakLeaderboard: only 'city' (authorityId) is actually stamped on
- * `dailyActivity` docs today, so 'park' and 'neighborhood' resolve to the
- * correct field name but return empty until that field is also stamped
- * on this collection.
+ * these docs today, so 'park' and 'neighborhood' resolve to the correct
+ * field name but return empty until that field is also stamped here.
  */
 export async function getStepsLeaderboard(params: {
   scope: LeaderboardScope;
@@ -575,15 +587,15 @@ export async function getStepsLeaderboard(params: {
   // Limit to a reasonable scan size — 50 entries × 7 days + buffer
   constraints.push(limit(5000));
 
-  const q = query(collection(db, 'dailyActivity'), ...constraints);
+  const q = query(collection(db, 'dailyActivityPublic'), ...constraints);
   const snap = await getDocs(q);
 
-  // Aggregate steps per userId
+  // Aggregate steps per uid
   const stepMap = new Map<string, { name: string; totalSteps: number; dayCount: number }>();
 
   snap.forEach((d) => {
     const data = d.data();
-    const uid = data.userId as string | undefined;
+    const uid = data.uid as string | undefined;
     const steps = (data.steps as number) || 0;
     const name =
       (data.displayName as string | undefined) ||

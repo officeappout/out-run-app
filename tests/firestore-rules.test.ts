@@ -411,13 +411,19 @@ async function testActivityRules() {
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'dailyActivity', 'broadcaster1_2026-07-26')));
   });
 
-  // A3 — a DIFFERENT authenticated user reads it → ALLOW *by design*: the read
-  // gate is isAuthenticated() so leaderboard queries can aggregate across users.
-  // ("another user can't read" is intentionally NOT the invariant — writes are
-  // owner-scoped, reads are open to any signed-in user.)
-  await it('A3 — other authenticated user reads dailyActivity → ALLOW (leaderboard design)', async () => {
+  // A3 — SPEC-03 Wave A (SEC-02): a DIFFERENT authenticated user reads it →
+  // now DENY. This used to be ALLOW *by design* — the read gate was
+  // isAuthenticated() specifically so the steps leaderboard could
+  // aggregate across users, exposing real health data (calories, active
+  // minutes, distance, passive sensor fields) to any signed-in user,
+  // including an anonymous guest. The leaderboard now reads from
+  // dailyActivityPublic (see testDailyActivityPublic below) — a lean
+  // mirror with only the 5 fields it actually needs — so dailyActivity
+  // itself can finally be owner-only, no leaderboard feature depends on
+  // cross-user reads of it anymore.
+  await it('A3 — other authenticated user reads dailyActivity → DENY (SPEC-03: leaderboard now reads dailyActivityPublic instead)', async () => {
     const ctx = env.authenticatedContext('broadcaster2');
-    await assertSucceeds(getDoc(doc(ctx.firestore(), 'dailyActivity', 'broadcaster1_2026-07-26')));
+    await assertFails(getDoc(doc(ctx.firestore(), 'dailyActivity', 'broadcaster1_2026-07-26')));
   });
 
   // A4 — owner creates own dailyActivity (userId == uid, passive fields omitted → 0) → ALLOW.
@@ -446,6 +452,56 @@ async function testActivityRules() {
   await it('A7 — other authenticated user reads streaks → ALLOW (leaderboard design)', async () => {
     const ctx = env.authenticatedContext('broadcaster2');
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'streaks', 'broadcaster1')));
+  });
+}
+
+// SPEC-03 Wave A (SEC-02): dailyActivityPublic — the lean, leaderboard-only
+// mirror of dailyActivity ({uid, displayName, steps, authorityId, date}),
+// synced by the dailyActivityPublicSync scheduled Cloud Function. Read is
+// deliberately open to any authenticated user (including anonymous guests,
+// per SPEC-03 Wave C's explicit "viewing the leaderboard is allowed for
+// guests" policy) — NOT narrowed to the reader's own authorityId, since a
+// real live feature (community/page.tsx's scope="global" steps leaderboard
+// view) needs cross-authority reads. Write is admin/server-only; the sync
+// function uses the Admin SDK and bypasses these rules entirely, same as
+// unitLeagueRollup writing unit_league_aggregates.
+async function testDailyActivityPublic() {
+  console.log('\ndailyActivityPublic — lean leaderboard mirror (SPEC-03 Wave A / SEC-02)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'dailyActivityPublic', 'dap_owner_2026-09-09'), {
+      uid: 'dap_owner', displayName: 'Test User', steps: 8000, authorityId: 'city_a', date: '2026-09-09',
+    });
+  });
+
+  await it('DAP1 — unauthenticated read → DENY', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(getDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_owner_2026-09-09')));
+  });
+
+  await it('DAP2 — a different authenticated user reads it → ALLOW (this is the whole point — the leaderboard needs cross-user reads, and only the lean 5-field subset is exposed here)', async () => {
+    const ctx = env.authenticatedContext('dap_reader');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_owner_2026-09-09')));
+  });
+
+  await it('DAP3 — a reader from a DIFFERENT authorityId still reads it → ALLOW (deliberately not authorityId-scoped — see the rule comment for why: a real global-scope steps leaderboard view depends on this)', async () => {
+    const ctx = env.authenticatedContext('dap_reader_other_city');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_owner_2026-09-09')));
+  });
+
+  await it('DAP4 — even the doc\'s own uid cannot write it client-side → DENY (admin/server-sync only)', async () => {
+    const ctx = env.authenticatedContext('dap_owner');
+    await assertFails(setDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_owner_2026-09-09'), {
+      uid: 'dap_owner', displayName: 'Forged Name', steps: 99999, authorityId: 'city_a', date: '2026-09-09',
+    }));
+  });
+
+  await it('DAP5 — admin writes it → ALLOW (matches the sync function\'s own trust level)', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_admin_write_2026-09-09'), {
+      uid: 'dap_owner', displayName: 'Test User', steps: 8500, authorityId: 'city_a', date: '2026-09-09',
+    }));
   });
 }
 
@@ -1819,6 +1875,7 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('H2 — role-change guards', wrapSuite(testH2Roles));
   vitestIt('sessions — scheduleSlots/meetingLocation hasOnly guard', wrapSuite(testSessions));
   vitestIt('activity — dailyActivity + streaks (auth-timing invariant)', wrapSuite(testActivityRules));
+  vitestIt('dailyActivityPublic (SPEC-03 Wave A / SEC-02)', wrapSuite(testDailyActivityPublic));
   vitestIt('tenant-unit-lockdown', wrapSuite(testTenantUnitLockdown));
   vitestIt('military-declarations lockdown', wrapSuite(testMilitaryDeclarationLockdown));
   vitestIt('unitDirectory', wrapSuite(testUnitDirectory));
