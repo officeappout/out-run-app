@@ -598,3 +598,30 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 **שניהם פערי-תוכן, לא באגי-קוד. דוד מחליט אם/איך לטפל (הוספת תרגילים, שינוי-סיווג, קבלה-כמות-שהוא) — לא פעולה כרגע.**
 
 **קובץ-העבודה המלא לעריכת-פאנל** (24 תרגילים, מקובצים לפי דפוס-תיוג): `/private/tmp/claude-501/-Users-calisthenicsltd-Development-appout-1/6190205f-9b8f-499e-a444-a32a4f244ffa/scratchpad/multi-skill-tag-review.md` — נתיב-scratchpad-זמני, לא נשמר לטווח-ארוך; אם רלוונטי אחרי שדוד מסיים, להעתיק למקום קבוע.
+
+---
+
+## רגרסיה ידועה ומאושרת — 5 תרגילי "פלאנק" ב-DavidRule, תיוג-הורה בסדר שגוי — 09.09.2026
+
+**Opened:** 09.09.2026 · **Source:** דוד, אחרי בדיקה-השוואתית (old vs new) שנדרשה במקום שלוש ריצות-מכשיר ידניות — ראה גם [[חוק 0]] (תיוג תרגילים אינו בסמכות-הקוד/הסוכן).
+
+**החוק המנחה, נקבע אותו יום:** לא אנחנו מחליטים על תיוג-תרגילים. לא בקוד, לא בסקריפט, לא כהמלצה. מדווחים "התרגיל התנהג ככה כי התגיות שלו כאלה" — דוד מחליט מה משנים, בפאנל, בעצמו.
+
+**מה קרה בפועל:** `resolveExerciseDomain` (`workout-selection.utils.ts`, 08-09.09.2026) גובה עדיפות-לתגית-הספציפית-על-פני-ההורה, ובענף-ה"בלי-סקיל" (Tier 3, `parentTiebreak='exercise-tag-order'`, ברירת-המחדל אחרי תיקון 09.09.2026) פותר לפי סדר `targetPrograms` **של התרגיל עצמו** — לא לפי `movementGroup`. ב-DavidRule (`WorkoutGenerator.ts`'s "Step 4d") זה חושף חמישה תרגילים שבהם ה-`movementGroup` (`core`) לא תואם את התג-הראשון ב-`targetPrograms` (`push`, ברוב המקרים):
+
+| name (he) | id | movementGroup | targetPrograms (סדר מקורי) | דומיין נבחר בפועל |
+|---|---|---|---|---|
+| פלאנק עליות ונגיעות בכתפיים | `BWbscvj0m3hvxghEMtKV` | core | push:L3 → core:L3 | push |
+| פלאנק | `FHh3m3suMMtoLk1PrxYv` | core | push:L2 → full_body:L2 → upper_body:L2 → core:L2 | push |
+| פלאנק על הברכיים | `iEZGhtBNV7Tv5iNuT70E` | core | push:L1 → core:L1 | push |
+| פלאנק גבוה טבעות | `mIEhyPgMAxSryv46CZ2f` | core | push:L7 → core:L7 | push |
+| כפיפת ירך על הגבהה | `vVTTFbDP1LffViDAQfHn` | core | legs:L4 (בלבד, אין תג core) | legs |
+
+**הכרעת דוד, מפורשת:** לא לתקן בקוד. אין special-case לחמשת התרגילים. אין נפילה חזרה ל-`movementGroup` כפולבק — הנימוק: DavidRule משווה רמת-תרגיל (מ-`targetPrograms`) מול רמת-משתמש-בדומיין; אם הרמה מגיעה מהתגיות אבל הדומיין מ-`movementGroup`, זו בדיוק ההשוואה חוצת-הדומיינים שתוקנה היום (ה-bug המקורי, planche/one_arm_pullup) — לחזור אליה כדי "להציל" 5 תרגילים מחזירה את המחלה בדלת האחורית.
+
+**מה כן נבנה, ורק זה:**
+1. **טבלה עובדתית ב-`multi-skill-tag-review.md`** (scratchpad, ר' נתיב מעלה) — קבוצה חדשה "תיוג-הורה בסדר שגוי — לעיון דוד", ללא המלצה.
+2. **שורת-אבחון בקוד**, `WorkoutGenerator.ts`'s `resolveDavidRuleDomain` (בתוך "Step 4d"): `console.warn('[DomainMismatch] "<שם>" mg=<X> → domain=<Y>. Check tagging.')` — יורה בכל פעם ש-`tagDomain` ו-`MG_TO_DOMAIN[movementGroup]` שניהם מוגדרים וסותרים, לא רק לחמשת אלה — אבחון-כללי-קדימה, לא hardcoded לרשימה הנוכחית. **לא משנה איזה דומיין מנצח** — `tagDomain` תמיד מנצח (`??`), רק מדווח.
+3. **הרשומה הזו** — רגרסיה ידועה-ומאושרת, לא "לתקן מתישהו."
+
+**סטטוס: לא תיקון פתוח. החלטה סגורה של דוד, מתועדת כדי שאף עבודה עתידית לא תנסה "לתקן" את זה שוב בלי לדעת שזו הכרעה מכוונת.**
