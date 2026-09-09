@@ -24,7 +24,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs.
  */
 
-import { getLocalizedText } from '@/features/content/exercises/core/exercise.types';
+import { getLocalizedText, Exercise } from '@/features/content/exercises/core/exercise.types';
 import type {
   DifficultyLevel,
   WorkoutExercise,
@@ -34,13 +34,15 @@ import { HORIZONTAL_MOVEMENT_GROUPS } from '../../logic/workout-generator.types'
 import {
   classifyPriority,
   resolveExerciseLevelForDomains,
+  _TEMP_SKILL_PARENT_MAP,
 } from '../../logic/workout-selection.utils';
 import {
   resolveInjectedLevel,
   substituteExercise,
   resolveSubstituteMethod,
 } from '../../logic/WorkoutGenerator';
-import { findLevelAppropriateSubstitute } from './PoolFactory';
+import { findLevelAppropriateSubstitute, findSkillTaggedSubstitute } from './PoolFactory';
+import { resolveToSlug } from '../../services/program-hierarchy.utils';
 import {
   MG_TO_DOMAIN,
   getBolt1WindowAnchor,
@@ -901,6 +903,283 @@ export function validatePromisesPostCut(
   logHorizontalAndVerticalPromises(afterCore, pipelineLog, results);
 
   return { exercises: afterCore, results };
+}
+
+// ============================================================================
+// PASS 5 — SKILL REPRESENTATION GUARANTEE (2026-09-09, David — Stage 2)
+// ============================================================================
+
+/**
+ * "Every selected skill represented." A different KIND of guarantee than
+ * passes 1-4 above — those enforce antagonist/domain BALANCE and explicitly
+ * stand down for `single_domain` strategy (a push-only Planche cycle is
+ * SUPPOSED to be one-sided). This one enforces PRESENCE of the user's own
+ * chosen skills and runs for EVERY strategy, `single_domain` included — a
+ * user who selected planche must see a planche exercise even in a
+ * push-only session, which is exactly the scenario `single_domain` sessions
+ * are built for.
+ *
+ * Placement (not called from `runAllGuarantees`, deliberately): must run
+ * from `home-workout.service.ts` at the SAME late position as
+ * `validatePromisesPostCut` — after every per-bolt mutation
+ * (warmup/cooldown, intense/flow-regression + gear-filter, enforceVolumeCap,
+ * desk-workout) and before `sortAndPair`'s final, locked ordering. Running
+ * it inside `runAllGuarantees` (early, inside the generator) would let a
+ * LATER cut silently undo the injection — the exact "guarantee ran,
+ * injected successfully, then got cut anyway" failure mode
+ * `validatePromisesPostCut` itself exists to close for the core promise.
+ *
+ * Representation check (David's explicit instruction): `.some()` over a
+ * candidate exercise's ENTIRE `targetPrograms` array — membership, not
+ * `resolveExerciseDomain` ownership. A dual-tagged exercise (front_lever +
+ * one_arm_pullup) represents BOTH skills at once even though
+ * `resolveExerciseDomain` would only ever assign it to ONE domain — this is
+ * a genuinely different question from "which domain owns this exercise for
+ * budgeting/level purposes," and conflating the two would under-count
+ * representation for every dual-tagged exercise in the catalog.
+ *
+ * HARD INVARIANT — replace-only, never add: exercise count and total sets
+ * are asserted identical before and after this function returns. Every
+ * replacement is a same-index array assignment (mirrors
+ * `runFullBodyDomainGuarantee`'s pattern) using `substituteExercise`, whose
+ * return type deliberately excludes `sets` — the spread-merge
+ * (`{...old, ...substituteExercise(...)}`) preserves the victim's `sets`
+ * value by construction, not by a separate bookkeeping step.
+ *
+ * 3-tier replacement ladder, `pickSkillReplacementVictim` below:
+ *   1. A main exercise that represents NO selected skill at all — safe to
+ *      remove (still domain-protected via `isSafeDomainVictim`, so this
+ *      never empties a primary domain just to make room for a skill).
+ *   2. An "excess" selected-skill exercise — one whose every represented
+ *      skill already has MORE than one representative — sacrificing it
+ *      doesn't newly under-represent anything. When multiple such excess
+ *      candidates exist, `skillPriority` decides which skill's redundancy
+ *      gets sacrificed first (the user's LOWEST-priority skill's excess
+ *      goes first, preserving higher-priority skills' redundancy).
+ *   3. Neither tier found a safe candidate — logged as a "representation
+ *      conflict" and deferred, never forced. (David: a missing skill is a
+ *      known, visible gap; breaking something else to fix it is worse.)
+ *
+ * Dual-coverage preference: before searching for a plain single-skill
+ * candidate, `findSkillTaggedSubstitute` is asked to prefer one that ALSO
+ * covers another still-under-represented selected skill — one replacement
+ * slot then satisfies two requirements. See that function's own doc
+ * comment (PoolFactory.ts) — this is a preference, never a requirement.
+ *
+ * Declared parent-fallback (Option A+C, approved by David): when NO
+ * skill-tagged candidate exists at all (not even via dual-coverage), falls
+ * back to searching the skill's own foundational PARENT domain instead
+ * (via `_TEMP_SKILL_PARENT_MAP`) — but this is DECLARED, never silent: a
+ * `console.warn('[SkillRepresentation] DECLARED FALLBACK ...')` line plus a
+ * `pipelineLog` entry every time it fires. No UI surface exists today to
+ * show the user this happened (confirmed, not assumed — see
+ * parking-lot.md's matching entry) — that exposure gap is logged as a
+ * known open debt, not silently accepted.
+ */
+export function runSkillRepresentationGuarantee(
+  exercises: WorkoutExercise[],
+  context: WorkoutGenerationContext,
+  difficulty: DifficultyLevel,
+  pipelineLog: string[],
+): WorkoutExercise[] {
+  const rawSkillIds = context.selectedSkillIds;
+  if (!rawSkillIds?.length || !context.globalExercisePool?.length) {
+    return exercises;
+  }
+
+  // Normalize + dedupe to slugs, preserving user-selection order.
+  const selectedSkills: string[] = [];
+  for (const id of rawSkillIds) {
+    const slug = resolveToSlug(id);
+    if (!selectedSkills.includes(slug)) selectedSkills.push(slug);
+  }
+  // Only genuine SKILLS (keys in _TEMP_SKILL_PARENT_MAP) — a "selected
+  // skill" that resolves to a plain parent domain (push/pull/legs/core)
+  // isn't a skill-representation question at all.
+  const skillsToGuarantee = selectedSkills.filter((s) => _TEMP_SKILL_PARENT_MAP[s] !== undefined);
+  if (skillsToGuarantee.length === 0) {
+    return exercises;
+  }
+
+  const workoutExercises = exercises;
+  const userLevels = context.userProgramLevels;
+  const skillPriority = context.skillPriority;
+  const pool = context.globalExercisePool;
+
+  const originalExerciseCount = workoutExercises.length;
+  const originalTotalSets = workoutExercises.reduce((sum, we) => sum + we.sets, 0);
+
+  const representsSkill = (ex: Exercise, slug: string): boolean =>
+    (ex.targetPrograms ?? []).some(
+      (tp) => resolveToSlug(tp.programId) === slug || tp.programId === slug,
+    );
+
+  const mainExercises = (): WorkoutExercise[] =>
+    workoutExercises.filter((e) => e.exerciseRole === 'main');
+
+  const representationCount = (slug: string): number =>
+    mainExercises().filter((we) => representsSkill(we.exercise, slug)).length;
+
+  const underRepresented = skillsToGuarantee.filter((s) => representationCount(s) === 0);
+  if (underRepresented.length === 0) {
+    pipelineLog.push('skill_representation: all selected skills already represented');
+    return workoutExercises;
+  }
+
+  const usedIds = new Set(workoutExercises.map((we) => we.exercise.id));
+
+  for (const skill of underRepresented) {
+    // Re-check — an earlier iteration's dual-coverage pick may have already
+    // satisfied this skill as a side effect.
+    if (representationCount(skill) > 0) {
+      pipelineLog.push(`skill_representation: ${skill} satisfied via dual-coverage from an earlier replacement`);
+      continue;
+    }
+
+    // absent=absent (⑨): never guarantee/inject a skill the user has not
+    // assessed — has()-guarded, no `?? context.userLevel` back-door, same
+    // uniform contract every other domain-aware pass in this file uses.
+    if (!userLevels || !userLevels.has(skill)) {
+      pipelineLog.push(`skill_representation: ${skill} absent (unassessed) — skipped, not injected`);
+      continue;
+    }
+    const skillLevel = userLevels.get(skill)!;
+
+    const stillUnderRepresented = underRepresented.filter((s) => s !== skill && representationCount(s) === 0);
+
+    let sub = findSkillTaggedSubstitute(
+      pool, skill, skillLevel, usedIds, difficulty,
+      stillUnderRepresented.length > 0 ? stillUnderRepresented : undefined,
+    );
+
+    let declaredFallback = false;
+    if (!sub) {
+      const parentDomain = _TEMP_SKILL_PARENT_MAP[skill];
+      if (parentDomain && userLevels.has(parentDomain)) {
+        const parentLevel = userLevels.get(parentDomain)!;
+        sub = findSkillTaggedSubstitute(pool, parentDomain, parentLevel, usedIds, difficulty);
+        declaredFallback = !!sub;
+      }
+    }
+
+    if (!sub) {
+      pipelineLog.push(`skill_representation: CONFLICT — ${skill} could not be represented (no candidate, no parent fallback available) — deferred, not forced`);
+      console.warn(`[SkillRepresentation] ⚠️ representation conflict: "${skill}" could not be represented — deferred to schedule, not forced`);
+      continue;
+    }
+
+    const victim = pickSkillReplacementVictim(
+      mainExercises(), skillsToGuarantee, skillPriority, representsSkill,
+    );
+    if (!victim) {
+      pipelineLog.push(`skill_representation: ${skill} candidate found but no safe victim to replace — representation conflict, deferred`);
+      console.warn(`[SkillRepresentation] ⚠️ "${skill}" candidate found but no safe victim — deferred to schedule, not forced`);
+      continue;
+    }
+
+    const idx = workoutExercises.findIndex((e) => e.exercise.id === victim.exercise.id);
+    if (idx < 0) continue;
+
+    const repName = getLocalizedText(sub.exercise.name);
+    const victimName = getLocalizedText(victim.exercise.name);
+
+    workoutExercises[idx] = {
+      ...workoutExercises[idx],
+      ...substituteExercise(
+        workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
+        sub.level - skillLevel, difficulty, context.levelProgressPercent, context.intentMode,
+      ),
+      programLevel: sub.level,
+      isOverLevel: sub.level > skillLevel,
+      levelDelta: sub.level - skillLevel,
+      reasoning: [
+        ...workoutExercises[idx].reasoning,
+        `skill_representation:${skill}(L${sub.level},gap=${sub.gap})${declaredFallback ? ':DECLARED_FALLBACK' : ''}`,
+      ],
+    };
+
+    usedIds.add(sub.exercise.id);
+
+    if (declaredFallback) {
+      console.warn(
+        `[SkillRepresentation] ⚠️ DECLARED FALLBACK: "${skill}" has no available skill-tagged ` +
+        `exercise — substituted "${repName}" from its parent domain instead. No UI surfaces this ` +
+        'to the user today (known open debt, parking-lot.md).',
+      );
+      pipelineLog.push(`skill_representation: ${skill} DECLARED_FALLBACK → parent domain, "${repName}"`);
+    }
+
+    pipelineLog.push(`skill_representation: "${victimName}" → "${repName}" (L${sub.level}) [skill=${skill}]`);
+    console.log(`[SkillRepresentation] ✅ "${victimName}" → "${repName}" (L${sub.level}) [skill=${skill}, gap=${sub.gap}]`);
+  }
+
+  // Hard invariant — replace-only, never add. Logged loudly (not silently
+  // corrected) if it ever fires; every code path above is a same-index
+  // assignment, never push/splice, so this should be unreachable.
+  if (workoutExercises.length !== originalExerciseCount) {
+    console.error(
+      `[SkillRepresentation] 🚨 INVARIANT VIOLATION: exercise count changed ` +
+      `${originalExerciseCount} → ${workoutExercises.length}. This pass must never add/remove entries.`,
+    );
+  }
+  const newTotalSets = workoutExercises.reduce((sum, we) => sum + we.sets, 0);
+  if (newTotalSets !== originalTotalSets) {
+    console.error(
+      `[SkillRepresentation] 🚨 INVARIANT VIOLATION: total sets changed ` +
+      `${originalTotalSets} → ${newTotalSets}. This pass must never change total volume.`,
+    );
+  }
+
+  return workoutExercises;
+}
+
+/**
+ * 3-tier victim picker for `runSkillRepresentationGuarantee` — see that
+ * function's own doc comment for the full rationale of each tier.
+ */
+function pickSkillReplacementVictim(
+  mainExercises: WorkoutExercise[],
+  selectedSkills: string[],
+  skillPriority: Map<string, number> | undefined,
+  representsSkill: (ex: Exercise, slug: string) => boolean,
+): WorkoutExercise | undefined {
+  // Tier 1: exercises representing NO selected skill — domain-protected.
+  const nonSkillCandidates = mainExercises.filter(
+    (we) => !selectedSkills.some((s) => representsSkill(we.exercise, s)),
+  );
+  const tier1 = pickVictimProtectingDomains(nonSkillCandidates, mainExercises);
+  if (tier1) return tier1;
+
+  // Tier 2: "excess" selected-skill exercises — every skill they represent
+  // already has more than one representative, so sacrificing one doesn't
+  // newly under-represent anything. Sacrifice the LOWEST-priority skill's
+  // excess representative first (preserve higher-priority redundancy).
+  const representationCounts = new Map<string, number>();
+  for (const skill of selectedSkills) {
+    representationCounts.set(skill, mainExercises.filter((we) => representsSkill(we.exercise, skill)).length);
+  }
+  const excessCandidates = mainExercises.filter((we) => {
+    const represented = selectedSkills.filter((s) => representsSkill(we.exercise, s));
+    if (represented.length === 0) return false;
+    return represented.every((s) => (representationCounts.get(s) ?? 0) > 1);
+  });
+  if (excessCandidates.length > 0) {
+    const lowestPriorityRepresented = (we: WorkoutExercise): number => {
+      const represented = selectedSkills.filter((s) => representsSkill(we.exercise, s));
+      // Highest rank NUMBER = lowest priority. Sacrifice the exercise whose
+      // most-important represented skill is still the least important one.
+      return Math.max(...represented.map((s) => skillPriority?.get(s) ?? Number.POSITIVE_INFINITY));
+    };
+    const sorted = [...excessCandidates].sort((a, b) => {
+      const priorityDiff = lowestPriorityRepresented(b) - lowestPriorityRepresented(a);
+      if (priorityDiff !== 0) return priorityDiff;
+      return a.score - b.score;
+    });
+    return sorted[0];
+  }
+
+  // Tier 3: no safe candidate anywhere.
+  return undefined;
 }
 
 // ============================================================================
