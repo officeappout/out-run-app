@@ -99,6 +99,7 @@ import {
   resolveExercisePool,
 } from '../core/middleware/InputSanitizerMiddleware';
 import { getBaseUserLevel, buildUserProgramLevels, resolveMostSpecificDomainBudget } from './level-resolution.utils';
+import { buildSkillPriorityMap } from '../logic/workout-selection.utils';
 import { getHistoryMapForExercises } from './exercise-history.service';
 import {
   getCachedPrograms,
@@ -2135,6 +2136,25 @@ async function _buildSharedPipeline(
     front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
   };
 
+  // Stage 2 (2026-09-09, David) — the user's own skill-selection order,
+  // wired into the live pipeline. `progression.skillFocusIds` is the same
+  // order-preserving field `buildSkillPriorityMap`'s own doc comment already
+  // cites as production-verified (SplitDecisionService.ts indexes it
+  // positionally) — NOT `priority1/2/3SkillIds` from splitContext below,
+  // which is a DIFFERENT, day-rotation-driven concept (today's emphasized
+  // skill, which can differ from the user's overall selection order on a
+  // Dominance-Day/Pendulum schedule) and would silently conflate "what the
+  // user ranked highest" with "what today's session happens to emphasize."
+  // Proof-of-wiring log, not just existence — per explicit instruction: code
+  // that's never observed to run is the same as code that doesn't exist.
+  const skillPriority = buildSkillPriorityMap(effectiveProfile.progression?.skillFocusIds, resolveToSlug);
+  if (skillPriority.size > 0) {
+    console.log(
+      `[SkillPriority] wired: skillFocusIds=[${(effectiveProfile.progression?.skillFocusIds ?? []).join(', ')}] → ` +
+      `priority={${Array.from(skillPriority.entries()).map(([k, v]) => `${k}:${v}`).join(', ')}}`,
+    );
+  }
+
   const profileForFilters: typeof effectiveProfile =
     isCalisthenicsUpperMaster && resolvedChildDomains.length > 0
       ? (() => {
@@ -2201,6 +2221,7 @@ async function _buildSharedPipeline(
     // source of truth, the same one, made available to filterAndScore too.
     userProgramLevels,
     baseUserLevel,
+    skillPriority,
     getUserLevelForExercise: (exercise: Exercise) => {
       if (resolvedDomainBudgets?.length) {
         // ── Pass 1: movementGroup → domain ──────────────────────────────────
@@ -2228,6 +2249,7 @@ async function _buildSharedPipeline(
             resolvedDomainBudgets,
             _SKILL_PARENT_MAP,
             resolveToSlug,
+            skillPriority,
           );
         }
 
@@ -2731,6 +2753,8 @@ async function _buildSharedPipeline(
       .filter(se => se.method != null)
       .map(se => se.exercise),
     userProgramLevels,
+    selectedSkillIds: effectiveProfile.progression?.skillFocusIds,
+    skillPriority,
     userId: effectiveProfile.id,
     selectedDate: selectedDate ?? new Date().toISOString().split('T')[0],
     goalExerciseIds,

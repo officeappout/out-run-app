@@ -492,6 +492,22 @@ export interface WorkoutGenerationContext {
   strictDomains?: boolean;
   globalExercisePool?: Exercise[];
   userProgramLevels?: Map<string, number>;
+  /**
+   * The user's own skill-selection order, straight from
+   * `progression.skillFocusIds` (2026-09-09, David — Stage 2). NOT the same
+   * as `priority1/2/3SkillIds` above, which is a day-rotation/dominance-split
+   * decision (today's emphasized skill) and can diverge from the user's
+   * overall selection order. Consumed by `runSkillRepresentationGuarantee`
+   * (GuaranteePassRunner.ts) — the source list of skills that must be
+   * represented in the final workout — and by `buildSkillPriorityMap` for
+   * tie-breaking when more than one is under-represented at once.
+   */
+  selectedSkillIds?: string[];
+  /** domain → rank (lower = higher priority), from `buildSkillPriorityMap`
+   *  over `selectedSkillIds`. Same value threaded into
+   *  `ContextualFilterContext.skillPriority` for the level_tolerance gate —
+   *  one computation, two consumers, not two independent sources. */
+  skillPriority?: Map<string, number>;
   userId?: string;
   selectedDate?: string;
   /** Per-domain daily set budgets from resolveAggregateFullBodyBudget (Master Programs). */
