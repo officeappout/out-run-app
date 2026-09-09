@@ -1,3 +1,26 @@
+/**
+ * SPEC-03 Wave D.5 — project-wide cost cap.
+ *
+ * Every function in this file used to have NO maxInstances at all,
+ * meaning each could scale to the Cloud Run/Functions platform default
+ * (up to 1000 concurrent instances) with nothing but a GCP BILLING
+ * ALERT as a backstop — and an alert only notifies after the spend
+ * already happened, it doesn't stop it. setGlobalOptions() applies a
+ * default cap to every v2 function below unless a specific one
+ * overrides it — this MUST run before any function file is imported
+ * (hence being the first statement in this file, before any `export {}
+ * from` line — those trigger each module's onCall/onSchedule/
+ * onDocumentWritten/etc. call at import time, which captures whatever
+ * global default is in effect at that moment).
+ *
+ * 20 is a starting point, not a measured ceiling — there are no real
+ * users yet, so there's no real traffic pattern to tune against. Revisit
+ * per-function (via an options override, not by raising this default)
+ * once the 4,000-user migration gives a real concurrency picture.
+ */
+import { setGlobalOptions } from 'firebase-functions/v2';
+setGlobalOptions({ maxInstances: 20 });
+
 export { onGroupMemberWrite, deleteZombieGroups } from './onGroupMemberWrite';
 export { validateAccessCode } from './validateAccessCode';
 export { onFeedPostCreate, onWorkoutCreate, rollupLeaderboard } from './leaderboard';
