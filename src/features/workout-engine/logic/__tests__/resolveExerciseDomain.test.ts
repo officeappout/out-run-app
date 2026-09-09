@@ -40,15 +40,32 @@ describe('resolveExerciseDomain', () => {
     expect(resolved).toBe('planche');
   });
 
-  it('no skill tag at all — parent-vs-parent resolves by activeDomains order (preserves pre-existing behavior)', () => {
-    const pushActiveFirst = resolveExerciseDomain(
+  it("no skill tag at all, parentTiebreak omitted — defaults to 'exercise-tag-order' (2026-09-09: confirmed by real-catalog differential test as what every site except resolveExerciseLevelForDomains actually wants)", () => {
+    const pullTaggedFirst = resolveExerciseDomain(
       ex([{ programId: 'pull', level: 10 }, { programId: 'push', level: 12 }]),
       { activeDomains: ['push', 'pull'], skillParentMap: SKILL_PARENT_MAP, resolveSlug: identity },
     );
+    const pushTaggedFirst = resolveExerciseDomain(
+      ex([{ programId: 'push', level: 12 }, { programId: 'pull', level: 10 }]),
+      { activeDomains: ['push', 'pull'], skillParentMap: SKILL_PARENT_MAP, resolveSlug: identity },
+    );
+    // Same activeDomains order both times — result tracks the EXERCISE's own
+    // tag order, not activeDomains order, proving this is the default tier.
+    expect(pullTaggedFirst).toBe('pull');
+    expect(pushTaggedFirst).toBe('push');
+  });
+
+  it("no skill tag at all, parentTiebreak='active-domain-order' — resolves by activeDomains order (resolveExerciseLevelForDomains's own pre-existing mechanism, explicitly opted into)", () => {
+    const pushActiveFirst = resolveExerciseDomain(
+      ex([{ programId: 'pull', level: 10 }, { programId: 'push', level: 12 }]),
+      { activeDomains: ['push', 'pull'], skillParentMap: SKILL_PARENT_MAP, resolveSlug: identity, parentTiebreak: 'active-domain-order' },
+    );
     const pullActiveFirst = resolveExerciseDomain(
       ex([{ programId: 'pull', level: 10 }, { programId: 'push', level: 12 }]),
-      { activeDomains: ['pull', 'push'], skillParentMap: SKILL_PARENT_MAP, resolveSlug: identity },
+      { activeDomains: ['pull', 'push'], skillParentMap: SKILL_PARENT_MAP, resolveSlug: identity, parentTiebreak: 'active-domain-order' },
     );
+    // Same exercise tag order both times — result tracks activeDomains
+    // order instead, proving parentTiebreak actually switches the tier.
     expect(pushActiveFirst).toBe('push');
     expect(pullActiveFirst).toBe('pull');
   });

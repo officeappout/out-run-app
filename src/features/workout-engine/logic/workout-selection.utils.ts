@@ -117,6 +117,20 @@ export interface DomainResolutionContext {
    *  treated as "skill" (specific) iff it's a KEY here. */
   skillParentMap: Record<string, string>;
   resolveSlug: (programId: string) => string;
+  /** Tier-3 (parent-vs-parent, no skill match) tiebreak rule — named, not a
+   *  boolean, so a call site reads as documentation, not a fact to remember.
+   *  '`exercise-tag-order`' (default when omitted): first-matched domain in
+   *  THIS EXERCISE's own `targetPrograms` array order — the convention every
+   *  site except `resolveExerciseLevelForDomains` used before this
+   *  consolidation (2026-09-09, David — confirmed via real-catalog
+   *  differential test: this default alone closed 13/13 mismatches on both
+   *  `resolveMostSpecificDomainBudget` and the volume-assignment resolver).
+   *  '`active-domain-order`': first-matched domain in `ctx.activeDomains`
+   *  order instead — `resolveExerciseLevelForDomains`'s own pre-existing
+   *  mechanism, confirmed by the same differential test to be the ONLY site
+   *  that actually wants it (0/311 mismatches when explicitly requested;
+   *  every other site regressed when it inherited this by default). */
+  parentTiebreak?: 'exercise-tag-order' | 'active-domain-order';
 }
 
 /**
@@ -137,18 +151,15 @@ export interface DomainResolutionContext {
  *      front_lever AND one_arm_pullup, both active) — `skillPriority`
  *      breaks the tie. This is the ONLY place user-chosen priority affects
  *      domain resolution; it never overrides tier 1.
- *   3. No skill match at all (parent-vs-parent, e.g. an exercise tagged
- *      both push and pull for a user active in both) — resolved by
- *      `activeDomains` order, exactly matching this function's own
- *      pre-existing behavior in `resolveExerciseLevelForDomains` before this
- *      consolidation. Deliberately NOT touched — out of scope for the
- *      skill-priority fix, and changing it would risk the zero-change
- *      guarantee for users with no skills selected at all (their
- *      `skillPriority`/skill-matches are always empty, so every exercise
- *      falls straight through to this tier — this is the property that
- *      makes the whole consolidation provably inert for a pure-strength or
- *      healthy-lifestyle account, verified empirically per the 3-run
- *      transition condition, not assumed).
+ *   3. No skill match at all (parent-vs-parent — e.g. an exercise tagged
+ *      both push and core for a user active in both; a REAL, intentional
+ *      dual-tag, not a tagging error). Tiebreak order per
+ *      `ctx.parentTiebreak` (see its own doc). This tier is also the
+ *      property that makes the whole consolidation provably inert for a
+ *      pure-strength or healthy-lifestyle account with no skills selected —
+ *      every exercise falls straight through to here — verified empirically
+ *      via a 372-exercise differential test against each site's own
+ *      pre-migration implementation (2026-09-09), not assumed.
  *
  * Returns `null` when the exercise matches none of `activeDomains` at all.
  */
@@ -186,11 +197,15 @@ export function resolveExerciseDomain(
   }
 
   // Tier 3: no skill match — parent-vs-parent (or a single non-skill match).
-  // Resolved by activeDomains order, matching pre-existing behavior exactly.
-  for (const domain of ctx.activeDomains) {
-    if (matchedSlugs.includes(domain)) return domain;
+  if (ctx.parentTiebreak === 'active-domain-order') {
+    for (const domain of ctx.activeDomains) {
+      if (matchedSlugs.includes(domain)) return domain;
+    }
+    return matchedSlugs[0]; // defensive fallback, should be unreachable
   }
-  return matchedSlugs[0]; // defensive fallback, should be unreachable
+  // Default: 'exercise-tag-order' — matchedSlugs is already in this
+  // exercise's own targetPrograms scan order.
+  return matchedSlugs[0];
 }
 
 /**
@@ -269,6 +284,11 @@ export function resolveExerciseLevelForDomains(
       skillPriority,
       skillParentMap: _TEMP_SKILL_PARENT_MAP,
       resolveSlug: resolveToSlug,
+      // This is the ONE site whose pre-existing parent-vs-parent tiebreak
+      // was activeDomains order, not exercise-tag order — confirmed via the
+      // 372-exercise differential test (2026-09-09): 0/311 mismatches with
+      // this explicit request, vs regressions everywhere else that omit it.
+      parentTiebreak: 'active-domain-order',
     });
     if (resolvedDomain) {
       const tp = tps.find(
