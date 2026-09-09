@@ -118,7 +118,7 @@ import {
   roundRestSeconds,
   sortAndPair,
 } from '../core/presentation/PresentationFormatter';
-import { validatePromisesPostCut } from '../core/pipeline/GuaranteePassRunner';
+import { validatePromisesPostCut, runSkillRepresentationGuarantee } from '../core/pipeline/GuaranteePassRunner';
 import {
   derivePeriodizationWeek,
   resolveSessionPolicy,
@@ -1306,6 +1306,23 @@ export async function generateHomeWorkoutTrio(
       );
       workout.exercises = validatedExercises;
     }
+
+    // ── Skill-representation guarantee (2026-09-09, David — Stage 2) ──────
+    // Same LATE position as validatePromisesPostCut above, and for the same
+    // reason — must run after every per-bolt mutation, before the final
+    // sort, so nothing downstream can silently undo the injection. Runs for
+    // EVERY strategy including single_domain (unlike validatePromisesPostCut,
+    // which is full_body-only) — a user's selected skill must be represented
+    // even in a track-specialized single-domain session; that's the whole
+    // point of a single_domain session existing. No-op when the user has no
+    // selected skills (context.selectedSkillIds empty/absent).
+    workout.pipelineLog = workout.pipelineLog ?? [];
+    workout.exercises = runSkillRepresentationGuarantee(
+      workout.exercises,
+      optionContext,
+      optionDifficulty,
+      workout.pipelineLog,
+    );
 
     // ── Locked Final Ordering: antagonist re-pair → domain-priority sort ──
     //
