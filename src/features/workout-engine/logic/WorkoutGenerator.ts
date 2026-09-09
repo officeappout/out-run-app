@@ -913,7 +913,18 @@ export class WorkoutGenerator {
           skillParentMap: _TEMP_SKILL_PARENT_MAP,
           resolveSlug: resolveToSlug,
         });
-        const targetDomain = tagDomain ?? (mg ? MG_TO_DOMAIN[mg] : undefined);
+        const mgDomain = mg ? MG_TO_DOMAIN[mg] : undefined;
+        // Diagnostic only — never changes which domain wins (tagDomain
+        // always does, per the `??` below). This is a TAGGING fact, not a
+        // code bug: catalog data, not resolution logic, decides which of
+        // the two disagrees. Reported to David for manual review in the
+        // panel (2026-09-09) — this codebase does not decide exercise
+        // tagging, see parking-lot.md's "known & approved" entry for the
+        // 5 confirmed real cases this surfaced.
+        if (tagDomain && mgDomain && tagDomain !== mgDomain) {
+          console.warn(`[DomainMismatch] "${getLocalizedText(exercise.name)}" mg=${mgDomain} → domain=${tagDomain}. Check tagging.`);
+        }
+        const targetDomain = tagDomain ?? mgDomain;
         const domainLevel = targetDomain
           ? (userLevels?.get(targetDomain) ?? context.userLevel)
           : context.userLevel;
