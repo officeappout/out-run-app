@@ -36,11 +36,27 @@
  * never changed, every single cycle, for no reason. Only "today"'s doc is
  * still actively changing, so only it needs re-syncing. Historical days
  * stay correct forever once synced once.
+ *
+ * Anonymous guests never appear here (SPEC-03 Wave C)
+ * ─────────────────────────────────────────────────────
+ * David's 09.09 policy decision: a guest can train and have it logged for
+ * themselves, but must never become visible to anyone else without a real
+ * account — "appearing in the leaderboard" is explicitly named as the one
+ * line that matters most in that decision. Training itself still writes
+ * dailyActivity regardless of account type (unaffected — that stays
+ * self-only, always has been), so the exclusion has to happen HERE, at
+ * the one place data crosses from private to public. Checked via a batched
+ * Admin Auth lookup (getUsers, up to 100 uids/call) — an anonymous account
+ * has zero entries in providerData; anything else (Google/Apple/email/
+ * phone) is real. Fails closed: a lookup error or a not-found uid is
+ * treated as "not confirmed real" and excluded from this sync, not
+ * silently mirrored.
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { getAuth } from 'firebase-admin/auth';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -49,9 +65,35 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 const MAX_BATCH = 450; // mirrors leaderboard.ts's rollupLeaderboard batching convention
+const AUTH_LOOKUP_CHUNK = 100; // Admin SDK's getUsers() cap per call
 
 function todayDateString(): string {
   return new Date().toISOString().slice(0, 10); // YYYY-MM-DD, matches dailyActivity's docId date segment
+}
+
+/**
+ * Resolves which of the given uids belong to a real (non-anonymous)
+ * account. Fails closed: any uid whose lookup errors, or that Auth
+ * reports as not found, is simply absent from the returned set — callers
+ * must treat "not in the set" as "do not expose", not as "assume real".
+ */
+async function resolveRealAccountUids(uids: string[]): Promise<Set<string>> {
+  const real = new Set<string>();
+  for (let i = 0; i < uids.length; i += AUTH_LOOKUP_CHUNK) {
+    const chunk = uids.slice(i, i + AUTH_LOOKUP_CHUNK);
+    try {
+      const result = await getAuth().getUsers(chunk.map((uid) => ({ uid })));
+      for (const user of result.users) {
+        if (user.providerData.length > 0) real.add(user.uid);
+      }
+    } catch (err) {
+      logger.warn(
+        `[dailyActivityPublicSync] Admin Auth lookup failed for a chunk of ${chunk.length} uid(s) — excluding them from this sync (fail-closed: a real account must be confirmed before appearing in the leaderboard):`,
+        err,
+      );
+    }
+  }
+  return real;
 }
 
 export const dailyActivityPublicSync = onSchedule(
@@ -69,9 +111,15 @@ export const dailyActivityPublicSync = onSchedule(
       return;
     }
 
+    const candidateUids = Array.from(
+      new Set(snap.docs.map((doc) => doc.data().userId as string | undefined).filter((v): v is string => !!v)),
+    );
+    const realUids = await resolveRealAccountUids(candidateUids);
+
     let batch = db.batch();
     let batchCount = 0;
     let written = 0;
+    let skippedAnonymous = 0;
 
     for (const doc of snap.docs) {
       const data = doc.data();
@@ -82,6 +130,11 @@ export const dailyActivityPublicSync = onSchedule(
       // can't be scoped by any leaderboard query — skip, matches the raw
       // collection's existing invisible-until-stamped behavior exactly.
       if (!uid || !authorityId) continue;
+
+      if (!realUids.has(uid)) {
+        skippedAnonymous++;
+        continue;
+      }
 
       const steps = typeof data.steps === 'number' ? data.steps : 0;
       const displayName = typeof data.displayName === 'string' ? data.displayName : '???';
@@ -108,6 +161,6 @@ export const dailyActivityPublicSync = onSchedule(
       await batch.commit();
     }
 
-    logger.info(`[dailyActivityPublicSync] synced ${written}/${snap.size} dailyActivity doc(s) for ${today}`);
+    logger.info(`[dailyActivityPublicSync] synced ${written}/${snap.size} dailyActivity doc(s) for ${today} (${skippedAnonymous} skipped — no confirmed real account)`);
   },
 );

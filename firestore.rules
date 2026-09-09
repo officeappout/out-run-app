@@ -10,6 +10,18 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // SPEC-03 Wave C — David's 09.09 policy decision: a guest may do
+    // anything that touches only themselves (browse, train, generate
+    // routes, view public content), but the moment an action becomes
+    // VISIBLE TO SOMEONE ELSE, it requires a real account. Based on the
+    // sign-in provider claim Firebase Auth already puts on every token —
+    // no new infrastructure, unlike SEC-08's tenant-claims proposal (that
+    // one needs a minting pipeline that doesn't exist yet; this one
+    // doesn't, the claim is already there on every token today).
+    function isAnonymous() {
+      return isAuthenticated() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -1207,7 +1219,15 @@ service cloud.firestore {
     // ============================================================
     match /presence/{userId} {
       // Write: owner only + audienceGroupIds must be a subset of own groups
-      // + minors (getUserAgeGroup == 'minor') may only use ghost or group mode.
+      // + minors (getUserAgeGroup == 'minor') may only use ghost or group mode
+      // + SPEC-03 Wave C: an anonymous guest may only use ghost mode — the
+      // one mode no read rule below ever matches, so it never makes a
+      // guest visible to anyone. 'group' mode is excluded even though an
+      // anonymous caller could never populate a real audienceGroupIds
+      // entry anyway (the clause right above already forces it empty —
+      // they can't join a group per this same spec's group-join gate) —
+      // kept explicit rather than relying on that second constraint to
+      // keep this rule safe on its own.
       // getUserAgeGroup reads userAge/{uid} (~50 bytes) — not users/{uid}.
       allow write: if isOwner(userId)
                    && (
@@ -1219,6 +1239,10 @@ service cloud.firestore {
                    && (
                      getUserAgeGroup(userId) == 'adult'
                      || request.resource.data.get('mode', 'ghost') in ['ghost', 'group']
+                   )
+                   && (
+                     !isAnonymous()
+                     || request.resource.data.get('mode', 'ghost') == 'ghost'
                    );
 
       // Owner can always read their own doc
@@ -1338,7 +1362,10 @@ service cloud.firestore {
       // followers/following arrays), so requiring any specific count
       // delta here would just break the real flow for a field it never
       // sets.
-      allow update: if isAuthenticated() && request.auth.uid != userId &&
+      // SPEC-03 Wave C: following someone requires a real account — the
+      // followed user (and their followers list) would otherwise show a
+      // guest.
+      allow update: if isAuthenticated() && !isAnonymous() && request.auth.uid != userId &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['followers', 'updatedAt']) &&
         (
@@ -1397,8 +1424,10 @@ service cloud.firestore {
       allow read: if isAuthenticated() && request.auth.uid == resource.data.authorUid;
       // Legacy posts without audience field — allow read for backward compat
       allow read: if isAuthenticated() && !('audience' in resource.data);
-      // Create: only for own posts
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.authorUid;
+      // Create: only for own posts. SPEC-03 Wave C: posting to the feed
+      // requires a real account — a guest's post would be visible to
+      // everyone.
+      allow create: if isAuthenticated() && !isAnonymous() && request.auth.uid == request.resource.data.authorUid;
 
       // SECURITY (H1 — Feed Integrity):
       //   Update is restricted to the original author. The previous rule
@@ -1424,7 +1453,10 @@ service cloud.firestore {
 
       match /reactions/{reactionId} {
         allow read: if isAuthenticated();
-        allow write: if isAuthenticated();
+        // SPEC-03 Wave C: liking a post requires a real account — the
+        // author (and everyone else who can see reaction counts) would
+        // otherwise see a guest's like.
+        allow write: if isAuthenticated() && !isAnonymous();
       }
     }
 
@@ -1537,7 +1569,12 @@ service cloud.firestore {
         // non-matching persona is denied here, before ever becoming a
         // member — closing the join-bypasses-persona gap (see that
         // function's comment).
-        allow create: if isAuthenticated() && request.auth.uid == uid
+        // SPEC-03 Wave C — !isAnonymous() added 09.09.2026: joining a
+        // group makes you visible in its roster to every other member —
+        // requires a real account per David's policy decision. The
+        // Admin-SDK server route (/api/social/group-membership) that
+        // handles the code-gated join path has its own equivalent check.
+        allow create: if isAuthenticated() && !isAnonymous() && request.auth.uid == uid
           && !blockedByGroupPersonaGate(docId)
           && (
             get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isPublic', false) == true
@@ -1674,7 +1711,10 @@ service cloud.firestore {
       // writes fromUid as the caller's own uid (verified both call
       // sites: KudoSheet.tsx, ActivityPanel.tsx) — a caller can no
       // longer forge a kudo that appears to come from someone else.
-      allow create: if isAuthenticated() && request.resource.data.fromUid == request.auth.uid;
+      // SPEC-03 Wave C: sending a kudo is a social gesture visible to its
+      // recipient — the same "like" category the policy names explicitly,
+      // requires a real account.
+      allow create: if isAuthenticated() && !isAnonymous() && request.resource.data.fromUid == request.auth.uid;
       allow update: if isOwner(recipientUid);
     }
 
@@ -1812,8 +1852,11 @@ service cloud.firestore {
         allow read: if isAuthenticated()
                     && request.auth.uid in
                        get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
-        // Create: sender must be themselves and be a participant
+        // Create: sender must be themselves and be a participant.
+        // SPEC-03 Wave C: "write in chat" requires a real account —
+        // reading a chat you're already a participant of is unaffected.
         allow create: if isAuthenticated()
+                      && !isAnonymous()
                       && request.auth.uid == request.resource.data.senderUid
                       && request.auth.uid in
                          get(/databases/$(database)/documents/chats/$(chatId)).data.participants;

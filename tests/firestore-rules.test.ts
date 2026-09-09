@@ -1669,6 +1669,140 @@ async function testF18Forgery() {
   });
 }
 
+// SPEC-03 Wave C — David's 09.09 policy decision: a guest may do anything
+// that touches only themselves, but the moment an action becomes VISIBLE
+// TO SOMEONE ELSE it requires a real (non-anonymous) account. isAnonymous()
+// checks request.auth.token.firebase.sign_in_provider == 'anonymous' — an
+// anonymous test context is simulated by passing
+// { firebase: { sign_in_provider: 'anonymous' } } as authenticatedContext's
+// second (TokenOptions) argument, which the emulator spreads directly into
+// the token's claims (confirmed by reading @firebase/rules-unit-testing's
+// own authenticatedContext implementation — it does no special-case mapping
+// of the also-offered `provider_id` shorthand into `firebase.sign_in_provider`,
+// so that shorthand alone would NOT trip this rule; the nested `firebase`
+// field must be set explicitly to match what a real anonymous ID token
+// actually carries).
+async function testWaveCAnonymousGate() {
+  console.log('\nWave C (SPEC-03) — anonymous guests blocked from every action visible to someone else');
+
+  const anon = (uid: string) => env.authenticatedContext(uid, { firebase: { sign_in_provider: 'anonymous' } });
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'community_groups', 'wc_group'), { name: 'WC Group', isPublic: true, isLocked: false, createdBy: 'wc_owner' });
+    await setDoc(doc(db, 'chats', 'wc_chat'), {
+      type: 'dm', participants: ['wc_anon', 'wc_real'], participantNames: {},
+      lastMessage: 'hi', lastMessageAt: new Date(),
+    });
+    await setDoc(doc(db, 'feed_posts', 'wc_post'), { authorUid: 'wc_post_owner', audience: 'public' });
+    await setDoc(doc(db, 'connections', 'wc_target'), { followers: [], following: [], followerCount: 0, followingCount: 0 });
+  });
+
+  // ── Chat messages: "write in chat" ──────────────────────────────────
+  await it('WC1 — anonymous guest (already a chat participant) sends a message → DENY', async () => {
+    const ctx = anon('wc_anon');
+    await assertFails(setDoc(doc(collection(ctx.firestore(), 'chats', 'wc_chat', 'messages')), {
+      senderUid: 'wc_anon', text: 'hi', sentAt: new Date(),
+    }));
+  });
+  await it('WC2 — real authenticated participant sends a message → ALLOW (regression)', async () => {
+    const ctx = env.authenticatedContext('wc_real');
+    await assertSucceeds(setDoc(doc(collection(ctx.firestore(), 'chats', 'wc_chat', 'messages')), {
+      senderUid: 'wc_real', text: 'hi', sentAt: new Date(),
+    }));
+  });
+
+  // ── Group join ───────────────────────────────────────────────────────
+  await it('WC3 — anonymous guest self-joins a public group → DENY', async () => {
+    const ctx = anon('wc_anon_joiner');
+    await assertFails(setDoc(doc(ctx.firestore(), 'community_groups', 'wc_group', 'members', 'wc_anon_joiner'), {
+      uid: 'wc_anon_joiner', role: 'member', joinedAt: new Date(),
+    }));
+  });
+  await it('WC4 — real authenticated user self-joins a public group → ALLOW (regression)', async () => {
+    const ctx = env.authenticatedContext('wc_real_joiner');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'community_groups', 'wc_group', 'members', 'wc_real_joiner'), {
+      uid: 'wc_real_joiner', role: 'member', joinedAt: new Date(),
+    }));
+  });
+
+  // ── Feed: post ───────────────────────────────────────────────────────
+  await it('WC5 — anonymous guest posts to the feed → DENY', async () => {
+    const ctx = anon('wc_anon');
+    await assertFails(setDoc(doc(ctx.firestore(), 'feed_posts', 'wc_anon_post'), {
+      authorUid: 'wc_anon', audience: 'public',
+    }));
+  });
+  await it('WC6 — real authenticated user posts to the feed → ALLOW (regression)', async () => {
+    const ctx = env.authenticatedContext('wc_real');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'feed_posts', 'wc_real_post'), {
+      authorUid: 'wc_real', audience: 'public',
+    }));
+  });
+
+  // ── Feed: like ───────────────────────────────────────────────────────
+  await it('WC7 — anonymous guest likes a post → DENY', async () => {
+    const ctx = anon('wc_anon');
+    await assertFails(setDoc(doc(ctx.firestore(), 'feed_posts', 'wc_post', 'reactions', 'wc_anon'), {
+      type: 'like',
+    }));
+  });
+  await it('WC8 — real authenticated user likes a post → ALLOW (regression)', async () => {
+    const ctx = env.authenticatedContext('wc_real');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'feed_posts', 'wc_post', 'reactions', 'wc_real'), {
+      type: 'like',
+    }));
+  });
+
+  // ── Kudos ────────────────────────────────────────────────────────────
+  await it('WC9 — anonymous guest sends a kudo → DENY', async () => {
+    const ctx = anon('wc_anon');
+    await assertFails(setDoc(doc(ctx.firestore(), 'kudos', 'wc_recipient', 'inbox', 'wc_k1'), {
+      fromUid: 'wc_anon', fromName: 'Guest', type: 'high_five',
+    }));
+  });
+  await it('WC10 — real authenticated user sends a kudo → ALLOW (regression)', async () => {
+    const ctx = env.authenticatedContext('wc_real');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'kudos', 'wc_recipient', 'inbox', 'wc_k2'), {
+      fromUid: 'wc_real', fromName: 'Real', type: 'high_five',
+    }));
+  });
+
+  // ── Follow / connect ─────────────────────────────────────────────────
+  await it('WC11 — anonymous guest follows someone → DENY', async () => {
+    const ctx = anon('wc_anon');
+    await assertFails(updateDoc(doc(ctx.firestore(), 'connections', 'wc_target'), {
+      followers: arrayUnion('wc_anon'),
+    }));
+  });
+  await it('WC12 — real authenticated user follows someone → ALLOW (regression)', async () => {
+    const ctx = env.authenticatedContext('wc_real');
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'connections', 'wc_target'), {
+      followers: arrayUnion('wc_real'),
+    }));
+  });
+
+  // ── Presence: the row the spec calls out as the important one ────────
+  await it("WC13 — anonymous guest writes their own presence in 'ghost' mode → ALLOW (never visible to anyone, per the read rules — training/browsing still works for a guest)", async () => {
+    const ctx = anon('wc_anon_presence');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'presence', 'wc_anon_presence'), {
+      mode: 'ghost', updatedAt: new Date(),
+    }));
+  });
+  await it("WC14 — anonymous guest writes their own presence in 'group' mode → DENY (would make them appear on the workout map to group members)", async () => {
+    const ctx = anon('wc_anon_presence2');
+    await assertFails(setDoc(doc(ctx.firestore(), 'presence', 'wc_anon_presence2'), {
+      mode: 'group', updatedAt: new Date(),
+    }));
+  });
+  await it("WC15 — real authenticated user writes their own presence in 'group' mode → ALLOW (regression — unaffected for real accounts)", async () => {
+    const ctx = env.authenticatedContext('wc_real_presence');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'presence', 'wc_real_presence'), {
+      mode: 'group', updatedAt: new Date(),
+    }));
+  });
+}
+
 async function testWaveASpec02() {
   console.log('\nWave A (SPEC-02) — sessions, attendance, group_invitations, leaderboard shards/snapshots, private/legal');
 
@@ -1891,6 +2025,7 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('admin-invitations lockdown (SPEC-01 task 1)', wrapSuite(testAdminInvitationsLockdown));
   vitestIt('private-invite subcollection (SPEC-01 task 2)', wrapSuite(testPrivateInviteSubcollection));
   vitestIt('Wave A (SPEC-02)', wrapSuite(testWaveASpec02));
+  vitestIt('Wave C — anonymous gate (SPEC-03)', wrapSuite(testWaveCAnonymousGate));
   vitestIt('connections SEC-01 (SPEC-02, partial)', wrapSuite(testConnectionsSec01));
   vitestIt('F-18 forgery (SPEC-02)', wrapSuite(testF18Forgery));
 });

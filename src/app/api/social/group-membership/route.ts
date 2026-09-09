@@ -35,10 +35,12 @@ export async function POST(request: NextRequest) {
 
     let uid: string;
     let displayName: string;
+    let isAnonymous: boolean;
     try {
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
       displayName = decoded.name ?? 'משתמש';
+      isAnonymous = decoded.firebase?.sign_in_provider === 'anonymous';
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -80,6 +82,19 @@ export async function POST(request: NextRequest) {
       // already a member, which is exactly the case that was open before.
       const memberSnap = await db.doc(`community_groups/${groupId}/members/${uid}`).get();
       if (!memberSnap.exists) {
+        // SPEC-03 Wave C: joining a group makes you visible in its roster
+        // to every other member — requires a real account. Checked here
+        // (not just in firestore.rules' own members/{uid} create rule)
+        // because this route uses the Admin SDK, which bypasses rules
+        // entirely — the client-SDK direct-join path (group.service.ts's
+        // joinGroup, for public/no-code groups) is covered by the rule;
+        // this route is the code-gated / server-validated path. Skipped
+        // for the repair-guard case (memberSnap.exists) same as the
+        // validation call below — that path fixes a drifted mirror for a
+        // user who is ALREADY a real member, not a new join.
+        if (isAnonymous) {
+          return NextResponse.json({ error: 'account-required' }, { status: 403 });
+        }
         // Validation logic lives in validateGroupJoinAccess.ts (pure,
         // unit-tested independently of firebase-admin's server-only
         // guard) — mirrors firestore.rules' groupInviteCode() /
