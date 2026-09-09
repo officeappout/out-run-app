@@ -31,6 +31,7 @@ export { onMilitaryDeclarationWritten } from './militaryReserveLeague';
 export { unitLeagueRollup } from './unitLeagueRollup';
 export { dailyActivityPublicSync } from './dailyActivityPublicSync';
 export { userPublicSync } from './userPublicSync';
+export { verifyUploadContentType } from './verifyUploadContentType';
 export { awardWorkoutXP } from './awardWorkoutXP';
 export { reverseWorkoutXP } from './reverseWorkoutXP';
 export { ingestHealthSamples } from './ingestHealthSamples';
