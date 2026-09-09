@@ -185,6 +185,18 @@ export interface ContextualFilterContext {
    * `userProgramLevels`.
    */
   baseUserLevel?: number;
+
+  /**
+   * domain → rank (lower = higher priority), from `buildSkillPriorityMap`
+   * over the user's own `progression.skillFocusIds` selection order
+   * (2026-09-09, David — Stage 2 wiring). Threaded into
+   * `resolveConsistentComparisonLevels`'s skillPriority param in
+   * `filterAndScore`'s level_tolerance gate, so a user who selected e.g.
+   * one_arm_pullup before front_lever gets that priority reflected when an
+   * exercise carries both tags. Optional — when absent, ties fall back to
+   * stable targetPrograms order (unchanged pre-Stage-2 behavior).
+   */
+  skillPriority?: Map<string, number>;
 }
 
 /**

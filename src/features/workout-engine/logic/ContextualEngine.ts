@@ -191,6 +191,7 @@ export class ContextualEngine {
         context.userProgramLevels,
         context.baseUserLevel ?? 1,
         context.getUserLevelForExercise(exercise),
+        context.skillPriority,
       );
       programLevel = consistent.exerciseLevel;
 
