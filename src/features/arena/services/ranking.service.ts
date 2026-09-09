@@ -469,10 +469,14 @@ export async function getStreakLeaderboard(params: {
     rows.push({ uid, name, streak });
   });
 
-  // ── Fallback: resolve '???' names from users collection ────────────────
+  // ── Fallback: resolve '???' names from userPublic collection ───────────
   // Streak docs written before the displayName stamp was added (or by seed
-  // data that didn't include it) arrive as '???'.  We batch-fetch the user
-  // doc for each unknown row so the leaderboard always shows a real name.
+  // data that didn't include it) arrive as '???'.  We batch-fetch the
+  // public profile doc for each unknown row so the leaderboard always
+  // shows a real name. SPEC-03 Wave B (SEC-06): reads userPublic now, not
+  // users — a non-discoverable uid simply has no doc here and stays
+  // '???', same as before for a profile this couldn't have read anyway
+  // once the old discoverable-gated rule denied it.
   const unknownUids = rows
     .filter((r) => r.name === '???' && r.uid !== currentUid)
     .map((r) => r.uid);
@@ -482,9 +486,9 @@ export async function getStreakLeaderboard(params: {
     await Promise.all(
       unknownUids.map(async (uid) => {
         try {
-          const d = await getDoc(doc(db, 'users', uid));
+          const d = await getDoc(doc(db, 'userPublic', uid));
           if (d.exists()) {
-            const resolved = d.data()?.core?.name as string | undefined;
+            const resolved = d.data()?.name as string | undefined;
             if (resolved) nameCache.set(uid, resolved);
           }
         } catch {
@@ -787,21 +791,30 @@ export async function getTenantLeaderboard(params: {
   const totalParticipants = allSorted.length;
   const sliced = allSorted.slice(0, maxEntries);
 
-  // Shards carry no display name — resolve best-effort from users/{uid}.core.name
-  // for the shown rows (+ current user).
-  const uidsToName = new Set<string>(sliced.map(([uid]) => uid));
-  uidsToName.add(currentUid);
+  // Shards carry no display name — resolve best-effort from userPublic.name
+  // for the shown rows (+ current user). SPEC-03 Wave B (SEC-06): reads
+  // userPublic now, not users — but the current user's OWN name no longer
+  // reliably resolves this way if they're not discoverable (userPublic
+  // only mirrors discoverable profiles; the old users/{uid} owner-read
+  // clause had no such restriction). currentName (the caller's own
+  // already-loaded profile — a self-read, unaffected by this rule change)
+  // covers that case; the userPublic lookup below is only needed for
+  // everyone else.
   const nameMap = new Map<string, string>();
+  if (currentName) nameMap.set(currentUid, currentName);
+  const uidsToLookUp = new Set<string>(sliced.map(([uid]) => uid));
+  uidsToLookUp.delete(currentUid);
   await Promise.all(
-    Array.from(uidsToName).map(async (uid) => {
+    Array.from(uidsToLookUp).map(async (uid) => {
       try {
-        const u = await getDoc(doc(db, 'users', uid));
-        nameMap.set(uid, (u.data()?.core?.name as string) || 'משתמש');
+        const u = await getDoc(doc(db, 'userPublic', uid));
+        nameMap.set(uid, (u.data()?.name as string) || 'משתמש');
       } catch {
         nameMap.set(uid, 'משתמש');
       }
     }),
   );
+  if (!nameMap.has(currentUid)) nameMap.set(currentUid, 'משתמש');
 
   const entries: LeaderboardEntry[] = sliced.map(([uid, { activeDays, workouts }], idx) => ({
     rank: idx + 1,

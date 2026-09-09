@@ -327,8 +327,19 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // USERS — owner reads/writes own doc, admins read/write all,
-    //         cross-user read gated by core.discoverable == true
+    // USERS — owner reads/writes own doc, admins read/write all.
+    //
+    // SPEC-03 Wave B (SEC-06): a third READ clause used to sit here —
+    // `(isAuthenticated() && resource.data.core.discoverable == true)` —
+    // letting any signed-in user (including an anonymous guest) read the
+    // FULL document of any discoverable profile: email, birthDate, home
+    // coordinates, tenantId, alongside the handful of fields any real
+    // caller actually needed (name, photoURL, level, ageGroup, mainGoal,
+    // authorityId, initialFitnessTier — verified via a full grep of every
+    // cross-user users/{uid} read in src/, not guessed). Same pattern as
+    // dailyActivity (Wave A) and inviteCode/healthDeclarationPdfUrl
+    // before it: the lean subset now lives in userPublic (below), and
+    // this collection is owner + admin only.
     //
     // SECURITY (Fortress Phase — Deep Privilege Lockdown):
     //   The owner can NEVER mutate role/admin/tenant/progression flags.
@@ -339,10 +350,9 @@ service cloud.firestore {
     //     - Manual writes by a root/DB admin.
     // ============================================================
     match /users/{userId} {
-      // READ — owner, admins, or any auth user when the profile opted into discovery.
+      // READ — owner or admin only.
       allow read: if isOwner(userId)
-                  || isRootAdmin() || isAdmin()
-                  || (isAuthenticated() && resource.data.core.discoverable == true);
+                  || isRootAdmin() || isAdmin();
 
       // CREATE — owner can create their own doc, but cannot self-assign
       // any role/admin flag at creation time, and cannot set the
@@ -458,6 +468,47 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
         allow read, write: if isRootAdmin() || isAdmin();
       }
+    }
+
+    // ============================================================
+    // USER PUBLIC — SPEC-03 Wave B (SEC-06)
+    // Lean mirror of users/{uid}, ONLY for users with core.discoverable
+    // == true: {name, photoURL, currentLevel, mainGoal, authorityId,
+    // ageGroup, initialFitnessTier}. No email, no birthDate, no home
+    // coordinates, no tenantId — none of those have a single real
+    // cross-user reader anywhere in src/ (verified via grep, not
+    // assumed). ageGroup is here despite not being in the original
+    // spec's suggested field set — UserProfileSheet.tsx's minor-DM
+    // safety gate is the one caller that needs it, and it's arguably the
+    // most safety-critical field in this whole collection.
+    //
+    // Doc ID == uid (not a separate generated ID) — getUsersByUids'
+    // `documentId() in [...]` query (the "people you follow" list) needs
+    // this to keep working unchanged.
+    //
+    // Existence IS the discoverable signal: userPublicSync (Cloud
+    // Function) only ever writes a doc here for a user whose
+    // core.discoverable is true, and deletes it the moment that flips
+    // false or the user doc itself is deleted — no discoverable field
+    // lives on this collection, no query here ever needs to filter by
+    // it, so no composite index on it either (matches
+    // dailyActivityPublic's own "existence is the signal" precedent from
+    // Wave A on this same spec).
+    //
+    // Written exclusively by userPublicSync (Admin SDK, bypasses these
+    // rules) — a Firestore write TRIGGER, not scheduled like
+    // dailyActivityPublicSync, because profile-field edits are
+    // comparatively rare events (onboarding, occasional settings
+    // changes) unlike the passive step-sync that made a write trigger
+    // the wrong choice for dailyActivity — and the sync only actually
+    // writes when one of the MIRRORED fields changed (diffed against
+    // the previous doc), not on every users/{uid} write for an unrelated
+    // field (e.g. an XP award bumping progression fields this collection
+    // doesn't mirror).
+    // ============================================================
+    match /userPublic/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if isRootAdmin() || isAdmin();
     }
 
     // ============================================================

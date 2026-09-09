@@ -62,8 +62,16 @@ export default function PublicProfilePage() {
     async function load() {
       setLoading(true);
       try {
+        // SPEC-03 Wave B (SEC-06): viewing someone ELSE's profile reads
+        // userPublic — the full users/{uid} doc is owner+admin only now.
+        // Viewing your OWN profile through this page still reads
+        // users/{uid} directly (isOwner(userId) is unchanged by this fix)
+        // — userPublic only mirrors DISCOVERABLE profiles, and the owner
+        // must always be able to view their own profile regardless of
+        // that toggle.
+        const collectionName = isSelf ? 'users' : 'userPublic';
         const [userSnap, userPosts] = await Promise.all([
-          getDoc(doc(db, 'users', targetUid)),
+          getDoc(doc(db, collectionName, targetUid)),
           getUserPosts(targetUid, 15),
         ]);
 
@@ -71,12 +79,18 @@ export default function PublicProfilePage() {
 
         if (userSnap.exists()) {
           const data = userSnap.data();
-          setPublicProfile({
+          setPublicProfile(isSelf ? {
             name: data.core?.name ?? 'משתמש',
             photoURL: data.core?.photoURL ?? undefined,
             currentLevel: data.progression?.currentLevel ?? undefined,
             initialFitnessTier: data.core?.initialFitnessTier ?? undefined,
             mainGoal: data.core?.mainGoal ?? undefined,
+          } : {
+            name: data.name ?? 'משתמש',
+            photoURL: data.photoURL ?? undefined,
+            currentLevel: data.currentLevel ?? undefined,
+            initialFitnessTier: data.initialFitnessTier ?? undefined,
+            mainGoal: data.mainGoal ?? undefined,
           });
         }
         setPosts(userPosts);
@@ -89,7 +103,7 @@ export default function PublicProfilePage() {
 
     load();
     return () => { cancelled = true; };
-  }, [targetUid]);
+  }, [targetUid, isSelf]);
 
   const handleToggleFollow = useCallback(() => {
     if (!myUid || isSelf) return;

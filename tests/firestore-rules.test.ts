@@ -852,8 +852,14 @@ async function testReserveLeagueLockdown() {
 // copy-paste from the old Phase-2 design, or a seed script writing stale
 // fields directly to production, as already documented elsewhere).
 async function testNoUsersDocLeak() {
+  // SPEC-03 Wave B (SEC-06) UPDATE 09.09.2026: this originally read as
+  // broadcaster2 (a different, non-owner user) — relying on the
+  // discoverable-cross-user read that Wave B removed entirely. The
+  // cross-user angle was incidental to what this test actually checks
+  // (field content, not access), so it now reads as the owner
+  // (broadcaster1) instead — still proves the same thing.
   await it('U11 — a discoverable user doc has no military-declaration key on it', async () => {
-    const ctx = env.authenticatedContext('broadcaster2');
+    const ctx = env.authenticatedContext('broadcaster1');
     const snap = await assertSucceeds(getDoc(doc(ctx.firestore(), 'users', 'broadcaster1')));
     const data = snap.data() as Record<string, unknown> | undefined;
     const core = (data?.core ?? {}) as Record<string, unknown>;
@@ -1953,7 +1959,18 @@ async function testWaveASpec02() {
     }));
   });
 
-  await it('WA18 — regression tripwire, NOT a fix-proof (see comment above): if healthDeclarationPdfUrl were ever put back on the discoverable users/{uid} doc itself, a total stranger reads it in full → this MUST stay true (the rule is deliberately unchanged) — it is exactly why the field had to move, not a bug in this test', async () => {
+  // WA18 — UPDATED 09.09.2026 for SPEC-03 Wave B (SEC-06). This test used
+  // to be a deliberate regression tripwire proving the discoverable-cross-
+  // user mechanism was STILL LIVE (its own prior comment: "if this ever
+  // fails, someone tightened the discoverable grant, which is good news
+  // worth updating this comment for") — that's exactly what happened.
+  // SPEC-03 Wave B removed the `resource.data.core.discoverable == true`
+  // clause from users/{userId}'s read rule entirely (full profile is
+  // owner+admin only now; the lean public subset lives in userPublic —
+  // see testUserPublic below). This is now the discriminating test for
+  // THAT fix: a stranger reading a discoverable user's full doc — for any
+  // reason, healthDeclarationPdfUrl or otherwise — must DENY.
+  await it('WA18 — a stranger reads a discoverable user\'s FULL users/{uid} doc → DENY (SEC-06 closed: the old discoverable-cross-user mechanism this test used to keep alive as a tripwire is gone)', async () => {
     await env.withSecurityRulesDisabled(async (dbCtx) => {
       await setDoc(doc(dbCtx.firestore(), 'users', 'wa18_regressed_user'), {
         core: { name: 'Regressed', discoverable: true },
@@ -1961,10 +1978,63 @@ async function testWaveASpec02() {
       });
     });
     const ctx = env.authenticatedContext('reader_outsider');
-    const snap = await assertSucceeds(getDoc(doc(ctx.firestore(), 'users', 'wa18_regressed_user')));
-    if (snap.data()?.healthDeclarationPdfUrl !== 'https://storage.example/should-not-be-here.pdf') {
-      throw new Error('expected the mechanism to still be live — if this ever fails, someone tightened the discoverable grant, which is good news worth updating this comment for');
+    await assertFails(getDoc(doc(ctx.firestore(), 'users', 'wa18_regressed_user')));
+  });
+}
+
+// SPEC-03 Wave B (SEC-06): userPublic — the lean mirror of users/{uid}
+// for discoverable profiles ({name, photoURL, currentLevel, mainGoal,
+// authorityId, ageGroup, initialFitnessTier} — see the firestore.rules
+// comment on this match block for why each field is there). Existence IS
+// the discoverable signal; written exclusively by userPublicSync.
+async function testUserPublic() {
+  console.log('\nuserPublic — lean discoverable-profile mirror (SPEC-03 Wave B / SEC-06)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'users', 'up_owner'), {
+      core: { name: 'Owner', discoverable: true, authorityId: 'city_a' },
+      email: 'owner@example.com',
+      healthDeclarationPdfUrl: 'https://storage.example/private.pdf',
+    });
+    await setDoc(doc(db, 'userPublic', 'up_owner'), {
+      name: 'Owner', photoURL: null, currentLevel: 5, mainGoal: null,
+      authorityId: 'city_a', ageGroup: 'adult', initialFitnessTier: null,
+    });
+  });
+
+  await it('UP1 — the full users/{uid} doc of a discoverable user is DENIED to a stranger (the core SEC-06 fix)', async () => {
+    const ctx = env.authenticatedContext('up_stranger');
+    await assertFails(getDoc(doc(ctx.firestore(), 'users', 'up_owner')));
+  });
+  await it('UP2 — the owner still reads their own full users/{uid} doc → ALLOW (unaffected)', async () => {
+    const ctx = env.authenticatedContext('up_owner');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'users', 'up_owner')));
+  });
+  await it('UP3 — unauthenticated read of userPublic → DENY', async () => {
+    const ctx = env.unauthenticatedContext();
+    await assertFails(getDoc(doc(ctx.firestore(), 'userPublic', 'up_owner')));
+  });
+  await it('UP4 — any authenticated stranger reads userPublic → ALLOW (this is the whole point — the lean subset is safe to expose)', async () => {
+    const ctx = env.authenticatedContext('up_stranger');
+    const snap = await assertSucceeds(getDoc(doc(ctx.firestore(), 'userPublic', 'up_owner')));
+    if ('email' in (snap.data() ?? {}) || 'healthDeclarationPdfUrl' in (snap.data() ?? {})) {
+      throw new Error('userPublic must never carry email/healthDeclarationPdfUrl — schema regression');
     }
+  });
+  await it('UP5 — a client (even the doc\'s own uid) cannot write userPublic → DENY (admin/server-sync only)', async () => {
+    const ctx = env.authenticatedContext('up_owner');
+    await assertFails(setDoc(doc(ctx.firestore(), 'userPublic', 'up_owner'), {
+      name: 'Forged', photoURL: null, currentLevel: 99, mainGoal: null,
+      authorityId: 'city_a', ageGroup: 'adult', initialFitnessTier: null,
+    }));
+  });
+  await it('UP6 — admin writes userPublic → ALLOW (matches the sync function\'s own trust level)', async () => {
+    const ctx = env.authenticatedContext('tenant_admin_user');
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'userPublic', 'up_admin_write'), {
+      name: 'Admin Written', photoURL: null, currentLevel: 1, mainGoal: null,
+      authorityId: 'city_a', ageGroup: 'adult', initialFitnessTier: null,
+    }));
   });
 }
 
@@ -2025,6 +2095,7 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('admin-invitations lockdown (SPEC-01 task 1)', wrapSuite(testAdminInvitationsLockdown));
   vitestIt('private-invite subcollection (SPEC-01 task 2)', wrapSuite(testPrivateInviteSubcollection));
   vitestIt('Wave A (SPEC-02)', wrapSuite(testWaveASpec02));
+  vitestIt('userPublic (SPEC-03 Wave B / SEC-06)', wrapSuite(testUserPublic));
   vitestIt('Wave C — anonymous gate (SPEC-03)', wrapSuite(testWaveCAnonymousGate));
   vitestIt('connections SEC-01 (SPEC-02, partial)', wrapSuite(testConnectionsSec01));
   vitestIt('F-18 forgery (SPEC-02)', wrapSuite(testF18Forgery));

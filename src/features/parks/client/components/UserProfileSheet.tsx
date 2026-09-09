@@ -70,10 +70,13 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
     //   This read may return no data when the target's profile is not
     //   discoverable; in that case we leave ageGroup undefined and fall
     //   back to current-user-only gating (still safe — server rule denies).
-    getDoc(doc(db, 'users', user.uid))
+    //   SPEC-03 Wave B (SEC-06): reads userPublic now, not users/{uid} —
+    //   the full profile doc is owner+admin only. userPublic only exists
+    //   for discoverable users, same "may return no data" shape as before.
+    getDoc(doc(db, 'userPublic', user.uid))
       .then((snap) => {
         if (!snap.exists()) return;
-        const ag = (snap.data() as any)?.core?.ageGroup;
+        const ag = (snap.data() as any)?.ageGroup;
         if (ag === 'minor' || ag === 'adult') {
           setEnriched((prev) => (prev ? { ...prev, ageGroup: ag } : prev));
         }

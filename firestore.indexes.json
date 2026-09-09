@@ -269,21 +269,22 @@
         { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
       ]
     },
+    // SPEC-03 Wave B (SEC-06): the two indexes that used to sit here —
+    // {core.discoverable, core.name} and {core.discoverable,
+    // core.authorityId, core.name} on `users` — supported
+    // searchUsersByName's discoverable==true + name-range query. That
+    // query now runs against `userPublic` instead (existence there IS
+    // the discoverable filter, so no discoverable field/index at all).
+    // The no-authorityId branch is now a plain range on `name` alone —
+    // Firestore's automatic single-field index covers that with no
+    // composite entry needed. Only the authorityId-scoped branch
+    // (equality + range on different fields) still needs one:
     {
-      "collectionGroup": "users",
+      "collectionGroup": "userPublic",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "core.discoverable", "order": "ASCENDING" },
-        { "fieldPath": "core.name", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "core.discoverable", "order": "ASCENDING" },
-        { "fieldPath": "core.authorityId", "order": "ASCENDING" },
-        { "fieldPath": "core.name", "order": "ASCENDING" }
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
       ]
     },
     {
