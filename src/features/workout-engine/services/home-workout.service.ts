@@ -2154,20 +2154,42 @@ async function _buildSharedPipeline(
   };
 
   // Stage 2 (2026-09-09, David) — the user's own skill-selection order,
-  // wired into the live pipeline. `progression.skillFocusIds` is the same
-  // order-preserving field `buildSkillPriorityMap`'s own doc comment already
-  // cites as production-verified (SplitDecisionService.ts indexes it
-  // positionally) — NOT `priority1/2/3SkillIds` from splitContext below,
-  // which is a DIFFERENT, day-rotation-driven concept (today's emphasized
-  // skill, which can differ from the user's overall selection order on a
-  // Dominance-Day/Pendulum schedule) and would silently conflate "what the
-  // user ranked highest" with "what today's session happens to emphasize."
+  // wired into the live pipeline.
+  //
+  // ⚠️ 09.09.2026 correction (David, blocker-2 review) — deliberately NOT
+  // `progression.skillFocusIds`. Stage 2's first cut used skillFocusIds
+  // directly, reasoning it was the same order-preserving field
+  // SplitDecisionService.ts already relies on — true in general, but WRONG
+  // specifically here: it introduced a SECOND source for the same question
+  // "what order did the user pick their skills in" alongside the one that
+  // ACTUALLY determines activeDomains's skill-ordering. Traced precisely:
+  // activeDomains's skill order comes from `resolvedChildDomains` (this
+  // function, ~line 1782, finalized by the calisthenics_upper
+  // idToSlug/tracks/hardcoded-fallback normalization block above) via the
+  // `profileForFilters` synthesis below (`fullFocusDomains =
+  // [...resolvedChildDomains, ...parentDomains]`) — NOT the raw
+  // `progression.skillFocusIds` field. `resolveChildDomainsForParent`
+  // (program-hierarchy.utils.ts:280) DOES start from skillFocusIds for the
+  // calisthenics_upper case, but the normalization block above can
+  // override it via Pass B (tracks/activePrograms-derived, `Set`-ordered —
+  // NOT selection-order) or Pass C (hardcoded ['planche','front_lever'])
+  // when Pass A's idToSlug mapping is empty — real, if narrow, paths where
+  // skillFocusIds and resolvedChildDomains diverge in CONTENT, not just
+  // staleness (see the separate ap.focusDomains-staleness finding in
+  // parking-lot.md, a different divergence path on the SAME underlying
+  // risk: one question, two sources, in code written today). Building
+  // skillPriority from resolvedChildDomains instead guarantees — BY
+  // CONSTRUCTION, not by convention — that it can never disagree with
+  // activeDomains about which skill the user ranked where, because they
+  // now trace to the exact same array. Old-and-consistent beats
+  // fresh-and-contradictory.
+  //
   // Proof-of-wiring log, not just existence — per explicit instruction: code
   // that's never observed to run is the same as code that doesn't exist.
-  const skillPriority = buildSkillPriorityMap(effectiveProfile.progression?.skillFocusIds, resolveToSlug);
+  const skillPriority = buildSkillPriorityMap(resolvedChildDomains, resolveToSlug);
   if (skillPriority.size > 0) {
     console.log(
-      `[SkillPriority] wired: skillFocusIds=[${(effectiveProfile.progression?.skillFocusIds ?? []).join(', ')}] → ` +
+      `[SkillPriority] wired: resolvedChildDomains=[${resolvedChildDomains.join(', ')}] → ` +
       `priority={${Array.from(skillPriority.entries()).map(([k, v]) => `${k}:${v}`).join(', ')}}`,
     );
   }
@@ -2770,7 +2792,12 @@ async function _buildSharedPipeline(
       .filter(se => se.method != null)
       .map(se => se.exercise),
     userProgramLevels,
-    selectedSkillIds: effectiveProfile.progression?.skillFocusIds,
+    // Same source as skillPriority above (resolvedChildDomains, NOT raw
+    // skillFocusIds) — for the identical reason: a skill the guarantee
+    // tries to represent must actually be a member of activeDomains, or its
+    // own resolveExerciseDomain-based matching against activeDomains can
+    // never succeed for that skill regardless of catalog availability.
+    selectedSkillIds: resolvedChildDomains,
     skillPriority,
     userId: effectiveProfile.id,
     selectedDate: selectedDate ?? new Date().toISOString().split('T')[0],
