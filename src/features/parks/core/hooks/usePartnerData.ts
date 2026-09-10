@@ -32,17 +32,7 @@ import { IS_ADAPTIVE_SHED_ENABLED } from '@/config/feature-flags';
 import { subscribeToNearbyPresence, type RawPresenceDoc } from '@/lib/nearbyPresence.service';
 import { useMapStore } from '../store/useMapStore';
 import { useUserStore } from '@/features/user';
-
-function deriveAgeGroup(birthDate: unknown): 'minor' | 'adult' {
-  if (!birthDate) return 'minor';
-  const bd =
-    birthDate instanceof Date ? birthDate
-    : typeof (birthDate as any)?.toDate === 'function' ? (birthDate as any).toDate()
-    : new Date(birthDate as string);
-  if (isNaN(bd.getTime())) return 'minor';
-  const ageYears = (Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-  return ageYears < 18 ? 'minor' : 'adult';
-}
+import { computeAgeGroup } from '@/lib/age';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -232,7 +222,7 @@ export function usePartnerData(
   const myMode = usePrivacyStore((s) => s.mode);
   // SPEC-04 Wave A — required for the live-presence query below.
   const profile = useUserStore((s) => s.profile);
-  const ageGroup = profile?.core?.ageGroup ?? deriveAgeGroup(profile?.core?.birthDate);
+  const ageGroup = profile?.core?.ageGroup ?? computeAgeGroup(profile?.core?.birthDate);
   // Bucketed to ~1.1km resolution purely as an effect dependency — see
   // useGroupPresence.ts's identical locationBucketKey for the full reasoning
   // (avoid tearing down and rebuilding geohash-range listeners on every GPS

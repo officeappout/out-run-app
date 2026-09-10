@@ -29,20 +29,10 @@ import { collection, query, where, onSnapshot, type Unsubscribe } from 'firebase
 import { db, auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { subscribeToNearbyPresence, type RawPresenceDoc } from '@/lib/nearbyPresence.service';
+import { computeAgeGroup } from '@/lib/age';
 
 /** Matches usePresenceLayer.ts's own MAX_DISCOVERY_RADIUS_KM — one constant, not reinvented per caller. */
 const DISCOVERY_RADIUS_KM = 15;
-
-function deriveAgeGroup(birthDate: unknown): 'minor' | 'adult' {
-  if (!birthDate) return 'minor';
-  const bd =
-    birthDate instanceof Date ? birthDate
-    : typeof (birthDate as any)?.toDate === 'function' ? (birthDate as any).toDate()
-    : new Date(birthDate as string);
-  if (isNaN(bd.getTime())) return 'minor';
-  const ageYears = (Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-  return ageYears < 18 ? 'minor' : 'adult';
-}
 
 /**
  * Persona ID → public image path. Keyed by the canonical PersonaId values
@@ -168,7 +158,7 @@ export function useGroupPresence(
 ): PartnerPosition[] {
   const [positions, setPositions] = useState<PartnerPosition[]>([]);
   const profile = useUserStore((s) => s.profile);
-  const ageGroup = profile?.core?.ageGroup ?? deriveAgeGroup(profile?.core?.birthDate);
+  const ageGroup = profile?.core?.ageGroup ?? computeAgeGroup(profile?.core?.birthDate);
   // Rounded to ~1.1km resolution (2 decimal places) purely as an effect
   // dependency — resubscribing (tearing down and rebuilding N geohash-range
   // listeners) on every GPS tick would be wasteful when the user has barely

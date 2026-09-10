@@ -59,6 +59,7 @@ import { joinGroup, leaveGroup } from '@/features/arena/services/group.service';
 import { joinEvent } from '@/features/admin/services/community.service';
 import { addCommunitySessionsToPlanner } from '@/features/user/scheduling/services/communitySchedule.service';
 import type { CommunityGroup, CommunityEvent } from '@/types/community.types';
+import { computeAgeGroup } from '@/lib/age';
 
 // Heavy embedded library — lazy-loaded so the social/events tabs aren't
 // punished with the exercise corpus parser on first paint.
@@ -130,6 +131,11 @@ export default function SearchPage() {
   const userId = profile?.id ?? null;
   const userName = profile?.core?.name ?? 'משתמש';
   const photoURL = profile?.core?.photoURL;
+  // SPEC-04 Wave B/D — searchUsersByName requires this so a minor never
+  // surfaces in an adult's search and vice versa (see the service's own
+  // top-of-file comment). Missing/unresolved ageGroup falls safely to
+  // 'minor', matching the Firestore rule sentinel's own fail-safe default.
+  const callerAgeGroup: 'minor' | 'adult' = profile?.core?.ageGroup ?? computeAgeGroup(profile?.core?.birthDate);
 
   const access = useArenaAccess();
   const { events, groups } = useArenaData(access.cityAuthorityId);
@@ -279,7 +285,7 @@ export default function SearchPage() {
     peopleDebounceRef.current = setTimeout(async () => {
       try {
         // NO authorityId argument → searches all users globally.
-        const results = await searchUsersByName(searchTerm);
+        const results = await searchUsersByName(searchTerm, callerAgeGroup);
         setPeopleResults(results);
       } catch (err) {
         console.error('[SearchPage] people search failed:', err);
@@ -290,7 +296,7 @@ export default function SearchPage() {
     return () => {
       if (peopleDebounceRef.current) clearTimeout(peopleDebounceRef.current);
     };
-  }, [searchTerm, topTab, discoverMode]);
+  }, [searchTerm, topTab, discoverMode, callerAgeGroup]);
 
   // ── Effect: load "my partners" (followed users) when sub-tab opens ──────
   // Re-fetches whenever the `following` array length changes so newly
@@ -304,7 +310,7 @@ export default function SearchPage() {
       return;
     }
     setMyPartnersLoading(true);
-    getUsersByUids(following)
+    getUsersByUids(following, callerAgeGroup)
       .then((users) => {
         if (!cancelled) setMyPartners(users);
       })
@@ -317,7 +323,7 @@ export default function SearchPage() {
     return () => {
       cancelled = true;
     };
-  }, [topTab, discoverMode, socialLoaded, following]);
+  }, [topTab, discoverMode, socialLoaded, following, callerAgeGroup]);
 
   // ── Group / event derived lists ─────────────────────────────────────────
   const termLower = searchTerm.trim().toLowerCase();

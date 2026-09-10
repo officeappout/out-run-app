@@ -507,7 +507,19 @@ service cloud.firestore {
     // doesn't mirror).
     // ============================================================
     match /userPublic/{uid} {
-      allow read: if isAuthenticated();
+      // SPEC-04 Wave B/D: split from a blanket `allow read` into get/list.
+      // A `get` is always by an already-known uid resolved from an
+      // already-scoped source (a group roster entry, a leaderboard row,
+      // a profile link) — not a discovery surface, so it stays
+      // unrestricted exactly as before this spec.
+      allow get: if isAuthenticated();
+      // A `list` (searchUsersByName) IS a discovery surface: userPublicSync
+      // mirrors every discoverable user here, minors included, so this is
+      // the collection a minor's name could leak into via search. Requires
+      // the same ageGroup match as presence's verified_global read (see
+      // that rule's comment) — the caller's own where('ageGroup','==', X)
+      // is what makes this provable; user-search.service.ts always adds it.
+      allow list: if isAuthenticated() && resource.data.ageGroup == getUserAgeGroup(request.auth.uid);
       allow write: if isRootAdmin() || isAdmin();
     }
 

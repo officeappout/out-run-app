@@ -283,6 +283,15 @@
       "collectionGroup": "userPublic",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "userPublic",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
         { "fieldPath": "authorityId", "order": "ASCENDING" },
         { "fieldPath": "name", "order": "ASCENDING" }
       ]

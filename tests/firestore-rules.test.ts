@@ -2085,6 +2085,16 @@ async function testSpec04MinorsAndRadius() {
     await setDoc(doc(db, 'referrals', 's4_referrer_s4_invitee'), {
       referrerUid: 's4_referrer', inviteeUid: 's4_invitee', inviteeName: 'Real Name',
     });
+
+    // userPublic fixtures for Wave B/D (search index age-scoping).
+    await setDoc(doc(db, 'userPublic', 's4_minor'), {
+      name: 'S4SearchMinor', photoURL: null, currentLevel: 1, mainGoal: null,
+      authorityId: 'city_a', ageGroup: 'minor', initialFitnessTier: null,
+    });
+    await setDoc(doc(db, 'userPublic', 's4_adult'), {
+      name: 'S4SearchAdult', photoURL: null, currentLevel: 1, mainGoal: null,
+      authorityId: 'city_a', ageGroup: 'adult', initialFitnessTier: null,
+    });
   });
 
   // ── Test #1: a minor pulling presence data must NOT receive adults ──────
@@ -2140,6 +2150,35 @@ async function testSpec04MinorsAndRadius() {
   await it('SR9 — the invitee reads their own referrals doc → ALLOW (regression — unaffected)', async () => {
     const ctx = env.authenticatedContext('s4_invitee');
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'referrals', 's4_referrer_s4_invitee')));
+  });
+
+  // ── Test #6: a user search performed by an adult must NOT include minors ──
+  await it('SR10 (test #6) — adult LISTS userPublic scoped to ageGroup==adult (the shape searchUsersByName/getUsersByUids always use) → ALLOW, and the minor never appears', async () => {
+    const ctx = env.authenticatedContext('s4_adult2');
+    const q = query(collection(ctx.firestore(), 'userPublic'), where('ageGroup', '==', 'adult'));
+    const snap = await assertSucceeds(getDocs(q));
+    const uids = snap.docs.map((d) => d.id);
+    if (uids.includes('s4_minor')) {
+      throw new Error('minor doc leaked into an adult-scoped userPublic search — SPEC-04 Wave B/D regression');
+    }
+  });
+  await it("SR11 — a userPublic LIST query WITHOUT the ageGroup=='adult' clause is rejected outright (proves search can't just drop its own age scoping)", async () => {
+    const ctx = env.authenticatedContext('s4_adult2');
+    const q = query(collection(ctx.firestore(), 'userPublic'));
+    await assertFails(getDocs(q));
+  });
+  await it('SR12 — a GET of a specific userPublic doc by known uid stays unrestricted (profile page / leaderboard name resolution — not a discovery surface) → ALLOW even cross-age', async () => {
+    const ctx = env.authenticatedContext('s4_adult2');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'userPublic', 's4_minor')));
+  });
+  await it('SR13 — minor LISTS userPublic scoped to ageGroup==minor → ALLOW, and the adult never appears (reverse direction — minors must not receive lists of adults either)', async () => {
+    const ctx = env.authenticatedContext('s4_minor');
+    const q = query(collection(ctx.firestore(), 'userPublic'), where('ageGroup', '==', 'minor'));
+    const snap = await assertSucceeds(getDocs(q));
+    const uids = snap.docs.map((d) => d.id);
+    if (uids.includes('s4_adult')) {
+      throw new Error('adult doc leaked into a minor-scoped userPublic search — SPEC-04 Wave B/D regression');
+    }
   });
 }
 
