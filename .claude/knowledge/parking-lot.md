@@ -789,3 +789,37 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 **קרוב-משפחה, לא זהה:** `DOMAIN_ALIAS_MAP`/`DOMAIN_PARENT_MAP` (`workout-selection.utils.ts`) — מבנה-נתונים שונה (הורה→ילדים, לא סקיל→הורה-יחיד), וכולל גם ערכים לא-סקיל (`lower_body→legs`, `upper_body→push/pull`). לא נספר כ"אותה מפה" — קשור מושגית, לא כפילות ישירה.
 
 **לא הוצע איחוד קונקרטי כאן — תיעוד-מצב בלבד, כנדרש (דוד: "אל תיישם").** `_TEMP_SKILL_PARENT_MAP` נשאר עם קידומת TEMP כי אין עדיין תוכנית-איחוד קונקרטית לארבעת המבנים — לא רק ניחוש/כוונה כללית. אם/כשמתבצע איחוד — יעד סביר הוא מיקום module-scope, exported יחיד (כמו `_TEMP_SKILL_PARENT_MAP` כבר היום) שכל שאר השלושה מפנים אליו, אבל **זו הצעה לא-מוכרעת**, לא תוכנית מאושרת.
+
+---
+
+## באג משתמש — כתיבה בלי הגנה: `autoSyncDomainsFromTracks` (admin panel) — תוכנן, לא מיושם, 10.09.2026
+
+**Opened:** 10.09.2026 · **Source:** דוד, "הבדיקה הדחופה" — אימות חי מול Firestore, `admin/users/all/page.tsx:184-233`.
+
+**מה נבדק, ומה נמצא (יש לכך תשובה מלאה ומדויקת, נמסרה לדוד בנפרד בצ'אט) — תמצית לצורך הרישום כאן:** הפונקציה **כן נכנסת** ללולאת חישוב-מאסטר עבור `calisthenics_upper` (`isMaster:true`, `subPrograms.length=7` עוברים את התנאי), אבל **מייצרת בפועל אפס-אפקט היום** — כי `subPrograms` על כל מסמכי המאסטרים מכיל **Firestore doc IDs גולמיים** (`mFcuYlNgKXLqWVUFo0zt` וכו'), בעוד `progression.tracks` מפתח לפי **slug** (`planche`, `push`...) — אותה מחלקת-באג בדיוק כמו B1 (`buildProgramSlugMap`), רק בקובץ אחר. `tracks[docId]` לא תואם לעולם → `childLevels=[]` → אין כתיבה. גם החלק הראשון של הפונקציה ("1. Sync child track levels → domains", שורות 195-203, שפועל ישירות על `tracks[calisthenics_upper]` הגולמי ולא על subPrograms) יוצא אפס-אפקט **היום, במקרה** — כי `domains.calisthenics_upper` ו-`tracks.calisthenics_upper` כבר שווים (10=10) אצל המשתמשים שנבדקו. אין חשיפה כרגע גם אצל אף משתמש מ-3 הרשויות המשלמות (שדרות/קריית ים/אשקלון) — 0 מתוך 9 משתמשים שם בכלל מחזיקים track ל-`calisthenics_upper`.
+
+**עדיין באג אמיתי, לא "לא רלוונטי":** ברגע ש-B1 (slug-map) יתוקן, או ש-`domains`/`tracks` יתפצלו עבור איזשהו משתמש (לא בלתי-אפשרי — B2's ממצא על `Math.round` שונה מ-`Math.floor` יכול ליצור בדיוק כזה פיצול בעתיד), **הכתיבה הזו תרוץ בלי שום רצפת-הגנה** — בניגוד ל-`recalculateMasterLevel` (progression.service.ts) שכן יש לו `safeLevel = Math.max(derived, priorLevel)`. פתיחת עמוד-משתמש בודד ע"י אדמין (`loadUserDetails`, לא כפתור נפרד — רץ אוטומטית בכל טעינת-פרטי-משתמש) יכולה אז לדרוס בשקט רמת-מאסטר גבוהה בערך נמוך יותר.
+
+**הכרעת דוד (10.09.2026): לא נוגעים ברמות של משתמשים קיימים (הפער הוא רמה אחת, מרפא את עצמו בהתקדמות ראשונה) — אבל כן סוגרים את הכתיבה חסרת-ההגנה.**
+
+**תכנון מוצע (לא מיושם — ענף נפרד, סקירה נפרדת):** להוסיף בדיוק אותה רצפת `Math.max(derivedLevel, currentMasterDomain)` שכבר קיימת ב-`recalculateMasterLevel` (progression.service.ts), לשני מקומות ב-`autoSyncDomainsFromTracks`:
+1. סעיף 1 (sync ישיר track→domain, שורות 195-203): להחליף את `if (domainLevel < trackLevel) updates[trackId] = trackLevel;` בבדיקה שלא-רק-משווה-אלא-לוקחת-מקסימום מול הערך הקיים ב-domains **וגם** ב-tracks עצמו (כדי לא לדרוס track גבוה יותר בטעות דרך הצד השני) — נדרש עיצוב מדויק בזמן המימוש, לא רק "להוסיף Math.max" בעיוורון, כי כיוון-הסנכרון כאן (track→domain) שונה מ-`recalculateMasterLevel` (מחושב→domain+track).
+2. סעיף 2 (חישוב-מאסטר, שורות 205-221): `derivedLevel = Math.min(cap, Math.max(Math.round(avg), currentMasterDomain, currentMasterTrack))` — לא לדרוס ערך-קיים-גבוה-יותר, בין אם ההצפה נובעת מהתיקון-העתידי ל-B1 ובין אם מכל סיבה אחרת.
+
+**כשלב מוקדם יותר של אותו תיקון:** כדאי לוודא (בדיקת-קוד, לא רק היגיון) שהתיקון ל-B1 (slug-map) לא "יפעיל" את סעיף 2 בפתאומיות עבור כל משתמש עם calisthenics_upper — ראוי לתאם את שני התיקונים (B1 + הרצפה-כאן) לאותו סבב, לא לתקן B1 לבד ולהשאיר את הכתיבה חסרת-הגנה חשופה בפער-זמן.
+
+---
+
+## המשך — הוצאת `core` מ-`calisthenics_upper` (כשיוחלט) חוזר לרצף המחייב: slug-map → לוג → פאנל
+
+**Opened:** 10.09.2026 · **Source:** דוד — "נוטה להוציא core מ-calisthenics_upper. לא סופי." + B8 (חלק ב', 09.09.2026).
+
+**עובדתי, מאומת בשני מקורות עצמאיים (B1 + B8):** `core` ב-`calisthenics_upper` הוא כנראה כבר-בפועל לא-מיוצג בממוצע-המאסטר — יש לו `movementPattern:"core"` (מסלול-slug תקין, לא נופל לבאג B1) אבל אין לו track נכתב אף פעם למשתמש-סקילים (Ghost Purge, מתועד ב-B8). כלומר: **הסרתו מ-`subPrograms` לא תשנה שום חישוב חי היום** — היא תעדכן רק את הרשימה-המוצגת ("7 ילדים" → "6"), לא תשפיע על ממוצע/רמה בפועל.
+
+**אבל — אותה אזהרת-סדר שכבר נרשמה למעלה (חוסם slug-map / כתיבת admin-sync) חלה גם כאן, במפורש:** אם `core` יוסר מ-`subPrograms` **לפני** שתיקון B1 (slug-map) יבוצע, והתיקון ייבנה בעתיד תוך הנחה גורפת "subPrograms = הילדים האמיתיים" — הוא עלול שלא לדעת להבדיל בין "הוסר בכוונה" ל"מעולם לא הוגדר נכון". **סדר מחייב, אם/כשההסרה תבוצע:**
+1. לתקן קודם את slug-map (B1 — `buildProgramSlugMap` להשתמש ב-`resolveToSlug`).
+2. לאמת בלוג/ריצה אמיתית ש-4 הסקילים (front_lever/planche/one_arm_pullup/handstand_pushup) עכשיו כן נמצאים כ"ילדים מוגדרים".
+3. **רק אז** להסיר את `core` מה-`subPrograms` בפאנל.
+4. למדוד שוב (אין הפתעה — הממוצע לא אמור להשתנות, `core` ממילא לא נכלל בו).
+
+**לא הוכרע, לא מיושם.** תלוי בהכרעה הסופית של דוד על core (עדיין "נוטה", לא סופי).
