@@ -1,15 +1,13 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Navigation, ArrowLeftRight } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Navigation } from 'lucide-react';
 import { useMapStore } from '../../../core/store/useMapStore';
 import { useShelterProximity } from '../../../core/hooks/useShelterProximity';
 import { formatShelterTagLabel } from '../../../core/services/shelter-proximity.service';
 import ParkDetailSheet from '../park-detail/ParkDetailSheet';
 import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
 import { bunnyImg } from '@/lib/bunny-image';
-
-const FOCAL_POSITIONS = ['center', 'top', 'bottom', 'left center', 'right center'];
 
 const CHIP_DEFS: { key: string; label: string; icon: string }[] = [
   { key: 'shaded',         label: 'הצללה',      icon: 'umbrella' },
@@ -29,14 +27,6 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   const setPendingCommute = useMapStore((s) => s.setPendingCommute);
   const shelterDecision = useShelterProximity({ park: selectedPark as any });
   const [detailOpen, setDetailOpen] = useState(false);
-  const [focalIndex, setFocalIndex] = useState(0);
-
-  // Reset focal point when a different park is selected
-  useEffect(() => {
-    const saved = selectedPark?.imagePosition;
-    const idx = saved ? FOCAL_POSITIONS.indexOf(saved) : -1;
-    setFocalIndex(idx >= 0 ? idx : 0);
-  }, [selectedPark?.id]);
 
   const distText = useMemo(() => {
     if (!userLocation || !selectedPark?.location) return null;
@@ -71,7 +61,9 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   // Prefer imageUrl (Bunny CDN, newest) over legacy image fields
   const rawImageUrl = selectedPark.imageUrl || selectedPark.image || selectedPark.images?.[0] || null;
   const heroSrc = bunnyImg(rawImageUrl, 400);
-  const objectPosition = FOCAL_POSITIONS[focalIndex];
+  // Respects a curated crop if one was ever set on the park doc; otherwise
+  // the browser default (centered) applies.
+  const objectPosition = selectedPark.imagePosition || undefined;
 
   const infoParts: string[] = [];
   if (selectedPark.city) infoParts.push(selectedPark.city);
@@ -111,17 +103,6 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
             >
               <span className="material-icons-round text-[13px] leading-none">close</span>
             </button>
-
-            {/* Focal-point toggle */}
-            {heroSrc && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setFocalIndex(i => (i + 1) % FOCAL_POSITIONS.length); }}
-                aria-label="שנה מיקוד תמונה"
-                className="absolute bottom-8 left-2 z-10 w-7 h-7 rounded-full bg-white/80 dark:bg-zinc-700/80 backdrop-blur-sm border border-gray-200/60 dark:border-zinc-600/60 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-zinc-700 transition-colors"
-              >
-                <ArrowLeftRight size={13} />
-              </button>
-            )}
 
             {/* Fade into card body */}
             <div className="absolute bottom-0 left-0 right-0 h-[70px] bg-gradient-to-b from-transparent to-white dark:to-zinc-800 pointer-events-none" />
