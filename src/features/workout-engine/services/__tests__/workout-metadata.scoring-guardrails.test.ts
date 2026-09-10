@@ -186,11 +186,16 @@ describe('Soft Persona Mismatch Guard', () => {
     setDescriptions([]);
 
     const matchScore = (await resolveWorkoutMetadataWithCandidates({
-      persona: 'parent', location: 'home', timeOfDay: 'morning', gender: 'female',
+      // previewNow pinned like every other test in this file — this call's
+      // persona is 'parent' and the row's timeOfDay is 'morning', which
+      // would otherwise pick up an unrelated +20 PARENT TIME-WINDOW BOOST
+      // (workout-metadata.service.ts) for real wall-clock times between
+      // 08:00-09:00, making this test fail exactly once a day, every day.
+      persona: 'parent', location: 'home', timeOfDay: 'morning', gender: 'female', previewNow: dateFor(3),
     })).titleCandidates[0].score; // persona(+1) + location(+1) + timeOfDay(+1) + gender(+1) = 4
 
     const mismatchScore = (await resolveWorkoutMetadataWithCandidates({
-      persona: 'student', location: 'home', timeOfDay: 'morning', gender: 'female',
+      persona: 'student', location: 'home', timeOfDay: 'morning', gender: 'female', previewNow: dateFor(3),
     })).titleCandidates[0].score; // location(+1) + timeOfDay(+1) + gender(+1) - penalty(3) = 0
 
     expect(matchScore - mismatchScore).toBe(4); // the persona's own +1 AND the -3 penalty both apply
