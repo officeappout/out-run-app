@@ -639,3 +639,23 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 **לא תוקן. לא בסקופ Stage 2** — נבנה מסך/הודעה חדשה (Toast, badge על התרגיל, קו בתחתית הכרטיס — "לא נמצא תרגיל planche מתאים כרגע, הוספנו תרגיל דחיפה בסיסי") היא עבודת-UI נפרדת, לא חלק מהמנוע. עד אז — הפער מתועד ומאושר במפורש, לא נסתר.
 
 **איך מזהים אם זה קורה בפועל:** grep ל-`DECLARED_FALLBACK` ב-`pipelineLog`/בלוגים, או ל-`[SkillRepresentation] ⚠️ DECLARED FALLBACK` בקונסול.
+
+---
+
+## חוסם-2 (09.09.2026) — `ap.focusDomains` ו-`progression.skillFocusIds` אותו מקור בכתיבה, יכולים להתפצל בהרשמה-חוזרת — לא תוקן, הצעה בלבד
+
+**Opened:** 09.09.2026 · **Source:** דוד, שאלת חוסם — "אותו מערך או שני שדות? יש מסלול שבו הם מתפצלים?"
+
+**עובדה מאומתת (קובץ+שורה):** `onboarding-sync.service.ts` — `skillIds` הוא משתנה מקומי יחיד (`let`, שורה 1178, נקבע פעם אחת נוספת בשורה 1180, **אין עוד קריאת-השמה** בכל הקובץ). שתי נקודות-כתיבה, שתיהן קוראות מאותו משתנה בדיוק:
+- `activeProgramEntries.push({..., focusDomains: skillIds, ...})` — שורה 1420-1422/1435 (רק כש-`isPathCSkills && result.programId==='calisthenics_upper'`).
+- `skillFocusIds: skillIds` — שורה 1548 (רק כש-`isPathCSkills && skillIds.length>=2`).
+
+בכתיבה ראשונה (משתמש חדש) — **זהים לגמרי**, אותו אובייקט-מערך.
+
+**נתיב-התפצלות אמיתי, נמצא:** שורה 1403, `if (!existingProgramIds.has(result.programId))` — הדחיפה ל-`activeProgramEntries` (וממילא `focusDomains`) **מדלגת** אם `calisthenics_upper` **כבר** קיים ב-`activePrograms` הקיים של המשתמש (`existingProgramIds`, שורה 1307, נבנה מ-`updateData.progression?.activePrograms` הקיים). **אבל** שורה 1548 (`skillFocusIds: skillIds`) **לא** מוגנת באותו תנאי — נכתבת בכל פעם מחדש כש-`isPathCSkills && skillIds.length>=2`, **בלי תלות אם `calisthenics_upper` כבר קיים.**
+
+**המשמעות:** משתמש שעושה הרשמת-סקילים **פעם שנייה** (re-onboarding) עם **בחירת-סקילים שונה** מהפעם הראשונה — `progression.skillFocusIds` **מתעדכן** לבחירה החדשה, אבל `activePrograms[calisthenics_upper].focusDomains` **נשאר תקוע** על הבחירה הישנה (כי `existingProgramIds.has('calisthenics_upper')===true` בפעם השנייה, הדחיפה מדלגת). **`activeDomains`** (הנגזר מ-`focusDomains` דרך `buildActiveProgramFilters`) ו-**`skillPriority`** (הנגזר ישירות מ-`skillFocusIds`) יתבססו על **שתי בחירות-סקילים שונות** לאותו משתמש, מהרגע הזה והלאה.
+
+**לא נבדק/לא ידוע:** באיזו תדירות בפועל משתמשים עושים re-onboarding-סקילים עם בחירה שונה (יכול להיות נדיר מאוד בפועל) — לא נמדד, לא הונח.
+
+**הצעת-איחוד (לא יושמה, כנדרש):** לתקן את התנאי בשורה 1403/1428 כך שכש-`isPathCSkills && result.programId==='calisthenics_upper'`, גם אם `calisthenics_upper` כבר קיים — **לעדכן את `focusDomains` של הרשומה הקיימת** (find-and-replace בתוך `mergedActivePrograms`/`existingActivePrograms`), לא לדלג. זה ישמור את שני השדות מסונכרנים תמיד עם הבחירה העדכנית ביותר. חלופה שקולה: לגזור `activeDomains` בזמן-קריאה מ-`skillFocusIds` ישירות (לא דרך `focusDomains` הנפרד) — אבל זה שינוי גדול יותר (`buildActiveProgramFilters` נבנה סביב `ap.focusDomains`, לא `progression.skillFocusIds`). לא הוכרע איזו חלופה עדיפה — זו החלטת-דוד.
