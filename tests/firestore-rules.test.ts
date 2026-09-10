@@ -466,12 +466,18 @@ async function testActivityRules() {
 // function uses the Admin SDK and bypasses these rules entirely, same as
 // unitLeagueRollup writing unit_league_aggregates.
 async function testDailyActivityPublic() {
-  console.log('\ndailyActivityPublic — lean leaderboard mirror (SPEC-03 Wave A / SEC-02)');
+  console.log('\ndailyActivityPublic — lean leaderboard mirror (SPEC-03 Wave A / SEC-02; SPEC-04 Wave B age-scoping)');
 
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
+    await setDoc(doc(db, 'userAge', 'dap_reader'), { ageGroup: 'adult' });
+    await setDoc(doc(db, 'userAge', 'dap_reader_other_city'), { ageGroup: 'adult' });
+    await setDoc(doc(db, 'userAge', 'dap_minor_reader'), { ageGroup: 'minor' });
     await setDoc(doc(db, 'dailyActivityPublic', 'dap_owner_2026-09-09'), {
-      uid: 'dap_owner', displayName: 'Test User', steps: 8000, authorityId: 'city_a', date: '2026-09-09',
+      uid: 'dap_owner', displayName: 'Test User', steps: 8000, authorityId: 'city_a', date: '2026-09-09', ageGroup: 'adult',
+    });
+    await setDoc(doc(db, 'dailyActivityPublic', 'dap_minor_2026-09-09'), {
+      uid: 'dap_minor', displayName: 'Minor User', steps: 5000, authorityId: 'city_a', date: '2026-09-09', ageGroup: 'minor',
     });
   });
 
@@ -480,27 +486,43 @@ async function testDailyActivityPublic() {
     await assertFails(getDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_owner_2026-09-09')));
   });
 
-  await it('DAP2 — a different authenticated user reads it → ALLOW (this is the whole point — the leaderboard needs cross-user reads, and only the lean 5-field subset is exposed here)', async () => {
+  await it('DAP2 — a different authenticated user (same ageGroup) reads it → ALLOW (this is the whole point — the leaderboard needs cross-user reads, and only the lean 6-field subset is exposed here)', async () => {
     const ctx = env.authenticatedContext('dap_reader');
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_owner_2026-09-09')));
   });
 
-  await it('DAP3 — a reader from a DIFFERENT authorityId still reads it → ALLOW (deliberately not authorityId-scoped — see the rule comment for why: a real global-scope steps leaderboard view depends on this)', async () => {
+  await it('DAP3 — a reader from a DIFFERENT authorityId (same ageGroup) still reads it → ALLOW (deliberately not authorityId-scoped — see the rule comment for why: a real global-scope steps leaderboard view depends on this)', async () => {
     const ctx = env.authenticatedContext('dap_reader_other_city');
     await assertSucceeds(getDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_owner_2026-09-09')));
+  });
+
+  await it('DAP6 (SPEC-04 Wave B) — an adult reads a MINOR\'s dailyActivityPublic doc → DENY', async () => {
+    const ctx = env.authenticatedContext('dap_reader');
+    await assertFails(getDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_minor_2026-09-09')));
+  });
+
+  await it('DAP7 (SPEC-04 Wave B) — a minor reads an ADULT\'s dailyActivityPublic doc → DENY (reverse direction)', async () => {
+    const ctx = env.authenticatedContext('dap_minor_reader');
+    await assertFails(getDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_owner_2026-09-09')));
+  });
+
+  await it("DAP8 (SPEC-04 Wave B) — a LIST query WITHOUT the ageGroup=='adult' clause is rejected outright, matching getStepsLeaderboard's required where() shape", async () => {
+    const ctx = env.authenticatedContext('dap_reader');
+    const q = query(collection(ctx.firestore(), 'dailyActivityPublic'), where('date', '>=', '2026-09-01'));
+    await assertFails(getDocs(q));
   });
 
   await it('DAP4 — even the doc\'s own uid cannot write it client-side → DENY (admin/server-sync only)', async () => {
     const ctx = env.authenticatedContext('dap_owner');
     await assertFails(setDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_owner_2026-09-09'), {
-      uid: 'dap_owner', displayName: 'Forged Name', steps: 99999, authorityId: 'city_a', date: '2026-09-09',
+      uid: 'dap_owner', displayName: 'Forged Name', steps: 99999, authorityId: 'city_a', date: '2026-09-09', ageGroup: 'adult',
     }));
   });
 
   await it('DAP5 — admin writes it → ALLOW (matches the sync function\'s own trust level)', async () => {
     const ctx = env.authenticatedContext('tenant_admin_user');
     await assertSucceeds(setDoc(doc(ctx.firestore(), 'dailyActivityPublic', 'dap_admin_write_2026-09-09'), {
-      uid: 'dap_owner', displayName: 'Test User', steps: 8500, authorityId: 'city_a', date: '2026-09-09',
+      uid: 'dap_owner', displayName: 'Test User', steps: 8500, authorityId: 'city_a', date: '2026-09-09', ageGroup: 'adult',
     }));
   });
 }

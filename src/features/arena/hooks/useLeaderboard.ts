@@ -103,6 +103,17 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
           scopeId,
           currentUid: uid,
           currentName: profile?.core?.name,
+          // SPEC-04 Wave B — unlike the feed_posts-backed modes below
+          // (getDistanceLeaderboard etc., which default to 'adult' here
+          // with no matching rule-level age check on feed_posts to
+          // conflict with), dailyActivityPublic's new rule independently
+          // defaults an unresolved caller (e.g. a guest, no userAge/{uid}
+          // doc) to 'minor' via getUserAgeGroup(). Defaulting to 'adult'
+          // here would request a query shape the rule won't grant for
+          // that caller, rejecting the whole leaderboard outright instead
+          // of just filtering it — so this one MUST default to 'minor' to
+          // stay consistent with the rule it's actually gated by.
+          callerAgeGroup: extractFeedScope(profile).ageGroup ?? 'minor',
         });
       } else if (dataMode === 'distance') {
         const feedScope = extractFeedScope(profile);

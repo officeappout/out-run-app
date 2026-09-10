@@ -12,9 +12,21 @@
  * subset the feature actually needs to its own collection, and lock the
  * original down to owner-only.
  *
- * This collection mirrors ONLY `{uid, displayName, steps, authorityId,
- * date}` — nothing else. `dailyActivity` itself is now owner + admin only
- * (see firestore.rules).
+ * This collection mirrors `{uid, displayName, steps, authorityId, date,
+ * ageGroup}` — nothing else. `dailyActivity` itself is now owner + admin
+ * only (see firestore.rules).
+ *
+ * ageGroup (SPEC-04 Wave B, 10.09.2026)
+ * ───────────────────────────────────────
+ * getStepsLeaderboard (ranking.service.ts) queried this collection with no
+ * age boundary at all — a minor's real display name + step count was
+ * visible to any authenticated reader, the same underlying gap Wave A
+ * closed for presence and Wave B/D closed for userPublic search. Read from
+ * userAge/{uid} (never client-suppliable — same helper the rules use),
+ * batched the same way resolveRealAccountUids batches its Admin Auth
+ * lookup below. Fails to 'minor' on a missing doc or a lookup error —
+ * matches getUserAgeGroup()'s own fail-safe default, so an unresolved uid
+ * is never accidentally exposed to adults.
  *
  * Why scheduled, not a write-triggered mirror
  * ────────────────────────────────────────────
@@ -96,6 +108,37 @@ async function resolveRealAccountUids(uids: string[]): Promise<Set<string>> {
   return real;
 }
 
+/**
+ * Resolves ageGroup for each uid from userAge/{uid} — the same tiny
+ * rules-only doc the Firestore rules themselves read via getUserAgeGroup().
+ * Batched via getAll() (Admin SDK's multi-doc-ref read), 300 refs/call
+ * being comfortably under Firestore's per-request document-reference cap.
+ * A missing doc or a failed chunk defaults every uid in it to 'minor' —
+ * fail-closed, matching getUserAgeGroup()'s own rule-side default.
+ */
+async function resolveAgeGroups(uids: string[]): Promise<Map<string, 'minor' | 'adult'>> {
+  const result = new Map<string, 'minor' | 'adult'>();
+  const CHUNK = 300;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    const chunk = uids.slice(i, i + CHUNK);
+    try {
+      const refs = chunk.map((uid) => db.doc(`userAge/${uid}`));
+      const snaps = await db.getAll(...refs);
+      snaps.forEach((snap, idx) => {
+        const ageGroup = snap.exists ? (snap.data()?.ageGroup as string | undefined) : undefined;
+        result.set(chunk[idx], ageGroup === 'adult' ? 'adult' : 'minor');
+      });
+    } catch (err) {
+      logger.warn(
+        `[dailyActivityPublicSync] userAge lookup failed for a chunk of ${chunk.length} uid(s) — defaulting to 'minor' (fail-closed):`,
+        err,
+      );
+      chunk.forEach((uid) => result.set(uid, 'minor'));
+    }
+  }
+  return result;
+}
+
 export const dailyActivityPublicSync = onSchedule(
   { schedule: '0 */2 * * *', timeZone: 'Asia/Jerusalem' },
   async () => {
@@ -115,6 +158,7 @@ export const dailyActivityPublicSync = onSchedule(
       new Set(snap.docs.map((doc) => doc.data().userId as string | undefined).filter((v): v is string => !!v)),
     );
     const realUids = await resolveRealAccountUids(candidateUids);
+    const ageGroups = await resolveAgeGroups(candidateUids);
 
     let batch = db.batch();
     let batchCount = 0;
@@ -145,6 +189,7 @@ export const dailyActivityPublicSync = onSchedule(
         steps,
         authorityId,
         date: today,
+        ageGroup: ageGroups.get(uid) ?? 'minor',
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       written++;

@@ -499,6 +499,15 @@
       "collectionGroup": "dailyActivityPublic",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dailyActivityPublic",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ageGroup", "order": "ASCENDING" },
         { "fieldPath": "authorityId", "order": "ASCENDING" },
         { "fieldPath": "date", "order": "ASCENDING" }
       ]

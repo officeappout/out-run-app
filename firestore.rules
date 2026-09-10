@@ -636,7 +636,20 @@ service cloud.firestore {
     // collection's own pre-fix behavior for reads.
     // ============================================================
     match /dailyActivityPublic/{docId} {
-      allow read: if isAuthenticated();
+      // SPEC-04 Wave B: was unconditional — a minor's real displayName +
+      // step count was visible to any authenticated reader, same
+      // underlying gap as presence (Wave A) and userPublic search
+      // (Wave B/D). getStepsLeaderboard (ranking.service.ts) always adds
+      // where('ageGroup','==', callerAgeGroup), which is what keeps this
+      // provable for the `list` this collection is actually read through
+      // (unlike userPublic, nothing here does a get-by-known-id — verified
+      // via grep — so one condition covers the real usage, no get/list split
+      // needed). getUserAgeGroup() defaults an anonymous guest (no
+      // userAge/{uid} doc) to 'minor' — the guest-viewing policy above
+      // still holds, but a guest now sees the minor-scoped leaderboard
+      // slice rather than the full cross-age one, the same fail-safe
+      // direction as every other use of this helper in this file.
+      allow read: if isAuthenticated() && resource.data.ageGroup == getUserAgeGroup(request.auth.uid);
       allow write: if isRootAdmin() || isAdmin();
     }
 

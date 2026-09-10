@@ -560,15 +560,24 @@ export async function getStreakLeaderboard(params: {
  * getStreakLeaderboard: only 'city' (authorityId) is actually stamped on
  * these docs today, so 'park' and 'neighborhood' resolve to the correct
  * field name but return empty until that field is also stamped here.
+ *
+ * SPEC-04 Wave B (10.09.2026): dailyActivityPublicSync now also mirrors
+ * ageGroup, and this query requires `callerAgeGroup` and always filters
+ * where('ageGroup','==', callerAgeGroup) — the same pattern as the other
+ * ageGroup-scoped leaderboards in this file (getLeaderboard etc., which
+ * already did this). Required, not optional: the matching firestore.rules
+ * change on dailyActivityPublic needs this where() clause present to be
+ * provable at all for a list query.
  */
 export async function getStepsLeaderboard(params: {
   scope: LeaderboardScope;
   scopeId: string | null;
   currentUid: string;
   currentName?: string;
+  callerAgeGroup: 'minor' | 'adult';
   maxEntries?: number;
 }): Promise<LeaderboardResult> {
-  const { scope, scopeId, currentUid, currentName, maxEntries = 50 } = params;
+  const { scope, scopeId, currentUid, currentName, callerAgeGroup, maxEntries = 50 } = params;
 
   // Build date range strings YYYY-MM-DD for last 7 days
   const today = new Date();
@@ -579,6 +588,7 @@ export async function getStepsLeaderboard(params: {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const constraints: any[] = [
+    where('ageGroup', '==', callerAgeGroup),
     where('date', '>=', weekAgoStr),
     where('date', '<=', todayStr),
   ];
