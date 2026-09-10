@@ -23,21 +23,25 @@
  * 6. Admin per-channel switch — app_config/notification_configs.channels.{channel}.enabled.
  *    Fails OPEN on a read error (deliberately the opposite bias from the global switch
  *    above — see admin per-channel kill-switch section for why).
- * 7. Daily engagement cap (Stage 2, additive) — max DAILY_ENGAGEMENT_CAP pushes per
- *    user per calendar day, counted by notification SEMANTICS, not raw channel
- *    label: a send only counts when its channel is in ENGAGEMENT_CHANNELS
- *    (automated nudges/aggregate content) AND it isn't marked
- *    `isPersonalInteraction: true` (someone/something did X to/for this user —
- *    kudos, a group-join alert, the user's own achievement validation — the
- *    highest-value, lowest-annoyance category, per the Stage 2 refinement).
- *    Independent of feature 3's per-channel cap — a uid can be well under its
- *    per-channel cooldown on every individual channel and still get capped
- *    here once the cross-channel daily total is hit. `chat` (transactional)
- *    and `system` (operational) are exempt structurally, same as everywhere
- *    else in this file. `encouragement` (manual admin broadcasts) is still an
- *    open question; `progression` (level-up/streak/PR) is excluded at the
- *    channel level as pure validation — see ENGAGEMENT_CHANNELS's own doc
- *    comment for the full per-channel mapping and reasoning.
+ * 7. Daily engagement cap (Stage 2, additive; Stage 3 made the cap per-user) —
+ *    max N pushes per user per calendar day, counted by notification
+ *    SEMANTICS, not raw channel label: a send only counts when its channel
+ *    is in ENGAGEMENT_CHANNELS (automated nudges/aggregate content) AND it
+ *    isn't marked `isPersonalInteraction: true` (someone/something did X
+ *    to/for this user — kudos, a group-join alert, the user's own
+ *    achievement validation — the highest-value, lowest-annoyance category,
+ *    per the Stage 2 refinement). N itself comes from the user's own
+ *    `settings.notificationFrequency` ('min'|'balanced'|'high' → 1|3|6,
+ *    default 'balanced', hard-clamped to MAX_DAILY_CAP) — see
+ *    resolveDailyCap(). Independent of feature 3's per-channel cap — a uid
+ *    can be well under its per-channel cooldown on every individual channel
+ *    and still get capped here once the cross-channel daily total is hit.
+ *    `chat` (transactional) and `system` (operational) are exempt
+ *    structurally, same as everywhere else in this file. `encouragement`
+ *    (manual admin broadcasts) is still an open question; `progression`
+ *    (level-up/streak/PR) is excluded at the channel level as pure
+ *    validation — see ENGAGEMENT_CHANNELS's own doc comment for the full
+ *    per-channel mapping and reasoning.
  *
  * RATE CAP STORAGE
  * ────────────────
@@ -73,13 +77,35 @@ const QUIET_START_HOUR = 22;
 const QUIET_END_HOUR = 7;
 const TZ = 'Asia/Jerusalem';
 
-// ─── Stage 2 — global daily engagement cap (additive, does not touch the
+// ─── Stage 2 — daily engagement cap (additive, does not touch the
 // per-channel rate cap above) ──────────────────────────────────────────────
-// Single tunable constant — max ENGAGEMENT_CHANNELS pushes per user per
-// calendar day (Asia/Jerusalem, same TZ convention as quiet hours). Proposed
-// value pending David's confirmation; see push.service.ts's module header
-// for the full design note.
-const DAILY_ENGAGEMENT_CAP = 3;
+// Stage 3 (09.09.2026): the cap is now PER-USER, driven by
+// users/{uid}.settings.notificationFrequency ('min'|'balanced'|'high'), not
+// a single constant — see notification-prefs.service.ts / SettingsModal.tsx
+// for the UI. Unset/unrecognized values default to 'balanced'. MAX_DAILY_CAP
+// is a hard safety ceiling independent of the mapping below, so a future
+// bad value (config typo, manual Firestore edit) can never push the cap
+// past a sane bound.
+type NotificationFrequency = 'min' | 'balanced' | 'high';
+
+const FREQUENCY_DAILY_CAPS: Record<NotificationFrequency, number> = {
+  min: 1,
+  balanced: 3,
+  high: 6,
+};
+
+const MAX_DAILY_CAP = 6;
+
+function isNotificationFrequency(v: unknown): v is NotificationFrequency {
+  return v === 'min' || v === 'balanced' || v === 'high';
+}
+
+/** Resolve a user's daily engagement cap from their settings, clamped to MAX_DAILY_CAP. */
+function resolveDailyCap(settings: Record<string, unknown> | undefined): number {
+  const freq = settings?.notificationFrequency;
+  const cap = isNotificationFrequency(freq) ? FREQUENCY_DAILY_CAPS[freq] : FREQUENCY_DAILY_CAPS.balanced;
+  return Math.min(cap, MAX_DAILY_CAP);
+}
 
 /**
  * Channels that CAN carry a NUDGE/AGGREGATE event and so participate in the
@@ -264,7 +290,7 @@ export interface SendPushOpts {
    * person (or the user's own completed achievement) is the direct subject
    * of this push, as opposed to an app-initiated NUDGE or an aggregate/
    * discovery message. Exempts this specific send from the daily
-   * engagement cap (DAILY_ENGAGEMENT_CAP) — the check AND the counter
+   * engagement cap (see resolveDailyCap()) — the check AND the counter
    * increment are both skipped, same treatment as `chat`. Channel
    * membership in ENGAGEMENT_CHANNELS is necessary but not sufficient: a
    * channel can carry a MIX of personal and nudge events (e.g. `social`
@@ -415,15 +441,19 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
         }
       }
 
-      // ── Stage 2: daily engagement cap (additive — independent of the
-      // per-channel rate cap above, ENGAGEMENT_CHANNELS only) ──────────────
+      // ── Stage 2/3: daily engagement cap (additive — independent of the
+      // per-channel rate cap above, ENGAGEMENT_CHANNELS only). Cap NUMBER is
+      // per-user (Stage 3) via settings.notificationFrequency; which sends
+      // are even subject to it (isEngagementChannel) is unchanged. ────────
       if (isEngagementChannel) {
+        const settings = (userData?.settings ?? {}) as Record<string, unknown>;
+        const dailyCap = resolveDailyCap(settings);
         const rateData = rateByUid.get(uid);
         const storedDate = rateData?.dailyEngagementDate;
         const storedCount = typeof rateData?.dailyEngagementCount === 'number' ? rateData.dailyEngagementCount : 0;
-        if (storedDate === todayKey && storedCount >= DAILY_ENGAGEMENT_CAP) {
+        if (storedDate === todayKey && storedCount >= dailyCap) {
           result.skippedDailyCap++;
-          logger.info(`[push.service] uid=${uid} daily engagement cap reached (channel=${channel}, count=${storedCount})`);
+          logger.info(`[push.service] uid=${uid} daily engagement cap reached (channel=${channel}, count=${storedCount}, cap=${dailyCap})`);
           continue;
         }
       }
