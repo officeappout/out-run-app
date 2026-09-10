@@ -921,7 +921,24 @@ export class WorkoutGenerator {
         // panel (2026-09-09) — this codebase does not decide exercise
         // tagging, see parking-lot.md's "known & approved" entry for the
         // 5 confirmed real cases this surfaced.
-        if (tagDomain && mgDomain && tagDomain !== mgDomain) {
+        //
+        // 2026-09-10 fix (David, real device run): mgDomain and tagDomain
+        // disagreeing is NOT itself a conflict — it's the expected, normal
+        // shape for every correctly-tagged skill exercise (movementGroup
+        // gives the generic category, e.g. 'push', while the tag gives the
+        // specific skill, e.g. 'planche' — direct parent-child, not a
+        // mismatch). The original condition fired on ALL of these (every
+        // skill exercise in the catalog), burying the 5 genuine cross-branch
+        // cases (core vs push, no ancestor relationship at all) under
+        // hundreds of false positives. Only fire when mgDomain and
+        // tagDomain are in DIFFERENT branches — neither equal, nor one the
+        // other's direct parent via _TEMP_SKILL_PARENT_MAP (checked both
+        // directions, since MG_TO_DOMAIN can itself resolve straight to a
+        // skill slug for some movementGroups, not just push/pull/legs/core).
+        const isAncestorRelated = tagDomain === mgDomain
+          || _TEMP_SKILL_PARENT_MAP[tagDomain ?? ''] === mgDomain
+          || _TEMP_SKILL_PARENT_MAP[mgDomain ?? ''] === tagDomain;
+        if (tagDomain && mgDomain && !isAncestorRelated) {
           console.warn(`[DomainMismatch] "${getLocalizedText(exercise.name)}" mg=${mgDomain} → domain=${tagDomain}. Check tagging.`);
         }
         const targetDomain = tagDomain ?? mgDomain;
