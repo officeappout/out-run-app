@@ -661,7 +661,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       sees after the hero/metadata row. */}
                   <section className="mb-6">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-[15px] font-bold flex items-center gap-1.5">
+                      <h3 className="text-[15px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
                         <Calendar size={14} className="text-emerald-500" />
                         <span>מתאמנים</span>
                         {parkEvents.length > 0 && (
@@ -865,7 +865,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       asset → lucide vector → emoji placeholder
                       (see `amenity-icons.ts`). */}
                   <section className="mb-6">
-                    <h3 className="text-[16px] font-bold mb-3">פירוט על הפארק</h3>
+                    <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">פירוט על הפארק</h3>
                     {park.featureTags && park.featureTags.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {AMENITY_DISPLAY_ORDER
@@ -910,7 +910,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       lands on the right brand variant out of the gate. */}
                   {parkEquipment.length > 0 && (
                     <section className="mb-6">
-                      <h3 className="text-[16px] font-bold mb-3">מתקנים</h3>
+                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">מתקנים</h3>
                       <div className="grid grid-cols-2 gap-2">
                         {parkEquipment.map((eq) => {
                           const parkRef = park.gymEquipment?.find(
@@ -938,7 +938,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       + review snapshots). Stays at the bottom. */}
                   {photoGallery.length > 1 && (
                     <section className="mb-6">
-                      <h3 className="text-[16px] font-bold mb-3">תמונות</h3>
+                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">תמונות</h3>
                       <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-hide">
                         {photoGallery.map((url, i) => (
                           <button
@@ -998,7 +998,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                   {/* Reviews list */}
                   {reviews.filter(r => r.rating).length > 0 && (
                     <section className="mb-4">
-                      <h3 className="text-[16px] font-bold mb-3">ביקורות</h3>
+                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">ביקורות</h3>
                       <div className="space-y-3">
                         {reviews.filter(r => r.rating).slice(0, 6).map(review => (
                           <div key={review.id} className="bg-gray-50 dark:bg-slate-800/40 rounded-xl p-3.5" style={{ border: '0.5px solid #E0E9FF' }}>
