@@ -36,10 +36,15 @@ const DAY_FILTER_LABELS: Record<DayFilter, string> = {
 };
 
 const DRAWER_HEIGHT = '92vh';
-/** px the sheet is offset at initial open to show ~85 vh (92 - 85 = 7 vh). */
+/**
+ * The sheet now opens directly at full height (y: 0) and returns there on
+ * any drag release short of CLOSE_THRESHOLD — there is no separate "peek"
+ * resting state. PEEK_Y_PX only sets where the header's fade-out starts as
+ * the sheet is dragged down toward close (see the `opacity` useTransform
+ * below); it is not a snap target anymore.
+ */
 const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.07) : 57;
 const CLOSE_THRESHOLD = 120;
-const EXPAND_THRESHOLD = 60;
 
 const FACILITY_LABELS: Record<string, string> = {
   gym_park: 'גינת כושר', court: 'מגרש ספורט', route: 'מסלול',
@@ -121,8 +126,11 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
     (v) => (v < 0.1 ? 'none' : 'auto') as 'none' | 'auto',
   );
 
-  // Instagram-style scroll chain: intercepts down-swipe at scrollTop=0
-  useSheetScrollChain({ isOpen, y, onClose, scrollRef, snapBackY: PEEK_Y_PX });
+  // Instagram-style scroll chain: intercepts down-swipe at scrollTop=0.
+  // Snaps back to the full-height rest position (0), not the peek offset —
+  // see the DRAWER_HEIGHT/PEEK_Y_PX comment above for why the sheet no
+  // longer rests at peek.
+  useSheetScrollChain({ isOpen, y, onClose, scrollRef, snapBackY: 0 });
 
   const [reviews, setReviews] = useState<UserContribution[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -472,10 +480,11 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
     if (offset > CLOSE_THRESHOLD || velocity > 500) {
       onClose();
-    } else if (offset < -EXPAND_THRESHOLD) {
-      animate(y, 0, SPRING);
     } else {
-      animate(y, PEEK_Y_PX, SPRING);
+      // Any release short of the close threshold returns to the full-height
+      // rest position — the sheet no longer has a separate "peek" resting
+      // state (see DRAWER_HEIGHT/PEEK_Y_PX comment above).
+      animate(y, 0, SPRING);
     }
   };
 
@@ -532,7 +541,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
               dragMomentum={false}
               onDragEnd={handleDragEnd}
               initial={{ y: '100%' }}
-              animate={{ y: PEEK_Y_PX }}
+              animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{ y, opacity, height: DRAWER_HEIGHT, maxHeight: '92vh', willChange: 'transform' }}
