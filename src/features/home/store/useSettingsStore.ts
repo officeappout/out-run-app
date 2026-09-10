@@ -21,6 +21,8 @@ export interface SettingsData {
   retentionNotif: boolean;
   trainingReminderNotif: boolean;
   encouragementNotif: boolean;
+  /** How many engagement-channel nudges/day — mirrors `settings.notificationFrequency` */
+  notificationFrequency: 'min' | 'balanced' | 'high';
 }
 
 interface SettingsState extends SettingsData {
@@ -49,6 +51,7 @@ const DEFAULTS: SettingsData = {
   retentionNotif: true,
   trainingReminderNotif: true,
   encouragementNotif: true,
+  notificationFrequency: 'balanced',
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
