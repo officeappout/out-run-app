@@ -34,6 +34,10 @@ const ERROR_MAP: Record<string, string> = {
   maximum: 'קוד הגישה הגיע למכסה המקסימלית.',
   precondition: 'קוד הגישה אינו פעיל יותר.',
   'no longer active': 'קוד הגישה אינו פעיל יותר.',
+  // SPEC-04 Wave C: validateAccessCode's own age-gate rejections. Neither
+  // message text overlaps any key above, so match order doesn't matter here.
+  'complete your profile': 'יש להשלים את הפרופיל שלך (כולל תאריך לידה) לפני הזנת קוד גישה.',
+  'under-minimum-age': 'לא ניתן להשתמש בקוד גישה בשלב זה.',
 };
 
 function mapError(err: any): string {

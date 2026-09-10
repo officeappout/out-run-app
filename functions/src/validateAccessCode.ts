@@ -9,6 +9,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { isBlocked, recordFailure, recordSuccess } from './lib/accessCodeRateLimit';
+import { checkAccessCodeAgeGate } from './lib/checkAccessCodeAgeGate';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -48,6 +49,28 @@ export const validateAccessCode = onCall(
 
       const uid = request.auth.uid;
       logger.info('[validateAccessCode] Authenticated uid:', uid);
+
+      // ── SPEC-04 Wave C (POLICY-01, 10.09.2026): a school/access code must
+      // never be able to override the under-14 age floor. This function
+      // writes core.tenantId/unitId/tenantType (arena/create's "school"
+      // surface is a live tenantType:'educational' redemption path) with
+      // only an auth check — completely independent of
+      // /api/user/complete-profile's own age gate. See
+      // checkAccessCodeAgeGate.ts for the two real bypasses this closes.
+      const userSnapForAgeCheck = await db.collection('users').doc(uid).get();
+      const ageGate = checkAccessCodeAgeGate(userSnapForAgeCheck.data()?.core?.birthDate);
+
+      if (!ageGate.allowed) {
+        if (ageGate.reason === 'no-birthdate') {
+          logger.warn('[validateAccessCode] Rejected — caller has no verified birthDate on file (age gate never run)');
+          throw new HttpsError(
+            'failed-precondition',
+            'Please complete your profile (including date of birth) before entering an access code.',
+          );
+        }
+        logger.warn('[validateAccessCode] Rejected — caller is under the minimum age floor');
+        throw new HttpsError('permission-denied', 'under-minimum-age');
+      }
 
       // ── SPEC-01 task 4 / SPEC-02: attempt rate limiting ──
       // 10 failures in 15 min -> blocked for 1h, tracked by BOTH uid and
