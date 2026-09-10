@@ -561,12 +561,15 @@ const DELETE_BATCH_OP_LIMIT = 500;
  * `chats/group_{groupId}` thread (chat.service.ts's makeGroupChatId) and
  * that thread's `messages`, its `attendance` subcollection (only
  * ephemeral run-invite groups from /api/invite/run-session have one — a
- * harmless no-op for every other group), and — for every member — the
- * deleted-groupId reference in `users/{uid}.social.groupIds` and
- * `user_memberships/{uid}`. The two user-doc writes mirror
- * joinEngine.ts's exact 4b/4c write shape in reverse (arrayRemove instead
- * of arrayUnion), including its precise mergeFields scoping, so a delete
- * undoes exactly what a join wrote.
+ * harmless no-op for every other group), its `private/invite` doc (SPEC-01
+ * task 2 — this subcollection didn't exist yet when the delete contract
+ * above was written, so it was missed for the same reason every other
+ * item on this list was added: an orphan found after the fact, not a
+ * design choice), and — for every member — the deleted-groupId reference
+ * in `users/{uid}.social.groupIds` and `user_memberships/{uid}`. The two
+ * user-doc writes mirror joinEngine.ts's exact 4b/4c write shape in
+ * reverse (arrayRemove instead of arrayUnion), including its precise
+ * mergeFields scoping, so a delete undoes exactly what a join wrote.
  *
  * Reads members/chat/messages/attendance BEFORE building the batch, which
  * makes this idempotent: calling it again on an already-deleted group
@@ -595,6 +598,9 @@ export async function deleteGroup(groupId: string): Promise<void> {
       : null;
     const messageCount = messagesSnap?.size ?? 0;
 
+    const inviteRef = doc(db, GROUPS_COLLECTION, groupId, 'private', 'invite');
+    const inviteSnap = await getDoc(inviteRef);
+
     const attendanceSnap = await getDocs(collection(db, GROUPS_COLLECTION, groupId, 'attendance'));
     // member_statuses is a third-level subcollection under each attendance
     // doc (session-phase.service.ts) — read all of them up front so their
@@ -610,6 +616,7 @@ export async function deleteGroup(groupId: string): Promise<void> {
       memberUids.length * 2 /* user_memberships set + users set, per member */ +
       (chatSnap.exists() ? 1 : 0) /* chat doc delete */ +
       messageCount /* message doc deletes */ +
+      (inviteSnap.exists() ? 1 : 0) /* private/invite doc delete */ +
       attendanceSnap.size /* attendance doc deletes */ +
       memberStatusesCount; /* member_statuses doc deletes */
 
@@ -659,6 +666,9 @@ export async function deleteGroup(groupId: string): Promise<void> {
     }
     if (chatSnap.exists()) {
       batch.delete(chatRef);
+    }
+    if (inviteSnap.exists()) {
+      batch.delete(inviteRef);
     }
     for (const statusesSnap of memberStatusesSnaps) {
       for (const statusDoc of statusesSnap.docs) {
