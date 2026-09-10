@@ -61,12 +61,18 @@ export { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP };
 
 // ⚠️ TEMPORARY duplicate of home-workout.service.ts's local `_SKILL_PARENT_MAP`
 // (function-scoped there, not exportable without a larger refactor). Mirrors
-// it exactly — do NOT let the two drift. This is a fourth/fifth instance of
-// the same "who's the parent of whom" concept already tracked in
-// parking-lot.md's "חמישה מבנים, אותה שאלה, תשובות שונות" — NOT unified here,
-// by explicit instruction (David, 08.09.2026: unification is its own future
-// round). When that unification happens, repoint this constant at whatever
-// replaces it.
+// it exactly — do NOT let the two drift. This is the 3rd of (at least) 4
+// live copies of the exact same skill→parent content in this codebase —
+// `_CU_SKILL_PARENT` and `_SKILL_PARENT_MAP` (both home-workout.service.ts)
+// and `SKILL_TO_FOUNDATION_DOMAIN` (onboarding-sync.service.ts, same data,
+// different shape/purpose) — full inventory in parking-lot.md's "חמישה
+// מבנים, אותה שאלה" entry (10.09.2026; NOT unified here, by explicit
+// instruction). "TEMP" stays in the name because there is no APPROVED
+// unification plan yet, not just a vague intention — a real one (module-
+// scope, single exported source, the other 3 repointed at it) is proposed
+// but undecided in that same entry. When one is approved, repoint this
+// constant (and drop TEMP) at whatever replaces it — do not let the name go
+// stale relative to reality in either direction.
 const _TEMP_SKILL_PARENT_MAP: Record<string, string> = {
   planche: 'push', handstand: 'push', handstand_pushup: 'push',
   front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',

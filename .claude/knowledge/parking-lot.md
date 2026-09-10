@@ -768,3 +768,24 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 **ההנחה שעליה ההחלטה נשענת, במפורש (לתשומת-לב עתידית):** תקף כל עוד שאלון-הסקיל ושאלון-תוכנית-ההורה מודדים יכולת דומה במבנה. **אם שאלון-הסקילים ישתנה מהותית — ההסקה `skill+9 → רמת-הורה` צריכה בדיקה מחדש**, לא להישאר בהנחה-שקטה שההיסט עדיין תקף.
 
 **לא נוסף guard. לא שונה קוד.** מנגנון `SKILL_TO_FOUNDATION_OFFSET=9` (`onboarding-sync.service.ts:77-98`) נשאר בדיוק כפי שהוא.
+
+---
+
+## ⚠️ תיקון-רשומה — "חמישה מבנים, אותה שאלה" נזכר בקוד אך לא היה קיים בקובץ הזה, עד עכשיו — 10.09.2026
+
+**Opened:** 10.09.2026 · **Source:** דוד, שאלה על `_TEMP_SKILL_PARENT_MAP` — "השם אומר TEMP. סוקר ישאל זמני עד מתי." תוך-כדי מענה נמצא שהתגובה-בקוד עצמה (docstring, `workout-selection.utils.ts`) מפנה במפורש לרשומה **בקובץ הזה** ("ראו parking-lot.md's 'חמישה מבנים, אותה שאלה, תשובות שונות'") — **אבל הרשומה הזו לא הייתה קיימת בפועל** (נבדק בגרep מלא על כל `.claude/knowledge/`, אפס תוצאות, לפני התיקון הזה). ככל הנראה נדונה בעל-פה מוקדם יותר באותה שיחה ארוכה ולא הגיעה בפועל לכתיבה — תיעוד-חוב מפורש נגד קוד שמפנה לרשומה-שלא-קיימת.
+
+**המפה עצמה (skill → הורה ביומכני) קיימת פיזית 4 פעמים, מאומת עכשיו בקוד החי (לא משוער):**
+
+| מיקום | שם | היקף |
+|---|---|---|
+| `workout-selection.utils.ts:70` | `_TEMP_SKILL_PARENT_MAP` | module-scope, **exported** — הגרסה החדשה מהיום, הבסיס ל-`resolveExerciseDomain` |
+| `home-workout.service.ts:1992` | `_CU_SKILL_PARENT` | function-scope, לא exported — **הערת-הקוד שם עצמה** אומרת "mirrors `_SKILL_PARENT_MAP` defined later in this file; duplicated here to avoid a forward-reference dependency" — כלומר הכפילות **הזו** תועדה כמכוונת ומודעת עוד לפני היום |
+| `home-workout.service.ts:2151` | `_SKILL_PARENT_MAP` | function-scope, לא exported |
+| `onboarding-sync.service.ts:89` | `SKILL_TO_FOUNDATION_DOMAIN` | module-scope, לא exported — צורה שונה (`Record<string,'push'\|'pull'>`, לא `Record<string,string>`), תוכן-מידע זהה, שימוש שונה (גזירת-רמה, לא רזולוציית-דומיין) |
+
+תוכן זהה בכל הארבע (planche/handstand/handstand_pushup→push, front_lever/back_lever/muscle_up/one_arm_pullup→pull) — מאומת שורה-מול-שורה, לא רק "כנראה זהה".
+
+**קרוב-משפחה, לא זהה:** `DOMAIN_ALIAS_MAP`/`DOMAIN_PARENT_MAP` (`workout-selection.utils.ts`) — מבנה-נתונים שונה (הורה→ילדים, לא סקיל→הורה-יחיד), וכולל גם ערכים לא-סקיל (`lower_body→legs`, `upper_body→push/pull`). לא נספר כ"אותה מפה" — קשור מושגית, לא כפילות ישירה.
+
+**לא הוצע איחוד קונקרטי כאן — תיעוד-מצב בלבד, כנדרש (דוד: "אל תיישם").** `_TEMP_SKILL_PARENT_MAP` נשאר עם קידומת TEMP כי אין עדיין תוכנית-איחוד קונקרטית לארבעת המבנים — לא רק ניחוש/כוונה כללית. אם/כשמתבצע איחוד — יעד סביר הוא מיקום module-scope, exported יחיד (כמו `_TEMP_SKILL_PARENT_MAP` כבר היום) שכל שאר השלושה מפנים אליו, אבל **זו הצעה לא-מוכרעת**, לא תוכנית מאושרת.
