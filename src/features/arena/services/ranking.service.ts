@@ -765,15 +765,44 @@ function getMonthPeriod(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' }).slice(0, 7);
 }
 
+/**
+ * SPEC-04 Wave B (10.09.2026): leaderboard_shards carries no ageGroup field
+ * (neither onFeedPostCreate nor onWorkoutCreate stamp one — verified via
+ * grep), so unlike presence/userPublic-search/dailyActivityPublic this
+ * collection has no rules-level age boundary. tenantType can be
+ * 'educational' (see admin/organizations/page.tsx), and
+ * seed-military-school-demo.ts confirms real school tenants seed minors
+ * with core.ageGroup:'minor' + tenantId/unitId — so this genuinely mixes
+ * ages, unlike a military-reservist-only tenant.
+ *
+ * Proportionate fix, not the full presence/steps-leaderboard treatment:
+ * cross-age uids are excluded from the name-resolution step below (which
+ * already does one getDoc(userPublic, uid) per shown row — ageGroup is
+ * read off that SAME doc, no extra read) — so the thing that actually
+ * matters (a minor's real NAME reaching an adult's screen) never happens,
+ * without a third Cloud-Function-write + rule + index + backfill cycle for
+ * what's a lower-traffic, niche org leaderboard rather than a primary
+ * daily surface. (userAge/{uid} was considered instead but is
+ * isOwner-or-admin-only per its own rule — unusable for resolving OTHER
+ * users' ageGroup client-side; userPublic's unrestricted get() is what
+ * makes this approach work at all.) The bare {uid, activeDays, workouts}
+ * rows from leaderboard_shards itself are still fetched into the client
+ * before this filter runs (not query-level enforcement — a modified
+ * client could see them, and a cross-age uid can still occupy one of the
+ * ranked slots even though its name is hidden), a smaller residual gap
+ * than the name leak this closes. Flagged for a decision on whether the
+ * full treatment is worth it for this feature.
+ */
 export async function getTenantLeaderboard(params: {
   tenantId: string;
   /** Omit / null → tenant-wide (aggregate across all units). */
   unitId?: string | null;
   currentUid: string;
   currentName?: string;
+  callerAgeGroup: 'minor' | 'adult';
   maxEntries?: number;
 }): Promise<LeaderboardResult> {
-  const { tenantId, unitId, currentUid, currentName, maxEntries = 50 } = params;
+  const { tenantId, unitId, currentUid, currentName, callerAgeGroup, maxEntries = 50 } = params;
   const period = getMonthPeriod();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -812,28 +841,42 @@ export async function getTenantLeaderboard(params: {
   // everyone else.
   const nameMap = new Map<string, string>();
   if (currentName) nameMap.set(currentUid, currentName);
+  // SPEC-04 Wave B: excluded, not just name-hidden — resolvedAgeGroup is
+  // read off the SAME userPublic doc this loop already fetches for the
+  // name, so a cross-age uid's entire row (not just its display name) is
+  // dropped below, before it ever reaches the client's rendered list.
+  const excludedForAge = new Set<string>();
   const uidsToLookUp = new Set<string>(sliced.map(([uid]) => uid));
   uidsToLookUp.delete(currentUid);
   await Promise.all(
     Array.from(uidsToLookUp).map(async (uid) => {
       try {
         const u = await getDoc(doc(db, 'userPublic', uid));
-        nameMap.set(uid, (u.data()?.name as string) || 'משתמש');
+        const data = u.data();
+        if ((data?.ageGroup as string | undefined) !== callerAgeGroup) {
+          excludedForAge.add(uid);
+          return;
+        }
+        nameMap.set(uid, (data?.name as string) || 'משתמש');
       } catch {
-        nameMap.set(uid, 'משתמש');
+        // Unresolvable — fail closed, same as an age mismatch: exclude
+        // rather than show a mystery row with a placeholder name.
+        excludedForAge.add(uid);
       }
     }),
   );
   if (!nameMap.has(currentUid)) nameMap.set(currentUid, 'משתמש');
 
-  const entries: LeaderboardEntry[] = sliced.map(([uid, { activeDays, workouts }], idx) => ({
-    rank: idx + 1,
-    uid,
-    name: uid === currentUid ? currentName ?? nameMap.get(uid) ?? 'את/ה' : nameMap.get(uid) ?? 'משתמש',
-    totalCredit: activeDays, // score = active days this month
-    workoutCount: workouts,
-    isCurrentUser: uid === currentUid,
-  }));
+  const entries: LeaderboardEntry[] = sliced
+    .filter(([uid]) => uid === currentUid || !excludedForAge.has(uid))
+    .map(([uid, { activeDays, workouts }], idx) => ({
+      rank: idx + 1,
+      uid,
+      name: uid === currentUid ? currentName ?? nameMap.get(uid) ?? 'את/ה' : nameMap.get(uid) ?? 'משתמש',
+      totalCredit: activeDays, // score = active days this month
+      workoutCount: workouts,
+      isCurrentUser: uid === currentUid,
+    }));
 
   let myEntry = entries.find((e) => e.isCurrentUser) ?? null;
   if (!myEntry && currentUid) {

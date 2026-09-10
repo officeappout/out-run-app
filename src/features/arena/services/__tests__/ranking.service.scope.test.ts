@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const state = vi.hoisted(() => ({
   STREAKS: [] as { id: string; currentStreak: number; authorityId?: string; parkId?: string; neighborhoodId?: string; displayName?: string }[],
-  DAILY: [] as { id: string; uid: string; steps: number; date: string; authorityId?: string; parkId?: string; neighborhoodId?: string; displayName?: string }[],
+  DAILY: [] as { id: string; uid: string; steps: number; date: string; authorityId?: string; parkId?: string; neighborhoodId?: string; displayName?: string; ageGroup?: string }[],
   whereClauses: [] as { field: string; op: string; value: unknown }[],
 }));
 
@@ -128,11 +128,14 @@ describe('getStepsLeaderboard — scoped by the correct field, not always author
 
   it('park scope filters by parkId, not authorityId (the original bug)', async () => {
     state.DAILY = [
-      { id: 'd1', uid: 'u1', steps: 5000, date: today, parkId: 'park-1', displayName: 'A' },
-      { id: 'd2', uid: 'u2', steps: 9000, date: today, authorityId: 'city-1', displayName: 'B' },
+      { id: 'd1', uid: 'u1', steps: 5000, date: today, parkId: 'park-1', displayName: 'A', ageGroup: 'adult' },
+      { id: 'd2', uid: 'u2', steps: 9000, date: today, authorityId: 'city-1', displayName: 'B', ageGroup: 'adult' },
     ];
 
-    const result = await getStepsLeaderboard({ scope: 'park', scopeId: 'park-1', currentUid: 'x' });
+    // callerAgeGroup required since SPEC-04 Wave B added age-scoping to this
+    // query — 'adult' here to match the fixture and isolate this test to
+    // the pre-existing park-vs-authorityId scope-field bug it targets.
+    const result = await getStepsLeaderboard({ scope: 'park', scopeId: 'park-1', currentUid: 'x', callerAgeGroup: 'adult' });
 
     expect(state.whereClauses).toContainEqual({ field: 'parkId', op: '==', value: 'park-1' });
     expect(result.entries.map((e) => e.uid)).toEqual(['u1']);
@@ -140,11 +143,11 @@ describe('getStepsLeaderboard — scoped by the correct field, not always author
 
   it('neighborhood scope filters by neighborhoodId', async () => {
     state.DAILY = [
-      { id: 'd1', uid: 'u1', steps: 4000, date: today, neighborhoodId: 'nb-1', displayName: 'A' },
-      { id: 'd2', uid: 'u2', steps: 9000, date: today, authorityId: 'city-1', displayName: 'B' },
+      { id: 'd1', uid: 'u1', steps: 4000, date: today, neighborhoodId: 'nb-1', displayName: 'A', ageGroup: 'adult' },
+      { id: 'd2', uid: 'u2', steps: 9000, date: today, authorityId: 'city-1', displayName: 'B', ageGroup: 'adult' },
     ];
 
-    const result = await getStepsLeaderboard({ scope: 'neighborhood', scopeId: 'nb-1', currentUid: 'x' });
+    const result = await getStepsLeaderboard({ scope: 'neighborhood', scopeId: 'nb-1', currentUid: 'x', callerAgeGroup: 'adult' });
 
     expect(state.whereClauses).toContainEqual({ field: 'neighborhoodId', op: '==', value: 'nb-1' });
     expect(result.entries.map((e) => e.uid)).toEqual(['u1']);

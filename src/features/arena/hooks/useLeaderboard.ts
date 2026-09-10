@@ -79,6 +79,14 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
           unitId: null, // tenant-wide for the MVP; unit drill-down is a follow-up
           currentUid: uid,
           currentName: profile?.core?.name,
+          // SPEC-04 Wave B — unlike dailyActivityPublic's rule-enforced
+          // steps leaderboard below, this filter runs client-side only
+          // (no matching firestore.rules change — see getTenantLeaderboard's
+          // own comment on why), so there's no PERMISSION_DENIED risk from
+          // either default. Still defaults to 'minor' for an unresolved
+          // caller — the more restrictive cohort — matching this whole
+          // spec's fail-closed convention rather than assuming adult.
+          callerAgeGroup: extractFeedScope(profile).ageGroup ?? 'minor',
         });
       } else if (scope === 'league' && scopeId) {
         // Group leaderboard — scopeId is the community group ID

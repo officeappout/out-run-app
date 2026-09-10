@@ -8,7 +8,21 @@
  *  - /challenge/[inviteCode]/done  — to show the user's rank after completing
  *  - /booth/display                — plasma screen, polled every 8 s
  *
- * No rate-limit: Admin SDK only, read-only, no sensitive user data exposed.
+ * SPEC-04 Wave B (10.09.2026): this route has no caller identity at all (no
+ * auth), so it can't be scoped by "caller's own ageGroup" like every other
+ * leaderboard fixed under this spec — there's no caller to match against.
+ * challenge_submissions does carry each participant's real ageGroup
+ * ('minor'|'adult', stamped from users/{uid}.core.ageGroup — see
+ * challenge/submit/route.ts), so `ageGroup` was being returned to the open
+ * internet paired with the participant's real name, on an unauthenticated
+ * endpoint — worse than any of the other gaps this spec closed, since there
+ * isn't even a login wall. Dropped from the response entirely: verified via
+ * grep that neither consumer reads `.ageGroup` from a row (booth/display's
+ * own LeaderboardRow type declared it but never rendered it) — removing the
+ * field changes zero visible behavior for either screen while closing the
+ * "this named child is a minor" tag being broadcast unauthenticated. WHO
+ * appears is untouched (no row is added/removed by this change), so this is
+ * a field-removal, not a screen-emptying change.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -21,7 +35,6 @@ export interface LeaderboardRow {
   rank: number;
   uid: string;
   name: string;
-  ageGroup: string;
   gender: string;
   bestValue: number;       // raw seconds
   displayTime: string;     // "1:12" or "47s"
@@ -69,7 +82,6 @@ export async function GET(request: NextRequest) {
           rank: idx + 1,
           uid: doc.id,
           name: d.name ?? 'משתתף',
-          ageGroup: d.ageGroup ?? 'adult',
           gender: d.gender ?? 'other',
           bestValue: d.bestValue ?? 0,
           displayTime: formatSeconds(d.bestValue ?? 0),
@@ -84,7 +96,6 @@ export async function GET(request: NextRequest) {
           rank: idx + 1,
           uid: doc.id,
           name: d.name ?? 'משתתף',
-          ageGroup: d.ageGroup ?? 'adult',
           gender: d.gender ?? 'other',
           bestValue: d.bestValue ?? 0,
           displayTime: formatSeconds(d.bestValue ?? 0),

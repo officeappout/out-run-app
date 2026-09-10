@@ -16,7 +16,6 @@ interface LeaderboardRow {
   rank: number;
   uid: string;
   name: string;
-  ageGroup: 'minor' | 'adult';
   gender: 'male' | 'female' | 'other';
   bestValue: number;
   displayTime: string;
