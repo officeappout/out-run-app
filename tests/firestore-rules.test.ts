@@ -2038,6 +2038,111 @@ async function testUserPublic() {
   });
 }
 
+// SPEC-04 Wave A — presence/{userId}'s verified_global read rule used to be
+// `if isAuthenticated() && resource.data.mode == 'verified_global'` with no
+// age check at all. The WRITE rule already blocked a minor from ever
+// WRITING mode:'verified_global' (getUserAgeGroup(userId)=='adult' ||
+// mode in ['ghost','group']), so "adult reads minor" was already
+// structurally impossible — but nothing stopped a minor from READING every
+// adult's live GPS location + name. This suite proves both directions now
+// hold: getUserAgeGroup() is read from userAge/{uid} (never client-suppliable,
+// mirrors the existing write-rule helper), and the client's own
+// where('ageGroup','==', callerAgeGroup) is what makes the rule provable for
+// list operations — SR6 below proves a query missing that clause is
+// rejected outright, not silently filtered.
+//
+// SPEC-04 Wave E — referrals/{docId} was `allow read: if isAuthenticated()`,
+// exposing inviteeName (a real name) to any authenticated stranger. Now
+// restricted to the referrer and invitee named in the doc.
+async function testSpec04MinorsAndRadius() {
+  console.log('\nSPEC-04 Wave A (presence age-scoped read) + Wave E (referrals read lockdown)');
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+
+    // userAge/{uid} — the tiny rules-only doc getUserAgeGroup() reads.
+    await setDoc(doc(db, 'userAge', 's4_minor'), { ageGroup: 'minor' });
+    await setDoc(doc(db, 'userAge', 's4_adult'), { ageGroup: 'adult' });
+    await setDoc(doc(db, 'userAge', 's4_adult2'), { ageGroup: 'adult' });
+
+    // A minor's own verified_global presence doc. Reachable only because
+    // this suite seeds it directly (bypassing rules) to test the READ side
+    // in isolation — the WRITE rule separately blocks a minor from ever
+    // writing mode:'verified_global' themselves (existing, untouched).
+    await setDoc(doc(db, 'presence', 's4_minor'), {
+      uid: 's4_minor', name: 'S4 Minor', ageGroup: 'minor',
+      mode: 'verified_global', geohash: 'sv8xxxxxx', lat: 32.08, lng: 34.78,
+      updatedAt: new Date(),
+    });
+    // An adult's verified_global presence doc.
+    await setDoc(doc(db, 'presence', 's4_adult'), {
+      uid: 's4_adult', name: 'S4 Adult', ageGroup: 'adult',
+      mode: 'verified_global', geohash: 'sv8yyyyyy', lat: 32.09, lng: 34.79,
+      updatedAt: new Date(),
+    });
+
+    // Referrals fixture for Wave E.
+    await setDoc(doc(db, 'referrals', 's4_referrer_s4_invitee'), {
+      referrerUid: 's4_referrer', inviteeUid: 's4_invitee', inviteeName: 'Real Name',
+    });
+  });
+
+  // ── Test #1: a minor pulling presence data must NOT receive adults ──────
+  await it('SR1 (test #1) — minor reads an ADULT verified_global presence doc → DENY', async () => {
+    const ctx = env.authenticatedContext('s4_minor');
+    await assertFails(getDoc(doc(ctx.firestore(), 'presence', 's4_adult')));
+  });
+  await it('SR2 — minor reads their OWN verified_global presence doc (ageGroup matches) → ALLOW (regression check — the rule matches on ageGroup, not identity)', async () => {
+    const ctx = env.authenticatedContext('s4_minor');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'presence', 's4_minor')));
+  });
+
+  // ── Test #2: an adult pulling presence data must NOT receive minors ─────
+  await it('SR3 (test #2) — adult reads a MINOR verified_global presence doc → DENY (this is the actual live gap SPEC-04 closes)', async () => {
+    const ctx = env.authenticatedContext('s4_adult');
+    await assertFails(getDoc(doc(ctx.firestore(), 'presence', 's4_minor')));
+  });
+  await it('SR4 — adult reads another ADULT verified_global presence doc → ALLOW (regression — unaffected)', async () => {
+    const ctx = env.authenticatedContext('s4_adult2');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'presence', 's4_adult')));
+  });
+
+  // ── List-query provability: the client's own where('ageGroup','==', X) is
+  // what makes SR1-SR4's rule provable for a `list`, not just a `get`. ──────
+  await it('SR5 — adult LISTS verified_global presence scoped to ageGroup==adult → ALLOW, and the minor never appears in results', async () => {
+    const ctx = env.authenticatedContext('s4_adult2');
+    const q = query(
+      collection(ctx.firestore(), 'presence'),
+      where('mode', '==', 'verified_global'),
+      where('ageGroup', '==', 'adult'),
+    );
+    const snap = await assertSucceeds(getDocs(q));
+    const uids = snap.docs.map((d) => d.id);
+    if (uids.includes('s4_minor')) {
+      throw new Error('minor doc leaked into an adult-scoped list query — SPEC-04 Wave A regression');
+    }
+  });
+  await it("SR6 (test #3, list-provability half) — a list query WITHOUT the ageGroup=='adult' clause is rejected outright, not silently filtered (proves the client can't just drop its own age scoping and still get a safe result)", async () => {
+    const ctx = env.authenticatedContext('s4_adult2');
+    const q = query(collection(ctx.firestore(), 'presence'), where('mode', '==', 'verified_global'));
+    await assertFails(getDocs(q));
+  });
+
+  // ── Test #7: a third party reading `referrals` must be rejected ─────────
+  await it('SR7 (test #7) — a third party (neither referrer nor invitee) reads a referrals doc → DENY', async () => {
+    const ctx = env.authenticatedContext('s4_stranger');
+    await assertFails(getDoc(doc(ctx.firestore(), 'referrals', 's4_referrer_s4_invitee')));
+  });
+  await it('SR8 — the referrer reads their own referrals doc → ALLOW (regression — unaffected)', async () => {
+    const ctx = env.authenticatedContext('s4_referrer');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'referrals', 's4_referrer_s4_invitee')));
+  });
+  await it('SR9 — the invitee reads their own referrals doc → ALLOW (regression — unaffected)', async () => {
+    const ctx = env.authenticatedContext('s4_invitee');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'referrals', 's4_referrer_s4_invitee')));
+  });
+}
+
 // ─── Vitest wiring ──────────────────────────────────────────────────────────
 //
 // The harness's own `it()` (above) never throws — it catches each case's
@@ -2099,4 +2204,5 @@ describe('Firestore Rules — Cumulative Integration Test Suite', () => {
   vitestIt('Wave C — anonymous gate (SPEC-03)', wrapSuite(testWaveCAnonymousGate));
   vitestIt('connections SEC-01 (SPEC-02, partial)', wrapSuite(testConnectionsSec01));
   vitestIt('F-18 forgery (SPEC-02)', wrapSuite(testF18Forgery));
+  vitestIt('SPEC-04 Wave A (presence age-scoped read) + Wave E (referrals lockdown)', wrapSuite(testSpec04MinorsAndRadius));
 });

@@ -15,6 +15,15 @@
  *   lng:         number,          // fuzzed for minors
  *   updatedAt:   serverTimestamp,
  *   authorityId: string | null,   // city id for heatmap aggregation
+ *   geohash:     string,          // SPEC-04 Wave A — precision-9 geohash of
+ *                                  // (fuzzed, for minors) lat/lng, powers the
+ *                                  // discover-mode radius query in
+ *                                  // usePresenceLayer.ts. Self-healing: every
+ *                                  // heartbeat (2 min) rewrites it, so no
+ *                                  // backfill is needed for existing docs —
+ *                                  // unlike a one-time secret (invite code),
+ *                                  // a live location field ages out on its
+ *                                  // own by construction.
  *   activity?:   PresenceActivity, // workout-aware fields (Pillar 1)
  *   lemurStage?: number,          // 1–10 Lemur evolution stage
  *   level?:      number,          // user progression level
@@ -34,8 +43,14 @@ import {
   serverTimestamp,
   arrayRemove,
 } from 'firebase/firestore';
+import { geohashForLocation } from 'geofire-common';
 import { db } from '@/lib/firebase';
 import type { PrivacyMode } from '../store/usePrivacyStore';
+
+// Precision 9 matches this codebase's own established convention for a
+// live-location geohash index — see useUserLocationSync.ts (userLocations
+// collection), the direct precedent for this exact field.
+const PRESENCE_GEOHASH_PRECISION = 9;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Fuzz location — adds a random offset within a ~100 m radius.
@@ -180,6 +195,11 @@ export async function updatePresence(payload: PresencePayload): Promise<void> {
     mode: payload.mode,
     lat: coords.lat,
     lng: coords.lng,
+    // SPEC-04 Wave A: computed from the (possibly fuzzed) coords actually
+    // being stored — a minor's geohash is exactly as fuzzed as their
+    // lat/lng, never more precise. Powers the discover-mode radius query;
+    // written on every heartbeat, so it self-heals with no backfill.
+    geohash: geohashForLocation([coords.lat, coords.lng], PRESENCE_GEOHASH_PRECISION),
     authorityId: payload.authorityId,
     updatedAt: serverTimestamp(),
   };
@@ -441,6 +461,8 @@ export async function seedMockLemurs(
     const activityStatus = MOCK_ACTIVITIES[i % MOCK_ACTIVITIES.length];
     const isMover = activityStatus === 'running' || activityStatus === 'walking';
 
+    const mockLat = center.lat + offsetLat;
+    const mockLng = center.lng + offsetLng;
     const data: Record<string, unknown> = {
       uid,
       name: MOCK_NAMES[i % MOCK_NAMES.length],
@@ -448,8 +470,13 @@ export async function seedMockLemurs(
       isVerified: true,
       schoolName: null,
       mode: 'verified_global',
-      lat: center.lat + offsetLat,
-      lng: center.lng + offsetLng,
+      lat: mockLat,
+      lng: mockLng,
+      // SPEC-04 Wave A: without this, seeded mock lemurs fall outside every
+      // geohash range the discover query requests and silently vanish from
+      // the map — this dev tool needs to stay consistent with the real
+      // write path (presence.service.ts's updatePresence) to keep working.
+      geohash: geohashForLocation([mockLat, mockLng], PRESENCE_GEOHASH_PRECISION),
       authorityId: null,
       updatedAt: serverTimestamp(),
       activity: {

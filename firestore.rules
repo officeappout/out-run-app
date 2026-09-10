@@ -1299,8 +1299,23 @@ service cloud.firestore {
       // Owner can always read their own doc
       allow read: if isOwner(userId);
 
-      // Public: any authenticated user (query: where mode == 'verified_global')
-      allow read: if isAuthenticated() && resource.data.mode == 'verified_global';
+      // Public: any authenticated user whose OWN age matches the broadcaster's.
+      // SPEC-04 Wave A (POLICY-01): was `if isAuthenticated() && resource.data.mode
+      // == 'verified_global'` with no age condition at all — the write-rule
+      // restriction above (minors can't broadcast anything but ghost/group)
+      // meant an adult could never actually FIND a minor this way, but a
+      // MINOR reading this collection got back every adult's live GPS +
+      // name with nothing stopping them ("קטין גם לא מקבל רשימות של
+      // מבוגרים" — POLICY-01 §3's explicit reverse-direction requirement).
+      // getUserAgeGroup(request.auth.uid) mirrors the write rule's own
+      // helper, reading userAge/{uid} — never a client-suppliable field.
+      // The matching client query (nearbyPresence.service.ts) always adds
+      // where('ageGroup','==', callerAgeGroup) so this stays provable for
+      // `list` — without that where clause, this rule alone would reject
+      // every list query with PERMISSION_DENIED, not just filter it.
+      allow read: if isAuthenticated()
+                  && resource.data.mode == 'verified_global'
+                  && resource.data.ageGroup == getUserAgeGroup(request.auth.uid);
 
       // Friends: reader must be in broadcaster's followers list
       // (query: where uid in [followingList])
@@ -1936,7 +1951,18 @@ service cloud.firestore {
     // REFERRALS — tracking
     // ============================================================
     match /referrals/{docId} {
-      allow read: if isAuthenticated();
+      // SPEC-04 Wave E: was `if isAuthenticated()` with no ownership check —
+      // any authenticated user could read ANY referral doc, exposing
+      // inviteeName (a real name, not a display handle) for every person
+      // who has ever been invited. The F-18 fix below only closed the
+      // CREATE-side forgery; this closes the separate READ-side exposure.
+      // No UI reads this collection for referral stats (verified via grep):
+      // the referral counter shown to a referrer is users/{uid}.core.referralCount,
+      // an aggregate — never the raw referrals docs — so narrowing this read
+      // to the two people actually named in the doc has no display impact.
+      allow read: if isAuthenticated()
+        && (request.auth.uid == resource.data.referrerUid
+            || request.auth.uid == resource.data.inviteeUid);
       // SPEC-02 F-18: was `if isAuthenticated()` — no ownership check.
       // referral.service.ts's processReferral() is always called with
       // the CALLER's own uid as inviteeUid (gateway/page.tsx: `user.uid`)

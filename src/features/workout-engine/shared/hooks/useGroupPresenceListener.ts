@@ -18,7 +18,12 @@ interface GroupPresenceListenerResult {
   milestones: MilestoneEvent[];
 }
 
-export function useGroupPresenceListener(): GroupPresenceListenerResult {
+export function useGroupPresenceListener(
+  // SPEC-04 Wave A: threaded through to useGroupPresence's discovery-mode
+  // radius query (only used when there's no active group session — a real
+  // groupSessionId's query is already scoped by audienceGroupIds, not distance).
+  currentLocation?: { lat: number; lng: number } | null,
+): GroupPresenceListenerResult {
   const { groupId, memberIds, membershipReady } = useSharedSession();
   // joinEngine gate: only pass groupId to the presence query once user_memberships
   // is confirmed written in Firestore. Without this, a fresh guest subscribes before
@@ -26,6 +31,7 @@ export function useGroupPresenceListener(): GroupPresenceListenerResult {
   const partnerPositions = useGroupPresence(
     (membershipReady && groupId) ? groupId : undefined,
     memberIds,
+    currentLocation,
   );
 
   const totalDistanceKm = partnerPositions.reduce(

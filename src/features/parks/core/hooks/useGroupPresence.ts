@@ -9,8 +9,15 @@
  *      provable against the Firestore security rule (every returned doc has
  *      mode='group' and shares at least the session's groupId with the reader),
  *      so it never triggers an all-or-nothing PERMISSION-DENIED failure.
- *   2. General discovery: queries presence where mode=='verified_global'
- *      (statically safe — same as before).
+ *   2. General discovery: SPEC-04 Wave A — was
+ *      `where('mode','==','verified_global'), limit(200)`: no radius bound
+ *      (a Haifa user could get 200 arbitrary docs from anywhere), no age
+ *      bound (a minor's map showed every adult's live GPS + name, filtered
+ *      by nothing — `buildPartnerPositions` below never even read
+ *      `ageGroup`). Now uses `subscribeToNearbyPresence`
+ *      (nearbyPresence.service.ts) — geohash-radius + ageGroup are the SAME
+ *      query condition, matching POLICY-01's framing exactly ("who's
+ *      nearby AND matches my age" is one question, not two).
  *
  * The old `where('uid', 'in', memberIds)` query is intentionally removed.
  * It caused all-or-nothing batch failures when any single doc in the result
@@ -18,10 +25,24 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, onSnapshot, limit, type Unsubscribe } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import { IS_PERF_BATCH2_PRESENCE_ENABLED } from '@/config/feature-flags';
-import { usePresenceStore, acquirePresenceStream, PRESENCE_STREAM_MAX } from '../store/usePresenceStore';
+import { useUserStore } from '@/features/user';
+import { subscribeToNearbyPresence, type RawPresenceDoc } from '@/lib/nearbyPresence.service';
+
+/** Matches usePresenceLayer.ts's own MAX_DISCOVERY_RADIUS_KM — one constant, not reinvented per caller. */
+const DISCOVERY_RADIUS_KM = 15;
+
+function deriveAgeGroup(birthDate: unknown): 'minor' | 'adult' {
+  if (!birthDate) return 'minor';
+  const bd =
+    birthDate instanceof Date ? birthDate
+    : typeof (birthDate as any)?.toDate === 'function' ? (birthDate as any).toDate()
+    : new Date(birthDate as string);
+  if (isNaN(bd.getTime())) return 'minor';
+  const ageYears = (Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+  return ageYears < 18 ? 'minor' : 'adult';
+}
 
 /**
  * Persona ID → public image path. Keyed by the canonical PersonaId values
@@ -86,13 +107,10 @@ const STALE_PRESENCE_MS = 5 * 60 * 1000;
 const MAX_PERMISSION_RETRIES = 3;
 
 /**
- * Build renderable PartnerPosition[] (+ diagnostic counters) from raw flattened
- * verified_global presence docs. Used by the P4 shared-stream path only.
- *
- * NOTE: this MIRRORS the inline transform in the discovery onSnapshot callback
- * below. It is kept as a separate function on purpose so the flag-OFF onSnapshot
- * path stays byte-identical and untouched. Once IS_PERF_BATCH2_PRESENCE_ENABLED is
- * permanent, delete the inline copy and route the onSnapshot through here too.
+ * Build renderable PartnerPosition[] (+ diagnostic counters) from raw
+ * presence docs already scoped by subscribeToNearbyPresence (mode,
+ * ageGroup, and radius already applied at the query level — this only
+ * handles what a query can't: self-exclusion, staleness, coord validation).
  */
 function buildPartnerPositions(
   docs: Array<Record<string, any>>,
@@ -143,8 +161,23 @@ export function useGroupPresence(
   // but is no longer used in the query — group membership is now derived from
   // audienceGroupIds on the presence doc, which is server-validated.
   _memberIds?: string[],
+  // SPEC-04 Wave A: required for the discovery-mode radius query. Optional
+  // because the group-session branch (real groupSessionId) never needs it —
+  // that query is already scoped by audienceGroupIds, not by distance.
+  currentLocation?: { lat: number; lng: number } | null,
 ): PartnerPosition[] {
   const [positions, setPositions] = useState<PartnerPosition[]>([]);
+  const profile = useUserStore((s) => s.profile);
+  const ageGroup = profile?.core?.ageGroup ?? deriveAgeGroup(profile?.core?.birthDate);
+  // Rounded to ~1.1km resolution (2 decimal places) purely as an effect
+  // dependency — resubscribing (tearing down and rebuilding N geohash-range
+  // listeners) on every GPS tick would be wasteful when the user has barely
+  // moved. The effect body below still reads the FULL-PRECISION
+  // currentLocation for the actual query center; only the re-subscribe
+  // CADENCE is bucketed, not the query itself.
+  const locationBucketKey = currentLocation
+    ? `${currentLocation.lat.toFixed(2)},${currentLocation.lng.toFixed(2)}`
+    : null;
   const unsubRef = useRef<Unsubscribe | null>(null);
   const colorMapRef = useRef(new Map<string, string>());
   // Retry counter — incremented when PERMISSION-DENIED fires (Firestore propagation
@@ -185,27 +218,39 @@ export function useGroupPresence(
 
     const isDiscovery = !(groupSessionId && typeof groupSessionId === 'string');
 
-    // ── P4 shared presence stream (perf/batch2, flag-gated) ──────────────────
-    // In DISCOVERY mode, read the single shared verified_global presence stream
-    // (one onSnapshot serves this hook AND usePartnerData's live listener)
-    // instead of opening a second unbounded listener. The GROUP-session path
-    // below keeps its dedicated mode=='group', member-scoped query (a different
-    // shape that must stay separate). Query shape preserved → rules-safe. When
-    // the flag is off this branch is skipped and the original onSnapshot below
-    // runs unchanged (byte-identical).
-    if (IS_PERF_BATCH2_PRESENCE_ENABLED && isDiscovery) {
-      const applyShared = () => {
-        const { results } = buildPartnerPositions(
-          usePresenceStore.getState().docs,
-          currentUid,
-          getColor,
-        );
-        setPositions(results);
-      };
-      const release = acquirePresenceStream();
-      applyShared();
-      const unsubStore = usePresenceStore.subscribe(applyShared);
-      unsubRef.current = () => { unsubStore(); release(); };
+    // ── Discovery mode — SPEC-04 Wave A ───────────────────────────────────────
+    // Radius + age are the SAME condition, not two separate filters (POLICY-01:
+    // "who's nearby AND matches my age" is one question). No shared/pooled
+    // stream anymore — see nearbyPresence.service.ts's own header for why the
+    // old "one unscoped stream shared by every consumer" design couldn't
+    // survive becoming per-caller-scoped.
+    if (isDiscovery) {
+      if (!currentLocation) {
+        setPositions([]);
+        return;
+      }
+      const unsub = subscribeToNearbyPresence(
+        { center: currentLocation, radiusKm: DISCOVERY_RADIUS_KM, ageGroup },
+        (docs: RawPresenceDoc[]) => {
+          const { results } = buildPartnerPositions(docs, currentUid, getColor);
+          setPositions(results);
+        },
+        (err: any) => {
+          const code = err?.code ?? '(no code)';
+          if (code === 'permission-denied') {
+            console.error(
+              '[useGroupPresence] discovery PERMISSION-DENIED. Check App Check ' +
+                '(NEXT_PUBLIC_RECAPTCHA_SITE_KEY), Firestore rules on `presence` ' +
+                '(ageGroup must match getUserAgeGroup(request.auth.uid)), and the ' +
+                'presence -> {mode, ageGroup, geohash} composite index.',
+              err,
+            );
+          } else {
+            console.warn('[useGroupPresence] discovery listener error:', code, err);
+          }
+        },
+      );
+      unsubRef.current = unsub;
       return () => {
         unsubRef.current?.();
         if (retryTimerRef.current !== null) {
@@ -215,26 +260,18 @@ export function useGroupPresence(
       };
     }
 
-    // Query design — must be statically provable against the Firestore rules
-    // so that every doc the query returns is guaranteed readable:
-    //
-    //   Group session  → where('mode','==','group')
-    //                    AND where('audienceGroupIds','array-contains', groupSessionId)
-    //                    Every returned doc has mode='group' and includes the
-    //                    session's groupId in audienceGroupIds. The rule checks
-    //                    that the reader shares that groupId (via server-managed
-    //                    social.groupIds) — provable for each doc individually,
-    //                    so no all-or-nothing failure.
-    //
-    //   Discovery      → where('mode','==','verified_global')
-    //                    Statically satisfiable — unchanged from before.
-    const q = (groupSessionId && typeof groupSessionId === 'string')
-      ? query(
-          collection(db, 'presence'),
-          where('mode', '==', 'group'),
-          where('audienceGroupIds', 'array-contains', groupSessionId),
-        )
-      : query(collection(db, 'presence'), where('mode', '==', 'verified_global'), limit(PRESENCE_STREAM_MAX));
+    // Group session — where('mode','==','group') AND
+    // where('audienceGroupIds','array-contains', groupSessionId). Every
+    // returned doc has mode='group' and includes the session's groupId in
+    // audienceGroupIds. The rule checks that the reader shares that groupId
+    // (via server-managed social.groupIds) — provable for each doc
+    // individually, so no all-or-nothing failure. Untouched by SPEC-04 —
+    // this is already member-scoped, not the unscoped-discovery gap.
+    const q = query(
+      collection(db, 'presence'),
+      where('mode', '==', 'group'),
+      where('audienceGroupIds', 'array-contains', groupSessionId),
+    );
 
     unsubRef.current = onSnapshot(q, (snap) => {
       const results: PartnerPosition[] = [];
@@ -389,7 +426,7 @@ export function useGroupPresence(
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupSessionId, permissionRetry]);
+  }, [groupSessionId, permissionRetry, locationBucketKey, ageGroup]);
 
   return positions;
 }

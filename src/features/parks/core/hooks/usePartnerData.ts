@@ -28,9 +28,21 @@ import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { haversineKm } from '../services/geoUtils';
 import type { ActivityType } from '../types/route.types';
 import { useIsForeground } from '@/lib/appForeground';
-import { IS_PERF_BATCH2_PRESENCE_ENABLED, IS_ADAPTIVE_SHED_ENABLED } from '@/config/feature-flags';
-import { usePresenceStore, acquirePresenceStream, PRESENCE_STREAM_MAX } from '../store/usePresenceStore';
+import { IS_ADAPTIVE_SHED_ENABLED } from '@/config/feature-flags';
+import { subscribeToNearbyPresence, type RawPresenceDoc } from '@/lib/nearbyPresence.service';
 import { useMapStore } from '../store/useMapStore';
+import { useUserStore } from '@/features/user';
+
+function deriveAgeGroup(birthDate: unknown): 'minor' | 'adult' {
+  if (!birthDate) return 'minor';
+  const bd =
+    birthDate instanceof Date ? birthDate
+    : typeof (birthDate as any)?.toDate === 'function' ? (birthDate as any).toDate()
+    : new Date(birthDate as string);
+  if (isNaN(bd.getTime())) return 'minor';
+  const ageYears = (Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+  return ageYears < 18 ? 'minor' : 'adult';
+}
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -218,6 +230,14 @@ export function usePartnerData(
   const [rawLive, setRawLive] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const myMode = usePrivacyStore((s) => s.mode);
+  // SPEC-04 Wave A — required for the live-presence query below.
+  const profile = useUserStore((s) => s.profile);
+  const ageGroup = profile?.core?.ageGroup ?? deriveAgeGroup(profile?.core?.birthDate);
+  // Bucketed to ~1.1km resolution purely as an effect dependency — see
+  // useGroupPresence.ts's identical locationBucketKey for the full reasoning
+  // (avoid tearing down and rebuilding geohash-range listeners on every GPS
+  // tick when the user has barely moved).
+  const userPosBucketKey = userPos ? `${userPos.lat.toFixed(2)},${userPos.lng.toFixed(2)}` : null;
   // Battery guard (perf/batch1): when the app is backgrounded, all four
   // partner-finder listeners below tear down and stop re-subscribing until the
   // app returns to the foreground. When IS_PERF_BATCH1_ENABLED is off,
@@ -453,67 +473,47 @@ export function usePartnerData(
   // Note: myGroupIds.join(',') is a stable string dep — avoids a new listener
   // on every render while still re-subscribing when the set of groups changes.
 
-  // ── 4. Live presence listener ──
+  // ── 4. Live presence listener ── SPEC-04 Wave A ──
+  // Was `where('mode','==','verified_global'), limit(200)` (shared across
+  // every consumer via usePresenceStore, or duplicated inline when that
+  // flag was off) — no radius bound (a Haifa user could get 200 arbitrary
+  // docs from anywhere), no age bound (ageGroup was passed through to
+  // `live.ageGroup` purely as a DISPLAY field, never used to exclude
+  // anyone — a minor's partner finder showed every nearby adult's live
+  // location + name). Radius + age are now the same query condition, via
+  // subscribeToNearbyPresence (nearbyPresence.service.ts) — matching
+  // POLICY-01's framing exactly. The shared usePresenceStore singleton is
+  // retired for this path: its whole design assumed one unscoped stream
+  // could serve every consumer, which stops being true once the query is
+  // scoped to each caller's own location and age.
   useEffect(() => {
     unsubLive.current?.();
     if (!isForeground || isPressureCritical) return; // backgrounded, or shed-paused under critical pressure — torn down above, no resubscribe
-    if (myMode === 'ghost') {
+    if (myMode === 'ghost' || !userPos) {
       setRawLive([]);
       setIsLoading(false);
       return;
     }
 
-    // ── P4 shared presence stream (perf/batch2, flag-gated) ──────────────────
-    // Read the single shared verified_global stream instead of opening a second
-    // unbounded listener (useGroupPresence opens the identical query). Same
-    // shape → rules-safe; the `live` useMemo below is unchanged. When the flag
-    // is off, the original onSnapshot below runs unchanged (byte-identical).
-    if (IS_PERF_BATCH2_PRESENCE_ENABLED) {
-      const release = acquirePresenceStream();
-      setRawLive(usePresenceStore.getState().docs);
-      const unsubStore = usePresenceStore.subscribe((s) => setRawLive(s.docs));
-      unsubLive.current = () => { unsubStore(); release(); };
-      return () => unsubLive.current?.();
-    }
-
-    // CRITICAL: Firestore rule on /presence/{uid} requires the query to
-    // be statically satisfiable. The rule allows cross-user reads only
-    // when `resource.data.mode == 'verified_global'` (public) or when the
-    // requester is in `connections/{userId}.followers` (squad). A bare
-    // `collection(db, 'presence')` query with no filters cannot be proven
-    // safe and is rejected with PERMISSION_DENIED — that was the symptom
-    // users hit when opening the partner finder.
-    //
-    // We constrain to the public tier here so the rules engine can match
-    // the `mode == 'verified_global'` clause. Followers-only ('squad')
-    // partners are intentionally excluded from stranger discovery; they
-    // surface via the friends-batch listener in `usePresenceLayer.ts`,
-    // which queries `where('uid', 'in', followers)` and falls under the
-    // rule's squad branch.
-    const q = query(
-      collection(db, 'presence'),
-      where('mode', '==', 'verified_global'),
-      limit(PRESENCE_STREAM_MAX),
-    );
-
-    unsubLive.current = onSnapshot(
-      q,
-      (snap) => {
-        setRawLive(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+    unsubLive.current = subscribeToNearbyPresence(
+      { center: userPos, radiusKm, ageGroup },
+      (docs: RawPresenceDoc[]) => {
+        setRawLive(docs);
       },
       (err: any) => {
         // Surface PERMISSION_DENIED specifically — silently swallowing
-        // (the previous `() => {}` handler) made this exact bug invisible
-        // and forced developers to dig through hooks to find why the
-        // partner finder was empty. Other errors stay quiet to avoid
-        // spamming the console on flaky-network hiccups.
+        // made this exact bug invisible and forced developers to dig
+        // through hooks to find why the partner finder was empty. Other
+        // errors stay quiet to avoid spamming the console on flaky-network
+        // hiccups.
         if (err?.code === 'permission-denied') {
           console.error(
             '[usePartnerData] live presence listener PERMISSION-DENIED. ' +
-              'Verify Firestore rules on /presence still permit ' +
-              "`mode == 'verified_global'` reads for authenticated users, " +
-              'and that App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY) is set ' +
-              'on this client. Partner finder will be empty until fixed.',
+              'Verify Firestore rules on /presence permit ageGroup-matched ' +
+              "`mode == 'verified_global'` reads, that the presence -> " +
+              '{mode, ageGroup, geohash} composite index exists, and that ' +
+              'App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY) is set on this ' +
+              'client. Partner finder will be empty until fixed.',
             err,
           );
         }
@@ -521,7 +521,8 @@ export function usePartnerData(
     );
 
     return () => unsubLive.current?.();
-  }, [myMode, isForeground, isPressureCritical]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myMode, isForeground, isPressureCritical, userPosBucketKey, radiusKm, ageGroup]);
 
   // ── Filter + transform scheduled (planned + events + groups) ──
   const scheduled = useMemo<ScheduledPartner[]>(() => {

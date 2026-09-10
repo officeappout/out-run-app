@@ -146,7 +146,7 @@ export default function FreeRunLayer({ logic, effectivePos, onRecenter }: FreeRu
     useMapStore();
 
   // Group presence — must be above the policy object so participants can be wired in.
-  const { partnerPositions } = useGroupPresenceListener();
+  const { partnerPositions } = useGroupPresenceListener(effectivePos);
   const sideRailParticipants = React.useMemo<Participant[]>(
     () =>
       partnerPositions.map((p) => ({

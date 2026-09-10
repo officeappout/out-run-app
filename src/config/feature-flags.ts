@@ -171,15 +171,18 @@ export const IS_PERF_BATCH1_ENABLED = true;
 // duration keeps its original 800/200 literals. Sim (jumpTo) is never gated.
 export const IS_PERF_BATCH2_ENABLED = true;
 
-// PERF_BATCH2_PRESENCE — independent sub-flag for the P4 presence-stream
-// unification, kept SEPARATE from IS_PERF_BATCH2_ENABLED (camera) so presence
-// can be rolled back on its own. When FALSE, useGroupPresence (discovery) and
-// usePartnerData each keep their own `presence where mode=='verified_global'`
-// onSnapshot and the shared usePresenceStore is never mounted → byte-identical.
-// When TRUE, both read one shared ref-counted stream (one Firestore listener
-// instead of two on the foreground map). Query shape preserved → rules-safe;
-// the group-session `mode=='group'` path is never unified.
-export const IS_PERF_BATCH2_PRESENCE_ENABLED = true;
+// PERF_BATCH2_PRESENCE — REMOVED (SPEC-04 Wave A, 10.09.2026). This gated a
+// single ref-counted stream shared by useGroupPresence (discovery) and
+// usePartnerData, justified because the underlying query was unscoped
+// anyway — every consumer wanted the identical unbounded
+// `mode=='verified_global'` feed, so sharing one listener instead of two was
+// a pure win. That premise stopped holding once the query needed each
+// caller's OWN location and age (a real, live gap: no radius bound meant a
+// Haifa user could get 200 arbitrary docs from anywhere, and no age bound
+// meant a minor's partner finder returned every nearby adult's live GPS +
+// name). A per-caller-scoped stream can't be shared, so the flag, the
+// shared store (usePresenceStore.ts, deleted), and both its call sites were
+// retired together — see nearbyPresence.service.ts.
 
 // ADAPTIVE_SHED — reactive layer on top of the map perf Monitor's pressureLevel
 // ('normal'|'warning'|'critical', useMapStore, computed by useMapPerfMonitor

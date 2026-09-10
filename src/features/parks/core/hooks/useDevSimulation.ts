@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { geohashForLocation } from 'geofire-common';
 import { db } from '@/lib/firebase';
 import { Route, type ActivityType } from '../types/route.types';
 import { haversineMeters, interpolatePath } from '../services/geoUtils';
@@ -409,6 +410,10 @@ function writePartnerPresence(
     mode: 'verified_global',
     lat,
     lng,
+    // SPEC-04 Wave A: without this, simulated dev partners fall outside
+    // every geohash range the discover query requests and silently vanish
+    // from the map — matches presence.service.ts's real write path.
+    geohash: geohashForLocation([lat, lng], 9),
     authorityId: null,
     updatedAt: serverTimestamp(),
     activity: {

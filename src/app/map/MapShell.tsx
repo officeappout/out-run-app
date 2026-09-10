@@ -198,7 +198,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
   const flyover = useFlyoverEntrance(effectivePos ?? null);
   const sharedSession = useSharedSession();
   const { partnerPositions: groupPartnerPositions, totalDistanceKm, milestones } =
-    useGroupPresenceListener();
+    useGroupPresenceListener(effectivePos ?? null);
   // When a group session is active, filter partner pins to group members only.
   // Otherwise fall through to discovery-mode positions from useGroupPresenceListener.
   const livePartnerPositions = groupPartnerPositions;

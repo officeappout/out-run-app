@@ -21,7 +21,6 @@ import {
   where,
   onSnapshot,
   Timestamp,
-  type QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
@@ -45,6 +44,7 @@ import {
 import type { PrivacyMode } from '../store/usePrivacyStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { useGPSStore, DEV_FALLBACK_LOCATION } from '@/features/parks/core/store/useGPSStore';
+import { subscribeToNearbyPresence, type RawPresenceDoc } from '@/lib/nearbyPresence.service';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -179,6 +179,13 @@ export function usePresenceLayer(
   const getPayloadRef = useRef<(() => PresencePayload | null) | null>(null);
 
   const [socialMode, setSocialMode] = useState<SocialMapMode>('friends');
+  // SPEC-04 Wave A: rounded to ~1.1km resolution purely as an effect
+  // dependency below — see useGroupPresence.ts's identical
+  // locationBucketKey for the full reasoning (avoid tearing down and
+  // rebuilding geohash-range listeners on every GPS tick).
+  const locationBucketKey = currentLocation
+    ? `${currentLocation.lat.toFixed(2)},${currentLocation.lng.toFixed(2)}`
+    : null;
   const [rawMarkers, setRawMarkers] = useState<PresenceMarker[]>([]);
   const [heatmap, setHeatmap] = useState<HeatmapPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -440,16 +447,24 @@ export function usePresenceLayer(
           // reader causes the entire in-batch query to fail with PERMISSION-DENIED
           // (Firestore all-or-nothing semantics). Trade-off: friends who set
           // mode='squad' won't appear; acceptable while the follow graph is sparse.
+          // SPEC-04 Wave A: where('ageGroup','==',ageGroup) added — matches
+          // firestore.rules' new presence read clause
+          // (resource.data.ageGroup == getUserAgeGroup(request.auth.uid)), and
+          // is what makes this query provable against it. The client-side
+          // age re-check that used to live in this callback is deleted, not
+          // kept as defense-in-depth — a leftover client filter would have
+          // hidden the fact that the query itself was ever wrong.
           const q = query(
             collection(db, 'presence'),
             where('uid', 'in', batch),
             where('mode', '==', 'verified_global'),
+            where('ageGroup', '==', ageGroup),
           );
           const unsub = onSnapshot(q, (snap) => {
             const markers: PresenceMarker[] = [];
             snap.forEach((d) => {
               const m = docToMarker(d.data(), d.id);
-              if (m && m.ageGroup === ageGroup && m.uid !== userId) markers.push(m);
+              if (m && m.uid !== userId) markers.push(m);
             });
             batchResults.set(idx, markers);
             const merged: PresenceMarker[] = [];
@@ -485,52 +500,58 @@ export function usePresenceLayer(
       return () => unsubscribers.forEach((u) => u());
     }
 
-    // Discover mode — city-scoped when authorityId is available
-    const discoverConstraints: QueryConstraint[] = [
-      where('mode', '==', 'verified_global'),
-    ];
-    if (stateRef.current.authorityId) {
-      discoverConstraints.push(where('authorityId', '==', stateRef.current.authorityId));
+    // Discover mode — SPEC-04 Wave A. Was `where('mode','==','verified_global')`
+    // [+ authorityId] with NO radius bound (a Haifa user could get every
+    // verified_global doc in the country) and an age check that ran only
+    // `if (!IS_DEV)` (age separation is a safety invariant, not a
+    // dev/prod difference — POLICY-01 §3). Radius + age are now the SAME
+    // query condition via subscribeToNearbyPresence — matching
+    // segregation.service.ts's own established `where('ageGroup','==',...)`
+    // pattern (getHeatmapData/getVisiblePresence), not inventing a new one.
+    if (!currentLocation) {
+      setRawMarkers([]);
+      setIsLoading(false);
+      return;
     }
-    const q = query(collection(db, 'presence'), ...discoverConstraints);
-    let unsub: (() => void) | undefined;
-    try {
-      unsub = onSnapshot(q, (snap) => {
+    const unsub = subscribeToNearbyPresence(
+      {
+        center: currentLocation,
+        radiusKm: MAX_DISCOVERY_RADIUS_KM,
+        ageGroup,
+        ...(stateRef.current.authorityId ? { extraEqualityFilters: { authorityId: stateRef.current.authorityId } } : {}),
+      },
+      (docs: RawPresenceDoc[]) => {
         const markers: PresenceMarker[] = [];
-        snap.forEach((d) => {
-          const m = docToMarker(d.data(), d.id);
-          if (!m || m.uid === userId) return;
-          if (!IS_DEV) {
-            const myAg = (ageGroup ?? '').toLowerCase().trim();
-            const theirAg = (m.ageGroup ?? '').toLowerCase().trim();
-            if (myAg && theirAg && myAg !== theirAg) return;
-          }
+        for (const d of docs) {
+          const m = docToMarker(d, d.uid);
+          if (!m || m.uid === userId) continue;
           markers.push(m);
-        });
+        }
         setRawMarkers(markers);
         setIsLoading(false);
-      }, (err: any) => {
+      },
+      (err: any) => {
         const code = err?.code ?? '(no code)';
         if (code === 'permission-denied') {
           console.error(
             '[PresenceLayer] discover listener PERMISSION-DENIED. ' +
-              'Check App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY) and Firestore rules ' +
-              'on the `presence` collection. Discover-mode partners will NOT render until fixed.',
+              'Check App Check (NEXT_PUBLIC_RECAPTCHA_SITE_KEY), Firestore rules ' +
+              'on the `presence` collection (ageGroup must match ' +
+              'getUserAgeGroup(request.auth.uid)), and the presence -> ' +
+              '{mode, ageGroup, geohash} composite index. Discover-mode partners ' +
+              'will NOT render until fixed.',
             err,
           );
         } else {
           console.warn('[PresenceLayer] discover listener error:', code, err);
         }
         setIsLoading(false);
-      });
-    } catch (err) {
-      console.warn('[PresenceLayer] Failed to create discover listener:', err);
-      setIsLoading(false);
-    }
+      },
+    );
 
     return () => unsub?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, heartbeatOnly, socialMode, socialLoaded, following, ageGroup, userId]);
+  }, [isReady, heartbeatOnly, socialMode, socialLoaded, following, ageGroup, userId, locationBucketKey]);
 
   // ── Heatmap polling (not real-time, less frequent) ────────────────────────
   const fetchHeatmap = useCallback(async () => {
