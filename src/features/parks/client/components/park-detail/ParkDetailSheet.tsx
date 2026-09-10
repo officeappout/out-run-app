@@ -1031,10 +1031,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                 style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
               >
                 <div className="flex items-center gap-2" dir="rtl">
-                  {/* Start Workout — primary CTA */}
+                  {/* Start Workout — primary CTA. Extra me-2 (on top of the
+                      row's gap-2) separates it from the secondary Edit/Navigate
+                      icon buttons, which stay tight to each other. */}
                   <button
                     onClick={() => { onClose(); onStartWorkout?.(); }}
-                    className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]"
+                    className="flex-1 me-2 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]"
                     style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
                   >
                     <Play size={18} fill="currentColor" />
