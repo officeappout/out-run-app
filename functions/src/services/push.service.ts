@@ -23,6 +23,21 @@
  * 6. Admin per-channel switch — app_config/notification_configs.channels.{channel}.enabled.
  *    Fails OPEN on a read error (deliberately the opposite bias from the global switch
  *    above — see admin per-channel kill-switch section for why).
+ * 7. Daily engagement cap (Stage 2, additive) — max DAILY_ENGAGEMENT_CAP pushes per
+ *    user per calendar day, counted by notification SEMANTICS, not raw channel
+ *    label: a send only counts when its channel is in ENGAGEMENT_CHANNELS
+ *    (automated nudges/aggregate content) AND it isn't marked
+ *    `isPersonalInteraction: true` (someone/something did X to/for this user —
+ *    kudos, a group-join alert, the user's own achievement validation — the
+ *    highest-value, lowest-annoyance category, per the Stage 2 refinement).
+ *    Independent of feature 3's per-channel cap — a uid can be well under its
+ *    per-channel cooldown on every individual channel and still get capped
+ *    here once the cross-channel daily total is hit. `chat` (transactional)
+ *    and `system` (operational) are exempt structurally, same as everywhere
+ *    else in this file. `encouragement` (manual admin broadcasts) is still an
+ *    open question; `progression` (level-up/streak/PR) is excluded at the
+ *    channel level as pure validation — see ENGAGEMENT_CHANNELS's own doc
+ *    comment for the full per-channel mapping and reasoning.
  *
  * RATE CAP STORAGE
  * ────────────────
@@ -30,6 +45,8 @@
  * Document:   `push_rate/{uid}`
  * Fields:     `{channel}_lastSentAt: Timestamp`
  *             `{channel}_count: number`  (lifetime counter, for analytics)
+ *             `dailyEngagementDate: string`   ('YYYY-MM-DD', Asia/Jerusalem — feature 7)
+ *             `dailyEngagementCount: number`  (resets to 1 when the stored date != today)
  *
  * QUIET HOURS
  * ───────────
@@ -55,6 +72,51 @@ const PRUNE_BATCH_SIZE = 400;
 const QUIET_START_HOUR = 22;
 const QUIET_END_HOUR = 7;
 const TZ = 'Asia/Jerusalem';
+
+// ─── Stage 2 — global daily engagement cap (additive, does not touch the
+// per-channel rate cap above) ──────────────────────────────────────────────
+// Single tunable constant — max ENGAGEMENT_CHANNELS pushes per user per
+// calendar day (Asia/Jerusalem, same TZ convention as quiet hours). Proposed
+// value pending David's confirmation; see push.service.ts's module header
+// for the full design note.
+const DAILY_ENGAGEMENT_CAP = 3;
+
+/**
+ * Channels that CAN carry a NUDGE/AGGREGATE event and so participate in the
+ * daily cap check — refined 08.09.2026 to cap by notification SEMANTICS, not
+ * raw channel label, after finding that `social` mixes personal interactions
+ * (kudos, a group-join admin alert) with a same-channel confirmation event.
+ * Membership here is necessary but NOT sufficient: the actual per-send
+ * decision is `ENGAGEMENT_CHANNELS.has(channel) && !opts.isPersonalInteraction`
+ * (see isPersonalInteraction's doc comment on SendPushOpts) — a call on one
+ * of these channels still bypasses the cap entirely when the caller marks it
+ * as a personal interaction.
+ *
+ * `chat` (transactional) and `system` (operational) are exempt structurally,
+ * same as everywhere else in this file — no flag needed since neither
+ * channel ever carries a nudge event to begin with.
+ *
+ * `encouragement` (manual admin broadcasts) is deliberately left OUT of this
+ * set — a human admin actively choosing to send one is a different kind of
+ * event than an automated nudge, and this is still an open question for
+ * David rather than guessed either way.
+ *
+ * `progression` (level-up/streak/PR) is deliberately left OUT — read as pure
+ * VALIDATION of the user's own achievement (onLevelUp.ts's copy, e.g. "עלית
+ * לרמה 2! אתה בדרך הנכונה"), not an app-initiated ask to do something. The
+ * task's own framing groups "validation" with personal-interaction as the
+ * highest-value, lowest-annoyance category — so it's excluded at the channel
+ * level rather than needing a per-send flag, since NOTHING sent on this
+ * channel is ever a nudge.
+ */
+const ENGAGEMENT_CHANNELS: ReadonlySet<PushChannel> = new Set([
+  'health_milestone',
+  'training_reminder',
+  'social',
+  'community',
+  'retention',
+  'onboarding_dropoff',
+]);
 
 // ─── Admin channel-config cache ───────────────────────────────────────────────
 // Reads app_config/notification_configs once per 5 min so admin toggles take
@@ -197,6 +259,22 @@ export interface SendPushOpts {
   skipQuietHours?: boolean;
   /** See SendPushMeasurement's doc comment. Opt-in, absent = no-op. */
   measurement?: SendPushMeasurement;
+  /**
+   * Stage 2 refinement — set true for a PERSONAL interaction: another
+   * person (or the user's own completed achievement) is the direct subject
+   * of this push, as opposed to an app-initiated NUDGE or an aggregate/
+   * discovery message. Exempts this specific send from the daily
+   * engagement cap (DAILY_ENGAGEMENT_CAP) — the check AND the counter
+   * increment are both skipped, same treatment as `chat`. Channel
+   * membership in ENGAGEMENT_CHANNELS is necessary but not sufficient: a
+   * channel can carry a MIX of personal and nudge events (e.g. `social`
+   * carries kudos AND a group-join welcome, both personal, but a future
+   * generic-community-digest send on the same channel would NOT be) — this
+   * flag is the per-send override for exactly that case. Absent/false =
+   * previous behavior (channel membership alone decides). See the Stage 2
+   * report (07.09.2026) mapping every real caller to PERSONAL vs NUDGE.
+   */
+  isPersonalInteraction?: boolean;
 }
 
 export interface SendPushResult {
@@ -210,6 +288,9 @@ export interface SendPushResult {
   skippedPrefs: number;
   skippedQuietHours: number;
   skippedRateCap: number;
+  /** Skipped by the Stage 2 daily engagement cap (ENGAGEMENT_CHANNELS only —
+   *  always 0 for chat/system/other channels). */
+  skippedDailyCap: number;
   tokensPruned: number;
   /** Present only when opts.measurement was provided — the pushId used to
    *  correlate push_events records for this send. */
@@ -248,6 +329,7 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     skippedPrefs: 0,
     skippedQuietHours: 0,
     skippedRateCap: 0,
+    skippedDailyCap: 0,
     tokensPruned: 0,
   };
 
@@ -279,6 +361,11 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   const tokenOwners = new Map<string, string>(); // token → uid
 
   const db = getDb();
+  // Subject to the daily engagement cap: on a capped channel AND not marked
+  // as a personal interaction for THIS specific send (see isPersonalInteraction's
+  // doc comment — a channel can carry a mix of personal and nudge events).
+  const isEngagementChannel = ENGAGEMENT_CHANNELS.has(channel) && !opts.isPersonalInteraction;
+  const todayKey = isEngagementChannel ? getJerusalemDateKey() : '';
 
   // Fetch user docs in batches of 100 (Firestore getAll limit)
   for (let i = 0; i < toUids.length; i += TOKEN_FETCH_BATCH) {
@@ -286,8 +373,9 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     const refs = slice.map((uid) => db.collection('users').doc(uid));
     const docs = await db.getAll(...refs);
 
-    // Fetch rate cap docs for this slice
-    const rateRefs = rateCapHours > 0
+    // Fetch rate cap docs for this slice — also needed (independent of
+    // rateCapHours) when the daily engagement cap applies to this channel.
+    const rateRefs = (rateCapHours > 0 || isEngagementChannel)
       ? slice.map((uid) => db.collection('push_rate').doc(uid))
       : [];
     const rateDocs = rateRefs.length > 0 ? await db.getAll(...rateRefs) : [];
@@ -324,6 +412,19 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
             logger.info(`[push.service] uid=${uid} rate-capped on channel=${channel}`);
             continue;
           }
+        }
+      }
+
+      // ── Stage 2: daily engagement cap (additive — independent of the
+      // per-channel rate cap above, ENGAGEMENT_CHANNELS only) ──────────────
+      if (isEngagementChannel) {
+        const rateData = rateByUid.get(uid);
+        const storedDate = rateData?.dailyEngagementDate;
+        const storedCount = typeof rateData?.dailyEngagementCount === 'number' ? rateData.dailyEngagementCount : 0;
+        if (storedDate === todayKey && storedCount >= DAILY_ENGAGEMENT_CAP) {
+          result.skippedDailyCap++;
+          logger.info(`[push.service] uid=${uid} daily engagement cap reached (channel=${channel}, count=${storedCount})`);
+          continue;
         }
       }
 
@@ -425,9 +526,15 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     }
   }
 
-  // ── Update rate cap + prune dead tokens (parallel) ───────────────────────
+  // ── Update rate cap + daily engagement cap + prune dead tokens (parallel) ──
+  // Daily count is stamped only for uids that actually had a token collected
+  // (i.e. a push was actually attempted for them) — not the full toUids
+  // list, so a uid already skipped by prefs/rate-cap/daily-cap above doesn't
+  // keep incrementing past the ceiling for no reason.
+  const engagedUids = isEngagementChannel ? Array.from(new Set(tokenOwners.values())) : [];
   await Promise.all([
     rateCapHours > 0 ? updateRateCap(toUids, channel) : Promise.resolve(),
+    isEngagementChannel && engagedUids.length > 0 ? updateDailyEngagementCount(engagedUids, todayKey) : Promise.resolve(),
     deadTokens.length > 0 ? pruneTokens(deadTokens, tokenOwners) : Promise.resolve(),
   ]);
 
@@ -472,6 +579,45 @@ function isQuietHours(): boolean {
     new Date().toLocaleString('en-US', { timeZone: TZ }),
   ).getHours();
   return hour >= QUIET_START_HOUR || hour < QUIET_END_HOUR;
+}
+
+/**
+ * Today's calendar date in Israel as 'YYYY-MM-DD', for the daily engagement
+ * cap's day-boundary reset. 'en-CA' is the one common Intl locale that
+ * formats toLocaleDateString as YYYY-MM-DD directly — same TZ as isQuietHours
+ * above, so "today" means the same thing everywhere in this file.
+ */
+function getJerusalemDateKey(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: TZ });
+}
+
+/**
+ * Stage 2 — additive daily engagement cap. Reads-then-writes per uid inside
+ * a transaction (unlike updateRateCap's plain batch.set) because resetting
+ * at a day boundary needs to see the CURRENT stored date before deciding
+ * whether to increment or reset to 1 — a plain FieldValue.increment can't
+ * express that conditional. Only called for ENGAGEMENT_CHANNELS sends.
+ */
+async function updateDailyEngagementCount(uids: string[], todayKey: string): Promise<void> {
+  const db = getDb();
+  for (let i = 0; i < uids.length; i += PRUNE_BATCH_SIZE) {
+    const slice = uids.slice(i, i + PRUNE_BATCH_SIZE);
+    await Promise.all(slice.map(async (uid) => {
+      const ref = db.collection('push_rate').doc(uid);
+      try {
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          const data = snap.exists ? (snap.data() as Record<string, unknown>) : {};
+          const isSameDay = data.dailyEngagementDate === todayKey;
+          const currentCount = typeof data.dailyEngagementCount === 'number' ? data.dailyEngagementCount : 0;
+          const nextCount = isSameDay ? currentCount + 1 : 1;
+          tx.set(ref, { dailyEngagementDate: todayKey, dailyEngagementCount: nextCount }, { merge: true });
+        });
+      } catch (e: unknown) {
+        logger.warn(`[push.service] daily engagement count update failed uid=${uid}`, e);
+      }
+    }));
+  }
 }
 
 /**

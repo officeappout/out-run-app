@@ -11,6 +11,12 @@
  *   • quiet hours 22:00–07:00 IST
  *   • rate cap 24 h per uid on channel 'progression'
  *
+ * NOT subject to push.service.ts's Stage 2 daily engagement cap — 'progression'
+ * is deliberately excluded from ENGAGEMENT_CHANNELS (channel-level, no
+ * isPersonalInteraction flag needed here) as pure achievement VALIDATION —
+ * every message on this channel celebrates the user's own completed
+ * progress, never an app-initiated ask to do something.
+ *
  * Deep-link: '/' (home / league) — users see their new rank on return.
  *
  * Axiom compliance:

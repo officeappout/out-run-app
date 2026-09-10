@@ -48,6 +48,7 @@ import {
     LineChart,
     Wallet,
     SearchX,
+    UsersRound,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -93,7 +94,7 @@ const sectionContainsPath = (sectionId: SectionId, pathname: string | null, orgT
         strategy: ['/admin', '/admin/roadmap', '/admin/master-roadmap'],
         crm: ['/admin/authorities', '/admin/organizations', '/admin/admin-directory'],
         marketing: ['/admin/marketing-hub', '/admin/messages', '/admin/workout-settings', '/admin/simulator', '/admin/workout-simulator', '/admin/links', '/admin/content-matrix', '/admin/unreachable-exercises', '/admin/content-status', '/admin/media-library', '/admin/notifications'],
-        product: ['/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all'],
+        product: ['/admin/analytics', '/admin/statistics', '/admin/insights', '/admin/users/all', '/admin/community-groups-overview'],
         dev: [
             '/admin/locations', '/admin/parks', '/admin/routes', '/admin/exercises', '/admin/programs',
             '/admin/levels', '/admin/progression-manager', '/admin/level-equivalence', '/admin/gym-equipment',
@@ -841,6 +842,7 @@ function AdminLayoutInner({
                                             <SidebarLink href="/admin/statistics" icon={TrendingUp} label="סטטיסטיקות" />
                                             <SidebarLink href="/admin/insights" icon={Lightbulb} label="תובנות אסטרטגיות" />
                                             <SidebarLink href="/admin/users/all" icon={Users} label="כל המשתמשים" />
+                                            <SidebarLink href="/admin/community-groups-overview" icon={UsersRound} label="כל הקבוצות במערכת" />
                                         </div>
                                     )}
                                 </>
