@@ -64,7 +64,8 @@ import {
   applySABASelectionBias,
   hasExplicitCoreLevel,
   resolveExerciseDomain,
-  _TEMP_SKILL_PARENT_MAP,
+  isDomainAncestorRelated,
+  _SKILL_PARENT_MAP,
 } from './workout-selection.utils';
 import {
   chooseCoreForm,
@@ -910,7 +911,7 @@ export class WorkoutGenerator {
       const resolveDavidRuleDomain = (exercise: Exercise, mg: string | null | undefined): { targetDomain: string | undefined; domainLevel: number } => {
         const tagDomain = resolveExerciseDomain(exercise, {
           activeDomains: userLevels ? Array.from(userLevels.keys()) : [],
-          skillParentMap: _TEMP_SKILL_PARENT_MAP,
+          skillParentMap: _SKILL_PARENT_MAP,
           resolveSlug: resolveToSlug,
         });
         const mgDomain = mg ? MG_TO_DOMAIN[mg] : undefined;
@@ -931,13 +932,12 @@ export class WorkoutGenerator {
         // skill exercise in the catalog), burying the 5 genuine cross-branch
         // cases (core vs push, no ancestor relationship at all) under
         // hundreds of false positives. Only fire when mgDomain and
-        // tagDomain are in DIFFERENT branches — neither equal, nor one the
-        // other's direct parent via _TEMP_SKILL_PARENT_MAP (checked both
-        // directions, since MG_TO_DOMAIN can itself resolve straight to a
-        // skill slug for some movementGroups, not just push/pull/legs/core).
-        const isAncestorRelated = tagDomain === mgDomain
-          || _TEMP_SKILL_PARENT_MAP[tagDomain ?? ''] === mgDomain
-          || _TEMP_SKILL_PARENT_MAP[mgDomain ?? ''] === tagDomain;
+        // tagDomain are in DIFFERENT branches — delegated to
+        // `isDomainAncestorRelated` (workout-selection.utils.ts) so this
+        // exact 3-line question has one answer, not two: the
+        // `/admin/unreachable-exercises` audit page imports the same
+        // function rather than reimplementing it (10.09.2026, David).
+        const isAncestorRelated = isDomainAncestorRelated(tagDomain, mgDomain);
         if (tagDomain && mgDomain && !isAncestorRelated) {
           console.warn(`[DomainMismatch] "${getLocalizedText(exercise.name)}" mg=${mgDomain} → domain=${tagDomain}. Check tagging.`);
         }
