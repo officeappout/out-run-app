@@ -77,7 +77,51 @@ beforeEach(() => {
   state.writes = [];
 });
 
+// SPEC-04 Wave C / test #4 — POLICY-01's 10.09.2026 owner decision: under-14
+// users cannot use the app at all. This must be blocked BEFORE any data
+// collection, not merely "not saved" — pins that the age check
+// (route.ts:79-81) runs before the existing-doc read (route.ts:96) and the
+// batch write, so a 13-year-old leaves ZERO trace in Firestore, not even a
+// partial/shell doc.
+const TODAY = new Date();
+function dobForAge(years: number): { birthDay: number; birthMonth: number; birthYear: number } {
+  const d = new Date(TODAY.getFullYear() - years, TODAY.getMonth(), TODAY.getDate());
+  return { birthDay: d.getDate(), birthMonth: d.getMonth() + 1, birthYear: d.getFullYear() };
+}
+
 describe('POST /api/user/complete-profile', () => {
+  it('test #4 — registering with a birthdate under 14 is blocked (403), and NO data is saved at all', async () => {
+    state.EXISTING_DOC = undefined;
+
+    const res = await POST(fakeRequest({ name: 'TooYoung', gender: 'other', ...dobForAge(13) }));
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('under-minimum-age');
+    // The defining requirement: zero writes reached Firestore — not a
+    // partial doc, not even a shell. state.writes staying empty proves the
+    // rejection happens before batch.commit() is ever called.
+    expect(state.writes).toEqual([]);
+  });
+
+  it('a comfortably-14-year-old is NOT blocked — the gate is under 14, not under 18 (age-group is separately \'minor\' until 18)', async () => {
+    state.EXISTING_DOC = undefined;
+
+    // 14 years + 7 days, not exactly 14 years, to stay clear of the
+    // 365.25-day-year vs. calendar-year rounding at the exact boundary —
+    // this only needs to prove "clearly 14, not 13" is allowed through.
+    const dob = dobForAge(14);
+    const buffered = new Date(dob.birthYear, dob.birthMonth - 1, dob.birthDay - 7);
+    const res = await POST(fakeRequest({
+      name: 'JustOldEnough', gender: 'other',
+      birthDay: buffered.getDate(), birthMonth: buffered.getMonth() + 1, birthYear: buffered.getFullYear(),
+    }));
+
+    expect(res.status).toBe(200);
+    const data = usersWrite();
+    expect(data.core.ageGroup).toBe('minor');
+  });
+
   it('empty doc → full scaffold is written', async () => {
     state.EXISTING_DOC = undefined;
 
