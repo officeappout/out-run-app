@@ -823,3 +823,16 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 4. למדוד שוב (אין הפתעה — הממוצע לא אמור להשתנות, `core` ממילא לא נכלל בו).
 
 **לא הוכרע, לא מיושם.** תלוי בהכרעה הסופית של דוד על core (עדיין "נוטה", לא סופי).
+
+---
+
+## פירמידה — שני ממצאים נלווים מחקירת "5 סטים", 10.09.2026 — לא הבאג שדוד חשד בו, נרשם לניקוי עתידי
+
+**Opened:** 10.09.2026 · **Source:** חקירת 3א (read-only, agent Explore) — דוד חשד שפירוק-פירמידה ל-5 סטים נובע מטיפול-בפירמידה-כתרגיל-בודד. **נשלל** — אומת שכל שכבה (generator → processor → BudgetDistributor → session/Firestore → both UI paths) שומרת על "תרגיל אחד, מערך-סטים באורך N" באופן עקבי, לעולם לא N תרגילים נפרדים. "5 הסטים" הם `PYRAMID_SHAPES[2].long` ("Triangle Wave" `[8,5,3,5,8]`) — צורה לגיטימית בקושי-D2, מ-5 וריאציות אמיתיות-ושונות של אותו משפחת-תרגיל (מאומת: למשפחת front_lever יש 8+ וריאציות בקטלוג, עובר בנוח את `MIN_DISTINCT_VARIANTS_FOR_MECHANICAL=3`). מה שנראה כ"5 תרגילים" הוא רינדור בלבד: `PyramidStepCard.tsx` (מגירת-התצוגה המקדימה) משכפל את מלוא הלייאאוט של `ExerciseCard` רגיל לכל סט (תמונה/שם עצמאיים), עם רק תג-קטן "סט N" ו-כותרת-מקטע דקה ("N שלבים") שמבדילים את זה מ-5 תרגילים אמיתיים — קל מאוד לפרש בטעות. **לא תוקן — לא נדרש תיקון, זו לא בעיה.**
+
+**שני ממצאים אמיתיים, נפרדים, שעלו תוך-כדי — נרשמים, לא תוקנו (read-only per הבריף):**
+
+1. **פער ברשימת-הלבן `PYRAMID_UPPER_COMPOUND_MGS`.** `WorkoutGenerator.ts:112-118` כולל רק `planche`/`muscle_up`/`handstand_pushup` מקבוצת-הסקילים — **חסרים `front_lever`/`back_lever`/`one_arm_pullup`/`human_flag`**, למרות ש-`domain-mapping.constants.ts:34-58` מתעד את כולם כ"MG-סקיל" קנוני ואומר במפורש ששתי הרשימות "must stay in lock-step". תוצאה בפועל: front_lever יכול להפוך לעוגן-פירמידה **רק** דרך נתיב-הנפילה (`pool = mainEx` כש-0 תרגילים ראשיים מהרשימה-הלבנה קיימים באותו אימון) — לא מועדף, רק כש"אין ברירה". זה **לא** הסבר ל"5 סטים" (זו שאלה שונה — כמה פעמים פירמידה בוחרת front_lever, לא כמה סטים יש לה כשהיא כן נבחרת) אבל זה כן הסבר סביר לאיך front_lever בכלל הגיע לתפקיד-עוגן באותה הרצה. **הצעה, לא הוכרעה:** להוסיף את ארבעת ה-MG-ים החסרים ל-`PYRAMID_UPPER_COMPOUND_MGS` כדי שהיא תואמת בפועל למה ש-`domain-mapping.constants.ts` כבר מתעד כקנוני.
+2. **קוד מת שמתאים בדיוק לדפוס-האזהרה של CLAUDE.md ("כפיל legacy עם שם מטעה").** `core/pipeline/ProtocolInjector.ts:74` מכיל עותק-משלו-ישן של `selectPyramidTargets`, עם docstring שעדיין אומר "Pick 1–2 exercises" — **הגרסה שקדמה לכלל-CNS** ש-`WorkoutGenerator.ts`'s docstring (שורות 121-133) אומר במפורש שבוטלה ("the previous 50/50 random roll between 1 and 2 pyramids... is now strictly prohibited"). אומת ב-grep ממצה: **אף קובץ לא מייבא `createProtocolInjector`/`ProtocolInjector`** — מסלול-הייצור החי (`PipelineOrchestrator.ts:41,308-309`) קורא ל-`createWorkoutGenerator().generateWorkout`, שמשתמש אך ורק ב-`selectProtocol`/`selectPyramidTargets` הפרטיים של `WorkoutGenerator.ts` עצמו — **מת, לא מיובא בשום מקום**. מסוכן-לעתיד: אם מישהו יחבר את הקובץ הזה בטעות מתוך אמונה שזה מודול-ההזרקה החי, הוא יחזיר בשוגג את התנהגות-ה-2-פירמידות-לאימון שכלל-CNS בא למנוע. **הצעה, לא הוכרעה:** מחיקה.
+
+**לא תוקן, לא הוכרע — שני הממצאים ממתינים להחלטת-דוד (הוספת 4 MG-ים לרשימה / מחיקת הקובץ המת).**
