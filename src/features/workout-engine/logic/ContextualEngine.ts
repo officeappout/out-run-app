@@ -132,25 +132,6 @@ export class ContextualEngine {
       after_hard_filters: 0,
     };
 
-    // [DIAG-L1/L2] temporary, David 08.09.2026 — Layer 1: candidates entering
-    // this function's loop, by real programId (not slug). Layer 2:
-    // __diagVerdicts is populated on the SAME LINE as each real
-    // fCounts.excluded_X++ (and the passedHardFilters.push for the passed
-    // case) — never a second pass, never recomputed, so the print can never
-    // drift from the real decision. End-of-run assert cross-checks the two.
-    // Both removed after David's run.
-    const __diagIds: Record<string, string> = {
-      planche: 'pCI5NHXpowu2ySucqDn8',
-      one_arm_pullup: 'cC0BOmm6KIqYAyQynEIo',
-      pull: 'UPDBtTdCvX748dtBlWYj',
-      push: 'J0fLpmJhG0KDN2tQouxh',
-    };
-    console.log(
-      `[DIAG-L1] filterAndScore candidates entering filters: ${exercises.length} — ` +
-      Object.entries(__diagIds).map(([k, id]) => `${k}=${exercises.filter((e) => (e.targetPrograms ?? []).some((tp) => tp.programId === id)).length}`).join(', '),
-    );
-    const __diagVerdicts: Array<{ ex: Exercise; verdict: string }> = [];
-
     const activeDomains = context.activeDomains ?? context.activeProgramFilters;
 
     for (const exercise of exercises) {
@@ -162,7 +143,7 @@ export class ContextualEngine {
         );
         if (!matchesAnyProgram) {
           excludedCount++;
-          fCounts.excluded_program_filter++; __diagVerdicts.push({ ex: exercise, verdict: 'program_filter' });
+          fCounts.excluded_program_filter++;
           continue;
         }
       }
@@ -200,7 +181,7 @@ export class ContextualEngine {
       const maxLevel = effectiveLevelForTolerance + levelTolerance;
       if (programLevel < minLevel || programLevel > maxLevel) {
         excludedCount++;
-        fCounts.excluded_level_tolerance++; __diagVerdicts.push({ ex: exercise, verdict: 'level_tolerance' });
+        fCounts.excluded_level_tolerance++;
         continue;
       }
 
@@ -231,7 +212,7 @@ export class ContextualEngine {
           );
           if (!skillDomainIsActive) {
             excludedCount++;
-            fCounts.excluded_exclusive_skill_gate++; __diagVerdicts.push({ ex: exercise, verdict: 'exclusive_skill_gate' });
+            fCounts.excluded_exclusive_skill_gate++;
             continue;
           }
         }
@@ -258,7 +239,7 @@ export class ContextualEngine {
           const handstandIsActive = (activeDomains ?? []).some(d => HANDSTAND_DOMAINS.has(d));
           if (!handstandIsActive) {
             excludedCount++;
-            fCounts.excluded_balance_gate++; __diagVerdicts.push({ ex: exercise, verdict: 'balance_gate' });
+            fCounts.excluded_balance_gate++;
             continue;
           }
         }
@@ -274,27 +255,27 @@ export class ContextualEngine {
         const userEffective = context.getUserLevelForExercise(exercise);
         if (userEffective < SKILL_GATE_MIN_LEVEL) {
           excludedCount++;
-          fCounts.excluded_skill_gate++; __diagVerdicts.push({ ex: exercise, verdict: 'skill_gate' });
+          fCounts.excluded_skill_gate++;
           continue;
         }
       }
 
       if (!this.passesInjuryShield(exercise, context.injuryShield)) {
         excludedCount++;
-        fCounts.excluded_injury_shield++; __diagVerdicts.push({ ex: exercise, verdict: 'injury_shield' });
+        fCounts.excluded_injury_shield++;
         continue;
       }
 
       if (context.excludedMuscleGroups?.length && !this.passesMuscleShield(exercise, context.excludedMuscleGroups)) {
         excludedCount++;
-        fCounts.excluded_48h_muscle++; __diagVerdicts.push({ ex: exercise, verdict: '48h_muscle' });
+        fCounts.excluded_48h_muscle++;
         continue;
       }
 
       if (context.intentMode === 'field') {
         if (!this.passesFieldMode(exercise)) {
           excludedCount++;
-          fCounts.excluded_field_mode++; __diagVerdicts.push({ ex: exercise, verdict: 'field_mode' });
+          fCounts.excluded_field_mode++;
           continue;
         }
       }
@@ -302,7 +283,7 @@ export class ContextualEngine {
       const matchingMethod = this.findMatchingMethod(exercise, context, constraints);
       if (!matchingMethod) {
         excludedCount++;
-        fCounts.excluded_location++; __diagVerdicts.push({ ex: exercise, verdict: 'location' });
+        fCounts.excluded_location++;
         continue;
       }
 
@@ -311,60 +292,23 @@ export class ContextualEngine {
           const effectiveSweatLimit = context.intentMode === 'on_the_way' ? 1 : constraints.sweatLimit;
           if (exercise.sweatLevel && exercise.sweatLevel > effectiveSweatLimit) {
             excludedCount++;
-            fCounts.excluded_sweat++; __diagVerdicts.push({ ex: exercise, verdict: 'sweat' });
+            fCounts.excluded_sweat++;
             continue;
           }
         }
 
         if (exercise.noiseLevel && exercise.noiseLevel > constraints.noiseLimit) {
           excludedCount++;
-          fCounts.excluded_noise++; __diagVerdicts.push({ ex: exercise, verdict: 'noise' });
+          fCounts.excluded_noise++;
           continue;
         }
       }
 
-      passedHardFilters.push({ exercise, method: matchingMethod, programLevel }); __diagVerdicts.push({ ex: exercise, verdict: 'passed' });
+      passedHardFilters.push({ exercise, method: matchingMethod, programLevel });
     }
 
     fCounts.after_hard_filters = passedHardFilters.length;
 
-    // [DIAG-L2] print, in the pool's own order, every candidate's verdict —
-    // then assert the verdict tally exactly matches fCounts (the real
-    // counters), warning loudly if they ever diverge. Removed after David's run.
-    {
-      const __tallyByVerdict: Record<string, number> = {};
-      for (const v of __diagVerdicts) __tallyByVerdict[v.verdict] = (__tallyByVerdict[v.verdict] ?? 0) + 1;
-      for (const v of __diagVerdicts) {
-        console.log(
-          `[DIAG-L2]   id=${v.ex.id} ${JSON.stringify(v.ex.name)} verdict=${v.verdict} ` +
-          `tp=${JSON.stringify(v.ex.targetPrograms ?? null)}`,
-        );
-      }
-      const __expected: Record<string, number> = {
-        program_filter: fCounts.excluded_program_filter,
-        level_tolerance: fCounts.excluded_level_tolerance,
-        exclusive_skill_gate: fCounts.excluded_exclusive_skill_gate,
-        balance_gate: fCounts.excluded_balance_gate,
-        skill_gate: fCounts.excluded_skill_gate,
-        injury_shield: fCounts.excluded_injury_shield,
-        '48h_muscle': fCounts.excluded_48h_muscle,
-        field_mode: fCounts.excluded_field_mode,
-        location: fCounts.excluded_location,
-        sweat: fCounts.excluded_sweat,
-        noise: fCounts.excluded_noise,
-        passed: fCounts.after_hard_filters,
-      };
-      let __mismatch = false;
-      for (const [verdict, expectedCount] of Object.entries(__expected)) {
-        const actual = __tallyByVerdict[verdict] ?? 0;
-        if (actual !== expectedCount) {
-          __mismatch = true;
-          console.warn(`[DIAG-L2] ⚠️ MISMATCH verdict="${verdict}": diag tally=${actual}, real fCounts=${expectedCount} — the diagnostic and the real counters have DIVERGED, do not trust this printout.`);
-        }
-      }
-      console.log(`[DIAG-L2] verdict tally vs fCounts: ${__mismatch ? '⚠️ MISMATCH — see warnings above' : '✅ match'} — ${JSON.stringify(__tallyByVerdict)}`);
-    }
-    
     // Step 2: Score exercises (include domain-resolved program level)
     const scoredExercises = passedHardFilters.map(({ exercise, method, programLevel }) => {
       const scored = this.scoreExercise(exercise, method, context, activeDomains);
