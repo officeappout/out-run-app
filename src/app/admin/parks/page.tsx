@@ -18,6 +18,7 @@ import { remapParksToAuthorities } from '@/features/admin/services/remap-parks-t
 import { Authority } from '@/types/admin-types';
 import { RefreshCw } from 'lucide-react';
 import { safeRenderText } from '@/utils/render-helpers';
+import { resolveParkImage } from '@/lib/park-image';
 
 export default function ParksListPage() {
     const [parks, setParks] = useState<Park[]>([]);
@@ -205,13 +206,15 @@ export default function ParksListPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {parks.map((park) => (
+                                {parks.map((park) => {
+                                  const parkThumbnail = resolveParkImage(park, 80);
+                                  return (
                                     <tr key={park.id} className="hover:bg-blue-50/50 transition-colors group">
                                         <td className="px-6 py-4 font-bold text-gray-900">
                                             <div className="flex items-center gap-3">
-                                                {park.image ? (
+                                                {parkThumbnail ? (
                                                     // eslint-disable-next-line @next/next/no-img-element
-                                                    <img src={park.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-200" />
+                                                    <img src={parkThumbnail} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-200" />
                                                 ) : (
                                                     <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
                                                         <MapPin size={16} />
@@ -295,7 +298,8 @@ export default function ParksListPage() {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                  );
+                                })}
                             </tbody>
                         </table>
                     </div>
