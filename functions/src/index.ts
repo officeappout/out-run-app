@@ -24,7 +24,11 @@ setGlobalOptions({ maxInstances: 20 });
 export { onGroupMemberWrite, deleteZombieGroups } from './onGroupMemberWrite';
 export { validateAccessCode } from './validateAccessCode';
 export { onFeedPostCreate, onWorkoutCreate, rollupLeaderboard } from './leaderboard';
-export { runDataMigration } from './runDataMigration';
+// runDataMigration — deliberately NOT exported (removed from deploy 10.09.2026,
+// per David's approval and the master-plan's own flagged concern: "destructive
+// function still deployed in production; take it down until you need it for a
+// migration, bring it back after"). Source file (runDataMigration.ts) is kept,
+// not deleted — this is meant to be temporary, re-exported when next needed.
 export { onUnitWrite } from './onUnitWrite';
 export { onAuthorityWrite } from './onAuthorityWrite';
 export { onMilitaryDeclarationWritten } from './militaryReserveLeague';
