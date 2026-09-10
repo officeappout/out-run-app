@@ -10,6 +10,14 @@
 
 ---
 
+## ⚠️ תלות-מיזוג קשיחה — קרא לפני כל עבודה על slug-map או master-level sync
+
+**תיקון הרצפה ב-`autoSyncDomainsFromTracks` (admin panel) חייב לעלות לפני, או באותו מיזוג עם, תיקון `buildProgramSlugMap` (progression.service.ts). לעולם לא slug לבד.**
+
+הסיבה: הכתיבה חסרת-ההגנה ב-`autoSyncDomainsFromTracks` מנוטרלת **היום רק במקרה** — `subPrograms` מחזיק Firestore doc IDs, `tracks` מפתח לפי slug, שני המבנים לא נפגשים. תיקון ה-slug-map **לבדו** דורך את הכתיבה חסרת-ההגנה הזו. פירוט מלא: "באג משתמש — כתיבה בלי הגנה" למטה.
+
+---
+
 ## insights composite indexes missing in firestore.indexes.json
 **Opened:** 2026-07-10 · **Source:** pre-commit review of transcript-pipeline PR (commit `fe51a64`)
 
@@ -808,6 +816,27 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 
 **כשלב מוקדם יותר של אותו תיקון:** כדאי לוודא (בדיקת-קוד, לא רק היגיון) שהתיקון ל-B1 (slug-map) לא "יפעיל" את סעיף 2 בפתאומיות עבור כל משתמש עם calisthenics_upper — ראוי לתאם את שני התיקונים (B1 + הרצפה-כאן) לאותו סבב, לא לתקן B1 לבד ולהשאיר את הכתיבה חסרת-הגנה חשופה בפער-זמן.
 
+**עדכון 10.09.2026 — אותה סוגיה, שדה אחד, ארבע תשובות שונות. שלוש נבדקו בהרצה חיה, כולן חיות באותו סשן ממשי:**
+
+| ערך | מקור | מנגנון | סטטוס |
+|---|---|---|---|
+| **10** | הרשמה (`onboarding-sync.service.ts:1201-1214`) | דליפת סדר-בחירה — לא נוסחה | **חי, נכתב ל-Firestore בפועל** |
+| **18→15** | `[MasterDerive]`, `level-resolution.utils.ts:217-234` | `avg(push,pull,legs)` קשיח, בלי קשר לילדי-המאסטר האמיתיים | **מחושב+מודפס בכל קריאה, אבל תוצאה מושמטת בכל 4 הקוראים — מת בפועל** |
+| **9** | `getMasterProgramProgress`/`recalculateMasterLevel`, `progression.service.ts` | `Math.round(avg(סקילים-שנבחרו-בפועל))` | הנכון — אבל חסום ע"י רצפה מונוטונית (הענף למעלה, B2) |
+| — | `autoSyncDomainsFromTracks`, admin panel | ר' למעלה | לא-פעיל היום (subPrograms=doc-IDs) |
+
+**סעיף 1 — ה-"10": לא נוסחה שלישית, דליפת-סדר.** `effectiveResults` נבנה מחדש (`onboarding-sync.service.ts:1201-1214`) לרשומה יחידה עם `programId:'calisthenics_upper'` (קשיח) ו-`levelId: primaryResult.levelId` — **ה-levelId של הסקיל הראשון שנבחר (`skillIds[0]`), מועתק כמות-שהוא.** בחירת planche ראשון → `'planche_level_10'` → רגקס שולף `10`. בחירת one_arm_pullup ראשון → `7`. **אותם נתונים בדיוק, ערך שונה לגמרי, תלוי רק בסדר-בחירה.**
+
+**סדר הבחירה של דוד הוא דירוג עדיפות מכוון. זה המופע הרביעי שבו הוא דולף למקום שלא נועד לו.**
+
+**השדה `levelId` משמש שתי משמעויות שונות — רמת סקיל ורמת master. שדה משותף, שתי כוונות.** זה שורש-הדליפה: אין בקוד שום סימון שמבדיל "levelId שמתאר את הסקיל הזה" מ"levelId שאמור לתאר את המאסטר כולו" — אותו string, שני תפקידים.
+
+**סעיף 2 — ה-"18/15": קוד מת, לא רק נוסחה-לא-נכונה.** `buildUserProgramLevels` (`level-resolution.utils.ts:92-237`), הבלוק "Master Level Derivation" (שורות 217-234). קלט: `masterProgramIds: Set<string>` (משתנה לפי קורא — לפעמים `new Set()` ריק, לפעמים כל ה-`isMaster` פרוגרמות) + `levels` (Map שכבר נפתר באותה קריאה עצמה, push/pull/legs). **הנוסחה קשיחה — `MASTER_CHILD_TRACKS=['push','pull','legs']` — מוחלת זהה על *כל* מאסטר ב-Set, בלי קשר למי הילדים האמיתיים שלו** (ל-full_body זה נכון במקרה; ל-calisthenics_upper זה שגוי מבנית — ה"ילדים" שלו הם 4 סקילים, לא push/pull/legs). אצל דוד: `levels.get('push')=19`, `levels.get('pull')=16`, `legs` נעדר (משתמש-סקילים-טהור) → `childLevels=[19,16]` → `avg=17.5` → `Math.round=18` → `cap=Math.min(18,15)=15`. תואם בדיוק ללוג.
+
+**הצרכן: אין. נבדקו כל 4 מקומות-הקריאה האמיתיים בקוד** (`home-workout.service.ts:1779` — מסלול-הייצור הראשי; `build-home-user-context.ts:89`; `partial-completion.generator.ts:107`; `hybrid-context.util.ts:56`) — **כולם מפרקים רק את `.levels`, אף אחד לא קורא את `derivedMasterLevels`.** החישוב רץ, מודפס ללוג, ואפס השפעה על שום דבר במורד-הזרם. זומבי-חישוב — בדיוק מה שגרם לדוד לראות שורת-לוג מבלבלת בהרצה חיה בלי שום תוצאה תפקודית מאחוריה.
+
+**לא תוקן, לא הוצע תיקון קונקרטי כאן.** אם/כשמטפלים בזה: או להסיר את הבלוק כולו (קוד מת, אפס צרכן), או — אם מתישהו יידרש צרכן אמיתי — לתקן את `MASTER_CHILD_TRACKS` להיגזר מ-`subPrograms` האמיתי של כל מאסטר בנפרד (לא קבוע-קשיח-אחיד), בדיוק אותה מחלקת-תיקון כמו B1.
+
 ---
 
 ## המשך — הוצאת `core` מ-`calisthenics_upper` (כשיוחלט) חוזר לרצף המחייב: slug-map → לוג → פאנל
@@ -836,3 +865,5 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 2. **קוד מת שמתאים בדיוק לדפוס-האזהרה של CLAUDE.md ("כפיל legacy עם שם מטעה").** `core/pipeline/ProtocolInjector.ts:74` מכיל עותק-משלו-ישן של `selectPyramidTargets`, עם docstring שעדיין אומר "Pick 1–2 exercises" — **הגרסה שקדמה לכלל-CNS** ש-`WorkoutGenerator.ts`'s docstring (שורות 121-133) אומר במפורש שבוטלה ("the previous 50/50 random roll between 1 and 2 pyramids... is now strictly prohibited"). אומת ב-grep ממצה: **אף קובץ לא מייבא `createProtocolInjector`/`ProtocolInjector`** — מסלול-הייצור החי (`PipelineOrchestrator.ts:41,308-309`) קורא ל-`createWorkoutGenerator().generateWorkout`, שמשתמש אך ורק ב-`selectProtocol`/`selectPyramidTargets` הפרטיים של `WorkoutGenerator.ts` עצמו — **מת, לא מיובא בשום מקום**. מסוכן-לעתיד: אם מישהו יחבר את הקובץ הזה בטעות מתוך אמונה שזה מודול-ההזרקה החי, הוא יחזיר בשוגג את התנהגות-ה-2-פירמידות-לאימון שכלל-CNS בא למנוע. **הצעה, לא הוכרעה:** מחיקה.
 
 **לא תוקן, לא הוכרע — שני הממצאים ממתינים להחלטת-דוד (הוספת 4 MG-ים לרשימה / מחיקת הקובץ המת).**
+
+**✅ סגור, 10.09.2026 — הכרעת דוד אחרי קריאת הדוח: לא באג.** "פרונט לבר בטאק" ו"פרונט לבר בפישוק" (וכל שאר צעדי-הרצף) הם באמת תרגילים שונים — התצוגה לא משקרת, אין פריט-UI לתקן, אין קריאה-נוספת נדרשת. **הכלל להמשך:** אם דוד יראה שוב משהו חשוד באימון חי, הוא ישלח צילום-מסך+קונסול — לא רודפים אחרי תחושה עם ניתוח סטטי בלבד. שני הממצאים הנלווים (רשימת-MG חסרה, קוד מת ב-`ProtocolInjector.ts`) **נשארים פתוחים** — אמיתיים ולא-תלויי-תחושה, ממתינים להחלטת-דוד כאמור למעלה.
