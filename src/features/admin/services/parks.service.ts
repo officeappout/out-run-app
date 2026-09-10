@@ -29,6 +29,8 @@ import { Park } from '@/types/admin-types';
 import { logAction } from './audit.service';
 import { createEditRequest } from './edit-requests.service';
 import { checkUserRole } from './auth.service';
+import { buildParkUpdateFields } from './park-update-fields';
+export { buildParkUpdateFields } from './park-update-fields';
 
 const PARKS_COLLECTION = 'parks';
 
@@ -177,28 +179,10 @@ export async function updatePark(
     }
 
     const docRef = doc(db, PARKS_COLLECTION, parkId);
-    const updateData: any = { updatedAt: serverTimestamp() };
+    const updateData: any = { updatedAt: serverTimestamp(), ...buildParkUpdateFields(data) };
     let details = 'Updated park';
 
-    if (data.name !== undefined) updateData.name = data.name ?? '';
-    if (data.city !== undefined) updateData.city = data.city ?? '';
-    if (data.description !== undefined) updateData.description = data.description ?? '';
-    if (data.location !== undefined) updateData.location = data.location;
-    if (data.image !== undefined) updateData.image = data.image ?? null;
-    if ((data as any).facilityType !== undefined) updateData.facilityType = (data as any).facilityType ?? null;
-    if ((data as any).sportTypes !== undefined) updateData.sportTypes = Array.isArray((data as any).sportTypes) ? (data as any).sportTypes : [];
-    if ((data as any).featureTags !== undefined) updateData.featureTags = Array.isArray((data as any).featureTags) ? (data as any).featureTags : [];
-    if ((data as any).hasWaterFountain !== undefined) updateData.hasWaterFountain = (data as any).hasWaterFountain ?? false;
-    if ((data as any).isDogFriendly !== undefined) updateData.isDogFriendly = (data as any).isDogFriendly ?? false;
-    if ((data as any).courtType !== undefined) updateData.courtType = (data as any).courtType ?? null;
-    if (data.facilities !== undefined) updateData.facilities = Array.isArray(data.facilities) ? data.facilities : [];
-    if (data.gymEquipment !== undefined) updateData.gymEquipment = Array.isArray(data.gymEquipment) ? data.gymEquipment : [];
-    if (data.amenities !== undefined) updateData.amenities = data.amenities ?? null;
-    if (data.authorityId !== undefined) updateData.authorityId = data.authorityId ?? null;
-    if ((data as any).neighborhoodId !== undefined) updateData.neighborhoodId = (data as any).neighborhoodId ?? null;
-    if ((data as any).neighborhoodName !== undefined) updateData.neighborhoodName = (data as any).neighborhoodName ?? null;
     if (data.status !== undefined) {
-      updateData.status = data.status;
       const oldStatus = park?.status || 'unknown';
       details = `Status changed from "${oldStatus}" to "${data.status}"`;
     }
