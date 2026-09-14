@@ -144,7 +144,7 @@ const REASON_META: Record<Reason, { label: string; short: string; color: string;
     short: 'כפילות היררכיה',
     color: 'bg-teal-100 text-teal-800 border-teal-300',
     explain: (row) =>
-      `מתויג גם בתוכנית וגם באב שלה (או בסבא) באותו ענף בהיררכיה: ${row.ancestorDuplicatePairs ?? '—'}. הרמה כבר מגיעה מהתגית הספציפית ביותר — התגית ההורה/סבא לא מוסיפה מידע. תגיות נוכחיות: ${row.targetProgramsDisplay ?? '—'}.`,
+      `מתויג גם בתוכנית וגם באב שלה (או בסבא) באותו ענף בהיררכיה: ${row.ancestorDuplicatePairs ?? '—'}. הרמה כבר מגיעה מהתגית הספציפית ביותר — התגית ההורה/סבא לא מוסיפה מידע.${row.ancestorDuplicateDecidedValidNote ? ` ⚠️ ${row.ancestorDuplicateDecidedValidNote} — השורה מוצגת לשקיפות, לא כבעיה פתוחה.` : ''} תגיות נוכחיות: ${row.targetProgramsDisplay ?? '—'}.`,
   },
   MULTI_SKILL_TAG: {
     label: '2+ תגי-סקיל',
@@ -192,6 +192,14 @@ interface UnreachableRow {
    *  "what's wrong, and what the current tags are, with levels." */
   targetProgramsDisplay?: string;
   ancestorDuplicatePairs?: string;
+  /** Set when one of this row's ancestor-duplicate pairs is a DECIDED-valid
+   *  tagging, not a real duplicate — currently only muscle_up (David,
+   *  14.09.2026: it genuinely is push+pull composite; subPrograms:[push,pull]
+   *  stays as-is). The algorithm still flags the pair (no per-exercise/
+   *  per-program exception, per the standing rule) — this note is display-
+   *  only, so David sees the row without being misled into thinking it's an
+   *  open tagging problem. */
+  ancestorDuplicateDecidedValidNote?: string;
   multiSkillTags?: string;
   mgTagMismatch?: { mg: string; mgDomain: string; tagDomain: string };
 }
@@ -365,16 +373,29 @@ export default function UnreachableExercisesPage() {
             ((ex.targetPrograms ?? []) as Array<{ programId: string }>).map((tp) => resolveToSlug(tp.programId)),
           ));
           const dupPairs: string[] = [];
+          let involvesDecidedValidMuscleUp = false;
           for (let i = 0; i < resolvedSlugs.length; i++) {
             for (let j = i + 1; j < resolvedSlugs.length; j++) {
               const [a, b] = [resolvedSlugs[i], resolvedSlugs[j]];
-              if (ancestorMap.get(a)?.has(b) || ancestorMap.get(b)?.has(a)) dupPairs.push(`${a}+${b}`);
+              if (ancestorMap.get(a)?.has(b) || ancestorMap.get(b)?.has(a)) {
+                dupPairs.push(`${a}+${b}`);
+                // DECIDED valid, not a real duplicate (David, 14.09.2026) —
+                // muscle_up genuinely is push+pull composite. The pair is
+                // still flagged (no exception in the algorithm itself) —
+                // only the display gets a note, per parking-lot.md's
+                // "muscle_up נשאר כמו שהוא" entry.
+                if (a === 'muscle_up' || b === 'muscle_up') involvesDecidedValidMuscleUp = true;
+              }
             }
           }
           let ancestorDuplicatePairs: string | undefined;
+          let ancestorDuplicateDecidedValidNote: string | undefined;
           if (dupPairs.length > 0) {
             reasons.push('ANCESTOR_DUPLICATE');
             ancestorDuplicatePairs = dupPairs.join('; ');
+            if (involvesDecidedValidMuscleUp) {
+              ancestorDuplicateDecidedValidNote = 'תיוג תקין — מאסל-אפ מורכב מדחיפה ומשיכה (הכרעת דוד 14.09.2026)';
+            }
           }
 
           // ── (ב) 2+ skill tags ─────────────────────────────────────────
@@ -422,6 +443,7 @@ export default function UnreachableExercisesPage() {
               exerciseRole: ex.exerciseRole,
               targetProgramsDisplay: formatTargetPrograms(ex),
               ancestorDuplicatePairs,
+              ancestorDuplicateDecidedValidNote,
               multiSkillTags,
               mgTagMismatch,
             });

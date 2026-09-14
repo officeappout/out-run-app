@@ -884,3 +884,39 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 **2. `usedIds` לא משחרר קורבן שהוחלף.** `GuaranteePassRunner.ts:1101` — `usedIds.add(sub.exercise.id)` (מוסיף את התחליף-הנכנס), אבל **אף שורה לא מסירה את ה-id של הקורבן-שהוחלף-החוצה** מ-`usedIds`. המשמעות: תרגיל שהוחלף-החוצה באיטרציה מוקדמת נשאר "תפוס" ב-`usedIds` לאורך כל שאר ריצת-הפאס, למרות שהוא כבר לא נמצא בפועל ב-`workoutExercises` — יכול לחסום שלא לצורך שימוש-חוזר בו כתחליף לסקיל אחר באותה ריצה, גם כשזה היה הבחירה הטובה ביותר. **הצעה (לא מיושמת):** `usedIds.delete(workoutExercises[idx].exercise.id)` לפני ההחלפה בפועל (שורה ~1086), לצד ה-`add` הקיים.
 
 **לא מיושם. ענף נפרד, סקירה נפרדת, כשמגיעים לזה.**
+
+---
+
+## ✅ הכרעה — `muscle_up` נשאר כמו שהוא; `subPrograms:[push,pull]` תקין — אבל סותר `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` — 14.09.2026
+
+**Opened:** 14.09.2026 · **Source:** דוד, אחרי שהאלגוריתם החדש בעמוד-האדמין דיווח על 14 תרגילים מתויגים `pull+muscle_up` כ"כפילות אב/סבא".
+
+**הכרעה:** `muscle_up` נשאר תוכנית עצמאית, `subPrograms:[push,pull]` **תקין ולא משתנה**. נימוק דוד: מאסל-אפ באמת מורכב מדחיפה ומשיכה (מתח → מעבר → שקיעה) — זו לא כפילות היררכית, זו תגית-אב שני-רכיבים אמיתית. **המשמעות: 14 התרגילים המתויגים `pull+muscle_up` הם תיוג תקין, לא כפילות אב/סבא.**
+
+**⚠️ אבל ההכרעה הזו סותרת רשומה נפרדת, קיימת, בקוד — לא נפתר, שתי משימות read-only נפתחות בגללה:**
+```
+DOMAIN_RESOLUTION_SKILL_PARENT_MAP['muscle_up'] = 'pull'   // סקיל → הורה יחיד
+muscle_up.subPrograms = ['push', 'pull']                   // מאסטר → שני ילדים
+```
+שני כיוונים הפוכים לגמרי על אותו יחס בין muscle_up ל-pull: לפי `DOMAIN_RESOLUTION_SKILL_PARENT_MAP`, pull הוא ה**הורה** של muscle_up (סקיל). לפי `programs` collection, pull הוא **ילד** של muscle_up (מאסטר). שתי אמיתות סותרות באותה קוד-בייס, על אותה מילה.
+
+**משימה א' (עמוד-האדמין) — בוצע.** לא הוחרג `muscle_up` מהאלגוריתם — ההליכה ההיררכית נשארת כלל אחד, בלי יוצאים-מן-הכלל (per כלל-העל). במקום זה: 14 השורות הרלוונטיות מקבלות תווית-משנה מפורשת — "תיוג תקין — מאסל-אפ מורכב מדחיפה ומשיכה (הכרעת דוד 14.09.2026)" — כדי שדוד יראה אותן ולא יתבלבל, בלי שהן נעלמות מהדוח. פירוט טכני בסעיף-הענף למטה.
+
+**משימה ב' — חקירה, read-only, דיווח בלבד:**
+
+1. **איפה `DOMAIN_RESOLUTION_SKILL_PARENT_MAP['muscle_up']` נקרא בפועל — כל הצרכנים, מאומת מחדש מול הקוד החי (5, לא 4):**
+   - `GuaranteePassRunner.ts:1057` (`runSkillRepresentationGuarantee`) — **הצרכן היחיד שבו הערך הספציפי `DOMAIN_RESOLUTION_SKILL_PARENT_MAP[skill]` נקרא ונצרך כערך-בודד בפועל**, לא כמפה שלמה. קרא בעצמי את הקוד החי (`:1050-1069`) לאימות מדויק, לא מהזיכרון: כשלא נמצא תרגיל מתויג-סקיל למאסל-אפ (`findSkillTaggedSubstitute` מחזיר null), שורה 1057 קוראת `parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP['muscle_up']` → `'pull'`, ואם `userLevels.has('pull')` — מחפשת תחליף בדומיין pull **בלבד** (`findSkillTaggedSubstitute(pool, 'pull', pullLevel, ...)`, שורה 1060). אם גם זה נכשל — **אין ניסיון נוסף**, ישר ל-CONFLICT-log (`:1066-1067`), `continue`.
+   - `WorkoutGenerator.ts:914` (`resolveDavidRuleDomain`, דרך `resolveExerciseDomain`'s `skillParentMap` param).
+   - `workout-budgeting.utils.ts:505` (`resolveVolumeExerciseDomain`).
+   - `workout-selection.utils.ts:322` (בתוך `resolveExerciseLevelForDomains` עצמה — צרכן חמישי, לא תועד קודם).
+   - עמוד-האדמין (`unreachable-exercises/page.tsx`, המשימה החדשה כאן).
+   
+   ארבעת האחרונים מעבירים את `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` **כולה** כ-`skillParentMap` ל-`resolveExerciseDomain`/`isDomainAncestorRelated` — לצורך רזולוציית-דומיין/בדיקת-ancestor כללית, לא קריאת-ערך-ספציפי ל-muscle_up. רק `GuaranteePassRunner.ts:1057` קורא את המפתח `'muscle_up'` ישירות.
+
+2. **מה קורה היום כשמשתמש בחר muscle_up ואין מספיק תרגילים — לאן הוא נופל:** ל-**pull בלבד**, ורק ל-pull. `runSkillRepresentationGuarantee`'s "Declared parent-fallback" (`GuaranteePassRunner.ts:1055-1063`): `const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[skill];` → אם `parentDomain && userLevels.has(parentDomain)` → מחפש תחליף ב-pull, ברמת ה-pull של המשתמש. **push אף פעם לא נבדק כאפשרות-נפילה** — הנפילה חד-כיוונית, למרות שמאסל-אפ מורכב משני התנועות.
+
+3. **אם הרשומה תוסר/תשתנה — מה משתנה בהתנהגות:** אם `DOMAIN_RESOLUTION_SKILL_PARENT_MAP['muscle_up']` יוסר לגמרי — `parentDomain` יהיה `undefined`, התנאי ב-שורה 1058 (`if (parentDomain && ...)`) ייכשל, ה-declared-fallback **לא ירוץ בכלל** למאסל-אפ — משתמש שבחר muscle_up ואין לו מספיק תרגילים-מתויגים יישאר תחת-מיוצג בלי שום נפילה, לא ל-pull ולא ל-push. אם הערך ישתנה ל-`'push'` — הנפילה תתהפך לגמרי (push בלבד, לא pull) — לא פותר את חד-הכיווניות, רק מחליף כיוון.
+
+4. **האם נכון שהנפילה תלך לשני ההורים בהתאם להרכב האמיתי — תיאור, לא יישום:** כן, זה עקבי עם הכרעת-דוד (מאסל-אפ=push+pull אמיתי). מנגנון אפשרי: `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` (כרגע `Record<string,string>`, הורה-יחיד) היה צריך לתמוך בהורה-מרובה עבור מאסל-אפ ספציפית — למשל `Record<string,string[]>`, או שדה-נפרד `_COMPOSITE_SKILL_PARENTS: Record<string,string[]>` לצד המפה הקיימת. ב-`GuaranteePassRunner.ts:1056-1063`, הלוגיקה הייתה מנסה כל הורה ברשימה (pull קודם, push אחר-כך, או שניהם במקביל ובוחר את בעל-הרמה-הגבוהה-יותר) עד שנמצא תחליף. **זה שינוי-טיפוס לכל 4 הצרכנים** (`DOMAIN_RESOLUTION_SKILL_PARENT_MAP[x]` היום מניח ערך-יחיד, `string`) — לא שינוי מקומי קטן. **לא מיושם, לא הוכרע — דוד מחליט.**
+
+**לא תוקן. שתי המשימות נשארות read-only/רישום עד הכרעת-המשך של דוד.**
