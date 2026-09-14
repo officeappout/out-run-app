@@ -1,13 +1,13 @@
 # Branch summary — `feat/unreachable-exercises-admin-audit`
 
-**Status: ready for review. Not merged. `main` untouched.**
+**Status: back for final review after round 2 — all applicable review blockers closed. Not merged. `main` untouched.**
 **Last updated: 14.09.2026.**
 
 ---
 
 ## ⚠️ Merge-order constraint — read this first
 
-**This branch is stacked on `feat/unified-domain-resolver` and cannot merge before it.** It imports `isDomainAncestorRelated` and `_SKILL_PARENT_MAP` from `workout-selection.utils.ts` — both of which only exist on `feat/unified-domain-resolver`, not on `origin/main`. There is no way to make this branch independently mergeable without duplicating that logic, which was explicitly rejected (see that branch's own summary, "extraction, not duplication"). Review order: `feat/unified-domain-resolver` first, this branch second.
+**This branch is stacked on `feat/unified-domain-resolver` and cannot merge before it.** It imports `isDomainAncestorRelated` and `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` from `workout-selection.utils.ts` — both of which only exist on `feat/unified-domain-resolver`, not on `origin/main`. There is no way to make this branch independently mergeable without duplicating that logic, which was explicitly rejected (see that branch's own summary, "extraction, not duplication"). Review order: `feat/unified-domain-resolver` first, this branch second.
 
 ---
 
@@ -50,10 +50,10 @@ Added a runtime check: for every exercise, if it carries a `DOMAIN_RESOLUTION_SK
 
 **This decision surfaces a genuine, unresolved contradiction**, registered in `parking-lot.md` (not fixed here, read-only per the new standing rule):
 ```
-_SKILL_PARENT_MAP['muscle_up'] = 'pull'    // skill -> single parent
-muscle_up.subPrograms = ['push', 'pull']   // master -> two children
+DOMAIN_RESOLUTION_SKILL_PARENT_MAP['muscle_up'] = 'pull'   // skill -> single parent
+muscle_up.subPrograms = ['push', 'pull']                   // master -> two children
 ```
-Opposite directions on the same relationship. Investigated (read-only) what this means for the declared-fallback mechanism (`GuaranteePassRunner.ts`'s `runSkillRepresentationGuarantee`) when a user selects muscle_up and there aren't enough tagged candidates — it falls to `pull` only today, `push` is never considered despite the composite nature. Full trace (all 5 real consumers of `_SKILL_PARENT_MAP`, what changes if the entry is removed/changed, and a description — not implementation — of a dual-parent fallback) is in `parking-lot.md`'s "מאסל-אפ נשאר כמו שהוא" entry.
+Opposite directions on the same relationship. Investigated (read-only) what this means for the declared-fallback mechanism (`GuaranteePassRunner.ts`'s `runSkillRepresentationGuarantee`) when a user selects muscle_up and there aren't enough tagged candidates — it falls to `pull` only today, `push` is never considered despite the composite nature. Full trace (all 5 real consumers of `DOMAIN_RESOLUTION_SKILL_PARENT_MAP`, what changes if the entry is removed/changed, and a description — not implementation — of a dual-parent fallback) is in `parking-lot.md`'s "מאסל-אפ נשאר כמו שהוא" entry.
 
 ## Counts are a snapshot, not a guarantee
 
@@ -61,7 +61,15 @@ Opposite directions on the same relationship. Investigated (read-only) what this
 
 ## Measurements
 
-`tsc --noEmit` = **450** (baseline, unchanged). `vitest run` = **1696/1697** (baseline — same known-flaky test, unrelated to this branch). Both measured fresh after every commit on this branch, most recently after the muscle_up decided-valid-note commit.
+**Final, post-review-round-2, measured fresh — this branch, `feat/unified-domain-resolver`, and a fresh `origin/main` checkout, all from the same sitting (14.09.2026):**
+
+| | `tsc --noEmit` | `vitest run` |
+|---|---|---|
+| Fresh `origin/main` (`d61eb990`) | 452 errors | 1648/1649 |
+| `feat/unified-domain-resolver` (this branch's base) | 450 errors | 1696/1697 |
+| `feat/unreachable-exercises-admin-audit` (this branch) | 450 errors | 1696/1697 |
+
+This branch adds no new tsc errors or test regressions over its base — identical counts to `feat/unified-domain-resolver`, expected since the admin page has no unit tests of its own (no jsdom in this repo's vitest — a React component can't be unit-tested here, per established convention). The 2 fewer tsc errors and the vitest delta vs. fresh `origin/main` are pre-existing, not introduced by either branch — `origin/main` picked up unrelated errors from other work after this branch was cut; the vitest delta (1696 vs. 1648 = +48) is new test files this branch's base added. Both branches share the same single known-flaky test (`logMultiCategoryWorkout.smoke.test.ts`'s streak-threshold assertion, confirmed date-dependent, unrelated to either branch) — 4 failed test files, 1 failed individual test, identical on all three checkouts.
 
 ## Never merged, never touched `main`
 
