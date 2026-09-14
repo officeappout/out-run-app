@@ -1,6 +1,6 @@
 # Branch summary — `feat/unreachable-exercises-admin-audit`
 
-**Status: back for final review after round 2 — all applicable review blockers closed. Not merged. `main` untouched.**
+**Status: ✅ MERGED to `main` (14.09.2026), deployed to production. Merge commit `87c53c0a` (`371daafd..87c53c0a`, ff-only, no merge commit — stacked cleanly on `feat/unified-domain-resolver`'s own merge). `/admin/unreachable-exercises` is live with the 5 new categories.**
 **Last updated: 14.09.2026.**
 
 ---

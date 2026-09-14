@@ -1,6 +1,6 @@
 # Branch summary — `feat/unified-domain-resolver`
 
-**Status: back for final review after round 2 — all 4 review blockers closed (flag added, naming collision resolved, "14" audited clean, this opening rewritten). Not merged. `main` untouched.**
+**Status: ✅ MERGED to `main` (14.09.2026), deployed to production. Merge commit `371daafd` (`d61eb990..371daafd`, ff-only, no merge commit). Vercel deployment confirmed `success`, Production environment, live site verified responding (HTTP 200). `SKILL_REPRESENTATION_GUARANTEE_ENABLED` remains `false` — not flipped as part of this merge; David flips it separately after verifying the merge didn't break anything on-device.**
 **Last updated: 14.09.2026** (this document is the up-to-date source for review — re-read it, don't rely on anything said about this branch in an earlier chat).
 
 ---
