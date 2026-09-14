@@ -1,24 +1,16 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Navigation, ArrowLeftRight } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Navigation } from 'lucide-react';
 import { useMapStore } from '../../../core/store/useMapStore';
 import { useShelterProximity } from '../../../core/hooks/useShelterProximity';
 import { formatShelterTagLabel } from '../../../core/services/shelter-proximity.service';
 import ParkDetailSheet from '../park-detail/ParkDetailSheet';
 import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
 import { bunnyImg } from '@/lib/bunny-image';
-
-const FOCAL_POSITIONS = ['center', 'top', 'bottom', 'left center', 'right center'];
-
-const CHIP_DEFS: { key: string; label: string; icon: string }[] = [
-  { key: 'shaded',         label: 'הצללה',      icon: 'umbrella' },
-  { key: 'water_fountain', label: 'ברזיית מים',  icon: 'water_drop' },
-  { key: 'has_benches',    label: 'ספסלים',      icon: 'chair' },
-  { key: 'night_lighting', label: 'תאורה',       icon: 'light_mode' },
-  { key: 'has_toilets',    label: 'שירותים',     icon: 'wc' },
-  { key: 'dog_friendly',   label: 'ידידותי לכלבים', icon: 'pets' },
-];
+import IconChip from '../park-detail/IconChip';
+import { AMENITY_ICON_MAP, AMENITY_DISPLAY_ORDER } from '../park-detail/amenity-icons';
+import type { ParkFeatureTag } from '@/features/parks/core/types/park.types';
 
 interface ParkPreviewProps {
   userLocation: { lat: number; lng: number } | null;
@@ -29,14 +21,6 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   const setPendingCommute = useMapStore((s) => s.setPendingCommute);
   const shelterDecision = useShelterProximity({ park: selectedPark as any });
   const [detailOpen, setDetailOpen] = useState(false);
-  const [focalIndex, setFocalIndex] = useState(0);
-
-  // Reset focal point when a different park is selected
-  useEffect(() => {
-    const saved = selectedPark?.imagePosition;
-    const idx = saved ? FOCAL_POSITIONS.indexOf(saved) : -1;
-    setFocalIndex(idx >= 0 ? idx : 0);
-  }, [selectedPark?.id]);
 
   const distText = useMemo(() => {
     if (!userLocation || !selectedPark?.location) return null;
@@ -54,16 +38,18 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
     });
   }, [selectedPark, setPendingCommute]);
 
-  // Derive chips from featureTags (new) + legacy flat fields; show at most 2
-  const amenityChips = useMemo(() => {
+  // Derive chips from featureTags (new) + legacy flat fields; show at most 2.
+  // Uses the same AMENITY_ICON_MAP + AMENITY_DISPLAY_ORDER as ParkDetailSheet's
+  // "פירוט על הפארק" section so the map popup and the park page agree visually.
+  const amenityTags = useMemo(() => {
     if (!selectedPark) return [];
-    const tags = new Set<string>(selectedPark.featureTags ?? []);
+    const tags = new Set<ParkFeatureTag>(selectedPark.featureTags ?? []);
     if (selectedPark.isShaded || selectedPark.hasNaturalShade || selectedPark.amenities?.hasShadow) tags.add('shaded');
     if (selectedPark.hasWaterFountain || selectedPark.amenities?.hasWater) tags.add('water_fountain');
     if (selectedPark.hasLights || selectedPark.amenities?.hasLighting) tags.add('night_lighting');
     if (selectedPark.amenities?.hasToilets) tags.add('has_toilets');
     if (selectedPark.hasDogPark) tags.add('dog_friendly');
-    return CHIP_DEFS.filter(d => tags.has(d.key)).slice(0, 2);
+    return AMENITY_DISPLAY_ORDER.filter(t => tags.has(t)).slice(0, 2);
   }, [selectedPark]);
 
   if (!selectedPark) return null;
@@ -71,7 +57,9 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   // Prefer imageUrl (Bunny CDN, newest) over legacy image fields
   const rawImageUrl = selectedPark.imageUrl || selectedPark.image || selectedPark.images?.[0] || null;
   const heroSrc = bunnyImg(rawImageUrl, 400);
-  const objectPosition = FOCAL_POSITIONS[focalIndex];
+  // Respects a curated crop if one was ever set on the park doc; otherwise
+  // the browser default (centered) applies.
+  const objectPosition = selectedPark.imagePosition || undefined;
 
   const infoParts: string[] = [];
   if (selectedPark.city) infoParts.push(selectedPark.city);
@@ -112,17 +100,6 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
               <span className="material-icons-round text-[13px] leading-none">close</span>
             </button>
 
-            {/* Focal-point toggle */}
-            {heroSrc && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setFocalIndex(i => (i + 1) % FOCAL_POSITIONS.length); }}
-                aria-label="שנה מיקוד תמונה"
-                className="absolute bottom-8 left-2 z-10 w-7 h-7 rounded-full bg-white/80 dark:bg-zinc-700/80 backdrop-blur-sm border border-gray-200/60 dark:border-zinc-600/60 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-zinc-700 transition-colors"
-              >
-                <ArrowLeftRight size={13} />
-              </button>
-            )}
-
             {/* Fade into card body */}
             <div className="absolute bottom-0 left-0 right-0 h-[70px] bg-gradient-to-b from-transparent to-white dark:to-zinc-800 pointer-events-none" />
           </div>
@@ -146,17 +123,19 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
             </div>
 
             {/* Amenity chips — max 2 */}
-            {amenityChips.length > 0 && (
+            {amenityTags.length > 0 && (
               <div className="flex gap-1.5 mt-2">
-                {amenityChips.map(chip => (
-                  <span
-                    key={chip.key}
-                    className="inline-flex items-center gap-0.5 bg-gray-100 dark:bg-zinc-700 border border-gray-200/60 dark:border-zinc-600/40 rounded-full px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-300"
-                  >
-                    <span className="material-icons-round" style={{ fontSize: 11 }}>{chip.icon}</span>
-                    {chip.label}
-                  </span>
-                ))}
+                {amenityTags.map(tag => {
+                  const config = AMENITY_ICON_MAP[tag];
+                  return (
+                    <IconChip
+                      key={tag}
+                      label={config.label}
+                      iconSrc={config.iconSrc}
+                      IconComponent={config.IconComponent}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>

@@ -8,6 +8,7 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import type { UserContribution } from '@/types/contribution.types';
 import FacilityCard, { FACILITY_TAGS } from '@/features/parks/client/components/park-detail/FacilityCard';
 import Link from 'next/link';
+import { resolveParkImage } from '@/lib/park-image';
 
 interface ParkDetailDrawerProps {
   parkId: string | null;
@@ -74,8 +75,8 @@ export default function ParkDetailDrawer({ parkId, onClose }: ParkDetailDrawerPr
           <>
             {/* Header image */}
             <div className="relative h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex-shrink-0">
-              {(park.image || park.imageUrl) ? (
-                <img src={park.image || park.imageUrl} alt={park.name} className="w-full h-full object-cover" />
+              {resolveParkImage(park, 400) ? (
+                <img src={resolveParkImage(park, 400)} alt={park.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <MapPin size={48} className="text-slate-300" />

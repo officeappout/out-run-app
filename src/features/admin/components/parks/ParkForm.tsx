@@ -157,8 +157,17 @@ export default function ParkForm({
         brandName: eq.brandName,
       })) || [],
       authorityId: effectiveAuthorityId || undefined,
-      image: initialData?.image || undefined,
-      images: initialData?.images || (initialData?.image ? [initialData.image] : []),
+      // Priority matches src/lib/park-image.ts's resolveParkImage: `imageUrl`
+      // (the real Bunny-migrated photo) wins over the legacy `image`/`images`
+      // fields, which are sometimes empty or back-filled with equipment shots.
+      image: initialData?.image || initialData?.imageUrl || undefined,
+      images: (initialData?.images && initialData.images.length > 0)
+        ? initialData.images
+        : initialData?.imageUrl
+          ? [initialData.imageUrl]
+          : initialData?.image
+            ? [initialData.image]
+            : [],
     },
   });
 

@@ -27,9 +27,16 @@ export type PushChannel =
   | 'community'
   | 'retention';
 
+/** Maps to functions/src/services/push.service.ts's per-user daily engagement cap (min=1, balanced=3, high=6). */
+export type NotificationFrequency = 'min' | 'balanced' | 'high';
+
 export interface NotificationPreferences {
   pushEnabled: boolean;
   channels: Record<PushChannel, boolean>;
+  /** Optional on input (e.g. saveNotificationPrefs's bulk onboarding write
+   *  never sets this — frequency is independent of the channel toggles).
+   *  getNotificationPrefs always resolves a concrete value on read. */
+  notificationFrequency?: NotificationFrequency;
 }
 
 const DEFAULT_PREFS: NotificationPreferences = {
@@ -45,6 +52,7 @@ const DEFAULT_PREFS: NotificationPreferences = {
     community: true,
     retention: true,
   },
+  notificationFrequency: 'balanced',
 };
 
 /**
@@ -61,6 +69,7 @@ export async function getNotificationPrefs(
     if (!snap.exists()) return DEFAULT_PREFS;
     const settings = (snap.data() as any)?.settings ?? {};
     const prefs = settings.notificationPrefs ?? {};
+    const freq = settings.notificationFrequency;
     return {
       pushEnabled: settings.pushEnabled ?? true,
       channels: {
@@ -74,6 +83,7 @@ export async function getNotificationPrefs(
         community: prefs.community ?? true,
         retention: prefs.retention ?? true,
       },
+      notificationFrequency: freq === 'min' || freq === 'balanced' || freq === 'high' ? freq : 'balanced',
     };
   } catch (err) {
     console.warn('[notification-prefs] read failed:', err);
@@ -106,6 +116,24 @@ export async function setChannelEnabled(
   if (!uid) return;
   await updateDoc(doc(db, 'users', uid), {
     [`settings.notificationPrefs.${channel}`]: enabled,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Set the overall notification frequency level (min/balanced/high). Drives
+ * the daily engagement cap in push.service.ts's resolveDailyCap() — does
+ * not affect per-channel toggles or the master switch, which is why this
+ * is a dotted-path write like setChannelEnabled, not a merge into the
+ * whole channels block.
+ */
+export async function setNotificationFrequency(
+  uid: string,
+  frequency: NotificationFrequency,
+): Promise<void> {
+  if (!uid) return;
+  await updateDoc(doc(db, 'users', uid), {
+    'settings.notificationFrequency': frequency,
     updatedAt: serverTimestamp(),
   });
 }

@@ -744,7 +744,9 @@ export default function MediaLibraryModal({
       setAssets((prev) => [newAsset, ...prev]);
       setFilteredAssets((prev) => [newAsset, ...prev]);
 
-      // Show success message
+      // Show success message, then auto-select the upload so it attaches to
+      // the caller directly — a single-file upload has exactly one obvious
+      // target, so the caller shouldn't have to click it again in the grid.
       setSuccessMessage('הקובץ הועלה בהצלחה!');
       setTimeout(() => {
         setSuccessMessage(null);
@@ -752,6 +754,7 @@ export default function MediaLibraryModal({
         setUploadFile(null);
         setUploadFileName('');
         setUploadProgress(0);
+        handleSelect(newAsset);
       }, 2000);
     } catch (error: any) {
       console.error('Error uploading file:', error);

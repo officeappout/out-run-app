@@ -36,7 +36,9 @@ import {
   getNotificationPrefs,
   setPushEnabled,
   setChannelEnabled,
+  setNotificationFrequency,
   type PushChannel,
+  type NotificationFrequency,
 } from '@/features/notifications/services/notification-prefs.service';
 import { initPushNotifications } from '@/lib/native/push';
 import { hapticSelection } from '@/lib/haptics';
@@ -432,6 +434,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [chatNotifSaving, setChatNotifSaving] = useState(false);
   // Generic saving guard for new channels (keyed by PushChannel)
   const [channelSaving, setChannelSaving] = useState<Record<string, boolean>>({});
+  const [frequencySaving, setFrequencySaving] = useState(false);
 
   // ── Native push permission status (App Store Guideline 4.5.4 — D1/D2) ─────
   // Source of truth for whether the OS will actually deliver notifications.
@@ -521,6 +524,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             retentionNotif: prefs.channels.retention ?? true,
             trainingReminderNotif: prefs.channels.training_reminder ?? true,
             encouragementNotif: prefs.channels.encouragement ?? true,
+            notificationFrequency: prefs.notificationFrequency ?? 'balanced',
           });
         })
         .catch(() => {
@@ -864,6 +868,24 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setChannelSaving((prev) => ({ ...prev, [channel]: false }));
     }
   }, [store, channelSaving, showToast]);
+
+  // ── Notification frequency (min/balanced/high) ────────────────────────────
+  const handleFrequencyChange = useCallback(async (v: NotificationFrequency) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || frequencySaving) return;
+    const previous = store.notificationFrequency;
+    store.patch({ notificationFrequency: v });
+    setFrequencySaving(true);
+    try {
+      await setNotificationFrequency(uid, v);
+    } catch (err) {
+      console.error('[Settings] notificationFrequency write failed:', err);
+      store.patch({ notificationFrequency: previous });
+      showToast('error', 'שגיאה בשמירת ההגדרה');
+    } finally {
+      setFrequencySaving(false);
+    }
+  }, [store, frequencySaving, showToast]);
 
   // ── Units (debounced Firestore) ──────────────────────────────────────────
 
@@ -1676,6 +1698,54 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       />
                     }
                   />
+
+                  {/* Notification frequency — drives push.service.ts's per-user daily engagement cap */}
+                  <div className="bg-white rounded-xl border border-gray-100 overflow-hidden" dir="rtl">
+                    <div className="px-4 pt-3.5 pb-1">
+                      <p className="text-sm font-semibold text-gray-900 font-simpler text-right">כמה תזכורות?</p>
+                    </div>
+                    <div className="px-4 pb-3.5 pt-1 space-y-2">
+                      {(
+                        [
+                          { value: 'min' as const, label: 'מינימלי', sublabel: 'רק החשוב ביותר. עד תזכורת אחת ביום.' },
+                          { value: 'balanced' as const, label: 'מאוזן', sublabel: 'כמה תזכורות ביום שיעזרו לך להתמיד.', recommended: true },
+                          { value: 'high' as const, label: 'גבוה', sublabel: 'דחוף אותי — כמה שיותר תזכורות שיזיזו אותי.' },
+                        ]
+                      ).map((opt) => {
+                        const selected = store.notificationFrequency === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => { void handleFrequencyChange(opt.value); }}
+                            disabled={!store.isLoaded || frequencySaving}
+                            className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-right transition-colors ${
+                              selected ? 'border-cyan-400 bg-cyan-50/50' : 'border-gray-100 bg-gray-50/50'
+                            } disabled:opacity-60`}
+                          >
+                            <div
+                              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                selected ? 'border-cyan-500 bg-cyan-500' : 'border-gray-300'
+                              }`}
+                            >
+                              {selected && <Check size={12} className="text-white" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-semibold text-gray-900 font-simpler">{opt.label}</span>
+                                {opt.recommended && (
+                                  <span className="text-[10px] font-bold text-cyan-600 bg-cyan-100 rounded-full px-1.5 py-0.5">
+                                    מומלץ
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5">{opt.sublabel}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                   {/* Reminders accordion — HIDDEN (App Store cleanup D6).
                       Relied on in-memory React state with no FCM/LocalNotifications

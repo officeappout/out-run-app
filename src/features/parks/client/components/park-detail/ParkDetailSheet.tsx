@@ -36,10 +36,15 @@ const DAY_FILTER_LABELS: Record<DayFilter, string> = {
 };
 
 const DRAWER_HEIGHT = '92vh';
-/** px the sheet is offset at initial open to show ~85 vh (92 - 85 = 7 vh). */
+/**
+ * The sheet now opens directly at full height (y: 0) and returns there on
+ * any drag release short of CLOSE_THRESHOLD — there is no separate "peek"
+ * resting state. PEEK_Y_PX only sets where the header's fade-out starts as
+ * the sheet is dragged down toward close (see the `opacity` useTransform
+ * below); it is not a snap target anymore.
+ */
 const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.07) : 57;
 const CLOSE_THRESHOLD = 120;
-const EXPAND_THRESHOLD = 60;
 
 const FACILITY_LABELS: Record<string, string> = {
   gym_park: 'גינת כושר', court: 'מגרש ספורט', route: 'מסלול',
@@ -121,8 +126,11 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
     (v) => (v < 0.1 ? 'none' : 'auto') as 'none' | 'auto',
   );
 
-  // Instagram-style scroll chain: intercepts down-swipe at scrollTop=0
-  useSheetScrollChain({ isOpen, y, onClose, scrollRef, snapBackY: PEEK_Y_PX });
+  // Instagram-style scroll chain: intercepts down-swipe at scrollTop=0.
+  // Snaps back to the full-height rest position (0), not the peek offset —
+  // see the DRAWER_HEIGHT/PEEK_Y_PX comment above for why the sheet no
+  // longer rests at peek.
+  useSheetScrollChain({ isOpen, y, onClose, scrollRef, snapBackY: 0 });
 
   const [reviews, setReviews] = useState<UserContribution[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -472,10 +480,11 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
     if (offset > CLOSE_THRESHOLD || velocity > 500) {
       onClose();
-    } else if (offset < -EXPAND_THRESHOLD) {
-      animate(y, 0, SPRING);
     } else {
-      animate(y, PEEK_Y_PX, SPRING);
+      // Any release short of the close threshold returns to the full-height
+      // rest position — the sheet no longer has a separate "peek" resting
+      // state (see DRAWER_HEIGHT/PEEK_Y_PX comment above).
+      animate(y, 0, SPRING);
     }
   };
 
@@ -532,7 +541,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
               dragMomentum={false}
               onDragEnd={handleDragEnd}
               initial={{ y: '100%' }}
-              animate={{ y: PEEK_Y_PX }}
+              animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{ y, opacity, height: DRAWER_HEIGHT, maxHeight: '92vh', willChange: 'transform' }}
@@ -661,7 +670,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       sees after the hero/metadata row. */}
                   <section className="mb-6">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-[15px] font-bold flex items-center gap-1.5">
+                      <h3 className="text-[15px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
                         <Calendar size={14} className="text-emerald-500" />
                         <span>מתאמנים</span>
                         {parkEvents.length > 0 && (
@@ -865,7 +874,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       asset → lucide vector → emoji placeholder
                       (see `amenity-icons.ts`). */}
                   <section className="mb-6">
-                    <h3 className="text-[16px] font-bold mb-3">פירוט על הפארק</h3>
+                    <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">פירוט על הפארק</h3>
                     {park.featureTags && park.featureTags.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {AMENITY_DISPLAY_ORDER
@@ -910,7 +919,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       lands on the right brand variant out of the gate. */}
                   {parkEquipment.length > 0 && (
                     <section className="mb-6">
-                      <h3 className="text-[16px] font-bold mb-3">מתקנים</h3>
+                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">מתקנים</h3>
                       <div className="grid grid-cols-2 gap-2">
                         {parkEquipment.map((eq) => {
                           const parkRef = park.gymEquipment?.find(
@@ -938,7 +947,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       + review snapshots). Stays at the bottom. */}
                   {photoGallery.length > 1 && (
                     <section className="mb-6">
-                      <h3 className="text-[16px] font-bold mb-3">תמונות</h3>
+                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">תמונות</h3>
                       <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-hide">
                         {photoGallery.map((url, i) => (
                           <button
@@ -998,7 +1007,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                   {/* Reviews list */}
                   {reviews.filter(r => r.rating).length > 0 && (
                     <section className="mb-4">
-                      <h3 className="text-[16px] font-bold mb-3">ביקורות</h3>
+                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">ביקורות</h3>
                       <div className="space-y-3">
                         {reviews.filter(r => r.rating).slice(0, 6).map(review => (
                           <div key={review.id} className="bg-gray-50 dark:bg-slate-800/40 rounded-xl p-3.5" style={{ border: '0.5px solid #E0E9FF' }}>
@@ -1031,10 +1040,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                 style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
               >
                 <div className="flex items-center gap-2" dir="rtl">
-                  {/* Start Workout — primary CTA */}
+                  {/* Start Workout — primary CTA. Extra me-2 (on top of the
+                      row's gap-2) separates it from the secondary Edit/Navigate
+                      icon buttons, which stay tight to each other. */}
                   <button
                     onClick={() => { onClose(); onStartWorkout?.(); }}
-                    className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]"
+                    className="flex-1 me-2 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]"
                     style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
                   >
                     <Play size={18} fill="currentColor" />

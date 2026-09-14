@@ -24,11 +24,42 @@
  *   walking     → "הליכה"
  *   (none)      → "אימון"
  *
- * SCHEDULE
- * ────────
- * Runs daily at 07:30 Asia/Jerusalem — early enough to motivate, late enough
- * that most users are awake. push.service.ts quiet-hours check is bypassed
- * (skipQuietHours=true) since 07:30 is just outside the 22:00–07:00 window.
+ * SCHEDULE — PERSONALIZED PER-USER HOUR (was: single fixed 07:30 cron)
+ * ──────────────────────────────────────────────────────────────────
+ * Runs HOURLY, on the hour, Asia/Jerusalem. Each run only targets users
+ * whose preferred hour matches THIS run's hour:
+ *   - Preferred hour = the HOUR component of users/{uid}.lifestyle.reminders.
+ *     runningTime ('HH:MM', set during onboarding's RunningScheduleStep).
+ *     Matching is hour-bucketed — "18:05" and "18:55" both match the 18:00
+ *     run; that's the tolerance window, inherent to hourly granularity
+ *     rather than a separate ±minutes check.
+ *   - No runningTime set → falls back to DEFAULT_HOUR (7), preserving the
+ *     original 07:30-ish morning slot so nobody who never set a preference
+ *     silently stops receiving reminders. (The exact minute shifts from
+ *     :30 to :00 as a side effect of the clean hourly cron — the hour
+ *     itself, 07, is unchanged.)
+ *
+ * Because targeting is now per-user-hour instead of one blanket safe-hour
+ * (07:30), quiet hours are no longer bypassed (skipQuietHours: false) — a
+ * user who set e.g. 02:00 as their preferred hour must not be pushed then.
+ * push.service.ts's real quiet-hours check (22:00–07:00 Asia/Jerusalem)
+ * applies exactly like any other event-driven push. This also means a
+ * quiet-hour preference simply gets no reminder that day, rather than
+ * being deferred or rerouted to a different hour — same "suppress, never
+ * defer" behavior as every other channel in this system.
+ *
+ * ONCE-PER-DAY GUARD
+ * ──────────────────
+ * Since this now runs 24×/day against the SAME today's userSchedule query,
+ * an explicit guard (independent of the channel's own 22h rate cap, which
+ * is a rolling window, not a calendar-day one) stamps
+ * `push_rate/{uid}.trainingReminderSentDate` ('YYYY-MM-DD', Asia/Jerusalem)
+ * the moment a uid is selected for this run's send batch — before we even
+ * know whether push.service.ts's own checks (quiet hours / prefs / rate
+ * cap) end up delivering it. That's deliberate: once a user's designated
+ * hour has been evaluated for today (delivered, or legitimately
+ * suppressed), there's no correct fallback hour to retry at — retrying
+ * later would defeat the whole point of a personalized hour.
  *
  * ENVIRONMENT VARIABLES (optional overrides for testing)
  * ───────────────────────────────────────────────────────
@@ -55,6 +86,13 @@ const BATCH_LIMIT = (() => {
 })();
 
 const TEST_MODE = process.env.TRAINING_REMINDER_TEST_MODE === 'true';
+
+/** Fallback hour for users who never set lifestyle.reminders.runningTime — matches the original fixed cron's hour. */
+const DEFAULT_HOUR = 7;
+
+const USER_FETCH_BATCH = 100; // Firestore getAll() limit, same convention as push.service.ts
+const RATE_FETCH_BATCH = 100;
+const GUARD_WRITE_BATCH = 400; // mirrors push.service.ts's PRUNE_BATCH_SIZE
 
 // ─── Category → label ─────────────────────────────────────────────────────────
 
@@ -107,11 +145,30 @@ function todayISO(): string {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' });
 }
 
+/** Return the current hour (0-23) in Israel timezone. */
+function currentHourIST(): number {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })).getHours();
+}
+
+/**
+ * Parse the HOUR component out of a 'HH:MM' preference string. Returns null
+ * for anything absent/malformed, so callers can fall back to DEFAULT_HOUR
+ * without conflating "no preference" with "preference is hour 0".
+ */
+function parsePreferredHour(runningTime: unknown): number | null {
+  if (typeof runningTime !== 'string') return null;
+  const match = runningTime.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hh = Number(match[1]);
+  if (!Number.isFinite(hh) || hh < 0 || hh > 23) return null;
+  return hh;
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export const trainingReminderScheduler = onSchedule(
   {
-    schedule: '30 7 * * *',
+    schedule: '0 * * * *',
     timeZone: 'Asia/Jerusalem',
     region: 'us-central1',
     timeoutSeconds: 300,
@@ -119,8 +176,9 @@ export const trainingReminderScheduler = onSchedule(
   },
   async () => {
     const dateStr = todayISO();
+    const currentHour = currentHourIST();
     logger.info(
-      `[training-reminder] Starting run for date=${dateStr} ` +
+      `[training-reminder] Starting run for date=${dateStr} hour=${currentHour} ` +
         `batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE}`,
     );
 
@@ -140,14 +198,14 @@ export const trainingReminderScheduler = onSchedule(
 
     logger.info(`[training-reminder] ${docs.length} schedule doc(s) found for ${dateStr}`);
 
-    // ── Per-user: find an uncompleted training entry ──────────────────────
-    interface UserWorkout {
+    // ── Pass 1: find candidates with an uncompleted training entry today ───
+    interface Candidate {
       uid: string;
       workoutLabel: string;
       startTime?: string;
     }
 
-    const targets: UserWorkout[] = [];
+    const candidates: Candidate[] = [];
 
     for (const doc of docs) {
       const data = doc.data() as {
@@ -179,14 +237,75 @@ export const trainingReminderScheduler = onSchedule(
         }
       }
 
-      targets.push({
+      candidates.push({
         uid,
         workoutLabel: categoryLabel(trainEntry.scheduledCategories),
         startTime: trainEntry.startTime,
       });
     }
 
-    logger.info(`[training-reminder] ${targets.length} user(s) with uncompleted training today`);
+    logger.info(`[training-reminder] ${candidates.length} candidate(s) with uncompleted training today`);
+
+    if (candidates.length === 0) return;
+
+    // ── Pass 2: resolve each candidate's preferred hour, keep only this run's hour ──
+    const preferredHourByUid = new Map<string, number>();
+    for (let i = 0; i < candidates.length; i += USER_FETCH_BATCH) {
+      const slice = candidates.slice(i, i + USER_FETCH_BATCH);
+      const refs = slice.map((c) => db.collection('users').doc(c.uid));
+      let userDocs: admin.firestore.DocumentSnapshot[];
+      try {
+        userDocs = await db.getAll(...refs);
+      } catch (err: unknown) {
+        logger.warn('[training-reminder] users getAll failed for a batch, defaulting hour', err);
+        slice.forEach((c) => preferredHourByUid.set(c.uid, DEFAULT_HOUR));
+        continue;
+      }
+      userDocs.forEach((snap, idx) => {
+        const uid = slice[idx].uid;
+        const runningTime = snap.exists
+          ? (snap.data() as Record<string, any>)?.lifestyle?.reminders?.runningTime
+          : undefined;
+        const parsed = parsePreferredHour(runningTime);
+        preferredHourByUid.set(uid, parsed ?? DEFAULT_HOUR);
+      });
+    }
+
+    const hourMatched = candidates.filter(
+      (c) => preferredHourByUid.get(c.uid) === currentHour,
+    );
+
+    logger.info(`[training-reminder] ${hourMatched.length} candidate(s) match this run's hour=${currentHour}`);
+
+    if (hourMatched.length === 0) return;
+
+    // ── Pass 3: once-per-day guard — skip anyone already handled today ─────
+    const alreadySentToday = new Set<string>();
+    for (let i = 0; i < hourMatched.length; i += RATE_FETCH_BATCH) {
+      const slice = hourMatched.slice(i, i + RATE_FETCH_BATCH);
+      const refs = slice.map((c) => db.collection('push_rate').doc(c.uid));
+      let rateDocs: admin.firestore.DocumentSnapshot[];
+      try {
+        rateDocs = await db.getAll(...refs);
+      } catch (err: unknown) {
+        logger.warn('[training-reminder] push_rate getAll failed for a batch, assuming not-yet-sent', err);
+        continue;
+      }
+      rateDocs.forEach((snap, idx) => {
+        if (!snap.exists) return;
+        const data = snap.data() as Record<string, unknown>;
+        if (data.trainingReminderSentDate === dateStr) {
+          alreadySentToday.add(slice[idx].uid);
+        }
+      });
+    }
+
+    const targets = hourMatched.filter((c) => !alreadySentToday.has(c.uid));
+
+    logger.info(
+      `[training-reminder] ${targets.length} target(s) after once-per-day guard ` +
+        `(${alreadySentToday.size} already handled today)`,
+    );
 
     if (targets.length === 0) return;
 
@@ -194,7 +313,7 @@ export const trainingReminderScheduler = onSchedule(
       targets.forEach((t) =>
         logger.warn(
           `[training-reminder] TEST_MODE — would push uid=${t.uid} ` +
-            `workout="${t.workoutLabel}" startTime=${t.startTime ?? 'none'}`,
+            `workout="${t.workoutLabel}" startTime=${t.startTime ?? 'none'} hour=${currentHour}`,
         ),
       );
       return;
@@ -225,7 +344,10 @@ export const trainingReminderScheduler = onSchedule(
           deepLink: '/',
           data: { triggerType: 'ScheduledWorkout', date: dateStr },
           rateCapHours: 22, // ~1 per day — slightly under 24h to avoid drift
-          skipQuietHours: true,
+          // Personalized-hour sends must respect quiet hours — unlike the old
+          // single blanket 07:30 run (always safely outside 22:00-07:00), a
+          // user-chosen hour can legitimately fall inside the quiet window.
+          skipQuietHours: false,
         });
         totalDelivered += result.delivered;
         logger.info(
@@ -237,8 +359,29 @@ export const trainingReminderScheduler = onSchedule(
       }
     }
 
+    // ── Stamp the once-per-day guard for every uid this run decided to
+    // handle — regardless of whether sendPush ultimately delivered,
+    // suppressed (quiet hours/prefs), or failed. This hour's decision for
+    // these users is final for today; there's no correct hour to retry at. ──
+    for (let i = 0; i < targets.length; i += GUARD_WRITE_BATCH) {
+      const slice = targets.slice(i, i + GUARD_WRITE_BATCH);
+      const batch = db.batch();
+      slice.forEach((t) => {
+        batch.set(
+          db.collection('push_rate').doc(t.uid),
+          { trainingReminderSentDate: dateStr },
+          { merge: true },
+        );
+      });
+      try {
+        await batch.commit();
+      } catch (err: unknown) {
+        logger.warn('[training-reminder] once-per-day guard write failed for a batch', err);
+      }
+    }
+
     logger.info(
-      `[training-reminder] Run complete — targets=${targets.length} delivered=${totalDelivered}`,
+      `[training-reminder] Run complete — hour=${currentHour} targets=${targets.length} delivered=${totalDelivered}`,
     );
   },
 );
