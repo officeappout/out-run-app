@@ -61,15 +61,19 @@ Opposite directions on the same relationship. Investigated (read-only) what this
 
 ## Measurements
 
-**Final, post-review-round-2, measured fresh — this branch, `feat/unified-domain-resolver`, and a fresh `origin/main` checkout, all from the same sitting (14.09.2026):**
+**⚠️ Correction (14.09.2026, merge day):** an earlier version of this table was measured before discovering the base branch's fork point was 29 commits behind `origin/main`'s actual tip — that gave a misleading "450 vs 452" comparison. Both branches were rebased onto the current `origin/main` before merging (two rounds for this branch — the first rebase target turned out to be a stale local `main` ref, not `origin/main`; redone explicitly against `origin/main`, confirmed via `git merge-base` matching `origin/main`'s tip exactly before proceeding).
+
+**Final, measured fresh immediately before merge, both post-rebase:**
 
 | | `tsc --noEmit` | `vitest run` |
 |---|---|---|
-| Fresh `origin/main` (`d61eb990`) | 452 errors | 1648/1649 |
-| `feat/unified-domain-resolver` (this branch's base) | 450 errors | 1696/1697 |
-| `feat/unreachable-exercises-admin-audit` (this branch) | 450 errors | 1696/1697 |
+| Fresh `origin/main` (`d61eb990`, pre-merge) | 452 errors | 1648/1649 |
+| `feat/unified-domain-resolver` (merged to `main` as `371daafd`) | 452 errors | 1705/1706 |
+| `feat/unreachable-exercises-admin-audit` (this branch, rebased on `371daafd`) | 452 errors | 1705/1706 |
 
-This branch adds no new tsc errors or test regressions over its base — identical counts to `feat/unified-domain-resolver`, expected since the admin page has no unit tests of its own (no jsdom in this repo's vitest — a React component can't be unit-tested here, per established convention). The 2 fewer tsc errors and the vitest delta vs. fresh `origin/main` are pre-existing, not introduced by either branch — `origin/main` picked up unrelated errors from other work after this branch was cut; the vitest delta (1696 vs. 1648 = +48) is new test files this branch's base added. Both branches share the same single known-flaky test (`logMultiCategoryWorkout.smoke.test.ts`'s streak-threshold assertion, confirmed date-dependent, unrelated to either branch) — 4 failed test files, 1 failed individual test, identical on all three checkouts.
+**452 = 452 — exact match, zero new tsc errors.** This branch's vitest count matches its base exactly (no unit tests of its own — no jsdom in this repo's vitest, a React component can't be unit-tested here). `1705 − 1648 = 57` new tests, all from the base branch, not double-counted. Single known-flaky test (`logMultiCategoryWorkout.smoke.test.ts`'s streak-threshold assertion) identical everywhere.
+
+**Behavioral re-verification (David's explicit request, both rebases) — re-ran the 5 category counts against the live catalog after each rebase:** ANCESTOR_DUPLICATE 35 (14 muscle_up-involved), MULTI_SKILL_TAG 24, MOVEMENT_GROUP_MISMATCH 6, LEGACY_PROGRAM_ID_SCHEMA 1, NO_NAME 1 — all exact matches, every time. Confirms the two rebases (including the correction from stale-local-`main` to real `origin/main`) changed nothing behaviorally.
 
 ## Never merged, never touched `main`
 
