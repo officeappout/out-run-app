@@ -710,7 +710,9 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 
 **Opened:** 09.09.2026 · **Source:** דוד, אישור עקרוני לאופציה א׳+ג׳ (נפילה-להורה, מוצהרת לא שקטה) — "אם אין UI — שורת לוג מפורשת חובה, והחשיפה נרשמת כחוב פתוח."
 
-**מה נבנה:** `runSkillRepresentationGuarantee` (`GuaranteePassRunner.ts`) — כשאין אף תרגיל מתויג-סקיל זמין לסקיל שנבחר (אחרי גם חיפוש-כיסוי-כפול וגם חיפוש-רגיל), נופל לתרגיל מהדומיין-ההורה (`_TEMP_SKILL_PARENT_MAP`) במקום לוותר. ה"הצהרה" בפועל היום היא **רק** `console.warn('[SkillRepresentation] DECLARED FALLBACK...')` + שורת `pipelineLog` (`skill_representation: <skill> DECLARED_FALLBACK → parent domain, "<שם>"`) — **אין שום מסך/הודעה שהמשתמש עצמו רואה.**
+**מה נבנה:** `runSkillRepresentationGuarantee` (`GuaranteePassRunner.ts`) — כשאין אף תרגיל מתויג-סקיל זמין לסקיל שנבחר (אחרי גם חיפוש-כיסוי-כפול וגם חיפוש-רגיל), נופל לתרגיל מהדומיין-ההורה (`DOMAIN_RESOLUTION_SKILL_PARENT_MAP`, שם עדכני 14.09.2026 — היה `_TEMP_SKILL_PARENT_MAP`) במקום לוותר. ה"הצהרה" בפועל היום היא **רק** `console.warn('[SkillRepresentation] DECLARED FALLBACK...')` + שורת `pipelineLog` (`skill_representation: <skill> DECLARED_FALLBACK → parent domain, "<שם>"`) — **אין שום מסך/הודעה שהמשתמש עצמו רואה.**
+
+**⚠️ דיוק-ניסוח (דוד, 14.09.2026):** התרגיל שנכנס בנתיב-הנפילה-להורה **לא נושא את תגית הסקיל** (הוא מתויג-הורה, לא מתויג-הסקיל) — `representsSkill` (הבדיקה שקובעת אם סקיל "מיוצג") ממשיכה להחזיר `false` עבור אותו סקיל גם **אחרי** שהנפילה רצה. הניסוח הנכון: לא "הסקיל יוצג/יוצג-מחדש", אלא "הוזרק תרגיל מתוכנית-ההורה במקומו, מסומן בלוג" — הנפילה סוגרת פער-כיסוי בפועל (יש תרגיל בסלוט), לא פער-ייצוג (אין תרגיל מתויג-הסקיל-עצמו).
 
 **המשמעות בפועל:** משתמש שבחר, למשל, planche כסקיל — ובקטלוג/ברמתו אין כרגע אף תרגיל planche-מתויג פנוי — יקבל שכיבות-סמיכה רגילות (push) **בלי לדעת** שזו נפילה, לא הבחירה שלו. הלוג קיים בקונסולה/שרת בלבד, לא בממשק.
 
