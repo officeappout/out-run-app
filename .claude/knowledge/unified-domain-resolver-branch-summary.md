@@ -64,15 +64,21 @@ A live device run showed `runSkillRepresentationGuarantee` (`GuaranteePassRunner
 
 ## Measurements
 
-**Final, post-review-round-2, measured fresh — this branch, its stacked child `feat/unreachable-exercises-admin-audit`, and a fresh `origin/main` checkout, all from the same sitting (14.09.2026):**
+**⚠️ Correction (14.09.2026, merge day):** an earlier version of this table measured the branch BEFORE realizing it was 29 commits behind `origin/main`'s actual tip (its own fork point was `429d9c30`, not `d61eb990` — `origin/main`'s HEAD hadn't moved, but the branch had never been rebased onto it). That gave a misleading "450 vs 452" comparison. Rebased onto the current `origin/main` (`d61eb990`) before merging — one real conflict in `parking-lot.md` (an unrelated concurrent entry), resolved by keeping both in full.
+
+**Final, measured fresh post-rebase, immediately before merge:**
 
 | | `tsc --noEmit` | `vitest run` |
 |---|---|---|
 | Fresh `origin/main` (`d61eb990`) | 452 errors | 1648/1649 |
-| `feat/unified-domain-resolver` (this branch) | 450 errors | 1696/1697 |
-| `feat/unreachable-exercises-admin-audit` (stacked child) | 450 errors | 1696/1697 |
+| `feat/unified-domain-resolver` (this branch, post-rebase) | **452 errors** | **1705/1706** |
 
-No new tsc errors or test regressions from this branch's changes — the 2-error gap vs. fresh `origin/main` is `origin/main` having picked up unrelated errors from other work after this branch was cut, not this branch introducing fewer errors. `+48` tests vs. fresh `origin/main` are this branch's own new test files. Single known-flaky test (`logMultiCategoryWorkout.smoke.test.ts`'s streak-threshold assertion, confirmed date-dependent) identical on all three checkouts — 4 failed test files, 1 failed individual test, everywhere.
+**452 = 452 — an exact match, zero new tsc errors from this branch.** `1705 − 1648 = 57` new passing tests — all this branch's own (its test files, not double-counted against the 29 merged-in commits' own tests, which are already inside `origin/main`'s 1648/1649 baseline). Single known-flaky test (`logMultiCategoryWorkout.smoke.test.ts`'s streak-threshold assertion, confirmed date-dependent) — 4 failed test files, 1 failed individual test, both before and after the rebase.
+
+**Behavioral re-verification after the rebase (David's explicit request — "a file you didn't touch can still change the context your code runs in"):** re-ran, against the post-rebase code and the live catalog, every check performed before the rebase. All identical:
+- `[DomainMismatch]` on all 372 catalog exercises: **6**, the exact same 6 exercise IDs (5 planks + "פשיטת ירך אחורית").
+- The 5 `/admin/unreachable-exercises` categories: ANCESTOR_DUPLICATE 35 (14 muscle_up-involved), MULTI_SKILL_TAG 24/4 pattern groups, MOVEMENT_GROUP_MISMATCH 6, LEGACY_PROGRAM_ID_SCHEMA 1, NO_NAME 1 — all exact matches.
+- `resolveExerciseDomain`'s and `resolveVolumeExerciseDomain`'s permanent unit-test suites: 19/19 passing, plus `runSkillRepresentationGuarantee`'s 13/13 — none of the 29 unrelated merged-in commits touched runtime behavior for this branch's code.
 
 ## Merge-order constraint
 
