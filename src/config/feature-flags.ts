@@ -1549,7 +1549,7 @@ export const GENERAL_FINISHER_TABATA_ENABLED = false;
 // pass in production without a code revert + new deploy.
 // Requires David's on-device verification before flipping true, per the
 // same rule as every other flag in this file.
-export const SKILL_REPRESENTATION_GUARANTEE_ENABLED = false;
+export const SKILL_REPRESENTATION_GUARANTEE_ENABLED = true;
 
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
