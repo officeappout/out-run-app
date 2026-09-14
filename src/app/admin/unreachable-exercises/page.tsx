@@ -66,7 +66,7 @@ import {
   hasExplicitCoreLevel,
   resolveExerciseDomain,
   isDomainAncestorRelated,
-  _SKILL_PARENT_MAP,
+  DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
 } from '@/features/workout-engine/logic/workout-selection.utils';
 import { MG_TO_DOMAIN } from '@/features/workout-engine/shared/constants/domain-mapping.constants';
 import { exerciseMatchesProgram } from '@/features/workout-engine/services/shadow-level.utils';
@@ -292,18 +292,24 @@ function buildAncestorMap(programs: Program[]): Map<string, Set<string>> {
 }
 
 // ── MULTI_SKILL_TAG (category ב) ────────────────────────────────────────
-// The 5 skill programs the catalog actually tags exercises with, per
-// multi-skill-tag-review.md's 24-exercise audit (09.09.2026) — not the
-// broader 7-key `_SKILL_PARENT_MAP` (which also includes back_lever/
-// handstand, unused for this specific tagging question).
-const SKILL_SLUGS = new Set<string>(['planche', 'one_arm_pullup', 'front_lever', 'muscle_up', 'handstand_pushup']);
+// The skill programs the catalog actually tags exercises with — not the
+// broader 7-key `DOMAIN_RESOLUTION_SKILL_PARENT_MAP`. This list was
+// verified twice, not assumed once: the original 5 (09.09.2026,
+// multi-skill-tag-review.md's 24-exercise audit) excluded `handstand` on
+// the assumption it had zero real catalog usage — WRONG, caught live by
+// the screaming check below (14.09.2026): 4 real exercises ("הליכות קיר",
+// "עמידת ידיים" x3) carry it. Added. None of the 4 carry a second
+// SKILL_SLUGS-tracked skill, so this does NOT change the verified
+// MULTI_SKILL_TAG=24 count — it only makes the list accurate. `back_lever`
+// stays excluded — re-verified 0 real usage, same check, same run.
+const SKILL_SLUGS = new Set<string>(['planche', 'one_arm_pullup', 'front_lever', 'muscle_up', 'handstand_pushup', 'handstand']);
 
 // ── MOVEMENT_GROUP_MISMATCH (category ג) ────────────────────────────────
 // Worst-case activeDomains for [DomainMismatch] — every skill in
-// _SKILL_PARENT_MAP plus every foundational domain. Matches the exact
-// context this session's live verification used against the full 372-
-// exercise catalog (09-10.09.2026): 6 fire, not dozens.
-const AUDIT_ACTIVE_DOMAINS = [...Object.keys(_SKILL_PARENT_MAP), 'push', 'pull', 'legs', 'core'];
+// DOMAIN_RESOLUTION_SKILL_PARENT_MAP plus every foundational domain.
+// Matches the exact context this session's live verification used against
+// the full 372-exercise catalog (09-10.09.2026): 6 fire, not dozens.
+const AUDIT_ACTIVE_DOMAINS = [...Object.keys(DOMAIN_RESOLUTION_SKILL_PARENT_MAP), 'push', 'pull', 'legs', 'core'];
 
 // ============================================================================
 // PAGE
@@ -406,6 +412,29 @@ export default function UnreachableExercisesPage() {
             multiSkillTags = taggedSkills.join(', ');
           }
 
+          // ⚠️ Screaming check (14.09.2026, David — review round 2). This is
+          // what CAUGHT the `handstand` gap above — not a hypothetical, it
+          // already found a real, live mismatch once. SKILL_SLUGS (6) is a
+          // hand-verified SUBSET of DOMAIN_RESOLUTION_SKILL_PARENT_MAP's keys
+          // (7) — only `back_lever` is still excluded, re-verified 0 real
+          // catalog usage in the same run that caught `handstand`. That
+          // verification doesn't stay true on its own — the moment David tags
+          // an exercise with `back_lever`, this category would silently miss
+          // it, exactly like `handstand` was missed until this check existed.
+          // Loud, not silent: if any exercise carries a skill tag that's a real
+          // DOMAIN_RESOLUTION_SKILL_PARENT_MAP key but NOT in SKILL_SLUGS, log it
+          // where it can't be missed, every scan, not just once.
+          const untrackedSkillTags = resolvedSlugs.filter(
+            (s) => DOMAIN_RESOLUTION_SKILL_PARENT_MAP[s] !== undefined && !SKILL_SLUGS.has(s),
+          );
+          if (untrackedSkillTags.length > 0) {
+            console.error(
+              `[unreachable-exercises] ⚠️ SKILL_SLUGS is missing a tagged skill: ` +
+              `"${getName(ex)}" (${ex.id}) carries [${untrackedSkillTags.join(', ')}] — ` +
+              `MULTI_SKILL_TAG will silently miss this exercise. Add it to SKILL_SLUGS.`,
+            );
+          }
+
           // ── (ג) movementGroup↔tag mismatch — same [DomainMismatch] check
           // as WorkoutGenerator.ts's resolveDavidRuleDomain, imported not
           // reimplemented (10.09.2026, David) ─────────────────────────────
@@ -413,7 +442,7 @@ export default function UnreachableExercisesPage() {
           if (ex.movementGroup) {
             const tagDomain = resolveExerciseDomain(ex, {
               activeDomains: AUDIT_ACTIVE_DOMAINS,
-              skillParentMap: _SKILL_PARENT_MAP,
+              skillParentMap: DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
               resolveSlug: resolveToSlug,
             });
             const mgDomain = MG_TO_DOMAIN[ex.movementGroup];

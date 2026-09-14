@@ -18,7 +18,7 @@ Extends the existing, already-live `/admin/unreachable-exercises` page (a perman
 ## The 5 new categories
 
 1. **ANCESTOR_DUPLICATE** — an exercise tagged with both a program and one of its ancestors in the real `programs` hierarchy (e.g. `pull` + `upper_body` + `full_body`). Genuinely new audit logic (no live production code walks this ancestor chain — it's a tagging-hygiene question, not a runtime decision), built from the real `isMaster`/`subPrograms` fields, resolved via `resolveToSlug` (the correct resolver — not `progression.service.ts`'s buggy `buildProgramSlugMap`).
-2. **MULTI_SKILL_TAG** — 2+ of the catalog's 5 actually-used skill tags (planche, one_arm_pullup, front_lever, muscle_up, handstand_pushup) on one exercise.
+2. **MULTI_SKILL_TAG** — 2+ of the catalog's actually-used skill tags (planche, one_arm_pullup, front_lever, muscle_up, handstand_pushup, handstand) on one exercise. `handstand` added 14.09.2026 — see the screaming-check finding below.
 3. **MOVEMENT_GROUP_MISMATCH** — imports the real `[DomainMismatch]` check (`isDomainAncestorRelated` + `resolveExerciseDomain` + `MG_TO_DOMAIN`) from `feat/unified-domain-resolver`, not a reimplementation.
 4. **LEGACY_PROGRAM_ID_SCHEMA** — the one exercise still using a singular `programId` field instead of `targetPrograms`.
 5. **NO_NAME** — no name in any language (he/en/es).
@@ -31,6 +31,14 @@ Every new category's explanation shows the exercise's current `targetPrograms` t
 - MOVEMENT_GROUP_MISMATCH: **6** — the identical set to the `[DomainMismatch]` verification on `feat/unified-domain-resolver` (5 planks + "פשיטת ירך אחורית"). Cross-validates that the extraction on that branch preserved behavior exactly.
 - LEGACY_PROGRAM_ID_SCHEMA / NO_NAME: **1 / 1** — same single malformed exercise (`qHy5Te1jSPSi5jA3W9d6`) for both, consistent with it having no other fields at all.
 - ANCESTOR_DUPLICATE: **35 exercises, 57 pairs** — did not match an initial ~43 estimate. Reported honestly rather than force-fit (see below), not silently adjusted.
+
+## SKILL_SLUGS vs `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` — a silent assumption, caught by a screaming check, and it was already wrong
+
+Review round 2 (David) flagged that `SKILL_SLUGS` (5, hand-picked) and `DOMAIN_RESOLUTION_SKILL_PARENT_MAP`'s keys (7) were two definitions of "what counts as a skill" in the same file, justified only by "the other 2 aren't used in the catalog" — an assumption that doesn't verify itself going forward.
+
+Added a runtime check: for every exercise, if it carries a `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` key not in `SKILL_SLUGS`, `console.error` it loudly, every scan.
+
+**It fired immediately, on real data.** `handstand` (distinct from `handstand_pushup`, already tracked) is tagged on 4 real exercises today ("הליכות קיר", "עמידת ידיים" ×3) — the original "not used in the catalog" justification was already false, not just fragile. Added `handstand` to `SKILL_SLUGS`. None of the 4 exercises carry a second `SKILL_SLUGS` tag, so `MULTI_SKILL_TAG`'s verified count (24) is unaffected — only the list's accuracy changed. `back_lever` stays excluded, re-verified 0 real usage in the same run. The check now stays silent (confirmed) — but keeps watching, so the next tagging drift surfaces the same way instead of silently repeating this one.
 
 ## `muscle_up` — decided, and a real contradiction it surfaces
 
