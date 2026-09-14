@@ -85,10 +85,25 @@ export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => 
   const afterLevel = (after.progression as Record<string, unknown> | undefined)?.currentLevel;
   const beforeLevel = (before?.progression as Record<string, unknown> | undefined)?.currentLevel;
 
-  // Just opted in, or a doc with no mirror yet — always write. Otherwise,
-  // only write when a MIRRORED field actually changed — an XP/progression
-  // write that never touches core.name/photoURL/etc. must not trigger a
-  // userPublic write at all.
+  // Write on opt-in (discoverable just flipped false→true), or when a
+  // MIRRORED field actually changed — an XP/progression write that never
+  // touches core.name/photoURL/etc. must not trigger a userPublic write at
+  // all (that per-write cost is exactly what this diff-and-skip exists to
+  // avoid; a mirror doc's existence is never re-checked here on purpose —
+  // see below).
+  //
+  // Known gap, by design, not oversight (found 10.09.2026): justOptedIn
+  // only catches beforeDiscoverable flipping from false→true. A user who
+  // was ALREADY core.discoverable === true before this function was ever
+  // deployed has beforeDiscoverable === true on every subsequent write
+  // too, so justOptedIn is always false for them — meaning if their
+  // mirror doc is missing or was never created, this trigger alone will
+  // never create or repair it, no matter how many times it fires,
+  // because it has no way to notice the absence without paying for a
+  // read on every write (including every XP award) to check. That read
+  // is deliberately NOT added here — the fix for this class of gap is a
+  // one-time backfill script (scripts/backfill-user-public.ts), not a
+  // standing per-write existence check on a hot path.
   const justOptedIn = !beforeDiscoverable;
   const mirroredFieldChanged =
     MIRRORED_CORE_FIELDS.some((f) => afterCore[f] !== beforeCore[f]) || afterLevel !== beforeLevel;
