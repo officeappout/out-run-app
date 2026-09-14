@@ -1,6 +1,6 @@
 # Branch summary — `feat/unified-domain-resolver`
 
-**Status: ready for review. Not merged. `main` untouched.**
+**Status: back for final review after round 2 — all 4 review blockers closed (flag added, naming collision resolved, "14" audited clean, this opening rewritten). Not merged. `main` untouched.**
 **Last updated: 14.09.2026** (this document is the up-to-date source for review — re-read it, don't rely on anything said about this branch in an earlier chat).
 
 ---
@@ -64,11 +64,19 @@ A live device run showed `runSkillRepresentationGuarantee` (`GuaranteePassRunner
 
 ## Measurements
 
-`NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` = **450 errors** (unchanged baseline, matches a fresh `origin/main` measured at the same moment). `npx vitest run` = **1696/1697 tests passing** (108-ish known-flaky test files unrelated to this branch's changes — `logMultiCategoryWorkout.smoke.test.ts`'s streak-threshold assertion, confirmed flaky/date-dependent, not caused by this branch). Both measured fresh after the `isDomainAncestorRelated` extraction + rename commit (`a73f1fed`) — not reused from an earlier round.
+**Final, post-review-round-2, measured fresh — this branch, its stacked child `feat/unreachable-exercises-admin-audit`, and a fresh `origin/main` checkout, all from the same sitting (14.09.2026):**
+
+| | `tsc --noEmit` | `vitest run` |
+|---|---|---|
+| Fresh `origin/main` (`d61eb990`) | 452 errors | 1648/1649 |
+| `feat/unified-domain-resolver` (this branch) | 450 errors | 1696/1697 |
+| `feat/unreachable-exercises-admin-audit` (stacked child) | 450 errors | 1696/1697 |
+
+No new tsc errors or test regressions from this branch's changes — the 2-error gap vs. fresh `origin/main` is `origin/main` having picked up unrelated errors from other work after this branch was cut, not this branch introducing fewer errors. `+48` tests vs. fresh `origin/main` are this branch's own new test files. Single known-flaky test (`logMultiCategoryWorkout.smoke.test.ts`'s streak-threshold assertion, confirmed date-dependent) identical on all three checkouts — 4 failed test files, 1 failed individual test, everywhere.
 
 ## Merge-order constraint
 
-**A separate branch, `feat/unreachable-exercises-admin-audit`, is stacked on top of this one** (built from this branch's tip, `a73f1fed`). It imports `isDomainAncestorRelated` and `_SKILL_PARENT_MAP`, both of which only exist on this branch — not on `origin/main`. **`feat/unreachable-exercises-admin-audit` cannot merge before `feat/unified-domain-resolver` does.** See that branch's own summary for its content — it does not touch the workout engine, only a read-only admin audit page.
+**A separate branch, `feat/unreachable-exercises-admin-audit`, is stacked on top of this one** (built from this branch's tip). It imports `isDomainAncestorRelated` and `DOMAIN_RESOLUTION_SKILL_PARENT_MAP`, both of which only exist on this branch — not on `origin/main`. **`feat/unreachable-exercises-admin-audit` cannot merge before `feat/unified-domain-resolver` does.** See that branch's own summary for its content — it does not touch the workout engine, only a read-only admin audit page.
 
 ## Never merged, never touched `main`
 
