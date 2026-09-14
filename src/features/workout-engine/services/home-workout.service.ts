@@ -91,14 +91,15 @@ import {
 } from './user-profile.utils';
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
-import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
+import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED } from '@/config/feature-flags';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import {
   normalizeEquipmentArray,
   buildActiveProgramFilters,
   resolveExercisePool,
 } from '../core/middleware/InputSanitizerMiddleware';
-import { getBaseUserLevel, buildUserProgramLevels } from './level-resolution.utils';
+import { getBaseUserLevel, buildUserProgramLevels, resolveMostSpecificDomainBudget } from './level-resolution.utils';
+import { buildSkillPriorityMap } from '../logic/workout-selection.utils';
 import { getHistoryMapForExercises } from './exercise-history.service';
 import {
   getCachedPrograms,
@@ -117,7 +118,7 @@ import {
   roundRestSeconds,
   sortAndPair,
 } from '../core/presentation/PresentationFormatter';
-import { validatePromisesPostCut } from '../core/pipeline/GuaranteePassRunner';
+import { validatePromisesPostCut, runSkillRepresentationGuarantee } from '../core/pipeline/GuaranteePassRunner';
 import {
   derivePeriodizationWeek,
   resolveSessionPolicy,
@@ -1306,6 +1307,31 @@ export async function generateHomeWorkoutTrio(
       workout.exercises = validatedExercises;
     }
 
+    // ── Skill-representation guarantee (2026-09-09, David — Stage 2) ──────
+    // Same LATE position as validatePromisesPostCut above, and for the same
+    // reason — must run after every per-bolt mutation, before the final
+    // sort, so nothing downstream can silently undo the injection. Runs for
+    // EVERY strategy including single_domain (unlike validatePromisesPostCut,
+    // which is full_body-only) — a user's selected skill must be represented
+    // even in a track-specialized single-domain session; that's the whole
+    // point of a single_domain session existing. No-op when the user has no
+    // selected skills (context.selectedSkillIds empty/absent).
+    //
+    // Gated behind SKILL_REPRESENTATION_GUARANTEE_ENABLED (14.09.2026) — this
+    // is the only call site, so the flag is the only place that can stop it
+    // without a code revert + redeploy. DEFAULT FALSE: the ternary below
+    // skips the call entirely, workout.exercises passes through untouched —
+    // byte-identical to pre-flag behavior.
+    workout.pipelineLog = workout.pipelineLog ?? [];
+    workout.exercises = SKILL_REPRESENTATION_GUARANTEE_ENABLED
+      ? runSkillRepresentationGuarantee(
+          workout.exercises,
+          optionContext,
+          optionDifficulty,
+          workout.pipelineLog,
+        )
+      : workout.exercises;
+
     // ── Locked Final Ordering: antagonist re-pair → domain-priority sort ──
     //
     // sortAndPair() owns the two-step locked chain (Tier-3 PresentationFormatter):
@@ -1776,7 +1802,7 @@ async function _buildSharedPipeline(
   if (activeProgramId === 'calisthenics_upper') {
     // 'one_arm_pullup' — not 'oap' — matches the catalog (program-path
     // /page.tsx's SKILL_PROGRAMS) and every other skill-slug consumer in
-    // this file (_CU_SKILL_PARENT/_SKILL_PARENT_MAP). 'oap' was this set's
+    // this file (_CU_SKILL_PARENT/_HOME_WORKOUT_SKILL_PARENT_MAP). 'oap' was this set's
     // own invention — confirmed 08.09.2026 by checking the real catalog,
     // not assumed. 'human_flag'/'back_lever' are real, recognized skill
     // domains elsewhere (MG_TO_DOMAIN, domain-mapping.constants.ts) but
@@ -1969,8 +1995,8 @@ async function _buildSharedPipeline(
     // SplitDecisionService.resolvePrioritySkillIds can apply skill rotation
     // (Dominance Day / Dynamic Rotation / Pendulum) unmodified.
     // ── Skill-track budget entries (planche=L5, front_lever=L5, …) ─────────
-    // Biomechanical parent map — mirrors _SKILL_PARENT_MAP defined later in
-    // this file; duplicated here to avoid a forward-reference dependency.
+    // Biomechanical parent map — mirrors _HOME_WORKOUT_SKILL_PARENT_MAP defined
+    // later in this file; duplicated here to avoid a forward-reference dependency.
     const _CU_SKILL_PARENT: Record<string, string> = {
       planche: 'push', handstand: 'push', handstand_pushup: 'push',
       front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
@@ -2129,11 +2155,63 @@ async function _buildSharedPipeline(
   // slugs, ensuring both push movements (planche) and pull movements (front_lever)
   // survive ContextualEngine's exerciseMatchesProgram gate.
 
-  // Biomechanical parent lookup for calisthenics skill-track slugs.
-  const _SKILL_PARENT_MAP: Record<string, string> = {
+  // Biomechanical parent lookup for calisthenics skill-track slugs. Named
+  // `_HOME_WORKOUT_SKILL_PARENT_MAP` (14.09.2026, review round 2, David) —
+  // was `_SKILL_PARENT_MAP` until it collided, name-for-name, with the
+  // unrelated exported `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` in
+  // workout-selection.utils.ts (renamed the same round). Used for two things
+  // in this function, not just the calisthenics_upper focusDomains expansion
+  // immediately below — also for general per-exercise domain-budget
+  // resolution further down (`getUserLevelForExercise`'s
+  // `resolveMostSpecificDomainBudget` call, not calisthenics_upper-specific)
+  // — hence a name scoped to this file/function, not to either single call
+  // site. One of (at least) 4 live copies of the same skill→parent content
+  // — see parking-lot.md's "חמישה מבנים, אותה שאלה" entry.
+  const _HOME_WORKOUT_SKILL_PARENT_MAP: Record<string, string> = {
     planche: 'push', handstand: 'push', handstand_pushup: 'push',
     front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
   };
+
+  // Stage 2 (2026-09-09, David) — the user's own skill-selection order,
+  // wired into the live pipeline.
+  //
+  // ⚠️ 09.09.2026 correction (David, blocker-2 review) — deliberately NOT
+  // `progression.skillFocusIds`. Stage 2's first cut used skillFocusIds
+  // directly, reasoning it was the same order-preserving field
+  // SplitDecisionService.ts already relies on — true in general, but WRONG
+  // specifically here: it introduced a SECOND source for the same question
+  // "what order did the user pick their skills in" alongside the one that
+  // ACTUALLY determines activeDomains's skill-ordering. Traced precisely:
+  // activeDomains's skill order comes from `resolvedChildDomains` (this
+  // function, ~line 1782, finalized by the calisthenics_upper
+  // idToSlug/tracks/hardcoded-fallback normalization block above) via the
+  // `profileForFilters` synthesis below (`fullFocusDomains =
+  // [...resolvedChildDomains, ...parentDomains]`) — NOT the raw
+  // `progression.skillFocusIds` field. `resolveChildDomainsForParent`
+  // (program-hierarchy.utils.ts:280) DOES start from skillFocusIds for the
+  // calisthenics_upper case, but the normalization block above can
+  // override it via Pass B (tracks/activePrograms-derived, `Set`-ordered —
+  // NOT selection-order) or Pass C (hardcoded ['planche','front_lever'])
+  // when Pass A's idToSlug mapping is empty — real, if narrow, paths where
+  // skillFocusIds and resolvedChildDomains diverge in CONTENT, not just
+  // staleness (see the separate ap.focusDomains-staleness finding in
+  // parking-lot.md, a different divergence path on the SAME underlying
+  // risk: one question, two sources, in code written today). Building
+  // skillPriority from resolvedChildDomains instead guarantees — BY
+  // CONSTRUCTION, not by convention — that it can never disagree with
+  // activeDomains about which skill the user ranked where, because they
+  // now trace to the exact same array. Old-and-consistent beats
+  // fresh-and-contradictory.
+  //
+  // Proof-of-wiring log, not just existence — per explicit instruction: code
+  // that's never observed to run is the same as code that doesn't exist.
+  const skillPriority = buildSkillPriorityMap(resolvedChildDomains, resolveToSlug);
+  if (skillPriority.size > 0) {
+    console.log(
+      `[SkillPriority] wired: resolvedChildDomains=[${resolvedChildDomains.join(', ')}] → ` +
+      `priority={${Array.from(skillPriority.entries()).map(([k, v]) => `${k}:${v}`).join(', ')}}`,
+    );
+  }
 
   const profileForFilters: typeof effectiveProfile =
     isCalisthenicsUpperMaster && resolvedChildDomains.length > 0
@@ -2143,7 +2221,7 @@ async function _buildSharedPipeline(
           // without needing to reconstruct it from raw profile data.
           const parentDomains = Array.from(new Set(
             resolvedChildDomains
-              .map((d) => _SKILL_PARENT_MAP[d])
+              .map((d) => _HOME_WORKOUT_SKILL_PARENT_MAP[d])
               .filter((p): p is string => !!p && !resolvedChildDomains.includes(p)),
           ));
           const fullFocusDomains = [...resolvedChildDomains, ...parentDomains];
@@ -2193,6 +2271,15 @@ async function _buildSharedPipeline(
     injuryShield: injuries,
     intentMode,
     availableEquipment,
+    // Domain-consistent level_tolerance comparison (2026-09-08, David) — see
+    // ContextualFilterContext's own doc comment and
+    // resolveConsistentComparisonLevels (workout-selection.utils.ts). Same
+    // userProgramLevels/baseUserLevel already threaded into
+    // resolveExercisePool above (InputSanitizerMiddleware.ts) — not a new
+    // source of truth, the same one, made available to filterAndScore too.
+    userProgramLevels,
+    baseUserLevel,
+    skillPriority,
     getUserLevelForExercise: (exercise: Exercise) => {
       if (resolvedDomainBudgets?.length) {
         // ── Pass 1: movementGroup → domain ──────────────────────────────────
@@ -2209,12 +2296,19 @@ async function _buildSharedPipeline(
         // SCORING level and the TIER level are always computed from the same
         // domain — preventing the "HSPU appears near-match at L18 but resolves
         // to flow against push-L22" discrepancy.
+        //
+        // Most-specific-wins, not first-in-array-wins (2026-09-08, David) —
+        // see resolveMostSpecificDomainBudget's own doc comment
+        // (level-resolution.utils.ts) for the full principle and the real
+        // one_arm_pullup regression this closes.
         if (!db && exercise.targetPrograms?.length) {
-          for (const tp of exercise.targetPrograms) {
-            const slug = resolveToSlug(tp.programId);
-            db = resolvedDomainBudgets.find(d => d.domain === slug || d.domain === tp.programId);
-            if (db) break;
-          }
+          db = resolveMostSpecificDomainBudget(
+            exercise.targetPrograms,
+            resolvedDomainBudgets,
+            _HOME_WORKOUT_SKILL_PARENT_MAP,
+            resolveToSlug,
+            skillPriority,
+          );
         }
 
         if (db) return db.level;
@@ -2717,6 +2811,13 @@ async function _buildSharedPipeline(
       .filter(se => se.method != null)
       .map(se => se.exercise),
     userProgramLevels,
+    // Same source as skillPriority above (resolvedChildDomains, NOT raw
+    // skillFocusIds) — for the identical reason: a skill the guarantee
+    // tries to represent must actually be a member of activeDomains, or its
+    // own resolveExerciseDomain-based matching against activeDomains can
+    // never succeed for that skill regardless of catalog availability.
+    selectedSkillIds: resolvedChildDomains,
+    skillPriority,
     userId: effectiveProfile.id,
     selectedDate: selectedDate ?? new Date().toISOString().split('T')[0],
     goalExerciseIds,

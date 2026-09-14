@@ -63,6 +63,9 @@ import {
   selectExercisesWithDominance,
   applySABASelectionBias,
   hasExplicitCoreLevel,
+  resolveExerciseDomain,
+  isDomainAncestorRelated,
+  DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
 } from './workout-selection.utils';
 import {
   chooseCoreForm,
@@ -891,15 +894,66 @@ export class WorkoutGenerator {
       const rescueIndices: number[] = [];
       const userLevels = context.userProgramLevels;
 
+      // 2026-09-08 (David, "one question, eight answers" consolidation) —
+      // David Rule previously compared an exercise's level against its
+      // FOUNDATIONAL parent's level via movementGroup→MG_TO_DOMAIN alone,
+      // never consulting the exercise's own `targetPrograms` tags. For a
+      // skill exercise whose movementGroup is a generic one (e.g. a planche
+      // exercise tagged movementGroup 'horizontal_push'), this compared it
+      // against the user's PUSH level (often much higher than their planche
+      // level) instead of their planche level — wrongly flagging a
+      // correct-level skill exercise as "under-level" and swapping it away.
+      // Tries the tag-based unified resolver first (skill tags always beat
+      // parent movementGroup); falls back to the old MG_TO_DOMAIN mapping
+      // when no tag match exists (pure-foundational exercises, or when
+      // userLevels/activeDomains is unavailable) — behavior-identical for
+      // every exercise that was never mistagged in the first place.
+      const resolveDavidRuleDomain = (exercise: Exercise, mg: string | null | undefined): { targetDomain: string | undefined; domainLevel: number } => {
+        const tagDomain = resolveExerciseDomain(exercise, {
+          activeDomains: userLevels ? Array.from(userLevels.keys()) : [],
+          skillParentMap: DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
+          resolveSlug: resolveToSlug,
+        });
+        const mgDomain = mg ? MG_TO_DOMAIN[mg] : undefined;
+        // Diagnostic only — never changes which domain wins (tagDomain
+        // always does, per the `??` below). This is a TAGGING fact, not a
+        // code bug: catalog data, not resolution logic, decides which of
+        // the two disagrees. Reported to David for manual review in the
+        // panel (2026-09-09) — this codebase does not decide exercise
+        // tagging, see parking-lot.md's "known & approved" entry for the
+        // 5 confirmed real cases this surfaced.
+        //
+        // 2026-09-10 fix (David, real device run): mgDomain and tagDomain
+        // disagreeing is NOT itself a conflict — it's the expected, normal
+        // shape for every correctly-tagged skill exercise (movementGroup
+        // gives the generic category, e.g. 'push', while the tag gives the
+        // specific skill, e.g. 'planche' — direct parent-child, not a
+        // mismatch). The original condition fired on ALL of these (every
+        // skill exercise in the catalog), burying the 5 genuine cross-branch
+        // cases (core vs push, no ancestor relationship at all) under
+        // hundreds of false positives. Only fire when mgDomain and
+        // tagDomain are in DIFFERENT branches — delegated to
+        // `isDomainAncestorRelated` (workout-selection.utils.ts) so this
+        // exact 3-line question has one answer, not two: the
+        // `/admin/unreachable-exercises` audit page imports the same
+        // function rather than reimplementing it (10.09.2026, David).
+        const isAncestorRelated = isDomainAncestorRelated(tagDomain, mgDomain);
+        if (tagDomain && mgDomain && !isAncestorRelated) {
+          console.warn(`[DomainMismatch] "${getLocalizedText(exercise.name)}" mg=${mgDomain} → domain=${tagDomain}. Check tagging.`);
+        }
+        const targetDomain = tagDomain ?? mgDomain;
+        const domainLevel = targetDomain
+          ? (userLevels?.get(targetDomain) ?? context.userLevel)
+          : context.userLevel;
+        return { targetDomain, domainLevel };
+      };
+
       for (let i = 0; i < workoutExercises.length; i++) {
         const we = workoutExercises[i];
         if (we.exerciseRole !== 'main') continue;
         const exLevel = we.programLevel ?? 1;
         const mg = we.exercise.movementGroup;
-        const targetDomain = mg ? MG_TO_DOMAIN[mg] : undefined;
-        const domainLevel = targetDomain
-          ? (userLevels?.get(targetDomain) ?? context.userLevel)
-          : context.userLevel;
+        const { targetDomain, domainLevel } = resolveDavidRuleDomain(we.exercise, mg);
 
         if (exLevel <= 1) {
           rescueIndices.push(i);
@@ -946,10 +1000,10 @@ export class WorkoutGenerator {
             if (id) currentWorkoutIds.add(id);
           }
 
-          const targetDomain = MG_TO_DOMAIN[mg];
-          const domainLevel = targetDomain
-            ? (userLevels?.get(targetDomain) ?? context.userLevel)
-            : context.userLevel;
+          // Same-domain-both-sides: must resolve identically to the
+          // detection loop above, or the rescue decision and the rescue's
+          // own target level would be judged against different domains.
+          const { targetDomain, domainLevel } = resolveDavidRuleDomain(victim.exercise, mg);
 
           const targetOffset = difficulty === 1 ? -2 : difficulty === 2 ? -1 : 1;
           const targetLevel = Math.max(1, domainLevel + targetOffset);

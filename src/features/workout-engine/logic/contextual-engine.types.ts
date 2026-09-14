@@ -163,6 +163,40 @@ export interface ContextualFilterContext {
    * it indexed first in `targetPrograms` or `activeDomains`.
    */
   activeProgramId?: string;
+
+  /**
+   * Per-domain user levels (e.g. `planche`→10, `pull`→16), the same map fed
+   * to `resolveExercisePool`'s ±3/±5 tolerance filter. Optional — when
+   * provided, the level_tolerance gate in `filterAndScore` measures the
+   * exercise's level AND the user's level from the SAME domain (via
+   * `resolveConsistentComparisonLevels`, workout-selection.utils.ts) instead
+   * of the domain-blind `getUserLevelForExercise`. Closes the 2026-09-08
+   * cross-domain comparison bug (David) — see that function's own doc
+   * comment. Callers that don't provide this (admin simulator, hybrid
+   * pipeline) keep the pre-existing `getUserLevelForExercise`-only behavior,
+   * unchanged.
+   */
+  userProgramLevels?: Map<string, number>;
+
+  /**
+   * Fallback user level for `resolveUserLevelForProgram` when a domain has
+   * no entry in `userProgramLevels` — the same `baseUserLevel` already
+   * threaded into `resolveExercisePool`. Only meaningful alongside
+   * `userProgramLevels`.
+   */
+  baseUserLevel?: number;
+
+  /**
+   * domain → rank (lower = higher priority), from `buildSkillPriorityMap`
+   * over the user's own `progression.skillFocusIds` selection order
+   * (2026-09-09, David — Stage 2 wiring). Threaded into
+   * `resolveConsistentComparisonLevels`'s skillPriority param in
+   * `filterAndScore`'s level_tolerance gate, so a user who selected e.g.
+   * one_arm_pullup before front_lever gets that priority reflected when an
+   * exercise carries both tags. Optional — when absent, ties fall back to
+   * stable targetPrograms order (unchanged pre-Stage-2 behavior).
+   */
+  skillPriority?: Map<string, number>;
 }
 
 /**

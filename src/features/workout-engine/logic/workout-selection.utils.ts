@@ -12,6 +12,7 @@ import { Exercise, MechanicalType, ExerciseTag, ExecutionLocation } from '@/feat
 import type { ScoredExercise } from './contextual-engine.types';
 import { exerciseMatchesProgram } from '../services/shadow-level.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
+import { resolveUserLevelForProgram } from '../core/middleware/InputSanitizerMiddleware';
 import { normalizeGearId, ESSENTIAL_PARK_GEAR, satisfiesGearRequirement } from '../shared/utils/gear-mapping.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
@@ -54,8 +55,201 @@ for (const [parent, children] of Object.entries(DOMAIN_ALIAS_MAP)) {
 export { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP };
 
 // ============================================================================
-// DOMAIN-AWARE EXERCISE LEVEL RESOLUTION
+// UNIFIED DOMAIN RESOLUTION (2026-09-08, David — "one question, asked eight
+// ways" consolidation)
 // ============================================================================
+
+// This is the 3rd of (at least) 4 live copies of the exact same skill→parent
+// content in this codebase — `_CU_SKILL_PARENT` and (as of 14.09.2026, itself
+// renamed to `_CU_FOCUS_DOMAINS_SKILL_PARENT`) `home-workout.service.ts`'s
+// local focus-domains map, and `SKILL_TO_FOUNDATION_DOMAIN`
+// (onboarding-sync.service.ts, same data, different shape/purpose) — full
+// inventory in parking-lot.md's "חמישה מבנים, אותה שאלה" entry (10.09.2026).
+//
+// Named `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` (14.09.2026, review round 2,
+// David) — was briefly `_SKILL_PARENT_MAP` after dropping the "TEMP" prefix
+// (10.09.2026), which collided with an UNRELATED local `_SKILL_PARENT_MAP`
+// in `home-workout.service.ts` (different file, different scope, same exact
+// name) — exactly the "convention you have to remember" failure this whole
+// naming discipline exists to prevent, just relocated instead of removed.
+// This name describes what THIS one actually does: it's the map every
+// DOMAIN-RESOLUTION function in this engine uses (`resolveExerciseDomain`,
+// `isDomainAncestorRelated`, `GuaranteePassRunner`'s declared-fallback,
+// `workout-budgeting.utils.ts`'s volume-domain resolution, the admin audit
+// page) — as opposed to the other 3 copies, which are each scoped to one
+// narrow, local, non-exported use inside a single function.
+// Unifying the other 3 copies into this one is still UNDECIDED (same
+// parking-lot entry) — this rename does not imply that happened, only that
+// this specific constant's name now says what it is, not what it isn't.
+const DOMAIN_RESOLUTION_SKILL_PARENT_MAP: Record<string, string> = {
+  planche: 'push', handstand: 'push', handstand_pushup: 'push',
+  front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
+};
+export { DOMAIN_RESOLUTION_SKILL_PARENT_MAP };
+
+/**
+ * Build a domain→rank map from the user's own skill-selection order —
+ * `progression.skillFocusIds`'s array order IS the user's explicit priority
+ * (David, 08.09.2026: "סדר בחירת הסקילים הוא כוונה מפורשת של המשתמש").
+ * Verified 08.09.2026: this field is already order-preserving in practice —
+ * `onboarding-sync.service.ts:1548` writes it directly as the user's
+ * selection-order array, and `SplitDecisionService.ts` (lines 102-147)
+ * already indexes it positionally (`skillFocusIds[0]`/`[1]`, "dominant" vs
+ * "maintenance" skill for scheduling) — i.e. the codebase already depends on
+ * this exact property elsewhere. No new field needed; this is a read-only
+ * accessor over the existing one, so any future refactor that touches
+ * `skillFocusIds` has exactly one place to keep order-safe.
+ */
+export function buildSkillPriorityMap(
+  skillFocusIds: string[] | undefined,
+  resolveSlug: (programId: string) => string,
+): Map<string, number> {
+  const map = new Map<string, number>();
+  (skillFocusIds ?? []).forEach((id, idx) => {
+    const slug = resolveSlug(id);
+    if (!map.has(slug)) map.set(slug, idx + 1);
+  });
+  return map;
+}
+
+export interface DomainResolutionContext {
+  /** Domains relevant to this session, in priority order where that order is
+   *  already meaningful (e.g. resolveExerciseLevelForDomains's pre-existing
+   *  activeDomains-order tiebreak for the no-skill-match case — preserved
+   *  here, not reinvented). Membership is what matters for matching; order
+   *  matters only as the LAST-resort tiebreak below. */
+  activeDomains: string[];
+  /** domain → rank (lower = higher priority), from buildSkillPriorityMap.
+   *  Used ONLY to break a tie between two or more SKILL domains an exercise
+   *  could belong to — never to imply anything about parent/foundational
+   *  domain preference. Omit when unavailable; falls back to stable
+   *  targetPrograms-array-order among skill-ties (harmless — the caller
+   *  simply doesn't get user-priority disambiguation, same as before this
+   *  function existed). */
+  skillPriority?: Map<string, number>;
+  /** domain → its foundational parent (e.g. planche→push). A domain is
+   *  treated as "skill" (specific) iff it's a KEY here. */
+  skillParentMap: Record<string, string>;
+  resolveSlug: (programId: string) => string;
+  /** Tier-3 (parent-vs-parent, no skill match) tiebreak rule — named, not a
+   *  boolean, so a call site reads as documentation, not a fact to remember.
+   *  '`exercise-tag-order`' (default when omitted): first-matched domain in
+   *  THIS EXERCISE's own `targetPrograms` array order — the convention every
+   *  site except `resolveExerciseLevelForDomains` used before this
+   *  consolidation (2026-09-09, David — confirmed via real-catalog
+   *  differential test: this default alone closed 13/13 mismatches on both
+   *  `resolveMostSpecificDomainBudget` and the volume-assignment resolver).
+   *  '`active-domain-order`': first-matched domain in `ctx.activeDomains`
+   *  order instead — `resolveExerciseLevelForDomains`'s own pre-existing
+   *  mechanism, confirmed by the same differential test to be the ONLY site
+   *  that actually wants it (0/311 mismatches when explicitly requested;
+   *  every other site regressed when it inherited this by default). */
+  parentTiebreak?: 'exercise-tag-order' | 'active-domain-order';
+}
+
+/**
+ * THE unified answer to "which domain does this exercise belong to, for
+ * this session" — replacing eight independent, ad-hoc reimplementations
+ * (some already fixed today, one at a time; some never touched
+ * `targetPrograms` at all). See parking-lot.md / planning-doc for the full
+ * inventory ("שאלה אחת, שמונה תשובות שונות").
+ *
+ * Three-tier resolution, in order:
+ *   1. SPECIFIC BEATS GENERIC, always — if the exercise matches ANY domain
+ *      that is itself a "skill" (a key in `skillParentMap`), that wins over
+ *      any co-matched parent domain, independent of array order on either
+ *      side. This is the core fix: a skill tag must never be shadowed by
+ *      its own foundational parent tag just because the parent happened to
+ *      be recorded/scanned first.
+ *   2. Two or more skill domains match (e.g. an exercise tagged both
+ *      front_lever AND one_arm_pullup, both active) — `skillPriority`
+ *      breaks the tie. This is the ONLY place user-chosen priority affects
+ *      domain resolution; it never overrides tier 1.
+ *   3. No skill match at all (parent-vs-parent — e.g. an exercise tagged
+ *      both push and core for a user active in both; a REAL, intentional
+ *      dual-tag, not a tagging error). Tiebreak order per
+ *      `ctx.parentTiebreak` (see its own doc). This tier is also the
+ *      property that makes the whole consolidation provably inert for a
+ *      pure-strength or healthy-lifestyle account with no skills selected —
+ *      every exercise falls straight through to here — verified empirically
+ *      via a 372-exercise differential test against each site's own
+ *      pre-migration implementation (2026-09-09), not assumed.
+ *
+ * Returns `null` when the exercise matches none of `activeDomains` at all.
+ */
+export function resolveExerciseDomain(
+  exercise: Exercise,
+  ctx: DomainResolutionContext,
+): string | null {
+  const tps = exercise.targetPrograms ?? [];
+  const activeDomainsSet = new Set(ctx.activeDomains);
+
+  // Preserve targetPrograms array order for the matched set — needed as the
+  // stable fallback order when skillPriority doesn't disambiguate a tie.
+  // Push whichever form actually matched activeDomainsSet (raw programId or
+  // its resolved slug) — NOT unconditionally the slug. When resolveSlug is a
+  // normalizing no-op (the common case), the two are identical anyway; when
+  // it isn't, pushing a value that was never itself confirmed present in
+  // activeDomainsSet would make Tier 3's `activeDomains.includes(matched)`
+  // check silently fail to find its own match.
+  const matchedSlugs: string[] = [];
+  for (const tp of tps) {
+    const slug = ctx.resolveSlug(tp.programId);
+    const matchedAs = activeDomainsSet.has(slug) ? slug : activeDomainsSet.has(tp.programId) ? tp.programId : null;
+    if (matchedAs !== null && !matchedSlugs.includes(matchedAs)) matchedSlugs.push(matchedAs);
+  }
+  if (matchedSlugs.length === 0) return null;
+
+  // Tier 1 + 2: skill matches always beat parent matches; skillPriority
+  // breaks ties among multiple skill matches.
+  const skillMatches = matchedSlugs.filter((s) => ctx.skillParentMap[s] !== undefined);
+  if (skillMatches.length === 1) return skillMatches[0];
+  if (skillMatches.length > 1) {
+    return [...skillMatches].sort(
+      (a, b) => (ctx.skillPriority?.get(a) ?? Number.POSITIVE_INFINITY) - (ctx.skillPriority?.get(b) ?? Number.POSITIVE_INFINITY),
+    )[0];
+  }
+
+  // Tier 3: no skill match — parent-vs-parent (or a single non-skill match).
+  if (ctx.parentTiebreak === 'active-domain-order') {
+    for (const domain of ctx.activeDomains) {
+      if (matchedSlugs.includes(domain)) return domain;
+    }
+    return matchedSlugs[0]; // defensive fallback, should be unreachable
+  }
+  // Default: 'exercise-tag-order' — matchedSlugs is already in this
+  // exercise's own targetPrograms scan order.
+  return matchedSlugs[0];
+}
+
+/**
+ * True when two resolved domains are in the same branch of the program tree
+ * — either identical, or one is the other's direct parent via
+ * `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` (checked both directions, since a movementGroup can
+ * itself resolve straight to a skill slug for some movement groups, not just
+ * push/pull/legs/core). This is NOT itself an ancestor-vs-ancestor walk of
+ * the full program hierarchy (see `DOMAIN_PARENT_MAP` for that) — it is
+ * specifically the one-hop skill↔foundation check that decides whether a
+ * `movementGroup`-derived domain and a `targetPrograms`-tag-derived domain
+ * genuinely disagree, or are just the generic/specific pairing every
+ * correctly-tagged skill exercise has by design.
+ *
+ * Single source of truth for the `[DomainMismatch]` check — used by
+ * `WorkoutGenerator.ts`'s `resolveDavidRuleDomain` (production) and by the
+ * `/admin/unreachable-exercises` audit page. Do not reimplement this check
+ * anywhere else; import it. (10.09.2026 — extracted from
+ * `resolveDavidRuleDomain`'s inline check specifically so the admin page
+ * could import the real production logic instead of maintaining its own
+ * copy of the same 3-line question.)
+ */
+export function isDomainAncestorRelated(
+  tagDomain: string | null | undefined,
+  mgDomain: string | null | undefined,
+): boolean {
+  return tagDomain === mgDomain
+    || DOMAIN_RESOLUTION_SKILL_PARENT_MAP[tagDomain ?? ''] === mgDomain
+    || DOMAIN_RESOLUTION_SKILL_PARENT_MAP[mgDomain ?? ''] === tagDomain;
+}
 
 /**
  * Resolve an exercise's level from its targetPrograms, prioritising the entry
@@ -90,6 +284,7 @@ export function resolveExerciseLevelForDomains(
   exercise: Exercise,
   activeDomains?: string[],
   primaryProgramId?: string,
+  skillPriority?: Map<string, number>,
 ): { level: number; resolvedDomain: string | null } {
   const tps = exercise.targetPrograms;
   if (!tps || tps.length === 0) {
@@ -112,20 +307,39 @@ export function resolveExerciseLevelForDomains(
   }
 
   if (activeDomains && activeDomains.length > 0) {
-    // 1. Direct match (slug or Firestore ID → slug)
-    for (const domain of activeDomains) {
-      const tp = tps.find(t => t.programId === domain || resolveToSlug(t.programId) === domain);
-      if (tp) return { level: tp.level, resolvedDomain: domain };
-    }
-    // 2. Parent match (e.g., exercise tagged 'upper_body', active domain is 'push')
-    for (const domain of activeDomains) {
-      const parents = DOMAIN_PARENT_MAP[domain];
-      if (parents) {
-        for (const parent of parents) {
-          const tp = tps.find(t => t.programId === parent || resolveToSlug(t.programId) === parent);
-          if (tp) return { level: tp.level, resolvedDomain: parent };
-        }
-      }
+    // 1+2. Delegate to the unified resolver (2026-09-08 consolidation) —
+    // skill-tag matches always win over parent-tag matches, independent of
+    // activeDomains order. This REPLACES the previous two separate tiers
+    // (direct-match-by-activeDomains-order, then parent-match-by-
+    // activeDomains-order), which were themselves order-fragile: they only
+    // resolved skill-before-parent correctly because activeDomains happens
+    // to be built skill-first by buildActiveProgramFilters upstream — a
+    // caller convention, not a guarantee this function enforced itself. This
+    // delegation is behavior-preserving for every case except the bug it
+    // fixes: when activeDomains genuinely is skill-first (the common,
+    // upstream-guaranteed case), results are IDENTICAL; it only diverges
+    // when activeDomains isn't skill-first, where it now correctly prefers
+    // the skill match instead of inheriting caller order-luck. Tier-3
+    // (reverse match, below) is untouched — resolveExerciseDomain doesn't
+    // attempt it, so it stays a separate wrapping step.
+    const resolvedDomain = resolveExerciseDomain(exercise, {
+      activeDomains,
+      skillPriority,
+      skillParentMap: DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
+      resolveSlug: resolveToSlug,
+      // This is the ONE site whose pre-existing parent-vs-parent tiebreak
+      // was activeDomains order, not exercise-tag order — confirmed via the
+      // 372-exercise differential test (2026-09-09): 0/311 mismatches with
+      // this explicit request, vs regressions everywhere else that omit it.
+      parentTiebreak: 'active-domain-order',
+    });
+    if (resolvedDomain) {
+      const tp = tps.find(
+        (t) => t.programId === resolvedDomain || resolveToSlug(t.programId) === resolvedDomain,
+      );
+      // Guaranteed present — resolvedDomain is only ever a slug that
+      // resolveExerciseDomain itself matched against one of these tps.
+      if (tp) return { level: tp.level, resolvedDomain };
     }
     // 3. Reverse: exercise's resolved domain is a child of an active domain
     for (const tp of tps) {
@@ -139,6 +353,59 @@ export function resolveExerciseLevelForDomains(
 
   // Fallback: first targetPrograms entry
   return { level: tps[0].level, resolvedDomain: null };
+}
+
+/**
+ * Both sides of a level-tolerance comparison must be measured against the
+ * SAME domain — otherwise a multi-tagged exercise's skill-domain level (e.g.
+ * planche L8) gets compared against the user's level in a completely
+ * different, unrelated domain (e.g. pull L16), purely because that OTHER
+ * domain happened to be scanned first somewhere. Closes the 2026-09-08
+ * level_tolerance bug (David, real run — 22/22 exercises excluded here
+ * carried a planche/one_arm_pullup tag; 0/15 that survived did): the exact
+ * root cause was `ContextualEngine.filterAndScore` computing `programLevel`
+ * via `resolveExerciseLevelForDomains` (which correctly picks the SKILL
+ * domain when active) while computing the user's comparison level via a
+ * completely separate, domain-blind function that could land on a
+ * different domain (the exercise's own FOUNDATIONAL tag) entirely.
+ *
+ * Fix: resolve the domain ONCE via `resolveExerciseLevelForDomains` (already
+ * correct — not touched), then measure the user's level for THAT SAME
+ * domain via `resolveUserLevelForProgram` — the exact resolver
+ * `resolveExercisePool`'s own ±3/±5 tolerance filter already uses
+ * correctly (InputSanitizerMiddleware.ts). Not a new implementation; this
+ * is the shared core, called from both places.
+ *
+ * When `userProgramLevels` isn't available (older/other callers of
+ * `ContextualFilterContext` that don't provide it — e.g. the admin
+ * simulator, the hybrid pipeline) or the exercise resolved to no domain at
+ * all (`resolvedDomain === null`, the `tps[0]` fallback), falls back to
+ * `fallbackUserLevel` — the caller's existing `getUserLevelForExercise`
+ * result — so behavior is unchanged for callers that don't opt in.
+ *
+ * `skillPriority` (2026-09-08 addition, optional) threads the user's own
+ * skill-selection order (via `buildSkillPriorityMap`) into
+ * `resolveExerciseLevelForDomains`'s skill-vs-skill tie-break — e.g. a user
+ * who selected BOTH front_lever and one_arm_pullup, on an exercise tagged
+ * with both. Omitted, ties fall back to stable targetPrograms order
+ * (whichever tag the admin panel happened to record first) — unchanged from
+ * before this parameter existed.
+ */
+export function resolveConsistentComparisonLevels(
+  exercise: Exercise,
+  activeDomains: string[] | undefined,
+  primaryProgramId: string | undefined,
+  userProgramLevels: Map<string, number> | undefined,
+  baseUserLevel: number,
+  fallbackUserLevel: number,
+  skillPriority?: Map<string, number>,
+): { exerciseLevel: number; userLevel: number; resolvedDomain: string | null } {
+  const resolved = resolveExerciseLevelForDomains(exercise, activeDomains, primaryProgramId, skillPriority);
+  if (!userProgramLevels || !resolved.resolvedDomain) {
+    return { exerciseLevel: resolved.level, userLevel: fallbackUserLevel, resolvedDomain: resolved.resolvedDomain };
+  }
+  const userLevel = resolveUserLevelForProgram(resolved.resolvedDomain, userProgramLevels, resolveToSlug, baseUserLevel);
+  return { exerciseLevel: resolved.level, userLevel, resolvedDomain: resolved.resolvedDomain };
 }
 
 // ============================================================================
@@ -651,6 +918,47 @@ export function matchesAnyRequiredDomain(ex: Exercise, context: WorkoutGeneratio
   return context.requiredDomains.some((d) => exerciseMatchesProgram(ex, d));
 }
 
+/**
+ * When an exercise carries multiple tags, the specific one always wins over
+ * the parent — always, independent of array order. `targetPrograms`'s order
+ * reflects nothing about priority; it's just the order the tags happened to
+ * be recorded in the admin panel. A scan that returns on the first EITHER-
+ * direct-OR-parent-alias match silently lets an earlier-indexed parent entry
+ * (e.g. push) shadow a later-indexed, more specific skill entry (e.g.
+ * planche) for the exact same exercise — the bug this function closes
+ * (2026-09-08, David — real run: a planche L7 exercise resolved to its push
+ * L16 entry instead, because push happened to be recorded first).
+ *
+ * Fixed with two full passes instead of one interleaved pass: the whole
+ * array is scanned for an exact match to `domain` first — if found, that's
+ * the answer, no matter where it sits in the array. Only if NO exact match
+ * exists anywhere is the array scanned a second time for a parent-alias
+ * match. Order can never change which tier wins, only (harmlessly) which
+ * entry wins within the same tier.
+ *
+ * Extracted to a standalone, explicitly-parameterized function (no closure-
+ * captured `domain`/`parentAliases`) so it's directly unit-testable —
+ * `selectExercisesWithDomainQuotas`'s closures below just forward their
+ * captured values into it.
+ */
+export function resolveDomainLevelForExercise(
+  targetPrograms: Array<{ programId: string; level: number }> | undefined,
+  domain: string,
+  parentAliases: string[],
+  resolveSlug: (programId: string) => string,
+): number | null {
+  if (!targetPrograms) return null;
+  for (const tp of targetPrograms) {
+    const slug = resolveSlug(tp.programId);
+    if (slug === domain || tp.programId === domain) return tp.level;
+  }
+  for (const tp of targetPrograms) {
+    const slug = resolveSlug(tp.programId);
+    if (parentAliases.includes(slug)) return tp.level;
+  }
+  return null;
+}
+
 export function selectExercisesWithDomainQuotas(
   scoredExercises: (ScoredExercise & { isOverLevel?: boolean; levelDiff?: number })[],
   count: number,
@@ -738,17 +1046,9 @@ export function selectExercisesWithDomainQuotas(
           return satisfiesGearRequirement(norm, normalizedAvail);
         });
       };
-      const getLevelForDomain = (ex: Exercise): number => {
-        if (ex.targetPrograms) {
-          for (const tp of ex.targetPrograms) {
-            const slug = resolveToSlug(tp.programId);
-            if (slug === domain) return tp.level;
-            if (parentAliases.includes(slug)) return tp.level;
-            if (tp.programId === domain) return tp.level;
-          }
-        }
-        return ex.recommendedLevel ?? userLevel;
-      };
+      const getLevelForDomain = (ex: Exercise): number =>
+        resolveDomainLevelForExercise(ex.targetPrograms, domain, parentAliases, resolveToSlug)
+        ?? (ex.recommendedLevel ?? userLevel);
       const belongsToDomain = (ex: Exercise): boolean => {
         if (ex.targetPrograms?.some((tp) => {
           const slug = resolveToSlug(tp.programId);

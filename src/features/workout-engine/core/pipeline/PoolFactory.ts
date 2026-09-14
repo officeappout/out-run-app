@@ -310,6 +310,114 @@ export function findLevelAppropriateSubstitute(
   return null;
 }
 
+/**
+ * Skill-TAG-based substitute finder — 2026-09-09 (David, Stage 2 skill-
+ * representation guarantee). Deliberately a SEPARATE function from
+ * `findLevelAppropriateSubstitute` above, not a parameterized variant of it:
+ * that function's candidate filter is `ex.movementGroup === targetGroup` —
+ * fundamentally the wrong question here. A skill can be represented by an
+ * exercise whose movementGroup is a generic parent (e.g. `horizontal_push`)
+ * as long as its OWN `targetPrograms` carries the skill tag — exactly the
+ * class of exercise `resolveExerciseDomain` was built to stop losing. This
+ * function searches by `targetPrograms` MEMBERSHIP (`.some()`, matching
+ * David's explicit instruction that representation-checking uses membership,
+ * not domain-ownership) — a dual-tagged exercise (e.g. front_lever AND
+ * one_arm_pullup) is a valid candidate for EITHER skill search, independent
+ * of which single domain `resolveExerciseDomain` would assign it to.
+ *
+ * `preferAlsoCovers` (optional) implements the "dual-value exercise
+ * preference": pass the OTHER currently-under-represented selected skills,
+ * and this function first restricts its search to candidates tagged with
+ * BOTH `skillSlug` and at least one of them — one slot then satisfies two
+ * representation requirements at once. Only falls through to the plain
+ * single-skill candidate pool when the dual-restricted search finds nothing
+ * within ±6 — dual-coverage is a PREFERENCE, never a requirement that could
+ * make an otherwise-findable single-skill candidate unreachable.
+ */
+export function findSkillTaggedSubstitute(
+  pool: Exercise[],
+  skillSlug: string,
+  skillLevel: number,
+  usedIds: Set<string>,
+  difficulty?: DifficultyLevel,
+  preferAlsoCovers?: string[],
+): LevelSubstituteResult | null {
+  const RADII = [2, 4, 6] as const;
+
+  const matchesSkill = (ex: Exercise, slug: string) =>
+    (ex.targetPrograms ?? []).some((tp) => resolveToSlug(tp.programId) === slug || tp.programId === slug);
+
+  const search = (requireAlsoCovers: string[] | undefined): LevelSubstituteResult | null => {
+    const candidates = pool.filter((ex) => {
+      if (usedIds.has(ex.id)) return false;
+      if (!matchesSkill(ex, skillSlug)) return false;
+      if (requireAlsoCovers?.length) {
+        return requireAlsoCovers.some((s) => matchesSkill(ex, s));
+      }
+      return true;
+    });
+    if (candidates.length === 0) return null;
+
+    type Flat = { exercise: Exercise; level: number; gap: number };
+    const flatten = (ex: Exercise): Flat[] =>
+      (ex.targetPrograms ?? [])
+        .filter((tp) => resolveToSlug(tp.programId) === skillSlug || tp.programId === skillSlug)
+        .map((tp) => {
+          const rawGap = Math.abs(tp.level - skillLevel);
+          const DIRECTION_PENALTY = 3;
+          let gap = rawGap;
+          if (difficulty === 1 && tp.level > skillLevel) gap = rawGap + DIRECTION_PENALTY;
+          if (difficulty === 3 && tp.level < skillLevel) gap = rawGap + DIRECTION_PENALTY;
+          return { exercise: ex, level: tp.level, gap };
+        });
+
+    const allFlat: Flat[] = candidates.flatMap(flatten);
+
+    for (const radius of RADII) {
+      const inRange = allFlat.filter((c) => c.gap <= radius);
+      if (inRange.length === 0) continue;
+
+      inRange.sort((a, b) => {
+        if (a.gap !== b.gap) return a.gap - b.gap;
+        if (difficulty === 1) {
+          const aAbove = a.level > skillLevel;
+          const bAbove = b.level > skillLevel;
+          if (aAbove !== bAbove) return aAbove ? 1 : -1;
+        }
+        if (difficulty === 3) {
+          const aBelow = a.level < skillLevel;
+          const bBelow = b.level < skillLevel;
+          if (aBelow !== bBelow) return aBelow ? 1 : -1;
+        }
+        return difficulty === 1 ? a.level - b.level : b.level - a.level;
+      });
+
+      const best = inRange[0];
+      const dualTag = requireAlsoCovers?.length ? ' [dual-coverage]' : '';
+      console.log(
+        `[findSkillSub] ✅ ${skillSlug}${dualTag}: picked "${getLocalizedText(best.exercise.name)}" ` +
+        `L${best.level} (gap=${best.gap}, radius=±${radius}, skillLevel=L${skillLevel}, D${difficulty ?? 2})`,
+      );
+      return { exercise: best.exercise, level: best.level, gap: best.gap, radius };
+    }
+    return null;
+  };
+
+  if (preferAlsoCovers?.length) {
+    const dual = search(preferAlsoCovers);
+    if (dual) return dual;
+  }
+
+  const single = search(undefined);
+  if (single) return single;
+
+  console.warn(
+    `[findSkillSub] ❌ ${skillSlug}: no candidate within ±6 of L${skillLevel} ` +
+    `(pool=${pool.length}, usedIds=${usedIds.size})`,
+  );
+  return null;
+}
+
 // ============================================================================
 // FILTER FOR DOMAIN
 // Domain-strict post-filter for a pre-scored exercise pool.

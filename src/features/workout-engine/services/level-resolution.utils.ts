@@ -13,6 +13,7 @@
 
 import { UserFullProfile } from '@/features/user/core/types/user.types';
 import { resolveToSlug } from './program-hierarchy.utils';
+import { resolveExerciseDomain } from '../logic/workout-selection.utils';
 
 // ============================================================================
 // CONSTANTS
@@ -234,4 +235,82 @@ export function buildUserProgramLevels(
   }
 
   return { levels, derivedMasterLevels };
+}
+
+// ============================================================================
+// MOST-SPECIFIC BUDGET RESOLUTION
+// ============================================================================
+
+/**
+ * When an exercise carries multiple tags, the specific one always wins over
+ * the parent — always, independent of array order. Same principle as
+ * `resolveDomainLevelForExercise` (workout-selection.utils.ts), but a
+ * different question: that function asks "what's this exercise's level in
+ * ONE SPECIFIC domain we're already querying." This one asks "which of this
+ * exercise's OWN tags is the most specific one that also has a matching
+ * budget" — there's no single target domain to compare against, so
+ * "specific" is defined relative to the exercise's own sibling tags: a tag
+ * is treated as generic (deprioritized) only when `skillParentMap` records
+ * it as the recorded parent of ANOTHER tag also present on the same
+ * exercise.
+ *
+ * Closes the 2026-09-08 one_arm_pullup bug (David, real run): a pull-tagged
+ * budget was silently winning over a co-tagged one_arm_pullup budget purely
+ * because the pull entry happened to be recorded first in `targetPrograms` —
+ * the old single-pass "first entry with any matching budget wins" scan had
+ * no way to tell "this is the exercise's real, specific domain" apart from
+ * "this happens to be its foundational parent, which also has a budget."
+ *
+ * Fixed with two full passes: the whole array is scanned for a
+ * non-generic (specific) tag with a matching budget first — if found,
+ * that's the answer, no matter where it sits in the array. Only if nothing
+ * specific matches is the array scanned a second time, this time accepting
+ * a generic/parent tag's budget. Order can never change which tier wins.
+ *
+ * This function leans on `_HOME_WORKOUT_SKILL_PARENT_MAP` (home-workout.service.ts,
+ * renamed 14.09.2026 from `_SKILL_PARENT_MAP` after it collided with the
+ * unrelated exported map of the same name in workout-selection.utils.ts), not
+ * `DOMAIN_ALIAS_MAP` (workout-selection.utils.ts) — the caller passes
+ * `_HOME_WORKOUT_SKILL_PARENT_MAP` in as `skillParentMap`. That choice is deliberate:
+ * `DOMAIN_ALIAS_MAP` is missing `one_arm_pullup` entirely (see parking-lot.md's
+ * "חמישה מבנים, אותה שאלה"), which would silently
+ * reproduce the exact bug this function exists to close. When those structures
+ * are ever unified into one source of truth — come back here and
+ * repoint `skillParentMap` at whatever replaces `_HOME_WORKOUT_SKILL_PARENT_MAP`.
+ *
+ * MIGRATED 2026-09-08 (David, "one question, eight answers" consolidation)
+ * to delegate to the unified `resolveExerciseDomain`
+ * (workout-selection.utils.ts) instead of its own independent two-pass scan.
+ * Verified behavior-equivalent by manual trace against the old
+ * `isGenericRelativeToSiblings` scan for every case that mattered — direct
+ * skill-vs-co-tagged-parent, a skill with no budget vs. its co-tagged parent
+ * that does have one (and the reverse), and two co-matched skills tied on
+ * `skillPriority` (falls back to stable targetPrograms order, matching the
+ * old pass-1 first-match exactly) — not merely assumed identical from
+ * having "the same idea." `skillPriority` is optional here for the same
+ * reason as `resolveExerciseLevelForDomains`: existing callers don't carry
+ * `progression.skillFocusIds` at this call site yet; omitting it reproduces
+ * the old behavior exactly, and future callers can opt in without a
+ * breaking signature change.
+ */
+export function resolveMostSpecificDomainBudget<T extends { domain: string }>(
+  targetPrograms: Array<{ programId: string; level: number }> | undefined,
+  resolvedDomainBudgets: T[],
+  skillParentMap: Record<string, string>,
+  resolveSlug: (programId: string) => string,
+  skillPriority?: Map<string, number>,
+): T | undefined {
+  if (!targetPrograms?.length) return undefined;
+
+  const resolvedDomain = resolveExerciseDomain(
+    { targetPrograms } as Parameters<typeof resolveExerciseDomain>[0],
+    {
+      activeDomains: resolvedDomainBudgets.map((d) => d.domain),
+      skillPriority,
+      skillParentMap,
+      resolveSlug,
+    },
+  );
+  if (!resolvedDomain) return undefined;
+  return resolvedDomainBudgets.find((d) => d.domain === resolvedDomain);
 }

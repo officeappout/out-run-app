@@ -10,6 +10,14 @@
 
 ---
 
+## ⚠️ תלות-מיזוג קשיחה — קרא לפני כל עבודה על slug-map או master-level sync
+
+**תיקון הרצפה ב-`autoSyncDomainsFromTracks` (admin panel) חייב לעלות לפני, או באותו מיזוג עם, תיקון `buildProgramSlugMap` (progression.service.ts). לעולם לא slug לבד.**
+
+הסיבה: הכתיבה חסרת-ההגנה ב-`autoSyncDomainsFromTracks` מנוטרלת **היום רק במקרה** — `subPrograms` מחזיק Firestore doc IDs, `tracks` מפתח לפי slug, שני המבנים לא נפגשים. תיקון ה-slug-map **לבדו** דורך את הכתיבה חסרת-ההגנה הזו. פירוט מלא: "באג משתמש — כתיבה בלי הגנה" למטה.
+
+---
+
 ## insights composite indexes missing in firestore.indexes.json
 **Opened:** 2026-07-10 · **Source:** pre-commit review of transcript-pipeline PR (commit `fe51a64`)
 
@@ -568,6 +576,7 @@ useSheetDrag מיועד למגירה רב-מצבית (peek/half/full וכו') �
 3. **`alreadyAccepted`** (`/onboarding-new/health/page.tsx`, תוקן 07.09.2026) — `profile` שעדיין לא נטען (`null`, לפני `_hasHydrated`) ו-`profile` שנטען ומראה "לא הצהיר" חישבו לאותה תוצאה (`false`), כי הבדיקה הייתה `!!profile && hasAccepted(...)` בלי לבדוק את דגל-הטעינה בנפרד.
 
 **הצורה המשותפת, לזיהוי-עתידי:** בדוק כל בדיקה מהצורה `if (someBooleanDerivedFromPossiblyUnloadedData)` — האם היא באמת מבחינה בין "נבדק, והתשובה שלילית" לבין "עדיין לא ידוע"? אם לא, זה מועמד לאותה מחלקת-באג. התיקון בשלושת המקרים היה זהה במהות: להוסיף מצב-שלישי מפורש (בדיקת-אפס-נפרדת, guard-נפרד-מפורש, דגל-hydration-נפרד) במקום לתת לשני-הערכים-הקיימים לבלוע אותו.
+
 ---
 
 ## `isAdmin()` has no `authorityId` scoping — every authority-manager has de-facto super-admin Firestore access
@@ -633,3 +642,281 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 **Still worth doing eventually, not urgent:** the proper local-package version of the shared module (option 2, done right) would let this test go away entirely rather than needing to be remembered and re-run by hand.
 
 **"שמור" (save-only, no sharing intent) also creates one of these groups today — deliberately deferred, not fixed, decided 08.09.2026.** Confirmed real: `route.ts`'s host-schedule-entry write (`addScheduleEntryAdmin`, the "האימון הבא" home-screen card) is keyed on `entryId: run_${groupId}` and stores `groupId`/`groupName` on the entry itself — making "שמור" skip group-creation is a structural change (the schedule entry needs its own non-group identity, e.g. `entryId: solo_${uid}_${datePart}`), not a one-line fix. David's call once that was clear: the filter + auto-sweep shipped today already hide and eventually delete these — the pain that motivated this item is resolved by cost-free means, so the remaining structural fix isn't worth doing on its own. Correct in principle, bundled with the `planned_sessions` migration, both handled in the same post-launch round. Do not build in isolation before then.
+
+---
+
+## ⚠️ מאומת: `program-path/page.tsx` (מסלול-הסקילים) לא מתקין `EquipmentStep` בכלל — אסור לתקן לפני שהמדידה הושלמה — 08.09.2026
+
+**Opened:** 08.09.2026 · **Source:** דוד, שאלה נפרדת תוך-כדי חקירת DOMAIN QUOTA FAILED — "האם חשבון חדש אמור להיווצר עם פרופיל ציוד ריק, או שיש ברירת מחדל שלא נכתבה?"
+
+**לא ברירת-מחדל חסרה — שלב שלם חסר בנתיב הזה.** `createDefaultEquipmentProfile()` (`src/features/user/identity/services/profile.service.ts:76-83`) מחזיר `{home:[],office:[],outdoor:[]}` ריק בכוונה, בכל הנתיבים — זו לא נקודת-הכשל. `updateEquipmentProfile()` (`:100-130`) ממלא רק `home`, ורק אם `answers.equipment` קיים בתשובות-השאלון.
+
+**`EquipmentStep.tsx` (רכיב-השלב עצמו) מותקן רק בשני מקומות בכל הריפו** (grep מלא, לא הסקה): `OnboardingWizard.tsx` (מסלול-הכוח הרגיל) ו-`EquipmentEditorSheet.tsx` (עריכה ידנית מאוחר יותר, דף-בית/הגדרות). **`program-path/page.tsx` (מסלול-הסקילים, calisthenics_upper) לא מתקין את השלב הזה בשום מקום.** משתמש שנרשם דרך בחירת-סקילים בלבד לעולם לא נשאל על ציוד — לא בחירה-ריקה מכוונת, "אף פעם לא נשאל."
+
+**מתחבר ישירות ל-`[User Service] User <id> has missing or empty equipment profile`** (`src/lib/firestore.service.ts:79-94`) — לוג-אינפו קיים, שכבר מזהיר בדיוק על המצב הזה ("This may affect Smart Swap functionality"), אבל לא נבנה מסך שמונע אותו למסלול-הסקילים. בהמשך: `ESSENTIAL_PARK_GEAR` הפאלבק-הקטסטרופלי (`gear-mapping.utils.ts:694`, מוזרק דרך `InputSanitizerMiddleware.ts`'s `normalizeEquipmentArray`, `:117-127`) — פרופיל-ריק בפארק נופל לסט-הבסיסי-בלבד, בלי גומייה/טבעות.
+
+**⚠️ קשר סביר לחקירת DOMAIN QUOTA FAILED, לא מוכח — בדיוק לכן אסור לגעת:** אם ה-gear-fallback הזה משפיע על שכבה כלשהי במשפך 371→54→15 (המדידה שנבנתה באותה שיחה, `resolveExercisePool`/`ContextualEngine.filterAndScore`), נגיעה בציוד **עכשיו** תזהם את המדידה — לא נדע יותר אם שינוי בתוצאה נובע מהתיקון-הזה או מהמשתנה שדוד רצה למדוד. **אסור לתקן לפני שהמדידה הושלמה — 08.09.2026.**
+
+לא תוקן. לא נגעתי — לא בברירת-מחדל, לא ב-`EquipmentStep`, לא ב-`ESSENTIAL_PARK_GEAR`.
+
+---
+
+## פערי-תוכן בקטלוג — לא באגים, החלטת-דוד — נמצאו בסבב תכנון-resolveExerciseDomain
+
+**Opened:** 08.09.2026 · **Source:** דוד, תוך-כדי תכנון תיקון-הדומיין המאוחד — ספירה מדויקת מ-Firestore (372 תרגילים, `exercises` collection).
+
+**`handstand_pushup` — 8 תרגילים מתויגים סה"כ, בכל הקטלוג.** דל בפני עצמו, בלי קשר לשאלת-ניקוי-תיוג-משותף. גם אם כל 4 התרגילים המשותפים (`handstand_pushup+planche`) ינוקו/יתויגו-מחדש, נשארים רק 4 בלעדיים. אם/כש-hspu הופך לסקיל-נבחר אצל משתמש אמיתי, המאגר-הזמין-לו צר מבנייתו.
+
+**`one_arm_pullup` — 26 מתויגים סה"כ, אבל רק 6 בלעדיים (לא חולקים תגית-סקיל נוספת).** 20 מתוך 26 (77%) חולקים תגית עם `front_lever`/`muscle_up` — הריכוז החד ביותר מבין חמשת הסקילים שנבדקו (`planche` לשם-השוואה: 4/31 בלבד חולקים). **גם אחרי ניקוי-תיוג עתידי (אם יבוצע), הסקיל נשען ברובו על תרגילים משותפים** — לא ברור שיש מספיק מאגר-נקי-בלעדי לתמוך במשתמש שבוחר oap כסקיל יחיד/עיקרי.
+
+**שניהם פערי-תוכן, לא באגי-קוד. דוד מחליט אם/איך לטפל (הוספת תרגילים, שינוי-סיווג, קבלה-כמות-שהוא) — לא פעולה כרגע.**
+
+**קובץ-העבודה המלא לעריכת-פאנל** (24 תרגילים, מקובצים לפי דפוס-תיוג): `/private/tmp/claude-501/-Users-calisthenicsltd-Development-appout-1/6190205f-9b8f-499e-a444-a32a4f244ffa/scratchpad/multi-skill-tag-review.md` — נתיב-scratchpad-זמני, לא נשמר לטווח-ארוך; אם רלוונטי אחרי שדוד מסיים, להעתיק למקום קבוע.
+
+---
+
+## רגרסיה ידועה ומאושרת — 6 תרגילים ב-DavidRule, תיוג-הורה בסדר שגוי — 09-10.09.2026
+
+**Opened:** 09.09.2026, עודכן 10.09.2026 · **Source:** דוד, אחרי בדיקה-השוואתית (old vs new) שנדרשה במקום שלוש ריצות-מכשיר ידניות — ראה גם [[חוק 0]] (תיוג תרגילים אינו בסמכות-הקוד/הסוכן).
+
+**החוק המנחה, נקבע אותו יום:** לא אנחנו מחליטים על תיוג-תרגילים. לא בקוד, לא בסקריפט, לא כהמלצה. מדווחים "התרגיל התנהג ככה כי התגיות שלו כאלה" — דוד מחליט מה משנים, בפאנל, בעצמו.
+
+**מה קרה בפועל:** `resolveExerciseDomain` (`workout-selection.utils.ts`, 08-09.09.2026) גובה עדיפות-לתגית-הספציפית-על-פני-ההורה, ובענף-ה"בלי-סקיל" (Tier 3, `parentTiebreak='exercise-tag-order'`, ברירת-המחדל אחרי תיקון 09.09.2026) פותר לפי סדר `targetPrograms` **של התרגיל עצמו** — לא לפי `movementGroup`. ב-DavidRule (`WorkoutGenerator.ts`'s "Step 4d") זה חושף 6 תרגילים שבהם ה-`movementGroup` לא בקשר-אב/צאצא עם התג שנבחר בפועל — **לא** רק "לא תואם" (רוב הקטלוג לא-תואם באופן תקין, סקיל מול הורה-ישיר שלו — זה בדיוק הכלל, לא רגרסיה; ר' תיקון-הרעש למטה):
+
+| name (he) | id | movementGroup | targetPrograms (סדר מקורי) | דומיין נבחר בפועל |
+|---|---|---|---|---|
+| פלאנק עליות ונגיעות בכתפיים | `BWbscvj0m3hvxghEMtKV` | core | push:L3 → core:L3 | push |
+| פלאנק | `FHh3m3suMMtoLk1PrxYv` | core | push:L2 → full_body:L2 → upper_body:L2 → core:L2 | push |
+| פלאנק על הברכיים | `iEZGhtBNV7Tv5iNuT70E` | core | push:L1 → core:L1 | push |
+| פלאנק גבוה טבעות | `mIEhyPgMAxSryv46CZ2f` | core | push:L7 → core:L7 | push |
+| כפיפת ירך על הגבהה | `vVTTFbDP1LffViDAQfHn` | core | legs:L4 (בלבד, אין תג core) | legs |
+| **⚠️ פשיטת ירך אחורית (חדש, 10.09.2026)** | `oLzPZ7rQMdOUgGuVr1os` | hinge (→legs) | legs:L5 → planche:L1 | planche |
+
+**התרגיל השישי שונה באופיו משאר החמישה.** הראשונים (הפלאנקים) הם דפוס-אחד-עקבי: אותו סוג-תרגיל, אותה סיבה (הורה-לפני-סקיל בסדר-הרישום). השישי — "פשיטת ירך אחורית" (שם-האנגלי המקורי מגלה: "Copy of גוד מורנינג בישיבה", תרגיל-ירך/המסטרינג) מתויג `planche` — **תגית שאין לה שום קשר ביומכני לתרגיל הזה.** נראה כתיוג-שגוי-בטעות (copy-paste מתרגיל אחר?), לא דפוס עקבי כמו הפלאנקים. **דיווח עובדתי, לא הכרעה — לעיון דוד בפאנל, לפי [[חוק 0]].**
+
+**הכרעת דוד, מפורשת:** לא לתקן בקוד. אין special-case. אין נפילה חזרה ל-`movementGroup` כפולבק — הנימוק: DavidRule משווה רמת-תרגיל (מ-`targetPrograms`) מול רמת-משתמש-בדומיין; אם הרמה מגיעה מהתגיות אבל הדומיין מ-`movementGroup`, זו בדיוק ההשוואה חוצת-הדומיינים שתוקנה היום (ה-bug המקורי, planche/one_arm_pullup) — לחזור אליה כדי "להציל" תרגילים בודדים מחזירה את המחלה בדלת האחורית.
+
+**מה כן נבנה, ורק זה:**
+1. **טבלה עובדתית ב-`multi-skill-tag-review.md`** (scratchpad, ר' נתיב מעלה) — קבוצה חדשה "תיוג-הורה בסדר שגוי — לעיון דוד", ללא המלצה.
+2. **שורת-אבחון בקוד**, `WorkoutGenerator.ts`'s `resolveDavidRuleDomain` (בתוך "Step 4d"): `console.warn('[DomainMismatch] "<שם>" mg=<X> → domain=<Y>. Check tagging.')`. **תוקן 10.09.2026** (ר' פירוט למטה — הגרסה המקורית ירתה על מאות תרגילים תקינים).
+3. **הרשומה הזו** — רגרסיה ידועה-ומאושרת, לא "לתקן מתישהו."
+
+**✅ תיקון-רעש (10.09.2026), אחרי הרצה חיה.** הגרסה המקורית ירתה בכל פעם ש-`tagDomain !== mgDomain` — אבל זה כמעט **תמיד** נכון עבור תרגיל-סקיל מתויג-כהלכה (movementGroup נותן קטגוריה כללית, למשל `push`; התג נותן את הסקיל הספציפי, למשל `planche` — הורה-וילד ישיר, לא סתירה). הגרסה הזו ירתה, בהרצה חיה, על "פלאנץ׳ בטאק מתקדם" (mg=push→domain=planche) — תרגיל **תקין לגמרי**. תוקן: יורה רק כש-`mgDomain`/`tagDomain` **בענפים שונים לגמרי** (לא שווים, ואף אחד לא ההורה-הישיר של השני, דרך `_TEMP_SKILL_PARENT_MAP`, נבדק בשני הכיוונים). מאומת על כל 372 תרגילי הקטלוג (activeDomains=כל 7 הסקילים+4 היסודות): **6 יורים** — 5 הידועים + התרגיל השישי החדש. לא עשרות. `WorkoutGenerator.ts`'s `resolveDavidRuleDomain`.
+
+**סטטוס: לא תיקון פתוח. החלטה סגורה של דוד, מתועדת כדי שאף עבודה עתידית לא תנסה "לתקן" את זה שוב בלי לדעת שזו הכרעה מכוונת.**
+
+---
+
+## חוב פתוח — נפילה-להורה מוצהרת (Stage 2) אין לה משטח-UI, רק לוג — 09.09.2026
+
+**Opened:** 09.09.2026 · **Source:** דוד, אישור עקרוני לאופציה א׳+ג׳ (נפילה-להורה, מוצהרת לא שקטה) — "אם אין UI — שורת לוג מפורשת חובה, והחשיפה נרשמת כחוב פתוח."
+
+**מה נבנה:** `runSkillRepresentationGuarantee` (`GuaranteePassRunner.ts`) — כשאין אף תרגיל מתויג-סקיל זמין לסקיל שנבחר (אחרי גם חיפוש-כיסוי-כפול וגם חיפוש-רגיל), נופל לתרגיל מהדומיין-ההורה (`DOMAIN_RESOLUTION_SKILL_PARENT_MAP`, שם עדכני 14.09.2026 — היה `_TEMP_SKILL_PARENT_MAP`) במקום לוותר. ה"הצהרה" בפועל היום היא **רק** `console.warn('[SkillRepresentation] DECLARED FALLBACK...')` + שורת `pipelineLog` (`skill_representation: <skill> DECLARED_FALLBACK → parent domain, "<שם>"`) — **אין שום מסך/הודעה שהמשתמש עצמו רואה.**
+
+**⚠️ דיוק-ניסוח (דוד, 14.09.2026):** התרגיל שנכנס בנתיב-הנפילה-להורה **לא נושא את תגית הסקיל** (הוא מתויג-הורה, לא מתויג-הסקיל) — `representsSkill` (הבדיקה שקובעת אם סקיל "מיוצג") ממשיכה להחזיר `false` עבור אותו סקיל גם **אחרי** שהנפילה רצה. הניסוח הנכון: לא "הסקיל יוצג/יוצג-מחדש", אלא "הוזרק תרגיל מתוכנית-ההורה במקומו, מסומן בלוג" — הנפילה סוגרת פער-כיסוי בפועל (יש תרגיל בסלוט), לא פער-ייצוג (אין תרגיל מתויג-הסקיל-עצמו).
+
+**המשמעות בפועל:** משתמש שבחר, למשל, planche כסקיל — ובקטלוג/ברמתו אין כרגע אף תרגיל planche-מתויג פנוי — יקבל שכיבות-סמיכה רגילות (push) **בלי לדעת** שזו נפילה, לא הבחירה שלו. הלוג קיים בקונסולה/שרת בלבד, לא בממשק.
+
+**לא תוקן. לא בסקופ Stage 2** — נבנה מסך/הודעה חדשה (Toast, badge על התרגיל, קו בתחתית הכרטיס — "לא נמצא תרגיל planche מתאים כרגע, הוספנו תרגיל דחיפה בסיסי") היא עבודת-UI נפרדת, לא חלק מהמנוע. עד אז — הפער מתועד ומאושר במפורש, לא נסתר.
+
+**איך מזהים אם זה קורה בפועל:** grep ל-`DECLARED_FALLBACK` ב-`pipelineLog`/בלוגים, או ל-`[SkillRepresentation] ⚠️ DECLARED FALLBACK` בקונסול.
+
+---
+
+## חוסם-2 (09.09.2026) — `ap.focusDomains` ו-`progression.skillFocusIds` אותו מקור בכתיבה, יכולים להתפצל בהרשמה-חוזרת — לא תוקן, הצעה בלבד
+
+**Opened:** 09.09.2026 · **Source:** דוד, שאלת חוסם — "אותו מערך או שני שדות? יש מסלול שבו הם מתפצלים?"
+
+**עובדה מאומתת (קובץ+שורה):** `onboarding-sync.service.ts` — `skillIds` הוא משתנה מקומי יחיד (`let`, שורה 1178, נקבע פעם אחת נוספת בשורה 1180, **אין עוד קריאת-השמה** בכל הקובץ). שתי נקודות-כתיבה, שתיהן קוראות מאותו משתנה בדיוק:
+- `activeProgramEntries.push({..., focusDomains: skillIds, ...})` — שורה 1420-1422/1435 (רק כש-`isPathCSkills && result.programId==='calisthenics_upper'`).
+- `skillFocusIds: skillIds` — שורה 1548 (רק כש-`isPathCSkills && skillIds.length>=2`).
+
+בכתיבה ראשונה (משתמש חדש) — **זהים לגמרי**, אותו אובייקט-מערך.
+
+**נתיב-התפצלות אמיתי, נמצא:** שורה 1403, `if (!existingProgramIds.has(result.programId))` — הדחיפה ל-`activeProgramEntries` (וממילא `focusDomains`) **מדלגת** אם `calisthenics_upper` **כבר** קיים ב-`activePrograms` הקיים של המשתמש (`existingProgramIds`, שורה 1307, נבנה מ-`updateData.progression?.activePrograms` הקיים). **אבל** שורה 1548 (`skillFocusIds: skillIds`) **לא** מוגנת באותו תנאי — נכתבת בכל פעם מחדש כש-`isPathCSkills && skillIds.length>=2`, **בלי תלות אם `calisthenics_upper` כבר קיים.**
+
+**המשמעות:** משתמש שעושה הרשמת-סקילים **פעם שנייה** (re-onboarding) עם **בחירת-סקילים שונה** מהפעם הראשונה — `progression.skillFocusIds` **מתעדכן** לבחירה החדשה, אבל `activePrograms[calisthenics_upper].focusDomains` **נשאר תקוע** על הבחירה הישנה (כי `existingProgramIds.has('calisthenics_upper')===true` בפעם השנייה, הדחיפה מדלגת). **`activeDomains`** (הנגזר מ-`focusDomains` דרך `buildActiveProgramFilters`) ו-**`skillPriority`** (הנגזר ישירות מ-`skillFocusIds`) יתבססו על **שתי בחירות-סקילים שונות** לאותו משתמש, מהרגע הזה והלאה.
+
+**לא נבדק/לא ידוע:** באיזו תדירות בפועל משתמשים עושים re-onboarding-סקילים עם בחירה שונה (יכול להיות נדיר מאוד בפועל) — לא נמדד, לא הונח.
+
+**הצעת-איחוד (לא יושמה, כנדרש):** לתקן את התנאי בשורה 1403/1428 כך שכש-`isPathCSkills && result.programId==='calisthenics_upper'`, גם אם `calisthenics_upper` כבר קיים — **לעדכן את `focusDomains` של הרשומה הקיימת** (find-and-replace בתוך `mergedActivePrograms`/`existingActivePrograms`), לא לדלג. זה ישמור את שני השדות מסונכרנים תמיד עם הבחירה העדכנית ביותר. חלופה שקולה: לגזור `activeDomains` בזמן-קריאה מ-`skillFocusIds` ישירות (לא דרך `focusDomains` הנפרד) — אבל זה שינוי גדול יותר (`buildActiveProgramFilters` נבנה סביב `ap.focusDomains`, לא `progression.skillFocusIds`). לא הוכרע איזו חלופה עדיפה — זו החלטת-דוד.
+
+**✅ תיקון 1 יושם (09.09.2026), באותו ענף, לפני מיזוג.** `home-workout.service.ts`'s `skillPriority`/`selectedSkillIds` (Stage 2) חוברו מחדש ל-`resolvedChildDomains` (המשתנה המקומי שבאמת מזין את סדר-ה-skills ב-`activeDomains`, דרך סינתזת `profileForFilters` → `buildActiveProgramFilters`) — לא ל-`progression.skillFocusIds` הגולמי. אומת מול 2 חשבונות אמיתיים: `resolvedChildDomains` ו-`skillFocusIds` זהים לגמרי (תוכן+סדר) בשני המקרים שנבדקו — אין רגרסיה במקרה הרגיל, והתיקון סוגר את הפער התיאורטי (Pass B/C בבלוק-הנרמול, `home-workout.service.ts:1794-1868`, יכולים לייצר `resolvedChildDomains` שלא זהה ל-`skillFocusIds` בתוכן/סדר — לא רק בעדכניות כמו התרחיש למעלה). **התיקון השני** (עדכון `focusDomains` בהרשמה-חוזרת, שורה 1403/1428) **נשאר לא-מיושם** — הוא בעיית-כתיבה בהרשמה, לא בעיית-קריאה בזמן-ריצה; שדרוג-הסיווג שלו (חוסם לפיצ'ר עתידי) מתועד כרשומה נפרדת למטה.
+
+---
+
+## חסם לפיצ'ר: שינוי סדר סקילים בפרופיל — 09.09.2026
+
+**Opened:** 09.09.2026 · **Source:** דוד — "אני מתכנן פיצ'ר 'שינוי סדר העדפה בסקילים' במסך הפרופיל."
+
+**למה זה חוסם, לא רק חוב-טכני רגיל:** היום משתמש **לא יכול** לשנות בחירת-סקילים אחרי הרשמה — אז הבאג בשורה 1403/1428 (ר' הרשומה למעלה, "ap.focusDomains ו-progression.skillFocusIds... יכולים להתפצל") לא נגיש בפועל. **ברגע שהפיצ'ר-החדש קיים — הוא הופך את התרחיש התיאורטי לנתיב-שימוש ראשי.** משתמש שישנה סדר-העדפה במסך-הפרופיל: `progression.skillFocusIds` יתעדכן (ההנחה — תלוי איך הפיצ'ר ייכתב), אבל אם הכתיבה עוברת דרך אותו מסלול (`onboarding-sync.service.ts`) עם אותו guard (`existingProgramIds.has('calisthenics_upper')`), `ap.focusDomains` **לא יתעדכן** — המשתמש ישנה סדר, יראה "נשמר", והמנוע ימשיך לפעול לפי הסדר הישן (כי `resolvedChildDomains`/`activeDomains` נגזרים בסופו של דבר מ-`ap.focusDomains`, לא מ-`skillFocusIds` ישירות — ר' הרשומה למעלה).
+
+**הצעת-תכנון קצרה, לא יושמה (ענף נפרד, סקירה נפרדת):** לפני שהפיצ'ר החדש נבנה — יש לפתור את חוסם-הכתיבה (שורה 1403/1428, ר' הצעת-האיחוד למעלה) ולוודא שכל כותב עתידי של סדר-סקילים (כולל מסך-הפרופיל החדש) כותב לשני השדות באופן מסונכרן, לא רק ל-`skillFocusIds`. חלופה: הפיצ'ר-החדש כותב ישירות ל-`ap.focusDomains` (לא רק ל-`skillFocusIds`) מלכתחילה — עוקף את הבאג בלי לתקן את מסלול-ה-onboarding הישן, אבל משאיר שני מנגנוני-כתיבה נפרדים לאותו שדה (סיכון-דריפט עצמאי). לא הוכרע — החלטת-דוד, לפני תכנון-מפורט של הפיצ'ר.
+
+---
+
+## דגל-אבטחה — שורת "tip" של dotenv מפנה לדומיין חיצוני לא-מוכר — נבדק, לא זדוני, 09.09.2026
+
+**Opened:** 09.09.2026 · **Source:** דוד, אחרי שדגלתי שורת-פלט חשודה משני סקריפטים נפרדים היום (`vestauth.com` באחד, `dotenvx.com` בשני).
+
+**נבדק לעומק — התוצאה: לא ניסיון-הזרקה, לא פגיעה בשרשרת-אספקה.** מקור מדויק: `node_modules/dotenv/lib/main.js:7-15` — מערך **קבוע וסטטי** בשם `TIPS`, 8 מחרוזות, נבחר אקראית (`Math.floor(Math.random() * TIPS.length)`, שורה 19-21) בכל קריאה ל-`dotenv.config()`, מודפס בשורה 309. **לא נטען מרשת, לא דינמי, לא נשלט מרחוק** — הקוד כולו יושב בחבילה המותקנת עצמה.
+
+- **חבילה:** `dotenv`, **גרסה מותקנת: 17.4.2**, **תלות ישירה** (`package.json:131`, `"dotenv": "^17.4.2"` — לא טרנזיטיבית, לא דרך חבילה אחרת).
+- **8 המחרוזות המלאות ב-TIPS:** 2 מפנות ל-`dotenvx.com` (מוצר-אחות רשמי של dotenv, אותו יוצר/ארגון), 1 מפנה ל-`vestauth.com` ("⌁ auth for agents") — דומיין-שלישי, לא-מוכר, בתוך חבילת-קוד-פתוח יסודית. 5 הנותרות הן טיפים טכניים תמימים (`debug:true` וכו', אין דומיין).
+- **הניסוח "auth for agents" ממוקד-בכוונה לסוכני-AI** (לא למפתח-אנושי) — זו תופעה אמיתית וראויה-לתשומת-לב (פרסום בתוך פלט-CLI, ממוען לסוכן שקורא את הפלט, לא לאדם) — אבל **הפעולה עצמה תמימה**: הדפסת-מחרוזת, אין בקשת-רשת, אין הרצת-קוד, אין נסיון לגרום לכלי לגשת ל-URL בעצמו.
+- **לא נגשתי לאף דומיין. לא הוסרה/עודכנה אף חבילה**, כנדרש.
+
+**סטטוס: מתועד לידיעה, לא פעולה נדרשת.** אם דוד רוצה להשתיק את הטיפים — `dotenv.config({quiet:true})` (אחד מ-8 הטיפים עצמם) עושה בדיוק את זה, אבל זה שינוי-קוד נפרד, לא בוצע כאן.
+
+---
+
+## החלטת תכנון — אושרה ע"י דוד 10.09.2026: גזירת skill→foundation דורסת רמת-הורה קיימת, במכוון
+
+**Opened:** 10.09.2026 · **Source:** דוד, אחרי שהוכח בבדיקה-1 (`onboarding-sync.service.ts:1335`+`:1441-1444`) שגזירת "Skill→Foundation" דורסת רמת-הורה אמיתית וגבוהה יותר עם ערך נגזר נמוך יותר (למשל: pull:21 קיים, משתמש בוחר one_arm_pullup ומקבל L10 → נגזר pull:19 → דורס את ה-21), בלי שום בדיקה מול הערך הקיים.
+
+**זו לא הורדת-רמה שקטה בלתי-רצויה — זו הכרעת-מוצר מכוונת.** נימוק דוד: שאלון-סקיל הוא **מדידה חדשה**, לא סתירה למדידה קודמת. משתמש שממלא שוב עושה זאת כדי **לדייק**, ולדייק גם את תוכנית-ההורה זה הנכון — כולל ירידה ברמה, אם זו התוצאה הכנה של המדידה החדשה.
+
+**ההנחה שעליה ההחלטה נשענת, במפורש (לתשומת-לב עתידית):** תקף כל עוד שאלון-הסקיל ושאלון-תוכנית-ההורה מודדים יכולת דומה במבנה. **אם שאלון-הסקילים ישתנה מהותית — ההסקה `skill+9 → רמת-הורה` צריכה בדיקה מחדש**, לא להישאר בהנחה-שקטה שההיסט עדיין תקף.
+
+**לא נוסף guard. לא שונה קוד.** מנגנון `SKILL_TO_FOUNDATION_OFFSET=9` (`onboarding-sync.service.ts:77-98`) נשאר בדיוק כפי שהוא.
+
+---
+
+## ⚠️ תיקון-רשומה — "חמישה מבנים, אותה שאלה" נזכר בקוד אך לא היה קיים בקובץ הזה, עד עכשיו — 10.09.2026
+
+**Opened:** 10.09.2026 · **Source:** דוד, שאלה על `_TEMP_SKILL_PARENT_MAP` — "השם אומר TEMP. סוקר ישאל זמני עד מתי." תוך-כדי מענה נמצא שהתגובה-בקוד עצמה (docstring, `workout-selection.utils.ts`) מפנה במפורש לרשומה **בקובץ הזה** ("ראו parking-lot.md's 'חמישה מבנים, אותה שאלה, תשובות שונות'") — **אבל הרשומה הזו לא הייתה קיימת בפועל** (נבדק בגרep מלא על כל `.claude/knowledge/`, אפס תוצאות, לפני התיקון הזה). ככל הנראה נדונה בעל-פה מוקדם יותר באותה שיחה ארוכה ולא הגיעה בפועל לכתיבה — תיעוד-חוב מפורש נגד קוד שמפנה לרשומה-שלא-קיימת.
+
+**המפה עצמה (skill → הורה ביומכני) קיימת פיזית 4 פעמים, מאומת עכשיו בקוד החי (לא משוער):**
+
+| מיקום | שם | היקף |
+|---|---|---|
+| `workout-selection.utils.ts:70` | `_TEMP_SKILL_PARENT_MAP` | module-scope, **exported** — הגרסה החדשה מהיום, הבסיס ל-`resolveExerciseDomain` |
+| `home-workout.service.ts:1992` | `_CU_SKILL_PARENT` | function-scope, לא exported — **הערת-הקוד שם עצמה** אומרת "mirrors `_SKILL_PARENT_MAP` defined later in this file; duplicated here to avoid a forward-reference dependency" — כלומר הכפילות **הזו** תועדה כמכוונת ומודעת עוד לפני היום |
+| `home-workout.service.ts:2151` | `_SKILL_PARENT_MAP` | function-scope, לא exported |
+| `onboarding-sync.service.ts:89` | `SKILL_TO_FOUNDATION_DOMAIN` | module-scope, לא exported — צורה שונה (`Record<string,'push'\|'pull'>`, לא `Record<string,string>`), תוכן-מידע זהה, שימוש שונה (גזירת-רמה, לא רזולוציית-דומיין) |
+
+תוכן זהה בכל הארבע (planche/handstand/handstand_pushup→push, front_lever/back_lever/muscle_up/one_arm_pullup→pull) — מאומת שורה-מול-שורה, לא רק "כנראה זהה".
+
+**קרוב-משפחה, לא זהה:** `DOMAIN_ALIAS_MAP`/`DOMAIN_PARENT_MAP` (`workout-selection.utils.ts`) — מבנה-נתונים שונה (הורה→ילדים, לא סקיל→הורה-יחיד), וכולל גם ערכים לא-סקיל (`lower_body→legs`, `upper_body→push/pull`). לא נספר כ"אותה מפה" — קשור מושגית, לא כפילות ישירה.
+
+**לא הוצע איחוד קונקרטי כאן — תיעוד-מצב בלבד, כנדרש (דוד: "אל תיישם").** `_TEMP_SKILL_PARENT_MAP` נשאר עם קידומת TEMP כי אין עדיין תוכנית-איחוד קונקרטית לארבעת המבנים — לא רק ניחוש/כוונה כללית. אם/כשמתבצע איחוד — יעד סביר הוא מיקום module-scope, exported יחיד (כמו `_TEMP_SKILL_PARENT_MAP` כבר היום) שכל שאר השלושה מפנים אליו, אבל **זו הצעה לא-מוכרעת**, לא תוכנית מאושרת.
+
+---
+
+## באג משתמש — כתיבה בלי הגנה: `autoSyncDomainsFromTracks` (admin panel) — תוכנן, לא מיושם, 10.09.2026
+
+**Opened:** 10.09.2026 · **Source:** דוד, "הבדיקה הדחופה" — אימות חי מול Firestore, `admin/users/all/page.tsx:184-233`.
+
+**מה נבדק, ומה נמצא (יש לכך תשובה מלאה ומדויקת, נמסרה לדוד בנפרד בצ'אט) — תמצית לצורך הרישום כאן:** הפונקציה **כן נכנסת** ללולאת חישוב-מאסטר עבור `calisthenics_upper` (`isMaster:true`, `subPrograms.length=7` עוברים את התנאי), אבל **מייצרת בפועל אפס-אפקט היום** — כי `subPrograms` על כל מסמכי המאסטרים מכיל **Firestore doc IDs גולמיים** (`mFcuYlNgKXLqWVUFo0zt` וכו'), בעוד `progression.tracks` מפתח לפי **slug** (`planche`, `push`...) — אותה מחלקת-באג בדיוק כמו B1 (`buildProgramSlugMap`), רק בקובץ אחר. `tracks[docId]` לא תואם לעולם → `childLevels=[]` → אין כתיבה. גם החלק הראשון של הפונקציה ("1. Sync child track levels → domains", שורות 195-203, שפועל ישירות על `tracks[calisthenics_upper]` הגולמי ולא על subPrograms) יוצא אפס-אפקט **היום, במקרה** — כי `domains.calisthenics_upper` ו-`tracks.calisthenics_upper` כבר שווים (10=10) אצל המשתמשים שנבדקו. אין חשיפה כרגע גם אצל אף משתמש מ-3 הרשויות המשלמות (שדרות/קריית ים/אשקלון) — 0 מתוך 9 משתמשים שם בכלל מחזיקים track ל-`calisthenics_upper`.
+
+**עדיין באג אמיתי, לא "לא רלוונטי":** ברגע ש-B1 (slug-map) יתוקן, או ש-`domains`/`tracks` יתפצלו עבור איזשהו משתמש (לא בלתי-אפשרי — B2's ממצא על `Math.round` שונה מ-`Math.floor` יכול ליצור בדיוק כזה פיצול בעתיד), **הכתיבה הזו תרוץ בלי שום רצפת-הגנה** — בניגוד ל-`recalculateMasterLevel` (progression.service.ts) שכן יש לו `safeLevel = Math.max(derived, priorLevel)`. פתיחת עמוד-משתמש בודד ע"י אדמין (`loadUserDetails`, לא כפתור נפרד — רץ אוטומטית בכל טעינת-פרטי-משתמש) יכולה אז לדרוס בשקט רמת-מאסטר גבוהה בערך נמוך יותר.
+
+**הכרעת דוד (10.09.2026): לא נוגעים ברמות של משתמשים קיימים (הפער הוא רמה אחת, מרפא את עצמו בהתקדמות ראשונה) — אבל כן סוגרים את הכתיבה חסרת-ההגנה.**
+
+**תכנון מוצע (לא מיושם — ענף נפרד, סקירה נפרדת):** להוסיף בדיוק אותה רצפת `Math.max(derivedLevel, currentMasterDomain)` שכבר קיימת ב-`recalculateMasterLevel` (progression.service.ts), לשני מקומות ב-`autoSyncDomainsFromTracks`:
+1. סעיף 1 (sync ישיר track→domain, שורות 195-203): להחליף את `if (domainLevel < trackLevel) updates[trackId] = trackLevel;` בבדיקה שלא-רק-משווה-אלא-לוקחת-מקסימום מול הערך הקיים ב-domains **וגם** ב-tracks עצמו (כדי לא לדרוס track גבוה יותר בטעות דרך הצד השני) — נדרש עיצוב מדויק בזמן המימוש, לא רק "להוסיף Math.max" בעיוורון, כי כיוון-הסנכרון כאן (track→domain) שונה מ-`recalculateMasterLevel` (מחושב→domain+track).
+2. סעיף 2 (חישוב-מאסטר, שורות 205-221): `derivedLevel = Math.min(cap, Math.max(Math.round(avg), currentMasterDomain, currentMasterTrack))` — לא לדרוס ערך-קיים-גבוה-יותר, בין אם ההצפה נובעת מהתיקון-העתידי ל-B1 ובין אם מכל סיבה אחרת.
+
+**כשלב מוקדם יותר של אותו תיקון:** כדאי לוודא (בדיקת-קוד, לא רק היגיון) שהתיקון ל-B1 (slug-map) לא "יפעיל" את סעיף 2 בפתאומיות עבור כל משתמש עם calisthenics_upper — ראוי לתאם את שני התיקונים (B1 + הרצפה-כאן) לאותו סבב, לא לתקן B1 לבד ולהשאיר את הכתיבה חסרת-הגנה חשופה בפער-זמן.
+
+**עדכון 10.09.2026 — אותה סוגיה, שדה אחד, ארבע תשובות שונות. ⚠️ תיקון-מינוח (דוד, 14.09.2026): "שלוש חיות" היה לא-מדויק — 10 ו-9 חיות בפועל (נכתבות/נצרכות/משפיעות), 18 היא חישוב-זומבי (רץ ומודפס, אפס צרכן) — לא "תשובה שלישית" באותה קטגוריה כמו השתיים האחרות:**
+
+| ערך | מקור | מנגנון | סטטוס |
+|---|---|---|---|
+| **10** | הרשמה (`onboarding-sync.service.ts:1201-1214`) | דליפת סדר-בחירה — לא נוסחה | **חי — נכתב ל-Firestore, נצרך, משפיע** |
+| **18→15** | `[MasterDerive]`, `level-resolution.utils.ts:217-234` | `avg(push,pull,legs)` קשיח, בלי קשר לילדי-המאסטר האמיתיים | **זומבי — רץ, מודפס ללוג, אפס צרכן. לא "תשובה חיה שלישית".** |
+| **9** | `getMasterProgramProgress`/`recalculateMasterLevel`, `progression.service.ts` | `Math.round(avg(סקילים-שנבחרו-בפועל))` | **חי — הנכון, אבל חסום ע"י רצפה מונוטונית (הענף למעלה, B2)** |
+| — | `autoSyncDomainsFromTracks`, admin panel | ר' למעלה | לא-פעיל היום (subPrograms=doc-IDs) |
+
+**סעיף 1 — ה-"10": לא נוסחה שלישית, דליפת-סדר.** `effectiveResults` נבנה מחדש (`onboarding-sync.service.ts:1201-1214`) לרשומה יחידה עם `programId:'calisthenics_upper'` (קשיח) ו-`levelId: primaryResult.levelId` — **ה-levelId של הסקיל הראשון שנבחר (`skillIds[0]`), מועתק כמות-שהוא.** בחירת planche ראשון → `'planche_level_10'` → רגקס שולף `10`. בחירת one_arm_pullup ראשון → `7`. **אותם נתונים בדיוק, ערך שונה לגמרי, תלוי רק בסדר-בחירה.**
+
+**סדר הבחירה של דוד הוא דירוג עדיפות מכוון. זה המופע הרביעי שבו הוא דולף למקום שלא נועד לו.**
+
+**השדה `levelId` משמש שתי משמעויות שונות — רמת סקיל ורמת master. שדה משותף, שתי כוונות.** זה שורש-הדליפה: אין בקוד שום סימון שמבדיל "levelId שמתאר את הסקיל הזה" מ"levelId שאמור לתאר את המאסטר כולו" — אותו string, שני תפקידים.
+
+**סעיף 2 — ה-"18/15": קוד מת, לא רק נוסחה-לא-נכונה.** `buildUserProgramLevels` (`level-resolution.utils.ts:92-237`), הבלוק "Master Level Derivation" (שורות 217-234). קלט: `masterProgramIds: Set<string>` (משתנה לפי קורא — לפעמים `new Set()` ריק, לפעמים כל ה-`isMaster` פרוגרמות) + `levels` (Map שכבר נפתר באותה קריאה עצמה, push/pull/legs). **הנוסחה קשיחה — `MASTER_CHILD_TRACKS=['push','pull','legs']` — מוחלת זהה על *כל* מאסטר ב-Set, בלי קשר למי הילדים האמיתיים שלו** (ל-full_body זה נכון במקרה; ל-calisthenics_upper זה שגוי מבנית — ה"ילדים" שלו הם 4 סקילים, לא push/pull/legs). אצל דוד: `levels.get('push')=19`, `levels.get('pull')=16`, `legs` נעדר (משתמש-סקילים-טהור) → `childLevels=[19,16]` → `avg=17.5` → `Math.round=18` → `cap=Math.min(18,15)=15`. תואם בדיוק ללוג.
+
+**הצרכן: אין. נבדקו כל 4 מקומות-הקריאה האמיתיים בקוד** (`home-workout.service.ts:1779` — מסלול-הייצור הראשי; `build-home-user-context.ts:89`; `partial-completion.generator.ts:107`; `hybrid-context.util.ts:56`) — **כולם מפרקים רק את `.levels`, אף אחד לא קורא את `derivedMasterLevels`.** החישוב רץ, מודפס ללוג, ואפס השפעה על שום דבר במורד-הזרם. זומבי-חישוב — בדיוק מה שגרם לדוד לראות שורת-לוג מבלבלת בהרצה חיה בלי שום תוצאה תפקודית מאחוריה.
+
+**המלצה (דוד, 14.09.2026), תכנון בלבד — ענף נפרד, לא מיושם עכשיו:** הבלוק לא רק לא-משפיע — הוא **הדפיס** שורת-לוג שהטעתה, שגרמה לדוד לחשוד בנוסחה שלישית שלא קיימת. "זומבי ששותק זה חוב. זומבי שמדפיס זה מלכודת." לפי כלל-העל (אין חריגים/תיקוני-מקרה-פרטי) — ההמלצה היא **למחוק את הבלוק כולו** (קוד מת, אפס צרכן מאומת), לא להשתיק אותו (לא `if (process.env...)` guard על ה-`console.log`, לא ניסיון "לתקן" את הנוסחה עצמה ללא צרכן אמיתי שדורש אותה — זה היה מוסיף מורכבות לקוד שאף אחד לא קורא). אם אי-פעם יידרש צרכן אמיתי למאסטר-לבל מדויק לפי הילדים האמיתיים שלו — זו עבודה נפרדת שמתחילה מ-`MASTER_CHILD_TRACKS` הנגזר מ-`subPrograms` האמיתי (אותה מחלקת-תיקון כמו B1), לא מהחייאת הבלוק הקיים.
+
+---
+
+## ✅ הכרעה — `core` יוצא מ-`calisthenics_upper` (דוד מיישם בפאנל, לא בקוד)
+
+**Opened:** 10.09.2026 · **Source:** דוד — B8 (חלק ב', 09.09.2026). **הוכרע סופית 14.09.2026** (לא "נוטה" יותר): `core` (`kDMpobbKsuVTByTIKUpe`) יוצא מילדי `calisthenics_upper`. נימוק דוד: תרגילי ליבה הם החלטה של כללי בניית אימון, לא חובה מבנית.
+
+**⚠️ מי מיישם:** לפי החוק העומד החדש (14.09.2026) — כל שינוי בתוכניות/תרגילים/רמות דוד עושה בעצמו בפאנל הניהול. **הרצף המחייב למטה הוא לדוד, לא לסוכן** — אני לא נוגע ב-`subPrograms` בשום נתיב-כתיבה.
+
+**עובדתי, מאומת בשני מקורות עצמאיים (B1 + B8):** `core` ב-`calisthenics_upper` הוא כנראה כבר-בפועל לא-מיוצג בממוצע-המאסטר — יש לו `movementPattern:"core"` (מסלול-slug תקין, לא נופל לבאג B1) אבל אין לו track נכתב אף פעם למשתמש-סקילים (Ghost Purge, מתועד ב-B8). כלומר: **הסרתו מ-`subPrograms` לא תשנה שום חישוב חי היום** — היא תעדכן רק את הרשימה-המוצגת ("7 ילדים" → "6"), לא תשפיע על ממוצע/רמה בפועל.
+
+**אבל — אותה אזהרת-סדר שכבר נרשמה למעלה (חוסם slug-map / כתיבת admin-sync) חלה גם כאן, במפורש:** אם `core` יוסר מ-`subPrograms` **לפני** שתיקון B1 (slug-map) יבוצע, והתיקון ייבנה בעתיד תוך הנחה גורפת "subPrograms = הילדים האמיתיים" — הוא עלול שלא לדעת להבדיל בין "הוסר בכוונה" ל"מעולם לא הוגדר נכון". **סדר מחייב, אם/כשההסרה תבוצע:**
+1. לתקן קודם את slug-map (B1 — `buildProgramSlugMap` להשתמש ב-`resolveToSlug`).
+2. לאמת בלוג/ריצה אמיתית ש-4 הסקילים (front_lever/planche/one_arm_pullup/handstand_pushup) עכשיו כן נמצאים כ"ילדים מוגדרים".
+3. **רק אז** להסיר את `core` מה-`subPrograms` בפאנל.
+4. למדוד שוב (אין הפתעה — הממוצע לא אמור להשתנות, `core` ממילא לא נכלל בו).
+
+**הוכרע, ממתין ליישום דוד בפאנל** — לא לפני שהוא מדווח ששלב 1-2 (תיקון-slug-map + אימות-לוג) בוצעו, כפי שהרצף דורש.
+
+---
+
+## פירמידה — שני ממצאים נלווים מחקירת "5 סטים", 10.09.2026 — לא הבאג שדוד חשד בו, נרשם לניקוי עתידי
+
+**Opened:** 10.09.2026 · **Source:** חקירת 3א (read-only, agent Explore) — דוד חשד שפירוק-פירמידה ל-5 סטים נובע מטיפול-בפירמידה-כתרגיל-בודד. **נשלל** — אומת שכל שכבה (generator → processor → BudgetDistributor → session/Firestore → both UI paths) שומרת על "תרגיל אחד, מערך-סטים באורך N" באופן עקבי, לעולם לא N תרגילים נפרדים. "5 הסטים" הם `PYRAMID_SHAPES[2].long` ("Triangle Wave" `[8,5,3,5,8]`) — צורה לגיטימית בקושי-D2, מ-5 וריאציות אמיתיות-ושונות של אותו משפחת-תרגיל (מאומת: למשפחת front_lever יש 8+ וריאציות בקטלוג, עובר בנוח את `MIN_DISTINCT_VARIANTS_FOR_MECHANICAL=3`). מה שנראה כ"5 תרגילים" הוא רינדור בלבד: `PyramidStepCard.tsx` (מגירת-התצוגה המקדימה) משכפל את מלוא הלייאאוט של `ExerciseCard` רגיל לכל סט (תמונה/שם עצמאיים), עם רק תג-קטן "סט N" ו-כותרת-מקטע דקה ("N שלבים") שמבדילים את זה מ-5 תרגילים אמיתיים — קל מאוד לפרש בטעות. **לא תוקן — לא נדרש תיקון, זו לא בעיה.**
+
+**שני ממצאים אמיתיים, נפרדים, שעלו תוך-כדי — נרשמים, לא תוקנו (read-only per הבריף):**
+
+1. **פער ברשימת-הלבן `PYRAMID_UPPER_COMPOUND_MGS`.** `WorkoutGenerator.ts:112-118` כולל רק `planche`/`muscle_up`/`handstand_pushup` מקבוצת-הסקילים — **חסרים `front_lever`/`back_lever`/`one_arm_pullup`/`human_flag`**, למרות ש-`domain-mapping.constants.ts:34-58` מתעד את כולם כ"MG-סקיל" קנוני ואומר במפורש ששתי הרשימות "must stay in lock-step". תוצאה בפועל: front_lever יכול להפוך לעוגן-פירמידה **רק** דרך נתיב-הנפילה (`pool = mainEx` כש-0 תרגילים ראשיים מהרשימה-הלבנה קיימים באותו אימון) — לא מועדף, רק כש"אין ברירה". זה **לא** הסבר ל"5 סטים" (זו שאלה שונה — כמה פעמים פירמידה בוחרת front_lever, לא כמה סטים יש לה כשהיא כן נבחרת) אבל זה כן הסבר סביר לאיך front_lever בכלל הגיע לתפקיד-עוגן באותה הרצה. **הצעה, לא הוכרעה:** להוסיף את ארבעת ה-MG-ים החסרים ל-`PYRAMID_UPPER_COMPOUND_MGS` כדי שהיא תואמת בפועל למה ש-`domain-mapping.constants.ts` כבר מתעד כקנוני.
+2. **קוד מת שמתאים בדיוק לדפוס-האזהרה של CLAUDE.md ("כפיל legacy עם שם מטעה").** `core/pipeline/ProtocolInjector.ts:74` מכיל עותק-משלו-ישן של `selectPyramidTargets`, עם docstring שעדיין אומר "Pick 1–2 exercises" — **הגרסה שקדמה לכלל-CNS** ש-`WorkoutGenerator.ts`'s docstring (שורות 121-133) אומר במפורש שבוטלה ("the previous 50/50 random roll between 1 and 2 pyramids... is now strictly prohibited"). אומת ב-grep ממצה: **אף קובץ לא מייבא `createProtocolInjector`/`ProtocolInjector`** — מסלול-הייצור החי (`PipelineOrchestrator.ts:41,308-309`) קורא ל-`createWorkoutGenerator().generateWorkout`, שמשתמש אך ורק ב-`selectProtocol`/`selectPyramidTargets` הפרטיים של `WorkoutGenerator.ts` עצמו — **מת, לא מיובא בשום מקום**. מסוכן-לעתיד: אם מישהו יחבר את הקובץ הזה בטעות מתוך אמונה שזה מודול-ההזרקה החי, הוא יחזיר בשוגג את התנהגות-ה-2-פירמידות-לאימון שכלל-CNS בא למנוע. **הצעה, לא הוכרעה:** מחיקה.
+
+**לא תוקן, לא הוכרע — שני הממצאים ממתינים להחלטת-דוד (הוספת 4 MG-ים לרשימה / מחיקת הקובץ המת).**
+
+**✅ סגור, 10.09.2026 — הכרעת דוד אחרי קריאת הדוח: לא באג.** "פרונט לבר בטאק" ו"פרונט לבר בפישוק" (וכל שאר צעדי-הרצף) הם באמת תרגילים שונים — התצוגה לא משקרת, אין פריט-UI לתקן, אין קריאה-נוספת נדרשת. **הכלל להמשך:** אם דוד יראה שוב משהו חשוד באימון חי, הוא ישלח צילום-מסך+קונסול — לא רודפים אחרי תחושה עם ניתוח סטטי בלבד. שני הממצאים הנלווים (רשימת-MG חסרה, קוד מת ב-`ProtocolInjector.ts`) **נשארים פתוחים** — אמיתיים ולא-תלויי-תחושה, ממתינים להחלטת-דוד כאמור למעלה.
+
+---
+
+## שני שיפורים מאושרים ל-`runSkillRepresentationGuarantee` — לא בענף הזה, 14.09.2026
+
+**Opened:** 14.09.2026 · **Source:** סקירת-הענף, שני ממצאי-שיפור שדוד אישר כנכונים אך לא-חוסמים — "רשום ב-parking-lot. אל תיישם בענף הזה."
+
+**1. Fail-closed במקום `console.error` על הפרת-אינווריאנט.** `GuaranteePassRunner.ts:1116-1131` — שני בדיקות-אינווריאנט קשיחות ("replace-only, never add/remove", "total sets must never change") מדפיסות `console.error('🚨 INVARIANT VIOLATION...')` אם הן אי-פעם יורות, אבל **ממשיכות להחזיר את התוצאה השבורה** (`return workoutExercises;`, שורה 1133, בלתי-מותנה). בפרודקשן, `console.error` לא עוצר כלום — משתמש-קצה יקבל אימון עם ספירת-תרגילים/סטים שגויה בלי שאף אחד יידע עד שמישהו יקרא לוגים. **הצעה (לא מיושמת):** כשהאינווריאנט מופר — fail-closed, להחזיר את `originalExercises`/המערך-המקורי-לפני-הפאס (לא את הגרסה-השבורה), ולוג שמסמן שהפאס-כולו בוטל, לא רק ש"קרה משהו".
+
+**2. `usedIds` לא משחרר קורבן שהוחלף.** `GuaranteePassRunner.ts:1101` — `usedIds.add(sub.exercise.id)` (מוסיף את התחליף-הנכנס), אבל **אף שורה לא מסירה את ה-id של הקורבן-שהוחלף-החוצה** מ-`usedIds`. המשמעות: תרגיל שהוחלף-החוצה באיטרציה מוקדמת נשאר "תפוס" ב-`usedIds` לאורך כל שאר ריצת-הפאס, למרות שהוא כבר לא נמצא בפועל ב-`workoutExercises` — יכול לחסום שלא לצורך שימוש-חוזר בו כתחליף לסקיל אחר באותה ריצה, גם כשזה היה הבחירה הטובה ביותר. **הצעה (לא מיושמת):** `usedIds.delete(workoutExercises[idx].exercise.id)` לפני ההחלפה בפועל (שורה ~1086), לצד ה-`add` הקיים.
+
+**לא מיושם. ענף נפרד, סקירה נפרדת, כשמגיעים לזה.**
+
+---
+
+## ✅ הכרעה — `muscle_up` נשאר כמו שהוא; `subPrograms:[push,pull]` תקין — אבל סותר `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` — 14.09.2026
+
+**Opened:** 14.09.2026 · **Source:** דוד, אחרי שהאלגוריתם החדש בעמוד-האדמין דיווח על 14 תרגילים מתויגים `pull+muscle_up` כ"כפילות אב/סבא".
+
+**הכרעה:** `muscle_up` נשאר תוכנית עצמאית, `subPrograms:[push,pull]` **תקין ולא משתנה**. נימוק דוד: מאסל-אפ באמת מורכב מדחיפה ומשיכה (מתח → מעבר → שקיעה) — זו לא כפילות היררכית, זו תגית-אב שני-רכיבים אמיתית. **המשמעות: 14 התרגילים המתויגים `pull+muscle_up` הם תיוג תקין, לא כפילות אב/סבא.**
+
+**⚠️ אבל ההכרעה הזו סותרת רשומה נפרדת, קיימת, בקוד — לא נפתר, שתי משימות read-only נפתחות בגללה:**
+```
+DOMAIN_RESOLUTION_SKILL_PARENT_MAP['muscle_up'] = 'pull'   // סקיל → הורה יחיד
+muscle_up.subPrograms = ['push', 'pull']                   // מאסטר → שני ילדים
+```
+שני כיוונים הפוכים לגמרי על אותו יחס בין muscle_up ל-pull: לפי `DOMAIN_RESOLUTION_SKILL_PARENT_MAP`, pull הוא ה**הורה** של muscle_up (סקיל). לפי `programs` collection, pull הוא **ילד** של muscle_up (מאסטר). שתי אמיתות סותרות באותה קוד-בייס, על אותה מילה.
+
+**משימה א' (עמוד-האדמין) — בוצע.** לא הוחרג `muscle_up` מהאלגוריתם — ההליכה ההיררכית נשארת כלל אחד, בלי יוצאים-מן-הכלל (per כלל-העל). במקום זה: 14 השורות הרלוונטיות מקבלות תווית-משנה מפורשת — "תיוג תקין — מאסל-אפ מורכב מדחיפה ומשיכה (הכרעת דוד 14.09.2026)" — כדי שדוד יראה אותן ולא יתבלבל, בלי שהן נעלמות מהדוח. פירוט טכני בסעיף-הענף למטה.
+
+**משימה ב' — חקירה, read-only, דיווח בלבד:**
+
+1. **איפה `DOMAIN_RESOLUTION_SKILL_PARENT_MAP['muscle_up']` נקרא בפועל — כל הצרכנים, מאומת מחדש מול הקוד החי (5, לא 4):**
+   - `GuaranteePassRunner.ts:1057` (`runSkillRepresentationGuarantee`) — **הצרכן היחיד שבו הערך הספציפי `DOMAIN_RESOLUTION_SKILL_PARENT_MAP[skill]` נקרא ונצרך כערך-בודד בפועל**, לא כמפה שלמה. קרא בעצמי את הקוד החי (`:1050-1069`) לאימות מדויק, לא מהזיכרון: כשלא נמצא תרגיל מתויג-סקיל למאסל-אפ (`findSkillTaggedSubstitute` מחזיר null), שורה 1057 קוראת `parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP['muscle_up']` → `'pull'`, ואם `userLevels.has('pull')` — מחפשת תחליף בדומיין pull **בלבד** (`findSkillTaggedSubstitute(pool, 'pull', pullLevel, ...)`, שורה 1060). אם גם זה נכשל — **אין ניסיון נוסף**, ישר ל-CONFLICT-log (`:1066-1067`), `continue`.
+   - `WorkoutGenerator.ts:914` (`resolveDavidRuleDomain`, דרך `resolveExerciseDomain`'s `skillParentMap` param).
+   - `workout-budgeting.utils.ts:505` (`resolveVolumeExerciseDomain`).
+   - `workout-selection.utils.ts:322` (בתוך `resolveExerciseLevelForDomains` עצמה — צרכן חמישי, לא תועד קודם).
+   - עמוד-האדמין (`unreachable-exercises/page.tsx`, המשימה החדשה כאן).
+   
+   ארבעת האחרונים מעבירים את `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` **כולה** כ-`skillParentMap` ל-`resolveExerciseDomain`/`isDomainAncestorRelated` — לצורך רזולוציית-דומיין/בדיקת-ancestor כללית, לא קריאת-ערך-ספציפי ל-muscle_up. רק `GuaranteePassRunner.ts:1057` קורא את המפתח `'muscle_up'` ישירות.
+
+2. **מה קורה היום כשמשתמש בחר muscle_up ואין מספיק תרגילים — לאן הוא נופל:** ל-**pull בלבד**, ורק ל-pull. `runSkillRepresentationGuarantee`'s "Declared parent-fallback" (`GuaranteePassRunner.ts:1055-1063`): `const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[skill];` → אם `parentDomain && userLevels.has(parentDomain)` → מחפש תחליף ב-pull, ברמת ה-pull של המשתמש. **push אף פעם לא נבדק כאפשרות-נפילה** — הנפילה חד-כיוונית, למרות שמאסל-אפ מורכב משני התנועות.
+
+3. **אם הרשומה תוסר/תשתנה — מה משתנה בהתנהגות:** אם `DOMAIN_RESOLUTION_SKILL_PARENT_MAP['muscle_up']` יוסר לגמרי — `parentDomain` יהיה `undefined`, התנאי ב-שורה 1058 (`if (parentDomain && ...)`) ייכשל, ה-declared-fallback **לא ירוץ בכלל** למאסל-אפ — משתמש שבחר muscle_up ואין לו מספיק תרגילים-מתויגים יישאר תחת-מיוצג בלי שום נפילה, לא ל-pull ולא ל-push. אם הערך ישתנה ל-`'push'` — הנפילה תתהפך לגמרי (push בלבד, לא pull) — לא פותר את חד-הכיווניות, רק מחליף כיוון.
+
+4. **האם נכון שהנפילה תלך לשני ההורים בהתאם להרכב האמיתי — תיאור, לא יישום:** כן, זה עקבי עם הכרעת-דוד (מאסל-אפ=push+pull אמיתי). מנגנון אפשרי: `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` (כרגע `Record<string,string>`, הורה-יחיד) היה צריך לתמוך בהורה-מרובה עבור מאסל-אפ ספציפית — למשל `Record<string,string[]>`, או שדה-נפרד `_COMPOSITE_SKILL_PARENTS: Record<string,string[]>` לצד המפה הקיימת. ב-`GuaranteePassRunner.ts:1056-1063`, הלוגיקה הייתה מנסה כל הורה ברשימה (pull קודם, push אחר-כך, או שניהם במקביל ובוחר את בעל-הרמה-הגבוהה-יותר) עד שנמצא תחליף. **זה שינוי-טיפוס לכל 4 הצרכנים** (`DOMAIN_RESOLUTION_SKILL_PARENT_MAP[x]` היום מניח ערך-יחיד, `string`) — לא שינוי מקומי קטן. **לא מיושם, לא הוכרע — דוד מחליט.**
+
+**לא תוקן. שתי המשימות נשארות read-only/רישום עד הכרעת-המשך של דוד.**

@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * discovery that ~40 filmed warmup/stretch videos sit in the catalog and
  * are never shown to any user (03-LEVEL-TRIAGE.md's reachability finding).
  *
- * All 5 reasons below reuse REAL production logic — none of it is
+ * All reasons below reuse REAL production logic — none of it is
  * reimplemented here:
  *   - hasExplicitCoreLevel / exerciseMatchesProgram — the exact functions
  *     workout-selection.utils.ts uses for the core-slot gate (00-PLAN.md §12.3).
@@ -22,6 +22,23 @@ export const dynamic = 'force-dynamic';
  *   - The NO_ROLE_OR_TAG condition is copied verbatim (cited by file:line)
  *     from warmup.service.ts:394 and cooldown.service.ts:47,101 — the exact
  *     boolean checks that gate the warmup/cooldown/tabata candidate pools.
+ *   - MOVEMENT_GROUP_MISMATCH imports `resolveExerciseDomain` +
+ *     `isDomainAncestorRelated` (workout-selection.utils.ts) and
+ *     `MG_TO_DOMAIN` (domain-mapping.constants.ts) — the exact same
+ *     `[DomainMismatch]` check WorkoutGenerator.ts's `resolveDavidRuleDomain`
+ *     runs in production, not a second copy of the same question
+ *     (10.09.2026, David: import it, don't reimplement it).
+ *
+ * Two reasons are genuinely new audit logic, not reused production code,
+ * because no live selection path asks these questions at runtime — they're
+ * tagging-hygiene questions, not generation decisions:
+ *   - ANCESTOR_DUPLICATE walks the real `programs` hierarchy (`subPrograms`,
+ *     resolved via `resolveToSlug` — the correct resolver, not
+ *     progression.service.ts's `buildProgramSlugMap`, see parking-lot.md's
+ *     B1 finding) to find an exercise tagged with both a child and one of
+ *     its ancestors in the same branch (e.g. pull + upper_body + full_body).
+ *   - MULTI_SKILL_TAG counts how many of the catalog's 5 actually-used skill
+ *     tags (multi-skill-tag-review.md, 09.09.2026) sit on the same exercise.
  *
  * An exercise can have MORE than one reason at once (e.g. most of the 70
  * orphaned exercises are both NO_LEVEL and NO_ROLE_OR_TAG) — all applicable
@@ -36,7 +53,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getAllExercises } from '@/features/content/exercises';
 import type { Exercise, ExecutionLocation } from '@/features/content/exercises';
 import { EXECUTION_LOCATION_LABELS } from '@/features/content/exercises/core/exercise-location.constants';
-import { getCachedPrograms, buildIdToSlugMapFromPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
+import type { Program } from '@/features/content/programs/core/program.types';
+import { getCachedPrograms, buildIdToSlugMapFromPrograms, resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import {
   ensureEquipmentCachesLoaded,
   ESSENTIAL_PARK_GEAR,
@@ -44,7 +62,13 @@ import {
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { ASSUMED_HOME_GEAR_ENABLED } from '@/config/feature-flags';
 import { selectMethodForContext } from '@/features/workout-engine/shared/utils/method-selection.utils';
-import { hasExplicitCoreLevel } from '@/features/workout-engine/logic/workout-selection.utils';
+import {
+  hasExplicitCoreLevel,
+  resolveExerciseDomain,
+  isDomainAncestorRelated,
+  DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
+} from '@/features/workout-engine/logic/workout-selection.utils';
+import { MG_TO_DOMAIN } from '@/features/workout-engine/shared/constants/domain-mapping.constants';
 import { exerciseMatchesProgram } from '@/features/workout-engine/services/shadow-level.utils';
 import {
   AlertTriangle,
@@ -59,7 +83,9 @@ import {
 // REASON TAXONOMY
 // ============================================================================
 
-type Reason = 'NO_LEVEL' | 'NO_ROLE_OR_TAG' | 'NO_EXECUTION_METHODS' | 'NO_LOCATION_COVERAGE' | 'CORE_NO_CORE_LEVEL' | 'UNHANDLED_ROLE';
+type Reason =
+  | 'NO_LEVEL' | 'NO_ROLE_OR_TAG' | 'NO_EXECUTION_METHODS' | 'NO_LOCATION_COVERAGE' | 'CORE_NO_CORE_LEVEL' | 'UNHANDLED_ROLE'
+  | 'ANCESTOR_DUPLICATE' | 'MULTI_SKILL_TAG' | 'MOVEMENT_GROUP_MISMATCH' | 'LEGACY_PROGRAM_ID_SCHEMA' | 'NO_NAME';
 
 // Roles at least one real workout-engine selection path actually consumes —
 // kept in sync by hand, not derived from the ExerciseRole type union, on
@@ -113,9 +139,46 @@ const REASON_META: Record<Reason, { label: string; short: string; color: string;
     explain: (row) =>
       `exerciseRole='${row.exerciseRole ?? '—'}' מוגדר, אבל אף מסלול בחירה חי לא קורא אותו (זה בדיוק מה שקרה ל-4 פריטי "טבטה" הפולו-אלונג לפני שחוברו — ראה docs/workout-engine/09-CORE-TABATA.md §1.6). בדוק שיש מסלול קוד שמסנן לפי הroleהזה, או תקן ל-role מוכר.`,
   },
+  ANCESTOR_DUPLICATE: {
+    label: 'כפילות אב/סבא',
+    short: 'כפילות היררכיה',
+    color: 'bg-teal-100 text-teal-800 border-teal-300',
+    explain: (row) =>
+      `מתויג גם בתוכנית וגם באב שלה (או בסבא) באותו ענף בהיררכיה: ${row.ancestorDuplicatePairs ?? '—'}. הרמה כבר מגיעה מהתגית הספציפית ביותר — התגית ההורה/סבא לא מוסיפה מידע.${row.ancestorDuplicateDecidedValidNote ? ` ⚠️ ${row.ancestorDuplicateDecidedValidNote} — השורה מוצגת לשקיפות, לא כבעיה פתוחה.` : ''} תגיות נוכחיות: ${row.targetProgramsDisplay ?? '—'}.`,
+  },
+  MULTI_SKILL_TAG: {
+    label: '2+ תגי-סקיל',
+    short: 'מספר סקילים',
+    color: 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300',
+    explain: (row) =>
+      `מתויג ביותר מסקיל אחד: ${row.multiSkillTags ?? '—'}. הכלל (דוד, 09.09.2026): הורה אחד + לכל היותר סקיל אחד לכל תרגיל. תגיות נוכחיות: ${row.targetProgramsDisplay ?? '—'}.`,
+  },
+  MOVEMENT_GROUP_MISMATCH: {
+    label: 'אי-התאמת movementGroup',
+    short: 'MG↔תגית',
+    color: 'bg-amber-100 text-amber-800 border-amber-300',
+    explain: (row) =>
+      `movementGroup='${row.mgTagMismatch?.mg ?? row.movementGroup ?? '—'}' (→ '${row.mgTagMismatch?.mgDomain ?? '—'}') לא באותו ענף כמו התגית שנפתרת בפועל ('${row.mgTagMismatch?.tagDomain ?? '—'}') — אותה בדיקה בדיוק כמו [DomainMismatch] ב-WorkoutGenerator's DavidRule (resolveDavidRuleDomain), לא ענף-הורה/צאצא ביניהם. תגיות נוכחיות: ${row.targetProgramsDisplay ?? '—'}.`,
+  },
+  LEGACY_PROGRAM_ID_SCHEMA: {
+    label: 'סכימה ישנה',
+    short: 'programId ישן',
+    color: 'bg-slate-100 text-slate-800 border-slate-300',
+    explain: (row) =>
+      `משתמש בשדה programId (יחיד, סכימה ישנה) במקום targetPrograms — שום מסלול-בחירה חי לא קורא את השדה הזה. תגיות נוכחיות (targetPrograms): ${row.targetProgramsDisplay ?? '—'}.`,
+  },
+  NO_NAME: {
+    label: 'בלי שם',
+    short: 'חסר שם',
+    color: 'bg-rose-100 text-rose-800 border-rose-300',
+    explain: () => 'אין name בשום שפה (he/en/es) — התרגיל לא ניתן לזיהוי בשום מסך.',
+  },
 };
 
-const REASON_ORDER: Reason[] = ['NO_EXECUTION_METHODS', 'NO_LOCATION_COVERAGE', 'CORE_NO_CORE_LEVEL', 'NO_LEVEL', 'NO_ROLE_OR_TAG', 'UNHANDLED_ROLE'];
+const REASON_ORDER: Reason[] = [
+  'NO_EXECUTION_METHODS', 'NO_LOCATION_COVERAGE', 'CORE_NO_CORE_LEVEL', 'NO_LEVEL', 'NO_ROLE_OR_TAG', 'UNHANDLED_ROLE',
+  'MOVEMENT_GROUP_MISMATCH', 'ANCESTOR_DUPLICATE', 'MULTI_SKILL_TAG', 'LEGACY_PROGRAM_ID_SCHEMA', 'NO_NAME',
+];
 
 interface UnreachableRow {
   id: string;
@@ -124,6 +187,21 @@ interface UnreachableRow {
   movementGroup?: string | null;
   primaryMuscle?: string | null;
   exerciseRole?: string;
+  /** Resolved "slug:Lx" list of this exercise's current targetPrograms — shown
+   *  in every new (2026-09-10) reason's explanation per David's requirement:
+   *  "what's wrong, and what the current tags are, with levels." */
+  targetProgramsDisplay?: string;
+  ancestorDuplicatePairs?: string;
+  /** Set when one of this row's ancestor-duplicate pairs is a DECIDED-valid
+   *  tagging, not a real duplicate — currently only muscle_up (David,
+   *  14.09.2026: it genuinely is push+pull composite; subPrograms:[push,pull]
+   *  stays as-is). The algorithm still flags the pair (no per-exercise/
+   *  per-program exception, per the standing rule) — this note is display-
+   *  only, so David sees the row without being misled into thinking it's an
+   *  open tagging problem. */
+  ancestorDuplicateDecidedValidNote?: string;
+  multiSkillTags?: string;
+  mgTagMismatch?: { mg: string; mgDomain: string; tagDomain: string };
 }
 
 function getName(ex: Exercise): string {
@@ -149,6 +227,89 @@ function baselineGearFor(location: ExecutionLocation): string[] {
 function hasAnyLocationCoverage(ex: Exercise): boolean {
   return ALL_LOCATIONS.some((loc) => selectMethodForContext(ex, loc, baselineGearFor(loc)) !== null);
 }
+
+/** Resolved "slug:Lx" list, in targetPrograms array order — shared by every
+ *  new reason's explanation so a reviewer always sees the current tagging
+ *  next to what's wrong with it. */
+function formatTargetPrograms(ex: Exercise): string {
+  const tps = (ex.targetPrograms ?? []) as Array<{ programId: string; level: number }>;
+  if (!tps.length) return '—';
+  return tps.map((tp) => `${resolveToSlug(tp.programId)}:L${tp.level}`).join(', ');
+}
+
+// ── ANCESTOR_DUPLICATE (category א) ─────────────────────────────────────
+// Direct-parent map (childSlug → Set<parentSlug>) built from the REAL
+// programs collection's isMaster/subPrograms fields, resolved via
+// resolveToSlug (the correct resolver — see B1 in parking-lot.md for why
+// progression.service.ts's own slug builder is NOT used here). No existing
+// production function walks this ancestor chain — it's a tagging-hygiene
+// question, not a runtime selection decision — so this is genuinely new
+// logic, not a duplicate of anything reused elsewhere on this page.
+function buildDirectParentMap(programs: Program[]): Map<string, Set<string>> {
+  const bySlugOrId = new Map<string, Program>();
+  for (const p of programs) {
+    bySlugOrId.set(p.id, p);
+    if (p.slug) bySlugOrId.set(p.slug, p);
+  }
+  const directParents = new Map<string, Set<string>>();
+  for (const p of programs) {
+    if (!p.isMaster || !p.subPrograms?.length) continue;
+    const parentSlug = p.slug ?? resolveToSlug(p.id);
+    for (const childRef of p.subPrograms) {
+      const childSlug = bySlugOrId.get(childRef)?.slug ?? resolveToSlug(childRef);
+      if (!directParents.has(childSlug)) directParents.set(childSlug, new Set());
+      directParents.get(childSlug)!.add(parentSlug);
+    }
+  }
+  return directParents;
+}
+
+/** Transitive closure of buildDirectParentMap — slug → every ancestor slug,
+ *  not just the direct parent (so pull → {upper_body, full_body}, not just
+ *  {upper_body}). */
+function buildAncestorMap(programs: Program[]): Map<string, Set<string>> {
+  const directParents = buildDirectParentMap(programs);
+  const cache = new Map<string, Set<string>>();
+  const resolve = (slug: string, seen: Set<string>): Set<string> => {
+    if (cache.has(slug)) return cache.get(slug)!;
+    const result = new Set<string>();
+    if (seen.has(slug)) return result; // cycle guard — hierarchy shouldn't cycle, but never trust CMS data blindly
+    seen.add(slug);
+    Array.from(directParents.get(slug) ?? []).forEach((parent) => {
+      result.add(parent);
+      Array.from(resolve(parent, seen)).forEach((grandparent) => result.add(grandparent));
+    });
+    cache.set(slug, result);
+    return result;
+  };
+  const allSlugs = new Set<string>([
+    ...Array.from(directParents.keys()),
+    ...Array.from(directParents.values()).flatMap((set) => Array.from(set)),
+  ]);
+  const ancestorMap = new Map<string, Set<string>>();
+  Array.from(allSlugs).forEach((slug) => ancestorMap.set(slug, resolve(slug, new Set())));
+  return ancestorMap;
+}
+
+// ── MULTI_SKILL_TAG (category ב) ────────────────────────────────────────
+// The skill programs the catalog actually tags exercises with — not the
+// broader 7-key `DOMAIN_RESOLUTION_SKILL_PARENT_MAP`. This list was
+// verified twice, not assumed once: the original 5 (09.09.2026,
+// multi-skill-tag-review.md's 24-exercise audit) excluded `handstand` on
+// the assumption it had zero real catalog usage — WRONG, caught live by
+// the screaming check below (14.09.2026): 4 real exercises ("הליכות קיר",
+// "עמידת ידיים" x3) carry it. Added. None of the 4 carry a second
+// SKILL_SLUGS-tracked skill, so this does NOT change the verified
+// MULTI_SKILL_TAG=24 count — it only makes the list accurate. `back_lever`
+// stays excluded — re-verified 0 real usage, same check, same run.
+const SKILL_SLUGS = new Set<string>(['planche', 'one_arm_pullup', 'front_lever', 'muscle_up', 'handstand_pushup', 'handstand']);
+
+// ── MOVEMENT_GROUP_MISMATCH (category ג) ────────────────────────────────
+// Worst-case activeDomains for [DomainMismatch] — every skill in
+// DOMAIN_RESOLUTION_SKILL_PARENT_MAP plus every foundational domain.
+// Matches the exact context this session's live verification used against
+// the full 372-exercise catalog (09-10.09.2026): 6 fire, not dozens.
+const AUDIT_ACTIVE_DOMAINS = [...Object.keys(DOMAIN_RESOLUTION_SKILL_PARENT_MAP), 'push', 'pull', 'legs', 'core'];
 
 // ============================================================================
 // PAGE
@@ -179,6 +340,9 @@ export default function UnreachableExercisesPage() {
         // — required for hasExplicitCoreLevel / exerciseMatchesProgram to
         // recognise a 'core' targetPrograms entry stored as a Firestore ID.
         buildIdToSlugMapFromPrograms(allPrograms);
+        // Built once from real program data, reused for every exercise below —
+        // not per-exercise, per (א)'s own doc comment.
+        const ancestorMap = buildAncestorMap(allPrograms);
 
         if (cancelled) return;
 
@@ -210,8 +374,108 @@ export default function UnreachableExercisesPage() {
             reasons.push('CORE_NO_CORE_LEVEL');
           }
 
+          // ── (א) ancestor/grandparent duplicate tagging ──────────────────
+          const resolvedSlugs = Array.from(new Set(
+            ((ex.targetPrograms ?? []) as Array<{ programId: string }>).map((tp) => resolveToSlug(tp.programId)),
+          ));
+          const dupPairs: string[] = [];
+          let involvesDecidedValidMuscleUp = false;
+          for (let i = 0; i < resolvedSlugs.length; i++) {
+            for (let j = i + 1; j < resolvedSlugs.length; j++) {
+              const [a, b] = [resolvedSlugs[i], resolvedSlugs[j]];
+              if (ancestorMap.get(a)?.has(b) || ancestorMap.get(b)?.has(a)) {
+                dupPairs.push(`${a}+${b}`);
+                // DECIDED valid, not a real duplicate (David, 14.09.2026) —
+                // muscle_up genuinely is push+pull composite. The pair is
+                // still flagged (no exception in the algorithm itself) —
+                // only the display gets a note, per parking-lot.md's
+                // "muscle_up נשאר כמו שהוא" entry.
+                if (a === 'muscle_up' || b === 'muscle_up') involvesDecidedValidMuscleUp = true;
+              }
+            }
+          }
+          let ancestorDuplicatePairs: string | undefined;
+          let ancestorDuplicateDecidedValidNote: string | undefined;
+          if (dupPairs.length > 0) {
+            reasons.push('ANCESTOR_DUPLICATE');
+            ancestorDuplicatePairs = dupPairs.join('; ');
+            if (involvesDecidedValidMuscleUp) {
+              ancestorDuplicateDecidedValidNote = 'תיוג תקין — מאסל-אפ מורכב מדחיפה ומשיכה (הכרעת דוד 14.09.2026)';
+            }
+          }
+
+          // ── (ב) 2+ skill tags ─────────────────────────────────────────
+          const taggedSkills = resolvedSlugs.filter((s) => SKILL_SLUGS.has(s));
+          let multiSkillTags: string | undefined;
+          if (taggedSkills.length >= 2) {
+            reasons.push('MULTI_SKILL_TAG');
+            multiSkillTags = taggedSkills.join(', ');
+          }
+
+          // ⚠️ Screaming check (14.09.2026, David — review round 2). This is
+          // what CAUGHT the `handstand` gap above — not a hypothetical, it
+          // already found a real, live mismatch once. SKILL_SLUGS (6) is a
+          // hand-verified SUBSET of DOMAIN_RESOLUTION_SKILL_PARENT_MAP's keys
+          // (7) — only `back_lever` is still excluded, re-verified 0 real
+          // catalog usage in the same run that caught `handstand`. That
+          // verification doesn't stay true on its own — the moment David tags
+          // an exercise with `back_lever`, this category would silently miss
+          // it, exactly like `handstand` was missed until this check existed.
+          // Loud, not silent: if any exercise carries a skill tag that's a real
+          // DOMAIN_RESOLUTION_SKILL_PARENT_MAP key but NOT in SKILL_SLUGS, log it
+          // where it can't be missed, every scan, not just once.
+          const untrackedSkillTags = resolvedSlugs.filter(
+            (s) => DOMAIN_RESOLUTION_SKILL_PARENT_MAP[s] !== undefined && !SKILL_SLUGS.has(s),
+          );
+          if (untrackedSkillTags.length > 0) {
+            console.error(
+              `[unreachable-exercises] ⚠️ SKILL_SLUGS is missing a tagged skill: ` +
+              `"${getName(ex)}" (${ex.id}) carries [${untrackedSkillTags.join(', ')}] — ` +
+              `MULTI_SKILL_TAG will silently miss this exercise. Add it to SKILL_SLUGS.`,
+            );
+          }
+
+          // ── (ג) movementGroup↔tag mismatch — same [DomainMismatch] check
+          // as WorkoutGenerator.ts's resolveDavidRuleDomain, imported not
+          // reimplemented (10.09.2026, David) ─────────────────────────────
+          let mgTagMismatch: UnreachableRow['mgTagMismatch'];
+          if (ex.movementGroup) {
+            const tagDomain = resolveExerciseDomain(ex, {
+              activeDomains: AUDIT_ACTIVE_DOMAINS,
+              skillParentMap: DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
+              resolveSlug: resolveToSlug,
+            });
+            const mgDomain = MG_TO_DOMAIN[ex.movementGroup];
+            if (tagDomain && mgDomain && !isDomainAncestorRelated(tagDomain, mgDomain)) {
+              reasons.push('MOVEMENT_GROUP_MISMATCH');
+              mgTagMismatch = { mg: ex.movementGroup, mgDomain, tagDomain };
+            }
+          }
+
+          // ── (ד) legacy singular `programId` schema ──────────────────────
+          if ((ex as any).programId !== undefined) reasons.push('LEGACY_PROGRAM_ID_SCHEMA');
+
+          // ── (ה) no name in any language ──────────────────────────────────
+          const rawName: any = ex.name;
+          const hasNoName = !rawName
+            || (typeof rawName === 'string' && rawName.trim() === '')
+            || (typeof rawName === 'object' && !rawName.he && !rawName.en && !rawName.es);
+          if (hasNoName) reasons.push('NO_NAME');
+
           if (reasons.length > 0) {
-            computed.push({ id: ex.id, name: getName(ex), reasons, movementGroup: ex.movementGroup, primaryMuscle: ex.primaryMuscle, exerciseRole: ex.exerciseRole });
+            computed.push({
+              id: ex.id,
+              name: getName(ex),
+              reasons,
+              movementGroup: ex.movementGroup,
+              primaryMuscle: ex.primaryMuscle,
+              exerciseRole: ex.exerciseRole,
+              targetProgramsDisplay: formatTargetPrograms(ex),
+              ancestorDuplicatePairs,
+              ancestorDuplicateDecidedValidNote,
+              multiSkillTags,
+              mgTagMismatch,
+            });
           }
         }
 
@@ -243,7 +507,10 @@ export default function UnreachableExercisesPage() {
   }, [rows, reasonFilter, searchTerm]);
 
   const reasonCounts = useMemo(() => {
-    const counts: Record<Reason, number> = { NO_LEVEL: 0, NO_ROLE_OR_TAG: 0, NO_EXECUTION_METHODS: 0, NO_LOCATION_COVERAGE: 0, CORE_NO_CORE_LEVEL: 0, UNHANDLED_ROLE: 0 };
+    const counts: Record<Reason, number> = {
+      NO_LEVEL: 0, NO_ROLE_OR_TAG: 0, NO_EXECUTION_METHODS: 0, NO_LOCATION_COVERAGE: 0, CORE_NO_CORE_LEVEL: 0, UNHANDLED_ROLE: 0,
+      ANCESTOR_DUPLICATE: 0, MULTI_SKILL_TAG: 0, MOVEMENT_GROUP_MISMATCH: 0, LEGACY_PROGRAM_ID_SCHEMA: 0, NO_NAME: 0,
+    };
     for (const r of rows) for (const reason of r.reasons) counts[reason]++;
     return counts;
   }, [rows]);
