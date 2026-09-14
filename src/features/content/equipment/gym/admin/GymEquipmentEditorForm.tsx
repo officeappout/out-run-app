@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { GymEquipmentFormData, EquipmentBrand } from '../core/gym-equipment.types';
-import { MuscleGroup, TargetProgramRef } from '../../../exercises/core/exercise.types';
+import { MuscleGroup, MovementGroup, TargetProgramRef } from '../../../exercises/core/exercise.types';
 import { ExerciseType } from '../../../exercises/core/exercise.types';
+import { MOVEMENT_GROUP_LABELS } from '../../../exercises/admin/components/exercise-editor/shared/constants';
 import { Program } from '../../../programs/core/program.types';
 import { getAllPrograms } from '../../../programs/core/program.service';
 import TargetProgramSection from '@/features/content/shared/components/TargetProgramSection';
@@ -23,6 +24,7 @@ import {
   Navigation,
   Search,
   Target,
+  Heart,
 } from 'lucide-react';
 import { EquipmentLocation } from '../core/gym-equipment.types';
 import { safeRenderText } from '@/utils/render-helpers';
@@ -89,6 +91,8 @@ export default function GymEquipmentEditorForm({
     muscleGroups: [],
     primaryMuscle: undefined,
     secondaryMuscles: [],
+    movementPattern: undefined,
+    isCardio: false,
     brands: [],
     availableInLocations: [],
     defaultLocation: undefined,
@@ -347,8 +351,44 @@ export default function GymEquipmentEditorForm({
             </div>
           </div>
 
-          {/* Is Functional Toggle */}
+          {/* Movement Pattern — reuses the exercise editor's canonical
+              MovementGroup enum + MOVEMENT_GROUP_LABELS (same field/labels,
+              see gym-equipment.types.ts's movementPattern doc comment) so
+              machine tags and exercise tags speak the same language. */}
           <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">דפוס תנועה (Movement Pattern)</label>
+            <p className="text-xs text-gray-500 mb-3">איזה דפוס תנועה המתקן מאמן — אותו סיווג שמשמש בעורך התרגילים.</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {(Object.keys(MOVEMENT_GROUP_LABELS) as MovementGroup[]).map((group) => {
+                const selected = formData.movementPattern === group;
+                return (
+                  <button
+                    key={group}
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        // Deselect sends null (explicit "cleared"), never
+                        // undefined — see exercise-editor-conventions.md.
+                        movementPattern: selected ? null : group,
+                      })
+                    }
+                    className={`text-right p-3 rounded-xl border-2 transition-all ${
+                      selected
+                        ? 'border-cyan-500 bg-cyan-50 text-cyan-700'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-sm font-bold">{MOVEMENT_GROUP_LABELS[group].label}</div>
+                    <div className="text-[11px] text-gray-500 mt-1">{MOVEMENT_GROUP_LABELS[group].description}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Is Functional / Is Cardio Toggles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all hover:bg-gray-50">
               <input
                 type="checkbox"
@@ -357,6 +397,17 @@ export default function GymEquipmentEditorForm({
                 className="w-5 h-5 text-cyan-500 border-gray-300 rounded focus:ring-cyan-500"
               />
               <span className="text-sm font-bold text-gray-700">ציוד פונקציונלי (Functional)</span>
+            </label>
+
+            <label className="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={formData.isCardio ?? false}
+                onChange={(e) => setFormData({ ...formData, isCardio: e.target.checked })}
+                className="w-5 h-5 text-cyan-500 border-gray-300 rounded focus:ring-cyan-500"
+              />
+              <Heart size={16} className="text-gray-400" />
+              <span className="text-sm font-bold text-gray-700">מכונת קרדיו (Cardio)</span>
             </label>
           </div>
         </div>

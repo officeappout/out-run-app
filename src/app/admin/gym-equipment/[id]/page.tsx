@@ -82,6 +82,8 @@ export default function EditGymEquipmentPage() {
     muscleGroups: equipment.muscleGroups,
     primaryMuscle: equipment.primaryMuscle,
     secondaryMuscles: equipment.secondaryMuscles || [],
+    movementPattern: equipment.movementPattern,
+    isCardio: equipment.isCardio ?? false,
     targetPrograms: equipment.targetPrograms,
     brands: equipment.brands,
     availableInLocations: equipment.availableInLocations || [],
