@@ -1528,6 +1528,26 @@ export const SCHEDULE_BUILDER_DRAWER_ENABLED = true;
 // exactly the same conditions as before this flag existed.
 export const GENERAL_FINISHER_TABATA_ENABLED = false;
 
+// SKILL_REPRESENTATION_GUARANTEE_ENABLED: gates runSkillRepresentationGuarantee
+// (GuaranteePassRunner.ts, 09.09.2026 — Stage 2) — the LATE pipeline pass that
+// swaps in a skill-tagged (or, failing that, declared-parent-fallback) exercise
+// whenever a user's selected skill ends up with zero representation in a
+// generated workout. Runs for EVERY strategy including single_domain, right
+// before the final sort, on live production traffic — this is a real,
+// standalone behavior change (it replaces exercises a user actually sees),
+// not a side effect of the domain-resolution consolidation it shipped
+// alongside. Following the same convention as HOME_DAILY_GOAL_V1/
+// BLOCK_B_SMART_CLOSE_V1: DEFAULT FALSE = BYTE-IDENTICAL to pre-flag
+// behavior — the single call site (home-workout.service.ts) skips the pass
+// entirely and workout.exercises passes through untouched.
+// Kill-switch: flip back to false — no revert/redeploy of anything else
+// needed, since this is the only gate on the pass. Capacitor ships the live
+// bundle to every phone immediately, so this is the ONLY way to stop the
+// pass in production without a code revert + new deploy.
+// Requires David's on-device verification before flipping true, per the
+// same rule as every other flag in this file.
+export const SKILL_REPRESENTATION_GUARANTEE_ENABLED = false;
+
 // Helper function for conditional rendering
 export function shouldShowCoinUI(): boolean {
   return IS_COIN_SYSTEM_ENABLED;

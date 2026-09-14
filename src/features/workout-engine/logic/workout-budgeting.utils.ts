@@ -11,7 +11,7 @@
 import { Exercise, MechanicalType, getLocalizedText, ExerciseTag } from '@/features/content/exercises/core/exercise.types';
 import type { ScoredExercise } from './contextual-engine.types';
 import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constants';
-import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, _SKILL_PARENT_MAP } from './workout-selection.utils';
+import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import {
   DifficultyLevel,
@@ -502,7 +502,7 @@ export function resolveVolumeExerciseDomain(
 ): string | undefined {
   const resolved = resolveUnifiedExerciseDomain(exercise, {
     activeDomains: Array.from(budgetDomains),
-    skillParentMap: _SKILL_PARENT_MAP,
+    skillParentMap: DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
     resolveSlug: resolveToSlug,
   });
   if (resolved) return resolved;

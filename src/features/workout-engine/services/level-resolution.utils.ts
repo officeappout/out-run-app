@@ -267,14 +267,16 @@ export function buildUserProgramLevels(
  * specific matches is the array scanned a second time, this time accepting
  * a generic/parent tag's budget. Order can never change which tier wins.
  *
- * This function leans on `_SKILL_PARENT_MAP` (home-workout.service.ts), not
+ * This function leans on `_HOME_WORKOUT_SKILL_PARENT_MAP` (home-workout.service.ts,
+ * renamed 14.09.2026 from `_SKILL_PARENT_MAP` after it collided with the
+ * unrelated exported map of the same name in workout-selection.utils.ts), not
  * `DOMAIN_ALIAS_MAP` (workout-selection.utils.ts) — the caller passes
- * `_SKILL_PARENT_MAP` in as `skillParentMap`. That choice is deliberate:
+ * `_HOME_WORKOUT_SKILL_PARENT_MAP` in as `skillParentMap`. That choice is deliberate:
  * `DOMAIN_ALIAS_MAP` is missing `one_arm_pullup` entirely (see parking-lot.md's
- * "five structures, same question, different answers"), which would silently
- * reproduce the exact bug this function exists to close. When those five
- * structures are ever unified into one source of truth — come back here and
- * repoint `skillParentMap` at whatever replaces `_SKILL_PARENT_MAP`.
+ * "חמישה מבנים, אותה שאלה"), which would silently
+ * reproduce the exact bug this function exists to close. When those structures
+ * are ever unified into one source of truth — come back here and
+ * repoint `skillParentMap` at whatever replaces `_HOME_WORKOUT_SKILL_PARENT_MAP`.
  *
  * MIGRATED 2026-09-08 (David, "one question, eight answers" consolidation)
  * to delegate to the unified `resolveExerciseDomain`

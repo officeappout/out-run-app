@@ -34,7 +34,7 @@ import { HORIZONTAL_MOVEMENT_GROUPS } from '../../logic/workout-generator.types'
 import {
   classifyPriority,
   resolveExerciseLevelForDomains,
-  _SKILL_PARENT_MAP,
+  DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
 } from '../../logic/workout-selection.utils';
 import {
   resolveInjectedLevel,
@@ -969,7 +969,7 @@ export function validatePromisesPostCut(
  * Declared parent-fallback (Option A+C, approved by David): when NO
  * skill-tagged candidate exists at all (not even via dual-coverage), falls
  * back to searching the skill's own foundational PARENT domain instead
- * (via `_SKILL_PARENT_MAP`) — but this is DECLARED, never silent: a
+ * (via `DOMAIN_RESOLUTION_SKILL_PARENT_MAP`) — but this is DECLARED, never silent: a
  * `console.warn('[SkillRepresentation] DECLARED FALLBACK ...')` line plus a
  * `pipelineLog` entry every time it fires. No UI surface exists today to
  * show the user this happened (confirmed, not assumed — see
@@ -993,10 +993,10 @@ export function runSkillRepresentationGuarantee(
     const slug = resolveToSlug(id);
     if (!selectedSkills.includes(slug)) selectedSkills.push(slug);
   }
-  // Only genuine SKILLS (keys in _SKILL_PARENT_MAP) — a "selected
-  // skill" that resolves to a plain parent domain (push/pull/legs/core)
-  // isn't a skill-representation question at all.
-  const skillsToGuarantee = selectedSkills.filter((s) => _SKILL_PARENT_MAP[s] !== undefined);
+  // Only genuine SKILLS (keys in DOMAIN_RESOLUTION_SKILL_PARENT_MAP) — a
+  // "selected skill" that resolves to a plain parent domain (push/pull/legs/
+  // core) isn't a skill-representation question at all.
+  const skillsToGuarantee = selectedSkills.filter((s) => DOMAIN_RESOLUTION_SKILL_PARENT_MAP[s] !== undefined);
   if (skillsToGuarantee.length === 0) {
     return exercises;
   }
@@ -1054,7 +1054,7 @@ export function runSkillRepresentationGuarantee(
 
     let declaredFallback = false;
     if (!sub) {
-      const parentDomain = _SKILL_PARENT_MAP[skill];
+      const parentDomain = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[skill];
       if (parentDomain && userLevels.has(parentDomain)) {
         const parentLevel = userLevels.get(parentDomain)!;
         sub = findSkillTaggedSubstitute(pool, parentDomain, parentLevel, usedIds, difficulty);

@@ -60,26 +60,32 @@ export { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP };
 // ============================================================================
 
 // This is the 3rd of (at least) 4 live copies of the exact same skill→parent
-// content in this codebase — `_CU_SKILL_PARENT` and `_SKILL_PARENT_MAP` (both
-// home-workout.service.ts — same short name as this constant, unrelated file
-// and scope, function-scoped there and not exportable without a larger
-// refactor; do not confuse the two) and `SKILL_TO_FOUNDATION_DOMAIN`
+// content in this codebase — `_CU_SKILL_PARENT` and (as of 14.09.2026, itself
+// renamed to `_CU_FOCUS_DOMAINS_SKILL_PARENT`) `home-workout.service.ts`'s
+// local focus-domains map, and `SKILL_TO_FOUNDATION_DOMAIN`
 // (onboarding-sync.service.ts, same data, different shape/purpose) — full
 // inventory in parking-lot.md's "חמישה מבנים, אותה שאלה" entry (10.09.2026).
-// Renamed from `_TEMP_SKILL_PARENT_MAP` (10.09.2026, David): "TEMP" stopped
-// describing reality once this constant picked up a second real production
-// consumer (WorkoutGenerator.ts's DomainMismatch check, alongside its
-// existing callers) plus an admin-panel audit consumer — a name that no
-// longer matches what's actually true is exactly the "convention you have to
-// remember" failure mode this whole naming discipline exists to prevent.
+//
+// Named `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` (14.09.2026, review round 2,
+// David) — was briefly `_SKILL_PARENT_MAP` after dropping the "TEMP" prefix
+// (10.09.2026), which collided with an UNRELATED local `_SKILL_PARENT_MAP`
+// in `home-workout.service.ts` (different file, different scope, same exact
+// name) — exactly the "convention you have to remember" failure this whole
+// naming discipline exists to prevent, just relocated instead of removed.
+// This name describes what THIS one actually does: it's the map every
+// DOMAIN-RESOLUTION function in this engine uses (`resolveExerciseDomain`,
+// `isDomainAncestorRelated`, `GuaranteePassRunner`'s declared-fallback,
+// `workout-budgeting.utils.ts`'s volume-domain resolution, the admin audit
+// page) — as opposed to the other 3 copies, which are each scoped to one
+// narrow, local, non-exported use inside a single function.
 // Unifying the other 3 copies into this one is still UNDECIDED (same
 // parking-lot entry) — this rename does not imply that happened, only that
-// "temporary" was no longer true of THIS one specifically.
-const _SKILL_PARENT_MAP: Record<string, string> = {
+// this specific constant's name now says what it is, not what it isn't.
+const DOMAIN_RESOLUTION_SKILL_PARENT_MAP: Record<string, string> = {
   planche: 'push', handstand: 'push', handstand_pushup: 'push',
   front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
 };
-export { _SKILL_PARENT_MAP };
+export { DOMAIN_RESOLUTION_SKILL_PARENT_MAP };
 
 /**
  * Build a domain→rank map from the user's own skill-selection order —
@@ -219,7 +225,7 @@ export function resolveExerciseDomain(
 /**
  * True when two resolved domains are in the same branch of the program tree
  * — either identical, or one is the other's direct parent via
- * `_SKILL_PARENT_MAP` (checked both directions, since a movementGroup can
+ * `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` (checked both directions, since a movementGroup can
  * itself resolve straight to a skill slug for some movement groups, not just
  * push/pull/legs/core). This is NOT itself an ancestor-vs-ancestor walk of
  * the full program hierarchy (see `DOMAIN_PARENT_MAP` for that) — it is
@@ -241,8 +247,8 @@ export function isDomainAncestorRelated(
   mgDomain: string | null | undefined,
 ): boolean {
   return tagDomain === mgDomain
-    || _SKILL_PARENT_MAP[tagDomain ?? ''] === mgDomain
-    || _SKILL_PARENT_MAP[mgDomain ?? ''] === tagDomain;
+    || DOMAIN_RESOLUTION_SKILL_PARENT_MAP[tagDomain ?? ''] === mgDomain
+    || DOMAIN_RESOLUTION_SKILL_PARENT_MAP[mgDomain ?? ''] === tagDomain;
 }
 
 /**
@@ -319,7 +325,7 @@ export function resolveExerciseLevelForDomains(
     const resolvedDomain = resolveExerciseDomain(exercise, {
       activeDomains,
       skillPriority,
-      skillParentMap: _SKILL_PARENT_MAP,
+      skillParentMap: DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
       resolveSlug: resolveToSlug,
       // This is the ONE site whose pre-existing parent-vs-parent tiebreak
       // was activeDomains order, not exercise-tag order — confirmed via the

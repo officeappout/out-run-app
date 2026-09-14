@@ -65,7 +65,7 @@ import {
   hasExplicitCoreLevel,
   resolveExerciseDomain,
   isDomainAncestorRelated,
-  _SKILL_PARENT_MAP,
+  DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
 } from './workout-selection.utils';
 import {
   chooseCoreForm,
@@ -911,7 +911,7 @@ export class WorkoutGenerator {
       const resolveDavidRuleDomain = (exercise: Exercise, mg: string | null | undefined): { targetDomain: string | undefined; domainLevel: number } => {
         const tagDomain = resolveExerciseDomain(exercise, {
           activeDomains: userLevels ? Array.from(userLevels.keys()) : [],
-          skillParentMap: _SKILL_PARENT_MAP,
+          skillParentMap: DOMAIN_RESOLUTION_SKILL_PARENT_MAP,
           resolveSlug: resolveToSlug,
         });
         const mgDomain = mg ? MG_TO_DOMAIN[mg] : undefined;

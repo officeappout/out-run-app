@@ -91,7 +91,7 @@ import {
 } from './user-profile.utils';
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
-import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
+import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED } from '@/config/feature-flags';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import {
   normalizeEquipmentArray,
@@ -1316,13 +1316,21 @@ export async function generateHomeWorkoutTrio(
     // even in a track-specialized single-domain session; that's the whole
     // point of a single_domain session existing. No-op when the user has no
     // selected skills (context.selectedSkillIds empty/absent).
+    //
+    // Gated behind SKILL_REPRESENTATION_GUARANTEE_ENABLED (14.09.2026) — this
+    // is the only call site, so the flag is the only place that can stop it
+    // without a code revert + redeploy. DEFAULT FALSE: the ternary below
+    // skips the call entirely, workout.exercises passes through untouched —
+    // byte-identical to pre-flag behavior.
     workout.pipelineLog = workout.pipelineLog ?? [];
-    workout.exercises = runSkillRepresentationGuarantee(
-      workout.exercises,
-      optionContext,
-      optionDifficulty,
-      workout.pipelineLog,
-    );
+    workout.exercises = SKILL_REPRESENTATION_GUARANTEE_ENABLED
+      ? runSkillRepresentationGuarantee(
+          workout.exercises,
+          optionContext,
+          optionDifficulty,
+          workout.pipelineLog,
+        )
+      : workout.exercises;
 
     // ── Locked Final Ordering: antagonist re-pair → domain-priority sort ──
     //
@@ -1794,7 +1802,7 @@ async function _buildSharedPipeline(
   if (activeProgramId === 'calisthenics_upper') {
     // 'one_arm_pullup' — not 'oap' — matches the catalog (program-path
     // /page.tsx's SKILL_PROGRAMS) and every other skill-slug consumer in
-    // this file (_CU_SKILL_PARENT/_SKILL_PARENT_MAP). 'oap' was this set's
+    // this file (_CU_SKILL_PARENT/_HOME_WORKOUT_SKILL_PARENT_MAP). 'oap' was this set's
     // own invention — confirmed 08.09.2026 by checking the real catalog,
     // not assumed. 'human_flag'/'back_lever' are real, recognized skill
     // domains elsewhere (MG_TO_DOMAIN, domain-mapping.constants.ts) but
@@ -1987,8 +1995,8 @@ async function _buildSharedPipeline(
     // SplitDecisionService.resolvePrioritySkillIds can apply skill rotation
     // (Dominance Day / Dynamic Rotation / Pendulum) unmodified.
     // ── Skill-track budget entries (planche=L5, front_lever=L5, …) ─────────
-    // Biomechanical parent map — mirrors _SKILL_PARENT_MAP defined later in
-    // this file; duplicated here to avoid a forward-reference dependency.
+    // Biomechanical parent map — mirrors _HOME_WORKOUT_SKILL_PARENT_MAP defined
+    // later in this file; duplicated here to avoid a forward-reference dependency.
     const _CU_SKILL_PARENT: Record<string, string> = {
       planche: 'push', handstand: 'push', handstand_pushup: 'push',
       front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
@@ -2147,8 +2155,19 @@ async function _buildSharedPipeline(
   // slugs, ensuring both push movements (planche) and pull movements (front_lever)
   // survive ContextualEngine's exerciseMatchesProgram gate.
 
-  // Biomechanical parent lookup for calisthenics skill-track slugs.
-  const _SKILL_PARENT_MAP: Record<string, string> = {
+  // Biomechanical parent lookup for calisthenics skill-track slugs. Named
+  // `_HOME_WORKOUT_SKILL_PARENT_MAP` (14.09.2026, review round 2, David) —
+  // was `_SKILL_PARENT_MAP` until it collided, name-for-name, with the
+  // unrelated exported `DOMAIN_RESOLUTION_SKILL_PARENT_MAP` in
+  // workout-selection.utils.ts (renamed the same round). Used for two things
+  // in this function, not just the calisthenics_upper focusDomains expansion
+  // immediately below — also for general per-exercise domain-budget
+  // resolution further down (`getUserLevelForExercise`'s
+  // `resolveMostSpecificDomainBudget` call, not calisthenics_upper-specific)
+  // — hence a name scoped to this file/function, not to either single call
+  // site. One of (at least) 4 live copies of the same skill→parent content
+  // — see parking-lot.md's "חמישה מבנים, אותה שאלה" entry.
+  const _HOME_WORKOUT_SKILL_PARENT_MAP: Record<string, string> = {
     planche: 'push', handstand: 'push', handstand_pushup: 'push',
     front_lever: 'pull', back_lever: 'pull', muscle_up: 'pull', one_arm_pullup: 'pull',
   };
@@ -2202,7 +2221,7 @@ async function _buildSharedPipeline(
           // without needing to reconstruct it from raw profile data.
           const parentDomains = Array.from(new Set(
             resolvedChildDomains
-              .map((d) => _SKILL_PARENT_MAP[d])
+              .map((d) => _HOME_WORKOUT_SKILL_PARENT_MAP[d])
               .filter((p): p is string => !!p && !resolvedChildDomains.includes(p)),
           ));
           const fullFocusDomains = [...resolvedChildDomains, ...parentDomains];
@@ -2286,7 +2305,7 @@ async function _buildSharedPipeline(
           db = resolveMostSpecificDomainBudget(
             exercise.targetPrograms,
             resolvedDomainBudgets,
-            _SKILL_PARENT_MAP,
+            _HOME_WORKOUT_SKILL_PARENT_MAP,
             resolveToSlug,
             skillPriority,
           );
