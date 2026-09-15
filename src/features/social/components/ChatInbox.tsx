@@ -54,7 +54,24 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
 
   // Personal inbox is disabled (myUid → null) for admins so we don't open the
   // per-user listener; admins read the firehose via useAllChats instead.
-  const { threads: myThreads, isLoading: myLoading } = useChatInbox(isAdmin ? null : myUid);
+  // Also gated on `isOpen` (SPEC-05 A.5) — this component stays mounted
+  // (see the `isOpen &&` guard around its own content below) so the sheet
+  // can animate in/out, which meant the live onSnapshot listener ran
+  // continuously even while the inbox was closed. AppHeader.tsx's own
+  // separate useChatInbox() call (the unread badge) is a fully independent
+  // subscription, unaffected by this gate.
+  const { threads: myThreadsLive, isLoading: myLoading } = useChatInbox(
+    isOpen && !isAdmin ? myUid : null,
+  );
+  // The sheet below has a real exit animation (AnimatePresence, exit={{y:
+  // '100%'}}) — it's still mounted and visible mid-slide-down for the
+  // closing beat. The hook clears `threads` to [] the instant its uid arg
+  // goes null, so feeding that straight into render would flash the list
+  // empty during that beat. Freeze the last-known list instead; only the
+  // live subscription actually stops.
+  const lastMyThreadsRef = useRef<ChatThreadType[]>([]);
+  if (isOpen) lastMyThreadsRef.current = myThreadsLive;
+  const myThreads = isOpen ? myThreadsLive : lastMyThreadsRef.current;
   const { threads: allThreads, isLoading: allLoading } = useAllChats(isAdmin);
 
   const threads = isAdmin ? allThreads : myThreads;
