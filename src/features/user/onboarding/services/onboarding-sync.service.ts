@@ -2002,7 +2002,7 @@ export async function syncOnboardingToFirestore(
     // Fire-and-forget + internally idempotent (hasWelcomeBotTriggered guard),
     // so it never blocks navigation and never duplicates on retries.
     if (step === 'COMPLETED') {
-      void triggerKellyWelcomeBot(user.uid);
+      void triggerKellyWelcomeBot(user.uid, 'onboarding');
     }
 
     // Diagnostic: confirm what running data was saved

@@ -1,7 +1,25 @@
 /**
  * /api/social/kelly-welcome-bot — server-side seed of the one-time Kelly welcome DM
  *
- * POST (no body — caller's own uid comes from the verified token)
+ * POST { source: 'onboarding' | 'catchup' } — caller's own uid comes from
+ * the verified token, never the body.
+ *
+ * source gates the go-live cutoff (David, 15.09.2026): self-heal via the
+ * catchup path must only apply to users who registered from go-live
+ * onward — every pre-existing test account with a completed onboarding
+ * would otherwise get a welcome message the next time it hits home.
+ * 'onboarding' never needs this check (a user reaching COMPLETED via that
+ * path is by definition registering right now); 'catchup' compares the
+ * caller's users/{uid}.createdAt (the canonical registration timestamp —
+ * see user.types.ts's own comment on that field, set once via
+ * serverTimestamp() on first doc creation, never overwritten) against
+ * GO_LIVE_AT below and no-ops for anyone who registered earlier. This
+ * lives here, not in the client hook, specifically so the cutoff is one
+ * server-side, auditable value instead of a client-trusted decision.
+ *
+ * ⚠️ GO_LIVE_AT below is a placeholder for the date this decision was
+ * made, not necessarily the actual deploy date — confirm/adjust it to
+ * match the real go-live moment before merging.
  *
  * Moved server-side (10.09.2026, David) after two independent Firestore rule
  * blockers made the original client-side version (kelly-welcome-bot.service.ts's
@@ -48,6 +66,11 @@ import { KELLY_UID, KELLY_NAME, buildKellyWelcomeMessage } from '@/features/soci
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// ⚠️ Placeholder for the date of David's 15.09.2026 decision — verify this
+// matches the actual go-live moment before merging, not just the day the
+// decision was made.
+const GO_LIVE_AT = new Date('2026-09-15T00:00:00Z');
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization') ?? '';
@@ -62,6 +85,12 @@ export async function POST(request: NextRequest) {
       uid = decoded.uid;
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const { source } = body as { source?: string };
+    if (source !== 'onboarding' && source !== 'catchup') {
+      return NextResponse.json({ error: "source must be 'onboarding' or 'catchup'" }, { status: 400 });
     }
 
     const db = getAdminDb();
@@ -85,6 +114,29 @@ export async function POST(request: NextRequest) {
       const userData = userSnap.data()!;
       if (userData.hasWelcomeBotTriggered === true) {
         return { sent: false, reason: 'already-triggered' as const };
+      }
+
+      // Defensive backstop, not just a UX check: this endpoint is
+      // authenticated and any logged-in user can call it on themselves at
+      // any time, regardless of what the client hooks normally gate this
+      // on. Calling it before onboarding completes would send a nameless
+      // greeting AND permanently flip hasWelcomeBotTriggered — the real
+      // welcome message could then never arrive. One check protects an
+      // otherwise-irreversible outcome.
+      if (userData.onboardingStatus !== 'COMPLETED') {
+        return { sent: false, reason: 'onboarding-not-complete' as const };
+      }
+
+      // Go-live cutoff — 'onboarding' never needs this (registering right
+      // now, by definition); 'catchup' must not resurrect pre-existing
+      // accounts. Missing createdAt (shouldn't happen for a COMPLETED
+      // account, but fail closed rather than assume eligible) is treated
+      // as "before go-live".
+      if (source === 'catchup') {
+        const createdAt = userData.createdAt?.toDate?.() as Date | undefined;
+        if (!createdAt || createdAt < GO_LIVE_AT) {
+          return { sent: false, reason: 'registered-before-go-live' as const };
+        }
       }
 
       // Chat existing here would mean a prior attempt got partway before

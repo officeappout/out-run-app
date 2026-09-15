@@ -57,10 +57,17 @@ export function buildKellyWelcomeMessage(name: string, gender?: Gender): string 
  * concurrent/duplicate calls resolve to exactly one greeting, not this
  * function.
  *
+ * source is required and forwarded as-is — the route uses it to decide
+ * whether the go-live registration-date cutoff applies ('catchup' only;
+ * see the route's own comment for why 'onboarding' is exempt).
+ *
  * Never throws: any failure is logged and swallowed so it can never block
  * the onboarding completion / navigation path that calls it.
  */
-export async function triggerKellyWelcomeBot(userId: string): Promise<void> {
+export async function triggerKellyWelcomeBot(
+  userId: string,
+  source: 'onboarding' | 'catchup',
+): Promise<void> {
   if (!userId) return;
 
   try {
@@ -72,7 +79,8 @@ export async function triggerKellyWelcomeBot(userId: string): Promise<void> {
 
     const res = await fetch('/api/social/kelly-welcome-bot', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source }),
     });
 
     if (!res.ok) {

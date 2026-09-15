@@ -53,6 +53,6 @@ export function useKellyWelcomeBotCatchup(): void {
     }
 
     hasRanFor.current = uid;
-    void triggerKellyWelcomeBot(uid);
+    void triggerKellyWelcomeBot(uid, 'catchup');
   }, [uid, hasHydrated]);
 }
