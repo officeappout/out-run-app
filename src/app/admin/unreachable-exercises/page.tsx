@@ -180,6 +180,62 @@ const REASON_ORDER: Reason[] = [
   'MOVEMENT_GROUP_MISMATCH', 'ANCESTOR_DUPLICATE', 'MULTI_SKILL_TAG', 'LEGACY_PROGRAM_ID_SCHEMA', 'NO_NAME',
 ];
 
+// ============================================================================
+// NO_LEVEL SUB-CLASSIFICATION (15.09.2026, David — read-only audit + decision)
+// ============================================================================
+// A one-time, point-in-time manual split of the NO_LEVEL bucket into three
+// groups, decided by David from a full named audit (14-15.09.2026). This is
+// NOT derived from any exercise field — none of these three distinctions
+// (genuinely-irrelevant prep content vs. parked-pending-a-product-decision
+// vs. broken/unfinished data) exist anywhere in the data model, so the two
+// non-default groups below are explicit ID sets, not a heuristic.
+//
+// A NO_LEVEL exercise added after this date, or any exercise not in either
+// ID set below, defaults to PREP_CONTENT — the deliberate, lowest-stakes
+// default (matches "not relevant, not a bug" rather than silently implying
+// a decision was made about it). Re-classifying requires manually editing
+// the two sets below; there is no other mechanism.
+//
+// Full context + the reasoning behind each list:
+// .claude/knowledge/exercises-without-level-parked.md
+type NoLevelSubcategory = 'PREP_CONTENT' | 'PARKED_STRENGTH' | 'DATA_HYGIENE';
+
+// David's decision (15.09.2026): held pending a product decision on these 18
+// exercises. Not a bug — do not re-surface as a finding in any report.
+const PARKED_STRENGTH_IDS = new Set<string>([
+  'CQtZDiAEvfNB8khudfsG', 'LitmztKbOSD9MvQwBDsE', 'TZMFGuNweuAnTLIjyhkx',
+  'UmPbE7WydxjOSw5UlDIT', 'Vr2htqrpnuBObpjzzzyj', 'ZovShNVtJBRPgdwsngxr',
+  'gGlZXMEjhAXTxxmO3hTN', 'niIBVtXV75LjFsWNJp0k', 'nrPxCJYZtHAyRF6Iywry',
+  '3dIrpJQHp5QbimPVTZDk', '4kww5BB13UkNaaAjZKS0', 'f4ZbXHOaV5lRTC9JQPkk',
+  'nunGVGOEmOMnxiwh7jcu', 'hB253EVZ8ksjQyve6TOu', 'hECufw1PU0a0lcUEadY9',
+  'sgjfCmExjbU1CTmSxoMu', 'vUt6DeXfFk9zvRO5IQza', 'xeo8dpAwk2pNe0IuokLk',
+]);
+
+// qHy5Te1jSPSi5jA3W9d6 — no resolvable name in any language (he/en/es all
+// empty/absent). sgrEdIolfxaRCgz8Oqyp — "עותק של פיסטול סקוואט שלילי שמאל":
+// verified 15.09.2026 this is NOT a duplicate (no exercise named "פיסטול
+// סקוואט שלילי שמאל" exists without the "עותק של" prefix) — it's an
+// unfinished left-side document, missing movementGroup/tags/exerciseRole/
+// targetPrograms entirely. Both are data-quality issues, not content David
+// needs to make a product call on.
+const DATA_HYGIENE_IDS = new Set<string>([
+  'qHy5Te1jSPSi5jA3W9d6', 'sgrEdIolfxaRCgz8Oqyp',
+]);
+
+function classifyNoLevelSubcategory(id: string): NoLevelSubcategory {
+  if (PARKED_STRENGTH_IDS.has(id)) return 'PARKED_STRENGTH';
+  if (DATA_HYGIENE_IDS.has(id)) return 'DATA_HYGIENE';
+  return 'PREP_CONTENT';
+}
+
+const NO_LEVEL_SUBCATEGORY_ORDER: NoLevelSubcategory[] = ['PREP_CONTENT', 'PARKED_STRENGTH', 'DATA_HYGIENE'];
+
+const NO_LEVEL_SUBCATEGORY_META: Record<NoLevelSubcategory, { label: string; color: string }> = {
+  PREP_CONTENT: { label: 'לא רלוונטי — תוכן הכנה/גמישות', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  PARKED_STRENGTH: { label: 'מוחזק — ממתין להחלטה', color: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
+  DATA_HYGIENE: { label: 'היגיינת נתונים', color: 'bg-red-50 text-red-700 border-red-300' },
+};
+
 interface UnreachableRow {
   id: string;
   name: string;
@@ -202,6 +258,8 @@ interface UnreachableRow {
   ancestorDuplicateDecidedValidNote?: string;
   multiSkillTags?: string;
   mgTagMismatch?: { mg: string; mgDomain: string; tagDomain: string };
+  /** Only set when 'NO_LEVEL' is among reasons — see NO_LEVEL SUB-CLASSIFICATION above. */
+  noLevelSubcategory?: NoLevelSubcategory;
 }
 
 function getName(ex: Exercise): string {
@@ -322,6 +380,7 @@ export default function UnreachableExercisesPage() {
   const [totalScanned, setTotalScanned] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [reasonFilter, setReasonFilter] = useState<Reason | 'all'>('all');
+  const [noLevelSubFilter, setNoLevelSubFilter] = useState<NoLevelSubcategory | 'all'>('all');
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -354,6 +413,7 @@ export default function UnreachableExercisesPage() {
           const hasLevel = (Array.isArray(ex.targetPrograms) && ex.targetPrograms.length > 0)
             || (Array.isArray(ex.programIds) && ex.programIds.length > 0);
           if (!hasLevel) reasons.push('NO_LEVEL');
+          const noLevelSubcategory = hasLevel ? undefined : classifyNoLevelSubcategory(ex.id);
 
           const tags: string[] = (ex.tags as string[]) ?? [];
           const hasRoleOrTag = !!ex.exerciseRole
@@ -475,6 +535,7 @@ export default function UnreachableExercisesPage() {
               ancestorDuplicateDecidedValidNote,
               multiSkillTags,
               mgTagMismatch,
+              noLevelSubcategory,
             });
           }
         }
@@ -499,12 +560,15 @@ export default function UnreachableExercisesPage() {
     if (reasonFilter !== 'all') {
       result = result.filter((r) => r.reasons.includes(reasonFilter));
     }
+    if (reasonFilter === 'NO_LEVEL' && noLevelSubFilter !== 'all') {
+      result = result.filter((r) => r.noLevelSubcategory === noLevelSubFilter);
+    }
     if (searchTerm.trim()) {
       const q = searchTerm.trim().toLowerCase();
       result = result.filter((r) => r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q));
     }
     return result;
-  }, [rows, reasonFilter, searchTerm]);
+  }, [rows, reasonFilter, noLevelSubFilter, searchTerm]);
 
   const reasonCounts = useMemo(() => {
     const counts: Record<Reason, number> = {
@@ -512,6 +576,14 @@ export default function UnreachableExercisesPage() {
       ANCESTOR_DUPLICATE: 0, MULTI_SKILL_TAG: 0, MOVEMENT_GROUP_MISMATCH: 0, LEGACY_PROGRAM_ID_SCHEMA: 0, NO_NAME: 0,
     };
     for (const r of rows) for (const reason of r.reasons) counts[reason]++;
+    return counts;
+  }, [rows]);
+
+  const noLevelSubCounts = useMemo(() => {
+    const counts: Record<NoLevelSubcategory, number> = { PREP_CONTENT: 0, PARKED_STRENGTH: 0, DATA_HYGIENE: 0 };
+    for (const r of rows) {
+      if (r.reasons.includes('NO_LEVEL') && r.noLevelSubcategory) counts[r.noLevelSubcategory]++;
+    }
     return counts;
   }, [rows]);
 
@@ -594,7 +666,10 @@ export default function UnreachableExercisesPage() {
         {REASON_ORDER.map((reason) => (
           <button
             key={reason}
-            onClick={() => setReasonFilter(reasonFilter === reason ? 'all' : reason)}
+            onClick={() => {
+              setReasonFilter(reasonFilter === reason ? 'all' : reason);
+              setNoLevelSubFilter('all');
+            }}
             className={`text-right p-4 rounded-2xl border-2 transition-all ${REASON_META[reason].color} ${
               reasonFilter === reason ? 'ring-2 ring-offset-2 ring-indigo-500 scale-[1.02]' : 'hover:scale-[1.01]'
             }`}
@@ -604,6 +679,35 @@ export default function UnreachableExercisesPage() {
           </button>
         ))}
       </div>
+
+      {/* NO_LEVEL breakdown — 15.09.2026, David's read-only audit + decision.
+          Point-in-time manual split, see NO_LEVEL SUB-CLASSIFICATION above the
+          component for what each bucket means and why it can't be derived
+          from exercise fields. */}
+      {reasonCounts.NO_LEVEL > 0 && (
+        <div className="bg-white p-4 rounded-2xl shadow border border-gray-100">
+          <div className="text-xs font-bold text-gray-500 mb-2">פירוט "אין רמה" ({reasonCounts.NO_LEVEL})</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {NO_LEVEL_SUBCATEGORY_ORDER.map((sub) => (
+              <button
+                key={sub}
+                onClick={() => {
+                  setReasonFilter('NO_LEVEL');
+                  setNoLevelSubFilter(noLevelSubFilter === sub && reasonFilter === 'NO_LEVEL' ? 'all' : sub);
+                }}
+                className={`text-right p-3 rounded-xl border-2 transition-all ${NO_LEVEL_SUBCATEGORY_META[sub].color} ${
+                  reasonFilter === 'NO_LEVEL' && noLevelSubFilter === sub
+                    ? 'ring-2 ring-offset-2 ring-indigo-500 scale-[1.02]'
+                    : 'hover:scale-[1.01]'
+                }`}
+              >
+                <div className="text-xl font-black">{noLevelSubCounts[sub]}</div>
+                <div className="text-xs font-bold mt-1">{NO_LEVEL_SUBCATEGORY_META[sub].label}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Search + filter bar */}
       <div className="flex items-center gap-3 bg-white p-3 rounded-2xl shadow border border-gray-100">
@@ -624,11 +728,15 @@ export default function UnreachableExercisesPage() {
         </div>
         {reasonFilter !== 'all' && (
           <button
-            onClick={() => setReasonFilter('all')}
+            onClick={() => {
+              setReasonFilter('all');
+              setNoLevelSubFilter('all');
+            }}
             className="flex items-center gap-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-bold text-gray-700"
           >
             <X size={14} />
-            נקה סינון ({REASON_META[reasonFilter].label})
+            נקה סינון ({REASON_META[reasonFilter].label}
+            {reasonFilter === 'NO_LEVEL' && noLevelSubFilter !== 'all' ? ` · ${NO_LEVEL_SUBCATEGORY_META[noLevelSubFilter].label}` : ''})
           </button>
         )}
         <div className="text-sm text-gray-500 font-medium whitespace-nowrap">{filteredRows.length} תוצאות</div>
