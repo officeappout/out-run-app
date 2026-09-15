@@ -293,6 +293,18 @@ interface MapStore {
   setPendingRouteStart: (route: Route | null) => void;
   consumePendingRouteStart: () => Route | null;
   /**
+   * One-shot "start a workout at this exact park now" request — same pattern as
+   * `pendingRouteStart` immediately above, for `ParkDetailSheet`'s "התחל אימון"
+   * button. The workout drawer (`WorkoutPreviewDrawer`) has no global mount today
+   * (it's page-local state on `/home`), so this slot is how a tap on the park
+   * sheet — reachable from `/map`, `/home`, or anywhere `GlobalDetailOverlay` is
+   * mounted — hands off to `/home`'s consumer, which composes the park workout
+   * and opens the drawer pre-filled. See docs/research/park-start-workout-wiring-plan.md.
+   */
+  pendingParkWorkoutStart: Park | null;
+  setPendingParkWorkoutStart: (park: Park | null) => void;
+  consumePendingParkWorkoutStart: () => Park | null;
+  /**
    * Monotonic counter that AppMap bumps whenever a click on the Mapbox
    * canvas falls through every interactive layer (no park / route /
    * pin / facility hit). Acts as a one-shot signal for "the user
@@ -473,6 +485,13 @@ export const useMapStore = create<MapStore>((set, get) => ({
   consumePendingRouteStart: () => {
     const current = get().pendingRouteStart;
     if (current) set({ pendingRouteStart: null });
+    return current;
+  },
+  pendingParkWorkoutStart: null,
+  setPendingParkWorkoutStart: (park) => set({ pendingParkWorkoutStart: park }),
+  consumePendingParkWorkoutStart: () => {
+    const current = get().pendingParkWorkoutStart;
+    if (current) set({ pendingParkWorkoutStart: null });
     return current;
   },
   mapEmptyTapTick: 0,

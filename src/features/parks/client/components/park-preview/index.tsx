@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Navigation } from 'lucide-react';
 import { useMapStore } from '../../../core/store/useMapStore';
 import { useShelterProximity } from '../../../core/hooks/useShelterProximity';
@@ -19,8 +20,10 @@ interface ParkPreviewProps {
 export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   const { selectedPark, setSelectedPark } = useMapStore();
   const setPendingCommute = useMapStore((s) => s.setPendingCommute);
+  const setPendingParkWorkoutStart = useMapStore((s) => s.setPendingParkWorkoutStart);
   const shelterDecision = useShelterProximity({ park: selectedPark as any });
   const [detailOpen, setDetailOpen] = useState(false);
+  const router = useRouter();
 
   const distText = useMemo(() => {
     if (!userLocation || !selectedPark?.location) return null;
@@ -168,6 +171,18 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
         isOpen={detailOpen}
         onClose={() => setDetailOpen(false)}
         userLocation={userLocation}
+        onStartWorkout={() => {
+          if (!selectedPark) return;
+          setPendingParkWorkoutStart(selectedPark);
+          setDetailOpen(false);
+          // Same pendingParkWorkoutStart hand-off as GlobalDetailOverlay — the
+          // workout drawer has no global mount, only /home hosts one (see
+          // docs/research/park-start-workout-wiring-plan.md). This mount is
+          // reached from the map-pin popup on /map, so the redirect fires here.
+          if (typeof window !== 'undefined' && window.location.pathname !== '/home') {
+            router.push('/home');
+          }
+        }}
       />
     </>
   );

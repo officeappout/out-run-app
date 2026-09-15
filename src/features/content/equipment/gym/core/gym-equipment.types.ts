@@ -2,7 +2,7 @@
  * Gym Equipment Management Types
  * Defines the structure for gym equipment in the 'gym_equipment' collection
  */
-import { ExerciseType, MuscleGroup, TargetProgramRef } from '../../../exercises/core/exercise.types';
+import { ExerciseType, MuscleGroup, MovementGroup, TargetProgramRef } from '../../../exercises/core/exercise.types';
 
 export interface EquipmentBrand {
   brandName: string; // e.g., "Ludos", "Urbanics"
@@ -29,6 +29,18 @@ export interface GymEquipment {
   muscleGroups: MuscleGroup[]; // kept for backward-compat read path; do not write new data here
   primaryMuscle?: MuscleGroup;
   secondaryMuscles?: MuscleGroup[];
+  /**
+   * Movement pattern this machine trains — same canonical enum + labels as
+   * the exercise editor's "קבוצת תנועה" selector (MovementGroup,
+   * MOVEMENT_GROUP_LABELS in exercises/admin/components/exercise-editor/
+   * shared/constants.tsx), so machine tags and exercise tags speak the same
+   * language. Single value per machine for v1. `null` is the explicit
+   * "cleared" signal (see .claude/rules/exercise-editor-conventions.md) —
+   * `undefined` means "never set," not "cleared."
+   */
+  movementPattern?: MovementGroup | null;
+  /** Cardio/aerobic-modality machine (bike, rower, stepper, etc.). Absent = not cardio. */
+  isCardio?: boolean;
   brands: EquipmentBrand[]; // Array of manufacturers/brands for this equipment
   availableInLocations?: EquipmentLocation[]; // Locations where this equipment is available
   defaultLocation?: EquipmentLocation; // Default/primary location for this equipment

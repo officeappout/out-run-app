@@ -33,12 +33,21 @@ const RouteDetailSheet = dynamic(
  * missing), so EVERY existing caller of openGlobalRouteSheet (this overlay, mounted globally
  * outside /map) had a dead Start button already, not just the new safety-net-slot caller
  * this plan adds. Same pendingCommute hand-off pattern as Navigate above.
+ *
+ * Note on the park Start Workout button (park-start-workout-wiring-plan, Phase 1,
+ * 15.09.2026): same dead-button/no-global-drawer-mount gap ParkDetailSheet.onStartWorkout
+ * had (confirmed — neither this overlay nor park-preview/index.tsx's local mount ever
+ * passed it). Unlike the route case, the target isn't the live player directly — it's
+ * WorkoutPreviewDrawer, which is page-local state on `/home` (no global mount exists for
+ * it). So this hands off via pendingParkWorkoutStart to `/home`'s own consumer effect
+ * instead of driving anything here directly. See docs/research/park-start-workout-wiring-plan.md.
  */
 export default function GlobalDetailOverlay() {
   const globalSheet = useMapStore((s) => s.globalSheet);
   const closeGlobalSheet = useMapStore((s) => s.closeGlobalSheet);
   const setPendingCommute = useMapStore((s) => s.setPendingCommute);
   const setPendingRouteStart = useMapStore((s) => s.setPendingRouteStart);
+  const setPendingParkWorkoutStart = useMapStore((s) => s.setPendingParkWorkoutStart);
   const router = useRouter();
 
   if (!globalSheet) return null;
@@ -48,6 +57,13 @@ export default function GlobalDetailOverlay() {
       <ParkDetailSheet
         isOpen
         onClose={closeGlobalSheet}
+        onStartWorkout={() => {
+          setPendingParkWorkoutStart(globalSheet.park);
+          closeGlobalSheet();
+          if (typeof window !== 'undefined' && window.location.pathname !== '/home') {
+            router.push('/home');
+          }
+        }}
       />
     );
   }
