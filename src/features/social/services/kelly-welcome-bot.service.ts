@@ -2,22 +2,24 @@
  * Kelly Welcome Bot — Phase 1
  *
  * Seeds a one-time DM thread from "Kelly" (the OutRun virtual coach) to a user
- * the moment they finish onboarding. Reuses the canonical chat layer
- * (getOrCreateChat + sendMessage) so the thread is indistinguishable from any
- * other human DM and shows up in the user's inbox via useChatInbox.
+ * the moment they finish onboarding.
  *
- * Idempotency: guarded by users/{uid}.hasWelcomeBotTriggered so repeated
- * COMPLETED writes (or retries) never duplicate the greeting.
+ * The actual Firestore writes moved server-side (10.09.2026) — see
+ * /api/social/kelly-welcome-bot/route.ts for why: two independent rule
+ * blockers made a client-SDK write here unable to ever succeed (DM creation
+ * requires both participants to resolve to an adult users/{uid} doc, and
+ * message creation requires the acting caller to BE the sender; Kelly is
+ * neither a real user nor ever the actual caller). This file now only holds
+ * the pure pieces the route needs (name, greeting text) plus the thin
+ * client-side trigger that calls it.
  *
- * Firestore paths touched:
- *   chats/{chatId}                 — thread metadata (via getOrCreateChat)
- *   chats/{chatId}/messages/{id}   — the greeting (via sendMessage)
+ * Firestore paths touched (server-side, via the route above):
+ *   chats/{chatId}                 — thread metadata
+ *   chats/{chatId}/messages/{id}   — the greeting
  *   users/{uid}.hasWelcomeBotTriggered = true
  */
 
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { getOrCreateChat, sendMessage } from './chat.service';
+import { auth } from '@/lib/firebase';
 
 /** Kelly's permanent system UID — never collides with a real Firebase Auth uid. */
 export const KELLY_UID = 'system_kelly_coach';
@@ -48,47 +50,41 @@ export function buildKellyWelcomeMessage(name: string, gender?: Gender): string 
 }
 
 /**
- * One-time, self-contained trigger. Safe to call fire-and-forget — it reads the
- * user doc, short-circuits if the greeting was already seeded, otherwise creates
- * the Kelly DM thread, posts the greeting as Kelly, and flips the guard flag.
+ * Thin client-side trigger — calls /api/social/kelly-welcome-bot, which owns
+ * the actual read-check-flip-and-write transaction. Safe to call fire-and-
+ * forget from multiple places (onboarding completion, the login-time
+ * catch-up hook): the endpoint's own transaction is what makes two
+ * concurrent/duplicate calls resolve to exactly one greeting, not this
+ * function.
  *
- * Never throws: any failure is logged and swallowed so it can never block the
- * onboarding completion / navigation path that calls it.
+ * Never throws: any failure is logged and swallowed so it can never block
+ * the onboarding completion / navigation path that calls it.
  */
 export async function triggerKellyWelcomeBot(userId: string): Promise<void> {
   if (!userId) return;
 
   try {
-    const userRef = doc(db, 'users', userId);
-    const snap = await getDoc(userRef);
-
-    if (!snap.exists()) {
-      console.warn('[KellyBot] User doc missing — skipping welcome bot:', userId);
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      console.warn('[KellyBot] No auth token available — skipping welcome bot:', userId);
       return;
     }
 
-    const data = snap.data();
+    const res = await fetch('/api/social/kelly-welcome-bot', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    // Idempotency guard — exactly one greeting per user, ever.
-    if (data.hasWelcomeBotTriggered === true) {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      console.warn('[KellyBot] request failed:', body?.error ?? res.status);
       return;
     }
 
-    const name: string = data.core?.name ?? '';
-    const gender: Gender | undefined = data.core?.gender;
-    const message = buildKellyWelcomeMessage(name, gender);
-
-    // The user is "me" in the canonical pair — Kelly is the other participant.
-    const thread = await getOrCreateChat(userId, name || 'משתמש', KELLY_UID, KELLY_NAME);
-
-    // Post the greeting AS Kelly so it lands as an incoming (unread) message for
-    // the user and renders on the correct side of the bubble layout.
-    await sendMessage(thread.id, KELLY_UID, KELLY_NAME, message);
-
-    // Flip the guard last — if anything above failed we want a retry next time.
-    await updateDoc(userRef, { hasWelcomeBotTriggered: true });
-
-    console.log('[KellyBot] Welcome DM seeded for user:', userId);
+    const result = await res.json() as { sent?: boolean; reason?: string };
+    if (result.sent) {
+      console.log('[KellyBot] Welcome DM seeded for user:', userId);
+    }
   } catch (err) {
     // Non-critical — never block onboarding completion.
     console.warn('[KellyBot] triggerKellyWelcomeBot failed (non-critical):', err);

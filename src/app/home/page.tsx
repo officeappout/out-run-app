@@ -19,6 +19,7 @@ import { type CompletionData } from '@/features/home/components/HeroWorkoutCard'
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { usePendingUnitSelfHeal } from '@/features/arena/hooks/usePendingUnitSelfHeal';
+import { useKellyWelcomeBotCatchup } from '@/features/social/hooks/useKellyWelcomeBotCatchup';
 import { useDailyProgress } from '@/features/home/hooks/useDailyProgress';
 import { useTodayStrengthVolume } from '@/features/home/hooks/useTodayStrengthVolume';
 import { useDailyStrengthTarget } from '@/features/home/hooks/useDailyStrengthTarget';
@@ -656,6 +657,9 @@ export default function HomePage() {
   // still fire the same updateDoc — harmless (same end state, an extra
   // updatedAt bump), but not a true no-op guard (code review, 07.09.2026).
   usePendingUnitSelfHeal();
+  // Catch-up trigger for the Kelly welcome DM — see the hook's own comment
+  // for why this exists alongside the primary onboarding-completion trigger.
+  useKellyWelcomeBotCatchup();
   const [showMotivationBanner, setShowMotivationBanner] = useState(false);
   const { sessions: communitySessions, dismiss: dismissSession } = useCommunitySessionBanner();
   const [bannerGroup, setBannerGroup] = useState<CommunityGroup | null>(null);
