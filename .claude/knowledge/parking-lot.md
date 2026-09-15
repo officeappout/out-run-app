@@ -979,3 +979,37 @@ muscle_up.subPrograms = ['push', 'pull']                   // מאסטר → ש�
 **`strengthScore` ו-`mobilityScore` — לא. אפס צרכנים מחוץ לעורך-האדמין.** grep מלא על כל הריפו (לא רק תיקיית-המנוע): שני השדות מופיעים **רק** בשני קבצי-העורך (`TargetProgramSection.tsx`, `ContentSection.tsx`) ובהגדרת-הטיפוס (`exercise.types.ts:799,801`) — שום קובץ מנוע/פייפליין לא קורא אותם. הם נכתבים לכל תרגיל handstand/hspu (חלק מאותה רשומת-`targetPrograms`), אבל שום שער/לוגיקת-בחירה לא משתמשת בהם היום — רק `balanceScore` פעיל.
 
 **סיכום עובדתי:** מתוך שלושת-הצירים של ה-Triad, אחד (`balanceScore`) כבר משפיע על בחירת-תרגילים בפרודקשן היום; שניים (`strengthScore`, `mobilityScore`) נשמרים ומוצגים בעורך אבל לא נצרכים על-ידי שום קוד-מנוע — בדיוק העבודה-מאחורי-הקלעים שהתיאור-הפתוח למעלה מתאר: הבסיס-לתיוג קיים, המנוע-המודולרי שישתמש בכל השלושה יחד עדיין לא נבנה.
+
+---
+
+## 🔴 כפילות-סנכרון בהרשמה — `syncOnboardingToFirestore('COMPLETED')` נקרא 3 פעמים, 2 מהן לגיטימיות, אחת כפילות אמיתית — 15.09.2026
+
+**Opened:** 15.09.2026 · **Source:** דוד, לוג-פרודקשן — הרשמת-סקילים (calisthenics_upper), `syncOnboardingToFirestore(COMPLETED)` 3×, חישוב-מאסטר נדלק 3× (5/11/11 מסלולים). **קריאה בלבד, לא תוקן.**
+
+**המסלול האמיתי להרשמת-סקילים, נקרא-מדף-לדף (לא מונח משמות):**
+```
+profile/page.tsx → program-path/page.tsx (בחירת "סקילים" + planche+one_arm_pullup)
+  → assessment-visual/page.tsx (סליידרים → ProgramResult.onContinue = handleAcceptResult)
+      → syncOnboardingToFirestore('COMPLETED', {assignedResults})   ← קריאה #1, assessment-visual/page.tsx:837
+      → router.push('/onboarding-new/health')
+  → health/page.tsx (HealthDeclarationStep, submit ידני → handleContinue)
+      → syncOnboardingToFirestore('COMPLETED', syncPayload)         ← קריאה #2, health/page.tsx:135
+      → refreshProfile(); router.replace('/onboarding-new/health-connect')
+  → [מנגנון-מרוץ, ר' למטה] → handleContinue נקרא שוב, באותו mount
+      → syncOnboardingToFirestore('COMPLETED', syncPayload)         ← קריאה #3, אותה שורה בדיוק, health/page.tsx:135
+```
+
+**קריאה #1 (assessment-visual:837) — לגיטימית.** קומפוננטה נפרדת, פעולת-משתמש נפרדת (אישור-תוצאת-סקיל), הרבה לפני שהמשתמש בכלל רואה את הצהרת-הבריאות. אין ספק.
+
+**קריאות #2 ו-#3 — אותה נקודת-קריאה בדיוק, אותה פונקציה (`handleContinue`, `health/page.tsx:82-145`), פעמיים. זו כפילות אמיתית, לא שני מסלולים.** מנגנון-המרוץ המלא, מאומת שורה-מול-שורה בקוד החי:
+
+1. **ה-guard מגן רק על המסלול-האוטומטי, לא על השליחה-הידנית.** `skipGuardRef` (`skip-attempt-guard.ts:8-21`) מקבל `markStarted()` רק בתוך `runAutoSkip` (`health/page.tsx:62-70`) — הכפתור הידני של `HealthDeclarationStep` קורא ל-`handleContinue` **ישירות**, בלי לגעת ב-guard בכלל.
+2. **`alreadyAccepted` (`health/page.tsx:45`) מחושב-מחדש מ-`profile` בכל רינדור — ו-`handleContinue` עצמו משנה את `profile` תוך-כדי ריצה.** ה-`syncPayload` של קריאה #2 (שורות 94-131) **לא כולל `healthDeclarationAccepted`** בכלל — אבל `HealthDeclarationStep.handleSubmit` (`:282-298`) קורא בנפרד ל-`updateData({healthDeclarationAccepted:true,...})` **לפני** `onContinue` — זו כתיבה **נפרדת ועצמאית**, דרך ה-store המדובנס (`useOnboardingStore.ts:97-102`, 400ms).
+3. **הכתיבה המדובנסת הזו לא נכתבת בשם `'COMPLETED'` — אלא בשם `'PERSONA'`** (`useOnboardingStore.ts:71`, `state.currentStep` — קבוע על `'PERSONA'` כי `setStep()` אף פעם לא נקרא בנתיב-הסקילים, רק מתוך `OnboardingWizard.tsx` שלא מותקן כאן). זו הסיבה שה-grep המקורי אחרי `'COMPLETED'` המילולי לא מצא את הקריאה הזו — היא כן כותבת `healthDeclarationAccepted:true` ל-Firestore (התנאי ב-`onboarding-sync.service.ts:734-738` לא מוגבל ל-`step==='COMPLETED'`), רק בשם-שלב אחר.
+4. **המרוץ:** אם הכתיבה המדובנסת-הזו נוחתת **לפני** ש-`refreshProfile()` (שורה 139, בתוך קריאה #2) קורא את הפרופיל מחדש — `profile.healthDeclarationAccepted` הופך `true`, `alreadyAccepted` דולג ל-`true` ברינדור הבא, ה-`useEffect` (שורות 72-76, תלוי ב-`[mounted, alreadyAccepted]`) **נדלק שוב**, ה-guard עדיין "פנוי" (סעיף 1) → `runAutoSkip` רץ → `handleContinue` נקרא **שוב** → קריאה #3, אותה שורה, אותו `syncPayload` (נבנה מחדש מאותו sessionStorage שלא השתנה).
+
+**⚠️ "5/11/11" — 5 מאומת, 11 לא.** שרשרת-בנייה של `progression.tracks` למשתמש-2-סקילים (`onboarding-sync.service.ts:1199-1396`) נותנת **5 מפתחות מדויקים**: `calisthenics_upper`, שני הסקילים עצמם, ושני ה-tracks-הנגזרים `push`/`pull` (`SKILL_TO_FOUNDATION_OFFSET`, שורות 1367-1386) — תואם ישירות למספר-5 של הקריאה הראשונה. **מקור ה-11 הנוספים לא אותר בקריאה סטטית** — כמה מסלולים נבדקו ונשללו (`initialDomains`/`cmsMaxLevels` כותבים ל-`progression.domains`, לא `.tracks`; ה-fallback ל-GOAL_TO_PROGRAM לא מגיע כי `effectiveResults` לא ריק; הסנכרון-המדובנס-בשם-PERSONA לא בונה tracks בכלל, כי כל הבלוק מגודר ב-`step==='COMPLETED'`). לא נבדק: האם `/api/user/complete-profile` (הראוט שמייצר את המסמך, נקרא מ-`profile/page.tsx:223`) כבר זורע tracks-בסיס משלו. **המסקנה המבנית לא תלויה בפתרון החידה הזו:** קריאות #2/#3 הן אותה פונקציה עם אותו קלט בדיוק מול אותו מסמך — 11==11 צפוי מעצם-הזהות, בלי קשר למה שה-11 מתפרק אליו.
+
+**מה שמריץ את חישוב-המאסטר בפועל, לכל קריאה בנפרד:** `onboarding-sync.service.ts:2031-2048`, **בתוך** `syncOnboardingToFirestore` עצמו — `Promise.all(trackKeys.map(id => recalculateAncestorMasters(uid, id)))`, **לא ממתין** (`Promise.all` לא ב-`await`) — fire-and-forget. זו לא תופעת-לוואי של הבאג — זו התנהגות-מבנית-תקינה שכל קריאת-COMPLETED לגיטימית גם מפעילה; הבעיה היחידה היא שקריאה #3 היא הפעלה-נוספת-לא-רצויה של אותו שלב, לא שהפעלת-החישוב-עצמה שגויה.
+
+**כיוון-תיקון אפשרי, לא מיושם, לא הוכרע — לתשומת-לב עתידית בלבד:** לגרום ל-`handleContinue` (השליחה הידנית) לקרוא `skipGuardRef.current.markStarted()` גם היא, לפני הקריאה, כדי שהמסלול-האוטומטי לא יוכל להידלק שוב אחרי שליחה-ידנית שכבר בתהליך. **לא נבדק/לא הוכרע איזה תיקון-מדויק נכון — דוד מחליט, אם/כשמגיעים לזה.**
