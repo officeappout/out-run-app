@@ -101,6 +101,16 @@ async function setup() {
       core: { name: 'RM', discoverable: true },
       social: { groupIds: ['grp1'] },
     });
+    // P1's real dependency: presence's group-mode read rule checks
+    // memberGroupIds(uid), which reads user_memberships/{uid} — a SEPARATE
+    // mirror collection from users/{uid}.social.groupIds (axioms.md §17).
+    // This fixture only ever wrote the latter; the former was missing
+    // entirely, so memberGroupIds('reader_member') always resolved to []
+    // (null-safe default) and P1 failed DENY-not-ALLOW regardless of rule
+    // content — a fixture gap, not a rules bug (10.09.2026, David).
+    await setDoc(doc(db, 'user_memberships', 'reader_member'), {
+      groupIds: ['grp1'],
+    });
     await setDoc(doc(db, 'users', 'reader_outsider'), {
       core: { name: 'RO', discoverable: true },
       social: { groupIds: ['grp2'] },
