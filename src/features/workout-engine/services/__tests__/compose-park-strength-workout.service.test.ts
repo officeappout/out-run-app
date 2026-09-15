@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import type { Park } from '@/features/parks/core/types/park.types';
 
 // generateHomeWorkoutTrio is Firestore-backed — mocked so these tests exercise
 // only composeParkWorkoutFromMachines's own domain-complement/selection logic,
@@ -9,11 +10,30 @@ vi.mock('../home-workout.service', () => ({
   generateHomeWorkoutTrio: (...args: unknown[]) => trioMock(...args),
 }));
 
+// composeParkWorkout (the async wrapper)'s two Firestore-backed dependencies —
+// mocked so the "canonical, not raw, ids reach Block B" tests below don't need
+// a real Firestore connection or a real-warmed gear cache.
+const getGymEquipmentMock = vi.fn();
+vi.mock('@/features/content/equipment/gym/core/gym-equipment.service', () => ({
+  getGymEquipment: (...args: unknown[]) => getGymEquipmentMock(...args),
+}));
+
+const resolveParkEquipmentIdsMock = vi.fn();
+vi.mock('../park-equipment-resolver', () => ({
+  resolveParkEquipmentIds: (...args: unknown[]) => resolveParkEquipmentIdsMock(...args),
+}));
+
+const ensureEquipmentCachesLoadedMock = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../shared/utils/gear-mapping.utils', () => ({
+  ensureEquipmentCachesLoaded: (...args: unknown[]) => ensureEquipmentCachesLoadedMock(...args),
+}));
+
 import {
   selectBlockAMachines,
   computeCoveredDomains,
   buildMachinePseudoExercise,
   composeParkWorkoutFromMachines,
+  composeParkWorkout,
   isBlockAEligible,
   isDomainAssessed,
 } from '../compose-park-strength-workout.service';
@@ -212,7 +232,25 @@ describe('composeParkWorkoutFromMachines', () => {
     expect(callArgs.strictDomains).toBe(true);
     expect(callArgs.skipCycleRestart).toBe(true);
     expect(new Set(callArgs.requiredDomains)).toEqual(new Set(['legs', 'core']));
-    expect(callArgs.parkEquipmentIds).toBeUndefined();
+  });
+
+  it('defaults parkEquipmentIds to [] when the caller omits it (no crash, same degraded ESSENTIAL_PARK_GEAR behavior as before this fix — not the bug)', async () => {
+    trioMock.mockResolvedValue({
+      options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+    });
+    await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'medium' });
+    const callArgs = trioMock.mock.calls[0][0];
+    expect(callArgs.parkEquipmentIds).toEqual([]);
+  });
+
+  it('BUG FIX: threads a real, non-empty parkEquipmentIds through to the Block B call unchanged', async () => {
+    trioMock.mockResolvedValue({
+      options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+    });
+    const realParkGearIds = ['pullup_bar', 'leg_press', 'chest_press'];
+    await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'medium' }, realParkGearIds);
+    const callArgs = trioMock.mock.calls[0][0];
+    expect(callArgs.parkEquipmentIds).toEqual(realParkGearIds);
   });
 
   it('skips the Block B call entirely when Block A already covers all 4 domains', async () => {
@@ -257,5 +295,80 @@ describe('composeParkWorkoutFromMachines', () => {
     const result = await composeParkWorkoutFromMachines([push1], fakeProfile, { difficulty: 'medium' });
     expect(result.workout.exercises).toHaveLength(1); // only the Block A machine
     expect(result.workout.exercises[0].exercise.id).toBe('push1');
+  });
+});
+
+describe('composeParkWorkout (async wrapper — gear-inventory bug fix)', () => {
+  const fakeProfile = { id: 'u1' } as any;
+  // Raw Firestore doc-id shapes — 20-char random alphanumerics, exactly what
+  // ParkGymEquipment.equipmentId / GymEquipment.id actually look like in
+  // production. These must NEVER reach Block B's generateHomeWorkoutTrio call
+  // directly — only resolveParkEquipmentIds's CANONICAL output should.
+  const rawFirestoreId1 = 'aB3xK9mQ2pL7vN4tRzYw';
+  const rawFirestoreId2 = 'hJ8wE2rT6yU1iO5pAsDf';
+  const fakePark = {
+    id: 'park1',
+    name: 'Test Park',
+    gymEquipment: [
+      { equipmentId: rawFirestoreId1, brandName: 'X' },
+      { equipmentId: rawFirestoreId2, brandName: 'Y' },
+    ],
+  } as unknown as Park;
+
+  beforeEach(() => {
+    trioMock.mockClear();
+    getGymEquipmentMock.mockClear();
+    resolveParkEquipmentIdsMock.mockClear();
+    ensureEquipmentCachesLoadedMock.mockClear();
+
+    getGymEquipmentMock.mockImplementation((id: string) =>
+      Promise.resolve(machine({ id, movementPattern: 'horizontal_push' })),
+    );
+    // The realistic behavior being tested: resolveParkEquipmentIds returns
+    // CANONICAL gear-id strings, never the raw Firestore ids it was given.
+    resolveParkEquipmentIdsMock.mockResolvedValue(['pullup_bar', 'leg_press']);
+    trioMock.mockResolvedValue({
+      options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+    });
+  });
+
+  it('THE GUARDRAIL: warms the equipment cache before resolving park gear, so normalizeGearId never silently degrades to raw-id passthrough', async () => {
+    await composeParkWorkout(fakePark, fakeProfile, { difficulty: 'medium' });
+    expect(ensureEquipmentCachesLoadedMock).toHaveBeenCalled();
+  });
+
+  it('calls resolveParkEquipmentIds with the exact park id (the previously-dead selectedParkId branch)', async () => {
+    await composeParkWorkout(fakePark, fakeProfile, { difficulty: 'medium' });
+    expect(resolveParkEquipmentIdsMock).toHaveBeenCalledWith(fakeProfile, { selectedParkId: 'park1' });
+  });
+
+  it('THE BUG-FIX ASSERTION: Block B receives CANONICAL gear ids, and NEITHER of the park\'s raw Firestore doc-ids ever reaches it', async () => {
+    await composeParkWorkout(fakePark, fakeProfile, { difficulty: 'medium' });
+
+    expect(trioMock).toHaveBeenCalledTimes(1);
+    const callArgs = trioMock.mock.calls[0][0];
+
+    // Positive: the canonical ids resolveParkEquipmentIds returned are exactly
+    // what Block B receives.
+    expect(callArgs.parkEquipmentIds).toEqual(['pullup_bar', 'leg_press']);
+
+    // Negative: this is the assertion that would have caught the original bug
+    // (parkEquipmentIds never passed at all) AND would catch a regression back
+    // to passing raw ids directly instead of the resolved canonical ones.
+    expect(callArgs.parkEquipmentIds).not.toContain(rawFirestoreId1);
+    expect(callArgs.parkEquipmentIds).not.toContain(rawFirestoreId2);
+    // Sanity: canonical ids look like canonical ids (short, snake_case,
+    // human-readable) — not 20-char random Firestore doc-id shapes.
+    for (const id of callArgs.parkEquipmentIds) {
+      expect(id).not.toMatch(/^[a-zA-Z0-9]{20}$/);
+    }
+  });
+
+  it('a park with NO gymEquipment still resolves (resolveParkEquipmentIds returns [], Block B falls back to ESSENTIAL_PARK_GEAR — InputSanitizerMiddleware\'s job, not this function\'s)', async () => {
+    resolveParkEquipmentIdsMock.mockResolvedValue([]);
+    const emptyPark = { id: 'park2', name: 'Empty Park', gymEquipment: [] } as unknown as Park;
+    await composeParkWorkout(emptyPark, fakeProfile, { difficulty: 'medium' });
+    const callArgs = trioMock.mock.calls[0][0];
+    expect(callArgs.parkEquipmentIds).toEqual([]);
   });
 });
