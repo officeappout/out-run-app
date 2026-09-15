@@ -57,6 +57,8 @@ import { generateHomeWorkoutTrio } from './home-workout.service';
 import { calculateWorkoutStats } from '../logic/workout-budgeting.utils';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import { resolveDataLevel } from './level-resolution.utils';
+import { resolveParkEquipmentIds } from './park-equipment-resolver';
+import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 
 export type ParkWorkoutDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -115,10 +117,24 @@ export interface ComposeParkWorkoutResult {
 }
 
 /**
- * Async orchestration — fetches each of the park's tagged machines by id,
- * then hands off to the pure `composeParkWorkoutFromMachines`. Mirrors
+ * Async orchestration — fetches each of the park's tagged machines by id
+ * (for Block A's display/pseudo-exercise construction) AND resolves the
+ * park's CANONICAL gear-id inventory (for Block B's gear gating), then
+ * hands both off to the pure `composeParkWorkoutFromMachines`. Mirrors
  * `composeFullParkWorkout`'s (start-hybrid-session.ts) shape for the
  * Firestore-read step.
+ *
+ * BUG FIX (post-launch, park-start-workout-wiring-plan Phase 1 follow-up):
+ * this function used to only fetch the machine DOCS (for Block A's display)
+ * and never resolved a canonical gear-id inventory at all — Block B's
+ * generateHomeWorkoutTrio call was passed no parkEquipmentIds, so
+ * InputSanitizerMiddleware.normalizeEquipmentArray always hit its
+ * ESSENTIAL_PARK_GEAR catastrophic fallback (a generic pull-up-bar/dip-
+ * station/bench guess), regardless of what the park actually has. Fixed by
+ * calling the ALREADY-EXISTING resolveParkEquipmentIds with the park we
+ * already know explicitly (its selectedParkId branch existed but had zero
+ * real callers anywhere in the codebase before this) — not a new parallel
+ * resolution path.
  */
 export async function composeParkWorkout(
   park: Park,
@@ -126,23 +142,47 @@ export async function composeParkWorkout(
   options: ComposeParkWorkoutOptions,
 ): Promise<ComposeParkWorkoutResult> {
   const parkEquipmentRefs: ParkGymEquipment[] = park.gymEquipment ?? [];
-  const machines = (
-    await Promise.all(parkEquipmentRefs.map((ref) => getGymEquipment(ref.equipmentId)))
-  ).filter((m): m is GymEquipment => m != null);
 
-  return composeParkWorkoutFromMachines(machines, userProfile, options);
+  // Explicit + belt-and-suspenders: resolveParkEquipmentIds already warms
+  // this cache internally as its own first statement
+  // (park-equipment-resolver.ts) before it calls normalizeGearId — but
+  // normalizeGearId silently degrades to a raw-id passthrough when the
+  // cache isn't warm yet, with no error or warning. Calling it explicitly
+  // here means this file's own correctness doesn't silently depend on an
+  // internal implementation detail of a function it doesn't own. Cheap:
+  // documented as idempotent, deduplicates via a shared promise.
+  await ensureEquipmentCachesLoaded();
+
+  const [machines, parkEquipmentIds] = await Promise.all([
+    Promise.all(parkEquipmentRefs.map((ref) => getGymEquipment(ref.equipmentId))).then(
+      (results) => results.filter((m): m is GymEquipment => m != null),
+    ),
+    resolveParkEquipmentIds(userProfile, { selectedParkId: park.id }),
+  ]);
+
+  return composeParkWorkoutFromMachines(machines, userProfile, options, parkEquipmentIds);
 }
 
 /**
- * Pure(ish) composition — takes already-fetched GymEquipment docs, so the
- * domain-complement math and pseudo-exercise construction are unit-testable
- * without mocking Firestore. The only genuinely async/Firestore-backed step
- * is the Block B `generateHomeWorkoutTrio` call.
+ * Pure(ish) composition — takes already-fetched GymEquipment docs (and an
+ * already-resolved canonical gear-id inventory), so the domain-complement
+ * math and pseudo-exercise construction are unit-testable without mocking
+ * Firestore. The only genuinely async/Firestore-backed step is the Block B
+ * `generateHomeWorkoutTrio` call.
+ *
+ * `parkEquipmentIds` defaults to `[]` so existing callers/tests that only
+ * care about Block A / domain-complement logic don't need to thread a value
+ * through — an empty array here means Block B falls back to
+ * InputSanitizerMiddleware's ESSENTIAL_PARK_GEAR (the SAME degraded
+ * behavior as before this fix), which is the correct "I genuinely don't
+ * know this park's real gear" case, not the bug this fixes (the bug was
+ * `composeParkWorkout` never resolving one at all, even when it could).
  */
 export async function composeParkWorkoutFromMachines(
   allMachines: GymEquipment[],
   userProfile: UserFullProfile,
   options: ComposeParkWorkoutOptions,
+  parkEquipmentIds: string[] = [],
 ): Promise<ComposeParkWorkoutResult> {
   const availableTime = options.availableTime ?? 20;
   const tabataConfig = TABATA_DIFFICULTY_LADDER[options.difficulty];
@@ -153,14 +193,18 @@ export async function composeParkWorkoutFromMachines(
   const blockACoveredDomains = computeCoveredDomains(selectedMachines);
   const blockAExercises = selectedMachines.map((m) => buildMachinePseudoExercise(m, tabataConfig));
 
-  // ── Block B: fill whatever domains Block A did not cover, bodyweight only ──
-  // parkEquipmentIds is intentionally omitted below. Confirmed by reading
-  // InputSanitizerMiddleware.normalizeEquipmentArray directly: the full gym
-  // catalog is only injected when location==='gym'; for location==='park' with
-  // no parkEquipmentIds, it falls back to ESSENTIAL_PARK_GEAR (pull-up bar /
-  // dip station / bench / low+high bar / step — universal bodyweight-compatible
-  // fixtures), NOT Block A's specific tagged machines. This is exactly the
-  // "bodyweight only" behavior Block B needs — no separate flag required.
+  // ── Block B: fill whatever domains Block A did not cover ──
+  // parkEquipmentIds (the park's CANONICAL gear-id inventory, resolved by
+  // composeParkWorkout via resolveParkEquipmentIds — raw Firestore doc ids
+  // mean nothing to the gating layer, they have to go through
+  // normalizeGearId first) is passed straight through to Block B's
+  // generateHomeWorkoutTrio call below, so InputSanitizerMiddleware
+  // resolves the park's REAL gear instead of its ESSENTIAL_PARK_GEAR
+  // catastrophic-fallback guess (pull-up bar/dip station/bench/etc, which
+  // this specific park may not actually have). Domain exclusion above
+  // already prevents Block B from re-covering whatever Block A handled, so
+  // passing the park's FULL gear list here (not a Block-A-selected subset)
+  // is safe — no double-dipping risk.
   const requiredDomains = ALL_DOMAINS.filter((d) => !blockACoveredDomains.includes(d));
   const blockATimeMinutes = blockASeconds(tabataConfig) / 60;
   const blockBTimeMinutes = Math.max(5, availableTime - blockATimeMinutes);
@@ -181,6 +225,9 @@ export async function composeParkWorkoutFromMachines(
       // cycle from a preview. Same flag composeFullParkWorkout already uses
       // for the same reason.
       skipCycleRestart: true,
+      // Bug fix: this park's real canonical gear inventory, not omitted —
+      // see this function's own doc comment above and composeParkWorkout's.
+      parkEquipmentIds,
     });
     const blockBResult = trio.options[1].result;
     if (!blockBResult.workout.needsAssessment) {
