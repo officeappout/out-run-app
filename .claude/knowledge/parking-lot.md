@@ -657,6 +657,8 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 
 **⚠️ קשר סביר לחקירת DOMAIN QUOTA FAILED, לא מוכח — בדיוק לכן אסור לגעת:** אם ה-gear-fallback הזה משפיע על שכבה כלשהי במשפך 371→54→15 (המדידה שנבנתה באותה שיחה, `resolveExercisePool`/`ContextualEngine.filterAndScore`), נגיעה בציוד **עכשיו** תזהם את המדידה — לא נדע יותר אם שינוי בתוצאה נובע מהתיקון-הזה או מהמשתנה שדוד רצה למדוד. **אסור לתקן לפני שהמדידה הושלמה — 08.09.2026.**
 
+**עדכון-מדידה, 15.09.2026 — ריצת-סקיל אמיתית בפרודקשן, מספרים בפועל, מחזק את החשד ולא סותר אותו:** `fCounts` (`ContextualEngine.ts`, `FilterStageCounts`) מריצה חיה: **`excluded_location=26`** מתוך 72 שנבדקו — **הפילטר הדומיננטי בבירור**, לעומת `excluded_program_filter=5` ו-`excluded_level_tolerance=3`. הדוגמאות שנחסמו (מדוד-בפועל, לא הסקה): תרגילי-טבעות, תרגילי-גומיות, ותרגיל-front_lever-עם-גומייה — כולם תלויי-ציוד. **תואם בדיוק את החשד המקורי** (משתמש-סקילים ללא `EquipmentStep` → פרופיל-ציוד ריק → נופל ל-`ESSENTIAL_PARK_GEAR` הבסיסי-בלבד → כל תרגיל שדורש טבעות/גומיות נחסם ב-`selectMethodForContext`, לא רק תיאורטית). **עדיין לא תוקן — זו תוספת-נתונים למדידה הקיימת, לא סטייה מהאיסור-לגעת.**
+
 לא תוקן. לא נגעתי — לא בברירת-מחדל, לא ב-`EquipmentStep`, לא ב-`ESSENTIAL_PARK_GEAR`.
 
 ---
@@ -839,6 +841,30 @@ Whenever a Firestore write uses a shape that hasn't been exercised in production
 **הצרכן: אין. נבדקו כל 4 מקומות-הקריאה האמיתיים בקוד** (`home-workout.service.ts:1779` — מסלול-הייצור הראשי; `build-home-user-context.ts:89`; `partial-completion.generator.ts:107`; `hybrid-context.util.ts:56`) — **כולם מפרקים רק את `.levels`, אף אחד לא קורא את `derivedMasterLevels`.** החישוב רץ, מודפס ללוג, ואפס השפעה על שום דבר במורד-הזרם. זומבי-חישוב — בדיוק מה שגרם לדוד לראות שורת-לוג מבלבלת בהרצה חיה בלי שום תוצאה תפקודית מאחוריה.
 
 **המלצה (דוד, 14.09.2026), תכנון בלבד — ענף נפרד, לא מיושם עכשיו:** הבלוק לא רק לא-משפיע — הוא **הדפיס** שורת-לוג שהטעתה, שגרמה לדוד לחשוד בנוסחה שלישית שלא קיימת. "זומבי ששותק זה חוב. זומבי שמדפיס זה מלכודת." לפי כלל-העל (אין חריגים/תיקוני-מקרה-פרטי) — ההמלצה היא **למחוק את הבלוק כולו** (קוד מת, אפס צרכן מאומת), לא להשתיק אותו (לא `if (process.env...)` guard על ה-`console.log`, לא ניסיון "לתקן" את הנוסחה עצמה ללא צרכן אמיתי שדורש אותה — זה היה מוסיף מורכבות לקוד שאף אחד לא קורא). אם אי-פעם יידרש צרכן אמיתי למאסטר-לבל מדויק לפי הילדים האמיתיים שלו — זו עבודה נפרדת שמתחילה מ-`MASTER_CHILD_TRACKS` הנגזר מ-`subPrograms` האמיתי (אותה מחלקת-תיקון כמו B1), לא מהחייאת הבלוק הקיים.
+
+---
+
+## 🔴 עדכון-חומרה — B1 (slug-map) חוסם רמת-מאסטר של calisthenics_upper לצמיתות, לא רק "חסום ע"י רצפה" — 15.09.2026
+
+**⚠️ תיקון לשורה "9" בטבלה למעלה: "חי — הנכון, אבל חסום ע"י רצפה מונוטונית (B2)" לא מדויק.** מאומת בלוג-פרודקשן אמיתי (15.09.2026, משתמש עם `skillFocusIds:[planche, one_arm_pullup]`): `recalculateMasterLevel` **לא מגיע בכלל** לרצפה-המונוטונית (Defense B) — הוא נעצר **קודם**, ב-Defense C (empty-set abort), ישירות באותו שורש-באג B1.
+
+**זו לא בעיה טכנית בלבד — זו רמה שלא מתקדמת למשתמש משלם (דוד).**
+
+**שרשרת-הראיות המלאה, מאומתת מול הקוד החי + Firestore אמיתי (לא ניחוש):**
+
+1. **הלוג עצמו** (`progression.service.ts:697-704`, `recalculateMasterLevel`): `"ABORTED write for master ... routingEmptySkip flag set ... Check slug map coverage for skill program hashes in subPrograms[]."` — עבור המשתמש הזה, ~20 פעמים ברצף.
+2. **מקור ה-abort** (`progression.service.ts:627-643`, Defense C בתוך `getMasterProgramProgress`): כש-`avgChildren.length===0 && configuredChildIds.size>0` — כלומר "יש ילדים-מוגדרים אמיתיים, אבל כולם נדחו ע"י פילטר-הממוצע" — מחזיר `routingEmptySkip:true` ומונע כתיבה, כדי לא לדרוס רמה-קיימת-גבוהה בטעות. הלוג המדויק: `"2 configured children [push, pull] were ALL rejected by the averaging filter. skillFocusIds: [planche, one_arm_pullup]."`
+3. **למה "push, pull" ולא "planche, one_arm_pullup":** אומת ישירות מול `calisthenics_upper` ב-Firestore — `subPrograms` שלו הוא `[front_lever, planche, one_arm_pullup, core, handstand_pushup, push, pull]` (7 Firestore-doc-IDs, כולל push/pull **ישירות** כילדים, לא רק 5 הסקילים). המשתמש כן מוערך-לרמת-push/pull (דרך SKILL_TO_FOUNDATION_OFFSET שכבר מתועד למעלה, שורות 539-541 בקובץ) — לכן הם "מוגדרים" (`isConfigured=true`). אבל הפילטר עבור calisthenics_upper (שורות 604-611) דורש `skillFocusIds.includes(sp.programId)` — ו-push/pull **אינם** ב-`skillFocusIds` (שהם slugs-של-סקילים, לא foundational) — נדחים. planche/one_arm_pullup **כן** ב-`skillFocusIds`, אבל **לא** ב-`configuredChildIds` — כלומר ה-track הספציפי-לסקיל שלהם (`progression.tracks.planche`/`.one_arm_pullup`) לא נחשב מוגדר.
+4. **שורש-השורש, נמצא עכשיו, מדויק — `buildProgramSlugMap` (`progression.service.ts:120-134`) מתעלם לגמרי מהשדה `slug` הקיים:**
+   ```ts
+   const slug = p.movementPattern || p.name.toLowerCase().replace(/[\s-]+/g, '_');
+   ```
+   **אין כאן שום שימוש ב-`p.slug`.** לתוכניות-יסוד (push/pull/legs/core) יש `movementPattern` מוגדר בפירוש (`'push'`, `'pull'`...) — מסתדרות נכון, במקרה. לתוכניות-סקיל (planche, one_arm_pullup, front_lever, handstand, handstand_pushup) **אין** `movementPattern` בכלל (מאומת חי, שני המסמכים נקראו ישירות מ-Firestore) — נופל ל-`p.name.toLowerCase()...` על שם עברי (**"פלאנץ׳"**, **"מתח יד אחת"**) — לא תעתיק, לא slug, סתם המחרוזת-העברית-הגולמית עם רווחים→קווים-תחתונים. `idToSlug.get(planche-hash-id)` מחזיר `'פלאנץ׳'`, לא `'planche'`.
+5. **ההשפעה בפועל:** `childSlug` (בלולאת-הרזולוציה הראשית, שורה 490) עבור planche מתיישב על `'פלאנץ׳'` (tier 1, `mapResolvedSlug` truthy — העצירה מוקדמת, שאר השרשרת ב-tier 3/5/6 אף פעם לא מגיעה לתור, כולל `childProgram?.slug` התקין) → `progression.tracks['פלאנץ׳']` לא קיים → `isConfigured=false` — **גם אם למשתמש יש בפועל `progression.tracks.planche` אמיתי עם רמה תקינה**, זה לעולם לא נמצא, כי המפתח שמחפשים הוא string עברי-גולמי, לא ה-slug האמיתי.
+
+**מסקנה: זה בדיוק B1 (`buildProgramSlugMap` צריך להשתמש ב-`resolveToSlug`, לא ב-movementPattern-או-שם) — אבל בזירה חמורה משמעותית מ"אין חשיפה היום" (autoSyncDomainsFromTracks, admin-panel-בלבד, 0/9 משתמשים בשלוש הרשויות המשלמות). הזירה החדשה, `recalculateMasterLevel`, היא נתיב-הפרודקשן החי שרץ לכל משתמש-סקילים אחרי כל אימון — ורמת ה-`calisthenics_upper` שלו נשארת תקועה-לצמיתות (`priorMasterLevel` נשמר, אף פעם לא מתעדכן) כל עוד ה-slug-map שבור.**
+
+**לא תוקן. לא נגעתי בקוד. דיווח בלבד, לפי בקשת דוד — B1 (וכל התיקונים התלויים בו, כולל B2/autoSyncDomainsFromTracks למעלה) ממתין להכרעת-תיאום-סבב אחד, כמו שכבר תועד ב-"⚠️ תלות-מיזוג קשיחה" בראש הקובץ.**
 
 ---
 
