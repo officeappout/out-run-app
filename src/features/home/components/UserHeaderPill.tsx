@@ -14,13 +14,23 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import dynamicImport from 'next/dynamic';
 import { useUserStore, useProgressionStore } from '@/features/user';
 import { useDailyActivity } from '@/features/activity';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChange } from '@/lib/auth.service';
 import type { ActivityType } from '@/features/activity/types/activity.types';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
-import AnimatedFlame from '@/components/ui/AnimatedFlame';
+
+// Loaded on demand (SPEC-05 A.4) — AnimatedFlame pulls in a 1.2MB Lottie
+// animation + the dotlottie-web WASM engine, previously bundled into this
+// pill's own chunk even on first paint. loading fallback reserves the same
+// 20x20 footprint as the default `size` prop below so there's no layout
+// shift once the real flame mounts.
+const AnimatedFlame = dynamicImport(() => import('@/components/ui/AnimatedFlame'), {
+  ssr: false,
+  loading: () => <div style={{ width: 20, height: 20 }} />,
+});
 
 // ============================================================================
 // TYPES
