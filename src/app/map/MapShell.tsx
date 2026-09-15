@@ -10,7 +10,7 @@
  *   2. MapModeProvider context
  *   3. Base AppMap (dynamically imported so Mapbox is its own chunk)
  *   4. Layer Router (switch on mode)
- *   5. Global overlays (JIT modal, referral toast, ParticleBackground)
+ *   5. Global overlays (JIT modal, referral toast)
  *   6. Mode-sync effects
  *
  * The gate renders as a high z-[80] fixed overlay so the Mapbox canvas
@@ -31,7 +31,6 @@ import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs
 import { useIsForeground } from '@/lib/appForeground'; // [A2-SPIKE] temporary diagnostic import
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
-import ParticleBackground from '@/components/ParticleBackground';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
 import { useFlyoverEntrance } from '@/features/safecity/hooks/useFlyoverEntrance';
 import { usePresenceLayer } from '@/features/safecity/hooks/usePresenceLayer';
@@ -541,13 +540,6 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
       ) : (
         !isActiveMode && <AppHeader asOverlay />
       )}
-      {/* Background particles (hidden during active workouts) */}
-      {!isActiveMode && (
-        <div className="absolute inset-0 z-[-1] pointer-events-none">
-          <ParticleBackground />
-        </div>
-      )}
-
       {/* ══════ BASE MAP ══════
            Suppressed in free_run mode — FreeRunLayer owns AppMap there
            (it lives inside the draggable motion.div so map + UI drag together).

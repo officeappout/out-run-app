@@ -29,7 +29,6 @@
 - Generated routes → WorkoutDrawer. Curated routes → BottomJourneyContainer carousel. This is THE LAW.
 
 ## Z-Index Budget (Map UI)
-- z-[-1]: ParticleBackground
 - z-0: Map canvas (AppMap)
 - z-20: Active workout overlay, navigate bottom
 - z-30: ParkPreview floating card
