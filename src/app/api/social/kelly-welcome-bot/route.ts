@@ -17,9 +17,9 @@
  * lives here, not in the client hook, specifically so the cutoff is one
  * server-side, auditable value instead of a client-trusted decision.
  *
- * ⚠️ GO_LIVE_AT below is a placeholder for the date this decision was
- * made, not necessarily the actual deploy date — confirm/adjust it to
- * match the real go-live moment before merging.
+ * GO_LIVE_AT below is set to the actual merge moment, rounded later
+ * rather than earlier — see that constant's own comment for why the
+ * rounding direction isn't arbitrary.
  *
  * Moved server-side (10.09.2026, David) after two independent Firestore rule
  * blockers made the original client-side version (kelly-welcome-bot.service.ts's
@@ -66,10 +66,16 @@ import { KELLY_UID, KELLY_NAME, buildKellyWelcomeMessage } from '@/features/soci
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// ⚠️ Placeholder for the date of David's 15.09.2026 decision — verify this
-// matches the actual go-live moment before merging, not just the day the
-// decision was made.
-const GO_LIVE_AT = new Date('2026-09-15T00:00:00Z');
+// Set to the actual merge moment (15.09.2026), rounded LATER rather than
+// earlier per David's own reasoning: the risk is asymmetric. Too early =
+// a pre-existing test account gets "welcome" via catchup, exactly what
+// this gate exists to prevent. Too late = a genuinely new user only
+// loses the catchup safety net for a window — the primary 'onboarding'
+// trigger is exempt from this check entirely, so they still get the
+// message through that path regardless.
+// 2026-09-15T12:00:00Z == 15:00 Israel time (IDT, UTC+3) — ~45 minutes
+// after the actual merge, specifically to round later than earlier.
+const GO_LIVE_AT = new Date('2026-09-15T12:00:00Z');
 
 export async function POST(request: NextRequest) {
   try {
