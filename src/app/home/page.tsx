@@ -39,6 +39,9 @@ import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerat
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
+import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
+import { composeParkWorkout, type ParkWorkoutDifficulty } from '@/features/workout-engine/services/compose-park-strength-workout.service';
+import type { Park } from '@/features/parks/core/types/park.types';
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, RUNNING_ONBOARDING_GATE_ENABLED } from '@/config/feature-flags';
@@ -1564,6 +1567,94 @@ export default function HomePage() {
     setGeneratedWorkout(workout);
     setIsWorkoutLoading(false);
   }, []);
+
+  // ── Park "התחל אימון" wiring (Phase 1, park-start-workout-wiring-plan) ──────
+  // The workout drawer has no global mount (it's page-local state here on
+  // /home) — ParkDetailSheet's onStartWorkout hands off via
+  // useMapStore.pendingParkWorkoutStart instead (mirrors pendingRouteStart /
+  // DiscoverLayer.tsx's consumer effect exactly, just targeting /home). This
+  // effect is the consumer: compose the park workout, open the SAME
+  // WorkoutPreviewDrawer instance below pre-filled (Model C — no intermediate
+  // screen), reusing handleWorkoutGenerated for the generatedWorkout/ref/
+  // loading state exactly as any other generated workout would.
+  const PARK_DIFFICULTY_ORDER: ParkWorkoutDifficulty[] = ['easy', 'medium', 'hard'];
+  const PARK_DIFFICULTY_LABELS: Record<ParkWorkoutDifficulty, string> = {
+    easy: 'קל',
+    medium: 'בינוני',
+    hard: 'קשה',
+  };
+
+  const composeAndOpenParkWorkout = useCallback(async (park: Park, difficulty: ParkWorkoutDifficulty) => {
+    if (!profile) return;
+
+    // Open the drawer immediately in its loading state (skeleton), matching
+    // the same isGeneratingWorkout pattern every other preview path uses —
+    // no separate loading screen. Only sets the placeholder on the FIRST
+    // call (intensity re-selection reuses the already-open drawer).
+    setIsWorkoutLoading(true);
+    setSelectedWorkout((prev: any) => prev ?? {
+      id: `park-workout-${park.id}`,
+      title: park.name ? `אימון ב${park.name}` : 'אימון בפארק',
+      description: 'אימון משולב: מתקנים + משקל גוף',
+      level: 'medium',
+      difficulty,
+      duration: 20,
+      coverImage: '',
+      segments: [],
+    });
+
+    try {
+      const result = await composeParkWorkout(park, profile, { difficulty, availableTime: 20 });
+      const uniqueWorkoutId = `park-workout-${park.id}-${Date.now()}`;
+      const workoutPlan = buildRunnerWorkoutPlanFromGenerated(result.workout, { id: uniqueWorkoutId });
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));
+        sessionStorage.setItem('currentWorkoutPlanId', uniqueWorkoutId);
+        sessionStorage.setItem('currentWorkoutLocation', 'park');
+      }
+
+      handleWorkoutGenerated(result.workout);
+
+      setSelectedWorkout({
+        id: uniqueWorkoutId,
+        title: result.workout.title,
+        description: result.workout.description,
+        level: profile?.progression?.domains?.full_body?.currentLevel?.toString() || 'medium',
+        difficulty: String(result.workout.difficulty),
+        duration: result.workout.estimatedDuration,
+        coverImage: '',
+        segments: [],
+      });
+
+      setTrioSelector({
+        options: PARK_DIFFICULTY_ORDER.map((d) => ({
+          label: PARK_DIFFICULTY_LABELS[d],
+          difficulty: d,
+          duration: 20,
+        })),
+        selectedIndex: PARK_DIFFICULTY_ORDER.indexOf(difficulty),
+        onSelect: (index: number) => {
+          void composeAndOpenParkWorkout(park, PARK_DIFFICULTY_ORDER[index] ?? 'medium');
+        },
+      });
+    } catch (error) {
+      console.error('[ParkWorkout] composeParkWorkout failed:', error);
+      setIsWorkoutLoading(false);
+      setSelectedWorkout(null);
+      setTrioSelector(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, handleWorkoutGenerated]);
+
+  const pendingParkWorkoutStart = useMapStore((s) => s.pendingParkWorkoutStart);
+  useEffect(() => {
+    if (!pendingParkWorkoutStart) return;
+    const park = useMapStore.getState().consumePendingParkWorkoutStart();
+    if (!park) return;
+    void composeAndOpenParkWorkout(park, 'medium');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingParkWorkoutStart]);
 
   // Regression fix (30.08.2026, "3 intensity toggles disappeared from the workout preview
   // drawer"): the old StatsOverview anchor was always mounted and ran generateHomeWorkoutTrio
