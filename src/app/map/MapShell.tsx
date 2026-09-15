@@ -28,7 +28,6 @@ import type { Route } from '@/features/parks/core/types/route.types';
 import { useUserStore } from '@/features/user';
 import { syncLocationToFirestore } from '@/lib/firestore.service';
 import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
-import { useIsForeground } from '@/lib/appForeground'; // [A2-SPIKE] temporary diagnostic import
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
@@ -107,44 +106,6 @@ interface MapShellInnerProps {
 function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
   const logic = useMapLogic(mode, contextActivity);
-
-  // [A2-SPIKE] TEMPORARY diagnostic — logs every `mode` change (MapModeContext
-  // state, NOT a remount) so it's distinguishable from the outer MapShell
-  // MOUNTED/UNMOUNTED log above. Expect this to fire on mode transitions
-  // (e.g. discovery → free_run on "start run") WITHOUT an outer UNMOUNTED
-  // log anywhere near it — that combination proves mode changes alone never
-  // tear down useGPS/useMapLogic.
-  useEffect(() => {
-    console.log('[A2-SPIKE][MapShell] MapShellInner mode changed', { mode });
-  }, [mode]);
-
-  // [A2-SPIKE] TEMPORARY diagnostic — passive only, does NOT alter behavior
-  // (no pause/resume logic attached; this is the eventual real fix, not this
-  // spike). Purely correlates real OS-level backgrounding (screen lock, app
-  // switch) against the mount/mode/interval logs above so scenario (a) can
-  // be told apart from scenario (b) in the console timeline.
-  //
-  // [A2-SPIKE] Two signals, deliberately both logged: a raw `visibilitychange`
-  // listener (below) AND the codebase's own dual-signal `useIsForeground()`
-  // (appForeground.ts, unions visibilitychange + Capacitor's native
-  // App.appStateChange — its own header comment states a single signal isn't
-  // fully trusted on native WKWebView). If the two ever disagree on-device,
-  // that mismatch is itself diagnostic signal — log both, don't pick one.
-  const isForegroundSpike = useIsForeground();
-  useEffect(() => {
-    console.log('[A2-SPIKE][MapShell] useIsForeground() changed', { isForegroundSpike });
-  }, [isForegroundSpike]);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const onVisibility = () => {
-      console.log('[A2-SPIKE][MapShell] document.visibilityState changed', {
-        visibilityState: document.visibilityState,
-      });
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
 
   const routeZones = useRunningPlayer((s) => s.routeZones);
   const isMapFollowEnabled = useRunningPlayer((s) => s.isMapFollowEnabled);
@@ -815,22 +776,6 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   const openRouteId = searchParams.get('openRoute');
 
   const fromExplorer = searchParams.get('fromExplorer') === 'true';
-
-  // [A2-SPIKE] TEMPORARY diagnostic — this is the true outer root: mounted
-  // once per /map page.tsx → next/dynamic(MapShellEntry) entry. Distinct
-  // from the mode-change log inside MapShellInner below — mode changes are
-  // just MapModeContext state and do NOT unmount this component. If THIS
-  // logs UNMOUNTED then re-MOUNTED while a run is active, that's a full
-  // route-level remount (in-app tab navigation away and back); if it never
-  // logs UNMOUNTED during the whole scenario, MapShell stayed mounted the
-  // entire time and the bug is not about unmounting.
-  useEffect(() => {
-    console.log('[A2-SPIKE][MapShell] outer MapShell MOUNTED');
-    return () => {
-      console.log('[A2-SPIKE][MapShell] outer MapShell UNMOUNTED');
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Social-activities push deep-link (Phase 3) — see openParkId/openRouteId
   // above. Fire-and-forget fetch; a not-found id just never opens anything.
