@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { RefreshCw, ExternalLink, AlertCircle, GraduationCap, X, Smartphone, Maximize } from 'lucide-react';
+import { RefreshCw, ExternalLink, AlertCircle, GraduationCap, X, Smartphone, Maximize, Video as VideoIcon } from 'lucide-react';
 import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
@@ -35,9 +35,6 @@ interface ExerciseVideoPlayerProps {
   onVideoEnded?: () => void;
   onLoadingChange?: (loading: boolean) => void;
 }
-
-// Fallback video URL
-const FALLBACK_VIDEO_URL = 'https://assets.mixkit.co/videos/preview/mixkit-girl-doing-squats-in-a-gym-23136-large.mp4';
 
 /**
  * Robust YouTube ID extraction
@@ -160,13 +157,16 @@ export default function ExerciseVideoPlayer({
   const urlToCache = isAlreadyBlob ? null : videoUrl;
   const cachedVideoUrl = useCachedMediaUrl(urlToCache);
 
-  // Build effective URL: blob from parent > blob from cache > network (only if online) > null
+  // Build effective URL: blob from parent > blob from cache > network (only if online) > null.
+  // No stock-video substitute when there's genuinely no video (David's decision) — a
+  // wrong clip teaches the wrong movement, which is worse than an honest empty state.
+  // See the empty-state render branch below.
   const effectiveVideoUrl = isAlreadyBlob
     ? videoUrl
     : cachedVideoUrl?.startsWith('blob:')
       ? cachedVideoUrl
       : isOnline
-        ? (videoUrl || FALLBACK_VIDEO_URL)
+        ? videoUrl
         : null;
 
   // Check if current video is YouTube (never cache YouTube URLs)
@@ -257,6 +257,15 @@ export default function ExerciseVideoPlayer({
     setVideoLoading(loading);
     onLoadingChange?.(loading);
   }, [onLoadingChange]);
+
+  // No media element mounts in the empty-state branch below, so nothing would
+  // ever fire the onLoad/onError handlers that normally clear videoLoading —
+  // without this, a genuinely-video-less exercise would show the loading
+  // spinner forever, or leave a parent's own onLoadingChange-gated UI stuck
+  // "loading" indefinitely.
+  useEffect(() => {
+    if (!effectiveVideoUrl) handleLoadingChange(false);
+  }, [effectiveVideoUrl, handleLoadingChange]);
 
   // Handle YouTube iframe refresh
   const handleRefreshYouTube = useCallback(() => {
@@ -413,6 +422,19 @@ export default function ExerciseVideoPlayer({
               <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Honest empty state — no video for this exercise/method at all (David's
+          decision): same visual as the drawer's empty state
+          (content/exercises/client/components/ExerciseVideoPlayer.tsx:270-278),
+          gray box + a generic video icon. Replaces the old FALLBACK_VIDEO_URL
+          stock clip (an unrelated gym-squats video played with no indication it
+          wasn't the real exercise) — a wrong video teaches a wrong movement,
+          which is worse than showing nothing. */}
+      {!effectiveVideoUrl && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-400">
+          <VideoIcon size={32} />
         </div>
       )}
 
