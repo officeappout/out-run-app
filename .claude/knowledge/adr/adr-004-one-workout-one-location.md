@@ -45,6 +45,10 @@ Home is genuinely viable (own-clip coverage, not fallback-inflated) to roughly *
 - **Viability test** for a candidate location, at a user's level N: count exercises with an own-clip method for that location, in the window `[N-3, N+3]` (the engine's real level tolerance, `ContextualEngine.ts:113`), broken down by movement group (push / pull / legs / core — from `movementGroup`, mapped from the granular `horizontal_push`/`vertical_push`/etc. taxonomy).
 - **On failure:** the *entire* workout falls to the next candidate location, and the user gets an explicit message that this happened. Never a silent per-exercise substitution.
 
+**Equivalent formulation:** every execution method used in one workout must carry the same location tag. A workout containing a home-method exercise, a service-method exercise, and a park-method exercise is forbidden — even if each individual method is itself perfectly valid on its own terms.
+
+**Clarification:** mixing *gear* within one location is fine and expected (a home workout with a resistance-band exercise alongside a pure-bodyweight exercise is normal) — gear is filtered independently, per what the user actually has available. The rule bans mixing *locations*, not mixing *equipment*.
+
 ---
 
 ## Consequences
