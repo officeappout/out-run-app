@@ -7,7 +7,7 @@ import { resolveSetTarget, resolvePyramidStep } from '../logic/set-target.utils'
 import { resolveTutorialForLang } from '@/features/content/exercises/core/exercise.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import type { BlockProtocolInfo } from '../protocols/block-protocol';
-import { tabataIntervalInfo, tabataMemberCosts } from '../protocols/tabata.advance';
+import { tabataIntervalInfo, tabataMemberCosts, tabataRoundsPerMember } from '../protocols/tabata.advance';
 
 /**
  * useExerciseDerivedValues — all 20+ display-value memos in one isolated hook
@@ -430,31 +430,43 @@ export function useExerciseDerivedValues({
     const currentEx = currentExercises?.[currentExerciseIndex] ?? null;
     const setsForCurrent = getSetsForExercise(currentEx);
 
-    // ── Tabata round-robin look-ahead (16.09.2026) ──────────────────────────
+    // ── Tabata look-ahead (16.09.2026) ──────────────────────────────────────
     // The generic index+1 walk below assumes a linear list — correct for
-    // supersets/straight sets, but wrong the moment a round-robin block needs
-    // to WRAP back to an earlier index (e.g. 2-machine A→B→A→B: after B's
+    // supersets/straight sets, but wrong for either tabata order: cycle-major
+    // needs to WRAP back to an earlier index (2-machine A→B→A→B: after B's
     // FIRST turn, index+1 runs off the 2-element array and the generic code
     // falls through to "next segment", incorrectly predicting cooldown
-    // instead of "machine A again"). tabataAdvance (protocols/tabata.advance.ts)
-    // is the actual authority on this wrap; mirrored here read-only, using the
-    // same tabataIntervalInfo/tabataMemberCosts, so the rest-screen preview
-    // can never disagree with where the state machine is really about to go.
-    // Scoped to bilateral round-robin (the machine-tabata case this was built
-    // for) — a unilateral member's right→left side-rest keeps the SAME
+    // instead of "machine A again"), and exercise-major (A→A→B→B, machine
+    // tabata only) needs the OPPOSITE decision (same exercise while rounds
+    // remain, THEN advance). tabataAdvance (protocols/tabata.advance.ts) is
+    // the actual authority on both; mirrored here read-only, using the same
+    // tabataIntervalInfo/tabataMemberCosts/tabataRoundsPerMember + orderMode,
+    // so the rest-screen preview can never disagree with where the state
+    // machine is really about to go. Scoped to bilateral blocks (both tested
+    // cases) — a unilateral member's right→left side-rest keeps the SAME
     // exercise index the whole time, so it already falls through unaffected.
     const isTabataBlock = blockProtocol?.id === 'tabata';
+    const tabataOrderMode = blockProtocol?.config.orderMode ?? 'cycle-major';
     if (isTabataBlock && currentExercises && currentExercises.length > 0) {
+      const costs = tabataMemberCosts(currentExercises);
       const { isLastInterval } = tabataIntervalInfo({
-        costs: tabataMemberCosts(currentExercises),
+        costs,
         exerciseIndex: currentExerciseIndex,
         setIdx: currentSetIndex,
         rounds: blockProtocol!.config.rounds,
+        orderMode: tabataOrderMode,
       });
       if (!isLastInterval) {
-        exercise = currentExerciseIndex < currentExercises.length - 1
-          ? currentExercises[currentExerciseIndex + 1]
-          : currentExercises[0]; // cycle complete — wrap back to the first member
+        if (tabataOrderMode === 'exercise-major') {
+          const roundsPerMember = tabataRoundsPerMember(blockProtocol!.config.rounds, costs);
+          exercise = currentSetIndex + 1 < roundsPerMember
+            ? currentExercises[currentExerciseIndex] // same machine, next round
+            : (currentExercises[currentExerciseIndex + 1] ?? null); // next machine
+        } else {
+          exercise = currentExerciseIndex < currentExercises.length - 1
+            ? currentExercises[currentExerciseIndex + 1]
+            : currentExercises[0]; // cycle complete — wrap back to the first member
+        }
       }
       // isLastInterval stays null here — falls through to the "next segment"
       // walk at the bottom of this memo, exactly like the generic

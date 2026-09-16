@@ -38,21 +38,46 @@ export function tabataMemberCosts(
 }
 
 /**
+ * How many rounds each member gets in 'exercise-major' mode — the block's
+ * `rounds` split evenly across the cycle (machine tabata is always
+ * all-bilateral + uniform: rounds = machineCount × MIN_ROUNDS_PER_MACHINE,
+ * so this divides exactly). Shared by tabataIntervalInfo and tabataAdvance
+ * so the two can never disagree on where one member's block of rounds ends
+ * and the next begins.
+ */
+export function tabataRoundsPerMember(rounds: number, costs: number[]): number {
+  const cycleCost = costs.reduce((s, c) => s + c, 0) || 1;
+  return Math.max(1, Math.round(rounds / cycleCost));
+}
+
+/**
  * Pure WEIGHTED interval arithmetic — used by the head AND the state
  * machine. A unilateral member consumes 2 of the block's `rounds`
  * (David's rule 12.07.2026), so positions are prefix sums of the member
  * costs, not a linear index.
+ *
+ * orderMode (16.09.2026): absent/'cycle-major' (default) is the ORIGINAL,
+ * unchanged formula — round-robin, A→B→A→B (the general-finisher tabata's
+ * behavior, never touched by this addition). 'exercise-major' — set ONLY by
+ * the machine/park tabata composer — numbers intervals A→A→B→B instead: all
+ * of one member's rounds consecutively before the next. isLastInterval is
+ * correct under EITHER formula for the true final pair (exercises.length-1,
+ * roundsPerMember-1) — both always resolve its intervalIndex to
+ * `rounds - 1`, since every valid ordering visits all `rounds` positions
+ * exactly once — so no separate isLastInterval logic is needed per mode.
  */
 export function tabataIntervalInfo(args: {
   costs: number[];
   exerciseIndex: number;
   setIdx: number;
   rounds: number;
+  orderMode?: 'cycle-major' | 'exercise-major';
 }): TabataIntervalInfo {
   const costs = args.costs.length > 0 ? args.costs : [1];
   const cycleCost = costs.reduce((s, c) => s + c, 0);
-  const prefix = costs.slice(0, args.exerciseIndex).reduce((s, c) => s + c, 0);
-  const intervalIndex = args.setIdx * cycleCost + prefix;
+  const intervalIndex = args.orderMode === 'exercise-major'
+    ? args.exerciseIndex * tabataRoundsPerMember(args.rounds, costs) + args.setIdx
+    : args.setIdx * cycleCost + costs.slice(0, args.exerciseIndex).reduce((s, c) => s + c, 0);
   const completedAfterVisit = intervalIndex + (costs[args.exerciseIndex] ?? 1);
   return {
     intervalIndex,
@@ -74,11 +99,14 @@ export const tabataAdvance: AdvanceStrategy = (ctx): AdvanceDecision => {
     return advanceOutOfSegment(ctx);
   }
 
+  const orderMode = block.config.orderMode ?? 'cycle-major';
+  const costs = tabataMemberCosts(exercises);
   const { isLastInterval, intervalIndex } = tabataIntervalInfo({
-    costs: tabataMemberCosts(exercises),
+    costs,
     exerciseIndex: prevExerciseIndex,
     setIdx,
     rounds: block.config.rounds,
+    orderMode,
   });
 
   console.log(
@@ -88,6 +116,20 @@ export const tabataAdvance: AdvanceStrategy = (ctx): AdvanceDecision => {
 
   if (isLastInterval) {
     return advanceOutOfSegment(ctx);
+  }
+
+  // ── Exercise-major (machine tabata block only) ──────────────────────────
+  // All of this member's rounds before moving to the next — the opposite
+  // structure from cycle-major below. Never taken for the general finisher,
+  // which never sets orderMode.
+  if (orderMode === 'exercise-major') {
+    const roundsPerMember = tabataRoundsPerMember(block.config.rounds, costs);
+    if (setIdx + 1 < roundsPerMember) {
+      // More rounds left on the SAME member — stay put, bump the cycle counter.
+      return { kind: 'goToExercise', exerciseIndex: prevExerciseIndex, nextSetIdx: setIdx + 1 };
+    }
+    // This member is done — move to the next one, reset its cycle counter.
+    return { kind: 'goToExercise', exerciseIndex: prevExerciseIndex + 1, nextSetIdx: 0 };
   }
 
   if (prevExerciseIndex < exercises.length - 1) {

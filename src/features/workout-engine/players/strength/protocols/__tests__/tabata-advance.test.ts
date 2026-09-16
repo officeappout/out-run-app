@@ -154,6 +154,69 @@ describe('tabataAdvance — round-robin head', () => {
   });
 });
 
+/**
+ * 16.09.2026 — machine tabata block only. orderMode: 'exercise-major' is set
+ * exclusively by compose-park-strength-workout.service.ts; the general
+ * finisher (protocols/tabata.block.ts) never sets it, so every test above
+ * this block (all omitting orderMode, defaulting to cycle-major) locks in
+ * that the general-finisher/round-robin path is completely unaffected by
+ * this addition — same code path, same assertions, all still passing.
+ */
+describe('tabataAdvance — exercise-major head (machine tabata block only)', () => {
+  const A = ex('a');
+  const B = ex('b');
+  const exerciseMajorConfig: TabataProtocolConfig = { workSec: 30, restSec: 30, rounds: 4, orderMode: 'exercise-major' };
+  const exerciseMajorSeg = (exercises: AdvanceExercise[]) => tabataSeg('t0', exercises, exerciseMajorConfig);
+
+  it('A round 1 → A round 2 (same exercise, cycle counter bumps)', () => {
+    const d = tabataAdvance(ctx({ segments: [exerciseMajorSeg([A, B])], prevExerciseIndex: 0, setIdx: 0 }));
+    expect(d).toEqual({ kind: 'goToExercise', exerciseIndex: 0, nextSetIdx: 1 });
+  });
+
+  it('A round 2 → B round 1 (A\'s rounds exhausted — advance to B, reset cycle to 0)', () => {
+    const d = tabataAdvance(ctx({ segments: [exerciseMajorSeg([A, B])], prevExerciseIndex: 0, setIdx: 1 }));
+    expect(d).toEqual({ kind: 'goToExercise', exerciseIndex: 1, nextSetIdx: 0 });
+  });
+
+  it('B round 1 → B round 2 (same exercise, cycle counter bumps)', () => {
+    const d = tabataAdvance(ctx({ segments: [exerciseMajorSeg([A, B])], prevExerciseIndex: 1, setIdx: 0 }));
+    expect(d).toEqual({ kind: 'goToExercise', exerciseIndex: 1, nextSetIdx: 1 });
+  });
+
+  it('B round 2 → block complete (last interval, no trailing rest — same as cycle-major)', () => {
+    const d = tabataAdvance(ctx({ segments: [exerciseMajorSeg([A, B])], prevExerciseIndex: 1, setIdx: 1 }));
+    expect(d).toEqual({ kind: 'workoutComplete' });
+  });
+
+  it('full A→A→B→B sequence via tabataIntervalInfo — absolute interval numbers 1,2,3,4 in that order', () => {
+    const costs = [1, 1];
+    const positions = [
+      { exerciseIndex: 0, setIdx: 0 }, // A1
+      { exerciseIndex: 0, setIdx: 1 }, // A2
+      { exerciseIndex: 1, setIdx: 0 }, // B1
+      { exerciseIndex: 1, setIdx: 1 }, // B2
+    ];
+    const indices = positions.map((p) =>
+      tabataIntervalInfo({ costs, ...p, rounds: 4, orderMode: 'exercise-major' }).intervalIndex,
+    );
+    expect(indices).toEqual([0, 1, 2, 3]); // strictly increasing, matching temporal A,A,B,B order
+  });
+
+  it('3 machines × 2 rounds (rounds=6): A→A→B→B→C→C', () => {
+    const C = ex('c');
+    const config: TabataProtocolConfig = { workSec: 30, restSec: 30, rounds: 6, orderMode: 'exercise-major' };
+    const seg = tabataSeg('t0', [A, B, C], config);
+    expect(tabataAdvance(ctx({ segments: [seg], prevExerciseIndex: 0, setIdx: 0 })))
+      .toEqual({ kind: 'goToExercise', exerciseIndex: 0, nextSetIdx: 1 }); // A1→A2
+    expect(tabataAdvance(ctx({ segments: [seg], prevExerciseIndex: 0, setIdx: 1 })))
+      .toEqual({ kind: 'goToExercise', exerciseIndex: 1, nextSetIdx: 0 }); // A2→B1
+    expect(tabataAdvance(ctx({ segments: [seg], prevExerciseIndex: 1, setIdx: 1 })))
+      .toEqual({ kind: 'goToExercise', exerciseIndex: 2, nextSetIdx: 0 }); // B2→C1
+    expect(tabataAdvance(ctx({ segments: [seg], prevExerciseIndex: 2, setIdx: 1 })))
+      .toEqual({ kind: 'workoutComplete' }); // C2 → done
+  });
+});
+
 describe('block dispatch (compute-advance)', () => {
   it('segment.protocol=tabata routes to the tabata head, ignoring pairedWith', () => {
     // Paired exercises inside a tabata block must NOT trigger superset flow.

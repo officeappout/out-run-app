@@ -72,6 +72,15 @@ export interface TabataProtocolConfig {
   restSec: number;
   /** Total work intervals (classic: 8). */
   rounds: number;
+  /**
+   * Interval sequencing (16.09.2026). Absent/'cycle-major' (default) =
+   * round-robin, A→B→A→B — the general-finisher tabata's existing,
+   * unchanged behavior. 'exercise-major' = all of one member's rounds
+   * consecutively before the next, A→A→B→B — set ONLY by the machine/park
+   * tabata composer (compose-park-strength-workout.service.ts), so the
+   * user isn't asked to ping-pong between two physical machines.
+   */
+  orderMode?: 'cycle-major' | 'exercise-major';
 }
 
 export interface EmomProtocolConfig {

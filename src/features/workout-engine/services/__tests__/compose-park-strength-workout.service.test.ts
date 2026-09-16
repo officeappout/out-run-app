@@ -487,8 +487,11 @@ describe('composeParkWorkoutFromMachines', () => {
     });
     const easy = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'easy' });
     const hard = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'hard' });
-    expect(easy.workout.tabataBlock?.config).toEqual({ workSec: 20, restSec: 40, rounds: 4 });
-    expect(hard.workout.tabataBlock?.config).toEqual({ workSec: 40, restSec: 20, rounds: 4 });
+    // orderMode: 'exercise-major' (16.09.2026) — machine tabata always sets
+    // this, so the user does all of one machine's rounds before the next
+    // instead of round-robin-ing between two physical machines.
+    expect(easy.workout.tabataBlock?.config).toEqual({ workSec: 20, restSec: 40, rounds: 4, orderMode: 'exercise-major' });
+    expect(hard.workout.tabataBlock?.config).toEqual({ workSec: 40, restSec: 20, rounds: 4, orderMode: 'exercise-major' });
   });
 
   it('merges Block A + Block B exercises into one combined workout, Block B (bodyweight) FIRST — Part 1 bodyweight/skill while fresh, Part 2 machine Tabata at the end', async () => {
@@ -527,8 +530,9 @@ describe('composeParkWorkoutFromMachines', () => {
     const result = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'medium' });
     // Block A's 2 machines + Block B's core-tabata member all share ONE tabataBlock.
     expect(new Set(result.workout.tabataBlock?.exerciseIds)).toEqual(new Set(['push1', 'pull1', 'core-ex-1']));
-    // Under Block A's ladder config (NOT Block B's own TABATA_CLASSIC-shaped config) — one shared clock.
-    expect(result.workout.tabataBlock?.config).toEqual({ workSec: 30, restSec: 30, rounds: 4 });
+    // Under Block A's ladder config (NOT Block B's own TABATA_CLASSIC-shaped config) — one shared clock,
+    // so the merged-in core-tabata member also inherits Block A's exercise-major orderMode.
+    expect(result.workout.tabataBlock?.config).toEqual({ workSec: 30, restSec: 30, rounds: 4, orderMode: 'exercise-major' });
   });
 
   it('diagnosis item 1(b)/4 fix: a Block-B-only core-tabata (no Block A machines at all) still gets its own tabataBlock, using Block B\'s own config', async () => {

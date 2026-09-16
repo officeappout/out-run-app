@@ -413,7 +413,16 @@ export async function composeParkWorkoutFromMachines(
     secPerRound,
   });
   const selectedMachines = machineCount > 0 ? selectBlockAMachines(eligibleMachines, machineCount, scheduledDomains) : [];
-  const tabataConfig: TabataProtocolConfig = { workSec: ladderRung.workSec, restSec: ladderRung.restSec, rounds };
+  // Machine tabata orders intervals exercise-major (A→A→B→B, all of one
+  // machine's rounds before moving on) — the user is physically standing at
+  // one machine and shouldn't ping-pong between two. The general-finisher
+  // tabata (protocols/tabata.block.ts) never sets this — stays cycle-major.
+  const tabataConfig: TabataProtocolConfig = {
+    workSec: ladderRung.workSec,
+    restSec: ladderRung.restSec,
+    rounds,
+    orderMode: 'exercise-major',
+  };
   const blockACoveredDomains = computeCoveredDomains(selectedMachines);
   const blockAExercises = selectedMachines.map((m) =>
     buildMachinePseudoExercise(m, tabataConfig, brandNamesByEquipmentId[m.id]),

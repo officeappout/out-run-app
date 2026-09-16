@@ -543,6 +543,7 @@ export function useWorkoutStateMachine(
       exerciseIndex: currentExerciseIndex,
       setIdx: currentSetIndex,
       rounds: blockProtocol.config.rounds,
+      orderMode: blockProtocol.config.orderMode,
     });
     const current = intervalIndex + 1 + (currentSide === 'left' ? 1 : 0);
     return { current: Math.min(current, blockProtocol.config.rounds), total: blockProtocol.config.rounds };
