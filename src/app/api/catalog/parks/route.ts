@@ -10,13 +10,25 @@
  *
  * Field list is exactly what stage 0's field-mapping found real map/search
  * consumers reading (AppMap's vector-pin GeoJSON, ParkPhotoMarker,
- * useNearbyParks) — not a guess, not the full Park type. Measured against
- * real production data: 60.2KB gzipped for 1158 parks, under the 100KB
- * target. `imageUrl` is the raw resolved-priority URL (imageUrl → image →
- * images[0], same priority as resolveParkImage) with NO width baked in —
- * every consumer calls bunnyImg itself with whatever width it needs (80 for
- * a map marker, 400 for a card); the catalog must not fix that choice for
- * every future consumer.
+ * useNearbyParks) — not a guess, not the full Park type. `imageUrl` is the
+ * raw resolved-priority URL (imageUrl → image → images[0], same priority as
+ * resolveParkImage) with NO width baked in — every consumer calls bunnyImg
+ * itself with whatever width it needs (80 for a map marker, 400 for a
+ * card); the catalog must not fix that choice for every future consumer.
+ *
+ * hasUsableEquipment/isPrimaryFitness (David, 16.09.2026, after the 21-caller
+ * fetchRealParks audit): precomputed here, server-side, from the full
+ * record — NOT exposed as raw gymEquipment/sportTypes arrays. This is the
+ * standing SPEC-07 pattern from here on: a consumer needing a filter gets a
+ * computed boolean, never the raw field the filter runs on. Scope is
+ * deliberately locked to exactly these two — sportTypes, courtType,
+ * natureType, and city were all considered and explicitly excluded (no
+ * confirmed consumer on the lean path); do not add a field speculatively —
+ * stop and ask first, per the same review.
+ *
+ * urbanType stays in the catalog (product owner's call, not a technical
+ * one) despite being empty on every currently-published park — see the
+ * master-plan journal.
  *
  * published filtering is NOT a Firestore query clause — parks.service.ts's
  * own normalizePark treats a doc as published via
@@ -69,6 +81,8 @@ interface CatalogParkEntry {
   isFunctional: boolean;
   urbanType: string | null;
   imageUrl: string | null;
+  hasUsableEquipment: boolean;
+  isPrimaryFitness: boolean;
 }
 
 function resolveImage(d: FirebaseFirestore.DocumentData): string | null {
@@ -77,6 +91,35 @@ function resolveImage(d: FirebaseFirestore.DocumentData): string | null {
 
 function isEffectivelyPublished(d: FirebaseFirestore.DocumentData): boolean {
   return d.published ?? d.contentStatus === 'published';
+}
+
+// Mirrors park-fitness.util.ts's isPrimaryFitness() — duplicated, not
+// imported, because that file lives under workout-engine/hybrid and pulls
+// in client-SDK-dependent siblings; this is a 3-line, stable check
+// (source-of-truth values: park-fitness.util.ts).
+const FITNESS_RELEVANT_SPORT_TYPES = new Set(['calisthenics', 'functional', 'crossfit']);
+function computeIsPrimaryFitness(d: FirebaseFirestore.DocumentData): boolean {
+  const sportTypes: unknown[] = Array.isArray(d.sportTypes) ? d.sportTypes : [];
+  return sportTypes.some((t) => FITNESS_RELEVANT_SPORT_TYPES.has(String(t))) || d.facilityType === 'gym_park';
+}
+
+// The actual, complete condition under which parkGymEquipmentToGearIds'
+// normalization can ever come back empty — traced through the real code
+// (park-equipment.util.ts + gear-mapping.utils.ts's normalizeGearId): every
+// entry lacking a real equipmentId. normalizeGearId's alias/cache lookups
+// only affect WHICH canonical id comes out for a valid equipmentId, never
+// WHETHER one does — its unconditional final fallback echoes the raw
+// (lowercased) id. Verified against all 596 published parks with non-empty
+// gymEquipment in production (16.09.2026): zero have every entry missing
+// equipmentId, so this line has never actually differed from a plain
+// non-empty check on real data — but it's the real condition, not a
+// convenient proxy, and stays correct if that ever changes.
+function computeHasUsableEquipment(d: FirebaseFirestore.DocumentData): boolean {
+  const gymEquipment: unknown[] = Array.isArray(d.gymEquipment) ? d.gymEquipment : [];
+  return gymEquipment.some(
+    (e) => e && typeof (e as { equipmentId?: unknown }).equipmentId === 'string'
+      && ((e as { equipmentId: string }).equipmentId.trim().length > 0),
+  );
 }
 
 async function buildCatalog(): Promise<CatalogParkEntry[]> {
@@ -101,6 +144,8 @@ async function buildCatalog(): Promise<CatalogParkEntry[]> {
       isFunctional: d.isFunctional === true,
       urbanType: d.urbanType || null,
       imageUrl: resolveImage(d),
+      hasUsableEquipment: computeHasUsableEquipment(d),
+      isPrimaryFitness: computeIsPrimaryFitness(d),
     });
   }
 
