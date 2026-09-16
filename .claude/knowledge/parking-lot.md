@@ -938,3 +938,28 @@ muscle_up.subPrograms = ['push', 'pull']                   // מאסטר → ש�
 **לפני מיזוג, בוצעה בדיקת-בטיחות ייעודית** (ביקש דוד, דגש על `[COOLDOWN-NUKE]` — הוא יורה בדיוק כשדברים חסרים): נבדקו שלוש נקודות-הלוג מול טיפוסי-TypeScript האמיתיים (`Exercise.id: string` — לא-אופציונלי, `ExecutionMethod.location: ExecutionLocation` — לא-אופציונלי, לא `location?:`). כל שדה שהלוג נוגע בו הוא: (א) שדה-טיפוס לא-אופציונלי, (ב) פרמטר-פונקציה נדרש, או (ג) ערך שכבר נבדק-truthy/הוקצה-מחדש-ל-non-null שורה-לפני, באותו scope. לא נמצאה גישה ל-undefined/null באף אחת מהשלוש. אין wrapping נוסף.
 
 **אל תסיר בקומיט עתידי.** אם מישהו מציע קומיט-הסרה ל-3 התגיות האלה — לעצור ולשאול את דוד במפורש; "נגמר הזמן שלהם" אינה הכרעה תקינה כברירת-מחדל כאן.
+
+---
+
+## מנגנון-מיקום שלישי ומקביל — `DEFAULT_LOCATION` עוקף את `resolveEffectivePipelineLocation` לגמרי — 16.09.2026
+
+**Opened:** 16.09.2026 · **Source:** חקירת bug זהות-שיטת-הביצוע (execution-method-identity), שלב תיקון-פלט Stage 1. נמצא תוך-כדי חקירה, נרשם ולא תוקן לפי בקשת דוד.
+
+`home-workout.service.ts` מכיל **שני מנגנוני-ברירת-מחדל למיקום, בלתי-תלויים לגמרי**, לא אחד:
+
+1. **`resolveEffectivePipelineLocation`** (`:1749` בקובץ הנוכחי, "ULTIMATE PARK FORCE") — `testLocation ?? location ?? 'park'`. המנגנון ה"רשמי", המתועד, עם היסטוריית-תיקון (PR #30, 06.08.2026) שסגר בדיוק את הפער הזה עבור `_buildSharedPipeline`.
+2. **`options.location ?? DEFAULT_LOCATION`** (`DEFAULT_LOCATION = 'park'`, מוגדר ב-`:168`) — משמש בשני מקומות **נפרדים לגמרי**, לא קוראים ל-#1 בכלל: `tryRestDayFastPath` (`:464`) ו-`tryBuildRecoveryVideoTrio` (`:544`). **`testLocation` לא נבדק שם בכלל** — קורא שמעביר רק `testLocation` (למשל `WorkoutBuilderSheet`/`UserWorkoutAdjuster`, דרך ה-wrapper `generateHomeWorkout`) יקבל את ברירת-המחדל הגולמית `'park'` בנתיבים האלה, לא את הבחירה שלו — פרצה אמיתית, לא תיאורטית, בכל פעם שיום-מנוחה נופל לאחד משני הנתיבים האלה.
+
+**אותו ערך היום ('park' משני הכיוונים) — פצצת-זמן מחר.** אם `DEFAULT_LOCATION` או ברירת-המחדל של `resolveEffectivePipelineLocation` ישתנו בנפרד (למשל כשכיסוי-הווידאו לבית ישתפר — ראו הפריט הבא/המדידה בפרומפט ההורה) — שני המנגנונים יתפצלו בשקט, בלי אף test שיתפוס את זה (אין test המשווה ביניהם). Stage 1 (16.09.2026) הוסיף `[LOC-OVERRIDE]` tripwire ב-3 האתרים בנפרד (כולל תיוג `winner: 'DEFAULT_LOCATION'` שונה מ-`'PARK_FORCE'`) — כדי שהפיצול יהיה נראה בלוג לפני שהוא הופך לבאג-בפרודקשן, לא כדי לתקן אותו.
+
+**לא תוקן.** איחוד שני המנגנונים (או לפחות הוספת `testLocation` לשני הנתיבים החסרים) הוא תיקון-קלט, מחוץ לסקופ של Stage 1 (שהוא תיקון-פלט בלבד, לפי החלטת דוד המפורשת).
+
+---
+
+## `location` מול `testLocation` — שאלה אחת, שני שדות, כלל-קדימות ברמת-הטיפוס — 16.09.2026
+
+**Opened:** 16.09.2026 · **Source:** אותה חקירה, נרשם לפי בקשת דוד — לא לתקן עכשיו.
+
+`HomeWorkoutOptions` (`home-workout.types.ts`) מכיל שני שדות אופציונליים שעונים על **אותה שאלה בדיוק** — "מה המיקום המבוקש?" — `location?: ExecutionLocation` ו-`testLocation?: ExecutionLocation`. ההבדל היחיד ביניהם הוא כלל-קדימות ב-runtime (`testLocation ?? location ?? 'park'`) שחי אך ורק בתוך `resolveEffectivePipelineLocation` — שום דבר בטיפוס עצמו לא מבטא את זה. שני קוראים אמיתיים (`WorkoutBuilderSheet.tsx:637`, `user-workout-adjuster-options.utils.ts:35`) מעבירים רק `testLocation`; קוראים אחרים מעבירים רק `location`; אף אחד לא אמור להעביר את שניהם (וכשזה קורה, `testLocation` מנצח בשקט — ראו `[LOC-OVERRIDE]` שנוסף ב-Stage 1, `winner: 'resolveEffectivePipelineLocation(testLocation-over-location)'`).
+
+זו "שאלה אחת, N תשובות" ברמת-הטיפוס — בדיוק הדפוס שגרם לבאג הזה מלכתחילה (§ הבדיקה שנעשתה טרם Stage 1: הפיכת `location` לחובה הייתה מפילה את שני הקוראים האלה בקומפילציה, כי הם לא נוגעים בשדה הזה כלל — לא כי הם שגויים, אלא כי הם עונים על אותה שאלה דרך השדה האחר). איחוד אמיתי (שדה יחיד, או union מתויג) הוא שינוי-טיפוס רחב יותר מ-Stage 1 — **לא תוקן, לא הוכרע — דוד מחליט.**
