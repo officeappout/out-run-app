@@ -474,10 +474,32 @@ export default function MasterExerciseView({
         if (i === 0 && locs.length > 1) {
           // eslint-disable-next-line no-console
           console.log(`[MEV] 🌱 seed multi-location method[0] locs=${JSON.stringify(locs)}`);
+          // Measurement only (execution-method-identity-plan.md, Stage 1) — no
+          // exact-location match was found, so this is a "different method than
+          // requested" landing. Logged, never blocked; zero behavior change.
+          if (normalizedLoc) {
+            // eslint-disable-next-line no-console
+            console.log('[MEV-MISMATCH]', JSON.stringify({
+              exerciseId: ex.id, requestedLocation: normalizedLoc,
+              resolvedLocation: locs.join(','), resolvedIdx: 0,
+              tier: 'multi-location-default',
+            }));
+          }
           return 0;
         }
         // eslint-disable-next-line no-console
         console.log(`[MEV] 🌱 seed fallback → method[${i}]`);
+        // Measurement only (execution-method-identity-plan.md, Stage 1) — same
+        // reasoning as above: no exact-location match, first-video-having method
+        // wins regardless of its own tagged location.
+        if (normalizedLoc) {
+          // eslint-disable-next-line no-console
+          console.log('[MEV-MISMATCH]', JSON.stringify({
+            exerciseId: ex.id, requestedLocation: normalizedLoc,
+            resolvedLocation: locs.join(','), resolvedIdx: i,
+            tier: 'first-with-video-fallback',
+          }));
+        }
         return i;
       }
     }

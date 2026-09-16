@@ -63,6 +63,22 @@ export function selectMethodForContext(
   const methods = exercise.execution_methods || exercise.executionMethods || [];
   if (!methods.length) return null;
 
+  // Measurement only (execution-method-identity-plan.md, Stage 1) — logs when a
+  // non-exact-location fallback tier resolves a method, so the generation-time
+  // choice can later be compared against what the display layer independently
+  // re-resolves for the same exercise. Never changes which method is returned.
+  const logMismatch = (tier: string, resolved: ExecutionMethod | null): ExecutionMethod | null => {
+    if (resolved) {
+      // eslint-disable-next-line no-console
+      console.log('[SMFC-MISMATCH]', JSON.stringify({
+        exerciseId: exercise.id, requestedLocation: location,
+        resolvedLocation: resolved.location, resolvedIdx: methods.indexOf(resolved),
+        tier,
+      }));
+    }
+    return resolved;
+  };
+
   // Prefer methods with media, with an EXACT-location preference.
   // "Has media" recognises the NEW Bunny previewVideo (not just legacy
   // mainVideoUrl/imageUrl) — otherwise a Bunny-only park method looks media-less
@@ -187,12 +203,12 @@ export function selectMethodForContext(
     const homeCandidates = methods.filter(
       m => m.location === 'home' || m.locationMapping?.includes('home'),
     );
-    if (homeCandidates.length > 0) return preferMedia(homeCandidates, 'home');
+    if (homeCandidates.length > 0) return logMismatch('home-fallback', preferMedia(homeCandidates, 'home'));
   }
 
   // ── Priority 2.5: Methods requiring only available gear (non-park) ────
   const availableGearCandidates = methods.filter(requiresOnlyAvailableGear);
-  if (availableGearCandidates.length > 0) return preferMedia(availableGearCandidates);
+  if (availableGearCandidates.length > 0) return logMismatch('available-gear', preferMedia(availableGearCandidates));
 
   // ── Priority 2.75 (opt-in, additive): Home content-gap → park rescue ──
   // High-level home users can have exercises whose only authored method is a
@@ -203,7 +219,7 @@ export function selectMethodForContext(
     const parkRescue = methods.filter(
       m => m.location === 'park' || m.locationMapping?.includes('park' as any),
     );
-    if (parkRescue.length > 0) return preferMedia(parkRescue, 'park');
+    if (parkRescue.length > 0) return logMismatch('home-park-rescue', preferMedia(parkRescue, 'park'));
   }
 
   // ── Priority 3: Bodyweight-only (non-park, any method, no equipment) ──
@@ -215,7 +231,7 @@ export function selectMethodForContext(
     const ids = collectMethodGear(m);
     return ids.length === 0 || ids.every(id => PASSTHROUGH_GEAR.has(id));
   });
-  if (bodyweightCandidates.length > 0) return preferMedia(bodyweightCandidates);
+  if (bodyweightCandidates.length > 0) return logMismatch('bodyweight-only', preferMedia(bodyweightCandidates));
 
   // ── No viable method found ─────────────────────────────────────────────
   return null;
