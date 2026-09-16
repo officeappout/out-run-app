@@ -22,7 +22,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { RotateCcw, Pause, Play, Timer, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import PreparingStateView from './PreparingStateView';
 
 interface IsometricTimerCardProps {
   duration: number;
@@ -43,13 +42,15 @@ interface IsometricTimerCardProps {
    */
   autoCompleteAtTarget?: boolean;
   /**
-   * Block-protocol mode (tabata): render the shared full-screen big-number
-   * overlay (PreparingStateView) instead of the bottom-sheet card — a clean
-   * work countdown (duration → 0) over the exercise video, no chrome/CTA.
-   * The clock, beeps, auto-complete and unilateral handling are unchanged.
-   * Default false = the classic bottom-sheet card.
+   * Block-protocol mode (tabata): renders the same bottom-sheet card as any
+   * other isometric exercise (design decision — no more full-screen overlay),
+   * but keyed on `protocolBlock === 'tabata'` so it also hides the "סיימתי"
+   * CTA and the pause/reset controls (auto-only: the block's fixed
+   * work+rest×rounds clock must not be interruptible from here) and shows a
+   * small "טבטה" badge, following the pyramidTitle/pyramidLabel protocol-label
+   * pattern in StrengthExerciseCard. Default false = fully unchanged card.
    */
-  countdownDisplay?: boolean;
+  isTabata?: boolean;
   /**
    * Seconds of "get ready" lead-in before the count starts. Default 5.
    * Tabata passes it PER INTERVAL: a lead-in only before the FIRST interval of
@@ -122,7 +123,7 @@ export default function IsometricTimerCard({
   hideControls = false,
   autoStart = false,
   autoCompleteAtTarget = false,
-  countdownDisplay = false,
+  isTabata = false,
   prepSeconds = PREP_SECONDS,
 }: IsometricTimerCardProps) {
   const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
@@ -293,28 +294,6 @@ export default function IsometricTimerCard({
   const strokeDashoffset = RECT_PERIMETER * (1 - progress);
   const overtimeSec = elapsed - duration;
 
-  // ── Block-protocol render (tabata): shared big-number overlay ─────────
-  // Reuses PreparingStateView so work + rest + prep read as one surface.
-  // Transparent background — the exercise video (ActiveExerciseView) shows
-  // through. A lead-in ('preparing'/'idle') reads "היכון"; the work count
-  // reads the side label (unilateral) or "עבודה".
-  if (countdownDisplay) {
-    const isLeadIn = phase === 'preparing' || phase === 'idle';
-    const overlayCount = isLeadIn ? prepCountdown : Math.max(remaining, 0);
-    const overlayLabel = isLeadIn ? 'היכון' : (sideLabel ?? 'עבודה');
-    return (
-      <PreparingStateView
-        count={overlayCount}
-        variant="work"
-        label={overlayLabel}
-        exerciseName={exerciseName}
-        safeVideoUrl={null}
-        safeImageUrl={null}
-        fadeIn
-      />
-    );
-  }
-
   // ── Render (Rest-Drawer style) ────────────────────────────────────────
 
   return (
@@ -334,6 +313,14 @@ export default function IsometricTimerCard({
           >
             זמן החזקה
           </p>
+          {isTabata && (
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ fontFamily: 'var(--font-simpler)', background: '#00BAF7', color: 'white' }}
+            >
+              טבטה
+            </span>
+          )}
           {sideLabel && (
             <span
               className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -499,8 +486,9 @@ export default function IsometricTimerCard({
           {exerciseName}
         </p>
 
-        {/* Pause / Reset controls */}
-        {isActive && !hideControls && (
+        {/* Pause / Reset controls — hidden for tabata: pausing here would
+            desync the block's fixed work+rest×rounds clock. */}
+        {isActive && !hideControls && !isTabata && (
           <div className="flex justify-center gap-4 mb-4">
             <button
               onClick={resetTimer}
@@ -522,8 +510,9 @@ export default function IsometricTimerCard({
           </div>
         )}
 
-        {/* "סיימתי" CTA */}
-        {isActive && (
+        {/* "סיימתי" CTA — tabata is auto-only (autoCompleteAtTarget fires
+            onComplete the moment the target is reached), no manual finish. */}
+        {isActive && !isTabata && (
           <button
             onClick={handleComplete}
             className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-bold text-white active:scale-[0.98] transition-transform shadow-sm"

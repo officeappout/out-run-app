@@ -67,8 +67,9 @@ export interface ActiveExerciseViewProps {
   exerciseDuration: number;
   /**
    * Block-protocol work interval (tabata): overrides the timer duration and
-   * runs the card in autoStart + autoCompleteAtTarget mode. The orchestrator
-   * forces isTimeExercise=true alongside. Absent = normal flow.
+   * runs the card in autoStart + autoCompleteAtTarget + isTabata mode (same
+   * bottom-sheet card as any time-based exercise, just auto-only chrome).
+   * The orchestrator forces isTimeExercise=true alongside. Absent = normal flow.
    */
   blockWorkSec?: number | null;
   /**
@@ -212,7 +213,7 @@ export default function ActiveExerciseView({
           side={currentSide}
           autoStart={!!blockWorkSec}
           autoCompleteAtTarget={!!blockWorkSec}
-          countdownDisplay={!!blockWorkSec}
+          isTabata={!!blockWorkSec}
           prepSeconds={timerPrepSeconds}
         />
       )}

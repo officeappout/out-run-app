@@ -43,6 +43,7 @@ import PreparingStateView from './components/PreparingStateView';
 import InputStateView from './components/InputStateView';
 import RestingStateView from './components/RestingStateView';
 import ActiveExerciseView from './components/ActiveExerciseView';
+import TabataRestCard from './components/TabataRestCard';
 import WorkoutPlaylist from './playlist/WorkoutPlaylist';
 
 import {
@@ -445,18 +446,18 @@ export default function StrengthRunner({
 
     // RESTING — circular timer + next-exercise preview + coach hint (extracted to RestingStateView, R-11)
     if (sm.workoutState === 'RESTING') {
-      // Tabata: clean big-number rest countdown (shared overlay), unified with
-      // the work surface. Fed by the machine's rest clock (restTimeLeft), which
-      // owns the 3/2/1 beeps + auto-advance. Blurred next-exercise video behind.
+      // Tabata: same bottom-sheet time-based-card visual language as the work
+      // interval (IsometricTimerCard), not the full-screen overlay. Fed by the
+      // machine's rest clock (restTimeLeft), which owns the 3/2/1 beeps +
+      // auto-advance — purely presentational, no timer of its own here.
       if (sm.blockProtocol?.id === 'tabata') {
         return (
-          <PreparingStateView
-            count={sm.restTimeLeft}
-            variant="rest"
-            label="מנוחה"
+          <TabataRestCard
+            restTimeLeft={sm.restTimeLeft}
+            totalRest={sm.blockProtocol.config.restSec}
+            nextExerciseName={restPreviewExercise.name}
             safeVideoUrl={safeNextVideoUrl}
             safeImageUrl={null}
-            exerciseName={restPreviewExercise.name}
             fadeIn={sm.fadeIn}
           />
         );

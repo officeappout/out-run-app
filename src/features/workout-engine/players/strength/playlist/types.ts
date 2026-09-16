@@ -89,6 +89,12 @@ export interface SubGroup {
   exercises: FlatExercise[];
   isSuperSet: boolean;
   /**
+   * True when every exercise in this group shares one tabata block clock
+   * (`protocolBlock === 'tabata'`). Dispatched to `TabataBlockGroup`
+   * instead of `StrengthExerciseCard` / `SupersetBlockGroup`.
+   */
+  isTabataBlock?: boolean;
+  /**
    * Override title for pyramid blocks.  When set, the wrapping card uses
    * this in place of the generic segment title so the header shows the
    * correct pyramid label ("סט שיא", "פירמידה עולה-יורדת"...).

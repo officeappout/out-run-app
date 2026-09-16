@@ -6,6 +6,7 @@
  * Walks the flattened workout, builds sub-groups, then for each group
  * picks the right Lego block component to render:
  *
+ *   group.isTabataBlock                 → <TabataBlockGroup>
  *   group.isSuperSet                    → <SupersetBlockGroup>
  *   warmup / cooldown segment           → <WorkoutBlockCard> (legacy)
  *   group with one main-segment ex.     → <StrengthExerciseCard>
@@ -22,6 +23,7 @@ import type { ExerciseResultLog } from '../hooks/useWorkoutStateMachine';
 import WorkoutBlockCard from './WorkoutBlockCard';
 import StrengthExerciseCard from './blocks/StrengthExerciseCard';
 import SupersetBlockGroup from './blocks/SupersetBlockGroup';
+import TabataBlockGroup from './blocks/TabataBlockGroup';
 import {
   flattenWorkoutToExercises,
   buildMainSubGroups,
@@ -327,6 +329,29 @@ export default function WorkoutPlaylist({
           })();
 
           const entries = group.exercises.map((fe) => buildEntry(fe));
+
+          // ── Tabata block dispatch ───────────────────────────
+          if (group.isTabataBlock && entries.length > 0) {
+            return (
+              <div
+                key={group.key}
+                ref={isCardActive ? activeCardRef : undefined}
+              >
+                <TabataBlockGroup
+                  exercises={entries}
+                  title={group.groupTitle || 'טבטה'}
+                  cardStatus={cardStatus}
+                  activeExerciseIndex={activeIdx}
+                  isResting={isCardResting}
+                  restTimeLeft={isCardResting ? restTimeLeft : undefined}
+                  formatTime={formatTime}
+                  onSaveSet={(_exerciseIdx, setIndex, reps, sideData) =>
+                    handleRepetitionSave(reps, sideData, undefined, setIndex)
+                  }
+                />
+              </div>
+            );
+          }
 
           // ── Superset dispatch ──────────────────────────────
           if (group.isSuperSet && entries.length >= 2) {

@@ -79,11 +79,28 @@ export function getSetsForExercise(
 }
 
 /**
- * Numeric target-reps resolver — prefers `repsRange.min`, then strips a
+ * Numeric target-reps resolver — prefers `repsRange.min`, then (for
+ * time-based exercises) the real duration from `ex.duration`, then strips a
  * leading set-prefix ("3x") from the reps string and reads the next int.
+ *
+ * Time-based exercises carry their target in `ex.duration` ("30 שניות"), not
+ * `ex.reps` — falling through to the reps-string branch for them always hit
+ * the empty-string case and silently returned the generic `10` fallback,
+ * showing "10 שניות" on the pill regardless of the exercise's real duration.
  */
 export function parseTargetReps(ex: WorkoutExercise): number {
   if (ex.repsRange?.min) return ex.repsRange.min;
+
+  const isTime = ex.exerciseType === 'time' || ex.isTimeBased === true;
+  if (isTime) {
+    const durationStr = ex.duration;
+    if (durationStr) {
+      const match = durationStr.match(/(\d+)/);
+      if (match) return parseInt(match[1], 10);
+    }
+    return 30;
+  }
+
   const repsStr = ex.reps ?? '';
   const stripped = repsStr.replace(/^\d+\s*[xX×]\s*/, '');
   const match = stripped.match(/(\d+)/);
@@ -144,6 +161,11 @@ export function flattenWorkoutToExercises(workout: WorkoutPlan): FlatExercise[] 
 /**
  * Splits a segment's flat exercise list into ordered sub-groups.
  *
+ * Tabata block members (`protocolBlock === 'tabata'`, the shared `seg-tabata`
+ * segment) → ONE grouped block, mirroring the preview drawer's
+ * `groupExercisesIntoSections` (section-grouping.utils.ts): pulled out of the
+ * regular flow first so a stray `pairedWith` on a member can never leak it
+ * into a superset pairing below.
  * Superset pairs (mutual `pairedWith` links) → one grouped card.
  *   Set counts are equalized with Math.max so the state machine never
  *   encounters an undefined index desync between the two partners.
@@ -160,13 +182,30 @@ export function buildMainSubGroups(exercises: FlatExercise[]): SubGroup[] {
   const consumed = new Set<string>();
   const groups: SubGroup[] = [];
 
+  const tabataMembers = exercises.filter(
+    (fe) => (fe.exercise as any).protocolBlock === 'tabata',
+  );
+  if (tabataMembers.length > 0) {
+    for (const fe of tabataMembers) consumed.add(fe.exercise.id);
+    groups.push({
+      key: `tabata-${tabataMembers[0].key}`,
+      exercises: tabataMembers,
+      isSuperSet: false,
+      isTabataBlock: true,
+      groupTitle: tabataMembers[0].segmentTitle || 'טבטה',
+    });
+  }
+
   for (const fe of exercises) {
     if (consumed.has(fe.exercise.id)) continue;
 
     const pairedId = (fe.exercise as any).pairedWith as string | null | undefined;
 
     if (pairedId) {
-      const partner = byId.get(pairedId);
+      // A partner already consumed by the tabata block above is not
+      // available for pairing — otherwise the member would render twice.
+      const partnerRaw = byId.get(pairedId);
+      const partner = partnerRaw && !consumed.has(partnerRaw.exercise.id) ? partnerRaw : undefined;
       const partnerPairedId = partner
         ? (partner.exercise as any).pairedWith as string | null | undefined
         : null;
