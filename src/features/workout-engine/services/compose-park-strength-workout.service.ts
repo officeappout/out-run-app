@@ -71,10 +71,11 @@ import type { GeneratedWorkout, WorkoutExercise, DifficultyLevel } from '../logi
 import type { TabataBlockSpec } from '../logic/workout-generator.types';
 import type { TabataProtocolConfig } from '../core/types/protocol.types';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
-import { generateHomeWorkoutTrio } from './home-workout.service';
+import { generateHomeWorkoutTrio, normalizeProgramId } from './home-workout.service';
 import { calculateWorkoutStats, calculateEstimatedDuration } from '../logic/workout-budgeting.utils';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import { resolveDataLevel, getBaseUserLevel } from './level-resolution.utils';
+import { resolveChildDomainsForParent } from './program-hierarchy.utils';
 import { resolveParkEquipmentIds } from './park-equipment-resolver';
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 import { calculateWeeklyBudget } from '../core/store/useWeeklyVolumeStore';
@@ -337,9 +338,41 @@ export async function composeParkWorkoutFromMachines(
   const ladderRung = TABATA_DIFFICULTY_LADDER[options.difficulty];
   const secPerRound = ladderRung.workSec + ladderRung.restSec; // read from the frozen ladder — never hardcoded
 
+  // ── Scheduled domains (16.09.2026 — "gate Block A by scheduled domains"
+  // fix): derived identically to Block B's resolvedChildDomains
+  // (home-workout.service.ts's _buildSharedPipeline) — same
+  // normalizeProgramId + resolveChildDomainsForParent, so the two blocks can
+  // never disagree on what today's session is about. Safe to reproduce here
+  // rather than call through generateHomeWorkoutTrio: this composer never
+  // passes scheduledProgramIds, so _buildSharedPipeline's own rawScheduledIds
+  // is ALWAYS just [normalizeProgramId(activePrograms[0].templateId)] for
+  // this exact call path — the "leading master" trimming it does for a
+  // multi-id scheduledProgramIds list is a no-op on a single-id list.
+  //
+  // NOTE (real gap, not silently patched — see investigation report): for a
+  // calisthenics_upper user, resolveChildDomainsForParent legitimately
+  // returns SKILL slugs (e.g. ['planche','front_lever']), not
+  // push/pull/legs/core — machines only ever resolve to the 4 foundational
+  // domains via MG_TO_DOMAIN, so such a user's Block A will gate to 0
+  // machines regardless of what's physically in the park. That's a SAFE
+  // degrade (falls through to Block B, the already-tested empty-pool path
+  // below), not a crash or wrong content — but it means skill-track users
+  // never get machine content at a park today. Left as string[] (not cast to
+  // MovementPattern[]) so this mismatch stays visible in the types rather
+  // than hidden behind an unsafe cast; closing it would mean threading the
+  // same skill→parent-domain map PipelineOrchestrator.ts already uses for
+  // Block B (PUSH_SKILL_SLUGS/PULL_SKILL_SLUGS) — out of scope here.
+  const normalizedActiveProgramId = normalizeProgramId(
+    userProfile.progression?.activePrograms?.[0]?.templateId ?? '',
+  );
+  const scheduledDomains = resolveChildDomainsForParent(normalizedActiveProgramId, userProfile);
+
   // ── Block A: real strength machines only (Wave 1) — sized from TIME, not
   // a count proxy (Wave 2). See resolveMachineAllocation/machineShareForLevel.
-  const eligibleMachines = allMachines.filter((m) => isBlockAEligible(m));
+  // Gated to today's scheduledDomains (see above) — a push day only ever
+  // selects push machines; an empty/unresolved schedule falls back to no
+  // restriction (isBlockAEligible/selectBlockAMachines's own defaults).
+  const eligibleMachines = allMachines.filter((m) => isBlockAEligible(m, scheduledDomains));
   const machineShareLevel = resolveMachineShareLevel(userProfile);
   const { machineCount, rounds, machineTimeMinutes } = resolveMachineAllocation({
     level: machineShareLevel,
@@ -347,7 +380,7 @@ export async function composeParkWorkoutFromMachines(
     strengthTimeBudget: availableTime,
     secPerRound,
   });
-  const selectedMachines = machineCount > 0 ? selectBlockAMachines(eligibleMachines, machineCount) : [];
+  const selectedMachines = machineCount > 0 ? selectBlockAMachines(eligibleMachines, machineCount, scheduledDomains) : [];
   const tabataConfig: TabataProtocolConfig = { workSec: ladderRung.workSec, restSec: ladderRung.restSec, rounds };
   const blockACoveredDomains = computeCoveredDomains(selectedMachines);
   const blockAExercises = selectedMachines.map((m) => buildMachinePseudoExercise(m, tabataConfig));
@@ -514,23 +547,35 @@ export async function composeParkWorkoutFromMachines(
 /**
  * v1 selection heuristic (deliberately simple — flagged in the plan doc as a
  * Phase 3 polish candidate for something smarter): prefer domain diversity
- * first (one machine per distinct covered domain, in push→pull→legs→core
- * order), then fill any remaining slots with the next eligible machines in
- * their given order. Deterministic given the same input list — no
- * randomness, easy to unit-test.
+ * first (one machine per distinct covered domain, in scheduled-domain
+ * priority order), then fill any remaining slots with the next eligible
+ * machines in their given order. Deterministic given the same input list —
+ * no randomness, easy to unit-test.
+ *
+ * `scheduledDomains` (16.09.2026 — "gate Block A by scheduled domains" fix):
+ * Pass 1 round-robins across exactly today's scheduled program domains
+ * (e.g. ['push'] on a push day, ['push','pull'] on an upper_body day) rather
+ * than the hardcoded 4-domain list — a full-body/combined day still varies
+ * across domains, a single-domain day never reaches for one it doesn't have.
+ * Defaults to `ALL_DOMAINS` when omitted or empty, matching
+ * `isBlockAEligible`'s own no-restriction default — this function doesn't
+ * assume its caller already pre-filtered by domain, so it stays correct
+ * (and independently unit-testable) even when called directly.
  */
 export function selectBlockAMachines(
   eligibleMachines: GymEquipment[],
   count: number,
+  scheduledDomains: readonly string[] = ALL_DOMAINS,
 ): GymEquipment[] {
   if (eligibleMachines.length <= count) return [...eligibleMachines];
 
   const selected: GymEquipment[] = [];
   const selectedIds = new Set<string>();
-  const seenDomains = new Set<MovementPattern>();
+  const seenDomains = new Set<string>();
+  const effectiveDomains = scheduledDomains.length > 0 ? scheduledDomains : ALL_DOMAINS;
 
-  // Pass 1 — one machine per distinct domain, domain-priority order.
-  for (const domain of ALL_DOMAINS) {
+  // Pass 1 — one machine per distinct scheduled domain, priority order.
+  for (const domain of effectiveDomains) {
     if (selected.length >= count) break;
     const candidate = eligibleMachines.find((m) => {
       if (selectedIds.has(m.id)) return false;
@@ -558,7 +603,7 @@ export function selectBlockAMachines(
 /**
  * Block A eligibility — REAL STRENGTH MACHINES ONLY (Wave 1 fix, 16.09.2026
  * diagnostic follow-up — .claude/knowledge, "route functional apparatus to
- * bodyweight"). Three gates, all exclusionary:
+ * bodyweight"). Four gates, all exclusionary:
  *   - isCardio===true            → cardio lane, not this split (unchanged).
  *   - isFunctional===true        → NOT a machine. `isFunctional` distinguishes
  *     hydraulic/self-limiting real machines (false — adjustable resistance,
@@ -579,13 +624,27 @@ export function selectBlockAMachines(
  *     45min/6-machine/level-2). No level-assessment check is needed anymore
  *     since these items never reach Block A at all now.
  *   - movementPattern gates unchanged (isolation/flexibility not counted).
+ *   - scheduledDomains (16.09.2026 — "gate Block A by scheduled domains" fix):
+ *     a machine whose domain isn't in today's scheduled program domains is
+ *     excluded — a push day only ever selects push machines, mirroring the
+ *     Block B fix (compose-park-strength-workout.service.ts's own Block B
+ *     comment above) so the two blocks can never disagree on what today's
+ *     session is about. Defaults to `ALL_DOMAINS` (no restriction) when
+ *     omitted or empty — an empty/unresolved schedule (e.g. no active
+ *     program on the profile) must NOT silently zero out every machine;
+ *     it falls back to today's pre-fix opportunistic behavior instead.
  */
-export function isBlockAEligible(machine: GymEquipment): boolean {
+export function isBlockAEligible(
+  machine: GymEquipment,
+  scheduledDomains: readonly string[] = ALL_DOMAINS,
+): boolean {
   if (machine.isCardio === true) return false;
   if (machine.isFunctional === true) return false;
   if (machine.movementPattern == null) return false;
   const domain = MG_TO_DOMAIN[machine.movementPattern] as MovementPattern | undefined;
   if (!domain) return false; // isolation/flexibility — not counted
+  const effectiveDomains = scheduledDomains.length > 0 ? scheduledDomains : ALL_DOMAINS;
+  if (!effectiveDomains.includes(domain)) return false;
   return true;
 }
 

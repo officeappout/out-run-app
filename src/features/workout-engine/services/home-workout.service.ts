@@ -185,9 +185,19 @@ const SKILL_ID_NORMALIZATION: Record<string, string> = {
   FULL_BODY:          'full_body',
 };
 
-/** Normalise a single program ID: maps known SKILL_DISPLAY uppercase keys to
- *  their engine slug; everything else falls back to toLowerCase(). */
-function normalizeProgramId(id: string): string {
+/**
+ * Normalise a single program ID: maps known SKILL_DISPLAY uppercase keys to
+ * their engine slug; everything else falls back to toLowerCase().
+ *
+ * Exported (16.09.2026 — "gate Block A by scheduled domains" fix) so any
+ * caller that needs to independently derive the same scheduled-domain set
+ * `_buildSharedPipeline` produces (e.g. compose-park-strength-workout.
+ * service.ts's Block A machine gate) normalises the raw program id
+ * identically before calling `resolveChildDomainsForParent` — never a
+ * reimplemented `.toLowerCase()`-only fallback that would silently diverge
+ * on the SKILL_DISPLAY uppercase case.
+ */
+export function normalizeProgramId(id: string): string {
   return SKILL_ID_NORMALIZATION[id] ?? id.toLowerCase();
 }
 

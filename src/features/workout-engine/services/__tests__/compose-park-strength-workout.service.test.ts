@@ -6,11 +6,19 @@ import { calculateWeeklyBudget } from '../../core/store/useWeeklyVolumeStore';
 
 // generateHomeWorkoutTrio is Firestore-backed — mocked so these tests exercise
 // only composeParkWorkoutFromMachines's own domain-complement/selection logic,
-// not the real generator pipeline.
+// not the real generator pipeline. normalizeProgramId is kept REAL (via
+// importOriginal) — the composer now calls it directly (16.09.2026 fix,
+// "gate Block A by scheduled domains") to derive scheduledDomains identically
+// to Block B, and the tests below need the genuine normalization behavior,
+// not a stand-in, to actually prove the two blocks agree.
 const trioMock = vi.fn();
-vi.mock('../home-workout.service', () => ({
-  generateHomeWorkoutTrio: (...args: unknown[]) => trioMock(...args),
-}));
+vi.mock('../home-workout.service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../home-workout.service')>();
+  return {
+    ...actual,
+    generateHomeWorkoutTrio: (...args: unknown[]) => trioMock(...args),
+  };
+});
 
 // composeParkWorkout (the async wrapper)'s two Firestore-backed dependencies —
 // mocked so the "canonical, not raw, ids reach Block B" tests below don't need
@@ -605,6 +613,62 @@ describe('composeParkWorkoutFromMachines', () => {
       expect(trioMock).toHaveBeenCalledTimes(1);
       const callArgs = trioMock.mock.calls[0][0];
       expect(callArgs.requiredDomains).toBeUndefined();
+    });
+  });
+
+  describe('16.09.2026 fix: Block A gated by scheduled domains (mirrors the Block B fix)', () => {
+    it('push day + mixed push/pull park → Block A never selects a pull machine', async () => {
+      trioMock.mockResolvedValue({
+        options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+      });
+      const pushProfile = { id: 'u1', progression: { activePrograms: [{ templateId: 'push' }] } } as any;
+      const push3 = machine({ id: 'push3', movementPattern: 'vertical_push' });
+      const result = await composeParkWorkoutFromMachines(
+        [push1, push2, push3, pull1], pushProfile, { difficulty: 'medium' },
+      );
+      // pull1 excluded at the ELIGIBILITY layer (not just deprioritized) —
+      // blockAEligibleMachineCount proves the gate fired before selection.
+      expect(result.blockAEligibleMachineCount).toBe(3);
+      const selectedIds = result.workout.exercises
+        .filter((e) => e.protocolBlock === 'tabata')
+        .map((e) => e.exercise.id);
+      expect(selectedIds).not.toContain('pull1');
+      expect(result.blockACoveredDomains).toEqual(['push']);
+    });
+
+    it('upper_body (full-body/combined) schedule round-robins Block A across push+pull, never reaching for legs/core', async () => {
+      trioMock.mockResolvedValue({
+        options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+      });
+      const upperBodyProfile = {
+        id: 'u1',
+        progression: {
+          activePrograms: [{ templateId: 'upper_body' }],
+          tracks: { push: 4, pull: 4 }, // both assessed — resolveChildDomainsForParent needs this to include them
+        },
+      } as any;
+      const result = await composeParkWorkoutFromMachines(
+        [push1, pull1, legs1, core1], upperBodyProfile, { difficulty: 'medium', availableTime: 45 },
+      );
+      expect(result.blockACoveredDomains).toEqual(['push', 'pull']);
+    });
+
+    it('push day + park with ONLY pull machines → Block A gates to 0 machines, Block B absorbs the full session time (graceful — no exception)', async () => {
+      trioMock.mockResolvedValue({
+        options: [null, { result: { workout: { exercises: [{ exercise: { id: 'bw-push' } }], title: '', description: '', needsAssessment: false } } }, null],
+      });
+      const pushProfile = { id: 'u1', progression: { activePrograms: [{ templateId: 'push' }] } } as any;
+      const result = await composeParkWorkoutFromMachines(
+        [pull1], pushProfile, { difficulty: 'medium', availableTime: 20 },
+      );
+      expect(result.blockAEligibleMachineCount).toBe(0); // pull1 gated out entirely — a push day never touches it
+      expect(result.blockASelectedMachineCount).toBe(0);
+      expect(result.workout.tabataBlock).toBeUndefined();
+      expect(result.blockACoveredDomains).toEqual([]);
+      // machineTimeMinutes=0 → bodyweightTimeMinutes = max(MIN_BLOCK_B_MINUTES, availableTime - 0) = the FULL session time.
+      const trioCallArgs = trioMock.mock.calls[0][0];
+      expect(trioCallArgs.availableTime).toBe(20);
+      expect(result.workout.exercises.map((e) => e.exercise.id)).toContain('bw-push');
     });
   });
 });
