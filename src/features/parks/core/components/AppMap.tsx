@@ -19,6 +19,7 @@ import LemurMarker from '@/components/LemurMarker';
 import PartnerMarker from './PartnerMarker';
 import ParkPhotoMarker from './ParkPhotoMarker';
 import DestinationMarker from './DestinationMarker';
+import { resolveParkImage } from '@/lib/park-image';
 
 import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
 import { hapticLight } from '@/lib/haptics';
@@ -855,11 +856,14 @@ export default function AppMap({
     const lat = Number(selectedPark.location?.lat);
     const lng = Number(selectedPark.location?.lng);
     if (!isFiniteLngLat([lng, lat])) return null;
-    const photoUrl: string | null =
-      selectedPark.imageUrl ||
-      selectedPark.image ||
-      (Array.isArray(selectedPark.images) ? selectedPark.images[0] : null) ||
-      null;
+    // Was a hand-rolled duplicate of resolveParkImage's own priority
+    // (imageUrl → image → images[0]) that never called bunnyImg — every
+    // park photo here rendered at full original resolution regardless of
+    // source, including the ones already migrated to Bunny CDN (SPEC-05
+    // image-memory investigation, 16.09.2026). 80 matches bunny-image.ts's
+    // own documented "map marker / list thumbnail" width; ParkPhotoMarker
+    // renders this at size=56.
+    const photoUrl = resolveParkImage(selectedPark, 80) || null;
     return {
       id: selectedPark.id,
       name: selectedPark.name || '',
