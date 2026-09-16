@@ -589,10 +589,10 @@ export default function UnreachableExercisesPage() {
 
   const handleExportCsv = () => {
     const escape = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-    const lines = ['exercise_id,name,reasons,details'];
+    const lines = ['exercise_id,name,reasons,no_level_subcategory,details'];
     for (const row of filteredRows) {
       const details = row.reasons.map((r) => `${REASON_META[r].label}: ${REASON_META[r].explain(row)}`).join(' | ');
-      lines.push([row.id, row.name, row.reasons.join(';'), details].map(escape).join(','));
+      lines.push([row.id, row.name, row.reasons.join(';'), row.noLevelSubcategory ?? '', details].map(escape).join(','));
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
