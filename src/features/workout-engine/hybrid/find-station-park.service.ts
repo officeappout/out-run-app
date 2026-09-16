@@ -11,7 +11,6 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import { haversineMeters } from '@/features/parks/core/services/geoUtils';
 import { normalizeGearIds } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { parkGymEquipmentToGearIds } from './park-equipment.util';
-import { isPrimaryFitness } from './park-fitness.util';
 
 export interface StationPark {
   parkId: string;
@@ -64,10 +63,15 @@ export async function findStationPark(
   const [startLng, startLat] = routePath[0];
   const candidates: Array<{ park: Park; distToPath: number; waypointIndex: number; distFromStart: number }> = [];
   let cEquip = 0, cPrimary = 0, nearestMiss = Infinity; // diag counters
+  // SPEC-07 (16.09.2026): `parks` is the lean catalog shape — reads the
+  // precomputed hasUsableEquipment/isPrimaryFitness flags instead of raw
+  // gymEquipment/sportTypes (same predicates, computed server-side; see
+  // /api/catalog/parks/route.ts). The real gymEquipment array for the
+  // eventual winner is point-fetched below, right before it's needed.
   for (const p of parks) {
-    if ((p.gymEquipment?.length ?? 0) === 0 || p.location?.lat == null || p.location?.lng == null) continue;
+    if (!p.hasUsableEquipment || p.location?.lat == null || p.location?.lng == null) continue;
     cEquip++;
-    if (!isPrimaryFitness(p)) continue;
+    if (!p.isPrimaryFitness) continue;
     cPrimary++;
     let d = Infinity;
     let wp = 0;
@@ -96,8 +100,15 @@ export async function findStationPark(
   );
   if (!best) return null; // no equipment park on/near the path → bodyweight fallback (A3)
 
-  const rawIds = (best.park.gymEquipment ?? []).map((e) => e.equipmentId).filter(Boolean);
-  const availableEquipment = parkGymEquipmentToGearIds(best.park.gymEquipment, normalizeGearIds);
+  // Point-fetch the winner's full record (SPEC-07, 16.09.2026): `best.park`
+  // came from the lean catalog and has no raw gymEquipment array — only the
+  // precomputed hasUsableEquipment flag that got it into `candidates`. Real
+  // normalization needs the actual equipment list.
+  const { getPark } = await import('@/features/parks/core/services/parks.service');
+  const fullPark = await getPark(best.park.id);
+
+  const rawIds = (fullPark?.gymEquipment ?? []).map((e) => e.equipmentId).filter(Boolean);
+  const availableEquipment = parkGymEquipmentToGearIds(fullPark?.gymEquipment, normalizeGearIds);
   // DIAG (temporary): what equipment does this station actually produce for the generator?
   console.log(
     `[hybrid:diag] station "${best.park.name}" raw(${rawIds.length})=[${rawIds.join(',')}]` +

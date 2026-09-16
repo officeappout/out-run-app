@@ -23,7 +23,6 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import type { StationPark } from './find-station-park.service';
 import { haversineMeters, buildOutAndBackPath } from '@/features/parks/core/services/geoUtils';
-import { isPrimaryFitness } from './park-fitness.util';
 
 /** A canonical route vertex: `[lng, lat]` (matches RoutePath used across the engine). */
 export type LngLat = [number, number];
@@ -56,6 +55,14 @@ export interface NearestEquippedParkOpts {
  * resolveParkOutAndBack). A park qualifies when it is a primary-fitness facility
  * (isPrimaryFitness), carries at least one gymEquipment entry, and has a location.
  * Returns the closest qualifier, or null when none qualify (Phase 3 hides the card).
+ *
+ * SPEC-07 (16.09.2026): `parks` is now the lean catalog shape — no raw
+ * gymEquipment/sportTypes arrays. Reads the precomputed
+ * hasUsableEquipment/isPrimaryFitness flags instead of inspecting them
+ * directly (same predicates, computed server-side — see
+ * /api/catalog/parks/route.ts). A full-record Park (from getPark()) would
+ * have these as `undefined`, which correctly fails both checks — this
+ * function is catalog-only by construction, not by convention.
  */
 export function nearestEquippedPark(
   user: LatLng,
@@ -64,9 +71,9 @@ export function nearestEquippedPark(
 ): Park | null {
   let best: { park: Park; dist: number } | null = null;
   for (const p of parks) {
-    if ((p.gymEquipment?.length ?? 0) === 0) continue;
+    if (!p.hasUsableEquipment) continue;
     if (p.location?.lat == null || p.location?.lng == null) continue;
-    if (!isPrimaryFitness(p)) continue;
+    if (!p.isPrimaryFitness) continue;
     const dist = haversineMeters(user.lat, user.lng, p.location.lat, p.location.lng);
     if (opts.maxRadiusMeters != null && dist > opts.maxRadiusMeters) continue;
     if (!best || dist < best.dist) best = { park: p, dist };
@@ -83,6 +90,9 @@ export function nearestEquippedPark(
  * This is the primitive that fixes the ESSENTIAL_PARK_GEAR bug: a nearer UN-equipped
  * park can no longer shadow a farther equipped one, because the caller iterates the
  * equipped set nearest-first instead of snapping to the single closest park.
+ *
+ * SPEC-07 (16.09.2026): reads the precomputed hasUsableEquipment flag —
+ * see nearestEquippedPark's comment above for why.
  */
 export function equippedParksWithin(
   user: LatLng,
@@ -91,7 +101,7 @@ export function equippedParksWithin(
 ): Park[] {
   const withDist: { park: Park; dist: number }[] = [];
   for (const p of parks) {
-    if ((p.gymEquipment?.length ?? 0) === 0) continue;
+    if (!p.hasUsableEquipment) continue;
     if (p.location?.lat == null || p.location?.lng == null) continue;
     const dist = haversineMeters(user.lat, user.lng, p.location.lat, p.location.lng);
     if (dist > radiusMeters) continue;
@@ -139,9 +149,18 @@ export interface ParkOutAndBack {
 export async function resolveParkOutAndBack(
   args: ResolveParkOutAndBackArgs,
 ): Promise<ParkOutAndBack | null> {
-  const park = nearestEquippedPark(args.userPosition, args.parks, {
+  const candidate = nearestEquippedPark(args.userPosition, args.parks, {
     maxRadiusMeters: args.maxRadiusMeters,
   });
+  if (!candidate || candidate.location?.lat == null || candidate.location?.lng == null) return null;
+
+  // Point-fetch the winner's full record (SPEC-07, 16.09.2026): `candidate`
+  // came from the lean catalog and has no raw gymEquipment array — only the
+  // precomputed hasUsableEquipment flag that got it selected. Real
+  // normalization needs the actual equipment list, which only getPark()
+  // (full record) carries.
+  const { getPark } = await import('@/features/parks/core/services/parks.service');
+  const park = await getPark(candidate.id);
   if (!park || park.location?.lat == null || park.location?.lng == null) return null;
 
   // Translate gear ids — requires a warm equipment cache (park-equipment.util ⚠️).

@@ -21,7 +21,7 @@ import ParkPhotoMarker from './ParkPhotoMarker';
 import DestinationMarker from './DestinationMarker';
 import { resolveParkImage } from '@/lib/park-image';
 
-import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon, MINOR_URBAN_TYPES } from './mapPinIcons';
+import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUpBarIcon, drawDumbbellIcon, drawDotIcon } from './mapPinIcons';
 import { hapticLight } from '@/lib/haptics';
 import { applyFitnessMapStyle, resetFitnessMapStyle } from './mapStyleConfig';
 import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
@@ -903,7 +903,14 @@ export default function AppMap({
           name: park.name || '',
           isFunctional: park.isFunctional === true,
           facilityType: park.facilityType || 'gym_park',
-          isMinor: MINOR_URBAN_TYPES.includes(park.urbanType || ''),
+          // Precomputed server-side now (SPEC-07, 16.09.2026) — the catalog
+          // ships isMinor directly instead of the raw urbanType this used to
+          // derive it from client-side. Always false today (urbanType is
+          // null on every published park — a separate, pending product
+          // decision, untouched here); the catalog build will pick it up
+          // automatically the day that field gets populated, no client
+          // code change needed.
+          isMinor: park.isMinor === true,
         },
         geometry: {
           type: 'Point' as const,

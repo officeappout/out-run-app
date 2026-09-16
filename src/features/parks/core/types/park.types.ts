@@ -270,7 +270,32 @@ export interface Park {
   facilities?: ParkFacility[]; // Optional for MapPark compatibility
   gymEquipment?: ParkGymEquipment[];
   amenities?: ParkAmenities;
-  
+
+  // Catalog-computed flags (SPEC-07, 16.09.2026) — present ONLY on objects
+  // sourced from fetchRealParks()/the /api/catalog/parks response, which
+  // carries these precomputed instead of the raw gymEquipment/sportTypes
+  // arrays. Absent (undefined) on a full record from getPark() — that path
+  // still has the raw fields above, computed live where needed.
+  /** At least one gymEquipment entry has a real (non-empty) equipmentId — the
+   *  actual, complete condition under which normalizeGearId's translation can
+   *  ever come back empty (traced in park-equipment.util.ts / gear-mapping.utils.ts:
+   *  the alias/cache lookups only affect WHICH canonical id comes out, never
+   *  WHETHER one does — its unconditional fallback echoes the raw id). NOT a
+   *  bare `gymEquipment.length > 0` check. */
+  hasUsableEquipment?: boolean;
+  /** sportTypes includes a fitness-relevant type, OR facilityType === 'gym_park'
+   *  — mirrors park-fitness.util.ts's isPrimaryFitness(), computed server-side
+   *  since the catalog doesn't carry the raw sportTypes array. */
+  isPrimaryFitness?: boolean;
+  /** urbanType is one of MINOR_URBAN_TYPES (water_fountain/toilets/parking/
+   *  bike_rack/bench) — replaces the raw urbanType field in the catalog
+   *  (David, 16.09.2026: "option b — precompute isMinor instead of the raw
+   *  field"), same pattern as hasUsableEquipment/isPrimaryFitness. Always
+   *  false today (urbanType is null on every published park — a pending
+   *  product decision, untouched); the catalog build picks this up
+   *  automatically once that field is populated. */
+  isMinor?: boolean;
+
   // Admin metadata
   authorityId?: string; // Link to authority (for Authority Manager access) — always the TOP authority (city / regional_council)
   /** Leaf sub-location: the neighborhood/settlement Authority doc id this park physically sits in.

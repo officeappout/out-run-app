@@ -193,41 +193,49 @@ function writeParksToStorage(parks: Park[]): void {
 }
 
 /**
- * Fetch real parks for map display (Client-side) with stale-while-revalidate
- * localStorage caching.
+ * Fetch every park's FULL record (client-side) with stale-while-revalidate
+ * localStorage caching — the pre-SPEC-07 fetchRealParks implementation,
+ * preserved verbatim under this name.
  *
- * Behaviour:
+ * SPEC-07 (16.09.2026): fetchRealParks itself became the lean, catalog-backed
+ * fetch below (id/name/location/facilityType/isFunctional/imageUrl +
+ * hasUsableEquipment/isPrimaryFitness/isMinor — no gymEquipment, sportTypes,
+ * urbanType, courtType, natureType, description, etc. isMinor replaces raw
+ * urbanType as the one field that used to derive it). This full-record fetch
+ * exists SPECIFICALLY for location-utils.ts's fetchNearbyFacilities, the one
+ * confirmed consumer that filters on fields the catalog doesn't carry
+ * (courtType, sportTypes, natureType) — see that file's own comment at the
+ * call site for why it stays on this path. Everything else that used to
+ * call fetchRealParks was audited caller-by-caller and either only needed
+ * catalog fields, or needed one specific park's full record (now a getPark()
+ * point-fetch) — see the individual commits in this batch.
+ *
+ * Behaviour (unchanged from before SPEC-07):
  *   - Cold start (no cache or stale >6h): fetches from Firestore, persists to
  *     localStorage, resolves with the fresh data.
  *   - Warm start (valid cache): resolves with cached data instantly (0 ms), then
  *     fires a background Firestore sync. If the data has changed the optional
  *     `onRefresh` callback is invoked so callers can update their React state
  *     without blocking the initial render.
- *
- * The `onRefresh` pattern keeps the function signature backward-compatible —
- * existing callers that don't pass a callback still benefit from the instant
- * cache hit; only AppMap needs to wire up the background state update.
  */
-// Shared in-flight promise so that N callers mounting together (AppMap +
-// DiscoverLayer + the route hooks) coalesce into ONE Firestore getDocs instead
-// of firing one each — which is what makes the "at most one round-trip
-// regardless of how many hooks call in parallel" guarantee above actually hold.
-// Cleared when the round-trip settles.
-let _inflightParksFetch: Promise<Park[]> | null = null;
+// Shared in-flight promise so that N callers mounting together coalesce into
+// ONE Firestore getDocs instead of firing one each. Cleared when the
+// round-trip settles.
+let _inflightFullParksFetch: Promise<Park[]> | null = null;
 
-function fetchAndCacheParks(): Promise<Park[]> {
-  if (_inflightParksFetch) return _inflightParksFetch;
-  _inflightParksFetch = getDocs(collection(db, PARKS_COLLECTION))
+function fetchAndCacheFullParks(): Promise<Park[]> {
+  if (_inflightFullParksFetch) return _inflightFullParksFetch;
+  _inflightFullParksFetch = getDocs(collection(db, PARKS_COLLECTION))
     .then((snapshot) => {
       const fresh = snapshot.docs.map((d) => normalizePark(d.id, d.data()));
       writeParksToStorage(fresh);
       return fresh;
     })
-    .finally(() => { _inflightParksFetch = null; });
-  return _inflightParksFetch;
+    .finally(() => { _inflightFullParksFetch = null; });
+  return _inflightFullParksFetch;
 }
 
-export async function fetchRealParks(
+export async function fetchAllParksFullRecords(
   onRefresh?: (parks: Park[]) => void,
 ): Promise<Park[]> {
   const cached = readParksFromStorage();
@@ -235,7 +243,7 @@ export async function fetchRealParks(
   if (cached) {
     // Return stale data instantly; refresh in background via the shared
     // (de-duped) fetch so concurrent warm callers don't each fire a getDocs.
-    fetchAndCacheParks()
+    fetchAndCacheFullParks()
       .then((fresh) => { onRefresh?.(fresh); })
       .catch(() => { /* background refresh failure is non-fatal */ });
     return cached;
@@ -243,11 +251,177 @@ export async function fetchRealParks(
 
   // Cold fetch — no valid cache. Concurrent cold callers share one getDocs.
   try {
-    return await fetchAndCacheParks();
+    return await fetchAndCacheFullParks();
   } catch (error) {
-    console.error('[Parks Service] Error fetching parks:', error);
+    console.error('[Parks Service] Error fetching full park records:', error);
     return [];
   }
+}
+
+// ── SPEC-07 park catalog (16.09.2026): lean, edge-cached fetch ─────────────
+// IndexedDB, not localStorage — the OLD fetchAllParksFullRecords above still
+// uses localStorage on purpose (unchanged, own concern); this path exists
+// specifically because localStorage forced the WHOLE collection through
+// JSON.stringify on the main thread on every open (a real, measured memory
+// spike — the data existed twice at once, as objects AND as one giant
+// string) and silently failed past its 5-10MB cap. IndexedDB stores objects
+// directly, async, with no such ceiling for this size. `idb` is an existing
+// dependency (package.json), not a new one.
+interface CatalogParkEntry {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  facilityType: string;
+  isFunctional: boolean;
+  imageUrl: string | null;
+  hasUsableEquipment: boolean;
+  isPrimaryFitness: boolean;
+  isMinor: boolean;
+}
+
+interface CatalogIdbRecord {
+  etag: string;
+  data: CatalogParkEntry[];
+  fetchedAt: number;
+}
+
+const CATALOG_IDB_NAME = 'outfit-park-catalog';
+const CATALOG_IDB_VERSION = 1;
+const CATALOG_STORE = 'catalog';
+const CATALOG_KEY = 'parks';
+const CATALOG_ENDPOINT = '/api/catalog/parks';
+
+let _catalogDbPromise: Promise<import('idb').IDBPDatabase> | null = null;
+function getCatalogDb() {
+  if (typeof window === 'undefined') return null;
+  if (!_catalogDbPromise) {
+    _catalogDbPromise = import('idb').then(({ openDB }) =>
+      openDB(CATALOG_IDB_NAME, CATALOG_IDB_VERSION, {
+        upgrade(idb) {
+          if (!idb.objectStoreNames.contains(CATALOG_STORE)) {
+            idb.createObjectStore(CATALOG_STORE);
+          }
+        },
+      }),
+    );
+  }
+  return _catalogDbPromise;
+}
+
+async function readCatalogFromIdb(): Promise<CatalogIdbRecord | null> {
+  try {
+    const dbPromise = getCatalogDb();
+    if (!dbPromise) return null;
+    const idb = await dbPromise;
+    const record = await idb.get(CATALOG_STORE, CATALOG_KEY);
+    return (record as CatalogIdbRecord | undefined) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCatalogToIdb(record: CatalogIdbRecord): Promise<void> {
+  try {
+    const dbPromise = getCatalogDb();
+    if (!dbPromise) return;
+    const idb = await dbPromise;
+    await idb.put(CATALOG_STORE, record, CATALOG_KEY);
+  } catch {
+    // Storage unavailable (private browsing, quota) — non-fatal, next fetch just re-downloads.
+  }
+}
+
+function catalogEntryToPark(e: CatalogParkEntry): Park {
+  return {
+    id: e.id,
+    name: e.name,
+    location: { lat: e.lat, lng: e.lng },
+    facilityType: e.facilityType as Park['facilityType'],
+    isFunctional: e.isFunctional,
+    imageUrl: e.imageUrl ?? undefined,
+    hasUsableEquipment: e.hasUsableEquipment,
+    isPrimaryFitness: e.isPrimaryFitness,
+    isMinor: e.isMinor,
+    published: true, // the catalog is already published-filtered server-side
+    status: 'open',
+  };
+}
+
+// Shared in-flight promise — same coalescing purpose as
+// _inflightFullParksFetch above, separate variable since these are two
+// independent fetch paths now.
+let _inflightCatalogFetch: Promise<Park[]> | null = null;
+
+async function fetchAndCacheCatalog(): Promise<Park[]> {
+  if (_inflightCatalogFetch) return _inflightCatalogFetch;
+
+  _inflightCatalogFetch = (async () => {
+    const cached = await readCatalogFromIdb();
+    const headers: Record<string, string> = {};
+    if (cached?.etag) headers['If-None-Match'] = cached.etag;
+
+    let res: Response;
+    try {
+      res = await fetch(CATALOG_ENDPOINT, { headers });
+    } catch (err) {
+      // Offline / network failure — serve whatever's cached, matching the
+      // full-records path's "cache hit, background refresh, never throw to
+      // the caller" shape. If there's nothing cached either, this is a
+      // genuine cold-start-with-no-network case — empty array, same as the
+      // full-records path's catch-all.
+      if (cached) return cached.data.map(catalogEntryToPark);
+      console.error('[Parks Service] Catalog fetch failed, offline and no cache:', err);
+      return [];
+    }
+
+    if (res.status === 304 && cached) {
+      return cached.data.map(catalogEntryToPark);
+    }
+
+    if (!res.ok) {
+      if (cached) return cached.data.map(catalogEntryToPark);
+      console.error('[Parks Service] Catalog fetch returned', res.status);
+      return [];
+    }
+
+    const etag = res.headers.get('etag');
+    const data: CatalogParkEntry[] = await res.json();
+    if (etag) {
+      await writeCatalogToIdb({ etag, data, fetchedAt: Date.now() });
+    }
+    return data.map(catalogEntryToPark);
+  })().finally(() => { _inflightCatalogFetch = null; });
+
+  return _inflightCatalogFetch;
+}
+
+/**
+ * Fetch parks for map display — lean catalog fields only (SPEC-07). See
+ * fetchAllParksFullRecords above for the full-record path location-utils.ts
+ * still uses.
+ *
+ * Behaviour: resolves instantly from IndexedDB if a cached catalog exists
+ * (serving stale data while a background fetch — with If-None-Match — either
+ * confirms it's still current via 304 or replaces it), otherwise awaits a
+ * cold fetch. Never throws — a fetch failure with no cache resolves to [].
+ * Airplane mode with a warm cache: resolves from IndexedDB, no network
+ * attempt needed for the synchronous return (the background refresh still
+ * fires and fails silently).
+ */
+export async function fetchRealParks(
+  onRefresh?: (parks: Park[]) => void,
+): Promise<Park[]> {
+  const cached = await readCatalogFromIdb();
+
+  if (cached) {
+    fetchAndCacheCatalog()
+      .then((fresh) => { onRefresh?.(fresh); })
+      .catch(() => { /* background refresh failure is non-fatal */ });
+    return cached.data.map(catalogEntryToPark);
+  }
+
+  return fetchAndCacheCatalog();
 }
 
 /**
