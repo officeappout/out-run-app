@@ -24,6 +24,7 @@ import { auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimulation';
+import { bunnyImg } from '@/lib/bunny-image';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import { computeQualityBadges } from '@/features/parks/core/services/route-quality-badges.service';
@@ -381,7 +382,12 @@ export default function RouteDetailSheet({
   if (!route) return null;
 
   const activityLabel = ACTIVITY_LABELS[route.activityType || route.type] || '';
-  const coverImage = route.images?.[0] || null;
+  // 800 matches bunny-image.ts's own documented "park detail hero" width.
+  // No-op passthrough for a non-Bunny (legacy Firebase Storage) url — same
+  // known limitation as the other image-memory fixes in this batch
+  // (SPEC-05, 16.09.2026); full raw-resolution fix for those is a separate,
+  // out-of-scope item.
+  const coverImage = bunnyImg(route.images?.[0] || null, 800) || null;
   const isNavRoute = route.id?.startsWith('nav-');
 
   const routeAccent = (() => {
