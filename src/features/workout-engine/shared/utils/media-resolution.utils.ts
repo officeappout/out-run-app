@@ -7,20 +7,24 @@
  *
  * Search priority (video):
  *   1. Selected method's media.mainVideoUrl / media.videoUrl
- *   2. ANY execution method's media.mainVideoUrl / media.videoUrl
+ *   2. Any OTHER method's media.mainVideoUrl / media.videoUrl — park-tagged
+ *      methods first, then the rest in original order (see byParkFirst)
  *   3. Exercise-level media.videoUrl
  *   4. Exercise root videoUrl / media.mainVideoUrl
  *
  * Search priority (image):
  *   1. Selected method's media.imageUrl
- *   2. ANY execution method's media.imageUrl
+ *   2. ANY execution method's media.imageUrl (plain array order — not
+ *      park-first; unlike video/bunnyVideoId/fullTutorial above, deliberately
+ *      left alone, see byParkFirst's own comment for why the other three changed)
  *   3. Exercise-level media.imageUrl
  *   4. Exercise root imageUrl / coverImage / thumbnailUrl
  *   5. Falls back to resolved video URL (video thumbnail)
  *
  * Search priority (fullTutorial — long-form instructional video):
  *   1. Selected method's media.fullTutorial (HE, with HE fallback)
- *   2. ANY execution method's media.fullTutorial
+ *   2. Any OTHER method's media.fullTutorial — park-tagged methods first,
+ *      then the rest in original order (see byParkFirst)
  *   3. Exercise-level media.fullTutorial
  *
  * ISOMORPHIC: Pure TypeScript, no React hooks, no browser APIs
@@ -42,6 +46,28 @@ export interface ResolvedMedia {
 }
 
 const _BUNNY_UUID = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i;
+
+/**
+ * Cross-method fallback order: the requested method itself is already checked
+ * before any of the three .reduce() calls below reach this list — this only
+ * decides the order AFTER that. Park first, then everything else in its
+ * original relative order (stable partition, not a re-sort of the whole
+ * array). Reason: today every cross-method fallback in the catalog (559/559,
+ * measured) happens to land on a park method anyway, purely because park is
+ * the only location with near-complete video content — but the underlying
+ * .reduce() was plain array order with no rule behind it. That's silently
+ * exploitable two ways: (1) admin's MethodsSection duplicate/remove reindexes
+ * execution_methods on every edit, so which method "wins" the fallback could
+ * change with no data change at all; (2) the day real video content lands on
+ * a non-park method authored earlier in the array, the fallback would jump to
+ * it with no signal that a rule was ever intended. Explicit park-first makes
+ * today's accidental behavior a real, stable rule instead.
+ */
+function byParkFirst(allMethods: any[]): any[] {
+  const park = allMethods.filter((m) => m?.location === 'park');
+  const rest = allMethods.filter((m) => m?.location !== 'park');
+  return [...park, ...rest];
+}
 
 /**
  * Resolve a SINGLE method's Bunny id from ALL of its slots, in order:
@@ -76,6 +102,8 @@ export function resolveExerciseMedia(
   const methodMedia = method?.media as Record<string, any> | undefined;
   const allMethods: any[] =
     exercise.execution_methods || exercise.executionMethods || exercise.methods || [];
+  // Computed once, reused by all 3 cross-method fallbacks below — see byParkFirst's own comment.
+  const allMethodsParkFirst = byParkFirst(allMethods);
 
   // ── Bunny preview (NEW structured field) ──
   // Resolved BEFORE the legacy chain so a Bunny-only exercise (has
@@ -87,7 +115,7 @@ export function resolveExerciseMedia(
   // Per-method (ALL slots) → any method → root. See methodBunnyId above.
   const bunnyVideoId: string | undefined =
     methodBunnyId(methodMedia) ??
-    allMethods.reduce<string | undefined>(
+    allMethodsParkFirst.reduce<string | undefined>(
       (found, m: any) => found ?? methodBunnyId(m?.media),
       undefined,
     ) ??
@@ -107,7 +135,7 @@ export function resolveExerciseMedia(
     bunnyStreamUrl ||
     methodMedia?.mainVideoUrl ||
     methodMedia?.videoUrl ||
-    allMethods.reduce(
+    allMethodsParkFirst.reduce(
       (found: string | undefined, m: any) =>
         found || m?.media?.mainVideoUrl || m?.media?.videoUrl,
       undefined,
@@ -135,7 +163,7 @@ export function resolveExerciseMedia(
   // ── Full tutorial resolution (deep search, mirrors video priority) ──
   const fullTutorial: ExternalVideo | null =
     resolveTutorialForLang(methodMedia as any) ??
-    allMethods.reduce<ExternalVideo | undefined>(
+    allMethodsParkFirst.reduce<ExternalVideo | undefined>(
       (found, m: any) => found || resolveTutorialForLang(m?.media),
       undefined,
     ) ??
