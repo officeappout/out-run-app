@@ -96,6 +96,7 @@ export function appendCooldownExercises(
   }
 
   // Absolute Fallback: if still 0, grab ANY exerciseRole cooldown OR flexibility — ignore equipment & location
+  const nukePoolIds = new Set<string>();
   if (cooldownCandidates.length === 0) {
     const nukePool = allExercises.filter((ex) => {
       if (workoutIds.has(ex.id)) return false;
@@ -104,6 +105,7 @@ export function appendCooldownExercises(
     if (nukePool.length > 0) {
       console.log('[Cooldown] Absolute fallback: using', nukePool.length, 'exercises (ignoring equipment/location)');
       cooldownCandidates = nukePool.slice(0, 2);
+      cooldownCandidates.forEach(ex => nukePoolIds.add(ex.id));
     }
   }
 
@@ -118,12 +120,22 @@ export function appendCooldownExercises(
          methods.find(m => m.location === 'home' || m.locationMapping?.includes('home')) ||
          methods[0]);
     // Absolute fallback: exercises from nuke pool may have no methods — use minimal placeholder
+    const foundRealMethod = !!bestMethod;
     if (!bestMethod) {
       bestMethod = {
         location: 'home',
         requiredGearType: 'none',
         media: {},
       } as any;
+    }
+    if (nukePoolIds.has(ex.id)) {
+      console.log('[COOLDOWN-NUKE]', JSON.stringify({
+        exerciseId: ex.id,
+        filteredPoolEmpty: true,
+        requestedLocation: location,
+        placeholderStamped: !foundRealMethod,
+        realMethodLocation: foundRealMethod ? bestMethod?.location : null,
+      }));
     }
     if (bestMethod?.media?.mainVideoUrl) score += 1;
     return { exercise: ex, method: bestMethod, score };
