@@ -6,7 +6,10 @@
  * Vercel's edge cache (Cache-Control: s-maxage) to answer almost every
  * request without ever reaching this function or Firestore again — see
  * docs/audit-2026-09/SPEC-07-shared-catalog.md for the full design and the
- * cost math (~14M Firestore reads/day today → ~150/day once this is live).
+ * cost math (~14M Firestore reads/day today → ~150/day once this is live —
+ * the "today" figure is an unmeasured order-of-magnitude estimate, not a
+ * Firestore usage measurement; see that doc's 16.09.2026 correction before
+ * quoting it anywhere external).
  *
  * Field list is exactly what stage 0's field-mapping found real map/search
  * consumers reading (AppMap's vector-pin GeoJSON, ParkPhotoMarker,
