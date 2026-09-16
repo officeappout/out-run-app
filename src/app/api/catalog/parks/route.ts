@@ -31,11 +31,30 @@
  * side, never ship the raw field" pattern as hasUsableEquipment/
  * isPrimaryFitness. Always false today (urbanType is null on every
  * published park — a separate, pending product decision; see the
- * master-plan journal, untouched here). facilityType stays as a raw field
- * — unlike urbanType, it has two confirmed catalog-path consumers that
- * don't reduce to one boolean: WorkoutLocationSuggestions.tsx's 3-way
- * display label (gym_park/court/other) and start-hybrid-session.ts's
- * `!== 'open_field'` exclusion, a different predicate than isPrimaryFitness.
+ * master-plan journal, untouched here).
+ *
+ * facilityType stays as a raw field — DO NOT remove it or fold it into a
+ * boolean. The general rule (SPEC-07): precompute a boolean ONLY when the
+ * consumer is asking a yes/no question (that's what hasUsableEquipment/
+ * isPrimaryFitness/isMinor are). facilityType has THREE confirmed
+ * catalog-path consumers and every one of them branches on multiple raw
+ * values, not one — a boolean cannot represent that without turning into
+ * several booleans that just re-encode the same string:
+ *   1. WorkoutLocationSuggestions.tsx:132 — 3-way display label
+ *      (gym_park / court / other).
+ *   2. start-hybrid-session.ts:751 — `parks.filter(p => p.facilityType
+ *      !== 'open_field')`, gating on the strength-assessment flag.
+ *   3. route-stops.service.ts:55 (`mapParkToStop`) — branches on FOUR
+ *      values (gym_park / nature_community / zen_spot / urban_spot) to
+ *      pick a stop's activity type. Easy to miss by grepping this file
+ *      alone: it never calls fetchRealParks itself. start-hybrid-
+ *      session.ts:767 fetches the catalog (`safeFetchRealParks()`),
+ *      filters it (consumer #2, same array), and passes that SAME array
+ *      into `resolveRouteStops(routePath, parks)`, which loops it into
+ *      mapParkToStop. The park object mapParkToStop receives is
+ *      catalog-shaped even though the function itself never fetches
+ *      anything — trace the array's origin, not just this file's
+ *      imports, before concluding a field is unused on the lean path.
  *
  * published filtering is NOT a Firestore query clause — parks.service.ts's
  * own normalizePark treats a doc as published via

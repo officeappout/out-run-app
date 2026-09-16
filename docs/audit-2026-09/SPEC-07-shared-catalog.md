@@ -213,4 +213,38 @@ unitDirectory · units · unit_league_aggregates
 
 ---
 
+# תוספת 16.09 (המשך 2) — facilityType/urbanType: מה נשאר, מה הוסר, ולמה
+
+## urbanType → isMinor (מומש)
+
+`urbanType` הוסר מהקטלוג. במקומו: `isMinor: boolean`, מחושב בשרת (`route.ts`) מול `MINOR_URBAN_TYPES` — קבוע יחיד ב-`src/features/parks/core/constants/urban-type.constants.ts`, שגם בניית הקטלוג וגם הלקוח מסוגלים לייבא ממנו (בפועל, אחרי המעבר, רק בניית הקטלוג צריכה אותו — הלקוח (`AppMap.tsx`) כבר לא מחשב `isMinor` בעצמו, רק קורא את הבוליאן המוכן מהקטלוג). שני הפילטרים האמיתיים ב-`mapLayersConfig.ts` (שורות 231/242) כבר היו כתובים גנרית על `['get', 'isMinor']` בביטוי ה-Mapbox — לא על `urbanType` גולמי — כך שהם עובדים בלי שום שינוי בהם. תמיד `false` היום, כי `urbanType` עדיין ריק על כל פארק מתפרסם (החלטה מוצרית נפרדת, לא נוגעים בה).
+
+## facilityType — נשאר. הכלל, לא רק העובדה
+
+**הכלל של SPEC-07: מחשבים predicate מראש (בוליאן) רק כשהצרכן שואל שאלת כן/לא. כשצרכן מסתעף על כמה ערכים, השדה הגולמי נשאר.** בוליאן מחושב לא יכול לייצג הסתעפות רב-כיוונית בלי להפוך לכמה בוליאנים שרק מקודדים מחדש את אותה מחרוזת — זה לא חיסכון, זה שכפול.
+
+`facilityType` נבדק מחדש (16.09.2026) ונמצאו **שלושה** צרכנים אמיתיים על נתיב הקטלוג — לא שניים כפי שנחשב בהתחלה:
+
+1. **`WorkoutLocationSuggestions.tsx:132`** — תווית תצוגה תלת-כיוונית (`gym_park`/`court`/אחר).
+2. **`start-hybrid-session.ts:751`** — `parks.filter(p => p.facilityType !== 'open_field')`, שער על דגל ה-assessment.
+3. **`route-stops.service.ts:55` (`mapParkToStop`)** — מסתעף על **ארבעה** ערכים (`gym_park`/`nature_community`/`zen_spot`/`urban_spot`) כדי לקבוע את סוג התחנה. **זה הצרכן שלא נמצא בבדיקה הראשונה** — הוא לא קורא ל-`fetchRealParks` בעצמו; `start-hybrid-session.ts:767` שולף את הקטלוג (`safeFetchRealParks()`), מסנן אותו (צרכן #2, אותו מערך), ומעביר את אותו מערך ל-`resolveRouteStops(routePath, parks)`, שמזין אותו ל-`mapParkToStop` בלולאה. האובייקט ש-`mapParkToStop` מקבל הוא בצורת-קטלוג, אף שהפונקציה עצמה לא שולפת שום דבר.
+
+כל שלושתם דורשים ענף מלא (label / exclusion / role), לא שאלת כן-לא אחת — לכן `facilityType` נשאר גולמי בקטלוג. **בלי הניסוח הזה, "אל תשלח שדות גולמיים" יקרא כהוראה גורפת ומישהו יסיר את זה שוב.**
+
+## תיקון: מדידת גודל — gzip בלבד, לא raw
+
+המספר שדווח קודם ("`urbanType`+`facilityType` יחד = 49.8KB, 16% מהקטלוג") היה **raw**, ומטעה: 1158 מופעים של אותה מחרוזת חוזרת (`"gym_park"`, `null`) נדחסים ב-gzip כמעט לאפס — זו בדיוק הסיבה שהגודל הנמדד בפועל של כל הקטלוג הוא 326.1KB raw אבל רק 62.6KB gzip (ראו למעלה). אחוז raw על שדה חוזרתי לא משקף את העלות האמיתית על החוט. **כלל למדידות עתידיות בקטלוג הזה: מדווחים תמיד gzipped, לא raw — raw מטעה כשיש חזרתיות גבוהה בערכים.**
+
+## שלב עתידי, לא בהיקף היום — צרכנים שעדיין עוקפים את הקטלוג לגמרי
+
+תוך כדי המעקב אחרי צרכני `facilityType` נמצאו שלושה מקומות שעדיין קוראים את **כל** אוסף `parks` ישירות מ-Firestore בכל קריאה, ולא דרך הקטלוג בכלל — בדיוק העלות ש-SPEC-07 נועד לחסל, ועדיין קיימת:
+
+- **`getAllParks()` / `getParksByAuthority()`** (`src/features/parks/core/services/parks.service.ts`) — קריאות `collection(db,'parks')` ישירות משל עצמן, עוקפות את `fetchRealParks`/הקטלוג לגמרי. צרכנים: `first-workout.service.ts` (`findNearestEquippedPark`) ו-`UnifiedLocationStep.tsx:517` (`loadInfrastructureContext`).
+- **`route-overlay.service.ts`** (heatmap) — `fetchParksForAuthorities`, קריאת Firestore ישירה ונפרדת משל עצמה.
+- **`location-utils.ts` / `fetchAllParksFullRecords`** — כבר מתועד למעלה כצרכן לגיטימי של הרשומה המלאה (מסנן לפי `courtType`/`sportTypes`/`natureType` שאין בקטלוג) — לא באג, אבל עדיין עלות מלאה שלא צומצמה.
+
+לא נוגעים בזה עכשיו — מתועד כשלב עתידי אפשרי ל-SPEC-07 (או ספק נפרד).
+
+---
+
 **מקורות:** Firestore Data Bundles (firebase.blog) · Orca Security — Firestore public database access · CloudThinker — Firebase Security Rules Audit
