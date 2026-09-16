@@ -304,6 +304,33 @@ export class PipelineOrchestrator {
       log.push('orchestrator: profileStale=true (all levels ≤ 1)');
     }
 
+    // ── Step 3b: Post-domain-filter empty-pool guard ──────────────────────────
+    // Step 1's guard only sees the pool BEFORE the single-domain strict filter
+    // (Step 2b) runs. A filter that wipes the pool completely (e.g. gating on
+    // a domain none of the surviving exercises are tagged for — see the
+    // "Block B under-delivery" diagnosis, 16.09.2026) was previously invisible
+    // here: usedEmptyPoolFallback stayed hardcoded false below and an empty
+    // array reached the generator, silently degrading to cooldown-only output
+    // with no signal anywhere in the pipeline. Re-check post-filter and take
+    // the same rest-day fallback path Step 1 uses instead of proceeding.
+    if (filteredPool.length === 0) {
+      log.push(
+        `orchestrator: empty_pool_after_domain_filter (strategy=${blueprint.strategy}) — ` +
+        'returning rest-day fallback',
+      );
+      console.warn(
+        `[PipelineOrchestrator] ⚠️ Domain-strict filter emptied the pool completely ` +
+        `(location=${context.location}, strategy=${blueprint.strategy}) — ` +
+        'returning rest-day fallback instead of generating from an empty pool.',
+      );
+      return {
+        workout: buildRestDayFallback(context),
+        usedEmptyPoolFallback: true,
+        profileStale,
+        log,
+      };
+    }
+
     // ── Step 4: Delegate to WorkoutGenerator (blueprint-aware thin shim) ─────
     //
     // WorkoutGenerator.generateWorkout() is now blueprint-aware via Phase 4:

@@ -369,14 +369,26 @@ export async function composeParkWorkoutFromMachines(
   const remainingWeeklyBudgetForBlockB = Math.max(2, weeklyVolumeBudget - rounds);
 
   // ── Block B: ALWAYS runs (Wave 2 #5 — the direct fix for "0 bodyweight").
-  // Domain coverage is a selection PREFERENCE, not a gate: requiredDomains is
-  // still passed (when Block A left a gap) so Block B prioritizes filling
-  // it, but strictDomains is now false (was true) so Block B's own
-  // guarantee/overflow-fill passes can still contribute other domains too —
-  // see HomeWorkoutOptions.strictDomains's own doc comment. Machines never
-  // re-cover what Block A already has, so there's no double-dipping risk
-  // either way.
-  const requiredDomains = ALL_DOMAINS.filter((d) => !blockACoveredDomains.includes(d));
+  // Domain coverage (16.09.2026 follow-up — "Block B under-delivery"
+  // diagnosis): Block B fills from the SESSION'S OWN scheduled program
+  // domains — whatever the split engine decided for today (push, pull, or
+  // combined) — never from Block A's machine coverage. This composer used to
+  // force requiredDomains = ALL_DOMAINS minus whatever Block A covered (e.g.
+  // ['legs','core'] when the park's machines happened to cover push/pull),
+  // intended only as a soft preference. Downstream, StructureDirector's
+  // single-domain strategy collapses that list to its first element and
+  // PipelineOrchestrator's domain-strict filter (±3 level tolerance) enforces
+  // it as a hard, exclusive gate — wiping Block B's entire pool whenever the
+  // forced domain was unassessed or simply absent from the pool the composer's
+  // OWN user is actually leveled in (confirmed: a push-only-assessed user with
+  // push-covering machines got gated on "legs L4", where L4 was never a real
+  // legs level — just the user's push level laundered through the engine's
+  // max-across-domains fallback). Not passing requiredDomains here lets
+  // generateHomeWorkoutTrio default it (home-workout.service.ts) to
+  // resolvedChildDomains — exactly the domains its own Tier-1 pool was
+  // already built from — so the pool and the strict filter always agree.
+  // Machines never re-cover what Block A already has, so there's no
+  // double-dipping risk either way.
   const bodyweightTimeMinutes = Math.max(MIN_BLOCK_B_MINUTES, availableTime - machineTimeMinutes);
 
   const trio = await generateHomeWorkoutTrio({
@@ -384,7 +396,6 @@ export async function composeParkWorkoutFromMachines(
     location: 'park',
     availableTime: bodyweightTimeMinutes,
     difficulty: DIFFICULTY_TO_LEVEL[options.difficulty],
-    requiredDomains: requiredDomains.length > 0 ? [...requiredDomains] : undefined,
     strictDomains: false,
     // READ-ONLY preview — this composition may run again if the user edits
     // the drawer before starting, and must never mutate the user's program
