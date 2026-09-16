@@ -287,6 +287,14 @@ export interface Park {
    *  — mirrors park-fitness.util.ts's isPrimaryFitness(), computed server-side
    *  since the catalog doesn't carry the raw sportTypes array. */
   isPrimaryFitness?: boolean;
+  /** urbanType is one of MINOR_URBAN_TYPES (water_fountain/toilets/parking/
+   *  bike_rack/bench) — replaces the raw urbanType field in the catalog
+   *  (David, 16.09.2026: "option b — precompute isMinor instead of the raw
+   *  field"), same pattern as hasUsableEquipment/isPrimaryFitness. Always
+   *  false today (urbanType is null on every published park — a pending
+   *  product decision, untouched); the catalog build picks this up
+   *  automatically once that field is populated. */
+  isMinor?: boolean;
 
   // Admin metadata
   authorityId?: string; // Link to authority (for Authority Manager access) — always the TOP authority (city / regional_council)

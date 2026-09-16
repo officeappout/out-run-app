@@ -26,9 +26,16 @@
  * confirmed consumer on the lean path); do not add a field speculatively —
  * stop and ask first, per the same review.
  *
- * urbanType stays in the catalog (product owner's call, not a technical
- * one) despite being empty on every currently-published park — see the
- * master-plan journal.
+ * isMinor (David, 16.09.2026, after a facilityType/urbanType re-review):
+ * replaces the raw urbanType field — same "compute the predicate server-
+ * side, never ship the raw field" pattern as hasUsableEquipment/
+ * isPrimaryFitness. Always false today (urbanType is null on every
+ * published park — a separate, pending product decision; see the
+ * master-plan journal, untouched here). facilityType stays as a raw field
+ * — unlike urbanType, it has two confirmed catalog-path consumers that
+ * don't reduce to one boolean: WorkoutLocationSuggestions.tsx's 3-way
+ * display label (gym_park/court/other) and start-hybrid-session.ts's
+ * `!== 'open_field'` exclusion, a different predicate than isPrimaryFitness.
  *
  * published filtering is NOT a Firestore query clause — parks.service.ts's
  * own normalizePark treats a doc as published via
@@ -55,6 +62,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireAdminApi } from '@/lib/api-auth';
 import { createHash } from 'crypto';
+import { MINOR_URBAN_TYPES } from '@/features/parks/core/constants/urban-type.constants';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -79,10 +87,10 @@ interface CatalogParkEntry {
   lng: number;
   facilityType: string;
   isFunctional: boolean;
-  urbanType: string | null;
   imageUrl: string | null;
   hasUsableEquipment: boolean;
   isPrimaryFitness: boolean;
+  isMinor: boolean;
 }
 
 function resolveImage(d: FirebaseFirestore.DocumentData): string | null {
@@ -122,6 +130,17 @@ function computeHasUsableEquipment(d: FirebaseFirestore.DocumentData): boolean {
   );
 }
 
+// Replaces the raw urbanType field in the catalog (David, 16.09.2026:
+// "option b — precompute isMinor instead of the raw field", same pattern as
+// the two flags above). MINOR_URBAN_TYPES lives in urban-type.constants.ts,
+// not duplicated here — mapPinIcons.ts (the client-side map pin renderer)
+// imports the exact same constant, so a change to the classification only
+// needs one edit. Always false today (urbanType is null on every published
+// park — a separate, pending product decision, untouched by this).
+function computeIsMinor(d: FirebaseFirestore.DocumentData): boolean {
+  return MINOR_URBAN_TYPES.includes(d.urbanType || '');
+}
+
 async function buildCatalog(): Promise<CatalogParkEntry[]> {
   const db = getAdminDb();
   const snap = await db.collection('parks').get();
@@ -142,10 +161,10 @@ async function buildCatalog(): Promise<CatalogParkEntry[]> {
       lng,
       facilityType: d.facilityType || 'gym_park',
       isFunctional: d.isFunctional === true,
-      urbanType: d.urbanType || null,
       imageUrl: resolveImage(d),
       hasUsableEquipment: computeHasUsableEquipment(d),
       isPrimaryFitness: computeIsPrimaryFitness(d),
+      isMinor: computeIsMinor(d),
     });
   }
 

@@ -198,10 +198,11 @@ function writeParksToStorage(parks: Park[]): void {
  * preserved verbatim under this name.
  *
  * SPEC-07 (16.09.2026): fetchRealParks itself became the lean, catalog-backed
- * fetch below (id/name/location/facilityType/isFunctional/urbanType/imageUrl
- * + hasUsableEquipment/isPrimaryFitness — no gymEquipment, sportTypes,
- * courtType, natureType, description, etc.). This full-record fetch exists
- * SPECIFICALLY for location-utils.ts's fetchNearbyFacilities, the one
+ * fetch below (id/name/location/facilityType/isFunctional/imageUrl +
+ * hasUsableEquipment/isPrimaryFitness/isMinor — no gymEquipment, sportTypes,
+ * urbanType, courtType, natureType, description, etc. isMinor replaces raw
+ * urbanType as the one field that used to derive it). This full-record fetch
+ * exists SPECIFICALLY for location-utils.ts's fetchNearbyFacilities, the one
  * confirmed consumer that filters on fields the catalog doesn't carry
  * (courtType, sportTypes, natureType) — see that file's own comment at the
  * call site for why it stays on this path. Everything else that used to
@@ -273,10 +274,10 @@ interface CatalogParkEntry {
   lng: number;
   facilityType: string;
   isFunctional: boolean;
-  urbanType: string | null;
   imageUrl: string | null;
   hasUsableEquipment: boolean;
   isPrimaryFitness: boolean;
+  isMinor: boolean;
 }
 
 interface CatalogIdbRecord {
@@ -338,10 +339,10 @@ function catalogEntryToPark(e: CatalogParkEntry): Park {
     location: { lat: e.lat, lng: e.lng },
     facilityType: e.facilityType as Park['facilityType'],
     isFunctional: e.isFunctional,
-    urbanType: (e.urbanType ?? undefined) as Park['urbanType'],
     imageUrl: e.imageUrl ?? undefined,
     hasUsableEquipment: e.hasUsableEquipment,
     isPrimaryFitness: e.isPrimaryFitness,
+    isMinor: e.isMinor,
     published: true, // the catalog is already published-filtered server-side
     status: 'open',
   };
