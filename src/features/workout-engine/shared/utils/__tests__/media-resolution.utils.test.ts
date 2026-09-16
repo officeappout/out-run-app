@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { byParkFirst } from '../media-resolution.utils';
+import { byParkFirst, resolveExerciseMedia } from '../media-resolution.utils';
 
 /**
  * byParkFirst is a stable partition: park-tagged elements first (original
@@ -139,5 +139,39 @@ describe('byParkFirst — named edge cases', () => {
     const p1 = { location: 'park', _id: 1 };
     const p2 = { location: 'park', _id: 2 };
     expect(byParkFirst([p1, p2])).toEqual([p1, p2]);
+  });
+});
+
+/**
+ * resolveExerciseMedia's bunnyVideoId resolution — 16.09.2026 unification.
+ * Previously this ALWAYS returned undefined for a machine pseudo-exercise
+ * (buildMachinePseudoExercise stamps the Bunny URL on method.media.mainVideoUrl,
+ * with no execution_methods array to fall through), because the old local
+ * _BUNNY_UUID regex required a trailing slash after the uuid that neither the
+ * embed nor the play URL shape has. Now goes through the shared
+ * extractBunnyVideoId (bunny.config.ts) instead.
+ */
+describe('resolveExerciseMedia — bunnyVideoId resolution through the shared extractor', () => {
+  const machinePseudoExercise = { media: {} }; // buildMachinePseudoExercise's exact shape
+
+  it('resolves bunnyVideoId from method.media.mainVideoUrl for the embed shape, and videoUrl becomes the direct Bunny stream MP4 (not the raw embed page) — this is what makes hasValidDirectVideoUrl match in the live player', () => {
+    const method = { media: { mainVideoUrl: 'https://iframe.bunnycdn.com/embed/640043/19614c57-e3cb-4b9c-b303-30d0cab0fa95' } };
+    const result = resolveExerciseMedia(machinePseudoExercise, method);
+    expect(result.bunnyVideoId).toBe('19614c57-e3cb-4b9c-b303-30d0cab0fa95');
+    expect(result.videoUrl).toContain('19614c57-e3cb-4b9c-b303-30d0cab0fa95');
+    expect(result.videoUrl).toMatch(/\.mp4$/);
+  });
+
+  it('resolves bunnyVideoId from method.media.mainVideoUrl for the play shape (the shoulder-press oddball)', () => {
+    const method = { media: { mainVideoUrl: 'https://player.mediadelivery.net/play/640043/c835f0ac-3769-4318-9468-9cbff90afb06' } };
+    const result = resolveExerciseMedia(machinePseudoExercise, method);
+    expect(result.bunnyVideoId).toBe('c835f0ac-3769-4318-9468-9cbff90afb06');
+  });
+
+  it('a genuinely non-Bunny direct video URL still resolves videoUrl with no bunnyVideoId (unaffected regular-exercise path)', () => {
+    const method = { media: { mainVideoUrl: 'https://appoutimages.b-cdn.net/exercises/pushup/video.mp4' } };
+    const result = resolveExerciseMedia(machinePseudoExercise, method);
+    expect(result.bunnyVideoId).toBeUndefined();
+    expect(result.videoUrl).toBe(method.media.mainVideoUrl);
   });
 });

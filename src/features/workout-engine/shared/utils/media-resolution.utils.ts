@@ -31,7 +31,7 @@
 
 import { resolveTutorialForLang, resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
-import { buildBunnyStreamUrl, buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
+import { buildBunnyStreamUrl, buildBunnyThumbnailUrl, extractBunnyVideoId } from '@/lib/bunny/bunny.config';
 
 export interface ResolvedMedia {
   videoUrl: string | undefined;
@@ -43,8 +43,6 @@ export interface ResolvedMedia {
    *  Undefined for legacy/non-Bunny methods. */
   bunnyVideoId: string | undefined;
 }
-
-const _BUNNY_UUID = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i;
 
 /**
  * Cross-method fallback order: the requested method itself is already checked
@@ -84,10 +82,16 @@ export function byParkFirst(allMethods: any[]): any[] {
 
 /**
  * Resolve a SINGLE method's Bunny id from ALL of its slots, in order:
- *   previewVideo.videoId → media.bunnyVideoId_mainVideoUrl → UUID parsed from mainVideoUrl.
+ *   previewVideo.videoId → media.bunnyVideoId_mainVideoUrl → uuid parsed from mainVideoUrl.
  * Reading every slot of the SELECTED method is what fixes the bug where a park method's
  * video lives in `mainVideoUrl` (not `previewVideo`) — previously the resolver saw no
  * previewVideo and fell through to another method / root (the home image).
+ *
+ * The last tier now goes through the SHARED extractBunnyVideoId (16.09.2026
+ * unification) instead of a local regex — the previous local regex required a
+ * trailing slash after the uuid that no real Bunny URL (embed or play) has,
+ * which is why this always returned undefined for machine-pseudo-exercise
+ * videos and the live player fell through to <img>/black.
  */
 function methodBunnyId(media: Record<string, any> | undefined): string | undefined {
   if (!media) return undefined;
@@ -96,8 +100,7 @@ function methodBunnyId(media: Record<string, any> | undefined): string | undefin
   if (typeof media.bunnyVideoId_mainVideoUrl === 'string' && media.bunnyVideoId_mainVideoUrl) {
     return media.bunnyVideoId_mainVideoUrl;
   }
-  const m = typeof media.mainVideoUrl === 'string' ? media.mainVideoUrl.match(_BUNNY_UUID) : null;
-  return m ? m[1] : undefined;
+  return extractBunnyVideoId(media.mainVideoUrl) ?? undefined;
 }
 
 /**

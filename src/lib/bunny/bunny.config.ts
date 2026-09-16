@@ -83,3 +83,33 @@ export function isBunnyConfigured(): boolean {
     BUNNY_PUBLIC_CONFIG.libraryId && BUNNY_PUBLIC_CONFIG.cdnHostname,
   );
 }
+
+const BUNNY_UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/**
+ * Extract a Bunny Stream video UUID from a stored videoUrl. The single
+ * shared source of truth for both EquipmentDetailDrawer (which already
+ * played `iframe.bunnycdn.com/embed/...` correctly) and the live player's
+ * media-resolution.utils.ts (whose own `_BUNNY_UUID` regex required a
+ * trailing slash after the uuid that NO Bunny URL shape actually has —
+ * root cause of the black-screen bug, 16.09.2026 investigation). Handles:
+ *   - https://iframe.bunnycdn.com/embed/{libraryId}/{uuid}      (legacy/bulk-imported data)
+ *   - https://iframe.mediadelivery.net/embed/{libraryId}/{uuid} (same embed player,
+ *     newer domain — this is exactly what buildBunnyEmbedUrl above generates)
+ *   - https://player.mediadelivery.net/play/{libraryId}/{uuid}  (the shoulder-press
+ *     oddball shape — previously unsupported anywhere)
+ *   - a slash-surrounded {uuid} anywhere in a URL (e.g. a CDN file path)
+ *   - a bare 36-char {uuid} string
+ * None of these require a trailing slash after the uuid.
+ */
+export function extractBunnyVideoId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const embedM = url.match(/iframe\.(?:bunnycdn\.com|mediadelivery\.net)\/embed\/\d+\/([0-9a-f-]{36})/i);
+  if (embedM) return embedM[1];
+  const playM = url.match(/player\.mediadelivery\.net\/play\/\d+\/([0-9a-f-]{36})/i);
+  if (playM) return playM[1];
+  const cdnM = url.match(new RegExp(`/(${BUNNY_UUID_RE.source})/`, 'i'));
+  if (cdnM) return cdnM[1];
+  if (BUNNY_UUID_RE.test(url) && url.length === 36) return url;
+  return null;
+}

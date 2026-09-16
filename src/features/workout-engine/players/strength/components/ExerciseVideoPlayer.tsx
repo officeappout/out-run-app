@@ -16,6 +16,8 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED } from '@/config/feature-flags';
+import { extractBunnyVideoId } from '@/lib/bunny/bunny.config';
+import BunnyVideoPlayer from '@/lib/bunny/BunnyVideoPlayer';
 
 interface ExerciseVideoPlayerProps {
   exerciseId: string;
@@ -208,11 +210,22 @@ export default function ExerciseVideoPlayer({
     if (isYouTubeVideo) return false;
     if (effectiveVideoUrl.startsWith('blob:')) return true;
     const lowerUrl = effectiveVideoUrl.toLowerCase();
-    return lowerUrl.includes('.mp4') || 
-           lowerUrl.includes('.mov') || 
+    return lowerUrl.includes('.mp4') ||
+           lowerUrl.includes('.mov') ||
            lowerUrl.includes('.webm') ||
            lowerUrl.includes('video');
   }, [effectiveVideoUrl, isYouTubeVideo]);
+
+  // Bunny embed/play URL (iframe.bunnycdn.com/embed/..., iframe.mediadelivery.net/embed/...,
+  // player.mediadelivery.net/play/...) — checked after YouTube and after a genuinely
+  // direct file/blob (hasValidDirectVideoUrl), so an already-resolved direct URL (e.g. the
+  // adaptive Bunny stream usePlayerMedia may have already produced) is never re-parsed here.
+  // Shared with EquipmentDetailDrawer via extractBunnyVideoId — see its own doc comment for
+  // why the URL shapes below need no trailing slash after the uuid (the previous bug).
+  const bunnyVideoId = useMemo(() => {
+    if (!effectiveVideoUrl || isYouTubeVideo || hasValidDirectVideoUrl) return null;
+    return extractBunnyVideoId(effectiveVideoUrl);
+  }, [effectiveVideoUrl, isYouTubeVideo, hasValidDirectVideoUrl]);
 
   // ── Mute policy ────────────────────────────────────────────────────────
   // The short reps/time preview loop is ALWAYS muted: browsers (and iOS
@@ -395,8 +408,24 @@ export default function ExerciseVideoPlayer({
             />
           )}
 
-          {/* Fallback to image */}
-          {!isYouTubeVideo && !hasValidDirectVideoUrl && (
+          {/* Bunny embed/play video (machine pseudo-exercises + any exercise whose
+              stored videoUrl is a Bunny embed/play page rather than a direct file) */}
+          {!isYouTubeVideo && !hasValidDirectVideoUrl && bunnyVideoId && (
+            <BunnyVideoPlayer
+              key={`bunny-${exerciseId}-${bunnyVideoId}`}
+              videoId={bunnyVideoId}
+              objectFit="contain"
+              loop={exerciseType !== 'follow-along'}
+              showControls={false}
+              isPaused={isPaused}
+              onLoadStart={() => handleLoadingChange(true)}
+              onLoadedData={() => handleLoadingChange(false)}
+              onError={() => handleLoadingChange(false)}
+            />
+          )}
+
+          {/* Fallback to image — only when there is genuinely no playable video */}
+          {!isYouTubeVideo && !hasValidDirectVideoUrl && !bunnyVideoId && (
             <img
               key={`img-${exerciseId}`}
               src={effectiveVideoUrl}
