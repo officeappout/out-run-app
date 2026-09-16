@@ -3,10 +3,7 @@ import mapboxgl from 'mapbox-gl';
 export const PIN_W = 28;
 export const PIN_H = 36;
 
-// MINOR_URBAN_TYPES moved to ../constants/urban-type.constants.ts (SPEC-07,
-// 16.09.2026) — isMinor is now precomputed server-side in the catalog build
-// (route.ts, which can't import this file: it pulls in mapbox-gl, client-
-// only), so AppMap.tsx no longer needs the raw constant here at all.
+export const MINOR_URBAN_TYPES = ['water_fountain', 'toilets', 'parking', 'bike_rack', 'bench'];
 
 export function registerPinImage(
   map: mapboxgl.Map,

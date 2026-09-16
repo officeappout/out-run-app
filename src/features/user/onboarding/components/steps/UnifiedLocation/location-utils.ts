@@ -3,7 +3,7 @@
  * Pure helpers, scoring engine, data fetching, and copy matrix.
  */
 
-import { fetchAllParksFullRecords } from '@/features/parks/core/services/parks.service';
+import { fetchRealParks } from '@/features/parks/core/services/parks.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
 import { getAllAuthorities, getChildrenByParent } from '@/features/admin/services/authority.service';
 import { ISRAELI_LOCATIONS, type IsraeliLocation, type LocationType } from '@/lib/data/israel-locations';
@@ -1115,22 +1115,13 @@ export function applyStrengthTierFilter(
  * FIX (Gym Bias — Ball Games): Added a dedicated Ball Game cluster filter
  * to ensure multi-court and ball_court facilities are included for ball sports.
  *
- * Perf: uses `fetchAllParksFullRecords()` (shared localStorage + stale-while-
- * revalidate cache, 6h TTL, de-duped in-flight fetch) instead of the
- * unscoped, uncached `getAllParks()` — this call used to re-fetch the whole
- * national `parks` collection from scratch on every drag-end and every city
- * pick during onboarding, and again from a separate cache when the user
- * later opened the real map. See
- * .claude/knowledge/onboarding-map-location-perf-audit.md findings #2 and #4.
- *
- * SPEC-07 (16.09.2026): deliberately stays on the full-record path, not the
- * new lean fetchRealParks() catalog — this function filters on courtType,
- * sportTypes, and natureType, none of which the catalog carries (confirmed,
- * not an oversight — see park-catalog stage-2 audit). Using the lean fetch
- * here would return every park with those fields undefined and every branch
- * below would just silently filter everything out — no error, no crash,
- * an empty result. Runs once at registration (onboarding), not on every map
- * open, so its Firestore cost is out of scope for the catalog's cost story.
+ * Perf: uses `fetchRealParks()` (shared localStorage + stale-while-revalidate
+ * cache, 6h TTL, de-duped in-flight fetch) instead of the unscoped, uncached
+ * `getAllParks()` — this call used to re-fetch the whole national `parks`
+ * collection from scratch on every drag-end and every city pick during
+ * onboarding, and again from a separate cache when the user later opened the
+ * real map. See .claude/knowledge/onboarding-map-location-perf-audit.md
+ * findings #2 and #4.
  */
 export async function fetchNearbyFacilities(
   userLat: number,
@@ -1141,7 +1132,7 @@ export async function fetchNearbyFacilities(
   sportContext?: SportContext
 ): Promise<NearbyFacility[]> {
   try {
-    const allParks = await fetchAllParksFullRecords();
+    const allParks = await fetchRealParks();
 
     const parkFacilities: NearbyFacility[] = allParks
       .filter((park) => {

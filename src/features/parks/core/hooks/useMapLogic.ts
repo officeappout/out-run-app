@@ -72,15 +72,9 @@ export const useMapLogic = (mapMode?: string, contextActivity?: ActivityType) =>
     search.setSuggestions([]);
 
     if (addr._source === 'park' && addr._id) {
-      // Point-fetch, not a bulk-list find (SPEC-07, 16.09.2026, gap found
-      // during David's facilityType review): setSelectedPark feeds the park
-      // detail sheet, which needs the full record (description, sportTypes,
-      // facilities, gymEquipment...) — the lean catalog fetchRealParks()
-      // would otherwise return here doesn't carry any of that. addr._id is
-      // already the park's own id, so this also drops the unnecessary bulk
-      // fetch entirely, not just fixes the field gap.
-      const { getPark } = await import('../services/parks.service');
-      const park = await getPark(addr._id);
+      const { fetchRealParks } = await import('../services/parks.service');
+      const parks = await fetchRealParks();
+      const park = parks.find(p => p.id === addr._id);
       if (park) setSelectedPark(park);
       setNavState('idle');
       return;

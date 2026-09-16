@@ -63,15 +63,6 @@ describe('roundTripKm', () => {
 });
 
 // ── nearestEquippedPark — pure park selection (no gear cache / no I/O) ──
-//
-// SPEC-07 (16.09.2026): parks are now the lean catalog shape — the function
-// reads the precomputed hasUsableEquipment/isPrimaryFitness booleans
-// directly, not raw gymEquipment/sportTypes arrays (that classification
-// logic moved server-side, into /api/catalog/parks/route.ts's
-// computeHasUsableEquipment/computeIsPrimaryFitness — verified against real
-// production data in that commit's message, not unit-tested here since this
-// function no longer does that classification). Fixtures set the two flags
-// directly instead of simulating the fields they used to be derived from.
 describe('nearestEquippedPark', () => {
   const user = { lat: 32.08, lng: 34.78 };
 
@@ -80,8 +71,8 @@ describe('nearestEquippedPark', () => {
       id: 'p',
       name: 'Park',
       location: { lat: 32.08, lng: 34.78 },
-      hasUsableEquipment: true,
-      isPrimaryFitness: true,
+      gymEquipment: [{ equipmentId: 'pullup_bar' }],
+      sportTypes: ['calisthenics'],
       ...over,
     } as unknown as Park);
 
@@ -90,12 +81,12 @@ describe('nearestEquippedPark', () => {
   });
 
   it('skips non-primary parks', () => {
-    const soccer = mk({ id: 'soccer', isPrimaryFitness: false });
+    const soccer = mk({ id: 'soccer', sportTypes: ['soccer'], gymEquipment: [{ equipmentId: 'goal' }] });
     expect(nearestEquippedPark(user, [soccer])).toBeNull();
   });
 
-  it('skips primary parks with no usable equipment', () => {
-    const bare = mk({ id: 'bare', hasUsableEquipment: false });
+  it('skips primary parks with no gymEquipment', () => {
+    const bare = mk({ id: 'bare', gymEquipment: [] });
     expect(nearestEquippedPark(user, [bare])).toBeNull();
   });
 
@@ -104,8 +95,8 @@ describe('nearestEquippedPark', () => {
     expect(nearestEquippedPark(user, [noLoc])).toBeNull();
   });
 
-  it('accepts a park with isPrimaryFitness true regardless of what classified it', () => {
-    const gymPark = mk({ id: 'gp' });
+  it('accepts a park classified primary via gym_park category', () => {
+    const gymPark = mk({ id: 'gp', sportTypes: [], category: 'gym_park' });
     expect(nearestEquippedPark(user, [gymPark])?.id).toBe('gp');
   });
 
@@ -116,8 +107,8 @@ describe('nearestEquippedPark', () => {
   });
 
   it('prefers a farther PRIMARY-equipped park over a nearer non-qualifying one', () => {
-    const nearSoccer = mk({ id: 'nearSoccer', location: { lat: 32.08, lng: 34.7805 }, isPrimaryFitness: false });
-    const farPrimary = mk({ id: 'farPrimary', location: { lat: 32.08, lng: 34.79 } });
+    const nearSoccer = mk({ id: 'nearSoccer', location: { lat: 32.08, lng: 34.7805 }, sportTypes: ['soccer'] });
+    const farPrimary = mk({ id: 'farPrimary', location: { lat: 32.08, lng: 34.79 }, sportTypes: ['functional'] });
     expect(nearestEquippedPark(user, [nearSoccer, farPrimary])?.id).toBe('farPrimary');
   });
 

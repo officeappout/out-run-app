@@ -219,14 +219,9 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
     );
   }
 
-  const handleTap = async (item: (typeof suggestions)[0]) => {
+  const handleTap = (item: (typeof suggestions)[0]) => {
     if (item.type === 'park') {
-      // Point-fetch, not the lean catalog entry (SPEC-07, 16.09.2026, gap
-      // found during David's facilityType review): openGlobalParkSheet
-      // feeds the park detail sheet, which needs the full record —
-      // `parks` here only carries lean catalog fields.
-      const { getPark } = await import('@/features/parks/core/services/parks.service');
-      const park = await getPark(item.id);
+      const park = parks.find((p) => p.id === item.id);
       if (park) {
         openGlobalParkSheet(park);
         return;
