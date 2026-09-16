@@ -200,6 +200,17 @@ unitDirectory · units · unit_league_aggregates
 - שני ה-`console.log('[hybrid:diag]...')` ב-`find-station-park.service.ts` נשארו זהים ל-byte — רק המקור של הערכים שמזינים אותם השתנה.
 - `park-out-and-back.test.ts`: 4 טסטים נכשלו כי ה-fixtures בנו אובייקטים עם שדות גולמיים; עודכנו לקבוע את שני הבוליאנים ישירות. 16/16 עוברים.
 
+## אומת בדפדפן אמיתי (David, 16.09.2026) — היסוד עובד
+
+3 בקשות רצופות ל-`/api/catalog/parks` דרך דפדפן מחובר ל-Vercel SSO (עוקף את חסימת ה-Deployment Protection שסגרה עליי):
+
+- `x-vercel-cache: HIT` בשלושתן. `age` עולה 4→5→7 — **אותו עותק מטמון**, אפס קריאות Firestore נוספות.
+- בקשה מותנית עם `If-None-Match` → **304, גוף 0 בתים**. נתיב ה-304 אומת בפועל, לא רק בסקירת קוד.
+- `ETag` יציב בין הבקשות: `W/"3b02525b8c1eb46e1d6d2d79cebc4c96"`.
+- 1158 פארקים, `hasUsableEquipment=true` על 596 — תואם בדיוק את המדידה מול production מ-commit הבוליאנים.
+
+**`Cache-Control` — לא באג, מתועד כדי שאף אחד לא ירדוף אחרי זה בעתיד:** התשובה שמגיעה לדפדפן מראה `public, max-age=60` **בלי** `s-maxage` — נראה כאילו הכותרת נחתכה. אומת: לאחר שתי דקות (מעל ל-`max-age=60`) הבקשה עדיין `HIT`, אותו `ETag`, `age=101`. **Vercel צורך את `s-maxage` פנימית לצורך מדיניות המטמון שלו בקצה, ולא מעביר אותו הלאה לדפדפן** — זו התנהגות תקנית של הפלטפורמה, לא חוסר בהגדרה שלנו. הכותרת שנשלחת מהנתיב (`route.ts`) כוללת את שניהם; מה שחוזר ללקוח הוא הצומצם, ובכוונה.
+
 ---
 
 **מקורות:** Firestore Data Bundles (firebase.blog) · Orca Security — Firestore public database access · CloudThinker — Firebase Security Rules Audit
