@@ -72,7 +72,7 @@ const _BUNNY_UUID = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
  * content lands on a non-park method authored earlier in the array, the
  * fallback would jump to it with no signal a rule was ever intended.
  */
-function byParkFirst(allMethods: any[]): any[] {
+export function byParkFirst(allMethods: any[]): any[] {
   const park = allMethods.filter((m) => m?.location === 'park');
   const rest = allMethods.filter((m) => m?.location !== 'park');
   return [...park, ...rest];
