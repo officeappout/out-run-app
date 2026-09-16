@@ -180,14 +180,23 @@ export default function RunnerHeader({
           </button>
         </div>
 
-        {/* Tabata interval counter — replaces the (misleading) set pills inside a block */}
-        {!isResting && tabataInterval && (
+        {/* Tabata interval counter — replaces the (misleading) set pills inside a
+            block. tabataInterval is non-null ONLY for a tabata segment (work
+            AND rest alike — its own computation doesn't gate on isResting),
+            so this condition alone already scopes the extension below to
+            tabata; every other exercise type/state is untouched. During rest
+            the number steps forward by one (capped at total) so it reads as
+            "who's coming up", matching the next-exercise name shown alongside
+            it on the rest card — during work it's simply the live interval. */}
+        {tabataInterval && (
           <div className="flex justify-center mb-2">
             <span
               className="text-[11px] font-bold text-[#00BAF7] uppercase tracking-wider tabular-nums"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              אינטרוול {tabataInterval.current}/{tabataInterval.total}
+              אינטרוול {isResting
+                ? Math.min(tabataInterval.current + 1, tabataInterval.total)
+                : tabataInterval.current}/{tabataInterval.total}
             </span>
           </div>
         )}

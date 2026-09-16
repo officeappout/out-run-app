@@ -25,6 +25,16 @@ export interface UseWorkoutTimersInput {
    * log drawer is still open).
    */
   onRestComplete: () => void;
+  /**
+   * True while the current RESTING period belongs to a tabata block
+   * (`blockProtocol?.id === 'tabata'`). Tabata is auto-only by design — its
+   * rest screen has no "דלגו על המנוחה" skip affordance (every other rest
+   * screen does) — so its rest MUST auto-advance regardless of
+   * TIMER_AUTO_ADVANCE_ENABLED, or it hangs at 00:00 forever. Scoped to this
+   * flag only: every non-tabata rest keeps waiting for the manual skip tap,
+   * byte-identical to before. Default false.
+   */
+  isTabataRest?: boolean;
   initialElapsedTime?: number;
 }
 
@@ -52,6 +62,7 @@ export function useWorkoutTimers({
   isPaused,
   onPreparationComplete,
   onRestComplete,
+  isTabataRest = false,
   initialElapsedTime = 0,
 }: UseWorkoutTimersInput): UseWorkoutTimersResult {
   const [elapsedTime, setElapsedTime] = useState(initialElapsedTime);
@@ -153,7 +164,12 @@ export function useWorkoutTimers({
           // C1: gate the rest auto-advance. When disabled, the countdown reaches 0
           // but does NOT auto-advance — the user taps "דלגו על המנוחה" (skipRest,
           // always shown on RestScreen). Shared → standalone strength + hybrid.
-          if (TIMER_AUTO_ADVANCE_ENABLED) {
+          //
+          // Tabata bypass (16.09.2026): tabata's rest screen has no skip
+          // affordance at all — it is auto-only by design — so gating it on
+          // the same flag left it stuck at 00:00 forever with no way out.
+          // Every non-tabata rest is completely unaffected by this OR.
+          if (TIMER_AUTO_ADVANCE_ENABLED || isTabataRest) {
             setTimeout(() => onRestCompleteRef.current(), 0);
           }
           return 0;
@@ -163,7 +179,7 @@ export function useWorkoutTimers({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [workoutState, isPaused, restTimeLeft]);
+  }, [workoutState, isPaused, restTimeLeft, isTabataRest]);
 
   // --------------------------------------------------------------------------
   // Helpers

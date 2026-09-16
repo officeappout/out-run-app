@@ -6,6 +6,8 @@ import type { PyramidStep } from '@/features/workout-engine/logic/workout-genera
 import { resolveSetTarget, resolvePyramidStep } from '../logic/set-target.utils';
 import { resolveTutorialForLang } from '@/features/content/exercises/core/exercise.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import type { BlockProtocolInfo } from '../protocols/block-protocol';
+import { tabataIntervalInfo, tabataMemberCosts } from '../protocols/tabata.advance';
 
 /**
  * useExerciseDerivedValues — all 20+ display-value memos in one isolated hook
@@ -72,6 +74,9 @@ export interface ExerciseDerivedValuesInput {
   getExercises: (seg: any) => any[] | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getSetsForExercise: (ex: any) => number;
+  /** Block-scoped protocol for the CURRENT segment (null outside tabata) — only
+   *  consulted by nextExercise's round-robin look-ahead. */
+  blockProtocol: BlockProtocolInfo | null;
 }
 
 export interface ExerciseDerivedValuesResult {
@@ -125,6 +130,7 @@ export function useExerciseDerivedValues({
   exerciseLogRef,
   getExercises,
   getSetsForExercise,
+  blockProtocol,
 }: ExerciseDerivedValuesInput): ExerciseDerivedValuesResult {
 
   // ── Total sets for the currently active exercise ────────────────────────
@@ -409,6 +415,7 @@ export function useExerciseDerivedValues({
    * nextExercise — look-ahead for the rest-screen preview.
    *
    * Priority order:
+   *   0. Tabata round-robin — see below
    *   1. Superset A→B or B→A based on pairedWith position
    *   2. Straight sets: more sets → same exercise; else next exercise / segment
    *
@@ -423,9 +430,43 @@ export function useExerciseDerivedValues({
     const currentEx = currentExercises?.[currentExerciseIndex] ?? null;
     const setsForCurrent = getSetsForExercise(currentEx);
 
+    // ── Tabata round-robin look-ahead (16.09.2026) ──────────────────────────
+    // The generic index+1 walk below assumes a linear list — correct for
+    // supersets/straight sets, but wrong the moment a round-robin block needs
+    // to WRAP back to an earlier index (e.g. 2-machine A→B→A→B: after B's
+    // FIRST turn, index+1 runs off the 2-element array and the generic code
+    // falls through to "next segment", incorrectly predicting cooldown
+    // instead of "machine A again"). tabataAdvance (protocols/tabata.advance.ts)
+    // is the actual authority on this wrap; mirrored here read-only, using the
+    // same tabataIntervalInfo/tabataMemberCosts, so the rest-screen preview
+    // can never disagree with where the state machine is really about to go.
+    // Scoped to bilateral round-robin (the machine-tabata case this was built
+    // for) — a unilateral member's right→left side-rest keeps the SAME
+    // exercise index the whole time, so it already falls through unaffected.
+    const isTabataBlock = blockProtocol?.id === 'tabata';
+    if (isTabataBlock && currentExercises && currentExercises.length > 0) {
+      const { isLastInterval } = tabataIntervalInfo({
+        costs: tabataMemberCosts(currentExercises),
+        exerciseIndex: currentExerciseIndex,
+        setIdx: currentSetIndex,
+        rounds: blockProtocol!.config.rounds,
+      });
+      if (!isLastInterval) {
+        exercise = currentExerciseIndex < currentExercises.length - 1
+          ? currentExercises[currentExerciseIndex + 1]
+          : currentExercises[0]; // cycle complete — wrap back to the first member
+      }
+      // isLastInterval stays null here — falls through to the "next segment"
+      // walk at the bottom of this memo, exactly like the generic
+      // out-of-bounds path already does for every other exercise type.
+    }
+
     // ── Superset: predict next based on pair position ──────────────────────
     const pairedId = (currentEx as any)?.pairedWith as string | null | undefined;
-    if (pairedId && currentExercises) {
+    if (isTabataBlock) {
+      // Resolved above — the superset/straight-set branches below assume a
+      // linear list and must not run for a tabata block.
+    } else if (pairedId && currentExercises) {
       const pairedIndex = currentExercises.findIndex((e: any) => e.id === pairedId);
       if (pairedIndex !== -1) {
         const isFirstInPair = pairedIndex > currentExerciseIndex;
@@ -539,7 +580,7 @@ export function useExerciseDerivedValues({
         return null;
       })(),
     };
-  }, [workout, currentSegment, currentExerciseIndex, currentSegmentIndex, currentSetIndex, getSetsForExercise, getExercises]);
+  }, [workout, currentSegment, currentExerciseIndex, currentSegmentIndex, currentSetIndex, getSetsForExercise, getExercises, blockProtocol]);
 
   // ── Coaching label (shown on the active exercise card) ──────────────────
   const repsOrDurationText = useMemo(() => {

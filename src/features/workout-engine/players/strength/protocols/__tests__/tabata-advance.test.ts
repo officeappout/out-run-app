@@ -74,6 +74,37 @@ describe('tabataIntervalInfo (weighted — unilateral costs 2)', () => {
   });
 });
 
+/**
+ * 2-machine composer block, rounds=4 (machineCount × MIN_ROUNDS_PER_MACHINE =
+ * 2×2 — compose-park-strength-workout.service.ts's resolveMachineAllocation).
+ * The exact real-world shape from the 16.09.2026 stuck-at-00:00 / "who's
+ * next" investigation: A→B→A→B, 4 total intervals. useExerciseDerivedValues'
+ * nextExercise round-robin look-ahead calls this same function to decide
+ * whether to advance the array index or wrap back to 0 — these four
+ * assertions lock in the exact isLastInterval/index sequence it relies on.
+ */
+describe('tabataIntervalInfo — 2-machine composer block (rounds=4)', () => {
+  it('interval 1 (A, first turn): not last', () => {
+    expect(tabataIntervalInfo({ costs: [1, 1], exerciseIndex: 0, setIdx: 0, rounds: 4 }))
+      .toEqual({ intervalIndex: 0, isLastInterval: false });
+  });
+
+  it('interval 2 (B, first turn): not last — this is the point where the naive index+1 walk would run off the 2-element array', () => {
+    expect(tabataIntervalInfo({ costs: [1, 1], exerciseIndex: 1, setIdx: 0, rounds: 4 }))
+      .toEqual({ intervalIndex: 1, isLastInterval: false });
+  });
+
+  it('interval 3 (A, second turn — the wrap-back): not last', () => {
+    expect(tabataIntervalInfo({ costs: [1, 1], exerciseIndex: 0, setIdx: 1, rounds: 4 }))
+      .toEqual({ intervalIndex: 2, isLastInterval: false });
+  });
+
+  it('interval 4 (B, second turn): IS last — block ends here, no trailing rest', () => {
+    expect(tabataIntervalInfo({ costs: [1, 1], exerciseIndex: 1, setIdx: 1, rounds: 4 }))
+      .toEqual({ intervalIndex: 3, isLastInterval: true });
+  });
+});
+
 describe('tabataAdvance — round-robin head', () => {
   const A = ex('a');
   const B = ex('b');

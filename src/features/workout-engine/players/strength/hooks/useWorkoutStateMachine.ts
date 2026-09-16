@@ -443,6 +443,11 @@ export function useWorkoutStateMachine(
     setWorkoutState('ACTIVE');
   }, []);
 
+  // Cheap, pure lookup mirroring `blockProtocol` below (that memo isn't
+  // computed until after `currentSegment`, further down this file) — needed
+  // here only to gate the tabata rest-auto-advance bypass.
+  const isTabataRest = resolveBlockProtocol(workout.segments[currentSegmentIndex])?.id === 'tabata';
+
   const {
     elapsedTime,
     preparationCountdown,
@@ -455,6 +460,7 @@ export function useWorkoutStateMachine(
     isPaused,
     onPreparationComplete: handlePrepComplete,
     onRestComplete: handleRestTimerDone,
+    isTabataRest,
     initialElapsedTime: initialCheckpoint?.elapsedTime ?? blockContext?.initialElapsedTime,
   });
 
@@ -594,6 +600,7 @@ export function useWorkoutStateMachine(
     exerciseLogRef,
     getExercises,
     getSetsForExercise,
+    blockProtocol,
   });
 
   // ── Unilateral side-tracking effect (side-effect; stays in orchestrator) ─
