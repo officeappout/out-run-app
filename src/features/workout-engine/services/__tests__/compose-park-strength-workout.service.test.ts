@@ -35,16 +35,15 @@ import {
   composeParkWorkoutFromMachines,
   composeParkWorkout,
   isBlockAEligible,
-  isDomainAssessed,
   machineShareForLevel,
   resolveMachineShareLevel,
   resolveMachineCount,
 } from '../compose-park-strength-workout.service';
 
-// Default isFunctional: false (hydraulic/self-limiting) so every existing
-// fixture is Block-A-eligible regardless of the caller's assessed level —
-// keeps the selection/domain tests below about SELECTION, not the isFunctional
-// safety gate (which has its own dedicated describe block further down).
+// Default isFunctional: false (real strength machine, not functional
+// apparatus) so every existing fixture is Block-A-eligible by default —
+// keeps the selection/domain tests below about SELECTION, not the
+// isFunctional exclusion (which has its own dedicated describe block below).
 function machine(overrides: Partial<GymEquipment> & { id: string }): GymEquipment {
   return {
     name: overrides.id,
@@ -65,57 +64,35 @@ const core1 = machine({ id: 'core1', movementPattern: 'core' });
 const isolation1 = machine({ id: 'isolation1', movementPattern: 'isolation' });
 const cardio1 = machine({ id: 'cardio1', movementPattern: 'horizontal_push', isCardio: true });
 
-const unassessedProfile = { id: 'u1', progression: {} } as any;
-const pushAssessedProfile = { id: 'u2', progression: { domains: { push: { currentLevel: 6 } } } } as any;
-const pushAssessedViaTrackProfile = { id: 'u3', progression: { tracks: { push: 6 } } } as any;
-
-describe('isDomainAssessed', () => {
-  it('is false when the user has no progression data for the domain at all', () => {
-    expect(isDomainAssessed(unassessedProfile, 'push')).toBe(false);
+describe('isBlockAEligible (Wave 1: functional apparatus routed to bodyweight, not Block A)', () => {
+  it('a real strength machine (isFunctional=false) is eligible', () => {
+    const realMachine = machine({ id: 'm1', movementPattern: 'horizontal_push', isFunctional: false });
+    expect(isBlockAEligible(realMachine)).toBe(true);
   });
 
-  it('is true when profile.progression.domains has a real currentLevel for the domain', () => {
-    expect(isDomainAssessed(pushAssessedProfile, 'push')).toBe(true);
+  it('functional apparatus (isFunctional=true) is NEVER eligible for Block A — routed to bodyweight instead', () => {
+    const pullupBar = machine({ id: 'p1', movementPattern: 'vertical_pull', isFunctional: true });
+    expect(isBlockAEligible(pullupBar)).toBe(false);
   });
 
-  it('is true when profile.progression.tracks has a real numeric level for the domain (checked independently of domains)', () => {
-    expect(isDomainAssessed(pushAssessedViaTrackProfile, 'push')).toBe(true);
+  it('functional apparatus stays ineligible even with recommendedLevel/other fields set — there is no level-based override anymore', () => {
+    const parallelBars = machine({ id: 'p2', movementPattern: 'vertical_push', isFunctional: true, recommendedLevel: 1 });
+    expect(isBlockAEligible(parallelBars)).toBe(false);
   });
 
-  it('does not leak assessment across domains — assessed push does not make pull assessed', () => {
-    expect(isDomainAssessed(pushAssessedProfile, 'pull')).toBe(false);
-  });
-});
-
-describe('isBlockAEligible (isFunctional safety-gate handling, Q1 finding)', () => {
-  it('a hydraulic (isFunctional=false) machine is eligible even for a fully unassessed user', () => {
-    const hydraulic = machine({ id: 'h1', movementPattern: 'horizontal_push', isFunctional: false });
-    expect(isBlockAEligible(hydraulic, unassessedProfile)).toBe(true);
-  });
-
-  it('real calisthenics gear (isFunctional=true) is NOT eligible for a user unassessed in that domain', () => {
-    const realGear = machine({ id: 'r1', movementPattern: 'horizontal_push', isFunctional: true });
-    expect(isBlockAEligible(realGear, unassessedProfile)).toBe(false);
-  });
-
-  it('real calisthenics gear IS eligible once the user has an assessed level in that domain', () => {
-    const realGear = machine({ id: 'r2', movementPattern: 'horizontal_push', isFunctional: true });
-    expect(isBlockAEligible(realGear, pushAssessedProfile)).toBe(true);
-  });
-
-  it('real calisthenics gear in a DIFFERENT (still-unassessed) domain stays ineligible even if push is assessed', () => {
-    const realGearPull = machine({ id: 'r3', movementPattern: 'horizontal_pull', isFunctional: true });
-    expect(isBlockAEligible(realGearPull, pushAssessedProfile)).toBe(false);
-  });
-
-  it('isCardio always excludes, regardless of isFunctional/assessment', () => {
+  it('isCardio always excludes, regardless of isFunctional', () => {
     const cardioHydraulic = machine({ id: 'c1', movementPattern: 'horizontal_push', isFunctional: false, isCardio: true });
-    expect(isBlockAEligible(cardioHydraulic, pushAssessedProfile)).toBe(false);
+    expect(isBlockAEligible(cardioHydraulic)).toBe(false);
   });
 
   it('isolation/flexibility movementPattern is never eligible (no domain to gate on)', () => {
     const iso = machine({ id: 'i1', movementPattern: 'isolation', isFunctional: false });
-    expect(isBlockAEligible(iso, pushAssessedProfile)).toBe(false);
+    expect(isBlockAEligible(iso)).toBe(false);
+  });
+
+  it('no movementPattern is never eligible', () => {
+    const untagged = machine({ id: 'u1', isFunctional: false });
+    expect(isBlockAEligible(untagged)).toBe(false);
   });
 });
 
@@ -497,6 +474,59 @@ describe('composeParkWorkoutFromMachines', () => {
     const result = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'medium' });
     expect(result.workout.exercises).toHaveLength(2); // only the Block A machines
     expect(result.workout.exercises.map((e) => e.exercise.id).sort()).toEqual(['pull1', 'push1']);
+  });
+
+  describe('Wave 1: functional apparatus never enters Block A', () => {
+    const pullupBar = machine({ id: 'pullup-bar', movementPattern: 'vertical_pull', isFunctional: true });
+    const parallelBars = machine({ id: 'parallel-bars', movementPattern: 'vertical_push', isFunctional: true });
+
+    it('an all-functional park (only pull-up bar + parallel bars) produces 0 Block A machines and pure bodyweight', async () => {
+      trioMock.mockResolvedValue({
+        options: [null, { result: { workout: { exercises: [{ exercise: { id: 'bw-pullup' } }, { exercise: { id: 'bw-dip' } }], title: '', description: '', needsAssessment: false } } }, null],
+      });
+      const result = await composeParkWorkoutFromMachines([pullupBar, parallelBars], fakeProfile, { difficulty: 'medium' });
+      expect(result.blockAEligibleMachineCount).toBe(0);
+      expect(result.blockASelectedMachineCount).toBe(0);
+      expect(result.workout.tabataBlock).toBeUndefined();
+      expect(result.blockACoveredDomains).toEqual([]);
+      // The functional apparatus's movements are NOT lost — Block B was called
+      // for all 4 domains (nothing covered by Block A) and its exercises
+      // (confirmed reachable in production — see Step 1 of the diagnostic)
+      // pass straight through into the composed workout.
+      expect(trioMock).toHaveBeenCalledTimes(1);
+      const callArgs = trioMock.mock.calls[0][0];
+      expect(new Set(callArgs.requiredDomains)).toEqual(new Set(['push', 'pull', 'legs', 'core']));
+      expect(result.workout.exercises.map((e) => e.exercise.id)).toEqual(
+        expect.arrayContaining(['bw-pullup', 'bw-dip']),
+      );
+    });
+
+    it('a mixed park (real machines + functional apparatus) counts only the real machines into Block A — functional ones are excluded, not merely deprioritized', async () => {
+      trioMock.mockResolvedValue({
+        options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+      });
+      const mixedPark = [push1, pull1, pullupBar, parallelBars]; // 2 real machines + 2 functional
+      const result = await composeParkWorkoutFromMachines(mixedPark, fakeProfile, { difficulty: 'medium' });
+      expect(result.blockAEligibleMachineCount).toBe(2); // pullupBar/parallelBars excluded from eligibility entirely
+      const selectedIds = result.workout.exercises
+        .filter((e) => e.protocolBlock === 'tabata')
+        .map((e) => e.exercise.id);
+      expect(selectedIds).not.toContain('pullup-bar');
+      expect(selectedIds).not.toContain('parallel-bars');
+    });
+
+    it('Block A domain coverage reflects only real machines — a domain covered ONLY by functional apparatus is NOT counted as covered', async () => {
+      trioMock.mockResolvedValue({
+        options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+      });
+      // pull is covered ONLY by the (excluded) pull-up bar; push+legs by real
+      // machines (2 real machines, clear of the "no 1-machine Tabata" floor).
+      const result = await composeParkWorkoutFromMachines([push1, legs1, pullupBar], fakeProfile, { difficulty: 'medium' });
+      expect(result.blockACoveredDomains).toEqual(['push', 'legs']);
+      expect(trioMock).toHaveBeenCalledTimes(1);
+      const callArgs = trioMock.mock.calls[0][0];
+      expect(new Set(callArgs.requiredDomains)).toEqual(new Set(['pull', 'core']));
+    });
   });
 });
 

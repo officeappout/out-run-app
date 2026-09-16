@@ -146,9 +146,11 @@ const MIN_BLOCK_B_EXERCISES = 2;
 /**
  * The push/pull domain level machineShare is keyed on — average of assessed
  * push/pull (the domains Block A's machines are mostly tagged under), falling
- * back to the user's derived overall level when neither is assessed. Mirrors
- * `isDomainAssessed`'s own tracks-then-domains read, not `buildUserProgramLevels`
- * (this only needs 2 specific domains, not the full program-level map).
+ * back to the user's derived overall level when neither is assessed. Reads
+ * profile.progression.tracks/domains directly via resolveDataLevel (the same
+ * tracks-then-domains convention used everywhere else level data is read),
+ * not `buildUserProgramLevels` (this only needs 2 specific domains, not the
+ * full program-level map).
  */
 export function resolveMachineShareLevel(profile: UserFullProfile): number {
   const domains = (profile.progression?.domains ?? {}) as Record<string, unknown>;
@@ -303,7 +305,7 @@ export async function composeParkWorkoutFromMachines(
   // ── Block A: strength-eligible, tagged machines only — isCardio excluded (v1 scope) ──
   // How many machines (and shared Tabata rounds) Block A gets is level-driven,
   // not a fixed count — see resolveMachineCount/machineShareForLevel.
-  const eligibleMachines = allMachines.filter((m) => isBlockAEligible(m, userProfile));
+  const eligibleMachines = allMachines.filter((m) => isBlockAEligible(m));
   const strengthBudget = getExerciseCountForDuration(availableTime).exerciseCount;
   const machineShareLevel = resolveMachineShareLevel(userProfile);
   const { machineCount, rounds } = resolveMachineCount({
@@ -466,38 +468,36 @@ export function selectBlockAMachines(
 }
 
 /**
- * Whether the user has any real assessed level in this domain — "absent=absent"
- * check (the same convention partial-completion.generator.ts documents for
- * userProgramLevels), reading profile.progression.tracks/domains directly via
- * the same resolveDataLevel used everywhere else level data is read. Doesn't
- * need the full buildUserProgramLevels (which also resolves skill/master-
- * program tracks) — Block A only ever asks about the 4 foundational domains.
+ * Block A eligibility — REAL STRENGTH MACHINES ONLY (Wave 1 fix, 16.09.2026
+ * diagnostic follow-up — .claude/knowledge, "route functional apparatus to
+ * bodyweight"). Three gates, all exclusionary:
+ *   - isCardio===true            → cardio lane, not this split (unchanged).
+ *   - isFunctional===true        → NOT a machine. `isFunctional` distinguishes
+ *     hydraulic/self-limiting real machines (false — adjustable resistance,
+ *     safe at any level, per findHydraulicEquipment's own reasoning in
+ *     start-hybrid-session.ts, the field's other real consumer) from
+ *     non-hydraulic functional apparatus (true — pull-up bar/מתח, parallel
+ *     bars/מקבילים, rings, climbing rope). Confirmed live (55-doc
+ *     gym_equipment audit, 16.09.2026): every מתח/מקבילים variant is
+ *     isFunctional:true. These belong on the BODYWEIGHT side (Block B,
+ *     generateHomeWorkoutTrio) — confirmed they're already reachable there:
+ *     dozens of real park-location exercises (pull-ups, dip holds, pike
+ *     variants) gate their ExecutionMethod on these exact equipment ids, so
+ *     excluding them from Block A does not remove them from the workout,
+ *     only from the machine-tabata slot. Previously this field was used only
+ *     as an assessed-level SAFETY gate (once assessed, fell through to
+ *     eligible) — that let functional apparatus enter Block A and get
+ *     stamped as tabata "machines" (confirmed: מתח/מקבילים selected at
+ *     45min/6-machine/level-2). No level-assessment check is needed anymore
+ *     since these items never reach Block A at all now.
+ *   - movementPattern gates unchanged (isolation/flexibility not counted).
  */
-export function isDomainAssessed(profile: UserFullProfile, domain: MovementPattern): boolean {
-  const domains = (profile.progression?.domains ?? {}) as Record<string, unknown>;
-  const tracks = (profile.progression?.tracks ?? {}) as Record<string, unknown>;
-  return resolveDataLevel(tracks[domain]) > 0 || resolveDataLevel(domains[domain]) > 0;
-}
-
-/**
- * Block A eligibility (isCardio excluded, v1 scope, plus the isFunctional
- * safety handling from the Phase 1 investigation's Q1 finding):
- * isFunctional===false means hydraulic/self-limiting equipment (adjustable
- * resistance — safe at any level, per findHydraulicEquipment's own reasoning
- * in start-hybrid-session.ts, the field's only other real consumer in this
- * engine) — always eligible once tagged. isFunctional===true means real
- * calisthenics gear (NOT self-limiting — a wrong-level bodyweight movement
- * can be genuinely inappropriate), so it's only eligible once the user has
- * an assessed level in that machine's domain; otherwise Block A silently
- * falls back to whatever hydraulic/assessed machines the park has, exactly
- * like the hybrid unassessed-domain-gate already does for the same reason.
- */
-export function isBlockAEligible(machine: GymEquipment, profile: UserFullProfile): boolean {
+export function isBlockAEligible(machine: GymEquipment): boolean {
   if (machine.isCardio === true) return false;
+  if (machine.isFunctional === true) return false;
   if (machine.movementPattern == null) return false;
   const domain = MG_TO_DOMAIN[machine.movementPattern] as MovementPattern | undefined;
   if (!domain) return false; // isolation/flexibility — not counted
-  if (machine.isFunctional === true && !isDomainAssessed(profile, domain)) return false;
   return true;
 }
 
