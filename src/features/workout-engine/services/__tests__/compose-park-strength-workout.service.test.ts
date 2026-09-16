@@ -200,6 +200,22 @@ describe('buildMachinePseudoExercise', () => {
     expect(result.method.media?.imageUrl).toBeUndefined();
   });
 
+  it('diagnosis item 4 fix: mainVideoUrl falls back to the brand image when the brand has no video — avoids the live player\'s black/unrelated-stock-video fallback', () => {
+    const imageOnly = machine({
+      id: 'm6',
+      movementPattern: 'horizontal_push',
+      brands: [{ brandName: 'TestBrand', imageUrl: 'https://example.com/v.jpg' }],
+    });
+    const result = buildMachinePseudoExercise(imageOnly, config);
+    expect(result.method.media?.mainVideoUrl).toBe('https://example.com/v.jpg');
+  });
+
+  it('mainVideoUrl stays undefined (no fake asset) when the brand has neither video nor image', () => {
+    const noAssets = machine({ id: 'm7', movementPattern: 'horizontal_push', brands: [] });
+    const result = buildMachinePseudoExercise(noAssets, config);
+    expect(result.method.media?.mainVideoUrl).toBeUndefined();
+  });
+
   it('omits symmetry/injuryShield — both are optional on Exercise and safely absent for machines', () => {
     const result = buildMachinePseudoExercise(machine({ id: 'm2', movementPattern: 'core' }), config);
     expect((result.exercise as any).symmetry).toBeUndefined();

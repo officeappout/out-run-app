@@ -692,7 +692,19 @@ export function buildMachinePseudoExercise(
     // the real Firestore name over any canonical dictionary entry.
     equipmentIds: [],
     media: {
-      mainVideoUrl: brand?.videoUrl ?? undefined,
+      // Diagnosis item 4 (live-player black screen, 16.09.2026): when this
+      // brand has no video, leaving mainVideoUrl undefined let
+      // resolveExerciseMedia return an empty videoUrl for the whole pseudo-
+      // exercise (media:{} on the exercise root, no execution_methods array
+      // to fall through) — ExerciseVideoPlayer then either shows literal
+      // black (offline/uncached) or its generic FALLBACK_VIDEO_URL, an
+      // unrelated stock squats clip, when online. ExerciseVideoPlayer already
+      // treats a non-video-extension src as an image (its own
+      // hasValidDirectVideoUrl gate), so putting the machine's real photo in
+      // this same slot as a last resort renders it correctly with zero
+      // changes to the shared player. Still undefined (not a fake video) when
+      // the brand has neither asset — a real, still-open content gap.
+      mainVideoUrl: brand?.videoUrl ?? brand?.imageUrl ?? undefined,
       // Diagnosis item 2: without this, resolveExerciseMedia's fallback chain
       // had nothing but a Bunny-UUID regex match against mainVideoUrl (works
       // only for Bunny-iframe URLs) before falling to the video URL itself as
