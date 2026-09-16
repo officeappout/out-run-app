@@ -357,7 +357,7 @@ describe('composeParkWorkoutFromMachines', () => {
     expect(result.blockASelectedMachineCount).toBe(0); // can't bump a lone machine to the 2-machine floor
   });
 
-  it('calls Block B with requiredDomains = the complement of what Block A covered, as a PREFERENCE (strictDomains false — Wave 2 #5)', async () => {
+  it('never forces Block A\'s uncovered domains onto Block B — requiredDomains is left undefined so Block B fills from the session\'s own scheduled program domains (16.09.2026 fix — "Block B under-delivery")', async () => {
     trioMock.mockResolvedValue({
       options: [null, { result: { workout: { exercises: [], title: 'Block B', description: '', needsAssessment: false } } }, null],
     });
@@ -368,7 +368,7 @@ describe('composeParkWorkoutFromMachines', () => {
     expect(callArgs.location).toBe('park');
     expect(callArgs.strictDomains).toBe(false);
     expect(callArgs.skipCycleRestart).toBe(true);
-    expect(new Set(callArgs.requiredDomains)).toEqual(new Set(['legs', 'core']));
+    expect(callArgs.requiredDomains).toBeUndefined();
   });
 
   it('defaults parkEquipmentIds to [] when the caller omits it (no crash, same degraded ESSENTIAL_PARK_GEAR behavior as before this fix — not the bug)', async () => {
@@ -395,9 +395,9 @@ describe('composeParkWorkoutFromMachines', () => {
       [push1, pull1, legs1, core1], fakeProfile, { difficulty: 'medium', availableTime: 45 },
     );
     expect(result.blockACoveredDomains).toEqual(['push', 'pull', 'legs', 'core']); // sanity: all 4 covered
-    expect(trioMock).toHaveBeenCalledTimes(1); // Block B still runs — domain coverage is a preference, not a gate
+    expect(trioMock).toHaveBeenCalledTimes(1); // Block B still runs regardless of Block A's coverage
     const callArgs = trioMock.mock.calls[0][0];
-    expect(callArgs.requiredDomains).toBeUndefined(); // nothing left to prioritize — general selection
+    expect(callArgs.requiredDomains).toBeUndefined(); // Block B fills from its own scheduled program domains
     expect(callArgs.strictDomains).toBe(false);
   });
 
@@ -569,12 +569,12 @@ describe('composeParkWorkoutFromMachines', () => {
       expect(result.workout.tabataBlock).toBeUndefined();
       expect(result.blockACoveredDomains).toEqual([]);
       // The functional apparatus's movements are NOT lost — Block B was called
-      // for all 4 domains (nothing covered by Block A) and its exercises
-      // (confirmed reachable in production — see Step 1 of the diagnostic)
-      // pass straight through into the composed workout.
+      // regardless of Block A's (empty) coverage, filling from its own
+      // scheduled program domains (requiredDomains left undefined — 16.09.2026
+      // fix), and its exercises pass straight through into the composed workout.
       expect(trioMock).toHaveBeenCalledTimes(1);
       const callArgs = trioMock.mock.calls[0][0];
-      expect(new Set(callArgs.requiredDomains)).toEqual(new Set(['push', 'pull', 'legs', 'core']));
+      expect(callArgs.requiredDomains).toBeUndefined();
       expect(result.workout.exercises.map((e) => e.exercise.id)).toEqual(
         expect.arrayContaining(['bw-pullup', 'bw-dip']),
       );
@@ -604,7 +604,7 @@ describe('composeParkWorkoutFromMachines', () => {
       expect(result.blockACoveredDomains).toEqual(['push', 'legs']);
       expect(trioMock).toHaveBeenCalledTimes(1);
       const callArgs = trioMock.mock.calls[0][0];
-      expect(new Set(callArgs.requiredDomains)).toEqual(new Set(['pull', 'core']));
+      expect(callArgs.requiredDomains).toBeUndefined();
     });
   });
 });
