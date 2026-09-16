@@ -417,6 +417,7 @@ docker run --rm -v "$PWD:/app" opensecurity/mobile-security-framework-mobsf
 | 2026-09-14 | POLICY-01 / SPEC-04 | **גלים A-E נפרסו:** presence מוגבל רדיוס+גיל · age-scoping ל-userPublic, dailyActivityPublic ולוחות התוצאות · שער גיל 14 באימות קוד גישה (ממצא חדש) · `referrals` נעול לשני הצדדים | SPEC-04 | Claude Code |
 | 2026-09-14 | — | **תקרית ולקח.** קוד הלקוח שקורא מ-`userPublic` נדחף ל-`main` לפני שה-backfill החד-פעמי רץ — האוסף היה ריק בחלון שאחרי הדיפלוי. נתפס לפני בדיקת המסכים; ה-backfill רץ בדיעבד (22 מסמכים, 0 שגיאות, מאומת בשאילתה ישירה). **הלקח: אוסף מראה חדש דורש backfill מאומת לפני שקוד הלקוח התלוי בו עולה — לא אחרי** | 77011003 | Claude Code + OUT |
 | 2026-09-14 | — | **דיפלוי מלא לפרודקשן:** indexes → functions (8 ממוקדות בשם) → merge+push ל-`main` (fast-forward, בלי force) → `firestore:rules` + `storage`. שתי הפונקציות היתומות דולגו בכוונה, ראה 13.2 | 67b618fc | Claude Code + OUT |
+| 2026-09-16 | — | **ממצא נרשם, לא תוקן (בקשת דוד).** אחרי חיווט D0 — כפתור "התחל אימון" בפארק (`99e717fc`, 15.09) — `composeAndOpenParkWorkout` ב-`home/page.tsx` עושה `if (!profile) return;`. משתמש שהפרופיל שלו טרם נטען כשהוא לוחץ מקבל שוב שום-תגובה-גלויה, בלי הודעה: **אותו דפוס בדיוק ש-D0 עצמו היה** (לחיצה→כלום), בהיקף קטן בהרבה. התיקון הנכון הוא הצגת משוב למשתמש, לא רק טיפול-נוסף בתנאי. נמצא תוך כדי ביקורת `docs/audit-2026-09/DECISION-INDEX.md`'s §10 — לא בענף/דוח האבטחה הזה, מתועד כאן כי זו הבקשה | — | Claude (decision-index audit) |
 | | | | | |
 
 ---
