@@ -1009,3 +1009,22 @@ muscle_up.subPrograms = ['push', 'pull']                   // מאסטר → ש�
 **4. `previewVideo.en = 0` בכל הקטלוג, בכל מיקום, בכל רמה.** אין תוכן אנגלי מובנה (Phase-5) בשום מקום. לא נבדק אם יש תוכן-אנגלי דרך מסלול legacy אחר.
 
 **5. אין ולידציה שהשדה-הקצר מכיל קליפ קצר.** `[ETMVVSpt0lIpeF3mkEn6]` "מתיחות פלג גוף עליון **לבדיקה**" (השם עצמו — חשוד כדאטת-בדיקה שנשארה) — שיטת-פארק עם `media.mainVideoUrl` שאורכו (`videoDurationSeconds`) **210 שניות**, לא לופ-קצר. מקרה בודד מתוך כל הקטלוג שנבדק (כל צירוף mainVideoUrl+videoDurationSeconds). לא תוקן, לא נמחק — רק תועד.
+
+---
+
+## רזולבר-מדיה חמישי — והוא הנכון — 16.09.2026
+
+**Opened:** 16.09.2026 · **Source:** טרייס read-only אחרי דיווח-משתמש על הכרטיס "האימון היומי שלך" (תמונה במקום וידאו) — נמצא תוך-כדי חקירה שהמיזוגים לא הסבירו את התסמין. נרשם, לא תוקן.
+
+`HeroWorkoutCard.tsx` (הכרטיס האמיתי — "האימון היומי שלך") **לא** משתמש ב-`resolveExerciseMedia`. המסלול האמיתי: `HeroWorkoutCard.tsx` → `resolveHeroMedia` (`heroMedia.utils.ts:68-85`) → `resolveVideoForLocation`/`resolveImageForLocation` (`exercise.types.ts:882-920`). הערת-הקוד שם מפורשת בכוונה: **"NOT delegated to resolveExerciseMedia, whose cross-method deep search would break this function's location scoping."**
+
+**סה"כ חמישה מסלולי-רזולוציה בלתי-תלויים לאותה שאלה בדיוק ("מה המדיה של התרגיל הזה"):**
+1. כרטיס-הבית (`resolveVideoForLocation`/`resolveImageForLocation`) — **מגודר-מיקום**, method-scoped, לא חוצה-שיטות.
+2. המגירה (`MasterExerciseView.tsx`'s `heroAssets`) — נעול-לשיטה (preview/legacy), עם lock-release מבוקר ל-full בלבד (ר' רשומה קודמת).
+3. הראנר (`buildRunnerWorkoutPlanFromGenerated.ts`) — שרשרת-רזולוציה משלו.
+4. `resolveExerciseMedia` (`media-resolution.utils.ts`) — חוצה-שיטות, park-first (אחרי המיזוגים של היום).
+5. `exercise-display.utils.ts` — תמונה בלבד, לא וידאו בכלל.
+
+**הערה קריטית:** הגרסה של **הכרטיס** (#1) היא **הנכונה** — היא מגודרת-למיקום במפורש ומתועדת למה (מונעת בדיוק את בעיית "וידאו-של-מיקום-אחר" שכל שאר הרשומות בפרק הזה מתעדות). **היא התקן שאליו צריך ליישר את שאר ארבעת המסלולים, לא ההפך.** כל איחוד עתידי של שכבת-המדיה צריך להתחיל מפה.
+
+**בנוסף — לא רגרסיה, מצב-טעינה מתוכנן:** `HeroMediaBackground` (`HeroWorkoutCard.tsx:28-75`) מרנדר את התמונה **כשכבת-בסיס תמיד** ("Thumbnail (always rendered as base layer)"), והוידאו נכנס ב-crossfade (`opacity-0`→`opacity-100`) **רק** אחרי `onCanPlayThrough`. תמונה-במקום-וידאו על המסך היא לרוב חלון-טעינה תקין, לא סימן לבאג בדאטה — נבדק ואומת: שני התרגילים שנחשדו החזירו וידאו תקין משני הרזולברים, זהה לפני ואחרי שני המיזוגים.
