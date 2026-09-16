@@ -11,18 +11,30 @@
  *
  * Two blocks, NOT interleaved. Workout order is Block B first, Block A last
  * (bodyweight/skill while fresh → machine Tabata as the supported finish):
- *   Block A — the park's tagged strength machines (isCardio excluded in v1),
+ *   Block A — the park's tagged REAL STRENGTH MACHINES ONLY (functional
+ *             apparatus and cardio excluded — see `isBlockAEligible`),
  *             prescribed as ONE shared Tabata block (timed intervals,
  *             round-robin across members — same mechanism as any other
- *             tabata block in this engine). How many machines (and rounds)
- *             is LEVEL-DRIVEN, not fixed — see `resolveMachineCount` /
- *             `machineShareForLevel`: machine share slides from mostly-
- *             machines at low level to all-bodyweight by level 10+.
- *   Block B — generateHomeWorkoutTrio(location: 'park'), filling only the
- *             movement domains Block A did NOT cover, at the user's real
- *             level, normal reps (not intervals). Any Tabata block Block B
- *             independently produces (its own core-form finisher) is merged
- *             into Block A's shared tabataBlock — see `composeParkWorkoutFromMachines`.
+ *             tabata block in this engine).
+ *   Block B — generateHomeWorkoutTrio(location: 'park'), ALWAYS runs (Wave 2
+ *             #5 — domain coverage is a selection PREFERENCE inside Block B,
+ *             never a gate on whether it runs at all), filling the session's
+ *             remaining time at the user's real level. Any Tabata block
+ *             Block B independently produces (its own core-form finisher) is
+ *             merged into Block A's shared tabataBlock — see
+ *             `composeParkWorkoutFromMachines`.
+ *
+ * Wave 2 (time-based rebuild, 16.09.2026 — .claude/knowledge diagnostic +
+ * Wave 1/2 follow-up): the machine↔bodyweight split is governed by a SINGLE
+ * shared TIME budget (T = availableTime), not two independent ones. Level
+ * sets machines' SHARE of that time (`machineShareForLevel`, sliding to 0 by
+ * level 8); the park's physical machine count caps what's actually
+ * deliverable at a sane 2-rounds-per-machine norm
+ * (`resolveMachineAllocation`); bodyweight always receives the remainder,
+ * with a guaranteed floor machines can never size into. `workout.estimatedDuration`
+ * is computed from the ACTUAL built content (`calculateEstimatedDuration`),
+ * never just echoed back as the requested time — see
+ * `composeParkWorkoutFromMachines`'s own comments for the full breakdown.
  *
  * Deliberately bypasses buildTabataBlock/buildTabataFromPool's pool-
  * *selection* machinery (protocols/tabata.block.ts) — Block A's exercise
@@ -60,11 +72,13 @@ import type { TabataBlockSpec } from '../logic/workout-generator.types';
 import type { TabataProtocolConfig } from '../core/types/protocol.types';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { generateHomeWorkoutTrio } from './home-workout.service';
-import { calculateWorkoutStats, getExerciseCountForDuration } from '../logic/workout-budgeting.utils';
+import { calculateWorkoutStats, calculateEstimatedDuration } from '../logic/workout-budgeting.utils';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import { resolveDataLevel, getBaseUserLevel } from './level-resolution.utils';
 import { resolveParkEquipmentIds } from './park-equipment-resolver';
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
+import { calculateWeeklyBudget } from '../core/store/useWeeklyVolumeStore';
+import { TABATA_BLOCK_SECONDS } from '../logic/protocols/tabata.constants';
 
 export type ParkWorkoutDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -96,33 +110,35 @@ const ALL_DOMAINS: readonly MovementPattern[] = ['push', 'pull', 'legs', 'core']
  * Every ladder rung totals the same wall-clock block length: workSec+restSec
  * sums to exactly 60s on all three rungs (20+40, 30+30, 40+20), so one Tabata
  * round is always ~1 minute regardless of difficulty. That invariant is what
- * lets `resolveMachineCount` reason about rounds as minutes directly.
+ * lets `resolveMachineAllocation` reason about rounds as minutes directly —
+ * seconds/round is always READ from this ladder (never hardcoded), per Wave 2.
  */
 function blockASeconds(config: TabataProtocolConfig): number {
   return (config.workSec + config.restSec) * config.rounds;
 }
 
 /**
- * machineShare(level): how much of the strength block goes to machines vs
- * bodyweight, keyed on the user's push/pull level (see `resolveMachineShareLevel`).
- * A slider, not a fixed count — mostly-machines at low level, sliding to
- * all-bodyweight by level 10+ (design decision, 15.09.2026 diagnosis follow-up:
- * machine/Tabata relevance must scale DOWN as level rises instead of the old
- * hardcoded BLOCK_A_MACHINE_COUNT=4, which gave a level-16 user the exact same
- * Tabata block as a level-1 user).
+ * machineShare(level): how much of the strength TIME budget goes to machines
+ * vs bodyweight, keyed on the user's push/pull level (see
+ * `resolveMachineShareLevel`). A slider, not a fixed count — mostly-machines
+ * at low level, sliding to all-bodyweight by level 8 (Wave 2, 16.09.2026 —
+ * time-based rebuild: reframed from a COUNT-share, which sized machines off
+ * a rest-blind exercise-count proxy, into a genuine TIME-share:
+ * `desiredMachineTime = shareForLevel(level) × strengthTimeBudget`. Curve
+ * per product decision: high (0.6-0.75) at low level, starts dropping around
+ * level 5, reaches 0 by level 8 — one level earlier than Wave 1's count-share
+ * ladder, which bottomed out at level 10).
  *
  * Starting anchors — tunable, David eyeballs sample output before deploy.
  * Ordered ascending so the scan below can `break` at the first rung the
  * level doesn't clear.
  */
 const MACHINE_SHARE_LADDER: ReadonlyArray<{ level: number; share: number }> = [
-  { level: 1, share: 0.75 },
-  { level: 5, share: 0.60 },
-  { level: 6, share: 0.45 },
-  { level: 7, share: 0.30 },
-  { level: 8, share: 0.20 },
-  { level: 9, share: 0.15 },
-  { level: 10, share: 0.00 },
+  { level: 1, share: 0.70 },
+  { level: 5, share: 0.55 },
+  { level: 6, share: 0.35 },
+  { level: 7, share: 0.15 },
+  { level: 8, share: 0.00 },
 ];
 
 export function machineShareForLevel(level: number): number {
@@ -138,10 +154,11 @@ export function machineShareForLevel(level: number): number {
 const MIN_ROUNDS_PER_MACHINE = 2;
 /** Machine Tabata's own floor — below this it dissolves to bodyweight-only. */
 const MIN_BLOCK_A_MACHINES = 2;
-/** Bodyweight (Block B) always keeps at least this many minutes of the session. */
+/**
+ * Bodyweight (Block B) is the guaranteed core of the session — machines
+ * never eat into this floor (Wave 2 #6: "bodyweight is never dropped").
+ */
 const MIN_BLOCK_B_MINUTES = 5;
-/** Bodyweight block minimum — never a single exercise × 3 sets. */
-const MIN_BLOCK_B_EXERCISES = 2;
 
 /**
  * The push/pull domain level machineShare is keyed on — average of assessed
@@ -164,55 +181,72 @@ export function resolveMachineShareLevel(profile: UserFullProfile): number {
   return getBaseUserLevel(profile);
 }
 
-export interface MachineCountResolution {
+export interface MachineAllocation {
   machineCount: number;
   /** Total Tabata rounds for the shared block — machineCount × MIN_ROUNDS_PER_MACHINE. */
   rounds: number;
+  /** Actual machine-tabata wall-clock time this allocation delivers. */
+  machineTimeMinutes: number;
 }
 
 /**
- * Resolves how many of Block A's eligible machines to actually use this
- * session, and how many shared Tabata rounds to run them for. Level sets the
- * SHARE via `machineShareForLevel`; that share is then bounded by what the
- * park physically has, what the time budget allows, and by
- * MIN_BLOCK_B_EXERCISES worth of `strengthBudget` reserved for Block B — so
- * bodyweight never gets squeezed out as machineShare rises for a
- * machine-rich park. "No 1-machine Tabata": a target of exactly 1 bumps to
- * the MIN_BLOCK_A_MACHINES floor if park+time+budget allow it, else drops to
- * 0 (pure bodyweight) — never a lone machine on its own clock.
+ * Wave 2 (time-based rebuild, 16.09.2026): resolves how many of Block A's
+ * eligible machines to use THIS session, purely from a TIME budget — not the
+ * rest-blind exercise-count proxy Wave 1 used (`strengthBudget` /
+ * `getExerciseCountForDuration`, removed).
+ *
+ *   desiredMachineTime = shareForLevel(level) × strengthTimeBudget   (#3)
+ *   machineTime = min(desiredMachineTime, eligibleMachines × 2 rounds × secPerRound)  (#4)
+ *
+ * The 2-rounds-per-machine norm is NEVER exceeded to stretch fewer machines
+ * across more of the desired time — whatever desiredMachineTime the park
+ * can't physically provide at a sane 2-rounds-each is left for Block B to
+ * pick up as bodyweight time (composeParkWorkoutFromMachines's remainder),
+ * not inflated into an absurd per-machine round count.
+ *
+ * Bodyweight's `MIN_BLOCK_B_MINUTES` floor is enforced HERE, on the way in —
+ * machines can never be sized into it (Wave 2 #6: short-time minimum
+ * collision drops machines to 0 first, bodyweight is never dropped).
+ * "No 1-machine Tabata": a target of exactly 1 bumps to the
+ * MIN_BLOCK_A_MACHINES floor if park+time allow it, else drops to 0.
  */
-export function resolveMachineCount(params: {
-  strengthBudget: number;
+export function resolveMachineAllocation(params: {
   level: number;
   eligibleMachineCount: number;
-  availableTime: number;
-}): MachineCountResolution {
-  const { strengthBudget, level, eligibleMachineCount, availableTime } = params;
+  /** Total time (minutes) available for the strength portion of the session — T. */
+  strengthTimeBudget: number;
+  /** Seconds per Tabata round, READ from the frozen ladder (workSec + restSec). */
+  secPerRound: number;
+}): MachineAllocation {
+  const { level, eligibleMachineCount, strengthTimeBudget, secPerRound } = params;
+  const zero: MachineAllocation = { machineCount: 0, rounds: 0, machineTimeMinutes: 0 };
+
   const share = machineShareForLevel(level);
-  if (share <= 0 || eligibleMachineCount <= 0) return { machineCount: 0, rounds: 0 };
+  if (share <= 0 || eligibleMachineCount <= 0) return zero;
 
-  const levelTarget = Math.round(strengthBudget * share);
+  const minutesPerRound = secPerRound / 60;
+  const minutesPerMachine = MIN_ROUNDS_PER_MACHINE * minutesPerRound; // the 2-round norm
 
-  // Time-budget cap — 1 round ≈ 1 minute on every ladder rung (see blockASeconds).
-  const timeBudgetMachines = Math.max(
-    0,
-    Math.floor((availableTime - MIN_BLOCK_B_MINUTES) / MIN_ROUNDS_PER_MACHINE),
+  const desiredMachineTime = share * strengthTimeBudget;
+  // Physical-capacity cap (#4): never more than 2 rounds/machine, ever.
+  const maxMachinesByDesiredTime = Math.floor(desiredMachineTime / minutesPerMachine);
+  // Guaranteed bodyweight floor (#6): machines never size into MIN_BLOCK_B_MINUTES.
+  const maxMachinesByBodyweightFloor = Math.floor(
+    Math.max(0, strengthTimeBudget - MIN_BLOCK_B_MINUTES) / minutesPerMachine,
   );
-  // Budget-slot cap — keep ≥MIN_BLOCK_B_EXERCISES of strengthBudget's slots for Block B.
-  const budgetSlotMachines = Math.max(0, strengthBudget - MIN_BLOCK_B_EXERCISES);
 
-  let machineCount = Math.min(levelTarget, eligibleMachineCount, timeBudgetMachines, budgetSlotMachines);
+  let machineCount = Math.min(maxMachinesByDesiredTime, eligibleMachineCount, maxMachinesByBodyweightFloor);
 
   if (machineCount === 1) {
     const canFitFloor =
       eligibleMachineCount >= MIN_BLOCK_A_MACHINES &&
-      timeBudgetMachines >= MIN_BLOCK_A_MACHINES &&
-      budgetSlotMachines >= MIN_BLOCK_A_MACHINES;
+      maxMachinesByBodyweightFloor >= MIN_BLOCK_A_MACHINES;
     machineCount = canFitFloor ? MIN_BLOCK_A_MACHINES : 0;
   }
 
-  if (machineCount < MIN_BLOCK_A_MACHINES) return { machineCount: 0, rounds: 0 };
-  return { machineCount, rounds: machineCount * MIN_ROUNDS_PER_MACHINE };
+  if (machineCount < MIN_BLOCK_A_MACHINES) return zero;
+  const rounds = machineCount * MIN_ROUNDS_PER_MACHINE;
+  return { machineCount, rounds, machineTimeMinutes: rounds * minutesPerRound };
 }
 
 export interface ComposeParkWorkoutOptions {
@@ -301,77 +335,97 @@ export async function composeParkWorkoutFromMachines(
 ): Promise<ComposeParkWorkoutResult> {
   const availableTime = options.availableTime ?? 20;
   const ladderRung = TABATA_DIFFICULTY_LADDER[options.difficulty];
+  const secPerRound = ladderRung.workSec + ladderRung.restSec; // read from the frozen ladder — never hardcoded
 
-  // ── Block A: strength-eligible, tagged machines only — isCardio excluded (v1 scope) ──
-  // How many machines (and shared Tabata rounds) Block A gets is level-driven,
-  // not a fixed count — see resolveMachineCount/machineShareForLevel.
+  // ── Block A: real strength machines only (Wave 1) — sized from TIME, not
+  // a count proxy (Wave 2). See resolveMachineAllocation/machineShareForLevel.
   const eligibleMachines = allMachines.filter((m) => isBlockAEligible(m));
-  const strengthBudget = getExerciseCountForDuration(availableTime).exerciseCount;
   const machineShareLevel = resolveMachineShareLevel(userProfile);
-  const { machineCount, rounds } = resolveMachineCount({
-    strengthBudget,
+  const { machineCount, rounds, machineTimeMinutes } = resolveMachineAllocation({
     level: machineShareLevel,
     eligibleMachineCount: eligibleMachines.length,
-    availableTime,
+    strengthTimeBudget: availableTime,
+    secPerRound,
   });
   const selectedMachines = machineCount > 0 ? selectBlockAMachines(eligibleMachines, machineCount) : [];
   const tabataConfig: TabataProtocolConfig = { workSec: ladderRung.workSec, restSec: ladderRung.restSec, rounds };
   const blockACoveredDomains = computeCoveredDomains(selectedMachines);
   const blockAExercises = selectedMachines.map((m) => buildMachinePseudoExercise(m, tabataConfig));
 
-  // ── Block B: fill whatever domains Block A did not cover ──
-  // parkEquipmentIds (the park's CANONICAL gear-id inventory, resolved by
-  // composeParkWorkout via resolveParkEquipmentIds — raw Firestore doc ids
-  // mean nothing to the gating layer, they have to go through
-  // normalizeGearId first) is passed straight through to Block B's
-  // generateHomeWorkoutTrio call below, so InputSanitizerMiddleware
-  // resolves the park's REAL gear instead of its ESSENTIAL_PARK_GEAR
-  // catastrophic-fallback guess (pull-up bar/dip station/bench/etc, which
-  // this specific park may not actually have). Domain exclusion above
-  // already prevents Block B from re-covering whatever Block A handled, so
-  // passing the park's FULL gear list here (not a Block-A-selected subset)
-  // is safe — no double-dipping risk.
+  // ── V: level-appropriate volume ceiling (Wave 2 #1/#2 — one shared budget,
+  // no double-spend). `calculateWeeklyBudget` is the SAME sets-based ceiling
+  // the rest of the engine uses for rep-based (bodyweight) volume — machine
+  // tabata rounds are a different volume currency (fixed-interval, not
+  // rep/set-based), so rather than force an exact unit conversion, machine
+  // rounds are subtracted directly from the weekly figure before it's handed
+  // to Block B as `remainingWeeklyBudget`. Block B's own SplitDecisionService
+  // divides whatever's left by its own effective schedule days exactly as it
+  // already does for every other caller — this composer doesn't duplicate
+  // that division, just makes sure Block B isn't reasoning from the FULL,
+  // untouched weekly budget as if machines hadn't already spent part of it.
+  // Floor of 2 matches the `Math.max(2, ...)` floor SplitDecisionService
+  // itself applies to every dailySetBudget computation.
+  const weeklyVolumeBudget = calculateWeeklyBudget(machineShareLevel);
+  const remainingWeeklyBudgetForBlockB = Math.max(2, weeklyVolumeBudget - rounds);
+
+  // ── Block B: ALWAYS runs (Wave 2 #5 — the direct fix for "0 bodyweight").
+  // Domain coverage is a selection PREFERENCE, not a gate: requiredDomains is
+  // still passed (when Block A left a gap) so Block B prioritizes filling
+  // it, but strictDomains is now false (was true) so Block B's own
+  // guarantee/overflow-fill passes can still contribute other domains too —
+  // see HomeWorkoutOptions.strictDomains's own doc comment. Machines never
+  // re-cover what Block A already has, so there's no double-dipping risk
+  // either way.
   const requiredDomains = ALL_DOMAINS.filter((d) => !blockACoveredDomains.includes(d));
-  const blockATimeMinutes = selectedMachines.length > 0 ? blockASeconds(tabataConfig) / 60 : 0;
-  const blockBTimeMinutes = Math.max(MIN_BLOCK_B_MINUTES, availableTime - blockATimeMinutes);
+  const bodyweightTimeMinutes = Math.max(MIN_BLOCK_B_MINUTES, availableTime - machineTimeMinutes);
+
+  const trio = await generateHomeWorkoutTrio({
+    userProfile,
+    location: 'park',
+    availableTime: bodyweightTimeMinutes,
+    difficulty: DIFFICULTY_TO_LEVEL[options.difficulty],
+    requiredDomains: requiredDomains.length > 0 ? [...requiredDomains] : undefined,
+    strictDomains: false,
+    // READ-ONLY preview — this composition may run again if the user edits
+    // the drawer before starting, and must never mutate the user's program
+    // cycle from a preview. Same flag composeFullParkWorkout already uses
+    // for the same reason.
+    skipCycleRestart: true,
+    // parkEquipmentIds: the park's CANONICAL gear-id inventory (resolved by
+    // composeParkWorkout via resolveParkEquipmentIds — raw Firestore doc ids
+    // mean nothing to the gating layer, they have to go through
+    // normalizeGearId first), so InputSanitizerMiddleware resolves the
+    // park's REAL gear instead of its ESSENTIAL_PARK_GEAR catastrophic-
+    // fallback guess. The park's FULL gear list is safe to pass here (not a
+    // Block-A-selected subset) — machines never re-cover what Block A
+    // already has, so there's no double-dipping risk.
+    parkEquipmentIds,
+    remainingWeeklyBudget: remainingWeeklyBudgetForBlockB,
+  });
+  const blockBResult = trio.options[1].result;
 
   let blockBExercises: WorkoutExercise[] = [];
   let blockBTitle = '';
   let blockBDescription = '';
   let blockBTabataBlock: TabataBlockSpec | undefined;
-  if (requiredDomains.length > 0) {
-    const trio = await generateHomeWorkoutTrio({
-      userProfile,
-      location: 'park',
-      availableTime: blockBTimeMinutes,
-      difficulty: DIFFICULTY_TO_LEVEL[options.difficulty],
-      requiredDomains: [...requiredDomains],
-      strictDomains: true,
-      // READ-ONLY preview — this composition may run again if the user edits
-      // the drawer before starting, and must never mutate the user's program
-      // cycle from a preview. Same flag composeFullParkWorkout already uses
-      // for the same reason.
-      skipCycleRestart: true,
-      // Bug fix: this park's real canonical gear inventory, not omitted —
-      // see this function's own doc comment above and composeParkWorkout's.
-      parkEquipmentIds,
-    });
-    const blockBResult = trio.options[1].result;
-    if (!blockBResult.workout.needsAssessment) {
-      blockBExercises = blockBResult.workout.exercises;
-      blockBTitle = blockBResult.workout.title;
-      blockBDescription = blockBResult.workout.description;
-      // Diagnosis item 1(b)/4 fix: Block B's own generator can independently
-      // fire a core-form Tabata block (core-block.ts's chooseCoreForm, live,
-      // not flag-gated) whose members previously had NO home here — this
-      // composer's tabataBlock.exerciseIds only ever listed Block A's machine
-      // ids, so Block B's core-tabata members fell into partitionByTabataBlock's
-      // `rest` bucket (seg-main) at runner-mapping time: no protocol/protocolConfig,
-      // exerciseType misresolved to 'reps', no countdown, no round counter, no
-      // Tabata-timed video. Capturing it here and merging its ids below puts
-      // them in the SAME shared segment/clock as Block A's machines instead.
-      blockBTabataBlock = blockBResult.workout.tabataBlock;
-    }
+  if (!blockBResult.workout.needsAssessment) {
+    blockBExercises = blockBResult.workout.exercises;
+    blockBTitle = blockBResult.workout.title;
+    blockBDescription = blockBResult.workout.description;
+    // Diagnosis item 1(b)/4 fix: Block B's own generator can independently
+    // fire a core-form Tabata block (core-block.ts's chooseCoreForm, live,
+    // not flag-gated) whose members previously had NO home here — this
+    // composer's tabataBlock.exerciseIds only ever listed Block A's machine
+    // ids, so Block B's core-tabata members fell into partitionByTabataBlock's
+    // `rest` bucket (seg-main) at runner-mapping time: no protocol/protocolConfig,
+    // exerciseType misresolved to 'reps', no countdown, no round counter, no
+    // Tabata-timed video. Capturing it here and merging its ids below puts
+    // them in the SAME shared segment/clock as Block A's machines instead.
+    // Wave 2 #8 (accounting only — this file never changes WHETHER/HOW
+    // core-tabata fires, only makes its minutes visible to the caller via
+    // the honest estimatedDuration computed below, which prices any
+    // protocolBlock==='tabata' member as a real block cost, not a guess).
+    blockBTabataBlock = blockBResult.workout.tabataBlock;
   }
 
   // Part 1 (bodyweight/skill, harder — done while fresh) before Part 2
@@ -395,7 +449,30 @@ export async function composeParkWorkoutFromMachines(
       : undefined;
 
   const totalPlannedSets = exercises.reduce((sum, ex) => sum + ex.sets, 0);
-  const stats = calculateWorkoutStats(exercises, DIFFICULTY_TO_LEVEL[options.difficulty], availableTime);
+
+  // Wave 2 #7 — HONEST DURATION: priced from the actual built content (same
+  // pricer the rest of the engine converges duration against post the
+  // duration-volume-convergence fix), never just echoed back as the
+  // requested time. If T truly doesn't fit what got built (V-capped, or a
+  // sparse pool), this reports the real, shorter number instead of lying.
+  //
+  // Correction: calculateEstimatedDuration prices ANY tabata block as a
+  // fixed TABATA_BLOCK_SECONDS (240s = TABATA_CLASSIC's 20/10×8) regardless
+  // of actual rounds — correct for Block B's own core-form finisher (which
+  // really is TABATA_CLASSIC-shaped), but wrong for this composer's
+  // machine block, whose rounds vary with machineCount. Correct the delta
+  // locally rather than touch that shared pricer (used engine-wide). The
+  // delta is always a whole number of minutes: every ladder rung's
+  // workSec+restSec is 60s, so blockASeconds(config)/60 === config.rounds.
+  const rawEstimatedDuration = calculateEstimatedDuration(exercises);
+  const tabataDurationCorrectionMinutes = tabataBlock
+    ? blockASeconds(tabataBlock.config) / 60 - TABATA_BLOCK_SECONDS / 60
+    : 0;
+  const estimatedDuration = rawEstimatedDuration + tabataDurationCorrectionMinutes;
+  // Stats (display-only, see file header) priced off the same honest
+  // duration, not the requested one — a truncated session shouldn't claim
+  // the calorie burn of the full requested time.
+  const stats = calculateWorkoutStats(exercises, DIFFICULTY_TO_LEVEL[options.difficulty], estimatedDuration);
 
   const workout: GeneratedWorkout = {
     title: blockBTitle || 'אימון בפארק',
@@ -405,7 +482,7 @@ export async function composeParkWorkoutFromMachines(
         ? 'מתקנים בפארק + תרגילי משקל גוף'
         : 'אימון משקל גוף בפארק'),
     exercises,
-    estimatedDuration: availableTime,
+    estimatedDuration,
     structure: 'standard',
     difficulty: DIFFICULTY_TO_LEVEL[options.difficulty],
     mechanicalBalance: { straightArm: 0, bentArm: 0, hybrid: 0, ratio: '', isBalanced: true },

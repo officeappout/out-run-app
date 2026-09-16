@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { Park } from '@/features/parks/core/types/park.types';
+import { calculateEstimatedDuration } from '../../logic/workout-budgeting.utils';
+import { calculateWeeklyBudget } from '../../core/store/useWeeklyVolumeStore';
 
 // generateHomeWorkoutTrio is Firestore-backed — mocked so these tests exercise
 // only composeParkWorkoutFromMachines's own domain-complement/selection logic,
@@ -37,7 +39,7 @@ import {
   isBlockAEligible,
   machineShareForLevel,
   resolveMachineShareLevel,
-  resolveMachineCount,
+  resolveMachineAllocation,
 } from '../compose-park-strength-workout.service';
 
 // Default isFunctional: false (real strength machine, not functional
@@ -204,15 +206,13 @@ describe('buildMachinePseudoExercise', () => {
   });
 });
 
-describe('machineShareForLevel', () => {
+describe('machineShareForLevel (Wave 2: TIME share, reaches 0 by level 8)', () => {
   it.each([
-    [1, 0.75], [2, 0.75], [3, 0.75], [4, 0.75],
-    [5, 0.60],
-    [6, 0.45],
-    [7, 0.30],
-    [8, 0.20],
-    [9, 0.15],
-    [10, 0.00], [16, 0.00], [25, 0.00],
+    [1, 0.70], [2, 0.70], [3, 0.70], [4, 0.70],
+    [5, 0.55],
+    [6, 0.35],
+    [7, 0.15],
+    [8, 0.00], [9, 0.00], [16, 0.00], [25, 0.00],
   ])('level %i → share %f', (level, expected) => {
     expect(machineShareForLevel(level)).toBe(expected);
   });
@@ -244,85 +244,108 @@ describe('resolveMachineShareLevel', () => {
   });
 });
 
-describe('resolveMachineCount', () => {
+describe('resolveMachineAllocation (Wave 2: time-based, not a count proxy)', () => {
+  const secPerRound = 60; // medium ladder: 30+30
+
   it('level-16 user → 0 machines, no machine Tabata, regardless of park size or time', () => {
-    const result = resolveMachineCount({
-      strengthBudget: 5, level: 16, eligibleMachineCount: 6, availableTime: 20,
+    const result = resolveMachineAllocation({
+      level: 16, eligibleMachineCount: 6, strengthTimeBudget: 45, secPerRound,
     });
-    expect(result).toEqual({ machineCount: 0, rounds: 0 });
+    expect(result).toEqual({ machineCount: 0, rounds: 0, machineTimeMinutes: 0 });
   });
 
   it('level-6 user → machines present, at least the 2-machine floor', () => {
-    const result = resolveMachineCount({
-      strengthBudget: 5, level: 6, eligibleMachineCount: 6, availableTime: 20,
+    const result = resolveMachineAllocation({
+      level: 6, eligibleMachineCount: 6, strengthTimeBudget: 45, secPerRound,
     });
     expect(result.machineCount).toBeGreaterThanOrEqual(2);
     expect(result.rounds).toBe(result.machineCount * 2);
+    expect(result.machineTimeMinutes).toBe(result.rounds); // 1 round ≈ 1 minute
+  });
+
+  it('desiredMachineTime = share × T, capped by 2-rounds-per-machine norm — never inflated past it', () => {
+    // level 1 → share 0.70. T=20 → desired=14min → floor(14/2)=7 machines by
+    // time, but the park only has 3 → machineCount capped at 3, NOT inflated
+    // to more rounds per machine to "use up" the desired 14min.
+    const result = resolveMachineAllocation({
+      level: 1, eligibleMachineCount: 3, strengthTimeBudget: 20, secPerRound,
+    });
+    expect(result.machineCount).toBe(3);
+    expect(result.rounds).toBe(6); // 3 × 2, the norm — never more
+    expect(result.machineTimeMinutes).toBe(6); // NOT 14 — the unfulfillable
+    // remainder becomes bodyweight time in the composer, not absurd rounds.
   });
 
   it('"no 1-machine Tabata" floor: a target of 1 bumps to 2 when the park + time can support it', () => {
-    // level 9 → share 0.15; strengthBudget 7 → round(7*0.15) = 1 raw target.
-    const result = resolveMachineCount({
-      strengthBudget: 7, level: 9, eligibleMachineCount: 6, availableTime: 20,
+    // level 7 → share 0.15; T=14 → desired=2.1 → floor(2.1/2)=1 raw target.
+    const result = resolveMachineAllocation({
+      level: 7, eligibleMachineCount: 6, strengthTimeBudget: 14, secPerRound,
     });
     expect(result.machineCount).toBe(2);
   });
 
   it('"no 1-machine Tabata" floor: drops to 0 when the park only has 1 eligible machine (can\'t bump to 2)', () => {
-    const result = resolveMachineCount({
-      strengthBudget: 7, level: 9, eligibleMachineCount: 1, availableTime: 20,
+    const result = resolveMachineAllocation({
+      level: 7, eligibleMachineCount: 1, strengthTimeBudget: 14, secPerRound,
     });
-    expect(result).toEqual({ machineCount: 0, rounds: 0 });
+    expect(result).toEqual({ machineCount: 0, rounds: 0, machineTimeMinutes: 0 });
   });
 
   it('park cap: never selects more machines than the park actually has', () => {
-    const result = resolveMachineCount({
-      strengthBudget: 10, level: 1, eligibleMachineCount: 2, availableTime: 60,
+    const result = resolveMachineAllocation({
+      level: 1, eligibleMachineCount: 2, strengthTimeBudget: 60, secPerRound,
     });
     expect(result.machineCount).toBeLessThanOrEqual(2);
   });
 
-  it('time-budget cap: a very short session caps machine count even at a low (machine-heavy) level', () => {
-    // availableTime 9 → timeBudgetMachines = floor((9-5)/2) = 2
-    const result = resolveMachineCount({
-      strengthBudget: 8, level: 1, eligibleMachineCount: 8, availableTime: 9,
+  it('bodyweight floor (#6): machines never size into MIN_BLOCK_B_MINUTES, even at a low (machine-heavy) level with a big park', () => {
+    // T=9 → only 4min available before the 5min bodyweight floor → at most 2 machines.
+    const result = resolveMachineAllocation({
+      level: 1, eligibleMachineCount: 8, strengthTimeBudget: 9, secPerRound,
     });
     expect(result.machineCount).toBeLessThanOrEqual(2);
   });
 
-  it('bodyweight-reservation property: machineCount never leaves fewer than 2 of strengthBudget\'s slots for Block B', () => {
-    for (const strengthBudget of [2, 3, 4, 5, 6, 8]) {
-      for (const level of [1, 5, 6, 7, 8, 9]) {
-        const { machineCount } = resolveMachineCount({
-          strengthBudget, level, eligibleMachineCount: 8, availableTime: 60,
-        });
-        expect(strengthBudget - machineCount).toBeGreaterThanOrEqual(2);
-      }
-    }
+  it('short-time priority (#6): T too small for the min machine block (~4min) AND the bodyweight floor (5min) → machines drop to 0 first', () => {
+    const result = resolveMachineAllocation({
+      level: 1, eligibleMachineCount: 8, strengthTimeBudget: 8, secPerRound,
+    });
+    expect(result).toEqual({ machineCount: 0, rounds: 0, machineTimeMinutes: 0 });
   });
 
   it('returns 0 when the park has no eligible machines at all', () => {
-    const result = resolveMachineCount({
-      strengthBudget: 5, level: 1, eligibleMachineCount: 0, availableTime: 20,
+    const result = resolveMachineAllocation({
+      level: 1, eligibleMachineCount: 0, strengthTimeBudget: 20, secPerRound,
     });
-    expect(result).toEqual({ machineCount: 0, rounds: 0 });
+    expect(result).toEqual({ machineCount: 0, rounds: 0, machineTimeMinutes: 0 });
+  });
+
+  it('property: bodyweight always keeps ≥ MIN_BLOCK_B_MINUTES of strengthTimeBudget across a level × time grid', () => {
+    for (const strengthTimeBudget of [15, 20, 30, 45, 60]) {
+      for (const level of [1, 5, 6, 7]) {
+        const result = resolveMachineAllocation({
+          level, eligibleMachineCount: 10, strengthTimeBudget, secPerRound,
+        });
+        expect(strengthTimeBudget - result.machineTimeMinutes).toBeGreaterThanOrEqual(5);
+      }
+    }
   });
 });
 
 describe('composeParkWorkoutFromMachines', () => {
   const fakeProfile = { id: 'u1', progression: {} } as any;
-  let randomSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     trioMock.mockClear();
-    // Pins getExerciseCountForDuration's internal Math.random() so strengthBudget
-    // (and therefore machineCount) is deterministic across these tests —
-    // DURATION_SCALING buckets always resolve to their `min`.
-    randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
-  });
-
-  afterEach(() => {
-    randomSpy.mockRestore();
+    // Wave 2 removed the last Math.random() dependency from this file
+    // (strengthBudget/getExerciseCountForDuration) — machine allocation is
+    // now fully deterministic given level/time/park size, no pinning needed.
+    // Sensible default so tests that don't care about Block B's specific
+    // response don't need to set it up themselves — Block B ALWAYS runs now
+    // (Wave 2 #5), so every test needs SOME resolution.
+    trioMock.mockResolvedValue({
+      options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+    });
   });
 
   it('excludes isCardio machines from Block A even when movementPattern is set; a single eligible machine hits the "no 1-machine Tabata" floor and drops to 0', async () => {
@@ -334,7 +357,7 @@ describe('composeParkWorkoutFromMachines', () => {
     expect(result.blockASelectedMachineCount).toBe(0); // can't bump a lone machine to the 2-machine floor
   });
 
-  it('calls Block B with requiredDomains = the complement of what Block A covered, strictDomains true', async () => {
+  it('calls Block B with requiredDomains = the complement of what Block A covered, as a PREFERENCE (strictDomains false — Wave 2 #5)', async () => {
     trioMock.mockResolvedValue({
       options: [null, { result: { workout: { exercises: [], title: 'Block B', description: '', needsAssessment: false } } }, null],
     });
@@ -343,7 +366,7 @@ describe('composeParkWorkoutFromMachines', () => {
     expect(trioMock).toHaveBeenCalledTimes(1);
     const callArgs = trioMock.mock.calls[0][0];
     expect(callArgs.location).toBe('park');
-    expect(callArgs.strictDomains).toBe(true);
+    expect(callArgs.strictDomains).toBe(false);
     expect(callArgs.skipCycleRestart).toBe(true);
     expect(new Set(callArgs.requiredDomains)).toEqual(new Set(['legs', 'core']));
   });
@@ -367,11 +390,15 @@ describe('composeParkWorkoutFromMachines', () => {
     expect(callArgs.parkEquipmentIds).toEqual(realParkGearIds);
   });
 
-  it('skips the Block B call entirely when Block A already covers all 4 domains (needs enough time budget for all 4 machines at level 1)', async () => {
-    await composeParkWorkoutFromMachines(
+  it('Wave 2 #5 fix: Block B ALWAYS runs, even when Block A already covers all 4 domains — the direct fix for "0 bodyweight"', async () => {
+    const result = await composeParkWorkoutFromMachines(
       [push1, pull1, legs1, core1], fakeProfile, { difficulty: 'medium', availableTime: 45 },
     );
-    expect(trioMock).not.toHaveBeenCalled();
+    expect(result.blockACoveredDomains).toEqual(['push', 'pull', 'legs', 'core']); // sanity: all 4 covered
+    expect(trioMock).toHaveBeenCalledTimes(1); // Block B still runs — domain coverage is a preference, not a gate
+    const callArgs = trioMock.mock.calls[0][0];
+    expect(callArgs.requiredDomains).toBeUndefined(); // nothing left to prioritize — general selection
+    expect(callArgs.strictDomains).toBe(false);
   });
 
   it('uses the correct work/rest ladder per difficulty; rounds scale with the level-driven machine count (2 machines × 2 rounds each)', async () => {
@@ -474,6 +501,58 @@ describe('composeParkWorkoutFromMachines', () => {
     const result = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'medium' });
     expect(result.workout.exercises).toHaveLength(2); // only the Block A machines
     expect(result.workout.exercises.map((e) => e.exercise.id).sort()).toEqual(['pull1', 'push1']);
+  });
+
+  describe('Wave 2 #1/#2: V (calculateWeeklyBudget) — one shared budget, no double-spend', () => {
+    it('reduces Block B\'s remainingWeeklyBudget by the machine rounds already spent', async () => {
+      // level 1 → weeklyVolumeBudget = calculateWeeklyBudget(1) = max(4,2) = 4.
+      // [push1,pull1] → machineCount=2, rounds=4 → remaining = max(2, 4-4) = 2.
+      await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'medium', availableTime: 20 });
+      const callArgs = trioMock.mock.calls[0][0];
+      expect(callArgs.remainingWeeklyBudget).toBe(Math.max(2, calculateWeeklyBudget(1) - 4));
+    });
+
+    it('no machines spent → Block B gets the FULL, undiminished weekly budget', async () => {
+      await composeParkWorkoutFromMachines([], fakeProfile, { difficulty: 'medium', availableTime: 20 });
+      const callArgs = trioMock.mock.calls[0][0];
+      expect(callArgs.remainingWeeklyBudget).toBe(calculateWeeklyBudget(1));
+    });
+
+    it('floors at 2 — machine rounds spending more than the whole weekly budget never sends Block B a non-positive number', async () => {
+      // level 1, 45min, 6 real machines → machineCount=6, rounds=12 — well
+      // over weeklyVolumeBudget=4.
+      const sixMachinePark = [push1, push2, pull1, legs1, core1, machine({ id: 'pull2', movementPattern: 'vertical_pull' })];
+      const result = await composeParkWorkoutFromMachines(sixMachinePark, fakeProfile, { difficulty: 'medium', availableTime: 45 });
+      expect(result.blockASelectedMachineCount).toBe(6);
+      const callArgs = trioMock.mock.calls[0][0];
+      expect(callArgs.remainingWeeklyBudget).toBe(2);
+    });
+  });
+
+  describe('Wave 2 #7: honest estimatedDuration', () => {
+    it('is computed from actual built content, not echoed back as availableTime', async () => {
+      const blockBExercise = {
+        exercise: { id: 'bw1', name: { he: 'bw1' }, movementGroup: 'horizontal_push', secondsPerRep: 3, symmetry: 'bilateral' },
+        exerciseRole: 'main', sets: 2, reps: 8, restSeconds: 60, isTimeBased: false,
+      } as any;
+      trioMock.mockResolvedValue({
+        options: [null, { result: { workout: { exercises: [blockBExercise], title: '', description: '', needsAssessment: false } } }, null],
+      });
+      const result = await composeParkWorkoutFromMachines([], fakeProfile, { difficulty: 'medium', availableTime: 20 });
+      expect(result.workout.estimatedDuration).not.toBe(20); // NOT just echoed back
+      expect(result.workout.estimatedDuration).toBe(calculateEstimatedDuration(result.workout.exercises));
+    });
+
+    it('corrects for calculateEstimatedDuration\'s fixed TABATA_BLOCK_SECONDS assumption when machine rounds ≠ TABATA_CLASSIC\'s 4-round equivalent', async () => {
+      // 3 real machines → machineCount=3 → rounds=6 (NOT 4) — the shared
+      // pricer would otherwise price this as a flat 240s (4min) block.
+      const threeMachinePark = [push1, pull1, legs1];
+      const result = await composeParkWorkoutFromMachines(threeMachinePark, fakeProfile, { difficulty: 'medium', availableTime: 20 });
+      expect(result.blockASelectedMachineCount).toBe(3);
+      expect(result.workout.tabataBlock?.config.rounds).toBe(6);
+      // Real cost: 3 machines × 2 rounds × 60s = 360s = 6min.
+      expect(result.workout.estimatedDuration).toBe(6);
+    });
   });
 
   describe('Wave 1: functional apparatus never enters Block A', () => {
