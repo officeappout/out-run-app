@@ -352,9 +352,20 @@ export default function FeedbackFAB({
           )}
         </AnimatePresence>
 
-        {/* Pulse ring — shown when closed to draw attention */}
+        {/* Pulse ring — shown when closed to draw attention. Finite (3
+            iterations, SPEC-05 A2.1) rather than infinite: this used
+            Tailwind's animate-ping (infinite by default), running
+            continuously any time the FAB sits closed — most of the time on
+            any screen it's mounted on, including an idle map. The inline
+            override only touches iteration-count; timing/keyframes stay
+            the same Tailwind utility. After the 3rd pulse the ring settles
+            back to its static, non-animated appearance (same element, same
+            color) — it doesn't disappear. */}
         {!isOpen && (
-          <span className="absolute inset-0 rounded-2xl animate-ping bg-[#5BC2F2]/30 pointer-events-none" />
+          <span
+            className="absolute inset-0 rounded-2xl animate-ping bg-[#5BC2F2]/30 pointer-events-none"
+            style={{ animationIterationCount: 3 }}
+          />
         )}
       </motion.button>
 
