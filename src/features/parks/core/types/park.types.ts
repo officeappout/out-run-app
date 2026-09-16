@@ -295,6 +295,14 @@ export interface Park {
    *  product decision, untouched); the catalog build picks this up
    *  automatically once that field is populated. */
   isMinor?: boolean;
+  /** Generic hybrid-route stop classification (stretch/viewpoint, core/bench,
+   *  etc.) — mirrors route-stops.service.ts's mapParkToStop, computed
+   *  server-side from natureType/urbanType/facilityType at catalog-build
+   *  time via the shared src/lib/park-stop-role.ts classifier (SPEC-07
+   *  redesign, 17.09.2026). Equipment/gym_park is NOT part of this — read
+   *  hasUsableEquipment/facilityType directly for that. `null` means
+   *  "not a stop" (a real, meaningful classification, not "unset"). */
+  stopRole?: import('@/lib/park-stop-role').ParkStopRole | null;
 
   // Admin metadata
   authorityId?: string; // Link to authority (for Authority Manager access) — always the TOP authority (city / regional_council)

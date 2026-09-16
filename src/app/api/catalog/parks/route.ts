@@ -59,6 +59,27 @@
  *      anything — trace the array's origin, not just this file's
  *      imports, before concluding a field is unused on the lean path.
  *
+ * stopRole (David, 17.09.2026, SPEC-07 post-revert redesign, Finding A):
+ * precomputes mapParkToStop's natureType/urbanType branches (equipment/
+ * gym_park is deliberately excluded — hasUsableEquipment/facilityType above
+ * already answer that). Decision test: does a real consumer scan/filter
+ * MANY parks at once by this? resolveRouteStops scans every park along an
+ * entire route — yes, same bulk pattern as hasUsableEquipment — so this
+ * gets a catalog field, not a point-fetch (point-fetching every park along
+ * a route would reintroduce the N+1 problem this whole endpoint exists to
+ * remove). classifyParkStopRole (src/lib/park-stop-role.ts) is the single
+ * module both this route and route-stops.service.ts import — not a
+ * duplicated table. Verified byte-identical to the pre-existing inline
+ * classification against all 1158 real published parks before this field
+ * was added (scripts/_verify-stoprole-equivalence.ts, 0 mismatches).
+ * description/featureTags/city/status and similar fields were explicitly
+ * NOT added here even though they're real fields on real parks — every
+ * confirmed consumer needs them for exactly ONE park at a time (a detail
+ * view), never many at once, so they fail this test and stay off the
+ * catalog entirely; see the SPEC-07 doc's 17.09.2026 redesign section for
+ * the full test and the point-fetch-owns-its-completeness principle that
+ * covers those fields instead.
+ *
  * published filtering is NOT a Firestore query clause — parks.service.ts's
  * own normalizePark treats a doc as published via
  * `published ?? (contentStatus === 'published')`, and 4 real, currently-
@@ -85,6 +106,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { requireAdminApi } from '@/lib/api-auth';
 import { createHash } from 'crypto';
 import { MINOR_URBAN_TYPES } from '@/features/parks/core/constants/urban-type.constants';
+import { classifyParkStopRole, type ParkStopRole } from '@/lib/park-stop-role';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -113,6 +135,7 @@ interface CatalogParkEntry {
   hasUsableEquipment: boolean;
   isPrimaryFitness: boolean;
   isMinor: boolean;
+  stopRole: ParkStopRole | null;
 }
 
 function resolveImage(d: FirebaseFirestore.DocumentData): string | null {
@@ -163,6 +186,22 @@ function computeIsMinor(d: FirebaseFirestore.DocumentData): boolean {
   return MINOR_URBAN_TYPES.includes(d.urbanType || '');
 }
 
+// SPEC-07 redesign (17.09.2026, Finding A): stopRole covers the
+// natureType/urbanType branches of route-stops.service.ts's mapParkToStop —
+// gym_park/equipment is deliberately excluded here, since hasUsableEquipment
+// and facilityType above already answer that at read time. classifyParkStopRole
+// is the same function route-stops.service.ts imports — one module, not a
+// duplicated table. Verified byte-identical to the old inline classification
+// against all 1158 real published parks (scripts/_verify-stoprole-equivalence.ts).
+function computeStopRole(d: FirebaseFirestore.DocumentData): ParkStopRole | null {
+  return classifyParkStopRole({
+    facilityType: d.facilityType,
+    natureType: d.natureType,
+    urbanType: d.urbanType,
+    category: d.category,
+  });
+}
+
 async function buildCatalog(): Promise<CatalogParkEntry[]> {
   const db = getAdminDb();
   const snap = await db.collection('parks').get();
@@ -187,6 +226,7 @@ async function buildCatalog(): Promise<CatalogParkEntry[]> {
       hasUsableEquipment: computeHasUsableEquipment(d),
       isPrimaryFitness: computeIsPrimaryFitness(d),
       isMinor: computeIsMinor(d),
+      stopRole: computeStopRole(d),
     });
   }
 

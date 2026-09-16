@@ -197,18 +197,24 @@ function writeParksToStorage(parks: Park[]): void {
  * localStorage caching — the pre-SPEC-07 fetchRealParks implementation,
  * preserved verbatim under this name.
  *
- * SPEC-07 (16.09.2026): fetchRealParks itself became the lean, catalog-backed
- * fetch below (id/name/location/facilityType/isFunctional/imageUrl +
- * hasUsableEquipment/isPrimaryFitness/isMinor — no gymEquipment, sportTypes,
- * urbanType, courtType, natureType, description, etc. isMinor replaces raw
- * urbanType as the one field that used to derive it). This full-record fetch
- * exists SPECIFICALLY for location-utils.ts's fetchNearbyFacilities, the one
- * confirmed consumer that filters on fields the catalog doesn't carry
- * (courtType, sportTypes, natureType) — see that file's own comment at the
- * call site for why it stays on this path. Everything else that used to
- * call fetchRealParks was audited caller-by-caller and either only needed
- * catalog fields, or needed one specific park's full record (now a getPark()
- * point-fetch) — see the individual commits in this batch.
+ * SPEC-07 (16.09.2026, redesigned 17.09.2026 post-revert): fetchRealParks
+ * itself is the lean, catalog-backed fetch below (id/name/location/
+ * facilityType/isFunctional/imageUrl + hasUsableEquipment/isPrimaryFitness/
+ * isMinor/stopRole — no gymEquipment, sportTypes, urbanType, courtType,
+ * natureType, description, city, status, featureTags, etc). isMinor
+ * replaces raw urbanType; stopRole replaces the natureType/urbanType
+ * branches route-stops.service.ts used to read raw (see src/lib/
+ * park-stop-role.ts). This full-record fetch exists SPECIFICALLY for
+ * location-utils.ts's fetchNearbyFacilities, the one confirmed consumer
+ * that filters on fields the catalog doesn't carry (courtType, sportTypes,
+ * natureType) — see that file's own comment at the call site for why it
+ * stays on this path. Everything else that needs more than the catalog
+ * fields does its OWN getPark() point-fetch at the point of use
+ * (ParkDetailSheet, ParkPreview, compose-park-strength-workout.service.ts)
+ * rather than trusting whatever shape its caller happened to pass in —
+ * that per-caller-remembers-to-fetch discipline is exactly what silently
+ * broke once already (16.09.2026 regression, reverted; see the SPEC-07
+ * doc's 17.09.2026 redesign section for the full principle).
  *
  * Behaviour (unchanged from before SPEC-07):
  *   - Cold start (no cache or stale >6h): fetches from Firestore, persists to
@@ -278,6 +284,7 @@ interface CatalogParkEntry {
   hasUsableEquipment: boolean;
   isPrimaryFitness: boolean;
   isMinor: boolean;
+  stopRole: import('@/lib/park-stop-role').ParkStopRole | null;
 }
 
 interface CatalogIdbRecord {
@@ -343,8 +350,11 @@ function catalogEntryToPark(e: CatalogParkEntry): Park {
     hasUsableEquipment: e.hasUsableEquipment,
     isPrimaryFitness: e.isPrimaryFitness,
     isMinor: e.isMinor,
+    stopRole: e.stopRole,
     published: true, // the catalog is already published-filtered server-side
-    status: 'open',
+    status: 'open', // placeholder only — SPEC-07 17.09.2026: any consumer
+    // that renders this needs the real value now point-fetches its own
+    // full record (ParkDetailSheet), so this never reaches a display.
   };
 }
 

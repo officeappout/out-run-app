@@ -26,6 +26,7 @@ import type {
 import { haversineMeters } from '@/features/parks/core/services/geoUtils';
 import { normalizeGearIds } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { parkGymEquipmentToGearIds } from './park-equipment.util';
+import { classifyParkStopRole } from '@/lib/park-stop-role';
 
 /** A POI this close (m) to any route vertex counts as "on / adjacent to the route". */
 export const DEFAULT_MATCH_RADIUS_M = 180;
@@ -50,28 +51,33 @@ export interface StopMapping {
  *   gym_park (or any equipped park) → strength on iron
  *   observation_point / spring / nature_community / zen_spot → stretch / rest (cooldown-eligible)
  *   urban_spot: stairs → strength on stairs · bench/other → bodyweight core
+ *
+ * SPEC-07 redesign (17.09.2026): `park` here is catalog-shaped (no raw
+ * natureType/urbanType/gymEquipment) — `start-hybrid-session.ts` feeds this
+ * from `safeFetchRealParks()`. Equipment/gym_park is decided from the
+ * catalog's own `hasUsableEquipment`/`facilityType` fields (always present).
+ * Everything else is decided from `park.stopRole`, precomputed server-side
+ * at catalog-build time by the SAME `classifyParkStopRole` this function
+ * used to run inline — see src/lib/park-stop-role.ts for the single source
+ * of truth both sides import. Verified byte-identical to the old inline
+ * logic against all 1158 real published parks before this change (0
+ * mismatches) — see scripts/_verify-stoprole-equivalence.ts.
+ * `natureType`/`urbanType`/`category` fallback still works if this is ever
+ * called with a full-record Park (classifyParkStopRole recomputes live).
  */
 export function mapParkToStop(park: Park): StopMapping | null {
-  const facility = (park as any).category ?? park.facilityType; // stored field is `category`
-  const nature = park.natureType;
-  const urban = park.urbanType;
+  const facility = (park as any).category ?? park.facilityType; // legacy fallback, matches classifyParkStopRole's own
   const equipped = (park.gymEquipment?.length ?? 0) > 0;
-
-  // Equipped fitness park → strength on real iron (bar / dip / etc.).
-  if (facility === 'gym_park' || equipped) {
+  if (facility === 'gym_park' || park.hasUsableEquipment || equipped) {
     return { activityType: 'strength', locationKind: 'gym', cooldownEligible: false };
   }
-  // Nature / lookout / zen → stretch or rest; a calm near-end cooldown location.
-  if (nature === 'observation_point') return { activityType: 'stretch', locationKind: 'viewpoint', cooldownEligible: true };
-  if (nature === 'spring') return { activityType: 'stretch', locationKind: 'spring', cooldownEligible: true };
-  if (facility === 'nature_community') return { activityType: 'stretch', locationKind: 'scenic', cooldownEligible: true };
-  if (facility === 'zen_spot') return { activityType: 'stretch', locationKind: 'scenic', cooldownEligible: true };
-  // Urban infrastructure → stair work (strength) or a bench-based bodyweight core stop.
-  if (facility === 'urban_spot') {
-    if (urban === 'stairs') return { activityType: 'strength', locationKind: 'stairs', cooldownEligible: false };
-    return { activityType: 'core', locationKind: 'bench', cooldownEligible: false };
-  }
-  return null; // unknown type → not a stop
+  if (park.stopRole) return park.stopRole;
+  return classifyParkStopRole({
+    facilityType: park.facilityType,
+    natureType: park.natureType,
+    urbanType: park.urbanType,
+    category: (park as any).category,
+  });
 }
 
 export interface ResolveRouteStopsOpts {
