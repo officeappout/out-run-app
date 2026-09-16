@@ -5,6 +5,8 @@ import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls,
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import { X, Star, Play, Pencil, Navigation, MapPin, Flag, ChevronLeft, Loader2, Calendar, Users, UserPlus, RefreshCw, MessageCircle, Check } from 'lucide-react';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { getPark } from '@/features/parks/core/services/parks.service';
+import { logParkDetailTripwireIfIncomplete } from '@/features/parks/core/services/park-detail-completeness';
 import { useUserStore } from '@/features/user';
 import { getReviewsForPark } from '@/features/parks/core/services/contribution.service';
 import type { Park } from '@/features/parks/core/types/park.types';
@@ -305,7 +307,38 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
     }
   }, [timeRangeMinutes, pickedDate, dayFilter, selectedPark]);
 
-  const park = selectedPark;
+  // SPEC-07 redesign (17.09.2026): this sheet owns its own data completeness
+  // instead of trusting whatever shape its caller's `selectedPark` happens
+  // to be (catalog-lean from a map pin click, full from search/home-card) —
+  // that per-caller discipline is exactly what silently broke once already.
+  // Always point-fetches on open/park-change; falls back to `selectedPark`
+  // only while in flight or if the fetch itself fails.
+  const [fetchedPark, setFetchedPark] = useState<Park | null>(null);
+  useEffect(() => {
+    if (!isOpen || !selectedPark?.id) { setFetchedPark(null); return; }
+    let cancelled = false;
+    setFetchedPark(null);
+    getPark(selectedPark.id)
+      .then((full) => { if (!cancelled) setFetchedPark(full); })
+      .catch((err) => {
+        console.warn('[ParkDetailSheet] Self point-fetch failed, falling back to caller-supplied park:', err);
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, selectedPark?.id]);
+
+  const park = fetchedPark ?? selectedPark;
+
+  // TRIPWIRE — fires only on the fallback path (point-fetch above hasn't
+  // resolved yet, or failed) when the fallback object is missing a
+  // detail-critical field it's about to render. Silent degrade is the
+  // dangerous kind; this makes it loud instead. Not a re-check on every
+  // render of a park that DID point-fetch successfully. Logic lives in
+  // park-detail-completeness.ts (pure, unit-tested — this component can't
+  // be rendered in this repo's node-only Vitest config).
+  useEffect(() => {
+    if (!isOpen || !park || fetchedPark) return;
+    logParkDetailTripwireIfIncomplete(park, 'point-fetch not yet resolved or failed');
+  }, [isOpen, park, fetchedPark]);
 
   const { events: parkEvents, loading: eventsLoading } = useParkEvents(
     isOpen ? park?.id : null,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navigation } from 'lucide-react';
 import { useMapStore } from '../../../core/store/useMapStore';
@@ -11,7 +11,8 @@ import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
 import { bunnyImg } from '@/lib/bunny-image';
 import IconChip from '../park-detail/IconChip';
 import { AMENITY_ICON_MAP, AMENITY_DISPLAY_ORDER } from '../park-detail/amenity-icons';
-import type { ParkFeatureTag } from '@/features/parks/core/types/park.types';
+import type { Park, ParkFeatureTag } from '@/features/parks/core/types/park.types';
+import { getPark } from '@/features/parks/core/services/parks.service';
 
 interface ParkPreviewProps {
   userLocation: { lat: number; lng: number } | null;
@@ -21,51 +22,71 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   const { selectedPark, setSelectedPark } = useMapStore();
   const setPendingCommute = useMapStore((s) => s.setPendingCommute);
   const setPendingParkWorkoutStart = useMapStore((s) => s.setPendingParkWorkoutStart);
-  const shelterDecision = useShelterProximity({ park: selectedPark as any });
   const [detailOpen, setDetailOpen] = useState(false);
   const router = useRouter();
 
+  // SPEC-07 redesign (17.09.2026): this preview card owns its own data
+  // completeness — same principle as ParkDetailSheet, same reason (a map
+  // pin click can hand this a catalog-lean object with no featureTags/
+  // hasWaterFountain/city/authorityId, which this card reads directly).
+  const [fetchedPark, setFetchedPark] = useState<Park | null>(null);
+  useEffect(() => {
+    if (!selectedPark?.id) { setFetchedPark(null); return; }
+    let cancelled = false;
+    setFetchedPark(null);
+    getPark(selectedPark.id)
+      .then((full) => { if (!cancelled) setFetchedPark(full); })
+      .catch((err) => {
+        console.warn('[ParkPreview] Self point-fetch failed, falling back to caller-supplied park:', err);
+      });
+    return () => { cancelled = true; };
+  }, [selectedPark?.id]);
+
+  const park = fetchedPark ?? selectedPark;
+
+  const shelterDecision = useShelterProximity({ park: park as any });
+
   const distText = useMemo(() => {
-    if (!userLocation || !selectedPark?.location) return null;
-    const km = haversineKm(userLocation.lat, userLocation.lng, selectedPark.location.lat, selectedPark.location.lng);
+    if (!userLocation || !park?.location) return null;
+    const km = haversineKm(userLocation.lat, userLocation.lng, park.location.lat, park.location.lng);
     return distanceLabel(km);
-  }, [userLocation, selectedPark?.location]);
+  }, [userLocation, park?.location]);
 
   // Stops propagation so the card-level onClick (open detail) doesn't fire
   const handleNavigate = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!selectedPark?.location) return;
+    if (!park?.location) return;
     setPendingCommute({
-      coords: [selectedPark.location.lng, selectedPark.location.lat],
-      label: selectedPark.name,
+      coords: [park.location.lng, park.location.lat],
+      label: park.name,
     });
-  }, [selectedPark, setPendingCommute]);
+  }, [park, setPendingCommute]);
 
   // Derive chips from featureTags (new) + legacy flat fields; show at most 2.
   // Uses the same AMENITY_ICON_MAP + AMENITY_DISPLAY_ORDER as ParkDetailSheet's
   // "פירוט על הפארק" section so the map popup and the park page agree visually.
   const amenityTags = useMemo(() => {
-    if (!selectedPark) return [];
-    const tags = new Set<ParkFeatureTag>(selectedPark.featureTags ?? []);
-    if (selectedPark.isShaded || selectedPark.hasNaturalShade || selectedPark.amenities?.hasShadow) tags.add('shaded');
-    if (selectedPark.hasWaterFountain || selectedPark.amenities?.hasWater) tags.add('water_fountain');
-    if (selectedPark.hasLights || selectedPark.amenities?.hasLighting) tags.add('night_lighting');
-    if (selectedPark.amenities?.hasToilets) tags.add('has_toilets');
-    if (selectedPark.hasDogPark) tags.add('dog_friendly');
+    if (!park) return [];
+    const tags = new Set<ParkFeatureTag>(park.featureTags ?? []);
+    if (park.isShaded || park.hasNaturalShade || park.amenities?.hasShadow) tags.add('shaded');
+    if (park.hasWaterFountain || park.amenities?.hasWater) tags.add('water_fountain');
+    if (park.hasLights || park.amenities?.hasLighting) tags.add('night_lighting');
+    if (park.amenities?.hasToilets) tags.add('has_toilets');
+    if (park.hasDogPark) tags.add('dog_friendly');
     return AMENITY_DISPLAY_ORDER.filter(t => tags.has(t)).slice(0, 2);
-  }, [selectedPark]);
+  }, [park]);
 
-  if (!selectedPark) return null;
+  if (!selectedPark || !park) return null;
 
   // Prefer imageUrl (Bunny CDN, newest) over legacy image fields
-  const rawImageUrl = selectedPark.imageUrl || selectedPark.image || selectedPark.images?.[0] || null;
+  const rawImageUrl = park.imageUrl || park.image || park.images?.[0] || null;
   const heroSrc = bunnyImg(rawImageUrl, 400);
   // Respects a curated crop if one was ever set on the park doc; otherwise
   // the browser default (centered) applies.
-  const objectPosition = selectedPark.imagePosition || undefined;
+  const objectPosition = park.imagePosition || undefined;
 
   const infoParts: string[] = [];
-  if (selectedPark.city) infoParts.push(selectedPark.city);
+  if (park.city) infoParts.push(park.city);
   if (distText) infoParts.push(distText);
 
   return (
@@ -84,7 +105,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
             {heroSrc ? (
               <img
                 src={heroSrc}
-                alt={selectedPark.name}
+                alt={park.name}
                 className="absolute inset-0 w-full h-full object-cover"
                 style={{ objectPosition }}
                 loading="lazy"
@@ -110,17 +131,17 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
           {/* ── Body ─────────────────────────────────────── */}
           <div className="px-3 -mt-4 pb-2 relative">
             <h3 className="text-[16px] font-semibold text-gray-900 dark:text-white leading-snug">
-              {selectedPark.name}
+              {park.name}
             </h3>
 
             {/* Info line: city · distance · ⭐ rating */}
             <div className="flex items-center gap-1 mt-0.5 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
               <span>{infoParts.join(' · ')}</span>
-              {selectedPark.rating != null && (
+              {park.rating != null && (
                 <>
                   {infoParts.length > 0 && <span>·</span>}
                   <span className="material-icons-round text-amber-400" style={{ fontSize: 12 }}>star</span>
-                  <span>{selectedPark.rating}</span>
+                  <span>{park.rating}</span>
                 </>
               )}
             </div>
@@ -172,8 +193,12 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
         onClose={() => setDetailOpen(false)}
         userLocation={userLocation}
         onStartWorkout={() => {
-          if (!selectedPark) return;
-          setPendingParkWorkoutStart(selectedPark);
+          if (!park) return;
+          // compose-park-strength-workout.service.ts does its own
+          // point-fetch before reading gymEquipment (SPEC-07 redesign,
+          // 17.09.2026, Finding B) — passing the already-fetched `park`
+          // here is a head start, not the completeness guarantee itself.
+          setPendingParkWorkoutStart(park);
           setDetailOpen(false);
           // Same pendingParkWorkoutStart hand-off as GlobalDetailOverlay — the
           // workout drawer has no global mount, only /home hosts one (see

@@ -4,8 +4,12 @@ import { resolveRouteStops } from '../route-stops.service';
 // A short east–west route: vertex 0 at (lat0,lng0), vertex 1 ~1.1km east, vertex 2 ~2.2km east.
 const ROUTE: [number, number][] = [[0, 0], [0.01, 0], [0.02, 0]];
 
+// facilityType, not category — verified 17.09.2026 that `category` doesn't
+// exist on any of 1165 real park docs (scripts/_check-category-field.ts).
+// A fixture built on a field real data never carries is false confidence;
+// worth scanning other fixtures in this repo for the same shape drift.
 const gym = (id: string, lng: number, lat = 0): any => ({
-  id, location: { lat, lng }, category: 'gym_park', gymEquipment: [],
+  id, location: { lat, lng }, facilityType: 'gym_park', gymEquipment: [],
 });
 const stretch = (id: string, lng: number, lat = 0): any => ({
   id, location: { lat, lng }, natureType: 'observation_point',

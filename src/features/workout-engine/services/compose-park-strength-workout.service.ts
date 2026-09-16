@@ -78,6 +78,7 @@ import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import { resolveDataLevel, getBaseUserLevel } from './level-resolution.utils';
 import { resolveChildDomainsForParent } from './program-hierarchy.utils';
 import { resolveParkEquipmentIds } from './park-equipment-resolver';
+import { getPark } from '@/features/parks/core/services/parks.service';
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 import { calculateWeeklyBudget } from '../core/store/useWeeklyVolumeStore';
 import { TABATA_BLOCK_SECONDS } from '../logic/protocols/tabata.constants';
@@ -292,7 +293,14 @@ export async function composeParkWorkout(
   userProfile: UserFullProfile,
   options: ComposeParkWorkoutOptions,
 ): Promise<ComposeParkWorkoutResult> {
-  const parkEquipmentRefs: ParkGymEquipment[] = park.gymEquipment ?? [];
+  // SPEC-07 redesign (17.09.2026, Finding B): `park` can be catalog-shaped
+  // (no gymEquipment at all) when this is reached from a map pin click via
+  // pendingParkWorkoutStart — this function guarantees its own completeness
+  // instead of trusting whatever the caller passed in, same principle as
+  // ParkDetailSheet/ParkPreview's self point-fetch. Falls back to the
+  // passed-in `park` only if the point-fetch itself fails (offline, etc).
+  const fullPark = (await getPark(park.id).catch(() => null)) ?? park;
+  const parkEquipmentRefs: ParkGymEquipment[] = fullPark.gymEquipment ?? [];
 
   // Explicit + belt-and-suspenders: resolveParkEquipmentIds already warms
   // this cache internally as its own first statement
