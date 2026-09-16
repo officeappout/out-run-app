@@ -8,6 +8,19 @@ import Image from 'next/image';
 import RouteCardUnified from './RouteCardUnified';
 import RouteQualityBadges from './RouteQualityBadges';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
+import { bunnyImg } from '@/lib/bunny-image';
+
+// How many cards on either side of the centered one get a real cover photo
+// mounted (SPEC-05 image-memory #2). This carousel is an unvirtualized
+// horizontal scroller — every route in the list gets a DOM node regardless
+// of scroll position, and native `loading="lazy"` doesn't reliably defer
+// images clipped by a scrollable ANCESTOR's overflow (it's tuned for
+// vertical page scroll, not a horizontally-clipped strip), so a long route
+// list would otherwise mount a full-resolution photo per card, all at once.
+// Cards outside the window fall back to the existing activity-icon
+// placeholder — the same UI already shown for a route with no cover photo
+// at all — until they scroll back into it.
+const COVER_PHOTO_WINDOW = 2;
 
 function formatSessionTime(isoString: string): string {
   const date = new Date(isoString);
@@ -223,7 +236,19 @@ export default function BottomJourneyContainer({
             const isGenerated    = route.id?.startsWith('gen-') || route.id?.startsWith('generated');
             const isLoading      = loadingRouteIds?.has(route.id);
             const durationMin    = Math.round(route.duration || 0);
-            const coverImage     = route.images?.[0] || null;
+            // Windowed (see COVER_PHOTO_WINDOW above) — only the cards near
+            // the centered one get the real photo; the rest render the
+            // existing activity-icon fallback until scrolled into range.
+            // bunnyImg is a no-op passthrough for non-Bunny (legacy
+            // Firebase Storage) urls — this file's `unoptimized` removal
+            // below is what actually resizes those via Next's own
+            // optimizer (both hostnames are already in next.config.mjs's
+            // remotePatterns).
+            const rawCoverImage  = route.images?.[0] || null;
+            const coverImage     =
+              rawCoverImage && Math.abs(index - activeRouteIndex) <= COVER_PHOTO_WINDOW
+                ? bunnyImg(rawCoverImage, 400)
+                : null;
             const activityType   = route.activityType || route.type;
             const sourceName     = route.source?.name || (isGenerated ? 'מותאם אישית' : 'מסלול רשמי');
 
@@ -301,7 +326,6 @@ export default function BottomJourneyContainer({
                       fill
                       className="object-cover"
                       sizes="200px"
-                      unoptimized
                     />
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
