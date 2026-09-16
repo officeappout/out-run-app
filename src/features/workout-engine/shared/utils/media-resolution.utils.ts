@@ -55,7 +55,11 @@ const _BUNNY_UUID = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
  *
  * Measurable behavior change, not a no-op: ~12% of exercises with 2+ methods
  * (42/349, measured) get a different video under this ordering than under
- * the old plain-array-order .reduce(). Affected: users at locations with no
+ * the old plain-array-order .reduce(). 125 exercises had been getting video
+ * from a method that isn't park (out of ~341-346 old-fallback fires measured
+ * — the exact denominator depends on counting methodology and wasn't
+ * independently reproduced; the 125 itself was reproduced twice, by two
+ * different methodologies). Affected: users at locations with no
  * content of their own (office/street/service) — they used to fall through
  * to whatever a home method happened to offer; now they get park. The
  * production impact today is minimal because PARK FORCE already routes
