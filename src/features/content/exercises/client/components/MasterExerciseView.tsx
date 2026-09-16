@@ -45,6 +45,7 @@ import {
   resolveEquipmentLabel,
   resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { byParkFirst } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import {
   useExerciseMasterData,
@@ -70,20 +71,6 @@ function methodLocations(m: ExecutionMethod): string[] {
   if (m.location) out.add(m.location);
   m.locationMapping?.forEach((l) => l && out.add(l));
   return Array.from(out);
-}
-
-/**
- * Stable partition: park-tagged methods first (original relative order),
- * then everything else (original relative order) — used only for the
- * cross-method full-tutorial fallback below (heroAssets). Deliberately a
- * local copy, not imported from media-resolution.utils.ts's own
- * park-first helper: that fix lives on a separate, unmerged branch, and
- * this component must not depend on it landing first.
- */
-function byParkFirst(methods: ExecutionMethod[]): ExecutionMethod[] {
-  const park = methods.filter((m) => m.location === 'park');
-  const rest = methods.filter((m) => m.location !== 'park');
-  return [...park, ...rest];
 }
 
 /**
@@ -634,10 +621,9 @@ export default function MasterExerciseView({
 
     // Full tutorial: lock released (David's decision) — if this method has no
     // tutorial of its own, fall back to another method's, park-first then
-    // original order (byParkFirst above — matches the same intent as
-    // resolveExerciseMedia's own cross-method fallback in
-    // media-resolution.utils.ts, but is a local copy: that fix lives on a
-    // separate, unmerged branch this component must not depend on). ALWAYS
+    // original order (byParkFirst, imported from media-resolution.utils.ts —
+    // the same function resolveExerciseMedia's own cross-method fallback
+    // uses, so both surfaces land on the same borrowed method). ALWAYS
     // paired with fullBorrowedFromLocation so the render can label it — a
     // user must never mistake borrowed content for their own method's
     // explanation (see the label below the hero video).
