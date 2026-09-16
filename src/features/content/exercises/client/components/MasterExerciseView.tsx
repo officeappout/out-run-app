@@ -37,6 +37,7 @@ import {
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import LocationVariantSwitcher, {
   type LocationSwitcherOption,
+  locationMeta,
 } from './LocationVariantSwitcher';
 import {
   ensureEquipmentCachesLoaded,
@@ -69,6 +70,20 @@ function methodLocations(m: ExecutionMethod): string[] {
   if (m.location) out.add(m.location);
   m.locationMapping?.forEach((l) => l && out.add(l));
   return Array.from(out);
+}
+
+/**
+ * Stable partition: park-tagged methods first (original relative order),
+ * then everything else (original relative order) — used only for the
+ * cross-method full-tutorial fallback below (heroAssets). Deliberately a
+ * local copy, not imported from media-resolution.utils.ts's own
+ * park-first helper: that fix lives on a separate, unmerged branch, and
+ * this component must not depend on it landing first.
+ */
+function byParkFirst(methods: ExecutionMethod[]): ExecutionMethod[] {
+  const park = methods.filter((m) => m.location === 'park');
+  const rest = methods.filter((m) => m.location !== 'park');
+  return [...park, ...rest];
 }
 
 /**
@@ -603,28 +618,59 @@ export default function MasterExerciseView({
     preview: ExternalVideo | undefined;
     legacy: string | null;
     posterUrl: string | null;
+    /** Location the `full` tutorial actually came from, when it's NOT the
+     *  selected method's own — null when `full` is the method's own tutorial
+     *  (or absent). Drives the "shown from a different location" label. */
+    fullBorrowedFromLocation: string | null;
   }
   const heroAssets = useMemo<HeroAssets>(() => {
     const methods = exercise.execution_methods ?? exercise.executionMethods ?? [];
     const m = selectedMethodIdx !== null ? methods[selectedMethodIdx] : null;
-    if (!m) return { full: undefined, preview: undefined, legacy: null, posterUrl: null };
-    // Method-LOCKED to the selected method's OWN media only (never root, never another method).
-    const full = resolveTutorialForLang(m.media as any, 'he') ?? undefined;
+    if (!m) return { full: undefined, preview: undefined, legacy: null, posterUrl: null, fullBorrowedFromLocation: null };
+    // Preview + legacy stay method-LOCKED to the selected method's OWN media
+    // only (never root, never another method) — unchanged.
     const preview = resolvePreviewForLang(m.media as any, 'he') ?? undefined;
-    // mainVideoUrl is the CDN string stored by the bulk-upload script.
     const legacy = m.media?.mainVideoUrl ?? null;
+
+    // Full tutorial: lock released (David's decision) — if this method has no
+    // tutorial of its own, fall back to another method's, park-first then
+    // original order (byParkFirst above — matches the same intent as
+    // resolveExerciseMedia's own cross-method fallback in
+    // media-resolution.utils.ts, but is a local copy: that fix lives on a
+    // separate, unmerged branch this component must not depend on). ALWAYS
+    // paired with fullBorrowedFromLocation so the render can label it — a
+    // user must never mistake borrowed content for their own method's
+    // explanation (see the label below the hero video).
+    let full = resolveTutorialForLang(m.media as any, 'he') ?? undefined;
+    let fullBorrowedFromLocation: string | null = null;
+    if (!full) {
+      const others = byParkFirst(methods.filter((mm) => mm !== m));
+      for (const other of others) {
+        const otherFull = resolveTutorialForLang(other.media as any, 'he');
+        if (otherFull) {
+          full = otherFull;
+          fullBorrowedFromLocation = other.location ?? null;
+          break;
+        }
+      }
+    }
+
     // Poster: method-level image first, then exercise-level.
     const posterUrl = m.media?.imageUrl ?? exercise.media?.imageUrl ?? null;
-    return { full, preview, legacy, posterUrl };
+    return { full, preview, legacy, posterUrl, fullBorrowedFromLocation };
   }, [exercise, selectedMethodIdx]);
 
   if (!sheetData) return null;
 
-  // ── Head video — method-LOCKED, full-first, stable across ANY number of toggles ──
-  //   1) the selected method's OWN full tutorial (long) → 2) else its OWN preview (short) →
-  //   3) else its OWN legacy mainVideoUrl (short clip). Never another method's media; never the
-  //   exercise-ROOT full (which would leak PARK's full onto a home/service method that only has a
-  //   preview). Independent of any "user picked" flag → stable across unlimited toggles.
+  // ── Head video — full-first, stable across ANY number of toggles ──
+  //   1) the selected method's OWN full tutorial, OR another method's (park-first
+  //      order) when this method has none of its own — LOCK RELEASED (David's
+  //      decision): a user should see an explanation rather than a locked-empty
+  //      hero, as long as it's clearly labeled whose it is (see the label below
+  //      the video). → 2) else its OWN preview (short) → 3) else its OWN legacy
+  //      mainVideoUrl (short clip). Preview/legacy stay method-locked — only the
+  //      full tutorial ever borrows cross-method. Independent of any "user
+  //      picked" flag → stable across unlimited toggles.
   const headExternal = heroAssets.full ?? heroAssets.preview;          // Bunny: full-first, else preview
   const heroVideoForPlayer = headExternal;
   const heroLegacyForPlayer = headExternal ? null : heroAssets.legacy; // legacy only when no Bunny source
@@ -654,6 +700,17 @@ export default function MasterExerciseView({
             pointer-events: none keeps controls and taps fully working. */}
         <div className="absolute inset-x-0 bottom-0 h-12 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
       </div>
+
+      {/* Borrowed-explanation label — shown only when the full tutorial on screen
+          came from a DIFFERENT method than the one selected (see
+          fullBorrowedFromLocation above). Real location, not a hardcoded string —
+          this is the label the lock-release decision requires: a user must always
+          know when they're looking at another location's explanation. */}
+      {heroAssets.fullBorrowedFromLocation && (
+        <p className="px-4 pt-2 text-xs text-slate-500 text-center" dir="rtl" style={SECTION_FONT}>
+          הסבר מלא מוצג בביצוע {locationMeta(heroAssets.fullBorrowedFromLocation).label}
+        </p>
+      )}
 
       <div className="px-4 pt-4 pb-6">
         {/* Title */}
