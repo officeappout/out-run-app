@@ -29,6 +29,7 @@ import type { ExecutionMethod } from '@/features/content/exercises';
 import DrawerFooter from './components/DrawerFooter';
 import GeneratedWorkoutExerciseList from './components/exercise-list/GeneratedWorkoutExerciseList';
 import ExerciseDetailDrawer from './components/ExerciseDetailDrawer';
+import EquipmentDetailDrawer from '@/features/parks/client/components/equipment-detail/EquipmentDetailDrawer';
 import { useScrollAnimation } from './hooks/useScrollAnimation';
 import { useDrawerMediaState } from './hooks/useDrawerMediaState';
 import { usePartnerPresence } from './hooks/usePartnerPresence';
@@ -182,6 +183,17 @@ export default function WorkoutPreviewDrawer({
   const [isWarmupActive, setIsWarmupActive] = useState(true);
   const [detailExercise, setDetailExercise] =
     useState<EngineWorkoutExercise | null>(null);
+  // Unify machine-detail UI (16.09.2026 follow-up): a machine pseudo-exercise
+  // (compose-park-strength-workout.service.ts's buildMachinePseudoExercise —
+  // marked by reasoning:['park_workout:machine_block']) opens the SAME rich
+  // EquipmentDetailDrawer the park sheet/map use, instead of the lean
+  // MasterExerciseView path — which can't resolve a machine's video (the
+  // pseudo-exercise carries it on `.method.media.mainVideoUrl`, a sibling of
+  // `.exercise` that MasterExerciseView never receives; EquipmentDetailDrawer
+  // instead re-fetches the real GymEquipment doc directly by id). The
+  // pseudo-exercise's `.exercise.id` IS the gym_equipment doc id — the
+  // machine IS the exercise, see buildMachinePseudoExercise's own comment.
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string | null>(null);
   // §2: raised by an in-place per-exercise method swap so the [generatedWorkout] reset
   // effect below skips closing the detail drawer for that ONE update. A real workout-level
   // swap / regeneration does NOT raise it, so those still reset the drawer as before.
@@ -222,11 +234,19 @@ export default function WorkoutPreviewDrawer({
   }, []);
 
   const handleExerciseTap = useCallback((ex: EngineWorkoutExercise) => {
+    if (ex.reasoning?.includes('park_workout:machine_block')) {
+      setSelectedEquipmentId(ex.exercise.id);
+      return;
+    }
     setDetailExercise(ex);
   }, []);
 
   const handleDetailDismiss = useCallback(() => {
     setDetailExercise(null);
+  }, []);
+
+  const handleEquipmentDetailDismiss = useCallback(() => {
+    setSelectedEquipmentId(null);
   }, []);
 
   // ── Location swap-all (bulk + single), gated by SWAP_ALL_ENABLED ──
@@ -707,12 +727,24 @@ export default function WorkoutPreviewDrawer({
         )}
       </AnimatePresence>
 
-      {/* Exercise detail hero drawer (memoised + lazy) */}
+      {/* Exercise detail hero drawer (memoised + lazy) — regular exercises only;
+          machine pseudo-exercises are routed to EquipmentDetailDrawer below. */}
       <ExerciseDetailDrawer
         detailExercise={detailExercise}
         programMap={programMap}
         onDismiss={handleDetailDismiss}
         onMethodChange={SWAP_ALL_ENABLED ? handleSingleMethodChange : undefined}
+      />
+
+      {/* Machine detail — the SAME drawer the park sheet/map use for this
+          equipment (unify machine-detail UI, 16.09.2026). pinnedToPark: the
+          park already determined which machine/brand this is; no catalogue
+          brand-switcher needed here. */}
+      <EquipmentDetailDrawer
+        isOpen={!!selectedEquipmentId}
+        onClose={handleEquipmentDetailDismiss}
+        equipmentId={selectedEquipmentId}
+        pinnedToPark
       />
 
       {/* Exercise replacement modal */}
