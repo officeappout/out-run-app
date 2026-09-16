@@ -14,9 +14,8 @@
  *
  * Search priority (image):
  *   1. Selected method's media.imageUrl
- *   2. ANY execution method's media.imageUrl (plain array order — not
- *      park-first; unlike video/bunnyVideoId/fullTutorial above, deliberately
- *      left alone, see byParkFirst's own comment for why the other three changed)
+ *   2. Any OTHER method's media.imageUrl — park-tagged methods first, then
+ *      the rest in original order (see byParkFirst)
  *   3. Exercise-level media.imageUrl
  *   4. Exercise root imageUrl / coverImage / thumbnailUrl
  *   5. Falls back to resolved video URL (video thumbnail)
@@ -102,7 +101,7 @@ export function resolveExerciseMedia(
   const methodMedia = method?.media as Record<string, any> | undefined;
   const allMethods: any[] =
     exercise.execution_methods || exercise.executionMethods || exercise.methods || [];
-  // Computed once, reused by all 3 cross-method fallbacks below — see byParkFirst's own comment.
+  // Computed once, reused by all 4 cross-method fallbacks below — see byParkFirst's own comment.
   const allMethodsParkFirst = byParkFirst(allMethods);
 
   // ── Bunny preview (NEW structured field) ──
@@ -149,7 +148,7 @@ export function resolveExerciseMedia(
   const imageUrl: string | undefined =
     bunnyThumbUrl ||
     methodMedia?.imageUrl ||
-    allMethods.reduce(
+    allMethodsParkFirst.reduce(
       (found: string | undefined, m: any) => found || m?.media?.imageUrl,
       undefined,
     ) ||
