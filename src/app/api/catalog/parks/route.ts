@@ -49,6 +49,16 @@ export const dynamic = 'force-dynamic';
 
 const CATALOG_MAX_AGE_SECONDS = 600; // 10 min — approved SPEC-07 stage 0 value
 const CATALOG_SWR_SECONDS = 86400; // 24h
+// Browser-facing freshness (SPEC-07 stage 1 follow-up, David 16.09.2026):
+// s-maxage is a shared-cache directive only — browsers ignore it entirely,
+// which is why a real curl test showed Vercel's edge correctly returning
+// HIT/HIT/HIT while the client itself never cached locally. A short
+// client-side max-age lets repeat near-simultaneous requests (multiple
+// tabs, a fast refresh, and — per David — every request from the
+// Capacitor app too, since it loads from server.url and its WebView
+// respects max-age the same way a browser does) skip the network
+// round-trip entirely. 60s is a rounding error against the 600s edge TTL.
+const CATALOG_CLIENT_MAX_AGE_SECONDS = 60;
 
 interface CatalogParkEntry {
   id: string;
@@ -121,7 +131,7 @@ export async function GET(request: NextRequest) {
   const etag = `"${createHash('sha256').update(body).digest('hex').slice(0, 32)}"`;
 
   const cacheHeaders = {
-    'Cache-Control': `public, s-maxage=${CATALOG_MAX_AGE_SECONDS}, stale-while-revalidate=${CATALOG_SWR_SECONDS}`,
+    'Cache-Control': `public, max-age=${CATALOG_CLIENT_MAX_AGE_SECONDS}, s-maxage=${CATALOG_MAX_AGE_SECONDS}, stale-while-revalidate=${CATALOG_SWR_SECONDS}`,
     ETag: etag,
   };
 
