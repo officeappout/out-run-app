@@ -15,6 +15,53 @@ interface Props {
   submitting: boolean;
 }
 
+const MAX_UPLOAD_DIMENSION = 1600;
+const UPLOAD_JPEG_QUALITY = 0.85;
+
+/**
+ * Client-side resize/re-encode before upload (SPEC-05 image-memory #4) — a
+ * camera photo can be 12MP+ (~48MB decoded in memory at full resolution,
+ * regardless of stored file size), and nothing downstream (no client
+ * resize, no server-side function — verified, no `sharp` anywhere in
+ * functions/) ever shrinks it once it lands in Storage. This is the one
+ * item in this batch that prevents the problem rather than papering over
+ * an already-oversized image.
+ *
+ * `imageOrientation: 'from-image'` bakes in the EXIF rotation at decode
+ * time — required here because canvas.toBlob's output carries no EXIF tag
+ * of its own, so without this a portrait phone photo would silently come
+ * out sideways after resize (a worse regression than the blur this is
+ * meant to avoid). Falls back to the original file untouched on any
+ * failure (older WebView, decode error) rather than blocking the upload —
+ * resize is an optimization, not a requirement for the contribution to
+ * succeed.
+ */
+async function resizeImageForUpload(file: File): Promise<File | Blob> {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const scale = Math.min(1, MAX_UPLOAD_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    const targetWidth = Math.round(bitmap.width * scale);
+    const targetHeight = Math.round(bitmap.height * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+
+    ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+    bitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', UPLOAD_JPEG_QUALITY),
+    );
+    return blob ?? file;
+  } catch (err) {
+    console.warn('[Step3Photo] Client-side resize failed, uploading original file:', err);
+    return file;
+  }
+}
+
 /**
  * Best-effort delete of an orphaned upload at `path`. We swallow
  * `storage/object-not-found` (object already gone — common when the user
@@ -54,9 +101,13 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
         await deleteStorageObject(previousPath);
       }
 
+      // Resized copy goes to Storage; `localPreview` above (already shown)
+      // stays on the original file — no added latency for the preview
+      // itself, only for what actually gets uploaded.
+      const uploadPayload = await resizeImageForUpload(file);
       const path = `contribution-photos/${profile.id}/${Date.now()}_${file.name}`;
       const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
+      await uploadBytes(storageRef, uploadPayload);
       const url = await getDownloadURL(storageRef);
       updateData({ photoUrl: url, photoStoragePath: path });
       setPreview(url);
