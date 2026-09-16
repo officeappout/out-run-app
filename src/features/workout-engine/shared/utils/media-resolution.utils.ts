@@ -48,19 +48,29 @@ const _BUNNY_UUID = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 
 /**
  * Cross-method fallback order: the requested method itself is already checked
- * before any of the three .reduce() calls below reach this list — this only
+ * before any of the four .reduce() calls below reach this list — this only
  * decides the order AFTER that. Park first, then everything else in its
  * original relative order (stable partition, not a re-sort of the whole
- * array). Reason: today every cross-method fallback in the catalog (559/559,
- * measured) happens to land on a park method anyway, purely because park is
- * the only location with near-complete video content — but the underlying
- * .reduce() was plain array order with no rule behind it. That's silently
- * exploitable two ways: (1) admin's MethodsSection duplicate/remove reindexes
- * execution_methods on every edit, so which method "wins" the fallback could
- * change with no data change at all; (2) the day real video content lands on
- * a non-park method authored earlier in the array, the fallback would jump to
- * it with no signal that a rule was ever intended. Explicit park-first makes
- * today's accidental behavior a real, stable rule instead.
+ * array).
+ *
+ * Measurable behavior change, not a no-op: ~12% of exercises with 2+ methods
+ * (42/349, measured) get a different video under this ordering than under
+ * the old plain-array-order .reduce(). Affected: users at locations with no
+ * content of their own (office/street/service) — they used to fall through
+ * to whatever a home method happened to offer; now they get park. The
+ * production impact today is minimal because PARK FORCE already routes
+ * everyone to 'park' — this starts to matter the moment other locations
+ * become independently reachable. Approved by David, per ADR-004
+ * ("one workout = one location" — every method in a workout should carry
+ * the SAME location tag, and this fallback existing at all is itself a
+ * symptom of that not being enforced yet upstream).
+ *
+ * Underlying risk this closes: the old array-order .reduce() was silently
+ * exploitable two ways — (1) admin's MethodsSection duplicate/remove
+ * reindexes execution_methods on every edit, so which method "wins" a
+ * fallback could change with no data change at all; (2) the day real video
+ * content lands on a non-park method authored earlier in the array, the
+ * fallback would jump to it with no signal a rule was ever intended.
  */
 function byParkFirst(allMethods: any[]): any[] {
   const park = allMethods.filter((m) => m?.location === 'park');
