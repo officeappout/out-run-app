@@ -472,6 +472,15 @@ async function tryRestDayFastPath(options: HomeWorkoutOptions): Promise<HomeWork
     ];
 
     const location = (options.location ?? DEFAULT_LOCATION);
+    // Stage 1 tripwire (execution-method-identity-plan.md) — pass-through, zero behavior
+    // change. This path never consults testLocation at all (unlike resolveEffectivePipelineLocation
+    // above) — that's a real, separate divergence (see parking-lot.md), not fixed here.
+    if (!options.location) {
+      console.log('[LOC-OVERRIDE]', JSON.stringify({
+        requested: null, requestedSource: 'none', resolved: location, winner: 'DEFAULT_LOCATION',
+        path: 'tryRestDayFastPath',
+      }));
+    }
     const daysInactive = calculateDaysInactive(userProfile);
     const persona = userProfile ? mapPersonaIdToLifestylePersona(userProfile) : null;
     const timeOfDay = detectTimeOfDay();
@@ -543,6 +552,14 @@ async function tryBuildRecoveryVideoTrio(
   ];
 
   const location = (options.location ?? DEFAULT_LOCATION);
+  // Stage 1 tripwire (execution-method-identity-plan.md) — pass-through, zero behavior
+  // change. Same divergence as tryRestDayFastPath above — testLocation is never consulted here.
+  if (!options.location) {
+    console.log('[LOC-OVERRIDE]', JSON.stringify({
+      requested: null, requestedSource: 'none', resolved: location, winner: 'DEFAULT_LOCATION',
+      path: 'tryBuildRecoveryVideoTrio',
+    }));
+  }
   const daysInactive = calculateDaysInactive(userProfile);
   // Guard: pass the FULL profile (the fn extracts lifestyleTags/personaId itself,
   // matching the canonical call ~L1266). The prior arg — `.lifestyle?.selectedPersona
@@ -874,6 +891,29 @@ export async function reconcileDeskThemeMismatch(
  * All Sprint 3 integrity is preserved: 4-vs-6 sets fix (Budget),
  * Vertical Preference (+15/+8), Deficit-aware domainBudgets.
  */
+/**
+ * Stage 1 (execution-method-identity-plan.md): stamp the location that ACTUALLY
+ * resolved — whichever of the 3 mechanisms produced it (resolveEffectivePipelineLocation
+ * / PARK FORCE, the separate DEFAULT_LOCATION fallback in the rest-day fast paths, or an
+ * explicit caller choice) — onto every option's GeneratedWorkout before it leaves this
+ * function. `trio.meta.location` already carries the correct value on every return path;
+ * the gap is that most of the 11 callers never read it (6 of them don't even know it
+ * exists). This makes it reachable from the one thing every caller already holds — the
+ * `workout` object — with zero change to any caller and zero change to how the location
+ * itself gets resolved (that stays exactly as-is: PARK FORCE, DEFAULT_LOCATION, unchanged).
+ * Idempotent (safe to call on an object that already has executionLocation set — e.g. a
+ * caller that re-derives after a swap).
+ */
+function stampResolvedLocation(trio: HomeWorkoutTrioResult): HomeWorkoutTrioResult {
+  const location = trio.meta?.location;
+  if (location) {
+    for (const opt of trio.options) {
+      opt.result.workout.executionLocation = location;
+    }
+  }
+  return trio;
+}
+
 export async function generateHomeWorkoutTrio(
   options: HomeWorkoutOptions,
 ): Promise<HomeWorkoutTrioResult> {
@@ -885,7 +925,7 @@ export async function generateHomeWorkoutTrio(
   // reasoning. Falls through unchanged (returns null) when nothing qualifies.
   if (isRestDay) {
     const fastPathResult = await tryRestDayFastPath(options);
-    if (fastPathResult) return fastPathResult;
+    if (fastPathResult) return stampResolvedLocation(fastPathResult);
   }
 
   console.group(`[WorkoutTrio] Generating 3 options — ${isRestDay ? 'REST DAY' : 'TRAINING DAY'}`);
@@ -912,13 +952,13 @@ export async function generateHomeWorkoutTrio(
       'Returning an explicit needs-assessment result instead of composing a blank workout.',
     );
     console.groupEnd();
-    return {
+    return stampResolvedLocation({
       options: [needsAssessmentOption, needsAssessmentOption, needsAssessmentOption],
       isRestDay: false,
       needsAssessment: true,
       labelsSource: 'fallback',
       meta: needsAssessmentResult.meta,
-    };
+    });
   }
 
   // ── Recovery Video Trio: admin-tagged follow-along videos for rest days ─
@@ -931,7 +971,7 @@ export async function generateHomeWorkoutTrio(
     );
     if (recoveryVideoTrio) {
       console.groupEnd();
-      return recoveryVideoTrio;
+      return stampResolvedLocation(recoveryVideoTrio);
     }
     console.log('[WorkoutTrio] No tagged recovery videos found — falling through to REST_DAY_CONFIGS');
   }
@@ -983,12 +1023,12 @@ export async function generateHomeWorkoutTrio(
       result: recoveryResult,
     };
     console.groupEnd();
-    return {
+    return stampResolvedLocation({
       options: [recoveryOption, recoveryOption, recoveryOption],
       isRestDay: true,
       labelsSource: 'fallback',
       meta: recoveryResult.meta,
-    };
+    });
   }
 
   // ── 2. DYNAMIC LABELS from Firestore ──────────────────────────────────
@@ -1481,7 +1521,7 @@ export async function generateHomeWorkoutTrio(
 
   console.groupEnd();
 
-  return {
+  return stampResolvedLocation({
     options: results as [WorkoutTrioOption, WorkoutTrioOption, WorkoutTrioOption],
     isRestDay,
     labelsSource,
@@ -1491,7 +1531,7 @@ export async function generateHomeWorkoutTrio(
       coachCue: pipeline.sessionPolicy.coachCue,
       defaultFocusIndex: pipeline.sessionPolicy.defaultFocusIndex,
     },
-  };
+  });
 }
 
 /**
@@ -1724,6 +1764,30 @@ async function _buildSharedPipeline(
     console.log(`[HomeWorkout] 📍 location honored: using "${options.location}" (Park Force disabled)`);
   } else {
     console.log(`[HomeWorkout] 🏞️ No location specified → "park" (PARK FORCE active)`);
+  }
+
+  // Stage 1 tripwire (execution-method-identity-plan.md) — pass-through, zero behavior
+  // change. Fires only on a genuine override, never on a normal single-signal request
+  // (location-only or testLocation-only both resolve to themselves — no log). Two real
+  // override shapes: (a) neither signal present → PARK FORCE fills the gap; (b) both
+  // present with DIFFERENT values → testLocation silently wins over an explicit `location`
+  // request (resolveEffectivePipelineLocation's own precedence, not a hardcoded default).
+  {
+    const hasLocation = options.location != null;
+    const hasTestLocation = options.testLocation != null;
+    if (!hasLocation && !hasTestLocation) {
+      console.log('[LOC-OVERRIDE]', JSON.stringify({
+        requested: null, requestedSource: 'none', resolved: location, winner: 'PARK_FORCE',
+        path: 'generateHomeWorkoutTrio',
+      }));
+    } else if (hasLocation && hasTestLocation && options.location !== options.testLocation) {
+      console.log('[LOC-OVERRIDE]', JSON.stringify({
+        requested: options.location, requestedSource: 'location',
+        testLocationValue: options.testLocation, resolved: location,
+        winner: 'resolveEffectivePipelineLocation(testLocation-over-location)',
+        path: 'generateHomeWorkoutTrio',
+      }));
+    }
   }
 
   // ── 0. UTS Schedule Override ──────────────────────────────────────────
