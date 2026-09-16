@@ -83,9 +83,21 @@ export default function ShimmerPhraseButton({
           borderRadius: 50,
           background: 'linear-gradient(90deg, #00BAF7, #0CF2E3, #00BAF7, #0CF2E3)',
           backgroundSize: '300% 100%',
+          // Idle-state shimmer capped at 3 cycles (SPEC-05 A2.2), not
+          // infinite — this is a background-position animation, which
+          // forces a repaint on every frame (not just compositing, unlike
+          // a transform/opacity animation), and this button sits on the
+          // map's default DiscoverLayer, running continuously any time the
+          // idle map is open. After the 3rd cycle it settles at its base
+          // background-position — same gradient, same element, just static.
+          // shimmerBorderFast (press feedback) stays infinite: it can only
+          // ever run while a pointer is physically held down on the
+          // button, so it cannot contribute to idle heat, and capping it
+          // would risk the border visibly freezing mid-shimmer during an
+          // unusually long press for no heat benefit.
           animation: pressed
             ? 'shimmerBorderFast 1s linear infinite'
-            : 'shimmerBorder 5.5s linear infinite',
+            : 'shimmerBorder 5.5s linear 3',
           transform: pressed ? 'scale(0.97)' : 'scale(1)',
           boxShadow: pressed ? '0 0 14px rgba(0,186,247,0.35)' : 'none',
           transition: 'transform 0.15s ease, box-shadow 0.15s ease',
