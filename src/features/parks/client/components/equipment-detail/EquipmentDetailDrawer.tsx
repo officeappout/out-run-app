@@ -51,6 +51,10 @@ import type {
   EquipmentBrand,
   GymEquipment,
 } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import {
+  findBrandIndexByName,
+  resolveBrandVideoUrl,
+} from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
 import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 import { bunnyImg } from '@/lib/bunny-image';
@@ -387,16 +391,7 @@ export default function EquipmentDetailDrawer({
         // /equipment/[id] route used. Falls through to index 0 if
         // we can't find a match (e.g. case mismatch, stale brand
         // name, single-brand equipment).
-        if (brandName && eq.brands?.length) {
-          const idx = eq.brands.findIndex(
-            (b) =>
-              b.brandName?.toLowerCase().trim() ===
-              brandName.toLowerCase().trim(),
-          );
-          setActiveBrandIndex(idx >= 0 ? idx : 0);
-        } else {
-          setActiveBrandIndex(0);
-        }
+        setActiveBrandIndex(Math.max(findBrandIndexByName(eq.brands ?? [], brandName), 0));
       })
       .catch((err) => {
         if (cancelled) return;
@@ -454,13 +449,10 @@ export default function EquipmentDetailDrawer({
   // If the active brand has no video, fall back to the first other brand that does.
   // This makes mixed-brand parks harmless: the user sees the equipment's demo video
   // regardless of which brand was tagged, without needing a mass data audit.
-  const effectiveVideoUrl = useMemo((): string | undefined => {
-    if (activeBrand?.videoUrl) return activeBrand.videoUrl;
-    return (
-      equipment?.brands?.find((b, i) => i !== activeBrandIndex && !!b.videoUrl)?.videoUrl ??
-      undefined
-    );
-  }, [activeBrand, equipment?.brands, activeBrandIndex]);
+  const effectiveVideoUrl = useMemo(
+    () => resolveBrandVideoUrl(equipment?.brands ?? [], activeBrand),
+    [activeBrand, equipment?.brands],
+  );
 
   const videoEmbed = useMemo(
     () => parseVideoEmbed(effectiveVideoUrl),

@@ -71,6 +71,7 @@ import type { GeneratedWorkout, WorkoutExercise, DifficultyLevel } from '../logi
 import type { TabataBlockSpec } from '../logic/workout-generator.types';
 import type { TabataProtocolConfig } from '../core/types/protocol.types';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
+import { selectBrandByName, resolveBrandVideoUrl } from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
 import { generateHomeWorkoutTrio, normalizeProgramId } from './home-workout.service';
 import { calculateWorkoutStats, calculateEstimatedDuration } from '../logic/workout-budgeting.utils';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
@@ -303,6 +304,17 @@ export async function composeParkWorkout(
   // documented as idempotent, deduplicates via a shared promise.
   await ensureEquipmentCachesLoaded();
 
+  // Diagnosis item 5 (live-player black screen, follow-up 16.09.2026): ref.brandName
+  // names the brand actually installed at THIS park — previously fetched here and
+  // then discarded (only ref.equipmentId was ever used below), so
+  // buildMachinePseudoExercise had no way to select anything but brands[0]. Kept as
+  // a plain id→name map (not merged onto the GymEquipment doc itself) so a single
+  // machine tagged at multiple parks with different brands stays correct per call.
+  const brandNamesByEquipmentId: Record<string, string> = {};
+  for (const ref of parkEquipmentRefs) {
+    if (ref.brandName) brandNamesByEquipmentId[ref.equipmentId] = ref.brandName;
+  }
+
   const [machines, parkEquipmentIds] = await Promise.all([
     Promise.all(parkEquipmentRefs.map((ref) => getGymEquipment(ref.equipmentId))).then(
       (results) => results.filter((m): m is GymEquipment => m != null),
@@ -310,7 +322,13 @@ export async function composeParkWorkout(
     resolveParkEquipmentIds(userProfile, { selectedParkId: park.id }),
   ]);
 
-  return composeParkWorkoutFromMachines(machines, userProfile, options, parkEquipmentIds);
+  return composeParkWorkoutFromMachines(
+    machines,
+    userProfile,
+    options,
+    parkEquipmentIds,
+    brandNamesByEquipmentId,
+  );
 }
 
 /**
@@ -327,12 +345,18 @@ export async function composeParkWorkout(
  * behavior as before this fix), which is the correct "I genuinely don't
  * know this park's real gear" case, not the bug this fixes (the bug was
  * `composeParkWorkout` never resolving one at all, even when it could).
+ *
+ * `brandNamesByEquipmentId` defaults to `{}` for the same reason (diagnosis
+ * item 5) — existing callers/tests that don't pass one keep today's
+ * `brands[0]` selection via `buildMachinePseudoExercise`'s own fallback,
+ * unchanged.
  */
 export async function composeParkWorkoutFromMachines(
   allMachines: GymEquipment[],
   userProfile: UserFullProfile,
   options: ComposeParkWorkoutOptions,
   parkEquipmentIds: string[] = [],
+  brandNamesByEquipmentId: Record<string, string> = {},
 ): Promise<ComposeParkWorkoutResult> {
   const availableTime = options.availableTime ?? 20;
   const ladderRung = TABATA_DIFFICULTY_LADDER[options.difficulty];
@@ -383,7 +407,9 @@ export async function composeParkWorkoutFromMachines(
   const selectedMachines = machineCount > 0 ? selectBlockAMachines(eligibleMachines, machineCount, scheduledDomains) : [];
   const tabataConfig: TabataProtocolConfig = { workSec: ladderRung.workSec, restSec: ladderRung.restSec, rounds };
   const blockACoveredDomains = computeCoveredDomains(selectedMachines);
-  const blockAExercises = selectedMachines.map((m) => buildMachinePseudoExercise(m, tabataConfig));
+  const blockAExercises = selectedMachines.map((m) =>
+    buildMachinePseudoExercise(m, tabataConfig, brandNamesByEquipmentId[m.id]),
+  );
 
   // ── V: level-appropriate volume ceiling (Wave 2 #1/#2 — one shared budget,
   // no double-spend). `calculateWeeklyBudget` is the SAME sets-based ceiling
@@ -676,10 +702,21 @@ export function computeCoveredDomains(machines: GymEquipment[]): MovementPattern
 export function buildMachinePseudoExercise(
   machine: GymEquipment,
   config: TabataProtocolConfig,
+  /**
+   * Diagnosis item 5 (live-player black screen, follow-up 16.09.2026): the
+   * PARK's actually-installed brand for this machine (`ParkGymEquipment.
+   * brandName`, threaded from `composeParkWorkout`). Previously always
+   * `brands[0]` regardless of which brand this park has — the same
+   * selection-by-name the machine-detail page (EquipmentDetailDrawer) uses,
+   * via the shared gym-equipment-brand.utils helpers. Absent (unit tests /
+   * legacy callers) falls back to index 0, unchanged from before.
+   */
+  selectedBrandName?: string,
 ): WorkoutExercise {
   const name: LocalizedText = { he: machine.name, en: '', es: '' } as LocalizedText;
   const domain = machine.movementPattern ? MG_TO_DOMAIN[machine.movementPattern] : undefined;
-  const brand = machine.brands?.[0];
+  const brands = machine.brands ?? [];
+  const brand = selectBrandByName(brands, selectedBrandName);
 
   const method: ExecutionMethod = {
     location: 'park',
@@ -692,19 +729,22 @@ export function buildMachinePseudoExercise(
     // the real Firestore name over any canonical dictionary entry.
     equipmentIds: [],
     media: {
-      // Diagnosis item 4 (live-player black screen, 16.09.2026): when this
-      // brand has no video, leaving mainVideoUrl undefined let
+      // Diagnosis item 4 (live-player black screen, 16.09.2026): when the
+      // selected brand has no video, leaving mainVideoUrl undefined let
       // resolveExerciseMedia return an empty videoUrl for the whole pseudo-
       // exercise (media:{} on the exercise root, no execution_methods array
       // to fall through) — ExerciseVideoPlayer then either shows literal
       // black (offline/uncached) or its generic FALLBACK_VIDEO_URL, an
-      // unrelated stock squats clip, when online. ExerciseVideoPlayer already
-      // treats a non-video-extension src as an image (its own
-      // hasValidDirectVideoUrl gate), so putting the machine's real photo in
+      // unrelated stock squats clip, when online. Diagnosis item 5 fix:
+      // first try ANY other brand on the same doc that DOES have a video
+      // (resolveBrandVideoUrl — mirrors the detail page's own mixed-brand
+      // fallback) before falling to the selected brand's image.
+      // ExerciseVideoPlayer already treats a non-video-extension src as an
+      // image (its own hasValidDirectVideoUrl gate), so putting a photo in
       // this same slot as a last resort renders it correctly with zero
-      // changes to the shared player. Still undefined (not a fake video) when
-      // the brand has neither asset — a real, still-open content gap.
-      mainVideoUrl: brand?.videoUrl ?? brand?.imageUrl ?? undefined,
+      // changes to the shared player. Still undefined (not a fake video)
+      // when no brand on the doc has either asset — a real content gap.
+      mainVideoUrl: resolveBrandVideoUrl(brands, brand) ?? brand?.imageUrl ?? undefined,
       // Diagnosis item 2: without this, resolveExerciseMedia's fallback chain
       // had nothing but a Bunny-UUID regex match against mainVideoUrl (works
       // only for Bunny-iframe URLs) before falling to the video URL itself as

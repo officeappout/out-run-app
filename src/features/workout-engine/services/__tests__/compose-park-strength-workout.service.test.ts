@@ -216,6 +216,62 @@ describe('buildMachinePseudoExercise', () => {
     expect(result.method.media?.mainVideoUrl).toBeUndefined();
   });
 
+  it('diagnosis item 5 fix: selects the PARK-installed brand by name, not brands[0] — mirrors EquipmentDetailDrawer', () => {
+    const multiBrand = machine({
+      id: 'm8',
+      movementPattern: 'horizontal_push',
+      brands: [
+        { brandName: 'Ludos', videoUrl: 'https://example.com/ludos.mp4' },
+        { brandName: 'Urbanics', videoUrl: 'https://example.com/urbanics.mp4' },
+      ],
+    });
+    const result = buildMachinePseudoExercise(multiBrand, config, 'Urbanics');
+    expect(result.method.media?.mainVideoUrl).toBe('https://example.com/urbanics.mp4');
+  });
+
+  it('diagnosis item 5 fix: falls back to brands[0] when selectedBrandName has no match (stale/case-mismatched name) — same as EquipmentDetailDrawer', () => {
+    const multiBrand = machine({
+      id: 'm9',
+      movementPattern: 'horizontal_push',
+      brands: [
+        { brandName: 'Ludos', videoUrl: 'https://example.com/ludos.mp4' },
+        { brandName: 'Urbanics', videoUrl: 'https://example.com/urbanics.mp4' },
+      ],
+    });
+    const result = buildMachinePseudoExercise(multiBrand, config, 'NoSuchBrand');
+    expect(result.method.media?.mainVideoUrl).toBe('https://example.com/ludos.mp4');
+  });
+
+  it('diagnosis item 5 fix: cross-brand video fallback — the park-installed brand has no video, but a sibling brand on the same doc does', () => {
+    const mixedBrand = machine({
+      id: 'm10',
+      movementPattern: 'horizontal_push',
+      brands: [
+        { brandName: 'Ludos', imageUrl: 'https://example.com/ludos.jpg' }, // no video
+        { brandName: 'Urbanics', videoUrl: 'https://example.com/urbanics.mp4' },
+      ],
+    });
+    const result = buildMachinePseudoExercise(mixedBrand, config, 'Ludos');
+    // The selected brand (Ludos) has no video — resolveBrandVideoUrl borrows
+    // Urbanics's, exactly like EquipmentDetailDrawer's effectiveVideoUrl does.
+    expect(result.method.media?.mainVideoUrl).toBe('https://example.com/urbanics.mp4');
+    // imageUrl stays tied to the SELECTED brand only — no cross-brand borrow there.
+    expect(result.method.media?.imageUrl).toBe('https://example.com/ludos.jpg');
+  });
+
+  it('diagnosis item 5 fix: no sibling brand has a video either — falls to the selected brand\'s own image, not black', () => {
+    const noVideoAnywhere = machine({
+      id: 'm11',
+      movementPattern: 'horizontal_push',
+      brands: [
+        { brandName: 'Ludos', imageUrl: 'https://example.com/ludos.jpg' },
+        { brandName: 'Urbanics', imageUrl: 'https://example.com/urbanics.jpg' },
+      ],
+    });
+    const result = buildMachinePseudoExercise(noVideoAnywhere, config, 'Ludos');
+    expect(result.method.media?.mainVideoUrl).toBe('https://example.com/ludos.jpg');
+  });
+
   it('omits symmetry/injuryShield — both are optional on Exercise and safely absent for machines', () => {
     const result = buildMachinePseudoExercise(machine({ id: 'm2', movementPattern: 'core' }), config);
     expect((result.exercise as any).symmetry).toBeUndefined();
@@ -761,5 +817,55 @@ describe('composeParkWorkout (async wrapper — gear-inventory bug fix)', () => 
     await composeParkWorkout(emptyPark, fakeProfile, { difficulty: 'medium' });
     const callArgs = trioMock.mock.calls[0][0];
     expect(callArgs.parkEquipmentIds).toEqual([]);
+  });
+
+  it('diagnosis item 5 fix (end-to-end): the park\'s tagged brandName reaches buildMachinePseudoExercise, not brands[0]', async () => {
+    // Two machines (MIN_BLOCK_A_MACHINES=2 — a single-machine park dissolves
+    // Block A entirely, unrelated to this fix), in different domains so
+    // selectBlockAMachines deterministically picks both. Each doc's brands[0]
+    // is a decoy with its OWN video (so a cross-brand fallback could NOT
+    // accidentally produce the right answer) — the park's gymEquipment ref
+    // tags a DIFFERENT brand by name for each, which must be the one
+    // actually selected. The old brands[0]-always code would return the
+    // decoy's video for both instead.
+    const machineIdA = 'zZ1aA2bB3cC4dD5eE6fF';
+    const machineIdB = 'yY9xX8wW7vV6uU5tT4sS';
+    const twoMachinePark = {
+      id: 'park3',
+      name: 'Two Machine Park',
+      gymEquipment: [
+        { equipmentId: machineIdA, brandName: 'RightBrandA' },
+        { equipmentId: machineIdB, brandName: 'RightBrandB' },
+      ],
+    } as unknown as Park;
+    getGymEquipmentMock.mockImplementation((id: string) => {
+      if (id === machineIdA) {
+        return Promise.resolve(
+          machine({
+            id,
+            movementPattern: 'horizontal_push',
+            brands: [
+              { brandName: 'DecoyA', videoUrl: 'https://example.com/decoy-a.mp4' },
+              { brandName: 'RightBrandA', videoUrl: 'https://example.com/right-a.mp4' },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(
+        machine({
+          id,
+          movementPattern: 'horizontal_pull',
+          brands: [
+            { brandName: 'DecoyB', videoUrl: 'https://example.com/decoy-b.mp4' },
+            { brandName: 'RightBrandB', videoUrl: 'https://example.com/right-b.mp4' },
+          ],
+        }),
+      );
+    });
+    const result = await composeParkWorkout(twoMachinePark, fakeProfile, { difficulty: 'medium' });
+    const exerciseA = result.workout.exercises.find((e) => e.exercise.id === machineIdA);
+    const exerciseB = result.workout.exercises.find((e) => e.exercise.id === machineIdB);
+    expect(exerciseA?.method.media?.mainVideoUrl).toBe('https://example.com/right-a.mp4');
+    expect(exerciseB?.method.media?.mainVideoUrl).toBe('https://example.com/right-b.mp4');
   });
 });
