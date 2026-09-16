@@ -36,6 +36,7 @@ import type {
   GeneratedWorkout,
   WorkoutExercise,
 } from '../../logic/workout-generator.types';
+import { TIER_TABLE } from '../../logic/workout-generator.types';
 import {
   applyAntagonistPairing,
   applyDomainPrioritySort,
@@ -448,9 +449,15 @@ const VOLUME_CAP_TOLERANCE_MIN = 3;
 const MIN_MAIN_EXERCISES = 2;
 
 /**
- * Enforce the bolt duration cap on the final exercise list.
+ * Enforce the bolt duration cap on the final exercise list — a SYMMETRIC
+ * convergence toward `durationCap` within ±VOLUME_CAP_TOLERANCE_MIN, not a
+ * one-directional trim (duration-volume-convergence fix, 16.09.2026 —
+ * closes the "requested 30 → delivered 20" gap: the OLD version only ever
+ * trimmed an overshoot and silently accepted ANY undershoot, however large,
+ * as soon as `estimatedMin <= durationCap`).
  *
- * Algorithm (mirrors the pre-Phase-4 inline VolumeGuard):
+ * Algorithm (mirrors the pre-Phase-4 inline VolumeGuard for A/B; C and D are
+ * later, duration-aware additions):
  *
  *   Phase A — Remove the SINGLE most-expendable main exercise per iteration:
  *     1. Core / anti-extension / anti-rotation (most expendable)
@@ -461,10 +468,28 @@ const MIN_MAIN_EXERCISES = 2;
  *   Phase B — Trim sets (down to `minSets`) by tier priority:
  *     flow / easy → match → skill → compound → foundation / hard / elite.
  *
- * Mutates `workout.exercises`, `workout.estimatedDuration`,
- * `workout.totalPlannedSets`.  Returns the same workout reference.
+ *   Phase C — Convergence for ultra-short budgets: drops the lowest-scored
+ *     main exercise (never below MIN_MAIN_EXERCISES) when A+B still leave
+ *     the plan beyond cap+tolerance.
  *
- * Rest seconds are NEVER touched — the staircase is physiologically fixed.
+ *   Phase D — ADD-BACK for under-target plans (the new phase): while the
+ *     plan lands more than `tolerance` UNDER cap, first bump the
+ *     highest-scored main exercise that still has headroom below its tier's
+ *     max sets (fine-grained, mirrors Phase B in reverse); once nothing has
+ *     headroom, pull the next candidate from `workout.reserveExercises`
+ *     (WorkoutGenerator's scored-but-unselected leftovers — see its own doc
+ *     comment), starting it at `minSets` so it's immediately available for
+ *     further bumping too. Stops (honest floor, does not invent volume) once
+ *     both sources are exhausted, even if still short — reported, not
+ *     silently overridden, per the level-driven-sets-ceiling guardrail.
+ *
+ * Mutates `workout.exercises`, `workout.estimatedDuration`,
+ * `workout.totalPlannedSets`, and (Phase D only) `workout.reserveExercises`.
+ * Returns the same workout reference.
+ *
+ * Rest seconds are NEVER touched — the staircase is physiologically fixed,
+ * in both directions (Phase B never reduces it below the tier value; Phase D
+ * never invents a lower one to fit a new exercise in faster).
  */
 export function enforceVolumeCap(
   workout: GeneratedWorkout,
@@ -475,7 +500,10 @@ export function enforceVolumeCap(
   const label = config.diagnosticLabel ?? 'volume_guard';
 
   let estimatedMin = calculateEstimatedDuration(workout.exercises);
-  if (estimatedMin <= config.durationCap) {
+  const alreadyWithinTolerance =
+    estimatedMin <= config.durationCap &&
+    estimatedMin >= config.durationCap - VOLUME_CAP_TOLERANCE_MIN;
+  if (alreadyWithinTolerance) {
     // Even when no pruning is needed, refresh the workout's estimate so the
     // cap pass is the single source of truth for the displayed duration.
     workout.estimatedDuration = estimatedMin;
@@ -483,8 +511,9 @@ export function enforceVolumeCap(
   }
 
   let guardIterations = 0;
+  const direction = estimatedMin > config.durationCap ? '>' : '<';
   console.group(
-    `[PresentationFormatter.volumeCap] ${label} estimated=${estimatedMin}m > cap=${config.durationCap}m`,
+    `[PresentationFormatter.volumeCap] ${label} estimated=${estimatedMin}m ${direction} cap=${config.durationCap}m (±${VOLUME_CAP_TOLERANCE_MIN}m)`,
   );
 
   // ── Phase A: remove whole exercises ─────────────────────────────────────
@@ -654,6 +683,69 @@ export function enforceVolumeCap(
       `[PresentationFormatter.volumeCap] PhaseC: dropped ` +
       `"${(dropCandidate.exercise.name as any)?.he || dropCandidate.exercise.id}" ` +
       `(score=${dropCandidate.score}) — still ${estimatedMin}m > ${config.durationCap}+${VOLUME_CAP_TOLERANCE_MIN}m`,
+    );
+    estimatedMin = calculateEstimatedDuration(workout.exercises);
+    guardIterations++;
+  }
+
+  // ── Phase D: add-back for under-target plans ────────────────────────────
+  // Closes the "requested 30 → delivered 20" gap: Phases A/B/C only ever
+  // trim, so a plan that lands (or was ALREADY, before A/B/C even ran) more
+  // than `tolerance` under cap was previously accepted as-is, however large
+  // the shortfall. Each iteration takes the SMALLEST available step —
+  // bumping one exercise's sets by 1 before ever reaching for a whole new
+  // exercise — for the same "fine-grained first" reasoning Phase B already
+  // applies on the way down. Bounded by the same maxIterations budget as
+  // A/B/C; stops the moment both sources are exhausted, reporting (via the
+  // final summary log below) whatever shortfall remains rather than
+  // inventing volume the level-driven sets ceiling wouldn't otherwise allow.
+  while (
+    estimatedMin < config.durationCap - VOLUME_CAP_TOLERANCE_MIN &&
+    guardIterations < maxIterations
+  ) {
+    const bumpCandidate = workout.exercises
+      .filter(ex =>
+        ex.exerciseRole === 'main' &&
+        !ex.protocolBlock &&
+        ex.tier != null &&
+        ex.sets < (TIER_TABLE[ex.tier]?.sets.max ?? ex.sets),
+      )
+      .sort((a, b) => b.score - a.score)[0];
+
+    if (bumpCandidate) {
+      bumpCandidate.sets += 1;
+      bumpCandidate.reasoning.push(
+        `volume_guard:sets_added_back(${label}cap=${config.durationCap}m)`,
+      );
+      console.log(
+        `[PresentationFormatter.volumeCap] PhaseD: bumped ` +
+        `"${(bumpCandidate.exercise.name as any)?.he || bumpCandidate.exercise.id}" ` +
+        `to ${bumpCandidate.sets} sets — still ${estimatedMin}m < ${config.durationCap}-${VOLUME_CAP_TOLERANCE_MIN}m`,
+      );
+      estimatedMin = calculateEstimatedDuration(workout.exercises);
+      guardIterations++;
+      continue;
+    }
+
+    // No headroom left on any selected exercise — pull the next reserve
+    // candidate (WorkoutGenerator's scored-but-unselected leftovers),
+    // starting it at minSets so it re-enters the bump pool above on a later
+    // iteration instead of landing at its full tier volume in one jump.
+    const reservePool = workout.reserveExercises ?? [];
+    const pullCandidate = reservePool[0];
+    if (!pullCandidate) break; // both sources exhausted — honest floor
+
+    const added: WorkoutExercise = { ...pullCandidate, sets: minSets };
+    added.reasoning = [
+      ...added.reasoning,
+      `volume_guard:pulled_from_reserve(${label}cap=${config.durationCap}m)`,
+    ];
+    workout.exercises = [...workout.exercises, added];
+    workout.reserveExercises = reservePool.slice(1);
+    console.log(
+      `[PresentationFormatter.volumeCap] PhaseD: added ` +
+      `"${(added.exercise.name as any)?.he || added.exercise.id}" from reserve ` +
+      `(sets=${minSets}) — still ${estimatedMin}m < ${config.durationCap}-${VOLUME_CAP_TOLERANCE_MIN}m`,
     );
     estimatedMin = calculateEstimatedDuration(workout.exercises);
     guardIterations++;

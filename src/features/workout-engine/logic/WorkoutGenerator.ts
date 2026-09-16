@@ -82,6 +82,7 @@ import {
   calculateWorkoutStats,
   applySmartSetCap,
   rederiveVolumeForSwappedExercise,
+  assignVolume,
 } from './workout-budgeting.utils';
 
 // Sorting utils
@@ -874,6 +875,31 @@ export class WorkoutGenerator {
     let workoutExercises = distResult.exercises;
     pipelineLog.push(...distResult.log);
 
+    // ── Reserve pool for enforceVolumeCap's Phase D add-back (duration-volume
+    // convergence fix, 16.09.2026) ───────────────────────────────────────────
+    // Next-best scored candidates that did NOT make the final cut, held in
+    // reserve for the case where the final plan lands under the requested
+    // duration and nothing already-selected has headroom to bump toward its
+    // tier's set max. Volume-assigned via plain assignVolume (tier-based),
+    // NOT BudgetDistributor's dailySetBudget-aware distribution — these
+    // exercises are outside the distributed budget by definition, so a
+    // domain-budget consolidation pass over just a handful of leftovers would
+    // give them an arbitrarily inflated set count. domainBudgets stripped
+    // from the context passed in for exactly that reason.
+    const RESERVE_POOL_SIZE = 5;
+    const selectedIdsForReserve = new Set(workoutExercises.map(e => e.exercise.id));
+    const reserveCandidates = filteredExercises
+      .filter(e => !selectedIdsForReserve.has(e.exercise.id))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, RESERVE_POOL_SIZE);
+    const reserveContext = context.domainBudgets?.length
+      ? { ...context, domainBudgets: undefined }
+      : context;
+    const reserveExercises = reserveCandidates.length > 0
+      ? assignVolume(reserveCandidates, reserveContext, volumeAdjustment, difficulty)
+      : [];
+    pipelineLog.push(`reserve_pool: ${reserveExercises.length} candidate(s) held for Phase D`);
+
     // ── Step 4d: "David Rule" — Relative Gap Guard ───────────────────────────
     //
     // Quality-rescue substitution pass (NOT a budget cap).  Stays in
@@ -1449,6 +1475,7 @@ export class WorkoutGenerator {
       appliedProtocol: protocolResult.setType !== 'straight' ? protocolResult.setType : undefined,
       tabataBlock,
       pipelineLog,
+      reserveExercises: reserveExercises.length > 0 ? reserveExercises : undefined,
     };
   }
 

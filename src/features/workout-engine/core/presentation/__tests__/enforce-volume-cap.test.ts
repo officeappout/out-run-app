@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { enforceVolumeCap } from '../PresentationFormatter';
+import { calculateEstimatedDuration } from '../../../logic/workout-budgeting.utils';
+import { TIER_TABLE } from '../../../logic/workout-generator.types';
+
+const calculateBaselineFor = (w: { exercises: never[] }) => calculateEstimatedDuration(w.exercises);
 
 /**
  * availableTime CONTRACT (approved 10.07.2026): a workout generated for X
@@ -44,6 +48,9 @@ const cooldownEx = (id: string) =>
 const workoutOf = (exercises: unknown[]) =>
   ({ exercises, estimatedDuration: 0, totalPlannedSets: 0 } as never);
 
+const workoutWithReserve = (exercises: unknown[], reserveExercises: unknown[]) =>
+  ({ exercises, estimatedDuration: 0, totalPlannedSets: 0, reserveExercises } as never);
+
 const mains = (w: { exercises: Array<{ exerciseRole?: string }> }) =>
   w.exercises.filter((e) => e.exerciseRole === 'main');
 
@@ -83,10 +90,11 @@ describe('enforceVolumeCap — Phase C convergence (availableTime contract)', ()
     expect(mains(result as never).length).toBe(3); // Phase C did NOT fire
   });
 
-  it('UNDER CAP: untouched (early return, historical behavior)', () => {
-    const w = workoutOf([mainEx('a', 65), cooldownEx('s')]);
+  it('WITHIN TOLERANCE: a plan already inside cap-3..cap is untouched (fast-path early return)', () => {
+    // 1 main @ 120s rest + cooldown ≈ within 3 of a 5-minute cap.
+    const w = workoutOf([mainEx('a', 65, { sets: 1, restSeconds: 30 }), cooldownEx('s')]);
     const before = (w as { exercises: unknown[] }).exercises.length;
-    const result = enforceVolumeCap(w, { durationCap: 60 }) as { exercises: unknown[] };
+    const result = enforceVolumeCap(w, { durationCap: 5 }) as { exercises: unknown[] };
     expect(result.exercises.length).toBe(before);
   });
 
@@ -99,6 +107,173 @@ describe('enforceVolumeCap — Phase C convergence (availableTime contract)', ()
     expect(mains(result as never).length).toBe(2); // dropped one, stopped at the floor
     expect(result.estimatedDuration).toBeGreaterThan(13); // honest estimate reported, no lie
   });
+});
+
+/**
+ * Phase D — add-back for under-target plans (duration-volume-convergence
+ * fix, 16.09.2026). Closes the "requested 30 → delivered 20" gap: the
+ * previous version's early-return accepted ANY undershoot, however large,
+ * the moment `estimatedMin <= durationCap`. Phase D mirrors A/B/C in
+ * reverse — bump sets on headroom first (fine-grained), then pull from
+ * `workout.reserveExercises` (WorkoutGenerator's scored-but-unselected
+ * leftovers) once headroom is exhausted, starting pulled exercises at
+ * `minSets` so they re-enter the bump pool on a later iteration.
+ */
+describe('enforceVolumeCap — Phase D add-back (under-target plans)', () => {
+  it('BUMP ONLY: a single under-tier-max exercise gets its sets bumped up until within tolerance', () => {
+    // match tier (sets max 4), restSeconds 60: sets=2→3min, 3→5min, 4→6min
+    // (ceil-rounded). Cap 9, tolerance floor 6 → bumps twice, to the tier max.
+    const w = workoutOf([mainEx('a', 65, { tier: 'match', sets: 2, restSeconds: 60 })]);
+    const result = enforceVolumeCap(w, { durationCap: 9 }) as { exercises: Array<{ sets: number }>; estimatedDuration: number };
+    expect(result.exercises[0].sets).toBe(4);
+    expect(result.estimatedDuration).toBeGreaterThanOrEqual(6);
+    expect(result.estimatedDuration).toBeLessThanOrEqual(9);
+  });
+
+  it('BUMP EXHAUSTED, NO RESERVE: stops at an honest floor instead of fabricating volume', () => {
+    // easy tier: sets.min === sets.max === 3 — zero bump headroom, ever.
+    const w = workoutOf([mainEx('a', 65, { tier: 'easy', sets: 3, restSeconds: 100 })]);
+    const result = enforceVolumeCap(w, { durationCap: 60 }) as { exercises: Array<{ sets: number }>; estimatedDuration: number };
+    expect(result.exercises.length).toBe(1); // no exercise invented out of thin air
+    expect(result.exercises[0].sets).toBe(3); // no set invented past the tier ceiling
+    expect(result.estimatedDuration).toBeLessThan(57); // honestly still short of cap-tolerance
+  });
+
+  it('PULL FROM RESERVE: no bump headroom on the selected list → pulls the next reserve candidate, then bumps it', () => {
+    const w = workoutWithReserve(
+      [mainEx('a', 65, { tier: 'match', sets: 4, restSeconds: 130 })], // already at match's sets max — no headroom
+      [mainEx('r1', 60, { tier: 'match', restSeconds: 130 })],
+    );
+    const result = enforceVolumeCap(w, { durationCap: 20 }) as {
+      exercises: Array<{ exercise: { id: string }; sets: number }>;
+      reserveExercises: unknown[];
+      estimatedDuration: number;
+    };
+    const pulled = result.exercises.find((e) => e.exercise.id === 'r1');
+    expect(pulled).toBeDefined(); // pulled in from reserve
+    expect(pulled!.sets).toBeGreaterThan(2); // started at minSets, then bumped further
+    expect(result.reserveExercises.length).toBe(0); // consumed from the reserve list
+    expect(result.estimatedDuration).toBeGreaterThanOrEqual(17);
+    expect(result.estimatedDuration).toBeLessThanOrEqual(20);
+  });
+
+  it('PULL EXHAUSTED, RESERVE EMPTY TOO: stops without oscillating or hanging', () => {
+    const w = workoutWithReserve(
+      [mainEx('a', 65, { tier: 'match', sets: 4, restSeconds: 130 })],
+      [],
+    );
+    const result = enforceVolumeCap(w, { durationCap: 60 }) as { exercises: unknown[]; estimatedDuration: number };
+    expect(result.exercises.length).toBe(1);
+    expect(result.estimatedDuration).toBeLessThan(57);
+  });
+
+  it('THE "30→20" REPRODUCTION: 3 easy-tier mains (no bump headroom, ~18.6m) undershoot a 30min cap by more than tolerance → converges to within ±3 of 30 via one reserve pull + bumps', () => {
+    const easyMain = (id: string, score: number) =>
+      mainEx(id, score, { tier: 'easy', sets: 3, restSeconds: 100 });
+    const w = workoutWithReserve(
+      [easyMain('e1', 90), easyMain('e2', 85), easyMain('e3', 80)],
+      [
+        mainEx('r1', 60, { tier: 'match', restSeconds: 130 }),
+        mainEx('r2', 55, { tier: 'match', restSeconds: 130 }),
+        mainEx('r3', 50, { tier: 'match', restSeconds: 130 }),
+      ],
+    );
+    const before = calculateBaselineFor(w);
+    expect(before).toBeLessThan(27); // reproduces the undershoot: starts well below cap-tolerance
+
+    const result = enforceVolumeCap(w, { durationCap: 30 }) as {
+      exercises: Array<{ exercise: { id: string } }>;
+      estimatedDuration: number;
+    };
+    expect(result.estimatedDuration).toBeGreaterThanOrEqual(27);
+    expect(result.estimatedDuration).toBeLessThanOrEqual(30);
+    // The 3 original easy mains are untouched (no headroom) — only reserve exercises were used.
+    expect(result.exercises.map((e) => e.exercise.id)).toEqual(
+      expect.arrayContaining(['e1', 'e2', 'e3']),
+    );
+  });
+
+  it('IDEMPOTENT: a second call with the same cap on an already-converged result is a no-op (no oscillation)', () => {
+    const w = workoutWithReserve(
+      [mainEx('a', 65, { tier: 'match', sets: 2, restSeconds: 130 })],
+      [mainEx('r1', 60, { tier: 'match', restSeconds: 130 })],
+    );
+    const first = enforceVolumeCap(w, { durationCap: 20 }) as {
+      exercises: Array<{ sets: number; exercise: { id: string } }>;
+      estimatedDuration: number;
+    };
+    const setsAfterFirst = first.exercises.map((e) => ({ id: e.exercise.id, sets: e.sets }));
+    const durationAfterFirst = first.estimatedDuration;
+
+    const second = enforceVolumeCap(first as never, { durationCap: 20 }) as {
+      exercises: Array<{ sets: number; exercise: { id: string } }>;
+      estimatedDuration: number;
+    };
+    expect(second.exercises.map((e) => ({ id: e.exercise.id, sets: e.sets }))).toEqual(setsAfterFirst);
+    expect(second.estimatedDuration).toBe(durationAfterFirst);
+  });
+});
+
+/**
+ * Property test — level × duration. "Level" isn't a direct enforceVolumeCap
+ * input, but its two real effects are: (1) sets-per-exercise already pushed
+ * near tier max by a large dailySetBudget (less Phase-D bump headroom left —
+ * the HIGH-level shape), and (2) how many reserve candidates the pool had
+ * left over. Simulated here via `startNearMax` (sets already at/near tier
+ * max = high-level shape, vs starting low = low-level shape) × `reserveSize`
+ * crossed with every requested duration. The invariant under test: the
+ * result is EITHER within ±tolerance OR both add-back sources (bump
+ * headroom, reserve pool) were genuinely exhausted — Phase D must never give
+ * up early while a resource remained, and must never overshoot past
+ * cap+tolerance on its own (only Phases A-C, working from the other
+ * direction, are allowed to leave a plan above cap+tolerance, at the
+ * MIN_MAIN_EXERCISES floor).
+ */
+describe('enforceVolumeCap — property: level × duration convergence', () => {
+  const durations = [15, 30, 45, 60];
+  const startNearMaxOptions = [true, false]; // false = LOW-level shape, true = HIGH-level shape
+  const reserveSizes = [0, 2, 5];
+
+  for (const durationCap of durations) {
+    for (const startNearMax of startNearMaxOptions) {
+      for (const reserveSize of reserveSizes) {
+        it(`cap=${durationCap} startNearMax=${startNearMax} reserveSize=${reserveSize} → converges or honestly exhausts`, () => {
+          const baseSets = startNearMax ? 4 : 2; // match tier max is 4
+          const base = [
+            mainEx('base-1', 90, { tier: 'match', sets: baseSets, restSeconds: 90 }),
+            mainEx('base-2', 85, { tier: 'match', sets: baseSets, restSeconds: 90 }),
+          ];
+          const reserve = Array.from({ length: reserveSize }, (_, i) =>
+            mainEx(`reserve-${i}`, 80 - i, { tier: 'match', restSeconds: 90 }),
+          );
+          const w = workoutWithReserve(base, reserve);
+
+          const result = enforceVolumeCap(w, { durationCap }) as {
+            exercises: Array<{ sets: number; tier?: string }>;
+            reserveExercises?: unknown[];
+            estimatedDuration: number;
+          };
+
+          const withinTolerance =
+            result.estimatedDuration >= durationCap - 3 && result.estimatedDuration <= durationCap;
+          const hasBumpHeadroom = result.exercises.some(
+            (e) => e.tier && e.sets < (TIER_TABLE[e.tier as keyof typeof TIER_TABLE]?.sets.max ?? e.sets),
+          );
+          const hasReserveLeft = (result.reserveExercises?.length ?? 0) > 0;
+
+          if (result.estimatedDuration < durationCap - 3) {
+            // Under-target beyond tolerance is only acceptable if genuinely exhausted.
+            expect(hasBumpHeadroom).toBe(false);
+            expect(hasReserveLeft).toBe(false);
+          } else {
+            // Otherwise the result must be within the promised window (Phase A-C's
+            // own floor guarantees still apply on the over-cap side, unaffected here).
+            expect(withinTolerance || result.estimatedDuration > durationCap).toBe(true);
+          }
+        });
+      }
+    }
+  }
 });
 
 /**

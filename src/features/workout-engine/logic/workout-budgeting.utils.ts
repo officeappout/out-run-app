@@ -33,12 +33,24 @@ import {
 // CONSTANTS
 // ============================================================================
 
+/**
+ * Widened 16.09.2026 (duration-volume-convergence fix) — this table is no
+ * longer the source of truth for how much a session actually fits; it's
+ * just a rest-blind STARTING GUESS at exercise count, sized before tier/rest
+ * is even known (called as "Step 1" in WorkoutGenerator.ts, ahead of
+ * difficulty filtering). `enforceVolumeCap`'s Phase A-D convergence loop
+ * (PresentationFormatter.ts) is the real source of truth: Phase A/B trim an
+ * overshoot, Phase D adds back an undershoot. These ranges were bumped up
+ * modestly (not maximally) from their pre-fix values so the common case
+ * needs less Phase-D add-back — Phase D remains the backstop, not the
+ * primary mechanism, for every bucket.
+ */
 const DURATION_SCALING: Record<string, { min: number; max: number; includeAccessories: boolean }> = {
   '5':  { min: 2, max: 3,  includeAccessories: false },
-  '15': { min: 4, max: 5,  includeAccessories: false },
-  '30': { min: 5, max: 6,  includeAccessories: false },
-  '45': { min: 6, max: 8,  includeAccessories: true  },
-  '60': { min: 7, max: 10, includeAccessories: true  },
+  '15': { min: 5, max: 6,  includeAccessories: false },
+  '30': { min: 6, max: 8,  includeAccessories: false },
+  '45': { min: 8, max: 10, includeAccessories: true  },
+  '60': { min: 9, max: 12, includeAccessories: true  },
 };
 
 const BASE_SETS_BY_LEVEL: Record<number, number> = {

@@ -327,6 +327,20 @@ export interface GeneratedWorkout {
    * travels with the workout, not ambient UI state.
    */
   executionLocation?: ExecutionLocation;
+  /**
+   * Next-best scored-but-unselected candidates, already volume-assigned —
+   * fuel for `enforceVolumeCap`'s Phase D add-back (PresentationFormatter.ts,
+   * duration-volume-convergence fix, 16.09.2026). When the final plan lands
+   * under the requested duration cap and no already-selected exercise has
+   * headroom left to bump toward its tier's set max, Phase D pulls from here
+   * instead of leaving the shortfall uncorrected. Populated once at
+   * generation (WorkoutGenerator.ts, right after selection settles) from the
+   * highest-scored exercises that did NOT make the cut — never consumed by
+   * anything else, so this field being absent (legacy/Firestore-restored
+   * plans, hand-built test fixtures) just means Phase D has nothing extra to
+   * pull from, not an error.
+   */
+  reserveExercises?: WorkoutExercise[];
 }
 
 export interface TabataBlockSpec {
