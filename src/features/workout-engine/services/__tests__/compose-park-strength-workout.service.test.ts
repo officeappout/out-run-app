@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { Park } from '@/features/parks/core/types/park.types';
 
@@ -36,6 +36,9 @@ import {
   composeParkWorkout,
   isBlockAEligible,
   isDomainAssessed,
+  machineShareForLevel,
+  resolveMachineShareLevel,
+  resolveMachineCount,
 } from '../compose-park-strength-workout.service';
 
 // Default isFunctional: false (hydraulic/self-limiting) so every existing
@@ -171,7 +174,7 @@ describe('buildMachinePseudoExercise', () => {
       name: 'מתקן בדיקה',
       movementPattern: 'horizontal_push',
       recommendedLevel: 7,
-      brands: [{ brandName: 'TestBrand', videoUrl: 'https://example.com/v.mp4' }],
+      brands: [{ brandName: 'TestBrand', videoUrl: 'https://example.com/v.mp4', imageUrl: 'https://example.com/v.jpg' }],
     });
     const result = buildMachinePseudoExercise(withBrand, config);
 
@@ -186,8 +189,28 @@ describe('buildMachinePseudoExercise', () => {
     expect(result.protocolBlock).toBe('tabata');
     expect(result.exerciseRole).toBe('main');
     expect(result.mechanicalType).toBe('none');
-    expect(result.method.equipmentIds).toEqual(['m1']);
     expect(result.method.media?.mainVideoUrl).toBe('https://example.com/v.mp4');
+  });
+
+  it('diagnosis item 3 fix: never lists the machine\'s own id as required gear (self-referential — the machine IS the exercise)', () => {
+    const result = buildMachinePseudoExercise(machine({ id: 'm1', movementPattern: 'horizontal_push' }), config);
+    expect(result.method.equipmentIds).toEqual([]);
+  });
+
+  it('diagnosis item 2 fix: carries the brand\'s imageUrl so the drawer tile renders instead of showing "?"', () => {
+    const withImage = machine({
+      id: 'm4',
+      movementPattern: 'horizontal_push',
+      brands: [{ brandName: 'TestBrand', videoUrl: 'https://example.com/v.mp4', imageUrl: 'https://example.com/v.jpg' }],
+    });
+    const result = buildMachinePseudoExercise(withImage, config);
+    expect(result.method.media?.imageUrl).toBe('https://example.com/v.jpg');
+  });
+
+  it('imageUrl is undefined (not crashed on) when the machine has no brand image', () => {
+    const noImage = machine({ id: 'm5', movementPattern: 'horizontal_push', brands: [] });
+    const result = buildMachinePseudoExercise(noImage, config);
+    expect(result.method.media?.imageUrl).toBeUndefined();
   });
 
   it('omits symmetry/injuryShield — both are optional on Exercise and safely absent for machines', () => {
@@ -204,20 +227,134 @@ describe('buildMachinePseudoExercise', () => {
   });
 });
 
+describe('machineShareForLevel', () => {
+  it.each([
+    [1, 0.75], [2, 0.75], [3, 0.75], [4, 0.75],
+    [5, 0.60],
+    [6, 0.45],
+    [7, 0.30],
+    [8, 0.20],
+    [9, 0.15],
+    [10, 0.00], [16, 0.00], [25, 0.00],
+  ])('level %i → share %f', (level, expected) => {
+    expect(machineShareForLevel(level)).toBe(expected);
+  });
+});
+
+describe('resolveMachineShareLevel', () => {
+  it('averages assessed push + pull when both are assessed', () => {
+    const profile = { progression: { domains: { push: { currentLevel: 16 }, pull: { currentLevel: 14 } } } } as any;
+    expect(resolveMachineShareLevel(profile)).toBe(15); // round((16+14)/2)
+  });
+
+  it('uses whichever of push/pull is assessed when only one is', () => {
+    const profile = { progression: { domains: { push: { currentLevel: 6 } } } } as any;
+    expect(resolveMachineShareLevel(profile)).toBe(6);
+  });
+
+  it('reads push/pull from tracks too, independent of domains', () => {
+    const profile = { progression: { tracks: { push: 8, pull: 8 } } } as any;
+    expect(resolveMachineShareLevel(profile)).toBe(8);
+  });
+
+  it('falls back to the derived base user level when neither push nor pull is assessed', () => {
+    const profile = { progression: { domains: { legs: { currentLevel: 10 } } } } as any;
+    expect(resolveMachineShareLevel(profile)).toBe(10); // getBaseUserLevel's max-across-domains fallback
+  });
+
+  it('falls back to 1 for a fully unassessed profile', () => {
+    expect(resolveMachineShareLevel({ progression: {} } as any)).toBe(1);
+  });
+});
+
+describe('resolveMachineCount', () => {
+  it('level-16 user → 0 machines, no machine Tabata, regardless of park size or time', () => {
+    const result = resolveMachineCount({
+      strengthBudget: 5, level: 16, eligibleMachineCount: 6, availableTime: 20,
+    });
+    expect(result).toEqual({ machineCount: 0, rounds: 0 });
+  });
+
+  it('level-6 user → machines present, at least the 2-machine floor', () => {
+    const result = resolveMachineCount({
+      strengthBudget: 5, level: 6, eligibleMachineCount: 6, availableTime: 20,
+    });
+    expect(result.machineCount).toBeGreaterThanOrEqual(2);
+    expect(result.rounds).toBe(result.machineCount * 2);
+  });
+
+  it('"no 1-machine Tabata" floor: a target of 1 bumps to 2 when the park + time can support it', () => {
+    // level 9 → share 0.15; strengthBudget 7 → round(7*0.15) = 1 raw target.
+    const result = resolveMachineCount({
+      strengthBudget: 7, level: 9, eligibleMachineCount: 6, availableTime: 20,
+    });
+    expect(result.machineCount).toBe(2);
+  });
+
+  it('"no 1-machine Tabata" floor: drops to 0 when the park only has 1 eligible machine (can\'t bump to 2)', () => {
+    const result = resolveMachineCount({
+      strengthBudget: 7, level: 9, eligibleMachineCount: 1, availableTime: 20,
+    });
+    expect(result).toEqual({ machineCount: 0, rounds: 0 });
+  });
+
+  it('park cap: never selects more machines than the park actually has', () => {
+    const result = resolveMachineCount({
+      strengthBudget: 10, level: 1, eligibleMachineCount: 2, availableTime: 60,
+    });
+    expect(result.machineCount).toBeLessThanOrEqual(2);
+  });
+
+  it('time-budget cap: a very short session caps machine count even at a low (machine-heavy) level', () => {
+    // availableTime 9 → timeBudgetMachines = floor((9-5)/2) = 2
+    const result = resolveMachineCount({
+      strengthBudget: 8, level: 1, eligibleMachineCount: 8, availableTime: 9,
+    });
+    expect(result.machineCount).toBeLessThanOrEqual(2);
+  });
+
+  it('bodyweight-reservation property: machineCount never leaves fewer than 2 of strengthBudget\'s slots for Block B', () => {
+    for (const strengthBudget of [2, 3, 4, 5, 6, 8]) {
+      for (const level of [1, 5, 6, 7, 8, 9]) {
+        const { machineCount } = resolveMachineCount({
+          strengthBudget, level, eligibleMachineCount: 8, availableTime: 60,
+        });
+        expect(strengthBudget - machineCount).toBeGreaterThanOrEqual(2);
+      }
+    }
+  });
+
+  it('returns 0 when the park has no eligible machines at all', () => {
+    const result = resolveMachineCount({
+      strengthBudget: 5, level: 1, eligibleMachineCount: 0, availableTime: 20,
+    });
+    expect(result).toEqual({ machineCount: 0, rounds: 0 });
+  });
+});
+
 describe('composeParkWorkoutFromMachines', () => {
-  const fakeProfile = { id: 'u1' } as any;
+  const fakeProfile = { id: 'u1', progression: {} } as any;
+  let randomSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     trioMock.mockClear();
+    // Pins getExerciseCountForDuration's internal Math.random() so strengthBudget
+    // (and therefore machineCount) is deterministic across these tests —
+    // DURATION_SCALING buckets always resolve to their `min`.
+    randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
   });
 
-  it('excludes isCardio machines from Block A even when movementPattern is set', async () => {
+  afterEach(() => {
+    randomSpy.mockRestore();
+  });
+
+  it('excludes isCardio machines from Block A even when movementPattern is set; a single eligible machine hits the "no 1-machine Tabata" floor and drops to 0', async () => {
     trioMock.mockResolvedValue({
       options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
     });
     const result = await composeParkWorkoutFromMachines([cardio1, push1], fakeProfile, { difficulty: 'medium' });
     expect(result.blockAEligibleMachineCount).toBe(1); // only push1
-    expect(result.blockASelectedMachineCount).toBe(1);
+    expect(result.blockASelectedMachineCount).toBe(0); // can't bump a lone machine to the 2-machine floor
   });
 
   it('calls Block B with requiredDomains = the complement of what Block A covered, strictDomains true', async () => {
@@ -253,30 +390,32 @@ describe('composeParkWorkoutFromMachines', () => {
     expect(callArgs.parkEquipmentIds).toEqual(realParkGearIds);
   });
 
-  it('skips the Block B call entirely when Block A already covers all 4 domains', async () => {
-    await composeParkWorkoutFromMachines([push1, pull1, legs1, core1], fakeProfile, { difficulty: 'medium' });
+  it('skips the Block B call entirely when Block A already covers all 4 domains (needs enough time budget for all 4 machines at level 1)', async () => {
+    await composeParkWorkoutFromMachines(
+      [push1, pull1, legs1, core1], fakeProfile, { difficulty: 'medium', availableTime: 45 },
+    );
     expect(trioMock).not.toHaveBeenCalled();
   });
 
-  it('uses the correct work/rest ladder per difficulty, rounds always 8', async () => {
+  it('uses the correct work/rest ladder per difficulty; rounds scale with the level-driven machine count (2 machines × 2 rounds each)', async () => {
     trioMock.mockResolvedValue({
       options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
     });
-    const easy = await composeParkWorkoutFromMachines([push1], fakeProfile, { difficulty: 'easy' });
-    const hard = await composeParkWorkoutFromMachines([push1], fakeProfile, { difficulty: 'hard' });
-    expect(easy.workout.tabataBlock?.config).toEqual({ workSec: 20, restSec: 40, rounds: 8 });
-    expect(hard.workout.tabataBlock?.config).toEqual({ workSec: 40, restSec: 20, rounds: 8 });
+    const easy = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'easy' });
+    const hard = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'hard' });
+    expect(easy.workout.tabataBlock?.config).toEqual({ workSec: 20, restSec: 40, rounds: 4 });
+    expect(hard.workout.tabataBlock?.config).toEqual({ workSec: 40, restSec: 20, rounds: 4 });
   });
 
-  it('merges Block A + Block B exercises into one combined workout, Block A first', async () => {
+  it('merges Block A + Block B exercises into one combined workout, Block B (bodyweight) FIRST — Part 1 bodyweight/skill while fresh, Part 2 machine Tabata at the end', async () => {
     const blockBExercise = { exercise: { id: 'bw1' } } as any;
     trioMock.mockResolvedValue({
       options: [null, { result: { workout: { exercises: [blockBExercise], title: '', description: '', needsAssessment: false } } }, null],
     });
-    const result = await composeParkWorkoutFromMachines([push1], fakeProfile, { difficulty: 'medium' });
-    expect(result.workout.exercises).toHaveLength(2);
-    expect(result.workout.exercises[0].exercise.id).toBe('push1');
-    expect(result.workout.exercises[1]).toBe(blockBExercise);
+    const result = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'medium' });
+    expect(result.workout.exercises).toHaveLength(3);
+    expect(result.workout.exercises[0]).toBe(blockBExercise);
+    expect(result.workout.exercises.slice(1).map((e) => e.exercise.id).sort()).toEqual(['pull1', 'push1']);
   });
 
   it('produces no tabataBlock when there are zero eligible machines (pure bodyweight session)', async () => {
@@ -288,13 +427,76 @@ describe('composeParkWorkoutFromMachines', () => {
     expect(result.blockACoveredDomains).toEqual([]);
   });
 
+  it('diagnosis item 1(b)/4 fix: merges Block B\'s own tabataBlock.exerciseIds (e.g. an independently-fired core-tabata) into the composed tabataBlock, under Block A\'s shared ladder config', async () => {
+    const coreTabataMember = { exercise: { id: 'core-ex-1' } } as any;
+    trioMock.mockResolvedValue({
+      options: [null, {
+        result: {
+          workout: {
+            exercises: [coreTabataMember],
+            title: '', description: '', needsAssessment: false,
+            tabataBlock: { config: { workSec: 20, restSec: 10, rounds: 8 }, exerciseIds: ['core-ex-1'] },
+          },
+        },
+      }, null],
+    });
+    const result = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'medium' });
+    // Block A's 2 machines + Block B's core-tabata member all share ONE tabataBlock.
+    expect(new Set(result.workout.tabataBlock?.exerciseIds)).toEqual(new Set(['push1', 'pull1', 'core-ex-1']));
+    // Under Block A's ladder config (NOT Block B's own TABATA_CLASSIC-shaped config) — one shared clock.
+    expect(result.workout.tabataBlock?.config).toEqual({ workSec: 30, restSec: 30, rounds: 4 });
+  });
+
+  it('diagnosis item 1(b)/4 fix: a Block-B-only core-tabata (no Block A machines at all) still gets its own tabataBlock, using Block B\'s own config', async () => {
+    const coreTabataMember = { exercise: { id: 'core-ex-2' } } as any;
+    trioMock.mockResolvedValue({
+      options: [null, {
+        result: {
+          workout: {
+            exercises: [coreTabataMember],
+            title: '', description: '', needsAssessment: false,
+            tabataBlock: { config: { workSec: 20, restSec: 10, rounds: 8 }, exerciseIds: ['core-ex-2'] },
+          },
+        },
+      }, null],
+    });
+    // level 16 profile → machineShareForLevel = 0 → no Block A machines at all.
+    const level16Profile = { id: 'u16', progression: { domains: { push: { currentLevel: 16 }, pull: { currentLevel: 16 } } } } as any;
+    const result = await composeParkWorkoutFromMachines([push1, pull1], level16Profile, { difficulty: 'medium' });
+    expect(result.blockASelectedMachineCount).toBe(0);
+    expect(result.workout.tabataBlock?.exerciseIds).toEqual(['core-ex-2']);
+    expect(result.workout.tabataBlock?.config).toEqual({ workSec: 20, restSec: 10, rounds: 8 }); // Block B's own config, unmodified
+  });
+
+  it('requirement #1: level-16 user gets 0 machines and no machine Tabata block, even at a machine-rich park', async () => {
+    trioMock.mockResolvedValue({
+      options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+    });
+    const level16Profile = { id: 'u16', progression: { domains: { push: { currentLevel: 16 }, pull: { currentLevel: 16 } } } } as any;
+    const sixMachinePark = [push1, push2, pull1, legs1, core1, machine({ id: 'pull2', movementPattern: 'vertical_pull' })];
+    const result = await composeParkWorkoutFromMachines(sixMachinePark, level16Profile, { difficulty: 'medium' });
+    expect(result.blockASelectedMachineCount).toBe(0);
+    expect(result.workout.tabataBlock).toBeUndefined();
+  });
+
+  it('requirement #1: level-6 user gets machines, at least the 2-machine floor, at the same machine-rich park', async () => {
+    trioMock.mockResolvedValue({
+      options: [null, { result: { workout: { exercises: [], title: '', description: '', needsAssessment: false } } }, null],
+    });
+    const level6Profile = { id: 'u6', progression: { domains: { push: { currentLevel: 6 }, pull: { currentLevel: 6 } } } } as any;
+    const sixMachinePark = [push1, push2, pull1, legs1, core1, machine({ id: 'pull2', movementPattern: 'vertical_pull' })];
+    const result = await composeParkWorkoutFromMachines(sixMachinePark, level6Profile, { difficulty: 'medium' });
+    expect(result.blockASelectedMachineCount).toBeGreaterThanOrEqual(2);
+    expect(result.workout.tabataBlock?.exerciseIds.length).toBe(result.blockASelectedMachineCount);
+  });
+
   it('does not use Block B content when it needsAssessment (falls back to Block A only)', async () => {
     trioMock.mockResolvedValue({
       options: [null, { result: { workout: { exercises: [{ id: 'should-not-appear' }], title: 'x', description: 'y', needsAssessment: true } } }, null],
     });
-    const result = await composeParkWorkoutFromMachines([push1], fakeProfile, { difficulty: 'medium' });
-    expect(result.workout.exercises).toHaveLength(1); // only the Block A machine
-    expect(result.workout.exercises[0].exercise.id).toBe('push1');
+    const result = await composeParkWorkoutFromMachines([push1, pull1], fakeProfile, { difficulty: 'medium' });
+    expect(result.workout.exercises).toHaveLength(2); // only the Block A machines
+    expect(result.workout.exercises.map((e) => e.exercise.id).sort()).toEqual(['pull1', 'push1']);
   });
 });
 

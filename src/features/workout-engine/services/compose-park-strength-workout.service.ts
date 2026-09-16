@@ -9,14 +9,20 @@
  * (…-strength-workout…) to avoid a same-basename collision with that file —
  * do not rename this back to compose-park-workout.service.ts.
  *
- * Two blocks, NOT interleaved:
+ * Two blocks, NOT interleaved. Workout order is Block B first, Block A last
+ * (bodyweight/skill while fresh → machine Tabata as the supported finish):
  *   Block A — the park's tagged strength machines (isCardio excluded in v1),
  *             prescribed as ONE shared Tabata block (timed intervals,
  *             round-robin across members — same mechanism as any other
- *             tabata block in this engine).
+ *             tabata block in this engine). How many machines (and rounds)
+ *             is LEVEL-DRIVEN, not fixed — see `resolveMachineCount` /
+ *             `machineShareForLevel`: machine share slides from mostly-
+ *             machines at low level to all-bodyweight by level 10+.
  *   Block B — generateHomeWorkoutTrio(location: 'park'), filling only the
  *             movement domains Block A did NOT cover, at the user's real
- *             level, normal reps (not intervals).
+ *             level, normal reps (not intervals). Any Tabata block Block B
+ *             independently produces (its own core-form finisher) is merged
+ *             into Block A's shared tabataBlock — see `composeParkWorkoutFromMachines`.
  *
  * Deliberately bypasses buildTabataBlock/buildTabataFromPool's pool-
  * *selection* machinery (protocols/tabata.block.ts) — Block A's exercise
@@ -54,19 +60,22 @@ import type { TabataBlockSpec } from '../logic/workout-generator.types';
 import type { TabataProtocolConfig } from '../core/types/protocol.types';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { generateHomeWorkoutTrio } from './home-workout.service';
-import { calculateWorkoutStats } from '../logic/workout-budgeting.utils';
+import { calculateWorkoutStats, getExerciseCountForDuration } from '../logic/workout-budgeting.utils';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
-import { resolveDataLevel } from './level-resolution.utils';
+import { resolveDataLevel, getBaseUserLevel } from './level-resolution.utils';
 import { resolveParkEquipmentIds } from './park-equipment-resolver';
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 
 export type ParkWorkoutDifficulty = 'easy' | 'medium' | 'hard';
 
 /**
- * Difficulty → Tabata work/rest ladder, seconds. Rounds fixed at 8 — matches
- * TABATA_CLASSIC's own rounds and keeps every rung the same total block
- * length ((work+rest)×8 = 480s / 8min for all three rungs), so Block B's
- * remaining-time budget doesn't need to vary by difficulty.
+ * Difficulty → Tabata work/rest ladder, seconds. Only workSec/restSec are used
+ * from this table — `rounds` is resolved per-session by `resolveMachineCount`
+ * (level-driven machine count × MIN_ROUNDS_PER_MACHINE), not fixed here. Every
+ * rung's workSec+restSec sums to 60s, so 1 round ≈ 1 minute regardless of
+ * difficulty (see `blockASeconds`'s comment) — that invariant is why
+ * `rounds` can safely vary per rung without Block B's time budget needing to
+ * know which difficulty is active.
  */
 const TABATA_DIFFICULTY_LADDER: Record<ParkWorkoutDifficulty, TabataProtocolConfig> = {
   easy: { workSec: 20, restSec: 40, rounds: 8 },
@@ -84,20 +93,124 @@ const DIFFICULTY_TO_LEVEL: Record<ParkWorkoutDifficulty, DifficultyLevel> = {
 const ALL_DOMAINS: readonly MovementPattern[] = ['push', 'pull', 'legs', 'core'];
 
 /**
- * How many machines Block A uses. 4 members × (8 rounds ÷ 4) = 2 rounds each,
- * landing on "2-3 sets per machine, clustered" (per the design) while tiling
- * the block's 8 rounds exactly — same reasoning TABATA_CORE_MEMBER_COUNTS
- * already encodes elsewhere in this engine (tabata.constants.ts) for exactly
- * this "which member counts divide 8 evenly" question. A park with fewer
- * strength-eligible machines just gets fewer members (still evenly tiled by
- * the player's own round-robin, since it cycles by count, not by a fixed
- * assumption of 4) — see `selectBlockAMachines`.
+ * Every ladder rung totals the same wall-clock block length: workSec+restSec
+ * sums to exactly 60s on all three rungs (20+40, 30+30, 40+20), so one Tabata
+ * round is always ~1 minute regardless of difficulty. That invariant is what
+ * lets `resolveMachineCount` reason about rounds as minutes directly.
  */
-const BLOCK_A_MACHINE_COUNT = 4;
-
-/** Every ladder rung totals the same wall-clock block length. */
 function blockASeconds(config: TabataProtocolConfig): number {
   return (config.workSec + config.restSec) * config.rounds;
+}
+
+/**
+ * machineShare(level): how much of the strength block goes to machines vs
+ * bodyweight, keyed on the user's push/pull level (see `resolveMachineShareLevel`).
+ * A slider, not a fixed count — mostly-machines at low level, sliding to
+ * all-bodyweight by level 10+ (design decision, 15.09.2026 diagnosis follow-up:
+ * machine/Tabata relevance must scale DOWN as level rises instead of the old
+ * hardcoded BLOCK_A_MACHINE_COUNT=4, which gave a level-16 user the exact same
+ * Tabata block as a level-1 user).
+ *
+ * Starting anchors — tunable, David eyeballs sample output before deploy.
+ * Ordered ascending so the scan below can `break` at the first rung the
+ * level doesn't clear.
+ */
+const MACHINE_SHARE_LADDER: ReadonlyArray<{ level: number; share: number }> = [
+  { level: 1, share: 0.75 },
+  { level: 5, share: 0.60 },
+  { level: 6, share: 0.45 },
+  { level: 7, share: 0.30 },
+  { level: 8, share: 0.20 },
+  { level: 9, share: 0.15 },
+  { level: 10, share: 0.00 },
+];
+
+export function machineShareForLevel(level: number): number {
+  let share = MACHINE_SHARE_LADDER[0].share;
+  for (const rung of MACHINE_SHARE_LADDER) {
+    if (level < rung.level) break;
+    share = rung.share;
+  }
+  return share;
+}
+
+/** Each Block A machine gets at least 2 consecutive rounds ("no 1-machine Tabata"). */
+const MIN_ROUNDS_PER_MACHINE = 2;
+/** Machine Tabata's own floor — below this it dissolves to bodyweight-only. */
+const MIN_BLOCK_A_MACHINES = 2;
+/** Bodyweight (Block B) always keeps at least this many minutes of the session. */
+const MIN_BLOCK_B_MINUTES = 5;
+/** Bodyweight block minimum — never a single exercise × 3 sets. */
+const MIN_BLOCK_B_EXERCISES = 2;
+
+/**
+ * The push/pull domain level machineShare is keyed on — average of assessed
+ * push/pull (the domains Block A's machines are mostly tagged under), falling
+ * back to the user's derived overall level when neither is assessed. Mirrors
+ * `isDomainAssessed`'s own tracks-then-domains read, not `buildUserProgramLevels`
+ * (this only needs 2 specific domains, not the full program-level map).
+ */
+export function resolveMachineShareLevel(profile: UserFullProfile): number {
+  const domains = (profile.progression?.domains ?? {}) as Record<string, unknown>;
+  const tracks = (profile.progression?.tracks ?? {}) as Record<string, unknown>;
+  const pushLevel = Math.max(resolveDataLevel(tracks.push), resolveDataLevel(domains.push));
+  const pullLevel = Math.max(resolveDataLevel(tracks.pull), resolveDataLevel(domains.pull));
+  const assessed = [pushLevel, pullLevel].filter((l) => l > 0);
+  if (assessed.length > 0) {
+    return Math.round(assessed.reduce((a, b) => a + b, 0) / assessed.length);
+  }
+  return getBaseUserLevel(profile);
+}
+
+export interface MachineCountResolution {
+  machineCount: number;
+  /** Total Tabata rounds for the shared block — machineCount × MIN_ROUNDS_PER_MACHINE. */
+  rounds: number;
+}
+
+/**
+ * Resolves how many of Block A's eligible machines to actually use this
+ * session, and how many shared Tabata rounds to run them for. Level sets the
+ * SHARE via `machineShareForLevel`; that share is then bounded by what the
+ * park physically has, what the time budget allows, and by
+ * MIN_BLOCK_B_EXERCISES worth of `strengthBudget` reserved for Block B — so
+ * bodyweight never gets squeezed out as machineShare rises for a
+ * machine-rich park. "No 1-machine Tabata": a target of exactly 1 bumps to
+ * the MIN_BLOCK_A_MACHINES floor if park+time+budget allow it, else drops to
+ * 0 (pure bodyweight) — never a lone machine on its own clock.
+ */
+export function resolveMachineCount(params: {
+  strengthBudget: number;
+  level: number;
+  eligibleMachineCount: number;
+  availableTime: number;
+}): MachineCountResolution {
+  const { strengthBudget, level, eligibleMachineCount, availableTime } = params;
+  const share = machineShareForLevel(level);
+  if (share <= 0 || eligibleMachineCount <= 0) return { machineCount: 0, rounds: 0 };
+
+  const levelTarget = Math.round(strengthBudget * share);
+
+  // Time-budget cap — 1 round ≈ 1 minute on every ladder rung (see blockASeconds).
+  const timeBudgetMachines = Math.max(
+    0,
+    Math.floor((availableTime - MIN_BLOCK_B_MINUTES) / MIN_ROUNDS_PER_MACHINE),
+  );
+  // Budget-slot cap — keep ≥MIN_BLOCK_B_EXERCISES of strengthBudget's slots for Block B.
+  const budgetSlotMachines = Math.max(0, strengthBudget - MIN_BLOCK_B_EXERCISES);
+
+  let machineCount = Math.min(levelTarget, eligibleMachineCount, timeBudgetMachines, budgetSlotMachines);
+
+  if (machineCount === 1) {
+    const canFitFloor =
+      eligibleMachineCount >= MIN_BLOCK_A_MACHINES &&
+      timeBudgetMachines >= MIN_BLOCK_A_MACHINES &&
+      budgetSlotMachines >= MIN_BLOCK_A_MACHINES;
+    machineCount = canFitFloor ? MIN_BLOCK_A_MACHINES : 0;
+  }
+
+  if (machineCount < MIN_BLOCK_A_MACHINES) return { machineCount: 0, rounds: 0 };
+  return { machineCount, rounds: machineCount * MIN_ROUNDS_PER_MACHINE };
 }
 
 export interface ComposeParkWorkoutOptions {
@@ -112,7 +225,7 @@ export interface ComposeParkWorkoutResult {
   blockACoveredDomains: MovementPattern[];
   /** How many strength-eligible (non-cardio, tagged) machines the park actually had. */
   blockAEligibleMachineCount: number;
-  /** How many of those were actually selected into Block A (≤ BLOCK_A_MACHINE_COUNT). */
+  /** How many of those were actually selected into Block A (level-driven — see resolveMachineCount). */
   blockASelectedMachineCount: number;
 }
 
@@ -185,11 +298,22 @@ export async function composeParkWorkoutFromMachines(
   parkEquipmentIds: string[] = [],
 ): Promise<ComposeParkWorkoutResult> {
   const availableTime = options.availableTime ?? 20;
-  const tabataConfig = TABATA_DIFFICULTY_LADDER[options.difficulty];
+  const ladderRung = TABATA_DIFFICULTY_LADDER[options.difficulty];
 
   // ── Block A: strength-eligible, tagged machines only — isCardio excluded (v1 scope) ──
+  // How many machines (and shared Tabata rounds) Block A gets is level-driven,
+  // not a fixed count — see resolveMachineCount/machineShareForLevel.
   const eligibleMachines = allMachines.filter((m) => isBlockAEligible(m, userProfile));
-  const selectedMachines = selectBlockAMachines(eligibleMachines, BLOCK_A_MACHINE_COUNT);
+  const strengthBudget = getExerciseCountForDuration(availableTime).exerciseCount;
+  const machineShareLevel = resolveMachineShareLevel(userProfile);
+  const { machineCount, rounds } = resolveMachineCount({
+    strengthBudget,
+    level: machineShareLevel,
+    eligibleMachineCount: eligibleMachines.length,
+    availableTime,
+  });
+  const selectedMachines = machineCount > 0 ? selectBlockAMachines(eligibleMachines, machineCount) : [];
+  const tabataConfig: TabataProtocolConfig = { workSec: ladderRung.workSec, restSec: ladderRung.restSec, rounds };
   const blockACoveredDomains = computeCoveredDomains(selectedMachines);
   const blockAExercises = selectedMachines.map((m) => buildMachinePseudoExercise(m, tabataConfig));
 
@@ -206,12 +330,13 @@ export async function composeParkWorkoutFromMachines(
   // passing the park's FULL gear list here (not a Block-A-selected subset)
   // is safe — no double-dipping risk.
   const requiredDomains = ALL_DOMAINS.filter((d) => !blockACoveredDomains.includes(d));
-  const blockATimeMinutes = blockASeconds(tabataConfig) / 60;
-  const blockBTimeMinutes = Math.max(5, availableTime - blockATimeMinutes);
+  const blockATimeMinutes = selectedMachines.length > 0 ? blockASeconds(tabataConfig) / 60 : 0;
+  const blockBTimeMinutes = Math.max(MIN_BLOCK_B_MINUTES, availableTime - blockATimeMinutes);
 
   let blockBExercises: WorkoutExercise[] = [];
   let blockBTitle = '';
   let blockBDescription = '';
+  let blockBTabataBlock: TabataBlockSpec | undefined;
   if (requiredDomains.length > 0) {
     const trio = await generateHomeWorkoutTrio({
       userProfile,
@@ -234,13 +359,37 @@ export async function composeParkWorkoutFromMachines(
       blockBExercises = blockBResult.workout.exercises;
       blockBTitle = blockBResult.workout.title;
       blockBDescription = blockBResult.workout.description;
+      // Diagnosis item 1(b)/4 fix: Block B's own generator can independently
+      // fire a core-form Tabata block (core-block.ts's chooseCoreForm, live,
+      // not flag-gated) whose members previously had NO home here — this
+      // composer's tabataBlock.exerciseIds only ever listed Block A's machine
+      // ids, so Block B's core-tabata members fell into partitionByTabataBlock's
+      // `rest` bucket (seg-main) at runner-mapping time: no protocol/protocolConfig,
+      // exerciseType misresolved to 'reps', no countdown, no round counter, no
+      // Tabata-timed video. Capturing it here and merging its ids below puts
+      // them in the SAME shared segment/clock as Block A's machines instead.
+      blockBTabataBlock = blockBResult.workout.tabataBlock;
     }
   }
 
-  const exercises: WorkoutExercise[] = [...blockAExercises, ...blockBExercises];
+  // Part 1 (bodyweight/skill, harder — done while fresh) before Part 2
+  // (machine Tabata, easier/supported — at the end). Aerobic will become an
+  // earlier Part 0 in a future phase; not built here.
+  const exercises: WorkoutExercise[] = [...blockBExercises, ...blockAExercises];
+
+  const machineIds = selectedMachines.map((m) => m.id);
+  const blockBTabataIds = blockBTabataBlock?.exerciseIds ?? [];
+  const combinedTabataIds = [...machineIds, ...blockBTabataIds];
   const tabataBlock: TabataBlockSpec | undefined =
-    blockAExercises.length > 0
-      ? { config: tabataConfig, exerciseIds: selectedMachines.map((m) => m.id) }
+    combinedTabataIds.length > 0
+      ? {
+          // Machines present → the shared ladder config (now carrying any
+          // merged Block B core-tabata members too, since it's ONE clock).
+          // No machines but Block B fired its own core-tabata → use ITS
+          // config (TABATA_CLASSIC) — there's no machine block to unify with.
+          config: machineIds.length > 0 ? tabataConfig : (blockBTabataBlock?.config ?? tabataConfig),
+          exerciseIds: combinedTabataIds,
+        }
       : undefined;
 
   const totalPlannedSets = exercises.reduce((sum, ex) => sum + ex.sets, 0);
@@ -388,9 +537,20 @@ export function buildMachinePseudoExercise(
   const method: ExecutionMethod = {
     location: 'park',
     requiredGearType: 'fixed_equipment',
-    equipmentIds: [machine.id],
+    // Diagnosis item 3: NOT the machine's own id. The machine IS the exercise
+    // here (a pseudo-exercise built FROM this machine) — listing it as its own
+    // "required gear" was self-referential and surfaced the machine's real
+    // Firestore name (e.g. "אגן ואלכסונים") as a required-equipment chip in the
+    // drawer, since resolveEquipmentLabel's Tier-1 cache lookup always prefers
+    // the real Firestore name over any canonical dictionary entry.
+    equipmentIds: [],
     media: {
       mainVideoUrl: brand?.videoUrl ?? undefined,
+      // Diagnosis item 2: without this, resolveExerciseMedia's fallback chain
+      // had nothing but a Bunny-UUID regex match against mainVideoUrl (works
+      // only for Bunny-iframe URLs) before falling to the video URL itself as
+      // an <img src> — which fails to render for anything else, showing "?".
+      imageUrl: brand?.imageUrl ?? undefined,
     },
   } as ExecutionMethod;
 
