@@ -142,7 +142,11 @@ async function main() {
     }
 
     const geohash = geohashForLocation([lat, lng]);
-    await writer.update(doc.ref, { geohash });
+    // updatedAt (SPEC-06 audit, 16.09.2026): without this, a park touched
+    // only by this backfill would never surface its geohash to a client's
+    // delta sync — worse, it would freeze every OTHER field on the doc out
+    // of sync too, since the map's delta query is `updatedAt > lastSyncAt`.
+    await writer.update(doc.ref, { geohash, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     stats.migrated++;
     if (migratedSamples.length < SAMPLE_LIMIT) {
       migratedSamples.push(`${doc.id}: name="${d.name ?? ''}" → geohash=${geohash}`);
