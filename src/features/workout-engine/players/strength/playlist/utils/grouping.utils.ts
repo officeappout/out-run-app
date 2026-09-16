@@ -150,6 +150,7 @@ export function flattenWorkoutToExercises(workout: WorkoutPlan): FlatExercise[] 
         exerciseType: isTime ? 'time' : 'reps',
         restDuration: typeof rest === 'number' ? rest : 30,
         segmentTitle: seg.title || '',
+        segmentId: seg.id,
         repsSequence,
         pyramidSequence,
       });
@@ -161,11 +162,21 @@ export function flattenWorkoutToExercises(workout: WorkoutPlan): FlatExercise[] 
 /**
  * Splits a segment's flat exercise list into ordered sub-groups.
  *
- * Tabata block members (`protocolBlock === 'tabata'`, the shared `seg-tabata`
- * segment) → ONE grouped block, mirroring the preview drawer's
+ * Tabata block members → ONE grouped block, mirroring the preview drawer's
  * `groupExercisesIntoSections` (section-grouping.utils.ts): pulled out of the
  * regular flow first so a stray `pairedWith` on a member can never leak it
  * into a superset pairing below.
+ *
+ * Detection is keyed on `segmentId === 'seg-tabata'`, NOT `protocolBlock`:
+ * every generator→runner plan builder (`home/page.tsx`,
+ * `buildRunnerWorkoutPlanFromGenerated.ts`, `workout-plan.mapper.ts`) drops
+ * the per-exercise `protocolBlock` marker when flattening to the runner's
+ * `FlatExercise`/`WorkoutExercise` (parks) shape — it is never present by
+ * the time this function sees the data, so a `protocolBlock`-only check
+ * silently matches nothing and every tabata exercise falls through to a
+ * solo card. `protocolBlock` is kept as a defensive OR in case a future
+ * builder does carry it through.
+ *
  * Superset pairs (mutual `pairedWith` links) → one grouped card.
  *   Set counts are equalized with Math.max so the state machine never
  *   encounters an undefined index desync between the two partners.
@@ -183,7 +194,7 @@ export function buildMainSubGroups(exercises: FlatExercise[]): SubGroup[] {
   const groups: SubGroup[] = [];
 
   const tabataMembers = exercises.filter(
-    (fe) => (fe.exercise as any).protocolBlock === 'tabata',
+    (fe) => fe.segmentId === 'seg-tabata' || (fe.exercise as any).protocolBlock === 'tabata',
   );
   if (tabataMembers.length > 0) {
     for (const fe of tabataMembers) consumed.add(fe.exercise.id);

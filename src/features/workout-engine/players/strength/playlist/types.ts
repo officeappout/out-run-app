@@ -72,6 +72,14 @@ export interface FlatExercise {
   exerciseType: 'reps' | 'time';
   restDuration: number;
   segmentTitle: string;
+  /**
+   * The owning segment's `id` (e.g. `'seg-tabata'`). Every generator→runner
+   * plan builder (`home/page.tsx`, `buildRunnerWorkoutPlanFromGenerated.ts`,
+   * `workout-plan.mapper.ts`) drops the per-exercise `protocolBlock` marker
+   * when flattening to this shape, so segment id is the reliable tabata
+   * signal here — see `buildMainSubGroups`.
+   */
+  segmentId: string;
   /** Per-set rep ladder for Repetition Pyramids (e.g., [12, 10, 8, 6]) */
   repsSequence?: number[];
   /** Per-set exercise variants for Mechanical Pyramids */

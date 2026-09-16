@@ -307,12 +307,16 @@ export default function IsometricTimerCard({
       >
         {/* Section label + side badge */}
         <div className="flex items-center justify-center gap-2 mb-3">
-          <p
-            className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider"
-            style={{ fontFamily: 'var(--font-simpler)' }}
-          >
-            זמן החזקה
-          </p>
+          {/* "זמן החזקה" (hold-time) is wrong for tabata — it's not a hold
+              exercise. The "טבטה" badge stands alone in its place. */}
+          {!isTabata && (
+            <p
+              className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+            >
+              זמן החזקה
+            </p>
+          )}
           {isTabata && (
             <span
               className="text-[10px] font-bold px-2 py-0.5 rounded-full"
