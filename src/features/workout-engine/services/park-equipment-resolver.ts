@@ -91,12 +91,20 @@ export async function resolveParkEquipmentIds(
       // ESSENTIAL_PARK_GEAR fallback. Session-tagging still uses detectNearbyPark's
       // tight 200 m radius (a workout is only tagged once the user is AT the park).
       try {
+        // SPEC-07 (16.09.2026): `parks`/`equipped` are the lean catalog shape
+        // — equippedParksWithin already filters on the precomputed
+        // hasUsableEquipment flag, not a raw gymEquipment length check (see
+        // that function). extractParkEquipment does the real point-fetch +
+        // normalize per candidate — same helper Priority 1/legacy already
+        // use above, reused here instead of duplicated. This loop stays
+        // (David: defensive, not debt) — on real data it now succeeds on the
+        // first candidate, since the catalog-level filter already screened
+        // for usable equipment; the point-fetch here is what actually
+        // confirms it, not just trusts a possibly-stale catalog flag.
         const parks = await fetchRealParks();
         const equipped = equippedParksWithin(options.gpsCoords, parks, EQUIPPED_PARK_RADIUS_M);
         for (const park of equipped.slice(0, MAX_PARK_CANDIDATES)) {
-          const ids = (park.gymEquipment ?? [])
-            .map((eq) => normalizeGearId(eq.equipmentId))
-            .filter(Boolean);
+          const ids = await extractParkEquipment(park.id);
           if (ids.length > 0) {
             console.log(
               `[ParkEquipmentResolver] Nearest equipped park "${park.name}" (${park.id}): [${ids.join(', ')}]`,
