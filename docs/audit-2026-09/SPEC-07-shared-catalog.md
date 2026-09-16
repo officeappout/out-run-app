@@ -381,6 +381,30 @@ Merge commit `3d20bfa2` נדחף ל-`main`, Vercel deploy הושלם (`Productio
 
 **5 מתוך 8 עברו בקליק אמיתי בדפדפן. 1 הגעתי אליו ולא רלוונטי לצרכנים שתוקנו. 1 עבר ב-unit test (לא קליק, לא רלוונטי לבדוק בדפדפן). 1 (#6, מסלול עם תחנות) ממתין לבדיקת בעל המוצר בטלפון על ה-preview — מגובה בהרצה אמיתית (0 הבדלים מול 1158 פארקים) אך לא קליק.**
 
+## אימות ה-preview (David, 17.09.2026) ו-stopRole: null על כל 1158 — נבדק, לא באג
+
+David בדק את הקטלוג בעצמו על ה-preview: 3 בקשות HIT, age עולה 89→90→92, ETag יציב `W/"f0aaf1e3d3a1d34aa1f55227a34aa0bc"`, 304 עם גוף ריק, 1158 פארקים, **11 שדות**, **62.7KB gzip** (62.6→62.7, `stopRole` הוסיף 0.1KB בלבד — עוד עדות ל"raw מטעה, gzip הוא המספר"). `hasUsableEquipment`=596, `isPrimaryFitness`=1158 — זהים לכל מדידה קודמת. `urbanType` נעדר, `gymEquipment` נעדר, `facilityType` נשאר.
+
+David שם לב ש-`stopRole` הוא `null` על **כל** 1158 הפארקים, ודרש הוכחה בהרצה (לא קריאת קוד) שזו לא הישנות הכשל המקורי בלבוש חדש. הרצתי את `mapParkToStop` **האמיתי** (import, לא עותק) על `V7aVC8sIVUNRnlQdT61C` פעמיים — פעם עם צורת-הקלט הישנה (רשומה מלאה: `facilityType`/`gymEquipment` גולמיים) ופעם עם צורת-הקלט החדשה בדיוק כפי שהקטלוג החי מחזיר (`facilityType`, `hasUsableEquipment: true`, `stopRole: null`, בלי `gymEquipment`/`natureType`/`urbanType` כלל) — `scripts/_verify-mapparktostop-old-vs-new-single-park.ts`:
+
+```
+OLD (רשומה מלאה):     {"activityType":"strength","locationKind":"gym","cooldownEligible":false}
+NEW (רשומת קטלוג):    {"activityType":"strength","locationKind":"gym","cooldownEligible":false}
+IDENTICAL: true
+```
+
+זהה. `stopRole: null` נכון: `mapParkToStop` בודק `facility === 'gym_park' || hasUsableEquipment` בענף **הראשון**, לפני שהוא מגיע בכלל ל-`stopRole` — וזה מוחזר משם. `stopRole` מכסה רק את ענפי `natureType`/`urbanType`, שריקים על כל 1158 הפארקים כיום (בדיוק כמו `urbanType`→`isMinor`).
+
+## הלקח החשוב ביותר מהעבודה הזו — כיסוי נתונים אינו כיסוי קוד
+
+בעל המוצר, במילים שלו: **סקריפט השקילות רץ על 1158 פארקים אמיתיים — 100% מהנתונים הקיימים — אבל כולם `gym_park` ולכן כולם נתפסו בענף הראשון. אף מקרה אמיתי לא הגיע לשורה שקוראת `stopRole`. בדיקה שכיסתה 100% מהנתונים כיסתה אפס אחוז מהשורה ששונתה.**
+
+המסקנה: כיסוי נתונים אינו כיסוי קוד. סקריפט אימות שרץ על כל הפארקים האמיתיים נראה כמו הוכחה מקיפה — והוא היה, אבל רק עבור הענפים שהנתונים האמיתיים בפועל מגיעים אליהם. כששדה חדש נקרא רק בענף נדיר (או, כמו כאן, ענף שעדיין לא קיים באף רשומה אמיתית בפרודקשן), צריך בדיקה ממוקדת שמכריחה את ההגעה לענף הזה במפורש — data-driven equivalence לבדו לא יגלה את זה, כי נתונים אמיתיים לא יגיעו אליו. זו הסיבה שההרצה הממוקדת (סעיף למעלה) הייתה נחוצה בנוסף ל-`_verify-stoprole-equivalence.ts`, לא במקומה.
+
+---
+
+**SPEC-07 — נסגר. 17.09.2026.** מיושם, אומת (הרצה + קליק אמיתי + preview), מאושר ע"י דוד ובעל המוצר. ממוזג ל-`main`.
+
 ---
 
 **מקורות:** Firestore Data Bundles (firebase.blog) · Orca Security — Firestore public database access · CloudThinker — Firebase Security Rules Audit
