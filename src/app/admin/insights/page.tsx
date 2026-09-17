@@ -177,7 +177,7 @@ export default function StrategicInsightsPage() {
                         התקדמות טובה יותר, ושימור משתמשים.
                     </p>
                     <div className="text-sm text-gray-600 italic">
-                        💡 תובנה: תוכניות המותאמות אישית מראות שיעורי השלמה גבוהים ב-25% מתוכניות סטנדרטיות.
+                        💡 תובנה: אין נתונים זמינים כרגע
                     </div>
                 </div>
             </div>
