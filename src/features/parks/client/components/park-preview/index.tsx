@@ -88,6 +88,12 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   const infoParts: string[] = [];
   if (park.city) infoParts.push(park.city);
   if (distText) infoParts.push(distText);
+  // Machine count — no fetch, park.gymEquipment is already on the loaded doc.
+  const machineCount = park.gymEquipment?.length ?? 0;
+  if (machineCount > 0) infoParts.push(`${machineCount} מתקנים`);
+  // Organic rating only (ratingAvg/reviewCount) — no fallback to the legacy
+  // `rating` field, see park.types.ts's doc comment on both fields.
+  const hasRating = park.ratingAvg != null && (park.reviewCount ?? 0) > 0;
 
   return (
     <>
@@ -134,14 +140,14 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
               {park.name}
             </h3>
 
-            {/* Info line: city · distance · ⭐ rating */}
+            {/* Info line: city · distance · machine count · ⭐ rating (count) */}
             <div className="flex items-center gap-1 mt-0.5 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
               <span>{infoParts.join(' · ')}</span>
-              {park.rating != null && (
+              {hasRating && (
                 <>
                   {infoParts.length > 0 && <span>·</span>}
                   <span className="material-icons-round text-amber-400" style={{ fontSize: 12 }}>star</span>
-                  <span>{park.rating}</span>
+                  <span>{park.ratingAvg} ({park.reviewCount})</span>
                 </>
               )}
             </div>
@@ -173,15 +179,14 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
             </div>
           )}
 
-          {/* Navigate CTA */}
-          <div className="px-3 py-2.5">
+          {/* Navigate CTA — icon-only circle; distance stays in the info line above. */}
+          <div className="px-3 py-2.5 flex justify-end">
             <button
               onClick={handleNavigate}
-              className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-cyan-500 text-white text-[14px] font-bold active:bg-cyan-600 transition-colors"
-              style={{ height: 40 }}
+              aria-label="נווט לפארק"
+              className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-cyan-500 text-white active:bg-cyan-600 transition-colors"
             >
-              <Navigation size={14} fill="currentColor" />
-              נווט לפארק
+              <Navigation size={16} fill="currentColor" />
             </button>
           </div>
 

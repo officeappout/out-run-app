@@ -14,7 +14,7 @@ import {
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import type {
   UserContribution,
   ContributionType,
@@ -23,6 +23,7 @@ import type {
 import { XP_REWARDS } from '@/types/contribution.types';
 import { createPark, updatePark, getAllParks } from './parks.service';
 import type { Park } from '../types/park.types';
+import type { ParkRatingSummary } from './park-rating.utils';
 
 const COLLECTION = 'user_contributions';
 
@@ -155,6 +156,46 @@ export async function getReviewsForPark(parkId: string): Promise<UserContributio
     }
     console.error('[Contributions] Error fetching park reviews:', err);
     return [];
+  }
+}
+
+/**
+ * Recomputes and persists a park's ratingAvg/reviewCount from its current
+ * user_contributions reviews, via /api/parks/recompute-rating (server-side,
+ * Admin SDK). A direct client write here would fail: firestore.rules gates
+ * ALL writes to parks/{docId} on isAdmin(), and per this repo's standing
+ * rule that bar gets fixed on the write-path side, never weakened in the
+ * rules themselves (axioms.md Verification-First §7) — see the route's own
+ * doc comment. The route recomputes from the park's own review docs
+ * server-side (computeParkRatingSummary — the same formula the one-time
+ * backfill script uses); this function only tells it which park changed.
+ *
+ * Idempotent (the route always recomputes from source, never increments) —
+ * safe to call after every review submit.
+ *
+ * Swallows its own failure (logs, doesn't throw): the review the user just
+ * submitted already succeeded by the time this runs, and a failure to
+ * update the denormalized aggregate must never surface as "your review
+ * failed" to the submitter.
+ */
+export async function recomputeAndSaveParkRating(parkId: string): Promise<ParkRatingSummary | null> {
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('No auth token');
+    const res = await fetch('/api/parks/recompute-rating', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ parkId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`recompute-rating API failed: ${body?.error ?? res.status}`);
+    }
+    const data = await res.json();
+    return { ratingAvg: data.ratingAvg ?? null, reviewCount: data.reviewCount ?? 0 };
+  } catch (err) {
+    console.error('[Contributions] Failed to save park rating summary:', err);
+    return null;
   }
 }
 

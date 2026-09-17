@@ -16,7 +16,7 @@ import IconChip from './IconChip';
 import { AMENITY_ICON_MAP, AMENITY_DISPLAY_ORDER } from './amenity-icons';
 import SuggestEditSheet from '../contribution-wizard/SuggestEditSheet';
 import StarRatingWidget from '../contribution-wizard/StarRatingWidget';
-import { createContribution } from '@/features/parks/core/services/contribution.service';
+import { createContribution, recomputeAndSaveParkRating } from '@/features/parks/core/services/contribution.service';
 import { XP_REWARDS } from '@/types/contribution.types';
 import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
 import { useParkEvents, matchesDayFilter, type DayFilter, type SessionEnrichment } from '@/features/parks/core/hooks/useCommunityEnrichment';
@@ -578,6 +578,10 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
         rating: userRating,
         comment: ratingComment.trim() || undefined,
       });
+      // Keep the park's denormalized rating current for surfaces (ParkPreview)
+      // that read ratingAvg/reviewCount instead of fetching reviews live.
+      // Swallows its own failure internally — never blocks this success path.
+      await recomputeAndSaveParkRating(park.id);
       setRatingDone(true);
       setTimeout(() => { setRatingOpen(false); setRatingDone(false); setUserRating(0); setRatingComment(''); }, 1500);
     } catch (err) {
