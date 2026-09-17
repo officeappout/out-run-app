@@ -146,7 +146,7 @@ export default function RestScreen({
             }}
           >
             <p
-              className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider"
+              className="text-[11px] font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               התרגיל הבא
