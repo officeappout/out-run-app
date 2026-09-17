@@ -255,6 +255,7 @@ export default function StrengthRunner({
       muscleGroups: sm.muscleGroups,
       exerciseGoal: sm.exerciseGoal,
       notificationText: null,
+      fullTutorial: sm.exerciseFullTutorial,
     };
   } else if (!sm.isLogDrawerOpen) {
     currentExerciseSnapshotRef.current = null;

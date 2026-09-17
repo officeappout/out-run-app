@@ -170,7 +170,7 @@ export default function RunnerHeader({
               : isLogDrawerOpen
                 ? 'התרגיל שביצעת'
                 : isResting
-                  ? 'התרגיל הבא'
+                  ? 'מנוחה'
                   : formatTime(elapsedTime)}
           </div>
 

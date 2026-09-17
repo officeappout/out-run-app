@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Dumbbell } from 'lucide-react';
 import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
+import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
 import type { NextExerciseInfo } from '../hooks/useWorkoutStateMachine';
 import { useNetworkAwareStreamUrl } from '@/features/content/exercises/client/hooks/useNetworkAwareStreamUrl';
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
@@ -26,16 +27,21 @@ import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
  *   - Center: "מנוחה" title + big countdown + the shared rest Lottie
  *     animation (same @lottiefiles/dotlottie-react + self-hosted WASM the
  *     flame indicator uses — src/components/ui/AnimatedFlame.tsx).
- *   - Bottom-left (16.09.2026 — moved off top-left, which sat directly under
- *     RunnerHeader's Pause button: this app is dir="rtl" globally, so the
- *     header's LAST flex child — Pause — renders at the physical top-left,
- *     exactly where the tile used to live, and the header's z-[45] sits above
- *     this component's z-20): collapsible next-exercise tile, showing a
- *     poster/thumbnail by default (name overlay on top; a Dumbbell icon when
- *     no image resolves at all) — tap expands to the actual video; tap again
- *     collapses. The video player only mounts once expanded, so a
- *     machine/Bunny video that's slow or fails to resolve never renders
- *     large-and-broken by default.
+ *   - Top-left (16.09.2026 restructure): "התרגיל הבא" label, a portrait
+ *     (9:16) thumbnail tile, the exercise name, and reps/time — name and
+ *     reps/time are plain text BELOW the tile, never overlaid on the image.
+ *     Positioned below RunnerHeader's story-bar + button rows (this app is
+ *     dir="rtl" globally, so the header's Pause button — its last flex child
+ *     — renders at the physical top-left; the header's z-[45] sits above
+ *     this component's z-20, so the tile must clear the button row's actual
+ *     height, not just share a z-index fight with it). Tap expands the tile
+ *     to the exercise's full-length tutorial video when one exists
+ *     (nextExercise.fullTutorial, resolved the same way as the active
+ *     exercise's own tutorial), falling back to the regular preview
+ *     clip/loop otherwise; tap again collapses. Collapsed state shows a
+ *     poster image (nextExercise.imageUrl, or Bunny's auto-generated
+ *     thumbnail) or a Dumbbell icon when neither resolves — the video
+ *     player(s) only mount once expanded.
  *   - Optional skip button (onSkip) — only for non-tabata; tabata rest has no
  *     skip control, unchanged from before.
  *   - Optional LOG_REPS drawer slot (logDrawerNode) — only for non-tabata.
@@ -102,6 +108,15 @@ export default function RestScreen({
   const posterUrl = nextExercise.imageUrl || (nextExercise.bunnyVideoId ? buildBunnyThumbnailUrl(nextExercise.bunnyVideoId) : null);
   const showPosterIcon = !posterUrl || posterFailed;
 
+  // Full-length tutorial on expand — falls back to the regular preview
+  // clip/loop when the exercise has none (machine-tabata pseudo-exercises
+  // never carry one, since they're built from equipment/brand data, not the
+  // exercises collection's execution_methods).
+  const hasFullTutorial = !!nextExercise.fullTutorial?.videoId;
+  const nextRepsOrDuration = nextExercise.exerciseType === 'time'
+    ? (nextExercise.duration || '')
+    : (nextExercise.reps || '');
+
   const clampedRemaining = Math.max(0, restTimeLeft);
   // Final 3-2-1 — reads the EXISTING rest countdown only, no new timer, no
   // added seconds. A 0-configured-rest transition never has restTimeLeft
@@ -117,66 +132,81 @@ export default function RestScreen({
 
       {!isLogDrawerOpen && (
         <>
-          {/* Bottom-left — collapsible next-exercise tile + label above it.
-              Anchored from the BOTTOM (not the top) so it can never collide
-              with RunnerHeader regardless of the header's own dynamic height
-              across workout types; the skip button (non-tabata only) is
-              horizontally centered, so this stays clear of it too. */}
+          {/* Top-left — compact next-exercise block: label, portrait tile,
+              name and reps/time as plain text below it (never overlaid on
+              the image). The wrapper's own width drives the tile's width
+              (aspect-ratio handles the height) and the text wrap width, so
+              collapsed vs. expanded is one single source of truth. Anchored
+              below RunnerHeader's story-bar + button rows so it clears the
+              Pause button (physical top-left under this app's dir="rtl"). */}
           <div
-            className="absolute z-20 flex flex-col items-start gap-1.5"
-            style={{ bottom: 'calc(env(safe-area-inset-bottom, 24px) + 5rem)', left: '1rem' }}
+            className="absolute z-20 flex flex-col items-start gap-1 transition-all duration-300"
+            style={{
+              top: 'calc(env(safe-area-inset-top, 44px) + 5.5rem)',
+              left: '1rem',
+              width: isPreviewExpanded ? 'min(78vw, 360px)' : 84,
+            }}
           >
-            <button
-              onClick={() => setIsPreviewExpanded((v) => !v)}
-              className="relative rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-700 bg-slate-900 transition-all duration-300"
-              style={
-                isPreviewExpanded
-                  ? { width: '78vw', maxWidth: 360, aspectRatio: '9 / 16' }
-                  : { width: 72, height: 72 }
-              }
-              aria-label={isPreviewExpanded ? 'כווץ תצוגה מקדימה' : 'הרחב תצוגה מקדימה'}
-            >
-              {isPreviewExpanded ? (
-                <ExerciseVideoPlayer
-                  key={`rest-preview-${videoKey}`}
-                  exerciseId={`rest-preview-${videoKey}`}
-                  videoUrl={previewVideoUrl}
-                  exerciseName={nextExercise.name}
-                  exerciseType="reps"
-                  isPaused={isPaused}
-                />
-              ) : (
-                <div className="relative w-full h-full bg-slate-700">
-                  {showPosterIcon ? (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Dumbbell size={22} className="text-slate-400" />
-                    </div>
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={posterUrl!}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={() => setPosterFailed(true)}
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-1">
-                    <span
-                      className="text-white text-[9px] font-bold text-center leading-tight line-clamp-3"
-                      style={{ fontFamily: 'var(--font-simpler)' }}
-                    >
-                      {nextExercise.name}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </button>
             <p
               className="text-[10px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               התרגיל הבא
             </p>
+            <button
+              onClick={() => setIsPreviewExpanded((v) => !v)}
+              className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-700 bg-slate-900 transition-all duration-300"
+              style={{ aspectRatio: '9 / 16' }}
+              aria-label={isPreviewExpanded ? 'כווץ תצוגה מקדימה' : 'הרחב תצוגה מקדימה'}
+            >
+              {isPreviewExpanded ? (
+                hasFullTutorial ? (
+                  <TutorialVideoPlayer
+                    key={`rest-preview-tutorial-${videoKey}`}
+                    video={nextExercise.fullTutorial!}
+                    mode="tutorial"
+                    legacyVideoUrl={previewVideoUrl}
+                    posterUrl={posterUrl}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                ) : (
+                  <ExerciseVideoPlayer
+                    key={`rest-preview-${videoKey}`}
+                    exerciseId={`rest-preview-${videoKey}`}
+                    videoUrl={previewVideoUrl}
+                    exerciseName={nextExercise.name}
+                    exerciseType="reps"
+                    isPaused={isPaused}
+                  />
+                )
+              ) : showPosterIcon ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-700">
+                  <Dumbbell size={22} className="text-slate-400" />
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={posterUrl!}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={() => setPosterFailed(true)}
+                />
+              )}
+            </button>
+            <p
+              className="text-xs font-bold text-slate-900 dark:text-white leading-tight line-clamp-2 w-full"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+            >
+              {nextExercise.name}
+            </p>
+            {nextRepsOrDuration && (
+              <p
+                className="text-[10px] text-slate-400 dark:text-zinc-500 w-full"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                {nextRepsOrDuration}
+              </p>
+            )}
           </div>
 
           {/* Center — title + countdown + animation */}
