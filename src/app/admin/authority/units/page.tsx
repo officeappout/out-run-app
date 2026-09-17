@@ -789,7 +789,9 @@ export default function UnitsListPage() {
           {orderedUnits.map(unit => (
             <Link
               key={unit.id}
-              href={`/admin/authority/units/${unit.id}?type=${tenantType}&org=${selectedOrgId}`}
+              href={tenantType === 'municipal'
+                ? `/admin/authority/neighborhoods/${unit.id}`
+                : `/admin/authority/units/${unit.id}?type=${tenantType}&org=${selectedOrgId}`}
               className={`flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:bg-slate-50 transition-colors ${
                 unit.depth > 0 ? 'mr-8 border-r-2 border-r-slate-200' : ''
               }`}
