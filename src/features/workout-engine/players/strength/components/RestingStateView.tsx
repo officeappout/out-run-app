@@ -97,6 +97,7 @@ export default function RestingStateView({
         onSkip={onSkipRest}
         isPaused={isPaused}
         videoKey={videoKey}
+        fadeIn={fadeIn}
       />
 
       {/* Coach hint — compact floating notification above rest drawer (hidden on last set) */}
