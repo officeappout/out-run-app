@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Dumbbell } from 'lucide-react';
 import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
-import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
 import type { NextExerciseInfo } from '../hooks/useWorkoutStateMachine';
 import { useNetworkAwareStreamUrl } from '@/features/content/exercises/client/hooks/useNetworkAwareStreamUrl';
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
@@ -27,21 +26,25 @@ import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
  *   - Center: "מנוחה" title + big countdown + the shared rest Lottie
  *     animation (same @lottiefiles/dotlottie-react + self-hosted WASM the
  *     flame indicator uses — src/components/ui/AnimatedFlame.tsx).
- *   - Top-left (16.09.2026 restructure): "התרגיל הבא" label, a portrait
- *     (9:16) thumbnail tile, the exercise name, and reps/time — name and
- *     reps/time are plain text BELOW the tile, never overlaid on the image.
- *     Positioned below RunnerHeader's story-bar + button rows (this app is
- *     dir="rtl" globally, so the header's Pause button — its last flex child
- *     — renders at the physical top-left; the header's z-[45] sits above
- *     this component's z-20, so the tile must clear the button row's actual
- *     height, not just share a z-index fight with it). Tap expands the tile
- *     to the exercise's full-length tutorial video when one exists
- *     (nextExercise.fullTutorial, resolved the same way as the active
- *     exercise's own tutorial), falling back to the regular preview
- *     clip/loop otherwise; tap again collapses. Collapsed state shows a
- *     poster image (nextExercise.imageUrl, or Bunny's auto-generated
- *     thumbnail) or a Dumbbell icon when neither resolves — the video
- *     player(s) only mount once expanded.
+ *   - Top-left: one clean column — "התרגיל הבא" label, a portrait (9:16)
+ *     thumbnail tile, the exercise name, reps/time, and (when present) a
+ *     coach-hint/prep note — all as plain text below the tile, never
+ *     overlaid on the image. This is the SINGLE place next-exercise
+ *     name/reps/notes are shown; RunnerHeader's own row 3 and prep-cue
+ *     banner were removed (16.09.2026) once they became a duplicate of this
+ *     block. Positioned below RunnerHeader's story-bar + button rows (this
+ *     app is dir="rtl" globally, so the header's Pause button — its last
+ *     flex child — renders at the physical top-left; the header's z-[45]
+ *     sits above this component's z-20, so the tile must clear the button
+ *     row's actual height, not just share a z-index fight with it). Tap
+ *     expands the tile to the regular preview clip/loop; tap again
+ *     collapses. Collapsed state shows a poster image (nextExercise.imageUrl,
+ *     or Bunny's auto-generated thumbnail) or a Dumbbell icon when neither
+ *     resolves — the video player only mounts once expanded.
+ *     (16.09.2026: full-length-tutorial-on-expand was tried and reverted —
+ *     it broke collapse-back and surfaced the app's native player. Parked
+ *     for a future unified-player task; NextExerciseInfo.fullTutorial and
+ *     its resolution were removed along with it rather than left unused.)
  *   - Optional skip button (onSkip) — only for non-tabata; tabata rest has no
  *     skip control, unchanged from before.
  *   - Optional LOG_REPS drawer slot (logDrawerNode) — only for non-tabata.
@@ -108,11 +111,6 @@ export default function RestScreen({
   const posterUrl = nextExercise.imageUrl || (nextExercise.bunnyVideoId ? buildBunnyThumbnailUrl(nextExercise.bunnyVideoId) : null);
   const showPosterIcon = !posterUrl || posterFailed;
 
-  // Full-length tutorial on expand — falls back to the regular preview
-  // clip/loop when the exercise has none (machine-tabata pseudo-exercises
-  // never carry one, since they're built from equipment/brand data, not the
-  // exercises collection's execution_methods).
-  const hasFullTutorial = !!nextExercise.fullTutorial?.videoId;
   const nextRepsOrDuration = nextExercise.exerciseType === 'time'
     ? (nextExercise.duration || '')
     : (nextExercise.reps || '');
@@ -160,25 +158,14 @@ export default function RestScreen({
               aria-label={isPreviewExpanded ? 'כווץ תצוגה מקדימה' : 'הרחב תצוגה מקדימה'}
             >
               {isPreviewExpanded ? (
-                hasFullTutorial ? (
-                  <TutorialVideoPlayer
-                    key={`rest-preview-tutorial-${videoKey}`}
-                    video={nextExercise.fullTutorial!}
-                    mode="tutorial"
-                    legacyVideoUrl={previewVideoUrl}
-                    posterUrl={posterUrl}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                ) : (
-                  <ExerciseVideoPlayer
-                    key={`rest-preview-${videoKey}`}
-                    exerciseId={`rest-preview-${videoKey}`}
-                    videoUrl={previewVideoUrl}
-                    exerciseName={nextExercise.name}
-                    exerciseType="reps"
-                    isPaused={isPaused}
-                  />
-                )
+                <ExerciseVideoPlayer
+                  key={`rest-preview-${videoKey}`}
+                  exerciseId={`rest-preview-${videoKey}`}
+                  videoUrl={previewVideoUrl}
+                  exerciseName={nextExercise.name}
+                  exerciseType="reps"
+                  isPaused={isPaused}
+                />
               ) : showPosterIcon ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-slate-700">
                   <Dumbbell size={22} className="text-slate-400" />
@@ -205,6 +192,14 @@ export default function RestScreen({
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
                 {nextRepsOrDuration}
+              </p>
+            )}
+            {nextExercise.notificationText && (
+              <p
+                className="text-[10px] text-blue-500 dark:text-blue-400 leading-tight w-full"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                💡 {nextExercise.notificationText}
               </p>
             )}
           </div>

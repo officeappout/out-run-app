@@ -75,12 +75,10 @@ export interface RunnerHeaderProps {
   currentExLoggedReps: (number | null)[];
   /** Index of the first incomplete set (or -1 if all logged). */
   firstIncompleteSetIdx: number;
-  /** Snapshot of the next exercise (used by row 3 + banner during REST). */
+  /** Snapshot of the next exercise (used by row 3's equipment pills during REST). */
   restPreviewExercise: RestPreviewExerciseShape;
   /** Workout location (gym / outdoor / home) — drives equipment SVG resolution. */
   workoutLocation?: string;
-  /** Whether the player is currently inside a superset block. */
-  isSupersetActive: boolean;
   /** Whether the NEXT exercise is the superset partner (drives A→B transition cue). */
   isNextPartnerExercise: boolean;
   /** Name of the superset partner exercise (for both cycle prefix and A→B cue). */
@@ -114,7 +112,6 @@ export default function RunnerHeader({
   firstIncompleteSetIdx,
   restPreviewExercise,
   workoutLocation,
-  isSupersetActive,
   isNextPartnerExercise,
   supersetPartnerName,
   onPointerDown,
@@ -239,7 +236,12 @@ export default function RunnerHeader({
           </div>
         )}
 
-        {/* Row 3: Equipment Pills (right/RTL) | Name+Reps (left/RTL) */}
+        {/* Row 3: Equipment Pills (right/RTL) | superset cue (left/RTL).
+            Name/reps used to live here too, but RestScreen's own top-left
+            block (16.09.2026) now shows name+reps+notes once, in one place —
+            duplicating them here read as the exact same info appearing both
+            above and below RestScreen's tile. The superset A→B cue stays:
+            it's not shown anywhere else. */}
         {isResting && !isLogDrawerOpen ? (
           <div className="flex flex-row-reverse items-center justify-between w-full py-1" dir="rtl">
             {restPreviewExercise.equipment.length > 0 && (
@@ -279,56 +281,18 @@ export default function RunnerHeader({
                 })}
               </div>
             )}
-            <div className="flex flex-col items-start min-w-0">
-              {/* A→B superset transition cue */}
-              {isNextPartnerExercise && supersetPartnerName && (
+            {isNextPartnerExercise && supersetPartnerName && (
+              <div className="flex flex-col items-start min-w-0">
                 <p
                   className="font-semibold text-violet-500 dark:text-violet-400 truncate max-w-full"
                   style={{ fontFamily: 'var(--font-simpler)', fontSize: '12px', lineHeight: '18px' }}
                 >
                   מעבר לבן זוג הסופרסט: {supersetPartnerName}
                 </p>
-              )}
-              <p
-                className="font-semibold text-slate-900 dark:text-white truncate max-w-full"
-                style={{ fontFamily: 'var(--font-simpler)', fontSize: '14px', lineHeight: '20px' }}
-              >
-                {isSupersetActive && supersetPartnerName
-                  ? `⟳ ${restPreviewExercise.name}`
-                  : restPreviewExercise.name}
-              </p>
-              {restPreviewExercise.reps && (
-                <p
-                  className="font-normal text-slate-900 dark:text-white"
-                  style={{ fontFamily: 'var(--font-simpler)', fontSize: '14px', lineHeight: '20px' }}
-                >
-                  {restPreviewExercise.reps}
-                </p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         ) : null}
-
-        {/* Preparation cue banner — below Row 3, only during rest */}
-        {isResting && !isLogDrawerOpen && restPreviewExercise.notificationText && (
-          <div className="mt-3 mx-1" dir="rtl">
-            <div
-              className="flex items-start gap-2.5 px-3.5 py-3 rounded-2xl border"
-              style={{
-                background: 'rgba(219, 234, 254, 0.6)',
-                borderColor: 'rgba(191, 219, 254, 0.8)',
-              }}
-            >
-              <span className="text-base flex-shrink-0 mt-px">💡</span>
-              <p
-                className="text-xs font-semibold text-slate-700 leading-relaxed"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
-                {restPreviewExercise.notificationText}
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

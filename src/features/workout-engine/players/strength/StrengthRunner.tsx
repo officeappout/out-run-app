@@ -255,7 +255,6 @@ export default function StrengthRunner({
       muscleGroups: sm.muscleGroups,
       exerciseGoal: sm.exerciseGoal,
       notificationText: null,
-      fullTutorial: sm.exerciseFullTutorial,
     };
   } else if (!sm.isLogDrawerOpen) {
     currentExerciseSnapshotRef.current = null;
@@ -620,7 +619,6 @@ export default function StrengthRunner({
                 firstIncompleteSetIdx={firstIncompleteSetIdx}
                 restPreviewExercise={restPreviewExercise}
                 workoutLocation={workout.workoutLocation}
-                isSupersetActive={sm.isSupersetActive}
                 isNextPartnerExercise={sm.isNextPartnerExercise}
                 supersetPartnerName={sm.supersetPartnerName}
                 onPointerDown={handleHeaderPointerDown}

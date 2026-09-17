@@ -46,9 +46,6 @@ export interface NextExerciseInfo {
   exerciseGoal: string | null;
   /** Notification text from the matching execution method */
   notificationText: string | null;
-  /** Long-form instructional video, resolved the same way as the active
-   *  exercise's `exerciseFullTutorial` (16.09.2026) — null when none uploaded. */
-  fullTutorial: ExternalVideo | null;
 }
 
 // ============================================================================
@@ -566,24 +563,6 @@ export function useExerciseDerivedValues({
       return { video, image, bunnyVideoId };
     })();
 
-    // Long-form tutorial for the NEXT exercise — identical resolution to
-    // exerciseFullTutorial above, just applied to `exercise` instead of
-    // activeExercise. Reused, not reinvented: same pre-resolved plan field
-    // first, same execution_methods/root-media fallback for any entry path
-    // that still carries a full Firestore exercise shape.
-    const nextFullTutorial: ExternalVideo | null = (() => {
-      if (!exercise) return null;
-      const raw = exercise as any;
-      if (raw?.fullTutorial?.videoId) return raw.fullTutorial as ExternalVideo;
-      const methods = raw?.execution_methods || raw?.executionMethods || raw?.methods || [];
-      for (const m of methods) {
-        const t = resolveTutorialForLang(m?.media, 'he');
-        if (t?.videoId) return t;
-      }
-      const rootTutorial = resolveTutorialForLang(raw?.media, 'he');
-      return rootTutorial?.videoId ? rootTutorial : null;
-    })();
-
     return {
       name: nextPyramidStep?.name || exercise?.name || 'סיום האימון',
       videoUrl: nextPyramidStep?.videoSrc || resolvedMedia.video,
@@ -612,7 +591,6 @@ export function useExerciseDerivedValues({
         }
         return null;
       })(),
-      fullTutorial: nextFullTutorial,
     };
   }, [workout, currentSegment, currentExerciseIndex, currentSegmentIndex, currentSetIndex, getSetsForExercise, getExercises, blockProtocol]);
 
