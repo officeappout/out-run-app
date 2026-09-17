@@ -136,20 +136,27 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
 
           {/* ── Body ─────────────────────────────────────── */}
           <div className="px-3 -mt-4 pb-2 relative">
-            <h3 className="text-[16px] font-semibold text-gray-900 dark:text-white leading-snug">
-              {park.name}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="flex-1 min-w-0 truncate text-[16px] font-semibold text-gray-900 dark:text-white leading-snug">
+                {park.name}
+              </h3>
+              {/* Aggregate rating — a standalone amber badge, not buried in
+                  the small meta line below, so it reads as clearly present
+                  the moment ratingAvg/reviewCount are populated (empty on a
+                  park with pre-existing, not-yet-backfilled reviews — see
+                  scripts/backfill-park-ratings.ts). */}
+              {hasRating && (
+                <span className="flex-shrink-0 flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 rounded-full px-2 py-0.5">
+                  <span className="material-icons-round text-amber-400" style={{ fontSize: 13 }}>star</span>
+                  <span className="text-[13px] font-bold text-amber-700 dark:text-amber-400">{park.ratingAvg}</span>
+                  <span className="text-[11px] text-amber-600/70 dark:text-amber-500/70">({park.reviewCount})</span>
+                </span>
+              )}
+            </div>
 
-            {/* Info line: city · distance · machine count · ⭐ rating (count) */}
+            {/* Info line: city · distance · machine count */}
             <div className="flex items-center gap-1 mt-0.5 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
               <span>{infoParts.join(' · ')}</span>
-              {hasRating && (
-                <>
-                  {infoParts.length > 0 && <span>·</span>}
-                  <span className="material-icons-round text-amber-400" style={{ fontSize: 12 }}>star</span>
-                  <span>{park.ratingAvg} ({park.reviewCount})</span>
-                </>
-              )}
             </div>
 
             {/* Amenity chips — max 2 */}

@@ -572,7 +572,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
       await createContribution({
         userId: profile.id,
         type: 'review',
-        status: 'pending',
+        // Explicit auto-approval — no moderation step exists for reviews
+        // (getReviewsForPark and /api/parks/recompute-rating both read every
+        // review regardless of status already; this just makes that fact
+        // honest in the data instead of leaving a vestigial 'pending' that
+        // a future status filter could silently start hiding).
+        status: 'approved',
         location: park.location ?? { lat: 0, lng: 0 },
         linkedParkId: park.id,
         rating: userRating,

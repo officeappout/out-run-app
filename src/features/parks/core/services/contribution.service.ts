@@ -87,7 +87,13 @@ function haversineM(
 export async function createContribution(
   data: Omit<UserContribution, 'id' | 'createdAt' | 'updatedAt'>,
 ): Promise<string> {
-  const payload: any = { ...data, status: 'pending', createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+  // status comes from the caller (data.status), not forced here — every
+  // existing call site already passes it explicitly. Reviews (ParkDetailSheet)
+  // pass 'approved' — auto-approval, no moderation step exists for reviews
+  // (no approveReview() anywhere in this file). Every other type still
+  // passes 'pending' itself, unchanged, feeding the real moderation queue
+  // in /admin/approval-center.
+  const payload: any = { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
   delete payload.id;
   const ref = await addDoc(collection(db, COLLECTION), payload);
   return ref.id;
