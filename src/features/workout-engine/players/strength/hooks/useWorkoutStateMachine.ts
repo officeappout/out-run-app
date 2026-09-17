@@ -137,9 +137,10 @@ export interface WorkoutStateMachineResult {
   totalRounds: number;
   /** Tabata interval position (1-based current / total rounds), or null when not in a tabata block */
   tabataInterval: { current: number; total: number } | null;
-  /** Machine-tabata-only header label data ("מכונה X/2 · סבב Y/2") — null for
-   *  every other block, including the general-finisher tabata (which never
-   *  sets orderMode). Display-only; does not affect interval math/ordering. */
+  /** Machine-tabata-only label data ("מכונה X/2 · סבב Y/2"), rendered next to
+   *  the "טבטה" badge on IsometricTimerCard — null for every other block,
+   *  including the general-finisher tabata (which never sets orderMode).
+   *  Display-only; does not affect interval math/ordering. */
   machineTabataLabel: { machine: number; machineCount: number; round: number; roundsPerMember: number } | null;
   /** Last confirmed reps for the current exercise (from previous set), or null */
   lastSavedReps: number | null;
@@ -553,8 +554,9 @@ export function useWorkoutStateMachine(
     return { current: Math.min(current, blockProtocol.config.rounds), total: blockProtocol.config.rounds };
   }, [blockProtocol, currentSegment, currentExerciseIndex, currentSetIndex, currentSide, getExercises]);
 
-  // ── Machine-tabata header label (16.09.2026) ─────────────────────────────
-  // "מכונה X/2 · סבב Y/2" instead of "אינטרוול X/4" — display only, scoped by
+  // ── Machine-tabata badge label (16.09.2026) ──────────────────────────────
+  // "מכונה X/2 · סבב Y/2", rendered next to the "טבטה" badge on
+  // IsometricTimerCard (moved there from the header) — display only, scoped by
   // orderMode === 'exercise-major', the exact signal ONLY the machine/park
   // composer ever sets (compose-park-strength-workout.service.ts). The
   // general-finisher tabata never sets orderMode, so this stays null for it

@@ -6,6 +6,7 @@ import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import type { NextExerciseInfo } from '../hooks/useWorkoutStateMachine';
 import { useNetworkAwareStreamUrl } from '@/features/content/exercises/client/hooks/useNetworkAwareStreamUrl';
+import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 
 /**
  * RestScreen — unified REST-phase card, shared by every workout type
@@ -83,6 +84,13 @@ export default function RestScreen({
   const { streamUrl: nextBunnyStreamUrl } = useNetworkAwareStreamUrl(nextExercise.bunnyVideoId ?? null);
   const previewVideoUrl = nextBunnyStreamUrl || nextExercise.videoUrl;
 
+  // Collapsed-tile poster: nextExercise.imageUrl already went through the
+  // engine's own multi-tier fallback (useExerciseDerivedValues.ts) — trust it
+  // first. When it's null but the exercise IS a Bunny video, Bunny renders an
+  // auto-generated thumbnail after encoding (buildBunnyThumbnailUrl) — use
+  // that instead of leaving the tile blank while collapsed.
+  const posterUrl = nextExercise.imageUrl || (nextExercise.bunnyVideoId ? buildBunnyThumbnailUrl(nextExercise.bunnyVideoId) : null);
+
   const clampedRemaining = Math.max(0, restTimeLeft);
   // Final 3-2-1 — reads the EXISTING rest countdown only, no new timer, no
   // added seconds. A 0-configured-rest transition never has restTimeLeft
@@ -123,13 +131,24 @@ export default function RestScreen({
                   isPaused={isPaused}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center p-1">
-                  <span
-                    className="text-white text-[9px] font-bold text-center leading-tight line-clamp-3"
-                    style={{ fontFamily: 'var(--font-simpler)' }}
-                  >
-                    {nextExercise.name}
-                  </span>
+                <div className="relative w-full h-full">
+                  {posterUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={posterUrl}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-1">
+                    <span
+                      className="text-white text-[9px] font-bold text-center leading-tight line-clamp-3"
+                      style={{ fontFamily: 'var(--font-simpler)' }}
+                    >
+                      {nextExercise.name}
+                    </span>
+                  </div>
                 </div>
               )}
             </button>

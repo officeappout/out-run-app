@@ -519,6 +519,7 @@ export default function StrengthRunner({
         exerciseDuration={sm.exerciseDuration}
         blockWorkSec={blockWorkSec}
         timerPrepSeconds={timerPrepSeconds}
+        machineTabataLabel={sm.machineTabataLabel}
         currentSide={sm.currentSide}
         repsOrDurationText={sm.repsOrDurationText}
         targetValue={pickerTargetValue}
@@ -611,7 +612,6 @@ export default function StrengthRunner({
                 totalRounds={sm.totalRounds}
                 currentRound={sm.currentRound}
                 tabataInterval={sm.tabataInterval}
-                machineTabataLabel={sm.machineTabataLabel}
                 isWarmupSegment={isWarmupSegment}
                 isCooldownSegment={isCooldownSegment}
                 currentExLoggedReps={currentExLoggedReps}

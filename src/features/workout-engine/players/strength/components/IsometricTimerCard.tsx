@@ -52,6 +52,14 @@ interface IsometricTimerCardProps {
    */
   isTabata?: boolean;
   /**
+   * Machine-tabata-only label data ("מכונה X/2 · סבב Y/2"), rendered next to
+   * the "טבטה" badge (16.09.2026 — moved here from the top header, closer to
+   * where the eye already looks during the work interval). Null/undefined
+   * for every other block, including the general-finisher tabata. Display
+   * only — does not affect the timer or the advance decision.
+   */
+  machineTabataLabel?: { machine: number; machineCount: number; round: number; roundsPerMember: number } | null;
+  /**
    * Seconds of "get ready" lead-in before the count starts. Default 5.
    * Tabata passes it PER INTERVAL: a lead-in only before the FIRST interval of
    * the block, and 0 for every interval after — the 10s rest IS the get-ready,
@@ -124,6 +132,7 @@ export default function IsometricTimerCard({
   autoStart = false,
   autoCompleteAtTarget = false,
   isTabata = false,
+  machineTabataLabel = null,
   prepSeconds = PREP_SECONDS,
 }: IsometricTimerCardProps) {
   const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
@@ -323,6 +332,14 @@ export default function IsometricTimerCard({
               style={{ fontFamily: 'var(--font-simpler)', background: '#00BAF7', color: 'white' }}
             >
               טבטה
+            </span>
+          )}
+          {isTabata && machineTabataLabel && (
+            <span
+              className="text-[10px] font-bold text-[#00BAF7] uppercase tracking-wider tabular-nums"
+              style={{ fontFamily: 'var(--font-simpler)' }}
+            >
+              מכונה {machineTabataLabel.machine}/{machineTabataLabel.machineCount} · סבב {machineTabataLabel.round}/{machineTabataLabel.roundsPerMember}
             </span>
           )}
           {sideLabel && (
