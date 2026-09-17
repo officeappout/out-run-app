@@ -141,6 +141,37 @@ export async function getAllContributions(
 }
 
 /**
+ * Resolves display names for a set of reviewer UIDs from `userPublic`
+ * (never the raw `users/{uid}` doc — that's owner+admin only). Individual
+ * `getDoc` reads, not the batched `documentId() in [...]` helper
+ * (getUsersByUids in user-search.service.ts) — that helper's `list` query
+ * requires `where('ageGroup','==', callerAgeGroup)` (a minor/adult
+ * discovery-safety rule) and would silently drop any reviewer on the other
+ * side of that split. A review is public park content readable by anyone
+ * (firestore.rules: `resource.data.type == 'review'`), so a single `get` by
+ * an already-known uid is the right, unrestricted read here — see
+ * `userPublic`'s own rule comment ("a profile link... stays unrestricted").
+ *
+ * A uid with no `userPublic` doc (not discoverable, or account deleted)
+ * falls back to 'משתמש' — never the raw uid.
+ */
+export async function getReviewerNames(uids: string[]): Promise<Record<string, string>> {
+  const unique = Array.from(new Set(uids.filter(Boolean)));
+  const pairs = await Promise.all(
+    unique.map(async (uid): Promise<[string, string]> => {
+      try {
+        const snap = await getDoc(doc(db, 'userPublic', uid));
+        const name = snap.exists() ? (snap.data()?.name as string | undefined) : undefined;
+        return [uid, name?.trim() || 'משתמש'];
+      } catch {
+        return [uid, 'משתמש'];
+      }
+    }),
+  );
+  return Object.fromEntries(pairs);
+}
+
+/**
  * Fetch reviews for a specific park. Uses a targeted query that satisfies
  * the Firestore security rule (type == 'review') so non-admin users
  * don't trigger a 403 on the user_contributions collection.

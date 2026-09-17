@@ -16,7 +16,7 @@ import IconChip from './IconChip';
 import { AMENITY_ICON_MAP, AMENITY_DISPLAY_ORDER } from './amenity-icons';
 import SuggestEditSheet from '../contribution-wizard/SuggestEditSheet';
 import StarRatingWidget from '../contribution-wizard/StarRatingWidget';
-import { createContribution, recomputeAndSaveParkRating } from '@/features/parks/core/services/contribution.service';
+import { createContribution, recomputeAndSaveParkRating, getReviewerNames } from '@/features/parks/core/services/contribution.service';
 import { XP_REWARDS } from '@/types/contribution.types';
 import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
 import { useParkEvents, matchesDayFilter, type DayFilter, type SessionEnrichment } from '@/features/parks/core/hooks/useCommunityEnrichment';
@@ -66,6 +66,9 @@ const START_WORKOUT_CTA_LINES = [
   'מה הכנו לכם היום?',
   'רוצים לראות מה יש בפנים?',
 ];
+
+/** Reviews list starts collapsed to this many — "צפה בעוד ביקורות" reveals the rest. */
+const REVIEWS_COLLAPSED_COUNT = 3;
 
 function formatDate(ts: any): string {
   if (!ts) return '';
@@ -150,6 +153,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
   const [reviews, setReviews] = useState<UserContribution[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  // uid → display name, resolved from userPublic (never the raw uid — see
+  // getReviewerNames' own doc comment). Re-resolved whenever `reviews`
+  // changes (new fetch, or the live refresh after a submit).
+  const [reviewerNames, setReviewerNames] = useState<Record<string, string>>({});
+  // Reviews list starts collapsed to ~3 — see the "צפה בעוד ביקורות" button below.
+  const [reviewsExpanded, setReviewsExpanded] = useState(false);
   const [suggestEditOpen, setSuggestEditOpen] = useState(false);
   // Resolved equipment metadata for `park.gymEquipment` ids — needed to
   // render the "מתקנים" grid with proper SVG icons + Hebrew names. The
@@ -471,13 +480,27 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
   // Load reviews for this park
   useEffect(() => {
-    if (!isOpen || !park?.id) { setReviews([]); return; }
+    if (!isOpen || !park?.id) { setReviews([]); setReviewsExpanded(false); return; }
     setReviewsLoading(true);
     getReviewsForPark(park.id)
       .then(setReviews)
       .catch(err => console.error('[ParkDetailSheet] Reviews load failed:', err))
       .finally(() => setReviewsLoading(false));
   }, [isOpen, park?.id]);
+
+  // Resolve reviewer display names whenever the review list changes (new
+  // fetch, or the live refresh right after a submit) — never render a raw
+  // uid. See getReviewerNames' own doc comment for why this can't reuse
+  // the age-group-scoped batch lookup used elsewhere in the app.
+  useEffect(() => {
+    const uids = reviews.map((r) => r.userId).filter(Boolean) as string[];
+    if (uids.length === 0) { setReviewerNames({}); return; }
+    let cancelled = false;
+    getReviewerNames(uids).then((names) => {
+      if (!cancelled) setReviewerNames(names);
+    });
+    return () => { cancelled = true; };
+  }, [reviews]);
 
   // Resolve equipment ids → full GymEquipment docs so the "מתקנים"
   // grid can render the SVG icon (iconKey) + Hebrew name. Cancellable
@@ -506,6 +529,9 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
     if (rated.length === 0) return park?.rating ?? null;
     return rated.reduce((sum, r) => sum + (r.rating ?? 0), 0) / rated.length;
   }, [reviews, park?.rating]);
+
+  const ratedReviews = useMemo(() => reviews.filter(r => r.rating), [reviews]);
+  const visibleReviews = reviewsExpanded ? ratedReviews : ratedReviews.slice(0, REVIEWS_COLLAPSED_COUNT);
 
   const distText = useMemo(() => {
     if (!userLocation || !park?.location) return null;
@@ -1112,31 +1138,50 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                     )}
                   </section>
 
-                  {/* Reviews list */}
-                  {reviews.filter(r => r.rating).length > 0 && (
+                  {/* Reviews list — Google-style: no card fill/box, a thin
+                      divider between entries, generous whitespace. Collapsed
+                      to REVIEWS_COLLAPSED_COUNT by default; "צפה בעוד ביקורות"
+                      reveals the rest (all of it — already fetched, no
+                      further read). Reviewer name always comes from
+                      reviewerNames (userPublic lookup, 'משתמש' fallback) —
+                      never the raw uid. */}
+                  {ratedReviews.length > 0 && (
                     <section className="mb-4">
                       <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">ביקורות</h3>
-                      <div className="space-y-3">
-                        {reviews.filter(r => r.rating).slice(0, 6).map(review => (
-                          <div key={review.id} className="bg-gray-50 dark:bg-slate-800/40 rounded-xl p-3.5" style={{ border: '0.5px solid #E0E9FF' }}>
-                            <div className="flex items-center justify-between mb-1.5">
+                      <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                        {visibleReviews.map(review => {
+                          const reviewerName = (review.userId && reviewerNames[review.userId]) || 'משתמש';
+                          return (
+                            <div key={review.id} className="py-3.5 first:pt-0">
                               <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                                  <span className="text-[10px] text-white font-black">{review.userId?.charAt(0)?.toUpperCase() ?? '?'}</span>
+                                <div className="w-8 h-8 flex-shrink-0 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+                                  <span className="text-[11px] text-white font-black">{reviewerName.charAt(0).toUpperCase()}</span>
                                 </div>
-                                <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400">{review.userId?.slice(0, 8)}...</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[12px] font-bold text-gray-800 dark:text-gray-200 truncate">{reviewerName}</p>
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-0.5">
+                                      {[1, 2, 3, 4, 5].map(s => (
+                                        <Star key={s} size={11} className={s <= (review.rating ?? 0) ? 'text-amber-400' : 'text-gray-200 dark:text-gray-600'} fill={s <= (review.rating ?? 0) ? '#FBBF24' : 'none'} />
+                                      ))}
+                                    </div>
+                                    <span className="text-[10px] text-gray-400">{formatDate(review.createdAt)}</span>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-0.5">
-                                {[1, 2, 3, 4, 5].map(s => (
-                                  <Star key={s} size={12} className={s <= (review.rating ?? 0) ? 'text-amber-400' : 'text-gray-200 dark:text-gray-600'} fill={s <= (review.rating ?? 0) ? '#FBBF24' : 'none'} />
-                                ))}
-                              </div>
+                              {review.comment && <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mt-1.5 pr-10">{review.comment}</p>}
                             </div>
-                            {review.comment && <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed pr-9">{review.comment}</p>}
-                            <p className="text-[10px] text-gray-400 mt-1 pr-9">{formatDate(review.createdAt)}</p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
+                      {!reviewsExpanded && ratedReviews.length > REVIEWS_COLLAPSED_COUNT && (
+                        <button
+                          onClick={() => setReviewsExpanded(true)}
+                          className="mt-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 active:opacity-70 transition-opacity"
+                        >
+                          צפה בעוד ביקורות ({ratedReviews.length - REVIEWS_COLLAPSED_COUNT})
+                        </button>
+                      )}
                     </section>
                   )}
                 </div>
