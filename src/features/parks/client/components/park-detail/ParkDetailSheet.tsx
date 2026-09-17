@@ -595,6 +595,12 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
       // that read ratingAvg/reviewCount instead of fetching reviews live.
       // Swallows its own failure internally — never blocks this success path.
       await recomputeAndSaveParkRating(park.id);
+      // Refresh the live `reviews` state so this sheet's own star display
+      // (avgRating, computed from `reviews` — see below) updates immediately
+      // without requiring the user to close and reopen the sheet. Without
+      // this, the just-submitted review only shows up on the NEXT open (the
+      // fetch effect only re-runs on isOpen/park.id changes).
+      getReviewsForPark(park.id).then(setReviews).catch(() => {});
       setRatingDone(true);
       setTimeout(() => { setRatingOpen(false); setRatingDone(false); setUserRating(0); setRatingComment(''); }, 1500);
     } catch (err) {
