@@ -345,15 +345,25 @@ export function useAuthorities(verticalTypes?: AuthorityType[] | null) {
 
     try {
       setReSeeding(true);
-      const result = await reSeedIsraeliAuthorities();
-      
-      let message = `הטעינה מחדש הושלמה!\n`;
-      message += `🗑️ נמחקו: ${result.deleted} רשויות\n`;
-      message += `✓ נוצרו: ${result.created} רשויות\n`;
-      if (result.errors > 0) {
-        message += `✗ שגיאות: ${result.errors}\n\n${result.report}`;
+      // Explicit real-run request — the confirm() above is this call's only
+      // consent step. reSeedIsraeliAuthorities has its own safety gate on
+      // top of this (env var + a project-id check that currently refuses
+      // unconditionally, since there is no separate staging project — see
+      // re-seed-authorities.ts) and will throw, not silently no-op, if that
+      // gate isn't satisfied; the catch block below surfaces why.
+      const result = await reSeedIsraeliAuthorities({ dryRun: false, confirmPhrase: 'DELETE ALL AUTHORITIES' });
+
+      let message = result.dryRun
+        ? `הרצת בדיקה בלבד — לא נכתב דבר.\n${result.report}`
+        : `הטעינה מחדש הושלמה!\n`;
+      if (!result.dryRun) {
+        message += `🗑️ נמחקו: ${result.deleted} רשויות\n`;
+        message += `✓ נוצרו: ${result.created} רשויות\n`;
+        if (result.errors > 0) {
+          message += `✗ שגיאות: ${result.errors}\n\n${result.report}`;
+        }
       }
-      
+
       alert(message);
       // onSnapshot will auto-update the list
     } catch (error: any) {

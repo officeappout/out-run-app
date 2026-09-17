@@ -93,27 +93,86 @@ function getCoordinates(locationId: string, parentCoordinates?: { lat: number; l
 }
 
 /**
- * Clean and Re-seed all Israeli authorities
+ * Safety gate — see docs/audit-2026-09/00-MASTER-PLAN.md §10: this app has
+ * no separate staging Firebase project. Dev/preview/production all point at
+ * the same real "appout-1" data. That means a project-id check cannot
+ * distinguish "safe to test against" from "production" the way it normally
+ * would — so until a genuinely separate non-production project exists, this
+ * refuses to run destructively against "appout-1" at all, unconditionally,
+ * even with every other flag set correctly.
  */
-export async function reSeedIsraeliAuthorities(): Promise<{ 
-  deleted: number; 
-  created: number; 
+const KNOWN_PRODUCTION_PROJECT_ID = 'appout-1';
+const REQUIRED_CONFIRM_PHRASE = 'DELETE ALL AUTHORITIES';
+
+export interface ReSeedOptions {
+  /** Defaults to true. Must be explicitly passed as `false` to write anything. */
+  dryRun?: boolean;
+  /** Must exactly equal REQUIRED_CONFIRM_PHRASE for a non-dry-run call to proceed. */
+  confirmPhrase?: string;
+}
+
+export interface ReSeedResult {
+  dryRun: boolean;
+  deleted: number;
+  created: number;
   errors: number;
   report: string;
-}> {
+}
+
+/**
+ * Clean and Re-seed all Israeli authorities.
+ *
+ * Destructive by design (deletes the entire `authorities` collection, then
+ * recreates it) — see the module-level safety-gate comment above. Defaults
+ * to a dry run: counts what would be deleted/created, writes nothing.
+ */
+export async function reSeedIsraeliAuthorities(options: ReSeedOptions = {}): Promise<ReSeedResult> {
+  const dryRun = options.dryRun !== false;
+
+  if (!dryRun) {
+    const projectId = db.app.options.projectId;
+    if (projectId === KNOWN_PRODUCTION_PROJECT_ID) {
+      throw new Error(
+        `[Re-Seed] Refusing: connected Firebase project is "${projectId}", the only project ` +
+        'this app has — no staging project exists (00-MASTER-PLAN §10). A real destructive ' +
+        'run requires a genuinely separate non-production project; this guard does not lift ' +
+        'for any flag combination until one exists.'
+      );
+    }
+    if (process.env.ALLOW_DESTRUCTIVE_RESEED !== 'yes-i-am-sure') {
+      throw new Error('[Re-Seed] Refusing: ALLOW_DESTRUCTIVE_RESEED env var is not set to the exact required value.');
+    }
+    if (options.confirmPhrase !== REQUIRED_CONFIRM_PHRASE) {
+      throw new Error(`[Re-Seed] Refusing: confirmPhrase must exactly equal "${REQUIRED_CONFIRM_PHRASE}".`);
+    }
+  }
+
   let deleted = 0;
   let created = 0;
   let errors = 0;
   const errorMessages: string[] = [];
 
-  console.log('[Re-Seed] Starting clean re-seed of Israeli authorities...');
+  console.log(dryRun
+    ? '[Re-Seed] DRY RUN — counting what would change, writing nothing...'
+    : '[Re-Seed] Starting clean re-seed of Israeli authorities...');
 
   try {
     // Step 1: Delete ALL existing authorities (except internal records)
-    console.log('[Re-Seed] Step 1: Deleting existing authorities...');
+    console.log(dryRun ? '[Re-Seed] Step 1 (dry run): counting existing authorities...' : '[Re-Seed] Step 1: Deleting existing authorities...');
     const authoritiesRef = collection(db, AUTHORITIES_COLLECTION);
     const snapshot = await getDocs(authoritiesRef);
-    
+
+    if (dryRun) {
+      const wouldDelete = snapshot.docs.filter(d => !(d.id.includes('__SCHEMA_INIT__') || d.data()?.name?.includes('__SCHEMA_INIT__'))).length;
+      const wouldCreate = ISRAELI_LOCATIONS.reduce(
+        (sum, loc) => sum + (loc.name.includes('__SCHEMA_INIT__') || loc.id.includes('__SCHEMA_INIT__') ? 0 : 1 + (loc.subLocations?.length ?? 0)),
+        0,
+      );
+      const report = `[DRY RUN] would delete ${wouldDelete} existing authorities, would create ${wouldCreate} new ones. Nothing was written.`;
+      console.log(`[Re-Seed] ${report}`);
+      return { dryRun: true, deleted: 0, created: 0, errors: 0, report };
+    }
+
     for (const docSnapshot of snapshot.docs) {
       const data = docSnapshot.data();
       const docId = docSnapshot.id;
@@ -230,6 +289,7 @@ export async function reSeedIsraeliAuthorities(): Promise<{
     console.log(`[Re-Seed] ${report}`);
 
     return {
+      dryRun: false,
       deleted,
       created,
       errors,
