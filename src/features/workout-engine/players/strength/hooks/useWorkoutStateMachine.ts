@@ -9,7 +9,7 @@ import { effectiveSetsForExercise } from '../logic/set-target.utils';
 import { computeAdvanceDecision } from '../protocols/compute-advance';
 import type { AdvanceContext } from '../protocols/advance-strategy.types';
 import { resolveBlockProtocol, type BlockProtocolInfo } from '../protocols/block-protocol';
-import { tabataIntervalInfo, tabataMemberCosts } from '../protocols/tabata.advance';
+import { tabataIntervalInfo, tabataMemberCosts, tabataRoundsPerMember } from '../protocols/tabata.advance';
 import { computeTabataStep } from '../protocols/tabata.step';
 import { useSupersetPredicates } from './useSupersetPredicates';
 import { useExerciseDerivedValues } from './useExerciseDerivedValues';
@@ -90,7 +90,7 @@ export interface WorkoutStateMachineResult {
   fadeIn: boolean;
   videoProgress: number;
 
-  /** True when the log-reps drawer is visible over RestWithPreview */
+  /** True when the log-reps drawer is visible over RestScreen */
   isLogDrawerOpen: boolean;
 
   elapsedTime: number;
@@ -137,6 +137,10 @@ export interface WorkoutStateMachineResult {
   totalRounds: number;
   /** Tabata interval position (1-based current / total rounds), or null when not in a tabata block */
   tabataInterval: { current: number; total: number } | null;
+  /** Machine-tabata-only header label data ("מכונה X/2 · סבב Y/2") — null for
+   *  every other block, including the general-finisher tabata (which never
+   *  sets orderMode). Display-only; does not affect interval math/ordering. */
+  machineTabataLabel: { machine: number; machineCount: number; round: number; roundsPerMember: number } | null;
   /** Last confirmed reps for the current exercise (from previous set), or null */
   lastSavedReps: number | null;
   /** True when the current exercise is part of an antagonist superset pair */
@@ -548,6 +552,42 @@ export function useWorkoutStateMachine(
     const current = intervalIndex + 1 + (currentSide === 'left' ? 1 : 0);
     return { current: Math.min(current, blockProtocol.config.rounds), total: blockProtocol.config.rounds };
   }, [blockProtocol, currentSegment, currentExerciseIndex, currentSetIndex, currentSide, getExercises]);
+
+  // ── Machine-tabata header label (16.09.2026) ─────────────────────────────
+  // "מכונה X/2 · סבב Y/2" instead of "אינטרוול X/4" — display only, scoped by
+  // orderMode === 'exercise-major', the exact signal ONLY the machine/park
+  // composer ever sets (compose-park-strength-workout.service.ts). The
+  // general-finisher tabata never sets orderMode, so this stays null for it
+  // by construction — no separate machine-vs-finisher check needed. Reuses
+  // (does not modify) the same pure tabataRoundsPerMember used by the actual
+  // advance head in tabata.advance.ts, so the two can never disagree.
+  const machineTabataLabel = useMemo<
+    { machine: number; machineCount: number; round: number; roundsPerMember: number } | null
+  >(() => {
+    if (blockProtocol?.id !== 'tabata' || blockProtocol.config.orderMode !== 'exercise-major') return null;
+    const exercises = (getExercises(currentSegment) ?? []) as unknown as Array<Record<string, unknown>>;
+    const costs = tabataMemberCosts(exercises);
+    const roundsPerMember = tabataRoundsPerMember(blockProtocol.config.rounds, costs);
+    let machineIdx = currentExerciseIndex;
+    let roundIdx = currentSetIndex + (currentSide === 'left' ? 1 : 0);
+    // During rest, show "who's coming up next" (mirrors tabataAdvance's
+    // exercise-major branch) — display only, does not call or alter the
+    // actual advance decision made elsewhere.
+    if (workoutState === 'RESTING') {
+      if (roundIdx + 1 < roundsPerMember) {
+        roundIdx += 1;
+      } else {
+        machineIdx += 1;
+        roundIdx = 0;
+      }
+    }
+    return {
+      machine: Math.min(machineIdx + 1, exercises.length),
+      machineCount: exercises.length,
+      round: Math.min(roundIdx + 1, roundsPerMember),
+      roundsPerMember,
+    };
+  }, [blockProtocol, currentSegment, currentExerciseIndex, currentSetIndex, currentSide, workoutState, getExercises]);
 
   // ── SM-1: Pyramid protocol — pure derivations (see usePyramidManager.ts) ──
   const { pyramidStep, isPyramidActive } = usePyramidManager({ activeExercise, currentSetIndex });
@@ -1074,6 +1114,7 @@ export function useWorkoutStateMachine(
     currentRound: currentSetIndex + 1,
     totalRounds: setsForCurrentExercise,
     tabataInterval,
+    machineTabataLabel,
     lastSavedReps,
     isSupersetActive,
     supersetPartnerName,

@@ -6,7 +6,7 @@ import HorizontalPicker from './HorizontalPicker';
 /**
  * LogDrawerContent — bottom-sheet RESTING-state input drawer.
  *
- * Rendered inside RestWithPreview as the `logDrawerNode` slot.  Displays:
+ * Rendered inside RestScreen as the `logDrawerNode` slot.  Displays:
  *   • A localized prompt ("how many reps / seconds?")
  *   • A loading spinner during the 280 ms drawer-stability gate
  *   • Either a dual unilateral picker (right / left) OR a single picker

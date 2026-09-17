@@ -43,7 +43,7 @@ import PreparingStateView from './components/PreparingStateView';
 import InputStateView from './components/InputStateView';
 import RestingStateView from './components/RestingStateView';
 import ActiveExerciseView from './components/ActiveExerciseView';
-import TabataRestCard from './components/TabataRestCard';
+import RestScreen from './components/RestScreen';
 import WorkoutPlaylist from './playlist/WorkoutPlaylist';
 
 import {
@@ -236,7 +236,7 @@ export default function StrengthRunner({
   // (not the next one). We continuously refresh the snapshot from sm values
   // while the drawer is open so it stays in sync with any late-arriving data
   // (e.g. videoUrl resolving after mount). When the drawer closes, we clear
-  // the snapshot so RestWithPreview switches to the next exercise.
+  // the snapshot so RestScreen switches to the next exercise.
   const currentExerciseSnapshotRef = useRef<NextExerciseInfo | null>(null);
 
   if (sm.isLogDrawerOpen && sm.activeExercise) {
@@ -288,7 +288,7 @@ export default function StrengthRunner({
     : undefined;
 
   // ── Log Drawer content (extracted to LogDrawerContent, Step R-5) ─────────
-  // Slot rendered inside RestWithPreview as the `logDrawerNode`.  All picker
+  // Slot rendered inside RestScreen as the `logDrawerNode`.  All picker
   // wiring is piped from the picker hook; save callbacks below stitch the
   // component to the state-machine while keeping coach-hint UX inside the view.
   const logDrawerContent = (
@@ -446,19 +446,21 @@ export default function StrengthRunner({
 
     // RESTING — circular timer + next-exercise preview + coach hint (extracted to RestingStateView, R-11)
     if (sm.workoutState === 'RESTING') {
-      // Tabata: same bottom-sheet time-based-card visual language as the work
-      // interval (IsometricTimerCard), not the full-screen overlay. Fed by the
-      // machine's rest clock (restTimeLeft), which owns the 3/2/1 beeps +
-      // auto-advance — purely presentational, no timer of its own here.
+      // Tabata: same shared RestScreen as every other exercise type now
+      // (16.09.2026 rest-screen unification). Fed by the machine's rest clock
+      // (restTimeLeft), which owns the 3/2/1 beeps + auto-advance — purely
+      // presentational, no timer of its own here. No onSkip/logDrawerNode —
+      // tabata rest has no manual skip and no rep-logging mid-block, same as
+      // before the unification.
       if (sm.blockProtocol?.id === 'tabata') {
         return (
-          <TabataRestCard
+          <RestScreen
             restTimeLeft={sm.restTimeLeft}
-            totalRest={sm.blockProtocol.config.restSec}
-            nextExerciseName={restPreviewExercise.name}
-            safeVideoUrl={safeNextVideoUrl}
-            safeImageUrl={null}
+            formatTime={sm.formatTime}
+            nextExercise={restPreviewExercise}
             fadeIn={sm.fadeIn}
+            isPaused={sm.isPaused}
+            videoKey={`tabata-next-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}`}
           />
         );
       }
@@ -609,6 +611,7 @@ export default function StrengthRunner({
                 totalRounds={sm.totalRounds}
                 currentRound={sm.currentRound}
                 tabataInterval={sm.tabataInterval}
+                machineTabataLabel={sm.machineTabataLabel}
                 isWarmupSegment={isWarmupSegment}
                 isCooldownSegment={isCooldownSegment}
                 currentExLoggedReps={currentExLoggedReps}

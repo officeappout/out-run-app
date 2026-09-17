@@ -22,7 +22,6 @@ export { default as WorkoutStoryBars } from './components/WorkoutStoryBars';
 export { default as ExerciseVideoPlayer } from './components/ExerciseVideoPlayer';
 export { default as ExerciseDetailsSheet } from './components/ExerciseDetailsSheet';
 export { default as RestScreen } from './components/RestScreen';
-export { default as RestWithPreview } from './components/RestWithPreview';
 
 // Overlays
 export { default as TimeLoggerPopup } from './overlays/TimeLoggerPopup';

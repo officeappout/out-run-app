@@ -62,6 +62,9 @@ export interface RunnerHeaderProps {
   currentRound: number;
   /** Tabata interval position (1-based / total) — replaces the set pills inside a tabata block. */
   tabataInterval?: { current: number; total: number } | null;
+  /** Machine-tabata-only label data ("מכונה X/2 · סבב Y/2"). Null for every
+   *  other block, including the general-finisher tabata. Display-only. */
+  machineTabataLabel?: { machine: number; machineCount: number; round: number; roundsPerMember: number } | null;
   /** Whether the active segment is the warmup (suppresses set pills). */
   isWarmupSegment: boolean;
   /** Whether the active segment is the cooldown (suppresses set pills). */
@@ -102,6 +105,7 @@ export default function RunnerHeader({
   totalRounds,
   currentRound,
   tabataInterval,
+  machineTabataLabel,
   isWarmupSegment,
   isCooldownSegment,
   currentExLoggedReps,
@@ -194,9 +198,11 @@ export default function RunnerHeader({
               className="text-[11px] font-bold text-[#00BAF7] uppercase tracking-wider tabular-nums"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              אינטרוול {isResting
-                ? Math.min(tabataInterval.current + 1, tabataInterval.total)
-                : tabataInterval.current}/{tabataInterval.total}
+              {machineTabataLabel
+                ? `מכונה ${machineTabataLabel.machine}/${machineTabataLabel.machineCount} · סבב ${machineTabataLabel.round}/${machineTabataLabel.roundsPerMember}`
+                : `אינטרוול ${isResting
+                    ? Math.min(tabataInterval.current + 1, tabataInterval.total)
+                    : tabataInterval.current}/${tabataInterval.total}`}
             </span>
           </div>
         )}

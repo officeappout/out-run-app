@@ -2,13 +2,14 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import RestWithPreview from './RestWithPreview';
+import RestScreen from './RestScreen';
 
 /**
  * RestingStateView — RESTING phase orchestrator.
  *
- * Wraps the canonical `RestWithPreview` rest-timer/next-exercise lyrics card
- * and overlays an optional floating "coach hint" notification above the
+ * Wraps the canonical `RestScreen` rest-timer/next-exercise card (shared with
+ * the tabata RESTING branch in StrengthRunner.tsx) and overlays an optional
+ * floating "coach hint" notification above the
  * bottom rest drawer (only when range comparison flagged fail / overachieve
  * AND we're not on the last set AND the log drawer isn't already open).
  *
@@ -87,7 +88,7 @@ export default function RestingStateView({
     <div
       className={`absolute inset-0 transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
     >
-      <RestWithPreview
+      <RestScreen
         restTimeLeft={restTimeLeft}
         formatTime={formatTime}
         nextExercise={nextExercise}
