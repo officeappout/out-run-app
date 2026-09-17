@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Dumbbell } from 'lucide-react';
 import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import type { NextExerciseInfo } from '../hooks/useWorkoutStateMachine';
@@ -25,10 +26,16 @@ import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
  *   - Center: "מנוחה" title + big countdown + the shared rest Lottie
  *     animation (same @lottiefiles/dotlottie-react + self-hosted WASM the
  *     flame indicator uses — src/components/ui/AnimatedFlame.tsx).
- *   - Top-left: collapsible next-exercise tile (default collapsed — name
- *     only; tap expands to the actual video; tap again collapses). The video
- *     player only mounts once expanded, so a machine/Bunny video that's slow
- *     or fails to resolve never renders large-and-broken by default.
+ *   - Bottom-left (16.09.2026 — moved off top-left, which sat directly under
+ *     RunnerHeader's Pause button: this app is dir="rtl" globally, so the
+ *     header's LAST flex child — Pause — renders at the physical top-left,
+ *     exactly where the tile used to live, and the header's z-[45] sits above
+ *     this component's z-20): collapsible next-exercise tile, showing a
+ *     poster/thumbnail by default (name overlay on top; a Dumbbell icon when
+ *     no image resolves at all) — tap expands to the actual video; tap again
+ *     collapses. The video player only mounts once expanded, so a
+ *     machine/Bunny video that's slow or fails to resolve never renders
+ *     large-and-broken by default.
  *   - Optional skip button (onSkip) — only for non-tabata; tabata rest has no
  *     skip control, unchanged from before.
  *   - Optional LOG_REPS drawer slot (logDrawerNode) — only for non-tabata.
@@ -78,6 +85,7 @@ export default function RestScreen({
   isLogDrawerOpen = false,
 }: RestScreenProps) {
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(false);
 
   // Same Bunny-aware resolution the old RestWithPreview used — byte-identical
   // fallback when there's no bunnyVideoId (legacy URL untouched).
@@ -88,8 +96,11 @@ export default function RestScreen({
   // engine's own multi-tier fallback (useExerciseDerivedValues.ts) — trust it
   // first. When it's null but the exercise IS a Bunny video, Bunny renders an
   // auto-generated thumbnail after encoding (buildBunnyThumbnailUrl) — use
-  // that instead of leaving the tile blank while collapsed.
+  // that instead of leaving the tile blank while collapsed. When NEITHER
+  // resolves (or the image URL 404s), showPosterIcon renders a Dumbbell
+  // placeholder instead of an empty box.
   const posterUrl = nextExercise.imageUrl || (nextExercise.bunnyVideoId ? buildBunnyThumbnailUrl(nextExercise.bunnyVideoId) : null);
+  const showPosterIcon = !posterUrl || posterFailed;
 
   const clampedRemaining = Math.max(0, restTimeLeft);
   // Final 3-2-1 — reads the EXISTING rest countdown only, no new timer, no
@@ -106,10 +117,14 @@ export default function RestScreen({
 
       {!isLogDrawerOpen && (
         <>
-          {/* Top-left — collapsible next-exercise tile + label below it */}
+          {/* Bottom-left — collapsible next-exercise tile + label above it.
+              Anchored from the BOTTOM (not the top) so it can never collide
+              with RunnerHeader regardless of the header's own dynamic height
+              across workout types; the skip button (non-tabata only) is
+              horizontally centered, so this stays clear of it too. */}
           <div
             className="absolute z-20 flex flex-col items-start gap-1.5"
-            style={{ top: 'calc(env(safe-area-inset-top, 44px) + 0.75rem)', left: '1rem' }}
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 24px) + 5rem)', left: '1rem' }}
           >
             <button
               onClick={() => setIsPreviewExpanded((v) => !v)}
@@ -131,14 +146,18 @@ export default function RestScreen({
                   isPaused={isPaused}
                 />
               ) : (
-                <div className="relative w-full h-full">
-                  {posterUrl && (
+                <div className="relative w-full h-full bg-slate-700">
+                  {showPosterIcon ? (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Dumbbell size={22} className="text-slate-400" />
+                    </div>
+                  ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={posterUrl}
+                      src={posterUrl!}
                       alt=""
                       className="absolute inset-0 w-full h-full object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      onError={() => setPosterFailed(true)}
                     />
                   )}
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-1">

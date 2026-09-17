@@ -62,6 +62,11 @@ export interface RunnerHeaderProps {
   currentRound: number;
   /** Tabata interval position (1-based / total) — replaces the set pills inside a tabata block. */
   tabataInterval?: { current: number; total: number } | null;
+  /** True for a machine-tabata block (orderMode === 'exercise-major') — hides
+   *  this top "אינטרוול X/4" row entirely, since the equivalent "מתקן X/2 ·
+   *  סבב Y/2" label now lives next to the "טבטה" badge on the work card
+   *  (16.09.2026). General-finisher tabata (no bottom label) is unaffected. */
+  isMachineTabata?: boolean;
   /** Whether the active segment is the warmup (suppresses set pills). */
   isWarmupSegment: boolean;
   /** Whether the active segment is the cooldown (suppresses set pills). */
@@ -102,6 +107,7 @@ export default function RunnerHeader({
   totalRounds,
   currentRound,
   tabataInterval,
+  isMachineTabata = false,
   isWarmupSegment,
   isCooldownSegment,
   currentExLoggedReps,
@@ -188,7 +194,7 @@ export default function RunnerHeader({
             the number steps forward by one (capped at total) so it reads as
             "who's coming up", matching the next-exercise name shown alongside
             it on the rest card — during work it's simply the live interval. */}
-        {tabataInterval && (
+        {tabataInterval && !isMachineTabata && (
           <div className="flex justify-center mb-2">
             <span
               className="text-[11px] font-bold text-[#00BAF7] uppercase tracking-wider tabular-nums"

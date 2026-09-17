@@ -78,7 +78,7 @@ export interface ActiveExerciseViewProps {
    * Undefined outside tabata = IsometricTimerCard's default 5s prep.
    */
   timerPrepSeconds?: number;
-  /** Machine-tabata-only label ("מכונה X/2 · סבב Y/2") piped straight to
+  /** Machine-tabata-only label ("מתקן X/2 · סבב Y/2") piped straight to
    *  IsometricTimerCard's badge row. Null/undefined for every other block. */
   machineTabataLabel?: { machine: number; machineCount: number; round: number; roundsPerMember: number } | null;
   /** Active side for unilateral exercises ("left" / "right" / null) — drives timer remount + side label. */

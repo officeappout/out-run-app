@@ -52,7 +52,7 @@ interface IsometricTimerCardProps {
    */
   isTabata?: boolean;
   /**
-   * Machine-tabata-only label data ("מכונה X/2 · סבב Y/2"), rendered next to
+   * Machine-tabata-only label data ("מתקן X/2 · סבב Y/2"), rendered next to
    * the "טבטה" badge (16.09.2026 — moved here from the top header, closer to
    * where the eye already looks during the work interval). Null/undefined
    * for every other block, including the general-finisher tabata. Display
@@ -339,7 +339,7 @@ export default function IsometricTimerCard({
               className="text-[10px] font-bold text-[#00BAF7] uppercase tracking-wider tabular-nums"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              מכונה {machineTabataLabel.machine}/{machineTabataLabel.machineCount} · סבב {machineTabataLabel.round}/{machineTabataLabel.roundsPerMember}
+              מתקן {machineTabataLabel.machine}/{machineTabataLabel.machineCount} · סבב {machineTabataLabel.round}/{machineTabataLabel.roundsPerMember}
             </span>
           )}
           {sideLabel && (

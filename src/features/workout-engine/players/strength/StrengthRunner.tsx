@@ -612,6 +612,7 @@ export default function StrengthRunner({
                 totalRounds={sm.totalRounds}
                 currentRound={sm.currentRound}
                 tabataInterval={sm.tabataInterval}
+                isMachineTabata={!!sm.machineTabataLabel}
                 isWarmupSegment={isWarmupSegment}
                 isCooldownSegment={isCooldownSegment}
                 currentExLoggedReps={currentExLoggedReps}
