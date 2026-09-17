@@ -229,7 +229,7 @@ export default function NeighborhoodProfilePage() {
         try {
           const usersSnap = await getDocs(query(
             collection(db, 'users'),
-            where('core.authorityId', '==', neighborhoodId),
+            where('core.neighborhoodId', '==', neighborhoodId),
           ));
           const resList: PrivacyResident[] = usersSnap.docs.map(d => {
             const data = d.data();
