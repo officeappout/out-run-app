@@ -25,6 +25,7 @@
 import React from 'react';
 import { ChevronLeft, Dumbbell, Check } from 'lucide-react';
 import { bunnyImg } from '@/lib/bunny-image';
+import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 
 interface EquipmentCardProps {
@@ -71,6 +72,10 @@ export default function EquipmentCard({
       : undefined;
   // hasVideo: any brand has a video → the drawer will surface it (QW1 fallback). Row-layout only.
   const hasVideo = !!eq.brands?.some((b) => !!b.videoUrl);
+  // Same primaryMuscle resolution EquipmentDetailDrawer uses (falls back to
+  // the deprecated muscleGroups[0] when primaryMuscle itself was never set).
+  // Tile-layout only — the small icon that sits next to the equipment name.
+  const primaryMuscle = eq.primaryMuscle ?? eq.muscleGroups?.[0];
 
   const mediaFallback = (
     <div data-fallback className={brandImage ? 'hidden' : ''}>
@@ -116,7 +121,20 @@ export default function EquipmentCard({
           {/* Fade image bottom into card body — matches GroupCard's compact tile. */}
           <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white dark:from-slate-800/90 to-transparent pointer-events-none" />
         </div>
-        <div className="px-2.5 py-2">
+        <div className="px-2.5 py-2 flex items-start gap-1.5">
+          {primaryMuscle && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={MUSCLE_ICON_PATHS[primaryMuscle] ?? MUSCLE_FALLBACK_ICON}
+              alt=""
+              className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 opacity-70"
+              loading="lazy"
+              decoding="async"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          )}
           <p className="text-[13px] font-bold text-gray-900 dark:text-white leading-tight line-clamp-2">
             {eq.name}
           </p>

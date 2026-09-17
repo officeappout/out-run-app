@@ -581,7 +581,15 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
         location: park.location ?? { lat: 0, lng: 0 },
         linkedParkId: park.id,
         rating: userRating,
-        comment: ratingComment.trim() || undefined,
+        // Conditional spread, not `|| undefined` — a key PRESENT with value
+        // undefined still crashes addDoc() ("Unsupported field value:
+        // undefined"); it must be ABSENT entirely when there's no comment.
+        // Pre-existing bug (confirmed at origin/main before any park-page
+        // work here), not introduced by the Phase 2 rating changes — every
+        // rating submitted with no comment text was already failing to
+        // save before this fix. Same present-vs-absent distinction axioms.md
+        // §23 already documents for third-party option objects.
+        ...(ratingComment.trim() ? { comment: ratingComment.trim() } : {}),
       });
       // Keep the park's denormalized rating current for surfaces (ParkPreview)
       // that read ratingAvg/reviewCount instead of fetching reviews live.

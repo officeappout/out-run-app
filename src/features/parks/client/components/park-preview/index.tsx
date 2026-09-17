@@ -85,15 +85,19 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   // the browser default (centered) applies.
   const objectPosition = park.imagePosition || undefined;
 
+  // Organic rating only (ratingAvg/reviewCount) — no fallback to the legacy
+  // `rating` field, see park.types.ts's doc comment on both fields. Leads
+  // the info line (Google-style: rating first, "4.0 ★ (2)"), modest/inline
+  // rather than a standalone badge — empty until ratingAvg/reviewCount are
+  // populated (see scripts/backfill-park-ratings.ts, not yet run).
   const infoParts: string[] = [];
+  const hasRating = park.ratingAvg != null && (park.reviewCount ?? 0) > 0;
+  if (hasRating) infoParts.push(`${park.ratingAvg} ★ (${park.reviewCount})`);
   if (park.city) infoParts.push(park.city);
   if (distText) infoParts.push(distText);
   // Machine count — no fetch, park.gymEquipment is already on the loaded doc.
   const machineCount = park.gymEquipment?.length ?? 0;
   if (machineCount > 0) infoParts.push(`${machineCount} מתקנים`);
-  // Organic rating only (ratingAvg/reviewCount) — no fallback to the legacy
-  // `rating` field, see park.types.ts's doc comment on both fields.
-  const hasRating = park.ratingAvg != null && (park.reviewCount ?? 0) > 0;
 
   return (
     <>
@@ -130,31 +134,29 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
               <span className="material-icons-round text-[13px] leading-none">close</span>
             </button>
 
+            {/* Navigate — moved onto the hero (paired with Close) instead of
+                its own dedicated row below, which was mostly empty padding
+                around one small icon button. Removes that whole row. */}
+            <button
+              onClick={handleNavigate}
+              aria-label="נווט לפארק"
+              className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+            >
+              <Navigation size={14} fill="currentColor" />
+            </button>
+
             {/* Fade into card body */}
             <div className="absolute bottom-0 left-0 right-0 h-[70px] bg-gradient-to-b from-transparent to-white dark:to-zinc-800 pointer-events-none" />
           </div>
 
           {/* ── Body ─────────────────────────────────────── */}
           <div className="px-3 -mt-4 pb-2 relative">
-            <div className="flex items-center gap-2">
-              <h3 className="flex-1 min-w-0 truncate text-[16px] font-semibold text-gray-900 dark:text-white leading-snug">
-                {park.name}
-              </h3>
-              {/* Aggregate rating — a standalone amber badge, not buried in
-                  the small meta line below, so it reads as clearly present
-                  the moment ratingAvg/reviewCount are populated (empty on a
-                  park with pre-existing, not-yet-backfilled reviews — see
-                  scripts/backfill-park-ratings.ts). */}
-              {hasRating && (
-                <span className="flex-shrink-0 flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 rounded-full px-2 py-0.5">
-                  <span className="material-icons-round text-amber-400" style={{ fontSize: 13 }}>star</span>
-                  <span className="text-[13px] font-bold text-amber-700 dark:text-amber-400">{park.ratingAvg}</span>
-                  <span className="text-[11px] text-amber-600/70 dark:text-amber-500/70">({park.reviewCount})</span>
-                </span>
-              )}
-            </div>
+            <h3 className="text-[16px] font-semibold text-gray-900 dark:text-white leading-snug">
+              {park.name}
+            </h3>
 
-            {/* Info line: city · distance · machine count */}
+            {/* Info line: rating · city · distance · machine count — modest,
+                inline (Google-style "4.0 ★ (2)"), not a standalone badge. */}
             <div className="flex items-center gap-1 mt-0.5 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
               <span>{infoParts.join(' · ')}</span>
             </div>
@@ -185,17 +187,6 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
               </span>
             </div>
           )}
-
-          {/* Navigate CTA — icon-only circle; distance stays in the info line above. */}
-          <div className="px-3 py-2.5 flex justify-end">
-            <button
-              onClick={handleNavigate}
-              aria-label="נווט לפארק"
-              className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-cyan-500 text-white active:bg-cyan-600 transition-colors"
-            >
-              <Navigation size={16} fill="currentColor" />
-            </button>
-          </div>
 
         </div>
       </div>
