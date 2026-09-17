@@ -463,43 +463,6 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
   return (
     <div className="space-y-6">
 
-      {/* ── Health ROI Strip ────────────────────────────────────────── */}
-      {healthSavings ? (
-        <div className="relative overflow-hidden bg-gradient-to-r from-green-700 via-emerald-600 to-teal-500 rounded-xl px-5 py-3 text-white shadow-md" dir="rtl">
-          <div className="absolute -top-12 -left-12 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="relative flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <Heart size={18} className="text-white/80 flex-shrink-0" />
-              <span className="text-xs font-bold text-white/70 uppercase tracking-wider hidden sm:inline">ROI בריאותי</span>
-            </div>
-            <div className="flex items-center gap-6 flex-wrap">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black tabular-nums">₪{healthSavings.estimatedMonthlySavings.toLocaleString()}</span>
-                <span className="text-[11px] text-white/60 font-semibold">/חודש</span>
-              </div>
-              <div className="w-px h-5 bg-white/20 hidden sm:block" />
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black tabular-nums">₪{healthSavings.estimatedYearlySavings.toLocaleString()}</span>
-                <span className="text-[11px] text-white/60 font-semibold">/שנה</span>
-              </div>
-              <div className="w-px h-5 bg-white/20 hidden sm:block" />
-              <div className="flex items-baseline gap-1">
-                <span className="text-lg font-black tabular-nums">{healthSavings.activeUsers}</span>
-                <span className="text-[11px] text-white/50 font-semibold">/{healthSavings.totalUsers} עומדים ביעד WHO</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-gradient-to-r from-green-700 via-emerald-600 to-teal-500 rounded-xl px-5 py-3 text-white shadow-md animate-pulse">
-          <div className="flex items-center gap-3">
-            <Heart size={18} className="text-white/80" />
-            <span className="text-xs font-bold text-white/70">מחשב ROI בריאותי...</span>
-            <div className="h-5 bg-white/20 rounded w-32" />
-          </div>
-        </div>
-      )}
-
       {/* ── City Steps Strip (passive HealthKit / Health Connect sync,
            last 30 days) — same shape as the Health ROI strip above,
            reads dailyActivity directly via authorityId (denormalized at

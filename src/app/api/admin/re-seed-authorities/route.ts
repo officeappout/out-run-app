@@ -1,6 +1,10 @@
 /**
- * API Route to trigger re-seed of authorities
- * WARNING: This will delete all existing authorities and re-create them
+ * API Route to trigger re-seed of authorities.
+ * WARNING: a real (non-dry-run) call deletes all existing authorities and
+ * re-creates them. Defaults to a dry run — see re-seed-authorities.ts's
+ * safety gate for the full guard (env var + confirm phrase + a project-id
+ * check that currently refuses unconditionally, since there is no separate
+ * staging project). A request body is optional; omitting it is a dry run.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,10 +15,12 @@ export async function POST(request: NextRequest) {
   const denied = await requireSection(request, 'system');
   if (denied) return denied;
   try {
-    console.log('[API] Starting re-seed of authorities...');
-    
-    const result = await reSeedIsraeliAuthorities();
-    
+    const body = await request.json().catch(() => ({}));
+    const dryRun = body?.dryRun !== false;
+    console.log(dryRun ? '[API] Re-seed dry run requested...' : '[API] Starting DESTRUCTIVE re-seed of authorities...');
+
+    const result = await reSeedIsraeliAuthorities({ dryRun, confirmPhrase: body?.confirmPhrase });
+
     return NextResponse.json({
       success: true,
       ...result,
