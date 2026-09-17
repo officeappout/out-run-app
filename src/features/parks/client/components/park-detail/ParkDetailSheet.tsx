@@ -53,6 +53,20 @@ const FACILITY_LABELS: Record<string, string> = {
   zen_spot: 'פינת גוף-נפש', urban_spot: 'אורבן / אקסטרים', nature_community: 'טבע וקהילה',
 };
 
+/**
+ * Rotating curiosity lines for the primary CTA, replacing the static
+ * "התחל אימון". One is picked at random per sheet mount (the sheet body
+ * unmounts on close — see the `{isOpen && (...)}` branch below — so this
+ * naturally re-rolls on every open, not just once per session). Edit this
+ * array to change the copy; the onClick behavior is untouched.
+ */
+const START_WORKOUT_CTA_LINES = [
+  'סקרנים מה באימון?',
+  'בואו נגלה מה מחכה לכם',
+  'מה הכנו לכם היום?',
+  'רוצים לראות מה יש בפנים?',
+];
+
 function formatDate(ts: any): string {
   if (!ts) return '';
   const d = ts instanceof Date ? ts : typeof ts?.toDate === 'function' ? ts.toDate() : new Date(ts);
@@ -142,6 +156,29 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
   // stored `ParkGymEquipment` only carries equipmentId + brandName, so
   // we fan out one Firestore read per id (typically <10 per park).
   const [parkEquipment, setParkEquipment] = useState<GymEquipment[]>([]);
+
+  // 3-way categorization (David 17.09.2026): isCardio===true → aerobic;
+  // else isFunctional===true → functional; else → hydraulic. No ambiguous
+  // case exists in the current census (0 docs have both true), so no
+  // tiebreak is applied beyond "cardio wins" — kept in that order in case
+  // one shows up later. Docs missing isCardio (untyped gap, see the equipment
+  // census) fall through to functional/hydraulic same as an explicit false.
+  const equipmentSections = useMemo(() => {
+    const aerobic = parkEquipment.filter((eq) => eq.isCardio === true);
+    const functional = parkEquipment.filter((eq) => eq.isCardio !== true && eq.isFunctional === true);
+    const hydraulic = parkEquipment.filter((eq) => eq.isCardio !== true && eq.isFunctional !== true);
+    return [
+      { key: 'aerobic', label: 'אירובי', items: aerobic },
+      { key: 'functional', label: 'פונקציונלי', items: functional },
+      { key: 'hydraulic', label: 'הידראולי', items: hydraulic },
+    ].filter((section) => section.items.length > 0);
+  }, [parkEquipment]);
+
+  // Pick one CTA line per sheet mount — see START_WORKOUT_CTA_LINES above.
+  const startWorkoutCta = useMemo(
+    () => START_WORKOUT_CTA_LINES[Math.floor(Math.random() * START_WORKOUT_CTA_LINES.length)],
+    [],
+  );
 
   // Inline rating
   const [ratingOpen, setRatingOpen] = useState(false);
@@ -942,8 +979,10 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                   {/* ── (5) EQUIPMENT — fitness gear installed at the
                       park (pullup bar, parallel bars, rings, etc.).
                       Source: `park.gymEquipment` resolved against the
-                      `gym_equipment` collection. Each item is a
-                      tappable card that opens the
+                      `gym_equipment` collection, then split into
+                      אירובי/פונקציונלי/הידראולי sections (see
+                      equipmentSections above) — only non-empty sections
+                      render. Each item is a tappable tile that opens the
                       `EquipmentDetailDrawer` (a bottom sheet matching
                       the in-library exercise-drawer pattern) without
                       tearing the user out of the park context.
@@ -952,26 +991,39 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                       lands on the right brand variant out of the gate. */}
                   {parkEquipment.length > 0 && (
                     <section className="mb-6">
-                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">מתקנים</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        {parkEquipment.map((eq) => {
-                          const parkRef = park.gymEquipment?.find(
-                            (g) => g.equipmentId === eq.id,
-                          );
-                          // Resolution: per-equipment override → park-level primaryBrand → ''
-                          const brandName = parkRef?.brandName || park.primaryBrand || '';
-                          return (
-                            <EquipmentCard
-                              key={eq.id}
-                              equipment={eq}
-                              brandName={brandName}
-                              rightSlot="chevron"
-                              onClick={() =>
-                                setSelectedEquipment({ id: eq.id, brand: brandName || null })
-                              }
-                            />
-                          );
-                        })}
+                      <h3 className="text-[16px] font-bold text-gray-900 dark:text-white mb-3">
+                        מתקנים
+                        <span className="text-gray-400 dark:text-gray-500 font-medium"> ({park.gymEquipment?.length ?? 0})</span>
+                      </h3>
+                      <div className="space-y-4">
+                        {equipmentSections.map((section) => (
+                          <div key={section.key}>
+                            <h4 className="text-[13px] font-bold text-gray-500 dark:text-gray-400 mb-2">
+                              {section.label}
+                            </h4>
+                            <div className="grid grid-cols-2 gap-2">
+                              {section.items.map((eq) => {
+                                const parkRef = park.gymEquipment?.find(
+                                  (g) => g.equipmentId === eq.id,
+                                );
+                                // Resolution: per-equipment override → park-level primaryBrand → ''
+                                const brandName = parkRef?.brandName || park.primaryBrand || '';
+                                return (
+                                  <EquipmentCard
+                                    key={eq.id}
+                                    equipment={eq}
+                                    brandName={brandName}
+                                    layout="tile"
+                                    crossBrandFallback={false}
+                                    onClick={() =>
+                                      setSelectedEquipment({ id: eq.id, brand: brandName || null })
+                                    }
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </section>
                   )}
@@ -1082,7 +1134,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                     style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
                   >
                     <Play size={18} fill="currentColor" />
-                    <span>התחל אימון</span>
+                    <span>{startWorkoutCta}</span>
                   </button>
 
                   {/* Suggest Edit */}
