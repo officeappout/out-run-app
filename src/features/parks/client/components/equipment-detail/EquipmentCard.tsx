@@ -127,7 +127,7 @@ export default function EquipmentCard({
             <img
               src={MUSCLE_ICON_PATHS[primaryMuscle] ?? MUSCLE_FALLBACK_ICON}
               alt=""
-              className="w-5 h-5 flex-shrink-0 mt-0.5 opacity-80"
+              className="w-6 h-6 flex-shrink-0 mt-0.5 opacity-90"
               loading="lazy"
               decoding="async"
               onError={(e) => {
