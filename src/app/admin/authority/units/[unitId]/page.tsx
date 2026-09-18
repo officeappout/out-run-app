@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, limit, serverTimestamp } from 'firebase/firestore';
@@ -54,6 +54,7 @@ interface SubUnit {
 // ── Page ─────────────────────────────────────────────────────────────
 
 export default function UnitDrilldownPage() {
+  const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const rawUnitId = params?.unitId as string;
@@ -126,6 +127,18 @@ export default function UnitDrilldownPage() {
           resolvedTenantType = authorityTypeToTenantType(authority);
         }
         setTenantType(resolvedTenantType);
+
+        // Safety net for old links/bookmarks that predate the units/page.tsx
+        // fix routing municipal rows straight to neighborhoods/[id]. This
+        // page's data model (tenants/{orgId}/units, core.unitId) doesn't
+        // apply to municipal neighborhoods at all — they live in
+        // `authorities` via parentAuthorityId, which neighborhoods/[id]
+        // already handles correctly. Bail out before running any of the
+        // queries below against the wrong collection/field.
+        if (resolvedTenantType === 'municipal') {
+          router.replace(`/admin/authority/neighborhoods/${unitId}`);
+          return;
+        }
 
         let resolvedUnitName = decodeURIComponent(rawUnitId);
         let resolvedUnitPath: string[] = [];
