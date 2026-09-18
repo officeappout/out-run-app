@@ -329,8 +329,26 @@ export interface Park {
   externalSourceId?: string;
   
   // Display metadata (from MapPark)
-  /** User-facing star rating (1–5, decimal precision e.g. 4.3). */
+  /**
+   * Legacy admin-settable star rating (1–5) — still written/edited manually
+   * via /admin/locations for parks with no organic reviews. NOT read by the
+   * park page anymore (17.09.2026) — see ratingAvg/reviewCount below, the
+   * organic-review-derived fields the park page actually renders.
+   */
   rating?: number;
+  /**
+   * Denormalized aggregate computed by computeParkRatingSummary()
+   * (park-rating.utils.ts) from user_contributions (type:'review',
+   * linkedParkId===this park's id) — kept current by
+   * recomputeAndSaveParkRating() on every review submit, and by the
+   * one-time backfill script for parks with pre-existing reviews.
+   * `null`/absent = no rated reviews yet; render no stars, not a
+   * fabricated number. Deliberately independent of the legacy `rating`
+   * field above — no fallback between the two.
+   */
+  ratingAvg?: number | null;
+  /** Count of rated reviews backing `ratingAvg`. 0/absent alongside `ratingAvg` null. */
+  reviewCount?: number;
   adminQualityScore?: number;
   imageUrl?: string;  // Alternative to 'image'
   whatsappLink?: string;

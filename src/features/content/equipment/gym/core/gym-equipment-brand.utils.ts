@@ -52,3 +52,26 @@ export function resolveBrandVideoUrl(
   if (brand?.videoUrl) return brand.videoUrl;
   return brands.find((b) => b !== brand && !!b.videoUrl)?.videoUrl ?? undefined;
 }
+
+/**
+ * Resolves a displayable image URL for the selected brand: its own image,
+ * else (the "Ludos" case — a matched brand with no photo of its own, on
+ * equipment where another tagged brand does have one) any OTHER brand's
+ * image on the same equipment doc. `undefined` only when no brand on the
+ * doc has an image at all.
+ *
+ * Same fallback shape as resolveBrandVideoUrl above, deliberately — this is
+ * the generic/detail-drawer surface, where showing *a* real photo of the
+ * machine beats a placeholder regardless of which brand it's tagged to.
+ * This is the OPPOSITE policy from the park-grid tile (EquipmentCard's
+ * `crossBrandFallback={false}`), which intentionally does NOT cross-brand
+ * fallback — those tiles claim to show the specific physically-installed
+ * unit, this drawer doesn't.
+ */
+export function resolveBrandImageUrl(
+  brands: EquipmentBrand[],
+  brand: EquipmentBrand | null,
+): string | undefined {
+  if (brand?.imageUrl) return brand.imageUrl;
+  return brands.find((b) => b !== brand && !!b.imageUrl)?.imageUrl ?? undefined;
+}

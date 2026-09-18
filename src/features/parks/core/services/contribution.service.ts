@@ -14,7 +14,7 @@ import {
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import type {
   UserContribution,
   ContributionType,
@@ -23,6 +23,7 @@ import type {
 import { XP_REWARDS } from '@/types/contribution.types';
 import { createPark, updatePark, getAllParks } from './parks.service';
 import type { Park } from '../types/park.types';
+import type { ParkRatingSummary } from './park-rating.utils';
 
 const COLLECTION = 'user_contributions';
 
@@ -86,7 +87,13 @@ function haversineM(
 export async function createContribution(
   data: Omit<UserContribution, 'id' | 'createdAt' | 'updatedAt'>,
 ): Promise<string> {
-  const payload: any = { ...data, status: 'pending', createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+  // status comes from the caller (data.status), not forced here — every
+  // existing call site already passes it explicitly. Reviews (ParkDetailSheet)
+  // pass 'approved' — auto-approval, no moderation step exists for reviews
+  // (no approveReview() anywhere in this file). Every other type still
+  // passes 'pending' itself, unchanged, feeding the real moderation queue
+  // in /admin/approval-center.
+  const payload: any = { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
   delete payload.id;
   const ref = await addDoc(collection(db, COLLECTION), payload);
   return ref.id;
@@ -134,6 +141,37 @@ export async function getAllContributions(
 }
 
 /**
+ * Resolves display names for a set of reviewer UIDs from `userPublic`
+ * (never the raw `users/{uid}` doc — that's owner+admin only). Individual
+ * `getDoc` reads, not the batched `documentId() in [...]` helper
+ * (getUsersByUids in user-search.service.ts) — that helper's `list` query
+ * requires `where('ageGroup','==', callerAgeGroup)` (a minor/adult
+ * discovery-safety rule) and would silently drop any reviewer on the other
+ * side of that split. A review is public park content readable by anyone
+ * (firestore.rules: `resource.data.type == 'review'`), so a single `get` by
+ * an already-known uid is the right, unrestricted read here — see
+ * `userPublic`'s own rule comment ("a profile link... stays unrestricted").
+ *
+ * A uid with no `userPublic` doc (not discoverable, or account deleted)
+ * falls back to 'משתמש' — never the raw uid.
+ */
+export async function getReviewerNames(uids: string[]): Promise<Record<string, string>> {
+  const unique = Array.from(new Set(uids.filter(Boolean)));
+  const pairs = await Promise.all(
+    unique.map(async (uid): Promise<[string, string]> => {
+      try {
+        const snap = await getDoc(doc(db, 'userPublic', uid));
+        const name = snap.exists() ? (snap.data()?.name as string | undefined) : undefined;
+        return [uid, name?.trim() || 'משתמש'];
+      } catch {
+        return [uid, 'משתמש'];
+      }
+    }),
+  );
+  return Object.fromEntries(pairs);
+}
+
+/**
  * Fetch reviews for a specific park. Uses a targeted query that satisfies
  * the Firestore security rule (type == 'review') so non-admin users
  * don't trigger a 403 on the user_contributions collection.
@@ -155,6 +193,46 @@ export async function getReviewsForPark(parkId: string): Promise<UserContributio
     }
     console.error('[Contributions] Error fetching park reviews:', err);
     return [];
+  }
+}
+
+/**
+ * Recomputes and persists a park's ratingAvg/reviewCount from its current
+ * user_contributions reviews, via /api/parks/recompute-rating (server-side,
+ * Admin SDK). A direct client write here would fail: firestore.rules gates
+ * ALL writes to parks/{docId} on isAdmin(), and per this repo's standing
+ * rule that bar gets fixed on the write-path side, never weakened in the
+ * rules themselves (axioms.md Verification-First §7) — see the route's own
+ * doc comment. The route recomputes from the park's own review docs
+ * server-side (computeParkRatingSummary — the same formula the one-time
+ * backfill script uses); this function only tells it which park changed.
+ *
+ * Idempotent (the route always recomputes from source, never increments) —
+ * safe to call after every review submit.
+ *
+ * Swallows its own failure (logs, doesn't throw): the review the user just
+ * submitted already succeeded by the time this runs, and a failure to
+ * update the denormalized aggregate must never surface as "your review
+ * failed" to the submitter.
+ */
+export async function recomputeAndSaveParkRating(parkId: string): Promise<ParkRatingSummary | null> {
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('No auth token');
+    const res = await fetch('/api/parks/recompute-rating', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ parkId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`recompute-rating API failed: ${body?.error ?? res.status}`);
+    }
+    const data = await res.json();
+    return { ratingAvg: data.ratingAvg ?? null, reviewCount: data.reviewCount ?? 0 };
+  } catch (err) {
+    console.error('[Contributions] Failed to save park rating summary:', err);
+    return null;
   }
 }
 

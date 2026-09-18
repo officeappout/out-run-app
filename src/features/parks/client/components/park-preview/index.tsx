@@ -85,9 +85,19 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   // the browser default (centered) applies.
   const objectPosition = park.imagePosition || undefined;
 
+  // Organic rating only (ratingAvg/reviewCount) — no fallback to the legacy
+  // `rating` field, see park.types.ts's doc comment on both fields. Leads
+  // the info line (Google-style: rating first, "4.0 ★ (2)"), modest/inline
+  // rather than a standalone badge — empty until ratingAvg/reviewCount are
+  // populated (see scripts/backfill-park-ratings.ts, not yet run).
   const infoParts: string[] = [];
+  const hasRating = park.ratingAvg != null && (park.reviewCount ?? 0) > 0;
+  if (hasRating) infoParts.push(`${park.ratingAvg} ★ (${park.reviewCount})`);
   if (park.city) infoParts.push(park.city);
   if (distText) infoParts.push(distText);
+  // Machine count — no fetch, park.gymEquipment is already on the loaded doc.
+  const machineCount = park.gymEquipment?.length ?? 0;
+  if (machineCount > 0) infoParts.push(`${machineCount} מתקנים`);
 
   return (
     <>
@@ -124,6 +134,17 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
               <span className="material-icons-round text-[13px] leading-none">close</span>
             </button>
 
+            {/* Navigate — moved onto the hero (paired with Close) instead of
+                its own dedicated row below, which was mostly empty padding
+                around one small icon button. Removes that whole row. */}
+            <button
+              onClick={handleNavigate}
+              aria-label="נווט לפארק"
+              className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-cyan-500 hover:bg-cyan-600 text-white transition-colors"
+            >
+              <Navigation size={14} fill="currentColor" />
+            </button>
+
             {/* Fade into card body */}
             <div className="absolute bottom-0 left-0 right-0 h-[70px] bg-gradient-to-b from-transparent to-white dark:to-zinc-800 pointer-events-none" />
           </div>
@@ -134,16 +155,10 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
               {park.name}
             </h3>
 
-            {/* Info line: city · distance · ⭐ rating */}
+            {/* Info line: rating · city · distance · machine count — modest,
+                inline (Google-style "4.0 ★ (2)"), not a standalone badge. */}
             <div className="flex items-center gap-1 mt-0.5 text-[12px] text-gray-500 dark:text-gray-400 flex-wrap">
               <span>{infoParts.join(' · ')}</span>
-              {park.rating != null && (
-                <>
-                  {infoParts.length > 0 && <span>·</span>}
-                  <span className="material-icons-round text-amber-400" style={{ fontSize: 12 }}>star</span>
-                  <span>{park.rating}</span>
-                </>
-              )}
             </div>
 
             {/* Amenity chips — max 2 */}
@@ -172,18 +187,6 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
               </span>
             </div>
           )}
-
-          {/* Navigate CTA */}
-          <div className="px-3 py-2.5">
-            <button
-              onClick={handleNavigate}
-              className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-cyan-500 text-white text-[14px] font-bold active:bg-cyan-600 transition-colors"
-              style={{ height: 40 }}
-            >
-              <Navigation size={14} fill="currentColor" />
-              נווט לפארק
-            </button>
-          </div>
 
         </div>
       </div>

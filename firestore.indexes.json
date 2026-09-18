@@ -43,6 +43,15 @@
       ]
     },
     {
+      "collectionGroup": "user_contributions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "linkedParkId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "curated_routes",
       "queryScope": "COLLECTION",
       "fields": [

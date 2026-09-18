@@ -541,7 +541,9 @@ export async function updatePark(
     if (data.neighborhoodId !== undefined) updateData.neighborhoodId = data.neighborhoodId ?? null;
     if (data.neighborhoodName !== undefined) updateData.neighborhoodName = data.neighborhoodName ?? null;
     if (data.status !== undefined) updateData.status = data.status;
-    
+    if (data.ratingAvg !== undefined) updateData.ratingAvg = data.ratingAvg;
+    if (data.reviewCount !== undefined) updateData.reviewCount = data.reviewCount;
+
     await updateDoc(docRef, updateData);
   } catch (error) {
     console.error('Error updating park:', error);

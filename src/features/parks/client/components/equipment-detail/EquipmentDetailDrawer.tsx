@@ -55,6 +55,7 @@ import type {
 import {
   findBrandIndexByName,
   resolveBrandVideoUrl,
+  resolveBrandImageUrl,
 } from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
 import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
@@ -325,6 +326,15 @@ export default function EquipmentDetailDrawer({
     [effectiveVideoUrl],
   );
 
+  // Same fallback shape as effectiveVideoUrl above, for the image case (the
+  // "Ludos" case — the matched brand has no photo of its own, but another
+  // tagged brand does). Only reached when there's no video to show instead
+  // (see the hero priority order: video > this > icon/glyph).
+  const effectiveImageUrl = useMemo(
+    () => resolveBrandImageUrl(equipment?.brands ?? [], activeBrand),
+    [activeBrand, equipment?.brands],
+  );
+
   const equipmentName = useMemo(
     () => resolveName(equipment?.name),
     [equipment?.name],
@@ -407,7 +417,9 @@ export default function EquipmentDetailDrawer({
               ) : (
                 <>
                   {/* Hero — video-first (same pattern as MasterExerciseView).
-                      Priority: Bunny HLS → YouTube/Vimeo iframe → brand image → icon/glyph.
+                      Priority: Bunny HLS → YouTube/Vimeo iframe → brand image
+                      (own, else another brand's — effectiveImageUrl, the
+                      "Ludos" fallback) → icon/glyph.
                       Video aspect: 16:9 (landscape equipment demo).
                       Image/icon aspect: 4:3 (portrait product shot).
                       Bottom gradient fade matches MasterExerciseView. */}
@@ -422,7 +434,7 @@ export default function EquipmentDetailDrawer({
                     {bunnyVideoId ? (
                       <BunnyVideoPlayer
                         videoId={bunnyVideoId}
-                        poster={activeBrand?.imageUrl ?? undefined}
+                        poster={effectiveImageUrl}
                       />
                     ) : videoEmbed ? (
                       <iframe
@@ -432,10 +444,10 @@ export default function EquipmentDetailDrawer({
                         allowFullScreen
                         title={`${equipmentName} demo video`}
                       />
-                    ) : activeBrand?.imageUrl ? (
+                    ) : effectiveImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={bunnyImg(activeBrand.imageUrl, 720)}
+                        src={bunnyImg(effectiveImageUrl, 720)}
                         alt={equipmentName}
                         className="absolute inset-0 w-full h-full object-cover"
                         loading="lazy"
