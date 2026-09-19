@@ -1299,6 +1299,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 location-edit flow (same UnifiedLocationStep,
                                 explorer mode) and returns here via
                                 explorer_return_to. */}
+                            {/* 19.09.2026 — intentionally NOT clearing
+                                core.affiliations[type='city'] here when the
+                                city changes. That would fix the display bug
+                                (see cityDisplay above) but the same field is
+                                also the source of truth for the "City Pass"
+                                status badge below ("מנוי" section) — clearing
+                                it on every city change would flip that badge
+                                to "לא פעיל" for real users until GPS happens
+                                to re-fire persistResolvedCity(). A wrong
+                                "inactive" status on a real subscription
+                                feature is worse than a wrong city label.
+                                Do this only after City Pass gets its own
+                                source of truth independent of affiliations —
+                                do not "fix" it here as a quick follow-up. */}
                             <div>
                               <label className="block text-xs font-semibold text-gray-500 mb-1 font-simpler">עיר</label>
                               <button
