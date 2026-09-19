@@ -388,6 +388,15 @@ export default function StrengthExerciseCard({
                                     fill
                                     className="object-cover"
                                     sizes="48px"
+                                    // Bunny's Stream pull zone (regular exercises' video-derived
+                                    // thumbnails — vz-*.b-cdn.net) 403s a request with no Referer.
+                                    // next/image's default server-side optimization proxy fetch is
+                                    // exactly that (no browser context) — confirmed via curl
+                                    // (19.09.2026). unoptimized makes the BROWSER fetch the image
+                                    // directly instead, sending its own real Referer, same as the
+                                    // plain <img>/<video> tags elsewhere in the live player that
+                                    // already load these same URLs successfully.
+                                    unoptimized
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER;
                                     }}
@@ -485,6 +494,10 @@ export default function StrengthExerciseCard({
                           className="object-cover"
                           sizes="96px"
                           priority={isTurnActive}
+                          // See the pyramid-thumbnail Image above — same fix,
+                          // same reason (Bunny Stream-zone hotlink 403 on
+                          // next/image's referer-less server proxy fetch).
+                          unoptimized
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = OFFLINE_PLACEHOLDER;
                           }}
