@@ -134,6 +134,16 @@ export default function NeighborhoodBreakdown({ data, loading, kpiSettings }: Ne
         </div>
       </div>
 
+      {/* 19.09.2026 — David's decision (item 7, option א'): the score stays
+          relative (normalized against the max within this authority's own
+          neighborhoods), not absolute thresholds. Absolute thresholds would
+          need calibration data this system doesn't have yet at current user
+          counts. Making that explicit here so nobody reads "68.8" as a
+          number comparable across cities. */}
+      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+        ציון הביצועים יחסי — משווה שכונות בתוך רשות זו בלבד, ואינו ניתן להשוואה מול רשויות אחרות.
+      </p>
+
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {enrichedData.map((row, idx) => {
