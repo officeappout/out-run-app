@@ -2975,6 +2975,20 @@ export default function HomePage() {
                   || activePreWorkoutSuggestion?.subtitle
                   || 'מוכן להתחיל?';
 
+                // Strength-invite carousel slide (placement change, 19.09.2026): a sentinel
+                // item prepended to the pre-workout carousel's own items array — NOT a new
+                // Suggestion, NOT produced by the suggestion engine, and PreWorkoutCardRenderer
+                // is never touched. The branch lives entirely in this file's own renderCard/
+                // onSettle closures below, so every other slide (hero/route/steps) renders
+                // through the exact same, unmodified path as before. id is a fixed string the
+                // real suggestion engine's generators never produce (their ids are always
+                // generator-scoped, e.g. `full-strength-cheap-${userId}`/`safety-net-...`), so
+                // it can never collide with a real suggestion's id.
+                const STRENGTH_INVITE_CARD_ID = 'strength-invite-card';
+                const isStrengthInviteCarouselItem = (
+                  item: Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID },
+                ): item is { id: typeof STRENGTH_INVITE_CARD_ID } => item.id === STRENGTH_INVITE_CARD_ID;
+
                 const content = readyPreWorkoutSuggestions ? (
                   <div>
                     {/* Header + chip + description — parity fix (27.08.2026), mirrors
@@ -3021,31 +3035,44 @@ export default function HomePage() {
                         actually binds on any real device width, mirroring the old card's own
                         unconditional sizing. Same per-instance override mechanism
                         TodayActivityStrip already uses for its own wider-card case. */}
-                    <SuggestionCarousel<Suggestion>
-                      items={readyPreWorkoutSuggestions}
+                    <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID }>
+                      items={
+                        !hasStrengthProgram
+                          ? [{ id: STRENGTH_INVITE_CARD_ID }, ...readyPreWorkoutSuggestions]
+                          : readyPreWorkoutSuggestions
+                      }
                       keyExtractor={(s) => s.id}
                       cardHeight={330}
                       maxCardWidthPx={300}
                       maxCardWidthVw={100}
-                      onSettle={handlePreWorkoutSettle}
-                      renderCard={(s) => (
-                        <PreWorkoutCardRenderer
-                          suggestion={s}
-                          onStart={() => handlePreWorkoutCardTap(s)}
-                          isStarting={startingPreWorkoutSuggestionId === s.id}
-                          userGender={profile?.core?.gender}
-                          // Per-card location: THIS suggestion's own stamped location once
-                          // swapped (persists independently of which card is active), else the
-                          // shared profile-seed default — never the active card's pin bleeding
-                          // into a suggestion the user hasn't touched the chip for.
-                          workoutLocation={swappedWorkoutById[s.id]?.executionLocation ?? carouselSeedLocation}
-                          programIconKey={carouselProgramIconKey}
-                          overrideWorkout={swappedWorkoutById[s.id]}
-                          healthConnected={healthConnected}
-                          onConnectSteps={triggerHealthPermission}
-                          stepsRemaining={liveStepsRemaining}
-                        />
-                      )}
+                      onSettle={(item) => {
+                        // The invite slide has no generator-resolved content to settle on —
+                        // skip it entirely rather than feeding a non-Suggestion object into
+                        // handlePreWorkoutSettle's resolveHomeTier2 call.
+                        if (!isStrengthInviteCarouselItem(item)) handlePreWorkoutSettle(item);
+                      }}
+                      renderCard={(s) =>
+                        isStrengthInviteCarouselItem(s) ? (
+                          <AddStrengthProgramCard profile={profile} />
+                        ) : (
+                          <PreWorkoutCardRenderer
+                            suggestion={s}
+                            onStart={() => handlePreWorkoutCardTap(s)}
+                            isStarting={startingPreWorkoutSuggestionId === s.id}
+                            userGender={profile?.core?.gender}
+                            // Per-card location: THIS suggestion's own stamped location once
+                            // swapped (persists independently of which card is active), else the
+                            // shared profile-seed default — never the active card's pin bleeding
+                            // into a suggestion the user hasn't touched the chip for.
+                            workoutLocation={swappedWorkoutById[s.id]?.executionLocation ?? carouselSeedLocation}
+                            programIconKey={carouselProgramIconKey}
+                            overrideWorkout={swappedWorkoutById[s.id]}
+                            healthConnected={healthConnected}
+                            onConnectSteps={triggerHealthPermission}
+                            stepsRemaining={liveStepsRemaining}
+                          />
+                        )
+                      }
                     />
 
                     {/* Build-custom CTA — parity fix (27.08.2026), mirrors StatsOverview.tsx:1144
@@ -3223,9 +3250,6 @@ export default function HomePage() {
           return (
             <>
               {anchorBlock}
-              {!hasStrengthProgram && (
-                <AddStrengthProgramCard profile={profile} />
-              )}
               {isTodayWorkoutDone ? (
                 <>
                   {continueActivityBlock}

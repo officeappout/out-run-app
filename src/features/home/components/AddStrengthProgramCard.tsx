@@ -12,13 +12,22 @@ interface AddStrengthProgramCardProps {
 }
 
 /**
- * First of a future-stacking family of "add a program" cards on home
- * (running, etc. later). Copies the gateway's "תוכנית כוח" card visual
- * pattern (gateway/page.tsx's Card C) verbatim — narrower/shorter for the
- * feed context — and routes through resolveOnboardingEntryHref, the same
- * helper ConsistencyWidget/ProgramProgressRow/StrengthVolumeWidget already
- * use for this exact purpose, so identity-known vs identity-unknown users
- * both land in the right place without any new branching here.
+ * First of a future-stacking family of "add a program" cards. Rendered as the
+ * first slide in the home pre-workout carousel (before the steps/route card)
+ * whenever the user has no strength profile — see the carousel call site in
+ * home/page.tsx for the gating and the sentinel-item wiring that keeps this
+ * card's presence from touching PreWorkoutCardRenderer or any other slide.
+ *
+ * Copies the gateway's "תוכנית כוח" card visual pattern (gateway/page.tsx's
+ * Card C) verbatim. Sized to fit the carousel's fixed slot the same way
+ * SuggestionCard.tsx already does for this exact carousel: a transparent
+ * h-full/w-full centering wrapper, with the visible card sized to its own
+ * content rather than stretched to fill the slot's full height.
+ *
+ * Routes through resolveOnboardingEntryHref, the same helper
+ * ConsistencyWidget/ProgramProgressRow/StrengthVolumeWidget already use for
+ * this exact purpose — identity-known vs identity-unknown users both land in
+ * the right place without any new branching here.
  */
 export default function AddStrengthProgramCard({ profile }: AddStrengthProgramCardProps) {
   const router = useRouter();
@@ -31,12 +40,7 @@ export default function AddStrengthProgramCard({ profile }: AddStrengthProgramCa
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="w-full max-w-[358px] mx-auto"
-    >
+    <div className="h-full w-full flex items-center justify-center">
       <motion.button
         whileTap={{ scale: loading ? 1 : 0.97 }}
         onClick={handleTap}
@@ -71,6 +75,6 @@ export default function AddStrengthProgramCard({ profile }: AddStrengthProgramCa
           </p>
         </div>
       </motion.button>
-    </motion.div>
+    </div>
   );
 }
