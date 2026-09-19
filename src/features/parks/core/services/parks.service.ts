@@ -80,6 +80,16 @@ function normalizePark(docId: string, data: any): Park {
     neighborhoodName: data?.neighborhoodName ?? undefined,
     isFunctional: data?.isFunctional ?? undefined,
     rating: typeof data?.rating === 'number' ? data.rating : undefined,
+    // Root cause of "ParkPreview shows no rating even when the doc has one"
+    // (18.09.2026): this whitelist never carried these two fields, so
+    // getPark() silently dropped them on every read — ParkDetailSheet never
+    // noticed because its own rating display computes live from
+    // getReviewsForPark(), a completely separate path that never touches
+    // this function. Firestore always had the correct values (recomputeAndSaveParkRating
+    // / the backfill script both write them directly via updatePark, which
+    // does not go through normalizePark).
+    ratingAvg: typeof data?.ratingAvg === 'number' ? data.ratingAvg : null,
+    reviewCount: typeof data?.reviewCount === 'number' ? data.reviewCount : undefined,
     status: (data?.status as ParkStatus) ?? 'open',
     contentStatus: data?.contentStatus ?? undefined,
     published: data?.published ?? (data?.contentStatus === 'published'),
