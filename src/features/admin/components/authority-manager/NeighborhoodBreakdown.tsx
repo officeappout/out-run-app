@@ -185,7 +185,7 @@ export default function NeighborhoodBreakdown({ data, loading, kpiSettings }: Ne
                   <span className={`text-sm font-black ${growth.positive ? 'text-green-600' : 'text-red-500'}`}>
                     {growth.pct}%
                   </span>
-                  <span className="text-[10px] text-slate-400">חדירה</span>
+                  <span className="text-[10px] text-slate-400">אחוז פעילים</span>
                 </div>
               </div>
 
@@ -201,7 +201,7 @@ export default function NeighborhoodBreakdown({ data, loading, kpiSettings }: Ne
       {/* Footer */}
       <div className="mt-4 px-2">
         <p className="text-xs text-gray-400">
-          פעילים = ביצעו אימון לפחות אחד החודש · חדירה = אחוז המשתמשים הפעילים מתוך סך תושבי השכונה · ציון = שקלול נפח אימונים ({settings.weightWorkoutVolume}%), חדירת אפליקציה ({settings.weightAppPenetration}%), דקות פעילות ({settings.weightActiveMinutes}%)
+          פעילים = ביצעו אימון לפחות אחד החודש · אחוז פעילים = אחוז המשתמשים הפעילים מתוך סך המשתמשים הרשומים בשכונה באפליקציה (לא מתוך אוכלוסיית השכונה בפועל — נתון זה לא זמין במערכת) · ציון = שקלול נפח אימונים ({settings.weightWorkoutVolume}%), אחוז פעילים ({settings.weightAppPenetration}%), דקות פעילות ({settings.weightActiveMinutes}%)
         </p>
       </div>
     </div>

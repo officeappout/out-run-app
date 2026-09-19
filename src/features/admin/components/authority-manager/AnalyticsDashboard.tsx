@@ -960,7 +960,7 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
                   color="cyan"
                 />
                 <SliderRow
-                  label="חדירת אפליקציה"
+                  label="אחוז פעילים"
                   value={kpiSettings.weightAppPenetration}
                   onChange={(v) => handleWeightChange('weightAppPenetration', v)}
                   color="purple"
