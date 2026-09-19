@@ -134,6 +134,16 @@ export default function NeighborhoodBreakdown({ data, loading, kpiSettings }: Ne
         </div>
       </div>
 
+      {/* 19.09.2026 — David's decision (item 7, option א'): the score stays
+          relative (normalized against the max within this authority's own
+          neighborhoods), not absolute thresholds. Absolute thresholds would
+          need calibration data this system doesn't have yet at current user
+          counts. Making that explicit here so nobody reads "68.8" as a
+          number comparable across cities. */}
+      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+        ציון הביצועים יחסי — משווה שכונות בתוך רשות זו בלבד, ואינו ניתן להשוואה מול רשויות אחרות.
+      </p>
+
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {enrichedData.map((row, idx) => {
@@ -185,7 +195,7 @@ export default function NeighborhoodBreakdown({ data, loading, kpiSettings }: Ne
                   <span className={`text-sm font-black ${growth.positive ? 'text-green-600' : 'text-red-500'}`}>
                     {growth.pct}%
                   </span>
-                  <span className="text-[10px] text-slate-400">חדירה</span>
+                  <span className="text-[10px] text-slate-400">אחוז פעילים</span>
                 </div>
               </div>
 
@@ -201,7 +211,7 @@ export default function NeighborhoodBreakdown({ data, loading, kpiSettings }: Ne
       {/* Footer */}
       <div className="mt-4 px-2">
         <p className="text-xs text-gray-400">
-          פעילים = ביצעו אימון לפחות אחד החודש · חדירה = אחוז המשתמשים הפעילים מתוך סך תושבי השכונה · ציון = שקלול נפח אימונים ({settings.weightWorkoutVolume}%), חדירת אפליקציה ({settings.weightAppPenetration}%), דקות פעילות ({settings.weightActiveMinutes}%)
+          פעילים = ביצעו אימון לפחות אחד החודש · אחוז פעילים = אחוז המשתמשים הפעילים מתוך סך המשתמשים הרשומים בשכונה באפליקציה (לא מתוך אוכלוסיית השכונה בפועל — נתון זה לא זמין במערכת) · ציון = שקלול נפח אימונים ({settings.weightWorkoutVolume}%), אחוז פעילים ({settings.weightAppPenetration}%), דקות פעילות ({settings.weightActiveMinutes}%)
         </p>
       </div>
     </div>
