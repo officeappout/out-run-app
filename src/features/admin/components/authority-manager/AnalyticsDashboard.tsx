@@ -516,7 +516,14 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
       )}
 
       {/* Manager Notifications */}
-      {notifications.length > 0 && (
+      {notifications.length === 0 ? (
+        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+          <div className="flex items-center gap-3">
+            <Bell size={20} className="text-gray-400" />
+            <p className="text-sm font-semibold text-gray-500">אין התראות כרגע</p>
+          </div>
+        </div>
+      ) : (
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 border-2 border-yellow-300">
           <div className="flex items-center gap-3 mb-4">
             <Bell size={24} className="text-yellow-600" />
