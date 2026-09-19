@@ -115,14 +115,63 @@ export interface ProgressUpdate {
 
 export type ProgressFn = (update: ProgressUpdate) => void;
 
+/**
+ * Safety gate — mirrors re-seed-authorities.ts's guard (see that file's
+ * module-level comment for the full "no separate staging project" rationale;
+ * docs/audit-2026-09/00-MASTER-PLAN.md §10). Added 19.09.2026 after this
+ * tool was run against a real paying authority's id instead of a dedicated
+ * demo authority: /admin/demo-seed's UI is a multi-select over ALL
+ * authorities with no restriction to a demo-designated one, so both
+ * `runSderotDemoSeed` and `cleanSderotMockData` accepted (and still accept,
+ * if called directly) any real authorityId. Confirmed in production: 10
+ * mock users + 503 mock workouts + 119 mock sessions + 56 mock feed_posts +
+ * 3 mock manager_notifications ended up tagged under a real municipality's
+ * authorityId. Defaults to a dry run that performs zero writes.
+ */
+const KNOWN_PRODUCTION_PROJECT_ID = 'appout-1';
+const REQUIRED_SEED_CONFIRM_PHRASE = 'SEED DEMO DATA';
+const REQUIRED_CLEAN_CONFIRM_PHRASE = 'DELETE MOCK DATA';
+
+export interface DemoSeedOptions {
+  /** Defaults to true. Must be explicitly passed as `false` to write anything. */
+  dryRun?: boolean;
+  /** Must exactly equal REQUIRED_SEED_CONFIRM_PHRASE / REQUIRED_CLEAN_CONFIRM_PHRASE for a non-dry-run call to proceed. */
+  confirmPhrase?: string;
+}
+
+function assertWriteAllowed(action: 'seed' | 'clean', options: DemoSeedOptions): boolean {
+  const dryRun = options.dryRun !== false;
+  if (dryRun) return true;
+
+  const projectId = db.app.options.projectId;
+  if (projectId === KNOWN_PRODUCTION_PROJECT_ID) {
+    throw new Error(
+      `[DemoSeed] Refusing: connected Firebase project is "${projectId}", the only project ` +
+      'this app has — no staging project exists (00-MASTER-PLAN §10). A real write requires ' +
+      'a genuinely separate non-production project; this guard does not lift for any flag ' +
+      'combination until one exists.'
+    );
+  }
+  if (process.env.ALLOW_DESTRUCTIVE_DEMO_SEED !== 'yes-i-am-sure') {
+    throw new Error('[DemoSeed] Refusing: ALLOW_DESTRUCTIVE_DEMO_SEED env var is not set to the exact required value.');
+  }
+  const requiredPhrase = action === 'seed' ? REQUIRED_SEED_CONFIRM_PHRASE : REQUIRED_CLEAN_CONFIRM_PHRASE;
+  if (options.confirmPhrase !== requiredPhrase) {
+    throw new Error(`[DemoSeed] Refusing: confirmPhrase must exactly equal "${requiredPhrase}".`);
+  }
+  return true;
+}
+
 export interface SeedResult {
   success: boolean;
+  dryRun: boolean;
   counts: Record<string, number>;
   errors: string[];
 }
 
 export interface CleanResult {
   success: boolean;
+  dryRun: boolean;
   deleted: Record<string, number>;
   errors: string[];
 }
@@ -1124,9 +1173,31 @@ async function step10_updateRouteAnalytics(progress: ProgressFn, currentAuthorit
 
 // ── Main runner ──────────────────────────────────────────────────────────────
 
-export async function runSderotDemoSeed(progress: ProgressFn, currentAuthorityId: string): Promise<SeedResult> {
+export async function runSderotDemoSeed(
+  progress: ProgressFn,
+  currentAuthorityId: string,
+  options: DemoSeedOptions = {},
+): Promise<SeedResult> {
+  const dryRun = options.dryRun !== false;
   const counts: Record<string, number> = {};
   const errors: string[] = [];
+
+  try {
+    assertWriteAllowed('seed', options);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, dryRun, counts, errors: [message] };
+  }
+
+  if (dryRun) {
+    progress({
+      step: 'cleanup',
+      status: 'done',
+      message: '[DRY RUN] אין כתיבה — קרא ל-runSderotDemoSeed עם { dryRun: false } ואישור מפורש כדי להריץ בפועל.',
+      count: 0,
+    });
+    return { success: true, dryRun: true, counts, errors };
+  }
 
   try {
     counts['cleanup_legacy'] = await step1_cleanupOld(progress);
@@ -1145,19 +1216,41 @@ export async function runSderotDemoSeed(progress: ProgressFn, currentAuthorityId
     counts['manager_notifications'] = await step9_managerNotifications(progress, currentAuthorityId);
     counts['route_analytics'] = await step10_updateRouteAnalytics(progress, currentAuthorityId);
 
-    return { success: true, counts, errors };
+    return { success: true, dryRun: false, counts, errors };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     errors.push(message);
-    return { success: false, counts, errors };
+    return { success: false, dryRun: false, counts, errors };
   }
 }
 
 // ── Cleanup runner ───────────────────────────────────────────────────────────
 
-export async function cleanSderotMockData(progress: ProgressFn, currentAuthorityId: string): Promise<CleanResult> {
+export async function cleanSderotMockData(
+  progress: ProgressFn,
+  currentAuthorityId: string,
+  options: DemoSeedOptions = {},
+): Promise<CleanResult> {
+  const dryRun = options.dryRun !== false;
   const deleted: Record<string, number> = {};
   const errors: string[] = [];
+
+  try {
+    assertWriteAllowed('clean', options);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, dryRun, deleted, errors: [message] };
+  }
+
+  if (dryRun) {
+    progress({
+      step: 'cleanup',
+      status: 'done',
+      message: '[DRY RUN] אין מחיקה — קרא ל-cleanSderotMockData עם { dryRun: false } ואישור מפורש כדי למחוק בפועל.',
+      count: 0,
+    });
+    return { success: true, dryRun: true, deleted, errors };
+  }
 
   const safeDelete = async (
     label: string,
@@ -1296,5 +1389,5 @@ export async function cleanSderotMockData(progress: ProgressFn, currentAuthority
     message: 'ניקוי הושלם',
   });
 
-  return { success: errors.length === 0, deleted, errors };
+  return { success: errors.length === 0, dryRun: false, deleted, errors };
 }
