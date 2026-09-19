@@ -534,11 +534,6 @@ export default function AnalyticsDashboard({ authorityId, onNavigateToSessions }
                     <h4 className="font-bold text-gray-900">{notif.title}</h4>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">{notif.message}</p>
-                  {notif.savingsAmount && (
-                    <p className="text-lg font-black text-green-600">
-                      ₪{notif.savingsAmount.toLocaleString()}
-                    </p>
-                  )}
                 </div>
                 {!notif.actionTaken && (
                   <button
