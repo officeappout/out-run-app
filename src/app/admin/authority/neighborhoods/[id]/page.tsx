@@ -605,7 +605,7 @@ export default function NeighborhoodProfilePage() {
               <p className="text-2xl font-black text-slate-800">
                 {stats.totalUsers > 0 ? Math.round((stats.activeUsers / stats.totalUsers) * 100) : 0}%
               </p>
-              <p className="text-[11px] text-slate-500 font-bold">שיעור חדירה</p>
+              <p className="text-[11px] text-slate-500 font-bold">אחוז פעילים</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-4 text-center">
               <p className="text-2xl font-black text-slate-800">{Math.round(stats.totalActiveMinutes)}</p>

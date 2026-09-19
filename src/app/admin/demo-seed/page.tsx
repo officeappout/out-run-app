@@ -336,7 +336,7 @@ export default function DemoSeedPage() {
       setSteps(buildInitialSteps());
 
       try {
-        const result = await runSderotDemoSeed(onProgress, auth.id);
+        const result = await runSderotDemoSeed(onProgress, auth.id, { dryRun: false });
         setCityResults((prev) => [
           ...prev,
           { label: auth.name, success: result.success, counts: result.counts },
@@ -376,7 +376,7 @@ export default function DemoSeedPage() {
       setSteps(buildInitialSteps());
 
       try {
-        const result = await cleanSderotMockData(onProgress, auth.id);
+        const result = await cleanSderotMockData(onProgress, auth.id, { dryRun: false });
         setCityResults((prev) => [
           ...prev,
           { label: auth.name, success: result.success, deleted: result.deleted },

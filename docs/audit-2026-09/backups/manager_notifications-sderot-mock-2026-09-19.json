@@ -1,0 +1,32 @@
+{
+  "sderot-mock-notif-001": {
+    "authorityId": "t9hiRkDnJtgZESlNCBp8",
+    "type": "health_milestone",
+    "title": "20 תושבים עמדו ביעד WHO השבוע! 🎉",
+    "message": "שדרות מובילה באזור עם 33% מהתושבים פעילים",
+    "savingsAmount": 10000,
+    "isRead": false,
+    "actionTaken": false,
+    "createdAt": "2026-05-24T05:23:47.147Z"
+  },
+  "sderot-mock-notif-002": {
+    "authorityId": "t9hiRkDnJtgZESlNCBp8",
+    "type": "health_milestone",
+    "title": "60 משתמשים פעילים בעיר",
+    "message": "שדרות מציגה צמיחה משמעותית בשימוש באפליקציה",
+    "savingsAmount": 8500,
+    "isRead": false,
+    "actionTaken": false,
+    "createdAt": "2026-05-24T05:23:47.147Z"
+  },
+  "sderot-mock-notif-003": {
+    "authorityId": "t9hiRkDnJtgZESlNCBp8",
+    "type": "health_milestone",
+    "title": "120 ביקורים בפארקים השבוע",
+    "message": "שלושת הפארקים המובילים בשדרות זוכים לעלייה משמעותית בשימוש",
+    "savingsAmount": 6200,
+    "isRead": false,
+    "actionTaken": false,
+    "createdAt": "2026-05-24T05:23:47.147Z"
+  }
+}
